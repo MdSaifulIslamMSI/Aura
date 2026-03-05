@@ -1,0 +1,168 @@
+import { lazy, Suspense } from 'react';
+import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import { Toaster } from 'sonner';
+import { AuthProvider } from './context/AuthContext';
+import { CartProvider } from './context/CartContext';
+import { WishlistProvider } from './context/WishlistContext';
+import { ProductProvider } from './context/ProductContext';
+import { ColorModeProvider } from './context/ColorModeContext';
+import { CrazyModeProvider } from './context/CrazyModeContext';
+import { MotionModeProvider } from './context/MotionModeContext';
+import { AdminRoute, ProtectedRoute, SellerRoute } from './components/shared/ProtectedRoute';
+
+import Navbar from './components/layout/Navbar';
+import Footer from './components/layout/Footer';
+import ScrollToTop from './components/shared/ScrollToTop';
+import SmoothScrollManager from './components/shared/SmoothScrollManager';
+import ScrollProgressBar from './components/shared/ScrollProgressBar';
+import SectionAnchorRail from './components/shared/SectionAnchorRail';
+import RouteTransitionShell from './components/shared/RouteTransitionShell';
+import ChatBot from './components/features/chat/ChatBot';
+import AppErrorBoundary from './components/shared/AppErrorBoundary';
+import CrazyModeToggle from './components/shared/CrazyModeToggle';
+import { trustRoutes } from './config/trustContent';
+
+// Pages (Lazy Loaded for Performance)
+const Home = lazy(() => import('./pages/Home'));
+const Login = lazy(() => import('./pages/Login'));
+const ProductListing = lazy(() => import('./pages/ProductListing'));
+const ProductDetails = lazy(() => import('./pages/ProductDetails'));
+const Cart = lazy(() => import('./pages/Cart'));
+const Wishlist = lazy(() => import('./pages/Wishlist'));
+const Checkout = lazy(() => import('./pages/Checkout'));
+const Orders = lazy(() => import('./pages/Orders'));
+
+// Admin Pages
+const AdminDashboard = lazy(() => import('./pages/Admin/Dashboard'));
+const ProductList = lazy(() => import('./pages/Admin/ProductList'));
+const ProductEdit = lazy(() => import('./pages/Admin/ProductEdit'));
+const OrderList = lazy(() => import('./pages/Admin/OrderList'));
+const AdminPayments = lazy(() => import('./pages/Admin/Payments'));
+const AdminUsers = lazy(() => import('./pages/Admin/Users'));
+const AdminRefundLedger = lazy(() => import('./pages/Admin/RefundLedger'));
+
+// Marketplace Pages
+const Sell = lazy(() => import('./pages/Sell'));
+const Marketplace = lazy(() => import('./pages/Marketplace'));
+const ListingDetail = lazy(() => import('./pages/ListingDetail'));
+const SellerProfile = lazy(() => import('./pages/SellerProfile'));
+const MyListings = lazy(() => import('./pages/MyListings'));
+const ProfilePage = lazy(() => import('./pages/Profile'));
+const TradeInPage = lazy(() => import('./pages/TradeIn'));
+const PriceAlertsPage = lazy(() => import('./pages/PriceAlerts'));
+const BecomeSeller = lazy(() => import('./pages/BecomeSeller'));
+const TrustPage = lazy(() => import('./pages/Trust'));
+const AICompare = lazy(() => import('./pages/AICompare'));
+const VisualSearch = lazy(() => import('./pages/VisualSearch'));
+const Bundles = lazy(() => import('./pages/Bundles'));
+
+function AppContent() {
+  return (
+    <div className="flex flex-col min-h-screen">
+      <SmoothScrollManager />
+      <ScrollToTop />
+      <ScrollProgressBar />
+      <SectionAnchorRail />
+      <AppErrorBoundary>
+        <Navbar />
+      </AppErrorBoundary>
+      <main className="flex-1">
+        <AppErrorBoundary>
+          <Suspense
+            fallback={(
+              <div className="flex h-[80vh] items-center justify-center">
+                <div className="w-12 h-12 border-4 border-flipkart-blue border-t-transparent rounded-full animate-spin" />
+              </div>
+            )}
+          >
+            <RouteTransitionShell>
+              <Routes>
+                {/* Public Routes */}
+                <Route path="/" element={<Home />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/products" element={<ProductListing />} />
+                <Route path="/category/:category" element={<ProductListing />} />
+                <Route path="/deals" element={<ProductListing />} />
+                <Route path="/trending" element={<ProductListing />} />
+                <Route path="/new-arrivals" element={<ProductListing />} />
+                <Route path="/search" element={<ProductListing />} />
+                <Route path="/product/:id" element={<ProductDetails />} />
+                <Route path="/compare" element={<AICompare />} />
+                <Route path="/visual-search" element={<VisualSearch />} />
+                <Route path="/bundles" element={<Bundles />} />
+                {trustRoutes.map((path) => (
+                  <Route key={path} path={path} element={<TrustPage />} />
+                ))}
+                <Route path="/trust/:slug" element={<TrustPage />} />
+
+                {/* Marketplace Routes - Public */}
+                <Route path="/marketplace" element={<Marketplace />} />
+                <Route path="/listing/:id" element={<ListingDetail />} />
+                <Route path="/seller/:id" element={<SellerProfile />} />
+
+                {/* Protected Routes - require authentication */}
+                <Route path="/cart" element={<ProtectedRoute><Cart /></ProtectedRoute>} />
+                <Route path="/wishlist" element={<ProtectedRoute><Wishlist /></ProtectedRoute>} />
+                <Route path="/checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
+                <Route path="/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />
+                <Route path="/become-seller" element={<ProtectedRoute><BecomeSeller /></ProtectedRoute>} />
+                <Route path="/sell" element={<SellerRoute><Sell /></SellerRoute>} />
+                <Route path="/my-listings" element={<SellerRoute><MyListings /></SellerRoute>} />
+                <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+                <Route path="/trade-in" element={<ProtectedRoute><TradeInPage /></ProtectedRoute>} />
+                <Route path="/price-alerts" element={<ProtectedRoute><PriceAlertsPage /></ProtectedRoute>} />
+
+                {/* Admin Routes - require admin role */}
+                <Route path="/admin/dashboard" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+                <Route path="/admin/products" element={<AdminRoute><ProductList /></AdminRoute>} />
+                <Route path="/admin/product/:id/edit" element={<AdminRoute><ProductEdit /></AdminRoute>} />
+                <Route path="/admin/orders" element={<AdminRoute><OrderList /></AdminRoute>} />
+                <Route path="/admin/payments" element={<AdminRoute><AdminPayments /></AdminRoute>} />
+                <Route path="/admin/refunds" element={<AdminRoute><AdminRefundLedger /></AdminRoute>} />
+                <Route path="/admin/users" element={<AdminRoute><AdminUsers /></AdminRoute>} />
+              </Routes>
+            </RouteTransitionShell>
+          </Suspense>
+        </AppErrorBoundary>
+      </main>
+      <AppErrorBoundary>
+        <ChatBot />
+      </AppErrorBoundary>
+      <AppErrorBoundary>
+        <Footer />
+      </AppErrorBoundary>
+      <Toaster
+        richColors
+        position="top-right"
+        toastOptions={{
+          className: 'border border-white/10 bg-zinc-900 text-slate-100',
+        }}
+      />
+      <CrazyModeToggle />
+    </div>
+  );
+}
+
+function App() {
+  return (
+    <ColorModeProvider>
+      <MotionModeProvider>
+        <CrazyModeProvider>
+          <AuthProvider>
+            <CartProvider>
+              <WishlistProvider>
+                <ProductProvider>
+                  <Router>
+                    <AppContent />
+                  </Router>
+                </ProductProvider>
+              </WishlistProvider>
+            </CartProvider>
+          </AuthProvider>
+        </CrazyModeProvider>
+      </MotionModeProvider>
+    </ColorModeProvider>
+  );
+}
+
+export default App;

@@ -1,0 +1,139 @@
+const { getRedisClient, flags: redisFlags } = require('../config/redis');
+const logger = require('../utils/logger');
+
+const memoryStore = new Map();
+let memoryCleanupEvery = 0;
+
+const parseKey = (value) => String(value || '').trim();
+
+const scheduleMemoryCleanup = () => {
+    if (memoryCleanupEvery) return;
+    memoryCleanupEvery = setInterval(() => {
+        const now = Date.now();
+        for (const [key, value] of memoryStore.entries()) {
+            if (value.resetAt <= now) {
+                memoryStore.delete(key);
+            }
+        }
+    }, 60 * 1000);
+
+    if (typeof memoryCleanupEvery.unref === 'function') {
+        memoryCleanupEvery.unref();
+    }
+};
+
+const computeMemoryWindow = (storeKey, windowMs) => {
+    const now = Date.now();
+    const current = memoryStore.get(storeKey);
+
+    if (!current || current.resetAt <= now) {
+        const next = { count: 1, resetAt: now + windowMs };
+        memoryStore.set(storeKey, next);
+        return {
+            count: next.count,
+            ttlMs: Math.max(next.resetAt - now, 0),
+        };
+    }
+
+    current.count += 1;
+    memoryStore.set(storeKey, current);
+    return {
+        count: current.count,
+        ttlMs: Math.max(current.resetAt - now, 0),
+    };
+};
+
+const computeRedisWindow = async (storeKey, windowMs) => {
+    const client = getRedisClient();
+    if (!client) return null;
+
+    const tx = client.multi();
+    tx.incr(storeKey);
+    tx.pTTL(storeKey);
+    const [countRaw, ttlRaw] = await tx.exec();
+    const count = Number(countRaw) || 0;
+    let ttlMs = Number(ttlRaw);
+
+    if (ttlMs < 0) {
+        await client.sendCommand(['PEXPIRE', storeKey, String(windowMs), 'NX']);
+        ttlMs = windowMs;
+    }
+
+    return {
+        count,
+        ttlMs: Math.max(ttlMs, 0),
+    };
+};
+
+const setHeaders = (res, max, count, ttlMs) => {
+    const remaining = Math.max(max - count, 0);
+    const resetAtSeconds = Math.ceil((Date.now() + ttlMs) / 1000);
+    res.setHeader('X-RateLimit-Limit', String(max));
+    res.setHeader('X-RateLimit-Remaining', String(remaining));
+    res.setHeader('X-RateLimit-Reset', String(resetAtSeconds));
+};
+
+const createDistributedRateLimit = ({
+    name,
+    windowMs,
+    max,
+    message,
+    keyGenerator,
+    skip,
+}) => {
+    if (!name || !windowMs || !max) {
+        throw new Error('createDistributedRateLimit requires name, windowMs, and max');
+    }
+
+    scheduleMemoryCleanup();
+    const limiterName = parseKey(name);
+    const limiterMessage = message || 'Too many requests. Please try again later.';
+    const responsePayload = typeof limiterMessage === 'string'
+        ? { message: limiterMessage }
+        : limiterMessage;
+    const createKey = typeof keyGenerator === 'function'
+        ? keyGenerator
+        : (req) => req.ip || req.socket?.remoteAddress || 'unknown';
+
+    return async (req, res, next) => {
+        if (process.env.NODE_ENV === 'test') return next();
+        if (typeof skip === 'function' && skip(req)) return next();
+
+        const identifier = parseKey(createKey(req)) || 'unknown';
+        const storeKey = `${redisFlags.redisPrefix}:rl:${limiterName}:${identifier}`;
+
+        try {
+            let state = null;
+            const client = getRedisClient();
+            if (client) {
+                state = await computeRedisWindow(storeKey, windowMs);
+            }
+            if (!state) {
+                state = computeMemoryWindow(storeKey, windowMs);
+            }
+
+            setHeaders(res, max, state.count, state.ttlMs);
+
+            if (state.count > max) {
+                return res.status(429).json(responsePayload);
+            }
+            return next();
+        } catch (error) {
+            logger.warn('rate_limit.fallback_to_memory', {
+                limiter: limiterName,
+                error: error?.message || 'unknown error',
+            });
+
+            const state = computeMemoryWindow(storeKey, windowMs);
+            setHeaders(res, max, state.count, state.ttlMs);
+            if (state.count > max) {
+                return res.status(429).json(responsePayload);
+            }
+            return next();
+        }
+    };
+};
+
+module.exports = {
+    createDistributedRateLimit,
+};

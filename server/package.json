@@ -1,0 +1,50 @@
+{
+  "name": "server",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "cross-env NODE_ENV=test jest --coverage",
+    "seed": "node seeders/seed.js",
+    "verify": "node scripts/verify_data.js",
+    "seed:marketplace": "node scripts/seed_marketplace_listings.js",
+    "marketplace:purge-demo": "node scripts/purge_demo_marketplace_data.js",
+    "marketplace:reset-fresh": "node scripts/reset_marketplace_fresh.js --execute",
+    "marketplace:reset-seller-state": "node scripts/reset_seller_state_fresh.js --execute",
+    "migrate:drop-user-otp-ttl": "node scripts/drop_user_otp_ttl_index.js",
+    "migrate:user-phone-sparse": "node scripts/migrate_user_phone_sparse_index.js",
+    "migrate:catalog-backfill": "node scripts/backfill_catalog_version.js",
+    "wipe:firebase-auth": "node scripts/wipe_firebase_auth_users.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "colors": "^1.4.0",
+    "compression": "^1.8.1",
+    "cors": "^2.8.6",
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1",
+    "express-async-handler": "^1.2.0",
+    "express-rate-limit": "^8.2.1",
+    "firebase-admin": "^13.6.0",
+    "helmet": "^8.1.0",
+    "mongoose": "^9.1.5",
+    "morgan": "^1.10.1",
+    "nodemailer": "^8.0.1",
+    "openai": "^6.18.0",
+    "redis": "^5.8.2",
+    "xss": "^1.0.15",
+    "xss-clean": "^0.1.4",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "cross-env": "^10.1.0",
+    "jest": "^30.2.0",
+    "mongodb-memory-server": "^11.0.1",
+    "supertest": "^7.2.2"
+  }
+}

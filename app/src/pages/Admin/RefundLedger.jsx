@@ -1,0 +1,351 @@
+import { useEffect, useMemo, useState } from 'react';
+import { Loader2, RefreshCw, Save, ShieldCheck, ShieldAlert } from 'lucide-react';
+import { toast } from 'sonner';
+import { adminApi } from '@/services/api';
+import { formatPrice } from '@/utils/format';
+
+const STATUS_OPTIONS = ['', 'pending', 'approved', 'processed', 'rejected'];
+const SETTLEMENT_OPTIONS = ['', 'provider', 'manual', 'queued', 'manual_review', 'none'];
+const RECON_OPTIONS = ['', 'pending', 'provider_verified', 'provider_unverified', 'manual_recorded', 'manual_reference_missing', 'n/a'];
+
+const STATUS_BADGE = {
+    pending: 'bg-amber-100 text-amber-700 border-amber-200',
+    approved: 'bg-cyan-100 text-cyan-700 border-cyan-200',
+    processed: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+    rejected: 'bg-rose-100 text-rose-700 border-rose-200',
+};
+
+const SETTLEMENT_BADGE = {
+    provider: 'bg-indigo-100 text-indigo-700 border-indigo-200',
+    manual: 'bg-violet-100 text-violet-700 border-violet-200',
+    queued: 'bg-orange-100 text-orange-700 border-orange-200',
+    manual_review: 'bg-sky-100 text-sky-700 border-sky-200',
+    none: 'bg-slate-100 text-slate-600 border-slate-200',
+};
+
+const RECON_BADGE = {
+    provider_verified: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+    provider_unverified: 'bg-amber-100 text-amber-700 border-amber-200',
+    manual_recorded: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+    manual_reference_missing: 'bg-rose-100 text-rose-700 border-rose-200',
+    pending: 'bg-cyan-100 text-cyan-700 border-cyan-200',
+    'n/a': 'bg-slate-100 text-slate-600 border-slate-200',
+};
+
+const badgeClass = (map, value) => map[value] || 'bg-slate-100 text-slate-700 border-slate-200';
+
+const toDateTime = (value) => {
+    if (!value) return '-';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '-';
+    return date.toLocaleString();
+};
+
+export default function AdminRefundLedger() {
+    const [loading, setLoading] = useState(true);
+    const [busyLedgerId, setBusyLedgerId] = useState('');
+    const [page, setPage] = useState(1);
+    const [limit] = useState(25);
+    const [total, setTotal] = useState(0);
+    const [items, setItems] = useState([]);
+    const [filters, setFilters] = useState({
+        status: '',
+        settlement: '',
+        reconciliation: '',
+        method: '',
+        provider: '',
+        query: '',
+    });
+    const [referenceDrafts, setReferenceDrafts] = useState({});
+    const [noteDrafts, setNoteDrafts] = useState({});
+
+    const pages = useMemo(() => Math.max(Math.ceil(total / limit), 1), [total, limit]);
+
+    const loadLedger = async () => {
+        try {
+            setLoading(true);
+            const response = await adminApi.getRefundLedger({
+                page,
+                limit,
+                status: filters.status || undefined,
+                settlement: filters.settlement || undefined,
+                reconciliation: filters.reconciliation || undefined,
+                method: filters.method || undefined,
+                provider: filters.provider || undefined,
+                query: filters.query.trim() || undefined,
+            });
+            const rows = Array.isArray(response?.items) ? response.items : [];
+            setItems(rows);
+            setTotal(Number(response?.total || 0));
+            const refs = {};
+            const notes = {};
+            rows.forEach((row) => {
+                refs[row.ledgerId] = row?.refund?.refundId || '';
+                notes[row.ledgerId] = row?.refund?.adminNote || '';
+            });
+            setReferenceDrafts(refs);
+            setNoteDrafts(notes);
+        } catch (error) {
+            toast.error(error.message || 'Failed to load refund ledger');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        loadLedger();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [page, limit, filters.status, filters.settlement, filters.reconciliation, filters.method, filters.provider, filters.query]);
+
+    const updateDraft = (ledgerId, field, value) => {
+        if (field === 'refundId') {
+            setReferenceDrafts((prev) => ({ ...prev, [ledgerId]: value }));
+            return;
+        }
+        setNoteDrafts((prev) => ({ ...prev, [ledgerId]: value }));
+    };
+
+    const onRecordReference = async (row) => {
+        const refundId = String(referenceDrafts[row.ledgerId] || '').trim();
+        const note = String(noteDrafts[row.ledgerId] || '').trim();
+        if (!refundId) {
+            toast.error('Refund reference is required');
+            return;
+        }
+
+        try {
+            setBusyLedgerId(row.ledgerId);
+            const response = await adminApi.updateRefundLedgerReference(row.orderId, row.requestId, {
+                refundId,
+                note: note || undefined,
+            });
+            toast.success(response?.message || 'Refund reference updated');
+            await loadLedger();
+        } catch (error) {
+            toast.error(error.message || 'Failed to update refund reference');
+        } finally {
+            setBusyLedgerId('');
+        }
+    };
+
+    return (
+        <div className="container mx-auto px-4 py-8">
+            <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div>
+                    <h1 className="text-2xl font-bold text-gray-900">Refund Ledger</h1>
+                    <p className="text-sm text-gray-500">Provider IDs, manual bank references, and reconciliation state in one place.</p>
+                </div>
+                <button
+                    type="button"
+                    onClick={loadLedger}
+                    className="inline-flex items-center justify-center gap-2 rounded-lg border bg-white px-4 py-2 text-sm font-semibold hover:bg-gray-50"
+                >
+                    <RefreshCw className="h-4 w-4" />
+                    Refresh
+                </button>
+            </div>
+
+            <div className="mb-4 grid grid-cols-1 gap-3 rounded-xl border bg-white p-4 md:grid-cols-3 xl:grid-cols-6">
+                <select
+                    value={filters.status}
+                    onChange={(e) => { setPage(1); setFilters((prev) => ({ ...prev, status: e.target.value })); }}
+                    className="rounded-lg border px-3 py-2 text-sm"
+                >
+                    {STATUS_OPTIONS.map((value) => (
+                        <option key={value || 'all-status'} value={value}>
+                            {value ? `Status: ${value}` : 'All statuses'}
+                        </option>
+                    ))}
+                </select>
+                <select
+                    value={filters.settlement}
+                    onChange={(e) => { setPage(1); setFilters((prev) => ({ ...prev, settlement: e.target.value })); }}
+                    className="rounded-lg border px-3 py-2 text-sm"
+                >
+                    {SETTLEMENT_OPTIONS.map((value) => (
+                        <option key={value || 'all-settlement'} value={value}>
+                            {value ? `Settlement: ${value}` : 'All settlements'}
+                        </option>
+                    ))}
+                </select>
+                <select
+                    value={filters.reconciliation}
+                    onChange={(e) => { setPage(1); setFilters((prev) => ({ ...prev, reconciliation: e.target.value })); }}
+                    className="rounded-lg border px-3 py-2 text-sm"
+                >
+                    {RECON_OPTIONS.map((value) => (
+                        <option key={value || 'all-recon'} value={value}>
+                            {value ? `Recon: ${value}` : 'All reconciliation'}
+                        </option>
+                    ))}
+                </select>
+                <input
+                    type="text"
+                    value={filters.method}
+                    onChange={(e) => { setPage(1); setFilters((prev) => ({ ...prev, method: e.target.value.toUpperCase() })); }}
+                    className="rounded-lg border px-3 py-2 text-sm"
+                    placeholder="Method (UPI/CARD/WALLET/COD)"
+                />
+                <input
+                    type="text"
+                    value={filters.provider}
+                    onChange={(e) => { setPage(1); setFilters((prev) => ({ ...prev, provider: e.target.value })); }}
+                    className="rounded-lg border px-3 py-2 text-sm"
+                    placeholder="Provider"
+                />
+                <input
+                    type="text"
+                    value={filters.query}
+                    onChange={(e) => { setPage(1); setFilters((prev) => ({ ...prev, query: e.target.value })); }}
+                    className="rounded-lg border px-3 py-2 text-sm"
+                    placeholder="Search order/email/request/ref id"
+                />
+            </div>
+
+            <div className="rounded-xl border bg-white">
+                {loading ? (
+                    <div className="flex items-center gap-2 p-6 text-sm text-gray-500">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Loading refund ledger...
+                    </div>
+                ) : items.length === 0 ? (
+                    <div className="p-6 text-sm text-gray-500">No ledger entries match your filters.</div>
+                ) : (
+                    <div className="overflow-x-auto">
+                        <table className="min-w-[1650px] w-full divide-y divide-gray-200">
+                            <thead className="bg-gray-50">
+                                <tr>
+                                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Order</th>
+                                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Customer</th>
+                                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Payment</th>
+                                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Refund</th>
+                                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">State</th>
+                                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">References</th>
+                                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Timeline</th>
+                                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Reconciliation</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                                {items.map((row) => {
+                                    const canRecordReference = ['approved', 'processed'].includes(String(row?.refund?.status || '').toLowerCase());
+                                    const isBusy = busyLedgerId === row.ledgerId;
+                                    return (
+                                        <tr key={row.ledgerId} className="align-top">
+                                            <td className="px-3 py-3 text-xs text-gray-700">
+                                                <div className="font-mono text-[11px] text-gray-900">{row.orderId}</div>
+                                                <div className="mt-1 font-mono text-[11px] text-gray-500">Req: {row.requestId}</div>
+                                                <div className="mt-1 text-[11px]">Order status: <span className="font-semibold">{row.order?.status || '-'}</span></div>
+                                                <div className="text-[11px]">Order total: <span className="font-semibold">{formatPrice(row.order?.totalPrice || 0)}</span></div>
+                                            </td>
+                                            <td className="px-3 py-3 text-xs text-gray-700">
+                                                <div className="font-semibold text-gray-900">{row.user?.name || 'Unknown'}</div>
+                                                <div className="mt-1">{row.user?.email || '-'}</div>
+                                                <div className="mt-1">{row.user?.phone || '-'}</div>
+                                            </td>
+                                            <td className="px-3 py-3 text-xs text-gray-700">
+                                                <div>{row.payment?.method || '-'}</div>
+                                                <div className="mt-1">{row.payment?.provider || '-'}</div>
+                                                <div className="mt-1 font-mono text-[11px]">{row.payment?.intentId || '-'}</div>
+                                                <div className="mt-1 text-[11px]">State: <span className="font-semibold">{row.payment?.state || '-'}</span></div>
+                                            </td>
+                                            <td className="px-3 py-3 text-xs text-gray-700">
+                                                <div className="font-semibold text-gray-900">{formatPrice(row.refund?.amount || 0)}</div>
+                                                <div className="mt-1">{row.refund?.reason || '-'}</div>
+                                                <div className="mt-1 text-[11px] text-gray-500">{row.refund?.message || '-'}</div>
+                                            </td>
+                                            <td className="px-3 py-3 text-xs text-gray-700">
+                                                <span className={`inline-flex rounded-full border px-2 py-1 text-[10px] font-bold uppercase tracking-wider ${badgeClass(STATUS_BADGE, row.refund?.status)}`}>
+                                                    {row.refund?.status || 'pending'}
+                                                </span>
+                                                <div className="mt-2">
+                                                    <span className={`inline-flex rounded-full border px-2 py-1 text-[10px] font-bold uppercase tracking-wider ${badgeClass(SETTLEMENT_BADGE, row.settlement)}`}>
+                                                        {row.settlement}
+                                                    </span>
+                                                </div>
+                                            </td>
+                                            <td className="px-3 py-3 text-xs text-gray-700">
+                                                <input
+                                                    type="text"
+                                                    className="w-full rounded border px-2 py-1 text-[11px]"
+                                                    value={referenceDrafts[row.ledgerId] || ''}
+                                                    onChange={(e) => updateDraft(row.ledgerId, 'refundId', e.target.value)}
+                                                    placeholder="Provider/manual ref id"
+                                                    disabled={!canRecordReference || isBusy}
+                                                />
+                                                <input
+                                                    type="text"
+                                                    className="mt-1 w-full rounded border px-2 py-1 text-[11px]"
+                                                    value={noteDrafts[row.ledgerId] || ''}
+                                                    onChange={(e) => updateDraft(row.ledgerId, 'note', e.target.value)}
+                                                    placeholder="Reconciliation note"
+                                                    disabled={!canRecordReference || isBusy}
+                                                />
+                                                <button
+                                                    type="button"
+                                                    disabled={!canRecordReference || isBusy}
+                                                    onClick={() => onRecordReference(row)}
+                                                    className="mt-1 inline-flex items-center gap-1 rounded bg-slate-900 px-2 py-1 text-[10px] font-bold text-white disabled:opacity-50"
+                                                >
+                                                    {isBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                                                    Record
+                                                </button>
+                                            </td>
+                                            <td className="px-3 py-3 text-xs text-gray-700">
+                                                <div>Created: {toDateTime(row.refund?.createdAt)}</div>
+                                                <div className="mt-1">Updated: {toDateTime(row.refund?.updatedAt)}</div>
+                                                <div className="mt-1">Processed: {toDateTime(row.refund?.processedAt)}</div>
+                                                {row.queue ? (
+                                                    <div className="mt-2 rounded border border-amber-200 bg-amber-50 p-1 text-[10px] text-amber-700">
+                                                        Retry #{row.queue.retryCount} | Next: {toDateTime(row.queue.nextRunAt)}
+                                                    </div>
+                                                ) : null}
+                                            </td>
+                                            <td className="px-3 py-3 text-xs text-gray-700">
+                                                <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-bold uppercase tracking-wider ${badgeClass(RECON_BADGE, row.reconciliation)}`}>
+                                                    {row.reconciliation.startsWith('provider_')
+                                                        ? <ShieldCheck className="h-3 w-3" />
+                                                        : row.reconciliation === 'manual_reference_missing'
+                                                            ? <ShieldAlert className="h-3 w-3" />
+                                                            : null}
+                                                    {row.reconciliation}
+                                                </span>
+                                                <div className="mt-2 text-[11px]">
+                                                    Provider verification: <span className="font-semibold">{row.providerVerification}</span>
+                                                </div>
+                                                <div className="mt-1 font-mono text-[11px] break-all">
+                                                    Ref: {row.refund?.refundId || '-'}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+
+                <div className="flex items-center justify-between border-t bg-gray-50 px-4 py-3 text-sm text-gray-600">
+                    <span>{total} records | page {page}/{pages}</span>
+                    <div className="flex items-center gap-2">
+                        <button
+                            type="button"
+                            disabled={page <= 1}
+                            onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
+                            className="rounded border px-3 py-1.5 text-xs disabled:opacity-50"
+                        >
+                            Previous
+                        </button>
+                        <button
+                            type="button"
+                            disabled={page >= pages}
+                            onClick={() => setPage((prev) => prev + 1)}
+                            className="rounded border px-3 py-1.5 text-xs disabled:opacity-50"
+                        >
+                            Next
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}

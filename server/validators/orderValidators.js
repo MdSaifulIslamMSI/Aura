@@ -1,0 +1,216 @@
+const { z } = require('zod');
+
+const productIdentifier = z.union([z.number(), z.string()]).optional();
+const quantityField = z.coerce.number().int().positive().optional();
+
+const orderItemSchema = z
+    .object({
+        product: productIdentifier,
+        productId: productIdentifier,
+        id: productIdentifier,
+        qty: quantityField,
+        quantity: quantityField,
+    })
+    .refine((item) => item.product !== undefined || item.productId !== undefined || item.id !== undefined, {
+        message: 'Each order item must include product/productId/id',
+        path: ['product'],
+    })
+    .refine((item) => item.qty !== undefined || item.quantity !== undefined, {
+        message: 'Each order item must include qty or quantity',
+        path: ['quantity'],
+    });
+
+const shippingAddressSchema = z.object({
+    address: z.string().min(1).optional(),
+    street: z.string().min(1).optional(),
+    city: z.string().min(1),
+    postalCode: z.string().min(1).optional(),
+    pincode: z.string().min(1).optional(),
+    country: z.string().min(1).optional(),
+    state: z.string().min(1).optional(),
+}).refine((value) => value.address || value.street, {
+    message: 'shippingAddress.address or shippingAddress.street is required',
+    path: ['address'],
+}).refine((value) => value.postalCode || value.pincode, {
+    message: 'shippingAddress.postalCode or shippingAddress.pincode is required',
+    path: ['postalCode'],
+}).refine((value) => value.country || value.state, {
+    message: 'shippingAddress.country or shippingAddress.state is required',
+    path: ['country'],
+});
+
+const deliverySlotSchema = z.object({
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    window: z.string().min(1),
+});
+
+const checkoutBodySchema = z.object({
+    orderItems: z.array(orderItemSchema).min(1),
+    shippingAddress: shippingAddressSchema,
+    paymentMethod: z.enum(['COD', 'UPI', 'CARD', 'WALLET']).optional(),
+    paymentIntentId: z.string().trim().min(6).optional(),
+    deliveryOption: z.enum(['standard', 'express']).optional(),
+    deliverySlot: deliverySlotSchema.optional(),
+    couponCode: z.string().trim().max(30).optional(),
+    checkoutSource: z.enum(['cart', 'directBuy']).optional(),
+    quoteSnapshot: z.object({
+        totalPrice: z.coerce.number().positive().optional(),
+        pricingVersion: z.string().optional(),
+    }).optional(),
+    paymentSimulation: z.object({
+        status: z.enum(['success', 'pending', 'failure']),
+        referenceId: z.string().optional(),
+    }).optional(),
+});
+
+const quoteOrderSchema = z.object({
+    body: checkoutBodySchema,
+});
+
+const createOrderSchema = z.object({
+    body: checkoutBodySchema,
+});
+
+const simulatePaymentSchema = z.object({
+    body: z.object({
+        paymentMethod: z.enum(['COD', 'UPI', 'CARD', 'WALLET']),
+        amount: z.coerce.number().positive(),
+        attemptToken: z.string().min(3),
+    }),
+});
+
+const getOrderTimelineSchema = z.object({
+    params: z.object({
+        id: z.string().trim().regex(/^[a-f0-9]{24}$/i, 'Invalid order id'),
+    }),
+});
+
+const commandCenterParamsSchema = z.object({
+    params: z.object({
+        id: z.string().trim().regex(/^[a-f0-9]{24}$/i, 'Invalid order id'),
+    }),
+});
+
+const commandCenterRefundSchema = z.object({
+    ...commandCenterParamsSchema.shape,
+    body: z.object({
+        reason: z.string().trim().min(3).max(300),
+        amount: z.coerce.number().positive().optional(),
+    }),
+});
+
+const commandCenterReplaceSchema = z.object({
+    ...commandCenterParamsSchema.shape,
+    body: z.object({
+        reason: z.string().trim().min(3).max(300),
+        itemProductId: z.union([z.string(), z.number()]).optional(),
+        itemTitle: z.string().trim().max(180).optional(),
+        quantity: z.coerce.number().int().positive().max(10).optional(),
+    }),
+});
+
+const commandCenterSupportSchema = z.object({
+    ...commandCenterParamsSchema.shape,
+    body: z.object({
+        message: z.string().trim().min(3).max(1500),
+    }),
+});
+
+const commandCenterWarrantySchema = z.object({
+    ...commandCenterParamsSchema.shape,
+    body: z.object({
+        issue: z.string().trim().min(3).max(500),
+        itemProductId: z.union([z.string(), z.number()]).optional(),
+        itemTitle: z.string().trim().max(180).optional(),
+    }),
+});
+
+const cancelOrderSchema = z.object({
+    ...commandCenterParamsSchema.shape,
+    body: z.object({
+        reason: z.string().trim().min(3).max(300).optional(),
+    }).optional(),
+});
+
+const adminOrderStatusSchema = z.object({
+    params: z.object({
+        id: z.string().trim().regex(/^[a-f0-9]{24}$/i, 'Invalid order id'),
+    }),
+    body: z.object({
+        status: z.enum(['processing', 'shipped', 'delivered']),
+        note: z.string().trim().max(300).optional(),
+    }),
+});
+
+const adminCancelOrderSchema = z.object({
+    params: z.object({
+        id: z.string().trim().regex(/^[a-f0-9]{24}$/i, 'Invalid order id'),
+    }),
+    body: z.object({
+        reason: z.string().trim().min(3).max(300).optional(),
+    }).optional(),
+});
+
+const adminCommandRefundDecisionSchema = z.object({
+    params: z.object({
+        id: z.string().trim().regex(/^[a-f0-9]{24}$/i, 'Invalid order id'),
+        requestId: z.string().trim().min(4).max(120),
+    }),
+    body: z.object({
+        status: z.enum(['approved', 'rejected', 'processed']),
+        note: z.string().trim().max(300).optional(),
+        amount: z.coerce.number().positive().optional(),
+        externalReference: z.string().trim().max(120).optional(),
+    }),
+});
+
+const adminCommandReplacementDecisionSchema = z.object({
+    params: z.object({
+        id: z.string().trim().regex(/^[a-f0-9]{24}$/i, 'Invalid order id'),
+        requestId: z.string().trim().min(4).max(120),
+    }),
+    body: z.object({
+        status: z.enum(['approved', 'rejected', 'shipped']),
+        note: z.string().trim().max(300).optional(),
+        trackingId: z.string().trim().max(120).optional(),
+    }),
+});
+
+const adminCommandSupportReplySchema = z.object({
+    params: z.object({
+        id: z.string().trim().regex(/^[a-f0-9]{24}$/i, 'Invalid order id'),
+    }),
+    body: z.object({
+        message: z.string().trim().min(3).max(1500),
+    }),
+});
+
+const adminCommandWarrantyDecisionSchema = z.object({
+    params: z.object({
+        id: z.string().trim().regex(/^[a-f0-9]{24}$/i, 'Invalid order id'),
+        claimId: z.string().trim().min(4).max(120),
+    }),
+    body: z.object({
+        status: z.enum(['in_review', 'approved', 'rejected']),
+        note: z.string().trim().max(500).optional(),
+    }),
+});
+
+module.exports = {
+    quoteOrderSchema,
+    createOrderSchema,
+    simulatePaymentSchema,
+    getOrderTimelineSchema,
+    commandCenterParamsSchema,
+    commandCenterRefundSchema,
+    commandCenterReplaceSchema,
+    commandCenterSupportSchema,
+    commandCenterWarrantySchema,
+    cancelOrderSchema,
+    adminOrderStatusSchema,
+    adminCancelOrderSchema,
+    adminCommandRefundDecisionSchema,
+    adminCommandReplacementDecisionSchema,
+    adminCommandSupportReplySchema,
+    adminCommandWarrantyDecisionSchema,
+};

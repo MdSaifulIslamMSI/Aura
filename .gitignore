@@ -1,0 +1,48 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Environment variables
+.env
+.env.local
+.env.production
+**/.env
+**/.env.local
+**/.env.production
+**/.env.*.local
+
+# Build outputs
+dist/
+build/
+.vite/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Runtime uploads
+server/uploads/
+
+# Coverage
+coverage/
+
+# Firebase
+.firebase/
+firebase-debug.log
+
+# Local auth recovery vault snapshots
+server/data/auth-vault.json
+server/data/auth-vault.tmp.json
+
+# Large local datasets
+server/data/catalog_1m.jsonl

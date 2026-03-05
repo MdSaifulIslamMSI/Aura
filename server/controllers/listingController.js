@@ -1,0 +1,1483 @@
+const asyncHandler = require('express-async-handler');
+const crypto = require('crypto');
+const mongoose = require('mongoose');
+const Listing = require('../models/Listing');
+const User = require('../models/User');
+const PaymentIntent = require('../models/PaymentIntent');
+const PaymentEvent = require('../models/PaymentEvent');
+const AppError = require('../utils/AppError');
+const logger = require('../utils/logger');
+const { flags: paymentFlags } = require('../config/paymentFlags');
+const {
+    normalizeListingInput,
+    getIntegrityIssue,
+    buildRealListingsFilter,
+    isRealListingDoc,
+} = require('../services/marketplaceIntegrityService');
+const { buildSellerTrustPassport } = require('../services/sellerTrustService');
+const { awardLoyaltyPoints } = require('../services/loyaltyService');
+const { sendTransactionalEmail } = require('../services/email');
+const { renderActivityTemplate } = require('../services/email/templates/activityTemplate');
+const {
+    maskIpAddress,
+    getDeviceLabelFromUserAgent,
+} = require('../services/email/templateUtils');
+const { getPaymentProvider } = require('../services/payments/providerFactory');
+const { evaluateRisk } = require('../services/payments/riskEngine');
+const { captureIntentNow } = require('../services/payments/paymentService');
+const {
+    DIGITAL_METHODS,
+    INTENT_EXPIRY_MINUTES,
+    PAYMENT_STATUSES,
+} = require('../services/payments/constants');
+const {
+    hashPayload,
+    makeIntentId,
+    makeEventId,
+    normalizeMethod,
+    roundCurrency,
+} = require('../services/payments/helpers');
+
+const MAX_ACTIVE_LISTINGS = 10;
+const MAX_CHAT_MESSAGE_LENGTH = 1200;
+const MAX_CHAT_MESSAGES_PER_THREAD = 200;
+const MAX_CHAT_THREADS_PER_LISTING = 60;
+const HOTSPOT_LIMIT_DEFAULT = 8;
+const HOTSPOT_LIMIT_MAX = 16;
+const HOTSPOT_WINDOW_DEFAULT_DAYS = 21;
+
+// ── Projection for list views (exclude heavy fields) ─────────
+const LIST_PROJECTION = 'title price negotiable condition category images location status views seller createdAt escrowOptIn escrow disputeCount';
+const SELLER_PUBLIC = 'name email phone createdAt isVerified';
+
+const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+const normalizeGeoToken = (value) => String(value || '').trim().toLowerCase();
+const toHotspotLabel = (score) => {
+    if (score >= 75) return 'blazing';
+    if (score >= 58) return 'rising';
+    if (score >= 40) return 'balanced';
+    return 'cooling';
+};
+const toSignalLabel = (score) => {
+    if (score >= 70) return 'high';
+    if (score >= 40) return 'medium';
+    return 'low';
+};
+const normalizeMessageText = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+const isValidObjectId = (value) => mongoose.Types.ObjectId.isValid(String(value || ''));
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const ESCROW_PAYMENT_PURPOSE = 'marketplace_escrow';
+
+const diff = (a, b) => Math.abs(Number(a) - Number(b));
+const isIntentExpired = (intent) => intent?.expiresAt && new Date(intent.expiresAt).getTime() < Date.now();
+
+const buildEscrowCheckoutPayload = ({
+    providerOrderId,
+    amount,
+    currency,
+    user,
+}) => {
+    if (paymentFlags.paymentProvider === 'razorpay') {
+        return {
+            key: process.env.RAZORPAY_KEY_ID || '',
+            orderId: providerOrderId,
+            amount,
+            currency,
+            name: 'Aura Marketplace',
+            description: 'Aura Marketplace Escrow Hold',
+            prefill: {
+                name: user?.name || '',
+                email: user?.email || '',
+                contact: user?.phone || '',
+            },
+            theme: { color: '#06b6d4' },
+        };
+    }
+
+    const simulatedPaymentId = makeEventId('sim_pay');
+    const simulatedSignature = `sim_${crypto.createHash('sha1').update(`${providerOrderId}|${simulatedPaymentId}`).digest('hex').slice(0, 14)}`;
+    return {
+        key: 'simulated',
+        orderId: providerOrderId,
+        amount,
+        currency,
+        simulatedConfirm: {
+            providerPaymentId: simulatedPaymentId,
+            providerOrderId,
+            providerSignature: simulatedSignature,
+        },
+    };
+};
+
+const appendEscrowPaymentEvent = async ({
+    intentId,
+    source,
+    type,
+    payload = {},
+}) => {
+    await PaymentEvent.create({
+        eventId: makeEventId('evt'),
+        intentId,
+        source,
+        type,
+        payloadHash: hashPayload(payload),
+        payload,
+        receivedAt: new Date(),
+    });
+};
+
+const sortThreadsByLastMessage = (threads = []) => (
+    threads
+        .slice()
+        .sort((a, b) => {
+            const aTs = new Date(a?.lastMessageAt || 0).getTime();
+            const bTs = new Date(b?.lastMessageAt || 0).getTime();
+            return bTs - aTs;
+        })
+);
+
+const serializeThreadForUser = ({
+    listing,
+    thread,
+    viewerId,
+    sellerUser = null,
+    buyerUser = null,
+}) => {
+    const viewer = String(viewerId || '');
+    const sellerId = String(listing?.seller?._id || listing?.seller || '');
+    const buyerId = String(thread?.buyer || '');
+    const viewerIsSeller = viewer && viewer === sellerId;
+    const unreadCount = viewerIsSeller
+        ? Number(thread?.unreadBySeller || 0)
+        : Number(thread?.unreadByBuyer || 0);
+
+    const counterpartUser = viewerIsSeller ? buyerUser : sellerUser;
+    const counterpartId = viewerIsSeller ? buyerId : sellerId;
+
+    return {
+        listingId: String(listing?._id || ''),
+        listingTitle: listing?.title || '',
+        listingPrice: Number(listing?.price || 0),
+        listingImage: Array.isArray(listing?.images) ? (listing.images[0] || '') : '',
+        listingStatus: listing?.status || 'active',
+        buyerId,
+        sellerId,
+        unreadCount,
+        lastMessageAt: thread?.lastMessageAt || null,
+        lastMessagePreview: thread?.lastMessagePreview || '',
+        counterpart: {
+            id: counterpartId,
+            name: counterpartUser?.name || '',
+            email: counterpartUser?.email || '',
+            avatar: counterpartUser?.avatar || '',
+            isVerified: Boolean(counterpartUser?.isVerified),
+        },
+        messages: Array.isArray(thread?.messages)
+            ? thread.messages.map((message) => {
+                const senderId = String(message?.sender?._id || message?.sender || '');
+                return {
+                    id: String(message?._id || ''),
+                    text: message?.text || '',
+                    sentAt: message?.sentAt || null,
+                    readAt: message?.readAt || null,
+                    senderRole: message?.senderRole || '',
+                    senderId,
+                    isMine: Boolean(senderId && senderId === viewer),
+                };
+            })
+            : [],
+    };
+};
+
+const sendCounterpartyMessageEmail = async ({
+    recipientEmail,
+    recipientName,
+    actorName,
+    listing,
+    messageText,
+    req,
+}) => {
+    if (!EMAIL_REGEX.test(String(recipientEmail || '').trim().toLowerCase())) {
+        return;
+    }
+
+    const template = renderActivityTemplate({
+        brand: 'AURA',
+        userName: recipientName || 'there',
+        actionTitle: 'New Marketplace Message',
+        actionSummary: `${actorName || 'A marketplace user'} sent you a new message on a listing.`,
+        highlights: [
+            `Listing: ${String(listing?.title || '').slice(0, 100)}`,
+            `Message preview: ${String(messageText || '').slice(0, 120)}`,
+            `Price: Rs ${Number(listing?.price || 0).toLocaleString('en-IN')}`,
+            'Open Aura Marketplace to reply in the persistent listing chat.',
+        ],
+        requestId: req.requestId || req.headers['x-request-id'] || '',
+        method: req.method,
+        path: req.originalUrl,
+        deviceLabel: getDeviceLabelFromUserAgent(req.headers['user-agent']),
+        maskedIp: maskIpAddress(req.ip),
+        occurredAt: new Date(),
+        ctaUrl: '/marketplace',
+    });
+
+    await sendTransactionalEmail({
+        eventType: 'user_activity',
+        to: recipientEmail,
+        subject: template.subject,
+        html: template.html,
+        text: template.text,
+        requestId: req.requestId || req.headers['x-request-id'] || '',
+        headers: {
+            'X-Aura-Activity-Key': 'listing.message.received',
+            'X-Aura-Activity-Method': req.method,
+            'X-Aura-Activity-Path': '/api/listings/:id/messages',
+        },
+        meta: {
+            actionKey: 'listing.message.received',
+            listingId: String(listing?._id || ''),
+            actorName: actorName || '',
+        },
+        securityTags: ['user-activity', 'listing.message.received'],
+    });
+};
+
+const assertEscrowEligibility = ({ listing, userId, allowHeld = false }) => {
+    if (!listing) {
+        throw new AppError('Listing not found', 404);
+    }
+    if (listing.status !== 'active') {
+        throw new AppError('Escrow can only be started for active listings', 409);
+    }
+    if (!listing.escrowOptIn) {
+        throw new AppError('Seller has not enabled escrow mode for this listing', 409);
+    }
+    if (String(listing.seller?._id || listing.seller) === String(userId)) {
+        throw new AppError('Seller cannot start escrow on own listing', 403);
+    }
+    if (!allowHeld && listing.escrow?.state === 'held') {
+        throw new AppError('Escrow is already active for this listing', 409);
+    }
+};
+
+const createEscrowIntent = asyncHandler(async (req, res, next) => {
+    if (!paymentFlags.paymentsEnabled) {
+        return next(new AppError('Marketplace payments are currently disabled', 503));
+    }
+
+    const listing = await Listing.findById(req.params.id).populate('seller', SELLER_PUBLIC);
+    try {
+        assertEscrowEligibility({ listing, userId: req.user._id, allowHeld: false });
+    } catch (error) {
+        return next(error);
+    }
+
+    const paymentMethod = normalizeMethod(req.body?.paymentMethod || 'UPI');
+    if (!DIGITAL_METHODS.includes(paymentMethod)) {
+        return next(new AppError('Marketplace escrow supports digital methods only (UPI/CARD/WALLET)', 400));
+    }
+
+    const activeIntent = await PaymentIntent.findOne({
+        user: req.user._id,
+        status: { $in: [PAYMENT_STATUSES.CREATED, PAYMENT_STATUSES.CHALLENGE_PENDING, PAYMENT_STATUSES.AUTHORIZED, PAYMENT_STATUSES.CAPTURED] },
+        expiresAt: { $gt: new Date() },
+        'metadata.purpose': ESCROW_PAYMENT_PURPOSE,
+        'metadata.listingId': String(listing._id),
+    }).sort({ createdAt: -1 }).lean();
+
+    if (activeIntent) {
+        return res.json({
+            intentId: activeIntent.intentId,
+            provider: activeIntent.provider,
+            providerOrderId: activeIntent.providerOrderId,
+            amount: activeIntent.amount,
+            currency: activeIntent.currency,
+            status: activeIntent.status,
+            riskDecision: activeIntent.riskSnapshot?.decision || 'allow',
+            challengeRequired: Boolean(activeIntent.challenge?.required && activeIntent.challenge?.status !== 'verified'),
+            checkoutPayload: activeIntent.metadata?.checkoutPayload || null,
+            simulatedConfirm: activeIntent.metadata?.simulatedConfirm || null,
+            listingId: String(listing._id),
+        });
+    }
+
+    const amount = roundCurrency(listing.price || 0);
+    if (amount <= 0) {
+        return next(new AppError('Invalid listing price for escrow payment', 409));
+    }
+
+    const risk = await evaluateRisk({
+        userId: req.user._id,
+        amount,
+        deviceContext: req.body?.deviceContext || {},
+        requestMeta: {
+            ip: req.ip || req.connection?.remoteAddress || '',
+            userAgent: req.headers['user-agent'] || '',
+        },
+        shippingAddress: {
+            address: listing.location?.city || 'Unknown',
+            city: listing.location?.city || 'Unknown',
+            postalCode: listing.location?.pincode || '000000',
+            country: listing.location?.state || 'India',
+        },
+        mode: paymentFlags.paymentRiskMode,
+    });
+
+    if (risk.blocked) {
+        return next(new AppError('Escrow payment blocked by risk policy. Try another method or contact support.', 403));
+    }
+
+    const provider = getPaymentProvider();
+    const intentId = makeIntentId();
+    const providerOrder = await provider.createOrder({
+        amount,
+        currency: 'INR',
+        receipt: intentId,
+        notes: {
+            intentId,
+            listingId: String(listing._id),
+            buyerId: String(req.user._id),
+            sellerId: String(listing.seller?._id || listing.seller),
+            purpose: ESCROW_PAYMENT_PURPOSE,
+        },
+    });
+
+    const challengeRequired = Boolean(paymentFlags.paymentChallengeEnabled && risk.challengeRequired);
+    const status = challengeRequired ? PAYMENT_STATUSES.CHALLENGE_PENDING : PAYMENT_STATUSES.CREATED;
+    const expiresAt = new Date(Date.now() + (INTENT_EXPIRY_MINUTES * 60 * 1000));
+    const checkoutPayload = buildEscrowCheckoutPayload({
+        providerOrderId: providerOrder.id,
+        amount,
+        currency: 'INR',
+        user: req.user,
+    });
+    const simulatedConfirm = checkoutPayload.simulatedConfirm || null;
+
+    const intent = await PaymentIntent.create({
+        intentId,
+        user: req.user._id,
+        provider: provider.name,
+        providerOrderId: providerOrder.id,
+        amount,
+        currency: 'INR',
+        method: paymentMethod,
+        status,
+        riskSnapshot: {
+            score: risk.score,
+            decision: risk.strictDecision,
+            factors: risk.factors,
+            mode: risk.mode,
+        },
+        challenge: {
+            required: challengeRequired,
+            status: challengeRequired ? 'pending' : 'none',
+            verifiedAt: null,
+        },
+        expiresAt,
+        metadata: {
+            purpose: ESCROW_PAYMENT_PURPOSE,
+            listingId: String(listing._id),
+            listingTitle: String(listing.title || ''),
+            sellerId: String(listing.seller?._id || listing.seller),
+            sellerEmail: String(listing.seller?.email || ''),
+            checkoutPayload,
+            simulatedConfirm,
+            ip: req.ip || '',
+            userAgent: req.headers['user-agent'] || '',
+            deviceContext: req.body?.deviceContext || {},
+        },
+    });
+
+    await appendEscrowPaymentEvent({
+        intentId: intent.intentId,
+        source: 'api',
+        type: 'marketplace.escrow.intent_created',
+        payload: {
+            listingId: String(listing._id),
+            amount,
+            paymentMethod,
+            riskDecision: risk.strictDecision,
+        },
+    });
+
+    return res.json({
+        intentId: intent.intentId,
+        provider: intent.provider,
+        providerOrderId: intent.providerOrderId,
+        amount: intent.amount,
+        currency: intent.currency,
+        status: intent.status,
+        riskDecision: risk.strictDecision,
+        challengeRequired,
+        checkoutPayload,
+        simulatedConfirm,
+        listingId: String(listing._id),
+    });
+});
+
+const confirmEscrowIntent = asyncHandler(async (req, res, next) => {
+    if (!paymentFlags.paymentsEnabled) {
+        return next(new AppError('Marketplace payments are currently disabled', 503));
+    }
+
+    const listing = await Listing.findById(req.params.id).populate('seller', SELLER_PUBLIC);
+    try {
+        assertEscrowEligibility({ listing, userId: req.user._id, allowHeld: true });
+    } catch (error) {
+        return next(error);
+    }
+
+    const intent = await PaymentIntent.findOne({ intentId: req.params.intentId, user: req.user._id });
+    if (!intent) {
+        return next(new AppError('Escrow payment intent not found for this user', 404));
+    }
+    if (String(intent.metadata?.purpose || '') !== ESCROW_PAYMENT_PURPOSE) {
+        return next(new AppError('Payment intent is not valid for marketplace escrow', 409));
+    }
+    if (String(intent.metadata?.listingId || '') !== String(listing._id)) {
+        return next(new AppError('Escrow payment intent does not match this listing', 409));
+    }
+    if (isIntentExpired(intent)) {
+        intent.status = PAYMENT_STATUSES.EXPIRED;
+        await intent.save();
+        return next(new AppError('Escrow payment intent expired. Start payment again.', 409));
+    }
+    if (intent.challenge?.required && intent.challenge?.status !== 'verified') {
+        return next(new AppError('Payment challenge must be completed before confirmation', 403));
+    }
+    if (intent.status === PAYMENT_STATUSES.CAPTURED || intent.status === PAYMENT_STATUSES.AUTHORIZED) {
+        return res.json({
+            intentId: intent.intentId,
+            status: intent.status,
+            authorizedAt: intent.authorizedAt,
+            providerOrderId: intent.providerOrderId,
+            riskDecision: intent.riskSnapshot?.decision || 'allow',
+        });
+    }
+
+    const providerOrderId = String(req.body?.providerOrderId || '').trim();
+    const providerPaymentId = String(req.body?.providerPaymentId || '').trim();
+    const providerSignature = String(req.body?.providerSignature || '').trim();
+    if (!providerOrderId || !providerPaymentId || !providerSignature) {
+        return next(new AppError('providerOrderId, providerPaymentId and providerSignature are required', 400));
+    }
+    if (providerOrderId !== intent.providerOrderId) {
+        return next(new AppError('Provider order mismatch for escrow confirmation', 409));
+    }
+
+    const provider = getPaymentProvider();
+    const verified = provider.verifySignature({
+        orderId: providerOrderId,
+        paymentId: providerPaymentId,
+        signature: providerSignature,
+    });
+    if (!verified) {
+        return next(new AppError('Invalid escrow payment signature', 400));
+    }
+
+    const payment = await provider.fetchPayment(providerPaymentId);
+    const providerStatus = String(payment?.status || '').toLowerCase();
+    const nextStatus = providerStatus === 'captured' ? PAYMENT_STATUSES.CAPTURED : PAYMENT_STATUSES.AUTHORIZED;
+
+    intent.providerPaymentId = providerPaymentId;
+    intent.providerMethodId = payment.card_id || payment.vpa || payment.wallet || '';
+    intent.status = nextStatus;
+    intent.authorizedAt = new Date();
+    intent.attemptCount = Number(intent.attemptCount || 0) + 1;
+    if (nextStatus === PAYMENT_STATUSES.CAPTURED) {
+        intent.capturedAt = new Date();
+    }
+    await intent.save();
+
+    await appendEscrowPaymentEvent({
+        intentId: intent.intentId,
+        source: 'api',
+        type: 'marketplace.escrow.intent_confirmed',
+        payload: {
+            listingId: String(listing._id),
+            providerPaymentId,
+            providerOrderId,
+            status: nextStatus,
+        },
+    });
+
+    return res.json({
+        intentId: intent.intentId,
+        status: intent.status,
+        authorizedAt: intent.authorizedAt,
+        providerOrderId: intent.providerOrderId,
+        riskDecision: intent.riskSnapshot?.decision || 'allow',
+    });
+});
+
+/**
+ * @desc    Create a new listing
+ * @route   POST /api/listings
+ * @access  Private
+ */
+const createListing = asyncHandler(async (req, res, next) => {
+    const {
+        title,
+        description,
+        price,
+        negotiable,
+        condition,
+        category,
+        images,
+        location,
+    } = normalizeListingInput(req.body);
+
+    if (!title || !description || !price || !condition || !category || !images?.length || !location?.city || !location?.state) {
+        return next(new AppError('All fields are required: title, description, price, condition, category, images, location (city, state)', 400));
+    }
+
+    if (!req.user?.isVerified) {
+        return next(new AppError('Account verification required before creating a listing.', 403));
+    }
+
+    if (!req.user?.phone) {
+        return next(new AppError('Add a valid phone number in profile before creating a listing.', 400));
+    }
+
+    const integrityIssue = getIntegrityIssue({ title, description, images });
+    if (integrityIssue) {
+        return next(new AppError(integrityIssue, 400));
+    }
+
+    if (images.length > 5) {
+        return next(new AppError('Maximum 5 images allowed', 400));
+    }
+
+    // Check max active listings per user
+    const activeCount = await Listing.countDocuments({ seller: req.user._id, status: 'active' });
+    if (activeCount >= MAX_ACTIVE_LISTINGS) {
+        return next(new AppError(`You can have a maximum of ${MAX_ACTIVE_LISTINGS} active listings. Please remove or mark some as sold.`, 400));
+    }
+
+    const listing = await Listing.create({
+        seller: req.user._id,
+        title, description, price, negotiable: negotiable !== false,
+        condition, category, images,
+        location: {
+            city: location.city,
+            state: location.state,
+            pincode: location.pincode || '',
+            latitude: location.latitude ?? null,
+            longitude: location.longitude ?? null,
+            accuracyMeters: location.accuracyMeters ?? null,
+            confidence: location.confidence ?? null,
+            provider: location.provider || '',
+            capturedAt: location.capturedAt || null,
+        },
+        source: 'user',
+        escrowOptIn: Boolean(req.body.escrowOptIn),
+        escrow: {
+            enabled: false,
+            state: 'none',
+            buyer: null,
+            amount: 0,
+            holdReference: '',
+            startedAt: null,
+            confirmedAt: null,
+            releasedAt: null,
+        },
+    });
+
+    try {
+        await awardLoyaltyPoints({
+            userId: req.user._id,
+            action: 'listing_created',
+            refId: String(listing._id),
+        });
+    } catch (rewardError) {
+        logger.warn('loyalty.listing_reward_failed', {
+            userId: String(req.user._id),
+            listingId: String(listing._id),
+            error: rewardError.message,
+        });
+    }
+
+    res.status(201).json({ success: true, listing });
+});
+
+/**
+ * @desc    Get all listings with filters
+ * @route   GET /api/listings
+ * @access  Public
+ */
+const getListings = asyncHandler(async (req, res) => {
+    const {
+        category, city, condition, search,
+        minPrice, maxPrice,
+        sort = 'newest',
+        page = 1, limit = 12
+    } = req.query;
+
+    const baseFilter = { status: 'active' };
+
+    if (category) baseFilter.category = category;
+    if (city) baseFilter['location.city'] = { $regex: new RegExp(city, 'i') };
+    if (condition) baseFilter.condition = condition;
+    if (minPrice || maxPrice) {
+        baseFilter.price = {};
+        if (minPrice) baseFilter.price.$gte = Number(minPrice);
+        if (maxPrice) baseFilter.price.$lte = Number(maxPrice);
+    }
+    if (search) {
+        baseFilter.$text = { $search: search };
+    }
+    const filter = buildRealListingsFilter(baseFilter);
+
+    // Sort options
+    const sortMap = {
+        'newest': { createdAt: -1 },
+        'oldest': { createdAt: 1 },
+        'price-low': { price: 1 },
+        'price-high': { price: -1 },
+        'most-viewed': { views: -1 }
+    };
+    const sortOrder = sortMap[sort] || sortMap.newest;
+
+    const skip = (Number(page) - 1) * Number(limit);
+
+    const [listings, total] = await Promise.all([
+        Listing.find(filter, LIST_PROJECTION)
+            .populate('seller', 'name createdAt isVerified')
+            .sort(sortOrder)
+            .skip(skip)
+            .limit(Number(limit))
+            .lean(),
+        Listing.countDocuments(filter)
+    ]);
+
+    res.json({
+        success: true,
+        listings,
+        pagination: {
+            page: Number(page),
+            limit: Number(limit),
+            total,
+            pages: Math.ceil(total / Number(limit))
+        }
+    });
+});
+
+/**
+ * @desc    Get single listing detail
+ * @route   GET /api/listings/:id
+ * @access  Public
+ */
+const getListingById = asyncHandler(async (req, res, next) => {
+    const listing = await Listing.findById(req.params.id)
+        .populate('seller', SELLER_PUBLIC);
+
+    if (!listing || !isRealListingDoc(listing)) {
+        return next(new AppError('Listing not found', 404));
+    }
+
+    // Increment view count (fire-and-forget)
+    Listing.updateOne({ _id: listing._id }, { $inc: { views: 1 } }).exec();
+
+    const trustPassport = listing?.seller?._id
+        ? await buildSellerTrustPassport({ sellerId: listing.seller._id, sellerUser: listing.seller })
+        : null;
+
+    res.json({
+        success: true,
+        listing,
+        trustPassport,
+    });
+});
+
+/**
+ * @desc    Get city/category hotspot intelligence for marketplace GPS view
+ * @route   GET /api/listings/hotspots
+ * @access  Public
+ */
+const getCityHotspots = asyncHandler(async (req, res) => {
+    const category = String(req.query.category || '').trim();
+    const city = String(req.query.city || '').trim();
+    const state = String(req.query.state || '').trim();
+
+    const limit = clamp(Number(req.query.limit) || HOTSPOT_LIMIT_DEFAULT, 1, HOTSPOT_LIMIT_MAX);
+    const windowDays = clamp(Number(req.query.windowDays) || HOTSPOT_WINDOW_DEFAULT_DAYS, 7, 90);
+    const soldSince = new Date(Date.now() - (windowDays * 24 * 60 * 60 * 1000));
+    const categoryFilter = category ? { category } : {};
+
+    const activeBase = { status: 'active', ...categoryFilter };
+    const soldBase = { status: 'sold', soldAt: { $gte: soldSince }, ...categoryFilter };
+
+    const [supplyAgg, demandAgg] = await Promise.all([
+        Listing.aggregate([
+            { $match: buildRealListingsFilter(activeBase) },
+            {
+                $group: {
+                    _id: {
+                        city: '$location.city',
+                        state: '$location.state',
+                        category: '$category',
+                    },
+                    supplyCount: { $sum: 1 },
+                    totalViews: { $sum: { $ifNull: ['$views', 0] } },
+                    avgPrice: { $avg: '$price' },
+                },
+            },
+            { $match: { '_id.city': { $ne: null }, '_id.state': { $ne: null } } },
+        ]),
+        Listing.aggregate([
+            { $match: buildRealListingsFilter(soldBase) },
+            {
+                $group: {
+                    _id: {
+                        city: '$location.city',
+                        state: '$location.state',
+                        category: '$category',
+                    },
+                    soldCount: { $sum: 1 },
+                },
+            },
+            { $match: { '_id.city': { $ne: null }, '_id.state': { $ne: null } } },
+        ]),
+    ]);
+
+    const hotspotMap = new Map();
+    const getKey = (entry) => [
+        normalizeGeoToken(entry?._id?.city),
+        normalizeGeoToken(entry?._id?.state),
+        normalizeGeoToken(entry?._id?.category),
+    ].join('::');
+
+    for (const entry of supplyAgg) {
+        hotspotMap.set(getKey(entry), {
+            city: String(entry._id.city || '').trim(),
+            state: String(entry._id.state || '').trim(),
+            category: String(entry._id.category || '').trim(),
+            supplyCount: Number(entry.supplyCount || 0),
+            soldCount: 0,
+            totalViews: Number(entry.totalViews || 0),
+            avgPrice: Math.round(Number(entry.avgPrice || 0)),
+        });
+    }
+
+    for (const entry of demandAgg) {
+        const key = getKey(entry);
+        const existing = hotspotMap.get(key) || {
+            city: String(entry._id.city || '').trim(),
+            state: String(entry._id.state || '').trim(),
+            category: String(entry._id.category || '').trim(),
+            supplyCount: 0,
+            soldCount: 0,
+            totalViews: 0,
+            avgPrice: 0,
+        };
+        existing.soldCount = Number(entry.soldCount || 0);
+        hotspotMap.set(key, existing);
+    }
+
+    const queryCity = normalizeGeoToken(city);
+    const queryState = normalizeGeoToken(state);
+
+    const hotspots = Array.from(hotspotMap.values())
+        .map((entry) => {
+            const cityToken = normalizeGeoToken(entry.city);
+            const stateToken = normalizeGeoToken(entry.state);
+
+            const proximity =
+                queryCity && cityToken === queryCity
+                    ? 'local'
+                    : queryState && stateToken === queryState
+                        ? 'regional'
+                        : 'national';
+
+            const demandScore = clamp((entry.soldCount * 14) + Math.round(entry.totalViews / 40), 0, 100);
+            const supplyScore = clamp(entry.supplyCount * 8, 0, 100);
+            const ratio = entry.supplyCount > 0 ? Number((entry.soldCount / entry.supplyCount).toFixed(2)) : 0;
+            const baseHeatScore = clamp(Math.round((demandScore * 0.68) + ((100 - supplyScore) * 0.32)), 0, 100);
+            const proximityBoost = proximity === 'local' ? 8 : proximity === 'regional' ? 3 : 0;
+            const heatScore = clamp(baseHeatScore + proximityBoost, 0, 100);
+
+            return {
+                ...entry,
+                proximity,
+                demandScore,
+                supplyScore,
+                demandLevel: toSignalLabel(demandScore),
+                supplyLevel: toSignalLabel(supplyScore),
+                demandSupplyRatio: ratio,
+                heatScore,
+                heatLabel: toHotspotLabel(heatScore),
+            };
+        })
+        .sort((a, b) => b.heatScore - a.heatScore)
+        .slice(0, limit);
+
+    res.json({
+        success: true,
+        meta: {
+            category: category || 'all',
+            city: city || null,
+            state: state || null,
+            windowDays,
+            generatedAt: new Date().toISOString(),
+        },
+        hotspots,
+    });
+});
+
+/**
+ * @desc    Update a listing
+ * @route   PUT /api/listings/:id
+ * @access  Private (owner only)
+ */
+const updateListing = asyncHandler(async (req, res, next) => {
+    const listing = await Listing.findById(req.params.id);
+
+    if (!listing) return next(new AppError('Listing not found', 404));
+    if (listing.seller.toString() !== req.user._id.toString()) {
+        return next(new AppError('Not authorized to edit this listing', 403));
+    }
+
+    const allowed = ['title', 'description', 'price', 'negotiable', 'condition', 'category', 'images', 'location', 'escrowOptIn'];
+    const updates = {};
+    allowed.forEach(key => {
+        if (req.body[key] !== undefined) updates[key] = req.body[key];
+    });
+
+    const normalized = normalizeListingInput({
+        title: updates.title ?? listing.title,
+        description: updates.description ?? listing.description,
+        price: updates.price ?? listing.price,
+        negotiable: updates.negotiable ?? listing.negotiable,
+        condition: updates.condition ?? listing.condition,
+        category: updates.category ?? listing.category,
+        images: updates.images ?? listing.images,
+        location: updates.location ?? listing.location,
+    });
+
+    const integrityIssue = getIntegrityIssue({
+        title: normalized.title,
+        description: normalized.description,
+        images: normalized.images,
+    });
+    if (integrityIssue) {
+        return next(new AppError(integrityIssue, 400));
+    }
+
+    if (updates.title !== undefined) updates.title = normalized.title;
+    if (updates.description !== undefined) updates.description = normalized.description;
+    if (updates.price !== undefined) updates.price = normalized.price;
+    if (updates.negotiable !== undefined) updates.negotiable = normalized.negotiable;
+    if (updates.condition !== undefined) updates.condition = normalized.condition;
+    if (updates.category !== undefined) updates.category = normalized.category;
+    if (updates.images !== undefined) updates.images = normalized.images;
+    if (updates.location !== undefined) updates.location = normalized.location;
+    if (updates.escrowOptIn !== undefined) updates.escrowOptIn = Boolean(updates.escrowOptIn);
+
+    const updated = await Listing.findByIdAndUpdate(
+        req.params.id,
+        { $set: updates },
+        { new: true, runValidators: true }
+    ).populate('seller', SELLER_PUBLIC);
+
+    res.json({ success: true, listing: updated });
+});
+
+/**
+ * @desc    Mark listing as sold
+ * @route   PATCH /api/listings/:id/sold
+ * @access  Private (owner only)
+ */
+const markSold = asyncHandler(async (req, res, next) => {
+    const listing = await Listing.findById(req.params.id);
+
+    if (!listing) return next(new AppError('Listing not found', 404));
+    if (listing.seller.toString() !== req.user._id.toString()) {
+        return next(new AppError('Not authorized', 403));
+    }
+
+    listing.status = 'sold';
+    listing.soldAt = new Date();
+    await listing.save();
+
+    res.json({ success: true, message: 'Listing marked as sold', listing });
+});
+
+/**
+ * @desc    Delete a listing
+ * @route   DELETE /api/listings/:id
+ * @access  Private (owner only)
+ */
+const deleteListing = asyncHandler(async (req, res, next) => {
+    const listing = await Listing.findById(req.params.id);
+
+    if (!listing) return next(new AppError('Listing not found', 404));
+    if (listing.seller.toString() !== req.user._id.toString()) {
+        return next(new AppError('Not authorized', 403));
+    }
+
+    await Listing.deleteOne({ _id: listing._id });
+    res.json({ success: true, message: 'Listing deleted' });
+});
+
+/**
+ * @desc    Get current user's listings
+ * @route   GET /api/listings/my
+ * @access  Private
+ */
+const getMyListings = asyncHandler(async (req, res) => {
+    const listings = await Listing.find({ seller: req.user._id })
+        .sort({ createdAt: -1 })
+        .lean();
+
+    const stats = {
+        active: listings.filter(l => l.status === 'active').length,
+        sold: listings.filter(l => l.status === 'sold').length,
+        totalViews: listings.reduce((sum, l) => sum + (l.views || 0), 0)
+    };
+
+    res.json({ success: true, listings, stats });
+});
+
+/**
+ * @desc    Get a seller's public profile + active listings
+ * @route   GET /api/listings/seller/:userId
+ * @access  Public
+ */
+const getSellerProfile = asyncHandler(async (req, res, next) => {
+    const seller = await User.findById(req.params.userId)
+        .select('name createdAt isVerified')
+        .lean();
+
+    if (!seller) return next(new AppError('Seller not found', 404));
+
+    const listings = await Listing.find(buildRealListingsFilter({ seller: req.params.userId, status: 'active' }))
+        .sort({ createdAt: -1 })
+        .lean();
+
+    const totalSold = await Listing.countDocuments(buildRealListingsFilter({ seller: req.params.userId, status: 'sold' }));
+    const trustPassport = await buildSellerTrustPassport({ sellerId: req.params.userId, sellerUser: seller });
+
+    res.json({
+        success: true,
+        seller: {
+            ...seller,
+            activeListings: listings.length,
+            totalSold,
+            trustPassport,
+        },
+        listings
+    });
+});
+
+/**
+ * @desc    Get current user's marketplace message inbox
+ * @route   GET /api/listings/messages/inbox
+ * @access  Private
+ */
+const getMyMessageInbox = asyncHandler(async (req, res) => {
+    const viewerId = String(req.user?._id || '');
+    const listings = await Listing.find({
+        $or: [
+            { seller: req.user._id },
+            { 'conversations.buyer': req.user._id },
+        ],
+    })
+        .select('title price images status seller conversations')
+        .select('+conversations')
+        .lean();
+
+    const counterpartIds = new Set();
+    const rows = [];
+
+    for (const listing of listings) {
+        if (!isRealListingDoc(listing)) continue;
+        const sellerId = String(listing?.seller || '');
+        const threads = Array.isArray(listing?.conversations) ? listing.conversations : [];
+
+        for (const thread of threads) {
+            const buyerId = String(thread?.buyer || '');
+            const isSellerThread = sellerId === viewerId;
+            const isBuyerThread = buyerId === viewerId;
+            if (!isSellerThread && !isBuyerThread) continue;
+
+            const counterpartId = isSellerThread ? buyerId : sellerId;
+            if (counterpartId) counterpartIds.add(counterpartId);
+            rows.push({ listing, thread });
+        }
+    }
+
+    const counterpartMap = new Map();
+    if (counterpartIds.size > 0) {
+        const users = await User.find({ _id: { $in: Array.from(counterpartIds) } })
+            .select('name email avatar isVerified')
+            .lean();
+        for (const user of users) {
+            counterpartMap.set(String(user._id), user);
+        }
+    }
+
+    const conversations = rows.map(({ listing, thread }) => {
+        const sellerId = String(listing?.seller || '');
+        const buyerId = String(thread?.buyer || '');
+        const viewerIsSeller = sellerId === viewerId;
+        const counterpartId = viewerIsSeller ? buyerId : sellerId;
+        const counterpartUser = counterpartMap.get(counterpartId) || null;
+
+        return serializeThreadForUser({
+            listing,
+            thread: { ...thread, messages: [] },
+            viewerId,
+            sellerUser: viewerIsSeller ? null : counterpartUser,
+            buyerUser: viewerIsSeller ? counterpartUser : null,
+        });
+    });
+
+    res.json({
+        success: true,
+        conversations: sortThreadsByLastMessage(conversations),
+    });
+});
+
+/**
+ * @desc    Get listing conversation between current user and seller/buyer
+ * @route   GET /api/listings/:id/messages
+ * @access  Private
+ */
+const getListingMessages = asyncHandler(async (req, res, next) => {
+    const listing = await Listing.findById(req.params.id)
+        .select('title price images status seller conversations')
+        .select('+conversations');
+
+    if (!listing || !isRealListingDoc(listing)) {
+        return next(new AppError('Listing not found', 404));
+    }
+
+    const viewerId = String(req.user._id);
+    const sellerId = String(listing.seller);
+    const viewerIsSeller = viewerId === sellerId;
+    const requestedBuyerId = String(req.query.buyerId || '').trim();
+
+    let thread = null;
+    if (viewerIsSeller) {
+        if (requestedBuyerId) {
+            thread = listing.conversations.find((entry) => String(entry?.buyer || '') === requestedBuyerId) || null;
+        }
+    } else {
+        thread = listing.conversations.find((entry) => String(entry?.buyer || '') === viewerId) || null;
+    }
+
+    if (!thread) {
+        if (viewerIsSeller && !requestedBuyerId) {
+            const summaries = sortThreadsByLastMessage(listing.conversations || []).map((entry) => ({
+                buyerId: String(entry?.buyer || ''),
+                unreadBySeller: Number(entry?.unreadBySeller || 0),
+                unreadByBuyer: Number(entry?.unreadByBuyer || 0),
+                lastMessageAt: entry?.lastMessageAt || null,
+                lastMessagePreview: entry?.lastMessagePreview || '',
+            }));
+            return res.json({ success: true, conversation: null, conversations: summaries });
+        }
+        return res.json({ success: true, conversation: null });
+    }
+
+    const buyerId = String(thread.buyer || '');
+    const users = await User.find({ _id: { $in: [sellerId, buyerId].filter(Boolean) } })
+        .select('name email avatar isVerified')
+        .lean();
+    const userMap = new Map(users.map((user) => [String(user._id), user]));
+
+    const counterpartPayload = serializeThreadForUser({
+        listing,
+        thread,
+        viewerId,
+        sellerUser: userMap.get(sellerId) || null,
+        buyerUser: userMap.get(buyerId) || null,
+    });
+
+    const hasUnread = viewerIsSeller
+        ? Number(thread.unreadBySeller || 0) > 0
+        : Number(thread.unreadByBuyer || 0) > 0;
+    if (hasUnread) {
+        if (viewerIsSeller) {
+            thread.unreadBySeller = 0;
+        } else {
+            thread.unreadByBuyer = 0;
+        }
+        const readAt = new Date();
+        thread.messages.forEach((message) => {
+            const senderId = String(message?.sender || '');
+            if (senderId && senderId !== viewerId && !message.readAt) {
+                message.readAt = readAt;
+            }
+        });
+        listing.markModified('conversations');
+        await listing.save();
+        counterpartPayload.unreadCount = 0;
+    }
+
+    return res.json({ success: true, conversation: counterpartPayload });
+});
+
+/**
+ * @desc    Send a persistent marketplace message to listing seller/buyer
+ * @route   POST /api/listings/:id/messages
+ * @access  Private
+ */
+const sendListingMessage = asyncHandler(async (req, res, next) => {
+    const listing = await Listing.findById(req.params.id)
+        .select('title price images status seller conversations')
+        .select('+conversations');
+
+    if (!listing || !isRealListingDoc(listing)) {
+        return next(new AppError('Listing not found', 404));
+    }
+
+    const text = normalizeMessageText(req.body?.text);
+    if (!text) {
+        return next(new AppError('Message text is required', 400));
+    }
+    if (text.length > MAX_CHAT_MESSAGE_LENGTH) {
+        return next(new AppError(`Message is too long (max ${MAX_CHAT_MESSAGE_LENGTH} characters)`, 400));
+    }
+
+    const viewerId = String(req.user._id);
+    const sellerId = String(listing.seller);
+    const viewerIsSeller = viewerId === sellerId;
+    let buyerId = viewerId;
+
+    if (viewerIsSeller) {
+        buyerId = String(req.body?.buyerId || '').trim();
+        if (!buyerId) {
+            return next(new AppError('buyerId is required when seller sends a message', 400));
+        }
+        if (!isValidObjectId(buyerId)) {
+            return next(new AppError('Invalid buyerId', 400));
+        }
+        if (buyerId === sellerId) {
+            return next(new AppError('Seller cannot message self', 400));
+        }
+    }
+
+    let thread = listing.conversations.find((entry) => String(entry?.buyer || '') === buyerId);
+    if (!thread) {
+        if (viewerIsSeller) {
+            return next(new AppError('Conversation not found for selected buyer', 404));
+        }
+        if (listing.conversations.length >= MAX_CHAT_THREADS_PER_LISTING) {
+            listing.conversations = sortThreadsByLastMessage(listing.conversations).slice(0, MAX_CHAT_THREADS_PER_LISTING - 1);
+        }
+        listing.conversations.push({
+            buyer: req.user._id,
+            unreadBySeller: 0,
+            unreadByBuyer: 0,
+            lastMessageAt: new Date(),
+            lastMessagePreview: '',
+            messages: [],
+        });
+        thread = listing.conversations[listing.conversations.length - 1];
+    }
+
+    const sentAt = new Date();
+    thread.messages.push({
+        sender: req.user._id,
+        senderRole: viewerIsSeller ? 'seller' : 'buyer',
+        text,
+        sentAt,
+        readAt: null,
+    });
+    if (thread.messages.length > MAX_CHAT_MESSAGES_PER_THREAD) {
+        thread.messages = thread.messages.slice(-MAX_CHAT_MESSAGES_PER_THREAD);
+    }
+
+    thread.lastMessageAt = sentAt;
+    thread.lastMessagePreview = text.slice(0, 180);
+    if (viewerIsSeller) {
+        thread.unreadByBuyer = Number(thread.unreadByBuyer || 0) + 1;
+        thread.unreadBySeller = 0;
+    } else {
+        thread.unreadBySeller = Number(thread.unreadBySeller || 0) + 1;
+        thread.unreadByBuyer = 0;
+    }
+
+    listing.markModified('conversations');
+    await listing.save();
+
+    const sellerLookupId = sellerId;
+    const buyerLookupId = String(thread.buyer || '');
+    const users = await User.find({ _id: { $in: [sellerLookupId, buyerLookupId].filter(Boolean) } })
+        .select('name email avatar isVerified')
+        .lean();
+    const userMap = new Map(users.map((user) => [String(user._id), user]));
+
+    const conversation = serializeThreadForUser({
+        listing,
+        thread,
+        viewerId,
+        sellerUser: userMap.get(sellerLookupId) || null,
+        buyerUser: userMap.get(buyerLookupId) || null,
+    });
+
+    const actorName = String(req.user?.name || req.user?.email || 'A marketplace user').trim();
+    const recipientUser = viewerIsSeller
+        ? userMap.get(buyerLookupId)
+        : userMap.get(sellerLookupId);
+
+    sendCounterpartyMessageEmail({
+        recipientEmail: recipientUser?.email || '',
+        recipientName: recipientUser?.name || '',
+        actorName,
+        listing,
+        messageText: text,
+        req,
+    }).catch((error) => {
+        logger.warn('listing.message_counterparty_email_failed', {
+            listingId: String(listing._id),
+            senderId: viewerId,
+            recipientId: viewerIsSeller ? buyerLookupId : sellerLookupId,
+            error: error.message,
+        });
+    });
+
+    res.json({
+        success: true,
+        message: 'Message sent',
+        conversation,
+    });
+});
+
+const startEscrow = asyncHandler(async (req, res, next) => {
+    const listing = await Listing.findById(req.params.id).populate('seller', SELLER_PUBLIC);
+    try {
+        assertEscrowEligibility({ listing, userId: req.user._id, allowHeld: false });
+    } catch (error) {
+        return next(error);
+    }
+
+    const paymentIntentId = String(req.body?.paymentIntentId || '').trim();
+    if (!paymentIntentId) {
+        return next(new AppError('paymentIntentId is required to start escrow', 400));
+    }
+
+    const intent = await PaymentIntent.findOne({ intentId: paymentIntentId, user: req.user._id });
+    if (!intent) {
+        return next(new AppError('Escrow payment intent not found for this user', 404));
+    }
+    if (String(intent.metadata?.purpose || '') !== ESCROW_PAYMENT_PURPOSE) {
+        return next(new AppError('Payment intent is not valid for marketplace escrow', 409));
+    }
+    if (String(intent.metadata?.listingId || '') !== String(listing._id)) {
+        return next(new AppError('Payment intent does not match this listing', 409));
+    }
+    if (String(intent.metadata?.sellerId || '') !== String(listing.seller?._id || listing.seller)) {
+        return next(new AppError('Payment intent seller mismatch', 409));
+    }
+    if (isIntentExpired(intent)) {
+        intent.status = PAYMENT_STATUSES.EXPIRED;
+        await intent.save();
+        return next(new AppError('Escrow payment intent expired. Restart payment flow.', 409));
+    }
+    if (![PAYMENT_STATUSES.AUTHORIZED, PAYMENT_STATUSES.CAPTURED].includes(intent.status)) {
+        return next(new AppError('Payment intent is not authorized for escrow hold', 409));
+    }
+
+    const listingPrice = roundCurrency(listing.price || 0);
+    if (diff(intent.amount, listingPrice) > 0.01) {
+        return next(new AppError('Payment amount mismatch with listing price', 409));
+    }
+
+    listing.escrow = {
+        enabled: true,
+        state: 'held',
+        buyer: req.user._id,
+        amount: listingPrice,
+        holdReference: `ESC-${intent.intentId}`,
+        paymentIntentId: intent.intentId,
+        paymentProvider: intent.provider || '',
+        paymentState: intent.status,
+        paymentAuthorizedAt: intent.authorizedAt || null,
+        paymentCapturedAt: intent.capturedAt || null,
+        refundReference: '',
+        refundedAt: null,
+        startedAt: new Date(),
+        confirmedAt: null,
+        releasedAt: null,
+    };
+
+    await listing.save();
+    await appendEscrowPaymentEvent({
+        intentId: intent.intentId,
+        source: 'api',
+        type: 'marketplace.escrow.hold_started',
+        payload: {
+            listingId: String(listing._id),
+            buyerId: String(req.user._id),
+            amount: listingPrice,
+        },
+    });
+
+    return res.json({
+        success: true,
+        message: 'Escrow hold created. Payment is now locked until buyer confirms delivery.',
+        listing,
+    });
+});
+
+const confirmEscrowDelivery = asyncHandler(async (req, res, next) => {
+    const listing = await Listing.findById(req.params.id).populate('seller', SELLER_PUBLIC);
+    if (!listing) return next(new AppError('Listing not found', 404));
+
+    if (listing.escrow?.state !== 'held') {
+        return next(new AppError('No active escrow hold found for this listing', 409));
+    }
+    if (String(listing.escrow?.buyer || '') !== String(req.user._id)) {
+        return next(new AppError('Only escrow buyer can confirm delivery', 403));
+    }
+
+    const paymentIntentId = String(listing.escrow?.paymentIntentId || '').trim();
+    if (!paymentIntentId) {
+        return next(new AppError('Escrow hold is missing payment intent reference', 409));
+    }
+
+    const intent = await PaymentIntent.findOne({ intentId: paymentIntentId, user: listing.escrow.buyer });
+    if (!intent) {
+        return next(new AppError('Escrow payment intent no longer exists', 409));
+    }
+
+    if (isIntentExpired(intent) && intent.status !== PAYMENT_STATUSES.CAPTURED) {
+        intent.status = PAYMENT_STATUSES.EXPIRED;
+        await intent.save();
+        return next(new AppError('Escrow payment authorization expired. Please restart transaction.', 409));
+    }
+
+    let finalIntent = intent;
+    if (intent.status === PAYMENT_STATUSES.AUTHORIZED) {
+        finalIntent = await captureIntentNow({ intentId: paymentIntentId });
+    } else if (intent.status !== PAYMENT_STATUSES.CAPTURED) {
+        return next(new AppError(`Escrow payment is in invalid state: ${intent.status}`, 409));
+    }
+
+    listing.escrow.state = 'released';
+    listing.escrow.confirmedAt = new Date();
+    listing.escrow.releasedAt = new Date();
+    listing.escrow.paymentState = finalIntent.status;
+    listing.escrow.paymentCapturedAt = finalIntent.capturedAt || new Date();
+    listing.status = 'sold';
+    listing.soldAt = new Date();
+
+    await listing.save();
+    await appendEscrowPaymentEvent({
+        intentId: paymentIntentId,
+        source: 'api',
+        type: 'marketplace.escrow.released',
+        payload: {
+            listingId: String(listing._id),
+            buyerId: String(req.user._id),
+            releasedAt: new Date().toISOString(),
+        },
+    });
+
+    return res.json({
+        success: true,
+        message: 'Delivery confirmed. Payment captured and escrow released to seller.',
+        listing,
+    });
+});
+
+const cancelEscrow = asyncHandler(async (req, res, next) => {
+    const listing = await Listing.findById(req.params.id).populate('seller', SELLER_PUBLIC);
+    if (!listing) return next(new AppError('Listing not found', 404));
+
+    if (listing.escrow?.state !== 'held') {
+        return next(new AppError('No active escrow hold to cancel', 409));
+    }
+
+    const isBuyer = String(listing.escrow?.buyer || '') === String(req.user._id);
+    const isSeller = String(listing.seller?._id || listing.seller) === String(req.user._id);
+    if (!isBuyer && !isSeller) {
+        return next(new AppError('Not authorized to cancel this escrow hold', 403));
+    }
+
+    const paymentIntentId = String(listing.escrow?.paymentIntentId || '').trim();
+    if (paymentIntentId) {
+        const intent = await PaymentIntent.findOne({ intentId: paymentIntentId, user: listing.escrow?.buyer });
+        if (intent) {
+            if (intent.status === PAYMENT_STATUSES.CAPTURED) {
+                if (!intent.providerPaymentId) {
+                    return next(new AppError('Captured escrow payment is missing provider payment reference', 409));
+                }
+
+                const provider = getPaymentProvider();
+                const providerRefund = await provider.refund({
+                    paymentId: intent.providerPaymentId,
+                    amount: intent.amount,
+                    notes: {
+                        reason: 'marketplace_escrow_cancelled',
+                        listingId: String(listing._id),
+                        cancelledBy: String(req.user._id),
+                    },
+                });
+
+                intent.status = PAYMENT_STATUSES.REFUNDED;
+                await intent.save();
+                await appendEscrowPaymentEvent({
+                    intentId: paymentIntentId,
+                    source: 'api',
+                    type: 'marketplace.escrow.refunded',
+                    payload: {
+                        listingId: String(listing._id),
+                        refundId: providerRefund.id || '',
+                        amount: intent.amount,
+                    },
+                });
+
+                listing.escrow.paymentState = PAYMENT_STATUSES.REFUNDED;
+                listing.escrow.refundReference = String(providerRefund.id || '');
+                listing.escrow.refundedAt = new Date();
+            } else if (
+                intent.status === PAYMENT_STATUSES.AUTHORIZED
+                || intent.status === PAYMENT_STATUSES.CREATED
+                || intent.status === PAYMENT_STATUSES.CHALLENGE_PENDING
+            ) {
+                intent.status = PAYMENT_STATUSES.EXPIRED;
+                await intent.save();
+                await appendEscrowPaymentEvent({
+                    intentId: paymentIntentId,
+                    source: 'api',
+                    type: 'marketplace.escrow.authorization_released',
+                    payload: {
+                        listingId: String(listing._id),
+                        cancelledBy: String(req.user._id),
+                    },
+                });
+                listing.escrow.paymentState = PAYMENT_STATUSES.EXPIRED;
+            }
+        }
+    }
+
+    listing.escrow.state = 'cancelled';
+    listing.escrow.enabled = true;
+    listing.escrow.confirmedAt = null;
+    listing.escrow.releasedAt = null;
+    listing.status = 'active';
+    listing.soldAt = null;
+    if (!isBuyer) {
+        listing.disputeCount = (Number(listing.disputeCount) || 0) + 1;
+    }
+
+    await listing.save();
+    return res.json({
+        success: true,
+        message: 'Escrow cancelled and listing re-opened.',
+        listing,
+    });
+});
+
+module.exports = {
+    createListing, getListings, getListingById,
+    updateListing, markSold, deleteListing,
+    getMyListings, getSellerProfile,
+    getMyMessageInbox, getListingMessages, sendListingMessage,
+    createEscrowIntent, confirmEscrowIntent,
+    startEscrow, confirmEscrowDelivery, cancelEscrow,
+    getCityHotspots,
+};
