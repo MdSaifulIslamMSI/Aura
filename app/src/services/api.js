@@ -1,5 +1,5 @@
-const BASE_URL = '/api'; // Use relative path to leverage Vite Proxy
 import { auth } from '../config/firebase';
+import { API_BASE_URL as BASE_URL } from './apiBase';
 
 const getAuthHeader = async (firebaseUser = null) => {
     const user = firebaseUser || auth.currentUser;

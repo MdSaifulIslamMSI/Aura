@@ -1,5 +1,5 @@
-const API_URL = import.meta.env.VITE_API_URL || '/api';
 import { auth } from '../config/firebase';
+import { API_BASE_URL as API_URL } from './apiBase';
 
 const getChatHeaders = async () => {
     const headers = { 'Content-Type': 'application/json' };
