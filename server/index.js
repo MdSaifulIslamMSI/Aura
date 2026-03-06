@@ -37,6 +37,7 @@ const adminCatalogRoutes = require('./routes/adminCatalogRoutes');
 const adminUserRoutes = require('./routes/adminUserRoutes');
 const adminProductRoutes = require('./routes/adminProductRoutes');
 const adminOpsRoutes = require('./routes/adminOpsRoutes');
+const internalOpsRoutes = require('./routes/internalOpsRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
 const { assertProductionPaymentConfig } = require('./config/paymentFlags');
 const { assertProductionEmailConfig } = require('./config/emailFlags');
@@ -147,6 +148,7 @@ app.use('/api/admin/catalog', adminCatalogRoutes);
 app.use('/api/admin/users', adminUserRoutes);
 app.use('/api/admin/products', adminProductRoutes);
 app.use('/api/admin/ops', adminOpsRoutes);
+app.use('/api/internal', internalOpsRoutes);
 app.use('/api/uploads', uploadRoutes);
 
 // Health Check

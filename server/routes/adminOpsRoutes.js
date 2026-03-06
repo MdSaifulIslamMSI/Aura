@@ -4,16 +4,18 @@ const validate = require('../middleware/validate');
 const {
     getAdminOpsReadiness,
     runAdminOpsSmoke,
+    runAdminOpsMaintenance,
 } = require('../controllers/adminOpsController');
 const {
     adminOpsReadinessSchema,
     adminOpsSmokeSchema,
+    adminOpsMaintenanceSchema,
 } = require('../validators/adminOpsValidators');
 
 const router = express.Router();
 
 router.get('/readiness', protect, admin, validate(adminOpsReadinessSchema), getAdminOpsReadiness);
 router.post('/smoke', protect, admin, validate(adminOpsSmokeSchema), runAdminOpsSmoke);
+router.post('/maintenance', protect, admin, validate(adminOpsMaintenanceSchema), runAdminOpsMaintenance);
 
 module.exports = router;
-

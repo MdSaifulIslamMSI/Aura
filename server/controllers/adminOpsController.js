@@ -15,6 +15,7 @@ const {
 const {
     getCatalogHealth,
 } = require('../services/catalogService');
+const { runMaintenanceTasks } = require('../services/opsMaintenanceService');
 
 const buildReadiness = async () => {
     const dbConnected = mongoose.connection.readyState === 1;
@@ -158,8 +159,24 @@ const runAdminOpsSmoke = asyncHandler(async (req, res) => {
     });
 });
 
+// @desc    Run short maintenance tasks on demand
+// @route   POST /api/admin/ops/maintenance
+// @access  Private/Admin
+const runAdminOpsMaintenance = asyncHandler(async (req, res) => {
+    const maintenance = await runMaintenanceTasks({
+        requestedTasks: req.body?.tasks || [],
+        source: 'admin_manual',
+        requestId: req.requestId || '',
+    });
+
+    res.status(maintenance.success ? 200 : 500).json({
+        success: maintenance.success,
+        maintenance,
+    });
+});
+
 module.exports = {
     getAdminOpsReadiness,
     runAdminOpsSmoke,
+    runAdminOpsMaintenance,
 };
-
