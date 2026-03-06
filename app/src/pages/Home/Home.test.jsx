@@ -9,6 +9,22 @@ import { WishlistContext } from '@/context/WishlistContext';
 import { ColorModeProvider } from '@/context/ColorModeContext';
 import { MotionModeProvider } from '@/context/MotionModeContext';
 
+vi.mock('@/components/features/home/Carousel', () => ({
+    default: () => <div data-testid="home-carousel">Carousel</div>,
+}));
+
+vi.mock('@/components/features/product/ProductCard', () => ({
+    default: ({ product }) => <div data-testid="product-card">{product?.title || product?.name || 'Product'}</div>,
+}));
+
+vi.mock('@/components/shared/SkeletonLoader', () => ({
+    default: () => <div data-testid="skeleton-loader">Loading</div>,
+}));
+
+vi.mock('@/components/shared/RevealOnScroll', () => ({
+    default: ({ children }) => <>{children}</>,
+}));
+
 // Mock the API layer
 vi.mock('@/services/api', () => ({
     productApi: {

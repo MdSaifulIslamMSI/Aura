@@ -8,6 +8,18 @@ import { WishlistContext } from '@/context/WishlistContext';
 import { ColorModeProvider } from '@/context/ColorModeContext';
 import { MotionModeProvider } from '@/context/MotionModeContext';
 
+vi.mock('@/components/shared/GlobalSearchBar', () => ({
+    default: ({ className = '' }) => <div data-testid="global-search-bar" className={className}>Search</div>,
+}));
+
+vi.mock('@/components/features/auth/LoginModal', () => ({
+    default: ({ isOpen }) => (isOpen ? <div data-testid="login-modal">Login Modal</div> : null),
+}));
+
+vi.mock('@/components/shared/VoiceSearch', () => ({
+    default: () => <div data-testid="voice-search">Voice Search</div>,
+}));
+
 describe('Navbar Component', () => {
     const mockAuth = {
         currentUser: null,
