@@ -1,6 +1,18 @@
 {
   "rewrites": [
     {
+      "source": "/api/(.*)",
+      "destination": "https://server-rho-kohl.vercel.app/api/$1"
+    },
+    {
+      "source": "/health",
+      "destination": "https://server-rho-kohl.vercel.app/health"
+    },
+    {
+      "source": "/health/ready",
+      "destination": "https://server-rho-kohl.vercel.app/health/ready"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
