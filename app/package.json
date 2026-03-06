@@ -8,7 +8,7 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run --no-file-parallelism --maxWorkers=1"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
