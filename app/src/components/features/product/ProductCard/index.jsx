@@ -6,6 +6,7 @@ import { CartContext } from '@/context/CartContext';
 import { useColorMode } from '@/context/ColorModeContext';
 import { cn } from '@/lib/utils';
 import { formatPrice } from '@/utils/format';
+import { productApi } from '@/services/api';
 
 const ProductCard = ({ product, variant = 'default' }) => {
   const { toggleWishlist, isInWishlist } = useContext(WishlistContext);

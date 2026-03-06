@@ -7,46 +7,22 @@ const PaymentIntent = require('../models/PaymentIntent');
 const PaymentEvent = require('../models/PaymentEvent');
 const OrderEmailNotification = require('../models/OrderEmailNotification');
 const AppError = require('../utils/AppError');
-const logger = require('../utils/logger');
 const {
     PRICING_VERSION,
     buildOrderQuote,
-    normalizePaymentSimulation,
     simulatePaymentResult,
 } = require('../services/orderPricingService');
 const {
-    validatePaymentIntentForOrder,
-    linkIntentToOrder,
-    scheduleCaptureTask,
     scheduleRefundTask,
     createRefundForIntent,
 } = require('../services/payments/paymentService');
-const {
-    enqueueOrderPlacedEmail,
-} = require('../services/email/orderEmailQueueService');
 const { notifyAdminActionToUser } = require('../services/email/adminActionEmailService');
-const { awardLoyaltyPoints } = require('../services/loyaltyService');
+const { placeOrderWithIdempotency } = require('../services/orderPlacementService');
 const {
     getRequiredIdempotencyKey,
     getStableUserKey,
-    withIdempotency,
 } = require('../services/payments/idempotencyService');
 const { flags: paymentFlags } = require('../config/paymentFlags');
-const { flags: emailFlags, EMAIL_REGEX } = require('../config/emailFlags');
-
-const assertQuoteSnapshot = (quoteSnapshot, totalPrice) => {
-    if (!quoteSnapshot || quoteSnapshot.totalPrice === undefined || quoteSnapshot.totalPrice === null) {
-        return;
-    }
-
-    const provided = Number(quoteSnapshot.totalPrice);
-    if (!Number.isFinite(provided)) return;
-
-    const delta = Math.abs(provided - totalPrice);
-    if (delta > 0.01) {
-        throw new AppError('Quote expired. Please recalculate before placing the order.', 409);
-    }
-};
 
 const toTimelineDate = (value) => {
     const date = value ? new Date(value) : null;
@@ -197,27 +173,6 @@ const notifyOrderOwnerAdminAction = async ({
     });
 };
 
-const mapToDbOrderItems = (resolvedItems) => resolvedItems.map((item) => ({
-    title: item.title,
-    quantity: item.quantity,
-    image: item.image,
-    price: item.price,
-    product: item.mongoProductId,
-}));
-
-const decrementStockAtomically = async (resolvedItems, session) => {
-    for (const item of resolvedItems) {
-        const update = await Product.updateOne(
-            { id: item.productId, stock: { $gte: item.quantity } },
-            { $inc: { stock: -item.quantity } }
-        ).session(session);
-
-        if (update.modifiedCount !== 1) {
-            throw new AppError(`Unable to reserve stock for product ${item.productId}`, 409);
-        }
-    }
-};
-
 // @desc    Quote order pricing
 // @route   POST /api/orders/quote
 // @access  Private
@@ -270,161 +225,13 @@ const addOrderItems = asyncHandler(async (req, res, next) => {
     try {
         const idempotencyKey = getRequiredIdempotencyKey(req);
         const userKey = getStableUserKey(req);
-
-        const result = await withIdempotency({
-            key: idempotencyKey,
+        const result = await placeOrderWithIdempotency({
+            body: req.body,
+            user: req.user,
+            userId,
+            requestId: req.requestId,
+            idempotencyKey,
             userKey,
-            route: 'orders:create',
-            requestPayload: req.body,
-            handler: async () => {
-                if (emailFlags.orderEmailsEnabled && !EMAIL_REGEX.test(String(req.user?.email || '').trim())) {
-                    throw new AppError('A valid account email is required to place order', 400);
-                }
-
-                const session = await mongoose.startSession();
-                session.startTransaction();
-
-                try {
-                    const quote = await buildOrderQuote(req.body, { session, checkStock: true });
-                    assertQuoteSnapshot(req.body.quoteSnapshot, quote.pricing.totalPrice);
-
-                    const paymentValidation = await validatePaymentIntentForOrder({
-                        userId,
-                        paymentIntentId: req.body.paymentIntentId,
-                        paymentMethod: quote.normalized.paymentMethod,
-                        totalPrice: quote.pricing.totalPrice,
-                        paymentSimulation: normalizePaymentSimulation(req.body.paymentSimulation || {}),
-                        session,
-                        claimForOrder: true,
-                        claimKey: idempotencyKey,
-                    });
-
-                    await decrementStockAtomically(quote.resolvedItems, session);
-
-                    const paymentIntent = paymentValidation.paymentIntent;
-                    const order = new Order({
-                        user: userId,
-                        orderItems: mapToDbOrderItems(quote.resolvedItems),
-                        shippingAddress: quote.normalized.shippingAddress,
-                        paymentMethod: quote.normalized.paymentMethod,
-                        itemsPrice: quote.pricing.itemsPrice,
-                        taxPrice: quote.pricing.taxPrice,
-                        shippingPrice: quote.pricing.shippingPrice,
-                        totalPrice: quote.pricing.totalPrice,
-                        couponCode: quote.normalized.couponCode || '',
-                        couponDiscount: quote.pricing.couponDiscount,
-                        paymentAdjustment: quote.pricing.paymentAdjustment,
-                        deliveryOption: quote.normalized.deliveryOption,
-                        deliverySlot: quote.normalized.deliverySlot || undefined,
-                        checkoutSource: quote.normalized.checkoutSource,
-                        pricingVersion: quote.pricing.pricingVersion || PRICING_VERSION,
-                        priceBreakdown: quote.pricing.priceBreakdown,
-                        paymentIntentId: paymentIntent?.intentId || req.body.paymentIntentId || '',
-                        paymentProvider: paymentIntent?.provider || (paymentFlags.paymentProvider === 'simulated' ? 'simulated' : ''),
-                        paymentState: paymentValidation.paymentState,
-                        paymentAuthorizedAt: paymentIntent?.authorizedAt || null,
-                        paymentCapturedAt: paymentIntent?.capturedAt || null,
-                        riskSnapshot: paymentIntent?.riskSnapshot || {},
-                        statusTimeline: [{
-                            status: 'placed',
-                            message: 'Order created',
-                            actor: 'system',
-                            at: new Date(),
-                        }],
-                        paymentResult: paymentIntent
-                            ? {
-                                id: paymentIntent.providerPaymentId || '',
-                                status: paymentIntent.status,
-                                update_time: new Date().toISOString(),
-                                email_address: req.user.email || '',
-                            }
-                            : req.body.paymentSimulation
-                                ? {
-                                    id: req.body.paymentSimulation.referenceId || '',
-                                    status: req.body.paymentSimulation.status,
-                                    update_time: new Date().toISOString(),
-                                    email_address: req.user.email || '',
-                                }
-                                : undefined,
-                        isPaid: paymentValidation.isPaid,
-                        paidAt: paymentValidation.isPaid ? new Date() : undefined,
-                        orderStatus: 'placed',
-                    });
-
-                    const createdOrder = await order.save({ session });
-                    if (paymentIntent?.intentId) {
-                        await linkIntentToOrder({
-                            intentId: paymentIntent.intentId,
-                            orderId: createdOrder._id,
-                            session,
-                            claimKey: paymentValidation.claimKey || idempotencyKey,
-                        });
-                    }
-
-                    try {
-                        await awardLoyaltyPoints({
-                            userId,
-                            action: 'order_placed',
-                            orderTotal: quote.pricing.totalPrice,
-                            refId: String(createdOrder._id),
-                            session,
-                        });
-                    } catch (rewardError) {
-                        logger.warn('loyalty.order_reward_failed', {
-                            requestId: req.requestId,
-                            userId: String(userId),
-                            orderId: String(createdOrder._id),
-                            error: rewardError.message,
-                        });
-                    }
-
-                    if (emailFlags.orderEmailsEnabled) {
-                        const notification = await enqueueOrderPlacedEmail({
-                            order: createdOrder,
-                            user: req.user,
-                            requestId: req.requestId,
-                            session,
-                        });
-
-                        if (notification?.notificationId) {
-                            createdOrder.confirmationEmailStatus = 'pending';
-                            createdOrder.confirmationEmailNotificationId = notification.notificationId;
-                            createdOrder.confirmationEmailSentAt = null;
-                            await createdOrder.save({ session });
-                        }
-                    } else {
-                        createdOrder.confirmationEmailStatus = 'skipped';
-                        createdOrder.confirmationEmailNotificationId = '';
-                        createdOrder.confirmationEmailSentAt = null;
-                        await createdOrder.save({ session });
-                    }
-
-                    if (quote.normalized.checkoutSource !== 'directBuy') {
-                        await User.updateOne(
-                            { _id: userId },
-                            { $set: { cart: [] } }
-                        ).session(session);
-                    }
-
-                    if (paymentIntent?.intentId && paymentIntent.status === 'authorized') {
-                        await scheduleCaptureTask({ intentId: paymentIntent.intentId, session });
-                    }
-
-                    await session.commitTransaction();
-                    session.endSession();
-
-                    return { statusCode: 201, response: createdOrder };
-                } catch (innerError) {
-                    await session.abortTransaction();
-                    session.endSession();
-                    logger.error('order.create_failed', {
-                        requestId: req.requestId,
-                        userId: String(userId),
-                        error: innerError.message,
-                    });
-                    throw innerError;
-                }
-            },
         });
 
         res.status(result.statusCode).json(result.response);

@@ -177,6 +177,24 @@ export const productApi = {
         }
         return response.json();
     },
+    getRecommendations: async (payload = {}) => {
+        const headers = await getAuthHeader();
+        const response = await fetch(`${BASE_URL}/products/recommendations`, {
+            method: 'POST',
+            headers: {
+                ...headers,
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload),
+        });
+        if (!response.ok) {
+            const error = new Error(await parseApiError(response, 'Failed to fetch recommendations'));
+            error.status = response.status;
+            throw error;
+        }
+        return response.json();
+    },
     // Admin Methods
     deleteProduct: async (id) => {
         const headers = await getAuthHeader();

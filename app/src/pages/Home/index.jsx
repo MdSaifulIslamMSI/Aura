@@ -1,18 +1,31 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useContext } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronRight, Smartphone, Laptop, Headphones, Shirt, Home as HomeIcon, Gamepad2, BookOpen, Watch } from 'lucide-react';
+import { ArrowRight, ChevronRight, Smartphone, Laptop, Headphones, Shirt, Home as HomeIcon, Gamepad2, BookOpen, Watch } from 'lucide-react';
 import Carousel from '@/components/features/home/Carousel';
 import ProductCard from '@/components/features/product/ProductCard';
 import SkeletonLoader from '@/components/shared/SkeletonLoader';
 import RevealOnScroll from '@/components/shared/RevealOnScroll';
 import { productApi } from '@/services/api';
+import { clearRecentlyViewed, readRecentlyViewed } from '@/utils/recentlyViewed';
+import { buildRecommendationSignals } from '@/utils/recommendationSignals';
+import { AuthContext } from '@/context/AuthContext';
+import { CartContext } from '@/context/CartContext';
+import { WishlistContext } from '@/context/WishlistContext';
 
 const Home = () => {
   // Independent State (Decoupled from Global Context)
   const [dealsOfTheDay, setDealsOfTheDay] = useState([]);
   const [trendingProducts, setTrendingProducts] = useState([]);
   const [newArrivals, setNewArrivals] = useState([]);
+  const [resumeProducts, setResumeProducts] = useState([]);
+  const [resumeLoading, setResumeLoading] = useState(true);
+  const [recommendedProducts, setRecommendedProducts] = useState([]);
+  const [recommendationsLoading, setRecommendationsLoading] = useState(true);
+  const [recommendationCopy, setRecommendationCopy] = useState(null);
   const [loading, setLoading] = useState(true);
+  const { currentUser = null } = useContext(AuthContext) || {};
+  const { cartItems = [] } = useContext(CartContext) || {};
+  const { wishlistItems = [] } = useContext(WishlistContext) || {};
 
   // Parallel Data Fetching (High Performance)
   useEffect(() => {
@@ -37,6 +50,160 @@ const Home = () => {
 
     fetchHomeData();
   }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadResumeProducts = async () => {
+      setResumeLoading(true);
+      const recentlyViewed = readRecentlyViewed().slice(0, 6);
+
+      if (!active) return;
+      if (recentlyViewed.length === 0) {
+        setResumeProducts([]);
+        setResumeLoading(false);
+        return;
+      }
+
+      setResumeProducts(recentlyViewed);
+
+      const hydrated = await Promise.allSettled(
+        recentlyViewed.map((item) => productApi.getProductById(item.id))
+      );
+
+      if (!active) return;
+
+      const resolved = hydrated
+        .map((result, index) => (result.status === 'fulfilled' ? result.value : recentlyViewed[index]))
+        .filter(Boolean);
+
+      setResumeProducts(resolved);
+      setResumeLoading(false);
+    };
+
+    loadResumeProducts();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const recommendationSignals = useMemo(
+    () => buildRecommendationSignals({ cartItems, wishlistItems }),
+    [cartItems, wishlistItems]
+  );
+
+  useEffect(() => {
+    let active = true;
+
+    const loadLocalRecommendations = async () => {
+      const { rankedCategories, recentQueries, excludeIds, isColdStart } = recommendationSignals;
+      const requests = [];
+
+      if (rankedCategories[0]) {
+        requests.push(productApi.getProducts({ category: rankedCategories[0], sort: 'rating', limit: 8 }));
+      }
+      if (rankedCategories[1]) {
+        requests.push(productApi.getProducts({ category: rankedCategories[1], sort: 'discount', limit: 8 }));
+      }
+      if (recentQueries[0]) {
+        requests.push(productApi.getProducts({ keyword: recentQueries[0], sort: 'relevance', limit: 8 }));
+      }
+      if (isColdStart) {
+        requests.push(productApi.getProducts({ sort: 'rating', limit: 8 }));
+      }
+
+      const responses = requests.length > 0 ? await Promise.allSettled(requests) : [];
+      const merged = responses
+        .filter((result) => result.status === 'fulfilled')
+        .flatMap((result) => result.value?.products || [])
+        .filter(Boolean);
+
+      const deduped = [];
+      const seen = new Set();
+
+      for (const item of merged) {
+        const productId = String(item?.id || item?._id || '').trim();
+        if (!productId || seen.has(productId) || excludeIds.has(productId)) continue;
+        seen.add(productId);
+        deduped.push(item);
+        if (deduped.length >= 6) break;
+      }
+
+      return deduped;
+    };
+
+    const mergeUniqueProducts = (primary = [], secondary = []) => {
+      const merged = [];
+      const seen = new Set();
+
+      [...primary, ...secondary].forEach((item) => {
+        const productId = String(item?.id || item?._id || '').trim();
+        if (!productId || seen.has(productId)) return;
+        seen.add(productId);
+        merged.push(item);
+      });
+
+      return merged.slice(0, 6);
+    };
+
+    const loadRecommendations = async () => {
+      setRecommendationsLoading(true);
+      const localCopy = {
+        eyebrow: recommendationSignals.eyebrow,
+        title: recommendationSignals.title,
+        description: recommendationSignals.description,
+        primaryCategory: recommendationSignals.primaryCategory,
+      };
+
+      let nextProducts = [];
+      let nextCopy = localCopy;
+
+      try {
+        if (currentUser) {
+          const serverResponse = await productApi.getRecommendations({
+            recentlyViewed: recommendationSignals.recentItems.slice(0, 6).map((item) => ({
+              id: item?.id || item?._id || '',
+              category: item?.category || '',
+              brand: item?.brand || '',
+            })),
+            searchHistory: recommendationSignals.recentQueries.slice(0, 3),
+            limit: 6,
+          });
+
+          nextProducts = Array.isArray(serverResponse?.products) ? serverResponse.products : [];
+          nextCopy = {
+            eyebrow: serverResponse?.eyebrow || localCopy.eyebrow,
+            title: serverResponse?.title || localCopy.title,
+            description: serverResponse?.description || localCopy.description,
+            primaryCategory: serverResponse?.primaryCategory || localCopy.primaryCategory,
+          };
+        }
+
+        const localProducts = await loadLocalRecommendations();
+        nextProducts = mergeUniqueProducts(nextProducts, localProducts);
+      } catch (error) {
+        console.error('Personalized recommendations failed:', error);
+        nextProducts = await loadLocalRecommendations();
+      }
+
+      if (!active) return;
+
+      if (nextProducts.length === 0) {
+        nextCopy = localCopy;
+      }
+
+      setRecommendedProducts(nextProducts);
+      setRecommendationCopy(nextCopy);
+      setRecommendationsLoading(false);
+    };
+
+    loadRecommendations();
+
+    return () => {
+      active = false;
+    };
+  }, [currentUser?.uid, recommendationSignals]);
 
   // Hero carousel slides
   const heroSlides = useMemo(() => [
@@ -64,7 +231,7 @@ const Home = () => {
       link: '/category/electronics',
       title: 'Premium Audio',
       subtitle: 'New Arrivals',
-      description: 'Laptops, headphones, and more starting at ₹999.',
+      description: 'Laptops, headphones, and more starting at Rs 999.',
       cta: 'Shop Now'
     },
     {
@@ -99,28 +266,67 @@ const Home = () => {
     { name: 'Books', icon: BookOpen, path: '/category/books', color: 'from-indigo-500/20 to-blue-500/20 text-indigo-400' },
   ], []);
 
-  const ProductSection = ({ title, link, products, isLoading }) => (
+  const commandMetrics = useMemo(() => [
+    {
+      label: 'Live price-drop picks',
+      value: `${dealsOfTheDay.length || 0}`,
+      detail: 'Discount-ranked products refreshed from catalog inventory',
+    },
+    {
+      label: 'High-conviction trends',
+      value: `${trendingProducts.length || 0}`,
+      detail: 'Rating-led picks that are easiest to trust quickly',
+    },
+    {
+      label: 'Fresh arrivals',
+      value: `${newArrivals.length || 0}`,
+      detail: 'Newly indexed products surfaced without clutter',
+    },
+  ], [dealsOfTheDay.length, newArrivals.length, trendingProducts.length]);
+
+  const ProductSection = ({ eyebrow, title, description, link, actionLabel = 'Explore', products, isLoading, onAction }) => (
     <section className="bg-white/[0.045] backdrop-blur-xl rounded-2xl border border-white/10 shadow-glass mb-8 overflow-hidden relative group">
       {/* Decorative gradient blur */}
       <div className="absolute top-0 right-0 w-64 h-64 bg-neo-cyan/8 rounded-full blur-[80px] -z-10 group-hover:bg-neo-cyan/15 transition-colors duration-700" />
       <div className="absolute -bottom-20 -left-10 w-64 h-64 bg-neo-emerald/8 rounded-full blur-[90px] -z-10 group-hover:bg-neo-emerald/15 transition-colors duration-700" />
 
-      <div className="flex items-center justify-between p-6 border-b border-white/5">
-        <h2 className="text-xl md:text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400 tracking-tight">{title}</h2>
-        <Link
-          to={link}
-          className="flex items-center gap-2 text-neo-cyan hover:text-neo-emerald transition-all text-sm font-bold tracking-widest uppercase group/link"
-        >
-          Explore
-          <div className="w-6 h-6 rounded-full bg-neo-cyan/10 flex items-center justify-center group-hover/link:bg-neo-fuchsia/20 group-hover/link:translate-x-1 transition-all">
-            <ChevronRight className="w-4 h-4" />
-          </div>
-        </Link>
+      <div className="flex flex-col gap-4 border-b border-white/5 p-6 lg:flex-row lg:items-end lg:justify-between">
+        <div className="max-w-2xl">
+          {eyebrow ? (
+            <div className="mb-2 text-[11px] font-black uppercase tracking-[0.26em] text-neo-cyan">{eyebrow}</div>
+          ) : null}
+          <h2 className="text-xl md:text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400 tracking-tight">{title}</h2>
+          {description ? (
+            <p className="mt-2 text-sm text-slate-400 md:text-base">{description}</p>
+          ) : null}
+        </div>
+        {typeof onAction === 'function' ? (
+          <button
+            type="button"
+            onClick={onAction}
+            className="inline-flex items-center gap-2 self-start rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-bold uppercase tracking-[0.22em] text-neo-cyan transition-all hover:border-white/20 hover:bg-white/[0.08] hover:text-neo-emerald group/link"
+          >
+            {actionLabel}
+            <div className="w-6 h-6 rounded-full bg-neo-cyan/10 flex items-center justify-center group-hover/link:bg-neo-fuchsia/20 group-hover/link:translate-x-1 transition-all">
+              <ChevronRight className="w-4 h-4" />
+            </div>
+          </button>
+        ) : (
+          <Link
+            to={link}
+            className="inline-flex items-center gap-2 self-start rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-bold uppercase tracking-[0.22em] text-neo-cyan transition-all hover:border-white/20 hover:bg-white/[0.08] hover:text-neo-emerald group/link"
+          >
+            {actionLabel}
+            <div className="w-6 h-6 rounded-full bg-neo-cyan/10 flex items-center justify-center group-hover/link:bg-neo-fuchsia/20 group-hover/link:translate-x-1 transition-all">
+              <ChevronRight className="w-4 h-4" />
+            </div>
+          </Link>
+        )}
       </div>
 
       <div className="p-6">
         {isLoading ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+          <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
             <SkeletonLoader type="card" count={6} />
           </div>
         ) : products.length === 0 ? (
@@ -142,30 +348,70 @@ const Home = () => {
 
   return (
     <div className="min-h-screen pb-16 pt-4">
-      {/* Category Navigation - Floating Glass Bar */}
-      <RevealOnScroll anchorId="home-categories" anchorLabel="Categories" className="mb-10 px-4">
-        <nav className="max-w-7xl mx-auto bg-white/[0.045] backdrop-blur-xl border border-white/10 rounded-2xl shadow-glass overflow-x-auto scrollbar-hide animate-fade-in relative">
-          <div className="absolute inset-0 bg-gradient-to-r from-neo-cyan/8 via-transparent to-neo-emerald/8 pointer-events-none" />
-          <div className="flex items-center justify-between md:justify-center gap-4 md:gap-8 py-4 px-6 min-w-max relative z-10">
-            {categories.map((category) => (
-              <Link
-                key={category.path}
-                to={category.path}
-                className="flex flex-col items-center gap-3 group min-w-[90px] p-2 hover:bg-white/5 rounded-xl transition-colors duration-300"
-              >
-                <div className={`w-14 h-14 bg-gradient-to-br ${category.color} rounded-xl border border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)] flex items-center justify-center transition-all duration-500 group-hover:scale-110 group-hover:rotate-3 group-hover:shadow-[0_0_20px_rgba(255,255,255,0.1)]`}>
-                  <category.icon className="w-6 h-6" />
-                </div>
-                <span className="text-xs font-bold tracking-wide text-slate-300 group-hover:text-white text-center transition-colors">
-                  {category.name}
-                </span>
-              </Link>
-            ))}
-          </div>
-        </nav>
-      </RevealOnScroll>
-
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
+        <RevealOnScroll anchorId="home-command-deck" anchorLabel="Command Deck" className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+          <section className="rounded-[2rem] border border-white/10 bg-white/[0.045] p-6 shadow-glass lg:p-8">
+            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-neo-cyan/20 bg-neo-cyan/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.28em] text-neo-cyan">
+              Retail Command Deck
+            </div>
+            <h1 className="max-w-3xl text-4xl font-black leading-[0.95] text-white md:text-5xl xl:text-6xl">
+              A sharper storefront for discovery, trust, and conversion.
+            </h1>
+            <p className="mt-4 max-w-2xl text-sm text-slate-300 md:text-base">
+              The visual system now prioritizes product discovery and high-confidence actions first, instead of making every control compete equally.
+            </p>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <Link to="/search?q=iphone" className="btn-primary inline-flex items-center gap-2">
+                Start with live search
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+              <Link to="/marketplace" className="btn-secondary inline-flex items-center gap-2">
+                Open marketplace
+              </Link>
+            </div>
+          </section>
+
+          <section className="grid gap-4 sm:grid-cols-3 xl:grid-cols-1">
+            {commandMetrics.map((metric) => (
+              <article key={metric.label} className="rounded-[1.5rem] border border-white/10 bg-white/[0.04] p-5 shadow-glass">
+                <div className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">{metric.label}</div>
+                <div className="mt-3 text-3xl font-black text-white">{metric.value}</div>
+                <p className="mt-2 text-sm leading-6 text-slate-400">{metric.detail}</p>
+              </article>
+            ))}
+          </section>
+        </RevealOnScroll>
+
+        {/* Category Navigation - clearer hierarchy */}
+        <RevealOnScroll anchorId="home-categories" anchorLabel="Categories" className="mb-2">
+          <section className="rounded-[2rem] border border-white/10 bg-white/[0.045] p-5 shadow-glass lg:p-6">
+            <div className="mb-5 flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <div className="text-[11px] font-black uppercase tracking-[0.28em] text-neo-cyan">Category Access</div>
+                <h2 className="mt-2 text-2xl font-black text-white md:text-3xl">Move through the catalog without friction.</h2>
+              </div>
+              <p className="max-w-xl text-sm text-slate-400">
+                Each lane routes directly into a focused catalog surface. No filler rows, no fake categories, no dead navigation.
+              </p>
+            </div>
+            <nav className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-8">
+              {categories.map((category) => (
+                <Link
+                  key={category.path}
+                  to={category.path}
+                  className="group rounded-[1.35rem] border border-white/8 bg-white/[0.03] p-4 transition-all duration-300 hover:-translate-y-1 hover:border-white/18 hover:bg-white/[0.07]"
+                >
+                  <div className={`mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br ${category.color} border border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.08)] transition-transform duration-300 group-hover:scale-105`}>
+                    <category.icon className="h-6 w-6" />
+                  </div>
+                  <div className="text-sm font-bold text-white">{category.name}</div>
+                  <div className="mt-1 text-xs text-slate-400">Open lane</div>
+                </Link>
+              ))}
+            </nav>
+          </section>
+        </RevealOnScroll>
+
         {/* Hero Carousel Container */}
         <RevealOnScroll
           anchorId="home-hero"
@@ -184,10 +430,40 @@ const Home = () => {
           />
         </RevealOnScroll>
 
+        <RevealOnScroll anchorId="home-resume" anchorLabel="Resume Shopping" delay={40}>
+          <ProductSection
+            eyebrow="Personalized Continuity"
+            title="Resume Shopping"
+            description="Top-tier commerce does not forget what you just evaluated. This shelf persists your recent product views and lets you re-enter high-intent decisions immediately."
+            link="/search"
+            actionLabel={resumeProducts.length > 0 ? 'Reset history' : 'Explore'}
+            onAction={resumeProducts.length > 0 ? () => {
+              clearRecentlyViewed();
+              setResumeProducts([]);
+            } : undefined}
+            products={resumeProducts}
+            isLoading={resumeLoading}
+          />
+        </RevealOnScroll>
+
+        <RevealOnScroll anchorId="home-recommendations" anchorLabel="Recommendations" delay={50}>
+          <ProductSection
+            eyebrow={recommendationCopy?.eyebrow || recommendationSignals.eyebrow}
+            title={recommendationCopy?.title || recommendationSignals.title}
+            description={recommendationCopy?.description || recommendationSignals.description}
+            link={(recommendationCopy?.primaryCategory || recommendationSignals.primaryCategory) ? `/category/${recommendationCopy?.primaryCategory || recommendationSignals.primaryCategory}` : '/search'}
+            actionLabel={(recommendationCopy?.primaryCategory || recommendationSignals.primaryCategory) ? 'Open lane' : 'Explore'}
+            products={recommendedProducts}
+            isLoading={recommendationsLoading}
+          />
+        </RevealOnScroll>
+
         {/* Deals of the Day */}
         <RevealOnScroll anchorId="home-flash-sales" anchorLabel="Flash Sales" delay={60}>
           <ProductSection
+            eyebrow="Fastest Conversion Lane"
             title="Flash Sales"
+            description="Price-drop inventory ranked for speed. These are the most decisive purchase candidates on the surface."
             link="/deals"
             products={dealsOfTheDay}
             isLoading={loading}
@@ -197,7 +473,9 @@ const Home = () => {
         {/* Trending Products */}
         <RevealOnScroll anchorId="home-trending" anchorLabel="Trending Items" delay={110}>
           <ProductSection
+            eyebrow="Trust-Led Picks"
             title="Trending Items"
+            description="High-rating products surfaced with less noise so strong signals stand out immediately."
             link="/trending"
             products={trendingProducts}
             isLoading={loading}
@@ -207,7 +485,9 @@ const Home = () => {
         {/* New Arrivals */}
         <RevealOnScroll anchorId="home-new-arrivals" anchorLabel="New Arrivals" delay={140}>
           <ProductSection
+            eyebrow="Fresh Catalog"
             title="New Arrivals"
+            description="Recently indexed products brought forward without drowning the page in redundant merchandising."
             link="/new-arrivals"
             products={newArrivals}
             isLoading={loading}
@@ -228,7 +508,7 @@ const Home = () => {
                   Buy and Sell <span className="text-transparent bg-clip-text bg-gradient-to-r from-neo-cyan to-neo-emerald">Near You</span>
                 </h2>
                 <p className="text-slate-400 max-w-md">
-                  List your pre-owned items or find amazing deals from real people in your city. It's free to list!
+                  List pre-owned items or browse local offers with a cleaner, seller-aware marketplace entry point.
                 </p>
               </div>
               <div className="flex gap-3 flex-shrink-0">

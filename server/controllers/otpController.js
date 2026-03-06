@@ -96,14 +96,20 @@ const parseBooleanEnv = (value, fallback = false) => {
     return ['1', 'true', 'yes', 'on'].includes(String(value).trim().toLowerCase());
 };
 
+const isTestEnvironment = () => process.env.NODE_ENV === 'test';
+
 const isLoginCredentialProofRequired = () => parseBooleanEnv(
-    process.env.OTP_LOGIN_REQUIRE_CREDENTIAL_PROOF,
-    process.env.NODE_ENV !== 'test'
+    isTestEnvironment()
+        ? process.env.OTP_LOGIN_REQUIRE_CREDENTIAL_PROOF_IN_TEST
+        : process.env.OTP_LOGIN_REQUIRE_CREDENTIAL_PROOF,
+    !isTestEnvironment()
 );
 
 const isLoginAutoRecoverEnabled = () => parseBooleanEnv(
-    process.env.OTP_LOGIN_AUTO_RECOVER_PROFILE,
-    true
+    isTestEnvironment()
+        ? process.env.OTP_LOGIN_AUTO_RECOVER_PROFILE_IN_TEST
+        : process.env.OTP_LOGIN_AUTO_RECOVER_PROFILE,
+    false
 );
 
 const extractClientIp = (req) => {
@@ -485,10 +491,25 @@ const sendOtp = asyncHandler(async (req, res, next) => {
             }
         }
 
-        const [verifiedByEmail, verifiedByPhone] = await Promise.all([
-            User.findOne({ email, isVerified: true }, '_id email phone').lean(),
-            User.findOne({ phone: { $in: phoneCandidates }, isVerified: true }, '_id email phone').lean(),
-        ]);
+        const verifiedCandidates = await User.find(
+            {
+                isVerified: true,
+                $or: [
+                    { email },
+                    { phone: { $in: phoneCandidates } },
+                ],
+            },
+            '_id email phone'
+        )
+            .limit(4)
+            .lean();
+
+        const verifiedByEmail = verifiedCandidates.find(
+            (candidate) => normalizeEmail(candidate?.email) === email
+        ) || null;
+        const verifiedByPhone = verifiedCandidates.find(
+            (candidate) => phoneMatchesCandidates(candidate?.phone, phoneCandidates)
+        ) || null;
 
         if (verifiedByEmail && !phoneMatchesCandidates(verifiedByEmail.phone, phoneCandidates)) {
             audit('SEND_MISMATCH', {

@@ -1,6 +1,8 @@
 const mongoose = require('mongoose');
 const dotenv = require('dotenv');
+const fs = require('fs/promises');
 const { MongoMemoryServer } = require('mongodb-memory-server');
+const { resolveVaultFile } = require('../services/authProfileVault');
 
 dotenv.config();
 
@@ -22,10 +24,10 @@ let memoryServer = null;
 
 const shouldPreferInMemoryMongo = () => {
     if (process.env.TEST_MONGO_URI) return false;
-    return parseBoolean(process.env.TEST_USE_IN_MEMORY_MONGO, false);
+    return parseBoolean(process.env.TEST_USE_IN_MEMORY_MONGO, true);
 };
 
-const shouldFallbackToInMemoryMongo = () => parseBoolean(process.env.TEST_FALLBACK_TO_IN_MEMORY_MONGO, false);
+const shouldFallbackToInMemoryMongo = () => parseBoolean(process.env.TEST_FALLBACK_TO_IN_MEMORY_MONGO, true);
 
 const startInMemoryMongo = async () => {
     if (!memoryServer) {
@@ -56,6 +58,46 @@ const dropLegacyUserOtpTtlIndex = async () => {
     }
 };
 
+const reconcileUserPhoneIndexes = async () => {
+    try {
+        const collection = mongoose.connection.collection('users');
+        const indexes = await collection.indexes();
+        const singleFieldPhoneIndexes = indexes.filter((index) => index.key?.phone === 1 && Object.keys(index.key || {}).length === 1);
+
+        for (const index of singleFieldPhoneIndexes) {
+            const isDesiredPartial = index.name === 'phone_1_partial_unique_nonempty';
+            if (!isDesiredPartial) {
+                await collection.dropIndex(index.name);
+            }
+        }
+
+        const refreshedIndexes = await collection.indexes();
+        const hasDesiredPartial = refreshedIndexes.some((index) => index.name === 'phone_1_partial_unique_nonempty');
+        if (!hasDesiredPartial) {
+            await collection.createIndex(
+                { phone: 1 },
+                {
+                    name: 'phone_1_partial_unique_nonempty',
+                    unique: true,
+                    partialFilterExpression: {
+                        $and: [
+                            { phone: { $exists: true } },
+                            { phone: { $type: 'string' } },
+                            { phone: { $gt: '' } },
+                        ],
+                    },
+                }
+            );
+        }
+    } catch (error) {
+        const message = String(error?.message || '').toLowerCase();
+        const missingNamespace = message.includes('ns does not exist') || message.includes('namespace not found');
+        if (!missingNamespace) {
+            throw error;
+        }
+    }
+};
+
 beforeAll(async () => {
     const primaryUri = process.env.MONGO_URI;
     if (process.env.TEST_MONGO_URI && primaryUri && normalizeUri(TEST_MONGO_URI) === normalizeUri(primaryUri)) {
@@ -63,8 +105,14 @@ beforeAll(async () => {
     }
 
     let connectUri = TEST_MONGO_URI;
+    let inMemoryStartError = null;
     if (shouldPreferInMemoryMongo()) {
-        connectUri = await startInMemoryMongo();
+        try {
+            connectUri = await startInMemoryMongo();
+        } catch (error) {
+            inMemoryStartError = error;
+            connectUri = TEST_MONGO_URI;
+        }
     }
 
     if (mongoose.connection.readyState === 0) {
@@ -73,8 +121,11 @@ beforeAll(async () => {
                 serverSelectionTimeoutMS: 5000,
             });
         } catch (error) {
-            if (!shouldFallbackToInMemoryMongo()) {
-                throw new Error(`Test DB connection failed (${connectUri}). Set TEST_MONGO_URI to a reachable test MongoDB, or enable TEST_USE_IN_MEMORY_MONGO=true. Root cause: ${error.message}`);
+            if (!shouldFallbackToInMemoryMongo() || inMemoryStartError) {
+                const rootCause = inMemoryStartError
+                    ? `In-memory Mongo unavailable (${inMemoryStartError.message}); fallback DB connection failed (${connectUri}): ${error.message}`
+                    : `Test DB connection failed (${connectUri}): ${error.message}`;
+                throw new Error(`${rootCause}. Set TEST_MONGO_URI to a reachable test MongoDB, or fix mongodb-memory-server.`);
             }
             connectUri = await startInMemoryMongo();
             await mongoose.connect(connectUri, {
@@ -83,12 +134,34 @@ beforeAll(async () => {
         }
     }
     await dropLegacyUserOtpTtlIndex();
+    await reconcileUserPhoneIndexes();
 }, 30000); // Increase timeout to 30s for slow connections
 
 afterEach(async () => {
+    if (mongoose.connection.readyState !== 1) {
+        return;
+    }
     const collections = mongoose.connection.collections;
     const names = Object.keys(collections);
-    await Promise.all(names.map((name) => collections[name].deleteMany({})));
+    await Promise.all(names.map(async (name) => {
+        try {
+            await collections[name].deleteMany({});
+        } catch (error) {
+            const message = String(error?.message || '').toLowerCase();
+            const missingNamespace = message.includes('ns does not exist') || message.includes('namespace not found');
+            if (!missingNamespace) {
+                throw error;
+            }
+        }
+    }));
+    try {
+        await fs.unlink(resolveVaultFile());
+    } catch (error) {
+        const code = String(error?.code || '');
+        if (code !== 'ENOENT') {
+            throw error;
+        }
+    }
 });
 
 afterAll(async () => {

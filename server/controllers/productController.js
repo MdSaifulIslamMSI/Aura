@@ -15,6 +15,7 @@ const {
     getCompatibilityGraph,
     buildSmartBundle,
 } = require('../services/commerceIntelligenceService');
+const { buildProductRecommendations } = require('../services/productRecommendationService');
 
 const REVIEW_LIMIT_DEFAULT = 8;
 const REVIEW_LIMIT_MAX = 20;
@@ -135,6 +136,27 @@ const getProducts = asyncHandler(async (req, res, next) => {
             requestId: req.requestId,
         });
         return next(new AppError('Failed to fetch products', 500));
+    }
+});
+
+// @desc    Fetch server-backed personalized product recommendations
+// @route   POST /api/products/recommendations
+// @access  Private
+const getRecommendedProducts = asyncHandler(async (req, res, next) => {
+    try {
+        const recommendations = await buildProductRecommendations({
+            userId: req.user?._id || null,
+            input: req.body || {},
+        });
+        return res.json(recommendations);
+    } catch (error) {
+        if (error instanceof AppError) return next(error);
+        logger.error('products.recommendations_failed', {
+            error: error.message,
+            requestId: req.requestId,
+            userId: req.user?._id || null,
+        });
+        return next(new AppError('Failed to build recommendations', 500));
     }
 });
 
@@ -648,6 +670,7 @@ const visualSearchProducts = asyncHandler(async (req, res, next) => {
 
 module.exports = {
     getProducts,
+    getRecommendedProducts,
     getProductDealDna,
     getProductCompatibility,
     getProductReviews,

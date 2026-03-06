@@ -7,6 +7,7 @@ import { AuthContext } from '@/context/AuthContext';
 import { productApi, uploadApi } from '@/services/api';
 import ProductCard from '@/components/features/product/ProductCard';
 import { cn } from '@/lib/utils';
+import { pushRecentlyViewed } from '@/utils/recentlyViewed';
 
 const ProductDetails = () => {
   const { id } = useParams();
@@ -190,6 +191,11 @@ const ProductDetails = () => {
   useEffect(() => {
     loadReviews(reviewSort);
   }, [loadReviews, reviewSort]);
+
+  useEffect(() => {
+    if (!product) return;
+    pushRecentlyViewed(product);
+  }, [product]);
 
   // Safe Formatters
   const formatPrice = (price) => {

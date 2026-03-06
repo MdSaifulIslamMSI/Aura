@@ -1,7 +1,16 @@
 const logger = require('../utils/logger');
 const { notifyAdminFromRequest } = require('../services/adminNotificationService');
 
+const isAdminNotificationMiddlewareEnabled = () => {
+    if (process.env.NODE_ENV !== 'test') return true;
+    return ['1', 'true', 'yes', 'on'].includes(String(process.env.TEST_ENABLE_ADMIN_NOTIFICATION_MIDDLEWARE || '').trim().toLowerCase());
+};
+
 const adminNotificationMiddleware = (req, res, next) => {
+    if (!isAdminNotificationMiddlewareEnabled()) {
+        return next();
+    }
+
     const startedAt = Date.now();
 
     res.on('finish', () => {
@@ -23,4 +32,3 @@ const adminNotificationMiddleware = (req, res, next) => {
 };
 
 module.exports = adminNotificationMiddleware;
-

@@ -5,6 +5,7 @@ import {
   BookmarkPlus,
   ChevronRight,
   Clock3,
+  Command,
   Loader2,
   Mic,
   PackageSearch,
@@ -592,18 +593,12 @@ const GlobalSearchBar = ({
             aria-label="Global search"
           />
 
-          <button
-            type="button"
-            onClick={() => setShowFilters((value) => !value)}
-            className={cn(
-              'search-control-icon text-slate-300 hover:text-white',
-              showFilters && 'text-neo-cyan'
-            )}
-            aria-label="Toggle advanced search controls"
-            title="Advanced controls"
-          >
-            <SlidersHorizontal className="w-4 h-4" />
-          </button>
+          {!mobile && enableGlobalShortcuts && (
+            <div className="hidden xl:flex items-center gap-1 border-l border-white/10 px-3 text-[10px] font-black uppercase tracking-[0.22em] text-slate-500">
+              <Command className="h-3.5 w-3.5 text-slate-400" />
+              <span>K</span>
+            </div>
+          )}
 
           <button
             type="button"
@@ -634,9 +629,44 @@ const GlobalSearchBar = ({
 
       {isOpen && (
         <div className="global-search-palette search-palette">
+          <div className="mb-4 flex flex-col gap-3 border-b border-white/8 pb-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="text-[11px] font-black uppercase tracking-[0.24em] text-neo-cyan">
+                Search Intelligence
+              </div>
+              <p className="mt-1 text-sm text-slate-400">
+                Run live search first. Open advanced controls only when you need tighter filtering.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowFilters((value) => !value)}
+                className={cn(
+                  'inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-black uppercase tracking-[0.18em] transition-colors',
+                  showFilters
+                    ? 'border-neo-cyan/40 bg-neo-cyan/12 text-neo-cyan'
+                    : 'border-white/12 bg-white/[0.04] text-slate-300 hover:border-white/20 hover:text-white'
+                )}
+                aria-label="Toggle advanced search controls"
+              >
+                <SlidersHorizontal className="h-3.5 w-3.5" />
+                Controls
+              </button>
+              <button
+                type="button"
+                onClick={() => executeSearch()}
+                className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-neo-cyan to-neo-emerald px-3.5 py-2 text-xs font-black uppercase tracking-[0.18em] text-white transition-all hover:-translate-y-0.5"
+              >
+                <Search className="h-3.5 w-3.5" />
+                Run Search
+              </button>
+            </div>
+          </div>
+
           {showFilters && (
             <div className="mb-4 rounded-xl border border-white/10 bg-white/5 p-3 sm:p-4">
-              <div className="flex items-center justify-between gap-2 mb-3">
+              <div className="mb-3 flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-neo-cyan">
                   <Sparkles className="w-3.5 h-3.5" />
                   Search Controls

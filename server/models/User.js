@@ -1,5 +1,11 @@
 const mongoose = require('mongoose');
 
+const normalizeOptionalPhone = (value) => {
+    if (value === undefined || value === null) return undefined;
+    const normalized = String(value).trim();
+    return normalized ? normalized : undefined;
+};
+
 const cartItemSchema = mongoose.Schema({
     id: { type: Number, required: true },
     title: { type: String, required: true },
@@ -60,7 +66,7 @@ const loyaltySchema = mongoose.Schema({
 const userSchema = mongoose.Schema({
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true },
-    phone: { type: String, required: false },
+    phone: { type: String, required: false, set: normalizeOptionalPhone },
     avatar: { type: String, default: '' },           // URL or data URI
     gender: { type: String, enum: ['male', 'female', 'other', 'prefer-not-to-say', ''], default: '' },
     dob: { type: Date, default: null },
@@ -117,8 +123,21 @@ const userSchema = mongoose.Schema({
 // ── Indexes ──────────────────────────────────────────────────
 // NOTE: OTP lifecycle TTL is handled by OtpSession model, not User documents.
 
-// Unique phone only when present.
-userSchema.index({ phone: 1 }, { unique: true, sparse: true, name: 'phone_1_sparse_unique' });
+// Unique phone only when a non-empty phone number is present.
+userSchema.index(
+    { phone: 1 },
+    {
+        unique: true,
+        name: 'phone_1_partial_unique_nonempty',
+        partialFilterExpression: {
+            $and: [
+                { phone: { $exists: true } },
+                { phone: { $type: 'string' } },
+                { phone: { $gt: '' } },
+            ],
+        },
+    }
+);
 
 // Compound index for the most frequent query pattern: phone + isVerified
 // Used by checkUserExists, sendOtp (login/forgot-password), verifyOtp

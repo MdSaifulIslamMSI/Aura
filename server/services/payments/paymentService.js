@@ -31,41 +31,29 @@ const {
     roundCurrency,
     normalizeMethod,
 } = require('./helpers');
+const {
+    diff,
+    buildFortressState,
+    setFortressState,
+    getLockUntilDate,
+    assertQuoteMatches,
+    isIntentExpired,
+    assertConfirmNotLocked,
+} = require('./fortressGuards');
+const {
+    calculateRefundable,
+    buildRefundEntry,
+    buildRefundMutation,
+} = require('./refundState');
+const {
+    scheduleCaptureTask,
+    scheduleRefundTask,
+    updateOrderCommandRefundEntry,
+    getPaymentOutboxStats,
+} = require('./outboxState');
 const { flags } = require('../../config/paymentFlags');
 const { verifyPaymentChallengeToken } = require('../../utils/paymentChallengeToken');
 const logger = require('../../utils/logger');
-
-const diff = (a, b) => Math.abs(Number(a) - Number(b));
-
-const buildFortressState = (intent) => {
-    const state = intent?.metadata?.fortress || {};
-    return {
-        failedConfirmAttempts: Number(state.failedConfirmAttempts || 0),
-        totalConfirmFailures: Number(state.totalConfirmFailures || 0),
-        lastConfirmFailedAt: state.lastConfirmFailedAt || null,
-        lastConfirmFailureReason: String(state.lastConfirmFailureReason || ''),
-        lockedUntil: state.lockedUntil || null,
-    };
-};
-
-const setFortressState = (intent, nextState = {}) => {
-    const current = buildFortressState(intent);
-    intent.metadata = {
-        ...(intent.metadata || {}),
-        fortress: {
-            ...current,
-            ...nextState,
-        },
-    };
-    intent.markModified('metadata');
-};
-
-const getLockUntilDate = (intent) => {
-    const state = buildFortressState(intent);
-    const lockedUntil = state.lockedUntil ? new Date(state.lockedUntil) : null;
-    if (!lockedUntil || Number.isNaN(lockedUntil.getTime())) return null;
-    return lockedUntil;
-};
 
 const appendPaymentEvent = async ({
     eventId = makeEventId('evt'),
@@ -89,30 +77,6 @@ const appendPaymentEvent = async ({
 const ensurePaymentsEnabled = () => {
     if (!flags.paymentsEnabled) {
         throw new AppError('Payments are currently disabled', 503);
-    }
-};
-
-const assertQuoteMatches = (quoteSnapshot, totalPrice) => {
-    if (!quoteSnapshot || quoteSnapshot.totalPrice === undefined || quoteSnapshot.totalPrice === null) {
-        return;
-    }
-    if (diff(quoteSnapshot.totalPrice, totalPrice) > 0.01) {
-        throw new AppError('Quote expired. Please recalculate before payment.', 409);
-    }
-};
-
-const isIntentExpired = (intent) => intent?.expiresAt && new Date(intent.expiresAt).getTime() < Date.now();
-
-const assertConfirmNotLocked = (intent) => {
-    const lockedUntil = getLockUntilDate(intent);
-    if (!lockedUntil) return;
-
-    if (lockedUntil.getTime() > Date.now()) {
-        const retryAfterSeconds = Math.max(Math.ceil((lockedUntil.getTime() - Date.now()) / 1000), 1);
-        throw new AppError(
-            `Payment confirmation temporarily locked due to suspicious attempts. Retry after ${retryAfterSeconds} seconds.`,
-            429
-        );
     }
 };
 
@@ -712,101 +676,6 @@ const linkIntentToOrder = async ({ intentId, orderId, session = null, claimKey =
     return session ? query.session(session) : query;
 };
 
-const scheduleCaptureTask = async ({ intentId, session = null }) => {
-    if (flags.paymentCaptureMode !== 'post_order_auth_capture') return null;
-
-    const intentQuery = PaymentIntent.findOne({ intentId }).select('status');
-    const intent = session ? await intentQuery.session(session) : await intentQuery;
-    if (!intent) {
-        throw new AppError('Capture scheduling failed: payment intent not found', 404);
-    }
-    if (intent.status === PAYMENT_STATUSES.CAPTURED) {
-        return null;
-    }
-    if (intent.status !== PAYMENT_STATUSES.AUTHORIZED) {
-        throw new AppError(`Capture scheduling allowed only from authorized state (current: ${intent.status})`, 409);
-    }
-
-    try {
-        const query = PaymentOutboxTask.findOneAndUpdate(
-            {
-                taskType: 'capture',
-                intentId,
-                status: { $in: ['pending', 'processing', 'failed'] },
-            },
-            {
-                $setOnInsert: {
-                    taskType: 'capture',
-                    intentId,
-                    payload: {},
-                },
-                $set: {
-                    status: 'pending',
-                    nextRunAt: new Date(),
-                    lockedAt: null,
-                    lockedBy: null,
-                },
-            },
-            {
-                upsert: true,
-                new: true,
-                setDefaultsOnInsert: true,
-            }
-        );
-        const task = session ? await query.session(session) : await query;
-        return task;
-    } catch (error) {
-        if (error?.code === 11000) {
-            const existingQuery = PaymentOutboxTask.findOne({
-                taskType: 'capture',
-                intentId,
-                status: { $in: ['pending', 'processing'] },
-            });
-            return session ? existingQuery.session(session) : existingQuery;
-        }
-        throw error;
-    }
-};
-
-const scheduleRefundTask = async ({
-    intentId,
-    amount,
-    reason,
-    orderId,
-    requestId,
-    actorUserId = null,
-    session = null,
-}) => {
-    if (!intentId || !orderId || !requestId) return null;
-
-    const payload = {
-        amount: amount === undefined || amount === null ? null : roundCurrency(Number(amount)),
-        reason: reason || 'queued_refund_retry',
-        orderId: String(orderId),
-        requestId: String(requestId),
-        actorUserId: actorUserId ? String(actorUserId) : '',
-    };
-
-    const existingQuery = PaymentOutboxTask.findOne({
-        taskType: 'refund',
-        intentId,
-        'payload.requestId': payload.requestId,
-        status: { $in: ['pending', 'processing'] },
-    });
-    const existing = session ? await existingQuery.session(session) : await existingQuery;
-    if (existing) return existing;
-
-    const task = new PaymentOutboxTask({
-        taskType: 'refund',
-        intentId,
-        payload,
-        status: 'pending',
-        retryCount: 0,
-        nextRunAt: new Date(Date.now() + 20 * 1000),
-    });
-    return session ? task.save({ session }) : task.save();
-};
-
 const applyOrderPaymentCapture = async (intent) => {
     if (!intent?.order) return;
 
@@ -820,30 +689,6 @@ const applyOrderPaymentCapture = async (intent) => {
                 paidAt: intent.capturedAt || new Date(),
             },
         }
-    );
-};
-
-const updateOrderCommandRefundEntry = async ({
-    orderId,
-    requestId,
-    status,
-    message,
-    refundId,
-    processedAt = new Date(),
-}) => {
-    if (!orderId || !requestId) return;
-
-    const update = {
-        'commandCenter.refunds.$.status': status,
-        'commandCenter.refunds.$.processedAt': processedAt,
-        'commandCenter.lastUpdatedAt': new Date(),
-    };
-    if (message !== undefined) update['commandCenter.refunds.$.message'] = message;
-    if (refundId !== undefined) update['commandCenter.refunds.$.refundId'] = refundId;
-
-    await Order.updateOne(
-        { _id: orderId, 'commandCenter.refunds.requestId': requestId },
-        { $set: update }
     );
 };
 
@@ -875,11 +720,6 @@ const captureIntentNow = async ({ intentId }) => {
     await applyOrderPaymentCapture(intent);
 
     return intent;
-};
-
-const calculateRefundable = (order) => {
-    const refunded = Number(order.refundSummary?.totalRefunded || 0);
-    return Math.max(roundCurrency(Number(order.totalPrice || 0) - refunded), 0);
 };
 
 const createRefundForIntent = async ({
@@ -925,32 +765,29 @@ const createRefundForIntent = async ({
         },
     });
 
-    const refundEntry = {
-        refundId: providerRefund.id || makeEventId('refund'),
-        amount: requestedAmount,
-        reason: reason || 'requested_by_user',
-        status: String(providerRefund.status || 'processed'),
-        createdAt: new Date(),
-    };
-
-    const nextTotalRefunded = roundCurrency(Number(order.refundSummary?.totalRefunded || 0) + requestedAmount);
-    const fullyRefunded = diff(nextTotalRefunded, order.totalPrice) <= 0.01 || nextTotalRefunded > Number(order.totalPrice || 0);
+    const refundEntry = buildRefundEntry({
+        providerRefund,
+        requestedAmount,
+        reason,
+        fallbackRefundId: makeEventId('refund'),
+    });
+    const refundMutation = buildRefundMutation({
+        order,
+        requestedAmount,
+        refundEntry,
+    });
 
     await Order.updateOne(
         { _id: order._id },
         {
             $set: {
-                refundSummary: {
-                    totalRefunded: nextTotalRefunded,
-                    fullyRefunded,
-                    refunds: [...(order.refundSummary?.refunds || []), refundEntry],
-                },
-                paymentState: fullyRefunded ? PAYMENT_STATUSES.REFUNDED : PAYMENT_STATUSES.PARTIALLY_REFUNDED,
+                refundSummary: refundMutation.refundSummary,
+                paymentState: refundMutation.paymentState,
             },
         }
     );
 
-    intent.status = fullyRefunded ? PAYMENT_STATUSES.REFUNDED : PAYMENT_STATUSES.PARTIALLY_REFUNDED;
+    intent.status = refundMutation.paymentState;
     await intent.save();
 
     await appendPaymentEvent({
@@ -1174,27 +1011,10 @@ const startPaymentOutboxWorker = () => {
     }, OUTBOX_POLL_MS);
 };
 
-const getPaymentOutboxStats = async () => {
-    const [pending, processing, failed, byType] = await Promise.all([
-        PaymentOutboxTask.countDocuments({ status: 'pending' }),
-        PaymentOutboxTask.countDocuments({ status: 'processing' }),
-        PaymentOutboxTask.countDocuments({ status: 'failed' }),
-        PaymentOutboxTask.aggregate([
-            { $group: { _id: '$taskType', pending: { $sum: { $cond: [{ $eq: ['$status', 'pending'] }, 1, 0] } }, failed: { $sum: { $cond: [{ $eq: ['$status', 'failed'] }, 1, 0] } } } },
-        ]),
-    ]);
-
-    const taskTypes = {};
-    byType.forEach((entry) => {
-        taskTypes[entry._id] = { pending: entry.pending, failed: entry.failed };
-    });
-
+const getPaymentOutboxStatsWithWorker = async () => {
+    const stats = await getPaymentOutboxStats();
     return {
-        status: 'ok',
-        pending,
-        processing,
-        failed,
-        taskTypes,
+        ...stats,
         workerRunning: Boolean(outboxTimer),
     };
 };
@@ -1286,7 +1106,7 @@ module.exports = {
     createRefundForIntent,
     runOutboxCycle,
     startPaymentOutboxWorker,
-    getPaymentOutboxStats,
+    getPaymentOutboxStats: getPaymentOutboxStatsWithWorker,
     markChallengeVerified,
     listUserPaymentMethods,
     saveUserPaymentMethod,

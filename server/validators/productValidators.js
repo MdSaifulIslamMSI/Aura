@@ -56,6 +56,19 @@ const productSearchSchema = z.object({
     }),
 });
 
+const productRecommendationSchema = z.object({
+    body: z.object({
+        recentlyViewed: z.array(z.object({
+            id: z.union([z.string(), z.number()]).optional(),
+            _id: z.string().trim().max(120).optional(),
+            category: z.string().trim().max(180).optional(),
+            brand: z.string().trim().max(120).optional(),
+        }).strict()).max(8).optional(),
+        searchHistory: z.array(z.string().trim().min(1).max(120)).max(5).optional(),
+        limit: z.preprocess((val) => Number(val), z.number().int().min(1).max(12).default(6)).optional(),
+    }).strict(),
+});
+
 const visualSearchSchema = z.object({
     body: z.object({
         imageUrl: z.string().trim().url('Invalid image URL').optional(),
@@ -194,6 +207,7 @@ const createProductReviewSchema = z.object({
 
 module.exports = {
     productSearchSchema,
+    productRecommendationSchema,
     visualSearchSchema,
     bundleBuildSchema,
     getProductDealDnaSchema,

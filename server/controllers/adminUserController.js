@@ -122,6 +122,62 @@ const safeNotifyAdminActionToUser = async (payload = {}) => {
     }
 };
 
+const safeCountDocuments = async ({
+    model,
+    filter = {},
+    requestId = '',
+    label = 'unknown',
+    fallback = 0,
+}) => {
+    try {
+        return await model.countDocuments(filter);
+    } catch (error) {
+        logger.warn('admin.user_metric_fallback', {
+            requestId,
+            label,
+            reason: error?.message || 'unknown',
+            quotaLimited: isCollectionQuotaError(error),
+        });
+        return fallback;
+    }
+};
+
+const safeAggregateAccountStateStats = async ({ requestId = '' } = {}) => {
+    try {
+        return await User.aggregate([
+            { $group: { _id: '$accountState', count: { $sum: 1 } } },
+        ]);
+    } catch (error) {
+        logger.warn('admin.user_state_stats_fallback', {
+            requestId,
+            reason: error?.message || 'unknown',
+            quotaLimited: isCollectionQuotaError(error),
+        });
+        return [];
+    }
+};
+
+const safeFetchGovernanceLogs = async ({
+    targetUserId,
+    requestId = '',
+    limit = 100,
+}) => {
+    try {
+        return await UserGovernanceLog.find({ targetUser: targetUserId })
+            .sort({ createdAt: -1 })
+            .limit(limit)
+            .lean();
+    } catch (error) {
+        logger.warn('admin.user_governance_log_read_fallback', {
+            requestId,
+            targetUserId: String(targetUserId || ''),
+            reason: error?.message || 'unknown',
+            quotaLimited: isCollectionQuotaError(error),
+        });
+        return [];
+    }
+};
+
 const guardAdminMutation = ({ targetUser, actorUser }) => {
     if (!targetUser) {
         throw new AppError('Target user not found', 404);
@@ -173,9 +229,7 @@ const listAdminUsers = asyncHandler(async (req, res) => {
             .limit(limit)
             .lean(),
         User.countDocuments(filter),
-        User.aggregate([
-            { $group: { _id: '$accountState', count: { $sum: 1 } } },
-        ]),
+        safeAggregateAccountStateStats({ requestId: req.requestId }),
     ]);
 
     const stats = stateStats.reduce((acc, entry) => {
@@ -207,14 +261,34 @@ const getAdminUserById = asyncHandler(async (req, res, next) => {
     if (!user) return next(new AppError('User not found', 404));
 
     const [ordersCount, listingsCount, activeListingsCount, paymentIntentCount, logs] = await Promise.all([
-        Order.countDocuments({ user: user._id }),
-        Listing.countDocuments({ seller: user._id }),
-        Listing.countDocuments({ seller: user._id, status: 'active' }),
-        PaymentIntent.countDocuments({ user: user._id }),
-        UserGovernanceLog.find({ targetUser: user._id })
-            .sort({ createdAt: -1 })
-            .limit(100)
-            .lean(),
+        safeCountDocuments({
+            model: Order,
+            filter: { user: user._id },
+            requestId: req.requestId,
+            label: 'orders',
+        }),
+        safeCountDocuments({
+            model: Listing,
+            filter: { seller: user._id },
+            requestId: req.requestId,
+            label: 'listings',
+        }),
+        safeCountDocuments({
+            model: Listing,
+            filter: { seller: user._id, status: 'active' },
+            requestId: req.requestId,
+            label: 'active_listings',
+        }),
+        safeCountDocuments({
+            model: PaymentIntent,
+            filter: { user: user._id },
+            requestId: req.requestId,
+            label: 'payment_intents',
+        }),
+        safeFetchGovernanceLogs({
+            targetUserId: user._id,
+            requestId: req.requestId,
+        }),
     ]);
 
     res.json({

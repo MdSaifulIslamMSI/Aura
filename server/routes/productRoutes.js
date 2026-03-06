@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const {
     getProducts,
+    getRecommendedProducts,
     getProductDealDna,
     getProductCompatibility,
     getProductReviews,
@@ -17,6 +18,7 @@ const { protect, admin } = require('../middleware/authMiddleware');
 const validate = require('../middleware/validate');
 const {
     productSearchSchema,
+    productRecommendationSchema,
     visualSearchSchema,
     bundleBuildSchema,
     getProductDealDnaSchema,
@@ -33,6 +35,9 @@ const {
 router.route('/')
     .get(validate(productSearchSchema), getProducts)
     .post(protect, admin, validate(createProductSchema), createProduct);
+
+router.route('/recommendations')
+    .post(protect, validate(productRecommendationSchema), getRecommendedProducts);
 
 router.route('/visual-search')
     .post(validate(visualSearchSchema), visualSearchProducts);

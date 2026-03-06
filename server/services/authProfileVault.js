@@ -3,12 +3,10 @@ const path = require('path');
 const logger = require('../utils/logger');
 
 const VAULT_DIR = path.join(__dirname, '..', 'data');
-const VAULT_FILE = path.join(VAULT_DIR, 'auth-vault.json');
-const VAULT_TMP_FILE = path.join(VAULT_DIR, 'auth-vault.tmp.json');
 
 const MAX_RECORDS = 50000;
 
-const parseBoolean = (value, fallback = true) => {
+const parseBoolean = (value, fallback = false) => {
     if (value === undefined || value === null || value === '') return fallback;
     const normalized = String(value).trim().toLowerCase();
     if (['1', 'true', 'yes', 'on'].includes(normalized)) return true;
@@ -16,7 +14,37 @@ const parseBoolean = (value, fallback = true) => {
     return fallback;
 };
 
-const isVaultEnabled = () => parseBoolean(process.env.AUTH_VAULT_ENABLED, true);
+const isTestEnvironment = () => process.env.NODE_ENV === 'test';
+const isVaultEnabled = () => {
+    if (isTestEnvironment()) {
+        return parseBoolean(process.env.AUTH_VAULT_ENABLED_IN_TEST, false);
+    }
+    return parseBoolean(process.env.AUTH_VAULT_ENABLED, false);
+};
+
+const resolveVaultFile = () => {
+    const customPath = String(process.env.AUTH_VAULT_FILE || '').trim();
+    if (customPath) {
+        return path.isAbsolute(customPath)
+            ? customPath
+            : path.join(VAULT_DIR, customPath);
+    }
+
+    const filename = isTestEnvironment() ? 'auth-vault.test.json' : 'auth-vault.json';
+    return path.join(VAULT_DIR, filename);
+};
+
+const resolveVaultTmpFile = () => {
+    const customTempPath = String(process.env.AUTH_VAULT_TMP_FILE || '').trim();
+    if (customTempPath) {
+        return path.isAbsolute(customTempPath)
+            ? customTempPath
+            : path.join(VAULT_DIR, customTempPath);
+    }
+
+    const filename = isTestEnvironment() ? 'auth-vault.test.tmp.json' : 'auth-vault.tmp.json';
+    return path.join(VAULT_DIR, filename);
+};
 
 const normalizeEmail = (value) => (
     typeof value === 'string' ? value.trim().toLowerCase() : ''
@@ -45,18 +73,20 @@ const normalizeProfile = (input = {}) => {
 };
 
 const ensureVaultFile = async () => {
+    const vaultFile = resolveVaultFile();
     await fs.mkdir(VAULT_DIR, { recursive: true });
     try {
-        await fs.access(VAULT_FILE);
+        await fs.access(vaultFile);
     } catch {
-        await fs.writeFile(VAULT_FILE, '{}', 'utf8');
+        await fs.writeFile(vaultFile, '{}', 'utf8');
     }
 };
 
 const readVault = async () => {
+    const vaultFile = resolveVaultFile();
     await ensureVaultFile();
     try {
-        const content = await fs.readFile(VAULT_FILE, 'utf8');
+        const content = await fs.readFile(vaultFile, 'utf8');
         const parsed = JSON.parse(content || '{}');
         return parsed && typeof parsed === 'object' ? parsed : {};
     } catch (error) {
@@ -66,9 +96,11 @@ const readVault = async () => {
 };
 
 const writeVault = async (data) => {
+    const vaultFile = resolveVaultFile();
+    const vaultTmpFile = resolveVaultTmpFile();
     await ensureVaultFile();
-    await fs.writeFile(VAULT_TMP_FILE, JSON.stringify(data), 'utf8');
-    await fs.rename(VAULT_TMP_FILE, VAULT_FILE);
+    await fs.writeFile(vaultTmpFile, JSON.stringify(data), 'utf8');
+    await fs.rename(vaultTmpFile, vaultFile);
 };
 
 const enforceVaultSize = (vault) => {
@@ -110,5 +142,5 @@ const getAuthProfileSnapshotByEmail = async (email) => {
 module.exports = {
     saveAuthProfileSnapshot,
     getAuthProfileSnapshotByEmail,
+    resolveVaultFile,
 };
-

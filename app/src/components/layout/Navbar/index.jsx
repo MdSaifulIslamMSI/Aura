@@ -2,11 +2,9 @@ import { useContext, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ChevronDown,
-  Film,
   Gauge,
   Heart,
   Menu,
-  Minus,
   Palette,
   Plus,
   Shield,
@@ -39,6 +37,7 @@ const Navbar = () => {
   const { motionMode, setMotionMode, motionModeOptions, autoDowngraded, effectiveMotionMode } = useMotionMode();
 
   const activeUser = currentUser;
+  const displayName = activeUser?.displayName || dbUser?.name || activeUser?.email?.split('@')[0] || 'Profile';
 
   useEffect(() => {
     const handleScroll = () => {
@@ -79,6 +78,8 @@ const Navbar = () => {
   const currentColorLabel = currentColorMode?.label || 'Neo Cyan';
   const loyaltyPoints = Number(dbUser?.loyalty?.pointsBalance || 0);
   const isSeller = Boolean(dbUser?.isSeller);
+  const navActionClasses =
+    'hidden xl:inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/[0.05] px-3.5 py-2 text-sm font-semibold text-slate-200 transition-all duration-200 hover:-translate-y-0.5 hover:border-white/20 hover:bg-white/[0.08] hover:text-white';
 
   return (
     <>
@@ -95,7 +96,7 @@ const Navbar = () => {
         <div className="container-custom max-w-[90rem] mx-auto px-3 sm:px-5 lg:px-6">
           <div
             className={cn(
-              'min-w-0 flex items-center justify-between gap-1.5 sm:gap-2.5 lg:gap-3 rounded-2xl border px-2 sm:px-3 lg:px-3.5',
+              'min-w-0 flex items-center justify-between gap-2 sm:gap-3 lg:gap-4 rounded-[1.65rem] border px-2.5 sm:px-3.5 lg:px-4 py-2',
               'bg-zinc-950/60 backdrop-blur-2xl shadow-[0_14px_40px_rgba(2,8,23,0.42)]',
               isScrolled ? 'border-white/15' : 'border-white/10'
             )}
@@ -120,31 +121,37 @@ const Navbar = () => {
 
             {/* Search Bar - Desktop */}
             <GlobalSearchBar
-              className="hidden lg:flex flex-1 min-w-[18rem] xl:min-w-[22rem] max-w-[44rem] 2xl:max-w-[50rem]"
-              placeholder="Search the latest collections..."
+              className="hidden lg:flex flex-[1.2] min-w-[18rem] xl:min-w-[24rem] max-w-[32rem] xl:max-w-[40rem] 2xl:max-w-[46rem]"
+              placeholder="Search products, brands, and live deals"
               onVoiceSearch={() => setShowVoiceSearch(true)}
             />
 
-            {/* Marketplace + Sell - Desktop */}
-            <div className="hidden 2xl:flex items-center gap-2">
+            {/* Primary commerce actions */}
+            <div className="hidden xl:flex items-center gap-2 flex-shrink-0">
               <Link
                 to="/marketplace"
-                className="flex items-center gap-1.5 px-2.5 py-2 text-slate-300 hover:text-white rounded-xl hover:bg-white/8 border border-white/10 hover:border-white/20 transition-all text-sm font-semibold"
+                className={navActionClasses}
               >
                 <Store className="w-4 h-4" />
                 Marketplace
               </Link>
               <Link
                 to={isSeller ? '/sell' : '/become-seller'}
-                className="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-neo-cyan to-neo-emerald text-white font-bold rounded-xl text-sm shadow-lg shadow-emerald-500/25 hover:from-sky-500 hover:to-emerald-500 hover:-translate-y-0.5 transition-all duration-200"
+                className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-neo-cyan to-neo-emerald px-4 py-2.5 text-sm font-black text-white shadow-lg shadow-emerald-500/20 transition-all duration-200 hover:-translate-y-0.5 hover:from-sky-500 hover:to-emerald-500"
               >
                 <Plus className="w-4 h-4" />
-                SELL
+                {isSeller ? 'Sell' : 'Become Seller'}
               </Link>
+              {activeUser && (
+                <div className="hidden 2xl:inline-flex items-center gap-2 rounded-full border border-amber-300/35 bg-amber-400/12 px-3 py-2 text-xs font-black uppercase tracking-[0.18em] text-amber-100">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-200" />
+                  {loyaltyPoints.toLocaleString('en-IN')} AP
+                </div>
+              )}
               {dbUser?.isAdmin && (
                 <Link
                   to="/admin/dashboard"
-                  className="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-amber-500/90 to-orange-500/90 text-white font-black rounded-xl text-sm shadow-lg shadow-amber-500/25 hover:from-amber-400 hover:to-orange-400 hover:-translate-y-0.5 transition-all duration-200"
+                  className="inline-flex items-center gap-2 rounded-full border border-amber-300/35 bg-amber-400/12 px-3.5 py-2 text-sm font-black text-amber-100 transition-all duration-200 hover:-translate-y-0.5 hover:bg-amber-300/18"
                   title="Open Admin Portal"
                 >
                   <Shield className="w-4 h-4" />
@@ -155,40 +162,20 @@ const Navbar = () => {
 
             {/* Right Actions */}
             <div className="flex items-center gap-1 sm:gap-1.5 lg:gap-2 flex-shrink-0">
-              {activeUser && (
-                <Link
-                  to="/profile"
-                  className="hidden 2xl:inline-flex items-center gap-1.5 rounded-full border border-amber-300/40 bg-amber-400/15 px-3 py-1.5 text-xs font-black uppercase tracking-wider text-amber-100 transition hover:bg-amber-400/25"
-                  title="Aura Points"
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-amber-200" />
-                  {loyaltyPoints.toLocaleString('en-IN')} AP
-                </Link>
-              )}
-
-              {dbUser?.isAdmin && (
-                <Link
-                  to="/admin/dashboard"
-                  className="hidden lg:inline-flex items-center gap-1.5 rounded-xl border border-amber-300/45 bg-amber-400/15 px-2.5 py-2 text-xs font-black uppercase tracking-wide text-amber-100 transition hover:bg-amber-300/25"
-                  title="Open Admin Portal"
-                >
-                  <Shield className="w-4 h-4" />
-                  Admin
-                </Link>
-              )}
-
               {/* User Menu */}
               <div className="relative">
                 {activeUser ? (
                   <button
                     onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                    className="flex items-center gap-2 px-2 sm:px-2.5 py-2 text-slate-300 hover:text-white rounded-xl hover:bg-white/8 transition-all border border-white/10 hover:border-white/20 max-w-[7.5rem] 2xl:max-w-[10rem]"
+                    className="flex items-center gap-2 rounded-full border border-white/12 bg-white/[0.04] px-2.5 py-2 text-slate-200 transition-all hover:border-white/20 hover:bg-white/[0.08] hover:text-white max-w-[8rem] xl:max-w-[10rem]"
                   >
-                    <User className="w-5 h-5 text-neo-cyan" />
-                    <span className="hidden 2xl:inline text-sm font-semibold tracking-wide truncate">
-                      {activeUser.displayName || activeUser.email?.split('@')[0] || 'User'}
+                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-neo-cyan/25 to-neo-emerald/25 border border-white/10">
+                      <User className="w-4 h-4 text-neo-cyan" />
                     </span>
-                    <ChevronDown className="w-4 h-4 hidden 2xl:block opacity-50" />
+                    <span className="hidden xl:inline text-sm font-semibold tracking-wide truncate">
+                      {displayName}
+                    </span>
+                    <ChevronDown className="w-4 h-4 hidden xl:block opacity-50" />
                   </button>
                 ) : (
                   <button
@@ -201,7 +188,12 @@ const Navbar = () => {
 
                 {/* User Dropdown */}
                 {isUserMenuOpen && activeUser && (
-                  <div className="absolute right-0 mt-3 w-44 sm:w-48 bg-zinc-900/90 backdrop-blur-xl rounded-xl border border-white/10 shadow-glass py-2 animate-fade-in z-50">
+                  <div className="absolute right-0 mt-3 w-52 bg-zinc-900/92 backdrop-blur-2xl rounded-2xl border border-white/12 shadow-glass py-2 animate-fade-in z-50">
+                    <div className="px-4 pb-2">
+                      <div className="text-sm font-bold text-white truncate">{displayName}</div>
+                      <div className="text-xs text-slate-400 truncate">{activeUser.email}</div>
+                    </div>
+                    <div className="border-t border-white/10 my-1" />
                     <Link
                       to="/profile"
                       className="block px-4 py-2.5 text-sm text-slate-300 hover:text-white hover:bg-white/5 transition-colors"
@@ -274,7 +266,7 @@ const Navbar = () => {
 
               {/* Color selector */}
               <div
-                className="hidden xl:flex items-center gap-1 rounded-xl border border-white/15 bg-white/5 px-1.5 py-1.5 text-slate-300 backdrop-blur-md transition-all hover:border-white/25 hover:text-white"
+                className="hidden lg:flex items-center gap-2 rounded-full border border-white/12 bg-white/[0.04] px-2 py-2 text-slate-300 backdrop-blur-md transition-all hover:border-white/20 hover:text-white"
                 aria-label={`Color mode selector. Current mode ${currentColorLabel}`}
                 title={`Color mode: ${currentColorLabel}`}
               >
@@ -284,11 +276,11 @@ const Navbar = () => {
                     background: `linear-gradient(135deg, ${currentColorMode?.primary || '#06b6d4'}, ${currentColorMode?.secondary || '#10b981'})`,
                   }}
                 />
-                <Palette className="w-3.5 h-3.5 text-neo-cyan" />
+                <Palette className="w-3.5 h-3.5 text-neo-cyan hidden 2xl:block" />
                 <select
                   value={colorMode}
                   onChange={(e) => setColorMode(e.target.value)}
-                  className="bg-transparent text-[10px] font-semibold uppercase tracking-wide outline-none w-[5.8rem] 2xl:w-[7.2rem] truncate"
+                  className="bg-transparent text-[10px] font-semibold uppercase tracking-[0.18em] outline-none w-[5.9rem] 2xl:w-[7.4rem] truncate"
                 >
                   {colorModeOptions.map((mode) => (
                     <option key={mode.value} value={mode.value} className="bg-zinc-900 text-slate-100 normal-case">
@@ -298,39 +290,10 @@ const Navbar = () => {
                 </select>
               </div>
 
-              {/* Motion selector */}
-              <div
-                className="hidden xl:flex items-center gap-1 rounded-xl border border-white/15 bg-white/5 px-1.5 py-1.5 text-slate-300 backdrop-blur-md transition-all hover:border-white/25 hover:text-white"
-                aria-label={`Motion mode selector. Current mode ${motionMode}`}
-                title={autoDowngraded ? `Auto optimized: ${effectiveMotionMode}` : `Motion mode: ${motionMode}`}
-              >
-                {motionMode === 'cinematic' ? (
-                  <Film className="w-3.5 h-3.5 text-violet-300" />
-                ) : motionMode === 'minimal' ? (
-                  <Minus className="w-3.5 h-3.5 text-amber-300" />
-                ) : (
-                  <Gauge className="w-3.5 h-3.5 text-cyan-300" />
-                )}
-                <select
-                  value={motionMode}
-                  onChange={(e) => setMotionMode(e.target.value)}
-                  className="bg-transparent text-[10px] font-semibold uppercase tracking-wide outline-none w-[5.8rem] 2xl:w-[7.2rem] truncate"
-                >
-                  {motionModeOptions.map((mode) => (
-                    <option key={mode.value} value={mode.value} className="bg-zinc-900 text-slate-100 normal-case">
-                      {mode.label}
-                    </option>
-                  ))}
-                </select>
-                {autoDowngraded && (
-                  <span className="inline-flex h-2.5 w-2.5 rounded-full bg-amber-300 shadow-[0_0_8px_rgba(251,191,36,0.85)]" />
-                )}
-              </div>
-
               {/* Wishlist */}
               <Link
                 to="/wishlist"
-                className="flex items-center gap-2 p-2 text-slate-300 hover:text-neo-emerald rounded-lg hover:bg-neo-emerald/10 transition-all"
+                className="flex items-center gap-2 rounded-full border border-transparent p-2 text-slate-300 transition-all hover:border-white/10 hover:bg-white/[0.05] hover:text-neo-emerald"
                 aria-label="Wishlist"
               >
                 <Heart className="w-5 h-5" />
@@ -339,7 +302,7 @@ const Navbar = () => {
               {/* Cart */}
               <Link
                 to="/cart"
-                className="flex items-center gap-2 p-2 text-slate-300 hover:text-neo-cyan rounded-lg hover:bg-neo-cyan/10 transition-all group"
+                className="flex items-center gap-2 rounded-full border border-transparent p-2 text-slate-300 transition-all group hover:border-white/10 hover:bg-white/[0.05] hover:text-neo-cyan"
                 aria-label="Cart"
               >
                 <div className="relative">

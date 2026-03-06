@@ -19,12 +19,18 @@ const run = async () => {
     await collection.createIndex(
         { phone: 1 },
         {
-            name: 'phone_1_sparse_unique',
+            name: 'phone_1_partial_unique_nonempty',
             unique: true,
-            sparse: true,
+            partialFilterExpression: {
+                $and: [
+                    { phone: { $exists: true } },
+                    { phone: { $type: 'string' } },
+                    { phone: { $gt: '' } },
+                ],
+            },
         }
     );
-    console.log('Created sparse unique phone index: phone_1_sparse_unique');
+    console.log('Created partial unique phone index: phone_1_partial_unique_nonempty');
 
     await collection.createIndex(
         { phone: 1, isVerified: 1 },
