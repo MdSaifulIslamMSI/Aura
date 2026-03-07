@@ -1,7 +1,10 @@
-import { auth } from '../config/firebase';
+import { auth, isFirebaseReady } from '../config/firebase';
 import { API_BASE_URL as BASE_URL } from './apiBase';
 
 const getAuthHeader = async (firebaseUser = null) => {
+    if (!isFirebaseReady || !auth) {
+        return {};
+    }
     const user = firebaseUser || auth.currentUser;
     if (user) {
         const token = await user.getIdToken();

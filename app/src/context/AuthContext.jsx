@@ -8,7 +8,14 @@ import {
   sendPasswordResetEmail,
   signInWithPopup
 } from 'firebase/auth';
-import { auth, googleProvider, facebookProvider, xProvider } from '../config/firebase';
+import {
+  auth,
+  googleProvider,
+  facebookProvider,
+  xProvider,
+  assertFirebaseReady,
+  isFirebaseReady,
+} from '../config/firebase';
 import { userApi } from '../services/api';
 
 export const AuthContext = createContext();
@@ -115,6 +122,7 @@ export const AuthProvider = ({ children }) => {
 
   // Sign up with phone number
   const signup = async (email, password, name, phone) => {
+    assertFirebaseReady('Sign up');
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     await updateProfile(userCredential.user, { displayName: name });
     setCurrentUser({ ...userCredential.user, displayName: name });
@@ -125,6 +133,7 @@ export const AuthProvider = ({ children }) => {
 
   // Login
   const login = async (email, password) => {
+    assertFirebaseReady('Sign in');
     const result = await signInWithEmailAndPassword(auth, email, password);
     // Backend sync happens via onAuthStateChanged
     return result;
@@ -133,6 +142,7 @@ export const AuthProvider = ({ children }) => {
   // Google Sign-In
   // Returns { firebaseUser, dbUser, isNewUser, needsPhone }
   const signInWithOAuthProvider = async (provider, providerLabel = 'OAuth') => {
+    assertFirebaseReady(`${providerLabel} sign-in`);
     const result = await signInWithPopup(auth, provider);
     const user = result.user;
     const isNewUser = result._tokenResponse?.isNewUser || false;
@@ -165,6 +175,16 @@ export const AuthProvider = ({ children }) => {
 
   // Logout
   const logout = () => {
+    if (!isFirebaseReady || !auth) {
+      setDbUser(null);
+      syncStateRef.current = {
+        identity: '',
+        lastSyncedAt: 0,
+        inFlight: null,
+      };
+      setCurrentUser(null);
+      return Promise.resolve();
+    }
     setDbUser(null);
     syncStateRef.current = {
       identity: '',
@@ -176,6 +196,7 @@ export const AuthProvider = ({ children }) => {
 
   // Forgot Password
   const forgotPassword = (email) => {
+    assertFirebaseReady('Password reset');
     return sendPasswordResetEmail(auth, email);
   };
 
@@ -206,6 +227,16 @@ export const AuthProvider = ({ children }) => {
         setLoading(false);
       }
     }, 4000);
+
+    if (!isFirebaseReady || !auth) {
+      setCurrentUser(null);
+      setDbUser(null);
+      setLoading(false);
+      return () => {
+        isMounted = false;
+        clearTimeout(bootstrapTimeout);
+      };
+    }
 
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (!isMounted) return;

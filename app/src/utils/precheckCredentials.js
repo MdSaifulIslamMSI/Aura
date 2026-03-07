@@ -1,10 +1,11 @@
 import { initializeApp, deleteApp } from 'firebase/app';
 import { getAuth, signInWithEmailAndPassword, signOut } from 'firebase/auth';
-import { firebaseConfig } from '@/config/firebase';
+import { firebaseConfig, assertFirebaseReady } from '@/config/firebase';
 
 const createTempAppName = () => `aura-precheck-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
 export const verifyCredentialsWithoutSession = async (email, password) => {
+  assertFirebaseReady('Credential verification');
   const tempApp = initializeApp(firebaseConfig, createTempAppName());
   const tempAuth = getAuth(tempApp);
 

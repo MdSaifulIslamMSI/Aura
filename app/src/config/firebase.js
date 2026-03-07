@@ -12,24 +12,79 @@ export const firebaseConfig = {
     measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
-export const googleProvider = new GoogleAuthProvider();
-export const facebookProvider = new FacebookAuthProvider();
-export const xProvider = new TwitterAuthProvider();
+const requiredConfigKeys = [
+    'apiKey',
+    'authDomain',
+    'projectId',
+    'storageBucket',
+    'messagingSenderId',
+    'appId',
+];
 
-facebookProvider.setCustomParameters({
-    display: 'popup',
+const hasRequiredConfig = requiredConfigKeys.every((key) => {
+    const value = firebaseConfig[key];
+    return typeof value === 'string' && value.trim().length > 0;
 });
 
-// Analytics only in browser
+const buildFirebaseConfigError = (message) => {
+    const error = new Error(message);
+    error.code = 'auth/configuration-unavailable';
+    return error;
+};
+
+let app = null;
+let auth = null;
+let googleProvider = null;
+let facebookProvider = null;
+let xProvider = null;
 let analytics = null;
-try {
-    analytics = getAnalytics(app);
-} catch (e) {
-    // Analytics may fail in non-browser environments
+let firebaseInitError = null;
+
+if (!hasRequiredConfig) {
+    firebaseInitError = buildFirebaseConfigError('Firebase configuration is missing required values.');
+} else {
+    try {
+        app = initializeApp(firebaseConfig);
+        auth = getAuth(app);
+
+        googleProvider = new GoogleAuthProvider();
+        facebookProvider = new FacebookAuthProvider();
+        xProvider = new TwitterAuthProvider();
+
+        facebookProvider.setCustomParameters({
+            display: 'popup',
+        });
+
+        if (typeof window !== 'undefined') {
+            try {
+                analytics = getAnalytics(app);
+            } catch {
+                analytics = null;
+            }
+        }
+    } catch (error) {
+        firebaseInitError = error;
+        app = null;
+        auth = null;
+        googleProvider = null;
+        facebookProvider = null;
+        xProvider = null;
+        analytics = null;
+    }
 }
-export { analytics };
+
+export const isFirebaseReady = Boolean(app && auth);
+export const getFirebaseInitError = () => firebaseInitError;
+export const assertFirebaseReady = (feature = 'Firebase authentication') => {
+    if (isFirebaseReady) return;
+
+    if (firebaseInitError) {
+        throw firebaseInitError;
+    }
+
+    throw buildFirebaseConfigError(`${feature} is not configured.`);
+};
+
+export { app, auth, googleProvider, facebookProvider, xProvider, analytics };
 
 export default app;

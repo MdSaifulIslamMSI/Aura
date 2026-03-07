@@ -63,6 +63,20 @@ export const AUTH_ERRORS = {
         action: null,
         actionLabel: null
     },
+    'auth/configuration-unavailable': {
+        title: 'Authentication Not Configured',
+        detail: 'Firebase authentication is not configured correctly for this deployment.',
+        hint: 'The site can still load, but sign-in features will stay unavailable until the Firebase web config is fixed.',
+        action: null,
+        actionLabel: null
+    },
+    'auth/invalid-api-key': {
+        title: 'Authentication Misconfigured',
+        detail: 'The deployed Firebase API key is invalid for this frontend.',
+        hint: 'Fix the Firebase web app configuration for this deployed domain, then redeploy the frontend.',
+        action: null,
+        actionLabel: null
+    },
 
     // ── OTP / Backend errors (matched by message content)
     'no account found with this phone': {

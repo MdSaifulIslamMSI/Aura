@@ -1,8 +1,11 @@
-import { auth } from '../config/firebase';
+import { auth, isFirebaseReady } from '../config/firebase';
 import { API_BASE_URL as API_URL } from './apiBase';
 
 const getChatHeaders = async () => {
     const headers = { 'Content-Type': 'application/json' };
+    if (!isFirebaseReady || !auth) {
+        return { headers, endpoint: '/chat/public' };
+    }
     const user = auth.currentUser;
     if (!user) return { headers, endpoint: '/chat/public' };
 
