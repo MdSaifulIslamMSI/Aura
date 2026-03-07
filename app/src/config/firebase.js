@@ -2,14 +2,34 @@ import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider, FacebookAuthProvider, TwitterAuthProvider } from "firebase/auth";
 import { getAnalytics } from "firebase/analytics";
 
+const sanitizeFirebaseValue = (value) => {
+    if (typeof value !== 'string') return value;
+    return value.replace(/[\r\n\t]+/g, '').trim();
+};
+
+const sanitizeHostValue = (value) => {
+    const normalized = sanitizeFirebaseValue(value);
+    if (!normalized) return normalized;
+
+    try {
+        const url = new URL(normalized.includes('://') ? normalized : `https://${normalized}`);
+        return url.hostname.trim();
+    } catch {
+        return normalized
+            .replace(/^https?:\/\//i, '')
+            .replace(/\/.*$/, '')
+            .trim();
+    }
+};
+
 export const firebaseConfig = {
-    apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-    appId: import.meta.env.VITE_FIREBASE_APP_ID,
-    measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
+    apiKey: sanitizeFirebaseValue(import.meta.env.VITE_FIREBASE_API_KEY),
+    authDomain: sanitizeHostValue(import.meta.env.VITE_FIREBASE_AUTH_DOMAIN),
+    projectId: sanitizeFirebaseValue(import.meta.env.VITE_FIREBASE_PROJECT_ID),
+    storageBucket: sanitizeHostValue(import.meta.env.VITE_FIREBASE_STORAGE_BUCKET),
+    messagingSenderId: sanitizeFirebaseValue(import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID),
+    appId: sanitizeFirebaseValue(import.meta.env.VITE_FIREBASE_APP_ID),
+    measurementId: sanitizeFirebaseValue(import.meta.env.VITE_FIREBASE_MEASUREMENT_ID)
 };
 
 const requiredConfigKeys = [
