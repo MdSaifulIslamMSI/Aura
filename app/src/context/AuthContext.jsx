@@ -14,6 +14,7 @@ import {
   facebookProvider,
   xProvider,
   assertFirebaseReady,
+  assertFirebaseSocialAuthReady,
   isFirebaseReady,
 } from '../config/firebase';
 import { userApi } from '../services/api';
@@ -90,13 +91,16 @@ export const AuthProvider = ({ children }) => {
           return profile;
         } catch (profileError) {
           console.error('Profile recovery failed:', profileError.message);
-          // Final fallback identity so profile/header can still show authenticated user info.
-          setDbUser((prev) => ({
-            ...(prev || {}),
-            ...(safeName ? { name: safeName } : {}),
-            ...(safeEmail ? { email: safeEmail } : {}),
-            ...(safePhone ? { phone: safePhone } : {}),
-          }));
+          // Final fallback identity must never preserve stale privilege flags from
+          // a previous session. Keep only minimal identity fields and fail closed.
+          setDbUser({
+            name: safeName || safeEmail.split('@')[0] || 'Aura User',
+            email: safeEmail,
+            phone: safePhone,
+            isAdmin: false,
+            isSeller: false,
+            isVerified: Boolean(firebaseUser?.emailVerified),
+          });
           return null;
         }
       }
@@ -142,7 +146,7 @@ export const AuthProvider = ({ children }) => {
   // Google Sign-In
   // Returns { firebaseUser, dbUser, isNewUser, needsPhone }
   const signInWithOAuthProvider = async (provider, providerLabel = 'OAuth') => {
-    assertFirebaseReady(`${providerLabel} sign-in`);
+    assertFirebaseSocialAuthReady(`${providerLabel} sign-in`);
     const result = await signInWithPopup(auth, provider);
     const user = result.user;
     const isNewUser = result._tokenResponse?.isNewUser || false;
@@ -245,6 +249,13 @@ export const AuthProvider = ({ children }) => {
       setLoading(false);
 
       if (user) {
+        const normalizedEmail = (user.email || '').trim().toLowerCase();
+        const currentDbEmail = (dbUserRef.current?.email || '').trim().toLowerCase();
+
+        if (!normalizedEmail || currentDbEmail !== normalizedEmail) {
+          setDbUser(null);
+        }
+
         // Run backend sync in background so UI does not block on network.
         syncUserWithBackend(
           user.email,

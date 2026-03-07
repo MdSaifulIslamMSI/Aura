@@ -223,8 +223,37 @@ const invalidateUserCacheByEmail = (email) => {
     }
 };
 
-const admin = (req, res, next) => {
-    if (!req.user?.isAdmin) {
+const resolveFreshAdminUser = async (req) => {
+    const actorEmail = normalizeEmail(req.user?.email || req.authToken?.email || '');
+    if (!actorEmail) return null;
+
+    const freshUser = await User.findOne({ email: actorEmail }, AUTH_PROJECTION).lean();
+    if (!freshUser) return null;
+
+    req.user = freshUser;
+
+    if (req.authUid) {
+        const tokenExp = Number(req.authToken?.exp || 0);
+        if (tokenExp > 0) {
+            setCachedUser(req.authUid, freshUser, tokenExp);
+        } else {
+            invalidateUserCache(req.authUid);
+        }
+    }
+
+    return freshUser;
+};
+
+const admin = asyncHandler(async (req, res, next) => {
+    let effectiveUser = req.user;
+
+    // Admin privilege can change while a session is still active. Re-check Mongo
+    // before denying so a stale in-memory auth cache does not block promoted admins.
+    if (!effectiveUser?.isAdmin) {
+        effectiveUser = await resolveFreshAdminUser(req);
+    }
+
+    if (!effectiveUser?.isAdmin) {
         throw new AppError('Not authorized as an admin', 403);
     }
 
@@ -294,7 +323,7 @@ const admin = (req, res, next) => {
     }
 
     return next();
-};
+});
 
 const seller = (req, res, next) => {
     if (req.user?.isSeller) {
