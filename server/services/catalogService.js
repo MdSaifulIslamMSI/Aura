@@ -103,6 +103,29 @@ const getProviderSourceRef = (provider) => {
     return safeString(process.env[envKey] || flags.catalogProviderSourceRef);
 };
 
+const deriveFallbackActiveCatalogVersion = async () => {
+    const published = await Product.findOne({
+        isPublished: true,
+        catalogVersion: { $exists: true, $ne: '' },
+    })
+        .sort({ updatedAt: -1, createdAt: -1 })
+        .select('catalogVersion')
+        .lean();
+
+    if (published?.catalogVersion) {
+        return published.catalogVersion;
+    }
+
+    const newest = await Product.findOne({
+        catalogVersion: { $exists: true, $ne: '' },
+    })
+        .sort({ updatedAt: -1, createdAt: -1 })
+        .select('catalogVersion')
+        .lean();
+
+    return newest?.catalogVersion || 'legacy-v1';
+};
+
 const buildSearchText = (record = {}) => [
     safeString(record.title),
     safeString(record.brand),
@@ -424,10 +447,11 @@ const ensureSystemState = async () => {
         if (!isSystemStateWriteBlocked(error)) throw error;
 
         systemStateWriteBlocked = true;
+        const fallbackActiveCatalogVersion = await deriveFallbackActiveCatalogVersion();
         if (!systemStateFallbackDoc) {
             systemStateFallbackDoc = {
                 key: DEFAULT_SYSTEM_KEY,
-                activeCatalogVersion: 'legacy-v1',
+                activeCatalogVersion: fallbackActiveCatalogVersion,
                 previousCatalogVersion: '',
                 lastSwitchAt: new Date(),
                 manualProductCounter: 1000000,
@@ -503,7 +527,11 @@ const getSystemStateWithFallback = async () => {
             });
             systemStateFallbackWarned = true;
         }
-        systemStateFallbackDoc = getFallbackSystemState();
+        const fallbackActiveCatalogVersion = await deriveFallbackActiveCatalogVersion();
+        systemStateFallbackDoc = {
+            ...getFallbackSystemState(),
+            activeCatalogVersion: fallbackActiveCatalogVersion,
+        };
         return systemStateFallbackDoc;
     }
 };

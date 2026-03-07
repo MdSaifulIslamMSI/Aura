@@ -6,11 +6,13 @@ import { cn } from '@/lib/utils';
 import { AuthFeedback } from '@/components/shared/AuthFeedback';
 import { resolveAuthError, AUTH_SUCCESS } from '@/utils/authErrors';
 import { verifyCredentialsWithoutSession } from '@/utils/precheckCredentials';
+import { getFirebaseSocialAuthStatus } from '@/config/firebase';
 
 const OTP_LENGTH = 6;
 
 const LoginModal = ({ isOpen, onClose }) => {
     const { login, signup, forgotPassword, signInWithGoogle, signInWithFacebook, signInWithX } = useContext(AuthContext);
+    const socialAuthStatus = getFirebaseSocialAuthStatus();
 
     const [mode, setMode] = useState('signin'); // 'signin' | 'signup' | 'forgot-password'
     const [step, setStep] = useState('form');    // 'form' | 'otp'
@@ -237,14 +239,14 @@ const LoginModal = ({ isOpen, onClose }) => {
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-0">
-            <div className="absolute inset-0 bg-zinc-950/80 backdrop-blur-sm animate-fade-in" onClick={onClose} />
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto px-3 py-4 sm:items-center sm:p-4">
+            <div className="absolute inset-0 bg-zinc-950/58 sm:bg-zinc-950/72 backdrop-blur-[2px] sm:backdrop-blur-sm animate-fade-in" onClick={onClose} />
 
-            <div className="bg-white/5 backdrop-blur-2xl rounded-[32px] shadow-glass border border-white/10 w-full max-w-md relative overflow-hidden z-10 animate-scale-up shadow-[0_0_50px_rgba(0,0,0,0.8)]">
+            <div className="bg-white/5 backdrop-blur-2xl rounded-[28px] sm:rounded-[32px] shadow-glass border border-white/10 w-full max-w-md relative overflow-hidden z-10 animate-scale-up shadow-[0_0_50px_rgba(0,0,0,0.8)] max-h-[min(92vh,860px)] overscroll-contain">
                 <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent pointer-events-none" />
 
                 {/* Header */}
-                <div className="relative z-10 p-6 pb-0 flex items-center justify-between">
+                <div className="relative z-10 p-5 sm:p-6 pb-0 flex items-center justify-between">
                     <div className="flex items-center gap-2">
                         <div className="w-8 h-8 bg-gradient-to-br from-neo-cyan to-neo-fuchsia rounded-lg p-[2px]">
                             <div className="w-full h-full bg-zinc-950 rounded-[6px] flex items-center justify-center">
@@ -262,7 +264,7 @@ const LoginModal = ({ isOpen, onClose }) => {
                 </div>
 
                 {/* Form */}
-                <div className="relative z-10 p-6">
+                <div className="relative z-10 p-5 sm:p-6 overflow-y-auto max-h-[calc(min(92vh,860px)-5.25rem)]">
                     {/* Error */}
                     {authError && (
                         <AuthFeedback
@@ -407,46 +409,59 @@ const LoginModal = ({ isOpen, onClose }) => {
                                     <span className="text-[9px] uppercase tracking-[0.3em] font-bold text-slate-500">or</span>
                                     <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
                                 </div>
-                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                                    <button
-                                        type="button"
-                                        onClick={() => handleSocialSignIn(signInWithGoogle)}
-                                        disabled={isLoading}
-                                        className="w-full py-3 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-white font-bold text-[10px] tracking-[0.12em] uppercase transition-all duration-300 flex items-center justify-center gap-2 hover:border-white/20 hover:shadow-[0_0_15px_rgba(255,255,255,0.05)]"
-                                    >
-                                        <svg className="w-4 h-4" viewBox="0 0 24 24" aria-hidden="true">
-                                            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4" />
-                                            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
-                                            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
-                                            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
-                                        </svg>
-                                        Google
-                                    </button>
+                                {socialAuthStatus.supported ? (
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => handleSocialSignIn(signInWithGoogle)}
+                                            disabled={isLoading}
+                                            className="w-full py-3 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-white font-bold text-[10px] tracking-[0.12em] uppercase transition-all duration-300 flex items-center justify-center gap-2 hover:border-white/20 hover:shadow-[0_0_15px_rgba(255,255,255,0.05)]"
+                                        >
+                                            <svg className="w-4 h-4" viewBox="0 0 24 24" aria-hidden="true">
+                                                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4" />
+                                                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+                                                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
+                                                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
+                                            </svg>
+                                            Google
+                                        </button>
 
-                                    <button
-                                        type="button"
-                                        onClick={() => handleSocialSignIn(signInWithFacebook)}
-                                        disabled={isLoading}
-                                        className="w-full py-3 rounded-xl border border-white/10 bg-white/5 hover:bg-[#1877F2]/15 text-white font-bold text-[10px] tracking-[0.12em] uppercase transition-all duration-300 flex items-center justify-center gap-2 hover:border-[#1877F2]/40"
-                                    >
-                                        <svg className="w-4 h-4" viewBox="0 0 24 24" aria-hidden="true">
-                                            <path fill="#1877F2" d="M24 12.073C24 5.405 18.627 0 12 0S0 5.405 0 12.073c0 6.023 4.388 11.015 10.125 11.926v-8.437H7.078v-3.49h3.047V9.412c0-3.017 1.792-4.686 4.533-4.686 1.312 0 2.686.235 2.686.235v2.96h-1.513c-1.491 0-1.956.93-1.956 1.884v2.265h3.328l-.532 3.49h-2.796V24C19.612 23.088 24 18.096 24 12.073z" />
-                                        </svg>
-                                        Facebook
-                                    </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleSocialSignIn(signInWithFacebook)}
+                                            disabled={isLoading}
+                                            className="w-full py-3 rounded-xl border border-white/10 bg-white/5 hover:bg-[#1877F2]/15 text-white font-bold text-[10px] tracking-[0.12em] uppercase transition-all duration-300 flex items-center justify-center gap-2 hover:border-[#1877F2]/40"
+                                        >
+                                            <svg className="w-4 h-4" viewBox="0 0 24 24" aria-hidden="true">
+                                                <path fill="#1877F2" d="M24 12.073C24 5.405 18.627 0 12 0S0 5.405 0 12.073c0 6.023 4.388 11.015 10.125 11.926v-8.437H7.078v-3.49h3.047V9.412c0-3.017 1.792-4.686 4.533-4.686 1.312 0 2.686.235 2.686.235v2.96h-1.513c-1.491 0-1.956.93-1.956 1.884v2.265h3.328l-.532 3.49h-2.796V24C19.612 23.088 24 18.096 24 12.073z" />
+                                            </svg>
+                                            Facebook
+                                        </button>
 
-                                    <button
-                                        type="button"
-                                        onClick={() => handleSocialSignIn(signInWithX)}
-                                        disabled={isLoading}
-                                        className="w-full py-3 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-white font-bold text-[10px] tracking-[0.12em] uppercase transition-all duration-300 flex items-center justify-center gap-2 hover:border-white/30"
-                                    >
-                                        <svg className="w-4 h-4" viewBox="0 0 24 24" aria-hidden="true">
-                                            <path fill="currentColor" d="M18.244 2H21l-6.54 7.475L22 22h-5.828l-4.566-5.964L6.39 22H3.633l7-8.002L2 2h5.977l4.127 5.446L18.244 2Zm-1.021 18.285h1.527L7.147 3.624H5.507l11.716 16.661Z" />
-                                        </svg>
-                                        X
-                                    </button>
-                                </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleSocialSignIn(signInWithX)}
+                                            disabled={isLoading}
+                                            className="w-full py-3 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-white font-bold text-[10px] tracking-[0.12em] uppercase transition-all duration-300 flex items-center justify-center gap-2 hover:border-white/30"
+                                        >
+                                            <svg className="w-4 h-4" viewBox="0 0 24 24" aria-hidden="true">
+                                                <path fill="currentColor" d="M18.244 2H21l-6.54 7.475L22 22h-5.828l-4.566-5.964L6.39 22H3.633l7-8.002L2 2h5.977l4.127 5.446L18.244 2Zm-1.021 18.285h1.527L7.147 3.624H5.507l11.716 16.661Z" />
+                                            </svg>
+                                            X
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="rounded-xl border border-amber-400/20 bg-amber-500/5 px-3 py-3">
+                                        <p className="text-[10px] uppercase tracking-[0.18em] font-bold text-amber-300">
+                                            Social sign-in is disabled on this host
+                                        </p>
+                                        <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
+                                            Use email and OTP sign-in here. To enable Google, Facebook, and X, authorize{' '}
+                                            <span className="font-semibold text-slate-200">{socialAuthStatus.runtimeHost || 'this domain'}</span>{' '}
+                                            in Firebase Authentication settings.
+                                        </p>
+                                    </div>
+                                )}
                             </div>
                         )}
 

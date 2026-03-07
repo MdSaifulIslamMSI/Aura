@@ -59,7 +59,14 @@ export const AUTH_ERRORS = {
     'auth/unauthorized-domain': {
         title: 'Domain Not Authorized',
         detail: 'This app URL is not allowed in Firebase Authentication.',
-        hint: 'Open the app on localhost (not 127.0.0.1), and add both domains in Firebase Authorized Domains.',
+        hint: 'Add this deployment domain in Firebase Authentication > Settings > Authorized domains, or use email and OTP sign-in instead.',
+        action: null,
+        actionLabel: null
+    },
+    'auth/social-auth-disabled': {
+        title: 'Social Sign-In Disabled',
+        detail: 'Google, Facebook, and X sign-in are disabled by deployment configuration.',
+        hint: 'Use email and OTP sign-in for now, or enable social sign-in in the frontend deployment settings.',
         action: null,
         actionLabel: null
     },

@@ -16,6 +16,7 @@ const {
     buildSmartBundle,
 } = require('../services/commerceIntelligenceService');
 const { buildProductRecommendations } = require('../services/productRecommendationService');
+const { renderCatalogArtworkSvg } = require('../services/catalogArtworkService');
 
 const REVIEW_LIMIT_DEFAULT = 8;
 const REVIEW_LIMIT_MAX = 20;
@@ -668,6 +669,22 @@ const visualSearchProducts = asyncHandler(async (req, res, next) => {
     }
 });
 
+// @desc    Render first-party catalog artwork
+// @route   GET /api/products/art/:externalId.svg
+// @access  Public
+const getCatalogArtwork = asyncHandler(async (req, res) => {
+    const svg = renderCatalogArtworkSvg({
+        externalId: req.params.externalId,
+        title: req.query.title,
+        brand: req.query.brand,
+        category: req.query.category,
+    });
+
+    res.setHeader('Content-Type', 'image/svg+xml; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    return res.status(200).send(svg);
+});
+
 module.exports = {
     getProducts,
     getRecommendedProducts,
@@ -677,6 +694,7 @@ module.exports = {
     createProductReview,
     buildProductBundle,
     visualSearchProducts,
+    getCatalogArtwork,
     getProductById,
     deleteProduct,
     createProduct,

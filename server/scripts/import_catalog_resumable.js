@@ -8,16 +8,19 @@ const mongoose = require('mongoose');
 
 const Product = require('../models/Product');
 const { resolveProductImage } = require('../services/productImageResolver');
+const { auditCatalogSample } = require('../services/catalogSourceIntegrityService');
 
 const DATA_FILE = process.argv[2]
     ? path.resolve(process.cwd(), process.argv[2])
-    : path.join(process.cwd(), 'data', 'catalog_1m.jsonl');
+    : path.join(__dirname, '..', 'data', 'catalog_1m.jsonl');
 const TARGET_VERSION = process.env.CATALOG_IMPORT_TARGET_VERSION || 'legacy-v1';
 const TARGET_SOURCE = 'batch';
 const TARGET_BASE_ID = 100000000;
 const TARGET_TOTAL = Number(process.env.CATALOG_IMPORT_TARGET_TOTAL || 1000000);
 const BATCH_SIZE = Number(process.env.CATALOG_IMPORT_BATCH_SIZE || 800);
 const MAX_RETRIES = Number(process.env.CATALOG_IMPORT_MAX_RETRIES || 8);
+const DATASET_AUDIT_SAMPLE_SIZE = Number(process.env.CATALOG_IMPORT_AUDIT_SAMPLE_SIZE || 1000);
+const ALLOW_SYNTHETIC_DATASET = String(process.env.CATALOG_IMPORT_ALLOW_SYNTHETIC || 'false').toLowerCase() === 'true';
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -192,10 +195,38 @@ const getResumeState = async () => {
     return { maxId, count, resumeRow };
 };
 
+const auditDatasetSource = async () => {
+    const rl = readline.createInterface({
+        input: fs.createReadStream(DATA_FILE, { encoding: 'utf8' }),
+        crlfDelay: Infinity,
+    });
+
+    const sample = [];
+    for await (const line of rl) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        try {
+            sample.push(JSON.parse(trimmed));
+        } catch {
+            continue;
+        }
+        if (sample.length >= DATASET_AUDIT_SAMPLE_SIZE) break;
+    }
+
+    const audit = auditCatalogSample(sample);
+    console.log('[audit]', JSON.stringify(audit, null, 2));
+
+    if (!ALLOW_SYNTHETIC_DATASET && audit.looksSyntheticDataset) {
+        throw new Error(`Dataset audit rejected source: ${Math.round(audit.suspiciousRatio * 100)}% of sampled records look synthetic`);
+    }
+};
+
 const run = async () => {
     if (!fs.existsSync(DATA_FILE)) {
         throw new Error(`Dataset file not found: ${DATA_FILE}`);
     }
+
+    await auditDatasetSource();
 
     const { maxId, count, resumeRow } = await getResumeState();
     console.log(`[resume] existing docs=${count.toLocaleString()} maxId=${maxId} resumeRow=${resumeRow.toLocaleString()}`);

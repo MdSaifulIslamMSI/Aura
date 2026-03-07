@@ -17,15 +17,27 @@ const connectMongo = async () => {
         return mongoose.connection;
     }
 
+    if (mongoose.connection.readyState === 2) {
+        await mongoose.connection.asPromise();
+        return mongoose.connection;
+    }
+
     if (!process.env.MONGO_URI) {
         throw new Error('MONGO_URI is required for backend deployment');
     }
 
-    return mongoose.connect(process.env.MONGO_URI);
+    await mongoose.connect(process.env.MONGO_URI);
+    return mongoose.connection;
 };
 
 const ensureBootstrapped = async () => {
-    if (bootPromise) return bootPromise;
+    if (mongoose.connection.readyState === 1 && bootPromise) {
+        return bootPromise;
+    }
+
+    if (mongoose.connection.readyState === 2 && bootPromise) {
+        return bootPromise;
+    }
 
     bootPromise = (async () => {
         await connectMongo();

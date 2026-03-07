@@ -9,6 +9,7 @@ const {
     createProductReview,
     buildProductBundle,
     visualSearchProducts,
+    getCatalogArtwork,
     getProductById,
     deleteProduct,
     createProduct,
@@ -44,6 +45,9 @@ router.route('/visual-search')
 
 router.route('/bundles/build')
     .post(validate(bundleBuildSchema), buildProductBundle);
+
+router.route('/art/:externalId.svg')
+    .get(getCatalogArtwork);
 
 router.route('/:id/deal-dna')
     .get(validate(getProductDealDnaSchema), getProductDealDna);

@@ -22,6 +22,14 @@ const sanitizeHostValue = (value) => {
     }
 };
 
+const parseBooleanEnv = (value, fallback = false) => {
+    if (typeof value !== 'string') return fallback;
+    const normalized = value.trim().toLowerCase();
+    if (['true', '1', 'yes', 'on'].includes(normalized)) return true;
+    if (['false', '0', 'no', 'off'].includes(normalized)) return false;
+    return fallback;
+};
+
 export const firebaseConfig = {
     apiKey: sanitizeFirebaseValue(import.meta.env.VITE_FIREBASE_API_KEY),
     authDomain: sanitizeHostValue(import.meta.env.VITE_FIREBASE_AUTH_DOMAIN),
@@ -60,6 +68,12 @@ let xProvider = null;
 let analytics = null;
 let firebaseInitError = null;
 
+const runtimeHost = typeof window !== 'undefined'
+    ? sanitizeHostValue(window.location.hostname || window.location.host)
+    : '';
+const disableSocialAuth = parseBooleanEnv(import.meta.env.VITE_FIREBASE_DISABLE_SOCIAL_AUTH, false);
+const isDeploymentHost = typeof runtimeHost === 'string' && runtimeHost.endsWith('.vercel.app');
+
 if (!hasRequiredConfig) {
     firebaseInitError = buildFirebaseConfigError('Firebase configuration is missing required values.');
 } else {
@@ -94,6 +108,14 @@ if (!hasRequiredConfig) {
 }
 
 export const isFirebaseReady = Boolean(app && auth);
+export const isFirebaseSocialAuthAvailable = Boolean(
+    isFirebaseReady && (!disableSocialAuth || isDeploymentHost)
+);
+export const getFirebaseSocialAuthStatus = () => ({
+    supported: isFirebaseSocialAuthAvailable,
+    runtimeHost,
+    disabledByConfig: disableSocialAuth && !isDeploymentHost,
+});
 export const getFirebaseInitError = () => firebaseInitError;
 export const assertFirebaseReady = (feature = 'Firebase authentication') => {
     if (isFirebaseReady) return;
@@ -103,6 +125,17 @@ export const assertFirebaseReady = (feature = 'Firebase authentication') => {
     }
 
     throw buildFirebaseConfigError(`${feature} is not configured.`);
+};
+
+export const assertFirebaseSocialAuthReady = (feature = 'Social sign-in') => {
+    assertFirebaseReady(feature);
+
+    if (isFirebaseSocialAuthAvailable) return;
+
+    const error = buildFirebaseConfigError(`${feature} is disabled by deployment configuration.`);
+    error.code = 'auth/social-auth-disabled';
+    error.host = runtimeHost;
+    throw error;
 };
 
 export { app, auth, googleProvider, facebookProvider, xProvider, analytics };

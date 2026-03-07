@@ -1,27 +1,23 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, useSearchParams, useLocation, useNavigate } from 'react-router-dom';
 import { Grid, List, SlidersHorizontal, ChevronLeft, ChevronRight } from 'lucide-react';
 import ProductCard from '@/components/features/product/ProductCard';
 import Filters from '@/components/features/product/Filters';
 import RevealOnScroll from '@/components/shared/RevealOnScroll';
 import { productApi } from '@/services/api';
+import {
+  DEFAULT_CATALOG_CATEGORY_LABELS,
+  getCategoryApiValue,
+  getCategoryLabel,
+  normalizeCategorySlug,
+} from '@/config/catalogTaxonomy';
 import { cn } from '@/lib/utils';
 
-const SORT_OPTIONS = new Set(['relevance', 'price-asc', 'price-desc', 'newest', 'rating']);
+const SORT_OPTIONS = new Set(['relevance', 'price-asc', 'price-desc', 'newest', 'rating', 'discount']);
 const DEFAULT_MIN_PRICE = 0;
 const DEFAULT_MAX_PRICE = 200000;
 const DEFAULT_BRANDS = ['Apple', 'Samsung', 'Nike', 'Adidas', 'Puma', 'Sony', 'Dell', 'HP'];
-const DEFAULT_CATEGORIES = [
-  'Mobiles',
-  'Laptops',
-  'Electronics',
-  "Men's Fashion",
-  "Women's Fashion",
-  'Home & Kitchen',
-  'Gaming & Accessories',
-  'Books',
-  'Footwear',
-];
+const DEFAULT_CATEGORIES = DEFAULT_CATALOG_CATEGORY_LABELS;
 
 const createDefaultFilters = (priceRange = [DEFAULT_MIN_PRICE, DEFAULT_MAX_PRICE]) => ({
   priceRange,
@@ -103,7 +99,11 @@ const ProductListing = () => {
   const navigate = useNavigate();
   const searchQuery = searchParams.get('q') || '';
   const queryCategory = searchParams.get('category') || '';
-  const effectiveCategory = queryCategory || (!searchQuery ? category : '') || '';
+  const effectiveCategorySlug = useMemo(
+    () => normalizeCategorySlug(queryCategory || (!searchQuery ? category : '')),
+    [category, queryCategory, searchQuery]
+  );
+  const activeRequestRef = useRef(0);
 
   // Server Data State
   const [products, setProducts] = useState([]);
@@ -122,16 +122,22 @@ const ProductListing = () => {
     createFiltersFromParams(searchParams)
   );
 
-  const fetchProducts = useCallback(async () => {
+  const fetchProducts = useCallback(async (signal) => {
+    const requestId = Date.now();
+    activeRequestRef.current = requestId;
     setLoading(true);
     setFetchError('');
     try {
+      const resolvedCategoryFilter = effectiveCategorySlug
+        ? getCategoryApiValue(effectiveCategorySlug)
+        : (filters.categories.length > 0 ? filters.categories.join(',') : undefined);
+
       const query = {
         page,
         limit: 12,
         sort: sortBy,
         keyword: searchQuery,
-        category: effectiveCategory || (filters.categories.length > 0 ? filters.categories.join(',') : undefined),
+        category: resolvedCategoryFilter,
         minPrice: filters.priceRange[0],
         maxPrice: filters.priceRange[1],
         rating: filters.minRating > 0 ? filters.minRating : undefined,
@@ -143,24 +149,32 @@ const ProductListing = () => {
         deliveryTime: filters.deliveryWindows.length > 0 ? filters.deliveryWindows.join(',') : undefined,
       };
 
-      const data = await productApi.getProducts(query);
+      const data = await productApi.getProducts(query, { signal });
+      if (signal?.aborted || activeRequestRef.current !== requestId) return;
       setProducts(data.products || []);
       setPage(data.page || 1);
       setTotalPages(data.pages || 1);
       setTotalProducts(data.total || 0);
     } catch (error) {
+      if (signal?.aborted || error?.message === 'Request cancelled') {
+        return;
+      }
       console.error("Failed to fetch products:", error);
       setProducts([]);
       setTotalProducts(0);
       setFetchError('Unable to load products right now. Check your connection and retry.');
     } finally {
-      setLoading(false);
+      if (!signal?.aborted && activeRequestRef.current === requestId) {
+        setLoading(false);
+      }
     }
-  }, [page, sortBy, searchQuery, effectiveCategory, filters]);
+  }, [page, sortBy, searchQuery, effectiveCategorySlug, filters]);
 
   useEffect(() => {
-    fetchProducts();
+    const controller = new AbortController();
+    fetchProducts(controller.signal);
     window.scrollTo({ top: 0, behavior: 'smooth' });
+    return () => controller.abort();
   }, [fetchProducts]);
 
   useEffect(() => {
@@ -176,11 +190,11 @@ const ProductListing = () => {
 
     setSortBy(normalizeSort(routeParams.get('sort'), location.pathname));
     setPage(1);
-  }, [effectiveCategory, location.pathname, location.search]);
+  }, [effectiveCategorySlug, location.pathname, location.search]);
 
   useEffect(() => {
     setPage(1);
-  }, [sortBy, searchQuery, effectiveCategory, filters]);
+  }, [sortBy, searchQuery, effectiveCategorySlug, filters]);
 
   const handlePageChange = (newPage) => {
     if (newPage >= 1 && newPage <= totalPages) {
@@ -195,10 +209,10 @@ const ProductListing = () => {
       <div className="absolute bottom-20 right-10 w-96 h-96 bg-neo-emerald/10 rounded-full blur-[110px] pointer-events-none -z-10" />
 
       {/* Header Area */}
-      {effectiveCategory && (
+      {effectiveCategorySlug && (
         <RevealOnScroll anchorId="listing-header" anchorLabel="Listing Header" className="mb-8">
           <h1 className="text-3xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-slate-200 to-neo-cyan capitalize tracking-tight mb-2">
-            {effectiveCategory.replace(/-/g, ' ')}
+            {getCategoryLabel(effectiveCategorySlug)}
           </h1>
           <p className="text-neo-cyan font-bold tracking-widest text-sm uppercase">Curated Collection</p>
         </RevealOnScroll>
@@ -283,6 +297,7 @@ const ProductListing = () => {
                   <option value="price-desc">Price: High to Low</option>
                   <option value="newest">Newest First</option>
                   <option value="rating">Top Rated</option>
+                  <option value="discount">Best Discount</option>
                 </select>
                 <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-neo-cyan">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>

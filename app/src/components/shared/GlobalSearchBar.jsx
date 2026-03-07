@@ -16,6 +16,11 @@ import {
   X,
 } from 'lucide-react';
 import { productApi } from '@/services/api';
+import {
+  CATALOG_CATEGORY_OPTIONS,
+  getCategoryApiValue,
+  normalizeCategorySlug,
+} from '@/config/catalogTaxonomy';
 import { cn } from '@/lib/utils';
 import VoiceSearch from '@/components/shared/VoiceSearch';
 
@@ -28,15 +33,7 @@ const DEFAULT_MAX_PRICE = 200000;
 
 const CATEGORY_OPTIONS = [
   { value: 'all', label: 'All Categories' },
-  { value: 'mobiles', label: 'Mobiles' },
-  { value: 'laptops', label: 'Laptops' },
-  { value: 'electronics', label: 'Electronics' },
-  { value: "men's-fashion", label: "Men's Fashion" },
-  { value: "women's-fashion", label: "Women's Fashion" },
-  { value: 'home-kitchen', label: 'Home & Kitchen' },
-  { value: 'gaming', label: 'Gaming' },
-  { value: 'books', label: 'Books' },
-  { value: 'sports', label: 'Sports' },
+  ...CATALOG_CATEGORY_OPTIONS,
 ];
 
 const SORT_OPTIONS = [
@@ -77,7 +74,7 @@ const normalizeSort = (value) => {
 
 const parseCategoryFromPath = (pathname = '') => {
   const match = pathname.match(/^\/category\/([^/?#]+)/i);
-  return match?.[1] || null;
+  return normalizeCategorySlug(match?.[1] || '') || null;
 };
 
 const parsePositiveNumber = (value, fallback) => {
@@ -251,7 +248,7 @@ const GlobalSearchBar = ({
       id: `intent-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       name: intent.name,
       query: intent.query,
-      category: intent.category || 'all',
+      category: normalizeCategorySlug(intent.category || '') || 'all',
       maxPrice: intent.maxPrice || maxPrice,
       rating: intent.rating || 0,
       inStock: intent.inStock || '',
@@ -266,11 +263,11 @@ const GlobalSearchBar = ({
 
   const buildSearchUrl = useCallback(
     (searchText, options = {}) => {
-      const params = new URLSearchParams();
-      const cleaned = searchText.trim();
-      const resolvedCategory = options.category ?? categoryScope;
-      const resolvedSort = options.sort ?? sortMode;
-      const resolvedMaxPrice = parsePositiveNumber(options.maxPrice, maxPrice);
+    const params = new URLSearchParams();
+    const cleaned = searchText.trim();
+    const resolvedCategory = normalizeCategorySlug(options.category ?? categoryScope) || 'all';
+    const resolvedSort = options.sort ?? sortMode;
+    const resolvedMaxPrice = parsePositiveNumber(options.maxPrice, maxPrice);
 
       if (cleaned) params.set('q', cleaned);
       if (resolvedSort !== 'relevance') params.set('sort', resolvedSort);
@@ -307,11 +304,11 @@ const GlobalSearchBar = ({
   const applySavedIntent = useCallback((intent) => {
     if (!intent) return;
     setQuery(intent.query || '');
-    setCategoryScope(intent.category || 'all');
+    setCategoryScope(normalizeCategorySlug(intent.category || '') || 'all');
     setSortMode(normalizeSort(intent.sort));
     setMaxPrice(parsePositiveNumber(intent.maxPrice, DEFAULT_MAX_PRICE));
     navigateTo(buildSearchUrl(intent.query || '', {
-      category: intent.category || 'all',
+      category: normalizeCategorySlug(intent.category || '') || 'all',
       sort: normalizeSort(intent.sort),
       maxPrice: parsePositiveNumber(intent.maxPrice, DEFAULT_MAX_PRICE),
       rating: intent.rating || undefined,
@@ -407,14 +404,15 @@ const GlobalSearchBar = ({
     const routeCategory = parseCategoryFromPath(location.pathname);
     const queryCategory = params.get('category');
     const hasQuery = Boolean(locationQuery.trim());
+    const normalizedQueryCategory = normalizeCategorySlug(queryCategory || '');
     const isKnownRouteCategory = routeCategory && CATEGORY_OPTIONS.some((entry) => entry.value === routeCategory);
 
     setQuery(locationQuery);
     setSortMode(normalizeSort(params.get('sort') || persistedState.sortMode));
     setMaxPrice(parsePositiveNumber(params.get('maxPrice') ?? persistedState.maxPrice, DEFAULT_MAX_PRICE));
 
-    if (queryCategory && CATEGORY_OPTIONS.some((entry) => entry.value === queryCategory)) {
-      setCategoryScope(queryCategory);
+    if (normalizedQueryCategory && CATEGORY_OPTIONS.some((entry) => entry.value === normalizedQueryCategory)) {
+      setCategoryScope(normalizedQueryCategory);
     } else if (!hasQuery && isKnownRouteCategory) {
       setCategoryScope(routeCategory);
     } else {
@@ -489,6 +487,7 @@ const GlobalSearchBar = ({
     }
 
     let isActive = true;
+    const controller = new AbortController();
     const timer = setTimeout(async () => {
       try {
         setIsLoading(true);
@@ -499,13 +498,16 @@ const GlobalSearchBar = ({
           limit: mobile ? 5 : 7,
           page: 1,
           sort: sortMode,
-          category: categoryScope === 'all' ? undefined : categoryScope,
+          category: categoryScope === 'all' ? undefined : getCategoryApiValue(categoryScope),
           maxPrice: maxPrice < DEFAULT_MAX_PRICE ? Math.round(maxPrice) : undefined,
-        });
+        }, { signal: controller.signal });
 
         if (!isActive) return;
         setSuggestions((response?.products || []).slice(0, mobile ? 5 : 7));
-      } catch {
+      } catch (error) {
+        if (error?.message === 'Request cancelled') {
+          return;
+        }
         if (!isActive) return;
         setSuggestions([]);
         setError('Unable to load live suggestions right now.');
@@ -520,6 +522,7 @@ const GlobalSearchBar = ({
     return () => {
       isActive = false;
       clearTimeout(timer);
+      controller.abort();
     };
   }, [categoryScope, isOpen, maxPrice, mobile, query, sortMode]);
 

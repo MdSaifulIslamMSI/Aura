@@ -1,5 +1,5 @@
 import { auth, isFirebaseReady } from '../config/firebase';
-import { API_BASE_URL as BASE_URL } from './apiBase';
+import { API_BASE_URL as BASE_URL, apiFetch } from './apiBase';
 
 const getAuthHeader = async (firebaseUser = null) => {
     if (!isFirebaseReady || !auth) {
@@ -49,42 +49,24 @@ const runWhenIdle = (callback) => {
  */
 
 export const productApi = {
-    getProducts: async (params = {}) => {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-        try {
-            // Convert params to query string (filtering out undefined/null/empty)
-            const cleanParams = Object.fromEntries(
-                Object.entries(params).filter(([_, v]) => v != null && v !== 'undefined' && v !== '')
-            );
-            const queryString = new URLSearchParams(cleanParams).toString();
-            const url = queryString ? `${BASE_URL}/products?${queryString}` : `${BASE_URL}/products`;
-
-            const response = await fetch(url, {
-                signal: controller.signal,
-                headers: {
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json'
-                }
-            });
-            clearTimeout(timeoutId);
-
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            return await response.json();
-        } catch (error) {
-            if (error.name === 'AbortError') {
-                throw new Error('Request timed out');
-            }
-            throw error;
-        }
+    getProducts: async (params = {}, options = {}) => {
+        const { data } = await apiFetch('/products', {
+            method: 'GET',
+            params,
+            signal: options.signal,
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+            },
+        });
+        return data;
     },
-    getProductById: async (id) => {
-        const response = await fetch(`${BASE_URL}/products/${id}`);
-        if (!response.ok) throw new Error('Product not found');
-        return await response.json();
+    getProductById: async (id, options = {}) => {
+        const { data } = await apiFetch(`/products/${id}`, {
+            method: 'GET',
+            signal: options.signal,
+        });
+        return data;
     },
     prefetchProductById: (id) => {
         const normalizedId = id == null ? '' : String(id).trim();
@@ -182,7 +164,7 @@ export const productApi = {
     },
     getRecommendations: async (payload = {}) => {
         const headers = await getAuthHeader();
-        const response = await fetch(`${BASE_URL}/products/recommendations`, {
+        const { data } = await apiFetch('/products/recommendations', {
             method: 'POST',
             headers: {
                 ...headers,
@@ -191,12 +173,7 @@ export const productApi = {
             },
             body: JSON.stringify(payload),
         });
-        if (!response.ok) {
-            const error = new Error(await parseApiError(response, 'Failed to fetch recommendations'));
-            error.status = response.status;
-            throw error;
-        }
-        return response.json();
+        return data;
     },
     // Admin Methods
     deleteProduct: async (id) => {
@@ -260,7 +237,7 @@ export const userApi = {
      */
     login: async (email, name, phone, options = {}) => {
         const headers = await getAuthHeader(options.firebaseUser || null);
-        const response = await fetch(`${BASE_URL}/users/login`, {
+        const { data } = await apiFetch('/users/login', {
             method: 'POST',
             headers: {
                 ...headers,
@@ -268,28 +245,18 @@ export const userApi = {
             },
             body: JSON.stringify({ email, name, phone })
         });
-        if (!response.ok) {
-            const message = await parseApiError(response, 'Failed to sync user with server');
-            const error = new Error(message);
-            error.status = response.status;
-            throw error;
-        }
-        return await response.json();
+        return data;
     },
     getProfile: async (_email = '', options = {}) => {
         const headers = await getAuthHeader(options.firebaseUser || null);
-        const response = await fetch(`${BASE_URL}/users/profile`, {
+        const { data } = await apiFetch('/users/profile', {
+            method: 'GET',
             headers: {
                 ...headers,
                 'Content-Type': 'application/json'
             }
         });
-        if (!response.ok) {
-            const error = new Error(await parseApiError(response, 'Failed to fetch profile'));
-            error.status = response.status;
-            throw error;
-        }
-        return await response.json();
+        return data;
     },
     syncCart: async (email, cartItems) => {
         const headers = await getAuthHeader();
@@ -443,7 +410,7 @@ export const otpApi = {
         const credentialProofToken = typeof options?.credentialProofToken === 'string'
             ? options.credentialProofToken.trim()
             : '';
-        const response = await fetch(`${BASE_URL}/otp/send`, {
+        const { data } = await apiFetch('/otp/send', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -453,28 +420,22 @@ export const otpApi = {
                 ...(credentialProofToken ? { credentialProofToken } : {}),
             })
         });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.message || 'Failed to send OTP');
         return data;
     },
     verifyOtp: async (phone, otp, purpose, intentId = '') => {
-        const response = await fetch(`${BASE_URL}/otp/verify`, {
+        const { data } = await apiFetch('/otp/verify', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ phone, otp, purpose, ...(intentId ? { intentId } : {}) })
         });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.message || 'OTP verification failed');
         return data;
     },
     checkUserExists: async (phone, email = '') => {
-        const response = await fetch(`${BASE_URL}/otp/check-user`, {
+        const { data } = await apiFetch('/otp/check-user', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ phone, ...(email ? { email } : {}) })
         });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.message || 'Failed to check user');
         return data;
     }
 };
