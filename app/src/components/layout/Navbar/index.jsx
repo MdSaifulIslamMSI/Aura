@@ -19,7 +19,7 @@ import { CartContext } from '@/context/CartContext';
 import { useColorMode } from '@/context/ColorModeContext';
 import { useMotionMode } from '@/context/MotionModeContext';
 import { cn } from '@/lib/utils';
-import LoginModal from '@/components/features/auth/LoginModal';
+import AppErrorBoundary from '@/components/shared/AppErrorBoundary';
 import VoiceSearch from '@/components/shared/VoiceSearch';
 import GlobalSearchBar from '@/components/shared/GlobalSearchBar';
 
@@ -28,7 +28,6 @@ const Navbar = () => {
   const [isCompact, setIsCompact] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [showVoiceSearch, setShowVoiceSearch] = useState(false);
   const lastScrollYRef = useRef(0);
   const location = useLocation();
@@ -86,6 +85,33 @@ const Navbar = () => {
   const isSeller = Boolean(dbUser?.isSeller);
   const navActionClasses =
     'hidden xl:inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/[0.05] px-3.5 py-2 text-sm font-semibold text-slate-200 transition-all duration-200 hover:-translate-y-0.5 hover:border-white/20 hover:bg-white/[0.08] hover:text-white';
+  const voiceSearchFallback = (
+    <div className="fixed inset-x-4 bottom-24 z-[70] mx-auto max-w-sm rounded-2xl border border-amber-400/25 bg-zinc-950/95 p-4 shadow-glass">
+      <div className="text-sm font-black uppercase tracking-[0.18em] text-amber-200">Voice search unavailable</div>
+      <p className="mt-2 text-sm text-slate-300">
+        The voice assistant failed in this tab. Use typed search now and reopen voice search after a refresh.
+      </p>
+      <div className="mt-4 flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => {
+            setShowVoiceSearch(false);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          className="inline-flex items-center rounded-xl border border-amber-300/30 bg-amber-300/10 px-4 py-2 text-sm font-semibold text-amber-100 transition-colors hover:bg-amber-300/16"
+        >
+          Use typed search
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowVoiceSearch(false)}
+          className="inline-flex items-center rounded-xl border border-white/15 bg-white/[0.04] px-4 py-2 text-sm font-semibold text-slate-200 transition-colors hover:bg-white/[0.08] hover:text-white"
+        >
+          Close
+        </button>
+      </div>
+    </div>
+  );
 
   return (
     <>
@@ -184,12 +210,12 @@ const Navbar = () => {
                     <ChevronDown className="w-4 h-4 hidden xl:block opacity-50" />
                   </button>
                 ) : (
-                  <button
-                    onClick={() => setIsLoginModalOpen(true)}
+                  <Link
+                    to="/login"
                     className="flex items-center gap-2 px-3 sm:px-4 lg:px-5 py-2 bg-white/5 backdrop-blur-md text-white text-sm font-semibold rounded-xl border border-white/10 shadow-glass hover:bg-white/10 hover:border-neo-cyan hover:shadow-neon-cyan transition-all duration-300 hover:-translate-y-0.5 active:translate-y-0"
                   >
                     Login
-                  </button>
+                  </Link>
                 )}
 
                 {/* User Dropdown */}
@@ -509,15 +535,13 @@ const Navbar = () => {
               </section>
 
               {!activeUser && (
-                <button
-                  onClick={() => {
-                    setIsLoginModalOpen(true);
-                    setIsMobileMenuOpen(false);
-                  }}
+                <Link
+                  to="/login"
+                  onClick={() => setIsMobileMenuOpen(false)}
                   className="mt-4 block w-full rounded-2xl border border-cyan-400/30 bg-cyan-500/10 px-4 py-4 text-left font-bold text-neo-cyan transition-colors hover:bg-cyan-500/15"
                 >
                   Login / Sign up
-                </button>
+                </Link>
               )}
             </nav>
           </div>
@@ -527,9 +551,12 @@ const Navbar = () => {
       {/* Spacer to prevent content from hiding behind fixed navbar */}
       <div className="aura-nav-spacer" />
 
-      <LoginModal isOpen={isLoginModalOpen} onClose={() => setIsLoginModalOpen(false)} />
-
-      {showVoiceSearch && <VoiceSearch onClose={() => setShowVoiceSearch(false)} />}
+      <AppErrorBoundary
+        key={`voice-search-${showVoiceSearch ? 'open' : 'closed'}`}
+        fallback={voiceSearchFallback}
+      >
+        {showVoiceSearch && <VoiceSearch onClose={() => setShowVoiceSearch(false)} />}
+      </AppErrorBoundary>
     </>
   );
 };

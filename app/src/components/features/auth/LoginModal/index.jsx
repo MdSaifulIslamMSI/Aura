@@ -1,4 +1,5 @@
 import { useState, useContext, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Mail, Lock, User, Phone, Zap, Shield, ArrowLeft, Loader2 } from 'lucide-react';
 import { AuthContext } from '@/context/AuthContext';
 import { otpApi } from '@/services/api';
@@ -48,7 +49,33 @@ const LoginModal = ({ isOpen, onClose }) => {
         }
     }, [isOpen]);
 
-    if (!isOpen) return null;
+    useEffect(() => {
+        if (!isOpen || typeof document === 'undefined') return undefined;
+
+        const previousOverflow = document.body.style.overflow;
+        const previousPaddingRight = document.body.style.paddingRight;
+        const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+
+        document.body.style.overflow = 'hidden';
+        if (scrollbarWidth > 0) {
+            document.body.style.paddingRight = `${scrollbarWidth}px`;
+        }
+
+        const handleKeyDown = (event) => {
+            if (event.key === 'Escape') {
+                onClose();
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => {
+            document.body.style.overflow = previousOverflow;
+            document.body.style.paddingRight = previousPaddingRight;
+            window.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [isOpen, onClose]);
+
+    if (!isOpen || typeof document === 'undefined') return null;
 
     const handleChange = (e) => {
         setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
@@ -257,7 +284,7 @@ const LoginModal = ({ isOpen, onClose }) => {
         }
     };
 
-    return (
+    return createPortal(
         <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto px-3 py-4 sm:items-center sm:p-4">
             <div className="absolute inset-0 bg-zinc-950/58 sm:bg-zinc-950/72 backdrop-blur-[2px] sm:backdrop-blur-sm animate-fade-in" onClick={onClose} />
 
@@ -555,7 +582,8 @@ const LoginModal = ({ isOpen, onClose }) => {
                     </form>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
 

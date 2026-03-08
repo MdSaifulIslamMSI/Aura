@@ -12,10 +12,6 @@ vi.mock('@/components/shared/GlobalSearchBar', () => ({
     default: ({ className = '' }) => <div data-testid="global-search-bar" className={className}>Search</div>,
 }));
 
-vi.mock('@/components/features/auth/LoginModal', () => ({
-    default: ({ isOpen }) => (isOpen ? <div data-testid="login-modal">Login Modal</div> : null),
-}));
-
 vi.mock('@/components/shared/VoiceSearch', () => ({
     default: () => <div data-testid="voice-search">Voice Search</div>,
 }));
@@ -62,7 +58,7 @@ describe('Navbar Component', () => {
 
     it('shows Login button when not authenticated', () => {
         renderNavbar({ currentUser: null });
-        expect(screen.getByText('Login')).toBeInTheDocument();
+        expect(screen.getByRole('link', { name: 'Login' })).toBeInTheDocument();
     });
 
     it('shows User Name when authenticated', () => {
@@ -73,5 +69,11 @@ describe('Navbar Component', () => {
     it('displays cart count badge', () => {
         renderNavbar({}, { cartItems: [{ quantity: 2 }, { quantity: 1 }] });
         expect(screen.getByText('3')).toBeInTheDocument();
+    });
+
+    it('routes unauthenticated users to the full login page instead of opening a popup', () => {
+        renderNavbar({ currentUser: null });
+
+        expect(screen.getByRole('link', { name: 'Login' })).toHaveAttribute('href', '/login');
     });
 });
