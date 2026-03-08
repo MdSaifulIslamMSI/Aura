@@ -1205,6 +1205,7 @@ const countFilterComplexity = (filter) => {
 const queryProducts = async (query = {}) => {
     const limit = Math.min(Math.max(toInt(query.limit, 12), 1), 50);
     const page = Math.max(toInt(query.page, 1), 1);
+    const includeMeta = safeLower(query.includeMeta, 'true') !== 'false';
     const includeSponsored = shouldIncludeSponsored(query);
     const sponsoredSlots = resolveSponsoredSlots(query);
     const baseFilter = await buildBaseProductFilter();
@@ -1242,14 +1243,26 @@ const queryProducts = async (query = {}) => {
         };
 
         const skip = cursor ? 0 : (page - 1) * limit;
-        const [products, total] = await Promise.all([
-            Product.find(fallbackFilter)
+        let products = [];
+        let total = 0;
+
+        if (includeMeta) {
+            [products, total] = await Promise.all([
+                Product.find(fallbackFilter)
+                    .sort(relevanceSort ? { ratingCount: -1, _id: -1 } : sort)
+                    .skip(skip)
+                    .limit(candidateFetchLimit)
+                    .maxTimeMS(requestTimeoutMs),
+                Product.countDocuments(countFilter).maxTimeMS(requestTimeoutMs),
+            ]);
+        } else {
+            products = await Product.find(fallbackFilter)
                 .sort(relevanceSort ? { ratingCount: -1, _id: -1 } : sort)
                 .skip(skip)
                 .limit(candidateFetchLimit)
-                .maxTimeMS(requestTimeoutMs),
-            Product.countDocuments(countFilter).maxTimeMS(requestTimeoutMs),
-        ]);
+                .maxTimeMS(requestTimeoutMs);
+            total = Array.isArray(products) ? products.length : 0;
+        }
 
         let finalProducts = (products || []).map((entry) => toPlainProduct(entry));
         if (relevanceSort) {
@@ -1272,9 +1285,9 @@ const queryProducts = async (query = {}) => {
         return {
             products: finalProducts,
             total,
-            page,
-            pages: Math.max(1, Math.ceil(total / limit)),
-            nextCursor: relevanceSort ? null : (products.length === limit ? generateNextCursor(products, sort) : null),
+            page: includeMeta ? page : 1,
+            pages: includeMeta ? Math.max(1, Math.ceil(total / limit)) : 1,
+            nextCursor: includeMeta && !relevanceSort ? (products.length === limit ? generateNextCursor(products, sort) : null) : null,
         };
     };
 
@@ -1368,17 +1381,26 @@ const queryProducts = async (query = {}) => {
             pipeline.push({ $sort: sort });
         }
 
-        pipeline.push({
-            $facet: {
-                products: [{ $limit: candidateFetchLimit }],
-                totalMeta: [{ $count: 'count' }],
-            },
-        });
+        if (includeMeta) {
+            pipeline.push({
+                $facet: {
+                    products: [{ $limit: candidateFetchLimit }],
+                    totalMeta: [{ $count: 'count' }],
+                },
+            });
+        } else {
+            pipeline.push({ $limit: candidateFetchLimit });
+        }
 
         const aggregate = Product.aggregate(pipeline).option({ maxTimeMS: requestTimeoutMs });
-        const [result = { products: [], totalMeta: [] }] = await aggregate.exec();
-        const products = result.products || [];
-        const total = result.totalMeta?.[0]?.count || 0;
+        const aggregateResult = await aggregate.exec();
+        const result = includeMeta
+            ? (aggregateResult?.[0] || { products: [], totalMeta: [] })
+            : null;
+        const products = includeMeta ? (result.products || []) : aggregateResult;
+        const total = includeMeta
+            ? (result.totalMeta?.[0]?.count || 0)
+            : (Array.isArray(products) ? products.length : 0);
 
         if (total > 0) {
             let finalProducts = products.map((entry) => toPlainProduct(entry));
@@ -1402,9 +1424,9 @@ const queryProducts = async (query = {}) => {
             return {
                 products: finalProducts,
                 total,
-                page,
-                pages: Math.max(1, Math.ceil(total / limit)),
-                nextCursor: relevanceSort ? null : (products.length === limit ? generateNextCursor(products, sort) : null),
+                page: includeMeta ? page : 1,
+                pages: includeMeta ? Math.max(1, Math.ceil(total / limit)) : 1,
+                nextCursor: includeMeta && !relevanceSort ? (products.length === limit ? generateNextCursor(products, sort) : null) : null,
             };
         }
 

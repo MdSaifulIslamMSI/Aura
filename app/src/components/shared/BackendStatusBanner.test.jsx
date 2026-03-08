@@ -87,7 +87,7 @@ describe('BackendStatusBanner', () => {
 
     await act(async () => {
       pushClientDiagnostic('api.network_error', {
-        url: 'http://127.0.0.1:5173/api/products?page=1',
+        url: 'http://127.0.0.1:5173/health',
         requestId: 'req-recover-1',
         serverRequestId: 'req-recover-1',
         status: 0,

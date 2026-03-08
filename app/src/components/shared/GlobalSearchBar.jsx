@@ -522,6 +522,8 @@ const GlobalSearchBar = ({
           limit: mobile ? 5 : 7,
           page: 1,
           sort: sortMode,
+          includeMeta: false,
+          includeDealDna: 'false',
           telemetryContext: 'global_search_suggestion',
           category: categoryScope === 'all' ? undefined : getCategoryApiValue(categoryScope),
           maxPrice: maxPrice < DEFAULT_MAX_PRICE ? Math.round(maxPrice) : undefined,

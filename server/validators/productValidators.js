@@ -51,6 +51,8 @@ const productSearchSchema = z.object({
         minReviews: z.preprocess((val) => Number(val), z.number().min(0)).optional(),
         deliveryTime: z.string().trim().max(180).optional(),
         includeDealDna: z.enum(['true', 'false']).optional(),
+        includeMeta: booleanLikeSchema.optional(),
+        includeTelemetry: booleanLikeSchema.optional(),
         includeSponsored: z.enum(['true', 'false']).optional(),
         sponsoredSlots: z.preprocess((val) => Number(val), z.number().int().min(0).max(4)).optional(),
         sort: z.enum(['relevance', 'price-asc', 'price-desc', 'rating', 'newest', 'discount']).default('relevance').optional(),

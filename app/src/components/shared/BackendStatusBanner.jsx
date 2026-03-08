@@ -24,15 +24,15 @@ const parseJsonSafely = async (response) => {
   }
 };
 
-const isBackendDiagnostic = (event) => {
+const isBackendHealthDiagnostic = (event) => {
   const url = String(event?.url || '');
-  return url.includes('/api') || url.includes('/health');
+  return url.includes('/health');
 };
 
 const resolveRecentDiagnosticReference = () => {
   const recentEvent = [...getBufferedClientDiagnostics()]
     .reverse()
-    .find((event) => isBackendDiagnostic(event) && String(event?.requestId || event?.serverRequestId || '').trim());
+    .find((event) => isBackendHealthDiagnostic(event) && String(event?.requestId || event?.serverRequestId || '').trim());
 
   return recentEvent?.serverRequestId || recentEvent?.requestId || '';
 };
@@ -126,7 +126,7 @@ const BackendStatusBanner = () => {
     }, HEALTH_POLL_INTERVAL_MS);
 
     const unsubscribe = subscribeToClientDiagnostics((event) => {
-      if (!isBackendDiagnostic(event)) return;
+      if (!isBackendHealthDiagnostic(event)) return;
 
       if (event?.type === 'api.network_error') {
         setStatus(createUnavailableStatus({

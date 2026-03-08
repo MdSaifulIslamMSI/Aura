@@ -27,6 +27,33 @@ const parseApiError = async (response, fallbackMessage) => {
     return error.message;
 };
 
+const PROFILE_CACHE_TTL_MS = 15 * 1000;
+const profileCache = {
+    key: '',
+    value: null,
+    cachedAt: 0,
+    promise: null,
+};
+
+const getProfileCacheKey = (firebaseUser = null) => {
+    const user = firebaseUser || auth?.currentUser || null;
+    const uid = String(user?.uid || '').trim();
+    const email = String(user?.email || '').trim().toLowerCase();
+
+    if (!uid && !email) {
+        return '';
+    }
+
+    return `${uid || 'nouid'}::${email || 'noemail'}`;
+};
+
+const invalidateProfileCache = () => {
+    profileCache.key = '';
+    profileCache.value = null;
+    profileCache.cachedAt = 0;
+    profileCache.promise = null;
+};
+
 const prefetchedProductIds = new Set();
 const prefetchedListingIds = new Set();
 
@@ -257,18 +284,63 @@ export const userApi = {
      */
     login: async (email, name, phone, options = {}) => {
         const data = await authApi.syncSession(email, name, phone, options);
+        invalidateProfileCache();
         return data?.profile || null;
     },
     getProfile: async (_email = '', options = {}) => {
-        const headers = await getAuthHeader(options.firebaseUser || null);
-        const { data } = await apiFetch('/users/profile', {
-            method: 'GET',
-            headers: {
-                ...headers,
-                'Content-Type': 'application/json'
+        const firebaseUser = options.firebaseUser || null;
+        const force = options.force === true;
+        const requestedCacheMs = Number(options.cacheMs);
+        const cacheMs = Number.isFinite(requestedCacheMs)
+            ? Math.max(requestedCacheMs, 0)
+            : PROFILE_CACHE_TTL_MS;
+        const cacheKey = getProfileCacheKey(firebaseUser);
+        const cacheAge = Date.now() - Number(profileCache.cachedAt || 0);
+
+        if (!force && cacheKey && profileCache.key === cacheKey) {
+            if (profileCache.value && cacheAge < cacheMs) {
+                return profileCache.value;
             }
-        });
-        return data;
+            if (profileCache.promise) {
+                return profileCache.promise;
+            }
+        }
+
+        const requestPromise = (async () => {
+            const headers = await getAuthHeader(firebaseUser);
+            const { data } = await apiFetch('/users/profile', {
+                method: 'GET',
+                headers: {
+                    ...headers,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (cacheKey && profileCache.key === cacheKey) {
+                profileCache.value = data;
+                profileCache.cachedAt = Date.now();
+            }
+
+            return data;
+        })()
+            .catch((error) => {
+                if (cacheKey && profileCache.key === cacheKey) {
+                    invalidateProfileCache();
+                }
+                throw error;
+            })
+            .finally(() => {
+                if (cacheKey && profileCache.key === cacheKey) {
+                    profileCache.promise = null;
+                }
+            });
+
+        if (cacheKey) {
+            profileCache.key = cacheKey;
+            profileCache.promise = requestPromise;
+        }
+
+        return requestPromise;
     },
     syncCart: async (email, cartItems) => {
         const headers = await getAuthHeader();
@@ -281,6 +353,7 @@ export const userApi = {
             body: JSON.stringify({ email, cartItems })
         });
         if (!response.ok) throw new Error('Failed to sync cart');
+        invalidateProfileCache();
         return await response.json();
     },
     syncWishlist: async (email, wishlistItems) => {
@@ -294,6 +367,7 @@ export const userApi = {
             body: JSON.stringify({ email, wishlistItems })
         });
         if (!response.ok) throw new Error('Failed to sync wishlist');
+        invalidateProfileCache();
         return await response.json();
     },
     updateProfile: async (data) => {
@@ -305,6 +379,7 @@ export const userApi = {
         });
         const result = await response.json();
         if (!response.ok) throw new Error(result.message || 'Failed to update profile');
+        invalidateProfileCache();
         return result;
     },
     activateSeller: async () => {
@@ -324,6 +399,7 @@ export const userApi = {
             });
 
             if (response.ok) {
+                invalidateProfileCache();
                 return response.json();
             }
 
@@ -355,6 +431,7 @@ export const userApi = {
             });
 
             if (response.ok) {
+                invalidateProfileCache();
                 return response.json();
             }
 

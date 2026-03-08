@@ -12,6 +12,12 @@ import { AuthContext } from '@/context/AuthContext';
 import { CartContext } from '@/context/CartContext';
 import { WishlistContext } from '@/context/WishlistContext';
 
+const HOME_SECTION_REQUEST = {
+  limit: 8,
+  includeMeta: false,
+  includeTelemetry: false,
+};
+
 const Home = () => {
   // Independent State (Decoupled from Global Context)
   const [dealsOfTheDay, setDealsOfTheDay] = useState([]);
@@ -24,8 +30,8 @@ const Home = () => {
   const [recommendationCopy, setRecommendationCopy] = useState(null);
   const [loading, setLoading] = useState(true);
   const { currentUser = null } = useContext(AuthContext) || {};
-  const { cartItems = [] } = useContext(CartContext) || {};
-  const { wishlistItems = [] } = useContext(WishlistContext) || {};
+  const { cartItems = [], isLoading: cartLoading = false } = useContext(CartContext) || {};
+  const { wishlistItems = [], isLoading: wishlistLoading = false } = useContext(WishlistContext) || {};
 
   // Parallel Data Fetching (High Performance)
   useEffect(() => {
@@ -33,9 +39,9 @@ const Home = () => {
       setLoading(true);
       try {
         const [dealsData, trendingData, arrivalsData] = await Promise.all([
-          productApi.getProducts({ sort: 'discount', limit: 8 }),
-          productApi.getProducts({ sort: 'rating', limit: 8 }), // Popularity/Rating
-          productApi.getProducts({ sort: 'newest', limit: 8 })
+          productApi.getProducts({ ...HOME_SECTION_REQUEST, sort: 'discount' }),
+          productApi.getProducts({ ...HOME_SECTION_REQUEST, sort: 'rating' }), // Popularity/Rating
+          productApi.getProducts({ ...HOME_SECTION_REQUEST, sort: 'newest' })
         ]);
 
         setDealsOfTheDay(dealsData.products || []);
@@ -101,16 +107,16 @@ const Home = () => {
       const requests = [];
 
       if (rankedCategories[0]) {
-        requests.push(productApi.getProducts({ category: rankedCategories[0], sort: 'rating', limit: 8 }));
+        requests.push(productApi.getProducts({ ...HOME_SECTION_REQUEST, category: rankedCategories[0], sort: 'rating' }));
       }
       if (rankedCategories[1]) {
-        requests.push(productApi.getProducts({ category: rankedCategories[1], sort: 'discount', limit: 8 }));
+        requests.push(productApi.getProducts({ ...HOME_SECTION_REQUEST, category: rankedCategories[1], sort: 'discount' }));
       }
       if (recentQueries[0]) {
-        requests.push(productApi.getProducts({ keyword: recentQueries[0], sort: 'relevance', limit: 8 }));
+        requests.push(productApi.getProducts({ ...HOME_SECTION_REQUEST, keyword: recentQueries[0], sort: 'relevance' }));
       }
       if (isColdStart) {
-        requests.push(productApi.getProducts({ sort: 'rating', limit: 8 }));
+        requests.push(productApi.getProducts({ ...HOME_SECTION_REQUEST, sort: 'rating' }));
       }
 
       const responses = requests.length > 0 ? await Promise.allSettled(requests) : [];
@@ -148,6 +154,10 @@ const Home = () => {
     };
 
     const loadRecommendations = async () => {
+      if (currentUser && (cartLoading || wishlistLoading)) {
+        return;
+      }
+
       setRecommendationsLoading(true);
       const localCopy = {
         eyebrow: recommendationSignals.eyebrow,
@@ -203,7 +213,7 @@ const Home = () => {
     return () => {
       active = false;
     };
-  }, [currentUser?.uid, recommendationSignals]);
+  }, [currentUser?.uid, recommendationSignals, cartLoading, wishlistLoading]);
 
   // Hero carousel slides
   const heroSlides = useMemo(() => [

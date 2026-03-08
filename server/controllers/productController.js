@@ -141,6 +141,8 @@ const getProducts = asyncHandler(async (req, res, next) => {
     try {
         const result = await queryProducts(req.query);
         const includeDealDna = String(req.query.includeDealDna || '').toLowerCase() !== 'false';
+        const includeTelemetry = String(req.query.includeTelemetry ?? true).toLowerCase() !== 'false'
+            && Boolean(String(req.query.telemetryContext || '').trim());
         const products = includeDealDna
             ? (result.products || []).map((product) => ({
                 ...toClientProduct(product),
@@ -148,18 +150,20 @@ const getProducts = asyncHandler(async (req, res, next) => {
             }))
             : (result.products || []).map(toClientProduct);
         let searchEvent = null;
-        try {
-            searchEvent = await recordSearchResults({
-                req,
-                query: req.query,
-                products,
-                sourceContext: String(req.query.telemetryContext || 'catalog_listing'),
-            });
-        } catch (telemetryError) {
-            logger.warn('products.search_telemetry_failed', {
-                error: telemetryError.message,
-                requestId: req.requestId,
-            });
+        if (includeTelemetry) {
+            try {
+                searchEvent = await recordSearchResults({
+                    req,
+                    query: req.query,
+                    products,
+                    sourceContext: String(req.query.telemetryContext || 'catalog_listing'),
+                });
+            } catch (telemetryError) {
+                logger.warn('products.search_telemetry_failed', {
+                    error: telemetryError.message,
+                    requestId: req.requestId,
+                });
+            }
         }
         res.json({
             products,
