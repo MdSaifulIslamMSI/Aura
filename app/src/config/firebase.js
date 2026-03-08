@@ -73,6 +73,28 @@ const runtimeHost = typeof window !== 'undefined'
     : '';
 const disableSocialAuth = parseBooleanEnv(import.meta.env.VITE_FIREBASE_DISABLE_SOCIAL_AUTH, false);
 const isDeploymentHost = typeof runtimeHost === 'string' && runtimeHost.endsWith('.vercel.app');
+const runtimeSocialAuthBlockKey = runtimeHost
+    ? `aura-social-auth-block:${runtimeHost}`
+    : 'aura-social-auth-block';
+
+const isSocialAuthHostRejection = (error) => {
+    const raw = `${error?.code || ''} ${error?.message || error || ''}`.toLowerCase();
+    return (
+        raw.includes('auth/unauthorized-domain')
+        || raw.includes('illegal url for new iframe')
+        || raw.includes('app url is not allowed in firebase authentication')
+        || raw.includes('domain not authorized')
+    );
+};
+
+const readRuntimeSocialAuthBlock = () => {
+    if (typeof window === 'undefined') return false;
+    try {
+        return window.sessionStorage.getItem(runtimeSocialAuthBlockKey) === '1';
+    } catch {
+        return false;
+    }
+};
 
 if (!hasRequiredConfig) {
     firebaseInitError = buildFirebaseConfigError('Firebase configuration is missing required values.');
@@ -108,13 +130,16 @@ if (!hasRequiredConfig) {
 }
 
 export const isFirebaseReady = Boolean(app && auth);
-export const isFirebaseSocialAuthAvailable = Boolean(
-    isFirebaseReady && (!disableSocialAuth || isDeploymentHost)
+export const isFirebaseSocialAuthAvailable = () => Boolean(
+    isFirebaseReady
+    && (!disableSocialAuth || isDeploymentHost)
+    && !readRuntimeSocialAuthBlock()
 );
 export const getFirebaseSocialAuthStatus = () => ({
     ready: isFirebaseReady,
-    supported: isFirebaseSocialAuthAvailable,
+    supported: isFirebaseSocialAuthAvailable(),
     runtimeHost,
+    runtimeBlocked: readRuntimeSocialAuthBlock(),
     disabledByConfig: disableSocialAuth && !isDeploymentHost,
     initErrorCode: firebaseInitError?.code || '',
     initErrorMessage: firebaseInitError?.message || '',
@@ -133,12 +158,34 @@ export const assertFirebaseReady = (feature = 'Firebase authentication') => {
 export const assertFirebaseSocialAuthReady = (feature = 'Social sign-in') => {
     assertFirebaseReady(feature);
 
-    if (isFirebaseSocialAuthAvailable) return;
+    if (isFirebaseSocialAuthAvailable()) return;
 
     const error = buildFirebaseConfigError(`${feature} is disabled by deployment configuration.`);
     error.code = 'auth/social-auth-disabled';
     error.host = runtimeHost;
     throw error;
+};
+
+export const markFirebaseSocialAuthRejectedForRuntime = (error) => {
+    if (typeof window === 'undefined' || !isSocialAuthHostRejection(error)) {
+        return false;
+    }
+
+    try {
+        window.sessionStorage.setItem(runtimeSocialAuthBlockKey, '1');
+        return true;
+    } catch {
+        return false;
+    }
+};
+
+export const clearFirebaseSocialAuthRuntimeBlock = () => {
+    if (typeof window === 'undefined') return;
+    try {
+        window.sessionStorage.removeItem(runtimeSocialAuthBlockKey);
+    } catch {
+        // best-effort only
+    }
 };
 
 export { app, auth, googleProvider, facebookProvider, xProvider, analytics };

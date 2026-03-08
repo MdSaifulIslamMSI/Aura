@@ -16,6 +16,7 @@ import {
   assertFirebaseReady,
   assertFirebaseSocialAuthReady,
   isFirebaseReady,
+  markFirebaseSocialAuthRejectedForRuntime,
 } from '../config/firebase';
 import { userApi } from '../services/api';
 
@@ -146,31 +147,36 @@ export const AuthProvider = ({ children }) => {
   // Google Sign-In
   // Returns { firebaseUser, dbUser, isNewUser, needsPhone }
   const signInWithOAuthProvider = async (provider, providerLabel = 'OAuth') => {
-    assertFirebaseSocialAuthReady(`${providerLabel} sign-in`);
-    const result = await signInWithPopup(auth, provider);
-    const user = result.user;
-    const isNewUser = result._tokenResponse?.isNewUser || false;
-    const email = user.email || user.providerData?.find((entry) => entry?.email)?.email || '';
+    try {
+      assertFirebaseSocialAuthReady(`${providerLabel} sign-in`);
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+      const isNewUser = result._tokenResponse?.isNewUser || false;
+      const email = user.email || user.providerData?.find((entry) => entry?.email)?.email || '';
 
-    if (!email) {
-      throw new Error(`${providerLabel} account did not provide an email. Please use an account with email access or use another login method.`);
+      if (!email) {
+        throw new Error(`${providerLabel} account did not provide an email. Please use an account with email access or use another login method.`);
+      }
+
+      // Sync with backend immediately (don't wait for onAuthStateChanged)
+      const mongoUser = await syncUserWithBackend(
+        email,
+        user.displayName || email.split('@')[0],
+        user.phoneNumber || '', // Google may provide phone
+        user,
+        { force: true }
+      );
+
+      return {
+        firebaseUser: user,
+        dbUser: mongoUser,
+        isNewUser,
+        needsPhone: !mongoUser?.phone // Flag if phone is missing
+      };
+    } catch (error) {
+      markFirebaseSocialAuthRejectedForRuntime(error);
+      throw error;
     }
-
-    // Sync with backend immediately (don't wait for onAuthStateChanged)
-    const mongoUser = await syncUserWithBackend(
-      email,
-      user.displayName || email.split('@')[0],
-      user.phoneNumber || '', // Google may provide phone
-      user,
-      { force: true }
-    );
-
-    return {
-      firebaseUser: user,
-      dbUser: mongoUser,
-      isNewUser,
-      needsPhone: !mongoUser?.phone // Flag if phone is missing
-    };
   };
 
   const signInWithGoogle = async () => signInWithOAuthProvider(googleProvider, 'Google');

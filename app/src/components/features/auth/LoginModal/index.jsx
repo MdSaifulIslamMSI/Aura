@@ -227,9 +227,11 @@ const LoginModal = ({ isOpen, onClose }) => {
             label: 'Social Access',
             value: socialAuthStatus.supported
                 ? 'Google, Facebook, and X available'
+                : socialAuthStatus.runtimeBlocked
+                    ? 'OTP-only until this tab is refreshed'
                 : `OTP-only on ${socialAuthStatus.runtimeHost || 'this host'}`,
         },
-    ]), [formData.phone, socialAuthStatus.runtimeHost, socialAuthStatus.supported, step]);
+    ]), [formData.phone, socialAuthStatus.runtimeBlocked, socialAuthStatus.runtimeHost, socialAuthStatus.supported, step]);
 
     const handleSubmit = (e) => {
         e.preventDefault();
@@ -492,12 +494,24 @@ const LoginModal = ({ isOpen, onClose }) => {
                                 ) : socialAuthStatus.ready ? (
                                     <div className="rounded-xl border border-amber-400/20 bg-amber-500/5 px-3 py-3">
                                         <p className="text-[10px] uppercase tracking-[0.18em] font-bold text-amber-300">
-                                            Social sign-in is disabled on this host
+                                            {socialAuthStatus.runtimeBlocked
+                                                ? 'Social sign-in paused on this tab'
+                                                : 'Social sign-in is disabled on this host'}
                                         </p>
                                         <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
-                                            Use email and OTP sign-in here. To enable Google, Facebook, and X, authorize{' '}
-                                            <span className="font-semibold text-slate-200">{socialAuthStatus.runtimeHost || 'this domain'}</span>{' '}
-                                            in Firebase Authentication settings.
+                                            {socialAuthStatus.runtimeBlocked ? (
+                                                <>
+                                                    Firebase rejected popup sign-in for{' '}
+                                                    <span className="font-semibold text-slate-200">{socialAuthStatus.runtimeHost || 'this domain'}</span>{' '}
+                                                    in this tab. Refresh after confirming the domain is authorized, or continue with email and OTP now.
+                                                </>
+                                            ) : (
+                                                <>
+                                                    Use email and OTP sign-in here. To enable Google, Facebook, and X, authorize{' '}
+                                                    <span className="font-semibold text-slate-200">{socialAuthStatus.runtimeHost || 'this domain'}</span>{' '}
+                                                    in Firebase Authentication settings.
+                                                </>
+                                            )}
                                         </p>
                                     </div>
                                 ) : (
