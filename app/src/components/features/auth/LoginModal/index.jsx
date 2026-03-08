@@ -1,4 +1,4 @@
-import { useState, useContext, useRef, useEffect, useMemo } from 'react';
+import { useState, useContext, useRef, useEffect } from 'react';
 import { X, Mail, Lock, User, Phone, Zap, Shield, ArrowLeft, Loader2 } from 'lucide-react';
 import { AuthContext } from '@/context/AuthContext';
 import { otpApi } from '@/services/api';
@@ -214,7 +214,7 @@ const LoginModal = ({ isOpen, onClose }) => {
         setSignInProofToken('');
     };
 
-    const trustSignals = useMemo(() => ([
+    const trustSignals = [
         {
             label: step === 'otp' ? 'OTP Window' : 'Identity Gate',
             value: step === 'otp' ? '5-minute secure verify' : 'Credentials checked before send',
@@ -229,9 +229,9 @@ const LoginModal = ({ isOpen, onClose }) => {
                 ? 'Google, Facebook, and X available'
                 : socialAuthStatus.runtimeBlocked
                     ? 'OTP-only until this tab is refreshed'
-                : `OTP-only on ${socialAuthStatus.runtimeHost || 'this host'}`,
+                    : `OTP-only on ${socialAuthStatus.runtimeHost || 'this host'}`,
         },
-    ]), [formData.phone, socialAuthStatus.runtimeBlocked, socialAuthStatus.runtimeHost, socialAuthStatus.supported, step]);
+    ];
 
     const handleSubmit = (e) => {
         e.preventDefault();
