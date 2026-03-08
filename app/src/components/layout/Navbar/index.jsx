@@ -35,6 +35,11 @@ const Navbar = () => {
   const { cartItems } = useContext(CartContext);
   const { colorMode, setColorMode, colorModeOptions } = useColorMode();
   const { motionMode, setMotionMode, motionModeOptions, autoDowngraded, effectiveMotionMode } = useMotionMode();
+  const goToLoginPage = () => {
+    if (typeof window !== 'undefined') {
+      window.location.assign('/login');
+    }
+  };
 
   const activeUser = currentUser;
   const displayName = activeUser?.displayName || dbUser?.name || activeUser?.email?.split('@')[0] || 'Profile';
@@ -210,12 +215,13 @@ const Navbar = () => {
                     <ChevronDown className="w-4 h-4 hidden xl:block opacity-50" />
                   </button>
                 ) : (
-                  <Link
-                    to="/login"
+                  <button
+                    type="button"
+                    onClick={goToLoginPage}
                     className="flex items-center gap-2 px-3 sm:px-4 lg:px-5 py-2 bg-white/5 backdrop-blur-md text-white text-sm font-semibold rounded-xl border border-white/10 shadow-glass hover:bg-white/10 hover:border-neo-cyan hover:shadow-neon-cyan transition-all duration-300 hover:-translate-y-0.5 active:translate-y-0"
                   >
                     Login
-                  </Link>
+                  </button>
                 )}
 
                 {/* User Dropdown */}
@@ -535,13 +541,16 @@ const Navbar = () => {
               </section>
 
               {!activeUser && (
-                <Link
-                  to="/login"
-                  onClick={() => setIsMobileMenuOpen(false)}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    goToLoginPage();
+                  }}
                   className="mt-4 block w-full rounded-2xl border border-cyan-400/30 bg-cyan-500/10 px-4 py-4 text-left font-bold text-neo-cyan transition-colors hover:bg-cyan-500/15"
                 >
                   Login / Sign up
-                </Link>
+                </button>
               )}
             </nav>
           </div>

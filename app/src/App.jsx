@@ -56,6 +56,10 @@ const AICompare = lazy(() => import('./pages/AICompare'));
 const VisualSearch = lazy(() => import('./pages/VisualSearch'));
 const Bundles = lazy(() => import('./pages/Bundles'));
 
+function renderRoute(element) {
+  return <AppErrorBoundary>{element}</AppErrorBoundary>;
+}
+
 function AppContent() {
   return (
     <div className="flex flex-col min-h-screen">
@@ -67,63 +71,61 @@ function AppContent() {
         <Navbar />
       </AppErrorBoundary>
       <main className="flex-1">
-        <AppErrorBoundary>
-          <Suspense
-            fallback={(
-              <div className="flex h-[80vh] items-center justify-center">
-                <div className="w-12 h-12 border-4 border-flipkart-blue border-t-transparent rounded-full animate-spin" />
-              </div>
-            )}
-          >
-            <RouteTransitionShell>
-              <Routes>
-                {/* Public Routes */}
-                <Route path="/" element={<Home />} />
-                <Route path="/login" element={<Login />} />
-                <Route path="/products" element={<ProductListing />} />
-                <Route path="/category/:category" element={<ProductListing />} />
-                <Route path="/deals" element={<ProductListing />} />
-                <Route path="/trending" element={<ProductListing />} />
-                <Route path="/new-arrivals" element={<ProductListing />} />
-                <Route path="/search" element={<ProductListing />} />
-                <Route path="/product/:id" element={<ProductDetails />} />
-                <Route path="/compare" element={<AICompare />} />
-                <Route path="/visual-search" element={<VisualSearch />} />
-                <Route path="/bundles" element={<Bundles />} />
-                {trustRoutes.map((path) => (
-                  <Route key={path} path={path} element={<TrustPage />} />
-                ))}
-                <Route path="/trust/:slug" element={<TrustPage />} />
+        <Suspense
+          fallback={(
+            <div className="flex h-[80vh] items-center justify-center">
+              <div className="w-12 h-12 border-4 border-flipkart-blue border-t-transparent rounded-full animate-spin" />
+            </div>
+          )}
+        >
+          <RouteTransitionShell>
+            <Routes>
+              {/* Public Routes */}
+              <Route path="/" element={renderRoute(<Home />)} />
+              <Route path="/login" element={renderRoute(<Login />)} />
+              <Route path="/products" element={renderRoute(<ProductListing />)} />
+              <Route path="/category/:category" element={renderRoute(<ProductListing />)} />
+              <Route path="/deals" element={renderRoute(<ProductListing />)} />
+              <Route path="/trending" element={renderRoute(<ProductListing />)} />
+              <Route path="/new-arrivals" element={renderRoute(<ProductListing />)} />
+              <Route path="/search" element={renderRoute(<ProductListing />)} />
+              <Route path="/product/:id" element={renderRoute(<ProductDetails />)} />
+              <Route path="/compare" element={renderRoute(<AICompare />)} />
+              <Route path="/visual-search" element={renderRoute(<VisualSearch />)} />
+              <Route path="/bundles" element={renderRoute(<Bundles />)} />
+              {trustRoutes.map((path) => (
+                <Route key={path} path={path} element={renderRoute(<TrustPage />)} />
+              ))}
+              <Route path="/trust/:slug" element={renderRoute(<TrustPage />)} />
 
-                {/* Marketplace Routes - Public */}
-                <Route path="/marketplace" element={<Marketplace />} />
-                <Route path="/listing/:id" element={<ListingDetail />} />
-                <Route path="/seller/:id" element={<SellerProfile />} />
+              {/* Marketplace Routes - Public */}
+              <Route path="/marketplace" element={renderRoute(<Marketplace />)} />
+              <Route path="/listing/:id" element={renderRoute(<ListingDetail />)} />
+              <Route path="/seller/:id" element={renderRoute(<SellerProfile />)} />
 
-                {/* Protected Routes - require authentication */}
-                <Route path="/cart" element={<ProtectedRoute><Cart /></ProtectedRoute>} />
-                <Route path="/wishlist" element={<ProtectedRoute><Wishlist /></ProtectedRoute>} />
-                <Route path="/checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
-                <Route path="/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />
-                <Route path="/become-seller" element={<ProtectedRoute><BecomeSeller /></ProtectedRoute>} />
-                <Route path="/sell" element={<SellerRoute><Sell /></SellerRoute>} />
-                <Route path="/my-listings" element={<SellerRoute><MyListings /></SellerRoute>} />
-                <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
-                <Route path="/trade-in" element={<ProtectedRoute><TradeInPage /></ProtectedRoute>} />
-                <Route path="/price-alerts" element={<ProtectedRoute><PriceAlertsPage /></ProtectedRoute>} />
+              {/* Protected Routes - require authentication */}
+              <Route path="/cart" element={renderRoute(<ProtectedRoute><Cart /></ProtectedRoute>)} />
+              <Route path="/wishlist" element={renderRoute(<ProtectedRoute><Wishlist /></ProtectedRoute>)} />
+              <Route path="/checkout" element={renderRoute(<ProtectedRoute><Checkout /></ProtectedRoute>)} />
+              <Route path="/orders" element={renderRoute(<ProtectedRoute><Orders /></ProtectedRoute>)} />
+              <Route path="/become-seller" element={renderRoute(<ProtectedRoute><BecomeSeller /></ProtectedRoute>)} />
+              <Route path="/sell" element={renderRoute(<SellerRoute><Sell /></SellerRoute>)} />
+              <Route path="/my-listings" element={renderRoute(<SellerRoute><MyListings /></SellerRoute>)} />
+              <Route path="/profile" element={renderRoute(<ProtectedRoute><ProfilePage /></ProtectedRoute>)} />
+              <Route path="/trade-in" element={renderRoute(<ProtectedRoute><TradeInPage /></ProtectedRoute>)} />
+              <Route path="/price-alerts" element={renderRoute(<ProtectedRoute><PriceAlertsPage /></ProtectedRoute>)} />
 
-                {/* Admin Routes - require admin role */}
-                <Route path="/admin/dashboard" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
-                <Route path="/admin/products" element={<AdminRoute><ProductList /></AdminRoute>} />
-                <Route path="/admin/product/:id/edit" element={<AdminRoute><ProductEdit /></AdminRoute>} />
-                <Route path="/admin/orders" element={<AdminRoute><OrderList /></AdminRoute>} />
-                <Route path="/admin/payments" element={<AdminRoute><AdminPayments /></AdminRoute>} />
-                <Route path="/admin/refunds" element={<AdminRoute><AdminRefundLedger /></AdminRoute>} />
-                <Route path="/admin/users" element={<AdminRoute><AdminUsers /></AdminRoute>} />
-              </Routes>
-            </RouteTransitionShell>
-          </Suspense>
-        </AppErrorBoundary>
+              {/* Admin Routes - require admin role */}
+              <Route path="/admin/dashboard" element={renderRoute(<AdminRoute><AdminDashboard /></AdminRoute>)} />
+              <Route path="/admin/products" element={renderRoute(<AdminRoute><ProductList /></AdminRoute>)} />
+              <Route path="/admin/product/:id/edit" element={renderRoute(<AdminRoute><ProductEdit /></AdminRoute>)} />
+              <Route path="/admin/orders" element={renderRoute(<AdminRoute><OrderList /></AdminRoute>)} />
+              <Route path="/admin/payments" element={renderRoute(<AdminRoute><AdminPayments /></AdminRoute>)} />
+              <Route path="/admin/refunds" element={renderRoute(<AdminRoute><AdminRefundLedger /></AdminRoute>)} />
+              <Route path="/admin/users" element={renderRoute(<AdminRoute><AdminUsers /></AdminRoute>)} />
+            </Routes>
+          </RouteTransitionShell>
+        </Suspense>
       </main>
       <AppErrorBoundary>
         <ChatBot />

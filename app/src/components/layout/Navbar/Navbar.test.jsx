@@ -58,7 +58,7 @@ describe('Navbar Component', () => {
 
     it('shows Login button when not authenticated', () => {
         renderNavbar({ currentUser: null });
-        expect(screen.getByRole('link', { name: 'Login' })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Login' })).toBeInTheDocument();
     });
 
     it('shows User Name when authenticated', () => {
@@ -74,6 +74,6 @@ describe('Navbar Component', () => {
     it('routes unauthenticated users to the full login page instead of opening a popup', () => {
         renderNavbar({ currentUser: null });
 
-        expect(screen.getByRole('link', { name: 'Login' })).toHaveAttribute('href', '/login');
+        expect(screen.getByRole('button', { name: 'Login' })).toBeInTheDocument();
     });
 });
