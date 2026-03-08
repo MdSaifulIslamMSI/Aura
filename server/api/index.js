@@ -13,6 +13,10 @@ const maintenanceState = {
     orderEmail: { running: false, lastRunAt: 0, minIntervalMs: 2 * 60 * 1000 },
     adminAnalytics: { running: false, lastRunAt: 0, minIntervalMs: 15 * 60 * 1000 },
 };
+const MONGO_CONNECT_OPTIONS = {
+    serverSelectionTimeoutMS: 30000,
+    socketTimeoutMS: 180000,
+};
 
 const connectMongo = async () => {
     if (mongoose.connection.readyState === 1) {
@@ -28,16 +32,14 @@ const connectMongo = async () => {
         throw new Error('MONGO_URI is required for backend deployment');
     }
 
-    await mongoose.connect(process.env.MONGO_URI);
+    await mongoose.connect(process.env.MONGO_URI, MONGO_CONNECT_OPTIONS);
     return mongoose.connection;
 };
 
 const ensureBootstrapped = async () => {
-    if (mongoose.connection.readyState === 1 && bootPromise) {
-        return bootPromise;
-    }
-
-    if (mongoose.connection.readyState === 2 && bootPromise) {
+    // Parallel cold-start requests can arrive before Mongoose flips to the
+    // "connecting" state. Reuse the first boot promise unconditionally.
+    if (bootPromise) {
         return bootPromise;
     }
 
