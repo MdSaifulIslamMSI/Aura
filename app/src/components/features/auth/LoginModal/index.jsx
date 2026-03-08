@@ -1,4 +1,4 @@
-import { useState, useContext, useRef, useEffect } from 'react';
+import { useState, useContext, useRef, useEffect, useMemo } from 'react';
 import { X, Mail, Lock, User, Phone, Zap, Shield, ArrowLeft, Loader2 } from 'lucide-react';
 import { AuthContext } from '@/context/AuthContext';
 import { otpApi } from '@/services/api';
@@ -214,6 +214,23 @@ const LoginModal = ({ isOpen, onClose }) => {
         setSignInProofToken('');
     };
 
+    const trustSignals = useMemo(() => ([
+        {
+            label: step === 'otp' ? 'OTP Window' : 'Identity Gate',
+            value: step === 'otp' ? '5-minute secure verify' : 'Credentials checked before send',
+        },
+        {
+            label: 'Delivery',
+            value: formData.phone ? 'Email + phone active' : 'Email first, phone required',
+        },
+        {
+            label: 'Social Access',
+            value: socialAuthStatus.supported
+                ? 'Google, Facebook, and X available'
+                : `OTP-only on ${socialAuthStatus.runtimeHost || 'this host'}`,
+        },
+    ]), [formData.phone, socialAuthStatus.runtimeHost, socialAuthStatus.supported, step]);
+
     const handleSubmit = (e) => {
         e.preventDefault();
         step === 'form' ? handleSendOtp() : handleVerifyOtp();
@@ -265,6 +282,28 @@ const LoginModal = ({ isOpen, onClose }) => {
 
                 {/* Form */}
                 <div className="relative z-10 p-5 sm:p-6 overflow-y-auto max-h-[calc(min(92vh,860px)-5.25rem)]">
+                    <div className="mb-4 rounded-2xl border border-white/10 bg-white/[0.035] p-3">
+                        <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.22em] text-neo-cyan">
+                            <Shield className="h-4 w-4" />
+                            Secure Entry
+                        </div>
+                        <div className="mt-3 grid gap-2">
+                            {trustSignals.map((signal) => (
+                                <div
+                                    key={signal.label}
+                                    className="rounded-xl border border-white/8 bg-zinc-950/45 px-3 py-2.5"
+                                >
+                                    <div className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-500">
+                                        {signal.label}
+                                    </div>
+                                    <div className="mt-1 text-xs font-semibold text-slate-100">
+                                        {signal.value}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
                     {/* Error */}
                     {authError && (
                         <AuthFeedback
@@ -450,7 +489,7 @@ const LoginModal = ({ isOpen, onClose }) => {
                                             X
                                         </button>
                                     </div>
-                                ) : (
+                                ) : socialAuthStatus.ready ? (
                                     <div className="rounded-xl border border-amber-400/20 bg-amber-500/5 px-3 py-3">
                                         <p className="text-[10px] uppercase tracking-[0.18em] font-bold text-amber-300">
                                             Social sign-in is disabled on this host
@@ -460,6 +499,20 @@ const LoginModal = ({ isOpen, onClose }) => {
                                             <span className="font-semibold text-slate-200">{socialAuthStatus.runtimeHost || 'this domain'}</span>{' '}
                                             in Firebase Authentication settings.
                                         </p>
+                                    </div>
+                                ) : (
+                                    <div className="rounded-xl border border-rose-400/20 bg-rose-500/5 px-3 py-3">
+                                        <p className="text-[10px] uppercase tracking-[0.18em] font-bold text-rose-300">
+                                            Social sign-in is unavailable on this deployment
+                                        </p>
+                                        <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
+                                            Firebase authentication did not initialize cleanly for this frontend build. Email and OTP sign-in remain available.
+                                        </p>
+                                        {socialAuthStatus.initErrorCode && (
+                                            <p className="mt-2 text-[11px] text-slate-500">
+                                                Runtime code: <span className="font-semibold text-slate-300">{socialAuthStatus.initErrorCode}</span>
+                                            </p>
+                                        )}
                                     </div>
                                 )}
                             </div>

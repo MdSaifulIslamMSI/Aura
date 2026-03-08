@@ -1,4 +1,4 @@
-import { useState, useEffect, useContext } from 'react';
+import { useState, useEffect, useContext, useMemo } from 'react';
 import { orderApi } from '@/services/api';
 import { AuthContext } from '@/context/AuthContext';
 import { formatPrice } from '@/utils/format';
@@ -11,6 +11,52 @@ const Orders = () => {
     const [loading, setLoading] = useState(true);
     const { currentUser } = useContext(AuthContext);
     const navigate = useNavigate();
+
+    const orderSummary = useMemo(() => {
+        const activeOrders = orders.filter((order) => {
+            const status = String(order.orderStatus || '').toLowerCase();
+            return !order.isDelivered && status !== 'cancelled';
+        }).length;
+
+        const deliveredOrders = orders.filter((order) => {
+            const status = String(order.orderStatus || '').toLowerCase();
+            return order.isDelivered || status === 'delivered';
+        }).length;
+
+        const protectedPayments = orders.filter((order) => Boolean(order.isPaid)).length;
+        const totalSpend = orders.reduce((sum, order) => sum + (Number(order.totalPrice) || 0), 0);
+
+        return [
+            {
+                label: 'Active Orders',
+                value: activeOrders,
+                detail: 'Orders still moving through delivery or post-purchase handling.',
+                tone: 'text-neo-cyan',
+                icon: Clock,
+            },
+            {
+                label: 'Delivered',
+                value: deliveredOrders,
+                detail: 'Orders that have completed the delivery side of the lifecycle.',
+                tone: 'text-neo-emerald',
+                icon: CheckCircle,
+            },
+            {
+                label: 'Protected Payments',
+                value: protectedPayments,
+                detail: 'Orders already marked paid by the backend payment state.',
+                tone: 'text-amber-300',
+                icon: ShieldCheck,
+            },
+            {
+                label: 'Total Spend',
+                value: formatPrice(totalSpend),
+                detail: 'Lifetime order value visible from this command center session.',
+                tone: 'text-white',
+                icon: Wallet,
+            },
+        ];
+    }, [orders]);
 
     useEffect(() => {
         if (currentUser) {
@@ -88,8 +134,48 @@ const Orders = () => {
             <div className="container-custom max-w-4xl mx-auto px-4 lg:px-8">
                 <div className="flex items-center gap-4 mb-10 pb-6 border-b border-white/10">
                     <Server className="w-8 h-8 text-neo-cyan drop-shadow-[0_0_10px_rgba(6,182,212,0.8)]" />
-                    <h1 className="text-3xl font-black text-white tracking-tighter uppercase">Order History</h1>
+                    <div>
+                        <h1 className="text-3xl font-black text-white tracking-tighter uppercase">Order History</h1>
+                        <p className="mt-2 text-sm text-slate-400">Track delivery, payment, refund, replacement, and support actions from one persistent surface.</p>
+                    </div>
                 </div>
+
+                <section className="mb-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                    {orderSummary.map((item) => (
+                        <article
+                            key={item.label}
+                            className="rounded-[1.5rem] border border-white/10 bg-white/[0.045] p-5 shadow-glass"
+                        >
+                            <div className="flex items-center justify-between gap-3">
+                                <div className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">{item.label}</div>
+                                <item.icon className={cn('h-4 w-4', item.tone)} />
+                            </div>
+                            <div className={cn('mt-4 text-3xl font-black', item.tone)}>{item.value}</div>
+                            <p className="mt-2 text-sm leading-6 text-slate-400">{item.detail}</p>
+                        </article>
+                    ))}
+                </section>
+
+                <section className="mb-8 rounded-[1.75rem] border border-white/10 bg-white/[0.04] p-5 shadow-glass">
+                    <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.24em] text-neo-cyan">
+                        <ShieldCheck className="h-4 w-4" />
+                        Post-Purchase Trust Layer
+                    </div>
+                    <div className="mt-4 grid gap-3 md:grid-cols-3">
+                        <div className="rounded-2xl border border-white/8 bg-zinc-950/35 px-4 py-4 text-sm text-slate-300">
+                            <span className="mr-2 text-neo-cyan">•</span>
+                            Order status, payment state, and command-center actions are read from backend order records.
+                        </div>
+                        <div className="rounded-2xl border border-white/8 bg-zinc-950/35 px-4 py-4 text-sm text-slate-300">
+                            <span className="mr-2 text-neo-emerald">•</span>
+                            Refund, replacement, warranty, and support requests remain attached to the originating order.
+                        </div>
+                        <div className="rounded-2xl border border-white/8 bg-zinc-950/35 px-4 py-4 text-sm text-slate-300">
+                            <span className="mr-2 text-amber-300">•</span>
+                            Each order card exposes trust timeline events before you trigger a disruptive action.
+                        </div>
+                    </div>
+                </section>
 
                 <div className="space-y-6">
                     {orders.map((order) => (

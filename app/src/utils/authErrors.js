@@ -59,7 +59,14 @@ export const AUTH_ERRORS = {
     'auth/unauthorized-domain': {
         title: 'Domain Not Authorized',
         detail: 'This app URL is not allowed in Firebase Authentication.',
-        hint: 'Add this deployment domain in Firebase Authentication > Settings > Authorized domains, or use email and OTP sign-in instead.',
+        hint: 'Add the active site domain in Firebase Authentication > Settings > Authorized domains, then retry social sign-in. Email and OTP sign-in remain available immediately.',
+        action: null,
+        actionLabel: null
+    },
+    'illegal url for new iframe': {
+        title: 'Domain Not Authorized',
+        detail: 'Firebase rejected the current site host for popup-based sign-in.',
+        hint: 'Authorize the exact live domain in Firebase Authentication settings, or continue with email and OTP sign-in.',
         action: null,
         actionLabel: null
     },

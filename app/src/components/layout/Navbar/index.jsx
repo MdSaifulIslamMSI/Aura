@@ -1,5 +1,5 @@
 import { useContext, useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import {
   ChevronDown,
   Gauge,
@@ -31,6 +31,7 @@ const Navbar = () => {
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [showVoiceSearch, setShowVoiceSearch] = useState(false);
   const lastScrollYRef = useRef(0);
+  const location = useLocation();
   const { currentUser, dbUser, logout } = useContext(AuthContext);
   const { cartItems } = useContext(CartContext);
   const { colorMode, setColorMode, colorModeOptions } = useColorMode();
@@ -60,6 +61,11 @@ const Navbar = () => {
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+    setIsUserMenuOpen(false);
+  }, [location.pathname, location.search]);
 
   const categories = [
     { name: 'Mobiles', path: '/category/mobiles' },
@@ -343,135 +349,174 @@ const Navbar = () => {
           </div>
         </div>
 
+        {isMobileMenuOpen && (
+          <button
+            type="button"
+            aria-label="Close mobile menu backdrop"
+            className="fixed inset-0 z-40 bg-zinc-950/70 backdrop-blur-sm md:hidden"
+            onClick={() => setIsMobileMenuOpen(false)}
+          />
+        )}
+
         {/* Mobile Nav Menu */}
         {isMobileMenuOpen && (
-          <div className="md:hidden bg-zinc-950/95 backdrop-blur-xl border-t border-white/10 animate-fade-in absolute w-full left-0 top-full">
-            <nav className="py-2 px-4 max-h-[70vh] overflow-y-auto">
-              {categories.map((category) => (
-                <Link
-                  key={category.path}
-                  to={category.path}
-                  className="block px-4 py-3 text-slate-300 hover:text-white hover:bg-white/5 border-b border-white/5 rounded-lg transition-colors"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  {category.name}
-                </Link>
-              ))}
-              {/* Marketplace links in mobile */}
-              <div className="border-t border-white/10 my-2" />
-              <Link
-                to="/marketplace"
-                className="flex items-center gap-3 px-4 py-3 text-neo-cyan font-bold hover:bg-white/5 rounded-lg transition-colors"
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                <Store className="w-5 h-5" /> Marketplace
-              </Link>
-              <Link
-                to={isSeller ? '/sell' : '/become-seller'}
-                className="flex items-center gap-3 px-4 py-3 text-green-400 font-bold hover:bg-white/5 rounded-lg transition-colors"
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                <Plus className="w-5 h-5" /> {isSeller ? 'Sell Your Item' : 'Become Seller'}
-              </Link>
-              {activeUser && isSeller && (
-                <Link
-                  to="/my-listings"
-                  className="flex items-center gap-3 px-4 py-3 text-slate-300 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  My Listings
-                </Link>
-              )}
-              {dbUser?.isAdmin && (
-                <>
+          <div className="absolute left-0 top-full z-50 w-full border-t border-white/10 bg-zinc-950/95 backdrop-blur-xl animate-fade-in md:hidden">
+            <nav className="max-h-[calc(100vh-5.5rem)] overflow-y-auto px-4 py-4">
+              <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+                <div className="mb-3 text-[11px] font-black uppercase tracking-[0.24em] text-slate-400">Quick access</div>
+                <div className="grid grid-cols-2 gap-2">
                   <Link
-                    to="/admin/dashboard"
-                    className="flex items-center gap-3 px-4 py-3 text-violet-200 font-black hover:bg-violet-500/10 rounded-lg transition-colors"
-                    onClick={() => setIsMobileMenuOpen(false)}
+                    to="/marketplace"
+                    className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/[0.08]"
                   >
-                    <Shield className="w-5 h-5" /> Admin Portal
+                    <Store className="h-4 w-4 text-neo-cyan" />
+                    Marketplace
                   </Link>
                   <Link
-                    to="/admin/products"
-                    className="flex items-center gap-3 px-4 py-3 text-violet-300 font-bold hover:bg-violet-500/10 rounded-lg transition-colors"
-                    onClick={() => setIsMobileMenuOpen(false)}
+                    to={isSeller ? '/sell' : '/become-seller'}
+                    className="flex items-center gap-2 rounded-xl border border-emerald-400/20 bg-emerald-500/10 px-3 py-3 text-sm font-semibold text-emerald-200 transition-colors hover:bg-emerald-500/15"
                   >
-                    Product Control
+                    <Plus className="h-4 w-4" />
+                    {isSeller ? 'Sell' : 'Become seller'}
                   </Link>
                   <Link
-                    to="/admin/users"
-                    className="flex items-center gap-3 px-4 py-3 text-violet-300 font-bold hover:bg-violet-500/10 rounded-lg transition-colors"
-                    onClick={() => setIsMobileMenuOpen(false)}
+                    to="/wishlist"
+                    className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-sm font-semibold text-slate-200 transition-colors hover:bg-white/[0.08]"
                   >
-                    User Governance
+                    <Heart className="h-4 w-4 text-neo-emerald" />
+                    Wishlist
                   </Link>
-                </>
-              )}
-              <div className="px-4 py-3 border-b border-white/5">
-                <div className="flex items-center gap-2 text-sm font-semibold text-slate-200">
-                  <Palette className="w-4 h-4 text-neo-cyan" />
-                  Color Mode
+                  <Link
+                    to="/cart"
+                    className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-sm font-semibold text-slate-200 transition-colors hover:bg-white/[0.08]"
+                  >
+                    <ShoppingCart className="h-4 w-4 text-neo-cyan" />
+                    Cart {cartItemCount > 0 ? `(${cartItemCount > 9 ? '9+' : cartItemCount})` : ''}
+                  </Link>
                 </div>
-                <div className="mt-2 grid grid-cols-2 gap-2">
-                  {colorModeOptions.map((mode) => (
-                    <button
-                      key={mode.value}
-                      onClick={() => {
-                        setColorMode(mode.value);
-                        setIsMobileMenuOpen(false);
-                      }}
-                      className={cn(
-                        'rounded-lg border px-3 py-2 text-xs font-bold transition-colors inline-flex items-center gap-2',
-                        colorMode === mode.value
-                          ? 'border-neo-cyan bg-neo-cyan/20 text-neo-cyan'
-                          : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white'
-                      )}
+              </section>
+
+              <section className="mt-4 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+                <div className="mb-3 text-[11px] font-black uppercase tracking-[0.24em] text-slate-400">Browse by category</div>
+                <div className="grid grid-cols-2 gap-2">
+                  {categories.map((category) => (
+                    <Link
+                      key={category.path}
+                      to={category.path}
+                      className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-sm font-medium text-slate-200 transition-colors hover:bg-white/[0.08] hover:text-white"
                     >
-                      <span
-                        className="h-3.5 w-3.5 rounded-full border border-white/30"
-                        style={{
-                          background: `linear-gradient(135deg, ${mode.primary || '#06b6d4'}, ${mode.secondary || '#10b981'})`,
+                      {category.name}
+                    </Link>
+                  ))}
+                </div>
+              </section>
+
+              {(activeUser || dbUser?.isAdmin) && (
+                <section className="mt-4 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+                  <div className="mb-3 text-[11px] font-black uppercase tracking-[0.24em] text-slate-400">Account control</div>
+                  <div className="space-y-2">
+                    {activeUser && (
+                      <>
+                        <Link to="/profile" className="block rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-sm font-medium text-slate-200 transition-colors hover:bg-white/[0.08]">
+                          My profile
+                        </Link>
+                        <Link to="/orders" className="block rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-sm font-medium text-slate-200 transition-colors hover:bg-white/[0.08]">
+                          Orders
+                        </Link>
+                        {isSeller && (
+                          <Link to="/my-listings" className="block rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-sm font-medium text-slate-200 transition-colors hover:bg-white/[0.08]">
+                            My listings
+                          </Link>
+                        )}
+                      </>
+                    )}
+                    {dbUser?.isAdmin && (
+                      <>
+                        <Link to="/admin/dashboard" className="flex items-center gap-2 rounded-xl border border-violet-400/25 bg-violet-500/10 px-3 py-3 text-sm font-semibold text-violet-100 transition-colors hover:bg-violet-500/15">
+                          <Shield className="h-4 w-4" />
+                          Admin portal
+                        </Link>
+                        <Link to="/admin/products" className="block rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-sm font-medium text-slate-200 transition-colors hover:bg-white/[0.08]">
+                          Product control
+                        </Link>
+                        <Link to="/admin/users" className="block rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-sm font-medium text-slate-200 transition-colors hover:bg-white/[0.08]">
+                          User governance
+                        </Link>
+                      </>
+                    )}
+                  </div>
+                </section>
+              )}
+
+              <section className="mt-4 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+                <div className="mb-3 text-[11px] font-black uppercase tracking-[0.24em] text-slate-400">Experience</div>
+                <div className="mb-4">
+                  <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-200">
+                    <Palette className="h-4 w-4 text-neo-cyan" />
+                    Color mode
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {colorModeOptions.map((mode) => (
+                      <button
+                        key={mode.value}
+                        onClick={() => {
+                          setColorMode(mode.value);
+                          setIsMobileMenuOpen(false);
                         }}
-                      />
-                      <span className="truncate">{mode.label}</span>
-                    </button>
-                  ))}
+                        className={cn(
+                          'inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-bold transition-colors',
+                          colorMode === mode.value
+                            ? 'border-neo-cyan bg-neo-cyan/20 text-neo-cyan'
+                            : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white'
+                        )}
+                      >
+                        <span
+                          className="h-3.5 w-3.5 rounded-full border border-white/30"
+                          style={{
+                            background: `linear-gradient(135deg, ${mode.primary || '#06b6d4'}, ${mode.secondary || '#10b981'})`,
+                          }}
+                        />
+                        <span className="truncate">{mode.label}</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-              <div className="px-4 py-3 border-b border-white/5">
-                <div className="flex items-center gap-2 text-sm font-semibold text-slate-200">
-                  <Gauge className="w-4 h-4 text-cyan-300" />
-                  Motion Mode
+                <div>
+                  <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-200">
+                    <Gauge className="h-4 w-4 text-cyan-300" />
+                    Motion mode
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {motionModeOptions.map((mode) => (
+                      <button
+                        key={mode.value}
+                        onClick={() => setMotionMode(mode.value)}
+                        className={cn(
+                          'rounded-xl border px-2 py-2 text-[11px] font-black uppercase tracking-wider transition-colors',
+                          motionMode === mode.value
+                            ? 'border-cyan-300/60 bg-cyan-400/20 text-cyan-100'
+                            : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white'
+                        )}
+                      >
+                        {mode.label}
+                      </button>
+                    ))}
+                  </div>
+                  {autoDowngraded && (
+                    <p className="mt-2 text-[11px] text-amber-200">Auto performance mode active ({effectiveMotionMode}).</p>
+                  )}
                 </div>
-                <div className="mt-2 grid grid-cols-3 gap-2">
-                  {motionModeOptions.map((mode) => (
-                    <button
-                      key={mode.value}
-                      onClick={() => setMotionMode(mode.value)}
-                      className={cn(
-                        'rounded-lg border px-2 py-2 text-[11px] font-black uppercase tracking-wider transition-colors',
-                        motionMode === mode.value
-                          ? 'border-cyan-300/60 bg-cyan-400/20 text-cyan-100'
-                          : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white'
-                      )}
-                    >
-                      {mode.label}
-                    </button>
-                  ))}
-                </div>
-                {autoDowngraded && (
-                  <p className="mt-2 text-[11px] text-amber-200">Auto performance mode active ({effectiveMotionMode}).</p>
-                )}
-              </div>
+              </section>
+
               {!activeUser && (
                 <button
                   onClick={() => {
                     setIsLoginModalOpen(true);
                     setIsMobileMenuOpen(false);
                   }}
-                  className="block w-full text-left px-4 py-4 text-neo-cyan font-bold hover:bg-white/5 rounded-lg mt-2 transition-colors"
+                  className="mt-4 block w-full rounded-2xl border border-cyan-400/30 bg-cyan-500/10 px-4 py-4 text-left font-bold text-neo-cyan transition-colors hover:bg-cyan-500/15"
                 >
-                  Login / Sign Up
+                  Login / Sign up
                 </button>
               )}
             </nav>

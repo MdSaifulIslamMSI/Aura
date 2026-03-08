@@ -112,9 +112,12 @@ export const isFirebaseSocialAuthAvailable = Boolean(
     isFirebaseReady && (!disableSocialAuth || isDeploymentHost)
 );
 export const getFirebaseSocialAuthStatus = () => ({
+    ready: isFirebaseReady,
     supported: isFirebaseSocialAuthAvailable,
     runtimeHost,
     disabledByConfig: disableSocialAuth && !isDeploymentHost,
+    initErrorCode: firebaseInitError?.code || '',
+    initErrorMessage: firebaseInitError?.message || '',
 });
 export const getFirebaseInitError = () => firebaseInitError;
 export const assertFirebaseReady = (feature = 'Firebase authentication') => {

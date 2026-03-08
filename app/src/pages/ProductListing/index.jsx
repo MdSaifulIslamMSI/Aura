@@ -122,6 +122,42 @@ const ProductListing = () => {
     createFiltersFromParams(searchParams)
   );
 
+  const resetScanParameters = useCallback(() => {
+    setFilters((prev) => ({
+      ...createDefaultFilters(),
+      availableBrands: prev.availableBrands,
+      availableCategories: prev.availableCategories,
+    }));
+    setSortBy(getRouteDefaultSort(location.pathname));
+    setPage(1);
+
+    const nextParams = new URLSearchParams();
+    if (searchQuery) nextParams.set('q', searchQuery);
+    if (queryCategory) nextParams.set('category', normalizeCategorySlug(queryCategory));
+    setSearchParams(nextParams, { replace: true });
+  }, [location.pathname, queryCategory, searchQuery, setSearchParams]);
+
+  const activeScanSignals = useMemo(() => {
+    const signals = [];
+
+    if (searchQuery) signals.push(`Query: ${searchQuery}`);
+    if (effectiveCategorySlug) signals.push(`Lane: ${getCategoryLabel(effectiveCategorySlug)}`);
+    if (filters.brands.length > 0) signals.push(`Brands: ${filters.brands.join(', ')}`);
+    if (filters.minRating > 0) signals.push(`Rating ${filters.minRating}+`);
+    if (filters.inStockOnly) signals.push('In stock only');
+    if (filters.warrantyOnly) signals.push('Warranty only');
+    if (filters.minDiscount > 0) signals.push(`${filters.minDiscount}%+ off`);
+    if (filters.deliveryWindows.length > 0) signals.push(`Delivery: ${filters.deliveryWindows.join(', ')}`);
+    if (
+      filters.priceRange[0] !== DEFAULT_MIN_PRICE ||
+      filters.priceRange[1] !== DEFAULT_MAX_PRICE
+    ) {
+      signals.push(`Price Rs ${filters.priceRange[0].toLocaleString('en-IN')} - Rs ${filters.priceRange[1].toLocaleString('en-IN')}`);
+    }
+
+    return signals;
+  }, [effectiveCategorySlug, filters, searchQuery]);
+
   const fetchProducts = useCallback(async (signal) => {
     const requestId = Date.now();
     activeRequestRef.current = requestId;
@@ -169,6 +205,11 @@ const ProductListing = () => {
       }
     }
   }, [page, sortBy, searchQuery, effectiveCategorySlug, filters]);
+
+  const retryFetch = useCallback(() => {
+    const controller = new AbortController();
+    fetchProducts(controller.signal);
+  }, [fetchProducts]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -327,6 +368,26 @@ const ProductListing = () => {
             </div>
           </RevealOnScroll>
 
+          {activeScanSignals.length > 0 && (
+            <div className="mb-5 flex flex-wrap items-center gap-2">
+              {activeScanSignals.map((signal) => (
+                <span
+                  key={signal}
+                  className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1.5 text-xs font-semibold text-slate-300"
+                >
+                  {signal}
+                </span>
+              ))}
+              <button
+                type="button"
+                onClick={resetScanParameters}
+                className="rounded-full border border-neo-cyan/25 bg-neo-cyan/10 px-3 py-1.5 text-xs font-black uppercase tracking-[0.18em] text-neo-cyan transition-colors hover:bg-neo-cyan/15"
+              >
+                Reset scan
+              </button>
+            </div>
+          )}
+
           {/* Product Grid */}
           {loading ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -343,9 +404,14 @@ const ProductListing = () => {
               </div>
               <h3 className="text-2xl font-black text-white mb-2 tracking-tight">Catalog fetch failed</h3>
               <p className="text-slate-300 mb-8 max-w-md mx-auto">{fetchError}</p>
-              <button className="btn-secondary" onClick={fetchProducts}>
+              <div className="flex flex-wrap items-center justify-center gap-3">
+                <button className="btn-secondary" onClick={retryFetch}>
                 Retry Loading
-              </button>
+                </button>
+                <button className="btn-secondary" onClick={resetScanParameters}>
+                  Reset scan parameters
+                </button>
+              </div>
             </div>
           ) : products.length === 0 ? (
             <div className="text-center py-24 bg-white/[0.045] backdrop-blur-xl rounded-3xl shadow-glass border border-white/10 relative overflow-hidden group">
@@ -356,20 +422,29 @@ const ProductListing = () => {
                 </svg>
               </div>
               <h3 className="text-2xl font-black text-white mb-2 tracking-tight">No matching products</h3>
-              <p className="text-slate-400 mb-8 max-w-md mx-auto">No items match your selected filters. Try adjusting your search criteria.</p>
-              <button
-                className="btn-secondary"
-                onClick={() => {
-                  setFilters(prev => ({
-                    ...createDefaultFilters(),
-                    availableBrands: prev.availableBrands,
-                    availableCategories: prev.availableCategories,
-                  }));
-                  setSearchParams({});
-                }}
-              >
-                Clear All Filters
-              </button>
+              <p className="text-slate-400 mb-4 max-w-md mx-auto">
+                The current scan parameters eliminate every item in this lane. Clear filters or broaden the search to reopen the catalog.
+              </p>
+              {activeScanSignals.length > 0 && (
+                <div className="mb-8 flex flex-wrap justify-center gap-2 px-6">
+                  {activeScanSignals.slice(0, 4).map((signal) => (
+                    <span
+                      key={signal}
+                      className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1.5 text-xs font-semibold text-slate-300"
+                    >
+                      {signal}
+                    </span>
+                  ))}
+                </div>
+              )}
+              <div className="flex flex-wrap items-center justify-center gap-3">
+                <button className="btn-secondary" onClick={resetScanParameters}>
+                  Reset scan parameters
+                </button>
+                <button className="btn-secondary" onClick={() => navigate('/search')}>
+                  Open broader search
+                </button>
+              </div>
             </div>
           ) : (
             <div

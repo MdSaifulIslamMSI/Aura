@@ -1,4 +1,4 @@
-﻿import { useState, useContext, useRef, useEffect } from 'react';
+﻿import { useState, useContext, useRef, useEffect, useMemo } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Eye, EyeOff, Mail, Lock, User, Phone, Zap, Network, ArrowLeft, Shield, Loader2 } from 'lucide-react';
 import { AuthContext } from '@/context/AuthContext';
@@ -320,6 +320,55 @@ const Login = () => {
 
   const info = getInfoText();
 
+  const trustNotes = useMemo(() => {
+    if (step === 'otp') {
+      return [
+        'Codes expire in 5 minutes and can be used only once.',
+        'Aura never asks for your OTP outside this secure verification step.',
+        'Retry and resend controls stay available if delivery is delayed.',
+      ];
+    }
+
+    if (mode === 'signup') {
+      return [
+        'Email and phone are verified before a new account becomes active.',
+        'Seller, payment, and order access stay locked behind verified identity.',
+        'Fraud checks and duplicate-account controls run before activation.',
+      ];
+    }
+
+    if (mode === 'forgot-password') {
+      return [
+        'Reset requests stay tied to your registered email and phone.',
+        'A fresh OTP is required before any password recovery step.',
+        'Suspicious recovery attempts are rate-limited automatically.',
+      ];
+    }
+
+    return [
+      'Password validity is checked before an OTP is issued.',
+      'Email and phone confirmation reduce account-takeover risk.',
+      'Rate limits, device checks, and audit logs guard repeated attempts.',
+    ];
+  }, [mode, step]);
+
+  const secureSignals = useMemo(() => ([
+    {
+      label: step === 'otp' ? 'OTP window' : 'Identity gate',
+      value: step === 'otp' ? '5-minute secure verify' : 'Credentials checked before send',
+    },
+    {
+      label: 'Delivery',
+      value: formData.phone ? 'Email + phone active' : 'Email first, phone required',
+    },
+    {
+      label: 'Social access',
+      value: socialAuthStatus.supported
+        ? 'Google, Facebook, and X available'
+        : `OTP-only on ${socialAuthStatus.runtimeHost || 'this host'}`,
+    },
+  ]), [formData.phone, socialAuthStatus.runtimeHost, socialAuthStatus.supported, step]);
+
   const handleSocialSignIn = async (providerSignIn) => {
     setIsLoading(true);
     setAuthError(null);
@@ -374,6 +423,18 @@ const Login = () => {
                 <p className="text-slate-400 font-medium text-base sm:text-lg leading-relaxed max-w-md border-l-2 border-neo-cyan pl-4">
                   {info.desc}
                 </p>
+
+                <div className="mt-8 grid gap-3 max-w-md">
+                  {trustNotes.map((note) => (
+                    <div
+                      key={note}
+                      className="rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-slate-300/95 shadow-[0_12px_30px_rgba(2,8,23,0.25)]"
+                    >
+                      <span className="mr-2 text-neo-cyan">?</span>
+                      {note}
+                    </div>
+                  ))}
+                </div>
               </div>
 
               <div className="hidden md:flex relative z-10 items-center justify-center p-8 mt-10">
@@ -387,6 +448,28 @@ const Login = () => {
 
             {/* â”€â”€â”€ Right Side â€” Form â”€â”€â”€ */}
             <div className="md:w-[55%] p-6 sm:p-8 lg:p-14 relative z-10 flex flex-col justify-center bg-transparent">
+
+              <div className="mb-6 rounded-[24px] border border-white/10 bg-white/[0.035] p-4 shadow-[0_18px_45px_rgba(2,8,23,0.28)]">
+                <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.24em] text-neo-cyan">
+                  <Shield className="h-4 w-4" />
+                  Secure Entry Layer
+                </div>
+                <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                  {secureSignals.map((signal) => (
+                    <div
+                      key={signal.label}
+                      className="rounded-2xl border border-white/8 bg-zinc-950/45 px-3 py-3"
+                    >
+                      <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
+                        {signal.label}
+                      </div>
+                      <div className="mt-1 text-sm font-semibold text-slate-100">
+                        {signal.value}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
 
               {/* Error */}
               {authError && (
@@ -635,7 +718,7 @@ const Login = () => {
                         X
                       </button>
                     </div>
-                  ) : (
+                  ) : socialAuthStatus.ready ? (
                     <div className="rounded-2xl border border-amber-400/20 bg-amber-500/5 px-4 py-3">
                       <p className="text-[11px] uppercase tracking-[0.18em] font-bold text-amber-300">
                         Social sign-in is disabled on this host
@@ -645,6 +728,20 @@ const Login = () => {
                         <span className="font-semibold text-slate-200">{socialAuthStatus.runtimeHost || 'this domain'}</span>{' '}
                         in Firebase Authentication settings.
                       </p>
+                    </div>
+                  ) : (
+                    <div className="rounded-2xl border border-rose-400/20 bg-rose-500/5 px-4 py-3">
+                      <p className="text-[11px] uppercase tracking-[0.18em] font-bold text-rose-300">
+                        Social sign-in is unavailable on this deployment
+                      </p>
+                      <p className="mt-1 text-xs text-slate-400">
+                        Firebase authentication did not initialize cleanly for this frontend build. Email and OTP sign-in remain available.
+                      </p>
+                      {socialAuthStatus.initErrorCode && (
+                        <p className="mt-2 text-[11px] text-slate-500">
+                          Runtime code: <span className="font-semibold text-slate-300">{socialAuthStatus.initErrorCode}</span>
+                        </p>
+                      )}
                     </div>
                   )}
                 </div>
