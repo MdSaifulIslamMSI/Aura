@@ -9,6 +9,13 @@ import ProductCard from '@/components/features/product/ProductCard';
 import { cn } from '@/lib/utils';
 import { pushRecentlyViewed } from '@/utils/recentlyViewed';
 
+const DEFAULT_REVIEWS_SUMMARY = {
+  averageRating: 0,
+  totalReviews: 0,
+  withMediaCount: 0,
+  ratingBreakdown: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 },
+};
+
 const ProductDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -35,8 +42,9 @@ const ProductDetails = () => {
   const [compatibilityGraph, setCompatibilityGraph] = useState(null);
   const [compatibilityLoading, setCompatibilityLoading] = useState(false);
   const [compatibilityError, setCompatibilityError] = useState('');
+  const [hasLoadedCompatibility, setHasLoadedCompatibility] = useState(false);
   const [reviewsData, setReviewsData] = useState([]);
-  const [reviewsSummary, setReviewsSummary] = useState({ averageRating: 0, totalReviews: 0, withMediaCount: 0, ratingBreakdown: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 } });
+  const [reviewsSummary, setReviewsSummary] = useState(DEFAULT_REVIEWS_SUMMARY);
   const [reviewsLoading, setReviewsLoading] = useState(false);
   const [reviewsError, setReviewsError] = useState('');
   const [reviewSort, setReviewSort] = useState('newest');
@@ -67,7 +75,17 @@ const ProductDetails = () => {
     const loadData = async () => {
       if (!id) return;
 
+      setProduct(null);
       setIsLoading(true);
+      setRelatedProducts([]);
+      setCompatibilityGraph(null);
+      setCompatibilityError('');
+      setCompatibilityLoading(false);
+      setHasLoadedCompatibility(false);
+      setReviewsData([]);
+      setReviewsSummary(DEFAULT_REVIEWS_SUMMARY);
+      setReviewsError('');
+      setReviewsLoading(false);
       try {
         console.log(`[ProductDetails] Fetching product ${id}...`);
         const data = await productApi.getProductById(id);
@@ -113,7 +131,10 @@ const ProductDetails = () => {
       try {
         const data = await productApi.getProducts({
           category: product.category,
-          limit: 5
+          limit: 5,
+          includeMeta: false,
+          includeTelemetry: false,
+          includeDealDna: 'false',
         });
 
         if (isMounted && data?.products) {
@@ -127,14 +148,23 @@ const ProductDetails = () => {
       }
     };
 
-    if (product) loadRelated();
+    let timer = null;
+    if (product) {
+      timer = window.setTimeout(() => {
+        loadRelated();
+      }, 140);
+    }
 
-    return () => { isMounted = false; };
+    return () => {
+      isMounted = false;
+      if (timer) window.clearTimeout(timer);
+    };
   }, [product]);
 
   useEffect(() => {
     let active = true;
     const loadCompatibility = async () => {
+      if (activeTab !== 'compatibility' || hasLoadedCompatibility) return;
       if (!product?.id && !product?._id) return;
       setCompatibilityLoading(true);
       setCompatibilityError('');
@@ -143,6 +173,7 @@ const ProductDetails = () => {
         const response = await productApi.getCompatibility(productId, { limitPerType: 4 });
         if (!active) return;
         setCompatibilityGraph(response || null);
+        setHasLoadedCompatibility(true);
       } catch (error) {
         if (!active) return;
         setCompatibilityError(error.message || 'Unable to build compatibility map');
@@ -153,7 +184,7 @@ const ProductDetails = () => {
 
     loadCompatibility();
     return () => { active = false; };
-  }, [product?.id, product?._id]);
+  }, [activeTab, hasLoadedCompatibility, product?.id, product?._id]);
 
   const loadReviews = useCallback(async (sort = reviewSort) => {
     const productIdentifier = product?.id || product?._id;
@@ -168,12 +199,7 @@ const ProductDetails = () => {
         sort,
       });
       setReviewsData(Array.isArray(data?.reviews) ? data.reviews : []);
-      setReviewsSummary(data?.summary || {
-        averageRating: 0,
-        totalReviews: 0,
-        withMediaCount: 0,
-        ratingBreakdown: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 },
-      });
+      setReviewsSummary(data?.summary || DEFAULT_REVIEWS_SUMMARY);
       if (data?.summary) {
         setProduct((prev) => prev ? ({
           ...prev,
@@ -189,8 +215,9 @@ const ProductDetails = () => {
   }, [product?.id, product?._id, reviewSort]);
 
   useEffect(() => {
+    if (activeTab !== 'reviews') return;
     loadReviews(reviewSort);
-  }, [loadReviews, reviewSort]);
+  }, [activeTab, loadReviews, reviewSort]);
 
   useEffect(() => {
     if (!product) return;

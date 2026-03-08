@@ -199,12 +199,15 @@ const ProductListing = () => {
       const resolvedCategoryFilter = effectiveCategorySlug
         ? getCategoryApiValue(effectiveCategorySlug)
         : (filters.categories.length > 0 ? filters.categories.join(',') : undefined);
+      const telemetryContext = searchQuery
+        ? buildListingTelemetryContext({ searchQuery, effectiveCategorySlug, viewMode })
+        : undefined;
 
       const buildQuery = (categoryOverride) => ({
         page,
         limit: 12,
         sort: sortBy,
-        telemetryContext: buildListingTelemetryContext({ searchQuery, effectiveCategorySlug, viewMode }),
+        telemetryContext,
         keyword: searchQuery,
         category: categoryOverride,
         minPrice: filters.priceRange[0],

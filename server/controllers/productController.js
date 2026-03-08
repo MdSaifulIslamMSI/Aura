@@ -165,6 +165,9 @@ const getProducts = asyncHandler(async (req, res, next) => {
                 });
             }
         }
+        res.set('Cache-Control', includeTelemetry
+            ? 'private, no-store'
+            : 'public, max-age=0, s-maxage=30, stale-while-revalidate=90');
         res.json({
             products,
             nextCursor: result.nextCursor,
@@ -236,6 +239,7 @@ const getProductById = asyncHandler(async (req, res, next) => {
 
     if (product) {
         const serialized = toClientProduct(product);
+        res.set('Cache-Control', 'public, max-age=0, s-maxage=60, stale-while-revalidate=300');
         res.json({
             ...serialized,
             dealDna: computeDealDna(product),
@@ -682,6 +686,7 @@ const visualSearchProducts = asyncHandler(async (req, res, next) => {
             sort: 'relevance',
             page: 1,
             limit,
+            includeDetails: true,
         });
 
         const scoredProducts = (result.products || []).map((product) => ({

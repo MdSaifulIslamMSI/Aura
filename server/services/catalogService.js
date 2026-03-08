@@ -27,6 +27,22 @@ const DEFAULT_SPONSORED_SLOTS = 2;
 const LOCK_EXPIRY_MS = 5 * 60 * 1000;
 const DEFAULT_SYSTEM_KEY = 'singleton';
 const NO_IMAGE_PLACEHOLDER = 'https://via.placeholder.com/600x600?text=Aura+Product';
+const BASE_PRODUCT_FILTER_CACHE_TTL_MS = 15 * 1000;
+const PRODUCT_IDENTIFIER_CACHE_TTL_MS = 30 * 1000;
+const PRODUCT_LIST_PROJECTION = {
+    searchText: 0,
+    titleKey: 0,
+    imageKey: 0,
+    ingestHash: 0,
+    description: 0,
+    specifications: 0,
+    images: 0,
+    categoryPaths: 0,
+    contentQuality: 0,
+    createdAt: 0,
+    updatedAt: 0,
+    __v: 0,
+};
 
 let importWorkerTimer = null;
 let syncWorkerTimer = null;
@@ -37,6 +53,12 @@ let systemStateFallbackWarned = false;
 let importWorkerPausedByQuota = false;
 let syncWorkerPausedByQuota = false;
 let publicDemoFallbackWarned = false;
+let baseProductFilterCache = {
+    value: null,
+    cachedAt: 0,
+    promise: null,
+};
+const productIdentifierCache = new Map();
 
 const safeString = (value, fallback = '') => String(value === undefined || value === null ? fallback : value).trim();
 const safeLower = (value, fallback = '') => safeString(value, fallback).toLowerCase();
@@ -60,6 +82,10 @@ const normalizeTitleKey = (value) => (typeof Product.normalizeTitleKey === 'func
 const normalizeImageKey = (value) => (typeof Product.normalizeImageKey === 'function'
     ? Product.normalizeImageKey(value)
     : safeLower(String(value || '').trim()));
+const clonePlain = (value) => {
+    if (value === null || value === undefined) return value;
+    return JSON.parse(JSON.stringify(value));
+};
 const isSystemStateWriteBlocked = (error) => {
     const message = safeLower(error?.message || '');
     return message.includes('cannot create a new collection')
@@ -169,6 +195,90 @@ const buildSearchText = (record = {}) => [
         ? record.specifications.map((entry) => `${safeString(entry?.key)} ${safeString(entry?.value)}`).join(' ')
         : '',
 ].filter(Boolean).join(' | ');
+
+const invalidateBaseProductFilterCache = () => {
+    baseProductFilterCache = {
+        value: null,
+        cachedAt: 0,
+        promise: null,
+    };
+};
+
+const invalidateProductIdentifierCache = (identifier = null) => {
+    if (identifier === null || identifier === undefined || identifier === '') {
+        productIdentifierCache.clear();
+        return;
+    }
+
+    const trimmed = safeString(identifier);
+    if (!trimmed) return;
+
+    buildIdentifierOrClauses(trimmed).forEach((clause) => {
+        const [[key, value]] = Object.entries(clause || {});
+        if (!key || value === undefined || value === null) return;
+        productIdentifierCache.delete(`${key}:${String(value)}`);
+    });
+};
+
+const invalidateCatalogReadCaches = (identifier = null) => {
+    invalidateBaseProductFilterCache();
+    invalidateProductIdentifierCache(identifier);
+};
+
+const readCachedIdentifierValue = (identifier) => {
+    const now = Date.now();
+    const clauses = buildIdentifierOrClauses(identifier);
+
+    for (const clause of clauses) {
+        const [[key, value]] = Object.entries(clause || {});
+        const cacheKey = `${key}:${String(value)}`;
+        const cached = productIdentifierCache.get(cacheKey);
+        if (!cached) continue;
+
+        if (cached.value !== undefined && cached.expiresAt > now) {
+            return clonePlain(cached.value);
+        }
+
+        if (cached.promise) {
+            return cached.promise.then((result) => clonePlain(result));
+        }
+
+        productIdentifierCache.delete(cacheKey);
+    }
+
+    return null;
+};
+
+const cacheIdentifierValue = (identifier, value) => {
+    const expiresAt = Date.now() + PRODUCT_IDENTIFIER_CACHE_TTL_MS;
+    const clauses = buildIdentifierOrClauses(identifier);
+    const keys = new Set();
+
+    clauses.forEach((clause) => {
+        const [[key, rawValue]] = Object.entries(clause || {});
+        if (key && rawValue !== undefined && rawValue !== null) {
+            keys.add(`${key}:${String(rawValue)}`);
+        }
+    });
+
+    const hydratedValue = value && typeof value === 'object' ? value : null;
+    if (hydratedValue?._id) keys.add(`_id:${String(hydratedValue._id)}`);
+    if (hydratedValue?.externalId) keys.add(`externalId:${String(hydratedValue.externalId)}`);
+    if (hydratedValue?.id !== undefined && hydratedValue?.id !== null) {
+        keys.add(`id:${String(hydratedValue.id)}`);
+    }
+
+    keys.forEach((cacheKey) => {
+        productIdentifierCache.set(cacheKey, {
+            value: clonePlain(value),
+            expiresAt,
+        });
+    });
+};
+
+const buildProductReadProjection = ({ includeDetails = false } = {}) => (
+    includeDetails ? undefined : PRODUCT_LIST_PROJECTION
+);
 
 const resolveSourceRefPath = (sourceRef) => {
     const trimmed = safeString(sourceRef);
@@ -781,7 +891,7 @@ const enforceCatalogStartupCheck = async () => {
     }
 };
 
-const buildBaseProductFilter = async () => {
+const buildBaseProductFilterFresh = async () => {
     if (!flags.catalogActiveVersionRequired) return {};
     const activeCatalogVersion = await getActiveCatalogVersion();
     const publishedInActiveCatalog = await Product.findOne({
@@ -825,6 +935,38 @@ const buildBaseProductFilter = async () => {
         catalogVersion: activeCatalogVersion,
         isPublished: true,
     };
+};
+
+const buildBaseProductFilter = async () => {
+    if (!flags.catalogActiveVersionRequired) return {};
+
+    const cacheAge = Date.now() - Number(baseProductFilterCache.cachedAt || 0);
+    if (baseProductFilterCache.value && cacheAge < BASE_PRODUCT_FILTER_CACHE_TTL_MS) {
+        return { ...baseProductFilterCache.value };
+    }
+
+    if (baseProductFilterCache.promise) {
+        const cachedValue = await baseProductFilterCache.promise;
+        return { ...cachedValue };
+    }
+
+    const pending = (async () => {
+        const nextValue = await buildBaseProductFilterFresh();
+        baseProductFilterCache.value = nextValue;
+        baseProductFilterCache.cachedAt = Date.now();
+        return nextValue;
+    })();
+
+    baseProductFilterCache.promise = pending;
+
+    try {
+        const nextValue = await pending;
+        return { ...nextValue };
+    } finally {
+        if (baseProductFilterCache.promise === pending) {
+            baseProductFilterCache.promise = null;
+        }
+    }
 };
 
 const buildFilterFromQuery = (query = {}) => {
@@ -1028,12 +1170,16 @@ const fetchSponsoredProducts = async ({
     maxSlots,
 }) => {
     if (maxSlots <= 0) return [];
+    const readProjection = buildProductReadProjection({
+        includeDetails: safeLower(query.includeDetails, 'false') === 'true',
+    });
     const adFilter = buildSponsoredCandidateFilter({
         mergedBase,
         keywordFilter,
         query,
     });
     const adDocs = await Product.find(adFilter)
+        .select(readProjection)
         .sort({
             'adCampaign.priority': -1,
             'adCampaign.cpcBid': -1,
@@ -1041,6 +1187,7 @@ const fetchSponsoredProducts = async ({
             _id: -1,
         })
         .limit(maxSlots * 4)
+        .lean()
         .maxTimeMS(8000);
 
     return (adDocs || []).map((doc) => {
@@ -1206,8 +1353,10 @@ const queryProducts = async (query = {}) => {
     const limit = Math.min(Math.max(toInt(query.limit, 12), 1), 50);
     const page = Math.max(toInt(query.page, 1), 1);
     const includeMeta = safeLower(query.includeMeta, 'true') !== 'false';
+    const includeDetails = safeLower(query.includeDetails, 'false') === 'true';
     const includeSponsored = shouldIncludeSponsored(query);
     const sponsoredSlots = resolveSponsoredSlots(query);
+    const readProjection = buildProductReadProjection({ includeDetails });
     const baseFilter = await buildBaseProductFilter();
     const logicalFilter = buildFilterFromQuery(query);
     const mergedBase = { ...baseFilter, ...logicalFilter };
@@ -1249,17 +1398,21 @@ const queryProducts = async (query = {}) => {
         if (includeMeta) {
             [products, total] = await Promise.all([
                 Product.find(fallbackFilter)
+                    .select(readProjection)
                     .sort(relevanceSort ? { ratingCount: -1, _id: -1 } : sort)
                     .skip(skip)
                     .limit(candidateFetchLimit)
+                    .lean()
                     .maxTimeMS(requestTimeoutMs),
                 Product.countDocuments(countFilter).maxTimeMS(requestTimeoutMs),
             ]);
         } else {
             products = await Product.find(fallbackFilter)
+                .select(readProjection)
                 .sort(relevanceSort ? { ratingCount: -1, _id: -1 } : sort)
                 .skip(skip)
                 .limit(candidateFetchLimit)
+                .lean()
                 .maxTimeMS(requestTimeoutMs);
             total = Array.isArray(products) ? products.length : 0;
         }
@@ -1384,12 +1537,18 @@ const queryProducts = async (query = {}) => {
         if (includeMeta) {
             pipeline.push({
                 $facet: {
-                    products: [{ $limit: candidateFetchLimit }],
+                    products: [
+                        { $limit: candidateFetchLimit },
+                        ...(includeDetails ? [] : [{ $project: PRODUCT_LIST_PROJECTION }]),
+                    ],
                     totalMeta: [{ $count: 'count' }],
                 },
             });
         } else {
             pipeline.push({ $limit: candidateFetchLimit });
+            if (!includeDetails) {
+                pipeline.push({ $project: PRODUCT_LIST_PROJECTION });
+            }
         }
 
         const aggregate = Product.aggregate(pipeline).option({ maxTimeMS: requestTimeoutMs });
@@ -1460,16 +1619,55 @@ const resolveProductIdentifierFilter = async (identifier) => {
     };
 };
 
-const getProductByIdentifier = async (identifier) => {
-    const filter = await resolveProductIdentifierFilter(identifier);
-    const inActiveCatalog = await Product.findOne(filter);
-    if (inActiveCatalog) return inActiveCatalog;
+const getProductByIdentifier = async (identifier, options = {}) => {
+    const hydrate = options.hydrate === true;
 
-    // Admin/governance fallback:
-    // allow direct identifier resolution even if product is outside active catalog version.
-    const fallbackOr = buildIdentifierOrClauses(identifier);
-    if (!fallbackOr.length) return null;
-    return Product.findOne({ $or: fallbackOr });
+    if (!hydrate) {
+        const cachedProduct = readCachedIdentifierValue(identifier);
+        if (cachedProduct) {
+            return cachedProduct;
+        }
+    }
+
+    const lookup = async () => {
+        const filter = await resolveProductIdentifierFilter(identifier);
+        const activeCatalogQuery = Product.findOne(filter);
+        const inActiveCatalog = hydrate ? await activeCatalogQuery : await activeCatalogQuery.lean();
+        if (inActiveCatalog) return inActiveCatalog;
+
+        // Admin/governance fallback:
+        // allow direct identifier resolution even if product is outside active catalog version.
+        const fallbackOr = buildIdentifierOrClauses(identifier);
+        if (!fallbackOr.length) return null;
+        const fallbackQuery = Product.findOne({ $or: fallbackOr });
+        return hydrate ? fallbackQuery : fallbackQuery.lean();
+    };
+
+    if (hydrate) {
+        return lookup();
+    }
+
+    const pendingLookup = lookup();
+    const pendingKeys = buildIdentifierOrClauses(identifier).map((clause) => {
+        const [[key, value]] = Object.entries(clause || {});
+        return key && value !== undefined && value !== null ? `${key}:${String(value)}` : null;
+    }).filter(Boolean);
+
+    pendingKeys.forEach((cacheKey) => {
+        productIdentifierCache.set(cacheKey, {
+            promise: pendingLookup,
+            expiresAt: Date.now() + PRODUCT_IDENTIFIER_CACHE_TTL_MS,
+        });
+    });
+
+    try {
+        const product = await pendingLookup;
+        cacheIdentifierValue(identifier, product);
+        return clonePlain(product);
+    } catch (error) {
+        invalidateProductIdentifierCache(identifier);
+        throw error;
+    }
 };
 
 const allocateManualProductId = async (session = null) => {
@@ -1536,6 +1734,7 @@ const createManualProduct = async (payload) => {
             isPublished: true,
             catalogVersion: activeVersion,
         });
+        invalidateCatalogReadCaches(product.id || product._id || externalId);
         return product;
     } catch (error) {
         if (isDuplicateKeyError(error)) {
@@ -1546,7 +1745,7 @@ const createManualProduct = async (payload) => {
 };
 
 const updateManualProduct = async (identifier, payload) => {
-    const existing = await getProductByIdentifier(identifier);
+    const existing = await getProductByIdentifier(identifier, { hydrate: true });
     if (!existing) throw new AppError('Product not found', 404);
 
     const merged = {
@@ -1584,6 +1783,7 @@ const updateManualProduct = async (identifier, payload) => {
     try {
         Object.assign(existing, normalized.product);
         await existing.save();
+        invalidateCatalogReadCaches(existing.id || existing._id || identifier);
         return existing;
     } catch (error) {
         if (isDuplicateKeyError(error)) {
@@ -1597,6 +1797,7 @@ const deleteManualProduct = async (identifier) => {
     const existing = await getProductByIdentifier(identifier);
     if (!existing) throw new AppError('Product not found', 404);
     await Product.deleteOne({ _id: existing._id });
+    invalidateCatalogReadCaches(existing.id || existing._id || identifier);
     return { message: 'Product removed' };
 };
 
@@ -2068,6 +2269,7 @@ const publishCatalogVersion = async (jobId) => {
         const keepVersions = [nextVersion];
         if (previousVersion && previousVersion !== nextVersion) keepVersions.push(previousVersion);
         await Product.deleteMany({ catalogVersion: { $nin: keepVersions } });
+        invalidateCatalogReadCaches();
 
         return {
             publishedVersion: nextVersion,

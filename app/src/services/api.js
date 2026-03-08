@@ -28,12 +28,15 @@ const parseApiError = async (response, fallbackMessage) => {
 };
 
 const PROFILE_CACHE_TTL_MS = 15 * 1000;
+const PRODUCT_DETAIL_CACHE_TTL_MS = 30 * 1000;
 const profileCache = {
     key: '',
     value: null,
     cachedAt: 0,
     promise: null,
 };
+const productDetailCache = new Map();
+const productDetailRequestCache = new Map();
 
 const getProfileCacheKey = (firebaseUser = null) => {
     const user = firebaseUser || auth?.currentUser || null;
@@ -52,6 +55,82 @@ const invalidateProfileCache = () => {
     profileCache.value = null;
     profileCache.cachedAt = 0;
     profileCache.promise = null;
+};
+
+const getProductDetailCacheKey = (id) => String(id ?? '').trim();
+
+const readCachedProductDetail = (id) => {
+    const cacheKey = getProductDetailCacheKey(id);
+    if (!cacheKey) return null;
+
+    const cached = productDetailCache.get(cacheKey);
+    if (!cached) return null;
+
+    if (Date.now() - Number(cached.cachedAt || 0) >= PRODUCT_DETAIL_CACHE_TTL_MS) {
+        productDetailCache.delete(cacheKey);
+        return null;
+    }
+
+    return cached.value || null;
+};
+
+const writeCachedProductDetail = (id, product) => {
+    const cachedAt = Date.now();
+    const keys = new Set([
+        getProductDetailCacheKey(id),
+        getProductDetailCacheKey(product?.id),
+        getProductDetailCacheKey(product?._id),
+    ]);
+
+    keys.forEach((cacheKey) => {
+        if (!cacheKey) return;
+        productDetailCache.set(cacheKey, {
+            value: product,
+            cachedAt,
+        });
+    });
+
+    return product;
+};
+
+const invalidateProductDetailCache = (id = null) => {
+    if (id === null || id === undefined || id === '') {
+        productDetailCache.clear();
+        productDetailRequestCache.clear();
+        return;
+    }
+
+    const cacheKey = getProductDetailCacheKey(id);
+    if (!cacheKey) return;
+    productDetailCache.delete(cacheKey);
+    productDetailRequestCache.delete(cacheKey);
+};
+
+const fetchProductByIdNetwork = async (id, options = {}) => {
+    const cacheKey = getProductDetailCacheKey(id);
+    const force = options.force === true;
+
+    if (!force) {
+        const cached = readCachedProductDetail(cacheKey);
+        if (cached) return cached;
+
+        const pending = productDetailRequestCache.get(cacheKey);
+        if (pending) return pending;
+    }
+
+    const request = apiFetch(`/products/${id}`, {
+        method: 'GET',
+        signal: options.signal,
+    })
+        .then(({ data }) => writeCachedProductDetail(cacheKey, data))
+        .finally(() => {
+            if (productDetailRequestCache.get(cacheKey) === request) {
+                productDetailRequestCache.delete(cacheKey);
+            }
+        });
+
+    productDetailRequestCache.set(cacheKey, request);
+    return request;
 };
 
 const prefetchedProductIds = new Set();
@@ -109,11 +188,7 @@ export const productApi = {
         }
     },
     getProductById: async (id, options = {}) => {
-        const { data } = await apiFetch(`/products/${id}`, {
-            method: 'GET',
-            signal: options.signal,
-        });
-        return data;
+        return fetchProductByIdNetwork(id, options);
     },
     prefetchProductById: (id) => {
         const normalizedId = id == null ? '' : String(id).trim();
@@ -122,10 +197,7 @@ export const productApi = {
 
         runWhenIdle(async () => {
             try {
-                await fetch(`${BASE_URL}/products/${encodeURIComponent(normalizedId)}`, {
-                    method: 'GET',
-                    headers: { Accept: 'application/json' },
-                });
+                await fetchProductByIdNetwork(normalizedId);
             } catch {
                 // Prefetch failures are intentionally ignored.
             }
@@ -233,6 +305,7 @@ export const productApi = {
             }
         });
         if (!response.ok) throw new Error('Failed to delete product');
+        invalidateProductDetailCache(id);
         return await response.json();
     },
     createProduct: async (payload = {}) => {
@@ -273,7 +346,9 @@ export const productApi = {
             body: JSON.stringify(payload)
         });
         if (!response.ok) throw new Error('Failed to update product');
-        return await response.json();
+        const data = await response.json();
+        writeCachedProductDetail(_id || id || data?._id || data?.id, data);
+        return data;
     }
 };
 
