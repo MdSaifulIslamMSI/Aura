@@ -20,7 +20,12 @@ const ProductCard = ({ product, variant = 'default' }) => {
   const sponsoredLabel = product?.adMeta?.label || 'Sponsored';
   const sponsoredTagline = product?.adCampaign?.creativeTagline || '';
   const productId = product?.id || product?._id || '';
+  const displayTitle = product?.displayTitle || product?.title || '';
+  const subtitle = product?.subtitle || '';
+  const categoryLabel = product?.category || '';
   const hasPrefetchedRef = useRef(false);
+  const searchTelemetry = product?.searchTelemetry || null;
+  const isDemoCatalog = product?.publishGate?.status === 'dev_only' || product?.provenance?.sourceType === 'dev_seed';
 
   const inWishlist = isInWishlist(productId);
 
@@ -28,6 +33,18 @@ const ProductCard = ({ product, variant = 'default' }) => {
     if (!productId || hasPrefetchedRef.current) return;
     hasPrefetchedRef.current = true;
     productApi.prefetchProductById(productId);
+  };
+
+  const trackSearchSelection = () => {
+    if (!productId || !searchTelemetry?.searchEventId) return;
+    void productApi.trackSearchClick({
+      searchEventId: searchTelemetry.searchEventId,
+      productId,
+      position: searchTelemetry.position || 0,
+      sourceContext: searchTelemetry.sourceContext || 'catalog_listing',
+      query: searchTelemetry.query || '',
+      filters: searchTelemetry.filters || {},
+    });
   };
 
   const handleWishlistClick = (e) => {
@@ -98,6 +115,7 @@ const ProductCard = ({ product, variant = 'default' }) => {
     return (
       <Link
         to={`/product/${productId}`}
+        onClick={trackSearchSelection}
         onMouseEnter={prefetchProduct}
         onFocus={prefetchProduct}
         className={cn(
@@ -122,8 +140,8 @@ const ProductCard = ({ product, variant = 'default' }) => {
             isWhiteMode ? 'bg-gradient-to-tr from-transparent to-blue-100/45' : 'bg-gradient-to-tr from-transparent to-white/5'
           )} />
           <img
-            src={imageError ? 'https://placehold.co/400x400/18181b/4ade80?text=No+Data' : product.image}
-            alt={product.title}
+            src={imageError ? 'https://placehold.co/400x400/18181b/4ade80?text=Aura+Select' : product.image}
+            alt={displayTitle || product.title}
             className={cn(
               'w-full h-full object-contain group-hover:scale-110 transition-transform duration-700',
               isWhiteMode
@@ -170,8 +188,16 @@ const ProductCard = ({ product, variant = 'default' }) => {
                   ? 'text-slate-900 group-hover:text-slate-950'
                   : 'text-white group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-white group-hover:to-slate-400'
               )}>
-                {product.title}
+                {displayTitle || product.title}
               </h3>
+              {(subtitle || categoryLabel) && (
+                <p className={cn(
+                  'mt-2 max-w-xl text-xs font-medium tracking-[0.18em] uppercase',
+                  isWhiteMode ? 'text-slate-500' : 'text-slate-400'
+                )}>
+                  {subtitle || categoryLabel}
+                </p>
+              )}
               {isSponsored && (
                 <div className={cn(
                   'mt-2 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-wider',
@@ -181,6 +207,17 @@ const ProductCard = ({ product, variant = 'default' }) => {
                 )}>
                   <Megaphone className="w-3 h-3" />
                   {sponsoredLabel}
+                </div>
+              )}
+              {isDemoCatalog && (
+                <div className={cn(
+                  'mt-2 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-wider',
+                  isWhiteMode
+                    ? 'border-sky-300 bg-sky-50 text-sky-700'
+                    : 'border-sky-400/45 bg-sky-500/15 text-sky-100'
+                )}>
+                  <BadgeCheck className="w-3 h-3" />
+                  Demo Catalog
                 </div>
               )}
               {isSponsored && sponsoredTagline && (
@@ -314,6 +351,7 @@ const ProductCard = ({ product, variant = 'default' }) => {
   return (
     <Link
       to={`/product/${productId}`}
+      onClick={trackSearchSelection}
       onMouseEnter={prefetchProduct}
       onFocus={prefetchProduct}
       className={cn(
@@ -338,8 +376,8 @@ const ProductCard = ({ product, variant = 'default' }) => {
           isWhiteMode ? 'bg-gradient-to-br from-blue-100/40 to-transparent' : 'bg-gradient-to-br from-neo-cyan/5 to-transparent'
         )} />
         <img
-          src={imageError ? 'https://placehold.co/400x400/18181b/4ade80?text=No+Data' : product.image}
-          alt={product.title}
+          src={imageError ? 'https://placehold.co/400x400/18181b/4ade80?text=Aura+Select' : product.image}
+          alt={displayTitle || product.title}
           className={cn(
             'w-full h-full object-contain group-hover:scale-110 transition-transform duration-700 relative z-0',
             isWhiteMode
@@ -380,7 +418,7 @@ const ProductCard = ({ product, variant = 'default' }) => {
         {product.stock === 0 && (
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-30">
             <span className="bg-zinc-900 border border-white/20 text-white px-4 py-2 text-xs font-black uppercase tracking-widest rounded-full shadow-[0_0_20px_rgba(0,0,0,0.5)]">
-              Data Core Empty
+              Currently Unavailable
             </span>
           </div>
         )}
@@ -398,8 +436,16 @@ const ProductCard = ({ product, variant = 'default' }) => {
           isWhiteMode ? 'text-slate-800 group-hover:text-slate-950' : 'text-slate-200 group-hover:text-white'
         )}
         style={{ fontSize: 'var(--figma-type-title-size)' }}>
-          {product.title}
+          {displayTitle || product.title}
         </h3>
+        {(subtitle || categoryLabel) && (
+          <p className={cn(
+            'mb-3 line-clamp-2 text-[11px] font-semibold uppercase tracking-[0.16em]',
+            isWhiteMode ? 'text-slate-500' : 'text-slate-400'
+          )}>
+            {subtitle || categoryLabel}
+          </p>
+        )}
         {isSponsored && (
           <div className={cn(
             'mb-2 inline-flex w-fit items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-wider',
@@ -409,6 +455,17 @@ const ProductCard = ({ product, variant = 'default' }) => {
           )}>
             <Megaphone className="w-3 h-3" />
             {sponsoredLabel}
+          </div>
+        )}
+        {isDemoCatalog && (
+          <div className={cn(
+            'mb-2 inline-flex w-fit items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-wider',
+            isWhiteMode
+              ? 'border-sky-300 bg-sky-50 text-sky-700'
+              : 'border-sky-400/45 bg-sky-500/15 text-sky-100'
+          )}>
+            <BadgeCheck className="w-3 h-3" />
+            Demo Catalog
           </div>
         )}
         {dealDna && (

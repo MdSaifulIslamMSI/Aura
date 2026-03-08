@@ -15,7 +15,15 @@ const {
 const {
     getCatalogHealth,
 } = require('../services/catalogService');
+const {
+    getCommerceReconciliationStatus,
+} = require('../services/commerceReconciliationService');
+const {
+    listClientDiagnostics,
+} = require('../services/clientDiagnosticIngestionService');
 const { runMaintenanceTasks } = require('../services/opsMaintenanceService');
+
+const isHealthyStatus = (value) => ['healthy', 'ok'].includes(String(value || '').trim().toLowerCase());
 
 const buildReadiness = async () => {
     const dbConnected = mongoose.connection.readyState === 1;
@@ -33,6 +41,7 @@ const buildReadiness = async () => {
         paymentQueue,
         emailQueue,
         catalogHealth,
+        reconciliation,
     ] = await Promise.all([
         User.countDocuments({}),
         User.countDocuments({ isAdmin: true }),
@@ -46,19 +55,22 @@ const buildReadiness = async () => {
         getPaymentOutboxStats().catch(() => ({ status: 'degraded' })),
         getOrderEmailQueueStats().catch(() => ({ status: 'degraded' })),
         getCatalogHealth().catch(() => ({ status: 'degraded', staleData: true })),
+        getCommerceReconciliationStatus().catch(() => ({ status: 'degraded', unsafeMismatchCount: 1, staleLocks: 1 })),
     ]);
 
     const blockingIssues = [];
     const warnings = [];
 
     if (!dbConnected) blockingIssues.push('database_disconnected');
-    if ((paymentQueue?.status || '').toLowerCase() !== 'healthy') blockingIssues.push('payment_queue_unhealthy');
-    if ((emailQueue?.status || '').toLowerCase() !== 'healthy') blockingIssues.push('order_email_queue_unhealthy');
+    if (!isHealthyStatus(paymentQueue?.status)) blockingIssues.push('payment_queue_unhealthy');
+    if (!isHealthyStatus(emailQueue?.status)) blockingIssues.push('order_email_queue_unhealthy');
     if (Boolean(catalogHealth?.staleData)) blockingIssues.push('catalog_stale');
+    if (!isHealthyStatus(reconciliation?.status)) blockingIssues.push('reconciliation_degraded');
 
     if (failedPayments > 100) warnings.push('high_failed_payments');
     if (pendingPayments > 1000) warnings.push('high_pending_payments');
     if (unreadAdminNotifications > 500) warnings.push('notification_backlog');
+    if (Number(reconciliation?.staleLocks || 0) > 0) warnings.push('stale_worker_locks');
 
     const baseScore = 100;
     const scoreAfterBlocks = baseScore - (blockingIssues.length * 25);
@@ -77,6 +89,7 @@ const buildReadiness = async () => {
             paymentQueueStatus: paymentQueue?.status || 'unknown',
             emailQueueStatus: emailQueue?.status || 'unknown',
             catalogStale: Boolean(catalogHealth?.staleData),
+            reconciliationStatus: reconciliation?.status || 'unknown',
         },
         modules: {
             userGovernance: {
@@ -95,17 +108,20 @@ const buildReadiness = async () => {
                 },
             },
             paymentOps: {
-                operational: (paymentQueue?.status || '').toLowerCase() === 'healthy',
+                operational: isHealthyStatus(paymentQueue?.status),
                 signals: {
                     failedPayments,
                     pendingPayments,
                     queue: paymentQueue,
+                    captureBacklog: Number(reconciliation?.paymentCaptureBacklog || 0),
+                    refundBacklog: Number(reconciliation?.refundBacklog || 0),
                 },
             },
             orderEmailOps: {
-                operational: (emailQueue?.status || '').toLowerCase() === 'healthy',
+                operational: isHealthyStatus(emailQueue?.status),
                 signals: {
                     queue: emailQueue,
+                    backlog: Number(reconciliation?.orderEmailBacklog || 0),
                 },
             },
             marketplaceOps: {
@@ -116,9 +132,26 @@ const buildReadiness = async () => {
                     unreadAdminNotifications,
                 },
             },
+            commerceReconciliation: {
+                operational: isHealthyStatus(reconciliation?.status),
+                signals: {
+                    unsafeMismatchCount: Number(reconciliation?.unsafeMismatchCount || 0),
+                    staleLocks: Number(reconciliation?.staleLocks || 0),
+                    replacementBacklog: Number(reconciliation?.replacementBacklog || 0),
+                    lastRun: reconciliation?.lastRun || null,
+                },
+            },
         },
         blockingIssues,
         warnings,
+        backlogs: {
+            paymentCapture: Number(reconciliation?.paymentCaptureBacklog || 0),
+            refunds: Number(reconciliation?.refundBacklog || 0),
+            orderEmail: Number(reconciliation?.orderEmailBacklog || 0),
+            replacements: Number(reconciliation?.replacementBacklog || 0),
+            staleLocks: Number(reconciliation?.staleLocks || 0),
+            catalogFreshnessSec: Number(catalogHealth?.lastSyncAgeSec ?? catalogHealth?.lastImportAgeSec ?? 0),
+        },
         generatedAt: new Date().toISOString(),
     };
 };
@@ -143,9 +176,10 @@ const runAdminOpsSmoke = asyncHandler(async (req, res) => {
         passed: readiness.blockingIssues.length === 0,
         checks: [
             { key: 'db_connected', ok: readiness.checks.dbConnected },
-            { key: 'payment_queue_healthy', ok: readiness.checks.paymentQueueStatus.toLowerCase() === 'healthy' },
-            { key: 'email_queue_healthy', ok: readiness.checks.emailQueueStatus.toLowerCase() === 'healthy' },
+            { key: 'payment_queue_healthy', ok: isHealthyStatus(readiness.checks.paymentQueueStatus) },
+            { key: 'email_queue_healthy', ok: isHealthyStatus(readiness.checks.emailQueueStatus) },
             { key: 'catalog_not_stale', ok: !readiness.checks.catalogStale },
+            { key: 'reconciliation_healthy', ok: isHealthyStatus(readiness.checks.reconciliationStatus) },
         ],
         blockingIssues: readiness.blockingIssues,
         warnings: readiness.warnings,
@@ -175,7 +209,29 @@ const runAdminOpsMaintenance = asyncHandler(async (req, res) => {
     });
 });
 
+// @desc    Query recent persisted client diagnostics
+// @route   GET /api/admin/ops/client-diagnostics
+// @access  Private/Admin
+const getAdminClientDiagnostics = asyncHandler(async (req, res) => {
+    const result = await listClientDiagnostics({
+        limit: req.query?.limit,
+        type: req.query?.type,
+        severity: req.query?.severity,
+        sessionId: req.query?.sessionId,
+        requestId: req.query?.requestId,
+        route: req.query?.route,
+    });
+
+    res.json({
+        success: true,
+        source: result.source,
+        count: result.diagnostics.length,
+        diagnostics: result.diagnostics,
+    });
+});
+
 module.exports = {
+    getAdminClientDiagnostics,
     getAdminOpsReadiness,
     runAdminOpsSmoke,
     runAdminOpsMaintenance,

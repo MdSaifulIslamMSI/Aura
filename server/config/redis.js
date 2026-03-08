@@ -25,6 +25,7 @@ const isProduction = nodeEnv === 'production';
 const flags = {
     redisEnabled: parseBoolean(process.env.REDIS_ENABLED, false),
     redisRequired: parseBoolean(process.env.REDIS_REQUIRED, false),
+    splitRuntimeEnabled: parseBoolean(process.env.SPLIT_RUNTIME_ENABLED, false),
     redisUrl: asTrimmed(process.env.REDIS_URL, ''),
     redisPrefix: asTrimmed(process.env.REDIS_PREFIX, 'aura'),
     redisConnectTimeoutMs: parseNumber(process.env.REDIS_CONNECT_TIMEOUT_MS, 3000, { min: 250, max: 30000 }),
@@ -35,11 +36,14 @@ let initPromise = null;
 let lastError = null;
 let connectedAt = null;
 
+const isRedisRequired = () => flags.redisRequired || (isProduction && flags.splitRuntimeEnabled);
+
 const isRedisEnabled = () => flags.redisEnabled;
 
 const getRedisHealth = () => ({
     enabled: flags.redisEnabled,
-    required: flags.redisRequired,
+    required: isRedisRequired(),
+    splitRuntimeEnabled: flags.splitRuntimeEnabled,
     connected: Boolean(redisClient?.isOpen),
     urlConfigured: Boolean(flags.redisUrl),
     prefix: flags.redisPrefix,
@@ -49,12 +53,11 @@ const getRedisHealth = () => ({
 
 const assertProductionRedisConfig = () => {
     if (!isProduction) return;
-    if (!flags.redisEnabled) return;
-    if (!flags.redisUrl) {
-        throw new Error('REDIS_URL must be configured when REDIS_ENABLED=true in production');
+    if (isRedisRequired() && !flags.redisEnabled) {
+        throw new Error('Redis must be enabled for production split-runtime or REDIS_REQUIRED deployments');
     }
-    if (flags.redisRequired && !flags.redisEnabled) {
-        throw new Error('REDIS_REQUIRED=true requires REDIS_ENABLED=true');
+    if ((flags.redisEnabled || isRedisRequired()) && !flags.redisUrl) {
+        throw new Error('REDIS_URL must be configured when Redis is enabled or required in production');
     }
 };
 
@@ -108,7 +111,7 @@ const initRedis = async () => {
         .catch((error) => {
             lastError = error?.message || 'redis connect failed';
             logger.error('redis.connect_failed', { error: lastError });
-            if (flags.redisRequired) {
+            if (isRedisRequired()) {
                 throw error;
             }
             return null;
@@ -133,4 +136,5 @@ module.exports = {
     getRedisHealth,
     assertProductionRedisConfig,
     isRedisEnabled,
+    isRedisRequired,
 };

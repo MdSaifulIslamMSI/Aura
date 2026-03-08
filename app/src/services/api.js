@@ -1,5 +1,11 @@
 import { auth, isFirebaseReady } from '../config/firebase';
-import { API_BASE_URL as BASE_URL, apiFetch } from './apiBase';
+import {
+    API_BASE_URL as BASE_URL,
+    apiFetch,
+    buildServiceUrl,
+    createResponseError,
+    requestWithTrace,
+} from './apiBase';
 
 const getAuthHeader = async (firebaseUser = null) => {
     if (!isFirebaseReady || !auth) {
@@ -17,20 +23,19 @@ const createIdempotencyKey = (prefix = 'idmp') =>
     `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 
 const parseApiError = async (response, fallbackMessage) => {
-    try {
-        const data = await response.json();
-        if (data?.message) return data.message;
-        if (Array.isArray(data?.errors) && data.errors.length > 0) {
-            return data.errors.map((issue) => issue.message).join(', ');
-        }
-    } catch {
-        // ignore parse errors
-    }
-    return fallbackMessage;
+    const error = await createResponseError(response, fallbackMessage);
+    return error.message;
 };
 
 const prefetchedProductIds = new Set();
 const prefetchedListingIds = new Set();
+
+const rawFetch = (input, init = undefined) => requestWithTrace(input, {
+    ...(init || {}),
+    throwOnHttpError: false,
+});
+
+const fetch = (input, init = undefined) => requestWithTrace(input, init || {});
 
 const runWhenIdle = (callback) => {
     if (typeof window === 'undefined') return;
@@ -60,6 +65,21 @@ export const productApi = {
             },
         });
         return data;
+    },
+    trackSearchClick: async (payload = {}) => {
+        try {
+            await fetch(`${BASE_URL}/products/telemetry/search-click`, {
+                method: 'POST',
+                keepalive: true,
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload),
+            });
+        } catch {
+            // Search click telemetry is best-effort only.
+        }
     },
     getProductById: async (id, options = {}) => {
         const { data } = await apiFetch(`/products/${id}`, {
@@ -236,16 +256,8 @@ export const userApi = {
      * Sends the Firebase token for auth + user details for upsert.
      */
     login: async (email, name, phone, options = {}) => {
-        const headers = await getAuthHeader(options.firebaseUser || null);
-        const { data } = await apiFetch('/users/login', {
-            method: 'POST',
-            headers: {
-                ...headers,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ email, name, phone })
-        });
-        return data;
+        const data = await authApi.syncSession(email, name, phone, options);
+        return data?.profile || null;
     },
     getProfile: async (_email = '', options = {}) => {
         const headers = await getAuthHeader(options.firebaseUser || null);
@@ -305,7 +317,7 @@ export const userApi = {
 
         let lastErrorMessage = 'Failed to activate seller mode';
         for (const path of candidatePaths) {
-            const response = await fetch(path, {
+            const response = await rawFetch(path, {
                 method: 'POST',
                 headers: { ...headers, 'Content-Type': 'application/json' },
                 body: JSON.stringify({ acceptTerms: true }),
@@ -336,7 +348,7 @@ export const userApi = {
 
         let lastErrorMessage = 'Failed to deactivate seller mode';
         for (const path of candidatePaths) {
-            const response = await fetch(path, {
+            const response = await rawFetch(path, {
                 method: 'POST',
                 headers: { ...headers, 'Content-Type': 'application/json' },
                 body: JSON.stringify({ confirmDeactivation: true }),
@@ -405,38 +417,100 @@ export const userApi = {
     }
 };
 
+export const authApi = {
+    getSession: async (options = {}) => {
+        const headers = await getAuthHeader(options.firebaseUser || null);
+        const { data } = await apiFetch('/auth/session', {
+            method: 'GET',
+            headers: {
+                ...headers,
+                'Content-Type': 'application/json',
+            },
+        });
+        return data;
+    },
+    syncSession: async (email, name, phone, options = {}) => {
+        const headers = await getAuthHeader(options.firebaseUser || null);
+        const { data } = await apiFetch('/auth/sync', {
+            method: 'POST',
+            headers: {
+                ...headers,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ email, name, phone }),
+        });
+        return data;
+    },
+};
+
 export const otpApi = {
     sendOtp: async (email, phone, purpose, options = {}) => {
         const credentialProofToken = typeof options?.credentialProofToken === 'string'
             ? options.credentialProofToken.trim()
             : '';
-        const { data } = await apiFetch('/otp/send', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                email,
-                phone,
-                purpose,
-                ...(credentialProofToken ? { credentialProofToken } : {}),
-            })
-        });
-        return data;
+        const candidatePaths = ['/auth/otp/send', '/otp/send'];
+        let lastError = null;
+
+        for (const path of candidatePaths) {
+            try {
+                const { data } = await apiFetch(path, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email,
+                        phone,
+                        purpose,
+                        ...(credentialProofToken ? { credentialProofToken } : {}),
+                    }),
+                });
+                return data;
+            } catch (error) {
+                lastError = error;
+                if (error?.status !== 404) break;
+            }
+        }
+
+        throw lastError || new Error('Failed to send OTP');
     },
     verifyOtp: async (phone, otp, purpose, intentId = '') => {
-        const { data } = await apiFetch('/otp/verify', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ phone, otp, purpose, ...(intentId ? { intentId } : {}) })
-        });
-        return data;
+        const candidatePaths = ['/auth/otp/verify', '/otp/verify'];
+        let lastError = null;
+
+        for (const path of candidatePaths) {
+            try {
+                const { data } = await apiFetch(path, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ phone, otp, purpose, ...(intentId ? { intentId } : {}) }),
+                });
+                return data;
+            } catch (error) {
+                lastError = error;
+                if (error?.status !== 404) break;
+            }
+        }
+
+        throw lastError || new Error('Failed to verify OTP');
     },
     checkUserExists: async (phone, email = '') => {
-        const { data } = await apiFetch('/otp/check-user', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ phone, ...(email ? { email } : {}) })
-        });
-        return data;
+        const candidatePaths = ['/auth/otp/check-user', '/otp/check-user'];
+        let lastError = null;
+
+        for (const path of candidatePaths) {
+            try {
+                const { data } = await apiFetch(path, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ phone, ...(email ? { email } : {}) }),
+                });
+                return data;
+            } catch (error) {
+                lastError = error;
+                if (error?.status !== 404) break;
+            }
+        }
+
+        throw lastError || new Error('Failed to check user');
     }
 };
 
@@ -477,7 +551,7 @@ export const trustApi = {
         };
 
         try {
-            const response = await fetch('/health', {
+            const response = await rawFetch(buildServiceUrl('/health'), {
                 headers: { Accept: 'application/json' },
             });
             if (response.ok) {
@@ -665,6 +739,23 @@ export const adminApi = {
         });
         if (!response.ok) {
             throw new Error(await parseApiError(response, 'Failed to run admin smoke checks'));
+        }
+        return response.json();
+    },
+    getClientDiagnostics: async (params = {}) => {
+        const headers = await getAuthHeader();
+        const clean = Object.fromEntries(
+            Object.entries(params).filter(([_, value]) => value !== undefined && value !== null && value !== '')
+        );
+        const query = new URLSearchParams(clean).toString();
+        const url = query
+            ? `${BASE_URL}/admin/ops/client-diagnostics?${query}`
+            : `${BASE_URL}/admin/ops/client-diagnostics`;
+        const response = await fetch(url, {
+            headers: { ...headers, 'Content-Type': 'application/json' },
+        });
+        if (!response.ok) {
+            throw new Error(await parseApiError(response, 'Failed to fetch client diagnostics'));
         }
         return response.json();
     },

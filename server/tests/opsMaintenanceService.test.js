@@ -10,6 +10,7 @@ describe('ops maintenance service', () => {
             ORDER_EMAILS_ENABLED: 'true',
             CATALOG_IMPORTS_ENABLED: 'true',
             CATALOG_SYNC_ENABLED: 'true',
+            COMMERCE_RECONCILIATION_ENABLED: 'true',
             ADMIN_ANALYTICS_MONITOR_ENABLED: 'true',
         };
     });
@@ -26,6 +27,8 @@ describe('ops maintenance service', () => {
         const runCatalogImportWorkerCycle = jest.fn().mockResolvedValue(undefined);
         const runCatalogSyncWorkerCycle = jest.fn().mockResolvedValue(undefined);
         const getCatalogHealth = jest.fn().mockResolvedValue({ staleData: false });
+        const runCommerceReconciliationCycle = jest.fn().mockResolvedValue(undefined);
+        const getCommerceReconciliationStatus = jest.fn().mockResolvedValue({ status: 'healthy' });
         const runAdminAnalyticsMonitorCycle = jest.fn().mockResolvedValue(undefined);
 
         jest.doMock('../services/payments/paymentService', () => ({
@@ -40,6 +43,10 @@ describe('ops maintenance service', () => {
             runCatalogImportWorkerCycle,
             runCatalogSyncWorkerCycle,
             getCatalogHealth,
+        }));
+        jest.doMock('../services/commerceReconciliationService', () => ({
+            runCommerceReconciliationCycle,
+            getCommerceReconciliationStatus,
         }));
         jest.doMock('../services/adminAnalyticsMonitorService', () => ({
             runAdminAnalyticsMonitorCycle,
@@ -58,6 +65,7 @@ describe('ops maintenance service', () => {
         expect(runOrderEmailQueueCycle).toHaveBeenCalledTimes(1);
         expect(runCatalogImportWorkerCycle).not.toHaveBeenCalled();
         expect(runCatalogSyncWorkerCycle).not.toHaveBeenCalled();
+        expect(runCommerceReconciliationCycle).not.toHaveBeenCalled();
         expect(runAdminAnalyticsMonitorCycle).not.toHaveBeenCalled();
     });
 
@@ -76,6 +84,10 @@ describe('ops maintenance service', () => {
             runCatalogImportWorkerCycle: jest.fn().mockResolvedValue(undefined),
             runCatalogSyncWorkerCycle: jest.fn().mockResolvedValue(undefined),
             getCatalogHealth: jest.fn().mockResolvedValue({ staleData: false }),
+        }));
+        jest.doMock('../services/commerceReconciliationService', () => ({
+            runCommerceReconciliationCycle: jest.fn().mockResolvedValue(undefined),
+            getCommerceReconciliationStatus: jest.fn().mockResolvedValue({ status: 'healthy' }),
         }));
         jest.doMock('../services/adminAnalyticsMonitorService', () => ({
             runAdminAnalyticsMonitorCycle: jest.fn().mockResolvedValue(undefined),

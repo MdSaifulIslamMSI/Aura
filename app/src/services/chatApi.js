@@ -1,5 +1,5 @@
 import { auth, isFirebaseReady } from '../config/firebase';
-import { API_BASE_URL as API_URL } from './apiBase';
+import { API_BASE_URL as API_URL, requestWithTrace } from './apiBase';
 
 const getChatHeaders = async () => {
     const headers = { 'Content-Type': 'application/json' };
@@ -27,18 +27,20 @@ export const chatApi = {
     sendMessage: async (message, conversationHistory = []) => {
         try {
             const { headers, endpoint } = await getChatHeaders();
-            let response = await fetch(`${API_URL}${endpoint}`, {
+            let response = await requestWithTrace(`${API_URL}${endpoint}`, {
                 method: 'POST',
                 headers,
-                body: JSON.stringify({ message, conversationHistory })
+                body: JSON.stringify({ message, conversationHistory }),
+                throwOnHttpError: false,
             });
 
             // If private endpoint returns unauthorized, retry in public mode.
             if (response.status === 401 || response.status === 403) {
-                response = await fetch(`${API_URL}/chat/public`, {
+                response = await requestWithTrace(`${API_URL}/chat/public`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ message, conversationHistory }),
+                    throwOnHttpError: false,
                 });
             }
 

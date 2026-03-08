@@ -5,6 +5,8 @@ const { initRedis } = require('../config/redis');
 const { ensureSystemState } = require('../services/catalogService');
 const { runMaintenanceTasks } = require('../services/opsMaintenanceService');
 
+const splitRuntimeEnabled = String(process.env.SPLIT_RUNTIME_ENABLED || '').trim().toLowerCase() === 'true';
+
 let bootPromise = null;
 const maintenanceState = {
     paymentOutbox: { running: false, lastRunAt: 0, minIntervalMs: 60 * 1000 },
@@ -94,6 +96,14 @@ const maybeRunRequestMaintenance = (req) => {
 
 module.exports = async (req, res) => {
     try {
+        if (process.env.NODE_ENV === 'production' && splitRuntimeEnabled) {
+            return res.status(503).json({
+                status: 'error',
+                message: 'Split runtime is enabled; deploy the long-lived backend service instead of the Vercel serverless adapter.',
+                detail: 'split_runtime_requires_long_lived_backend',
+                requestId: req?.headers?.['x-request-id'] || '',
+            });
+        }
         await ensureBootstrapped();
         maybeRunRequestMaintenance(req);
         return app(req, res);
@@ -103,6 +113,7 @@ module.exports = async (req, res) => {
             status: 'error',
             message: 'Backend initialization failed',
             detail: process.env.NODE_ENV === 'production' ? 'server_boot_failed' : error.message,
+            requestId: req?.headers?.['x-request-id'] || '',
         });
     }
 };

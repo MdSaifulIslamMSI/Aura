@@ -7,7 +7,7 @@ on:
     branches: ["main"]
 
 jobs:
-  backend-quality:
+  backend-regression:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -33,7 +33,58 @@ jobs:
 
       - name: Run Backend Regression Suite
         run: >
-          npx jest --runInBand --coverage
+          npx jest --runInBand --runTestsByPath
+          tests/authMiddleware.test.js
+          tests/profileSecurity.test.js
+          tests/otpSystem.test.js
+          tests/otpEmailFailClosed.test.js
+          tests/paymentOrderIntegrity.test.js
+          tests/userPhoneIndex.test.js
+          tests/orderControllerCreate.test.js
+          tests/communicationUtilities.test.js
+          tests/communicationServices.test.js
+          tests/adminUserControllerResilience.test.js
+          tests/adminUserRoutes.integration.test.js
+          tests/paymentFortressGuards.test.js
+          tests/adminProductRoutes.integration.test.js
+          tests/paymentRefundState.test.js
+          tests/adminPaymentRoutes.integration.test.js
+          tests/adminAnalyticsRoutes.integration.test.js
+          tests/adminNotificationRoutes.integration.test.js
+        env:
+          TEST_MONGO_URI: mongodb://127.0.0.1:27017/aura_ci
+          TEST_USE_IN_MEMORY_MONGO: 'false'
+          TEST_FALLBACK_TO_IN_MEMORY_MONGO: 'false'
+          NODE_ENV: test
+
+  backend-coverage:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./server
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js 24.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.x
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - name: Start MongoDB
+        uses: supercharge/mongodb-github-action@1.12.0
+        with:
+          mongodb-version: '6.0'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run Backend Coverage Regression Suite
+        run: >
+          npx jest --runInBand --coverage --runTestsByPath
           tests/authMiddleware.test.js
           tests/profileSecurity.test.js
           tests/otpSystem.test.js
@@ -85,3 +136,6 @@ jobs:
 
       - name: Verify Build
         run: npm run build
+
+      - name: Enforce Bundle Budgets
+        run: npm run bundle:budget

@@ -1,6 +1,5 @@
 const request = require('supertest');
 const app = require('../index');
-const mongoose = require('mongoose');
 const User = require('../models/User');
 
 describe('User API Integration Tests', () => {
@@ -12,19 +11,8 @@ describe('User API Integration Tests', () => {
         firebaseUid: 'testUid123'
     };
 
-    beforeAll(async () => {
-        // Connect to a test database or ensure current one is clean
-        // For this setup, we assume the shared dev DB or a test instance
-        // Best practice: Use a separate test DB URI
-        if (mongoose.connection.readyState === 0) {
-            await mongoose.connect(process.env.MONGO_URI);
-        }
-    });
-
     afterAll(async () => {
-        // Build cleanup
         await User.deleteMany({ email: testUser.email });
-        // await mongoose.connection.close(); // Keep open if sharing connection
     });
 
     test('POST /api/users/login should require token (or fail auth)', async () => {

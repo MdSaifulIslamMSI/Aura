@@ -20,7 +20,9 @@ const { notFound, errorHandler } = require('./middleware/errorMiddleware');
 dotenv.config();
 
 const connectDB = require('./config/db');
+const { getMongoDeploymentHealth } = require('./config/db');
 const productRoutes = require('./routes/productRoutes');
+const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
 const orderRoutes = require('./routes/orderRoutes');
 const chatRoutes = require('./routes/chatRoutes');
@@ -38,9 +40,10 @@ const adminUserRoutes = require('./routes/adminUserRoutes');
 const adminProductRoutes = require('./routes/adminProductRoutes');
 const adminOpsRoutes = require('./routes/adminOpsRoutes');
 const internalOpsRoutes = require('./routes/internalOpsRoutes');
+const observabilityRoutes = require('./routes/observabilityRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
-const { assertProductionPaymentConfig } = require('./config/paymentFlags');
-const { assertProductionEmailConfig } = require('./config/emailFlags');
+const { assertProductionPaymentConfig, flags: paymentFlags } = require('./config/paymentFlags');
+const { assertProductionEmailConfig, flags: emailFlags } = require('./config/emailFlags');
 const { assertProductionOtpSmsConfig } = require('./config/otpSmsFlags');
 const {
     startPaymentOutboxWorker,
@@ -50,6 +53,10 @@ const {
     startOrderEmailWorker,
     getOrderEmailQueueStats,
 } = require('./services/email/orderEmailQueueService');
+const {
+    startCommerceReconciliationWorker,
+    getCommerceReconciliationStatus,
+} = require('./services/commerceReconciliationService');
 const { startAdminAnalyticsMonitor } = require('./services/adminAnalyticsMonitorService');
 const {
     enforceCatalogStartupCheck,
@@ -57,6 +64,7 @@ const {
     getCatalogHealth,
     ensureSystemState,
 } = require('./services/catalogService');
+const { flags: catalogFlags } = require('./config/catalogFlags');
 const {
     assertProductionCorsConfig,
     isOriginAllowed,
@@ -71,6 +79,29 @@ const { createDistributedRateLimit } = require('./middleware/distributedRateLimi
 
 const app = express();
 const JSON_BODY_LIMIT = process.env.JSON_BODY_LIMIT || '12mb';
+const runtimeNodeEnv = process.env.NODE_ENV || 'production';
+const splitRuntimeEnabled = String(process.env.SPLIT_RUNTIME_ENABLED || 'false').trim().toLowerCase() === 'true';
+const requirePublishedCatalog = String(
+    process.env.CATALOG_READINESS_REQUIRE_PUBLISHED || (runtimeNodeEnv === 'production' ? 'true' : 'false')
+).trim().toLowerCase() !== 'false';
+
+const getSplitRuntimeWorkerGaps = ({
+    paymentQueue = {},
+    emailQueue = {},
+    catalog = {},
+    reconciliation = {},
+}) => {
+    const gaps = [];
+    if (paymentFlags.paymentsEnabled && !paymentQueue?.workerRunning) gaps.push('payment_outbox_worker');
+    if (emailFlags.orderEmailsEnabled && !emailQueue?.workerRunning) gaps.push('order_email_worker');
+    if (catalogFlags.catalogImportsEnabled && !catalog?.workers?.importWorkerRunning) gaps.push('catalog_import_worker');
+    if (catalogFlags.catalogSyncEnabled && !catalog?.workers?.syncWorkerRunning) gaps.push('catalog_sync_worker');
+    if (String(process.env.COMMERCE_RECONCILIATION_ENABLED || 'true').trim().toLowerCase() !== 'false'
+        && !reconciliation?.workerRunning) {
+        gaps.push('commerce_reconciliation_worker');
+    }
+    return gaps;
+};
 
 app.set('trust proxy', 1);
 
@@ -87,7 +118,9 @@ app.use((req, res, next) => {
             url: req.originalUrl,
             status: res.statusCode,
             durationMs: duration,
-            requestId: req.headers['x-request-id'] || 'unknown',
+            requestId: req.requestId || req.headers['x-request-id'] || 'unknown',
+            clientSessionId: String(req.headers['x-client-session-id'] || ''),
+            clientRoute: String(req.headers['x-client-route'] || ''),
             ip: req.ip,
         });
     });
@@ -132,6 +165,7 @@ if (process.env.NODE_ENV !== 'test') {
 
 // Routes
 app.use('/api/products', productRoutes);
+app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/chat', chatRoutes);
@@ -149,6 +183,7 @@ app.use('/api/admin/users', adminUserRoutes);
 app.use('/api/admin/products', adminProductRoutes);
 app.use('/api/admin/ops', adminOpsRoutes);
 app.use('/api/internal', internalOpsRoutes);
+app.use('/api/observability', observabilityRoutes);
 app.use('/api/uploads', uploadRoutes);
 
 // Health Check
@@ -156,16 +191,19 @@ app.get('/health', async (req, res) => {
     const mongoose = require('mongoose');
     const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
     const redis = getRedisHealth();
+    const mongoDeployment = await getMongoDeploymentHealth();
     let paymentQueue = { status: 'unknown' };
     let emailQueue = { status: 'unknown' };
     let catalog = { status: 'unknown' };
+    let reconciliation = { status: 'unknown' };
 
     try {
         if (dbStatus === 'connected') {
-            [paymentQueue, emailQueue, catalog] = await Promise.all([
+            [paymentQueue, emailQueue, catalog, reconciliation] = await Promise.all([
                 getPaymentOutboxStats(),
                 getOrderEmailQueueStats(),
                 getCatalogHealth(),
+                getCommerceReconciliationStatus(),
             ]);
         }
     } catch (error) {
@@ -173,6 +211,17 @@ app.get('/health', async (req, res) => {
     }
 
     const status = dbStatus === 'connected' ? 'ok' : 'degraded';
+    const workerGaps = getSplitRuntimeWorkerGaps({
+        paymentQueue,
+        emailQueue,
+        catalog,
+        reconciliation,
+    });
+    const splitRuntimeReady = !splitRuntimeEnabled || (
+        mongoDeployment.replicaSet
+        && (!redis.required || redis.connected)
+        && workerGaps.length === 0
+    );
 
     res.status(status === 'ok' ? 200 : 503).json({
         status,
@@ -187,11 +236,18 @@ app.get('/health', async (req, res) => {
             allowedOrigins,
         },
         redis,
+        topology: {
+            splitRuntimeEnabled,
+            splitRuntimeReady,
+            workerGaps,
+            mongo: mongoDeployment,
+        },
         queues: {
             paymentOutbox: paymentQueue,
             orderEmail: emailQueue,
         },
         catalog,
+        reconciliation,
     });
 });
 
@@ -199,12 +255,22 @@ app.get('/health/ready', async (req, res) => {
     const mongoose = require('mongoose');
     const dbConnected = mongoose.connection.readyState === 1;
     const redis = getRedisHealth();
+    const mongoDeployment = await getMongoDeploymentHealth();
 
     if (!dbConnected) {
         return res.status(503).json({
             ready: false,
             reason: 'database_disconnected',
             timestamp: new Date().toISOString(),
+        });
+    }
+
+    if (splitRuntimeEnabled && !mongoDeployment.replicaSet) {
+        return res.status(503).json({
+            ready: false,
+            reason: 'mongo_not_replica_set',
+            timestamp: new Date().toISOString(),
+            topology: mongoDeployment,
         });
     }
 
@@ -217,8 +283,16 @@ app.get('/health/ready', async (req, res) => {
     }
 
     let catalog = null;
+    let paymentQueue = { workerRunning: false };
+    let emailQueue = { workerRunning: false };
+    let reconciliation = { workerRunning: false };
     try {
-        catalog = await getCatalogHealth();
+        [catalog, paymentQueue, emailQueue, reconciliation] = await Promise.all([
+            getCatalogHealth(),
+            getPaymentOutboxStats(),
+            getOrderEmailQueueStats(),
+            getCommerceReconciliationStatus(),
+        ]);
     } catch {
         catalog = { staleData: true };
     }
@@ -231,9 +305,53 @@ app.get('/health/ready', async (req, res) => {
         });
     }
 
+    if (splitRuntimeEnabled) {
+        const workerGaps = getSplitRuntimeWorkerGaps({
+            paymentQueue,
+            emailQueue,
+            catalog,
+            reconciliation,
+        });
+
+        if (workerGaps.length > 0) {
+            return res.status(503).json({
+                ready: false,
+                reason: 'split_runtime_workers_unavailable',
+                workerGaps,
+                timestamp: new Date().toISOString(),
+            });
+        }
+    }
+
+    if (requirePublishedCatalog && runtimeNodeEnv === 'production') {
+        const publishedProductCount = Number(catalog?.quality?.publishedProductCount || 0);
+        if (!catalog?.activeVersion || catalog.activeVersion === 'legacy-v1' || publishedProductCount <= 0) {
+            return res.status(503).json({
+                ready: false,
+                reason: 'catalog_not_published',
+                activeVersion: catalog?.activeVersion || 'legacy-v1',
+                publishedProductCount,
+                timestamp: new Date().toISOString(),
+            });
+        }
+
+        if (Number(catalog?.quality?.devOnlyProducts || 0) > 0 || Number(catalog?.quality?.syntheticRejectedProducts || 0) > 0) {
+            return res.status(503).json({
+                ready: false,
+                reason: 'catalog_publish_gate_failed',
+                quality: catalog?.quality || {},
+                timestamp: new Date().toISOString(),
+            });
+        }
+    }
+
     return res.json({
         ready: true,
         timestamp: new Date().toISOString(),
+        topology: {
+            splitRuntimeEnabled,
+            mongo: mongoDeployment,
+        },
     });
 });
 
@@ -264,6 +382,7 @@ if (require.main === module) {
                     console.log(`Server running in ${NODE_ENV} mode on port ${PORT}`.yellow.bold);
                     startPaymentOutboxWorker();
                     startOrderEmailWorker();
+                    startCommerceReconciliationWorker();
                     startAdminAnalyticsMonitor();
                     startCatalogWorkers();
                 });

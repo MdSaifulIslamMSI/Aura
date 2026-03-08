@@ -439,6 +439,8 @@ const ProductDetails = () => {
   // Safe Data Access
   const {
     title = 'Unknown Item',
+    displayTitle = '',
+    subtitle = '',
     brand = 'Unknown Brand',
     rating = 0,
     ratingCount = 0,
@@ -446,7 +448,7 @@ const ProductDetails = () => {
     originalPrice = 0,
     discountPercentage = 0,
     stock = 0,
-    image = 'https://placehold.co/400x400/18181b/4ade80?text=No+Data',
+    image = 'https://placehold.co/400x400/18181b/4ade80?text=Aura+Select',
     description = 'No description available.',
     highlights = [],
     deliveryTime = 'Instant Delivery',
@@ -454,8 +456,11 @@ const ProductDetails = () => {
     category = 'General',
     subCategory = ''
   } = product;
+  const heroTitle = displayTitle || title;
+  const heroSubtitle = subtitle || subCategory || category;
 
   const dealDna = product?.dealDna || null;
+  const isDemoCatalog = product?.publishGate?.status === 'dev_only' || product?.provenance?.sourceType === 'dev_seed';
   const dealTone = dealDna?.verdict === 'good_deal'
     ? 'border-emerald-400/40 bg-emerald-500/15 text-emerald-100'
     : dealDna?.verdict === 'avoid'
@@ -484,7 +489,7 @@ const ProductDetails = () => {
             {category}
           </Link>
           <ChevronRight className="w-4 h-4 mx-2 text-slate-700" />
-          <span className="text-white truncate max-w-[200px] md:max-w-md">{title}</span>
+          <span className="text-white truncate max-w-[200px] md:max-w-md">{heroTitle}</span>
         </nav>
 
         <div className="grid lg:grid-cols-12 gap-8 lg:gap-12">
@@ -496,7 +501,7 @@ const ProductDetails = () => {
               <div className="relative aspect-square flex items-center justify-center p-4">
                 <img
                   src={image}
-                  alt={title}
+                  alt={heroTitle}
                   className="w-full h-full object-contain drop-shadow-[0_0_20px_rgba(255,255,255,0.15)] mix-blend-screen hover:scale-105 transition-transform duration-700 relative z-10"
                 />
 
@@ -508,7 +513,7 @@ const ProductDetails = () => {
                 </button>
 
                 <button
-                  onClick={() => navigator?.share?.({ title, url: window.location.href })}
+                  onClick={() => navigator?.share?.({ title: heroTitle, url: window.location.href })}
                   className="absolute top-0 left-0 p-3 bg-zinc-950/50 backdrop-blur-md rounded-full border border-white/10 shadow-[0_0_15px_rgba(0,0,0,0.5)] hover:border-neo-cyan hover:bg-neo-cyan/10 transition-all duration-300 z-20 group/btn"
                 >
                   <Share2 className="w-5 h-5 text-slate-400 group-hover/btn:text-neo-cyan transition-colors" />
@@ -546,9 +551,22 @@ const ProductDetails = () => {
 
               <div className="relative z-10">
                 <p className="text-neo-cyan font-bold tracking-[0.3em] uppercase text-xs mb-3">{brand}</p>
+                {heroSubtitle && (
+                  <p className="mb-3 text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">
+                    {heroSubtitle}
+                  </p>
+                )}
                 <h1 className="text-3xl md:text-5xl font-black text-white mb-6 leading-tight tracking-tighter">
-                  {title}
+                  {heroTitle}
                 </h1>
+                {isDemoCatalog && (
+                  <div className="mb-6 rounded-2xl border border-sky-400/30 bg-sky-500/10 px-4 py-3">
+                    <p className="text-xs font-black uppercase tracking-[0.16em] text-sky-200">Demo Catalog</p>
+                    <p className="mt-2 text-sm leading-relaxed text-sky-50/90">
+                      This item is being served from the demo catalog fallback because the active catalog currently has no published inventory.
+                    </p>
+                  </div>
+                )}
 
                 <div className="flex items-center gap-4 mb-8">
                   <span className="rating-badge text-sm px-3 py-1 shadow-[0_0_10px_rgba(250,204,21,0.3)]">

@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 const dotenv = require('dotenv');
 const fs = require('fs/promises');
-const { MongoMemoryServer } = require('mongodb-memory-server');
+const { MongoMemoryServer, MongoMemoryReplSet } = require('mongodb-memory-server');
 const { resolveVaultFile } = require('../services/authProfileVault');
 
 dotenv.config();
@@ -21,6 +21,7 @@ const parseBoolean = (value, fallback = false) => {
 };
 
 let memoryServer = null;
+let memoryReplicaSet = null;
 
 const shouldPreferInMemoryMongo = () => {
     if (process.env.TEST_MONGO_URI) return false;
@@ -28,8 +29,31 @@ const shouldPreferInMemoryMongo = () => {
 };
 
 const shouldFallbackToInMemoryMongo = () => parseBoolean(process.env.TEST_FALLBACK_TO_IN_MEMORY_MONGO, true);
+const shouldRequireTransactionMongo = () => parseBoolean(process.env.TEST_REQUIRE_TRANSACTION_MONGO, false);
+const shouldSkipDbSetup = () => parseBoolean(process.env.TEST_SKIP_DB_SETUP, false);
+
+const isTransactionCapableUri = (uri) => {
+    const normalized = normalizeUri(uri);
+    if (!normalized) return false;
+    return normalized.startsWith('mongodb+srv://')
+        || /replicaSet=/i.test(normalized)
+        || parseBoolean(process.env.TEST_MONGO_TRANSACTION_CAPABLE, false);
+};
 
 const startInMemoryMongo = async () => {
+    if (shouldRequireTransactionMongo()) {
+        if (!memoryReplicaSet) {
+            memoryReplicaSet = await MongoMemoryReplSet.create({
+                replSet: {
+                    count: 1,
+                    storageEngine: 'wiredTiger',
+                },
+                instanceOpts: [{ dbName: 'aura_test' }],
+            });
+        }
+        return memoryReplicaSet.getUri();
+    }
+
     if (!memoryServer) {
         memoryServer = await MongoMemoryServer.create({
             instance: { dbName: 'aura_test' },
@@ -99,6 +123,10 @@ const reconcileUserPhoneIndexes = async () => {
 };
 
 beforeAll(async () => {
+    if (shouldSkipDbSetup()) {
+        return;
+    }
+
     const primaryUri = process.env.MONGO_URI;
     if (process.env.TEST_MONGO_URI && primaryUri && normalizeUri(TEST_MONGO_URI) === normalizeUri(primaryUri)) {
         throw new Error('Unsafe test configuration: TEST_MONGO_URI resolves to primary MONGO_URI.');
@@ -133,11 +161,21 @@ beforeAll(async () => {
             });
         }
     }
+
+    if (shouldRequireTransactionMongo() && !memoryReplicaSet && !isTransactionCapableUri(connectUri)) {
+        throw new Error(
+            'Transaction-sensitive tests require a replica-set MongoDB. Set TEST_MONGO_URI to a transaction-capable instance, use mongodb+srv, or run with TEST_USE_IN_MEMORY_MONGO=true and TEST_REQUIRE_TRANSACTION_MONGO=true.'
+        );
+    }
+
     await dropLegacyUserOtpTtlIndex();
     await reconcileUserPhoneIndexes();
 }, 30000); // Increase timeout to 30s for slow connections
 
 afterEach(async () => {
+    if (shouldSkipDbSetup()) {
+        return;
+    }
     if (mongoose.connection.readyState !== 1) {
         return;
     }
@@ -165,9 +203,16 @@ afterEach(async () => {
 });
 
 afterAll(async () => {
+    if (shouldSkipDbSetup()) {
+        return;
+    }
     await mongoose.connection.close();
     if (memoryServer) {
         await memoryServer.stop();
         memoryServer = null;
+    }
+    if (memoryReplicaSet) {
+        await memoryReplicaSet.stop();
+        memoryReplicaSet = null;
     }
 });

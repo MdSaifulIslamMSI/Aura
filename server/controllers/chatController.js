@@ -1,9 +1,12 @@
 const asyncHandler = require('express-async-handler');
 const OpenAI = require('openai');
-const Product = require('../models/Product');
 const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
-const { resolveCategory } = require('../config/categories');
+const {
+    buildGroundedCatalogContext,
+    buildCommerceFallbackResponse,
+    executeCatalogActions,
+} = require('../services/assistantCommerceService');
 
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
@@ -138,134 +141,6 @@ const cleanResponse = (text) => String(text || '')
     .replace(/\[TRENDING:\s*{.*?}\]/gs, '')
     .trim();
 
-const buildSort = (sort) => {
-    const sortMap = {
-        'price-asc': { price: 1 },
-        'price-desc': { price: -1 },
-        rating: { rating: -1 },
-        discount: { discountPercentage: -1 },
-        newest: { createdAt: -1 }
-    };
-    return sortMap[sort] || { ratingCount: -1 };
-};
-
-const normalizeCategory = (category) => {
-    if (!category) return null;
-    const resolved = resolveCategory(category);
-    return resolved || { $regex: new RegExp(category, 'i') };
-};
-
-const searchProducts = async (params = {}) => {
-    const query = {};
-
-    if (params.category) {
-        query.category = normalizeCategory(params.category);
-    }
-
-    if (params.keyword) {
-        const regex = { $regex: String(params.keyword), $options: 'i' };
-        query.$or = [{ title: regex }, { brand: regex }, { description: regex }, { category: regex }];
-    }
-
-    if (params.maxPrice || params.minPrice) {
-        query.price = {};
-        if (params.minPrice) query.price.$gte = Number(params.minPrice);
-        if (params.maxPrice) query.price.$lte = Number(params.maxPrice);
-    }
-
-    return Product.find(query)
-        .sort(buildSort(params.sort))
-        .limit(Number(params.limit) || 6)
-        .select('id title price originalPrice discountPercentage image category rating ratingCount brand stock deliveryTime')
-        .lean();
-};
-
-const compareProducts = async (keyword1, keyword2) => {
-    const safe1 = String(keyword1 || '').trim();
-    const safe2 = String(keyword2 || '').trim();
-
-    if (!safe1 || !safe2) return [];
-
-    const [a, b] = await Promise.all([
-        Product.find({
-            $or: [
-                { title: { $regex: safe1, $options: 'i' } },
-                { brand: { $regex: safe1, $options: 'i' } }
-            ]
-        }).sort({ ratingCount: -1 }).limit(1).lean(),
-        Product.find({
-            $or: [
-                { title: { $regex: safe2, $options: 'i' } },
-                { brand: { $regex: safe2, $options: 'i' } }
-            ]
-        }).sort({ ratingCount: -1 }).limit(1).lean()
-    ]);
-
-    return [...a, ...b];
-};
-
-const getDeals = async (params = {}) => {
-    const query = {
-        discountPercentage: { $gte: Number(params.minDiscount) || 10 }
-    };
-
-    if (params.category) {
-        query.category = normalizeCategory(params.category);
-    }
-
-    return Product.find(query)
-        .sort({ discountPercentage: -1 })
-        .limit(Number(params.limit) || 6)
-        .select('id title price originalPrice discountPercentage image category rating brand')
-        .lean();
-};
-
-const getTrending = async (params = {}) => {
-    const query = {};
-    if (params.category) {
-        query.category = normalizeCategory(params.category);
-    }
-
-    return Product.find(query)
-        .sort({ ratingCount: -1 })
-        .limit(Number(params.limit) || 6)
-        .select('id title price originalPrice discountPercentage image category rating ratingCount brand')
-        .lean();
-};
-
-const executeActions = async (actions = []) => {
-    let products = [];
-    let actionType = 'assistant';
-
-    for (const action of actions) {
-        actionType = action.type;
-        switch (action.type) {
-            case 'search':
-                products = await searchProducts(action.params);
-                break;
-            case 'compare':
-                products = await compareProducts(action.params?.keyword1, action.params?.keyword2);
-                break;
-            case 'deals':
-                products = await getDeals(action.params);
-                break;
-            case 'trending':
-                products = await getTrending(action.params);
-                break;
-            default:
-                actionType = 'assistant';
-        }
-
-        if (products.length > 0) break;
-    }
-
-    if (!actions.length) {
-        actionType = 'assistant';
-    }
-
-    return { products, actionType };
-};
-
 const generateSuggestions = (products, actionType, lastMessage) => {
     if (actionType === 'compare' && products.length >= 2) {
         return ['Which one is better value?', 'Show alternatives', 'Compare budget options'];
@@ -294,24 +169,6 @@ const generateSuggestions = (products, actionType, lastMessage) => {
     }
 
     return ['Best deals today', 'Help me write an email', 'Explain a concept simply', 'Create a task plan'];
-};
-
-const CATEGORY_HINTS = [
-    { keys: ['mobile', 'phone', 'smartphone', 'iphone', 'samsung', 'pixel'], category: 'Mobiles' },
-    { keys: ['laptop', 'notebook', 'macbook'], category: 'Laptops' },
-    { keys: ['electronics', 'earbuds', 'speaker', 'headphone', 'audio'], category: 'Electronics' },
-    { keys: ['men', 'mens', 'shirt', 'jacket', 'trouser'], category: "Men's Fashion" },
-    { keys: ['women', 'womens', 'dress', 'saree', 'kurti'], category: "Women's Fashion" },
-    { keys: ['home', 'kitchen', 'furniture', 'appliance'], category: 'Home & Kitchen' },
-    { keys: ['gaming', 'controller', 'mouse', 'keyboard'], category: 'Gaming & Accessories' },
-    { keys: ['book', 'novel', 'reading'], category: 'Books' },
-    { keys: ['shoe', 'sneaker', 'footwear', 'boot', 'sandal'], category: 'Footwear' }
-];
-
-const detectCategoryHint = (text) => {
-    const lower = String(text || '').toLowerCase();
-    const hit = CATEGORY_HINTS.find((group) => group.keys.some((k) => lower.includes(k)));
-    return hit ? hit.category : '';
 };
 
 const extractBudget = (text) => {
@@ -404,7 +261,7 @@ const toGeminiHistory = (conversationHistory = []) => {
         .filter(Boolean);
 };
 
-const callGemini = async (message, conversationHistory) => {
+const callGemini = async (message, conversationHistory, groundingPrompt = '') => {
     const key = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '';
     if (!key) return null;
     if (isCircuitOpen('gemini')) return null;
@@ -412,7 +269,7 @@ const callGemini = async (message, conversationHistory) => {
     const url = `${GEMINI_API_URL}/${GEMINI_MODEL}:generateContent?key=${key}`;
     const body = {
         systemInstruction: {
-            parts: [{ text: SYSTEM_PROMPT }]
+            parts: [{ text: groundingPrompt ? `${SYSTEM_PROMPT}\n\n${groundingPrompt}` : SYSTEM_PROMPT }]
         },
         contents: [
             ...toGeminiHistory(conversationHistory),
@@ -442,13 +299,13 @@ const callGemini = async (message, conversationHistory) => {
     return text;
 };
 
-const callOpenAI = async (message, conversationHistory) => {
+const callOpenAI = async (message, conversationHistory, groundingPrompt = '') => {
     const client = getOpenAIClient();
     if (!client) return null;
     if (isCircuitOpen('openai')) return null;
 
     const messages = [
-        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'system', content: groundingPrompt ? `${SYSTEM_PROMPT}\n\n${groundingPrompt}` : SYSTEM_PROMPT },
         ...conversationHistory.slice(-8).map((item) => ({
             role: item?.role === 'assistant' ? 'assistant' : 'user',
             content: String(item?.content || '').slice(0, 1200)
@@ -499,6 +356,15 @@ const handleSmartFallback = async (message) => {
         };
     }
 
+    const commerceFallback = await buildCommerceFallbackResponse(message);
+    if (commerceFallback) {
+        return {
+            ...commerceFallback,
+            suggestions: generateSuggestions(commerceFallback.products, commerceFallback.actionType, message),
+            isAI: false,
+        };
+    }
+
     if (/email|mail|message|draft|reply|rewrite|formal|professional/i.test(lower)) {
         return {
             text: /leave|vacation|sick|fever|absence/i.test(lower)
@@ -527,114 +393,6 @@ const handleSmartFallback = async (message) => {
             products: [],
             suggestions: ['Explain this error', 'Refactor strategy', 'Design API contract'],
             actionType: 'assistant',
-            isAI: false
-        };
-    }
-
-    if (/deal|discount|offer|sale|cheap|affordable|budget/i.test(lower)) {
-        const category = detectCategoryHint(lower);
-        const products = await getDeals({ category, minDiscount: 10, limit: 6 });
-        return {
-            text: products.length
-                ? `Found ${products.length} strong deal options${category ? ` in ${category}` : ''}.`
-                : 'No major discounts found right now. I can search alternatives by budget.',
-            products,
-            suggestions: ['Show more deals', 'Trending products', 'Best under 30000'],
-            actionType: 'deals',
-            isAI: false
-        };
-    }
-
-    if (/trend|trending|popular|best seller|hot/i.test(lower)) {
-        const category = detectCategoryHint(lower);
-        const products = await getTrending({ category, limit: 6 });
-        return {
-            text: products.length
-                ? `These are currently trending${category ? ` in ${category}` : ''}.`
-                : 'I could not find trending data right now, try a specific category.',
-            products,
-            suggestions: ['Show deals', 'Compare top 2', 'Best rated options'],
-            actionType: 'trending',
-            isAI: false
-        };
-    }
-
-    if (/compare|vs|versus|better/i.test(lower)) {
-        const vsMatch = lower.match(/(?:compare\s+)?(.+?)\s*(?:vs|versus|and)\s+(.+)/i);
-        if (vsMatch) {
-            const budget = extractBudget(lower);
-            const lhs = vsMatch[1].replace(/(?:under|below|less than|max|within).*/i, '').trim();
-            const rhs = vsMatch[2].replace(/(?:under|below|less than|max|within).*/i, '').trim();
-
-            let products = [];
-            if (budget > 0) {
-                const [p1, p2] = await Promise.all([
-                    searchProducts({ keyword: lhs, maxPrice: budget, limit: 1, sort: 'rating' }),
-                    searchProducts({ keyword: rhs, maxPrice: budget, limit: 1, sort: 'rating' })
-                ]);
-                products = [...p1, ...p2];
-            }
-            if (products.length < 2) {
-                products = await compareProducts(lhs, rhs);
-            }
-
-            return {
-                text: products.length >= 2
-                    ? 'Comparison ready. Check the side-by-side options below.'
-                    : budget > 0
-                        ? `I could not find a strong pair under INR ${budget.toLocaleString('en-IN')}. Try a slightly higher budget.`
-                        : 'I need two clearer product names to compare properly.',
-                products,
-                suggestions: ['Which is better value?', 'Show alternatives', 'Compare budget models'],
-                actionType: 'compare',
-                isAI: false
-            };
-        }
-    }
-
-    if (/under|below|less than|max|within/i.test(lower)) {
-        const priceMatch = lower.match(/(\d{3,7})/);
-        const maxPrice = priceMatch ? Number(priceMatch[1]) : 30000;
-        const category = detectCategoryHint(lower);
-        const products = await searchProducts({
-            keyword: category ? '' : message,
-            category,
-            maxPrice,
-            sort: 'rating',
-            limit: 6
-        });
-        return {
-            text: products.length
-                ? `Found ${products.length} options under INR ${maxPrice.toLocaleString('en-IN')}.`
-                : `No matches found under INR ${maxPrice.toLocaleString('en-IN')}. Try a higher budget.`,
-            products,
-            suggestions: ['Show cheaper options', 'Top rated in budget', 'Show deals'],
-            actionType: 'search',
-            isAI: false
-        };
-    }
-
-    const category = detectCategoryHint(lower);
-    if (category) {
-        const products = await getTrending({ category, limit: 6 });
-        return {
-            text: products.length
-                ? `Here are popular picks in ${category}.`
-                : `I could not find products in ${category} right now.`,
-            products,
-            suggestions: ['Show deals', 'Compare top 2', 'Best budget picks'],
-            actionType: 'search',
-            isAI: false
-        };
-    }
-
-    const products = await searchProducts({ keyword: message, limit: 6, sort: 'rating' });
-    if (products.length) {
-        return {
-            text: `Found ${products.length} matching products. Here are the best picks.`,
-            products,
-            suggestions: ['Compare top 2', 'Show cheaper options', 'Show deals'],
-            actionType: 'search',
             isAI: false
         };
     }
@@ -674,12 +432,16 @@ const handleChat = asyncHandler(async (req, res, next) => {
 
     const trimmedMessage = message.trim().slice(0, 600);
     assertPrivateQuota(req.user?._id);
+    const grounding = await buildGroundedCatalogContext({
+        message: trimmedMessage,
+        conversationHistory,
+    });
 
     let aiRaw = '';
     let provider = '';
 
     try {
-        aiRaw = await callGemini(trimmedMessage, conversationHistory);
+        aiRaw = await callGemini(trimmedMessage, conversationHistory, grounding.groundingPrompt);
         if (aiRaw) {
             provider = 'gemini';
             markProviderSuccess('gemini');
@@ -696,7 +458,7 @@ const handleChat = asyncHandler(async (req, res, next) => {
 
     if (!aiRaw) {
         try {
-            aiRaw = await callOpenAI(trimmedMessage, conversationHistory);
+            aiRaw = await callOpenAI(trimmedMessage, conversationHistory, grounding.groundingPrompt);
             if (aiRaw) {
                 provider = 'openai';
                 markProviderSuccess('openai');
@@ -719,7 +481,13 @@ const handleChat = asyncHandler(async (req, res, next) => {
 
     const actions = parseActions(aiRaw);
     const cleanText = cleanResponse(aiRaw);
-    const { products, actionType } = await executeActions(actions);
+    const executed = await executeCatalogActions(actions);
+    const products = executed.products.length > 0
+        ? executed.products
+        : (grounding.commerceIntent ? grounding.products : []);
+    const actionType = executed.products.length > 0 || actions.length > 0
+        ? executed.actionType
+        : grounding.actionType;
 
     return res.json({
         text: cleanText || 'I am here. Tell me what you want to achieve.',
@@ -729,6 +497,7 @@ const handleChat = asyncHandler(async (req, res, next) => {
         isAI: true,
         provider,
         mode: 'private',
+        groundedCommerce: grounding.commerceIntent,
     });
 });
 

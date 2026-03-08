@@ -11,6 +11,7 @@ import {
   getCategoryLabel,
   normalizeCategorySlug,
 } from '@/config/catalogTaxonomy';
+import { getErrorReference } from '@/services/clientObservability';
 import { cn } from '@/lib/utils';
 
 const SORT_OPTIONS = new Set(['relevance', 'price-asc', 'price-desc', 'newest', 'rating', 'discount']);
@@ -18,6 +19,12 @@ const DEFAULT_MIN_PRICE = 0;
 const DEFAULT_MAX_PRICE = 200000;
 const DEFAULT_BRANDS = ['Apple', 'Samsung', 'Nike', 'Adidas', 'Puma', 'Sony', 'Dell', 'HP'];
 const DEFAULT_CATEGORIES = DEFAULT_CATALOG_CATEGORY_LABELS;
+const CATEGORY_ROUTE_FALLBACKS = {
+  "men's-fashion": ['footwear'],
+  gaming: ['electronics'],
+  'home-kitchen': [],
+  books: [],
+};
 
 const createDefaultFilters = (priceRange = [DEFAULT_MIN_PRICE, DEFAULT_MAX_PRICE]) => ({
   priceRange,
@@ -92,6 +99,27 @@ const createFiltersFromParams = (params, previous = {}) => ({
   availableCategories: previous.availableCategories || DEFAULT_CATEGORIES,
 });
 
+const buildListingTelemetryContext = ({ searchQuery, effectiveCategorySlug, viewMode }) => {
+  if (searchQuery) return `search_results_${viewMode}`;
+  if (effectiveCategorySlug) return `category_listing_${viewMode}`;
+  return `catalog_listing_${viewMode}`;
+};
+
+const isDefaultLaneOnlyView = ({ effectiveCategorySlug, searchQuery, filters }) => (
+  Boolean(effectiveCategorySlug)
+  && !searchQuery
+  && filters.brands.length === 0
+  && filters.categories.length === 0
+  && filters.minRating === 0
+  && filters.minDiscount === 0
+  && !filters.inStockOnly
+  && !filters.warrantyOnly
+  && filters.minReviews === 0
+  && filters.deliveryWindows.length === 0
+  && filters.priceRange[0] === DEFAULT_MIN_PRICE
+  && filters.priceRange[1] === DEFAULT_MAX_PRICE
+);
+
 const ProductListing = () => {
   const { category } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -109,6 +137,8 @@ const ProductListing = () => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState('');
+  const [fetchErrorReference, setFetchErrorReference] = useState('');
+  const [laneFallback, setLaneFallback] = useState(null);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalProducts, setTotalProducts] = useState(0);
@@ -163,17 +193,20 @@ const ProductListing = () => {
     activeRequestRef.current = requestId;
     setLoading(true);
     setFetchError('');
+    setFetchErrorReference('');
+    setLaneFallback(null);
     try {
       const resolvedCategoryFilter = effectiveCategorySlug
         ? getCategoryApiValue(effectiveCategorySlug)
         : (filters.categories.length > 0 ? filters.categories.join(',') : undefined);
 
-      const query = {
+      const buildQuery = (categoryOverride) => ({
         page,
         limit: 12,
         sort: sortBy,
+        telemetryContext: buildListingTelemetryContext({ searchQuery, effectiveCategorySlug, viewMode }),
         keyword: searchQuery,
-        category: resolvedCategoryFilter,
+        category: categoryOverride,
         minPrice: filters.priceRange[0],
         maxPrice: filters.priceRange[1],
         rating: filters.minRating > 0 ? filters.minRating : undefined,
@@ -183,14 +216,63 @@ const ProductListing = () => {
         hasWarranty: filters.warrantyOnly ? 'true' : undefined,
         minReviews: filters.minReviews > 0 ? filters.minReviews : undefined,
         deliveryTime: filters.deliveryWindows.length > 0 ? filters.deliveryWindows.join(',') : undefined,
-      };
+      });
 
+      const query = buildQuery(resolvedCategoryFilter);
       const data = await productApi.getProducts(query, { signal });
       if (signal?.aborted || activeRequestRef.current !== requestId) return;
-      setProducts(data.products || []);
-      setPage(data.page || 1);
-      setTotalPages(data.pages || 1);
-      setTotalProducts(data.total || 0);
+
+      const buildTelemetry = (payload, categoryValue) => ({
+        searchEventId: payload.searchEventId || '',
+        query: searchQuery,
+        filters: {
+          category: categoryValue,
+          minPrice: filters.priceRange[0],
+          maxPrice: filters.priceRange[1],
+          rating: filters.minRating > 0 ? filters.minRating : undefined,
+          brand: filters.brands.length > 0 ? filters.brands.join(',') : undefined,
+          discount: filters.minDiscount > 0 ? filters.minDiscount : undefined,
+          inStock: filters.inStockOnly ? 'true' : undefined,
+          hasWarranty: filters.warrantyOnly ? 'true' : undefined,
+          minReviews: filters.minReviews > 0 ? filters.minReviews : undefined,
+          deliveryTime: filters.deliveryWindows.length > 0 ? filters.deliveryWindows.join(',') : undefined,
+          sort: sortBy,
+        },
+        sourceContext: buildListingTelemetryContext({ searchQuery, effectiveCategorySlug, viewMode }),
+      });
+
+      const applyListingPayload = (payload, telemetryCategory) => {
+        const searchTelemetry = buildTelemetry(payload, telemetryCategory);
+        setProducts((payload.products || []).map((product, index) => ({
+          ...product,
+          searchTelemetry: {
+            ...searchTelemetry,
+            position: index + 1,
+          },
+        })));
+        setPage(payload.page || 1);
+        setTotalPages(payload.pages || 1);
+        setTotalProducts(payload.total || 0);
+      };
+
+      if ((data.total || 0) === 0 && isDefaultLaneOnlyView({ effectiveCategorySlug, searchQuery, filters })) {
+        const fallbackSlugs = CATEGORY_ROUTE_FALLBACKS[effectiveCategorySlug] || [];
+        const fallbackCategories = fallbackSlugs.map((slug) => getCategoryApiValue(slug)).filter(Boolean);
+        const fallbackCategoryFilter = fallbackCategories.length > 0 ? fallbackCategories.join(',') : undefined;
+        const fallbackData = await productApi.getProducts(buildQuery(fallbackCategoryFilter), { signal });
+        if (signal?.aborted || activeRequestRef.current !== requestId) return;
+        if ((fallbackData.total || 0) > 0) {
+          setLaneFallback({
+            requestedLabel: getCategoryLabel(effectiveCategorySlug),
+            fallbackLabel: fallbackCategories.length > 0 ? fallbackCategories.join(' + ') : 'Live Catalog',
+            fallbackType: fallbackCategories.length > 0 ? 'adjacent' : 'catalog',
+          });
+          applyListingPayload(fallbackData, fallbackCategoryFilter);
+          return;
+        }
+      }
+
+      applyListingPayload(data, resolvedCategoryFilter);
     } catch (error) {
       if (signal?.aborted || error?.message === 'Request cancelled') {
         return;
@@ -198,13 +280,14 @@ const ProductListing = () => {
       console.error("Failed to fetch products:", error);
       setProducts([]);
       setTotalProducts(0);
+      setFetchErrorReference(getErrorReference(error));
       setFetchError('Unable to load products right now. Check your connection and retry.');
     } finally {
       if (!signal?.aborted && activeRequestRef.current === requestId) {
         setLoading(false);
       }
     }
-  }, [page, sortBy, searchQuery, effectiveCategorySlug, filters]);
+  }, [page, sortBy, searchQuery, effectiveCategorySlug, filters, viewMode]);
 
   const retryFetch = useCallback(() => {
     const controller = new AbortController();
@@ -244,10 +327,9 @@ const ProductListing = () => {
   };
 
   return (
-    <div className="container-custom max-w-7xl mx-auto px-4 py-8 min-h-screen relative">
-      {/* Background decorations */}
-      <div className="absolute top-20 left-10 w-96 h-96 bg-neo-cyan/10 rounded-full blur-[110px] pointer-events-none -z-10" />
-      <div className="absolute bottom-20 right-10 w-96 h-96 bg-neo-emerald/10 rounded-full blur-[110px] pointer-events-none -z-10" />
+    <div className="container-custom max-w-7xl mx-auto px-4 py-5 sm:py-6 lg:py-8 min-h-screen relative">
+      <div className="absolute top-20 left-6 h-72 w-72 bg-neo-cyan/8 rounded-full blur-[100px] pointer-events-none -z-10" />
+      <div className="absolute bottom-12 right-6 h-72 w-72 bg-neo-emerald/8 rounded-full blur-[100px] pointer-events-none -z-10" />
 
       {/* Header Area */}
       {effectiveCategorySlug && (
@@ -268,10 +350,10 @@ const ProductListing = () => {
       )}
 
       {/* Mobile Filter Toggle */}
-      <div className="lg:hidden mb-6 flex justify-between items-center bg-white/[0.045] backdrop-blur-xl p-4 rounded-xl border border-white/10">
+      <div className="lg:hidden mb-4 flex justify-between items-center bg-white/[0.045] backdrop-blur-xl px-4 py-3 rounded-2xl border border-white/10">
         <button
           onClick={() => setShowMobileFilters(!showMobileFilters)}
-          className="flex items-center gap-2 bg-white/10 hover:bg-white/20 px-4 py-2 rounded-lg transition-colors font-medium text-white border border-white/10"
+          className="flex items-center gap-2 bg-white/10 hover:bg-white/20 px-4 py-2 rounded-xl transition-colors font-medium text-white border border-white/10"
         >
           <SlidersHorizontal className="w-4 h-4 text-neo-cyan" />
           Filters
@@ -298,7 +380,7 @@ const ProductListing = () => {
           data-scroll-anchor-label="Filters"
           className={cn(
             'lg:w-72 flex-shrink-0 h-fit sticky top-24 transition-transform duration-300 z-40',
-            'fixed inset-y-0 left-0 w-80 lg:relative lg:transform-none lg:translate-x-0',
+            'fixed inset-y-0 left-0 w-[18rem] lg:relative lg:transform-none lg:translate-x-0',
             showMobileFilters ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
           )}
         >
@@ -318,7 +400,7 @@ const ProductListing = () => {
           <RevealOnScroll
             anchorId="listing-sort-bar"
             anchorLabel="Sort & View"
-            className="bg-white/[0.045] backdrop-blur-xl p-4 rounded-2xl shadow-glass border border-white/10 mb-8 flex flex-col sm:flex-row justify-between items-center gap-4 relative overflow-hidden"
+            className="bg-white/[0.045] backdrop-blur-xl p-4 rounded-2xl shadow-glass border border-white/10 mb-6 flex flex-col sm:flex-row justify-between items-center gap-4 relative overflow-hidden"
             delay={30}
           >
             <div className="absolute left-0 top-0 w-1 h-full bg-gradient-to-b from-neo-cyan to-neo-emerald" />
@@ -383,12 +465,20 @@ const ProductListing = () => {
                 onClick={resetScanParameters}
                 className="rounded-full border border-neo-cyan/25 bg-neo-cyan/10 px-3 py-1.5 text-xs font-black uppercase tracking-[0.18em] text-neo-cyan transition-colors hover:bg-neo-cyan/15"
               >
-                Reset scan
+                Reset filters
               </button>
             </div>
           )}
 
           {/* Product Grid */}
+          {laneFallback && (
+            <div className="mb-6 rounded-2xl border border-amber-400/25 bg-amber-500/10 px-4 py-4">
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-amber-200">Lane Expanded</p>
+              <p className="mt-2 text-sm leading-relaxed text-amber-50/90">
+                {laneFallback.requestedLabel} has no direct inventory in the current provider snapshot. Showing {laneFallback.fallbackLabel} instead so this lane does not dead-end.
+              </p>
+            </div>
+          )}
           {loading ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {[...Array(8)].map((_, i) => (
@@ -404,12 +494,17 @@ const ProductListing = () => {
               </div>
               <h3 className="text-2xl font-black text-white mb-2 tracking-tight">Catalog fetch failed</h3>
               <p className="text-slate-300 mb-8 max-w-md mx-auto">{fetchError}</p>
+              {fetchErrorReference ? (
+                <p className="mb-6 text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
+                  Debug Ref {fetchErrorReference}
+                </p>
+              ) : null}
               <div className="flex flex-wrap items-center justify-center gap-3">
                 <button className="btn-secondary" onClick={retryFetch}>
                 Retry Loading
                 </button>
                 <button className="btn-secondary" onClick={resetScanParameters}>
-                  Reset scan parameters
+                  Reset filters
                 </button>
               </div>
             </div>
@@ -439,7 +534,7 @@ const ProductListing = () => {
               )}
               <div className="flex flex-wrap items-center justify-center gap-3">
                 <button className="btn-secondary" onClick={resetScanParameters}>
-                  Reset scan parameters
+                  Reset filters
                 </button>
                 <button className="btn-secondary" onClick={() => navigate('/search')}>
                   Open broader search

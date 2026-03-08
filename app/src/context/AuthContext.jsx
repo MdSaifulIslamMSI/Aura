@@ -1,12 +1,12 @@
-import { createContext, useState, useEffect, useRef } from 'react';
+import { createContext, useEffect, useRef, useState } from 'react';
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
-  updateProfile,
+  updateProfile as updateFirebaseProfile,
   sendPasswordResetEmail,
-  signInWithPopup
+  signInWithPopup,
 } from 'firebase/auth';
 import {
   auth,
@@ -18,134 +18,254 @@ import {
   isFirebaseReady,
   markFirebaseSocialAuthRejectedForRuntime,
 } from '../config/firebase';
-import { userApi } from '../services/api';
+import { authApi, userApi } from '../services/api';
 
 export const AuthContext = createContext();
 
 const AUTH_SYNC_DEDUPE_MS = 30 * 1000;
+const BOOTSTRAP_TIMEOUT_MS = 6000;
+
+const SESSION_STATUS = {
+  BOOTSTRAP: 'bootstrap',
+  LOADING: 'loading',
+  AUTHENTICATED: 'authenticated',
+  RECOVERABLE_ERROR: 'recoverable_error',
+  SIGNED_OUT: 'signed_out',
+};
+
+const EMPTY_ROLES = {
+  isAdmin: false,
+  isSeller: false,
+  isVerified: false,
+};
+
+const EMPTY_SESSION_STATE = {
+  status: SESSION_STATUS.BOOTSTRAP,
+  session: null,
+  profile: null,
+  roles: EMPTY_ROLES,
+  error: null,
+};
+
+const normalizeText = (value) => (typeof value === 'string' ? value.trim() : '');
+const normalizeEmail = (value) => (typeof value === 'string' ? value.trim().toLowerCase() : '');
+const normalizePhone = (value) => (
+  typeof value === 'string' ? value.trim().replace(/[\s\-()]/g, '') : ''
+);
+
+const buildRoleState = (profile = null, fallbackVerified = false) => ({
+  isAdmin: Boolean(profile?.isAdmin),
+  isSeller: Boolean(profile?.isSeller),
+  isVerified: Boolean(profile?.isVerified ?? fallbackVerified),
+});
+
+const buildFirebaseSessionFallback = (firebaseUser = null) => {
+  if (!firebaseUser) return null;
+
+  const providerIds = Array.isArray(firebaseUser.providerData)
+    ? firebaseUser.providerData.map((entry) => normalizeText(entry?.providerId)).filter(Boolean)
+    : [];
+
+  return {
+    uid: normalizeText(firebaseUser.uid),
+    email: normalizeEmail(firebaseUser.email),
+    emailVerified: Boolean(firebaseUser.emailVerified),
+    displayName: normalizeText(firebaseUser.displayName),
+    phone: normalizePhone(firebaseUser.phoneNumber),
+    providerIds,
+    authTime: null,
+    issuedAt: null,
+    expiresAt: null,
+  };
+};
+
+const buildSessionStateFromPayload = (payload = {}, firebaseUser = null) => {
+  const session = payload?.session || buildFirebaseSessionFallback(firebaseUser);
+  const profile = payload?.profile || null;
+  const roles = payload?.roles || buildRoleState(profile, session?.emailVerified);
+
+  return {
+    status: payload?.status || (session ? SESSION_STATUS.AUTHENTICATED : SESSION_STATUS.SIGNED_OUT),
+    session,
+    profile,
+    roles,
+    error: payload?.error || null,
+  };
+};
 
 export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
-  const [dbUser, setDbUser] = useState(null); // MongoDB user record
-  const [loading, setLoading] = useState(true);
+  const [sessionState, setSessionState] = useState(EMPTY_SESSION_STATE);
   const syncStateRef = useRef({
     identity: '',
     lastSyncedAt: 0,
     inFlight: null,
   });
-  const dbUserRef = useRef(null);
+  const sessionStateRef = useRef(EMPTY_SESSION_STATE);
 
   useEffect(() => {
-    dbUserRef.current = dbUser;
-  }, [dbUser]);
+    sessionStateRef.current = sessionState;
+  }, [sessionState]);
 
-  /**
-   * Sync Firebase user → MongoDB.
-   * Creates the user if they don't exist (upsert).
-   * Returns the MongoDB user record.
-   */
-  const syncUserWithBackend = async (email, name, phone, firebaseUser = null, options = {}) => {
-    const force = options?.force === true;
-    const safeEmail = (email || '').trim().toLowerCase();
-    const safeName = (name || '').trim() || (safeEmail ? safeEmail.split('@')[0] : '');
-    const safePhone = (phone || '').trim();
-    const uid = firebaseUser?.uid || auth.currentUser?.uid || '';
-    const identity = `${uid || 'nouid'}::${safeEmail || 'noemail'}`;
+  const resetSyncTracking = () => {
+    syncStateRef.current = {
+      identity: '',
+      lastSyncedAt: 0,
+      inFlight: null,
+    };
+  };
 
-    if (!safeEmail) return null;
+  const applySignedOutState = () => {
+    resetSyncTracking();
+    setSessionState({
+      status: SESSION_STATUS.SIGNED_OUT,
+      session: null,
+      profile: null,
+      roles: EMPTY_ROLES,
+      error: null,
+    });
+  };
 
-    const now = Date.now();
-    const shouldShortCircuit = !force
+  const applyResolvedSession = (payload, firebaseUser, identity) => {
+    setSessionState(buildSessionStateFromPayload(payload, firebaseUser));
+    syncStateRef.current = {
+      identity,
+      lastSyncedAt: Date.now(),
+      inFlight: null,
+    };
+    return payload?.profile || null;
+  };
+
+  const applyRecoverableSessionError = (error, firebaseUser, identity) => {
+    setSessionState({
+      status: SESSION_STATUS.RECOVERABLE_ERROR,
+      session: buildFirebaseSessionFallback(firebaseUser),
+      profile: null,
+      roles: EMPTY_ROLES,
+      error: {
+        message: error?.message || 'Unable to resolve account session right now.',
+      },
+    });
+    syncStateRef.current = {
+      identity,
+      lastSyncedAt: 0,
+      inFlight: null,
+    };
+  };
+
+  const getIdentityKey = (firebaseUser, email = '') => {
+    const uid = normalizeText(firebaseUser?.uid || auth?.currentUser?.uid);
+    const safeEmail = normalizeEmail(email || firebaseUser?.email || auth?.currentUser?.email);
+    return `${uid || 'nouid'}::${safeEmail || 'noemail'}`;
+  };
+
+  const shouldReuseResolvedSession = (identity, force) => {
+    const state = sessionStateRef.current;
+    return !force
+      && identity
       && syncStateRef.current.identity === identity
-      && dbUserRef.current
-      && (now - syncStateRef.current.lastSyncedAt) < AUTH_SYNC_DEDUPE_MS;
+      && state.status === SESSION_STATUS.AUTHENTICATED
+      && state.profile
+      && (Date.now() - syncStateRef.current.lastSyncedAt) < AUTH_SYNC_DEDUPE_MS;
+  };
 
-    if (shouldShortCircuit) {
-      return dbUserRef.current;
+  const runSessionRequest = async ({
+    mode = 'session',
+    firebaseUser = null,
+    email = '',
+    name = '',
+    phone = '',
+    force = false,
+    silent = false,
+  } = {}) => {
+    const activeUser = firebaseUser || auth?.currentUser || null;
+    const safeEmail = normalizeEmail(email || activeUser?.email);
+
+    if (!activeUser || !safeEmail) {
+      applySignedOutState();
+      return null;
+    }
+
+    const identity = getIdentityKey(activeUser, safeEmail);
+
+    if (shouldReuseResolvedSession(identity, force)) {
+      return sessionStateRef.current.profile;
     }
 
     if (!force && syncStateRef.current.identity === identity && syncStateRef.current.inFlight) {
       return syncStateRef.current.inFlight;
     }
 
-    const runSync = async () => {
-      try {
-        const mongoUser = await userApi.login(safeEmail, safeName, safePhone, { firebaseUser });
-        setDbUser(mongoUser);
-        syncStateRef.current = {
-          ...syncStateRef.current,
-          identity,
-          lastSyncedAt: Date.now(),
-        };
-        return mongoUser;
-      } catch (error) {
-        console.error('Backend sync failed:', error.message);
-        // Recovery path: attempt profile fetch (backend can auto-bootstrap on protect/profile route).
-        try {
-          const profile = await userApi.getProfile('', { firebaseUser });
-          setDbUser(profile);
+    if (!silent) {
+      setSessionState((prev) => ({
+        status: prev.status === SESSION_STATUS.BOOTSTRAP ? SESSION_STATUS.BOOTSTRAP : SESSION_STATUS.LOADING,
+        session: prev.session || buildFirebaseSessionFallback(activeUser),
+        profile: null,
+        roles: EMPTY_ROLES,
+        error: null,
+      }));
+    }
+
+    const requestPromise = (async () => {
+      const payload = mode === 'sync'
+        ? await authApi.syncSession(safeEmail, name, phone, { firebaseUser: activeUser })
+        : await authApi.getSession({ firebaseUser: activeUser });
+      return applyResolvedSession(payload, activeUser, identity);
+    })()
+      .catch((error) => {
+        applyRecoverableSessionError(error, activeUser, identity);
+        throw error;
+      })
+      .finally(() => {
+        if (syncStateRef.current.identity === identity) {
           syncStateRef.current = {
             ...syncStateRef.current,
-            identity,
-            lastSyncedAt: Date.now(),
+            inFlight: null,
           };
-          return profile;
-        } catch (profileError) {
-          console.error('Profile recovery failed:', profileError.message);
-          // Final fallback identity must never preserve stale privilege flags from
-          // a previous session. Keep only minimal identity fields and fail closed.
-          setDbUser({
-            name: safeName || safeEmail.split('@')[0] || 'Aura User',
-            email: safeEmail,
-            phone: safePhone,
-            isAdmin: false,
-            isSeller: false,
-            isVerified: Boolean(firebaseUser?.emailVerified),
-          });
-          return null;
         }
-      }
-    };
-
-    const inFlight = runSync().finally(() => {
-      if (syncStateRef.current.identity === identity) {
-        syncStateRef.current = {
-          ...syncStateRef.current,
-          inFlight: null,
-        };
-      }
-    });
+      });
 
     syncStateRef.current = {
       ...syncStateRef.current,
       identity,
-      inFlight,
+      inFlight: requestPromise,
     };
 
-    return inFlight;
+    return requestPromise;
   };
 
-  // Sign up with phone number
+  const refreshSession = async (firebaseUser = null, options = {}) => runSessionRequest({
+    mode: 'session',
+    firebaseUser,
+    force: options?.force === true,
+    silent: options?.silent === true,
+  });
+
+  const syncUserWithBackend = async (email, name, phone, firebaseUser = null, options = {}) => runSessionRequest({
+    mode: 'sync',
+    firebaseUser,
+    email,
+    name,
+    phone,
+    force: options?.force === true,
+    silent: options?.silent === true,
+  });
+
   const signup = async (email, password, name, phone) => {
     assertFirebaseReady('Sign up');
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    await updateProfile(userCredential.user, { displayName: name });
-    setCurrentUser({ ...userCredential.user, displayName: name });
-    // Sync with MongoDB — pass phone
-    await syncUserWithBackend(email, name, phone, null, { force: true });
+    await updateFirebaseProfile(userCredential.user, { displayName: name });
+    await syncUserWithBackend(email, name, phone, userCredential.user, { force: true });
     return userCredential;
   };
 
-  // Login
   const login = async (email, password) => {
     assertFirebaseReady('Sign in');
     const result = await signInWithEmailAndPassword(auth, email, password);
-    // Backend sync happens via onAuthStateChanged
+    await refreshSession(result.user, { force: true });
     return result;
   };
 
-  // Google Sign-In
-  // Returns { firebaseUser, dbUser, isNewUser, needsPhone }
   const signInWithOAuthProvider = async (provider, providerLabel = 'OAuth') => {
     try {
       assertFirebaseSocialAuthReady(`${providerLabel} sign-in`);
@@ -158,20 +278,19 @@ export const AuthProvider = ({ children }) => {
         throw new Error(`${providerLabel} account did not provide an email. Please use an account with email access or use another login method.`);
       }
 
-      // Sync with backend immediately (don't wait for onAuthStateChanged)
-      const mongoUser = await syncUserWithBackend(
+      const resolvedProfile = await syncUserWithBackend(
         email,
         user.displayName || email.split('@')[0],
-        user.phoneNumber || '', // Google may provide phone
+        user.phoneNumber || '',
         user,
         { force: true }
       );
 
       return {
         firebaseUser: user,
-        dbUser: mongoUser,
+        dbUser: resolvedProfile,
         isNewUser,
-        needsPhone: !mongoUser?.phone // Flag if phone is missing
+        needsPhone: !resolvedProfile?.phone,
       };
     } catch (error) {
       markFirebaseSocialAuthRejectedForRuntime(error);
@@ -183,68 +302,89 @@ export const AuthProvider = ({ children }) => {
   const signInWithFacebook = async () => signInWithOAuthProvider(facebookProvider, 'Facebook');
   const signInWithX = async () => signInWithOAuthProvider(xProvider, 'X');
 
-  // Logout
-  const logout = () => {
+  const logout = async () => {
+    setCurrentUser(null);
+    applySignedOutState();
+
     if (!isFirebaseReady || !auth) {
-      setDbUser(null);
-      syncStateRef.current = {
-        identity: '',
-        lastSyncedAt: 0,
-        inFlight: null,
-      };
-      setCurrentUser(null);
-      return Promise.resolve();
+      return;
     }
-    setDbUser(null);
-    syncStateRef.current = {
-      identity: '',
-      lastSyncedAt: 0,
-      inFlight: null,
-    };
-    return signOut(auth);
+
+    await signOut(auth);
   };
 
-  // Forgot Password
   const forgotPassword = (email) => {
     assertFirebaseReady('Password reset');
     return sendPasswordResetEmail(auth, email);
   };
 
-  // Update phone in backend
   const updatePhone = async (phone) => {
-    if (!currentUser?.email) return;
-    try {
-      const updated = await userApi.login(currentUser.email, currentUser.displayName, phone, { firebaseUser: currentUser });
-      setDbUser(updated);
-      syncStateRef.current = {
-        ...syncStateRef.current,
-        identity: `${currentUser?.uid || 'nouid'}::${(currentUser?.email || '').trim().toLowerCase()}`,
-        lastSyncedAt: Date.now(),
+    if (!currentUser?.email) return null;
+    return syncUserWithBackend(
+      currentUser.email,
+      currentUser.displayName || currentUser.email.split('@')[0],
+      phone,
+      currentUser,
+      { force: true }
+    );
+  };
+
+  const updateProfileInBackend = async (data) => {
+    const updated = await userApi.updateProfile(data);
+    setSessionState((prev) => {
+      const nextProfile = { ...(prev.profile || {}), ...updated };
+      return {
+        status: SESSION_STATUS.AUTHENTICATED,
+        session: prev.session,
+        profile: nextProfile,
+        roles: buildRoleState(nextProfile, prev.session?.emailVerified),
+        error: null,
       };
-      return updated;
-    } catch (error) {
-      console.error('Phone update failed:', error.message);
-      throw error;
+    });
+    if (currentUser) {
+      refreshSession(currentUser, { force: true, silent: true }).catch(() => {});
     }
+    return updated;
+  };
+
+  const activateSeller = async () => {
+    const response = await userApi.activateSeller();
+    if (currentUser) {
+      await refreshSession(currentUser, { force: true, silent: true });
+    }
+    return response;
+  };
+
+  const deactivateSeller = async () => {
+    const response = await userApi.deactivateSeller();
+    if (currentUser) {
+      await refreshSession(currentUser, { force: true, silent: true });
+    }
+    return response;
   };
 
   useEffect(() => {
     let isMounted = true;
 
-    // Prevent full-app blank screen if auth/bootstrap stalls.
     const bootstrapTimeout = setTimeout(() => {
-      if (isMounted) {
-        setLoading(false);
-      }
-    }, 4000);
+      if (!isMounted || sessionStateRef.current.status !== SESSION_STATUS.BOOTSTRAP) return;
+      setSessionState({
+        status: SESSION_STATUS.RECOVERABLE_ERROR,
+        session: null,
+        profile: null,
+        roles: EMPTY_ROLES,
+        error: {
+          message: 'Authentication bootstrap timed out. Retry to recover your session.',
+        },
+      });
+    }, BOOTSTRAP_TIMEOUT_MS);
 
     if (!isFirebaseReady || !auth) {
       setCurrentUser(null);
-      setDbUser(null);
-      setLoading(false);
+      applySignedOutState();
+      clearTimeout(bootstrapTimeout);
       return () => {
         isMounted = false;
-        clearTimeout(bootstrapTimeout);
       };
     }
 
@@ -252,28 +392,24 @@ export const AuthProvider = ({ children }) => {
       if (!isMounted) return;
 
       setCurrentUser(user);
-      setLoading(false);
 
-      if (user) {
-        const normalizedEmail = (user.email || '').trim().toLowerCase();
-        const currentDbEmail = (dbUserRef.current?.email || '').trim().toLowerCase();
-
-        if (!normalizedEmail || currentDbEmail !== normalizedEmail) {
-          setDbUser(null);
-        }
-
-        // Run backend sync in background so UI does not block on network.
-        syncUserWithBackend(
-          user.email,
-          user.displayName || user.email?.split('@')[0],
-          user.phoneNumber || '',
-          user
-        ).catch((error) => {
-          console.error('Auth background sync failed:', error?.message || error);
-        });
-      } else {
-        setDbUser(null);
+      if (!user) {
+        applySignedOutState();
+        return;
       }
+
+      resetSyncTracking();
+      setSessionState({
+        status: SESSION_STATUS.LOADING,
+        session: buildFirebaseSessionFallback(user),
+        profile: null,
+        roles: EMPTY_ROLES,
+        error: null,
+      });
+
+      refreshSession(user, { force: true }).catch((error) => {
+        console.error('Auth session refresh failed:', error?.message || error);
+      });
     });
 
     return () => {
@@ -283,50 +419,16 @@ export const AuthProvider = ({ children }) => {
     };
   }, []);
 
-  // Update profile fields in backend and sync dbUser
-  const updateProfile = async (data) => {
-    try {
-      const updated = await userApi.updateProfile(data);
-      setDbUser(prev => ({ ...prev, ...updated }));
-      return updated;
-    } catch (error) {
-      console.error('Profile update failed:', error.message);
-      throw error;
-    }
-  };
-
-  const activateSeller = async () => {
-    try {
-      const response = await userApi.activateSeller();
-      const sellerUser = response?.user || null;
-      if (sellerUser) {
-        setDbUser((prev) => ({ ...(prev || {}), ...sellerUser }));
-      }
-      return response;
-    } catch (error) {
-      console.error('Seller activation failed:', error.message);
-      throw error;
-    }
-  };
-
-  const deactivateSeller = async () => {
-    try {
-      const response = await userApi.deactivateSeller();
-      const sellerUser = response?.user || null;
-      if (sellerUser) {
-        setDbUser((prev) => ({ ...(prev || {}), ...sellerUser }));
-      }
-      return response;
-    } catch (error) {
-      console.error('Seller deactivation failed:', error.message);
-      throw error;
-    }
-  };
-
   const value = {
     currentUser,
-    dbUser,
-    isAuthenticated: !!currentUser,
+    dbUser: sessionState.profile,
+    session: sessionState.session,
+    profile: sessionState.profile,
+    roles: sessionState.roles,
+    status: sessionState.status,
+    sessionError: sessionState.error,
+    loading: sessionState.status === SESSION_STATUS.BOOTSTRAP || sessionState.status === SESSION_STATUS.LOADING,
+    isAuthenticated: Boolean(currentUser),
     signup,
     login,
     signInWithGoogle,
@@ -334,16 +436,17 @@ export const AuthProvider = ({ children }) => {
     signInWithX,
     logout,
     forgotPassword,
+    refreshSession,
     syncUserWithBackend,
     updatePhone,
-    updateProfile,
+    updateProfile: updateProfileInBackend,
     activateSeller,
     deactivateSeller,
   };
 
   return (
     <AuthContext.Provider value={value}>
-      {!loading && children}
+      {children}
     </AuthContext.Provider>
   );
 };

@@ -7,6 +7,9 @@ const {
     createCatalogSyncRun,
     getCatalogHealth,
 } = require('../services/catalogService');
+const { inspectCatalogSnapshot } = require('../services/catalogSnapshotService');
+const { readLatestSearchRelevanceReport } = require('../services/searchRelevanceService');
+const { buildSearchTelemetrySummary } = require('../services/searchTelemetryService');
 const {
     getRequiredIdempotencyKey,
     getStableUserKey,
@@ -26,6 +29,7 @@ const createImportJob = asyncHandler(async (req, res, next) => {
                 const job = await createCatalogImportJob({
                     sourceType: req.body.sourceType,
                     sourceRef: req.body.sourceRef,
+                    manifestRef: req.body.manifestRef,
                     mode: req.body.mode,
                     initiatedBy: req.body.initiatedBy || req.user?.email || req.user?.name || 'admin',
                     idempotencyKey,
@@ -40,6 +44,10 @@ const createImportJob = asyncHandler(async (req, res, next) => {
                         status: job.status,
                         startedAt: job.startedAt,
                         catalogVersion: job.catalogVersion,
+                        manifestRef: job.manifestRef,
+                        sourceValidation: job.sourceValidation || null,
+                        publishGateStatus: job.publishGateStatus || 'pending',
+                        publishGateReason: job.publishGateReason || '',
                     },
                 };
             },
@@ -63,6 +71,12 @@ const getImportJobById = asyncHandler(async (req, res, next) => {
             startedAt: job.startedAt,
             finishedAt: job.finishedAt,
             publishable: Boolean(job.publishable),
+            publishGateStatus: job.publishGateStatus || 'pending',
+            publishGateReason: job.publishGateReason || '',
+            manifestRef: job.manifestRef,
+            snapshotManifest: job.snapshotManifest || null,
+            sourceValidation: job.sourceValidation || null,
+            qualitySummary: job.qualitySummary || null,
             catalogVersion: job.catalogVersion,
             publishedAt: job.publishedAt || null,
         });
@@ -143,10 +157,49 @@ const getCatalogOpsHealth = asyncHandler(async (req, res, next) => {
     }
 });
 
+const validateCatalogOnboarding = asyncHandler(async (req, res, next) => {
+    try {
+        const report = await inspectCatalogSnapshot({
+            sourceType: req.body.sourceType,
+            sourceRef: req.body.sourceRef,
+            manifestRef: req.body.manifestRef,
+            sampleSize: req.body.sampleSize,
+        });
+
+        return res.json({
+            success: true,
+            report,
+        });
+    } catch (error) {
+        if (error instanceof AppError) return next(error);
+        return next(new AppError(error.message || 'Failed to validate catalog onboarding snapshot', 500));
+    }
+});
+
+const getSearchRelevanceReport = asyncHandler(async (req, res, next) => {
+    try {
+        const [report, telemetry] = await Promise.all([
+            readLatestSearchRelevanceReport(),
+            buildSearchTelemetrySummary({ windowHours: 24 }),
+        ]);
+
+        return res.json({
+            success: true,
+            report,
+            telemetry,
+        });
+    } catch (error) {
+        if (error instanceof AppError) return next(error);
+        return next(new AppError(error.message || 'Failed to fetch search relevance report', 500));
+    }
+});
+
 module.exports = {
     createImportJob,
     getImportJobById,
     publishImportJob,
     createSyncRun,
     getCatalogOpsHealth,
+    validateCatalogOnboarding,
+    getSearchRelevanceReport,
 };

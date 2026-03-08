@@ -87,6 +87,19 @@ const parsePositiveNumber = (value, fallback) => {
 
 const extractProductId = (product) => product?.id || product?._id || null;
 
+const attachSearchTelemetry = (products = [], telemetry = {}) => (
+  (Array.isArray(products) ? products : []).map((product, index) => ({
+    ...product,
+    searchTelemetry: {
+      searchEventId: telemetry.searchEventId || '',
+      query: telemetry.query || '',
+      filters: telemetry.filters || {},
+      sourceContext: telemetry.sourceContext || 'global_search_suggestion',
+      position: index + 1,
+    },
+  }))
+);
+
 const formatPrice = (value) => {
   const amount = Number(value);
   if (!Number.isFinite(amount)) return null;
@@ -351,13 +364,24 @@ const GlobalSearchBar = ({
   const selectSuggestion = useCallback(
     (product) => {
       const targetId = extractProductId(product);
+      const telemetry = product?.searchTelemetry || null;
+      if (telemetry?.searchEventId && targetId) {
+        void productApi.trackSearchClick({
+          searchEventId: telemetry.searchEventId,
+          productId: targetId,
+          position: telemetry.position || 0,
+          sourceContext: telemetry.sourceContext || 'global_search_suggestion',
+          query: telemetry.query || query.trim(),
+          filters: telemetry.filters || {},
+        });
+      }
       if (!targetId) {
         executeSearch(product?.title || product?.name || '');
         return;
       }
       navigateTo(`/product/${targetId}`);
     },
-    [executeSearch, navigateTo]
+    [executeSearch, navigateTo, query]
   );
 
   useEffect(() => {
@@ -498,12 +522,25 @@ const GlobalSearchBar = ({
           limit: mobile ? 5 : 7,
           page: 1,
           sort: sortMode,
+          telemetryContext: 'global_search_suggestion',
           category: categoryScope === 'all' ? undefined : getCategoryApiValue(categoryScope),
           maxPrice: maxPrice < DEFAULT_MAX_PRICE ? Math.round(maxPrice) : undefined,
         }, { signal: controller.signal });
 
         if (!isActive) return;
-        setSuggestions((response?.products || []).slice(0, mobile ? 5 : 7));
+        setSuggestions(attachSearchTelemetry(
+          (response?.products || []).slice(0, mobile ? 5 : 7),
+          {
+            searchEventId: response?.searchEventId || '',
+            query: query.trim(),
+            filters: {
+              category: categoryScope === 'all' ? undefined : getCategoryApiValue(categoryScope),
+              maxPrice: maxPrice < DEFAULT_MAX_PRICE ? Math.round(maxPrice) : undefined,
+              sort: sortMode,
+            },
+            sourceContext: 'global_search_suggestion',
+          }
+        ));
       } catch (error) {
         if (error?.message === 'Request cancelled') {
           return;

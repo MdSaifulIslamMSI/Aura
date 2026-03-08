@@ -11,6 +11,7 @@ const errorHandler = (err, req, res, next) => {
         return res.status(413).json({
             status: 'error',
             message: 'Payload too large. Reduce image size and try again.',
+            requestId: req.requestId || '',
         });
     }
 
@@ -18,6 +19,7 @@ const errorHandler = (err, req, res, next) => {
         return res.status(400).json({
             status: 'error',
             message: 'Invalid JSON payload.',
+            requestId: req.requestId || '',
         });
     }
 
@@ -35,6 +37,9 @@ const errorHandler = (err, req, res, next) => {
         method: req.method,
         url: req.originalUrl,
         statusCode,
+        requestId: req.requestId || '',
+        clientSessionId: String(req.headers['x-client-session-id'] || ''),
+        clientRoute: String(req.headers['x-client-route'] || ''),
     });
 
     // Send actual error message for:
@@ -44,6 +49,7 @@ const errorHandler = (err, req, res, next) => {
         return res.status(statusCode).json({
             status: err.status || 'error',
             message: err.message,
+            requestId: req.requestId || '',
         });
     }
 
@@ -51,6 +57,7 @@ const errorHandler = (err, req, res, next) => {
     res.status(statusCode).json({
         status: 'error',
         message: 'Something went wrong!',
+        requestId: req.requestId || '',
         ...(process.env.NODE_ENV === 'development' && { stack: err.stack, error: err })
     });
 };

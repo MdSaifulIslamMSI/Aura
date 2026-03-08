@@ -5,18 +5,6 @@
       "destination": "https://server-rho-kohl.vercel.app/api/$1"
     },
     {
-      "source": "/uploads/(.*)",
-      "destination": "https://server-rho-kohl.vercel.app/uploads/$1"
-    },
-    {
-      "source": "/health",
-      "destination": "https://server-rho-kohl.vercel.app/health"
-    },
-    {
-      "source": "/health/ready",
-      "destination": "https://server-rho-kohl.vercel.app/health/ready"
-    },
-    {
       "source": "/((?!api/|uploads/|assets/|manifest\\.json$|sw\\.js$|favicon\\.ico$|robots\\.txt$|.*\\.[^/]+$).*)",
       "destination": "/index.html"
     }

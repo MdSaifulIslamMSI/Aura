@@ -11,19 +11,43 @@ const {
     deleteManualProduct,
 } = require('../services/catalogService');
 const {
+    recordSearchResults,
+    recordSearchClick,
+} = require('../services/searchTelemetryService');
+const {
     computeDealDna,
     getCompatibilityGraph,
     buildSmartBundle,
 } = require('../services/commerceIntelligenceService');
 const { buildProductRecommendations } = require('../services/productRecommendationService');
 const { renderCatalogArtworkSvg } = require('../services/catalogArtworkService');
+const {
+    buildProductImageDeliveryUrl,
+    buildProductImageFetchUrl,
+    shouldProxyProductImage,
+} = require('../services/productImageResolver');
 
 const REVIEW_LIMIT_DEFAULT = 8;
 const REVIEW_LIMIT_MAX = 20;
 const REVIEW_VIDEO_MAX = 3;
 const REVIEW_MEDIA_MAX = 8;
+const PRODUCT_IMAGE_PROXY_TIMEOUT_MS = 15000;
 
 const clamp = (value, min, max) => Math.min(Math.max(Number(value) || min, min), max);
+
+const toClientProduct = (product) => {
+    const plain = product?.toObject?.() ? product.toObject() : product;
+    if (!plain || typeof plain !== 'object') return plain;
+    const clientTitle = plain.displayTitle || plain.title;
+    return {
+        ...plain,
+        title: clientTitle,
+        image: buildProductImageDeliveryUrl(plain.image),
+        images: Array.isArray(plain.images)
+            ? plain.images.map((entry) => buildProductImageDeliveryUrl(entry))
+            : [],
+    };
+};
 
 const isAllowedMediaUrl = (url) => (
     /^https?:\/\/[^\s]+$/i.test(url) || /^\/uploads\/[^\s]+$/i.test(url)
@@ -119,16 +143,31 @@ const getProducts = asyncHandler(async (req, res, next) => {
         const includeDealDna = String(req.query.includeDealDna || '').toLowerCase() !== 'false';
         const products = includeDealDna
             ? (result.products || []).map((product) => ({
-                ...product.toObject?.() || product,
+                ...toClientProduct(product),
                 dealDna: computeDealDna(product),
             }))
-            : result.products;
+            : (result.products || []).map(toClientProduct);
+        let searchEvent = null;
+        try {
+            searchEvent = await recordSearchResults({
+                req,
+                query: req.query,
+                products,
+                sourceContext: String(req.query.telemetryContext || 'catalog_listing'),
+            });
+        } catch (telemetryError) {
+            logger.warn('products.search_telemetry_failed', {
+                error: telemetryError.message,
+                requestId: req.requestId,
+            });
+        }
         res.json({
             products,
             nextCursor: result.nextCursor,
             total: result.total,
             page: result.page,
             pages: result.pages,
+            searchEventId: searchEvent?.eventId || '',
         });
     } catch (error) {
         if (error instanceof AppError) return next(error);
@@ -137,6 +176,30 @@ const getProducts = asyncHandler(async (req, res, next) => {
             requestId: req.requestId,
         });
         return next(new AppError('Failed to fetch products', 500));
+    }
+});
+
+// @desc    Record search result click telemetry
+// @route   POST /api/products/telemetry/search-click
+// @access  Public
+const trackProductSearchClick = asyncHandler(async (req, res, next) => {
+    try {
+        const event = await recordSearchClick({
+            req,
+            searchEventId: req.body.searchEventId,
+            productId: req.body.productId,
+            position: req.body.position,
+            sourceContext: req.body.sourceContext,
+            queryText: req.body.query,
+            filters: req.body.filters,
+        });
+        return res.status(202).json({
+            success: true,
+            eventId: event.eventId,
+        });
+    } catch (error) {
+        if (error instanceof AppError) return next(error);
+        return next(new AppError(error.message || 'Failed to record search click telemetry', 400));
     }
 });
 
@@ -168,7 +231,7 @@ const getProductById = asyncHandler(async (req, res, next) => {
     const product = await getProductByIdentifier(req.params.id);
 
     if (product) {
-        const serialized = product.toObject?.() || product;
+        const serialized = toClientProduct(product);
         res.json({
             ...serialized,
             dealDna: computeDealDna(product),
@@ -618,7 +681,7 @@ const visualSearchProducts = asyncHandler(async (req, res, next) => {
         });
 
         const scoredProducts = (result.products || []).map((product) => ({
-            ...product.toObject?.() || product,
+            ...toClientProduct(product),
             visualConfidence: getVisualConfidence(product, tokens),
         })).sort((a, b) => b.visualConfidence - a.visualConfidence);
 
@@ -685,6 +748,60 @@ const getCatalogArtwork = asyncHandler(async (req, res) => {
     return res.status(200).send(svg);
 });
 
+// @desc    Proxy trusted upstream product images through same-origin delivery
+// @route   GET /api/products/image-proxy
+// @access  Public
+const getProductImageProxy = asyncHandler(async (req, res, next) => {
+    const sourceUrl = String(req.query.url || '').trim();
+    if (!shouldProxyProductImage(sourceUrl)) {
+        return next(new AppError('Unsupported product image source', 400));
+    }
+
+    const upstreamUrl = buildProductImageFetchUrl(sourceUrl);
+
+    let upstream;
+    try {
+        upstream = await fetch(upstreamUrl, {
+            method: 'GET',
+            redirect: 'follow',
+            headers: {
+                'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36',
+                accept: 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+                referer: 'https://www.flipkart.com/',
+            },
+            signal: AbortSignal.timeout(PRODUCT_IMAGE_PROXY_TIMEOUT_MS),
+        });
+    } catch (error) {
+        logger.warn('products.image_proxy_upstream_failed', {
+            sourceUrl,
+            upstreamUrl,
+            error: error.message,
+            requestId: req.requestId,
+        });
+        return next(new AppError('Product image unavailable', 502));
+    }
+
+    if (!upstream.ok) {
+        logger.warn('products.image_proxy_upstream_status', {
+            sourceUrl,
+            upstreamUrl,
+            status: upstream.status,
+            requestId: req.requestId,
+        });
+        return next(new AppError('Product image unavailable', upstream.status === 404 ? 404 : 502));
+    }
+
+    const contentType = String(upstream.headers.get('content-type') || 'application/octet-stream').trim();
+    if (!/^image\//i.test(contentType)) {
+        return next(new AppError('Unsupported upstream image type', 502));
+    }
+
+    const buffer = Buffer.from(await upstream.arrayBuffer());
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400');
+    return res.status(200).send(buffer);
+});
+
 module.exports = {
     getProducts,
     getRecommendedProducts,
@@ -694,7 +811,9 @@ module.exports = {
     createProductReview,
     buildProductBundle,
     visualSearchProducts,
+    trackProductSearchClick,
     getCatalogArtwork,
+    getProductImageProxy,
     getProductById,
     deleteProduct,
     createProduct,

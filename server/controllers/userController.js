@@ -8,6 +8,7 @@ const { awardLoyaltyPoints, getUserRewards, getRewardSnapshotFromUser } = requir
 const { invalidateUserCache, invalidateUserCacheByEmail } = require('../middleware/authMiddleware');
 const logger = require('../utils/logger');
 const AppError = require('../utils/AppError');
+const { buildProductImageDeliveryUrl } = require('../services/productImageResolver');
 
 const PROFILE_PROJECTION = 'name email phone avatar gender dob bio isAdmin isVerified isSeller sellerActivatedAt addresses cart wishlist loyalty createdAt';
 const AUTH_ONLY_PROJECTION = 'name email phone isAdmin isVerified isSeller sellerActivatedAt loyalty';
@@ -72,7 +73,7 @@ const hydrateCartWithLiveProducts = async (cartItems = []) => {
             ...item,
             title: normalizeText(live.title) || item.title,
             price: Number(live.price ?? item.price ?? 0),
-            image: normalizeText(live.image) || item.image,
+            image: buildProductImageDeliveryUrl(normalizeText(live.image) || item.image),
             stock: liveStock,
             brand: normalizeText(live.brand) || item.brand,
             discountPercentage: Number(live.discountPercentage ?? item.discountPercentage ?? 0),
@@ -265,6 +266,8 @@ const loginUser = asyncHandler(async (req, res, next) => {
     }
 
     await persistAuthSnapshot(user);
+    invalidateUserCache(req.authUid);
+    invalidateUserCacheByEmail(user.email);
 
     res.json({
         _id: user._id,
@@ -374,6 +377,10 @@ const updateUserProfile = asyncHandler(async (req, res, next) => {
     if (!user) {
         return next(new AppError('User not found', 404));
     }
+
+    await persistAuthSnapshot(user);
+    invalidateUserCache(req.authUid);
+    invalidateUserCacheByEmail(user.email);
 
     res.json({
         _id: user._id,

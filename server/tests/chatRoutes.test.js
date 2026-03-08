@@ -1,4 +1,19 @@
 const request = require('supertest');
+
+jest.mock('../services/assistantCommerceService', () => ({
+    buildGroundedCatalogContext: jest.fn().mockResolvedValue({
+        commerceIntent: false,
+        actionType: 'assistant',
+        products: [],
+        groundingPrompt: '',
+    }),
+    buildCommerceFallbackResponse: jest.fn().mockResolvedValue(null),
+    executeCatalogActions: jest.fn().mockResolvedValue({
+        products: [],
+        actionType: 'assistant',
+    }),
+}));
+
 const app = require('../index');
 
 describe('Chat Routes Security', () => {

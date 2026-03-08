@@ -19,6 +19,7 @@ import SectionAnchorRail from './components/shared/SectionAnchorRail';
 import RouteTransitionShell from './components/shared/RouteTransitionShell';
 import ChatBot from './components/features/chat/ChatBot';
 import AppErrorBoundary from './components/shared/AppErrorBoundary';
+import BackendStatusBanner from './components/shared/BackendStatusBanner';
 import CrazyModeToggle from './components/shared/CrazyModeToggle';
 import { trustRoutes } from './config/trustContent';
 
@@ -60,6 +61,10 @@ function renderRoute(element) {
   return <AppErrorBoundary>{element}</AppErrorBoundary>;
 }
 
+function renderCriticalRoute(element) {
+  return element;
+}
+
 function AppContent() {
   return (
     <div className="flex flex-col min-h-screen">
@@ -69,6 +74,9 @@ function AppContent() {
       <SectionAnchorRail />
       <AppErrorBoundary>
         <Navbar />
+      </AppErrorBoundary>
+      <AppErrorBoundary>
+        <BackendStatusBanner />
       </AppErrorBoundary>
       <main className="flex-1">
         <Suspense
@@ -82,7 +90,7 @@ function AppContent() {
             <Routes>
               {/* Public Routes */}
               <Route path="/" element={renderRoute(<Home />)} />
-              <Route path="/login" element={renderRoute(<Login />)} />
+              <Route path="/login" element={renderCriticalRoute(<Login />)} />
               <Route path="/products" element={renderRoute(<ProductListing />)} />
               <Route path="/category/:category" element={renderRoute(<ProductListing />)} />
               <Route path="/deals" element={renderRoute(<ProductListing />)} />
@@ -104,25 +112,25 @@ function AppContent() {
               <Route path="/seller/:id" element={renderRoute(<SellerProfile />)} />
 
               {/* Protected Routes - require authentication */}
-              <Route path="/cart" element={renderRoute(<ProtectedRoute><Cart /></ProtectedRoute>)} />
-              <Route path="/wishlist" element={renderRoute(<ProtectedRoute><Wishlist /></ProtectedRoute>)} />
-              <Route path="/checkout" element={renderRoute(<ProtectedRoute><Checkout /></ProtectedRoute>)} />
-              <Route path="/orders" element={renderRoute(<ProtectedRoute><Orders /></ProtectedRoute>)} />
-              <Route path="/become-seller" element={renderRoute(<ProtectedRoute><BecomeSeller /></ProtectedRoute>)} />
-              <Route path="/sell" element={renderRoute(<SellerRoute><Sell /></SellerRoute>)} />
-              <Route path="/my-listings" element={renderRoute(<SellerRoute><MyListings /></SellerRoute>)} />
-              <Route path="/profile" element={renderRoute(<ProtectedRoute><ProfilePage /></ProtectedRoute>)} />
-              <Route path="/trade-in" element={renderRoute(<ProtectedRoute><TradeInPage /></ProtectedRoute>)} />
-              <Route path="/price-alerts" element={renderRoute(<ProtectedRoute><PriceAlertsPage /></ProtectedRoute>)} />
+              <Route path="/cart" element={renderCriticalRoute(<ProtectedRoute><Cart /></ProtectedRoute>)} />
+              <Route path="/wishlist" element={renderCriticalRoute(<ProtectedRoute><Wishlist /></ProtectedRoute>)} />
+              <Route path="/checkout" element={renderCriticalRoute(<ProtectedRoute><Checkout /></ProtectedRoute>)} />
+              <Route path="/orders" element={renderCriticalRoute(<ProtectedRoute><Orders /></ProtectedRoute>)} />
+              <Route path="/become-seller" element={renderCriticalRoute(<ProtectedRoute><BecomeSeller /></ProtectedRoute>)} />
+              <Route path="/sell" element={renderCriticalRoute(<SellerRoute><Sell /></SellerRoute>)} />
+              <Route path="/my-listings" element={renderCriticalRoute(<SellerRoute><MyListings /></SellerRoute>)} />
+              <Route path="/profile" element={renderCriticalRoute(<ProtectedRoute><ProfilePage /></ProtectedRoute>)} />
+              <Route path="/trade-in" element={renderCriticalRoute(<ProtectedRoute><TradeInPage /></ProtectedRoute>)} />
+              <Route path="/price-alerts" element={renderCriticalRoute(<ProtectedRoute><PriceAlertsPage /></ProtectedRoute>)} />
 
               {/* Admin Routes - require admin role */}
-              <Route path="/admin/dashboard" element={renderRoute(<AdminRoute><AdminDashboard /></AdminRoute>)} />
-              <Route path="/admin/products" element={renderRoute(<AdminRoute><ProductList /></AdminRoute>)} />
-              <Route path="/admin/product/:id/edit" element={renderRoute(<AdminRoute><ProductEdit /></AdminRoute>)} />
-              <Route path="/admin/orders" element={renderRoute(<AdminRoute><OrderList /></AdminRoute>)} />
-              <Route path="/admin/payments" element={renderRoute(<AdminRoute><AdminPayments /></AdminRoute>)} />
-              <Route path="/admin/refunds" element={renderRoute(<AdminRoute><AdminRefundLedger /></AdminRoute>)} />
-              <Route path="/admin/users" element={renderRoute(<AdminRoute><AdminUsers /></AdminRoute>)} />
+              <Route path="/admin/dashboard" element={renderCriticalRoute(<AdminRoute><AdminDashboard /></AdminRoute>)} />
+              <Route path="/admin/products" element={renderCriticalRoute(<AdminRoute><ProductList /></AdminRoute>)} />
+              <Route path="/admin/product/:id/edit" element={renderCriticalRoute(<AdminRoute><ProductEdit /></AdminRoute>)} />
+              <Route path="/admin/orders" element={renderCriticalRoute(<AdminRoute><OrderList /></AdminRoute>)} />
+              <Route path="/admin/payments" element={renderCriticalRoute(<AdminRoute><AdminPayments /></AdminRoute>)} />
+              <Route path="/admin/refunds" element={renderCriticalRoute(<AdminRoute><AdminRefundLedger /></AdminRoute>)} />
+              <Route path="/admin/users" element={renderCriticalRoute(<AdminRoute><AdminUsers /></AdminRoute>)} />
             </Routes>
           </RouteTransitionShell>
         </Suspense>

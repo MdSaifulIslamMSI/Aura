@@ -14,6 +14,8 @@ const logger = require('../utils/logger');
 const { resolveCategory } = require('../config/categories');
 const { flags } = require('../config/catalogFlags');
 const { resolveProductImage } = require('./productImageResolver');
+const { analyzeCatalogRecord } = require('./catalogSourceIntegrityService');
+const { prepareCatalogSnapshotForImport } = require('./catalogSnapshotService');
 
 const WORKER_ID = `${os.hostname()}-${process.pid}`;
 const IMPORT_BATCH_SIZE = 500;
@@ -34,6 +36,7 @@ let systemStateFallbackDoc = null;
 let systemStateFallbackWarned = false;
 let importWorkerPausedByQuota = false;
 let syncWorkerPausedByQuota = false;
+let publicDemoFallbackWarned = false;
 
 const safeString = (value, fallback = '') => String(value === undefined || value === null ? fallback : value).trim();
 const safeLower = (value, fallback = '') => safeString(value, fallback).toLowerCase();
@@ -102,6 +105,36 @@ const getProviderSourceRef = (provider) => {
     const envKey = `CATALOG_PROVIDER_SOURCE_REF_${normalized.toUpperCase().replace(/[^A-Z0-9]/g, '_')}`;
     return safeString(process.env[envKey] || flags.catalogProviderSourceRef);
 };
+
+const getProviderManifestRef = (provider) => {
+    const normalized = safeLower(provider, flags.catalogDefaultSyncProvider);
+    const envKey = `CATALOG_PROVIDER_MANIFEST_REF_${normalized.toUpperCase().replace(/[^A-Z0-9]/g, '_')}`;
+    return safeString(process.env[envKey] || process.env.CATALOG_PROVIDER_MANIFEST_REF || '');
+};
+
+const toJobSnapshotManifest = (manifest = {}, fallbackSourceType = '') => ({
+    providerName: safeString(manifest.providerName || ''),
+    feedVersion: safeString(manifest.feedVersion || ''),
+    exportTimestamp: manifest.exportTimestamp ? new Date(manifest.exportTimestamp) : null,
+    schemaVersion: safeString(manifest.schemaVersion || ''),
+    recordCount: toInt(manifest.recordCount, 0),
+    sha256: safeString(manifest.sha256 || ''),
+    sourceUrl: safeString(manifest.sourceUrl || ''),
+    sourceRef: safeString(manifest.sourceRef || ''),
+    sourceType: safeString(manifest.sourceType || fallbackSourceType || ''),
+});
+
+const toJobSourceValidation = (validation = {}) => ({
+    readyForImport: Boolean(validation.readyForImport),
+    manifestMatchesSource: Boolean(validation.manifestMatchesSource),
+    checksumMatches: Boolean(validation.checksumMatches),
+    computedSha256: safeString(validation.computedSha256 || ''),
+    sampleSize: toInt(validation.sampleSize, 0),
+    missingFieldCoverage: Array.isArray(validation.missingFieldCoverage)
+        ? validation.missingFieldCoverage.map((entry) => safeString(entry)).filter(Boolean)
+        : [],
+    checkedAt: validation.checkedAt ? new Date(validation.checkedAt) : null,
+});
 
 const deriveFallbackActiveCatalogVersion = async () => {
     const published = await Product.findOne({
@@ -312,10 +345,145 @@ const normalizeSpecifications = (raw = []) => {
     return output;
 };
 
+const PLACEHOLDER_IMAGE_PATTERNS = [
+    /via\.placeholder\.com/i,
+    /picsum\.photos/i,
+    /placehold\.co/i,
+    /dummyimage\.com/i,
+];
+
+const detectCatalogSourceType = ({ source, sourceRef }) => {
+    const normalizedSource = safeLower(source, 'batch');
+    const normalizedSourceRef = safeLower(sourceRef);
+
+    if (normalizedSource === 'manual') return 'first_party';
+    if (normalizedSource === 'provider') return 'provider';
+    if (
+        normalizedSourceRef.includes('catalog_1m.jsonl')
+        || normalizedSourceRef.includes('demo_catalog')
+        || normalizedSourceRef.includes('synthetic_catalog')
+    ) return 'dev_seed';
+    if (normalizedSource === 'batch') return 'batch';
+    return 'unknown';
+};
+
+const buildCatalogQualitySignals = ({
+    raw = {},
+    source,
+    sourceRef = '',
+    snapshotManifest = null,
+    title,
+    brand,
+    description,
+    specifications,
+    highlights,
+    image,
+    warranty,
+}) => {
+    const integrity = analyzeCatalogRecord({
+        ...raw,
+        title,
+        description,
+        image,
+    });
+    const sourceType = detectCatalogSourceType({ source, sourceRef });
+    const specCount = Array.isArray(specifications) ? specifications.length : 0;
+    const highlightCount = Array.isArray(highlights) ? highlights.length : 0;
+    const hasDescription = safeString(description).length >= 40;
+    const hasSpecifications = specCount >= 3;
+    const hasBrand = safeString(brand).length > 0 && safeLower(brand) !== 'unknown';
+    const hasImage = Boolean(safeString(image)) && !PLACEHOLDER_IMAGE_PATTERNS.some((pattern) => pattern.test(safeString(image)));
+    const hasWarranty = safeString(warranty).length > 0;
+    const issues = [];
+
+    if (!hasDescription) issues.push('missing_description');
+    if (!hasSpecifications) issues.push('thin_specifications');
+    if (!hasBrand) issues.push('missing_brand');
+    if (!hasImage) issues.push('untrusted_image');
+    if (integrity.looksSynthetic) issues.push('synthetic_signature');
+    if (sourceType === 'dev_seed') issues.push('dev_seed_catalog');
+
+    const completenessScore = Math.max(0, Math.min(100, Math.round(
+        (hasDescription ? 30 : 0)
+        + (hasSpecifications ? 30 : Math.min(specCount * 8, 24))
+        + (highlightCount > 0 ? Math.min(highlightCount * 6, 18) : 0)
+        + (hasBrand ? 10 : 0)
+        + (hasImage ? 20 : 0)
+        + (hasWarranty ? 5 : 0)
+    )));
+
+    const trustTier = sourceType === 'first_party'
+        ? 'first_party'
+        : (sourceType === 'provider'
+            ? 'verified'
+            : (sourceType === 'dev_seed'
+                ? 'unverified'
+                : (completenessScore >= 75 ? 'curated' : 'unverified')));
+
+    const datasetClass = integrity.looksSynthetic
+        ? 'synthetic'
+        : (sourceType === 'dev_seed' ? 'mixed' : 'real');
+    const publishReady = !integrity.looksSynthetic
+        && sourceType !== 'dev_seed'
+        && completenessScore >= 70
+        && hasImage
+        && hasDescription;
+
+    const publishStatus = integrity.looksSynthetic
+        ? 'rejected'
+        : (sourceType === 'dev_seed'
+            ? 'dev_only'
+            : (publishReady ? 'approved' : 'pending'));
+    const publishReason = integrity.looksSynthetic
+        ? 'synthetic_signals_detected'
+        : (sourceType === 'dev_seed'
+            ? 'dev_test_catalog_only'
+            : (publishReady ? 'ready_for_publish' : 'content_quality_review_required'));
+    const observedAt = raw?.updatedAt || raw?.observedAt || raw?.publishedAt || null;
+    const observedAtDate = observedAt ? new Date(observedAt) : null;
+
+    return {
+        provenance: {
+            sourceName: safeString(snapshotManifest?.providerName || raw.provider || raw.sourceName || raw.source || source || 'catalog'),
+            sourceType,
+            sourceRef: safeString(snapshotManifest?.sourceUrl || snapshotManifest?.sourceRef || sourceRef || raw.sourceRef || ''),
+            trustTier,
+            datasetClass,
+            feedVersion: safeString(snapshotManifest?.feedVersion || ''),
+            schemaVersion: safeString(snapshotManifest?.schemaVersion || ''),
+            manifestSha256: safeString(snapshotManifest?.sha256 || ''),
+            observedAt: observedAtDate instanceof Date && Number.isFinite(observedAtDate.getTime()) ? observedAtDate : null,
+            ingestedAt: new Date(),
+            imageSourceType: hasImage ? 'real' : (safeString(image) ? 'placeholder' : 'unknown'),
+        },
+        contentQuality: {
+            completenessScore,
+            specCount,
+            highlightCount,
+            hasDescription,
+            hasSpecifications,
+            hasBrand,
+            hasImage,
+            hasWarranty,
+            syntheticScore: integrity.suspiciousScore,
+            syntheticRejected: integrity.looksSynthetic,
+            publishReady,
+            issues,
+        },
+        publishGate: {
+            status: publishStatus,
+            reason: publishReason,
+            checkedAt: new Date(),
+        },
+    };
+};
+
 const normalizeProductRecord = ({
     raw,
     defaultSource,
     catalogVersion,
+    sourceRef = '',
+    snapshotManifest = null,
     forSync = false,
 }) => {
     const title = safeString(raw.title || raw.name || raw.productName);
@@ -359,6 +527,29 @@ const normalizeProductRecord = ({
         ? raw.highlights.map((entry) => safeString(entry)).filter(Boolean).slice(0, 12)
         : [];
     const specifications = normalizeSpecifications(raw.specifications);
+    const qualitySignals = buildCatalogQualitySignals({
+        raw,
+        source,
+        sourceRef,
+        snapshotManifest,
+        title,
+        brand,
+        description,
+        specifications,
+        highlights,
+        image,
+        warranty: safeString(raw.warranty || ''),
+    });
+
+    if (source === 'provider' && !qualitySignals.contentQuality.publishReady) {
+        const issueLabel = qualitySignals.contentQuality.issues[0] || 'content_quality_review_required';
+        return {
+            error: {
+                code: 'PROVIDER_ROW_REJECTED',
+                message: `provider row rejected: ${issueLabel}`,
+            },
+        };
+    }
 
     const normalized = {
         id: normalizedId,
@@ -385,6 +576,9 @@ const normalizeProductRecord = ({
         deliveryTime: safeString(raw.deliveryTime || '3-5 days'),
         warranty: safeString(raw.warranty || ''),
         adCampaign,
+        provenance: qualitySignals.provenance,
+        contentQuality: qualitySignals.contentQuality,
+        publishGate: qualitySignals.publishGate,
         searchText: buildSearchText({
             title,
             brand,
@@ -543,6 +737,18 @@ const getActiveCatalogVersion = async () => {
     return state.activeCatalogVersion || 'legacy-v1';
 };
 
+const findLatestDevOnlyCatalogVersion = async () => {
+    const latestDemo = await Product.findOne({
+        'publishGate.status': 'dev_only',
+        catalogVersion: { $exists: true, $ne: '' },
+    })
+        .sort({ updatedAt: -1, createdAt: -1 })
+        .select('catalogVersion')
+        .lean();
+
+    return latestDemo?.catalogVersion || '';
+};
+
 const assertSearchAvailable = async () => {
     if (atlasSearchSupported !== null) {
         return atlasSearchSupported;
@@ -578,6 +784,43 @@ const enforceCatalogStartupCheck = async () => {
 const buildBaseProductFilter = async () => {
     if (!flags.catalogActiveVersionRequired) return {};
     const activeCatalogVersion = await getActiveCatalogVersion();
+    const publishedInActiveCatalog = await Product.findOne({
+        catalogVersion: activeCatalogVersion,
+        isPublished: true,
+    })
+        .select('_id')
+        .lean();
+
+    if (publishedInActiveCatalog) {
+        return {
+            catalogVersion: activeCatalogVersion,
+            isPublished: true,
+        };
+    }
+
+    if (!flags.catalogPublicDemoFallback) {
+        return {
+            catalogVersion: activeCatalogVersion,
+            isPublished: true,
+        };
+    }
+
+    const demoCatalogVersion = await findLatestDevOnlyCatalogVersion();
+    if (demoCatalogVersion) {
+        if (!publicDemoFallbackWarned) {
+            logger.warn('catalog.public_demo_fallback_enabled', {
+                activeCatalogVersion,
+                demoCatalogVersion,
+            });
+            publicDemoFallbackWarned = true;
+        }
+
+        return {
+            catalogVersion: demoCatalogVersion,
+            'publishGate.status': 'dev_only',
+        };
+    }
+
     return {
         catalogVersion: activeCatalogVersion,
         isPublished: true,
@@ -627,7 +870,15 @@ const buildFilterFromQuery = (query = {}) => {
         }).filter(Boolean);
 
         if (categoryPatterns.length > 0) {
-            filter.category = { $in: categoryPatterns };
+            filter.$and = [
+                ...(Array.isArray(filter.$and) ? filter.$and : []),
+                {
+                    $or: [
+                        { category: { $in: categoryPatterns } },
+                        { categoryPaths: { $in: categoryPatterns } },
+                    ],
+                },
+            ];
         }
     }
 
@@ -834,6 +1085,59 @@ const mergeSponsoredIntoProducts = ({
     return result;
 };
 
+const scoreProductForDecisionVelocity = (product = {}, keywordCandidates = []) => {
+    const title = safeLower(product.title);
+    const brand = safeLower(product.brand);
+    const category = safeLower(product.category);
+    const description = safeLower(product.description);
+    let score = 0;
+
+    keywordCandidates.forEach((candidate) => {
+        const token = safeLower(candidate);
+        if (!token) return;
+        if (title === token) score += 120;
+        if (title.startsWith(token)) score += 70;
+        if (title.includes(token)) score += 45;
+        if (brand === token) score += 55;
+        if (brand.includes(token)) score += 25;
+        if (category === token) score += 35;
+        if (category.includes(token)) score += 18;
+        if (description.includes(token)) score += 8;
+    });
+
+    if (Number(product.stock || 0) > 0) score += 30;
+
+    const trustTier = safeLower(product?.provenance?.trustTier);
+    if (trustTier === 'first_party') score += 40;
+    if (trustTier === 'verified') score += 30;
+    if (trustTier === 'curated') score += 22;
+    if (Boolean(product?.contentQuality?.publishReady)) score += 25;
+
+    score += Math.min(20, Number(product?.contentQuality?.completenessScore || 0) / 4);
+    score += Math.min(12, Number(product.rating || 0) * 2);
+    score += Math.min(20, Math.log10(Number(product.ratingCount || 0) + 1) * 8);
+
+    return Number(score.toFixed(2));
+};
+
+const sortProductsForDecisionVelocity = (products = [], keywordCandidates = []) => (
+    [...products]
+        .map((product) => ({
+            ...toPlainProduct(product),
+            __decisionScore: scoreProductForDecisionVelocity(product, keywordCandidates),
+        }))
+        .sort((a, b) => {
+            if (b.__decisionScore !== a.__decisionScore) {
+                return b.__decisionScore - a.__decisionScore;
+            }
+            if (Number(b.ratingCount || 0) !== Number(a.ratingCount || 0)) {
+                return Number(b.ratingCount || 0) - Number(a.ratingCount || 0);
+            }
+            return String(b._id || '').localeCompare(String(a._id || ''));
+        })
+        .map(({ __decisionScore, ...product }) => product)
+);
+
 const decodeCursor = (cursor) => {
     if (!cursor) return null;
     try {
@@ -923,6 +1227,8 @@ const queryProducts = async (query = {}) => {
     const useAtlasSearch = keywordCandidates.length > 0 && await assertSearchAvailable();
     const requestTimeoutMs = 8000;
     const keywordFilter = buildKeywordRegexFilter(keywordCandidates);
+    const relevanceSort = safeLower(query.sort, 'relevance') === 'relevance' || !query.sort;
+    const candidateFetchLimit = relevanceSort ? Math.min(limit * 3, 60) : limit;
 
     const runRegexFallbackQuery = async () => {
         const fallbackFilter = {
@@ -938,14 +1244,17 @@ const queryProducts = async (query = {}) => {
         const skip = cursor ? 0 : (page - 1) * limit;
         const [products, total] = await Promise.all([
             Product.find(fallbackFilter)
-                .sort(sort)
+                .sort(relevanceSort ? { ratingCount: -1, _id: -1 } : sort)
                 .skip(skip)
-                .limit(limit)
+                .limit(candidateFetchLimit)
                 .maxTimeMS(requestTimeoutMs),
             Product.countDocuments(countFilter).maxTimeMS(requestTimeoutMs),
         ]);
 
         let finalProducts = (products || []).map((entry) => toPlainProduct(entry));
+        if (relevanceSort) {
+            finalProducts = sortProductsForDecisionVelocity(finalProducts, keywordCandidates).slice(0, limit);
+        }
         if (includeSponsored && sponsoredSlots > 0 && finalProducts.length > 0) {
             const sponsoredProducts = await fetchSponsoredProducts({
                 mergedBase,
@@ -965,7 +1274,7 @@ const queryProducts = async (query = {}) => {
             total,
             page,
             pages: Math.max(1, Math.ceil(total / limit)),
-            nextCursor: products.length === limit ? generateNextCursor(products, sort) : null,
+            nextCursor: relevanceSort ? null : (products.length === limit ? generateNextCursor(products, sort) : null),
         };
     };
 
@@ -993,6 +1302,14 @@ const queryProducts = async (query = {}) => {
                 equals: {
                     path: 'isPublished',
                     value: baseFilter.isPublished,
+                },
+            });
+        }
+        if (baseFilter['publishGate.status']) {
+            filterClauses.push({
+                equals: {
+                    path: 'publishGate.status',
+                    value: baseFilter['publishGate.status'],
                 },
             });
         }
@@ -1053,7 +1370,7 @@ const queryProducts = async (query = {}) => {
 
         pipeline.push({
             $facet: {
-                products: [{ $limit: limit }],
+                products: [{ $limit: candidateFetchLimit }],
                 totalMeta: [{ $count: 'count' }],
             },
         });
@@ -1065,6 +1382,9 @@ const queryProducts = async (query = {}) => {
 
         if (total > 0) {
             let finalProducts = products.map((entry) => toPlainProduct(entry));
+            if (relevanceSort) {
+                finalProducts = sortProductsForDecisionVelocity(finalProducts, keywordCandidates).slice(0, limit);
+            }
             if (includeSponsored && sponsoredSlots > 0 && finalProducts.length > 0) {
                 const sponsoredProducts = await fetchSponsoredProducts({
                     mergedBase,
@@ -1084,7 +1404,7 @@ const queryProducts = async (query = {}) => {
                 total,
                 page,
                 pages: Math.max(1, Math.ceil(total / limit)),
-                nextCursor: products.length === limit ? generateNextCursor(products, sort) : null,
+                nextCursor: relevanceSort ? null : (products.length === limit ? generateNextCursor(products, sort) : null),
             };
         }
 
@@ -1167,6 +1487,7 @@ const createManualProduct = async (payload) => {
         raw: { ...payload, id: productId, externalId, source: 'manual' },
         defaultSource: 'manual',
         catalogVersion: activeVersion,
+        sourceRef: 'manual:first_party',
         forSync: false,
     });
 
@@ -1217,6 +1538,7 @@ const updateManualProduct = async (identifier, payload) => {
         raw: merged,
         defaultSource: existing.source || 'manual',
         catalogVersion: existing.catalogVersion,
+        sourceRef: existing?.provenance?.sourceRef || 'manual:first_party',
         forSync: false,
     });
     if (normalized.error) {
@@ -1392,9 +1714,15 @@ const bulkUpsertProducts = async ({ docs, catalogVersion }) => {
 const runImportPipeline = async ({
     sourceType,
     sourceRef,
+    manifestRef,
     catalogVersion,
     sourceLabel = 'batch',
 }) => {
+    const snapshotReport = await prepareCatalogSnapshotForImport({
+        sourceType,
+        sourceRef,
+        manifestRef,
+    });
     const totals = {
         totalRows: 0,
         inserted: 0,
@@ -1417,7 +1745,10 @@ const runImportPipeline = async ({
         batch = [];
     };
 
-    for await (const row of streamRowsFromSource(sourceType, sourceRef)) {
+    for await (const row of streamRowsFromSource(
+        snapshotReport.sourceType,
+        snapshotReport.sourceResource.localPath
+    )) {
         totals.totalRows += 1;
         if (totals.totalRows > MAX_ROWS_PER_IMPORT) {
             throw new AppError(`Import exceeded max rows (${MAX_ROWS_PER_IMPORT})`, 400);
@@ -1427,6 +1758,8 @@ const runImportPipeline = async ({
             raw: row.data,
             defaultSource: sourceLabel,
             catalogVersion,
+            sourceRef,
+            snapshotManifest: snapshotReport.manifest,
             forSync: sourceLabel === 'provider',
         });
         if (normalized.error) {
@@ -1442,12 +1775,94 @@ const runImportPipeline = async ({
     }
 
     await flushBatch();
-    return { totals, errors };
+    return { totals, errors, snapshotReport };
+};
+
+const summarizeCatalogVersionQuality = async (catalogVersion) => {
+    const [summary] = await Product.aggregate([
+        { $match: { catalogVersion } },
+        {
+            $group: {
+                _id: '$catalogVersion',
+                totalProducts: { $sum: 1 },
+                publishReadyProducts: {
+                    $sum: { $cond: [{ $eq: ['$contentQuality.publishReady', true] }, 1, 0] },
+                },
+                syntheticRejectedProducts: {
+                    $sum: { $cond: [{ $eq: ['$contentQuality.syntheticRejected', true] }, 1, 0] },
+                },
+                devOnlyProducts: {
+                    $sum: { $cond: [{ $eq: ['$publishGate.status', 'dev_only'] }, 1, 0] },
+                },
+                trustedProducts: {
+                    $sum: {
+                        $cond: [
+                            { $in: ['$provenance.trustTier', ['verified', 'curated', 'first_party']] },
+                            1,
+                            0,
+                        ],
+                    },
+                },
+                avgCompletenessScore: {
+                    $avg: { $ifNull: ['$contentQuality.completenessScore', 0] },
+                },
+            },
+        },
+    ]);
+
+    return summary || {
+        totalProducts: 0,
+        publishReadyProducts: 0,
+        syntheticRejectedProducts: 0,
+        devOnlyProducts: 0,
+        trustedProducts: 0,
+        avgCompletenessScore: 0,
+    };
+};
+
+const evaluateCatalogPublishGate = async ({ catalogVersion, totals }) => {
+    const qualitySummary = await summarizeCatalogVersionQuality(catalogVersion);
+    const totalProducts = Math.max(qualitySummary.totalProducts || 0, totals?.totalRows || 0, 1);
+    const failedRatio = totals?.totalRows > 0 ? (totals.failed / totals.totalRows) : 1;
+    const publishReadyRatio = Number(qualitySummary.publishReadyProducts || 0) / totalProducts;
+    const trustedRatio = Number(qualitySummary.trustedProducts || 0) / totalProducts;
+
+    let publishGateStatus = 'pending';
+    let publishGateReason = 'catalog_quality_review_required';
+    let publishable = false;
+
+    if (Number(qualitySummary.syntheticRejectedProducts || 0) > 0) {
+        publishGateStatus = 'rejected';
+        publishGateReason = 'synthetic_catalog_signals_detected';
+    } else if (Number(qualitySummary.devOnlyProducts || 0) > 0) {
+        publishGateStatus = 'dev_only';
+        publishGateReason = 'dev_test_catalog_cannot_be_published';
+    } else if (
+        totals?.totalRows > 0
+        && failedRatio <= 0.1
+        && publishReadyRatio >= 0.75
+        && trustedRatio >= 0.75
+    ) {
+        publishGateStatus = 'approved';
+        publishGateReason = 'catalog_ready_for_publish';
+        publishable = true;
+    }
+
+    return {
+        publishable,
+        publishGateStatus,
+        publishGateReason,
+        qualitySummary: {
+            ...qualitySummary,
+            avgCompletenessScore: Number(Number(qualitySummary.avgCompletenessScore || 0).toFixed(2)),
+        },
+    };
 };
 
 const createCatalogImportJob = async ({
     sourceType,
     sourceRef,
+    manifestRef,
     mode = 'batch',
     initiatedBy = '',
     idempotencyKey = '',
@@ -1458,12 +1873,18 @@ const createCatalogImportJob = async ({
         throw new AppError('Catalog imports are currently disabled', 403);
     }
 
+    const snapshotReport = await prepareCatalogSnapshotForImport({
+        sourceType,
+        sourceRef,
+        manifestRef,
+    });
     const catalogVersion = `cat_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`;
     const job = await CatalogImportJob.create({
         jobId: makeId('imp'),
         status: 'pending',
-        sourceType: safeLower(sourceType, 'jsonl'),
+        sourceType: safeLower(snapshotReport.sourceType || sourceType, 'jsonl'),
         sourceRef: safeString(sourceRef),
+        manifestRef: safeString(manifestRef),
         mode: safeString(mode || 'batch'),
         initiatedBy: safeString(initiatedBy),
         user: userId || null,
@@ -1471,6 +1892,8 @@ const createCatalogImportJob = async ({
         idempotencyKey: safeString(idempotencyKey),
         catalogVersion,
         publishable: false,
+        snapshotManifest: toJobSnapshotManifest(snapshotReport.manifest, snapshotReport.sourceType),
+        sourceValidation: toJobSourceValidation(snapshotReport.validation),
         startedAt: new Date(),
     });
 
@@ -1478,11 +1901,18 @@ const createCatalogImportJob = async ({
 };
 
 const markImportJobFinished = async ({ job, status, totals, errors }) => {
+    const publishGate = await evaluateCatalogPublishGate({
+        catalogVersion: job.catalogVersion,
+        totals,
+    });
     job.status = status;
     job.totals = totals;
     job.errorCount = totals.failed;
     job.errorSample = errors;
-    job.publishable = totals.totalRows > 0 && (totals.failed / totals.totalRows) <= 0.1;
+    job.publishable = publishGate.publishable;
+    job.publishGateStatus = publishGate.publishGateStatus;
+    job.publishGateReason = publishGate.publishGateReason;
+    job.qualitySummary = publishGate.qualitySummary;
     job.finishedAt = new Date();
     job.lockedAt = null;
     job.lockedBy = null;
@@ -1513,12 +1943,15 @@ const processCatalogImportJobById = async (jobId) => {
     }
 
     try {
-        const { totals, errors } = await runImportPipeline({
+        const { totals, errors, snapshotReport } = await runImportPipeline({
             sourceType: job.sourceType,
             sourceRef: job.sourceRef,
+            manifestRef: job.manifestRef,
             catalogVersion: job.catalogVersion,
             sourceLabel: job.mode === 'provider' ? 'provider' : 'batch',
         });
+        job.snapshotManifest = toJobSnapshotManifest(snapshotReport.manifest, snapshotReport.sourceType);
+        job.sourceValidation = toJobSourceValidation(snapshotReport.validation);
 
         const status = totals.failed > 0 ? 'completed_with_errors' : 'completed';
         await markImportJobFinished({ job, status, totals, errors });
@@ -1544,8 +1977,21 @@ const processCatalogImportJobById = async (jobId) => {
 const publishCatalogVersion = async (jobId) => {
     const job = await CatalogImportJob.findOne({ jobId });
     if (!job) throw new AppError('Catalog import job not found', 404);
+    const publishGate = await evaluateCatalogPublishGate({
+        catalogVersion: job.catalogVersion,
+        totals: job.totals,
+    });
+    job.publishable = publishGate.publishable;
+    job.publishGateStatus = publishGate.publishGateStatus;
+    job.publishGateReason = publishGate.publishGateReason;
+    job.qualitySummary = publishGate.qualitySummary;
+    await job.save();
+
     if (!job.publishable) {
-        throw new AppError('Catalog import is not publishable. Resolve import errors first.', 409);
+        throw new AppError(
+            `Catalog import is not publishable (${job.publishGateReason || 'quality gate failed'}). Resolve provenance or content-quality issues first.`,
+            409
+        );
     }
     if (job.status === 'published') {
         const state = await getSystemState();
@@ -1553,6 +1999,9 @@ const publishCatalogVersion = async (jobId) => {
             publishedVersion: state.activeCatalogVersion,
             switchedAt: state.lastSwitchAt,
             oldVersionRetained: state.previousCatalogVersion || null,
+            publishGateStatus: job.publishGateStatus || 'approved',
+            publishGateReason: job.publishGateReason || 'catalog_ready_for_publish',
+            qualitySummary: job.qualitySummary || null,
         };
     }
 
@@ -1602,6 +2051,9 @@ const publishCatalogVersion = async (jobId) => {
             publishedVersion: nextVersion,
             switchedAt: state.lastSwitchAt,
             oldVersionRetained: previousVersion || null,
+            publishGateStatus: job.publishGateStatus || 'approved',
+            publishGateReason: job.publishGateReason || 'catalog_ready_for_publish',
+            qualitySummary: job.qualitySummary || null,
         };
     } catch (error) {
         await session.abortTransaction();
@@ -1695,8 +2147,12 @@ const processCatalogSyncRunById = async (syncRunId) => {
         const cursorDoc = await CatalogSyncCursor.findOne({ provider: run.provider }).lean();
         const cursorFromState = run.cursorInput || cursorDoc?.cursor || '';
         const sourceRef = getProviderSourceRef(run.provider);
+        const manifestRef = getProviderManifestRef(run.provider);
         if (!sourceRef) {
             throw new AppError('CATALOG_PROVIDER_SOURCE_REF is not configured for sync provider', 400);
+        }
+        if (!manifestRef) {
+            throw new AppError('CATALOG_PROVIDER_MANIFEST_REF is not configured for sync provider', 400);
         }
 
         const baseVersion = await getActiveCatalogVersion();
@@ -1729,9 +2185,10 @@ const processCatalogSyncRunById = async (syncRunId) => {
             },
         ]);
 
-        const { totals, errors } = await runImportPipeline({
+        const { totals, errors, snapshotReport } = await runImportPipeline({
             sourceType: 'jsonl',
             sourceRef,
+            manifestRef,
             catalogVersion: nextVersion,
             sourceLabel: 'provider',
         });
@@ -1764,8 +2221,9 @@ const processCatalogSyncRunById = async (syncRunId) => {
         const fakeJob = await CatalogImportJob.create({
             jobId: makeId('syncpub'),
             status: 'completed',
-            sourceType: 'jsonl',
+            sourceType: safeLower(snapshotReport.sourceType || 'jsonl'),
             sourceRef,
+            manifestRef,
             mode: 'provider',
             initiatedBy: 'system-sync',
             catalogVersion: nextVersion,
@@ -1777,6 +2235,8 @@ const processCatalogSyncRunById = async (syncRunId) => {
                 failed: totals.failed,
             },
             publishable: true,
+            snapshotManifest: toJobSnapshotManifest(snapshotReport.manifest, snapshotReport.sourceType),
+            sourceValidation: toJobSourceValidation(snapshotReport.validation),
             startedAt: run.startedAt,
             finishedAt: run.finishedAt,
             user: run.user || null,
@@ -1919,12 +2379,16 @@ const getCatalogImportJob = async (jobId) => {
 
 const getCatalogHealth = async () => {
     const state = await getSystemState();
-    const [pendingImports, processingImports, pendingSyncRuns, processingSyncRuns, lastSyncCursor] = await Promise.all([
+    const [pendingImports, processingImports, pendingSyncRuns, processingSyncRuns, lastSyncCursor, publishReadyProducts, devOnlyProducts, syntheticRejectedProducts, publishedProductCount] = await Promise.all([
         CatalogImportJob.countDocuments({ status: 'pending' }),
         CatalogImportJob.countDocuments({ status: 'processing' }),
         CatalogSyncRun.countDocuments({ status: 'pending' }),
         CatalogSyncRun.countDocuments({ status: 'processing' }),
         CatalogSyncCursor.findOne({ provider: flags.catalogDefaultSyncProvider }).lean(),
+        Product.countDocuments({ catalogVersion: state.activeCatalogVersion, 'contentQuality.publishReady': true }),
+        Product.countDocuments({ catalogVersion: state.activeCatalogVersion, 'publishGate.status': 'dev_only' }),
+        Product.countDocuments({ catalogVersion: state.activeCatalogVersion, 'contentQuality.syntheticRejected': true }),
+        Product.countDocuments({ catalogVersion: state.activeCatalogVersion, isPublished: true }),
     ]);
 
     const now = Date.now();
@@ -1955,6 +2419,12 @@ const getCatalogHealth = async () => {
             importWorkerRunning: Boolean(importWorkerTimer),
             syncWorkerRunning: Boolean(syncWorkerTimer),
             ...getWorkerPauseReason(),
+        },
+        quality: {
+            publishedProductCount,
+            publishReadyProducts,
+            devOnlyProducts,
+            syntheticRejectedProducts,
         },
     };
 };

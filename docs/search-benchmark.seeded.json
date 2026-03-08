@@ -1,0 +1,150 @@
+[
+  {
+    "query": "iphone 15",
+    "filters": {
+      "category": "Mobiles"
+    },
+    "expectations": {
+      "titleIncludes": ["iphone"],
+      "brandIncludes": ["apple"],
+      "categoryIncludes": ["mobiles"]
+    },
+    "competitors": {
+      "flipkart": {
+        "offlineJudgement": "strong_exact_match"
+      },
+      "amazonIndia": {
+        "offlineJudgement": "strong_exact_match"
+      }
+    }
+  },
+  {
+    "query": "wireless earbuds",
+    "filters": {
+      "category": "Audio"
+    },
+    "expectations": {
+      "titleIncludes": ["earbuds", "buds"],
+      "categoryIncludes": ["audio", "headphones"]
+    },
+    "competitors": {
+      "flipkart": {
+        "offlineJudgement": "strong_category_match"
+      },
+      "amazonIndia": {
+        "offlineJudgement": "strong_category_match"
+      }
+    }
+  },
+  {
+    "query": "gaming laptop",
+    "filters": {
+      "category": "Laptops"
+    },
+    "expectations": {
+      "titleIncludes": ["gaming"],
+      "brandIncludes": ["asus", "hp", "dell", "lenovo"],
+      "categoryIncludes": ["laptops"]
+    },
+    "competitors": {
+      "flipkart": {
+        "offlineJudgement": "strong_brand_depth"
+      },
+      "amazonIndia": {
+        "offlineJudgement": "strong_brand_depth"
+      }
+    }
+  },
+  {
+    "query": "smart watch under 5000",
+    "filters": {
+      "category": "Wearables",
+      "maxPrice": 5000
+    },
+    "expectations": {
+      "titleIncludes": ["watch"],
+      "categoryIncludes": ["wearables", "smart watch"]
+    },
+    "competitors": {
+      "flipkart": {
+        "offlineJudgement": "price_intent_strong"
+      },
+      "amazonIndia": {
+        "offlineJudgement": "price_intent_strong"
+      }
+    }
+  },
+  {
+    "query": "air fryer",
+    "filters": {
+      "category": "Home Appliances"
+    },
+    "expectations": {
+      "titleIncludes": ["air fryer"],
+      "categoryIncludes": ["home appliances", "kitchen"]
+    },
+    "competitors": {
+      "flipkart": {
+        "offlineJudgement": "mid_market_strength"
+      },
+      "amazonIndia": {
+        "offlineJudgement": "mid_market_strength"
+      }
+    }
+  },
+  {
+    "query": "running shoes",
+    "filters": {
+      "category": "Footwear"
+    },
+    "expectations": {
+      "titleIncludes": ["running", "shoes"],
+      "brandIncludes": ["nike", "adidas", "puma"],
+      "categoryIncludes": ["footwear"]
+    },
+    "competitors": {
+      "flipkart": {
+        "offlineJudgement": "strong_sports_assortment"
+      },
+      "amazonIndia": {
+        "offlineJudgement": "strong_sports_assortment"
+      }
+    }
+  },
+  {
+    "query": "refrigerator double door",
+    "filters": {
+      "category": "Home Appliances"
+    },
+    "expectations": {
+      "titleIncludes": ["refrigerator", "double door"],
+      "categoryIncludes": ["home appliances"]
+    },
+    "competitors": {
+      "flipkart": {
+        "offlineJudgement": "large_appliance_strength"
+      },
+      "amazonIndia": {
+        "offlineJudgement": "large_appliance_strength"
+      }
+    }
+  },
+  {
+    "query": "usb c charger",
+    "filters": {
+      "category": "Accessories"
+    },
+    "expectations": {
+      "titleIncludes": ["usb", "charger", "type c"],
+      "categoryIncludes": ["accessories"]
+    },
+    "competitors": {
+      "flipkart": {
+        "offlineJudgement": "accessory_relevance_strong"
+      },
+      "amazonIndia": {
+        "offlineJudgement": "accessory_relevance_strong"
+      }
+    }
+  }
+]

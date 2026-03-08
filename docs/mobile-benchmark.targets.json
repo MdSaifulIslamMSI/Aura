@@ -1,0 +1,120 @@
+{
+  "targets": [
+    {
+      "label": "Aura",
+      "baseUrl": "http://127.0.0.1:5173",
+      "auditUrl": "http://127.0.0.1:5173/",
+      "incumbentBaseline": {
+        "bestKnownStepCount": {
+          "search_to_pdp": 4,
+          "pdp_to_cart": 3,
+          "saved_checkout": 5
+        }
+      },
+      "flows": [
+        {
+          "name": "search_to_pdp",
+          "startUrl": "http://127.0.0.1:5173/",
+          "steps": [
+            { "type": "waitForSelector", "selector": "input[placeholder*='Search']" },
+            { "type": "fill", "selector": "input[placeholder*='Search']", "value": "iphone 15" },
+            { "type": "press", "selector": "input[placeholder*='Search']", "key": "Enter" },
+            { "type": "waitForUrl", "urlIncludes": "/search" },
+            { "type": "click", "selector": "a[href*='/product/']" },
+            { "type": "waitForUrl", "urlIncludes": "/product/" }
+          ]
+        },
+        {
+          "name": "pdp_to_cart",
+          "startUrl": "http://127.0.0.1:5173/search?q=iphone%2015",
+          "steps": [
+            { "type": "waitForSelector", "selector": "a[href*='/product/']" },
+            { "type": "click", "selector": "a[href*='/product/']" },
+            { "type": "waitForUrl", "urlIncludes": "/product/" },
+            { "type": "click", "selector": "button" }
+          ],
+          "note": "Tune the final add-to-cart selector to your PDP button if multiple buttons are present."
+        },
+        {
+          "name": "saved_checkout",
+          "startUrl": "http://127.0.0.1:5173/search?q=iphone%2015",
+          "requiresEnv": ["BENCH_AURA_AUTH_EMAIL", "BENCH_AURA_AUTH_PASSWORD"],
+          "steps": [
+            { "type": "waitForSelector", "selector": "a[href*='/product/']" },
+            { "type": "click", "selector": "a[href*='/product/']" },
+            { "type": "waitForUrl", "urlIncludes": "/product/" },
+            { "type": "click", "selector": "button" }
+          ],
+          "note": "Use a logged-in saved-user session or extend the flow with explicit auth/cart selectors for your staging environment."
+        }
+      ]
+    },
+    {
+      "label": "Flipkart",
+      "baseUrl": "https://www.flipkart.com",
+      "auditUrl": "https://www.flipkart.com/search?q=iphone%2015",
+      "flows": [
+        {
+          "name": "search_to_pdp",
+          "startUrl": "https://www.flipkart.com/search?q=iphone%2015",
+          "steps": [
+            { "type": "waitForSelector", "selector": "a[href*='/p/']" },
+            { "type": "click", "selector": "a[href*='/p/']" }
+          ]
+        },
+        {
+          "name": "pdp_to_cart",
+          "startUrl": "https://www.flipkart.com/search?q=iphone%2015",
+          "steps": [
+            { "type": "waitForSelector", "selector": "a[href*='/p/']" },
+            { "type": "click", "selector": "a[href*='/p/']" },
+            { "type": "waitForSelector", "selector": "button" }
+          ],
+          "note": "Flipkart UI changes often. Adjust button selectors when the benchmark fails on retail chrome changes."
+        },
+        {
+          "name": "saved_checkout",
+          "startUrl": "https://www.flipkart.com/search?q=iphone%2015",
+          "steps": [
+            { "type": "waitForSelector", "selector": "a[href*='/p/']" },
+            { "type": "click", "selector": "a[href*='/p/']" }
+          ],
+          "note": "Saved-user checkout on Flipkart is treated as a proxy flow unless you provide your own authenticated session automation."
+        }
+      ]
+    },
+    {
+      "label": "Amazon India",
+      "baseUrl": "https://www.amazon.in",
+      "auditUrl": "https://www.amazon.in/s?k=iphone+15",
+      "flows": [
+        {
+          "name": "search_to_pdp",
+          "startUrl": "https://www.amazon.in/s?k=iphone+15",
+          "steps": [
+            { "type": "waitForSelector", "selector": "a[href*='/dp/']" },
+            { "type": "click", "selector": "a[href*='/dp/']" }
+          ]
+        },
+        {
+          "name": "pdp_to_cart",
+          "startUrl": "https://www.amazon.in/s?k=iphone+15",
+          "steps": [
+            { "type": "waitForSelector", "selector": "a[href*='/dp/']" },
+            { "type": "click", "selector": "a[href*='/dp/']" },
+            { "type": "waitForSelector", "selector": "input[name='submit.add-to-cart'], #add-to-cart-button" }
+          ]
+        },
+        {
+          "name": "saved_checkout",
+          "startUrl": "https://www.amazon.in/s?k=iphone+15",
+          "steps": [
+            { "type": "waitForSelector", "selector": "a[href*='/dp/']" },
+            { "type": "click", "selector": "a[href*='/dp/']" }
+          ],
+          "note": "Saved-user checkout on Amazon India is treated as a proxy flow unless you provide your own authenticated session automation."
+        }
+      ]
+    }
+  ]
+}

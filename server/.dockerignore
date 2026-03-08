@@ -1,0 +1,12 @@
+node_modules
+npm-debug.log*
+.env
+.env.local
+.vercel
+.mongodb-binaries
+coverage
+run-logs
+.run-logs
+uploads
+data/catalog_1m.jsonl
+Dockerfile*

@@ -15,6 +15,10 @@ const {
     runCatalogSyncWorkerCycle,
     getCatalogHealth,
 } = require('./catalogService');
+const {
+    runCommerceReconciliationCycle,
+    getCommerceReconciliationStatus,
+} = require('./commerceReconciliationService');
 const { runAdminAnalyticsMonitorCycle } = require('./adminAnalyticsMonitorService');
 
 const TASK_DEFINITIONS = {
@@ -37,6 +41,11 @@ const TASK_DEFINITIONS = {
         enabled: () => catalogFlags.catalogSyncEnabled,
         run: () => runCatalogSyncWorkerCycle(),
         stats: () => getCatalogHealth(),
+    },
+    reconciliation: {
+        enabled: () => String(process.env.COMMERCE_RECONCILIATION_ENABLED || 'true').trim().toLowerCase() !== 'false',
+        run: () => runCommerceReconciliationCycle(),
+        stats: () => getCommerceReconciliationStatus(),
     },
     adminAnalytics: {
         enabled: () => String(process.env.ADMIN_ANALYTICS_MONITOR_ENABLED || 'true').trim().toLowerCase() !== 'false',

@@ -181,6 +181,7 @@ const shouldSkipNotification = ({ req, res, method, path }) => {
     if (!MUTATION_METHODS.has(method)) return 'not_mutation';
     if (res.statusCode < 200 || res.statusCode >= 400) return 'status_not_success';
     if (path.startsWith('/api/admin/')) return 'admin_portal_action';
+    if (path.startsWith('/api/observability/')) return 'observability_ingestion';
     if (req.user?.isAdmin) return 'admin_actor';
     return '';
 };
@@ -247,4 +248,3 @@ module.exports = {
     createAdminNotification,
     notifyAdminFromRequest,
 };
-

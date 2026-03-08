@@ -35,6 +35,7 @@ const adCampaignSchema = z.object({
 const productSearchSchema = z.object({
     query: z.object({
         keyword: z.string().trim().max(100).optional(),
+        telemetryContext: z.string().trim().max(80).optional(),
         page: z.preprocess((val) => Number(val), z.number().int().min(1).default(1)).optional(),
         limit: z.preprocess((val) => Number(val), z.number().int().min(1).max(50).default(12)).optional(),
         nextCursor: z.string().optional(),
@@ -205,6 +206,17 @@ const createProductReviewSchema = z.object({
     }).strict(),
 });
 
+const trackSearchClickSchema = z.object({
+    body: z.object({
+        searchEventId: z.string().trim().min(6).max(120).optional(),
+        productId: z.union([z.string().trim().min(1).max(120), z.number()]),
+        position: z.coerce.number().int().min(0).max(200).optional(),
+        sourceContext: z.string().trim().max(80).optional(),
+        query: z.string().trim().max(120).optional(),
+        filters: z.object({}).passthrough().optional(),
+    }).strict(),
+});
+
 module.exports = {
     productSearchSchema,
     productRecommendationSchema,
@@ -218,4 +230,5 @@ module.exports = {
     createProductSchema,
     deleteProductSchema,
     getProductByIdSchema,
+    trackSearchClickSchema,
 };

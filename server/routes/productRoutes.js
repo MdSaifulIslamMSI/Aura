@@ -9,7 +9,9 @@ const {
     createProductReview,
     buildProductBundle,
     visualSearchProducts,
+    trackProductSearchClick,
     getCatalogArtwork,
+    getProductImageProxy,
     getProductById,
     deleteProduct,
     createProduct,
@@ -29,7 +31,8 @@ const {
     createProductSchema,
     updateProductSchema,
     deleteProductSchema,
-    getProductByIdSchema
+    getProductByIdSchema,
+    trackSearchClickSchema,
 } = require('../validators/productValidators');
 
 // Public Routes
@@ -45,6 +48,12 @@ router.route('/visual-search')
 
 router.route('/bundles/build')
     .post(validate(bundleBuildSchema), buildProductBundle);
+
+router.route('/telemetry/search-click')
+    .post(validate(trackSearchClickSchema), trackProductSearchClick);
+
+router.route('/image-proxy')
+    .get(getProductImageProxy);
 
 router.route('/art/:externalId.svg')
     .get(getCatalogArtwork);

@@ -28,6 +28,9 @@ Thumbs.db
 # Logs
 *.log
 npm-debug.log*
+.run-logs/
+app/.run-logs/
+server/.run-logs/
 
 # Runtime uploads
 server/uploads/
@@ -45,3 +48,9 @@ server/data/auth-vault.tmp.json
 
 # Large local datasets
 server/data/catalog_1m.jsonl
+generated/catalog/
+server/generated/catalog/
+server/.cache/
+
+# Local mongodb-memory-server cache used for backend integration tests
+server/.mongodb-binaries/

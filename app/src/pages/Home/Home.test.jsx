@@ -29,6 +29,8 @@ vi.mock('@/components/shared/RevealOnScroll', () => ({
 vi.mock('@/services/api', () => ({
     productApi: {
         getProducts: vi.fn(),
+        getProductById: vi.fn(),
+        getRecommendations: vi.fn(),
     },
 }));
 
@@ -43,6 +45,8 @@ describe('Home Page', () => {
     it('renders without crashing and calls API', async () => {
         // Setup Mock - resolves immediately with empty array
         productApi.getProducts.mockResolvedValue({ products: [] });
+        productApi.getProductById.mockResolvedValue(null);
+        productApi.getRecommendations.mockResolvedValue({ products: [] });
 
         const { container } = render(
             <MemoryRouter>

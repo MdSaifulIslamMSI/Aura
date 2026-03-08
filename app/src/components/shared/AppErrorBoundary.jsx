@@ -1,4 +1,5 @@
 import React from 'react';
+import { reportClientError } from '@/services/clientObservability';
 
 class AppErrorBoundary extends React.Component {
   constructor(props) {
@@ -11,6 +12,11 @@ class AppErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error, errorInfo) {
+    reportClientError(error, {
+      source: 'react.error_boundary',
+      componentStack: errorInfo?.componentStack || '',
+    });
+
     if (typeof this.props.onError === 'function') {
       this.props.onError(error, errorInfo);
     } else {

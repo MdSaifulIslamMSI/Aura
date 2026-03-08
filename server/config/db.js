@@ -24,9 +24,57 @@ const dropLegacyUserOtpTtlIndex = async () => {
     }
 };
 
+const getMongoDeploymentHealth = async () => {
+    const readyState = mongoose.connection.readyState;
+    const connected = readyState === 1;
+
+    if (!connected) {
+        return {
+            connected: false,
+            readyState,
+            replicaSet: false,
+            replicaSetName: '',
+            isWritablePrimary: false,
+            hosts: [],
+            logicalSessionTimeoutMinutes: null,
+            error: null,
+        };
+    }
+
+    try {
+        const hello = await mongoose.connection.db.admin().command({ hello: 1 });
+        return {
+            connected: true,
+            readyState,
+            replicaSet: Boolean(hello?.setName),
+            replicaSetName: String(hello?.setName || ''),
+            isWritablePrimary: Boolean(hello?.isWritablePrimary ?? hello?.ismaster),
+            hosts: Array.isArray(hello?.hosts) ? hello.hosts : [],
+            logicalSessionTimeoutMinutes: Number.isFinite(Number(hello?.logicalSessionTimeoutMinutes))
+                ? Number(hello.logicalSessionTimeoutMinutes)
+                : null,
+            error: null,
+        };
+    } catch (error) {
+        return {
+            connected: true,
+            readyState,
+            replicaSet: false,
+            replicaSetName: '',
+            isWritablePrimary: false,
+            hosts: [],
+            logicalSessionTimeoutMinutes: null,
+            error: error.message,
+        };
+    }
+};
+
 const connectDB = async () => {
     try {
-        const conn = await mongoose.connect(process.env.MONGO_URI);
+        const conn = await mongoose.connect(process.env.MONGO_URI, {
+            serverSelectionTimeoutMS: 30000,
+            socketTimeoutMS: 180000,
+        });
         logger.info('db.connected', { host: conn.connection.host });
         await dropLegacyUserOtpTtlIndex();
     } catch (error) {
@@ -36,3 +84,4 @@ const connectDB = async () => {
 };
 
 module.exports = connectDB;
+module.exports.getMongoDeploymentHealth = getMongoDeploymentHealth;

@@ -7,8 +7,18 @@ const createCatalogImportSchema = z.object({
     body: z.object({
         sourceType: sourceTypeSchema,
         sourceRef: z.string().trim().min(1).max(500),
+        manifestRef: z.string().trim().min(1).max(500),
         mode: z.string().trim().min(1).max(60).default('batch').optional(),
         initiatedBy: z.string().trim().max(120).optional(),
+    }).strict(),
+});
+
+const validateCatalogOnboardingSchema = z.object({
+    body: z.object({
+        sourceType: sourceTypeSchema,
+        sourceRef: z.string().trim().min(1).max(500),
+        manifestRef: z.string().trim().min(1).max(500).optional(),
+        sampleSize: z.preprocess((value) => Number(value), z.number().int().min(25).max(1000)).optional(),
     }).strict(),
 });
 
@@ -36,6 +46,7 @@ const createCatalogSyncRunSchema = z.object({
 
 module.exports = {
     createCatalogImportSchema,
+    validateCatalogOnboardingSchema,
     getCatalogImportSchema,
     publishCatalogImportSchema,
     createCatalogSyncRunSchema,

@@ -1,0 +1,110 @@
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import BackendStatusBanner from './BackendStatusBanner';
+import { pushClientDiagnostic } from '@/services/clientObservability';
+
+describe('BackendStatusBanner', () => {
+  beforeEach(() => {
+    window.sessionStorage.clear();
+    vi.restoreAllMocks();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('shows a degraded banner when health reports a non-ok state', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({
+        status: 'degraded',
+        reason: 'database_disconnected',
+      }), {
+        status: 503,
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Request-Id': 'srv-health-1',
+        },
+      })
+    );
+
+    render(<BackendStatusBanner />);
+
+    expect(await screen.findByText('Backend health degraded')).toBeInTheDocument();
+    expect(screen.getByText(/Debug Ref srv-health-1/i)).toBeInTheDocument();
+    expect(screen.getByText(/database_disconnected/i)).toBeInTheDocument();
+  });
+
+  it('reacts to proxy failure diagnostics with a client debug reference', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ status: 'ok' }), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Request-Id': 'srv-health-ok',
+        },
+      })
+    );
+
+    render(<BackendStatusBanner />);
+
+    await waitFor(() => {
+      expect(screen.queryByText('Backend unavailable')).not.toBeInTheDocument();
+    });
+
+    await act(async () => {
+      pushClientDiagnostic('api.response_error', {
+        url: 'http://127.0.0.1:5173/health',
+        requestId: 'req-proxy-1',
+        serverRequestId: 'req-proxy-1',
+        status: 500,
+        error: {
+          message: 'Internal Server Error',
+        },
+      }, 'error');
+    });
+
+    expect(await screen.findByText('Backend unavailable')).toBeInTheDocument();
+    expect(screen.getByText(/Debug Ref req-proxy-1/i)).toBeInTheDocument();
+    expect(screen.getByText(/HTTP 500/i)).toBeInTheDocument();
+  });
+
+  it('clears the outage banner after a successful retry check', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(() => Promise.resolve(
+      new Response(JSON.stringify({ status: 'ok' }), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Request-Id': 'srv-health-ok',
+        },
+      })
+    ));
+
+    render(<BackendStatusBanner />);
+
+    await waitFor(() => {
+      expect(screen.queryByText('Backend unavailable')).not.toBeInTheDocument();
+    });
+
+    await act(async () => {
+      pushClientDiagnostic('api.network_error', {
+        url: 'http://127.0.0.1:5173/api/products?page=1',
+        requestId: 'req-recover-1',
+        serverRequestId: 'req-recover-1',
+        status: 0,
+        error: {
+          message: 'connect ECONNREFUSED 127.0.0.1:5000',
+        },
+      }, 'error');
+    });
+
+    expect(await screen.findByText('Backend unavailable')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /retry check/i }));
+
+    await waitFor(() => {
+      expect(screen.queryByText('Backend unavailable')).not.toBeInTheDocument();
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+});

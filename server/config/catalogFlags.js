@@ -24,6 +24,7 @@ const flags = {
     catalogImportsEnabled: parseBoolean(process.env.CATALOG_IMPORTS_ENABLED, true),
     catalogSyncEnabled: parseBoolean(process.env.CATALOG_SYNC_ENABLED, true),
     catalogActiveVersionRequired: parseBoolean(process.env.CATALOG_ACTIVE_VERSION_REQUIRED, true),
+    catalogPublicDemoFallback: !isProduction && parseBoolean(process.env.CATALOG_PUBLIC_DEMO_FALLBACK, false),
     catalogSearchIndexName: String(process.env.CATALOG_SEARCH_INDEX_NAME || 'products_search_v1').trim(),
     catalogSearchCheckOnBoot: parseBoolean(process.env.CATALOG_SEARCH_CHECK_ON_BOOT, !isTest),
     catalogSyncIntervalMs: asPositiveInt(process.env.CATALOG_SYNC_INTERVAL_MS, 15 * 60 * 1000),

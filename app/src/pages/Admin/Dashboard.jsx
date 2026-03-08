@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { AuthContext } from '@/context/AuthContext';
 import { adminApi } from '@/services/api';
+import ClientDiagnosticsPanel from './ClientDiagnosticsPanel';
 
 const SEVERITY_STYLES = {
     info: 'bg-cyan-100 text-cyan-700 border-cyan-200',
@@ -549,6 +550,8 @@ export default function AdminDashboard() {
                     </div>
                 </div>
             </div>
+
+            <ClientDiagnosticsPanel />
 
             <div className="rounded-xl border bg-white p-4 shadow-sm">
                 <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">

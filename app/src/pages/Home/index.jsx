@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useContext } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, ChevronRight, Smartphone, Laptop, Headphones, Shirt, Home as HomeIcon, Gamepad2, BookOpen, Watch, Search, ShieldCheck, Wallet, Store } from 'lucide-react';
+import { ArrowRight, ChevronRight, Smartphone, Laptop, Headphones, Shirt, Home as HomeIcon, Gamepad2, BookOpen, Watch } from 'lucide-react';
 import Carousel from '@/components/features/home/Carousel';
 import ProductCard from '@/components/features/product/ProductCard';
 import SkeletonLoader from '@/components/shared/SkeletonLoader';
@@ -284,39 +284,6 @@ const Home = () => {
     },
   ], [dealsOfTheDay.length, newArrivals.length, trendingProducts.length]);
 
-  const discoveryShortcuts = useMemo(() => ([
-    {
-      title: 'Search with intent',
-      description: 'Jump straight into live catalog search with price and relevance already centered.',
-      link: '/search?q=iphone',
-      cta: 'Open Search',
-      icon: Search,
-      tone: 'from-neo-cyan/18 to-sky-500/10 text-neo-cyan',
-    },
-    {
-      title: 'Move on trusted deals',
-      description: 'Open the fastest price-drop lane when the goal is decision speed, not browsing.',
-      link: '/deals',
-      cta: 'Open Deals',
-      icon: Wallet,
-      tone: 'from-amber-400/18 to-orange-500/10 text-amber-200',
-    },
-    {
-      title: 'Open local marketplace',
-      description: 'Switch to seller-aware nearby commerce without losing the main retail shell.',
-      link: '/marketplace',
-      cta: 'Open Market',
-      icon: Store,
-      tone: 'from-neo-emerald/18 to-teal-500/10 text-neo-emerald',
-    },
-  ]), []);
-
-  const trustMarkers = useMemo(() => ([
-    'Catalog lanes are routed directly into real category surfaces.',
-    'Recent views and recommendations persist so high-intent sessions do not reset.',
-    'Discount, rating, and freshness lanes stay separated to reduce decision noise.',
-  ]), []);
-
   const ProductSection = ({ eyebrow, title, description, link, actionLabel = 'Explore', products, isLoading, onAction }) => (
     <section className="bg-white/[0.045] backdrop-blur-xl rounded-2xl border border-white/10 shadow-glass mb-8 overflow-hidden relative group">
       {/* Decorative gradient blur */}
@@ -380,18 +347,18 @@ const Home = () => {
   );
 
   return (
-    <div className="min-h-screen pb-16 pt-4">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
+    <div className="min-h-screen pb-16 pt-3 sm:pt-4">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8 md:space-y-10">
         <RevealOnScroll anchorId="home-command-deck" anchorLabel="Command Deck" className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
           <section className="rounded-[2rem] border border-white/10 bg-white/[0.045] p-6 shadow-glass lg:p-8">
             <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-neo-cyan/20 bg-neo-cyan/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.28em] text-neo-cyan">
               Retail Command Deck
             </div>
             <h1 className="max-w-3xl text-4xl font-black leading-[0.95] text-white md:text-5xl xl:text-6xl">
-              A sharper storefront for discovery, trust, and conversion.
+              Search first. Trust faster. Move to checkout without noise.
             </h1>
             <p className="mt-4 max-w-2xl text-sm text-slate-300 md:text-base">
-              The visual system now prioritizes product discovery and high-confidence actions first, instead of making every control compete equally.
+              The homepage is now a tighter decision surface for live search, trusted deals, and the next best purchase action.
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
               <Link to="/search?q=iphone" className="btn-primary inline-flex items-center gap-2">
@@ -463,52 +430,6 @@ const Home = () => {
           />
         </RevealOnScroll>
 
-        <RevealOnScroll anchorId="home-decision-shortcuts" anchorLabel="Decision Shortcuts" delay={25}>
-          <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-            <div className="rounded-[2rem] border border-white/10 bg-white/[0.045] p-5 shadow-glass lg:p-6">
-              <div className="mb-4 text-[11px] font-black uppercase tracking-[0.28em] text-neo-cyan">Decision Shortcuts</div>
-              <div className="grid gap-4 md:grid-cols-3">
-                {discoveryShortcuts.map((shortcut) => (
-                  <Link
-                    key={shortcut.title}
-                    to={shortcut.link}
-                    className="group rounded-[1.5rem] border border-white/10 bg-white/[0.03] p-4 transition-all duration-300 hover:-translate-y-1 hover:border-white/18 hover:bg-white/[0.06]"
-                  >
-                    <div className={`mb-4 flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-gradient-to-br ${shortcut.tone}`}>
-                      <shortcut.icon className="h-5 w-5" />
-                    </div>
-                    <h3 className="text-lg font-black text-white">{shortcut.title}</h3>
-                    <p className="mt-2 text-sm leading-6 text-slate-400">{shortcut.description}</p>
-                    <div className="mt-4 inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.22em] text-neo-cyan transition-all group-hover:gap-3">
-                      {shortcut.cta}
-                      <ArrowRight className="h-3.5 w-3.5" />
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </div>
-
-            <div className="rounded-[2rem] border border-white/10 bg-white/[0.045] p-5 shadow-glass lg:p-6">
-              <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.28em] text-neo-cyan">
-                <ShieldCheck className="h-4 w-4" />
-                Trust Layer
-              </div>
-              <h2 className="mt-3 text-2xl font-black text-white md:text-3xl">The homepage should reduce uncertainty before it asks for action.</h2>
-              <div className="mt-5 space-y-3">
-                {trustMarkers.map((marker) => (
-                  <div
-                    key={marker}
-                    className="rounded-2xl border border-white/8 bg-zinc-950/35 px-4 py-3 text-sm leading-6 text-slate-300"
-                  >
-                    <span className="mr-2 text-neo-emerald">•</span>
-                    {marker}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </section>
-        </RevealOnScroll>
-
         <RevealOnScroll anchorId="home-resume" anchorLabel="Resume Shopping" delay={40}>
           <ProductSection
             eyebrow="Personalized Continuity"
@@ -561,18 +482,6 @@ const Home = () => {
           />
         </RevealOnScroll>
 
-        {/* New Arrivals */}
-        <RevealOnScroll anchorId="home-new-arrivals" anchorLabel="New Arrivals" delay={140}>
-          <ProductSection
-            eyebrow="Fresh Catalog"
-            title="New Arrivals"
-            description="Recently indexed products brought forward without drowning the page in redundant merchandising."
-            link="/new-arrivals"
-            products={newArrivals}
-            isLoading={loading}
-          />
-        </RevealOnScroll>
-
         {/* Marketplace CTA Banner */}
         <RevealOnScroll anchorId="home-marketplace" anchorLabel="Marketplace" delay={180}>
           <section className="bg-gradient-to-r from-neo-cyan/10 via-neo-emerald/10 to-teal-500/10 backdrop-blur-xl rounded-3xl border border-neo-cyan/20 p-8 md:p-12 relative overflow-hidden">
@@ -602,41 +511,6 @@ const Home = () => {
           </section>
         </RevealOnScroll>
 
-        {/* Featured Banner - Modernized */}
-        <RevealOnScroll
-          anchorId="home-featured-banners"
-          anchorLabel="Featured Banners"
-          delay={220}
-          className="grid md:grid-cols-2 gap-6"
-        >
-          <Link to="/category/electronics" className="block relative overflow-hidden rounded-3xl shadow-glass border border-white/10 group aspect-[2/1] md:aspect-auto md:h-80">
-            <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/50 to-transparent z-10" />
-            <img
-              src="/assets/banner_feature_electronics.png"
-              alt="Premium Electronics"
-              className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110"
-            />
-            <div className="absolute bottom-0 left-0 p-8 z-20">
-              <span className="inline-block px-3 py-1 bg-neo-cyan/20 text-neo-cyan text-xs font-black tracking-widest uppercase rounded-full border border-neo-cyan/30 mb-3 backdrop-blur-md">Hardware</span>
-              <h3 className="text-3xl font-black text-white mb-2 group-hover:text-neo-cyan transition-colors duration-300">Premium Tech Add-ons</h3>
-              <p className="text-slate-300 font-medium max-w-sm">Upgrade your setup with the latest tech.</p>
-            </div>
-          </Link>
-
-          <Link to="/category/fashion" className="block relative overflow-hidden rounded-3xl shadow-glass border border-white/10 group aspect-[2/1] md:aspect-auto md:h-80">
-            <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/50 to-transparent z-10" />
-            <img
-              src="/assets/banner_feature_fashion.png"
-              alt="Neon Fashion"
-              className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110"
-            />
-            <div className="absolute bottom-0 left-0 p-8 z-20">
-              <span className="inline-block px-3 py-1 bg-neo-emerald/20 text-neo-emerald text-xs font-black tracking-widest uppercase rounded-full border border-neo-emerald/30 mb-3 backdrop-blur-md">Apparel</span>
-              <h3 className="text-3xl font-black text-white mb-2 group-hover:text-neo-emerald transition-colors duration-300">Neon Streetwear</h3>
-              <p className="text-slate-300 font-medium max-w-sm">Look sharp with the latest fashion lines.</p>
-            </div>
-          </Link>
-        </RevealOnScroll>
       </div>
     </div>
   );
