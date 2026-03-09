@@ -22,14 +22,15 @@ import { trustApi } from '@/services/api';
 const STATUS_CLASSES = {
   healthy: 'bg-emerald-500/15 border-emerald-400/40 text-emerald-300',
   degraded: 'bg-amber-500/15 border-amber-400/40 text-amber-200',
+  checking: 'bg-slate-500/15 border-slate-400/30 text-slate-200',
 };
 
 const Footer = () => {
   const location = useLocation();
   const [trustStatus, setTrustStatus] = useState({
-    backend: { status: 'degraded', db: 'unknown', uptime: 0, timestamp: null },
+    backend: { status: 'checking', db: 'unknown', uptime: 0, timestamp: null },
     client: { online: true, secureContext: false, language: 'unknown', timezone: 'unknown' },
-    derivedStatus: 'degraded',
+    derivedStatus: 'checking',
   });
 
   const footerLinks = {
@@ -72,13 +73,17 @@ const Footer = () => {
         const result = await trustApi.getHealthStatus();
         if (isMounted) setTrustStatus(result);
       } catch {
-        if (isMounted) {
-          setTrustStatus((prev) => ({
+        if (!isMounted) return;
+        setTrustStatus((prev) => {
+          if (prev.backend.timestamp) {
+            return prev;
+          }
+          return {
             ...prev,
-            derivedStatus: 'degraded',
-            backend: { ...prev.backend, status: 'degraded' },
-          }));
-        }
+            derivedStatus: 'checking',
+            backend: { ...prev.backend, status: 'checking' },
+          };
+        });
       }
     };
 
@@ -90,15 +95,33 @@ const Footer = () => {
     };
   }, []);
 
+  const hasBackendSignal = useMemo(
+    () => Boolean(trustStatus?.backend?.timestamp),
+    [trustStatus?.backend?.timestamp]
+  );
+
+  const systemHealthStatus = useMemo(() => {
+    if (!hasBackendSignal) {
+      return 'checking';
+    }
+    return trustStatus.derivedStatus === 'healthy' ? 'healthy' : 'degraded';
+  }, [hasBackendSignal, trustStatus.derivedStatus]);
+
   const paymentSafetyStatus = useMemo(() => {
-    return trustStatus.client.secureContext && trustStatus.derivedStatus === 'healthy'
+    if (!hasBackendSignal) {
+      return 'checking';
+    }
+    return trustStatus.client.secureContext && systemHealthStatus === 'healthy'
       ? 'healthy'
-      : 'degraded';
-  }, [trustStatus.client.secureContext, trustStatus.derivedStatus]);
+      : 'checking';
+  }, [hasBackendSignal, systemHealthStatus, trustStatus.client.secureContext]);
 
   const emailFortressStatus = useMemo(() => {
-    return trustStatus.derivedStatus === 'healthy' ? 'healthy' : 'degraded';
-  }, [trustStatus.derivedStatus]);
+    if (!hasBackendSignal) {
+      return 'checking';
+    }
+    return systemHealthStatus === 'healthy' ? 'healthy' : 'checking';
+  }, [hasBackendSignal, systemHealthStatus]);
 
   const renderNavLink = (link) => {
     const isActive = location.pathname === link.path;
@@ -133,11 +156,15 @@ const Footer = () => {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full lg:max-w-4xl">
-              <div className={`footer-card px-3 py-2 ${STATUS_CLASSES[trustStatus.derivedStatus]}`}>
+              <div className={`footer-card px-3 py-2 ${STATUS_CLASSES[systemHealthStatus]}`}>
                 <p className="text-[10px] uppercase tracking-wider font-bold">System Health</p>
                 <p className="text-sm font-semibold mt-0.5 flex items-center gap-2">
                   <Server className="w-3.5 h-3.5" />
-                  {trustStatus.derivedStatus === 'healthy' ? 'Healthy' : 'Degraded'}
+                  {systemHealthStatus === 'healthy'
+                    ? 'Healthy'
+                    : systemHealthStatus === 'checking'
+                      ? 'Checking'
+                      : 'Degraded'}
                 </p>
               </div>
 
@@ -145,7 +172,7 @@ const Footer = () => {
                 <p className="text-[10px] uppercase tracking-wider font-bold">Payments Safety</p>
                 <p className="text-sm font-semibold mt-0.5 flex items-center gap-2">
                   <ShieldCheck className="w-3.5 h-3.5" />
-                  {paymentSafetyStatus === 'healthy' ? 'Protected' : 'Attention Needed'}
+                  {paymentSafetyStatus === 'healthy' ? 'Protected' : 'Monitoring'}
                 </p>
               </div>
 
@@ -153,7 +180,7 @@ const Footer = () => {
                 <p className="text-[10px] uppercase tracking-wider font-bold">Email Fortress</p>
                 <p className="text-sm font-semibold mt-0.5 flex items-center gap-2">
                   <Lock className="w-3.5 h-3.5" />
-                  {emailFortressStatus === 'healthy' ? 'Strict Active' : 'Monitoring'}
+                  {emailFortressStatus === 'healthy' ? 'Strict Active' : 'Syncing'}
                 </p>
               </div>
             </div>

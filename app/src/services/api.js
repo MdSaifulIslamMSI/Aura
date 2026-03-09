@@ -165,6 +165,8 @@ export const productApi = {
             method: 'GET',
             params,
             signal: options.signal,
+            timeoutMs: 30000,
+            retries: 2,
             headers: {
                 'Accept': 'application/json',
                 'Content-Type': 'application/json',
@@ -705,6 +707,8 @@ export const trustApi = {
         try {
             const response = await rawFetch(buildServiceUrl('/health'), {
                 headers: { Accept: 'application/json' },
+                timeoutMs: 30000,
+                retries: 2,
             });
             if (response.ok) {
                 const data = await response.json();

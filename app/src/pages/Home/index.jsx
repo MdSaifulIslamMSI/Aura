@@ -35,26 +35,57 @@ const Home = () => {
 
   // Parallel Data Fetching (High Performance)
   useEffect(() => {
-    const fetchHomeData = async () => {
+    let isMounted = true;
+    let retryTimer = null;
+
+    const fetchHomeData = async (attempt = 0) => {
+      let keepLoading = false;
       setLoading(true);
       try {
-        const [dealsData, trendingData, arrivalsData] = await Promise.all([
+        const [dealsResult, trendingResult, arrivalsResult] = await Promise.allSettled([
           productApi.getProducts({ ...HOME_SECTION_REQUEST, sort: 'discount' }),
           productApi.getProducts({ ...HOME_SECTION_REQUEST, sort: 'rating' }), // Popularity/Rating
           productApi.getProducts({ ...HOME_SECTION_REQUEST, sort: 'newest' })
         ]);
 
-        setDealsOfTheDay(dealsData.products || []);
-        setTrendingProducts(trendingData.products || []);
-        setNewArrivals(arrivalsData.products || []);
+        if (!isMounted) return;
+
+        const hasAnySuccess = [dealsResult, trendingResult, arrivalsResult]
+          .some((result) => result.status === 'fulfilled');
+
+        if (dealsResult.status === 'fulfilled') {
+          setDealsOfTheDay(dealsResult.value?.products || []);
+        }
+        if (trendingResult.status === 'fulfilled') {
+          setTrendingProducts(trendingResult.value?.products || []);
+        }
+        if (arrivalsResult.status === 'fulfilled') {
+          setNewArrivals(arrivalsResult.value?.products || []);
+        }
+
+        if (!hasAnySuccess && attempt < 1) {
+          keepLoading = true;
+          retryTimer = window.setTimeout(() => {
+            fetchHomeData(attempt + 1);
+          }, 5000);
+          return;
+        }
       } catch (error) {
         console.error("Home Data Fetch Failed:", error);
       } finally {
-        setLoading(false);
+        if (isMounted && !keepLoading) {
+          setLoading(false);
+        }
       }
     };
 
     fetchHomeData();
+    return () => {
+      isMounted = false;
+      if (retryTimer) {
+        window.clearTimeout(retryTimer);
+      }
+    };
   }, []);
 
   useEffect(() => {
