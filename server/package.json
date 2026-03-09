@@ -40,7 +40,6 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
-    "@google-cloud/storage": "^7.19.0",
     "bcryptjs": "^3.0.3",
     "colors": "^1.4.0",
     "compression": "^1.8.1",

@@ -6,6 +6,7 @@
   - MongoDB replica set connectivity
   - Redis enabled and required
   - in-process workers for payment capture, order email, catalog sync, and reconciliation
+- The repo now includes an Oracle VM deployment path under [`infra/oracle/README.md`](../infra/oracle/README.md).
 
 ## Local Bootstrap
 1. `cd server`

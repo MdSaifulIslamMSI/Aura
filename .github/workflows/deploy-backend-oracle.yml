@@ -1,0 +1,76 @@
+name: Deploy Backend To Oracle VM
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'server/**'
+      - 'infra/oracle/**'
+      - '.github/workflows/deploy-backend-oracle.yml'
+
+jobs:
+  deploy-backend:
+    runs-on: ubuntu-latest
+
+    env:
+      ORACLE_SSH_HOST: ${{ secrets.ORACLE_SSH_HOST }}
+      ORACLE_SSH_PORT: ${{ secrets.ORACLE_SSH_PORT }}
+      ORACLE_SSH_USER: ${{ secrets.ORACLE_SSH_USER }}
+      ORACLE_APP_ROOT: ${{ secrets.ORACLE_APP_ROOT }}
+      ORACLE_SERVICE_NAME: ${{ secrets.ORACLE_SERVICE_NAME }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 22.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: ./server
+        run: npm ci
+
+      - name: Run backend smoke tests
+        working-directory: ./server
+        run: npm test -- aiRoutes.test.js chatRoutes.test.js
+
+      - name: Configure SSH
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "${{ secrets.ORACLE_SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -p "${ORACLE_SSH_PORT:-22}" "${ORACLE_SSH_HOST}" >> ~/.ssh/known_hosts
+
+      - name: Sync backend bundle to VM
+        run: |
+          REMOTE="${ORACLE_SSH_USER}@${ORACLE_SSH_HOST}"
+          TMP_DIR="/tmp/aura-deploy-${GITHUB_SHA}"
+          ssh -p "${ORACLE_SSH_PORT:-22}" "${REMOTE}" "rm -rf '${TMP_DIR}' && mkdir -p '${TMP_DIR}'"
+          rsync -az --delete \
+            --exclude=node_modules \
+            --exclude=coverage \
+            --exclude=.cache \
+            --exclude=.vercel \
+            --exclude=.mongodb-binaries \
+            -e "ssh -p ${ORACLE_SSH_PORT:-22}" \
+            ./server/ "${REMOTE}:${TMP_DIR}/server/"
+          rsync -az --delete \
+            -e "ssh -p ${ORACLE_SSH_PORT:-22}" \
+            ./infra/oracle/ "${REMOTE}:${TMP_DIR}/infra/oracle/"
+
+      - name: Install and restart on VM
+        run: |
+          REMOTE="${ORACLE_SSH_USER}@${ORACLE_SSH_HOST}"
+          TMP_DIR="/tmp/aura-deploy-${GITHUB_SHA}"
+          ssh -p "${ORACLE_SSH_PORT:-22}" "${REMOTE}" "\
+            sudo mkdir -p '${ORACLE_APP_ROOT}/server' '${ORACLE_APP_ROOT}/infra/oracle' && \
+            sudo rsync -a --delete '${TMP_DIR}/server/' '${ORACLE_APP_ROOT}/server/' && \
+            sudo rsync -a --delete '${TMP_DIR}/infra/oracle/' '${ORACLE_APP_ROOT}/infra/oracle/' && \
+            sudo APP_ROOT='${ORACLE_APP_ROOT}' SERVICE_NAME='${ORACLE_SERVICE_NAME:-aura-api}' bash '${ORACLE_APP_ROOT}/infra/oracle/deploy-backend.sh' && \
+            rm -rf '${TMP_DIR}'"

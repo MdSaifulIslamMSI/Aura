@@ -2,7 +2,6 @@ const asyncHandler = require('express-async-handler');
 const AppError = require('../utils/AppError');
 const {
     buildReviewMediaStorageKey,
-    getStorageDriver,
     getReviewMediaObject,
 } = require('../services/reviewMediaStorageService');
 
@@ -49,10 +48,6 @@ const pipeBodyToResponse = async (body, res) => {
 };
 
 const serveReviewMediaAsset = asyncHandler(async (req, res, next) => {
-    if (getStorageDriver() !== 'gcs') {
-        return next();
-    }
-
     const reviewAssetPath = String(req.params[0] || '').trim();
     if (!reviewAssetPath || !isSafeReviewAssetPath(reviewAssetPath)) {
         return next(new AppError('Upload not found', 404));

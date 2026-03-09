@@ -1,0 +1,21 @@
+[Unit]
+Description=Aura Marketplace API
+After=network.target
+
+[Service]
+Type=simple
+User=aura
+Group=aura
+WorkingDirectory=/opt/aura/server
+EnvironmentFile=/etc/aura/server.env
+ExecStart=/usr/bin/npm start
+Restart=always
+RestartSec=5
+KillSignal=SIGINT
+TimeoutStopSec=30
+NoNewPrivileges=true
+PrivateTmp=true
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target
