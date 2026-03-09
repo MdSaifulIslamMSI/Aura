@@ -1,0 +1,85 @@
+name: Deploy Backend To Google Cloud
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'server/**'
+      - 'infra/gcp/**'
+      - '.github/workflows/deploy-backend-gcp.yml'
+
+jobs:
+  deploy-backend:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    env:
+      GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+      GCP_REGION: ${{ secrets.GCP_REGION }}
+      GCP_ARTIFACT_REGISTRY_REPOSITORY: ${{ secrets.GCP_ARTIFACT_REGISTRY_REPOSITORY }}
+      GCP_CLOUD_RUN_SERVICE: ${{ secrets.GCP_CLOUD_RUN_SERVICE }}
+      GCP_RUNTIME_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GCP_RUNTIME_SERVICE_ACCOUNT_EMAIL }}
+      FRONTEND_ORIGIN: ${{ secrets.FRONTEND_ORIGIN }}
+      APP_PUBLIC_URL: ${{ secrets.APP_PUBLIC_URL }}
+      REVIEW_UPLOAD_GCS_BUCKET: ${{ secrets.REVIEW_UPLOAD_GCS_BUCKET }}
+      REVIEW_UPLOAD_GCS_PREFIX: ${{ secrets.REVIEW_UPLOAD_GCS_PREFIX }}
+      REVIEW_UPLOAD_PUBLIC_BASE_URL: ${{ secrets.REVIEW_UPLOAD_PUBLIC_BASE_URL }}
+      MONGO_URI_SECRET_NAME: ${{ secrets.MONGO_URI_SECRET_NAME }}
+      REDIS_URL_SECRET_NAME: ${{ secrets.REDIS_URL_SECRET_NAME }}
+      BYTEZ_API_KEY_SECRET_NAME: ${{ secrets.BYTEZ_API_KEY_SECRET_NAME }}
+      UPLOAD_SIGNING_SECRET_SECRET_NAME: ${{ secrets.UPLOAD_SIGNING_SECRET_SECRET_NAME }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 22.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: ./server
+        run: npm ci
+
+      - name: Run backend smoke tests
+        working-directory: ./server
+        run: npm test -- aiRoutes.test.js chatRoutes.test.js
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_DEPLOY_SERVICE_ACCOUNT_EMAIL }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker auth
+        run: gcloud auth configure-docker "${GCP_REGION}-docker.pkg.dev" --quiet
+
+      - name: Build and push backend image
+        id: build-image
+        run: |
+          IMAGE="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${GCP_ARTIFACT_REGISTRY_REPOSITORY}/aura-api:${GITHUB_SHA}"
+          docker build -t "${IMAGE}" ./server
+          docker push "${IMAGE}"
+          echo "image=${IMAGE}" >> "${GITHUB_OUTPUT}"
+
+      - name: Deploy Cloud Run service
+        run: >
+          gcloud run deploy "${GCP_CLOUD_RUN_SERVICE}"
+          --image "${{ steps.build-image.outputs.image }}"
+          --project "${GCP_PROJECT_ID}"
+          --region "${GCP_REGION}"
+          --platform managed
+          --allow-unauthenticated
+          --service-account "${GCP_RUNTIME_SERVICE_ACCOUNT_EMAIL}"
+          --set-env-vars "NODE_ENV=production,CORS_ORIGIN=${FRONTEND_ORIGIN},APP_PUBLIC_URL=${APP_PUBLIC_URL},REDIS_ENABLED=true,REDIS_REQUIRED=true,SPLIT_RUNTIME_ENABLED=true,UPLOAD_STORAGE_DRIVER=gcs,GCP_PROJECT_ID=${GCP_PROJECT_ID},REVIEW_UPLOAD_GCS_BUCKET=${REVIEW_UPLOAD_GCS_BUCKET},REVIEW_UPLOAD_GCS_PREFIX=${REVIEW_UPLOAD_GCS_PREFIX},REVIEW_UPLOAD_PUBLIC_BASE_URL=${REVIEW_UPLOAD_PUBLIC_BASE_URL}"
+          --set-secrets "MONGO_URI=${MONGO_URI_SECRET_NAME}:latest,REDIS_URL=${REDIS_URL_SECRET_NAME}:latest,BYTEZ_API_KEY=${BYTEZ_API_KEY_SECRET_NAME}:latest,UPLOAD_SIGNING_SECRET=${UPLOAD_SIGNING_SECRET_SECRET_NAME}:latest"

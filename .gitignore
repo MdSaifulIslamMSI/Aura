@@ -54,3 +54,6 @@ server/.cache/
 
 # Local mongodb-memory-server cache used for backend integration tests
 server/.mongodb-binaries/
+
+# Google GitHub Actions credentials
+gha-creds-*.json

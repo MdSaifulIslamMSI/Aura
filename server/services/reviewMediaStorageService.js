@@ -1,13 +1,18 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { S3Client, PutObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
+const { Storage } = require('@google-cloud/storage');
 
 const REVIEW_UPLOAD_DIR = path.join(__dirname, '..', 'uploads', 'reviews');
-const REVIEW_UPLOAD_S3_BUCKET = String(process.env.REVIEW_UPLOAD_S3_BUCKET || '').trim();
-const REVIEW_UPLOAD_S3_PREFIX = String(process.env.REVIEW_UPLOAD_S3_PREFIX || 'reviews').trim().replace(/^\/+|\/+$/g, '');
+const REVIEW_UPLOAD_GCS_BUCKET = String(process.env.REVIEW_UPLOAD_GCS_BUCKET || '').trim();
+const REVIEW_UPLOAD_GCS_PREFIX = String(process.env.REVIEW_UPLOAD_GCS_PREFIX || 'reviews').trim().replace(/^\/+|\/+$/g, '');
 const REVIEW_UPLOAD_PUBLIC_BASE_URL = String(process.env.REVIEW_UPLOAD_PUBLIC_BASE_URL || '').trim().replace(/\/+$/g, '');
-const AWS_REGION = String(process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || '').trim();
+const GCP_PROJECT_ID = String(
+    process.env.GCP_PROJECT_ID
+    || process.env.GOOGLE_CLOUD_PROJECT
+    || process.env.GCLOUD_PROJECT
+    || ''
+).trim();
 
 const MIME_EXTENSION_MAP = {
     'image/jpeg': '.jpg',
@@ -19,30 +24,31 @@ const MIME_EXTENSION_MAP = {
     'video/quicktime': '.mov',
 };
 
-let s3Client = null;
+let storageClient = null;
 
 const getStorageDriver = () => {
     const requested = String(process.env.UPLOAD_STORAGE_DRIVER || 'local').trim().toLowerCase();
-    return requested === 's3' ? 's3' : 'local';
+    return requested === 'gcs' ? 'gcs' : 'local';
 };
 
 const ensureLocalStorageReady = async () => {
     await fs.promises.mkdir(REVIEW_UPLOAD_DIR, { recursive: true });
 };
 
-const getS3Client = () => {
-    if (s3Client) return s3Client;
+const getStorageClient = () => {
+    if (storageClient) return storageClient;
 
-    if (!AWS_REGION) {
-        throw new Error('AWS_REGION is required when UPLOAD_STORAGE_DRIVER=s3');
-    }
-    if (!REVIEW_UPLOAD_S3_BUCKET) {
-        throw new Error('REVIEW_UPLOAD_S3_BUCKET is required when UPLOAD_STORAGE_DRIVER=s3');
+    if (!REVIEW_UPLOAD_GCS_BUCKET) {
+        throw new Error('REVIEW_UPLOAD_GCS_BUCKET is required when UPLOAD_STORAGE_DRIVER=gcs');
     }
 
-    s3Client = new S3Client({ region: AWS_REGION });
-    return s3Client;
+    storageClient = GCP_PROJECT_ID
+        ? new Storage({ projectId: GCP_PROJECT_ID })
+        : new Storage();
+    return storageClient;
 };
+
+const getStorageBucket = () => getStorageClient().bucket(REVIEW_UPLOAD_GCS_BUCKET);
 
 const sanitizeObjectKeySegment = (value) => String(value || '')
     .trim()
@@ -65,6 +71,17 @@ const encodeUrlPath = (value) => String(value || '')
     .split('/')
     .map((segment) => encodeURIComponent(segment))
     .join('/');
+
+const buildReviewMediaStorageKey = (relativePath = '') => {
+    const cleanPath = String(relativePath || '').replace(/^\/+|\/+$/g, '');
+    if (!cleanPath) {
+        return REVIEW_UPLOAD_GCS_PREFIX || 'reviews';
+    }
+
+    return REVIEW_UPLOAD_GCS_PREFIX
+        ? `${REVIEW_UPLOAD_GCS_PREFIX}/${cleanPath}`.replace(/\/+/g, '/')
+        : cleanPath;
+};
 
 const buildPublicUrl = (storageDriver, storageKey) => {
     if (storageDriver === 'local') {
@@ -90,30 +107,28 @@ const storeReviewMediaLocally = async ({ fileBuffer, fileName }) => {
     };
 };
 
-const storeReviewMediaInS3 = async ({ fileBuffer, fileName, mimeType }) => {
-    const client = getS3Client();
-    const storageKey = REVIEW_UPLOAD_S3_PREFIX
-        ? `${REVIEW_UPLOAD_S3_PREFIX}/${fileName}`
-        : fileName;
+const storeReviewMediaInGcs = async ({ fileBuffer, fileName, mimeType }) => {
+    const storageKey = buildReviewMediaStorageKey(fileName);
+    const file = getStorageBucket().file(storageKey);
 
-    await client.send(new PutObjectCommand({
-        Bucket: REVIEW_UPLOAD_S3_BUCKET,
-        Key: storageKey,
-        Body: fileBuffer,
-        ContentType: mimeType,
-        CacheControl: 'public, max-age=31536000, immutable',
-    }));
+    await file.save(fileBuffer, {
+        resumable: false,
+        contentType: mimeType,
+        metadata: {
+            cacheControl: 'public, max-age=31536000, immutable',
+        },
+    });
 
     return {
-        storageDriver: 's3',
+        storageDriver: 'gcs',
         storageKey,
-        url: buildPublicUrl('s3', storageKey),
+        url: buildPublicUrl('gcs', storageKey),
     };
 };
 
 const ensureReviewUploadStorageReady = async () => {
-    if (getStorageDriver() === 's3') {
-        getS3Client();
+    if (getStorageDriver() === 'gcs') {
+        getStorageBucket();
         return;
     }
 
@@ -125,8 +140,8 @@ const storeReviewMedia = async ({ fileBuffer, fileName, mimeType }) => {
     const normalizedFileName = sanitizeObjectKeySegment(fileName || 'review-media');
     const storedFileName = buildStoredFileName(normalizedFileName, normalizedMimeType);
 
-    if (getStorageDriver() === 's3') {
-        return storeReviewMediaInS3({
+    if (getStorageDriver() === 'gcs') {
+        return storeReviewMediaInGcs({
             fileBuffer,
             fileName: storedFileName,
             mimeType: normalizedMimeType,
@@ -140,27 +155,25 @@ const storeReviewMedia = async ({ fileBuffer, fileName, mimeType }) => {
 };
 
 const getReviewMediaObject = async ({ storageKey }) => {
-    if (getStorageDriver() !== 's3') {
-        throw new Error('Review media object reads require S3 storage');
+    if (getStorageDriver() !== 'gcs') {
+        throw new Error('Review media object reads require GCS storage');
     }
 
-    const client = getS3Client();
-    const response = await client.send(new GetObjectCommand({
-        Bucket: REVIEW_UPLOAD_S3_BUCKET,
-        Key: String(storageKey || ''),
-    }));
+    const file = getStorageBucket().file(String(storageKey || ''));
+    const [metadata] = await file.getMetadata();
 
     return {
-        body: response.Body || null,
-        contentType: String(response.ContentType || ''),
-        cacheControl: String(response.CacheControl || ''),
-        contentLength: Number(response.ContentLength || 0),
-        etag: String(response.ETag || ''),
-        lastModified: response.LastModified || null,
+        body: file.createReadStream(),
+        contentType: String(metadata.contentType || ''),
+        cacheControl: String(metadata.cacheControl || ''),
+        contentLength: Number(metadata.size || 0),
+        etag: String(metadata.etag || ''),
+        lastModified: metadata.updated || null,
     };
 };
 
 module.exports = {
+    buildReviewMediaStorageKey,
     ensureReviewUploadStorageReady,
     getStorageDriver,
     getReviewMediaObject,

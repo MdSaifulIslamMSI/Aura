@@ -1,13 +1,17 @@
 const asyncHandler = require('express-async-handler');
 const AppError = require('../utils/AppError');
 const {
+    buildReviewMediaStorageKey,
     getStorageDriver,
     getReviewMediaObject,
 } = require('../services/reviewMediaStorageService');
 
 const isMissingObjectError = (error) => {
-    const status = Number(error?.$metadata?.httpStatusCode || 0);
-    return status === 404 || error?.name === 'NoSuchKey' || error?.Code === 'NoSuchKey';
+    return Number(error?.code || 0) === 404
+        || Number(error?.$metadata?.httpStatusCode || 0) === 404
+        || error?.name === 'NotFound'
+        || error?.name === 'NoSuchKey'
+        || error?.Code === 'NoSuchKey';
 };
 
 const isSafeReviewAssetPath = (value) => (
@@ -45,7 +49,7 @@ const pipeBodyToResponse = async (body, res) => {
 };
 
 const serveReviewMediaAsset = asyncHandler(async (req, res, next) => {
-    if (getStorageDriver() !== 's3') {
+    if (getStorageDriver() !== 'gcs') {
         return next();
     }
 
@@ -54,7 +58,7 @@ const serveReviewMediaAsset = asyncHandler(async (req, res, next) => {
         return next(new AppError('Upload not found', 404));
     }
 
-    const storageKey = `reviews/${reviewAssetPath}`.replace(/\/+/g, '/');
+    const storageKey = buildReviewMediaStorageKey(reviewAssetPath);
 
     let object;
     try {
