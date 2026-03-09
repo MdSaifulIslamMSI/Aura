@@ -26,6 +26,10 @@ services:
         value: local
       - key: REVIEW_UPLOAD_DIR
         value: /opt/render/project/src/server/uploads/reviews
+      - key: ORDER_EMAIL_PROVIDER
+        value: "null"
+      - key: ORDER_EMAILS_ENABLED
+        value: "true"
       - key: CORS_ORIGIN
         sync: false
       - key: APP_PUBLIC_URL
@@ -64,3 +68,61 @@ services:
         generateValue: true
       - key: CRON_SECRET
         generateValue: true
+
+  # Background worker process — runs payment outbox, order emails, catalog sync,
+  # commerce reconciliation, and admin analytics workers separately from the HTTP
+  # server. A crash or OOM in the HTTP server does NOT kill payment workers.
+  # To enable real email: set ORDER_EMAIL_PROVIDER=resend and RESEND_API_KEY
+  # in the Render dashboard for this service.
+  - type: worker
+    name: aura-workers
+    runtime: node
+    plan: free
+    region: singapore
+    rootDir: server
+    buildCommand: npm ci
+    startCommand: npm run start:workers
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: ORDER_EMAIL_PROVIDER
+        value: "null"
+      - key: ORDER_EMAILS_ENABLED
+        value: "true"
+      - key: ORDER_EMAIL_FROM_NAME
+        value: "Aura Marketplace"
+      - key: ORDER_EMAIL_FROM_ADDRESS
+        sync: false
+      - key: ORDER_EMAIL_REPLY_TO
+        sync: false
+      - key: ORDER_EMAIL_ALERT_TO
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: REDIS_ENABLED
+        value: "false"
+      - key: REDIS_REQUIRED
+        value: "false"
+      - key: REDIS_PREFIX
+        value: aura
+      - key: MONGO_URI
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: VOYAGE_API_KEY
+        sync: false
+      - key: ELEVENLABS_API_KEY
+        sync: false
+      - key: LIVEKIT_URL
+        sync: false
+      - key: LIVEKIT_API_KEY
+        sync: false
+      - key: LIVEKIT_API_SECRET
+        sync: false
+      - key: APP_PUBLIC_URL
+        sync: false
+      - key: UPLOAD_SIGNING_SECRET
+        generateValue: true
+      - key: CRON_SECRET
+        generateValue: true
+

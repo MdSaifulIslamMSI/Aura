@@ -28,7 +28,7 @@ const flags = {
     nodeEnv,
     isProduction,
     orderEmailsEnabled: parseBoolean(process.env.ORDER_EMAILS_ENABLED, true),
-    orderEmailProvider: asLower(process.env.ORDER_EMAIL_PROVIDER, 'gmail'),
+    orderEmailProvider: asLower(process.env.ORDER_EMAIL_PROVIDER, 'null'),
     orderEmailFromName: trim(process.env.ORDER_EMAIL_FROM_NAME, 'Aura Marketplace'),
     orderEmailFromAddress: trim(process.env.ORDER_EMAIL_FROM_ADDRESS, process.env.GMAIL_USER || ''),
     orderEmailReplyTo: trim(process.env.ORDER_EMAIL_REPLY_TO, ''),
@@ -47,24 +47,47 @@ const assertEmailAddress = (value, fieldName) => {
 const assertProductionEmailConfig = () => {
     if (!flags.isProduction || !flags.orderEmailsEnabled) return;
 
-    if (flags.orderEmailProvider !== 'gmail') {
-        throw new Error(`Unsupported ORDER_EMAIL_PROVIDER in production: ${flags.orderEmailProvider}`);
+    const disabledProviders = ['null', 'none', 'disabled'];
+    if (disabledProviders.includes(flags.orderEmailProvider)) {
+        // Email explicitly disabled — allowed but warn
+        const logger = require('../utils/logger');
+        logger.warn('email_config.disabled_in_production', {
+            provider: flags.orderEmailProvider,
+        });
+        return;
     }
 
-    if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
-        throw new Error('Missing Gmail credentials for production order email mode');
+    if (flags.orderEmailProvider === 'resend') {
+        if (!process.env.RESEND_API_KEY) {
+            throw new Error('Missing RESEND_API_KEY for production resend email mode');
+        }
+        assertEmailAddress(flags.orderEmailFromAddress, 'ORDER_EMAIL_FROM_ADDRESS');
+        if (flags.orderEmailReplyTo) {
+            assertEmailAddress(flags.orderEmailReplyTo, 'ORDER_EMAIL_REPLY_TO');
+        }
+        if (!flags.orderEmailAlertTo) {
+            throw new Error('ORDER_EMAIL_ALERT_TO is required in production for terminal email failures');
+        }
+        assertEmailAddress(flags.orderEmailAlertTo, 'ORDER_EMAIL_ALERT_TO');
+        return;
     }
 
-    assertEmailAddress(flags.orderEmailFromAddress, 'ORDER_EMAIL_FROM_ADDRESS');
-
-    if (flags.orderEmailReplyTo) {
-        assertEmailAddress(flags.orderEmailReplyTo, 'ORDER_EMAIL_REPLY_TO');
+    if (flags.orderEmailProvider === 'gmail') {
+        if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
+            throw new Error('Missing Gmail credentials for production order email mode');
+        }
+        assertEmailAddress(flags.orderEmailFromAddress, 'ORDER_EMAIL_FROM_ADDRESS');
+        if (flags.orderEmailReplyTo) {
+            assertEmailAddress(flags.orderEmailReplyTo, 'ORDER_EMAIL_REPLY_TO');
+        }
+        if (!flags.orderEmailAlertTo) {
+            throw new Error('ORDER_EMAIL_ALERT_TO is required in production for terminal email failures');
+        }
+        assertEmailAddress(flags.orderEmailAlertTo, 'ORDER_EMAIL_ALERT_TO');
+        return;
     }
 
-    if (!flags.orderEmailAlertTo) {
-        throw new Error('ORDER_EMAIL_ALERT_TO is required in production for terminal email failures');
-    }
-    assertEmailAddress(flags.orderEmailAlertTo, 'ORDER_EMAIL_ALERT_TO');
+    throw new Error(`Unsupported ORDER_EMAIL_PROVIDER in production: ${flags.orderEmailProvider}`);
 };
 
 module.exports = {
