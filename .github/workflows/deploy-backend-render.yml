@@ -1,0 +1,46 @@
+name: Deploy Backend To Render
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'server/**'
+      - 'infra/render/**'
+      - 'render.yaml'
+      - '.github/workflows/deploy-backend-render.yml'
+
+jobs:
+  deploy-backend:
+    runs-on: ubuntu-latest
+
+    env:
+      RENDER_BACKEND_DEPLOY_HOOK_URL: ${{ secrets.RENDER_BACKEND_DEPLOY_HOOK_URL }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 22.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: ./server
+        run: npm ci
+
+      - name: Run backend smoke tests
+        working-directory: ./server
+        run: npm test -- aiRoutes.test.js chatRoutes.test.js
+
+      - name: Skip deploy if hook is missing
+        if: env.RENDER_BACKEND_DEPLOY_HOOK_URL == ''
+        run: echo "RENDER_BACKEND_DEPLOY_HOOK_URL is not configured. Skipping Render deploy."
+
+      - name: Trigger Render deploy hook
+        if: env.RENDER_BACKEND_DEPLOY_HOOK_URL != ''
+        run: curl --fail --silent --show-error --request POST "${RENDER_BACKEND_DEPLOY_HOOK_URL}"
