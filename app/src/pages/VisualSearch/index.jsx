@@ -99,6 +99,14 @@ const readImageDimensions = (file) =>
     image.src = previewUrl;
   });
 
+const readFileAsDataUrl = (file) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(new Error('Failed to read image file.'));
+    reader.readAsDataURL(file);
+  });
+
 const formatSize = (sizeBytes = 0) => {
   const size = Number(sizeBytes) || 0;
   if (size >= 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(2)} MB`;
@@ -113,6 +121,7 @@ const VisualSearch = () => {
   const fileInputRef = useRef(null);
 
   const [imageUrl, setImageUrl] = useState('');
+  const [imageDataUrl, setImageDataUrl] = useState('');
   const [fileName, setFileName] = useState('');
   const [hints, setHints] = useState('');
   const [imageMeta, setImageMeta] = useState(null);
@@ -135,6 +144,7 @@ const VisualSearch = () => {
       }
       return '';
     });
+    setImageDataUrl('');
     setImageMeta(null);
   }, []);
 
@@ -159,7 +169,11 @@ const VisualSearch = () => {
     const resolvedFileName = file.name || `${source}-capture-${Date.now()}.png`;
     setFileName(resolvedFileName);
 
-    const dimensions = await readImageDimensions(file);
+    const [dimensions, nextImageDataUrl] = await Promise.all([
+      readImageDimensions(file),
+      readFileAsDataUrl(file),
+    ]);
+    setImageDataUrl(nextImageDataUrl);
     setImageMeta({
       source,
       mimeType: file.type || undefined,
@@ -180,18 +194,21 @@ const VisualSearch = () => {
 
   const runSearchWithPayload = async ({
     incomingUrl = imageUrl,
+    incomingImageDataUrl = imageDataUrl,
     incomingFileName = fileName,
     incomingHints = hints,
     incomingImageMeta = imageMeta,
     incomingLimit = limit,
   } = {}) => {
     const cleanedUrl = String(incomingUrl || '').trim();
+    const cleanedImageDataUrl = String(incomingImageDataUrl || '').trim();
     const cleanedHints = String(incomingHints || '').trim();
     const cleanedFileName = String(incomingFileName || '').trim() || deriveFileNameFromUrl(cleanedUrl);
     const safeLimit = toSafeLimit(incomingLimit, limit);
-    const metadata = incomingImageMeta || (cleanedUrl ? { source: 'url' } : undefined);
+    const metadata = incomingImageMeta
+      || (cleanedImageDataUrl ? { source: 'upload' } : (cleanedUrl ? { source: 'url' } : undefined));
 
-    if (!cleanedUrl && !cleanedHints && !cleanedFileName && !metadata) {
+    if (!cleanedUrl && !cleanedImageDataUrl && !cleanedHints && !cleanedFileName && !metadata) {
       setError('Provide image URL, uploaded screenshot, filename, or hint text.');
       return;
     }
@@ -202,6 +219,7 @@ const VisualSearch = () => {
     try {
       const response = await productApi.visualSearch({
         imageUrl: cleanedUrl || undefined,
+        imageDataUrl: cleanedImageDataUrl || undefined,
         fileName: cleanedFileName || undefined,
         hints: cleanedHints || undefined,
         imageMeta: metadata,
@@ -372,6 +390,8 @@ const VisualSearch = () => {
                       if (String(nextValue || '').trim()) {
                         clearUploadedPreview();
                         setImageMeta({ source: 'url' });
+                      } else if (!imageDataUrl) {
+                        setImageMeta(null);
                       }
                     }}
                     placeholder="https://.../product-image.jpg"

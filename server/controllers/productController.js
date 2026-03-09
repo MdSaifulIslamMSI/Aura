@@ -19,6 +19,7 @@ const {
     getCompatibilityGraph,
     buildSmartBundle,
 } = require('../services/commerceIntelligenceService');
+const { runMultimodalVisualSearch } = require('../services/ai/multimodalVisualSearchService');
 const { buildProductRecommendations } = require('../services/productRecommendationService');
 const { renderCatalogArtworkSvg } = require('../services/catalogArtworkService');
 const {
@@ -678,20 +679,20 @@ const buildAuthenticityHints = ({ product, dealDna, priceGap }) => {
 const visualSearchProducts = asyncHandler(async (req, res, next) => {
     try {
         const limit = Number(req.body.limit) || 12;
-        const tokens = buildVisualTokens(req.body);
-        const keyword = tokens.length > 0 ? tokens.slice(0, 3).join(' ') : '';
-
-        const result = await queryProducts({
-            keyword,
-            sort: 'relevance',
-            page: 1,
+        const multimodal = await runMultimodalVisualSearch({
+            imageUrl: req.body.imageUrl,
+            imageDataUrl: req.body.imageDataUrl,
+            fileName: req.body.fileName,
+            hints: req.body.hints,
+            imageMeta: req.body.imageMeta,
+            message: req.body.hints || req.body.fileName || '',
             limit,
-            includeDetails: true,
         });
 
-        const scoredProducts = (result.products || []).map((product) => ({
+        const scoredProducts = (multimodal.matches || []).map((product) => ({
             ...toClientProduct(product),
-            visualConfidence: getVisualConfidence(product, tokens),
+            visualConfidence: Number(product.visualConfidence || getVisualConfidence(product, multimodal.querySignals?.tokens || [])),
+            visualSignals: product.visualSignals || null,
         })).sort((a, b) => b.visualConfidence - a.visualConfidence);
 
         const priceStats = computePriceStats(scoredProducts);
@@ -717,9 +718,8 @@ const visualSearchProducts = asyncHandler(async (req, res, next) => {
 
         res.json({
             querySignals: {
-                tokens,
-                derivedKeyword: keyword || null,
-                imageMeta: req.body.imageMeta || null,
+                ...(multimodal.querySignals || {}),
+                imageMeta: req.body.imageMeta || multimodal.querySignals?.imageMeta || null,
             },
             marketSnapshot: {
                 topMatchPrice: topPrice,
@@ -728,7 +728,7 @@ const visualSearchProducts = asyncHandler(async (req, res, next) => {
                 maxMatchPrice: priceStats.max,
                 sampleSize: priceStats.count,
             },
-            total: result.total || enrichedProducts.length,
+            total: Number(multimodal.total || enrichedProducts.length),
             matches: enrichedProducts,
         });
     } catch (error) {

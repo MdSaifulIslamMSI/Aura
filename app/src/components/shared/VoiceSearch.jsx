@@ -1,6 +1,7 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bot, Mic, MicOff, Volume2, VolumeX, X, Loader2, Send } from 'lucide-react';
+import { Bot, Loader2, Mic, MicOff, Send, Volume2, VolumeX, X } from 'lucide-react';
+import { aiApi } from '@/services/aiApi';
 
 const COMMAND_HINTS = [
   'Search for iPhone 15',
@@ -140,16 +141,47 @@ const parseAssistantCommand = (rawText) => {
   };
 };
 
+const buildLocalAssistantResponse = (rawInput) => {
+  const command = parseAssistantCommand(rawInput);
+  const answer = command.message || 'Done.';
+
+  switch (command.type) {
+    case 'close':
+      return { answer, actions: [{ type: 'close' }], followUps: [] };
+    case 'product':
+      return {
+        answer,
+        actions: [{ type: 'open_product', productId: command.productId }],
+        followUps: [],
+      };
+    case 'category':
+      return {
+        answer,
+        actions: [{ type: 'navigate', path: `/category/${command.slug}` }],
+        followUps: [],
+      };
+    case 'navigate':
+      return { answer, actions: [{ type: 'navigate', path: command.path }], followUps: [] };
+    case 'search':
+      return { answer, actions: [{ type: 'search', query: command.query }], followUps: [] };
+    default:
+      return { answer, actions: [], followUps: [] };
+  }
+};
+
 const VoiceSearch = ({ onClose, onResult }) => {
   const [isListening, setIsListening] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [manualCommand, setManualCommand] = useState('');
   const [assistantReply, setAssistantReply] = useState('');
   const [error, setError] = useState('');
   const [speechEnabled, setSpeechEnabled] = useState(true);
+  const [voiceSession, setVoiceSession] = useState(null);
 
   const recognitionRef = useRef(null);
   const transcriptRef = useRef('');
+  const voiceSessionRef = useRef(null);
   const navigate = useNavigate();
 
   const browserSupportsSpeechRecognition =
@@ -162,13 +194,13 @@ const VoiceSearch = ({ onClose, onResult }) => {
       const message = String(text || '').trim();
       if (!message) return;
       const utterance = new SpeechSynthesisUtterance(message);
-      utterance.lang = 'en-IN';
+      utterance.lang = voiceSession?.locale || 'en-IN';
       utterance.rate = 1;
       utterance.pitch = 1;
       window.speechSynthesis.cancel();
       window.speechSynthesis.speak(utterance);
     },
-    [speechEnabled]
+    [speechEnabled, voiceSession?.locale]
   );
 
   const stopListening = useCallback(() => {
@@ -176,53 +208,85 @@ const VoiceSearch = ({ onClose, onResult }) => {
     setIsListening(false);
   }, []);
 
-  const executeCommand = useCallback(
-    (rawInput) => {
-      const command = parseAssistantCommand(rawInput);
-      const reply = command.message || 'Done.';
-      setAssistantReply(reply);
-      setError('');
-      speak(reply);
+  const applyAssistantActions = useCallback(
+    (actions = []) => {
+      const [primaryAction] = Array.isArray(actions) ? actions : [];
+      if (!primaryAction?.type) return;
 
-      if (command.type === 'help') return;
-      if (command.type === 'close') {
+      if (primaryAction.type === 'close') {
         onClose?.();
         return;
       }
 
-      if (command.type === 'product' && command.productId) {
-        navigate(`/product/${command.productId}`);
+      if (primaryAction.type === 'open_product' && primaryAction.productId) {
+        navigate(`/product/${primaryAction.productId}`);
         onClose?.();
         return;
       }
 
-      if (command.type === 'category' && command.slug) {
-        navigate(`/category/${command.slug}`);
+      if (primaryAction.type === 'navigate' && primaryAction.path) {
+        navigate(primaryAction.path);
         onClose?.();
         return;
       }
 
-      if (command.type === 'navigate' && command.path) {
-        navigate(command.path);
-        onClose?.();
-        return;
-      }
-
-      if (command.type === 'search' && command.query) {
+      if (primaryAction.type === 'search' && primaryAction.query) {
         if (typeof onResult === 'function') {
-          onResult(command.query);
+          onResult(primaryAction.query);
         } else {
-          navigate(`/search?q=${encodeURIComponent(command.query)}`);
+          navigate(`/search?q=${encodeURIComponent(primaryAction.query)}`);
         }
         onClose?.();
+      }
+    },
+    [navigate, onClose, onResult]
+  );
+
+  const executeLocalCommand = useCallback(
+    (rawInput, nextError = '') => {
+      const response = buildLocalAssistantResponse(rawInput);
+      setAssistantReply(response.answer || 'Done.');
+      setError(nextError);
+      speak(response.answer || 'Done.');
+      applyAssistantActions(response.actions || []);
+    },
+    [applyAssistantActions, speak]
+  );
+
+  const executeCommand = useCallback(
+    async (rawInput) => {
+      const message = String(rawInput || '').trim();
+      if (!message) {
+        setAssistantReply('Say a command like search for iPhone fifteen.');
         return;
       }
 
-      if (command.type === 'empty') {
-        setAssistantReply('Say a command like search for iPhone fifteen.');
+      setTranscript(message);
+      setIsProcessing(true);
+      setError('');
+
+      try {
+        const response = await aiApi.chat({
+          message,
+          assistantMode: 'voice',
+          context: {
+            locale: voiceSessionRef.current?.locale || 'en-IN',
+            voiceSessionId: voiceSessionRef.current?.sessionId || '',
+          },
+        });
+
+        const answer = String(response?.answer || '').trim() || 'Voice command processed.';
+        setAssistantReply(answer);
+        speak(answer);
+        applyAssistantActions(response?.actions || []);
+      } catch (requestError) {
+        executeLocalCommand(message, 'Using local voice fallback.');
+        console.error('Voice assistant fallback:', requestError);
+      } finally {
+        setIsProcessing(false);
       }
     },
-    [navigate, onClose, onResult, speak]
+    [applyAssistantActions, executeLocalCommand, speak]
   );
 
   const startListening = useCallback(() => {
@@ -241,7 +305,7 @@ const VoiceSearch = ({ onClose, onResult }) => {
     recognitionRef.current = recognition;
     recognition.continuous = false;
     recognition.interimResults = true;
-    recognition.lang = 'en-IN';
+    recognition.lang = voiceSessionRef.current?.locale || 'en-IN';
     recognition.maxAlternatives = 1;
 
     recognition.onstart = () => {
@@ -294,8 +358,22 @@ const VoiceSearch = ({ onClose, onResult }) => {
   }, [browserSupportsSpeechRecognition, executeCommand]);
 
   useEffect(() => {
+    let active = true;
+
+    aiApi.createVoiceSession({ locale: 'en-IN' })
+      .then((session) => {
+        if (!active) return;
+        voiceSessionRef.current = session;
+        setVoiceSession(session);
+      })
+      .catch((requestError) => {
+        if (!active) return;
+        console.error('Voice session bootstrap failed:', requestError);
+      });
+
     startListening();
     return () => {
+      active = false;
       recognitionRef.current?.abort();
       if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
         window.speechSynthesis.cancel();
@@ -320,7 +398,7 @@ const VoiceSearch = ({ onClose, onResult }) => {
               </div>
               <div>
                 <h2 className="text-base sm:text-lg font-black text-slate-100 tracking-wide">Aura Voice Assistant</h2>
-                <p className="text-xs sm:text-sm text-slate-400">Alexa-style command center for search + navigation</p>
+                <p className="text-xs sm:text-sm text-slate-400">Browser capture plus server-backed command reasoning</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -372,7 +450,7 @@ const VoiceSearch = ({ onClose, onResult }) => {
               <button
                 type="button"
                 onClick={startListening}
-                disabled={isListening}
+                disabled={isListening || isProcessing}
                 className="w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-xs font-bold uppercase tracking-wider text-slate-200 hover:bg-white/10 disabled:opacity-50"
               >
                 Retry
@@ -393,14 +471,21 @@ const VoiceSearch = ({ onClose, onResult }) => {
                   </div>
                 )}
 
-                {assistantReply && !isListening && (
+                {isProcessing && !isListening && (
+                  <div className="mt-3 flex items-center gap-2 text-xs text-cyan-200">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    Aura is resolving your command...
+                  </div>
+                )}
+
+                {assistantReply && !isListening && !isProcessing && (
                   <div className="mt-3 rounded-lg border border-emerald-400/25 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-100">
                     {assistantReply}
                   </div>
                 )}
 
                 {error && (
-                  <div className="mt-3 rounded-lg border border-rose-400/25 bg-rose-500/10 px-3 py-2 text-sm text-rose-200">
+                  <div className="mt-3 rounded-lg border border-amber-300/25 bg-amber-500/10 px-3 py-2 text-sm text-amber-100">
                     {error}
                   </div>
                 )}
@@ -430,6 +515,7 @@ const VoiceSearch = ({ onClose, onResult }) => {
                     }}
                     className="rounded-xl border border-cyan-300/35 bg-cyan-500/15 px-3 py-2 text-cyan-100 hover:bg-cyan-500/25"
                     aria-label="Execute typed command"
+                    disabled={isProcessing}
                   >
                     <Send className="w-4 h-4" />
                   </button>
@@ -439,8 +525,18 @@ const VoiceSearch = ({ onClose, onResult }) => {
           </div>
 
           <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
-            <div className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 mb-2">Voice Commands</div>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Voice Commands</div>
+              <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
+                <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1">
+                  {voiceSession?.capabilities?.speechToText?.provider || 'browser'}
+                </span>
+                <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1">
+                  {voiceSession?.locale || 'en-IN'}
+                </span>
+              </div>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
               {COMMAND_HINTS.map((hint) => (
                 <button
                   key={hint}

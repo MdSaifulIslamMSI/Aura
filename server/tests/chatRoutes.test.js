@@ -14,6 +14,28 @@ jest.mock('../services/assistantCommerceService', () => ({
     }),
 }));
 
+jest.mock('../services/ai/assistantOrchestratorService', () => ({
+    processAssistantTurn: jest.fn().mockResolvedValue({
+        answer: 'Legacy-compatible answer',
+        products: [],
+        actions: [],
+        followUps: ['Best deals today'],
+        grounding: {
+            mode: 'chat',
+            actionType: 'assistant',
+        },
+        provider: 'local',
+        latencyMs: 8,
+        legacy: {
+            text: 'Legacy-compatible answer',
+            products: [],
+            suggestions: ['Best deals today'],
+            actionType: 'assistant',
+            isAI: false,
+        },
+    }),
+}));
+
 const app = require('../index');
 
 describe('Chat Routes Security', () => {

@@ -1,53 +1,25 @@
-import { auth, isFirebaseReady } from '../config/firebase';
-import { API_BASE_URL as API_URL, requestWithTrace } from './apiBase';
-
-const getChatHeaders = async () => {
-    const headers = { 'Content-Type': 'application/json' };
-    if (!isFirebaseReady || !auth) {
-        return { headers, endpoint: '/chat/public' };
-    }
-    const user = auth.currentUser;
-    if (!user) return { headers, endpoint: '/chat/public' };
-
-    try {
-        const token = await user.getIdToken();
-        return {
-            headers: {
-                ...headers,
-                Authorization: `Bearer ${token}`,
-            },
-            endpoint: '/chat',
-        };
-    } catch {
-        return { headers, endpoint: '/chat/public' };
-    }
-};
+import { aiApi } from './aiApi';
 
 export const chatApi = {
     sendMessage: async (message, conversationHistory = []) => {
         try {
-            const { headers, endpoint } = await getChatHeaders();
-            let response = await requestWithTrace(`${API_URL}${endpoint}`, {
-                method: 'POST',
-                headers,
-                body: JSON.stringify({ message, conversationHistory }),
-                throwOnHttpError: false,
+            const response = await aiApi.chat({
+                message,
+                assistantMode: 'chat',
+                conversationHistory,
             });
-
-            // If private endpoint returns unauthorized, retry in public mode.
-            if (response.status === 401 || response.status === 403) {
-                response = await requestWithTrace(`${API_URL}/chat/public`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message, conversationHistory }),
-                    throwOnHttpError: false,
-                });
+            if (response?.legacy && typeof response.legacy === 'object') {
+                return response.legacy;
             }
-
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            return await response.json();
+            return {
+                text: response?.answer || "Sorry, I'm having trouble connecting. Please try again!",
+                products: response?.products || [],
+                suggestions: response?.followUps || [],
+                actionType: response?.grounding?.actionType || 'assistant',
+                isAI: response?.provider !== 'local',
+                provider: response?.provider || 'local',
+                mode: response?.grounding?.mode || 'chat',
+            };
         } catch (error) {
             console.error("Chat Error:", error);
             return {

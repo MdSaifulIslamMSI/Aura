@@ -75,18 +75,19 @@ const productRecommendationSchema = z.object({
 const visualSearchSchema = z.object({
     body: z.object({
         imageUrl: z.string().trim().url('Invalid image URL').optional(),
+        imageDataUrl: z.string().trim().max(12_000_000).optional(),
         fileName: z.string().trim().max(240).optional(),
         hints: z.string().trim().max(240).optional(),
         imageMeta: z.object({
-            source: z.enum(['upload', 'clipboard', 'url']).optional(),
+            source: z.enum(['upload', 'clipboard', 'url', 'camera']).optional(),
             mimeType: z.string().trim().max(120).optional(),
             sizeBytes: z.preprocess((val) => Number(val), z.number().int().min(0).max(25_000_000)).optional(),
             width: z.preprocess((val) => Number(val), z.number().int().min(1).max(12000)).optional(),
             height: z.preprocess((val) => Number(val), z.number().int().min(1).max(12000)).optional(),
         }).optional(),
         limit: z.preprocess((val) => Number(val), z.number().int().min(1).max(24).default(12)).optional(),
-    }).refine((value) => Boolean(value.imageUrl || value.fileName || value.hints || value.imageMeta), {
-        message: 'Provide imageUrl, fileName, hints, or image metadata for visual search',
+    }).refine((value) => Boolean(value.imageUrl || value.imageDataUrl || value.fileName || value.hints || value.imageMeta), {
+        message: 'Provide imageUrl, imageDataUrl, fileName, hints, or image metadata for visual search',
     }),
 });
 

@@ -206,6 +206,14 @@ const protect = asyncHandler(async (req, res, next) => {
     }
 });
 
+const protectOptional = asyncHandler(async (req, res, next) => {
+    if (!req.headers.authorization?.startsWith('Bearer')) {
+        return next();
+    }
+
+    return protect(req, res, next);
+});
+
 // Invalidate a user from cache (call on profile update, logout etc.)
 const invalidateUserCache = (uid) => {
     if (!uid) return;
@@ -334,6 +342,7 @@ const seller = (req, res, next) => {
 
 module.exports = {
     protect,
+    protectOptional,
     admin,
     seller,
     invalidateUserCache,

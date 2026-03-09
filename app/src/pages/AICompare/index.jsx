@@ -1,7 +1,8 @@
 ﻿import { useEffect, useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
-import { Brain, Search, Sparkles, Trophy, X } from 'lucide-react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Brain, Loader2, Search, Sparkles, Trophy, X } from 'lucide-react';
 import { productApi } from '@/services/api';
+import { aiApi } from '@/services/aiApi';
 import { cn } from '@/lib/utils';
 
 const MAX_COMPARE_ITEMS = 4;
@@ -78,8 +79,10 @@ const scoreProduct = ({ product, mode, minPrice, maxPrice, minDays, maxDays, max
 };
 
 const formatPrice = (value) => `Rs ${(Number(value) || 0).toLocaleString('en-IN')}`;
+const getProductId = (product) => product?.id || product?._id || '';
 
 const AICompare = () => {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedProducts, setSelectedProducts] = useState([]);
   const [query, setQuery] = useState('');
@@ -87,6 +90,9 @@ const AICompare = () => {
   const [suggestionLoading, setSuggestionLoading] = useState(false);
   const [mode, setMode] = useState('balanced');
   const [error, setError] = useState('');
+  const [aiSummary, setAiSummary] = useState(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState('');
 
   useEffect(() => {
     const idsFromQuery = (searchParams.get('ids') || '')
@@ -210,6 +216,56 @@ const AICompare = () => {
 
     return lines.slice(0, 4);
   }, [winner, mode]);
+
+  useEffect(() => {
+    const productIds = selectedProducts
+      .map((product) => getProductId(product))
+      .filter(Boolean)
+      .slice(0, MAX_COMPARE_ITEMS);
+
+    if (productIds.length < 2) {
+      setAiSummary(null);
+      setAiError('');
+      setAiLoading(false);
+      return undefined;
+    }
+
+    let active = true;
+    const timer = setTimeout(async () => {
+      setAiLoading(true);
+      setAiError('');
+
+      try {
+        const response = await aiApi.chat({
+          message: `Compare these products in ${mode} mode and recommend the best grounded option.`,
+          assistantMode: 'compare',
+          context: {
+            productIds,
+            compareMode: mode,
+          },
+        });
+
+        if (!active) return;
+        setAiSummary(response);
+      } catch (requestError) {
+        if (!active) return;
+        setAiSummary(null);
+        setAiError(requestError.message || 'AI comparison is unavailable right now.');
+      } finally {
+        if (active) setAiLoading(false);
+      }
+    }, 180);
+
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [mode, selectedProducts]);
+
+  const aiWinnerAction = useMemo(
+    () => (aiSummary?.actions || []).find((action) => action?.type === 'open_product' && action?.productId),
+    [aiSummary]
+  );
 
   return (
     <div className="container-custom max-w-7xl mx-auto px-4 py-8 min-h-screen">
@@ -347,6 +403,62 @@ const AICompare = () => {
                   </li>
                 ))}
               </ul>
+            </div>
+          )}
+
+          {selectedProducts.length >= 2 && (
+            <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl p-5">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.2em] text-neo-cyan font-bold">Frontier AI Layer</p>
+                  <h3 className="text-lg font-black text-white mt-1">Grounded Compare Analysis</h3>
+                </div>
+                <span className="rounded-full border border-white/10 bg-zinc-950/70 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-slate-300">
+                  {aiLoading ? 'Thinking' : (aiSummary?.provider || 'local')}
+                </span>
+              </div>
+
+              {aiLoading && (
+                <div className="mt-4 inline-flex items-center gap-2 rounded-xl border border-white/10 bg-zinc-950/60 px-3 py-2 text-sm text-slate-300">
+                  <Loader2 className="w-4 h-4 animate-spin text-neo-cyan" />
+                  Building grounded verdict...
+                </div>
+              )}
+
+              {!aiLoading && aiError && (
+                <div className="mt-4 rounded-xl border border-neo-rose/35 bg-neo-rose/10 px-4 py-3 text-sm text-neo-rose">
+                  {aiError}
+                </div>
+              )}
+
+              {!aiLoading && !aiError && aiSummary && (
+                <>
+                  <p className="mt-4 text-sm leading-7 text-slate-200">{aiSummary.answer}</p>
+
+                  {aiSummary.followUps?.length > 0 && (
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {aiSummary.followUps.map((item) => (
+                        <span
+                          key={item}
+                          className="rounded-full border border-neo-cyan/30 bg-neo-cyan/10 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-neo-cyan"
+                        >
+                          {item}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {aiWinnerAction?.productId && (
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/product/${aiWinnerAction.productId}`)}
+                      className="mt-4 rounded-xl border border-white/15 bg-white/10 px-4 py-2 text-sm font-bold text-white hover:border-neo-cyan/40 hover:text-neo-cyan transition-colors"
+                    >
+                      Open AI Winner
+                    </button>
+                  )}
+                </>
+              )}
             </div>
           )}
 

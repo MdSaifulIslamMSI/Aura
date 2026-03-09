@@ -2,6 +2,7 @@ import { useContext, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Loader2, Sparkles, Zap, ShoppingCart, ShieldCheck } from 'lucide-react';
 import { productApi } from '@/services/api';
+import { aiApi } from '@/services/aiApi';
 import { CartContext } from '@/context/CartContext';
 import { formatPrice } from '@/utils/format';
 
@@ -29,6 +30,9 @@ export default function Bundles() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [bundle, setBundle] = useState(null);
+    const [aiSummary, setAiSummary] = useState(null);
+    const [aiLoading, setAiLoading] = useState(false);
+    const [aiError, setAiError] = useState('');
 
     useEffect(() => {
         const nextParams = new URLSearchParams();
@@ -60,6 +64,52 @@ export default function Bundles() {
     }, []);
 
     const canCheckout = useMemo(() => Array.isArray(bundle?.items) && bundle.items.length > 0, [bundle?.items]);
+    const aiBundleAction = useMemo(
+        () => (aiSummary?.actions || []).find((action) => action?.type === 'navigate' && action?.path),
+        [aiSummary]
+    );
+
+    useEffect(() => {
+        if (!Array.isArray(bundle?.items) || bundle.items.length === 0) {
+            setAiSummary(null);
+            setAiError('');
+            setAiLoading(false);
+            return undefined;
+        }
+
+        let active = true;
+        const timer = setTimeout(async () => {
+            setAiLoading(true);
+            setAiError('');
+
+            try {
+                const response = await aiApi.chat({
+                    message: `Explain this grounded bundle for the shopper, highlight tradeoffs, and suggest next actions.`,
+                    assistantMode: 'bundle',
+                    context: {
+                        theme,
+                        budget,
+                        maxItems,
+                        bundle,
+                    },
+                });
+
+                if (!active) return;
+                setAiSummary(response);
+            } catch (requestError) {
+                if (!active) return;
+                setAiSummary(null);
+                setAiError(requestError.message || 'Bundle analysis is unavailable right now.');
+            } finally {
+                if (active) setAiLoading(false);
+            }
+        }, 180);
+
+        return () => {
+            active = false;
+            clearTimeout(timer);
+        };
+    }, [budget, bundle, maxItems, theme]);
 
     const handleAddAllToCart = () => {
         if (!canCheckout) return;
@@ -172,6 +222,60 @@ export default function Bundles() {
                                     </div>
                                 </div>
 
+                                <div className="mb-4 rounded-2xl border border-white/10 bg-zinc-950/45 p-4">
+                                    <div className="flex items-center justify-between gap-3">
+                                        <div>
+                                            <p className="text-[11px] font-black uppercase tracking-[0.2em] text-cyan-200">Frontier AI Layer</p>
+                                            <h3 className="mt-1 text-lg font-black text-white">Bundle Intelligence</h3>
+                                        </div>
+                                        <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-slate-300">
+                                            {aiLoading ? 'Thinking' : (aiSummary?.provider || 'local')}
+                                        </span>
+                                    </div>
+
+                                    {aiLoading && (
+                                        <div className="mt-4 inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-300">
+                                            <Loader2 className="w-4 h-4 animate-spin text-cyan-200" />
+                                            Explaining bundle strategy...
+                                        </div>
+                                    )}
+
+                                    {!aiLoading && aiError && (
+                                        <div className="mt-4 rounded-xl border border-rose-300/35 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+                                            {aiError}
+                                        </div>
+                                    )}
+
+                                    {!aiLoading && !aiError && aiSummary && (
+                                        <>
+                                            <p className="mt-4 text-sm leading-7 text-slate-200">{aiSummary.answer}</p>
+
+                                            {aiSummary.followUps?.length > 0 && (
+                                                <div className="mt-4 flex flex-wrap gap-2">
+                                                    {aiSummary.followUps.map((item) => (
+                                                        <span
+                                                            key={item}
+                                                            className="rounded-full border border-cyan-300/30 bg-cyan-500/10 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-cyan-100"
+                                                        >
+                                                            {item}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            )}
+
+                                            {aiBundleAction?.path && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => navigate(aiBundleAction.path)}
+                                                    className="mt-4 rounded-xl border border-white/15 bg-white/10 px-4 py-2 text-sm font-black text-white hover:border-cyan-300/40 hover:text-cyan-100"
+                                                >
+                                                    Open Suggested Bundle View
+                                                </button>
+                                            )}
+                                        </>
+                                    )}
+                                </div>
+
                                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
                                     {(bundle.items || []).map((item) => (
                                         <Link
@@ -215,4 +319,3 @@ export default function Bundles() {
         </div>
     );
 }
-
