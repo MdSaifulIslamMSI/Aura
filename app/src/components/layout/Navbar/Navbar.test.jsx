@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, it, expect, vi } from 'vitest';
 import Navbar from './index';
@@ -64,6 +64,19 @@ describe('Navbar Component', () => {
     it('shows User Name when authenticated', () => {
         renderNavbar({ currentUser: { displayName: 'John Doe', email: 'john@example.com' } });
         expect(screen.getByText('John Doe')).toBeInTheDocument();
+    });
+
+    it('renders readable motion controls inside preferences', () => {
+        renderNavbar({ currentUser: { displayName: 'John Doe', email: 'john@example.com' } });
+
+        fireEvent.click(screen.getByText('John Doe'));
+        fireEvent.click(screen.getByRole('button', { name: /Preferences/i }));
+
+        expect(screen.getAllByText('Cinematic').length).toBeGreaterThan(0);
+        expect(screen.getAllByText('Balanced').length).toBeGreaterThan(0);
+        expect(screen.getAllByText('Minimal').length).toBeGreaterThan(0);
+        expect(screen.getByText(/Selected:/i)).toBeInTheDocument();
+        expect(screen.getByText(/Effective:/i)).toBeInTheDocument();
     });
 
     it('displays cart count badge', () => {

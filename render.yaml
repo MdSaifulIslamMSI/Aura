@@ -13,16 +13,11 @@ services:
       - key: NODE_ENV
         value: production
       - key: SPLIT_RUNTIME_ENABLED
-        value: "true"
+        value: "false"
       - key: REDIS_ENABLED
-        value: "true"
+        value: "false"
       - key: REDIS_REQUIRED
-        value: "true"
-      - key: REDIS_URL
-        fromService:
-          type: keyvalue
-          name: aura-redis
-          property: connectionString
+        value: "false"
       - key: REDIS_PREFIX
         value: aura
       - key: JSON_BODY_LIMIT
@@ -37,15 +32,35 @@ services:
         sync: false
       - key: MONGO_URI
         sync: false
-      - key: BYTEZ_API_KEY
+      - key: GROQ_API_KEY
         sync: false
+      - key: VOYAGE_API_KEY
+        sync: false
+      - key: ELEVENLABS_API_KEY
+        sync: false
+      - key: ELEVENLABS_VOICE_ID
+        sync: false
+      - key: LIVEKIT_URL
+        sync: false
+      - key: LIVEKIT_API_KEY
+        sync: false
+      - key: LIVEKIT_API_SECRET
+        sync: false
+      - key: GROQ_CHAT_MODEL
+        value: openai/gpt-oss-20b
+      - key: GROQ_VISION_MODEL
+        value: meta-llama/llama-4-scout-17b-16e-instruct
+      - key: GROQ_AUDIO_MODEL
+        value: whisper-large-v3-turbo
+      - key: VOYAGE_TEXT_EMBEDDING_MODEL
+        value: voyage-3.5-lite
+      - key: VOYAGE_RERANK_MODEL
+        value: rerank-2.5-lite
+      - key: ELEVENLABS_MODEL
+        value: eleven_flash_v2_5
+      - key: AI_DEFAULT_LOCALE
+        value: en-IN
       - key: UPLOAD_SIGNING_SECRET
         generateValue: true
       - key: CRON_SECRET
         generateValue: true
-
-  - type: keyvalue
-    name: aura-redis
-    plan: free
-    region: singapore
-    ipAllowList: []

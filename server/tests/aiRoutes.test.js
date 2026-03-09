@@ -32,6 +32,13 @@ jest.mock('../services/ai/assistantOrchestratorService', () => ({
             },
         },
     }),
+    synthesizeVoiceReply: jest.fn().mockResolvedValue({
+        provider: 'elevenlabs',
+        model: 'eleven_flash_v2_5',
+        voiceId: 'voice_test',
+        mimeType: 'audio/mpeg',
+        audioBase64: 'ZmFrZQ==',
+    }),
 }));
 
 const app = require('../index');
@@ -65,5 +72,18 @@ describe('AI Routes', () => {
         expect(res.body.sessionId).toBe('voice_test_123');
         expect(res.body.turnEndpoint).toBe('/api/ai/chat');
         expect(res.body.capabilities.speechToText.provider).toBe('browser_fallback');
+    });
+
+    test('POST /api/ai/voice/speak returns synthesized audio payload', async () => {
+        const res = await request(app)
+            .post('/api/ai/voice/speak')
+            .send({
+                text: 'Hello from Aura',
+                locale: 'en-IN',
+            });
+
+        expect(res.statusCode).toBe(200);
+        expect(res.body.provider).toBe('elevenlabs');
+        expect(res.body.audioBase64).toBe('ZmFrZQ==');
     });
 });

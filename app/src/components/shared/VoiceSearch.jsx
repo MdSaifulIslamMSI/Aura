@@ -169,6 +169,20 @@ const buildLocalAssistantResponse = (rawInput) => {
   }
 };
 
+const decodeBase64Audio = (base64Value = '', mimeType = 'audio/mpeg') => {
+  if (typeof window === 'undefined' || typeof window.atob !== 'function') return null;
+  const cleanValue = String(base64Value || '').trim();
+  if (!cleanValue) return null;
+
+  const binaryString = window.atob(cleanValue);
+  const bytes = new Uint8Array(binaryString.length);
+  for (let index = 0; index < binaryString.length; index += 1) {
+    bytes[index] = binaryString.charCodeAt(index);
+  }
+
+  return new Blob([bytes], { type: mimeType });
+};
+
 const VoiceSearch = ({ onClose, onResult }) => {
   const [isListening, setIsListening] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -182,17 +196,56 @@ const VoiceSearch = ({ onClose, onResult }) => {
   const recognitionRef = useRef(null);
   const transcriptRef = useRef('');
   const voiceSessionRef = useRef(null);
+  const audioRef = useRef(null);
+  const audioUrlRef = useRef('');
   const navigate = useNavigate();
 
   const browserSupportsSpeechRecognition =
     typeof window !== 'undefined' &&
     ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window);
 
+  const playServerSpeech = useCallback(async (text) => {
+    const provider = voiceSessionRef.current?.capabilities?.textToSpeech?.provider;
+    if (provider !== 'elevenlabs') return false;
+
+    const response = await aiApi.speakText({
+      text,
+      locale: voiceSessionRef.current?.locale || 'en-IN',
+    });
+
+    const audioBlob = decodeBase64Audio(response?.audioBase64, response?.mimeType || 'audio/mpeg');
+    if (!audioBlob) return false;
+
+    if (audioRef.current) {
+      audioRef.current.pause();
+    }
+    if (audioUrlRef.current && typeof URL !== 'undefined') {
+      URL.revokeObjectURL(audioUrlRef.current);
+    }
+
+    const objectUrl = URL.createObjectURL(audioBlob);
+    const audio = new Audio(objectUrl);
+    audioRef.current = audio;
+    audioUrlRef.current = objectUrl;
+    await audio.play();
+    return true;
+  }, []);
+
   const speak = useCallback(
-    (text) => {
-      if (!speechEnabled || typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    async (text) => {
+      if (!speechEnabled || typeof window === 'undefined') return;
       const message = String(text || '').trim();
       if (!message) return;
+
+      try {
+        const usedServerSpeech = await playServerSpeech(message);
+        if (usedServerSpeech) return;
+      } catch (error) {
+        console.error('Server voice synthesis failed, using browser fallback:', error);
+      }
+
+      if (!('speechSynthesis' in window)) return;
+
       const utterance = new SpeechSynthesisUtterance(message);
       utterance.lang = voiceSession?.locale || 'en-IN';
       utterance.rate = 1;
@@ -200,7 +253,7 @@ const VoiceSearch = ({ onClose, onResult }) => {
       window.speechSynthesis.cancel();
       window.speechSynthesis.speak(utterance);
     },
-    [speechEnabled, voiceSession?.locale]
+    [playServerSpeech, speechEnabled, voiceSession?.locale]
   );
 
   const stopListening = useCallback(() => {
@@ -247,7 +300,7 @@ const VoiceSearch = ({ onClose, onResult }) => {
       const response = buildLocalAssistantResponse(rawInput);
       setAssistantReply(response.answer || 'Done.');
       setError(nextError);
-      speak(response.answer || 'Done.');
+      void speak(response.answer || 'Done.');
       applyAssistantActions(response.actions || []);
     },
     [applyAssistantActions, speak]
@@ -277,7 +330,7 @@ const VoiceSearch = ({ onClose, onResult }) => {
 
         const answer = String(response?.answer || '').trim() || 'Voice command processed.';
         setAssistantReply(answer);
-        speak(answer);
+        void speak(answer);
         applyAssistantActions(response?.actions || []);
       } catch (requestError) {
         executeLocalCommand(message, 'Using local voice fallback.');
@@ -375,6 +428,10 @@ const VoiceSearch = ({ onClose, onResult }) => {
     return () => {
       active = false;
       recognitionRef.current?.abort();
+      audioRef.current?.pause();
+      if (audioUrlRef.current && typeof URL !== 'undefined') {
+        URL.revokeObjectURL(audioUrlRef.current);
+      }
       if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
         window.speechSynthesis.cancel();
       }

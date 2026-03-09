@@ -6,7 +6,7 @@
   - MongoDB replica set connectivity
   - Redis enabled and required
   - in-process workers for payment capture, order email, catalog sync, and reconciliation
-- The repo now includes a Render deployment path under [`infra/render/README.md`](../infra/render/README.md).
+- The repo now includes a simplified Render deployment path under [`infra/render/README.md`](../infra/render/README.md) that disables split-runtime Redis for the hosted free-plan setup.
 
 ## Local Bootstrap
 1. `cd server`

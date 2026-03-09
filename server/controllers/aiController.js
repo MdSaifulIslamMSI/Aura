@@ -1,6 +1,6 @@
 const asyncHandler = require('express-async-handler');
 const AppError = require('../utils/AppError');
-const { createVoiceSessionConfig, processAssistantTurn } = require('../services/ai/assistantOrchestratorService');
+const { createVoiceSessionConfig, processAssistantTurn, synthesizeVoiceReply } = require('../services/ai/assistantOrchestratorService');
 
 const handleAiChat = asyncHandler(async (req, res, next) => {
     const message = req.body?.message;
@@ -29,7 +29,26 @@ const createAiVoiceSession = asyncHandler(async (req, res) => {
     return res.status(201).json(session);
 });
 
+const synthesizeAiVoiceReply = asyncHandler(async (req, res, next) => {
+    const text = req.body?.text;
+    if (!text || typeof text !== 'string') {
+        return next(new AppError('Text is required', 400));
+    }
+
+    const audio = await synthesizeVoiceReply({
+        text,
+        locale: req.body?.locale || '',
+    });
+
+    if (!audio?.audioBase64) {
+        return next(new AppError('Voice synthesis is unavailable', 503));
+    }
+
+    return res.json(audio);
+});
+
 module.exports = {
     createAiVoiceSession,
     handleAiChat,
+    synthesizeAiVoiceReply,
 };

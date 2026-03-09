@@ -1,6 +1,7 @@
 import { auth, isFirebaseReady } from '../config/firebase';
 import {
     API_BASE_URL as API_URL,
+    buildApiUrl,
     createResponseError,
     parseJsonSafely,
     requestWithTrace,
@@ -75,6 +76,37 @@ export const aiApi = {
     createVoiceSession: async (payload = {}) => requestAiJson('/ai/voice/session', payload, {
         fallbackMessage: 'Voice session could not be created',
     }),
+    speakText: async (payload = {}) => {
+        const { headers, usedAuth } = await getAiRequestConfig();
+        const url = buildApiUrl('/ai/voice/speak');
+
+        let response = await requestWithTrace(url, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(payload),
+            throwOnHttpError: false,
+            fallbackMessage: 'Voice synthesis failed',
+        });
+
+        if (usedAuth && (response.status === 401 || response.status === 403)) {
+            response = await requestWithTrace(url, {
+                method: 'POST',
+                headers: buildBaseHeaders(),
+                body: JSON.stringify(payload),
+                throwOnHttpError: false,
+                fallbackMessage: 'Voice synthesis failed',
+            });
+        }
+
+        if (!response.ok) {
+            throw await createResponseError(response, 'Voice synthesis failed', {
+                method: 'POST',
+                url,
+            });
+        }
+
+        return parseJsonSafely(response);
+    },
 };
 
 export default aiApi;

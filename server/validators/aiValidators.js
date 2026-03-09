@@ -32,7 +32,15 @@ const aiVoiceSessionSchema = z.object({
     }).strict().optional(),
 });
 
+const aiVoiceSpeakSchema = z.object({
+    body: z.object({
+        text: z.string().trim().min(1).max(600),
+        locale: z.string().trim().max(32).optional(),
+    }).strict(),
+});
+
 module.exports = {
     aiChatSchema,
+    aiVoiceSpeakSchema,
     aiVoiceSessionSchema,
 };

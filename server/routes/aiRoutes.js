@@ -2,8 +2,8 @@ const express = require('express');
 const validate = require('../middleware/validate');
 const { protectOptional } = require('../middleware/authMiddleware');
 const { createDistributedRateLimit } = require('../middleware/distributedRateLimit');
-const { createAiVoiceSession, handleAiChat } = require('../controllers/aiController');
-const { aiChatSchema, aiVoiceSessionSchema } = require('../validators/aiValidators');
+const { createAiVoiceSession, handleAiChat, synthesizeAiVoiceReply } = require('../controllers/aiController');
+const { aiChatSchema, aiVoiceSessionSchema, aiVoiceSpeakSchema } = require('../validators/aiValidators');
 
 const router = express.Router();
 
@@ -23,7 +23,16 @@ const aiVoiceLimiter = createDistributedRateLimit({
     message: 'Too many voice session requests. Please slow down.',
 });
 
+const aiVoiceSpeechLimiter = createDistributedRateLimit({
+    name: 'ai_voice_speak',
+    windowMs: 60 * 1000,
+    max: 40,
+    keyGenerator: (req) => req.user?._id?.toString() || req.ip,
+    message: 'Too many voice synthesis requests. Please slow down.',
+});
+
 router.post('/chat', protectOptional, aiChatLimiter, validate(aiChatSchema), handleAiChat);
 router.post('/voice/session', protectOptional, aiVoiceLimiter, validate(aiVoiceSessionSchema), createAiVoiceSession);
+router.post('/voice/speak', protectOptional, aiVoiceSpeechLimiter, validate(aiVoiceSpeakSchema), synthesizeAiVoiceReply);
 
 module.exports = router;

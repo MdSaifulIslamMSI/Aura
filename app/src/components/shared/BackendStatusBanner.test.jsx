@@ -97,14 +97,68 @@ describe('BackendStatusBanner', () => {
       }, 'error');
     });
 
-    expect(await screen.findByText('Backend unavailable')).toBeInTheDocument();
+    expect(await screen.findByText('Backend waking up')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /retry check/i }));
+
+    await waitFor(() => {
+      expect(screen.queryByText('Backend waking up')).not.toBeInTheDocument();
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('escalates repeated transient wake-up failures into an unavailable banner', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ status: 'ok' }), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Request-Id': 'srv-health-ok',
+        },
+      })
+    );
+
+    render(<BackendStatusBanner />);
 
     await waitFor(() => {
       expect(screen.queryByText('Backend unavailable')).not.toBeInTheDocument();
     });
 
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const eventPayload = {
+      url: 'http://127.0.0.1:5173/health',
+      requestId: 'req-wakeup-1',
+      serverRequestId: 'req-wakeup-1',
+      status: 0,
+      error: {
+        message: 'Failed to fetch',
+      },
+    };
+
+    await act(async () => {
+      pushClientDiagnostic('api.network_error', eventPayload, 'error');
+    });
+
+    expect(await screen.findByText('Backend waking up')).toBeInTheDocument();
+
+    await act(async () => {
+      pushClientDiagnostic('api.network_error', {
+        ...eventPayload,
+        requestId: 'req-wakeup-2',
+        serverRequestId: 'req-wakeup-2',
+      }, 'error');
+    });
+
+    expect(await screen.findByText('Backend waking up')).toBeInTheDocument();
+
+    await act(async () => {
+      pushClientDiagnostic('api.network_error', {
+        ...eventPayload,
+        requestId: 'req-wakeup-3',
+        serverRequestId: 'req-wakeup-3',
+      }, 'error');
+    });
+
+    expect(await screen.findByText('Backend unavailable')).toBeInTheDocument();
   });
 });

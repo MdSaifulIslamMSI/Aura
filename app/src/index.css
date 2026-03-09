@@ -639,6 +639,7 @@ html[data-crazy-mode='on'] .btn-primary {
     transform: translateY(-50%);
     z-index: 44;
     display: none;
+    transition: opacity 180ms ease, transform 180ms ease;
   }
 
   @media (min-width: 1280px) {
@@ -719,6 +720,12 @@ html[data-crazy-mode='on'] .btn-primary {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  body.aura-nav-overlay-open .aura-anchor-rail {
+    opacity: 0;
+    pointer-events: none;
+    transform: translate3d(1rem, -50%, 0);
   }
 
   .aura-reveal {

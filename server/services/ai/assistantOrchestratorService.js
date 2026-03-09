@@ -9,6 +9,7 @@ const {
     createVoiceSessionConfig,
     generateStructuredResponse,
     getCapabilitySnapshot,
+    synthesizeSpeech,
 } = require('./providerRegistry');
 const { interpretVoiceCommand } = require('./voiceCommandService');
 const { runMultimodalVisualSearch } = require('./multimodalVisualSearchService');
@@ -451,4 +452,5 @@ const processAssistantTurn = async ({
 module.exports = {
     createVoiceSessionConfig,
     processAssistantTurn,
+    synthesizeVoiceReply: synthesizeSpeech,
 };
