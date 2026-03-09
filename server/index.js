@@ -391,9 +391,13 @@ if (require.main === module) {
             .then(() => {
                 app.listen(PORT, '0.0.0.0', () => {
                     console.log(`Server running in ${NODE_ENV} mode on port ${PORT}`.yellow.bold);
-                    console.log(
-                        'Background workers run separately via: npm run start:workers'.cyan
-                    );
+                    // Workers run in-process on the free plan.
+                    // For production scale, move to a dedicated worker service.
+                    startPaymentOutboxWorker();
+                    startOrderEmailWorker();
+                    startCommerceReconciliationWorker();
+                    startAdminAnalyticsMonitor();
+                    startCatalogWorkers();
                 });
             })
             .catch((error) => {
