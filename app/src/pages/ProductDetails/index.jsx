@@ -4,9 +4,10 @@ import { BadgeCheck, Brain, Camera, Heart, ShoppingCart, Share2, Star, ChevronRi
 import { CartContext } from '@/context/CartContext';
 import { WishlistContext } from '@/context/WishlistContext';
 import { AuthContext } from '@/context/AuthContext';
-import { productApi, uploadApi } from '@/services/api';
+import { priceAlertApi, productApi, uploadApi } from '@/services/api';
 import ProductCard from '@/components/features/product/ProductCard';
 import { cn } from '@/lib/utils';
+import { buildLifecycleIntelligence, buildProductTrustGraph } from '@/utils/commerceIntelligence';
 import { pushRecentlyViewed } from '@/utils/recentlyViewed';
 
 const DEFAULT_REVIEWS_SUMMARY = {
@@ -59,6 +60,9 @@ const ProductDetails = () => {
   const [reviewSubmitError, setReviewSubmitError] = useState('');
   const [reviewUploadInProgress, setReviewUploadInProgress] = useState(false);
   const [reviewUploadMessage, setReviewUploadMessage] = useState('');
+  const [priceHistory, setPriceHistory] = useState([]);
+  const [lifecycleNotice, setLifecycleNotice] = useState('');
+  const [lifecycleError, setLifecycleError] = useState('');
   const filePickerRef = useRef(null);
 
   // Parse ID safely
@@ -86,6 +90,9 @@ const ProductDetails = () => {
       setReviewsSummary(DEFAULT_REVIEWS_SUMMARY);
       setReviewsError('');
       setReviewsLoading(false);
+      setPriceHistory([]);
+      setLifecycleNotice('');
+      setLifecycleError('');
       try {
         console.log(`[ProductDetails] Fetching product ${id}...`);
         const data = await productApi.getProductById(id);
@@ -224,6 +231,27 @@ const ProductDetails = () => {
     pushRecentlyViewed(product);
   }, [product]);
 
+  useEffect(() => {
+    let active = true;
+
+    const loadPriceHistory = async () => {
+      const productIdentifier = product?.id || product?._id;
+      if (!productIdentifier) return;
+
+      try {
+        const data = await priceAlertApi.getHistory(productIdentifier);
+        if (!active) return;
+        setPriceHistory(Array.isArray(data?.history) ? data.history : []);
+      } catch {
+        if (!active) return;
+        setPriceHistory([]);
+      }
+    };
+
+    loadPriceHistory();
+    return () => { active = false; };
+  }, [product?.id, product?._id]);
+
   // Safe Formatters
   const formatPrice = (price) => {
     try {
@@ -280,6 +308,37 @@ const ProductDetails = () => {
     const theme = `${product?.category || product?.brand || 'smart essentials'}`.toLowerCase();
     const budget = Math.max(5000, Math.min(200000, Math.round((Number(product?.price) || 15000) * 2.5)));
     navigate(`/bundles?theme=${encodeURIComponent(theme)}&budget=${budget}`);
+  };
+
+  const handleOpenMissionControl = () => {
+    const params = new URLSearchParams();
+    params.set('goal', `${product?.brand || ''} ${product?.title || product?.category || 'upgrade'}`.trim());
+    params.set('budget', String(Math.max(5000, Math.round((Number(product?.price) || 15000) * 2))));
+    if (product?.category) {
+      params.set('category', String(product.category));
+    }
+    navigate(`/mission-control?${params.toString()}`);
+  };
+
+  const handleSetPriceAlert = async () => {
+    const productIdentifier = product?.id || product?._id;
+    if (!productIdentifier) return;
+
+    if (!currentUser) {
+      navigate(`/login?redirect=${encodeURIComponent(`/product/${id}`)}`);
+      return;
+    }
+
+    setLifecycleNotice('');
+    setLifecycleError('');
+
+    try {
+      const suggestedTarget = Math.max(1, Math.round((Number(product?.price) || 0) * 0.92));
+      const response = await priceAlertApi.create(productIdentifier, suggestedTarget);
+      setLifecycleNotice(response?.message || `Price alert armed at ${formatPrice(suggestedTarget)}.`);
+    } catch (error) {
+      setLifecycleError(error.message || 'Unable to create price alert right now.');
+    }
   };
 
   const handleOpenReviewFilePicker = () => {
@@ -500,6 +559,8 @@ const ProductDetails = () => {
       : dealDna?.verdict === 'wait'
         ? 'Wait'
         : 'Review';
+  const trustGraph = buildProductTrustGraph({ product, reviewsSummary, priceHistory });
+  const lifecycleIntelligence = buildLifecycleIntelligence({ product, priceHistory });
 
   return (
     <div className="min-h-screen pb-16 pt-4 relative">
@@ -684,6 +745,104 @@ const ProductDetails = () => {
                     <BadgeCheck className="w-4 h-4" />
                     Compatibility
                   </button>
+                </div>
+
+                <div className="grid gap-4 mb-12 lg:grid-cols-2">
+                  <section className="rounded-2xl border border-white/10 bg-zinc-950/45 p-5">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-black uppercase tracking-[0.16em] text-neo-cyan">Trust Graph</p>
+                        <h2 className="mt-2 text-xl font-black text-white">{trustGraph.headline}</h2>
+                      </div>
+                      <div className={cn(
+                        'rounded-full border px-3 py-1 text-xs font-black uppercase tracking-[0.14em]',
+                        trustGraph.tone === 'emerald'
+                          ? 'border-emerald-400/35 bg-emerald-500/10 text-emerald-100'
+                          : trustGraph.tone === 'amber'
+                            ? 'border-amber-400/35 bg-amber-500/10 text-amber-100'
+                            : trustGraph.tone === 'rose'
+                              ? 'border-rose-400/35 bg-rose-500/10 text-rose-100'
+                              : 'border-neo-cyan/35 bg-neo-cyan/10 text-neo-cyan'
+                      )}>
+                        Trust {trustGraph.overallScore}
+                      </div>
+                    </div>
+                    <p className="mt-3 text-sm text-slate-400">{trustGraph.summary}</p>
+                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                      {trustGraph.metrics.slice(0, 4).map((metric) => (
+                        <div key={metric.key} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-400">{metric.label}</span>
+                            <span className="text-sm font-black text-white">{metric.score}</span>
+                          </div>
+                          <p className="mt-1 text-xs text-slate-400">{metric.insight}</p>
+                        </div>
+                      ))}
+                    </div>
+                    {trustGraph.watchouts.length > 0 && (
+                      <div className="mt-4 rounded-xl border border-amber-400/25 bg-amber-500/10 p-3">
+                        <p className="text-[11px] font-black uppercase tracking-[0.14em] text-amber-200">Watchouts</p>
+                        <ul className="mt-2 space-y-1 text-sm text-amber-100/90">
+                          {trustGraph.watchouts.map((item) => (
+                            <li key={item}>- {item}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </section>
+
+                  <section className="rounded-2xl border border-white/10 bg-zinc-950/45 p-5">
+                    <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-200">Resale + Upgrade Intelligence</p>
+                    <h2 className="mt-2 text-xl font-black text-white">{lifecycleIntelligence.upgradeWindow}</h2>
+                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                      <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-3">
+                        <p className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-400">Trade-in estimate</p>
+                        <p className="mt-2 text-2xl font-black text-white">{formatPrice(lifecycleIntelligence.tradeInEstimate)}</p>
+                      </div>
+                      <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-3">
+                        <p className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-400">Expected 90-day slide</p>
+                        <p className="mt-2 text-2xl font-black text-white">{formatPrice(lifecycleIntelligence.ninetyDayDepreciation)}</p>
+                      </div>
+                    </div>
+                    <div className="mt-4 rounded-xl border border-emerald-400/20 bg-emerald-500/10 p-3">
+                      <p className="text-sm text-slate-200">{lifecycleIntelligence.nextBestAction.reason}</p>
+                      <p className="mt-2 text-xs text-slate-400">
+                        Resale band {formatPrice(lifecycleIntelligence.resaleLow)} - {formatPrice(lifecycleIntelligence.resaleHigh)}
+                      </p>
+                    </div>
+                    {(lifecycleNotice || lifecycleError) && (
+                      <div className={cn(
+                        'mt-4 rounded-xl border px-3 py-2 text-sm',
+                        lifecycleError
+                          ? 'border-rose-400/30 bg-rose-500/10 text-rose-100'
+                          : 'border-emerald-400/30 bg-emerald-500/10 text-emerald-100'
+                      )}>
+                        {lifecycleError || lifecycleNotice}
+                      </div>
+                    )}
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={handleSetPriceAlert}
+                        className="rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm font-bold text-slate-100 hover:border-neo-cyan/45 hover:text-neo-cyan transition-colors"
+                      >
+                        Set price alert
+                      </button>
+                      <Link
+                        to="/trade-in"
+                        className="rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm font-bold text-slate-100 hover:border-emerald-400/45 hover:text-emerald-300 transition-colors"
+                      >
+                        Trade-in path
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={handleOpenMissionControl}
+                        className="rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm font-bold text-slate-100 hover:border-violet-400/45 hover:text-violet-300 transition-colors"
+                      >
+                        Open Mission OS
+                      </button>
+                    </div>
+                  </section>
                 </div>
 
                 {/* Tabs */}

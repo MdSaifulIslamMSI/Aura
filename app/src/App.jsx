@@ -56,6 +56,7 @@ const TrustPage = lazy(() => import('./pages/Trust'));
 const AICompare = lazy(() => import('./pages/AICompare'));
 const VisualSearch = lazy(() => import('./pages/VisualSearch'));
 const Bundles = lazy(() => import('./pages/Bundles'));
+const MissionControl = lazy(() => import('./pages/MissionControl'));
 
 function renderRoute(element) {
   return <AppErrorBoundary>{element}</AppErrorBoundary>;
@@ -101,6 +102,7 @@ function AppContent() {
               <Route path="/compare" element={renderRoute(<AICompare />)} />
               <Route path="/visual-search" element={renderRoute(<VisualSearch />)} />
               <Route path="/bundles" element={renderRoute(<Bundles />)} />
+              <Route path="/mission-control" element={renderRoute(<MissionControl />)} />
               {trustRoutes.map((path) => (
                 <Route key={path} path={path} element={renderRoute(<TrustPage />)} />
               ))}

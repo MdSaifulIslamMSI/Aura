@@ -371,6 +371,9 @@ const Home = () => {
               The homepage is now a tighter decision surface for live search, trusted deals, and the next best purchase action.
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
+              <Link to="/mission-control?goal=gaming%20setup%20under%20Rs%2080000&category=gaming&budget=80000" className="btn-secondary inline-flex items-center gap-2">
+                Open Mission OS
+              </Link>
               <Link to="/search?q=iphone" className="btn-primary inline-flex items-center gap-2">
                 Start with live search
                 <ArrowRight className="h-4 w-4" />
@@ -389,6 +392,29 @@ const Home = () => {
                 <p className="mt-2 text-sm leading-6 text-slate-400">{metric.detail}</p>
               </article>
             ))}
+          </section>
+        </RevealOnScroll>
+
+        <RevealOnScroll anchorId="home-mission-os" anchorLabel="Mission OS" delay={20}>
+          <section className="rounded-[2rem] border border-cyan-300/20 bg-gradient-to-r from-cyan-500/10 via-white/[0.03] to-emerald-500/10 p-6 shadow-glass lg:p-7">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="max-w-3xl">
+                <div className="text-[11px] font-black uppercase tracking-[0.28em] text-cyan-100">New Command Layer</div>
+                <h2 className="mt-2 text-2xl font-black text-white md:text-3xl">Shopping Mission OS now links goal, trust, lifecycle, and local commerce in one run.</h2>
+                <p className="mt-3 text-sm text-slate-300 md:text-base">
+                  Start from a mission brief, screenshot hint, or trade-in intent instead of bouncing between separate pages.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <Link to="/mission-control" className="btn-primary inline-flex items-center gap-2">
+                  Launch Mission OS
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+                <Link to="/visual-search" className="btn-secondary inline-flex items-center gap-2">
+                  Zero-query search
+                </Link>
+              </div>
+            </div>
           </section>
         </RevealOnScroll>
 

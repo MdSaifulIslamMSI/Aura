@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import {
     Search,
@@ -28,6 +28,7 @@ import {
 import { listingApi } from '@/services/api';
 import RevealOnScroll from '@/components/shared/RevealOnScroll';
 import { detectLocationFromGps } from '@/utils/geolocation';
+import { buildListingSafetyLens, buildMarketplaceSafetySummary } from '@/utils/commerceIntelligence';
 
 const CATEGORIES = [
     { value: '', label: 'All', icon: Grid3X3 },
@@ -112,6 +113,7 @@ export default function Marketplace() {
     const [hotspots, setHotspots] = useState([]);
     const [hotspotsLoading, setHotspotsLoading] = useState(false);
     const [hotspotsError, setHotspotsError] = useState('');
+    const [safetyMode, setSafetyMode] = useState(true);
 
     const [filters, setFilters] = useState({
         category: '',
@@ -236,6 +238,29 @@ export default function Marketplace() {
         listingApi.prefetchListingById(listingId);
     };
 
+    const hotspotMap = useMemo(() => new Map(
+        hotspots.map((hotspot) => [
+            `${String(hotspot?.city || '').toLowerCase()}::${String(hotspot?.category || '').toLowerCase()}`,
+            hotspot,
+        ])
+    ), [hotspots]);
+
+    const enhancedListings = useMemo(() => listings.map((listing) => {
+        const hotspot = hotspotMap.get(
+            `${String(listing?.location?.city || '').toLowerCase()}::${String(listing?.category || '').toLowerCase()}`
+        ) || null;
+        return {
+            listing,
+            safety: buildListingSafetyLens({ listing, hotspot }),
+        };
+    }), [hotspotMap, listings]);
+
+    const safetySummary = useMemo(() => buildMarketplaceSafetySummary({
+        listings,
+        hotspots,
+        city: filters.city || gpsContext?.city || '',
+    }), [filters.city, gpsContext?.city, hotspots, listings]);
+
     return (
         <div className="min-h-screen bg-[#04060f] text-slate-100">
             <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
@@ -286,6 +311,25 @@ export default function Marketplace() {
                                 {locationError || locationHint}
                             </p>
                         )}
+                        <div className="mt-4 flex flex-wrap items-center gap-3">
+                            <button
+                                type="button"
+                                onClick={() => setSafetyMode((value) => !value)}
+                                className={`rounded-full border px-4 py-2 text-xs font-black uppercase tracking-[0.14em] transition ${
+                                    safetyMode
+                                        ? 'border-emerald-300/35 bg-emerald-500/15 text-emerald-100'
+                                        : 'border-slate-600 bg-slate-900/70 text-slate-300'
+                                }`}
+                            >
+                                Safety Mode {safetyMode ? 'On' : 'Off'}
+                            </button>
+                            <div className="rounded-full border border-white/10 bg-slate-950/65 px-4 py-2 text-xs font-semibold text-slate-200">
+                                Avg safety {safetySummary.averageSafety || 0} | Escrow {safetySummary.escrowCoverage || 0}%
+                            </div>
+                            <div className="rounded-full border border-white/10 bg-slate-950/65 px-4 py-2 text-xs font-semibold text-slate-200">
+                                Verified sellers {safetySummary.verifiedSellerRate || 0}%
+                            </div>
+                        </div>
                     </div>
                 </RevealOnScroll>
             </div>
@@ -331,7 +375,7 @@ export default function Marketplace() {
                         </div>
                         <div className="rounded-xl border border-cyan-300/30 bg-slate-950/65 px-3 py-2 text-xs font-semibold text-cyan-100">
                             {filters.category ? getCategoryLabel(filters.category) : 'All categories'}
-                            {' • '}
+                            {' | '}
                             {filters.city || gpsContext?.city || 'All cities'}
                         </div>
                     </div>
@@ -428,6 +472,34 @@ export default function Marketplace() {
                             })}
                         </div>
                     )}
+                </RevealOnScroll>
+
+                <RevealOnScroll
+                    anchorId="marketplace-safety-mode"
+                    anchorLabel="Safety Mode"
+                    className="mb-6 rounded-2xl border border-emerald-300/20 bg-gradient-to-r from-emerald-500/10 via-slate-900/70 to-cyan-500/10 p-4 shadow-[0_0_24px_rgba(16,185,129,0.14)] md:p-5"
+                >
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                        <div className="max-w-3xl">
+                            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-100">Local Commerce Safety Mode</p>
+                            <h2 className="mt-1 text-lg font-black text-slate-100 md:text-xl">Meetup, escrow, and seller-risk cues stay visible while browsing.</h2>
+                            <p className="mt-2 text-sm text-slate-300/90">{safetySummary.meetupBrief}</p>
+                        </div>
+                        <div className="grid grid-cols-3 gap-3">
+                            <div className="rounded-xl border border-white/10 bg-slate-950/55 px-4 py-3">
+                                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">Avg Safety</p>
+                                <p className="mt-1 text-xl font-black text-slate-100">{safetySummary.averageSafety || 0}</p>
+                            </div>
+                            <div className="rounded-xl border border-white/10 bg-slate-950/55 px-4 py-3">
+                                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">High Safety</p>
+                                <p className="mt-1 text-xl font-black text-slate-100">{safetySummary.highSafetyCount || 0}</p>
+                            </div>
+                            <div className="rounded-xl border border-white/10 bg-slate-950/55 px-4 py-3">
+                                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">Escrow</p>
+                                <p className="mt-1 text-xl font-black text-slate-100">{safetySummary.escrowCoverage || 0}%</p>
+                            </div>
+                        </div>
+                    </div>
                 </RevealOnScroll>
 
                 <div className="mb-6 rounded-2xl border border-cyan-400/20 bg-slate-900/65 p-3 shadow-[0_0_40px_rgba(15,23,42,0.6)] md:flex md:items-center md:justify-between">
@@ -575,7 +647,7 @@ export default function Marketplace() {
                         data-scroll-anchor-label="Marketplace Listings"
                         className={viewMode === 'grid' ? 'grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4' : 'space-y-4'}
                     >
-                        {listings.map((listing, index) => (
+                        {(safetyMode ? enhancedListings : listings.map((listing) => ({ listing, safety: null }))).map(({ listing, safety }, index) => (
                             <RevealOnScroll
                                 key={listing._id}
                                 delay={Math.min((index % 7) * 55, 320)}
@@ -644,6 +716,16 @@ export default function Marketplace() {
                                                 <ShieldCheck className="h-3 w-3" />
                                                 Verified Seller
                                             </span>
+                                        )}
+                                        {safetyMode && safety && (
+                                            <>
+                                                <span className="mt-2 inline-flex items-center gap-1 rounded-full border border-cyan-300/30 bg-cyan-500/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.12em] text-cyan-100">
+                                                    Safety {safety.score}
+                                                </span>
+                                                <p className="mt-2 text-[11px] leading-5 text-slate-400">
+                                                    {safety.highlights[0] || safety.watchouts[0] || 'Review the listing carefully before payment.'}
+                                                </p>
+                                            </>
                                         )}
                                     </div>
                                 </Link>
