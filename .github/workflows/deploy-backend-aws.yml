@@ -1,0 +1,97 @@
+name: Deploy Backend To AWS
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'server/**'
+      - 'infra/aws/**'
+      - '.github/workflows/deploy-backend-aws.yml'
+
+jobs:
+  deploy-backend:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    env:
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+      ECR_REPOSITORY: ${{ secrets.AWS_ECR_REPOSITORY }}
+      ECS_CLUSTER: ${{ secrets.AWS_ECS_CLUSTER }}
+      ECS_SERVICE: ${{ secrets.AWS_ECS_SERVICE }}
+      ECS_TASK_TEMPLATE: infra/aws/ecs-task-definition.template.json
+      ECS_TASK_OUTPUT: infra/aws/ecs-task-definition.rendered.json
+      CONTAINER_NAME: aura-api
+      FRONTEND_ORIGIN: ${{ secrets.FRONTEND_ORIGIN }}
+      APP_PUBLIC_URL: ${{ secrets.APP_PUBLIC_URL }}
+      REVIEW_UPLOAD_S3_BUCKET: ${{ secrets.REVIEW_UPLOAD_S3_BUCKET }}
+      REVIEW_UPLOAD_S3_PREFIX: ${{ secrets.REVIEW_UPLOAD_S3_PREFIX }}
+      REVIEW_UPLOAD_PUBLIC_BASE_URL: ${{ secrets.REVIEW_UPLOAD_PUBLIC_BASE_URL }}
+      ECS_TASK_EXECUTION_ROLE_ARN: ${{ secrets.ECS_TASK_EXECUTION_ROLE_ARN }}
+      ECS_TASK_ROLE_ARN: ${{ secrets.ECS_TASK_ROLE_ARN }}
+      MONGO_URI_SECRET_ARN: ${{ secrets.MONGO_URI_SECRET_ARN }}
+      REDIS_URL_SECRET_ARN: ${{ secrets.REDIS_URL_SECRET_ARN }}
+      BYTEZ_API_KEY_SECRET_ARN: ${{ secrets.BYTEZ_API_KEY_SECRET_ARN }}
+      UPLOAD_SIGNING_SECRET_SECRET_ARN: ${{ secrets.UPLOAD_SIGNING_SECRET_SECRET_ARN }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 22.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_GITHUB_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Install backend dependencies
+        working-directory: ./server
+        run: npm ci
+
+      - name: Run backend smoke tests
+        working-directory: ./server
+        run: npm test -- aiRoutes.test.js chatRoutes.test.js
+
+      - name: Render ECS task definition
+        run: node infra/aws/render-task-definition.mjs
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push backend image
+        id: build-image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" ./server
+          docker push "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Render ECS task definition
+        id: task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: ${{ env.ECS_TASK_OUTPUT }}
+          container-name: ${{ env.CONTAINER_NAME }}
+          image: ${{ steps.build-image.outputs.image }}
+
+      - name: Deploy ECS task definition
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.task-def.outputs.task-definition }}
+          service: ${{ env.ECS_SERVICE }}
+          cluster: ${{ env.ECS_CLUSTER }}
+          wait-for-service-stability: true

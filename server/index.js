@@ -43,6 +43,7 @@ const adminOpsRoutes = require('./routes/adminOpsRoutes');
 const internalOpsRoutes = require('./routes/internalOpsRoutes');
 const observabilityRoutes = require('./routes/observabilityRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
+const { serveReviewMediaAsset } = require('./controllers/uploadAssetController');
 const { assertProductionPaymentConfig, flags: paymentFlags } = require('./config/paymentFlags');
 const { assertProductionEmailConfig, flags: emailFlags } = require('./config/emailFlags');
 const { assertProductionOtpSmsConfig } = require('./config/otpSmsFlags');
@@ -151,6 +152,7 @@ app.use(mongoSanitize());
 app.use(xssSanitizer);
 app.use(activityEmailMiddleware);
 app.use(adminNotificationMiddleware);
+app.get(/^\/uploads\/reviews\/(.+)$/, serveReviewMediaAsset);
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Rate Limiting — strict for production, disabled in test

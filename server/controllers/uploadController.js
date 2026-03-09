@@ -1,6 +1,3 @@
-const path = require('path');
-const fs = require('fs');
-const crypto = require('crypto');
 const asyncHandler = require('express-async-handler');
 const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
@@ -9,8 +6,11 @@ const {
     verifyUploadToken,
     markUploadTokenUsed,
 } = require('../services/uploadSignatureService');
-
-const REVIEW_UPLOAD_DIR = path.join(__dirname, '..', 'uploads', 'reviews');
+const {
+    ensureReviewUploadStorageReady,
+    getStorageDriver,
+    storeReviewMedia,
+} = require('../services/reviewMediaStorageService');
 const REVIEW_UPLOAD_MAX_BYTES = Number(process.env.REVIEW_UPLOAD_MAX_BYTES || 7 * 1024 * 1024);
 const REVIEW_UPLOAD_ALLOWED_MIME = new Set([
     'image/jpeg',
@@ -21,20 +21,6 @@ const REVIEW_UPLOAD_ALLOWED_MIME = new Set([
     'video/webm',
     'video/quicktime',
 ]);
-
-const MIME_EXTENSION_MAP = {
-    'image/jpeg': '.jpg',
-    'image/jpg': '.jpg',
-    'image/png': '.png',
-    'image/webp': '.webp',
-    'video/mp4': '.mp4',
-    'video/webm': '.webm',
-    'video/quicktime': '.mov',
-};
-
-const ensureReviewUploadDir = async () => {
-    await fs.promises.mkdir(REVIEW_UPLOAD_DIR, { recursive: true });
-};
 
 const normalizeMimeType = (value) => String(value || '').trim().toLowerCase();
 const normalizeFileName = (value) => String(value || '').replace(/[^\w.\-() ]+/g, '').trim().slice(0, 220);
@@ -152,31 +138,30 @@ const uploadReviewMedia = asyncHandler(async (req, res, next) => {
         return next(new AppError('Uploaded file exceeds max size', 400));
     }
 
-    await ensureReviewUploadDir();
-
-    const extension = MIME_EXTENSION_MAP[mimeType] || path.extname(fileName) || '';
-    const safeExtension = extension.startsWith('.') ? extension : `.${extension}`;
-    const targetName = `${Date.now()}-${crypto.randomBytes(6).toString('hex')}${safeExtension}`.toLowerCase();
-    const targetPath = path.join(REVIEW_UPLOAD_DIR, targetName);
-
-    await fs.promises.writeFile(targetPath, fileBuffer);
+    await ensureReviewUploadStorageReady();
+    const storedMedia = await storeReviewMedia({
+        fileBuffer,
+        fileName,
+        mimeType,
+    });
     markUploadTokenUsed(tokenPayload);
 
-    const relativeUrl = `/uploads/reviews/${targetName}`;
     const mediaType = mimeType.startsWith('video/') ? 'video' : 'image';
 
     logger.info('reviews.media_uploaded', {
         userId: String(userId),
         bytes: fileBuffer.length,
         mimeType,
-        url: relativeUrl,
+        storageDriver: getStorageDriver(),
+        storageKey: storedMedia.storageKey,
+        url: storedMedia.url,
     });
 
     res.status(201).json({
         success: true,
         media: {
             type: mediaType,
-            url: relativeUrl,
+            url: storedMedia.url,
             mimeType,
             sizeBytes: fileBuffer.length,
         },
