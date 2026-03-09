@@ -5,9 +5,9 @@ const BYTEZ_TEXT_EMBEDDING_MODEL = process.env.BYTEZ_TEXT_EMBEDDING_MODEL || 'no
 const BYTEZ_AUDIO_MODEL = process.env.BYTEZ_AUDIO_MODEL || 'Qwen/Qwen2-Audio-7B-Instruct';
 const BYTEZ_TTS_MODEL = process.env.BYTEZ_TTS_MODEL || 'suno/bark-small';
 const AI_DEFAULT_LOCALE = process.env.AI_DEFAULT_LOCALE || 'en-IN';
-const BYTEZ_REQUEST_TIMEOUT_MS = Number(process.env.BYTEZ_REQUEST_TIMEOUT_MS || 20000);
-const BYTEZ_RETRY_DELAY_MS = Number(process.env.BYTEZ_RETRY_DELAY_MS || 1400);
-const BYTEZ_MAX_RETRIES = Number(process.env.BYTEZ_MAX_RETRIES || 2);
+const BYTEZ_REQUEST_TIMEOUT_MS = Number(process.env.BYTEZ_REQUEST_TIMEOUT_MS || 8000);
+const BYTEZ_RETRY_DELAY_MS = Number(process.env.BYTEZ_RETRY_DELAY_MS || 900);
+const BYTEZ_MAX_RETRIES = Number(process.env.BYTEZ_MAX_RETRIES || 1);
 
 const safeString = (value, fallback = '') => String(value === undefined || value === null ? fallback : value).trim();
 const clamp = (value, min, max) => Math.min(Math.max(Number(value) || 0, min), max);
