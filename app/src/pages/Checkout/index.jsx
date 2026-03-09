@@ -1,4 +1,4 @@
-import { useContext, useEffect, useMemo, useState } from 'react';
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { CartContext } from '@/context/CartContext';
@@ -13,6 +13,7 @@ import StepDelivery from './components/StepDelivery';
 import StepPayment from './components/StepPayment';
 import StepReview from './components/StepReview';
 import OrderSummary from './components/OrderSummary';
+import OtpChallengeModal from './components/OtpChallengeModal';
 import useCheckoutDraft from './hooks/useCheckoutDraft';
 
 const EMPTY_CONTACT = { name: '', phone: '', email: '' };
@@ -126,6 +127,10 @@ const Checkout = () => {
         review: '',
     });
 
+    // Secure OTP modal state — replaces window.prompt()
+    const [otpModal, setOtpModal] = useState({ open: false, loading: false, error: '' });
+    const otpModalResolverRef = useRef(null);
+
     const [quote, setQuote] = useState(null);
     const [isQuoting, setIsQuoting] = useState(false);
     const [quoteError, setQuoteError] = useState('');
@@ -133,6 +138,31 @@ const Checkout = () => {
     const [lastQuoteAt, setLastQuoteAt] = useState(0);
     const [isPlacingOrder, setIsPlacingOrder] = useState(false);
     const [isSimulatingPayment, setIsSimulatingPayment] = useState(false);
+
+    /**
+     * promptOtp — opens the secure OTP modal and returns a Promise that resolves
+     * with the OTP string entered by the user, or rejects if the user cancels.
+     * Replaces the insecure window.prompt() call.
+     */
+    const promptOtp = useCallback(() => new Promise((resolve, reject) => {
+        otpModalResolverRef.current = { resolve, reject };
+        setOtpModal({ open: true, loading: false, error: '' });
+    }), []);
+
+    const handleOtpModalSubmit = useCallback(async (otp) => {
+        setOtpModal((prev) => ({ ...prev, loading: true, error: '' }));
+        otpModalResolverRef.current?.resolve(otp);
+    }, []);
+
+    const handleOtpModalClose = useCallback(() => {
+        otpModalResolverRef.current?.reject(new Error('OTP entry cancelled by user'));
+        otpModalResolverRef.current = null;
+        setOtpModal({ open: false, loading: false, error: '' });
+    }, []);
+
+    const handleOtpModalError = useCallback((errorMessage) => {
+        setOtpModal((prev) => ({ ...prev, loading: false, error: errorMessage }));
+    }, []);
 
     const directBuyFromLocation = useMemo(
         () => buildDirectBuyItem(location.state?.directBuy),
@@ -633,8 +663,16 @@ const Checkout = () => {
             return;
         }
 
-        const otp = window.prompt('Enter payment challenge OTP');
-        if (!otp) return;
+        let otp;
+        try {
+            // Secure modal-driven OTP — replaces window.prompt() which was
+            // interceptable by browser extensions and phishing overlays.
+            otp = await promptOtp();
+        } catch {
+            // User cancelled the modal
+            setOtpModal({ open: false, loading: false, error: '' });
+            return;
+        }
 
         try {
             setIsSimulatingPayment(true);
@@ -651,6 +689,10 @@ const Checkout = () => {
                 challengeToken: otpResult.challengeToken,
             });
 
+            // Close modal on success
+            setOtpModal({ open: false, loading: false, error: '' });
+            otpModalResolverRef.current = null;
+
             setDraft((prev) => ({
                 ...prev,
                 paymentIntent: {
@@ -662,6 +704,8 @@ const Checkout = () => {
             }));
             toast.success('Challenge verification complete. Run secure payment now.');
         } catch (error) {
+            // Show error inside modal instead of closing
+            handleOtpModalError(error.message || 'OTP verification failed');
             setStepErrors((prev) => ({ ...prev, payment: error.message || 'Payment challenge verification failed' }));
         } finally {
             setIsSimulatingPayment(false);
@@ -743,7 +787,10 @@ const Checkout = () => {
                         status: draft.paymentSimulation.status,
                         referenceId: draft.paymentSimulation.referenceId,
                     },
-                idempotencyKey: `order-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+                // crypto.randomUUID() is collision-safe (RFC 4122 UUID v4).
+                // Math.random() was used previously but is not cryptographically
+                // secure and could produce duplicates under concurrent submissions.
+                idempotencyKey: crypto.randomUUID(),
             };
 
             const createdOrder = await orderApi.createOrder(payload);
@@ -916,6 +963,15 @@ const Checkout = () => {
                     </div>
                 </div>
             ) : null}
+
+            {/* Secure OTP Challenge Modal — replaces window.prompt() */}
+            <OtpChallengeModal
+                open={otpModal.open}
+                loading={otpModal.loading}
+                error={otpModal.error}
+                onSubmit={handleOtpModalSubmit}
+                onClose={handleOtpModalClose}
+            />
         </div>
     );
 };

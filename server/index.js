@@ -78,6 +78,8 @@ const {
     assertProductionRedisConfig,
 } = require('./config/redis');
 const { createDistributedRateLimit } = require('./middleware/distributedRateLimit');
+const { metricsMiddleware } = require('./middleware/metrics');
+const metricsRoute = require('./routes/metricsRoute');
 
 const app = express();
 const JSON_BODY_LIMIT = process.env.JSON_BODY_LIMIT || '12mb';
@@ -109,6 +111,10 @@ app.set('trust proxy', 1);
 
 // Request ID for tracing
 app.use(requestId);
+
+// Prometheus metrics — register before any other middleware so durations
+// include the full request lifecycle (auth, rate-limit, route handlers).
+app.use(metricsMiddleware);
 
 // JSON HTTP Logging Pipeline
 app.use((req, res, next) => {
@@ -189,6 +195,7 @@ app.use('/api/admin/ops', adminOpsRoutes);
 app.use('/api/internal', internalOpsRoutes);
 app.use('/api/observability', observabilityRoutes);
 app.use('/api/uploads', uploadRoutes);
+app.use('/metrics', metricsRoute);
 
 // Health Check
 app.get('/health', async (req, res) => {
@@ -384,11 +391,9 @@ if (require.main === module) {
             .then(() => {
                 app.listen(PORT, '0.0.0.0', () => {
                     console.log(`Server running in ${NODE_ENV} mode on port ${PORT}`.yellow.bold);
-                    startPaymentOutboxWorker();
-                    startOrderEmailWorker();
-                    startCommerceReconciliationWorker();
-                    startAdminAnalyticsMonitor();
-                    startCatalogWorkers();
+                    console.log(
+                        'Background workers run separately via: npm run start:workers'.cyan
+                    );
                 });
             })
             .catch((error) => {

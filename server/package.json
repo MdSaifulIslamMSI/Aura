@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
+    "start:workers": "node workerProcess.js",
     "runtime:split:up": "docker compose -f ../docker-compose.split-runtime.yml up --build",
     "runtime:split:down": "docker compose -f ../docker-compose.split-runtime.yml down -v",
     "smoke:bootstrap-accounts": "node scripts/bootstrap_staging_smoke_accounts.js",
@@ -52,6 +53,7 @@
     "mongoose": "^9.1.5",
     "nodemailer": "^8.0.1",
     "openai": "^6.18.0",
+    "prom-client": "^15.1.3",
     "redis": "^5.8.2",
     "xss": "^1.0.15",
     "zod": "^4.3.6"

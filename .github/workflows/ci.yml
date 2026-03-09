@@ -130,8 +130,7 @@ jobs:
       - name: Lint Code
         run: npm run lint
 
-      - name: Run Component Tests (advisory)
-        continue-on-error: true
+      - name: Run Component Tests
         run: npm test
 
       - name: Verify Build

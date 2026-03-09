@@ -3,29 +3,41 @@ const asyncHandler = require('express-async-handler');
 const User = require('../models/User');
 const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
+const { getRedisClient } = require('../config/redis');
 
-// In-memory token cache: { [uid]: { user, exp } }
-// Reduces Firebase network calls for repeat requests within token validity
-const tokenCache = new Map();
-const CACHE_BUFFER_SECONDS = 60; // Expire cache 60s before actual token expires
+// Redis-backed token cache.
+// Replaces the in-process Map which broke horizontal scaling:
+// token invalidation on one instance was invisible to all others,
+// meaning revoked/suspended tokens could be served indefinitely.
+//
+// When Redis is unavailable the functions degrade gracefully to a
+// no-cache path (every request hits Mongo) — correct behavior in
+// all cases, just slower. No silent security regression on fallback.
 
-const getCachedUser = (uid) => {
-    const entry = tokenCache.get(uid);
-    if (!entry) return null;
-    // If cache entry is still valid, return it
-    if (Date.now() < entry.expiresAt) return entry.user;
-    // Expired — remove and return null
-    tokenCache.delete(uid);
-    return null;
+const CACHE_BUFFER_SECONDS = 60;
+const AUTH_CACHE_PREFIX = 'auth:cache:';
+
+const getCachedUser = async (uid) => {
+    try {
+        const client = getRedisClient();
+        if (!client) return null;
+        const raw = await client.get(`${AUTH_CACHE_PREFIX}${uid}`);
+        if (!raw) return null;
+        return JSON.parse(raw);
+    } catch (err) {
+        logger.warn('auth.cache_read_failed', { uid, error: err?.message });
+        return null;
+    }
 };
 
-const setCachedUser = (uid, user, tokenExp) => {
-    const expiresAt = (tokenExp - CACHE_BUFFER_SECONDS) * 1000;
-    tokenCache.set(uid, { user, expiresAt });
-    // Auto-evict on expiry to prevent memory leak
-    const ttl = expiresAt - Date.now();
-    if (ttl > 0) {
-        setTimeout(() => tokenCache.delete(uid), ttl);
+const setCachedUser = async (uid, user, tokenExp) => {
+    try {
+        const client = getRedisClient();
+        if (!client) return;
+        const ttlSeconds = Math.max((tokenExp - CACHE_BUFFER_SECONDS) - Math.floor(Date.now() / 1000), 1);
+        await client.setEx(`${AUTH_CACHE_PREFIX}${uid}`, ttlSeconds, JSON.stringify(user));
+    } catch (err) {
+        logger.warn('auth.cache_write_failed', { uid, error: err?.message });
     }
 };
 
@@ -164,8 +176,8 @@ const protect = asyncHandler(async (req, res, next) => {
                 throw new AppError('Authenticated account is missing email', 401);
             }
 
-            // ── Step 2: Check in-memory cache first ─────────────────
-            const cachedUser = getCachedUser(uid);
+                        // ── Step 2: Check Redis cache first ─────────────────────────────────────
+             const cachedUser = await getCachedUser(uid);
             if (cachedUser) {
                 enforceUserAccountAccess(cachedUser);
                 req.user = cachedUser;
@@ -185,14 +197,14 @@ const protect = asyncHandler(async (req, res, next) => {
                     email: normalizedEmail,
                 });
                 enforceUserAccountAccess(bootstrappedUser);
-                setCachedUser(uid, bootstrappedUser, exp);
+                await setCachedUser(uid, bootstrappedUser, exp);
                 req.user = bootstrappedUser;
                 return next();
             }
 
-            // ── Step 4: Cache for subsequent requests ───────────────
-            enforceUserAccountAccess(user);
-            setCachedUser(uid, user, exp);
+            // ── Step 4: Write to Redis cache for subsequent requests ──────
+             enforceUserAccountAccess(user);
+            await setCachedUser(uid, user, exp);
 
             req.user = user;
             next();
@@ -214,20 +226,43 @@ const protectOptional = asyncHandler(async (req, res, next) => {
     return protect(req, res, next);
 });
 
-// Invalidate a user from cache (call on profile update, logout etc.)
-const invalidateUserCache = (uid) => {
+// Invalidate a user from Redis cache (call on profile update, logout, suspension, etc.)
+const invalidateUserCache = async (uid) => {
     if (!uid) return;
-    tokenCache.delete(uid);
+    try {
+        const client = getRedisClient();
+        if (!client) return;
+        await client.del(`${AUTH_CACHE_PREFIX}${uid}`);
+    } catch (err) {
+        logger.warn('auth.cache_invalidate_failed', { uid, error: err?.message });
+    }
 };
 
-const invalidateUserCacheByEmail = (email) => {
+const invalidateUserCacheByEmail = async (email) => {
     const normalizedEmail = normalizeEmail(email);
     if (!normalizedEmail) return;
 
-    for (const [uid, entry] of tokenCache.entries()) {
-        if (normalizeEmail(entry?.user?.email) === normalizedEmail) {
-            tokenCache.delete(uid);
-        }
+    try {
+        const client = getRedisClient();
+        if (!client) return;
+        // SCAN for all auth cache keys and check email field
+        let cursor = 0;
+        do {
+            const scanResult = await client.scan(cursor, { MATCH: `${AUTH_CACHE_PREFIX}*`, COUNT: 100 });
+            cursor = scanResult.cursor;
+            for (const key of scanResult.keys) {
+                try {
+                    const raw = await client.get(key);
+                    if (!raw) continue;
+                    const parsed = JSON.parse(raw);
+                    if (normalizeEmail(parsed?.email) === normalizedEmail) {
+                        await client.del(key);
+                    }
+                } catch { /* skip malformed entries */ }
+            }
+        } while (cursor !== 0);
+    } catch (err) {
+        logger.warn('auth.cache_invalidate_by_email_failed', { email: normalizedEmail, error: err?.message });
     }
 };
 
@@ -243,9 +278,9 @@ const resolveFreshAdminUser = async (req) => {
     if (req.authUid) {
         const tokenExp = Number(req.authToken?.exp || 0);
         if (tokenExp > 0) {
-            setCachedUser(req.authUid, freshUser, tokenExp);
+            await setCachedUser(req.authUid, freshUser, tokenExp);
         } else {
-            invalidateUserCache(req.authUid);
+            await invalidateUserCache(req.authUid);
         }
     }
 

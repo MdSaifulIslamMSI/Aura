@@ -85,51 +85,45 @@ const normalizeReviewMedia = (media = []) => {
 };
 
 const buildReviewSummary = async (productId) => {
-    const [avgDoc, breakdownDocs] = await Promise.all([
-        ProductReview.aggregate([
-            { $match: { product: productId, status: 'published' } },
-            {
-                $group: {
-                    _id: null,
-                    totalReviews: { $sum: 1 },
-                    averageRating: { $avg: '$rating' },
-                    withMediaCount: {
-                        $sum: {
-                            $cond: [{ $gt: [{ $size: '$media' }, 0] }, 1, 0],
+    // Single $facet pipeline: eliminates one Mongo round-trip compared to
+    // the previous two-aggregate approach. Same atomic snapshot of the data.
+    const [result] = await ProductReview.aggregate([
+        { $match: { product: productId, status: 'published' } },
+        {
+            $facet: {
+                summary: [
+                    {
+                        $group: {
+                            _id: null,
+                            totalReviews: { $sum: 1 },
+                            averageRating: { $avg: '$rating' },
+                            withMediaCount: {
+                                $sum: { $cond: [{ $gt: [{ $size: '$media' }, 0] }, 1, 0] },
+                            },
                         },
                     },
-                },
+                ],
+                breakdown: [
+                    { $group: { _id: '$rating', count: { $sum: 1 } } },
+                ],
             },
-        ]),
-        ProductReview.aggregate([
-            { $match: { product: productId, status: 'published' } },
-            {
-                $group: {
-                    _id: '$rating',
-                    count: { $sum: 1 },
-                },
-            },
-        ]),
+        },
     ]);
 
-    const averageRating = Number((avgDoc?.[0]?.averageRating || 0).toFixed(1));
-    const totalReviews = Number(avgDoc?.[0]?.totalReviews || 0);
-    const withMediaCount = Number(avgDoc?.[0]?.withMediaCount || 0);
+    const summaryDoc = result?.summary?.[0] || {};
+    const averageRating = Number((summaryDoc.averageRating || 0).toFixed(1));
+    const totalReviews = Number(summaryDoc.totalReviews || 0);
+    const withMediaCount = Number(summaryDoc.withMediaCount || 0);
 
     const ratingBreakdown = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
-    for (const bucket of breakdownDocs || []) {
+    for (const bucket of result?.breakdown || []) {
         const rating = Number(bucket?._id || 0);
         if (rating >= 1 && rating <= 5) {
             ratingBreakdown[rating] = Number(bucket.count || 0);
         }
     }
 
-    return {
-        averageRating,
-        totalReviews,
-        withMediaCount,
-        ratingBreakdown,
-    };
+    return { averageRating, totalReviews, withMediaCount, ratingBreakdown };
 };
 
 // @desc    Fetch all products
@@ -752,10 +746,23 @@ const getCatalogArtwork = asyncHandler(async (req, res) => {
         category: req.query.category,
     });
 
-    res.setHeader('Content-Type', 'image/svg+xml; charset=utf-8');
+        res.setHeader('Content-Type', 'image/svg+xml; charset=utf-8');
     res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
     return res.status(200).send(svg);
 });
+
+// Explicit hostname allowlist for the product image proxy.
+// Validates the request before any network call, preventing SSRF if
+// shouldProxyProductImage() pattern matching is bypassed or misconfigured.
+const ALLOWED_PROXY_HOSTNAMES = new Set([
+    'rukminim1.flixcart.com',
+    'rukminim2.flixcart.com',
+    'static-assets-web.flixcart.com',
+    'img.freepik.com',
+    'images.unsplash.com',
+    'cdn.pixabay.com',
+    'images.pexels.com',
+]);
 
 // @desc    Proxy trusted upstream product images through same-origin delivery
 // @route   GET /api/products/image-proxy
@@ -764,6 +771,22 @@ const getProductImageProxy = asyncHandler(async (req, res, next) => {
     const sourceUrl = String(req.query.url || '').trim();
     if (!shouldProxyProductImage(sourceUrl)) {
         return next(new AppError('Unsupported product image source', 400));
+    }
+
+    // SSRF hardening: validate hostname against explicit allowlist before
+    // making any outbound request, regardless of shouldProxyProductImage result.
+    let parsedSourceUrl;
+    try {
+        parsedSourceUrl = new URL(sourceUrl);
+    } catch {
+        return next(new AppError('Malformed product image URL', 400));
+    }
+    if (!ALLOWED_PROXY_HOSTNAMES.has(parsedSourceUrl.hostname)) {
+        logger.warn('products.image_proxy_blocked_hostname', {
+            hostname: parsedSourceUrl.hostname,
+            requestId: req.requestId,
+        });
+        return next(new AppError('Product image source not permitted', 400));
     }
 
     const upstreamUrl = buildProductImageFetchUrl(sourceUrl);

@@ -47,13 +47,12 @@ router
 
 router.get('/dashboard', protect, getProfileDashboard); // Protected
 router.get('/rewards', protect, getRewards); // Protected
-router.post('/seller/activate', protect, validate(activateSellerSchema), activateSellerAccount); // Protected
-router.post('/seller/deactivate', protect, validate(deactivateSellerSchema), deactivateSellerAccount); // Protected
-// Backward-compat aliases for older frontend builds.
-router.post('/activate-seller', protect, validate(activateSellerSchema), activateSellerAccount);
-router.post('/seller/enable', protect, validate(activateSellerSchema), activateSellerAccount);
-router.post('/deactivate-seller', protect, validate(deactivateSellerSchema), deactivateSellerAccount);
-router.post('/seller/disable', protect, validate(deactivateSellerSchema), deactivateSellerAccount);
+// Seller account CRUD — canonical routes only.
+// Backward-compat aliases (/activate-seller, /seller/enable, etc.) were
+// removed. Clients should use /seller/activate and /seller/deactivate.
+router.post('/seller/activate', protect, validate(activateSellerSchema), activateSellerAccount);
+router.post('/seller/deactivate', protect, validate(deactivateSellerSchema), deactivateSellerAccount);
+
 
 // Address CRUD
 router.post('/addresses', protect, validate(addressSchema), addAddress);
