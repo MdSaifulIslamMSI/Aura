@@ -6,6 +6,7 @@ import {
   getErrorReference,
   subscribeToClientDiagnostics,
 } from '@/services/clientObservability';
+import { summarizeBackendFailureDetail } from '@/utils/backendFailurePresentation';
 import { cn } from '@/lib/utils';
 
 const HEALTH_POLL_INTERVAL_MS = 30000;
@@ -155,9 +156,12 @@ const BackendStatusBanner = () => {
       const serverRequestId = response.headers.get('x-request-id')
         || (data && typeof data === 'object' ? String(data.requestId || '') : '');
       const fallbackReference = serverRequestId || resolveRecentDiagnosticReference();
-      const detail = typeof data === 'object' && data
-        ? String(data.reason || data.status || '')
-        : String(data || '').trim();
+      const detail = summarizeBackendFailureDetail({
+        status: response.status,
+        detail: typeof data === 'object' && data
+          ? String(data.reason || data.status || '')
+          : String(data || '').trim(),
+      });
 
       if (data && typeof data === 'object' && data.status && data.status !== 'ok') {
         failureCountRef.current = 0;

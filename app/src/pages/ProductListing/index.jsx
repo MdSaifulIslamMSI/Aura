@@ -12,6 +12,7 @@ import {
   normalizeCategorySlug,
 } from '@/config/catalogTaxonomy';
 import { getErrorReference } from '@/services/clientObservability';
+import { resolveProductListingFetchCopy } from '@/utils/backendFailurePresentation';
 import { cn } from '@/lib/utils';
 
 const SORT_OPTIONS = new Set(['relevance', 'price-asc', 'price-desc', 'newest', 'rating', 'discount']);
@@ -136,7 +137,7 @@ const ProductListing = () => {
   // Server Data State
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [fetchError, setFetchError] = useState('');
+  const [fetchError, setFetchError] = useState(null);
   const [fetchErrorReference, setFetchErrorReference] = useState('');
   const [laneFallback, setLaneFallback] = useState(null);
   const [page, setPage] = useState(1);
@@ -192,7 +193,7 @@ const ProductListing = () => {
     const requestId = Date.now();
     activeRequestRef.current = requestId;
     setLoading(true);
-    setFetchError('');
+    setFetchError(null);
     setFetchErrorReference('');
     setLaneFallback(null);
     try {
@@ -284,7 +285,7 @@ const ProductListing = () => {
       setProducts([]);
       setTotalProducts(0);
       setFetchErrorReference(getErrorReference(error));
-      setFetchError('Unable to load products right now. Check your connection and retry.');
+      setFetchError(resolveProductListingFetchCopy(error));
     } finally {
       if (!signal?.aborted && activeRequestRef.current === requestId) {
         setLoading(false);
@@ -495,8 +496,13 @@ const ProductListing = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M5.4 19h13.2c1.2 0 1.9-1.3 1.3-2.3L13.3 5.3c-.6-1-2-1-2.6 0L4.1 16.7C3.5 17.7 4.2 19 5.4 19z" />
                 </svg>
               </div>
-              <h3 className="text-2xl font-black text-white mb-2 tracking-tight">Catalog fetch failed</h3>
-              <p className="text-slate-300 mb-8 max-w-md mx-auto">{fetchError}</p>
+              <h3 className="text-2xl font-black text-white mb-2 tracking-tight">{fetchError.title}</h3>
+              <p className="text-slate-300 mb-6 max-w-md mx-auto">{fetchError.message}</p>
+              {fetchError.detail ? (
+                <p className="mb-4 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+                  {fetchError.detail}
+                </p>
+              ) : null}
               {fetchErrorReference ? (
                 <p className="mb-6 text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
                   Debug Ref {fetchErrorReference}
