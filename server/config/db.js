@@ -72,12 +72,19 @@ const getMongoDeploymentHealth = async () => {
 const connectDB = async () => {
     try {
         const conn = await mongoose.connect(process.env.MONGO_URI, {
-            serverSelectionTimeoutMS: 10000,  // fail-fast on startup (was 30s)
-            socketTimeoutMS: 120000,           // reduced from 180s
-            maxPoolSize: 20,                  // up from default 5 — handles concurrent requests
-            minPoolSize: 2,                   // keep 2 warm connections always
-            maxIdleTimeMS: 60000,             // release idle connections after 60s
-            waitQueueTimeoutMS: 10000,        // fail fast if pool is exhausted
+            // 30s — must survive Render free-tier cold start + Atlas M0 initial handshake.
+            // 10s was too tight: Render wakes in ~5s but Atlas connection can take 15-25s.
+            serverSelectionTimeoutMS: 30000,
+            // 120s socket timeout — enough for long catalog queries without holding forever.
+            socketTimeoutMS: 120000,
+            // Pool sized for free tier: M0 Atlas allows ~100 connections; keep headroom.
+            // 10 is safe — leaves room for the catalog + email workers that also query Mongo.
+            maxPoolSize: 10,
+            // 0 = don't hold idle connections when the server sleeps (free tier).
+            // Holding 2 warm connections wastes M0 quotas and goes stale after sleep anyway.
+            minPoolSize: 0,
+            // Release connections idle for >60s so the pool shrinks during quiet periods.
+            maxIdleTimeMS: 60000,
         });
         logger.info('db.connected', { host: conn.connection.host });
         await dropLegacyUserOtpTtlIndex();
