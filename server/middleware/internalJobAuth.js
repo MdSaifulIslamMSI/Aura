@@ -1,5 +1,13 @@
 const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
+const crypto = require('crypto');
+
+const safeEqual = (left, right) => {
+    const leftBuffer = Buffer.from(String(left || ''), 'utf8');
+    const rightBuffer = Buffer.from(String(right || ''), 'utf8');
+    if (leftBuffer.length !== rightBuffer.length) return false;
+    return crypto.timingSafeEqual(leftBuffer, rightBuffer);
+};
 
 const requireInternalJobAuth = (req, res, next) => {
     const expectedSecret = String(process.env.CRON_SECRET || '').trim();
@@ -13,7 +21,7 @@ const requireInternalJobAuth = (req, res, next) => {
         return next(new AppError('Internal job authentication is not configured', 503));
     }
 
-    if (authHeader !== `Bearer ${expectedSecret}`) {
+    if (!safeEqual(authHeader, `Bearer ${expectedSecret}`)) {
         logger.warn('internal_job_auth.rejected', {
             path: req.originalUrl,
             requestId: req.requestId || '',
