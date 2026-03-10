@@ -561,14 +561,14 @@ const ProductDetails = () => {
   const lifecycleIntelligence = buildLifecycleIntelligence({ product, priceHistory });
 
   return (
-    <div className="min-h-screen pb-16 pt-4 relative">
+    <div className="relative min-h-screen pb-32 pt-3 sm:pt-4 lg:pb-16">
       {/* Background Decor */}
       <div className="absolute top-0 right-0 w-[min(70vw,500px)] h-[min(70vw,500px)] bg-neo-cyan/10 rounded-full blur-[150px] pointer-events-none -z-10" />
       <div className="absolute bottom-40 left-0 w-[min(70vw,500px)] h-[min(70vw,500px)] bg-neo-emerald/10 rounded-full blur-[150px] pointer-events-none -z-10" />
 
-      <div className="container-custom max-w-7xl mx-auto px-4 md:px-6 py-6 border-t border-white/5">
+      <div className="container-custom mx-auto max-w-7xl border-t border-white/5 px-3 py-4 sm:px-4 md:px-6 md:py-6">
         {/* Breadcrumb */}
-        <nav className="text-[10px] md:text-sm text-slate-500 font-bold uppercase tracking-widest mb-8 flex items-center flex-wrap gap-y-2">
+        <nav className="mb-5 flex flex-wrap items-center gap-y-2 text-[9px] font-bold uppercase tracking-widest text-slate-500 sm:mb-8 sm:text-[10px] md:text-sm">
           <Link to="/" className="hover:text-neo-cyan transition-colors">Aura</Link>
           <ChevronRight className="w-4 h-4 mx-2 text-slate-700" />
           <Link to={`/category/${(category || 'all').toLowerCase().replace(/\s+/g, '-')}`} className="hover:text-neo-cyan transition-colors">
@@ -578,13 +578,13 @@ const ProductDetails = () => {
           <span className="text-white truncate max-w-[200px] md:max-w-md">{heroTitle}</span>
         </nav>
 
-        <div className="grid lg:grid-cols-12 gap-8 lg:gap-12">
+        <div className="grid gap-6 lg:grid-cols-12 lg:gap-12">
           {/* Left Column: Image & Buttons */}
-          <div className="lg:col-span-5 flex flex-col gap-6">
-            <div className="bg-white/[0.045] backdrop-blur-xl rounded-3xl border border-white/10 shadow-glass p-6 sticky top-24 group relative overflow-hidden">
+          <div className="flex flex-col gap-4 sm:gap-6 lg:col-span-5">
+            <div className="group relative overflow-hidden rounded-[1.75rem] border border-white/10 bg-white/[0.045] p-4 shadow-glass backdrop-blur-xl sm:rounded-3xl sm:p-6 lg:sticky lg:top-24">
               <div className="absolute inset-0 bg-gradient-to-tr from-neo-cyan/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
 
-              <div className="relative aspect-square flex items-center justify-center p-4">
+              <div className="relative flex aspect-square items-center justify-center p-2 sm:p-4">
                 <img
                   src={image}
                   alt={heroTitle}
@@ -593,14 +593,14 @@ const ProductDetails = () => {
 
                 <button
                   onClick={() => toggleWishlist(product)}
-                  className="absolute top-0 right-0 p-3 bg-zinc-950/50 backdrop-blur-md rounded-full border border-white/10 shadow-[0_0_15px_rgba(0,0,0,0.5)] hover:border-neo-rose hover:bg-neo-rose/10 transition-all duration-300 z-20 group/btn"
+                  className="absolute right-0 top-0 z-20 rounded-full border border-white/10 bg-zinc-950/50 p-2.5 shadow-[0_0_15px_rgba(0,0,0,0.5)] backdrop-blur-md transition-all duration-300 hover:border-neo-rose hover:bg-neo-rose/10 group/btn sm:p-3"
                 >
                   <Heart className={cn('w-6 h-6 transition-colors', isWishlisted ? 'fill-neo-rose text-neo-rose drop-shadow-[0_0_8px_rgba(244,63,94,0.6)]' : 'text-slate-400 group-hover/btn:text-neo-rose')} />
                 </button>
 
                 <button
                   onClick={() => navigator?.share?.({ title: heroTitle, url: window.location.href })}
-                  className="absolute top-0 left-0 p-3 bg-zinc-950/50 backdrop-blur-md rounded-full border border-white/10 shadow-[0_0_15px_rgba(0,0,0,0.5)] hover:border-neo-cyan hover:bg-neo-cyan/10 transition-all duration-300 z-20 group/btn"
+                  className="absolute left-0 top-0 z-20 rounded-full border border-white/10 bg-zinc-950/50 p-2.5 shadow-[0_0_15px_rgba(0,0,0,0.5)] backdrop-blur-md transition-all duration-300 hover:border-neo-cyan hover:bg-neo-cyan/10 group/btn sm:p-3"
                 >
                   <Share2 className="w-5 h-5 text-slate-400 group-hover/btn:text-neo-cyan transition-colors" />
                 </button>
@@ -608,11 +608,11 @@ const ProductDetails = () => {
             </div>
 
             {/* Mobile Actions - Sticky Bottom */}
-            <div className="fixed bottom-0 left-0 right-0 p-4 bg-zinc-950/90 backdrop-blur-xl border-t border-white/10 z-50 lg:hidden flex gap-4">
+            <div className="fixed bottom-0 left-0 right-0 z-50 flex gap-3 border-t border-white/10 bg-zinc-950/92 px-3 pb-[calc(0.85rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl sm:gap-4 sm:p-4 lg:hidden">
               <button
                 onClick={handleAddToCart}
                 disabled={stock === 0}
-                className="flex-1 btn-secondary py-4 text-sm tracking-widest flex justify-center items-center gap-2 relative overflow-hidden group border-white/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)]"
+                className="relative flex flex-1 items-center justify-center gap-2 overflow-hidden border-white/20 py-3.5 text-[11px] tracking-[0.18em] shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)] btn-secondary group"
               >
                 <ShoppingCart className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
                 <span className="relative z-10">Add to Bag</span>
@@ -620,7 +620,7 @@ const ProductDetails = () => {
               <button
                 onClick={handleBuyNow}
                 disabled={stock === 0}
-                className="flex-1 btn-primary py-4 text-sm tracking-widest relative overflow-hidden group shadow-[0_0_15px_rgba(217,70,239,0.3)]"
+                className="relative flex-1 overflow-hidden py-3.5 text-[11px] tracking-[0.18em] shadow-[0_0_15px_rgba(217,70,239,0.3)] btn-primary group"
               >
                 <span className="relative z-10 flex items-center justify-center gap-2">
                   <Zap className="w-4 h-4 fill-white animate-pulse" /> Buy Now
@@ -632,7 +632,7 @@ const ProductDetails = () => {
 
           {/* Right Column: Details */}
           <div className="lg:col-span-7">
-            <div className="bg-white/[0.045] backdrop-blur-xl rounded-3xl border border-white/10 shadow-glass p-6 md:p-10 relative overflow-hidden">
+            <div className="relative overflow-hidden rounded-[1.75rem] border border-white/10 bg-white/[0.045] p-5 shadow-glass backdrop-blur-xl sm:rounded-3xl sm:p-6 md:p-10">
               <div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-neo-emerald/5 to-transparent pointer-events-none" />
 
               <div className="relative z-10">
@@ -642,7 +642,7 @@ const ProductDetails = () => {
                     {heroSubtitle}
                   </p>
                 )}
-                <h1 className="text-3xl md:text-5xl font-black text-white mb-6 leading-tight tracking-tighter">
+                <h1 className="mb-5 text-[1.9rem] font-black leading-tight tracking-tighter text-white sm:text-3xl md:mb-6 md:text-5xl">
                   {heroTitle}
                 </h1>
                 {isDemoCatalog && (
@@ -654,7 +654,7 @@ const ProductDetails = () => {
                   </div>
                 )}
 
-                <div className="flex items-center gap-4 mb-8">
+                <div className="mb-6 flex flex-wrap items-center gap-2.5 sm:gap-4 md:mb-8">
                   <span className="rating-badge text-sm px-3 py-1 shadow-[0_0_10px_rgba(250,204,21,0.3)]">
                     {rating}<Star className="w-3 h-3 fill-zinc-950 ml-1" />
                   </span>
@@ -669,8 +669,8 @@ const ProductDetails = () => {
                   )}
                 </div>
 
-                <div className="flex items-end gap-4 mb-6 flex-wrap bg-zinc-950/50 p-6 rounded-2xl border border-white/5 shadow-inner">
-                  <span className="text-5xl font-black text-white tracking-tighter drop-shadow-[0_0_15px_rgba(255,255,255,0.2)]">
+                <div className="mb-6 flex flex-wrap items-end gap-3 rounded-2xl border border-white/5 bg-zinc-950/50 p-4 shadow-inner sm:gap-4 sm:p-6">
+                  <span className="text-4xl font-black tracking-tighter text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.2)] sm:text-5xl">
                     {formatPrice(price)}
                   </span>
                   <div className="flex flex-col pb-1">
@@ -683,7 +683,7 @@ const ProductDetails = () => {
                   </div>
                 </div>
 
-                <div className="mb-8 flex items-center gap-3">
+                <div className="mb-8 flex flex-wrap items-center gap-3">
                   <div className={cn('w-3 h-3 rounded-full animate-pulse', stock > 0 ? 'bg-neo-cyan shadow-[0_0_10px_rgba(6,182,212,0.8)]' : 'bg-neo-rose shadow-[0_0_10px_rgba(244,63,94,0.8)]')} />
                   <p className={cn('text-sm font-bold uppercase tracking-widest', stock > 0 ? 'text-neo-cyan' : 'text-neo-rose')}>
                     {stock > 0 ? `In Stock (${stock} Available)` : 'Out of Stock'}
@@ -745,8 +745,8 @@ const ProductDetails = () => {
                   </button>
                 </div>
 
-                <div className="grid gap-4 mb-12 lg:grid-cols-2">
-                  <section className="rounded-2xl border border-white/10 bg-zinc-950/45 p-5">
+                <div className="mb-8 grid gap-4 lg:mb-12 lg:grid-cols-2">
+                  <section className="rounded-2xl border border-white/10 bg-zinc-950/45 p-4 sm:p-5">
                     <div className="flex items-center justify-between gap-3">
                       <div>
                         <p className="text-xs font-black uppercase tracking-[0.16em] text-neo-cyan">Trust Graph</p>
@@ -789,7 +789,7 @@ const ProductDetails = () => {
                     )}
                   </section>
 
-                  <section className="rounded-2xl border border-white/10 bg-zinc-950/45 p-5">
+                  <section className="rounded-2xl border border-white/10 bg-zinc-950/45 p-4 sm:p-5">
                     <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-200">Resale + Upgrade Intelligence</p>
                     <h2 className="mt-2 text-xl font-black text-white">{lifecycleIntelligence.upgradeWindow}</h2>
                     <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -844,8 +844,8 @@ const ProductDetails = () => {
                 </div>
 
                 {/* Tabs */}
-                <div className="border-t border-white/10 pt-8">
-                  <div className="flex gap-8 border-b border-white/5 mb-8 overflow-x-auto scrollbar-hide">
+                <div className="border-t border-white/10 pt-6 sm:pt-8">
+                  <div className="-mx-5 mb-6 flex gap-6 overflow-x-auto border-b border-white/5 px-5 scrollbar-hide sm:mx-0 sm:mb-8 sm:gap-8 sm:px-0">
                     {['description', 'specifications', 'deal-dna', 'compatibility', 'reviews'].map(tab => (
                       <button key={tab} onClick={() => setActiveTab(tab)}
                         className={cn('pb-4 text-xs md:text-sm font-bold tracking-widest uppercase transition-colors relative whitespace-nowrap',
@@ -861,7 +861,7 @@ const ProductDetails = () => {
                   <div className="min-h-[200px] animate-fade-in text-slate-300">
                     {activeTab === 'description' && (
                       <div className="space-y-8">
-                        <p className="leading-relaxed text-lg font-medium">{description}</p>
+                        <p className="text-base font-medium leading-relaxed sm:text-lg">{description}</p>
                         {highlights.length > 0 && (
                           <div className="bg-zinc-950/50 p-6 rounded-2xl border border-white/5">
                             <h3 className="font-bold text-white mb-4 uppercase tracking-widest text-sm text-neo-emerald">Core Specs:</h3>
@@ -1220,13 +1220,27 @@ const ProductDetails = () => {
 
         {relatedProducts.length > 0 && (
           <SectionErrorBoundary label="Similar Items">
-            <div className="mt-20">
+            <div className="mt-14 sm:mt-20">
               <div className="flex items-center gap-4 mb-8">
                 <h2 className="text-2xl font-black text-white tracking-tight">Similar Items</h2>
                 <div className="flex-1 h-px bg-gradient-to-r from-white/10 to-transparent" />
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
-                {relatedProducts.map(p => <ProductCard key={p.id} product={p} />)}
+              <div className="space-y-4 md:hidden">
+                {relatedProducts.map((item) => (
+                  <ProductCard
+                    key={item.id || item._id}
+                    product={item}
+                    variant="list"
+                  />
+                ))}
+              </div>
+              <div className="hidden gap-6 md:grid md:grid-cols-2 xl:grid-cols-4">
+                {relatedProducts.map((item) => (
+                  <ProductCard
+                    key={item.id || item._id}
+                    product={item}
+                  />
+                ))}
               </div>
             </div>
           </SectionErrorBoundary>

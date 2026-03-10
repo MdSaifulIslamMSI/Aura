@@ -298,7 +298,7 @@ const ProductCard = ({ product, variant = 'default' }) => {
             <Heart className={cn('h-5 w-5', inWishlist && 'fill-current')} />
           </button>
 
-          <div className="absolute inset-x-4 bottom-4 z-20 flex items-center gap-2">
+          <div className="absolute inset-x-4 bottom-4 z-20 hidden items-center gap-2 sm:flex">
             {quickTools.map((tool) => (
               <IconToolButton
                 key={tool.key}
@@ -462,7 +462,7 @@ const ProductCard = ({ product, variant = 'default' }) => {
           ) : null}
 
           <div className="mt-6 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-            <div className="flex flex-wrap gap-2">
+            <div className="hidden flex-wrap gap-2 sm:flex">
               {quickTools.map((tool) => (
                 <TextToolButton
                   key={tool.key}
@@ -560,7 +560,7 @@ const ProductCard = ({ product, variant = 'default' }) => {
           }}
         />
 
-        <div className="absolute inset-x-4 bottom-4 z-20 flex items-center justify-center gap-2 opacity-100 transition-all duration-300 md:translate-y-3 md:opacity-0 md:group-hover:translate-y-0 md:group-hover:opacity-100">
+        <div className="absolute inset-x-4 bottom-4 z-20 hidden items-center justify-center gap-2 transition-all duration-300 md:flex md:translate-y-3 md:opacity-0 md:group-hover:translate-y-0 md:group-hover:opacity-100">
           {quickTools.map((tool) => (
             <IconToolButton
               key={tool.key}
@@ -676,7 +676,7 @@ const ProductCard = ({ product, variant = 'default' }) => {
           </div>
         ) : null}
 
-        <div className="mt-4 flex flex-wrap gap-2">
+        <div className="mt-4 hidden flex-wrap gap-2 sm:flex">
           <TextToolButton
             icon={Brain}
             label="Compare"
