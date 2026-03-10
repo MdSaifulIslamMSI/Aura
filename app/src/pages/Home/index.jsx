@@ -4,6 +4,7 @@ import { ArrowRight, ChevronRight, Smartphone, Laptop, Headphones, Shirt, Home a
 import Carousel from '@/components/features/home/Carousel';
 import ProductCard from '@/components/features/product/ProductCard';
 import SkeletonLoader from '@/components/shared/SkeletonLoader';
+import SectionErrorBoundary from '@/components/shared/SectionErrorBoundary';
 import RevealOnScroll from '@/components/shared/RevealOnScroll';
 import { productApi } from '@/services/api';
 import { clearRecentlyViewed, readRecentlyViewed } from '@/utils/recentlyViewed';
@@ -498,31 +499,35 @@ const Home = () => {
         </RevealOnScroll>
 
         <RevealOnScroll anchorId="home-resume" anchorLabel="Resume Shopping" delay={40}>
-          <ProductSection
-            eyebrow="Personalized Continuity"
-            title="Resume Shopping"
-            description="Top-tier commerce does not forget what you just evaluated. This shelf persists your recent product views and lets you re-enter high-intent decisions immediately."
-            link="/search"
-            actionLabel={resumeProducts.length > 0 ? 'Reset history' : 'Explore'}
-            onAction={resumeProducts.length > 0 ? () => {
-              clearRecentlyViewed();
-              setResumeProducts([]);
-            } : undefined}
-            products={resumeProducts}
-            isLoading={resumeLoading}
-          />
+          <SectionErrorBoundary label="Resume Shopping">
+            <ProductSection
+              eyebrow="Personalized Continuity"
+              title="Resume Shopping"
+              description="Top-tier commerce does not forget what you just evaluated. This shelf persists your recent product views and lets you re-enter high-intent decisions immediately."
+              link="/search"
+              actionLabel={resumeProducts.length > 0 ? 'Reset history' : 'Explore'}
+              onAction={resumeProducts.length > 0 ? () => {
+                clearRecentlyViewed();
+                setResumeProducts([]);
+              } : undefined}
+              products={resumeProducts}
+              isLoading={resumeLoading}
+            />
+          </SectionErrorBoundary>
         </RevealOnScroll>
 
         <RevealOnScroll anchorId="home-recommendations" anchorLabel="Recommendations" delay={50}>
-          <ProductSection
-            eyebrow={recommendationCopy?.eyebrow || recommendationSignals.eyebrow}
-            title={recommendationCopy?.title || recommendationSignals.title}
-            description={recommendationCopy?.description || recommendationSignals.description}
-            link={(recommendationCopy?.primaryCategory || recommendationSignals.primaryCategory) ? `/category/${recommendationCopy?.primaryCategory || recommendationSignals.primaryCategory}` : '/search'}
-            actionLabel={(recommendationCopy?.primaryCategory || recommendationSignals.primaryCategory) ? 'Open lane' : 'Explore'}
-            products={recommendedProducts}
-            isLoading={recommendationsLoading}
-          />
+          <SectionErrorBoundary label="AI Recommendations">
+            <ProductSection
+              eyebrow={recommendationCopy?.eyebrow || recommendationSignals.eyebrow}
+              title={recommendationCopy?.title || recommendationSignals.title}
+              description={recommendationCopy?.description || recommendationSignals.description}
+              link={(recommendationCopy?.primaryCategory || recommendationSignals.primaryCategory) ? `/category/${recommendationCopy?.primaryCategory || recommendationSignals.primaryCategory}` : '/search'}
+              actionLabel={(recommendationCopy?.primaryCategory || recommendationSignals.primaryCategory) ? 'Open lane' : 'Explore'}
+              products={recommendedProducts}
+              isLoading={recommendationsLoading}
+            />
+          </SectionErrorBoundary>
         </RevealOnScroll>
 
         {/* Deals of the Day */}

@@ -6,6 +6,8 @@ import { WishlistContext } from '@/context/WishlistContext';
 import { AuthContext } from '@/context/AuthContext';
 import { priceAlertApi, productApi, uploadApi } from '@/services/api';
 import ProductCard from '@/components/features/product/ProductCard';
+import ProductPageSkeleton from '@/components/shared/ProductPageSkeleton';
+import SectionErrorBoundary from '@/components/shared/SectionErrorBoundary';
 import { cn } from '@/lib/utils';
 import { buildLifecycleIntelligence, buildProductTrustGraph } from '@/utils/commerceIntelligence';
 import { pushRecentlyViewed } from '@/utils/recentlyViewed';
@@ -502,11 +504,7 @@ const ProductDetails = () => {
   // --- RENDER GUARDS ---
 
   if (isLoading) {
-    return (
-      <div className="container-custom max-w-7xl mx-auto py-10 px-4">
-        <div className="bg-white/5 animate-pulse rounded-2xl h-[600px] border border-white/10"></div>
-      </div>
-    );
+    return <ProductPageSkeleton />;
   }
 
   if (!product) {
@@ -1221,15 +1219,17 @@ const ProductDetails = () => {
         </div>
 
         {relatedProducts.length > 0 && (
-          <div className="mt-20">
-            <div className="flex items-center gap-4 mb-8">
-              <h2 className="text-2xl font-black text-white tracking-tight">Similar Items</h2>
-              <div className="flex-1 h-px bg-gradient-to-r from-white/10 to-transparent" />
+          <SectionErrorBoundary label="Similar Items">
+            <div className="mt-20">
+              <div className="flex items-center gap-4 mb-8">
+                <h2 className="text-2xl font-black text-white tracking-tight">Similar Items</h2>
+                <div className="flex-1 h-px bg-gradient-to-r from-white/10 to-transparent" />
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
+                {relatedProducts.map(p => <ProductCard key={p.id} product={p} />)}
+              </div>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
-              {relatedProducts.map(p => <ProductCard key={p.id} product={p} />)}
-            </div>
-          </div>
+          </SectionErrorBoundary>
         )}
       </div>
     </div>
