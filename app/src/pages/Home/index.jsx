@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useContext } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, ChevronRight, Smartphone, Laptop, Headphones, Shirt, Home as HomeIcon, Gamepad2, BookOpen, Watch } from 'lucide-react';
+import { ArrowRight, ChevronRight, Smartphone, Laptop, Headphones, Shirt, Home as HomeIcon, Gamepad2, BookOpen, Watch, Sparkles } from 'lucide-react';
 import Carousel from '@/components/features/home/Carousel';
 import ProductCard from '@/components/features/product/ProductCard';
 import SkeletonLoader from '@/components/shared/SkeletonLoader';
@@ -392,11 +392,13 @@ const Home = () => {
     <div className="min-h-screen pb-16 pt-3 sm:pt-4">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8 md:space-y-10">
         <RevealOnScroll anchorId="home-command-deck" anchorLabel="Command Deck" className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-          <section className="rounded-[2rem] border border-white/10 bg-white/[0.045] p-6 shadow-glass lg:p-8">
+          <section className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.045] p-6 shadow-glass lg:p-8 group/hero">
+            <div className="absolute top-10 right-10 animate-pulse-glow opacity-30 group-hover/hero:opacity-60 transition-opacity"><Sparkles className="w-8 h-8 text-neo-cyan" /></div>
+            <div className="absolute bottom-10 left-1/4 animate-pulse-glow opacity-20 group-hover/hero:opacity-50 transition-opacity" style={{ animationDelay: '1s' }}><Sparkles className="w-5 h-5 text-neo-fuchsia" /></div>
             <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-neo-cyan/20 bg-neo-cyan/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.28em] text-neo-cyan">
               Retail Command Deck
             </div>
-            <h1 className="max-w-3xl text-4xl font-black leading-[0.95] text-white md:text-5xl xl:text-6xl">
+            <h1 className="text-shimmer max-w-3xl text-4xl font-black leading-[0.95] md:text-5xl xl:text-6xl pb-2">
               Search first. Trust faster. Move to checkout without noise.
             </h1>
             <p className="mt-4 max-w-2xl text-sm text-slate-300 md:text-base">
@@ -428,7 +430,8 @@ const Home = () => {
         </RevealOnScroll>
 
         <RevealOnScroll anchorId="home-mission-os" anchorLabel="Mission OS" delay={20}>
-          <section className="rounded-[2rem] border border-cyan-300/20 bg-gradient-to-r from-cyan-500/10 via-white/[0.03] to-emerald-500/10 p-6 shadow-glass lg:p-7">
+          <section className="relative overflow-hidden rounded-[2rem] border border-cyan-300/20 bg-gradient-to-r from-cyan-500/10 via-white/[0.03] to-emerald-500/10 p-6 shadow-glass lg:p-7 hover:shadow-[0_0_30px_rgba(34,211,238,0.2)] transition-shadow duration-500">
+            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-400 to-transparent animate-gradient-x opacity-60" style={{ backgroundSize: '200% auto' }} />
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="max-w-3xl">
                 <div className="text-[11px] font-black uppercase tracking-[0.28em] text-cyan-100">New Command Layer</div>
@@ -467,7 +470,7 @@ const Home = () => {
                 <Link
                   key={category.path}
                   to={category.path}
-                  className="group rounded-[1.35rem] border border-white/8 bg-white/[0.03] p-4 transition-all duration-300 hover:-translate-y-1 hover:border-white/18 hover:bg-white/[0.07]"
+                  className="group rounded-[1.35rem] border border-white/8 bg-white/[0.03] p-4 transition-all duration-500 hover:-translate-y-2 hover:scale-[1.03] hover:border-white/20 hover:bg-white/[0.08] hover:shadow-[0_0_20px_rgba(6,182,212,0.15)]"
                 >
                   <div className={`mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br ${category.color} border border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.08)] transition-transform duration-300 group-hover:scale-105`}>
                     <category.icon className="h-6 w-6" />

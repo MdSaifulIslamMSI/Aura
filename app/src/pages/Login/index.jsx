@@ -1,4 +1,4 @@
-﻿import { useState, useContext, useRef, useEffect, useMemo } from 'react';
+import { useState, useContext, useRef, useEffect, useMemo } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Eye, EyeOff, Mail, Lock, User, Phone, Zap, Network, ArrowLeft, Shield, Loader2 } from 'lucide-react';
 import { AuthContext } from '@/context/AuthContext';
@@ -401,8 +401,9 @@ const Login = () => {
 
       <div className="container-custom relative z-10">
         <div className="max-w-5xl mx-auto">
-          <div className="bg-white/5 backdrop-blur-2xl rounded-[28px] sm:rounded-[40px] shadow-glass overflow-hidden border border-white/10 flex flex-col md:flex-row relative group">
-            <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent pointer-events-none" />
+          <div className="bg-white/5 backdrop-blur-2xl rounded-[28px] sm:rounded-[40px] shadow-glass overflow-hidden border border-white/10 flex flex-col md:flex-row relative group hover:border-neo-cyan/30 hover:shadow-[0_0_40px_rgba(6,182,212,0.15)] transition-all duration-700">
+            <div className="absolute inset-0 bg-gradient-to-r from-neo-cyan/10 via-neo-fuchsia/10 to-neo-emerald/10 opacity-0 group-hover:opacity-100 animate-gradient-x transition-opacity duration-700 pointer-events-none" style={{ backgroundSize: '200% auto' }} />
+            <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent pointer-events-none z-0" />
 
             {/* â”€â”€â”€ Left Side â€” Info Panel â”€â”€â”€ */}
             <div className="md:w-[45%] bg-zinc-950/80 p-6 sm:p-8 lg:p-14 flex flex-col justify-between relative overflow-hidden">
@@ -441,9 +442,9 @@ const Login = () => {
 
               <div className="hidden md:flex relative z-10 items-center justify-center p-8 mt-10">
                 {step === 'otp' ? (
-                  <Shield className="w-40 h-40 text-neo-cyan/20 drop-shadow-[0_0_30px_rgba(6,182,212,0.4)] animate-pulse" />
+                  <Shield className="w-40 h-40 text-neo-cyan/20 drop-shadow-[0_0_30px_rgba(6,182,212,0.4)] animate-spin-slow" />
                 ) : (
-                  <Network className="w-40 h-40 text-neo-fuchsia/20 drop-shadow-[0_0_30px_rgba(217,70,239,0.4)] animate-pulse" />
+                  <Network className="w-40 h-40 text-neo-fuchsia/20 drop-shadow-[0_0_30px_rgba(217,70,239,0.4)] animate-spin-slow" />
                 )}
               </div>
             </div>
@@ -625,7 +626,7 @@ const Login = () => {
                             'w-10 h-12 sm:w-12 sm:h-14 md:w-14 md:h-16 text-center text-2xl font-black rounded-xl border-2 bg-zinc-950/50 text-white outline-none transition-all duration-300',
                             digit
                               ? 'border-neo-cyan shadow-[0_0_15px_rgba(6,182,212,0.3)]'
-                              : 'border-white/10 focus:border-neo-cyan focus:shadow-[0_0_10px_rgba(6,182,212,0.2)]'
+                              : 'border-white/10 focus:border-neo-cyan focus:ring-2 focus:ring-neo-cyan/50 focus:shadow-[0_0_20px_rgba(6,182,212,0.4)]'
                           )}
                         />
                       ))}
