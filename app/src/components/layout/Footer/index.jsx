@@ -20,9 +20,9 @@ import {
 import { trustApi } from '@/services/api';
 
 const STATUS_CLASSES = {
-  healthy: 'bg-emerald-500/15 border-emerald-400/40 text-emerald-300',
-  degraded: 'bg-amber-500/15 border-amber-400/40 text-amber-200',
-  checking: 'bg-slate-500/15 border-slate-400/30 text-slate-200',
+  healthy: 'bg-emerald-500/15 border-emerald-400/40 text-emerald-300 shadow-emerald-500/0 hover:shadow-emerald-500/20',
+  degraded: 'bg-amber-500/15 border-amber-400/40 text-amber-200 shadow-amber-500/0 hover:shadow-amber-500/20',
+  checking: 'bg-slate-500/15 border-slate-400/30 text-slate-200 shadow-slate-500/0 hover:shadow-slate-500/20',
 };
 
 const Footer = () => {
@@ -156,7 +156,7 @@ const Footer = () => {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full lg:max-w-4xl">
-              <div className={`footer-card px-3 py-2 ${STATUS_CLASSES[systemHealthStatus]}`}>
+              <div className={`footer-card px-3 py-2 transition-all duration-300 hover:-translate-y-1 ${STATUS_CLASSES[systemHealthStatus]}`}>
                 <p className="text-[10px] uppercase tracking-wider font-bold">System Health</p>
                 <p className="text-sm font-semibold mt-0.5 flex items-center gap-2">
                   <Server className="w-3.5 h-3.5" />
@@ -168,7 +168,7 @@ const Footer = () => {
                 </p>
               </div>
 
-              <div className={`footer-card px-3 py-2 ${STATUS_CLASSES[paymentSafetyStatus]}`}>
+              <div className={`footer-card px-3 py-2 transition-all duration-300 hover:-translate-y-1 ${STATUS_CLASSES[paymentSafetyStatus]}`}>
                 <p className="text-[10px] uppercase tracking-wider font-bold">Payments Safety</p>
                 <p className="text-sm font-semibold mt-0.5 flex items-center gap-2">
                   <ShieldCheck className="w-3.5 h-3.5" />
@@ -176,7 +176,7 @@ const Footer = () => {
                 </p>
               </div>
 
-              <div className={`footer-card px-3 py-2 ${STATUS_CLASSES[emailFortressStatus]}`}>
+              <div className={`footer-card px-3 py-2 transition-all duration-300 hover:-translate-y-1 ${STATUS_CLASSES[emailFortressStatus]}`}>
                 <p className="text-[10px] uppercase tracking-wider font-bold">Email Fortress</p>
                 <p className="text-sm font-semibold mt-0.5 flex items-center gap-2">
                   <Lock className="w-3.5 h-3.5" />
@@ -196,11 +196,12 @@ const Footer = () => {
         </div>
       </div>
 
-      <div className="border-b border-white/5 relative z-10">
+      <div className="relative z-10 border-b border-transparent">
+        <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent animate-gradient-x opacity-70" style={{ backgroundSize: '200% auto' }} />
         <div className="container-custom max-w-7xl mx-auto px-4 py-8">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
             <div className="footer-card flex flex-col items-center text-center gap-3 p-4 backdrop-blur-sm border-white/5 hover:border-neo-cyan/30 hover:shadow-[0_0_15px_rgba(6,182,212,0.1)] transition-all duration-300 group">
-              <div className="w-12 h-12 rounded-full bg-neo-cyan/10 flex items-center justify-center group-hover:bg-neo-cyan/20 transition-colors">
+              <div className="w-12 h-12 rounded-full bg-neo-cyan/10 flex items-center justify-center group-hover:bg-neo-cyan/20 group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
                 <Truck className="w-6 h-6 text-neo-cyan" />
               </div>
               <div>
@@ -210,7 +211,7 @@ const Footer = () => {
             </div>
 
               <div className="footer-card flex flex-col items-center text-center gap-3 p-4 backdrop-blur-sm border-white/5 hover:border-neo-emerald/30 hover:shadow-[0_0_15px_rgba(16,185,129,0.14)] transition-all duration-300 group">
-              <div className="w-12 h-12 rounded-full bg-neo-emerald/10 flex items-center justify-center group-hover:bg-neo-emerald/20 transition-colors">
+              <div className="w-12 h-12 rounded-full bg-neo-emerald/10 flex items-center justify-center group-hover:bg-neo-emerald/20 group-hover:scale-110 group-hover:-rotate-3 transition-all duration-300">
                 <RotateCcw className="w-6 h-6 text-neo-emerald" />
               </div>
               <div>
@@ -220,7 +221,7 @@ const Footer = () => {
             </div>
 
             <div className="footer-card flex flex-col items-center text-center gap-3 p-4 backdrop-blur-sm border-white/5 hover:border-neo-cyan/30 hover:shadow-[0_0_15px_rgba(6,182,212,0.1)] transition-all duration-300 group">
-              <div className="w-12 h-12 rounded-full bg-neo-cyan/10 flex items-center justify-center group-hover:bg-neo-cyan/20 transition-colors">
+              <div className="w-12 h-12 rounded-full bg-neo-cyan/10 flex items-center justify-center group-hover:bg-neo-cyan/20 group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
                 <ShieldCheck className="w-6 h-6 text-neo-cyan" />
               </div>
               <div>
@@ -230,7 +231,7 @@ const Footer = () => {
             </div>
 
             <div className="footer-card flex flex-col items-center text-center gap-3 p-4 backdrop-blur-sm border-white/5 hover:border-neo-emerald/30 hover:shadow-[0_0_15px_rgba(16,185,129,0.14)] transition-all duration-300 group">
-              <div className="w-12 h-12 rounded-full bg-neo-emerald/10 flex items-center justify-center group-hover:bg-neo-emerald/20 transition-colors">
+              <div className="w-12 h-12 rounded-full bg-neo-emerald/10 flex items-center justify-center group-hover:bg-neo-emerald/20 group-hover:scale-110 group-hover:-rotate-3 transition-all duration-300">
                 <CreditCard className="w-6 h-6 text-neo-emerald" />
               </div>
               <div>

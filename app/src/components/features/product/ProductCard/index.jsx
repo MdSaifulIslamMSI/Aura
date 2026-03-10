@@ -327,7 +327,7 @@ const ProductCard = ({ product, variant = 'default' }) => {
         onMouseEnter={prefetchProduct}
         onFocus={prefetchProduct}
         className={cn(
-          'group relative flex h-full flex-col overflow-hidden rounded-[1.75rem] border transition-all duration-500 md:flex-row',
+          'group relative flex h-full flex-col overflow-hidden rounded-[1.75rem] border transition-all duration-500 md:flex-row premium-card-hover',
           surfaceClass
         )}
         style={cardSurfaceStyle}
@@ -342,7 +342,7 @@ const ProductCard = ({ product, variant = 'default' }) => {
         </div>
 
         <div className={cn(
-          'relative aspect-[4/3] overflow-hidden border-b p-6 md:w-[19rem] md:flex-shrink-0 md:border-b-0 md:border-r',
+          'relative aspect-[4/3] overflow-hidden border-b p-6 md:w-[19rem] md:flex-shrink-0 md:border-b-0 md:border-r group-hover:glass-shimmer',
           mediaClass
         )} style={cardMediaStyle}>
           <div className="absolute left-4 top-4 z-20 flex max-w-[75%] flex-wrap gap-2">
@@ -553,7 +553,7 @@ const ProductCard = ({ product, variant = 'default' }) => {
               onClick={handleAddToCart}
               disabled={isOutOfStock}
               className={cn(
-                'inline-flex w-full items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-black uppercase tracking-[0.2em] transition-all duration-300 xl:w-auto',
+                'inline-flex w-full items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-black uppercase tracking-[0.2em] transition-all duration-300 xl:w-auto active:scale-95',
                 isWhiteMode
                   ? 'bg-slate-950 text-white shadow-[0_16px_26px_rgba(15,23,42,0.24)] hover:bg-blue-700 disabled:bg-slate-300'
                   : 'hover:translate-y-[-1px] disabled:bg-slate-700 disabled:text-slate-300'
@@ -577,7 +577,7 @@ const ProductCard = ({ product, variant = 'default' }) => {
       onMouseEnter={prefetchProduct}
       onFocus={prefetchProduct}
       className={cn(
-        'group card-product relative flex h-full flex-col overflow-hidden rounded-[1.6rem] border transition-all duration-500',
+        'group card-product premium-card-hover relative flex h-full flex-col overflow-hidden rounded-[1.6rem] border transition-all duration-500',
         surfaceClass
       )}
       style={cardSurfaceStyle}
@@ -592,7 +592,7 @@ const ProductCard = ({ product, variant = 'default' }) => {
       </div>
 
       <div className={cn(
-        'relative aspect-[4/3] overflow-hidden border-b p-4 sm:aspect-[4/3.05]',
+        'relative aspect-[4/3] overflow-hidden border-b p-4 sm:aspect-[4/3.05] group-hover:glass-shimmer',
         mediaClass
       )} style={cardMediaStyle}>
         <div className="absolute left-4 top-4 z-20 flex max-w-[70%] flex-wrap gap-2">
@@ -757,7 +757,7 @@ const ProductCard = ({ product, variant = 'default' }) => {
           onClick={handleAddToCart}
           disabled={isOutOfStock}
           className={cn(
-            'mt-3.5 inline-flex w-full items-center justify-center gap-2 rounded-full px-5 py-2.5 text-[11px] font-black uppercase tracking-[0.18em] transition-all duration-300',
+            'mt-3.5 inline-flex w-full items-center justify-center gap-2 rounded-full px-5 py-2.5 text-[11px] font-black uppercase tracking-[0.18em] transition-all duration-300 active:scale-95',
             isWhiteMode
               ? 'bg-slate-950 text-white shadow-[0_16px_26px_rgba(15,23,42,0.22)] hover:bg-blue-700 disabled:bg-slate-300'
               : 'hover:translate-y-[-1px] disabled:bg-slate-700 disabled:text-slate-300'

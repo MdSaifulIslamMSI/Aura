@@ -232,7 +232,7 @@ const Navbar = () => {
             : 'bg-gradient-to-b from-zinc-950/72 to-zinc-950/46 backdrop-blur-xl border-transparent'
         )}
       >
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-neo-cyan/60 to-transparent" />
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-neo-cyan/60 to-transparent animate-gradient-x" style={{ backgroundSize: '200% auto' }} />
         <div className="container-custom max-w-[90rem] mx-auto px-3 sm:px-5 lg:px-6">
           <div
             className={cn(
@@ -243,7 +243,7 @@ const Navbar = () => {
           >
             {/* Logo */}
             <Link to="/" className="flex items-center gap-2 flex-shrink-0 group">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-neo-cyan via-sky-400 to-neo-emerald p-[1px] shadow-neon-cyan group-hover:shadow-[0_0_16px_rgba(16,185,129,0.45)] transition-all duration-500">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-neo-cyan via-sky-400 to-neo-emerald p-[1px] shadow-neon-cyan animate-pulse-glow group-hover:animate-none group-hover:shadow-[0_0_16px_rgba(16,185,129,0.45)] transition-all duration-500">
                 <div className="w-full h-full bg-zinc-950 rounded-[11px] flex items-center justify-center relative overflow-hidden">
                   <Sparkles className="w-5 h-5 text-neo-cyan group-hover:text-neo-emerald transition-colors duration-500 relative z-10" />
                   <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
@@ -622,7 +622,7 @@ const Navbar = () => {
                 aria-label="Cart"
               >
                 <div className="relative">
-                  <ShoppingCart className="w-5 h-5 group-hover:scale-110 transition-transform duration-300" />
+                  <ShoppingCart className="w-5 h-5 group-hover:-translate-y-1 group-hover:text-neo-emerald transition-all duration-300" />
                   {cartItemCount > 0 && (
                     <span className="absolute -top-2 -right-2 bg-gradient-to-r from-neo-cyan to-neo-emerald text-white text-[10px] font-bold w-4 h-4 flex items-center justify-center rounded-full shadow-[0_0_10px_rgba(6,182,212,0.5)]">
                       {cartItemCount > 9 ? '9+' : cartItemCount}
@@ -672,7 +672,7 @@ const Navbar = () => {
         {isMobileMenuOpen && (
           <div className="absolute left-0 top-full z-50 w-full border-t border-white/10 bg-zinc-950/95 backdrop-blur-xl animate-fade-in md:hidden">
             <nav className="max-h-[calc(100vh-5.5rem)] overflow-y-auto px-4 py-4">
-              <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+              <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 animate-fade-up" style={{ animationDelay: '50ms' }}>
                 <div className="mb-3 text-[11px] font-black uppercase tracking-[0.24em] text-slate-400">Quick access</div>
                 <div className="grid grid-cols-2 gap-2">
                   <Link
@@ -713,7 +713,7 @@ const Navbar = () => {
                 </div>
               </section>
 
-              <section className="mt-4 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+              <section className="mt-4 rounded-2xl border border-white/10 bg-white/[0.04] p-4 animate-fade-up" style={{ animationDelay: '100ms', animationFillMode: 'both' }}>
                 <div className="mb-3 text-[11px] font-black uppercase tracking-[0.24em] text-slate-400">Browse by category</div>
                 <div className="grid grid-cols-2 gap-2">
                   {categories.map((category) => (
@@ -729,7 +729,7 @@ const Navbar = () => {
               </section>
 
               {(activeUser || dbUser?.isAdmin) && (
-                <section className="mt-4 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+                <section className="mt-4 rounded-2xl border border-white/10 bg-white/[0.04] p-4 animate-fade-up" style={{ animationDelay: '150ms', animationFillMode: 'both' }}>
                   <div className="mb-3 text-[11px] font-black uppercase tracking-[0.24em] text-slate-400">Account control</div>
                   <div className="space-y-2">
                     {activeUser && (
@@ -765,7 +765,7 @@ const Navbar = () => {
                 </section>
               )}
 
-              <section className="mt-4 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+              <section className="mt-4 rounded-2xl border border-white/10 bg-white/[0.04] p-4 animate-fade-up" style={{ animationDelay: '200ms', animationFillMode: 'both' }}>
                 <div className="mb-3 text-[11px] font-black uppercase tracking-[0.24em] text-slate-400">Experience</div>
                 <div className="mb-4">
                   <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-200">

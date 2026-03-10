@@ -1081,4 +1081,38 @@ html[data-crazy-mode='on'] .btn-primary {
   .text-glow-fuchsia {
     text-shadow: 0 0 16px rgba(217, 70, 239, 0.45);
   }
+
+  .glass-shimmer {
+    position: relative;
+    overflow: hidden;
+  }
+  .glass-shimmer::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -150%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(to right, transparent 0%, rgba(255, 255, 255, 0.08) 50%, transparent 100%);
+    transform: skewX(-20deg);
+    animation: shimmer 3s infinite linear;
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  .text-shimmer {
+    background-size: 200% auto;
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: gradient-x 4s linear infinite;
+  }
+
+  .premium-card-hover {
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .premium-card-hover:hover {
+    transform: translateY(-4px) scale(1.01);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.15) inset;
+  }
 }
