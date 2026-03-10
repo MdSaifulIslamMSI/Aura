@@ -26,7 +26,7 @@ The compose stack lives in [`docker-compose.split-runtime.yml`](../docker-compos
 - `REDIS_REQUIRED=true`
 - `MONGO_URI` must point at a replica-set-capable Mongo deployment
 
-When `SPLIT_RUNTIME_ENABLED=true` in production, the Vercel serverless adapter intentionally returns `503` so production does not silently drift back to the wrong topology.
+The legacy `server/` Vercel serverless adapter has been removed. Production should always point at the long-lived backend service instead of a serverless fallback.
 
 ## Staging Validation
 - Public-only smoke:
