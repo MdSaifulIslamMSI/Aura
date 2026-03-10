@@ -18,6 +18,12 @@ describe('Product API Integration Tests', () => {
         expect(Array.isArray(res.body.products)).toBeTruthy();
     });
 
+    test('GET /api/products accepts category filters for mapped fashion lanes', async () => {
+        const res = await request(app).get('/api/products?category=men%27s-fashion&limit=5');
+        expect(res.statusCode).toBe(200);
+        expect(Array.isArray(res.body.products)).toBeTruthy();
+    });
+
     // Test Validation: Invalid Product ID
     test('GET /api/products/:id should return 400 for invalid ID format', async () => {
         const res = await request(app).get('/api/products/invalid id!');
