@@ -2,6 +2,14 @@ const crypto = require('crypto');
 const AppError = require('../../../utils/AppError');
 const { toPaise, fromPaise } = require('../helpers');
 
+const secureCompare = (left, right) => {
+    const leftBuffer = Buffer.from(String(left || ''), 'utf8');
+    const rightBuffer = Buffer.from(String(right || ''), 'utf8');
+    if (leftBuffer.length !== rightBuffer.length) return false;
+    return crypto.timingSafeEqual(leftBuffer, rightBuffer);
+};
+
+
 class RazorpayProvider {
     constructor({ keyId, keySecret, webhookSecret }) {
         this.name = 'razorpay';
@@ -55,7 +63,7 @@ class RazorpayProvider {
             .createHmac('sha256', this.keySecret)
             .update(`${orderId}|${paymentId}`)
             .digest('hex');
-        return digest === signature;
+        return secureCompare(digest, signature);
     }
 
     verifyWebhookSignature({ rawBody, signature }) {
@@ -64,7 +72,7 @@ class RazorpayProvider {
             .createHmac('sha256', this.webhookSecret)
             .update(rawBody)
             .digest('hex');
-        return digest === signature;
+        return secureCompare(digest, signature);
     }
 
     parseWebhook(rawBody) {
