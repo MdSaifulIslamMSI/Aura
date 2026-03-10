@@ -11,6 +11,7 @@ const CatalogSyncRun = require('../models/CatalogSyncRun');
 const SystemState = require('../models/SystemState');
 const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
+const { resolveCategory } = require('../config/categories');
 const { flags } = require('../config/catalogFlags');
 const { prepareCatalogSnapshotForImport } = require('./catalogSnapshotService');
 
