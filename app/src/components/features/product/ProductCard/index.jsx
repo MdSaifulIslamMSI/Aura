@@ -1,6 +1,16 @@
 import { useContext, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { BadgeCheck, Brain, Camera, Clock3, Heart, Megaphone, ShoppingCart, Star, Zap } from 'lucide-react';
+import {
+  ArrowRight,
+  BadgeCheck,
+  Brain,
+  Camera,
+  Clock3,
+  Heart,
+  Megaphone,
+  ShoppingCart,
+  Star,
+} from 'lucide-react';
 import { WishlistContext } from '@/context/WishlistContext';
 import { CartContext } from '@/context/CartContext';
 import { useColorMode } from '@/context/ColorModeContext';
@@ -8,26 +18,113 @@ import { cn } from '@/lib/utils';
 import { formatPrice } from '@/utils/format';
 import { productApi } from '@/services/api';
 
+const FALLBACK_IMAGE = 'https://placehold.co/400x400/18181b/4ade80?text=Aura+Select';
+
+const resolveDealTheme = (dealDna) => {
+  if (dealDna?.verdict === 'good_deal') {
+    return {
+      label: 'Good Deal',
+      surface: 'border-emerald-400/35 bg-emerald-500/12 text-emerald-100',
+    };
+  }
+
+  if (dealDna?.verdict === 'avoid') {
+    return {
+      label: 'Skip For Now',
+      surface: 'border-rose-400/35 bg-rose-500/12 text-rose-100',
+    };
+  }
+
+  return {
+    label: dealDna?.verdict === 'wait' ? 'Watch Price' : 'Review Signal',
+    surface: 'border-amber-400/35 bg-amber-500/12 text-amber-100',
+  };
+};
+
+const formatRating = (value) => {
+  const numeric = Number(value || 0);
+  if (!Number.isFinite(numeric)) return '0';
+  return numeric.toFixed(1).replace(/\.0$/, '');
+};
+
+const StatusBadge = ({ icon: Icon, label, toneClass }) => (
+  <span
+    className={cn(
+      'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em]',
+      toneClass
+    )}
+  >
+    <Icon className="h-3 w-3" />
+    {label}
+  </span>
+);
+
+const IconToolButton = ({ icon: Icon, label, onClick, toneClass }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    aria-label={label}
+    title={label}
+    className={cn(
+      'flex h-10 w-10 items-center justify-center rounded-full border backdrop-blur-md transition-all duration-300',
+      toneClass
+    )}
+  >
+    <Icon className="h-4 w-4" />
+  </button>
+);
+
+const TextToolButton = ({ icon: Icon, label, onClick, toneClass }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className={cn(
+      'inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-colors',
+      toneClass
+    )}
+  >
+    <Icon className="h-3.5 w-3.5" />
+    {label}
+  </button>
+);
+
 const ProductCard = ({ product, variant = 'default' }) => {
   const { toggleWishlist, isInWishlist } = useContext(WishlistContext);
   const { addToCart } = useContext(CartContext);
   const { colorMode } = useColorMode();
   const navigate = useNavigate();
   const [imageError, setImageError] = useState(false);
+  const hasPrefetchedRef = useRef(false);
+
   const isWhiteMode = colorMode === 'white';
   const dealDna = product?.dealDna || null;
+  const dealTheme = resolveDealTheme(dealDna);
   const isSponsored = Boolean(product?.adMeta?.isSponsored || product?.adCampaign?.isSponsored);
   const sponsoredLabel = product?.adMeta?.label || 'Sponsored';
   const sponsoredTagline = product?.adCampaign?.creativeTagline || '';
   const productId = product?.id || product?._id || '';
+  const productPath = productId ? `/product/${productId}` : '/products';
   const displayTitle = product?.displayTitle || product?.title || '';
   const subtitle = product?.subtitle || '';
   const categoryLabel = product?.category || '';
-  const hasPrefetchedRef = useRef(false);
+  const brandLabel = product?.brand || 'Aura';
   const searchTelemetry = product?.searchTelemetry || null;
   const isDemoCatalog = product?.publishGate?.status === 'dev_only' || product?.provenance?.sourceType === 'dev_seed';
-
-  const inWishlist = isInWishlist(productId);
+  const inWishlist = productId ? isInWishlist(productId) : false;
+  const ratingValue = formatRating(product?.rating);
+  const ratingCount = Number(product?.ratingCount || 0);
+  const priceValue = Number(product?.price || 0);
+  const originalPrice = Number(product?.originalPrice || 0);
+  const hasOriginalPrice = Number.isFinite(originalPrice) && originalPrice > priceValue;
+  const discountValue = Math.max(0, Number(product?.discountPercentage || 0));
+  const stockCount = Number(product?.stock || 0);
+  const isOutOfStock = stockCount <= 0;
+  const deliveryLabel = product?.deliveryTime || 'Fast dispatch';
+  const primaryStory = sponsoredTagline || (product?.highlights || []).find(Boolean) || '';
+  const secondaryStory = (product?.highlights || [])
+    .filter(Boolean)
+    .filter((story) => story !== primaryStory)
+    .slice(0, 2);
 
   const prefetchProduct = () => {
     if (!productId || hasPrefetchedRef.current) return;
@@ -47,527 +144,568 @@ const ProductCard = ({ product, variant = 'default' }) => {
     });
   };
 
-  const handleWishlistClick = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const stopCardNavigation = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+  };
+
+  const handleWishlistClick = (event) => {
+    stopCardNavigation(event);
     toggleWishlist(product);
   };
 
-  const handleAddToCart = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const handleAddToCart = (event) => {
+    stopCardNavigation(event);
+    if (isOutOfStock) return;
     addToCart(product, 1);
   };
 
-  const handleOpenCompare = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!product?.id && !product?._id) return;
-    const id = product.id || product._id;
-    navigate(`/compare?ids=${encodeURIComponent(String(id))}`);
+  const handleOpenCompare = (event) => {
+    stopCardNavigation(event);
+    if (!productId) return;
+    navigate(`/compare?ids=${encodeURIComponent(String(productId))}`);
   };
 
-  const handleOpenVisualSearch = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const handleOpenVisualSearch = (event) => {
+    stopCardNavigation(event);
     const params = new URLSearchParams();
+
     if (product?.image) {
       params.set('imageUrl', String(product.image));
     }
+
     const hints = [product?.brand, product?.title, product?.category].filter(Boolean).join(' ');
     if (hints) {
       params.set('hints', hints);
     }
+
     navigate(`/visual-search${params.toString() ? `?${params.toString()}` : ''}`);
   };
 
-  const handleOpenDealDna = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!product?.id && !product?._id) return;
-    const id = product.id || product._id;
-    navigate(`/product/${id}?panel=deal-dna`);
+  const handleOpenDealDna = (event) => {
+    stopCardNavigation(event);
+    if (!productId) return;
+    navigate(`/product/${productId}?panel=deal-dna`);
   };
 
-  const handleOpenSmartBundle = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const handleOpenSmartBundle = (event) => {
+    stopCardNavigation(event);
     const theme = `${product?.category || product?.brand || 'smart essentials'}`.toLowerCase();
     const budget = Math.max(5000, Math.min(200000, Math.round((Number(product?.price) || 15000) * 2.5)));
     navigate(`/bundles?theme=${encodeURIComponent(theme)}&budget=${budget}`);
   };
 
-  const dealTone = dealDna?.verdict === 'good_deal'
-    ? 'border-emerald-400/45 bg-emerald-500/15 text-emerald-100'
-    : dealDna?.verdict === 'avoid'
-      ? 'border-rose-400/45 bg-rose-500/15 text-rose-100'
-      : 'border-amber-400/45 bg-amber-500/15 text-amber-100';
+  const iconToolTone = isWhiteMode
+    ? 'border-slate-300/90 bg-white/92 text-slate-700 hover:border-blue-400 hover:text-blue-700 hover:-translate-y-0.5'
+    : 'border-white/12 bg-zinc-950/72 text-slate-200 hover:border-neo-cyan/55 hover:text-neo-cyan hover:-translate-y-0.5';
 
-  const dealLabel = dealDna?.verdict === 'good_deal'
-    ? 'Good Deal'
-    : dealDna?.verdict === 'avoid'
-      ? 'Avoid'
-      : dealDna?.verdict === 'wait'
-        ? 'Wait'
-        : 'Review';
+  const textToolTone = isWhiteMode
+    ? 'border-slate-300 bg-white text-slate-700 hover:border-blue-400 hover:text-blue-700'
+    : 'border-white/12 bg-white/5 text-slate-300 hover:border-neo-cyan/45 hover:text-neo-cyan';
+
+  const quickTools = [
+    { key: 'compare', label: 'Compare', icon: Brain, onClick: handleOpenCompare },
+    { key: 'visual', label: 'Visual Search', icon: Camera, onClick: handleOpenVisualSearch },
+    { key: 'deal-dna', label: 'Deal DNA', icon: BadgeCheck, onClick: handleOpenDealDna },
+    { key: 'bundle', label: 'Bundle AI', icon: Clock3, onClick: handleOpenSmartBundle },
+  ];
+
+  const surfaceClass = isWhiteMode
+    ? 'bg-white/96 border-slate-200 shadow-[0_18px_40px_rgba(15,23,42,0.12)] hover:border-blue-300'
+    : 'bg-[linear-gradient(180deg,rgba(7,10,18,0.96),rgba(17,24,39,0.88))] border-white/10 hover:border-neo-cyan/25 hover:shadow-[0_18px_40px_rgba(6,182,212,0.08)]';
+
+  const mediaClass = isWhiteMode
+    ? 'bg-[radial-gradient(circle_at_top,rgba(191,219,254,0.38),transparent_58%),linear-gradient(180deg,#ffffff,#f8fafc)] border-slate-200'
+    : 'bg-[radial-gradient(circle_at_top,rgba(6,182,212,0.16),transparent_58%),linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.01))] border-white/8';
+
+  const contentClass = isWhiteMode
+    ? 'from-white to-slate-100/80 text-slate-900'
+    : 'from-transparent to-black/25 text-white';
+
+  const mutedTextClass = isWhiteMode ? 'text-slate-600' : 'text-slate-300';
+  const subtleTextClass = isWhiteMode ? 'text-slate-500' : 'text-slate-400';
+
+  const mediaBadges = [
+    isSponsored
+      ? {
+          key: 'sponsored',
+          icon: Megaphone,
+          label: sponsoredLabel,
+          tone: isWhiteMode
+            ? 'border-amber-300 bg-amber-50 text-amber-700'
+            : 'border-amber-400/40 bg-amber-500/15 text-amber-100',
+        }
+      : null,
+    isDemoCatalog
+      ? {
+          key: 'demo',
+          icon: BadgeCheck,
+          label: 'Demo Catalog',
+          tone: isWhiteMode
+            ? 'border-sky-300 bg-sky-50 text-sky-700'
+            : 'border-sky-400/40 bg-sky-500/15 text-sky-100',
+        }
+      : null,
+  ].filter(Boolean);
 
   if (variant === 'list') {
     return (
       <Link
-        to={`/product/${productId}`}
+        to={productPath}
         onClick={trackSearchSelection}
         onMouseEnter={prefetchProduct}
         onFocus={prefetchProduct}
         className={cn(
-          'flex flex-col md:flex-row gap-6 backdrop-blur-xl p-4 md:p-6 rounded-2xl border shadow-glass transition-all duration-500 group relative overflow-hidden',
-          isWhiteMode
-            ? 'bg-white/95 border-slate-200 hover:border-blue-300 hover:shadow-[0_16px_32px_rgba(15,23,42,0.18)]'
-            : 'bg-white/5 border-white/5 hover:shadow-neon-cyan/20 hover:border-neo-cyan/30'
+          'group relative flex h-full flex-col overflow-hidden rounded-[1.75rem] border transition-all duration-500 md:flex-row',
+          surfaceClass
         )}
       >
-        <div className={cn(
-          'absolute top-0 right-0 w-32 h-32 rounded-full blur-[50px] pointer-events-none transition-colors duration-500',
-          isWhiteMode ? 'bg-blue-500/10 group-hover:bg-blue-500/15' : 'bg-neo-cyan/5 group-hover:bg-neo-cyan/10'
-        )} />
-
-        {/* Image */}
-        <div className={cn(
-          'relative w-full h-48 md:w-56 md:h-56 flex-shrink-0 rounded-xl p-4 flex items-center justify-center border overflow-hidden',
-          isWhiteMode ? 'bg-white border-slate-200' : 'bg-white/5 border-white/5'
-        )}>
+        <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-100">
           <div className={cn(
-            'absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500',
-            isWhiteMode ? 'bg-gradient-to-tr from-transparent to-blue-100/45' : 'bg-gradient-to-tr from-transparent to-white/5'
+            'absolute inset-0',
+            isWhiteMode
+              ? 'bg-[radial-gradient(circle_at_top_right,rgba(96,165,250,0.12),transparent_45%)]'
+              : 'bg-[radial-gradient(circle_at_top_right,rgba(6,182,212,0.14),transparent_45%)]'
           )} />
-          <img
-            src={imageError ? 'https://placehold.co/400x400/18181b/4ade80?text=Aura+Select' : product.image}
-            alt={displayTitle || product.title}
-            className={cn(
-              'w-full h-full object-contain group-hover:scale-110 transition-transform duration-700',
-              isWhiteMode
-                ? 'mix-blend-normal drop-shadow-[0_12px_20px_rgba(15,23,42,0.12)]'
-                : 'mix-blend-screen drop-shadow-[0_0_15px_rgba(255,255,255,0.1)]'
-            )}
-            loading="lazy"
-            onError={(e) => {
-              e.target.onerror = null;
-              setImageError(true);
-            }}
-          />
+        </div>
+
+        <div className={cn(
+          'relative aspect-[4/3] overflow-hidden border-b p-6 md:w-[19rem] md:flex-shrink-0 md:border-b-0 md:border-r',
+          mediaClass
+        )}>
+          <div className="absolute left-4 top-4 z-20 flex max-w-[75%] flex-wrap gap-2">
+            {mediaBadges.map((badge) => (
+              <StatusBadge
+                key={badge.key}
+                icon={badge.icon}
+                label={badge.label}
+                toneClass={badge.tone}
+              />
+            ))}
+          </div>
+
           <button
+            type="button"
             onClick={handleWishlistClick}
             className={cn(
-              'absolute top-3 right-3 p-2.5 rounded-full backdrop-blur-md border shadow-glass transition-all opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 duration-300',
+              'absolute right-4 top-4 z-20 flex h-11 w-11 items-center justify-center rounded-full border backdrop-blur-md transition-all duration-300',
               isWhiteMode
-                ? 'bg-white/95 border-slate-300 hover:border-rose-300 hover:bg-rose-50'
-                : 'bg-zinc-950/50 border-white/10 hover:border-neo-rose hover:bg-neo-rose/10'
+                ? 'border-slate-300 bg-white/95 text-slate-600 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-500'
+                : 'border-white/12 bg-zinc-950/72 text-slate-300 hover:border-neo-rose/55 hover:bg-neo-rose/12 hover:text-neo-rose'
             )}
             aria-label={inWishlist ? 'Remove from wishlist' : 'Add to wishlist'}
           >
-            <Heart
-              className={cn(
-                'w-5 h-5 transition-colors',
-                inWishlist
-                  ? 'fill-neo-rose text-neo-rose drop-shadow-[0_0_8px_rgba(244,63,94,0.6)]'
-                  : isWhiteMode
-                    ? 'text-slate-500 group-hover:text-rose-500'
-                    : 'text-slate-400 group-hover:text-neo-rose'
-              )}
-            />
+            <Heart className={cn('h-5 w-5', inWishlist && 'fill-current')} />
           </button>
+
+          <div className="absolute inset-x-4 bottom-4 z-20 flex items-center gap-2">
+            {quickTools.map((tool) => (
+              <IconToolButton
+                key={tool.key}
+                icon={tool.icon}
+                label={tool.label}
+                onClick={tool.onClick}
+                toneClass={iconToolTone}
+              />
+            ))}
+          </div>
+
+          <img
+            src={imageError ? FALLBACK_IMAGE : product.image || FALLBACK_IMAGE}
+            alt={displayTitle}
+            loading="lazy"
+            className={cn(
+              'h-full w-full object-contain transition-transform duration-700 group-hover:scale-[1.045]',
+              isWhiteMode
+                ? 'drop-shadow-[0_22px_35px_rgba(15,23,42,0.16)]'
+                : 'drop-shadow-[0_18px_30px_rgba(0,0,0,0.55)]'
+            )}
+            onError={(event) => {
+              event.target.onerror = null;
+              setImageError(true);
+            }}
+          />
+
+          {isOutOfStock ? (
+            <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+              <span className="rounded-full border border-white/20 bg-zinc-950/85 px-4 py-2 text-[11px] font-black uppercase tracking-[0.22em] text-white">
+                Sold Out
+              </span>
+            </div>
+          ) : null}
         </div>
 
-        {/* Content */}
-        <div className="flex-1 flex flex-col z-10">
-          <div className="flex justify-between items-start gap-4 mb-2">
-            <div>
-              <p className="text-xs font-bold tracking-widest uppercase text-neo-cyan mb-1">{product.brand}</p>
+        <div className={cn(
+          'relative flex flex-1 flex-col bg-gradient-to-b p-6 md:p-7',
+          contentClass
+        )}>
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div className="min-w-0">
+              <div className="mb-2 flex flex-wrap items-center gap-2">
+                <span className={cn(
+                  'text-[11px] font-black uppercase tracking-[0.22em]',
+                  isWhiteMode ? 'text-blue-700' : 'text-neo-cyan'
+                )}>
+                  {brandLabel}
+                </span>
+                {categoryLabel ? (
+                  <span className={cn('text-[11px] uppercase tracking-[0.18em]', subtleTextClass)}>
+                    {categoryLabel}
+                  </span>
+                ) : null}
+              </div>
+
               <h3 className={cn(
-                'text-xl md:text-2xl font-black line-clamp-2 md:leading-tight transition-all duration-300',
-                isWhiteMode
-                  ? 'text-slate-900 group-hover:text-slate-950'
-                  : 'text-white group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-white group-hover:to-slate-400'
+                'max-w-3xl text-2xl font-black tracking-tight md:text-[2rem]',
+                isWhiteMode ? 'text-slate-950' : 'text-white'
               )}>
-                {displayTitle || product.title}
+                {displayTitle}
               </h3>
-              {(subtitle || categoryLabel) && (
-                <p className={cn(
-                  'mt-2 max-w-xl text-xs font-medium tracking-[0.18em] uppercase',
-                  isWhiteMode ? 'text-slate-500' : 'text-slate-400'
-                )}>
-                  {subtitle || categoryLabel}
+
+              {(subtitle || primaryStory) ? (
+                <p className={cn('mt-3 max-w-3xl text-sm leading-6', mutedTextClass)}>
+                  {primaryStory || subtitle}
                 </p>
-              )}
-              {isSponsored && (
-                <div className={cn(
-                  'mt-2 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-wider',
-                  isWhiteMode
-                    ? 'border-amber-300 bg-amber-50 text-amber-700'
-                    : 'border-amber-400/45 bg-amber-500/15 text-amber-100'
-                )}>
-                  <Megaphone className="w-3 h-3" />
-                  {sponsoredLabel}
-                </div>
-              )}
-              {isDemoCatalog && (
-                <div className={cn(
-                  'mt-2 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-wider',
-                  isWhiteMode
-                    ? 'border-sky-300 bg-sky-50 text-sky-700'
-                    : 'border-sky-400/45 bg-sky-500/15 text-sky-100'
-                )}>
-                  <BadgeCheck className="w-3 h-3" />
-                  Demo Catalog
-                </div>
-              )}
-              {isSponsored && sponsoredTagline && (
-                <p className={cn(
-                  'mt-2 text-xs max-w-xl line-clamp-2',
-                  isWhiteMode ? 'text-slate-600' : 'text-slate-300'
-                )}>
-                  {sponsoredTagline}
-                </p>
-              )}
-              {dealDna && (
-                <div className={cn('mt-2 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-wider', dealTone)}>
-                  <BadgeCheck className="w-3 h-3" />
-                  Deal DNA {dealDna.score} | {dealLabel}
-                </div>
-              )}
+              ) : null}
             </div>
 
-            {/* Rating */}
-            <div className="flex flex-col items-end gap-1 flex-shrink-0">
-              <span className="rating-badge flex items-center gap-1 group-hover:shadow-[0_0_15px_rgba(250,204,21,0.6)] transition-shadow duration-300">
-                {product.rating || 0}
-                <Star className="w-3 h-3 fill-zinc-950" />
+            <div className={cn(
+              'inline-flex w-fit items-center gap-2 rounded-full border px-3 py-2 text-sm font-semibold',
+              isWhiteMode
+                ? 'border-slate-300 bg-white text-slate-800'
+                : 'border-white/12 bg-white/5 text-slate-100'
+            )}>
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-300 px-2 py-1 text-[11px] font-black text-zinc-950">
+                {ratingValue}
+                <Star className="h-3 w-3 fill-current" />
               </span>
-              <span className="text-xs text-slate-500 font-medium tracking-wide">
-                ({(product.ratingCount || 0).toLocaleString()})
+              <span className={subtleTextClass}>
+                {ratingCount.toLocaleString()} reviews
               </span>
             </div>
           </div>
 
-          {/* Price */}
-          <div className="flex items-end gap-3 mb-4 mt-2">
+          <div className="mt-5 flex flex-wrap items-end gap-x-4 gap-y-2">
             <span className={cn(
-              'text-3xl font-black tracking-tighter',
-              isWhiteMode ? 'text-slate-900' : 'text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.2)]'
-            )}>{formatPrice(product.price)}</span>
-            <span className="text-slate-500 line-through text-sm font-medium mb-1">{formatPrice(product.originalPrice)}</span>
-              <span className="bg-neo-cyan/10 border border-neo-cyan/20 text-neo-cyan px-2 py-0.5 rounded text-xs font-black uppercase tracking-wider mb-1 flex items-center gap-1 shadow-[0_0_10px_rgba(6,182,212,0.1)]">
-                <Zap className="w-3 h-3 fill-neo-cyan" />
-                {product.discountPercentage}% off
+              'text-4xl font-black tracking-tight',
+              isWhiteMode ? 'text-slate-950' : 'text-white'
+            )}>
+              {formatPrice(priceValue)}
+            </span>
+            {hasOriginalPrice ? (
+              <span className={cn('pb-1 text-sm line-through', subtleTextClass)}>
+                {formatPrice(originalPrice)}
               </span>
+            ) : null}
+            {discountValue > 0 ? (
+              <span className={cn(
+                'rounded-full border px-3 py-1 text-[11px] font-black uppercase tracking-[0.2em]',
+                isWhiteMode
+                  ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                  : 'border-neo-emerald/30 bg-neo-emerald/12 text-neo-emerald'
+              )}>
+                {Math.round(discountValue)}% off
+              </span>
+            ) : null}
           </div>
 
-          {/* Highlights */}
-          <ul className={cn(
-            'hidden md:flex flex-col gap-2 text-sm mb-6 p-4 rounded-xl border',
-            isWhiteMode ? 'text-slate-700 bg-slate-100 border-slate-200' : 'text-slate-300 bg-white/5 border-white/5'
-          )}>
-            {(product.highlights || []).slice(0, 3).map((highlight, index) => (
-              <li key={index} className="flex items-start gap-2 max-w-xl">
-                <div className="w-1.5 h-1.5 mt-1.5 bg-neo-cyan rounded-full shadow-[0_0_5px_rgba(6,182,212,0.8)] flex-shrink-0" />
-                <span className="leading-relaxed">{highlight}</span>
-              </li>
-            ))}
-          </ul>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <span className={cn(
+              'rounded-full border px-3 py-1 text-[11px] font-medium',
+              isWhiteMode ? 'border-slate-300 bg-slate-100 text-slate-700' : 'border-white/12 bg-white/5 text-slate-200'
+            )}>
+              {deliveryLabel}
+            </span>
+            <span className={cn(
+              'rounded-full border px-3 py-1 text-[11px] font-medium',
+              isOutOfStock
+                ? 'border-rose-400/35 bg-rose-500/12 text-rose-200'
+                : isWhiteMode
+                  ? 'border-slate-300 bg-slate-100 text-slate-700'
+                  : 'border-white/12 bg-white/5 text-slate-200'
+            )}>
+              {isOutOfStock ? 'Unavailable' : `${stockCount} in stock`}
+            </span>
+          </div>
 
-          {/* Actions */}
-          <div className="mt-auto flex flex-col sm:flex-row gap-3">
+          {secondaryStory.length > 0 ? (
+            <div className="mt-5 flex flex-wrap gap-2">
+              {secondaryStory.map((story) => (
+                <span
+                  key={story}
+                  className={cn(
+                    'rounded-full border px-3 py-1 text-[11px] font-medium',
+                    isWhiteMode
+                      ? 'border-slate-300/80 bg-white text-slate-600'
+                      : 'border-white/10 bg-white/[0.04] text-slate-300'
+                  )}
+                >
+                  {story}
+                </span>
+              ))}
+            </div>
+          ) : null}
+
+          {dealDna ? (
+            <div className={cn('mt-5 rounded-[1.25rem] border p-4', dealTheme.surface)}>
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em]">Deal DNA</p>
+                  <p className="mt-1 text-sm font-semibold">{dealTheme.label}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-3xl font-black leading-none">{dealDna.score}</p>
+                  <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.16em] opacity-80">Score</p>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          <div className="mt-6 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+            <div className="flex flex-wrap gap-2">
+              {quickTools.map((tool) => (
+                <TextToolButton
+                  key={tool.key}
+                  icon={tool.icon}
+                  label={tool.label}
+                  onClick={tool.onClick}
+                  toneClass={textToolTone}
+                />
+              ))}
+            </div>
+
             <button
+              type="button"
               onClick={handleAddToCart}
+              disabled={isOutOfStock}
               className={cn(
-                'flex items-center justify-center gap-2 group/btn relative overflow-hidden rounded-xl px-6 py-3 font-bold transition-all',
+                'inline-flex w-full items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-black uppercase tracking-[0.2em] transition-all duration-300 xl:w-auto',
                 isWhiteMode
-                  ? 'bg-gradient-to-r from-blue-600 to-emerald-500 text-white shadow-[0_8px_18px_rgba(37,99,235,0.35)] hover:-translate-y-0.5'
-                  : 'btn-primary'
+                  ? 'bg-slate-950 text-white shadow-[0_16px_26px_rgba(15,23,42,0.24)] hover:bg-blue-700 disabled:bg-slate-300'
+                  : 'bg-gradient-to-r from-neo-cyan to-neo-emerald text-zinc-950 shadow-[0_16px_30px_rgba(6,182,212,0.28)] hover:translate-y-[-1px] disabled:from-slate-700 disabled:to-slate-600 disabled:text-slate-300'
               )}
-              disabled={product.stock === 0}
             >
-              <ShoppingCart className="w-5 h-5 group-hover/btn:-translate-x-1 group-hover/btn:scale-110 transition-transform duration-300" />
-              <span className="relative z-10 group-hover/btn:translate-x-1 transition-transform duration-300 tracking-wide font-bold">Add to Cart</span>
+              <ShoppingCart className="h-4 w-4" />
+              {isOutOfStock ? 'Unavailable' : 'Add to Bag'}
+              <ArrowRight className="h-4 w-4" />
             </button>
-            <div className="flex gap-2">
-              <button
-                onClick={handleOpenCompare}
-                className={cn(
-                  'flex-1 rounded-xl border px-4 py-3 text-xs font-black uppercase tracking-wider inline-flex items-center justify-center gap-2 transition-colors',
-                  isWhiteMode
-                    ? 'border-slate-300 bg-white text-slate-800 hover:border-blue-400 hover:text-blue-700'
-                    : 'border-white/15 bg-white/5 text-slate-200 hover:border-neo-cyan/45 hover:text-neo-cyan'
-                )}
-              >
-                <Brain className="w-4 h-4" />
-                Compare
-              </button>
-              <button
-                onClick={handleOpenVisualSearch}
-                className={cn(
-                  'flex-1 rounded-xl border px-4 py-3 text-xs font-black uppercase tracking-wider inline-flex items-center justify-center gap-2 transition-colors',
-                  isWhiteMode
-                    ? 'border-slate-300 bg-white text-slate-800 hover:border-emerald-400 hover:text-emerald-700'
-                    : 'border-white/15 bg-white/5 text-slate-200 hover:border-neo-emerald/45 hover:text-neo-emerald'
-                )}
-              >
-                <Camera className="w-4 h-4" />
-                Visual
-              </button>
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={handleOpenDealDna}
-                className={cn(
-                  'flex-1 rounded-xl border px-4 py-3 text-xs font-black uppercase tracking-wider inline-flex items-center justify-center gap-2 transition-colors',
-                  isWhiteMode
-                    ? 'border-slate-300 bg-white text-slate-800 hover:border-emerald-400 hover:text-emerald-700'
-                    : 'border-white/15 bg-white/5 text-slate-200 hover:border-emerald-400/45 hover:text-emerald-300'
-                )}
-              >
-                <BadgeCheck className="w-4 h-4" />
-                Deal DNA
-              </button>
-              <button
-                onClick={handleOpenSmartBundle}
-                className={cn(
-                  'flex-1 rounded-xl border px-4 py-3 text-xs font-black uppercase tracking-wider inline-flex items-center justify-center gap-2 transition-colors',
-                  isWhiteMode
-                    ? 'border-slate-300 bg-white text-slate-800 hover:border-violet-400 hover:text-violet-700'
-                    : 'border-white/15 bg-white/5 text-slate-200 hover:border-violet-400/45 hover:text-violet-300'
-                )}
-              >
-                <Clock3 className="w-4 h-4" />
-                Bundle AI
-              </button>
-            </div>
           </div>
         </div>
       </Link>
     );
   }
 
-  // Default grid view
   return (
     <Link
-      to={`/product/${productId}`}
+      to={productPath}
       onClick={trackSearchSelection}
       onMouseEnter={prefetchProduct}
       onFocus={prefetchProduct}
       className={cn(
-        'group card-product flex flex-col h-full backdrop-blur-xl rounded-2xl border overflow-hidden relative',
-        isWhiteMode
-          ? 'bg-white/95 border-slate-200 shadow-[0_10px_22px_rgba(15,23,42,0.12)] hover:border-blue-300'
-          : 'bg-white/5 border-white/10'
+        'group card-product relative flex h-full flex-col overflow-hidden rounded-[1.6rem] border transition-all duration-500',
+        surfaceClass
       )}
     >
-      <div className={cn(
-        'absolute inset-0 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-500 z-10',
-        isWhiteMode ? 'bg-gradient-to-b from-transparent to-blue-100/30' : 'bg-gradient-to-b from-transparent to-black/40'
-      )} />
-
-      {/* Image Container */}
-      <div className={cn(
-        'relative aspect-square p-6 flex items-center justify-center overflow-hidden border-b',
-        isWhiteMode ? 'bg-white border-slate-200' : 'bg-white/5 border-white/5'
-      )}>
+      <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-100">
         <div className={cn(
-          'absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500',
-          isWhiteMode ? 'bg-gradient-to-br from-blue-100/40 to-transparent' : 'bg-gradient-to-br from-neo-cyan/5 to-transparent'
+          'absolute inset-0',
+          isWhiteMode
+            ? 'bg-[radial-gradient(circle_at_top,rgba(96,165,250,0.11),transparent_44%)]'
+            : 'bg-[radial-gradient(circle_at_top,rgba(6,182,212,0.12),transparent_44%)]'
         )} />
-        <img
-          src={imageError ? 'https://placehold.co/400x400/18181b/4ade80?text=Aura+Select' : product.image}
-          alt={displayTitle || product.title}
+      </div>
+
+      <div className={cn(
+        'relative aspect-[4/4.4] overflow-hidden border-b p-5',
+        mediaClass
+      )}>
+        <div className="absolute left-4 top-4 z-20 flex max-w-[70%] flex-wrap gap-2">
+          {mediaBadges.map((badge) => (
+            <StatusBadge
+              key={badge.key}
+              icon={badge.icon}
+              label={badge.label}
+              toneClass={badge.tone}
+            />
+          ))}
+        </div>
+
+        <button
+          type="button"
+          onClick={handleWishlistClick}
           className={cn(
-            'w-full h-full object-contain group-hover:scale-110 transition-transform duration-700 relative z-0',
+            'absolute right-4 top-4 z-20 flex h-10 w-10 items-center justify-center rounded-full border backdrop-blur-md transition-all duration-300',
             isWhiteMode
-              ? 'mix-blend-normal drop-shadow-[0_12px_20px_rgba(15,23,42,0.12)]'
-              : 'drop-shadow-[0_0_15px_rgba(255,255,255,0.1)] mix-blend-screen'
+              ? 'border-slate-300 bg-white/95 text-slate-600 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-500'
+              : 'border-white/12 bg-zinc-950/72 text-slate-300 hover:border-neo-rose/55 hover:bg-neo-rose/12 hover:text-neo-rose'
           )}
+          aria-label={inWishlist ? 'Remove from wishlist' : 'Add to wishlist'}
+        >
+          <Heart className={cn('h-[18px] w-[18px]', inWishlist && 'fill-current')} />
+        </button>
+
+        <img
+          src={imageError ? FALLBACK_IMAGE : product.image || FALLBACK_IMAGE}
+          alt={displayTitle}
           loading="lazy"
-          onError={(e) => {
-            e.target.onerror = null;
+          className={cn(
+            'h-full w-full object-contain transition-transform duration-700 group-hover:scale-[1.045]',
+            isWhiteMode
+              ? 'drop-shadow-[0_18px_30px_rgba(15,23,42,0.16)]'
+              : 'drop-shadow-[0_16px_26px_rgba(0,0,0,0.55)]'
+          )}
+          onError={(event) => {
+            event.target.onerror = null;
             setImageError(true);
           }}
         />
 
-        {/* Wishlist Button */}
-        <button
-          onClick={handleWishlistClick}
-          className={cn(
-            'absolute top-3 right-3 p-2 rounded-full backdrop-blur-md border shadow-glass opacity-0 group-hover:opacity-100 -translate-y-2 group-hover:translate-y-0 transition-all duration-300 z-20',
-            isWhiteMode
-              ? 'bg-white/95 border-slate-300 hover:border-rose-300 hover:bg-rose-50'
-              : 'bg-zinc-950/50 border-white/10 hover:border-neo-rose hover:bg-neo-rose/10'
-          )}
-          aria-label={inWishlist ? 'Remove from wishlist' : 'Add to wishlist'}
-        >
-          <Heart
-              className={cn(
-                'w-5 h-5 transition-colors',
-                inWishlist
-                  ? 'fill-neo-rose text-neo-rose drop-shadow-[0_0_8px_rgba(244,63,94,0.6)]'
-                  : isWhiteMode
-                    ? 'text-slate-500 hover:text-rose-500'
-                    : 'text-slate-400 hover:text-neo-rose'
-              )}
+        <div className="absolute inset-x-4 bottom-4 z-20 flex items-center justify-center gap-2 opacity-100 transition-all duration-300 md:translate-y-3 md:opacity-0 md:group-hover:translate-y-0 md:group-hover:opacity-100">
+          {quickTools.map((tool) => (
+            <IconToolButton
+              key={tool.key}
+              icon={tool.icon}
+              label={tool.label}
+              onClick={tool.onClick}
+              toneClass={iconToolTone}
             />
-          </button>
+          ))}
+        </div>
 
-        {/* Out of Stock Badge */}
-        {product.stock === 0 && (
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-30">
-            <span className="bg-zinc-900 border border-white/20 text-white px-4 py-2 text-xs font-black uppercase tracking-widest rounded-full shadow-[0_0_20px_rgba(0,0,0,0.5)]">
-              Currently Unavailable
+        {isOutOfStock ? (
+          <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+            <span className="rounded-full border border-white/20 bg-zinc-950/85 px-4 py-2 text-[11px] font-black uppercase tracking-[0.22em] text-white">
+              Sold Out
             </span>
           </div>
-        )}
+        ) : null}
       </div>
 
-      {/* Content */}
       <div className={cn(
-        'flex-1 p-5 flex flex-col relative z-20 bg-gradient-to-b',
-        isWhiteMode ? 'from-transparent to-slate-100' : 'from-transparent to-zinc-950'
-      )}
-      style={{ padding: 'var(--figma-card-padding)' }}>
-        {/* Title */}
+        'relative flex flex-1 flex-col bg-gradient-to-b p-5',
+        contentClass
+      )}>
+        <div className="mb-2 flex flex-wrap items-center gap-2">
+          <span className={cn(
+            'text-[10px] font-black uppercase tracking-[0.22em]',
+            isWhiteMode ? 'text-blue-700' : 'text-neo-cyan'
+          )}>
+            {brandLabel}
+          </span>
+          {categoryLabel ? (
+            <span className={cn('text-[10px] uppercase tracking-[0.18em]', subtleTextClass)}>
+              {categoryLabel}
+            </span>
+          ) : null}
+        </div>
+
         <h3 className={cn(
-          'text-sm font-bold line-clamp-2 mb-2 transition-colors duration-300 leading-relaxed',
-          isWhiteMode ? 'text-slate-800 group-hover:text-slate-950' : 'text-slate-200 group-hover:text-white'
-        )}
-        style={{ fontSize: 'var(--figma-type-title-size)' }}>
-          {displayTitle || product.title}
+          'text-[1.05rem] font-black leading-[1.35] tracking-tight',
+          isWhiteMode ? 'text-slate-950' : 'text-white'
+        )}>
+          {displayTitle}
         </h3>
-        {(subtitle || categoryLabel) && (
-          <p className={cn(
-            'mb-3 line-clamp-2 text-[11px] font-semibold uppercase tracking-[0.16em]',
-            isWhiteMode ? 'text-slate-500' : 'text-slate-400'
-          )}>
-            {subtitle || categoryLabel}
+
+        {(subtitle || primaryStory) ? (
+          <p className={cn('mt-2 line-clamp-2 text-sm leading-6', mutedTextClass)}>
+            {primaryStory || subtitle}
           </p>
-        )}
-        {isSponsored && (
+        ) : null}
+
+        <div className="mt-4 flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-end gap-x-3 gap-y-1">
+              <span className={cn(
+                'text-2xl font-black tracking-tight',
+                isWhiteMode ? 'text-slate-950' : 'text-white'
+              )}>
+                {formatPrice(priceValue)}
+              </span>
+              {hasOriginalPrice ? (
+                <span className={cn('pb-1 text-xs line-through', subtleTextClass)}>
+                  {formatPrice(originalPrice)}
+                </span>
+              ) : null}
+            </div>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {discountValue > 0 ? (
+                <span className={cn(
+                  'rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em]',
+                  isWhiteMode
+                    ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                    : 'border-neo-emerald/30 bg-neo-emerald/12 text-neo-emerald'
+                )}>
+                  {Math.round(discountValue)}% off
+                </span>
+              ) : null}
+              <span className={cn(
+                'rounded-full border px-2.5 py-1 text-[10px] font-medium',
+                isWhiteMode ? 'border-slate-300 bg-slate-100 text-slate-700' : 'border-white/12 bg-white/5 text-slate-200'
+              )}>
+                {deliveryLabel}
+              </span>
+            </div>
+          </div>
+
           <div className={cn(
-            'mb-2 inline-flex w-fit items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-wider',
+            'inline-flex flex-shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-2 text-xs font-semibold',
             isWhiteMode
-              ? 'border-amber-300 bg-amber-50 text-amber-700'
-              : 'border-amber-400/45 bg-amber-500/15 text-amber-100'
+              ? 'border-slate-300 bg-white text-slate-800'
+              : 'border-white/12 bg-white/5 text-slate-100'
           )}>
-            <Megaphone className="w-3 h-3" />
-            {sponsoredLabel}
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-300 px-2 py-1 text-[10px] font-black text-zinc-950">
+              {ratingValue}
+              <Star className="h-3 w-3 fill-current" />
+            </span>
+            <span className={subtleTextClass}>{ratingCount.toLocaleString()}</span>
           </div>
-        )}
-        {isDemoCatalog && (
-          <div className={cn(
-            'mb-2 inline-flex w-fit items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-wider',
-            isWhiteMode
-              ? 'border-sky-300 bg-sky-50 text-sky-700'
-              : 'border-sky-400/45 bg-sky-500/15 text-sky-100'
-          )}>
-            <BadgeCheck className="w-3 h-3" />
-            Demo Catalog
-          </div>
-        )}
-        {dealDna && (
-          <div className={cn('mb-2 inline-flex w-fit items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-wider', dealTone)}>
-            <BadgeCheck className="w-3 h-3" />
-            DNA {dealDna.score} | {dealLabel}
-          </div>
-        )}
-
-        {/* Rating */}
-        <div className="flex items-center gap-2 mb-3">
-          <span className="rating-badge group-hover:shadow-[0_0_10px_rgba(250,204,21,0.4)] transition-shadow duration-300">
-            {product.rating || 0}
-            <Star className="w-3 h-3 fill-zinc-950" />
-          </span>
-          <span className="text-xs text-slate-500 font-medium">
-            ({(product.ratingCount || 0).toLocaleString()})
-          </span>
         </div>
 
-        {/* Price Area */}
-        <div className="flex items-center gap-2 mb-2 flex-wrap mt-auto pt-2">
-          <span className={cn('text-xl font-black tracking-tight', isWhiteMode ? 'text-slate-900' : 'text-white drop-shadow-md')}>{formatPrice(product.price)}</span>
-          <span className="text-slate-500 line-through text-xs font-medium">{formatPrice(product.originalPrice)}</span>
-        </div>
+        {dealDna ? (
+          <div className={cn('mt-4 rounded-[1.15rem] border p-3.5', dealTheme.surface)}>
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.2em]">Deal DNA</p>
+                <p className="mt-1 text-sm font-semibold">{dealTheme.label}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-2xl font-black leading-none">{dealDna.score}</p>
+                <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.16em] opacity-80">Score</p>
+              </div>
+            </div>
+          </div>
+        ) : null}
 
-        <div className="flex justify-between items-center mb-3">
-          <span className="text-neo-cyan text-xs font-black uppercase tracking-wider bg-neo-cyan/10 px-2 py-0.5 rounded border border-neo-cyan/20">
-            {product.discountPercentage}% off
-          </span>
-          {/* Delivery */}
-          <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider text-right">
-            Speed: <span className={cn(isWhiteMode ? 'text-slate-700' : 'text-slate-200')}>{product.deliveryTime}</span>
-          </p>
-        </div>
-
-        {/* Add to Cart Button */}
-        <button
-          onClick={handleAddToCart}
-          className={cn(
-            'w-full relative overflow-hidden font-bold py-2.5 text-xs uppercase tracking-widest rounded-lg flex items-center justify-center gap-2 transition-all duration-300 group/btn mt-1',
-            isWhiteMode
-              ? 'bg-slate-100 hover:bg-blue-100 text-slate-900 border border-slate-300 hover:border-blue-400 shadow-[0_6px_14px_rgba(15,23,42,0.08)]'
-              : 'bg-white/10 hover:bg-neo-cyan/20 text-white border border-white/10 hover:border-neo-cyan/50 shadow-glass'
-          )}
-          disabled={product.stock === 0}
-        >
-          <ShoppingCart className="w-4 h-4 group-hover/btn:-translate-x-1 transition-transform" />
-          <span className="relative z-10">Add to Bag</span>
-          <div className="absolute inset-0 bg-gradient-to-r from-neo-cyan to-neo-emerald opacity-0 group-hover/btn:opacity-20 transition-opacity duration-300 pointer-events-none" />
-        </button>
-
-        <div className="mt-2 grid grid-cols-2 gap-2">
-          <button
+        <div className="mt-4 flex flex-wrap gap-2">
+          <TextToolButton
+            icon={Brain}
+            label="Compare"
             onClick={handleOpenCompare}
-            className={cn(
-              'w-full rounded-lg border px-2.5 py-2 text-[11px] font-black uppercase tracking-wider inline-flex items-center justify-center gap-1.5 transition-colors',
-              isWhiteMode
-                ? 'border-slate-300 bg-white text-slate-800 hover:border-blue-400 hover:text-blue-700'
-                : 'border-white/15 bg-white/5 text-slate-300 hover:border-neo-cyan/45 hover:text-neo-cyan'
-            )}
-          >
-            <Brain className="w-3.5 h-3.5" />
-            Compare
-          </button>
-          <button
-            onClick={handleOpenVisualSearch}
-            className={cn(
-              'w-full rounded-lg border px-2.5 py-2 text-[11px] font-black uppercase tracking-wider inline-flex items-center justify-center gap-1.5 transition-colors',
-              isWhiteMode
-                ? 'border-slate-300 bg-white text-slate-800 hover:border-emerald-400 hover:text-emerald-700'
-                : 'border-white/15 bg-white/5 text-slate-300 hover:border-neo-emerald/45 hover:text-neo-emerald'
-            )}
-          >
-            <Camera className="w-3.5 h-3.5" />
-            Visual
-          </button>
-          <button
+            toneClass={textToolTone}
+          />
+          <TextToolButton
+            icon={BadgeCheck}
+            label="Deal DNA"
             onClick={handleOpenDealDna}
-            className={cn(
-              'w-full rounded-lg border px-2.5 py-2 text-[11px] font-black uppercase tracking-wider inline-flex items-center justify-center gap-1.5 transition-colors',
-              isWhiteMode
-                ? 'border-slate-300 bg-white text-slate-800 hover:border-emerald-400 hover:text-emerald-700'
-                : 'border-white/15 bg-white/5 text-slate-300 hover:border-emerald-400/45 hover:text-emerald-300'
-            )}
-          >
-            <BadgeCheck className="w-3.5 h-3.5" />
-            Deal DNA
-          </button>
-          <button
-            onClick={handleOpenSmartBundle}
-            className={cn(
-              'w-full rounded-lg border px-2.5 py-2 text-[11px] font-black uppercase tracking-wider inline-flex items-center justify-center gap-1.5 transition-colors',
-              isWhiteMode
-                ? 'border-slate-300 bg-white text-slate-800 hover:border-violet-400 hover:text-violet-700'
-                : 'border-white/15 bg-white/5 text-slate-300 hover:border-violet-400/45 hover:text-violet-300'
-            )}
-          >
-            <Clock3 className="w-3.5 h-3.5" />
-            Bundle AI
-          </button>
+            toneClass={textToolTone}
+          />
         </div>
+
+        <button
+          type="button"
+          onClick={handleAddToCart}
+          disabled={isOutOfStock}
+          className={cn(
+            'mt-auto inline-flex w-full items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-black uppercase tracking-[0.2em] transition-all duration-300',
+            isWhiteMode
+              ? 'bg-slate-950 text-white shadow-[0_16px_26px_rgba(15,23,42,0.22)] hover:bg-blue-700 disabled:bg-slate-300'
+              : 'bg-gradient-to-r from-neo-cyan to-neo-emerald text-zinc-950 shadow-[0_16px_30px_rgba(6,182,212,0.26)] hover:translate-y-[-1px] disabled:from-slate-700 disabled:to-slate-600 disabled:text-slate-300'
+          )}
+        >
+          <ShoppingCart className="h-4 w-4" />
+          {isOutOfStock ? 'Unavailable' : 'Add to Bag'}
+          <ArrowRight className="h-4 w-4" />
+        </button>
       </div>
     </Link>
   );

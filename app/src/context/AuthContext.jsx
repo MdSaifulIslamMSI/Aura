@@ -1,4 +1,4 @@
-import { createContext, useEffect, useRef, useState } from 'react';
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
@@ -21,6 +21,16 @@ import {
 import { authApi, userApi } from '../services/api';
 
 export const AuthContext = createContext();
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+
+  return context;
+};
 
 const AUTH_SYNC_DEDUPE_MS = 30 * 1000;
 const BOOTSTRAP_TIMEOUT_MS = 6000;

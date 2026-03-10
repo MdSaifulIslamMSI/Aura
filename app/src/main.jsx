@@ -6,7 +6,7 @@ import App from './App.jsx'
 import { HelmetProvider } from 'react-helmet-async';
 import { ErrorBoundary } from 'react-error-boundary';
 import { AuthProvider } from './context/AuthContext.jsx';
-import { ThemeProvider } from './context/ThemeContext.jsx';
+import { ColorModeProvider } from './context/ColorModeContext.jsx';
 import { CartProvider } from './context/CartContext.jsx';
 import { SocketProvider } from './context/SocketContext.jsx';
 import AppErrorBoundary from './components/shared/AppErrorBoundary.jsx';
@@ -27,7 +27,7 @@ createRoot(document.getElementById('root')).render(
   <StrictMode>
     <HelmetProvider>
       <ErrorBoundary FallbackComponent={AppErrorBoundary}>
-        <ThemeProvider>
+        <ColorModeProvider>
           <AuthProvider>
             <SocketProvider>
               <CartProvider>
@@ -46,7 +46,7 @@ createRoot(document.getElementById('root')).render(
               </CartProvider>
             </SocketProvider>
           </AuthProvider>
-        </ThemeProvider>
+        </ColorModeProvider>
       </ErrorBoundary>
     </HelmetProvider>
   </StrictMode>,
