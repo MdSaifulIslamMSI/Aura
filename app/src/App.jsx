@@ -8,6 +8,7 @@ import { ProductProvider } from './context/ProductContext';
 import { ColorModeProvider } from './context/ColorModeContext';
 import { CrazyModeProvider } from './context/CrazyModeContext';
 import { MotionModeProvider } from './context/MotionModeContext';
+import { SocketProvider } from './context/SocketContext';
 import { AdminRoute, ProtectedRoute, SellerRoute } from './components/shared/ProtectedRoute';
 
 import Navbar from './components/layout/Navbar';
@@ -169,15 +170,17 @@ function App() {
       <MotionModeProvider>
         <CrazyModeProvider>
           <AuthProvider>
-            <CartProvider>
-              <WishlistProvider>
-                <ProductProvider>
-                  <Router>
-                    <AppContent />
-                  </Router>
-                </ProductProvider>
-              </WishlistProvider>
-            </CartProvider>
+            <SocketProvider>
+              <CartProvider>
+                <WishlistProvider>
+                  <ProductProvider>
+                    <Router>
+                      <AppContent />
+                    </Router>
+                  </ProductProvider>
+                </WishlistProvider>
+              </CartProvider>
+            </SocketProvider>
           </AuthProvider>
         </CrazyModeProvider>
       </MotionModeProvider>
