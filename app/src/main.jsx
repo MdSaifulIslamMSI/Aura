@@ -5,13 +5,39 @@ import './index.css'
 import App from './App.jsx'
 import { HelmetProvider } from 'react-helmet-async';
 import { ErrorBoundary } from 'react-error-boundary';
-import { AuthProvider } from './context/AuthContext.jsx';
-import { ColorModeProvider } from './context/ColorModeContext.jsx';
-import { CartProvider } from './context/CartContext.jsx';
-import { SocketProvider } from './context/SocketContext.jsx';
-import AppErrorBoundary from './components/shared/AppErrorBoundary.jsx';
-import { Toaster } from 'react-hot-toast';
 import { initClientObservability } from './services/clientObservability'
+
+function RootRenderFallback({ error, resetErrorBoundary }) {
+  return (
+    <div className="flex min-h-screen items-center justify-center px-4">
+      <div className="w-full max-w-lg rounded-3xl border border-neo-rose/35 bg-zinc-950/90 p-6 text-center shadow-glass">
+        <h1 className="text-2xl font-black tracking-tight text-white">Aura failed to boot</h1>
+        <p className="mt-3 text-sm leading-6 text-slate-300">
+          A startup module crashed before the interface finished loading. Retry the render or refresh the page to recover.
+        </p>
+        {error?.message ? (
+          <p className="mt-3 text-xs font-medium text-neo-cyan/90">{error.message}</p>
+        ) : null}
+        <div className="mt-5 flex items-center justify-center gap-3">
+          <button
+            type="button"
+            onClick={resetErrorBoundary}
+            className="rounded-lg border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/15"
+          >
+            Retry Render
+          </button>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="rounded-lg border border-neo-cyan/45 bg-neo-cyan/15 px-4 py-2 text-sm font-semibold text-neo-cyan transition-colors hover:bg-neo-cyan/20"
+          >
+            Refresh Page
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // Firebase OAuth domain safety:
 // If app is opened via 127.0.0.1, force localhost to match common authorized-domain setup.
@@ -26,27 +52,8 @@ initClientObservability()
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <HelmetProvider>
-      <ErrorBoundary FallbackComponent={AppErrorBoundary}>
-        <ColorModeProvider>
-          <AuthProvider>
-            <SocketProvider>
-              <CartProvider>
-                <App />
-                <Toaster
-                  position="bottom-right"
-                  toastOptions={{
-                    duration: 4000,
-                    style: {
-                      background: 'var(--bg-card)',
-                      color: 'var(--text-primary)',
-                      border: '1px solid var(--border-color)',
-                    },
-                  }}
-                />
-              </CartProvider>
-            </SocketProvider>
-          </AuthProvider>
-        </ColorModeProvider>
+      <ErrorBoundary FallbackComponent={RootRenderFallback}>
+        <App />
       </ErrorBoundary>
     </HelmetProvider>
   </StrictMode>,
