@@ -14,11 +14,37 @@ import {
 import { WishlistContext } from '@/context/WishlistContext';
 import { CartContext } from '@/context/CartContext';
 import { useColorMode } from '@/context/ColorModeContext';
+import { FIGMA_COLOR_MODE_OPTIONS } from '@/config/figmaTokens';
 import { cn } from '@/lib/utils';
 import { formatPrice } from '@/utils/format';
 import { productApi } from '@/services/api';
 
 const FALLBACK_IMAGE = 'https://placehold.co/400x400/18181b/4ade80?text=Aura+Select';
+
+const hexToRgb = (hex) => {
+  const normalized = String(hex || '').trim().replace('#', '');
+  if (!normalized) return { r: 6, g: 182, b: 212 };
+
+  const safeHex = normalized.length === 3
+    ? normalized.split('').map((value) => `${value}${value}`).join('')
+    : normalized.padEnd(6, '0').slice(0, 6);
+
+  const value = Number.parseInt(safeHex, 16);
+  if (!Number.isFinite(value)) {
+    return { r: 6, g: 182, b: 212 };
+  }
+
+  return {
+    r: (value >> 16) & 255,
+    g: (value >> 8) & 255,
+    b: value & 255,
+  };
+};
+
+const toRgba = (hex, alpha) => {
+  const { r, g, b } = hexToRgb(hex);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
 
 const resolveDealTheme = (dealDna) => {
   if (dealDna?.verdict === 'good_deal') {
@@ -59,7 +85,7 @@ const StatusBadge = ({ icon: Icon, label, toneClass }) => (
   </span>
 );
 
-const IconToolButton = ({ icon: Icon, label, onClick, toneClass }) => (
+const IconToolButton = ({ icon: Icon, label, onClick, toneClass, style }) => (
   <button
     type="button"
     onClick={onClick}
@@ -69,12 +95,13 @@ const IconToolButton = ({ icon: Icon, label, onClick, toneClass }) => (
       'flex h-10 w-10 items-center justify-center rounded-full border backdrop-blur-md transition-all duration-300',
       toneClass
     )}
+    style={style}
   >
     <Icon className="h-4 w-4" />
   </button>
 );
 
-const TextToolButton = ({ icon: Icon, label, onClick, toneClass }) => (
+const TextToolButton = ({ icon: Icon, label, onClick, toneClass, style }) => (
   <button
     type="button"
     onClick={onClick}
@@ -82,6 +109,7 @@ const TextToolButton = ({ icon: Icon, label, onClick, toneClass }) => (
       'inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-colors',
       toneClass
     )}
+    style={style}
   >
     <Icon className="h-3.5 w-3.5" />
     {label}
@@ -97,6 +125,7 @@ const ProductCard = ({ product, variant = 'default' }) => {
   const hasPrefetchedRef = useRef(false);
 
   const isWhiteMode = colorMode === 'white';
+  const modePalette = FIGMA_COLOR_MODE_OPTIONS.find((mode) => mode.value === colorMode) || FIGMA_COLOR_MODE_OPTIONS[0];
   const dealDna = product?.dealDna || null;
   const dealTheme = resolveDealTheme(dealDna);
   const isSponsored = Boolean(product?.adMeta?.isSponsored || product?.adCampaign?.isSponsored);
@@ -125,6 +154,8 @@ const ProductCard = ({ product, variant = 'default' }) => {
     .filter(Boolean)
     .filter((story) => story !== primaryStory)
     .slice(0, 2);
+  const accentColor = modePalette.primary;
+  const accentSecondary = modePalette.secondary;
 
   const prefetchProduct = () => {
     if (!productId || hasPrefetchedRef.current) return;
@@ -197,11 +228,11 @@ const ProductCard = ({ product, variant = 'default' }) => {
 
   const iconToolTone = isWhiteMode
     ? 'border-slate-300/90 bg-white/92 text-slate-700 hover:border-blue-400 hover:text-blue-700 hover:-translate-y-0.5'
-    : 'border-white/12 bg-zinc-950/72 text-slate-200 hover:border-neo-cyan/55 hover:text-neo-cyan hover:-translate-y-0.5';
+    : 'hover:-translate-y-0.5';
 
   const textToolTone = isWhiteMode
     ? 'border-slate-300 bg-white text-slate-700 hover:border-blue-400 hover:text-blue-700'
-    : 'border-white/12 bg-white/5 text-slate-300 hover:border-neo-cyan/45 hover:text-neo-cyan';
+    : '';
 
   const quickTools = [
     { key: 'compare', label: 'Compare', icon: Brain, onClick: handleOpenCompare },
@@ -212,18 +243,58 @@ const ProductCard = ({ product, variant = 'default' }) => {
 
   const surfaceClass = isWhiteMode
     ? 'bg-white/96 border-slate-200 shadow-[0_18px_40px_rgba(15,23,42,0.12)] hover:border-blue-300'
-    : 'bg-[linear-gradient(180deg,rgba(7,10,18,0.96),rgba(17,24,39,0.88))] border-white/10 hover:border-neo-cyan/25 hover:shadow-[0_18px_40px_rgba(6,182,212,0.08)]';
+    : 'hover:translate-y-[-2px]';
 
   const mediaClass = isWhiteMode
     ? 'bg-[radial-gradient(circle_at_top,rgba(191,219,254,0.38),transparent_58%),linear-gradient(180deg,#ffffff,#f8fafc)] border-slate-200'
-    : 'bg-[radial-gradient(circle_at_top,rgba(6,182,212,0.16),transparent_58%),linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.01))] border-white/8';
+    : '';
 
   const contentClass = isWhiteMode
     ? 'from-white to-slate-100/80 text-slate-900'
-    : 'from-transparent to-black/25 text-white';
+    : 'text-white';
 
   const mutedTextClass = isWhiteMode ? 'text-slate-600' : 'text-slate-300';
   const subtleTextClass = isWhiteMode ? 'text-slate-500' : 'text-slate-400';
+  const cardSurfaceStyle = isWhiteMode
+    ? undefined
+    : {
+        background: `linear-gradient(180deg, ${toRgba(accentColor, 0.08)} 0%, rgba(7,10,18,0.97) 24%, rgba(15,23,42,0.92) 100%)`,
+        borderColor: toRgba(accentColor, 0.22),
+        boxShadow: `0 18px 40px rgba(2,8,23,0.34), 0 0 0 1px ${toRgba(accentColor, 0.05)}`,
+      };
+  const cardMediaStyle = isWhiteMode
+    ? undefined
+    : {
+        background: `radial-gradient(circle at top, ${toRgba(accentColor, 0.18)}, transparent 56%), linear-gradient(180deg, ${toRgba(accentSecondary, 0.08)}, rgba(255,255,255,0.02))`,
+        borderColor: toRgba(accentColor, 0.12),
+      };
+  const contentToneStyle = isWhiteMode
+    ? undefined
+    : {
+        background: `linear-gradient(180deg, rgba(3,7,18,0) 0%, ${toRgba(accentColor, 0.05)} 100%)`,
+      };
+  const iconToolStyle = isWhiteMode
+    ? undefined
+    : {
+        borderColor: toRgba(accentColor, 0.24),
+        background: `linear-gradient(180deg, ${toRgba(accentColor, 0.12)}, rgba(9,16,29,0.78))`,
+        color: '#f8fafc',
+      };
+  const textToolStyle = isWhiteMode
+    ? undefined
+    : {
+        borderColor: toRgba(accentColor, 0.2),
+        background: toRgba(accentColor, 0.08),
+        color: '#e2e8f0',
+      };
+  const accentLabelStyle = isWhiteMode ? undefined : { color: accentColor };
+  const primaryCtaStyle = isWhiteMode
+    ? undefined
+    : {
+        backgroundImage: `linear-gradient(90deg, ${accentColor}, ${accentSecondary})`,
+        boxShadow: `0 16px 30px ${toRgba(accentColor, 0.26)}`,
+        color: '#020617',
+      };
 
   const mediaBadges = [
     isSponsored
@@ -259,6 +330,7 @@ const ProductCard = ({ product, variant = 'default' }) => {
           'group relative flex h-full flex-col overflow-hidden rounded-[1.75rem] border transition-all duration-500 md:flex-row',
           surfaceClass
         )}
+        style={cardSurfaceStyle}
       >
         <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-100">
           <div className={cn(
@@ -272,7 +344,7 @@ const ProductCard = ({ product, variant = 'default' }) => {
         <div className={cn(
           'relative aspect-[4/3] overflow-hidden border-b p-6 md:w-[19rem] md:flex-shrink-0 md:border-b-0 md:border-r',
           mediaClass
-        )}>
+        )} style={cardMediaStyle}>
           <div className="absolute left-4 top-4 z-20 flex max-w-[75%] flex-wrap gap-2">
             {mediaBadges.map((badge) => (
               <StatusBadge
@@ -306,6 +378,7 @@ const ProductCard = ({ product, variant = 'default' }) => {
                 label={tool.label}
                 onClick={tool.onClick}
                 toneClass={iconToolTone}
+                style={iconToolStyle}
               />
             ))}
           </div>
@@ -338,14 +411,14 @@ const ProductCard = ({ product, variant = 'default' }) => {
         <div className={cn(
           'relative flex flex-1 flex-col bg-gradient-to-b p-6 md:p-7',
           contentClass
-        )}>
+        )} style={contentToneStyle}>
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div className="min-w-0">
               <div className="mb-2 flex flex-wrap items-center gap-2">
                 <span className={cn(
                   'text-[11px] font-black uppercase tracking-[0.22em]',
-                  isWhiteMode ? 'text-blue-700' : 'text-neo-cyan'
-                )}>
+                  isWhiteMode ? 'text-blue-700' : ''
+                )} style={accentLabelStyle}>
                   {brandLabel}
                 </span>
                 {categoryLabel ? (
@@ -470,6 +543,7 @@ const ProductCard = ({ product, variant = 'default' }) => {
                   label={tool.label}
                   onClick={tool.onClick}
                   toneClass={textToolTone}
+                  style={textToolStyle}
                 />
               ))}
             </div>
@@ -482,8 +556,9 @@ const ProductCard = ({ product, variant = 'default' }) => {
                 'inline-flex w-full items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-black uppercase tracking-[0.2em] transition-all duration-300 xl:w-auto',
                 isWhiteMode
                   ? 'bg-slate-950 text-white shadow-[0_16px_26px_rgba(15,23,42,0.24)] hover:bg-blue-700 disabled:bg-slate-300'
-                  : 'bg-gradient-to-r from-neo-cyan to-neo-emerald text-zinc-950 shadow-[0_16px_30px_rgba(6,182,212,0.28)] hover:translate-y-[-1px] disabled:from-slate-700 disabled:to-slate-600 disabled:text-slate-300'
+                  : 'hover:translate-y-[-1px] disabled:bg-slate-700 disabled:text-slate-300'
               )}
+              style={primaryCtaStyle}
             >
               <ShoppingCart className="h-4 w-4" />
               {isOutOfStock ? 'Unavailable' : 'Add to Bag'}
@@ -505,6 +580,7 @@ const ProductCard = ({ product, variant = 'default' }) => {
         'group card-product relative flex h-full flex-col overflow-hidden rounded-[1.6rem] border transition-all duration-500',
         surfaceClass
       )}
+      style={cardSurfaceStyle}
     >
       <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-100">
         <div className={cn(
@@ -516,9 +592,9 @@ const ProductCard = ({ product, variant = 'default' }) => {
       </div>
 
       <div className={cn(
-        'relative aspect-[4/4.4] overflow-hidden border-b p-5',
+        'relative aspect-[4/3.15] overflow-hidden border-b p-4 sm:aspect-[4/3.25]',
         mediaClass
-      )}>
+      )} style={cardMediaStyle}>
         <div className="absolute left-4 top-4 z-20 flex max-w-[70%] flex-wrap gap-2">
           {mediaBadges.map((badge) => (
             <StatusBadge
@@ -562,15 +638,16 @@ const ProductCard = ({ product, variant = 'default' }) => {
 
         <div className="absolute inset-x-4 bottom-4 z-20 hidden items-center justify-center gap-2 transition-all duration-300 md:flex md:translate-y-3 md:opacity-0 md:group-hover:translate-y-0 md:group-hover:opacity-100">
           {quickTools.map((tool) => (
-            <IconToolButton
-              key={tool.key}
-              icon={tool.icon}
-              label={tool.label}
-              onClick={tool.onClick}
-              toneClass={iconToolTone}
-            />
-          ))}
-        </div>
+              <IconToolButton
+                key={tool.key}
+                icon={tool.icon}
+                label={tool.label}
+                onClick={tool.onClick}
+                toneClass={iconToolTone}
+                style={iconToolStyle}
+              />
+            ))}
+          </div>
 
         {isOutOfStock ? (
           <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/60 backdrop-blur-sm">
@@ -582,14 +659,14 @@ const ProductCard = ({ product, variant = 'default' }) => {
       </div>
 
       <div className={cn(
-        'relative flex flex-1 flex-col bg-gradient-to-b p-5',
+        'relative flex flex-1 flex-col bg-gradient-to-b p-4',
         contentClass
-      )}>
+      )} style={contentToneStyle}>
         <div className="mb-2 flex flex-wrap items-center gap-2">
           <span className={cn(
             'text-[10px] font-black uppercase tracking-[0.22em]',
-            isWhiteMode ? 'text-blue-700' : 'text-neo-cyan'
-          )}>
+            isWhiteMode ? 'text-blue-700' : ''
+          )} style={accentLabelStyle}>
             {brandLabel}
           </span>
           {categoryLabel ? (
@@ -600,7 +677,7 @@ const ProductCard = ({ product, variant = 'default' }) => {
         </div>
 
         <h3 className={cn(
-          'text-[1.05rem] font-black leading-[1.35] tracking-tight',
+          'line-clamp-3 text-[0.98rem] font-black leading-[1.28] tracking-tight sm:text-[1.04rem]',
           isWhiteMode ? 'text-slate-950' : 'text-white'
         )}>
           {displayTitle}
@@ -662,7 +739,7 @@ const ProductCard = ({ product, variant = 'default' }) => {
         </div>
 
         {dealDna ? (
-          <div className={cn('mt-4 rounded-[1.15rem] border p-3.5', dealTheme.surface)}>
+          <div className={cn('mt-3.5 rounded-[1.05rem] border p-3', dealTheme.surface)}>
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-[10px] font-black uppercase tracking-[0.2em]">Deal DNA</p>
@@ -676,31 +753,17 @@ const ProductCard = ({ product, variant = 'default' }) => {
           </div>
         ) : null}
 
-        <div className="mt-4 hidden flex-wrap gap-2 sm:flex">
-          <TextToolButton
-            icon={Brain}
-            label="Compare"
-            onClick={handleOpenCompare}
-            toneClass={textToolTone}
-          />
-          <TextToolButton
-            icon={BadgeCheck}
-            label="Deal DNA"
-            onClick={handleOpenDealDna}
-            toneClass={textToolTone}
-          />
-        </div>
-
         <button
           type="button"
           onClick={handleAddToCart}
           disabled={isOutOfStock}
           className={cn(
-            'mt-auto inline-flex w-full items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-black uppercase tracking-[0.2em] transition-all duration-300',
+            'mt-4 inline-flex w-full items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-black uppercase tracking-[0.2em] transition-all duration-300',
             isWhiteMode
               ? 'bg-slate-950 text-white shadow-[0_16px_26px_rgba(15,23,42,0.22)] hover:bg-blue-700 disabled:bg-slate-300'
-              : 'bg-gradient-to-r from-neo-cyan to-neo-emerald text-zinc-950 shadow-[0_16px_30px_rgba(6,182,212,0.26)] hover:translate-y-[-1px] disabled:from-slate-700 disabled:to-slate-600 disabled:text-slate-300'
+              : 'hover:translate-y-[-1px] disabled:bg-slate-700 disabled:text-slate-300'
           )}
+          style={primaryCtaStyle}
         >
           <ShoppingCart className="h-4 w-4" />
           {isOutOfStock ? 'Unavailable' : 'Add to Bag'}
