@@ -1,8 +1,0 @@
-generated/
-.cache/
-.mongodb-binaries/
-coverage/
-tests/
-data/
-uploads/
-*.log
