@@ -1,7 +1,8 @@
-﻿const dns = require('dns');
+const dns = require('dns');
 dns.setDefaultResultOrder('ipv4first');
 
 const express = require('express');
+const http = require('http');
 const path = require('path');
 const compression = require('compression');
 const helmet = require('helmet');
@@ -82,6 +83,7 @@ const { metricsMiddleware } = require('./middleware/metrics');
 const { createRequestTimeout } = require('./middleware/requestTimeout');
 const { getAllBreakerStats } = require('./utils/circuitBreaker');
 const metricsRoute = require('./routes/metricsRoute');
+const { initializeSocket } = require('./services/socketService');
 
 const app = express();
 const JSON_BODY_LIMIT = process.env.JSON_BODY_LIMIT || '12mb';
@@ -121,6 +123,12 @@ app.use(metricsMiddleware);
 // Request timeout â€” kills connections that hang longer than REQUEST_TIMEOUT_MS.
 // Exempt: /health, /metrics, streaming AI routes, file uploads.
 app.use(createRequestTimeout());
+
+// Create HTTP server
+const server = http.createServer(app);
+
+// Initialize WebSockets
+initializeSocket(server);
 
 // JSON HTTP Logging Pipeline
 app.use((req, res, next) => {

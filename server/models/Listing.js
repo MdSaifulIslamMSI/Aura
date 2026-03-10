@@ -1,63 +1,5 @@
 const mongoose = require('mongoose');
 
-const listingMessageSchema = new mongoose.Schema({
-    sender: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
-        required: true,
-    },
-    senderRole: {
-        type: String,
-        enum: ['buyer', 'seller'],
-        required: true,
-    },
-    text: {
-        type: String,
-        required: true,
-        trim: true,
-        maxlength: 1200,
-    },
-    sentAt: {
-        type: Date,
-        default: Date.now,
-    },
-    readAt: {
-        type: Date,
-        default: null,
-    },
-}, { _id: true });
-
-const listingConversationSchema = new mongoose.Schema({
-    buyer: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
-        required: true,
-    },
-    unreadBySeller: {
-        type: Number,
-        default: 0,
-        min: 0,
-    },
-    unreadByBuyer: {
-        type: Number,
-        default: 0,
-        min: 0,
-    },
-    lastMessageAt: {
-        type: Date,
-        default: Date.now,
-    },
-    lastMessagePreview: {
-        type: String,
-        default: '',
-        maxlength: 180,
-    },
-    messages: {
-        type: [listingMessageSchema],
-        default: [],
-    },
-}, { _id: false });
-
 const listingSchema = new mongoose.Schema({
     seller: {
         type: mongoose.Schema.Types.ObjectId,
@@ -145,11 +87,6 @@ const listingSchema = new mongoose.Schema({
     },
     views: { type: Number, default: 0 },
     soldAt: { type: Date, default: null },
-    conversations: {
-        type: [listingConversationSchema],
-        default: [],
-        select: false,
-    },
 }, {
     timestamps: true
 });

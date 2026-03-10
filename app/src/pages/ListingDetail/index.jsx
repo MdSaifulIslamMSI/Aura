@@ -16,7 +16,9 @@ import {
 } from 'lucide-react';
 import { listingApi, otpApi, paymentApi } from '@/services/api';
 import { AuthContext } from '@/context/AuthContext';
+import { useSocket } from '@/context/SocketContext';
 import { toast } from 'sonner';
+
 import { loadRazorpayScript } from '@/utils/razorpay';
 
 function timeAgo(dateStr) {
@@ -50,6 +52,7 @@ export default function ListingDetail() {
     const [chatError, setChatError] = useState('');
     const [chatInput, setChatInput] = useState('');
     const [conversation, setConversation] = useState(null);
+    const { socket } = useSocket();
 
     useEffect(() => {
         (async () => {
@@ -121,11 +124,42 @@ export default function ListingDetail() {
     useEffect(() => {
         if (!chatOpen) return undefined;
         loadConversation();
-        const timer = setInterval(() => {
-            loadConversation({ silent: true });
-        }, 8000);
-        return () => clearInterval(timer);
+        // Fallback polling removed in favor of WebSockets
     }, [chatOpen, loadConversation]);
+
+    // WebSocket real-time listener
+    useEffect(() => {
+        if (!socket || !chatOpen || !id || isOwner) return;
+
+        const handleNewMessage = (payload) => {
+            if (String(payload.listingId) !== String(id)) return;
+            
+            setConversation(prev => {
+                if (!prev) {
+                    // If we have no active conversation loaded, trigger a fetch
+                    loadConversation({ silent: true });
+                    return prev;
+                }
+                
+                // Prevent duplicate messages if we already sent it
+                const msgExists = (prev.messages || []).some(m => String(m._id) === String(payload.message._id));
+                if (msgExists) return prev;
+                
+                return {
+                    ...prev,
+                    messages: [...(prev.messages || []), payload.message],
+                    lastMessageAt: payload.message.sentAt,
+                    lastMessagePreview: payload.message.text.substring(0, 180)
+                };
+            });
+        };
+
+        socket.on('new_message', handleNewMessage);
+        
+        return () => {
+            socket.off('new_message', handleNewMessage);
+        };
+    }, [socket, chatOpen, id, isOwner, loadConversation]);
 
     const chatMessages = useMemo(
         () => (Array.isArray(conversation?.messages) ? conversation.messages : []),

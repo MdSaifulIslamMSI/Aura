@@ -3,6 +3,14 @@ import { createRoot } from 'react-dom/client'
 import './styles/figmaTokens.css'
 import './index.css'
 import App from './App.jsx'
+import { HelmetProvider } from 'react-helmet-async';
+import { ErrorBoundary } from 'react-error-boundary';
+import { AuthProvider } from './context/AuthContext.jsx';
+import { ThemeProvider } from './context/ThemeContext.jsx';
+import { CartProvider } from './context/CartContext.jsx';
+import { SocketProvider } from './context/SocketContext.jsx';
+import AppErrorBoundary from './components/shared/AppErrorBoundary.jsx';
+import { Toaster } from 'react-hot-toast';
 import { initClientObservability } from './services/clientObservability'
 
 // Firebase OAuth domain safety:
@@ -17,6 +25,29 @@ initClientObservability()
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <App />
+    <HelmetProvider>
+      <ErrorBoundary FallbackComponent={AppErrorBoundary}>
+        <ThemeProvider>
+          <AuthProvider>
+            <SocketProvider>
+              <CartProvider>
+                <App />
+                <Toaster
+                  position="bottom-right"
+                  toastOptions={{
+                    duration: 4000,
+                    style: {
+                      background: 'var(--bg-card)',
+                      color: 'var(--text-primary)',
+                      border: '1px solid var(--border-color)',
+                    },
+                  }}
+                />
+              </CartProvider>
+            </SocketProvider>
+          </AuthProvider>
+        </ThemeProvider>
+      </ErrorBoundary>
+    </HelmetProvider>
   </StrictMode>,
 )

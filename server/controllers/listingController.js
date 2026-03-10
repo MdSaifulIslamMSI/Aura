@@ -1,7 +1,9 @@
 const asyncHandler = require('express-async-handler');
 const crypto = require('crypto');
-const mongoose = require('mongoose');
+const { isValidObjectId: isValidObjectIdMongoose } = require('mongoose'); // Renamed to avoid conflict
 const Listing = require('../models/Listing');
+const Conversation = require('../models/Conversation');
+const Message = require('../models/Message');
 const User = require('../models/User');
 const PaymentIntent = require('../models/PaymentIntent');
 const PaymentEvent = require('../models/PaymentEvent');
@@ -975,66 +977,50 @@ const getSellerProfile = asyncHandler(async (req, res, next) => {
  * @access  Private
  */
 const getMyMessageInbox = asyncHandler(async (req, res) => {
-    const viewerId = String(req.user?._id || '');
-    const listings = await Listing.find({
-        $or: [
-            { seller: req.user._id },
-            { 'conversations.buyer': req.user._id },
-        ],
+    const viewerId = req.user._id;
+
+    // Fast indexed query: find all conversations where user is buyer OR seller
+    const conversations = await Conversation.find({
+        $or: [{ seller: viewerId }, { buyer: viewerId }],
+        status: 'active'
     })
-        .select('title price images status seller conversations')
-        .select('+conversations')
-        .lean();
+    .sort({ lastMessageAt: -1 })
+    .populate('listing', 'title price images status')
+    .populate('seller', 'name email avatar isVerified')
+    .populate('buyer', 'name email avatar isVerified')
+    .lean();
 
-    const counterpartIds = new Set();
-    const rows = [];
-
-    for (const listing of listings) {
-        if (!isRealListingDoc(listing)) continue;
-        const sellerId = String(listing?.seller || '');
-        const threads = Array.isArray(listing?.conversations) ? listing.conversations : [];
-
-        for (const thread of threads) {
-            const buyerId = String(thread?.buyer || '');
-            const isSellerThread = sellerId === viewerId;
-            const isBuyerThread = buyerId === viewerId;
-            if (!isSellerThread && !isBuyerThread) continue;
-
-            const counterpartId = isSellerThread ? buyerId : sellerId;
-            if (counterpartId) counterpartIds.add(counterpartId);
-            rows.push({ listing, thread });
-        }
-    }
-
-    const counterpartMap = new Map();
-    if (counterpartIds.size > 0) {
-        const users = await User.find({ _id: { $in: Array.from(counterpartIds) } })
-            .select('name email avatar isVerified')
-            .lean();
-        for (const user of users) {
-            counterpartMap.set(String(user._id), user);
-        }
-    }
-
-    const conversations = rows.map(({ listing, thread }) => {
-        const sellerId = String(listing?.seller || '');
-        const buyerId = String(thread?.buyer || '');
-        const viewerIsSeller = sellerId === viewerId;
-        const counterpartId = viewerIsSeller ? buyerId : sellerId;
-        const counterpartUser = counterpartMap.get(counterpartId) || null;
-
-        return serializeThreadForUser({
-            listing,
-            thread: { ...thread, messages: [] },
-            viewerId,
-            sellerUser: viewerIsSeller ? null : counterpartUser,
-            buyerUser: viewerIsSeller ? counterpartUser : null,
-        });
+    const formattedConversations = conversations.map(conv => {
+        const viewerIsSeller = String(conv.seller._id) === String(viewerId);
+        
+        return {
+            listing: conv.listing,
+            buyerId: String(conv.buyer._id),
+            sellerId: String(conv.seller._id),
+            sellerUser: viewerIsSeller ? null : {
+                _id: conv.seller._id,
+                name: conv.seller.name,
+                avatar: conv.seller.avatar,
+                isVerified: conv.seller.isVerified
+            },
+            buyerUser: viewerIsSeller ? {
+                _id: conv.buyer._id,
+                name: conv.buyer.name,
+                avatar: conv.buyer.avatar,
+                isVerified: conv.buyer.isVerified
+            } : null,
+            unreadBySeller: conv.unreadBySeller,
+            unreadByBuyer: conv.unreadByBuyer,
+            unreadCount: viewerIsSeller ? conv.unreadBySeller : conv.unreadByBuyer,
+            lastMessageAt: conv.lastMessageAt,
+            lastMessagePreview: conv.lastMessagePreview,
+            messages: [], // Inbox doesn't need full message list
+        };
     });
 
     res.json({
         success: true,
-        conversations: sortThreadsByLastMessage(conversations),
+        conversations: formattedConversations,
     });
 });
 
@@ -1045,10 +1031,10 @@ const getMyMessageInbox = asyncHandler(async (req, res) => {
  */
 const getListingMessages = asyncHandler(async (req, res, next) => {
     const listing = await Listing.findById(req.params.id)
-        .select('title price images status seller conversations')
-        .select('+conversations');
+        .select('title price images status seller')
+        .lean();
 
-    if (!listing || !isRealListingDoc(listing)) {
+    if (!listing) {
         return next(new AppError('Listing not found', 404));
     }
 
@@ -1057,63 +1043,80 @@ const getListingMessages = asyncHandler(async (req, res, next) => {
     const viewerIsSeller = viewerId === sellerId;
     const requestedBuyerId = String(req.query.buyerId || '').trim();
 
-    let thread = null;
+    let query = { listing: listing._id };
     if (viewerIsSeller) {
-        if (requestedBuyerId) {
-            thread = listing.conversations.find((entry) => String(entry?.buyer || '') === requestedBuyerId) || null;
-        }
-    } else {
-        thread = listing.conversations.find((entry) => String(entry?.buyer || '') === viewerId) || null;
-    }
-
-    if (!thread) {
-        if (viewerIsSeller && !requestedBuyerId) {
-            const summaries = sortThreadsByLastMessage(listing.conversations || []).map((entry) => ({
-                buyerId: String(entry?.buyer || ''),
-                unreadBySeller: Number(entry?.unreadBySeller || 0),
-                unreadByBuyer: Number(entry?.unreadByBuyer || 0),
-                lastMessageAt: entry?.lastMessageAt || null,
-                lastMessagePreview: entry?.lastMessagePreview || '',
+        if (!requestedBuyerId) {
+            // Seller opening the message hub for this listing without specifying a buyer
+            const conversations = await Conversation.find({ listing: listing._id })
+                .sort({ lastMessageAt: -1 })
+                .populate('buyer', 'name email avatar isVerified')
+                .lean();
+                
+            const summaries = conversations.map(conv => ({
+                buyerId: String(conv.buyer._id),
+                buyerUser: conv.buyer,
+                unreadBySeller: conv.unreadBySeller,
+                unreadByBuyer: conv.unreadByBuyer,
+                lastMessageAt: conv.lastMessageAt,
+                lastMessagePreview: conv.lastMessagePreview,
             }));
             return res.json({ success: true, conversation: null, conversations: summaries });
         }
+        query.buyer = requestedBuyerId;
+    } else {
+        query.buyer = viewerId;
+    }
+
+    const conversation = await Conversation.findOne(query)
+        .populate('seller', 'name email avatar isVerified')
+        .populate('buyer', 'name email avatar isVerified');
+
+    if (!conversation) {
         return res.json({ success: true, conversation: null });
     }
 
-    const buyerId = String(thread.buyer || '');
-    const users = await User.find({ _id: { $in: [sellerId, buyerId].filter(Boolean) } })
-        .select('name email avatar isVerified')
-        .lean();
-    const userMap = new Map(users.map((user) => [String(user._id), user]));
-
-    const counterpartPayload = serializeThreadForUser({
-        listing,
-        thread,
-        viewerId,
-        sellerUser: userMap.get(sellerId) || null,
-        buyerUser: userMap.get(buyerId) || null,
-    });
-
-    const hasUnread = viewerIsSeller
-        ? Number(thread.unreadBySeller || 0) > 0
-        : Number(thread.unreadByBuyer || 0) > 0;
-    if (hasUnread) {
-        if (viewerIsSeller) {
-            thread.unreadBySeller = 0;
-        } else {
-            thread.unreadByBuyer = 0;
-        }
-        const readAt = new Date();
-        thread.messages.forEach((message) => {
-            const senderId = String(message?.sender || '');
-            if (senderId && senderId !== viewerId && !message.readAt) {
-                message.readAt = readAt;
-            }
-        });
-        listing.markModified('conversations');
-        await listing.save();
-        counterpartPayload.unreadCount = 0;
+    // Mark unread as 0
+    let hasUnread = false;
+    if (viewerIsSeller && conversation.unreadBySeller > 0) {
+        conversation.unreadBySeller = 0;
+        hasUnread = true;
+    } else if (!viewerIsSeller && conversation.unreadByBuyer > 0) {
+        conversation.unreadByBuyer = 0;
+        hasUnread = true;
     }
+
+    if (hasUnread) await conversation.save();
+
+    // Mark messages as read
+    const readAt = new Date();
+    await Message.updateMany(
+        { 
+            conversation: conversation._id, 
+            sender: { $ne: req.user._id }, 
+            readAt: null 
+        },
+        { $set: { readAt } }
+    );
+
+    // Fetch chronological messages
+    const messages = await Message.find({ conversation: conversation._id })
+        .sort({ sentAt: 1 })
+        .lean();
+
+    const counterpartPayload = {
+        listing,
+        buyerId: String(conversation.buyer._id),
+        sellerId: String(conversation.seller._id),
+        sellerUser: viewerIsSeller ? null : conversation.seller,
+        buyerUser: viewerIsSeller ? conversation.buyer : null,
+        unreadCount: 0,
+        lastMessageAt: conversation.lastMessageAt,
+        lastMessagePreview: conversation.lastMessagePreview,
+        messages: messages.map(m => ({
+            ...m,
+            sender: String(m.sender)
+        }))
+    };
 
     return res.json({ success: true, conversation: counterpartPayload });
 });
@@ -1125,10 +1128,10 @@ const getListingMessages = asyncHandler(async (req, res, next) => {
  */
 const sendListingMessage = asyncHandler(async (req, res, next) => {
     const listing = await Listing.findById(req.params.id)
-        .select('title price images status seller conversations')
-        .select('+conversations');
+        .select('title price images status seller')
+        .lean();
 
-    if (!listing || !isRealListingDoc(listing)) {
+    if (!listing) {
         return next(new AppError('Listing not found', 404));
     }
 
@@ -1147,80 +1150,77 @@ const sendListingMessage = asyncHandler(async (req, res, next) => {
 
     if (viewerIsSeller) {
         buyerId = String(req.body?.buyerId || '').trim();
-        if (!buyerId) {
-            return next(new AppError('buyerId is required when seller sends a message', 400));
-        }
-        if (!isValidObjectId(buyerId)) {
-            return next(new AppError('Invalid buyerId', 400));
+        if (!buyerId || !isValidObjectId(buyerId)) {
+            return next(new AppError('Valid buyerId is required when seller sends a message', 400));
         }
         if (buyerId === sellerId) {
             return next(new AppError('Seller cannot message self', 400));
         }
     }
 
-    let thread = listing.conversations.find((entry) => String(entry?.buyer || '') === buyerId);
-    if (!thread) {
-        if (viewerIsSeller) {
-            return next(new AppError('Conversation not found for selected buyer', 404));
-        }
-        if (listing.conversations.length >= MAX_CHAT_THREADS_PER_LISTING) {
-            listing.conversations = sortThreadsByLastMessage(listing.conversations).slice(0, MAX_CHAT_THREADS_PER_LISTING - 1);
-        }
-        listing.conversations.push({
-            buyer: req.user._id,
-            unreadBySeller: 0,
-            unreadByBuyer: 0,
-            lastMessageAt: new Date(),
-            lastMessagePreview: '',
-            messages: [],
-        });
-        thread = listing.conversations[listing.conversations.length - 1];
-    }
-
+    // Upsert conversation
     const sentAt = new Date();
-    thread.messages.push({
-        sender: req.user._id,
+    const conversation = await Conversation.findOneAndUpdate(
+        { listing: listing._id, buyer: buyerId },
+        {
+            $setOnInsert: {
+                seller: sellerId,
+            },
+            $set: {
+                lastMessageAt: sentAt,
+                lastMessagePreview: text.slice(0, 180),
+            },
+            $inc: {
+                unreadBySeller: viewerIsSeller ? 0 : 1,
+                unreadByBuyer: viewerIsSeller ? 1 : 0,
+            }
+        },
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+
+    // Insert Message
+    const messageDoc = await Message.create({
+        conversation: conversation._id,
+        sender: viewerId,
         senderRole: viewerIsSeller ? 'seller' : 'buyer',
         text,
         sentAt,
-        readAt: null,
     });
-    if (thread.messages.length > MAX_CHAT_MESSAGES_PER_THREAD) {
-        thread.messages = thread.messages.slice(-MAX_CHAT_MESSAGES_PER_THREAD);
-    }
 
-    thread.lastMessageAt = sentAt;
-    thread.lastMessagePreview = text.slice(0, 180);
-    if (viewerIsSeller) {
-        thread.unreadByBuyer = Number(thread.unreadByBuyer || 0) + 1;
-        thread.unreadBySeller = 0;
-    } else {
-        thread.unreadBySeller = Number(thread.unreadBySeller || 0) + 1;
-        thread.unreadByBuyer = 0;
-    }
+    // Emit real-time WebSocket event to the recipient
+    sendMessageToUser(viewerIsSeller ? buyerId : sellerId, 'new_message', {
+        listingId: String(listing._id),
+        message: {
+            ...messageDoc.toObject(),
+            sender: String(messageDoc.sender)
+        }
+    });
 
-    listing.markModified('conversations');
-    await listing.save();
-
-    const sellerLookupId = sellerId;
-    const buyerLookupId = String(thread.buyer || '');
-    const users = await User.find({ _id: { $in: [sellerLookupId, buyerLookupId].filter(Boolean) } })
+    const users = await User.find({ _id: { $in: [sellerId, buyerId] } })
         .select('name email avatar isVerified')
         .lean();
     const userMap = new Map(users.map((user) => [String(user._id), user]));
-
-    const conversation = serializeThreadForUser({
+    
+    const sellerLookupId = sellerId;
+    const buyerLookupId = String(buyerId);
+    
+    const formattedConversation = {
         listing,
-        thread,
-        viewerId,
-        sellerUser: userMap.get(sellerLookupId) || null,
-        buyerUser: userMap.get(buyerLookupId) || null,
-    });
+        buyerId: String(conversation.buyer),
+        sellerId: String(conversation.seller),
+        sellerUser: viewerIsSeller ? null : userMap.get(sellerLookupId),
+        buyerUser: viewerIsSeller ? userMap.get(buyerLookupId) : null,
+        unreadCount: 0,
+        lastMessageAt: conversation.lastMessageAt,
+        lastMessagePreview: conversation.lastMessagePreview,
+        messages: [{
+            ...messageDoc.toObject(),
+            sender: String(messageDoc.sender)
+        }]
+    };
 
+    const recipientUser = viewerIsSeller ? userMap.get(buyerLookupId) : userMap.get(sellerLookupId);
     const actorName = String(req.user?.name || req.user?.email || 'A marketplace user').trim();
-    const recipientUser = viewerIsSeller
-        ? userMap.get(buyerLookupId)
-        : userMap.get(sellerLookupId);
 
     sendCounterpartyMessageEmail({
         recipientEmail: recipientUser?.email || '',
@@ -1241,7 +1241,7 @@ const sendListingMessage = asyncHandler(async (req, res, next) => {
     res.json({
         success: true,
         message: 'Message sent',
-        conversation,
+        conversation: formattedConversation,
     });
 });
 
