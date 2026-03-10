@@ -138,3 +138,41 @@ jobs:
 
       - name: Enforce Bundle Budgets
         run: npm run bundle:budget
+
+  frontend-e2e:
+    # Run E2E only on direct pushes to main to conserve CI minutes.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./app
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js 24.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.x
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install chromium --with-deps
+
+      - name: Run E2E Tests
+        run: npm run test:e2e
+        env:
+          CI: 'true'
+
+      - name: Upload Playwright Report
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: app/playwright-report/
+          retention-days: 7
+

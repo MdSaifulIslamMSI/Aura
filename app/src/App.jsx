@@ -69,6 +69,14 @@ function renderCriticalRoute(element) {
 function AppContent() {
   return (
     <div className="flex flex-col min-h-screen">
+      {/* Skip-to-main-content — first focusable element for keyboard/screen-reader users.
+          Hidden by default, revealed on focus via sr-only + focus:not-sr-only pattern. */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[9999] focus:rounded-lg focus:bg-neo-cyan focus:px-4 focus:py-2 focus:text-sm focus:font-bold focus:text-zinc-950 focus:shadow-lg"
+      >
+        Skip to main content
+      </a>
       <SmoothScrollManager />
       <ScrollToTop />
       <ScrollProgressBar />
@@ -79,7 +87,7 @@ function AppContent() {
       <AppErrorBoundary>
         <BackendStatusBanner />
       </AppErrorBoundary>
-      <main className="flex-1">
+      <main id="main-content" className="flex-1" role="main" aria-label="Main content">
         <Suspense
           fallback={(
             <div className="flex h-[80vh] items-center justify-center">
