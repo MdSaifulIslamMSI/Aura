@@ -403,7 +403,7 @@ if (require.main === module) {
             .then(() => ensureSystemState())
             .then(() => enforceCatalogStartupCheck())
             .then(() => {
-                const httpServer = app.listen(PORT, '0.0.0.0', () => {
+                const httpServer = server.listen(PORT, '0.0.0.0', () => {
                     console.log(`Server running in ${NODE_ENV} mode on port ${PORT}`.yellow.bold);
                     // Workers run in-process on the free plan.
                     // For production scale, move to a dedicated worker service.
