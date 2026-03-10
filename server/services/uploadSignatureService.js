@@ -5,11 +5,23 @@ const usedNonceStore = new Map();
 const base64UrlEncode = (value) => Buffer.from(value).toString('base64url');
 const base64UrlDecode = (value) => Buffer.from(String(value || ''), 'base64url').toString('utf8');
 
-const getSigningSecret = () => (
-    process.env.UPLOAD_SIGNING_SECRET
-    || process.env.JWT_SECRET
-    || 'dev-upload-secret-change-me'
-);
+const getSigningSecret = () => {
+        const configuredSecret = String(
+            process.env.UPLOAD_SIGNING_SECRET
+            || process.env.JWT_SECRET
+            || ''
+        ).trim();
+
+        if (configuredSecret) {
+            return configuredSecret;
+        }
+
+        if (String(process.env.NODE_ENV || '').trim().toLowerCase() === 'production') {
+            throw new Error('UPLOAD_SIGNING_SECRET is required in production');
+        }
+
+        return 'dev-upload-secret-change-me';
+};
 
 const signPayload = (payloadJson) => {
     const secret = getSigningSecret();
