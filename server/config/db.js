@@ -72,8 +72,12 @@ const getMongoDeploymentHealth = async () => {
 const connectDB = async () => {
     try {
         const conn = await mongoose.connect(process.env.MONGO_URI, {
-            serverSelectionTimeoutMS: 30000,
-            socketTimeoutMS: 180000,
+            serverSelectionTimeoutMS: 10000,  // fail-fast on startup (was 30s)
+            socketTimeoutMS: 120000,           // reduced from 180s
+            maxPoolSize: 20,                  // up from default 5 — handles concurrent requests
+            minPoolSize: 2,                   // keep 2 warm connections always
+            maxIdleTimeMS: 60000,             // release idle connections after 60s
+            waitQueueTimeoutMS: 10000,        // fail fast if pool is exhausted
         });
         logger.info('db.connected', { host: conn.connection.host });
         await dropLegacyUserOtpTtlIndex();

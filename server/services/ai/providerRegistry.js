@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const { getBreaker } = require('../../utils/circuitBreaker');
 
 const AI_DEFAULT_LOCALE = process.env.AI_DEFAULT_LOCALE || 'en-IN';
 
@@ -177,7 +178,8 @@ const callGroqChatCompletion = async ({
     const apiKey = getGroqApiKey();
     if (!apiKey) return null;
 
-    const response = await performRequest({
+    const groqBreaker = getBreaker('groq', { failureThreshold: 5, cooldownMs: 30_000, callTimeoutMs: GROQ_REQUEST_TIMEOUT_MS + 2000 });
+    const response = await groqBreaker.call(() => performRequest({
         provider: 'Groq',
         url: `${GROQ_API_BASE_URL}/chat/completions`,
         headers: {
@@ -207,7 +209,7 @@ const callGroqChatCompletion = async ({
         timeoutMs: GROQ_REQUEST_TIMEOUT_MS,
         retries: GROQ_MAX_RETRIES,
         retryDelayMs: GROQ_RETRY_DELAY_MS,
-    });
+    }));
 
     const payload = await response.json();
     return {
@@ -391,7 +393,8 @@ const embedTexts = async (inputs = []) => {
     if (normalized.length === 0 || !apiKey) return [];
 
     try {
-        const response = await performRequest({
+        const voyageBreaker = getBreaker('voyage', { failureThreshold: 5, cooldownMs: 30_000, callTimeoutMs: VOYAGE_REQUEST_TIMEOUT_MS + 2000 });
+        const response = await voyageBreaker.call(() => performRequest({
             provider: 'Voyage',
             url: `${VOYAGE_API_BASE_URL}/embeddings`,
             headers: {
@@ -406,7 +409,7 @@ const embedTexts = async (inputs = []) => {
             timeoutMs: VOYAGE_REQUEST_TIMEOUT_MS,
             retries: VOYAGE_MAX_RETRIES,
             retryDelayMs: VOYAGE_RETRY_DELAY_MS,
-        });
+        }));
 
         const payload = await response.json();
         const data = Array.isArray(payload?.data) ? payload.data : [];
@@ -478,7 +481,8 @@ const rerankDocuments = async ({ query = '', documents = [], topN = 12 }) => {
     }
 
     try {
-        const response = await performRequest({
+        const voyageBreaker = getBreaker('voyage');
+        const response = await voyageBreaker.call(() => performRequest({
             provider: 'Voyage',
             url: `${VOYAGE_API_BASE_URL}/rerank`,
             headers: {
@@ -494,7 +498,7 @@ const rerankDocuments = async ({ query = '', documents = [], topN = 12 }) => {
             timeoutMs: VOYAGE_REQUEST_TIMEOUT_MS,
             retries: VOYAGE_MAX_RETRIES,
             retryDelayMs: VOYAGE_RETRY_DELAY_MS,
-        });
+        }));
 
         const payload = await response.json();
         const data = Array.isArray(payload?.data) ? payload.data : Array.isArray(payload?.results) ? payload.results : [];
@@ -618,7 +622,8 @@ const synthesizeSpeech = async ({
     const voiceId = await resolveElevenLabsVoiceId();
     if (!voiceId) return null;
 
-    const response = await performRequest({
+    const elevenBreaker = getBreaker('elevenlabs', { failureThreshold: 4, cooldownMs: 60_000, callTimeoutMs: ELEVENLABS_REQUEST_TIMEOUT_MS + 3000 });
+    const response = await elevenBreaker.call(() => performRequest({
         provider: 'ElevenLabs',
         url: `${ELEVENLABS_API_BASE_URL}/text-to-speech/${voiceId}`,
         headers: {
@@ -638,7 +643,7 @@ const synthesizeSpeech = async ({
         timeoutMs: ELEVENLABS_REQUEST_TIMEOUT_MS,
         retries: ELEVENLABS_MAX_RETRIES,
         retryDelayMs: ELEVENLABS_RETRY_DELAY_MS,
-    });
+    }));
 
     const buffer = Buffer.from(await response.arrayBuffer());
     return {

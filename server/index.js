@@ -79,6 +79,8 @@ const {
 } = require('./config/redis');
 const { createDistributedRateLimit } = require('./middleware/distributedRateLimit');
 const { metricsMiddleware } = require('./middleware/metrics');
+const { createRequestTimeout } = require('./middleware/requestTimeout');
+const { getAllBreakerStats } = require('./utils/circuitBreaker');
 const metricsRoute = require('./routes/metricsRoute');
 
 const app = express();
@@ -115,6 +117,10 @@ app.use(requestId);
 // Prometheus metrics — register before any other middleware so durations
 // include the full request lifecycle (auth, rate-limit, route handlers).
 app.use(metricsMiddleware);
+
+// Request timeout — kills connections that hang longer than REQUEST_TIMEOUT_MS.
+// Exempt: /health, /metrics, streaming AI routes, file uploads.
+app.use(createRequestTimeout());
 
 // JSON HTTP Logging Pipeline
 app.use((req, res, next) => {
