@@ -258,20 +258,20 @@ const ProductCard = ({ product, variant = 'default' }) => {
   const cardSurfaceStyle = isWhiteMode
     ? undefined
     : {
-        background: `linear-gradient(180deg, ${toRgba(accentColor, 0.08)} 0%, rgba(7,10,18,0.97) 24%, rgba(15,23,42,0.92) 100%)`,
+        background: `radial-gradient(circle at top left, ${toRgba(accentColor, 0.18)}, transparent 40%), radial-gradient(circle at bottom right, ${toRgba(accentSecondary, 0.16)}, transparent 42%), linear-gradient(180deg, rgba(4,8,18,0.98) 0%, rgba(8,12,24,0.97) 42%, rgba(10,15,28,0.94) 100%)`,
         borderColor: toRgba(accentColor, 0.22),
         boxShadow: `0 18px 40px rgba(2,8,23,0.34), 0 0 0 1px ${toRgba(accentColor, 0.05)}`,
       };
   const cardMediaStyle = isWhiteMode
     ? undefined
     : {
-        background: `radial-gradient(circle at top, ${toRgba(accentColor, 0.18)}, transparent 56%), linear-gradient(180deg, ${toRgba(accentSecondary, 0.08)}, rgba(255,255,255,0.02))`,
+        background: `radial-gradient(circle at top, ${toRgba(accentColor, 0.22)}, transparent 55%), linear-gradient(180deg, ${toRgba(accentSecondary, 0.12)}, rgba(255,255,255,0.02))`,
         borderColor: toRgba(accentColor, 0.12),
       };
   const contentToneStyle = isWhiteMode
     ? undefined
     : {
-        background: `linear-gradient(180deg, rgba(3,7,18,0) 0%, ${toRgba(accentColor, 0.05)} 100%)`,
+        background: `linear-gradient(180deg, rgba(3,7,18,0.08) 0%, ${toRgba(accentColor, 0.06)} 62%, ${toRgba(accentSecondary, 0.05)} 100%)`,
       };
   const iconToolStyle = isWhiteMode
     ? undefined
@@ -592,7 +592,7 @@ const ProductCard = ({ product, variant = 'default' }) => {
       </div>
 
       <div className={cn(
-        'relative aspect-[4/3.15] overflow-hidden border-b p-4 sm:aspect-[4/3.25]',
+        'relative aspect-[4/3] overflow-hidden border-b p-4 sm:aspect-[4/3.05]',
         mediaClass
       )} style={cardMediaStyle}>
         <div className="absolute left-4 top-4 z-20 flex max-w-[70%] flex-wrap gap-2">
@@ -677,55 +677,21 @@ const ProductCard = ({ product, variant = 'default' }) => {
         </div>
 
         <h3 className={cn(
-          'line-clamp-3 text-[0.98rem] font-black leading-[1.28] tracking-tight sm:text-[1.04rem]',
+          'line-clamp-2 text-[0.9rem] font-black leading-[1.18] tracking-tight sm:text-[0.96rem]',
           isWhiteMode ? 'text-slate-950' : 'text-white'
         )}>
           {displayTitle}
         </h3>
 
         {(subtitle || primaryStory) ? (
-          <p className={cn('mt-2 line-clamp-2 text-sm leading-6', mutedTextClass)}>
+          <p className={cn('mt-1.5 line-clamp-1 text-[12px] leading-5', mutedTextClass)}>
             {primaryStory || subtitle}
           </p>
         ) : null}
 
-        <div className="mt-4 flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-end gap-x-3 gap-y-1">
-              <span className={cn(
-                'text-2xl font-black tracking-tight',
-                isWhiteMode ? 'text-slate-950' : 'text-white'
-              )}>
-                {formatPrice(priceValue)}
-              </span>
-              {hasOriginalPrice ? (
-                <span className={cn('pb-1 text-xs line-through', subtleTextClass)}>
-                  {formatPrice(originalPrice)}
-                </span>
-              ) : null}
-            </div>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {discountValue > 0 ? (
-                <span className={cn(
-                  'rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em]',
-                  isWhiteMode
-                    ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
-                    : 'border-neo-emerald/30 bg-neo-emerald/12 text-neo-emerald'
-                )}>
-                  {Math.round(discountValue)}% off
-                </span>
-              ) : null}
-              <span className={cn(
-                'rounded-full border px-2.5 py-1 text-[10px] font-medium',
-                isWhiteMode ? 'border-slate-300 bg-slate-100 text-slate-700' : 'border-white/12 bg-white/5 text-slate-200'
-              )}>
-                {deliveryLabel}
-              </span>
-            </div>
-          </div>
-
+        <div className="mt-2.5 flex flex-wrap items-center gap-2">
           <div className={cn(
-            'inline-flex flex-shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-2 text-xs font-semibold',
+            'inline-flex flex-shrink-0 items-center gap-1.5 rounded-full border px-2 py-1 text-[10px] font-semibold',
             isWhiteMode
               ? 'border-slate-300 bg-white text-slate-800'
               : 'border-white/12 bg-white/5 text-slate-100'
@@ -734,20 +700,53 @@ const ProductCard = ({ product, variant = 'default' }) => {
               {ratingValue}
               <Star className="h-3 w-3 fill-current" />
             </span>
-            <span className={subtleTextClass}>{ratingCount.toLocaleString()}</span>
+            <span className={cn('text-[10px]', subtleTextClass)}>{ratingCount.toLocaleString()}</span>
           </div>
         </div>
 
+        <div className="mt-2.5 flex flex-wrap items-end gap-x-3 gap-y-1">
+          <span className={cn(
+            'text-[1.48rem] font-black tracking-tight sm:text-[1.62rem]',
+            isWhiteMode ? 'text-slate-950' : 'text-white'
+          )}>
+            {formatPrice(priceValue)}
+          </span>
+          {hasOriginalPrice ? (
+            <span className={cn('pb-1 text-xs line-through', subtleTextClass)}>
+              {formatPrice(originalPrice)}
+            </span>
+          ) : null}
+        </div>
+
+        <div className="mt-2 flex flex-wrap gap-2">
+          {discountValue > 0 ? (
+            <span className={cn(
+              'rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em]',
+              isWhiteMode
+                ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                : 'border-neo-emerald/30 bg-neo-emerald/12 text-neo-emerald'
+            )}>
+              {Math.round(discountValue)}% off
+            </span>
+          ) : null}
+          <span className={cn(
+            'rounded-full border px-2.5 py-1 text-[10px] font-medium',
+            isWhiteMode ? 'border-slate-300 bg-slate-100 text-slate-700' : 'border-white/12 bg-white/5 text-slate-200'
+          )}>
+            {deliveryLabel}
+          </span>
+        </div>
+
         {dealDna ? (
-          <div className={cn('mt-3.5 rounded-[1.05rem] border p-3', dealTheme.surface)}>
+          <div className={cn('mt-3 rounded-[1rem] border px-3 py-2.5', dealTheme.surface)}>
             <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.2em]">Deal DNA</p>
-                <p className="mt-1 text-sm font-semibold">{dealTheme.label}</p>
+              <div className="min-w-0">
+                <p className="text-[9px] font-black uppercase tracking-[0.22em]">Deal DNA</p>
+                <p className="mt-0.5 truncate text-[11px] font-semibold">{dealTheme.label}</p>
               </div>
-              <div className="text-right">
-                <p className="text-2xl font-black leading-none">{dealDna.score}</p>
-                <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.16em] opacity-80">Score</p>
+              <div className="flex flex-shrink-0 items-baseline gap-1">
+                <p className="text-lg font-black leading-none">{dealDna.score}</p>
+                <p className="text-[9px] font-semibold uppercase tracking-[0.16em] opacity-80">Score</p>
               </div>
             </div>
           </div>
@@ -758,7 +757,7 @@ const ProductCard = ({ product, variant = 'default' }) => {
           onClick={handleAddToCart}
           disabled={isOutOfStock}
           className={cn(
-            'mt-4 inline-flex w-full items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-black uppercase tracking-[0.2em] transition-all duration-300',
+            'mt-3.5 inline-flex w-full items-center justify-center gap-2 rounded-full px-5 py-2.5 text-[11px] font-black uppercase tracking-[0.18em] transition-all duration-300',
             isWhiteMode
               ? 'bg-slate-950 text-white shadow-[0_16px_26px_rgba(15,23,42,0.22)] hover:bg-blue-700 disabled:bg-slate-300'
               : 'hover:translate-y-[-1px] disabled:bg-slate-700 disabled:text-slate-300'
