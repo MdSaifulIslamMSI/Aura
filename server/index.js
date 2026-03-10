@@ -1,4 +1,4 @@
-const dns = require('dns');
+﻿const dns = require('dns');
 dns.setDefaultResultOrder('ipv4first');
 
 const express = require('express');
@@ -114,11 +114,11 @@ app.set('trust proxy', 1);
 // Request ID for tracing
 app.use(requestId);
 
-// Prometheus metrics — register before any other middleware so durations
+// Prometheus metrics â€” register before any other middleware so durations
 // include the full request lifecycle (auth, rate-limit, route handlers).
 app.use(metricsMiddleware);
 
-// Request timeout — kills connections that hang longer than REQUEST_TIMEOUT_MS.
+// Request timeout â€” kills connections that hang longer than REQUEST_TIMEOUT_MS.
 // Exempt: /health, /metrics, streaming AI routes, file uploads.
 app.use(createRequestTimeout());
 
@@ -167,7 +167,7 @@ app.use(adminNotificationMiddleware);
 app.get(/^\/uploads\/reviews\/(.+)$/, serveReviewMediaAsset);
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Rate Limiting — strict for production, disabled in test
+// Rate Limiting â€” strict for production, disabled in test
 if (process.env.NODE_ENV !== 'test') {
     const limiter = createDistributedRateLimit({
         name: 'global',
@@ -395,7 +395,7 @@ if (require.main === module) {
             .then(() => ensureSystemState())
             .then(() => enforceCatalogStartupCheck())
             .then(() => {
-                app.listen(PORT, '0.0.0.0', () => {
+                const httpServer = app.listen(PORT, '0.0.0.0', () => {
                     console.log(`Server running in ${NODE_ENV} mode on port ${PORT}`.yellow.bold);
                     // Workers run in-process on the free plan.
                     // For production scale, move to a dedicated worker service.
@@ -405,6 +405,33 @@ if (require.main === module) {
                     startAdminAnalyticsMonitor();
                     startCatalogWorkers();
                 });
+
+                // Graceful shutdown â€” drain in-flight requests before process exit.
+                // Render sends SIGTERM 10s before SIGKILL during rolling deploys.
+                const GRACEFUL_SHUTDOWN_TIMEOUT_MS = Number(process.env.GRACEFUL_SHUTDOWN_TIMEOUT_MS) || 15000;
+
+                const gracefulShutdown = (signal) => {
+                    logger.info('server.shutdown_initiated', { signal, timeoutMs: GRACEFUL_SHUTDOWN_TIMEOUT_MS });
+                    httpServer.close(async () => {
+                        try {
+                            const mongoose = require('mongoose');
+                            await mongoose.connection.close(false);
+                            logger.info('server.mongoose_closed');
+                        } catch (err) {
+                            logger.warn('server.mongoose_close_failed', { error: err.message });
+                        }
+                        logger.info('server.shutdown_complete', { signal });
+                        process.exit(0);
+                    });
+                    // Force-exit after timeout to avoid hung connections blocking deploy.
+                    setTimeout(() => {
+                        logger.error('server.shutdown_timeout', { signal, timeoutMs: GRACEFUL_SHUTDOWN_TIMEOUT_MS });
+                        process.exit(1);
+                    }, GRACEFUL_SHUTDOWN_TIMEOUT_MS).unref();
+                };
+
+                process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+                process.on('SIGINT', () => gracefulShutdown('SIGINT'));
             })
             .catch((error) => {
                 logger.error('server.startup_failed', { error: error.message });

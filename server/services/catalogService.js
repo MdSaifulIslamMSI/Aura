@@ -11,11 +11,16 @@ const CatalogSyncRun = require('../models/CatalogSyncRun');
 const SystemState = require('../models/SystemState');
 const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
-const { resolveCategory } = require('../config/categories');
 const { flags } = require('../config/catalogFlags');
-const { resolveProductImage } = require('./productImageResolver');
-const { analyzeCatalogRecord } = require('./catalogSourceIntegrityService');
 const { prepareCatalogSnapshotForImport } = require('./catalogSnapshotService');
+
+// — Domain modules extracted from this file —
+const {
+    safeString, safeLower, safeNumber, toInt, makeId, hashValue,
+    escapeRegExp, clonePlain, isSystemStateWriteBlocked, isDuplicateKeyError,
+    mapDuplicateToAppError,
+} = require('../utils/catalogUtils');
+const { normalizeProductRecord } = require('./catalog/normalizer');
 
 const WORKER_ID = `${os.hostname()}-${process.pid}`;
 const IMPORT_BATCH_SIZE = 500;
@@ -60,71 +65,6 @@ let baseProductFilterCache = {
 };
 const productIdentifierCache = new Map();
 
-const safeString = (value, fallback = '') => String(value === undefined || value === null ? fallback : value).trim();
-const safeLower = (value, fallback = '') => safeString(value, fallback).toLowerCase();
-const safeNumber = (value, fallback = 0) => {
-    const num = Number(value);
-    return Number.isFinite(num) ? num : fallback;
-};
-const toInt = (value, fallback = 0) => {
-    const num = Number(value);
-    if (!Number.isFinite(num)) return fallback;
-    return Math.trunc(num);
-};
-
-const makeId = (prefix) => `${prefix}_${Date.now()}_${crypto.randomBytes(5).toString('hex')}`;
-
-const hashValue = (value) => crypto.createHash('sha256').update(String(value)).digest('hex');
-const escapeRegExp = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-const normalizeTitleKey = (value) => (typeof Product.normalizeTitleKey === 'function'
-    ? Product.normalizeTitleKey(value)
-    : safeLower(String(value || '').replace(/\s+/g, ' ').trim()));
-const normalizeImageKey = (value) => (typeof Product.normalizeImageKey === 'function'
-    ? Product.normalizeImageKey(value)
-    : safeLower(String(value || '').trim()));
-const clonePlain = (value) => {
-    if (value === null || value === undefined) return value;
-    return JSON.parse(JSON.stringify(value));
-};
-const isSystemStateWriteBlocked = (error) => {
-    const message = safeLower(error?.message || '');
-    return message.includes('cannot create a new collection')
-        || message.includes('over your space quota')
-        || message.includes('using 510 collections of 500')
-        || message.includes('space quota');
-};
-const isDuplicateKeyError = (error) => {
-    if (!error) return false;
-    if (error.code === 11000) return true;
-    if (Array.isArray(error.writeErrors) && error.writeErrors.some((entry) => entry?.code === 11000)) return true;
-    return String(error.message || '').includes('E11000');
-};
-const detectDuplicateField = (error) => {
-    if (error?.keyPattern?.titleKey) return 'name';
-    if (error?.keyPattern?.imageKey) return 'image';
-
-    const rawMessage = safeString(error?.message || '');
-    if (rawMessage.includes('titleKey')) return 'name';
-    if (rawMessage.includes('imageKey')) return 'image';
-
-    if (Array.isArray(error?.writeErrors)) {
-        const joined = error.writeErrors.map((entry) => safeString(entry?.errmsg || '')).join(' ');
-        if (joined.includes('titleKey')) return 'name';
-        if (joined.includes('imageKey')) return 'image';
-    }
-
-    return 'product identity';
-};
-const mapDuplicateToAppError = (error) => {
-    const field = detectDuplicateField(error);
-    if (field === 'name') {
-        return new AppError('Duplicate product name is not allowed. Use a unique product name.', 409);
-    }
-    if (field === 'image') {
-        return new AppError('Duplicate product image is not allowed. Use a unique image URL.', 409);
-    }
-    return new AppError('Duplicate product identity is not allowed.', 409);
-};
 
 const getProviderSourceRef = (provider) => {
     const normalized = safeLower(provider, flags.catalogDefaultSyncProvider);
@@ -185,16 +125,6 @@ const deriveFallbackActiveCatalogVersion = async () => {
     return newest?.catalogVersion || 'legacy-v1';
 };
 
-const buildSearchText = (record = {}) => [
-    safeString(record.title),
-    safeString(record.brand),
-    safeString(record.category),
-    safeString(record.description),
-    Array.isArray(record.highlights) ? record.highlights.join(' ') : '',
-    Array.isArray(record.specifications)
-        ? record.specifications.map((entry) => `${safeString(entry?.key)} ${safeString(entry?.value)}`).join(' ')
-        : '',
-].filter(Boolean).join(' | ');
 
 const invalidateBaseProductFilterCache = () => {
     baseProductFilterCache = {
