@@ -80,7 +80,7 @@ body {
       linear-gradient(140deg, rgba(148, 163, 184, 0.035) 0%, rgba(148, 163, 184, 0) 48%),
       repeating-linear-gradient(0deg, rgba(148, 163, 184, 0.028) 0px, rgba(148, 163, 184, 0.028) 1px, transparent 1px, transparent 56px),
       repeating-linear-gradient(90deg, rgba(148, 163, 184, 0.024) 0px, rgba(148, 163, 184, 0.024) 1px, transparent 1px, transparent 56px);
-    background-attachment: fixed;
+    background-attachment: scroll;
   }
 
   body::before,
@@ -105,7 +105,13 @@ body {
     background:
       linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 16%),
       radial-gradient(circle at 20% 0%, rgba(255, 255, 255, 0.03), transparent 28%);
-    opacity: 0.9;
+    opacity: 0.76;
+  }
+
+  @media (min-width: 1024px) and (pointer: fine) {
+    html[data-motion-effective='cinematic'] body {
+      background-attachment: fixed;
+    }
   }
 
   h1,
@@ -1204,28 +1210,30 @@ html[data-crazy-mode='on'] .btn-primary {
   }
 
   .aura-route-shell {
-    opacity: 0.7;
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+
+  .aura-route-shell.aura-route-shell-balanced {
+    transition: opacity 180ms ease;
+  }
+
+  .aura-route-shell.aura-route-shell-cinematic {
+    opacity: 0.72;
     transform: translate3d(0, 16px, 0) scale(0.992);
     filter: blur(2px);
     transition:
       opacity 420ms cubic-bezier(0.2, 0.8, 0.2, 1),
       transform 420ms cubic-bezier(0.2, 0.8, 0.2, 1),
       filter 420ms cubic-bezier(0.2, 0.8, 0.2, 1);
-    will-change: opacity, transform, filter;
+    transition-duration: 520ms;
   }
 
   .aura-route-shell.aura-route-shell-active {
     opacity: 1;
     transform: translate3d(0, 0, 0) scale(1);
     filter: none;
-  }
-
-  .aura-route-shell.aura-route-shell-balanced {
-    transition-duration: 340ms;
-  }
-
-  .aura-route-shell.aura-route-shell-cinematic {
-    transition-duration: 520ms;
   }
 
   .aura-route-shell.aura-route-shell-minimal {
@@ -1377,6 +1385,10 @@ html[data-crazy-mode='on'] .btn-primary {
     transform: none !important;
     filter: none !important;
     transition: none !important;
+  }
+
+  html[data-motion-effective='minimal'] body::after {
+    display: none;
   }
 
   .container-flipkart {

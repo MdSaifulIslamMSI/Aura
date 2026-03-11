@@ -1,5 +1,5 @@
-import { lazy, Suspense } from 'react';
-import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
+import { BrowserRouter as Router, Route, Routes, useLocation } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { AuthProvider } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
@@ -7,7 +7,7 @@ import { WishlistProvider } from './context/WishlistContext';
 import { ProductProvider } from './context/ProductContext';
 import { ColorModeProvider } from './context/ColorModeContext';
 import { CrazyModeProvider } from './context/CrazyModeContext';
-import { MotionModeProvider } from './context/MotionModeContext';
+import { MotionModeProvider, useMotionMode } from './context/MotionModeContext';
 import { SocketProvider } from './context/SocketContext';
 import { AdminRoute, ProtectedRoute, SellerRoute } from './components/shared/ProtectedRoute';
 
@@ -18,7 +18,6 @@ import SmoothScrollManager from './components/shared/SmoothScrollManager';
 import ScrollProgressBar from './components/shared/ScrollProgressBar';
 import SectionAnchorRail from './components/shared/SectionAnchorRail';
 import RouteTransitionShell from './components/shared/RouteTransitionShell';
-import ChatBot from './components/features/chat/ChatBot';
 import AppErrorBoundary from './components/shared/AppErrorBoundary';
 import BackendStatusBanner from './components/shared/BackendStatusBanner';
 import CrazyModeToggle from './components/shared/CrazyModeToggle';
@@ -58,6 +57,48 @@ const AICompare = lazy(() => import('./pages/AICompare'));
 const VisualSearch = lazy(() => import('./pages/VisualSearch'));
 const Bundles = lazy(() => import('./pages/Bundles'));
 const MissionControl = lazy(() => import('./pages/MissionControl'));
+const ChatBot = lazy(() => import('./components/features/chat/ChatBot'));
+
+const AMBIENT_CHROME_PREFIXES = [
+  '/',
+  '/products',
+  '/category/',
+  '/search',
+  '/deals',
+  '/trending',
+  '/new-arrivals',
+  '/marketplace',
+  '/product/',
+  '/listing/',
+  '/seller/',
+  '/compare',
+  '/visual-search',
+  '/bundles',
+  '/mission-control',
+  '/trust',
+];
+
+const CHATBOT_PREFIXES = [
+  '/',
+  '/products',
+  '/category/',
+  '/search',
+  '/deals',
+  '/trending',
+  '/new-arrivals',
+  '/marketplace',
+  '/product/',
+  '/listing/',
+  '/seller/',
+  '/compare',
+  '/visual-search',
+  '/bundles',
+];
+
+const routeMatches = (pathname, prefixes) => {
+  if (pathname === '/') return prefixes.includes('/');
+  return prefixes.some((prefix) => prefix !== '/' && pathname.startsWith(prefix));
+};
 
 function renderRoute(element) {
   return <AppErrorBoundary>{element}</AppErrorBoundary>;
@@ -68,6 +109,51 @@ function renderCriticalRoute(element) {
 }
 
 function AppContent() {
+  const location = useLocation();
+  const { effectiveMotionMode } = useMotionMode();
+  const pathname = location.pathname;
+  const [chatBotReady, setChatBotReady] = useState(false);
+
+  const showAmbientChrome = useMemo(
+    () => !pathname.startsWith('/admin') && routeMatches(pathname, AMBIENT_CHROME_PREFIXES),
+    [pathname]
+  );
+  const showAnchorRail = showAmbientChrome && effectiveMotionMode === 'cinematic';
+  const showChatBot = useMemo(
+    () => !pathname.startsWith('/admin') && routeMatches(pathname, CHATBOT_PREFIXES),
+    [pathname]
+  );
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !showChatBot || chatBotReady) return undefined;
+
+    let cancelled = false;
+    let timeoutId = 0;
+    let idleId = 0;
+
+    const activate = () => {
+      if (!cancelled) {
+        setChatBotReady(true);
+      }
+    };
+
+    timeoutId = window.setTimeout(activate, 1400);
+
+    if (typeof window.requestIdleCallback === 'function') {
+      idleId = window.requestIdleCallback(activate, { timeout: 1800 });
+    }
+
+    return () => {
+      cancelled = true;
+      if (timeoutId) {
+        window.clearTimeout(timeoutId);
+      }
+      if (idleId && typeof window.cancelIdleCallback === 'function') {
+        window.cancelIdleCallback(idleId);
+      }
+    };
+  }, [chatBotReady, pathname, showChatBot]);
+
   return (
     <div className="aura-app-shell flex min-h-screen flex-col">
       {/* Skip-to-main-content — first focusable element for keyboard/screen-reader users.
@@ -80,8 +166,8 @@ function AppContent() {
       </a>
       <SmoothScrollManager />
       <ScrollToTop />
-      <ScrollProgressBar />
-      <SectionAnchorRail />
+      {showAmbientChrome ? <ScrollProgressBar /> : null}
+      {showAnchorRail ? <SectionAnchorRail /> : null}
       <AppErrorBoundary>
         <Navbar />
       </AppErrorBoundary>
@@ -146,9 +232,13 @@ function AppContent() {
           </RouteTransitionShell>
         </Suspense>
       </main>
-      <AppErrorBoundary>
-        <ChatBot />
-      </AppErrorBoundary>
+      {showChatBot && chatBotReady ? (
+        <Suspense fallback={null}>
+          <AppErrorBoundary>
+            <ChatBot />
+          </AppErrorBoundary>
+        </Suspense>
+      ) : null}
       <AppErrorBoundary>
         <Footer />
       </AppErrorBoundary>
