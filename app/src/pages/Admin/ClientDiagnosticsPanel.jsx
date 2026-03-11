@@ -123,7 +123,7 @@ export default function ClientDiagnosticsPanel() {
     };
 
     return (
-        <section className="rounded-xl border bg-white p-4 shadow-sm">
+        <section className="admin-premium-panel">
             <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                 <div>
                     <div className="flex items-center gap-2">
@@ -135,17 +135,17 @@ export default function ClientDiagnosticsPanel() {
                     </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                    <span className="rounded-full border border-cyan-200 bg-cyan-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-cyan-700">
+                    <span className="admin-premium-tag">
                         Source {source}
                     </span>
-                    <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-600">
+                    <span className="admin-premium-tag">
                         {count} records
                     </span>
                     <button
                         type="button"
                         onClick={() => loadDiagnostics(appliedFilters)}
                         disabled={loading}
-                        className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                        className="admin-premium-button px-3 py-2 text-sm disabled:opacity-60"
                     >
                         {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
                         Refresh
@@ -154,32 +154,32 @@ export default function ClientDiagnosticsPanel() {
             </div>
 
             <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <div className="admin-premium-subpanel">
                     <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Freshest Event</p>
                     <p className="mt-2 text-sm font-semibold text-slate-900">{formatDateTime(freshestTimestamp)}</p>
                 </div>
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <div className="admin-premium-subpanel">
                     <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Dashboard Sync</p>
                     <p className="mt-2 text-sm font-semibold text-slate-900">{formatDateTime(lastLoadedAt)}</p>
                 </div>
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <div className="admin-premium-subpanel">
                     <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Active Filters</p>
                     <p className="mt-2 text-sm font-semibold text-slate-900">{activeFilterCount}</p>
                 </div>
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <div className="admin-premium-subpanel">
                     <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Limit</p>
                     <p className="mt-2 text-sm font-semibold text-slate-900">{appliedFilters.limit}</p>
                 </div>
             </div>
 
-            <div className="mt-4 rounded-xl border border-slate-200 p-3">
+            <div className="admin-premium-subpanel mt-4">
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-6">
                     <label className="text-sm text-slate-600">
                         <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Severity</span>
                         <select
                             value={draftFilters.severity}
                             onChange={(event) => setDraftFilters((prev) => ({ ...prev, severity: event.target.value }))}
-                            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+                            className="admin-premium-control"
                         >
                             <option value="">All severities</option>
                             <option value="info">Info</option>
@@ -196,7 +196,7 @@ export default function ClientDiagnosticsPanel() {
                             value={draftFilters.type}
                             onChange={(event) => setDraftFilters((prev) => ({ ...prev, type: event.target.value }))}
                             placeholder="api.network_error"
-                            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                            className="admin-premium-control"
                         />
                     </label>
 
@@ -207,7 +207,7 @@ export default function ClientDiagnosticsPanel() {
                             value={draftFilters.requestId}
                             onChange={(event) => setDraftFilters((prev) => ({ ...prev, requestId: event.target.value }))}
                             placeholder="req-..."
-                            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                            className="admin-premium-control"
                         />
                     </label>
 
@@ -218,7 +218,7 @@ export default function ClientDiagnosticsPanel() {
                             value={draftFilters.sessionId}
                             onChange={(event) => setDraftFilters((prev) => ({ ...prev, sessionId: event.target.value }))}
                             placeholder="session-..."
-                            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                            className="admin-premium-control"
                         />
                     </label>
 
@@ -229,7 +229,7 @@ export default function ClientDiagnosticsPanel() {
                             value={draftFilters.route}
                             onChange={(event) => setDraftFilters((prev) => ({ ...prev, route: event.target.value }))}
                             placeholder="/products"
-                            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                            className="admin-premium-control"
                         />
                     </label>
 
@@ -238,7 +238,7 @@ export default function ClientDiagnosticsPanel() {
                         <select
                             value={draftFilters.limit}
                             onChange={(event) => setDraftFilters((prev) => ({ ...prev, limit: event.target.value }))}
-                            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+                            className="admin-premium-control"
                         >
                             <option value="10">10</option>
                             <option value="25">25</option>
@@ -252,7 +252,7 @@ export default function ClientDiagnosticsPanel() {
                     <button
                         type="button"
                         onClick={applyFilters}
-                        className="inline-flex items-center gap-2 rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-2 text-sm font-semibold text-cyan-700 hover:bg-cyan-100"
+                        className="admin-premium-button admin-premium-button-accent px-3 py-2 text-sm"
                     >
                         <Search className="h-4 w-4" />
                         Apply Filters
@@ -260,7 +260,7 @@ export default function ClientDiagnosticsPanel() {
                     <button
                         type="button"
                         onClick={clearFilters}
-                        className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                        className="admin-premium-button px-3 py-2 text-sm"
                     >
                         Clear
                     </button>
@@ -287,7 +287,7 @@ export default function ClientDiagnosticsPanel() {
                         const summary = summarizeDiagnostic(entry);
 
                         return (
-                            <article key={key} className="rounded-xl border border-slate-200 p-4">
+                            <article key={key} className="admin-premium-subpanel">
                                 <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                                     <div>
                                         <div className="flex flex-wrap items-center gap-2">
@@ -324,11 +324,11 @@ export default function ClientDiagnosticsPanel() {
                                 </div>
 
                                 <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
-                                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                                    <div className="admin-premium-subpanel rounded-lg">
                                         <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">URL</p>
                                         <p className="mt-1 break-all text-sm text-slate-700">{entry?.url || '-'}</p>
                                     </div>
-                                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                                    <div className="admin-premium-subpanel rounded-lg">
                                         <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Ingested At</p>
                                         <p className="mt-1 text-sm text-slate-700">{formatDateTime(entry?.ingestedAt || entry?.timestamp)}</p>
                                     </div>

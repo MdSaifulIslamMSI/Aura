@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Edit, Plus, Search, Trash2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Boxes, Edit, Layers3, Plus, Search, Trash2 } from 'lucide-react';
+import AdminPremiumShell, { AdminHeroStat, AdminPremiumPanel } from '@/components/shared/AdminPremiumShell';
 import { adminApi } from '@/services/api';
 import { formatPrice } from '@/utils/format';
 
@@ -94,40 +94,40 @@ const ProductList = () => {
     };
 
     return (
-        <div className="container mx-auto px-4 py-8 space-y-6">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold">Admin Product Control</h1>
-                    <p className="text-sm text-slate-500">Create, update, and govern product specs/pricing with strict admin controls.</p>
-                </div>
-                <Button onClick={() => navigate('/admin/product/new/edit')} className="w-full lg:w-auto">
-                    <Plus className="w-4 h-4 mr-2" />
+        <AdminPremiumShell
+            eyebrow="Catalog command"
+            title="Product control studio"
+            description="Create, update, and retire catalog inventory with a more polished premium command surface for pricing, source quality, and product governance."
+            actions={(
+                <button type="button" onClick={() => navigate('/admin/product/new/edit')} className="admin-premium-button admin-premium-button-primary w-full sm:w-auto">
+                    <Plus className="h-4 w-4" />
                     Add Real Product
-                </Button>
-            </div>
-
-            <div className="rounded-xl border bg-white p-4 shadow-sm">
+                </button>
+            )}
+            stats={[
+                <AdminHeroStat key="total" label="Visible products" value={total} detail="Items in the current result set" icon={<Boxes className="h-5 w-5" />} />,
+                <AdminHeroStat key="pages" label="Pagination" value={pages} detail={`Page ${filters.page} of ${pages}`} icon={<Layers3 className="h-5 w-5" />} />,
+                <AdminHeroStat key="search" label="Search state" value={filters.search ? 'Focused' : 'Open'} detail={filters.search || 'Full catalog scope'} icon={<Search className="h-5 w-5" />} />,
+            ]}
+        >
+            <AdminPremiumPanel>
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-6">
                     <div className="xl:col-span-2">
-                        <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Search</label>
-                        <div className="mt-1 flex items-center rounded-lg border px-3">
-                            <Search className="w-4 h-4 text-slate-400" />
+                        <label className="premium-kicker">Search</label>
+                        <div className="mt-1 flex items-center rounded-[1.05rem] border border-white/10 bg-white/5 px-3">
+                            <Search className="h-4 w-4 text-slate-400" />
                             <input
                                 value={filters.search}
                                 onChange={(event) => onFilterChange('search', event.target.value)}
                                 placeholder="Title, brand, category, id"
-                                className="w-full bg-transparent px-2 py-2 text-sm outline-none"
+                                className="admin-premium-control border-0 bg-transparent px-2 py-2 shadow-none focus:ring-0"
                             />
                         </div>
                     </div>
 
                     <div>
-                        <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Source</label>
-                        <select
-                            value={filters.source}
-                            onChange={(event) => onFilterChange('source', event.target.value)}
-                            className="mt-1 w-full rounded-lg border bg-white px-3 py-2 text-sm"
-                        >
+                        <label className="premium-kicker">Source</label>
+                        <select value={filters.source} onChange={(event) => onFilterChange('source', event.target.value)} className="admin-premium-control mt-1">
                             <option value="">All</option>
                             <option value="manual">Manual</option>
                             <option value="batch">Batch</option>
@@ -136,12 +136,8 @@ const ProductList = () => {
                     </div>
 
                     <div>
-                        <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Category</label>
-                        <select
-                            value={filters.category}
-                            onChange={(event) => onFilterChange('category', event.target.value)}
-                            className="mt-1 w-full rounded-lg border bg-white px-3 py-2 text-sm"
-                        >
+                        <label className="premium-kicker">Category</label>
+                        <select value={filters.category} onChange={(event) => onFilterChange('category', event.target.value)} className="admin-premium-control mt-1">
                             <option value="">All</option>
                             {categoryOptions.map((option) => (
                                 <option key={option} value={option}>{option}</option>
@@ -150,12 +146,8 @@ const ProductList = () => {
                     </div>
 
                     <div>
-                        <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Brand</label>
-                        <select
-                            value={filters.brand}
-                            onChange={(event) => onFilterChange('brand', event.target.value)}
-                            className="mt-1 w-full rounded-lg border bg-white px-3 py-2 text-sm"
-                        >
+                        <label className="premium-kicker">Brand</label>
+                        <select value={filters.brand} onChange={(event) => onFilterChange('brand', event.target.value)} className="admin-premium-control mt-1">
                             <option value="">All</option>
                             {brandOptions.map((option) => (
                                 <option key={option} value={option}>{option}</option>
@@ -164,12 +156,8 @@ const ProductList = () => {
                     </div>
 
                     <div>
-                        <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Sort</label>
-                        <select
-                            value={filters.sort}
-                            onChange={(event) => onFilterChange('sort', event.target.value)}
-                            className="mt-1 w-full rounded-lg border bg-white px-3 py-2 text-sm"
-                        >
+                        <label className="premium-kicker">Sort</label>
+                        <select value={filters.sort} onChange={(event) => onFilterChange('sort', event.target.value)} className="admin-premium-control mt-1">
                             <option value="newest">Newest</option>
                             <option value="oldest">Oldest</option>
                             <option value="price-asc">Price Low to High</option>
@@ -179,71 +167,69 @@ const ProductList = () => {
                         </select>
                     </div>
                 </div>
-            </div>
+            </AdminPremiumPanel>
 
-            <div className="rounded-xl border bg-white shadow-sm overflow-hidden">
-                <div className="table-responsive">
-                    <table className="min-w-[980px] w-full divide-y divide-slate-200">
-                        <thead className="bg-slate-50">
+            <div className="admin-premium-table-shell">
+                <div className="table-responsive admin-premium-scroll">
+                    <table className="admin-premium-table min-w-[980px]">
+                        <thead>
                             <tr>
-                                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Product</th>
-                                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Pricing</th>
-                                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Inventory</th>
-                                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Specs</th>
-                                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Catalog</th>
-                                <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">Actions</th>
+                                <th>Product</th>
+                                <th>Pricing</th>
+                                <th>Inventory</th>
+                                <th>Specs</th>
+                                <th>Catalog</th>
+                                <th className="text-right">Actions</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100 bg-white">
+                        <tbody>
                             {loading ? (
                                 <tr>
-                                    <td colSpan={6} className="px-4 py-8 text-center text-sm text-slate-500">Loading products...</td>
+                                    <td colSpan={6} className="px-4 py-8 text-center text-sm text-slate-400">Loading products...</td>
                                 </tr>
                             ) : products.length === 0 ? (
                                 <tr>
-                                    <td colSpan={6} className="px-4 py-8 text-center text-sm text-slate-500">No products found for current filters.</td>
+                                    <td colSpan={6} className="px-4 py-8 text-center text-sm text-slate-400">No products found for current filters.</td>
                                 </tr>
                             ) : products.map((product) => {
                                 const productRef = resolveProductRef(product);
                                 const key = `${product._id || product.id || product.externalId}`;
                                 return (
-                                    <tr key={key} className="hover:bg-slate-50/80">
-                                        <td className="px-4 py-3 align-top">
+                                    <tr key={key}>
+                                        <td>
                                             <div className="flex items-start gap-3">
-                                                <img src={product.image} alt="" className="h-12 w-12 rounded object-cover border" />
+                                                <img src={product.image} alt="" className="h-12 w-12 rounded-xl border border-white/10 object-cover" />
                                                 <div>
-                                                    <p className="font-semibold text-slate-900 leading-5">{product.title}</p>
-                                                    <p className="text-xs text-slate-500">{product.brand} | {product.category}</p>
-                                                    <p className="text-[11px] text-slate-400 mt-1">ID: {product.id || '-'} | {product.externalId || '-'}</p>
+                                                    <p className="admin-premium-text-strong font-semibold leading-5">{product.title}</p>
+                                                    <p className="admin-premium-text text-xs">{product.brand} | {product.category}</p>
+                                                    <p className="admin-premium-text-muted mt-1 text-[11px]">ID: {product.id || '-'} | {product.externalId || '-'}</p>
                                                 </div>
                                             </div>
                                         </td>
-                                        <td className="px-4 py-3 align-top">
-                                            <p className="font-semibold text-slate-900">{formatPrice(product.price)}</p>
-                                            <p className="text-xs text-slate-500">
+                                        <td>
+                                            <p className="admin-premium-text-strong font-semibold">{formatPrice(product.price)}</p>
+                                            <p className="admin-premium-text text-xs">
                                                 MRP: {formatPrice(product.originalPrice || product.price)} | Discount: {Number(product.discountPercentage || 0).toFixed(1)}%
                                             </p>
                                         </td>
-                                        <td className="px-4 py-3 align-top">
-                                            <p className="font-semibold text-slate-900">{Number(product.stock || 0)} units</p>
-                                            <p className="text-xs text-slate-500">Updated: {new Date(product.updatedAt || Date.now()).toLocaleString()}</p>
+                                        <td>
+                                            <p className="admin-premium-text-strong font-semibold">{Number(product.stock || 0)} units</p>
+                                            <p className="admin-premium-text text-xs">Updated: {new Date(product.updatedAt || Date.now()).toLocaleString()}</p>
                                         </td>
-                                        <td className="px-4 py-3 align-top">
-                                            <p className="text-sm text-slate-700">{Array.isArray(product.specifications) ? product.specifications.length : 0} specs</p>
-                                            <p className="text-xs text-slate-500">{Array.isArray(product.highlights) ? product.highlights.length : 0} highlights</p>
+                                        <td>
+                                            <p className="admin-premium-text text-sm">{Array.isArray(product.specifications) ? product.specifications.length : 0} specs</p>
+                                            <p className="admin-premium-text text-xs">{Array.isArray(product.highlights) ? product.highlights.length : 0} highlights</p>
                                         </td>
-                                        <td className="px-4 py-3 align-top">
-                                            <span className="inline-flex rounded-full border border-slate-200 px-2 py-1 text-[11px] font-semibold text-slate-600">
-                                                {product.source || 'manual'}
-                                            </span>
-                                            <p className="text-[11px] text-slate-500 mt-1">{product.catalogVersion || '-'}</p>
+                                        <td>
+                                            <span className="admin-premium-tag">{product.source || 'manual'}</span>
+                                            <p className="admin-premium-text-muted mt-1 text-[11px]">{product.catalogVersion || '-'}</p>
                                         </td>
-                                        <td className="px-4 py-3 align-top text-right">
+                                        <td className="text-right">
                                             <div className="inline-flex gap-2">
                                                 <button
                                                     type="button"
                                                     onClick={() => navigate(`/admin/product/${encodeURIComponent(String(productRef))}/edit`)}
-                                                    className="rounded-lg border px-2 py-1 text-blue-700 hover:bg-blue-50"
+                                                    className="admin-premium-button px-3 py-2"
                                                     title="Edit product"
                                                 >
                                                     <Edit className="h-4 w-4" />
@@ -252,7 +238,7 @@ const ProductList = () => {
                                                     type="button"
                                                     onClick={() => handleDelete(product)}
                                                     disabled={busyProductRef === String(productRef)}
-                                                    className="rounded-lg border px-2 py-1 text-rose-700 hover:bg-rose-50 disabled:opacity-60"
+                                                    className="admin-premium-button admin-premium-button-danger px-3 py-2"
                                                     title="Delete product"
                                                 >
                                                     <Trash2 className="h-4 w-4" />
@@ -267,28 +253,19 @@ const ProductList = () => {
                 </div>
             </div>
 
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-sm">
-                <p className="text-slate-600">Total {total} products | Page {filters.page} of {pages}</p>
+            <div className="flex flex-col gap-2 text-sm sm:flex-row sm:items-center sm:justify-between">
+                <p className="admin-premium-text">Total {total} products | Page {filters.page} of {pages}</p>
                 <div className="flex items-center gap-2">
-                    <Button
-                        variant="outline"
-                        disabled={filters.page <= 1}
-                        onClick={() => onFilterChange('page', filters.page - 1)}
-                    >
+                    <button type="button" className="admin-premium-button" disabled={filters.page <= 1} onClick={() => onFilterChange('page', filters.page - 1)}>
                         Previous
-                    </Button>
-                    <Button
-                        variant="outline"
-                        disabled={filters.page >= pages}
-                        onClick={() => onFilterChange('page', filters.page + 1)}
-                    >
+                    </button>
+                    <button type="button" className="admin-premium-button" disabled={filters.page >= pages} onClick={() => onFilterChange('page', filters.page + 1)}>
                         Next
-                    </Button>
+                    </button>
                 </div>
             </div>
-        </div>
+        </AdminPremiumShell>
     );
 };
 
 export default ProductList;
-

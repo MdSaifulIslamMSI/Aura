@@ -19,6 +19,7 @@ import {
     TrendingUp,
     Users,
 } from 'lucide-react';
+import AdminPremiumShell, { AdminHeroStat } from '@/components/shared/AdminPremiumShell';
 import { AuthContext } from '@/context/AuthContext';
 import { adminApi } from '@/services/api';
 import ClientDiagnosticsPanel from './ClientDiagnosticsPanel';
@@ -323,51 +324,48 @@ export default function AdminDashboard() {
     }, [notifications]);
 
     return (
-        <div className="container mx-auto space-y-6 px-4 py-8">
-            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold text-gray-900">Admin Operations Portal</h1>
-                    <p className="text-sm text-gray-500">Real-time intelligence, anomaly alerts, and persistent admin controls.</p>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                    <select value={analyticsRange} onChange={(e) => setAnalyticsRange(e.target.value)} className="rounded-lg border bg-white px-3 py-2 text-sm">
+        <AdminPremiumShell
+            eyebrow="Mission control"
+            title="Admin operations portal"
+            description="Real-time intelligence, anomaly alerts, readiness signals, and persistent operational controls in one premium command surface."
+            actions={(
+                <>
+                    <select value={analyticsRange} onChange={(e) => setAnalyticsRange(e.target.value)} className="admin-premium-control min-w-[9rem]">
                         <option value="24h">Last 24h</option>
                         <option value="7d">Last 7 days</option>
                         <option value="30d">Last 30 days</option>
                         <option value="90d">Last 90 days</option>
                     </select>
-                    <select value={anomalyWindow} onChange={(e) => setAnomalyWindow(Number(e.target.value))} className="rounded-lg border bg-white px-3 py-2 text-sm">
+                    <select value={anomalyWindow} onChange={(e) => setAnomalyWindow(Number(e.target.value))} className="admin-premium-control min-w-[9rem]">
                         <option value={30}>Anomaly 30m</option>
                         <option value={60}>Anomaly 60m</option>
                         <option value={120}>Anomaly 120m</option>
                     </select>
-                    <button type="button" onClick={refreshAll} className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2 text-sm font-semibold hover:bg-gray-50">
+                    <button type="button" onClick={refreshAll} className="admin-premium-button">
                         <RefreshCw className="h-4 w-4" />
                         Refresh
                     </button>
-                    <button
-                        type="button"
-                        onClick={runOpsSmoke}
-                        disabled={opsSmokeBusy}
-                        className="inline-flex items-center gap-2 rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-2 text-sm font-semibold text-cyan-700 disabled:opacity-60"
-                    >
+                    <button type="button" onClick={runOpsSmoke} disabled={opsSmokeBusy} className="admin-premium-button admin-premium-button-accent">
                         {opsSmokeBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
                         Run Ops Smoke
                     </button>
-                    <button type="button" onClick={markAllRead} disabled={markAllBusy} className="inline-flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 disabled:opacity-60">
+                    <button type="button" onClick={markAllRead} disabled={markAllBusy} className="admin-premium-button admin-premium-button-success">
                         {markAllBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCheck className="h-4 w-4" />}
                         Mark Matching Read
                     </button>
-                    <button
-                        type="button"
-                        onClick={() => navigate('/admin/users')}
-                        className="inline-flex items-center gap-2 rounded-lg border border-violet-200 bg-violet-50 px-4 py-2 text-sm font-semibold text-violet-700 hover:bg-violet-100"
-                    >
+                    <button type="button" onClick={() => navigate('/admin/users')} className="admin-premium-button admin-premium-button-primary">
                         <Users className="h-4 w-4" />
                         User Governance
                     </button>
-                </div>
-            </div>
+                </>
+            )}
+            stats={[
+                <AdminHeroStat key="readiness" label="Ops readiness" value={opsLoading ? '...' : Number(opsReadiness.readinessScore || 0)} detail={opsLoading ? 'Loading readiness' : String(opsReadiness.saturation || 'degraded').toUpperCase()} icon={<ShieldCheck className="h-5 w-5" />} />,
+                <AdminHeroStat key="signals" label="Unread signals" value={summaryLoading ? '...' : Number(summary.unreadCount || 0)} detail={`${Number(summary.criticalUnreadCount || 0)} critical unread`} icon={<Bell className="h-5 w-5" />} />,
+                <AdminHeroStat key="revenue" label="Gross revenue" value={analyticsLoading ? '...' : formatCurrency(analytics.overview.orders.grossRevenue)} detail={`AOV ${formatCurrency(analytics.overview.orders.avgOrderValue)}`} icon={<TrendingUp className="h-5 w-5" />} />,
+                <AdminHeroStat key="incident" label="Incident score" value={healthLoading || analyticsLoading || summaryLoading ? '...' : incidentScore} detail={incidentTier} icon={<AlertTriangle className="h-5 w-5" />} />,
+            ]}
+        >
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
                 <StatCard title="Unread Signals" value={summary.unreadCount} icon={<Bell className="h-5 w-5 text-cyan-600" />} loading={summaryLoading} />
@@ -404,7 +402,7 @@ export default function AdminDashboard() {
             </div>
 
             <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
-                <div className="rounded-xl border bg-white p-4 shadow-sm xl:col-span-3">
+                <div className="admin-premium-panel xl:col-span-3">
                     <div className="flex items-start justify-between gap-3">
                         <div>
                             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Incident Score</p>
@@ -428,7 +426,7 @@ export default function AdminDashboard() {
                     </div>
                 </div>
 
-                <div className="rounded-xl border bg-white p-4 shadow-sm xl:col-span-6">
+                <div className="admin-premium-panel xl:col-span-6">
                     <div className="flex items-center justify-between">
                         <div>
                             <h2 className="text-lg font-semibold text-slate-900">System Health Fabric</h2>
@@ -482,17 +480,15 @@ export default function AdminDashboard() {
                     </div>
                 </div>
 
-                <div className="rounded-xl border bg-white p-4 shadow-sm xl:col-span-3">
+                <div className="admin-premium-panel xl:col-span-3">
                     <h2 className="text-lg font-semibold text-slate-900">Auto-Refresh Control</h2>
                     <p className="text-xs text-slate-500">Tune dashboard polling during incidents.</p>
                     <div className="mt-3 flex items-center gap-2">
                         <button
                             type="button"
                             onClick={() => setAutoRefreshEnabled((prev) => !prev)}
-                            className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold ${
-                                autoRefreshEnabled
-                                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                                    : 'border-slate-200 bg-slate-50 text-slate-700'
+                            className={`admin-premium-button inline-flex items-center gap-2 px-3 py-2 text-xs font-semibold ${
+                                autoRefreshEnabled ? 'admin-premium-button-success' : ''
                             }`}
                         >
                             {autoRefreshEnabled ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
@@ -501,7 +497,7 @@ export default function AdminDashboard() {
                         <select
                             value={autoRefreshSec}
                             onChange={(e) => setAutoRefreshSec(Number(e.target.value))}
-                            className="rounded-lg border bg-white px-2 py-2 text-xs"
+                            className="admin-premium-control px-2 py-2 text-xs"
                         >
                             <option value={10}>10s</option>
                             <option value={15}>15s</option>
@@ -534,12 +530,7 @@ export default function AdminDashboard() {
                                         </div>
                                         <p className="mt-1 line-clamp-2 text-[11px] text-slate-500">{entry.summary}</p>
                                         {!entry.isRead ? (
-                                            <button
-                                                type="button"
-                                                className="mt-2 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-700"
-                                                onClick={() => toggleRead(entry)}
-                                                disabled={busyNotificationId === entry.notificationId}
-                                            >
+                                            <button type="button" className="admin-premium-button admin-premium-button-success mt-2 px-2 py-1 text-[10px] font-semibold" onClick={() => toggleRead(entry)} disabled={busyNotificationId === entry.notificationId}>
                                                 {busyNotificationId === entry.notificationId ? 'Updating...' : 'Mark Read'}
                                             </button>
                                         ) : null}
@@ -553,7 +544,7 @@ export default function AdminDashboard() {
 
             <ClientDiagnosticsPanel />
 
-            <div className="rounded-xl border bg-white p-4 shadow-sm">
+            <div className="admin-premium-panel">
                 <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                     <div>
                         <h2 className="text-lg font-semibold text-gray-900">Business Intelligence Layer</h2>
@@ -587,7 +578,7 @@ export default function AdminDashboard() {
                     <SeriesCard title="Failed Payments Timeline" icon={<AlertTriangle className="h-4 w-4 text-rose-600" />} points={analytics.points} dataKey="failedPayments" formatter={formatNumber} loading={analyticsLoading} />
                 </div>
 
-                <div className="mt-4 rounded-xl border border-slate-200 p-3">
+                <div className="admin-premium-subpanel mt-4">
                     <h3 className="text-sm font-semibold text-slate-900">Detected Anomalies</h3>
                     {analyticsLoading ? (
                         <div className="mt-2 flex items-center gap-2 text-sm text-slate-500">
@@ -614,12 +605,12 @@ export default function AdminDashboard() {
             </div>
 
             {biConfig?.powerBi?.enabled && biConfig?.powerBi?.dashboardUrl ? (
-                <div className="rounded-xl border bg-white p-4 shadow-sm">
+                <div className="admin-premium-panel">
                     <div className="flex items-center justify-between">
                         <h2 className="text-lg font-semibold text-gray-900">Power BI: {biConfig.powerBi.workspaceLabel || 'Executive Workspace'}</h2>
                         <span className="rounded-full border border-indigo-200 bg-indigo-50 px-2 py-1 text-xs font-semibold text-indigo-700">Mode: {biConfig.mode}</span>
                     </div>
-                    <div className="mt-3 overflow-hidden rounded-lg border">
+                    <div className="admin-premium-table-shell mt-3 overflow-hidden">
                         <iframe src={biConfig.powerBi.dashboardUrl} title="Power BI Dashboard" className="h-[520px] w-full" loading="lazy" />
                     </div>
                 </div>
@@ -627,7 +618,7 @@ export default function AdminDashboard() {
 
             <div className="grid grid-cols-1 gap-4 xl:grid-cols-5">
                 <div className="space-y-4 xl:col-span-2">
-                    <div className="rounded-xl border bg-white p-4">
+                    <div className="admin-premium-panel">
                         <h2 className="text-lg font-semibold text-gray-900">Top Actions (24h)</h2>
                         <div className="mt-3 space-y-2">
                             {(summary.topActions || []).length === 0 ? (
@@ -643,29 +634,29 @@ export default function AdminDashboard() {
                         </div>
                     </div>
 
-                    <div className="rounded-xl border bg-white p-4">
+                    <div className="admin-premium-panel">
                         <h2 className="text-lg font-semibold text-gray-900">Quick Actions</h2>
                         <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                            <button type="button" onClick={() => navigate('/admin/orders')} className="rounded-lg border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">Open Orders Console</button>
-                            <button type="button" onClick={() => navigate('/admin/payments')} className="rounded-lg border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">Open Payment Ops</button>
-                            <button type="button" onClick={() => navigate('/admin/products')} className="rounded-lg border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">Product Control</button>
-                            <button type="button" onClick={() => navigate('/admin/dashboard')} className="rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-2 text-sm font-semibold text-cyan-700 hover:bg-cyan-100">{currentUser?.email || 'Portal Session'}</button>
+                            <button type="button" onClick={() => navigate('/admin/orders')} className="admin-premium-button px-3 py-2 text-sm font-semibold">Open Orders Console</button>
+                            <button type="button" onClick={() => navigate('/admin/payments')} className="admin-premium-button px-3 py-2 text-sm font-semibold">Open Payment Ops</button>
+                            <button type="button" onClick={() => navigate('/admin/products')} className="admin-premium-button px-3 py-2 text-sm font-semibold">Product Control</button>
+                            <button type="button" onClick={() => navigate('/admin/dashboard')} className="admin-premium-button admin-premium-button-accent px-3 py-2 text-sm font-semibold">{currentUser?.email || 'Portal Session'}</button>
                         </div>
                     </div>
                 </div>
 
-                <div className="rounded-xl border bg-white p-4 xl:col-span-3">
+                <div className="admin-premium-panel xl:col-span-3">
                     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                         <h2 className="text-lg font-semibold text-gray-900">Live Notification Feed</h2>
                         <div className="flex flex-wrap items-center gap-2">
-                            <input type="text" value={filters.search} onChange={(e) => { setPage(1); setFilters((prev) => ({ ...prev, search: e.target.value })); }} placeholder="Search action, actor, path..." className="rounded-lg border px-3 py-2 text-sm" />
-                            <select value={filters.severity} onChange={(e) => { setPage(1); setFilters((prev) => ({ ...prev, severity: e.target.value })); }} className="rounded-lg border px-3 py-2 text-sm">
+                            <input type="text" value={filters.search} onChange={(e) => { setPage(1); setFilters((prev) => ({ ...prev, search: e.target.value })); }} placeholder="Search action, actor, path..." className="admin-premium-control" />
+                            <select value={filters.severity} onChange={(e) => { setPage(1); setFilters((prev) => ({ ...prev, severity: e.target.value })); }} className="admin-premium-control">
                                 <option value="">All Severities</option>
                                 <option value="info">Info</option>
                                 <option value="warning">Warning</option>
                                 <option value="critical">Critical</option>
                             </select>
-                            <label className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm">
+                            <label className="admin-premium-button inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm">
                                 <input type="checkbox" checked={filters.unreadOnly} onChange={(e) => { setPage(1); setFilters((prev) => ({ ...prev, unreadOnly: e.target.checked })); }} />
                                 Unread Only
                             </label>
@@ -679,7 +670,7 @@ export default function AdminDashboard() {
                             <div className="rounded-lg border border-dashed p-4 text-sm text-gray-500">No notifications match current filters.</div>
                         ) : (
                             notifications.map((entry) => (
-                                <div key={entry.notificationId} className="rounded-lg border bg-white p-3">
+                                <div key={entry.notificationId} className="admin-premium-subpanel">
                                     <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
                                         <div>
                                             <div className="flex flex-wrap items-center gap-2">
@@ -691,7 +682,7 @@ export default function AdminDashboard() {
                                             <p className="mt-1 text-xs text-gray-500">{entry.actor?.email || 'Unknown actor'} | {entry.method} {entry.path}</p>
                                             <p className="mt-1 text-xs text-gray-400">{formatDateTime(entry.createdAt)} | {entry.durationMs} ms | status {entry.statusCode}</p>
                                         </div>
-                                        <button type="button" disabled={busyNotificationId === entry.notificationId} onClick={() => toggleRead(entry)} className={`inline-flex items-center justify-center rounded-lg border px-3 py-2 text-xs font-semibold ${entry.isRead ? 'border-gray-200 text-gray-600' : 'border-emerald-200 bg-emerald-50 text-emerald-700'} disabled:opacity-60`}>
+                                        <button type="button" disabled={busyNotificationId === entry.notificationId} onClick={() => toggleRead(entry)} className={`admin-premium-button inline-flex items-center justify-center px-3 py-2 text-xs font-semibold ${entry.isRead ? '' : 'admin-premium-button-success'} disabled:opacity-60`}>
                                             {busyNotificationId === entry.notificationId ? 'Updating...' : entry.isRead ? 'Mark Unread' : 'Mark Read'}
                                         </button>
                                     </div>
@@ -703,13 +694,13 @@ export default function AdminDashboard() {
                     <div className="mt-4 flex items-center justify-between border-t pt-3">
                         <p className="text-sm text-gray-500">{total} total records | page {page} / {totalPages}</p>
                         <div className="flex items-center gap-2">
-                            <button type="button" disabled={page <= 1} onClick={() => setPage((prev) => Math.max(prev - 1, 1))} className="rounded-lg border px-3 py-1.5 text-sm disabled:opacity-50">Previous</button>
-                            <button type="button" disabled={page >= totalPages} onClick={() => setPage((prev) => prev + 1)} className="rounded-lg border px-3 py-1.5 text-sm disabled:opacity-50">Next</button>
+                            <button type="button" disabled={page <= 1} onClick={() => setPage((prev) => Math.max(prev - 1, 1))} className="admin-premium-button px-3 py-1.5 text-sm disabled:opacity-50">Previous</button>
+                            <button type="button" disabled={page >= totalPages} onClick={() => setPage((prev) => prev + 1)} className="admin-premium-button px-3 py-1.5 text-sm disabled:opacity-50">Next</button>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
+        </AdminPremiumShell>
     );
 }
 
@@ -719,7 +710,7 @@ function ExportButton({ label, busy, onClick }) {
             type="button"
             onClick={onClick}
             disabled={busy}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+            className="admin-premium-button px-3 py-2 text-xs disabled:opacity-60"
         >
             {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
             {label}
@@ -734,7 +725,7 @@ function SeriesCard({ title, icon, points, dataKey, formatter, loading }) {
     const latest = Number(visible[visible.length - 1]?.[dataKey] || 0);
 
     return (
-        <div className="rounded-xl border border-slate-200 p-3">
+        <div className="admin-premium-subpanel p-3">
             <div className="flex items-center justify-between">
                 <p className="text-sm font-semibold text-slate-900">{title}</p>
                 {icon}
@@ -771,7 +762,7 @@ function SeriesCard({ title, icon, points, dataKey, formatter, loading }) {
 
 function HealthCell({ icon, label, value, ok, loading }) {
     return (
-        <div className="rounded-lg border border-slate-200 p-2">
+        <div className="admin-premium-subpanel rounded-lg p-2">
             <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                     {icon}
@@ -792,7 +783,7 @@ function HealthCell({ icon, label, value, ok, loading }) {
 
 function StatCard({ title, value, icon, loading }) {
     return (
-        <div className="rounded-xl border bg-white p-4 shadow-sm">
+        <div className="admin-premium-stat-card">
             <div className="flex items-center justify-between">
                 <p className="text-sm font-medium text-gray-600">{title}</p>
                 {icon}

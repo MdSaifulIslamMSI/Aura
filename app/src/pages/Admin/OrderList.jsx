@@ -5,6 +5,7 @@ import { formatPrice } from '@/utils/format';
 import { XCircle, CheckCircle, Loader2, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import AdminPremiumShell, { AdminHeroStat } from '@/components/shared/AdminPremiumShell';
 
 const STATUS_OPTIONS = ['processing', 'shipped', 'delivered'];
 
@@ -193,42 +194,52 @@ const OrderList = () => {
 
     if (loading) {
         return (
-            <div className="p-8 flex items-center gap-2 text-slate-500">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Loading orders...
-            </div>
+            <AdminPremiumShell
+                eyebrow="Order command"
+                title="Order operations console"
+                description="Track shipping, cancellations, refunds, replacements, warranty claims, and support replies from one premium ops surface."
+            >
+                <div className="admin-premium-panel flex items-center gap-2 p-8 text-slate-400">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Loading orders...
+                </div>
+            </AdminPremiumShell>
         );
     }
 
     return (
-        <div className="container mx-auto px-4 py-8">
-            <div className="flex items-center justify-between mb-6">
-                <h1 className="text-2xl font-bold">All Orders</h1>
-                <button
-                    type="button"
-                    onClick={loadOrders}
-                    className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
-                >
-                    <RefreshCw className="w-4 h-4" />
+        <AdminPremiumShell
+            eyebrow="Order command"
+            title="Order operations console"
+            description="Track shipping, cancellations, refunds, replacements, warranty claims, and support replies from one premium operational surface."
+            actions={(
+                <button type="button" onClick={loadOrders} className="admin-premium-button">
+                    <RefreshCw className="h-4 w-4" />
                     Refresh
                 </button>
-            </div>
+            )}
+            stats={[
+                <AdminHeroStat key="orders" label="Orders" value={orders.length} detail="Current loaded console set" icon={<RefreshCw className="h-5 w-5" />} />,
+                <AdminHeroStat key="paid" label="Paid" value={orders.filter((order) => order.isPaid).length} detail="Successfully funded orders" icon={<CheckCircle className="h-5 w-5" />} />,
+                <AdminHeroStat key="pending" label="Pending pay" value={orders.filter((order) => !order.isPaid).length} detail="Awaiting successful capture" icon={<XCircle className="h-5 w-5" />} />,
+            ]}
+        >
 
-            <div className="bg-white rounded-lg shadow overflow-hidden">
-                <div className="table-responsive">
-                    <table className="min-w-[1100px] w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
+            <div className="admin-premium-table-shell">
+                <div className="table-responsive admin-premium-scroll">
+                    <table className="admin-premium-table min-w-[1100px]">
+                        <thead>
                             <tr>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">User</th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Order</th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Payment</th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Refund Ops</th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Replacement Ops</th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Shipping / Support Ops</th>
+                                <th>ID</th>
+                                <th>User</th>
+                                <th>Order</th>
+                                <th>Payment</th>
+                                <th>Refund Ops</th>
+                                <th>Replacement Ops</th>
+                                <th>Shipping / Support Ops</th>
                             </tr>
                         </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
+                        <tbody>
                             {orders.map((order) => {
                                 const refunds = order.commandCenter?.refunds || [];
                                 const replacements = order.commandCenter?.replacements || [];
@@ -245,7 +256,7 @@ const OrderList = () => {
                                 const isSupportBusy = Boolean(supportSubmitting[order._id]);
 
                                 return (
-                                    <tr key={order._id} className="hover:bg-gray-50">
+                                    <tr key={order._id}>
                                         <td className="px-4 py-4 whitespace-nowrap text-sm font-mono text-gray-500">
                                             {order._id.slice(-8)}
                                         </td>
@@ -336,7 +347,7 @@ const OrderList = () => {
                                                                 placeholder="Tracking ID (optional)"
                                                                 value={trackingDrafts[order._id] || ''}
                                                                 onChange={(e) => setTrackingDraft(order._id, e.target.value)}
-                                                                className="w-full rounded border border-gray-300 px-2 py-1 text-[10px]"
+                                                                className="admin-premium-control w-full px-2 py-1 text-[10px]"
                                                                 disabled={isReplacementBusy}
                                                             />
                                                             <div className="flex gap-1 pt-1">
@@ -372,7 +383,7 @@ const OrderList = () => {
                                                 <select
                                                     value={statusDrafts[order._id] || currentStatus}
                                                     onChange={(e) => setDraftStatus(order._id, e.target.value)}
-                                                    className="w-full rounded border border-gray-300 px-2 py-1.5 text-xs"
+                                                    className="admin-premium-control w-full px-2 py-1.5 text-xs"
                                                     disabled={isBusy || currentStatus === 'cancelled' || currentStatus === 'delivered'}
                                                 >
                                                     <option value={currentStatus}>{currentStatus}</option>
@@ -384,7 +395,7 @@ const OrderList = () => {
                                                     type="button"
                                                     onClick={() => updateStatus(order._id)}
                                                     disabled={isBusy || currentStatus === 'cancelled' || currentStatus === 'delivered'}
-                                                    className="w-full rounded bg-indigo-600 px-2 py-1.5 text-white text-xs font-bold disabled:opacity-50"
+                                                    className="admin-premium-button admin-premium-button-primary w-full px-2 py-1.5 text-xs font-bold disabled:opacity-50"
                                                 >
                                                     {isBusy ? 'Updating...' : 'Apply'}
                                                 </button>
@@ -394,14 +405,14 @@ const OrderList = () => {
                                                     placeholder="Cancel reason (optional)"
                                                     value={cancelReasonDrafts[order._id] || ''}
                                                     onChange={(e) => setDraftCancelReason(order._id, e.target.value)}
-                                                    className="w-full rounded border border-gray-300 px-2 py-1.5 text-xs"
+                                                    className="admin-premium-control w-full px-2 py-1.5 text-xs"
                                                     disabled={isCancelBusy || currentStatus === 'cancelled' || currentStatus === 'delivered'}
                                                 />
                                                 <button
                                                     type="button"
                                                     onClick={() => cancelOrderAsAdmin(order._id)}
                                                     disabled={isCancelBusy || currentStatus === 'cancelled' || currentStatus === 'delivered'}
-                                                    className="w-full rounded bg-rose-600 px-2 py-1.5 text-white text-xs font-bold disabled:opacity-50"
+                                                    className="admin-premium-button admin-premium-button-danger w-full px-2 py-1.5 text-xs font-bold disabled:opacity-50"
                                                 >
                                                     {currentStatus === 'cancelled'
                                                         ? 'Cancelled'
@@ -464,17 +475,17 @@ const OrderList = () => {
                                                         placeholder="Reply to customer..."
                                                         value={supportReplyDrafts[order._id] || ''}
                                                         onChange={(e) => setSupportDraft(order._id, e.target.value)}
-                                                        className="w-full rounded border border-gray-300 px-2 py-1.5 text-[10px]"
-                                                        disabled={isSupportBusy}
-                                                    />
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => sendSupportReply(order._id)}
-                                                        disabled={isSupportBusy}
-                                                        className="mt-1 w-full rounded bg-slate-900 px-2 py-1.5 text-[10px] font-bold text-white disabled:opacity-60"
-                                                    >
-                                                        {isSupportBusy ? 'Sending...' : 'Send Reply'}
-                                                    </button>
+                                                    className="admin-premium-control w-full px-2 py-1.5 text-[10px]"
+                                                    disabled={isSupportBusy}
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => sendSupportReply(order._id)}
+                                                    disabled={isSupportBusy}
+                                                    className="admin-premium-button mt-1 w-full px-2 py-1.5 text-[10px] font-bold disabled:opacity-60"
+                                                >
+                                                    {isSupportBusy ? 'Sending...' : 'Send Reply'}
+                                                </button>
                                                 </div>
                                             </div>
                                         </td>
@@ -485,7 +496,7 @@ const OrderList = () => {
                     </table>
                 </div>
             </div>
-        </div>
+        </AdminPremiumShell>
     );
 };
 

@@ -16,6 +16,7 @@ import {
   AlertTriangle,
   Server,
   Lock,
+  Sparkles,
 } from 'lucide-react';
 import { trustApi } from '@/services/api';
 
@@ -24,6 +25,24 @@ const STATUS_CLASSES = {
   degraded: 'bg-amber-500/15 border-amber-400/40 text-amber-200 shadow-amber-500/0 hover:shadow-amber-500/20',
   checking: 'bg-slate-500/15 border-slate-400/30 text-slate-200 shadow-slate-500/0 hover:shadow-slate-500/20',
 };
+
+const FOOTER_PILLARS = [
+  {
+    icon: ShieldCheck,
+    title: 'Trust Layer',
+    detail: 'Escrow, verified sellers, and product integrity cues stay visible from browse to checkout.',
+  },
+  {
+    icon: Truck,
+    title: 'Operations',
+    detail: 'Delivery, returns, and payment pathways are framed to feel dependable before they feel fast.',
+  },
+  {
+    icon: Lock,
+    title: 'Security',
+    detail: 'Client context, backend health, and secure payment posture are surfaced as part of the product experience.',
+  },
+];
 
 const Footer = () => {
   const location = useLocation();
@@ -239,6 +258,46 @@ const Footer = () => {
                 <p className="text-xs text-slate-400">Tokenized methods with protected fallback paths</p>
               </div>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="container-custom max-w-7xl mx-auto px-4 py-8 relative z-10">
+        <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+          <section className="premium-hero-panel premium-grid-backdrop p-6 sm:p-7">
+            <div className="premium-eyebrow">
+              <Sparkles className="h-4 w-4" />
+              Aura Network
+            </div>
+            <h2 className="mt-5 max-w-3xl text-3xl font-black leading-[0.96] tracking-tight text-white sm:text-4xl">
+              Commerce should feel assured before it feels fast.
+            </h2>
+            <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-300 sm:text-base">
+              Aura is built to feel like a premium retail operating system: trusted product discovery, clear transaction signals, and a marketplace layer that still looks composed under pressure.
+            </p>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <Link to="/trust" className="btn-secondary inline-flex items-center gap-2">
+                Open Trust Center
+              </Link>
+              <Link to="/marketplace" className="btn-primary inline-flex items-center gap-2">
+                Explore Marketplace
+              </Link>
+            </div>
+          </section>
+
+          <div className="grid gap-4 sm:grid-cols-3 xl:grid-cols-1">
+            {FOOTER_PILLARS.map((pillar) => {
+              const Icon = pillar.icon;
+              return (
+                <article key={pillar.title} className="footer-card rounded-[1.5rem] p-5">
+                  <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06]">
+                    <Icon className="h-5 w-5 text-neo-cyan" />
+                  </div>
+                  <h3 className="mt-4 text-lg font-black text-white">{pillar.title}</h3>
+                  <p className="mt-2 text-sm leading-6 text-slate-400">{pillar.detail}</p>
+                </article>
+              );
+            })}
           </div>
         </div>
       </div>
