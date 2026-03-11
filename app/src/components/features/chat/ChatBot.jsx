@@ -8,7 +8,6 @@ import { chatApi } from '@/services/chatApi';
 import { useNavigate } from 'react-router-dom';
 import { CartContext } from '@/context/CartContext';
 import { createPortal } from 'react-dom';
-import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 
 const ChatBot = () => {
@@ -191,32 +190,15 @@ const ChatBot = () => {
             className="pointer-events-none fixed inset-0 z-[2147483600] flex justify-end items-end p-4 sm:p-6"
             style={{ fontFamily: "'Inter', sans-serif" }}
         >
-            <AnimatePresence>
-                {isOpen && (
-                    <motion.div
-                        drag={!isExpanded}
-                        dragMomentum={false}
-                        dragElastic={0.1}
-                        dragConstraints={{ left: -window.innerWidth + 400, right: 0, top: -window.innerHeight + 600, bottom: 0 }}
-                        initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                        animate={{ 
-                            opacity: 1, 
-                            scale: 1, 
-                            y: 0,
-                            width: isExpanded ? 'calc(100vw - 3rem)' : 'min(90vw, 420px)',
-                            height: isExpanded ? 'calc(100vh - 3rem)' : 'min(75vh, 650px)',
-                            position: isExpanded ? 'fixed' : 'relative',
-                            inset: isExpanded ? '1.5rem' : 'auto'
-                        }}
-                        exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                        transition={{ type: "spring", damping: 25, stiffness: 200 }}
-                        className="pointer-events-auto flex flex-col overflow-hidden rounded-[1.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.5)] backdrop-blur-2xl mb-4"
-                        style={{
-                            background: 'linear-gradient(135deg, rgba(15, 12, 41, 0.95) 0%, rgba(26, 26, 46, 0.95) 50%, rgba(22, 33, 62, 0.95) 100%)',
-                            border: '1px solid rgba(255,255,255,0.15)',
-                            boxShadow: '0 0 40px rgba(102, 126, 234, 0.2), inset 0 0 20px rgba(255,255,255,0.05)'
-                        }}
-                    >
+            {isOpen && (
+                <div
+                    className={`pointer-events-auto flex flex-col overflow-hidden rounded-[1.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.5)] backdrop-blur-2xl mb-4 transition-all duration-300 ease-in-out ${isExpanded ? 'fixed inset-6 w-[calc(100vw-3rem)] h-[calc(100vh-3rem)]' : 'relative w-[min(90vw,420px)] h-[min(75vh,650px)]'}`}
+                    style={{
+                        background: 'linear-gradient(135deg, rgba(15, 12, 41, 0.95) 0%, rgba(26, 26, 46, 0.95) 50%, rgba(22, 33, 62, 0.95) 100%)',
+                        border: '1px solid rgba(255,255,255,0.15)',
+                        boxShadow: '0 0 40px rgba(102, 126, 234, 0.2), inset 0 0 20px rgba(255,255,255,0.05)'
+                    }}
+                >
                         {/* ═══ Header ═══ */}
                         <div 
                             className="p-4 flex justify-between items-center cursor-move border-b border-white/10"
@@ -249,17 +231,13 @@ const ChatBot = () => {
                             </div>
                         </div>
 
-                        {/* ═══ Messages Area ═══ */}
-                        <div className="flex-1 overflow-y-auto p-5 space-y-5 custom-scrollbar" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.2) transparent' }}>
-                            <AnimatePresence initial={false}>
-                                {messages.map((msg, idx) => (
-                                    <motion.div 
-                                        key={idx} 
-                                        initial={{ opacity: 0, y: 10, scale: 0.98 }}
-                                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                                        transition={{ type: "spring", stiffness: 260, damping: 20 }}
-                                        className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}
-                                    >
+                    {/* ═══ Messages Area ═══ */}
+                    <div className="flex-1 overflow-y-auto p-5 space-y-5 custom-scrollbar" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.2) transparent' }}>
+                        {messages.map((msg, idx) => (
+                            <div 
+                                key={idx} 
+                                className={`flex flex-col animate-fade-in-up ${msg.role === 'user' ? 'items-end' : 'items-start'}`}
+                            >
                                         <div className={`max-w-[85%] p-3.5 text-sm leading-relaxed shadow-lg backdrop-blur-md ${
                                             msg.role === 'user'
                                             ? 'rounded-2xl rounded-tr-sm text-white'
@@ -293,12 +271,9 @@ const ChatBot = () => {
                                             )}
                                         </div>
 
-                                        {/* Product Cards Area */}
-                                        {msg.products && msg.products.length > 0 && (
-                                            <motion.div 
-                                                initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
-                                                className="mt-4 space-y-3 w-full"
-                                            >
+                                    {/* Product Cards Area */}
+                                    {msg.products && msg.products.length > 0 && (
+                                        <div className="mt-4 space-y-3 w-full animate-fade-in-up">
                                                 {msg.actionType === 'compare' && msg.products.length >= 2 ? (
                                                     <div className="rounded-[1rem] overflow-hidden backdrop-blur-xl bg-white/5 border border-white/10 shadow-2xl">
                                                         <div className="text-center py-2 text-[10px] font-bold tracking-widest text-purple-300 bg-purple-500/10 border-b border-white/5">
@@ -332,13 +307,12 @@ const ChatBot = () => {
                                                             ))}
                                                         </div>
                                                     </div>
-                                                ) : (
-                                                    msg.products.slice(0, isExpanded ? 8 : 4).map((product, i) => (
-                                                        <motion.div 
-                                                            whileHover={{ scale: 1.02, backgroundColor: 'rgba(255,255,255,0.08)' }}
-                                                            key={product._id || product.id || i}
-                                                            className="flex gap-4 p-3 rounded-2xl cursor-pointer transition-all border border-white/5 bg-white/5 shadow-lg group relative overflow-hidden"
-                                                            onClick={() => { setIsOpen(false); navigate(`/product/${product.id || product._id}`); }}>
+                                            ) : (
+                                                msg.products.slice(0, isExpanded ? 8 : 4).map((product, i) => (
+                                                    <div 
+                                                        key={product._id || product.id || i}
+                                                        className="flex gap-4 p-3 rounded-2xl cursor-pointer transition-all border border-white/5 bg-white/5 shadow-lg group relative overflow-hidden hover:bg-white/10 hover:scale-[1.02]"
+                                                        onClick={() => { setIsOpen(false); navigate(`/product/${product.id || product._id}`); }}>
                                                             
                                                             {/* Shimmer Effect */}
                                                             <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/5 to-transparent group-hover:animate-[shimmer_1.5s_infinite]"></div>
@@ -373,43 +347,39 @@ const ChatBot = () => {
                                                                 title="Add to Cart">
                                                                 <ShoppingCart size={16} />
                                                             </button>
-                                                        </motion.div>
-                                                    ))
-                                                )}
-                                            </motion.div>
-                                        )}
+                                                    </div>
+                                                ))
+                                            )}
+                                        </div>
+                                    )}
 
-                                        {/* Quick Suggestions Bubbles */}
-                                        {msg.role === 'bot' && msg.suggestions && msg.suggestions.length > 0 && idx === messages.length - 1 && (
-                                            <motion.div 
-                                                initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
-                                                className="flex flex-wrap gap-2 mt-4"
-                                            >
+                                    {/* Quick Suggestions Bubbles */}
+                                    {msg.role === 'bot' && msg.suggestions && msg.suggestions.length > 0 && idx === messages.length - 1 && (
+                                        <div className="flex flex-wrap gap-2 mt-4 animate-fade-in-up">
                                                 {msg.suggestions.map((s, i) => (
                                                     <button key={i}
                                                         onClick={() => handleSuggestionClick(s)}
                                                         className="text-xs px-4 py-2 rounded-full font-medium transition-all duration-300 text-indigo-200 bg-indigo-500/10 border border-indigo-500/20 hover:bg-indigo-500/20 hover:border-indigo-400/50 hover:-translate-y-0.5 shadow-lg shadow-indigo-500/5">
                                                         {s}
-                                                    </button>
-                                                ))}
-                                            </motion.div>
-                                        )}
-                                    </motion.div>
-                                ))}
-                            </AnimatePresence>
-
-                            {/* Refined Typing Indicator */}
-                            {isLoading && (
-                                <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="flex items-start">
-                                    <div className="px-4 py-3 rounded-2xl rounded-tl-sm flex items-center gap-2 bg-white/5 border border-white/10 backdrop-blur-md shadow-lg">
-                                        <div className="flex gap-1.5">
-                                            <motion.span animate={{ y: [0, -5, 0] }} transition={{ repeat: Infinity, duration: 0.6, delay: 0 }} className="w-2 h-2 rounded-full bg-gradient-to-t from-purple-500 to-indigo-400"></motion.span>
-                                            <motion.span animate={{ y: [0, -5, 0] }} transition={{ repeat: Infinity, duration: 0.6, delay: 0.2 }} className="w-2 h-2 rounded-full bg-gradient-to-t from-purple-500 to-indigo-400"></motion.span>
-                                            <motion.span animate={{ y: [0, -5, 0] }} transition={{ repeat: Infinity, duration: 0.6, delay: 0.4 }} className="w-2 h-2 rounded-full bg-gradient-to-t from-purple-500 to-indigo-400"></motion.span>
-                                        </div>
+                                            </button>
+                                        ))}
                                     </div>
-                                </motion.div>
-                            )}
+                                )}
+                            </div>
+                        ))}
+
+                        {/* Refined Typing Indicator */}
+                        {isLoading && (
+                            <div className="flex items-start animate-fade-in-up">
+                                <div className="px-4 py-3 rounded-2xl rounded-tl-sm flex items-center gap-2 bg-white/5 border border-white/10 backdrop-blur-md shadow-lg">
+                                    <div className="flex gap-1.5">
+                                        <span className="w-2 h-2 rounded-full bg-gradient-to-t from-purple-500 to-indigo-400 animate-bounce"></span>
+                                        <span className="w-2 h-2 rounded-full bg-gradient-to-t from-purple-500 to-indigo-400 animate-bounce" style={{ animationDelay: '0.1s' }}></span>
+                                        <span className="w-2 h-2 rounded-full bg-gradient-to-t from-purple-500 to-indigo-400 animate-bounce" style={{ animationDelay: '0.2s' }}></span>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                             <div ref={messagesEndRef} className="h-2" />
                         </div>
 
@@ -458,22 +428,15 @@ const ChatBot = () => {
                             </form>
                             <p className="text-[10px] text-center text-gray-500 mt-3 font-medium">AuraBot can make mistakes. Consider verifying critical information.</p>
                         </div>
-                    </motion.div>
+                    </div>
                 )}
-            </AnimatePresence>
 
             {/* ═══ Floating Launcher Button ═══ */}
-            <AnimatePresence>
-                {!isOpen && (
-                    <motion.button
-                        initial={{ scale: 0, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        exit={{ scale: 0, opacity: 0 }}
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={() => setIsOpen(true)}
-                        className="pointer-events-auto relative flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 rounded-full shadow-[0_10px_40px_rgba(102,126,234,0.5)] group overflow-hidden z-[2147483600]"
-                    >
+            {!isOpen && (
+                <button
+                    onClick={() => setIsOpen(true)}
+                    className="pointer-events-auto relative flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 rounded-full shadow-[0_10px_40px_rgba(102,126,234,0.5)] group overflow-hidden z-[2147483600] transition-all duration-300 hover:scale-105 active:scale-95 animate-fade-in-up"
+                >
                         <div className="absolute inset-0 bg-gradient-to-br from-indigo-500 via-purple-600 to-pink-600"></div>
                         <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20 mix-blend-overlay"></div>
                         <Sparkles size={28} className="text-white relative z-10 group-hover:animate-pulse filter drop-shadow-md" />
@@ -485,11 +448,10 @@ const ChatBot = () => {
                             </span>
                         )}
 
-                        {/* Interactive Tooltip Ring */}
-                        <div className="absolute inset-0 rounded-full border border-white/20 scale-150 group-hover:scale-100 opacity-0 group-hover:opacity-100 transition-all duration-500 ease-out"></div>
-                    </motion.button>
-                )}
-            </AnimatePresence>
+                    {/* Interactive Tooltip Ring */}
+                    <div className="absolute inset-0 rounded-full border border-white/20 scale-150 group-hover:scale-100 opacity-0 group-hover:opacity-100 transition-all duration-500 ease-out"></div>
+                </button>
+            )}
 
             {/* ═══ Global Keyframes ═══ */}
             <style>{`
