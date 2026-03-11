@@ -14,6 +14,7 @@ import {
 import { getErrorReference } from '@/services/clientObservability';
 import { resolveProductListingFetchCopy } from '@/utils/backendFailurePresentation';
 import { cn } from '@/lib/utils';
+import PremiumSelect from '@/components/ui/premium-select';
 
 const SORT_OPTIONS = new Set(['relevance', 'price-asc', 'price-desc', 'newest', 'rating', 'discount']);
 const DEFAULT_MIN_PRICE = 0;
@@ -414,7 +415,7 @@ const ProductListing = () => {
 
             <div className="flex items-center gap-4 lg:gap-6 w-full sm:w-auto">
               <div className="relative w-full sm:w-48">
-                <select
+                <PremiumSelect
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value)}
                   className="w-full appearance-none bg-zinc-950/50 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:ring-1 focus:ring-neo-cyan focus:border-neo-cyan cursor-pointer hover:bg-white/5 transition-colors outline-none font-medium"
@@ -425,7 +426,7 @@ const ProductListing = () => {
                   <option value="newest">Newest First</option>
                   <option value="rating">Top Rated</option>
                   <option value="discount">Best Discount</option>
-                </select>
+                </PremiumSelect>
                 <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-neo-cyan">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
                 </div>

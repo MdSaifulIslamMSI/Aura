@@ -6,6 +6,7 @@ import { XCircle, CheckCircle, Loader2, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import AdminPremiumShell, { AdminHeroStat } from '@/components/shared/AdminPremiumShell';
+import PremiumSelect from '@/components/ui/premium-select';
 
 const STATUS_OPTIONS = ['processing', 'shipped', 'delivered'];
 
@@ -380,7 +381,7 @@ const OrderList = () => {
                                                 <div className="text-[10px] uppercase tracking-wider text-gray-500 font-bold">
                                                     Current: {currentStatus}
                                                 </div>
-                                                <select
+                                                <PremiumSelect
                                                     value={statusDrafts[order._id] || currentStatus}
                                                     onChange={(e) => setDraftStatus(order._id, e.target.value)}
                                                     className="admin-premium-control w-full px-2 py-1.5 text-xs"
@@ -390,7 +391,7 @@ const OrderList = () => {
                                                     {STATUS_OPTIONS.filter((entry) => entry !== currentStatus).map((entry) => (
                                                         <option key={entry} value={entry}>{entry}</option>
                                                     ))}
-                                                </select>
+                                                </PremiumSelect>
                                                 <button
                                                     type="button"
                                                     onClick={() => updateStatus(order._id)}

@@ -88,6 +88,13 @@ const getQuotePayload = ({ checkoutItems, draft }) => ({
     checkoutSource: draft.checkoutSource,
 });
 
+const CHECKOUT_STEPS = [
+    { id: 1, label: 'Address' },
+    { id: 2, label: 'Delivery' },
+    { id: 3, label: 'Payment' },
+    { id: 4, label: 'Review' },
+];
+
 const Checkout = () => {
     const navigate = useNavigate();
     const location = useLocation();
@@ -813,11 +820,12 @@ const Checkout = () => {
 
     if (checkoutItems.length === 0 && !isLoadingProfile) {
         return (
-            <div className="min-h-screen py-20 flex items-center justify-center">
-                <div className="max-w-md w-full bg-white/5 border border-white/10 rounded-3xl p-6 sm:p-10 text-center shadow-glass">
-                    <h2 className="text-2xl font-black text-white uppercase tracking-widest mb-3">Nothing to checkout</h2>
-                    <p className="text-slate-400 mb-8">Your bag is empty right now.</p>
-                    <button onClick={() => navigate('/')} className="btn-primary w-full">Continue Shopping</button>
+            <div className="checkout-premium-shell min-h-screen flex items-center justify-center px-4 py-20">
+                <div className="premium-panel premium-grid-backdrop relative z-10 w-full max-w-xl p-8 text-center">
+                    <span className="premium-eyebrow">Checkout Studio</span>
+                    <h2 className="mt-5 text-3xl font-black tracking-tight text-white">Nothing queued for checkout</h2>
+                    <p className="mt-3 text-sm leading-7 text-slate-400">Add products to your bag or jump back into the marketplace to build your next premium order.</p>
+                    <button onClick={() => navigate('/')} className="checkout-premium-primary mt-8 w-full sm:w-auto px-8 py-3 text-sm font-black uppercase tracking-[0.22em]">Continue Shopping</button>
                 </div>
             </div>
         );
@@ -825,42 +833,98 @@ const Checkout = () => {
 
     if (!isHydrated || isLoadingProfile) {
         return (
-            <div className="min-h-screen flex items-center justify-center">
-                <div className="flex items-center gap-3 text-slate-300">
-                    <Loader2 className="w-5 h-5 animate-spin text-neo-cyan" />
-                    Preparing checkout...
+            <div className="checkout-premium-shell min-h-screen flex items-center justify-center px-4">
+                <div className="premium-panel premium-grid-backdrop relative z-10 w-full max-w-lg p-8 text-center">
+                    <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/5">
+                        <Loader2 className="w-6 h-6 animate-spin text-neo-cyan" />
+                    </div>
+                    <p className="premium-kicker">Aura Payment Rail</p>
+                    <h2 className="mt-3 text-2xl font-black text-white">Preparing a secure session</h2>
+                    <p className="mt-3 text-sm text-slate-400">Loading your profile, payment methods, delivery preferences, and quote context.</p>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen pb-20 relative">
-            <div className="absolute top-0 right-0 w-[min(70vw,500px)] h-[min(70vw,500px)] bg-neo-cyan/10 rounded-full blur-[150px] pointer-events-none -z-10" />
-            <div className="absolute bottom-20 left-0 w-[min(70vw,500px)] h-[min(70vw,500px)] bg-neo-fuchsia/10 rounded-full blur-[150px] pointer-events-none -z-10" />
-
-            <div className="bg-zinc-950/80 backdrop-blur-xl border-b border-white/10 sticky top-20 md:top-24 z-40">
-                <div className="container-custom min-h-16 sm:min-h-20 py-3 flex items-center justify-between gap-3">
-                    <button
-                        type="button"
-                        onClick={() => navigate(-1)}
-                        className="text-slate-300 hover:text-white flex items-center gap-2 text-sm uppercase tracking-wider font-bold"
-                    >
-                        <ArrowLeft className="w-4 h-4" />
-                        Back
-                    </button>
-                    <div className="hidden sm:flex items-center gap-2 text-slate-400 text-xs uppercase tracking-[0.2em] font-bold">
-                        <Layers className="w-4 h-4 text-neo-cyan" />
-                        Checkout V2
-                    </div>
-                    <div className="text-xs uppercase tracking-wider font-bold text-slate-400">
-                        Step {draft.step} / 4
+        <div className="checkout-premium-shell min-h-screen pb-20">
+            <div className="sticky top-20 md:top-24 z-40 px-4 pt-4">
+                <div className="container-custom">
+                    <div className="checkout-premium-toolbar">
+                        <div className="flex flex-col gap-4 px-3 py-2 lg:flex-row lg:items-center lg:justify-between">
+                            <div className="flex items-center gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => navigate(-1)}
+                                    className="checkout-premium-secondary"
+                                >
+                                    <ArrowLeft className="w-4 h-4" />
+                                    Back
+                                </button>
+                                <div className="hidden sm:flex items-center gap-2 text-xs font-black uppercase tracking-[0.24em] text-slate-400">
+                                    <Layers className="w-4 h-4 text-neo-cyan" />
+                                    Secure checkout rail
+                                </div>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                                {CHECKOUT_STEPS.map((step) => (
+                                    <button
+                                        key={step.id}
+                                        type="button"
+                                        onClick={() => (draft.step >= step.id ? gotoStep(step.id) : null)}
+                                        className={cn(
+                                            'checkout-premium-step-pill text-xs font-black uppercase tracking-[0.18em]',
+                                            draft.step === step.id && 'checkout-premium-step-pill-active'
+                                        )}
+                                    >
+                                        <span className="text-[10px] opacity-70">0{step.id}</span>
+                                        {step.label}
+                                        {draft.step > step.id ? <CheckCircle2 className="w-3.5 h-3.5" /> : null}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <div className="container-custom py-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div className="lg:col-span-2 space-y-6">
+            <div className="checkout-premium-content container-custom py-8 space-y-8">
+                <section className="checkout-premium-hero">
+                    <div className="grid gap-8 xl:grid-cols-[minmax(0,1.3fr)_minmax(18rem,0.7fr)] xl:items-end">
+                        <div>
+                            <span className="premium-eyebrow">Aura Secure Checkout</span>
+                            <h1 className="mt-5 text-3xl font-black tracking-tight text-white md:text-5xl">Finish with the same premium precision as the storefront.</h1>
+                            <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-300 md:text-base">
+                                Your delivery address, slot, payment challenge, and final quote stay synchronized in one protected checkout session.
+                            </p>
+                            <div className="mt-5 flex flex-wrap gap-3">
+                                <span className="premium-chip">{checkoutItems.length} line items</span>
+                                <span className="premium-chip-muted">Step {draft.step} of 4</span>
+                                <span className="premium-chip-muted">{draft.paymentMethod} payment rail</span>
+                            </div>
+                        </div>
+                        <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
+                            <div className="checkout-premium-surface">
+                                <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Current total</p>
+                                <p className="mt-3 text-3xl font-black tracking-tight text-white">{quote ? `Rs ${Number(quote.totalPrice || 0).toLocaleString('en-IN')}` : `Rs ${Number(fallbackTotals.totalPrice || 0).toLocaleString('en-IN')}`}</p>
+                                <p className="mt-2 text-xs text-slate-400">Backend validated before capture.</p>
+                            </div>
+                            <div className="checkout-premium-surface">
+                                <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Delivery mode</p>
+                                <p className="mt-3 text-xl font-black text-white capitalize">{draft.deliveryOption}</p>
+                                <p className="mt-2 text-xs text-slate-400">{draft.deliverySlot.window || 'Choose your preferred window.'}</p>
+                            </div>
+                            <div className="checkout-premium-surface">
+                                <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Session trust</p>
+                                <p className="mt-3 text-xl font-black text-white">{draft.paymentMethod === 'COD' ? 'Protected order hold' : 'Challenge-ready payment'}</p>
+                                <p className="mt-2 text-xs text-slate-400">Fraud checks, quote locks, and OTP controls stay active.</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+                    <div className="space-y-6 lg:col-span-2">
                     <StepAddress
                         isActive={draft.step === 1}
                         completed={draft.step > 1}
@@ -937,26 +1001,27 @@ const Checkout = () => {
                         onBack={() => gotoStep(3)}
                         onPlaceOrder={placeOrder}
                     />
-                </div>
+                    </div>
 
-                <OrderSummary
-                    items={checkoutItems}
-                    quote={quote}
-                    fallbackTotals={fallbackTotals}
-                    isQuoting={isQuoting}
-                    quoteError={quoteError}
-                    isQuoteStale={isQuoteStale}
-                    couponCode={draft.couponCode}
-                    onCouponCodeChange={(value) => setDraft((prev) => ({ ...prev, couponCode: value }))}
-                    onApplyCoupon={applyCoupon}
-                    onRemoveCoupon={removeCoupon}
-                    onRecalculate={() => requestQuote(quotePayload, quoteSignature)}
-                />
+                    <OrderSummary
+                        items={checkoutItems}
+                        quote={quote}
+                        fallbackTotals={fallbackTotals}
+                        isQuoting={isQuoting}
+                        quoteError={quoteError}
+                        isQuoteStale={isQuoteStale}
+                        couponCode={draft.couponCode}
+                        onCouponCodeChange={(value) => setDraft((prev) => ({ ...prev, couponCode: value }))}
+                        onApplyCoupon={applyCoupon}
+                        onRemoveCoupon={removeCoupon}
+                        onRecalculate={() => requestQuote(quotePayload, quoteSignature)}
+                    />
+                </div>
             </div>
 
             {isPlacingOrder ? (
                 <div className="fixed inset-0 bg-zinc-950/70 backdrop-blur-sm z-50 flex items-center justify-center">
-                    <div className="bg-white/5 border border-white/10 rounded-2xl p-6 text-center text-slate-200">
+                    <div className="premium-panel premium-grid-backdrop w-full max-w-sm p-6 text-center text-slate-200">
                         <Loader2 className="w-6 h-6 animate-spin text-neo-cyan mx-auto mb-3" />
                         <p className="font-bold uppercase tracking-wider text-sm">Placing your order...</p>
                         <p className="text-xs text-slate-400 mt-1">Validating stock and final pricing</p>

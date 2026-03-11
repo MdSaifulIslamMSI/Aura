@@ -24,30 +24,35 @@ const OrderSummary = ({
     const appliedCoupon = quote?.appliedCoupon;
 
     return (
-        <aside className="h-fit lg:sticky lg:top-28">
-            <div className="bg-white/5 backdrop-blur-xl rounded-3xl border border-white/10 shadow-glass overflow-hidden">
-                <div className="p-6 border-b border-white/5 bg-zinc-950/50 flex items-center justify-between">
-                    <h3 className="font-black uppercase tracking-widest text-white text-sm md:text-base">Order Summary</h3>
-                    {isQuoting ? <Loader2 className="w-4 h-4 text-neo-cyan animate-spin" /> : null}
+        <aside className="h-fit lg:sticky lg:top-32">
+            <div className="checkout-premium-summary overflow-hidden">
+                <div className="border-b border-white/10 bg-white/5 p-6">
+                    <div className="flex items-center justify-between gap-3">
+                        <div>
+                            <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-400">Order Summary</p>
+                            <h3 className="mt-2 text-2xl font-black tracking-tight text-white">Final price intelligence</h3>
+                        </div>
+                        {isQuoting ? <Loader2 className="h-4 w-4 animate-spin text-neo-cyan" /> : null}
+                    </div>
                 </div>
 
-                <div className="p-5 sm:p-6 space-y-5">
-                    <div className="space-y-3 max-h-56 overflow-auto pr-1">
+                <div className="space-y-5 p-5 sm:p-6">
+                    <div className="space-y-3 max-h-64 overflow-auto pr-1">
                         {items.map((item) => (
-                            <div key={item.id} className="flex items-center gap-3">
-                                <div className="w-12 h-12 rounded-lg bg-zinc-950/70 border border-white/10 p-1.5">
-                                    <img src={item.image} alt={item.title} className="w-full h-full object-contain" />
+                            <div key={item.id} className="checkout-premium-option flex items-center gap-3">
+                                <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/5 p-2">
+                                    <img src={item.image} alt={item.title} className="h-full w-full object-contain" />
                                 </div>
-                                <div className="flex-1 min-w-0">
-                                    <p className="text-sm text-white font-semibold line-clamp-1">{item.title}</p>
-                                    <p className="text-xs text-slate-400">Qty {item.quantity}</p>
+                                <div className="min-w-0 flex-1">
+                                    <p className="line-clamp-1 text-sm font-semibold text-white">{item.title}</p>
+                                    <p className="mt-1 text-xs uppercase tracking-[0.18em] text-slate-400">Qty {item.quantity}</p>
                                 </div>
-                                <p className="text-sm text-slate-200 font-bold">{formatPrice(item.price * item.quantity)}</p>
+                                <p className="text-sm font-bold text-slate-200">{formatPrice(item.price * item.quantity)}</p>
                             </div>
                         ))}
                     </div>
 
-                    <div className="space-y-3 pt-2 border-t border-white/10">
+                    <div className="checkout-premium-surface space-y-3">
                         <div className="flex justify-between text-sm text-slate-300">
                             <span>Items</span>
                             <span>{formatPrice(itemsPrice)}</span>
@@ -70,34 +75,34 @@ const OrderSummary = ({
                             <span>Tax</span>
                             <span>{formatPrice(taxPrice)}</span>
                         </div>
-                        <div className="flex justify-between items-center pt-4 border-t border-white/10 gap-3">
-                            <span className="text-xs uppercase tracking-widest font-bold text-slate-400">Total</span>
-                            <span className="text-xl sm:text-2xl font-black tracking-tighter text-white">{formatPrice(totalPrice)}</span>
+                        <div className="flex items-center justify-between gap-3 border-t border-white/10 pt-4">
+                            <span className="text-xs font-black uppercase tracking-[0.22em] text-slate-400">Total</span>
+                            <span className="text-2xl font-black tracking-tight text-white">{formatPrice(totalPrice)}</span>
                         </div>
                     </div>
 
-                    <div className="space-y-3">
-                        <p className="text-xs uppercase tracking-widest font-bold text-slate-400 flex items-center gap-2">
-                            <TicketPercent className="w-4 h-4 text-neo-cyan" />
+                    <div className="checkout-premium-surface space-y-3">
+                        <p className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.22em] text-slate-400">
+                            <TicketPercent className="h-4 w-4 text-neo-cyan" />
                             Coupon
                         </p>
-                        <div className="flex flex-col sm:flex-row gap-2">
+                        <div className="flex flex-col gap-2 sm:flex-row">
                             <input
                                 value={couponCode}
                                 onChange={(event) => onCouponCodeChange(event.target.value.toUpperCase())}
                                 placeholder="Enter code"
-                                className="flex-1 bg-zinc-950/80 border border-white/10 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-neo-cyan"
+                                className="checkout-premium-input flex-1"
                             />
                             <button
                                 type="button"
                                 onClick={onApplyCoupon}
-                                className="w-full sm:w-auto px-4 py-2 rounded-xl border border-white/20 text-xs uppercase tracking-widest font-bold text-slate-200"
+                                className="checkout-premium-secondary w-full text-xs font-black uppercase tracking-[0.2em] sm:w-auto"
                             >
                                 Apply
                             </button>
                         </div>
                         {appliedCoupon ? (
-                            <div className="text-xs text-neo-cyan bg-neo-cyan/10 border border-neo-cyan/20 rounded-xl p-3 flex items-center justify-between gap-2">
+                            <div className="checkout-premium-alert flex items-center justify-between gap-2 border-neo-cyan/20 bg-neo-cyan/10 text-neo-cyan">
                                 <span>{appliedCoupon.code} applied</span>
                                 <button type="button" onClick={onRemoveCoupon} className="underline">
                                     Remove
@@ -109,26 +114,26 @@ const OrderSummary = ({
                     <button
                         type="button"
                         onClick={onRecalculate}
-                        className="w-full px-4 py-2 rounded-xl border border-white/20 text-xs uppercase tracking-widest font-bold text-slate-200 hover:border-neo-cyan/40 flex items-center justify-center gap-2"
+                        className="checkout-premium-secondary flex w-full items-center justify-center gap-2 text-xs font-black uppercase tracking-[0.2em]"
                     >
-                        <RefreshCcw className="w-3.5 h-3.5" />
+                        <RefreshCcw className="h-3.5 w-3.5" />
                         Recalculate Quote
                     </button>
 
                     {isQuoteStale ? (
-                        <div className="text-xs text-amber-200 bg-amber-500/10 border border-amber-500/30 rounded-xl p-3">
+                        <div className="checkout-premium-alert border-amber-500/30 bg-amber-500/10 text-amber-200">
                             Pricing may be stale. Recalculate before placing the order.
                         </div>
                     ) : null}
 
                     {quoteError ? (
-                        <div className="text-xs text-rose-200 bg-rose-500/10 border border-rose-500/30 rounded-xl p-3">
+                        <div className="checkout-premium-alert border-rose-500/30 bg-rose-500/10 text-rose-200">
                             {quoteError}
                         </div>
                     ) : null}
 
-                    <div className="bg-neo-cyan/5 border border-neo-cyan/20 rounded-xl p-3 text-xs text-neo-cyan flex items-start gap-2">
-                        <Zap className="w-4 h-4 mt-0.5" />
+                    <div className="checkout-premium-note text-xs">
+                        <Zap className="mt-0.5 h-4 w-4 text-neo-cyan" />
                         <span>All totals are backend-validated during order placement.</span>
                     </div>
                 </div>

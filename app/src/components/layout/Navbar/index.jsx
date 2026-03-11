@@ -15,6 +15,7 @@ import {
   User,
   X,
 } from 'lucide-react';
+import PremiumSelect from '@/components/ui/premium-select';
 import { AuthContext } from '@/context/AuthContext';
 import { CartContext } from '@/context/CartContext';
 import { useColorMode } from '@/context/ColorModeContext';
@@ -539,7 +540,7 @@ const Navbar = () => {
                         <div className="px-3 pb-3">
                           <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
                             <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Color mode</div>
-                            <select
+                            <PremiumSelect
                               value={colorMode}
                               onChange={(e) => setColorMode(e.target.value)}
                               className="mt-2 w-full rounded-xl border border-white/10 bg-zinc-950/80 px-3 py-2 text-sm font-semibold text-slate-100 outline-none transition-colors hover:border-white/20"
@@ -549,7 +550,7 @@ const Navbar = () => {
                                   {mode.label}
                                 </option>
                               ))}
-                            </select>
+                            </PremiumSelect>
                             <div className="mt-2 flex items-center gap-2 text-xs text-slate-400">
                               <span
                                 className="h-3 w-3 rounded-full border border-white/20"

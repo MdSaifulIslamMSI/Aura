@@ -1,5 +1,6 @@
 import { CalendarClock, CheckCircle2, Truck } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import PremiumSelect from '@/components/ui/premium-select';
 
 const SLOT_WINDOWS = ['09:00-12:00', '12:00-15:00', '15:00-18:00', '18:00-21:00'];
 
@@ -18,16 +19,16 @@ const StepDelivery = ({
     return (
         <section
             className={cn(
-                'bg-white/5 backdrop-blur-xl rounded-3xl border shadow-glass overflow-hidden transition-all duration-300',
-                isActive ? 'border-neo-fuchsia/50 shadow-[0_0_30px_rgba(217,70,239,0.12)]' : 'border-white/10'
+                'checkout-premium-card transition-all duration-300',
+                isActive && 'checkout-premium-card-active'
             )}
         >
             <button
                 type="button"
                 onClick={onSetActive}
-                className="w-full p-6 bg-zinc-950/50 border-b border-white/5 flex items-center justify-between text-left"
+                className="checkout-premium-header w-full"
             >
-                <h3 className={cn('font-black uppercase tracking-widest text-sm md:text-base flex items-center gap-3', isActive ? 'text-neo-fuchsia' : 'text-white')}>
+                <h3 className={cn('flex items-center gap-3 text-sm font-black uppercase tracking-[0.22em] md:text-base', isActive ? 'text-neo-fuchsia' : 'text-white')}>
                     <Truck className="w-5 h-5" />
                     2. Delivery Slot
                 </h3>
@@ -35,85 +36,81 @@ const StepDelivery = ({
             </button>
 
             {isActive ? (
-                <div className="p-6 md:p-8 space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-6 p-6 md:p-8">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                         <button
                             type="button"
                             onClick={() => onDeliveryOptionChange('standard')}
                             className={cn(
-                                'p-5 rounded-2xl border text-left transition-all',
-                                deliveryOption === 'standard'
-                                    ? 'border-neo-cyan bg-neo-cyan/10'
-                                    : 'border-white/10 hover:border-white/30'
+                                'checkout-premium-option',
+                                deliveryOption === 'standard' && 'checkout-premium-option-active'
                             )}
                         >
-                            <p className="text-white font-black uppercase tracking-widest text-sm">Standard</p>
-                            <p className="text-slate-400 text-sm mt-2">3-5 business days · lower delivery fee</p>
+                            <p className="text-sm font-black uppercase tracking-[0.22em] text-white">Standard</p>
+                            <p className="mt-2 text-sm text-slate-400">3-5 business days | lower delivery fee</p>
                         </button>
                         <button
                             type="button"
                             onClick={() => onDeliveryOptionChange('express')}
                             className={cn(
-                                'p-5 rounded-2xl border text-left transition-all',
-                                deliveryOption === 'express'
-                                    ? 'border-neo-fuchsia bg-neo-fuchsia/10'
-                                    : 'border-white/10 hover:border-white/30'
+                                'checkout-premium-option',
+                                deliveryOption === 'express' && 'checkout-premium-option-active'
                             )}
                         >
-                            <p className="text-white font-black uppercase tracking-widest text-sm">Express</p>
-                            <p className="text-slate-400 text-sm mt-2">1-2 business days · priority handling</p>
+                            <p className="text-sm font-black uppercase tracking-[0.22em] text-white">Express</p>
+                            <p className="mt-2 text-sm text-slate-400">1-2 business days | priority handling</p>
                         </button>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                         <label className="space-y-2">
-                            <span className="text-xs uppercase tracking-widest font-bold text-slate-400">Delivery Date</span>
+                            <span className="text-xs font-black uppercase tracking-[0.22em] text-slate-400">Delivery Date</span>
                             <input
                                 type="date"
                                 value={deliverySlot.date}
                                 min={new Date().toISOString().slice(0, 10)}
                                 onChange={(event) => onDeliverySlotChange('date', event.target.value)}
-                                className="w-full bg-zinc-950/80 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-neo-cyan"
+                                className="checkout-premium-input"
                             />
                         </label>
                         <label className="space-y-2">
-                            <span className="text-xs uppercase tracking-widest font-bold text-slate-400">Delivery Window</span>
-                            <select
+                            <span className="text-xs font-black uppercase tracking-[0.22em] text-slate-400">Delivery Window</span>
+                            <PremiumSelect
                                 value={deliverySlot.window}
                                 onChange={(event) => onDeliverySlotChange('window', event.target.value)}
-                                className="w-full bg-zinc-950/80 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-neo-cyan"
+                                className="checkout-premium-input"
                             >
                                 <option value="">Select slot</option>
                                 {SLOT_WINDOWS.map((windowLabel) => (
                                     <option key={windowLabel} value={windowLabel}>{windowLabel}</option>
                                 ))}
-                            </select>
+                            </PremiumSelect>
                         </label>
                     </div>
 
                     {deliveryError ? (
-                        <div className="bg-rose-500/10 border border-rose-500/30 rounded-xl px-4 py-3 text-rose-200 text-sm">
+                        <div className="checkout-premium-alert border-rose-500/30 bg-rose-500/10 text-rose-200">
                             {deliveryError}
                         </div>
                     ) : null}
 
-                    <div className="text-xs text-slate-500 flex items-center gap-2">
+                    <div className="checkout-premium-note text-xs">
                         <CalendarClock className="w-4 h-4" />
-                        Slots are subject to real-time availability during order placement.
+                        Slots are subject to live availability during order placement.
                     </div>
 
-                    <div className="flex flex-col-reverse sm:flex-row gap-3 pt-2">
+                    <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row">
                         <button
                             type="button"
                             onClick={onBack}
-                            className="w-full sm:w-auto px-5 py-3 rounded-xl border border-white/15 text-sm font-bold uppercase tracking-wider text-slate-200"
+                            className="checkout-premium-secondary w-full text-xs font-black uppercase tracking-[0.2em] sm:w-auto"
                         >
                             Back
                         </button>
                         <button
                             type="button"
                             onClick={onContinue}
-                            className="w-full sm:w-auto sm:ml-auto btn-primary px-8 py-3 text-sm uppercase tracking-widest font-black"
+                            className="checkout-premium-primary w-full px-8 py-3 text-sm font-black uppercase tracking-[0.24em] sm:ml-auto sm:w-auto"
                         >
                             Continue
                         </button>

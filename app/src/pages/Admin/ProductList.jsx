@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Boxes, Edit, Layers3, Plus, Search, Trash2 } from 'lucide-react';
 import AdminPremiumShell, { AdminHeroStat, AdminPremiumPanel } from '@/components/shared/AdminPremiumShell';
+import PremiumSelect from '@/components/ui/premium-select';
 import { adminApi } from '@/services/api';
 import { formatPrice } from '@/utils/format';
 
@@ -127,44 +128,44 @@ const ProductList = () => {
 
                     <div>
                         <label className="premium-kicker">Source</label>
-                        <select value={filters.source} onChange={(event) => onFilterChange('source', event.target.value)} className="admin-premium-control mt-1">
+                        <PremiumSelect value={filters.source} onChange={(event) => onFilterChange('source', event.target.value)} className="admin-premium-control mt-1">
                             <option value="">All</option>
                             <option value="manual">Manual</option>
                             <option value="batch">Batch</option>
                             <option value="provider">Provider</option>
-                        </select>
+                        </PremiumSelect>
                     </div>
 
                     <div>
                         <label className="premium-kicker">Category</label>
-                        <select value={filters.category} onChange={(event) => onFilterChange('category', event.target.value)} className="admin-premium-control mt-1">
+                        <PremiumSelect value={filters.category} onChange={(event) => onFilterChange('category', event.target.value)} className="admin-premium-control mt-1">
                             <option value="">All</option>
                             {categoryOptions.map((option) => (
                                 <option key={option} value={option}>{option}</option>
                             ))}
-                        </select>
+                        </PremiumSelect>
                     </div>
 
                     <div>
                         <label className="premium-kicker">Brand</label>
-                        <select value={filters.brand} onChange={(event) => onFilterChange('brand', event.target.value)} className="admin-premium-control mt-1">
+                        <PremiumSelect value={filters.brand} onChange={(event) => onFilterChange('brand', event.target.value)} className="admin-premium-control mt-1">
                             <option value="">All</option>
                             {brandOptions.map((option) => (
                                 <option key={option} value={option}>{option}</option>
                             ))}
-                        </select>
+                        </PremiumSelect>
                     </div>
 
                     <div>
                         <label className="premium-kicker">Sort</label>
-                        <select value={filters.sort} onChange={(event) => onFilterChange('sort', event.target.value)} className="admin-premium-control mt-1">
+                        <PremiumSelect value={filters.sort} onChange={(event) => onFilterChange('sort', event.target.value)} className="admin-premium-control mt-1">
                             <option value="newest">Newest</option>
                             <option value="oldest">Oldest</option>
                             <option value="price-asc">Price Low to High</option>
                             <option value="price-desc">Price High to Low</option>
                             <option value="stock-asc">Stock Low to High</option>
                             <option value="stock-desc">Stock High to Low</option>
-                        </select>
+                        </PremiumSelect>
                     </div>
                 </div>
             </AdminPremiumPanel>

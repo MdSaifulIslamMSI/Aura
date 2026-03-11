@@ -19,6 +19,7 @@ import {
     TrendingUp,
     Users,
 } from 'lucide-react';
+import PremiumSelect from '@/components/ui/premium-select';
 import AdminPremiumShell, { AdminHeroStat } from '@/components/shared/AdminPremiumShell';
 import { AuthContext } from '@/context/AuthContext';
 import { adminApi } from '@/services/api';
@@ -330,17 +331,17 @@ export default function AdminDashboard() {
             description="Real-time intelligence, anomaly alerts, readiness signals, and persistent operational controls in one premium command surface."
             actions={(
                 <>
-                    <select value={analyticsRange} onChange={(e) => setAnalyticsRange(e.target.value)} className="admin-premium-control min-w-[9rem]">
+                    <PremiumSelect value={analyticsRange} onChange={(e) => setAnalyticsRange(e.target.value)} className="admin-premium-control min-w-[9rem]">
                         <option value="24h">Last 24h</option>
                         <option value="7d">Last 7 days</option>
                         <option value="30d">Last 30 days</option>
                         <option value="90d">Last 90 days</option>
-                    </select>
-                    <select value={anomalyWindow} onChange={(e) => setAnomalyWindow(Number(e.target.value))} className="admin-premium-control min-w-[9rem]">
+                    </PremiumSelect>
+                    <PremiumSelect value={anomalyWindow} onChange={(e) => setAnomalyWindow(Number(e.target.value))} className="admin-premium-control min-w-[9rem]">
                         <option value={30}>Anomaly 30m</option>
                         <option value={60}>Anomaly 60m</option>
                         <option value={120}>Anomaly 120m</option>
-                    </select>
+                    </PremiumSelect>
                     <button type="button" onClick={refreshAll} className="admin-premium-button">
                         <RefreshCw className="h-4 w-4" />
                         Refresh
@@ -494,7 +495,7 @@ export default function AdminDashboard() {
                             {autoRefreshEnabled ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
                             {autoRefreshEnabled ? 'Pause Polling' : 'Resume Polling'}
                         </button>
-                        <select
+                        <PremiumSelect
                             value={autoRefreshSec}
                             onChange={(e) => setAutoRefreshSec(Number(e.target.value))}
                             className="admin-premium-control px-2 py-2 text-xs"
@@ -504,7 +505,7 @@ export default function AdminDashboard() {
                             <option value={30}>30s</option>
                             <option value={60}>60s</option>
                             <option value={120}>120s</option>
-                        </select>
+                        </PremiumSelect>
                     </div>
 
                     <div className="mt-3 rounded-lg border border-slate-200 p-2 text-xs text-slate-600">
@@ -650,12 +651,12 @@ export default function AdminDashboard() {
                         <h2 className="text-lg font-semibold text-gray-900">Live Notification Feed</h2>
                         <div className="flex flex-wrap items-center gap-2">
                             <input type="text" value={filters.search} onChange={(e) => { setPage(1); setFilters((prev) => ({ ...prev, search: e.target.value })); }} placeholder="Search action, actor, path..." className="admin-premium-control" />
-                            <select value={filters.severity} onChange={(e) => { setPage(1); setFilters((prev) => ({ ...prev, severity: e.target.value })); }} className="admin-premium-control">
+                            <PremiumSelect value={filters.severity} onChange={(e) => { setPage(1); setFilters((prev) => ({ ...prev, severity: e.target.value })); }} className="admin-premium-control">
                                 <option value="">All Severities</option>
                                 <option value="info">Info</option>
                                 <option value="warning">Warning</option>
                                 <option value="critical">Critical</option>
-                            </select>
+                            </PremiumSelect>
                             <label className="admin-premium-button inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm">
                                 <input type="checkbox" checked={filters.unreadOnly} onChange={(e) => { setPage(1); setFilters((prev) => ({ ...prev, unreadOnly: e.target.checked })); }} />
                                 Unread Only
