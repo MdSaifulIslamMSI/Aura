@@ -15,17 +15,6 @@ export default defineConfig({
             if (id.includes('recharts')) return 'charts';
             if (id.includes('@radix-ui') || id.includes('cmdk') || id.includes('vaul')) return 'ui-kit';
             
-            // Group react, react-dom, scheduler, framer-motion, react-markdown into a single core vendor chunk
-            if (
-              id.includes('react/') || 
-              id.includes('react-dom/') || 
-              id.includes('scheduler/') ||
-              id.includes('framer-motion') ||
-              id.includes('react-markdown')
-            ) {
-              return 'react-core';
-            }
-            
             return 'vendor';
           }
 
