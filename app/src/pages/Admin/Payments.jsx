@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Loader2, RefreshCw, CreditCard, ShieldAlert, CircleCheck, CircleX } from 'lucide-react';
 import { toast } from 'sonner';
+import AdminPremiumShell, { AdminHeroStat } from '@/components/shared/AdminPremiumShell';
 import { paymentApi } from '@/services/api';
 import { formatPrice } from '@/utils/format';
 
@@ -140,27 +141,26 @@ export default function AdminPayments() {
     };
 
     return (
-        <div className="container mx-auto px-4 py-8">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6">
-                <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Payment Operations</h1>
-                    <p className="text-sm text-gray-500">Intents, capture operations, and refund timeline</p>
-                </div>
-                <button
-                    type="button"
-                    onClick={loadList}
-                    className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg border bg-white hover:bg-gray-50 text-sm font-semibold"
-                >
-                    <RefreshCw className="w-4 h-4" />
+        <AdminPremiumShell
+            eyebrow="Payment ops"
+            title="Payment operations"
+            description="Review intents, capture operations, provider status, and refund execution from a more premium payment command console."
+            actions={(
+                <button type="button" onClick={loadList} className="admin-premium-button">
+                    <RefreshCw className="h-4 w-4" />
                     Refresh
                 </button>
-            </div>
-
-            <div className="bg-white border rounded-xl p-4 mb-4 grid grid-cols-1 md:grid-cols-4 gap-3">
+            )}
+            stats={[
+                <AdminHeroStat key="records" label="Records" value={total} detail={`Page ${page} of ${totalPages}`} icon={<CreditCard className="h-5 w-5" />} />,
+                <AdminHeroStat key="selected" label="Selected intent" value={selectedDetail?.status || 'none'} detail={selectedDetail?.intentId || 'Choose an intent from the queue'} icon={<ShieldAlert className="h-5 w-5" />} />,
+            ]}
+        >
+            <div className="admin-premium-panel mb-4 grid grid-cols-1 gap-3 md:grid-cols-4">
                 <select
                     value={filters.status}
                     onChange={(e) => { setPage(1); setFilters((prev) => ({ ...prev, status: e.target.value })); }}
-                    className="border rounded-lg px-3 py-2 text-sm"
+                    className="admin-premium-control"
                 >
                     {STATUS_OPTIONS.map((value) => (
                         <option key={value || 'all'} value={value}>{value ? `Status: ${value}` : 'All Statuses'}</option>
@@ -169,7 +169,7 @@ export default function AdminPayments() {
                 <select
                     value={filters.method}
                     onChange={(e) => { setPage(1); setFilters((prev) => ({ ...prev, method: e.target.value })); }}
-                    className="border rounded-lg px-3 py-2 text-sm"
+                    className="admin-premium-control"
                 >
                     {METHOD_OPTIONS.map((value) => (
                         <option key={value || 'all'} value={value}>{value ? `Method: ${value}` : 'All Methods'}</option>
@@ -178,20 +178,20 @@ export default function AdminPayments() {
                 <select
                     value={filters.provider}
                     onChange={(e) => { setPage(1); setFilters((prev) => ({ ...prev, provider: e.target.value })); }}
-                    className="border rounded-lg px-3 py-2 text-sm"
+                    className="admin-premium-control"
                 >
                     {PROVIDER_OPTIONS.map((value) => (
                         <option key={value || 'all'} value={value}>{value ? `Provider: ${value}` : 'All Providers'}</option>
                     ))}
                 </select>
-                <div className="flex items-center justify-between md:justify-end gap-3 text-sm">
+                <div className="flex items-center justify-between gap-3 text-sm md:justify-end">
                     <span className="text-gray-500">{total} records</span>
                     <span className="text-gray-500">Page {page}/{totalPages}</span>
                 </div>
             </div>
 
             <div className="grid grid-cols-1 xl:grid-cols-5 gap-4">
-                <div className="xl:col-span-2 bg-white border rounded-xl overflow-hidden">
+                <div className="admin-premium-table-shell xl:col-span-2 overflow-hidden">
                     {listLoading ? (
                         <div className="p-6 text-gray-500 flex items-center gap-2">
                             <Loader2 className="w-4 h-4 animate-spin" />
@@ -206,7 +206,7 @@ export default function AdminPayments() {
                                     key={item.intentId}
                                     type="button"
                                     onClick={() => setSelectedIntentId(item.intentId)}
-                                    className={`w-full text-left p-4 border-b hover:bg-gray-50 transition-colors ${selectedIntentId === item.intentId ? 'bg-cyan-50/60' : ''}`}
+                                    className={`w-full border-b border-white/10 p-4 text-left transition-colors ${selectedIntentId === item.intentId ? 'bg-white/10' : 'hover:bg-white/5'}`}
                                 >
                                     <div className="flex items-center justify-between gap-2">
                                         <p className="font-semibold text-sm text-gray-900">{item.intentId}</p>
@@ -225,12 +225,12 @@ export default function AdminPayments() {
                         </div>
                     )}
 
-                    <div className="p-3 border-t bg-gray-50 flex items-center justify-between">
+                    <div className="flex items-center justify-between border-t border-white/10 bg-white/5 p-3">
                         <button
                             type="button"
                             disabled={page <= 1}
                             onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
-                            className="px-3 py-1.5 text-xs border rounded disabled:opacity-50"
+                            className="admin-premium-button px-3 py-1.5 text-xs disabled:opacity-50"
                         >
                             Previous
                         </button>
@@ -238,14 +238,14 @@ export default function AdminPayments() {
                             type="button"
                             disabled={page >= totalPages}
                             onClick={() => setPage((prev) => prev + 1)}
-                            className="px-3 py-1.5 text-xs border rounded disabled:opacity-50"
+                            className="admin-premium-button px-3 py-1.5 text-xs disabled:opacity-50"
                         >
                             Next
                         </button>
                     </div>
                 </div>
 
-                <div className="xl:col-span-3 bg-white border rounded-xl p-5">
+                <div className="admin-premium-panel xl:col-span-3">
                     {detailLoading ? (
                         <div className="text-gray-500 flex items-center gap-2">
                             <Loader2 className="w-4 h-4 animate-spin" />
@@ -273,14 +273,14 @@ export default function AdminPayments() {
                                 <InfoTile label="Risk Decision" value={selectedDetail.riskSnapshot?.decision || '-'} />
                             </div>
 
-                            <div className="border rounded-xl p-4">
+                            <div className="admin-premium-subpanel">
                                 <h3 className="font-semibold text-sm text-gray-900 mb-3">Admin Actions</h3>
                                 <div className="flex flex-wrap gap-2 mb-4">
                                     <button
                                         type="button"
                                         disabled={actionBusy || selectedDetail.status !== 'authorized'}
                                         onClick={onCaptureNow}
-                                        className="inline-flex items-center gap-2 px-4 py-2 text-xs font-bold uppercase tracking-wider rounded-lg border border-cyan-200 text-cyan-700 bg-cyan-50 disabled:opacity-50"
+                                        className="admin-premium-button admin-premium-button-accent px-4 py-2 text-xs font-bold uppercase tracking-wider disabled:opacity-50"
                                     >
                                         <CircleCheck className="w-3.5 h-3.5" />
                                         Capture Now
@@ -289,7 +289,7 @@ export default function AdminPayments() {
                                         type="button"
                                         disabled={actionBusy}
                                         onClick={onRetryCapture}
-                                        className="inline-flex items-center gap-2 px-4 py-2 text-xs font-bold uppercase tracking-wider rounded-lg border border-amber-200 text-amber-700 bg-amber-50 disabled:opacity-50"
+                                        className="admin-premium-button px-4 py-2 text-xs font-bold uppercase tracking-wider disabled:opacity-50"
                                     >
                                         <ShieldAlert className="w-3.5 h-3.5" />
                                         Retry Capture
@@ -302,7 +302,7 @@ export default function AdminPayments() {
                                         min="1"
                                         value={refundForm.amount}
                                         onChange={(e) => setRefundForm((prev) => ({ ...prev, amount: e.target.value }))}
-                                        className="border rounded-lg px-3 py-2 text-sm"
+                                        className="admin-premium-control"
                                         placeholder="Refund amount (optional)"
                                     />
                                     <input
@@ -310,7 +310,7 @@ export default function AdminPayments() {
                                         maxLength={140}
                                         value={refundForm.reason}
                                         onChange={(e) => setRefundForm((prev) => ({ ...prev, reason: e.target.value }))}
-                                        className="border rounded-lg px-3 py-2 text-sm md:col-span-2"
+                                        className="admin-premium-control md:col-span-2"
                                         placeholder="Refund reason"
                                     />
                                 </div>
@@ -318,14 +318,14 @@ export default function AdminPayments() {
                                     type="button"
                                     disabled={actionBusy}
                                     onClick={onRefund}
-                                    className="mt-2 inline-flex items-center gap-2 px-4 py-2 text-xs font-bold uppercase tracking-wider rounded-lg border border-rose-200 text-rose-700 bg-rose-50 disabled:opacity-50"
+                                    className="admin-premium-button admin-premium-button-danger mt-2 px-4 py-2 text-xs font-bold uppercase tracking-wider disabled:opacity-50"
                                 >
                                     <CircleX className="w-3.5 h-3.5" />
                                     Create Refund
                                 </button>
                             </div>
 
-                            <div className="border rounded-xl p-4">
+                            <div className="admin-premium-subpanel">
                                 <h3 className="font-semibold text-sm text-gray-900 mb-3 flex items-center gap-2">
                                     <CreditCard className="w-4 h-4" />
                                     Event Timeline
@@ -334,7 +334,7 @@ export default function AdminPayments() {
                                     {(selectedDetail.events || []).length === 0 ? (
                                         <p className="text-xs text-gray-500">No events logged yet.</p>
                                     ) : selectedDetail.events.map((event) => (
-                                        <div key={event.eventId} className="text-xs border rounded-lg p-2">
+                                        <div key={event.eventId} className="admin-premium-subpanel rounded-lg text-xs">
                                             <div className="flex items-center justify-between gap-2">
                                                 <span className="font-semibold text-gray-800">{event.type}</span>
                                                 <span className="text-gray-400">{new Date(event.receivedAt).toLocaleString()}</span>
@@ -348,13 +348,13 @@ export default function AdminPayments() {
                     )}
                 </div>
             </div>
-        </div>
+        </AdminPremiumShell>
     );
 }
 
 function InfoTile({ label, value }) {
     return (
-        <div className="border rounded-lg p-3">
+        <div className="admin-premium-subpanel rounded-lg p-3">
             <p className="text-[11px] uppercase tracking-wider text-gray-500 font-semibold">{label}</p>
             <p className="text-sm text-gray-900 mt-1 break-all">{value}</p>
         </div>

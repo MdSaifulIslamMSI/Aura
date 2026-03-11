@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { AlertTriangle, Loader2, ShieldAlert, ShieldCheck, UserRound, UserX } from 'lucide-react';
+import AdminPremiumShell, { AdminHeroStat, AdminPremiumPanel, AdminPremiumSubpanel } from '@/components/shared/AdminPremiumShell';
 import { adminApi } from '@/services/api';
 
 const LIMIT = 25;
@@ -126,31 +127,21 @@ export default function AdminUsers() {
     ]), [stats.active, stats.deleted, stats.suspended, stats.warned]);
 
     return (
-        <div className="container mx-auto space-y-6 px-4 py-8">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-                <div>
-                    <h1 className="text-3xl font-bold text-slate-900">Admin User Governance</h1>
-                    <p className="text-sm text-slate-500">Warn, suspend, reactivate, and soft-delete users with full audit logs.</p>
+        <AdminPremiumShell
+            eyebrow="Trust governance"
+            title="User governance center"
+            description="Warn, suspend, reactivate, and soft-delete users from a premium moderation surface with strong audit visibility."
+            actions={(
+                <div className="admin-premium-tag">
+                    Total users in filter: <span className="font-semibold">{total}</span>
                 </div>
-                <div className="rounded-lg border bg-white px-3 py-2 text-sm text-slate-600">
-                    Total users in filter: <span className="font-semibold text-slate-900">{total}</span>
-                </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                {stateCounts.map((item) => (
-                    <div key={item.key} className="rounded-xl border bg-white p-3 shadow-sm">
-                        <div className="flex items-center justify-between text-slate-500">
-                            <span className="text-xs font-semibold uppercase tracking-wide">{item.label}</span>
-                            {item.icon}
-                        </div>
-                        <p className="mt-2 text-2xl font-bold text-slate-900">{item.value}</p>
-                    </div>
-                ))}
-            </div>
-
+            )}
+            stats={stateCounts.map((item) => (
+                <AdminHeroStat key={item.key} label={item.label} value={item.value} detail="Current filtered cohort" icon={item.icon} />
+            ))}
+        >
             <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
-                <div className="rounded-xl border bg-white p-4 shadow-sm xl:col-span-5">
+                <AdminPremiumPanel className="xl:col-span-5">
                     <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
                         <input
                             value={filters.search}
@@ -158,7 +149,7 @@ export default function AdminUsers() {
                                 setPage(1);
                                 setFilters((prev) => ({ ...prev, search: event.target.value }));
                             }}
-                            className="rounded-lg border px-3 py-2 text-sm"
+                            className="admin-premium-control"
                             placeholder="Search name/email/phone"
                         />
                         <select
@@ -167,7 +158,7 @@ export default function AdminUsers() {
                                 setPage(1);
                                 setFilters((prev) => ({ ...prev, accountState: event.target.value }));
                             }}
-                            className="rounded-lg border px-3 py-2 text-sm"
+                            className="admin-premium-control"
                         >
                             <option value="">All states</option>
                             <option value="active">Active</option>
@@ -181,7 +172,7 @@ export default function AdminUsers() {
                                 setPage(1);
                                 setFilters((prev) => ({ ...prev, isVerified: event.target.value }));
                             }}
-                            className="rounded-lg border px-3 py-2 text-sm"
+                            className="admin-premium-control"
                         >
                             <option value="">All verification</option>
                             <option value="true">Verified</option>
@@ -193,7 +184,7 @@ export default function AdminUsers() {
                                 setPage(1);
                                 setFilters((prev) => ({ ...prev, isSeller: event.target.value }));
                             }}
-                            className="rounded-lg border px-3 py-2 text-sm"
+                            className="admin-premium-control"
                         >
                             <option value="">All seller states</option>
                             <option value="true">Seller</option>
@@ -201,20 +192,20 @@ export default function AdminUsers() {
                         </select>
                     </div>
 
-                    <div className="mt-4 overflow-x-auto">
-                        <table className="min-w-full text-sm">
-                            <thead className="text-left text-xs uppercase tracking-wide text-slate-500">
+                    <div className="admin-premium-table-shell mt-4 overflow-x-auto">
+                        <table className="admin-premium-table min-w-full text-sm">
+                            <thead>
                                 <tr>
-                                    <th className="py-2 pr-3">User</th>
-                                    <th className="py-2 pr-3">State</th>
-                                    <th className="py-2 pr-3">Verified</th>
-                                    <th className="py-2 pr-3">Seller</th>
+                                    <th>User</th>
+                                    <th>State</th>
+                                    <th>Verified</th>
+                                    <th>Seller</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {loading ? (
                                     <tr>
-                                        <td colSpan={4} className="py-8 text-center text-slate-500">
+                                        <td colSpan={4} className="py-8 text-center text-slate-400">
                                             <span className="inline-flex items-center gap-2">
                                                 <Loader2 className="h-4 w-4 animate-spin" />
                                                 Loading users...
@@ -223,18 +214,18 @@ export default function AdminUsers() {
                                     </tr>
                                 ) : users.length === 0 ? (
                                     <tr>
-                                        <td colSpan={4} className="py-8 text-center text-slate-500">No users found</td>
+                                        <td colSpan={4} className="py-8 text-center text-slate-400">No users found</td>
                                     </tr>
                                 ) : (
                                     users.map((entry) => (
                                         <tr
                                             key={entry._id}
-                                            className={`cursor-pointer border-t transition ${String(selectedUserId) === String(entry._id) ? 'bg-cyan-50' : 'hover:bg-slate-50'}`}
+                                            className={`cursor-pointer transition ${String(selectedUserId) === String(entry._id) ? 'bg-white/10 ring-1 ring-[rgb(var(--theme-primary-rgb))]/25' : 'hover:bg-white/5'}`}
                                             onClick={() => setSelectedUserId(String(entry._id))}
                                         >
                                             <td className="py-2 pr-3">
-                                                <p className="font-semibold text-slate-900">{entry.name || 'Unnamed User'}</p>
-                                                <p className="text-xs text-slate-500">{entry.email || '-'}</p>
+                                                <p className="font-semibold admin-premium-text-strong">{entry.name || 'Unnamed User'}</p>
+                                                <p className="text-xs admin-premium-text-muted">{entry.email || '-'}</p>
                                             </td>
                                             <td className="py-2 pr-3">
                                                 <span className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${stateBadgeClass[entry.accountState] || stateBadgeClass.active}`}>
@@ -255,29 +246,29 @@ export default function AdminUsers() {
                             type="button"
                             disabled={page <= 1}
                             onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
-                            className="rounded-lg border px-3 py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-40"
+                            className="admin-premium-button px-3 py-1.5 disabled:cursor-not-allowed disabled:opacity-40"
                         >
                             Previous
                         </button>
-                        <span className="text-sm text-slate-600">Page {page} / {pages}</span>
+                        <span className="text-sm admin-premium-text-muted">Page {page} / {pages}</span>
                         <button
                             type="button"
                             disabled={page >= pages}
                             onClick={() => setPage((prev) => Math.min(prev + 1, pages))}
-                            className="rounded-lg border px-3 py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-40"
+                            className="admin-premium-button px-3 py-1.5 disabled:cursor-not-allowed disabled:opacity-40"
                         >
                             Next
                         </button>
                     </div>
-                </div>
+                </AdminPremiumPanel>
 
-                <div className="rounded-xl border bg-white p-4 shadow-sm xl:col-span-7">
+                <AdminPremiumPanel className="xl:col-span-7">
                     {!selectedUserId ? (
-                        <div className="flex h-full min-h-[26rem] items-center justify-center text-slate-500">
+                        <div className="flex min-h-[26rem] h-full items-center justify-center admin-premium-text-muted">
                             Select a user to view governance controls
                         </div>
                     ) : detailLoading ? (
-                        <div className="flex h-full min-h-[26rem] items-center justify-center text-slate-500">
+                        <div className="flex min-h-[26rem] h-full items-center justify-center admin-premium-text-muted">
                             <span className="inline-flex items-center gap-2">
                                 <Loader2 className="h-4 w-4 animate-spin" />
                                 Loading user details...
@@ -285,47 +276,47 @@ export default function AdminUsers() {
                         </div>
                     ) : (
                         <div className="space-y-4">
-                            <div className="rounded-xl border bg-slate-50 p-3">
+                            <AdminPremiumSubpanel>
                                 <div className="flex flex-wrap items-center justify-between gap-3">
                                     <div>
-                                        <p className="text-lg font-bold text-slate-900">{selectedUser?.name || 'Unnamed User'}</p>
-                                        <p className="text-sm text-slate-600">{selectedUser?.email || '-'}</p>
-                                        <p className="text-xs text-slate-500">{selectedUser?.phone || 'No phone on file'}</p>
+                                        <p className="admin-premium-text-strong text-lg font-bold">{selectedUser?.name || 'Unnamed User'}</p>
+                                        <p className="admin-premium-text text-sm">{selectedUser?.email || '-'}</p>
+                                        <p className="admin-premium-text-muted text-xs">{selectedUser?.phone || 'No phone on file'}</p>
                                     </div>
                                     <span className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${stateBadgeClass[selectedUser?.accountState] || stateBadgeClass.active}`}>
                                         {accountStateLabel(selectedUser?.accountState)}
                                     </span>
                                 </div>
-                                <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-600 md:grid-cols-4">
-                                    <p>Orders: <span className="font-semibold text-slate-900">{detail?.metrics?.orders || 0}</span></p>
-                                    <p>Listings: <span className="font-semibold text-slate-900">{detail?.metrics?.listings || 0}</span></p>
-                                    <p>Active listings: <span className="font-semibold text-slate-900">{detail?.metrics?.activeListings || 0}</span></p>
-                                    <p>Payments: <span className="font-semibold text-slate-900">{detail?.metrics?.paymentIntents || 0}</span></p>
+                                <div className="admin-premium-text mt-3 grid grid-cols-2 gap-2 text-xs md:grid-cols-4">
+                                    <p>Orders: <span className="admin-premium-text-strong font-semibold">{detail?.metrics?.orders || 0}</span></p>
+                                    <p>Listings: <span className="admin-premium-text-strong font-semibold">{detail?.metrics?.listings || 0}</span></p>
+                                    <p>Active listings: <span className="admin-premium-text-strong font-semibold">{detail?.metrics?.activeListings || 0}</span></p>
+                                    <p>Payments: <span className="admin-premium-text-strong font-semibold">{detail?.metrics?.paymentIntents || 0}</span></p>
                                 </div>
-                            </div>
+                            </AdminPremiumSubpanel>
 
                             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                                 <div>
-                                    <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Reason</label>
+                                    <label className="premium-kicker">Reason</label>
                                     <textarea
                                         value={reason}
                                         onChange={(event) => setReason(event.target.value)}
                                         rows={3}
-                                        className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
+                                        className="admin-premium-control mt-1"
                                         placeholder="Required for warning/suspend/delete"
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Suspension Duration (hours)</label>
+                                    <label className="premium-kicker">Suspension Duration (hours)</label>
                                     <input
                                         type="number"
                                         min={1}
                                         max={24 * 365}
                                         value={durationHours}
                                         onChange={(event) => setDurationHours(Number(event.target.value || 72))}
-                                        className="w-full rounded-lg border px-3 py-2 text-sm"
+                                        className="admin-premium-control"
                                     />
-                                    <label className="inline-flex items-center gap-2 text-sm text-slate-700">
+                                    <label className="admin-premium-text inline-flex items-center gap-2 text-sm">
                                         <input
                                             type="checkbox"
                                             checked={scrubPII}
@@ -341,7 +332,7 @@ export default function AdminUsers() {
                                     type="button"
                                     onClick={() => runAction('warn', adminApi.warnUser, { reason })}
                                     disabled={actionBusy !== '' || reason.trim().length < 5}
-                                    className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-700 disabled:opacity-50"
+                                    className="admin-premium-button px-3 py-2 text-sm disabled:opacity-50"
                                 >
                                     {actionBusy === 'warn' ? '...' : 'Warn'}
                                 </button>
@@ -349,7 +340,7 @@ export default function AdminUsers() {
                                     type="button"
                                     onClick={() => runAction('suspend', adminApi.suspendUser, { reason, durationHours })}
                                     disabled={actionBusy !== '' || reason.trim().length < 5}
-                                    className="rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700 disabled:opacity-50"
+                                    className="admin-premium-button admin-premium-button-danger px-3 py-2 text-sm disabled:opacity-50"
                                 >
                                     {actionBusy === 'suspend' ? '...' : 'Suspend'}
                                 </button>
@@ -357,7 +348,7 @@ export default function AdminUsers() {
                                     type="button"
                                     onClick={() => runAction('dismiss', adminApi.dismissWarning, { reason })}
                                     disabled={actionBusy !== ''}
-                                    className="rounded-lg border px-3 py-2 text-sm font-semibold text-slate-700 disabled:opacity-50"
+                                    className="admin-premium-button px-3 py-2 text-sm disabled:opacity-50"
                                 >
                                     {actionBusy === 'dismiss' ? '...' : 'Dismiss Warning'}
                                 </button>
@@ -365,7 +356,7 @@ export default function AdminUsers() {
                                     type="button"
                                     onClick={() => runAction('reactivate', adminApi.reactivateUser, { reason })}
                                     disabled={actionBusy !== ''}
-                                    className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700 disabled:opacity-50"
+                                    className="admin-premium-button admin-premium-button-success px-3 py-2 text-sm disabled:opacity-50"
                                 >
                                     {actionBusy === 'reactivate' ? '...' : 'Reactivate'}
                                 </button>
@@ -376,37 +367,37 @@ export default function AdminUsers() {
                                         runAction('delete', adminApi.deleteUser, { reason, scrubPII });
                                     }}
                                     disabled={actionBusy !== '' || reason.trim().length < 5}
-                                    className="rounded-lg border border-slate-400 bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-800 disabled:opacity-50"
+                                    className="admin-premium-button admin-premium-button-danger px-3 py-2 text-sm disabled:opacity-50"
                                 >
                                     {actionBusy === 'delete' ? '...' : 'Delete'}
                                 </button>
                             </div>
 
                             <div>
-                                <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">Governance Timeline</h3>
-                                <div className="max-h-[20rem] overflow-auto rounded-lg border">
-                                    <table className="min-w-full text-sm">
-                                        <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+                                <h3 className="premium-kicker mb-2">Governance Timeline</h3>
+                                <div className="admin-premium-table-shell admin-premium-scroll max-h-[20rem] overflow-auto">
+                                    <table className="admin-premium-table min-w-full text-sm">
+                                        <thead>
                                             <tr>
-                                                <th className="px-3 py-2">Action</th>
-                                                <th className="px-3 py-2">Reason</th>
-                                                <th className="px-3 py-2">Actor</th>
-                                                <th className="px-3 py-2">Time</th>
+                                                <th>Action</th>
+                                                <th>Reason</th>
+                                                <th>Actor</th>
+                                                <th>Time</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             {Array.isArray(detail?.logs) && detail.logs.length > 0 ? (
                                                 detail.logs.map((entry) => (
-                                                    <tr key={entry.actionId} className="border-t">
-                                                        <td className="px-3 py-2 font-semibold text-slate-800">{String(entry.actionType || '').replace('_', ' ')}</td>
-                                                        <td className="px-3 py-2 text-slate-600">{entry.reason || '-'}</td>
-                                                        <td className="px-3 py-2 text-slate-600">{entry.actorEmail || '-'}</td>
-                                                        <td className="px-3 py-2 text-slate-600">{formatDateTime(entry.createdAt)}</td>
+                                                    <tr key={entry.actionId}>
+                                                        <td className="px-3 py-2 font-semibold admin-premium-text-strong">{String(entry.actionType || '').replace('_', ' ')}</td>
+                                                        <td className="px-3 py-2 admin-premium-text">{entry.reason || '-'}</td>
+                                                        <td className="px-3 py-2 admin-premium-text">{entry.actorEmail || '-'}</td>
+                                                        <td className="px-3 py-2 admin-premium-text">{formatDateTime(entry.createdAt)}</td>
                                                     </tr>
                                                 ))
                                             ) : (
                                                 <tr>
-                                                    <td colSpan={4} className="px-3 py-6 text-center text-slate-500">No governance actions yet</td>
+                                                    <td colSpan={4} className="px-3 py-6 text-center admin-premium-text-muted">No governance actions yet</td>
                                                 </tr>
                                             )}
                                         </tbody>
@@ -415,13 +406,13 @@ export default function AdminUsers() {
                             </div>
                         </div>
                     )}
-                </div>
+                </AdminPremiumPanel>
             </div>
 
-            <p className="inline-flex items-center gap-1 text-xs text-slate-500">
+            <p className="admin-premium-text-muted inline-flex items-center gap-1 text-xs">
                 <UserRound className="h-3.5 w-3.5" />
                 Admin controls are enforced server-side with strict audit logging.
             </p>
-        </div>
+        </AdminPremiumShell>
     );
 }

@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ArrowLeft, Plus, Save, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import AdminPremiumShell from '@/components/shared/AdminPremiumShell';
 import { adminApi } from '@/services/api';
 import { formatPrice } from '@/utils/format';
 
@@ -27,7 +28,7 @@ const defaultForm = {
     pricingReason: '',
 };
 
-const inputClass = 'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100';
+const inputClass = 'admin-premium-control';
 
 const sanitizeHighlights = (value = '') => String(value)
     .split('\n')
@@ -253,14 +254,23 @@ const ProductEdit = () => {
 
     if (loading) {
         return (
-            <div className="container mx-auto px-4 py-10">
-                <div className="rounded-xl border bg-white p-8 text-center text-slate-500">Loading product...</div>
-            </div>
+            <AdminPremiumShell
+                eyebrow="Catalog editor"
+                title={isNew ? 'Create product' : 'Product edit studio'}
+                description="Refine product details, pricing, and governance notes from a premium edit surface."
+            >
+                <div className="admin-premium-panel p-8 text-center text-slate-400">Loading product...</div>
+            </AdminPremiumShell>
         );
     }
 
     return (
-        <div className="container mx-auto max-w-6xl px-4 py-8 space-y-6">
+        <AdminPremiumShell
+            eyebrow="Catalog editor"
+            title={isNew ? 'Create product' : 'Product edit studio'}
+            description="Admin-governed control for core product details, specs, pricing, and audit reasons."
+        >
+        <div className="mx-auto max-w-6xl space-y-6">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <Button variant="ghost" className="w-full md:w-auto" onClick={() => navigate('/admin/products')}>
                     <ArrowLeft className="w-4 h-4 mr-2" />
@@ -274,7 +284,7 @@ const ProductEdit = () => {
             </div>
 
             <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-                <form onSubmit={handleSubmit} className="xl:col-span-2 rounded-xl border bg-white p-5 space-y-6 shadow-sm">
+                <form onSubmit={handleSubmit} className="admin-premium-panel xl:col-span-2 space-y-6">
                     <div>
                         <h1 className="text-2xl font-bold">{isNew ? 'Create Product' : 'Edit Product'}</h1>
                         <p className="text-sm text-slate-500">Admin-governed control for core product details, specs, and pricing.</p>
@@ -414,7 +424,7 @@ const ProductEdit = () => {
                         />
                     </Field>
 
-                    <div className="space-y-3 rounded-lg border bg-slate-50 p-3">
+                    <div className="admin-premium-subpanel space-y-3">
                         <div className="flex items-center justify-between">
                             <h2 className="text-sm font-semibold text-slate-800">Specifications</h2>
                             <Button type="button" variant="outline" onClick={addSpecification}>
@@ -480,7 +490,7 @@ const ProductEdit = () => {
                     </div>
                 </form>
 
-                <aside className="rounded-xl border bg-white p-5 shadow-sm">
+                <aside className="admin-premium-panel p-5">
                     <h2 className="text-lg font-semibold text-slate-900">Governance Timeline</h2>
                     <p className="text-xs text-slate-500 mb-4">Every admin change is tracked for audit and rollback analysis.</p>
                     {isNew ? (
@@ -492,7 +502,7 @@ const ProductEdit = () => {
                     ) : (
                         <div className="space-y-3 max-h-[560px] overflow-y-auto pr-1">
                             {logs.map((log) => (
-                                <div key={log.actionId} className="rounded-lg border border-slate-200 p-3">
+                                <div key={log.actionId} className="admin-premium-subpanel">
                                     <div className="flex items-center justify-between gap-2">
                                         <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">{log.actionType}</span>
                                         <span className="text-[11px] text-slate-400">
@@ -511,6 +521,7 @@ const ProductEdit = () => {
                 </aside>
             </div>
         </div>
+        </AdminPremiumShell>
     );
 };
 

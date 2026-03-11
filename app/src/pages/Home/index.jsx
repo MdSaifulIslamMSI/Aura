@@ -12,11 +12,39 @@ import { buildRecommendationSignals } from '@/utils/recommendationSignals';
 import { AuthContext } from '@/context/AuthContext';
 import { CartContext } from '@/context/CartContext';
 import { WishlistContext } from '@/context/WishlistContext';
+import { useColorMode } from '@/context/ColorModeContext';
+import { FIGMA_COLOR_MODE_OPTIONS } from '@/config/figmaTokens';
+import { cn } from '@/lib/utils';
 
 const HOME_SECTION_REQUEST = {
   limit: 8,
   includeMeta: false,
   includeTelemetry: false,
+};
+
+const hexToRgb = (hex) => {
+  const normalized = String(hex || '').trim().replace('#', '');
+  if (!normalized) return { r: 6, g: 182, b: 212 };
+
+  const safeHex = normalized.length === 3
+    ? normalized.split('').map((value) => `${value}${value}`).join('')
+    : normalized.padEnd(6, '0').slice(0, 6);
+
+  const value = Number.parseInt(safeHex, 16);
+  if (!Number.isFinite(value)) {
+    return { r: 6, g: 182, b: 212 };
+  }
+
+  return {
+    r: (value >> 16) & 255,
+    g: (value >> 8) & 255,
+    b: value & 255,
+  };
+};
+
+const toRgba = (hex, alpha) => {
+  const { r, g, b } = hexToRgb(hex);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 };
 
 const Home = () => {
@@ -33,6 +61,32 @@ const Home = () => {
   const { currentUser = null } = useContext(AuthContext) || {};
   const { cartItems = [], isLoading: cartLoading = false } = useContext(CartContext) || {};
   const { wishlistItems = [], isLoading: wishlistLoading = false } = useContext(WishlistContext) || {};
+  const { colorMode } = useColorMode();
+  const isWhiteMode = colorMode === 'white';
+  const modePalette = FIGMA_COLOR_MODE_OPTIONS.find((mode) => mode.value === colorMode) || FIGMA_COLOR_MODE_OPTIONS[0];
+  const accentPrimary = modePalette.primary;
+  const accentSecondary = modePalette.secondary;
+  const mutedTextClass = isWhiteMode ? 'text-slate-600' : 'text-slate-300';
+  const subtleTextClass = isWhiteMode ? 'text-slate-500' : 'text-slate-400';
+  const titleClass = isWhiteMode ? 'text-slate-950' : 'text-white';
+  const pageShellClass = isWhiteMode ? 'bg-[#eff4ff] text-slate-900' : 'bg-transparent text-slate-100';
+  const heroStyle = isWhiteMode
+    ? {
+        borderColor: toRgba(accentPrimary, 0.12),
+      }
+    : {
+        borderColor: toRgba(accentPrimary, 0.12),
+      };
+  const accentFillStyle = {
+    backgroundImage: `linear-gradient(120deg, ${accentPrimary}, ${accentSecondary})`,
+    boxShadow: `0 18px 38px ${toRgba(accentPrimary, isWhiteMode ? 0.16 : 0.24)}`,
+    color: '#ffffff',
+  };
+  const accentSoftStyle = {
+    borderColor: toRgba(accentPrimary, isWhiteMode ? 0.14 : 0.22),
+    background: isWhiteMode ? toRgba(accentPrimary, 0.08) : toRgba(accentPrimary, 0.12),
+    color: isWhiteMode ? accentPrimary : '#f8fafc',
+  };
 
   // Parallel Data Fetching (High Performance)
   useEffect(() => {
@@ -326,40 +380,48 @@ const Home = () => {
     },
   ], [dealsOfTheDay.length, newArrivals.length, trendingProducts.length]);
 
+  const heroSignals = useMemo(() => [
+    'Search-led product discovery',
+    'Trust cues visible before checkout',
+    'Marketplace and catalog in one premium shell',
+  ], []);
+
   const ProductSection = ({ eyebrow, title, description, link, actionLabel = 'Explore', products, isLoading, onAction }) => (
-    <section className="bg-white/[0.045] backdrop-blur-xl rounded-2xl border border-white/10 shadow-glass mb-8 overflow-hidden relative group">
+    <section className="premium-panel mb-8 overflow-hidden relative group premium-grid-backdrop" style={heroStyle}>
       {/* Decorative gradient blur */}
-      <div className="absolute top-0 right-0 w-64 h-64 bg-neo-cyan/8 rounded-full blur-[80px] -z-10 group-hover:bg-neo-cyan/15 transition-colors duration-700" />
-      <div className="absolute -bottom-20 -left-10 w-64 h-64 bg-neo-emerald/8 rounded-full blur-[90px] -z-10 group-hover:bg-neo-emerald/15 transition-colors duration-700" />
+      <div className="absolute top-0 right-0 w-64 h-64 rounded-full blur-[80px] -z-10 transition-colors duration-700" style={{ background: toRgba(accentPrimary, 0.12) }} />
+      <div className="absolute -bottom-20 -left-10 w-64 h-64 rounded-full blur-[90px] -z-10 transition-colors duration-700" style={{ background: toRgba(accentSecondary, 0.1) }} />
 
       <div className="flex flex-col gap-4 border-b border-white/5 p-6 lg:flex-row lg:items-end lg:justify-between">
         <div className="max-w-2xl">
           {eyebrow ? (
-            <div className="mb-2 text-[11px] font-black uppercase tracking-[0.26em] text-neo-cyan">{eyebrow}</div>
+            <div className="premium-kicker mb-2">{eyebrow}</div>
           ) : null}
-          <h2 className="text-xl md:text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400 tracking-tight">{title}</h2>
+          <h2 className={cn('text-xl md:text-2xl font-black tracking-tight', titleClass)}>{title}</h2>
           {description ? (
-            <p className="mt-2 text-sm text-slate-400 md:text-base">{description}</p>
+            <p className={cn('mt-2 text-sm md:text-base', mutedTextClass)}>{description}</p>
           ) : null}
         </div>
         {typeof onAction === 'function' ? (
           <button
             type="button"
             onClick={onAction}
-            className="inline-flex items-center gap-2 self-start rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-bold uppercase tracking-[0.22em] text-neo-cyan transition-all hover:border-white/20 hover:bg-white/[0.08] hover:text-neo-emerald group/link"
+            className="inline-flex items-center gap-2 self-start rounded-full border px-4 py-2 text-sm font-bold uppercase tracking-[0.22em] transition-all group/link"
+            style={accentSoftStyle}
           >
             {actionLabel}
-            <div className="w-6 h-6 rounded-full bg-neo-cyan/10 flex items-center justify-center group-hover/link:bg-neo-fuchsia/20 group-hover/link:translate-x-1 transition-all">
+            <div className="w-6 h-6 rounded-full flex items-center justify-center transition-all group-hover/link:translate-x-1" style={{ background: toRgba(accentPrimary, isWhiteMode ? 0.12 : 0.18) }}>
               <ChevronRight className="w-4 h-4" />
             </div>
           </button>
         ) : (
           <Link
             to={link}
-            className="inline-flex items-center gap-2 self-start rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-bold uppercase tracking-[0.22em] text-neo-cyan transition-all hover:border-white/20 hover:bg-white/[0.08] hover:text-neo-emerald group/link"
+            className="inline-flex items-center gap-2 self-start rounded-full border px-4 py-2 text-sm font-bold uppercase tracking-[0.22em] transition-all group/link"
+            style={accentSoftStyle}
           >
             {actionLabel}
-            <div className="w-6 h-6 rounded-full bg-neo-cyan/10 flex items-center justify-center group-hover/link:bg-neo-fuchsia/20 group-hover/link:translate-x-1 transition-all">
+            <div className="w-6 h-6 rounded-full flex items-center justify-center transition-all group-hover/link:translate-x-1" style={{ background: toRgba(accentPrimary, isWhiteMode ? 0.12 : 0.18) }}>
               <ChevronRight className="w-4 h-4" />
             </div>
           </Link>
@@ -389,26 +451,37 @@ const Home = () => {
   );
 
   return (
-    <div className="min-h-screen pb-16 pt-3 sm:pt-4">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8 md:space-y-10">
+    <div className={cn('premium-page-shell min-h-screen pb-16 pt-3 sm:pt-4', pageShellClass)}>
+      <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
+        <div
+          className="absolute inset-0"
+          style={{
+            background: isWhiteMode
+              ? `radial-gradient(circle at top left, ${toRgba(accentPrimary, 0.12)}, transparent 26%), radial-gradient(circle at top right, ${toRgba(accentSecondary, 0.14)}, transparent 24%), linear-gradient(180deg, #f5f8ff 0%, #eef4ff 48%, #f8fbff 100%)`
+              : `radial-gradient(circle at top left, ${toRgba(accentPrimary, 0.18)}, transparent 26%), radial-gradient(circle at top right, ${toRgba(accentSecondary, 0.14)}, transparent 24%), linear-gradient(180deg, #040611 0%, #050816 42%, #070d1d 100%)`,
+          }}
+        />
+        <div className={cn('absolute inset-0 opacity-35 [background-size:60px_60px]', isWhiteMode ? 'bg-[linear-gradient(rgba(148,163,184,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(148,163,184,0.08)_1px,transparent_1px)]' : 'bg-[linear-gradient(rgba(148,163,184,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(148,163,184,0.05)_1px,transparent_1px)]')} />
+      </div>
+      <div className="premium-page-frame space-y-8 md:space-y-10">
         <RevealOnScroll anchorId="home-command-deck" anchorLabel="Command Deck" className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-          <section className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.045] p-6 shadow-glass lg:p-8 group/hero">
-            <div className="absolute top-10 right-10 animate-pulse-glow opacity-30 group-hover/hero:opacity-60 transition-opacity"><Sparkles className="w-8 h-8 text-neo-cyan" /></div>
-            <div className="absolute bottom-10 left-1/4 animate-pulse-glow opacity-20 group-hover/hero:opacity-50 transition-opacity" style={{ animationDelay: '1s' }}><Sparkles className="w-5 h-5 text-neo-fuchsia" /></div>
-            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-neo-cyan/20 bg-neo-cyan/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.28em] text-neo-cyan">
+          <section className="premium-hero-panel premium-grid-backdrop group/hero p-6 lg:p-8" style={heroStyle}>
+            <div className="absolute top-10 right-10 animate-pulse-glow opacity-30 group-hover/hero:opacity-60 transition-opacity"><Sparkles className="w-8 h-8" style={{ color: accentPrimary }} /></div>
+            <div className="absolute bottom-10 left-1/4 animate-pulse-glow opacity-20 group-hover/hero:opacity-50 transition-opacity" style={{ animationDelay: '1s', color: accentSecondary }}><Sparkles className="w-5 h-5" /></div>
+            <div className="premium-eyebrow mb-3">
               Retail Command Deck
             </div>
-            <h1 className="text-shimmer max-w-3xl text-4xl font-black leading-[0.95] md:text-5xl xl:text-6xl pb-2">
+            <h1 className={cn('max-w-3xl pb-2 text-4xl font-black leading-[0.95] tracking-tight md:text-5xl xl:text-6xl', titleClass)}>
               Search first. Trust faster. Move to checkout without noise.
             </h1>
-            <p className="mt-4 max-w-2xl text-sm text-slate-300 md:text-base">
+            <p className={cn('mt-4 max-w-2xl text-sm md:text-base', mutedTextClass)}>
               The homepage is now a tighter decision surface for live search, trusted deals, and the next best purchase action.
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
               <Link to="/mission-control?goal=gaming%20setup%20under%20Rs%2080000&category=gaming&budget=80000" className="btn-secondary inline-flex items-center gap-2">
                 Open Mission OS
               </Link>
-              <Link to="/search?q=iphone" className="btn-primary inline-flex items-center gap-2">
+              <Link to="/search?q=iphone" className="btn-primary inline-flex items-center gap-2" style={accentFillStyle}>
                 Start with live search
                 <ArrowRight className="h-4 w-4" />
               </Link>
@@ -416,32 +489,39 @@ const Home = () => {
                 Open marketplace
               </Link>
             </div>
+            <div className="mt-6 flex flex-wrap gap-2.5">
+              {heroSignals.map((signal) => (
+                <span key={signal} className="premium-chip-muted text-xs font-semibold uppercase tracking-[0.18em]">
+                  {signal}
+                </span>
+              ))}
+            </div>
           </section>
 
           <section className="grid gap-4 sm:grid-cols-3 xl:grid-cols-1">
             {commandMetrics.map((metric) => (
-              <article key={metric.label} className="rounded-[1.5rem] border border-white/10 bg-white/[0.04] p-5 shadow-glass">
-                <div className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">{metric.label}</div>
-                <div className="mt-3 text-3xl font-black text-white">{metric.value}</div>
-                <p className="mt-2 text-sm leading-6 text-slate-400">{metric.detail}</p>
+              <article key={metric.label} className="premium-stat-card">
+                <div className={cn('text-[11px] font-black uppercase tracking-[0.22em]', subtleTextClass)}>{metric.label}</div>
+                <div className={cn('mt-3 text-3xl font-black', titleClass)}>{metric.value}</div>
+                <p className={cn('mt-2 text-sm leading-6', mutedTextClass)}>{metric.detail}</p>
               </article>
             ))}
           </section>
         </RevealOnScroll>
 
         <RevealOnScroll anchorId="home-mission-os" anchorLabel="Mission OS" delay={20}>
-          <section className="relative overflow-hidden rounded-[2rem] border border-cyan-300/20 bg-gradient-to-r from-cyan-500/10 via-white/[0.03] to-emerald-500/10 p-6 shadow-glass lg:p-7 hover:shadow-[0_0_30px_rgba(34,211,238,0.2)] transition-shadow duration-500">
+          <section className="premium-panel premium-grid-backdrop relative overflow-hidden p-6 lg:p-7 transition-shadow duration-500">
             <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-400 to-transparent animate-gradient-x opacity-60" style={{ backgroundSize: '200% auto' }} />
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="max-w-3xl">
-                <div className="text-[11px] font-black uppercase tracking-[0.28em] text-cyan-100">New Command Layer</div>
-                <h2 className="mt-2 text-2xl font-black text-white md:text-3xl">Shopping Mission OS now links goal, trust, lifecycle, and local commerce in one run.</h2>
-                <p className="mt-3 text-sm text-slate-300 md:text-base">
+                <div className="premium-kicker">New Command Layer</div>
+                <h2 className={cn('mt-2 text-2xl font-black md:text-3xl', titleClass)}>Shopping Mission OS now links goal, trust, lifecycle, and local commerce in one run.</h2>
+                <p className={cn('mt-3 text-sm md:text-base', mutedTextClass)}>
                   Start from a mission brief, screenshot hint, or trade-in intent instead of bouncing between separate pages.
                 </p>
               </div>
               <div className="flex flex-wrap gap-3">
-                <Link to="/mission-control" className="btn-primary inline-flex items-center gap-2">
+                <Link to="/mission-control" className="btn-primary inline-flex items-center gap-2" style={accentFillStyle}>
                   Launch Mission OS
                   <ArrowRight className="h-4 w-4" />
                 </Link>
@@ -455,13 +535,13 @@ const Home = () => {
 
         {/* Category Navigation - clearer hierarchy */}
         <RevealOnScroll anchorId="home-categories" anchorLabel="Categories" className="mb-2">
-          <section className="rounded-[2rem] border border-white/10 bg-white/[0.045] p-5 shadow-glass lg:p-6">
+          <section className="premium-panel premium-grid-backdrop p-5 lg:p-6" style={heroStyle}>
             <div className="mb-5 flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
               <div>
-                <div className="text-[11px] font-black uppercase tracking-[0.28em] text-neo-cyan">Category Access</div>
-                <h2 className="mt-2 text-2xl font-black text-white md:text-3xl">Move through the catalog without friction.</h2>
+                <div className="premium-kicker">Category Access</div>
+                <h2 className={cn('mt-2 text-2xl font-black md:text-3xl', titleClass)}>Move through the catalog without friction.</h2>
               </div>
-              <p className="max-w-xl text-sm text-slate-400">
+              <p className={cn('max-w-xl text-sm', mutedTextClass)}>
                 Each lane routes directly into a focused catalog surface. No filler rows, no fake categories, no dead navigation.
               </p>
             </div>
@@ -470,13 +550,13 @@ const Home = () => {
                 <Link
                   key={category.path}
                   to={category.path}
-                  className="group rounded-[1.35rem] border border-white/8 bg-white/[0.03] p-4 transition-all duration-500 hover:-translate-y-2 hover:scale-[1.03] hover:border-white/20 hover:bg-white/[0.08] hover:shadow-[0_0_20px_rgba(6,182,212,0.15)]"
+                  className="group rounded-[1.35rem] border border-white/8 bg-white/[0.03] p-4 transition-all duration-500 hover:-translate-y-2 hover:scale-[1.03] hover:border-white/20 hover:bg-white/[0.08]"
                 >
                   <div className={`mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br ${category.color} border border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.08)] transition-transform duration-300 group-hover:scale-105`}>
                     <category.icon className="h-6 w-6" />
                   </div>
-                  <div className="text-sm font-bold text-white">{category.name}</div>
-                  <div className="mt-1 text-xs text-slate-400">Open lane</div>
+                  <div className={cn('text-sm font-bold', titleClass)}>{category.name}</div>
+                  <div className={cn('mt-1 text-xs', subtleTextClass)}>Open lane</div>
                 </Link>
               ))}
             </nav>
@@ -487,7 +567,7 @@ const Home = () => {
         <RevealOnScroll
           anchorId="home-hero"
           anchorLabel="Hero"
-          className="rounded-3xl overflow-hidden shadow-glass border border-white/10 relative group"
+          className="premium-panel premium-grid-backdrop rounded-3xl overflow-hidden relative group"
         >
           <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-neo-cyan/60 to-transparent z-20" />
           <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/60 z-10 pointer-events-none" />
@@ -559,26 +639,26 @@ const Home = () => {
 
         {/* Marketplace CTA Banner */}
         <RevealOnScroll anchorId="home-marketplace" anchorLabel="Marketplace" delay={180}>
-          <section className="bg-gradient-to-r from-neo-cyan/10 via-neo-emerald/10 to-teal-500/10 backdrop-blur-xl rounded-3xl border border-neo-cyan/20 p-8 md:p-12 relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-80 h-80 bg-green-500/10 rounded-full blur-[100px] -z-10" />
-            <div className="absolute bottom-0 left-0 w-60 h-60 bg-emerald-500/10 rounded-full blur-[80px] -z-10" />
+          <section className="premium-hero-panel premium-grid-backdrop rounded-3xl p-8 md:p-12 relative overflow-hidden" style={heroStyle}>
+            <div className="absolute top-0 right-0 w-80 h-80 rounded-full blur-[100px] -z-10" style={{ background: toRgba(accentSecondary, 0.12) }} />
+            <div className="absolute bottom-0 left-0 w-60 h-60 rounded-full blur-[80px] -z-10" style={{ background: toRgba(accentPrimary, 0.12) }} />
             <div className="flex flex-col md:flex-row items-center justify-between gap-6">
               <div>
-                <span className="inline-block px-3 py-1 bg-neo-cyan/20 text-neo-cyan text-xs font-black tracking-widest uppercase rounded-full border border-neo-cyan/30 mb-3 backdrop-blur-md">
+                <span className="premium-eyebrow mb-3 inline-flex">
                   Marketplace
                 </span>
-                <h2 className="text-3xl md:text-4xl font-black text-white mb-2">
-                  Buy and Sell <span className="text-transparent bg-clip-text bg-gradient-to-r from-neo-cyan to-neo-emerald">Near You</span>
+                <h2 className={cn('mb-2 text-3xl font-black md:text-4xl', titleClass)}>
+                  Buy and Sell <span className="text-transparent bg-clip-text" style={{ backgroundImage: `linear-gradient(120deg, ${accentPrimary}, ${accentSecondary})` }}>Near You</span>
                 </h2>
-                <p className="text-slate-400 max-w-md">
+                <p className={cn('max-w-md', mutedTextClass)}>
                   List pre-owned items or browse local offers with a cleaner, seller-aware marketplace entry point.
                 </p>
               </div>
               <div className="flex gap-3 flex-shrink-0">
-                <Link to="/marketplace" className="px-6 py-3 bg-white/10 backdrop-blur text-white font-bold rounded-xl border border-white/20 hover:bg-white/20 transition-all">
+                <Link to="/marketplace" className="btn-secondary inline-flex items-center justify-center px-6 py-3">
                   Browse
                 </Link>
-                <Link to="/sell" className="px-6 py-3 bg-gradient-to-r from-neo-cyan to-neo-emerald text-white font-bold rounded-xl shadow-lg shadow-emerald-500/25 hover:from-sky-500 hover:to-emerald-500 transition-all hover:-translate-y-0.5">
+                <Link to="/sell" className="btn-primary inline-flex items-center justify-center px-6 py-3" style={accentFillStyle}>
                   + Start Selling
                 </Link>
               </div>

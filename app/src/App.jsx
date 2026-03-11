@@ -69,7 +69,7 @@ function renderCriticalRoute(element) {
 
 function AppContent() {
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="aura-app-shell flex min-h-screen flex-col">
       {/* Skip-to-main-content — first focusable element for keyboard/screen-reader users.
           Hidden by default, revealed on focus via sr-only + focus:not-sr-only pattern. */}
       <a
@@ -88,7 +88,7 @@ function AppContent() {
       <AppErrorBoundary>
         <BackendStatusBanner />
       </AppErrorBoundary>
-      <main id="main-content" className="flex-1" role="main" aria-label="Main content">
+      <main id="main-content" className="relative z-10 flex-1" role="main" aria-label="Main content">
         <Suspense
           fallback={(
             <div className="flex h-[80vh] items-center justify-center">

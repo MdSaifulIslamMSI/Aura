@@ -918,7 +918,7 @@ export default function Sell() {
     }
 
     return (
-        <div className={cn('min-h-screen pb-20', shellClass)}>
+        <div className={cn('premium-page-shell min-h-screen pb-20', shellClass)}>
             <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
                 <div
                     className="absolute inset-0"
@@ -930,8 +930,8 @@ export default function Sell() {
                 />
                 <div className={cn('absolute inset-0 opacity-40 [background-size:52px_52px]', isWhiteMode ? 'bg-[linear-gradient(rgba(148,163,184,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(148,163,184,0.08)_1px,transparent_1px)]' : 'bg-[linear-gradient(rgba(148,163,184,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(148,163,184,0.05)_1px,transparent_1px)]')} />
             </div>
-            <div className="mx-auto max-w-7xl px-4 pt-6 sm:px-6 lg:px-8">
-                <section className={cn('relative overflow-hidden rounded-[2.2rem] border px-6 py-7 sm:px-8 sm:py-8', panelClass)} style={heroStyle}>
+            <div className="premium-page-frame pt-6">
+                <section className={cn('premium-hero-panel premium-grid-backdrop relative overflow-hidden rounded-[2.2rem] border px-6 py-7 sm:px-8 sm:py-8', panelClass)} style={heroStyle}>
                     <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px]">
                         <div>
                             <div className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-[0.24em]" style={accentOutlineStyle}>

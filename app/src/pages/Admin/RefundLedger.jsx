@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Loader2, RefreshCw, Save, ShieldCheck, ShieldAlert } from 'lucide-react';
 import { toast } from 'sonner';
+import AdminPremiumShell, { AdminHeroStat } from '@/components/shared/AdminPremiumShell';
 import { adminApi } from '@/services/api';
 import { formatPrice } from '@/utils/format';
 
@@ -129,27 +130,26 @@ export default function AdminRefundLedger() {
     };
 
     return (
-        <div className="container mx-auto px-4 py-8">
-            <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Refund Ledger</h1>
-                    <p className="text-sm text-gray-500">Provider IDs, manual bank references, and reconciliation state in one place.</p>
-                </div>
-                <button
-                    type="button"
-                    onClick={loadLedger}
-                    className="inline-flex items-center justify-center gap-2 rounded-lg border bg-white px-4 py-2 text-sm font-semibold hover:bg-gray-50"
-                >
+        <AdminPremiumShell
+            eyebrow="Refund ops"
+            title="Refund ledger"
+            description="Track provider references, manual bank records, queue retries, and reconciliation decisions from one premium refund surface."
+            actions={(
+                <button type="button" onClick={loadLedger} className="admin-premium-button">
                     <RefreshCw className="h-4 w-4" />
                     Refresh
                 </button>
-            </div>
-
-            <div className="mb-4 grid grid-cols-1 gap-3 rounded-xl border bg-white p-4 md:grid-cols-3 xl:grid-cols-6">
+            )}
+            stats={[
+                <AdminHeroStat key="records" label="Ledger rows" value={total} detail={`Page ${page} of ${pages}`} icon={<ShieldCheck className="h-5 w-5" />} />,
+                <AdminHeroStat key="pending" label="Pending filter" value={filters.status || 'all'} detail={filters.query || 'No active search query'} icon={<ShieldAlert className="h-5 w-5" />} />,
+            ]}
+        >
+            <div className="admin-premium-panel mb-4 grid grid-cols-1 gap-3 md:grid-cols-3 xl:grid-cols-6">
                 <select
                     value={filters.status}
                     onChange={(e) => { setPage(1); setFilters((prev) => ({ ...prev, status: e.target.value })); }}
-                    className="rounded-lg border px-3 py-2 text-sm"
+                    className="admin-premium-control"
                 >
                     {STATUS_OPTIONS.map((value) => (
                         <option key={value || 'all-status'} value={value}>
@@ -160,7 +160,7 @@ export default function AdminRefundLedger() {
                 <select
                     value={filters.settlement}
                     onChange={(e) => { setPage(1); setFilters((prev) => ({ ...prev, settlement: e.target.value })); }}
-                    className="rounded-lg border px-3 py-2 text-sm"
+                    className="admin-premium-control"
                 >
                     {SETTLEMENT_OPTIONS.map((value) => (
                         <option key={value || 'all-settlement'} value={value}>
@@ -171,7 +171,7 @@ export default function AdminRefundLedger() {
                 <select
                     value={filters.reconciliation}
                     onChange={(e) => { setPage(1); setFilters((prev) => ({ ...prev, reconciliation: e.target.value })); }}
-                    className="rounded-lg border px-3 py-2 text-sm"
+                    className="admin-premium-control"
                 >
                     {RECON_OPTIONS.map((value) => (
                         <option key={value || 'all-recon'} value={value}>
@@ -183,26 +183,26 @@ export default function AdminRefundLedger() {
                     type="text"
                     value={filters.method}
                     onChange={(e) => { setPage(1); setFilters((prev) => ({ ...prev, method: e.target.value.toUpperCase() })); }}
-                    className="rounded-lg border px-3 py-2 text-sm"
+                    className="admin-premium-control"
                     placeholder="Method (UPI/CARD/WALLET/COD)"
                 />
                 <input
                     type="text"
                     value={filters.provider}
                     onChange={(e) => { setPage(1); setFilters((prev) => ({ ...prev, provider: e.target.value })); }}
-                    className="rounded-lg border px-3 py-2 text-sm"
+                    className="admin-premium-control"
                     placeholder="Provider"
                 />
                 <input
                     type="text"
                     value={filters.query}
                     onChange={(e) => { setPage(1); setFilters((prev) => ({ ...prev, query: e.target.value })); }}
-                    className="rounded-lg border px-3 py-2 text-sm"
+                    className="admin-premium-control"
                     placeholder="Search order/email/request/ref id"
                 />
             </div>
 
-            <div className="rounded-xl border bg-white">
+            <div className="admin-premium-table-shell">
                 {loading ? (
                     <div className="flex items-center gap-2 p-6 text-sm text-gray-500">
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -211,21 +211,21 @@ export default function AdminRefundLedger() {
                 ) : items.length === 0 ? (
                     <div className="p-6 text-sm text-gray-500">No ledger entries match your filters.</div>
                 ) : (
-                    <div className="overflow-x-auto">
-                        <table className="min-w-[1650px] w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
+                    <div className="admin-premium-scroll overflow-x-auto">
+                        <table className="admin-premium-table min-w-[1650px]">
+                            <thead>
                                 <tr>
-                                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Order</th>
-                                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Customer</th>
-                                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Payment</th>
-                                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Refund</th>
-                                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">State</th>
-                                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">References</th>
-                                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Timeline</th>
-                                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Reconciliation</th>
+                                    <th>Order</th>
+                                    <th>Customer</th>
+                                    <th>Payment</th>
+                                    <th>Refund</th>
+                                    <th>State</th>
+                                    <th>References</th>
+                                    <th>Timeline</th>
+                                    <th>Reconciliation</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-gray-100">
+                            <tbody>
                                 {items.map((row) => {
                                     const canRecordReference = ['approved', 'processed'].includes(String(row?.refund?.status || '').toLowerCase());
                                     const isBusy = busyLedgerId === row.ledgerId;
@@ -266,7 +266,7 @@ export default function AdminRefundLedger() {
                                             <td className="px-3 py-3 text-xs text-gray-700">
                                                 <input
                                                     type="text"
-                                                    className="w-full rounded border px-2 py-1 text-[11px]"
+                                                    className="admin-premium-control w-full px-2 py-1 text-[11px]"
                                                     value={referenceDrafts[row.ledgerId] || ''}
                                                     onChange={(e) => updateDraft(row.ledgerId, 'refundId', e.target.value)}
                                                     placeholder="Provider/manual ref id"
@@ -274,7 +274,7 @@ export default function AdminRefundLedger() {
                                                 />
                                                 <input
                                                     type="text"
-                                                    className="mt-1 w-full rounded border px-2 py-1 text-[11px]"
+                                                    className="admin-premium-control mt-1 w-full px-2 py-1 text-[11px]"
                                                     value={noteDrafts[row.ledgerId] || ''}
                                                     onChange={(e) => updateDraft(row.ledgerId, 'note', e.target.value)}
                                                     placeholder="Reconciliation note"
@@ -284,7 +284,7 @@ export default function AdminRefundLedger() {
                                                     type="button"
                                                     disabled={!canRecordReference || isBusy}
                                                     onClick={() => onRecordReference(row)}
-                                                    className="mt-1 inline-flex items-center gap-1 rounded bg-slate-900 px-2 py-1 text-[10px] font-bold text-white disabled:opacity-50"
+                                                    className="admin-premium-button mt-1 inline-flex items-center gap-1 px-2 py-1 text-[10px] font-bold disabled:opacity-50"
                                                 >
                                                     {isBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
                                                     Record
@@ -324,14 +324,14 @@ export default function AdminRefundLedger() {
                     </div>
                 )}
 
-                <div className="flex items-center justify-between border-t bg-gray-50 px-4 py-3 text-sm text-gray-600">
+                <div className="flex items-center justify-between border-t border-white/10 bg-white/5 px-4 py-3 text-sm text-gray-600">
                     <span>{total} records | page {page}/{pages}</span>
                     <div className="flex items-center gap-2">
                         <button
                             type="button"
                             disabled={page <= 1}
                             onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
-                            className="rounded border px-3 py-1.5 text-xs disabled:opacity-50"
+                            className="admin-premium-button px-3 py-1.5 text-xs disabled:opacity-50"
                         >
                             Previous
                         </button>
@@ -339,13 +339,13 @@ export default function AdminRefundLedger() {
                             type="button"
                             disabled={page >= pages}
                             onClick={() => setPage((prev) => prev + 1)}
-                            className="rounded border px-3 py-1.5 text-xs disabled:opacity-50"
+                            className="admin-premium-button px-3 py-1.5 text-xs disabled:opacity-50"
                         >
                             Next
                         </button>
                     </div>
                 </div>
             </div>
-        </div>
+        </AdminPremiumShell>
     );
 }
