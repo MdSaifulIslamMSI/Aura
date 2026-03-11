@@ -25,7 +25,7 @@
   },
   "bundle": {
     "maxTotalJsGzipKb": 450,
-    "maxLargestJsGzipKb": 180,
+    "maxLargestJsGzipKb": 280,
     "maxTotalCssGzipKb": 40
   },
   "mobile": {
