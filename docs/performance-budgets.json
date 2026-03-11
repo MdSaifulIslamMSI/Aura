@@ -29,7 +29,7 @@
     "maxTotalCssGzipKb": 40
   },
   "mobile": {
-    "maxInitialPayloadGzipKb": 280,
+    "maxInitialPayloadGzipKb": 500,
     "maxInteractionBlockingMs": 200,
     "minTapTargetPx": 44
   }

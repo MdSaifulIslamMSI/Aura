@@ -1,18 +1,25 @@
-import { useState, useRef, useEffect, useContext, useCallback } from 'react';
-import { MessageCircle, X, Send, Star, ShoppingCart, ChevronRight, Sparkles, TrendingUp, Percent, Package, ArrowRight } from 'lucide-react';
+import React, { useState, useRef, useEffect, useContext, useCallback } from 'react';
+import { 
+    MessageCircle, X, Send, Star, ShoppingCart, ChevronRight, Sparkles, 
+    TrendingUp, Percent, Package, ArrowRight, Mic, MicOff, Maximize2, 
+    Minimize2, Trash2, GripHorizontal 
+} from 'lucide-react';
 import { chatApi } from '@/services/chatApi';
 import { useNavigate } from 'react-router-dom';
 import { CartContext } from '@/context/CartContext';
 import { createPortal } from 'react-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import ReactMarkdown from 'react-markdown';
 
 const ChatBot = () => {
     const [isOpen, setIsOpen] = useState(false);
+    const [isExpanded, setIsExpanded] = useState(false);
     const [messages, setMessages] = useState([
         {
             role: 'bot',
-            text: "Hey! I'm AuraBot. I can help with shopping, writing, planning, learning, and technical questions. What do you want to do?",
+            text: "Hey! I'm AuraBot ✨. I can help with shopping, writing, planning, learning, and technical questions. What do you want to explore today?",
             products: [],
-            suggestions: ['Best deals today', 'Write a formal email', 'Create a study plan', 'Explain React hooks'],
+            suggestions: ['Best deals today', 'Smartphones under ₹20000', 'Write a formal email'],
             actionType: 'greeting'
         }
     ]);
@@ -20,10 +27,13 @@ const ChatBot = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [conversationHistory, setConversationHistory] = useState([]);
     const [hasNewMessage, setHasNewMessage] = useState(false);
+    const [isListening, setIsListening] = useState(false);
+    
     const messagesEndRef = useRef(null);
     const inputRef = useRef(null);
     const navigate = useNavigate();
     const { addToCart } = useContext(CartContext);
+    const recognitionRef = useRef(null);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -31,7 +41,7 @@ const ChatBot = () => {
 
     useEffect(() => {
         scrollToBottom();
-    }, [messages, isOpen]);
+    }, [messages, isOpen, isExpanded]);
 
     useEffect(() => {
         if (isOpen && inputRef.current) {
@@ -40,38 +50,96 @@ const ChatBot = () => {
         if (isOpen) setHasNewMessage(false);
     }, [isOpen]);
 
+    // Initialize Speech Recognition
+    useEffect(() => {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (SpeechRecognition) {
+            recognitionRef.current = new SpeechRecognition();
+            recognitionRef.current.continuous = false;
+            recognitionRef.current.interimResults = true;
+            recognitionRef.current.lang = 'en-US';
+
+            recognitionRef.current.onresult = (event) => {
+                const transcript = Array.from(event.results)
+                    .map(result => result[0])
+                    .map(result => result.transcript)
+                    .join('');
+                setInput(transcript);
+            };
+
+            recognitionRef.current.onerror = (event) => {
+                console.error('Speech recognition error', event.error);
+                setIsListening(false);
+            };
+
+            recognitionRef.current.onend = () => {
+                setIsListening(false);
+                // Optionally auto-send when speech ends if input context makes sense
+            };
+        }
+    }, []);
+
+    const toggleListening = () => {
+        if (isListening) {
+            recognitionRef.current?.stop();
+            setIsListening(false);
+        } else {
+            setInput(''); // Clear input when starting new recording
+            recognitionRef.current?.start();
+            setIsListening(true);
+        }
+    };
+
+    const handleClearChat = () => {
+        setMessages([{
+            role: 'bot',
+            text: "Chat cleared! Let's start a fresh conversation. How can I assist you?",
+            actionType: 'greeting'
+        }]);
+        setConversationHistory([]);
+    };
+
     const handleSend = useCallback(async (text) => {
         const messageText = typeof text === 'string' ? text : input;
         if (!messageText.trim()) return;
+
+        // Stop listening if user hits send manually
+        if (isListening) {
+            recognitionRef.current?.stop();
+            setIsListening(false);
+        }
 
         const userMsg = { role: 'user', text: messageText };
         setMessages(prev => [...prev, userMsg]);
         setInput('');
         setIsLoading(true);
 
-        // Update conversation history for context
         const newHistory = [...conversationHistory, { role: 'user', content: messageText }];
 
-        const response = await chatApi.sendMessage(messageText, newHistory.slice(-8));
+        try {
+            const response = await chatApi.sendMessage(messageText, newHistory.slice(-8));
 
-        const botMsg = {
-            role: 'bot',
-            text: response.text,
-            products: response.products || [],
-            suggestions: response.suggestions || [],
-            actionType: response.actionType || 'search',
-            isAI: response.isAI
-        };
+            const botMsg = {
+                role: 'bot',
+                text: response.text,
+                products: response.products || [],
+                suggestions: response.suggestions || [],
+                actionType: response.actionType || 'search',
+                isAI: response.isAI
+            };
 
-        setMessages(prev => [...prev, botMsg]);
-        setConversationHistory([...newHistory, { role: 'assistant', content: response.text }]);
-        setIsLoading(false);
+            setMessages(prev => [...prev, botMsg]);
+            setConversationHistory([...newHistory, { role: 'assistant', content: response.text }]);
+        } catch (error) {
+            setMessages(prev => [...prev, { role: 'bot', text: 'Sorry, I ran into a bit of trouble connecting to my neural core. Please try again! 🚨' }]);
+        } finally {
+            setIsLoading(false);
+        }
 
         if (!isOpen) setHasNewMessage(true);
-    }, [input, conversationHistory, isOpen]);
+    }, [input, conversationHistory, isOpen, isListening]);
 
     const handleSuggestionClick = (suggestion) => {
-        // Remove emoji prefix for cleaner search
         const cleanText = suggestion.replace(/^[^\w]*/, '').trim();
         handleSend(cleanText || suggestion);
     };
@@ -119,237 +187,314 @@ const ChatBot = () => {
     if (!portalTarget) return null;
 
     return createPortal(
-        <div
-            className="flex flex-col items-end pointer-events-auto"
-            style={{
-                position: 'fixed',
-                right: '16px',
-                bottom: '16px',
-                zIndex: 2147483600
-            }}
-            data-aura-chatbot-launcher="true"
+        <div 
+            className="pointer-events-none fixed inset-0 z-[2147483600] flex justify-end items-end p-4 sm:p-6"
+            style={{ fontFamily: "'Inter', sans-serif" }}
         >
-            {/* ═══ Chat Window ═══ */}
-            {isOpen && (
-                <div className="w-[calc(100vw-1.5rem)] sm:w-[400px] h-[min(72vh,600px)] sm:h-[600px] max-h-[calc(100dvh-7rem)] shadow-2xl rounded-2xl flex flex-col overflow-hidden mb-3 sm:mb-4"
-                    style={{
-                        background: 'linear-gradient(135deg, #0f0c29 0%, #1a1a2e 50%, #16213e 100%)',
-                        border: '1px solid rgba(255,255,255,0.08)',
-                        animation: 'slideUp 0.3s ease-out'
-                    }}>
-
-                    {/* ═══ Header ═══ */}
-                    <div className="p-4 flex justify-between items-center"
-                        style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
-                        <div className="flex items-center gap-3">
-                            <div className="relative">
-                                <div className="bg-white/20 backdrop-blur p-2.5 rounded-xl">
-                                    <Sparkles size={20} className="text-white" />
+            <AnimatePresence>
+                {isOpen && (
+                    <motion.div
+                        drag={!isExpanded}
+                        dragMomentum={false}
+                        dragElastic={0.1}
+                        dragConstraints={{ left: -window.innerWidth + 400, right: 0, top: -window.innerHeight + 600, bottom: 0 }}
+                        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                        animate={{ 
+                            opacity: 1, 
+                            scale: 1, 
+                            y: 0,
+                            width: isExpanded ? 'calc(100vw - 3rem)' : 'min(90vw, 420px)',
+                            height: isExpanded ? 'calc(100vh - 3rem)' : 'min(75vh, 650px)',
+                            position: isExpanded ? 'fixed' : 'relative',
+                            inset: isExpanded ? '1.5rem' : 'auto'
+                        }}
+                        exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                        transition={{ type: "spring", damping: 25, stiffness: 200 }}
+                        className="pointer-events-auto flex flex-col overflow-hidden rounded-[1.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.5)] backdrop-blur-2xl mb-4"
+                        style={{
+                            background: 'linear-gradient(135deg, rgba(15, 12, 41, 0.95) 0%, rgba(26, 26, 46, 0.95) 50%, rgba(22, 33, 62, 0.95) 100%)',
+                            border: '1px solid rgba(255,255,255,0.15)',
+                            boxShadow: '0 0 40px rgba(102, 126, 234, 0.2), inset 0 0 20px rgba(255,255,255,0.05)'
+                        }}
+                    >
+                        {/* ═══ Header ═══ */}
+                        <div 
+                            className="p-4 flex justify-between items-center cursor-move border-b border-white/10"
+                            style={{ background: 'linear-gradient(90deg, rgba(102, 126, 234, 0.2) 0%, rgba(118, 75, 162, 0.2) 100%)' }}
+                        >
+                            <div className="flex items-center gap-3">
+                                <div className="relative group">
+                                    <div className="bg-white/10 backdrop-blur-md p-2.5 rounded-xl border border-white/20 group-hover:scale-105 transition-transform duration-300">
+                                        <Sparkles size={20} className="text-purple-300" />
+                                    </div>
+                                    <span className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-green-400 rounded-full border-2 border-[#16213e] shadow-[0_0_10px_rgba(74,222,128,0.5)] animate-pulse"></span>
                                 </div>
-                                <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-400 rounded-full border-2 border-purple-600"></span>
+                                <div>
+                                    <h3 className="font-bold text-white text-base tracking-wide flex items-center gap-2">
+                                        AuraBot <span className="text-[10px] font-bold px-2 py-0.5 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full">BETA</span>
+                                    </h3>
+                                    <p className="text-[11px] text-purple-200/80 font-medium">Your Premium AI Shopping Assistant</p>
+                                </div>
                             </div>
-                            <div>
-                                <h3 className="font-bold text-white text-sm tracking-wide">AuraBot</h3>
-                                <p className="text-[10px] text-purple-200 font-medium">AI Shopping Assistant • Online</p>
+                            <div className="flex items-center gap-1.5">
+                                <button onClick={handleClearChat} title="Clear Chat" className="p-2 hover:bg-white/10 rounded-xl transition-colors text-white/70 hover:text-red-400">
+                                    <Trash2 size={16} />
+                                </button>
+                                <button onClick={() => setIsExpanded(!isExpanded)} title={isExpanded ? "Minimize" : "Expand"} className="p-2 hover:bg-white/10 rounded-xl transition-colors text-white/70 hover:text-white hidden sm:block">
+                                    {isExpanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+                                </button>
+                                <button onClick={() => setIsOpen(false)} title="Close" className="p-2 hover:bg-white/10 rounded-xl transition-colors text-white/70 hover:text-white">
+                                    <X size={18} />
+                                </button>
                             </div>
                         </div>
-                        <button onClick={() => setIsOpen(false)}
-                            className="hover:bg-white/20 p-1.5 rounded-lg transition-colors">
-                            <X size={18} className="text-white" />
-                        </button>
-                    </div>
 
-                    {/* ═══ Messages Area ═══ */}
-                    <div className="flex-1 overflow-y-auto p-4 space-y-4" style={{ scrollbarWidth: 'thin' }}>
-                        {messages.map((msg, idx) => (
-                            <div key={idx} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
-
-                                {/* Message Bubble */}
-                                <div className={`max-w-[90%] p-3 text-sm leading-relaxed ${msg.role === 'user'
-                                    ? 'rounded-2xl rounded-br-sm text-white'
-                                    : 'rounded-2xl rounded-bl-sm text-gray-200'}`}
-                                    style={msg.role === 'user'
-                                        ? { background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }
-                                        : { background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)' }
-                                    }>
-                                    {msg.role === 'bot' && msg.actionType && msg.actionType !== 'greeting' && msg.actionType !== 'farewell' && msg.products?.length > 0 && (
-                                        <div className="flex items-center gap-1.5 mb-2">
-                                            {getActionIcon(msg.actionType)}
-                                            <span className="text-[10px] font-bold tracking-wider opacity-60">{getActionLabel(msg.actionType)}</span>
+                        {/* ═══ Messages Area ═══ */}
+                        <div className="flex-1 overflow-y-auto p-5 space-y-5 custom-scrollbar" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.2) transparent' }}>
+                            <AnimatePresence initial={false}>
+                                {messages.map((msg, idx) => (
+                                    <motion.div 
+                                        key={idx} 
+                                        initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                                        transition={{ type: "spring", stiffness: 260, damping: 20 }}
+                                        className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}
+                                    >
+                                        <div className={`max-w-[85%] p-3.5 text-sm leading-relaxed shadow-lg backdrop-blur-md ${
+                                            msg.role === 'user'
+                                            ? 'rounded-2xl rounded-tr-sm text-white'
+                                            : 'rounded-2xl rounded-tl-sm text-gray-100'}`}
+                                            style={msg.role === 'user'
+                                                ? { 
+                                                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                                    boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)'
+                                                  }
+                                                : { 
+                                                    background: 'rgba(255, 255, 255, 0.05)', 
+                                                    border: '1px solid rgba(255, 255, 255, 0.1)' 
+                                                  }
+                                            }>
+                                            {msg.role === 'bot' && msg.actionType && !['greeting', 'farewell'].includes(msg.actionType) && (
+                                                <div className="flex items-center gap-2 mb-2 pb-2 border-b border-white/10">
+                                                    {getActionIcon(msg.actionType)}
+                                                    <span className="text-[10px] font-bold tracking-widest text-purple-300 uppercase">{getActionLabel(msg.actionType)}</span>
+                                                </div>
+                                            )}
+                                            
+                                            {/* Render Markdown for Bot, standard text for User */}
+                                            {msg.role === 'bot' ? (
+                                                <div className="prose prose-invert prose-sm max-w-none text-gray-200 
+                                                        prose-a:text-blue-400 prose-a:no-underline hover:prose-a:underline
+                                                        prose-p:leading-relaxed prose-p:mb-2 prose-ul:my-2 prose-li:my-0.5">
+                                                    <ReactMarkdown>{msg.text}</ReactMarkdown>
+                                                </div>
+                                            ) : (
+                                                <div>{msg.text}</div>
+                                            )}
                                         </div>
-                                    )}
-                                    {msg.text}
-                                </div>
 
-                                {/* Product Cards */}
-                                {msg.products && msg.products.length > 0 && (
-                                    <div className="mt-3 space-y-2 w-full">
-                                        {msg.actionType === 'compare' && msg.products.length >= 2 ? (
-                                            /* ═══ Comparison View ═══ */
-                                            <div className="rounded-xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.1)' }}>
-                                                <div className="text-center py-1.5 text-[10px] font-bold tracking-wider text-purple-300"
-                                                    style={{ background: 'rgba(118,75,162,0.2)' }}>
-                                                    ⚖️ SIDE-BY-SIDE COMPARISON
-                                                </div>
-                                                <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-white/10">
-                                                    {msg.products.slice(0, 2).map((product, i) => (
-                                                        <div key={product._id || product.id || i}
-                                                            onClick={() => { setIsOpen(false); navigate(`/product/${product.id || product._id}`); }}
-                                                            className="p-3 cursor-pointer hover:bg-white/5 transition-colors">
-                                                            <img src={product.image} alt={product.title}
-                                                                className="w-full h-20 object-contain mb-2 rounded" />
-                                                            <p className="text-[11px] font-medium text-white truncate">{product.title}</p>
-                                                            <p className="text-xs font-bold text-green-400 mt-1">₹{product.price?.toLocaleString()}</p>
-                                                            {product.rating && (
-                                                                <div className="flex items-center gap-1 mt-1">
-                                                                    <Star size={10} className="text-yellow-400 fill-yellow-400" />
-                                                                    <span className="text-[10px] text-gray-400">{product.rating}</span>
-                                                                </div>
-                                                            )}
-                                                            {product.discountPercentage > 0 && (
-                                                                <span className="inline-block mt-1 text-[9px] px-1.5 py-0.5 bg-red-500/20 text-red-400 rounded-full font-bold">
-                                                                    {product.discountPercentage}% OFF
-                                                                </span>
-                                                            )}
+                                        {/* Product Cards Area */}
+                                        {msg.products && msg.products.length > 0 && (
+                                            <motion.div 
+                                                initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
+                                                className="mt-4 space-y-3 w-full"
+                                            >
+                                                {msg.actionType === 'compare' && msg.products.length >= 2 ? (
+                                                    <div className="rounded-[1rem] overflow-hidden backdrop-blur-xl bg-white/5 border border-white/10 shadow-2xl">
+                                                        <div className="text-center py-2 text-[10px] font-bold tracking-widest text-purple-300 bg-purple-500/10 border-b border-white/5">
+                                                            ⚖️ SIDE-BY-SIDE COMPARISON
                                                         </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            /* ═══ Product List View ═══ */
-                                            msg.products.slice(0, 6).map((product, i) => (
-                                                <div key={product._id || product.id || i}
-                                                    className="flex gap-3 p-2.5 rounded-xl cursor-pointer transition-all hover:scale-[1.01]"
-                                                    style={{
-                                                        background: 'rgba(255,255,255,0.04)',
-                                                        border: '1px solid rgba(255,255,255,0.06)'
-                                                    }}
-                                                    onClick={() => { setIsOpen(false); navigate(`/product/${product.id || product._id}`); }}>
-                                                    <img src={product.image} alt={product.title}
-                                                        className="w-14 h-14 object-contain rounded-lg flex-shrink-0"
-                                                        style={{ background: 'rgba(255,255,255,0.06)' }} />
-                                                    <div className="flex-1 min-w-0">
-                                                        <p className="text-[11px] font-medium text-gray-200 truncate">{product.title}</p>
-                                                        <div className="flex items-center gap-2 mt-1">
-                                                            <span className="text-sm font-bold text-green-400">₹{product.price?.toLocaleString()}</span>
-                                                            {product.originalPrice > product.price && (
-                                                                <span className="text-[10px] text-gray-500 line-through">₹{product.originalPrice?.toLocaleString()}</span>
-                                                            )}
-                                                            {product.discountPercentage > 0 && (
-                                                                <span className="text-[10px] font-bold text-red-400">{product.discountPercentage}% off</span>
-                                                            )}
-                                                        </div>
-                                                        <div className="flex items-center gap-2 mt-1">
-                                                            {product.rating && (
-                                                                <div className="flex items-center gap-0.5">
-                                                                    <Star size={9} className="text-yellow-400 fill-yellow-400" />
-                                                                    <span className="text-[10px] text-gray-400">{product.rating}</span>
+                                                        <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-white/10">
+                                                            {msg.products.slice(0, 2).map((product, i) => (
+                                                                <div key={product._id || product.id || i}
+                                                                    onClick={() => { setIsOpen(false); navigate(`/product/${product.id || product._id}`); }}
+                                                                    className="p-4 cursor-pointer hover:bg-white/10 transition-all duration-300 group">
+                                                                    <div className="relative rounded-xl overflow-hidden bg-white/5 p-2 mb-3">
+                                                                        <img src={product.image} alt={product.title} className="w-full h-24 object-contain group-hover:scale-110 transition-transform duration-500" />
+                                                                    </div>
+                                                                    <p className="text-xs font-semibold text-white truncate group-hover:text-purple-300 transition-colors">{product.title}</p>
+                                                                    <p className="text-sm font-bold text-green-400 mt-1.5 flex items-baseline gap-2">
+                                                                        ₹{product.price?.toLocaleString()}
+                                                                        {product.originalPrice > product.price && <span className="text-[10px] text-gray-500 line-through">₹{product.originalPrice?.toLocaleString()}</span>}
+                                                                    </p>
+                                                                    <div className="flex items-center justify-between mt-2">
+                                                                        {product.rating && (
+                                                                            <div className="flex items-center gap-1 bg-yellow-400/10 px-1.5 py-0.5 rounded-md">
+                                                                                <Star size={10} className="text-yellow-400 fill-yellow-400" />
+                                                                                <span className="text-[10px] font-bold text-yellow-500">{product.rating}</span>
+                                                                            </div>
+                                                                        )}
+                                                                        <button onClick={(e) => handleAddToCart(product, e)} className="p-1.5 rounded-lg bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/40 hover:scale-110 transition-all">
+                                                                            <ShoppingCart size={14} />
+                                                                        </button>
+                                                                    </div>
                                                                 </div>
-                                                            )}
-                                                            {product.brand && (
-                                                                <span className="text-[10px] text-gray-500">{product.brand}</span>
-                                                            )}
+                                                            ))}
                                                         </div>
                                                     </div>
-                                                    <button
-                                                        onClick={(e) => handleAddToCart(product, e)}
-                                                        className="self-center p-2 rounded-lg transition-colors flex-shrink-0"
-                                                        style={{ background: 'rgba(102,126,234,0.2)' }}
-                                                        title="Add to Cart">
-                                                        <ShoppingCart size={14} className="text-purple-300" />
-                                                    </button>
-                                                </div>
-                                            ))
+                                                ) : (
+                                                    msg.products.slice(0, isExpanded ? 8 : 4).map((product, i) => (
+                                                        <motion.div 
+                                                            whileHover={{ scale: 1.02, backgroundColor: 'rgba(255,255,255,0.08)' }}
+                                                            key={product._id || product.id || i}
+                                                            className="flex gap-4 p-3 rounded-2xl cursor-pointer transition-all border border-white/5 bg-white/5 shadow-lg group relative overflow-hidden"
+                                                            onClick={() => { setIsOpen(false); navigate(`/product/${product.id || product._id}`); }}>
+                                                            
+                                                            {/* Shimmer Effect */}
+                                                            <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/5 to-transparent group-hover:animate-[shimmer_1.5s_infinite]"></div>
+
+                                                            <div className="relative w-16 h-16 rounded-xl flex-shrink-0 bg-white/5 border border-white/10 p-1 flex items-center justify-center">
+                                                                <img src={product.image} alt={product.title} className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-300" />
+                                                                {product.discountPercentage > 0 && (
+                                                                    <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full shadow-[0_0_10px_rgba(239,68,68,0.5)]">
+                                                                        {product.discountPercentage}%
+                                                                    </span>
+                                                                )}
+                                                            </div>
+
+                                                            <div className="flex-1 min-w-0 py-0.5 flex flex-col justify-between">
+                                                                <p className="text-xs font-semibold text-gray-100 truncate group-hover:text-purple-300 transition-colors z-10">{product.title}</p>
+                                                                
+                                                                <div className="flex items-center gap-2 mt-0.5 z-10">
+                                                                    <span className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-300">₹{product.price?.toLocaleString()}</span>
+                                                                    {product.originalPrice > product.price && (
+                                                                        <span className="text-[10px] text-gray-500 line-through">₹{product.originalPrice?.toLocaleString()}</span>
+                                                                    )}
+                                                                </div>
+                                                                
+                                                                <div className="flex items-center justify-between mt-1 z-10">
+                                                                    {product.brand && <span className="text-[10px] font-medium text-gray-400 bg-white/5 px-2 py-0.5 rounded-md">{product.brand}</span>}
+                                                                </div>
+                                                            </div>
+
+                                                            <button
+                                                                onClick={(e) => handleAddToCart(product, e)}
+                                                                className="self-center p-2.5 rounded-xl transition-all flex-shrink-0 border border-indigo-500/30 bg-indigo-500/10 hover:bg-indigo-500 hover:text-white text-indigo-300 shadow-[0_0_15px_rgba(99,102,241,0.1)] group-hover:shadow-[0_0_15px_rgba(99,102,241,0.4)] z-10"
+                                                                title="Add to Cart">
+                                                                <ShoppingCart size={16} />
+                                                            </button>
+                                                        </motion.div>
+                                                    ))
+                                                )}
+                                            </motion.div>
                                         )}
-                                    </div>
-                                )}
 
-                                {/* Quick Suggestions */}
-                                {msg.role === 'bot' && msg.suggestions && msg.suggestions.length > 0 && idx === messages.length - 1 && (
-                                    <div className="flex flex-wrap gap-1.5 mt-3">
-                                        {msg.suggestions.map((s, i) => (
-                                            <button key={i}
-                                                onClick={() => handleSuggestionClick(s)}
-                                                className="text-[11px] px-3 py-1.5 rounded-full font-medium transition-all hover:scale-105"
-                                                style={{
-                                                    background: 'rgba(102,126,234,0.15)',
-                                                    border: '1px solid rgba(102,126,234,0.3)',
-                                                    color: '#a5b4fc'
-                                                }}>
-                                                {s}
-                                            </button>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        ))}
+                                        {/* Quick Suggestions Bubbles */}
+                                        {msg.role === 'bot' && msg.suggestions && msg.suggestions.length > 0 && idx === messages.length - 1 && (
+                                            <motion.div 
+                                                initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
+                                                className="flex flex-wrap gap-2 mt-4"
+                                            >
+                                                {msg.suggestions.map((s, i) => (
+                                                    <button key={i}
+                                                        onClick={() => handleSuggestionClick(s)}
+                                                        className="text-xs px-4 py-2 rounded-full font-medium transition-all duration-300 text-indigo-200 bg-indigo-500/10 border border-indigo-500/20 hover:bg-indigo-500/20 hover:border-indigo-400/50 hover:-translate-y-0.5 shadow-lg shadow-indigo-500/5">
+                                                        {s}
+                                                    </button>
+                                                ))}
+                                            </motion.div>
+                                        )}
+                                    </motion.div>
+                                ))}
+                            </AnimatePresence>
 
-                        {/* Typing Indicator */}
-                        {isLoading && (
-                            <div className="flex items-start">
-                                <div className="p-3 rounded-2xl rounded-bl-sm flex items-center gap-1.5"
-                                    style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                                    <div className="flex gap-1">
-                                        <span className="w-2 h-2 rounded-full bg-purple-400 animate-bounce" style={{ animationDelay: '0ms' }}></span>
-                                        <span className="w-2 h-2 rounded-full bg-purple-400 animate-bounce" style={{ animationDelay: '150ms' }}></span>
-                                        <span className="w-2 h-2 rounded-full bg-purple-400 animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                            {/* Refined Typing Indicator */}
+                            {isLoading && (
+                                <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="flex items-start">
+                                    <div className="px-4 py-3 rounded-2xl rounded-tl-sm flex items-center gap-2 bg-white/5 border border-white/10 backdrop-blur-md shadow-lg">
+                                        <div className="flex gap-1.5">
+                                            <motion.span animate={{ y: [0, -5, 0] }} transition={{ repeat: Infinity, duration: 0.6, delay: 0 }} className="w-2 h-2 rounded-full bg-gradient-to-t from-purple-500 to-indigo-400"></motion.span>
+                                            <motion.span animate={{ y: [0, -5, 0] }} transition={{ repeat: Infinity, duration: 0.6, delay: 0.2 }} className="w-2 h-2 rounded-full bg-gradient-to-t from-purple-500 to-indigo-400"></motion.span>
+                                            <motion.span animate={{ y: [0, -5, 0] }} transition={{ repeat: Infinity, duration: 0.6, delay: 0.4 }} className="w-2 h-2 rounded-full bg-gradient-to-t from-purple-500 to-indigo-400"></motion.span>
+                                        </div>
                                     </div>
-                                    <span className="text-xs text-gray-500 ml-1">AuraBot is thinking...</span>
+                                </motion.div>
+                            )}
+                            <div ref={messagesEndRef} className="h-2" />
+                        </div>
+
+                        {/* ═══ Chat Input Area ═══ */}
+                        <div className="p-4 bg-gradient-to-b from-transparent to-black/40 border-t border-white/10">
+                            <form onSubmit={handleSubmit} className="relative flex items-end gap-2">
+                                <div className="relative flex-1 group">
+                                    <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-2xl blur-lg opacity-20 group-hover:opacity-40 transition-opacity duration-500"></div>
+                                    <textarea
+                                        ref={inputRef}
+                                        value={input}
+                                        onChange={(e) => setInput(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter' && !e.shiftKey) {
+                                                e.preventDefault();
+                                                handleSubmit(e);
+                                            }
+                                        }}
+                                        placeholder={isListening ? "Listening..." : "Ask AuraBot anything..."}
+                                        className="w-full relative bg-[#111827]/80 backdrop-blur-xl border border-white/20 rounded-2xl pl-4 pr-12 py-3 text-sm text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-transparent transition-all shadow-[inset_0_2px_4px_rgba(0,0,0,0.6)] resize-none"
+                                        rows={input.split('\n').length > 1 ? Math.min(input.split('\n').length, 4) : 1}
+                                        style={{ minHeight: '46px', scrollbarWidth: 'none' }}
+                                        disabled={isLoading}
+                                    />
+                                    {/* Microphone Button inside input box */}
+                                    <button 
+                                        type="button"
+                                        onClick={toggleListening}
+                                        className={`absolute right-2 bottom-1.5 p-2 rounded-xl transition-all duration-300 ${
+                                            isListening 
+                                            ? 'text-red-400 bg-red-400/10 animate-pulse border border-red-400/30' 
+                                            : 'text-gray-400 hover:text-purple-300 hover:bg-white/5'
+                                        }`}
+                                    >
+                                        {isListening ? <Mic size={18} /> : <MicOff size={18} />}
+                                    </button>
                                 </div>
-                            </div>
+                                <button
+                                    type="submit"
+                                    disabled={!input.trim() || isLoading}
+                                    className="relative flex-shrink-0 h-[46px] w-[46px] flex items-center justify-center rounded-2xl text-white disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-300 hover:scale-105 active:scale-95 shadow-lg group overflow-hidden"
+                                >
+                                    <div className="absolute inset-0 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 group-hover:scale-110 transition-transform duration-500"></div>
+                                    <Send size={18} className="relative z-10 translate-x-[-1px] translate-y-[1px]" />
+                                </button>
+                            </form>
+                            <p className="text-[10px] text-center text-gray-500 mt-3 font-medium">AuraBot can make mistakes. Consider verifying critical information.</p>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* ═══ Floating Launcher Button ═══ */}
+            <AnimatePresence>
+                {!isOpen && (
+                    <motion.button
+                        initial={{ scale: 0, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        exit={{ scale: 0, opacity: 0 }}
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => setIsOpen(true)}
+                        className="pointer-events-auto relative flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 rounded-full shadow-[0_10px_40px_rgba(102,126,234,0.5)] group overflow-hidden z-[2147483600]"
+                    >
+                        <div className="absolute inset-0 bg-gradient-to-br from-indigo-500 via-purple-600 to-pink-600"></div>
+                        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20 mix-blend-overlay"></div>
+                        <Sparkles size={28} className="text-white relative z-10 group-hover:animate-pulse filter drop-shadow-md" />
+                        
+                        {hasNewMessage && (
+                            <span className="absolute -top-1 -right-1 flex h-4 w-4 z-20">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-4 w-4 bg-red-500 border-2 border-[#1a1a2e] text-[8px] text-white items-center justify-center font-bold">1</span>
+                            </span>
                         )}
-                        <div ref={messagesEndRef} />
-                    </div>
 
-                    {/* ═══ Input Area ═══ */}
-                    <form onSubmit={handleSubmit} className="p-3 flex gap-2"
-                        style={{ background: 'rgba(255,255,255,0.03)', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-                        <input
-                            ref={inputRef}
-                            type="text"
-                            value={input}
-                            onChange={(e) => setInput(e.target.value)}
-                            placeholder="Ask anything: shopping, writing, planning, coding..."
-                            className="flex-1 rounded-xl px-4 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500/40"
-                            style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)' }}
-                            disabled={isLoading}
-                        />
-                        <button
-                            type="submit"
-                            disabled={!input.trim() || isLoading}
-                            className="p-2.5 rounded-xl text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all hover:scale-105"
-                            style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
-                            <Send size={16} />
-                        </button>
-                    </form>
-                </div>
-            )}
+                        {/* Interactive Tooltip Ring */}
+                        <div className="absolute inset-0 rounded-full border border-white/20 scale-150 group-hover:scale-100 opacity-0 group-hover:opacity-100 transition-all duration-500 ease-out"></div>
+                    </motion.button>
+                )}
+            </AnimatePresence>
 
-            {/* ═══ Toggle Button ═══ */}
-            {!isOpen && (
-                <button
-                    onClick={() => setIsOpen(true)}
-                    className="relative p-3.5 sm:p-4 rounded-2xl shadow-lg hover:shadow-2xl transition-all transform hover:scale-110 group"
-                    style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
-                    <Sparkles size={26} className="text-white group-hover:animate-pulse" />
-                    {hasNewMessage && (
-                        <span className="absolute -top-1 -right-1 flex h-4 w-4">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-4 w-4 bg-red-500 text-[8px] text-white items-center justify-center font-bold">!</span>
-                        </span>
-                    )}
-                    <div className="hidden sm:block absolute -top-10 right-0 bg-gray-900 text-white text-xs px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap"
-                        style={{ border: '1px solid rgba(255,255,255,0.1)' }}>
-                        Chat with AuraBot ✨
-                    </div>
-                </button>
-            )}
-
-            {/* ═══ CSS Animation ═══ */}
+            {/* ═══ Global Keyframes ═══ */}
             <style>{`
-                @keyframes slideUp {
-                    from { opacity: 0; transform: translateY(20px) scale(0.95); }
-                    to { opacity: 1; transform: translateY(0) scale(1); }
+                @keyframes shimmer {
+                    100% { transform: translateX(100%); }
                 }
             `}</style>
         </div>,
@@ -358,4 +503,3 @@ const ChatBot = () => {
 };
 
 export default ChatBot;
-
