@@ -15,6 +15,7 @@ import {
   TrendingUp,
   X,
 } from 'lucide-react';
+import PremiumSelect from '@/components/ui/premium-select';
 import { productApi } from '@/services/api';
 import {
   CATALOG_CATEGORY_OPTIONS,
@@ -728,7 +729,7 @@ const GlobalSearchBar = ({
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <label className="text-xs font-semibold text-slate-300">
                   Category
-                  <select
+                  <PremiumSelect
                     value={categoryScope}
                     onChange={(event) => setCategoryScope(event.target.value)}
                     className="mt-1.5 w-full rounded-lg border border-white/15 bg-zinc-900/90 px-3 py-2 text-sm text-slate-100 outline-none focus:border-neo-cyan"
@@ -738,12 +739,12 @@ const GlobalSearchBar = ({
                         {option.label}
                       </option>
                     ))}
-                  </select>
+                  </PremiumSelect>
                 </label>
 
                 <label className="text-xs font-semibold text-slate-300">
                   Sort
-                  <select
+                  <PremiumSelect
                     value={sortMode}
                     onChange={(event) => setSortMode(normalizeSort(event.target.value))}
                     className="mt-1.5 w-full rounded-lg border border-white/15 bg-zinc-900/90 px-3 py-2 text-sm text-slate-100 outline-none focus:border-neo-cyan"
@@ -753,7 +754,7 @@ const GlobalSearchBar = ({
                         {option.label}
                       </option>
                     ))}
-                  </select>
+                  </PremiumSelect>
                 </label>
 
                 <label className="text-xs font-semibold text-slate-300">

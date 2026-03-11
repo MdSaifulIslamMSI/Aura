@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { AlertTriangle, Loader2, ShieldAlert, ShieldCheck, UserRound, UserX } from 'lucide-react';
 import AdminPremiumShell, { AdminHeroStat, AdminPremiumPanel, AdminPremiumSubpanel } from '@/components/shared/AdminPremiumShell';
+import PremiumSelect from '@/components/ui/premium-select';
 import { adminApi } from '@/services/api';
 
 const LIMIT = 25;
@@ -152,7 +153,7 @@ export default function AdminUsers() {
                             className="admin-premium-control"
                             placeholder="Search name/email/phone"
                         />
-                        <select
+                        <PremiumSelect
                             value={filters.accountState}
                             onChange={(event) => {
                                 setPage(1);
@@ -165,8 +166,8 @@ export default function AdminUsers() {
                             <option value="warned">Warned</option>
                             <option value="suspended">Suspended</option>
                             <option value="deleted">Deleted</option>
-                        </select>
-                        <select
+                        </PremiumSelect>
+                        <PremiumSelect
                             value={filters.isVerified}
                             onChange={(event) => {
                                 setPage(1);
@@ -177,8 +178,8 @@ export default function AdminUsers() {
                             <option value="">All verification</option>
                             <option value="true">Verified</option>
                             <option value="false">Unverified</option>
-                        </select>
-                        <select
+                        </PremiumSelect>
+                        <PremiumSelect
                             value={filters.isSeller}
                             onChange={(event) => {
                                 setPage(1);
@@ -189,7 +190,7 @@ export default function AdminUsers() {
                             <option value="">All seller states</option>
                             <option value="true">Seller</option>
                             <option value="false">Non-seller</option>
-                        </select>
+                        </PremiumSelect>
                     </div>
 
                     <div className="admin-premium-table-shell mt-4 overflow-x-auto">

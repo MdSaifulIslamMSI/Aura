@@ -8,6 +8,7 @@ import { priceAlertApi, productApi, uploadApi } from '@/services/api';
 import ProductCard from '@/components/features/product/ProductCard';
 import ProductPageSkeleton from '@/components/shared/ProductPageSkeleton';
 import SectionErrorBoundary from '@/components/shared/SectionErrorBoundary';
+import PremiumSelect from '@/components/ui/premium-select';
 import { cn } from '@/lib/utils';
 import { buildLifecycleIntelligence, buildProductTrustGraph } from '@/utils/commerceIntelligence';
 import { pushRecentlyViewed } from '@/utils/recentlyViewed';
@@ -1011,7 +1012,7 @@ const ProductDetails = () => {
                           <div className="lg:col-span-2 rounded-2xl border border-white/10 bg-zinc-950/45 p-5">
                             <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
                               <p className="text-xs uppercase tracking-[0.16em] text-slate-400 font-bold">Verified Customer Feedback</p>
-                              <select
+                              <PremiumSelect
                                 value={reviewSort}
                                 onChange={(e) => setReviewSort(e.target.value)}
                                 className="rounded-lg border border-white/15 bg-zinc-950/70 px-3 py-2 text-xs font-bold uppercase tracking-[0.1em] text-slate-200"
@@ -1020,7 +1021,7 @@ const ProductDetails = () => {
                                 <option value="top-rating">Top Rated</option>
                                 <option value="oldest">Oldest</option>
                                 <option value="helpful">Most Helpful</option>
-                              </select>
+                              </PremiumSelect>
                             </div>
 
                             {reviewsLoading ? (
@@ -1103,7 +1104,7 @@ const ProductDetails = () => {
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                               <div>
                                 <label className="text-xs uppercase tracking-[0.12em] text-slate-400 font-bold">Rating</label>
-                                <select
+                                <PremiumSelect
                                   value={reviewForm.rating}
                                   onChange={(e) => setReviewForm((prev) => ({ ...prev, rating: Number(e.target.value) }))}
                                   className="mt-1 w-full rounded-lg border border-white/15 bg-zinc-950/70 px-3 py-2 text-sm text-white"
@@ -1113,7 +1114,7 @@ const ProductDetails = () => {
                                   <option value={3}>3 - Average</option>
                                   <option value={2}>2 - Poor</option>
                                   <option value={1}>1 - Bad</option>
-                                </select>
+                                </PremiumSelect>
                               </div>
                               <div className="md:col-span-2">
                                 <label className="text-xs uppercase tracking-[0.12em] text-slate-400 font-bold">Comment</label>
@@ -1154,14 +1155,14 @@ const ProductDetails = () => {
                                 <p className="mb-2 text-xs font-semibold text-emerald-200">{reviewUploadMessage}</p>
                               )}
                               <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
-                                <select
+                                <PremiumSelect
                                   value={mediaDraft.type}
                                   onChange={(e) => setMediaDraft((prev) => ({ ...prev, type: e.target.value }))}
                                   className="rounded-lg border border-white/15 bg-zinc-950/70 px-3 py-2 text-sm text-white"
                                 >
                                   <option value="image">Image</option>
                                   <option value="video">Video</option>
-                                </select>
+                                </PremiumSelect>
                                 <input
                                   type="text"
                                   value={mediaDraft.url}

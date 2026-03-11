@@ -29,6 +29,7 @@ import {
     TrendingUp,
     X,
 } from 'lucide-react';
+import PremiumSelect from '@/components/ui/premium-select';
 import { useColorMode } from '@/context/ColorModeContext';
 import { FIGMA_COLOR_MODE_OPTIONS } from '@/config/figmaTokens';
 import { cn } from '@/lib/utils';
@@ -617,7 +618,7 @@ export default function Marketplace() {
             <div className="mt-5 space-y-4">
                 <div>
                     <label className={cn('mb-2 block text-xs font-black uppercase tracking-[0.18em]', labelClass)}>Condition</label>
-                    <select
+                    <PremiumSelect
                         value={filters.condition}
                         onChange={(event) => updateFilter('condition', event.target.value)}
                         className={cn('h-12 w-full rounded-[1rem] border px-3 text-sm outline-none transition-all', fieldClass)}
@@ -627,7 +628,7 @@ export default function Marketplace() {
                                 {condition.label}
                             </option>
                         ))}
-                    </select>
+                    </PremiumSelect>
                 </div>
 
                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
@@ -975,7 +976,7 @@ export default function Marketplace() {
                                             <List className="h-4 w-4" />
                                         </button>
                                     </div>
-                                    <select
+                                    <PremiumSelect
                                         value={filters.sort}
                                         onChange={(event) => updateFilter('sort', event.target.value)}
                                         className={cn('h-11 rounded-full border px-4 text-sm font-medium outline-none transition-all', fieldClass)}
@@ -985,7 +986,7 @@ export default function Marketplace() {
                                                 {sort.label}
                                             </option>
                                         ))}
-                                    </select>
+                                    </PremiumSelect>
                                     {activeFilterCount > 0 ? (
                                         <button
                                             type="button"

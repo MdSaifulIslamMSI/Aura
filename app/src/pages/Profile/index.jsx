@@ -9,7 +9,9 @@ import {
 import { AuthContext } from '@/context/AuthContext';
 import { CartContext } from '@/context/CartContext';
 import { WishlistContext } from '@/context/WishlistContext';
+import PremiumSelect from '@/components/ui/premium-select';
 import { paymentApi, trustApi, userApi } from '@/services/api';
+import { cn } from '@/lib/utils';
 
 const TABS = [
     { id: 'overview', label: 'Overview', icon: BarChart3 },
@@ -411,8 +413,15 @@ export default function Profile() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
-                <div className="w-12 h-12 border-4 border-neo-cyan border-t-transparent rounded-full animate-spin" />
+            <div className="min-h-screen profile-theme profile-premium-shell flex items-center justify-center px-4">
+                <div className="premium-panel premium-grid-backdrop relative z-10 w-full max-w-lg p-8 text-center">
+                    <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/5">
+                        <div className="h-8 w-8 rounded-full border-4 border-neo-cyan border-t-transparent animate-spin" />
+                    </div>
+                    <p className="premium-kicker">Aura Identity Suite</p>
+                    <h2 className="mt-3 text-2xl font-black text-white">Preparing your profile cockpit</h2>
+                    <p className="mt-3 text-sm text-slate-400">Syncing your account, rewards, addresses, and trust posture.</p>
+                </div>
             </div>
         );
     }
@@ -441,24 +450,33 @@ export default function Profile() {
     const isAdminAccount = Boolean(profile?.isAdmin || dbUser?.isAdmin);
 
     return (
-        <div className="min-h-screen profile-theme">
+        <div className="min-h-screen profile-theme profile-premium-shell">
             {/* Toast Message */}
             {message.text && (
-                <div className={`fixed top-4 left-4 right-4 sm:top-6 sm:left-auto sm:right-6 z-50 px-5 py-3 rounded-xl shadow-xl text-sm font-bold flex items-center gap-2 animate-slide-in
-          ${message.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`}>
+                <div className={cn(
+                    'fixed top-4 left-4 right-4 sm:top-6 sm:left-auto sm:right-6 z-50 flex items-center gap-2 rounded-2xl border px-5 py-3 text-sm font-bold shadow-xl animate-slide-in backdrop-blur-xl',
+                    message.type === 'success'
+                        ? 'border-emerald-400/30 bg-emerald-500/15 text-emerald-50'
+                        : 'border-rose-400/30 bg-rose-500/15 text-rose-50'
+                )}>
                     {message.type === 'success' ? <Check className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
                     {message.text}
                 </div>
             )}
 
             {/* Profile Header */}
-            <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 relative overflow-hidden">
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_50%,rgba(255,255,255,0.1),transparent)] pointer-events-none" />
-                <div className="max-w-6xl mx-auto px-4 py-8 sm:py-10 relative z-10">
-                    <div className="flex flex-col md:flex-row md:items-center gap-6">
+            <div className="relative z-10">
+                <div className="max-w-7xl mx-auto px-4 pt-6 sm:pt-8">
+                    <div className="profile-premium-hero">
+                        <div className="mb-6 flex flex-wrap items-center gap-3">
+                            <span className="premium-eyebrow">Profile Command Deck</span>
+                            <span className="premium-chip-muted">Live account posture</span>
+                            <span className="premium-chip-muted">Aura tier: {auraTier}</span>
+                        </div>
+                        <div className="flex flex-col gap-6 xl:flex-row xl:items-center">
                         {/* Avatar */}
                         <div className="relative group">
-                            <div className="w-28 h-28 rounded-2xl bg-white/20 backdrop-blur-lg border-2 border-white/30 overflow-hidden shadow-xl">
+                            <div className="w-28 h-28 rounded-[1.7rem] border border-white/15 bg-white/10 overflow-hidden shadow-[0_24px_60px_rgba(2,8,23,0.32)] backdrop-blur-xl">
                                 {profile?.avatar ? (
                                     <img src={profile.avatar} alt="Avatar" className="w-full h-full object-cover" />
                                 ) : (
@@ -469,47 +487,70 @@ export default function Profile() {
                             </div>
                             <button
                                 onClick={() => fileInputRef.current?.click()}
-                                className="absolute bottom-0 right-0 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-lg opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                                className="absolute bottom-0 right-0 flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-white/90 text-slate-950 shadow-lg opacity-0 transition-opacity cursor-pointer group-hover:opacity-100"
                             >
-                                <Camera className="w-4 h-4 text-indigo-600" />
+                                <Camera className="w-4 h-4" />
                             </button>
                             <input ref={fileInputRef} type="file" accept="image/*" onChange={handleAvatarChange} className="hidden" />
                         </div>
 
                         {/* Info */}
-                        <div className="text-center md:text-left w-full md:w-auto">
-                            <h1 className="text-3xl font-black text-white">{profileName || 'Not set'}</h1>
-                            <p className="text-white/70 text-sm mt-1">{profileEmail || 'Not set'}</p>
-                            <div className="flex flex-wrap items-center gap-3 mt-3 justify-center md:justify-start">
+                        <div className="w-full text-center md:text-left xl:max-w-2xl">
+                            <p className="premium-kicker">Identity and commerce readiness</p>
+                            <h1 className="mt-2 text-3xl font-black tracking-tight text-white md:text-4xl">{profileName || 'Not set'}</h1>
+                            <p className="mt-2 text-sm text-slate-300 md:text-base">{profileEmail || 'Not set'}</p>
+                            <div className="mt-4 flex flex-wrap items-center justify-center gap-3 md:justify-start">
                                 {profile?.isVerified && (
-                                    <span className={`flex items-center gap-1 px-3 py-1 text-xs font-bold rounded-full border ${hasOtpReadyIdentity ? 'bg-green-500/20 text-green-300 border-green-500/30' : 'bg-amber-500/20 text-amber-200 border-amber-500/30'}`}>
+                                    <span className={cn(
+                                        'premium-chip text-xs font-black uppercase tracking-[0.18em]',
+                                        hasOtpReadyIdentity
+                                            ? 'border-emerald-400/25 bg-emerald-500/12 text-emerald-200'
+                                            : 'border-amber-400/25 bg-amber-500/12 text-amber-100'
+                                    )}>
                                         <Shield className="w-3 h-3" /> {hasOtpReadyIdentity ? 'Verified' : 'Partially Verified'}
                                     </span>
                                 )}
                                 {profile?.isAdmin && (
-                                    <span className="flex items-center gap-1 px-3 py-1 bg-amber-500/20 text-amber-300 text-xs font-bold rounded-full border border-amber-500/30">
+                                    <span className="premium-chip text-xs font-black uppercase tracking-[0.18em] border-amber-400/25 bg-amber-500/12 text-amber-100">
                                         <Star className="w-3 h-3" /> Admin
                                     </span>
                                 )}
-                                <span className="text-white/50 text-xs flex items-center gap-1">
+                                <span className="premium-chip-muted text-xs">
                                     <Calendar className="w-3 h-3" /> Member since {memberSince}
                                 </span>
                             </div>
                             {profile?.bio && (
-                                <p className="text-white/60 text-sm mt-2 max-w-md">{profile.bio}</p>
+                                <p className="mt-4 max-w-xl text-sm leading-7 text-slate-300">{profile.bio}</p>
                             )}
+                            <div className="mt-5 flex flex-wrap items-center justify-center gap-3 md:justify-start">
+                                <button
+                                    type="button"
+                                    onClick={() => setActiveTab('personal')}
+                                    className="profile-premium-button profile-premium-button-primary"
+                                >
+                                    <Edit3 className="w-4 h-4" />
+                                    Refine profile
+                                </button>
+                                <Link
+                                    to="/orders"
+                                    className="profile-premium-button"
+                                >
+                                    <Package className="w-4 h-4" />
+                                    View orders
+                                </Link>
+                            </div>
                             {isAdminAccount && (
-                                <div className="mt-3 flex flex-wrap items-center gap-2 justify-center md:justify-start">
+                                <div className="mt-4 flex flex-wrap items-center gap-2 justify-center md:justify-start">
                                     <Link
                                         to="/admin/dashboard"
-                                        className="inline-flex items-center gap-2 rounded-xl border border-amber-300/50 bg-amber-400/20 px-3 py-1.5 text-xs font-black uppercase tracking-wide text-amber-100 hover:bg-amber-300/30 transition-colors"
+                                        className="profile-premium-button"
                                     >
                                         <Shield className="w-3.5 h-3.5" />
                                         Open Admin Portal
                                     </Link>
                                     <Link
                                         to="/admin/products"
-                                        className="inline-flex items-center gap-2 rounded-xl border border-violet-300/40 bg-violet-400/15 px-3 py-1.5 text-xs font-black uppercase tracking-wide text-violet-100 hover:bg-violet-300/25 transition-colors"
+                                        className="profile-premium-button"
                                     >
                                         <Store className="w-3.5 h-3.5" />
                                         Manage Products
@@ -519,49 +560,54 @@ export default function Profile() {
                         </div>
 
                         {/* Quick Stats */}
-                        <div className="w-full md:w-auto md:ml-auto grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-                            <div className="bg-white/10 backdrop-blur rounded-xl p-4 text-center min-w-0">
+                        <div className="grid w-full grid-cols-2 gap-3 sm:grid-cols-4 xl:ml-auto xl:w-[28rem]">
+                            <div className="rounded-[1.35rem] border border-white/10 bg-white/5 p-4 text-center min-w-0 backdrop-blur-xl">
                                 <p className="text-2xl font-black text-white">{stats.totalOrders || 0}</p>
-                                <p className="text-white/60 text-[10px] font-bold uppercase">Orders</p>
+                                <p className="mt-1 text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Orders</p>
                             </div>
-                            <div className="bg-white/10 backdrop-blur rounded-xl p-4 text-center min-w-0">
+                            <div className="rounded-[1.35rem] border border-white/10 bg-white/5 p-4 text-center min-w-0 backdrop-blur-xl">
                                 <p className="text-2xl font-black text-white">{wishlistItems?.length || 0}</p>
-                                <p className="text-white/60 text-[10px] font-bold uppercase">Wishlist</p>
+                                <p className="mt-1 text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Wishlist</p>
                             </div>
-                            <div className="bg-white/10 backdrop-blur rounded-xl p-4 text-center min-w-0">
+                            <div className="rounded-[1.35rem] border border-white/10 bg-white/5 p-4 text-center min-w-0 backdrop-blur-xl">
                                 <p className="text-2xl font-black text-white">{stats.listings?.active || 0}</p>
-                                <p className="text-white/60 text-[10px] font-bold uppercase">Listings</p>
+                                <p className="mt-1 text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Listings</p>
                             </div>
-                            <div className="bg-white/10 backdrop-blur rounded-xl p-4 text-center min-w-0">
+                            <div className="rounded-[1.35rem] border border-white/10 bg-white/5 p-4 text-center min-w-0 backdrop-blur-xl">
                                 <p className="text-2xl font-black text-white">{auraPoints.toLocaleString('en-IN')}</p>
-                                <p className="text-white/60 text-[10px] font-bold uppercase">Aura Points</p>
+                                <p className="mt-1 text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Aura Points</p>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
+            </div>
 
             {/* Tabs */}
-            <div className="bg-white border-b shadow-sm sticky top-20 md:top-24 z-20">
-                <div className="max-w-6xl mx-auto px-4 overflow-x-auto">
-                    <div className="flex min-w-max">
+            <div className="sticky top-20 md:top-24 z-20 px-4 pt-4">
+                <div className="max-w-7xl mx-auto overflow-x-auto">
+                    <div className="profile-premium-tab-shell">
+                        <div className="profile-premium-tab-list">
                         {TABS.map(tab => {
                             const Icon = tab.icon;
                             const isActive = activeTab === tab.id;
                             return (
                                 <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-                                    className={`flex items-center gap-2 px-5 py-4 text-sm font-bold border-b-2 transition-all whitespace-nowrap
-                    ${isActive ? 'text-indigo-600 border-indigo-600' : 'text-gray-500 border-transparent hover:text-gray-700 hover:border-gray-200'}`}>
+                                    className={cn(
+                                        'profile-premium-tab-pill whitespace-nowrap',
+                                        isActive && 'profile-premium-tab-pill-active'
+                                    )}>
                                     <Icon className="w-4 h-4" />
                                     {tab.label}
                                 </button>
                             );
                         })}
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <div className="max-w-6xl mx-auto px-4 py-6 sm:py-8">
+            <div className="profile-premium-content max-w-7xl mx-auto px-4 py-6 sm:py-8">
                 {/* Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ OVERVIEW TAB Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */}
                 {activeTab === 'overview' && (
                     <div className="space-y-8">
@@ -678,13 +724,13 @@ export default function Profile() {
 
                                 <InfoRow icon={User} label="Gender"
                                     value={editMode ? (
-                                        <select value={editForm.gender} onChange={e => setEditForm(p => ({ ...p, gender: e.target.value }))}
+                                        <PremiumSelect value={editForm.gender} onChange={e => setEditForm(p => ({ ...p, gender: e.target.value }))}
                                             className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-indigo-500 outline-none bg-white">
                                             <option value="">Prefer not to say</option>
                                             <option value="male">Male</option>
                                             <option value="female">Female</option>
                                             <option value="other">Other</option>
-                                        </select>
+                                        </PremiumSelect>
                                     ) : (profile?.gender ? profile.gender.charAt(0).toUpperCase() + profile.gender.slice(1) : 'Not specified')} />
 
                                 <InfoRow icon={Calendar} label="Date of Birth"
@@ -1210,37 +1256,42 @@ function StatCard({ icon: Icon, label, value, color }) {
     const iconColor = colorMap[color] || colorMap.blue;
 
     return (
-        <div className="bg-white rounded-2xl border shadow-sm p-5 hover:shadow-md transition-shadow">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-3 ${iconColor}`}>
+        <div className="premium-stat-card premium-card-hover">
+            <div className={`flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 ${iconColor}`}>
                 <Icon className="w-5 h-5" />
             </div>
-            <p className="text-2xl font-black text-gray-900">{value}</p>
-            <p className="text-xs text-gray-400 font-semibold mt-0.5">{label}</p>
+            <p className="mt-5 text-3xl font-black tracking-tight text-white">{value}</p>
+            <p className="mt-1 text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">{label}</p>
         </div>
     );
 }
 
 function QuickLink({ to, icon: Icon, label, desc }) {
     return (
-        <Link to={to} className="bg-white rounded-2xl border shadow-sm p-5 hover:shadow-md hover:border-indigo-200 transition-all group">
-            <Icon className="w-6 h-6 text-indigo-500 mb-2 group-hover:scale-110 transition-transform" />
-            <p className="font-bold text-gray-900 text-sm">{label}</p>
-            <p className="text-xs text-gray-400 mt-0.5">{desc}</p>
+        <Link to={to} className="premium-panel premium-card-hover group p-5">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-neo-cyan">
+                <Icon className="w-6 h-6 transition-transform duration-300 group-hover:scale-110" />
+            </div>
+            <p className="mt-4 text-base font-black text-white">{label}</p>
+            <p className="mt-1 text-sm text-slate-400">{desc}</p>
+            <div className="mt-5 inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.22em] text-neo-cyan">
+                Open <ChevronRight className="w-4 h-4" />
+            </div>
         </Link>
     );
 }
 
 function InfoRow({ icon: Icon, label, value, badge }) {
     return (
-        <div className="flex items-start gap-4 p-4 bg-gray-50 rounded-xl">
-            <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center flex-shrink-0">
-                <Icon className="w-5 h-5 text-indigo-600" />
+        <div className="profile-premium-info-row">
+            <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-neo-cyan">
+                <Icon className="w-5 h-5" />
             </div>
             <div className="flex-1 min-w-0">
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">{label}</p>
-                <div className="text-sm font-semibold text-gray-900">{value || 'Not set'}</div>
+                <p className="mb-1 text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">{label}</p>
+                <div className="text-sm font-semibold text-white">{value || 'Not set'}</div>
             </div>
-            {badge && <span className="text-[10px] text-gray-400 bg-gray-200 px-2 py-0.5 rounded-full mt-1">{badge}</span>}
+            {badge && <span className="premium-chip-muted mt-1 text-[10px] font-black uppercase tracking-[0.2em]">{badge}</span>}
         </div>
     );
 }
@@ -1248,14 +1299,14 @@ function InfoRow({ icon: Icon, label, value, badge }) {
 function TogglePref({ label, desc, defaultOn }) {
     const [on, setOn] = useState(defaultOn);
     return (
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 bg-gray-50 rounded-xl">
+        <div className="profile-premium-toggle-row">
             <div>
-                <p className="font-semibold text-gray-900 text-sm">{label}</p>
-                <p className="text-xs text-gray-400">{desc}</p>
+                <p className="text-sm font-semibold text-white">{label}</p>
+                <p className="text-xs text-slate-400">{desc}</p>
             </div>
             <button onClick={() => setOn(!on)}
-                className={`w-12 h-7 rounded-full transition-colors relative ${on ? 'bg-indigo-600' : 'bg-gray-300'}`}>
-                <div className={`w-5 h-5 bg-white rounded-full shadow absolute top-1 transition-all ${on ? 'left-6' : 'left-1'}`} />
+                className={cn('profile-premium-toggle', on && 'profile-premium-toggle-on')}>
+                <div className={cn('profile-premium-toggle-thumb', on && 'profile-premium-toggle-thumb-on')} />
             </button>
         </div>
     );

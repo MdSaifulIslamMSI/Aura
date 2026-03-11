@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowRight, Camera, Loader2, Radar, ShieldCheck, Sparkles, Target } from 'lucide-react';
+import PremiumSelect from '@/components/ui/premium-select';
 import { productApi, listingApi } from '@/services/api';
 import { CATALOG_CATEGORY_OPTIONS, getCategoryApiValue, getCategoryLabel, normalizeCategorySlug } from '@/config/catalogTaxonomy';
 import { formatPrice } from '@/utils/format';
@@ -192,9 +193,9 @@ export default function MissionControl() {
             <div className="mb-5 flex items-center gap-2 text-sm font-black uppercase tracking-[0.18em] text-cyan-100"><Radar className="h-4 w-4" /> Mission Input</div>
             <div className="grid gap-4 md:grid-cols-2">
               <textarea value={form.goal} onChange={(event) => updateForm('goal', event.target.value)} rows={3} className="md:col-span-2 rounded-2xl border border-white/10 bg-zinc-950/70 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-cyan-300/35" placeholder="Example: Build a gaming setup under Rs 80k before Friday." />
-              <select value={form.category} onChange={(event) => updateForm('category', event.target.value)} className="h-12 rounded-2xl border border-white/10 bg-zinc-950/70 px-4 text-sm text-white outline-none focus:border-cyan-300/35">
+              <PremiumSelect value={form.category} onChange={(event) => updateForm('category', event.target.value)} className="h-12 rounded-2xl border border-white/10 bg-zinc-950/70 px-4 text-sm text-white outline-none focus:border-cyan-300/35">
                 {CATALOG_CATEGORY_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-              </select>
+              </PremiumSelect>
               <input type="number" min={5000} max={250000} step={1000} value={form.budget} onChange={(event) => updateForm('budget', clampBudget(event.target.value))} className="h-12 rounded-2xl border border-white/10 bg-zinc-950/70 px-4 text-sm text-white outline-none focus:border-cyan-300/35" />
               <input type="text" value={form.city} onChange={(event) => updateForm('city', event.target.value)} placeholder="City" className="h-12 rounded-2xl border border-white/10 bg-zinc-950/70 px-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-cyan-300/35" />
               <input type="date" value={form.deadline} onChange={(event) => updateForm('deadline', event.target.value)} className="h-12 rounded-2xl border border-white/10 bg-zinc-950/70 px-4 text-sm text-white outline-none focus:border-cyan-300/35" />

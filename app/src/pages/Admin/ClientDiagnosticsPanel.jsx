@@ -8,6 +8,7 @@ import {
     Search,
     ShieldAlert,
 } from 'lucide-react';
+import PremiumSelect from '@/components/ui/premium-select';
 import { adminApi } from '@/services/api';
 
 const INITIAL_FILTERS = {
@@ -176,7 +177,7 @@ export default function ClientDiagnosticsPanel() {
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-6">
                     <label className="text-sm text-slate-600">
                         <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Severity</span>
-                        <select
+                        <PremiumSelect
                             value={draftFilters.severity}
                             onChange={(event) => setDraftFilters((prev) => ({ ...prev, severity: event.target.value }))}
                             className="admin-premium-control"
@@ -186,7 +187,7 @@ export default function ClientDiagnosticsPanel() {
                             <option value="warning">Warning</option>
                             <option value="error">Error</option>
                             <option value="critical">Critical</option>
-                        </select>
+                        </PremiumSelect>
                     </label>
 
                     <label className="text-sm text-slate-600">
@@ -235,7 +236,7 @@ export default function ClientDiagnosticsPanel() {
 
                     <label className="text-sm text-slate-600">
                         <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Limit</span>
-                        <select
+                        <PremiumSelect
                             value={draftFilters.limit}
                             onChange={(event) => setDraftFilters((prev) => ({ ...prev, limit: event.target.value }))}
                             className="admin-premium-control"
@@ -244,7 +245,7 @@ export default function ClientDiagnosticsPanel() {
                             <option value="25">25</option>
                             <option value="50">50</option>
                             <option value="100">100</option>
-                        </select>
+                        </PremiumSelect>
                     </label>
                 </div>
 

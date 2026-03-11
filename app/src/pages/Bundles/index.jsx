@@ -1,6 +1,7 @@
 import { useContext, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Loader2, Sparkles, Zap, ShoppingCart, ShieldCheck } from 'lucide-react';
+import PremiumSelect from '@/components/ui/premium-select';
 import { productApi } from '@/services/api';
 import { aiApi } from '@/services/aiApi';
 import { CartContext } from '@/context/CartContext';
@@ -151,7 +152,7 @@ export default function Bundles() {
                         <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
                             Theme
                         </label>
-                        <select
+                        <PremiumSelect
                             value={theme}
                             onChange={(e) => setTheme(e.target.value)}
                             className="w-full rounded-xl border border-white/15 bg-zinc-950/80 px-3 py-2 text-sm text-white outline-none focus:border-cyan-400"
@@ -161,7 +162,7 @@ export default function Bundles() {
                                     {preset.label}
                                 </option>
                             ))}
-                        </select>
+                        </PremiumSelect>
 
                         <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mt-4 mb-2">
                             Budget ({formatPrice(budget)})

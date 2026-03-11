@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Loader2, RefreshCw, Save, ShieldCheck, ShieldAlert } from 'lucide-react';
 import { toast } from 'sonner';
 import AdminPremiumShell, { AdminHeroStat } from '@/components/shared/AdminPremiumShell';
+import PremiumSelect from '@/components/ui/premium-select';
 import { adminApi } from '@/services/api';
 import { formatPrice } from '@/utils/format';
 
@@ -146,7 +147,7 @@ export default function AdminRefundLedger() {
             ]}
         >
             <div className="admin-premium-panel mb-4 grid grid-cols-1 gap-3 md:grid-cols-3 xl:grid-cols-6">
-                <select
+                <PremiumSelect
                     value={filters.status}
                     onChange={(e) => { setPage(1); setFilters((prev) => ({ ...prev, status: e.target.value })); }}
                     className="admin-premium-control"
@@ -156,8 +157,8 @@ export default function AdminRefundLedger() {
                             {value ? `Status: ${value}` : 'All statuses'}
                         </option>
                     ))}
-                </select>
-                <select
+                </PremiumSelect>
+                <PremiumSelect
                     value={filters.settlement}
                     onChange={(e) => { setPage(1); setFilters((prev) => ({ ...prev, settlement: e.target.value })); }}
                     className="admin-premium-control"
@@ -167,8 +168,8 @@ export default function AdminRefundLedger() {
                             {value ? `Settlement: ${value}` : 'All settlements'}
                         </option>
                     ))}
-                </select>
-                <select
+                </PremiumSelect>
+                <PremiumSelect
                     value={filters.reconciliation}
                     onChange={(e) => { setPage(1); setFilters((prev) => ({ ...prev, reconciliation: e.target.value })); }}
                     className="admin-premium-control"
@@ -178,7 +179,7 @@ export default function AdminRefundLedger() {
                             {value ? `Recon: ${value}` : 'All reconciliation'}
                         </option>
                     ))}
-                </select>
+                </PremiumSelect>
                 <input
                     type="text"
                     value={filters.method}

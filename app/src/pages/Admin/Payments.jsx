@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Loader2, RefreshCw, CreditCard, ShieldAlert, CircleCheck, CircleX } from 'lucide-react';
 import { toast } from 'sonner';
 import AdminPremiumShell, { AdminHeroStat } from '@/components/shared/AdminPremiumShell';
+import PremiumSelect from '@/components/ui/premium-select';
 import { paymentApi } from '@/services/api';
 import { formatPrice } from '@/utils/format';
 
@@ -157,7 +158,7 @@ export default function AdminPayments() {
             ]}
         >
             <div className="admin-premium-panel mb-4 grid grid-cols-1 gap-3 md:grid-cols-4">
-                <select
+                <PremiumSelect
                     value={filters.status}
                     onChange={(e) => { setPage(1); setFilters((prev) => ({ ...prev, status: e.target.value })); }}
                     className="admin-premium-control"
@@ -165,8 +166,8 @@ export default function AdminPayments() {
                     {STATUS_OPTIONS.map((value) => (
                         <option key={value || 'all'} value={value}>{value ? `Status: ${value}` : 'All Statuses'}</option>
                     ))}
-                </select>
-                <select
+                </PremiumSelect>
+                <PremiumSelect
                     value={filters.method}
                     onChange={(e) => { setPage(1); setFilters((prev) => ({ ...prev, method: e.target.value })); }}
                     className="admin-premium-control"
@@ -174,8 +175,8 @@ export default function AdminPayments() {
                     {METHOD_OPTIONS.map((value) => (
                         <option key={value || 'all'} value={value}>{value ? `Method: ${value}` : 'All Methods'}</option>
                     ))}
-                </select>
-                <select
+                </PremiumSelect>
+                <PremiumSelect
                     value={filters.provider}
                     onChange={(e) => { setPage(1); setFilters((prev) => ({ ...prev, provider: e.target.value })); }}
                     className="admin-premium-control"
@@ -183,7 +184,7 @@ export default function AdminPayments() {
                     {PROVIDER_OPTIONS.map((value) => (
                         <option key={value || 'all'} value={value}>{value ? `Provider: ${value}` : 'All Providers'}</option>
                     ))}
-                </select>
+                </PremiumSelect>
                 <div className="flex items-center justify-between gap-3 text-sm md:justify-end">
                     <span className="text-gray-500">{total} records</span>
                     <span className="text-gray-500">Page {page}/{totalPages}</span>
