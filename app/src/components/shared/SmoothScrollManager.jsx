@@ -49,19 +49,26 @@ const SmoothScrollManager = () => {
     if (typeof window === 'undefined') return undefined;
     const html = document.documentElement;
 
-    const modeAllowsLenis = effectiveMotionMode !== 'minimal';
+    const modeAllowsLenis = effectiveMotionMode === 'cinematic';
     if (!lenisEnabled || !routeEnabled || !modeAllowsLenis) {
       destroyLenis(lenisRef, frameRef);
-      html.dataset.smoothScroll = modeAllowsLenis ? 'native' : 'minimal';
+      html.dataset.smoothScroll = effectiveMotionMode === 'minimal' ? 'minimal' : 'native';
       return undefined;
     }
 
-    const media = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const reducedMotionMedia = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const desktopMotionMedia = window.matchMedia('(min-width: 1024px) and (pointer: fine)');
     let cancelled = false;
 
     const boot = async () => {
       if (cancelled) return;
-      if (media.matches) {
+      if (!desktopMotionMedia.matches) {
+        destroyLenis(lenisRef, frameRef);
+        html.dataset.smoothScroll = 'native';
+        return;
+      }
+
+      if (reducedMotionMedia.matches) {
         destroyLenis(lenisRef, frameRef);
         html.dataset.smoothScroll = 'reduced';
         return;
@@ -103,29 +110,47 @@ const SmoothScrollManager = () => {
       }
     };
 
-    const onMotionChange = (event) => {
-      if (event.matches) {
+    const syncLenisEligibility = () => {
+      if (!desktopMotionMedia.matches) {
+        destroyLenis(lenisRef, frameRef);
+        html.dataset.smoothScroll = 'native';
+        return;
+      }
+
+      if (reducedMotionMedia.matches) {
         destroyLenis(lenisRef, frameRef);
         html.dataset.smoothScroll = 'reduced';
-      } else {
-        boot();
+        return;
       }
+
+      boot();
     };
 
-    if (typeof media.addEventListener === 'function') {
-      media.addEventListener('change', onMotionChange);
+    if (typeof reducedMotionMedia.addEventListener === 'function') {
+      reducedMotionMedia.addEventListener('change', syncLenisEligibility);
     } else {
-      media.addListener(onMotionChange);
+      reducedMotionMedia.addListener(syncLenisEligibility);
     }
 
-    boot();
+    if (typeof desktopMotionMedia.addEventListener === 'function') {
+      desktopMotionMedia.addEventListener('change', syncLenisEligibility);
+    } else {
+      desktopMotionMedia.addListener(syncLenisEligibility);
+    }
+
+    syncLenisEligibility();
 
     return () => {
       cancelled = true;
-      if (typeof media.removeEventListener === 'function') {
-        media.removeEventListener('change', onMotionChange);
+      if (typeof reducedMotionMedia.removeEventListener === 'function') {
+        reducedMotionMedia.removeEventListener('change', syncLenisEligibility);
       } else {
-        media.removeListener(onMotionChange);
+        reducedMotionMedia.removeListener(syncLenisEligibility);
+      }
+      if (typeof desktopMotionMedia.removeEventListener === 'function') {
+        desktopMotionMedia.removeEventListener('change', syncLenisEligibility);
+      } else {
+        desktopMotionMedia.removeListener(syncLenisEligibility);
       }
       destroyLenis(lenisRef, frameRef);
       html.dataset.smoothScroll = 'native';

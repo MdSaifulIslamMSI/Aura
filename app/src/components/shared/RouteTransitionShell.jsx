@@ -6,13 +6,19 @@ import { useMotionMode } from '@/context/MotionModeContext';
 const RouteTransitionShell = ({ children }) => {
   const location = useLocation();
   const { effectiveMotionMode } = useMotionMode();
-  const [active, setActive] = useState(false);
+  const [active, setActive] = useState(true);
+  const shouldAnimate = effectiveMotionMode === 'cinematic';
 
   useEffect(() => {
+    if (!shouldAnimate) {
+      setActive(true);
+      return undefined;
+    }
+
     setActive(false);
     const raf = requestAnimationFrame(() => setActive(true));
     return () => cancelAnimationFrame(raf);
-  }, [location.pathname, location.search, effectiveMotionMode]);
+  }, [location.pathname, location.search, shouldAnimate]);
 
   return (
     <div

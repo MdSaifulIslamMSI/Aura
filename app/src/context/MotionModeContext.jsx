@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 
 const STORAGE_KEY = 'aura_motion_mode';
 const MODES = ['cinematic', 'balanced', 'minimal'];
@@ -66,8 +66,6 @@ export const MOTION_MODE_OPTIONS = [
 export function MotionModeProvider({ children }) {
   const [motionMode, setMotionModeState] = useState(getInitialMode);
   const [deviceProfile, setDeviceProfile] = useState(readDeviceProfile);
-  const [runtimeTier, setRuntimeTier] = useState('normal');
-  const runtimeTierRef = useRef('normal');
 
   const setMotionMode = (mode) => {
     if (!MODES.includes(mode)) return;
@@ -109,63 +107,17 @@ export function MotionModeProvider({ children }) {
     };
   }, []);
 
-  useEffect(() => {
-    if (!isBrowser) return undefined;
-    if (deviceProfile.reducedMotion) {
-      setRuntimeTier('severe');
-      runtimeTierRef.current = 'severe';
-      return undefined;
-    }
-
-    let rafId = 0;
-    let frameCount = 0;
-    let sampleStart = performance.now();
-
-    const classifyFps = (fps) => {
-      if (fps < 28) return 'severe';
-      if (fps < 45) return 'constrained';
-      return 'normal';
-    };
-
-    const tick = (timestamp) => {
-      if (document.hidden) {
-        sampleStart = timestamp;
-        frameCount = 0;
-        rafId = requestAnimationFrame(tick);
-        return;
-      }
-
-      frameCount += 1;
-      const elapsed = timestamp - sampleStart;
-      if (elapsed >= 2400) {
-        const fps = (frameCount * 1000) / elapsed;
-        const nextTier = classifyFps(fps);
-        if (nextTier !== runtimeTierRef.current) {
-          runtimeTierRef.current = nextTier;
-          setRuntimeTier(nextTier);
-        }
-        frameCount = 0;
-        sampleStart = timestamp;
-      }
-
-      rafId = requestAnimationFrame(tick);
-    };
-
-    rafId = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(rafId);
-  }, [deviceProfile.reducedMotion]);
-
   const effectiveMotionMode = useMemo(() => {
     if (deviceProfile.reducedMotion) return 'minimal';
     if (motionMode === 'minimal') return 'minimal';
 
-    const severe = deviceProfile.tier === 'severe' || runtimeTier === 'severe';
-    const constrained = deviceProfile.tier === 'constrained' || runtimeTier === 'constrained';
+    const severe = deviceProfile.tier === 'severe';
+    const constrained = deviceProfile.tier === 'constrained';
 
     if (severe) return 'minimal';
     if (constrained && motionMode === 'cinematic') return 'balanced';
     return motionMode;
-  }, [deviceProfile.reducedMotion, deviceProfile.tier, motionMode, runtimeTier]);
+  }, [deviceProfile.reducedMotion, deviceProfile.tier, motionMode]);
 
   const autoDowngraded = effectiveMotionMode !== motionMode;
 
@@ -186,7 +138,7 @@ export function MotionModeProvider({ children }) {
       autoDowngraded,
       performanceProfile: {
         deviceTier: deviceProfile.tier,
-        runtimeTier,
+        runtimeTier: 'disabled',
         reducedMotion: deviceProfile.reducedMotion,
         saveData: deviceProfile.saveData,
       },
@@ -204,7 +156,6 @@ export function MotionModeProvider({ children }) {
       deviceProfile.tier,
       effectiveMotionMode,
       motionMode,
-      runtimeTier,
     ]
   );
 
