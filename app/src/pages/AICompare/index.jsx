@@ -1,4 +1,4 @@
-ï»¿import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Brain, Loader2, Search, Sparkles, Trophy, X } from 'lucide-react';
 import { productApi } from '@/services/api';
@@ -279,7 +279,7 @@ const AICompare = () => {
       </div>
 
       <div className="grid lg:grid-cols-12 gap-6">
-        <section className="lg:col-span-4 rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl p-5">
+        <section className="lg:col-span-4 rounded-2xl border border-white/10 bg-white/5 p-5">
           <div className="flex items-center gap-2 text-white font-black text-sm uppercase tracking-wider mb-4">
             <Search className="w-4 h-4 text-neo-cyan" />
             Add Products
@@ -308,7 +308,7 @@ const AICompare = () => {
                       className="w-full text-left rounded-xl border border-white/10 bg-white/5 px-3 py-2 hover:border-neo-cyan/45 hover:bg-white/10 transition-colors"
                     >
                       <p className="text-sm font-bold text-white line-clamp-1">{product.title}</p>
-                      <p className="text-xs text-slate-400 mt-1">{product.brand} Â· {formatPrice(product.price)}</p>
+                      <p className="text-xs text-slate-400 mt-1">{product.brand} · {formatPrice(product.price)}</p>
                     </button>
                   );
                 })}
@@ -345,7 +345,7 @@ const AICompare = () => {
         </section>
 
         <section className="lg:col-span-8 space-y-4">
-          <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl p-5">
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
             <div className="flex items-center justify-between gap-3 mb-3">
               <h2 className="text-sm font-black uppercase tracking-widest text-white flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-neo-cyan" />
@@ -366,7 +366,7 @@ const AICompare = () => {
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <p className="text-sm font-bold text-white line-clamp-1">{product.title}</p>
-                          <p className="text-xs text-slate-400 mt-1">{product.brand} Â· {product.category}</p>
+                          <p className="text-xs text-slate-400 mt-1">{product.brand} · {product.category}</p>
                           <p className="text-xs text-neo-cyan mt-1">{formatPrice(product.price)}</p>
                         </div>
                         <button
@@ -407,7 +407,7 @@ const AICompare = () => {
           )}
 
           {selectedProducts.length >= 2 && (
-            <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl p-5">
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="text-xs uppercase tracking-[0.2em] text-neo-cyan font-bold">Frontier AI Layer</p>
@@ -463,7 +463,7 @@ const AICompare = () => {
           )}
 
           {compareData.length >= 2 && (
-            <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl p-5 overflow-x-auto">
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-5 overflow-x-auto">
               <h3 className="text-sm font-black uppercase tracking-wider text-white mb-3">Spec Matrix</h3>
               <table className="w-full min-w-[680px] text-sm">
                 <thead>

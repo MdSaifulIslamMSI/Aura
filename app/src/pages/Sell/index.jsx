@@ -185,7 +185,7 @@ const studioChecklist = (form) => [
 const StatCard = ({ label, value, detail, style, isWhiteMode }) => (
     <div
         className={cn(
-            'rounded-[1.35rem] border p-4 backdrop-blur-xl',
+            'rounded-[1.35rem] border p-4',
             isWhiteMode ? 'bg-white/92 text-slate-900' : 'bg-[#091121]/72 text-white'
         )}
         style={style}

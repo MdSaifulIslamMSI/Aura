@@ -96,7 +96,7 @@ const OtpChallengeModal = ({ open, loading = false, error = '', onSubmit, onClos
         <>
             {/* Backdrop */}
             <div
-                className="fixed inset-0 z-[90] bg-zinc-950/70 backdrop-blur-sm"
+                className="fixed inset-0 z-[90] bg-zinc-950/70"
                 onClick={onClose}
                 aria-label="Close OTP dialog"
                 role="button"

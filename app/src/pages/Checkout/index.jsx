@@ -1020,7 +1020,7 @@ const Checkout = () => {
             </div>
 
             {isPlacingOrder ? (
-                <div className="fixed inset-0 bg-zinc-950/70 backdrop-blur-sm z-50 flex items-center justify-center">
+                <div className="fixed inset-0 bg-zinc-950/70 z-50 flex items-center justify-center">
                     <div className="premium-panel premium-grid-backdrop w-full max-w-sm p-6 text-center text-slate-200">
                         <Loader2 className="w-6 h-6 animate-spin text-neo-cyan mx-auto mb-3" />
                         <p className="font-bold uppercase tracking-wider text-sm">Placing your order...</p>

@@ -454,7 +454,7 @@ export default function Profile() {
             {/* Toast Message */}
             {message.text && (
                 <div className={cn(
-                    'fixed top-4 left-4 right-4 sm:top-6 sm:left-auto sm:right-6 z-50 flex items-center gap-2 rounded-2xl border px-5 py-3 text-sm font-bold shadow-xl animate-slide-in backdrop-blur-xl',
+                    'fixed top-4 left-4 right-4 sm:top-6 sm:left-auto sm:right-6 z-50 flex items-center gap-2 rounded-2xl border px-5 py-3 text-sm font-bold shadow-xl animate-slide-in',
                     message.type === 'success'
                         ? 'border-emerald-400/30 bg-emerald-500/15 text-emerald-50'
                         : 'border-rose-400/30 bg-rose-500/15 text-rose-50'
@@ -476,7 +476,7 @@ export default function Profile() {
                         <div className="flex flex-col gap-6 xl:flex-row xl:items-center">
                         {/* Avatar */}
                         <div className="relative group">
-                            <div className="w-28 h-28 rounded-[1.7rem] border border-white/15 bg-white/10 overflow-hidden shadow-[0_24px_60px_rgba(2,8,23,0.32)] backdrop-blur-xl">
+                            <div className="w-28 h-28 rounded-[1.7rem] border border-white/15 bg-white/10 overflow-hidden shadow-[0_24px_60px_rgba(2,8,23,0.32)]">
                                 {profile?.avatar ? (
                                     <img src={profile.avatar} alt="Avatar" className="w-full h-full object-cover" />
                                 ) : (
@@ -561,19 +561,19 @@ export default function Profile() {
 
                         {/* Quick Stats */}
                         <div className="grid w-full grid-cols-2 gap-3 sm:grid-cols-4 xl:ml-auto xl:w-[28rem]">
-                            <div className="rounded-[1.35rem] border border-white/10 bg-white/5 p-4 text-center min-w-0 backdrop-blur-xl">
+                            <div className="rounded-[1.35rem] border border-white/10 bg-white/5 p-4 text-center min-w-0">
                                 <p className="text-2xl font-black text-white">{stats.totalOrders || 0}</p>
                                 <p className="mt-1 text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Orders</p>
                             </div>
-                            <div className="rounded-[1.35rem] border border-white/10 bg-white/5 p-4 text-center min-w-0 backdrop-blur-xl">
+                            <div className="rounded-[1.35rem] border border-white/10 bg-white/5 p-4 text-center min-w-0">
                                 <p className="text-2xl font-black text-white">{wishlistItems?.length || 0}</p>
                                 <p className="mt-1 text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Wishlist</p>
                             </div>
-                            <div className="rounded-[1.35rem] border border-white/10 bg-white/5 p-4 text-center min-w-0 backdrop-blur-xl">
+                            <div className="rounded-[1.35rem] border border-white/10 bg-white/5 p-4 text-center min-w-0">
                                 <p className="text-2xl font-black text-white">{stats.listings?.active || 0}</p>
                                 <p className="mt-1 text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Listings</p>
                             </div>
-                            <div className="rounded-[1.35rem] border border-white/10 bg-white/5 p-4 text-center min-w-0 backdrop-blur-xl">
+                            <div className="rounded-[1.35rem] border border-white/10 bg-white/5 p-4 text-center min-w-0">
                                 <p className="text-2xl font-black text-white">{auraPoints.toLocaleString('en-IN')}</p>
                                 <p className="mt-1 text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Aura Points</p>
                             </div>

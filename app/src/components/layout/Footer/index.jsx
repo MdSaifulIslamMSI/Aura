@@ -219,7 +219,7 @@ const Footer = () => {
         <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent animate-gradient-x opacity-70" style={{ backgroundSize: '200% auto' }} />
         <div className="container-custom max-w-7xl mx-auto px-4 py-8">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
-            <div className="footer-card flex flex-col items-center text-center gap-3 p-4 backdrop-blur-sm border-white/5 hover:border-neo-cyan/30 hover:shadow-[0_0_15px_rgba(6,182,212,0.1)] transition-all duration-300 group">
+            <div className="footer-card flex flex-col items-center text-center gap-3 p-4 border-white/5 hover:border-neo-cyan/30 hover:shadow-[0_0_15px_rgba(6,182,212,0.1)] transition-all duration-300 group">
               <div className="w-12 h-12 rounded-full bg-neo-cyan/10 flex items-center justify-center group-hover:bg-neo-cyan/20 group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
                 <Truck className="w-6 h-6 text-neo-cyan" />
               </div>
@@ -229,7 +229,7 @@ const Footer = () => {
               </div>
             </div>
 
-              <div className="footer-card flex flex-col items-center text-center gap-3 p-4 backdrop-blur-sm border-white/5 hover:border-neo-emerald/30 hover:shadow-[0_0_15px_rgba(16,185,129,0.14)] transition-all duration-300 group">
+              <div className="footer-card flex flex-col items-center text-center gap-3 p-4 border-white/5 hover:border-neo-emerald/30 hover:shadow-[0_0_15px_rgba(16,185,129,0.14)] transition-all duration-300 group">
               <div className="w-12 h-12 rounded-full bg-neo-emerald/10 flex items-center justify-center group-hover:bg-neo-emerald/20 group-hover:scale-110 group-hover:-rotate-3 transition-all duration-300">
                 <RotateCcw className="w-6 h-6 text-neo-emerald" />
               </div>
@@ -239,7 +239,7 @@ const Footer = () => {
               </div>
             </div>
 
-            <div className="footer-card flex flex-col items-center text-center gap-3 p-4 backdrop-blur-sm border-white/5 hover:border-neo-cyan/30 hover:shadow-[0_0_15px_rgba(6,182,212,0.1)] transition-all duration-300 group">
+            <div className="footer-card flex flex-col items-center text-center gap-3 p-4 border-white/5 hover:border-neo-cyan/30 hover:shadow-[0_0_15px_rgba(6,182,212,0.1)] transition-all duration-300 group">
               <div className="w-12 h-12 rounded-full bg-neo-cyan/10 flex items-center justify-center group-hover:bg-neo-cyan/20 group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
                 <ShieldCheck className="w-6 h-6 text-neo-cyan" />
               </div>
@@ -249,7 +249,7 @@ const Footer = () => {
               </div>
             </div>
 
-            <div className="footer-card flex flex-col items-center text-center gap-3 p-4 backdrop-blur-sm border-white/5 hover:border-neo-emerald/30 hover:shadow-[0_0_15px_rgba(16,185,129,0.14)] transition-all duration-300 group">
+            <div className="footer-card flex flex-col items-center text-center gap-3 p-4 border-white/5 hover:border-neo-emerald/30 hover:shadow-[0_0_15px_rgba(16,185,129,0.14)] transition-all duration-300 group">
               <div className="w-12 h-12 rounded-full bg-neo-emerald/10 flex items-center justify-center group-hover:bg-neo-emerald/20 group-hover:scale-110 group-hover:-rotate-3 transition-all duration-300">
                 <CreditCard className="w-6 h-6 text-neo-emerald" />
               </div>
@@ -376,7 +376,7 @@ const Footer = () => {
               <span>© {new Date().getFullYear()} All Rights Reserved.</span>
             </div>
             <div className="flex items-center gap-3 opacity-60 hover:opacity-100 transition-opacity duration-300">
-              <div className="h-8 w-12 bg-white/10 rounded-md flex items-center justify-center backdrop-blur-sm">
+              <div className="h-8 w-12 bg-white/10 rounded-md flex items-center justify-center">
                 <CreditCard className="w-5 h-5 text-slate-300" />
               </div>
             </div>

@@ -440,7 +440,7 @@ const VoiceSearch = ({ onClose, onResult }) => {
 
   return (
     <div
-      className="fixed inset-0 z-[75] bg-black/70 backdrop-blur-md flex items-center justify-center p-4"
+      className="fixed inset-0 z-[75] bg-black/70 flex items-center justify-center p-4"
       onClick={onClose}
     >
       <div

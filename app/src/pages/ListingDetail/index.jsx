@@ -354,7 +354,7 @@ export default function ListingDetail() {
                 <div className="absolute bottom-[-15%] left-[35%] h-[320px] w-[320px] rounded-full bg-emerald-500/10 blur-3xl" />
             </div>
 
-            <div className="border-b border-cyan-400/20 bg-[#050817]/80 backdrop-blur-xl">
+            <div className="border-b border-cyan-400/20 bg-[#050817]/80">
                 <div className="mx-auto max-w-6xl px-4 py-4 text-sm">
                     <Link to="/marketplace" className="text-cyan-100/80 transition hover:text-cyan-100">
                         Marketplace
@@ -376,13 +376,13 @@ export default function ListingDetail() {
                                     <>
                                         <button
                                             onClick={() => setCurrentImage((i) => (i - 1 + images.length) % images.length)}
-                                            className="absolute left-3 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-cyan-300/30 bg-slate-950/75 text-cyan-100 backdrop-blur transition hover:bg-slate-900"
+                                            className="absolute left-3 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-cyan-300/30 bg-slate-950/75 text-cyan-100 transition hover:bg-slate-900"
                                         >
                                             <ChevronLeft className="h-5 w-5" />
                                         </button>
                                         <button
                                             onClick={() => setCurrentImage((i) => (i + 1) % images.length)}
-                                            className="absolute right-3 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-cyan-300/30 bg-slate-950/75 text-cyan-100 backdrop-blur transition hover:bg-slate-900"
+                                            className="absolute right-3 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-cyan-300/30 bg-slate-950/75 text-cyan-100 transition hover:bg-slate-900"
                                         >
                                             <ChevronRight className="h-5 w-5" />
                                         </button>
@@ -637,7 +637,7 @@ export default function ListingDetail() {
 
             {chatOpen && !isOwner && (
                 <div
-                    className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/75 p-3 backdrop-blur-sm md:items-center"
+                    className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/75 p-3 md:items-center"
                     onClick={() => setChatOpen(false)}
                 >
                     <div

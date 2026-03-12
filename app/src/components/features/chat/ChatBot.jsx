@@ -192,7 +192,7 @@ const ChatBot = () => {
         >
             {isOpen && (
                 <div
-                    className={`pointer-events-auto flex flex-col overflow-hidden rounded-[1.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.5)] backdrop-blur-2xl mb-4 transition-all duration-300 ease-in-out ${isExpanded ? 'fixed inset-6 w-[calc(100vw-3rem)] h-[calc(100vh-3rem)]' : 'relative w-[min(90vw,420px)] h-[min(75vh,650px)]'}`}
+                    className={`pointer-events-auto flex flex-col overflow-hidden rounded-[1.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.5)] mb-4 transition-all duration-300 ease-in-out ${isExpanded ? 'fixed inset-6 w-[calc(100vw-3rem)] h-[calc(100vh-3rem)]' : 'relative w-[min(90vw,420px)] h-[min(75vh,650px)]'}`}
                     style={{
                         background: 'linear-gradient(135deg, rgba(15, 12, 41, 0.95) 0%, rgba(26, 26, 46, 0.95) 50%, rgba(22, 33, 62, 0.95) 100%)',
                         border: '1px solid rgba(255,255,255,0.15)',
@@ -206,7 +206,7 @@ const ChatBot = () => {
                         >
                             <div className="flex items-center gap-3">
                                 <div className="relative group">
-                                    <div className="bg-white/10 backdrop-blur-md p-2.5 rounded-xl border border-white/20 group-hover:scale-105 transition-transform duration-300">
+                                    <div className="bg-white/10 p-2.5 rounded-xl border border-white/20 group-hover:scale-105 transition-transform duration-300">
                                         <Sparkles size={20} className="text-purple-300" />
                                     </div>
                                     <span className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-green-400 rounded-full border-2 border-[#16213e] shadow-[0_0_10px_rgba(74,222,128,0.5)] animate-pulse"></span>
@@ -238,7 +238,7 @@ const ChatBot = () => {
                                 key={idx} 
                                 className={`flex flex-col animate-fade-in-up ${msg.role === 'user' ? 'items-end' : 'items-start'}`}
                             >
-                                        <div className={`max-w-[85%] p-3.5 text-sm leading-relaxed shadow-lg backdrop-blur-md ${
+                                        <div className={`max-w-[85%] p-3.5 text-sm leading-relaxed shadow-lg ${
                                             msg.role === 'user'
                                             ? 'rounded-2xl rounded-tr-sm text-white'
                                             : 'rounded-2xl rounded-tl-sm text-gray-100'}`}
@@ -275,7 +275,7 @@ const ChatBot = () => {
                                     {msg.products && msg.products.length > 0 && (
                                         <div className="mt-4 space-y-3 w-full animate-fade-in-up">
                                                 {msg.actionType === 'compare' && msg.products.length >= 2 ? (
-                                                    <div className="rounded-[1rem] overflow-hidden backdrop-blur-xl bg-white/5 border border-white/10 shadow-2xl">
+                                                    <div className="rounded-[1rem] overflow-hidden bg-white/5 border border-white/10 shadow-2xl">
                                                         <div className="text-center py-2 text-[10px] font-bold tracking-widest text-purple-300 bg-purple-500/10 border-b border-white/5">
                                                             ⚖️ SIDE-BY-SIDE COMPARISON
                                                         </div>
@@ -371,7 +371,7 @@ const ChatBot = () => {
                         {/* Refined Typing Indicator */}
                         {isLoading && (
                             <div className="flex items-start animate-fade-in-up">
-                                <div className="px-4 py-3 rounded-2xl rounded-tl-sm flex items-center gap-2 bg-white/5 border border-white/10 backdrop-blur-md shadow-lg">
+                                <div className="px-4 py-3 rounded-2xl rounded-tl-sm flex items-center gap-2 bg-white/5 border border-white/10 shadow-lg">
                                     <div className="flex gap-1.5">
                                         <span className="w-2 h-2 rounded-full bg-gradient-to-t from-purple-500 to-indigo-400 animate-bounce"></span>
                                         <span className="w-2 h-2 rounded-full bg-gradient-to-t from-purple-500 to-indigo-400 animate-bounce" style={{ animationDelay: '0.1s' }}></span>
@@ -399,7 +399,7 @@ const ChatBot = () => {
                                             }
                                         }}
                                         placeholder={isListening ? "Listening..." : "Ask AuraBot anything..."}
-                                        className="w-full relative bg-[#111827]/80 backdrop-blur-xl border border-white/20 rounded-2xl pl-4 pr-12 py-3 text-sm text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-transparent transition-all shadow-[inset_0_2px_4px_rgba(0,0,0,0.6)] resize-none"
+                                        className="w-full relative bg-[#111827]/80 border border-white/20 rounded-2xl pl-4 pr-12 py-3 text-sm text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-transparent transition-all shadow-[inset_0_2px_4px_rgba(0,0,0,0.6)] resize-none"
                                         rows={input.split('\n').length > 1 ? Math.min(input.split('\n').length, 4) : 1}
                                         style={{ minHeight: '46px', scrollbarWidth: 'none' }}
                                         disabled={isLoading}

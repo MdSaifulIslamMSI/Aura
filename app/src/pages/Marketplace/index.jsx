@@ -154,7 +154,7 @@ const getConditionTone = (condition = '') => {
 const StatCard = ({ label, value, detail, isWhiteMode, style }) => (
     <div
         className={cn(
-            'rounded-[1.4rem] border p-4 backdrop-blur-xl',
+            'rounded-[1.4rem] border p-4',
             isWhiteMode ? 'bg-white/94 text-slate-900' : 'bg-[#091121]/74 text-white'
         )}
         style={style}

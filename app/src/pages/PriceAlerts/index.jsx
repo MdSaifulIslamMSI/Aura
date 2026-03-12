@@ -36,7 +36,7 @@ export default function PriceAlerts() {
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_50%,rgba(255,255,255,0.1),transparent)] pointer-events-none" />
                 <div className="max-w-6xl mx-auto px-4 py-10 sm:py-14 relative z-10">
                     <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-2">
-                        <div className="w-14 h-14 bg-white/20 backdrop-blur rounded-2xl flex items-center justify-center">
+                        <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center">
                             <BellRing className="w-7 h-7 text-white" />
                         </div>
                         <div>
@@ -46,15 +46,15 @@ export default function PriceAlerts() {
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-8">
-                        <div className="bg-white/10 backdrop-blur rounded-xl p-4 text-center">
+                        <div className="bg-white/10 rounded-xl p-4 text-center">
                             <p className="text-3xl font-black text-white">{activeAlerts.length}</p>
                             <p className="text-white/60 text-xs font-bold">Active Alerts</p>
                         </div>
-                        <div className="bg-white/10 backdrop-blur rounded-xl p-4 text-center">
+                        <div className="bg-white/10 rounded-xl p-4 text-center">
                             <p className="text-3xl font-black text-green-300">{triggeredAlerts.length}</p>
                             <p className="text-white/60 text-xs font-bold">Price Dropped!</p>
                         </div>
-                        <div className="bg-white/10 backdrop-blur rounded-xl p-4 text-center">
+                        <div className="bg-white/10 rounded-xl p-4 text-center">
                             <p className="text-3xl font-black text-white">{alerts.length}</p>
                             <p className="text-white/60 text-xs font-bold">Total Alerts</p>
                         </div>

@@ -511,7 +511,7 @@ const ProductDetails = () => {
   if (!product) {
     return (
       <div className="container-custom max-w-7xl mx-auto py-20 px-4 text-center">
-        <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-12 max-w-2xl mx-auto shadow-glass relative overflow-hidden group">
+        <div className="bg-white/5 border border-white/10 rounded-3xl p-12 max-w-2xl mx-auto shadow-glass relative overflow-hidden group">
           <div className="absolute inset-0 bg-gradient-to-br from-neo-cyan/5 to-neo-rose/5 pointer-events-none" />
           <h2 className="text-3xl font-black mb-6 text-white tracking-widest uppercase">Product Not Found</h2>
           <p className="text-slate-400 mb-8">The item you are looking for could not be found.</p>
@@ -582,7 +582,7 @@ const ProductDetails = () => {
         <div className="grid gap-6 lg:grid-cols-12 lg:gap-12">
           {/* Left Column: Image & Buttons */}
           <div className="flex flex-col gap-4 sm:gap-6 lg:col-span-5">
-            <div className="group relative overflow-hidden rounded-[1.75rem] border border-white/10 bg-white/[0.045] p-4 shadow-glass backdrop-blur-xl sm:rounded-3xl sm:p-6 lg:sticky lg:top-24">
+            <div className="group relative overflow-hidden rounded-[1.75rem] border border-white/10 bg-white/[0.045] p-4 shadow-glass sm:rounded-3xl sm:p-6 lg:sticky lg:top-24">
               <div className="absolute inset-0 bg-gradient-to-tr from-neo-cyan/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
 
               <div className="relative flex aspect-square items-center justify-center p-2 sm:p-4">
@@ -594,14 +594,14 @@ const ProductDetails = () => {
 
                 <button
                   onClick={() => toggleWishlist(product)}
-                  className="absolute right-0 top-0 z-20 rounded-full border border-white/10 bg-zinc-950/50 p-2.5 shadow-[0_0_15px_rgba(0,0,0,0.5)] backdrop-blur-md transition-all duration-300 hover:border-neo-rose hover:bg-neo-rose/10 group/btn sm:p-3"
+                  className="absolute right-0 top-0 z-20 rounded-full border border-white/10 bg-zinc-950/50 p-2.5 shadow-[0_0_15px_rgba(0,0,0,0.5)] transition-all duration-300 hover:border-neo-rose hover:bg-neo-rose/10 group/btn sm:p-3"
                 >
                   <Heart className={cn('w-6 h-6 transition-colors', isWishlisted ? 'fill-neo-rose text-neo-rose drop-shadow-[0_0_8px_rgba(244,63,94,0.6)]' : 'text-slate-400 group-hover/btn:text-neo-rose')} />
                 </button>
 
                 <button
                   onClick={() => navigator?.share?.({ title: heroTitle, url: window.location.href })}
-                  className="absolute left-0 top-0 z-20 rounded-full border border-white/10 bg-zinc-950/50 p-2.5 shadow-[0_0_15px_rgba(0,0,0,0.5)] backdrop-blur-md transition-all duration-300 hover:border-neo-cyan hover:bg-neo-cyan/10 group/btn sm:p-3"
+                  className="absolute left-0 top-0 z-20 rounded-full border border-white/10 bg-zinc-950/50 p-2.5 shadow-[0_0_15px_rgba(0,0,0,0.5)] transition-all duration-300 hover:border-neo-cyan hover:bg-neo-cyan/10 group/btn sm:p-3"
                 >
                   <Share2 className="w-5 h-5 text-slate-400 group-hover/btn:text-neo-cyan transition-colors" />
                 </button>
@@ -609,7 +609,7 @@ const ProductDetails = () => {
             </div>
 
             {/* Mobile Actions - Sticky Bottom */}
-            <div className="fixed bottom-0 left-0 right-0 z-50 flex gap-3 border-t border-white/10 bg-zinc-950/92 px-3 pb-[calc(0.85rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl sm:gap-4 sm:p-4 lg:hidden">
+            <div className="fixed bottom-0 left-0 right-0 z-50 flex gap-3 border-t border-white/10 bg-zinc-950/92 px-3 pb-[calc(0.85rem+env(safe-area-inset-bottom))] pt-3 sm:gap-4 sm:p-4 lg:hidden">
               <button
                 onClick={handleAddToCart}
                 disabled={stock === 0}
@@ -633,7 +633,7 @@ const ProductDetails = () => {
 
           {/* Right Column: Details */}
           <div className="lg:col-span-7">
-            <div className="relative overflow-hidden rounded-[1.75rem] border border-white/10 bg-white/[0.045] p-5 shadow-glass backdrop-blur-xl sm:rounded-3xl sm:p-6 md:p-10">
+            <div className="relative overflow-hidden rounded-[1.75rem] border border-white/10 bg-white/[0.045] p-5 shadow-glass sm:rounded-3xl sm:p-6 md:p-10">
               <div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-neo-emerald/5 to-transparent pointer-events-none" />
 
               <div className="relative z-10">

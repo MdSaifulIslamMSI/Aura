@@ -92,7 +92,7 @@ const IconToolButton = ({ icon: Icon, label, onClick, toneClass, style }) => (
     aria-label={label}
     title={label}
     className={cn(
-      'flex h-10 w-10 items-center justify-center rounded-full border backdrop-blur-md transition-all duration-300',
+      'flex h-10 w-10 items-center justify-center rounded-full border transition-all duration-300',
       toneClass
     )}
     style={style}
@@ -360,7 +360,7 @@ const ProductCard = ({ product, variant = 'default' }) => {
             type="button"
             onClick={handleWishlistClick}
             className={cn(
-              'absolute right-4 top-4 z-20 flex h-11 w-11 items-center justify-center rounded-full border backdrop-blur-md transition-all duration-300',
+              'absolute right-4 top-4 z-20 flex h-11 w-11 items-center justify-center rounded-full border transition-all duration-300',
               isWhiteMode
                 ? 'border-slate-300 bg-white/95 text-slate-600 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-500'
                 : 'border-white/12 bg-zinc-950/72 text-slate-300 hover:border-neo-rose/55 hover:bg-neo-rose/12 hover:text-neo-rose'
@@ -400,7 +400,7 @@ const ProductCard = ({ product, variant = 'default' }) => {
           />
 
           {isOutOfStock ? (
-            <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+            <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/60">
               <span className="rounded-full border border-white/20 bg-zinc-950/85 px-4 py-2 text-[11px] font-black uppercase tracking-[0.22em] text-white">
                 Sold Out
               </span>
@@ -610,7 +610,7 @@ const ProductCard = ({ product, variant = 'default' }) => {
           type="button"
           onClick={handleWishlistClick}
           className={cn(
-            'absolute right-4 top-4 z-20 flex h-10 w-10 items-center justify-center rounded-full border backdrop-blur-md transition-all duration-300',
+            'absolute right-4 top-4 z-20 flex h-10 w-10 items-center justify-center rounded-full border transition-all duration-300',
             isWhiteMode
               ? 'border-slate-300 bg-white/95 text-slate-600 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-500'
               : 'border-white/12 bg-zinc-950/72 text-slate-300 hover:border-neo-rose/55 hover:bg-neo-rose/12 hover:text-neo-rose'
@@ -650,7 +650,7 @@ const ProductCard = ({ product, variant = 'default' }) => {
           </div>
 
         {isOutOfStock ? (
-          <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/60">
             <span className="rounded-full border border-white/20 bg-zinc-950/85 px-4 py-2 text-[11px] font-black uppercase tracking-[0.22em] text-white">
               Sold Out
             </span>

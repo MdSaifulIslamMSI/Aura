@@ -229,8 +229,8 @@ const Navbar = () => {
           'fixed top-0 left-0 right-0 z-50 overflow-x-clip transition-all duration-300 aura-nav-shell',
           isCompact && 'aura-nav-compact',
           isScrolled
-            ? 'aura-nav-scrolled bg-[linear-gradient(180deg,rgba(2,6,23,0.84),rgba(2,6,23,0.38))] backdrop-blur-2xl border-transparent'
-            : 'bg-[linear-gradient(180deg,rgba(2,6,23,0.74),rgba(2,6,23,0.18))] backdrop-blur-xl border-transparent'
+            ? 'aura-nav-scrolled bg-[linear-gradient(180deg,rgba(2,6,23,0.84),rgba(2,6,23,0.38))] border-transparent'
+            : 'bg-[linear-gradient(180deg,rgba(2,6,23,0.74),rgba(2,6,23,0.18))] border-transparent'
         )}
       >
         <div className="pointer-events-none absolute inset-x-[14%] top-0 h-px bg-gradient-to-r from-transparent via-neo-cyan/60 to-transparent animate-gradient-x" style={{ backgroundSize: '200% auto' }} />
@@ -239,7 +239,7 @@ const Navbar = () => {
           <div
             className={cn(
               'relative min-w-0 rounded-[1.85rem] border px-2.5 py-2.5 sm:px-3.5 lg:px-4',
-              'bg-[linear-gradient(180deg,rgba(7,12,24,0.92),rgba(5,10,20,0.78))] backdrop-blur-2xl shadow-[0_20px_58px_rgba(2,8,23,0.38)]',
+              'bg-[linear-gradient(180deg,rgba(7,12,24,0.92),rgba(5,10,20,0.78))] shadow-[0_20px_58px_rgba(2,8,23,0.38)]',
               isScrolled ? 'border-white/15' : 'border-white/[0.08]'
             )}
           >
@@ -320,7 +320,7 @@ const Navbar = () => {
                     <button
                       type="button"
                       aria-label="Close explore panel backdrop"
-                      className="fixed inset-0 z-40 bg-zinc-950/34 backdrop-blur-[1.5px]"
+                      className="fixed inset-0 z-40 bg-zinc-950/34"
                       onClick={() => setIsQuickPanelOpen(false)}
                     />
                     <div className="absolute right-0 z-[60] mt-3 w-[23rem] max-w-[calc(100vw-2rem)] rounded-[1.7rem] border border-white/10 bg-[linear-gradient(180deg,rgba(7,12,24,0.98),rgba(5,9,20,0.98))] p-3.5 shadow-[0_26px_80px_rgba(2,8,23,0.7)] ring-1 ring-cyan-400/10">
@@ -426,14 +426,14 @@ const Navbar = () => {
                     <button
                       type="button"
                       aria-label="Close profile menu backdrop"
-                      className="fixed inset-0 z-40 bg-zinc-950/34 backdrop-blur-[1.5px]"
+                      className="fixed inset-0 z-40 bg-zinc-950/34"
                       onClick={() => {
                         setIsUserMenuOpen(false);
                         setIsPreferencesOpen(false);
                         setIsAdminToolsOpen(false);
                       }}
                     />
-                    <div className="absolute right-0 z-[60] mt-3 w-[16.5rem] max-w-[calc(100vw-1.5rem)] max-h-[min(31rem,calc(100vh-6.5rem))] overflow-x-hidden overflow-y-auto rounded-2xl border border-white/12 bg-[#061018] py-2 shadow-[0_28px_90px_rgba(2,8,23,0.8)] ring-1 ring-white/8 backdrop-blur-2xl animate-fade-in">
+                    <div className="absolute right-0 z-[60] mt-3 w-[16.5rem] max-w-[calc(100vw-1.5rem)] max-h-[min(31rem,calc(100vh-6.5rem))] overflow-x-hidden overflow-y-auto rounded-2xl border border-white/12 bg-[#061018] py-2 shadow-[0_28px_90px_rgba(2,8,23,0.8)] ring-1 ring-white/8 animate-fade-in">
                       <div className="px-4 pb-2">
                         <div className="text-sm font-bold text-white truncate">{displayName}</div>
                         <div className="text-xs text-slate-400 truncate">{activeUser.email}</div>
@@ -668,14 +668,14 @@ const Navbar = () => {
           <button
             type="button"
             aria-label="Close mobile menu backdrop"
-            className="fixed inset-0 z-40 bg-zinc-950/70 backdrop-blur-sm md:hidden"
+            className="fixed inset-0 z-40 bg-zinc-950/70 md:hidden"
             onClick={() => setIsMobileMenuOpen(false)}
           />
         )}
 
         {/* Mobile Nav Menu */}
         {isMobileMenuOpen && (
-          <div className="absolute left-0 top-full z-50 w-full border-t border-white/10 bg-zinc-950/95 backdrop-blur-xl animate-fade-in md:hidden">
+          <div className="absolute left-0 top-full z-50 w-full border-t border-white/10 bg-zinc-950/95 animate-fade-in md:hidden">
             <nav className="max-h-[calc(100vh-5.5rem)] overflow-y-auto px-4 py-4">
               <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 animate-fade-up" style={{ animationDelay: '50ms' }}>
                 <div className="mb-3 text-[11px] font-black uppercase tracking-[0.24em] text-slate-400">Quick access</div>

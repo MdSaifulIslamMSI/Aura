@@ -20,7 +20,7 @@ const Wishlist = () => {
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[min(80vw,600px)] h-[min(80vw,600px)] bg-neo-rose/5 rounded-full blur-[150px] pointer-events-none -z-10" />
 
         <div className="container-custom py-10">
-          <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-12 text-center max-w-lg mx-auto shadow-glass relative group overflow-hidden">
+          <div className="bg-white/5 border border-white/10 rounded-3xl p-12 text-center max-w-lg mx-auto shadow-glass relative group overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-br from-transparent to-neo-rose/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
 
             <div className="w-24 h-24 rounded-full bg-zinc-950/50 border border-white/10 flex items-center justify-center mx-auto mb-6 shadow-[0_0_30px_rgba(0,0,0,0.5)]">
@@ -75,7 +75,7 @@ const Wishlist = () => {
               <div className="absolute top-3 right-3 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-30 translate-x-2 group-hover:translate-x-0">
                 <button
                   onClick={() => removeFromWishlist(item.id)}
-                  className="p-3 bg-zinc-950/80 backdrop-blur-md rounded-full border border-white/10 shadow-[0_0_15px_rgba(0,0,0,0.5)] hover:border-neo-rose hover:bg-neo-rose/20 text-slate-400 hover:text-neo-rose transition-all"
+                  className="p-3 bg-zinc-950/80 rounded-full border border-white/10 shadow-[0_0_15px_rgba(0,0,0,0.5)] hover:border-neo-rose hover:bg-neo-rose/20 text-slate-400 hover:text-neo-rose transition-all"
                   title="Remove from Wishlist"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -85,7 +85,7 @@ const Wishlist = () => {
               {/* Move to Cart Button */}
               <button
                 onClick={() => handleMoveToCart(item.id)}
-                className="absolute bottom-4 left-4 right-4 bg-neo-cyan/20 hover:bg-neo-cyan/40 border border-neo-cyan/50 text-white font-bold py-3 text-sm rounded-xl flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0 z-30 shadow-[0_0_15px_rgba(6,182,212,0.3)] backdrop-blur-md group/btn"
+                className="absolute bottom-4 left-4 right-4 bg-neo-cyan/20 hover:bg-neo-cyan/40 border border-neo-cyan/50 text-white font-bold py-3 text-sm rounded-xl flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0 z-30 shadow-[0_0_15px_rgba(6,182,212,0.3)] group/btn"
               >
                 <ShoppingCart className="w-4 h-4 group-hover/btn:-translate-x-1 transition-transform" />
                 Add to Bag
