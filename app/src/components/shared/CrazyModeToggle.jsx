@@ -33,7 +33,7 @@ const CrazyModeToggle = () => {
         type="button"
         onClick={toggleCrazyMode}
         className={cn(
-          'rounded-2xl border px-4 py-3 backdrop-blur-xl transition-all duration-300',
+          'rounded-2xl border px-4 py-3 transition-all duration-300',
           'flex items-center gap-2 text-xs sm:text-sm font-black uppercase tracking-wider shadow-[0_8px_28px_rgba(2,6,23,0.45)]',
           crazyModeEnabled
             ? 'border-fuchsia-300/60 bg-gradient-to-r from-fuchsia-600/80 via-cyan-500/80 to-emerald-500/80 text-white hover:scale-[1.03]'

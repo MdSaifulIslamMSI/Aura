@@ -355,7 +355,7 @@ const ProductListing = () => {
       )}
 
       {/* Mobile Filter Toggle */}
-      <div className="lg:hidden mb-4 flex justify-between items-center bg-white/[0.045] backdrop-blur-xl px-4 py-3 rounded-2xl border border-white/10">
+      <div className="lg:hidden mb-4 flex justify-between items-center bg-white/[0.045] px-4 py-3 rounded-2xl border border-white/10">
         <button
           onClick={() => setShowMobileFilters(!showMobileFilters)}
           className="flex items-center gap-2 bg-white/10 hover:bg-white/20 px-4 py-2 rounded-xl transition-colors font-medium text-white border border-white/10"
@@ -372,7 +372,7 @@ const ProductListing = () => {
         <button
           type="button"
           aria-label="Close filters backdrop"
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-30 lg:hidden"
+          className="fixed inset-0 bg-black/60 z-30 lg:hidden"
           onClick={() => setShowMobileFilters(false)}
         />
       )}
@@ -389,7 +389,7 @@ const ProductListing = () => {
             showMobileFilters ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
           )}
         >
-          <div className="bg-white/5 backdrop-blur-xl p-6 rounded-2xl shadow-glass border border-white/10 overflow-hidden relative">
+          <div className="bg-white/5 p-6 rounded-2xl shadow-glass border border-white/10 overflow-hidden relative">
             <div className="absolute inset-0 bg-gradient-to-br from-neo-cyan/5 to-transparent pointer-events-none" />
             <Filters
               filters={filters}
@@ -405,7 +405,7 @@ const ProductListing = () => {
           <RevealOnScroll
             anchorId="listing-sort-bar"
             anchorLabel="Sort & View"
-            className="bg-white/[0.045] backdrop-blur-xl p-4 rounded-2xl shadow-glass border border-white/10 mb-6 flex flex-col sm:flex-row justify-between items-center gap-4 relative overflow-hidden"
+            className="bg-white/[0.045] p-4 rounded-2xl shadow-glass border border-white/10 mb-6 flex flex-col sm:flex-row justify-between items-center gap-4 relative overflow-hidden"
             delay={30}
           >
             <div className="absolute left-0 top-0 w-1 h-full bg-gradient-to-b from-neo-cyan to-neo-emerald" />
@@ -491,7 +491,7 @@ const ProductListing = () => {
               ))}
             </div>
           ) : fetchError ? (
-            <div className="text-center py-20 bg-white/[0.045] backdrop-blur-xl rounded-3xl shadow-glass border border-neo-rose/20 relative overflow-hidden">
+            <div className="text-center py-20 bg-white/[0.045] rounded-3xl shadow-glass border border-neo-rose/20 relative overflow-hidden">
               <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-zinc-950/50 border border-neo-rose/25 flex items-center justify-center shadow-[0_0_30px_rgba(0,0,0,0.5)]">
                 <svg className="w-10 h-10 text-neo-rose" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M5.4 19h13.2c1.2 0 1.9-1.3 1.3-2.3L13.3 5.3c-.6-1-2-1-2.6 0L4.1 16.7C3.5 17.7 4.2 19 5.4 19z" />
@@ -519,7 +519,7 @@ const ProductListing = () => {
               </div>
             </div>
           ) : products.length === 0 ? (
-            <div className="text-center py-24 bg-white/[0.045] backdrop-blur-xl rounded-3xl shadow-glass border border-white/10 relative overflow-hidden group">
+            <div className="text-center py-24 bg-white/[0.045] rounded-3xl shadow-glass border border-white/10 relative overflow-hidden group">
               <div className="absolute inset-0 bg-gradient-to-b from-transparent to-neo-rose/5 pointer-events-none" />
               <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-zinc-950/50 border border-white/10 flex items-center justify-center shadow-[0_0_30px_rgba(0,0,0,0.5)]">
                 <svg className="w-10 h-10 text-neo-rose drop-shadow-[0_0_8px_rgba(244,63,94,0.6)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -578,7 +578,7 @@ const ProductListing = () => {
 
           {/* Pagination Controls */}
           {!loading && totalPages > 1 && (
-            <div className="flex justify-center items-center gap-6 mt-16 bg-white/[0.045] backdrop-blur-xl p-4 rounded-2xl shadow-glass border border-white/10 w-fit mx-auto relative overflow-hidden">
+            <div className="flex justify-center items-center gap-6 mt-16 bg-white/[0.045] p-4 rounded-2xl shadow-glass border border-white/10 w-fit mx-auto relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-r from-neo-cyan/8 to-neo-emerald/8 pointer-events-none" />
               <button
                 disabled={page === 1}

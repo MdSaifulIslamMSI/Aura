@@ -42,7 +42,7 @@ export default function TradeIn() {
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_30%,rgba(255,255,255,0.15),transparent)] pointer-events-none" />
                 <div className="max-w-6xl mx-auto px-4 py-10 sm:py-14 relative z-10">
                     <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-3">
-                        <div className="w-14 h-14 bg-white/20 backdrop-blur rounded-2xl flex items-center justify-center">
+                        <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center">
                             <ArrowLeftRight className="w-7 h-7 text-white" />
                         </div>
                         <div>
@@ -59,7 +59,7 @@ export default function TradeIn() {
                             { step: '3', label: 'Get Estimate', desc: 'See instant trade-in value' },
                             { step: '4', label: 'Save Big', desc: 'Pay only the difference!' },
                         ].map(s => (
-                            <div key={s.step} className="bg-white/10 backdrop-blur rounded-xl p-4">
+                            <div key={s.step} className="bg-white/10 rounded-xl p-4">
                                 <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center text-white font-black text-sm mb-2">{s.step}</div>
                                 <p className="text-white font-bold text-sm">{s.label}</p>
                                 <p className="text-white/60 text-xs">{s.desc}</p>

@@ -34,7 +34,7 @@ const Cart = () => {
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[min(80vw,600px)] h-[min(80vw,600px)] bg-neo-cyan/5 rounded-full blur-[150px] pointer-events-none -z-10" />
 
         <div className="container-custom py-10">
-          <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-12 text-center max-w-lg mx-auto shadow-glass relative group overflow-hidden">
+          <div className="bg-white/5 border border-white/10 rounded-3xl p-12 text-center max-w-lg mx-auto shadow-glass relative group overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-br from-transparent to-neo-cyan/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
 
             <div className="w-24 h-24 rounded-full bg-zinc-950/50 border border-white/10 flex items-center justify-center mx-auto mb-6 shadow-[0_0_30px_rgba(0,0,0,0.5)]">
@@ -71,7 +71,7 @@ const Cart = () => {
         <div className="flex flex-col xl:flex-row gap-8">
           {/* Cart Items */}
           <div className="flex-1">
-            <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl shadow-glass overflow-hidden">
+            <div className="bg-white/5 border border-white/10 rounded-3xl shadow-glass overflow-hidden">
               {/* Header */}
               <div className="flex items-center justify-between p-6 border-b border-white/5 bg-zinc-950/50">
                 <h1 className="text-2xl font-black text-white tracking-tight flex items-center gap-3">
@@ -197,7 +197,7 @@ const Cart = () => {
 
           {/* Order Summary */}
           <div className="xl:w-96 flex-shrink-0">
-            <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl shadow-glass sticky top-24 overflow-hidden">
+            <div className="bg-white/5 border border-white/10 rounded-3xl shadow-glass sticky top-24 overflow-hidden">
               <div className="p-6 border-b border-white/5 bg-gradient-to-b from-neo-cyan/10 to-transparent">
                 <h2 className="font-black text-white uppercase tracking-widest flex items-center gap-2">
                   Transaction Summary

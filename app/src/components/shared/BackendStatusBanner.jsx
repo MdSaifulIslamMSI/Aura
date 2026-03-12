@@ -243,7 +243,7 @@ const BackendStatusBanner = () => {
     <div className="fixed inset-x-3 top-[5.25rem] z-40 sm:inset-x-6">
       <div
         className={cn(
-          'mx-auto max-w-5xl rounded-2xl border px-4 py-3 shadow-[0_16px_50px_rgba(2,8,23,0.45)] backdrop-blur-2xl',
+          'mx-auto max-w-5xl rounded-2xl border px-4 py-3 shadow-[0_16px_50px_rgba(2,8,23,0.45)]',
           status.level === 'degraded'
             ? 'border-amber-300/25 bg-amber-500/12'
             : status.level === 'warming'

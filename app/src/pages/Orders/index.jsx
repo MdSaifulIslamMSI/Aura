@@ -77,7 +77,7 @@ const Orders = () => {
         return (
             <div className="min-h-[80vh] flex items-center justify-center relative overflow-hidden">
                 <div className="container-custom py-10">
-                    <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-12 text-center max-w-lg mx-auto shadow-glass">
+                    <div className="bg-white/5 border border-white/10 rounded-3xl p-12 text-center max-w-lg mx-auto shadow-glass">
                         <h2 className="text-2xl font-black text-white uppercase tracking-widest mb-6 border-b border-white/10 pb-4">Authentication Required</h2>
                         <p className="text-slate-400 mb-8">Sign in to view your order history.</p>
                         <button onClick={() => navigate('/login')} className="btn-primary w-full shadow-[0_0_15px_rgba(6,182,212,0.3)]">
@@ -109,7 +109,7 @@ const Orders = () => {
             <div className="min-h-[80vh] flex items-center justify-center relative overflow-hidden">
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[min(80vw,600px)] h-[min(80vw,600px)] bg-neo-fuchsia/5 rounded-full blur-[150px] pointer-events-none -z-10" />
                 <div className="container-custom py-10">
-                    <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-12 text-center max-w-lg mx-auto shadow-glass relative group overflow-hidden">
+                    <div className="bg-white/5 border border-white/10 rounded-3xl p-12 text-center max-w-lg mx-auto shadow-glass relative group overflow-hidden">
                         <div className="absolute inset-0 bg-gradient-to-br from-transparent to-neo-fuchsia/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
 
                         <div className="w-24 h-24 rounded-full bg-zinc-950/50 border border-white/10 flex items-center justify-center mx-auto mb-6 shadow-[0_0_30px_rgba(0,0,0,0.5)]">
@@ -364,7 +364,7 @@ const OrderCard = ({ order }) => {
     };
 
     return (
-        <div className={cn("bg-white/5 backdrop-blur-xl rounded-2xl shadow-glass border transition-all duration-300 overflow-hidden relative group", expanded ? "border-neo-cyan/50 shadow-[0_0_25px_rgba(6,182,212,0.15)] bg-zinc-950/80" : "border-white/10 hover:border-white/30")}>
+        <div className={cn("bg-white/5 rounded-2xl shadow-glass border transition-all duration-300 overflow-hidden relative group", expanded ? "border-neo-cyan/50 shadow-[0_0_25px_rgba(6,182,212,0.15)] bg-zinc-950/80" : "border-white/10 hover:border-white/30")}>
             {expanded && <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-neo-cyan to-neo-fuchsia z-10" />}
 
             {/* Header */}

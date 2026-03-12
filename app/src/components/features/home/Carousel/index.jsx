@@ -70,7 +70,7 @@ const Carousel = ({
                 {/* Glassmorphic Text Overlay */}
                 {(slide.title || slide.description) && (
                   <div className="absolute inset-0 bg-gradient-to-r from-zinc-950/90 via-zinc-950/50 to-transparent flex items-center p-8 md:p-16">
-                    <div className="text-white max-w-lg space-y-4 animate-fade-in relative z-10 backdrop-blur-sm p-6 rounded-2xl border border-white/5 bg-black/20 mt-12 md:mt-0">
+                    <div className="text-white max-w-lg space-y-4 animate-fade-in relative z-10 p-6 rounded-2xl border border-white/5 bg-black/20 mt-12 md:mt-0">
                       {slide.subtitle && (
                         <span className="inline-block px-4 py-1.5 bg-neo-cyan/10 border border-neo-cyan/30 text-neo-cyan text-xs font-black uppercase tracking-widest shadow-[0_0_15px_rgba(6,182,212,0.2)] mb-4 rounded-full">
                           {slide.subtitle}
@@ -118,14 +118,14 @@ const Carousel = ({
         <>
           <button
             onClick={prevSlide}
-            className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 flex items-center justify-center bg-zinc-950/50 hover:bg-neo-cyan/20 border border-white/10 hover:border-neo-cyan/50 text-white rounded-full shadow-glass transition-all hover:scale-110 opacity-0 group-hover:opacity-100 backdrop-blur-md"
+            className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 flex items-center justify-center bg-zinc-950/50 hover:bg-neo-cyan/20 border border-white/10 hover:border-neo-cyan/50 text-white rounded-full shadow-glass transition-all hover:scale-110 opacity-0 group-hover:opacity-100"
             aria-label="Previous slide"
           >
             <ChevronLeft className="w-6 h-6" />
           </button>
           <button
             onClick={nextSlide}
-            className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 flex items-center justify-center bg-zinc-950/50 hover:bg-neo-cyan/20 border border-white/10 hover:border-neo-cyan/50 text-white rounded-full shadow-glass transition-all hover:scale-110 opacity-0 group-hover:opacity-100 backdrop-blur-md"
+            className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 flex items-center justify-center bg-zinc-950/50 hover:bg-neo-cyan/20 border border-white/10 hover:border-neo-cyan/50 text-white rounded-full shadow-glass transition-all hover:scale-110 opacity-0 group-hover:opacity-100"
             aria-label="Next slide"
           >
             <ChevronRight className="w-6 h-6" />
@@ -135,7 +135,7 @@ const Carousel = ({
 
       {/* Indicators */}
       {showIndicators && slides.length > 1 && (
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-3 bg-zinc-950/50 backdrop-blur-md px-4 py-2 rounded-full border border-white/10">
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-3 bg-zinc-950/50 px-4 py-2 rounded-full border border-white/10">
           {slides.map((_, index) => (
             <button
               key={index}

@@ -31,7 +31,7 @@ export default function TrustPage() {
 
       <div className="max-w-5xl mx-auto px-4 py-8 sm:py-10 space-y-6">
         {content.sections.map((section) => (
-          <section key={section.heading} className="rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-sm p-5 sm:p-6">
+          <section key={section.heading} className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 sm:p-6">
             <h2 className="text-xl font-bold text-white">{section.heading}</h2>
             <ul className="mt-4 space-y-3">
               {section.points.map((point) => (

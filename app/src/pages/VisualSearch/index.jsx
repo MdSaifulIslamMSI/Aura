@@ -328,7 +328,7 @@ const VisualSearch = () => {
 
       <div className="grid lg:grid-cols-12 gap-6">
         <section className="lg:col-span-4 space-y-4">
-          <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl p-5">
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
             <h2 className="text-sm font-black uppercase tracking-wider text-white flex items-center gap-2 mb-4">
               <Camera className="w-4 h-4 text-neo-cyan" />
               Search Input
@@ -450,7 +450,7 @@ const VisualSearch = () => {
             </button>
           </div>
 
-          <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl p-5">
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
             <h3 className="text-xs font-black uppercase tracking-[0.18em] text-slate-300 mb-3">Quick Hints</h3>
             <div className="flex flex-wrap gap-2">
               {QUICK_HINTS.map((hint) => (
@@ -468,7 +468,7 @@ const VisualSearch = () => {
         </section>
 
         <section className="lg:col-span-8 space-y-4">
-          <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl p-5">
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="text-sm font-black uppercase tracking-wider text-white flex items-center gap-2">
@@ -564,7 +564,7 @@ const VisualSearch = () => {
                 <Link
                   key={`${productId}-${product.title}`}
                   to={productId ? `/product/${productId}` : '/products'}
-                  className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl p-4 hover:border-neo-cyan/45 transition-colors"
+                  className="rounded-2xl border border-white/10 bg-white/5 p-4 hover:border-neo-cyan/45 transition-colors"
                 >
                   <div className="h-44 rounded-xl border border-white/10 bg-zinc-950/60 flex items-center justify-center overflow-hidden">
                     {image ? (
@@ -609,7 +609,7 @@ const VisualSearch = () => {
           </div>
 
           {!loading && matches.length === 0 && !error && (
-            <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl p-8 text-center">
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-8 text-center">
               <p className="text-lg font-black text-white">No matches yet</p>
               <p className="text-sm text-slate-400 mt-2">Upload/paste a cleaner image or add specific hints (brand + model + category).</p>
             </div>
