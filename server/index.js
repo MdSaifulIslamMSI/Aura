@@ -44,6 +44,7 @@ const adminOpsRoutes = require('./routes/adminOpsRoutes');
 const internalOpsRoutes = require('./routes/internalOpsRoutes');
 const observabilityRoutes = require('./routes/observabilityRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
+const intelligenceRoutes = require('./routes/intelligenceRoutes');
 const { serveReviewMediaAsset } = require('./controllers/uploadAssetController');
 const { assertProductionPaymentConfig, flags: paymentFlags } = require('./config/paymentFlags');
 const { assertProductionEmailConfig, flags: emailFlags } = require('./config/emailFlags');
@@ -209,6 +210,7 @@ app.use('/api/admin/ops', adminOpsRoutes);
 app.use('/api/internal', internalOpsRoutes);
 app.use('/api/observability', observabilityRoutes);
 app.use('/api/uploads', uploadRoutes);
+app.use('/api/intelligence', intelligenceRoutes);
 app.use('/metrics', metricsRoute);
 
 // Health Check

@@ -1894,3 +1894,26 @@ export const priceAlertApi = {
     }
 };
 
+// ── Intelligence API ──────────────────────────────────────────
+export const intelligenceApi = {
+    optimizeRewards: async () => {
+        const headers = await getAuthHeader();
+        const response = await fetch(`${BASE_URL}/intelligence/optimize-rewards`, {
+            method: 'POST',
+            headers: { ...headers, 'Content-Type': 'application/json' }
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.message || 'Optimization trigger failed');
+        return result;
+    },
+    getLatestRewards: async () => {
+        const headers = await getAuthHeader();
+        const response = await fetch(`${BASE_URL}/intelligence/latest-rewards`, {
+            headers: { ...headers, 'Content-Type': 'application/json' }
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.message || 'Failed to fetch rewards insights');
+        return result;
+    }
+};
+

@@ -53,6 +53,7 @@ const {
     ensureSystemState,
     enforceCatalogStartupCheck,
 } = require('./services/catalogService');
+const { IntelligenceTaskMonitor } = require('./services/marketingIntelligenceService');
 
 const NODE_ENV = process.env.NODE_ENV || 'production';
 
@@ -80,6 +81,7 @@ const startup = async () => {
     startCommerceReconciliationWorker();
     startAdminAnalyticsMonitor();
     startCatalogWorkers();
+    IntelligenceTaskMonitor();
 
     logger.info('worker_process.all_workers_started');
     console.log('Worker process running'.green.bold);

@@ -13,6 +13,7 @@ const {
 } = require('./providerRegistry');
 const { interpretVoiceCommand } = require('./voiceCommandService');
 const { runMultimodalVisualSearch } = require('./multimodalVisualSearchService');
+const { optimizeProductBundle } = require('../optimizationService');
 
 const safeString = (value, fallback = '') => String(value === undefined || value === null ? fallback : value).trim();
 
@@ -118,6 +119,7 @@ const buildSystemPrompt = (assistantMode) => [
     '- Stay grounded in the provided catalog and computed context.',
     '- Do not invent products, prices, stock, or user account state.',
     '- Keep the answer concise and practical.',
+    '- If an optimizedBundle is provided in the context, prioritize explaining why this specific combination fits the budget and value constraints.',
     `- Current assistant mode: ${safeString(assistantMode || 'chat')}.`,
 ].join('\n');
 
@@ -263,6 +265,16 @@ const buildGrounding = async ({
             sourceLabels: recommendations.sourceLabels || [],
             total: Array.isArray(recommendations.products) ? recommendations.products.length : 0,
         } : null,
+        optimization: (() => {
+            const budgetMatch = message.match(/(?:budget|under|for|below|max)\s*(?:rs|inr|Ã¢â€šÂ¹)?\s*(\d+(?:,\d+)*)/i);
+            if (budgetMatch && Array.isArray(catalogGrounding.products) && catalogGrounding.products.length > 0) {
+                const budget = Number(budgetMatch[1].replace(/,/g, ''));
+                if (budget > 0) {
+                    return optimizeProductBundle(catalogGrounding.products, budget);
+                }
+            }
+            return null;
+        })(),
     };
 };
 
@@ -394,6 +406,11 @@ const processAssistantTurn = async ({
                 grounding: {
                     ...grounding,
                     productSummary: summarizeProducts(grounding.products || []),
+                    optimizedBundle: grounding.optimization ? {
+                        totalPrice: grounding.optimization.totalPrice,
+                        items: grounding.optimization.items.map(p => p.title).join(', '),
+                        utilization: grounding.optimization.budgetUtilization
+                    } : null
                 },
                 conversationHistory: normalizedHistory,
             }),
@@ -432,6 +449,7 @@ const processAssistantTurn = async ({
                 }
                 : null,
             recommendations: grounding.recommendations || null,
+            optimization: grounding.optimization || null,
         },
         provider,
         providerCapabilities: capabilitySnapshot,
