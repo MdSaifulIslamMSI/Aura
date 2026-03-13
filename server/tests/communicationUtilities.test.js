@@ -101,7 +101,7 @@ describe('Communication utility coverage', () => {
             .toThrow('TWILIO_WHATSAPP_FROM is required in production when OTP_WHATSAPP_ENABLED=true');
     });
 
-    test('Email flags and fortress flags parse limits and production validation', () => {
+    test('Email flags and security flags parse limits and production validation', () => {
         process.env.NODE_ENV = 'production';
         process.env.ORDER_EMAILS_ENABLED = 'true';
         process.env.ORDER_EMAIL_PROVIDER = 'gmail';
@@ -110,16 +110,16 @@ describe('Communication utility coverage', () => {
         process.env.ORDER_EMAIL_FROM_ADDRESS = 'sender@example.com';
         process.env.ORDER_EMAIL_REPLY_TO = 'reply@example.com';
         process.env.ORDER_EMAIL_ALERT_TO = '';
-        process.env.EMAIL_FORTRESS_ALLOWED_EVENT_TYPES = 'otp_security,order_placed,custom_event';
-        process.env.EMAIL_FORTRESS_MAX_SUBJECT_LEN = '999';
-        process.env.EMAIL_FORTRESS_MAX_TEXT_LEN = '100';
-        process.env.EMAIL_FORTRESS_MAX_HTML_LEN = '10';
+        process.env.EMAIL_SECURITY_ALLOWED_EVENT_TYPES = 'otp_security,order_placed,custom_event';
+        process.env.EMAIL_SECURITY_MAX_SUBJECT_LEN = '999';
+        process.env.EMAIL_SECURITY_MAX_TEXT_LEN = '100';
+        process.env.EMAIL_SECURITY_MAX_HTML_LEN = '10';
 
         let emailFlags;
-        let fortressFlags;
+        let securityFlags;
         jest.isolateModules(() => {
             emailFlags = require('../config/emailFlags');
-            fortressFlags = require('../config/emailFortressFlags');
+            securityFlags = require('../config/emailSecurityFlags');
         });
 
         expect(emailFlags.parseBoolean('true')).toBe(true);
@@ -127,13 +127,13 @@ describe('Communication utility coverage', () => {
         expect(() => emailFlags.assertProductionEmailConfig())
             .toThrow('ORDER_EMAIL_ALERT_TO is required in production for terminal email failures');
 
-        expect(fortressFlags.parseBoolean('off', true)).toBe(false);
-        expect(fortressFlags.parseNumber('999', 10, { min: 5, max: 100 })).toBe(100);
-        expect(fortressFlags.parseNumber('-1', 10, { min: 5, max: 100 })).toBe(5);
-        expect(fortressFlags.parseCsv('a, b, ,c')).toEqual(['a', 'b', 'c']);
-        expect(fortressFlags.flags.emailFortressAllowedEventTypes).toContain('custom_event');
-        expect(fortressFlags.flags.emailFortressMaxSubjectLen).toBe(300);
-        expect(fortressFlags.flags.emailFortressMaxTextLen).toBe(500);
-        expect(fortressFlags.flags.emailFortressMaxHtmlLen).toBe(500);
+        expect(securityFlags.parseBoolean('off', true)).toBe(false);
+        expect(securityFlags.parseNumber('999', 10, { min: 5, max: 100 })).toBe(100);
+        expect(securityFlags.parseNumber('-1', 10, { min: 5, max: 100 })).toBe(5);
+        expect(securityFlags.parseCsv('a, b, ,c')).toEqual(['a', 'b', 'c']);
+        expect(securityFlags.flags.emailSecurityAllowedEventTypes).toContain('custom_event');
+        expect(securityFlags.flags.emailSecurityMaxSubjectLen).toBe(300);
+        expect(securityFlags.flags.emailSecurityMaxTextLen).toBe(500);
+        expect(securityFlags.flags.emailSecurityMaxHtmlLen).toBe(500);
     });
 });

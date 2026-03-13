@@ -18,10 +18,10 @@ const {
     INTENT_EXPIRY_MINUTES,
     MAX_OUTBOX_RETRIES,
     OUTBOX_POLL_MS,
-    PAYMENT_FORTRESS_MAX_ACTIVE_INTENTS,
-    PAYMENT_FORTRESS_MAX_CONFIRM_ATTEMPTS,
-    PAYMENT_FORTRESS_MAX_CONFIRM_FAILURES,
-    PAYMENT_FORTRESS_CONFIRM_LOCK_MINUTES,
+    PAYMENT_SECURITY_MAX_ACTIVE_INTENTS,
+    PAYMENT_SECURITY_MAX_CONFIRM_ATTEMPTS,
+    PAYMENT_SECURITY_MAX_CONFIRM_FAILURES,
+    PAYMENT_SECURITY_CONFIRM_LOCK_MINUTES,
     PAYMENT_STATUSES,
 } = require('./constants');
 const {
@@ -33,13 +33,13 @@ const {
 } = require('./helpers');
 const {
     diff,
-    buildFortressState,
-    setFortressState,
+    buildSecurityState,
+    setSecurityState,
     getLockUntilDate,
     assertQuoteMatches,
     isIntentExpired,
     assertConfirmNotLocked,
-} = require('./fortressGuards');
+} = require('./securityGuards');
 const {
     calculateRefundable,
     buildRefundEntry,
@@ -86,16 +86,16 @@ const registerConfirmFailure = async ({
     providerOrderId = '',
     providerPaymentId = '',
 }) => {
-    const current = buildFortressState(intent);
+    const current = buildSecurityState(intent);
     const failedConfirmAttempts = current.failedConfirmAttempts + 1;
     const totalConfirmFailures = current.totalConfirmFailures + 1;
 
-    const shouldLock = failedConfirmAttempts >= PAYMENT_FORTRESS_MAX_CONFIRM_FAILURES;
+    const shouldLock = failedConfirmAttempts >= PAYMENT_SECURITY_MAX_CONFIRM_FAILURES;
     const lockedUntil = shouldLock
-        ? new Date(Date.now() + (PAYMENT_FORTRESS_CONFIRM_LOCK_MINUTES * 60 * 1000))
+        ? new Date(Date.now() + (PAYMENT_SECURITY_CONFIRM_LOCK_MINUTES * 60 * 1000))
         : null;
 
-    setFortressState(intent, {
+    setSecurityState(intent, {
         failedConfirmAttempts: shouldLock ? 0 : failedConfirmAttempts,
         totalConfirmFailures,
         lastConfirmFailedAt: new Date().toISOString(),
@@ -115,7 +115,7 @@ const registerConfirmFailure = async ({
                 reason,
                 providerOrderId,
                 providerPaymentId,
-                failedConfirmAttempts: shouldLock ? PAYMENT_FORTRESS_MAX_CONFIRM_FAILURES : failedConfirmAttempts,
+                failedConfirmAttempts: shouldLock ? PAYMENT_SECURITY_MAX_CONFIRM_FAILURES : failedConfirmAttempts,
                 totalConfirmFailures,
                 lockedUntil: lockedUntil ? lockedUntil.toISOString() : null,
             },
@@ -190,7 +190,7 @@ const createPaymentIntent = async ({
         expiresAt: { $gt: new Date() },
     });
 
-    if (activeIntentsCount >= PAYMENT_FORTRESS_MAX_ACTIVE_INTENTS) {
+    if (activeIntentsCount >= PAYMENT_SECURITY_MAX_ACTIVE_INTENTS) {
         throw new AppError(
             `Too many active payment intents. Complete or wait for existing intents before creating a new one.`,
             429
@@ -285,7 +285,7 @@ const createPaymentIntent = async ({
             userAgent: requestMeta.userAgent || '',
             deviceContext,
             savedMethodId: savedMethodId || '',
-            fortress: {
+            securityLayer: {
                 failedConfirmAttempts: 0,
                 totalConfirmFailures: 0,
                 lastConfirmFailedAt: null,
@@ -391,9 +391,9 @@ const confirmPaymentIntent = async ({
 
     assertConfirmNotLocked(intent);
 
-    if (Number(intent.attemptCount || 0) >= PAYMENT_FORTRESS_MAX_CONFIRM_ATTEMPTS) {
-        const lockedUntil = new Date(Date.now() + (PAYMENT_FORTRESS_CONFIRM_LOCK_MINUTES * 60 * 1000));
-        setFortressState(intent, {
+    if (Number(intent.attemptCount || 0) >= PAYMENT_SECURITY_MAX_CONFIRM_ATTEMPTS) {
+        const lockedUntil = new Date(Date.now() + (PAYMENT_SECURITY_CONFIRM_LOCK_MINUTES * 60 * 1000));
+        setSecurityState(intent, {
             failedConfirmAttempts: 0,
             lastConfirmFailedAt: new Date().toISOString(),
             lastConfirmFailureReason: 'max_confirm_attempts_exceeded',
@@ -401,7 +401,7 @@ const confirmPaymentIntent = async ({
         });
         await intent.save();
         throw new AppError(
-            `Maximum confirmation attempts reached for this payment intent. Retry after ${PAYMENT_FORTRESS_CONFIRM_LOCK_MINUTES} minutes.`,
+            `Maximum confirmation attempts reached for this payment intent. Retry after ${PAYMENT_SECURITY_CONFIRM_LOCK_MINUTES} minutes.`,
             429
         );
     }
@@ -507,7 +507,7 @@ const confirmPaymentIntent = async ({
     intent.attemptCount = Number(intent.attemptCount || 0) + 1;
 
     const methodInfo = provider.parsePaymentMethod(payment);
-    setFortressState(intent, {
+    setSecurityState(intent, {
         failedConfirmAttempts: 0,
         lastConfirmFailedAt: null,
         lastConfirmFailureReason: '',
@@ -550,9 +550,9 @@ const confirmPaymentIntent = async ({
             providerPaymentId: cleanPaymentId,
             providerOrderId: cleanOrderId,
             status: nextStatus,
-            fortress: {
-                maxAttempts: PAYMENT_FORTRESS_MAX_CONFIRM_ATTEMPTS,
-                maxFailures: PAYMENT_FORTRESS_MAX_CONFIRM_FAILURES,
+            securityLayer: {
+                maxAttempts: PAYMENT_SECURITY_MAX_CONFIRM_ATTEMPTS,
+                maxFailures: PAYMENT_SECURITY_MAX_CONFIRM_FAILURES,
             },
         },
     });

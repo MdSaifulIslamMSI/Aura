@@ -1,4 +1,4 @@
-import { createContext, useState, useEffect, useContext } from 'react';
+import { createContext, useState, useEffect, useContext, useCallback } from 'react';
 import { productApi } from '../services/api';
 
 export const ProductContext = createContext();
@@ -10,14 +10,26 @@ export const ProductProvider = ({ children }) => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
-    // Context no longer auto-fetches. 
-    // Components must fetch their own data (Hyperscale Architecture).
-    useEffect(() => {
-        setLoading(false);
+    const fetchProducts = useCallback(async () => {
+        setLoading(true);
+        try {
+            const data = await productApi.getProducts();
+            setProducts(Array.isArray(data) ? data : (data?.products || []));
+            setError(null);
+        } catch (err) {
+            setError('Failed to fetch products');
+            console.error('Product fetch error:', err);
+        } finally {
+            setLoading(false);
+        }
     }, []);
 
+    useEffect(() => {
+        fetchProducts();
+    }, [fetchProducts]);
+
     const getProductById = (id) => {
-        return products.find(p => p.id === parseInt(id));
+        return products.find(p => String(p.id) === String(id));
     };
 
     const getProductsByCategory = (category) => {
@@ -38,6 +50,7 @@ export const ProductProvider = ({ children }) => {
         products,
         loading,
         error,
+        fetchProducts,
         getProductById,
         getProductsByCategory,
         searchProducts

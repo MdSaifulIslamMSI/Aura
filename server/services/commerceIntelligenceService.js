@@ -290,8 +290,8 @@ const resolveBundleProfile = (theme = '') => {
 };
 
 const buildSmartBundle = async ({ theme, budget, maxItems = 6 }) => {
-    const safeBudget = Math.max(1000, Math.min(Number(budget) || 25000, 500000));
-    const safeMaxItems = Math.max(2, Math.min(Number(maxItems) || 6, 12));
+    const W = Math.max(1000, Math.min(Number(budget) || 25000, 500000));
+    const N_LIMIT = Math.max(2, Math.min(Number(maxItems) || 6, 12));
     const profile = resolveBundleProfile(theme);
     const activeFilter = await buildActiveCatalogFilter();
 
@@ -300,9 +300,10 @@ const buildSmartBundle = async ({ theme, budget, maxItems = 6 }) => {
         .slice(0, 8)
         .map((keyword) => new RegExp(keyword.replace(/\s+/g, '.*'), 'i'));
 
+    // 1. Candidate Selection (Heuristic pruning before expensive DP)
     const candidates = await Product.find({
         ...activeFilter,
-        price: { $lte: safeBudget },
+        price: { $gt: 0, $lte: W },
         $or: [
             ...(profile.categories.length > 0 ? [{ category: { $in: profile.categories.map((entry) => new RegExp(`^${entry.replace('-', '[-\\s]?')}$`, 'i')) } }] : []),
             ...keywordRegex.map((regex) => ({ title: regex })),
@@ -310,54 +311,81 @@ const buildSmartBundle = async ({ theme, budget, maxItems = 6 }) => {
         ],
     })
         .sort({ rating: -1, discountPercentage: -1, ratingCount: -1 })
-        .limit(120)
+        .limit(60) // Limit n for DP performance
         .lean();
 
-    const selected = [];
-    const usedCategories = new Set();
-    let runningTotal = 0;
-
-    for (const candidate of candidates) {
-        if (selected.length >= safeMaxItems) break;
-        const price = Number(candidate.price) || 0;
-        if (price <= 0 || runningTotal + price > safeBudget) continue;
-
-        const categoryKey = safeText(candidate.category);
-        if (usedCategories.has(categoryKey) && selected.length >= Math.ceil(safeMaxItems / 2)) continue;
-
-        selected.push({
-            id: candidate.id,
-            _id: candidate._id,
-            title: candidate.title,
-            brand: candidate.brand,
-            category: candidate.category,
-            image: candidate.image,
-            price,
-            originalPrice: Number(candidate.originalPrice || candidate.price) || price,
-            quantity: 1,
-            rating: Number(candidate.rating) || 0,
-            ratingCount: Number(candidate.ratingCount) || 0,
-            deliveryTime: candidate.deliveryTime || '3-5 days',
-        });
-        runningTotal += price;
-        usedCategories.add(categoryKey);
+    if (candidates.length === 0) {
+        return { bundleName: profile.name, items: [], totalPrice: 0, budget: W };
     }
 
-    const totalPrice = selected.reduce((sum, item) => sum + (Number(item.price) || 0), 0);
-    const originalTotal = selected.reduce((sum, item) => sum + (Number(item.originalPrice) || Number(item.price) || 0), 0);
+    // 2. 0/1 Knapsack DP Implementation
+    // We want to maximize "Value" defined by: (Rating * ReviewConfidence + Discount)
+    // Scale prices to integers for DP table indexing (e.g. per 100 currency units to keep table size sanity)
+    // For simplicity and high precision in this specific app, we use actual price as weight.
+    
+    const n = candidates.length;
+    const items = candidates.map(c => ({
+        ...c,
+        weight: Math.round(Number(c.price)),
+        value: Math.round((Number(c.rating || 0) * Math.log10(Number(c.ratingCount || 0) + 1) * 10) + Number(c.discountPercentage || 0))
+    }));
+
+    // DP table: dp[i][w] = max value using first i items within weight w
+    // Optimization: Memory-efficient 1D DP array since we only need previous row
+    const dp = new Array(W + 1).fill(0);
+    const keep = Array.from({ length: n + 1 }, () => new Uint8Array(W + 1));
+
+    for (let i = 1; i <= n; i++) {
+        const { weight, value } = items[i - 1];
+        for (let w = W; w >= weight; w--) {
+            if (dp[w - weight] + value > dp[w]) {
+                dp[w] = dp[w - weight] + value;
+                keep[i][w] = 1; // Mark that item i was included
+            }
+        }
+    }
+
+    // Backtrack to find selected items
+    const selected = [];
+    let currentW = W;
+    for (let i = n; i > 0 && currentW > 0; i--) {
+        if (keep[i][currentW]) {
+            const item = items[i - 1];
+            selected.push({
+                id: item.id,
+                _id: item._id,
+                title: item.title,
+                brand: item.brand,
+                category: item.category,
+                image: item.image,
+                price: item.weight,
+                originalPrice: Number(item.originalPrice || item.price) || item.weight,
+                quantity: 1,
+                rating: Number(item.rating) || 0,
+                ratingCount: Number(item.ratingCount) || 0,
+                deliveryTime: item.deliveryTime || '3-5 days',
+            });
+            currentW -= item.weight;
+        }
+        if (selected.length >= N_LIMIT) break;
+    }
+
+    const totalPrice = selected.reduce((sum, item) => sum + item.price, 0);
+    const originalTotal = selected.reduce((sum, item) => sum + (Number(item.originalPrice) || item.price), 0);
     const savings = Math.max(0, originalTotal - totalPrice);
-    const budgetUtilization = safeBudget > 0 ? clamp((totalPrice / safeBudget) * 100, 0, 100) : 0;
+    const budgetUtilization = W > 0 ? ((totalPrice / W) * 100) : 0;
 
     return {
         bundleName: profile.name,
         theme,
-        budget: safeBudget,
-        maxItems: safeMaxItems,
+        budget: W,
+        maxItems: N_LIMIT,
         totalPrice: Math.round(totalPrice),
         originalTotal: Math.round(originalTotal),
         savings: Math.round(savings),
-        budgetUtilization: Math.round(budgetUtilization),
+        budgetUtilization: Number(budgetUtilization.toFixed(1)),
         items: selected,
+        solver: 'dp_01_knapsack_v1',
         checkoutPayload: {
             items: selected.map((item) => ({ id: item.id, quantity: 1 })),
             estimatedTotal: Math.round(totalPrice),

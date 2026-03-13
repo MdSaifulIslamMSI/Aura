@@ -51,4 +51,24 @@ router.get('/latest-rewards', protect, asyncHandler(async (req, res) => {
     res.json(latestTask.result);
 }));
 
+// @desc    Get intelligence configuration (weights and thresholds)
+// @route   GET /api/intelligence/config
+// @access  Public
+router.get('/config', asyncHandler(async (req, res) => {
+    res.json({
+        weights: {
+            priceScore: 0.28,
+            ratingScore: 0.24,
+            reviewConfidence: 0.14,
+            stockHealth: 0.14,
+            warrantyBoost: 0.08,
+            riskPenalty: 0.12
+        },
+        thresholds: {
+            goodDeal: 70,
+            avoid: 45
+        }
+    });
+}));
+
 module.exports = router;

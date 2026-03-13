@@ -2,9 +2,12 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const { prepareKaggleCatalogSnapshotFromFile } = require('../services/kaggleCatalogService');
+const {
+    prepareKaggleCatalogSnapshot,
+    importKaggleCatalog,
+} = require('../services/externalCatalogService');
 
-describe('kaggleCatalogService', () => {
+describe('External Catalog Service', () => {
     test('builds a strict deduped snapshot from a Kaggle-style CSV export', async () => {
         const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'aura-kaggle-test-'));
         const csvPath = path.join(tempRoot, 'products.csv');

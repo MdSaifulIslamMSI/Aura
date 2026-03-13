@@ -257,7 +257,7 @@ describe('Email gateway coverage', () => {
         jest.resetModules();
         restoreEnv();
         process.env.ORDER_EMAILS_ENABLED = 'true';
-        process.env.EMAIL_FORTRESS_STRICT_MODE = 'true';
+        process.env.EMAIL_SECURITY_STRICT_MODE = 'true';
         jest.doMock('../services/email/emailProviderFactory', () => ({
             getEmailProvider: () => provider,
         }));
@@ -273,7 +273,7 @@ describe('Email gateway coverage', () => {
             text: 'Body',
         })).rejects.toMatchObject({
             statusCode: 400,
-            message: 'eventType is required in strict email fortress mode',
+            message: 'eventType is required in strict email security mode',
         });
 
         await expect(emailGateway.sendTransactionalEmail({
@@ -311,7 +311,7 @@ describe('Email gateway coverage', () => {
             headers: expect.objectContaining({
                 'X-Allowed': 'ok',
                 'X-Aura-Event-Type': 'otp_security',
-                'X-Aura-Message-Version': 'fortress-v3',
+                'X-Aura-Message-Version': 'security-v3',
                 'X-Request-Id': 'req-email-1',
             }),
             meta: expect.objectContaining({

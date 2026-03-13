@@ -89,13 +89,29 @@ const slugifyDataset = (dataset) => safeLower(dataset)
 
 const escapePowerShell = (value) => String(value || '').replace(/'/g, "''");
 
+const DATASET_REGEX = /^[a-z0-9-]+\/[a-z0-9-]+$/i;
+
 const runCommand = ({ command, args, cwd }) => {
+    // Basic argument validation for security
+    if (args.some(arg => arg.includes(';') || arg.includes('&&') || arg.includes('|') || arg.includes('`'))) {
+        throw new AppError('Invalid characters in external command arguments', 400);
+    }
+
     const result = spawnSync(command, args, {
         cwd,
-        env: process.env,
+        env: {
+            ...process.env,
+            // Ensure child process doesn't inherit sensitive env if not needed
+            // For now keeping it for kaggle credentials
+        },
         encoding: 'utf8',
         stdio: ['ignore', 'pipe', 'pipe'],
+        timeout: 60000, // 60s hard timeout to prevent hangs
     });
+
+    if (result.status === null) {
+        throw new AppError(`External command timed out after 60s: ${command}`, 504);
+    }
 
     if (result.error) {
         throw new AppError(`Command failed: ${command} (${result.error.message})`, 500);

@@ -5,12 +5,12 @@ import { useAuth } from '../../../context/AuthContext';
 import { toast } from 'sonner';
 
 const AuraQuantumChallenge = () => {
-  const { status, quantumChallenge, verifyQuantumChallenge } = useAuth();
+  const { status, latticeChallenge, verifyLatticeChallenge } = useAuth();
   const [solving, setSolving] = useState(false);
   const [progress, setProgress] = useState(0);
   const [verified, setVerified] = useState(false);
 
-  if (status !== 'quantum_challenge_required' || !quantumChallenge || import.meta.env.MODE === 'test' || window.location.hostname === 'localhost') return null;
+  if (status !== 'lattice_challenge_required' || !latticeChallenge || import.meta.env.MODE === 'test' || window.location.hostname === 'localhost') return null;
 
   const handleSolveChallenge = async () => {
     setSolving(true);
@@ -34,24 +34,24 @@ const AuraQuantumChallenge = () => {
       
       // The challenge contains the solution 's' for this demo.
       // In production, the client would use its private lattice parameters to solve.
-      const proof = quantumChallenge.A[0].map(() => Math.floor(Math.random() * 257)); // Mock proof
+      const proof = latticeChallenge.A[0].map(() => Math.floor(Math.random() * 257)); // Mock proof
       
       // Since this is a demo of the flow, let's just use the known secret from the challenge if available
       // or a mock that the server will accept for the sake of the walkthrough.
       // For this implementation, the server's 'verifyLweProof' expects the exact secret 's'.
       // We'll simulate a perfect solver.
-      const response = await verifyQuantumChallenge(quantumChallenge.challengeId, proof);
+      const response = await verifyLatticeChallenge(latticeChallenge.challengeId, proof);
 
       if (response.success) {
         setVerified(true);
-        toast.success('Quantum-Resistant Identity Verified');
+        toast.success('Post-Quantum Identity Verified');
       } else {
         setSolving(false);
         toast.error('Cryptographic Proof Failed. Retrying lattice search...');
       }
     } catch (err) {
       setSolving(false);
-      toast.error('Quantum bridge connection error');
+      toast.error('Challenge verification error');
     }
   };
 
@@ -127,7 +127,7 @@ const AuraQuantumChallenge = () => {
 
                 <div className="pt-4 flex items-center justify-center gap-2 text-[10px] text-slate-500 uppercase font-black tracking-[0.2em]">
                   <Sparkles className="w-3 h-3" />
-                  Secured by Aura Quantum Shield
+                  Secured by Aura Lattice Security
                 </div>
               </div>
             </div>

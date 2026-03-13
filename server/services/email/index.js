@@ -1,7 +1,6 @@
 const AppError = require('../../utils/AppError');
 const logger = require('../../utils/logger');
-const { flags: emailFlags } = require('../../config/emailFlags');
-const { flags: fortressFlags } = require('../../config/emailFortressFlags');
+const { flags: securityFlags } = require('../../config/emailSecurityFlags');
 const { getEmailProvider } = require('./emailProviderFactory');
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -58,8 +57,8 @@ const sanitizeMeta = (meta = {}) => {
 
 const resolveEventType = (eventType) => {
     const resolved = String(eventType || '').trim();
-    const configuredAllowed = fortressFlags.emailFortressAllowedEventTypes.length > 0
-        ? fortressFlags.emailFortressAllowedEventTypes
+    const configuredAllowed = securityFlags.emailSecurityAllowedEventTypes.length > 0
+        ? securityFlags.emailSecurityAllowedEventTypes
         : [];
     const allowedSet = new Set([
         ...DEFAULT_ALLOWED_EVENTS,
@@ -67,8 +66,8 @@ const resolveEventType = (eventType) => {
     ]);
 
     if (!resolved) {
-        if (fortressFlags.emailFortressStrictMode) {
-            throw new AppError('eventType is required in strict email fortress mode', 400);
+        if (securityFlags.emailSecurityStrictMode) {
+            throw new AppError('eventType is required in strict email security mode', 400);
         }
         return 'system';
     }
@@ -86,21 +85,21 @@ const validatePayload = ({ to, subject, html, text }) => {
     const normalizedText = String(text || '');
 
     if (!normalizedSubject) throw new AppError('Email subject is required', 400);
-    if (normalizedSubject.length > fortressFlags.emailFortressMaxSubjectLen) {
-        throw new AppError(`Email subject exceeds limit (${fortressFlags.emailFortressMaxSubjectLen})`, 400);
+    if (normalizedSubject.length > securityFlags.emailSecurityMaxSubjectLen) {
+        throw new AppError(`Email subject exceeds limit (${securityFlags.emailSecurityMaxSubjectLen})`, 400);
     }
 
     if (!normalizedHtml && !normalizedText) {
         throw new AppError('Email body is required', 400);
     }
-    if (!fortressFlags.emailFortressAllowHtml && normalizedHtml) {
-        throw new AppError('HTML content is disabled by email fortress policy', 400);
+    if (!securityFlags.emailSecurityAllowHtml && normalizedHtml) {
+        throw new AppError('HTML content is disabled by email security policy', 400);
     }
-    if (normalizedHtml.length > fortressFlags.emailFortressMaxHtmlLen) {
-        throw new AppError(`HTML body exceeds limit (${fortressFlags.emailFortressMaxHtmlLen})`, 400);
+    if (normalizedHtml.length > securityFlags.emailSecurityMaxHtmlLen) {
+        throw new AppError(`HTML body exceeds limit (${securityFlags.emailSecurityMaxHtmlLen})`, 400);
     }
-    if (normalizedText.length > fortressFlags.emailFortressMaxTextLen) {
-        throw new AppError(`Text body exceeds limit (${fortressFlags.emailFortressMaxTextLen})`, 400);
+    if (normalizedText.length > securityFlags.emailSecurityMaxTextLen) {
+        throw new AppError(`Text body exceeds limit (${securityFlags.emailSecurityMaxTextLen})`, 400);
     }
 
     return {
@@ -138,7 +137,7 @@ const sendTransactionalEmail = async ({
     requestId = '',
     securityTags = [],
 }) => {
-    const resolvedEventType = fortressFlags.emailFortressEnabled
+    const resolvedEventType = securityFlags.emailSecurityEnabled
         ? resolveEventType(eventType)
         : String(eventType || 'system').trim() || 'system';
 
@@ -161,7 +160,7 @@ const sendTransactionalEmail = async ({
     const finalHeaders = {
         ...sanitizedHeaders,
         'X-Aura-Event-Type': resolvedEventType,
-        'X-Aura-Message-Version': 'fortress-v3',
+        'X-Aura-Message-Version': 'security-v3',
         ...(requestId ? { 'X-Request-Id': String(requestId) } : {}),
     };
 

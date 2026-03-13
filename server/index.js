@@ -75,10 +75,9 @@ const {
     allowedOrigins,
 } = require('./config/corsFlags');
 const {
-    initRedis,
-    getRedisHealth,
-    assertProductionRedisConfig,
-} = require('./config/redis');
+    checkCoreDependencies,
+    checkServiceReadiness,
+} = require('./services/healthService');
 const { createDistributedRateLimit } = require('./middleware/distributedRateLimit');
 const { metricsMiddleware } = require('./middleware/metrics');
 const { createRequestTimeout } = require('./middleware/requestTimeout');
@@ -242,24 +241,16 @@ app.get('/health', async (req, res) => {
         paymentQueue,
         emailQueue,
         catalog,
-        reconciliation,
-    });
-    const splitRuntimeReady = !splitRuntimeEnabled || (
-        mongoDeployment.replicaSet
-        && (!redis.required || redis.connected)
-        && workerGaps.length === 0
-    );
+    const { dbConnected, redisConnected, mongoDeployment } = await checkCoreDependencies();
+    const services = await checkServiceReadiness();
 
+    const status = dbConnected && redisConnected ? 'ok' : 'degraded';
+    
     res.status(status === 'ok' ? 200 : 503).json({
         status,
-        db: dbStatus,
+        db: dbConnected ? 'connected' : 'disconnected',
         uptime: process.uptime(),
         timestamp: new Date().toISOString(),
-        app: {
-            env: process.env.NODE_ENV || 'production',
-            version: process.env.npm_package_version || 'unknown',
-        },
-        cors: {
             allowedOrigins,
         },
         redis,

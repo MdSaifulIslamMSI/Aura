@@ -77,8 +77,8 @@ export const trustContent = {
       {
         heading: 'Recent Focus',
         points: [
-          'Fortress OTP email hardening and fail-closed delivery behavior.',
-          'Payment fortress integration with risk controls and audit trails.',
+          'OTP email hardening and fail-closed delivery behavior.',
+          'Payment security integration with risk controls and audit trails.',
           'Checkout reliability improvements with backend-authoritative quotes.',
         ],
       },

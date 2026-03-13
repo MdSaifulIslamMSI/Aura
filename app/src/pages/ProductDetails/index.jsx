@@ -903,7 +903,7 @@ const ProductDetails = () => {
                         ) : (
                           <>
                             <div className={cn('rounded-2xl border p-5', dealTone)}>
-                              <p className="text-xs font-black uppercase tracking-[0.16em]">Fortress Verdict</p>
+                              <p className="text-xs font-black uppercase tracking-[0.16em]">Trust Verdict</p>
                               <p className="mt-2 text-2xl font-black">{dealLabel} • Score {dealDna.score}/100</p>
                               <p className="mt-2 text-sm text-slate-100/90">{dealDna.message}</p>
                             </div>

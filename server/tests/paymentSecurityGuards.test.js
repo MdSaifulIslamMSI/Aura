@@ -1,19 +1,19 @@
 const {
     diff,
-    buildFortressState,
-    setFortressState,
+    buildSecurityState,
+    setSecurityState,
     getLockUntilDate,
     assertQuoteMatches,
     isIntentExpired,
     assertConfirmNotLocked,
-} = require('../services/payments/fortressGuards');
+} = require('../services/payments/securityGuards');
 
-describe('payment fortress guards', () => {
-    test('buildFortressState normalizes missing state and setFortressState merges updates', () => {
+describe('payment security guards', () => {
+    test('buildSecurityState normalizes missing state and setSecurityState merges updates', () => {
         const intent = {
             metadata: {
                 existing: true,
-                fortress: {
+                securityLayer: {
                     failedConfirmAttempts: '2',
                     totalConfirmFailures: '3',
                     lastConfirmFailedAt: '2026-03-01T00:00:00.000Z',
@@ -23,7 +23,7 @@ describe('payment fortress guards', () => {
             markModified: jest.fn(),
         };
 
-        expect(buildFortressState(intent)).toEqual({
+        expect(buildSecurityState(intent)).toEqual({
             failedConfirmAttempts: 2,
             totalConfirmFailures: 3,
             lastConfirmFailedAt: '2026-03-01T00:00:00.000Z',
@@ -31,14 +31,14 @@ describe('payment fortress guards', () => {
             lockedUntil: null,
         });
 
-        setFortressState(intent, {
+        setSecurityState(intent, {
             totalConfirmFailures: 4,
             lockedUntil: '2026-03-10T00:00:00.000Z',
         });
 
         expect(intent.metadata).toEqual({
             existing: true,
-            fortress: {
+            securityLayer: {
                 failedConfirmAttempts: 2,
                 totalConfirmFailures: 4,
                 lastConfirmFailedAt: '2026-03-01T00:00:00.000Z',
@@ -53,10 +53,10 @@ describe('payment fortress guards', () => {
         const future = new Date(Date.now() + 45_000).toISOString();
         const expired = new Date(Date.now() - 45_000).toISOString();
 
-        expect(getLockUntilDate({ metadata: { fortress: { lockedUntil: 'bad-date' } } })).toBeNull();
-        expect(getLockUntilDate({ metadata: { fortress: { lockedUntil: expired } } })).toBeInstanceOf(Date);
-        expect(() => assertConfirmNotLocked({ metadata: { fortress: { lockedUntil: expired } } })).not.toThrow();
-        expect(() => assertConfirmNotLocked({ metadata: { fortress: { lockedUntil: future } } }))
+        expect(getLockUntilDate({ metadata: { securityLayer: { lockedUntil: 'bad-date' } } })).toBeNull();
+        expect(getLockUntilDate({ metadata: { securityLayer: { lockedUntil: expired } } })).toBeInstanceOf(Date);
+        expect(() => assertConfirmNotLocked({ metadata: { securityLayer: { lockedUntil: expired } } })).not.toThrow();
+        expect(() => assertConfirmNotLocked({ metadata: { securityLayer: { lockedUntil: future } } }))
             .toThrow(/Payment confirmation temporarily locked/);
     });
 

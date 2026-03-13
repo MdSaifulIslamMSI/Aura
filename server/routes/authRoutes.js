@@ -1,5 +1,5 @@
 const express = require('express');
-const { getSession, syncSession, verifyQuantumChallenge } = require('../controllers/authController');
+const { getSession, syncSession, verifyLatticeChallenge } = require('../controllers/authController');
 const { protect } = require('../middleware/authMiddleware');
 const validate = require('../middleware/validate');
 const { loginSchema } = require('../validators/userValidators');
@@ -23,7 +23,7 @@ const authSyncLimiter = createDistributedRateLimit({
 
 router.get('/session', protect, getSession);
 router.post('/sync', protect, authSyncLimiter, validate(loginSchema), syncSession);
-router.post('/verify-quantum', protect, verifyQuantumChallenge);
+router.post('/verify-lattice', protect, verifyLatticeChallenge);
 router.use('/otp', otpRoutes);
 
 module.exports = router;
