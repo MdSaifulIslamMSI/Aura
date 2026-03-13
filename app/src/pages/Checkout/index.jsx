@@ -953,6 +953,7 @@ const Checkout = () => {
                         completed={draft.step > 2}
                         deliveryOption={draft.deliveryOption}
                         deliverySlot={draft.deliverySlot}
+                        optimizedSlots={quote?.pricing?.optimizedSlots || []}
                         deliveryError={stepErrors.delivery}
                         onSetActive={() => draft.step > 1 && gotoStep(2)}
                         onDeliveryOptionChange={(option) => setDraft((prev) => ({ ...prev, deliveryOption: option }))}

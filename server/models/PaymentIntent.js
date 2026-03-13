@@ -43,6 +43,7 @@ const paymentIntentSchema = new mongoose.Schema({
     capturedAt: { type: Date, default: null },
     expiresAt: { type: Date, default: null, index: true },
     attemptCount: { type: Number, default: 0 },
+    routingInsights: { type: mongoose.Schema.Types.Mixed, default: null },
     metadata: { type: mongoose.Schema.Types.Mixed, default: {} },
 }, { timestamps: true });
 

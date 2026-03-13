@@ -116,7 +116,7 @@ const TextToolButton = ({ icon: Icon, label, onClick, toneClass, style }) => (
   </button>
 );
 
-const ProductCard = ({ product, variant = 'default' }) => {
+const ProductCard = ({ product, variant = 'default', gridLayout = null, harmonyIndex = null }) => {
   const { toggleWishlist, isInWishlist } = useContext(WishlistContext);
   const { addToCart } = useContext(CartContext);
   const { colorMode } = useColorMode();
@@ -154,8 +154,16 @@ const ProductCard = ({ product, variant = 'default' }) => {
     .filter(Boolean)
     .filter((story) => story !== primaryStory)
     .slice(0, 2);
-  const accentColor = modePalette.primary;
-  const accentSecondary = modePalette.secondary;
+  const accentColors = [
+    modePalette.primary,
+    '#06b6d4', // Cyan
+    '#10b881', // Emerald
+    '#8b5cf6', // Violet
+    '#f43f5e', // Rose
+  ];
+  
+  const accentColor = harmonyIndex !== null ? accentColors[harmonyIndex % accentColors.length] : modePalette.primary;
+  const accentSecondary = harmonyIndex !== null ? accentColors[(harmonyIndex + 1) % accentColors.length] : modePalette.secondary;
 
   const prefetchProduct = () => {
     if (!productId || hasPrefetchedRef.current) return;
@@ -580,7 +588,14 @@ const ProductCard = ({ product, variant = 'default' }) => {
         'group card-product premium-card-hover relative flex h-full flex-col overflow-hidden rounded-[1.6rem] border transition-all duration-500',
         surfaceClass
       )}
-      style={cardSurfaceStyle}
+      style={{
+        ...cardSurfaceStyle,
+        ...(gridLayout ? {
+          gridColumn: `span ${gridLayout.spanX}`,
+          gridRow: `span ${gridLayout.spanY}`,
+          height: '100%'
+        } : {})
+      }}
     >
       <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-100">
         <div className={cn(

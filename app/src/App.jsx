@@ -20,6 +20,7 @@ import SectionAnchorRail from './components/shared/SectionAnchorRail';
 import RouteTransitionShell from './components/shared/RouteTransitionShell';
 import AppErrorBoundary from './components/shared/AppErrorBoundary';
 import BackendStatusBanner from './components/shared/BackendStatusBanner';
+import AuraQuantumChallenge from './components/features/auth/AuraQuantumChallenge';
 import CrazyModeToggle from './components/shared/CrazyModeToggle';
 import { trustRoutes } from './config/trustContent';
 
@@ -264,6 +265,7 @@ function App() {
           <AuthProvider>
             <SocketProvider>
               <VideoCallProvider>
+                <AuraQuantumChallenge />
                 <CartProvider>
                   <WishlistProvider>
                     <ProductProvider>

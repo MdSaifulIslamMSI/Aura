@@ -21,6 +21,7 @@ const flags = {
     paymentSavedMethodsEnabled: parseBoolean(process.env.PAYMENT_SAVED_METHODS_ENABLED, true),
     paymentRefundsEnabled: parseBoolean(process.env.PAYMENT_REFUNDS_ENABLED, true),
     paymentChallengeEnabled: parseBoolean(process.env.PAYMENT_CHALLENGE_ENABLED, true),
+    paymentDynamicRoutingEnabled: parseBoolean(process.env.PAYMENT_DYNAMIC_ROUTING_ENABLED, true),
 };
 
 const assertProductionPaymentConfig = () => {

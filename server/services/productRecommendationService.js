@@ -6,6 +6,7 @@ const { queryProducts, getActiveCatalogVersion } = require('./catalogService');
 const MAX_RECENTLY_VIEWED = 8;
 const MAX_SEARCH_HISTORY = 5;
 const MAX_RESULTS = 6;
+const MAX_NODES_FOR_CLIQUE = 40; // Guard against Algorithmic Complexity Attacks
 
 const CATEGORY_RULES = [
     { category: 'mobiles', pattern: /\bmobile|iphone|android|phone|galaxy|pixel|oneplus\b/i },
@@ -41,12 +42,16 @@ const pushWeightedBrand = (counter, brand, weight) => {
     counter.set(normalized, (counter.get(normalized) || 0) + weight);
 };
 
-const buildMetaFromSignals = ({ primaryCategory, hasCart, hasWishlist, hasRecent, hasSearch }) => {
+const buildMetaFromSignals = ({ primaryCategory, hasCart, hasWishlist, hasRecent, hasSearch, hasCluster }) => {
     let eyebrow = 'Intent-Based Recommendations';
     let title = 'Curated for Your Next Move';
     let description = 'These picks combine your durable account signals with your current browsing session.';
 
-    if (hasCart && primaryCategory) {
+    if (hasCluster && primaryCategory) {
+        eyebrow = 'Interest Cluster Discovery';
+        title = `Expanding your ${formatCategoryLabel(primaryCategory)} world`;
+        description = 'Our Graph Clique solver identified a high-cohesion interest cluster in your history. These results are mathematically tuned to that cluster.';
+    } else if (hasCart && primaryCategory) {
         eyebrow = 'Persistent Cart Momentum';
         title = `Keep building your ${formatCategoryLabel(primaryCategory)} stack`;
         description = 'Server-side recommendations are reinforcing what is already in your cart so the next decision stays fast.';
@@ -161,6 +166,66 @@ const rankEntries = (counter) => [...counter.entries()]
     .sort((left, right) => right[1] - left[1])
     .map(([key]) => key);
 
+/**
+ * NP-Hard: Bron-Kerbosch Algorithm with Pivoting
+ * Finds all maximal cliques in a graph.
+ */
+const findMaximalCliques = (nodes, neighbors, R = new Set(), P = new Set(nodes), X = new Set()) => {
+    const cliques = [];
+    if (P.size === 0 && X.size === 0) {
+        return [R];
+    }
+
+    // Heuristic: Pivot to prune the search space
+    const pivot = [...P, ...X][0];
+    const pivotNeighbors = neighbors.get(pivot) || new Set();
+    const P_minus_neighbors = new Set([...P].filter(v => !pivotNeighbors.has(v)));
+
+    for (const v of P_minus_neighbors) {
+        const vNeighbors = neighbors.get(v) || new Set();
+        const subCliques = findMaximalCliques(
+            nodes,
+            neighbors,
+            new Set([...R, v]),
+            new Set([...P].filter(n => vNeighbors.has(n))),
+            new Set([...X].filter(n => vNeighbors.has(n)))
+        );
+        cliques.push(...subCliques);
+        P.delete(v);
+        X.add(v);
+    }
+    return cliques;
+};
+
+/**
+ * Builds a Graph depicting sematic cohesion between user-interacted products
+ */
+const buildInteractionGraph = (seeds = []) => {
+    const nodes = seeds.map(s => s.id || s._id).filter(Boolean).map(String);
+    const neighbors = new Map();
+    nodes.forEach(n => neighbors.set(n, new Set()));
+
+    for (let i = 0; i < seeds.length; i++) {
+        for (let j = i + 1; j < seeds.length; j++) {
+            const a = seeds[i];
+            const b = seeds[j];
+            
+            // Edge exists if products share deep semantic relationship
+            const sharedCategory = a.category && a.category === b.category;
+            const sharedBrand = a.brand && a.brand === b.brand;
+            const sharedSubCat = a.subCategory && a.subCategory === b.subCategory;
+
+            if (sharedCategory && (sharedBrand || sharedSubCat)) {
+                const idA = String(a.id || a._id);
+                const idB = String(b.id || b._id);
+                neighbors.get(idA).add(idB);
+                neighbors.get(idB).add(idA);
+            }
+        }
+    }
+    return { nodes, neighbors };
+};
+
 const collectRecommendationSignals = ({ cart = [], wishlist = [], recentlyViewed = [], searchHistory = [], hydratedProducts = new Map() }) => {
     const categoryWeights = new Map();
     const brandWeights = new Map();
@@ -171,6 +236,21 @@ const collectRecommendationSignals = ({ cart = [], wishlist = [], recentlyViewed
     const recentSeeds = recentlyViewed
         .map((item) => hydratedProducts.get(normalizeId(item?.id)) || item)
         .filter(Boolean);
+
+    // NP-Hard: Solve for Interest Clusters using Maximal Cliques
+    const allSeeds = [...cartSeeds, ...wishlistSeeds, ...recentSeeds].slice(0, MAX_NODES_FOR_CLIQUE);
+    const { nodes, neighbors } = buildInteractionGraph(allSeeds);
+    const cliques = findMaximalCliques(nodes, neighbors);
+    
+    // Select the largest clique (Primary Interest Cluster)
+    const primaryClique = cliques.sort((a, b) => b.size - a.size)[0] || new Set();
+    const cliqueProducts = allSeeds.filter(s => primaryClique.has(String(s.id || s._id)));
+
+    // Inject heavy weights based on the Graph Clique
+    cliqueProducts.forEach(item => {
+        pushWeightedCategory(categoryWeights, item?.category, 10); // Hyper-boost cluster
+        pushWeightedBrand(brandWeights, item?.brand, 8);
+    });
 
     cartSeeds.forEach((item) => {
         pushWeightedCategory(categoryWeights, item?.category, 4);
@@ -205,6 +285,7 @@ const collectRecommendationSignals = ({ cart = [], wishlist = [], recentlyViewed
         hasWishlist: wishlistSeeds.length > 0,
         hasRecent: recentSeeds.length > 0,
         hasSearch: searchHistory.length > 0,
+        hasCluster: primaryClique.size >= 2
     };
 };
 
@@ -283,9 +364,11 @@ const buildProductRecommendations = async ({ userId = null, input = {} } = {}) =
             hasWishlist: signals.hasWishlist,
             hasRecent: signals.hasRecent,
             hasSearch: signals.hasSearch,
+            hasCluster: signals.hasCluster,
         }),
         primaryCategory: signals.rankedCategories[0] || null,
         sourceLabels: [
+            ...(signals.hasCluster ? ['graph-clique'] : []),
             ...(signals.hasCart ? ['persistent cart'] : []),
             ...(signals.hasWishlist ? ['stored wishlist'] : []),
             ...(signals.hasRecent ? ['recent browsing'] : []),
