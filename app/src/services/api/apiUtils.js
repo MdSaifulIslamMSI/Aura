@@ -1,5 +1,5 @@
 import { auth, isFirebaseReady } from '../../config/firebase';
-import { createResponseError } from './apiBase';
+import { createResponseError } from '../apiBase';
 
 /**
  * Retrieves the Firebase ID token and returns an Authorization header.
