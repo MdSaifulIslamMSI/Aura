@@ -16,6 +16,7 @@ const IdempotencyRecord = require('../models/IdempotencyRecord');
 const { addOrderItems } = require('../controllers/orderController');
 const { buildOrderQuote } = require('../services/orderPricingService');
 const { PAYMENT_STATUSES } = require('../services/payments/constants');
+const AppError = require('../utils/AppError');
 
 const makeUser = async (overrides = {}) => User.create({
     name: 'Checkout User',

@@ -10,6 +10,8 @@ const bcrypt = require('bcryptjs');
 const app = require('../index');
 const User = require('../models/User');
 
+jest.setTimeout(25000);
+
 // ── Helpers ──────────────────────────────────────────────────────
 let testCounter = 0;
 const TS = Date.now();

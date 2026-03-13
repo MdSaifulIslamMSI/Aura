@@ -8,6 +8,10 @@ const {
     getOrderTimelineData,
     DIGITAL_PAYMENT_METHODS,
 } = require('../services/orderService');
+const { getRequiredIdempotencyKey, getStableUserKey } = require('../services/payments/idempotencyService');
+const { placeOrderWithIdempotency } = require('../services/orderPlacementService');
+const asyncHandler = require('express-async-handler');
+const AppError = require('../utils/AppError');
 const { flags: paymentFlags } = require('../config/paymentFlags');
 
 const toTimelineDate = (value) => {
@@ -217,7 +221,7 @@ const getMyOrderTimeline = asyncHandler(async (req, res, next) => {
 
         if (paymentIntent.challenge?.required) {
             pushEvent({
-                at: paymentIntent.createdAt,
+                at: paymentIntent.challenge.createdAt,
                 stage: 'risk',
                 type: 'risk_challenge_required',
                 title: 'Security Challenge Required',
@@ -425,15 +429,6 @@ const createOrderRefundRequest = asyncHandler(async (req, res, next) => {
     const order = await Order.findOne({ _id: req.params.id, user: req.user._id }).lean();
     if (!order) {
         return next(new AppError('Order not found', 404));
-    }
-
-    const requestedAmount = Number(req.body.amount);
-    const amount = Number.isFinite(requestedAmount) && requestedAmount > 0
-        ? requestedAmount
-        : Number(order.totalPrice || 0);
-
-    if (amount <= 0) {
-        return next(new AppError('Invalid refund amount', 400));
     }
 
     const requestId = createCommandId('rfnd');

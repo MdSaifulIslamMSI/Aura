@@ -1,6 +1,7 @@
 const AppError = require('../../utils/AppError');
 const logger = require('../../utils/logger');
 const { flags: securityFlags } = require('../../config/emailSecurityFlags');
+const emailFlags = require('../../config/emailFlags');
 const { getEmailProvider } = require('./emailProviderFactory');
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

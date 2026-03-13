@@ -75,6 +75,11 @@ const {
     allowedOrigins,
 } = require('./config/corsFlags');
 const {
+    getRedisHealth,
+    initRedis,
+    assertProductionRedisConfig,
+} = require('./config/redis');
+const {
     checkCoreDependencies,
     checkServiceReadiness,
 } = require('./services/healthService');
@@ -214,58 +219,37 @@ app.use('/metrics', metricsRoute);
 
 // Health Check
 app.get('/health', async (req, res) => {
-    const mongoose = require('mongoose');
-    const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
-    const redis = getRedisHealth();
-    const mongoDeployment = await getMongoDeploymentHealth();
-    let paymentQueue = { status: 'unknown' };
-    let emailQueue = { status: 'unknown' };
-    let catalog = { status: 'unknown' };
-    let reconciliation = { status: 'unknown' };
-
-    try {
-        if (dbStatus === 'connected') {
-            [paymentQueue, emailQueue, catalog, reconciliation] = await Promise.all([
-                getPaymentOutboxStats(),
-                getOrderEmailQueueStats(),
-                getCatalogHealth(),
-                getCommerceReconciliationStatus(),
-            ]);
-        }
-    } catch (error) {
-        logger.warn('health.queue_stats_failed', { error: error.message });
-    }
-
-    const status = dbStatus === 'connected' ? 'ok' : 'degraded';
-    const workerGaps = getSplitRuntimeWorkerGaps({
-        paymentQueue,
-        emailQueue,
-        catalog,
     const { dbConnected, redisConnected, mongoDeployment } = await checkCoreDependencies();
     const services = await checkServiceReadiness();
 
     const status = dbConnected && redisConnected ? 'ok' : 'degraded';
+    const workerGaps = getSplitRuntimeWorkerGaps({
+        paymentQueue: services.paymentQueue,
+        emailQueue: services.emailQueue,
+        catalog: services.catalog,
+        reconciliation: services.reconciliation,
+    });
     
     res.status(status === 'ok' ? 200 : 503).json({
         status,
         db: dbConnected ? 'connected' : 'disconnected',
         uptime: process.uptime(),
         timestamp: new Date().toISOString(),
-            allowedOrigins,
+        redis: {
+            connected: redisConnected
         },
-        redis,
         topology: {
             splitRuntimeEnabled,
-            splitRuntimeReady,
+            splitRuntimeReady: splitRuntimeEnabled ? workerGaps.length === 0 : true,
             workerGaps,
             mongo: mongoDeployment,
         },
         queues: {
-            paymentOutbox: paymentQueue,
-            orderEmail: emailQueue,
+            paymentOutbox: services.paymentQueue || { status: 'unknown' },
+            orderEmail: services.emailQueue || { status: 'unknown' },
         },
-        catalog,
-        reconciliation,
+        catalog: services.catalog || { status: 'unknown' },
+        reconciliation: services.reconciliation || { status: 'unknown' },
     });
 });
 

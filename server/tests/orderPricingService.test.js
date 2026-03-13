@@ -48,9 +48,9 @@ describe('Order Pricing Service', () => {
         expect(normalized.deliverySlot).toEqual({ date: '2026-03-01', window: '12:00-15:00' });
     });
 
-    test('calculatePricing applies valid coupon', () => {
-        const pricing = calculatePricing({
-            itemsPrice: 2000,
+    test('calculatePricing applies valid coupon', async () => {
+        const pricing = await calculatePricing({
+            resolvedItems: [{ lineTotal: 2000 }],
             deliveryOption: 'standard',
             paymentMethod: 'UPI',
             couponCode: 'AURA10',
@@ -62,22 +62,22 @@ describe('Order Pricing Service', () => {
         expect(pricing.totalPrice).toBeGreaterThan(0);
     });
 
-    test('calculatePricing rejects invalid coupon', () => {
-        expect(() => calculatePricing({
-            itemsPrice: 2000,
+    test('calculatePricing rejects invalid coupon', async () => {
+        await expect(calculatePricing({
+            resolvedItems: [{ lineTotal: 2000 }],
             deliveryOption: 'standard',
             paymentMethod: 'COD',
             couponCode: 'INVALID',
-        })).toThrow(AppError);
+        })).rejects.toThrow(AppError);
     });
 
-    test('calculatePricing rejects UPI-only coupon on non-UPI method', () => {
-        expect(() => calculatePricing({
-            itemsPrice: 1200,
+    test('calculatePricing rejects UPI-only coupon on non-UPI method', async () => {
+        await expect(calculatePricing({
+            resolvedItems: [{ lineTotal: 1200 }],
             deliveryOption: 'standard',
             paymentMethod: 'COD',
             couponCode: 'UPI50',
-        })).toThrow(AppError);
+        })).rejects.toThrow(AppError);
     });
 
     test('simulatePaymentResult is deterministic for same input', () => {
