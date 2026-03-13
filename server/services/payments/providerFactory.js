@@ -35,10 +35,10 @@ const getPaymentProvider = async (context = {}) => {
     
     // Attach route insights to provider for the current request context
     // Note: This is an ephemeral enrichment for the caller
-    return {
-        ...provider,
-        routingInsights: route
-    };
+    // Create an ephemeral clone that preserves the instance prototype
+    const instance = Object.create(Object.getPrototypeOf(provider));
+    Object.assign(instance, provider, { routingInsights: route });
+    return instance;
 };
 
 module.exports = {
