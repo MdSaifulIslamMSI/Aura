@@ -135,6 +135,7 @@ export const catalogApi = {
             body: JSON.stringify(payload),
         });
         return data;
+    }
 };
 
 export const productApi = catalogApi;
