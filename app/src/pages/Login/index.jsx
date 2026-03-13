@@ -420,9 +420,9 @@ const Login = () => {
                   <span className="text-xl font-black uppercase tracking-widest text-white">Aura</span>
                 </Link>
 
-                <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black mb-6 text-transparent bg-clip-text bg-gradient-to-r from-neo-cyan to-white tracking-tighter leading-tight drop-shadow-[0_0_10px_rgba(6,182,212,0.3)]">
+                <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black mb-6 text-transparent bg-clip-text bg-gradient-to-r from-neo-cyan to-white tracking-tighter leading-tight drop-shadow-[0_0_10px_rgba(6,182,212,0.3)]">
                   {info.title}
-                </h2>
+                </h1>
                 <p className="text-slate-400 font-medium text-base sm:text-lg leading-relaxed max-w-md border-l-2 border-neo-cyan pl-4">
                   {info.desc}
                 </p>
