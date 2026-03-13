@@ -77,5 +77,18 @@ export const tradeInApi = {
             body: JSON.stringify(payload),
         });
         return data;
+    },
+    getMyTradeIns: async () => {
+        const headers = await getAuthHeader();
+        const { data } = await apiFetch('/trade-in/my', { headers });
+        return data;
+    },
+    cancel: async (id) => {
+        const headers = await getAuthHeader();
+        const { data } = await apiFetch(`/trade-in/${id}`, {
+            method: 'DELETE',
+            headers,
+        });
+        return data;
     }
 };
