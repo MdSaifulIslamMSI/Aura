@@ -10,7 +10,7 @@ import { AuthContext } from '@/context/AuthContext';
 import { CartContext } from '@/context/CartContext';
 import { WishlistContext } from '@/context/WishlistContext';
 import PremiumSelect from '@/components/ui/premium-select';
-import { paymentApi, trustApi, userApi } from '@/services/api';
+import { paymentApi, trustApi, userApi, intelligenceApi } from '@/services/api';
 import { cn } from '@/lib/utils';
 
 const TABS = [
@@ -58,6 +58,10 @@ export default function Profile() {
         derivedStatus: 'degraded',
     });
     const [trustLoading, setTrustLoading] = useState(false);
+    const [intelligenceData, setIntelligenceData] = useState(null);
+    const [intelligenceLoading, setIntelligenceLoading] = useState(false);
+    const [optimizing, setOptimizing] = useState(false);
+    const [intelligenceError, setIntelligenceError] = useState(null);
 
     // Editable fields
     const [editMode, setEditMode] = useState(false);
@@ -144,6 +148,24 @@ export default function Profile() {
         return () => {
             mounted = false;
         };
+    }, [currentUser?.uid]);
+
+    useEffect(() => {
+        if (!currentUser?.uid) return;
+        const fetchIntelligence = async () => {
+            setIntelligenceLoading(true);
+            setIntelligenceError(null);
+            try {
+                const data = await intelligenceApi.getLatestRewards();
+                setIntelligenceData(data);
+            } catch (err) {
+                console.error('Intelligence fetch failed:', err.message);
+                setIntelligenceError(err.message);
+            } finally {
+                setIntelligenceLoading(false);
+            }
+        };
+        fetchIntelligence();
     }, [currentUser?.uid]);
 
     useEffect(() => {
@@ -267,6 +289,26 @@ export default function Profile() {
             }
         };
         reader.readAsDataURL(file);
+    };
+
+    const handleOptimizeRewards = async () => {
+        setOptimizing(true);
+        try {
+            await intelligenceApi.optimizeRewards();
+            showMsg('success', 'Aura Intelligence optimization started. Check back in a few seconds for fresh insights!');
+            setTimeout(async () => {
+                try {
+                    const data = await intelligenceApi.getLatestRewards();
+                    setIntelligenceData(data);
+                } catch (e) {
+                    console.error('Auto-refresh intelligence failed:', e);
+                }
+            }, 6000);
+        } catch (err) {
+            showMsg('error', err.message);
+        } finally {
+            setOptimizing(false);
+        }
     };
 
     // Address CRUD
@@ -960,6 +1002,82 @@ export default function Profile() {
                                     <p className="text-xs text-gray-600">
                                         Next tier unlock at <span className="font-bold text-gray-900">{nextMilestone.toLocaleString('en-IN')}</span> lifetime points.
                                     </p>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* --- Aura Smart Insights (NP-Hard Smart Rewards) --- */}
+                        <div className="bg-white rounded-2xl border shadow-sm p-6">
+                            <div className="flex items-center justify-between mb-4">
+                                <div className="flex items-center gap-2">
+                                    <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center">
+                                        <Trophy className="w-4 h-4 text-white" />
+                                    </div>
+                                    <div>
+                                        <h4 className="font-bold text-gray-900 text-sm">Aura Smart Insights</h4>
+                                        <p className="text-[10px] text-gray-400">NP-Hard Optimized Personalized Offers</p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={handleOptimizeRewards}
+                                    disabled={optimizing}
+                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all flex items-center gap-2
+                                        ${optimizing ? 'bg-gray-50 text-gray-400 border-gray-200' : 'bg-white text-indigo-600 border-indigo-200 hover:bg-indigo-50'}`}
+                                >
+                                    {optimizing ? (
+                                        <div className="w-3 h-3 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+                                    ) : (
+                                        <Activity className="w-3 h-3" />
+                                    )}
+                                    {optimizing ? 'Optimizing...' : 'Re-calc Rewards'}
+                                </button>
+                            </div>
+
+                            {intelligenceLoading ? (
+                                <div className="animate-pulse space-y-3">
+                                    <div className="h-20 bg-gray-50 rounded-xl" />
+                                </div>
+                            ) : intelligenceData?.insights ? (
+                                <div className="bg-gradient-to-br from-indigo-900 via-indigo-800 to-indigo-950 rounded-2xl p-5 relative overflow-hidden text-white shadow-xl">
+                                    <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
+                                        <Sparkles className="w-24 h-24" />
+                                    </div>
+                                    <div className="relative z-10">
+                                        <div className="flex items-center gap-2 mb-3">
+                                            <span className="px-2 py-0.5 bg-neo-cyan text-[#0a0a0a] text-[10px] font-black rounded-md uppercase tracking-wider">Optimal Match</span>
+                                            <span className="text-[10px] text-indigo-300 opacity-80 uppercase tracking-widest font-bold">Knapsack Engine v1.0</span>
+                                        </div>
+                                        <div className="space-y-4">
+                                            {intelligenceData.insights.optimizedOffers?.slice(0, 3).map((offer, idx) => (
+                                                <div key={idx} className="flex items-center justify-between border-b border-indigo-700/50 pb-3 last:border-0 last:pb-0">
+                                                    <div>
+                                                        <p className="text-sm font-bold text-white">{offer.rewardTitle}</p>
+                                                        <p className="text-[10px] text-indigo-300 font-medium">Cost: {offer.cost} Aura Points | Prob: {Math.round(offer.probability * 100)}%</p>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <span className="text-xs font-black text-neo-cyan">SAVE {offer.maxDiscount}%</span>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                        <div className="mt-5 flex items-center justify-between items-end border-t border-indigo-700/50 pt-4">
+                                            <div>
+                                                <p className="text-[10px] font-bold text-indigo-300 uppercase tracking-widest">Predicted Savings</p>
+                                                <p className="text-lg font-black text-white">Ã¢â€šÂ¹{intelligenceData.insights.totalValue?.toLocaleString() || 0}</p>
+                                            </div>
+                                            <Link to="/products" className="px-4 py-2 bg-neo-cyan text-[#0a0a0a] text-[10px] font-black rounded-lg uppercase tracking-widest hover:brightness-110 transition-all">
+                                                Redeem Now
+                                            </Link>
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="bg-gray-50 border border-dashed border-gray-200 rounded-2xl p-8 text-center">
+                                    <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                                        <Sparkles className="w-6 h-6 text-gray-300" />
+                                    </div>
+                                    <p className="text-sm font-bold text-gray-700">No Intelligence Insights Yet</p>
+                                    <p className="text-xs text-gray-400 mt-1 max-w-[240px] mx-auto">Click 'Re-calc Rewards' to run our optimization engine over your historical data.</p>
                                 </div>
                             )}
                         </div>
