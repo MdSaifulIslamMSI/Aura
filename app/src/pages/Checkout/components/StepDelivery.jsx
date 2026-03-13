@@ -9,6 +9,7 @@ const StepDelivery = ({
     completed,
     deliveryOption,
     deliverySlot,
+    optimizedSlots = [],
     deliveryError,
     onSetActive,
     onDeliveryOptionChange,
@@ -81,12 +82,38 @@ const StepDelivery = ({
                                 className="checkout-premium-input"
                             >
                                 <option value="">Select slot</option>
-                                {SLOT_WINDOWS.map((windowLabel) => (
-                                    <option key={windowLabel} value={windowLabel}>{windowLabel}</option>
-                                ))}
+                                {SLOT_WINDOWS.map((windowLabel) => {
+                                    const opt = optimizedSlots.find(s => s.window === windowLabel);
+                                    const extra = opt ? ` (${opt.label})` : '';
+                                    return (
+                                        <option key={windowLabel} value={windowLabel}>
+                                            {windowLabel}{extra}
+                                        </option>
+                                    );
+                                })}
                             </PremiumSelect>
                         </label>
                     </div>
+
+                    {deliverySlot.window && optimizedSlots.find(s => s.window === deliverySlot.window) && (
+                        <div className="bg-neo-cyan/5 border border-neo-cyan/20 rounded-2xl p-4 flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="h-10 w-10 rounded-xl bg-neo-cyan/10 flex items-center justify-center">
+                                    <Truck className="w-5 h-5 text-neo-cyan" />
+                                </div>
+                                <div>
+                                    <p className="text-xs font-black uppercase tracking-[0.22em] text-neo-cyan">Aura Density Insight</p>
+                                    <p className="text-xs text-slate-400 mt-0.5">
+                                        Selected: <span className="text-white font-bold">{optimizedSlots.find(s => s.window === deliverySlot.window)?.label}</span>
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="text-right">
+                                <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500">Almighty Solver</p>
+                                <p className="text-sm font-black text-white">NP-Hard Optimized</p>
+                            </div>
+                        </div>
+                    )}
 
                     {deliveryError ? (
                         <div className="checkout-premium-alert border-rose-500/30 bg-rose-500/10 text-rose-200">

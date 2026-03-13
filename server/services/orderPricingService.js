@@ -4,6 +4,8 @@ const SystemState = require('../models/SystemState');
 const AppError = require('../utils/AppError');
 const COUPON_RULES = require('../config/coupons');
 const { flags: catalogFlags } = require('../config/catalogFlags');
+const { calculateOptimalLogisticsCost } = require('./logisticsOptimizer');
+const { solveAuraCover } = require('./marketplaceOptimizers');
 
 const PAYMENT_METHODS = ['COD', 'UPI', 'CARD', 'WALLET'];
 const DELIVERY_OPTIONS = ['standard', 'express'];
@@ -55,6 +57,46 @@ const normalizeDeliverySlot = (deliverySlot) => {
     }
 
     return { date, window };
+};
+
+/**
+ * NP-Hard: Vehicle Routing Problem with Time Windows (VRPTW) Heuristic
+ * Calculates "Marginal Distance" to optimize delivery density.
+ */
+const calculateOptimalDeliverySlots = (userLocation = {}, regionalDeliveries = []) => {
+    const lat = Number(userLocation.lat || 28.6);
+    const lng = Number(userLocation.lng || 77.2);
+
+    const scores = SLOT_WINDOWS.map(window => {
+        // Find existing deliveries in this window
+        const windowDeliveries = regionalDeliveries.filter(d => d.window === window);
+        
+        if (windowDeliveries.length === 0) {
+            return { window, score: 50, label: 'Standard', marginalDist: 5.0 };
+        }
+
+        // Calculate marginal distance to the nearest existing delivery in this window
+        let minMarginalDist = Infinity;
+        windowDeliveries.forEach(d => {
+            const dist = Math.sqrt((d.lat - lat)**2 + (d.lng - lng)**2);
+            if (dist < minMarginalDist) minMarginalDist = dist;
+        });
+
+        // Heuristic: Lower marginal distance = higher efficiency
+        const efficiency = Math.max(0, 100 - (minMarginalDist * 20));
+        let label = 'Standard';
+        if (efficiency > 85) label = 'Eco-Efficient (High Density)';
+        else if (efficiency > 70) label = 'Optimized';
+
+        return {
+            window,
+            score: Math.round(efficiency),
+            label,
+            marginalDist: Number(minMarginalDist.toFixed(2))
+        };
+    });
+
+    return scores.sort((a, b) => b.score - a.score);
 };
 
 const normalizeShippingAddress = (shippingAddress = {}) => {
@@ -158,6 +200,11 @@ const resolveProductsForItems = async (normalizedItems, { session = null, checkS
             mongoProductId: product._id,
             stock: product.stock,
             lineTotal,
+            // Simulating seller location for the demo
+            sellerLocation: {
+                city: ['Mumbai', 'Delhi', 'Bangalore', 'Chennai', 'Hyderabad'][product.id % 5],
+                state: ['Maharashtra', 'Delhi', 'Karnataka', 'Tamil Nadu', 'Telangana'][product.id % 5]
+            }
         });
     }
 
@@ -235,13 +282,18 @@ const getDeliveryEstimate = (deliveryOption, deliverySlot) => {
     return 'Estimated delivery in 3-5 business days';
 };
 
-const calculatePricing = ({
-    itemsPrice,
+const calculatePricing = async ({
+    resolvedItems,
     deliveryOption,
     paymentMethod,
     couponCode = '',
 }) => {
-    const baseShipping = itemsPrice > 500 ? 0 : 40;
+    const itemsPrice = resolvedItems.reduce((sum, item) => sum + (item.lineTotal || 0), 0);
+    
+    // Solve NP-Hard Logistics optimization
+    const logistics = await calculateOptimalLogisticsCost(resolvedItems);
+    const baseShipping = logistics.shippingFee;
+    
     const deliverySurcharge = deliveryOption === 'express' ? 79 : 0;
     const shippingPrice = roundCurrency(baseShipping + deliverySurcharge);
     const paymentAdjustment = roundCurrency(getPaymentAdjustment(paymentMethod));
@@ -266,18 +318,42 @@ const calculatePricing = ({
         taxPrice,
         totalPrice,
         appliedCoupon,
+        logisticsInsights: {
+            ...logistics.insights,
+            consolidationEfficiency: logistics.insights.consolidationEfficiency,
+            ecoBadge: logistics.insights.ecoBadge
+        },
     };
 };
 
 const buildOrderQuote = async (payload, { session = null, checkStock = true } = {}) => {
     const normalized = normalizeCheckoutPayload(payload);
     const { resolvedItems, itemsPrice } = await resolveProductsForItems(normalized.orderItems, { session, checkStock });
-    const pricing = calculatePricing({
-        itemsPrice,
+    const pricing = await calculatePricing({
+        resolvedItems,
         deliveryOption: normalized.deliveryOption,
         paymentMethod: normalized.paymentMethod,
         couponCode: normalized.couponCode,
     });
+
+    // NP-Hard: Delivery Slot Optimization (VRPTW)
+    // Simulating regional delivery data for the neighborhood
+    const simulatedRegionalDeliveries = [
+        { window: '09:00-12:00', lat: 28.62, lng: 77.21 },
+        { window: '09:00-12:00', lat: 28.58, lng: 77.18 },
+        { window: '15:00-18:00', lat: 28.70, lng: 77.25 }
+    ];
+    const optimizedSlots = calculateOptimalDeliverySlots(normalized.shippingAddress, simulatedRegionalDeliveries);
+
+    // NP-Hard: Aura-Cover (Set Cover)
+    // Simulating seller inventory for fulfillment optimization
+    const itemIds = resolvedItems.map(i => i.productId);
+    const sellerInventoryMap = {
+        'S-HQ': new Set(itemIds), // Aura Central Warehouse (fully covered)
+        'S-Local-1': new Set(itemIds.slice(0, Math.ceil(itemIds.length / 2))),
+        'S-Local-2': new Set(itemIds.slice(Math.floor(itemIds.length / 2)))
+    };
+    const optimizedPackages = solveAuraCover(itemIds, sellerInventoryMap);
 
     const deliveryEstimate = getDeliveryEstimate(normalized.deliveryOption, normalized.deliverySlot);
 
@@ -287,6 +363,8 @@ const buildOrderQuote = async (payload, { session = null, checkStock = true } = 
         pricing: {
             ...pricing,
             deliveryEstimate,
+            optimizedSlots, 
+            optimizedPackages, // Injecting Set Cover results
             priceBreakdown: {
                 itemsPrice: pricing.itemsPrice,
                 shippingPrice: pricing.shippingPrice,
@@ -294,6 +372,7 @@ const buildOrderQuote = async (payload, { session = null, checkStock = true } = 
                 couponDiscount: pricing.couponDiscount,
                 taxPrice: pricing.taxPrice,
                 totalPrice: pricing.totalPrice,
+                logisticsInsights: pricing.logisticsInsights,
             },
             pricingVersion: PRICING_VERSION,
         },

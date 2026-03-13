@@ -1,25 +1,44 @@
 const RazorpayProvider = require('./providers/razorpayProvider');
 const SimulatedProvider = require('./providers/simulatedProvider');
 const { flags } = require('../../config/paymentFlags');
+const { calculateOptimalRoute } = require('./paymentRouter');
 
-let cachedProvider = null;
+const providers = new Map();
 
-const createProvider = () => {
-    if (flags.paymentProvider === 'razorpay') {
-        return new RazorpayProvider({
+const getInternalProvider = (gatewayId) => {
+    if (providers.has(gatewayId)) return providers.get(gatewayId);
+
+    let provider;
+    if (gatewayId === 'razorpay') {
+        provider = new RazorpayProvider({
             keyId: process.env.RAZORPAY_KEY_ID,
             keySecret: process.env.RAZORPAY_KEY_SECRET,
             webhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET,
         });
+    } else {
+        provider = new SimulatedProvider();
     }
-    return new SimulatedProvider();
+
+    providers.set(gatewayId, provider);
+    return provider;
 };
 
-const getPaymentProvider = () => {
-    if (!cachedProvider) {
-        cachedProvider = createProvider();
+const getPaymentProvider = async (context = {}) => {
+    // If explicit routing is disabled, follow the static flag
+    if (!flags.paymentDynamicRoutingEnabled) {
+        return getInternalProvider(flags.paymentProvider);
     }
-    return cachedProvider;
+
+    // Solve for the optimal route
+    const route = await calculateOptimalRoute(context);
+    const provider = getInternalProvider(route.gatewayId);
+    
+    // Attach route insights to provider for the current request context
+    // Note: This is an ephemeral enrichment for the caller
+    return {
+        ...provider,
+        routingInsights: route
+    };
 };
 
 module.exports = {

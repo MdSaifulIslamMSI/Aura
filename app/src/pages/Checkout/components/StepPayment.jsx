@@ -161,6 +161,15 @@ const StepPayment = ({
                                 </div>
                             ) : null}
 
+                            {isDigital ? (
+                                <div className="flex items-center gap-2 px-1 py-1">
+                                    <div className="flex h-2 w-2 animate-pulse rounded-full bg-neo-cyan shadow-[0_0_8px_var(--neo-cyan)]" />
+                                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-neo-cyan/80">
+                                        Multi-Commodity Routing Active
+                                    </span>
+                                </div>
+                            ) : null}
+
                             <button
                                 type="button"
                                 onClick={onSimulatePayment}

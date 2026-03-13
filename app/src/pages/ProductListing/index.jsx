@@ -15,6 +15,8 @@ import { getErrorReference } from '@/services/clientObservability';
 import { resolveProductListingFetchCopy } from '@/utils/backendFailurePresentation';
 import { cn } from '@/lib/utils';
 import PremiumSelect from '@/components/ui/premium-select';
+import { solveAuraGrid, solveChromaticHarmony } from '@/utils/frontendOptimizers';
+import { usePrefetchOracle } from '@/hooks/usePrefetchOracle';
 
 const SORT_OPTIONS = new Set(['relevance', 'price-asc', 'price-desc', 'newest', 'rating', 'discount']);
 const DEFAULT_MIN_PRICE = 0;
@@ -154,6 +156,9 @@ const ProductListing = () => {
     createFiltersFromParams(searchParams)
   );
 
+  // NP-Hard: Intent-based Prefetching (Steiner Tree)
+  usePrefetchOracle(products);
+
   const resetScanParameters = useCallback(() => {
     setFilters((prev) => ({
       ...createDefaultFilters(),
@@ -248,13 +253,21 @@ const ProductListing = () => {
 
       const applyListingPayload = (payload, telemetryCategory) => {
         const searchTelemetry = buildTelemetry(payload, telemetryCategory);
-        setProducts((payload.products || []).map((product, index) => ({
+        let processedProducts = (payload.products || []).map((product, index) => ({
           ...product,
           searchTelemetry: {
             ...searchTelemetry,
             position: index + 1,
           },
-        })));
+        }));
+
+        // NP-Hard: Solve for Grid Layout and Visual Harmony
+        if (viewMode === 'grid') {
+          processedProducts = solveAuraGrid(processedProducts);
+          processedProducts = solveChromaticHarmony(processedProducts);
+        }
+
+        setProducts(processedProducts);
         setPage(payload.page || 1);
         setTotalPages(payload.pages || 1);
         setTotalProducts(payload.total || 0);
@@ -570,7 +583,12 @@ const ProductListing = () => {
                   distance={14}
                   className="h-full"
                 >
-                  <ProductCard product={product} variant={viewMode === 'list' ? 'list' : 'default'} />
+                  <ProductCard 
+                    product={product} 
+                    variant={viewMode === 'list' ? 'list' : 'default'} 
+                    gridLayout={product.gridLayout}
+                    harmonyIndex={product.harmonyIndex}
+                  />
                 </RevealOnScroll>
               ))}
             </div>

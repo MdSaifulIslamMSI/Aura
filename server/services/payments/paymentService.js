@@ -223,7 +223,13 @@ const createPaymentIntent = async ({
         throw new AppError('Payment blocked by risk policy. Try COD or contact support.', 403);
     }
 
-    const provider = getPaymentProvider();
+    const provider = await getPaymentProvider({
+        amount: quote.pricing.totalPrice,
+        currency: 'INR',
+        paymentMethod: normalizedMethod,
+        bin: String(requestMeta.cardBin || ''),
+        userId: user._id,
+    });
     const intentId = makeIntentId();
     const providerOrder = await provider.createOrder({
         amount: quote.pricing.totalPrice,
@@ -244,6 +250,7 @@ const createPaymentIntent = async ({
         intentId,
         user: user._id,
         provider: provider.name,
+        routingInsights: provider.routingInsights || null,
         providerOrderId: providerOrder.id,
         amount: quote.pricing.totalPrice,
         currency: 'INR',
@@ -443,7 +450,12 @@ const confirmPaymentIntent = async ({
         throw new AppError('Payment reference replay detected. Transaction blocked.', 409);
     }
 
-    const provider = getPaymentProvider();
+    const provider = await getPaymentProvider({
+        amount: intent.amount,
+        currency: intent.currency,
+        paymentMethod: intent.method,
+        userId: intent.user,
+    });
     const verified = provider.verifySignature({
         orderId: cleanOrderId,
         paymentId: cleanPaymentId,
@@ -700,7 +712,12 @@ const captureIntentNow = async ({ intentId }) => {
         throw new AppError(`Capture not allowed from status ${intent.status}`, 400);
     }
 
-    const provider = getPaymentProvider();
+    const provider = await getPaymentProvider({
+        amount: intent.amount,
+        currency: intent.currency,
+        paymentMethod: intent.method,
+        userId: intent.user,
+    });
     await provider.capture({
         paymentId: intent.providerPaymentId,
         amount: intent.amount,
@@ -755,7 +772,12 @@ const createRefundForIntent = async ({
     if (requestedAmount <= 0) throw new AppError('Refund amount must be positive', 400);
     if (requestedAmount > refundable) throw new AppError('Refund amount exceeds refundable balance', 400);
 
-    const provider = getPaymentProvider();
+    const provider = await getPaymentProvider({
+        amount: requestedAmount,
+        currency: intent.currency,
+        paymentMethod: intent.method,
+        userId: intent.user,
+    });
     const providerRefund = await provider.refund({
         paymentId: intent.providerPaymentId,
         amount: requestedAmount,
@@ -822,7 +844,7 @@ const extractWebhookIdentifiers = (event = {}) => {
 };
 
 const processRazorpayWebhook = async ({ signature, rawBody }) => {
-    const provider = getPaymentProvider();
+    const provider = await getPaymentProvider();
     if (provider.name !== 'razorpay' && provider.name !== 'simulated') {
         throw new AppError('Unsupported payment provider for webhook processing', 400);
     }

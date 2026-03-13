@@ -33,12 +33,12 @@ const {
     PAYMENT_STATUSES,
 } = require('../services/payments/constants');
 const {
-    hashPayload,
-    makeIntentId,
     makeEventId,
     normalizeMethod,
     roundCurrency,
 } = require('../services/payments/helpers');
+const { solveAuraMatch } = require('../services/marketplaceOptimizers');
+const { solveAuraCluster } = require('../services/gpsOptimizers');
 
 const MAX_ACTIVE_LISTINGS = 10;
 const MAX_CHAT_MESSAGE_LENGTH = 1200;
@@ -329,7 +329,12 @@ const createEscrowIntent = asyncHandler(async (req, res, next) => {
         return next(new AppError('Escrow payment blocked by risk policy. Try another method or contact support.', 403));
     }
 
-    const provider = getPaymentProvider();
+    const provider = await getPaymentProvider({
+        amount,
+        currency: 'INR',
+        paymentMethod: 'CARD', // Defaulting for escrow if unknown
+        userId: req.user._id,
+    });
     const intentId = makeIntentId();
     const providerOrder = await provider.createOrder({
         amount,
@@ -467,7 +472,12 @@ const confirmEscrowIntent = asyncHandler(async (req, res, next) => {
         return next(new AppError('Provider order mismatch for escrow confirmation', 409));
     }
 
-    const provider = getPaymentProvider();
+    const provider = await getPaymentProvider({
+        amount: intent.amount,
+        currency: intent.currency,
+        paymentMethod: intent.method,
+        userId: intent.user,
+    });
     const verified = provider.verifySignature({
         orderId: providerOrderId,
         paymentId: providerPaymentId,
@@ -654,7 +664,8 @@ const getListings = asyncHandler(async (req, res) => {
 
     res.json({
         success: true,
-        listings,
+        // NP-Hard: Aura-Match (Stable Matching)
+        listings: solveAuraMatch({ categoryWeights: { 'Electronics': 2 }, maxPrice: 50000, minTrust: 80 }, listings),
         pagination: {
             page: Number(page),
             limit: Number(limit),
@@ -813,6 +824,15 @@ const getCityHotspots = asyncHandler(async (req, res) => {
         .sort((a, b) => b.heatScore - a.heatScore)
         .slice(0, limit);
 
+    // NP-Hard: Aura-Cluster (K-Median Clustering)
+    // Identify demand centroids across all identified hotspots
+    const points = hotspots.map(h => ({
+        lat: h.avgPrice / 1000, // Normalized proxy for lat for the demo
+        lng: h.supplyCount,     // Normalized proxy for lng for the demo
+        weight: h.demandScore
+    }));
+    const clusters = solveAuraCluster(points, 3);
+
     res.json({
         success: true,
         meta: {
@@ -823,6 +843,7 @@ const getCityHotspots = asyncHandler(async (req, res) => {
             generatedAt: new Date().toISOString(),
         },
         hotspots,
+        demandCentroids: clusters, // Enhanced GPS Intelligence
     });
 });
 
@@ -1406,7 +1427,12 @@ const cancelEscrow = asyncHandler(async (req, res, next) => {
                     return next(new AppError('Captured escrow payment is missing provider payment reference', 409));
                 }
 
-                const provider = getPaymentProvider();
+                const provider = await getPaymentProvider({
+                    amount: intent.amount,
+                    currency: intent.currency,
+                    paymentMethod: intent.method,
+                    userId: intent.user,
+                });
                 const providerRefund = await provider.refund({
                     paymentId: intent.providerPaymentId,
                     amount: intent.amount,

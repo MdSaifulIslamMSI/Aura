@@ -595,6 +595,18 @@ export const authApi = {
         });
         return data;
     },
+    verifyQuantumChallenge: async (challengeId, proof, options = {}) => {
+        const headers = await getAuthHeader(options.firebaseUser || null);
+        const { data } = await apiFetch('/auth/verify-quantum', {
+            method: 'POST',
+            headers: {
+                ...headers,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ challengeId, proof }),
+        });
+        return data;
+    },
 };
 
 export const otpApi = {

@@ -1,4 +1,4 @@
-import { Loader2, RefreshCcw, TicketPercent, Zap } from 'lucide-react';
+import { Box, Info, Loader2, RefreshCcw, TicketPercent, Zap } from 'lucide-react';
 import { formatPrice } from '@/utils/format';
 import { cn } from '@/lib/utils';
 
@@ -22,6 +22,7 @@ const OrderSummary = ({
     const taxPrice = quote?.taxPrice ?? 0;
     const totalPrice = quote?.totalPrice ?? fallbackTotals.totalPrice;
     const appliedCoupon = quote?.appliedCoupon;
+    const logistics = quote?.logisticsInsights;
 
     return (
         <aside className="h-fit lg:sticky lg:top-32">
@@ -52,6 +53,65 @@ const OrderSummary = ({
                         ))}
                     </div>
 
+                    {logistics && (
+                        <div className="checkout-premium-surface bg-neo-cyan/5 border-neo-cyan/20 space-y-3">
+                            <div className="flex items-center justify-between">
+                                <p className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.22em] text-neo-cyan">
+                                    <Box className="h-4 w-4" />
+                                    Aura Logistics Insight
+                                </p>
+                                <span className="bg-neo-cyan/20 text-neo-cyan px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider">
+                                    NP-Hard Optimized
+                                </span>
+                            </div>
+                            
+                            <div className="grid grid-cols-2 gap-2 mt-2">
+                                <div className="bg-white/5 p-2 rounded-xl border border-white/5">
+                                    <p className="text-[10px] text-slate-400 uppercase tracking-wider">Consolidation</p>
+                                    <p className="text-sm font-bold text-white">{logistics.consolidationEfficiency || 'Direct'}</p>
+                                </div>
+                                <div className="bg-white/5 p-2 rounded-xl border border-white/5">
+                                    <p className="text-[10px] text-slate-400 uppercase tracking-wider">Eco-Impact</p>
+                                    <p className="text-[11px] font-bold text-neo-cyan truncate">{logistics.ecoBadge || 'Standard'}</p>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2">
+                                <div className="bg-white/5 p-2 rounded-xl border border-white/5">
+                                    <p className="text-[10px] text-slate-400 uppercase tracking-wider">Efficiency</p>
+                                    <p className="text-sm font-bold text-white">{logistics.efficiency}</p>
+                                </div>
+                                <div className="bg-white/5 p-2 rounded-xl border border-white/5">
+                                    <p className="text-[10px] text-slate-400 uppercase tracking-wider">Net Savings</p>
+                                    <p className="text-sm font-bold text-neo-cyan">-{formatPrice(logistics.savings)}</p>
+                                </div>
+                            </div>
+                            
+                            <div className="space-y-1.5 pt-1">
+                                {logistics.hub && (
+                                    <div className="flex items-center gap-2 text-[11px] text-neo-cyan font-bold">
+                                        <div className="w-1 h-1 rounded-full bg-neo-cyan" />
+                                        <span>Merging at {logistics.hub}</span>
+                                    </div>
+                                )}
+                                {logistics.containers.map((c, i) => (
+                                    <div key={i} className="flex items-center justify-between text-[11px] text-slate-300">
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-1 h-1 rounded-full bg-neo-cyan/50" />
+                                            <span>{c.type} ({c.itemCount} items)</span>
+                                        </div>
+                                        <span className="text-slate-500 font-mono">Density: {c.efficiency}</span>
+                                    </div>
+                                ))}
+                            </div>
+                            
+                            <div className="flex items-center gap-2 mt-1 text-[10px] text-slate-400 italic">
+                                <Info className="h-3 w-3" />
+                                Strategy: {logistics.strategy}
+                            </div>
+                        </div>
+                    )}
+
                     <div className="checkout-premium-surface space-y-3">
                         <div className="flex justify-between text-sm text-slate-300">
                             <span>Items</span>
@@ -59,7 +119,10 @@ const OrderSummary = ({
                         </div>
                         <div className="flex justify-between text-sm text-slate-300">
                             <span>Shipping</span>
-                            <span>{shippingPrice === 0 ? 'FREE' : formatPrice(shippingPrice)}</span>
+                            <div className="text-right">
+                                <span>{shippingPrice === 0 ? 'FREE' : formatPrice(shippingPrice)}</span>
+                                {logistics && <p className="text-[10px] text-neo-cyan font-bold tracking-tight mt-0.5">ALGO-CONSOLIDATED</p>}
+                            </div>
                         </div>
                         <div className="flex justify-between text-sm text-slate-300">
                             <span>Payment Adjustment</span>
