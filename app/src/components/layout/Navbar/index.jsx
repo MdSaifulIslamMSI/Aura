@@ -84,6 +84,12 @@ const Navbar = () => {
   useEffect(() => {
     const handlePointerDown = (event) => {
       const target = event.target;
+      
+      // If clicking inside a portaled select menu, don't trigger "click outside" logic
+      if (target.closest('.premium-select-menu')) {
+        return;
+      }
+
       if (userMenuRef.current && !userMenuRef.current.contains(target)) {
         setIsUserMenuOpen(false);
       }

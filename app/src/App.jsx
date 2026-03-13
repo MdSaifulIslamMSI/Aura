@@ -254,6 +254,8 @@ function AppContent() {
   );
 }
 
+import { VideoCallProvider } from './context/VideoCallContext';
+
 function App() {
   return (
     <ColorModeProvider>
@@ -261,15 +263,17 @@ function App() {
         <CrazyModeProvider>
           <AuthProvider>
             <SocketProvider>
-              <CartProvider>
-                <WishlistProvider>
-                  <ProductProvider>
-                    <Router>
-                      <AppContent />
-                    </Router>
-                  </ProductProvider>
-                </WishlistProvider>
-              </CartProvider>
+              <VideoCallProvider>
+                <CartProvider>
+                  <WishlistProvider>
+                    <ProductProvider>
+                      <Router>
+                        <AppContent />
+                      </Router>
+                    </ProductProvider>
+                  </WishlistProvider>
+                </CartProvider>
+              </VideoCallProvider>
             </SocketProvider>
           </AuthProvider>
         </CrazyModeProvider>

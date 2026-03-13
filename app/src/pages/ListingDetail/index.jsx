@@ -12,11 +12,13 @@ import {
     X,
     ChevronLeft,
     ChevronRight,
+    Video,
     ArrowLeft,
 } from 'lucide-react';
 import { listingApi, otpApi, paymentApi } from '@/services/api';
 import { AuthContext } from '@/context/AuthContext';
 import { useSocket } from '@/context/SocketContext';
+import { useVideoCall } from '@/context/VideoCallContext';
 import { toast } from 'sonner';
 
 import { loadRazorpayScript } from '@/utils/razorpay';
@@ -53,6 +55,7 @@ export default function ListingDetail() {
     const [chatInput, setChatInput] = useState('');
     const [conversation, setConversation] = useState(null);
     const { socket } = useSocket();
+    const { startCall } = useVideoCall();
 
     useEffect(() => {
         (async () => {
@@ -489,6 +492,16 @@ export default function ListingDetail() {
                                     <MessageCircle className="mr-2 inline h-4 w-4" />
                                     {isOwner ? 'This is your listing' : 'Chat with seller'}
                                 </button>
+                                {!isOwner && (
+                                    <button
+                                        disabled={!currentUser}
+                                        onClick={() => startCall(seller._id, id)}
+                                        className="w-full rounded-xl border border-blue-300/40 bg-blue-500/20 py-3 text-sm font-bold text-blue-100 transition hover:bg-blue-500/30 disabled:cursor-not-allowed disabled:opacity-60"
+                                    >
+                                        <Video className="mr-2 inline h-4 w-4" />
+                                        Request Live Inspection
+                                    </button>
+                                )}
                                 {showEscrowControls && escrowState === 'none' && (
                                     <button
                                         disabled={escrowBusy}
@@ -651,13 +664,23 @@ export default function ListingDetail() {
                                     {conversation?.counterpart?.name || seller.name || 'Seller'}
                                 </p>
                             </div>
-                            <button
-                                type="button"
-                                onClick={() => setChatOpen(false)}
-                                className="rounded-lg border border-slate-700 bg-slate-900/80 p-2 text-slate-300 transition hover:border-cyan-300/35 hover:text-cyan-100"
-                            >
-                                <X className="h-4 w-4" />
-                            </button>
+                            <div className="flex gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => startCall(seller._id, id)}
+                                    className="rounded-lg border border-slate-700 bg-slate-900/80 p-2 text-slate-300 transition hover:border-blue-300/35 hover:text-blue-100"
+                                    title="Start Live Inspection"
+                                >
+                                    <Video className="h-4 w-4" />
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setChatOpen(false)}
+                                    className="rounded-lg border border-slate-700 bg-slate-900/80 p-2 text-slate-300 transition hover:border-cyan-300/35 hover:text-cyan-100"
+                                >
+                                    <X className="h-4 w-4" />
+                                </button>
+                            </div>
                         </div>
 
                         <div className="flex-1 overflow-y-auto px-4 py-4">
