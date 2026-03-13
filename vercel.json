@@ -1,0 +1,25 @@
+{
+  "outputDirectory": "app/dist",
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "https://aura-api-2dxo.onrender.com/api/$1"
+    },
+    {
+      "source": "/health",
+      "destination": "https://aura-api-2dxo.onrender.com/health"
+    },
+    {
+      "source": "/health/ready",
+      "destination": "https://aura-api-2dxo.onrender.com/health/ready"
+    },
+    {
+      "source": "/uploads/(.*)",
+      "destination": "https://aura-api-2dxo.onrender.com/uploads/$1"
+    },
+    {
+      "source": "/((?!api/|uploads/|assets/|manifest\\.json$|sw\\.js$|favicon\\.ico$|robots\\.txt$|.*\\.[^/]+$).*)",
+      "destination": "/index.html"
+    }
+  ]
+}

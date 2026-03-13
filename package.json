@@ -1,0 +1,12 @@
+{
+  "name": "aura-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "app",
+    "server"
+  ],
+  "scripts": {
+    "build": "npm run build -w app"
+  }
+}
