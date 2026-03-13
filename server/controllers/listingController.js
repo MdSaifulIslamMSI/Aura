@@ -654,7 +654,7 @@ const getListings = asyncHandler(async (req, res) => {
 
     const [listings, total] = await Promise.all([
         Listing.find(filter, LIST_PROJECTION)
-            .populate('seller', 'name createdAt isVerified')
+            .populate('seller', 'name createdAt isVerified reputationScore')
             .sort(sortOrder)
             .skip(skip)
             .limit(Number(limit))
