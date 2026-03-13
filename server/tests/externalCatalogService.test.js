@@ -4,6 +4,7 @@ const path = require('path');
 
 const {
     prepareKaggleCatalogSnapshot,
+    prepareKaggleCatalogSnapshotFromFile,
     importKaggleCatalog,
 } = require('../services/externalCatalogService');
 

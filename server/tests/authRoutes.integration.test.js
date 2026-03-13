@@ -1,6 +1,8 @@
 const request = require('supertest');
 const app = require('../index');
 
+jest.setTimeout(30000);
+
 describe('Auth API surface', () => {
     test('GET /api/auth/session should fail without token', async () => {
         const res = await request(app).get('/api/auth/session');

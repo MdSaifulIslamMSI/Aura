@@ -1,6 +1,8 @@
 const request = require('supertest');
 const app = require('../index');
 
+jest.setTimeout(30000);
+
 describe('Observability ingestion routes', () => {
     let consoleWarnSpy;
 

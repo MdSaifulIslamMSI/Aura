@@ -1,5 +1,4 @@
 const dns = require('dns').promises;
-const isIp = require('is-ip');
 const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
 

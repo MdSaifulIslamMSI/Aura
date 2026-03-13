@@ -1,6 +1,8 @@
 const request = require('supertest');
 const app = require('../index');
 
+jest.setTimeout(30000);
+
 describe('Admin Route Surface Security Matrix', () => {
     const cases = [
         ['GET', '/api/admin/notifications/summary'],

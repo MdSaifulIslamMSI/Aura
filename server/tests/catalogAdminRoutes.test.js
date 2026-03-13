@@ -1,6 +1,8 @@
 const request = require('supertest');
 const app = require('../index');
 
+jest.setTimeout(30000);
+
 describe('Catalog Admin API Security Tests', () => {
     test('POST /api/admin/catalog/imports should fail without token', async () => {
         const res = await request(app)

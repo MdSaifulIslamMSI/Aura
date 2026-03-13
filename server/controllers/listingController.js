@@ -42,7 +42,6 @@ const {
 } = require('../services/payments/helpers');
 const { sendMessageToUser } = require('../services/socketService');
 const { solveAuraMatch } = require('../services/marketplaceOptimizers');
-const { solveAuraCluster } = require('../services/gpsOptimizers');
 
 const MAX_ACTIVE_LISTINGS = 10;
 const MAX_CHAT_MESSAGE_LENGTH = 1200;

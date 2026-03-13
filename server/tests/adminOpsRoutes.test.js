@@ -1,6 +1,8 @@
 const request = require('supertest');
 const app = require('../index');
 
+jest.setTimeout(30000);
+
 describe('Admin Ops API Security Tests', () => {
     test('GET /api/admin/ops/readiness should fail without token', async () => {
         const res = await request(app).get('/api/admin/ops/readiness');

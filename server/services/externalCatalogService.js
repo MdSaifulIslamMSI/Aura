@@ -539,8 +539,9 @@ const buildCanonicalRecord = ({
     };
 
     const title = safeString(remember('title', resolveFieldValue(row, 'title', fieldMapping)));
-    const rawBrand = safeString(remember('brand', resolveFieldValue(row, 'brand', fieldMapping)));
-    const brand = rawBrand || inferBrandFromTitle(title);
+    const normalizedBrand = remember('brand', resolveFieldValue(row, 'brand', fieldMapping));
+    const rawBrand = safeString(normalizedBrand);
+    const brand = rawBrand || (strict ? '' : inferBrandFromTitle(title));
     const rawCategoryValue = safeString(remember('category', resolveFieldValue(row, 'category', fieldMapping)));
     const price = parseNumericValue(remember('price', resolveFieldValue(row, 'price', fieldMapping)));
     const originalPriceRaw = parseNumericValue(remember('originalPrice', resolveFieldValue(row, 'originalPrice', fieldMapping)));

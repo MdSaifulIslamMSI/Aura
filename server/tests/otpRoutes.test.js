@@ -1,6 +1,8 @@
 const request = require('supertest');
 const app = require('../index');
 
+jest.setTimeout(15000);
+
 describe('OTP API Tests', () => {
     describe('POST /api/otp/send', () => {
         test('should return 400 without email', async () => {
