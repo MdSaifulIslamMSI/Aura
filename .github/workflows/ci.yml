@@ -45,7 +45,7 @@ jobs:
           tests/communicationServices.test.js
           tests/adminUserControllerResilience.test.js
           tests/adminUserRoutes.integration.test.js
-          tests/paymentFortressGuards.test.js
+          tests/paymentSecurityGuards.test.js
           tests/adminProductRoutes.integration.test.js
           tests/paymentRefundState.test.js
           tests/adminPaymentRoutes.integration.test.js
@@ -96,7 +96,7 @@ jobs:
           tests/communicationServices.test.js
           tests/adminUserControllerResilience.test.js
           tests/adminUserRoutes.integration.test.js
-          tests/paymentFortressGuards.test.js
+          tests/paymentSecurityGuards.test.js
           tests/adminProductRoutes.integration.test.js
           tests/paymentRefundState.test.js
           tests/adminPaymentRoutes.integration.test.js

@@ -1,4 +1,4 @@
-import { auth, isFirebaseReady } from '../config/firebase';
+import { auth, isFirebaseReady } from '../../config/firebase';
 import { createResponseError } from './apiBase';
 
 /**
