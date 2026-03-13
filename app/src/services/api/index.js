@@ -5,4 +5,6 @@ export * from './orderApi';
 export * from './listingApi';
 export * from './intelligenceApi';
 export * from './adminApi';
+export * from './trustApi';
+export * from './uploadApi';
 export * from './apiUtils';
