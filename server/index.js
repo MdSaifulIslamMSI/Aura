@@ -322,12 +322,24 @@ app.get('/health/ready', async (req, res) => {
         catalog = { staleData: true };
     }
 
+    // --- Boot Grace Period Logic ---
+    // On fresh deployments (especially on Render), the catalog might be empty or 'legacy-v1'.
+    // We allow a grace period (default 15m) where we return 200 even if the catalog isn't fully ready,
+    // to prevent Render from killing the deploy due to health check timeouts.
+    const BOOT_GRACE_PERIOD_SEC = Number(process.env.BOOT_GRACE_PERIOD_SEC) || 900;
+    const uptime = process.uptime();
+    const isWithinGracePeriod = uptime < BOOT_GRACE_PERIOD_SEC;
+
     if (catalog?.staleData) {
-        return res.status(503).json({
-            ready: false,
-            reason: 'catalog_stale',
-            timestamp: new Date().toISOString(),
-        });
+        if (!isWithinGracePeriod) {
+            return res.status(503).json({
+                ready: false,
+                reason: 'catalog_stale',
+                uptime,
+                timestamp: new Date().toISOString(),
+            });
+        }
+        logger.warn('health.ready_grace_active', { reason: 'catalog_stale', uptime });
     }
 
     if (splitRuntimeEnabled) {
@@ -339,39 +351,48 @@ app.get('/health/ready', async (req, res) => {
         });
 
         if (workerGaps.length > 0) {
-            return res.status(503).json({
-                ready: false,
-                reason: 'split_runtime_workers_unavailable',
-                workerGaps,
-                timestamp: new Date().toISOString(),
-            });
+            if (!isWithinGracePeriod) {
+                return res.status(503).json({
+                    ready: false,
+                    reason: 'split_runtime_workers_unavailable',
+                    workerGaps,
+                    uptime,
+                    timestamp: new Date().toISOString(),
+                });
+            }
+            logger.warn('health.ready_grace_active', { reason: 'split_runtime_workers_unavailable', workerGaps, uptime });
         }
     }
 
     if (requirePublishedCatalog && runtimeNodeEnv === 'production') {
         const publishedProductCount = Number(catalog?.quality?.publishedProductCount || 0);
-        if (!catalog?.activeVersion || catalog.activeVersion === 'legacy-v1' || publishedProductCount <= 0) {
-            return res.status(503).json({
-                ready: false,
-                reason: 'catalog_not_published',
-                activeVersion: catalog?.activeVersion || 'legacy-v1',
-                publishedProductCount,
-                timestamp: new Date().toISOString(),
-            });
-        }
+        const isInitialCatalog = !catalog?.activeVersion || catalog.activeVersion === 'legacy-v1' || publishedProductCount <= 0;
+        const gateFailed = Number(catalog?.quality?.devOnlyProducts || 0) > 0 || Number(catalog?.quality?.syntheticRejectedProducts || 0) > 0;
 
-        if (Number(catalog?.quality?.devOnlyProducts || 0) > 0 || Number(catalog?.quality?.syntheticRejectedProducts || 0) > 0) {
-            return res.status(503).json({
-                ready: false,
-                reason: 'catalog_publish_gate_failed',
-                quality: catalog?.quality || {},
-                timestamp: new Date().toISOString(),
+        if (isInitialCatalog || gateFailed) {
+            if (!isWithinGracePeriod) {
+                return res.status(503).json({
+                    ready: false,
+                    reason: isInitialCatalog ? 'catalog_not_published' : 'catalog_publish_gate_failed',
+                    activeVersion: catalog?.activeVersion || 'legacy-v1',
+                    publishedProductCount,
+                    quality: catalog?.quality || {},
+                    uptime,
+                    timestamp: new Date().toISOString(),
+                });
+            }
+            logger.warn('health.ready_grace_active', { 
+                reason: isInitialCatalog ? 'catalog_not_published' : 'catalog_publish_gate_failed', 
+                uptime,
+                activeVersion: catalog?.activeVersion || 'legacy-v1'
             });
         }
     }
 
     return res.json({
         ready: true,
+        uptime,
+        gracePeriodEnabled: isWithinGracePeriod,
         timestamp: new Date().toISOString(),
         topology: {
             splitRuntimeEnabled,
