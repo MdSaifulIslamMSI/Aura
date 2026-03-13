@@ -33,10 +33,19 @@ export default defineConfig({
     ],
 
     // Automatically build and serve before running tests in CI.
-    webServer: {
-        command: 'npm run build && npm run preview',
-        url: 'http://localhost:4173',
-        reuseExistingServer: !process.env.CI,
-        timeout: 120_000,
-    },
+    webServer: [
+        {
+            command: 'npm start',
+            cwd: '../server',
+            url: 'http://localhost:5000/health',
+            reuseExistingServer: !process.env.CI,
+            timeout: 120_000,
+        },
+        {
+            command: 'npm run build && npm run preview',
+            url: 'http://localhost:4173',
+            reuseExistingServer: !process.env.CI,
+            timeout: 120_000,
+        },
+    ],
 });
