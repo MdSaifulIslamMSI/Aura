@@ -40,8 +40,8 @@ test.describe('Login Page UI', () => {
 
     test('has a visible sign-in form element', async ({ page }) => {
         // Look for an input or button associated with authentication
-        const hasInput = await page.locator('input[type="email"], input[type="text"], input[placeholder*="email" i]').count();
-        expect(hasInput).toBeGreaterThan(0);
+        const emailInput = page.locator('input[type="email"], input[placeholder*="email" i]');
+        await expect(emailInput.first()).toBeVisible({ timeout: 15_000 });
     });
 
     test('no uncaught error boundary fallback', async ({ page }) => {

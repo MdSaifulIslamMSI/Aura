@@ -37,7 +37,9 @@ test.describe('Product Detail Page', () => {
 
     test('back navigation works from product page', async ({ page }) => {
         await page.goto('/product/1');
+        const productUrl = page.url();
         await page.goBack();
+        await page.waitForURL((url) => url.toString() !== productUrl, { timeout: 5000 });
         expect(page.url()).not.toContain('/product/1');
     });
 });
