@@ -62,7 +62,9 @@ export const WishlistProvider = ({ children }) => {
     setIsLoading(false);
   }, [currentUser]);
 
-  // ── Persist to localStorage + backend sync ──
+  const syncTimerRef = useRef(null);
+
+  // ── Persist to localStorage + debounced backend sync ──
   useEffect(() => {
     if (isLoading) return;
 
@@ -71,9 +73,16 @@ export const WishlistProvider = ({ children }) => {
     localStorage.setItem(key, JSON.stringify(wishlistItems));
 
     if (uid && currentUser?.email) {
-      userApi.syncWishlist(currentUser.email, wishlistItems)
-        .catch(err => console.error("Cloud sync failed:", err));
+      if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
+      syncTimerRef.current = setTimeout(() => {
+        userApi.syncWishlist(currentUser.email, wishlistItems)
+          .catch(err => console.error("Cloud sync failed:", err));
+      }, 2000); // 2s debounce
     }
+
+    return () => {
+      if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
+    };
   }, [wishlistItems, isLoading, currentUser]);
 
   const addToWishlist = useCallback((product) => {

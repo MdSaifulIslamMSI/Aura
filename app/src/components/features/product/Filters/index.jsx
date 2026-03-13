@@ -238,7 +238,7 @@ const Filters = ({ filters, onFilterChange, className, closeMobile }) => {
         <div>
           <h2 className="text-xl font-black text-white tracking-tight flex items-center gap-2">
             <ShieldCheck className="w-5 h-5 text-neo-cyan" />
-            FORTRESS FILTER ENGINE
+            FILTER ENGINE
           </h2>
           <p className="mt-1 text-xs uppercase tracking-[0.16em] text-slate-400">Precision Controls For Product Intelligence</p>
         </div>
@@ -282,7 +282,7 @@ const Filters = ({ filters, onFilterChange, className, closeMobile }) => {
       )}
 
       <div className="space-y-1">
-        <FilterSection id="price" title="Price Fortress" icon={Filter}>
+        <FilterSection id="price" title="Price Range" icon={Filter}>
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <label className="text-[11px] font-semibold text-slate-300">

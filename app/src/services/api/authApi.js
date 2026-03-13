@@ -16,9 +16,9 @@ export const authApi = {
         });
         return data;
     },
-    verifyQuantumChallenge: async (challengeId, proof, options = {}) => {
+    verifyLatticeChallenge: async (challengeId, proof, options = {}) => {
         const headers = await getAuthHeader(options.firebaseUser);
-        const { data } = await apiFetch('/auth/verify-quantum', {
+        const { data } = await apiFetch('/auth/verify-lattice', {
             method: 'POST',
             headers,
             body: JSON.stringify({ challengeId, proof }),

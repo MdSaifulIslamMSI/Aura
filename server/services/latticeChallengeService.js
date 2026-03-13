@@ -1,7 +1,7 @@
 /**
- * Aura Quantum Auth Service
+ * Aura Lattice Challenge Service
  * 
- * Implements a Post-Quantum Cryptography (PQC) layer using 
+ * Implements a challenge layer using 
  * the 'Learning With Errors' (LWE) lattice-based problem (NP-Hard).
  */
 
@@ -17,7 +17,7 @@ const ERROR_BOUND = 2;  // Standard Deviation for error
  * Generates a Lattice-Based Challenge (A, b)
  * A is a random matrix, b = As + e
  */
-const generateLweChallenge = async (userId) => {
+const generateLatticeChallenge = async (userId) => {
     const challengeId = crypto.randomUUID();
     
     // Generate Random Matrix A (n x n)
@@ -47,7 +47,7 @@ const generateLweChallenge = async (userId) => {
     // Store the secret 's' securely in Redis for verification (TTL 5 mins)
     const client = getRedisClient();
     if (client) {
-        await client.setEx(`quantum:challenge:${challengeId}`, 300, JSON.stringify({ s, userId }));
+        await client.setEx(`lattice:challenge:${challengeId}`, 300, JSON.stringify({ s, userId }));
     }
 
     return challenge;
@@ -57,11 +57,11 @@ const generateLweChallenge = async (userId) => {
  * Verifies the mathematical proof provided by the client
  * The client must find 's' such that ||As - b|| is small
  */
-const verifyLweProof = async (challengeId, proof_s) => {
+const verifyLatticeProof = async (challengeId, proof_s) => {
     const client = getRedisClient();
     if (!client) return { success: true }; // Graceful degradation if Redis is down
 
-    const raw = await client.get(`quantum:challenge:${challengeId}`);
+    const raw = await client.get(`lattice:challenge:${challengeId}`);
     if (!raw) return { success: false, reason: 'Challenge expired or not found' };
 
     const { s: original_s } = JSON.parse(raw);
@@ -72,7 +72,7 @@ const verifyLweProof = async (challengeId, proof_s) => {
                     proof_s.every((val, i) => val === original_s[i]);
 
     if (isValid) {
-        await client.del(`quantum:challenge:${challengeId}`);
+        await client.del(`lattice:challenge:${challengeId}`);
     }
 
     return {
@@ -83,6 +83,6 @@ const verifyLweProof = async (challengeId, proof_s) => {
 };
 
 module.exports = {
-    generateLweChallenge,
-    verifyLweProof
+    generateLatticeChallenge,
+    verifyLatticeProof
 };

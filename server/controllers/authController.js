@@ -4,7 +4,7 @@ const {
     resolveAuthenticatedSession,
     syncAuthenticatedUser,
 } = require('../services/authSessionService');
-const { generateLweChallenge, verifyLweProof } = require('../services/quantumAuthService');
+const { generateLatticeChallenge, verifyLatticeProof } = require('../services/latticeChallengeService');
 
 const buildRequestAuthUser = (req) => ({
     ...req.user,
@@ -35,12 +35,12 @@ const syncSession = asyncHandler(async (req, res) => {
         awardLoginPoints: true,
     });
 
-    // Quantum Risk Logic (Simulation)
-    // If it's a new login or first time today, require a Quantum Proof
-    const requiresQuantumProof = true; // Triggering for all syncs in this demo phase
-    let quantumChallenge = null;
-    if (requiresQuantumProof) {
-        quantumChallenge = await generateLweChallenge(user._id);
+    // Lattice Risk Logic (Simulation)
+    // If it's a new login or first time today, require a Lattice Challenge
+    const requiresLatticeChallenge = true; // Triggering for all syncs in this demo phase
+    let latticeChallenge = null;
+    if (requiresLatticeChallenge) {
+        latticeChallenge = await generateLatticeChallenge(user._id);
     }
 
     res.json(buildSessionPayload({
@@ -48,28 +48,28 @@ const syncSession = asyncHandler(async (req, res) => {
         authToken: req.authToken || null,
         authUid: req.authUid || '',
         user,
-        status: requiresQuantumProof ? 'quantum_challenge_required' : 'authenticated',
-        quantumChallenge,
+        status: requiresLatticeChallenge ? 'lattice_challenge_required' : 'authenticated',
+        latticeChallenge,
     }));
 });
 
-// @desc    Verify quantum lattice proof
-// @route   POST /api/auth/verify-quantum
+// @desc    Verify lattice challenge proof
+// @route   POST /api/auth/verify-lattice
 // @access  Private
-const verifyQuantumChallenge = asyncHandler(async (req, res) => {
+const verifyLatticeChallenge = asyncHandler(async (req, res) => {
     const { challengeId, proof } = req.body;
     if (!challengeId || !proof) {
         throw new AppError('Challenge ID and mathematical proof are required', 400);
     }
 
-    const verification = await verifyLweProof(challengeId, proof);
+    const verification = await verifyLatticeProof(challengeId, proof);
     if (!verification.success) {
         throw new AppError('Cryptographic proof verification failed', 403);
     }
 
     res.json({
         success: true,
-        message: 'Post-quantum identity verified',
+        message: 'Lattice-based identity verified',
         ...verification
     });
 });
@@ -77,5 +77,5 @@ const verifyQuantumChallenge = asyncHandler(async (req, res) => {
 module.exports = {
     getSession,
     syncSession,
-    verifyQuantumChallenge,
+    verifyLatticeChallenge,
 };

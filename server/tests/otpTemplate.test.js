@@ -1,7 +1,7 @@
 const { renderOtpTemplate } = require('../services/email/templates/otpTemplate');
 const { buildOtpEmailContext } = require('../services/emailService');
 
-describe('OTP Email Fortress Template', () => {
+describe('OTP Email Security Template', () => {
     test('renders purpose-specific subject and required security sections', () => {
         const context = buildOtpEmailContext({
             purpose: 'login',

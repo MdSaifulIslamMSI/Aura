@@ -3,6 +3,8 @@ const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
 const Order = require('../models/Order');
 const ProductReview = require('../models/ProductReview');
+const { flags: paymentFlags } = require('../config/paymentFlags');
+const { validateProxyUrl } = require('../services/productImageProxyService');
 const {
     queryProducts,
     getProductByIdentifier,
@@ -751,45 +753,24 @@ const getCatalogArtwork = asyncHandler(async (req, res) => {
     return res.status(200).send(svg);
 });
 
-// Explicit hostname allowlist for the product image proxy.
-// Validates the request before any network call, preventing SSRF if
-// shouldProxyProductImage() pattern matching is bypassed or misconfigured.
-const ALLOWED_PROXY_HOSTNAMES = new Set([
-    'rukminim1.flixcart.com',
-    'rukminim2.flixcart.com',
-    'static-assets-web.flixcart.com',
-    'img.freepik.com',
-    'images.unsplash.com',
-    'cdn.pixabay.com',
-    'images.pexels.com',
-]);
-
 // @desc    Proxy trusted upstream product images through same-origin delivery
 // @route   GET /api/products/image-proxy
 // @access  Public
 const getProductImageProxy = asyncHandler(async (req, res, next) => {
     const sourceUrl = String(req.query.url || '').trim();
-    if (!shouldProxyProductImage(sourceUrl)) {
-        return next(new AppError('Unsupported product image source', 400));
-    }
-
-    // SSRF hardening: validate hostname against explicit allowlist before
-    // making any outbound request, regardless of shouldProxyProductImage result.
-    let parsedSourceUrl;
+    
+    let validatedUrl;
     try {
-        parsedSourceUrl = new URL(sourceUrl);
-    } catch {
-        return next(new AppError('Malformed product image URL', 400));
-    }
-    if (!ALLOWED_PROXY_HOSTNAMES.has(parsedSourceUrl.hostname)) {
-        logger.warn('products.image_proxy_blocked_hostname', {
-            hostname: parsedSourceUrl.hostname,
-            requestId: req.requestId,
-        });
-        return next(new AppError('Product image source not permitted', 400));
+        validatedUrl = await validateProxyUrl(sourceUrl);
+    } catch (error) {
+        return next(error);
     }
 
-    const upstreamUrl = buildProductImageFetchUrl(sourceUrl);
+    if (!shouldProxyProductImage(validatedUrl)) {
+        return next(new AppError('Unsupported product image source pattern', 400));
+    }
+
+    const upstreamUrl = buildProductImageFetchUrl(validatedUrl);
 
     let upstream;
     try {

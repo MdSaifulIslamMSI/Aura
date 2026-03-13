@@ -6,7 +6,6 @@ import { CartProvider } from './context/CartContext';
 import { WishlistProvider } from './context/WishlistContext';
 import { ProductProvider } from './context/ProductContext';
 import { ColorModeProvider } from './context/ColorModeContext';
-import { CrazyModeProvider } from './context/CrazyModeContext';
 import { MotionModeProvider, useMotionMode } from './context/MotionModeContext';
 import { SocketProvider } from './context/SocketContext';
 import { AdminRoute, ProtectedRoute, SellerRoute } from './components/shared/ProtectedRoute';
@@ -20,8 +19,6 @@ import SectionAnchorRail from './components/shared/SectionAnchorRail';
 import RouteTransitionShell from './components/shared/RouteTransitionShell';
 import AppErrorBoundary from './components/shared/AppErrorBoundary';
 import BackendStatusBanner from './components/shared/BackendStatusBanner';
-import AuraQuantumChallenge from './components/features/auth/AuraQuantumChallenge';
-import CrazyModeToggle from './components/shared/CrazyModeToggle';
 import { trustRoutes } from './config/trustContent';
 
 // Pages (Lazy Loaded for Performance)
@@ -250,7 +247,6 @@ function AppContent() {
           className: 'border border-white/10 bg-zinc-900 text-slate-100',
         }}
       />
-      <CrazyModeToggle />
     </div>
   );
 }
@@ -261,11 +257,9 @@ function App() {
   return (
     <ColorModeProvider>
       <MotionModeProvider>
-        <CrazyModeProvider>
           <AuthProvider>
             <SocketProvider>
               <VideoCallProvider>
-                <AuraQuantumChallenge />
                 <CartProvider>
                   <WishlistProvider>
                     <ProductProvider>
@@ -278,7 +272,6 @@ function App() {
               </VideoCallProvider>
             </SocketProvider>
           </AuthProvider>
-        </CrazyModeProvider>
       </MotionModeProvider>
     </ColorModeProvider>
   );

@@ -130,13 +130,13 @@ export const buildProductTrustGraph = ({ product = {}, reviewsSummary = {}, pric
     + (ratingCount > 20 ? 20 : 10),
   );
 
-  const overallScore = Math.round(average([
-    priceFairness * 0.28,
-    reviewConfidence * 0.24,
-    fulfillmentReliability * 0.18,
-    authenticity * 0.17,
-    protection * 0.13,
-  ]));
+  const overallScore = Math.round(
+    (priceFairness * 0.28) +
+    (reviewConfidence * 0.24) +
+    (fulfillmentReliability * 0.18) +
+    (authenticity * 0.17) +
+    (protection * 0.13)
+  );
 
   const strengths = [];
   const watchouts = [];

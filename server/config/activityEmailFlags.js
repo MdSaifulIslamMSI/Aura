@@ -1,4 +1,4 @@
-const { parseBoolean, parseNumber, parseCsv } = require('./emailFortressFlags');
+const { parseBoolean, parseNumber, parseCsv } = require('./emailSecurityFlags');
 const { flags: emailFlags } = require('./emailFlags');
 
 const trim = (value, fallback = '') => String(value || fallback).trim();

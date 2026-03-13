@@ -135,7 +135,7 @@ const Footer = () => {
       : 'checking';
   }, [hasBackendSignal, systemHealthStatus, trustStatus.client.secureContext]);
 
-  const emailFortressStatus = useMemo(() => {
+  const emailSecurityStatus = useMemo(() => {
     if (!hasBackendSignal) {
       return 'checking';
     }
@@ -195,11 +195,11 @@ const Footer = () => {
                 </p>
               </div>
 
-              <div className={`footer-card px-3 py-2 transition-all duration-300 hover:-translate-y-1 ${STATUS_CLASSES[emailFortressStatus]}`}>
-                <p className="text-[10px] uppercase tracking-wider font-bold">Email Fortress</p>
+              <div className={`footer-card px-3 py-2 transition-all duration-300 hover:-translate-y-1 ${STATUS_CLASSES[emailSecurityStatus]}`}>
+                <p className="text-[10px] uppercase tracking-wider font-bold">Email Security</p>
                 <p className="text-sm font-semibold mt-0.5 flex items-center gap-2">
                   <Lock className="w-3.5 h-3.5" />
-                  {emailFortressStatus === 'healthy' ? 'Strict Active' : 'Syncing'}
+                  {emailSecurityStatus === 'healthy' ? 'Strict Active' : 'Syncing'}
                 </p>
               </div>
             </div>

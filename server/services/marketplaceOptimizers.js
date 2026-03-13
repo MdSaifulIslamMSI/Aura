@@ -1,9 +1,9 @@
 /**
- * Aura Marketplace Trinity: NP-Hard Heuristics
+ * Marketplace Optimization Heuristics
  * 
- * 1. Aura-Cover (Greedy Set Cover for fulfillment)
- * 2. Aura-Bundle (Greedy Knapsack for value-based bundling)
- * 3. Aura-Match (Gale-Shapley variant for seller-buyer matching)
+ * 1. Set Cover (Greedy minimum-seller fulfillment)
+ * 2. Knapsack (Greedy value-based bundling)
+ * 3. Stable Matching (Weighted seller-buyer ranking)
  */
 
 /**

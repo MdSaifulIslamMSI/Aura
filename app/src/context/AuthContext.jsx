@@ -39,7 +39,7 @@ const SESSION_STATUS = {
   BOOTSTRAP: 'bootstrap',
   LOADING: 'loading',
   AUTHENTICATED: 'authenticated',
-  QUANTUM_CHALLENGE: 'quantum_challenge_required',
+  LATTICE_CHALLENGE: 'lattice_challenge_required',
   RECOVERABLE_ERROR: 'recoverable_error',
   SIGNED_OUT: 'signed_out',
 };
@@ -97,7 +97,7 @@ const buildSessionStateFromPayload = (payload = {}, firebaseUser = null) => {
 
   return {
     status: payload?.status || (session ? SESSION_STATUS.AUTHENTICATED : SESSION_STATUS.SIGNED_OUT),
-    quantumChallenge: payload?.quantumChallenge || null,
+    latticeChallenge: payload?.latticeChallenge || null,
     session,
     profile,
     roles,
@@ -454,13 +454,13 @@ export const AuthProvider = ({ children }) => {
     updateProfile: updateProfileInBackend,
     activateSeller,
     deactivateSeller,
-    verifyQuantumChallenge: async (challengeId, proof) => {
-      const response = await authApi.verifyQuantumChallenge(challengeId, proof);
+    verifyLatticeChallenge: async (challengeId, proof) => {
+      const response = await authApi.verifyLatticeChallenge(challengeId, proof);
       if (response.success) {
         setSessionState((prev) => ({
           ...prev,
           status: SESSION_STATUS.AUTHENTICATED,
-          quantumChallenge: null,
+          latticeChallenge: null,
         }));
       }
       return response;

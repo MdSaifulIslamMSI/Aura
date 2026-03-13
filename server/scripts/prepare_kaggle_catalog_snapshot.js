@@ -1,6 +1,6 @@
 require('dotenv').config();
 
-const { prepareKaggleCatalogSnapshot } = require('../services/kaggleCatalogService');
+const { prepareKaggleCatalogSnapshot } = require('../services/externalCatalogService');
 
 const parseArgs = (argv = []) => {
     const options = {};

@@ -2,8 +2,8 @@ const AppError = require('../../utils/AppError');
 
 const diff = (a, b) => Math.abs(Number(a) - Number(b));
 
-const buildFortressState = (intent) => {
-    const state = intent?.metadata?.fortress || {};
+const buildSecurityState = (intent) => {
+    const state = intent?.metadata?.securityLayer || {};
     return {
         failedConfirmAttempts: Number(state.failedConfirmAttempts || 0),
         totalConfirmFailures: Number(state.totalConfirmFailures || 0),
@@ -13,11 +13,11 @@ const buildFortressState = (intent) => {
     };
 };
 
-const setFortressState = (intent, nextState = {}) => {
-    const current = buildFortressState(intent);
+const setSecurityState = (intent, nextState = {}) => {
+    const current = buildSecurityState(intent);
     intent.metadata = {
         ...(intent.metadata || {}),
-        fortress: {
+        securityLayer: {
             ...current,
             ...nextState,
         },
@@ -28,7 +28,7 @@ const setFortressState = (intent, nextState = {}) => {
 };
 
 const getLockUntilDate = (intent) => {
-    const state = buildFortressState(intent);
+    const state = buildSecurityState(intent);
     const lockedUntil = state.lockedUntil ? new Date(state.lockedUntil) : null;
     if (!lockedUntil || Number.isNaN(lockedUntil.getTime())) return null;
     return lockedUntil;
@@ -60,8 +60,8 @@ const assertConfirmNotLocked = (intent) => {
 
 module.exports = {
     diff,
-    buildFortressState,
-    setFortressState,
+    buildSecurityState,
+    setSecurityState,
     getLockUntilDate,
     assertQuoteMatches,
     isIntentExpired,
