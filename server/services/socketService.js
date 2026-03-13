@@ -68,6 +68,69 @@ const initializeSocket = (httpServer) => {
 
         logger.info('socket.client_connected', { userId, socketId: socket.id });
 
+        // ── Video Calling Signaling ──────────────────────────────────
+        
+const Listing = require('../models/Listing');
+
+// ... (existing code)
+
+        // Initiate a call: peer A -> server -> peer B
+        socket.on('video:call:initiate', async (payload) => {
+            const { targetUserId, listingId, signalData } = payload;
+            
+            try {
+                // Defensive Security: Verify participants
+                const listing = await Listing.findById(listingId).lean();
+                if (!listing) {
+                    throw new Error('Listing not found');
+                }
+
+                const sellerId = String(listing.seller);
+                const isUserSeller = userId === sellerId;
+                const isUserBuyer = userId === String(listing.escrow?.buyer);
+                
+                // Allow call only if the initiator is the buyer or seller
+                // and the target is the other party.
+                const isAuthorized = (isUserSeller && targetUserId === String(listing.escrow?.buyer)) ||
+                                   (isUserBuyer && targetUserId === sellerId);
+
+                if (!isAuthorized) {
+                    logger.warn('video.call_unauthorized', { from: userId, to: targetUserId, listingId });
+                    return socket.emit('video:call:error', { message: 'Unauthorized call attempt' });
+                }
+
+                logger.info('video.call_initiated', { from: userId, to: targetUserId, listingId });
+                
+                sendMessageToUser(targetUserId, 'video:call:incoming', {
+                    fromUserId: userId,
+                    fromName: socket.user.name,
+                    listingId,
+                    signalData
+                });
+            } catch (err) {
+                logger.error('video.call_initiate_failed', { error: err.message });
+                socket.emit('video:call:error', { message: 'Failed to initiate video call' });
+            }
+        });
+
+        // Relay signaling data (Offer/Answer/ICE): peer A <-> server <-> peer B
+        socket.on('video:call:signal', (payload) => {
+            const { targetUserId, signalData } = payload;
+            sendMessageToUser(targetUserId, 'video:call:signal', {
+                fromUserId: userId,
+                signalData
+            });
+        });
+
+        // Terminate call: peer A -> server -> peer B
+        socket.on('video:call:hangup', (payload) => {
+            const { targetUserId } = payload;
+            logger.info('video.call_terminated', { from: userId, to: targetUserId });
+            sendMessageToUser(targetUserId, 'video:call:terminated', {
+                fromUserId: userId
+            });
+        });
+
         socket.on('disconnect', () => {
             const userSet = userSockets.get(userId);
             if (userSet) {
