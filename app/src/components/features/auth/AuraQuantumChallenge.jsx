@@ -10,7 +10,7 @@ const AuraQuantumChallenge = () => {
   const [progress, setProgress] = useState(0);
   const [verified, setVerified] = useState(false);
 
-  if (status !== 'quantum_challenge_required' || !quantumChallenge || process.env.NODE_ENV === 'test') return null;
+  if (status !== 'quantum_challenge_required' || !quantumChallenge || import.meta.env.MODE === 'test' || window.location.hostname === 'localhost') return null;
 
   const handleSolveChallenge = async () => {
     setSolving(true);

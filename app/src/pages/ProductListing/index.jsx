@@ -366,6 +366,14 @@ const ProductListing = () => {
           <p className="text-slate-400 font-medium">Filtered from live catalog inventory</p>
         </RevealOnScroll>
       )}
+      {!effectiveCategorySlug && !searchQuery && (
+        <RevealOnScroll anchorId="listing-default" anchorLabel="Aura Catalog" className="mb-8">
+          <h1 className="text-3xl md:text-5xl font-black text-white tracking-tight mb-2">
+            Aura <span className="text-transparent bg-clip-text bg-gradient-to-r from-neo-cyan to-neo-emerald">Catalog</span>
+          </h1>
+          <p className="text-slate-400 font-medium">Explore our full selection of premium products</p>
+        </RevealOnScroll>
+      )}
 
       {/* Mobile Filter Toggle */}
       <div className="lg:hidden mb-4 flex justify-between items-center bg-white/[0.045] px-4 py-3 rounded-2xl border border-white/10">
