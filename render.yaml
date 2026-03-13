@@ -5,7 +5,7 @@ services:
     plan: free
     region: singapore
     rootDir: server
-    buildCommand: npm ci
+    buildCommand: npm ci --production
     startCommand: npm start
     healthCheckPath: /health/ready
     autoDeployTrigger: commit
