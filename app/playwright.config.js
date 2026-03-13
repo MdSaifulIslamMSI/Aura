@@ -35,11 +35,15 @@ export default defineConfig({
     // Automatically build and serve before running tests in CI.
     webServer: [
         {
-            command: 'npm start',
+            command: 'npm ci && npm start',
             cwd: '../server',
             url: 'http://localhost:5000/health',
             reuseExistingServer: !process.env.CI,
-            timeout: 120_000,
+            timeout: 180_000,
+            env: {
+                MONGO_URI: process.env.CI ? 'mongodb://127.0.0.1:27017/aura_e2e' : process.env.MONGO_URI,
+                NODE_ENV: 'test',
+            },
         },
         {
             command: 'npm run build && npm run preview',
