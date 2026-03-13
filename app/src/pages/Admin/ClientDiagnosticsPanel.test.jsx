@@ -90,9 +90,9 @@ describe('ClientDiagnosticsPanel', () => {
 
         await screen.findByText('api.network_error');
 
-        fireEvent.change(screen.getByLabelText('Severity'), {
-            target: { value: 'warning' },
-        });
+        fireEvent.click(screen.getByLabelText('Severity'));
+        fireEvent.click(screen.getByRole('option', { name: /warning/i }));
+
         fireEvent.change(screen.getByLabelText('Type'), {
             target: { value: 'api.response_error' },
         });
@@ -105,9 +105,9 @@ describe('ClientDiagnosticsPanel', () => {
         fireEvent.change(screen.getByLabelText('Route Contains'), {
             target: { value: '/products' },
         });
-        fireEvent.change(screen.getByLabelText('Limit'), {
-            target: { value: '50' },
-        });
+
+        fireEvent.click(screen.getByLabelText('Limit'));
+        fireEvent.click(screen.getByRole('option', { name: /^50$/ }));
 
         fireEvent.click(screen.getByRole('button', { name: /apply filters/i }));
 
