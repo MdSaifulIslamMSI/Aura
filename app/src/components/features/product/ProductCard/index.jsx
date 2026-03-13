@@ -339,6 +339,7 @@ const ProductCard = ({ product, variant = 'default', gridLayout = null, harmonyI
           surfaceClass
         )}
         style={cardSurfaceStyle}
+        data-testid="product-card"
       >
         <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-100">
           <div className={cn(
@@ -596,6 +597,7 @@ const ProductCard = ({ product, variant = 'default', gridLayout = null, harmonyI
           height: '100%'
         } : {})
       }}
+      data-testid="product-card"
     >
       <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-100">
         <div className={cn(
