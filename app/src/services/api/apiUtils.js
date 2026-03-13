@@ -1,0 +1,43 @@
+import { auth, isFirebaseReady } from '../config/firebase';
+import { createResponseError } from './apiBase';
+
+/**
+ * Retrieves the Firebase ID token and returns an Authorization header.
+ */
+export const getAuthHeader = async (firebaseUser = null) => {
+    if (!isFirebaseReady || !auth) {
+        return {};
+    }
+    const user = firebaseUser || auth.currentUser;
+    if (user) {
+        const token = await user.getIdToken();
+        return { 'Authorization': `Bearer ${token}` };
+    }
+    return {};
+};
+
+/**
+ * Parses API error responses into human-readable messages.
+ */
+export const parseApiError = async (response, fallbackMessage) => {
+    const error = await createResponseError(response, fallbackMessage);
+    return error.message;
+};
+
+/**
+ * Creates an idempotency key for safe retries.
+ */
+export const createIdempotencyKey = (prefix = 'idmp') =>
+    `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
+/**
+ * Runs a callback during browser idle time or after a short delay.
+ */
+export const runWhenIdle = (callback) => {
+    if (typeof window === 'undefined') return;
+    if (typeof window.requestIdleCallback === 'function') {
+        window.requestIdleCallback(callback, { timeout: 1500 });
+        return;
+    }
+    window.setTimeout(callback, 250);
+};
