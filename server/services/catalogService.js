@@ -681,7 +681,9 @@ const enforceCatalogStartupCheck = async () => {
     if (!flags.catalogSearchCheckOnBoot || flags.isTest) return;
     const available = await assertSearchAvailable();
     if (!available && flags.isProduction) {
-        throw new Error(`Atlas Search index "${flags.catalogSearchIndexName}" is unavailable`);
+        logger.warn('catalog.startup_gate.search_unavailable', {
+            message: `Atlas Search index "${flags.catalogSearchIndexName}" is unavailable. Falling back to regex search.`,
+        });
     }
 };
 
