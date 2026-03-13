@@ -189,6 +189,14 @@ export const requestWithTrace = async (input, options = {}) => {
         const trace = prepareTraceHeaders(url, headers);
         const startedAt = Date.now();
 
+        // Default to JSON if body is present and it's a string, and Content-Type is not set
+        if (body && typeof body === 'string' && !trace.headers.has('Content-Type')) {
+            trace.headers.set('Content-Type', 'application/json');
+        }
+        if (!trace.headers.has('Accept')) {
+            trace.headers.set('Accept', 'application/json');
+        }
+
         if (signal) {
             if (signal.aborted) {
                 clearTimeout(timeoutId);
