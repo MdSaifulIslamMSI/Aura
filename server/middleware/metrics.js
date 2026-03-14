@@ -90,4 +90,23 @@ const metricsMiddleware = (req, res, next) => {
     next();
 };
 
-module.exports = { metricsMiddleware, registry };
+const metricsAuth = (req, res, next) => {
+    const isProduction = (process.env.NODE_ENV || 'production') === 'production';
+    const metricsSecret = String(process.env.METRICS_SECRET || process.env.CRON_SECRET || '').trim();
+    
+    if (isProduction && metricsSecret) {
+        const provided = String(
+            req.headers['x-metrics-key'] || 
+            req.headers['x-metrics-token'] || 
+            req.query.token || 
+            ''
+        ).trim();
+
+        if (provided !== metricsSecret) {
+            return res.status(401).json({ status: 'error', message: 'Unauthorized' });
+        }
+    }
+    next();
+};
+
+module.exports = { metricsMiddleware, metricsAuth, registry };

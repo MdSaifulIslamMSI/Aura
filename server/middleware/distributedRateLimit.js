@@ -4,6 +4,10 @@ const logger = require('../utils/logger');
 const memoryStore = new Map();
 let memoryCleanupEvery = 0;
 
+let redisCircuitBroken = false;
+let redisCircuitLastFailure = 0;
+const REDIS_CIRCUIT_TIMEOUT = 10000; // 10 seconds before retry
+
 const parseKey = (value) => String(value || '').trim();
 
 const scheduleMemoryCleanup = () => {
@@ -102,12 +106,28 @@ const createDistributedRateLimit = ({
         const identifier = parseKey(createKey(req)) || 'unknown';
         const storeKey = `${redisFlags.redisPrefix}:rl:${limiterName}:${identifier}`;
 
+        const now = Date.now();
+        const skipRedis = redisCircuitBroken && (now - redisCircuitLastFailure < REDIS_CIRCUIT_TIMEOUT);
+
         try {
             let state = null;
-            const client = getRedisClient();
-            if (client) {
-                state = await computeRedisWindow(storeKey, windowMs);
+            if (!skipRedis) {
+                const client = getRedisClient();
+                if (client) {
+                    try {
+                        state = await computeRedisWindow(storeKey, windowMs);
+                        if (redisCircuitBroken) {
+                            redisCircuitBroken = false;
+                            logger.info('rate_limit.redis_circuit_recovered');
+                        }
+                    } catch (redisError) {
+                        redisCircuitBroken = true;
+                        redisCircuitLastFailure = now;
+                        logger.warn('rate_limit.redis_circuit_opened', { error: redisError.message });
+                    }
+                }
             }
+
             if (!state) {
                 state = computeMemoryWindow(storeKey, windowMs);
             }
@@ -119,14 +139,16 @@ const createDistributedRateLimit = ({
             }
             return next();
         } catch (error) {
-            logger.warn('rate_limit.fallback_to_memory', {
+            logger.error('rate_limit.unexpected_error', {
                 limiter: limiterName,
                 error: error?.message || 'unknown error',
             });
 
             const state = computeMemoryWindow(storeKey, windowMs);
-            setHeaders(res, max, state.count, state.ttlMs);
-            if (state.count > max) {
+            if (!res.headersSent) {
+                setHeaders(res, max, state.count, state.ttlMs);
+            }
+            if (state.count > max && !res.headersSent) {
                 return res.status(429).json(responsePayload);
             }
             return next();

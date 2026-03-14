@@ -169,6 +169,7 @@ export const useWebRTC = (listingId) => {
             socket.off('video:call:incoming', handleIncoming);
             socket.off('video:call:signal', handleSignal);
             socket.off('video:call:terminated', handleTerminated);
+            cleanup();
         };
     }, [socket, initializePeerConnection, cleanup]);
 

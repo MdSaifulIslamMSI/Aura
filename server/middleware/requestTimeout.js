@@ -57,10 +57,13 @@ const createRequestTimeout = (timeoutMs = DEFAULT_TIMEOUT_MS) => (req, res, next
     // Allow downstream handlers to clear the timeout for long operations.
     req.clearTimeout = () => clearTimeout(timer);
 
-    res.on('finish', () => {
-        if (!timedOut) clearTimeout(timer);
-    });
-    res.on('close', () => clearTimeout(timer));
+    const cleanup = () => {
+        clearTimeout(timer);
+    };
+
+    res.on('finish', cleanup);
+    res.on('close', cleanup);
+    res.on('error', cleanup);
 
     next();
 };

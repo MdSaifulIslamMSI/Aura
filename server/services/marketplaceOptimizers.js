@@ -8,31 +8,54 @@
 
 /**
  * Heuristic for Set Cover (Minimum Sellers for Cart)
- * Minimizes the number of 'packages' by selecting sellers that cover the most items.
+ * Minimizes the number of 'packages' by selecting sellers that cover the most items with sufficient stock.
  */
 exports.solveAuraCover = (cartItems, sellerInventoryMap) => {
-    // cartItems: Array of product IDs needed
-    // sellerInventoryMap: Map<SellerId, Set<ProductId>>
+    // cartItems: Array of { id, quantity }
+    // sellerInventoryMap: Map<SellerId, Map<ProductId, StockCount>>
     
-    let uncovered = new Set(cartItems);
+    // Map of productId -> remaining quantity needed
+    const uncovered = new Map();
+    cartItems.forEach(item => {
+        uncovered.set(item.id, (uncovered.get(item.id) || 0) + (item.quantity || 1));
+    });
+
     const selectedSellers = [];
     
     while (uncovered.size > 0) {
         let bestSeller = null;
-        let bestCoveredCount = 0;
+        let bestCoveredScore = 0;
         
         for (const [sellerId, inventory] of Object.entries(sellerInventoryMap)) {
-            const intersection = [...inventory].filter(id => uncovered.has(id));
-            if (intersection.length > bestCoveredCount) {
-                bestCoveredCount = intersection.length;
-                bestSeller = { id: sellerId, items: intersection };
+            let sellerScore = 0;
+            const coveredItems = [];
+            
+            for (const [productId, neededQty] of uncovered.entries()) {
+                const stock = inventory instanceof Map ? inventory.get(productId) : (inventory[productId] || 0);
+                if (stock > 0) {
+                    const coveredQty = Math.min(stock, neededQty);
+                    sellerScore += coveredQty;
+                    coveredItems.push({ id: productId, quantity: coveredQty });
+                }
+            }
+            
+            if (sellerScore > bestCoveredScore) {
+                bestCoveredScore = sellerScore;
+                bestSeller = { id: sellerId, items: coveredItems };
             }
         }
         
-        if (!bestSeller) break; // Should not happen if inventory covers items
+        if (!bestSeller || bestCoveredScore === 0) break;
         
         selectedSellers.push(bestSeller);
-        bestSeller.items.forEach(id => uncovered.delete(id));
+        bestSeller.items.forEach(item => {
+            const currentNeeded = uncovered.get(item.id);
+            if (currentNeeded <= item.quantity) {
+                uncovered.delete(item.id);
+            } else {
+                uncovered.set(item.id, currentNeeded - item.quantity);
+            }
+        });
     }
     
     return selectedSellers;

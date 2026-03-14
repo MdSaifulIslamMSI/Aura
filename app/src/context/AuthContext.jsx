@@ -44,6 +44,15 @@ const SESSION_STATUS = {
   SIGNED_OUT: 'signed_out',
 };
 
+const VALID_TRANSITIONS = {
+  [SESSION_STATUS.BOOTSTRAP]: [SESSION_STATUS.LOADING, SESSION_STATUS.SIGNED_OUT, SESSION_STATUS.RECOVERABLE_ERROR],
+  [SESSION_STATUS.LOADING]: [SESSION_STATUS.AUTHENTICATED, SESSION_STATUS.SIGNED_OUT, SESSION_STATUS.RECOVERABLE_ERROR, SESSION_STATUS.LATTICE_CHALLENGE],
+  [SESSION_STATUS.AUTHENTICATED]: [SESSION_STATUS.SIGNED_OUT, SESSION_STATUS.LOADING, SESSION_STATUS.LATTICE_CHALLENGE],
+  [SESSION_STATUS.LATTICE_CHALLENGE]: [SESSION_STATUS.AUTHENTICATED, SESSION_STATUS.SIGNED_OUT, SESSION_STATUS.LOADING],
+  [SESSION_STATUS.RECOVERABLE_ERROR]: [SESSION_STATUS.LOADING, SESSION_STATUS.SIGNED_OUT, SESSION_STATUS.AUTHENTICATED],
+  [SESSION_STATUS.SIGNED_OUT]: [SESSION_STATUS.LOADING, SESSION_STATUS.BOOTSTRAP],
+};
+
 const EMPTY_ROLES = {
   isAdmin: false,
   isSeller: false,
@@ -107,7 +116,22 @@ const buildSessionStateFromPayload = (payload = {}, firebaseUser = null) => {
 
 export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
-  const [sessionState, setSessionState] = useState(EMPTY_SESSION_STATE);
+  const [sessionState, setSessionStateInternal] = useState(EMPTY_SESSION_STATE);
+
+  const setSessionState = (next) => {
+    setSessionStateInternal((prev) => {
+      const nextState = typeof next === 'function' ? next(prev) : next;
+      if (prev.status === nextState.status) return nextState;
+      
+      const allowed = VALID_TRANSITIONS[prev.status] || [];
+      if (!allowed.includes(nextState.status)) {
+        console.warn(`AuthContext: Invalid state transition attempted from ${prev.status} to ${nextState.status}`);
+        // In production, we might want to allow it anyway but log it, 
+        // or force a specific path. For now, we allow it but warn.
+      }
+      return nextState;
+    });
+  };
   const syncStateRef = useRef({
     identity: '',
     lastSyncedAt: 0,

@@ -38,11 +38,15 @@ const resolveSocketUser = async (token) => {
 
 const initializeSocket = (httpServer) => {
     io = new Server(httpServer, {
+        pingTimeout: 20000,
+        pingInterval: 10000,
+        connectTimeout: 10000,
         cors: {
             origin: process.env.FRONTEND_URL || 'http://localhost:5173',
             methods: ['GET', 'POST'],
             credentials: true,
-        }
+        },
+        maxHttpBufferSize: 1e6, // 1MB limit for handshakes/payloads
     });
 
     // Mirror the HTTP auth path by verifying Firebase bearer tokens.
@@ -59,7 +63,10 @@ const initializeSocket = (httpServer) => {
     });
 
     io.on('connection', (socket) => {
-        const userId = socket.user.id;
+        const userId = String(socket.user.id);
+
+        // Join a private room for this user to simplify targeted messaging
+        socket.join(`user:${userId}`);
 
         if (!userSockets.has(userId)) {
             userSockets.set(userId, new Set());
@@ -131,7 +138,7 @@ const Listing = require('../models/Listing');
             });
         });
 
-        socket.on('disconnect', () => {
+        socket.on('disconnect', (reason) => {
             const userSet = userSockets.get(userId);
             if (userSet) {
                 userSet.delete(socket.id);
@@ -139,7 +146,8 @@ const Listing = require('../models/Listing');
                     userSockets.delete(userId);
                 }
             }
-            logger.info('socket.client_disconnected', { userId, socketId: socket.id });
+            socket.leave(`user:${userId}`);
+            logger.info('socket.client_disconnected', { userId, socketId: socket.id, reason });
         });
     });
 
@@ -151,16 +159,22 @@ const getIo = () => {
     return io;
 };
 
-const sendMessageToUser = (userId, eventName, payload) => {
+const sendMessageToUser = (userId, eventName, payload, options = {}) => {
     if (!io) return;
 
-    const targetSockets = userSockets.get(String(userId));
-    if (targetSockets && targetSockets.size > 0) {
-        targetSockets.forEach((socketId) => {
-            io.to(socketId).emit(eventName, payload);
-        });
-        logger.info('socket.event_emitted', { userId, eventName, socketCount: targetSockets.size });
-    }
+    const normalizedUserId = String(userId);
+    const room = `user:${normalizedUserId}`;
+
+    // Use rooms for better scalability and cleaner targeted messaging
+    const emitAction = options.volatile ? io.to(room).volatile : io.to(room);
+    
+    emitAction.emit(eventName, payload);
+    
+    logger.debug('socket.event_emitted', { 
+        userId: normalizedUserId, 
+        eventName,
+        room 
+    });
 };
 
 module.exports = {

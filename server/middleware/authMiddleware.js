@@ -3,7 +3,7 @@ const asyncHandler = require('express-async-handler');
 const User = require('../models/User');
 const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
-const { getRedisClient } = require('../config/redis');
+const { getRedisClient, flags: redisFlags } = require('../config/redis');
 
 // Redis-backed token cache.
 // Replaces the in-process Map which broke horizontal scaling:
@@ -15,7 +15,7 @@ const { getRedisClient } = require('../config/redis');
 // all cases, just slower. No silent security regression on fallback.
 
 const CACHE_BUFFER_SECONDS = 60;
-const AUTH_CACHE_PREFIX = 'auth:cache:';
+const AUTH_CACHE_PREFIX = `${redisFlags.redisPrefix}:auth:cache:`;
 
 const getCachedUser = async (uid) => {
     try {
@@ -167,7 +167,7 @@ const protect = asyncHandler(async (req, res, next) => {
             token = req.headers.authorization.split(' ')[1];
 
             // ── Step 1: Verify Firebase token ──────────────────────
-            const decodedToken = await firebaseAdmin.auth().verifyIdToken(token);
+            const decodedToken = await firebaseAdmin.auth().verifyIdToken(token, true);
             const { uid, email, exp } = decodedToken;
             req.authUid = uid;
             req.authToken = decodedToken;

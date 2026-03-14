@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const Decimal = require('decimal.js');
 const Product = require('../models/Product');
 const SystemState = require('../models/SystemState');
 const AppError = require('../utils/AppError');
@@ -12,7 +13,29 @@ const DELIVERY_OPTIONS = ['standard', 'express'];
 const SLOT_WINDOWS = ['09:00-12:00', '12:00-15:00', '15:00-18:00', '18:00-21:00'];
 const PRICING_VERSION = 'v2';
 
-const roundCurrency = (value) => Number((Number(value) || 0).toFixed(2));
+const distanceCache = new Map();
+
+const haversineDistance = (lat1, lon1, lat2, lon2) => {
+    const key = `${lat1},${lon1}:${lat2},${lon2}`;
+    if (distanceCache.has(key)) return distanceCache.get(key);
+
+    const R = 6371; // Radius of the Earth in km
+    const dLat = (lat2 - lat1) * (Math.PI / 180);
+    const dLon = (lon2 - lon1) * (Math.PI / 180);
+    const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * (Math.PI / 180)) *
+        Math.cos(lat2 * (Math.PI / 180)) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const d = R * c;
+    
+    distanceCache.set(key, d);
+    return d;
+};
+
+const roundCurrency = (value) => new Decimal(value || 0).toDecimalPlaces(2).toNumber();
 
 const parsePositiveInteger = (value, fieldName) => {
     const parsed = Number(value);
@@ -78,7 +101,7 @@ const calculateOptimalDeliverySlots = (userLocation = {}, regionalDeliveries = [
         // Calculate marginal distance to the nearest existing delivery in this window
         let minMarginalDist = Infinity;
         windowDeliveries.forEach(d => {
-            const dist = Math.sqrt((d.lat - lat)**2 + (d.lng - lng)**2);
+            const dist = haversineDistance(lat, lng, d.lat, d.lng);
             if (dist < minMarginalDist) minMarginalDist = dist;
         });
 
@@ -187,19 +210,19 @@ const resolveProductsForItems = async (normalizedItems, { session = null, checkS
             );
         }
 
-        const unitPrice = Number(product.price) || 0;
-        const lineTotal = roundCurrency(unitPrice * item.quantity);
-        itemsPrice = roundCurrency(itemsPrice + lineTotal);
+        const unitPrice = new Decimal(product.price || 0);
+        const lineTotal = unitPrice.times(item.quantity).toDecimalPlaces(2);
+        itemsPrice = new Decimal(itemsPrice).plus(lineTotal).toDecimalPlaces(2);
 
         resolvedItems.push({
             productId: item.productId,
             quantity: item.quantity,
             title: product.title,
             image: product.image,
-            price: unitPrice,
+            price: unitPrice.toNumber(),
             mongoProductId: product._id,
             stock: product.stock,
-            lineTotal,
+            lineTotal: lineTotal.toNumber(),
             // Simulating seller location for the demo
             sellerLocation: {
                 city: ['Mumbai', 'Delhi', 'Bangalore', 'Chennai', 'Hyderabad'][product.id % 5],
@@ -208,7 +231,7 @@ const resolveProductsForItems = async (normalizedItems, { session = null, checkS
         });
     }
 
-    return { resolvedItems, itemsPrice };
+    return { resolvedItems, itemsPrice: new Decimal(itemsPrice).toNumber() };
 };
 
 const evaluateCoupon = ({ couponCode, itemsPrice, shippingPrice, paymentMethod }) => {
@@ -232,22 +255,24 @@ const evaluateCoupon = ({ couponCode, itemsPrice, shippingPrice, paymentMethod }
         throw new AppError(`Coupon ${coupon.code} is only valid for ${coupon.paymentMethod} payments`, 400);
     }
 
-    let couponDiscount = 0;
+    const discountVal = new Decimal(coupon.value || 0);
+    let couponDiscount = new Decimal(0);
     if (coupon.type === 'percentage') {
-        const rawDiscount = (itemsPrice * coupon.value) / 100;
-        couponDiscount = coupon.maxDiscount ? Math.min(rawDiscount, coupon.maxDiscount) : rawDiscount;
+        const rawDiscount = new Decimal(itemsPrice).times(discountVal).div(100);
+        couponDiscount = coupon.maxDiscount ? Decimal.min(rawDiscount, coupon.maxDiscount) : rawDiscount;
     } else if (coupon.type === 'flat') {
-        couponDiscount = coupon.value;
+        couponDiscount = discountVal;
     } else if (coupon.type === 'free_shipping') {
-        couponDiscount = shippingPrice;
+        couponDiscount = new Decimal(shippingPrice);
     }
 
-    couponDiscount = roundCurrency(Math.max(0, couponDiscount));
-    const maxApplicable = roundCurrency(itemsPrice + shippingPrice);
-    couponDiscount = Math.min(couponDiscount, maxApplicable);
+    couponDiscount = couponDiscount.toDecimalPlaces(2);
+    const maxApplicable = new Decimal(itemsPrice).plus(shippingPrice).toDecimalPlaces(2);
+    couponDiscount = Decimal.min(couponDiscount, maxApplicable).toDecimalPlaces(2);
+    couponDiscount = Decimal.max(0, couponDiscount);
 
     return {
-        couponDiscount,
+        couponDiscount: couponDiscount.toNumber(),
         appliedCoupon: {
             code: coupon.code,
             type: coupon.type,
@@ -305,18 +330,23 @@ const calculatePricing = async ({
         paymentMethod,
     });
 
-    const preTaxTotal = roundCurrency(itemsPrice + shippingPrice + paymentAdjustment - couponDiscount);
-    const taxBase = roundCurrency(Math.max(itemsPrice - Math.min(couponDiscount, itemsPrice) + Math.max(paymentAdjustment, 0), 0));
-    const taxPrice = roundCurrency(taxBase * 0.18);
-    const totalPrice = roundCurrency(Math.max(preTaxTotal, 0) + taxPrice);
+    const itemsPriceDec = new Decimal(itemsPrice);
+    const shippingPriceDec = new Decimal(shippingPrice);
+    const paymentAdjustmentDec = new Decimal(paymentAdjustment);
+    const couponDiscountDec = new Decimal(couponDiscount);
+
+    const preTaxTotal = itemsPriceDec.plus(shippingPriceDec).plus(paymentAdjustmentDec).minus(couponDiscountDec);
+    const taxBase = Decimal.max(itemsPriceDec.minus(Decimal.min(couponDiscountDec, itemsPriceDec)).plus(Decimal.max(paymentAdjustmentDec, 0)), 0);
+    const taxPrice = taxBase.times(0.18).toDecimalPlaces(2);
+    const totalPrice = Decimal.max(preTaxTotal, 0).plus(taxPrice).toDecimalPlaces(2);
 
     return {
-        itemsPrice: roundCurrency(itemsPrice),
-        shippingPrice,
-        paymentAdjustment,
-        couponDiscount,
-        taxPrice,
-        totalPrice,
+        itemsPrice: itemsPriceDec.toDecimalPlaces(2).toNumber(),
+        shippingPrice: shippingPriceDec.toDecimalPlaces(2).toNumber(),
+        paymentAdjustment: paymentAdjustmentDec.toDecimalPlaces(2).toNumber(),
+        couponDiscount: couponDiscountDec.toDecimalPlaces(2).toNumber(),
+        taxPrice: taxPrice.toNumber(),
+        totalPrice: totalPrice.toNumber(),
         appliedCoupon,
         logisticsInsights: {
             ...logistics.insights,

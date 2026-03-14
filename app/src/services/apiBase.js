@@ -5,7 +5,24 @@ const normalizePath = (path = '') => (String(path || '').startsWith('/')
     ? String(path || '')
     : `/${String(path || '')}`);
 
-export const API_BASE_URL = trimTrailingSlash(import.meta.env.VITE_API_URL || '/api');
+const getSafeEnv = (key, fallback = '') => {
+    try {
+        // Handle Vite specific import.meta.env and fallback to process.env if available
+        if (typeof import.meta !== 'undefined' && import.meta.env) {
+            return import.meta.env[key] || fallback;
+        }
+        if (typeof process !== 'undefined' && process.env) {
+            return process.env[key] || fallback;
+        }
+    } catch {
+        // Silently fail and use fallback
+    }
+    return fallback;
+};
+
+export const API_BASE_URL = trimTrailingSlash(getSafeEnv('VITE_API_URL', '/api'));
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const deriveServiceBaseUrl = () => {
     const raw = trimTrailingSlash(API_BASE_URL);
@@ -225,6 +242,8 @@ export const requestWithTrace = async (input, options = {}) => {
             const durationMs = Date.now() - startedAt;
             if (attempt < normalizedRetries && isRetryableStatus(response.status)) {
                 attempt += 1;
+                const delay = Math.min(1000 * Math.pow(2, attempt - 1) + Math.random() * 200, 10000);
+                await sleep(delay);
                 continue;
             }
 
@@ -261,6 +280,8 @@ export const requestWithTrace = async (input, options = {}) => {
                 }
                 if (attempt < normalizedRetries && requestMethod === 'GET') {
                     attempt += 1;
+                    const delay = Math.min(1000 * Math.pow(2, attempt - 1) + Math.random() * 200, 10000);
+                    await sleep(delay);
                     continue;
                 }
                 throw createApiError('Request timed out', 0, null, {
@@ -274,6 +295,8 @@ export const requestWithTrace = async (input, options = {}) => {
 
             if (attempt < normalizedRetries && requestMethod === 'GET' && !error?.status) {
                 attempt += 1;
+                const delay = Math.min(1000 * Math.pow(2, attempt - 1) + Math.random() * 200, 10000);
+                await sleep(delay);
                 continue;
             }
 

@@ -400,7 +400,7 @@ if (require.main === module) {
         // Start listening IMMEDIATELY after DB connection to satisfy Render health checks.
         // Async startup tasks (Redis, Catalog, Workers) will run in the background.
         const httpServer = server.listen(PORT, '0.0.0.0', () => {
-            console.log(`Server running in ${NODE_ENV} mode on port ${PORT}`.yellow.bold);
+            logger.info(`Server running in ${NODE_ENV} mode on port ${PORT}`.yellow.bold);
             logger.info('server.startup_bind_success', { port: PORT, env: NODE_ENV });
 
             // Run intensive startup tasks asynchronously
@@ -447,6 +447,22 @@ if (require.main === module) {
 
         process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
         process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+        process.on('unhandledRejection', (reason, promise) => {
+            logger.error('server.unhandled_rejection', { 
+                reason: reason instanceof Error ? reason.message : String(reason),
+                stack: reason instanceof Error ? reason.stack : undefined
+            });
+        });
+
+        process.on('uncaughtException', (error) => {
+            logger.error('server.uncaught_exception', { 
+                message: error.message,
+                stack: error.stack
+            });
+            // Give the logger time to write before exiting
+            setTimeout(() => process.exit(1), 1000).unref();
+        });
 
     }).catch((error) => {
         logger.error('server.db_connect_failed', { error: error.message });

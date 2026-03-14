@@ -9,6 +9,13 @@ const AuraQuantumChallenge = () => {
   const [solving, setSolving] = useState(false);
   const [progress, setProgress] = useState(0);
   const [verified, setVerified] = useState(false);
+  const [solveInterval, setSolveInterval] = useState(null);
+
+  useEffect(() => {
+    return () => {
+      if (solveInterval) clearInterval(solveInterval);
+    };
+  }, [solveInterval]);
 
   if (status !== 'lattice_challenge_required' || !latticeChallenge || import.meta.env.MODE === 'test' || window.location.hostname === 'localhost') return null;
 
@@ -22,11 +29,13 @@ const AuraQuantumChallenge = () => {
       setProgress((prev) => {
         if (prev >= 100) {
           clearInterval(interval);
+          setSolveInterval(null);
           return 100;
         }
         return prev + Math.random() * 15;
       });
     }, 200);
+    setSolveInterval(interval);
 
     try {
       // Small delay to simulate heavy math
@@ -34,7 +43,13 @@ const AuraQuantumChallenge = () => {
       
       // The challenge contains the solution 's' for this demo.
       // In production, the client would use its private lattice parameters to solve.
-      const proof = latticeChallenge.A[0].map(() => Math.floor(Math.random() * 257)); // Mock proof
+      const getSecureRandomInt = (max) => {
+        const array = new Uint32Array(1);
+        window.crypto.getRandomValues(array);
+        return array[0] % max;
+      };
+
+      const proof = latticeChallenge.A[0].map(() => getSecureRandomInt(257)); // Mock proof
       
       // Since this is a demo of the flow, let's just use the known secret from the challenge if available
       // or a mock that the server will accept for the sake of the walkthrough.
