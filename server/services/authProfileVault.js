@@ -1,8 +1,44 @@
 const fs = require('fs/promises');
 const path = require('path');
+const crypto = require('crypto');
 const logger = require('../utils/logger');
 
 const VAULT_DIR = path.join(__dirname, '..', 'data');
+const VAULT_SECRET = process.env.AUTH_VAULT_SECRET || 'aura-default-vault-secret-32-chars!!';
+
+const encrypt = (text, secret) => {
+    if (!text) return '';
+    try {
+        const iv = crypto.randomBytes(12);
+        const key = crypto.scryptSync(secret, 'aura-salt', 32);
+        const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+        let encrypted = cipher.update(text, 'utf8', 'hex');
+        encrypted += cipher.final('hex');
+        const authTag = cipher.getAuthTag().toString('hex');
+        return `${iv.toString('hex')}:${authTag}:${encrypted}`;
+    } catch (error) {
+        logger.error('vault.encrypt_failed', { error: error.message });
+        return text;
+    }
+};
+
+const decrypt = (data, secret) => {
+    if (!data || !data.includes(':')) return data;
+    try {
+        const [ivHex, authTagHex, encrypted] = data.split(':');
+        const iv = Buffer.from(ivHex, 'hex');
+        const authTag = Buffer.from(authTagHex, 'hex');
+        const key = crypto.scryptSync(secret, 'aura-salt', 32);
+        const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
+        decipher.setAuthTag(authTag);
+        let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+        decrypted += decipher.final('utf8');
+        return decrypted;
+    } catch (error) {
+        logger.error('vault.decrypt_failed', { error: error.message });
+        return data;
+    }
+};
 
 const MAX_RECORDS = 50000;
 
@@ -121,7 +157,13 @@ const saveAuthProfileSnapshot = async (profile) => {
 
     try {
         const vault = await readVault();
-        vault[normalized.email] = normalized;
+        const encryptedProfile = {
+            ...normalized,
+            name: encrypt(normalized.name, VAULT_SECRET),
+            phone: encrypt(normalized.phone, VAULT_SECRET),
+            email: encrypt(normalized.email, VAULT_SECRET), // Also encrypt email for consistency
+        };
+        vault[normalized.email] = encryptedProfile;
         await writeVault(enforceVaultSize(vault));
     } catch (error) {
         logger.error('auth_vault.write_failed', {
@@ -136,7 +178,17 @@ const getAuthProfileSnapshotByEmail = async (email) => {
     const normalizedEmail = normalizeEmail(email);
     if (!normalizedEmail) return null;
     const vault = await readVault();
-    return vault[normalizedEmail] || null;
+    const profile = vault[normalizedEmail] || null;
+    
+    if (profile) {
+        return {
+            ...profile,
+            name: decrypt(profile.name, VAULT_SECRET),
+            phone: decrypt(profile.phone, VAULT_SECRET),
+            email: decrypt(profile.email, VAULT_SECRET),
+        };
+    }
+    return null;
 };
 
 module.exports = {

@@ -95,6 +95,9 @@ export function MotionModeProvider({ children }) {
       connection.addEventListener('change', onChange);
     }
 
+    window.addEventListener('online', onChange);
+    window.addEventListener('offline', onChange);
+
     return () => {
       if (typeof media.removeEventListener === 'function') {
         media.removeEventListener('change', onChange);
@@ -104,6 +107,8 @@ export function MotionModeProvider({ children }) {
       if (connection && typeof connection.removeEventListener === 'function') {
         connection.removeEventListener('change', onChange);
       }
+      window.removeEventListener('online', onChange);
+      window.removeEventListener('offline', onChange);
     };
   }, []);
 

@@ -11,6 +11,9 @@ const MAX_PENDING_DIAGNOSTICS = 30;
 const DIAGNOSTIC_FLUSH_BATCH_SIZE = 10;
 const DIAGNOSTIC_FLUSH_INTERVAL_MS = 15000;
 const DIAGNOSTIC_FLUSH_MIN_GAP_MS = 3000;
+const MAX_EVENTS_PER_MINUTE = 50;
+let eventCounter = 0;
+let lastCounterReset = Date.now();
 const CLIENT_DIAGNOSTIC_INGEST_PATH = '/observability/client-diagnostics';
 const SLOW_REQUEST_THRESHOLD_MS = 1500;
 const PERSISTED_CLIENT_DIAGNOSTIC_TYPES = new Set([
@@ -368,9 +371,23 @@ export const pushClientDiagnostic = (type, payload = {}, severity = 'info') => {
         severity,
         timestamp,
         route: getCurrentRoute(),
-        sessionId: payload.sessionId || getClientSessionId(),
         ...payload,
     };
+
+    const now = Date.now();
+    if (now - lastCounterReset > 60000) {
+        eventCounter = 0;
+        lastCounterReset = now;
+    }
+
+    if (eventCounter >= MAX_EVENTS_PER_MINUTE) {
+        if (eventCounter === MAX_EVENTS_PER_MINUTE) {
+            console.warn('[observability] Rate limit reached. Dropping further diagnostic events for this minute.');
+        }
+        eventCounter += 1;
+        return event;
+    }
+    eventCounter += 1;
 
     const debugStore = getDebugStore();
     debugStore.events = [...(debugStore.events || []), event].slice(-MAX_BUFFERED_EVENTS);
@@ -478,7 +495,8 @@ export const initClientObservability = () => {
 
     if (!windowRef[FETCH_PATCH_FLAG] && typeof windowRef.fetch === 'function') {
         const originalFetch = getOriginalFetch() || windowRef.fetch.bind(windowRef);
-        windowRef.fetch = async (input, init = undefined) => {
+        
+        const auraFetch = async (input, init = undefined) => {
             const existingHeaders = init?.headers || (
                 typeof Request !== 'undefined' && input instanceof Request
                     ? input.headers
@@ -541,6 +559,9 @@ export const initClientObservability = () => {
                 throw error;
             }
         };
+
+        auraFetch[FETCH_PATCH_FLAG] = true;
+        windowRef.fetch = auraFetch;
         windowRef[FETCH_PATCH_FLAG] = true;
     }
 

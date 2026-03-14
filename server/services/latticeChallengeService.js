@@ -22,14 +22,14 @@ const generateLatticeChallenge = async (userId) => {
     
     // Generate Random Matrix A (n x n)
     const A = Array.from({ length: LWE_N }, () => 
-        Array.from({ length: LWE_N }, () => Math.floor(Math.random() * LWE_Q))
+        Array.from({ length: LWE_N }, () => crypto.randomInt(0, LWE_Q))
     );
     
     // Secret s (Private key equivalent, hidden from network)
-    const s = Array.from({ length: LWE_N }, () => Math.floor(Math.random() * 5));
+    const s = Array.from({ length: LWE_N }, () => crypto.randomInt(0, 5));
     
     // Error e (Noise)
-    const e = Array.from({ length: LWE_N }, () => Math.floor(Math.random() * ERROR_BOUND));
+    const e = Array.from({ length: LWE_N }, () => crypto.randomInt(0, ERROR_BOUND));
     
     // Calculate b = As + e
     const b = A.map((row, i) => {
@@ -67,9 +67,16 @@ const verifyLatticeProof = async (challengeId, proof_s) => {
     const { s: original_s } = JSON.parse(raw);
     
     // Verification: Proof 's' must match or be a valid vector in the lattice
-    const isValid = Array.isArray(proof_s) && 
-                    proof_s.length === LWE_N && 
-                    proof_s.every((val, i) => val === original_s[i]);
+    // Constant-time comparison to prevent timing attacks
+    let result = 0;
+    if (!Array.isArray(proof_s) || proof_s.length !== LWE_N) {
+        result = 1;
+    } else {
+        for (let i = 0; i < LWE_N; i++) {
+            result |= (proof_s[i] ^ original_s[i]);
+        }
+    }
+    const isValid = result === 0;
 
     if (isValid) {
         await client.del(`lattice:challenge:${challengeId}`);

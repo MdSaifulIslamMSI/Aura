@@ -18,7 +18,8 @@ const CONTAINER_TYPES = [
  * @returns {Object} - Optimization results including containers and density
  */
 const calculateOptimalPacking = (items = []) => {
-    if (!items.length) return { containers: [], totalCost: 0, spaceEfficiency: 0 };
+    try {
+        if (!items.length) return { containers: [], totalCost: 0, spaceEfficiency: 0 };
 
     // Sort items by volume (Decreasing) to improve packing density
     const sortedItems = [...items].sort((a, b) => {
@@ -69,16 +70,25 @@ const calculateOptimalPacking = (items = []) => {
         ? (totalVolumeUsed / totalContainerVolume) * 100 
         : 0;
 
-    return {
-        containers: packedContainers.map(c => ({
-            type: c.name,
-            itemCount: c.items.length,
-            efficiency: ((c.width * c.height * c.depth - c.remainingVolume) / (c.width * c.height * c.depth) * 100).toFixed(1) + '%'
-        })),
-        totalCost,
-        spaceEfficiency: spaceEfficiency.toFixed(1) + '%',
-        strategy: '3D-FFD (Heuristic)'
-    };
+        return {
+            containers: packedContainers.map(c => ({
+                type: c.name,
+                itemCount: c.items.length,
+                efficiency: ((c.width * c.height * c.depth - c.remainingVolume) / (c.width * c.height * c.depth) * 100).toFixed(1) + '%'
+            })),
+            totalCost,
+            spaceEfficiency: spaceEfficiency.toFixed(1) + '%',
+            strategy: '3D-FFD (Heuristic)'
+        };
+    } catch (error) {
+        console.error('Logistics packing optimization failed', error);
+        return {
+            containers: [{ type: 'Standard Parcel', itemCount: items.length, efficiency: 'N/A' }],
+            totalCost: items.length * 50, // Fallback cost
+            spaceEfficiency: 'N/A',
+            strategy: 'Fallback (Single Container)'
+        };
+    }
 };
 
 /**
@@ -125,11 +135,17 @@ const FULFILLMENT_HUBS = [
  * Solves a variant of VRP to determine if items should be consolidated.
  */
 const calculateConsolidatedPath = (items = [], destination = { lat: 28.6, lng: 77.2 }) => {
-    const origins = [...new Set(items.map(i => i.sellerLocation?.city).filter(Boolean))];
-    
-    if (origins.length <= 1) {
-        return { strategy: 'Direct Shipment', carbonSaved: 0, consolidationApplied: false };
-    }
+    try {
+        const origins = [...new Set(items.map(i => i.sellerLocation?.city).filter(Boolean))];
+        
+        if (origins.length <= 1) {
+            return { strategy: 'Direct Shipment', carbonSaved: 0, consolidationApplied: false };
+        }
+
+        // Early exit for extreme complexity (e.g. 50+ origins)
+        if (origins.length > 50) {
+            return { strategy: 'Distributed Direct', carbonSaved: 0, consolidationApplied: false };
+        }
 
     // Find the closest hub to the destination
     const destinationHub = FULFILLMENT_HUBS.reduce((prev, curr) => {
@@ -145,14 +161,17 @@ const calculateConsolidatedPath = (items = [], destination = { lat: 28.6, lng: 7
     const consolidationEfficiency = Math.min(0.95, 0.4 + (uniqueOriginsCount * 0.1));
     const carbonSaved = (uniqueOriginsCount - 1) * 1.25; // kg of CO2 saved
 
-    return {
-        strategy: 'Hub-and-Spoke Consolidation',
-        hub: destinationHub.name,
-        efficiency: (consolidationEfficiency * 100).toFixed(1) + '%',
-        carbonSaved: carbonSaved.toFixed(2) + ' kg',
-        consolidationApplied: true,
-        savingsFactor: 1 - (uniqueOriginsCount * 0.15) // Reduction in multi-origin penalty
-    };
+        return {
+            strategy: 'Hub-and-Spoke Consolidation',
+            hub: destinationHub.name,
+            efficiency: (consolidationEfficiency * 100).toFixed(1) + '%',
+            carbonSaved: carbonSaved.toFixed(2) + ' kg',
+            consolidationApplied: true,
+            savingsFactor: 1 - (uniqueOriginsCount * 0.15) // Reduction in multi-origin penalty
+        };
+    } catch (error) {
+        return { strategy: 'Direct Shipment (Fallback)', carbonSaved: 0, consolidationApplied: false };
+    }
 };
 
 /**

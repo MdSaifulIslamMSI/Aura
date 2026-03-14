@@ -302,6 +302,15 @@ productSchema.index({
 productSchema.statics.normalizeTitleKey = normalizeTitleKey;
 productSchema.statics.normalizeImageKey = normalizeImageKey;
 
+productSchema.statics.syncProductIndexes = async function () {
+    try {
+        await this.syncIndexes();
+        logger.info('product_model.indices_synced');
+    } catch (error) {
+        logger.error('product_model.sync_indices_failed', { error: error.message });
+    }
+};
+
 const Product = mongoose.model('Product', productSchema);
 
 module.exports = Product;

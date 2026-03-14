@@ -45,6 +45,7 @@
     "colors": "^1.4.0",
     "compression": "^1.8.1",
     "cors": "^2.8.6",
+    "decimal.js": "^10.6.0",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
     "express-async-handler": "^1.2.0",

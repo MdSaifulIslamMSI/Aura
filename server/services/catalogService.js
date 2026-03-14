@@ -269,19 +269,28 @@ async function* streamRowsFromSource(sourceType, sourceRef) {
     if (['jsonl', 'ndjson'].includes(effectiveType)) {
         const stream = fs.createReadStream(filePath, { encoding: 'utf8' });
         const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
-        let row = 0;
+        
+        const cleanup = () => {
+            rl.close();
+            stream.destroy();
+        };
 
-        for await (const line of rl) {
-            const trimmed = line.trim();
-            if (!trimmed) continue;
-            row += 1;
-            let parsed;
-            try {
-                parsed = JSON.parse(trimmed);
-            } catch (error) {
-                throw new AppError(`Invalid JSONL at row ${row}: ${error.message}`, 400);
+        try {
+            let row = 0;
+            for await (const line of rl) {
+                const trimmed = line.trim();
+                if (!trimmed) continue;
+                row += 1;
+                let parsed;
+                try {
+                    parsed = JSON.parse(trimmed);
+                } catch (error) {
+                    throw new AppError(`Invalid JSONL at row ${row}: ${error.message}`, 400);
+                }
+                yield { row, data: parsed };
             }
-            yield { row, data: parsed };
+        } finally {
+            cleanup();
         }
         return;
     }
@@ -289,22 +298,32 @@ async function* streamRowsFromSource(sourceType, sourceRef) {
     if (effectiveType === 'csv') {
         const stream = fs.createReadStream(filePath, { encoding: 'utf8' });
         const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
-        let row = 0;
-        let headers = null;
+        
+        const cleanup = () => {
+            rl.close();
+            stream.destroy();
+        };
 
-        for await (const line of rl) {
-            if (!line.trim()) continue;
-            row += 1;
-            if (!headers) {
-                headers = parseCsvLine(line).map((h) => safeString(h));
-                continue;
+        try {
+            let row = 0;
+            let headers = null;
+
+            for await (const line of rl) {
+                if (!line.trim()) continue;
+                row += 1;
+                if (!headers) {
+                    headers = parseCsvLine(line).map((h) => safeString(h));
+                    continue;
+                }
+                const values = parseCsvLine(line);
+                const record = {};
+                headers.forEach((header, idx) => {
+                    record[header] = values[idx] ?? '';
+                });
+                yield { row: row - 1, data: record };
             }
-            const values = parseCsvLine(line);
-            const record = {};
-            headers.forEach((header, idx) => {
-                record[header] = values[idx] ?? '';
-            });
-            yield { row: row - 1, data: record };
+        } finally {
+            cleanup();
         }
         return;
     }
@@ -520,6 +539,7 @@ const buildCatalogQualitySignals = ({
 };
 
 const ensureSystemState = async () => {
+    await Product.syncProductIndexes();
     if (systemStateWriteBlocked && systemStateFallbackDoc) {
         return systemStateFallbackDoc;
     }

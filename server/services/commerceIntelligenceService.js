@@ -1,4 +1,5 @@
 const Product = require('../models/Product');
+const Decimal = require('decimal.js');
 const { flags: catalogFlags } = require('../config/catalogFlags');
 const { getActiveCatalogVersion } = require('./catalogService');
 
@@ -85,14 +86,14 @@ const computeDealDna = (product = {}) => {
     const warrantyBoost = hasWarranty ? 88 : 35;
     const riskPenalty = returnRisk.score;
 
-    const weightedScore = (
-        (priceScore * 0.28)
-        + (ratingScore * 0.24)
-        + (reviewConfidence * 0.14)
-        + (stockHealth * 0.14)
-        + (warrantyBoost * 0.08)
-        + ((100 - riskPenalty) * 0.12)
-    );
+    const weightedScore = Decimal.sum(
+        new Decimal(priceScore).times(0.28),
+        new Decimal(ratingScore).times(0.24),
+        new Decimal(reviewConfidence).times(0.14),
+        new Decimal(stockHealth).times(0.14),
+        new Decimal(warrantyBoost).times(0.08),
+        new Decimal(100 - riskPenalty).times(0.12)
+    ).toNumber();
 
     const score = clamp(Math.round(weightedScore), 0, 100);
     let verdict = 'wait';
@@ -320,75 +321,105 @@ const buildSmartBundle = async ({ theme, budget, maxItems = 6 }) => {
 
     // 2. 0/1 Knapsack DP Implementation
     // We want to maximize "Value" defined by: (Rating * ReviewConfidence + Discount)
-    // Scale prices to integers for DP table indexing (e.g. per 100 currency units to keep table size sanity)
-    // For simplicity and high precision in this specific app, we use actual price as weight.
+    // Scale prices to integers for DP table indexing
     
-    const n = candidates.length;
-    const items = candidates.map(c => ({
-        ...c,
-        weight: Math.round(Number(c.price)),
-        value: Math.round((Number(c.rating || 0) * Math.log10(Number(c.ratingCount || 0) + 1) * 10) + Number(c.discountPercentage || 0))
-    }));
+    let selected = [];
+    let totalPrice = 0;
+    let originalTotal = 0;
 
-    // DP table: dp[i][w] = max value using first i items within weight w
-    // Optimization: Memory-efficient 1D DP array since we only need previous row
-    const dp = new Array(W + 1).fill(0);
-    const keep = Array.from({ length: n + 1 }, () => new Uint8Array(W + 1));
+    try {
+        const n = candidates.length;
+        const items = candidates.map(c => ({
+            ...c,
+            weight: Math.round(Number(c.price)),
+            value: Math.round((Number(c.rating || 0) * Math.log10(Number(c.ratingCount || 0) + 1) * 10) + Number(c.discountPercentage || 0))
+        }));
 
-    for (let i = 1; i <= n; i++) {
-        const { weight, value } = items[i - 1];
-        for (let w = W; w >= weight; w--) {
-            if (dp[w - weight] + value > dp[w]) {
-                dp[w] = dp[w - weight] + value;
-                keep[i][w] = 1; // Mark that item i was included
+        const dp = new Array(W + 1).fill(0);
+        const keep = Array.from({ length: n + 1 }, () => new Uint8Array(W + 1));
+
+        for (let i = 1; i <= n; i++) {
+            const { weight, value } = items[i - 1];
+            for (let w = W; w >= weight; w--) {
+                if (dp[w - weight] + value > dp[w]) {
+                    dp[w] = dp[w - weight] + value;
+                    keep[i][w] = 1; 
+                }
             }
         }
-    }
 
-    // Backtrack to find selected items
-    const selected = [];
-    let currentW = W;
-    for (let i = n; i > 0 && currentW > 0; i--) {
-        if (keep[i][currentW]) {
-            const item = items[i - 1];
-            selected.push({
-                id: item.id,
-                _id: item._id,
-                title: item.title,
-                brand: item.brand,
-                category: item.category,
-                image: item.image,
-                price: item.weight,
-                originalPrice: Number(item.originalPrice || item.price) || item.weight,
-                quantity: 1,
-                rating: Number(item.rating) || 0,
-                ratingCount: Number(item.ratingCount) || 0,
-                deliveryTime: item.deliveryTime || '3-5 days',
-            });
-            currentW -= item.weight;
+        let currentW = W;
+        for (let i = n; i > 0 && currentW > 0; i--) {
+            if (keep[i][currentW]) {
+                const item = items[i - 1];
+                selected.push({
+                    id: item.id,
+                    _id: item._id,
+                    title: item.title,
+                    brand: item.brand,
+                    category: item.category,
+                    image: item.image,
+                    price: item.weight,
+                    originalPrice: Number(item.originalPrice || item.price) || item.weight,
+                    quantity: 1,
+                    rating: Number(item.rating) || 0,
+                    ratingCount: Number(item.ratingCount) || 0,
+                    deliveryTime: item.deliveryTime || '3-5 days',
+                });
+                currentW -= item.weight;
+            }
+            if (selected.length >= N_LIMIT) break;
         }
-        if (selected.length >= N_LIMIT) break;
+        totalPrice = selected.reduce((sum, item) => sum + item.price, 0);
+        originalTotal = selected.reduce((sum, item) => sum + (Number(item.originalPrice) || item.price), 0);
+    } catch (error) {
+        // Fallback: Just pick top rated items within budget if DP fails or exceeds memory
+        const sorted = [...candidates].sort((a, b) => b.rating - a.rating);
+        let currentBudget = W;
+        for (const item of sorted) {
+            if (selected.length >= N_LIMIT) break;
+            const price = Math.round(Number(item.price));
+            if (price <= currentBudget) {
+                selected.push({
+                    id: item.id,
+                    _id: item._id,
+                    title: item.title,
+                    brand: item.brand,
+                    category: item.category,
+                    image: item.image,
+                    price,
+                    originalPrice: Number(item.originalPrice || item.price) || price,
+                    quantity: 1,
+                    rating: Number(item.rating) || 0,
+                    ratingCount: Number(item.ratingCount) || 0,
+                    deliveryTime: item.deliveryTime || '3-5 days',
+                });
+                currentBudget -= price;
+            }
+        }
+        totalPrice = selected.reduce((sum, item) => sum + item.price, 0);
+        originalTotal = selected.reduce((sum, item) => sum + (Number(item.originalPrice) || item.price), 0);
     }
 
-    const totalPrice = selected.reduce((sum, item) => sum + item.price, 0);
-    const originalTotal = selected.reduce((sum, item) => sum + (Number(item.originalPrice) || item.price), 0);
-    const savings = Math.max(0, originalTotal - totalPrice);
-    const budgetUtilization = W > 0 ? ((totalPrice / W) * 100) : 0;
+    const totalPriceVal = selected.reduce((sum, item) => sum + item.price, 0);
+    const originalTotalVal = selected.reduce((sum, item) => sum + (Number(item.originalPrice) || item.price), 0);
+    const savings = Math.max(0, originalTotalVal - totalPriceVal);
+    const budgetUtilization = W > 0 ? ((totalPriceVal / W) * 100) : 0;
 
     return {
         bundleName: profile.name,
         theme,
         budget: W,
         maxItems: N_LIMIT,
-        totalPrice: Math.round(totalPrice),
-        originalTotal: Math.round(originalTotal),
+        totalPrice: Math.round(totalPriceVal),
+        originalTotal: Math.round(originalTotalVal),
         savings: Math.round(savings),
         budgetUtilization: Number(budgetUtilization.toFixed(1)),
         items: selected,
         solver: 'dp_01_knapsack_v1',
         checkoutPayload: {
             items: selected.map((item) => ({ id: item.id, quantity: 1 })),
-            estimatedTotal: Math.round(totalPrice),
+            estimatedTotal: Math.round(totalPriceVal),
         },
     };
 };
