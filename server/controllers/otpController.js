@@ -73,6 +73,36 @@ const phoneIdentityMatches = (storedPhone, canonicalPhone) => {
     return canonicalizePhoneIdentity(storedPhone) === canonicalPhone;
 };
 
+const buildPhoneLookupCandidates = (phoneInput, canonicalPhone) => {
+    const candidates = new Set();
+    const canonical = canonicalPhone || canonicalizePhoneIdentity(phoneInput);
+    const normalizedInput = normalizePhone(phoneInput);
+
+    if (canonical) {
+        candidates.add(canonical);
+        const canonicalDigits = canonical.replace(/\D/g, '');
+        if (canonicalDigits) {
+            candidates.add(canonicalDigits);
+            if (canonicalDigits.length > 10) {
+                candidates.add(canonicalDigits.slice(-10));
+            }
+        }
+    }
+
+    if (normalizedInput) {
+        candidates.add(normalizedInput);
+        const normalizedDigits = normalizedInput.replace(/\D/g, '');
+        if (normalizedDigits) {
+            candidates.add(normalizedDigits);
+            if (normalizedDigits.length > 10) {
+                candidates.add(normalizedDigits.slice(-10));
+            }
+        }
+    }
+
+    return Array.from(candidates).filter(Boolean);
+};
+
 const normalizePurpose = (value) => (
     typeof value === 'string' ? value.trim() : ''
 );
@@ -1006,8 +1036,8 @@ const verifyOtp = asyncHandler(async (req, res, next) => {
         }
     }
 
-
-    const user = await User.findOne({ phone: canonicalPhone }).select(OTP_FIELDS);
+    const phoneLookupCandidates = buildPhoneLookupCandidates(phone, canonicalPhone);
+    const user = await User.findOne({ phone: { $in: phoneLookupCandidates } }).select(OTP_FIELDS);
 
     if (!user) {
         audit('VERIFY_404', { phone, purpose, ip: clientIp, requestId, success: false, reason: 'user not found' });

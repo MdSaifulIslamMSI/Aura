@@ -602,6 +602,39 @@ describe('POST /api/otp/verify', () => {
         expect(res.body.verified).toBe(true);
     });
 
+    test('59a. 200 when verifying canonical phone for user stored as local 10-digit phone', async () => {
+        const localPhone = '9876543210';
+        const canonicalPhone = '+919876543210';
+        const { user, otpPlain } = await seedPending({ phone: localPhone, otp: '909090', otpPurpose: 'signup' });
+
+        const res = await request(app).post('/api/otp/verify')
+            .send({ phone: canonicalPhone, otp: otpPlain, purpose: 'signup' });
+
+        expect(res.statusCode).toBe(200);
+        expect(res.body.verified).toBe(true);
+
+        const updated = await User.findById(user._id).select('+otp +otpExpiry +otpPurpose +otpAttempts');
+        expect(updated.otp).toBeNull();
+        expect(updated.otpExpiry).toBeNull();
+        expect(updated.otpPurpose).toBeNull();
+        expect(updated.otpAttempts).toBe(0);
+    });
+
+    test('59b. preserves identity checks after resolving mixed phone format records', async () => {
+        const localPhone = '9123456789';
+        const canonicalPhone = '+919123456789';
+        const { user } = await seedPending({ phone: localPhone, otp: '121212', otpPurpose: 'signup' });
+
+        const res = await request(app).post('/api/otp/verify')
+            .send({ phone: canonicalPhone, email: 'wrong@test.com', otp: '121212', purpose: 'signup' });
+
+        expect(res.statusCode).toBe(403);
+
+        const unchanged = await User.findById(user._id).select('+otp +otpPurpose');
+        expect(unchanged.otp).toBeTruthy();
+        expect(unchanged.otpPurpose).toBe('signup');
+    });
+
     test('60. marks user verified after OTP check', async () => {
         const { user, otpPlain } = await seedPending({ otp: '888888', otpPurpose: 'signup' });
         await request(app).post('/api/otp/verify')
