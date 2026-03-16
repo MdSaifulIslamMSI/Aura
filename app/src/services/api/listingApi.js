@@ -5,11 +5,13 @@ const prefetchedListingIds = new Set();
 
 export const listingApi = {
     getListings: async (params = {}) => {
-        const { data } = await apiFetch('/listings', { params });
+        const headers = await getAuthHeader();
+        const { data } = await apiFetch('/listings', { headers, params });
         return data;
     },
     getListingById: async (id) => {
-        const { data } = await apiFetch(`/listings/${id}`);
+        const headers = await getAuthHeader();
+        const { data } = await apiFetch(`/listings/${id}`, { headers });
         return data;
     },
     createListing: async (payload) => {
@@ -39,8 +41,18 @@ export const listingApi = {
         return data;
     },
     getHotspots: async (params = {}) => {
-        const { data } = await apiFetch('/listings/hotspots', { params });
-        return data;
+        const headers = await getAuthHeader();
+        try {
+            const { data } = await apiFetch('/listings/hotspots', { headers, params });
+            return data;
+        } catch (error) {
+            // Candidate path retry for potentially misrouted hotspots
+            if (error?.status === 404) {
+                const { data } = await apiFetch('/hotspots', { headers, params });
+                return data;
+            }
+            throw error;
+        }
     },
     prefetchListingById: (id) => {
         const normalizedId = id == null ? '' : String(id).trim();
@@ -69,7 +81,8 @@ export const listingApi = {
         return data;
     },
     getSellerProfile: async (userId) => {
-        const { data } = await apiFetch(`/listings/seller/${userId}`);
+        const headers = await getAuthHeader();
+        const { data } = await apiFetch(`/listings/seller/${userId}`, { headers });
         return data;
     },
     createEscrowIntent: async (id, payload = {}) => {
