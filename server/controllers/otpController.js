@@ -656,6 +656,23 @@ const sendOtp = asyncHandler(async (req, res, next) => {
         requestId,
     };
 
+    // SECURITY: Delete other active OTPs for this user to prevent race conditions
+    // Ensures only one active OTP per user at a time (though purpose is still validated on verify)
+    try {
+        await OtpSession.deleteMany({
+            user: targetUser._id,
+            purpose: { $ne: purpose },  // Delete other purposes only
+        });
+    } catch (cleanupError) {
+        if (!isOtpSessionStorageUnavailableError(cleanupError)) {
+            logger.warn('otp.cleanup_other_purposes_failed', {
+                userId: String(targetUser._id),
+                purpose,
+                error: cleanupError.message,
+            });
+        }
+    }
+
     await upsertOtpSession({
         userId: targetUser._id,
         purpose,

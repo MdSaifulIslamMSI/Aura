@@ -5,10 +5,11 @@ const logger = require('../utils/logger');
 try {
     // Attempt to initialize with Application Default Credentials
     // or infer from environment
+    const projectId = process.env.FIREBASE_PROJECT_ID || 'billy-b674c';
     admin.initializeApp({
-        projectId: 'billy-b674c' // From frontend config
+        projectId
     });
-    logger.info('firebase.initialized', { projectId: 'billy-b674c' });
+    logger.info('firebase.initialized', { projectId });
 } catch (error) {
     if (error.code === 'app/duplicate-app') {
         logger.info('firebase.already_initialized');

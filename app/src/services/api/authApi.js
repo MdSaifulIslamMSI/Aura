@@ -1,5 +1,6 @@
 import { apiFetch } from '../apiBase';
 import { getAuthHeader } from './apiUtils';
+import { ensureCsrfToken, addCsrfTokenToHeaders } from '../csrfTokenManager';
 
 export const authApi = {
     getSession: async (options = {}) => {
@@ -9,27 +10,73 @@ export const authApi = {
     },
     syncSession: async (email, name, phone, options = {}) => {
         const headers = await getAuthHeader(options.firebaseUser);
+        const firebaseUser = options.firebaseUser || {};
+        const authToken = options.authToken || (firebaseUser.getIdToken ? await firebaseUser.getIdToken() : '');
+        
+        // Ensure CSRF token is available for POST request
+        let csrfToken = null;
+        try {
+            if (authToken) {
+                csrfToken = await ensureCsrfToken(authToken);
+            }
+        } catch (error) {
+            console.warn('Failed to fetch CSRF token:', error.message);
+            // Continue without CSRF token - server will return 403 if CSRF required
+        }
+
+        const headersWithCsrf = addCsrfTokenToHeaders(headers, 'POST', csrfToken);
+        
         const { data } = await apiFetch('/auth/sync', {
             method: 'POST',
-            headers,
+            headers: headersWithCsrf,
             body: JSON.stringify({ email, name, phone }),
         });
         return data;
     },
     verifyLatticeChallenge: async (challengeId, proof, options = {}) => {
         const headers = await getAuthHeader(options.firebaseUser);
+        const firebaseUser = options.firebaseUser || {};
+        const authToken = options.authToken || (firebaseUser.getIdToken ? await firebaseUser.getIdToken() : '');
+        
+        // Ensure CSRF token is available for POST request
+        let csrfToken = null;
+        try {
+            if (authToken) {
+                csrfToken = await ensureCsrfToken(authToken);
+            }
+        } catch (error) {
+            console.warn('Failed to fetch CSRF token:', error.message);
+        }
+
+        const headersWithCsrf = addCsrfTokenToHeaders(headers, 'POST', csrfToken);
+        
         const { data } = await apiFetch('/auth/verify-lattice', {
             method: 'POST',
-            headers,
+            headers: headersWithCsrf,
             body: JSON.stringify({ challengeId, proof }),
         });
         return data;
     },
     verifyQuantumChallenge: async (challengeId, proof, options = {}) => {
         const headers = await getAuthHeader(options.firebaseUser);
+        const firebaseUser = options.firebaseUser || {};
+        const authToken = options.authToken || (firebaseUser.getIdToken ? await firebaseUser.getIdToken() : '');
+        
+        // Ensure CSRF token is available for POST request
+        let csrfToken = null;
+        try {
+            if (authToken) {
+                csrfToken = await ensureCsrfToken(authToken);
+            }
+        } catch (error) {
+            console.warn('Failed to fetch CSRF token:', error.message);
+        }
+
+        const headersWithCsrf = addCsrfTokenToHeaders(headers, 'POST', csrfToken);
+        
         const { data } = await apiFetch('/auth/verify-quantum', {
             method: 'POST',
-            headers,
+            headers: headersWithCsrf,
             body: JSON.stringify({ challengeId, proof }),
         });
         return data;

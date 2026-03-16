@@ -32,7 +32,7 @@ export const useAuth = () => {
   return context;
 };
 
-const AUTH_SYNC_DEDUPE_MS = 30 * 1000;
+const AUTH_SYNC_DEDUPE_MS = 5 * 1000;  // Reduced from 30s for faster security updates
 const BOOTSTRAP_TIMEOUT_MS = 6000;
 
 const SESSION_STATUS = {
