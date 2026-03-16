@@ -1,4 +1,4 @@
-import { apiFetch } from '../apiBase';
+import { apiFetch, buildServiceUrl } from '../apiBase';
 import { getAuthHeader } from './apiUtils';
 
 /**
@@ -103,13 +103,11 @@ export const adminApi = {
     },
     getSystemHealth: async () => {
         const headers = await getAuthHeader();
-        const { data } = await apiFetch('/health', {
+        const response = await fetch(buildServiceUrl('/health'), {
             headers: { ...headers, Accept: 'application/json' },
-            // Note: If the server has /health outside /api prefix, 
-            // the apiFetch logic will need to handle it.
-            // But based on typical setup, /api/health often exists too.
         });
-        return data;
+        if (!response.ok) return { status: 'down' }; // Graceful fallback
+        return response.json();
     },
     getOpsReadiness: async () => {
         const headers = await getAuthHeader();
