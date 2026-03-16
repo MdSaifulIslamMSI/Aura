@@ -96,24 +96,54 @@ export const authApi = {
 
 export const otpApi = {
     sendOtp: async (email, phone, purpose, options = {}) => {
-        const { data } = await apiFetch('/auth/otp/send', {
-            method: 'POST',
-            body: JSON.stringify({ email, phone, purpose, ...options }),
-        });
-        return data;
+        const candidatePaths = ['/auth/otp/send', '/otp/send'];
+        let lastError = null;
+        for (const path of candidatePaths) {
+            try {
+                const { data } = await apiFetch(path, {
+                    method: 'POST',
+                    body: JSON.stringify({ email, phone, purpose, ...options }),
+                });
+                return data;
+            } catch (error) {
+                lastError = error;
+                if (error?.status !== 404) break;
+            }
+        }
+        throw lastError || new Error('Failed to send OTP');
     },
     verifyOtp: async (phone, otp, purpose, intentId = '') => {
-        const { data } = await apiFetch('/auth/otp/verify', {
-            method: 'POST',
-            body: JSON.stringify({ phone, otp, purpose, intentId }),
-        });
-        return data;
+        const candidatePaths = ['/auth/otp/verify', '/otp/verify'];
+        let lastError = null;
+        for (const path of candidatePaths) {
+            try {
+                const { data } = await apiFetch(path, {
+                    method: 'POST',
+                    body: JSON.stringify({ phone, otp, purpose, intentId }),
+                });
+                return data;
+            } catch (error) {
+                lastError = error;
+                if (error?.status !== 404) break;
+            }
+        }
+        throw lastError || new Error('Failed to verify OTP');
     },
     checkUserExists: async (phone, email = '') => {
-        const { data } = await apiFetch('/auth/otp/check-user', {
-            method: 'POST',
-            body: JSON.stringify({ phone, email }),
-        });
-        return data;
+        const candidatePaths = ['/auth/otp/check-user', '/otp/check-user'];
+        let lastError = null;
+        for (const path of candidatePaths) {
+            try {
+                const { data } = await apiFetch(path, {
+                    method: 'POST',
+                    body: JSON.stringify({ phone, email }),
+                });
+                return data;
+            } catch (error) {
+                lastError = error;
+                if (error?.status !== 404) break;
+            }
+        }
+        throw lastError || new Error('Failed to check user');
     }
 };

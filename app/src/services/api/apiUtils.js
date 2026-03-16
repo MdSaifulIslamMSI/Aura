@@ -1,5 +1,8 @@
-import { auth, isFirebaseReady } from '../../config/firebase';
 import { createResponseError } from '../apiBase';
+import { auth, isFirebaseReady } from '../../config/firebase';
+
+export const PROFILE_CACHE_TTL_MS = 15 * 1000;
+export const PRODUCT_DETAIL_CACHE_TTL_MS = 30 * 1000;
 
 /**
  * Retrieves the Firebase ID token and returns an Authorization header.
