@@ -21,7 +21,7 @@ const validate = (schema) => async (req, res, next) => {
         if (error instanceof z.ZodError) {
             return res.status(400).json({
                 status: 'error',
-                message: 'Invalid request data',
+                message: 'Validation Error',
                 code: 'VALIDATION_FAILED',
                 errors: (error.errors || error.issues).map((e) => ({
                     field: e.path.join('.'),

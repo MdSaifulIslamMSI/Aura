@@ -120,7 +120,11 @@ const Login = () => {
       if (!formData.email) { setErr({ message: 'Email address is required' }); return false; }
       if (!validateEmail(formData.email)) { setErr({ message: 'Valid email address is required' }); return false; }
       if (!formData.password) { setErr({ message: 'Password is required' }); return false; }
-      if (formData.password.length < 6) { setErr({ message: 'Password must be at least 6 characters' }); return false; }
+      if (formData.password.length < 12) { setErr({ message: 'Password must be at least 12 characters' }); return false; }
+      if (!/[A-Z]/.test(formData.password)) { setErr({ message: 'Password must contain an uppercase letter' }); return false; }
+      if (!/[a-z]/.test(formData.password)) { setErr({ message: 'Password must contain a lowercase letter' }); return false; }
+      if (!/[0-9]/.test(formData.password)) { setErr({ message: 'Password must contain a digit' }); return false; }
+      if (!/[!@#$%^&*]/.test(formData.password)) { setErr({ message: 'Password must contain a special character (!@#$%^&*)' }); return false; }
       if (formData.password !== formData.confirmPassword) { setErr({ message: 'Passwords do not match' }); return false; }
     }
     if (mode === 'signin') {
