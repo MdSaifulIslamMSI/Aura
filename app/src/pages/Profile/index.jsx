@@ -202,12 +202,18 @@ export default function Profile() {
                         </div>
                         <input ref={fileInputRef} type="file" className="hidden" onChange={handleAvatarChange} />
                     </div>
-                    <div>
-                        <h1 className="text-4xl font-black text-white">{profileName}</h1>
-                        <p className="text-slate-400 mt-1">{profile?.email}</p>
-                        <div className="mt-4 flex gap-4">
-                            <button onClick={() => setActiveTab('personal')} className="profile-premium-button-primary">Edit Profile</button>
-                            <button onClick={logout} className="profile-premium-button text-rose-400">Logout</button>
+                    <div className="flex-1">
+                        <h1 className="text-5xl md:text-8xl font-black text-white tracking-tighter uppercase">{profileName}</h1>
+                        <p className="text-2xl md:text-5xl text-slate-400 mt-2 font-medium lowercase">{profile?.email}</p>
+                        <div className="mt-10 flex flex-wrap gap-6">
+                            <button onClick={() => setActiveTab('personal')} 
+                                className="px-10 py-5 bg-gradient-to-r from-orange-500 via-pink-500 to-red-500 text-white text-4xl font-bold rounded-xl shadow-2xl transition-all hover:scale-105 active:scale-95">
+                                Edit Profile
+                            </button>
+                            <button onClick={logout} 
+                                className="px-10 py-5 bg-[#121212]/80 border-4 border-zinc-800 text-rose-400 text-4xl font-bold rounded-[2rem] hover:bg-zinc-800 transition-all active:scale-95">
+                                Logout
+                            </button>
                         </div>
                     </div>
                 </div>
