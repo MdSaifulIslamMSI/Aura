@@ -20,6 +20,7 @@ const {
 
 const router = express.Router();
 
+// CRITICAL: All catalog admin routes require authentication and validation
 router.post('/onboarding/validate', protect, admin, validate(validateCatalogOnboardingSchema), validateCatalogOnboarding);
 router.post('/imports', protect, admin, validate(createCatalogImportSchema), createImportJob);
 router.get('/imports/:jobId', protect, admin, validate(getCatalogImportSchema), getImportJobById);
