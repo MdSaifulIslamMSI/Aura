@@ -3,8 +3,7 @@ const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
 const {
     createUploadToken,
-    verifyUploadToken,
-    markUploadTokenUsed,
+    verifyAndConsumeUploadToken,
 } = require('../services/uploadSignatureService');
 const {
     ensureReviewUploadStorageReady,
@@ -101,7 +100,7 @@ const uploadReviewMedia = asyncHandler(async (req, res, next) => {
 
     let tokenPayload;
     try {
-        tokenPayload = verifyUploadToken(uploadToken);
+        tokenPayload = await verifyAndConsumeUploadToken(uploadToken);
     } catch (error) {
         return next(new AppError(error.message || 'Invalid upload token', 401));
     }
@@ -144,7 +143,6 @@ const uploadReviewMedia = asyncHandler(async (req, res, next) => {
         fileName,
         mimeType,
     });
-    markUploadTokenUsed(tokenPayload);
 
     const mediaType = mimeType.startsWith('video/') ? 'video' : 'image';
 

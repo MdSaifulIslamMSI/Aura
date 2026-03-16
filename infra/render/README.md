@@ -15,11 +15,13 @@ Use the root Render blueprint:
 - `Vercel` serves the React frontend
 - `Render Web Service` runs the Express backend
 - `MongoDB Atlas` stays external
+- `Render Redis` is provisioned and wired to `REDIS_URL` for production rate-limit security controls
 
 ## Required manual envs in Render
 
 Set these in the Render dashboard for the `aura-api` service:
 
+- `REDIS_URL` (auto-wired by `render.yaml` when using the blueprint)
 - `MONGO_URI`
 - `GROQ_API_KEY`
 - `VOYAGE_API_KEY`

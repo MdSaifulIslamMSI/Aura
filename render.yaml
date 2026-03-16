@@ -15,9 +15,15 @@ services:
       - key: SPLIT_RUNTIME_ENABLED
         value: "false"
       - key: REDIS_ENABLED
-        value: "false"
+        value: "true"
       - key: REDIS_REQUIRED
-        value: "false"
+        value: "true"
+      - key: DISTRIBUTED_SECURITY_CONTROLS_ENABLED
+        value: "true"
+      - key: REDIS_URL
+        fromDatabase:
+          name: aura-redis
+          property: connectionString
       - key: REDIS_PREFIX
         value: aura
       - key: JSON_BODY_LIMIT
@@ -35,6 +41,12 @@ services:
       - key: APP_PUBLIC_URL
         sync: false
       - key: MONGO_URI
+        sync: false
+      - key: AUTH_VAULT_SECRET
+        sync: false
+      - key: AUTH_VAULT_SECRET_VERSION
+        value: v1
+      - key: AUTH_VAULT_PREVIOUS_SECRETS
         sync: false
       - key: GROQ_API_KEY
         sync: false
@@ -88,3 +100,9 @@ services:
         generateValue: true
       - key: CRON_SECRET
         generateValue: true
+
+
+databases:
+  - name: aura-redis
+    plan: free
+    region: singapore

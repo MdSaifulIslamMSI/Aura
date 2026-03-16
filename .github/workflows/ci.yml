@@ -7,6 +7,20 @@ on:
     branches: ["main"]
 
 jobs:
+  artifact-guard:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js 24.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.x
+
+      - name: Guard committed runtime/test artifacts
+        run: node server/scripts/ci-guard-artifacts.js
+
   backend-regression:
     runs-on: ubuntu-latest
     defaults:

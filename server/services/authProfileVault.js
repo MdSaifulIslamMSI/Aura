@@ -4,13 +4,72 @@ const crypto = require('crypto');
 const logger = require('../utils/logger');
 
 const VAULT_DIR = path.join(__dirname, '..', 'data');
-const VAULT_SECRET = process.env.AUTH_VAULT_SECRET || 'aura-default-vault-secret-32-chars!!';
+const KEY_DERIVATION_SALT = 'aura-salt';
+const CURRENT_KEY_VERSION = String(process.env.AUTH_VAULT_SECRET_VERSION || 'v1').trim() || 'v1';
+
+const parseBoolean = (value, fallback = false) => {
+    if (value === undefined || value === null || value === '') return fallback;
+    const normalized = String(value).trim().toLowerCase();
+    if (['1', 'true', 'yes', 'on'].includes(normalized)) return true;
+    if (['0', 'false', 'no', 'off'].includes(normalized)) return false;
+    return fallback;
+};
+
+const isTestEnvironment = () => process.env.NODE_ENV === 'test';
+
+const getCurrentVaultSecret = () => {
+    const secret = String(process.env.AUTH_VAULT_SECRET || '').trim();
+    if (secret) return secret;
+    if (isTestEnvironment()) return '';
+    throw new Error('AUTH_VAULT_SECRET is required for auth profile vault operations outside test environment');
+};
+
+const parseKeyConfigEntry = (entry, generatedVersionPrefix) => {
+    const raw = String(entry || '').trim();
+    if (!raw) return null;
+
+    const separatorIndex = raw.indexOf(':');
+    if (separatorIndex > 0) {
+        const version = raw.slice(0, separatorIndex).trim();
+        const secret = raw.slice(separatorIndex + 1).trim();
+        if (!version || !secret) return null;
+        return { version, secret };
+    }
+
+    return {
+        version: `${generatedVersionPrefix}${crypto.createHash('sha1').update(raw).digest('hex').slice(0, 8)}`,
+        secret: raw,
+    };
+};
+
+const getVaultKeyEntries = () => {
+    const entries = [];
+    const currentSecret = getCurrentVaultSecret();
+    if (currentSecret) {
+        entries.push({ version: CURRENT_KEY_VERSION, secret: currentSecret });
+    }
+
+    const previousRaw = String(process.env.AUTH_VAULT_PREVIOUS_SECRETS || '').trim();
+    if (!previousRaw) return entries;
+
+    const previousEntries = previousRaw
+        .split(',')
+        .map((entry) => parseKeyConfigEntry(entry, 'legacy-'))
+        .filter(Boolean)
+        .filter((entry) => entry.secret !== currentSecret);
+
+    return entries.concat(previousEntries);
+};
+
+const getVaultSecretsByVersion = () => new Map(
+    getVaultKeyEntries().map((entry) => [entry.version, entry.secret])
+);
 
 const encrypt = (text, secret) => {
     if (!text) return '';
     try {
         const iv = crypto.randomBytes(12);
-        const key = crypto.scryptSync(secret, 'aura-salt', 32);
+        const key = crypto.scryptSync(secret, KEY_DERIVATION_SALT, 32);
         const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
         let encrypted = cipher.update(text, 'utf8', 'hex');
         encrypted += cipher.final('hex');
@@ -23,34 +82,23 @@ const encrypt = (text, secret) => {
 };
 
 const decrypt = (data, secret) => {
-    if (!data || !data.includes(':')) return data;
+    if (!data || !data.includes(':') || !secret) return data;
     try {
         const [ivHex, authTagHex, encrypted] = data.split(':');
         const iv = Buffer.from(ivHex, 'hex');
         const authTag = Buffer.from(authTagHex, 'hex');
-        const key = crypto.scryptSync(secret, 'aura-salt', 32);
+        const key = crypto.scryptSync(secret, KEY_DERIVATION_SALT, 32);
         const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
         decipher.setAuthTag(authTag);
         let decrypted = decipher.update(encrypted, 'hex', 'utf8');
         decrypted += decipher.final('utf8');
         return decrypted;
     } catch (error) {
-        logger.error('vault.decrypt_failed', { error: error.message });
-        return data;
+        return null;
     }
 };
 
 const MAX_RECORDS = 50000;
-
-const parseBoolean = (value, fallback = false) => {
-    if (value === undefined || value === null || value === '') return fallback;
-    const normalized = String(value).trim().toLowerCase();
-    if (['1', 'true', 'yes', 'on'].includes(normalized)) return true;
-    if (['0', 'false', 'no', 'off'].includes(normalized)) return false;
-    return fallback;
-};
-
-const isTestEnvironment = () => process.env.NODE_ENV === 'test';
 const isVaultEnabled = () => {
     if (isTestEnvironment()) {
         return parseBoolean(process.env.AUTH_VAULT_ENABLED_IN_TEST, false);
@@ -150,19 +198,52 @@ const enforceVaultSize = (vault) => {
     return Object.fromEntries(sorted.slice(0, MAX_RECORDS));
 };
 
+const decryptField = (value, keyVersion, secretsByVersion) => {
+    if (!value || typeof value !== 'string') {
+        return { value: value || '', usedVersion: keyVersion || null, encrypted: false };
+    }
+    if (!value.includes(':')) {
+        return { value, usedVersion: keyVersion || null, encrypted: false };
+    }
+
+    const attemptedVersions = new Set();
+    if (keyVersion && secretsByVersion.has(keyVersion)) {
+        attemptedVersions.add(keyVersion);
+        const decrypted = decrypt(value, secretsByVersion.get(keyVersion));
+        if (decrypted !== null) {
+            return { value: decrypted, usedVersion: keyVersion, encrypted: true };
+        }
+    }
+
+    for (const [version, secret] of secretsByVersion.entries()) {
+        if (attemptedVersions.has(version)) continue;
+        const decrypted = decrypt(value, secret);
+        if (decrypted !== null) {
+            return { value: decrypted, usedVersion: version, encrypted: true };
+        }
+    }
+
+    logger.error('vault.decrypt_failed', { keyVersion });
+    return { value, usedVersion: keyVersion || null, encrypted: true };
+};
+
+const buildEncryptedProfile = (normalized, secret) => ({
+    ...normalized,
+    keyVersion: CURRENT_KEY_VERSION,
+    name: encrypt(normalized.name, secret),
+    phone: encrypt(normalized.phone, secret),
+    email: encrypt(normalized.email, secret),
+});
+
 const saveAuthProfileSnapshot = async (profile) => {
     if (!isVaultEnabled()) return;
     const normalized = normalizeProfile(profile);
     if (!normalized) return;
 
     try {
+        const currentSecret = getCurrentVaultSecret();
         const vault = await readVault();
-        const encryptedProfile = {
-            ...normalized,
-            name: encrypt(normalized.name, VAULT_SECRET),
-            phone: encrypt(normalized.phone, VAULT_SECRET),
-            email: encrypt(normalized.email, VAULT_SECRET), // Also encrypt email for consistency
-        };
+        const encryptedProfile = buildEncryptedProfile(normalized, currentSecret);
         vault[normalized.email] = encryptedProfile;
         await writeVault(enforceVaultSize(vault));
     } catch (error) {
@@ -177,16 +258,44 @@ const getAuthProfileSnapshotByEmail = async (email) => {
     if (!isVaultEnabled()) return null;
     const normalizedEmail = normalizeEmail(email);
     if (!normalizedEmail) return null;
+
+    const currentSecret = getCurrentVaultSecret();
+    const secretsByVersion = getVaultSecretsByVersion();
     const vault = await readVault();
     const profile = vault[normalizedEmail] || null;
-    
+
     if (profile) {
-        return {
+        const decryptedName = decryptField(profile.name, profile.keyVersion, secretsByVersion);
+        const decryptedPhone = decryptField(profile.phone, profile.keyVersion, secretsByVersion);
+        const decryptedEmail = decryptField(profile.email, profile.keyVersion, secretsByVersion);
+
+        const decryptedProfile = {
             ...profile,
-            name: decrypt(profile.name, VAULT_SECRET),
-            phone: decrypt(profile.phone, VAULT_SECRET),
-            email: decrypt(profile.email, VAULT_SECRET),
+            keyVersion: profile.keyVersion || CURRENT_KEY_VERSION,
+            name: decryptedName.value,
+            phone: decryptedPhone.value,
+            email: decryptedEmail.value,
         };
+
+        const shouldRotateKey = !profile.keyVersion
+            || profile.keyVersion !== CURRENT_KEY_VERSION
+            || decryptedName.usedVersion !== CURRENT_KEY_VERSION
+            || decryptedPhone.usedVersion !== CURRENT_KEY_VERSION
+            || decryptedEmail.usedVersion !== CURRENT_KEY_VERSION;
+
+        if (shouldRotateKey) {
+            vault[normalizedEmail] = buildEncryptedProfile(
+                {
+                    ...decryptedProfile,
+                    email: normalizeEmail(decryptedProfile.email) || normalizedEmail,
+                    updatedAt: new Date().toISOString(),
+                },
+                currentSecret
+            );
+            await writeVault(enforceVaultSize(vault));
+        }
+
+        return decryptedProfile;
     }
     return null;
 };

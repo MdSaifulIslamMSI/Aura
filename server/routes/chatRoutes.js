@@ -5,6 +5,7 @@ const { protect } = require('../middleware/authMiddleware');
 const { createDistributedRateLimit } = require('../middleware/distributedRateLimit');
 
 const publicChatLimiter = createDistributedRateLimit({
+    allowInMemoryFallback: true,
     name: 'chat_public',
     windowMs: 60 * 1000,
     max: 20,
@@ -12,6 +13,7 @@ const publicChatLimiter = createDistributedRateLimit({
 });
 
 const privateChatLimiter = createDistributedRateLimit({
+    allowInMemoryFallback: true,
     name: 'chat_private',
     windowMs: 60 * 1000,
     max: 60,

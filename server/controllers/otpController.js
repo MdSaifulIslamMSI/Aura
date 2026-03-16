@@ -113,15 +113,17 @@ const extractClientIp = (req) => {
 };
 
 const audit = (event, data) => {
+    const maskedPhone = data.phone ? maskPhoneSuffix(data.phone) : '-';
+
     logger.info(`otp.${event.toLowerCase()}`, {
         event,
-        phone: data.phone || '-',
+        phone: maskedPhone,
         email: data.email ? maskEmail(data.email) : '-',
         purpose: data.purpose || '-',
-        ip: data.ip || '-',
         requestId: data.requestId || '-',
         success: data.success !== undefined ? data.success : null,
         reason: data.reason || null,
+        ...(data.includeIp ? { ip: data.ip || '-' } : {}),
     });
 };
 

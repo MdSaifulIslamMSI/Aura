@@ -10,6 +10,7 @@ const otpRoutes = require('./otpRoutes');
 const router = express.Router();
 
 const authSyncLimiter = createDistributedRateLimit({
+    securityCritical: true,
     name: 'auth_sync',
     windowMs: 15 * 60 * 1000,
     max: process.env.NODE_ENV === 'development' ? 600 : 200,

@@ -26,6 +26,7 @@ const {
 const { createDistributedRateLimit } = require('../middleware/distributedRateLimit');
 
 const loginLimiter = createDistributedRateLimit({
+    securityCritical: true,
     name: 'user_login',
     windowMs: 15 * 60 * 1000,
     max: process.env.NODE_ENV === 'development' ? 600 : 200,
