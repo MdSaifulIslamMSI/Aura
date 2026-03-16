@@ -5,8 +5,19 @@ import { ensureCsrfToken, addCsrfTokenToHeaders } from '../csrfTokenManager';
 export const authApi = {
     getSession: async (options = {}) => {
         const headers = await getAuthHeader(options.firebaseUser);
-        const { data } = await apiFetch('/auth/session', { headers });
-        return data;
+        const response = await apiFetch('/auth/session', { headers });
+        
+        // Extract and cache CSRF token from response
+        const csrfToken = response.response?.headers?.get('X-CSRF-Token');
+        if (csrfToken && typeof cacheToken === 'function') {
+            try {
+                cacheToken(csrfToken);
+            } catch (e) {
+                console.warn('Failed to cache CSRF token:', e.message);
+            }
+        }
+        
+        return response.data;
     },
     syncSession: async (email, name, phone, options = {}) => {
         const headers = await getAuthHeader(options.firebaseUser);
@@ -20,8 +31,7 @@ export const authApi = {
                 csrfToken = await ensureCsrfToken(authToken);
             }
         } catch (error) {
-            console.warn('Failed to fetch CSRF token:', error.message);
-            // Continue without CSRF token - server will return 403 if CSRF required
+            throw new Error(`CSRF token fetch failed for syncSession: ${error.message}. Please refresh and try again.`);
         }
 
         const headersWithCsrf = addCsrfTokenToHeaders(headers, 'POST', csrfToken);
@@ -45,7 +55,7 @@ export const authApi = {
                 csrfToken = await ensureCsrfToken(authToken);
             }
         } catch (error) {
-            console.warn('Failed to fetch CSRF token:', error.message);
+            throw new Error(`CSRF token fetch failed for verifyLatticeChallenge: ${error.message}. Please refresh and try again.`);
         }
 
         const headersWithCsrf = addCsrfTokenToHeaders(headers, 'POST', csrfToken);
@@ -69,7 +79,7 @@ export const authApi = {
                 csrfToken = await ensureCsrfToken(authToken);
             }
         } catch (error) {
-            console.warn('Failed to fetch CSRF token:', error.message);
+            throw new Error(`CSRF token fetch failed for verifyQuantumChallenge: ${error.message}. Please refresh and try again.`);
         }
 
         const headersWithCsrf = addCsrfTokenToHeaders(headers, 'POST', csrfToken);

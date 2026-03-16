@@ -5,6 +5,7 @@ const {
     syncAuthenticatedUser,
 } = require('../services/authSessionService');
 const { generateLatticeChallenge, verifyLatticeProof } = require('../services/latticeChallengeService');
+const { validatePasswordPolicy, detectWeakPasswordPatterns } = require('../utils/passwordValidator');
 const AppError = require('../utils/AppError');
 
 const buildRequestAuthUser = (req) => ({

@@ -78,6 +78,13 @@ const csrfTokenGenerator = (req, res, next) => {
     res.setHeader('X-CSRF-Token', token);
     req.csrfToken = token;
     
+    logger.debug('csrf.token_generated', {
+        uid: req.authUid || 'anonymous',
+        ip: req.ip,
+        path: req.path,
+        timestamp: new Date().toISOString()
+    });
+    
     next();
 };
 
@@ -103,6 +110,7 @@ const csrfTokenValidator = (req, res, next) => {
             path: req.path,
             ip: req.ip,
             uid: req.authUid || 'anonymous',
+            timestamp: new Date().toISOString()
         });
         return next({
             statusCode: 403,
@@ -117,6 +125,8 @@ const csrfTokenValidator = (req, res, next) => {
             path: req.path,
             ip: req.ip,
             uid: req.authUid || 'anonymous',
+            tokenLength: token.length,
+            timestamp: new Date().toISOString()
         });
         return next({
             statusCode: 403,
@@ -126,6 +136,13 @@ const csrfTokenValidator = (req, res, next) => {
     }
     
     // Token validated successfully
+    logger.debug('csrf.token_valid', {
+        method: req.method,
+        path: req.path,
+        uid: req.authUid || 'anonymous',
+        timestamp: new Date().toISOString()
+    });
+    
     req.csrfValidated = true;
     next();
 };
