@@ -2,6 +2,13 @@ const { z } = require('zod');
 
 const paymentMethodEnum = z.enum(['UPI', 'CARD', 'WALLET']);
 
+
+const paymentMethodMetadataSchema = z.object({
+    nickname: z.string().trim().min(1).max(40).optional(),
+    enrollmentSource: z.enum(['checkout', 'settings']).optional(),
+    reference: z.string().trim().min(1).max(80).optional(),
+}).strict();
+
 const createIntentSchema = z.object({
     body: z.object({
         quotePayload: z.object({}).passthrough(),
@@ -58,12 +65,13 @@ const refundSchema = z.object({
 
 const paymentMethodSchema = z.object({
     body: z.object({
-        providerMethodId: z.string().trim().min(2),
-        provider: z.string().trim().min(2).optional(),
+        providerMethodId: z.string().trim().min(2).max(120).regex(/^[A-Za-z0-9@._:-]+$/),
+        paymentIntentId: z.string().trim().min(6).max(80).regex(/^[A-Za-z0-9._-]+$/).optional(),
+        provider: z.string().trim().min(2).max(30).optional(),
         type: z.enum(['card', 'upi', 'wallet', 'bank', 'other']).optional(),
         brand: z.string().trim().max(40).optional(),
         last4: z.string().trim().max(8).optional(),
-        metadata: z.object({}).passthrough().optional(),
+        metadata: paymentMethodMetadataSchema.optional(),
     }),
 });
 

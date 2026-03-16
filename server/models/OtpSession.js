@@ -1,6 +1,11 @@
 const mongoose = require('mongoose');
 
 const otpSessionSchema = new mongoose.Schema({
+    identityKey: {
+        type: String,
+        required: true,
+        index: true,
+    },
     user: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
@@ -42,7 +47,8 @@ const otpSessionSchema = new mongoose.Schema({
     },
 }, { timestamps: true });
 
-otpSessionSchema.index({ user: 1, purpose: 1 }, { unique: true });
+otpSessionSchema.index({ identityKey: 1, purpose: 1 }, { unique: true });
+otpSessionSchema.index({ user: 1, purpose: 1 });
 otpSessionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 module.exports = mongoose.model('OtpSession', otpSessionSchema);
