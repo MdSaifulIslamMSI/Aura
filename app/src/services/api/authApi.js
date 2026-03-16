@@ -1,7 +1,12 @@
 import { apiFetch } from '../apiBase';
 import { getAuthHeader } from './apiUtils';
-import { ensureCsrfToken, addCsrfTokenToHeaders } from '../csrfTokenManager';
+import { ensureCsrfToken, addCsrfTokenToHeaders, cacheToken } from '../csrfTokenManager';
 
+/**
+ * Auth API CSRF flow:
+ * - Read endpoint (/auth/session) returns X-CSRF-Token header for the current auth identity.
+ * - Write endpoints reuse that token in X-CSRF-Token with the same user context.
+ */
 export const authApi = {
     getSession: async (options = {}) => {
         const headers = await getAuthHeader(options.firebaseUser);

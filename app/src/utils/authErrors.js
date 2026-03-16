@@ -22,11 +22,11 @@ export const AUTH_ERRORS = {
         actionLabel: 'Reset my password'
     },
     'auth/user-not-found': {
-        title: 'Account Not Found',
-        detail: 'No account exists with this email address.',
-        hint: 'Try a different email, or create a new AURA account.',
-        action: 'signup',
-        actionLabel: 'Create an account'
+        title: 'Unable to Sign In',
+        detail: 'We could not verify those account details.',
+        hint: 'Check your credentials and try again, or use "Forgot Password?" for help.',
+        action: 'forgot-password',
+        actionLabel: 'Get sign-in help'
     },
     'auth/email-already-in-use': {
         title: 'Email Already Registered',
@@ -94,25 +94,25 @@ export const AUTH_ERRORS = {
 
     // ── OTP / Backend errors (matched by message content)
     'no account found with this phone': {
-        title: 'Phone Not Registered',
-        detail: 'We couldn\'t find an account linked to this phone number.',
-        hint: 'Make sure you\'re using the phone you signed up with, or create a new account.',
-        action: 'signup',
-        actionLabel: 'Sign up instead'
+        title: 'Verification Required',
+        detail: 'We could not verify those account details for OTP.',
+        hint: 'Recheck your email and phone details, then request a new code.',
+        action: null,
+        actionLabel: null
     },
     'no account found with this email': {
-        title: 'Email Not Registered',
-        detail: 'We couldn\'t find an account linked to this email.',
-        hint: 'Try a different email address, or create a new account for free.',
-        action: 'signup',
-        actionLabel: 'Create a new account'
+        title: 'Verification Required',
+        detail: 'We could not verify those account details for OTP.',
+        hint: 'Recheck your email and phone details, then request a new code.',
+        action: null,
+        actionLabel: null
     },
     'no account found': {
-        title: 'Account Not Found',
-        detail: 'No registered account matches your phone or email.',
-        hint: 'Are you sure you have an account? You can sign up — it\'s free.',
-        action: 'signup',
-        actionLabel: 'Create my account'
+        title: 'Verification Required',
+        detail: 'We could not verify those account details for OTP.',
+        hint: 'Recheck your email and phone details, then request a new code.',
+        action: null,
+        actionLabel: null
     },
     'account with this email already exists': {
         title: 'Email Already Registered',
@@ -199,6 +199,13 @@ export const AUTH_ERRORS = {
         action: null,
         actionLabel: null
     },
+    'if account details are valid, verification will proceed': {
+        title: 'Verification In Progress',
+        detail: 'If your account details are valid, we'll continue with verification.',
+        hint: 'Please recheck your email and phone number, then try again.',
+        action: null,
+        actionLabel: null
+    },
     'failed to send otp': {
         title: 'Couldn\'t Send Code',
         detail: 'We had trouble sending your verification code.',
@@ -266,11 +273,11 @@ export const resolveAuthError = (rawError) => {
 export const AUTH_SUCCESS = {
     otp_sent: {
         title: 'Code Sent!',
-        detail: 'A 6-digit verification code has been sent to your email.'
+        detail: 'If the account details are valid, a 6-digit verification code has been sent.'
     },
     otp_resent: {
         title: 'New Code Sent!',
-        detail: 'A fresh code has been sent. Check your inbox (or Spam folder).'
+        detail: 'If the account details are valid, a fresh verification code has been sent.'
     },
     otp_verified: {
         title: 'Verified!',
