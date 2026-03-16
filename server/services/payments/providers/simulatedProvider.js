@@ -5,8 +5,9 @@ const { makeEventId, toPaise, fromPaise } = require('../helpers');
 const simulateRef = (seed) => `sim_${crypto.createHash('sha1').update(seed).digest('hex').slice(0, 14)}`;
 
 class SimulatedProvider {
-    constructor() {
+    constructor({ webhookSecret } = {}) {
         this.name = 'simulated';
+        this.webhookSecret = String(webhookSecret || '');
     }
 
     async createOrder({ amount, currency = 'INR', receipt, notes = {} }) {
@@ -92,8 +93,15 @@ class SimulatedProvider {
         return { type: 'other', brand: '', last4: '', providerMethodId: '' };
     }
 
-    verifyWebhookSignature({ rawBody }) {
-        return Boolean(rawBody);
+    verifyWebhookSignature({ rawBody, signature }) {
+        if (!rawBody || !signature || !this.webhookSecret) return false;
+        const expected = crypto
+            .createHmac('sha256', this.webhookSecret)
+            .update(rawBody)
+            .digest('hex');
+        if (expected.length !== signature.length) return false;
+
+        return crypto.timingSafeEqual(Buffer.from(expected, 'utf8'), Buffer.from(signature, 'utf8'));
     }
 
     parseWebhook(rawBody) {
@@ -111,4 +119,3 @@ class SimulatedProvider {
 }
 
 module.exports = SimulatedProvider;
-

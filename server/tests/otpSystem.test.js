@@ -36,9 +36,9 @@ const seedVerified = async (overrides = {}) => {
         name: overrides.name || u.name,
         email: overrides.email || u.email,
         phone: overrides.phone || u.phone,
-        isVerified: true,
+        isVerified: overrides.isVerified !== undefined ? overrides.isVerified : true,
         otp: otpPlain ? await bcrypt.hash(otpPlain, SALT) : null,
-        otpExpiry: overrides.otpExpiry || null,
+        otpExpiry: overrides.otpExpiry || (otpPlain ? new Date(Date.now() + 5 * 60 * 1000) : null),
         otpPurpose: overrides.otpPurpose || null,
         otpAttempts: overrides.otpAttempts || 0,
         otpLockedUntil: overrides.otpLockedUntil || null
@@ -273,13 +273,53 @@ describe('POST /api/otp/send — Signup Flow', () => {
         expect(res.statusCode).toBe(409);
     });
 
-    test('28. deletes old unverified on re-signup', async () => {
+    test('28. re-signup reuses pending record without creating duplicates', async () => {
         const u = uniqueUser();
         await request(app).post('/api/otp/send')
             .send({ email: u.email, phone: u.phone, purpose: 'signup' });
         await request(app).post('/api/otp/send')
             .send({ email: u.email, phone: u.phone, purpose: 'signup' });
         expect(await User.countDocuments({ email: u.email })).toBe(1);
+    });
+
+    test('28a. repeated signup OTP does not delete unrelated pending users', async () => {
+        const primary = uniqueUser();
+        const unrelated = uniqueUser();
+
+        await User.create({
+            name: 'Pending',
+            email: unrelated.email,
+            phone: unrelated.phone,
+            isVerified: false,
+        });
+
+        await request(app).post('/api/otp/send')
+            .send({ email: primary.email, phone: primary.phone, purpose: 'signup' });
+        await request(app).post('/api/otp/send')
+            .send({ email: primary.email, phone: primary.phone, purpose: 'signup' });
+
+        const unrelatedStillExists = await User.findOne({ email: unrelated.email, isVerified: false }).lean();
+        expect(unrelatedStillExists).not.toBeNull();
+    });
+
+    test('28b. repeated signup OTP does not delete pending user sharing only one identifier variant', async () => {
+        const target = uniqueUser();
+        const other = uniqueUser();
+
+        await User.create({
+            name: 'Pending',
+            email: other.email,
+            phone: `+91${target.phone}`,
+            isVerified: false,
+        });
+
+        await request(app).post('/api/otp/send')
+            .send({ email: target.email, phone: target.phone, purpose: 'signup' });
+        await request(app).post('/api/otp/send')
+            .send({ email: target.email, phone: target.phone, purpose: 'signup' });
+
+        const otherPending = await User.findOne({ email: other.email, isVerified: false }).lean();
+        expect(otherPending).not.toBeNull();
     });
 
     test('29. response message contains email', async () => {
@@ -348,18 +388,26 @@ describe('POST /api/otp/send — Signup Flow', () => {
 // ═══════════════════════════════════════════════════════════════════
 describe('POST /api/otp/send — Login & Forgot Password', () => {
 
-    test('36. 404 for login non-existent phone', async () => {
+    test('36. returns generic success response for login non-existent phone', async () => {
         const u = uniqueUser();
         const res = await request(app).post('/api/otp/send')
             .send({ email: u.email, phone: u.phone, purpose: 'login' });
-        expect(res.statusCode).toBe(404);
+        expect(res.statusCode).toBe(200);
+        expect(res.body).toEqual({
+            success: true,
+            message: 'If the account details are valid, we will continue with verification steps.'
+        });
     });
 
-    test('37. 404 for forgot-password non-existent', async () => {
+    test('37. returns generic success response for forgot-password non-existent', async () => {
         const u = uniqueUser();
         const res = await request(app).post('/api/otp/send')
             .send({ email: u.email, phone: u.phone, purpose: 'forgot-password' });
-        expect(res.statusCode).toBe(404);
+        expect(res.statusCode).toBe(200);
+        expect(res.body).toEqual({
+            success: true,
+            message: 'If the account details are valid, we will continue with verification steps.'
+        });
     });
 
     test('38. stores bcrypt hash for login OTP', async () => {
@@ -402,25 +450,27 @@ describe('POST /api/otp/send — Login & Forgot Password', () => {
         expect(await User.countDocuments()).toBe(before);
     });
 
-    test('43. 404 message guides to sign up', async () => {
+    test('43. login generic message does not reveal account status', async () => {
         const u = uniqueUser();
         const res = await request(app).post('/api/otp/send')
             .send({ email: u.email, phone: u.phone, purpose: 'login' });
-        expect(res.body.message).toMatch(/sign up/i);
+        expect(res.body.message).toBe('If the account details are valid, we will continue with verification steps.');
     });
 
-    test('44. does not find unverified for login', async () => {
+    test('44. unverified login returns generic success response', async () => {
         const { user } = await seedPending();
         const res = await request(app).post('/api/otp/send')
             .send({ email: user.email, phone: user.phone, purpose: 'login' });
-        expect(res.statusCode).toBe(404);
+        expect(res.statusCode).toBe(200);
+        expect(res.body.message).toBe('If the account details are valid, we will continue with verification steps.');
     });
 
-    test('45. does not find unverified for forgot-password', async () => {
+    test('45. unverified forgot-password returns generic success response', async () => {
         const { user } = await seedPending();
         const res = await request(app).post('/api/otp/send')
             .send({ email: user.email, phone: user.phone, purpose: 'forgot-password' });
-        expect(res.statusCode).toBe(404);
+        expect(res.statusCode).toBe(200);
+        expect(res.body.message).toBe('If the account details are valid, we will continue with verification steps.');
     });
 
     test('46. responds within 500ms', async () => {
@@ -462,20 +512,28 @@ describe('POST /api/otp/send — Login & Forgot Password', () => {
         expect(u.otpPurpose).toBe('forgot-password');
     });
 
-    test('50a. 404 when login email does not match phone owner', async () => {
+    test('50a. login mismatch returns generic response', async () => {
         const first = await seedVerified();
         const second = await seedVerified();
         const res = await request(app).post('/api/otp/send')
             .send({ email: first.email, phone: second.phone, purpose: 'login' });
-        expect(res.statusCode).toBe(404);
+        expect(res.statusCode).toBe(200);
+        expect(res.body).toEqual({
+            success: true,
+            message: 'If the account details are valid, we will continue with verification steps.'
+        });
     });
 
-    test('50b. 404 when forgot-password email does not match phone owner', async () => {
+    test('50b. forgot-password mismatch returns generic response', async () => {
         const first = await seedVerified();
         const second = await seedVerified();
         const res = await request(app).post('/api/otp/send')
             .send({ email: first.email, phone: second.phone, purpose: 'forgot-password' });
-        expect(res.statusCode).toBe(404);
+        expect(res.statusCode).toBe(200);
+        expect(res.body).toEqual({
+            success: true,
+            message: 'If the account details are valid, we will continue with verification steps.'
+        });
     });
 });
 
@@ -561,26 +619,29 @@ describe('POST /api/otp/verify', () => {
         expect(u.otpAttempts).toBe(0);
     });
 
-    test('62. returns user data in response', async () => {
+    test('62. returns only continuation metadata in response', async () => {
         const { user, otpPlain } = await seedPending({ otp: '666666', otpPurpose: 'signup' });
         const res = await request(app).post('/api/otp/verify')
             .send({ phone: user.phone, otp: otpPlain, purpose: 'signup' });
-        expect(res.body.user._id).toBeDefined();
-        expect(res.body.user.email).toBe(user.email);
+        expect(res.body.flowToken).toEqual(expect.any(String));
+        expect(res.body.flowTokenExpiresAt).toEqual(expect.any(String));
+        expect(res.body.maskedIdentifier).toEqual(expect.any(String));
     });
 
-    test('63. does NOT leak OTP hash in response', async () => {
+    test('63. does NOT leak profile data in response', async () => {
         const { user, otpPlain } = await seedPending({ otp: '444444', otpPurpose: 'signup' });
         const res = await request(app).post('/api/otp/verify')
             .send({ phone: user.phone, otp: otpPlain, purpose: 'signup' });
-        expect(res.body.user.otp).toBeUndefined();
+        expect(res.body.user).toBeUndefined();
+        expect(res.body.email).toBeUndefined();
+        expect(res.body.phone).toBeUndefined();
     });
 
-    test('64. does NOT leak password in response', async () => {
+    test('64. does NOT leak privileged role flags in response', async () => {
         const { user, otpPlain } = await seedPending({ otp: '333333', otpPurpose: 'signup' });
         const res = await request(app).post('/api/otp/verify')
             .send({ phone: user.phone, otp: otpPlain, purpose: 'signup' });
-        expect(res.body.user.password).toBeUndefined();
+        expect(res.body.isAdmin).toBeUndefined();
     });
 
     test('65. rejects OTP replay (same OTP twice)', async () => {
@@ -679,10 +740,82 @@ describe('POST /api/otp/verify', () => {
         expect(res.body).toEqual(expect.objectContaining({
             success: true,
             verified: true,
-            user: expect.objectContaining({ _id: expect.any(String) })
+            flowToken: expect.any(String),
+            flowTokenExpiresAt: expect.any(String),
+            maskedIdentifier: expect.any(String)
         }));
+        expect(res.body.user).toBeUndefined();
     });
 });
+
+    test('75a. login verification does not force account verification', async () => {
+        const user = await seedVerified({ otp: '313131', otpPurpose: 'login', isVerified: false });
+        await User.updateOne({ _id: user._id }, { $set: { isVerified: false } });
+
+        const res = await request(app).post('/api/otp/verify')
+            .send({ phone: user.phone, otp: '313131', purpose: 'login' });
+
+        expect(res.statusCode).toBe(200);
+        const updated = await User.findById(user._id)
+            .select('+loginOtpVerifiedAt +loginOtpAssuranceExpiresAt +resetOtpVerifiedAt');
+        expect(updated.isVerified).toBe(false);
+        expect(updated.loginOtpVerifiedAt).not.toBeNull();
+        expect(updated.loginOtpAssuranceExpiresAt).not.toBeNull();
+        expect(updated.resetOtpVerifiedAt).toBeNull();
+    });
+
+    test('75b. forgot-password verification sets only reset marker', async () => {
+        const user = await seedVerified({ otp: '414141', otpPurpose: 'forgot-password', isVerified: false });
+        await User.updateOne({ _id: user._id }, { $set: { isVerified: false } });
+
+        const res = await request(app).post('/api/otp/verify')
+            .send({ phone: user.phone, otp: '414141', purpose: 'forgot-password' });
+
+        expect(res.statusCode).toBe(200);
+        const updated = await User.findById(user._id)
+            .select('+loginOtpVerifiedAt +loginOtpAssuranceExpiresAt +resetOtpVerifiedAt');
+        expect(updated.isVerified).toBe(false);
+        expect(updated.resetOtpVerifiedAt).not.toBeNull();
+        expect(updated.loginOtpVerifiedAt).toBeNull();
+        expect(updated.loginOtpAssuranceExpiresAt).toBeNull();
+    });
+
+    test('75c. payment-challenge verification issues token without account escalation', async () => {
+        const user = await seedVerified({ otp: '515151', otpPurpose: 'payment-challenge' });
+
+        const res = await request(app).post('/api/otp/verify')
+            .send({ phone: user.phone, otp: '515151', purpose: 'payment-challenge', intentId: 'intent_abc123' });
+
+        expect(res.statusCode).toBe(200);
+        expect(res.body.challengeToken).toBeTruthy();
+        const updated = await User.findById(user._id)
+            .select('+loginOtpVerifiedAt +loginOtpAssuranceExpiresAt +resetOtpVerifiedAt');
+        expect(updated.isVerified).toBe(true);
+        expect(updated.loginOtpVerifiedAt).toBeNull();
+        expect(updated.loginOtpAssuranceExpiresAt).toBeNull();
+        expect(updated.resetOtpVerifiedAt).toBeNull();
+    });
+
+    test('75d. verification rejects email identity mismatch linkage', async () => {
+        const one = await seedVerified({ otp: '616161', otpPurpose: 'login' });
+        const two = await seedVerified();
+
+        const res = await request(app).post('/api/otp/verify')
+            .send({ phone: one.phone, email: two.email, otp: '616161', purpose: 'login' });
+
+        expect(res.statusCode).toBe(403);
+    });
+
+    test('75e. verification rejects userId identity mismatch linkage', async () => {
+        const one = await seedVerified({ otp: '717171', otpPurpose: 'forgot-password' });
+        const two = await seedVerified();
+
+        const res = await request(app).post('/api/otp/verify')
+            .send({ phone: one.phone, userId: String(two._id), otp: '717171', purpose: 'forgot-password' });
+
+        expect(res.statusCode).toBe(403);
+    });
+
 
 // ═══════════════════════════════════════════════════════════════════
 //  SECTION 5: POST /api/otp/check-user (Tests 76-90)
@@ -694,52 +827,82 @@ describe('POST /api/otp/check-user', () => {
         expect(res.statusCode).toBe(400);
     });
 
-    test('77. exists:false for unknown phone', async () => {
+    test('77. returns generic response for unknown phone', async () => {
         const u = uniqueUser();
         const res = await request(app).post('/api/otp/check-user').send({ phone: u.phone });
-        expect(res.body.exists).toBe(false);
+        expect(res.statusCode).toBe(200);
+        expect(res.body).toEqual({
+            success: true,
+            message: 'If an account exists, verification instructions have been sent.'
+        });
     });
 
-    test('78. exists:true for verified user', async () => {
+    test('78. returns generic response for verified user', async () => {
         const user = await seedVerified();
         const res = await request(app).post('/api/otp/check-user').send({ phone: user.phone });
-        expect(res.body.exists).toBe(true);
+        expect(res.statusCode).toBe(200);
+        expect(res.body).toEqual({
+            success: true,
+            message: 'If an account exists, verification instructions have been sent.'
+        });
     });
 
-    test('79. exists:false for unverified user', async () => {
+    test('79. returns generic response for unverified user', async () => {
         const { user } = await seedPending();
         const res = await request(app).post('/api/otp/check-user').send({ phone: user.phone });
-        expect(res.body.exists).toBe(false);
+        expect(res.statusCode).toBe(200);
+        expect(res.body).toEqual({
+            success: true,
+            message: 'If an account exists, verification instructions have been sent.'
+        });
     });
 
-    test('80. returns masked email with ***', async () => {
+    test('80. does not expose masked email', async () => {
         const user = await seedVerified();
         const res = await request(app).post('/api/otp/check-user').send({ phone: user.phone });
-        expect(res.body.email).toContain('***');
+        expect(res.statusCode).toBe(200);
+        expect(res.body.message).toEqual('If an account exists, verification instructions have been sent.');
+        expect(res.body.email).toBeUndefined();
     });
 
-    test('81. returns null email for non-existent', async () => {
+    test('81. does not expose reason for non-existent user', async () => {
         const u = uniqueUser();
         const res = await request(app).post('/api/otp/check-user').send({ phone: u.phone });
-        expect(res.body.email).toBeNull();
+        expect(res.statusCode).toBe(200);
+        expect(res.body.message).toEqual('If an account exists, verification instructions have been sent.');
+        expect(res.body.reason).toBeUndefined();
     });
 
-    test('82. returns null phone for non-existent', async () => {
+    test('82. does NOT include phone field for non-existent user', async () => {
         const u = uniqueUser();
         const res = await request(app).post('/api/otp/check-user').send({ phone: u.phone });
-        expect(res.body.phone).toBeNull();
+        expect(res.statusCode).toBe(200);
+        expect(res.body.message).toEqual('If an account exists, verification instructions have been sent.');
+        expect(res.body.phone).toBeUndefined();
     });
 
-    test('83. returns phone for existing user', async () => {
+    test('83. does NOT include phone field for existing user', async () => {
         const user = await seedVerified();
         const res = await request(app).post('/api/otp/check-user').send({ phone: user.phone });
-        expect(res.body.phone).toBe(user.phone);
+        expect(res.statusCode).toBe(200);
+        expect(res.body.message).toEqual('If an account exists, verification instructions have been sent.');
+        expect(res.body.phone).toBeUndefined();
     });
 
-    test('84. does NOT expose full email', async () => {
+    test('84. does not expose registeredPhoneSuffix hints', async () => {
+        const user = await seedVerified();
+        const res = await request(app).post('/api/otp/check-user').send({ phone: user.phone, email: 'mismatch@example.com' });
+        expect(res.statusCode).toBe(200);
+        expect(res.body.message).toEqual('If an account exists, verification instructions have been sent.');
+        expect(res.body.registeredPhoneSuffix).toBeUndefined();
+    });
+
+    test('84a. never returns raw email in payload', async () => {
         const user = await seedVerified();
         const res = await request(app).post('/api/otp/check-user').send({ phone: user.phone });
-        expect(res.body.email).not.toBe(user.email);
+        expect(res.statusCode).toBe(200);
+        expect(res.body.message).toEqual('If an account exists, verification instructions have been sent.');
+        expect(JSON.stringify(res.body)).not.toContain(user.email);
     });
 
     test('85. does NOT leak OTP hash', async () => {
@@ -748,22 +911,25 @@ describe('POST /api/otp/check-user', () => {
         expect(res.body.otp).toBeUndefined();
     });
 
-    test('86. does NOT leak cart/wishlist', async () => {
+
+    test('79. returns same generic payload for unverified user', async () => {
+        const { user } = await seedPending();
+        const res = await request(app).post('/api/otp/check-user').send({ phone: user.phone });
+        expect(res.statusCode).toBe(200);
+        expect(res.body).toEqual({
+            success: true,
+            message: 'If an account exists, verification instructions have been sent.',
+        });
+    });
+
+    test('80. payload does not expose account-enumeration fields', async () => {
         const user = await seedVerified();
         const res = await request(app).post('/api/otp/check-user').send({ phone: user.phone });
-        expect(res.body.cart).toBeUndefined();
-    });
-
-    test('87. does NOT leak otpAttempts', async () => {
-        const user = await seedVerified({ otpAttempts: 3 });
-        const res = await request(app).post('/api/otp/check-user').send({ phone: user.phone });
-        expect(res.body.otpAttempts).toBeUndefined();
-    });
-
-    test('88. returns JSON content type', async () => {
-        const u = uniqueUser();
-        const res = await request(app).post('/api/otp/check-user').send({ phone: u.phone });
-        expect(res.headers['content-type']).toMatch(/json/);
+        expect(res.body.exists).toBeUndefined();
+        expect(res.body.email).toBeUndefined();
+        expect(res.body.phone).toBeUndefined();
+        expect(res.body.reason).toBeUndefined();
+        expect(res.body.registeredPhoneSuffix).toBeUndefined();
     });
 
     test('89. rejects empty string phone', async () => {
@@ -889,7 +1055,7 @@ describe('Full OTP Flow — E2E & Hardened Security', () => {
         const res = await request(app).post('/api/otp/check-user')
             .send({ phone: { $gt: '' } });
         expect(res.statusCode).toBeGreaterThanOrEqual(400);
-        expect(res.body.exists).not.toBe(true);
+        expect(res.body.success).not.toBe(true);
     });
 
     test('100. all endpoints return error structure on empty body', async () => {

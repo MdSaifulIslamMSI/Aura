@@ -3,11 +3,30 @@ const User = require('../models/User');
 const OtpSession = require('../models/OtpSession');
 
 describe('OTP Storage Safety', () => {
-    test('users collection does not have destructive TTL index on otpExpiry', async () => {
-        const indexes = await User.collection.indexes();
-        const hasOtpTtl = indexes.some(
-            (index) => index.key?.otpExpiry === 1 && Number(index.expireAfterSeconds) === 0
+
+    test('otp sessions schema defines unique index on identityKey + purpose', async () => {
+        const schemaIndexes = OtpSession.schema.indexes();
+        const hasIdentityUnique = schemaIndexes.some(
+            ([keys, options]) => keys?.identityKey === 1 && keys?.purpose === 1 && options?.unique === true
         );
+        expect(hasIdentityUnique).toBe(true);
+    });
+
+    test('users collection does not have destructive TTL index on otpExpiry', async () => {
+        let hasOtpTtl = false;
+        try {
+            const indexes = await User.collection.indexes();
+            hasOtpTtl = indexes.some(
+                (index) => index.key?.otpExpiry === 1 && Number(index.expireAfterSeconds) === 0
+            );
+        } catch (error) {
+            const nsMissing = String(error?.message || '').toLowerCase().includes('ns does not exist');
+            if (!nsMissing) throw error;
+            const schemaIndexes = User.schema.indexes();
+            hasOtpTtl = schemaIndexes.some(
+                ([keys, options]) => keys?.otpExpiry === 1 && Number(options?.expireAfterSeconds) === 0
+            );
+        }
         expect(hasOtpTtl).toBe(false);
     });
 
@@ -17,6 +36,7 @@ describe('OTP Storage Safety', () => {
         try {
             // Ensure collection exists in environments where collection creation is allowed.
             await OtpSession.create({
+                identityKey: '+14155550123',
                 user: new mongoose.Types.ObjectId(),
                 purpose: 'signup',
                 otpHash: 'hash',
