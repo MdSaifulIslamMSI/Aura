@@ -24,6 +24,7 @@ jest.mock('../models/User', () => ({
 
 jest.mock('../models/Order', () => ({
     countDocuments: jest.fn(),
+    updateMany: jest.fn(),
 }));
 
 jest.mock('../models/Listing', () => ({
@@ -139,6 +140,7 @@ describe('Admin user routes integration', () => {
         UserGovernanceLog.create.mockResolvedValue({ actionId: 'ugl_1' });
         UserGovernanceLog.find.mockReturnValue(makeGovernanceLogChain([]));
         Listing.updateMany.mockResolvedValue({ modifiedCount: 2 });
+        Order.updateMany.mockResolvedValue({ modifiedCount: 1 });
         Order.countDocuments.mockResolvedValue(0);
         Listing.countDocuments.mockResolvedValue(0);
         PaymentIntent.countDocuments.mockResolvedValue(0);

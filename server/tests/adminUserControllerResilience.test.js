@@ -7,6 +7,7 @@ jest.mock('../models/User', () => ({
 
 jest.mock('../models/Order', () => ({
     countDocuments: jest.fn(),
+    updateMany: jest.fn(),
 }));
 
 jest.mock('../models/Listing', () => ({
@@ -144,6 +145,7 @@ describe('Admin user controller resilience', () => {
         jest.clearAllMocks();
         UserGovernanceLog.create.mockResolvedValue({ actionId: 'ugl_1' });
         Listing.updateMany.mockResolvedValue({ modifiedCount: 2 });
+        Order.updateMany.mockResolvedValue({ modifiedCount: 3 });
     });
 
     test('listAdminUsers returns data even when state aggregation fails', async () => {
