@@ -73,30 +73,8 @@ const makeNotificationDoc = (overrides = {}) => ({
     createdAt: new Date('2026-03-05T10:00:00.000Z'),
     save: jest.fn().mockResolvedValue(undefined),
     toObject() {
-        return {
-            notificationId: this.notificationId,
-            source: this.source,
-            actionKey: this.actionKey,
-            title: this.title,
-            summary: this.summary,
-            severity: this.severity,
-            method: this.method,
-            path: this.path,
-            statusCode: this.statusCode,
-            durationMs: this.durationMs,
-            actorUser: this.actorUser,
-            actorName: this.actorName,
-            actorEmail: this.actorEmail,
-            actorRole: this.actorRole,
-            entityType: this.entityType,
-            entityId: this.entityId,
-            highlights: this.highlights,
-            requestId: this.requestId,
-            isRead: this.isRead,
-            readAt: this.readAt,
-            readBy: this.readBy,
-            createdAt: this.createdAt,
-        };
+        const { toObject, save, ...rest } = this;
+        return rest;
     },
     ...overrides,
 });
