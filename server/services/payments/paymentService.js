@@ -843,6 +843,63 @@ const extractWebhookIdentifiers = (event = {}) => {
     };
 };
 
+const PAYMENT_STATUS_TRANSITIONS = {
+    [PAYMENT_STATUSES.CREATED]: new Set([
+        PAYMENT_STATUSES.CREATED,
+        PAYMENT_STATUSES.AUTHORIZED,
+        PAYMENT_STATUSES.FAILED,
+        PAYMENT_STATUSES.EXPIRED,
+    ]),
+    [PAYMENT_STATUSES.CHALLENGE_PENDING]: new Set([
+        PAYMENT_STATUSES.CHALLENGE_PENDING,
+        PAYMENT_STATUSES.CREATED,
+        PAYMENT_STATUSES.FAILED,
+        PAYMENT_STATUSES.EXPIRED,
+    ]),
+    [PAYMENT_STATUSES.AUTHORIZED]: new Set([
+        PAYMENT_STATUSES.AUTHORIZED,
+        PAYMENT_STATUSES.CAPTURED,
+        PAYMENT_STATUSES.FAILED,
+    ]),
+    [PAYMENT_STATUSES.CAPTURED]: new Set([
+        PAYMENT_STATUSES.CAPTURED,
+        PAYMENT_STATUSES.PARTIALLY_REFUNDED,
+        PAYMENT_STATUSES.REFUNDED,
+    ]),
+    [PAYMENT_STATUSES.PARTIALLY_REFUNDED]: new Set([
+        PAYMENT_STATUSES.PARTIALLY_REFUNDED,
+        PAYMENT_STATUSES.REFUNDED,
+    ]),
+    [PAYMENT_STATUSES.REFUNDED]: new Set([
+        PAYMENT_STATUSES.REFUNDED,
+    ]),
+    [PAYMENT_STATUSES.FAILED]: new Set([
+        PAYMENT_STATUSES.FAILED,
+    ]),
+    [PAYMENT_STATUSES.EXPIRED]: new Set([
+        PAYMENT_STATUSES.EXPIRED,
+    ]),
+};
+
+const canTransitionPaymentStatus = ({ currentStatus, targetStatus }) => {
+    if (!targetStatus) return true;
+    const allowedTargets = PAYMENT_STATUS_TRANSITIONS[currentStatus] || new Set([currentStatus]);
+    return allowedTargets.has(targetStatus);
+};
+
+const mapWebhookEventToPaymentStatus = ({ eventType, currentStatus }) => {
+    if (eventType === 'payment.authorized') return PAYMENT_STATUSES.AUTHORIZED;
+    if (eventType === 'payment.captured') return PAYMENT_STATUSES.CAPTURED;
+    if (eventType === 'payment.failed') return PAYMENT_STATUSES.FAILED;
+    if (eventType === 'refund.processed') {
+        if (currentStatus === PAYMENT_STATUSES.REFUNDED) {
+            return PAYMENT_STATUSES.REFUNDED;
+        }
+        return PAYMENT_STATUSES.PARTIALLY_REFUNDED;
+    }
+    return null;
+};
+
 const processRazorpayWebhook = async ({ signature, rawBody }) => {
     const provider = await getPaymentProvider();
     if (provider.name !== 'razorpay' && provider.name !== 'simulated') {
@@ -882,15 +939,52 @@ const processRazorpayWebhook = async ({ signature, rawBody }) => {
         return { received: true, deduped: false, intentId: null };
     }
 
-    const statusMap = {
-        'payment.authorized': PAYMENT_STATUSES.AUTHORIZED,
-        'payment.captured': PAYMENT_STATUSES.CAPTURED,
-        'payment.failed': PAYMENT_STATUSES.FAILED,
-        'refund.processed': intent.status === PAYMENT_STATUSES.REFUNDED
-            ? PAYMENT_STATUSES.REFUNDED
-            : PAYMENT_STATUSES.PARTIALLY_REFUNDED,
-    };
-    const mapped = statusMap[parsedEvent.eventType];
+    const currentStatus = intent.status;
+    const mapped = mapWebhookEventToPaymentStatus({
+        eventType: parsedEvent.eventType,
+        currentStatus,
+    });
+    const validTransition = canTransitionPaymentStatus({
+        currentStatus,
+        targetStatus: mapped,
+    });
+
+    if (!validTransition) {
+        logger.warn('payment.webhook_transition_discarded', {
+            eventId: parsedEvent.eventId,
+            eventType: parsedEvent.eventType,
+            intentId: intent.intentId,
+            currentStatus,
+            targetStatus: mapped,
+        });
+
+        await PaymentEvent.create({
+            eventId: parsedEvent.eventId,
+            intentId: intent.intentId,
+            source: 'webhook',
+            type: parsedEvent.eventType,
+            payloadHash: hashPayload(parsed),
+            payload: {
+                ...parsed,
+                processingMeta: {
+                    discarded: true,
+                    reason: 'invalid_status_transition',
+                    currentStatus,
+                    targetStatus: mapped,
+                },
+            },
+            receivedAt: new Date(),
+        });
+
+        return {
+            received: true,
+            deduped: false,
+            intentId: intent.intentId,
+            discarded: true,
+            reason: 'invalid_status_transition',
+        };
+    }
+
     if (mapped) {
         intent.status = mapped;
     }
@@ -915,7 +1009,9 @@ const processRazorpayWebhook = async ({ signature, rawBody }) => {
         receivedAt: new Date(),
     });
 
-    if (intent.status === PAYMENT_STATUSES.CAPTURED) {
+    const statusTransitionedToCaptured = currentStatus !== PAYMENT_STATUSES.CAPTURED
+        && intent.status === PAYMENT_STATUSES.CAPTURED;
+    if (statusTransitionedToCaptured) {
         await applyOrderPaymentCapture(intent);
     }
 
@@ -1046,7 +1142,25 @@ const listUserPaymentMethods = async ({ userId }) => {
     return PaymentMethod.find({ user: userId, status: 'active' }).sort({ isDefault: -1, updatedAt: -1 }).lean();
 };
 
-const saveUserPaymentMethod = async ({ userId, method }) => {
+const PAYMENT_METHOD_ENROLLMENT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
+const getRecentIntentBinding = async ({ userId, providerMethodId, paymentIntentId = '' }) => {
+    const normalizedIntentId = String(paymentIntentId || '').trim();
+    const query = {
+        user: userId,
+        status: { $in: [PAYMENT_STATUSES.AUTHORIZED, PAYMENT_STATUSES.CAPTURED] },
+        authorizedAt: { $gte: new Date(Date.now() - PAYMENT_METHOD_ENROLLMENT_MAX_AGE_MS) },
+        'metadata.providerMethodSnapshot.providerMethodId': providerMethodId,
+    };
+
+    if (normalizedIntentId) {
+        query.intentId = normalizedIntentId;
+    }
+
+    return PaymentIntent.findOne(query).sort({ authorizedAt: -1 });
+};
+
+const saveUserPaymentMethod = async ({ userId, method, paymentIntentId = '' }) => {
     if (!flags.paymentSavedMethodsEnabled) {
         throw new AppError('Saved payment methods are disabled', 403);
     }
@@ -1054,15 +1168,47 @@ const saveUserPaymentMethod = async ({ userId, method }) => {
     const providerMethodId = String(method.providerMethodId || '').trim();
     if (!providerMethodId) throw new AppError('providerMethodId is required', 400);
 
+    const bindingIntent = await getRecentIntentBinding({
+        userId,
+        providerMethodId,
+        paymentIntentId,
+    });
+    if (!bindingIntent || !bindingIntent.providerPaymentId) {
+        throw new AppError('Unable to establish payment method ownership for this user', 403);
+    }
+
+    const provider = await getPaymentProvider({
+        amount: bindingIntent.amount,
+        currency: bindingIntent.currency,
+        paymentMethod: bindingIntent.method,
+        userId: bindingIntent.user,
+    });
+
+    let providerPayment;
+    try {
+        providerPayment = await provider.fetchPayment(bindingIntent.providerPaymentId);
+    } catch (error) {
+        throw new AppError('Unable to verify payment method with provider right now. Please retry.', 502);
+    }
+
+    const providerMethodSnapshot = provider.parsePaymentMethod(providerPayment || {});
+    if (providerMethodSnapshot.providerMethodId !== providerMethodId) {
+        throw new AppError('Unable to establish payment method ownership for this user', 403);
+    }
+
+    if (String(providerPayment.order_id || bindingIntent.providerOrderId) !== String(bindingIntent.providerOrderId)) {
+        throw new AppError('Unable to establish payment method ownership for this user', 403);
+    }
+
     const payload = {
         user: userId,
-        provider: method.provider || flags.paymentProvider || 'razorpay',
+        provider: bindingIntent.provider || method.provider || flags.paymentProvider || 'razorpay',
         providerMethodId,
-        type: method.type || 'other',
-        brand: method.brand || '',
-        last4: method.last4 || '',
+        type: providerMethodSnapshot.type || method.type || 'other',
+        brand: providerMethodSnapshot.brand || method.brand || '',
+        last4: providerMethodSnapshot.last4 || method.last4 || '',
         status: 'active',
-        fingerprintHash: hashPayload(`${providerMethodId}|${method.type || 'other'}|${method.last4 || ''}`),
+        fingerprintHash: hashPayload(`${providerMethodId}|${providerMethodSnapshot.type || method.type || 'other'}|${providerMethodSnapshot.last4 || method.last4 || ''}`),
         metadata: method.metadata || {},
     };
 

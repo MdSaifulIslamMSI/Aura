@@ -1,11 +1,13 @@
 const { Server } = require('socket.io');
 const firebaseAdmin = require('../config/firebase');
 const User = require('../models/User');
+const Listing = require('../models/Listing');
 const logger = require('../utils/logger');
 
 let io;
 // Map to track userId -> Set of socketIds (handles multiple tabs/devices)
 const userSockets = new Map();
+const activeCallSessions = new Map();
 
 const normalizeEmail = (value) => (typeof value === 'string' ? value.trim().toLowerCase() : '');
 
@@ -33,6 +35,57 @@ const resolveSocketUser = async (token) => {
         isAdmin: Boolean(user.isAdmin),
         isSeller: Boolean(user.isSeller),
         isVerified: Boolean(user.isVerified),
+    };
+};
+
+const getActiveCallSessionKey = ({ listingId, userA, userB }) => {
+    const [firstUserId, secondUserId] = [String(userA), String(userB)].sort();
+    return `${String(listingId)}:${firstUserId}:${secondUserId}`;
+};
+
+const removeUserFromActiveCallSessions = (userId) => {
+    const normalizedUserId = String(userId);
+
+    for (const [sessionKey, session] of activeCallSessions.entries()) {
+        if (session.participants.includes(normalizedUserId)) {
+            activeCallSessions.delete(sessionKey);
+        }
+    }
+};
+
+const authorizeListingCallEvent = async ({ callerUserId, targetUserId, listingId }) => {
+    const normalizedCallerId = String(callerUserId || '');
+    const normalizedTargetId = String(targetUserId || '');
+    const normalizedListingId = String(listingId || '');
+
+    if (!normalizedListingId || !normalizedTargetId) {
+        throw new Error('Missing call metadata');
+    }
+
+    const listing = await Listing.findById(normalizedListingId).lean();
+    if (!listing) {
+        throw new Error('Listing not found');
+    }
+
+    const sellerId = String(listing.seller || '');
+    const buyerId = String(listing.escrow?.buyer || '');
+    const isCallerSeller = normalizedCallerId === sellerId;
+    const isCallerBuyer = normalizedCallerId === buyerId;
+
+    if (!isCallerSeller && !isCallerBuyer) {
+        throw new Error('Unauthorized call attempt');
+    }
+
+    const expectedTargetUserId = isCallerSeller ? buyerId : sellerId;
+
+    if (!expectedTargetUserId || normalizedTargetId !== expectedTargetUserId) {
+        throw new Error('Unauthorized call attempt');
+    }
+
+    return {
+        listingId: normalizedListingId,
+        sellerId,
+        buyerId,
     };
 };
 
@@ -76,66 +129,116 @@ const initializeSocket = (httpServer) => {
         logger.info('socket.client_connected', { userId, socketId: socket.id });
 
         // ── Video Calling Signaling ──────────────────────────────────
-        
-const Listing = require('../models/Listing');
-
-// ... (existing code)
-
         // Initiate a call: peer A -> server -> peer B
         socket.on('video:call:initiate', async (payload) => {
-            const { targetUserId, listingId, signalData } = payload;
+            const { targetUserId, listingId, signalData } = payload || {};
             
             try {
-                // Defensive Security: Verify participants
-                const listing = await Listing.findById(listingId).lean();
-                if (!listing) {
-                    throw new Error('Listing not found');
-                }
+                const authResult = await authorizeListingCallEvent({
+                    callerUserId: userId,
+                    targetUserId,
+                    listingId,
+                });
 
-                const sellerId = String(listing.seller);
-                const isUserSeller = userId === sellerId;
-                const isUserBuyer = userId === String(listing.escrow?.buyer);
-                
-                // Allow call only if the initiator is the buyer or seller
-                // and the target is the other party.
-                const isAuthorized = (isUserSeller && targetUserId === String(listing.escrow?.buyer)) ||
-                                   (isUserBuyer && targetUserId === sellerId);
+                const sessionKey = getActiveCallSessionKey({
+                    listingId: authResult.listingId,
+                    userA: userId,
+                    userB: targetUserId,
+                });
 
-                if (!isAuthorized) {
-                    logger.warn('video.call_unauthorized', { from: userId, to: targetUserId, listingId });
-                    return socket.emit('video:call:error', { message: 'Unauthorized call attempt' });
-                }
+                activeCallSessions.set(sessionKey, {
+                    listingId: authResult.listingId,
+                    participants: [String(userId), String(targetUserId)],
+                });
 
                 logger.info('video.call_initiated', { from: userId, to: targetUserId, listingId });
                 
                 sendMessageToUser(targetUserId, 'video:call:incoming', {
                     fromUserId: userId,
                     fromName: socket.user.name,
-                    listingId,
+                    listingId: authResult.listingId,
                     signalData
                 });
             } catch (err) {
-                logger.error('video.call_initiate_failed', { error: err.message });
-                socket.emit('video:call:error', { message: 'Failed to initiate video call' });
+                logger.error('video.call_initiate_failed', { error: err.message, from: userId, to: targetUserId, listingId });
+                socket.emit('video:call:error', { message: err.message || 'Failed to initiate video call' });
             }
         });
 
         // Relay signaling data (Offer/Answer/ICE): peer A <-> server <-> peer B
-        socket.on('video:call:signal', (payload) => {
-            const { targetUserId, signalData } = payload;
-            sendMessageToUser(targetUserId, 'video:call:signal', {
-                fromUserId: userId,
-                signalData
-            });
+        socket.on('video:call:signal', async (payload) => {
+            const { targetUserId, listingId, signalData } = payload || {};
+
+            try {
+                const authResult = await authorizeListingCallEvent({
+                    callerUserId: userId,
+                    targetUserId,
+                    listingId,
+                });
+
+                const sessionKey = getActiveCallSessionKey({
+                    listingId: authResult.listingId,
+                    userA: userId,
+                    userB: targetUserId,
+                });
+
+                if (!activeCallSessions.has(sessionKey)) {
+                    throw new Error('No active call session');
+                }
+
+                sendMessageToUser(targetUserId, 'video:call:signal', {
+                    fromUserId: userId,
+                    listingId: authResult.listingId,
+                    signalData
+                });
+            } catch (err) {
+                logger.warn('video.call_signal_rejected', {
+                    error: err.message,
+                    from: userId,
+                    to: targetUserId,
+                    listingId,
+                });
+                socket.emit('video:call:error', { message: err.message || 'Failed to relay call signal' });
+            }
         });
 
         // Terminate call: peer A -> server -> peer B
-        socket.on('video:call:hangup', (payload) => {
-            const { targetUserId } = payload;
-            logger.info('video.call_terminated', { from: userId, to: targetUserId });
-            sendMessageToUser(targetUserId, 'video:call:terminated', {
-                fromUserId: userId
-            });
+        socket.on('video:call:hangup', async (payload) => {
+            const { targetUserId, listingId } = payload || {};
+
+            try {
+                const authResult = await authorizeListingCallEvent({
+                    callerUserId: userId,
+                    targetUserId,
+                    listingId,
+                });
+
+                const sessionKey = getActiveCallSessionKey({
+                    listingId: authResult.listingId,
+                    userA: userId,
+                    userB: targetUserId,
+                });
+
+                if (!activeCallSessions.has(sessionKey)) {
+                    throw new Error('No active call session');
+                }
+
+                activeCallSessions.delete(sessionKey);
+
+                logger.info('video.call_terminated', { from: userId, to: targetUserId, listingId: authResult.listingId });
+                sendMessageToUser(targetUserId, 'video:call:terminated', {
+                    fromUserId: userId,
+                    listingId: authResult.listingId,
+                });
+            } catch (err) {
+                logger.warn('video.call_hangup_rejected', {
+                    error: err.message,
+                    from: userId,
+                    to: targetUserId,
+                    listingId,
+                });
+                socket.emit('video:call:error', { message: err.message || 'Failed to hang up call' });
+            }
         });
 
         socket.on('disconnect', (reason) => {
@@ -146,6 +249,9 @@ const Listing = require('../models/Listing');
                     userSockets.delete(userId);
                 }
             }
+
+            removeUserFromActiveCallSessions(userId);
+
             socket.leave(`user:${userId}`);
             logger.info('socket.client_disconnected', { userId, socketId: socket.id, reason });
         });

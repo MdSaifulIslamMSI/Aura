@@ -49,6 +49,8 @@ const AUTH_PROJECTION = {
     phone: 1,
     isAdmin: 1,
     isVerified: 1,
+    authAssurance: 1,
+    authAssuranceAt: 1,
     isSeller: 1,
     accountState: 1,
     softDeleted: 1,
@@ -84,6 +86,7 @@ const normalizeName = (value, fallbackEmail = '') => {
     return emailPrefix || 'Aura User';
 };
 
+const AUTH_REQUIRE_OTP_FOR_ALL_PROTECTED = parseBooleanEnv(process.env.AUTH_REQUIRE_OTP_FOR_ALL_PROTECTED, false);
 const ADMIN_STRICT_ACCESS_ENABLED = parseBooleanEnv(process.env.ADMIN_STRICT_ACCESS_ENABLED, true);
 const ADMIN_REQUIRE_EMAIL_VERIFIED = parseBooleanEnv(process.env.ADMIN_REQUIRE_EMAIL_VERIFIED, true);
 const ADMIN_REQUIRE_2FA = parseBooleanEnv(process.env.ADMIN_REQUIRE_2FA, false);
@@ -138,7 +141,8 @@ const bootstrapUserRecord = async ({ decodedToken, email }) => {
         $setOnInsert: {
             email: safeEmail,
             name: safeName,
-            isVerified: true,
+            isVerified: Boolean(decodedToken?.email_verified),
+            authAssurance: 'none',
             ...(includePhone ? { phone: safePhone } : {}),
         },
     });
@@ -156,6 +160,17 @@ const bootstrapUserRecord = async ({ decodedToken, email }) => {
             buildUpdate(false),
             { new: true, upsert: true, setDefaultsOnInsert: true, projection: AUTH_PROJECTION, lean: true }
         );
+    }
+};
+
+
+const OTP_ASSURANCE_LEVELS = new Set(['otp', 'password+otp']);
+
+const hasOtpAssurance = (user) => OTP_ASSURANCE_LEVELS.has(String(user?.authAssurance || '').trim());
+
+const enforceOtpAssurance = (req) => {
+    if (!hasOtpAssurance(req.user)) {
+        throw new AppError('OTP verification required for this action', 403);
     }
 };
 
@@ -181,6 +196,9 @@ const protect = asyncHandler(async (req, res, next) => {
             if (cachedUser) {
                 enforceUserAccountAccess(cachedUser);
                 req.user = cachedUser;
+                if (AUTH_REQUIRE_OTP_FOR_ALL_PROTECTED) {
+                    enforceOtpAssurance(req);
+                }
                 return next();
             }
 
@@ -199,6 +217,9 @@ const protect = asyncHandler(async (req, res, next) => {
                 enforceUserAccountAccess(bootstrappedUser);
                 await setCachedUser(uid, bootstrappedUser, exp);
                 req.user = bootstrappedUser;
+                if (AUTH_REQUIRE_OTP_FOR_ALL_PROTECTED) {
+                    enforceOtpAssurance(req);
+                }
                 return next();
             }
 
@@ -207,6 +228,9 @@ const protect = asyncHandler(async (req, res, next) => {
             await setCachedUser(uid, user, exp);
 
             req.user = user;
+            if (AUTH_REQUIRE_OTP_FOR_ALL_PROTECTED) {
+                enforceOtpAssurance(req);
+            }
             next();
         } catch (error) {
             if (error instanceof AppError) throw error;
@@ -217,6 +241,11 @@ const protect = asyncHandler(async (req, res, next) => {
         throw new AppError('Not authorized, no token', 401);
     }
 });
+
+const requireOtpAssurance = (req, res, next) => {
+    enforceOtpAssurance(req);
+    return next();
+};
 
 const protectOptional = asyncHandler(async (req, res, next) => {
     if (!req.headers.authorization?.startsWith('Bearer')) {
@@ -378,6 +407,7 @@ const seller = (req, res, next) => {
 module.exports = {
     protect,
     protectOptional,
+    requireOtpAssurance,
     admin,
     seller,
     invalidateUserCache,

@@ -24,7 +24,8 @@ const {
     assertEscrowEligibility,
     buildEscrowCheckoutPayload,
     appendEscrowPaymentEvent,
-    SELLER_PUBLIC,
+    SELLER_PUBLIC_STRICT,
+    SELLER_PRIVATE_THREAD,
 } = require('../services/listingService');
 const { getPaymentProvider } = require('../services/payments/providerFactory');
 const { evaluateRisk } = require('../services/payments/riskEngine');
@@ -69,6 +70,9 @@ const toSignalLabel = (score) => {
 const normalizeMessageText = (value) => String(value || '').replace(/\s+/g, ' ').trim();
 const isValidObjectId = (value) => isValidObjectIdMongoose(String(value || ''));
 const ESCROW_PAYMENT_PURPOSE = 'marketplace_escrow';
+const CITY_MAX_LENGTH = 80;
+const CITY_ALLOWED_CHARS_REGEX = /^[A-Za-z\s-]+$/;
+const escapeRegExp = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 const diff = (a, b) => Math.abs(Number(a) - Number(b));
 const isIntentExpired = (intent) => intent?.expiresAt && new Date(intent.expiresAt).getTime() < Date.now();
@@ -80,7 +84,7 @@ const createEscrowIntent = asyncHandler(async (req, res, next) => {
         return next(new AppError('Marketplace payments are currently disabled', 503));
     }
 
-    const listing = await Listing.findById(req.params.id).populate('seller', SELLER_PUBLIC);
+    const listing = await Listing.findById(req.params.id).populate('seller', SELLER_PRIVATE_THREAD);
     try {
         assertEscrowEligibility({ listing, userId: req.user._id, allowHeld: false });
     } catch (error) {
@@ -240,7 +244,7 @@ const confirmEscrowIntent = asyncHandler(async (req, res, next) => {
         return next(new AppError('Marketplace payments are currently disabled', 503));
     }
 
-    const listing = await Listing.findById(req.params.id).populate('seller', SELLER_PUBLIC);
+    const listing = await Listing.findById(req.params.id).populate('seller', SELLER_PRIVATE_THREAD);
     try {
         assertEscrowEligibility({ listing, userId: req.user._id, allowHeld: true });
     } catch (error) {
@@ -441,7 +445,14 @@ const getListings = asyncHandler(async (req, res) => {
     const baseFilter = { status: 'active' };
 
     if (category) baseFilter.category = category;
-    if (city) baseFilter['location.city'] = { $regex: new RegExp(city, 'i') };
+    if (city) {
+        const normalizedCity = String(city).trim();
+        if (!normalizedCity || normalizedCity.length > CITY_MAX_LENGTH || !CITY_ALLOWED_CHARS_REGEX.test(normalizedCity)) {
+            throw new AppError('City must be 1-80 characters and contain only letters, spaces, or hyphens', 400);
+        }
+        const escapedCity = escapeRegExp(normalizedCity);
+        baseFilter['location.city'] = { $regex: new RegExp(`^${escapedCity}$`, 'i') };
+    }
     if (condition) baseFilter.condition = condition;
     if (minPrice || maxPrice) {
         baseFilter.price = {};
@@ -495,7 +506,7 @@ const getListings = asyncHandler(async (req, res) => {
  */
 const getListingById = asyncHandler(async (req, res, next) => {
     const listing = await Listing.findById(req.params.id)
-        .populate('seller', SELLER_PUBLIC);
+        .populate('seller', SELLER_PUBLIC_STRICT);
 
     if (!listing || !isRealListingDoc(listing)) {
         return next(new AppError('Listing not found', 404));
@@ -713,7 +724,7 @@ const updateListing = asyncHandler(async (req, res, next) => {
         req.params.id,
         { $set: updates },
         { new: true, runValidators: true }
-    ).populate('seller', SELLER_PUBLIC);
+    ).populate('seller', SELLER_PUBLIC_STRICT);
 
     res.json({ success: true, listing: updated });
 });
@@ -1080,7 +1091,7 @@ const sendListingMessage = asyncHandler(async (req, res, next) => {
 });
 
 const startEscrow = asyncHandler(async (req, res, next) => {
-    const listing = await Listing.findById(req.params.id).populate('seller', SELLER_PUBLIC);
+    const listing = await Listing.findById(req.params.id).populate('seller', SELLER_PRIVATE_THREAD);
     try {
         assertEscrowEligibility({ listing, userId: req.user._id, allowHeld: false });
     } catch (error) {
@@ -1157,7 +1168,7 @@ const startEscrow = asyncHandler(async (req, res, next) => {
 });
 
 const confirmEscrowDelivery = asyncHandler(async (req, res, next) => {
-    const listing = await Listing.findById(req.params.id).populate('seller', SELLER_PUBLIC);
+    const listing = await Listing.findById(req.params.id).populate('seller', SELLER_PRIVATE_THREAD);
     if (!listing) return next(new AppError('Listing not found', 404));
 
     if (listing.escrow?.state !== 'held') {
@@ -1218,7 +1229,7 @@ const confirmEscrowDelivery = asyncHandler(async (req, res, next) => {
 });
 
 const cancelEscrow = asyncHandler(async (req, res, next) => {
-    const listing = await Listing.findById(req.params.id).populate('seller', SELLER_PUBLIC);
+    const listing = await Listing.findById(req.params.id).populate('seller', SELLER_PRIVATE_THREAD);
     if (!listing) return next(new AppError('Listing not found', 404));
 
     if (listing.escrow?.state !== 'held') {

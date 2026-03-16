@@ -73,6 +73,13 @@ const userSchema = mongoose.Schema({
     bio: { type: String, default: '', maxlength: 200 },
     isAdmin: { type: Boolean, required: true, default: false },
     isVerified: { type: Boolean, default: false },
+    authAssurance: {
+        type: String,
+        enum: ['none', 'password', 'otp', 'password+otp'],
+        default: 'none',
+        index: true,
+    },
+    authAssuranceAt: { type: Date, default: null },
     isSeller: { type: Boolean, default: false },
     sellerActivatedAt: { type: Date, default: null },
     accountState: {
@@ -103,6 +110,9 @@ const userSchema = mongoose.Schema({
     otpPurpose: { type: String, enum: ['signup', 'login', 'forgot-password', 'payment-challenge', null], default: null, select: false },
     otpAttempts: { type: Number, default: 0, select: false },    // wrong attempts (max 5)
     otpLockedUntil: { type: Date, default: null, select: false },// lockout expiry
+    loginOtpVerifiedAt: { type: Date, default: null, select: false },
+    loginOtpAssuranceExpiresAt: { type: Date, default: null, select: false },
+    resetOtpVerifiedAt: { type: Date, default: null, select: false },
     addresses: [{
         type: { type: String, enum: ['home', 'work', 'other'], default: 'home' },
         name: { type: String, required: true },
@@ -156,4 +166,3 @@ userSchema.index({ accountState: 1, softDeleted: 1, 'moderation.suspendedUntil':
 userSchema.index({ 'loyalty.pointsBalance': -1, isVerified: 1 });
 
 module.exports = mongoose.model('User', userSchema);
-
