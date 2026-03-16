@@ -76,13 +76,32 @@ const formatMessage = (level, message, meta = {}) => {
     });
 };
 
+const isBrokenPipeError = (error) => {
+    if (!error) return false;
+
+    const message = String(error.message || '').toLowerCase();
+    return error.code === 'EPIPE' || message.includes('broken pipe');
+};
+
+const safeConsoleWrite = (method, payload) => {
+    try {
+        console[method](payload);
+    } catch (error) {
+        if (isBrokenPipeError(error)) {
+            return;
+        }
+
+        // Swallow non-EPIPE write errors to keep logging from impacting app flow.
+    }
+};
+
 const logger = {
-    info: (message, meta) => console.log(formatMessage('info', message, meta)),
-    warn: (message, meta) => console.warn(formatMessage('warn', message, meta)),
-    error: (message, meta) => console.error(formatMessage('error', message, meta)),
+    info: (message, meta) => safeConsoleWrite('log', formatMessage('info', message, meta)),
+    warn: (message, meta) => safeConsoleWrite('warn', formatMessage('warn', message, meta)),
+    error: (message, meta) => safeConsoleWrite('error', formatMessage('error', message, meta)),
     debug: (message, meta) => {
         if (process.env.NODE_ENV !== 'production') {
-            console.debug(formatMessage('debug', message, meta));
+            safeConsoleWrite('debug', formatMessage('debug', message, meta));
         }
     },
 };

@@ -13,12 +13,18 @@ const validate = (schema) => async (req, res, next) => {
         req.params = parsed.params || req.params;
         return next();
     } catch (error) {
-        logger.warn('request.validation_failed', {
-            error: error.message,
-            issues: error?.issues || error?.errors || [],
-            path: req.originalUrl,
-        });
         if (error instanceof z.ZodError) {
+            const validationContext = {
+                error: error.message,
+                issues: error?.issues || error?.errors || [],
+                path: req.originalUrl,
+            };
+            if (process.env.LOG_VALIDATION_WARNINGS === 'true') {
+                logger.warn('request.validation_failed', validationContext);
+            } else {
+                logger.debug('request.validation_failed', validationContext);
+            }
+
             return res.status(400).json({
                 status: 'error',
                 message: 'Validation Error',
@@ -29,6 +35,11 @@ const validate = (schema) => async (req, res, next) => {
                 })),
             });
         }
+
+        logger.error('request.validation_unexpected_error', {
+            error: error?.message,
+            path: req.originalUrl,
+        });
         return res.status(500).json({ message: 'Internal Server Error during validation' });
     }
 };
