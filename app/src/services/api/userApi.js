@@ -92,13 +92,28 @@ export const userApi = {
     },
     deactivateSeller: async () => {
         const headers = await getAuthHeader();
-        const { data } = await apiFetch('/users/seller/deactivate', {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({ confirmDeactivation: true }),
-        });
-        invalidateProfileCache();
-        return data;
+        const candidatePaths = [
+            '/users/seller/deactivate',
+            '/users/deactivate-seller',
+            '/users/seller/disable',
+        ];
+
+        let lastError = null;
+        for (const path of candidatePaths) {
+            try {
+                const { data } = await apiFetch(path, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({ confirmDeactivation: true }),
+                });
+                invalidateProfileCache();
+                return data;
+            } catch (error) {
+                lastError = error;
+                if (error?.status !== 404) break;
+            }
+        }
+        throw lastError || new Error('Failed to deactivate seller mode');
     },
     addAddress: async (payload) => {
         const headers = await getAuthHeader();
