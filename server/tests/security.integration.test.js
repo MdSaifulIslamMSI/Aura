@@ -322,6 +322,7 @@ describe('SECURITY FIXES INTEGRATION TESTS', () => {
     describe('7. Rate Limiting with Proxy Trust', () => {
         test('should respect X-RateLimit headers', async () => {
             const limiter = createDistributedRateLimit({
+                allowInMemoryFallback: true,
                 name: 'test_limit',
                 windowMs: 60 * 1000,
                 max: 3,

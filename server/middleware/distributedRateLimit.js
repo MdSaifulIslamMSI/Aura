@@ -84,6 +84,8 @@ const createDistributedRateLimit = ({
     message,
     keyGenerator,
     skip,
+    securityCritical = false,
+    allowInMemoryFallback = false,
 }) => {
     if (!name || !windowMs || !max) {
         throw new Error('createDistributedRateLimit requires name, windowMs, and max');
@@ -98,6 +100,21 @@ const createDistributedRateLimit = ({
     const createKey = typeof keyGenerator === 'function'
         ? keyGenerator
         : (req) => req.ip || req.socket?.remoteAddress || 'unknown';
+    const redisUnavailablePayload = {
+        message: 'Rate limiter dependency unavailable. Please try again shortly.',
+    };
+
+    const failClosedIfRequired = (res, reason) => {
+        if (!securityCritical || process.env.NODE_ENV !== 'production') return false;
+        logger.error('rate_limit.redis_required_unavailable', {
+            limiter: limiterName,
+            reason,
+        });
+        if (!res.headersSent) {
+            return res.status(503).json(redisUnavailablePayload);
+        }
+        return true;
+    };
 
     return async (req, res, next) => {
         if (process.env.NODE_ENV === 'test') return next();
@@ -128,8 +145,12 @@ const createDistributedRateLimit = ({
                 }
             }
 
-            if (!state) {
+            if (!state && allowInMemoryFallback) {
                 state = computeMemoryWindow(storeKey, windowMs);
+            }
+
+            if (!state) {
+                return failClosedIfRequired(res, skipRedis ? 'redis_circuit_open' : 'redis_unavailable') || res.status(503).json(redisUnavailablePayload);
             }
 
             setHeaders(res, max, state.count, state.ttlMs);
@@ -143,6 +164,10 @@ const createDistributedRateLimit = ({
                 limiter: limiterName,
                 error: error?.message || 'unknown error',
             });
+
+            if (!allowInMemoryFallback) {
+                return failClosedIfRequired(res, 'unexpected_error') || res.status(503).json(redisUnavailablePayload);
+            }
 
             const state = computeMemoryWindow(storeKey, windowMs);
             if (!res.headersSent) {

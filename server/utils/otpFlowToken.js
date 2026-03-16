@@ -4,14 +4,10 @@ const AppError = require('./AppError');
 const OTP_FLOW_TTL_SECONDS = 5 * 60;
 
 const getSecret = () => {
-    const secret = String(process.env.OTP_FLOW_SECRET || process.env.JWT_SECRET || '').trim();
+    const secret = String(process.env.OTP_FLOW_SECRET || '').trim();
     if (secret) return secret;
 
-    if (process.env.NODE_ENV === 'production') {
-        throw new AppError('OTP_FLOW_SECRET is required in production', 500);
-    }
-
-    return 'dev-otp-flow-secret';
+    throw new AppError('OTP_FLOW_SECRET is required', 500);
 };
 
 const encodeBase64Url = (value) => Buffer.from(value, 'utf8').toString('base64url');
@@ -44,4 +40,3 @@ module.exports = {
     issueOtpFlowToken,
     OTP_FLOW_TTL_SECONDS,
 };
-

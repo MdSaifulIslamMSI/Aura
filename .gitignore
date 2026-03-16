@@ -54,3 +54,9 @@ server/.cache/
 
 # Local mongodb-memory-server cache used for backend integration tests
 server/.mongodb-binaries/
+
+# Generated runtime/test artifacts
+server/test_output.txt
+**/test_output*.txt
+**/test-output*.log
+**/runtime-*.log

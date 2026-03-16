@@ -4,6 +4,7 @@ const { sendOtp, verifyOtp, checkUserExists } = require('../controllers/otpContr
 const { createDistributedRateLimit } = require('../middleware/distributedRateLimit');
 
 const otpLimiter = createDistributedRateLimit({
+    securityCritical: true,
     name: 'otp_send',
     windowMs: 1 * 60 * 1000, // 1 minute
     max: 3, // Max 3 OTP requests per minute per IP
@@ -11,6 +12,7 @@ const otpLimiter = createDistributedRateLimit({
 });
 
 const verifyLimiter = createDistributedRateLimit({
+    securityCritical: true,
     name: 'otp_verify',
     windowMs: 5 * 60 * 1000, // 5 minutes
     max: 5, // Max 5 verification attempts per 5 minutes per IP
@@ -18,6 +20,7 @@ const verifyLimiter = createDistributedRateLimit({
 });
 
 const checkUserLimiter = createDistributedRateLimit({
+    securityCritical: true,
     name: 'otp_check_user',
     windowMs: 5 * 60 * 1000, // 5 minutes
     max: 20, // Max 20 account checks per 5 minutes per IP

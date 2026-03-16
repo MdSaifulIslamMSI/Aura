@@ -6,7 +6,7 @@
   - MongoDB replica set connectivity
   - Redis enabled and required
   - in-process workers for payment capture, order email, catalog sync, and reconciliation
-- The repo now includes a simplified Render deployment path under [`infra/render/README.md`](../infra/render/README.md) that disables split-runtime Redis for the hosted free-plan setup.
+- The repo includes a Render deployment path under [`infra/render/README.md`](../infra/render/README.md) with managed Redis provisioning for production security controls.
 
 ## Local Bootstrap
 1. `cd server`
@@ -24,9 +24,14 @@ The compose stack lives in [`docker-compose.split-runtime.yml`](../docker-compos
 - `SPLIT_RUNTIME_ENABLED=true`
 - `REDIS_ENABLED=true`
 - `REDIS_REQUIRED=true`
+- `DISTRIBUTED_SECURITY_CONTROLS_ENABLED=true`
 - `MONGO_URI` must point at a replica-set-capable Mongo deployment
 
 The legacy `server/` Vercel serverless adapter has been removed. Production should always point at the long-lived backend service instead of a serverless fallback.
+
+## Redis Requirement for Security Rate Limits
+Production auth/OTP/abuse limiters are fail-closed and require Redis. Do not deploy production with `REDIS_ENABLED=false` when distributed security controls are enabled. Startup config validation will reject this configuration.
+
 
 ## Staging Validation
 - Public-only smoke:
