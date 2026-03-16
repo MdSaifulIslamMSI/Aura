@@ -257,7 +257,17 @@ app.get('/health/ready', async (req, res) => {
     const mongoose = require('mongoose');
     const dbConnected = mongoose.connection.readyState === 1;
     const redis = getRedisHealth();
-    const mongoDeployment = await getMongoDeploymentHealth();
+    let mongoDeployment = { connected: dbConnected, readyState: mongoose.connection.readyState };
+    try {
+        // Use a short timeout for the hello command during readiness check to avoid blocking Render
+        // 5s is plenty for a warm connection, but prevents a 30s hang if Atlas is handshaking.
+        mongoDeployment = await Promise.race([
+            getMongoDeploymentHealth(),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000))
+        ]);
+    } catch (error) {
+        logger.warn('health.mongo_deployment_check_timeout', { error: error.message, dbConnected });
+    }
 
     if (!dbConnected) {
         return res.status(503).json({

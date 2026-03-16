@@ -23,7 +23,7 @@ const buildListFilter = (query = {}) => {
     }
 
     // CRITICAL: Whitelist severity and actionKey to prevent injection
-    const validSeverities = ['critical', 'high', 'medium', 'low', 'info'];
+    const validSeverities = ['info', 'warning', 'critical'];
     if (query.severity && validSeverities.includes(String(query.severity).toLowerCase())) {
         filter.severity = String(query.severity).toLowerCase();
     }

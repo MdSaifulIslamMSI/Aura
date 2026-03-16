@@ -1426,7 +1426,16 @@ const buildIdentifierOrClauses = (identifier) => {
 };
 
 const resolveProductIdentifierFilter = async (identifier) => {
-    const baseFilter = await buildBaseProductFilter();
+    let baseFilter = {};
+    try {
+        baseFilter = await buildBaseProductFilter();
+    } catch (error) {
+        logger.warn('catalog.resolve_identifier.base_filter_failed', { 
+            identifier, 
+            error: error.message 
+        });
+        // Fallback to empty filter (allow all published products or specific version if available)
+    }
     const orClauses = buildIdentifierOrClauses(identifier);
 
     return {

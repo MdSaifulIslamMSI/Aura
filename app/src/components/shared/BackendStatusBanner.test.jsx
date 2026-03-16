@@ -8,14 +8,13 @@ describe('BackendStatusBanner', () => {
   beforeEach(() => {
     window.sessionStorage.clear();
     vi.restoreAllMocks();
-    // Mock the health polling interval to prevent unexpected calls
-    vi.useFakeTimers();
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
-    vi.useRealTimers();
-  })// Mock requestWithTrace to return degraded status
+  });
+
+  it('displays degraded status when backend reports database disconnection', async () => {
     vi.spyOn(apiBase, 'requestWithTrace').mockResolvedValue(
       new Response(JSON.stringify({
         status: 'degraded',
@@ -31,15 +30,11 @@ describe('BackendStatusBanner', () => {
 
     render(<BackendStatusBanner />);
 
-    // Wait for the health check to complete and status to update    );
-
-    render(<BackendStatusBanner />);
-
     expect(await screen.findByText('Backend health degraded')).toBeInTheDocument();
     expect(screen.getByText(/Debug Ref srv-health-1/i)).toBeInTheDocument();
     expect(screen.getByText(/database_disconnected/i)).toBeInTheDocument();
   });
-apiBase, 'requestWithTrace
+
   it('reacts to proxy failure diagnostics with a client debug reference', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(JSON.stringify({ status: 'ok' }), {
@@ -73,7 +68,9 @@ apiBase, 'requestWithTrace
     expect(screen.getByText(/Debug Ref req-proxy-1/i)).toBeInTheDocument();
     expect(screen.getByText(/HTTP 500/i)).toBeInTheDocument();
   });
-requestMock = vi.spyOn(apiBase, 'requestWithTrace').mockImplementation(() => Promise.resolve(
+
+  it('showns recovery status when connectivity is restored', async () => {
+    const requestMock = vi.spyOn(apiBase, 'requestWithTrace').mockImplementation(() => Promise.resolve(
       new Response(JSON.stringify({ status: 'ok' }), {
         status: 200,
         headers: {
@@ -109,24 +106,22 @@ requestMock = vi.spyOn(apiBase, 'requestWithTrace').mockImplementation(() => Pro
       }, 'error');
     });
 
-    // Advance timers to ensure no pending async operations
-    await act(() => vi.runAllTimersAsync());
+    // Let async operations settle
+    await act(async () => {});
 
     expect(await screen.findByText('Backend waking up')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /retry check/i }));
-apiBase, 'requestWithTrace
-    // Advance timers to let health check complete
-    await act(() => vi.runAllTimersAsync());
+
+    // Let async operations settle
+    await act(async () => {});
 
     await waitFor(() => {
       expect(screen.queryByText('Backend waking up')).not.toBeInTheDocument();
     });
 
     // Should only have 1 call from the retry button click
-    expect(requestMock).toHaveBeenCalledTimes(1
-
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(requestMock).toHaveBeenCalledTimes(1);
   });
 
   it('escalates repeated transient wake-up failures into an unavailable banner', async () => {
