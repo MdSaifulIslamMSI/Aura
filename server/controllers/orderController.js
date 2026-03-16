@@ -13,6 +13,8 @@ const { placeOrderWithIdempotency } = require('../services/orderPlacementService
 const asyncHandler = require('express-async-handler');
 const AppError = require('../utils/AppError');
 const { flags: paymentFlags } = require('../config/paymentFlags');
+const Order = require('../models/Order');
+const Product = require('../models/Product');
 
 const toTimelineDate = (value) => {
     const date = value ? new Date(value) : null;
