@@ -13,7 +13,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: SPLIT_RUNTIME_ENABLED
-        value: "false"
+        value: "true"
       - key: REDIS_ENABLED
         value: "true"
       - key: REDIS_REQUIRED
