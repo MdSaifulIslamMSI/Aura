@@ -17,6 +17,7 @@ const {
     adminRefundLedgerUpdateSchema,
 } = require('../validators/paymentValidators');
 
+// CRITICAL: All payment admin routes require authentication
 router.get('/', protect, admin, validate(adminPaymentListSchema), getAdminPayments);
 router.get('/refunds/ledger', protect, admin, validate(adminRefundLedgerListSchema), getAdminRefundLedger);
 router.patch(

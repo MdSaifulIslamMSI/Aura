@@ -7,7 +7,8 @@ const {
 
 const router = express.Router();
 
-router.post('/client-diagnostics', ingestClientDiagnostics);
+// CRITICAL: Ingest endpoint REQUIRES authentication - this is sensitive data ingestion
+router.post('/client-diagnostics', protect, admin, ingestClientDiagnostics);
 router.get('/client-diagnostics', protect, admin, getClientDiagnostics);
 
 module.exports = router;

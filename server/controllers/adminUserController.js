@@ -201,10 +201,12 @@ const listAdminUsers = asyncHandler(async (req, res) => {
 
     const search = String(req.query.search || '').trim();
     if (search) {
+        // CRITICAL: Escape regex special characters to prevent injection
+        const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         filter.$or = [
-            { name: { $regex: search, $options: 'i' } },
-            { email: { $regex: search, $options: 'i' } },
-            { phone: { $regex: search, $options: 'i' } },
+            { name: { $regex: escapedSearch, $options: 'i' } },
+            { email: { $regex: escapedSearch, $options: 'i' } },
+            { phone: { $regex: escapedSearch, $options: 'i' } },
         ];
     }
 
@@ -599,6 +601,12 @@ const deleteAdminUser = asyncHandler(async (req, res, next) => {
         { $set: { status: 'expired' } }
     );
 
+    // CRITICAL: Cleanup orphaned orders to prevent data integrity issues
+    const orderUpdate = await Order.updateMany(
+        { user: targetUser._id },
+        { $set: { 'metadata.deletedUser': true, 'metadata.deletedAt': now } }
+    );
+
     await safeLogGovernanceAction({
         actionType: 'delete',
         targetUser,
@@ -607,6 +615,7 @@ const deleteAdminUser = asyncHandler(async (req, res, next) => {
         metadata: {
             scrubPII,
             expiredListings: Number(listingUpdate.modifiedCount || 0),
+            orphanedOrdersMarked: Number(orderUpdate.modifiedCount || 0),
         },
         requestId: req.requestId,
     });
