@@ -1,26 +1,19 @@
 const crypto = require('crypto');
+const { getRedisClient, flags: redisFlags } = require('../config/redis');
 
-const usedNonceStore = new Map();
+const UPLOAD_NONCE_PREFIX = `${redisFlags.redisPrefix}:upload:nonce:`;
 
 const base64UrlEncode = (value) => Buffer.from(value).toString('base64url');
 const base64UrlDecode = (value) => Buffer.from(String(value || ''), 'base64url').toString('utf8');
 
 const getSigningSecret = () => {
-        const configuredSecret = String(
-            process.env.UPLOAD_SIGNING_SECRET
-            || process.env.JWT_SECRET
-            || ''
-        ).trim();
+        const configuredSecret = String(process.env.UPLOAD_SIGNING_SECRET || '').trim();
 
         if (configuredSecret) {
             return configuredSecret;
         }
 
-        if (String(process.env.NODE_ENV || '').trim().toLowerCase() === 'production') {
-            throw new Error('UPLOAD_SIGNING_SECRET is required in production');
-        }
-
-        return 'dev-upload-secret-change-me';
+        throw new Error('UPLOAD_SIGNING_SECRET is required');
 };
 
 const signPayload = (payloadJson) => {
@@ -31,14 +24,7 @@ const signPayload = (payloadJson) => {
         .digest('base64url');
 };
 
-const cleanupUsedNonceStore = () => {
-    const now = Date.now();
-    for (const [nonce, expiry] of usedNonceStore.entries()) {
-        if (!expiry || expiry <= now) {
-            usedNonceStore.delete(nonce);
-        }
-    }
-};
+const getNonceKey = (nonce) => `${UPLOAD_NONCE_PREFIX}${String(nonce || '').trim()}`;
 
 const createUploadToken = ({
     userId,
@@ -70,8 +56,6 @@ const createUploadToken = ({
 };
 
 const verifyUploadToken = (token) => {
-    cleanupUsedNonceStore();
-
     const [encodedPayload, signature] = String(token || '').split('.');
     if (!encodedPayload || !signature) {
         throw new Error('Invalid upload token format');
@@ -98,22 +82,45 @@ const verifyUploadToken = (token) => {
         throw new Error('Upload token expired');
     }
 
-    if (!payload?.nonce || usedNonceStore.has(payload.nonce)) {
+    if (!payload?.nonce) {
         throw new Error('Upload token already used');
     }
 
     return payload;
 };
 
-const markUploadTokenUsed = (payload) => {
-    if (!payload?.nonce) return;
-    const expMs = Number(payload.exp || 0) * 1000;
-    usedNonceStore.set(payload.nonce, expMs);
-    cleanupUsedNonceStore();
+const consumeUploadTokenNonce = async (payload) => {
+    if (!payload?.nonce) {
+        throw new Error('Upload token already used');
+    }
+
+    const client = getRedisClient();
+    if (!client) {
+        throw new Error('Upload token verification unavailable');
+    }
+
+    const nowSec = Math.floor(Date.now() / 1000);
+    const expSec = Number(payload.exp || 0);
+    const ttlSeconds = Math.max(1, expSec - nowSec);
+    const wasSet = await client.set(getNonceKey(payload.nonce), '1', {
+        NX: true,
+        EX: ttlSeconds,
+    });
+
+    if (wasSet !== 'OK') {
+        throw new Error('Upload token already used');
+    }
+};
+
+const verifyAndConsumeUploadToken = async (token) => {
+    const payload = verifyUploadToken(token);
+    await consumeUploadTokenNonce(payload);
+    return payload;
 };
 
 module.exports = {
     createUploadToken,
     verifyUploadToken,
-    markUploadTokenUsed,
+    consumeUploadTokenNonce,
+    verifyAndConsumeUploadToken,
 };

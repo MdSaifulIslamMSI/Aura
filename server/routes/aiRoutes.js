@@ -8,6 +8,7 @@ const { aiChatSchema, aiVoiceSessionSchema, aiVoiceSpeakSchema } = require('../v
 const router = express.Router();
 
 const aiChatLimiter = createDistributedRateLimit({
+    allowInMemoryFallback: true,
     name: 'ai_chat',
     windowMs: 60 * 1000,
     max: 50,
@@ -16,6 +17,7 @@ const aiChatLimiter = createDistributedRateLimit({
 });
 
 const aiVoiceLimiter = createDistributedRateLimit({
+    allowInMemoryFallback: true,
     name: 'ai_voice_session',
     windowMs: 60 * 1000,
     max: 20,
@@ -24,6 +26,7 @@ const aiVoiceLimiter = createDistributedRateLimit({
 });
 
 const aiVoiceSpeechLimiter = createDistributedRateLimit({
+    allowInMemoryFallback: true,
     name: 'ai_voice_speak',
     windowMs: 60 * 1000,
     max: 40,

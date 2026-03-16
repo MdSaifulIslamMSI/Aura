@@ -49,6 +49,7 @@ const { serveReviewMediaAsset } = require('./controllers/uploadAssetController')
 const { assertProductionPaymentConfig, assertWebhookConfig, flags: paymentFlags } = require('./config/paymentFlags');
 const { assertProductionEmailConfig, flags: emailFlags } = require('./config/emailFlags');
 const { assertProductionOtpSmsConfig } = require('./config/otpSmsFlags');
+const { assertAuthVaultConfig } = require('./config/authVaultFlags');
 const {
     startPaymentOutboxWorker,
     getPaymentOutboxStats,
@@ -74,6 +75,7 @@ const {
     isOriginAllowed,
     allowedOrigins,
 } = require('./config/corsFlags');
+const { assertSigningSecretsConfig } = require('./config/signingSecrets');
 const {
     getRedisHealth,
     initRedis,
@@ -183,6 +185,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // Rate Limiting â€” strict for production, disabled in test
 if (process.env.NODE_ENV !== 'test') {
     const limiter = createDistributedRateLimit({
+        allowInMemoryFallback: true,
         name: 'global',
         windowMs: 15 * 60 * 1000,
         max: process.env.NODE_ENV === 'development' ? 500 : 100,
@@ -400,12 +403,14 @@ const PORT = process.env.PORT || 5000;
 const NODE_ENV = process.env.NODE_ENV || 'production';
 
 if (require.main === module) {
+    assertSigningSecretsConfig();
     assertProductionCorsConfig();
     assertWebhookConfig();
     assertProductionPaymentConfig();
     assertProductionEmailConfig();
     assertProductionOtpSmsConfig();
     assertProductionRedisConfig();
+    assertAuthVaultConfig();
 
     connectDB().then(() => {
         // Start listening IMMEDIATELY after DB connection to satisfy Render health checks.

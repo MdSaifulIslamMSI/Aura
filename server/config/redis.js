@@ -26,6 +26,10 @@ const flags = {
     redisEnabled: parseBoolean(process.env.REDIS_ENABLED, false),
     redisRequired: parseBoolean(process.env.REDIS_REQUIRED, false),
     splitRuntimeEnabled: parseBoolean(process.env.SPLIT_RUNTIME_ENABLED, false),
+    distributedSecurityControlsEnabled: parseBoolean(
+        process.env.DISTRIBUTED_SECURITY_CONTROLS_ENABLED,
+        isProduction
+    ),
     redisUrl: asTrimmed(process.env.REDIS_URL, ''),
     redisPrefix: asTrimmed(process.env.REDIS_PREFIX, 'aura'),
     redisConnectTimeoutMs: parseNumber(process.env.REDIS_CONNECT_TIMEOUT_MS, 3000, { min: 250, max: 30000 }),
@@ -36,7 +40,9 @@ let initPromise = null;
 let lastError = null;
 let connectedAt = null;
 
-const isRedisRequired = () => flags.redisRequired || (isProduction && flags.splitRuntimeEnabled);
+const isRedisRequired = () => flags.redisRequired
+    || (isProduction && flags.splitRuntimeEnabled)
+    || (isProduction && flags.distributedSecurityControlsEnabled);
 
 const isRedisEnabled = () => flags.redisEnabled;
 
@@ -44,6 +50,7 @@ const getRedisHealth = () => ({
     enabled: flags.redisEnabled,
     required: isRedisRequired(),
     splitRuntimeEnabled: flags.splitRuntimeEnabled,
+    distributedSecurityControlsEnabled: flags.distributedSecurityControlsEnabled,
     connected: Boolean(redisClient?.isOpen),
     urlConfigured: Boolean(flags.redisUrl),
     prefix: flags.redisPrefix,
@@ -54,7 +61,7 @@ const getRedisHealth = () => ({
 const assertProductionRedisConfig = () => {
     if (!isProduction) return;
     if (isRedisRequired() && !flags.redisEnabled) {
-        throw new Error('Redis must be enabled for production split-runtime or REDIS_REQUIRED deployments');
+        throw new Error('Redis must be enabled for production split-runtime, distributed security controls, or REDIS_REQUIRED deployments');
     }
     if ((flags.redisEnabled || isRedisRequired()) && !flags.redisUrl) {
         throw new Error('REDIS_URL must be configured when Redis is enabled or required in production');

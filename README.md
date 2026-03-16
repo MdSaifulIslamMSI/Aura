@@ -101,7 +101,7 @@ All 10 identified login architecture vulnerabilities have been fixed and are pro
 - Checkout totals are server-authoritative
 - OTP routes are fail-closed when email delivery fails
 - Login OTP requires fresh password credential proof token (`OTP_LOGIN_REQUIRE_CREDENTIAL_PROOF=true`)
-- Login identity snapshots are mirrored to local auth vault for wipe-recovery (`AUTH_VAULT_ENABLED=true`)
+- Login identity snapshots are mirrored to local auth vault for wipe-recovery (`AUTH_VAULT_ENABLED=true`, `AUTH_VAULT_SECRET` required outside tests, optional rotation via `AUTH_VAULT_SECRET_VERSION` + `AUTH_VAULT_PREVIOUS_SECRETS`)
 - Chat is split into:
   - `POST /api/chat/public` (no paid LLM providers)
   - `POST /api/chat` (authenticated, quota-limited)
@@ -127,7 +127,7 @@ All 10 identified login architecture vulnerabilities have been fixed and are pro
 - Run `npm run smoke:staging` and `npm run load:validate` in `server/` against staging before backend rollout
 - Run `npm run search:report` in `server/` before promoting catalog/search tuning
 - Before production deployment:
-  - Set all environment variables (see [`DEPLOYMENT_SECRETS.md`](DEPLOYMENT_SECRETS.md))
+  - Set all environment variables (see [`DEPLOYMENT_SECRETS.md`](DEPLOYMENT_SECRETS.md)); ensure `AUTH_VAULT_SECRET` is set to a strong 32+ char value in production
   - Verify CSRF tokens are working (check `/api/auth/session` response headers)
   - Verify password policy enforced (reject passwords < 12 chars)
   - Verify admin middleware blocks non-admin access to admin routes

@@ -1,5 +1,7 @@
 const crypto = require('crypto');
+const dns = require('dns').promises;
 const fs = require('fs');
+const net = require('net');
 const os = require('os');
 const path = require('path');
 const readline = require('readline');
@@ -14,6 +16,27 @@ const SNAPSHOT_CACHE_DIR = path.resolve(
 );
 const ONBOARDING_SAMPLE_SIZE = Math.max(25, Number(process.env.CATALOG_ONBOARDING_SAMPLE_SIZE || 200));
 const REQUIRED_CANONICAL_FIELDS = ['title', 'brand', 'category', 'price', 'description', 'image'];
+const REMOTE_TIMEOUT_MS = Math.max(1000, Number(process.env.CATALOG_SNAPSHOT_REMOTE_TIMEOUT_MS || 10000));
+const REMOTE_MAX_BYTES = Math.max(1024 * 1024, Number(process.env.CATALOG_SNAPSHOT_REMOTE_MAX_BYTES || 25 * 1024 * 1024));
+const REMOTE_MAX_REDIRECTS = Math.max(0, Number(process.env.CATALOG_SNAPSHOT_REMOTE_MAX_REDIRECTS || 3));
+
+const safeString = (value, fallback = '') => String(value === undefined || value === null ? fallback : value).trim();
+const safeLower = (value, fallback = '') => safeString(value, fallback).toLowerCase();
+const hashValue = (value) => crypto.createHash('sha256').update(String(value)).digest('hex');
+
+const TRUSTED_HOST_ALLOWLIST = new Set(
+    safeString(process.env.CATALOG_SNAPSHOT_TRUSTED_HOSTS)
+        .split(',')
+        .map((entry) => safeLower(entry))
+        .filter(Boolean)
+);
+
+const TRUSTED_DOMAIN_ALLOWLIST = new Set(
+    safeString(process.env.CATALOG_SNAPSHOT_TRUSTED_DOMAINS)
+        .split(',')
+        .map((entry) => safeLower(entry.replace(/^\./, '')))
+        .filter(Boolean)
+);
 
 const manifestSchema = z.object({
     providerName: z.string().trim().min(1).max(120),
@@ -38,11 +61,180 @@ const manifestSchema = z.object({
     }
 });
 
-const safeString = (value, fallback = '') => String(value === undefined || value === null ? fallback : value).trim();
-const safeLower = (value, fallback = '') => safeString(value, fallback).toLowerCase();
-const hashValue = (value) => crypto.createHash('sha256').update(String(value)).digest('hex');
-
 const isRemoteRef = (value = '') => /^https?:\/\//i.test(safeString(value));
+
+const ipv4ToInt = (ip) => ip
+    .split('.')
+    .map((octet) => Number(octet))
+    .reduce((acc, octet) => ((acc << 8) + octet) >>> 0, 0);
+
+const isIpv4InCidr = (ip, baseIp, prefixLength) => {
+    const mask = prefixLength === 0 ? 0 : ((0xffffffff << (32 - prefixLength)) >>> 0);
+    return (ipv4ToInt(ip) & mask) === (ipv4ToInt(baseIp) & mask);
+};
+
+const isBlockedIpv4Address = (ip) => {
+    const blockedCidrs = [
+        ['0.0.0.0', 8],
+        ['10.0.0.0', 8],
+        ['100.64.0.0', 10],
+        ['127.0.0.0', 8],
+        ['169.254.0.0', 16],
+        ['172.16.0.0', 12],
+        ['192.168.0.0', 16],
+        ['198.18.0.0', 15],
+    ];
+
+    return blockedCidrs.some(([baseIp, prefixLength]) => isIpv4InCidr(ip, baseIp, prefixLength));
+};
+
+const isBlockedIpv6Address = (ip) => {
+    const normalized = safeLower(ip);
+    if (!normalized) return true;
+
+    if (normalized === '::1' || normalized === '::') return true;
+    if (normalized.startsWith('fe8') || normalized.startsWith('fe9') || normalized.startsWith('fea') || normalized.startsWith('feb')) return true;
+    if (normalized.startsWith('fc') || normalized.startsWith('fd')) return true;
+
+    if (normalized.startsWith('::ffff:')) {
+        const mappedIpv4 = normalized.slice('::ffff:'.length);
+        if (net.isIPv4(mappedIpv4)) {
+            return isBlockedIpv4Address(mappedIpv4);
+        }
+    }
+
+    return false;
+};
+
+const isBlockedAddress = (ip) => {
+    if (net.isIPv4(ip)) return isBlockedIpv4Address(ip);
+    if (net.isIPv6(ip)) return isBlockedIpv6Address(ip);
+    return true;
+};
+
+const isTrustedHostname = (hostname) => {
+    if (TRUSTED_HOST_ALLOWLIST.size === 0 && TRUSTED_DOMAIN_ALLOWLIST.size === 0) {
+        return true;
+    }
+
+    const normalizedHost = safeLower(hostname);
+    if (TRUSTED_HOST_ALLOWLIST.has(normalizedHost)) {
+        return true;
+    }
+
+    return [...TRUSTED_DOMAIN_ALLOWLIST].some((domain) => normalizedHost === domain || normalizedHost.endsWith(`.${domain}`));
+};
+
+const ensureDnsSafeHostname = async (hostname) => {
+    const normalizedHost = safeLower(hostname);
+    if (!normalizedHost) {
+        throw new AppError('Remote snapshot URL is invalid (missing hostname)', 400);
+    }
+    if (normalizedHost === 'localhost') {
+        throw new AppError('Remote snapshot URL is not permitted (loopback hostname)', 400);
+    }
+
+    const addresses = await dns.lookup(normalizedHost, { all: true, verbatim: true });
+    if (!Array.isArray(addresses) || addresses.length === 0) {
+        throw new AppError('Remote snapshot URL is not permitted (hostname does not resolve)', 400);
+    }
+
+    const blockedAddress = addresses.find((entry) => isBlockedAddress(entry.address));
+    if (blockedAddress) {
+        throw new AppError('Remote snapshot URL is not permitted (resolves to private or link-local network)', 400);
+    }
+};
+
+const ensureRemoteUrlIsAllowed = async (ref) => {
+    let parsedUrl;
+    try {
+        parsedUrl = new URL(ref);
+    } catch {
+        throw new AppError('Remote snapshot URL is invalid', 400);
+    }
+
+    if (parsedUrl.protocol !== 'https:') {
+        throw new AppError('Remote snapshot URL protocol is not permitted (https only)', 400);
+    }
+
+    if (!isTrustedHostname(parsedUrl.hostname)) {
+        throw new AppError('Remote snapshot URL hostname is not in trusted allowlist', 400);
+    }
+
+    await ensureDnsSafeHostname(parsedUrl.hostname);
+    return parsedUrl;
+};
+
+const validateContentType = (label, headerValue) => {
+    const normalized = safeLower(safeString(headerValue).split(';')[0]);
+    const allowed = label === 'manifest'
+        ? ['application/json', 'text/json']
+        : ['application/json', 'application/x-ndjson', 'application/ndjson', 'text/plain', 'text/csv', 'application/csv', 'application/octet-stream'];
+
+    if (!normalized) {
+        throw new AppError(`Failed to download ${label}: missing content-type`, 502);
+    }
+
+    const isJsonSubtype = normalized.endsWith('+json');
+    const allowedType = isJsonSubtype || allowed.includes(normalized);
+    if (!allowedType) {
+        throw new AppError(`Failed to download ${label}: unsupported content-type ${normalized}`, 502);
+    }
+};
+
+const readResponseBuffer = async (response, label) => {
+    const contentLength = Number(response.headers.get('content-length') || 0);
+    if (contentLength > REMOTE_MAX_BYTES) {
+        throw new AppError(`Failed to download ${label}: response exceeds max size`, 502);
+    }
+
+    const buffer = Buffer.from(await response.arrayBuffer());
+    if (buffer.length > REMOTE_MAX_BYTES) {
+        throw new AppError(`Failed to download ${label}: response exceeds max size`, 502);
+    }
+
+    return buffer;
+};
+
+const fetchRemoteResource = async (ref, label) => {
+    let currentUrl = safeString(ref);
+    let redirects = 0;
+
+    while (true) {
+        await ensureRemoteUrlIsAllowed(currentUrl);
+
+        const response = await fetch(currentUrl, {
+            method: 'GET',
+            redirect: 'manual',
+            signal: AbortSignal.timeout(REMOTE_TIMEOUT_MS),
+        });
+
+        if ([301, 302, 303, 307, 308].includes(response.status)) {
+            const location = safeString(response.headers.get('location'));
+            if (!location) {
+                throw new AppError(`Failed to download ${label}: redirect location missing`, 502);
+            }
+            if (redirects >= REMOTE_MAX_REDIRECTS) {
+                throw new AppError(`Failed to download ${label}: too many redirects`, 502);
+            }
+
+            currentUrl = new URL(location, currentUrl).toString();
+            redirects += 1;
+            continue;
+        }
+
+        if (!response.ok) {
+            throw new AppError(`Failed to download ${label}: ${response.status} ${response.statusText}`, 502);
+        }
+
+        validateContentType(label, response.headers.get('content-type'));
+        const buffer = await readResponseBuffer(response, label);
+        return {
+            url: currentUrl,
+            buffer,
+        };
+    }
+};
 
 const ensureCacheDir = async () => {
     await fs.promises.mkdir(SNAPSHOT_CACHE_DIR, { recursive: true });
@@ -72,21 +264,16 @@ const resolveLocalPath = (ref) => {
 
 const downloadRemoteResource = async (ref, label) => {
     await ensureCacheDir();
+    const { url: finalUrl, buffer } = await fetchRemoteResource(ref, label);
 
-    const response = await fetch(ref);
-    if (!response.ok) {
-        throw new AppError(`Failed to download ${label}: ${response.status} ${response.statusText}`, 502);
-    }
-
-    const url = new URL(ref);
+    const url = new URL(finalUrl);
     const extension = path.extname(url.pathname) || (label === 'manifest' ? '.json' : '.bin');
     const fileName = `${label}_${hashValue(ref).slice(0, 20)}${extension}`;
     const targetPath = path.join(SNAPSHOT_CACHE_DIR, fileName);
-    const buffer = Buffer.from(await response.arrayBuffer());
     await fs.promises.writeFile(targetPath, buffer);
 
     return {
-        ref,
+        ref: finalUrl,
         localPath: targetPath,
         remote: true,
     };

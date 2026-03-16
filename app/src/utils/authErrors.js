@@ -201,7 +201,7 @@ export const AUTH_ERRORS = {
     },
     'if account details are valid, verification will proceed': {
         title: 'Verification In Progress',
-        detail: 'If your account details are valid, we'll continue with verification.',
+        detail: 'If your account details are valid, we\'ll continue with verification.',
         hint: 'Please recheck your email and phone number, then try again.',
         action: null,
         actionLabel: null
