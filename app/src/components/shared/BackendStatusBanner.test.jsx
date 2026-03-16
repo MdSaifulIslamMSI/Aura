@@ -2,24 +2,26 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import BackendStatusBanner from './BackendStatusBanner';
 import { pushClientDiagnostic } from '@/services/clientObservability';
+import * as apiBase from '@/services/apiBase';
 
 describe('BackendStatusBanner', () => {
   beforeEach(() => {
     window.sessionStorage.clear();
     vi.restoreAllMocks();
+    // Mock the health polling interval to prevent unexpected calls
+    vi.useFakeTimers();
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
-  });
-
-  it('shows a degraded banner when health reports a non-ok state', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+    vi.useRealTimers();
+  })// Mock requestWithTrace to return degraded status
+    vi.spyOn(apiBase, 'requestWithTrace').mockResolvedValue(
       new Response(JSON.stringify({
         status: 'degraded',
         reason: 'database_disconnected',
       }), {
-        status: 503,
+        status: 200,
         headers: {
           'Content-Type': 'application/json',
           'X-Request-Id': 'srv-health-1',
@@ -29,11 +31,15 @@ describe('BackendStatusBanner', () => {
 
     render(<BackendStatusBanner />);
 
+    // Wait for the health check to complete and status to update    );
+
+    render(<BackendStatusBanner />);
+
     expect(await screen.findByText('Backend health degraded')).toBeInTheDocument();
     expect(screen.getByText(/Debug Ref srv-health-1/i)).toBeInTheDocument();
     expect(screen.getByText(/database_disconnected/i)).toBeInTheDocument();
   });
-
+apiBase, 'requestWithTrace
   it('reacts to proxy failure diagnostics with a client debug reference', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(JSON.stringify({ status: 'ok' }), {
@@ -67,9 +73,7 @@ describe('BackendStatusBanner', () => {
     expect(screen.getByText(/Debug Ref req-proxy-1/i)).toBeInTheDocument();
     expect(screen.getByText(/HTTP 500/i)).toBeInTheDocument();
   });
-
-  it('clears the outage banner after a successful retry check', async () => {
-    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(() => Promise.resolve(
+requestMock = vi.spyOn(apiBase, 'requestWithTrace').mockImplementation(() => Promise.resolve(
       new Response(JSON.stringify({ status: 'ok' }), {
         status: 200,
         headers: {
@@ -81,9 +85,17 @@ describe('BackendStatusBanner', () => {
 
     render(<BackendStatusBanner />);
 
+    // Wait for initial health check
+    await waitFor(() => {
+      expect(requestMock).toHaveBeenCalled();
+    });
+
     await waitFor(() => {
       expect(screen.queryByText('Backend unavailable')).not.toBeInTheDocument();
     });
+
+    // Reset mock to track only retry calls
+    requestMock.mockClear();
 
     await act(async () => {
       pushClientDiagnostic('api.network_error', {
@@ -97,13 +109,22 @@ describe('BackendStatusBanner', () => {
       }, 'error');
     });
 
+    // Advance timers to ensure no pending async operations
+    await act(() => vi.runAllTimersAsync());
+
     expect(await screen.findByText('Backend waking up')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /retry check/i }));
+apiBase, 'requestWithTrace
+    // Advance timers to let health check complete
+    await act(() => vi.runAllTimersAsync());
 
     await waitFor(() => {
       expect(screen.queryByText('Backend waking up')).not.toBeInTheDocument();
     });
+
+    // Should only have 1 call from the retry button click
+    expect(requestMock).toHaveBeenCalledTimes(1
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
