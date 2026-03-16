@@ -16,9 +16,7 @@ const getInternalProvider = (gatewayId) => {
             webhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET,
         });
     } else {
-        provider = new SimulatedProvider({
-            webhookSecret: process.env.SIMULATED_WEBHOOK_SECRET,
-        });
+        provider = new SimulatedProvider();
     }
 
     providers.set(gatewayId, provider);

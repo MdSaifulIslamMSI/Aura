@@ -3,24 +3,14 @@ const AppError = require('./AppError');
 
 const CHALLENGE_TTL_SECONDS = 10 * 60;
 
-const parseBoolean = (value, fallback = false) => {
-    if (value === undefined || value === null || value === '') return fallback;
-    const normalized = String(value).trim().toLowerCase();
-    if (['1', 'true', 'yes', 'on'].includes(normalized)) return true;
-    if (['0', 'false', 'no', 'off'].includes(normalized)) return false;
-    return fallback;
-};
-
 const getSecret = () => {
-    const challengeEnabled = parseBoolean(process.env.PAYMENT_CHALLENGE_ENABLED, true);
-    const secret = String(process.env.OTP_CHALLENGE_SECRET || '').trim();
+    const secret = String(process.env.OTP_CHALLENGE_SECRET || process.env.JWT_SECRET || '').trim();
     if (secret) return secret;
 
-    if (challengeEnabled) {
-        throw new AppError('OTP_CHALLENGE_SECRET is required when PAYMENT_CHALLENGE_ENABLED=true', 500);
+    if (process.env.NODE_ENV === 'production') {
+        throw new AppError('OTP_CHALLENGE_SECRET is required in production', 500);
     }
-
-    throw new AppError('OTP_CHALLENGE_SECRET is required for payment challenge token operations', 500);
+    return 'dev-payment-challenge-secret';
 };
 
 const encodeBase64Url = (value) => Buffer.from(value, 'utf8').toString('base64url');

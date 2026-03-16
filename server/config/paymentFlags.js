@@ -22,22 +22,9 @@ const flags = {
     paymentRefundsEnabled: parseBoolean(process.env.PAYMENT_REFUNDS_ENABLED, true),
     paymentChallengeEnabled: parseBoolean(process.env.PAYMENT_CHALLENGE_ENABLED, true),
     paymentDynamicRoutingEnabled: parseBoolean(process.env.PAYMENT_DYNAMIC_ROUTING_ENABLED, true),
-    paymentWebhooksEnabled: parseBoolean(process.env.PAYMENT_WEBHOOKS_ENABLED, true),
-};
-
-const assertWebhookConfig = () => {
-    if (!flags.paymentsEnabled || !flags.paymentWebhooksEnabled) return;
-
-    if (flags.paymentProvider === 'simulated' && !process.env.SIMULATED_WEBHOOK_SECRET) {
-        throw new Error('Missing SIMULATED_WEBHOOK_SECRET for simulated payment webhook mode');
-    }
 };
 
 const assertProductionPaymentConfig = () => {
-    if (flags.paymentChallengeEnabled && !String(process.env.OTP_CHALLENGE_SECRET || '').trim()) {
-        throw new Error('Missing OTP_CHALLENGE_SECRET for payment challenge mode');
-    }
-
     if (!flags.isProduction || !flags.paymentsEnabled) return;
 
     if (flags.paymentProvider !== 'razorpay') {
@@ -47,11 +34,14 @@ const assertProductionPaymentConfig = () => {
     if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET || !process.env.RAZORPAY_WEBHOOK_SECRET) {
         throw new Error('Missing Razorpay credentials for production payment mode');
     }
+
+    if (flags.paymentChallengeEnabled && !process.env.OTP_CHALLENGE_SECRET && !process.env.JWT_SECRET) {
+        throw new Error('Missing OTP_CHALLENGE_SECRET for production payment challenge mode');
+    }
 };
 
 module.exports = {
     flags,
     parseBoolean,
-    assertWebhookConfig,
     assertProductionPaymentConfig,
 };

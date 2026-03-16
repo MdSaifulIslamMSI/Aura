@@ -7,11 +7,6 @@
  * - Prevents concurrent token fetch requests
  * - Validates token format (64-char hex)
  * - Includes token in state-changing requests
- *
- * Header flow:
- * 1) Client fetches token from GET /api/auth/session (response header: X-CSRF-Token).
- * 2) Client sends that same token in X-CSRF-Token on POST/PUT/PATCH/DELETE.
- * 3) Server validates token + current authenticated identity (uid/email) before consuming token.
  */
 
 let cachedToken = null;
@@ -157,9 +152,6 @@ export const ensureCsrfToken = async (authToken) => {
 
 /**
  * Add CSRF token to request headers if needed
- *
- * Note: the token is identity-bound on the server, so callers must fetch it using
- * the same authenticated user context they will use for the subsequent write request.
  * Only adds token for state-changing methods (POST, PUT, PATCH, DELETE)
  * Throws error if token is required but missing
  * 

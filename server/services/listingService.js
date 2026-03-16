@@ -13,8 +13,7 @@ const { makeEventId } = require('./payments/helpers');
 const { flags: paymentFlags } = require('../config/paymentFlags');
 const crypto = require('crypto');
 
-const SELLER_PUBLIC_STRICT = 'name createdAt isVerified';
-const SELLER_PRIVATE_THREAD = 'name email phone createdAt isVerified';
+const SELLER_PUBLIC = 'name email phone createdAt isVerified';
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**
@@ -221,6 +220,5 @@ module.exports = {
     assertEscrowEligibility,
     buildEscrowCheckoutPayload,
     appendEscrowPaymentEvent,
-    SELLER_PUBLIC_STRICT,
-    SELLER_PRIVATE_THREAD,
+    SELLER_PUBLIC,
 };
