@@ -96,6 +96,10 @@ const app = express();
 const JSON_BODY_LIMIT = process.env.JSON_BODY_LIMIT || '12mb';
 const runtimeNodeEnv = process.env.NODE_ENV || 'production';
 const splitRuntimeEnabled = String(process.env.SPLIT_RUNTIME_ENABLED || 'false').trim().toLowerCase() === 'true';
+logger.info('config.split_runtime_env_check', { 
+    raw: process.env.SPLIT_RUNTIME_ENABLED, 
+    parsed: splitRuntimeEnabled,
+});
 const requirePublishedCatalog = String(
     process.env.CATALOG_READINESS_REQUIRE_PUBLISHED || (runtimeNodeEnv === 'production' ? 'true' : 'false')
 ).trim().toLowerCase() !== 'false';
