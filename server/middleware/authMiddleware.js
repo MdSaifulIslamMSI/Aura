@@ -173,7 +173,6 @@ const protect = asyncHandler(async (req, res, next) => {
             req.authToken = decodedToken;
             const normalizedEmail = normalizeEmail(email);
             if (!normalizedEmail) {
-                logger.warn('auth.protected_endpoint_rejected', { reason: 'missing_email', uid, path: req.originalUrl });
                 throw new AppError('Authenticated account is missing email', 401);
             }
 
@@ -211,7 +210,7 @@ const protect = asyncHandler(async (req, res, next) => {
             next();
         } catch (error) {
             if (error instanceof AppError) throw error;
-            logger.warn('auth.verify_failed', { error: error.message, path: req.originalUrl });
+            logger.error('auth.verify_failed', { error: error.message });
             throw new AppError('Not authorized, token failed', 401);
         }
     } else {
