@@ -33,7 +33,7 @@ require('colors');
 const logger = require('./utils/logger');
 const connectDB = require('./config/db');
 const { initRedis, assertProductionRedisConfig } = require('./config/redis');
-const { assertProductionPaymentConfig } = require('./config/paymentFlags');
+const { assertProductionPaymentConfig, assertWebhookConfig } = require('./config/paymentFlags');
 const { assertProductionEmailConfig } = require('./config/emailFlags');
 const { assertProductionOtpSmsConfig } = require('./config/otpSmsFlags');
 const {
@@ -54,6 +54,7 @@ const {
     enforceCatalogStartupCheck,
 } = require('./services/catalogService');
 const { IntelligenceTaskMonitor } = require('./services/marketingIntelligenceService');
+const { startOtpSignupMaintenanceWorker } = require('./services/otpSignupMaintenanceService');
 
 const NODE_ENV = process.env.NODE_ENV || 'production';
 
@@ -62,6 +63,7 @@ const startup = async () => {
 
     // Production guards — fail closed on misconfiguration
     assertProductionRedisConfig();
+    assertWebhookConfig();
     assertProductionPaymentConfig();
     assertProductionEmailConfig();
     assertProductionOtpSmsConfig();
@@ -82,6 +84,7 @@ const startup = async () => {
     startAdminAnalyticsMonitor();
     startCatalogWorkers();
     IntelligenceTaskMonitor();
+    startOtpSignupMaintenanceWorker();
 
     logger.info('worker_process.all_workers_started');
     console.log('Worker process running'.green.bold);

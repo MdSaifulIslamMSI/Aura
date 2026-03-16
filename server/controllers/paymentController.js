@@ -6,6 +6,7 @@ const PaymentOutboxTask = require('../models/PaymentOutboxTask');
 const Order = require('../models/Order');
 const User = require('../models/User');
 const { notifyAdminActionToUser } = require('../services/email/adminActionEmailService');
+const { flags: paymentFlags } = require('../config/paymentFlags');
 const {
     createPaymentIntent,
     confirmPaymentIntent,
@@ -625,6 +626,11 @@ const createRefund = asyncHandler(async (req, res, next) => {
 const handleRazorpayWebhook = asyncHandler(async (req, res, next) => {
     try {
         const signature = req.headers['x-razorpay-signature'];
+
+        if (paymentFlags.paymentProvider === 'simulated' && !signature) {
+            throw new AppError('Missing webhook signature', 403);
+        }
+
         const rawBody = req.rawBody || JSON.stringify(req.body || {});
         const result = await processRazorpayWebhook({ signature, rawBody });
         return res.status(200).json(result);
@@ -652,7 +658,11 @@ const getPaymentMethods = asyncHandler(async (req, res, next) => {
 // @access  Private
 const addPaymentMethod = asyncHandler(async (req, res, next) => {
     try {
-        const method = await saveUserPaymentMethod({ userId: req.user._id, method: req.body });
+        const method = await saveUserPaymentMethod({
+            userId: req.user._id,
+            method: req.body,
+            paymentIntentId: req.body.paymentIntentId,
+        });
         return res.status(201).json(method);
     } catch (error) {
         if (error instanceof AppError) return next(error);

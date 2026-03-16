@@ -34,7 +34,8 @@
     "migrate:drop-user-otp-ttl": "node scripts/drop_user_otp_ttl_index.js",
     "migrate:user-phone-sparse": "node scripts/migrate_user_phone_sparse_index.js",
     "migrate:catalog-backfill": "node scripts/backfill_catalog_version.js",
-    "wipe:firebase-auth": "node scripts/wipe_firebase_auth_users.js"
+    "wipe:firebase-auth": "node scripts/wipe_firebase_auth_users.js",
+    "migrate:otp-session-identity": "node scripts/migrate_otp_session_identity_key.js"
   },
   "keywords": [],
   "author": "",
