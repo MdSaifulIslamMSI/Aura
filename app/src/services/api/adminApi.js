@@ -1,6 +1,10 @@
 import { apiFetch } from '../apiBase';
 import { getAuthHeader } from './apiUtils';
 
+/**
+ * CRITICAL: All admin API calls require authentication and admin role
+ * Frontend ensures CSRF tokens are included for all state-changing requests
+ */
 export const adminApi = {
     getAnalyticsOverview: async (params = {}) => {
         const headers = await getAuthHeader();

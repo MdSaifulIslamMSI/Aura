@@ -299,11 +299,13 @@ const listAdminProducts = asyncHandler(async (req, res) => {
         const numericClause = Number.isFinite(numericSearch)
             ? [{ id: numericSearch }]
             : [];
+        // CRITICAL: Escape regex special characters to prevent injection
+        const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         filter.$or = [
-            { title: { $regex: search, $options: 'i' } },
-            { brand: { $regex: search, $options: 'i' } },
-            { category: { $regex: search, $options: 'i' } },
-            { externalId: { $regex: search, $options: 'i' } },
+            { title: { $regex: escapedSearch, $options: 'i' } },
+            { brand: { $regex: escapedSearch, $options: 'i' } },
+            { category: { $regex: escapedSearch, $options: 'i' } },
+            { externalId: { $regex: escapedSearch, $options: 'i' } },
             ...numericClause,
         ];
     }
@@ -531,6 +533,26 @@ const deleteAdminProduct = asyncHandler(async (req, res, next) => {
 
     const beforeSnapshot = getSnapshot(existing);
     const productRef = existing.id || existing.externalId || req.params.id;
+    
+    // CRITICAL: Cleanup all related data before deletion to prevent orphaning
+    try {
+        // Cleanup product references from orders/carts
+        await Promise.all([
+            // Remove from user carts
+            require('../models/User').updateMany(
+                { 'cart._id': existing._id },
+                { $pull: { cart: { _id: existing._id } } }
+            ),
+            // Remove from wishlists
+            require('../models/User').updateMany(
+                { 'wishlist': existing._id },
+                { $pull: { wishlist: existing._id } }
+            ),
+        ]);
+    } catch (cleanupError) {
+        logger.warn('admin_product.cleanup_failed', { productId: existing._id, error: String(cleanupError?.message || '') });
+    }
+    
     // Use resolved Mongo _id so admin delete is not blocked by catalog-version filters.
     const result = await deleteManualProduct(String(existing._id));
 

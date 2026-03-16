@@ -22,24 +22,28 @@ const buildListFilter = (query = {}) => {
         filter.isRead = false;
     }
 
-    if (query.severity) {
-        filter.severity = query.severity;
+    // CRITICAL: Whitelist severity and actionKey to prevent injection
+    const validSeverities = ['critical', 'high', 'medium', 'low', 'info'];
+    if (query.severity && validSeverities.includes(String(query.severity).toLowerCase())) {
+        filter.severity = String(query.severity).toLowerCase();
     }
     if (query.actionKey) {
-        filter.actionKey = query.actionKey;
+        filter.actionKey = String(query.actionKey).trim();
     }
     if (query.entityType) {
-        filter.entityType = query.entityType;
+        filter.entityType = String(query.entityType).trim();
     }
 
     const search = String(query.search || '').trim();
     if (search) {
+        // CRITICAL: Escape regex special characters to prevent injection
+        const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         filter.$or = [
-            { title: { $regex: search, $options: 'i' } },
-            { summary: { $regex: search, $options: 'i' } },
-            { actorName: { $regex: search, $options: 'i' } },
-            { actorEmail: { $regex: search, $options: 'i' } },
-            { path: { $regex: search, $options: 'i' } },
+            { title: { $regex: escapedSearch, $options: 'i' } },
+            { summary: { $regex: escapedSearch, $options: 'i' } },
+            { actorName: { $regex: escapedSearch, $options: 'i' } },
+            { actorEmail: { $regex: escapedSearch, $options: 'i' } },
+            { path: { $regex: escapedSearch, $options: 'i' } },
         ];
     }
 
