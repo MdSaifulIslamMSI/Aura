@@ -198,5 +198,53 @@ export const adminApi = {
             body: JSON.stringify(payload),
         });
         return data;
+    },
+    getAdminPayments: async (params = {}) => {
+        const headers = await getAuthHeader();
+        const { data } = await apiFetch('/admin/payments', { headers, params });
+        return data;
+    },
+    getRefundLedger: async (params = {}) => {
+        const headers = await getAuthHeader();
+        const { data } = await apiFetch('/admin/payments/refunds/ledger', { headers, params });
+        return data;
+    },
+    updateRefundLedgerReference: async (orderId, requestId, payload = {}) => {
+        const headers = await getAuthHeader();
+        const { data } = await apiFetch(`/admin/payments/refunds/ledger/${orderId}/${requestId}/reference`, {
+            method: 'PATCH',
+            headers,
+            body: JSON.stringify(payload),
+        });
+        return data;
+    },
+    getAdminPaymentById: async (intentId) => {
+        const headers = await getAuthHeader();
+        const { data } = await apiFetch(`/admin/payments/${intentId}`, { headers });
+        return data;
+    },
+    captureAdminPayment: async (intentId, payload = {}) => {
+        const headers = await getAuthHeader();
+        const { data } = await apiFetch(`/admin/payments/${intentId}/capture`, {
+            method: 'POST',
+            headers: {
+                ...headers,
+                'Idempotency-Key': payload?.idempotencyKey || createIdempotencyKey('capture'),
+            },
+            body: JSON.stringify(payload),
+        });
+        return data;
+    },
+    retryAdminCapture: async (intentId, payload = {}) => {
+        const headers = await getAuthHeader();
+        const { data } = await apiFetch(`/admin/payments/${intentId}/retry-capture`, {
+            method: 'POST',
+            headers: {
+                ...headers,
+                'Idempotency-Key': payload?.idempotencyKey || createIdempotencyKey('retry-capture'),
+            },
+            body: JSON.stringify(payload),
+        });
+        return data;
     }
 };
