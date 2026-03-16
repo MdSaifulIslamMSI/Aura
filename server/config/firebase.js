@@ -68,10 +68,15 @@ try {
         }
     }
 
-    admin.initializeApp({
-        credential: credential || undefined,
+    const appOptions = {
         projectId: projectId.trim()
-    });
+    };
+
+    if (credential) {
+        appOptions.credential = credential;
+    }
+
+    admin.initializeApp(appOptions);
     
     logger.info('firebase.initialized', { 
         projectId: projectId.trim(), 

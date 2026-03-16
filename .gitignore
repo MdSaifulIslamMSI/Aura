@@ -60,3 +60,7 @@ server/test_output.txt
 **/test_output*.txt
 **/test-output*.log
 **/runtime-*.log
+
+# Playwright/coverage output
+**/playwright-report/
+**/coverage/

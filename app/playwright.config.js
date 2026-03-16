@@ -43,6 +43,7 @@ export default defineConfig({
             env: {
                 MONGO_URI: process.env.CI ? 'mongodb://127.0.0.1:27017/aura_e2e' : process.env.MONGO_URI,
                 NODE_ENV: 'test',
+                SIMULATED_WEBHOOK_SECRET: process.env.SIMULATED_WEBHOOK_SECRET || 'playwright-simulated-webhook-secret',
             },
         },
         {
