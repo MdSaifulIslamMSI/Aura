@@ -199,16 +199,12 @@ const loginUser = asyncHandler(async (req, res, next) => {
 
     const normalizedName = normalizeText(name);
     const hasPhoneInput = phone !== undefined && phone !== null && String(phone).trim() !== '';
-    const emailVerified = Boolean(req.authToken?.email_verified);
 
     if (!tokenEmail) {
         return next(new AppError('Email is required', 400));
     }
     if (requestEmail && requestEmail !== tokenEmail) {
         return next(new AppError('Email in request does not match authenticated account', 400));
-    }
-    if (!emailVerified) {
-        return next(new AppError('Email verification is required before login sync', 403));
     }
 
     let normalizedPhone = '';
@@ -227,7 +223,7 @@ const loginUser = asyncHandler(async (req, res, next) => {
         const fallbackName = normalizedName || normalizeText(req.user?.name) || tokenEmail.split('@')[0] || 'Aura User';
         const setPayload = {
             name: fallbackName,
-            isVerified: emailVerified,
+            isVerified: true,
         };
         if (hasPhoneInput) {
             setPayload.phone = normalizedPhone;

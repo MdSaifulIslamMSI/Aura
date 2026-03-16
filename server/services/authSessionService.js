@@ -221,16 +221,12 @@ const syncAuthenticatedUser = async ({
     const requestEmail = normalizeEmail(bodyEmail);
     const normalizedName = normalizeText(name);
     const hasPhoneInput = phone !== undefined && phone !== null && String(phone).trim() !== '';
-    const emailVerified = Boolean(authUser?.emailVerified ?? authUser?.isVerified);
 
     if (!tokenEmail) {
         throw new AppError('Email is required', 400);
     }
     if (requestEmail && requestEmail !== tokenEmail) {
         throw new AppError('Email in request does not match authenticated account', 400);
-    }
-    if (!emailVerified) {
-        throw new AppError('Email verification is required before session sync', 403);
     }
 
     let normalizedPhone = '';
@@ -249,7 +245,7 @@ const syncAuthenticatedUser = async ({
         const fallbackName = normalizedName || normalizeText(authUser?.name || authUser?.displayName) || tokenEmail.split('@')[0] || 'Aura User';
         const setPayload = {
             name: fallbackName,
-            isVerified: emailVerified,
+            isVerified: true,
         };
 
         if (hasPhoneInput) {

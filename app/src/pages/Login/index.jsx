@@ -108,28 +108,6 @@ const Login = () => {
 
   const setErr = (rawErr) => setAuthError(resolveAuthError(rawErr));
 
-
-  const buildGenericOtpFlowError = () => ({
-    message: 'If the account details are valid, continue with OTP verification.'
-  });
-
-  const isEnumerationSensitiveOtpError = (err) => {
-    const status = Number(err?.status || err?.response?.status || 0);
-    const rawMessage = String(
-      err?.response?.data?.message
-      || err?.message
-      || err?.error
-      || ''
-    ).toLowerCase();
-
-    return status === 404
-      || rawMessage.includes('no account found')
-      || rawMessage.includes('does not match the account')
-      || rawMessage.includes('phone mismatch')
-      || rawMessage.includes('email mismatch');
-  };
-
-
   const validateForm = () => {
     if (!formData.phone) {
       setErr({ message: 'Phone number is required' }); return false;
@@ -199,19 +177,10 @@ const Login = () => {
       setStep('otp');
       setOtpValues(Array(OTP_LENGTH).fill(''));
       setCountdown(60);
-      setAuthSuccess(mode === 'signup'
-        ? AUTH_SUCCESS.otp_sent
-        : {
-          title: 'Check for a Code',
-          detail: 'If the account details are valid, a 6-digit verification code has been sent.'
-        });
+      setAuthSuccess(AUTH_SUCCESS.otp_sent);
       setTimeout(() => otpRefs.current[0]?.focus(), 300);
     } catch (err) {
-      if ((mode === 'signin' || mode === 'forgot-password') && isEnumerationSensitiveOtpError(err)) {
-        setErr(buildGenericOtpFlowError());
-      } else {
-        setErr(err);
-      }
+      setErr(err);
     } finally {
       setIsLoading(false);
     }
@@ -252,11 +221,7 @@ const Login = () => {
       }
       setSignInProofToken('');
     } catch (err) {
-      if ((mode === 'signin' || mode === 'forgot-password') && isEnumerationSensitiveOtpError(err)) {
-        setErr(buildGenericOtpFlowError());
-      } else {
-        setErr(err);
-      }
+      setErr(err);
     } finally {
       setIsLoading(false);
     }
@@ -286,19 +251,10 @@ const Login = () => {
       });
       setCountdown(60);
       setOtpValues(Array(OTP_LENGTH).fill(''));
-      setAuthSuccess(mode === 'signup'
-        ? AUTH_SUCCESS.otp_resent
-        : {
-          title: 'Check for a Code',
-          detail: 'If the account details are valid, a fresh verification code has been sent.'
-        });
+      setAuthSuccess(AUTH_SUCCESS.otp_resent);
       otpRefs.current[0]?.focus();
     } catch (err) {
-      if ((mode === 'signin' || mode === 'forgot-password') && isEnumerationSensitiveOtpError(err)) {
-        setErr(buildGenericOtpFlowError());
-      } else {
-        setErr(err);
-      }
+      setErr(err);
     } finally {
       setIsLoading(false);
     }
