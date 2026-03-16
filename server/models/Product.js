@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const logger = require('../utils/logger');
 const { canonicalizeProductImageUrl } = require('../services/productImageResolver');
 
 const normalizeTitleKey = (value) => String(value || '')
