@@ -1,5 +1,9 @@
 {
   "outputDirectory": "app/dist",
+  "env": {
+    "VITE_FIREBASE_PROJECT_ID": "@firebase_project_id",
+    "VITE_API_URL": "@vite_api_url"
+  },
   "rewrites": [
     {
       "source": "/api/(.*)",

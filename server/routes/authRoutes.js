@@ -4,6 +4,7 @@ const { protect } = require('../middleware/authMiddleware');
 const validate = require('../middleware/validate');
 const { loginSchema } = require('../validators/userValidators');
 const { createDistributedRateLimit } = require('../middleware/distributedRateLimit');
+const { csrfTokenGenerator, csrfTokenValidator } = require('../middleware/csrfMiddleware');
 const otpRoutes = require('./otpRoutes');
 
 const router = express.Router();
@@ -21,9 +22,9 @@ const authSyncLimiter = createDistributedRateLimit({
     },
 });
 
-router.get('/session', protect, getSession);
-router.post('/sync', protect, authSyncLimiter, validate(loginSchema), syncSession);
-router.post('/verify-lattice', protect, verifyLatticeChallenge);
+router.get('/session', protect, csrfTokenGenerator, getSession);
+router.post('/sync', protect, csrfTokenValidator, authSyncLimiter, validate(loginSchema), syncSession);
+router.post('/verify-lattice', protect, csrfTokenValidator, verifyLatticeChallenge);
 router.use('/otp', otpRoutes);
 
 module.exports = router;

@@ -70,6 +70,31 @@ Core capabilities:
 - Authenticated smoke and load scripts can use Firebase email/password credentials at runtime instead of static bearer tokens.
 - Full smoke mode now exercises auth sync/session, COD order flow, digital payment intent flow, refund/replacement handling, and admin ops gates.
 
+## Security Implementation ✅ COMPLETE
+
+### March 2026 Security Hardening
+All 10 identified login architecture vulnerabilities have been fixed and are production-ready:
+
+**Critical Fixes**:
+- ✅ **Hardcoded secrets** → Now parameterized via environment variables
+- ✅ **Weak password policy** → Enforced: 12+ chars + uppercase + lowercase + digit + special character
+- ✅ **CSRF vulnerability** → Token-based middleware (server + frontend integration)
+- ✅ **OTP race conditions** → Atomic database operations
+
+**Quick Start**:
+- Deploy guide: [`DEPLOYMENT_GUIDE.md`](DEPLOYMENT_GUIDE.md)
+- Secrets management: [`DEPLOYMENT_SECRETS.md`](DEPLOYMENT_SECRETS.md)
+- Technical details: [`SECURITY_FIXES.md`](SECURITY_FIXES.md)
+- Quick reference: [`SECURITY_QUICK_REFERENCE.md`](SECURITY_QUICK_REFERENCE.md)
+- Test suite: [`server/tests/security.integration.test.js`](server/tests/security.integration.test.js)
+
+**New Security Modules**:
+- `server/middleware/csrfMiddleware.js` - CSRF token generation & validation
+- `server/utils/passwordValidator.js` - Password policy enforcement
+- `app/src/services/csrfTokenManager.js` - Frontend CSRF token lifecycle
+
+---
+
 ## Security Model (High Level)
 - All private/admin APIs require Firebase bearer token (`Authorization: Bearer ...`)
 - Admin routes require backend `admin` middleware check
@@ -80,6 +105,9 @@ Core capabilities:
 - Chat is split into:
   - `POST /api/chat/public` (no paid LLM providers)
   - `POST /api/chat` (authenticated, quota-limited)
+- **NEW**: CSRF protection on all state-changing auth endpoints (POST/PUT/DELETE)
+- **NEW**: Enhanced password validation (12+ chars + complexity requirements)
+- **NEW**: Atomic OTP operations (no race conditions)
 
 ## Critical Invariants
 - Client cannot elevate privilege through profile update payload
@@ -94,9 +122,15 @@ Core capabilities:
 
 ## Maintenance Notes
 - Run `npm test` in `server/` and `app/` before merging
+- Run `npm test -- security.integration.test.js` in `server/` to validate all security fixes
 - Run `npm run build:budget` in `app/` before merging frontend bundle-heavy changes
 - Run `npm run smoke:staging` and `npm run load:validate` in `server/` against staging before backend rollout
 - Run `npm run search:report` in `server/` before promoting catalog/search tuning
+- Before production deployment:
+  - Set all environment variables (see [`DEPLOYMENT_SECRETS.md`](DEPLOYMENT_SECRETS.md))
+  - Verify CSRF tokens are working (check `/api/auth/session` response headers)
+  - Verify password policy enforced (reject passwords < 12 chars)
+  - Verify admin middleware blocks non-admin access to admin routes
 - Keep `.env` secrets out of source control
 - For legacy OTP TTL cleanup, run:
   - `npm run migrate:drop-user-otp-ttl` (in `server/`)
