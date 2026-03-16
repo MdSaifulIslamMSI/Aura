@@ -135,6 +135,67 @@ export const catalogApi = {
             body: JSON.stringify(payload),
         });
         return data;
+    },
+    trackSearchClick: async (payload = {}) => {
+        try {
+            await fetch(`${BASE_URL}/products/telemetry/search-click`, {
+                method: 'POST',
+                keepalive: true,
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload),
+            });
+        } catch {
+            // Telemetry is best-effort
+        }
+    },
+    getDealDna: async (id) => {
+        const { data } = await apiFetch(`/products/${id}/deal-dna`);
+        return data;
+    },
+    getCompatibility: async (id, params = {}) => {
+        const { data } = await apiFetch(`/products/${id}/compatibility`, { params });
+        return data;
+    },
+    getRecommendations: async (payload = {}) => {
+        const headers = await getAuthHeader();
+        const { data } = await apiFetch('/products/recommendations', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(payload),
+        });
+        return data;
+    },
+    createProduct: async (payload = {}) => {
+        const headers = await getAuthHeader();
+        const { data } = await apiFetch('/products', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(payload),
+        });
+        return data;
+    },
+    updateProduct: async (product) => {
+        const headers = await getAuthHeader();
+        const { _id, id, ...payload } = product || {};
+        const { data } = await apiFetch(`/products/${_id || id}`, {
+            method: 'PUT',
+            headers,
+            body: JSON.stringify(payload),
+        });
+        writeCachedProductDetail(_id || id || data?._id || data?.id, data);
+        return data;
+    },
+    deleteProduct: async (id) => {
+        const headers = await getAuthHeader();
+        const { data } = await apiFetch(`/products/${id}`, {
+            method: 'DELETE',
+            headers,
+        });
+        invalidateProductDetailCache(id);
+        return data;
     }
 };
 

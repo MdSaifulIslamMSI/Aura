@@ -31,5 +31,17 @@ export const priceAlertApi = {
         const headers = await getAuthHeader();
         const { data } = await apiFetch('/price-alerts/my', { headers });
         return data;
+    },
+    delete: async (id) => {
+        const headers = await getAuthHeader();
+        const { data } = await apiFetch(`/price-alerts/${id}`, {
+            method: 'DELETE',
+            headers,
+        });
+        return data;
+    },
+    getHistory: async (productId) => {
+        const { data } = await apiFetch(`/price-alerts/history/${productId}`);
+        return data;
     }
 };

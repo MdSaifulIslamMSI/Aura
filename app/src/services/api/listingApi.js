@@ -38,9 +38,92 @@ export const listingApi = {
         });
         return data;
     },
+    getHotspots: async (params = {}) => {
+        const { data } = await apiFetch('/listings/hotspots', { params });
+        return data;
+    },
+    prefetchListingById: (id) => {
+        const normalizedId = id == null ? '' : String(id).trim();
+        if (!normalizedId || prefetchedListingIds.has(normalizedId)) return;
+        prefetchedListingIds.add(normalizedId);
+
+        runWhenIdle(async () => {
+            try {
+                await apiFetch(`/listings/${normalizedId}`);
+            } catch {
+                // Best effort
+            }
+        });
+    },
+    markSold: async (id) => {
+        const headers = await getAuthHeader();
+        const { data } = await apiFetch(`/listings/${id}/sold`, {
+            method: 'PATCH',
+            headers,
+        });
+        return data;
+    },
     getMyListings: async () => {
         const headers = await getAuthHeader();
         const { data } = await apiFetch('/listings/my', { headers });
+        return data;
+    },
+    getSellerProfile: async (userId) => {
+        const { data } = await apiFetch(`/listings/seller/${userId}`);
+        return data;
+    },
+    createEscrowIntent: async (id, payload = {}) => {
+        const headers = await getAuthHeader();
+        const { data } = await apiFetch(`/listings/${id}/escrow/intents`, {
+            method: 'POST',
+            headers: {
+                ...headers,
+                'Idempotency-Key': payload?.idempotencyKey || createIdempotencyKey('escrow-intent'),
+            },
+            body: JSON.stringify(payload),
+        });
+        return data;
+    },
+    confirmEscrowIntent: async (id, intentId, payload = {}) => {
+        const headers = await getAuthHeader();
+        const { data } = await apiFetch(`/listings/${id}/escrow/intents/${intentId}/confirm`, {
+            method: 'POST',
+            headers: {
+                ...headers,
+                'Idempotency-Key': payload?.idempotencyKey || createIdempotencyKey('escrow-confirm'),
+            },
+            body: JSON.stringify(payload),
+        });
+        return data;
+    },
+    startEscrow: async (id, payload = {}) => {
+        const headers = await getAuthHeader();
+        const { data } = await apiFetch(`/listings/${id}/escrow/start`, {
+            method: 'PATCH',
+            headers,
+            body: JSON.stringify(payload),
+        });
+        return data;
+    },
+    confirmEscrow: async (id) => {
+        const headers = await getAuthHeader();
+        const { data } = await apiFetch(`/listings/${id}/escrow/confirm`, {
+            method: 'PATCH',
+            headers,
+        });
+        return data;
+    },
+    cancelEscrow: async (id) => {
+        const headers = await getAuthHeader();
+        const { data } = await apiFetch(`/listings/${id}/escrow/cancel`, {
+            method: 'PATCH',
+            headers,
+        });
+        return data;
+    },
+    getMessageInbox: async () => {
+        const headers = await getAuthHeader();
+        const { data } = await apiFetch('/listings/messages/inbox', { headers });
         return data;
     },
     sendListingMessage: async (id, payload) => {
@@ -69,6 +152,15 @@ export const tradeInApi = {
         });
         return data;
     },
+    tradeInEstimate: async (payload) => {
+        const headers = await getAuthHeader();
+        const { data } = await apiFetch('/trade-in/estimate', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(payload),
+        });
+        return data;
+    },
     create: async (payload) => {
         const headers = await getAuthHeader();
         const { data } = await apiFetch('/trade-in', {
@@ -78,14 +170,23 @@ export const tradeInApi = {
         });
         return data;
     },
+    createTradeIn: async (payload) => {
+        const headers = await getAuthHeader();
+        const { data = {} } = await apiFetch('/trade-in', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(payload),
+        });
+        return data;
+    },
     getMyTradeIns: async () => {
         const headers = await getAuthHeader();
-        const { data } = await apiFetch('/trade-in/my', { headers });
+        const { data = {} } = await apiFetch('/trade-in/my', { headers });
         return data;
     },
     cancel: async (id) => {
         const headers = await getAuthHeader();
-        const { data } = await apiFetch(`/trade-in/${id}`, {
+        const { data = {} } = await apiFetch(`/trade-in/${id}`, {
             method: 'DELETE',
             headers,
         });
