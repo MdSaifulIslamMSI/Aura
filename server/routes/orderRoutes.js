@@ -20,7 +20,7 @@ const {
     getMyOrders,
     getOrders
 } = require('../controllers/orderController');
-const { protect, admin } = require('../middleware/authMiddleware');
+const { protect, admin, requireOtpAssurance } = require('../middleware/authMiddleware');
 const validate = require('../middleware/validate');
 const {
     quoteOrderSchema,
@@ -41,10 +41,10 @@ const {
     adminCommandWarrantyDecisionSchema,
 } = require('../validators/orderValidators');
 
-router.post('/quote', protect, validate(quoteOrderSchema), quoteOrder);
-router.post('/simulate-payment', protect, validate(simulatePaymentSchema), simulatePayment);
+router.post('/quote', protect, requireOtpAssurance, validate(quoteOrderSchema), quoteOrder);
+router.post('/simulate-payment', protect, requireOtpAssurance, validate(simulatePaymentSchema), simulatePayment);
 
-router.route('/').post(protect, validate(createOrderSchema), addOrderItems).get(protect, admin, getOrders);
+router.route('/').post(protect, requireOtpAssurance, validate(createOrderSchema), addOrderItems).get(protect, admin, getOrders);
 router.route('/myorders').get(protect, getMyOrders);
 router.route('/:id/timeline').get(protect, validate(getOrderTimelineSchema), getMyOrderTimeline);
 router.route('/:id/command-center')
