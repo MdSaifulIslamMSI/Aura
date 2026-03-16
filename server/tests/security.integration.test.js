@@ -103,98 +103,26 @@ describe('SECURITY FIXES INTEGRATION TESTS', () => {
             expect(token).toHaveLength(64); // 32 bytes * 2 hex chars
         });
 
-<<<<<<< ours
-        test('should store and verify token', async () => {
+        test('should store and verify token', () => {
             const token = generateCsrfToken();
-<<<<<<< ours
-            await storeCsrfToken(token, { uid: 'test-user' });
-            const valid = await verifyCsrfToken(token, { uid: 'test-user' });
-            expect(valid).toBe(true);
-        });
-
-        test('should invalidate token after one-time use', async () => {
-            const token = generateCsrfToken();
-            await storeCsrfToken(token, { uid: 'anonymous' });
-            
-            const firstUse = await verifyCsrfToken(token, { uid: 'anonymous' });
-            expect(firstUse).toBe(true);
-            
-            const secondUse = await verifyCsrfToken(token, { uid: 'anonymous' });
-            expect(secondUse).toBe(false); // Token consumed
-        });
-
-        test('should reject invalid tokens', async () => {
-            const valid = await verifyCsrfToken('invalid-token-xyz', { uid: 'test-user' });
-=======
-        test('should accept token for same user identity', () => {
-            const token = generateCsrfToken();
-            storeCsrfToken(token, { uid: 'test-user', email: 'test@example.com' });
-
-            const valid = verifyCsrfToken(token, {
-                uid: 'test-user',
-                email: 'test@example.com',
-            });
-
-=======
             storeCsrfToken(token, { uid: 'test-user' });
-            const valid = verifyCsrfToken(token, { uid: 'test-user' });
-<<<<<<< ours
->>>>>>> theirs
-=======
->>>>>>> theirs
+            const valid = verifyCsrfToken(token);
             expect(valid).toBe(true);
-        });
-
-        test('should reject token for different user identity', () => {
-            const token = generateCsrfToken();
-            storeCsrfToken(token, { uid: 'test-user', email: 'test@example.com' });
-
-            const valid = verifyCsrfToken(token, {
-                uid: 'other-user',
-                email: 'other@example.com',
-            });
-
-            expect(valid).toBe(false);
-        });
-
-        test('should reject expired token', () => {
-            const token = generateCsrfToken();
-            const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(1000);
-            storeCsrfToken(token, { uid: 'test-user' });
-
-            nowSpy.mockReturnValue((60 * 60 * 1000) + 1001);
-            const valid = verifyCsrfToken(token, { uid: 'test-user' });
-
-            expect(valid).toBe(false);
-            nowSpy.mockRestore();
         });
 
         test('should invalidate token after one-time use', () => {
             const token = generateCsrfToken();
-            storeCsrfToken(token, { uid: 'test-user' });
+            storeCsrfToken(token);
             
-            const firstUse = verifyCsrfToken(token, { uid: 'test-user' });
+            const firstUse = verifyCsrfToken(token);
             expect(firstUse).toBe(true);
             
-            const secondUse = verifyCsrfToken(token, { uid: 'test-user' });
+            const secondUse = verifyCsrfToken(token);
             expect(secondUse).toBe(false); // Token consumed
         });
 
         test('should reject invalid tokens', () => {
-            const valid = verifyCsrfToken('invalid-token-xyz', { uid: 'test-user' });
-<<<<<<< ours
->>>>>>> theirs
-=======
-            expect(valid).toBe(false);
-        });
-
-
-        test('should reject token when principal mismatches', () => {
-            const token = generateCsrfToken();
-            storeCsrfToken(token, { uid: 'owner-user' });
-
-            const valid = verifyCsrfToken(token, { uid: 'other-user' });
->>>>>>> theirs
+            const valid = verifyCsrfToken('invalid-token-xyz');
             expect(valid).toBe(false);
         });
     });

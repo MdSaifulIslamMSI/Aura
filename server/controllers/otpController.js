@@ -10,7 +10,6 @@ const { saveAuthProfileSnapshot, getAuthProfileSnapshotByEmail } = require('../s
 const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
 const { issuePaymentChallengeToken } = require('../utils/paymentChallengeToken');
-const { issueOtpFlowToken } = require('../utils/otpFlowToken');
 const { flags: otpEmailFlags } = require('../config/otpEmailFlags');
 const { flags: otpSmsFlags } = require('../config/otpSmsFlags');
 
@@ -20,22 +19,14 @@ const MAX_OTP_ATTEMPTS = 5;
 const LOCKOUT_DURATION_MS = 15 * 60 * 1000;
 const BCRYPT_SALT_ROUNDS = 8;
 const LOGIN_PROOF_MAX_AGE_SECONDS = 10 * 60;
-const LOGIN_ASSURANCE_TTL_MS = 10 * 60 * 1000;
-const SIGNUP_IDENTIFIER_WINDOW_MS = 10 * 60 * 1000;
-const SIGNUP_IDENTIFIER_MAX_REQUESTS = 5;
-const SIGNUP_IDENTIFIER_TELEMETRY_THRESHOLD = 3;
-const GENERIC_OTP_VERIFICATION_MESSAGE = 'If account details are valid, verification will proceed.';
 
 const ALLOWED_PURPOSES = ['signup', 'login', 'forgot-password', 'payment-challenge'];
 const ALLOWED_GENDERS = new Set(['male', 'female', 'other', 'prefer-not-to-say', '']);
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_REGEX = /^\+?\d{10,15}$/;
 const OTP_REGEX = new RegExp(`^\\d{${OTP_LENGTH}}$`);
-const GENERIC_ACCOUNT_DISCOVERY_MESSAGE = 'If an account exists, verification instructions have been sent.';
-const GENERIC_ACCOUNT_RESPONSE_MESSAGE = 'If the account details are valid, we will continue with verification steps.';
 
-const OTP_FIELDS = 'name email phone isAdmin isVerified authAssurance authAssuranceAt +otp +otpExpiry +otpPurpose +otpAttempts +otpLockedUntil';
-const signupIdentifierRateStore = new Map();
+const OTP_FIELDS = 'name email phone isAdmin isVerified +otp +otpExpiry +otpPurpose +otpAttempts +otpLockedUntil';
 
 const maskEmail = (email) => (
     typeof email === 'string'
@@ -58,24 +49,47 @@ const normalizePhone = (value) => (
     typeof value === 'string' ? value.trim().replace(/[\s\-()]/g, '') : ''
 );
 
-const canonicalizePhoneIdentity = (value) => {
-    const normalized = normalizePhone(value);
-    if (!PHONE_REGEX.test(normalized)) return '';
-    try {
-        return normalizePhoneE164(normalized);
-    } catch {
-        return '';
-    }
-};
-
-const phoneIdentityMatches = (storedPhone, canonicalPhone) => {
-    if (!storedPhone || !canonicalPhone) return false;
-    return canonicalizePhoneIdentity(storedPhone) === canonicalPhone;
-};
-
 const normalizePurpose = (value) => (
     typeof value === 'string' ? value.trim() : ''
 );
+
+const getPhoneDigits = (value) => String(value || '').replace(/\D/g, '');
+
+const buildPhoneCandidates = (phone) => {
+    const normalized = normalizePhone(phone);
+    const digits = getPhoneDigits(normalized);
+    const candidates = new Set();
+
+    if (normalized) candidates.add(normalized);
+    if (digits) {
+        candidates.add(digits);
+        candidates.add(`+${digits}`);
+    }
+    if (digits.length > 10) {
+        const tail10 = digits.slice(-10);
+        candidates.add(tail10);
+        candidates.add(`+${tail10}`);
+    }
+
+    return Array.from(candidates).filter(Boolean);
+};
+
+const phoneMatchesCandidates = (storedPhone, candidates = []) => {
+    if (!storedPhone) return false;
+    const normalizedStored = normalizePhone(storedPhone);
+    const digitsStored = getPhoneDigits(normalizedStored);
+    const tailStored = digitsStored.length > 10 ? digitsStored.slice(-10) : digitsStored;
+
+    return candidates.some((candidate) => {
+        const normalizedCandidate = normalizePhone(candidate);
+        const digitsCandidate = getPhoneDigits(normalizedCandidate);
+        const tailCandidate = digitsCandidate.length > 10 ? digitsCandidate.slice(-10) : digitsCandidate;
+
+        return normalizedCandidate === normalizedStored
+            || digitsCandidate === digitsStored
+            || (tailCandidate && tailStored && tailCandidate === tailStored);
+    });
+};
 
 const parseBooleanEnv = (value, fallback = false) => {
     if (value === undefined || value === null || value === '') return fallback;
@@ -83,14 +97,6 @@ const parseBooleanEnv = (value, fallback = false) => {
 };
 
 const isTestEnvironment = () => process.env.NODE_ENV === 'test';
-
-
-const isProductionEnvironment = () => process.env.NODE_ENV === 'production';
-
-const isExplicitNonProdFailOpenPath = () => {
-    if (isProductionEnvironment() || isTestEnvironment()) return false;
-    return parseBooleanEnv(process.env.OTP_ALLOW_FAIL_OPEN_WITHOUT_DELIVERY, false);
-};
 
 const isLoginCredentialProofRequired = () => parseBooleanEnv(
     isTestEnvironment()
@@ -125,50 +131,9 @@ const audit = (event, data) => {
     });
 };
 
-const computeSignupIdentifierRateState = ({ email, phone }) => {
-    const now = Date.now();
-    const key = `${normalizeEmail(email)}|${normalizePhone(phone)}`;
-    const current = signupIdentifierRateStore.get(key);
-
-    if (!current || current.resetAt <= now) {
-        const next = {
-            count: 1,
-            resetAt: now + SIGNUP_IDENTIFIER_WINDOW_MS,
-        };
-        signupIdentifierRateStore.set(key, next);
-        return { key, ...next, ttlMs: SIGNUP_IDENTIFIER_WINDOW_MS };
-    }
-
-    current.count += 1;
-    signupIdentifierRateStore.set(key, current);
-    return {
-        key,
-        count: current.count,
-        resetAt: current.resetAt,
-        ttlMs: Math.max(current.resetAt - now, 0),
-    };
-};
-
-const sendGenericOtpResponse = (res) => res.json({ success: true, message: GENERIC_ACCOUNT_DISCOVERY_MESSAGE });
-
-const sendGenericAccountFlowResponse = (res) => res.status(200).json({
-    success: true,
-    message: GENERIC_ACCOUNT_RESPONSE_MESSAGE,
-});
-
 const isOtpSessionStorageUnavailableError = (error) => (
     String(error?.message || '').toLowerCase().includes('cannot create a new collection')
 );
-
-
-const AUTH_ASSURANCE_BY_PURPOSE = {
-    signup: 'otp',
-    login: 'password+otp',
-    'forgot-password': 'otp',
-    'payment-challenge': 'password+otp',
-};
-
-const getAssuranceForPurpose = (purpose) => AUTH_ASSURANCE_BY_PURPOSE[purpose] || 'otp';
 
 const generateOtp = () => crypto.randomInt(100000, 999999).toString();
 const hashOtp = (otp) => bcrypt.hash(otp, BCRYPT_SALT_ROUNDS);
@@ -226,7 +191,9 @@ const buildVaultRecoveredUserPayload = ({
     vaultProfile,
     fallbackName,
 }) => {
-    const recoveredPhone = canonicalizePhoneIdentity(vaultProfile?.phone) || phone;
+    const recoveredPhone = PHONE_REGEX.test(String(vaultProfile?.phone || ''))
+        ? normalizePhone(vaultProfile.phone)
+        : phone;
     const recoveredGender = ALLOWED_GENDERS.has(String(vaultProfile?.gender || '').trim())
         ? String(vaultProfile.gender || '').trim()
         : '';
@@ -248,10 +215,11 @@ const buildVaultRecoveredUserPayload = ({
     };
 };
 
-const clearUserOtpStateByPhone = async (canonicalPhone) => {
-    if (!canonicalPhone) return;
+const clearUserOtpStateByPhone = async (phone) => {
+    const phoneCandidates = buildPhoneCandidates(phone);
+    if (phoneCandidates.length === 0) return;
     await User.updateOne(
-        { phone: canonicalPhone },
+        { phone: { $in: phoneCandidates } },
         { $set: { otp: null, otpExpiry: null, otpPurpose: null, otpAttempts: 0, otpLockedUntil: null } }
     );
 };
@@ -306,7 +274,6 @@ const buildLegacyOtpSession = ({ user, purpose }) => {
 };
 
 const upsertOtpSession = async ({
-    identityKey,
     userId,
     purpose,
     otpHash,
@@ -317,11 +284,9 @@ const upsertOtpSession = async ({
 }) => {
     try {
         return await OtpSession.findOneAndUpdate(
-            { identityKey, purpose },
+            { user: userId, purpose },
             {
                 $set: {
-                    identityKey,
-                    user: userId,
                     otpHash,
                     expiresAt: otpExpiry,
                     attempts,
@@ -341,7 +306,6 @@ const upsertOtpSession = async ({
         if (isOtpSessionStorageUnavailableError(error)) {
             logger.warn('otp.session_storage_unavailable', {
                 reason: error.message,
-                identityKey,
                 userId: String(userId),
                 purpose,
             });
@@ -351,29 +315,9 @@ const upsertOtpSession = async ({
     }
 };
 
-
-const findOtpSessionByIdentity = async ({ identityKey, userId, purpose, includeHash = false }) => {
-    const projection = includeHash ? '+otpHash' : '';
-    let session = await OtpSession.findOne({ identityKey, purpose }).select(projection);
-    if (session) {
-        if (String(session.user) !== String(userId)) {
-            session.user = userId;
-            await session.save();
-        }
-        return session;
-    }
-
-    const legacySession = await OtpSession.findOne({ user: userId, purpose }).select(projection);
-    if (!legacySession) return null;
-
-    legacySession.identityKey = identityKey;
-    await legacySession.save();
-    return legacySession;
-};
-
-const clearOtpSession = async ({ identityKey, purpose }) => {
+const clearOtpSession = async ({ userId, purpose }) => {
     try {
-        await OtpSession.deleteMany({ identityKey, purpose });
+        await OtpSession.deleteMany({ user: userId, purpose });
     } catch (error) {
         if (!isOtpSessionStorageUnavailableError(error)) {
             throw error;
@@ -408,21 +352,19 @@ const rollbackOtpStateAfterDeliveryFailure = async ({
     purpose,
     createdPendingUser,
     email,
-    canonicalPhone,
+    phoneCandidates,
 }) => {
-    await clearOtpSession({ identityKey: canonicalPhone, purpose });
+    await clearOtpSession({ userId: targetUser._id, purpose });
 
     if (purpose === 'signup') {
         if (createdPendingUser?._id) {
             await User.deleteOne({ _id: createdPendingUser._id, isVerified: false });
-        } else if (email && canonicalPhone) {
+        } else {
             await User.deleteMany({
                 email,
-                phone: canonicalPhone,
+                phone: { $in: phoneCandidates },
                 isVerified: false,
             });
-        } else {
-            await clearUserOtpStateByUserId(targetUser._id);
         }
         return;
     }
@@ -468,7 +410,7 @@ const sendOtp = asyncHandler(async (req, res, next) => {
 
     const email = normalizeEmail(rawEmail);
     const phone = normalizePhone(rawPhone);
-    const canonicalPhone = canonicalizePhoneIdentity(phone);
+    const phoneCandidates = buildPhoneCandidates(phone);
     const purpose = normalizePurpose(rawPurpose);
     const credentialProofToken = typeof rawCredentialProofToken === 'string'
         ? rawCredentialProofToken.trim()
@@ -477,7 +419,7 @@ const sendOtp = asyncHandler(async (req, res, next) => {
     if (!EMAIL_REGEX.test(email)) {
         return next(new AppError('Valid email address is required', 400));
     }
-    if (!canonicalPhone) {
+    if (!PHONE_REGEX.test(phone)) {
         return next(new AppError('Valid phone number is required', 400));
     }
 
@@ -491,58 +433,19 @@ const sendOtp = asyncHandler(async (req, res, next) => {
     const otpHash = await hashOtp(otpPlain);
 
     let targetUser = null;
+    let createdPendingUser = null;
     let credentialProof = null;
-    const shouldReturnGenericNonSignupResponse = () => (
-        purpose !== 'signup' && ['login', 'forgot-password'].includes(purpose)
-    );
-    const returnGenericNonSignupResponse = ({ event, reason }) => {
-        audit(event, {
-            phone,
-            email,
-            purpose,
-            ip: clientIp,
-            requestId,
-            success: true,
-            reason,
-        });
-        return res.json({ success: true, message: GENERIC_ACCOUNT_DISCOVERY_MESSAGE });
-    };
 
     if (purpose === 'signup') {
-        const signupRateState = computeSignupIdentifierRateState({ email, phone });
-        if (signupRateState.count >= SIGNUP_IDENTIFIER_TELEMETRY_THRESHOLD) {
-            audit('SEND_ABUSE_SIGNAL', {
-                phone,
-                email,
-                purpose,
-                ip: clientIp,
-                requestId,
-                success: null,
-                reason: `signup identifier requested ${signupRateState.count} times in ${Math.ceil(SIGNUP_IDENTIFIER_WINDOW_MS / 60000)}m`,
-            });
-        }
-        if (signupRateState.count > SIGNUP_IDENTIFIER_MAX_REQUESTS) {
-            audit('SEND_ABUSE_BLOCKED', {
-                phone,
-                email,
-                purpose,
-                ip: clientIp,
-                requestId,
-                success: false,
-                reason: `signup identifier rate limit exceeded (${signupRateState.count}/${SIGNUP_IDENTIFIER_MAX_REQUESTS})`,
-            });
-            return next(new AppError('Too many signup OTP requests for this account. Please wait a few minutes and try again.', 429));
-        }
-
-        const existingVerified = await User.findOne(
-            { $or: [{ email }, { phone: canonicalPhone }], isVerified: true },
-            'email phone'
-        ).lean();
+        const [existingVerified] = await Promise.all([
+            User.findOne({ $or: [{ email }, { phone: { $in: phoneCandidates } }], isVerified: true }, 'email phone').lean(),
+            User.deleteMany({ $or: [{ email }, { phone: { $in: phoneCandidates } }], isVerified: { $ne: true } }),
+        ]);
 
         if (existingVerified) {
             const field = existingVerified.email === email ? 'email' : 'phone number';
             audit('SEND_BLOCKED', {
-                phone: canonicalPhone,
+                phone,
                 email,
                 purpose,
                 ip: clientIp,
@@ -554,27 +457,13 @@ const sendOtp = asyncHandler(async (req, res, next) => {
         }
 
         try {
-            targetUser = await User.findOneAndUpdate(
-                { email, isVerified: false },
-                {
-                    $set: {
-                        phone: canonicalPhone,
-                        name: 'Pending',
-                        isVerified: false,
-                        isAdmin: false,
-                    },
-                    $setOnInsert: {
-                        email,
-                    },
-                },
-                {
-                    new: true,
-                    upsert: true,
-                    setDefaultsOnInsert: true,
-                    runValidators: true,
-                    select: OTP_FIELDS,
-                }
-            );
+            createdPendingUser = await User.create({
+                email,
+                phone,
+                name: 'Pending',
+                isVerified: false,
+            });
+            targetUser = createdPendingUser;
         } catch (createError) {
             if (createError?.code === 11000) {
                 return next(new AppError('Account already exists. Please sign in.', 409));
@@ -590,7 +479,7 @@ const sendOtp = asyncHandler(async (req, res, next) => {
                 });
             } catch (proofError) {
                 audit('SEND_FORBIDDEN', {
-                    phone: canonicalPhone,
+                    phone,
                     email,
                     purpose,
                     ip: clientIp,
@@ -607,7 +496,7 @@ const sendOtp = asyncHandler(async (req, res, next) => {
                 isVerified: true,
                 $or: [
                     { email },
-                    { phone: canonicalPhone },
+                    { phone: { $in: phoneCandidates } },
                 ],
             },
             '_id email phone'
@@ -619,23 +508,39 @@ const sendOtp = asyncHandler(async (req, res, next) => {
             (candidate) => normalizeEmail(candidate?.email) === email
         ) || null;
         const verifiedByPhone = verifiedCandidates.find(
-            (candidate) => phoneIdentityMatches(candidate?.phone, canonicalPhone)
+            (candidate) => phoneMatchesCandidates(candidate?.phone, phoneCandidates)
         ) || null;
 
-        if (verifiedByEmail && !phoneIdentityMatches(verifiedByEmail.phone, canonicalPhone)) {
-            const reason = `phone mismatch expected ${maskPhoneSuffix(verifiedByEmail.phone)}`;
-            if (shouldReturnGenericNonSignupResponse()) {
-                return returnGenericNonSignupResponse({ event: 'SEND_MISMATCH', reason });
-            }
-            return next(new AppError(GENERIC_OTP_VERIFICATION_MESSAGE, 404));
+        if (verifiedByEmail && !phoneMatchesCandidates(verifiedByEmail.phone, phoneCandidates)) {
+            audit('SEND_MISMATCH', {
+                phone,
+                email,
+                purpose,
+                ip: clientIp,
+                requestId,
+                success: false,
+                reason: `phone mismatch expected ${maskPhoneSuffix(verifiedByEmail.phone)}`,
+            });
+            return next(new AppError(
+                `Phone number does not match your account. Use the registered number ending ${maskPhoneSuffix(verifiedByEmail.phone)}.`,
+                404
+            ));
         }
 
         if (!verifiedByEmail && verifiedByPhone && normalizeEmail(verifiedByPhone.email) !== email) {
-            const reason = 'email mismatch for registered phone';
-            if (shouldReturnGenericNonSignupResponse()) {
-                return returnGenericNonSignupResponse({ event: 'SEND_MISMATCH', reason });
-            }
-            return next(new AppError(GENERIC_OTP_VERIFICATION_MESSAGE, 404));
+            audit('SEND_MISMATCH', {
+                phone,
+                email,
+                purpose,
+                ip: clientIp,
+                requestId,
+                success: false,
+                reason: 'email mismatch for registered phone',
+            });
+            return next(new AppError(
+                'Email does not match the account linked to this phone number.',
+                404
+            ));
         }
 
         targetUser = verifiedByEmail || verifiedByPhone || null;
@@ -643,18 +548,17 @@ const sendOtp = asyncHandler(async (req, res, next) => {
         if (!targetUser && ['login', 'forgot-password'].includes(purpose) && isLoginAutoRecoverEnabled()) {
             const vaultProfile = await getAuthProfileSnapshotByEmail(email);
             if (vaultProfile) {
-                if (vaultProfile.phone && !phoneIdentityMatches(vaultProfile.phone, canonicalPhone)) {
-                    const reason = `phone mismatch expected ${maskPhoneSuffix(vaultProfile.phone)} from auth vault snapshot`;
-                    if (shouldReturnGenericNonSignupResponse()) {
-                        return returnGenericNonSignupResponse({ event: 'SEND_MISMATCH', reason });
-                    }
-                    return next(new AppError(GENERIC_OTP_VERIFICATION_MESSAGE, 404));
+                if (vaultProfile.phone && !phoneMatchesCandidates(vaultProfile.phone, phoneCandidates)) {
+                    return next(new AppError(
+                        `Phone number does not match your account. Use the registered number ending ${maskPhoneSuffix(vaultProfile.phone)}.`,
+                        404
+                    ));
                 }
 
                 try {
                     targetUser = await User.create(buildVaultRecoveredUserPayload({
                         email,
-                        phone: canonicalPhone,
+                        phone,
                         vaultProfile,
                         fallbackName: buildRecoveredName(credentialProof, email),
                     }));
@@ -680,12 +584,12 @@ const sendOtp = asyncHandler(async (req, res, next) => {
                 const recoveredName = buildRecoveredName(credentialProof, email);
                 targetUser = await User.create({
                     email,
-                    phone: canonicalPhone,
+                    phone,
                     name: recoveredName,
                     isVerified: true,
                 });
                 audit('SEND_RECOVERED', {
-                    phone: canonicalPhone,
+                    phone,
                     email,
                     purpose,
                     ip: clientIp,
@@ -699,22 +603,19 @@ const sendOtp = asyncHandler(async (req, res, next) => {
                         {
                             $or: [
                                 { email, isVerified: true },
-                                { phone: canonicalPhone, isVerified: true },
+                                { phone: { $in: phoneCandidates }, isVerified: true },
                             ],
                         },
                         '_id email phone'
                     ).lean();
 
-                    if (recovered && normalizeEmail(recovered.email) === email && phoneIdentityMatches(recovered.phone, canonicalPhone)) {
+                    if (recovered && normalizeEmail(recovered.email) === email && phoneMatchesCandidates(recovered.phone, phoneCandidates)) {
                         targetUser = recovered;
                     } else if (recovered) {
-                        const reason = normalizeEmail(recovered.email) === email
-                            ? `phone mismatch expected ${maskPhoneSuffix(recovered.phone)} after credential recovery`
-                            : 'email mismatch for registered phone after credential recovery';
-                        if (shouldReturnGenericNonSignupResponse()) {
-                            return returnGenericNonSignupResponse({ event: 'SEND_MISMATCH', reason });
-                        }
-                        return next(new AppError(GENERIC_OTP_VERIFICATION_MESSAGE, 404));
+                        const mismatchMsg = normalizeEmail(recovered.email) === email
+                            ? `Phone mismatch. Use number ending ${maskPhoneSuffix(recovered.phone)}.`
+                            : 'Email does not match the account linked to this phone number.';
+                        return next(new AppError(mismatchMsg, 404));
                     }
                 } else {
                     throw createError;
@@ -723,18 +624,23 @@ const sendOtp = asyncHandler(async (req, res, next) => {
         }
 
         if (!targetUser) {
-            const reason = 'verified user not found for login context';
-            if (shouldReturnGenericNonSignupResponse()) {
-                return returnGenericNonSignupResponse({ event: 'SEND_404', reason });
-            }
-            return next(new AppError(GENERIC_OTP_VERIFICATION_MESSAGE, 404));
+            audit('SEND_404', {
+                phone,
+                email,
+                purpose,
+                ip: clientIp,
+                requestId,
+                success: false,
+                reason: 'verified user not found for login context',
+            });
+            return next(new AppError('No account found with this phone number. Please sign up first.', 404));
         }
     }
 
     await saveAuthProfileSnapshot({
         name: targetUser.name,
         email: targetUser.email || email,
-        phone: targetUser.phone || canonicalPhone,
+        phone: targetUser.phone || phone,
         avatar: targetUser.avatar || '',
         gender: targetUser.gender || '',
         dob: targetUser.dob || null,
@@ -750,11 +656,12 @@ const sendOtp = asyncHandler(async (req, res, next) => {
         requestId,
     };
 
-    // SECURITY: Delete other active OTP purposes for the same canonical identity.
+    // SECURITY: Delete other active OTPs for this user to prevent race conditions
+    // Ensures only one active OTP per user at a time (though purpose is still validated on verify)
     try {
         await OtpSession.deleteMany({
-            identityKey: canonicalPhone,
-            purpose: { $ne: purpose },
+            user: targetUser._id,
+            purpose: { $ne: purpose },  // Delete other purposes only
         });
     } catch (cleanupError) {
         if (!isOtpSessionStorageUnavailableError(cleanupError)) {
@@ -767,7 +674,6 @@ const sendOtp = asyncHandler(async (req, res, next) => {
     }
 
     await upsertOtpSession({
-        identityKey: canonicalPhone,
         userId: targetUser._id,
         purpose,
         otpHash,
@@ -784,7 +690,7 @@ const sendOtp = asyncHandler(async (req, res, next) => {
         lockedUntil: null,
     });
 
-    const smsTarget = canonicalPhone;
+    const smsTarget = normalizePhoneE164(phone);
     let emailDelivered = false;
     let smsDelivered = false;
     let mobileChannel = 'sms';
@@ -814,19 +720,23 @@ const sendOtp = asyncHandler(async (req, res, next) => {
                     purpose,
                     createdPendingUser,
                     email,
-                    canonicalPhone,
+                    phoneCandidates,
                 });
             }
 
             audit('SEND_EMAIL_FAIL', {
-                phone: canonicalPhone,
+                phone,
                 email,
                 purpose,
                 ip: clientIp,
                 requestId,
                 success: false,
-                reason: `${failReason} | failClosed=${otpEmailFailClosed}`,
+                reason: failReason,
             });
+
+            if (otpEmailFailClosed) {
+                return next(new AppError('Unable to deliver verification email right now. Please try again shortly.', 503));
+            }
         }
     }
 
@@ -856,56 +766,24 @@ const sendOtp = asyncHandler(async (req, res, next) => {
                     purpose,
                     createdPendingUser,
                     email,
-                    canonicalPhone,
+                    phoneCandidates,
                 });
             }
 
             audit('SEND_SMS_FAIL', {
-                phone: canonicalPhone,
-                email,
-                purpose,
-                ip: clientIp,
-                requestId,
-                success: false,
-                reason: `${failReason} | failClosed=${otpSmsFailClosed}`,
-            });
-        }
-    }
-
-    if (!emailDelivered && !smsDelivered) {
-        const allowFailOpenNoDelivery = isExplicitNonProdFailOpenPath();
-
-        if (!allowFailOpenNoDelivery) {
-            await rollbackOtpStateAfterDeliveryFailure({
-                targetUser,
-                purpose,
-                createdPendingUser,
-                email,
-                canonicalPhone,
-            });
-
-            audit('SEND_FAIL', {
                 phone,
                 email,
                 purpose,
                 ip: clientIp,
                 requestId,
                 success: false,
-                reason: 'no delivery channel succeeded',
+                reason: failReason,
             });
 
-            return next(new AppError('Unable to deliver verification code right now. Please try again shortly.', 503));
+            if (otpSmsFailClosed) {
+                return next(new AppError('Unable to deliver verification SMS right now. Please try again shortly.', 503));
+            }
         }
-
-        audit('SEND_FAIL_OPEN', {
-            phone,
-            email,
-            purpose,
-            ip: clientIp,
-            requestId,
-            success: true,
-            reason: 'no delivery channel succeeded but non-production fail-open override is enabled',
-        });
     }
 
     const mobileDestination = mobileChannel === 'whatsapp'
@@ -920,12 +798,7 @@ const sendOtp = asyncHandler(async (req, res, next) => {
                 : `${email} and ${phone}`;
 
     audit('SEND_OK', { phone, email, purpose, ip: clientIp, requestId, success: true });
-    res.json({
-        success: true,
-        message: purpose === 'login' || purpose === 'forgot-password'
-            ? GENERIC_ACCOUNT_RESPONSE_MESSAGE
-            : 'If deliverable, the OTP has been sent via available channels.',
-    });
+    res.json({ success: true, message: `OTP sent to ${deliveryLabel}` });
 });
 
 /**
@@ -938,8 +811,6 @@ const verifyOtp = asyncHandler(async (req, res, next) => {
     const rawOtp = req.body?.otp;
     const rawPurpose = req.body?.purpose;
     const rawIntentId = req.body?.intentId;
-    const rawEmail = req.body?.email;
-    const rawUserId = req.body?.userId;
     const clientIp = extractClientIp(req);
     const requestId = req.requestId || '-';
 
@@ -962,31 +833,16 @@ const verifyOtp = asyncHandler(async (req, res, next) => {
     if (typeof rawPurpose !== 'string') {
         return next(new AppError('OTP purpose must be a string', 400));
     }
-    if (rawEmail !== undefined && rawEmail !== null && rawEmail !== '' && typeof rawEmail !== 'string') {
-        return next(new AppError('Email must be a string', 400));
-    }
-    if (rawUserId !== undefined && rawUserId !== null && rawUserId !== '' && typeof rawUserId !== 'string') {
-        return next(new AppError('userId must be a string', 400));
-    }
 
     const phone = normalizePhone(rawPhone);
-    const canonicalPhone = canonicalizePhoneIdentity(phone);
     const otp = rawOtp.trim();
     const purpose = normalizePurpose(rawPurpose);
-    const email = rawEmail ? normalizeEmail(rawEmail) : '';
-    const userId = rawUserId ? rawUserId.trim() : '';
 
-    if (!canonicalPhone) {
+    if (!PHONE_REGEX.test(phone)) {
         return next(new AppError('Valid phone number is required', 400));
     }
     if (!OTP_REGEX.test(otp)) {
         return next(new AppError(`Invalid OTP. Please enter a valid ${OTP_LENGTH}-digit code.`, 400));
-    }
-    if (email && !EMAIL_REGEX.test(email)) {
-        return next(new AppError('Valid email address is required', 400));
-    }
-    if (userId && !/^[a-f\d]{24}$/i.test(userId)) {
-        return next(new AppError('userId format is invalid', 400));
     }
 
     const purposeIsFormatted = rawPurpose === purpose;
@@ -1004,42 +860,18 @@ const verifyOtp = asyncHandler(async (req, res, next) => {
         }
     }
 
-
-    const user = await User.findOne({ phone: canonicalPhone }).select(OTP_FIELDS);
+    const phoneCandidates = buildPhoneCandidates(phone);
+    const user = await User.findOne({ phone: { $in: phoneCandidates } }).select(OTP_FIELDS);
 
     if (!user) {
         audit('VERIFY_404', { phone, purpose, ip: clientIp, requestId, success: false, reason: 'user not found' });
         return next(new AppError('No account found with this phone number', 404));
     }
 
-    if (email && normalizeEmail(user.email) !== email) {
-        audit('VERIFY_IDENTITY_MISMATCH', {
-            phone,
-            purpose,
-            ip: clientIp,
-            requestId,
-            success: false,
-            reason: 'email mismatch',
-        });
-        return next(new AppError('OTP identity mismatch for email.', 403));
-    }
-
-    if (userId && String(user._id) !== userId) {
-        audit('VERIFY_IDENTITY_MISMATCH', {
-            phone,
-            purpose,
-            ip: clientIp,
-            requestId,
-            success: false,
-            reason: 'userId mismatch',
-        });
-        return next(new AppError('OTP identity mismatch for user.', 403));
-    }
-
     let session = null;
     let otpSessionStorageUnavailable = false;
     try {
-        session = await findOtpSessionByIdentity({ identityKey: canonicalPhone, userId: user._id, purpose, includeHash: true });
+        session = await OtpSession.findOne({ user: user._id, purpose }).select('+otpHash');
     } catch (error) {
         if (!isOtpSessionStorageUnavailableError(error)) {
             throw error;
@@ -1050,7 +882,7 @@ const verifyOtp = asyncHandler(async (req, res, next) => {
     if (!session) {
         if (user.otpPurpose && user.otpPurpose !== purpose) {
             audit('VERIFY_MISMATCH', {
-                phone: canonicalPhone,
+                phone,
                 purpose,
                 ip: clientIp,
                 requestId,
@@ -1063,7 +895,7 @@ const verifyOtp = asyncHandler(async (req, res, next) => {
         if (user.otpLockedUntil && new Date() < user.otpLockedUntil) {
             const minutesLeft = Math.ceil((new Date(user.otpLockedUntil).getTime() - Date.now()) / 60000);
             audit('VERIFY_LOCKED', {
-                phone: canonicalPhone,
+                phone,
                 purpose,
                 ip: clientIp,
                 requestId,
@@ -1083,7 +915,6 @@ const verifyOtp = asyncHandler(async (req, res, next) => {
                 session = legacySession;
             } else {
                 session = await upsertOtpSession({
-                    identityKey: canonicalPhone,
                     userId: user._id,
                     purpose,
                     otpHash: user.otp,
@@ -1104,14 +935,12 @@ const verifyOtp = asyncHandler(async (req, res, next) => {
             }
         }
     }
+
     if (!session) {
         let anySession = null;
         if (!otpSessionStorageUnavailable) {
             try {
-                anySession = await OtpSession.findOne({ identityKey: canonicalPhone }).lean();
-                if (!anySession) {
-                    anySession = await OtpSession.findOne({ user: user._id }).lean();
-                }
+                anySession = await OtpSession.findOne({ user: user._id }).lean();
             } catch (error) {
                 if (!isOtpSessionStorageUnavailableError(error)) {
                     throw error;
@@ -1121,7 +950,7 @@ const verifyOtp = asyncHandler(async (req, res, next) => {
         }
         if (anySession?.purpose && anySession.purpose !== purpose) {
             audit('VERIFY_MISMATCH', {
-                phone: canonicalPhone,
+                phone,
                 purpose,
                 ip: clientIp,
                 requestId,
@@ -1136,18 +965,6 @@ const verifyOtp = asyncHandler(async (req, res, next) => {
         return next(new AppError('OTP has expired. Please request a new one.', 410));
     }
 
-    if (session.user && String(session.user) !== String(user._id)) {
-        audit('VERIFY_IDENTITY_MISMATCH', {
-            phone,
-            purpose,
-            ip: clientIp,
-            requestId,
-            success: false,
-            reason: 'otp session not linked to user',
-        });
-        return next(new AppError('OTP session identity mismatch.', 403));
-    }
-
     if (session.lockedUntil && new Date() < session.lockedUntil) {
         const minutesLeft = Math.ceil((new Date(session.lockedUntil).getTime() - Date.now()) / 60000);
         audit('VERIFY_LOCKED', { phone, purpose, ip: clientIp, requestId, success: false, reason: `locked ${minutesLeft}min` });
@@ -1158,7 +975,7 @@ const verifyOtp = asyncHandler(async (req, res, next) => {
     }
 
     if (!session.expiresAt || new Date() > session.expiresAt) {
-        await clearOtpSession({ identityKey: canonicalPhone, purpose });
+        await clearOtpSession({ userId: user._id, purpose });
         await clearUserOtpStateByUserId(user._id);
         audit('VERIFY_EXPIRED', { phone, purpose, ip: clientIp, requestId, success: false, reason: 'OTP expired' });
         return next(new AppError('OTP has expired. Please request a new one.', 410));
@@ -1171,7 +988,7 @@ const verifyOtp = asyncHandler(async (req, res, next) => {
 
         if (newAttempts >= MAX_OTP_ATTEMPTS) {
             const lockedUntil = new Date(Date.now() + LOCKOUT_DURATION_MS);
-            await clearOtpSession({ identityKey: canonicalPhone, purpose });
+            await clearOtpSession({ userId: user._id, purpose });
 
             await User.updateOne(
                 { _id: user._id },
@@ -1187,7 +1004,7 @@ const verifyOtp = asyncHandler(async (req, res, next) => {
             );
 
             audit('VERIFY_LOCKOUT', {
-                phone: canonicalPhone,
+                phone,
                 purpose,
                 ip: clientIp,
                 requestId,
@@ -1230,27 +1047,21 @@ const verifyOtp = asyncHandler(async (req, res, next) => {
         ));
     }
 
-    await clearOtpSession({ identityKey: canonicalPhone, purpose });
-    const authAssurance = getAssuranceForPurpose(purpose);
-    const verificationMutation = {
-        otp: null,
-        otpExpiry: null,
-        otpPurpose: null,
-        otpAttempts: 0,
-        otpLockedUntil: null,
-        isVerified: true,
-        authAssurance,
-        authAssuranceAt: new Date(),
-    };
+    await clearOtpSession({ userId: user._id, purpose });
 
-    if (purpose === 'login') {
-        verificationMutation.loginOtpVerifiedAt = new Date();
-        verificationMutation.loginOtpAssuranceExpiresAt = new Date(Date.now() + LOGIN_ASSURANCE_TTL_MS);
-    } else if (purpose === 'forgot-password') {
-        verificationMutation.resetOtpVerifiedAt = new Date();
-    }
-
-    await User.updateOne({ _id: user._id }, { $set: verificationMutation });
+    await User.updateOne(
+        { _id: user._id },
+        {
+            $set: {
+                otp: null,
+                otpExpiry: null,
+                otpPurpose: null,
+                otpAttempts: 0,
+                otpLockedUntil: null,
+                isVerified: true,
+            },
+        }
+    );
 
     await saveAuthProfileSnapshot({
         name: user.name,
@@ -1260,7 +1071,7 @@ const verifyOtp = asyncHandler(async (req, res, next) => {
         gender: user.gender || '',
         dob: user.dob || null,
         bio: user.bio || '',
-        isVerified: purpose === 'signup' ? true : Boolean(user.isVerified),
+        isVerified: true,
         isAdmin: Boolean(user.isAdmin),
     });
 
@@ -1274,17 +1085,17 @@ const verifyOtp = asyncHandler(async (req, res, next) => {
         })
         : null;
 
-    const flowPayload = issueOtpFlowToken({
-        userId: user._id,
-        purpose,
-    });
-
     res.json({
         success: true,
         message: 'OTP verified successfully',
         verified: true,
-        maskedIdentifier: maskPhoneSuffix(user.phone),
-        ...flowPayload,
+        user: {
+            _id: user._id,
+            name: user.name,
+            email: user.email,
+            phone: user.phone,
+            isAdmin: user.isAdmin,
+        },
         ...(challengePayload || {}),
     });
 });
@@ -1297,8 +1108,6 @@ const verifyOtp = asyncHandler(async (req, res, next) => {
 const checkUserExists = asyncHandler(async (req, res, next) => {
     const rawEmail = req.body?.email;
     const rawPhone = req.body?.phone;
-    const clientIp = extractClientIp(req);
-    const requestId = req.requestId || '-';
 
     if (rawPhone === undefined || rawPhone === null || rawPhone === '') {
         return next(new AppError('Phone number is required', 400));
@@ -1320,45 +1129,40 @@ const checkUserExists = asyncHandler(async (req, res, next) => {
     }
 
     const phone = normalizePhone(rawPhone);
-    const canonicalPhone = canonicalizePhoneIdentity(phone);
-    if (!canonicalPhone) {
+    if (!PHONE_REGEX.test(phone)) {
         return next(new AppError('Valid phone number is required', 400));
     }
 
-    let userExists = false;
-    let reason = 'not_found';
+    const phoneCandidates = buildPhoneCandidates(phone);
+    let user = null;
+    let reason = null;
+    let registeredPhoneSuffix = null;
 
     if (email) {
         const [verifiedByEmail, verifiedByPhone] = await Promise.all([
             User.findOne({ email, isVerified: true }, 'email phone').lean(),
-            User.findOne({ phone: canonicalPhone, isVerified: true }, 'email phone').lean(),
+            User.findOne({ phone: { $in: phoneCandidates }, isVerified: true }, 'email phone').lean(),
         ]);
 
-        if (verifiedByEmail && !phoneIdentityMatches(verifiedByEmail.phone, canonicalPhone)) {
+        if (verifiedByEmail && !phoneMatchesCandidates(verifiedByEmail.phone, phoneCandidates)) {
             reason = 'phone_mismatch';
+            registeredPhoneSuffix = maskPhoneSuffix(verifiedByEmail.phone);
         } else if (!verifiedByEmail && verifiedByPhone && normalizeEmail(verifiedByPhone.email) !== email) {
             reason = 'email_mismatch';
         } else {
-            userExists = !!(verifiedByEmail || verifiedByPhone);
-            reason = userExists ? 'match' : 'not_found';
+            user = verifiedByEmail || verifiedByPhone || null;
         }
     } else {
-        const user = await User.findOne({ phone: canonicalPhone, isVerified: true }, '_id').lean();
-        userExists = !!user;
-        reason = userExists ? 'match' : 'not_found';
+        user = await User.findOne({ phone: { $in: phoneCandidates }, isVerified: true }, 'email phone').lean();
     }
 
-    audit('CHECK_USER', {
-        phone,
-        email,
-        purpose: 'check-user',
-        ip: clientIp,
-        requestId,
-        success: true,
-        reason: userExists ? 'verified user exists' : reason,
+    res.json({
+        exists: !!user,
+        email: user ? maskEmail(user.email) : null,
+        phone: user ? user.phone : null,
+        reason,
+        registeredPhoneSuffix,
     });
-
-    return res.json({ success: true, message: GENERIC_ACCOUNT_DISCOVERY_MESSAGE });
 });
 
 module.exports = { sendOtp, verifyOtp, checkUserExists };

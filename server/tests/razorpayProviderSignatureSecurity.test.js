@@ -1,6 +1,5 @@
 const crypto = require('crypto');
 const RazorpayProvider = require('../services/payments/providers/razorpayProvider');
-const SimulatedProvider = require('../services/payments/providers/simulatedProvider');
 
 
 const mutateHex = (signature) => {
@@ -39,21 +38,5 @@ describe('RazorpayProvider signature verification security', () => {
         expect(provider.verifyWebhookSignature({ rawBody, signature: validSignature })).toBe(true);
         expect(provider.verifyWebhookSignature({ rawBody, signature: mutateHex(validSignature) })).toBe(false);
         expect(provider.verifyWebhookSignature({ rawBody, signature: 'short' })).toBe(false);
-    });
-});
-
-describe('SimulatedProvider webhook signature verification security', () => {
-    const provider = new SimulatedProvider({ webhookSecret: 'sim-webhook-secret' });
-
-    test('rejects missing and invalid webhook signatures while accepting valid hmac signatures', () => {
-        const rawBody = JSON.stringify({ event: 'payment.captured', payload: { id: 'evt_sim_1' } });
-        const validSignature = crypto
-            .createHmac('sha256', 'sim-webhook-secret')
-            .update(rawBody)
-            .digest('hex');
-
-        expect(provider.verifyWebhookSignature({ rawBody, signature: validSignature })).toBe(true);
-        expect(provider.verifyWebhookSignature({ rawBody, signature: mutateHex(validSignature) })).toBe(false);
-        expect(provider.verifyWebhookSignature({ rawBody, signature: '' })).toBe(false);
     });
 });

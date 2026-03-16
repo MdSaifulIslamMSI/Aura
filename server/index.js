@@ -46,7 +46,7 @@ const observabilityRoutes = require('./routes/observabilityRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
 const intelligenceRoutes = require('./routes/intelligenceRoutes');
 const { serveReviewMediaAsset } = require('./controllers/uploadAssetController');
-const { assertProductionPaymentConfig, assertWebhookConfig, flags: paymentFlags } = require('./config/paymentFlags');
+const { assertProductionPaymentConfig, flags: paymentFlags } = require('./config/paymentFlags');
 const { assertProductionEmailConfig, flags: emailFlags } = require('./config/emailFlags');
 const { assertProductionOtpSmsConfig } = require('./config/otpSmsFlags');
 const {
@@ -401,7 +401,6 @@ const NODE_ENV = process.env.NODE_ENV || 'production';
 
 if (require.main === module) {
     assertProductionCorsConfig();
-    assertWebhookConfig();
     assertProductionPaymentConfig();
     assertProductionEmailConfig();
     assertProductionOtpSmsConfig();
