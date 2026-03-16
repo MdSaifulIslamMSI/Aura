@@ -41,14 +41,13 @@ export const listingApi = {
         return data;
     },
     getHotspots: async (params = {}) => {
-        const headers = await getAuthHeader();
         try {
-            const { data } = await apiFetch('/listings/hotspots', { headers, params });
+            const { data } = await apiFetch('/listings/hotspots', { params });
             return data;
         } catch (error) {
             // Candidate path retry for potentially misrouted hotspots
             if (error?.status === 404) {
-                const { data } = await apiFetch('/hotspots', { headers, params });
+                const { data } = await apiFetch('/hotspots', { params });
                 return data;
             }
             throw error;
