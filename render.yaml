@@ -15,15 +15,13 @@ services:
       - key: SPLIT_RUNTIME_ENABLED
         value: "true"
       - key: REDIS_ENABLED
-        value: "false"
+        value: "true"
       - key: REDIS_REQUIRED
         value: "false"
       - key: DISTRIBUTED_SECURITY_CONTROLS_ENABLED
         value: "false"
       - key: REDIS_URL
-        fromDatabase:
-          name: aura-redis
-          property: connectionString
+        sync: false
       - key: REDIS_PREFIX
         value: aura
       - key: JSON_BODY_LIMIT
