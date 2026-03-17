@@ -6,6 +6,13 @@ const { resolveVaultFile } = require('../services/authProfileVault');
 
 dotenv.config();
 
+// Ensure critical environment variables have safe defaults for testing
+// especially when running in CI environments without a .env file.
+process.env.OTP_FLOW_SECRET = process.env.OTP_FLOW_SECRET || 'test-otp-flow-secret-32-chars-long-min';
+process.env.OTP_CHALLENGE_SECRET = process.env.OTP_CHALLENGE_SECRET || 'test-otp-challenge-secret-32-chars';
+process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-jwt-secret-key-aura-marketplace';
+process.env.FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || 'test-project-dev';
+
 const FALLBACK_TEST_URI = 'mongodb://127.0.0.1:27017/aura_test';
 
 const normalizeUri = (uri) => String(uri || '').trim().replace(/\/+$/, '');
