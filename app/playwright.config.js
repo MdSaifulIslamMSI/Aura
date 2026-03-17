@@ -1,4 +1,13 @@
 import { defineConfig, devices } from '@playwright/test';
+import { fileURLToPath } from 'node:url';
+
+const isCI = Boolean(process.env.CI);
+const previewHost = '127.0.0.1';
+const previewPort = '4173';
+const previewBaseUrl = `http://localhost:${previewPort}`;
+const localApiBaseUrl = 'http://127.0.0.1:5000/api';
+const e2eCorsOrigins = 'http://localhost:4173,http://127.0.0.1:4173';
+const appDir = fileURLToPath(new URL('.', import.meta.url));
 
 /**
  * playwright.config.js — E2E test configuration for the AURA frontend.
@@ -23,7 +32,7 @@ export default defineConfig({
 
     use: {
         // Must match the Vite preview server started from `app/` in webServer below.
-        baseURL: 'http://localhost:4173',
+        baseURL: previewBaseUrl,
         trace: 'on-first-retry',
         screenshot: 'only-on-failure',
         video: 'retain-on-failure',
@@ -39,26 +48,33 @@ export default defineConfig({
     // Automatically build and serve before running tests in CI.
     webServer: [
         {
-            command: 'npm ci && npm start',
+            command: isCI ? 'npm ci && npm start' : 'npm start',
             cwd: '../server',
             url: 'http://localhost:5000/health',
-            reuseExistingServer: !process.env.CI,
+            reuseExistingServer: !isCI,
             timeout: 180_000,
             env: {
-                MONGO_URI: process.env.CI ? 'mongodb://127.0.0.1:27017/aura_e2e' : process.env.MONGO_URI,
+                ...process.env,
+                MONGO_URI: isCI ? 'mongodb://127.0.0.1:27017/aura_e2e' : process.env.MONGO_URI,
                 NODE_ENV: 'test',
+                CORS_ORIGIN: process.env.CORS_ORIGIN || e2eCorsOrigins,
                 SIMULATED_WEBHOOK_SECRET: process.env.SIMULATED_WEBHOOK_SECRET || 'playwright-simulated-webhook-secret',
                 OTP_CHALLENGE_SECRET: process.env.OTP_CHALLENGE_SECRET || 'playwright-otp-challenge-secret',
                 PAYMENT_CHALLENGE_ENABLED: process.env.PAYMENT_CHALLENGE_ENABLED || 'false',
             },
         },
         {
-            command: 'npm run build && npm run preview',
+            command: `npm run build -- --mode test && npm run preview -- --host ${previewHost} --port ${previewPort}`,
             // Explicit app cwd; absolute-safe when launcher is invoked from repo root.
-            cwd: new URL('.', import.meta.url).pathname,
-            url: 'http://localhost:4173',
-            reuseExistingServer: !process.env.CI,
+            cwd: appDir,
+            url: previewBaseUrl,
+            reuseExistingServer: !isCI,
             timeout: 120_000,
+            env: {
+                ...process.env,
+                VITE_API_URL: process.env.VITE_API_URL || localApiBaseUrl,
+                VITE_FIREBASE_MEASUREMENT_ID: '',
+            },
         },
     ],
 });
