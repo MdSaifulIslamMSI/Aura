@@ -128,7 +128,7 @@ const createUserMessage = (text) => ({
 });
 
 const createInitialMessage = () => createAssistantMessage({
-    text: 'Aura Command is live. I can navigate the storefront, surface deals, compare products, build bundles, and launch voice assistance without slowing the flow.',
+    text: 'Aura Command is live. I can reason through products, compare options, build bundles, and guide decisions in-chat. I only open routes when you explicitly ask me to.',
     suggestions: ASSISTANT_COMMAND_HINTS.slice(0, 4),
     actionType: 'greeting',
     provider: 'local',
@@ -1042,7 +1042,7 @@ const ChatBot = () => {
                                                         ? 'Example: Build a creator setup under Rs 90000'
                                                         : activeMode === 'compare'
                                                             ? 'Example: Compare the strongest recent picks'
-                                                            : 'Ask for deals, search, compare, or bundle help'
+                                                            : 'Ask for advice, comparison, or bundles. I stay in chat unless you tell me to open something'
                                             }
                                             className={cn(
                                                 'w-full resize-none rounded-[1.5rem] border px-4 py-3 pr-24 text-sm outline-none transition-colors',

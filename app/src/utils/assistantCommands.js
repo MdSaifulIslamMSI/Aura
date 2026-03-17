@@ -143,7 +143,7 @@ export const parseAssistantCommand = (rawText = '') => {
     return {
       type: 'search',
       query: searchMatch[1].trim(),
-      message: `Searching for ${searchMatch[1].trim()}.`,
+      message: `I can search the catalog for ${searchMatch[1].trim()} and keep the conversation here.`,
     };
   }
 
@@ -168,17 +168,9 @@ export const parseAssistantCommand = (rawText = '') => {
     }
   }
 
-  if (raw.length >= 2) {
-    return {
-      type: 'search',
-      query: raw,
-      message: `Searching for ${raw}.`,
-    };
-  }
-
   return {
-    type: 'unknown',
-    message: 'I could not lock onto that request. Ask for help to see what Aura Command can do.',
+    type: 'chat',
+    message: raw,
   };
 };
 
@@ -251,10 +243,9 @@ export const buildLocalAssistantResponse = (rawText, options = {}) => {
       return {
         answer: command.message,
         actionType: 'assistant',
-        suggestions: ['Compare top results', 'Show cheaper options'],
-        actions: [{ type: 'search', query: command.query, reason: 'instant_search' }],
-        autoExecute: true,
-        local: true,
+        suggestions: ['Compare top results', 'Show cheaper options', 'Build a bundle around this'],
+        actions: [{ type: 'search', query: command.query, reason: 'guided_search' }],
+        local: false,
       };
     case 'bundle':
       return {
@@ -264,6 +255,8 @@ export const buildLocalAssistantResponse = (rawText, options = {}) => {
         actions: [],
         local: false,
       };
+    case 'chat':
+      return null;
     default:
       return null;
   }
@@ -311,4 +304,3 @@ export const buildAssistantRequestPayload = ({
     },
   };
 };
-
