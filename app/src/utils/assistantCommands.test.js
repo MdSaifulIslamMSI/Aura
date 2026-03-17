@@ -21,6 +21,20 @@ describe('assistantCommands', () => {
         });
     });
 
+    it('keeps general prompts in chat mode instead of forcing catalog search', () => {
+        expect(parseAssistantCommand('Which phone is better for camera and battery life?')).toMatchObject({
+            type: 'chat',
+            message: 'Which phone is better for camera and battery life?',
+        });
+    });
+
+    it('does not auto-execute explicit search prompts locally', () => {
+        expect(buildLocalAssistantResponse('search for wireless earbuds')).toMatchObject({
+            local: false,
+            actions: [{ type: 'search', query: 'wireless earbuds', reason: 'guided_search' }],
+        });
+    });
+
     it('builds local responses for instant voice assistant launch', () => {
         expect(buildLocalAssistantResponse('open voice assistant')).toMatchObject({
             local: true,
