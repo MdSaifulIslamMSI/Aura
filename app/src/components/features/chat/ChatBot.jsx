@@ -616,11 +616,11 @@ const ChatBot = () => {
                         'pointer-events-auto flex min-h-0 flex-col overflow-hidden rounded-[2rem] border backdrop-blur-2xl transition-all duration-300',
                         shellClass,
                         isExpanded
-                            ? 'h-[min(90vh,880px)] w-[min(96vw,1180px)]'
-                            : 'h-[min(82vh,760px)] w-[min(94vw,520px)]'
+                            ? 'h-[min(88vh,840px)] w-[min(95vw,1080px)]'
+                            : 'h-[min(70vh,620px)] w-[min(92vw,430px)]'
                     )}
                 >
-                    <div className="border-b border-white/10 px-5 py-4">
+                    <div className="border-b border-white/10 px-4 py-3.5 sm:px-5 sm:py-4">
                         <div className="flex items-start justify-between gap-4">
                             <div className="flex items-start gap-3">
                                 <div className={cn(
@@ -634,32 +634,44 @@ const ChatBot = () => {
                                 <div>
                                     <div className="flex flex-wrap items-center gap-2">
                                         <h3 className={cn('text-base font-black tracking-wide', strongTextClass)}>Aura Command</h3>
-                                        <span className={cn(
-                                            'rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em]',
-                                            isWhiteMode
-                                                ? 'border-cyan-200 bg-cyan-500/10 text-cyan-700'
-                                                : 'border-cyan-400/20 bg-cyan-500/10 text-cyan-200'
-                                        )}>
-                                            Premium AI
-                                        </span>
+                                        {isExpanded ? (
+                                            <span className={cn(
+                                                'rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em]',
+                                                isWhiteMode
+                                                    ? 'border-cyan-200 bg-cyan-500/10 text-cyan-700'
+                                                    : 'border-cyan-400/20 bg-cyan-500/10 text-cyan-200'
+                                            )}>
+                                                Premium AI
+                                            </span>
+                                        ) : null}
                                     </div>
                                     <p className={cn('mt-1 text-sm', mutedTextClass)}>
-                                        Faster shopping intelligence with instant actions, voice entry, and route-aware context.
+                                        {isExpanded
+                                            ? 'Faster shopping intelligence with instant actions, voice entry, and route-aware context.'
+                                            : 'Fast help for search, deals, compare, and bundle decisions.'}
                                     </p>
-                                    <div className="mt-3 flex flex-wrap gap-2">
-                                        <span className={cn('rounded-full border px-2.5 py-1 text-[11px] font-semibold', panelClass)}>
-                                            <Command className="mr-1 inline h-3.5 w-3.5" />
-                                            Cmd/Ctrl + K
-                                        </span>
-                                        <span className={cn('rounded-full border px-2.5 py-1 text-[11px] font-semibold', panelClass)}>
-                                            <Cpu className="mr-1 inline h-3.5 w-3.5" />
-                                            {latestAssistantMessage?.provider || 'local'}
-                                        </span>
-                                        <span className={cn('rounded-full border px-2.5 py-1 text-[11px] font-semibold', panelClass)}>
-                                            <Gauge className="mr-1 inline h-3.5 w-3.5" />
-                                            {latestAssistantMessage?.latencyMs ? `${latestAssistantMessage.latencyMs} ms` : 'ready'}
-                                        </span>
-                                    </div>
+                                    {isExpanded ? (
+                                        <div className="mt-3 flex flex-wrap gap-2">
+                                            <span className={cn('rounded-full border px-2.5 py-1 text-[11px] font-semibold', panelClass)}>
+                                                <Command className="mr-1 inline h-3.5 w-3.5" />
+                                                Cmd/Ctrl + K
+                                            </span>
+                                            <span className={cn('rounded-full border px-2.5 py-1 text-[11px] font-semibold', panelClass)}>
+                                                <Cpu className="mr-1 inline h-3.5 w-3.5" />
+                                                {latestAssistantMessage?.provider || 'local'}
+                                            </span>
+                                            <span className={cn('rounded-full border px-2.5 py-1 text-[11px] font-semibold', panelClass)}>
+                                                <Gauge className="mr-1 inline h-3.5 w-3.5" />
+                                                {latestAssistantMessage?.latencyMs ? `${latestAssistantMessage.latencyMs} ms` : 'ready'}
+                                            </span>
+                                        </div>
+                                    ) : (
+                                        <div className="mt-2 flex flex-wrap gap-2">
+                                            <span className={cn('rounded-full border px-2.5 py-1 text-[11px] font-semibold', panelClass)}>
+                                                {routeLabel} · {MODE_OPTIONS.find((mode) => mode.id === activeMode)?.label}
+                                            </span>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
@@ -759,7 +771,7 @@ const ChatBot = () => {
 
                         <section className="flex min-h-0 flex-col">
                             <div className="border-b border-white/10 px-4 py-4">
-                                <div className="flex flex-wrap items-center justify-between gap-3">
+                                <div className="flex flex-col gap-3">
                                     <div className="flex flex-wrap gap-2">
                                         {MODE_OPTIONS.map((mode) => (
                                             <button
@@ -781,28 +793,27 @@ const ChatBot = () => {
                                             </button>
                                         ))}
                                     </div>
-                                    <div className={cn('text-xs font-semibold', mutedTextClass)}>
-                                        {MODE_OPTIONS.find((mode) => mode.id === activeMode)?.hint}
-                                    </div>
+                                    {isExpanded ? (
+                                        <div className={cn('text-xs font-semibold', mutedTextClass)}>
+                                            {MODE_OPTIONS.find((mode) => mode.id === activeMode)?.hint}
+                                        </div>
+                                    ) : null}
                                 </div>
 
                                 {!isExpanded ? (
-                                    <div className="mt-4 grid grid-cols-2 gap-3">
-                                        {commandDeck.map((entry) => (
+                                    <div className="mt-3 flex flex-wrap gap-2">
+                                        {commandDeck.slice(0, 3).map((entry) => (
                                             <button
                                                 key={entry.id}
                                                 type="button"
                                                 onClick={() => handleDeckClick(entry)}
-                                                className={cn('relative overflow-hidden rounded-2xl border p-3 text-left', panelClass)}
+                                                className={cn(
+                                                    'inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition-colors',
+                                                    panelClass
+                                                )}
                                             >
-                                                <div className={cn('pointer-events-none absolute inset-0 bg-gradient-to-br opacity-80', entry.accent)} />
-                                                <div className="relative">
-                                                    <div className="flex items-center justify-between gap-3">
-                                                        <p className={cn('text-sm font-black', strongTextClass)}>{entry.title}</p>
-                                                        <entry.Icon className="h-4 w-4 flex-shrink-0" />
-                                                    </div>
-                                                    <p className={cn('mt-1 text-[11px] leading-5', mutedTextClass)}>{entry.description}</p>
-                                                </div>
+                                                <entry.Icon className="h-3.5 w-3.5 flex-shrink-0" />
+                                                <span>{entry.title}</span>
                                             </button>
                                         ))}
                                     </div>
@@ -828,7 +839,7 @@ const ChatBot = () => {
                                                             : panelClass
                                                     )}
                                                 >
-                                                    {message.role === 'assistant' ? (
+                                                    {message.role === 'assistant' && isExpanded ? (
                                                         <div className="mb-3 flex flex-wrap items-center gap-2">
                                                             <span className={cn('inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em]', tone.className)}>
                                                                 <tone.Icon className="h-3 w-3" />
@@ -842,6 +853,15 @@ const ChatBot = () => {
                                                                     {message.latencyMs} ms
                                                                 </span>
                                                             ) : null}
+                                                        </div>
+                                                    ) : null}
+
+                                                    {message.role === 'assistant' && !isExpanded ? (
+                                                        <div className="mb-3">
+                                                            <span className={cn('inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em]', tone.className)}>
+                                                                <tone.Icon className="h-3 w-3" />
+                                                                {tone.label}
+                                                            </span>
                                                         </div>
                                                     ) : null}
 
@@ -880,7 +900,7 @@ const ChatBot = () => {
 
                                                 {Array.isArray(message.products) && message.products.length > 0 ? (
                                                     <div className="grid w-full gap-3">
-                                                        {message.products.slice(0, isExpanded ? 6 : 4).map((product, index) => (
+                                                        {message.products.slice(0, isExpanded ? 6 : 3).map((product, index) => (
                                                             <button
                                                                 key={product._id || product.id || `${message.id}-product-${index}`}
                                                                 type="button"
@@ -967,32 +987,40 @@ const ChatBot = () => {
 
                             <div className="border-t border-white/10 px-4 py-4">
                                 <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-                                    <div className={cn('flex flex-wrap items-center gap-2 text-xs font-semibold', mutedTextClass)}>
-                                        <span className={cn('rounded-full border px-2.5 py-1', panelClass)}>
-                                            <Search className="mr-1 inline h-3.5 w-3.5" />
-                                            {routeLabel}
-                                        </span>
-                                        <span className={cn('rounded-full border px-2.5 py-1', panelClass)}>
-                                            <ShoppingCart className="mr-1 inline h-3.5 w-3.5" />
-                                            {cartItems.length} cart
-                                        </span>
-                                        <span className={cn('rounded-full border px-2.5 py-1', panelClass)}>
-                                            <Heart className="mr-1 inline h-3.5 w-3.5" />
-                                            {wishlistItems.length} wishlist
-                                        </span>
-                                        <span className={cn('rounded-full border px-2.5 py-1', panelClass)}>
-                                            <UserRound className="mr-1 inline h-3.5 w-3.5" />
-                                            {isAuthenticated ? 'signed in' : 'guest'}
-                                        </span>
-                                    </div>
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowVoiceAssistant(true)}
-                                        className={cn('inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-black uppercase tracking-[0.16em]', panelClass)}
-                                    >
-                                        <Zap className="h-3.5 w-3.5" />
-                                        Voice sprint
-                                    </button>
+                                    {isExpanded ? (
+                                        <>
+                                            <div className={cn('flex flex-wrap items-center gap-2 text-xs font-semibold', mutedTextClass)}>
+                                                <span className={cn('rounded-full border px-2.5 py-1', panelClass)}>
+                                                    <Search className="mr-1 inline h-3.5 w-3.5" />
+                                                    {routeLabel}
+                                                </span>
+                                                <span className={cn('rounded-full border px-2.5 py-1', panelClass)}>
+                                                    <ShoppingCart className="mr-1 inline h-3.5 w-3.5" />
+                                                    {cartItems.length} cart
+                                                </span>
+                                                <span className={cn('rounded-full border px-2.5 py-1', panelClass)}>
+                                                    <Heart className="mr-1 inline h-3.5 w-3.5" />
+                                                    {wishlistItems.length} wishlist
+                                                </span>
+                                                <span className={cn('rounded-full border px-2.5 py-1', panelClass)}>
+                                                    <UserRound className="mr-1 inline h-3.5 w-3.5" />
+                                                    {isAuthenticated ? 'signed in' : 'guest'}
+                                                </span>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowVoiceAssistant(true)}
+                                                className={cn('inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-black uppercase tracking-[0.16em]', panelClass)}
+                                            >
+                                                <Zap className="h-3.5 w-3.5" />
+                                                Voice sprint
+                                            </button>
+                                        </>
+                                    ) : (
+                                        <div className={cn('text-xs font-semibold', mutedTextClass)}>
+                                            Type a shopping task or jump in with voice.
+                                        </div>
+                                    )}
                                 </div>
 
                                 <form onSubmit={handleSubmit} className="flex items-end gap-3">
@@ -1014,7 +1042,7 @@ const ChatBot = () => {
                                                         ? 'Example: Build a creator setup under Rs 90000'
                                                         : activeMode === 'compare'
                                                             ? 'Example: Compare the strongest recent picks'
-                                                            : 'Ask Aura Command for deals, routes, bundles, search, or voice actions'
+                                                            : 'Ask for deals, search, compare, or bundle help'
                                             }
                                             className={cn(
                                                 'w-full resize-none rounded-[1.5rem] border px-4 py-3 pr-24 text-sm outline-none transition-colors',
@@ -1057,7 +1085,9 @@ const ChatBot = () => {
                                 </form>
 
                                 <p className={cn('mt-3 text-[11px] font-medium', mutedTextClass)}>
-                                    Aura Command can act fast, but still verify critical prices, stock, and policy details before checkout.
+                                    {isExpanded
+                                        ? 'Aura Command can act fast, but still verify critical prices, stock, and policy details before checkout.'
+                                        : 'Double-check price, stock, and policy details before checkout.'}
                                 </p>
                             </div>
                         </section>

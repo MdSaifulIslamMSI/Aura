@@ -278,8 +278,9 @@ function App() {
   return (
     <ColorModeProvider>
       <MotionModeProvider>
-          <AuthProvider>
-            <SocketProvider>
+        <AuthProvider>
+          <SocketProvider>
+            <NotificationProvider>
               <VideoCallProvider>
                 <CartProvider>
                   <WishlistProvider>
@@ -291,8 +292,9 @@ function App() {
                   </WishlistProvider>
                 </CartProvider>
               </VideoCallProvider>
-            </SocketProvider>
-          </AuthProvider>
+            </NotificationProvider>
+          </SocketProvider>
+        </AuthProvider>
       </MotionModeProvider>
     </ColorModeProvider>
   );
