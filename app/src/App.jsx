@@ -11,7 +11,7 @@ import { SocketProvider } from './context/SocketContext';
 import { AdminRoute, ProtectedRoute, SellerRoute } from './components/shared/ProtectedRoute';
 import { NotificationProvider } from './context/NotificationContext';
 
-import Navbar from './components/layout/Navbar';
+import Navbar, { NavbarFailureFallback } from './components/layout/Navbar';
 import Footer from './components/layout/Footer';
 import ScrollToTop from './components/shared/ScrollToTop';
 import SmoothScrollManager from './components/shared/SmoothScrollManager';
@@ -153,10 +153,12 @@ function AppContent() {
       }
     };
 
-    timeoutId = window.setTimeout(activate, 1400);
+    void import('./components/features/chat/ChatBot').catch(() => {});
+
+    timeoutId = window.setTimeout(activate, 420);
 
     if (typeof window.requestIdleCallback === 'function') {
-      idleId = window.requestIdleCallback(activate, { timeout: 1800 });
+      idleId = window.requestIdleCallback(activate, { timeout: 650 });
     }
 
     return () => {
@@ -184,7 +186,7 @@ function AppContent() {
       <ScrollToTop />
       {showAmbientChrome ? <ScrollProgressBar /> : null}
       {showAnchorRail ? <SectionAnchorRail /> : null}
-      <AppErrorBoundary>
+      <AppErrorBoundary fallback={<NavbarFailureFallback />}>
         <Navbar />
       </AppErrorBoundary>
       <AppErrorBoundary>

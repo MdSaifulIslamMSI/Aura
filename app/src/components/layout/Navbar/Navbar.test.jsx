@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, it, expect, vi } from 'vitest';
-import Navbar from './index';
+import Navbar, { NavbarFailureFallback } from './index';
 import { AuthContext } from '@/context/AuthContext';
 import { CartContext } from '@/context/CartContext';
 import { WishlistContext } from '@/context/WishlistContext';
@@ -100,5 +100,17 @@ describe('Navbar Component', () => {
         renderNavbar({ currentUser: null });
 
         expect(screen.getByRole('button', { name: 'Login' })).toBeInTheDocument();
+    });
+
+    it('renders a resilient fallback header shell', () => {
+        render(
+            <MemoryRouter>
+                <NavbarFailureFallback />
+            </MemoryRouter>
+        );
+
+        expect(screen.getByText(/AURA/i)).toBeInTheDocument();
+        expect(screen.getByRole('link', { name: /Open search/i })).toBeInTheDocument();
+        expect(screen.getByRole('link', { name: /Cart/i })).toBeInTheDocument();
     });
 });
