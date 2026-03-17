@@ -73,6 +73,7 @@ export default defineConfig({
             env: {
                 ...process.env,
                 VITE_API_URL: process.env.VITE_API_URL || localApiBaseUrl,
+                VITE_ENABLE_BACKEND_STATUS_BANNER: 'false',
                 VITE_FIREBASE_MEASUREMENT_ID: '',
             },
         },
