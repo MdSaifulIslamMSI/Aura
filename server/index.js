@@ -407,6 +407,7 @@ const PORT = process.env.PORT || 5000;
 const NODE_ENV = process.env.NODE_ENV || 'production';
 
 if (require.main === module) {
+// Production security: Ensure all signing secrets are present before startup
     assertSigningSecretsConfig();
     assertProductionCorsConfig();
     assertWebhookConfig();
