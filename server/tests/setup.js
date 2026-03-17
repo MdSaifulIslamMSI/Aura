@@ -51,6 +51,7 @@ const startInMemoryMongo = async () => {
     if (shouldRequireTransactionMongo()) {
         if (!memoryReplicaSet) {
             memoryReplicaSet = await MongoMemoryReplSet.create({
+                binary: { version: '7.0.11' },
                 replSet: {
                     count: 1,
                     storageEngine: 'wiredTiger',
@@ -63,6 +64,7 @@ const startInMemoryMongo = async () => {
 
     if (!memoryServer) {
         memoryServer = await MongoMemoryServer.create({
+            binary: { version: '7.0.11' },
             instance: { dbName: 'aura_test' },
         });
     }
