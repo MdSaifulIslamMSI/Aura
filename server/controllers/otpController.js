@@ -415,8 +415,8 @@ const clearOtpSession = async ({ identityKey, purpose }) => {
 
 const shouldAttemptEmailSend = () => {
     if (process.env.NODE_ENV !== 'test') return true;
-    // In test, only enable SMTP path when the current process env explicitly requests it.
-    return parseBooleanEnv(process.env.OTP_EMAIL_SEND_IN_TEST, false);
+    // In test, enable delivery (it hits the mock provider)
+    return true;
 };
 
 const isOtpEmailFailClosed = () => parseBooleanEnv(
@@ -427,7 +427,8 @@ const isOtpEmailFailClosed = () => parseBooleanEnv(
 const shouldAttemptSmsSend = () => {
     if (!otpSmsFlags.otpSmsEnabled) return false;
     if (process.env.NODE_ENV !== 'test') return true;
-    return parseBooleanEnv(process.env.OTP_SMS_SEND_IN_TEST, otpSmsFlags.otpSmsSendInTest);
+    // In test, enable mocked delivery
+    return true;
 };
 
 const isOtpSmsFailClosed = () => parseBooleanEnv(
@@ -453,13 +454,15 @@ const rollbackOtpStateAfterDeliveryFailure = async ({
                 phone: canonicalPhone,
                 isVerified: false,
             });
-        } else {
+        } else if (targetUser?._id) {
             await clearUserOtpStateByUserId(targetUser._id);
         }
         return;
     }
 
-    await clearUserOtpStateByUserId(targetUser._id);
+    if (targetUser?._id) {
+        await clearUserOtpStateByUserId(targetUser._id);
+    }
 };
 
 /**
@@ -537,7 +540,7 @@ const sendOtp = asyncHandler(async (req, res, next) => {
             success: true,
             reason,
         });
-        return res.json({ success: true, message: GENERIC_ACCOUNT_DISCOVERY_MESSAGE });
+        return res.json({ success: true, message: GENERIC_ACCOUNT_RESPONSE_MESSAGE });
     };
 
     if (purpose === 'signup') {
@@ -844,10 +847,11 @@ const sendOtp = asyncHandler(async (req, res, next) => {
                 await rollbackOtpStateAfterDeliveryFailure({
                     targetUser,
                     purpose,
-                    createdPendingUser,
+                    createdPendingUser: targetUser,
                     email,
                     canonicalPhone,
                 });
+                return next(new AppError('Unable to deliver verification code. Please try again later.', 503));
             }
 
             audit('SEND_EMAIL_FAIL', {
@@ -886,10 +890,11 @@ const sendOtp = asyncHandler(async (req, res, next) => {
                 await rollbackOtpStateAfterDeliveryFailure({
                     targetUser,
                     purpose,
-                    createdPendingUser,
+                    createdPendingUser: targetUser,
                     email,
                     canonicalPhone,
                 });
+                return next(new AppError('Unable to deliver verification code. Please try again later.', 503));
             }
 
             audit('SEND_SMS_FAIL', {
@@ -911,7 +916,7 @@ const sendOtp = asyncHandler(async (req, res, next) => {
             await rollbackOtpStateAfterDeliveryFailure({
                 targetUser,
                 purpose,
-                createdPendingUser,
+                createdPendingUser: targetUser,
                 email,
                 canonicalPhone,
             });
@@ -956,7 +961,7 @@ const sendOtp = asyncHandler(async (req, res, next) => {
         success: true,
         message: purpose === 'login' || purpose === 'forgot-password'
             ? GENERIC_ACCOUNT_RESPONSE_MESSAGE
-            : 'If deliverable, the OTP has been sent via available channels.',
+            : `If deliverable, the OTP has been sent to ${deliveryLabel}.`,
     });
 });
 
@@ -1037,7 +1042,7 @@ const verifyOtp = asyncHandler(async (req, res, next) => {
     }
 
     const phoneLookupCandidates = buildPhoneLookupCandidates(phone, canonicalPhone);
-    const user = await User.findOne({ phone: { $in: phoneLookupCandidates } }).select(OTP_FIELDS);
+    const user = await User.findOne({ phone: { $in: phoneLookupCandidates } }).select('isVerified ' + OTP_FIELDS);
 
     if (!user) {
         audit('VERIFY_404', { phone, purpose, ip: clientIp, requestId, success: false, reason: 'user not found' });
@@ -1270,7 +1275,7 @@ const verifyOtp = asyncHandler(async (req, res, next) => {
         otpPurpose: null,
         otpAttempts: 0,
         otpLockedUntil: null,
-        isVerified: true,
+        isVerified: user.isVerified || purpose === 'signup',
         authAssurance,
         authAssuranceAt: new Date(),
     };

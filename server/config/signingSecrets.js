@@ -12,6 +12,7 @@ const assertSigningSecretsConfig = () => {
     if (nodeEnv === 'test') return;
 
     requireSecret('OTP_FLOW_SECRET');
+    requireSecret('OTP_CHALLENGE_SECRET');
     requireSecret('UPLOAD_SIGNING_SECRET');
 };
 

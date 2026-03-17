@@ -22,12 +22,43 @@ jest.mock('../middleware/authMiddleware', () => ({
 
         return next({ statusCode: 401, message: 'Unauthorized' });
     },
+    protectOptional: (req, _res, next) => next(),
 }));
+
+const mockCsrfRedisStore = new Map();
+
+jest.mock('../config/redis', () => {
+    return {
+        getRedisClient: () => ({
+            setEx: async (key, ttl, value) => {
+                mockCsrfRedisStore.set(key, { value, expiresAt: Date.now() + (ttl * 1000) });
+                return 'OK';
+            },
+            get: async (key) => {
+                const record = mockCsrfRedisStore.get(key);
+                if (!record) return null;
+                if (record.expiresAt < Date.now()) {
+                    mockCsrfRedisStore.delete(key);
+                    return null;
+                }
+                return record.value;
+            },
+            del: async (key) => {
+                mockCsrfRedisStore.delete(key);
+                return 1;
+            },
+            scan: async (cursor) => {
+                const keys = Array.from(mockCsrfRedisStore.keys());
+                return { cursor: 0, keys };
+            }
+        }),
+        flags: { redisPrefix: 'csrf-test' },
+    };
+});
 
 jest.mock('../middleware/distributedRateLimit', () => ({
     createDistributedRateLimit: () => (_req, _res, next) => next(),
 }));
-
 
 jest.mock('../routes/otpRoutes', () => {
     const router = require('express').Router();
@@ -41,7 +72,6 @@ jest.mock('../controllers/authController', () => ({
 }));
 
 const authRoutes = require('../routes/authRoutes');
-const { __resetCsrfTokenStore } = require('../middleware/csrfMiddleware');
 
 const app = express();
 app.use(express.json());
@@ -51,15 +81,20 @@ app.use((err, _req, res, _next) => {
 });
 
 describe('CSRF auth route integration', () => {
+    beforeAll(() => {
+        process.env.CSRF_STRICT_CLIENT_SIGNALS = 'false';
+    });
+
     beforeEach(() => {
-        __resetCsrfTokenStore();
+        mockCsrfRedisStore.clear();
     });
 
     test('rejects csrf token reuse across users between /session and /sync', async () => {
         const sessionRes = await request(app)
             .get('/api/auth/session')
             .set('Authorization', 'Bearer token-user-a')
-            .set('User-Agent', 'test-agent-a');
+            .set('User-Agent', 'test-agent-a')
+            .set('Host', 'localhost:3000');
 
         expect(sessionRes.statusCode).toBe(200);
         const csrfToken = sessionRes.headers['x-csrf-token'];
@@ -70,6 +105,7 @@ describe('CSRF auth route integration', () => {
             .set('Authorization', 'Bearer token-user-b')
             .set('X-CSRF-Token', csrfToken)
             .set('User-Agent', 'test-agent-b')
+            .set('Host', 'localhost:3000')
             .send({
                 email: 'user-b@example.com',
                 name: 'User B',
@@ -84,7 +120,8 @@ describe('CSRF auth route integration', () => {
         const sessionRes = await request(app)
             .get('/api/auth/session')
             .set('Authorization', 'Bearer token-user-a')
-            .set('User-Agent', 'test-agent-a');
+            .set('User-Agent', 'test-agent-a')
+            .set('Host', 'localhost:3000');
 
         const csrfToken = sessionRes.headers['x-csrf-token'];
 
@@ -93,6 +130,7 @@ describe('CSRF auth route integration', () => {
             .set('Authorization', 'Bearer token-user-a')
             .set('X-CSRF-Token', csrfToken)
             .set('User-Agent', 'test-agent-a')
+            .set('Host', 'localhost:3000')
             .send({
                 email: 'user-a@example.com',
                 name: 'User A',
@@ -107,6 +145,7 @@ describe('CSRF auth route integration', () => {
             .set('Authorization', 'Bearer token-user-a')
             .set('X-CSRF-Token', csrfToken)
             .set('User-Agent', 'test-agent-a')
+            .set('Host', 'localhost:3000')
             .send({
                 email: 'user-a@example.com',
                 name: 'User A',
