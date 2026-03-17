@@ -43,14 +43,14 @@ const useAuthGate = () => {
 
 export const ProtectedRoute = ({ children }) => {
     const { auth, location } = useAuthGate();
-    const { isAuthenticated, status, sessionError, refreshSession, currentUser } = auth;
+    const { status, sessionError, refreshSession, currentUser } = auth;
+
+    if (!currentUser) {
+        return <Navigate to="/login" state={{ from: location }} replace />;
+    }
 
     if (AUTH_BOOTSTRAP_STATES.has(status)) {
         return <AuthPendingState />;
-    }
-
-    if (!isAuthenticated) {
-        return <Navigate to="/login" state={{ from: location }} replace />;
     }
 
     if (status === 'recoverable_error') {
@@ -67,14 +67,14 @@ export const ProtectedRoute = ({ children }) => {
 
 export const AdminRoute = ({ children }) => {
     const { auth, location } = useAuthGate();
-    const { isAuthenticated, status, roles, sessionError, refreshSession, currentUser } = auth;
+    const { status, roles, sessionError, refreshSession, currentUser } = auth;
+
+    if (!currentUser) {
+        return <Navigate to="/login" state={{ from: location }} replace />;
+    }
 
     if (AUTH_BOOTSTRAP_STATES.has(status)) {
         return <AuthPendingState message="Checking admin session access…" />;
-    }
-
-    if (!isAuthenticated) {
-        return <Navigate to="/login" state={{ from: location }} replace />;
     }
 
     if (status === 'recoverable_error') {
@@ -95,14 +95,14 @@ export const AdminRoute = ({ children }) => {
 
 export const SellerRoute = ({ children }) => {
     const { auth, location } = useAuthGate();
-    const { isAuthenticated, status, roles, sessionError, refreshSession, currentUser } = auth;
+    const { status, roles, sessionError, refreshSession, currentUser } = auth;
+
+    if (!currentUser) {
+        return <Navigate to="/login" state={{ from: location }} replace />;
+    }
 
     if (AUTH_BOOTSTRAP_STATES.has(status)) {
         return <AuthPendingState message="Checking seller account state…" />;
-    }
-
-    if (!isAuthenticated) {
-        return <Navigate to="/login" state={{ from: location }} replace />;
     }
 
     if (status === 'recoverable_error') {
