@@ -214,9 +214,11 @@ const buildSessionPayload = ({
     authUid = '',
     user = null,
     status = 'authenticated',
+    latticeChallenge = null,
     error = null,
 } = {}) => ({
     status,
+    latticeChallenge: latticeChallenge || null,
     session: buildSessionIdentity({ authUser, authToken, authUid }),
     profile: toProfilePayload(user),
     roles: toRoleState(user),

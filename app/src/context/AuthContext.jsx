@@ -61,6 +61,7 @@ const EMPTY_ROLES = {
 
 const EMPTY_SESSION_STATE = {
   status: SESSION_STATUS.BOOTSTRAP,
+  latticeChallenge: null,
   session: null,
   profile: null,
   roles: EMPTY_ROLES,
@@ -155,6 +156,7 @@ export const AuthProvider = ({ children }) => {
     resetSyncTracking();
     setSessionState({
       status: SESSION_STATUS.SIGNED_OUT,
+      latticeChallenge: null,
       session: null,
       profile: null,
       roles: EMPTY_ROLES,
@@ -173,8 +175,30 @@ export const AuthProvider = ({ children }) => {
   };
 
   const applyRecoverableSessionError = (error, firebaseUser, identity) => {
+    const previousState = sessionStateRef.current;
+    const canPreserveResolvedSession = previousState.profile
+      && syncStateRef.current.identity === identity
+      && [SESSION_STATUS.AUTHENTICATED, SESSION_STATUS.LATTICE_CHALLENGE].includes(previousState.status);
+
+    if (canPreserveResolvedSession) {
+      setSessionState({
+        ...previousState,
+        session: previousState.session || buildFirebaseSessionFallback(firebaseUser),
+        error: {
+          message: error?.message || 'Session refresh failed. Using the last verified profile for now.',
+        },
+      });
+      syncStateRef.current = {
+        identity,
+        lastSyncedAt: syncStateRef.current.lastSyncedAt,
+        inFlight: null,
+      };
+      return;
+    }
+
     setSessionState({
       status: SESSION_STATUS.RECOVERABLE_ERROR,
+      latticeChallenge: null,
       session: buildFirebaseSessionFallback(firebaseUser),
       profile: null,
       roles: EMPTY_ROLES,
@@ -200,7 +224,7 @@ export const AuthProvider = ({ children }) => {
     return !force
       && identity
       && syncStateRef.current.identity === identity
-      && state.status === SESSION_STATUS.AUTHENTICATED
+      && [SESSION_STATUS.AUTHENTICATED, SESSION_STATUS.LATTICE_CHALLENGE].includes(state.status)
       && state.profile
       && (Date.now() - syncStateRef.current.lastSyncedAt) < AUTH_SYNC_DEDUPE_MS;
   };
@@ -235,9 +259,12 @@ export const AuthProvider = ({ children }) => {
     if (!silent) {
       setSessionState((prev) => ({
         status: prev.status === SESSION_STATUS.BOOTSTRAP ? SESSION_STATUS.BOOTSTRAP : SESSION_STATUS.LOADING,
-        session: prev.session || buildFirebaseSessionFallback(activeUser),
-        profile: null,
-        roles: EMPTY_ROLES,
+        latticeChallenge: syncStateRef.current.identity === identity ? (prev.latticeChallenge || null) : null,
+        session: syncStateRef.current.identity === identity
+          ? (prev.session || buildFirebaseSessionFallback(activeUser))
+          : buildFirebaseSessionFallback(activeUser),
+        profile: syncStateRef.current.identity === identity ? prev.profile : null,
+        roles: syncStateRef.current.identity === identity ? prev.roles : EMPTY_ROLES,
         error: null,
       }));
     }
@@ -371,6 +398,7 @@ export const AuthProvider = ({ children }) => {
       const nextProfile = { ...(prev.profile || {}), ...updated };
       return {
         status: SESSION_STATUS.AUTHENTICATED,
+        latticeChallenge: prev.latticeChallenge || null,
         session: prev.session,
         profile: nextProfile,
         roles: buildRoleState(nextProfile, prev.session?.emailVerified),
@@ -406,6 +434,7 @@ export const AuthProvider = ({ children }) => {
       if (!isMounted || sessionStateRef.current.status !== SESSION_STATUS.BOOTSTRAP) return;
       setSessionState({
         status: SESSION_STATUS.RECOVERABLE_ERROR,
+        latticeChallenge: null,
         session: null,
         profile: null,
         roles: EMPTY_ROLES,
@@ -437,6 +466,7 @@ export const AuthProvider = ({ children }) => {
       resetSyncTracking();
       setSessionState({
         status: SESSION_STATUS.LOADING,
+        latticeChallenge: null,
         session: buildFirebaseSessionFallback(user),
         profile: null,
         roles: EMPTY_ROLES,
@@ -461,7 +491,8 @@ export const AuthProvider = ({ children }) => {
     session: sessionState.session,
     profile: sessionState.profile,
     roles: sessionState.roles,
-    status: sessionState.status,
+        status: sessionState.status,
+        latticeChallenge: sessionState.latticeChallenge,
     sessionError: sessionState.error,
     loading: sessionState.status === SESSION_STATUS.BOOTSTRAP || sessionState.status === SESSION_STATUS.LOADING,
     isAuthenticated: Boolean(currentUser),
@@ -485,6 +516,7 @@ export const AuthProvider = ({ children }) => {
           ...prev,
           status: SESSION_STATUS.AUTHENTICATED,
           latticeChallenge: null,
+          error: null,
         }));
       }
       return response;
