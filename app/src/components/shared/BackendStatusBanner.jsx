@@ -25,6 +25,8 @@ const TRANSIENT_NETWORK_PATTERNS = [
 ];
 
 const HEALTH_URL = buildServiceUrl('/health');
+const BACKEND_STATUS_BANNER_ENABLED = import.meta.env.MODE !== 'test'
+  && import.meta.env.VITE_ENABLE_BACKEND_STATUS_BANNER !== 'false';
 
 const parseJsonSafely = async (response) => {
   const text = await response.text();
@@ -192,6 +194,10 @@ const BackendStatusBanner = () => {
   }, [clearStatus, registerFailure]);
 
   useEffect(() => {
+    if (!BACKEND_STATUS_BANNER_ENABLED) {
+      return undefined;
+    }
+
     runHealthCheck();
 
     const intervalId = window.setInterval(() => {
@@ -226,6 +232,10 @@ const BackendStatusBanner = () => {
       unsubscribe();
     };
   }, [registerFailure, runHealthCheck]);
+
+  if (!BACKEND_STATUS_BANNER_ENABLED) {
+    return null;
+  }
 
   const checkedAtLabel = useMemo(() => formatCheckedAt(status?.checkedAt), [status?.checkedAt]);
 

@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import {
     CreditCard,
     LayoutDashboard,
+    MessageSquare,
     Package,
     ReceiptText,
     ShoppingBag,
