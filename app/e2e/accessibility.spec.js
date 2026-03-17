@@ -31,7 +31,9 @@ test.describe('Accessibility Baseline', () => {
 
         test(`${name}: has at least one <h1>`, async ({ page }) => {
             await waitForAppShell(page, path);
-            const h1Count = await page.locator('h1').count();
+            const headings = page.locator('h1');
+            await headings.first().waitFor({ state: 'visible', timeout: 15000 });
+            const h1Count = await headings.count();
             expect(h1Count).toBeGreaterThanOrEqual(1);
         });
 
