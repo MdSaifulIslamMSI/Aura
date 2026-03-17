@@ -420,8 +420,8 @@ const ProductListing = () => {
           </div>
         </aside>
 
-        {/* Main Content */}
-        <main className="flex-1 min-w-0">
+        {/* Listing surface lives inside the app shell's single main landmark. */}
+        <section className="flex-1 min-w-0">
           {/* Header / Sort Bar */}
           <RevealOnScroll
             anchorId="listing-sort-bar"
@@ -630,7 +630,7 @@ const ProductListing = () => {
               </button>
             </div>
           )}
-        </main>
+        </section>
       </div>
     </div>
   );
