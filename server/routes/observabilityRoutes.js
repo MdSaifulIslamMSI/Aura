@@ -1,5 +1,5 @@
 const express = require('express');
-const { protect, admin } = require('../middleware/authMiddleware');
+const { protect, protectOptional, admin } = require('../middleware/authMiddleware');
 const {
     getClientDiagnostics,
     ingestClientDiagnostics,
@@ -7,8 +7,8 @@ const {
 
 const router = express.Router();
 
-// CRITICAL: Ingest endpoint REQUIRES authentication - this is sensitive data ingestion
-router.post('/client-diagnostics', protect, admin, ingestClientDiagnostics);
+// Clients should be able to send diagnostics even if not fully authenticated (e.g. before login)
+router.post('/client-diagnostics', protectOptional, ingestClientDiagnostics);
 router.get('/client-diagnostics', protect, admin, getClientDiagnostics);
 
 module.exports = router;

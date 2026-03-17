@@ -78,6 +78,7 @@ describe('uploadSignatureService', () => {
             process.env.NODE_ENV = nodeEnv;
             delete process.env.UPLOAD_SIGNING_SECRET;
 
+            const { createUploadToken } = require('../services/uploadSignatureService');
             expect(() => createUploadToken({
                 userId: 'u123',
                 purpose: 'review-media',

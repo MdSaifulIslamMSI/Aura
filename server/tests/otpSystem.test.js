@@ -21,7 +21,7 @@ const uniqueUser = () => {
     testCounter++;
     return {
         email: `otp_t${TS}_${testCounter}@test.com`,
-        phone: `9${String(TS).slice(-4)}${String(testCounter).padStart(5, '0')}`,
+        phone: `+919${String(TS).slice(-4)}${String(testCounter).padStart(5, '0')}`,
         name: `TestUser ${testCounter}`
     };
 };
