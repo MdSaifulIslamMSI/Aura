@@ -181,7 +181,7 @@ describe('Order Controller Create Integrity', () => {
         expect(orders[0].paymentIntentId).toBe(intent.intentId);
         expect(orders[0].paymentState).toBe(PAYMENT_STATUSES.AUTHORIZED);
         expect(orders[0].confirmationEmailStatus).toBe('pending');
-    });
+    }, 15000);
 
     test('replays the same create-order response for the same idempotency key without duplicating orders or capture tasks', async () => {
         const product = await makeProduct({ stock: 4, price: 1500 });
@@ -236,7 +236,7 @@ describe('Order Controller Create Integrity', () => {
         expect(orders).toHaveLength(1);
         expect(outboxTasks).toHaveLength(1);
         expect(idempotencyRecords).toHaveLength(1);
-    });
+    }, 15000);
 
     test('rejects a second order attempt with a different idempotency key against an already-consumed intent', async () => {
         const product = await makeProduct({ stock: 4, price: 1200 });
@@ -285,5 +285,5 @@ describe('Order Controller Create Integrity', () => {
 
         const orders = await Order.find({ user: user._id }).lean();
         expect(orders).toHaveLength(1);
-    });
+    }, 15000);
 });

@@ -20,7 +20,7 @@ const {
     getMyOrders,
     getOrders
 } = require('../controllers/orderController');
-const { protect, admin, requireOtpAssurance } = require('../middleware/authMiddleware');
+const { protect, admin, requireOtpAssurance, requireActiveAccount } = require('../middleware/authMiddleware');
 const validate = require('../middleware/validate');
 const {
     quoteOrderSchema,
@@ -41,22 +41,22 @@ const {
     adminCommandWarrantyDecisionSchema,
 } = require('../validators/orderValidators');
 
-router.post('/quote', protect, requireOtpAssurance, validate(quoteOrderSchema), quoteOrder);
-router.post('/simulate-payment', protect, requireOtpAssurance, validate(simulatePaymentSchema), simulatePayment);
+router.post('/quote', protect, requireActiveAccount, requireOtpAssurance, validate(quoteOrderSchema), quoteOrder);
+router.post('/simulate-payment', protect, requireActiveAccount, requireOtpAssurance, validate(simulatePaymentSchema), simulatePayment);
 
-router.route('/').post(protect, requireOtpAssurance, validate(createOrderSchema), addOrderItems).get(protect, admin, getOrders);
+router.route('/').post(protect, requireActiveAccount, requireOtpAssurance, validate(createOrderSchema), addOrderItems).get(protect, admin, getOrders);
 router.route('/myorders').get(protect, getMyOrders);
 router.route('/:id/timeline').get(protect, validate(getOrderTimelineSchema), getMyOrderTimeline);
 router.route('/:id/command-center')
     .get(protect, validate(commandCenterParamsSchema), getMyOrderCommandCenter);
 router.route('/:id/command-center/refund')
-    .post(protect, validate(commandCenterRefundSchema), createOrderRefundRequest);
+    .post(protect, requireActiveAccount, validate(commandCenterRefundSchema), createOrderRefundRequest);
 router.route('/:id/command-center/replace')
-    .post(protect, validate(commandCenterReplaceSchema), createOrderReplacementRequest);
+    .post(protect, requireActiveAccount, validate(commandCenterReplaceSchema), createOrderReplacementRequest);
 router.route('/:id/command-center/support')
-    .post(protect, validate(commandCenterSupportSchema), createOrderSupportMessage);
+    .post(protect, requireActiveAccount, validate(commandCenterSupportSchema), createOrderSupportMessage);
 router.route('/:id/command-center/warranty')
-    .post(protect, validate(commandCenterWarrantySchema), createOrderWarrantyClaim);
+    .post(protect, requireActiveAccount, validate(commandCenterWarrantySchema), createOrderWarrantyClaim);
 router.route('/:id/command-center/refund/:requestId/admin')
     .patch(protect, admin, validate(adminCommandRefundDecisionSchema), processOrderRefundRequestAdmin);
 router.route('/:id/command-center/replace/:requestId/admin')
@@ -66,7 +66,7 @@ router.route('/:id/command-center/support/admin-reply')
 router.route('/:id/command-center/warranty/:claimId/admin')
     .patch(protect, admin, validate(adminCommandWarrantyDecisionSchema), processOrderWarrantyClaimAdmin);
 router.route('/:id/cancel')
-    .post(protect, validate(cancelOrderSchema), cancelOrder);
+    .post(protect, requireActiveAccount, validate(cancelOrderSchema), cancelOrder);
 router.route('/:id/admin-cancel')
     .post(protect, admin, validate(adminCancelOrderSchema), cancelOrderAdmin);
 router.route('/:id/status')

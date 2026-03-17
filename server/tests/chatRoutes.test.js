@@ -1,5 +1,22 @@
 const request = require('supertest');
 
+jest.mock('../middleware/authMiddleware', () => ({
+    protect: (req, res, next) => {
+        if (req.headers.authorization === 'Bearer valid-token') {
+            req.user = { _id: 'user1', isAdmin: false };
+            return next();
+        }
+        return res.status(401).json({ message: 'Not authorized' });
+    },
+    protectOptional: (req, res, next) => next(),
+    admin: (req, res, next) => next(),
+    seller: (req, res, next) => next(),
+    requireOtpAssurance: (req, res, next) => next(),
+    requireActiveAccount: (req, res, next) => next(),
+    invalidateUserCache: jest.fn(),
+    invalidateUserCacheByEmail: jest.fn(),
+}));
+
 jest.mock('../services/assistantCommerceService', () => ({
     buildGroundedCatalogContext: jest.fn().mockResolvedValue({
         commerceIntent: false,

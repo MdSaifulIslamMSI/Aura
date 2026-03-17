@@ -8,6 +8,18 @@ import { WishlistContext } from '@/context/WishlistContext';
 import { ColorModeProvider } from '@/context/ColorModeContext';
 import { MotionModeProvider } from '@/context/MotionModeContext';
 
+vi.mock('@/context/NotificationContext', () => ({
+    useNotifications: () => ({
+        notifications: [],
+        unreadCount: 0,
+        isLoading: false,
+        markAsRead: vi.fn(),
+        markAllAsRead: vi.fn(),
+        fetchNotifications: vi.fn(),
+    }),
+    NotificationProvider: ({ children }) => children,
+}));
+
 vi.mock('@/components/shared/GlobalSearchBar', () => ({
     default: ({ className = '' }) => <div data-testid="global-search-bar" className={className}>Search</div>,
 }));

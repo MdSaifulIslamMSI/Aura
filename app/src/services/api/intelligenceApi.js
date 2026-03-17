@@ -4,10 +4,7 @@ import { getAuthHeader } from './apiUtils';
 export const intelligenceApi = {
     optimizeRewards: async () => {
         const headers = await getAuthHeader();
-        const { data } = await apiFetch('/intelligence/optimize-rewards', {
-            method: 'POST',
-            headers,
-        });
+        const { data } = await apiFetch('/intelligence/optimize-rewards', { method: 'POST', headers });
         return data;
     },
     getLatestRewards: async () => {
@@ -20,11 +17,7 @@ export const intelligenceApi = {
 export const priceAlertApi = {
     create: async (productId, targetPrice) => {
         const headers = await getAuthHeader();
-        const { data } = await apiFetch('/price-alerts', {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({ productId, targetPrice }),
-        });
+        const { data } = await apiFetch('/price-alerts', { method: 'POST', headers, body: JSON.stringify({ productId, targetPrice }) });
         return data;
     },
     getMyAlerts: async () => {
@@ -34,14 +27,12 @@ export const priceAlertApi = {
     },
     delete: async (id) => {
         const headers = await getAuthHeader();
-        const { data } = await apiFetch(`/price-alerts/${id}`, {
-            method: 'DELETE',
-            headers,
-        });
+        const { data } = await apiFetch(`/price-alerts/${id}`, { method: 'DELETE', headers });
         return data;
     },
     getHistory: async (productId) => {
-        const { data } = await apiFetch(`/price-alerts/history/${productId}`);
+        const headers = await getAuthHeader();
+        const { data } = await apiFetch(`/price-alerts/history/${productId}`, { headers });
         return data;
     }
 };
