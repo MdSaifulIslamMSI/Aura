@@ -25,10 +25,6 @@ const assertAuthVaultConfig = () => {
     if (isTest) return;
 
     if (!flags.authVaultSecret) {
-        if (isProduction) {
-            logger.warn('auth_vault.missing_secret', { tip: 'AUTH_VAULT_SECRET missing in production. Auth vault features will be unavailable. Please configure it in your Render dashboard.' });
-            return;
-        }
         throw new Error('AUTH_VAULT_SECRET is required outside test environment');
     }
 
