@@ -6,11 +6,15 @@ import { test, expect } from '@playwright/test';
  * Verifies that the most important page sections render without crashing.
  * These tests run against the production build (vite preview).
  */
+async function waitForHomeShell(page) {
+    await page.goto('/');
+    await page.locator('#main-content').first().waitFor({ state: 'attached', timeout: 15000 });
+    await expect(page.locator('main')).toHaveCount(1, { timeout: 15000 });
+}
+
 test.describe('Home Page', () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto('/');
-        await page.waitForLoadState('networkidle');
-        await page.locator('#main-content').first().waitFor({ state: 'attached', timeout: 15000 });
+        await waitForHomeShell(page);
     });
 
     test('page title contains AURA', async ({ page }) => {
