@@ -32,10 +32,6 @@ services:
         value: local
       - key: REVIEW_UPLOAD_DIR
         value: /opt/render/project/src/server/uploads/reviews
-      - key: ORDER_EMAIL_PROVIDER
-        value: "null"
-      - key: ORDER_EMAILS_ENABLED
-        value: "true"
       - key: CORS_ORIGIN
         sync: false
       - key: APP_PUBLIC_URL
