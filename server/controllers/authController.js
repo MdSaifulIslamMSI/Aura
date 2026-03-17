@@ -8,6 +8,32 @@ const { generateLatticeChallenge, verifyLatticeProof } = require('../services/la
 const { validatePasswordPolicy, detectWeakPasswordPatterns } = require('../utils/passwordValidator');
 const AppError = require('../utils/AppError');
 
+const normalizeChallengeMode = (value) => {
+    const normalized = String(value || '').trim().toLowerCase();
+    if (['always', 'admin', 'seller', 'privileged', 'off'].includes(normalized)) {
+        return normalized;
+    }
+    return 'off';
+};
+
+const AUTH_LATTICE_CHALLENGE_MODE = normalizeChallengeMode(process.env.AUTH_LATTICE_CHALLENGE_MODE);
+
+const shouldRequireLatticeChallenge = ({ user }) => {
+    switch (AUTH_LATTICE_CHALLENGE_MODE) {
+    case 'always':
+        return true;
+    case 'admin':
+        return Boolean(user?.isAdmin);
+    case 'seller':
+        return Boolean(user?.isSeller);
+    case 'privileged':
+        return Boolean(user?.isAdmin || user?.isSeller);
+    case 'off':
+    default:
+        return false;
+    }
+};
+
 const buildRequestAuthUser = (req) => ({
     ...req.user,
     uid: req.authUid || '',
@@ -37,9 +63,7 @@ const syncSession = asyncHandler(async (req, res) => {
         awardLoginPoints: true,
     });
 
-    // Lattice Risk Logic (Simulation)
-    // If it's a new login or first time today, require a Lattice Challenge
-    const requiresLatticeChallenge = true; // Triggering for all syncs in this demo phase
+    const requiresLatticeChallenge = shouldRequireLatticeChallenge({ user });
     let latticeChallenge = null;
     if (requiresLatticeChallenge) {
         latticeChallenge = await generateLatticeChallenge(user._id);
