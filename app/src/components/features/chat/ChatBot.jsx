@@ -1,150 +1,589 @@
-import React, { useState, useRef, useEffect, useContext, useCallback } from 'react';
-import { 
-    MessageCircle, X, Send, Star, ShoppingCart, ChevronRight, Sparkles, 
-    TrendingUp, Percent, Package, ArrowRight, Mic, MicOff, Maximize2, 
-    Minimize2, Trash2, GripHorizontal 
+import React, {
+    startTransition,
+    useCallback,
+    useContext,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+} from 'react';
+import {
+    ArrowUpRight,
+    Bot,
+    ChevronRight,
+    Command,
+    Compass,
+    Cpu,
+    Gauge,
+    Heart,
+    Maximize2,
+    MessageCircle,
+    Mic,
+    MicOff,
+    Minimize2,
+    Package,
+    Percent,
+    Search,
+    Send,
+    ShieldCheck,
+    ShoppingCart,
+    Sparkles,
+    Star,
+    Trash2,
+    TrendingUp,
+    UserRound,
+    Wand2,
+    X,
+    Zap,
 } from 'lucide-react';
-import { chatApi } from '@/services/chatApi';
-import { useNavigate } from 'react-router-dom';
-import { CartContext } from '@/context/CartContext';
-import { createPortal } from 'react-dom';
 import ReactMarkdown from 'react-markdown';
+import { createPortal } from 'react-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
+import VoiceSearch from '@/components/shared/VoiceSearch';
+import { AuthContext } from '@/context/AuthContext';
+import { CartContext } from '@/context/CartContext';
+import { useColorMode } from '@/context/ColorModeContext';
+import { WishlistContext } from '@/context/WishlistContext';
+import { cn } from '@/lib/utils';
+import { chatApi } from '@/services/chatApi';
+import {
+    ASSISTANT_COMMAND_HINTS,
+    buildAssistantRequestPayload,
+    buildLocalAssistantResponse,
+    getAssistantRouteLabel,
+} from '@/utils/assistantCommands';
+
+const SESSION_KEY = 'aura-chatbot-session-v3';
+const MAX_PERSISTED_MESSAGES = 24;
+const MAX_HISTORY_ENTRIES = 12;
+const AUTO_EXECUTE_DELAY_MS = 160;
+
+const MODE_OPTIONS = [
+    {
+        id: 'chat',
+        label: 'Concierge',
+        hint: 'Fast answers, live catalog guidance, route-aware help.',
+        Icon: Sparkles,
+    },
+    {
+        id: 'compare',
+        label: 'Compare',
+        hint: 'Use recent product candidates to pick the strongest option.',
+        Icon: TrendingUp,
+    },
+    {
+        id: 'bundle',
+        label: 'Bundle',
+        hint: 'Build setups around price ceilings and mission goals.',
+        Icon: Package,
+    },
+];
+
+const createMessageId = () => `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+const trimMessages = (items = []) => items.slice(-MAX_PERSISTED_MESSAGES);
+const trimHistory = (items = []) => items.slice(-MAX_HISTORY_ENTRIES);
+
+const getPathLabel = (path = '/') => {
+    if (path === '/') return 'Home';
+    if (path.startsWith('/deals')) return 'Deals';
+    if (path.startsWith('/trending')) return 'Trending';
+    if (path.startsWith('/new-arrivals')) return 'New arrivals';
+    if (path.startsWith('/marketplace')) return 'Marketplace';
+    if (path.startsWith('/visual-search')) return 'Visual search';
+    if (path.startsWith('/mission-control')) return 'Mission Control';
+    if (path.startsWith('/bundles')) return 'Bundles';
+    if (path.startsWith('/compare')) return 'Compare';
+    if (path.startsWith('/cart')) return 'Cart';
+    if (path.startsWith('/wishlist')) return 'Wishlist';
+    if (path.startsWith('/orders')) return 'Orders';
+    if (path.startsWith('/profile')) return 'Profile';
+    if (path.startsWith('/category/')) return 'Category';
+    if (path.startsWith('/search')) return 'Search';
+    if (path.startsWith('/product/')) return 'Product';
+    return 'Route';
+};
+
+const createAssistantMessage = (payload = {}) => ({
+    id: createMessageId(),
+    role: 'assistant',
+    text: '',
+    products: [],
+    suggestions: [],
+    actions: [],
+    actionType: 'assistant',
+    provider: 'local',
+    mode: 'chat',
+    latencyMs: 0,
+    local: false,
+    createdAt: Date.now(),
+    ...payload,
+});
+
+const createUserMessage = (text) => ({
+    id: createMessageId(),
+    role: 'user',
+    text,
+    createdAt: Date.now(),
+});
+
+const createInitialMessage = () => createAssistantMessage({
+    text: 'Aura Command is live. I can navigate the storefront, surface deals, compare products, build bundles, and launch voice assistance without slowing the flow.',
+    suggestions: ASSISTANT_COMMAND_HINTS.slice(0, 4),
+    actionType: 'greeting',
+    provider: 'local',
+    local: true,
+});
+
+const readSession = () => {
+    if (typeof window === 'undefined') return null;
+
+    try {
+        const raw = window.localStorage.getItem(SESSION_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed?.messages) || !Array.isArray(parsed?.conversationHistory)) {
+            return null;
+        }
+
+        return {
+            messages: trimMessages(parsed.messages).map((message) => ({
+                ...message,
+                id: message.id || createMessageId(),
+            })),
+            conversationHistory: trimHistory(parsed.conversationHistory),
+            activeMode: MODE_OPTIONS.some((mode) => mode.id === parsed.activeMode) ? parsed.activeMode : 'chat',
+        };
+    } catch {
+        return null;
+    }
+};
+
+const serializeSession = ({ messages, conversationHistory, activeMode }) => {
+    if (typeof window === 'undefined') return;
+
+    const payload = {
+        messages: trimMessages(messages),
+        conversationHistory: trimHistory(conversationHistory),
+        activeMode,
+    };
+
+    window.localStorage.setItem(SESSION_KEY, JSON.stringify(payload));
+};
+
+const getActionLabel = (action = {}) => {
+    switch (action.type) {
+        case 'navigate':
+            return `Open ${getPathLabel(action.path)}`;
+        case 'search':
+            return `Search "${action.query}"`;
+        case 'open_product':
+            return 'Open product';
+        case 'open_voice_assistant':
+            return 'Voice mode';
+        case 'close':
+            return 'Close chat';
+        default:
+            return 'Run action';
+    }
+};
+
+const getActionTone = (actionType = '') => {
+    switch (actionType) {
+        case 'deals':
+            return {
+                Icon: Percent,
+                label: 'Deals',
+                className: 'bg-rose-500/15 text-rose-200 border-rose-400/20',
+            };
+        case 'trending':
+            return {
+                Icon: TrendingUp,
+                label: 'Trending',
+                className: 'bg-emerald-500/15 text-emerald-200 border-emerald-400/20',
+            };
+        case 'compare':
+            return {
+                Icon: Gauge,
+                label: 'Compare',
+                className: 'bg-indigo-500/15 text-indigo-200 border-indigo-400/20',
+            };
+        case 'greeting':
+            return {
+                Icon: ShieldCheck,
+                label: 'Premium',
+                className: 'bg-cyan-500/15 text-cyan-100 border-cyan-300/20',
+            };
+        default:
+            return {
+                Icon: Wand2,
+                label: 'Assistant',
+                className: 'bg-violet-500/15 text-violet-100 border-violet-300/20',
+            };
+    }
+};
+
+const buildCommandDeck = ({ pathname, cartCount, wishlistCount }) => {
+    const routePrompt = pathname.startsWith('/marketplace')
+        ? 'Scout the most compelling marketplace listings'
+        : pathname.startsWith('/product/')
+            ? 'Find the strongest alternative to this product'
+            : pathname.startsWith('/products') || pathname.startsWith('/category') || pathname.startsWith('/search')
+                ? 'Summarize the strongest products in this lane'
+                : 'Show the best deals today';
+
+    return [
+        {
+            id: 'deals',
+            title: 'Deal Pulse',
+            description: 'Surface the sharpest live discounts instantly.',
+            prompt: 'Show the best deals today',
+            Icon: Percent,
+            accent: 'from-rose-500/25 via-orange-500/20 to-transparent',
+        },
+        {
+            id: 'route',
+            title: 'Route Intel',
+            description: 'Use the current page as live shopping context.',
+            prompt: routePrompt,
+            Icon: Sparkles,
+            accent: 'from-cyan-500/25 via-sky-500/20 to-transparent',
+        },
+        {
+            id: 'bundle',
+            title: 'Bundle Architect',
+            description: 'Build a premium setup around a hard budget.',
+            prompt: 'Build a gaming bundle under Rs 80000',
+            Icon: Package,
+            accent: 'from-violet-500/25 via-fuchsia-500/20 to-transparent',
+        },
+        {
+            id: 'marketplace',
+            title: 'Marketplace Radar',
+            description: 'Jump into local discovery and seller scouting.',
+            prompt: 'Open marketplace',
+            Icon: Compass,
+            accent: 'from-emerald-500/25 via-teal-500/20 to-transparent',
+        },
+        {
+            id: 'cart',
+            title: cartCount > 0 ? 'Cart Concierge' : 'Next Purchase',
+            description: cartCount > 0
+                ? `Open your cart and tighten the final decision around ${cartCount} item${cartCount > 1 ? 's' : ''}.`
+                : 'Move from browsing to a high-intent shopping lane.',
+            prompt: cartCount > 0 ? 'Open cart' : 'Search for premium headphones under Rs 15000',
+            Icon: ShoppingCart,
+            accent: 'from-indigo-500/25 via-blue-500/20 to-transparent',
+        },
+        {
+            id: 'wishlist',
+            title: wishlistCount > 0 ? 'Wishlist Focus' : 'Voice Sprint',
+            description: wishlistCount > 0
+                ? `Re-open your ${wishlistCount} saved pick${wishlistCount > 1 ? 's' : ''} and decide faster.`
+                : 'Launch the hands-free voice control surface.',
+            prompt: wishlistCount > 0 ? 'Open wishlist' : 'Open voice assistant',
+            Icon: wishlistCount > 0 ? Heart : Mic,
+            accent: 'from-pink-500/25 via-purple-500/20 to-transparent',
+        },
+    ];
+};
 
 const ChatBot = () => {
+    const navigate = useNavigate();
+    const location = useLocation();
+    const { colorMode } = useColorMode();
+    const { currentUser, isAuthenticated } = useContext(AuthContext);
+    const { cartItems = [], addToCart } = useContext(CartContext);
+    const { wishlistItems = [] } = useContext(WishlistContext);
+
+    const restoredSession = useMemo(() => readSession(), []);
     const [isOpen, setIsOpen] = useState(false);
     const [isExpanded, setIsExpanded] = useState(false);
-    const [messages, setMessages] = useState([
-        {
-            role: 'bot',
-            text: "Hey! I'm AuraBot ✨. I can help with shopping, writing, planning, learning, and technical questions. What do you want to explore today?",
-            products: [],
-            suggestions: ['Best deals today', 'Smartphones under ₹20000', 'Write a formal email'],
-            actionType: 'greeting'
-        }
-    ]);
+    const [showVoiceAssistant, setShowVoiceAssistant] = useState(false);
+    const [messages, setMessages] = useState(() => restoredSession?.messages?.length > 0 ? restoredSession.messages : [createInitialMessage()]);
+    const [conversationHistory, setConversationHistory] = useState(() => restoredSession?.conversationHistory || []);
+    const [activeMode, setActiveMode] = useState(() => restoredSession?.activeMode || 'chat');
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
-    const [conversationHistory, setConversationHistory] = useState([]);
-    const [hasNewMessage, setHasNewMessage] = useState(false);
     const [isListening, setIsListening] = useState(false);
-    
-    const messagesEndRef = useRef(null);
+    const [unreadCount, setUnreadCount] = useState(0);
+
     const inputRef = useRef(null);
-    const navigate = useNavigate();
-    const { addToCart } = useContext(CartContext);
+    const messagesEndRef = useRef(null);
     const recognitionRef = useRef(null);
 
-    const scrollToBottom = () => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    };
+    const isWhiteMode = colorMode === 'white';
+    const routeLabel = getAssistantRouteLabel(location.pathname);
+    const latestAssistantMessage = useMemo(
+        () => [...messages].reverse().find((message) => message.role === 'assistant') || null,
+        [messages]
+    );
+    const latestProductPool = useMemo(
+        () => [...messages].reverse().find((message) => Array.isArray(message.products) && message.products.length > 0)?.products || [],
+        [messages]
+    );
+    const commandDeck = useMemo(
+        () => buildCommandDeck({
+            pathname: location.pathname,
+            cartCount: cartItems.length,
+            wishlistCount: wishlistItems.length,
+        }),
+        [cartItems.length, location.pathname, wishlistItems.length]
+    );
+    const launcherHint = latestAssistantMessage?.suggestions?.[0] || routeLabel;
+
+    const shellClass = isWhiteMode
+        ? 'border-slate-200/90 bg-[linear-gradient(180deg,rgba(255,255,255,0.97),rgba(239,244,255,0.97))] text-slate-950 shadow-[0_24px_80px_rgba(15,23,42,0.18)]'
+        : 'border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(56,189,248,0.16),transparent_26%),radial-gradient(circle_at_top_right,rgba(168,85,247,0.18),transparent_25%),linear-gradient(180deg,rgba(6,10,24,0.98),rgba(10,14,28,0.98))] text-slate-100 shadow-[0_28px_90px_rgba(2,6,23,0.72)]';
+    const panelClass = isWhiteMode
+        ? 'border-slate-200/80 bg-white/75'
+        : 'border-white/10 bg-white/[0.045]';
+    const mutedTextClass = isWhiteMode ? 'text-slate-500' : 'text-slate-400';
+    const strongTextClass = isWhiteMode ? 'text-slate-950' : 'text-slate-100';
+
+    const scrollToBottom = useCallback(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }, []);
+
+    const executeAssistantAction = useCallback((action = {}) => {
+        if (!action?.type) return;
+
+        switch (action.type) {
+            case 'close':
+                setIsOpen(false);
+                return;
+            case 'open_voice_assistant':
+                setShowVoiceAssistant(true);
+                return;
+            case 'open_product':
+                if (action.productId) {
+                    navigate(`/product/${action.productId}`);
+                }
+                return;
+            case 'navigate':
+                if (action.path) {
+                    navigate(action.path);
+                }
+                return;
+            case 'search':
+                if (action.query) {
+                    navigate(`/search?q=${encodeURIComponent(action.query)}`);
+                }
+                return;
+            default:
+                return;
+        }
+    }, [navigate]);
 
     useEffect(() => {
         scrollToBottom();
-    }, [messages, isOpen, isExpanded]);
+    }, [messages, isExpanded, isOpen, scrollToBottom]);
 
     useEffect(() => {
-        if (isOpen && inputRef.current) {
-            inputRef.current.focus();
-        }
-        if (isOpen) setHasNewMessage(false);
+        if (!isOpen) return;
+        setUnreadCount(0);
+        window.requestAnimationFrame(() => inputRef.current?.focus());
     }, [isOpen]);
 
-    // Initialize Speech Recognition
+    useEffect(() => {
+        serializeSession({ messages, conversationHistory, activeMode });
+    }, [activeMode, conversationHistory, messages]);
+
+    useEffect(() => {
+        const handleKeyDown = (event) => {
+            if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+                event.preventDefault();
+                setIsOpen(true);
+            }
+
+            if (event.key === 'Escape') {
+                if (showVoiceAssistant) {
+                    setShowVoiceAssistant(false);
+                } else if (isOpen) {
+                    setIsOpen(false);
+                }
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isOpen, showVoiceAssistant]);
+
     useEffect(() => {
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (SpeechRecognition) {
-            recognitionRef.current = new SpeechRecognition();
-            recognitionRef.current.continuous = false;
-            recognitionRef.current.interimResults = true;
-            recognitionRef.current.lang = 'en-US';
+        if (!SpeechRecognition) return undefined;
 
-            recognitionRef.current.onresult = (event) => {
-                const transcript = Array.from(event.results)
-                    .map(result => result[0])
-                    .map(result => result.transcript)
-                    .join('');
-                setInput(transcript);
-            };
+        const recognition = new SpeechRecognition();
+        recognition.continuous = false;
+        recognition.interimResults = true;
+        recognition.lang = 'en-IN';
 
-            recognitionRef.current.onerror = (event) => {
-                console.error('Speech recognition error', event.error);
-                setIsListening(false);
-            };
+        recognition.onresult = (event) => {
+            const transcript = Array.from(event.results)
+                .map((result) => result[0]?.transcript || '')
+                .join('');
+            setInput(transcript);
+        };
 
-            recognitionRef.current.onend = () => {
-                setIsListening(false);
-                // Optionally auto-send when speech ends if input context makes sense
-            };
-        }
+        recognition.onerror = () => {
+            setIsListening(false);
+        };
+
+        recognition.onend = () => {
+            setIsListening(false);
+        };
+
+        recognitionRef.current = recognition;
+        return () => {
+            recognition.stop();
+        };
     }, []);
 
-    const toggleListening = () => {
-        if (isListening) {
-            recognitionRef.current?.stop();
-            setIsListening(false);
-        } else {
-            setInput(''); // Clear input when starting new recording
-            recognitionRef.current?.start();
-            setIsListening(true);
-        }
-    };
+    const appendAssistantMessage = useCallback((assistantMessage) => {
+        startTransition(() => {
+            setMessages((previous) => trimMessages([...previous, assistantMessage]));
+        });
 
-    const handleClearChat = () => {
-        setMessages([{
-            role: 'bot',
-            text: "Chat cleared! Let's start a fresh conversation. How can I assist you?",
-            actionType: 'greeting'
-        }]);
+        if (!isOpen) {
+            setUnreadCount((value) => value + 1);
+        }
+    }, [isOpen]);
+
+    const appendUserMessage = useCallback((text) => {
+        startTransition(() => {
+            setMessages((previous) => trimMessages([...previous, createUserMessage(text)]));
+        });
+    }, []);
+
+    const handleClearChat = useCallback(() => {
+        setMessages([createInitialMessage()]);
         setConversationHistory([]);
-    };
+        setActiveMode('chat');
+    }, []);
 
-    const handleSend = useCallback(async (text) => {
-        const messageText = typeof text === 'string' ? text : input;
-        if (!messageText.trim()) return;
+    const toggleListening = useCallback(() => {
+        if (!recognitionRef.current) {
+            setShowVoiceAssistant(true);
+            return;
+        }
 
-        // Stop listening if user hits send manually
+        if (isListening) {
+            recognitionRef.current.stop();
+            setIsListening(false);
+            return;
+        }
+
+        setInput('');
+        recognitionRef.current.start();
+        setIsListening(true);
+    }, [isListening]);
+
+    const handleSend = useCallback(async (rawText, options = {}) => {
+        const messageText = typeof rawText === 'string' ? rawText : input;
+        const cleanedText = String(messageText || '').trim();
+        if (!cleanedText) return;
+
         if (isListening) {
             recognitionRef.current?.stop();
             setIsListening(false);
         }
 
-        const userMsg = { role: 'user', text: messageText };
-        setMessages(prev => [...prev, userMsg]);
+        appendUserMessage(cleanedText);
         setInput('');
+
+        const nextHistory = trimHistory([...conversationHistory, { role: 'user', content: cleanedText }]);
+        const localResponse = buildLocalAssistantResponse(cleanedText, {
+            cartCount: cartItems.length,
+            wishlistCount: wishlistItems.length,
+        });
+
+        if (localResponse?.local) {
+            const assistantMessage = createAssistantMessage({
+                text: localResponse.answer,
+                suggestions: localResponse.suggestions || [],
+                actions: localResponse.actions || [],
+                actionType: localResponse.actionType || 'assistant',
+                provider: 'local',
+                local: true,
+                mode: 'chat',
+            });
+
+            appendAssistantMessage(assistantMessage);
+            setConversationHistory(trimHistory([...nextHistory, { role: 'assistant', content: assistantMessage.text }]));
+
+            if (localResponse.autoExecute && localResponse.actions?.[0]) {
+                window.setTimeout(() => executeAssistantAction(localResponse.actions[0]), AUTO_EXECUTE_DELAY_MS);
+            }
+            return;
+        }
+
+        const requestConfig = buildAssistantRequestPayload({
+            message: cleanedText,
+            selectedMode: options.modeOverride || activeMode,
+            pathname: location.pathname,
+            latestProducts: latestProductPool,
+            cartItems,
+            wishlistItems,
+        });
+
         setIsLoading(true);
 
-        const newHistory = [...conversationHistory, { role: 'user', content: messageText }];
-
         try {
-            const response = await chatApi.sendMessage(messageText, newHistory.slice(-8));
+            const response = await chatApi.sendMessage({
+                message: cleanedText,
+                conversationHistory: nextHistory,
+                assistantMode: requestConfig.assistantMode,
+                context: requestConfig.context,
+            });
 
-            const botMsg = {
-                role: 'bot',
-                text: response.text,
+            const assistantText = response.text || 'Aura Command is temporarily unavailable. Try again in a moment.';
+            const assistantMessage = createAssistantMessage({
+                text: assistantText,
                 products: response.products || [],
                 suggestions: response.suggestions || [],
-                actionType: response.actionType || 'search',
-                isAI: response.isAI
-            };
+                actions: response.actions || [],
+                actionType: response.actionType || 'assistant',
+                provider: response.provider || 'local',
+                mode: response.mode || requestConfig.assistantMode,
+                latencyMs: response.latencyMs || 0,
+                local: false,
+            });
 
-            setMessages(prev => [...prev, botMsg]);
-            setConversationHistory([...newHistory, { role: 'assistant', content: response.text }]);
-        } catch (error) {
-            setMessages(prev => [...prev, { role: 'bot', text: 'Sorry, I ran into a bit of trouble connecting to my neural core. Please try again! 🚨' }]);
+            appendAssistantMessage(assistantMessage);
+            setConversationHistory(trimHistory([...nextHistory, { role: 'assistant', content: assistantText }]));
+        } catch {
+            const fallbackMessage = createAssistantMessage({
+                text: 'Aura Command hit turbulence while reaching the AI layer. Try again, or use the instant quick actions while the connection settles.',
+                suggestions: ['Show the best deals today', 'Open marketplace', 'Open voice assistant'],
+                actionType: 'assistant',
+                provider: 'local',
+                local: true,
+            });
+            appendAssistantMessage(fallbackMessage);
+            setConversationHistory(trimHistory([...nextHistory, { role: 'assistant', content: fallbackMessage.text }]));
         } finally {
             setIsLoading(false);
         }
+    }, [
+        activeMode,
+        appendAssistantMessage,
+        appendUserMessage,
+        cartItems,
+        conversationHistory,
+        executeAssistantAction,
+        input,
+        isListening,
+        latestProductPool,
+        location.pathname,
+        wishlistItems,
+    ]);
 
-        if (!isOpen) setHasNewMessage(true);
-    }, [input, conversationHistory, isOpen, isListening]);
+    const handleSuggestionClick = useCallback((suggestion) => {
+        handleSend(suggestion);
+    }, [handleSend]);
 
-    const handleSuggestionClick = (suggestion) => {
-        const cleanText = suggestion.replace(/^[^\w]*/, '').trim();
-        handleSend(cleanText || suggestion);
-    };
-
-    const handleAddToCart = (product, e) => {
-        e.stopPropagation();
+    const handleAddToCart = useCallback((product, event) => {
+        event.stopPropagation();
         addToCart({
             id: product.id,
             title: product.title,
@@ -153,312 +592,519 @@ const ChatBot = () => {
             discountPercentage: product.discountPercentage,
             image: product.image,
             stock: product.stock || 10,
-            brand: product.brand
+            brand: product.brand,
         });
-    };
+    }, [addToCart]);
 
-    const handleSubmit = (e) => {
-        e.preventDefault();
+    const handleDeckClick = useCallback((entry) => {
+        handleSend(entry.prompt);
+    }, [handleSend]);
+
+    const handleSubmit = useCallback((event) => {
+        event.preventDefault();
         handleSend(input);
-    };
-
-    const getActionIcon = (type) => {
-        switch (type) {
-            case 'deals': return <Percent size={14} className="text-red-400" />;
-            case 'trending': return <TrendingUp size={14} className="text-green-400" />;
-            case 'compare': return <Package size={14} className="text-purple-400" />;
-            default: return <Sparkles size={14} className="text-blue-400" />;
-        }
-    };
-
-    const getActionLabel = (type) => {
-        switch (type) {
-            case 'deals': return 'DEALS';
-            case 'trending': return 'TRENDING';
-            case 'compare': return 'COMPARISON';
-            case 'assistant': return 'ASSISTANT';
-            case 'greeting': return 'WELCOME';
-            default: return 'RESULTS';
-        }
-    };
+    }, [handleSend, input]);
 
     const portalTarget = typeof document !== 'undefined' ? document.body : null;
     if (!portalTarget) return null;
 
     return createPortal(
-        <div 
-            className="pointer-events-none fixed inset-0 z-[2147483600] flex justify-end items-end p-4 sm:p-6"
-            style={{ fontFamily: "'Inter', sans-serif" }}
-        >
-            {isOpen && (
+        <div className="pointer-events-none fixed inset-0 z-[2147483600] flex items-end justify-end p-4 sm:p-6">
+            {isOpen ? (
                 <div
-                    className={`pointer-events-auto flex flex-col overflow-hidden rounded-[1.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.5)] mb-4 transition-all duration-300 ease-in-out ${isExpanded ? 'fixed inset-6 w-[calc(100vw-3rem)] h-[calc(100vh-3rem)]' : 'relative w-[min(90vw,420px)] h-[min(75vh,650px)]'}`}
-                    style={{
-                        background: 'linear-gradient(135deg, rgba(15, 12, 41, 0.95) 0%, rgba(26, 26, 46, 0.95) 50%, rgba(22, 33, 62, 0.95) 100%)',
-                        border: '1px solid rgba(255,255,255,0.15)',
-                        boxShadow: '0 0 40px rgba(102, 126, 234, 0.2), inset 0 0 20px rgba(255,255,255,0.05)'
-                    }}
+                    className={cn(
+                        'pointer-events-auto flex min-h-0 flex-col overflow-hidden rounded-[2rem] border backdrop-blur-2xl transition-all duration-300',
+                        shellClass,
+                        isExpanded
+                            ? 'h-[min(90vh,880px)] w-[min(96vw,1180px)]'
+                            : 'h-[min(82vh,760px)] w-[min(94vw,520px)]'
+                    )}
                 >
-                        {/* ═══ Header ═══ */}
-                        <div 
-                            className="p-4 flex justify-between items-center cursor-move border-b border-white/10"
-                            style={{ background: 'linear-gradient(90deg, rgba(102, 126, 234, 0.2) 0%, rgba(118, 75, 162, 0.2) 100%)' }}
-                        >
-                            <div className="flex items-center gap-3">
-                                <div className="relative group">
-                                    <div className="bg-white/10 p-2.5 rounded-xl border border-white/20 group-hover:scale-105 transition-transform duration-300">
-                                        <Sparkles size={20} className="text-purple-300" />
-                                    </div>
-                                    <span className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-green-400 rounded-full border-2 border-[#16213e] shadow-[0_0_10px_rgba(74,222,128,0.5)] animate-pulse"></span>
+                    <div className="border-b border-white/10 px-5 py-4">
+                        <div className="flex items-start justify-between gap-4">
+                            <div className="flex items-start gap-3">
+                                <div className={cn(
+                                    'flex h-12 w-12 items-center justify-center rounded-2xl border shadow-[0_0_30px_rgba(56,189,248,0.18)]',
+                                    isWhiteMode
+                                        ? 'border-cyan-200 bg-gradient-to-br from-cyan-500/15 to-indigo-500/15 text-cyan-700'
+                                        : 'border-cyan-400/20 bg-gradient-to-br from-cyan-400/15 to-violet-500/20 text-cyan-200'
+                                )}>
+                                    <Bot className="h-5 w-5" />
                                 </div>
                                 <div>
-                                    <h3 className="font-bold text-white text-base tracking-wide flex items-center gap-2">
-                                        AuraBot <span className="text-[10px] font-bold px-2 py-0.5 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full">BETA</span>
-                                    </h3>
-                                    <p className="text-[11px] text-purple-200/80 font-medium">Your Premium AI Shopping Assistant</p>
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <h3 className={cn('text-base font-black tracking-wide', strongTextClass)}>Aura Command</h3>
+                                        <span className={cn(
+                                            'rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em]',
+                                            isWhiteMode
+                                                ? 'border-cyan-200 bg-cyan-500/10 text-cyan-700'
+                                                : 'border-cyan-400/20 bg-cyan-500/10 text-cyan-200'
+                                        )}>
+                                            Premium AI
+                                        </span>
+                                    </div>
+                                    <p className={cn('mt-1 text-sm', mutedTextClass)}>
+                                        Faster shopping intelligence with instant actions, voice entry, and route-aware context.
+                                    </p>
+                                    <div className="mt-3 flex flex-wrap gap-2">
+                                        <span className={cn('rounded-full border px-2.5 py-1 text-[11px] font-semibold', panelClass)}>
+                                            <Command className="mr-1 inline h-3.5 w-3.5" />
+                                            Cmd/Ctrl + K
+                                        </span>
+                                        <span className={cn('rounded-full border px-2.5 py-1 text-[11px] font-semibold', panelClass)}>
+                                            <Cpu className="mr-1 inline h-3.5 w-3.5" />
+                                            {latestAssistantMessage?.provider || 'local'}
+                                        </span>
+                                        <span className={cn('rounded-full border px-2.5 py-1 text-[11px] font-semibold', panelClass)}>
+                                            <Gauge className="mr-1 inline h-3.5 w-3.5" />
+                                            {latestAssistantMessage?.latencyMs ? `${latestAssistantMessage.latencyMs} ms` : 'ready'}
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-1.5">
-                                <button onClick={handleClearChat} title="Clear Chat" className="p-2 hover:bg-white/10 rounded-xl transition-colors text-white/70 hover:text-red-400">
-                                    <Trash2 size={16} />
+
+                            <div className="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowVoiceAssistant(true)}
+                                    className={cn('rounded-2xl border p-3 transition-colors', panelClass)}
+                                    title="Open voice assistant"
+                                >
+                                    <Mic className="h-4 w-4" />
                                 </button>
-                                <button onClick={() => setIsExpanded(!isExpanded)} title={isExpanded ? "Minimize" : "Expand"} className="p-2 hover:bg-white/10 rounded-xl transition-colors text-white/70 hover:text-white hidden sm:block">
-                                    {isExpanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+                                <button
+                                    type="button"
+                                    onClick={handleClearChat}
+                                    className={cn('rounded-2xl border p-3 transition-colors', panelClass)}
+                                    title="Clear chat"
+                                >
+                                    <Trash2 className="h-4 w-4" />
                                 </button>
-                                <button onClick={() => setIsOpen(false)} title="Close" className="p-2 hover:bg-white/10 rounded-xl transition-colors text-white/70 hover:text-white">
-                                    <X size={18} />
+                                <button
+                                    type="button"
+                                    onClick={() => setIsExpanded((value) => !value)}
+                                    className={cn('hidden rounded-2xl border p-3 transition-colors sm:block', panelClass)}
+                                    title={isExpanded ? 'Minimize chat' : 'Expand chat'}
+                                >
+                                    {isExpanded ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsOpen(false)}
+                                    className={cn('rounded-2xl border p-3 transition-colors', panelClass)}
+                                    title="Close chat"
+                                >
+                                    <X className="h-4 w-4" />
                                 </button>
                             </div>
                         </div>
+                    </div>
 
-                    {/* ═══ Messages Area ═══ */}
-                    <div className="flex-1 overflow-y-auto p-5 space-y-5 custom-scrollbar" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.2) transparent' }}>
-                        {messages.map((msg, idx) => (
-                            <div 
-                                key={idx} 
-                                className={`flex flex-col animate-fade-in-up ${msg.role === 'user' ? 'items-end' : 'items-start'}`}
-                            >
-                                        <div className={`max-w-[85%] p-3.5 text-sm leading-relaxed shadow-lg ${
-                                            msg.role === 'user'
-                                            ? 'rounded-2xl rounded-tr-sm text-white'
-                                            : 'rounded-2xl rounded-tl-sm text-gray-100'}`}
-                                            style={msg.role === 'user'
-                                                ? { 
-                                                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                                                    boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)'
-                                                  }
-                                                : { 
-                                                    background: 'rgba(255, 255, 255, 0.05)', 
-                                                    border: '1px solid rgba(255, 255, 255, 0.1)' 
-                                                  }
-                                            }>
-                                            {msg.role === 'bot' && msg.actionType && !['greeting', 'farewell'].includes(msg.actionType) && (
-                                                <div className="flex items-center gap-2 mb-2 pb-2 border-b border-white/10">
-                                                    {getActionIcon(msg.actionType)}
-                                                    <span className="text-[10px] font-bold tracking-widest text-purple-300 uppercase">{getActionLabel(msg.actionType)}</span>
-                                                </div>
-                                            )}
-                                            
-                                            {/* Render Markdown for Bot, standard text for User */}
-                                            {msg.role === 'bot' ? (
-                                                <div className="prose prose-invert prose-sm max-w-none text-gray-200 
-                                                        prose-a:text-blue-400 prose-a:no-underline hover:prose-a:underline
-                                                        prose-p:leading-relaxed prose-p:mb-2 prose-ul:my-2 prose-li:my-0.5">
-                                                    <ReactMarkdown>{msg.text}</ReactMarkdown>
-                                                </div>
-                                            ) : (
-                                                <div>{msg.text}</div>
-                                            )}
+                    <div className={cn('grid min-h-0 flex-1', isExpanded ? 'lg:grid-cols-[280px_minmax(0,1fr)]' : 'grid-cols-1')}>
+                        {isExpanded ? (
+                            <aside className={cn('hidden border-r px-4 py-4 lg:flex lg:flex-col lg:gap-4', panelClass)}>
+                                <div className={cn('rounded-[1.5rem] border p-4', panelClass)}>
+                                    <p className={cn('text-[11px] font-black uppercase tracking-[0.18em]', mutedTextClass)}>Live Context</p>
+                                    <div className="mt-4 space-y-3">
+                                        <div>
+                                            <p className={cn('text-[11px] font-semibold uppercase tracking-[0.16em]', mutedTextClass)}>Route</p>
+                                            <p className={cn('mt-1 text-sm font-bold', strongTextClass)}>{routeLabel}</p>
                                         </div>
-
-                                    {/* Product Cards Area */}
-                                    {msg.products && msg.products.length > 0 && (
-                                        <div className="mt-4 space-y-3 w-full animate-fade-in-up">
-                                                {msg.actionType === 'compare' && msg.products.length >= 2 ? (
-                                                    <div className="rounded-[1rem] overflow-hidden bg-white/5 border border-white/10 shadow-2xl">
-                                                        <div className="text-center py-2 text-[10px] font-bold tracking-widest text-purple-300 bg-purple-500/10 border-b border-white/5">
-                                                            ⚖️ SIDE-BY-SIDE COMPARISON
-                                                        </div>
-                                                        <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-white/10">
-                                                            {msg.products.slice(0, 2).map((product, i) => (
-                                                                <div key={product._id || product.id || i}
-                                                                    onClick={() => { setIsOpen(false); navigate(`/product/${product.id || product._id}`); }}
-                                                                    className="p-4 cursor-pointer hover:bg-white/10 transition-all duration-300 group">
-                                                                    <div className="relative rounded-xl overflow-hidden bg-white/5 p-2 mb-3">
-                                                                        <img src={product.image} alt={product.title} className="w-full h-24 object-contain group-hover:scale-110 transition-transform duration-500" />
-                                                                    </div>
-                                                                    <p className="text-xs font-semibold text-white truncate group-hover:text-purple-300 transition-colors">{product.title}</p>
-                                                                    <p className="text-sm font-bold text-green-400 mt-1.5 flex items-baseline gap-2">
-                                                                        ₹{product.price?.toLocaleString()}
-                                                                        {product.originalPrice > product.price && <span className="text-[10px] text-gray-500 line-through">₹{product.originalPrice?.toLocaleString()}</span>}
-                                                                    </p>
-                                                                    <div className="flex items-center justify-between mt-2">
-                                                                        {product.rating && (
-                                                                            <div className="flex items-center gap-1 bg-yellow-400/10 px-1.5 py-0.5 rounded-md">
-                                                                                <Star size={10} className="text-yellow-400 fill-yellow-400" />
-                                                                                <span className="text-[10px] font-bold text-yellow-500">{product.rating}</span>
-                                                                            </div>
-                                                                        )}
-                                                                        <button onClick={(e) => handleAddToCart(product, e)} className="p-1.5 rounded-lg bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/40 hover:scale-110 transition-all">
-                                                                            <ShoppingCart size={14} />
-                                                                        </button>
-                                                                    </div>
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                            ) : (
-                                                msg.products.slice(0, isExpanded ? 8 : 4).map((product, i) => (
-                                                    <div 
-                                                        key={product._id || product.id || i}
-                                                        className="flex gap-4 p-3 rounded-2xl cursor-pointer transition-all border border-white/5 bg-white/5 shadow-lg group relative overflow-hidden hover:bg-white/10 hover:scale-[1.02]"
-                                                        onClick={() => { setIsOpen(false); navigate(`/product/${product.id || product._id}`); }}>
-                                                            
-                                                            {/* Shimmer Effect */}
-                                                            <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/5 to-transparent group-hover:animate-[shimmer_1.5s_infinite]"></div>
-
-                                                            <div className="relative w-16 h-16 rounded-xl flex-shrink-0 bg-white/5 border border-white/10 p-1 flex items-center justify-center">
-                                                                <img src={product.image} alt={product.title} className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-300" />
-                                                                {product.discountPercentage > 0 && (
-                                                                    <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full shadow-[0_0_10px_rgba(239,68,68,0.5)]">
-                                                                        {product.discountPercentage}%
-                                                                    </span>
-                                                                )}
-                                                            </div>
-
-                                                            <div className="flex-1 min-w-0 py-0.5 flex flex-col justify-between">
-                                                                <p className="text-xs font-semibold text-gray-100 truncate group-hover:text-purple-300 transition-colors z-10">{product.title}</p>
-                                                                
-                                                                <div className="flex items-center gap-2 mt-0.5 z-10">
-                                                                    <span className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-300">₹{product.price?.toLocaleString()}</span>
-                                                                    {product.originalPrice > product.price && (
-                                                                        <span className="text-[10px] text-gray-500 line-through">₹{product.originalPrice?.toLocaleString()}</span>
-                                                                    )}
-                                                                </div>
-                                                                
-                                                                <div className="flex items-center justify-between mt-1 z-10">
-                                                                    {product.brand && <span className="text-[10px] font-medium text-gray-400 bg-white/5 px-2 py-0.5 rounded-md">{product.brand}</span>}
-                                                                </div>
-                                                            </div>
-
-                                                            <button
-                                                                onClick={(e) => handleAddToCart(product, e)}
-                                                                className="self-center p-2.5 rounded-xl transition-all flex-shrink-0 border border-indigo-500/30 bg-indigo-500/10 hover:bg-indigo-500 hover:text-white text-indigo-300 shadow-[0_0_15px_rgba(99,102,241,0.1)] group-hover:shadow-[0_0_15px_rgba(99,102,241,0.4)] z-10"
-                                                                title="Add to Cart">
-                                                                <ShoppingCart size={16} />
-                                                            </button>
-                                                    </div>
-                                                ))
-                                            )}
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div className={cn('rounded-2xl border p-3', panelClass)}>
+                                                <p className={cn('text-[10px] uppercase tracking-[0.18em]', mutedTextClass)}>Cart</p>
+                                                <p className={cn('mt-1 text-2xl font-black', strongTextClass)}>{cartItems.length}</p>
+                                            </div>
+                                            <div className={cn('rounded-2xl border p-3', panelClass)}>
+                                                <p className={cn('text-[10px] uppercase tracking-[0.18em]', mutedTextClass)}>Wishlist</p>
+                                                <p className={cn('mt-1 text-2xl font-black', strongTextClass)}>{wishlistItems.length}</p>
+                                            </div>
                                         </div>
-                                    )}
+                                        <div className={cn('rounded-2xl border p-3', panelClass)}>
+                                            <p className={cn('text-[10px] uppercase tracking-[0.18em]', mutedTextClass)}>Identity</p>
+                                            <p className={cn('mt-1 text-sm font-bold', strongTextClass)}>
+                                                {isAuthenticated ? currentUser?.displayName || currentUser?.email || 'Signed in' : 'Guest mode'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
 
-                                    {/* Quick Suggestions Bubbles */}
-                                    {msg.role === 'bot' && msg.suggestions && msg.suggestions.length > 0 && idx === messages.length - 1 && (
-                                        <div className="flex flex-wrap gap-2 mt-4 animate-fade-in-up">
-                                                {msg.suggestions.map((s, i) => (
-                                                    <button key={i}
-                                                        onClick={() => handleSuggestionClick(s)}
-                                                        className="text-xs px-4 py-2 rounded-full font-medium transition-all duration-300 text-indigo-200 bg-indigo-500/10 border border-indigo-500/20 hover:bg-indigo-500/20 hover:border-indigo-400/50 hover:-translate-y-0.5 shadow-lg shadow-indigo-500/5">
-                                                        {s}
+                                <div className={cn('rounded-[1.5rem] border p-4', panelClass)}>
+                                    <p className={cn('text-[11px] font-black uppercase tracking-[0.18em]', mutedTextClass)}>Quick Missions</p>
+                                    <div className="mt-4 space-y-3">
+                                        {commandDeck.map((entry) => (
+                                            <button
+                                                key={entry.id}
+                                                type="button"
+                                                onClick={() => handleDeckClick(entry)}
+                                                className={cn(
+                                                    'group relative overflow-hidden rounded-2xl border p-4 text-left transition-transform hover:-translate-y-0.5',
+                                                    panelClass
+                                                )}
+                                            >
+                                                <div className={cn('pointer-events-none absolute inset-0 bg-gradient-to-br opacity-80', entry.accent)} />
+                                                <div className="relative flex items-start justify-between gap-3">
+                                                    <div>
+                                                        <p className={cn('text-sm font-black', strongTextClass)}>{entry.title}</p>
+                                                        <p className={cn('mt-1 text-xs leading-5', mutedTextClass)}>{entry.description}</p>
+                                                    </div>
+                                                    <entry.Icon className="h-4 w-4 flex-shrink-0" />
+                                                </div>
                                             </button>
                                         ))}
                                     </div>
-                                )}
-                            </div>
-                        ))}
+                                </div>
+                            </aside>
+                        ) : null}
 
-                        {/* Refined Typing Indicator */}
-                        {isLoading && (
-                            <div className="flex items-start animate-fade-in-up">
-                                <div className="px-4 py-3 rounded-2xl rounded-tl-sm flex items-center gap-2 bg-white/5 border border-white/10 shadow-lg">
-                                    <div className="flex gap-1.5">
-                                        <span className="w-2 h-2 rounded-full bg-gradient-to-t from-purple-500 to-indigo-400 animate-bounce"></span>
-                                        <span className="w-2 h-2 rounded-full bg-gradient-to-t from-purple-500 to-indigo-400 animate-bounce" style={{ animationDelay: '0.1s' }}></span>
-                                        <span className="w-2 h-2 rounded-full bg-gradient-to-t from-purple-500 to-indigo-400 animate-bounce" style={{ animationDelay: '0.2s' }}></span>
+                        <section className="flex min-h-0 flex-col">
+                            <div className="border-b border-white/10 px-4 py-4">
+                                <div className="flex flex-wrap items-center justify-between gap-3">
+                                    <div className="flex flex-wrap gap-2">
+                                        {MODE_OPTIONS.map((mode) => (
+                                            <button
+                                                key={mode.id}
+                                                type="button"
+                                                onClick={() => setActiveMode(mode.id)}
+                                                className={cn(
+                                                    'inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-black uppercase tracking-[0.16em] transition-colors',
+                                                    activeMode === mode.id
+                                                        ? isWhiteMode
+                                                            ? 'border-slate-950 bg-slate-950 text-white'
+                                                            : 'border-cyan-300/30 bg-cyan-400/12 text-cyan-100'
+                                                        : panelClass
+                                                )}
+                                                title={mode.hint}
+                                            >
+                                                <mode.Icon className="h-3.5 w-3.5" />
+                                                {mode.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <div className={cn('text-xs font-semibold', mutedTextClass)}>
+                                        {MODE_OPTIONS.find((mode) => mode.id === activeMode)?.hint}
                                     </div>
                                 </div>
-                            </div>
-                        )}
-                            <div ref={messagesEndRef} className="h-2" />
-                        </div>
 
-                        {/* ═══ Chat Input Area ═══ */}
-                        <div className="p-4 bg-gradient-to-b from-transparent to-black/40 border-t border-white/10">
-                            <form onSubmit={handleSubmit} className="relative flex items-end gap-2">
-                                <div className="relative flex-1 group">
-                                    <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-2xl blur-lg opacity-20 group-hover:opacity-40 transition-opacity duration-500"></div>
-                                    <textarea
-                                        ref={inputRef}
-                                        value={input}
-                                        onChange={(e) => setInput(e.target.value)}
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter' && !e.shiftKey) {
-                                                e.preventDefault();
-                                                handleSubmit(e);
-                                            }
-                                        }}
-                                        placeholder={isListening ? "Listening..." : "Ask AuraBot anything..."}
-                                        className="w-full relative bg-[#111827]/80 border border-white/20 rounded-2xl pl-4 pr-12 py-3 text-sm text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-transparent transition-all shadow-[inset_0_2px_4px_rgba(0,0,0,0.6)] resize-none"
-                                        rows={input.split('\n').length > 1 ? Math.min(input.split('\n').length, 4) : 1}
-                                        style={{ minHeight: '46px', scrollbarWidth: 'none' }}
-                                        disabled={isLoading}
-                                    />
-                                    {/* Microphone Button inside input box */}
-                                    <button 
+                                {!isExpanded ? (
+                                    <div className="mt-4 grid grid-cols-2 gap-3">
+                                        {commandDeck.map((entry) => (
+                                            <button
+                                                key={entry.id}
+                                                type="button"
+                                                onClick={() => handleDeckClick(entry)}
+                                                className={cn('relative overflow-hidden rounded-2xl border p-3 text-left', panelClass)}
+                                            >
+                                                <div className={cn('pointer-events-none absolute inset-0 bg-gradient-to-br opacity-80', entry.accent)} />
+                                                <div className="relative">
+                                                    <div className="flex items-center justify-between gap-3">
+                                                        <p className={cn('text-sm font-black', strongTextClass)}>{entry.title}</p>
+                                                        <entry.Icon className="h-4 w-4 flex-shrink-0" />
+                                                    </div>
+                                                    <p className={cn('mt-1 text-[11px] leading-5', mutedTextClass)}>{entry.description}</p>
+                                                </div>
+                                            </button>
+                                        ))}
+                                    </div>
+                                ) : null}
+                            </div>
+
+                            <div className="flex-1 overflow-y-auto px-4 py-5">
+                                <div className="space-y-5">
+                                    {messages.map((message) => {
+                                        const tone = getActionTone(message.actionType);
+                                        return (
+                                            <div
+                                                key={message.id}
+                                                className={cn('flex flex-col gap-3', message.role === 'user' ? 'items-end' : 'items-start')}
+                                            >
+                                                <div
+                                                    className={cn(
+                                                        'max-w-[92%] rounded-[1.5rem] border px-4 py-3 shadow-sm',
+                                                        message.role === 'user'
+                                                            ? isWhiteMode
+                                                                ? 'border-slate-950 bg-slate-950 text-white'
+                                                                : 'border-cyan-400/20 bg-gradient-to-br from-cyan-500/20 to-violet-500/25 text-slate-50'
+                                                            : panelClass
+                                                    )}
+                                                >
+                                                    {message.role === 'assistant' ? (
+                                                        <div className="mb-3 flex flex-wrap items-center gap-2">
+                                                            <span className={cn('inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em]', tone.className)}>
+                                                                <tone.Icon className="h-3 w-3" />
+                                                                {tone.label}
+                                                            </span>
+                                                            <span className={cn('rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em]', panelClass)}>
+                                                                {message.local ? 'instant' : (message.provider || 'local')}
+                                                            </span>
+                                                            {message.latencyMs ? (
+                                                                <span className={cn('rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em]', panelClass)}>
+                                                                    {message.latencyMs} ms
+                                                                </span>
+                                                            ) : null}
+                                                        </div>
+                                                    ) : null}
+
+                                                    {message.role === 'assistant' ? (
+                                                        <div className={cn(
+                                                            'prose prose-sm max-w-none leading-7',
+                                                            isWhiteMode
+                                                                ? 'prose-slate prose-headings:text-slate-950 prose-p:text-slate-700 prose-strong:text-slate-950 prose-a:text-cyan-700'
+                                                                : 'prose-invert prose-headings:text-slate-100 prose-p:text-slate-200 prose-strong:text-white prose-a:text-cyan-300'
+                                                        )}>
+                                                            <ReactMarkdown>{message.text}</ReactMarkdown>
+                                                        </div>
+                                                    ) : (
+                                                        <p className="text-sm leading-7">{message.text}</p>
+                                                    )}
+                                                </div>
+
+                                                {Array.isArray(message.actions) && message.actions.length > 0 ? (
+                                                    <div className="flex max-w-[92%] flex-wrap gap-2">
+                                                        {message.actions.map((action, index) => (
+                                                            <button
+                                                                key={`${message.id}-action-${index}`}
+                                                                type="button"
+                                                                onClick={() => executeAssistantAction(action)}
+                                                                className={cn(
+                                                                    'inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-black uppercase tracking-[0.16em] transition-colors',
+                                                                    panelClass
+                                                                )}
+                                                            >
+                                                                {getActionLabel(action)}
+                                                                <ArrowUpRight className="h-3.5 w-3.5" />
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                ) : null}
+
+                                                {Array.isArray(message.products) && message.products.length > 0 ? (
+                                                    <div className="grid w-full gap-3">
+                                                        {message.products.slice(0, isExpanded ? 6 : 4).map((product, index) => (
+                                                            <button
+                                                                key={product._id || product.id || `${message.id}-product-${index}`}
+                                                                type="button"
+                                                                onClick={() => navigate(`/product/${product.id || product._id}`)}
+                                                                className={cn('group flex w-full items-center gap-4 rounded-[1.4rem] border p-3 text-left transition-transform hover:-translate-y-0.5', panelClass)}
+                                                            >
+                                                                <div className={cn('flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-2xl border p-2', panelClass)}>
+                                                                    <img
+                                                                        src={product.image}
+                                                                        alt={product.title}
+                                                                        className="h-full w-full object-contain transition-transform duration-300 group-hover:scale-105"
+                                                                    />
+                                                                </div>
+                                                                <div className="min-w-0 flex-1">
+                                                                    <p className={cn('truncate text-sm font-bold', strongTextClass)}>{product.title}</p>
+                                                                    <div className="mt-1 flex flex-wrap items-center gap-2">
+                                                                        <span className="text-sm font-black text-emerald-400">
+                                                                            Rs {Number(product.price || 0).toLocaleString('en-IN')}
+                                                                        </span>
+                                                                        {Number(product.originalPrice || 0) > Number(product.price || 0) ? (
+                                                                            <span className="text-xs text-slate-500 line-through">
+                                                                                Rs {Number(product.originalPrice || 0).toLocaleString('en-IN')}
+                                                                            </span>
+                                                                        ) : null}
+                                                                        {product.rating ? (
+                                                                            <span className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-bold', panelClass)}>
+                                                                                <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                                                                                {product.rating}
+                                                                            </span>
+                                                                        ) : null}
+                                                                    </div>
+                                                                    <div className="mt-2 flex items-center justify-between gap-3">
+                                                                        <span className={cn('truncate text-xs', mutedTextClass)}>
+                                                                            {product.brand || 'Aura catalog'}
+                                                                        </span>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={(event) => handleAddToCart(product, event)}
+                                                                            className={cn('inline-flex items-center gap-1 rounded-full border px-2.5 py-1.5 text-[10px] font-black uppercase tracking-[0.16em]', panelClass)}
+                                                                        >
+                                                                            <ShoppingCart className="h-3.5 w-3.5" />
+                                                                            Add
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                ) : null}
+
+                                                {message.role === 'assistant' && Array.isArray(message.suggestions) && message.suggestions.length > 0 && message.id === messages[messages.length - 1]?.id ? (
+                                                    <div className="flex max-w-[92%] flex-wrap gap-2">
+                                                        {message.suggestions.map((suggestion, index) => (
+                                                            <button
+                                                                key={`${message.id}-suggestion-${index}`}
+                                                                type="button"
+                                                                onClick={() => handleSuggestionClick(suggestion)}
+                                                                className={cn('rounded-full border px-3 py-2 text-xs font-semibold transition-colors', panelClass)}
+                                                            >
+                                                                {suggestion}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                ) : null}
+                                            </div>
+                                        );
+                                    })}
+
+                                    {isLoading ? (
+                                        <div className="flex items-start">
+                                            <div className={cn('rounded-[1.5rem] border px-4 py-3', panelClass)}>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="h-2 w-2 animate-bounce rounded-full bg-cyan-400" />
+                                                    <span className="h-2 w-2 animate-bounce rounded-full bg-violet-400 [animation-delay:120ms]" />
+                                                    <span className="h-2 w-2 animate-bounce rounded-full bg-emerald-400 [animation-delay:240ms]" />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ) : null}
+
+                                    <div ref={messagesEndRef} />
+                                </div>
+                            </div>
+
+                            <div className="border-t border-white/10 px-4 py-4">
+                                <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                                    <div className={cn('flex flex-wrap items-center gap-2 text-xs font-semibold', mutedTextClass)}>
+                                        <span className={cn('rounded-full border px-2.5 py-1', panelClass)}>
+                                            <Search className="mr-1 inline h-3.5 w-3.5" />
+                                            {routeLabel}
+                                        </span>
+                                        <span className={cn('rounded-full border px-2.5 py-1', panelClass)}>
+                                            <ShoppingCart className="mr-1 inline h-3.5 w-3.5" />
+                                            {cartItems.length} cart
+                                        </span>
+                                        <span className={cn('rounded-full border px-2.5 py-1', panelClass)}>
+                                            <Heart className="mr-1 inline h-3.5 w-3.5" />
+                                            {wishlistItems.length} wishlist
+                                        </span>
+                                        <span className={cn('rounded-full border px-2.5 py-1', panelClass)}>
+                                            <UserRound className="mr-1 inline h-3.5 w-3.5" />
+                                            {isAuthenticated ? 'signed in' : 'guest'}
+                                        </span>
+                                    </div>
+                                    <button
                                         type="button"
-                                        onClick={toggleListening}
-                                        className={`absolute right-2 bottom-1.5 p-2 rounded-xl transition-all duration-300 ${
-                                            isListening 
-                                            ? 'text-red-400 bg-red-400/10 animate-pulse border border-red-400/30' 
-                                            : 'text-gray-400 hover:text-purple-300 hover:bg-white/5'
-                                        }`}
+                                        onClick={() => setShowVoiceAssistant(true)}
+                                        className={cn('inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-black uppercase tracking-[0.16em]', panelClass)}
                                     >
-                                        {isListening ? <Mic size={18} /> : <MicOff size={18} />}
+                                        <Zap className="h-3.5 w-3.5" />
+                                        Voice sprint
                                     </button>
                                 </div>
-                                <button
-                                    type="submit"
-                                    disabled={!input.trim() || isLoading}
-                                    className="relative flex-shrink-0 h-[46px] w-[46px] flex items-center justify-center rounded-2xl text-white disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-300 hover:scale-105 active:scale-95 shadow-lg group overflow-hidden"
-                                >
-                                    <div className="absolute inset-0 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 group-hover:scale-110 transition-transform duration-500"></div>
-                                    <Send size={18} className="relative z-10 translate-x-[-1px] translate-y-[1px]" />
-                                </button>
-                            </form>
-                            <p className="text-[10px] text-center text-gray-500 mt-3 font-medium">AuraBot can make mistakes. Consider verifying critical information.</p>
-                        </div>
+
+                                <form onSubmit={handleSubmit} className="flex items-end gap-3">
+                                    <div className="relative flex-1">
+                                        <textarea
+                                            ref={inputRef}
+                                            value={input}
+                                            onChange={(event) => setInput(event.target.value)}
+                                            onKeyDown={(event) => {
+                                                if (event.key === 'Enter' && !event.shiftKey) {
+                                                    event.preventDefault();
+                                                    handleSubmit(event);
+                                                }
+                                            }}
+                                            placeholder={
+                                                isListening
+                                                    ? 'Listening...'
+                                                    : activeMode === 'bundle'
+                                                        ? 'Example: Build a creator setup under Rs 90000'
+                                                        : activeMode === 'compare'
+                                                            ? 'Example: Compare the strongest recent picks'
+                                                            : 'Ask Aura Command for deals, routes, bundles, search, or voice actions'
+                                            }
+                                            className={cn(
+                                                'w-full resize-none rounded-[1.5rem] border px-4 py-3 pr-24 text-sm outline-none transition-colors',
+                                                panelClass,
+                                                isWhiteMode
+                                                    ? 'placeholder:text-slate-400'
+                                                    : 'placeholder:text-slate-500'
+                                            )}
+                                            rows={Math.min(Math.max(input.split('\n').length, 1), 5)}
+                                            disabled={isLoading}
+                                        />
+                                        <div className="absolute bottom-2 right-2 flex items-center gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={toggleListening}
+                                                className={cn(
+                                                    'rounded-2xl border p-2.5 transition-colors',
+                                                    isListening
+                                                        ? 'border-rose-400/30 bg-rose-500/10 text-rose-300'
+                                                        : panelClass
+                                                )}
+                                                title={isListening ? 'Stop dictation' : 'Start dictation'}
+                                            >
+                                                {isListening ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}
+                                            </button>
+                                            <button
+                                                type="submit"
+                                                disabled={!input.trim() || isLoading}
+                                                className={cn(
+                                                    'rounded-2xl border p-2.5 transition-transform disabled:cursor-not-allowed disabled:opacity-40',
+                                                    isWhiteMode
+                                                        ? 'border-slate-950 bg-slate-950 text-white'
+                                                        : 'border-cyan-300/25 bg-gradient-to-br from-cyan-500/20 to-violet-500/30 text-slate-50'
+                                                )}
+                                            >
+                                                <Send className="h-4 w-4" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                </form>
+
+                                <p className={cn('mt-3 text-[11px] font-medium', mutedTextClass)}>
+                                    Aura Command can act fast, but still verify critical prices, stock, and policy details before checkout.
+                                </p>
+                            </div>
+                        </section>
                     </div>
-                )}
-
-            {/* ═══ Floating Launcher Button ═══ */}
-            {!isOpen && (
+                </div>
+            ) : (
                 <button
+                    type="button"
                     onClick={() => setIsOpen(true)}
-                    className="pointer-events-auto relative flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 rounded-full shadow-[0_10px_40px_rgba(102,126,234,0.5)] group overflow-hidden z-[2147483600] transition-all duration-300 hover:scale-105 active:scale-95 animate-fade-in-up"
+                    className={cn(
+                        'pointer-events-auto relative flex items-center gap-3 rounded-full border px-4 py-3 backdrop-blur-xl transition-transform duration-300 hover:-translate-y-0.5',
+                        isWhiteMode
+                            ? 'border-slate-200/90 bg-white/90 text-slate-950 shadow-[0_18px_50px_rgba(15,23,42,0.12)]'
+                            : 'border-cyan-400/18 bg-[linear-gradient(135deg,rgba(6,10,24,0.96),rgba(14,23,45,0.96))] text-slate-50 shadow-[0_22px_60px_rgba(2,6,23,0.58)]'
+                    )}
                 >
-                        <div className="absolute inset-0 bg-gradient-to-br from-indigo-500 via-purple-600 to-pink-600"></div>
-                        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20 mix-blend-overlay"></div>
-                        <Sparkles size={28} className="text-white relative z-10 group-hover:animate-pulse filter drop-shadow-md" />
-                        
-                        {hasNewMessage && (
-                            <span className="absolute -top-1 -right-1 flex h-4 w-4 z-20">
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                                <span className="relative inline-flex rounded-full h-4 w-4 bg-red-500 border-2 border-[#1a1a2e] text-[8px] text-white items-center justify-center font-bold">1</span>
-                            </span>
-                        )}
+                    <div className={cn(
+                        'flex h-11 w-11 items-center justify-center rounded-full border',
+                        isWhiteMode
+                            ? 'border-cyan-200 bg-gradient-to-br from-cyan-500/15 to-indigo-500/15 text-cyan-700'
+                            : 'border-cyan-400/25 bg-gradient-to-br from-cyan-500/20 to-violet-500/25 text-cyan-100'
+                    )}>
+                        <MessageCircle className="h-5 w-5" />
+                    </div>
+                    <div className="hidden text-left sm:block">
+                        <p className="text-[10px] font-black uppercase tracking-[0.22em] text-cyan-300">Aura Command</p>
+                        <p className="max-w-[13rem] truncate text-sm font-semibold">{launcherHint}</p>
+                    </div>
+                    <ChevronRight className="hidden h-4 w-4 sm:block" />
 
-                    {/* Interactive Tooltip Ring */}
-                    <div className="absolute inset-0 rounded-full border border-white/20 scale-150 group-hover:scale-100 opacity-0 group-hover:opacity-100 transition-all duration-500 ease-out"></div>
+                    {unreadCount > 0 ? (
+                        <span className="absolute -right-1 -top-1 flex h-6 min-w-6 items-center justify-center rounded-full bg-rose-500 px-1.5 text-[11px] font-black text-white">
+                            {unreadCount}
+                        </span>
+                    ) : null}
                 </button>
             )}
 
-            {/* ═══ Global Keyframes ═══ */}
-            <style>{`
-                @keyframes shimmer {
-                    100% { transform: translateX(100%); }
-                }
-            `}</style>
+            {showVoiceAssistant ? (
+                <VoiceSearch
+                    onClose={() => setShowVoiceAssistant(false)}
+                    onResult={(query) => {
+                        setShowVoiceAssistant(false);
+                        handleSend(`Search for ${query}`);
+                    }}
+                />
+            ) : null}
         </div>,
         portalTarget
     );

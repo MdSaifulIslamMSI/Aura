@@ -1,33 +1,58 @@
 import { aiApi } from './aiApi';
 
 export const chatApi = {
-    sendMessage: async (message, conversationHistory = []) => {
+    sendMessage: async (input = {}, legacyConversationHistory = []) => {
+        const payload = typeof input === 'string'
+            ? {
+                message: input,
+                conversationHistory: legacyConversationHistory,
+            }
+            : {
+                message: input?.message || '',
+                conversationHistory: Array.isArray(input?.conversationHistory) ? input.conversationHistory : [],
+                assistantMode: input?.assistantMode || 'chat',
+                context: input?.context || {},
+                images: Array.isArray(input?.images) ? input.images : [],
+            };
+
         try {
-            const response = await aiApi.chat({
-                message,
-                assistantMode: 'chat',
-                conversationHistory,
-            });
+            const response = await aiApi.chat(payload);
             if (response?.legacy && typeof response.legacy === 'object') {
-                return response.legacy;
+                return {
+                    ...response.legacy,
+                    actions: response?.actions || [],
+                    provider: response?.provider || response.legacy?.provider || 'local',
+                    mode: response?.grounding?.mode || response.legacy?.mode || payload.assistantMode || 'chat',
+                    latencyMs: response?.latencyMs || 0,
+                    grounding: response?.grounding || null,
+                    providerCapabilities: response?.providerCapabilities || null,
+                };
             }
             return {
                 text: response?.answer || "Sorry, I'm having trouble connecting. Please try again!",
                 products: response?.products || [],
                 suggestions: response?.followUps || [],
+                actions: response?.actions || [],
                 actionType: response?.grounding?.actionType || 'assistant',
                 isAI: response?.provider !== 'local',
                 provider: response?.provider || 'local',
                 mode: response?.grounding?.mode || 'chat',
+                latencyMs: response?.latencyMs || 0,
+                grounding: response?.grounding || null,
+                providerCapabilities: response?.providerCapabilities || null,
             };
         } catch (error) {
             console.error("Chat Error:", error);
             return {
                 text: "Sorry, I'm having trouble connecting. Please try again!",
                 products: [],
-                suggestions: ['🔥 Best deals', '📱 Latest phones', '💻 Top laptops'],
+                suggestions: ['Best deals today', 'Search premium phones', 'Build a smart bundle'],
+                actions: [],
                 actionType: 'error',
-                isAI: false
+                isAI: false,
+                provider: 'local',
+                mode: 'chat',
+                latencyMs: 0,
             };
         }
     }
