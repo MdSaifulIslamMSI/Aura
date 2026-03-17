@@ -28,7 +28,7 @@ describe('signingSecrets config assertions', () => {
 
             const { assertSigningSecretsConfig } = require('../config/signingSecrets');
             expect(() => assertSigningSecretsConfig()).toThrow(
-                'OTP_FLOW_SECRET is required when NODE_ENV is not "test"'
+                'CRITICAL: OTP_FLOW_SECRET is missing'
             );
         }
     );
@@ -42,7 +42,7 @@ describe('signingSecrets config assertions', () => {
 
             const { assertSigningSecretsConfig } = require('../config/signingSecrets');
             expect(() => assertSigningSecretsConfig()).toThrow(
-                'UPLOAD_SIGNING_SECRET is required when NODE_ENV is not "test"'
+                'CRITICAL: UPLOAD_SIGNING_SECRET is missing'
             );
         }
     );

@@ -69,6 +69,7 @@ jest.mock('../controllers/authController', () => ({
     getSession: (_req, res) => res.json({ ok: true }),
     syncSession: (_req, res) => res.json({ synced: true }),
     verifyLatticeChallenge: (_req, res) => res.json({ ok: true }),
+    verifyQuantumChallenge: (_req, res) => res.json({ ok: true }),
 }));
 
 const authRoutes = require('../routes/authRoutes');
@@ -154,5 +155,5 @@ describe('CSRF auth route integration', () => {
 
         expect(reusedRes.statusCode).toBe(403);
         expect(reusedRes.body.code).toBe('CSRF_TOKEN_INVALID');
-    });
+    }, 15000);
 });

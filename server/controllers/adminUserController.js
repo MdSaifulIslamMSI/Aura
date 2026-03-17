@@ -4,10 +4,13 @@ const Order = require('../models/Order');
 const Listing = require('../models/Listing');
 const PaymentIntent = require('../models/PaymentIntent');
 const UserGovernanceLog = require('../models/UserGovernanceLog');
+const mongoose = require('mongoose');
 const AppError = require('../utils/AppError');
 const { invalidateUserCacheByEmail } = require('../middleware/authMiddleware');
 const logger = require('../utils/logger');
 const { notifyAdminActionToUser } = require('../services/email/adminActionEmailService');
+const { sendMessageToUser } = require('../services/socketService');
+const { sendPersistentNotification } = require('../services/notificationService');
 
 const USER_ADMIN_PROJECTION = `
 name email phone avatar isAdmin isVerified isSeller sellerActivatedAt
@@ -336,7 +339,7 @@ const warnAdminUser = asyncHandler(async (req, res, next) => {
     }
     await targetUser.save();
 
-    await safeLogGovernanceAction({
+    const logEntry = await safeLogGovernanceAction({
         actionType: 'warn',
         targetUser,
         actorUser: req.user,
@@ -366,6 +369,14 @@ const warnAdminUser = asyncHandler(async (req, res, next) => {
         ip: req.ip,
         userAgent: req.headers['user-agent'],
     });
+
+    try {
+        // Real-time Push & Persistent Notification
+        await sendPersistentNotification(targetUser._id, 'Account Warning', `You have received an official warning: ${reason}`, {
+            type: 'governance',
+            relatedEntity: logEntry._id
+        });
+    } catch (e) { }
 
     res.json({
         success: true,
@@ -406,7 +417,7 @@ const suspendAdminUser = asyncHandler(async (req, res, next) => {
         { $set: { status: 'expired' } }
     );
 
-    await safeLogGovernanceAction({
+    const logEntry = await safeLogGovernanceAction({
         actionType: 'suspend',
         targetUser,
         actorUser: req.user,
@@ -438,6 +449,14 @@ const suspendAdminUser = asyncHandler(async (req, res, next) => {
         userAgent: req.headers['user-agent'],
     });
 
+    try {
+        // Real-time Push & Persistent Notification
+        await sendPersistentNotification(targetUser._id, 'Account Suspended', `Your account has been suspended until ${suspendedUntil.toLocaleDateString()}. Reason: ${reason}`, {
+            type: 'governance',
+            relatedEntity: logEntry._id
+        });
+    } catch (e) { }
+
     res.json({
         success: true,
         message: 'User suspended successfully',
@@ -464,11 +483,12 @@ const dismissAdminUserWarning = asyncHandler(async (req, res, next) => {
     targetUser.moderation.lastWarningReason = '';
     await targetUser.save();
 
-    await safeLogGovernanceAction({
+    const reason = sanitizeReason(req.body?.reason, 'Warning dismissed by admin');
+    const logEntry = await safeLogGovernanceAction({
         actionType: 'dismiss_warning',
         targetUser,
         actorUser: req.user,
-        reason: sanitizeReason(req.body?.reason, 'Warning dismissed by admin'),
+        reason,
         metadata: { accountState: targetUser.accountState },
         requestId: req.requestId,
     });
@@ -482,7 +502,7 @@ const dismissAdminUserWarning = asyncHandler(async (req, res, next) => {
         actionSummary: 'An administrator cleared a warning and restored your account to active state.',
         highlights: [
             `New account state: ${targetUser.accountState}`,
-            `Admin note: ${sanitizeReason(req.body?.reason, 'Warning dismissed')}`,
+            `Admin note: ${reason}`,
         ],
         requestId: req.requestId,
         method: req.method,
@@ -490,6 +510,14 @@ const dismissAdminUserWarning = asyncHandler(async (req, res, next) => {
         ip: req.ip,
         userAgent: req.headers['user-agent'],
     });
+
+    try {
+        // Real-time Push & Persistent Notification
+        await sendPersistentNotification(targetUser._id, 'Warning Dismissed', `An official warning on your account has been dismissed. Reason: ${reason}`, {
+            type: 'governance',
+            relatedEntity: logEntry._id
+        });
+    } catch (e) { }
 
     res.json({
         success: true,
@@ -519,11 +547,12 @@ const reactivateAdminUser = asyncHandler(async (req, res, next) => {
     targetUser.moderation.reactivatedBy = req.user._id;
     await targetUser.save();
 
-    await safeLogGovernanceAction({
+    const reason = sanitizeReason(req.body?.reason, 'User reactivated by admin');
+    const logEntry = await safeLogGovernanceAction({
         actionType: 'reactivate',
         targetUser,
         actorUser: req.user,
-        reason: sanitizeReason(req.body?.reason, 'User reactivated by admin'),
+        reason,
         metadata: { accountState: targetUser.accountState },
         requestId: req.requestId,
     });
@@ -537,7 +566,7 @@ const reactivateAdminUser = asyncHandler(async (req, res, next) => {
         actionSummary: 'Your account access has been restored by an administrator review.',
         highlights: [
             `New account state: ${targetUser.accountState}`,
-            `Admin note: ${sanitizeReason(req.body?.reason, 'Account reactivated')}`,
+            `Admin note: ${reason}`,
         ],
         requestId: req.requestId,
         method: req.method,
@@ -545,6 +574,14 @@ const reactivateAdminUser = asyncHandler(async (req, res, next) => {
         ip: req.ip,
         userAgent: req.headers['user-agent'],
     });
+
+    try {
+        // Real-time Push & Persistent Notification
+        await sendPersistentNotification(targetUser._id, 'Account Reactivated', `Your account suspension has been lifted early. Reason: ${reason}`, {
+            type: 'governance',
+            relatedEntity: logEntry._id
+        });
+    } catch (e) { }
 
     res.json({
         success: true,
@@ -607,7 +644,7 @@ const deleteAdminUser = asyncHandler(async (req, res, next) => {
         { $set: { 'metadata.deletedUser': true, 'metadata.deletedAt': now } }
     );
 
-    await safeLogGovernanceAction({
+    const logEntry = await safeLogGovernanceAction({
         actionType: 'delete',
         targetUser,
         actorUser: req.user,
@@ -638,6 +675,14 @@ const deleteAdminUser = asyncHandler(async (req, res, next) => {
         ip: req.ip,
         userAgent: req.headers['user-agent'],
     });
+
+    try {
+        // Real-time Push & Persistent Notification
+        await sendPersistentNotification(targetUser._id, 'Account Deleted', `Your account has been permanently disabled. Contact support if this is an error. Reason: ${reason}`, {
+            type: 'governance',
+            relatedEntity: logEntry._id
+        });
+    } catch (e) { }
 
     logger.warn('admin.user_soft_deleted', {
         requestId: req.requestId || '',

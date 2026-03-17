@@ -10,8 +10,8 @@ const logger = require('../utils/logger');
 const AppError = require('../utils/AppError');
 const { buildProductImageDeliveryUrl } = require('../services/productImageResolver');
 
-const PROFILE_PROJECTION = 'name email phone avatar gender dob bio isAdmin isVerified isSeller sellerActivatedAt addresses cart wishlist loyalty createdAt';
-const AUTH_ONLY_PROJECTION = 'name email phone isAdmin isVerified isSeller sellerActivatedAt loyalty';
+const PROFILE_PROJECTION = 'name email phone avatar gender dob bio isAdmin isVerified isSeller sellerActivatedAt accountState moderation addresses cart wishlist loyalty createdAt';
+const AUTH_ONLY_PROJECTION = 'name email phone isAdmin isVerified isSeller sellerActivatedAt accountState moderation loyalty';
 
 const PHONE_REGEX = /^\+?\d{10,15}$/;
 
@@ -282,6 +282,8 @@ const loginUser = asyncHandler(async (req, res, next) => {
         isVerified: user.isVerified,
         isSeller: Boolean(user.isSeller),
         sellerActivatedAt: user.sellerActivatedAt || null,
+        accountState: user.accountState || 'active',
+        moderation: user.moderation || {},
         loyalty: getRewardSnapshotFromUser(user),
     });
 });
@@ -326,6 +328,8 @@ const getUserProfile = asyncHandler(async (req, res, next) => {
         isVerified: user.isVerified,
         isSeller: Boolean(user.isSeller),
         sellerActivatedAt: user.sellerActivatedAt || null,
+        accountState: user.accountState || 'active',
+        moderation: user.moderation || {},
         addresses: user.addresses || [],
         cart: hydratedCart,
         wishlist: user.wishlist,
@@ -399,6 +403,8 @@ const updateUserProfile = asyncHandler(async (req, res, next) => {
         isVerified: user.isVerified,
         isSeller: Boolean(user.isSeller),
         sellerActivatedAt: user.sellerActivatedAt || null,
+        accountState: user.accountState || 'active',
+        moderation: user.moderation || {},
         addresses: user.addresses || [],
         loyalty: getRewardSnapshotFromUser(user),
         createdAt: user.createdAt,

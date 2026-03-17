@@ -1,4 +1,16 @@
 const request = require('supertest');
+
+jest.mock('../middleware/authMiddleware', () => ({
+    protect: (req, res, next) => res.status(401).json({ message: 'Not authorized' }),
+    protectOptional: (req, res, next) => next(),
+    admin: (req, res, next) => next(),
+    seller: (req, res, next) => next(),
+    requireOtpAssurance: (req, res, next) => next(),
+    requireActiveAccount: (req, res, next) => next(),
+    invalidateUserCache: jest.fn(),
+    invalidateUserCacheByEmail: jest.fn(),
+}));
+
 const app = require('../index');
 const mongoose = require('mongoose');
 const Order = require('../models/Order');

@@ -8,6 +8,10 @@ const makeUser = (overrides = {}) => User.create({
 });
 
 describe('User Phone Index Integrity', () => {
+    beforeAll(async () => {
+        await User.init();
+    });
+
     test('allows multiple users with no phone number or blank phone values', async () => {
         await expect(makeUser()).resolves.toBeTruthy();
         await expect(makeUser({ phone: '' })).resolves.toBeTruthy();

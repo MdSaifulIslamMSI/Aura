@@ -23,6 +23,17 @@ const invalidateProfileCache = () => {
 };
 
 export const userApi = {
+    login: async (email, name, phone, options = {}) => {
+        // Assume authApi is imported or we can just fetch from /auth/sync directly since authApi might not be accessible here cleanly without a circular dependency.
+        const headers = await getAuthHeader(options.firebaseUser);
+        const { data } = await apiFetch('/auth/sync', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ email, name, phone }),
+        });
+        invalidateProfileCache();
+        return data?.profile || null;
+    },
     getProfile: async (options = {}) => {
         const { firebaseUser, force, cacheMs = PROFILE_CACHE_TTL_MS } = options;
         const cacheKey = getProfileCacheKey(firebaseUser);
