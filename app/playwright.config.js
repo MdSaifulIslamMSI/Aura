@@ -6,6 +6,9 @@ import { defineConfig, devices } from '@playwright/test';
  * Tests run against the Vite dev server (automatically started by Playwright).
  * In CI, the server is built and served via `vite preview` for speed.
  *
+ * Defensive precheck: `use.baseURL` is fixed to http://localhost:4173 and must be
+ * served by Vite preview from the `app/` directory.
+ *
  * @see https://playwright.dev/docs/test-configuration
  */
 export default defineConfig({
@@ -19,6 +22,7 @@ export default defineConfig({
     ],
 
     use: {
+        // Must match the Vite preview server started from `app/` in webServer below.
         baseURL: 'http://localhost:4173',
         trace: 'on-first-retry',
         screenshot: 'only-on-failure',
@@ -50,6 +54,8 @@ export default defineConfig({
         },
         {
             command: 'npm run build && npm run preview',
+            // Explicit app cwd; absolute-safe when launcher is invoked from repo root.
+            cwd: new URL('.', import.meta.url).pathname,
             url: 'http://localhost:4173',
             reuseExistingServer: !process.env.CI,
             timeout: 120_000,

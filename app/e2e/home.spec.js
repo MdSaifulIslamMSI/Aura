@@ -9,6 +9,8 @@ import { test, expect } from '@playwright/test';
 test.describe('Home Page', () => {
     test.beforeEach(async ({ page }) => {
         await page.goto('/');
+        await page.waitForLoadState('networkidle');
+        await page.locator('#main-content').first().waitFor({ state: 'attached', timeout: 15000 });
     });
 
     test('page title contains AURA', async ({ page }) => {

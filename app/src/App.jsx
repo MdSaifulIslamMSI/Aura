@@ -21,6 +21,7 @@ import RouteTransitionShell from './components/shared/RouteTransitionShell';
 import AppErrorBoundary from './components/shared/AppErrorBoundary';
 import BackendStatusBanner from './components/shared/BackendStatusBanner';
 import { trustRoutes } from './config/trustContent';
+import { assertRouteA11yContracts } from './utils/a11yContracts';
 
 // Pages (Lazy Loaded for Performance)
 const Home = lazy(() => import('./pages/Home'));
@@ -123,6 +124,21 @@ function AppContent() {
     () => !pathname.startsWith('/admin') && routeMatches(pathname, CHATBOT_PREFIXES),
     [pathname]
   );
+
+
+  useEffect(() => {
+    if (!import.meta.env.DEV || typeof window === 'undefined') {
+      return undefined;
+    }
+
+    const rafId = window.requestAnimationFrame(() => {
+      assertRouteA11yContracts(pathname);
+    });
+
+    return () => {
+      window.cancelAnimationFrame(rafId);
+    };
+  }, [pathname]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !showChatBot || chatBotReady) return undefined;
