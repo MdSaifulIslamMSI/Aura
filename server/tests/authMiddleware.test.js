@@ -1,9 +1,32 @@
 const request = require('supertest');
 const express = require('express');
-const app = require('../index');
-const { requireOtpAssurance } = require('../middleware/authMiddleware');
+const { protect, requireOtpAssurance } = require('../middleware/authMiddleware');
+
+const buildBasicApp = () => {
+    const app = express();
+    app.use(express.json());
+    
+    // Mock routes protected by authMiddleware
+    app.get('/api/users/profile', protect, (req, res) => res.status(200).json({ ok: true }));
+    app.put('/api/users/cart', protect, (req, res) => res.status(200).json({ ok: true }));
+    app.put('/api/users/wishlist', protect, (req, res) => res.status(200).json({ ok: true }));
+    app.post('/api/orders', protect, (req, res) => res.status(200).json({ ok: true }));
+    app.get('/api/orders/myorders', protect, (req, res) => res.status(200).json({ ok: true }));
+    
+    // Mock error handler
+    app.use((err, _req, res, _next) => {
+        res.status(err.statusCode || 500).json({ message: err.message });
+    });
+    return app;
+};
 
 describe('Auth Middleware Tests', () => {
+    let app;
+
+    beforeEach(() => {
+        app = buildBasicApp();
+    });
+
     describe('Protected Routes', () => {
         test('GET /api/users/profile should return 401 without token', async () => {
             const res = await request(app).get('/api/users/profile');
