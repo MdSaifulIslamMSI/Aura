@@ -4,14 +4,23 @@ import { useSocket } from './SocketContext';
 import { useAuth } from './AuthContext';
 import { toast } from 'react-hot-toast';
 
-const NotificationContext = createContext();
+const DEFAULT_NOTIFICATION_CONTEXT = {
+    notifications: [],
+    unreadCount: 0,
+    isLoading: false,
+    markAsRead: async () => {},
+    markAllAsRead: async () => {},
+    fetchNotifications: async () => {},
+};
+
+const NotificationContext = createContext(DEFAULT_NOTIFICATION_CONTEXT);
 
 export function useNotifications() {
-    return useContext(NotificationContext);
+    return useContext(NotificationContext) || DEFAULT_NOTIFICATION_CONTEXT;
 }
 
 export function NotificationProvider({ children }) {
-    const { user, isAuthenticated } = useAuth();
+    const { isAuthenticated } = useAuth();
     const { socket } = useSocket();
     const [notifications, setNotifications] = useState([]);
     const [unreadCount, setUnreadCount] = useState(0);

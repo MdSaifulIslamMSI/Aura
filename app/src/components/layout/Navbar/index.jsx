@@ -51,13 +51,14 @@ const NavbarSearchFallback = ({
 );
 
 const NavbarNotificationsFallback = () => (
-  <Link
-    to="/profile"
-    aria-label="Open profile notifications"
-    className="relative flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.045] text-slate-200 transition-all hover:border-white/18 hover:bg-white/[0.08] hover:text-white"
+  <button
+    type="button"
+    aria-label="Notifications temporarily unavailable"
+    title="Notifications are temporarily unavailable"
+    className="relative flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.045] text-slate-200 opacity-80"
   >
     <Bell className="h-[1.125rem] w-[1.125rem]" />
-  </Link>
+  </button>
 );
 
 export const NavbarFailureFallback = () => (
@@ -246,6 +247,18 @@ const Navbar = () => {
     'hidden xl:inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.045] px-4 py-2.5 text-sm font-semibold text-slate-200 transition-all duration-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] hover:-translate-y-0.5 hover:border-white/18 hover:bg-white/[0.075] hover:text-white';
   const quickActionLinks = [
     {
+      label: 'Marketplace',
+      path: '/marketplace',
+      icon: Store,
+      tone: 'border-sky-300/20 bg-sky-500/10 text-sky-100 hover:bg-sky-500/15',
+    },
+    {
+      label: 'Mission OS',
+      path: '/mission-control',
+      icon: Sparkles,
+      tone: 'border-cyan-300/25 bg-cyan-500/10 text-cyan-100 hover:bg-cyan-500/15',
+    },
+    {
       label: 'AI Compare',
       path: '/compare',
       icon: Gauge,
@@ -377,20 +390,6 @@ const Navbar = () => {
             {/* Primary commerce actions */}
             <div className="hidden xl:flex items-center gap-2 flex-shrink-0">
               <Link
-                to="/mission-control"
-                className={navActionClasses}
-              >
-                <Sparkles className="w-4 h-4" />
-                Mission OS
-              </Link>
-              <Link
-                to="/marketplace"
-                className={navActionClasses}
-              >
-                <Store className="w-4 h-4" />
-                Marketplace
-              </Link>
-              <Link
                 to={sellerCtaTarget}
                 className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-neo-cyan to-neo-emerald px-4 py-2.5 text-sm font-black text-white shadow-[0_16px_32px_rgba(6,182,212,0.2)] transition-all duration-200 hover:-translate-y-0.5 hover:from-sky-500 hover:to-emerald-500"
               >
@@ -415,7 +414,7 @@ const Navbar = () => {
                   aria-expanded={isQuickPanelOpen}
                 >
                   <LayoutGrid className="h-4 w-4 text-neo-cyan" />
-                  <span className="hidden xl:inline">Explore</span>
+                      <span className="hidden 2xl:inline">Explore</span>
                   <ChevronDown className={cn('h-4 w-4 opacity-60 transition-transform', isQuickPanelOpen && 'rotate-180')} />
                 </button>
 
@@ -489,253 +488,249 @@ const Navbar = () => {
                 )}
               </div>
 
-              {/* User Menu */}
-              <div className="relative" ref={userMenuRef}>
-                {activeUser ? (
-                  <button
-                    onClick={() => {
-                      setIsQuickPanelOpen(false);
-                      setIsUserMenuOpen((open) => {
-                        const nextOpen = !open;
-                        if (!nextOpen) {
-                          setIsPreferencesOpen(false);
-                          setIsAdminToolsOpen(false);
-                        }
-                        return nextOpen;
-                      });
-                    }}
-                    className="flex max-w-[8rem] items-center gap-2 rounded-full border border-white/10 bg-white/[0.045] px-2.5 py-2 text-slate-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition-all hover:border-white/18 hover:bg-white/[0.08] hover:text-white xl:max-w-[10rem]"
-                  >
-                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-neo-cyan/25 to-neo-emerald/25 border border-white/10">
-                      <User className="w-4 h-4 text-neo-cyan" />
-                    </span>
-                    <span className="hidden xl:inline text-sm font-semibold tracking-wide truncate">
-                      {displayName}
-                    </span>
-                    <ChevronDown className="w-4 h-4 hidden xl:block opacity-50" />
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={goToLoginPage}
-                    className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.045] px-3 py-2 text-sm font-semibold text-white shadow-[0_16px_36px_rgba(2,8,23,0.18),inset_0_1px_0_rgba(255,255,255,0.05)] transition-all duration-300 hover:-translate-y-0.5 hover:border-neo-cyan hover:bg-white/[0.08] active:translate-y-0 sm:px-4 lg:px-5"
-                  >
-                    Login
-                  </button>
-                )}
-
-                {/* Notifications */}
-                {activeUser && (
-                  <AppErrorBoundary fallback={<NavbarNotificationsFallback />}>
-                    <NotificationDropdown />
-                  </AppErrorBoundary>
-                )}
-
-                {/* User Dropdown */}
-                {isUserMenuOpen && activeUser && (
-                  <>
+              {activeUser ? (
+                <div className="flex items-center gap-2 sm:gap-2.5">
+                  <div className="relative" ref={userMenuRef}>
                     <button
-                      type="button"
-                      aria-label="Close profile menu backdrop"
-                      className="fixed inset-0 z-40 bg-zinc-950/34"
                       onClick={() => {
-                        setIsUserMenuOpen(false);
-                        setIsPreferencesOpen(false);
-                        setIsAdminToolsOpen(false);
+                        setIsQuickPanelOpen(false);
+                        setIsUserMenuOpen((open) => {
+                          const nextOpen = !open;
+                          if (!nextOpen) {
+                            setIsPreferencesOpen(false);
+                            setIsAdminToolsOpen(false);
+                          }
+                          return nextOpen;
+                        });
                       }}
-                    />
-                    <div className="absolute right-0 z-[60] mt-3 w-[16.5rem] max-w-[calc(100vw-1.5rem)] max-h-[min(31rem,calc(100vh-6.5rem))] overflow-x-hidden overflow-y-auto rounded-2xl border border-white/12 bg-[#061018] py-2 shadow-[0_28px_90px_rgba(2,8,23,0.8)] ring-1 ring-white/8 animate-fade-in">
-                      <div className="px-4 pb-2">
-                        <div className="text-sm font-bold text-white truncate">{displayName}</div>
-                        <div className="text-xs text-slate-400 truncate">{activeUser.email}</div>
-                        <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-amber-300/20 bg-amber-400/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-amber-100">
-                          <Sparkles className="h-3 w-3" />
-                          {loyaltyPoints.toLocaleString('en-IN')} AP
-                        </div>
-                      </div>
-                      <div className="my-1 border-t border-white/10" />
-                      <Link
-                        to="/profile"
-                        className="block px-4 py-2.5 text-sm text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
-                        onClick={() => setIsUserMenuOpen(false)}
-                      >
-                        My Profile
-                      </Link>
-                      {isSeller ? (
-                        <Link
-                          to="/my-listings"
-                          className="block px-4 py-2.5 text-sm text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
-                          onClick={() => setIsUserMenuOpen(false)}
-                        >
-                          My Listings
-                        </Link>
-                      ) : (
-                        <Link
-                          to="/become-seller"
-                          className="block px-4 py-2.5 text-sm text-neo-cyan transition-colors hover:bg-cyan-500/10 hover:text-cyan-200"
-                          onClick={() => setIsUserMenuOpen(false)}
-                        >
-                          Become Seller
-                        </Link>
-                      )}
-                      <Link
-                        to="/wishlist"
-                        className="block px-4 py-2.5 text-sm text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
-                        onClick={() => setIsUserMenuOpen(false)}
-                      >
-                        Wishlist
-                      </Link>
-                      <Link
-                        to="/orders"
-                        className="block px-4 py-2.5 text-sm text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
-                        onClick={() => setIsUserMenuOpen(false)}
-                      >
-                        Orders
-                      </Link>
-                      {dbUser?.isAdmin && (
-                        <>
+                      className="flex max-w-[8.2rem] items-center gap-2 rounded-full border border-white/10 bg-white/[0.045] px-2.5 py-2 text-slate-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition-all hover:border-white/18 hover:bg-white/[0.08] hover:text-white xl:max-w-[9.5rem] 2xl:max-w-[11rem]"
+                    >
+                      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-neo-cyan/25 to-neo-emerald/25 border border-white/10">
+                        <User className="w-4 h-4 text-neo-cyan" />
+                      </span>
+                      <span className="hidden xl:inline text-sm font-semibold tracking-wide truncate">
+                        {displayName}
+                      </span>
+                      <ChevronDown className="hidden h-4 w-4 opacity-50 2xl:block" />
+                    </button>
+
+                    {isUserMenuOpen && (
+                      <>
+                        <button
+                          type="button"
+                          aria-label="Close profile menu backdrop"
+                          className="fixed inset-0 z-40 bg-zinc-950/34"
+                          onClick={() => {
+                            setIsUserMenuOpen(false);
+                            setIsPreferencesOpen(false);
+                            setIsAdminToolsOpen(false);
+                          }}
+                        />
+                        <div className="absolute right-0 z-[60] mt-3 w-[16.5rem] max-w-[calc(100vw-1.5rem)] max-h-[min(31rem,calc(100vh-6.5rem))] overflow-x-hidden overflow-y-auto rounded-2xl border border-white/12 bg-[#061018] py-2 shadow-[0_28px_90px_rgba(2,8,23,0.8)] ring-1 ring-white/8 animate-fade-in">
+                          <div className="px-4 pb-2">
+                            <div className="text-sm font-bold text-white truncate">{displayName}</div>
+                            <div className="text-xs text-slate-400 truncate">{activeUser.email}</div>
+                            <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-amber-300/20 bg-amber-400/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-amber-100">
+                              <Sparkles className="h-3 w-3" />
+                              {loyaltyPoints.toLocaleString('en-IN')} AP
+                            </div>
+                          </div>
+                          <div className="my-1 border-t border-white/10" />
+                          <Link
+                            to="/profile"
+                            className="block px-4 py-2.5 text-sm text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
+                            onClick={() => setIsUserMenuOpen(false)}
+                          >
+                            My Profile
+                          </Link>
+                          {isSeller ? (
+                            <Link
+                              to="/my-listings"
+                              className="block px-4 py-2.5 text-sm text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
+                              onClick={() => setIsUserMenuOpen(false)}
+                            >
+                              My Listings
+                            </Link>
+                          ) : (
+                            <Link
+                              to="/become-seller"
+                              className="block px-4 py-2.5 text-sm text-neo-cyan transition-colors hover:bg-cyan-500/10 hover:text-cyan-200"
+                              onClick={() => setIsUserMenuOpen(false)}
+                            >
+                              Become Seller
+                            </Link>
+                          )}
+                          <Link
+                            to="/wishlist"
+                            className="block px-4 py-2.5 text-sm text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
+                            onClick={() => setIsUserMenuOpen(false)}
+                          >
+                            Wishlist
+                          </Link>
+                          <Link
+                            to="/orders"
+                            className="block px-4 py-2.5 text-sm text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
+                            onClick={() => setIsUserMenuOpen(false)}
+                          >
+                            Orders
+                          </Link>
+                          {dbUser?.isAdmin && (
+                            <>
+                              <div className="my-1 border-t border-white/10" />
+                              <button
+                                type="button"
+                                onClick={() => setIsAdminToolsOpen((open) => !open)}
+                                className="flex w-full items-center justify-between px-4 py-2.5 text-left text-sm font-semibold text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
+                              >
+                                <span className="flex items-center gap-2">
+                                  <Shield className="h-4 w-4 text-amber-200" />
+                                  Admin Tools
+                                </span>
+                                <ChevronDown className={cn('h-4 w-4 opacity-50 transition-transform', isAdminToolsOpen && 'rotate-180')} />
+                              </button>
+                              {isAdminToolsOpen && (
+                                <div className="px-3 pb-2">
+                                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-1.5">
+                                    <Link
+                                      to="/admin/dashboard"
+                                      className="block rounded-xl px-3 py-2 text-sm text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
+                                      onClick={() => setIsUserMenuOpen(false)}
+                                    >
+                                      Admin Dashboard
+                                    </Link>
+                                    <Link
+                                      to="/admin/payments"
+                                      className="block rounded-xl px-3 py-2 text-sm text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
+                                      onClick={() => setIsUserMenuOpen(false)}
+                                    >
+                                      Payment Ops
+                                    </Link>
+                                    <Link
+                                      to="/admin/users"
+                                      className="block rounded-xl px-3 py-2 text-sm text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
+                                      onClick={() => setIsUserMenuOpen(false)}
+                                    >
+                                      User Governance
+                                    </Link>
+                                    <Link
+                                      to="/admin/support"
+                                      className="block rounded-xl px-3 py-2 text-sm text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
+                                      onClick={() => setIsUserMenuOpen(false)}
+                                    >
+                                      Customer Support
+                                    </Link>
+                                  </div>
+                                </div>
+                              )}
+                            </>
+                          )}
                           <div className="my-1 border-t border-white/10" />
                           <button
                             type="button"
-                            onClick={() => setIsAdminToolsOpen((open) => !open)}
+                            onClick={() => setIsPreferencesOpen((open) => !open)}
                             className="flex w-full items-center justify-between px-4 py-2.5 text-left text-sm font-semibold text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
                           >
                             <span className="flex items-center gap-2">
-                              <Shield className="h-4 w-4 text-amber-200" />
-                              Admin Tools
+                              <Palette className="h-4 w-4 text-neo-cyan" />
+                              Preferences
                             </span>
-                            <ChevronDown className={cn('h-4 w-4 opacity-50 transition-transform', isAdminToolsOpen && 'rotate-180')} />
+                            <ChevronDown className={cn('h-4 w-4 opacity-50 transition-transform', isPreferencesOpen && 'rotate-180')} />
                           </button>
-                          {isAdminToolsOpen && (
-                            <div className="px-3 pb-2">
-                              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-1.5">
-                                <Link
-                                  to="/admin/dashboard"
-                                  className="block rounded-xl px-3 py-2 text-sm text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
-                                  onClick={() => setIsUserMenuOpen(false)}
+                          {isPreferencesOpen && (
+                            <div className="px-3 pb-3">
+                              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+                                <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Color mode</div>
+                                <PremiumSelect
+                                  value={colorMode}
+                                  onChange={(e) => setColorMode(e.target.value)}
+                                  className="mt-2 w-full rounded-xl border border-white/10 bg-zinc-950/80 px-3 py-2 text-sm font-semibold text-slate-100 outline-none transition-colors hover:border-white/20"
                                 >
-                                  Admin Dashboard
-                                </Link>
-                                <Link
-                                  to="/admin/payments"
-                                  className="block rounded-xl px-3 py-2 text-sm text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
-                                  onClick={() => setIsUserMenuOpen(false)}
-                                >
-                                  Payment Ops
-                                </Link>
-                                <Link
-                                  to="/admin/users"
-                                  className="block rounded-xl px-3 py-2 text-sm text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
-                                  onClick={() => setIsUserMenuOpen(false)}
-                                >
-                                  User Governance
-                                </Link>
-                                <Link
-                                  to="/admin/support"
-                                  className="block rounded-xl px-3 py-2 text-sm text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
-                                  onClick={() => setIsUserMenuOpen(false)}
-                                >
-                                  Customer Support
-                                </Link>
+                                  {colorModeOptions.map((mode) => (
+                                    <option key={mode.value} value={mode.value} className="bg-zinc-950 text-slate-100">
+                                      {mode.label}
+                                    </option>
+                                  ))}
+                                </PremiumSelect>
+                                <div className="mt-2 flex items-center gap-2 text-xs text-slate-400">
+                                  <span
+                                    className="h-3 w-3 rounded-full border border-white/20"
+                                    style={{
+                                      background: `linear-gradient(135deg, ${currentColorMode?.primary || '#06b6d4'}, ${currentColorMode?.secondary || '#10b981'})`,
+                                    }}
+                                  />
+                                  {currentColorLabel}
+                                </div>
+
+                                <div className="mt-4 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Motion</div>
+                                <div className="mt-2 grid grid-cols-1 gap-2">
+                                  {motionModeOptions.map((mode) => (
+                                    <button
+                                      key={mode.value}
+                                      type="button"
+                                      onClick={() => setMotionMode(mode.value)}
+                                      className={cn(
+                                        'rounded-xl border px-3 py-2.5 text-left transition-colors',
+                                        motionMode === mode.value
+                                          ? 'border-cyan-300/60 bg-cyan-400/18 text-cyan-100'
+                                          : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white'
+                                      )}
+                                    >
+                                      <div className="flex items-center justify-between gap-3">
+                                        <span className="text-[11px] font-black uppercase tracking-[0.16em]">{mode.label}</span>
+                                        {motionMode === mode.value && (
+                                          <span className="rounded-full border border-cyan-300/30 bg-cyan-500/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.14em] text-cyan-100">
+                                            Selected
+                                          </span>
+                                        )}
+                                      </div>
+                                      <div className="mt-1 text-[11px] font-medium normal-case tracking-normal text-slate-400">
+                                        {motionOptionDescriptions[mode.value] || 'Motion profile'}
+                                      </div>
+                                    </button>
+                                  ))}
+                                </div>
+                                <div className="mt-3 text-[11px] text-slate-400">
+                                  Selected: <span className="font-semibold text-slate-200">{currentMotionMode?.label || 'Balanced'}</span>
+                                  {' | '}
+                                  Effective: <span className="font-semibold text-slate-200">{effectiveMotionLabel}</span>
+                                </div>
+                                {autoDowngraded && (
+                                  <p className="mt-2 text-[11px] leading-5 text-amber-200">
+                                    Auto performance mode is overriding the selected motion profile to keep interactions stable.
+                                  </p>
+                                )}
                               </div>
                             </div>
                           )}
-                        </>
-                      )}
-                      <div className="my-1 border-t border-white/10" />
-                      <button
-                        type="button"
-                        onClick={() => setIsPreferencesOpen((open) => !open)}
-                        className="flex w-full items-center justify-between px-4 py-2.5 text-left text-sm font-semibold text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
-                      >
-                        <span className="flex items-center gap-2">
-                          <Palette className="h-4 w-4 text-neo-cyan" />
-                          Preferences
-                        </span>
-                        <ChevronDown className={cn('h-4 w-4 opacity-50 transition-transform', isPreferencesOpen && 'rotate-180')} />
-                      </button>
-                      {isPreferencesOpen && (
-                        <div className="px-3 pb-3">
-                          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
-                            <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Color mode</div>
-                            <PremiumSelect
-                              value={colorMode}
-                              onChange={(e) => setColorMode(e.target.value)}
-                              className="mt-2 w-full rounded-xl border border-white/10 bg-zinc-950/80 px-3 py-2 text-sm font-semibold text-slate-100 outline-none transition-colors hover:border-white/20"
-                            >
-                              {colorModeOptions.map((mode) => (
-                                <option key={mode.value} value={mode.value} className="bg-zinc-950 text-slate-100">
-                                  {mode.label}
-                                </option>
-                              ))}
-                            </PremiumSelect>
-                            <div className="mt-2 flex items-center gap-2 text-xs text-slate-400">
-                              <span
-                                className="h-3 w-3 rounded-full border border-white/20"
-                                style={{
-                                  background: `linear-gradient(135deg, ${currentColorMode?.primary || '#06b6d4'}, ${currentColorMode?.secondary || '#10b981'})`,
-                                }}
-                              />
-                              {currentColorLabel}
-                            </div>
-
-                            <div className="mt-4 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Motion</div>
-                            <div className="mt-2 grid grid-cols-1 gap-2">
-                              {motionModeOptions.map((mode) => (
-                                <button
-                                  key={mode.value}
-                                  type="button"
-                                  onClick={() => setMotionMode(mode.value)}
-                                  className={cn(
-                                    'rounded-xl border px-3 py-2.5 text-left transition-colors',
-                                    motionMode === mode.value
-                                      ? 'border-cyan-300/60 bg-cyan-400/18 text-cyan-100'
-                                      : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white'
-                                  )}
-                                >
-                                  <div className="flex items-center justify-between gap-3">
-                                    <span className="text-[11px] font-black uppercase tracking-[0.16em]">{mode.label}</span>
-                                    {motionMode === mode.value && (
-                                      <span className="rounded-full border border-cyan-300/30 bg-cyan-500/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.14em] text-cyan-100">
-                                        Selected
-                                      </span>
-                                    )}
-                                  </div>
-                                  <div className="mt-1 text-[11px] font-medium normal-case tracking-normal text-slate-400">
-                                    {motionOptionDescriptions[mode.value] || 'Motion profile'}
-                                  </div>
-                                </button>
-                              ))}
-                            </div>
-                            <div className="mt-3 text-[11px] text-slate-400">
-                              Selected: <span className="font-semibold text-slate-200">{currentMotionMode?.label || 'Balanced'}</span>
-                              {' | '}
-                              Effective: <span className="font-semibold text-slate-200">{effectiveMotionLabel}</span>
-                            </div>
-                            {autoDowngraded && (
-                              <p className="mt-2 text-[11px] leading-5 text-amber-200">
-                                Auto performance mode is overriding the selected motion profile to keep interactions stable.
-                              </p>
-                            )}
-                          </div>
+                          <div className="my-1 border-t border-white/10" />
+                          <button
+                            onClick={() => {
+                              logout();
+                              setIsUserMenuOpen(false);
+                              setIsPreferencesOpen(false);
+                              setIsAdminToolsOpen(false);
+                            }}
+                            className="block w-full px-4 py-2.5 text-left text-sm text-neo-rose transition-colors hover:bg-neo-rose/10"
+                          >
+                            Logout
+                          </button>
                         </div>
-                      )}
-                      <div className="my-1 border-t border-white/10" />
-                      <button
-                        onClick={() => {
-                          logout();
-                          setIsUserMenuOpen(false);
-                          setIsPreferencesOpen(false);
-                          setIsAdminToolsOpen(false);
-                        }}
-                        className="block w-full px-4 py-2.5 text-left text-sm text-neo-rose transition-colors hover:bg-neo-rose/10"
-                      >
-                        Logout
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
+                      </>
+                    )}
+                  </div>
+                  <AppErrorBoundary fallback={<NavbarNotificationsFallback />}>
+                    <NotificationDropdown />
+                  </AppErrorBoundary>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={goToLoginPage}
+                  className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.045] px-3 py-2 text-sm font-semibold text-white shadow-[0_16px_36px_rgba(2,8,23,0.18),inset_0_1px_0_rgba(255,255,255,0.05)] transition-all duration-300 hover:-translate-y-0.5 hover:border-neo-cyan hover:bg-white/[0.08] active:translate-y-0 sm:px-4 lg:px-5"
+                >
+                  Login
+                </button>
+              )}
 
               {/* Cart */}
               <Link
