@@ -43,6 +43,10 @@ jest.mock('../utils/logger', () => ({
     debug: jest.fn(),
 }));
 
+jest.mock('../services/notificationService', () => ({
+    sendPersistentNotification: jest.fn(),
+}));
+
 const express = require('express');
 const request = require('supertest');
 const adminProductRoutes = require('../routes/adminProductRoutes');

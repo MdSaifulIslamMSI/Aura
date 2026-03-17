@@ -10,6 +10,7 @@ const {
     updateManualProduct,
     deleteManualProduct,
 } = require('../services/catalogService');
+const { sendPersistentNotification } = require('../services/notificationService');
 
 const ADMIN_PRODUCT_FIELDS = {
     id: 1,

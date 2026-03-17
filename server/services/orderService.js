@@ -7,10 +7,12 @@ const PaymentEvent = require('../models/PaymentEvent');
 const OrderEmailNotification = require('../models/OrderEmailNotification');
 const AppError = require('../utils/AppError');
 const { notifyAdminActionToUser } = require('./email/adminActionEmailService');
+const { sendPersistentNotification } = require('./notificationService');
 const {
     createRefundForIntent,
     scheduleRefundTask,
 } = require('./payments/paymentService');
+const { sendMessageToUser } = require('./socketService');
 
 const DIGITAL_PAYMENT_METHODS = new Set(['UPI', 'CARD', 'WALLET']);
 
@@ -102,6 +104,21 @@ const notifyOrderOwnerAdminAction = async ({
         ip: req.ip,
         userAgent: req.headers['user-agent'],
     });
+
+    try {
+        await sendPersistentNotification(
+            ownerId,
+            actionTitle,
+            actionSummary,
+            'order',
+            {
+                relatedEntity: String(order._id || order),
+                actionUrl: `/orders`
+            }
+        );
+    } catch (err) {
+        console.error(`Failed to send persistent notification for order ${order._id || order}:`, err);
+    }
 };
 
 /**

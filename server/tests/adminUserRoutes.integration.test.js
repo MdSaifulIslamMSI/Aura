@@ -45,6 +45,10 @@ jest.mock('../services/email/adminActionEmailService', () => ({
     notifyAdminActionToUser: jest.fn(),
 }));
 
+jest.mock('../services/notificationService', () => ({
+    sendPersistentNotification: jest.fn(),
+}));
+
 jest.mock('../utils/logger', () => ({
     warn: jest.fn(),
     error: jest.fn(),

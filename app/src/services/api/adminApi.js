@@ -135,6 +135,15 @@ export const adminApi = {
         });
         return data;
     },
+    // Alias for backward compatibility — Admin/Users.jsx calls adminApi.dismissWarning
+    dismissWarning: async (userId) => {
+        const headers = await getAuthHeader();
+        const { data } = await apiFetch(`/admin/users/${userId}/dismiss-warning`, {
+            method: 'POST',
+            headers,
+        });
+        return data;
+    },
     reactivateUser: async (userId, payload = {}) => {
         const headers = await getAuthHeader();
         const { data } = await apiFetch(`/admin/users/${userId}/reactivate`, {

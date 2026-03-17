@@ -118,17 +118,10 @@ const enforceUserAccountAccess = (user) => {
     if (user.softDeleted || user.accountState === 'deleted') {
         throw new AppError('Your account is not active. Contact support for account recovery.', 403);
     }
-
-    const suspendedUntil = getSuspendedUntilDate(user);
-    const isSuspended = user.accountState === 'suspended'
-        && Boolean(suspendedUntil)
-        && suspendedUntil.getTime() > Date.now();
-    if (isSuspended) {
-        throw new AppError(
-            `Your account is temporarily suspended until ${suspendedUntil.toISOString()}. Contact support for urgent review.`,
-            423
-        );
-    }
+    
+    // As per new strict chat policy: Suspended users CAN log in to negotiate
+    // via Appeals Chat. They are only blocked at the commercial API level
+    // using the new requireActiveAccount middleware below.
 };
 
 const bootstrapUserRecord = async ({ decodedToken, email }) => {
@@ -246,6 +239,25 @@ const requireOtpAssurance = (req, res, next) => {
     enforceOtpAssurance(req);
     return next();
 };
+
+const requireActiveAccount = asyncHandler(async (req, res, next) => {
+    if (!req.user) {
+        return next(new AppError('Not authorized', 401));
+    }
+    
+    const suspendedUntil = getSuspendedUntilDate(req.user);
+    const isSuspended = req.user.accountState === 'suspended'
+        && Boolean(suspendedUntil)
+        && suspendedUntil.getTime() > Date.now();
+        
+    if (isSuspended) {
+        return next(new AppError(
+            `Your account is temporarily suspended until ${suspendedUntil.toISOString()}. Contact support for urgent review.`,
+            423
+        ));
+    }
+    return next();
+});
 
 const protectOptional = asyncHandler(async (req, res, next) => {
     if (!req.headers.authorization?.startsWith('Bearer')) {
@@ -408,6 +420,7 @@ module.exports = {
     protect,
     protectOptional,
     requireOtpAssurance,
+    requireActiveAccount,
     admin,
     seller,
     invalidateUserCache,

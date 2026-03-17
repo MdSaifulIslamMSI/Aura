@@ -11,16 +11,16 @@ const fileToDataUrl = (file) => new Promise((resolve, reject) => {
 export const uploadApi = {
     signReviewMediaUpload: async ({ fileName, mimeType, sizeBytes }) => {
         const headers = await getAuthHeader();
-        const { data } = await apiFetch('/uploads/reviews/sign', {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({ fileName, mimeType, sizeBytes }),
+        const { data } = await apiFetch('/uploads/reviews/sign', { 
+            method: 'POST', 
+            headers, 
+            body: JSON.stringify({ fileName, mimeType, sizeBytes }) 
         });
         return data;
     },
     uploadSignedReviewMedia: async ({ uploadToken, file }) => {
-        const headers = await getAuthHeader();
         const dataUrl = await fileToDataUrl(file);
+        const headers = await getAuthHeader();
         const { data } = await apiFetch('/uploads/reviews/upload', {
             method: 'POST',
             headers,

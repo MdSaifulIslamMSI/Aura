@@ -18,9 +18,9 @@ const assertSigningSecretsConfig = () => {
     if (nodeEnv === 'test') return;
 
     const isProduction = nodeEnv === 'production';
-    requireSecret('OTP_FLOW_SECRET', isProduction);
-    requireSecret('OTP_CHALLENGE_SECRET', isProduction);
-    requireSecret('UPLOAD_SIGNING_SECRET', isProduction);
+    requireSecret('OTP_FLOW_SECRET', true);
+    requireSecret('OTP_CHALLENGE_SECRET', true);
+    requireSecret('UPLOAD_SIGNING_SECRET', true);
 };
 
 module.exports = {

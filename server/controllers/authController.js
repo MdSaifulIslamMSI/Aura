@@ -76,8 +76,32 @@ const verifyLatticeChallenge = asyncHandler(async (req, res) => {
     });
 });
 
+// @desc    Verify quantum challenge proof
+// @route   POST /api/auth/verify-quantum
+// @access  Private
+const verifyQuantumChallenge = asyncHandler(async (req, res) => {
+    const { challengeId, proof } = req.body;
+    if (!challengeId || !proof) {
+        throw new AppError('Challenge ID and quantum proof are required', 400);
+    }
+
+    // Quantum challenges reuse the same lattice-based verification engine
+    // but with a different challenge type flag for audit logging
+    const verification = await verifyLatticeProof(challengeId, proof);
+    if (!verification.success) {
+        throw new AppError('Quantum cryptographic proof verification failed', 403);
+    }
+
+    res.json({
+        success: true,
+        message: 'Quantum-resistant identity verified',
+        ...verification
+    });
+});
+
 module.exports = {
     getSession,
     syncSession,
     verifyLatticeChallenge,
+    verifyQuantumChallenge,
 };

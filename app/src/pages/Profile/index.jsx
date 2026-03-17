@@ -1,5 +1,5 @@
 import { useState, useEffect, useContext, useRef } from 'react';
-import { Camera, Check, AlertTriangle, Shield, Calendar, Edit3, Package, Star, Store, BarChart3, User, MapPin, Sparkles, CreditCard, Settings } from 'lucide-react';
+import { Camera, Check, AlertTriangle, Shield, Calendar, Edit3, Package, Star, Store, BarChart3, User, MapPin, Sparkles, CreditCard, Settings, Bell } from 'lucide-react';
 import { AuthContext } from '@/context/AuthContext';
 import { CartContext } from '@/context/CartContext';
 import { WishlistContext } from '@/context/WishlistContext';
@@ -15,6 +15,9 @@ import RewardsSection from './components/RewardsSection';
 import ListingsSection from './components/ListingsSection';
 import PaymentsSection from './components/PaymentsSection';
 import SettingsSection from './components/SettingsSection';
+import AccountStatusBanner from './components/AccountStatusBanner';
+import SupportSection from './components/SupportSection';
+import NotificationsSection from './components/NotificationsSection';
 
 const TABS = [
     { id: 'overview', label: 'Overview', icon: BarChart3 },
@@ -24,6 +27,8 @@ const TABS = [
     { id: 'rewards', label: 'Aura Points', icon: Sparkles },
     { id: 'listings', label: 'My Listings', icon: Store },
     { id: 'payments', label: 'Payments', icon: CreditCard },
+    { id: 'notifications', label: 'Notifications', icon: Bell },
+    { id: 'support', label: 'Appeals & Support', icon: Shield },
     { id: 'settings', label: 'Settings', icon: Settings },
 ];
 
@@ -93,6 +98,19 @@ export default function Profile() {
                 console.error('Profile fetch failed:', err);
             } finally {
                 setLoading(false);
+            }
+        })();
+
+        // Fetch payment methods
+        (async () => {
+            setPaymentMethodsLoading(true);
+            try {
+                const methodsResult = await paymentApi.getMethods();
+                setPaymentMethods(methodsResult?.paymentMethods || []);
+            } catch (err) {
+                console.error('Failed to load payment methods', err);
+            } finally {
+                setPaymentMethodsLoading(false);
             }
         })();
     }, [currentUser?.email]);
@@ -177,6 +195,30 @@ export default function Profile() {
         }
     };
 
+    const handleSetDefaultMethod = async (methodId) => {
+        try {
+            await paymentApi.setDefaultMethod(methodId);
+            setPaymentMethods(prev => prev.map(m => ({
+                ...m,
+                isDefault: m.id === methodId
+            })));
+            showMsg('success', 'Default payment method updated');
+        } catch (err) {
+            showMsg('error', err.message || 'Failed to update default method');
+        }
+    };
+
+    const handleDeletePaymentMethod = async (methodId) => {
+        if (!confirm('Are you sure you want to delete this payment method?')) return;
+        try {
+            await paymentApi.deleteMethod(methodId);
+            setPaymentMethods(prev => prev.filter(m => m.id !== methodId));
+            showMsg('success', 'Payment method deleted');
+        } catch (err) {
+            showMsg('error', err.message || 'Failed to delete payment method');
+        }
+    };
+
     if (loading) return <div className="p-20 text-center text-white">Loading Aura Identity...</div>;
 
     const stats = dashboard?.stats || {};
@@ -194,6 +236,11 @@ export default function Profile() {
             )}
 
             <div className="max-w-7xl mx-auto px-4 pt-8">
+                <AccountStatusBanner 
+                    accountState={profile?.accountState} 
+                    moderation={profile?.moderation} 
+                />
+                
                 <div className="profile-premium-hero flex flex-col md:flex-row items-center gap-8">
                     <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
                         <div className="w-32 h-32 rounded-3xl border border-white/10 bg-white/5 overflow-hidden">
@@ -234,7 +281,9 @@ export default function Profile() {
                     {activeTab === 'orders' && <OrdersSection recentOrders={dashboard?.recentOrders || []} stats={stats} />}
                     {activeTab === 'rewards' && <RewardsSection auraTier={profile?.loyalty?.tier} auraPoints={auraPoints} rewardSnapshot={profile?.loyalty || {}} nextMilestone={profile?.loyalty?.nextMilestone} handleOptimizeRewards={() => {}} optimizing={false} intelligenceLoading={false} intelligenceData={null} rewardActivity={[]} rewardsLoading={false} />}
                     {activeTab === 'listings' && <ListingsSection stats={stats} />}
-                    {activeTab === 'payments' && <PaymentsSection paymentMethodsLoading={false} paymentMethods={[]} handleSetDefaultMethod={() => {}} handleDeletePaymentMethod={() => {}} />}
+                    { activeTab === 'payments' && <PaymentsSection paymentMethodsLoading={paymentMethodsLoading} paymentMethods={paymentMethods} handleSetDefaultMethod={handleSetDefaultMethod} handleDeletePaymentMethod={handleDeletePaymentMethod} />}
+                    { activeTab === 'notifications' && <NotificationsSection />}
+                    { activeTab === 'support' && <SupportSection profile={profile} />}
                     {activeTab === 'settings' && <SettingsSection profile={profile} currentUser={currentUser} handlePasswordReset={handlePasswordReset} passwordResetting={passwordResetting} hasOtpReadyIdentity={true} trustHealthy={true} trustLoading={false} paymentMethodsSecured={true} logout={logout} />}
                 </div>
             </div>

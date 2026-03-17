@@ -4,9 +4,9 @@ const logger = require('../utils/logger');
 const { saveAuthProfileSnapshot } = require('./authProfileVault');
 const { awardLoyaltyPoints, getRewardSnapshotFromUser } = require('./loyaltyService');
 
-const PROFILE_PROJECTION = 'name email phone avatar gender dob bio isAdmin isVerified isSeller sellerActivatedAt addresses cart wishlist loyalty createdAt';
-const AUTH_ONLY_PROJECTION = 'name email phone isAdmin isVerified isSeller sellerActivatedAt loyalty createdAt';
-const SESSION_PROFILE_PROJECTION = 'name email phone avatar gender dob bio isAdmin isVerified isSeller sellerActivatedAt loyalty createdAt';
+const PROFILE_PROJECTION = 'name email phone avatar gender dob bio isAdmin isVerified isSeller sellerActivatedAt accountState moderation addresses cart wishlist loyalty createdAt';
+const AUTH_ONLY_PROJECTION = 'name email phone isAdmin isVerified isSeller sellerActivatedAt accountState moderation loyalty createdAt';
+const SESSION_PROFILE_PROJECTION = 'name email phone avatar gender dob bio isAdmin isVerified isSeller sellerActivatedAt accountState moderation loyalty createdAt';
 
 const PHONE_REGEX = /^\+?\d{10,15}$/;
 
@@ -151,6 +151,19 @@ const toProfilePayload = (user = null, options = {}) => {
         isVerified: Boolean(user.isVerified),
         isSeller: Boolean(user.isSeller),
         sellerActivatedAt: user.sellerActivatedAt || null,
+        accountState: user.accountState || 'active',
+        moderation: {
+            warningCount: Number(user.moderation?.warningCount || 0),
+            lastWarningAt: user.moderation?.lastWarningAt || null,
+            lastWarningReason: user.moderation?.lastWarningReason || '',
+            suspensionCount: Number(user.moderation?.suspensionCount || 0),
+            suspendedAt: user.moderation?.suspendedAt || null,
+            suspendedUntil: user.moderation?.suspendedUntil || null,
+            suspensionReason: user.moderation?.suspensionReason || '',
+            reactivatedAt: user.moderation?.reactivatedAt || null,
+            deletedAt: user.moderation?.deletedAt || null,
+            deleteReason: user.moderation?.deleteReason || '',
+        },
         loyalty: getRewardSnapshotFromUser(user),
         createdAt: user.createdAt || null,
     };

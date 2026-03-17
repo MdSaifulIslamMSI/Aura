@@ -17,7 +17,7 @@ const {
     createProduct,
     updateProduct
 } = require('../controllers/productController');
-const { protect, admin } = require('../middleware/authMiddleware');
+const { protect, admin, requireActiveAccount } = require('../middleware/authMiddleware');
 const validate = require('../middleware/validate');
 const {
     productSearchSchema,
@@ -66,7 +66,7 @@ router.route('/:id/compatibility')
 
 router.route('/:id/reviews')
     .get(validate(getProductReviewsSchema), getProductReviews)
-    .post(protect, validate(createProductReviewSchema), createProductReview);
+    .post(protect, requireActiveAccount, validate(createProductReviewSchema), createProductReview);
 
 router.route('/:id')
     .get(validate(getProductByIdSchema), getProductById)

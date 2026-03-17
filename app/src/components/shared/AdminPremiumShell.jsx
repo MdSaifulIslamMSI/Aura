@@ -19,6 +19,7 @@ const ADMIN_LINKS = [
     { href: '/admin/payments', prefix: '/admin/payments', label: 'Payments', icon: CreditCard },
     { href: '/admin/refunds', prefix: '/admin/refunds', label: 'Refunds', icon: ReceiptText },
     { href: '/admin/users', prefix: '/admin/users', label: 'Users', icon: Users },
+    { href: '/admin/support', prefix: '/admin/support', label: 'Support', icon: MessageSquare },
 ];
 
 const hexToRgb = (hex) => {

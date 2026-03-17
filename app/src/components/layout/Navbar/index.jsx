@@ -24,6 +24,7 @@ import { cn } from '@/lib/utils';
 import AppErrorBoundary from '@/components/shared/AppErrorBoundary';
 import VoiceSearch from '@/components/shared/VoiceSearch';
 import GlobalSearchBar from '@/components/shared/GlobalSearchBar';
+import NotificationDropdown from './NotificationDropdown';
 
 const Navbar = () => {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -426,6 +427,11 @@ const Navbar = () => {
                   </button>
                 )}
 
+                {/* Notifications */}
+                {activeUser && (
+                  <NotificationDropdown />
+                )}
+
                 {/* User Dropdown */}
                 {isUserMenuOpen && activeUser && (
                   <>
@@ -524,6 +530,13 @@ const Navbar = () => {
                                   onClick={() => setIsUserMenuOpen(false)}
                                 >
                                   User Governance
+                                </Link>
+                                <Link
+                                  to="/admin/support"
+                                  className="block rounded-xl px-3 py-2 text-sm text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
+                                  onClick={() => setIsUserMenuOpen(false)}
+                                >
+                                  Customer Support
                                 </Link>
                               </div>
                             </div>
@@ -769,6 +782,9 @@ const Navbar = () => {
                         </Link>
                         <Link to="/admin/users" className="block rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-sm font-medium text-slate-200 transition-colors hover:bg-white/[0.08]">
                           User governance
+                        </Link>
+                        <Link to="/admin/support" className="block rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-sm font-medium text-slate-200 transition-colors hover:bg-white/[0.08]">
+                          Customer support
                         </Link>
                       </>
                     )}

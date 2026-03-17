@@ -14,6 +14,7 @@ jest.mock('../middleware/authMiddleware', () => ({
         }
         return next();
     },
+    requireActiveAccount: (req, _res, next) => next(),
 }));
 
 jest.mock('../middleware/validate', () => () => (_req, _res, next) => next());

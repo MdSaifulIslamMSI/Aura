@@ -45,6 +45,8 @@ const internalOpsRoutes = require('./routes/internalOpsRoutes');
 const observabilityRoutes = require('./routes/observabilityRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
 const intelligenceRoutes = require('./routes/intelligenceRoutes');
+const supportRoutes = require('./routes/supportRoutes');
+const userNotificationRoutes = require('./routes/userNotificationRoutes');
 const { serveReviewMediaAsset } = require('./controllers/uploadAssetController');
 const { assertProductionPaymentConfig, assertWebhookConfig, flags: paymentFlags } = require('./config/paymentFlags');
 const { assertProductionEmailConfig, flags: emailFlags } = require('./config/emailFlags');
@@ -222,6 +224,7 @@ app.use('/api/internal', internalOpsRoutes);
 app.use('/api/observability', observabilityRoutes);
 app.use('/api/uploads', uploadRoutes);
 app.use('/api/intelligence', intelligenceRoutes);
+app.use('/api/support', supportRoutes);
 app.use('/metrics', metricsRoute);
 
 // Health Check

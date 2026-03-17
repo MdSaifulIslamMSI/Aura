@@ -22,6 +22,7 @@ const {
     captureIntentNow,
     scheduleCaptureTask,
 } = require('../services/payments/paymentService');
+const { sendPersistentNotification } = require('../services/notificationService');
 const {
     getRequiredIdempotencyKey,
     getStableUserKey,
@@ -69,6 +70,18 @@ const notifyPaymentOwnerAdminAction = async ({
         ip: req.ip,
         userAgent: req.headers['user-agent'],
     });
+
+    // Also send persistent in-app notification
+    await sendPersistentNotification(
+        intent.user,
+        actionTitle,
+        actionSummary,
+        'payment',
+        {
+            relatedEntity: intent.order ? String(intent.order) : String(intent._id),
+            actionUrl: intent.order ? `/orders` : `/profile`,
+        }
+    );
 };
 
 const DIGITAL_PAYMENT_METHODS = new Set(['UPI', 'CARD', 'WALLET']);

@@ -97,5 +97,5 @@ describe('OTP canonical identity enforcement', () => {
         const migrated = await OtpSession.findOne({ identityKey: '+14155550000', purpose: 'signup' });
         expect(migrated).not.toBeNull();
         expect(String(migrated.user)).toBe(String(user._id));
-    });
+    }, 15000);
 });

@@ -40,6 +40,10 @@ jest.mock('../services/email/adminActionEmailService', () => ({
     notifyAdminActionToUser: jest.fn(),
 }));
 
+jest.mock('../services/notificationService', () => ({
+    sendPersistentNotification: jest.fn(),
+}));
+
 jest.mock('../services/payments/paymentService', () => ({
     createPaymentIntent: jest.fn(),
     confirmPaymentIntent: jest.fn(),

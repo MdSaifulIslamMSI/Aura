@@ -9,6 +9,7 @@ import { ColorModeProvider } from './context/ColorModeContext';
 import { MotionModeProvider, useMotionMode } from './context/MotionModeContext';
 import { SocketProvider } from './context/SocketContext';
 import { AdminRoute, ProtectedRoute, SellerRoute } from './components/shared/ProtectedRoute';
+import { NotificationProvider } from './context/NotificationContext';
 
 import Navbar from './components/layout/Navbar';
 import Footer from './components/layout/Footer';
@@ -39,6 +40,7 @@ const OrderList = lazy(() => import('./pages/Admin/OrderList'));
 const AdminPayments = lazy(() => import('./pages/Admin/Payments'));
 const AdminUsers = lazy(() => import('./pages/Admin/Users'));
 const AdminRefundLedger = lazy(() => import('./pages/Admin/RefundLedger'));
+const AdminSupport = lazy(() => import('./pages/Admin/Support'));
 
 // Marketplace Pages
 const Sell = lazy(() => import('./pages/Sell'));
@@ -226,6 +228,7 @@ function AppContent() {
               <Route path="/admin/payments" element={renderCriticalRoute(<AdminRoute><AdminPayments /></AdminRoute>)} />
               <Route path="/admin/refunds" element={renderCriticalRoute(<AdminRoute><AdminRefundLedger /></AdminRoute>)} />
               <Route path="/admin/users" element={renderCriticalRoute(<AdminRoute><AdminUsers /></AdminRoute>)} />
+              <Route path="/admin/support" element={renderCriticalRoute(<AdminRoute><AdminSupport /></AdminRoute>)} />
             </Routes>
           </RouteTransitionShell>
         </Suspense>
