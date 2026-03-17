@@ -15,11 +15,11 @@ services:
       - key: SPLIT_RUNTIME_ENABLED
         value: "true"
       - key: REDIS_ENABLED
-        value: "true"
+        value: "false"
       - key: REDIS_REQUIRED
-        value: "true"
+        value: "false"
       - key: DISTRIBUTED_SECURITY_CONTROLS_ENABLED
-        value: "true"
+        value: "false"
       - key: REDIS_URL
         fromDatabase:
           name: aura-redis
