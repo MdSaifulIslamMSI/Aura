@@ -707,7 +707,19 @@ const enforceCatalogStartupCheck = async () => {
     }
 };
 
-const buildBaseProductFilterFresh = async () => {
+const resolveCatalogReadMode = (baseFilter = {}) => {
+    if (baseFilter?.['publishGate.status'] === 'dev_only') {
+        return 'demo_preview';
+    }
+
+    if (baseFilter?.isPublished === true) {
+        return 'published_only';
+    }
+
+    return 'unrestricted';
+};
+
+const buildBaseProductFilterFresh = async ({ allowDemoFallback = false } = {}) => {
     if (!flags.catalogActiveVersionRequired) return {};
     const activeCatalogVersion = await getActiveCatalogVersion();
     const publishedInActiveCatalog = await Product.findOne({
@@ -724,7 +736,7 @@ const buildBaseProductFilterFresh = async () => {
         };
     }
 
-    if (!flags.catalogPublicDemoFallback) {
+    if (!allowDemoFallback || !flags.catalogPublicDemoFallback) {
         return {
             catalogVersion: activeCatalogVersion,
             isPublished: true,
@@ -753,8 +765,11 @@ const buildBaseProductFilterFresh = async () => {
     };
 };
 
-const buildBaseProductFilter = async () => {
+const buildBaseProductFilter = async (options = {}) => {
     if (!flags.catalogActiveVersionRequired) return {};
+    if (options.allowDemoFallback === true) {
+        return buildBaseProductFilterFresh({ allowDemoFallback: true });
+    }
 
     const cacheAge = Date.now() - Number(baseProductFilterCache.cachedAt || 0);
     if (baseProductFilterCache.value && cacheAge < BASE_PRODUCT_FILTER_CACHE_TTL_MS) {
@@ -1165,7 +1180,7 @@ const countFilterComplexity = (filter) => {
     return complexity;
 };
 
-const queryProducts = async (query = {}) => {
+const queryProducts = async (query = {}, options = {}) => {
     const limit = Math.min(Math.max(toInt(query.limit, 12), 1), 50);
     const page = Math.max(toInt(query.page, 1), 1);
     const includeMeta = safeLower(query.includeMeta, 'true') !== 'false';
@@ -1173,7 +1188,9 @@ const queryProducts = async (query = {}) => {
     const includeSponsored = shouldIncludeSponsored(query);
     const sponsoredSlots = resolveSponsoredSlots(query);
     const readProjection = buildProductReadProjection({ includeDetails });
-    const baseFilter = await buildBaseProductFilter();
+    const allowDemoFallback = options.allowDemoFallback === true;
+    const baseFilter = await buildBaseProductFilter({ allowDemoFallback });
+    const catalogReadMode = resolveCatalogReadMode(baseFilter);
     const logicalFilter = buildFilterFromQuery(query);
     const mergedBase = { ...baseFilter, ...logicalFilter };
 
@@ -1257,6 +1274,7 @@ const queryProducts = async (query = {}) => {
             page: includeMeta ? page : 1,
             pages: includeMeta ? Math.max(1, Math.ceil(total / limit)) : 1,
             nextCursor: includeMeta && !relevanceSort ? (products.length === limit ? generateNextCursor(products, sort) : null) : null,
+            catalogReadMode,
         };
     };
 
@@ -1402,6 +1420,7 @@ const queryProducts = async (query = {}) => {
                 page: includeMeta ? page : 1,
                 pages: includeMeta ? Math.max(1, Math.ceil(total / limit)) : 1,
                 nextCursor: includeMeta && !relevanceSort ? (products.length === limit ? generateNextCursor(products, sort) : null) : null,
+                catalogReadMode,
             };
         }
 
@@ -1425,10 +1444,12 @@ const buildIdentifierOrClauses = (identifier) => {
     return [byExternal, ...(byId ? [byId] : []), ...(byMongoId ? [byMongoId] : [])];
 };
 
-const resolveProductIdentifierFilter = async (identifier) => {
+const resolveProductIdentifierFilter = async (identifier, options = {}) => {
     let baseFilter = {};
     try {
-        baseFilter = await buildBaseProductFilter();
+        baseFilter = await buildBaseProductFilter({
+            allowDemoFallback: options.allowDemoFallback === true,
+        });
     } catch (error) {
         logger.warn('catalog.resolve_identifier.base_filter_failed', { 
             identifier, 
@@ -1446,6 +1467,7 @@ const resolveProductIdentifierFilter = async (identifier) => {
 
 const getProductByIdentifier = async (identifier, options = {}) => {
     const hydrate = options.hydrate === true;
+    const allowOutsideActiveCatalog = options.allowOutsideActiveCatalog === true;
 
     if (!hydrate) {
         const cachedProduct = readCachedIdentifierValue(identifier);
@@ -1455,10 +1477,11 @@ const getProductByIdentifier = async (identifier, options = {}) => {
     }
 
     const lookup = async () => {
-        const filter = await resolveProductIdentifierFilter(identifier);
+        const filter = await resolveProductIdentifierFilter(identifier, options);
         const activeCatalogQuery = Product.findOne(filter);
         const inActiveCatalog = hydrate ? await activeCatalogQuery : await activeCatalogQuery.lean();
         if (inActiveCatalog) return inActiveCatalog;
+        if (!allowOutsideActiveCatalog) return null;
 
         // Admin/governance fallback:
         // allow direct identifier resolution even if product is outside active catalog version.
@@ -1570,7 +1593,11 @@ const createManualProduct = async (payload) => {
 };
 
 const updateManualProduct = async (identifier, payload) => {
-    const existing = await getProductByIdentifier(identifier, { hydrate: true });
+    const existing = await getProductByIdentifier(identifier, {
+        hydrate: true,
+        allowOutsideActiveCatalog: true,
+        allowDemoFallback: true,
+    });
     if (!existing) throw new AppError('Product not found', 404);
 
     const merged = {
@@ -1619,7 +1646,10 @@ const updateManualProduct = async (identifier, payload) => {
 };
 
 const deleteManualProduct = async (identifier) => {
-    const existing = await getProductByIdentifier(identifier);
+    const existing = await getProductByIdentifier(identifier, {
+        allowOutsideActiveCatalog: true,
+        allowDemoFallback: true,
+    });
     if (!existing) throw new AppError('Product not found', 404);
     await Product.deleteOne({ _id: existing._id });
     invalidateCatalogReadCaches(existing.id || existing._id || identifier);
@@ -2456,6 +2486,8 @@ const getCatalogHealth = async () => {
     return {
         activeVersion: state.activeCatalogVersion || 'legacy-v1',
         previousVersion: state.previousCatalogVersion || null,
+        publicReadPolicy: 'published_only',
+        demoPreviewAvailable: Boolean(flags.catalogPublicDemoFallback && devOnlyProducts > 0),
         lastSuccessfulImportAt: state.catalogLastImportAt || null,
         lastSuccessfulSyncAt: state.catalogLastSyncAt || null,
         lastImportAgeSec: importAgeSec,
