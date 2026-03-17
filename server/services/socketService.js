@@ -8,6 +8,7 @@ let io;
 // Map to track userId -> Set of socketIds (handles multiple tabs/devices)
 const userSockets = new Map();
 const activeCallSessions = new Map();
+const ADMIN_ROOM = 'admins';
 
 const normalizeEmail = (value) => (typeof value === 'string' ? value.trim().toLowerCase() : '');
 
@@ -120,6 +121,9 @@ const initializeSocket = (httpServer) => {
 
         // Join a private room for this user to simplify targeted messaging
         socket.join(`user:${userId}`);
+        if (socket.user.isAdmin) {
+            socket.join(ADMIN_ROOM);
+        }
 
         if (!userSockets.has(userId)) {
             userSockets.set(userId, new Set());
@@ -253,6 +257,9 @@ const initializeSocket = (httpServer) => {
             removeUserFromActiveCallSessions(userId);
 
             socket.leave(`user:${userId}`);
+            if (socket.user.isAdmin) {
+                socket.leave(ADMIN_ROOM);
+            }
             logger.info('socket.client_disconnected', { userId, socketId: socket.id, reason });
         });
     });
@@ -283,8 +290,21 @@ const sendMessageToUser = (userId, eventName, payload, options = {}) => {
     });
 };
 
+const sendMessageToAdmins = (eventName, payload, options = {}) => {
+    if (!io) return;
+
+    const emitAction = options.volatile ? io.to(ADMIN_ROOM).volatile : io.to(ADMIN_ROOM);
+    emitAction.emit(eventName, payload);
+
+    logger.debug('socket.admin_event_emitted', {
+        eventName,
+        room: ADMIN_ROOM,
+    });
+};
+
 module.exports = {
     initializeSocket,
     getIo,
     sendMessageToUser,
+    sendMessageToAdmins,
 };

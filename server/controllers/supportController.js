@@ -3,13 +3,72 @@ const SupportTicket = require('../models/SupportTicket');
 const SupportMessage = require('../models/SupportMessage');
 const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
-const { sendMessageToUser } = require('../services/socketService'); // Push via websockets
+const { sendMessageToAdmins, sendMessageToUser } = require('../services/socketService'); // Push via websockets
 
 const getPagination = (req) => {
     const page = Number(req.query.page) || 1;
     const limit = Number(req.query.limit) || 10;
     const skip = (page - 1) * limit;
     return { page, limit, skip };
+};
+
+const serializeTicketForAdmin = (ticket) => {
+    if (!ticket) return null;
+
+    return {
+        _id: String(ticket._id || ''),
+        status: String(ticket.status || 'open'),
+        subject: String(ticket.subject || ''),
+        category: String(ticket.category || ''),
+        relatedActionId: String(ticket.relatedActionId || ''),
+        unreadByUser: Number(ticket.unreadByUser || 0),
+        unreadByAdmin: Number(ticket.unreadByAdmin || 0),
+        lastMessageAt: ticket.lastMessageAt || null,
+        lastMessagePreview: String(ticket.lastMessagePreview || ''),
+        createdAt: ticket.createdAt || null,
+        updatedAt: ticket.updatedAt || null,
+        user: ticket.user
+            ? {
+                _id: String(ticket.user._id || ''),
+                name: String(ticket.user.name || ''),
+                email: String(ticket.user.email || ''),
+                accountState: String(ticket.user.accountState || 'active'),
+            }
+            : null,
+    };
+};
+
+const loadAdminTicketView = async (ticketId) => {
+    const ticket = await SupportTicket.findById(ticketId)
+        .populate('user', 'name email accountState')
+        .lean();
+    return serializeTicketForAdmin(ticket);
+};
+
+const emitAdminTicketUpdate = async ({ ticketId, eventName = 'support:ticket:update', message = null }) => {
+    try {
+        const ticket = await loadAdminTicketView(ticketId);
+        if (!ticket) return;
+
+        sendMessageToAdmins(eventName, {
+            ticketId: ticket._id,
+            ticket,
+            ...(message ? { message } : {}),
+        });
+
+        if (eventName !== 'support:ticket:update') {
+            sendMessageToAdmins('support:ticket:update', {
+                ticketId: ticket._id,
+                ticket,
+            });
+        }
+    } catch (error) {
+        logger.warn('support.admin_realtime_emit_failed', {
+            ticketId: String(ticketId || ''),
+            eventName,
+            reason: error?.message || 'unknown',
+        });
+    }
 };
 
 // @desc    Create a new support ticket
@@ -35,9 +94,10 @@ const createSupportTicket = asyncHandler(async (req, res, next) => {
         isSystem: false,
     });
 
-    // Notify online admins
-    // Note: To broadcast to admins, we would have a 'admin:ticket:new' room or event.
-    // For now, it will polling or simple user pushes.
+    await emitAdminTicketUpdate({
+        ticketId: ticket._id,
+        eventName: 'support:ticket:new',
+    });
 
     res.status(201).json({
         success: true,
@@ -160,6 +220,12 @@ const sendSupportMessage = asyncHandler(async (req, res, next) => {
         } catch(e) {}
     }
 
+    await emitAdminTicketUpdate({
+        ticketId: ticket._id,
+        eventName: 'support:message:new',
+        message,
+    });
+
     res.status(201).json({
         success: true,
         data: message,
@@ -190,6 +256,12 @@ const addSystemLogToTicket = async (ticketId, text) => {
             message: message,
         });
     } catch(e) {}
+
+    await emitAdminTicketUpdate({
+        ticketId: ticket._id,
+        eventName: 'support:message:new',
+        message,
+    });
 
     return message;
 };
