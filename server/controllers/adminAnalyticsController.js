@@ -1,4 +1,5 @@
 const asyncHandler = require('express-async-handler');
+const AppError = require('../utils/AppError');
 const {
     getOverviewMetrics,
     getTimeSeriesMetrics,
@@ -22,7 +23,7 @@ const getAdminAnalyticsAnomalies = asyncHandler(async (req, res) => {
     res.json({ success: true, ...data });
 });
 
-const exportAdminAnalyticsCsv = asyncHandler(async (req, res) => {
+const exportAdminAnalyticsCsv = asyncHandler(async (req, res, next) => {
     // CRITICAL: Validate export parameters to prevent DOS attacks
     const range = String(req.query.range || '30d').trim();
     const validRanges = ['24h', '7d', '30d', '90d', 'custom'];

@@ -116,6 +116,14 @@ describe('Admin analytics routes integration', () => {
         expect(res.text).toContain('bucket,orders');
     });
 
+    test('GET /api/admin/analytics/export rejects invalid custom dates with a clean 400 error', async () => {
+        const res = await request(app).get('/api/admin/analytics/export?range=custom&from=not-a-date&to=still-not-a-date');
+
+        expect(res.statusCode).toBe(400);
+        expect(res.body.message).toBe('Custom range requires valid from and to parameters');
+        expect(getCsvExport).not.toHaveBeenCalled();
+    });
+
     test('GET /api/admin/analytics/bi-config returns BI config through the real route', async () => {
         const res = await request(app).get('/api/admin/analytics/bi-config');
 
