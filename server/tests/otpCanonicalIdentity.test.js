@@ -23,8 +23,8 @@ describe('OTP canonical identity enforcement', () => {
                 purpose: 'login',
             });
 
-        expect(res.statusCode).toBe(404);
-        expect(res.body.message).toContain('Phone number does not match');
+        expect(res.statusCode).toBe(200);
+        expect(res.body.message).toBe('If the account details are valid, we will continue with verification steps.');
     });
 
     test('verify attempts/lockout update only canonical identity', async () => {

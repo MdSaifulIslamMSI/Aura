@@ -98,6 +98,10 @@ services:
         sync: false
       - key: UPLOAD_SIGNING_SECRET
         generateValue: true
+      - key: OTP_FLOW_SECRET
+        generateValue: true
+      - key: OTP_CHALLENGE_SECRET
+        generateValue: true
       - key: CRON_SECRET
         generateValue: true
 
