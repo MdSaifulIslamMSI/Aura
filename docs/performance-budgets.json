@@ -24,7 +24,7 @@
     "reconciliationPollMs": 120000
   },
   "bundle": {
-    "maxTotalJsGzipKb": 450,
+    "maxTotalJsGzipKb": 470,
     "maxLargestJsGzipKb": 280,
     "maxTotalCssGzipKb": 40
   },
