@@ -1,6 +1,7 @@
 import { useContext, useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
+  Bell,
   ChevronDown,
   Gauge,
   Heart,
@@ -8,6 +9,7 @@ import {
   Menu,
   Palette,
   Plus,
+  Search,
   Shield,
   ShoppingCart,
   Sparkles,
@@ -25,6 +27,93 @@ import AppErrorBoundary from '@/components/shared/AppErrorBoundary';
 import VoiceSearch from '@/components/shared/VoiceSearch';
 import GlobalSearchBar from '@/components/shared/GlobalSearchBar';
 import NotificationDropdown from './NotificationDropdown';
+
+const NavbarSearchFallback = ({
+  mobile = false,
+  className,
+  label = 'Search products, brands, and live deals',
+  onNavigate,
+}) => (
+  <Link
+    to="/search"
+    onClick={onNavigate}
+    aria-label="Open search"
+    className={cn(
+      mobile
+        ? 'flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-semibold text-slate-200 transition-colors hover:border-white/18 hover:bg-white/[0.08] hover:text-white'
+        : 'hidden lg:flex items-center gap-3 rounded-full border border-white/10 bg-white/[0.045] px-4 py-3 text-sm font-semibold text-slate-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition-colors hover:border-white/18 hover:bg-white/[0.08] hover:text-white',
+      className
+    )}
+  >
+    <Search className="h-4 w-4 shrink-0 text-neo-cyan" />
+    <span className="truncate">{label}</span>
+  </Link>
+);
+
+const NavbarNotificationsFallback = () => (
+  <Link
+    to="/profile"
+    aria-label="Open profile notifications"
+    className="relative flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.045] text-slate-200 transition-all hover:border-white/18 hover:bg-white/[0.08] hover:text-white"
+  >
+    <Bell className="h-[1.125rem] w-[1.125rem]" />
+  </Link>
+);
+
+export const NavbarFailureFallback = () => (
+  <>
+    <header className="fixed top-0 left-0 right-0 z-50 overflow-x-clip aura-nav-shell bg-[linear-gradient(180deg,rgba(2,6,23,0.92),rgba(2,6,23,0.58))]">
+      <div className="container-custom max-w-[90rem] mx-auto px-3 sm:px-5 lg:px-6">
+        <div className="relative min-w-0 rounded-[1.85rem] border border-white/12 bg-[linear-gradient(180deg,rgba(7,12,24,0.96),rgba(5,10,20,0.88))] px-2.5 py-2.5 shadow-[0_20px_58px_rgba(2,8,23,0.38)] sm:px-3.5 lg:px-4">
+          <div className="pointer-events-none absolute inset-[1px] rounded-[calc(1.85rem-1px)] bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.01)_30%,transparent)]" />
+          <div className="relative min-w-0 flex items-center justify-between gap-3">
+            <Link to="/" className="flex items-center gap-2 flex-shrink-0 group">
+              <div className="w-11 h-11 rounded-[1rem] bg-gradient-to-br from-neo-cyan via-sky-400 to-neo-emerald p-[1px] shadow-[0_14px_28px_rgba(6,182,212,0.22)]">
+                <div className="w-full h-full bg-zinc-950 rounded-[15px] flex items-center justify-center">
+                  <Sparkles className="w-5 h-5 text-neo-cyan" />
+                </div>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-white text-lg sm:text-xl lg:text-2xl font-black tracking-[-0.06em] bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-200 to-slate-400">
+                  AURA
+                </span>
+                <span className="hidden sm:inline text-slate-500 text-[10px] font-bold tracking-[0.24em] uppercase -mt-1">
+                  Network
+                </span>
+              </div>
+            </Link>
+
+            <NavbarSearchFallback className="flex-[1.1] min-w-[18rem] xl:min-w-[24rem] max-w-[34rem] xl:max-w-[40rem]" />
+
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <Link
+                to="/marketplace"
+                className="hidden xl:inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.045] px-4 py-2.5 text-sm font-semibold text-slate-200 transition-all duration-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] hover:border-white/18 hover:bg-white/[0.075] hover:text-white"
+              >
+                <Store className="w-4 h-4" />
+                Marketplace
+              </Link>
+              <Link
+                to="/login"
+                className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.045] px-3 py-2 text-sm font-semibold text-white shadow-[0_16px_36px_rgba(2,8,23,0.18),inset_0_1px_0_rgba(255,255,255,0.05)] transition-all duration-300 hover:-translate-y-0.5 hover:border-neo-cyan hover:bg-white/[0.08] active:translate-y-0 sm:px-4 lg:px-5"
+              >
+                Login
+              </Link>
+              <Link
+                to="/cart"
+                className="group flex items-center gap-2 rounded-full border border-transparent p-2 text-slate-300 transition-all hover:border-white/10 hover:bg-white/[0.05] hover:text-neo-cyan"
+                aria-label="Cart"
+              >
+                <ShoppingCart className="w-5 h-5 transition-all duration-300" />
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+    <div className="aura-nav-spacer" />
+  </>
+);
 
 const Navbar = () => {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -271,11 +360,19 @@ const Navbar = () => {
             </Link>
 
             {/* Search Bar - Desktop */}
-            <GlobalSearchBar
-              className="hidden lg:flex flex-[1.2] min-w-[18rem] xl:min-w-[24rem] max-w-[32rem] xl:max-w-[40rem] 2xl:max-w-[46rem]"
-              placeholder="Search products, brands, and live deals"
-              onVoiceSearch={() => setShowVoiceSearch(true)}
-            />
+            <AppErrorBoundary
+              fallback={(
+                <NavbarSearchFallback
+                  className="flex-[1.2] min-w-[18rem] xl:min-w-[24rem] max-w-[32rem] xl:max-w-[40rem] 2xl:max-w-[46rem]"
+                />
+              )}
+            >
+              <GlobalSearchBar
+                className="hidden lg:flex flex-[1.2] min-w-[18rem] xl:min-w-[24rem] max-w-[32rem] xl:max-w-[40rem] 2xl:max-w-[46rem]"
+                placeholder="Search products, brands, and live deals"
+                onVoiceSearch={() => setShowVoiceSearch(true)}
+              />
+            </AppErrorBoundary>
 
             {/* Primary commerce actions */}
             <div className="hidden xl:flex items-center gap-2 flex-shrink-0">
@@ -429,7 +526,9 @@ const Navbar = () => {
 
                 {/* Notifications */}
                 {activeUser && (
-                  <NotificationDropdown />
+                  <AppErrorBoundary fallback={<NavbarNotificationsFallback />}>
+                    <NotificationDropdown />
+                  </AppErrorBoundary>
                 )}
 
                 {/* User Dropdown */}
@@ -673,13 +772,23 @@ const Navbar = () => {
               isMobileMenuOpen ? 'max-h-[30rem] mt-4 pb-2' : 'max-h-0'
             )}
           >
-            <GlobalSearchBar
-              mobile
-              placeholder="Search products, categories, and actions..."
-              onVoiceSearch={() => setShowVoiceSearch(true)}
-              onNavigate={() => setIsMobileMenuOpen(false)}
-              enableGlobalShortcuts={false}
-            />
+            <AppErrorBoundary
+              fallback={(
+                <NavbarSearchFallback
+                  mobile
+                  label="Search products, categories, and actions..."
+                  onNavigate={() => setIsMobileMenuOpen(false)}
+                />
+              )}
+            >
+              <GlobalSearchBar
+                mobile
+                placeholder="Search products, categories, and actions..."
+                onVoiceSearch={() => setShowVoiceSearch(true)}
+                onNavigate={() => setIsMobileMenuOpen(false)}
+                enableGlobalShortcuts={false}
+              />
+            </AppErrorBoundary>
           </div>
         </div>
 
