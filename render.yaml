@@ -37,7 +37,7 @@ services:
       - key: MONGO_URI
         sync: false
       - key: AUTH_VAULT_SECRET
-        sync: false
+        generateValue: true
       - key: AUTH_VAULT_SECRET_VERSION
         value: v1
       - key: AUTH_VAULT_PREVIOUS_SECRETS
