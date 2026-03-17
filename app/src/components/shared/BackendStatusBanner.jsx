@@ -25,8 +25,7 @@ const TRANSIENT_NETWORK_PATTERNS = [
 ];
 
 const HEALTH_URL = buildServiceUrl('/health');
-const BACKEND_STATUS_BANNER_ENABLED = import.meta.env.MODE !== 'test'
-  && import.meta.env.VITE_ENABLE_BACKEND_STATUS_BANNER !== 'false';
+const BACKEND_STATUS_BANNER_ENABLED = import.meta.env.VITE_ENABLE_BACKEND_STATUS_BANNER !== 'false';
 
 const parseJsonSafely = async (response) => {
   const text = await response.text();
