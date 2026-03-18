@@ -99,22 +99,16 @@ wait_for_revision_ready() {
 }
 
 assert_health_payload() {
-  python - <<'PY'
-import json
-import sys
-
+  python -c 'import json, sys
 payload = json.load(sys.stdin)
 status_ok = payload.get("status") == "ok"
 split_runtime_ready = payload.get("topology", {}).get("splitRuntimeReady", True)
 redis_ok = payload.get("redis", {}).get("connected", True)
 mongo_ok = payload.get("topology", {}).get("mongo", {}).get("connected", True)
-
 if status_ok and split_runtime_ready and redis_ok and mongo_ok:
     sys.exit(0)
-
 print(json.dumps(payload, indent=2), file=sys.stderr)
-sys.exit(1)
-PY
+sys.exit(1)'
 }
 
 wait_for_http_health() {
