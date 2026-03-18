@@ -1,0 +1,68 @@
+name: Rollback Backend On Azure
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: Immutable ACR image tag to promote back to production
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: backend-production-deploy
+  cancel-in-progress: false
+
+env:
+  AZURE_CLIENT_ID: 03748f55-bdf3-4f48-8f88-303b118193b2
+  AZURE_TENANT_ID: 7f9460de-1fc8-477a-b8ba-80609bc24a31
+  AZURE_SUBSCRIPTION_ID: f7bef511-7ed6-4896-a010-45e5ecd699ef
+  RESOURCE_GROUP: rg-aura-prod
+  ACR_NAME: auramsi20260318acr
+  ACR_LOGIN_SERVER: auramsi20260318acr.azurecr.io
+  IMAGE_NAME: aura-backend
+  API_APP_NAME: aura-msi-api-ca
+  WORKER_APP_NAME: aura-msi-worker-ca
+  HEALTH_PATH: /health
+  HEALTH_TIMEOUT_SECONDS: "240"
+  HEALTH_POLL_INTERVAL_SECONDS: "10"
+
+jobs:
+  rollback:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ env.AZURE_CLIENT_ID }}
+          tenant-id: ${{ env.AZURE_TENANT_ID }}
+          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Promote target image as rollback release
+        id: rollback_release
+        shell: bash
+        env:
+          IMAGE_REF: ${{ env.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:${{ inputs.image_tag }}
+          REVISION_SUFFIX: rb${{ github.run_number }}
+        run: |
+          set -euo pipefail
+          bash infra/azure/promote-containerapps.sh
+
+      - name: Rollback summary
+        shell: bash
+        run: |
+          {
+            echo "## Azure Backend Rollback"
+            echo ""
+            echo "- Restored image: \`${{ env.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:${{ inputs.image_tag }}\`"
+            echo "- API revision: \`${{ steps.rollback_release.outputs.candidate_api_revision }}\`"
+            echo "- Worker revision: \`${{ steps.rollback_release.outputs.candidate_worker_revision }}\`"
+            echo "- API URL: [https://${{ steps.rollback_release.outputs.production_fqdn }}](https://${{ steps.rollback_release.outputs.production_fqdn }})"
+          } >> "${GITHUB_STEP_SUMMARY}"
