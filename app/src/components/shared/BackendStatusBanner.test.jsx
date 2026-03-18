@@ -15,7 +15,7 @@ describe('BackendStatusBanner', () => {
   });
 
   it('displays degraded status when backend reports database disconnection', async () => {
-    vi.spyOn(apiBase, 'requestWithTrace').mockResolvedValue(
+    const requestMock = vi.spyOn(apiBase, 'requestWithTrace').mockImplementation(() => Promise.resolve(
       new Response(JSON.stringify({
         status: 'degraded',
         reason: 'database_disconnected',
@@ -26,7 +26,7 @@ describe('BackendStatusBanner', () => {
           'X-Request-Id': 'srv-health-1',
         },
       })
-    );
+    ));
 
     render(<BackendStatusBanner />);
 
