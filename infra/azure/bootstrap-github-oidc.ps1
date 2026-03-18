@@ -111,7 +111,7 @@ if (-not $servicePrincipal) {
 
 $principalObjectId = $servicePrincipal.id
 
-$subject = "repo:$RepoOwner/$RepoName:ref:refs/heads/$Branch"
+$subject = "repo:${RepoOwner}/${RepoName}:ref:refs/heads/${Branch}"
 $credentialPayload = @{
     name = $FederatedCredentialName
     issuer = "https://token.actions.githubusercontent.com"
