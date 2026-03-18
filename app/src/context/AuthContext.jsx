@@ -19,6 +19,7 @@ import {
   markFirebaseSocialAuthRejectedForRuntime,
 } from '../config/firebase';
 import { authApi, userApi } from '../services/api';
+import { clearCsrfTokenCache } from '../services/csrfTokenManager';
 
 export const AuthContext = createContext();
 
@@ -153,6 +154,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const applySignedOutState = () => {
+    clearCsrfTokenCache();
     resetSyncTracking();
     setSessionState({
       status: SESSION_STATUS.SIGNED_OUT,
@@ -247,6 +249,10 @@ export const AuthProvider = ({ children }) => {
     }
 
     const identity = getIdentityKey(activeUser, safeEmail);
+
+    if (syncStateRef.current.identity && syncStateRef.current.identity !== identity) {
+      clearCsrfTokenCache();
+    }
 
     if (shouldReuseResolvedSession(identity, force)) {
       return sessionStateRef.current.profile;
@@ -366,6 +372,7 @@ export const AuthProvider = ({ children }) => {
   const signInWithX = async () => signInWithOAuthProvider(xProvider, 'X');
 
   const logout = async () => {
+    clearCsrfTokenCache();
     setCurrentUser(null);
     applySignedOutState();
 
@@ -463,6 +470,7 @@ export const AuthProvider = ({ children }) => {
         return;
       }
 
+      clearCsrfTokenCache();
       resetSyncTracking();
       setSessionState({
         status: SESSION_STATUS.LOADING,

@@ -1,24 +1,40 @@
+import { buildApiUrl } from './apiBase';
+
 /**
  * CSRF Token Manager
- * 
- * Manages CSRF token lifecycle:
- * - Fetches token from server on demand
- * - Caches token with proper expiry
- * - Prevents concurrent token fetch requests
- * - Validates token format (64-char hex)
- * - Includes token in state-changing requests
  *
- * Header flow:
- * 1) Client fetches token from GET /api/auth/session (response header: X-CSRF-Token).
- * 2) Client sends that same token in X-CSRF-Token on POST/PUT/PATCH/DELETE.
- * 3) Server validates token + current authenticated identity (uid/email) before consuming token.
+ * The backend consumes each CSRF token after one successful write. We therefore
+ * only keep a short-lived local reservation and consume it client-side before
+ * the next POST/PUT/PATCH/DELETE leaves the browser.
  */
 
 let cachedToken = null;
 let cachedTokenExpiry = 0;
-let tokenFetchInProgress = null;
+let cachedTokenOwner = '';
 const CSRF_TOKEN_CACHE_TTL_MS = 50 * 60 * 1000; // 50 minutes
 const CSRF_TOKEN_FORMAT = /^[a-f0-9]{64}$/;
+
+const decodeBase64UrlJson = (value = '') => {
+    if (!value) return null;
+
+    try {
+        const normalized = value.replace(/-/g, '+').replace(/_/g, '/');
+        const padding = normalized.length % 4;
+        const padded = padding ? normalized.padEnd(normalized.length + (4 - padding), '=') : normalized;
+        const decoded = typeof atob === 'function'
+            ? atob(padded)
+            : Buffer.from(padded, 'base64').toString('utf8');
+        return JSON.parse(decoded);
+    } catch {
+        return null;
+    }
+};
+
+const getAuthTokenOwner = (authToken = '') => {
+    const [, payload = ''] = String(authToken || '').split('.');
+    const decoded = decodeBase64UrlJson(payload);
+    return String(decoded?.user_id || decoded?.sub || decoded?.uid || '').trim();
+};
 
 /**
  * Clear cached CSRF token
@@ -27,42 +43,62 @@ export const clearCsrfTokenCache = () => {
     console.debug('[CSRF] Clearing token cache');
     cachedToken = null;
     cachedTokenExpiry = 0;
+    cachedTokenOwner = '';
 };
 
 /**
  * Check if cached token is still valid
  */
-const isCsrfTokenCacheValid = () => {
+const isCsrfTokenCacheValid = (authToken = '') => {
     if (!cachedToken) return false;
-    
+
     if (Date.now() >= cachedTokenExpiry) {
         console.debug('[CSRF] Token expired, clearing cache');
         clearCsrfTokenCache();
         return false;
     }
-    
+
+    const owner = getAuthTokenOwner(authToken);
+    if (cachedTokenOwner && owner && cachedTokenOwner !== owner) {
+        console.debug('[CSRF] Token owner changed, clearing cache');
+        clearCsrfTokenCache();
+        return false;
+    }
+
     return true;
 };
 
 /**
  * Cache a CSRF token with validation
  * @param {string} token - Token to cache
+ * @param {string} owner - Auth owner identifier associated with this token
  * @throws {Error} If token format is invalid
  */
-export const cacheToken = (token) => {
+export const cacheToken = (token, owner = '') => {
     if (!token || typeof token !== 'string') {
         throw new Error('CSRF token must be a non-empty string');
     }
-    
+
     // Validate token format (should be 64-char hex = 32 bytes)
     if (!CSRF_TOKEN_FORMAT.test(token)) {
         console.error('[CSRF] Invalid token format. Expected 64-char hex, got:', token.substring(0, 20) + '...');
         throw new Error('Invalid CSRF token format from server');
     }
-    
+
     console.debug('[CSRF] Token cached successfully');
     cachedToken = token;
     cachedTokenExpiry = Date.now() + CSRF_TOKEN_CACHE_TTL_MS;
+    cachedTokenOwner = String(owner || '').trim();
+};
+
+const consumeCachedCsrfToken = (authToken = '') => {
+    if (!isCsrfTokenCacheValid(authToken)) {
+        return null;
+    }
+
+    const token = cachedToken;
+    clearCsrfTokenCache();
+    return token;
 };
 
 /**
@@ -78,59 +114,36 @@ export const fetchCsrfToken = async (authToken) => {
         throw new Error('Auth token required to fetch CSRF token');
     }
 
-    // Return cached token if still valid
-    if (isCsrfTokenCacheValid()) {
-        console.debug('[CSRF] Using cached token');
-        return cachedToken;
-    }
+    try {
+        console.debug('[CSRF] Fetching token from server...');
 
-    // Prevent duplicate concurrent fetch requests
-    if (tokenFetchInProgress) {
-        console.debug('[CSRF] Token fetch already in progress, waiting...');
-        return tokenFetchInProgress;
-    }
+        const response = await fetch(buildApiUrl('/auth/session'), {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+            },
+        });
 
-    // Create promise and store reference
-    tokenFetchInProgress = (async () => {
-        try {
-            console.debug('[CSRF] Fetching token from server...');
-            
-            const response = await fetch('/api/auth/session', {
-                method: 'GET',
-                headers: {
-                    'Authorization': `Bearer ${authToken}`,
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                },
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-
-            // Extract CSRF token from response headers
-            const token = response.headers.get('X-CSRF-Token');
-            if (!token) {
-                throw new Error('Server did not return X-CSRF-Token header');
-            }
-
-            console.debug('[CSRF] Token received, validating format...');
-            
-            // Validate and cache token
-            cacheToken(token);
-
-            return token;
-        } catch (error) {
-            console.error('[CSRF] Token fetch failed:', error.message);
-            clearCsrfTokenCache();
-            throw error;
-        } finally {
-            // Clear in-progress flag
-            tokenFetchInProgress = null;
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
-    })();
 
-    return tokenFetchInProgress;
+        const token = response.headers.get('X-CSRF-Token');
+        if (!token) {
+            throw new Error('Server did not return X-CSRF-Token header');
+        }
+
+        console.debug('[CSRF] Token received, validating format...');
+        cacheToken(token, getAuthTokenOwner(authToken));
+
+        return token;
+    } catch (error) {
+        console.error('[CSRF] Token fetch failed:', error.message);
+        clearCsrfTokenCache();
+        throw error;
+    }
 };
 
 /**
@@ -147,12 +160,22 @@ export const getCachedCsrfToken = () => {
  * @param {string} authToken - Firebase ID token  
  * @returns {Promise<string>} CSRF token
  */
-export const ensureCsrfToken = async (authToken) => {
-    const cached = getCachedCsrfToken();
-    if (cached) {
-        return cached;
+export const ensureCsrfToken = async (authToken, options = {}) => {
+    const { forceFresh = false } = options;
+
+    if (!forceFresh) {
+        const cached = consumeCachedCsrfToken(authToken);
+        if (cached) {
+            return cached;
+        }
     }
-    return fetchCsrfToken(authToken);
+
+    await fetchCsrfToken(authToken);
+    const reserved = consumeCachedCsrfToken(authToken);
+    if (!reserved) {
+        throw new Error('Unable to reserve a fresh CSRF token');
+    }
+    return reserved;
 };
 
 /**

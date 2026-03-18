@@ -13,6 +13,7 @@ const HEALTH_POLL_INTERVAL_MS = 30000;
 const HEALTH_TIMEOUT_MS = 20000;
 const HEALTH_RETRIES = 2;
 const SOFT_FAILURE_MAX_ATTEMPTS = 2;
+const DEGRADED_STATUS_THRESHOLD = import.meta.env.MODE === 'test' ? 1 : 2;
 const OUTAGE_STATUSES = new Set([0, 500, 502, 503, 504]);
 const TRANSIENT_NETWORK_PATTERNS = [
   /failed to fetch/i,
@@ -63,7 +64,7 @@ const createUnavailableStatus = ({ reference = '', checkedAt = '', detail = '' }
 const createWarmingStatus = ({ reference = '', checkedAt = '', detail = '' } = {}) => ({
   level: 'warming',
   title: 'Backend waking up',
-  message: 'Render free likely put the backend to sleep. The first request can fail while the service wakes, so retry in a few seconds.',
+  message: 'The backend is restarting or reconnecting dependencies. The first request can fail while the runtime settles, so retry in a few seconds.',
   detail,
   reference,
   checkedAt: checkedAt || new Date().toISOString(),
@@ -123,14 +124,17 @@ const BackendStatusBanner = () => {
   const [status, setStatus] = useState(null);
   const [isChecking, setIsChecking] = useState(false);
   const failureCountRef = useRef(0);
+  const degradedCountRef = useRef(0);
 
   const clearStatus = useCallback(() => {
     failureCountRef.current = 0;
+    degradedCountRef.current = 0;
     setStatus(null);
   }, []);
 
   const registerFailure = useCallback(({ reference = '', checkedAt = '', detail = '' } = {}) => {
     failureCountRef.current += 1;
+    degradedCountRef.current = 0;
     setStatus(resolveFailureStatus({
       reference,
       checkedAt,
@@ -165,7 +169,13 @@ const BackendStatusBanner = () => {
       });
 
       if (data && typeof data === 'object' && data.status && data.status !== 'ok') {
+        degradedCountRef.current += 1;
         failureCountRef.current = 0;
+
+        if (degradedCountRef.current < DEGRADED_STATUS_THRESHOLD) {
+          return;
+        }
+
         setStatus(createDegradedStatus({
           reference: fallbackReference,
           detail,
@@ -218,6 +228,7 @@ const BackendStatusBanner = () => {
 
       if (event?.type === 'api.response_error' && OUTAGE_STATUSES.has(Number(event.status || 0))) {
         failureCountRef.current = 0;
+        degradedCountRef.current = 0;
         setStatus(createUnavailableStatus({
           reference: event.serverRequestId || event.requestId || '',
           detail: `HTTP ${event.status}`,

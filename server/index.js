@@ -194,8 +194,27 @@ if (process.env.NODE_ENV !== 'test') {
         allowInMemoryFallback: true,
         name: 'global',
         windowMs: 15 * 60 * 1000,
-        max: process.env.NODE_ENV === 'development' ? 500 : 100,
+        max: process.env.NODE_ENV === 'development' ? 500 : 600,
         message: { status: 'error', message: 'Too many requests, please try again later.' },
+        skip: (req) => {
+            const path = String(req.path || req.originalUrl || '').trim().toLowerCase();
+            return path === '/health'
+                || path === '/health/ready'
+                || path === '/metrics'
+                || path.startsWith('/api/observability');
+        },
+        keyGenerator: (req) => {
+            const clientSessionId = String(req.headers['x-client-session-id'] || '').trim();
+            if (clientSessionId) {
+                return `session:${clientSessionId}`;
+            }
+
+            const forwardedFor = String(req.headers['x-forwarded-for'] || '')
+                .split(',')[0]
+                .trim();
+
+            return forwardedFor || req.ip || req.socket?.remoteAddress || 'unknown';
+        },
     });
     app.use(limiter);
 }

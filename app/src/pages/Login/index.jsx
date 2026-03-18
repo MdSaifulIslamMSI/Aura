@@ -14,7 +14,15 @@ const OTP_LENGTH = 6;
 const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, signup, forgotPassword, signInWithGoogle, signInWithFacebook, signInWithX } = useContext(AuthContext);
+  const {
+    currentUser,
+    login,
+    signup,
+    forgotPassword,
+    signInWithGoogle,
+    signInWithFacebook,
+    signInWithX,
+  } = useContext(AuthContext);
 
   // Mode: 'signin' | 'signup' | 'forgot-password'
   const [mode, setMode] = useState('signin');
@@ -48,6 +56,11 @@ const Login = () => {
       return () => clearTimeout(timer);
     }
   }, [countdown]);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    navigate(from, { replace: true });
+  }, [currentUser, from, navigate]);
 
   const handleChange = (e) => {
     setFormData((prev) => ({
