@@ -26,6 +26,7 @@
 const dns = require('dns');
 dns.setDefaultResultOrder('ipv4first');
 
+const http = require('http');
 const dotenv = require('dotenv');
 dotenv.config();
 
@@ -57,6 +58,55 @@ const { IntelligenceTaskMonitor } = require('./services/marketingIntelligenceSer
 const { startOtpSignupMaintenanceWorker } = require('./services/otpSignupMaintenanceService');
 
 const NODE_ENV = process.env.NODE_ENV || 'production';
+const HEALTH_PORT = Number(process.env.WORKER_HEALTH_PORT || process.env.PORT || 8080);
+const workerRuntimeState = {
+    ready: false,
+    startupError: '',
+    startedAt: new Date().toISOString(),
+    readyAt: null,
+    failedAt: null,
+};
+
+const createWorkerHealthServer = () => http.createServer((req, res) => {
+    const payload = {
+        uptime: process.uptime(),
+        timestamp: new Date().toISOString(),
+        worker: {
+            ready: workerRuntimeState.ready,
+            startupError: workerRuntimeState.startupError || null,
+            startedAt: workerRuntimeState.startedAt,
+            readyAt: workerRuntimeState.readyAt,
+            failedAt: workerRuntimeState.failedAt,
+        },
+    };
+
+    if (req.url === '/health/live') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+            alive: true,
+            ...payload,
+        }));
+        return;
+    }
+
+    if (req.url === '/health' || req.url === '/health/ready') {
+        const statusCode = workerRuntimeState.ready ? 200 : 503;
+        res.writeHead(statusCode, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+            ready: workerRuntimeState.ready,
+            ...payload,
+        }));
+        return;
+    }
+
+    res.writeHead(404, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ status: 'not_found' }));
+});
+
+const healthServer = createWorkerHealthServer();
+healthServer.listen(HEALTH_PORT, '0.0.0.0', () => {
+    logger.info('worker_process.health_server_ready', { port: HEALTH_PORT });
+});
 
 const startup = async () => {
     logger.info('worker_process.starting', { env: NODE_ENV });
@@ -85,12 +135,18 @@ const startup = async () => {
     startCatalogWorkers();
     IntelligenceTaskMonitor();
     startOtpSignupMaintenanceWorker();
+    workerRuntimeState.ready = true;
+    workerRuntimeState.startupError = '';
+    workerRuntimeState.readyAt = new Date().toISOString();
 
     logger.info('worker_process.all_workers_started');
     console.log('Worker process running'.green.bold);
 };
 
 startup().catch((error) => {
+    workerRuntimeState.ready = false;
+    workerRuntimeState.startupError = error.message;
+    workerRuntimeState.failedAt = new Date().toISOString();
     logger.error('worker_process.startup_failed', { error: error.message });
     process.exit(1);
 });
@@ -98,8 +154,10 @@ startup().catch((error) => {
 // Graceful shutdown
 const shutdown = (signal) => {
     logger.info('worker_process.shutdown', { signal });
-    // Workers will drain naturally; DB/Redis connections close via process exit
-    process.exit(0);
+    healthServer.close(() => {
+        process.exit(0);
+    });
+    setTimeout(() => process.exit(0), 5000).unref();
 };
 
 process.on('SIGTERM', () => shutdown('SIGTERM'));
