@@ -1,11 +1,20 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { BlobServiceClient } = require('@azure/storage-blob');
 
 const REVIEW_UPLOAD_DIR = path.resolve(
     process.env.REVIEW_UPLOAD_DIR
     || path.join(__dirname, '..', 'uploads', 'reviews')
 );
+const AZURE_STORAGE_CONTAINER_NAME = String(
+    process.env.AZURE_STORAGE_CONTAINER_NAME
+    || 'review-media'
+).trim();
+const AZURE_STORAGE_CONNECTION_STRING = String(
+    process.env.AZURE_STORAGE_CONNECTION_STRING
+    || ''
+).trim();
 
 const MIME_EXTENSION_MAP = {
     'image/jpeg': '.jpg',
@@ -20,12 +29,35 @@ const EXTENSION_MIME_MAP = Object.fromEntries(
     Object.entries(MIME_EXTENSION_MAP).map(([mimeType, extension]) => [extension, mimeType])
 );
 
+let blobContainerClientPromise = null;
+
 const getStorageDriver = () => {
-    return 'local';
+    const normalized = String(process.env.UPLOAD_STORAGE_DRIVER || 'local').trim().toLowerCase();
+    return normalized === 'azure-blob' ? 'azure-blob' : 'local';
 };
 
 const ensureLocalStorageReady = async () => {
     await fs.promises.mkdir(REVIEW_UPLOAD_DIR, { recursive: true });
+};
+
+const getAzureBlobContainerClient = async () => {
+    if (blobContainerClientPromise) {
+        return blobContainerClientPromise;
+    }
+
+    if (!AZURE_STORAGE_CONNECTION_STRING) {
+        throw new Error('AZURE_STORAGE_CONNECTION_STRING is required when UPLOAD_STORAGE_DRIVER=azure-blob');
+    }
+
+    blobContainerClientPromise = Promise.resolve().then(async () => {
+        const blobServiceClient = BlobServiceClient.fromConnectionString(AZURE_STORAGE_CONNECTION_STRING);
+        return blobServiceClient.getContainerClient(AZURE_STORAGE_CONTAINER_NAME);
+    }).catch((error) => {
+        blobContainerClientPromise = null;
+        throw error;
+    });
+
+    return blobContainerClientPromise;
 };
 
 const sanitizeObjectKeySegment = (value) => String(value || '')
@@ -53,7 +85,7 @@ const encodeUrlPath = (value) => String(value || '')
 const buildReviewMediaStorageKey = (relativePath = '') => String(relativePath || '').replace(/^\/+|\/+$/g, '');
 
 const buildPublicUrl = (storageDriver, storageKey) => {
-    if (storageDriver !== 'local') {
+    if (!['local', 'azure-blob'].includes(storageDriver)) {
         throw new Error(`Unsupported storage driver: ${storageDriver}`);
     }
     return `/uploads/reviews/${encodeUrlPath(path.basename(storageKey))}`;
@@ -71,7 +103,36 @@ const storeReviewMediaLocally = async ({ fileBuffer, fileName }) => {
     };
 };
 
+const ensureAzureBlobStorageReady = async () => {
+    const containerClient = await getAzureBlobContainerClient();
+    await containerClient.createIfNotExists({
+        access: undefined,
+    });
+};
+
+const storeReviewMediaInAzureBlob = async ({ fileBuffer, fileName, mimeType }) => {
+    await ensureAzureBlobStorageReady();
+    const containerClient = await getAzureBlobContainerClient();
+    const blobClient = containerClient.getBlockBlobClient(fileName);
+    await blobClient.uploadData(fileBuffer, {
+        blobHTTPHeaders: {
+            blobContentType: mimeType || undefined,
+            blobCacheControl: 'public, max-age=31536000, immutable',
+        },
+    });
+
+    return {
+        storageDriver: 'azure-blob',
+        storageKey: fileName,
+        url: buildPublicUrl('azure-blob', fileName),
+    };
+};
+
 const ensureReviewUploadStorageReady = async () => {
+    if (getStorageDriver() === 'azure-blob') {
+        await ensureAzureBlobStorageReady();
+        return;
+    }
     await ensureLocalStorageReady();
 };
 
@@ -79,6 +140,14 @@ const storeReviewMedia = async ({ fileBuffer, fileName, mimeType }) => {
     const normalizedMimeType = String(mimeType || '').trim().toLowerCase();
     const normalizedFileName = sanitizeObjectKeySegment(fileName || 'review-media');
     const storedFileName = buildStoredFileName(normalizedFileName, normalizedMimeType);
+
+    if (getStorageDriver() === 'azure-blob') {
+        return storeReviewMediaInAzureBlob({
+            fileBuffer,
+            fileName: storedFileName,
+            mimeType: normalizedMimeType,
+        });
+    }
 
     return storeReviewMediaLocally({
         fileBuffer,
@@ -92,6 +161,27 @@ const getReviewMediaObject = async ({ storageKey }) => {
         const missingError = new Error('Upload not found');
         missingError.code = 404;
         throw missingError;
+    }
+
+    if (getStorageDriver() === 'azure-blob') {
+        const containerClient = await getAzureBlobContainerClient();
+        const blobClient = containerClient.getBlobClient(path.basename(safeStorageKey));
+        try {
+            const downloadResponse = await blobClient.download();
+            return {
+                body: downloadResponse.readableStreamBody,
+                contentType: downloadResponse.contentType || '',
+                cacheControl: downloadResponse.cacheControl || 'public, max-age=31536000, immutable',
+                contentLength: Number(downloadResponse.contentLength || 0),
+                etag: String(downloadResponse.etag || ''),
+                lastModified: downloadResponse.lastModified || null,
+            };
+        } catch (error) {
+            if (Number(error?.statusCode || 0) === 404) {
+                error.code = 404;
+            }
+            throw error;
+        }
     }
 
     const targetPath = path.join(REVIEW_UPLOAD_DIR, path.basename(safeStorageKey));

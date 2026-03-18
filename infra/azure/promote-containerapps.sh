@@ -85,7 +85,7 @@ wait_for_revision_ready() {
 
     log "${role} revision ${revision_name}: provisioning=${provisioning_state} running=${running_state} health=${health_state:-n/a}"
 
-    if [[ "${provisioning_state}" == "Provisioned" && "${running_state}" == "Running" ]]; then
+    if [[ "${provisioning_state}" == "Provisioned" && "${running_state}" == Running* ]]; then
       if [[ -z "${health_state}" || "${health_state}" == "Healthy" ]]; then
         return 0
       fi
