@@ -13,7 +13,7 @@ const HEALTH_POLL_INTERVAL_MS = 30000;
 const HEALTH_TIMEOUT_MS = 20000;
 const HEALTH_RETRIES = 2;
 const SOFT_FAILURE_MAX_ATTEMPTS = 2;
-const DEGRADED_STATUS_THRESHOLD = import.meta.env.MODE === 'test' ? 1 : 2;
+const DEGRADED_STATUS_THRESHOLD = import.meta.env.MODE === 'test' ? 1 : 3;
 const OUTAGE_STATUSES = new Set([0, 500, 502, 503, 504]);
 const TRANSIENT_NETWORK_PATTERNS = [
   /failed to fetch/i,

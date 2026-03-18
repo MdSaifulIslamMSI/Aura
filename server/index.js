@@ -105,6 +105,12 @@ logger.info('config.split_runtime_env_check', {
 const requirePublishedCatalog = String(
     process.env.CATALOG_READINESS_REQUIRE_PUBLISHED || (runtimeNodeEnv === 'production' ? 'true' : 'false')
 ).trim().toLowerCase() !== 'false';
+const runtimeStartupState = {
+    asyncStartupComplete: false,
+    asyncStartupError: '',
+    asyncStartupCompletedAt: null,
+    asyncStartupFailedAt: null,
+};
 
 const getSplitRuntimeWorkerGaps = ({
     paymentQueue = {},
@@ -247,6 +253,23 @@ app.use('/api/support', supportRoutes);
 app.use('/metrics', metricsRoute);
 
 // Health Check
+app.get('/health/live', (req, res) => {
+    res.json({
+        alive: true,
+        uptime: process.uptime(),
+        timestamp: new Date().toISOString(),
+        topology: {
+            splitRuntimeEnabled,
+        },
+        startup: {
+            asyncStartupComplete: runtimeStartupState.asyncStartupComplete,
+            asyncStartupError: runtimeStartupState.asyncStartupError || null,
+            asyncStartupCompletedAt: runtimeStartupState.asyncStartupCompletedAt,
+            asyncStartupFailedAt: runtimeStartupState.asyncStartupFailedAt,
+        },
+    });
+});
+
 app.get('/health', async (req, res) => {
     const { dbConnected, redisConnected, mongoDeployment } = await checkCoreDependencies();
     const services = await checkServiceReadiness();
@@ -272,6 +295,12 @@ app.get('/health', async (req, res) => {
             splitRuntimeReady: splitRuntimeEnabled ? workerGaps.length === 0 : true,
             workerGaps,
             mongo: mongoDeployment,
+        },
+        startup: {
+            asyncStartupComplete: runtimeStartupState.asyncStartupComplete,
+            asyncStartupError: runtimeStartupState.asyncStartupError || null,
+            asyncStartupCompletedAt: runtimeStartupState.asyncStartupCompletedAt,
+            asyncStartupFailedAt: runtimeStartupState.asyncStartupFailedAt,
         },
         queues: {
             paymentOutbox: services.paymentQueue || { status: 'unknown' },
@@ -410,6 +439,12 @@ app.get('/health/ready', async (req, res) => {
         uptime,
         gracePeriodEnabled: isWithinGracePeriod,
         timestamp: new Date().toISOString(),
+        startup: {
+            asyncStartupComplete: runtimeStartupState.asyncStartupComplete,
+            asyncStartupError: runtimeStartupState.asyncStartupError || null,
+            asyncStartupCompletedAt: runtimeStartupState.asyncStartupCompletedAt,
+            asyncStartupFailedAt: runtimeStartupState.asyncStartupFailedAt,
+        },
         topology: {
             splitRuntimeEnabled,
             mongo: mongoDeployment,
@@ -457,9 +492,15 @@ if (require.main === module) {
                     startCommerceReconciliationWorker();
                     startAdminAnalyticsMonitor();
                     startCatalogWorkers();
+                    runtimeStartupState.asyncStartupComplete = true;
+                    runtimeStartupState.asyncStartupError = '';
+                    runtimeStartupState.asyncStartupCompletedAt = new Date().toISOString();
                     logger.info('server.async_startup_complete');
                 })
                 .catch((error) => {
+                    runtimeStartupState.asyncStartupComplete = false;
+                    runtimeStartupState.asyncStartupError = error.message;
+                    runtimeStartupState.asyncStartupFailedAt = new Date().toISOString();
                     logger.error('server.async_startup_failed', { error: error.message });
                 });
         });
