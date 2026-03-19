@@ -402,6 +402,15 @@ function Upsert-MetricAlert {
         --action $ActionGroupId
 }
 
+function Remove-MetricAlertIfExists {
+    param([string]$Name)
+
+    if (Test-ResourceExists { Invoke-AzJson monitor metrics alert show --name $Name --resource-group $ResourceGroup }) {
+        Write-Step "Removing metric alert $Name"
+        Invoke-AzRaw monitor metrics alert delete --name $Name --resource-group $ResourceGroup
+    }
+}
+
 function Upsert-ScheduledQueryAlert {
     param(
         [string]$Name,
@@ -611,6 +620,9 @@ Ensure-ContainerAppTelemetryEnv -AppName $WorkerAppName -ConnectionString $appIn
 
 $actionGroupId = Ensure-ActionGroup -Name $ActionGroupName -GroupName $ResourceGroup -ReceiverEmail $AlertEmail
 
+Remove-MetricAlertIfExists -Name "aura-api-restarts"
+Remove-MetricAlertIfExists -Name "aura-worker-restarts"
+
 Upsert-MetricAlert `
     -Name "aura-api-5xx-spike" `
     -Scope $apiAppId `
@@ -620,26 +632,6 @@ Upsert-MetricAlert `
     -Severity 1 `
     -WindowSize "5m" `
     -EvaluationFrequency "1m"
-
-Upsert-MetricAlert `
-    -Name "aura-api-restarts" `
-    -Scope $apiAppId `
-    -Condition "max RestartCount > 0" `
-    -Description "Aura API container restarted unexpectedly." `
-    -ActionGroupId $actionGroupId `
-    -Severity 2 `
-    -WindowSize "15m" `
-    -EvaluationFrequency "5m"
-
-Upsert-MetricAlert `
-    -Name "aura-worker-restarts" `
-    -Scope $workerAppId `
-    -Condition "max RestartCount > 0" `
-    -Description "Aura worker container restarted unexpectedly." `
-    -ActionGroupId $actionGroupId `
-    -Severity 2 `
-    -WindowSize "15m" `
-    -EvaluationFrequency "5m"
 
 Upsert-MetricAlert `
     -Name "aura-api-no-replicas" `
@@ -659,6 +651,21 @@ ContainerAppSystemLogs_CL
     or Reason_s in~ ('ImagePullBackOff', 'ErrImagePull', 'ContainerCrashing', 'RevisionFailed', 'RevisionProvisioningError', 'ProbeFailed', 'HealthCheckFailed')
 "@
 
+$unexpectedTerminationQuery = @"
+ContainerAppSystemLogs_CL
+| where TimeGenerated > ago(10m)
+| where ContainerAppName_s in~ ('$ApiAppName', '$WorkerAppName')
+| where Type_s =~ 'ContainerTerminated'
+| where Reason_s !in~ ('ManuallyStopped')
+"@
+
+$probeFailureQuery = @"
+ContainerAppSystemLogs_CL
+| where TimeGenerated > ago(5m)
+| where ContainerAppName_s in~ ('$ApiAppName', '$WorkerAppName')
+| where Reason_s in~ ('ProbeFailed', 'HealthCheckFailed')
+"@
+
 Upsert-ScheduledQueryAlert `
     -Name "aura-containerapp-control-plane-errors" `
     -Scope $workspaceId `
@@ -670,6 +677,32 @@ Upsert-ScheduledQueryAlert `
     -ActionGroupId $actionGroupId `
     -Severity 1 `
     -WindowSize "10m" `
+    -EvaluationFrequency "5m"
+
+Upsert-ScheduledQueryAlert `
+    -Name "aura-containerapp-unexpected-terminations" `
+    -Scope $workspaceId `
+    -LocationName $Location `
+    -QueryPlaceholder "UnexpectedTerminations" `
+    -QueryText $unexpectedTerminationQuery `
+    -Condition "count 'UnexpectedTerminations' > 0" `
+    -Description "Aura Container Apps terminated a container for a reason other than a controlled rollout stop." `
+    -ActionGroupId $actionGroupId `
+    -Severity 1 `
+    -WindowSize "10m" `
+    -EvaluationFrequency "5m"
+
+Upsert-ScheduledQueryAlert `
+    -Name "aura-containerapp-probe-failures" `
+    -Scope $workspaceId `
+    -LocationName $Location `
+    -QueryPlaceholder "ProbeFailures" `
+    -QueryText $probeFailureQuery `
+    -Condition "count 'ProbeFailures' > 2" `
+    -Description "Aura Container Apps are accumulating readiness or startup probe failures before a restart happens." `
+    -ActionGroupId $actionGroupId `
+    -Severity 2 `
+    -WindowSize "5m" `
     -EvaluationFrequency "5m"
 
 if ($MigrateRedis) {

@@ -720,7 +720,7 @@ if (-not $apiExists) {
         "--memory", "2.0Gi",
         "--min-replicas", "$ApiMinReplicas",
         "--max-replicas", "$ApiMaxReplicas",
-        "--revisions-mode", "multiple",
+        "--revisions-mode", "single",
         "--secrets"
     ) + $apiSecretArgs + @("--env-vars") + $apiEnvArgs
     Invoke-AzCli @createApiArgs | Out-Null
@@ -731,6 +731,8 @@ if (-not $apiExists) {
         Invoke-AzCli @setApiSecretsArgs | Out-Null
     }
 }
+
+Invoke-AzCli containerapp revision set-mode --name $ApiAppName --resource-group $ResourceGroup --mode single | Out-Null
 
 Write-Host "Creating or updating worker Container App..." -ForegroundColor Cyan
 $workerExists = $false
@@ -767,6 +769,8 @@ if (-not $workerExists) {
         Invoke-AzCli @setWorkerSecretsArgs | Out-Null
     }
 }
+
+Invoke-AzCli containerapp revision set-mode --name $WorkerAppName --resource-group $ResourceGroup --mode single | Out-Null
 
 Start-Sleep -Seconds 20
 $apiFqdn = Invoke-AzCli containerapp show --name $ApiAppName --resource-group $ResourceGroup --query properties.configuration.ingress.fqdn --output tsv
