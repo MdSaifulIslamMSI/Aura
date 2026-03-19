@@ -1,7 +1,9 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import {
   createUserWithEmailAndPassword,
+  getRedirectResult,
   signInWithEmailAndPassword,
+  signInWithRedirect,
   signOut,
   onAuthStateChanged,
   updateProfile as updateFirebaseProfile,
@@ -15,8 +17,10 @@ import {
   xProvider,
   assertFirebaseReady,
   assertFirebaseSocialAuthReady,
+  clearFirebaseSocialAuthRuntimeBlock,
   isFirebaseReady,
   markFirebaseSocialAuthRejectedForRuntime,
+  shouldPreferFirebaseRedirectAuth,
 } from '../config/firebase';
 import { authApi, userApi } from '../services/api';
 import { clearCsrfTokenCache } from '../services/csrfTokenManager';
@@ -127,9 +131,9 @@ export const AuthProvider = ({ children }) => {
       
       const allowed = VALID_TRANSITIONS[prev.status] || [];
       if (!allowed.includes(nextState.status)) {
-        console.warn(`AuthContext: Invalid state transition attempted from ${prev.status} to ${nextState.status}`);
-        // In production, we might want to allow it anyway but log it, 
-        // or force a specific path. For now, we allow it but warn.
+        if (import.meta.env.DEV) {
+          console.warn(`AuthContext: Invalid state transition attempted from ${prev.status} to ${nextState.status}`);
+        }
       }
       return nextState;
     });
@@ -140,6 +144,7 @@ export const AuthProvider = ({ children }) => {
     inFlight: null,
   });
   const sessionStateRef = useRef(EMPTY_SESSION_STATE);
+  const redirectResolutionRef = useRef(false);
 
   useEffect(() => {
     sessionStateRef.current = sessionState;
@@ -320,6 +325,33 @@ export const AuthProvider = ({ children }) => {
     silent: options?.silent === true,
   });
 
+  const resolveOAuthUser = async (user, options = {}) => {
+    if (!user) return null;
+
+    const email = user.email || user.providerData?.find((entry) => entry?.email)?.email || '';
+
+    if (!email) {
+      throw new Error('Social account did not provide an email. Please use an account with email access or use another login method.');
+    }
+
+    const resolvedProfile = await syncUserWithBackend(
+      email,
+      user.displayName || email.split('@')[0],
+      user.phoneNumber || '',
+      user,
+      { force: true, silent: options?.silent === true }
+    );
+
+    clearFirebaseSocialAuthRuntimeBlock();
+
+    return {
+      firebaseUser: user,
+      dbUser: resolvedProfile,
+      isNewUser: Boolean(options?.isNewUser),
+      needsPhone: !resolvedProfile?.phone,
+    };
+  };
+
   const signup = async (email, password, name, phone) => {
     assertFirebaseReady('Sign up');
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
@@ -338,29 +370,15 @@ export const AuthProvider = ({ children }) => {
   const signInWithOAuthProvider = async (provider, providerLabel = 'OAuth') => {
     try {
       assertFirebaseSocialAuthReady(`${providerLabel} sign-in`);
-      const result = await signInWithPopup(auth, provider);
-      const user = result.user;
-      const isNewUser = result._tokenResponse?.isNewUser || false;
-      const email = user.email || user.providerData?.find((entry) => entry?.email)?.email || '';
-
-      if (!email) {
-        throw new Error(`${providerLabel} account did not provide an email. Please use an account with email access or use another login method.`);
+      if (shouldPreferFirebaseRedirectAuth()) {
+        await signInWithRedirect(auth, provider);
+        return { redirecting: true };
       }
 
-      const resolvedProfile = await syncUserWithBackend(
-        email,
-        user.displayName || email.split('@')[0],
-        user.phoneNumber || '',
-        user,
-        { force: true }
-      );
-
-      return {
-        firebaseUser: user,
-        dbUser: resolvedProfile,
-        isNewUser,
-        needsPhone: !resolvedProfile?.phone,
-      };
+      const result = await signInWithPopup(auth, provider);
+      return resolveOAuthUser(result.user, {
+        isNewUser: result._tokenResponse?.isNewUser || false,
+      });
     } catch (error) {
       markFirebaseSocialAuthRejectedForRuntime(error);
       throw error;
@@ -370,6 +388,27 @@ export const AuthProvider = ({ children }) => {
   const signInWithGoogle = async () => signInWithOAuthProvider(googleProvider, 'Google');
   const signInWithFacebook = async () => signInWithOAuthProvider(facebookProvider, 'Facebook');
   const signInWithX = async () => signInWithOAuthProvider(xProvider, 'X');
+
+  useEffect(() => {
+    if (!isFirebaseReady || !auth || redirectResolutionRef.current) return undefined;
+
+    redirectResolutionRef.current = true;
+
+    getRedirectResult(auth)
+      .then((result) => {
+        if (!result?.user) return null;
+        return resolveOAuthUser(result.user, {
+          isNewUser: result._tokenResponse?.isNewUser || false,
+          silent: true,
+        });
+      })
+      .catch((error) => {
+        if (!error) return;
+        markFirebaseSocialAuthRejectedForRuntime(error);
+      });
+
+    return undefined;
+  }, []);
 
   const logout = async () => {
     clearCsrfTokenCache();
@@ -481,9 +520,7 @@ export const AuthProvider = ({ children }) => {
         error: null,
       });
 
-      refreshSession(user, { force: true }).catch((error) => {
-        console.error('Auth session refresh failed:', error?.message || error);
-      });
+      refreshSession(user, { force: true }).catch(() => {});
     });
 
     return () => {

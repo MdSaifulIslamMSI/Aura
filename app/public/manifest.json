@@ -1,7 +1,7 @@
 {
     "name": "Aura — Hybrid Marketplace",
     "short_name": "Aura",
-    "description": "Premium e-commerce + peer-to-peer marketplace with Trade-In, Price Alerts & Voice Search",
+    "description": "Premium e-commerce and peer-to-peer marketplace with trade-in, price alerts, and voice search",
     "start_url": "/",
     "display": "standalone",
     "background_color": "#0a0a0a",
