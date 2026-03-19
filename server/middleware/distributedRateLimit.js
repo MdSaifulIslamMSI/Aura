@@ -47,6 +47,15 @@ const computeMemoryWindow = (storeKey, windowMs) => {
     };
 };
 
+const applyRedisExpiry = async (client, storeKey, windowMs) => {
+    if (typeof client?.pExpire === 'function') {
+        await client.pExpire(storeKey, windowMs);
+        return;
+    }
+
+    await client.sendCommand(['PEXPIRE', storeKey, String(windowMs)]);
+};
+
 const computeRedisWindow = async (storeKey, windowMs) => {
     const client = getRedisClient();
     if (!client) return null;
@@ -59,7 +68,7 @@ const computeRedisWindow = async (storeKey, windowMs) => {
     let ttlMs = Number(ttlRaw);
 
     if (ttlMs < 0) {
-        await client.sendCommand(['PEXPIRE', storeKey, String(windowMs), 'NX']);
+        await applyRedisExpiry(client, storeKey, windowMs);
         ttlMs = windowMs;
     }
 
@@ -183,4 +192,5 @@ const createDistributedRateLimit = ({
 
 module.exports = {
     createDistributedRateLimit,
+    applyRedisExpiry,
 };
