@@ -11,6 +11,7 @@ node_modules/
 **/.env.*.local
 server/.env.azure-secrets
 server/.env.azure-secrets.*
+!server/.env.azure-secrets.example
 infra/azure/github-oidc.env
 app/.env.vercel.preview
 
