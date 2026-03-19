@@ -97,8 +97,8 @@ const assertPrivateChatQuota = async (userId) => {
 };
 
 const getChatQuotaHealth = () => ({
-    mode: chatQuotaHealth.mode,
-    distributed: chatQuotaHealth.mode === 'redis',
+    mode: getRedisClient()?.isOpen && !chatQuotaHealth.lastError ? 'redis' : chatQuotaHealth.mode,
+    distributed: Boolean(getRedisClient()?.isOpen) && !chatQuotaHealth.lastError,
     windowMs: CHAT_WINDOW_MS,
     maxRequestsPerWindow: CHAT_MAX_REQUESTS_PER_WINDOW,
     lastError: chatQuotaHealth.lastError || null,

@@ -35,8 +35,8 @@ describe('BackendStatusBanner', () => {
     expect(screen.getByText(/database_disconnected/i)).toBeInTheDocument();
   });
 
-  it('reacts to proxy failure diagnostics with a client debug reference', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+  it('softens a single proxy failure diagnostic into a warming state and clears after a healthy retry', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(() => Promise.resolve(
       new Response(JSON.stringify({ status: 'ok' }), {
         status: 200,
         headers: {
@@ -44,7 +44,7 @@ describe('BackendStatusBanner', () => {
           'X-Request-Id': 'srv-health-ok',
         },
       })
-    );
+    ));
 
     render(<BackendStatusBanner />);
 
@@ -64,9 +64,15 @@ describe('BackendStatusBanner', () => {
       }, 'error');
     });
 
-    expect(await screen.findByText('Backend unavailable')).toBeInTheDocument();
+    expect(await screen.findByText('Backend waking up')).toBeInTheDocument();
     expect(screen.getByText(/Debug Ref req-proxy-1/i)).toBeInTheDocument();
     expect(screen.getByText(/HTTP 500/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /retry check/i }));
+
+    await waitFor(() => {
+      expect(screen.queryByText('Backend waking up')).not.toBeInTheDocument();
+    });
   });
 
   it('showns recovery status when connectivity is restored', async () => {

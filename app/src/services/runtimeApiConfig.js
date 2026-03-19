@@ -14,18 +14,9 @@ export const getSafeEnv = (key, fallback = '') => {
     return fallback;
 };
 
-const isHostedVercelRuntime = () => {
-    if (typeof window === 'undefined') return false;
-    const host = String(window.location?.hostname || '').toLowerCase();
-    return host.endsWith('.vercel.app');
-};
-
 export const resolveApiBaseUrl = (fallback = '/api') => {
-    if (isHostedVercelRuntime()) {
-        return '/api';
-    }
-
-    return trimTrailingSlash(getSafeEnv('VITE_API_URL', fallback)) || fallback;
+    const configured = trimTrailingSlash(getSafeEnv('VITE_API_URL', ''));
+    return configured || fallback;
 };
 
 export const resolveServiceOrigin = (fallback = '') => {

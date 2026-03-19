@@ -13,6 +13,7 @@ const HEALTH_POLL_INTERVAL_MS = 30000;
 const HEALTH_TIMEOUT_MS = 20000;
 const HEALTH_RETRIES = 2;
 const SOFT_FAILURE_MAX_ATTEMPTS = 2;
+const FAILURE_RECOVERY_RECHECK_MS = 5000;
 const DEGRADED_STATUS_THRESHOLD = import.meta.env.MODE === 'test' ? 1 : 3;
 const OUTAGE_STATUSES = new Set([0, 500, 502, 503, 504]);
 const TRANSIENT_NETWORK_PATTERNS = [
@@ -105,11 +106,13 @@ const resolveFailureStatus = ({
   failureCount = 1,
 } = {}) => {
   const normalizedDetail = normalizeDetail(detail);
-  if (failureCount <= SOFT_FAILURE_MAX_ATTEMPTS && isTransientNetworkFailure(normalizedDetail)) {
+  if (failureCount <= SOFT_FAILURE_MAX_ATTEMPTS) {
     return createWarmingStatus({
       reference,
       checkedAt,
-      detail: normalizedDetail || 'Retrying backend wake-up',
+      detail: normalizedDetail || (isTransientNetworkFailure(normalizedDetail)
+        ? 'Retrying backend wake-up'
+        : 'Rechecking backend health'),
     });
   }
 
@@ -227,13 +230,11 @@ const BackendStatusBanner = () => {
       }
 
       if (event?.type === 'api.response_error' && OUTAGE_STATUSES.has(Number(event.status || 0))) {
-        failureCountRef.current = 0;
-        degradedCountRef.current = 0;
-        setStatus(createUnavailableStatus({
+        registerFailure({
           reference: event.serverRequestId || event.requestId || '',
           detail: `HTTP ${event.status}`,
           checkedAt: event?.timestamp,
-        }));
+        });
       }
     });
 
@@ -242,6 +243,21 @@ const BackendStatusBanner = () => {
       unsubscribe();
     };
   }, [registerFailure, runHealthCheck]);
+
+  useEffect(() => {
+    if (!BACKEND_STATUS_BANNER_ENABLED || !status) {
+      return undefined;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      if (document.visibilityState === 'hidden') return;
+      runHealthCheck();
+    }, FAILURE_RECOVERY_RECHECK_MS);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [runHealthCheck, status]);
 
   if (!BACKEND_STATUS_BANNER_ENABLED) {
     return null;
