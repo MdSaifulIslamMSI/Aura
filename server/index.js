@@ -90,12 +90,13 @@ const {
     checkCoreDependencies,
     checkServiceReadiness,
 } = require('./services/healthService');
+const { getChatQuotaHealth } = require('./services/chatQuotaService');
 const { createDistributedRateLimit } = require('./middleware/distributedRateLimit');
 const { metricsMiddleware } = require('./middleware/metrics');
 const { createRequestTimeout } = require('./middleware/requestTimeout');
 const { getAllBreakerStats } = require('./utils/circuitBreaker');
 const metricsRoute = require('./routes/metricsRoute');
-const { initializeSocket } = require('./services/socketService');
+const { attachSocketBackplane, getSocketHealth, initializeSocket } = require('./services/socketService');
 
 const app = express();
 const JSON_BODY_LIMIT = process.env.JSON_BODY_LIMIT || '12mb';
@@ -313,8 +314,18 @@ app.get('/health', async (req, res) => {
             paymentOutbox: services.paymentQueue || { status: 'unknown' },
             orderEmail: services.emailQueue || { status: 'unknown' },
         },
+        ai: services.ai || {
+            chatQuota: {
+                mode: 'local',
+                distributed: false,
+            },
+        },
         catalog: services.catalog || { status: 'unknown' },
         reconciliation: services.reconciliation || { status: 'unknown' },
+        realtime: services.realtime || {
+            socket: getSocketHealth(),
+            videoCalls: { activeRinging: 0, activeConnected: 0, endedRecently: 0 },
+        },
     });
 });
 
@@ -452,10 +463,14 @@ app.get('/health/ready', async (req, res) => {
             asyncStartupCompletedAt: runtimeStartupState.asyncStartupCompletedAt,
             asyncStartupFailedAt: runtimeStartupState.asyncStartupFailedAt,
         },
+        ai: {
+            chatQuota: getChatQuotaHealth(),
+        },
         topology: {
             splitRuntimeEnabled,
             mongo: mongoDeployment,
         },
+        realtime: getSocketHealth(),
     });
 });
 
@@ -491,6 +506,7 @@ if (require.main === module) {
             // Run intensive startup tasks asynchronously
             Promise.resolve()
                 .then(() => initRedis())
+                .then(() => attachSocketBackplane())
                 .then(() => ensureSystemState())
                 .then(() => enforceCatalogStartupCheck())
                 .then(() => {

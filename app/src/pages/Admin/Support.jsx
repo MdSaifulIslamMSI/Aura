@@ -15,7 +15,7 @@ import { supportApi } from '@/services/api';
 import { cn } from '@/lib/utils';
 import AdminPremiumShell from '@/components/shared/AdminPremiumShell';
 import PremiumSelect from '@/components/ui/premium-select';
-import { useSocket } from '@/context/SocketContext';
+import { useSocket, useSocketDemand } from '@/context/SocketContext';
 
 const TICKET_LIST_POLL_MS = 20000;
 const ACTIVE_TICKET_POLL_MS = 12000;
@@ -66,6 +66,7 @@ const appendUniqueMessage = (messages, incoming) => {
 };
 
 export default function AdminSupport() {
+    useSocketDemand('admin-support', true);
     const { socket, isConnected } = useSocket();
     const [tickets, setTickets] = useState([]);
     const [loading, setLoading] = useState(true);

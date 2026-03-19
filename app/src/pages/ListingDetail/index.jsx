@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { listingApi, otpApi, paymentApi } from '@/services/api';
 import { AuthContext } from '@/context/AuthContext';
-import { useSocket } from '@/context/SocketContext';
+import { useSocket, useSocketDemand } from '@/context/SocketContext';
 import { useVideoCall } from '@/context/VideoCallContext';
 import { toast } from 'sonner';
 
@@ -107,6 +107,7 @@ export default function ListingDetail() {
     const isEscrowBuyer = buyerId && dbUser?._id && buyerId === String(dbUser._id);
     const escrowEnabled = Boolean(listing?.escrowOptIn);
     const showEscrowControls = !isOwner && escrowEnabled;
+    useSocketDemand(`listing-realtime:${id}`, Boolean(currentUser && !isOwner));
 
     const loadConversation = useCallback(async (options = {}) => {
         const { silent = false } = options;

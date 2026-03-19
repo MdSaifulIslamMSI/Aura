@@ -1,14 +1,35 @@
 const { Server } = require('socket.io');
+const { createAdapter } = require('@socket.io/redis-adapter');
 const firebaseAdmin = require('../config/firebase');
+const { allowedOrigins } = require('../config/corsFlags');
+const { getRedisClient } = require('../config/redis');
 const User = require('../models/User');
 const Listing = require('../models/Listing');
 const logger = require('../utils/logger');
+const {
+    buildVideoCallSessionKey,
+    closeVideoCallSessionsForUser,
+    endVideoCallSession,
+    getActiveVideoCallSession,
+    markVideoCallSessionConnected,
+    registerVideoCallSession,
+    touchVideoCallSessionSignal,
+} = require('./videoCallSessionService');
 
 let io;
 // Map to track userId -> Set of socketIds (handles multiple tabs/devices)
 const userSockets = new Map();
 const activeCallSessions = new Map();
 const ADMIN_ROOM = 'admins';
+let socketAdapterPubClient = null;
+let socketAdapterSubClient = null;
+
+const socketHealth = {
+    initialized: false,
+    adapterMode: 'local',
+    backplaneReady: false,
+    lastAdapterError: '',
+};
 
 const normalizeEmail = (value) => (typeof value === 'string' ? value.trim().toLowerCase() : '');
 
@@ -37,11 +58,6 @@ const resolveSocketUser = async (token) => {
         isSeller: Boolean(user.isSeller),
         isVerified: Boolean(user.isVerified),
     };
-};
-
-const getActiveCallSessionKey = ({ listingId, userA, userB }) => {
-    const [firstUserId, secondUserId] = [String(userA), String(userB)].sort();
-    return `${String(listingId)}:${firstUserId}:${secondUserId}`;
 };
 
 const removeUserFromActiveCallSessions = (userId) => {
@@ -90,17 +106,92 @@ const authorizeListingCallEvent = async ({ callerUserId, targetUserId, listingId
     };
 };
 
+const getSocketCorsOrigins = () => (
+    Array.isArray(allowedOrigins) && allowedOrigins.length > 0
+        ? allowedOrigins
+        : [process.env.FRONTEND_URL || 'http://localhost:5173']
+);
+
+const updateSocketHealth = (partial = {}) => {
+    Object.assign(socketHealth, partial);
+};
+
+const getSocketHealth = () => ({
+    initialized: Boolean(io) && socketHealth.initialized,
+    adapterMode: socketHealth.adapterMode,
+    backplaneReady: socketHealth.backplaneReady,
+    lastAdapterError: socketHealth.lastAdapterError || null,
+    activeUsers: userSockets.size,
+    activeCallSessions: activeCallSessions.size,
+    adminRoom: ADMIN_ROOM,
+});
+
+const attachSocketBackplane = async () => {
+    if (!io) {
+        throw new Error('Socket.io has not been initialized');
+    }
+
+    if (socketHealth.backplaneReady && socketHealth.adapterMode === 'redis') {
+        return getSocketHealth();
+    }
+
+    const redisClient = getRedisClient();
+    if (!redisClient?.isOpen || typeof redisClient.duplicate !== 'function') {
+        updateSocketHealth({
+            adapterMode: 'local',
+            backplaneReady: false,
+            lastAdapterError: 'redis_backplane_unavailable',
+        });
+        logger.warn('socket.backplane_unavailable', { reason: 'redis_client_unavailable' });
+        return getSocketHealth();
+    }
+
+    try {
+        if (!socketAdapterPubClient?.isOpen) {
+            socketAdapterPubClient = redisClient.duplicate();
+            await socketAdapterPubClient.connect();
+        }
+        if (!socketAdapterSubClient?.isOpen) {
+            socketAdapterSubClient = redisClient.duplicate();
+            await socketAdapterSubClient.connect();
+        }
+
+        io.adapter(createAdapter(socketAdapterPubClient, socketAdapterSubClient));
+        updateSocketHealth({
+            adapterMode: 'redis',
+            backplaneReady: true,
+            lastAdapterError: '',
+        });
+        logger.info('socket.backplane_ready', { adapterMode: 'redis' });
+    } catch (error) {
+        updateSocketHealth({
+            adapterMode: 'local',
+            backplaneReady: false,
+            lastAdapterError: error?.message || 'socket_backplane_failed',
+        });
+        logger.warn('socket.backplane_failed', { error: socketHealth.lastAdapterError });
+    }
+
+    return getSocketHealth();
+};
+
 const initializeSocket = (httpServer) => {
     io = new Server(httpServer, {
         pingTimeout: 20000,
         pingInterval: 10000,
         connectTimeout: 10000,
         cors: {
-            origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+            origin: getSocketCorsOrigins(),
             methods: ['GET', 'POST'],
             credentials: true,
         },
         maxHttpBufferSize: 1e6, // 1MB limit for handshakes/payloads
+    });
+    updateSocketHealth({
+        initialized: true,
+        adapterMode: 'local',
+        backplaneReady: false,
+        lastAdapterError: '',
     });
 
     // Mirror the HTTP auth path by verifying Firebase bearer tokens.
@@ -144,15 +235,22 @@ const initializeSocket = (httpServer) => {
                     listingId,
                 });
 
-                const sessionKey = getActiveCallSessionKey({
+                const sessionKey = buildVideoCallSessionKey({
                     listingId: authResult.listingId,
                     userA: userId,
                     userB: targetUserId,
                 });
 
+                const persistedSession = await registerVideoCallSession({
+                    listingId: authResult.listingId,
+                    callerUserId: userId,
+                    targetUserId,
+                });
+
                 activeCallSessions.set(sessionKey, {
                     listingId: authResult.listingId,
                     participants: [String(userId), String(targetUserId)],
+                    status: persistedSession?.status || 'ringing',
                 });
 
                 logger.info('video.call_initiated', { from: userId, to: targetUserId, listingId });
@@ -161,6 +259,7 @@ const initializeSocket = (httpServer) => {
                     fromUserId: userId,
                     fromName: socket.user.name,
                     listingId: authResult.listingId,
+                    callId: persistedSession?.sessionKey || sessionKey,
                     signalData
                 });
             } catch (err) {
@@ -180,14 +279,49 @@ const initializeSocket = (httpServer) => {
                     listingId,
                 });
 
-                const sessionKey = getActiveCallSessionKey({
+                const sessionKey = buildVideoCallSessionKey({
                     listingId: authResult.listingId,
                     userA: userId,
                     userB: targetUserId,
                 });
 
-                if (!activeCallSessions.has(sessionKey)) {
+                let session = activeCallSessions.get(sessionKey);
+                if (!session) {
+                    session = await getActiveVideoCallSession({
+                        listingId: authResult.listingId,
+                        userA: userId,
+                        userB: targetUserId,
+                    });
+                    if (session) {
+                        activeCallSessions.set(sessionKey, {
+                            listingId: authResult.listingId,
+                            participants: [String(userId), String(targetUserId)],
+                            status: session.status,
+                        });
+                    }
+                }
+
+                if (!session) {
                     throw new Error('No active call session');
+                }
+
+                if (String(signalData?.type || '') === 'answer') {
+                    await markVideoCallSessionConnected({
+                        listingId: authResult.listingId,
+                        userA: userId,
+                        userB: targetUserId,
+                    });
+                    activeCallSessions.set(sessionKey, {
+                        listingId: authResult.listingId,
+                        participants: [String(userId), String(targetUserId)],
+                        status: 'connected',
+                    });
+                } else {
+                    await touchVideoCallSessionSignal({
+                        listingId: authResult.listingId,
+                        userA: userId,
+                        userB: targetUserId,
+                    });
                 }
 
                 sendMessageToUser(targetUserId, 'video:call:signal', {
@@ -217,16 +351,28 @@ const initializeSocket = (httpServer) => {
                     listingId,
                 });
 
-                const sessionKey = getActiveCallSessionKey({
+                const sessionKey = buildVideoCallSessionKey({
                     listingId: authResult.listingId,
                     userA: userId,
                     userB: targetUserId,
                 });
 
-                if (!activeCallSessions.has(sessionKey)) {
+                const activeSession = activeCallSessions.get(sessionKey) || await getActiveVideoCallSession({
+                    listingId: authResult.listingId,
+                    userA: userId,
+                    userB: targetUserId,
+                });
+
+                if (!activeSession) {
                     throw new Error('No active call session');
                 }
 
+                await endVideoCallSession({
+                    listingId: authResult.listingId,
+                    userA: userId,
+                    userB: targetUserId,
+                    reason: 'hangup',
+                });
                 activeCallSessions.delete(sessionKey);
 
                 logger.info('video.call_terminated', { from: userId, to: targetUserId, listingId: authResult.listingId });
@@ -245,16 +391,36 @@ const initializeSocket = (httpServer) => {
             }
         });
 
-        socket.on('disconnect', (reason) => {
+        socket.on('disconnect', async (reason) => {
             const userSet = userSockets.get(userId);
+            let userStillConnected = false;
             if (userSet) {
                 userSet.delete(socket.id);
                 if (userSet.size === 0) {
                     userSockets.delete(userId);
+                } else {
+                    userStillConnected = true;
                 }
             }
 
-            removeUserFromActiveCallSessions(userId);
+            if (!userStillConnected) {
+                const endedSessions = await closeVideoCallSessionsForUser({
+                    userId,
+                    reason: 'participant_disconnect',
+                }).catch(() => []);
+                removeUserFromActiveCallSessions(userId);
+
+                endedSessions.forEach((session) => {
+                    const counterpartyUserId = session.participants.find((participantId) => participantId !== String(userId));
+                    if (counterpartyUserId) {
+                        sendMessageToUser(counterpartyUserId, 'video:call:terminated', {
+                            fromUserId: userId,
+                            listingId: session.listingId,
+                            reason: 'participant_disconnect',
+                        });
+                    }
+                });
+            }
 
             socket.leave(`user:${userId}`);
             if (socket.user.isAdmin) {
@@ -303,6 +469,8 @@ const sendMessageToAdmins = (eventName, payload, options = {}) => {
 };
 
 module.exports = {
+    attachSocketBackplane,
+    getSocketHealth,
     initializeSocket,
     getIo,
     sendMessageToUser,

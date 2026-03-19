@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useSocket } from '../context/SocketContext';
+import { RTC_PEER_CONFIG } from '../config/rtcConfig';
 
 /**
  * Enterprise-grade WebRTC hook for Aura Video Inspection.
@@ -14,14 +15,6 @@ export const useWebRTC = (listingId) => {
 
     const peerConnection = useRef(null);
     const targetUserId = useRef(null);
-
-    // Configuration for Aura high-availability (STUN for NAT traversal)
-    const pcConfig = {
-        iceServers: [
-            { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' },
-        ]
-    };
 
     const cleanup = useCallback(() => {
         if (peerConnection.current) {
@@ -39,7 +32,7 @@ export const useWebRTC = (listingId) => {
     }, [localStream]);
 
     const initializePeerConnection = useCallback(() => {
-        const pc = new RTCPeerConnection(pcConfig);
+        const pc = new RTCPeerConnection(RTC_PEER_CONFIG);
 
         pc.onicecandidate = (event) => {
             if (event.candidate && socket && targetUserId.current) {

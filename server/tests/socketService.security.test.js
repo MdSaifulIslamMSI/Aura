@@ -72,6 +72,24 @@ describe('socketService call security', () => {
             findById: jest.fn(),
         }));
 
+        jest.doMock('../services/videoCallSessionService', () => ({
+            buildVideoCallSessionKey: jest.fn(({ listingId, userA, userB }) => {
+                const [first, second] = [String(userA), String(userB)].sort();
+                return `${String(listingId)}:${first}:${second}`;
+            }),
+            closeVideoCallSessionsForUser: jest.fn().mockResolvedValue([]),
+            endVideoCallSession: jest.fn().mockResolvedValue(null),
+            getActiveVideoCallSession: jest.fn().mockResolvedValue(null),
+            getVideoCallSessionMetrics: jest.fn().mockResolvedValue({
+                activeRinging: 0,
+                activeConnected: 0,
+                endedRecently: 0,
+            }),
+            markVideoCallSessionConnected: jest.fn().mockResolvedValue(null),
+            registerVideoCallSession: jest.fn().mockResolvedValue(null),
+            touchVideoCallSessionSignal: jest.fn().mockResolvedValue(null),
+        }));
+
         jest.doMock('../utils/logger', () => ({
             info: jest.fn(),
             warn: jest.fn(),
