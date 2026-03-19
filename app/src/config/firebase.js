@@ -72,6 +72,7 @@ const runtimeHost = typeof window !== 'undefined'
     ? sanitizeHostValue(window.location.hostname || window.location.host)
     : '';
 const disableSocialAuth = parseBooleanEnv(import.meta.env.VITE_FIREBASE_DISABLE_SOCIAL_AUTH, false);
+const enableFirebaseAnalytics = parseBooleanEnv(import.meta.env.VITE_FIREBASE_ANALYTICS_ENABLED, false);
 const isDeploymentHost = typeof runtimeHost === 'string' && runtimeHost.endsWith('.vercel.app');
 const runtimeSocialAuthBlockKey = runtimeHost
     ? `aura-social-auth-block:${runtimeHost}`
@@ -132,7 +133,7 @@ if (!hasRequiredConfig) {
             display: 'popup',
         });
 
-        if (typeof window !== 'undefined') {
+        if (typeof window !== 'undefined' && enableFirebaseAnalytics) {
             try {
                 analytics = getAnalytics(app);
             } catch {

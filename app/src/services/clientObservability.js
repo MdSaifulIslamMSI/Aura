@@ -1,5 +1,6 @@
-const trimTrailingSlash = (value = '') => String(value || '').replace(/\/+$/, '');
-const API_BASE_URL = trimTrailingSlash(import.meta.env.VITE_API_URL || '/api');
+import { resolveApiBaseUrl, trimTrailingSlash } from './runtimeApiConfig';
+
+const API_BASE_URL = trimTrailingSlash(resolveApiBaseUrl('/api'));
 const CLIENT_SESSION_STORAGE_KEY = 'aura_observability_session_id';
 const DEBUG_STORE_KEY = '__AURA_OBSERVABILITY__';
 const FETCH_PATCH_FLAG = '__AURA_FETCH_PATCHED__';
@@ -381,7 +382,7 @@ export const pushClientDiagnostic = (type, payload = {}, severity = 'info') => {
     }
 
     if (eventCounter >= MAX_EVENTS_PER_MINUTE) {
-        if (eventCounter === MAX_EVENTS_PER_MINUTE) {
+        if (eventCounter === MAX_EVENTS_PER_MINUTE && import.meta.env.DEV) {
             console.warn('[observability] Rate limit reached. Dropping further diagnostic events for this minute.');
         }
         eventCounter += 1;
