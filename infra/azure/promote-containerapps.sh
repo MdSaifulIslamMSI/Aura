@@ -14,10 +14,11 @@ REVISION_SUFFIX="${REVISION_SUFFIX:-r${GITHUB_RUN_NUMBER:-0}-${GITHUB_SHA:-manua
 REVISION_SUFFIX="${REVISION_SUFFIX:0:30}"
 
 previous_api_revision=""
+previous_api_image=""
+previous_worker_revision=""
 previous_worker_image=""
 candidate_api_revision=""
 candidate_worker_revision=""
-traffic_shifted="false"
 
 log() {
   echo "[azure-release] $*"
@@ -42,6 +43,14 @@ current_api_revision() {
 current_worker_image() {
   az containerapp show \
     --name "${WORKER_APP_NAME}" \
+    --resource-group "${RESOURCE_GROUP}" \
+    --query "properties.template.containers[0].image" \
+    --output tsv
+}
+
+current_api_image() {
+  az containerapp show \
+    --name "${API_APP_NAME}" \
     --resource-group "${RESOURCE_GROUP}" \
     --query "properties.template.containers[0].image" \
     --output tsv
@@ -141,23 +150,11 @@ rollback_release() {
 
   log "Release failed. Starting rollback."
 
-  if [[ -n "${previous_api_revision}" ]]; then
-    az containerapp revision activate \
+  if [[ -n "${previous_api_image}" ]]; then
+    az containerapp update \
       --name "${API_APP_NAME}" \
       --resource-group "${RESOURCE_GROUP}" \
-      --revision "${previous_api_revision}" >/dev/null || true
-
-    az containerapp ingress traffic set \
-      --name "${API_APP_NAME}" \
-      --resource-group "${RESOURCE_GROUP}" \
-      --revision-weight "${previous_api_revision}=100" >/dev/null || true
-  fi
-
-  if [[ -n "${candidate_api_revision}" ]]; then
-    az containerapp revision deactivate \
-      --name "${API_APP_NAME}" \
-      --resource-group "${RESOURCE_GROUP}" \
-      --revision "${candidate_api_revision}" >/dev/null || true
+      --image "${previous_api_image}" >/dev/null || true
   fi
 
   if [[ -n "${previous_worker_image}" ]]; then
@@ -170,6 +167,29 @@ rollback_release() {
   exit "${exit_code}"
 }
 
+wait_for_new_revision() {
+  local app_name="$1"
+  local previous_revision="$2"
+  local role="$3"
+  local attempts=$((HEALTH_TIMEOUT_SECONDS / HEALTH_POLL_INTERVAL_SECONDS))
+
+  for (( attempt=1; attempt<=attempts; attempt++ )); do
+    local latest_revision
+    latest_revision="$(latest_revision_name "${app_name}")"
+
+    if [[ -n "${latest_revision}" && "${latest_revision}" != "${previous_revision}" ]]; then
+      printf '%s' "${latest_revision}"
+      return 0
+    fi
+
+    log "Waiting for ${role} to emit a new revision (attempt ${attempt}/${attempts})."
+    sleep "${HEALTH_POLL_INTERVAL_SECONDS}"
+  done
+
+  echo "Timed out waiting for ${role} to create a new revision." >&2
+  return 1
+}
+
 trap rollback_release ERR
 
 previous_api_revision="$(current_api_revision)"
@@ -178,34 +198,33 @@ if [[ -z "${previous_api_revision}" ]]; then
   exit 1
 fi
 
+previous_api_image="$(current_api_image)"
+previous_worker_revision="$(latest_revision_name "${WORKER_APP_NAME}")"
 previous_worker_image="$(current_worker_image)"
 
 write_output "previous_api_revision" "${previous_api_revision}"
+write_output "previous_worker_revision" "${previous_worker_revision}"
 write_output "previous_worker_image" "${previous_worker_image}"
+write_output "previous_api_image" "${previous_api_image}"
 
-log "Pinning API traffic to ${previous_api_revision} before creating a candidate revision."
+log "Enforcing single-revision mode on the API app."
 az containerapp revision set-mode \
   --name "${API_APP_NAME}" \
   --resource-group "${RESOURCE_GROUP}" \
-  --mode multiple >/dev/null
+  --mode single >/dev/null
 
-az containerapp ingress traffic set \
-  --name "${API_APP_NAME}" \
-  --resource-group "${RESOURCE_GROUP}" \
-  --revision-weight "${previous_api_revision}=100" >/dev/null
+if [[ "${previous_api_image}" == "${IMAGE_REF}" ]]; then
+  log "API is already on ${IMAGE_REF}; skipping image update."
+  candidate_api_revision="${previous_api_revision}"
+else
+  log "Updating API to image ${IMAGE_REF}."
+  az containerapp update \
+    --name "${API_APP_NAME}" \
+    --resource-group "${RESOURCE_GROUP}" \
+    --image "${IMAGE_REF}" \
+    --revision-suffix "${REVISION_SUFFIX}" >/dev/null
 
-log "Creating API candidate revision from ${previous_api_revision} using image ${IMAGE_REF}."
-az containerapp revision copy \
-  --name "${API_APP_NAME}" \
-  --resource-group "${RESOURCE_GROUP}" \
-  --from-revision "${previous_api_revision}" \
-  --image "${IMAGE_REF}" \
-  --revision-suffix "${REVISION_SUFFIX}" >/dev/null
-
-candidate_api_revision="$(latest_revision_name "${API_APP_NAME}")"
-if [[ "${candidate_api_revision}" == "${previous_api_revision}" || -z "${candidate_api_revision}" ]]; then
-  echo "Failed to create a new API revision." >&2
-  exit 1
+  candidate_api_revision="$(wait_for_new_revision "${API_APP_NAME}" "${previous_api_revision}" "API")"
 fi
 
 candidate_api_fqdn="$(revision_field "${API_APP_NAME}" "${candidate_api_revision}" "properties.fqdn")"
@@ -214,14 +233,8 @@ write_output "candidate_api_revision" "${candidate_api_revision}"
 write_output "candidate_api_fqdn" "${candidate_api_fqdn}"
 
 wait_for_revision_ready "${API_APP_NAME}" "${candidate_api_revision}" "API candidate"
-wait_for_http_health "https://${candidate_api_fqdn}" "API candidate"
-
-log "Shifting API traffic to ${candidate_api_revision}."
-az containerapp ingress traffic set \
-  --name "${API_APP_NAME}" \
-  --resource-group "${RESOURCE_GROUP}" \
-  --revision-weight "${candidate_api_revision}=100" "${previous_api_revision}=0" >/dev/null
-traffic_shifted="true"
+production_fqdn="$(az containerapp show --name "${API_APP_NAME}" --resource-group "${RESOURCE_GROUP}" --query "properties.configuration.ingress.fqdn" --output tsv)"
+wait_for_http_health "https://${production_fqdn}" "production"
 
 az containerapp revision label add \
   --name "${API_APP_NAME}" \
@@ -230,18 +243,22 @@ az containerapp revision label add \
   --revision "${candidate_api_revision}" \
   --yes >/dev/null
 
-log "Updating worker to ${IMAGE_REF}."
-az containerapp update \
-  --name "${WORKER_APP_NAME}" \
-  --resource-group "${RESOURCE_GROUP}" \
-  --image "${IMAGE_REF}" >/dev/null
+if [[ "${previous_worker_image}" == "${IMAGE_REF}" ]]; then
+  log "Worker is already on ${IMAGE_REF}; skipping image update."
+  candidate_worker_revision="$(latest_revision_name "${WORKER_APP_NAME}")"
+else
+  log "Updating worker to ${IMAGE_REF}."
+  az containerapp update \
+    --name "${WORKER_APP_NAME}" \
+    --resource-group "${RESOURCE_GROUP}" \
+    --image "${IMAGE_REF}" >/dev/null
 
-candidate_worker_revision="$(latest_revision_name "${WORKER_APP_NAME}")"
+  candidate_worker_revision="$(wait_for_new_revision "${WORKER_APP_NAME}" "${previous_worker_revision}" "worker")"
+fi
+
 write_output "candidate_worker_revision" "${candidate_worker_revision}"
 
 wait_for_revision_ready "${WORKER_APP_NAME}" "${candidate_worker_revision}" "worker"
-
-production_fqdn="$(az containerapp show --name "${API_APP_NAME}" --resource-group "${RESOURCE_GROUP}" --query "properties.configuration.ingress.fqdn" --output tsv)"
 wait_for_http_health "https://${production_fqdn}" "production"
 
 trap - ERR
