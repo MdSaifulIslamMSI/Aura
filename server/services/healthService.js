@@ -5,6 +5,9 @@ const { getCatalogHealth } = require('./catalogService');
 const { getPaymentOutboxStats } = require('./payments/paymentService');
 const { getOrderEmailQueueStats } = require('./email/orderEmailQueueService');
 const { getCommerceReconciliationStatus } = require('./commerceReconciliationService');
+const { getSocketHealth } = require('./socketService');
+const { getChatQuotaHealth } = require('./chatQuotaService');
+const { getVideoCallSessionMetrics } = require('./videoCallSessionService');
 const logger = require('../utils/logger');
 
 /**
@@ -28,11 +31,12 @@ const checkCoreDependencies = async () => {
  */
 const checkServiceReadiness = async () => {
     try {
-        const [catalog, paymentQueue, emailQueue, reconciliation] = await Promise.all([
+        const [catalog, paymentQueue, emailQueue, reconciliation, videoCalls] = await Promise.all([
             getCatalogHealth(),
             getPaymentOutboxStats(),
             getOrderEmailQueueStats(),
             getCommerceReconciliationStatus(),
+            getVideoCallSessionMetrics(),
         ]);
 
         return {
@@ -40,12 +44,30 @@ const checkServiceReadiness = async () => {
             paymentQueue,
             emailQueue,
             reconciliation,
+            ai: {
+                chatQuota: getChatQuotaHealth(),
+            },
+            realtime: {
+                socket: getSocketHealth(),
+                videoCalls,
+            },
         };
     } catch (error) {
         logger.error('health.service_check_failed', { error: error.message });
         return {
             error: error.message,
             catalog: { staleData: true },
+            ai: {
+                chatQuota: getChatQuotaHealth(),
+            },
+            realtime: {
+                socket: getSocketHealth(),
+                videoCalls: {
+                    activeRinging: 0,
+                    activeConnected: 0,
+                    endedRecently: 0,
+                },
+            },
         };
     }
 };
