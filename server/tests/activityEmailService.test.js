@@ -26,6 +26,7 @@ const { renderActivityTemplate } = require('../services/email/templates/activity
 const {
     notifyActivityFromRequest,
     resetActivityEmailPolicyStateForTests,
+    EMAIL_NOTIFICATION_POLICIES,
 } = require('../services/email/activityEmailService');
 
 const buildRequest = (overrides = {}) => ({
@@ -62,7 +63,7 @@ describe('activityEmailService', () => {
         });
     });
 
-    test('suppresses cart activity emails', async () => {
+    test('suppresses cart activity emails into digest-only policy', async () => {
         const result = await notifyActivityFromRequest({
             req: buildRequest({
                 method: 'PUT',
@@ -73,7 +74,7 @@ describe('activityEmailService', () => {
             durationMs: 120,
         });
 
-        expect(result).toEqual({ skipped: true, reason: 'policy_suppressed' });
+        expect(result).toEqual({ skipped: true, reason: 'digest_only' });
         expect(sendTransactionalEmail).not.toHaveBeenCalled();
         expect(EmailDeliveryLog.findOne).not.toHaveBeenCalled();
     });
@@ -111,8 +112,35 @@ describe('activityEmailService', () => {
             securityTags: ['user-activity', 'profile.updated', 'put'],
             meta: expect.objectContaining({
                 actionKey: 'profile.updated',
-                deliveryClass: 'high_signal_activity',
+                notificationPolicy: EMAIL_NOTIFICATION_POLICIES.IMPORTANT,
+                deliveryClass: EMAIL_NOTIFICATION_POLICIES.IMPORTANT,
+                policyVersion: 'activity-email-v2',
                 path: '/api/users/profile',
+            }),
+            headers: expect.objectContaining({
+                'X-Aura-Activity-Policy': EMAIL_NOTIFICATION_POLICIES.IMPORTANT,
+            }),
+        }));
+    });
+
+    test('marks refund requests as critical notifications', async () => {
+        const result = await notifyActivityFromRequest({
+            req: buildRequest({
+                method: 'POST',
+                originalUrl: '/api/orders/abc123/command-center/refund',
+            }),
+            res: buildResponse(200),
+            durationMs: 95,
+        });
+
+        expect(result).toEqual({ skipped: false });
+        expect(sendTransactionalEmail).toHaveBeenCalledWith(expect.objectContaining({
+            headers: expect.objectContaining({
+                'X-Aura-Activity-Policy': EMAIL_NOTIFICATION_POLICIES.CRITICAL,
+            }),
+            meta: expect.objectContaining({
+                notificationPolicy: EMAIL_NOTIFICATION_POLICIES.CRITICAL,
+                deliveryClass: EMAIL_NOTIFICATION_POLICIES.CRITICAL,
             }),
         }));
     });
