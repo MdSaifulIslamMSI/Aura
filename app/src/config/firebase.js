@@ -78,7 +78,8 @@ const runtimeSocialAuthBlockKey = runtimeHost
     : 'aura-social-auth-block';
 const runtimeSocialAuthBlockTtlMs = 2 * 60 * 1000;
 const prefersRedirectSocialAuth = typeof window !== 'undefined'
-    && !['localhost', '127.0.0.1'].includes(runtimeHost);
+    && !['localhost', '127.0.0.1'].includes(runtimeHost)
+    && /android|iphone|ipad|ipod|mobile/i.test(window.navigator?.userAgent || '');
 
 const isSocialAuthHostRejection = (error) => {
     const raw = `${error?.code || ''} ${error?.message || error || ''}`.toLowerCase();
