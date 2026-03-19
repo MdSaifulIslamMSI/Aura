@@ -5,6 +5,61 @@ const User = require('../models/User');
 const Listing = require('../models/Listing');
 
 describe('Listing routes integration', () => {
+    test('GET /api/listings/hotspots returns hotspot intelligence without crashing', async () => {
+        const seller = await User.create({
+            name: 'Hotspot Seller',
+            email: 'seller.hotspot@example.com',
+            phone: '7776665554',
+            isVerified: true,
+            isSeller: true,
+        });
+
+        await Listing.create([
+            {
+                seller: seller._id,
+                title: 'Gaming Chair',
+                description: 'Ergonomic chair',
+                price: 12500,
+                condition: 'good',
+                category: 'gaming',
+                images: ['https://example.com/chair.jpg'],
+                location: {
+                    city: 'Bengaluru',
+                    state: 'Karnataka',
+                    pincode: '560001',
+                },
+                status: 'active',
+                source: 'user',
+                views: 240,
+            },
+            {
+                seller: seller._id,
+                title: 'Gaming Monitor',
+                description: '165Hz monitor',
+                price: 19500,
+                condition: 'good',
+                category: 'gaming',
+                images: ['https://example.com/monitor.jpg'],
+                location: {
+                    city: 'Bengaluru',
+                    state: 'Karnataka',
+                    pincode: '560001',
+                },
+                status: 'sold',
+                soldAt: new Date(),
+                source: 'user',
+                views: 180,
+            },
+        ]);
+
+        const res = await request(app).get('/api/listings/hotspots?limit=4&windowDays=21');
+
+        expect(res.statusCode).toBe(200);
+        expect(res.body.success).toBe(true);
+        expect(Array.isArray(res.body.hotspots)).toBe(true);
+        expect(Array.isArray(res.body.demandCentroids)).toBe(true);
+    });
+
     test('GET /api/listings/:id returns strict public seller payload without email/phone', async () => {
         const seller = await User.create({
             name: 'Seller One',
