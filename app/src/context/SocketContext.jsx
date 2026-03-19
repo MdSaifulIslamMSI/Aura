@@ -4,6 +4,7 @@ import { useAuth } from './AuthContext';
 import { resolveServiceOrigin } from '../services/runtimeApiConfig';
 
 const SocketContext = createContext(null);
+const SOCKET_RUNTIME_ENABLED = import.meta.env.DEV || import.meta.env.VITE_ENABLE_REALTIME_SOCKET === 'true';
 
 export const useSocket = () => useContext(SocketContext);
 
@@ -22,7 +23,7 @@ export const SocketProvider = ({ children }) => {
             setIsConnected(false);
         };
 
-        if (loading || !currentUser) {
+        if (!SOCKET_RUNTIME_ENABLED || loading || !currentUser) {
             resetConnection();
             return () => {
                 isActive = false;
