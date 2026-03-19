@@ -1,6 +1,8 @@
+const mongoose = require('mongoose');
 const logger = require('../../utils/logger');
 const { EMAIL_REGEX } = require('../../config/emailFlags');
 const { flags } = require('../../config/activityEmailFlags');
+const EmailDeliveryLog = require('../../models/EmailDeliveryLog');
 const { sendTransactionalEmail } = require('./index');
 const {
     maskIpAddress,
@@ -18,132 +20,166 @@ const ACTION_RULES = [
         match: (method, path) => method === 'POST' && path === '/api/users/login',
         title: 'Secure Sign-In Confirmed',
         summary: 'Your account session was revalidated and synchronized successfully.',
+        notify: false,
     },
     {
         key: 'profile.updated',
         match: (method, path) => method === 'PUT' && path === '/api/users/profile',
         title: 'Profile Updated',
         summary: 'Your account profile details were updated.',
+        notify: true,
+        cooldownSec: 30 * 60,
     },
     {
         key: 'address.updated',
         match: (method, path) => /^\/api\/users\/addresses(\/|$)/.test(path) && ['POST', 'PUT', 'DELETE'].includes(method),
         title: 'Address Book Changed',
         summary: 'Your saved shipping addresses were modified.',
+        notify: true,
+        cooldownSec: 30 * 60,
     },
     {
         key: 'cart.updated',
         match: (method, path) => method === 'PUT' && path === '/api/users/cart',
         title: 'Cart Updated',
         summary: 'Your shopping cart was updated.',
+        notify: false,
     },
     {
         key: 'wishlist.updated',
         match: (method, path) => method === 'PUT' && path === '/api/users/wishlist',
         title: 'Wishlist Updated',
         summary: 'Your wishlist was updated.',
+        notify: false,
     },
     {
         key: 'order.created',
         match: (method, path) => method === 'POST' && path === '/api/orders',
         title: 'Order Placement Recorded',
         summary: 'A new order request was accepted and committed to your account.',
+        notify: false,
     },
     {
         key: 'order.command.refund',
         match: (method, path) => method === 'POST' && /\/api\/orders\/[^/]+\/command-center\/refund$/.test(path),
         title: 'Refund Request Submitted',
         summary: 'A refund request was created from your post-purchase command center.',
+        notify: true,
+        cooldownSec: 10 * 60,
     },
     {
         key: 'order.command.replace',
         match: (method, path) => method === 'POST' && /\/api\/orders\/[^/]+\/command-center\/replace$/.test(path),
         title: 'Replacement Request Submitted',
         summary: 'A replacement request was logged from your command center.',
+        notify: true,
+        cooldownSec: 10 * 60,
     },
     {
         key: 'order.command.support',
         match: (method, path) => method === 'POST' && /\/api\/orders\/[^/]+\/command-center\/support$/.test(path),
         title: 'Support Message Sent',
         summary: 'A support conversation update was posted for your order.',
+        notify: false,
     },
     {
         key: 'order.command.warranty',
         match: (method, path) => method === 'POST' && /\/api\/orders\/[^/]+\/command-center\/warranty$/.test(path),
         title: 'Warranty Claim Submitted',
         summary: 'A warranty claim was filed for one of your purchased items.',
+        notify: true,
+        cooldownSec: 10 * 60,
     },
     {
         key: 'listing.created',
         match: (method, path) => method === 'POST' && path === '/api/listings',
         title: 'Marketplace Listing Created',
         summary: 'Your new marketplace listing is now live.',
+        notify: true,
+        cooldownSec: 15 * 60,
     },
     {
         key: 'listing.updated',
         match: (method, path) => method === 'PUT' && /^\/api\/listings\/[^/]+$/.test(path),
         title: 'Listing Updated',
         summary: 'Your marketplace listing details were updated.',
+        notify: false,
     },
     {
         key: 'listing.sold',
         match: (method, path) => method === 'PATCH' && /\/api\/listings\/[^/]+\/sold$/.test(path),
         title: 'Listing Marked As Sold',
         summary: 'A listing was marked sold from your seller dashboard.',
+        notify: true,
+        cooldownSec: 5 * 60,
     },
     {
         key: 'listing.deleted',
         match: (method, path) => method === 'DELETE' && /^\/api\/listings\/[^/]+$/.test(path),
         title: 'Listing Deleted',
         summary: 'A marketplace listing was permanently removed.',
+        notify: false,
     },
     {
         key: 'escrow.started',
         match: (method, path) => method === 'PATCH' && /\/api\/listings\/[^/]+\/escrow\/start$/.test(path),
         title: 'Escrow Hold Started',
         summary: 'Escrow hold has been initiated for a marketplace transaction.',
+        notify: true,
+        cooldownSec: 5 * 60,
     },
     {
         key: 'escrow.confirmed',
         match: (method, path) => method === 'PATCH' && /\/api\/listings\/[^/]+\/escrow\/confirm$/.test(path),
         title: 'Escrow Delivery Confirmed',
         summary: 'Escrow release was confirmed after delivery.',
+        notify: true,
+        cooldownSec: 5 * 60,
     },
     {
         key: 'escrow.cancelled',
         match: (method, path) => method === 'PATCH' && /\/api\/listings\/[^/]+\/escrow\/cancel$/.test(path),
         title: 'Escrow Cancelled',
         summary: 'Escrow hold was cancelled and the transaction state changed.',
+        notify: true,
+        cooldownSec: 5 * 60,
     },
     {
         key: 'listing.message.sent',
         match: (method, path) => method === 'POST' && /\/api\/listings\/[^/]+\/messages$/.test(path),
         title: 'Marketplace Message Sent',
         summary: 'A new buyer-seller conversation message was delivered in marketplace chat.',
+        notify: false,
     },
     {
         key: 'tradein.created',
         match: (method, path) => method === 'POST' && path === '/api/trade-in',
         title: 'Trade-In Request Created',
         summary: 'Your trade-in request has been submitted.',
+        notify: true,
+        cooldownSec: 15 * 60,
     },
     {
         key: 'tradein.cancelled',
         match: (method, path) => method === 'DELETE' && /^\/api\/trade-in\/[^/]+$/.test(path),
         title: 'Trade-In Request Cancelled',
         summary: 'A pending trade-in request was cancelled.',
+        notify: true,
+        cooldownSec: 15 * 60,
     },
     {
         key: 'pricealert.updated',
         match: (method, path) => method === 'POST' && path === '/api/price-alerts',
         title: 'Price Alert Configured',
         summary: 'A price alert has been created or updated for your watchlist.',
+        notify: false,
     },
     {
         key: 'pricealert.deleted',
         match: (method, path) => method === 'DELETE' && /^\/api\/price-alerts\/[^/]+$/.test(path),
         title: 'Price Alert Removed',
         summary: 'A price alert rule was removed.',
+        notify: false,
     },
 ];
 
@@ -177,6 +213,8 @@ const resolveAction = (method, path) => {
         key: `generic.${method.toLowerCase()}.${keyPath || 'action'}`,
         title: `${method} Action Completed`,
         summary: `A secure ${method} action was completed on your account.`,
+        notify: false,
+        reason: 'generic_action_suppressed',
     };
 };
 
@@ -229,16 +267,22 @@ const shouldSkip = ({ req, res, email }) => {
     return '';
 };
 
-const shouldSendWithCooldown = ({ email, actionKey }) => {
-    const cooldownMs = Number(flags.activityEmailCooldownSec || 0) * 1000;
-    if (cooldownMs <= 0) return true;
+const resolveCooldownSec = (action) => {
+    const actionCooldown = Number(action?.cooldownSec);
+    if (Number.isFinite(actionCooldown) && actionCooldown > 0) return actionCooldown;
+    return Number(flags.activityEmailCooldownSec || 0);
+};
+
+const rememberCooldown = ({ email, actionKey, occurredAt = Date.now(), cooldownSec }) => {
+    if (Number(cooldownSec || 0) <= 0) return;
 
     const now = Date.now();
+    const timestamp = Number.isFinite(Number(occurredAt))
+        ? Number(occurredAt)
+        : new Date(occurredAt).getTime();
     const cacheKey = `${email}::${actionKey}`;
-    const last = cooldownCache.get(cacheKey) || 0;
-    if (now - last < cooldownMs) return false;
-
-    cooldownCache.set(cacheKey, now);
+    const cooldownMs = Number(cooldownSec || 0) * 1000;
+    cooldownCache.set(cacheKey, timestamp);
     if (now - lastPruneAt > 10 * 60 * 1000) {
         lastPruneAt = now;
         for (const [key, timestamp] of cooldownCache.entries()) {
@@ -248,6 +292,48 @@ const shouldSendWithCooldown = ({ email, actionKey }) => {
         }
     }
 
+};
+
+const hasRecentPersistentDelivery = async ({ email, actionKey, cooldownSec }) => {
+    if (cooldownSec <= 0 || mongoose.connection.readyState !== 1) return false;
+
+    const recentCutoff = new Date(Date.now() - (cooldownSec * 1000));
+    try {
+        const existing = await EmailDeliveryLog.findOne({
+            eventType: 'user_activity',
+            recipientEmail: email,
+            status: 'sent',
+            'metaSummary.actionKey': actionKey,
+            createdAt: { $gte: recentCutoff },
+        });
+
+        if (!existing) return false;
+        rememberCooldown({
+            email,
+            actionKey,
+            cooldownSec,
+            occurredAt: existing.createdAt instanceof Date ? existing.createdAt.getTime() : Date.now(),
+        });
+        return true;
+    } catch (error) {
+        logger.warn('activity_email.cooldown_lookup_failed', {
+            email: email.replace(/(.{2}).*(@.*)/, '$1***$2'),
+            actionKey,
+            error: error.message,
+        });
+        return false;
+    }
+};
+
+const shouldSendWithCooldown = async ({ email, actionKey, cooldownSec }) => {
+    if (cooldownSec <= 0) return true;
+
+    const cooldownMs = cooldownSec * 1000;
+    const now = Date.now();
+    const cacheKey = `${email}::${actionKey}`;
+    const last = cooldownCache.get(cacheKey) || 0;
+    if (now - last < cooldownMs) return false;
+    if (await hasRecentPersistentDelivery({ email, actionKey, cooldownSec })) return false;
     return true;
 };
 
@@ -258,8 +344,12 @@ const notifyActivityFromRequest = async ({ req, res, durationMs = 0 }) => {
 
     const path = normalizePath(req.originalUrl);
     const action = resolveAction(req.method, path);
+    if (!action.notify) {
+        return { skipped: true, reason: action.reason || 'policy_suppressed' };
+    }
+    const cooldownSec = resolveCooldownSec(action);
 
-    if (!shouldSendWithCooldown({ email, actionKey: action.key })) {
+    if (!await shouldSendWithCooldown({ email, actionKey: action.key, cooldownSec })) {
         return { skipped: true, reason: 'cooldown' };
     }
 
@@ -292,6 +382,7 @@ const notifyActivityFromRequest = async ({ req, res, durationMs = 0 }) => {
         },
         meta: {
             actionKey: action.key,
+            deliveryClass: 'high_signal_activity',
             method: req.method,
             path,
             statusCode: res.statusCode,
@@ -307,10 +398,17 @@ const notifyActivityFromRequest = async ({ req, res, durationMs = 0 }) => {
         actionKey: action.key,
         statusCode: res.statusCode,
     });
+    rememberCooldown({ email, actionKey: action.key, cooldownSec });
 
     return { skipped: false };
 };
 
+const resetActivityEmailPolicyStateForTests = () => {
+    cooldownCache.clear();
+    lastPruneAt = 0;
+};
+
 module.exports = {
     notifyActivityFromRequest,
+    resetActivityEmailPolicyStateForTests,
 };
