@@ -73,20 +73,13 @@ const runtimeHost = typeof window !== 'undefined'
     : '';
 const disableSocialAuth = parseBooleanEnv(import.meta.env.VITE_FIREBASE_DISABLE_SOCIAL_AUTH, false);
 const enableFirebaseAnalytics = parseBooleanEnv(import.meta.env.VITE_FIREBASE_ANALYTICS_ENABLED, false);
+const forceRedirectSocialAuth = parseBooleanEnv(import.meta.env.VITE_FIREBASE_FORCE_REDIRECT_SOCIAL_AUTH, false);
 const isDeploymentHost = typeof runtimeHost === 'string' && runtimeHost.endsWith('.vercel.app');
 const runtimeSocialAuthBlockKey = runtimeHost
     ? `aura-social-auth-block:${runtimeHost}`
     : 'aura-social-auth-block';
 const runtimeSocialAuthBlockTtlMs = 2 * 60 * 1000;
-const isCompactViewport = typeof window !== 'undefined'
-    && typeof window.matchMedia === 'function'
-    && window.matchMedia('(max-width: 768px)').matches;
-const prefersRedirectSocialAuth = typeof window !== 'undefined'
-    && !['localhost', '127.0.0.1'].includes(runtimeHost)
-    && (
-        /android|iphone|ipad|ipod|mobile/i.test(window.navigator?.userAgent || '')
-        || isCompactViewport
-    );
+const prefersRedirectSocialAuth = Boolean(forceRedirectSocialAuth);
 
 const isSocialAuthHostRejection = (error) => {
     const raw = `${error?.code || ''} ${error?.message || error || ''}`.toLowerCase();
