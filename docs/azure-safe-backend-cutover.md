@@ -142,6 +142,16 @@ Create a local file at [server/.env.azure-secrets.example](/c:/Users/mdsai/Downl
 
 The Azure deploy script automatically uses `server/.env.azure-secrets` when it exists, so you can run the deployment without echoing raw secrets into commands.
 
+### Resend Webhook Registration
+
+After `RESEND_API_KEY` is available with webhook-management permissions, register the live webhook and synchronize its signing secret with:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File infra\azure\register-resend-webhook.ps1 -ResendApiKey "re_xxx"
+```
+
+Reference: [resend-webhook-registration.md](/c:/Users/mdsai/Downloads/Kimi_Agent_Flipkart-Style%20Frontend/docs/resend-webhook-registration.md)
+
 ## Production-Critical Gaps To Close
 
 ### 1. Review Upload Storage
