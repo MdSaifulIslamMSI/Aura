@@ -76,6 +76,7 @@ const isDeploymentHost = typeof runtimeHost === 'string' && runtimeHost.endsWith
 const runtimeSocialAuthBlockKey = runtimeHost
     ? `aura-social-auth-block:${runtimeHost}`
     : 'aura-social-auth-block';
+const runtimeSocialAuthBlockTtlMs = 2 * 60 * 1000;
 
 const isSocialAuthHostRejection = (error) => {
     const raw = `${error?.code || ''} ${error?.message || error || ''}`.toLowerCase();
@@ -90,7 +91,24 @@ const isSocialAuthHostRejection = (error) => {
 const readRuntimeSocialAuthBlock = () => {
     if (typeof window === 'undefined') return false;
     try {
-        return window.sessionStorage.getItem(runtimeSocialAuthBlockKey) === '1';
+        const rawValue = window.sessionStorage.getItem(runtimeSocialAuthBlockKey);
+        if (!rawValue) return false;
+
+        // Clear legacy one-bit flags so old unauthorized-domain failures
+        // do not keep social sign-in paused after the host is fixed.
+        if (rawValue === '1') {
+            window.sessionStorage.removeItem(runtimeSocialAuthBlockKey);
+            return false;
+        }
+
+        const parsed = JSON.parse(rawValue);
+        const blockedAt = Number(parsed?.blockedAt || 0);
+        if (!blockedAt || (Date.now() - blockedAt) > runtimeSocialAuthBlockTtlMs) {
+            window.sessionStorage.removeItem(runtimeSocialAuthBlockKey);
+            return false;
+        }
+
+        return true;
     } catch {
         return false;
     }
@@ -172,7 +190,10 @@ export const markFirebaseSocialAuthRejectedForRuntime = (error) => {
     }
 
     try {
-        window.sessionStorage.setItem(runtimeSocialAuthBlockKey, '1');
+        window.sessionStorage.setItem(runtimeSocialAuthBlockKey, JSON.stringify({
+            host: runtimeHost,
+            blockedAt: Date.now(),
+        }));
         return true;
     } catch {
         return false;
