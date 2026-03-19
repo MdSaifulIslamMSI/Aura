@@ -42,6 +42,7 @@ vi.mock('@/context/SocketContext', () => ({
         socket: socketMock,
         isConnected: true,
     }),
+    useSocketDemand: vi.fn(),
 }));
 
 describe('AdminSupport', () => {
