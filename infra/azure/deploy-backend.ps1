@@ -3,7 +3,7 @@ param(
     [string]$ResourceGroup = "rg-aura-prod",
     [string]$Location = "southeastasia",
     [string]$Prefix = "aura-msi-20260318",
-    [string]$FrontendOrigin = "https://app-plum-iota.vercel.app",
+    [string]$FrontendOrigin = "https://aurapilot.vercel.app",
     [string]$ApiPublicUrl = "",
     [string]$SecretsEnvFile = "",
     [string]$PlanSku = "B1",
