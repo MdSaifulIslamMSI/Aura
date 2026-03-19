@@ -1,14 +1,23 @@
 import { useState, useRef, useEffect } from 'react';
-import { Bell, Check, Trash2, ExternalLink } from 'lucide-react';
+import { Bell, Check, ExternalLink } from 'lucide-react';
 import { useNotifications } from '../../../context/NotificationContext';
 import { cn } from '@/lib/utils';
 import { Link, useNavigate } from 'react-router-dom';
 
-const NotificationDropdown = () => {
+const NotificationDropdown = ({ isCompact = false, isOpen: controlledIsOpen, onOpenChange }) => {
     const { notifications, unreadCount, markAsRead, markAllAsRead, isLoading, fetchNotifications } = useNotifications();
-    const [isOpen, setIsOpen] = useState(false);
+    const [internalIsOpen, setInternalIsOpen] = useState(false);
     const dropdownRef = useRef(null);
     const navigate = useNavigate();
+    const isControlled = typeof controlledIsOpen === 'boolean';
+    const isOpen = isControlled ? controlledIsOpen : internalIsOpen;
+
+    const setIsOpen = (nextValue) => {
+        if (!isControlled) {
+            setInternalIsOpen(nextValue);
+        }
+        onOpenChange?.(nextValue);
+    };
 
     useEffect(() => {
         const handleClickOutside = (event) => {
@@ -51,7 +60,12 @@ const NotificationDropdown = () => {
         <div className="relative" ref={dropdownRef}>
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className="relative flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.045] text-slate-200 transition-all hover:border-white/18 hover:bg-white/[0.08] hover:text-white"
+                className={cn(
+                    'relative flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.045] text-slate-200 transition-all hover:border-white/18 hover:bg-white/[0.08] hover:text-white',
+                    isOpen && 'border-cyan-300/35 bg-cyan-400/12 text-white shadow-[0_0_18px_rgba(34,211,238,0.18)]'
+                )}
+                aria-label="Open notifications"
+                aria-expanded={isOpen}
             >
                 <Bell className="h-[1.125rem] w-[1.125rem]" />
                 {unreadCount > 0 && (
@@ -62,24 +76,54 @@ const NotificationDropdown = () => {
             </button>
 
             {isOpen && (
-                <div className="absolute right-0 top-[calc(100%+0.5rem)] z-[100] w-[22rem] max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-white/10 bg-[#0f172a]/95 p-0 shadow-2xl backdrop-blur-xl ring-1 ring-white/5 sm:w-[24rem]">
-                    <div className="flex items-center justify-between border-b border-white/5 bg-white/[0.02] px-4 py-3">
-                        <h3 className="text-sm font-semibold text-white">Notifications</h3>
-                        {unreadCount > 0 && (
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    markAllAsRead();
-                                }}
-                                className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-neo-cyan transition-colors hover:bg-cyan-500/10"
-                            >
-                                <Check className="h-3 w-3" />
-                                Mark all as read
-                            </button>
+                <>
+                    {isCompact && (
+                        <button
+                            type="button"
+                            aria-label="Close notifications backdrop"
+                            className="fixed inset-0 z-[90] bg-zinc-950/45"
+                            onClick={() => setIsOpen(false)}
+                        />
+                    )}
+                    <div
+                        className={cn(
+                            'overflow-hidden rounded-2xl border border-white/10 bg-[#0f172a]/95 p-0 shadow-2xl backdrop-blur-xl ring-1 ring-white/5',
+                            isCompact
+                                ? 'fixed inset-x-3 top-[5.5rem] z-[100] max-h-[min(30rem,calc(100vh-6rem))]'
+                                : 'absolute right-0 top-[calc(100%+0.5rem)] z-[100] w-[22rem] max-w-[calc(100vw-2rem)] sm:w-[24rem]'
                         )}
+                    >
+                    <div className="flex items-center justify-between border-b border-white/5 bg-white/[0.02] px-4 py-3">
+                        <div>
+                            <h3 className="text-sm font-semibold text-white">Notifications</h3>
+                            {isCompact && <p className="mt-0.5 text-[11px] text-slate-400">Priority updates without crowding the route.</p>}
+                        </div>
+                        <div className="flex items-center gap-2">
+                            {unreadCount > 0 && (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        markAllAsRead();
+                                    }}
+                                    className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-neo-cyan transition-colors hover:bg-cyan-500/10"
+                                >
+                                    <Check className="h-3 w-3" />
+                                    Mark all as read
+                                </button>
+                            )}
+                            {isCompact && (
+                                <button
+                                    type="button"
+                                    onClick={() => setIsOpen(false)}
+                                    className="rounded-md px-2 py-1 text-xs font-medium text-slate-300 transition-colors hover:bg-white/[0.08] hover:text-white"
+                                >
+                                    Close
+                                </button>
+                            )}
+                        </div>
                     </div>
 
-                    <div className="max-h-[28rem] overflow-y-auto">
+                    <div className={cn('overflow-y-auto', isCompact ? 'max-h-[calc(min(30rem,100vh-6rem)-7rem)]' : 'max-h-[28rem]')}>
                         {isLoading && notifications.length === 0 ? (
                             <div className="flex flex-col items-center justify-center py-8 text-slate-400">
                                 <div className="h-5 w-5 animate-spin rounded-full border-2 border-slate-400 border-t-transparent" />
@@ -148,7 +192,8 @@ const NotificationDropdown = () => {
                             </Link>
                         </div>
                     )}
-                </div>
+                    </div>
+                </>
             )}
         </div>
     );
