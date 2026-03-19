@@ -43,6 +43,7 @@ $script:SecretAliases = [ordered]@{
     "RAZORPAY_WEBHOOK_SECRET" = "rpayweb"
     "SIMULATED_WEBHOOK_SECRET" = "simweb"
     "RESEND_API_KEY" = "resend"
+    "RESEND_WEBHOOK_SECRET" = "resendweb"
     "GMAIL_APP_PASSWORD" = "gmailapp"
     "TWILIO_ACCOUNT_SID" = "twiliosid"
     "TWILIO_AUTH_TOKEN" = "twiliotok"

@@ -72,7 +72,7 @@ describe('Email Gateway Security', () => {
                 'bad header': 'should_be_dropped',
             },
             requestId: 'req_123',
-            securityTags: ['otp', 'security'],
+            securityTags: ['otp', 'security', 'auth.login'],
         });
 
         expect(providerSendMock).toHaveBeenCalledTimes(1);
@@ -82,6 +82,7 @@ describe('Email Gateway Security', () => {
         expect(payload.headers['X-Request-Id']).toBe('req_123');
         expect(payload.headers['X-Aura-Test']).toBe('ok');
         expect(payload.headers['bad header']).toBeUndefined();
+        expect(payload.meta.securityTags).toEqual(['otp', 'security', 'auth-login']);
     });
 
     test('buildEmailAuditRecord returns normalized audit shape', () => {
@@ -107,4 +108,3 @@ describe('Email Gateway Security', () => {
         });
     });
 });
-

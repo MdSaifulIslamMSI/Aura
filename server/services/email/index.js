@@ -3,6 +3,10 @@ const logger = require('../../utils/logger');
 const { flags: securityFlags } = require('../../config/emailSecurityFlags');
 const emailFlags = require('../../config/emailFlags');
 const { getEmailProvider } = require('./emailProviderFactory');
+const {
+    persistEmailDeliveryLog,
+    sanitizeEmailTags,
+} = require('./emailDeliveryAuditService');
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const HEADER_KEY_REGEX = /^[A-Za-z0-9-]{1,64}$/;
@@ -141,8 +145,25 @@ const sendTransactionalEmail = async ({
     const resolvedEventType = securityFlags.emailSecurityEnabled
         ? resolveEventType(eventType)
         : String(eventType || 'system').trim() || 'system';
+    const validated = validatePayload({ to, subject, html, text });
+    const sanitizedSecurityTags = sanitizeEmailTags(securityTags);
+    const sanitizedMeta = sanitizeMeta({
+        ...meta,
+        securityTags: sanitizedSecurityTags,
+    });
 
     if (!emailFlags.orderEmailsEnabled && ['order_placed', 'order_email_alert'].includes(resolvedEventType)) {
+        await persistEmailDeliveryLog({
+            eventType: resolvedEventType,
+            status: 'skipped',
+            provider: 'disabled',
+            recipientEmail: validated.to.split(',')[0] || '',
+            recipientMask: maskRecipient(validated.to.split(',')[0] || ''),
+            subject: validated.subject,
+            requestId,
+            securityTags: sanitizedSecurityTags,
+            metaSummary: { ...sanitizedMeta, reason: 'ORDER_EMAILS_ENABLED=false' },
+        });
         return {
             skipped: true,
             provider: 'disabled',
@@ -151,12 +172,7 @@ const sendTransactionalEmail = async ({
         };
     }
 
-    const validated = validatePayload({ to, subject, html, text });
     const sanitizedHeaders = sanitizeHeaders(headers);
-    const sanitizedMeta = sanitizeMeta({
-        ...meta,
-        securityTags: Array.isArray(securityTags) ? securityTags.slice(0, 20) : [],
-    });
 
     const finalHeaders = {
         ...sanitizedHeaders,
@@ -186,16 +202,44 @@ const sendTransactionalEmail = async ({
             status: 'sent',
         }));
 
+        await persistEmailDeliveryLog({
+            eventType: resolvedEventType,
+            status: 'sent',
+            provider: result.provider,
+            recipientEmail: validated.to.split(',')[0] || '',
+            recipientMask,
+            subject: validated.subject,
+            requestId,
+            securityTags: sanitizedSecurityTags,
+            providerMessageId: result.providerMessageId || '',
+            responseSummary: result.response || {},
+            metaSummary: sanitizedMeta,
+        });
+
         return result;
     } catch (error) {
+        const providerName = String(provider?.name || provider?.provider || 'unknown').trim() || 'unknown';
         logger.error('email_gateway.failed', buildEmailAuditRecord({
             eventType: resolvedEventType,
             requestId,
             recipientMask,
-            provider: 'unknown',
+            provider: providerName,
             status: 'failed',
             errorCode: error.emailCode || error.code || 'UNKNOWN_EMAIL_ERROR',
         }));
+        await persistEmailDeliveryLog({
+            eventType: resolvedEventType,
+            status: 'failed',
+            provider: providerName,
+            recipientEmail: validated.to.split(',')[0] || '',
+            recipientMask,
+            subject: validated.subject,
+            requestId,
+            securityTags: sanitizedSecurityTags,
+            errorCode: error.emailCode || error.code || 'UNKNOWN_EMAIL_ERROR',
+            errorMessage: error.message || 'Email delivery failed',
+            metaSummary: sanitizedMeta,
+        });
         throw error;
     }
 };

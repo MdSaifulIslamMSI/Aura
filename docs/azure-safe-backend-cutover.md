@@ -109,6 +109,7 @@ These often map to external providers and should be copied into Key Vault from t
 - `LIVEKIT_API_KEY`
 - `LIVEKIT_API_SECRET`
 - `RESEND_API_KEY`
+- `RESEND_WEBHOOK_SECRET`
 - `GMAIL_APP_PASSWORD`
 - `TWILIO_ACCOUNT_SID`
 - `TWILIO_AUTH_TOKEN`
@@ -186,6 +187,7 @@ Safe deployment rule:
 - catalog search returns published inventory
 - checkout intent creation works
 - webhook verification works
+- Resend webhook signature verification works when `RESEND_WEBHOOK_SECRET` is configured
 - worker queue starts and drains
 - Redis health is connected
 - admin pages load

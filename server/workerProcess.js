@@ -49,6 +49,7 @@ const {
     startCommerceReconciliationWorker,
 } = require('./services/commerceReconciliationService');
 const { startAdminAnalyticsMonitor } = require('./services/adminAnalyticsMonitorService');
+const { startEmailOpsMonitor } = require('./services/email/emailOpsMonitorService');
 const {
     startCatalogWorkers,
     ensureSystemState,
@@ -132,6 +133,7 @@ const startup = async () => {
     startOrderEmailWorker();
     startCommerceReconciliationWorker();
     startAdminAnalyticsMonitor();
+    startEmailOpsMonitor();
     startCatalogWorkers();
     IntelligenceTaskMonitor();
     startOtpSignupMaintenanceWorker();

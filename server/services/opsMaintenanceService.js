@@ -10,6 +10,7 @@ const {
     runOrderEmailQueueCycle,
     getOrderEmailQueueStats,
 } = require('./email/orderEmailQueueService');
+const { runEmailOpsMonitorCycle } = require('./email/emailOpsMonitorService');
 const {
     runCatalogImportWorkerCycle,
     runCatalogSyncWorkerCycle,
@@ -31,6 +32,11 @@ const TASK_DEFINITIONS = {
         enabled: () => emailFlags.orderEmailsEnabled,
         run: () => runOrderEmailQueueCycle(),
         stats: () => getOrderEmailQueueStats(),
+    },
+    emailOpsMonitor: {
+        enabled: () => String(process.env.EMAIL_OPS_MONITOR_ENABLED || 'true').trim().toLowerCase() !== 'false',
+        run: () => runEmailOpsMonitorCycle(),
+        stats: async () => ({ status: 'ok' }),
     },
     catalogImport: {
         enabled: () => catalogFlags.catalogImportsEnabled,
