@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 import { Link, useNavigate } from 'react-router-dom';
 
 const NotificationDropdown = () => {
-    const { notifications, unreadCount, markAsRead, markAllAsRead, isLoading } = useNotifications();
+    const { notifications, unreadCount, markAsRead, markAllAsRead, isLoading, fetchNotifications } = useNotifications();
     const [isOpen, setIsOpen] = useState(false);
     const dropdownRef = useRef(null);
     const navigate = useNavigate();
@@ -20,6 +20,11 @@ const NotificationDropdown = () => {
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
+
+    useEffect(() => {
+        if (!isOpen) return;
+        fetchNotifications();
+    }, [fetchNotifications, isOpen]);
 
     const handleNotificationClick = async (notification) => {
         if (!notification.isRead) {
