@@ -1,26 +1,11 @@
 import { prepareTraceHeaders } from './clientObservability';
+import { getSafeEnv, resolveApiBaseUrl, trimTrailingSlash } from './runtimeApiConfig';
 
-const trimTrailingSlash = (value = '') => String(value || '').replace(/\/+$/, '');
 const normalizePath = (path = '') => (String(path || '').startsWith('/')
     ? String(path || '')
     : `/${String(path || '')}`);
 
-const getSafeEnv = (key, fallback = '') => {
-    try {
-        // Handle Vite specific import.meta.env and fallback to process.env if available
-        if (typeof import.meta !== 'undefined' && import.meta.env) {
-            return import.meta.env[key] || fallback;
-        }
-        if (typeof process !== 'undefined' && process.env) {
-            return process.env[key] || fallback;
-        }
-    } catch {
-        // Silently fail and use fallback
-    }
-    return fallback;
-};
-
-export const API_BASE_URL = trimTrailingSlash(getSafeEnv('VITE_API_URL', '/api'));
+export const API_BASE_URL = trimTrailingSlash(resolveApiBaseUrl('/api'));
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
