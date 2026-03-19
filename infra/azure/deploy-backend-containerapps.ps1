@@ -2,7 +2,7 @@ param(
     [string]$SubscriptionId = "",
     [string]$ResourceGroup = "rg-aura-prod",
     [string]$Location = "southeastasia",
-    [string]$FrontendOrigin = "https://app-plum-iota.vercel.app",
+    [string]$FrontendOrigin = "https://aurapilot.vercel.app",
     [string]$ApiPublicUrl = "",
     [string]$SecretsEnvFile = "C:\Users\mdsai\Downloads\aura-api.env",
     [string]$KeyVaultName = "aura-msi-20260318-kv",
