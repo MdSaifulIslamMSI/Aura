@@ -41,6 +41,7 @@ const OrderList = lazy(() => import('./pages/Admin/OrderList'));
 const AdminPayments = lazy(() => import('./pages/Admin/Payments'));
 const AdminUsers = lazy(() => import('./pages/Admin/Users'));
 const AdminRefundLedger = lazy(() => import('./pages/Admin/RefundLedger'));
+const AdminEmailOps = lazy(() => import('./pages/Admin/EmailOps'));
 const AdminSupport = lazy(() => import('./pages/Admin/Support'));
 
 // Marketplace Pages
@@ -245,6 +246,7 @@ function AppContent() {
               <Route path="/admin/orders" element={renderCriticalRoute(<AdminRoute><OrderList /></AdminRoute>)} />
               <Route path="/admin/payments" element={renderCriticalRoute(<AdminRoute><AdminPayments /></AdminRoute>)} />
               <Route path="/admin/refunds" element={renderCriticalRoute(<AdminRoute><AdminRefundLedger /></AdminRoute>)} />
+              <Route path="/admin/email-ops" element={renderCriticalRoute(<AdminRoute><AdminEmailOps /></AdminRoute>)} />
               <Route path="/admin/users" element={renderCriticalRoute(<AdminRoute><AdminUsers /></AdminRoute>)} />
               <Route path="/admin/support" element={renderCriticalRoute(<AdminRoute><AdminSupport /></AdminRoute>)} />
             </Routes>

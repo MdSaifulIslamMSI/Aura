@@ -35,6 +35,7 @@ const priceAlertRoutes = require('./routes/priceAlertRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
 const adminPaymentRoutes = require('./routes/adminPaymentRoutes');
 const adminOrderEmailRoutes = require('./routes/adminOrderEmailRoutes');
+const adminEmailOpsRoutes = require('./routes/adminEmailOpsRoutes');
 const adminNotificationRoutes = require('./routes/adminNotificationRoutes');
 const adminAnalyticsRoutes = require('./routes/adminAnalyticsRoutes');
 const adminCatalogRoutes = require('./routes/adminCatalogRoutes');
@@ -43,6 +44,7 @@ const adminProductRoutes = require('./routes/adminProductRoutes');
 const adminOpsRoutes = require('./routes/adminOpsRoutes');
 const internalOpsRoutes = require('./routes/internalOpsRoutes');
 const observabilityRoutes = require('./routes/observabilityRoutes');
+const emailWebhookRoutes = require('./routes/emailWebhookRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
 const intelligenceRoutes = require('./routes/intelligenceRoutes');
 const supportRoutes = require('./routes/supportRoutes');
@@ -65,6 +67,7 @@ const {
     getCommerceReconciliationStatus,
 } = require('./services/commerceReconciliationService');
 const { startAdminAnalyticsMonitor } = require('./services/adminAnalyticsMonitorService');
+const { startEmailOpsMonitor } = require('./services/email/emailOpsMonitorService');
 const {
     enforceCatalogStartupCheck,
     startCatalogWorkers,
@@ -207,6 +210,7 @@ if (process.env.NODE_ENV !== 'test') {
             return path === '/health'
                 || path === '/health/ready'
                 || path === '/metrics'
+                || path.startsWith('/api/email-webhooks')
                 || path.startsWith('/api/observability');
         },
         keyGenerator: (req) => {
@@ -239,6 +243,7 @@ app.use('/api/price-alerts', priceAlertRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/admin/payments', adminPaymentRoutes);
 app.use('/api/admin/order-emails', adminOrderEmailRoutes);
+app.use('/api/admin/email-ops', adminEmailOpsRoutes);
 app.use('/api/admin/notifications', adminNotificationRoutes);
 app.use('/api/admin/analytics', adminAnalyticsRoutes);
 app.use('/api/admin/catalog', adminCatalogRoutes);
@@ -247,6 +252,7 @@ app.use('/api/admin/products', adminProductRoutes);
 app.use('/api/admin/ops', adminOpsRoutes);
 app.use('/api/internal', internalOpsRoutes);
 app.use('/api/observability', observabilityRoutes);
+app.use('/api/email-webhooks', emailWebhookRoutes);
 app.use('/api/uploads', uploadRoutes);
 app.use('/api/intelligence', intelligenceRoutes);
 app.use('/api/support', supportRoutes);
@@ -491,6 +497,7 @@ if (require.main === module) {
                     startOrderEmailWorker();
                     startCommerceReconciliationWorker();
                     startAdminAnalyticsMonitor();
+                    startEmailOpsMonitor();
                     startCatalogWorkers();
                     runtimeStartupState.asyncStartupComplete = true;
                     runtimeStartupState.asyncStartupError = '';

@@ -1,5 +1,5 @@
 import { apiFetch, buildServiceUrl } from '../apiBase';
-import { getAuthHeader } from './apiUtils';
+import { createIdempotencyKey, getAuthHeader } from './apiUtils';
 
 /**
  * CRITICAL: All admin API calls require authentication and admin role
@@ -52,6 +52,50 @@ export const adminApi = {
     getNotificationSummary: async () => {
         const headers = await getAuthHeader();
         const { data } = await apiFetch('/admin/notifications/summary', { headers });
+        return data;
+    },
+    getEmailOpsSummary: async () => {
+        const headers = await getAuthHeader();
+        const { data } = await apiFetch('/admin/email-ops/summary', { headers });
+        return data;
+    },
+    listEmailDeliveries: async (params = {}) => {
+        const headers = await getAuthHeader();
+        const { data } = await apiFetch('/admin/email-ops/deliveries', { headers, params });
+        return data;
+    },
+    listEmailQueue: async (params = {}) => {
+        const headers = await getAuthHeader();
+        const { data } = await apiFetch('/admin/email-ops/order-queue', { headers, params });
+        return data;
+    },
+    getEmailQueueItem: async (notificationId) => {
+        const headers = await getAuthHeader();
+        const { data } = await apiFetch(`/admin/email-ops/order-queue/${notificationId}`, { headers });
+        return data;
+    },
+    retryEmailQueueItem: async (notificationId, payload = {}) => {
+        const headers = await getAuthHeader();
+        const { data } = await apiFetch(`/admin/email-ops/order-queue/${notificationId}/retry`, {
+            method: 'POST',
+            headers: {
+                ...headers,
+                'Idempotency-Key': payload?.idempotencyKey || createIdempotencyKey('email-queue-retry'),
+            },
+            body: JSON.stringify(payload),
+        });
+        return data;
+    },
+    sendEmailOpsTest: async (payload = {}) => {
+        const headers = await getAuthHeader();
+        const { data } = await apiFetch('/admin/email-ops/test-send', {
+            method: 'POST',
+            headers: {
+                ...headers,
+                'Idempotency-Key': payload?.idempotencyKey || createIdempotencyKey('email-ops-test-send'),
+            },
+            body: JSON.stringify(payload),
+        });
         return data;
     },
     markNotificationRead: async (notificationId, read = true) => {
