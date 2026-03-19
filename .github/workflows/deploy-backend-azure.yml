@@ -93,7 +93,7 @@ jobs:
             --output "type=image,push=true,compression=zstd,compression-level=3,force-compression=true" \
             server
 
-      - name: Promote image through blue-green release
+      - name: Promote image through health-gated release
         id: release
         shell: bash
         env:
