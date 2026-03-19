@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import {
     CreditCard,
     LayoutDashboard,
+    Mail,
     MessageSquare,
     Package,
     ReceiptText,
@@ -19,6 +20,7 @@ const ADMIN_LINKS = [
     { href: '/admin/orders', prefix: '/admin/orders', label: 'Orders', icon: ShoppingBag },
     { href: '/admin/payments', prefix: '/admin/payments', label: 'Payments', icon: CreditCard },
     { href: '/admin/refunds', prefix: '/admin/refunds', label: 'Refunds', icon: ReceiptText },
+    { href: '/admin/email-ops', prefix: '/admin/email-ops', label: 'Email Ops', icon: Mail },
     { href: '/admin/users', prefix: '/admin/users', label: 'Users', icon: Users },
     { href: '/admin/support', prefix: '/admin/support', label: 'Support', icon: MessageSquare },
 ];

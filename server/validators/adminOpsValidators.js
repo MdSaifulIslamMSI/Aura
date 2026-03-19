@@ -32,6 +32,7 @@ const adminOpsMaintenanceSchema = z.object({
         tasks: z.array(z.enum([
             'paymentOutbox',
             'orderEmail',
+            'emailOpsMonitor',
             'catalogImport',
             'catalogSync',
             'adminAnalytics',
