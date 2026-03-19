@@ -2,19 +2,19 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "https://aura-api-2dxo.onrender.com/api/$1"
+      "destination": "https://aura-msi-api-ca.wittycliff-f743de69.southeastasia.azurecontainerapps.io/api/$1"
     },
     {
       "source": "/health",
-      "destination": "https://aura-api-2dxo.onrender.com/health"
+      "destination": "https://aura-msi-api-ca.wittycliff-f743de69.southeastasia.azurecontainerapps.io/health"
     },
     {
       "source": "/health/ready",
-      "destination": "https://aura-api-2dxo.onrender.com/health/ready"
+      "destination": "https://aura-msi-api-ca.wittycliff-f743de69.southeastasia.azurecontainerapps.io/health/ready"
     },
     {
       "source": "/uploads/(.*)",
-      "destination": "https://aura-api-2dxo.onrender.com/uploads/$1"
+      "destination": "https://aura-msi-api-ca.wittycliff-f743de69.southeastasia.azurecontainerapps.io/uploads/$1"
     },
     {
       "source": "/((?!api/|uploads/|assets/|manifest\\.json$|sw\\.js$|favicon\\.ico$|robots\\.txt$|.*\\.[^/]+$).*)",
