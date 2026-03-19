@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { io } from 'socket.io-client';
 import { useAuth } from './AuthContext';
-import { buildServiceUrl } from '../services/apiBase';
+import { resolveServiceOrigin } from '../services/runtimeApiConfig';
 
 const SocketContext = createContext(null);
 
@@ -37,7 +37,9 @@ export const SocketProvider = ({ children }) => {
                     return;
                 }
 
-                activeSocket = io(buildServiceUrl(''), {
+                const socketOrigin = resolveServiceOrigin('');
+
+                activeSocket = io(socketOrigin, {
                     auth: { token },
                     reconnection: true,
                     reconnectionAttempts: 5,
@@ -55,7 +57,9 @@ export const SocketProvider = ({ children }) => {
                 });
 
                 activeSocket.on('connect_error', (error) => {
-                    console.error('Socket connection error:', error);
+                    if (import.meta.env.DEV) {
+                        console.error('Socket connection error:', error);
+                    }
                     if (!isActive) return;
                     setIsConnected(false);
                 });
@@ -67,7 +71,9 @@ export const SocketProvider = ({ children }) => {
 
                 setSocket(activeSocket);
             } catch (error) {
-                console.error('Socket token bootstrap failed:', error);
+                if (import.meta.env.DEV) {
+                    console.error('Socket token bootstrap failed:', error);
+                }
                 resetConnection();
             }
         };

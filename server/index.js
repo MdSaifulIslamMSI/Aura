@@ -256,6 +256,7 @@ app.use('/api/email-webhooks', emailWebhookRoutes);
 app.use('/api/uploads', uploadRoutes);
 app.use('/api/intelligence', intelligenceRoutes);
 app.use('/api/support', supportRoutes);
+app.use('/api/notifications', userNotificationRoutes);
 app.use('/metrics', metricsRoute);
 
 // Health Check

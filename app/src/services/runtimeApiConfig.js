@@ -27,3 +27,24 @@ export const resolveApiBaseUrl = (fallback = '/api') => {
 
     return trimTrailingSlash(getSafeEnv('VITE_API_URL', fallback)) || fallback;
 };
+
+export const resolveServiceOrigin = (fallback = '') => {
+    const raw = trimTrailingSlash(getSafeEnv('VITE_API_URL', fallback));
+
+    if (/^https?:\/\//i.test(raw)) {
+        try {
+            const url = new URL(raw);
+            const pathname = trimTrailingSlash(url.pathname);
+            const servicePath = pathname.replace(/\/api$/i, '');
+            return trimTrailingSlash(`${url.origin}${servicePath}`);
+        } catch {
+            return raw;
+        }
+    }
+
+    if (typeof window !== 'undefined') {
+        return trimTrailingSlash(window.location.origin);
+    }
+
+    return raw;
+};

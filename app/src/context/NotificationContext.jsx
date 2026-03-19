@@ -34,7 +34,9 @@ export function NotificationProvider({ children }) {
             setNotifications(data || []);
             setUnreadCount(unreadCount || 0);
         } catch (error) {
-            console.error('Failed to fetch notifications:', error);
+            if (import.meta.env.DEV) {
+                console.error('Failed to fetch notifications:', error);
+            }
         } finally {
             setIsLoading(false);
         }
@@ -76,7 +78,9 @@ export function NotificationProvider({ children }) {
             setUnreadCount(prev => Math.max(0, prev - 1));
             await notificationApi.markAsRead([id]);
         } catch (error) {
-            console.error('Failed to mark notification as read:', error);
+            if (import.meta.env.DEV) {
+                console.error('Failed to mark notification as read:', error);
+            }
         }
     };
 
@@ -86,7 +90,9 @@ export function NotificationProvider({ children }) {
             setUnreadCount(0);
             await notificationApi.markAllAsRead();
         } catch (error) {
-            console.error('Failed to mark all as read:', error);
+            if (import.meta.env.DEV) {
+                console.error('Failed to mark all as read:', error);
+            }
         }
     };
 
