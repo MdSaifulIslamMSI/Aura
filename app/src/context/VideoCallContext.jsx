@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { useSocket } from './SocketContext';
 import VideoCallOverlay from '../components/features/video/VideoCallOverlay';
+import { RTC_PEER_CONFIG } from '../config/rtcConfig';
 
 const VideoCallContext = createContext(null);
 
@@ -16,14 +17,6 @@ export const VideoCallProvider = ({ children }) => {
     
     const peerConnection = useRef(null);
     const targetUserId = useRef(null);
-
-    // Configuration for Aura high-availability (STUN for NAT traversal)
-    const pcConfig = {
-        iceServers: [
-            { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' },
-        ]
-    };
 
     const cleanup = () => {
         if (peerConnection.current) {
@@ -42,7 +35,7 @@ export const VideoCallProvider = ({ children }) => {
     };
 
     const initializePeerConnection = () => {
-        const pc = new RTCPeerConnection(pcConfig);
+        const pc = new RTCPeerConnection(RTC_PEER_CONFIG);
 
         pc.onicecandidate = (event) => {
             if (event.candidate && socket && targetUserId.current) {
