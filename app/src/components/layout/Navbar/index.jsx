@@ -119,8 +119,10 @@ export const NavbarFailureFallback = () => (
 const Navbar = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isCompact, setIsCompact] = useState(false);
+  const [isCompactViewport, setIsCompactViewport] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isQuickPanelOpen, setIsQuickPanelOpen] = useState(false);
   const [isPreferencesOpen, setIsPreferencesOpen] = useState(false);
   const [isAdminToolsOpen, setIsAdminToolsOpen] = useState(false);
@@ -165,8 +167,21 @@ const Navbar = () => {
   }, []);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+
+    const syncViewport = () => {
+      setIsCompactViewport(window.innerWidth < 768);
+    };
+
+    syncViewport();
+    window.addEventListener('resize', syncViewport, { passive: true });
+    return () => window.removeEventListener('resize', syncViewport);
+  }, []);
+
+  useEffect(() => {
     setIsMobileMenuOpen(false);
     setIsUserMenuOpen(false);
+    setIsNotificationsOpen(false);
     setIsQuickPanelOpen(false);
     setIsPreferencesOpen(false);
     setIsAdminToolsOpen(false);
@@ -192,6 +207,7 @@ const Navbar = () => {
     const handleKeyDown = (event) => {
       if (event.key === 'Escape') {
         setIsUserMenuOpen(false);
+        setIsNotificationsOpen(false);
         setIsQuickPanelOpen(false);
         setIsPreferencesOpen(false);
         setIsAdminToolsOpen(false);
@@ -209,13 +225,13 @@ const Navbar = () => {
   useEffect(() => {
     if (typeof document === 'undefined') return undefined;
 
-    const hasOverlayOpen = isQuickPanelOpen || isUserMenuOpen;
+    const hasOverlayOpen = isQuickPanelOpen || isUserMenuOpen || isNotificationsOpen;
     document.body.classList.toggle('aura-nav-overlay-open', hasOverlayOpen);
 
     return () => {
       document.body.classList.remove('aura-nav-overlay-open');
     };
-  }, [isQuickPanelOpen, isUserMenuOpen]);
+  }, [isNotificationsOpen, isQuickPanelOpen, isUserMenuOpen]);
 
   const categories = [
     { name: 'Mobiles', path: '/category/mobiles' },
@@ -329,6 +345,43 @@ const Navbar = () => {
         </button>
       </div>
     </div>
+  );
+  const closeUserPanel = () => {
+    setIsUserMenuOpen(false);
+    setIsPreferencesOpen(false);
+    setIsAdminToolsOpen(false);
+  };
+  const closeQuickPanel = () => setIsQuickPanelOpen(false);
+  const closeNotifications = () => setIsNotificationsOpen(false);
+  const handleProfileMenuToggle = () => {
+    closeQuickPanel();
+    closeNotifications();
+    setIsMobileMenuOpen(false);
+    setIsUserMenuOpen((open) => {
+      const nextOpen = !open;
+      if (!nextOpen) {
+        setIsPreferencesOpen(false);
+        setIsAdminToolsOpen(false);
+      }
+      return nextOpen;
+    });
+  };
+  const handleNotificationsOpenChange = (nextOpen) => {
+    if (nextOpen) {
+      closeQuickPanel();
+      closeUserPanel();
+      setIsMobileMenuOpen(false);
+    }
+    setIsNotificationsOpen(nextOpen);
+  };
+  const handleCloseUserMenu = () => {
+    closeUserPanel();
+  };
+  const userMenuPanelClasses = cn(
+    'z-[60] overflow-x-hidden overflow-y-auto border border-white/12 bg-[#061018] shadow-[0_28px_90px_rgba(2,8,23,0.8)] ring-1 ring-white/8 animate-fade-in',
+    isCompactViewport
+      ? 'fixed inset-x-3 top-[5.5rem] max-h-[min(32rem,calc(100vh-6rem))] rounded-[1.7rem] py-3'
+      : 'absolute right-0 mt-3 w-[16.5rem] max-w-[calc(100vw-1.5rem)] max-h-[min(31rem,calc(100vh-6.5rem))] rounded-2xl py-2'
   );
 
   return (
@@ -492,18 +545,10 @@ const Navbar = () => {
                 <div className="flex items-center gap-2 sm:gap-2.5">
                   <div className="relative" ref={userMenuRef}>
                     <button
-                      onClick={() => {
-                        setIsQuickPanelOpen(false);
-                        setIsUserMenuOpen((open) => {
-                          const nextOpen = !open;
-                          if (!nextOpen) {
-                            setIsPreferencesOpen(false);
-                            setIsAdminToolsOpen(false);
-                          }
-                          return nextOpen;
-                        });
-                      }}
+                      onClick={handleProfileMenuToggle}
                       className="flex max-w-[8.2rem] items-center gap-2 rounded-full border border-white/10 bg-white/[0.045] px-2.5 py-2 text-slate-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition-all hover:border-white/18 hover:bg-white/[0.08] hover:text-white xl:max-w-[9.5rem] 2xl:max-w-[11rem]"
+                      aria-label="Open profile menu"
+                      aria-expanded={isUserMenuOpen}
                     >
                       <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-neo-cyan/25 to-neo-emerald/25 border border-white/10">
                         <User className="w-4 h-4 text-neo-cyan" />
@@ -519,15 +564,28 @@ const Navbar = () => {
                         <button
                           type="button"
                           aria-label="Close profile menu backdrop"
-                          className="fixed inset-0 z-40 bg-zinc-950/34"
+                          className={cn('fixed inset-0 z-40', isCompactViewport ? 'bg-zinc-950/45' : 'bg-zinc-950/34')}
                           onClick={() => {
-                            setIsUserMenuOpen(false);
-                            setIsPreferencesOpen(false);
-                            setIsAdminToolsOpen(false);
+                            handleCloseUserMenu();
                           }}
                         />
-                        <div className="absolute right-0 z-[60] mt-3 w-[16.5rem] max-w-[calc(100vw-1.5rem)] max-h-[min(31rem,calc(100vh-6.5rem))] overflow-x-hidden overflow-y-auto rounded-2xl border border-white/12 bg-[#061018] py-2 shadow-[0_28px_90px_rgba(2,8,23,0.8)] ring-1 ring-white/8 animate-fade-in">
+                        <div className={userMenuPanelClasses}>
                           <div className="px-4 pb-2">
+                            {isCompactViewport && (
+                              <div className="mb-3 flex items-center justify-between gap-3">
+                                <div>
+                                  <div className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-300/80">Account</div>
+                                  <div className="mt-1 text-sm text-slate-400">Profile, preferences, and control links.</div>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={handleCloseUserMenu}
+                                  className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-semibold text-slate-200 transition-colors hover:bg-white/[0.08] hover:text-white"
+                                >
+                                  Close
+                                </button>
+                              </div>
+                            )}
                             <div className="text-sm font-bold text-white truncate">{displayName}</div>
                             <div className="text-xs text-slate-400 truncate">{activeUser.email}</div>
                             <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-amber-300/20 bg-amber-400/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-amber-100">
@@ -539,7 +597,7 @@ const Navbar = () => {
                           <Link
                             to="/profile"
                             className="block px-4 py-2.5 text-sm text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
-                            onClick={() => setIsUserMenuOpen(false)}
+                            onClick={handleCloseUserMenu}
                           >
                             My Profile
                           </Link>
@@ -547,7 +605,7 @@ const Navbar = () => {
                             <Link
                               to="/my-listings"
                               className="block px-4 py-2.5 text-sm text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
-                              onClick={() => setIsUserMenuOpen(false)}
+                              onClick={handleCloseUserMenu}
                             >
                               My Listings
                             </Link>
@@ -555,7 +613,7 @@ const Navbar = () => {
                             <Link
                               to="/become-seller"
                               className="block px-4 py-2.5 text-sm text-neo-cyan transition-colors hover:bg-cyan-500/10 hover:text-cyan-200"
-                              onClick={() => setIsUserMenuOpen(false)}
+                              onClick={handleCloseUserMenu}
                             >
                               Become Seller
                             </Link>
@@ -563,14 +621,14 @@ const Navbar = () => {
                           <Link
                             to="/wishlist"
                             className="block px-4 py-2.5 text-sm text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
-                            onClick={() => setIsUserMenuOpen(false)}
+                            onClick={handleCloseUserMenu}
                           >
                             Wishlist
                           </Link>
                           <Link
                             to="/orders"
                             className="block px-4 py-2.5 text-sm text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
-                            onClick={() => setIsUserMenuOpen(false)}
+                            onClick={handleCloseUserMenu}
                           >
                             Orders
                           </Link>
@@ -594,28 +652,28 @@ const Navbar = () => {
                                     <Link
                                       to="/admin/dashboard"
                                       className="block rounded-xl px-3 py-2 text-sm text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
-                                      onClick={() => setIsUserMenuOpen(false)}
+                                      onClick={handleCloseUserMenu}
                                     >
                                       Admin Dashboard
                                     </Link>
                                     <Link
                                       to="/admin/payments"
                                       className="block rounded-xl px-3 py-2 text-sm text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
-                                      onClick={() => setIsUserMenuOpen(false)}
+                                      onClick={handleCloseUserMenu}
                                     >
                                       Payment Ops
                                     </Link>
                                     <Link
                                       to="/admin/users"
                                       className="block rounded-xl px-3 py-2 text-sm text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
-                                      onClick={() => setIsUserMenuOpen(false)}
+                                      onClick={handleCloseUserMenu}
                                     >
                                       User Governance
                                     </Link>
                                     <Link
                                       to="/admin/support"
                                       className="block rounded-xl px-3 py-2 text-sm text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
-                                      onClick={() => setIsUserMenuOpen(false)}
+                                      onClick={handleCloseUserMenu}
                                     >
                                       Customer Support
                                     </Link>
@@ -706,9 +764,7 @@ const Navbar = () => {
                           <button
                             onClick={() => {
                               logout();
-                              setIsUserMenuOpen(false);
-                              setIsPreferencesOpen(false);
-                              setIsAdminToolsOpen(false);
+                              handleCloseUserMenu();
                             }}
                             className="block w-full px-4 py-2.5 text-left text-sm text-neo-rose transition-colors hover:bg-neo-rose/10"
                           >
@@ -719,7 +775,11 @@ const Navbar = () => {
                     )}
                   </div>
                   <AppErrorBoundary fallback={<NavbarNotificationsFallback />}>
-                    <NotificationDropdown />
+                    <NotificationDropdown
+                      isCompact={isCompactViewport}
+                      isOpen={isNotificationsOpen}
+                      onOpenChange={handleNotificationsOpenChange}
+                    />
                   </AppErrorBoundary>
                 </div>
               ) : (
