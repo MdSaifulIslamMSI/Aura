@@ -104,3 +104,72 @@ exports.solveAuraMatch = (buyerPreferences, listings) => {
         };
     }).sort((a, b) => b.matchScore - a.matchScore);
 };
+
+/**
+ * Lightweight weighted clustering for marketplace hotspot summaries.
+ * Groups nearby points into k centroids without requiring any external geo engine.
+ */
+exports.solveAuraCluster = (points = [], clusterCount = 3) => {
+    const normalizedPoints = Array.isArray(points)
+        ? points
+            .map((point) => ({
+                lat: Number(point?.lat),
+                lng: Number(point?.lng),
+                weight: Math.max(1, Number(point?.weight) || 0),
+            }))
+            .filter((point) => Number.isFinite(point.lat) && Number.isFinite(point.lng))
+        : [];
+
+    if (normalizedPoints.length === 0) {
+        return [];
+    }
+
+    const targetClusterCount = Math.max(1, Math.min(Number(clusterCount) || 1, normalizedPoints.length));
+    const seeds = [...normalizedPoints]
+        .sort((left, right) => right.weight - left.weight)
+        .slice(0, targetClusterCount)
+        .map((point) => ({ ...point }));
+
+    const clusters = seeds.map((seed) => ({
+        lat: seed.lat,
+        lng: seed.lng,
+        totalWeight: 0,
+        memberCount: 0,
+        weightedLat: 0,
+        weightedLng: 0,
+        peakWeight: 0,
+    }));
+
+    const getDistance = (left, right) => Math.hypot(left.lat - right.lat, left.lng - right.lng);
+
+    normalizedPoints.forEach((point) => {
+        let bestClusterIndex = 0;
+        let bestDistance = Number.POSITIVE_INFINITY;
+
+        clusters.forEach((cluster, index) => {
+            const distance = getDistance(point, cluster);
+            if (distance < bestDistance) {
+                bestDistance = distance;
+                bestClusterIndex = index;
+            }
+        });
+
+        const cluster = clusters[bestClusterIndex];
+        cluster.totalWeight += point.weight;
+        cluster.memberCount += 1;
+        cluster.weightedLat += point.lat * point.weight;
+        cluster.weightedLng += point.lng * point.weight;
+        cluster.peakWeight = Math.max(cluster.peakWeight, point.weight);
+    });
+
+    return clusters
+        .filter((cluster) => cluster.memberCount > 0 && cluster.totalWeight > 0)
+        .map((cluster) => ({
+            lat: Number((cluster.weightedLat / cluster.totalWeight).toFixed(2)),
+            lng: Number((cluster.weightedLng / cluster.totalWeight).toFixed(2)),
+            strength: Math.min(100, Math.round(cluster.totalWeight / cluster.memberCount)),
+            memberCount: cluster.memberCount,
+            peakWeight: cluster.peakWeight,
+        }))
+        .sort((left, right) => right.strength - left.strength);
+};

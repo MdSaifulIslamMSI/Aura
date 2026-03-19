@@ -307,6 +307,7 @@ export const trustContent = {
 };
 
 export const trustRouteToKey = {
+  '/trust': 'security',
   '/contact': 'contact',
   '/about': 'about',
   '/careers': 'careers',
@@ -335,4 +336,3 @@ export const getTrustPageContent = (key = 'security') => {
 export const trustMeta = {
   lastUpdated: TRUST_LAST_UPDATED,
 };
-
