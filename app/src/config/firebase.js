@@ -78,9 +78,15 @@ const runtimeSocialAuthBlockKey = runtimeHost
     ? `aura-social-auth-block:${runtimeHost}`
     : 'aura-social-auth-block';
 const runtimeSocialAuthBlockTtlMs = 2 * 60 * 1000;
+const isCompactViewport = typeof window !== 'undefined'
+    && typeof window.matchMedia === 'function'
+    && window.matchMedia('(max-width: 768px)').matches;
 const prefersRedirectSocialAuth = typeof window !== 'undefined'
     && !['localhost', '127.0.0.1'].includes(runtimeHost)
-    && /android|iphone|ipad|ipod|mobile/i.test(window.navigator?.userAgent || '');
+    && (
+        /android|iphone|ipad|ipod|mobile/i.test(window.navigator?.userAgent || '')
+        || isCompactViewport
+    );
 
 const isSocialAuthHostRejection = (error) => {
     const raw = `${error?.code || ''} ${error?.message || error || ''}`.toLowerCase();
