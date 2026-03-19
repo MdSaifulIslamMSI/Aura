@@ -438,6 +438,9 @@ const Login = () => {
     setAuthSuccess(null);
     try {
       const result = await providerSignIn();
+      if (result?.redirecting) {
+        return;
+      }
       if (result?.dbUser) {
         setAuthSuccess(AUTH_SUCCESS.signin_success);
         setTimeout(() => navigate(from, { replace: true }), 1200);
@@ -560,7 +563,7 @@ const Login = () => {
                 </div>
               )}
 
-              <form onSubmit={handleSubmit} className="space-y-5">
+              <form onSubmit={handleSubmit} className="space-y-5" autoComplete="on">
 
                 {/* â•â•â•â•â•â•â• STEP 1: FORM â•â•â•â•â•â•â• */}
                 {step === 'form' && (
@@ -571,7 +574,7 @@ const Login = () => {
                         <label className="block text-xs uppercase tracking-widest font-bold text-slate-400 mb-2">Full Name *</label>
                         <div className="relative group/input">
                           <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 group-focus-within/input:text-neo-cyan transition-colors" />
-                          <input type="text" name="name" value={formData.name} onChange={handleChange} placeholder="John Doe"
+                          <input type="text" name="name" value={formData.name} onChange={handleChange} placeholder="John Doe" autoComplete="name"
                             className="w-full pl-12 pr-4 py-4 bg-zinc-950/50 border border-white/10 rounded-2xl focus:outline-none focus:border-neo-cyan focus:ring-1 focus:ring-neo-cyan text-white placeholder:text-slate-600 font-medium transition-all shadow-inner" />
                         </div>
                       </div>
@@ -583,7 +586,7 @@ const Login = () => {
                         <label className="block text-xs uppercase tracking-widest font-bold text-slate-400 mb-2">Email Address *</label>
                         <div className="relative group/input">
                           <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 group-focus-within/input:text-neo-cyan transition-colors" />
-                          <input type="email" name="email" value={formData.email} onChange={handleChange} placeholder="you@example.com"
+                          <input type="email" name="email" value={formData.email} onChange={handleChange} placeholder="you@example.com" autoComplete={mode === 'signin' ? 'username' : 'email'}
                             className="w-full pl-12 pr-4 py-4 bg-zinc-950/50 border border-white/10 rounded-2xl focus:outline-none focus:border-neo-cyan focus:ring-1 focus:ring-neo-cyan text-white placeholder:text-slate-600 font-medium transition-all shadow-inner" />
                         </div>
                       </div>
@@ -594,7 +597,7 @@ const Login = () => {
                       <label className="block text-xs uppercase tracking-widest font-bold text-slate-400 mb-2">Phone Number *</label>
                       <div className="relative group/input">
                         <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 group-focus-within/input:text-neo-cyan transition-colors" />
-                        <input type="tel" name="phone" value={formData.phone} onChange={handleChange} placeholder="+91 98765 43210"
+                        <input type="tel" name="phone" value={formData.phone} onChange={handleChange} placeholder="+91 98765 43210" autoComplete="tel"
                           className="w-full pl-12 pr-4 py-4 bg-zinc-950/50 border border-white/10 rounded-2xl focus:outline-none focus:border-neo-cyan focus:ring-1 focus:ring-neo-cyan text-white placeholder:text-slate-600 font-medium transition-all shadow-inner" />
                       </div>
                       <p className="text-[10px] text-slate-600 mt-1.5 uppercase tracking-widest font-bold pl-1">OTP will be sent to your email & phone</p>
@@ -614,7 +617,7 @@ const Login = () => {
                         </div>
                         <div className="relative group/input">
                           <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 group-focus-within/input:text-neo-cyan transition-colors" />
-                          <input type={showPassword ? 'text' : 'password'} name="password" value={formData.password} onChange={handleChange} placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
+                          <input type={showPassword ? 'text' : 'password'} name="password" value={formData.password} onChange={handleChange} placeholder="........" autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
                             className="w-full pl-12 pr-14 py-4 bg-zinc-950/50 border border-white/10 rounded-2xl focus:outline-none focus:border-neo-cyan focus:ring-1 focus:ring-neo-cyan text-white placeholder:text-slate-600 font-medium transition-all shadow-inner" />
                           <button type="button" onClick={() => setShowPassword(!showPassword)}
                             className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors p-1">
@@ -630,7 +633,7 @@ const Login = () => {
                         <label className="block text-xs uppercase tracking-widest font-bold text-slate-400 mb-2">Confirm Password *</label>
                         <div className="relative group/input">
                           <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 group-focus-within/input:text-neo-cyan transition-colors" />
-                          <input type={showPassword ? 'text' : 'password'} name="confirmPassword" value={formData.confirmPassword} onChange={handleChange} placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
+                          <input type={showPassword ? 'text' : 'password'} name="confirmPassword" value={formData.confirmPassword} onChange={handleChange} placeholder="........" autoComplete="new-password"
                             className="w-full pl-12 pr-4 py-4 bg-zinc-950/50 border border-white/10 rounded-2xl focus:outline-none focus:border-neo-cyan focus:ring-1 focus:ring-neo-cyan text-white placeholder:text-slate-600 font-medium transition-all shadow-inner" />
                         </div>
                       </div>
@@ -642,7 +645,7 @@ const Login = () => {
                         <label className="block text-xs uppercase tracking-widest font-bold text-slate-400 mb-2">Registered Email *</label>
                         <div className="relative group/input">
                           <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 group-focus-within/input:text-neo-cyan transition-colors" />
-                          <input type="email" name="email" value={formData.email} onChange={handleChange} placeholder="you@example.com"
+                          <input type="email" name="email" value={formData.email} onChange={handleChange} placeholder="you@example.com" autoComplete="email"
                             className="w-full pl-12 pr-4 py-4 bg-zinc-950/50 border border-white/10 rounded-2xl focus:outline-none focus:border-neo-cyan focus:ring-1 focus:ring-neo-cyan text-white placeholder:text-slate-600 font-medium transition-all shadow-inner" />
                         </div>
                       </div>
@@ -678,6 +681,7 @@ const Login = () => {
                           ref={(el) => (otpRefs.current[index] = el)}
                           type="text"
                           inputMode="numeric"
+                          autoComplete={index === 0 ? 'one-time-code' : 'off'}
                           maxLength={1}
                           value={digit}
                           onChange={(e) => handleOtpChange(index, e.target.value)}
