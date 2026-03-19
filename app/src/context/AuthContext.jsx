@@ -370,18 +370,21 @@ export const AuthProvider = ({ children }) => {
   const signInWithOAuthProvider = async (provider, providerLabel = 'OAuth') => {
     try {
       assertFirebaseSocialAuthReady(`${providerLabel} sign-in`);
+      if (shouldPreferFirebaseRedirectAuth()) {
+        await signInWithRedirect(auth, provider);
+        return { redirecting: true };
+      }
       const result = await signInWithPopup(auth, provider);
       return resolveOAuthUser(result.user, {
         isNewUser: result._tokenResponse?.isNewUser || false,
       });
     } catch (error) {
       const errorCode = String(error?.code || '');
-      const canFallbackToRedirect = shouldPreferFirebaseRedirectAuth()
-        && [
-          'auth/popup-blocked',
-          'auth/operation-not-supported-in-this-environment',
-          'auth/web-storage-unsupported',
-        ].includes(errorCode);
+      const canFallbackToRedirect = [
+        'auth/popup-blocked',
+        'auth/operation-not-supported-in-this-environment',
+        'auth/web-storage-unsupported',
+      ].includes(errorCode);
 
       if (canFallbackToRedirect) {
         await signInWithRedirect(auth, provider);
