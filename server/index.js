@@ -182,6 +182,7 @@ app.use(cors({
         return callback(new Error('Origin not allowed by CORS policy'));
     },
     credentials: true,
+    exposedHeaders: ['X-CSRF-Token', 'X-Request-Id'],
 }));
 app.use(express.json({
     limit: JSON_BODY_LIMIT,
