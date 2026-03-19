@@ -1,14 +1,18 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Bell, Check, Trash2, ExternalLink, Filter, Search } from 'lucide-react';
 import { useNotifications } from '@/context/NotificationContext';
 import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
 
 export default function NotificationsSection() {
-    const { notifications, unreadCount, markAsRead, markAllAsRead, isLoading } = useNotifications();
+    const { notifications, unreadCount, markAsRead, markAllAsRead, isLoading, fetchNotifications } = useNotifications();
     const [filter, setFilter] = useState('all'); // all, unread, read
     const [typeFilter, setTypeFilter] = useState('all'); // all, order, payment, governance, etc.
     const navigate = useNavigate();
+
+    useEffect(() => {
+        fetchNotifications();
+    }, [fetchNotifications]);
 
     const filteredNotifications = notifications.filter(n => {
         if (filter === 'unread' && n.isRead) return false;
