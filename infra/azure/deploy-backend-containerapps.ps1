@@ -3,8 +3,10 @@ param(
     [string]$ResourceGroup = "rg-aura-prod",
     [string]$Location = "southeastasia",
     [string]$FrontendOrigin = "https://app-plum-iota.vercel.app",
+    [string]$ApiPublicUrl = "",
     [string]$SecretsEnvFile = "C:\Users\mdsai\Downloads\aura-api.env",
     [string]$KeyVaultName = "aura-msi-20260318-kv",
+    [string]$AppInsightsName = "aura-msi-20260318-appi",
     [string]$StorageAccountName = "auramsi20260318media",
     [string]$ContainerEnvName = "aura-msi-ca-env",
     [string]$RegistryName = "auramsi20260318acr",
@@ -62,6 +64,23 @@ $script:GeneratedSecretKeys = @(
     "CRON_SECRET",
     "METRICS_SECRET"
 )
+
+function Get-AppInsightsConnectionString {
+    param(
+        [string]$Name,
+        [string]$GroupName
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Name)) {
+        return ""
+    }
+
+    try {
+        return (Invoke-AzCli monitor app-insights component show --app $Name --resource-group $GroupName --query connectionString --output tsv)
+    } catch {
+        return ""
+    }
+}
 
 function Resolve-AzureCliCommand {
     $pythonCandidates = @(
@@ -652,10 +671,18 @@ if (-not [string]::IsNullOrWhiteSpace($ExistingImageRef)) {
 
 $apiSettings = Read-EnvFile -Path $ApiSettingsPath
 $workerSettings = Read-EnvFile -Path $WorkerSettingsPath
+$appInsightsConnectionString = Get-AppInsightsConnectionString -Name $AppInsightsName -GroupName $ResourceGroup
 $apiSettings["PORT"] = "8080"
-$apiSettings["APP_PUBLIC_URL"] = "https://placeholder.invalid"
+$resolvedApiPublicUrl = if ([string]::IsNullOrWhiteSpace($ApiPublicUrl)) { "https://placeholder.invalid" } else { $ApiPublicUrl.Trim() }
+$apiSettings["APP_PUBLIC_URL"] = $resolvedApiPublicUrl
 $workerSettings["PORT"] = "8080"
-$apiSettings = Apply-Overrides -Settings $apiSettings -KeyVaultNameUnused $KeyVaultName -ApiUrl "https://placeholder.invalid" -FrontendUrl $FrontendOrigin
+if (-not [string]::IsNullOrWhiteSpace($appInsightsConnectionString)) {
+    $apiSettings["APPLICATIONINSIGHTS_CONNECTION_STRING"] = $appInsightsConnectionString
+    $apiSettings["APPINSIGHTS_CONNECTIONSTRING"] = $appInsightsConnectionString
+    $workerSettings["APPLICATIONINSIGHTS_CONNECTION_STRING"] = $appInsightsConnectionString
+    $workerSettings["APPINSIGHTS_CONNECTIONSTRING"] = $appInsightsConnectionString
+}
+$apiSettings = Apply-Overrides -Settings $apiSettings -KeyVaultNameUnused $KeyVaultName -ApiUrl $resolvedApiPublicUrl -FrontendUrl $FrontendOrigin
 $workerSettings = Apply-Overrides -Settings $workerSettings -KeyVaultNameUnused $KeyVaultName -ApiUrl "https://placeholder.invalid" -FrontendUrl $FrontendOrigin
 $runtimeOverrides = Apply-RuntimeOverrides -ApiSettings $apiSettings -WorkerSettings $workerSettings -SourceValues $sourceValues
 $apiSettings = $runtimeOverrides.ApiSettings
@@ -742,7 +769,7 @@ if (-not $workerExists) {
 
 Start-Sleep -Seconds 20
 $apiFqdn = Invoke-AzCli containerapp show --name $ApiAppName --resource-group $ResourceGroup --query properties.configuration.ingress.fqdn --output tsv
-if (-not [string]::IsNullOrWhiteSpace($apiFqdn)) {
+if ([string]::IsNullOrWhiteSpace($ApiPublicUrl) -and -not [string]::IsNullOrWhiteSpace($apiFqdn)) {
     Invoke-AzCli containerapp update --name $ApiAppName --resource-group $ResourceGroup --set-env-vars "APP_PUBLIC_URL=https://$apiFqdn" | Out-Null
 }
 
