@@ -436,6 +436,11 @@ const createOrderRefundRequest = asyncHandler(async (req, res, next) => {
     const requestId = createCommandId('rfnd');
     const now = new Date();
     const reason = String(req.body.reason || '').trim();
+    const requestedAmount = Number(req.body.amount);
+    const orderTotal = Number(order.totalPrice || 0);
+    const amount = Number.isFinite(requestedAmount) && requestedAmount > 0
+        ? Math.min(requestedAmount, orderTotal)
+        : orderTotal;
 
     await Order.updateOne(
         { _id: order._id, user: req.user._id },
