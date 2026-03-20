@@ -36,7 +36,6 @@ import {
     X,
     Zap,
 } from 'lucide-react';
-import ReactMarkdown from 'react-markdown';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
 import VoiceSearch from '@/components/shared/VoiceSearch';
@@ -57,6 +56,28 @@ const SESSION_KEY = 'aura-chatbot-session-v3';
 const MAX_PERSISTED_MESSAGES = 24;
 const MAX_HISTORY_ENTRIES = 12;
 const AUTO_EXECUTE_DELAY_MS = 160;
+
+const renderAssistantText = (text, isWhiteMode) => {
+    const paragraphs = String(text || '')
+        .split(/\n{2,}/)
+        .map((paragraph) => paragraph.trim())
+        .filter(Boolean);
+
+    return (
+        <div
+            className={cn(
+                'space-y-3 text-sm leading-7',
+                isWhiteMode ? 'text-slate-700' : 'text-slate-200'
+            )}
+        >
+            {(paragraphs.length > 0 ? paragraphs : [String(text || '')]).map((paragraph, index) => (
+                <p key={`assistant-paragraph-${index}`} className="whitespace-pre-wrap break-words">
+                    {paragraph}
+                </p>
+            ))}
+        </div>
+    );
+};
 
 const MODE_OPTIONS = [
     {
@@ -866,14 +887,7 @@ const ChatBot = () => {
                                                     ) : null}
 
                                                     {message.role === 'assistant' ? (
-                                                        <div className={cn(
-                                                            'prose prose-sm max-w-none leading-7',
-                                                            isWhiteMode
-                                                                ? 'prose-slate prose-headings:text-slate-950 prose-p:text-slate-700 prose-strong:text-slate-950 prose-a:text-cyan-700'
-                                                                : 'prose-invert prose-headings:text-slate-100 prose-p:text-slate-200 prose-strong:text-white prose-a:text-cyan-300'
-                                                        )}>
-                                                            <ReactMarkdown>{message.text}</ReactMarkdown>
-                                                        </div>
+                                                        renderAssistantText(message.text, isWhiteMode)
                                                     ) : (
                                                         <p className="text-sm leading-7">{message.text}</p>
                                                     )}

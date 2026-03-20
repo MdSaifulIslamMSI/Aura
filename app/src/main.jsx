@@ -3,7 +3,6 @@ import { createRoot } from 'react-dom/client'
 import './styles/figmaTokens.css'
 import './index.css'
 import App from './App.jsx'
-import { HelmetProvider } from 'react-helmet-async';
 import { ErrorBoundary } from 'react-error-boundary';
 import { initClientObservability } from './services/clientObservability'
 
@@ -51,10 +50,8 @@ initClientObservability()
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <HelmetProvider>
-      <ErrorBoundary FallbackComponent={RootRenderFallback}>
-        <App />
-      </ErrorBoundary>
-    </HelmetProvider>
+    <ErrorBoundary FallbackComponent={RootRenderFallback}>
+      <App />
+    </ErrorBoundary>
   </StrictMode>,
 )

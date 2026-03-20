@@ -1,5 +1,5 @@
 import { useContext, useEffect, useRef, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   Bell,
   ChevronDown,
@@ -131,6 +131,7 @@ const Navbar = () => {
   const userMenuRef = useRef(null);
   const quickPanelRef = useRef(null);
   const location = useLocation();
+  const navigate = useNavigate();
   const { currentUser, dbUser, logout } = useContext(AuthContext);
   const { cartItems } = useContext(CartContext);
   const { colorMode, setColorMode, colorModeOptions } = useColorMode();
@@ -353,6 +354,22 @@ const Navbar = () => {
   };
   const closeQuickPanel = () => setIsQuickPanelOpen(false);
   const closeNotifications = () => setIsNotificationsOpen(false);
+  const closeAllNavigationPanels = () => {
+    setIsMobileMenuOpen(false);
+    closeQuickPanel();
+    closeNotifications();
+    closeUserPanel();
+  };
+  const handlePanelNavigate = (path) => (event) => {
+    event?.preventDefault();
+    closeAllNavigationPanels();
+    requestAnimationFrame(() => {
+      navigate(path);
+      if (typeof window !== 'undefined') {
+        window.scrollTo({ top: 0, behavior: 'auto' });
+      }
+    });
+  };
   const handleProfileMenuToggle = () => {
     closeQuickPanel();
     closeNotifications();
@@ -497,7 +514,7 @@ const Navbar = () => {
                               <Link
                                 key={item.path}
                                 to={item.path}
-                                onClick={() => setIsQuickPanelOpen(false)}
+                                onClick={handlePanelNavigate(item.path)}
                                 className={cn(
                                   'flex min-h-[3.35rem] items-center gap-2 rounded-2xl border px-3 py-3 text-sm font-semibold transition-colors',
                                   item.tone
@@ -520,7 +537,7 @@ const Navbar = () => {
                               <Link
                                 key={item.path}
                                 to={item.path}
-                                onClick={() => setIsQuickPanelOpen(false)}
+                                onClick={handlePanelNavigate(item.path)}
                                 className={cn(
                                   'flex items-center justify-between rounded-2xl border px-3 py-3 text-sm font-semibold transition-colors',
                                   item.tone
@@ -597,7 +614,7 @@ const Navbar = () => {
                           <Link
                             to="/profile"
                             className="block px-4 py-2.5 text-sm text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
-                            onClick={handleCloseUserMenu}
+                            onClick={handlePanelNavigate('/profile')}
                           >
                             My Profile
                           </Link>
@@ -605,7 +622,7 @@ const Navbar = () => {
                             <Link
                               to="/my-listings"
                               className="block px-4 py-2.5 text-sm text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
-                              onClick={handleCloseUserMenu}
+                              onClick={handlePanelNavigate('/my-listings')}
                             >
                               My Listings
                             </Link>
@@ -613,7 +630,7 @@ const Navbar = () => {
                             <Link
                               to="/become-seller"
                               className="block px-4 py-2.5 text-sm text-neo-cyan transition-colors hover:bg-cyan-500/10 hover:text-cyan-200"
-                              onClick={handleCloseUserMenu}
+                              onClick={handlePanelNavigate('/become-seller')}
                             >
                               Become Seller
                             </Link>
@@ -621,14 +638,14 @@ const Navbar = () => {
                           <Link
                             to="/wishlist"
                             className="block px-4 py-2.5 text-sm text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
-                            onClick={handleCloseUserMenu}
+                            onClick={handlePanelNavigate('/wishlist')}
                           >
                             Wishlist
                           </Link>
                           <Link
                             to="/orders"
                             className="block px-4 py-2.5 text-sm text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
-                            onClick={handleCloseUserMenu}
+                            onClick={handlePanelNavigate('/orders')}
                           >
                             Orders
                           </Link>
@@ -652,28 +669,28 @@ const Navbar = () => {
                                     <Link
                                       to="/admin/dashboard"
                                       className="block rounded-xl px-3 py-2 text-sm text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
-                                      onClick={handleCloseUserMenu}
+                                      onClick={handlePanelNavigate('/admin/dashboard')}
                                     >
                                       Admin Dashboard
                                     </Link>
                                     <Link
                                       to="/admin/payments"
                                       className="block rounded-xl px-3 py-2 text-sm text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
-                                      onClick={handleCloseUserMenu}
+                                      onClick={handlePanelNavigate('/admin/payments')}
                                     >
                                       Payment Ops
                                     </Link>
                                     <Link
                                       to="/admin/users"
                                       className="block rounded-xl px-3 py-2 text-sm text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
-                                      onClick={handleCloseUserMenu}
+                                      onClick={handlePanelNavigate('/admin/users')}
                                     >
                                       User Governance
                                     </Link>
                                     <Link
                                       to="/admin/support"
                                       className="block rounded-xl px-3 py-2 text-sm text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
-                                      onClick={handleCloseUserMenu}
+                                      onClick={handlePanelNavigate('/admin/support')}
                                     >
                                       Customer Support
                                     </Link>
@@ -865,6 +882,7 @@ const Navbar = () => {
                 <div className="grid grid-cols-2 gap-2">
                   <Link
                     to="/mission-control"
+                    onClick={handlePanelNavigate('/mission-control')}
                     className="flex items-center gap-2 rounded-xl border border-cyan-300/25 bg-cyan-500/10 px-3 py-3 text-sm font-semibold text-cyan-100 transition-colors hover:bg-cyan-500/15"
                   >
                     <Sparkles className="h-4 w-4" />
@@ -872,6 +890,7 @@ const Navbar = () => {
                   </Link>
                   <Link
                     to="/marketplace"
+                    onClick={handlePanelNavigate('/marketplace')}
                     className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/[0.08]"
                   >
                     <Store className="h-4 w-4 text-neo-cyan" />
@@ -879,6 +898,7 @@ const Navbar = () => {
                   </Link>
                   <Link
                     to={isSeller ? '/sell' : '/become-seller'}
+                    onClick={handlePanelNavigate(isSeller ? '/sell' : '/become-seller')}
                     className="flex items-center gap-2 rounded-xl border border-emerald-400/20 bg-emerald-500/10 px-3 py-3 text-sm font-semibold text-emerald-200 transition-colors hover:bg-emerald-500/15"
                   >
                     <Plus className="h-4 w-4" />
@@ -886,6 +906,7 @@ const Navbar = () => {
                   </Link>
                   <Link
                     to="/wishlist"
+                    onClick={handlePanelNavigate('/wishlist')}
                     className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-sm font-semibold text-slate-200 transition-colors hover:bg-white/[0.08]"
                   >
                     <Heart className="h-4 w-4 text-neo-emerald" />
@@ -893,6 +914,7 @@ const Navbar = () => {
                   </Link>
                   <Link
                     to="/cart"
+                    onClick={handlePanelNavigate('/cart')}
                     className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-sm font-semibold text-slate-200 transition-colors hover:bg-white/[0.08]"
                   >
                     <ShoppingCart className="h-4 w-4 text-neo-cyan" />
@@ -908,6 +930,7 @@ const Navbar = () => {
                     <Link
                       key={category.path}
                       to={category.path}
+                      onClick={handlePanelNavigate(category.path)}
                       className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-sm font-medium text-slate-200 transition-colors hover:bg-white/[0.08] hover:text-white"
                     >
                       {category.name}
@@ -922,14 +945,14 @@ const Navbar = () => {
                   <div className="space-y-2">
                     {activeUser && (
                       <>
-                        <Link to="/profile" className="block rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-sm font-medium text-slate-200 transition-colors hover:bg-white/[0.08]">
+                        <Link to="/profile" onClick={handlePanelNavigate('/profile')} className="block rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-sm font-medium text-slate-200 transition-colors hover:bg-white/[0.08]">
                           My profile
                         </Link>
-                        <Link to="/orders" className="block rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-sm font-medium text-slate-200 transition-colors hover:bg-white/[0.08]">
+                        <Link to="/orders" onClick={handlePanelNavigate('/orders')} className="block rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-sm font-medium text-slate-200 transition-colors hover:bg-white/[0.08]">
                           Orders
                         </Link>
                         {isSeller && (
-                          <Link to="/my-listings" className="block rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-sm font-medium text-slate-200 transition-colors hover:bg-white/[0.08]">
+                          <Link to="/my-listings" onClick={handlePanelNavigate('/my-listings')} className="block rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-sm font-medium text-slate-200 transition-colors hover:bg-white/[0.08]">
                             My listings
                           </Link>
                         )}
@@ -937,17 +960,17 @@ const Navbar = () => {
                     )}
                     {dbUser?.isAdmin && (
                       <>
-                        <Link to="/admin/dashboard" className="flex items-center gap-2 rounded-xl border border-violet-400/25 bg-violet-500/10 px-3 py-3 text-sm font-semibold text-violet-100 transition-colors hover:bg-violet-500/15">
+                        <Link to="/admin/dashboard" onClick={handlePanelNavigate('/admin/dashboard')} className="flex items-center gap-2 rounded-xl border border-violet-400/25 bg-violet-500/10 px-3 py-3 text-sm font-semibold text-violet-100 transition-colors hover:bg-violet-500/15">
                           <Shield className="h-4 w-4" />
                           Admin portal
                         </Link>
-                        <Link to="/admin/products" className="block rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-sm font-medium text-slate-200 transition-colors hover:bg-white/[0.08]">
+                        <Link to="/admin/products" onClick={handlePanelNavigate('/admin/products')} className="block rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-sm font-medium text-slate-200 transition-colors hover:bg-white/[0.08]">
                           Product control
                         </Link>
-                        <Link to="/admin/users" className="block rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-sm font-medium text-slate-200 transition-colors hover:bg-white/[0.08]">
+                        <Link to="/admin/users" onClick={handlePanelNavigate('/admin/users')} className="block rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-sm font-medium text-slate-200 transition-colors hover:bg-white/[0.08]">
                           User governance
                         </Link>
-                        <Link to="/admin/support" className="block rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-sm font-medium text-slate-200 transition-colors hover:bg-white/[0.08]">
+                        <Link to="/admin/support" onClick={handlePanelNavigate('/admin/support')} className="block rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-sm font-medium text-slate-200 transition-colors hover:bg-white/[0.08]">
                           Customer support
                         </Link>
                       </>

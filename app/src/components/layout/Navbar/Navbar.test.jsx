@@ -1,6 +1,6 @@
-import { fireEvent, render, screen } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
-import { describe, it, expect, vi } from 'vitest';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter, useLocation } from 'react-router-dom';
+import { beforeEach, describe, it, expect, vi } from 'vitest';
 import Navbar, { NavbarFailureFallback } from './index';
 import { AuthContext } from '@/context/AuthContext';
 import { CartContext } from '@/context/CartContext';
@@ -28,7 +28,16 @@ vi.mock('@/components/shared/VoiceSearch', () => ({
     default: () => <div data-testid="voice-search">Voice Search</div>,
 }));
 
+beforeEach(() => {
+    window.scrollTo = vi.fn();
+});
+
 describe('Navbar Component', () => {
+    const LocationProbe = () => {
+        const location = useLocation();
+        return <div data-testid="location-probe">{location.pathname}</div>;
+    };
+
     const mockAuth = {
         currentUser: null,
         logout: vi.fn()
@@ -53,6 +62,7 @@ describe('Navbar Component', () => {
                             <CartContext.Provider value={{ ...mockCart, ...cartOverride }}>
                                 <WishlistContext.Provider value={{ ...mockWishlist, ...wishlistOverride }}>
                                     <Navbar />
+                                    <LocationProbe />
                                 </WishlistContext.Provider>
                             </CartContext.Provider>
                         </AuthContext.Provider>
@@ -112,5 +122,16 @@ describe('Navbar Component', () => {
         expect(screen.getByText(/AURA/i)).toBeInTheDocument();
         expect(screen.getByRole('link', { name: /Open search/i })).toBeInTheDocument();
         expect(screen.getByRole('link', { name: /Cart/i })).toBeInTheDocument();
+    });
+
+    it('navigates from the profile panel to wishlist reliably', async () => {
+        renderNavbar({ currentUser: { displayName: 'John Doe', email: 'john@example.com' } });
+
+        fireEvent.click(screen.getByText('John Doe'));
+        fireEvent.click(screen.getByText('Wishlist'));
+
+        await waitFor(() => {
+            expect(screen.getByTestId('location-probe')).toHaveTextContent('/wishlist');
+        });
     });
 });
