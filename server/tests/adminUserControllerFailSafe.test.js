@@ -17,6 +17,11 @@ jest.mock('../services/email/adminActionEmailService', () => ({
     notifyAdminActionToUser: jest.fn(),
 }));
 
+jest.mock('../services/governanceSupportService', () => ({
+    createGovernanceAppealTicket: jest.fn(),
+    resolveLatestGovernanceAppealTicket: jest.fn(),
+}));
+
 jest.mock('../middleware/authMiddleware', () => ({
     invalidateUserCacheByEmail: jest.fn(),
 }));
@@ -31,6 +36,10 @@ const User = require('../models/User');
 const Listing = require('../models/Listing');
 const UserGovernanceLog = require('../models/UserGovernanceLog');
 const { notifyAdminActionToUser } = require('../services/email/adminActionEmailService');
+const {
+    createGovernanceAppealTicket,
+    resolveLatestGovernanceAppealTicket,
+} = require('../services/governanceSupportService');
 const {
     warnAdminUser,
     reactivateAdminUser,
@@ -92,6 +101,8 @@ describe('adminUserController fail-safe moderation actions', () => {
             new Error('cannot create a new collection -- already using 510 collections of 500')
         );
         notifyAdminActionToUser.mockRejectedValue(new Error('smtp quota exceeded'));
+        createGovernanceAppealTicket.mockRejectedValue(new Error('support quota exceeded'));
+        resolveLatestGovernanceAppealTicket.mockRejectedValue(new Error('support quota exceeded'));
     });
 
     test('warnAdminUser returns success when governance log/email side-effects fail', async () => {
@@ -135,4 +146,3 @@ describe('adminUserController fail-safe moderation actions', () => {
         });
     });
 });
-

@@ -26,6 +26,8 @@ const notifyAdminActionToUser = async ({
     path = '/api/admin',
     ip = '',
     userAgent = '',
+    ctaUrl = activityFlags.activityEmailCtaUrl,
+    ctaLabel = 'Open Security Dashboard',
 }) => {
     const recipient = normalizeEmail(targetUser?.email);
     if (!EMAIL_REGEX.test(recipient)) {
@@ -51,7 +53,8 @@ const notifyAdminActionToUser = async ({
         deviceLabel: getDeviceLabelFromUserAgent(userAgent || ''),
         maskedIp: maskIpAddress(ip || ''),
         occurredAt: new Date(),
-        ctaUrl: activityFlags.activityEmailCtaUrl,
+        ctaUrl,
+        ctaLabel,
     });
 
     try {
