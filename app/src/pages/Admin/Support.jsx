@@ -77,6 +77,10 @@ export default function AdminSupport() {
     const [sending, setSending] = useState(false);
     const [error, setError] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
+    const [statusDraft, setStatusDraft] = useState('open');
+    const [resolutionDraft, setResolutionDraft] = useState('');
+    const [userActionRequiredDraft, setUserActionRequiredDraft] = useState(false);
+    const [updatingStatus, setUpdatingStatus] = useState(false);
 
     const messagesEndRef = useRef(null);
 
@@ -152,6 +156,15 @@ export default function AdminSupport() {
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
     }, [messages]);
+
+    useEffect(() => {
+        const activeTicket = tickets.find((ticket) => String(ticket._id) === String(activeTicketId));
+        if (!activeTicket) return;
+
+        setStatusDraft(String(activeTicket.status || 'open'));
+        setResolutionDraft(String(activeTicket.resolutionSummary || ''));
+        setUserActionRequiredDraft(Boolean(activeTicket.userActionRequired));
+    }, [activeTicketId, tickets]);
 
     useEffect(() => {
         if (isConnected) return undefined;
@@ -251,20 +264,26 @@ export default function AdminSupport() {
         }
     };
 
-    const handleUpdateStatus = async (nextStatus) => {
+    const handleUpdateStatus = async () => {
         if (!activeTicketId) return;
 
         try {
-            await supportApi.adminUpdateStatus(activeTicketId, nextStatus);
-            setTickets((prev) => prev.map((ticket) => (
-                String(ticket._id) === String(activeTicketId)
-                    ? { ...ticket, status: nextStatus }
-                    : ticket
-            )));
+            setUpdatingStatus(true);
+            const res = await supportApi.adminUpdateStatus(activeTicketId, {
+                status: statusDraft,
+                resolutionSummary: resolutionDraft.trim(),
+                userActionRequired: userActionRequiredDraft,
+            });
+            const nextTicket = normalizeTicket(res?.data);
+            if (nextTicket?._id) {
+                setTickets((prev) => upsertTicket(prev, nextTicket, statusFilter));
+            }
             await fetchMessages(activeTicketId, { silent: true });
             setError('');
         } catch (err) {
             setError(err.message || 'Failed to update status');
+        } finally {
+            setUpdatingStatus(false);
         }
     };
 
@@ -367,8 +386,8 @@ export default function AdminSupport() {
                         </div>
                     ) : activeTicket ? (
                         <>
-                            <div className="flex items-center justify-between gap-4 border-b border-slate-200 bg-slate-50 p-4">
-                                <div className="min-w-0 flex-1 pr-4">
+                            <div className="border-b border-slate-200 bg-slate-50 p-4">
+                                <div className="flex items-center justify-between gap-4"><div className="min-w-0 flex-1 pr-4">
                                     <h3 className="truncate text-lg font-bold text-slate-900">{activeTicket.subject}</h3>
                                     <div className="mt-1 flex items-center gap-3 font-mono text-xs text-slate-500">
                                         <span>User: {activeTicket.user?.email || activeTicket.user?.name}</span>
@@ -381,17 +400,76 @@ export default function AdminSupport() {
                                             [{activeTicket.user?.accountState}]
                                         </span>
                                     </div>
+                                    <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em]">
+                                        <span className="rounded-full border border-slate-300 bg-slate-100 px-2 py-0.5 text-slate-600">
+                                            {activeTicket.category}
+                                        </span>
+                                        <span className={cn(
+                                            'rounded-full border px-2 py-0.5',
+                                            activeTicket.priority === 'urgent'
+                                                ? 'border-rose-200 bg-rose-50 text-rose-600'
+                                                : activeTicket.priority === 'high'
+                                                    ? 'border-amber-200 bg-amber-50 text-amber-700'
+                                                    : 'border-cyan-200 bg-cyan-50 text-cyan-700'
+                                        )}>
+                                            {activeTicket.priority}
+                                        </span>
+                                        {activeTicket.userActionRequired ? (
+                                            <span className="rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-rose-600">
+                                                user action required
+                                            </span>
+                                        ) : null}
+                                    </div>
                                 </div>
                                 <div className="flex shrink-0 items-center gap-2">
+                                    {getStatusBadge(activeTicket.status)}
+                                </div>
+                                </div>
+                                {activeTicket.resolutionSummary ? (
+                                    <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">
+                                        <div className="mb-1 text-xs font-black uppercase tracking-[0.18em] text-emerald-600">Current resolution summary</div>
+                                        <div>{activeTicket.resolutionSummary}</div>
+                                    </div>
+                                ) : null}
+
+                                <div className="mt-4 grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 lg:grid-cols-[140px_minmax(0,1fr)_auto]">
                                     <PremiumSelect
-                                        value={activeTicket.status}
-                                        onChange={(e) => handleUpdateStatus(e.target.value)}
-                                        className="w-[120px] text-xs font-bold"
+                                        value={statusDraft}
+                                        onChange={(e) => setStatusDraft(e.target.value)}
+                                        className="w-full text-xs font-bold"
                                     >
-                                        <option value="open">Set Open</option>
-                                        <option value="resolved">Set Resolved</option>
-                                        <option value="closed">Set Closed</option>
+                                        <option value="open">Open</option>
+                                        <option value="resolved">Resolved</option>
+                                        <option value="closed">Closed</option>
                                     </PremiumSelect>
+                                    <textarea
+                                        value={resolutionDraft}
+                                        onChange={(e) => setResolutionDraft(e.target.value)}
+                                        rows={2}
+                                        maxLength={800}
+                                        placeholder="Add the resolution, policy note, or next step the user should actually see."
+                                        className="min-h-[84px] rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 outline-none transition-colors focus:border-indigo-300"
+                                    />
+                                    <div className="flex flex-col justify-between gap-3">
+                                        <label className="flex items-start gap-2 text-sm text-slate-600">
+                                            <input
+                                                type="checkbox"
+                                                checked={userActionRequiredDraft}
+                                                onChange={(e) => setUserActionRequiredDraft(e.target.checked)}
+                                                className="mt-1"
+                                            />
+                                            <span>User action required</span>
+                                        </label>
+                                        <button
+                                            type="button"
+                                            onClick={handleUpdateStatus}
+                                            disabled={updatingStatus}
+                                            className="admin-premium-button justify-center"
+                                        >
+                                            {updatingStatus ? <RefreshCw className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
+                                            Apply update
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
 

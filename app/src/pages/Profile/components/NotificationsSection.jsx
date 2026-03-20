@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Bell, Check, Trash2, ExternalLink, Filter, Search } from 'lucide-react';
+import { Bell, Check, ExternalLink } from 'lucide-react';
 import { useNotifications } from '@/context/NotificationContext';
 import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
@@ -38,6 +38,15 @@ export default function NotificationsSection() {
             case 'support': return 'text-violet-400 bg-violet-400/10 border-violet-400/20';
             case 'listing': return 'text-amber-400 bg-amber-400/10 border-amber-400/20';
             default: return 'text-slate-400 bg-slate-400/10 border-slate-400/20';
+        }
+    };
+
+    const getPriorityStyles = (priority) => {
+        switch (priority) {
+            case 'critical': return 'border-rose-400/25 bg-rose-500/12 text-rose-100';
+            case 'high': return 'border-amber-400/20 bg-amber-500/12 text-amber-100';
+            case 'low': return 'border-slate-400/15 bg-slate-500/8 text-slate-300';
+            default: return 'border-cyan-300/20 bg-cyan-500/12 text-cyan-100';
         }
     };
 
@@ -91,8 +100,8 @@ export default function NotificationsSection() {
                             <Bell className="w-10 h-10 text-slate-600" />
                         </div>
                         <h3 className="text-2xl font-black text-white uppercase">History Clear</h3>
-                        <p className="text-slate-400 mt-2 max-w-sm">
-                            You're all caught up. Notifications related to orders, payments, and account status will appear here.
+                    <p className="text-slate-400 mt-2 max-w-sm">
+                            You're all caught up. Governance actions, support replies, commerce alerts, and recovery prompts will appear here.
                         </p>
                     </div>
                 ) : (
@@ -125,6 +134,12 @@ export default function NotificationsSection() {
                                         <span className="text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-white/5 text-slate-500">
                                             {n.type}
                                         </span>
+                                        <span className={cn(
+                                            'text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border',
+                                            getPriorityStyles(n.priority)
+                                        )}>
+                                            {n.priority || 'medium'}
+                                        </span>
                                     </div>
                                     <p className="text-slate-400 text-sm line-clamp-2 md:line-clamp-1">
                                         {n.message}
@@ -142,7 +157,7 @@ export default function NotificationsSection() {
                                 <div className="flex items-center gap-3">
                                     {n.actionUrl && (
                                         <div className="hidden md:flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-slate-300 text-xs font-bold group-hover:bg-white/10 group-hover:text-white transition-all">
-                                            View Logs <ExternalLink className="w-3.5 h-3.5" />
+                                            {n.actionLabel || 'Open'} <ExternalLink className="w-3.5 h-3.5" />
                                         </div>
                                     )}
                                     {!n.isRead && (

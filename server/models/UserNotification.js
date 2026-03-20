@@ -22,10 +22,20 @@ const userNotificationSchema = new mongoose.Schema({
         required: true,
         default: 'system'
     },
+    priority: {
+        type: String,
+        enum: ['low', 'medium', 'high', 'critical'],
+        default: 'medium',
+        index: true,
+    },
     isRead: {
         type: Boolean,
         default: false,
         index: true
+    },
+    readAt: {
+        type: Date,
+        default: null,
     },
     relatedEntity: {
         type: mongoose.Schema.Types.ObjectId,
@@ -34,6 +44,16 @@ const userNotificationSchema = new mongoose.Schema({
     actionUrl: {
         type: String,
         trim: true
+    },
+    actionLabel: {
+        type: String,
+        trim: true,
+        maxlength: 80,
+        default: '',
+    },
+    metadata: {
+        type: mongoose.Schema.Types.Mixed,
+        default: {},
     }
 }, {
     timestamps: true

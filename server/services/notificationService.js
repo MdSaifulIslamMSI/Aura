@@ -16,15 +16,25 @@ const logger = require('../utils/logger');
  */
 exports.sendPersistentNotification = async (userId, title, message, options = {}) => {
     try {
-        const { type = 'system', relatedEntity, actionUrl } = options;
+        const {
+            type = 'system',
+            priority = 'medium',
+            relatedEntity,
+            actionUrl,
+            actionLabel = '',
+            metadata = {},
+        } = options;
 
         const notification = await UserNotification.create({
             user: userId,
             title,
             message,
             type,
+            priority,
             relatedEntity,
-            actionUrl
+            actionUrl,
+            actionLabel,
+            metadata,
         });
 
         // Broadcast to user if they are online

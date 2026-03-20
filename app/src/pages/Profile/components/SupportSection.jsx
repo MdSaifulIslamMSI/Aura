@@ -1,354 +1,832 @@
-import { useState, useEffect, useRef } from 'react';
-import { MessageSquare, Send, AlertCircle, CheckCircle, Clock, Plus, X, ShieldAlert } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+    AlertCircle,
+    CheckCircle2,
+    Clock3,
+    LifeBuoy,
+    MessageSquare,
+    Plus,
+    RefreshCw,
+    Send,
+    ShieldAlert,
+    ShieldCheck,
+    Sparkles,
+    Wifi,
+    WifiOff,
+    X,
+} from 'lucide-react';
 import { supportApi } from '@/services/api';
 import { cn } from '@/lib/utils';
-import { io } from 'socket.io-client';
+import { useSocket, useSocketDemand } from '@/context/SocketContext';
 
-export default function SupportSection({ profile }) {
+const TICKET_LIST_POLL_MS = 25000;
+const ACTIVE_TICKET_POLL_MS = 15000;
+
+const CATEGORY_OPTIONS = [
+    {
+        value: 'moderation_appeal',
+        label: 'Moderation appeal',
+        description: 'Warnings, suspensions, account governance, and appeal handling.',
+        accent: 'text-rose-300',
+    },
+    {
+        value: 'order_issue',
+        label: 'Order issue',
+        description: 'Payment, cancellation, refund, delivery, or post-order disputes.',
+        accent: 'text-amber-200',
+    },
+    {
+        value: 'general_support',
+        label: 'General support',
+        description: 'Profile, listing, account, or product questions that need human help.',
+        accent: 'text-cyan-200',
+    },
+    {
+        value: 'other',
+        label: 'Other',
+        description: 'Anything else that needs manual review and a durable response trail.',
+        accent: 'text-slate-200',
+    },
+];
+
+const CATEGORY_MAP = new Map(CATEGORY_OPTIONS.map((option) => [option.value, option]));
+
+const createInitialForm = (prefill = {}) => {
+    const category = CATEGORY_MAP.has(prefill?.category)
+        ? prefill.category
+        : (prefill?.intent === 'appeal' || prefill?.relatedActionId ? 'moderation_appeal' : 'general_support');
+
+    return {
+        category,
+        subject: String(prefill?.subject || '').trim(),
+        message: '',
+    };
+};
+
+const sortTickets = (tickets = []) => (
+    [...tickets].sort((left, right) => {
+        const leftTime = new Date(left?.lastMessageAt || left?.updatedAt || left?.createdAt || 0).getTime();
+        const rightTime = new Date(right?.lastMessageAt || right?.updatedAt || right?.createdAt || 0).getTime();
+        return rightTime - leftTime;
+    })
+);
+
+const normalizeTicket = (ticket) => {
+    if (!ticket) return null;
+
+    return {
+        ...ticket,
+        unreadByAdmin: Number(ticket.unreadByAdmin || 0),
+        unreadByUser: Number(ticket.unreadByUser || 0),
+        userActionRequired: Boolean(ticket.userActionRequired),
+        subject: String(ticket.subject || ''),
+        category: String(ticket.category || 'general_support'),
+        status: String(ticket.status || 'open'),
+        priority: String(ticket.priority || 'normal'),
+        lastActorRole: String(ticket.lastActorRole || 'user'),
+        resolutionSummary: String(ticket.resolutionSummary || ''),
+        lastMessagePreview: String(ticket.lastMessagePreview || ''),
+    };
+};
+
+const upsertTicket = (tickets, ticket) => {
+    const normalized = normalizeTicket(ticket);
+    if (!normalized?._id) return tickets;
+
+    return sortTickets([
+        normalized,
+        ...tickets.filter((entry) => String(entry._id) !== String(normalized._id)),
+    ]);
+};
+
+const appendUniqueMessage = (messages, incoming) => {
+    if (!incoming) return messages;
+
+    const incomingId = String(incoming._id || '');
+    if (incomingId && messages.some((entry) => String(entry?._id || '') === incomingId)) {
+        return messages;
+    }
+
+    return [...messages, incoming].sort((left, right) => {
+        const leftTime = new Date(left?.sentAt || left?.createdAt || 0).getTime();
+        const rightTime = new Date(right?.sentAt || right?.createdAt || 0).getTime();
+        return leftTime - rightTime;
+    });
+};
+
+const getStatusBadge = (status) => {
+    switch (status) {
+        case 'resolved':
+            return (
+                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300/20 bg-emerald-500/12 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-emerald-100">
+                    <CheckCircle2 className="h-3 w-3" /> Resolved
+                </span>
+            );
+        case 'closed':
+            return (
+                <span className="inline-flex items-center gap-1 rounded-full border border-slate-400/20 bg-slate-500/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-slate-300">
+                    <X className="h-3 w-3" /> Closed
+                </span>
+            );
+        default:
+            return (
+                <span className="inline-flex items-center gap-1 rounded-full border border-amber-300/20 bg-amber-500/12 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-amber-100">
+                    <Clock3 className="h-3 w-3" /> Open
+                </span>
+            );
+    }
+};
+
+const getPriorityBadge = (priority) => {
+    switch (priority) {
+        case 'urgent':
+            return 'border-rose-400/25 bg-rose-500/12 text-rose-100';
+        case 'high':
+            return 'border-amber-300/20 bg-amber-500/12 text-amber-100';
+        default:
+            return 'border-cyan-300/20 bg-cyan-500/12 text-cyan-100';
+    }
+};
+
+const isPrefillMeaningful = (prefill = {}) => Boolean(
+    prefill?.category
+    || prefill?.relatedActionId
+    || prefill?.subject
+    || prefill?.intent
+);
+
+export default function SupportSection({
+    profile,
+    focusTicketId = '',
+    startCompose = false,
+    prefill = {},
+}) {
+    useSocketDemand('profile-support', true);
+    const { socket, isConnected } = useSocket();
+
     const [tickets, setTickets] = useState([]);
     const [loading, setLoading] = useState(true);
     const [creating, setCreating] = useState(false);
     const [activeTicketId, setActiveTicketId] = useState(null);
     const [messages, setMessages] = useState([]);
     const [messagesLoading, setMessagesLoading] = useState(false);
+    const [form, setForm] = useState(() => createInitialForm(prefill));
     const [newMessage, setNewMessage] = useState('');
     const [sending, setSending] = useState(false);
+    const [creatingTicket, setCreatingTicket] = useState(false);
     const [error, setError] = useState('');
+
     const messagesEndRef = useRef(null);
-    const socketRef = useRef(null);
+    const launchRef = useRef('');
 
-    // New Ticket Form
-    const [form, setForm] = useState({ subject: '', category: 'general_support', message: '' });
+    const supportLaunchSignature = useMemo(() => JSON.stringify({
+        focusTicketId: String(focusTicketId || ''),
+        startCompose: Boolean(startCompose),
+        prefill: {
+            category: String(prefill?.category || ''),
+            relatedActionId: String(prefill?.relatedActionId || ''),
+            subject: String(prefill?.subject || ''),
+            intent: String(prefill?.intent || ''),
+        },
+    }), [focusTicketId, prefill?.category, prefill?.intent, prefill?.relatedActionId, prefill?.subject, startCompose]);
 
-    const fetchTickets = async () => {
+    const fetchTickets = useCallback(async ({ silent = false } = {}) => {
         try {
-            setLoading(true);
-            const res = await supportApi.getTickets();
-            setTickets(res.data);
+            if (!silent) {
+                setLoading(true);
+            }
+
+            const res = await supportApi.getTickets({ limit: 50 });
+            const nextTickets = sortTickets(Array.isArray(res?.data) ? res.data.map(normalizeTicket) : []);
+            setTickets(nextTickets);
+            setError('');
+
+            setActiveTicketId((previous) => {
+                const requested = String(focusTicketId || '');
+                if (requested && nextTickets.some((ticket) => String(ticket._id) === requested)) {
+                    return requested;
+                }
+                if (previous && nextTickets.some((ticket) => String(ticket._id) === String(previous))) {
+                    return previous;
+                }
+                if (creating || startCompose || isPrefillMeaningful(prefill)) {
+                    return null;
+                }
+                return previous || nextTickets[0]?._id || null;
+            });
         } catch (err) {
-            setError(err.message || 'Failed to load tickets');
+            setError(err.message || 'Failed to load support tickets');
         } finally {
-            setLoading(false);
+            if (!silent) {
+                setLoading(false);
+            }
         }
-    };
+    }, [creating, focusTicketId, prefill, startCompose]);
 
-    const fetchMessages = async (ticketId) => {
+    const fetchMessages = useCallback(async (ticketId, { silent = false } = {}) => {
+        if (!ticketId) {
+            setMessages([]);
+            return;
+        }
+
         try {
-            setMessagesLoading(true);
+            if (!silent) {
+                setMessagesLoading(true);
+            }
+
             const res = await supportApi.getMessages(ticketId);
-            setMessages(res.data);
-            
-            // Clear unread locally
-            setTickets(prev => prev.map(t => t._id === ticketId ? { ...t, unreadByUser: 0 } : t));
+            setMessages(Array.isArray(res?.data) ? res.data : []);
+            setTickets((previous) => previous.map((ticket) => (
+                String(ticket._id) === String(ticketId)
+                    ? { ...ticket, unreadByUser: 0 }
+                    : ticket
+            )));
+            setError('');
         } catch (err) {
-            setError(err.message || 'Failed to load messages');
+            setError(err.message || 'Failed to load support conversation');
         } finally {
-            setMessagesLoading(false);
+            if (!silent) {
+                setMessagesLoading(false);
+            }
         }
-    };
+    }, []);
 
     useEffect(() => {
         fetchTickets();
-        
-        // Setup socket
-        const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-        const token = localStorage.getItem('token');
-        if (token) {
-            socketRef.current = io(API_BASE_URL, {
-                auth: { token },
-                transports: ['websocket', 'polling']
-            });
-            
-            socketRef.current.on('support:message:new', (data) => {
-                const { ticketId, message } = data;
-                
-                // Update messages if we are viewing this ticket
-                setMessages(prev => {
-                    // Check if we already have it
-                    if (prev.some(m => m._id === message._id)) return prev;
-                    if (activeTicketId === ticketId) {
-                        return [...prev, message];
-                    }
-                    return prev;
-                });
-                
-                // Update ticket list preview
-                setTickets(prev => prev.map(t => {
-                    if (t._id === ticketId) {
-                        return {
-                            ...t,
-                            lastMessagePreview: message.text,
-                            lastMessageAt: message.sentAt,
-                            unreadByUser: activeTicketId === ticketId ? 0 : (t.unreadByUser || 0) + 1
-                        };
-                    }
-                    return t;
-                }).sort((a, b) => new Date(b.lastMessageAt) - new Date(a.lastMessageAt)));
-                
-                // Keep scrolled to bottom if active
-                if (activeTicketId === ticketId) {
-                    setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
-                }
-            });
-        }
-        
-        return () => {
-            if (socketRef.current) socketRef.current.disconnect();
-        };
-    }, [activeTicketId]);
+    }, [fetchTickets]);
 
     useEffect(() => {
-        if (activeTicketId) {
-            fetchMessages(activeTicketId);
+        if (!activeTicketId) {
+            setMessages([]);
+            return;
         }
-    }, [activeTicketId]);
+        fetchMessages(activeTicketId);
+    }, [activeTicketId, fetchMessages]);
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
 
-    const handleCreateTicket = async (e) => {
-        e.preventDefault();
-        try {
-            const res = await supportApi.createTicket(form);
-            setTickets([res.data, ...tickets]);
+    useEffect(() => {
+        if (launchRef.current === supportLaunchSignature) return;
+        launchRef.current = supportLaunchSignature;
+
+        setForm(createInitialForm(prefill));
+
+        if (focusTicketId) {
             setCreating(false);
-            setForm({ subject: '', category: 'general_support', message: '' });
-            setActiveTicketId(res.data._id);
+            setActiveTicketId(focusTicketId);
+            return;
+        }
+
+        if (startCompose || isPrefillMeaningful(prefill)) {
+            setCreating(true);
+            setActiveTicketId(null);
+        }
+    }, [focusTicketId, prefill, startCompose, supportLaunchSignature]);
+
+    useEffect(() => {
+        if (isConnected) return undefined;
+
+        const ticketTimer = window.setInterval(() => {
+            fetchTickets({ silent: true });
+        }, TICKET_LIST_POLL_MS);
+
+        return () => window.clearInterval(ticketTimer);
+    }, [fetchTickets, isConnected]);
+
+    useEffect(() => {
+        if (isConnected || !activeTicketId) return undefined;
+
+        const messageTimer = window.setInterval(() => {
+            fetchMessages(activeTicketId, { silent: true });
+        }, ACTIVE_TICKET_POLL_MS);
+
+        return () => window.clearInterval(messageTimer);
+    }, [activeTicketId, fetchMessages, isConnected]);
+
+    useEffect(() => {
+        if (!socket) return undefined;
+
+        const handleTicketUpdate = (payload = {}) => {
+            const nextTicket = normalizeTicket(payload.ticket);
+            if (!nextTicket?._id) return;
+
+            setTickets((previous) => upsertTicket(previous, nextTicket));
+        };
+
+        const handleMessageNew = (payload = {}) => {
+            const ticketId = String(payload.ticketId || payload.ticket?._id || '');
+            if (!ticketId) return;
+
+            if (payload.ticket) {
+                setTickets((previous) => upsertTicket(previous, payload.ticket));
+            } else {
+                setTickets((previous) => previous.map((ticket) => (
+                    String(ticket._id) === ticketId
+                        ? {
+                            ...ticket,
+                            lastMessagePreview: String(payload?.message?.text || ticket.lastMessagePreview || ''),
+                            lastMessageAt: payload?.message?.sentAt || payload?.message?.createdAt || new Date().toISOString(),
+                            unreadByUser: String(ticketId) === String(activeTicketId) ? 0 : (Number(ticket.unreadByUser || 0) + 1),
+                        }
+                        : ticket
+                )));
+            }
+
+            void fetchTickets({ silent: true });
+
+            if (String(ticketId) !== String(activeTicketId || '')) return;
+            setMessages((previous) => appendUniqueMessage(previous, payload.message));
+            void fetchMessages(ticketId, { silent: true });
+        };
+
+        socket.on('support:ticket:update', handleTicketUpdate);
+        socket.on('support:message:new', handleMessageNew);
+
+        return () => {
+            socket.off('support:ticket:update', handleTicketUpdate);
+            socket.off('support:message:new', handleMessageNew);
+        };
+    }, [activeTicketId, fetchMessages, fetchTickets, socket]);
+
+    const handleCreateTicket = async (event) => {
+        event.preventDefault();
+        if (creatingTicket) return;
+
+        const payload = {
+            subject: String(form.subject || '').trim(),
+            category: form.category,
+            message: String(form.message || '').trim(),
+        };
+
+        if (prefill?.relatedActionId) {
+            payload.relatedActionId = String(prefill.relatedActionId);
+        }
+
+        try {
+            setCreatingTicket(true);
+            const res = await supportApi.createTicket(payload);
+            const createdTicket = normalizeTicket(res?.data);
+            if (createdTicket) {
+                setTickets((previous) => upsertTicket(previous, createdTicket));
+                setActiveTicketId(createdTicket._id);
+                setCreating(false);
+                setForm(createInitialForm({}));
+                await fetchMessages(createdTicket._id);
+            }
+            setError('');
         } catch (err) {
-            setError(err.message || 'Failed to create ticket');
+            setError(err.message || 'Failed to create support ticket');
+        } finally {
+            setCreatingTicket(false);
         }
     };
 
-    const handleSendMessage = async (e) => {
-        e.preventDefault();
-        if (!newMessage.trim() || sending) return;
-        
+    const handleSendMessage = async (event) => {
+        event.preventDefault();
+        if (!newMessage.trim() || sending || !activeTicketId) return;
+
         const tempText = newMessage;
         setNewMessage('');
+
         try {
             setSending(true);
             const res = await supportApi.sendMessage(activeTicketId, tempText);
-            setMessages(prev => [...prev.filter(m => m._id !== res.data._id), res.data]);
+            const nextMessage = res?.data;
+            setMessages((previous) => appendUniqueMessage(previous, nextMessage));
+            setTickets((previous) => previous.map((ticket) => (
+                String(ticket._id) === String(activeTicketId)
+                    ? {
+                        ...ticket,
+                        lastMessagePreview: String(tempText).slice(0, 150),
+                        lastMessageAt: nextMessage?.sentAt || nextMessage?.createdAt || new Date().toISOString(),
+                        lastActorRole: 'user',
+                        unreadByUser: 0,
+                        userActionRequired: false,
+                    }
+                    : ticket
+            )));
+            setError('');
         } catch (err) {
-            setError(err.message || 'Failed to send message');
+            setError(err.message || 'Failed to send support reply');
             setNewMessage(tempText);
         } finally {
             setSending(false);
-            setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
         }
     };
 
-    const activeTicket = tickets.find(t => t._id === activeTicketId);
-
-    if (loading) return <div className="text-white">Loading support...</div>;
-
-    const getStatusBadge = (status) => {
-        switch (status) {
-            case 'open': return <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded border border-amber-500/30 bg-amber-500/10 text-amber-400"><Clock className="w-3 h-3"/> Open</span>
-            case 'resolved': return <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded border border-emerald-500/30 bg-emerald-500/10 text-emerald-400"><CheckCircle className="w-3 h-3"/> Resolved</span>
-            case 'closed': return <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded border border-zinc-500/30 bg-zinc-500/10 text-zinc-400"><X className="w-3 h-3"/> Closed</span>
-            default: return null;
-        }
-    };
+    const activeTicket = tickets.find((ticket) => String(ticket._id) === String(activeTicketId));
+    const activeCategory = CATEGORY_MAP.get(activeTicket?.category || form.category || 'general_support');
 
     return (
-        <div className="flex flex-col md:flex-row gap-6 h-[700px]">
-            {/* Left: Ticket List */}
-            <div className={cn("w-full md:w-1/3 flex flex-col border border-white/10 rounded-2xl bg-black/40 overflow-hidden", activeTicketId && "hidden md:flex")}>
-                <div className="p-4 border-b border-white/10 flex items-center justify-between">
-                    <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                        <MessageSquare className="w-5 h-5" /> Support
-                    </h3>
-                    <button onClick={() => { setActiveTicketId(null); setCreating(true); }} className="p-2 hover:bg-white/10 rounded-lg text-white transition-colors">
-                        <Plus className="w-5 h-5" />
-                    </button>
+        <div className="grid gap-6 xl:grid-cols-[22rem_minmax(0,1fr)]">
+            <div className="premium-panel flex min-h-[42rem] flex-col overflow-hidden p-0">
+                <div className="border-b border-white/10 bg-white/[0.02] px-5 py-4">
+                    <div className="flex items-start justify-between gap-3">
+                        <div>
+                            <p className="text-[11px] font-black uppercase tracking-[0.22em] text-neo-cyan">Appeals & Support</p>
+                            <h3 className="mt-2 text-xl font-black text-white">Persistent help desk</h3>
+                            <p className="mt-1 text-sm text-slate-400">User issues, admin actions, and support replies in one durable thread.</p>
+                        </div>
+                        <div className={cn(
+                            'inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-bold',
+                            isConnected
+                                ? 'border-emerald-300/20 bg-emerald-500/12 text-emerald-100'
+                                : 'border-amber-300/20 bg-amber-500/12 text-amber-100'
+                        )}>
+                            {isConnected ? <Wifi className="h-3.5 w-3.5" /> : <WifiOff className="h-3.5 w-3.5" />}
+                            {isConnected ? 'Live' : 'Polling'}
+                        </div>
+                    </div>
+                    <div className="mt-4 flex gap-2">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setCreating(true);
+                                setActiveTicketId(null);
+                                setForm(createInitialForm(prefill));
+                            }}
+                            className="inline-flex items-center gap-2 rounded-xl border border-cyan-300/20 bg-cyan-400/12 px-4 py-2 text-sm font-bold text-cyan-100 transition-colors hover:bg-cyan-400/18"
+                        >
+                            <Plus className="h-4 w-4" />
+                            New ticket
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => fetchTickets()}
+                            className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
+                        >
+                            <RefreshCw className="h-4 w-4" />
+                            Refresh
+                        </button>
+                    </div>
+                    {error ? (
+                        <div className="mt-4 rounded-2xl border border-rose-400/20 bg-rose-500/12 px-4 py-3 text-sm text-rose-100">
+                            {error}
+                        </div>
+                    ) : null}
                 </div>
-                
-                {error && <div className="p-3 m-3 bg-red-500/20 border border-red-500/50 text-red-100 rounded text-sm">{error}</div>}
 
-                <div className="flex-1 overflow-y-auto p-3 space-y-2 relative scrollbar-hide">
-                    {tickets.length === 0 ? (
-                        <div className="text-center p-6 text-zinc-500 text-sm">No support tickets found</div>
+                <div className="flex-1 overflow-y-auto p-3 scrollbar-hide">
+                    {loading ? (
+                        <div className="flex h-full items-center justify-center text-sm text-slate-400">Loading support history...</div>
+                    ) : tickets.length === 0 ? (
+                        <div className="flex h-full flex-col items-center justify-center px-6 text-center">
+                            <div className="flex h-16 w-16 items-center justify-center rounded-3xl border border-white/10 bg-white/5 text-neo-cyan">
+                                <LifeBuoy className="h-8 w-8" />
+                            </div>
+                            <h4 className="mt-5 text-lg font-black text-white">No tickets yet</h4>
+                            <p className="mt-2 text-sm text-slate-400">When governance, order, or support issues need a real answer, the thread will stay here.</p>
+                        </div>
                     ) : (
-                        tickets.map(ticket => (
-                            <button
-                                key={ticket._id}
-                                onClick={() => { setActiveTicketId(ticket._id); setCreating(false); }}
-                                className={cn("w-full text-left p-4 rounded-xl border transition-all hover:bg-white/5",
-                                    activeTicketId === ticket._id ? "bg-white/5 border-white/20" : "border-transparent bg-transparent")}
-                            >
-                                <div className="flex justify-between items-start mb-1">
-                                    <div className="font-semibold text-white truncate pr-2">{ticket.subject}</div>
-                                    {getStatusBadge(ticket.status)}
-                                </div>
-                                <div className="text-xs text-zinc-400 truncate mt-1">
-                                    {ticket.lastMessagePreview || 'No messages'}
-                                </div>
-                                <div className="flex justify-between items-center mt-3">
-                                    <div className="text-[10px] text-zinc-500 font-mono">ID: {ticket._id.slice(-6)}</div>
-                                    {ticket.unreadByUser > 0 && (
-                                        <div className="bg-rose-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                                            {ticket.unreadByUser} NEW
-                                        </div>
+                        <div className="space-y-2">
+                            {tickets.map((ticket) => (
+                                <button
+                                    key={ticket._id}
+                                    type="button"
+                                    onClick={() => {
+                                        setActiveTicketId(ticket._id);
+                                        setCreating(false);
+                                    }}
+                                    className={cn(
+                                        'w-full rounded-[1.4rem] border p-4 text-left transition-all',
+                                        String(activeTicketId) === String(ticket._id)
+                                            ? 'border-cyan-300/25 bg-white/[0.06]'
+                                            : 'border-white/5 bg-transparent hover:border-white/10 hover:bg-white/[0.03]'
                                     )}
-                                </div>
-                            </button>
-                        ))
+                                >
+                                    <div className="mb-2 flex items-start justify-between gap-3">
+                                        <div className="min-w-0">
+                                            <div className="truncate text-sm font-black text-white">{ticket.subject}</div>
+                                            <div className="mt-1 flex flex-wrap items-center gap-2">
+                                                <span className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                                                    {(CATEGORY_MAP.get(ticket.category)?.label || ticket.category).replace(/\s+/g, ' ')}
+                                                </span>
+                                                <span className={cn(
+                                                    'rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.18em]',
+                                                    getPriorityBadge(ticket.priority)
+                                                )}>
+                                                    {ticket.priority}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        {getStatusBadge(ticket.status)}
+                                    </div>
+                                    <p className="line-clamp-2 text-sm text-slate-400">{ticket.lastMessagePreview || 'No messages yet'}</p>
+                                    <div className="mt-3 flex items-center justify-between text-[11px] text-slate-500">
+                                        <span>{ticket.lastMessageAt ? new Date(ticket.lastMessageAt).toLocaleString() : 'Just created'}</span>
+                                        <div className="flex items-center gap-2">
+                                            {ticket.userActionRequired ? (
+                                                <span className="rounded-full border border-rose-300/20 bg-rose-500/12 px-2 py-0.5 font-black uppercase tracking-[0.18em] text-rose-100">
+                                                    Reply needed
+                                                </span>
+                                            ) : null}
+                                            {ticket.unreadByUser > 0 ? (
+                                                <span className="rounded-full bg-cyan-400 px-2 py-0.5 text-[10px] font-black text-[#02131a]">
+                                                    {ticket.unreadByUser} new
+                                                </span>
+                                            ) : null}
+                                        </div>
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
                     )}
                 </div>
             </div>
 
-            {/* Right: Ticket Content or New Form */}
-            <div className={cn("flex-1 flex flex-col border border-white/10 rounded-2xl bg-[#090909]", !activeTicketId && !creating && "hidden md:flex items-center justify-center")}>
-                {!activeTicketId && !creating && (
-                    <div className="text-center text-zinc-500">
-                        <MessageSquare className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                        <p>Select a ticket or create a new one</p>
-                    </div>
-                )}
-
-                {creating && (
-                    <div className="p-6 h-full flex flex-col">
-                        <div className="flex items-center justify-between mb-6">
-                            <h2 className="text-2xl font-bold text-white">New Support Ticket</h2>
-                            <button onClick={() => setCreating(false)} className="md:hidden text-zinc-400"><X /></button>
+            <div className="premium-panel min-h-[42rem] overflow-hidden p-0">
+                {!creating && !activeTicket ? (
+                    <div className="flex h-full flex-col">
+                        <div className="border-b border-white/10 px-6 py-6">
+                            <p className="text-[11px] font-black uppercase tracking-[0.22em] text-neo-cyan">Support architecture</p>
+                            <h3 className="mt-2 text-3xl font-black text-white">A real user-to-admin path</h3>
+                            <p className="mt-3 max-w-2xl text-sm text-slate-400">
+                                Governance actions, support replies, and user follow-ups now converge into one persistent thread instead of isolated alerts.
+                            </p>
                         </div>
-                        
-                        {(profile?.accountState === 'warned' || profile?.accountState === 'suspended') && (
-                            <div className="mb-6 p-4 rounded-xl bg-orange-500/10 border border-orange-500/30 text-orange-200 text-sm flex gap-3 items-start">
-                                <ShieldAlert className="w-5 h-5 text-orange-400 shrink-0 mt-0.5" />
-                                <div>
-                                    <strong className="block mb-1 text-orange-300">Account Moderation Status</strong>
-                                    You can use this form to appeal your current {profile.accountState} status directly with our Trust & Safety team.
-                                </div>
-                            </div>
-                        )}
-
-                        <form onSubmit={handleCreateTicket} className="space-y-4 flex-1">
-                            <div>
-                                <label className="block text-sm text-zinc-400 mb-1">Category</label>
-                                <select 
-                                    value={form.category} 
-                                    onChange={e=>setForm({...form, category: e.target.value})}
-                                    className="w-full bg-black/50 border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-white/30"
+                        <div className="grid flex-1 gap-4 p-6 md:grid-cols-3">
+                            {CATEGORY_OPTIONS.slice(0, 3).map((option) => (
+                                <button
+                                    key={option.value}
+                                    type="button"
+                                    onClick={() => {
+                                        setCreating(true);
+                                        setActiveTicketId(null);
+                                        setForm((previous) => ({
+                                            ...previous,
+                                            category: option.value,
+                                            subject: previous.subject || (option.value === 'moderation_appeal' ? 'Appeal moderation action' : ''),
+                                        }));
+                                    }}
+                                    className="rounded-[1.8rem] border border-white/10 bg-white/[0.03] p-5 text-left transition-colors hover:bg-white/[0.05]"
                                 >
-                                    <option value="general_support">General Support</option>
-                                    <option value="moderation_appeal">Moderation Appeal</option>
-                                    <option value="order_issue">Order Issue</option>
-                                    <option value="other">Other</option>
-                                </select>
+                                    <div className={cn('text-sm font-black', option.accent)}>{option.label}</div>
+                                    <p className="mt-3 text-sm text-slate-400">{option.description}</p>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                ) : null}
+
+                {creating ? (
+                    <div className="flex h-full flex-col">
+                        <div className="border-b border-white/10 px-6 py-6">
+                            <div className="flex items-start justify-between gap-3">
+                                <div>
+                                    <p className="text-[11px] font-black uppercase tracking-[0.22em] text-neo-cyan">New ticket</p>
+                                    <h3 className="mt-2 text-3xl font-black text-white">Open a persistent support thread</h3>
+                                    <p className="mt-3 max-w-2xl text-sm text-slate-400">
+                                        This conversation stays visible to both the user and support/admin teams, including governance appeals and order disputes.
+                                    </p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setCreating(false);
+                                        if (!activeTicketId && tickets[0]?._id) {
+                                            setActiveTicketId(tickets[0]._id);
+                                        }
+                                    }}
+                                    className="rounded-xl border border-white/10 bg-white/5 p-2 text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
+                                >
+                                    <X className="h-4 w-4" />
+                                </button>
                             </div>
-                            <div>
-                                <label className="block text-sm text-zinc-400 mb-1">Subject</label>
-                                <input 
-                                    type="text" required maxLength={200}
-                                    value={form.subject} onChange={e=>setForm({...form, subject: e.target.value})}
-                                    className="w-full bg-black/50 border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-white/30"
-                                    placeholder="Brief summary of your issue"
+                            {(profile?.accountState === 'warned' || profile?.accountState === 'suspended' || prefill?.relatedActionId) ? (
+                                <div className="mt-5 rounded-[1.6rem] border border-amber-300/20 bg-amber-500/12 px-4 py-4 text-sm text-amber-100">
+                                    <div className="flex items-start gap-3">
+                                        <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0" />
+                                        <div>
+                                            <div className="font-black text-amber-50">Appeal-ready support path</div>
+                                            <p className="mt-1 text-amber-100/90">
+                                                Governance-related actions are now routed here so users can contest or clarify a decision in one durable place.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : null}
+                        </div>
+
+                        <form onSubmit={handleCreateTicket} className="flex flex-1 flex-col gap-5 p-6">
+                            <div className="grid gap-4 md:grid-cols-2">
+                                <label className="block">
+                                    <span className="mb-2 block text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Category</span>
+                                    <select
+                                        value={form.category}
+                                        onChange={(event) => setForm((previous) => ({ ...previous, category: event.target.value }))}
+                                        className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none transition-colors focus:border-cyan-300/30"
+                                    >
+                                        {CATEGORY_OPTIONS.map((option) => (
+                                            <option key={option.value} value={option.value} className="bg-slate-950 text-white">
+                                                {option.label}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </label>
+
+                                <label className="block">
+                                    <span className="mb-2 block text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Subject</span>
+                                    <input
+                                        type="text"
+                                        required
+                                        maxLength={200}
+                                        value={form.subject}
+                                        onChange={(event) => setForm((previous) => ({ ...previous, subject: event.target.value }))}
+                                        className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none transition-colors focus:border-cyan-300/30"
+                                        placeholder="Brief summary of the issue"
+                                    />
+                                </label>
+                            </div>
+
+                            {prefill?.relatedActionId ? (
+                                <div className="rounded-2xl border border-violet-300/20 bg-violet-500/12 px-4 py-3 text-sm text-violet-100">
+                                    Linked governance action: <span className="font-mono">{prefill.relatedActionId}</span>
+                                </div>
+                            ) : null}
+
+                            <div className="rounded-[1.8rem] border border-white/10 bg-white/[0.03] p-4">
+                                <div className={cn('text-sm font-black', activeCategory?.accent || 'text-cyan-200')}>{activeCategory?.label}</div>
+                                <p className="mt-2 text-sm text-slate-400">{activeCategory?.description}</p>
+                            </div>
+
+                            <label className="flex min-h-[16rem] flex-1 flex-col">
+                                <span className="mb-2 block text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Initial message</span>
+                                <textarea
+                                    required
+                                    minLength={5}
+                                    maxLength={2000}
+                                    value={form.message}
+                                    onChange={(event) => setForm((previous) => ({ ...previous, message: event.target.value }))}
+                                    className="min-h-[16rem] flex-1 rounded-[1.8rem] border border-white/10 bg-white/5 px-4 py-4 text-sm leading-6 text-white outline-none transition-colors focus:border-cyan-300/30"
+                                    placeholder="Describe what happened, what action was taken, and what resolution you need."
                                 />
+                            </label>
+
+                            <div className="flex flex-wrap items-center justify-between gap-3">
+                                <div className="text-xs text-slate-500">Support tickets are persistent. Admin replies, system updates, and your follow-ups stay in one thread.</div>
+                                <button
+                                    type="submit"
+                                    disabled={creatingTicket}
+                                    className="inline-flex items-center gap-2 rounded-2xl border border-cyan-300/20 bg-cyan-400/12 px-5 py-3 text-sm font-black text-cyan-100 transition-colors hover:bg-cyan-400/18 disabled:opacity-60"
+                                >
+                                    {creatingTicket ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                                    Open support thread
+                                </button>
                             </div>
-                            <div className="flex-1 flex flex-col h-1/2">
-                                <label className="block text-sm text-zinc-400 mb-1">Initial Message</label>
-                                <textarea 
-                                    required maxLength={2000}
-                                    value={form.message} onChange={e=>setForm({...form, message: e.target.value})}
-                                    className="w-full h-full flex-1 bg-black/50 border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-white/30 resize-none"
-                                    placeholder="Explain your issue in detail..."
-                                />
-                            </div>
-                            <button type="submit" className="w-full bg-white text-black font-bold py-3 rounded-xl hover:bg-zinc-200 transition-colors">
-                                Submit Ticket
-                            </button>
                         </form>
                     </div>
-                )}
+                ) : null}
 
-                {activeTicketId && activeTicket && (
-                    <div className="flex flex-col h-full bg-[#050505] rounded-2xl overflow-hidden">
-                        {/* Header */}
-                        <div className="p-4 border-b border-white/10 flex items-center gap-4 bg-black/40">
-                            <button onClick={() => setActiveTicketId(null)} className="md:hidden text-zinc-400"><X /></button>
-                            <div className="flex-1">
-                                <div className="text-lg font-bold text-white flex items-center gap-2">
-                                    {activeTicket.subject}
+                {activeTicket ? (
+                    <div className="flex h-full flex-col">
+                        <div className="border-b border-white/10 bg-white/[0.02] px-6 py-5">
+                            <div className="flex items-start justify-between gap-4">
+                                <div className="min-w-0 flex-1">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <h3 className="truncate text-2xl font-black text-white">{activeTicket.subject}</h3>
+                                        {getStatusBadge(activeTicket.status)}
+                                        <span className={cn(
+                                            'rounded-full border px-2 py-1 text-[10px] font-black uppercase tracking-[0.18em]',
+                                            getPriorityBadge(activeTicket.priority)
+                                        )}>
+                                            {activeTicket.priority}
+                                        </span>
+                                    </div>
+                                    <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-slate-500">
+                                        <span>{CATEGORY_MAP.get(activeTicket.category)?.label || activeTicket.category}</span>
+                                        <span>Ticket: {String(activeTicket._id).slice(-8)}</span>
+                                        <span>Last activity: {activeTicket.lastMessageAt ? new Date(activeTicket.lastMessageAt).toLocaleString() : 'Just opened'}</span>
+                                    </div>
                                 </div>
-                                <div className="text-xs text-zinc-500 font-mono flex items-center gap-3 mt-1">
-                                    <span>ID: {activeTicket._id}</span>
-                                    {getStatusBadge(activeTicket.status)}
-                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setActiveTicketId(null);
+                                        setCreating(false);
+                                    }}
+                                    className="rounded-xl border border-white/10 bg-white/5 p-2 text-slate-300 transition-colors hover:bg-white/10 hover:text-white xl:hidden"
+                                >
+                                    <X className="h-4 w-4" />
+                                </button>
+                            </div>
+
+                            <div className="mt-4 grid gap-3 md:grid-cols-2">
+                                {activeTicket.userActionRequired ? (
+                                    <div className="rounded-[1.5rem] border border-rose-300/20 bg-rose-500/12 px-4 py-4 text-sm text-rose-100">
+                                        <div className="flex items-center gap-2 font-black text-rose-50">
+                                            <ShieldAlert className="h-4 w-4" />
+                                            Admin is waiting on your reply
+                                        </div>
+                                        <p className="mt-2 text-rose-100/90">Use this thread to answer the latest support request so governance or order handling can continue.</p>
+                                    </div>
+                                ) : (
+                                    <div className="rounded-[1.5rem] border border-white/10 bg-white/[0.03] px-4 py-4 text-sm text-slate-300">
+                                        <div className="flex items-center gap-2 font-black text-white">
+                                            <ShieldCheck className="h-4 w-4 text-emerald-300" />
+                                            Two-way support is active
+                                        </div>
+                                        <p className="mt-2 text-slate-400">Both user and admin actions now land here, not in disconnected one-off notices.</p>
+                                    </div>
+                                )}
+
+                                {activeTicket.resolutionSummary ? (
+                                    <div className="rounded-[1.5rem] border border-emerald-300/20 bg-emerald-500/12 px-4 py-4 text-sm text-emerald-100">
+                                        <div className="flex items-center gap-2 font-black text-emerald-50">
+                                            <CheckCircle2 className="h-4 w-4" />
+                                            Resolution summary
+                                        </div>
+                                        <p className="mt-2 text-emerald-100/90">{activeTicket.resolutionSummary}</p>
+                                    </div>
+                                ) : null}
                             </div>
                         </div>
 
-                        {/* Chat Body */}
-                        <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-hide">
+                        <div className="flex-1 overflow-y-auto px-6 py-5 scrollbar-hide">
                             {messagesLoading ? (
-                                <div className="text-center text-zinc-500 mt-10">Loading chat history...</div>
+                                <div className="flex h-full items-center justify-center text-sm text-slate-400">Loading conversation...</div>
                             ) : (
-                                messages.map((m, i) => {
-                                    const isMe = !m.isAdmin && !m.isSystem;
-                                    
-                                    if (m.isSystem) {
+                                <div className="space-y-4">
+                                    {messages.map((message, index) => {
+                                        const isAdmin = Boolean(message?.isAdmin);
+                                        const isSystem = Boolean(message?.isSystem);
+                                        const sentAt = message?.sentAt || message?.createdAt;
+
+                                        if (isSystem) {
+                                            return (
+                                                <div key={message._id || index} className="flex justify-center">
+                                                    <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-xs text-slate-300">
+                                                        <AlertCircle className="h-3.5 w-3.5" />
+                                                        {message.text}
+                                                    </div>
+                                                </div>
+                                            );
+                                        }
+
                                         return (
-                                            <div key={m._id || i} className="flex justify-center my-4">
-                                                <div className="bg-white/5 border border-white/10 px-4 py-1.5 rounded-full text-xs text-zinc-400 flex items-center gap-2">
-                                                    <AlertCircle className="w-3 h-3" /> {m.text}
+                                            <div key={message._id || index} className={cn('flex', isAdmin ? 'justify-start' : 'justify-end')}>
+                                                <div className={cn(
+                                                    'max-w-[90%] rounded-[1.7rem] p-4',
+                                                    isAdmin
+                                                        ? 'rounded-tl-md border border-white/10 bg-white/[0.04] text-white'
+                                                        : 'rounded-tr-md bg-cyan-400/14 text-cyan-50'
+                                                )}>
+                                                    <div className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.22em]">
+                                                        {isAdmin ? (
+                                                            <>
+                                                                <ShieldAlert className="h-3.5 w-3.5 text-rose-300" />
+                                                                <span className="text-rose-200">Aura Support</span>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <MessageSquare className="h-3.5 w-3.5 text-cyan-200" />
+                                                                <span className="text-cyan-200">You</span>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                    <div className="whitespace-pre-wrap text-sm leading-6">{message.text}</div>
+                                                    <div className={cn(
+                                                        'mt-3 text-right text-[10px] font-medium',
+                                                        isAdmin ? 'text-slate-400' : 'text-cyan-100/70'
+                                                    )}>
+                                                        {sentAt ? new Date(sentAt).toLocaleString() : ''}
+                                                    </div>
                                                 </div>
                                             </div>
                                         );
-                                    }
-
-                                    return (
-                                        <div key={m._id || i} className={cn("flex", isMe ? "justify-end" : "justify-start")}>
-                                            <div className={cn(
-                                                "max-w-[85%] rounded-2xl p-4",
-                                                isMe ? "bg-white text-black rounded-tr-sm" : "bg-zinc-900 border border-white/10 text-white rounded-tl-sm"
-                                            )}>
-                                                {!isMe && (
-                                                    <div className="flex items-center gap-2 mb-1.5 mb-2">
-                                                        <ShieldAlert className="w-3.5 h-3.5 text-rose-500" />
-                                                        <span className="text-xs font-bold text-rose-400 tracking-wider uppercase">Aura Admin</span>
-                                                    </div>
-                                                )}
-                                                <div className="whitespace-pre-wrap text-[15px] leading-relaxed">{m.text}</div>
-                                                <div className={cn("text-[10px] mt-2 text-right opacity-60", isMe ? "text-zinc-600" : "text-zinc-500")}>
-                                                    {new Date(m.sentAt).toLocaleTimeString([], { hour: '2-digit', minute:'2-digit' })}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )
-                                })
+                                    })}
+                                    <div ref={messagesEndRef} />
+                                </div>
                             )}
-                            <div ref={messagesEndRef} />
                         </div>
 
-                        {/* Input Area */}
                         {activeTicket.status !== 'closed' ? (
-                            <form onSubmit={handleSendMessage} className="p-4 border-t border-white/10 bg-black/40">
-                                <div className="flex gap-2 relative">
-                                    <input 
-                                        type="text" 
+                            <form onSubmit={handleSendMessage} className="border-t border-white/10 bg-white/[0.02] px-6 py-4">
+                                <div className="relative flex gap-3">
+                                    <input
+                                        type="text"
                                         value={newMessage}
-                                        onChange={e => setNewMessage(e.target.value)}
-                                        placeholder="Type your reply..."
-                                        className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-white/30 pr-12"
+                                        onChange={(event) => setNewMessage(event.target.value)}
+                                        placeholder={activeTicket.userActionRequired ? 'Reply to support and keep the action moving...' : 'Add a reply or clarification...'}
+                                        className="flex-1 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 pr-14 text-sm text-white outline-none transition-colors focus:border-cyan-300/30"
                                     />
-                                    <button 
-                                        type="submit" 
+                                    <button
+                                        type="submit"
                                         disabled={!newMessage.trim() || sending}
-                                        className="absolute right-2 top-2 bottom-2 aspect-square bg-white text-black rounded-lg flex items-center justify-center disabled:opacity-50 transition-opacity"
+                                        className="absolute bottom-2 right-2 top-2 flex aspect-square items-center justify-center rounded-xl bg-cyan-400/18 text-cyan-100 transition-colors hover:bg-cyan-400/25 disabled:opacity-60"
                                     >
-                                        <Send className="w-4 h-4 ml-0.5" />
+                                        {sending ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                                     </button>
                                 </div>
                             </form>
                         ) : (
-                            <div className="p-4 bg-red-500/10 border-t border-red-500/20 text-center text-red-400 text-sm">
-                                This ticket is closed. You can no longer reply.
+                            <div className="border-t border-white/10 bg-white/[0.02] px-6 py-4 text-sm text-slate-400">
+                                This ticket is closed. If the issue is still active, open a new thread so support can track the next action cleanly.
                             </div>
                         )}
                     </div>
-                )}
+                ) : null}
             </div>
         </div>
     );
