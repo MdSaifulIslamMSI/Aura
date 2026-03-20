@@ -66,6 +66,7 @@ describe('socketService call security', () => {
 
         jest.doMock('../models/User', () => ({
             findOne: jest.fn(),
+            findById: jest.fn(),
         }));
 
         jest.doMock('../models/Listing', () => ({
@@ -75,7 +76,7 @@ describe('socketService call security', () => {
         jest.doMock('../services/videoCallSessionService', () => ({
             buildVideoCallSessionKey: jest.fn(({ listingId, userA, userB }) => {
                 const [first, second] = [String(userA), String(userB)].sort();
-                return `${String(listingId)}:${first}:${second}`;
+                return `${String(listingId || 'context')}:${first}:${second}`;
             }),
             closeVideoCallSessionsForUser: jest.fn().mockResolvedValue([]),
             endVideoCallSession: jest.fn().mockResolvedValue(null),
@@ -88,6 +89,31 @@ describe('socketService call security', () => {
             markVideoCallSessionConnected: jest.fn().mockResolvedValue(null),
             registerVideoCallSession: jest.fn().mockResolvedValue(null),
             touchVideoCallSessionSignal: jest.fn().mockResolvedValue(null),
+        }));
+
+        jest.doMock('../services/supportTicketViews', () => ({
+            loadAdminTicketView: jest.fn().mockResolvedValue({
+                _id: '507f191e810c19729de86101',
+                user: {
+                    _id: '507f191e810c19729de86102',
+                    email: 'buyer@example.com',
+                },
+            }),
+            loadUserTicketView: jest.fn().mockResolvedValue({
+                _id: '507f191e810c19729de86101',
+            }),
+        }));
+
+        jest.doMock('../services/supportVideoService', () => ({
+            loadSupportTicketForVideo: jest.fn().mockResolvedValue({
+                _id: '507f191e810c19729de86101',
+                user: '507f191e810c19729de86102',
+                subject: 'Need support',
+                status: 'open',
+            }),
+            markSupportTicketLiveCallConnected: jest.fn().mockResolvedValue({}),
+            markSupportTicketLiveCallEnded: jest.fn().mockResolvedValue({}),
+            markSupportTicketLiveCallStarted: jest.fn().mockResolvedValue({}),
         }));
 
         jest.doMock('../utils/logger', () => ({
@@ -154,5 +180,25 @@ describe('socketService call security', () => {
 
         const terminatedEvents = emittedEvents.filter((event) => event.eventName === 'video:call:terminated');
         expect(terminatedEvents).toHaveLength(0);
+    });
+
+    test('rejects user-initiated support calls to arbitrary admins', async () => {
+        const ownerId = '507f191e810c19729de86102';
+        const fakeAdminId = '507f191e810c19729de86103';
+        const ticketId = '507f191e810c19729de86101';
+
+        const ownerSocket = createSocket({ userId: ownerId, name: 'Buyer' });
+        connectionHandler(ownerSocket);
+
+        await trigger(ownerSocket, 'video:call:initiate', {
+            channelType: 'support_ticket',
+            contextId: ticketId,
+            targetUserId: fakeAdminId,
+            signalData: { type: 'offer' },
+        });
+
+        expect(ownerSocket.emit).toHaveBeenCalledWith('video:call:error', {
+            message: 'Unauthorized call attempt',
+        });
     });
 });

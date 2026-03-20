@@ -7,6 +7,7 @@ const {
     sendSupportMessage,
     getSupportTickets,
     getSupportTicketMessages,
+    requestSupportLiveCall,
     addSystemLogToTicket,
     adminGetTickets,
     adminUpdateTicketStatus,
@@ -17,6 +18,7 @@ const {
     supportTicketQuerySchema,
     ticketIdParamSchema,
     adminUpdateTicketSchema,
+    requestSupportLiveCallSchema,
 } = require('../validators/supportValidators');
 
 // --- User Routes ---
@@ -28,6 +30,9 @@ router.route('/')
 router.route('/:id/messages')
     .post(protect, validate(sendSupportMessageSchema), sendSupportMessage)
     .get(protect, validate(ticketIdParamSchema), getSupportTicketMessages);
+
+router.route('/:id/video/request')
+    .post(protect, validate(requestSupportLiveCallSchema), requestSupportLiveCall);
 
 // --- Admin Routes ---
 router.route('/admin/all')

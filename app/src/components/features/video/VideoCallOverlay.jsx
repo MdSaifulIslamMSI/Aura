@@ -10,6 +10,8 @@ const VideoCallOverlay = ({
     remoteStream, 
     callStatus, 
     callerInfo, 
+    callContext,
+    callError,
     onAnswer, 
     onHangUp 
 }) => {
@@ -47,6 +49,9 @@ const VideoCallOverlay = ({
     };
 
     if (callStatus === 'idle') return null;
+
+    const isSupportCall = callContext?.channelType === 'support_ticket';
+    const callLabel = callContext?.contextLabel || (isSupportCall ? 'Aura Support live call' : 'Marketplace live inspection');
 
     return (
         <AnimatePresence>
@@ -112,11 +117,19 @@ const VideoCallOverlay = ({
                             </div>
                             <div className="text-center">
                                 <h3 className="text-2xl font-light tracking-widest uppercase">
-                                    {callStatus === 'calling' ? 'Contacting Seller...' : 'Incoming Inspection Request'}
+                                    {callStatus === 'calling'
+                                        ? (isSupportCall ? 'Starting Live Support...' : 'Contacting Seller...')
+                                        : (isSupportCall ? 'Incoming Aura Support Call' : 'Incoming Inspection Request')}
                                 </h3>
                                 <p className="text-white/60 mt-2 font-medium">
-                                    {callerInfo?.name || 'Authorized Peer'}
+                                    {callerInfo?.name || callLabel || 'Authorized Peer'}
                                 </p>
+                                {callLabel ? (
+                                    <p className="mt-2 text-xs uppercase tracking-[0.28em] text-white/40">{callLabel}</p>
+                                ) : null}
+                                {callError ? (
+                                    <p className="mt-4 text-sm text-rose-200">{callError}</p>
+                                ) : null}
                             </div>
 
                             {callStatus === 'incoming' && (
@@ -160,7 +173,7 @@ const VideoCallOverlay = ({
                                 className="px-8 py-4 bg-rose-500 text-white rounded-2xl font-bold flex items-center space-x-2 hover:bg-rose-600 transition-all shadow-lg shadow-rose-500/30"
                             >
                                 <PhoneOff className="w-5 h-5" />
-                                <span>End Inspection</span>
+                                <span>{isSupportCall ? 'End live call' : 'End inspection'}</span>
                             </button>
                             <div className="w-px h-8 bg-white/10" />
                             <button onClick={() => setIsMinimized(true)} className="p-4 rounded-2xl bg-white/5 text-white hover:bg-white/20 transition-colors">

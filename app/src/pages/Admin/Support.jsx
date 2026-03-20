@@ -4,6 +4,7 @@ import {
     CheckCircle,
     Clock,
     MessageSquare,
+    PhoneCall,
     RefreshCw,
     Send,
     ShieldAlert,
@@ -16,6 +17,7 @@ import { cn } from '@/lib/utils';
 import AdminPremiumShell from '@/components/shared/AdminPremiumShell';
 import PremiumSelect from '@/components/ui/premium-select';
 import { useSocket, useSocketDemand } from '@/context/SocketContext';
+import { useVideoCall } from '@/context/VideoCallContext';
 
 const TICKET_LIST_POLL_MS = 20000;
 const ACTIVE_TICKET_POLL_MS = 12000;
@@ -68,6 +70,7 @@ const appendUniqueMessage = (messages, incoming) => {
 export default function AdminSupport() {
     useSocketDemand('admin-support', true);
     const { socket, isConnected } = useSocket();
+    const { startCall, callStatus, activeCallContext } = useVideoCall();
     const [tickets, setTickets] = useState([]);
     const [loading, setLoading] = useState(true);
     const [activeTicketId, setActiveTicketId] = useState(null);
@@ -81,6 +84,7 @@ export default function AdminSupport() {
     const [resolutionDraft, setResolutionDraft] = useState('');
     const [userActionRequiredDraft, setUserActionRequiredDraft] = useState(false);
     const [updatingStatus, setUpdatingStatus] = useState(false);
+    const [startingLiveCall, setStartingLiveCall] = useState(false);
 
     const messagesEndRef = useRef(null);
 
@@ -288,6 +292,29 @@ export default function AdminSupport() {
     };
 
     const activeTicket = tickets.find((ticket) => String(ticket._id) === String(activeTicketId));
+    const isActiveSupportCall = activeCallContext?.channelType === 'support_ticket'
+        && String(activeCallContext?.contextId || '') === String(activeTicketId || '')
+        && ['calling', 'incoming', 'connected'].includes(callStatus);
+
+    const handleStartLiveCall = async () => {
+        if (!activeTicket?._id || !activeTicket?.user?._id || startingLiveCall) return;
+
+        try {
+            setStartingLiveCall(true);
+            const started = await startCall({
+                targetUserId: activeTicket.user._id,
+                channelType: 'support_ticket',
+                contextId: activeTicket._id,
+                supportTicketId: activeTicket._id,
+                contextLabel: `Aura Support live call for "${activeTicket.subject}"`,
+            });
+            if (!started) {
+                setError('Failed to start the live support call');
+            }
+        } finally {
+            setStartingLiveCall(false);
+        }
+    };
 
     const getStatusBadge = (status) => {
         switch (status) {
@@ -387,7 +414,8 @@ export default function AdminSupport() {
                     ) : activeTicket ? (
                         <>
                             <div className="border-b border-slate-200 bg-slate-50 p-4">
-                                <div className="flex items-center justify-between gap-4"><div className="min-w-0 flex-1 pr-4">
+                                <div className="flex items-start justify-between gap-4">
+                                    <div className="min-w-0 flex-1 pr-4">
                                     <h3 className="truncate text-lg font-bold text-slate-900">{activeTicket.subject}</h3>
                                     <div className="mt-1 flex items-center gap-3 font-mono text-xs text-slate-500">
                                         <span>User: {activeTicket.user?.email || activeTicket.user?.name}</span>
@@ -419,11 +447,30 @@ export default function AdminSupport() {
                                                 user action required
                                             </span>
                                         ) : null}
+                                        {activeTicket.liveCallRequested ? (
+                                            <span className="rounded-full border border-cyan-200 bg-cyan-50 px-2 py-0.5 text-cyan-700">
+                                                live call requested
+                                            </span>
+                                        ) : null}
+                                        {activeTicket.liveCallLastStatus === 'connected' || isActiveSupportCall ? (
+                                            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-emerald-700">
+                                                live call active
+                                            </span>
+                                        ) : null}
                                     </div>
                                 </div>
-                                <div className="flex shrink-0 items-center gap-2">
-                                    {getStatusBadge(activeTicket.status)}
-                                </div>
+                                    <div className="flex shrink-0 items-center gap-2">
+                                        {getStatusBadge(activeTicket.status)}
+                                        <button
+                                            type="button"
+                                            onClick={handleStartLiveCall}
+                                            disabled={startingLiveCall || activeTicket.status === 'closed' || !activeTicket.user?._id || isActiveSupportCall}
+                                            className="admin-premium-button"
+                                        >
+                                            {startingLiveCall ? <RefreshCw className="h-4 w-4 animate-spin" /> : <PhoneCall className="h-4 w-4" />}
+                                            {isActiveSupportCall ? 'Live now' : 'Start live call'}
+                                        </button>
+                                    </div>
                                 </div>
                                 {activeTicket.resolutionSummary ? (
                                     <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">
@@ -431,6 +478,39 @@ export default function AdminSupport() {
                                         <div>{activeTicket.resolutionSummary}</div>
                                     </div>
                                 ) : null}
+
+                                <div className={cn(
+                                    'mt-4 rounded-2xl border p-4 text-sm',
+                                    isActiveSupportCall || activeTicket.liveCallLastStatus === 'connected'
+                                        ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                                        : activeTicket.liveCallRequested
+                                            ? 'border-cyan-200 bg-cyan-50 text-cyan-700'
+                                            : 'border-slate-200 bg-white text-slate-600'
+                                )}>
+                                    <div className="flex items-center justify-between gap-3">
+                                        <div>
+                                            <div className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Live support lane</div>
+                                            <div className="mt-2 font-semibold text-slate-900">
+                                                {isActiveSupportCall
+                                                    ? 'A live support call is ringing or connected on this ticket.'
+                                                    : activeTicket.liveCallRequested
+                                                        ? 'Customer requested real-time support. Start the call when ready.'
+                                                        : activeTicket.liveCallLastStatus === 'ended' || activeTicket.liveCallLastStatus === 'missed'
+                                                            ? 'The last live call finished. Start another one if real-time handling is still needed.'
+                                                            : 'Escalate this ticket into a real-time video call when text support is too slow.'}
+                                            </div>
+                                        </div>
+                                        <div className="text-right text-xs text-slate-500">
+                                            {activeTicket.liveCallRequestedAt ? (
+                                                <div>Requested {new Date(activeTicket.liveCallRequestedAt).toLocaleString()}</div>
+                                            ) : activeTicket.liveCallEndedAt ? (
+                                                <div>Last ended {new Date(activeTicket.liveCallEndedAt).toLocaleString()}</div>
+                                            ) : (
+                                                <div>No live call yet</div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
 
                                 <div className="mt-4 grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 lg:grid-cols-[140px_minmax(0,1fr)_auto]">
                                     <PremiumSelect

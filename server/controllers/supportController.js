@@ -6,67 +6,18 @@ const logger = require('../utils/logger');
 const { sendMessageToAdmins, sendMessageToUser } = require('../services/socketService'); // Push via websockets
 const { sendPersistentNotification } = require('../services/notificationService');
 const { buildProfileSupportUrl } = require('../utils/frontendLinks');
+const {
+    loadAdminTicketView,
+    serializeTicketForAdmin,
+    serializeTicketForUser,
+} = require('../services/supportTicketViews');
+const { requestSupportTicketLiveCall } = require('../services/supportVideoService');
 
 const getPagination = (req) => {
     const page = Number(req.query.page) || 1;
     const limit = Number(req.query.limit) || 10;
     const skip = (page - 1) * limit;
     return { page, limit, skip };
-};
-
-const serializeTicketForAdmin = (ticket) => {
-    if (!ticket) return null;
-
-    return {
-        _id: String(ticket._id || ''),
-        status: String(ticket.status || 'open'),
-        subject: String(ticket.subject || ''),
-        category: String(ticket.category || ''),
-        priority: String(ticket.priority || 'normal'),
-        relatedActionId: String(ticket.relatedActionId || ''),
-        userActionRequired: Boolean(ticket.userActionRequired),
-        lastActorRole: String(ticket.lastActorRole || 'user'),
-        resolutionSummary: String(ticket.resolutionSummary || ''),
-        resolvedAt: ticket.resolvedAt || null,
-        resolvedBy: ticket.resolvedBy || null,
-        unreadByUser: Number(ticket.unreadByUser || 0),
-        unreadByAdmin: Number(ticket.unreadByAdmin || 0),
-        lastMessageAt: ticket.lastMessageAt || null,
-        lastMessagePreview: String(ticket.lastMessagePreview || ''),
-        createdAt: ticket.createdAt || null,
-        updatedAt: ticket.updatedAt || null,
-        user: ticket.user
-            ? {
-                _id: String(ticket.user._id || ''),
-                name: String(ticket.user.name || ''),
-                email: String(ticket.user.email || ''),
-                accountState: String(ticket.user.accountState || 'active'),
-            }
-            : null,
-    };
-};
-
-const serializeTicketForUser = (ticket) => {
-    if (!ticket) return null;
-
-    return {
-        _id: String(ticket._id || ''),
-        status: String(ticket.status || 'open'),
-        subject: String(ticket.subject || ''),
-        category: String(ticket.category || ''),
-        priority: String(ticket.priority || 'normal'),
-        relatedActionId: String(ticket.relatedActionId || ''),
-        userActionRequired: Boolean(ticket.userActionRequired),
-        lastActorRole: String(ticket.lastActorRole || 'user'),
-        resolutionSummary: String(ticket.resolutionSummary || ''),
-        resolvedAt: ticket.resolvedAt || null,
-        unreadByUser: Number(ticket.unreadByUser || 0),
-        unreadByAdmin: Number(ticket.unreadByAdmin || 0),
-        lastMessageAt: ticket.lastMessageAt || null,
-        lastMessagePreview: String(ticket.lastMessagePreview || ''),
-        createdAt: ticket.createdAt || null,
-        updatedAt: ticket.updatedAt || null,
-    };
 };
 
 const determineTicketPriority = ({ category = '', user = null } = {}) => {
@@ -118,13 +69,6 @@ const notifyUserAboutSupportEvent = async (userId, payload = {}) => {
             reason: error?.message || 'unknown',
         });
     }
-};
-
-const loadAdminTicketView = async (ticketId) => {
-    const ticket = await SupportTicket.findById(ticketId)
-        .populate('user', 'name email accountState')
-        .lean();
-    return serializeTicketForAdmin(ticket);
 };
 
 const emitAdminTicketUpdate = async ({ ticketId, eventName = 'support:ticket:update', message = null }) => {
@@ -195,6 +139,91 @@ const createSupportTicket = asyncHandler(async (req, res, next) => {
     res.status(201).json({
         success: true,
         data: serializeTicketForUser(ticket.toObject()),
+    });
+});
+
+// @desc    Request a live support call on an existing ticket
+// @route   POST /api/support/:id/video/request
+// @access  Protected (Active + Suspended + Admins)
+const requestSupportLiveCall = asyncHandler(async (req, res, next) => {
+    const ticket = await SupportTicket.findById(req.params.id);
+
+    if (!ticket) {
+        return next(new AppError('Support ticket not found', 404));
+    }
+
+    const isAdmin = Boolean(req.user.isAdmin);
+    if (!isAdmin && String(ticket.user) !== String(req.user._id)) {
+        return next(new AppError('Unauthorized access to ticket', 403));
+    }
+
+    if (ticket.status === 'closed') {
+        return next(new AppError('Closed tickets cannot request live support calls', 400));
+    }
+
+    const note = String(req.body?.note || '').trim();
+    const { ticket: updatedTicket, message } = await requestSupportTicketLiveCall({
+        ticketId: ticket._id,
+        requesterUserId: req.user._id,
+        requesterRole: isAdmin ? 'admin' : 'user',
+        note,
+    });
+
+    await emitAdminTicketUpdate({
+        ticketId: updatedTicket._id,
+        eventName: 'support:message:new',
+        message,
+    });
+
+    if (!isAdmin) {
+        sendMessageToAdmins('support:ticket:video_requested', {
+            ticketId: String(updatedTicket._id),
+            ticket: await loadAdminTicketView(updatedTicket._id),
+            message,
+        });
+    } else {
+        try {
+            sendMessageToUser(updatedTicket.user, 'support:ticket:update', {
+                ticketId: String(updatedTicket._id),
+                ticket: serializeTicketForUser(updatedTicket.toObject()),
+            });
+            if (message) {
+                sendMessageToUser(updatedTicket.user, 'support:message:new', {
+                    ticketId: String(updatedTicket._id),
+                    message,
+                    ticket: serializeTicketForUser(updatedTicket.toObject()),
+                });
+            }
+        } catch (error) {
+            logger.warn('support.user_realtime_emit_failed', {
+                ticketId: String(updatedTicket._id),
+                reason: error?.message || 'unknown',
+            });
+        }
+    }
+
+    if (isAdmin) {
+        await notifyUserAboutSupportEvent(updatedTicket.user, buildSupportNotificationPayload({
+            ticket: updatedTicket,
+            title: 'Aura Support requested a live call',
+            message: `Aura Support requested a live support call for "${updatedTicket.subject}".`,
+            actionLabel: 'Open support thread',
+            priority: updatedTicket.priority === 'urgent' ? 'high' : 'medium',
+            metadata: {
+                liveCallRequested: true,
+                liveCallRequestedByRole: 'admin',
+            },
+        }));
+    }
+
+    res.status(201).json({
+        success: true,
+        data: isAdmin
+            ? serializeTicketForAdmin(updatedTicket.toObject())
+            : serializeTicketForUser(updatedTicket.toObject()),
+        meta: {
+            liveCallRequested: true,
+        },
     });
 });
 
@@ -478,6 +507,7 @@ module.exports = {
     getSupportTickets,
     getSupportTicketMessages,
     sendSupportMessage,
+    requestSupportLiveCall,
     addSystemLogToTicket,
     adminGetTickets,
     adminUpdateTicketStatus
