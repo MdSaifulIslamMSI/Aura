@@ -56,6 +56,19 @@ const NotificationDropdown = ({ isCompact = false, isOpen: controlledIsOpen, onO
         }
     };
 
+    const getPriorityBadge = (priority) => {
+        switch (priority) {
+            case 'critical':
+                return 'bg-rose-500/12 text-rose-200 border-rose-400/25';
+            case 'high':
+                return 'bg-amber-500/12 text-amber-100 border-amber-300/20';
+            case 'low':
+                return 'bg-slate-500/10 text-slate-300 border-slate-400/15';
+            default:
+                return 'bg-cyan-500/12 text-cyan-100 border-cyan-300/20';
+        }
+    };
+
     return (
         <div className="relative" ref={dropdownRef}>
             <button
@@ -154,15 +167,25 @@ const NotificationDropdown = ({ isCompact = false, isOpen: controlledIsOpen, onO
                                         </div>
                                         <div className="min-w-0 flex-1">
                                             <div className="flex items-center justify-between gap-2">
-                                                <p className={cn(
-                                                    "truncate text-sm font-semibold",
-                                                    !notification.isRead ? "text-white" : "text-slate-300"
-                                                )}>
-                                                    {notification.title}
-                                                </p>
-                                                {!notification.isRead && (
-                                                    <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-neo-cyan" />
-                                                )}
+                                                <div className="min-w-0 flex-1">
+                                                    <p className={cn(
+                                                        "truncate text-sm font-semibold",
+                                                        !notification.isRead ? "text-white" : "text-slate-300"
+                                                    )}>
+                                                        {notification.title}
+                                                    </p>
+                                                </div>
+                                                <div className="flex shrink-0 items-center gap-2">
+                                                    <span className={cn(
+                                                        'rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.18em]',
+                                                        getPriorityBadge(notification.priority)
+                                                    )}>
+                                                        {notification.priority || 'medium'}
+                                                    </span>
+                                                    {!notification.isRead && (
+                                                        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-neo-cyan" />
+                                                    )}
+                                                </div>
                                             </div>
                                             <p className="mt-0.5 line-clamp-2 text-xs text-slate-400">
                                                 {notification.message}
@@ -171,7 +194,7 @@ const NotificationDropdown = ({ isCompact = false, isOpen: controlledIsOpen, onO
                                                 <span>{new Date(notification.createdAt).toLocaleString()}</span>
                                                 {notification.actionUrl && (
                                                     <span className="flex items-center gap-1 text-neo-cyan opacity-0 transition-opacity group-hover:opacity-100">
-                                                        View details <ExternalLink className="h-2.5 w-2.5" />
+                                                        {notification.actionLabel || 'View details'} <ExternalLink className="h-2.5 w-2.5" />
                                                     </span>
                                                 )}
                                             </div>
@@ -184,7 +207,7 @@ const NotificationDropdown = ({ isCompact = false, isOpen: controlledIsOpen, onO
                     {notifications.length > 0 && (
                         <div className="border-t border-white/5 bg-white/[0.01] p-2 text-center">
                             <Link
-                                to="/profile"
+                                to="/profile?tab=notifications"
                                 onClick={() => setIsOpen(false)}
                                 className="inline-block px-4 py-1 flex items-center justify-center text-xs font-semibold text-slate-400 hover:text-white transition-colors"
                             >

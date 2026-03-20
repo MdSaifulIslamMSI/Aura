@@ -30,9 +30,12 @@ export const supportApi = {
         const { data } = await apiFetch(`/support/admin/all`, { headers, params });
         return data;
     },
-    adminUpdateStatus: async (ticketId, status) => {
+    adminUpdateStatus: async (ticketId, statusOrPayload) => {
         const headers = await getAuthHeader();
-        const { data } = await apiFetch(`/support/${ticketId}/status`, { method: 'PATCH', headers, body: JSON.stringify({ status }) });
+        const payload = typeof statusOrPayload === 'string'
+            ? { status: statusOrPayload }
+            : statusOrPayload;
+        const { data } = await apiFetch(`/support/${ticketId}/status`, { method: 'PATCH', headers, body: JSON.stringify(payload) });
         return data;
     },
 };

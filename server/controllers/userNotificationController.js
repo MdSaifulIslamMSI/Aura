@@ -52,7 +52,7 @@ exports.markAsRead = async (req, res, next) => {
 
         await UserNotification.updateMany(
             { _id: { $in: notificationIds }, user: req.user._id },
-            { $set: { isRead: true } }
+            { $set: { isRead: true, readAt: new Date() } }
         );
 
         res.status(200).json({
@@ -71,7 +71,7 @@ exports.markAllAsRead = async (req, res, next) => {
     try {
         await UserNotification.updateMany(
             { user: req.user._id, isRead: false },
-            { $set: { isRead: true } }
+            { $set: { isRead: true, readAt: new Date() } }
         );
 
         res.status(200).json({
