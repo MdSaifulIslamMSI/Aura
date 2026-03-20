@@ -23,6 +23,12 @@ export const supportApi = {
         const { data } = await apiFetch(`/support/${ticketId}/messages`, { method: 'POST', headers, body: JSON.stringify({ message }) });
         return data;
     },
+    requestVideoCall: async (ticketId, note = '') => {
+        const headers = await getAuthHeader();
+        const body = note ? { note } : {};
+        const { data } = await apiFetch(`/support/${ticketId}/video/request`, { method: 'POST', headers, body: JSON.stringify(body) });
+        return data;
+    },
 
     // Admin endpoints
     adminGetTickets: async (params) => {

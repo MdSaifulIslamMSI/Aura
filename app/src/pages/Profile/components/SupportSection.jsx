@@ -5,6 +5,7 @@ import {
     Clock3,
     LifeBuoy,
     MessageSquare,
+    PhoneCall,
     Plus,
     RefreshCw,
     Send,
@@ -18,6 +19,7 @@ import {
 import { supportApi } from '@/services/api';
 import { cn } from '@/lib/utils';
 import { useSocket, useSocketDemand } from '@/context/SocketContext';
+import { useVideoCall } from '@/context/VideoCallContext';
 
 const TICKET_LIST_POLL_MS = 25000;
 const ACTIVE_TICKET_POLL_MS = 15000;
@@ -163,6 +165,7 @@ export default function SupportSection({
 }) {
     useSocketDemand('profile-support', true);
     const { socket, isConnected } = useSocket();
+    const { callStatus, activeCallContext } = useVideoCall();
 
     const [tickets, setTickets] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -174,6 +177,7 @@ export default function SupportSection({
     const [newMessage, setNewMessage] = useState('');
     const [sending, setSending] = useState(false);
     const [creatingTicket, setCreatingTicket] = useState(false);
+    const [requestingLiveCall, setRequestingLiveCall] = useState(false);
     const [error, setError] = useState('');
 
     const messagesEndRef = useRef(null);
@@ -416,8 +420,30 @@ export default function SupportSection({
         }
     };
 
+    const handleRequestLiveCall = async () => {
+        if (!activeTicketId || requestingLiveCall) return;
+
+        try {
+            setRequestingLiveCall(true);
+            const res = await supportApi.requestVideoCall(activeTicketId);
+            const updatedTicket = normalizeTicket(res?.data);
+            if (updatedTicket?._id) {
+                setTickets((previous) => upsertTicket(previous, updatedTicket));
+            }
+            await fetchMessages(activeTicketId, { silent: true });
+            setError('');
+        } catch (err) {
+            setError(err.message || 'Failed to request a live support call');
+        } finally {
+            setRequestingLiveCall(false);
+        }
+    };
+
     const activeTicket = tickets.find((ticket) => String(ticket._id) === String(activeTicketId));
     const activeCategory = CATEGORY_MAP.get(activeTicket?.category || form.category || 'general_support');
+    const isActiveSupportCall = activeCallContext?.channelType === 'support_ticket'
+        && String(activeCallContext?.contextId || '') === String(activeTicketId || '')
+        && ['calling', 'incoming', 'connected'].includes(callStatus);
 
     return (
         <div className="grid gap-6 xl:grid-cols-[22rem_minmax(0,1fr)]">
@@ -731,6 +757,49 @@ export default function SupportSection({
                                     </div>
                                 )}
 
+                                <div className={cn(
+                                    'rounded-[1.5rem] border px-4 py-4 text-sm',
+                                    activeTicket.liveCallLastStatus === 'connected' || isActiveSupportCall
+                                        ? 'border-emerald-300/20 bg-emerald-500/12 text-emerald-100'
+                                        : activeTicket.liveCallRequested
+                                            ? 'border-cyan-300/20 bg-cyan-500/12 text-cyan-100'
+                                            : 'border-white/10 bg-white/[0.03] text-slate-300'
+                                )}>
+                                    <div className="flex items-center justify-between gap-3">
+                                        <div>
+                                            <div className="flex items-center gap-2 font-black text-white">
+                                                <PhoneCall className="h-4 w-4 text-cyan-200" />
+                                                Live support line
+                                            </div>
+                                            <p className="mt-2 text-sm">
+                                                {isActiveSupportCall
+                                                    ? 'Aura Support is actively ringing or connected on this ticket.'
+                                                    : activeTicket.liveCallRequested
+                                                        ? 'Your live support call request is queued for the admin team.'
+                                                        : activeTicket.liveCallLastStatus === 'ended' || activeTicket.liveCallLastStatus === 'missed'
+                                                            ? 'You can request another live support call if the issue still needs real-time help.'
+                                                            : 'Escalate this ticket into a real-time video call when text support is too slow.'}
+                                            </p>
+                                            {activeTicket.liveCallRequestedAt || activeTicket.liveCallEndedAt ? (
+                                                <p className="mt-2 text-xs uppercase tracking-[0.2em] text-white/50">
+                                                    {activeTicket.liveCallRequestedAt
+                                                        ? `Requested ${new Date(activeTicket.liveCallRequestedAt).toLocaleString()}`
+                                                        : `Last call ${new Date(activeTicket.liveCallEndedAt).toLocaleString()}`}
+                                                </p>
+                                            ) : null}
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={handleRequestLiveCall}
+                                            disabled={requestingLiveCall || activeTicket.status === 'closed' || activeTicket.liveCallRequested || isActiveSupportCall}
+                                            className="inline-flex items-center gap-2 rounded-2xl border border-cyan-300/20 bg-cyan-400/12 px-4 py-3 text-sm font-black text-cyan-100 transition-colors hover:bg-cyan-400/18 disabled:cursor-not-allowed disabled:opacity-55"
+                                        >
+                                            {requestingLiveCall ? <RefreshCw className="h-4 w-4 animate-spin" /> : <PhoneCall className="h-4 w-4" />}
+                                            {activeTicket.liveCallRequested ? 'Requested' : isActiveSupportCall ? 'Live now' : 'Request live call'}
+                                        </button>
+                                    </div>
+                                </div>
+
                                 {activeTicket.resolutionSummary ? (
                                     <div className="rounded-[1.5rem] border border-emerald-300/20 bg-emerald-500/12 px-4 py-4 text-sm text-emerald-100">
                                         <div className="flex items-center gap-2 font-black text-emerald-50">
@@ -803,20 +872,31 @@ export default function SupportSection({
 
                         {activeTicket.status !== 'closed' ? (
                             <form onSubmit={handleSendMessage} className="border-t border-white/10 bg-white/[0.02] px-6 py-4">
-                                <div className="relative flex gap-3">
-                                    <input
-                                        type="text"
-                                        value={newMessage}
-                                        onChange={(event) => setNewMessage(event.target.value)}
-                                        placeholder={activeTicket.userActionRequired ? 'Reply to support and keep the action moving...' : 'Add a reply or clarification...'}
-                                        className="flex-1 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 pr-14 text-sm text-white outline-none transition-colors focus:border-cyan-300/30"
-                                    />
+                                <div className="flex flex-col gap-3 sm:flex-row">
+                                    <div className="relative flex-1">
+                                        <input
+                                            type="text"
+                                            value={newMessage}
+                                            onChange={(event) => setNewMessage(event.target.value)}
+                                            placeholder={activeTicket.userActionRequired ? 'Reply to support and keep the action moving...' : 'Add a reply or clarification...'}
+                                            className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 pr-14 text-sm text-white outline-none transition-colors focus:border-cyan-300/30"
+                                        />
+                                        <button
+                                            type="submit"
+                                            disabled={!newMessage.trim() || sending}
+                                            className="absolute bottom-2 right-2 top-2 flex aspect-square items-center justify-center rounded-xl bg-cyan-400/18 text-cyan-100 transition-colors hover:bg-cyan-400/25 disabled:opacity-60"
+                                        >
+                                            {sending ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                                        </button>
+                                    </div>
                                     <button
-                                        type="submit"
-                                        disabled={!newMessage.trim() || sending}
-                                        className="absolute bottom-2 right-2 top-2 flex aspect-square items-center justify-center rounded-xl bg-cyan-400/18 text-cyan-100 transition-colors hover:bg-cyan-400/25 disabled:opacity-60"
+                                        type="button"
+                                        onClick={handleRequestLiveCall}
+                                        disabled={requestingLiveCall || activeTicket.liveCallRequested || isActiveSupportCall}
+                                        className="inline-flex items-center justify-center gap-2 rounded-2xl border border-cyan-300/20 bg-cyan-400/12 px-4 py-3 text-sm font-black text-cyan-100 transition-colors hover:bg-cyan-400/18 disabled:opacity-55"
                                     >
-                                        {sending ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                                        {requestingLiveCall ? <RefreshCw className="h-4 w-4 animate-spin" /> : <PhoneCall className="h-4 w-4" />}
+                                        {activeTicket.liveCallRequested ? 'Live call queued' : isActiveSupportCall ? 'Live call active' : 'Escalate to live call'}
                                     </button>
                                 </div>
                             </form>

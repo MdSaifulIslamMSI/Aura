@@ -10,10 +10,28 @@ const videoCallSessionSchema = new mongoose.Schema({
         index: true,
         trim: true,
     },
+    channelType: {
+        type: String,
+        enum: ['listing', 'support_ticket'],
+        default: 'listing',
+        index: true,
+    },
+    channelRef: {
+        type: String,
+        required: true,
+        index: true,
+        trim: true,
+    },
     listing: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Listing',
-        required: true,
+        default: null,
+        index: true,
+    },
+    supportTicket: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'SupportTicket',
+        default: null,
         index: true,
     },
     participants: [{
@@ -73,7 +91,26 @@ const videoCallSessionSchema = new mongoose.Schema({
     timestamps: true,
 });
 
+videoCallSessionSchema.pre('validate', function populateChannelReference(next) {
+    if (this.channelType === 'support_ticket') {
+        if (!this.supportTicket) {
+            this.invalidate('supportTicket', 'Support ticket is required for support call sessions');
+        }
+        this.channelRef = String(this.supportTicket || '');
+        this.listing = null;
+    } else {
+        if (!this.listing) {
+            this.invalidate('listing', 'Listing is required for listing call sessions');
+        }
+        this.channelType = 'listing';
+        this.channelRef = String(this.listing || '');
+        this.supportTicket = null;
+    }
+    next();
+});
+
 videoCallSessionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 videoCallSessionSchema.index({ listing: 1, status: 1, lastEventAt: -1 });
+videoCallSessionSchema.index({ channelType: 1, channelRef: 1, status: 1, lastEventAt: -1 });
 
 module.exports = mongoose.model('VideoCallSession', videoCallSessionSchema);
