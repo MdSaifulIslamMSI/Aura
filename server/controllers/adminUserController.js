@@ -11,7 +11,12 @@ const logger = require('../utils/logger');
 const { notifyAdminActionToUser } = require('../services/email/adminActionEmailService');
 const { sendMessageToUser } = require('../services/socketService');
 const { sendPersistentNotification } = require('../services/notificationService');
+const { flags: emailFlags } = require('../config/emailFlags');
 const { buildProfileSupportUrl } = require('../utils/frontendLinks');
+const {
+    createGovernanceAppealTicket,
+    resolveLatestGovernanceAppealTicket,
+} = require('../services/governanceSupportService');
 
 const USER_ADMIN_PROJECTION = `
 name email phone avatar isAdmin isVerified isSeller sellerActivatedAt
@@ -126,6 +131,36 @@ const safeNotifyAdminActionToUser = async (payload = {}) => {
     }
 };
 
+const safeCreateGovernanceAppealTicket = async (payload = {}) => {
+    try {
+        return await createGovernanceAppealTicket(payload);
+    } catch (error) {
+        logger.warn('admin.user_governance_ticket_skipped', {
+            requestId: payload?.requestId || '',
+            targetUserId: String(payload?.targetUser?._id || ''),
+            actorUserId: String(payload?.actorUser?._id || ''),
+            actionType: payload?.actionType || '',
+            reason: error?.message || 'unknown',
+        });
+        return null;
+    }
+};
+
+const safeResolveGovernanceAppealTicket = async (payload = {}) => {
+    try {
+        return await resolveLatestGovernanceAppealTicket(payload);
+    } catch (error) {
+        logger.warn('admin.user_governance_ticket_resolution_skipped', {
+            requestId: payload?.requestId || '',
+            targetUserId: String(payload?.targetUser?._id || ''),
+            actorUserId: String(payload?.actorUser?._id || ''),
+            resolutionType: payload?.resolutionType || '',
+            reason: error?.message || 'unknown',
+        });
+        return null;
+    }
+};
+
 const buildGovernanceSupportAction = ({ actionId = '', subject = '' } = {}) => ({
     actionUrl: buildProfileSupportUrl({
         compose: true,
@@ -136,6 +171,36 @@ const buildGovernanceSupportAction = ({ actionId = '', subject = '' } = {}) => (
     }),
     actionLabel: 'Open appeal',
 });
+
+const buildTicketSupportAction = ({ ticketId = '' } = {}) => ({
+    actionUrl: buildProfileSupportUrl({
+        ticketId,
+        intent: 'governance',
+    }),
+    actionLabel: 'Open case',
+});
+
+const buildDeletedAccountRecoveryMailto = ({ actionId = '', subject = '' } = {}) => {
+    const inbox = String(emailFlags.orderEmailReplyTo || emailFlags.orderEmailFromAddress || '').trim();
+    if (!inbox) return null;
+
+    const params = new URLSearchParams();
+    params.set('subject', sanitizeReason(subject, 'Account recovery request'));
+    params.set(
+        'body',
+        [
+            'Hello Aura support,',
+            '',
+            `I need a review for an account disablement${actionId ? ` (action ${actionId})` : ''}.`,
+            'Please advise on the next steps.',
+        ].join('\n'),
+    );
+
+    return {
+        actionUrl: `mailto:${inbox}?${params.toString()}`,
+        actionLabel: 'Email support',
+    };
+};
 
 const safeCountDocuments = async ({
     model,
@@ -362,6 +427,14 @@ const warnAdminUser = asyncHandler(async (req, res, next) => {
         },
         requestId: req.requestId,
     });
+    const appealTicket = await safeCreateGovernanceAppealTicket({
+        targetUser,
+        actorUser: req.user,
+        actionType: 'warn',
+        actionId: logEntry?.actionId || '',
+        reason,
+        requestId: req.requestId,
+    });
 
     invalidateUserCacheByEmail(targetUser.email);
     await safeNotifyAdminActionToUser({
@@ -380,6 +453,10 @@ const warnAdminUser = asyncHandler(async (req, res, next) => {
         path: req.originalUrl,
         ip: req.ip,
         userAgent: req.headers['user-agent'],
+        ...(appealTicket?._id ? buildTicketSupportAction({ ticketId: appealTicket._id }) : buildGovernanceSupportAction({
+            actionId: logEntry?.actionId || '',
+            subject: 'Appeal account warning',
+        })),
     });
 
     try {
@@ -392,11 +469,12 @@ const warnAdminUser = asyncHandler(async (req, res, next) => {
                 actionType: 'warn',
                 actionId: logEntry?.actionId || '',
                 accountState: targetUser.accountState,
+                supportTicketId: String(appealTicket?._id || ''),
             },
-            ...buildGovernanceSupportAction({
+            ...(appealTicket?._id ? buildTicketSupportAction({ ticketId: appealTicket._id }) : buildGovernanceSupportAction({
                 actionId: logEntry?.actionId || '',
                 subject: 'Appeal account warning',
-            }),
+            })),
         });
     } catch (e) { }
 
@@ -404,6 +482,12 @@ const warnAdminUser = asyncHandler(async (req, res, next) => {
         success: true,
         message: 'User warning issued successfully',
         user: formatAdminUser(targetUser.toObject()),
+        workflow: {
+            supportTicketId: String(appealTicket?._id || ''),
+            userExperience: appealTicket?._id
+                ? 'User receives a warning plus a live moderation appeal case.'
+                : 'User receives a warning and can open an appeal from support compose.',
+        },
     });
 });
 
@@ -451,6 +535,14 @@ const suspendAdminUser = asyncHandler(async (req, res, next) => {
         },
         requestId: req.requestId,
     });
+    const appealTicket = await safeCreateGovernanceAppealTicket({
+        targetUser,
+        actorUser: req.user,
+        actionType: 'suspend',
+        actionId: logEntry?.actionId || '',
+        reason,
+        requestId: req.requestId,
+    });
 
     invalidateUserCacheByEmail(targetUser.email);
     await safeNotifyAdminActionToUser({
@@ -469,6 +561,10 @@ const suspendAdminUser = asyncHandler(async (req, res, next) => {
         path: req.originalUrl,
         ip: req.ip,
         userAgent: req.headers['user-agent'],
+        ...(appealTicket?._id ? buildTicketSupportAction({ ticketId: appealTicket._id }) : buildGovernanceSupportAction({
+            actionId: logEntry?.actionId || '',
+            subject: 'Appeal account suspension',
+        })),
     });
 
     try {
@@ -482,11 +578,12 @@ const suspendAdminUser = asyncHandler(async (req, res, next) => {
                 actionId: logEntry?.actionId || '',
                 accountState: targetUser.accountState,
                 suspendedUntil: suspendedUntil.toISOString(),
+                supportTicketId: String(appealTicket?._id || ''),
             },
-            ...buildGovernanceSupportAction({
+            ...(appealTicket?._id ? buildTicketSupportAction({ ticketId: appealTicket._id }) : buildGovernanceSupportAction({
                 actionId: logEntry?.actionId || '',
                 subject: 'Appeal account suspension',
-            }),
+            })),
         });
     } catch (e) { }
 
@@ -494,6 +591,12 @@ const suspendAdminUser = asyncHandler(async (req, res, next) => {
         success: true,
         message: 'User suspended successfully',
         user: formatAdminUser(targetUser.toObject()),
+        workflow: {
+            supportTicketId: String(appealTicket?._id || ''),
+            userExperience: appealTicket?._id
+                ? 'User loses access-sensitive capabilities, active seller listings are disabled, and a priority appeal case opens immediately.'
+                : 'User is suspended and can appeal from the support compose path.',
+        },
     });
 });
 
@@ -525,6 +628,13 @@ const dismissAdminUserWarning = asyncHandler(async (req, res, next) => {
         metadata: { accountState: targetUser.accountState },
         requestId: req.requestId,
     });
+    const resolvedTicket = await safeResolveGovernanceAppealTicket({
+        targetUser,
+        actorUser: req.user,
+        resolutionType: 'dismiss_warning',
+        reason,
+        requestId: req.requestId,
+    });
 
     invalidateUserCacheByEmail(targetUser.email);
     await safeNotifyAdminActionToUser({
@@ -542,6 +652,10 @@ const dismissAdminUserWarning = asyncHandler(async (req, res, next) => {
         path: req.originalUrl,
         ip: req.ip,
         userAgent: req.headers['user-agent'],
+        ...(resolvedTicket?._id ? buildTicketSupportAction({ ticketId: resolvedTicket._id }) : {
+            actionUrl: '/profile?tab=notifications',
+            actionLabel: 'Review update',
+        }),
     });
 
     try {
@@ -554,9 +668,12 @@ const dismissAdminUserWarning = asyncHandler(async (req, res, next) => {
                 actionType: 'dismiss_warning',
                 actionId: logEntry?.actionId || '',
                 accountState: targetUser.accountState,
+                supportTicketId: String(resolvedTicket?._id || ''),
             },
-            actionUrl: '/profile?tab=notifications',
-            actionLabel: 'Review update',
+            ...(resolvedTicket?._id ? buildTicketSupportAction({ ticketId: resolvedTicket._id }) : {
+                actionUrl: '/profile?tab=notifications',
+                actionLabel: 'Review update',
+            }),
         });
     } catch (e) { }
 
@@ -564,6 +681,12 @@ const dismissAdminUserWarning = asyncHandler(async (req, res, next) => {
         success: true,
         message: 'User warning dismissed',
         user: formatAdminUser(targetUser.toObject()),
+        workflow: {
+            supportTicketId: String(resolvedTicket?._id || ''),
+            userExperience: resolvedTicket?._id
+                ? 'The prior warning case is marked resolved and the user sees a clean resolution trail.'
+                : 'The warning is cleared and the user receives the resolution update.',
+        },
     });
 });
 
@@ -597,6 +720,13 @@ const reactivateAdminUser = asyncHandler(async (req, res, next) => {
         metadata: { accountState: targetUser.accountState },
         requestId: req.requestId,
     });
+    const resolvedTicket = await safeResolveGovernanceAppealTicket({
+        targetUser,
+        actorUser: req.user,
+        resolutionType: 'reactivate',
+        reason,
+        requestId: req.requestId,
+    });
 
     invalidateUserCacheByEmail(targetUser.email);
     await safeNotifyAdminActionToUser({
@@ -614,6 +744,10 @@ const reactivateAdminUser = asyncHandler(async (req, res, next) => {
         path: req.originalUrl,
         ip: req.ip,
         userAgent: req.headers['user-agent'],
+        ...(resolvedTicket?._id ? buildTicketSupportAction({ ticketId: resolvedTicket._id }) : {
+            actionUrl: '/profile?tab=notifications',
+            actionLabel: 'Review update',
+        }),
     });
 
     try {
@@ -626,9 +760,12 @@ const reactivateAdminUser = asyncHandler(async (req, res, next) => {
                 actionType: 'reactivate',
                 actionId: logEntry?.actionId || '',
                 accountState: targetUser.accountState,
+                supportTicketId: String(resolvedTicket?._id || ''),
             },
-            actionUrl: '/profile?tab=notifications',
-            actionLabel: 'Review update',
+            ...(resolvedTicket?._id ? buildTicketSupportAction({ ticketId: resolvedTicket._id }) : {
+                actionUrl: '/profile?tab=notifications',
+                actionLabel: 'Review update',
+            }),
         });
     } catch (e) { }
 
@@ -636,6 +773,12 @@ const reactivateAdminUser = asyncHandler(async (req, res, next) => {
         success: true,
         message: 'User account reactivated',
         user: formatAdminUser(targetUser.toObject()),
+        workflow: {
+            supportTicketId: String(resolvedTicket?._id || ''),
+            userExperience: resolvedTicket?._id
+                ? 'The suspension case is resolved, the user regains access, and the outcome stays attached to the moderation thread.'
+                : 'The suspension is lifted and the user receives the restoration update.',
+        },
     });
 });
 
@@ -705,6 +848,18 @@ const deleteAdminUser = asyncHandler(async (req, res, next) => {
         },
         requestId: req.requestId,
     });
+    const recoveryTicket = await safeCreateGovernanceAppealTicket({
+        targetUser,
+        actorUser: req.user,
+        actionType: 'delete',
+        actionId: logEntry?.actionId || '',
+        reason,
+        requestId: req.requestId,
+    });
+    const recoveryAction = buildDeletedAccountRecoveryMailto({
+        actionId: logEntry?.actionId || '',
+        subject: 'Appeal account disablement',
+    });
 
     invalidateUserCacheByEmail(targetUser.email);
     await safeNotifyAdminActionToUser({
@@ -723,6 +878,7 @@ const deleteAdminUser = asyncHandler(async (req, res, next) => {
         path: req.originalUrl,
         ip: req.ip,
         userAgent: req.headers['user-agent'],
+        ...(recoveryAction || {}),
     });
 
     try {
@@ -735,11 +891,9 @@ const deleteAdminUser = asyncHandler(async (req, res, next) => {
                 actionType: 'delete',
                 actionId: logEntry?.actionId || '',
                 accountState: targetUser.accountState,
+                supportTicketId: String(recoveryTicket?._id || ''),
             },
-            ...buildGovernanceSupportAction({
-                actionId: logEntry?.actionId || '',
-                subject: 'Appeal account disablement',
-            }),
+            ...(recoveryAction || {}),
         });
     } catch (e) { }
 
@@ -755,6 +909,12 @@ const deleteAdminUser = asyncHandler(async (req, res, next) => {
         success: true,
         message: 'User soft-deleted successfully',
         user: formatAdminUser(targetUser.toObject()),
+        workflow: {
+            supportTicketId: String(recoveryTicket?._id || ''),
+            userExperience: recoveryAction
+                ? 'The account is disabled immediately, seller activity is shut down, and the user is directed to dedicated recovery support by email.'
+                : 'The account is disabled immediately and the recovery trail stays on the internal moderation case.',
+        },
     });
 });
 

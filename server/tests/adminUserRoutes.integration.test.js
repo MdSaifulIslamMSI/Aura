@@ -49,6 +49,11 @@ jest.mock('../services/notificationService', () => ({
     sendPersistentNotification: jest.fn(),
 }));
 
+jest.mock('../services/governanceSupportService', () => ({
+    createGovernanceAppealTicket: jest.fn(),
+    resolveLatestGovernanceAppealTicket: jest.fn(),
+}));
+
 jest.mock('../utils/logger', () => ({
     warn: jest.fn(),
     error: jest.fn(),
@@ -65,6 +70,10 @@ const Order = require('../models/Order');
 const Listing = require('../models/Listing');
 const PaymentIntent = require('../models/PaymentIntent');
 const UserGovernanceLog = require('../models/UserGovernanceLog');
+const {
+    createGovernanceAppealTicket,
+    resolveLatestGovernanceAppealTicket,
+} = require('../services/governanceSupportService');
 
 const makeUserDoc = (overrides = {}) => ({
     _id: '69aa00000000000000000001',
@@ -143,6 +152,8 @@ describe('Admin user routes integration', () => {
         app = buildTestApp();
         UserGovernanceLog.create.mockResolvedValue({ actionId: 'ugl_1' });
         UserGovernanceLog.find.mockReturnValue(makeGovernanceLogChain([]));
+        createGovernanceAppealTicket.mockResolvedValue(null);
+        resolveLatestGovernanceAppealTicket.mockResolvedValue(null);
         Listing.updateMany.mockResolvedValue({ modifiedCount: 2 });
         Order.updateMany.mockResolvedValue({ modifiedCount: 1 });
         Order.countDocuments.mockResolvedValue(0);

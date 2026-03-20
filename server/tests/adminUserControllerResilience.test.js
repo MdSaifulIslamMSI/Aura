@@ -28,6 +28,11 @@ jest.mock('../services/email/adminActionEmailService', () => ({
     notifyAdminActionToUser: jest.fn(),
 }));
 
+jest.mock('../services/governanceSupportService', () => ({
+    createGovernanceAppealTicket: jest.fn(),
+    resolveLatestGovernanceAppealTicket: jest.fn(),
+}));
+
 jest.mock('../middleware/authMiddleware', () => ({
     invalidateUserCacheByEmail: jest.fn(),
 }));
@@ -45,6 +50,10 @@ const Listing = require('../models/Listing');
 const PaymentIntent = require('../models/PaymentIntent');
 const UserGovernanceLog = require('../models/UserGovernanceLog');
 const logger = require('../utils/logger');
+const {
+    createGovernanceAppealTicket,
+    resolveLatestGovernanceAppealTicket,
+} = require('../services/governanceSupportService');
 
 const {
     listAdminUsers,
@@ -144,6 +153,8 @@ describe('Admin user controller resilience', () => {
     beforeEach(() => {
         jest.clearAllMocks();
         UserGovernanceLog.create.mockResolvedValue({ actionId: 'ugl_1' });
+        createGovernanceAppealTicket.mockResolvedValue(null);
+        resolveLatestGovernanceAppealTicket.mockResolvedValue(null);
         Listing.updateMany.mockResolvedValue({ modifiedCount: 2 });
         Order.updateMany.mockResolvedValue({ modifiedCount: 3 });
     });
