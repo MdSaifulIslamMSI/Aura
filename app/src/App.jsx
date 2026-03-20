@@ -114,6 +114,7 @@ function AppContent() {
   const location = useLocation();
   const { effectiveMotionMode } = useMotionMode();
   const pathname = location.pathname;
+  const routeRenderKey = `${location.pathname}${location.search}${location.hash}`;
   const [chatBotReady, setChatBotReady] = useState(false);
 
   const showAmbientChrome = useMemo(
@@ -195,6 +196,7 @@ function AppContent() {
       </AppErrorBoundary>
       <main id="main-content" className="relative z-10 flex-1" role="main" aria-label="Main content">
         <Suspense
+          key={routeRenderKey}
           fallback={(
             <div className="flex h-[80vh] items-center justify-center">
               <div className="w-12 h-12 border-4 border-flipkart-blue border-t-transparent rounded-full animate-spin" />
