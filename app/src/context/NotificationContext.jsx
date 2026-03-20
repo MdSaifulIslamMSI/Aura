@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useEffect } from 'react';
 import { notificationApi } from '../services/api';
 import { useSocket } from './SocketContext';
 import { useAuth } from './AuthContext';
-import { toast } from 'react-hot-toast';
+import { toast } from 'sonner';
 
 const DEFAULT_NOTIFICATION_CONTEXT = {
     notifications: [],
