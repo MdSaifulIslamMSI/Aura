@@ -2,13 +2,14 @@ import { useState, useRef, useEffect } from 'react';
 import { Bell, Check, ExternalLink } from 'lucide-react';
 import { useNotifications } from '../../../context/NotificationContext';
 import { cn } from '@/lib/utils';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 
 const NotificationDropdown = ({ isCompact = false, isOpen: controlledIsOpen, onOpenChange }) => {
     const { notifications, unreadCount, markAsRead, markAllAsRead, isLoading, fetchNotifications } = useNotifications();
     const [internalIsOpen, setInternalIsOpen] = useState(false);
     const dropdownRef = useRef(null);
     const navigate = useNavigate();
+    const location = useLocation();
     const isControlled = typeof controlledIsOpen === 'boolean';
     const isOpen = isControlled ? controlledIsOpen : internalIsOpen;
 
@@ -35,13 +36,23 @@ const NotificationDropdown = ({ isCompact = false, isOpen: controlledIsOpen, onO
         fetchNotifications();
     }, [fetchNotifications, isOpen]);
 
-    const handleNotificationClick = async (notification) => {
-        if (!notification.isRead) {
-            await markAsRead(notification._id);
-        }
+    useEffect(() => {
         setIsOpen(false);
+    }, [location.pathname, location.search]);
+
+    const handleNotificationClick = async (notification) => {
+        setIsOpen(false);
+        if (!notification.isRead) {
+            Promise.resolve(markAsRead(notification._id)).catch(() => {});
+        }
         if (notification.actionUrl) {
-            navigate(notification.actionUrl);
+            requestAnimationFrame(() => {
+                if (/^https?:\/\//i.test(notification.actionUrl)) {
+                    window.location.assign(notification.actionUrl);
+                    return;
+                }
+                navigate(notification.actionUrl);
+            });
         }
     };
 
