@@ -5,9 +5,32 @@ const ENDED_SESSION_RETENTION_MS = Number(process.env.VIDEO_CALL_RETAIN_MS || (7
 
 const toIdString = (value) => String(value === undefined || value === null ? '' : value).trim();
 
-const buildVideoCallSessionKey = ({ listingId, userA, userB }) => {
+const normalizeSessionContext = ({ channelType, contextId, listingId, supportTicketId }) => {
+    const normalizedChannelType = toIdString(channelType || (supportTicketId ? 'support_ticket' : 'listing')) || 'listing';
+    if (normalizedChannelType === 'support_ticket') {
+        return {
+            channelType: 'support_ticket',
+            contextId: toIdString(contextId || supportTicketId),
+        };
+    }
+
+    return {
+        channelType: 'listing',
+        contextId: toIdString(contextId || listingId),
+    };
+};
+
+const buildVideoCallSessionKey = ({
+    channelType,
+    contextId,
+    listingId,
+    supportTicketId,
+    userA,
+    userB,
+}) => {
+    const normalizedContext = normalizeSessionContext({ channelType, contextId, listingId, supportTicketId });
     const [firstUserId, secondUserId] = [toIdString(userA), toIdString(userB)].sort();
-    return `${toIdString(listingId)}:${firstUserId}:${secondUserId}`;
+    return `${normalizedContext.channelType}:${normalizedContext.contextId}:${firstUserId}:${secondUserId}`;
 };
 
 const activeExpiry = () => new Date(Date.now() + ACTIVE_SESSION_TTL_MS);
@@ -17,7 +40,10 @@ const toLeanSession = (session) => {
     if (!session) return null;
     return {
         sessionKey: toIdString(session.sessionKey),
+        channelType: toIdString(session.channelType || 'listing'),
+        contextId: toIdString(session.channelRef || session.listing || session.supportTicket),
         listingId: toIdString(session.listing),
+        supportTicketId: toIdString(session.supportTicket),
         initiator: toIdString(session.initiator),
         recipient: toIdString(session.recipient),
         participants: Array.isArray(session.participants) ? session.participants.map((entry) => toIdString(entry)) : [],
@@ -32,13 +58,49 @@ const toLeanSession = (session) => {
     };
 };
 
+const buildSessionFilter = ({ channelType, contextId, listingId, supportTicketId, userA, userB }) => ({
+    sessionKey: buildVideoCallSessionKey({
+        channelType,
+        contextId,
+        listingId,
+        supportTicketId,
+        userA,
+        userB,
+    }),
+});
+
+const buildContextPersistence = ({ channelType, contextId, listingId, supportTicketId }) => {
+    const normalizedContext = normalizeSessionContext({ channelType, contextId, listingId, supportTicketId });
+    if (normalizedContext.channelType === 'support_ticket') {
+        return {
+            channelType: 'support_ticket',
+            channelRef: normalizedContext.contextId,
+            listing: null,
+            supportTicket: normalizedContext.contextId,
+        };
+    }
+
+    return {
+        channelType: 'listing',
+        channelRef: normalizedContext.contextId,
+        listing: normalizedContext.contextId,
+        supportTicket: null,
+    };
+};
+
 const registerVideoCallSession = async ({
+    channelType,
+    contextId,
     listingId,
+    supportTicketId,
     callerUserId,
     targetUserId,
 }) => {
+    const normalizedContext = normalizeSessionContext({ channelType, contextId, listingId, supportTicketId });
+    const persistenceContext = buildContextPersistence({ channelType, contextId, listingId, supportTicketId });
     const sessionKey = buildVideoCallSessionKey({
-        listingId,
+        channelType: normalizedContext.channelType,
+        contextId: normalizedContext.contextId,
         userA: callerUserId,
         userB: targetUserId,
     });
@@ -49,7 +111,7 @@ const registerVideoCallSession = async ({
         {
             $setOnInsert: {
                 sessionKey,
-                listing: toIdString(listingId),
+                ...persistenceContext,
                 participants: [toIdString(callerUserId), toIdString(targetUserId)].sort(),
                 startedAt: now,
             },
@@ -75,12 +137,15 @@ const registerVideoCallSession = async ({
 };
 
 const getActiveVideoCallSession = async ({
+    channelType,
+    contextId,
     listingId,
+    supportTicketId,
     userA,
     userB,
 }) => {
     const session = await VideoCallSession.findOne({
-        sessionKey: buildVideoCallSessionKey({ listingId, userA, userB }),
+        ...buildSessionFilter({ channelType, contextId, listingId, supportTicketId, userA, userB }),
         status: { $in: ['ringing', 'connected'] },
         expiresAt: { $gt: new Date() },
     }).lean();
@@ -89,13 +154,16 @@ const getActiveVideoCallSession = async ({
 };
 
 const touchVideoCallSessionSignal = async ({
+    channelType,
+    contextId,
     listingId,
+    supportTicketId,
     userA,
     userB,
 }) => {
     const session = await VideoCallSession.findOneAndUpdate(
         {
-            sessionKey: buildVideoCallSessionKey({ listingId, userA, userB }),
+            ...buildSessionFilter({ channelType, contextId, listingId, supportTicketId, userA, userB }),
             status: { $in: ['ringing', 'connected'] },
         },
         {
@@ -114,14 +182,17 @@ const touchVideoCallSessionSignal = async ({
 };
 
 const markVideoCallSessionConnected = async ({
+    channelType,
+    contextId,
     listingId,
+    supportTicketId,
     userA,
     userB,
 }) => {
     const now = new Date();
     const session = await VideoCallSession.findOneAndUpdate(
         {
-            sessionKey: buildVideoCallSessionKey({ listingId, userA, userB }),
+            ...buildSessionFilter({ channelType, contextId, listingId, supportTicketId, userA, userB }),
             status: { $in: ['ringing', 'connected'] },
         },
         {
@@ -142,7 +213,10 @@ const markVideoCallSessionConnected = async ({
 };
 
 const endVideoCallSession = async ({
+    channelType,
+    contextId,
     listingId,
+    supportTicketId,
     userA,
     userB,
     reason = 'hangup',
@@ -150,7 +224,7 @@ const endVideoCallSession = async ({
     const now = new Date();
     const session = await VideoCallSession.findOneAndUpdate(
         {
-            sessionKey: buildVideoCallSessionKey({ listingId, userA, userB }),
+            ...buildSessionFilter({ channelType, contextId, listingId, supportTicketId, userA, userB }),
             status: { $in: ['ringing', 'connected'] },
         },
         {
@@ -230,6 +304,7 @@ module.exports = {
     getActiveVideoCallSession,
     getVideoCallSessionMetrics,
     markVideoCallSessionConnected,
+    normalizeSessionContext,
     registerVideoCallSession,
     touchVideoCallSessionSignal,
 };

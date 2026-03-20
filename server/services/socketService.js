@@ -7,6 +7,10 @@ const User = require('../models/User');
 const Listing = require('../models/Listing');
 const logger = require('../utils/logger');
 const {
+    loadAdminTicketView,
+    loadUserTicketView,
+} = require('./supportTicketViews');
+const {
     buildVideoCallSessionKey,
     closeVideoCallSessionsForUser,
     endVideoCallSession,
@@ -15,6 +19,12 @@ const {
     registerVideoCallSession,
     touchVideoCallSessionSignal,
 } = require('./videoCallSessionService');
+const {
+    loadSupportTicketForVideo,
+    markSupportTicketLiveCallConnected,
+    markSupportTicketLiveCallEnded,
+    markSupportTicketLiveCallStarted,
+} = require('./supportVideoService');
 
 let io;
 // Map to track userId -> Set of socketIds (handles multiple tabs/devices)
@@ -100,10 +110,131 @@ const authorizeListingCallEvent = async ({ callerUserId, targetUserId, listingId
     }
 
     return {
+        channelType: 'listing',
+        contextId: normalizedListingId,
         listingId: normalizedListingId,
         sellerId,
         buyerId,
+        contextLabel: 'Marketplace live inspection',
     };
+};
+
+const authorizeSupportTicketCallEvent = async ({
+    callerProfile,
+    targetUserId,
+    supportTicketId,
+    eventType = 'signal',
+}) => {
+    const normalizedCallerId = String(callerProfile?.id || '');
+    const normalizedTargetId = String(targetUserId || '');
+    const normalizedTicketId = String(supportTicketId || '');
+
+    if (!normalizedTicketId || !normalizedTargetId) {
+        throw new Error('Missing call metadata');
+    }
+
+    const ticket = await loadSupportTicketForVideo(normalizedTicketId);
+    const ticketOwnerId = String(ticket.user || '');
+    const callerIsAdmin = Boolean(callerProfile?.isAdmin);
+    const callerIsOwner = normalizedCallerId === ticketOwnerId;
+
+    if (eventType === 'initiate') {
+        if (String(ticket.status || '') === 'closed') {
+            throw new Error('Closed tickets cannot start live calls');
+        }
+        if (!callerIsAdmin || normalizedTargetId !== ticketOwnerId) {
+            throw new Error('Unauthorized call attempt');
+        }
+    } else if (callerIsAdmin) {
+        if (normalizedTargetId !== ticketOwnerId) {
+            throw new Error('Unauthorized call attempt');
+        }
+    } else {
+        if (!callerIsOwner) {
+            throw new Error('Unauthorized call attempt');
+        }
+
+        const adminUser = await User.findById(normalizedTargetId)
+            .select('_id isAdmin')
+            .lean();
+        if (!adminUser?._id || !adminUser.isAdmin) {
+            throw new Error('Unauthorized call attempt');
+        }
+    }
+
+    return {
+        channelType: 'support_ticket',
+        contextId: normalizedTicketId,
+        supportTicketId: normalizedTicketId,
+        ticketOwnerId,
+        ticketSubject: String(ticket.subject || 'Support ticket'),
+        ticketStatus: String(ticket.status || 'open'),
+        contextLabel: `Live support for ${String(ticket.subject || 'support ticket')}`,
+    };
+};
+
+const authorizeVideoCallEvent = async ({
+    callerProfile,
+    targetUserId,
+    listingId,
+    channelType,
+    contextId,
+    eventType,
+}) => {
+    if (String(channelType || '') === 'support_ticket') {
+        return authorizeSupportTicketCallEvent({
+            callerProfile,
+            targetUserId,
+            supportTicketId: contextId,
+            eventType,
+        });
+    }
+
+    return authorizeListingCallEvent({
+        callerUserId: callerProfile?.id,
+        targetUserId,
+        listingId: contextId || listingId,
+    });
+};
+
+const emitSupportRealtimeUpdate = async ({
+    ticketId,
+    eventName = 'support:ticket:update',
+    message = null,
+}) => {
+    const [adminTicket, userTicket] = await Promise.all([
+        loadAdminTicketView(ticketId),
+        loadUserTicketView(ticketId),
+    ]);
+
+    if (!adminTicket?._id || !userTicket?._id) {
+        return;
+    }
+
+    const adminPayload = {
+        ticketId: adminTicket._id,
+        ticket: adminTicket,
+        ...(message ? { message } : {}),
+    };
+    const userPayload = {
+        ticketId: userTicket._id,
+        ticket: userTicket,
+        ...(message ? { message } : {}),
+    };
+
+    sendMessageToAdmins(eventName, adminPayload);
+    sendMessageToUser(adminTicket.user?._id, eventName, userPayload);
+
+    if (eventName !== 'support:ticket:update') {
+        sendMessageToAdmins('support:ticket:update', {
+            ticketId: adminTicket._id,
+            ticket: adminTicket,
+        });
+        sendMessageToUser(adminTicket.user?._id, 'support:ticket:update', {
+            ticketId: userTicket._id,
+            ticket: userTicket,
+        });
+    }
 };
 
 const getSocketCorsOrigins = () => (
@@ -226,61 +357,112 @@ const initializeSocket = (httpServer) => {
         // ── Video Calling Signaling ──────────────────────────────────
         // Initiate a call: peer A -> server -> peer B
         socket.on('video:call:initiate', async (payload) => {
-            const { targetUserId, listingId, signalData } = payload || {};
-            
+            const { targetUserId, listingId, signalData, channelType, contextId } = payload || {};
+
             try {
-                const authResult = await authorizeListingCallEvent({
-                    callerUserId: userId,
+                const authResult = await authorizeVideoCallEvent({
+                    callerProfile: socket.user,
                     targetUserId,
                     listingId,
+                    channelType,
+                    contextId,
+                    eventType: 'initiate',
                 });
 
                 const sessionKey = buildVideoCallSessionKey({
+                    channelType: authResult.channelType,
+                    contextId: authResult.contextId,
                     listingId: authResult.listingId,
+                    supportTicketId: authResult.supportTicketId,
                     userA: userId,
                     userB: targetUserId,
                 });
 
                 const persistedSession = await registerVideoCallSession({
+                    channelType: authResult.channelType,
+                    contextId: authResult.contextId,
                     listingId: authResult.listingId,
+                    supportTicketId: authResult.supportTicketId,
                     callerUserId: userId,
                     targetUserId,
                 });
 
                 activeCallSessions.set(sessionKey, {
+                    channelType: authResult.channelType,
+                    contextId: authResult.contextId,
                     listingId: authResult.listingId,
+                    supportTicketId: authResult.supportTicketId,
                     participants: [String(userId), String(targetUserId)],
                     status: persistedSession?.status || 'ringing',
                 });
 
-                logger.info('video.call_initiated', { from: userId, to: targetUserId, listingId });
-                
+                if (authResult.channelType === 'support_ticket') {
+                    const supportCallUpdate = await markSupportTicketLiveCallStarted({
+                        ticketId: authResult.supportTicketId,
+                        startedByUserId: userId,
+                        startedByRole: socket.user.isAdmin ? 'admin' : 'user',
+                        sessionKey: persistedSession?.sessionKey || sessionKey,
+                        contextLabel: socket.user.isAdmin
+                            ? `Aura Support started a live call for "${authResult.ticketSubject}"`
+                            : `Customer started a live call for "${authResult.ticketSubject}"`,
+                    });
+                    await emitSupportRealtimeUpdate({
+                        ticketId: authResult.supportTicketId,
+                        eventName: 'support:message:new',
+                        message: supportCallUpdate?.message || null,
+                    });
+                }
+
+                logger.info('video.call_initiated', {
+                    from: userId,
+                    to: targetUserId,
+                    channelType: authResult.channelType,
+                    contextId: authResult.contextId,
+                });
+
                 sendMessageToUser(targetUserId, 'video:call:incoming', {
                     fromUserId: userId,
                     fromName: socket.user.name,
                     listingId: authResult.listingId,
+                    supportTicketId: authResult.supportTicketId,
+                    channelType: authResult.channelType,
+                    contextId: authResult.contextId,
+                    contextLabel: authResult.contextLabel,
                     callId: persistedSession?.sessionKey || sessionKey,
-                    signalData
+                    signalData,
                 });
             } catch (err) {
-                logger.error('video.call_initiate_failed', { error: err.message, from: userId, to: targetUserId, listingId });
+                logger.error('video.call_initiate_failed', {
+                    error: err.message,
+                    from: userId,
+                    to: targetUserId,
+                    listingId,
+                    channelType,
+                    contextId,
+                });
                 socket.emit('video:call:error', { message: err.message || 'Failed to initiate video call' });
             }
         });
 
         // Relay signaling data (Offer/Answer/ICE): peer A <-> server <-> peer B
         socket.on('video:call:signal', async (payload) => {
-            const { targetUserId, listingId, signalData } = payload || {};
+            const { targetUserId, listingId, signalData, channelType, contextId } = payload || {};
 
             try {
-                const authResult = await authorizeListingCallEvent({
-                    callerUserId: userId,
+                const authResult = await authorizeVideoCallEvent({
+                    callerProfile: socket.user,
                     targetUserId,
                     listingId,
+                    channelType,
+                    contextId,
+                    eventType: 'signal',
                 });
 
                 const sessionKey = buildVideoCallSessionKey({
+                    channelType: authResult.channelType,
+                    contextId: authResult.contextId,
                     listingId: authResult.listingId,
+                    supportTicketId: authResult.supportTicketId,
                     userA: userId,
                     userB: targetUserId,
                 });
@@ -288,13 +470,19 @@ const initializeSocket = (httpServer) => {
                 let session = activeCallSessions.get(sessionKey);
                 if (!session) {
                     session = await getActiveVideoCallSession({
+                        channelType: authResult.channelType,
+                        contextId: authResult.contextId,
                         listingId: authResult.listingId,
+                        supportTicketId: authResult.supportTicketId,
                         userA: userId,
                         userB: targetUserId,
                     });
                     if (session) {
                         activeCallSessions.set(sessionKey, {
+                            channelType: authResult.channelType,
+                            contextId: authResult.contextId,
                             listingId: authResult.listingId,
+                            supportTicketId: authResult.supportTicketId,
                             participants: [String(userId), String(targetUserId)],
                             status: session.status,
                         });
@@ -307,18 +495,37 @@ const initializeSocket = (httpServer) => {
 
                 if (String(signalData?.type || '') === 'answer') {
                     await markVideoCallSessionConnected({
+                        channelType: authResult.channelType,
+                        contextId: authResult.contextId,
                         listingId: authResult.listingId,
+                        supportTicketId: authResult.supportTicketId,
                         userA: userId,
                         userB: targetUserId,
                     });
                     activeCallSessions.set(sessionKey, {
+                        channelType: authResult.channelType,
+                        contextId: authResult.contextId,
                         listingId: authResult.listingId,
+                        supportTicketId: authResult.supportTicketId,
                         participants: [String(userId), String(targetUserId)],
                         status: 'connected',
                     });
+
+                    if (authResult.channelType === 'support_ticket') {
+                        await markSupportTicketLiveCallConnected({
+                            ticketId: authResult.supportTicketId,
+                            sessionKey,
+                        });
+                        await emitSupportRealtimeUpdate({
+                            ticketId: authResult.supportTicketId,
+                        });
+                    }
                 } else {
                     await touchVideoCallSessionSignal({
+                        channelType: authResult.channelType,
+                        contextId: authResult.contextId,
                         listingId: authResult.listingId,
+                        supportTicketId: authResult.supportTicketId,
                         userA: userId,
                         userB: targetUserId,
                     });
@@ -327,7 +534,10 @@ const initializeSocket = (httpServer) => {
                 sendMessageToUser(targetUserId, 'video:call:signal', {
                     fromUserId: userId,
                     listingId: authResult.listingId,
-                    signalData
+                    supportTicketId: authResult.supportTicketId,
+                    channelType: authResult.channelType,
+                    contextId: authResult.contextId,
+                    signalData,
                 });
             } catch (err) {
                 logger.warn('video.call_signal_rejected', {
@@ -335,6 +545,8 @@ const initializeSocket = (httpServer) => {
                     from: userId,
                     to: targetUserId,
                     listingId,
+                    channelType,
+                    contextId,
                 });
                 socket.emit('video:call:error', { message: err.message || 'Failed to relay call signal' });
             }
@@ -342,23 +554,32 @@ const initializeSocket = (httpServer) => {
 
         // Terminate call: peer A -> server -> peer B
         socket.on('video:call:hangup', async (payload) => {
-            const { targetUserId, listingId } = payload || {};
+            const { targetUserId, listingId, channelType, contextId } = payload || {};
 
             try {
-                const authResult = await authorizeListingCallEvent({
-                    callerUserId: userId,
+                const authResult = await authorizeVideoCallEvent({
+                    callerProfile: socket.user,
                     targetUserId,
                     listingId,
+                    channelType,
+                    contextId,
+                    eventType: 'hangup',
                 });
 
                 const sessionKey = buildVideoCallSessionKey({
+                    channelType: authResult.channelType,
+                    contextId: authResult.contextId,
                     listingId: authResult.listingId,
+                    supportTicketId: authResult.supportTicketId,
                     userA: userId,
                     userB: targetUserId,
                 });
 
                 const activeSession = activeCallSessions.get(sessionKey) || await getActiveVideoCallSession({
+                    channelType: authResult.channelType,
+                    contextId: authResult.contextId,
                     listingId: authResult.listingId,
+                    supportTicketId: authResult.supportTicketId,
                     userA: userId,
                     userB: targetUserId,
                 });
@@ -368,17 +589,42 @@ const initializeSocket = (httpServer) => {
                 }
 
                 await endVideoCallSession({
+                    channelType: authResult.channelType,
+                    contextId: authResult.contextId,
                     listingId: authResult.listingId,
+                    supportTicketId: authResult.supportTicketId,
                     userA: userId,
                     userB: targetUserId,
                     reason: 'hangup',
                 });
                 activeCallSessions.delete(sessionKey);
 
-                logger.info('video.call_terminated', { from: userId, to: targetUserId, listingId: authResult.listingId });
+                if (authResult.channelType === 'support_ticket') {
+                    const supportCallUpdate = await markSupportTicketLiveCallEnded({
+                        ticketId: authResult.supportTicketId,
+                        endedByRole: socket.user.isAdmin ? 'admin' : 'user',
+                        sessionKey,
+                        reason: 'hangup',
+                    });
+                    await emitSupportRealtimeUpdate({
+                        ticketId: authResult.supportTicketId,
+                        eventName: 'support:message:new',
+                        message: supportCallUpdate?.message || null,
+                    });
+                }
+
+                logger.info('video.call_terminated', {
+                    from: userId,
+                    to: targetUserId,
+                    channelType: authResult.channelType,
+                    contextId: authResult.contextId,
+                });
                 sendMessageToUser(targetUserId, 'video:call:terminated', {
                     fromUserId: userId,
                     listingId: authResult.listingId,
+                    supportTicketId: authResult.supportTicketId,
+                    channelType: authResult.channelType,
+                    contextId: authResult.contextId,
                 });
             } catch (err) {
                 logger.warn('video.call_hangup_rejected', {
@@ -386,6 +632,8 @@ const initializeSocket = (httpServer) => {
                     from: userId,
                     to: targetUserId,
                     listingId,
+                    channelType,
+                    contextId,
                 });
                 socket.emit('video:call:error', { message: err.message || 'Failed to hang up call' });
             }
@@ -410,16 +658,34 @@ const initializeSocket = (httpServer) => {
                 }).catch(() => []);
                 removeUserFromActiveCallSessions(userId);
 
-                endedSessions.forEach((session) => {
+                for (const session of endedSessions) {
                     const counterpartyUserId = session.participants.find((participantId) => participantId !== String(userId));
+                    if (session.channelType === 'support_ticket' && session.supportTicketId) {
+                        const supportCallUpdate = await markSupportTicketLiveCallEnded({
+                            ticketId: session.supportTicketId,
+                            endedByRole: 'system',
+                            sessionKey: session.sessionKey,
+                            reason: 'participant_disconnect',
+                        }).catch(() => null);
+                        if (supportCallUpdate) {
+                            await emitSupportRealtimeUpdate({
+                                ticketId: session.supportTicketId,
+                                eventName: 'support:message:new',
+                                message: supportCallUpdate?.message || null,
+                            }).catch(() => null);
+                        }
+                    }
                     if (counterpartyUserId) {
                         sendMessageToUser(counterpartyUserId, 'video:call:terminated', {
                             fromUserId: userId,
                             listingId: session.listingId,
+                            supportTicketId: session.supportTicketId,
+                            channelType: session.channelType,
+                            contextId: session.contextId,
                             reason: 'participant_disconnect',
                         });
                     }
-                });
+                }
             }
 
             socket.leave(`user:${userId}`);

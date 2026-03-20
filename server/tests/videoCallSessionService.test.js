@@ -95,4 +95,49 @@ describe('videoCallSessionService', () => {
         expect(persisted.every((entry) => entry.status === 'ended')).toBe(true);
         expect(persisted.every((entry) => entry.endReason === 'participant_disconnect')).toBe(true);
     });
+
+    test('creates and progresses a durable support-ticket call session', async () => {
+        const ticketId = '507f191e810c19729de860af';
+
+        const registered = await registerVideoCallSession({
+            channelType: 'support_ticket',
+            contextId: ticketId,
+            supportTicketId: ticketId,
+            callerUserId: sellerId,
+            targetUserId: buyerId,
+        });
+
+        expect(registered).toMatchObject({
+            channelType: 'support_ticket',
+            contextId: ticketId,
+            supportTicketId: ticketId,
+            status: 'ringing',
+        });
+        expect(registered.sessionKey).toBe(buildVideoCallSessionKey({
+            channelType: 'support_ticket',
+            contextId: ticketId,
+            userA: sellerId,
+            userB: buyerId,
+        }));
+
+        const connected = await markVideoCallSessionConnected({
+            channelType: 'support_ticket',
+            contextId: ticketId,
+            supportTicketId: ticketId,
+            userA: sellerId,
+            userB: buyerId,
+        });
+        expect(connected?.status).toBe('connected');
+
+        const ended = await endVideoCallSession({
+            channelType: 'support_ticket',
+            contextId: ticketId,
+            supportTicketId: ticketId,
+            userA: sellerId,
+            userB: buyerId,
+            reason: 'hangup',
+        });
+        expect(ended?.supportTicketId).toBe(ticketId);
+        expect(ended?.status).toBe('ended');
+    });
 });

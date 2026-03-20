@@ -43,10 +43,20 @@ const adminUpdateTicketSchema = z.object({
     }),
 });
 
+const requestSupportLiveCallSchema = z.object({
+    params: z.object({
+        id: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid ID format'),
+    }),
+    body: z.object({
+        note: z.string().trim().max(280).optional(),
+    }).default({}),
+});
+
 module.exports = {
     createSupportTicketSchema,
     sendSupportMessageSchema,
     supportTicketQuerySchema,
     ticketIdParamSchema,
     adminUpdateTicketSchema,
+    requestSupportLiveCallSchema,
 };
