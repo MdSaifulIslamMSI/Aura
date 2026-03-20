@@ -25,9 +25,9 @@
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', async () => {
-        const cleanupKey = 'aura-sw-cleanup-v2';
+        const cleanupKey = 'aura-sw-cleanup-v3';
         let hadRegistration = false;
-        let hadAuraCache = false;
+        let hadOriginCache = false;
 
         try {
           const registrations = await navigator.serviceWorker.getRegistrations();
@@ -38,13 +38,12 @@
         try {
           if ('caches' in window) {
             const cacheKeys = await caches.keys();
-            const auraCacheKeys = cacheKeys.filter((key) => key.startsWith('aura-'));
-            hadAuraCache = auraCacheKeys.length > 0;
-            await Promise.all(auraCacheKeys.map((key) => caches.delete(key)));
+            hadOriginCache = cacheKeys.length > 0;
+            await Promise.all(cacheKeys.map((key) => caches.delete(key)));
           }
         } catch (_) {}
 
-        if ((hadRegistration || hadAuraCache || navigator.serviceWorker.controller) && !sessionStorage.getItem(cleanupKey)) {
+        if ((hadRegistration || hadOriginCache || navigator.serviceWorker.controller) && !sessionStorage.getItem(cleanupKey)) {
           sessionStorage.setItem(cleanupKey, '1');
           window.location.reload();
           return;
