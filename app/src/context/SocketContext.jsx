@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { io } from 'socket.io-client';
 import { useAuth } from './AuthContext';
 import { resolveServiceOrigin } from '../services/runtimeApiConfig';
@@ -9,15 +9,17 @@ const SOCKET_RUNTIME_ENABLED = import.meta.env.DEV || import.meta.env.VITE_ENABL
 export const useSocket = () => useContext(SocketContext);
 export const useSocketDemand = (key, enabled = true) => {
     const context = useSocket();
+    const activateSocketDemand = context?.activateSocketDemand;
+    const deactivateSocketDemand = context?.deactivateSocketDemand;
 
     useEffect(() => {
-        if (!enabled || !key || !context?.activateSocketDemand || !context?.deactivateSocketDemand) {
+        if (!enabled || !key || !activateSocketDemand || !deactivateSocketDemand) {
             return undefined;
         }
 
-        context.activateSocketDemand(key);
-        return () => context.deactivateSocketDemand(key);
-    }, [context, enabled, key]);
+        activateSocketDemand(key);
+        return () => deactivateSocketDemand(key);
+    }, [activateSocketDemand, deactivateSocketDemand, enabled, key]);
 
     return context;
 };
@@ -115,14 +117,16 @@ export const SocketProvider = ({ children }) => {
         };
     }, [currentUser, loading, socketDemandKeys]);
 
-    return (
-        <SocketContext.Provider value={{
+    const contextValue = useMemo(() => ({
             socket,
             isConnected,
             hasRealtimeDemand: socketDemandKeys.length > 0,
             activateSocketDemand,
             deactivateSocketDemand,
-        }}>
+        }), [socket, isConnected, socketDemandKeys.length, activateSocketDemand, deactivateSocketDemand]);
+
+    return (
+        <SocketContext.Provider value={contextValue}>
             {children}
         </SocketContext.Provider>
     );
