@@ -11,6 +11,7 @@ const logger = require('../utils/logger');
 const { notifyAdminActionToUser } = require('../services/email/adminActionEmailService');
 const { sendMessageToUser } = require('../services/socketService');
 const { sendPersistentNotification } = require('../services/notificationService');
+const { buildProfileSupportUrl } = require('../utils/frontendLinks');
 
 const USER_ADMIN_PROJECTION = `
 name email phone avatar isAdmin isVerified isSeller sellerActivatedAt
@@ -124,6 +125,17 @@ const safeNotifyAdminActionToUser = async (payload = {}) => {
         });
     }
 };
+
+const buildGovernanceSupportAction = ({ actionId = '', subject = '' } = {}) => ({
+    actionUrl: buildProfileSupportUrl({
+        compose: true,
+        category: 'moderation_appeal',
+        relatedActionId: actionId,
+        subject,
+        intent: 'governance',
+    }),
+    actionLabel: 'Open appeal',
+});
 
 const safeCountDocuments = async ({
     model,
@@ -374,7 +386,17 @@ const warnAdminUser = asyncHandler(async (req, res, next) => {
         // Real-time Push & Persistent Notification
         await sendPersistentNotification(targetUser._id, 'Account Warning', `You have received an official warning: ${reason}`, {
             type: 'governance',
-            relatedEntity: logEntry._id
+            priority: 'high',
+            relatedEntity: logEntry?._id,
+            metadata: {
+                actionType: 'warn',
+                actionId: logEntry?.actionId || '',
+                accountState: targetUser.accountState,
+            },
+            ...buildGovernanceSupportAction({
+                actionId: logEntry?.actionId || '',
+                subject: 'Appeal account warning',
+            }),
         });
     } catch (e) { }
 
@@ -453,7 +475,18 @@ const suspendAdminUser = asyncHandler(async (req, res, next) => {
         // Real-time Push & Persistent Notification
         await sendPersistentNotification(targetUser._id, 'Account Suspended', `Your account has been suspended until ${suspendedUntil.toLocaleDateString()}. Reason: ${reason}`, {
             type: 'governance',
-            relatedEntity: logEntry._id
+            priority: 'critical',
+            relatedEntity: logEntry?._id,
+            metadata: {
+                actionType: 'suspend',
+                actionId: logEntry?.actionId || '',
+                accountState: targetUser.accountState,
+                suspendedUntil: suspendedUntil.toISOString(),
+            },
+            ...buildGovernanceSupportAction({
+                actionId: logEntry?.actionId || '',
+                subject: 'Appeal account suspension',
+            }),
         });
     } catch (e) { }
 
@@ -515,7 +548,15 @@ const dismissAdminUserWarning = asyncHandler(async (req, res, next) => {
         // Real-time Push & Persistent Notification
         await sendPersistentNotification(targetUser._id, 'Warning Dismissed', `An official warning on your account has been dismissed. Reason: ${reason}`, {
             type: 'governance',
-            relatedEntity: logEntry._id
+            priority: 'medium',
+            relatedEntity: logEntry?._id,
+            metadata: {
+                actionType: 'dismiss_warning',
+                actionId: logEntry?.actionId || '',
+                accountState: targetUser.accountState,
+            },
+            actionUrl: '/profile?tab=notifications',
+            actionLabel: 'Review update',
         });
     } catch (e) { }
 
@@ -579,7 +620,15 @@ const reactivateAdminUser = asyncHandler(async (req, res, next) => {
         // Real-time Push & Persistent Notification
         await sendPersistentNotification(targetUser._id, 'Account Reactivated', `Your account suspension has been lifted early. Reason: ${reason}`, {
             type: 'governance',
-            relatedEntity: logEntry._id
+            priority: 'medium',
+            relatedEntity: logEntry?._id,
+            metadata: {
+                actionType: 'reactivate',
+                actionId: logEntry?.actionId || '',
+                accountState: targetUser.accountState,
+            },
+            actionUrl: '/profile?tab=notifications',
+            actionLabel: 'Review update',
         });
     } catch (e) { }
 
@@ -680,7 +729,17 @@ const deleteAdminUser = asyncHandler(async (req, res, next) => {
         // Real-time Push & Persistent Notification
         await sendPersistentNotification(targetUser._id, 'Account Deleted', `Your account has been permanently disabled. Contact support if this is an error. Reason: ${reason}`, {
             type: 'governance',
-            relatedEntity: logEntry._id
+            priority: 'critical',
+            relatedEntity: logEntry?._id,
+            metadata: {
+                actionType: 'delete',
+                actionId: logEntry?.actionId || '',
+                accountState: targetUser.accountState,
+            },
+            ...buildGovernanceSupportAction({
+                actionId: logEntry?.actionId || '',
+                subject: 'Appeal account disablement',
+            }),
         });
     } catch (e) { }
 

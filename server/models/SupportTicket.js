@@ -25,9 +25,39 @@ const supportTicketSchema = new mongoose.Schema({
         required: true,
         index: true,
     },
+    priority: {
+        type: String,
+        enum: ['normal', 'high', 'urgent'],
+        default: 'normal',
+        index: true,
+    },
     relatedActionId: {
         type: String,
         default: '',
+    },
+    userActionRequired: {
+        type: Boolean,
+        default: false,
+    },
+    lastActorRole: {
+        type: String,
+        enum: ['user', 'admin', 'system'],
+        default: 'user',
+    },
+    resolutionSummary: {
+        type: String,
+        trim: true,
+        maxlength: 800,
+        default: '',
+    },
+    resolvedAt: {
+        type: Date,
+        default: null,
+    },
+    resolvedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        default: null,
     },
     unreadByUser: {
         type: Number,

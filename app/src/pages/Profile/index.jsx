@@ -1,4 +1,5 @@
 import { useState, useEffect, useContext, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Camera, Check, AlertTriangle, Shield, Calendar, Edit3, Package, Star, Store, BarChart3, User, MapPin, Sparkles, CreditCard, Settings, Bell } from 'lucide-react';
 import { AuthContext } from '@/context/AuthContext';
 import { CartContext } from '@/context/CartContext';
@@ -46,6 +47,7 @@ export default function Profile() {
     const { currentUser, dbUser, logout, updateProfile: updateProfileInContext, forgotPassword } = useContext(AuthContext);
     const { cartItems } = useContext(CartContext);
     const { wishlistItems } = useContext(WishlistContext);
+    const [searchParams, setSearchParams] = useSearchParams();
     const [activeTab, setActiveTab] = useState('overview');
     const [profile, setProfile] = useState(null);
     const [dashboard, setDashboard] = useState(null);
@@ -114,6 +116,13 @@ export default function Profile() {
             }
         })();
     }, [currentUser?.email]);
+
+    useEffect(() => {
+        const requestedTab = String(searchParams.get('tab') || '').trim();
+        if (requestedTab && TABS.some((tab) => tab.id === requestedTab)) {
+            setActiveTab(requestedTab);
+        }
+    }, [searchParams]);
 
     const showMsg = (type, text) => {
         setMessage({ type, text });
@@ -225,6 +234,30 @@ export default function Profile() {
     const auraPoints = Number(profile?.loyalty?.pointsBalance || 0);
     const profileName = profile?.name || currentUser?.displayName || '';
     const initials = profileName.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+    const supportLaunch = {
+        focusTicketId: String(searchParams.get('ticket') || '').trim(),
+        startCompose: searchParams.get('compose') === '1',
+        prefill: {
+            category: String(searchParams.get('category') || '').trim(),
+            relatedActionId: String(searchParams.get('actionId') || '').trim(),
+            subject: String(searchParams.get('subject') || '').trim(),
+            intent: String(searchParams.get('intent') || '').trim(),
+        },
+    };
+    const handleTabChange = (tabId) => {
+        setActiveTab(tabId);
+        const nextParams = new URLSearchParams(searchParams);
+        nextParams.set('tab', tabId);
+        if (tabId !== 'support') {
+            nextParams.delete('ticket');
+            nextParams.delete('compose');
+            nextParams.delete('category');
+            nextParams.delete('actionId');
+            nextParams.delete('subject');
+            nextParams.delete('intent');
+        }
+        setSearchParams(nextParams, { replace: true });
+    };
 
     return (
         <div className="min-h-screen profile-theme profile-premium-shell">
@@ -267,7 +300,7 @@ export default function Profile() {
 
                 <div className="mt-8 flex gap-2 overflow-x-auto pb-4">
                     {TABS.map(tab => (
-                        <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+                        <button key={tab.id} onClick={() => handleTabChange(tab.id)}
                             className={cn('profile-premium-tab-pill', activeTab === tab.id && 'profile-premium-tab-pill-active')}>
                             <tab.icon className="w-4 h-4" /> {tab.label}
                         </button>
@@ -283,7 +316,7 @@ export default function Profile() {
                     {activeTab === 'listings' && <ListingsSection stats={stats} />}
                     { activeTab === 'payments' && <PaymentsSection paymentMethodsLoading={paymentMethodsLoading} paymentMethods={paymentMethods} handleSetDefaultMethod={handleSetDefaultMethod} handleDeletePaymentMethod={handleDeletePaymentMethod} />}
                     { activeTab === 'notifications' && <NotificationsSection />}
-                    { activeTab === 'support' && <SupportSection profile={profile} />}
+                    { activeTab === 'support' && <SupportSection profile={profile} focusTicketId={supportLaunch.focusTicketId} startCompose={supportLaunch.startCompose} prefill={supportLaunch.prefill} />}
                     {activeTab === 'settings' && <SettingsSection profile={profile} currentUser={currentUser} handlePasswordReset={handlePasswordReset} passwordResetting={passwordResetting} hasOtpReadyIdentity={true} trustHealthy={true} trustLoading={false} paymentMethodsSecured={true} logout={logout} />}
                 </div>
             </div>

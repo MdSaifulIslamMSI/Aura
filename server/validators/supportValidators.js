@@ -2,9 +2,9 @@ const { z } = require('zod');
 
 const createSupportTicketSchema = z.object({
     body: z.object({
-        subject: z.string().trim().max(200),
+        subject: z.string().trim().min(3).max(200),
         category: z.enum(['moderation_appeal', 'general_support', 'order_issue', 'other']),
-        message: z.string().trim().max(2000),
+        message: z.string().trim().min(5).max(2000),
         relatedActionId: z.string().nullable().optional(),
     }),
 });
@@ -14,7 +14,7 @@ const sendSupportMessageSchema = z.object({
         id: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid ID format'),
     }),
     body: z.object({
-        message: z.string().trim().max(2000),
+        message: z.string().trim().min(1).max(2000),
     }),
 });
 
@@ -38,6 +38,8 @@ const adminUpdateTicketSchema = z.object({
     }),
     body: z.object({
         status: z.enum(['open', 'resolved', 'closed']),
+        resolutionSummary: z.string().trim().max(800).optional(),
+        userActionRequired: z.boolean().optional(),
     }),
 });
 

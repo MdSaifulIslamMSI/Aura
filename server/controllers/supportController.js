@@ -4,6 +4,8 @@ const SupportMessage = require('../models/SupportMessage');
 const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
 const { sendMessageToAdmins, sendMessageToUser } = require('../services/socketService'); // Push via websockets
+const { sendPersistentNotification } = require('../services/notificationService');
+const { buildProfileSupportUrl } = require('../utils/frontendLinks');
 
 const getPagination = (req) => {
     const page = Number(req.query.page) || 1;
@@ -20,7 +22,13 @@ const serializeTicketForAdmin = (ticket) => {
         status: String(ticket.status || 'open'),
         subject: String(ticket.subject || ''),
         category: String(ticket.category || ''),
+        priority: String(ticket.priority || 'normal'),
         relatedActionId: String(ticket.relatedActionId || ''),
+        userActionRequired: Boolean(ticket.userActionRequired),
+        lastActorRole: String(ticket.lastActorRole || 'user'),
+        resolutionSummary: String(ticket.resolutionSummary || ''),
+        resolvedAt: ticket.resolvedAt || null,
+        resolvedBy: ticket.resolvedBy || null,
         unreadByUser: Number(ticket.unreadByUser || 0),
         unreadByAdmin: Number(ticket.unreadByAdmin || 0),
         lastMessageAt: ticket.lastMessageAt || null,
@@ -36,6 +44,80 @@ const serializeTicketForAdmin = (ticket) => {
             }
             : null,
     };
+};
+
+const serializeTicketForUser = (ticket) => {
+    if (!ticket) return null;
+
+    return {
+        _id: String(ticket._id || ''),
+        status: String(ticket.status || 'open'),
+        subject: String(ticket.subject || ''),
+        category: String(ticket.category || ''),
+        priority: String(ticket.priority || 'normal'),
+        relatedActionId: String(ticket.relatedActionId || ''),
+        userActionRequired: Boolean(ticket.userActionRequired),
+        lastActorRole: String(ticket.lastActorRole || 'user'),
+        resolutionSummary: String(ticket.resolutionSummary || ''),
+        resolvedAt: ticket.resolvedAt || null,
+        unreadByUser: Number(ticket.unreadByUser || 0),
+        unreadByAdmin: Number(ticket.unreadByAdmin || 0),
+        lastMessageAt: ticket.lastMessageAt || null,
+        lastMessagePreview: String(ticket.lastMessagePreview || ''),
+        createdAt: ticket.createdAt || null,
+        updatedAt: ticket.updatedAt || null,
+    };
+};
+
+const determineTicketPriority = ({ category = '', user = null } = {}) => {
+    if (String(category) === 'moderation_appeal' || String(user?.accountState || '') === 'suspended') {
+        return 'urgent';
+    }
+
+    if (String(category) === 'order_issue') {
+        return 'high';
+    }
+
+    return 'normal';
+};
+
+const buildSupportNotificationPayload = ({
+    ticket,
+    title,
+    message,
+    actionLabel = 'Open support',
+    priority = 'medium',
+    metadata = {},
+}) => ({
+    title,
+    message,
+    options: {
+        type: 'support',
+        priority,
+        relatedEntity: ticket?._id || null,
+        actionUrl: buildProfileSupportUrl({ ticketId: ticket?._id || '' }),
+        actionLabel,
+        metadata: {
+            ticketId: String(ticket?._id || ''),
+            status: String(ticket?.status || 'open'),
+            category: String(ticket?.category || ''),
+            priority: String(ticket?.priority || 'normal'),
+            relatedActionId: String(ticket?.relatedActionId || ''),
+            ...metadata,
+        },
+    },
+});
+
+const notifyUserAboutSupportEvent = async (userId, payload = {}) => {
+    try {
+        await sendPersistentNotification(userId, payload.title, payload.message, payload.options);
+    } catch (error) {
+        logger.warn('support.user_notification_failed', {
+            userId: String(userId || ''),
+            title: String(payload?.title || ''),
+            reason: error?.message || 'unknown',
+        });
+    }
 };
 
 const loadAdminTicketView = async (ticketId) => {
@@ -76,13 +158,16 @@ const emitAdminTicketUpdate = async ({ ticketId, eventName = 'support:ticket:upd
 // @access  Protected (Active + Suspended)
 const createSupportTicket = asyncHandler(async (req, res, next) => {
     const { subject, category, message, relatedActionId } = req.body;
+    const priority = determineTicketPriority({ category, user: req.user });
 
     const ticket = await SupportTicket.create({
         user: req.user._id,
         subject,
         category,
+        priority,
         relatedActionId: relatedActionId || '',
         lastMessagePreview: message.substring(0, 150),
+        lastActorRole: 'user',
         unreadByAdmin: 1, // Start with 1 unread for admin
     });
 
@@ -99,9 +184,17 @@ const createSupportTicket = asyncHandler(async (req, res, next) => {
         eventName: 'support:ticket:new',
     });
 
+    await notifyUserAboutSupportEvent(req.user._id, buildSupportNotificationPayload({
+        ticket,
+        title: 'Support request created',
+        message: `Your ${String(category).replace(/_/g, ' ')} ticket "${subject}" is now open.`,
+        actionLabel: 'Open ticket',
+        priority: priority === 'urgent' ? 'high' : 'medium',
+    }));
+
     res.status(201).json({
         success: true,
-        data: ticket,
+        data: serializeTicketForUser(ticket.toObject()),
     });
 });
 
@@ -126,7 +219,7 @@ const getSupportTickets = asyncHandler(async (req, res, next) => {
 
     res.json({
         success: true,
-        data: tickets,
+        data: tickets.map(serializeTicketForUser),
         pagination: { total, limit, skip },
     });
 });
@@ -196,13 +289,16 @@ const sendSupportMessage = asyncHandler(async (req, res, next) => {
     // Update ticket state
     ticket.lastMessageAt = Date.now();
     ticket.lastMessagePreview = text.substring(0, 150);
+    ticket.lastActorRole = isAdmin ? 'admin' : 'user';
     if (isAdmin) {
         ticket.unreadByUser += 1;
+        ticket.userActionRequired = true;
         if (ticket.status === 'resolved') {
             ticket.status = 'open'; // Reopen on new message
         }
     } else {
         ticket.unreadByAdmin += 1;
+        ticket.userActionRequired = false;
     }
     await ticket.save();
 
@@ -218,6 +314,17 @@ const sendSupportMessage = asyncHandler(async (req, res, next) => {
                 message: message,
             });
         } catch(e) {}
+
+        await notifyUserAboutSupportEvent(ticket.user, buildSupportNotificationPayload({
+            ticket,
+            title: 'Support replied',
+            message: `${req.user?.name || 'Aura Support'} replied to "${ticket.subject}".`,
+            actionLabel: 'Review reply',
+            priority: ticket.priority === 'urgent' ? 'high' : 'medium',
+            metadata: {
+                lastMessageAt: message?.sentAt || message?.createdAt || null,
+            },
+        }));
     }
 
     await emitAdminTicketUpdate({
@@ -247,6 +354,7 @@ const addSystemLogToTicket = async (ticketId, text) => {
     
     ticket.lastMessageAt = Date.now();
     ticket.lastMessagePreview = `[System] ${text.substring(0, 50)}...`;
+    ticket.lastActorRole = 'system';
     ticket.unreadByUser += 1;
     await ticket.save();
 
@@ -288,7 +396,7 @@ const adminGetTickets = asyncHandler(async (req, res, next) => {
 
     res.json({
         success: true,
-        data: tickets,
+        data: tickets.map(serializeTicketForAdmin),
         pagination: { total, limit, skip },
     });
 });
@@ -303,14 +411,65 @@ const adminUpdateTicketStatus = asyncHandler(async (req, res, next) => {
         return next(new AppError('Support ticket not found', 404));
     }
 
-    ticket.status = req.body.status;
+    const nextStatus = req.body.status;
+    const resolutionSummary = String(req.body?.resolutionSummary || '').trim();
+    const userActionRequired = Boolean(req.body?.userActionRequired);
+
+    ticket.status = nextStatus;
+    ticket.userActionRequired = userActionRequired;
+    ticket.lastActorRole = 'admin';
+    if (resolutionSummary) {
+        ticket.resolutionSummary = resolutionSummary;
+    } else if (nextStatus === 'open') {
+        ticket.resolutionSummary = '';
+    }
+    if (nextStatus === 'resolved' || nextStatus === 'closed') {
+        ticket.resolvedAt = new Date();
+        ticket.resolvedBy = req.user._id;
+    } else {
+        ticket.resolvedAt = null;
+        ticket.resolvedBy = null;
+    }
     await ticket.save();
 
-    await addSystemLogToTicket(ticket._id, `Status updated to ${req.body.status}`);
+    const systemSegments = [`Status updated to ${nextStatus}`];
+    if (resolutionSummary) {
+        systemSegments.push(`Resolution: ${resolutionSummary}`);
+    }
+    if (userActionRequired) {
+        systemSegments.push('User follow-up requested');
+    }
+    await addSystemLogToTicket(ticket._id, systemSegments.join(' | '));
+
+    const statusTitles = {
+        open: 'Support ticket reopened',
+        resolved: 'Support ticket resolved',
+        closed: 'Support ticket closed',
+    };
+    const statusMessages = {
+        open: `Aura Support reopened "${ticket.subject}".`,
+        resolved: `Aura Support resolved "${ticket.subject}".`,
+        closed: `Aura Support closed "${ticket.subject}".`,
+    };
+
+    await notifyUserAboutSupportEvent(ticket.user, buildSupportNotificationPayload({
+        ticket,
+        title: statusTitles[nextStatus] || 'Support ticket updated',
+        message: resolutionSummary
+            ? `${statusMessages[nextStatus] || `Aura Support updated "${ticket.subject}".`} ${resolutionSummary}`
+            : (statusMessages[nextStatus] || `Aura Support updated "${ticket.subject}".`),
+        actionLabel: userActionRequired ? 'Review and reply' : 'Review update',
+        priority: nextStatus === 'closed' ? 'medium' : 'high',
+        metadata: {
+            resolutionSummary,
+            userActionRequired,
+            status: nextStatus,
+        },
+    }));
 
     res.json({
         success: true,
-        data: ticket,
+        data: serializeTicketForAdmin(ticket.toObject()),
     });
 });
 
