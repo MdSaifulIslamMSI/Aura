@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import { BrowserRouter as Router, Route, Routes, useLocation } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { AuthProvider } from './context/AuthContext';
@@ -22,44 +22,45 @@ import AppErrorBoundary from './components/shared/AppErrorBoundary';
 import BackendStatusBanner from './components/shared/BackendStatusBanner';
 import { trustRoutes } from './config/trustContent';
 import { assertRouteA11yContracts } from './utils/a11yContracts';
+import { lazyWithRetry } from './utils/lazyWithRetry';
 
 // Pages (Lazy Loaded for Performance)
-const Home = lazy(() => import('./pages/Home'));
-const Login = lazy(() => import('./pages/Login'));
-const ProductListing = lazy(() => import('./pages/ProductListing'));
-const ProductDetails = lazy(() => import('./pages/ProductDetails'));
-const Cart = lazy(() => import('./pages/Cart'));
-const Wishlist = lazy(() => import('./pages/Wishlist'));
-const Checkout = lazy(() => import('./pages/Checkout'));
-const Orders = lazy(() => import('./pages/Orders'));
+const Home = lazyWithRetry(() => import('./pages/Home'), 'home');
+const Login = lazyWithRetry(() => import('./pages/Login'), 'login');
+const ProductListing = lazyWithRetry(() => import('./pages/ProductListing'), 'product-listing');
+const ProductDetails = lazyWithRetry(() => import('./pages/ProductDetails'), 'product-details');
+const Cart = lazyWithRetry(() => import('./pages/Cart'), 'cart');
+const Wishlist = lazyWithRetry(() => import('./pages/Wishlist'), 'wishlist');
+const Checkout = lazyWithRetry(() => import('./pages/Checkout'), 'checkout');
+const Orders = lazyWithRetry(() => import('./pages/Orders'), 'orders');
 
 // Admin Pages
-const AdminDashboard = lazy(() => import('./pages/Admin/Dashboard'));
-const ProductList = lazy(() => import('./pages/Admin/ProductList'));
-const ProductEdit = lazy(() => import('./pages/Admin/ProductEdit'));
-const OrderList = lazy(() => import('./pages/Admin/OrderList'));
-const AdminPayments = lazy(() => import('./pages/Admin/Payments'));
-const AdminUsers = lazy(() => import('./pages/Admin/Users'));
-const AdminRefundLedger = lazy(() => import('./pages/Admin/RefundLedger'));
-const AdminEmailOps = lazy(() => import('./pages/Admin/EmailOps'));
-const AdminSupport = lazy(() => import('./pages/Admin/Support'));
+const AdminDashboard = lazyWithRetry(() => import('./pages/Admin/Dashboard'), 'admin-dashboard');
+const ProductList = lazyWithRetry(() => import('./pages/Admin/ProductList'), 'admin-products');
+const ProductEdit = lazyWithRetry(() => import('./pages/Admin/ProductEdit'), 'admin-product-edit');
+const OrderList = lazyWithRetry(() => import('./pages/Admin/OrderList'), 'admin-orders');
+const AdminPayments = lazyWithRetry(() => import('./pages/Admin/Payments'), 'admin-payments');
+const AdminUsers = lazyWithRetry(() => import('./pages/Admin/Users'), 'admin-users');
+const AdminRefundLedger = lazyWithRetry(() => import('./pages/Admin/RefundLedger'), 'admin-refunds');
+const AdminEmailOps = lazyWithRetry(() => import('./pages/Admin/EmailOps'), 'admin-email-ops');
+const AdminSupport = lazyWithRetry(() => import('./pages/Admin/Support'), 'admin-support');
 
 // Marketplace Pages
-const Sell = lazy(() => import('./pages/Sell'));
-const Marketplace = lazy(() => import('./pages/Marketplace'));
-const ListingDetail = lazy(() => import('./pages/ListingDetail'));
-const SellerProfile = lazy(() => import('./pages/SellerProfile'));
-const MyListings = lazy(() => import('./pages/MyListings'));
-const ProfilePage = lazy(() => import('./pages/Profile'));
-const TradeInPage = lazy(() => import('./pages/TradeIn'));
-const PriceAlertsPage = lazy(() => import('./pages/PriceAlerts'));
-const BecomeSeller = lazy(() => import('./pages/BecomeSeller'));
-const TrustPage = lazy(() => import('./pages/Trust'));
-const AICompare = lazy(() => import('./pages/AICompare'));
-const VisualSearch = lazy(() => import('./pages/VisualSearch'));
-const Bundles = lazy(() => import('./pages/Bundles'));
-const MissionControl = lazy(() => import('./pages/MissionControl'));
-const ChatBot = lazy(() => import('./components/features/chat/ChatBot'));
+const Sell = lazyWithRetry(() => import('./pages/Sell'), 'sell');
+const Marketplace = lazyWithRetry(() => import('./pages/Marketplace'), 'marketplace');
+const ListingDetail = lazyWithRetry(() => import('./pages/ListingDetail'), 'listing-detail');
+const SellerProfile = lazyWithRetry(() => import('./pages/SellerProfile'), 'seller-profile');
+const MyListings = lazyWithRetry(() => import('./pages/MyListings'), 'my-listings');
+const ProfilePage = lazyWithRetry(() => import('./pages/Profile'), 'profile');
+const TradeInPage = lazyWithRetry(() => import('./pages/TradeIn'), 'trade-in');
+const PriceAlertsPage = lazyWithRetry(() => import('./pages/PriceAlerts'), 'price-alerts');
+const BecomeSeller = lazyWithRetry(() => import('./pages/BecomeSeller'), 'become-seller');
+const TrustPage = lazyWithRetry(() => import('./pages/Trust'), 'trust');
+const AICompare = lazyWithRetry(() => import('./pages/AICompare'), 'ai-compare');
+const VisualSearch = lazyWithRetry(() => import('./pages/VisualSearch'), 'visual-search');
+const Bundles = lazyWithRetry(() => import('./pages/Bundles'), 'bundles');
+const MissionControl = lazyWithRetry(() => import('./pages/MissionControl'), 'mission-control');
+const ChatBot = lazyWithRetry(() => import('./components/features/chat/ChatBot'), 'chat-bot');
 
 const AMBIENT_CHROME_PREFIXES = [
   '/',
