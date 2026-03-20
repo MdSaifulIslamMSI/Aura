@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { notificationApi } from '../services/api';
 import { useSocket } from './SocketContext';
 import { useAuth } from './AuthContext';
@@ -26,7 +26,7 @@ export function NotificationProvider({ children }) {
     const [unreadCount, setUnreadCount] = useState(0);
     const [isLoading, setIsLoading] = useState(false);
 
-    const fetchNotifications = async () => {
+    const fetchNotifications = useCallback(async () => {
         if (!isAuthenticated) return;
         try {
             setIsLoading(true);
@@ -40,7 +40,7 @@ export function NotificationProvider({ children }) {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [isAuthenticated]);
 
     useEffect(() => {
         if (!isAuthenticated) {
@@ -68,7 +68,7 @@ export function NotificationProvider({ children }) {
         };
     }, [socket, isAuthenticated]);
 
-    const markAsRead = async (id) => {
+    const markAsRead = useCallback(async (id) => {
         try {
             setNotifications(prev => 
                 prev.map(n => n._id === id ? { ...n, isRead: true } : n)
@@ -80,9 +80,9 @@ export function NotificationProvider({ children }) {
                 console.error('Failed to mark notification as read:', error);
             }
         }
-    };
+    }, []);
 
-    const markAllAsRead = async () => {
+    const markAllAsRead = useCallback(async () => {
         try {
             setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
             setUnreadCount(0);
@@ -92,17 +92,19 @@ export function NotificationProvider({ children }) {
                 console.error('Failed to mark all as read:', error);
             }
         }
-    };
+    }, []);
+
+    const contextValue = useMemo(() => ({
+        notifications,
+        unreadCount,
+        isLoading,
+        markAsRead,
+        markAllAsRead,
+        fetchNotifications,
+    }), [notifications, unreadCount, isLoading, markAsRead, markAllAsRead, fetchNotifications]);
 
     return (
-        <NotificationContext.Provider value={{
-            notifications,
-            unreadCount,
-            isLoading,
-            markAsRead,
-            markAllAsRead,
-            fetchNotifications
-        }}>
+        <NotificationContext.Provider value={contextValue}>
             {children}
         </NotificationContext.Provider>
     );

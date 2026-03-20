@@ -6,6 +6,15 @@ export const WishlistContext = createContext();
 
 const GUEST_KEY = 'aura_wishlist_guest';
 const userKey = (uid) => `aura_wishlist_${uid}`;
+const parseWishlistSnapshot = (raw) => {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
 
 export const WishlistProvider = ({ children }) => {
   const [wishlistItems, setWishlistItems] = useState([]);
@@ -33,7 +42,7 @@ export const WishlistProvider = ({ children }) => {
 
       const stored = localStorage.getItem(userKey(uid));
       if (stored) {
-        try { setWishlistItems(JSON.parse(stored)); } catch { /* ignore */ }
+        setWishlistItems(parseWishlistSnapshot(stored));
       }
 
       // Backend is source of truth
@@ -41,7 +50,7 @@ export const WishlistProvider = ({ children }) => {
         .then(data => {
           if (data.wishlist) {
             const backendIds = new Set(data.wishlist.map(i => i.id));
-            const localOnly = stored ? JSON.parse(stored).filter(i => !backendIds.has(i.id)) : [];
+            const localOnly = parseWishlistSnapshot(stored).filter(i => !backendIds.has(i.id));
             const merged = [...data.wishlist, ...localOnly];
             setWishlistItems(merged);
             if (localOnly.length > 0) {
@@ -57,7 +66,7 @@ export const WishlistProvider = ({ children }) => {
     // Guest
     const stored = localStorage.getItem(GUEST_KEY);
     if (stored) {
-      try { setWishlistItems(JSON.parse(stored)); } catch { /* ignore */ }
+      setWishlistItems(parseWishlistSnapshot(stored));
     }
     setIsLoading(false);
   }, [currentUser]);
