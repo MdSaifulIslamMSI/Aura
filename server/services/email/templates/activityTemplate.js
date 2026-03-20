@@ -30,6 +30,7 @@ const renderActivityTemplate = ({
     maskedIp = 'Unavailable',
     occurredAt = new Date(),
     ctaUrl = '',
+    ctaLabel = 'Open Security Dashboard',
 }) => {
     const greetingName = String(userName || '').trim() || 'there';
     const safeTitle = escapeHtml(actionTitle);
@@ -40,6 +41,7 @@ const renderActivityTemplate = ({
     const safeDevice = escapeHtml(deviceLabel || 'Unknown device');
     const safeIp = escapeHtml(maskedIp || 'Unavailable');
     const safeCta = escapeHtml(ctaUrl || '');
+    const safeCtaLabel = escapeHtml(ctaLabel || 'Open Security Dashboard');
     const timestamp = toReadableDateTime(occurredAt);
 
     const subject = `${brand} Security Activity: ${actionTitle}`.slice(0, 140);
@@ -97,7 +99,7 @@ const renderActivityTemplate = ({
                 ${safeCta ? `
                 <div style="margin:0 0 18px;">
                   <a href="${safeCta}" style="display:inline-block;padding:12px 18px;background:linear-gradient(90deg,#06B6D4,#10B981);color:#F8FAFC;text-decoration:none;border-radius:10px;font-size:13px;font-weight:700;letter-spacing:.04em;">
-                    Open Security Dashboard
+                    ${safeCtaLabel}
                   </a>
                 </div>` : ''}
 

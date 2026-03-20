@@ -48,6 +48,10 @@ export default function AdminUsers() {
     const [scrubPII, setScrubPII] = useState(false);
 
     const selectedUser = detail?.user || null;
+    const selectedState = selectedUser?.accountState || '';
+    const isDeleted = selectedState === 'deleted' || Boolean(selectedUser?.softDeleted);
+    const isSuspended = selectedState === 'suspended' || Boolean(selectedUser?.moderation?.suspensionActive);
+    const isWarned = selectedState === 'warned';
 
     const loadUsers = useCallback(async () => {
         try {
@@ -111,7 +115,7 @@ export default function AdminUsers() {
         try {
             setActionBusy(actionKey);
             const response = await actionFn(selectedUserId, payload);
-            toast.success(response?.message || 'Action completed');
+            toast.success(response?.workflow?.userExperience || response?.message || 'Action completed');
             await Promise.all([loadUsers(), loadDetail()]);
         } catch (error) {
             toast.error(error.message || 'Action failed');
@@ -119,6 +123,57 @@ export default function AdminUsers() {
             setActionBusy('');
         }
     };
+
+    const actionAvailability = useMemo(() => ({
+        warn: !isDeleted && !isSuspended,
+        suspend: !isDeleted && !isSuspended,
+        dismiss: !isDeleted && !isSuspended && isWarned,
+        reactivate: !isDeleted && isSuspended,
+        delete: !isDeleted,
+    }), [isDeleted, isSuspended, isWarned]);
+
+    const actionExplainers = useMemo(() => ([
+        {
+            key: 'warn',
+            label: 'Warn',
+            enabled: actionAvailability.warn,
+            adminPower: 'Records a formal policy warning, notifies the user, and opens a moderation appeal case.',
+            userFeeling: 'The user keeps access, but clearly sees that trust & safety is watching the account.',
+            resolution: 'Admin or support can review the appeal in Support, then dismiss the warning if justified.',
+        },
+        {
+            key: 'suspend',
+            label: 'Suspend',
+            enabled: actionAvailability.suspend,
+            adminPower: 'Temporarily blocks the account, disables seller mode, expires active listings, and opens an urgent appeal case.',
+            userFeeling: 'The user immediately feels the restriction because access-sensitive actions stop working and the case becomes urgent.',
+            resolution: 'Admin reactivates the account after review, which closes the suspension case with a recorded outcome.',
+        },
+        {
+            key: 'dismiss',
+            label: 'Dismiss Warning',
+            enabled: actionAvailability.dismiss,
+            adminPower: 'Clears a warning and restores the account to active without suspension.',
+            userFeeling: 'The user sees that the warning was reviewed fairly and removed.',
+            resolution: 'The moderation case is marked resolved and stays in the audit timeline.',
+        },
+        {
+            key: 'reactivate',
+            label: 'Reactivate',
+            enabled: actionAvailability.reactivate,
+            adminPower: 'Ends an active suspension and restores the account to working state.',
+            userFeeling: 'The user gets a clear recovery moment and can resume normal account usage.',
+            resolution: 'The open suspension appeal is resolved and the outcome is attached to the same case.',
+        },
+        {
+            key: 'delete',
+            label: 'Delete',
+            enabled: actionAvailability.delete,
+            adminPower: 'Soft-deletes the account, disables seller activity, optionally scrubs PII, and records a recovery trail.',
+            userFeeling: 'The user loses normal app access and must go through recovery support if this was a mistake.',
+            resolution: 'Recovery is handled through support email and the internal moderation case, not casual in-app reversal.',
+        },
+    ]), [actionAvailability.delete, actionAvailability.dismiss, actionAvailability.reactivate, actionAvailability.suspend, actionAvailability.warn]);
 
     const stateCounts = useMemo(() => ([
         { key: 'active', label: 'Active', value: Number(stats.active || 0), icon: <ShieldCheck className="h-4 w-4" /> },
@@ -332,32 +387,36 @@ export default function AdminUsers() {
                                 <button
                                     type="button"
                                     onClick={() => runAction('warn', adminApi.warnUser, { reason })}
-                                    disabled={actionBusy !== '' || reason.trim().length < 5}
+                                    disabled={actionBusy !== '' || reason.trim().length < 5 || !actionAvailability.warn}
                                     className="admin-premium-button px-3 py-2 text-sm disabled:opacity-50"
+                                    title={actionAvailability.warn ? 'Issue a formal warning and open an appeal case' : 'Warn is only available for active or warned users'}
                                 >
                                     {actionBusy === 'warn' ? '...' : 'Warn'}
                                 </button>
                                 <button
                                     type="button"
                                     onClick={() => runAction('suspend', adminApi.suspendUser, { reason, durationHours })}
-                                    disabled={actionBusy !== '' || reason.trim().length < 5}
+                                    disabled={actionBusy !== '' || reason.trim().length < 5 || !actionAvailability.suspend}
                                     className="admin-premium-button admin-premium-button-danger px-3 py-2 text-sm disabled:opacity-50"
+                                    title={actionAvailability.suspend ? 'Suspend access and open an urgent appeal case' : 'Suspend is only available for non-deleted users who are not already suspended'}
                                 >
                                     {actionBusy === 'suspend' ? '...' : 'Suspend'}
                                 </button>
                                 <button
                                     type="button"
                                     onClick={() => runAction('dismiss', adminApi.dismissWarning, { reason })}
-                                    disabled={actionBusy !== ''}
+                                    disabled={actionBusy !== '' || !actionAvailability.dismiss}
                                     className="admin-premium-button px-3 py-2 text-sm disabled:opacity-50"
+                                    title={actionAvailability.dismiss ? 'Dismiss an active warning and resolve the warning case' : 'Dismiss Warning is only available while the user is in warned state'}
                                 >
                                     {actionBusy === 'dismiss' ? '...' : 'Dismiss Warning'}
                                 </button>
                                 <button
                                     type="button"
                                     onClick={() => runAction('reactivate', adminApi.reactivateUser, { reason })}
-                                    disabled={actionBusy !== ''}
+                                    disabled={actionBusy !== '' || !actionAvailability.reactivate}
                                     className="admin-premium-button admin-premium-button-success px-3 py-2 text-sm disabled:opacity-50"
+                                    title={actionAvailability.reactivate ? 'Lift an active suspension and resolve the case' : 'Reactivate is only available for suspended users'}
                                 >
                                     {actionBusy === 'reactivate' ? '...' : 'Reactivate'}
                                 </button>
@@ -365,13 +424,51 @@ export default function AdminUsers() {
                                     type="button"
                                     onClick={() => {
                                         if (!window.confirm('Soft-delete this user account?')) return;
-                                        runAction('delete', adminApi.deleteUser, { reason, scrubPII });
+                                            runAction('delete', adminApi.deleteUser, { reason, scrubPII });
                                     }}
-                                    disabled={actionBusy !== '' || reason.trim().length < 5}
+                                    disabled={actionBusy !== '' || reason.trim().length < 5 || !actionAvailability.delete}
                                     className="admin-premium-button admin-premium-button-danger px-3 py-2 text-sm disabled:opacity-50"
+                                    title={actionAvailability.delete ? 'Soft-delete the account and start the recovery trail' : 'Delete is not available for already deleted accounts'}
                                 >
                                     {actionBusy === 'delete' ? '...' : 'Delete'}
                                 </button>
+                            </div>
+
+                            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+                                <AdminPremiumSubpanel>
+                                    <h3 className="premium-kicker mb-3">What Happens Next</h3>
+                                    <div className="space-y-3 text-sm admin-premium-text">
+                                        <p>
+                                            The selected user is currently in <span className="admin-premium-text-strong font-semibold">{accountStateLabel(selectedState || 'active')}</span> state.
+                                            Every governance action writes an audit log, creates a user-facing signal, and records who acted.
+                                        </p>
+                                        <p>
+                                            For warnings and suspensions, Aura now opens a real moderation support case so the user can appeal and the admin team can resolve it in one thread.
+                                        </p>
+                                        <p>
+                                            Reactivation and warning dismissal close the matching moderation case with a clear resolution message. Deletion creates a recovery trail, but the final user recovery path is support-led because deleted users cannot keep normal app access.
+                                        </p>
+                                    </div>
+                                </AdminPremiumSubpanel>
+
+                                <AdminPremiumSubpanel>
+                                    <h3 className="premium-kicker mb-3">Action Power Map</h3>
+                                    <div className="space-y-3">
+                                        {actionExplainers.map((item) => (
+                                            <div key={item.key} className="rounded-3xl border border-white/10 bg-white/[0.03] px-4 py-3">
+                                                <div className="flex items-center justify-between gap-3">
+                                                    <p className="admin-premium-text-strong font-semibold">{item.label}</p>
+                                                    <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${item.enabled ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200' : 'border-slate-500/30 bg-slate-500/10 text-slate-300'}`}>
+                                                        {item.enabled ? 'Available now' : 'Blocked now'}
+                                                    </span>
+                                                </div>
+                                                <p className="mt-2 text-sm admin-premium-text"><span className="font-semibold">Admin power:</span> {item.adminPower}</p>
+                                                <p className="mt-1 text-sm admin-premium-text"><span className="font-semibold">User impact:</span> {item.userFeeling}</p>
+                                                <p className="mt-1 text-sm admin-premium-text"><span className="font-semibold">Resolution path:</span> {item.resolution}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </AdminPremiumSubpanel>
                             </div>
 
                             <div>
