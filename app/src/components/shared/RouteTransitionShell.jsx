@@ -8,6 +8,7 @@ const RouteTransitionShell = ({ children }) => {
   const { effectiveMotionMode } = useMotionMode();
   const [active, setActive] = useState(true);
   const shouldAnimate = effectiveMotionMode === 'cinematic';
+  const routeKey = `${location.pathname}${location.search}`;
 
   useEffect(() => {
     if (!shouldAnimate) {
@@ -28,7 +29,9 @@ const RouteTransitionShell = ({ children }) => {
         active && 'aura-route-shell-active'
       )}
     >
-      {children}
+      <div key={routeKey} className="contents">
+        {children}
+      </div>
     </div>
   );
 };
