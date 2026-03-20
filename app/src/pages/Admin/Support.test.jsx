@@ -45,6 +45,14 @@ vi.mock('@/context/SocketContext', () => ({
     useSocketDemand: vi.fn(),
 }));
 
+vi.mock('@/context/VideoCallContext', () => ({
+    useVideoCall: () => ({
+        startCall: vi.fn().mockResolvedValue(true),
+        callStatus: 'idle',
+        activeCallContext: null,
+    }),
+}));
+
 describe('AdminSupport', () => {
     const renderAdminSupport = () => render(
         <MemoryRouter initialEntries={['/admin/support']}>
