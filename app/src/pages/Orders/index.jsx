@@ -187,7 +187,7 @@ const Orders = () => {
     );
 };
 
-const OrderCard = ({ order }) => {
+export const OrderCard = ({ order }) => {
     const [expanded, setExpanded] = useState(false);
     const [orderMeta, setOrderMeta] = useState({
         orderStatus: order.orderStatus || (order.isDelivered ? 'delivered' : 'placed'),
@@ -217,48 +217,62 @@ const OrderCard = ({ order }) => {
     }).toUpperCase();
 
     useEffect(() => {
+        if (!expanded || timelineLoading || timeline.length > 0 || timelineError) {
+            return undefined;
+        }
+
         let active = true;
-        const loadTimeline = async () => {
-            if (!expanded || timeline.length > 0 || timelineLoading) return;
-            setTimelineLoading(true);
-            setTimelineError('');
-            try {
-                const response = await orderApi.getOrderTimeline(order._id);
+        setTimelineLoading(true);
+        setTimelineError('');
+
+        orderApi.getOrderTimeline(order._id)
+            .then((response) => {
                 if (!active) return;
-                setTimeline(response.timeline || []);
-            } catch (error) {
+                setTimeline(Array.isArray(response?.timeline) ? response.timeline : []);
+            })
+            .catch((error) => {
                 if (!active) return;
                 setTimelineError(error.message || 'Unable to load trust timeline');
-            } finally {
-                if (active) setTimelineLoading(false);
-            }
-        };
+            })
+            .finally(() => {
+                if (active) {
+                    setTimelineLoading(false);
+                }
+            });
 
-        loadTimeline();
-        return () => { active = false; };
-    }, [expanded, timeline.length, timelineLoading, order._id]);
+        return () => {
+            active = false;
+        };
+    }, [expanded, order._id, timeline.length, timelineError]);
 
     useEffect(() => {
+        if (!expanded || commandLoading || commandCenter || commandError) {
+            return undefined;
+        }
+
         let active = true;
-        const loadCommandCenter = async () => {
-            if (!expanded || commandCenter || commandLoading) return;
-            setCommandLoading(true);
-            setCommandError('');
-            try {
-                const response = await orderApi.getCommandCenter(order._id);
+        setCommandLoading(true);
+        setCommandError('');
+
+        orderApi.getCommandCenter(order._id)
+            .then((response) => {
                 if (!active) return;
                 setCommandCenter(response?.commandCenter || null);
-            } catch (error) {
+            })
+            .catch((error) => {
                 if (!active) return;
                 setCommandError(error.message || 'Unable to load command center');
-            } finally {
-                if (active) setCommandLoading(false);
-            }
-        };
+            })
+            .finally(() => {
+                if (active) {
+                    setCommandLoading(false);
+                }
+            });
 
-        loadCommandCenter();
-        return () => { active = false; };
-    }, [expanded, commandCenter, commandLoading, order._id]);
+        return () => {
+            active = false;
+        };
+    }, [expanded, order._id, commandCenter, commandError]);
 
     const formatTimelineDate = (value) => {
         const dateValue = new Date(value);
