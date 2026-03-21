@@ -231,7 +231,7 @@ function AppContent() {
 
               {/* Protected Routes - require authentication */}
               <Route path="/cart" element={renderRoute(<Cart />)} />
-              <Route path="/wishlist" element={renderCriticalRoute(<ProtectedRoute><Wishlist /></ProtectedRoute>)} />
+              <Route path="/wishlist" element={renderRoute(<Wishlist />)} />
               <Route path="/checkout" element={renderCriticalRoute(<ProtectedRoute><Checkout /></ProtectedRoute>)} />
               <Route path="/orders" element={renderCriticalRoute(<ProtectedRoute><Orders /></ProtectedRoute>)} />
               <Route path="/become-seller" element={renderCriticalRoute(<ProtectedRoute><BecomeSeller /></ProtectedRoute>)} />
