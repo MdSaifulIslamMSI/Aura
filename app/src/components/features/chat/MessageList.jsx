@@ -14,6 +14,10 @@ const MessageList = ({
     onCancelPending,
 }) => {
     const endRef = useRef(null);
+    const latestAssistantMessageId = [...messages]
+        .reverse()
+        .find((message) => message?.role === 'assistant')
+        ?.id || null;
 
     useEffect(() => {
         endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
@@ -31,6 +35,7 @@ const MessageList = ({
                         key={message.id}
                         message={message}
                         isWhiteMode={isWhiteMode}
+                        showProductCards={message.id === latestAssistantMessageId}
                         onSelectProduct={onSelectProduct}
                         onAddToCart={onAddToCart}
                         onViewDetails={onViewDetails}
