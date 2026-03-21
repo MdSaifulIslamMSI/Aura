@@ -3,7 +3,12 @@ const router = express.Router();
 const {
     loginUser,
     getUserProfile,
+    getCart,
     syncCart,
+    addCartItem,
+    setCartItemQuantity,
+    removeCartItem,
+    mergeCart,
     syncWishlist,
     updateUserProfile,
     getProfileDashboard,
@@ -60,7 +65,12 @@ router.post('/addresses', protect, validate(addressSchema), addAddress);
 router.put('/addresses/:addressId', protect, validate(addressSchema), updateAddress);
 router.delete('/addresses/:addressId', protect, deleteAddress);
 
-router.put('/cart', protect, syncCart); // Protected
+router.get('/cart', protect, getCart); // Protected
+router.put('/cart', protect, syncCart); // Protected legacy full replacement
+router.post('/cart/merge', protect, mergeCart); // Protected
+router.post('/cart/items', protect, addCartItem); // Protected
+router.patch('/cart/items/:productId', protect, setCartItemQuantity); // Protected
+router.delete('/cart/items/:productId', protect, removeCartItem); // Protected
 router.put('/wishlist', protect, syncWishlist); // Protected
 
 module.exports = router;

@@ -10,7 +10,7 @@ const logger = require('../utils/logger');
 const AppError = require('../utils/AppError');
 const { buildProductImageDeliveryUrl } = require('../services/productImageResolver');
 
-const PROFILE_PROJECTION = 'name email phone avatar gender dob bio isAdmin isVerified isSeller sellerActivatedAt accountState moderation addresses cart wishlist loyalty createdAt';
+const PROFILE_PROJECTION = 'name email phone avatar gender dob bio isAdmin isVerified isSeller sellerActivatedAt accountState moderation addresses cart cartRevision cartSyncedAt wishlist loyalty createdAt';
 const AUTH_ONLY_PROJECTION = 'name email phone isAdmin isVerified isSeller sellerActivatedAt accountState moderation loyalty';
 
 const PHONE_REGEX = /^\+?\d{10,15}$/;
@@ -81,6 +81,115 @@ const hydrateCartWithLiveProducts = async (cartItems = []) => {
             quantity: liveStock > 0 ? Math.min(requestedQty, liveStock) : requestedQty,
         };
     });
+};
+
+const cartSnapshotsEqual = (left = [], right = []) => JSON.stringify(left || []) === JSON.stringify(right || []);
+
+const buildCartResponse = (userLike = {}) => ({
+    items: Array.isArray(userLike?.cart) ? userLike.cart : [],
+    revision: Number(userLike?.cartRevision || 0),
+    syncedAt: userLike?.cartSyncedAt || null,
+});
+
+const parseExpectedRevision = (value) => {
+    if (value === undefined || value === null || value === '') return null;
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed < 0) return Number.NaN;
+    return parsed;
+};
+
+const sendCartConflict = (res, userLike) => (
+    res.status(409).json({
+        code: 'cart_revision_conflict',
+        message: 'Cart revision conflict',
+        ...buildCartResponse(userLike),
+    })
+);
+
+const buildCartMutationPayload = (hydratedCart = []) => ({
+    cart: hydratedCart,
+    cartSyncedAt: new Date(),
+});
+
+const buildCartLineFromProduct = (productDoc, quantity = 1) => ({
+    id: Number(productDoc?.id || 0),
+    title: normalizeText(productDoc?.title) || '',
+    price: Number(productDoc?.price || 0),
+    image: buildProductImageDeliveryUrl(normalizeText(productDoc?.image) || ''),
+    quantity: Math.max(1, Number(quantity || 1)),
+    stock: Math.max(0, Number(productDoc?.stock || 0)),
+    brand: normalizeText(productDoc?.brand) || '',
+    discountPercentage: Number(productDoc?.discountPercentage || 0),
+    originalPrice: Number(productDoc?.originalPrice || productDoc?.price || 0),
+});
+
+const mergeCartItems = (primaryItems = [], secondaryItems = []) => {
+    const mergedById = new Map();
+    const orderedIds = [];
+
+    [...primaryItems, ...secondaryItems].forEach((item) => {
+        const normalized = normalizeCartItemPayload(item);
+        const key = Number(normalized.id);
+        if (!Number.isFinite(key) || key <= 0) return;
+
+        if (!mergedById.has(key)) {
+            orderedIds.push(key);
+            mergedById.set(key, normalized);
+            return;
+        }
+
+        const existing = mergedById.get(key);
+        mergedById.set(key, {
+            ...existing,
+            quantity: Math.max(1, Number(existing.quantity || 1)) + Math.max(1, Number(normalized.quantity || 1)),
+        });
+    });
+
+    return orderedIds.map((id) => mergedById.get(id));
+};
+
+const ensureHydratedUserCartDocument = async (user) => {
+    if (!user) return null;
+
+    const hydratedCart = await hydrateCartWithLiveProducts(user.cart || []);
+    if (!cartSnapshotsEqual(hydratedCart, user.cart || [])) {
+        user.cart = hydratedCart;
+        user.cartRevision = Number(user.cartRevision || 0) + 1;
+        user.cartSyncedAt = new Date();
+        await user.save();
+    }
+
+    return user;
+};
+
+const persistCartMutation = async (user, nextCart = []) => {
+    const hydratedCart = await hydrateCartWithLiveProducts(nextCart);
+    user.cart = hydratedCart;
+    user.cartRevision = Number(user.cartRevision || 0) + 1;
+    user.cartSyncedAt = new Date();
+    await user.save();
+    return {
+        user,
+        hydratedCart,
+    };
+};
+
+const requireAuthorizedEmail = (req, next) => {
+    const safeEmail = normalizeEmail(req.user?.email);
+    if (!safeEmail) {
+        next(new AppError('Not authorized', 401));
+        return null;
+    }
+    return safeEmail;
+};
+
+const loadLiveProductById = async (productId) => {
+    const safeProductId = Number(productId);
+    if (!Number.isFinite(safeProductId) || safeProductId <= 0) return null;
+
+    return Product.findOne({ id: safeProductId })
+        .select('id title price image stock brand discountPercentage originalPrice')
+        .lean();
 };
 
 const getDuplicateField = (error) => {
@@ -309,8 +418,14 @@ const getUserProfile = asyncHandler(async (req, res, next) => {
     }
 
     const hydratedCart = await hydrateCartWithLiveProducts(user.cart || []);
-    if (JSON.stringify(hydratedCart) !== JSON.stringify(user.cart || [])) {
-        await User.updateOne({ _id: user._id }, { $set: { cart: hydratedCart } });
+    if (!cartSnapshotsEqual(hydratedCart, user.cart || [])) {
+        await User.updateOne(
+            { _id: user._id },
+            {
+                $set: buildCartMutationPayload(hydratedCart),
+                $inc: { cartRevision: 1 },
+            }
+        );
     }
 
     await persistAuthSnapshot(user);
@@ -591,6 +706,22 @@ const deleteAddress = asyncHandler(async (req, res, next) => {
 // @desc    Sync Cart
 // @route   PUT /api/users/cart
 // @access  Private
+const getCart = asyncHandler(async (req, res, next) => {
+    const safeEmail = requireAuthorizedEmail(req, next);
+    if (!safeEmail) return;
+
+    const user = await ensureUserDocument({
+        email: safeEmail,
+        authUser: req.user,
+    });
+    if (!user) {
+        return next(new AppError('Unable to recover user profile', 500));
+    }
+
+    await ensureHydratedUserCartDocument(user);
+    return res.json(buildCartResponse(user));
+});
+
 const syncCart = asyncHandler(async (req, res, next) => {
     const { cartItems } = req.body;
 
@@ -598,38 +729,244 @@ const syncCart = asyncHandler(async (req, res, next) => {
         return next(new AppError('cartItems must be an array', 400));
     }
 
-    const safeEmail = normalizeEmail(req.user?.email);
-    if (!safeEmail) {
-        return next(new AppError('Not authorized', 401));
+    const expectedRevision = parseExpectedRevision(req.body?.expectedRevision);
+    if (Number.isNaN(expectedRevision)) {
+        return next(new AppError('expectedRevision must be a non-negative number', 400));
     }
 
-    const hydratedCart = await hydrateCartWithLiveProducts(cartItems);
+    const safeEmail = requireAuthorizedEmail(req, next);
+    if (!safeEmail) return;
 
-    let user = await User.findOneAndUpdate(
-        { email: safeEmail },
-        { $set: { cart: hydratedCart } },
-        { new: true, projection: 'cart', lean: true }
-    );
-
-    if (!user) {
-        await bootstrapUserRecord({
-            email: safeEmail,
-            authUser: req.user,
-            projection: '_id',
-            lean: true,
-        });
-        user = await User.findOneAndUpdate(
-            { email: safeEmail },
-            { $set: { cart: hydratedCart } },
-            { new: true, projection: 'cart', lean: true }
-        );
-    }
-
+    const user = await ensureUserDocument({
+        email: safeEmail,
+        authUser: req.user,
+    });
     if (!user) {
         return next(new AppError('Unable to recover user profile', 500));
     }
 
-    res.json(user.cart);
+    await ensureHydratedUserCartDocument(user);
+
+    if (expectedRevision !== null && Number(user.cartRevision || 0) !== expectedRevision) {
+        return sendCartConflict(res, user);
+    }
+
+    const { user: persistedUser } = await persistCartMutation(user, cartItems);
+    res.json(buildCartResponse(persistedUser));
+});
+
+const addCartItem = asyncHandler(async (req, res, next) => {
+    const productId = Number(req.body?.productId);
+    const quantity = Math.max(1, Number(req.body?.quantity || 1));
+    const expectedRevision = parseExpectedRevision(req.body?.expectedRevision);
+
+    if (!Number.isFinite(productId) || productId <= 0) {
+        return next(new AppError('productId must be a valid product identifier', 400));
+    }
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+        return next(new AppError('quantity must be greater than 0', 400));
+    }
+    if (Number.isNaN(expectedRevision)) {
+        return next(new AppError('expectedRevision must be a non-negative number', 400));
+    }
+
+    const safeEmail = requireAuthorizedEmail(req, next);
+    if (!safeEmail) return;
+
+    const user = await ensureUserDocument({
+        email: safeEmail,
+        authUser: req.user,
+    });
+    if (!user) {
+        return next(new AppError('Unable to recover user profile', 500));
+    }
+
+    await ensureHydratedUserCartDocument(user);
+
+    if (expectedRevision !== null && Number(user.cartRevision || 0) !== expectedRevision) {
+        return sendCartConflict(res, user);
+    }
+
+    const liveProduct = await loadLiveProductById(productId);
+    if (!liveProduct) {
+        return next(new AppError('Product not found', 404));
+    }
+    if (Number(liveProduct.stock || 0) <= 0) {
+        return next(new AppError('Product is out of stock', 409));
+    }
+
+    const nextCart = Array.isArray(user.cart)
+        ? user.cart.map((item) => normalizeCartItemPayload(item))
+        : [];
+    const existingIndex = nextCart.findIndex((item) => Number(item.id) === productId);
+
+    if (existingIndex >= 0) {
+        nextCart[existingIndex] = {
+            ...nextCart[existingIndex],
+            quantity: Math.max(1, Number(nextCart[existingIndex].quantity || 1)) + quantity,
+        };
+    } else {
+        nextCart.push(buildCartLineFromProduct(liveProduct, quantity));
+    }
+
+    const { user: persistedUser, hydratedCart } = await persistCartMutation(user, nextCart);
+    const changedItem = hydratedCart.find((item) => Number(item.id) === productId) || null;
+
+    res.status(existingIndex >= 0 ? 200 : 201).json({
+        item: changedItem,
+        revision: Number(persistedUser.cartRevision || 0),
+        syncedAt: persistedUser.cartSyncedAt || null,
+    });
+});
+
+const setCartItemQuantity = asyncHandler(async (req, res, next) => {
+    const productId = Number(req.params.productId);
+    const quantity = Number(req.body?.quantity);
+    const expectedRevision = parseExpectedRevision(req.body?.expectedRevision);
+
+    if (!Number.isFinite(productId) || productId <= 0) {
+        return next(new AppError('productId must be a valid product identifier', 400));
+    }
+    if (!Number.isFinite(quantity) || quantity < 0) {
+        return next(new AppError('quantity must be a non-negative number', 400));
+    }
+    if (Number.isNaN(expectedRevision)) {
+        return next(new AppError('expectedRevision must be a non-negative number', 400));
+    }
+
+    const safeEmail = requireAuthorizedEmail(req, next);
+    if (!safeEmail) return;
+
+    const user = await ensureUserDocument({
+        email: safeEmail,
+        authUser: req.user,
+    });
+    if (!user) {
+        return next(new AppError('Unable to recover user profile', 500));
+    }
+
+    await ensureHydratedUserCartDocument(user);
+
+    if (expectedRevision !== null && Number(user.cartRevision || 0) !== expectedRevision) {
+        return sendCartConflict(res, user);
+    }
+
+    const currentCart = Array.isArray(user.cart)
+        ? user.cart.map((item) => normalizeCartItemPayload(item))
+        : [];
+    const existingIndex = currentCart.findIndex((item) => Number(item.id) === productId);
+
+    if (existingIndex < 0) {
+        return res.json({
+            item: null,
+            revision: Number(user.cartRevision || 0),
+            syncedAt: user.cartSyncedAt || null,
+        });
+    }
+
+    if (quantity === 0) {
+        const nextCart = currentCart.filter((item) => Number(item.id) !== productId);
+        const { user: persistedUser } = await persistCartMutation(user, nextCart);
+        return res.json({
+            item: null,
+            revision: Number(persistedUser.cartRevision || 0),
+            syncedAt: persistedUser.cartSyncedAt || null,
+        });
+    }
+
+    currentCart[existingIndex] = {
+        ...currentCart[existingIndex],
+        quantity: Math.max(1, quantity),
+    };
+
+    const { user: persistedUser, hydratedCart } = await persistCartMutation(user, currentCart);
+    const changedItem = hydratedCart.find((item) => Number(item.id) === productId) || null;
+
+    return res.json({
+        item: changedItem,
+        revision: Number(persistedUser.cartRevision || 0),
+        syncedAt: persistedUser.cartSyncedAt || null,
+    });
+});
+
+const removeCartItem = asyncHandler(async (req, res, next) => {
+    const productId = Number(req.params.productId);
+    const expectedRevision = parseExpectedRevision(req.body?.expectedRevision);
+
+    if (!Number.isFinite(productId) || productId <= 0) {
+        return next(new AppError('productId must be a valid product identifier', 400));
+    }
+    if (Number.isNaN(expectedRevision)) {
+        return next(new AppError('expectedRevision must be a non-negative number', 400));
+    }
+
+    const safeEmail = requireAuthorizedEmail(req, next);
+    if (!safeEmail) return;
+
+    const user = await ensureUserDocument({
+        email: safeEmail,
+        authUser: req.user,
+    });
+    if (!user) {
+        return next(new AppError('Unable to recover user profile', 500));
+    }
+
+    await ensureHydratedUserCartDocument(user);
+
+    if (expectedRevision !== null && Number(user.cartRevision || 0) !== expectedRevision) {
+        return sendCartConflict(res, user);
+    }
+
+    const currentCart = Array.isArray(user.cart)
+        ? user.cart.map((item) => normalizeCartItemPayload(item))
+        : [];
+    const nextCart = currentCart.filter((item) => Number(item.id) !== productId);
+
+    if (nextCart.length === currentCart.length) {
+        return res.json({
+            revision: Number(user.cartRevision || 0),
+            syncedAt: user.cartSyncedAt || null,
+        });
+    }
+
+    const { user: persistedUser } = await persistCartMutation(user, nextCart);
+    return res.json({
+        revision: Number(persistedUser.cartRevision || 0),
+        syncedAt: persistedUser.cartSyncedAt || null,
+    });
+});
+
+const mergeCart = asyncHandler(async (req, res, next) => {
+    const incomingItems = req.body?.items;
+    const expectedRevision = parseExpectedRevision(req.body?.expectedRevision);
+
+    if (!Array.isArray(incomingItems)) {
+        return next(new AppError('items must be an array', 400));
+    }
+    if (Number.isNaN(expectedRevision)) {
+        return next(new AppError('expectedRevision must be a non-negative number', 400));
+    }
+
+    const safeEmail = requireAuthorizedEmail(req, next);
+    if (!safeEmail) return;
+
+    const user = await ensureUserDocument({
+        email: safeEmail,
+        authUser: req.user,
+    });
+    if (!user) {
+        return next(new AppError('Unable to recover user profile', 500));
+    }
+
+    await ensureHydratedUserCartDocument(user);
+
+    if (expectedRevision !== null && Number(user.cartRevision || 0) !== expectedRevision) {
+        return sendCartConflict(res, user);
+    }
+
+    const mergedCart = mergeCartItems(user.cart || [], incomingItems);
+    const { user: persistedUser } = await persistCartMutation(user, mergedCart);
+    return res.json(buildCartResponse(persistedUser));
 });
 
 // @desc    Sync Wishlist
@@ -817,7 +1154,12 @@ const deactivateSellerAccount = asyncHandler(async (req, res, next) => {
 module.exports = {
     loginUser,
     getUserProfile,
+    getCart,
     syncCart,
+    addCartItem,
+    setCartItemQuantity,
+    removeCartItem,
+    mergeCart,
     syncWishlist,
     updateUserProfile,
     getProfileDashboard,

@@ -1,19 +1,15 @@
-import { useContext, useEffect } from 'react';
+import { useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Trash2, Plus, Minus, ShoppingBag, Heart, ArrowRight, ShieldCheck, Zap, ChevronRight } from 'lucide-react';
 import { CartContext } from '@/context/CartContext';
 import { WishlistContext } from '@/context/WishlistContext';
-import { cn } from '@/lib/utils';
+import { useCommerceStore } from '@/store/commerceStore';
 
 const Cart = () => {
-  const { cartItems, removeFromCart, updateQuantity, totalPrice, totalOriginalPrice, totalDiscount, moveToWishlist, refreshCartFromServer } = useContext(CartContext);
+  const { cartItems, removeFromCart, updateQuantity, totalPrice, totalOriginalPrice, totalDiscount, moveToWishlist } = useContext(CartContext);
   const { addToWishlist } = useContext(WishlistContext);
+  const clearDirectBuy = useCommerceStore((state) => state.clearDirectBuy);
   const navigate = useNavigate();
-
-  useEffect(() => {
-    if (typeof refreshCartFromServer !== 'function') return;
-    refreshCartFromServer().catch(() => { });
-  }, [refreshCartFromServer]);
 
   const formatPrice = (price) => {
     return new Intl.NumberFormat('en-IN', {
@@ -25,6 +21,11 @@ const Cart = () => {
 
   const handleMoveToWishlist = (productId) => {
     moveToWishlist(productId, addToWishlist);
+  };
+
+  const handleProceedToCheckout = () => {
+    clearDirectBuy();
+    navigate('/checkout');
   };
 
   if (cartItems.length === 0) {
@@ -245,7 +246,7 @@ const Cart = () => {
 
                 {/* Checkout Button */}
                 <button
-                  onClick={() => navigate('/checkout')}
+                  onClick={handleProceedToCheckout}
                   className="w-full btn-primary py-4 mt-2 flex items-center justify-center gap-2 text-sm tracking-widest shadow-[0_0_20px_rgba(217,70,239,0.3)] group/btn relative overflow-hidden"
                 >
                   <span className="relative z-10 flex items-center gap-2">
