@@ -224,8 +224,9 @@ export const useAssistantController = () => {
     const close = useChatStore((state) => state.close);
     const setSurface = useChatStore((state) => state.setSurface);
 
-    const cartItems = useCommerceStore(selectCartItems);
-    const cartSummary = useCommerceStore(selectCartSummary);
+    const cartState = useCommerceStore((state) => state.cart);
+    const cartItems = useMemo(() => selectCartItems({ cart: cartState }), [cartState]);
+    const cartSummary = useMemo(() => selectCartSummary({ cart: cartState }), [cartState]);
 
     const routeProductId = useMemo(() => extractProductIdFromPath(location.pathname), [location.pathname]);
     const conversationHistory = useMemo(() => trimConversationHistory(messages), [messages]);
