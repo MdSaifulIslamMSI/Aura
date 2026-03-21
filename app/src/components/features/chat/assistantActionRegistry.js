@@ -27,6 +27,10 @@ const titleCase = (value = '') => safeString(value)
 
 const buildPathFromNavigation = (page = '', params = {}) => {
     const normalizedPage = safeString(page);
+    if (normalizedPage === 'product' && safeString(params?.productId)) {
+        return `/product/${safeString(params.productId)}`;
+    }
+
     const basePath = DEFAULT_PAGE_PATHS[normalizedPage] || '/';
     const searchParams = new URLSearchParams();
 
@@ -78,7 +82,7 @@ export const createAssistantActionRegistry = ({
         success: true,
         message: Array.isArray(uiProducts) && uiProducts.length > 0
             ? `Showing ${uiProducts.length} result${uiProducts.length === 1 ? '' : 's'}${safeString(query) ? ` for ${query}` : ''}.`
-            : `Searching${safeString(query) ? ` for ${query}` : ''}.`,
+            : 'No validated search results are available yet.',
         products: Array.isArray(uiProducts) ? uiProducts.map((product) => normalizeProductSummary(product)) : [],
         filters,
     });

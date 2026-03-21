@@ -1,5 +1,43 @@
 import { aiApi } from './aiApi';
 
+const safeString = (value = '', fallback = '') => String(value ?? fallback).trim();
+
+const normalizeChatResponse = (response = {}, payload = {}) => {
+    const assistantTurn = response?.assistantTurn;
+    if (!assistantTurn || typeof assistantTurn !== 'object') {
+        throw new Error('Assistant response is missing a structured turn');
+    }
+
+    const products = Array.isArray(response?.products)
+        ? response.products
+        : Array.isArray(assistantTurn?.ui?.products)
+            ? assistantTurn.ui.products
+            : [];
+
+    return {
+        assistantTurn,
+        answer: safeString(response?.answer || assistantTurn?.response || ''),
+        text: safeString(response?.answer || assistantTurn?.response || ''),
+        products,
+        followUps: Array.isArray(response?.followUps)
+            ? response.followUps
+            : Array.isArray(assistantTurn?.followUps)
+                ? assistantTurn.followUps
+                : [],
+        actions: Array.isArray(response?.actions)
+            ? response.actions
+            : Array.isArray(assistantTurn?.actions)
+                ? assistantTurn.actions
+                : [],
+        provider: safeString(response?.provider || 'local'),
+        mode: safeString(response?.grounding?.mode || payload?.assistantMode || 'chat'),
+        latencyMs: Number(response?.latencyMs || 0),
+        grounding: response?.grounding || null,
+        providerCapabilities: response?.providerCapabilities || null,
+        sessionMemory: response?.sessionMemory || assistantTurn?.sessionMemory || null,
+    };
+};
+
 export const chatApi = {
     sendMessage: async (input = {}, legacyConversationHistory = []) => {
         const payload = typeof input === 'string'
@@ -15,54 +53,7 @@ export const chatApi = {
                 images: Array.isArray(input?.images) ? input.images : [],
             };
 
-        try {
-            const response = await aiApi.chat(payload);
-            if (response?.legacy && typeof response.legacy === 'object') {
-                return {
-                    ...response.legacy,
-                    assistantTurn: response?.assistantTurn || null,
-                    answer: response?.answer || response.legacy?.text || '',
-                    actions: response?.actions || [],
-                    followUps: response?.followUps || response.legacy?.suggestions || [],
-                    provider: response?.provider || response.legacy?.provider || 'local',
-                    mode: response?.grounding?.mode || response.legacy?.mode || payload.assistantMode || 'chat',
-                    latencyMs: response?.latencyMs || 0,
-                    grounding: response?.grounding || null,
-                    providerCapabilities: response?.providerCapabilities || null,
-                };
-            }
-            return {
-                text: response?.answer || "Sorry, I'm having trouble connecting. Please try again!",
-                answer: response?.answer || "Sorry, I'm having trouble connecting. Please try again!",
-                products: response?.products || [],
-                suggestions: response?.followUps || [],
-                followUps: response?.followUps || [],
-                actions: response?.actions || [],
-                assistantTurn: response?.assistantTurn || null,
-                actionType: response?.grounding?.actionType || 'assistant',
-                isAI: response?.provider !== 'local',
-                provider: response?.provider || 'local',
-                mode: response?.grounding?.mode || 'chat',
-                latencyMs: response?.latencyMs || 0,
-                grounding: response?.grounding || null,
-                providerCapabilities: response?.providerCapabilities || null,
-            };
-        } catch (error) {
-            console.error("Chat Error:", error);
-            return {
-                text: "Sorry, I'm having trouble connecting. Please try again!",
-                answer: "Sorry, I'm having trouble connecting. Please try again!",
-                products: [],
-                suggestions: ['Best deals today', 'Search premium phones', 'Build a smart bundle'],
-                followUps: ['Best deals today', 'Search premium phones', 'Build a smart bundle'],
-                actions: [],
-                assistantTurn: null,
-                actionType: 'error',
-                isAI: false,
-                provider: 'local',
-                mode: 'chat',
-                latencyMs: 0,
-            };
-        }
+        const response = await aiApi.chat(payload);
+        return normalizeChatResponse(response, payload);
     }
 };
