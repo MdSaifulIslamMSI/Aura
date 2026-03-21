@@ -67,8 +67,13 @@ jest.mock('../services/ai/assistantOrchestratorService', () => ({
 }));
 
 const app = require('../index');
+const { processAssistantTurn } = require('../services/ai/assistantOrchestratorService');
 
 describe('AI Routes', () => {
+    beforeEach(() => {
+        jest.clearAllMocks();
+    });
+
     test('POST /api/ai/chat works without auth', async () => {
         const res = await request(app)
             .post('/api/ai/chat')
@@ -89,6 +94,25 @@ describe('AI Routes', () => {
             mode: 'chat',
             actionType: 'assistant',
         });
+    });
+
+    test('POST /api/ai/chat accepts backend-owned action requests without a message', async () => {
+        const res = await request(app)
+            .post('/api/ai/chat')
+            .send({
+                actionRequest: {
+                    type: 'checkout',
+                },
+                assistantMode: 'chat',
+            });
+
+        expect(res.statusCode).toBe(200);
+        expect(processAssistantTurn).toHaveBeenCalledWith(expect.objectContaining({
+            message: '',
+            actionRequest: {
+                type: 'checkout',
+            },
+        }));
     });
 
     test('POST /api/ai/voice/session returns voice session config', async () => {

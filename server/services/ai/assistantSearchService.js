@@ -418,6 +418,7 @@ const searchProducts = async ({
             category: '',
             totalCandidates: 0,
             usedClosestMatch: false,
+            matchConfidence: 0,
             maxPrice: Number(maxPrice || 0),
         };
     }
@@ -445,6 +446,7 @@ const searchProducts = async ({
             category: detectedCategory,
             totalCandidates: candidates.length,
             usedClosestMatch: false,
+            matchConfidence: strictResults.length > 0 ? 0.86 : 0,
             maxPrice: Number(maxPrice || 0),
         };
     }
@@ -472,6 +474,7 @@ const searchProducts = async ({
         category: detectedCategory,
         totalCandidates: relaxedCandidates.length,
         usedClosestMatch: relaxedResults.length > 0,
+        matchConfidence: relaxedResults.length > 0 ? 0.58 : 0,
         maxPrice: Number(maxPrice || 0),
     };
 };

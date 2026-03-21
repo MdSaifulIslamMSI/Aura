@@ -27,6 +27,7 @@ const ChatContainer = ({
     onOpenSupport,
     onConfirmPending,
     onCancelPending,
+    onModifyPending,
 }) => {
     const shellClassName = isWhiteMode
         ? 'border-slate-200 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.98))] text-slate-950 shadow-[0_28px_80px_rgba(15,23,42,0.16)]'
@@ -77,6 +78,7 @@ const ChatContainer = ({
                 onOpenSupport={onOpenSupport}
                 onConfirmPending={onConfirmPending}
                 onCancelPending={onCancelPending}
+                onModifyPending={onModifyPending}
             />
 
             <div className="border-t border-white/10 px-4 py-4">
