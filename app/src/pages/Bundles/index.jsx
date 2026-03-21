@@ -5,6 +5,7 @@ import PremiumSelect from '@/components/ui/premium-select';
 import { productApi } from '@/services/api';
 import { aiApi } from '@/services/aiApi';
 import { CartContext } from '@/context/CartContext';
+import { useCommerceStore } from '@/store/commerceStore';
 import { formatPrice } from '@/utils/format';
 
 const THEME_PRESETS = [
@@ -24,6 +25,7 @@ export default function Bundles() {
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
     const { addToCart } = useContext(CartContext);
+    const clearDirectBuy = useCommerceStore((state) => state.clearDirectBuy);
 
     const [theme, setTheme] = useState(searchParams.get('theme') || 'home gym starter kit');
     const [budget, setBudget] = useState(clampBudget(searchParams.get('budget')));
@@ -126,6 +128,7 @@ export default function Bundles() {
     const handleOneClickCheckout = () => {
         if (!canCheckout) return;
         handleAddAllToCart();
+        clearDirectBuy();
         navigate('/checkout');
     };
 

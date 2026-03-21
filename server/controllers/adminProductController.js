@@ -133,7 +133,9 @@ const propagateProductSnapshotToUserCollections = async (productDoc) => {
                     'cart.$[item].brand': cartSnapshot.brand,
                     'cart.$[item].discountPercentage': cartSnapshot.discountPercentage,
                     'cart.$[item].originalPrice': cartSnapshot.originalPrice,
+                    cartSyncedAt: new Date(),
                 },
+                $inc: { cartRevision: 1 },
             },
             { arrayFilters: [{ 'item.id': productId }] }
         ),
@@ -168,7 +170,11 @@ const removeProductFromUserCollections = async (productDoc) => {
     const [cartResult, wishlistResult] = await Promise.all([
         User.updateMany(
             { 'cart.id': productId },
-            { $pull: { cart: { id: productId } } }
+            {
+                $pull: { cart: { id: productId } },
+                $set: { cartSyncedAt: new Date() },
+                $inc: { cartRevision: 1 },
+            }
         ),
         User.updateMany(
             { 'wishlist.id': productId },

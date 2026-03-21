@@ -217,7 +217,13 @@ const executeOrderCreation = async ({
     if (quote.normalized.checkoutSource !== 'directBuy') {
         const cartClearQuery = User.updateOne(
             { _id: userId },
-            { $set: { cart: [] } }
+            {
+                $set: {
+                    cart: [],
+                    cartSyncedAt: new Date(),
+                },
+                $inc: { cartRevision: 1 },
+            }
         );
         if (session) {
             await cartClearQuery.session(session);
