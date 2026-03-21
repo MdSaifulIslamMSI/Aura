@@ -12,7 +12,7 @@ import {
 export const CartContext = createContext();
 
 export const CartProvider = ({ children }) => {
-  const { currentUser } = useContext(AuthContext);
+  const { currentUser, loading: isAuthLoading } = useContext(AuthContext);
   const cartItems = useCommerceStore(useShallow(selectCartItems));
   const isLoading = useCommerceStore(selectCartLoading);
   const cartSummary = useCommerceStore(useShallow(selectCartSummary));
@@ -30,12 +30,16 @@ export const CartProvider = ({ children }) => {
   }, []);
 
   useEffect(() => {
+    if (!currentUser?.uid && isAuthLoading) {
+      return;
+    }
+
     const authPayload = currentUser?.uid
       ? { uid: currentUser.uid, email: currentUser.email || '' }
       : null;
 
     bindAuthUser(authPayload).catch(() => {});
-  }, [bindAuthUser, currentUser?.email, currentUser?.uid]);
+  }, [bindAuthUser, currentUser?.email, currentUser?.uid, isAuthLoading]);
 
   const moveToWishlist = (productId, wishlistCallback) => {
     const item = cartItems.find((entry) => entry.id === productId);

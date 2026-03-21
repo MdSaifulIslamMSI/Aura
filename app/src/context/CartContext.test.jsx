@@ -16,14 +16,15 @@ const CartProbe = () => {
   const cart = useContext(CartContext);
   return (
     <div>
+      <div data-testid="is-loading">{String(cart.isLoading)}</div>
       <div data-testid="item-count">{String(cart.cartItems.length)}</div>
       <div data-testid="item-ids">{cart.cartItems.map((item) => String(item.id)).join(',')}</div>
     </div>
   );
 };
 
-const renderCartProvider = (currentUser) => render(
-  <AuthContext.Provider value={{ currentUser }}>
+const renderCartProvider = (authValue) => render(
+  <AuthContext.Provider value={authValue}>
     <CartProvider>
       <CartProbe />
     </CartProvider>
@@ -50,7 +51,7 @@ describe('CartProvider', () => {
       syncedAt: null,
     });
 
-    renderCartProvider({ uid: 'user-1', email: 'user@example.com' });
+    renderCartProvider({ currentUser: { uid: 'user-1', email: 'user@example.com' }, loading: false });
 
     await waitFor(() => {
       expect(userApi.getCart).toHaveBeenCalledTimes(1);
@@ -79,7 +80,7 @@ describe('CartProvider', () => {
       syncedAt: null,
     });
 
-    renderCartProvider({ uid: 'user-2', email: 'guestmerge@example.com' });
+    renderCartProvider({ currentUser: { uid: 'user-2', email: 'guestmerge@example.com' }, loading: false });
 
     await waitFor(() => {
       expect(mergeCartSpy).toHaveBeenCalledWith({
@@ -92,5 +93,18 @@ describe('CartProvider', () => {
     });
 
     expect(localStorage.getItem(GUEST_CART_STORAGE_KEY)).toBeNull();
+  });
+
+  it('keeps cart in loading state while auth bootstrap is unresolved', async () => {
+    const getCartSpy = vi.spyOn(userApi, 'getCart').mockResolvedValue({
+      items: [],
+      revision: 1,
+      syncedAt: null,
+    });
+
+    renderCartProvider({ currentUser: null, loading: true });
+
+    expect(screen.getByTestId('is-loading')).toHaveTextContent('true');
+    expect(getCartSpy).not.toHaveBeenCalled();
   });
 });

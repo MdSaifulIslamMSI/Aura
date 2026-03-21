@@ -6,7 +6,7 @@ import { WishlistContext } from '@/context/WishlistContext';
 import { useCommerceStore } from '@/store/commerceStore';
 
 const Cart = () => {
-  const { cartItems, removeFromCart, updateQuantity, totalPrice, totalOriginalPrice, totalDiscount, moveToWishlist } = useContext(CartContext);
+  const { cartItems, removeFromCart, updateQuantity, totalPrice, totalOriginalPrice, totalDiscount, moveToWishlist, isLoading } = useContext(CartContext);
   const { addToWishlist } = useContext(WishlistContext);
   const clearDirectBuy = useCommerceStore((state) => state.clearDirectBuy);
   const navigate = useNavigate();
@@ -27,6 +27,27 @@ const Cart = () => {
     clearDirectBuy();
     navigate('/checkout');
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-[80vh] flex items-center justify-center relative overflow-hidden">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[min(80vw,600px)] h-[min(80vw,600px)] bg-neo-cyan/5 rounded-full blur-[150px] pointer-events-none -z-10" />
+
+        <div className="container-custom py-10">
+          <div className="bg-white/5 border border-white/10 rounded-3xl p-12 text-center max-w-lg mx-auto shadow-glass relative overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-transparent to-neo-cyan/5 pointer-events-none" />
+            <div className="w-24 h-24 rounded-full bg-zinc-950/50 border border-white/10 flex items-center justify-center mx-auto mb-6 shadow-[0_0_30px_rgba(0,0,0,0.5)]">
+              <div className="w-10 h-10 rounded-full border-4 border-neo-cyan/70 border-t-transparent animate-spin" />
+            </div>
+            <h2 className="text-3xl font-black mb-4 text-white tracking-tight">Restoring Your Bag</h2>
+            <p className="text-slate-400 max-w-sm mx-auto font-medium">
+              Syncing your latest cart state before we render the checkout view.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (cartItems.length === 0) {
     return (
