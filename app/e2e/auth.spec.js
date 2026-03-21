@@ -18,11 +18,11 @@ test.describe('Authentication Guards', () => {
         await expect(page.locator('main')).toBeVisible();
     });
 
-    test('/cart redirects to login when not authenticated', async ({ page }) => {
+    test('/cart remains accessible when not authenticated', async ({ page }) => {
         await waitForAuthShell(page, '/cart');
-        // After redirect to /login, URL should contain /login or the page has a login cue
-        await page.waitForURL(/\/login/, { timeout: 8_000 });
-        await expect(page.url()).toContain('/login');
+        await expect(page).toHaveURL(/\/cart$/);
+        await expect(page.locator('main')).toBeVisible();
+        await expect(page.getByRole('heading', { name: /your bag|your bag is empty/i })).toBeVisible();
     });
 
     test('/checkout redirects to login when not authenticated', async ({ page }) => {
