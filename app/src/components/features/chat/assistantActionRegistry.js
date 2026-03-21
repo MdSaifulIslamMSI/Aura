@@ -1,8 +1,10 @@
 import { productApi } from '@/services/api';
 import { useCommerceStore, selectCartItems, selectCartSummary } from '@/store/commerceStore';
+import { useChatStore } from '@/store/chatStore';
 import { buildSupportHandoffPath, normalizeProductSummary } from '@/utils/assistantCommands';
 
 const safeString = (value = '') => String(value ?? '').trim();
+const ACTION_DEDUPE_WINDOW_MS = 2000;
 
 const DEFAULT_PAGE_PATHS = {
     home: '/',
@@ -27,6 +29,10 @@ const titleCase = (value = '') => safeString(value)
 
 const buildPathFromNavigation = (page = '', params = {}) => {
     const normalizedPage = safeString(page);
+    if (normalizedPage === 'category' && safeString(params?.category)) {
+        return `/category/${safeString(params.category)}`;
+    }
+
     if (normalizedPage === 'product' && safeString(params?.productId)) {
         return `/product/${safeString(params.productId)}`;
     }
@@ -42,6 +48,40 @@ const buildPathFromNavigation = (page = '', params = {}) => {
     const query = searchParams.toString();
     if (!query) return basePath;
     return `${basePath}${basePath.includes('?') ? '&' : '?'}${query}`;
+};
+
+const stableStringify = (value = {}) => JSON.stringify(
+    Object.keys(value || {}).sort().reduce((acc, key) => {
+        acc[key] = value[key];
+        return acc;
+    }, {})
+);
+
+const buildActionFingerprint = (action = {}) => {
+    const type = safeString(action?.type || '');
+    if (!type) return '';
+
+    if (type === 'add_to_cart' || type === 'remove_from_cart') {
+        return `${type}:${safeString(action?.productId)}:${Math.max(1, Number(action?.quantity || 1))}`;
+    }
+
+    if (type === 'navigate_to') {
+        return `${type}:${safeString(action?.page)}:${stableStringify(action?.params || {})}`;
+    }
+
+    if (type === 'go_to_checkout') {
+        return 'navigate_to:checkout:{}';
+    }
+
+    if (type === 'open_support') {
+        return `open_support:${safeString(action?.orderId)}:${stableStringify(action?.prefill || {})}`;
+    }
+
+    if (type === 'track_order') {
+        return `track_order:${safeString(action?.orderId)}`;
+    }
+
+    return '';
 };
 
 const resolveProductFromCandidates = async (productId = '', candidates = []) => {
@@ -78,6 +118,18 @@ export const createAssistantActionRegistry = ({
     isAuthenticated = false,
     candidates = [],
 } = {}) => {
+    const readLastActionState = () => {
+        const memory = useChatStore.getState().context?.sessionMemory || {};
+        return {
+            fingerprint: safeString(memory.lastActionFingerprint || ''),
+            at: Number(memory.lastActionAt || 0),
+        };
+    };
+
+    const rememberAction = (fingerprint = '', executedAt = Date.now()) => {
+        useChatStore.getState().rememberExecutedAction(fingerprint, executedAt);
+    };
+
     const searchProducts = async (query = '', filters = {}, uiProducts = []) => ({
         success: true,
         message: Array.isArray(uiProducts) && uiProducts.length > 0
@@ -232,43 +284,71 @@ export const createAssistantActionRegistry = ({
     const executeAssistantAction = async (action = {}, options = {}) => {
         const type = safeString(action?.type || '');
         const uiProducts = Array.isArray(options?.uiProducts) ? options.uiProducts : [];
+        const fingerprint = buildActionFingerprint(action);
+        const now = Date.now();
+
+        if (fingerprint) {
+            const lastAction = readLastActionState();
+            if (lastAction.fingerprint === fingerprint && (now - lastAction.at) < ACTION_DEDUPE_WINDOW_MS) {
+                return {
+                    success: true,
+                    suppressedDuplicate: true,
+                    message: '',
+                    actionFingerprint: fingerprint,
+                    actionAt: lastAction.at,
+                };
+            }
+        }
+
+        const finalize = (result = {}) => {
+            if (fingerprint && result?.success !== false && !result?.suppressedDuplicate) {
+                rememberAction(fingerprint, now);
+            }
+
+            return {
+                ...result,
+                suppressedDuplicate: Boolean(result?.suppressedDuplicate),
+                actionFingerprint: fingerprint || safeString(result?.actionFingerprint || ''),
+                actionAt: result?.actionAt || (fingerprint ? now : 0),
+            };
+        };
 
         if (type === 'search_products') {
-            return searchProducts(action.query, action.filters, uiProducts);
+            return finalize(await searchProducts(action.query, action.filters, uiProducts));
         }
 
         if (type === 'select_product') {
-            return selectProduct(action.productId);
+            return finalize(await selectProduct(action.productId));
         }
 
         if (type === 'add_to_cart') {
-            return addToCart(action.productId, action.quantity);
+            return finalize(await addToCart(action.productId, action.quantity));
         }
 
         if (type === 'remove_from_cart') {
-            return removeFromCart(action.productId);
+            return finalize(await removeFromCart(action.productId));
         }
 
         if (type === 'go_to_checkout') {
-            return goToCheckout();
+            return finalize(await goToCheckout());
         }
 
         if (type === 'track_order') {
-            return trackOrder(action.orderId);
+            return finalize(await trackOrder(action.orderId));
         }
 
         if (type === 'navigate_to') {
-            return navigateTo(action.page, action.params);
+            return finalize(await navigateTo(action.page, action.params));
         }
 
         if (type === 'open_support') {
-            return openSupport(action.prefill || {}, action.orderId);
+            return finalize(await openSupport(action.prefill || {}, action.orderId));
         }
 
-        return {
+        return finalize({
             success: false,
             message: 'That action is not supported yet.',
-        };
+        });
     };
 
     return {

@@ -110,10 +110,19 @@ const buildSurfaceActions = ({
     products = [],
     supportPrefill = null,
 }) => {
-    if (assistantTurn?.intent === 'general_knowledge' || assistantTurn?.intent === 'unclear') {
+    const followUpActions = buildSuggestionActions(assistantTurn?.followUps || []);
+
+    if (assistantTurn?.intent === 'general_knowledge') {
         return {
             primaryAction: null,
             secondaryActions: [],
+        };
+    }
+
+    if (assistantTurn?.intent === 'unclear') {
+        return {
+            primaryAction: null,
+            secondaryActions: followUpActions,
         };
     }
 
@@ -125,7 +134,6 @@ const buildSurfaceActions = ({
         };
     }
 
-    const followUpActions = buildSuggestionActions(assistantTurn?.followUps || []);
     const externalActions = [];
 
     if (mode === 'product' && products[0]?.id) {
@@ -145,13 +153,16 @@ const buildSurfaceActions = ({
 
 const mergeExecutionResults = (results = []) => results.reduce((acc, result) => ({
     success: acc.success && result.success !== false,
-    message: safeString(result.message || acc.message),
+    message: result?.suppressedDuplicate ? acc.message : safeString(result.message || acc.message),
     product: result.product || acc.product || null,
     products: Array.isArray(result.products) && result.products.length > 0 ? result.products : acc.products,
     cartSummary: result.cartSummary || acc.cartSummary || null,
     supportPrefill: result.supportPrefill || acc.supportPrefill || null,
     navigation: result.navigation || acc.navigation || null,
     activeProductId: safeString(result.activeProductId || acc.activeProductId || ''),
+    suppressedDuplicate: acc.suppressedDuplicate && Boolean(result?.suppressedDuplicate),
+    actionFingerprint: safeString(result.actionFingerprint || acc.actionFingerprint || ''),
+    actionAt: Math.max(Number(acc.actionAt || 0), Number(result.actionAt || 0)),
 }), {
     success: true,
     message: '',
@@ -161,6 +172,9 @@ const mergeExecutionResults = (results = []) => results.reduce((acc, result) => 
     supportPrefill: null,
     navigation: null,
     activeProductId: '',
+    suppressedDuplicate: results.length > 0,
+    actionFingerprint: '',
+    actionAt: 0,
 });
 
 export const useAssistantController = () => {
@@ -276,6 +290,10 @@ export const useAssistantController = () => {
     }, [registry, setPendingAction]);
 
     const presentAssistantTurn = useCallback((assistantTurn, response = {}, execution = null) => {
+        if (execution?.suppressedDuplicate) {
+            return;
+        }
+
         const products = normalizeUiProducts(assistantTurn, response);
         const product = execution?.product || products[0] || null;
         const supportUi = assistantTurn?.ui?.support || null;
@@ -456,6 +474,9 @@ export const useAssistantController = () => {
                     if (requestId !== requestSequenceRef.current) {
                         return;
                     }
+                    if (execution?.suppressedDuplicate) {
+                        return;
+                    }
                     const responseTurn = {
                         ...assistantTurn,
                         response: safeString(execution.message || assistantTurn.response),
@@ -558,6 +579,9 @@ export const useAssistantController = () => {
                 productId: action.payload.id,
                 quantity: action.payload.quantity || 1,
             }).then((result) => {
+                if (result?.suppressedDuplicate) {
+                    return;
+                }
                 presentAssistantTurn({
                     intent: 'cart_action',
                     decision: 'act',
@@ -617,7 +641,11 @@ export const useAssistantController = () => {
                 type: 'open_support',
                 orderId,
                 prefill: action.payload?.prefill || supportPrefill || lastAssistantTurn?.ui?.support?.prefill || {},
-            }).then(() => close());
+            }).then((result) => {
+                if (!result?.suppressedDuplicate) {
+                    close();
+                }
+            });
         }
     }, [
         close,
@@ -648,6 +676,9 @@ export const useAssistantController = () => {
             productId,
             quantity,
         }).then((result) => {
+            if (result?.suppressedDuplicate) {
+                return result;
+            }
             presentAssistantTurn({
                 intent: 'cart_action',
                 decision: 'act',
@@ -665,7 +696,12 @@ export const useAssistantController = () => {
             type: 'open_support',
             orderId: safeString(orderId || lastAssistantTurn?.ui?.support?.orderId || context.lastOrderId || ''),
             prefill,
-        }).then(() => close())
+        }).then((result) => {
+            if (!result?.suppressedDuplicate) {
+                close();
+            }
+            return result;
+        })
     ), [close, context.lastOrderId, lastAssistantTurn?.ui?.support?.orderId, registry]);
 
     return {

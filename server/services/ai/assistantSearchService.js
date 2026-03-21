@@ -5,7 +5,7 @@ const DEFAULT_LIMIT = 6;
 const MAX_CANDIDATES = 24;
 
 const CATEGORY_HINTS = [
-    { aliases: ['iphone', 'phone', 'smartphone', 'mobile', 'mobiles', 'android', 'pixel', 'oneplus', 'samsung'], category: 'Mobiles' },
+    { aliases: ['iphone', 'phone', 'smartphone', 'mobile', 'mobiles', 'android', 'pixel', 'oneplus', 'samsung', 'oppo', 'vivo', 'realme'], category: 'Mobiles' },
     { aliases: ['laptop', 'macbook', 'notebook', 'ultrabook'], category: 'Laptops' },
     { aliases: ['headphone', 'headphones', 'earbud', 'earbuds', 'speaker', 'monitor', 'tv', 'electronics'], category: 'Electronics' },
     { aliases: ['gaming', 'console', 'controller', 'mouse', 'keyboard'], category: 'Gaming & Accessories' },
@@ -15,11 +15,16 @@ const CATEGORY_HINTS = [
 
 const SEARCH_NOISE = new Set([
     'a',
+    'amazing',
     'an',
+    'around',
+    'beautiful',
     'best',
     'browse',
+    'budget',
     'buy',
     'cheap',
+    'cheaper',
     'compare',
     'deals',
     'details',
@@ -31,13 +36,20 @@ const SEARCH_NOISE = new Set([
     'in',
     'item',
     'items',
+    'just',
+    'latest',
     'look',
     'looking',
     'me',
     'need',
+    'now',
     'of',
     'on',
+    'only',
     'please',
+    'popular',
+    'pretty',
+    'price',
     'product',
     'products',
     'recommend',
@@ -46,6 +58,7 @@ const SEARCH_NOISE = new Set([
     'some',
     'something',
     'the',
+    'then',
     'top',
     'under',
     'want',
@@ -78,11 +91,31 @@ const dedupeProducts = (products = []) => {
     });
 };
 
+const parseBudgetAmount = (digits = '', hasK = '') => {
+    const parsed = Number(String(digits || '').replace(/,/g, ''));
+    if (!Number.isFinite(parsed) || parsed <= 0) return 0;
+    return hasK ? parsed * 1000 : parsed;
+};
+
 const extractBudget = (value = '') => {
-    const match = safeString(value).match(/(?:under|below|less than|max|within)\s*(?:rs\.?|inr)?\s*([\d,]+)/i);
-    if (!match?.[1]) return 0;
-    const parsed = Number(String(match[1]).replace(/,/g, ''));
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+    const raw = safeString(value);
+    if (!raw) return 0;
+
+    const patterns = [
+        /(?:under|below|less than|max|within|around|about|near)\s*(?:rs\.?|inr)?\s*([\d,]+)\s*(k)?\b/i,
+        /(?:rs\.?|inr)\s*([\d,]+)\s*(k)?\b/i,
+        /\b([\d,]+)\s*(k)\b(?:\s*(?:price|budget|range))?/i,
+        /\b([\d,]+)\b\s*(?:price|budget)\b/i,
+    ];
+
+    for (const pattern of patterns) {
+        const match = raw.match(pattern);
+        if (!match?.[1]) continue;
+        const parsed = parseBudgetAmount(match[1], match[2]);
+        if (parsed > 0) return parsed;
+    }
+
+    return 0;
 };
 
 const detectCategoryHint = (value = '') => {
@@ -98,7 +131,10 @@ const detectCategoryHint = (value = '') => {
 
 const cleanSearchQuery = (value = '', fallback = '') => {
     const normalized = safeString(value || fallback)
-        .replace(/(?:under|below|less than|max|within)\s*(?:rs\.?|inr)?\s*[\d,]+/ig, ' ')
+        .replace(/(?:under|below|less than|max|within|around|about|near)\s*(?:rs\.?|inr)?\s*[\d,]+\s*k?\b/ig, ' ')
+        .replace(/(?:rs\.?|inr)\s*[\d,]+\s*k?\b/ig, ' ')
+        .replace(/\b[\d,]+\s*k\b/ig, ' ')
+        .replace(/\b[\d,]+\b\s*(?:price|budget)\b/ig, ' ')
         .replace(/[^\w\s.-]/g, ' ')
         .replace(/\s+/g, ' ')
         .trim();
@@ -111,6 +147,48 @@ const cleanSearchQuery = (value = '', fallback = '') => {
         .trim();
 
     return filtered || normalized;
+};
+
+const mergeQueryTokens = (baseQuery = '', nextQuery = '') => {
+    const merged = [];
+
+    [...tokenize(baseQuery), ...tokenize(nextQuery)].forEach((token) => {
+        if (!token || SEARCH_NOISE.has(token) || merged.includes(token)) return;
+        merged.push(token);
+    });
+
+    return merged.join(' ').trim();
+};
+
+const mergeSearchContext = ({
+    message = '',
+    lastQuery = '',
+    category = '',
+} = {}) => {
+    const resolvedCategory = resolveCategory(category) || detectCategoryHint(message) || detectCategoryHint(lastQuery);
+    const normalizedMessage = normalizeText(message);
+    const budget = extractBudget(message);
+    const cleanedCurrent = cleanSearchQuery(message, resolvedCategory);
+    const cleanedLast = safeString(lastQuery) ? cleanSearchQuery(lastQuery, resolvedCategory) : '';
+    const refinementOnly = Boolean(cleanedLast) && (
+        /^(?:then|now|also|only|just)\b/.test(normalizedMessage)
+        || /\b(price|budget|under|below|less than|max|within|around|about|cheap|cheaper)\b/.test(normalizedMessage)
+        || budget > 0
+        || !cleanedCurrent
+    );
+
+    let query = cleanedCurrent;
+    if (refinementOnly && cleanedLast) {
+        query = cleanedCurrent ? mergeQueryTokens(cleanedLast, cleanedCurrent) : cleanedLast;
+    }
+
+    return {
+        query: safeString(query || cleanedLast || cleanedCurrent || message),
+        category: safeString(resolvedCategory),
+        maxPrice: budget,
+        refinementOnly,
+        usedLastQuery: refinementOnly && !cleanedCurrent && Boolean(cleanedLast),
+    };
 };
 
 const levenshteinDistance = (left = '', right = '') => {
@@ -285,44 +363,24 @@ const collectCandidateProducts = async ({ query = '', category = '', maxPrice = 
     return dedupeProducts(responses.flatMap((response) => response?.products || []));
 };
 
-const searchProducts = async ({
+const rankCandidates = ({
+    candidates = [],
     query = '',
     category = '',
-    maxPrice = 0,
     excludeIds = [],
     limit = DEFAULT_LIMIT,
-} = {}) => {
-    const detectedCategory = resolveCategory(category) || detectCategoryHint(query);
-    const cleanedQuery = cleanSearchQuery(query, detectedCategory);
-    const searchQuery = cleanedQuery || safeString(query) || safeString(detectedCategory);
-    const normalizedExcludeIds = [...new Set((Array.isArray(excludeIds) ? excludeIds : []).map((entry) => safeString(entry)).filter(Boolean))];
+    threshold = 14,
+}) => {
+    const tokens = tokenize(query).filter((token) => !SEARCH_NOISE.has(token));
 
-    if (!searchQuery && !detectedCategory) {
-        return {
-            products: [],
-            query: '',
-            category: '',
-            totalCandidates: 0,
-        };
-    }
-
-    const candidates = await collectCandidateProducts({
-        query: searchQuery,
-        category: detectedCategory,
-        maxPrice,
-    });
-
-    const tokens = tokenize(searchQuery).filter((token) => !SEARCH_NOISE.has(token));
-    const threshold = tokens.length <= 1 && detectedCategory ? 8 : 14;
-
-    const ranked = candidates
+    return (Array.isArray(candidates) ? candidates : [])
         .map((product) => ({
             ...product,
             __assistantScore: scoreProductRelevance(product, {
-                query: searchQuery,
+                query,
                 tokens,
-                category: detectedCategory,
-                excludeIds: normalizedExcludeIds,
+                category,
+                excludeIds,
             }),
         }))
         .filter((product) => Number.isFinite(product.__assistantScore))
@@ -338,12 +396,83 @@ const searchProducts = async ({
         })
         .slice(0, clamp(limit, 1, DEFAULT_LIMIT))
         .map(({ __assistantScore, ...product }) => product);
+};
 
-    return {
-        products: ranked,
+const searchProducts = async ({
+    query = '',
+    category = '',
+    maxPrice = 0,
+    excludeIds = [],
+    limit = DEFAULT_LIMIT,
+    allowClosestMatches = true,
+} = {}) => {
+    const detectedCategory = resolveCategory(category) || detectCategoryHint(query);
+    const cleanedQuery = cleanSearchQuery(query, detectedCategory);
+    const searchQuery = cleanedQuery || safeString(query) || safeString(detectedCategory);
+    const normalizedExcludeIds = [...new Set((Array.isArray(excludeIds) ? excludeIds : []).map((entry) => safeString(entry)).filter(Boolean))];
+
+    if (!searchQuery && !detectedCategory) {
+        return {
+            products: [],
+            query: '',
+            category: '',
+            totalCandidates: 0,
+            usedClosestMatch: false,
+            maxPrice: Number(maxPrice || 0),
+        };
+    }
+
+    const candidates = await collectCandidateProducts({
         query: searchQuery,
         category: detectedCategory,
-        totalCandidates: candidates.length,
+        maxPrice,
+    });
+
+    const strictThreshold = tokenize(searchQuery).filter((token) => !SEARCH_NOISE.has(token)).length <= 1 && detectedCategory ? 8 : 14;
+    const strictResults = rankCandidates({
+        candidates,
+        query: searchQuery,
+        category: detectedCategory,
+        excludeIds: normalizedExcludeIds,
+        limit,
+        threshold: strictThreshold,
+    });
+
+    if (strictResults.length > 0 || !allowClosestMatches) {
+        return {
+            products: strictResults,
+            query: searchQuery,
+            category: detectedCategory,
+            totalCandidates: candidates.length,
+            usedClosestMatch: false,
+            maxPrice: Number(maxPrice || 0),
+        };
+    }
+
+    const relaxedCandidates = maxPrice > 0
+        ? await collectCandidateProducts({
+            query: searchQuery,
+            category: detectedCategory,
+            maxPrice: 0,
+        })
+        : candidates;
+
+    const relaxedResults = rankCandidates({
+        candidates: relaxedCandidates,
+        query: searchQuery,
+        category: detectedCategory,
+        excludeIds: normalizedExcludeIds,
+        limit,
+        threshold: Math.max(6, strictThreshold - 6),
+    });
+
+    return {
+        products: relaxedResults,
+        query: searchQuery,
+        category: detectedCategory,
+        totalCandidates: relaxedCandidates.length,
+        usedClosestMatch: relaxedResults.length > 0,
+        maxPrice: Number(maxPrice || 0),
     };
 };
 
@@ -351,6 +480,7 @@ module.exports = {
     cleanSearchQuery,
     detectCategoryHint,
     extractBudget,
+    mergeSearchContext,
     scoreProductRelevance,
     searchProducts,
     tokenize,

@@ -32,6 +32,50 @@ describe('chatStore', () => {
         });
     });
 
+    it('tracks recovery session memory fields and executed actions', () => {
+        useChatStore.getState().appendAssistantTurn({
+            text: 'Showing filtered results.',
+            assistantTurn: {
+                intent: 'product_search',
+                decision: 'respond',
+                response: 'Showing filtered results.',
+                ui: {
+                    surface: 'product_results',
+                    products: [{ id: '101', title: 'Aura Phone', price: 9999 }],
+                },
+                sessionMemory: {
+                    lastQuery: 'oppo phones',
+                    lastResults: [{ id: '101', title: 'Aura Phone', price: 9999 }],
+                    activeProduct: { id: '101', title: 'Aura Phone', price: 9999 },
+                    lastIntent: 'product_search',
+                    clarificationState: {
+                        fingerprint: 'clarify:budget',
+                        count: 1,
+                        lastQuestion: 'Pick a budget',
+                    },
+                    lastActionFingerprint: 'navigate_to:category:{\"category\":\"electronics\"}',
+                    lastActionAt: 1234,
+                },
+                followUps: ['Show more'],
+            },
+        });
+
+        useChatStore.getState().rememberExecutedAction('add_to_cart:101:1', 4321);
+
+        expect(useChatStore.getState().context.sessionMemory).toMatchObject({
+            lastQuery: 'oppo phones',
+            lastIntent: 'product_search',
+            currentIntent: 'product_search',
+            clarificationState: {
+                fingerprint: 'clarify:budget',
+                count: 1,
+                lastQuestion: 'Pick a budget',
+            },
+            lastActionFingerprint: 'add_to_cart:101:1',
+            lastActionAt: 4321,
+        });
+    });
+
     it('applies assistant turns as the single active surface', () => {
         useChatStore.getState().appendAssistantTurn({
             text: 'One product is in focus.',
