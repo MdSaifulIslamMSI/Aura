@@ -56,6 +56,13 @@ export const createWelcomeMessage = () => createAssistantMessage({
     uiSurface: 'plain_answer',
 });
 
+const createInitialSessionMemory = () => ({
+    lastQuery: '',
+    lastResults: [],
+    activeProduct: null,
+    currentIntent: '',
+});
+
 const createInitialContext = () => ({
     route: '/',
     lastQuery: '',
@@ -64,6 +71,7 @@ const createInitialContext = () => ({
     cartCount: 0,
     isAuthenticated: false,
     lastOrderId: null,
+    sessionMemory: createInitialSessionMemory(),
 });
 
 const createInitialState = () => ({
@@ -121,6 +129,10 @@ const mergeState = (persistedState, currentState) => {
         context: {
             ...currentState.context,
             ...(nextState.context || {}),
+            sessionMemory: {
+                ...currentState.context.sessionMemory,
+                ...(nextState.context?.sessionMemory || {}),
+            },
         },
         secondaryActions: Array.isArray(nextState.secondaryActions) ? nextState.secondaryActions : currentState.secondaryActions,
     };
@@ -187,6 +199,10 @@ export const useChatStore = create(
                 context: {
                     ...state.context,
                     ...partial,
+                    sessionMemory: {
+                        ...state.context.sessionMemory,
+                        ...(partial.sessionMemory || {}),
+                    },
                 },
             })),
             appendUserMessage: (text = '') => {
@@ -198,6 +214,10 @@ export const useChatStore = create(
                     context: {
                         ...state.context,
                         lastQuery: safeText,
+                        sessionMemory: {
+                            ...state.context.sessionMemory,
+                            lastQuery: safeText,
+                        },
                     },
                 }));
             },
@@ -273,39 +293,56 @@ export const useChatStore = create(
                         ? confirmation
                         : null;
 
-                set((state) => ({
-                    mode: resolvedMode,
-                    status: 'idle',
-                    isLoading: false,
-                    messages: trimMessages([
-                        ...state.messages,
-                        buildAssistantMessage({
-                            text,
-                            mode: resolvedMode,
-                            products: safeProducts,
-                            product: resolvedProduct,
-                            cartSummary,
-                            supportPrefill,
-                            confirmation,
-                            navigation,
-                            assistantTurn,
-                        }),
-                    ]),
-                    visibleProducts: safeProducts,
-                    primaryAction,
-                    secondaryActions: normalizeActionList(secondaryActions, primaryAction),
-                    supportPrefill,
-                    currentIntent: assistantTurn?.intent || state.currentIntent,
-                    pendingAction,
-                    pendingConfirmation: nextPendingConfirmation,
-                    lastAssistantTurn: assistantTurn || state.lastAssistantTurn,
-                    context: {
-                        ...state.context,
-                        candidateProductIds,
-                        activeProductId: resolvedActiveProductId,
-                        lastOrderId: assistantTurn?.entities?.orderId || state.context.lastOrderId,
-                    },
-                }));
+                set((state) => {
+                    const assistantSessionMemory = assistantTurn?.sessionMemory && typeof assistantTurn.sessionMemory === 'object'
+                        ? assistantTurn.sessionMemory
+                        : null;
+                    const nextSessionMemory = {
+                        ...state.context.sessionMemory,
+                        ...(assistantSessionMemory || {}),
+                        lastQuery: assistantSessionMemory?.lastQuery ?? state.context.sessionMemory.lastQuery,
+                        lastResults: Array.isArray(assistantSessionMemory?.lastResults)
+                            ? assistantSessionMemory.lastResults
+                            : state.context.sessionMemory.lastResults,
+                        activeProduct: assistantSessionMemory?.activeProduct ?? state.context.sessionMemory.activeProduct,
+                        currentIntent: assistantSessionMemory?.currentIntent || assistantTurn?.intent || state.context.sessionMemory.currentIntent,
+                    };
+
+                    return {
+                        mode: resolvedMode,
+                        status: 'idle',
+                        isLoading: false,
+                        messages: trimMessages([
+                            ...state.messages,
+                            buildAssistantMessage({
+                                text,
+                                mode: resolvedMode,
+                                products: safeProducts,
+                                product: resolvedProduct,
+                                cartSummary,
+                                supportPrefill,
+                                confirmation,
+                                navigation,
+                                assistantTurn,
+                            }),
+                        ]),
+                        visibleProducts: safeProducts,
+                        primaryAction,
+                        secondaryActions: normalizeActionList(secondaryActions, primaryAction),
+                        supportPrefill,
+                        currentIntent: assistantTurn?.intent || state.currentIntent,
+                        pendingAction,
+                        pendingConfirmation: nextPendingConfirmation,
+                        lastAssistantTurn: assistantTurn || state.lastAssistantTurn,
+                        context: {
+                            ...state.context,
+                            candidateProductIds,
+                            activeProductId: resolvedActiveProductId,
+                            lastOrderId: assistantTurn?.ui?.support?.orderId || state.context.lastOrderId,
+                            sessionMemory: nextSessionMemory,
+                        },
+                    };
+                });
             },
             resetConversation: () => set((state) => {
                 const initialState = createInitialState();

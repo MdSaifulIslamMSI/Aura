@@ -249,7 +249,7 @@ export const buildLocalVoiceCommand = (value = '') => {
         return {
             type: 'search',
             query: parsed.entities.query,
-            message: `Searching for ${parsed.entities.query}.`,
+            message: `Show results for ${parsed.entities.query}.`,
         };
     }
 
