@@ -56,11 +56,21 @@ export const createWelcomeMessage = () => createAssistantMessage({
     uiSurface: 'plain_answer',
 });
 
+const createInitialClarificationState = () => ({
+    fingerprint: '',
+    count: 0,
+    lastQuestion: '',
+});
+
 const createInitialSessionMemory = () => ({
     lastQuery: '',
     lastResults: [],
     activeProduct: null,
+    lastIntent: '',
     currentIntent: '',
+    clarificationState: createInitialClarificationState(),
+    lastActionFingerprint: '',
+    lastActionAt: 0,
 });
 
 const createInitialContext = () => ({
@@ -195,6 +205,16 @@ export const useChatStore = create(
             setPendingAction: (pendingAction = null) => set({ pendingAction }),
             setPendingConfirmation: (pendingConfirmation = null) => set({ pendingConfirmation }),
             clearPendingConfirmation: () => set({ pendingConfirmation: null }),
+            rememberExecutedAction: (fingerprint = '', executedAt = Date.now()) => set((state) => ({
+                context: {
+                    ...state.context,
+                    sessionMemory: {
+                        ...state.context.sessionMemory,
+                        lastActionFingerprint: String(fingerprint || '').trim(),
+                        lastActionAt: Number(executedAt || 0),
+                    },
+                },
+            })),
             hydrateContext: (partial = {}) => set((state) => ({
                 context: {
                     ...state.context,
@@ -305,7 +325,22 @@ export const useChatStore = create(
                             ? assistantSessionMemory.lastResults
                             : state.context.sessionMemory.lastResults,
                         activeProduct: assistantSessionMemory?.activeProduct ?? state.context.sessionMemory.activeProduct,
-                        currentIntent: assistantSessionMemory?.currentIntent || assistantTurn?.intent || state.context.sessionMemory.currentIntent,
+                        lastIntent: assistantSessionMemory?.lastIntent
+                            || assistantSessionMemory?.currentIntent
+                            || assistantTurn?.intent
+                            || state.context.sessionMemory.lastIntent
+                            || state.context.sessionMemory.currentIntent,
+                        currentIntent: assistantSessionMemory?.lastIntent
+                            || assistantSessionMemory?.currentIntent
+                            || assistantTurn?.intent
+                            || state.context.sessionMemory.lastIntent
+                            || state.context.sessionMemory.currentIntent,
+                        clarificationState: assistantSessionMemory?.clarificationState
+                            || state.context.sessionMemory.clarificationState,
+                        lastActionFingerprint: assistantSessionMemory?.lastActionFingerprint
+                            ?? state.context.sessionMemory.lastActionFingerprint,
+                        lastActionAt: assistantSessionMemory?.lastActionAt
+                            ?? state.context.sessionMemory.lastActionAt,
                     };
 
                     return {

@@ -115,4 +115,21 @@ describe('assistantCommands', () => {
             expect.objectContaining({ kind: 'navigate', payload: expect.objectContaining({ page: 'deals' }) }),
         ]);
     });
+
+    it('preserves category params for browse suggestions', () => {
+        expect(buildSuggestionActions([
+            'Browse electronics',
+        ])).toEqual([
+            expect.objectContaining({
+                kind: 'navigate',
+                payload: expect.objectContaining({
+                    page: 'category',
+                    path: '/category/electronics',
+                    params: {
+                        category: 'electronics',
+                    },
+                }),
+            }),
+        ]);
+    });
 });
