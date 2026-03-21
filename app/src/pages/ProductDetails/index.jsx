@@ -4,7 +4,9 @@ import { BadgeCheck, Brain, Camera, Heart, ShoppingCart, Share2, Star, ChevronRi
 import { CartContext } from '@/context/CartContext';
 import { WishlistContext } from '@/context/WishlistContext';
 import { AuthContext } from '@/context/AuthContext';
+import { useCommerceStore } from '@/store/commerceStore';
 import { priceAlertApi, productApi, uploadApi } from '@/services/api';
+import { pushClientDiagnostic } from '@/services/clientObservability';
 import ProductCard from '@/components/features/product/ProductCard';
 import ProductPageSkeleton from '@/components/shared/ProductPageSkeleton';
 import SectionErrorBoundary from '@/components/shared/SectionErrorBoundary';
@@ -33,6 +35,7 @@ const ProductDetails = () => {
   const addToCart = cartContext?.addToCart || (() => console.warn('addToCart missing'));
   const cartItems = cartContext?.cartItems || [];
   const updateQuantity = cartContext?.updateQuantity || (() => console.warn('updateQuantity missing'));
+  const startDirectBuy = useCommerceStore((state) => state.startDirectBuy);
 
   const toggleWishlist = wishlistContext?.toggleWishlist || (() => console.warn('toggleWishlist missing'));
   const isInWishlist = wishlistContext?.isInWishlist || (() => false);
@@ -74,6 +77,7 @@ const ProductDetails = () => {
   // Derived state
   const isWishlisted = typeof isInWishlist === 'function' ? isInWishlist(productId) : false;
   const cartItem = Array.isArray(cartItems) ? cartItems.find(item => item.id === productId) : undefined;
+  const effectiveQuantity = cartItem ? cartItem.quantity : quantity;
 
   // Fetch Product Data
   useEffect(() => {
@@ -130,6 +134,28 @@ const ProductDetails = () => {
       setActiveTab('compatibility');
     }
   }, [location.search]);
+
+  useEffect(() => {
+    setQuantity(1);
+  }, [productId]);
+
+  useEffect(() => {
+    if (!cartItem) return;
+
+    setQuantity((previousQuantity) => {
+      if (previousQuantity !== cartItem.quantity) {
+        pushClientDiagnostic('cart_ui_mismatch', {
+          context: {
+            source: 'product_details',
+            productId,
+            localQuantity: previousQuantity,
+            cartQuantity: cartItem.quantity,
+          },
+        }, 'warn');
+      }
+      return cartItem.quantity;
+    });
+  }, [cartItem, productId]);
 
   // Fetch Related Products
   useEffect(() => {
@@ -271,21 +297,26 @@ const ProductDetails = () => {
 
   // Handlers
   const handleAddToCart = () => {
-    if (product) addToCart(product, quantity);
+    if (product) addToCart(product, effectiveQuantity);
   };
 
   const handleBuyNow = () => {
-    if (product) {
-      // Direct Buy: Pass item via state, do NOT add to cart
-      navigate('/checkout', {
+    if (!product) return;
+
+    startDirectBuy(product, effectiveQuantity);
+
+    if (!currentUser) {
+      navigate('/login', {
         state: {
-          directBuy: {
-            product,
-            quantity
-          }
-        }
+          from: {
+            pathname: '/checkout',
+          },
+        },
       });
+      return;
     }
+
+    navigate('/checkout');
   };
 
   const handleOpenCompare = () => {
@@ -493,13 +524,17 @@ const ProductDetails = () => {
   };
 
   const handleUpdateQty = (delta) => {
-    const newQty = quantity + delta;
-    if (newQty >= 1 && newQty <= (product?.stock || 1)) {
-      setQuantity(newQty);
-      if (cartItem) {
-        updateQuantity(productId, newQty);
-      }
+    const maxQuantity = Math.max(1, Number(product?.stock || 1));
+    const currentQuantity = cartItem ? cartItem.quantity : quantity;
+    const newQty = Math.max(1, Math.min(maxQuantity, currentQuantity + delta));
+    if (newQty === currentQuantity) return;
+
+    if (cartItem) {
+      updateQuantity(productId, newQty);
+      return;
     }
+
+    setQuantity(newQty);
   };
 
   // --- RENDER GUARDS ---
@@ -610,14 +645,34 @@ const ProductDetails = () => {
 
             {/* Mobile Actions - Sticky Bottom */}
             <div className="fixed bottom-0 left-0 right-0 z-50 flex gap-3 border-t border-white/10 bg-zinc-950/92 px-3 pb-[calc(0.85rem+env(safe-area-inset-bottom))] pt-3 sm:gap-4 sm:p-4 lg:hidden">
-              <button
-                onClick={handleAddToCart}
-                disabled={stock === 0}
-                className="relative flex flex-1 items-center justify-center gap-2 overflow-hidden border-white/20 py-3.5 text-[11px] tracking-[0.18em] shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)] btn-secondary group"
-              >
-                <ShoppingCart className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
-                <span className="relative z-10">Add to Bag</span>
-              </button>
+              {cartItem ? (
+                <div className="flex flex-1 items-center justify-center gap-4 rounded-2xl border border-neo-cyan/40 bg-neo-cyan/10 px-3 py-3 shadow-[0_0_15px_rgba(6,182,212,0.12)]">
+                  <button
+                    onClick={() => handleUpdateQty(-1)}
+                    disabled={cartItem.quantity <= 1}
+                    className="text-neo-cyan transition-colors hover:text-white disabled:opacity-50"
+                  >
+                    <Minus className="w-5 h-5" />
+                  </button>
+                  <span className="min-w-[2rem] text-center text-lg font-black text-white">{cartItem.quantity}</span>
+                  <button
+                    onClick={() => handleUpdateQty(1)}
+                    disabled={cartItem.quantity >= stock}
+                    className="text-neo-cyan transition-colors hover:text-white disabled:opacity-50"
+                  >
+                    <Plus className="w-5 h-5" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={handleAddToCart}
+                  disabled={stock === 0}
+                  className="relative flex flex-1 items-center justify-center gap-2 overflow-hidden border-white/20 py-3.5 text-[11px] tracking-[0.18em] shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)] btn-secondary group"
+                >
+                  <ShoppingCart className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
+                  <span className="relative z-10">Add to Bag</span>
+                </button>
+              )}
               <button
                 onClick={handleBuyNow}
                 disabled={stock === 0}

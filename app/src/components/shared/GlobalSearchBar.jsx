@@ -24,6 +24,7 @@ import {
 } from '@/config/catalogTaxonomy';
 import { cn } from '@/lib/utils';
 import VoiceSearch from '@/components/shared/VoiceSearch';
+import { useDismissableLayer } from '@/hooks/useDismissableLayer';
 
 const SEARCH_HISTORY_KEY = 'aura_global_search_history';
 const SEARCH_INTENTS_KEY = 'aura_global_search_intents';
@@ -445,17 +446,14 @@ const GlobalSearchBar = ({
     }
   }, [location.pathname, location.search]);
 
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (!rootRef.current?.contains(event.target)) {
-        setIsOpen(false);
-        setActiveIndex(-1);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  useDismissableLayer({
+    enabled: isOpen,
+    refs: rootRef,
+    onDismiss: () => {
+      setIsOpen(false);
+      setActiveIndex(-1);
+    },
+  });
 
   useEffect(() => {
     if (!enableGlobalShortcuts) return undefined;

@@ -46,7 +46,7 @@ export const WishlistProvider = ({ children }) => {
       }
 
       // Backend is source of truth
-      userApi.getProfile(currentUser.email)
+      userApi.getProfile({ firebaseUser: currentUser })
         .then(data => {
           if (data.wishlist) {
             const backendIds = new Set(data.wishlist.map(i => i.id));
@@ -54,7 +54,7 @@ export const WishlistProvider = ({ children }) => {
             const merged = [...data.wishlist, ...localOnly];
             setWishlistItems(merged);
             if (localOnly.length > 0) {
-              userApi.syncWishlist(currentUser.email, merged).catch(() => { });
+              userApi.syncWishlist(merged, { firebaseUser: currentUser }).catch(() => { });
             }
           }
         })
@@ -81,10 +81,10 @@ export const WishlistProvider = ({ children }) => {
     const key = uid ? userKey(uid) : GUEST_KEY;
     localStorage.setItem(key, JSON.stringify(wishlistItems));
 
-    if (uid && currentUser?.email) {
+    if (uid) {
       if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
       syncTimerRef.current = setTimeout(() => {
-        userApi.syncWishlist(currentUser.email, wishlistItems)
+        userApi.syncWishlist(wishlistItems, { firebaseUser: currentUser })
           .catch(err => console.error("Cloud sync failed:", err));
       }, 2000); // 2s debounce
     }

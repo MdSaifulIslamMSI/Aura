@@ -12,6 +12,7 @@ import {
 import { createPortal } from 'react-dom';
 import { Check, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useDismissableLayer } from '@/hooks/useDismissableLayer';
 
 const getOptionNodes = (children) => Children.toArray(children)
     .filter((child) => isValidElement(child) && child.type === 'option')
@@ -71,31 +72,27 @@ export default function PremiumSelect({
         });
     }, []);
 
+    useDismissableLayer({
+        enabled: open,
+        refs: [buttonRef, menuRef],
+        onDismiss: closeMenu,
+    });
+
     useEffect(() => {
         if (!open) return undefined;
 
         updatePosition();
 
-        const handlePointer = (event) => {
-            const target = event.target;
-            if (buttonRef.current?.contains(target) || menuRef.current?.contains(target)) {
-                return;
-            }
-            closeMenu();
-        };
-
         const handleScrollOrResize = () => updatePosition();
 
-        window.addEventListener('mousedown', handlePointer);
         window.addEventListener('resize', handleScrollOrResize);
         window.addEventListener('scroll', handleScrollOrResize, true);
 
         return () => {
-            window.removeEventListener('mousedown', handlePointer);
             window.removeEventListener('resize', handleScrollOrResize);
             window.removeEventListener('scroll', handleScrollOrResize, true);
         };
-    }, [closeMenu, open, updatePosition]);
+    }, [open, updatePosition]);
 
     const commitValue = useCallback((option) => {
         if (!option || option.disabled) return;

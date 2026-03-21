@@ -3,6 +3,7 @@ import { Bell, Check, ExternalLink } from 'lucide-react';
 import { useNotifications } from '../../../context/NotificationContext';
 import { cn } from '@/lib/utils';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useDismissableLayer } from '@/hooks/useDismissableLayer';
 
 const NotificationDropdown = ({ isCompact = false, isOpen: controlledIsOpen, onOpenChange }) => {
     const { notifications, unreadCount, markAsRead, markAllAsRead, isLoading, fetchNotifications } = useNotifications();
@@ -20,16 +21,11 @@ const NotificationDropdown = ({ isCompact = false, isOpen: controlledIsOpen, onO
         onOpenChange?.(nextValue);
     };
 
-    useEffect(() => {
-        const handleClickOutside = (event) => {
-            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-                setIsOpen(false);
-            }
-        };
-
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
+    useDismissableLayer({
+        enabled: isOpen,
+        refs: dropdownRef,
+        onDismiss: () => setIsOpen(false),
+    });
 
     useEffect(() => {
         if (!isOpen) return;

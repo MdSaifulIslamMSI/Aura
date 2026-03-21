@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useContext } from 'react';
 import { CartContext, CartProvider } from './CartContext';
 import { AuthContext } from './AuthContext';
+import { GUEST_CART_STORAGE_KEY, resetCommerceStoreForTests } from '../store/commerceStore';
 
 vi.mock('../services/api', async () => {
   const actual = await vi.importActual('../services/api');
@@ -32,47 +33,64 @@ const renderCartProvider = (currentUser) => render(
 describe('CartProvider', () => {
   beforeEach(() => {
     localStorage.clear();
+    sessionStorage.clear();
     vi.restoreAllMocks();
+    resetCommerceStoreForTests();
   });
 
   it('uses server cart as the source of truth for authenticated refreshes', async () => {
-    localStorage.setItem('aura_cart_user-1', JSON.stringify([
-      { id: 101, title: 'Stale Phone', quantity: 1, stock: 5, price: 99 },
-    ]));
-
-    vi.spyOn(userApi, 'getProfile').mockResolvedValue({ cart: [] });
-    vi.spyOn(userApi, 'syncCart').mockResolvedValue([]);
+    vi.spyOn(userApi, 'getCart').mockResolvedValue({
+      items: [],
+      revision: 3,
+      syncedAt: null,
+    });
+    const mergeCartSpy = vi.spyOn(userApi, 'mergeCart').mockResolvedValue({
+      items: [],
+      revision: 3,
+      syncedAt: null,
+    });
 
     renderCartProvider({ uid: 'user-1', email: 'user@example.com' });
 
     await waitFor(() => {
-      expect(userApi.getProfile).toHaveBeenCalledWith({ force: true, cacheMs: 0 });
+      expect(userApi.getCart).toHaveBeenCalledTimes(1);
       expect(screen.getByTestId('item-count')).toHaveTextContent('0');
     });
 
-    expect(userApi.syncCart).not.toHaveBeenCalled();
-    expect(localStorage.getItem('aura_cart_user-1')).toBe('[]');
+    expect(mergeCartSpy).not.toHaveBeenCalled();
+    expect(localStorage.getItem(GUEST_CART_STORAGE_KEY)).toBeNull();
   });
 
   it('merges guest cart once when a user signs in', async () => {
-    localStorage.setItem('aura_cart_guest', JSON.stringify([
+    localStorage.setItem(GUEST_CART_STORAGE_KEY, JSON.stringify([
       { id: 202, title: 'Guest Laptop', quantity: 1, stock: 3, price: 1499 },
     ]));
 
-    vi.spyOn(userApi, 'getProfile').mockResolvedValue({ cart: [] });
-    vi.spyOn(userApi, 'syncCart').mockResolvedValue([
-      { id: 202, title: 'Guest Laptop', quantity: 1, stock: 3, price: 1499 },
-    ]);
+    vi.spyOn(userApi, 'getCart').mockResolvedValue({
+      items: [],
+      revision: 4,
+      syncedAt: null,
+    });
+    const mergeCartSpy = vi.spyOn(userApi, 'mergeCart').mockResolvedValue({
+      items: [
+        { id: 202, title: 'Guest Laptop', quantity: 1, stock: 3, price: 1499 },
+      ],
+      revision: 5,
+      syncedAt: null,
+    });
 
     renderCartProvider({ uid: 'user-2', email: 'guestmerge@example.com' });
 
     await waitFor(() => {
-      expect(userApi.syncCart).toHaveBeenCalledWith('guestmerge@example.com', [
-        { id: 202, title: 'Guest Laptop', quantity: 1, stock: 3, price: 1499 },
-      ]);
+      expect(mergeCartSpy).toHaveBeenCalledWith({
+        items: [
+          expect.objectContaining({ id: 202, quantity: 1 }),
+        ],
+        expectedRevision: 4,
+      });
       expect(screen.getByTestId('item-ids')).toHaveTextContent('202');
     });
 
-    expect(localStorage.getItem('aura_cart_guest')).toBeNull();
+    expect(localStorage.getItem(GUEST_CART_STORAGE_KEY)).toBeNull();
   });
 });

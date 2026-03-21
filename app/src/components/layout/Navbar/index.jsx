@@ -1,4 +1,4 @@
-import { useContext, useEffect, useRef, useState } from 'react';
+import { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   Bell,
@@ -26,6 +26,7 @@ import { cn } from '@/lib/utils';
 import AppErrorBoundary from '@/components/shared/AppErrorBoundary';
 import VoiceSearch from '@/components/shared/VoiceSearch';
 import GlobalSearchBar from '@/components/shared/GlobalSearchBar';
+import { useDismissableLayer } from '@/hooks/useDismissableLayer';
 import NotificationDropdown from './NotificationDropdown';
 
 const NavbarSearchFallback = ({
@@ -188,40 +189,28 @@ const Navbar = () => {
     setIsAdminToolsOpen(false);
   }, [location.pathname, location.search]);
 
-  useEffect(() => {
-    const handlePointerDown = (event) => {
-      const target = event.target;
-      
-      // If clicking inside a portaled select menu, don't trigger "click outside" logic
-      if (target.closest('.premium-select-menu')) {
-        return;
-      }
-
-      if (userMenuRef.current && !userMenuRef.current.contains(target)) {
-        setIsUserMenuOpen(false);
-      }
-      if (quickPanelRef.current && !quickPanelRef.current.contains(target)) {
-        setIsQuickPanelOpen(false);
-      }
-    };
-
-    const handleKeyDown = (event) => {
-      if (event.key === 'Escape') {
-        setIsUserMenuOpen(false);
-        setIsNotificationsOpen(false);
-        setIsQuickPanelOpen(false);
-        setIsPreferencesOpen(false);
-        setIsAdminToolsOpen(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handlePointerDown);
-    document.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.removeEventListener('mousedown', handlePointerDown);
-      document.removeEventListener('keydown', handleKeyDown);
-    };
+  const handleNavigationShellDismiss = useCallback(() => {
+    setIsUserMenuOpen(false);
+    setIsQuickPanelOpen(false);
+    setIsPreferencesOpen(false);
+    setIsAdminToolsOpen(false);
   }, []);
+
+  const handleNavigationShellEscape = useCallback(() => {
+    setIsMobileMenuOpen(false);
+    setIsUserMenuOpen(false);
+    setIsNotificationsOpen(false);
+    setIsQuickPanelOpen(false);
+    setIsPreferencesOpen(false);
+    setIsAdminToolsOpen(false);
+  }, []);
+
+  useDismissableLayer({
+    refs: [userMenuRef, quickPanelRef],
+    onDismiss: handleNavigationShellDismiss,
+    onEscape: handleNavigationShellEscape,
+    ignoreSelectors: ['.premium-select-menu'],
+  });
 
   useEffect(() => {
     if (typeof document === 'undefined') return undefined;

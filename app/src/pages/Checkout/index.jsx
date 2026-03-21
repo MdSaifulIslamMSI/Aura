@@ -1,8 +1,9 @@
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { CartContext } from '@/context/CartContext';
 import { AuthContext } from '@/context/AuthContext';
+import { useCommerceStore } from '@/store/commerceStore';
 import { orderApi, otpApi, paymentApi, userApi } from '@/services/api';
 import { cn } from '@/lib/utils';
 import { ArrowLeft, CheckCircle2, Layers, Loader2 } from 'lucide-react';
@@ -31,15 +32,6 @@ const EMPTY_INTENT = {
     checkoutPayload: null,
 };
 const PAYMENT_PROVIDER = String(import.meta.env.VITE_PAYMENT_PROVIDER || '').trim().toLowerCase();
-
-const buildDirectBuyItem = (directBuy) => {
-    if (!directBuy?.product) return null;
-    return {
-        ...directBuy.product,
-        id: directBuy.product.id,
-        quantity: Number(directBuy.quantity) || 1,
-    };
-};
 
 const isPhoneValid = (phone) => /^\+?\d[\d\s-]{8,15}$/.test(String(phone || '').trim());
 
@@ -70,7 +62,7 @@ const getFallbackTotals = (items) => {
     };
 };
 
-const getQuotePayload = ({ checkoutItems, draft }) => ({
+const getQuotePayload = ({ checkoutItems, draft, checkoutSource }) => ({
     orderItems: checkoutItems.map((item) => ({
         product: item.id,
         quantity: Number(item.quantity) || 1,
@@ -85,7 +77,7 @@ const getQuotePayload = ({ checkoutItems, draft }) => ({
     deliveryOption: draft.deliveryOption,
     ...(draft.deliverySlot?.date && draft.deliverySlot?.window ? { deliverySlot: draft.deliverySlot } : {}),
     couponCode: draft.couponCode,
-    checkoutSource: draft.checkoutSource,
+    checkoutSource,
 });
 
 const CHECKOUT_STEPS = [
@@ -97,9 +89,10 @@ const CHECKOUT_STEPS = [
 
 const Checkout = () => {
     const navigate = useNavigate();
-    const location = useLocation();
     const { cartItems, clearCart } = useContext(CartContext);
     const { currentUser, syncUserWithBackend } = useContext(AuthContext);
+    const checkoutSession = useCommerceStore((state) => state.checkoutSession);
+    const clearDirectBuy = useCommerceStore((state) => state.clearDirectBuy);
 
     const defaultDraft = useMemo(() => ({
         step: 1,
@@ -171,19 +164,15 @@ const Checkout = () => {
         setOtpModal((prev) => ({ ...prev, loading: false, error: errorMessage }));
     }, []);
 
-    const directBuyFromLocation = useMemo(
-        () => buildDirectBuyItem(location.state?.directBuy),
-        [location.state]
+    const directBuyItem = useMemo(
+        () => (
+            checkoutSession?.source === 'direct-buy'
+                ? checkoutSession?.directBuy?.item || null
+                : null
+        ),
+        [checkoutSession]
     );
-
-    useEffect(() => {
-        if (!directBuyFromLocation) return;
-        setDraft((prev) => ({
-            ...prev,
-            checkoutSource: 'directBuy',
-            directBuyItem: directBuyFromLocation,
-        }));
-    }, [directBuyFromLocation, setDraft]);
+    const checkoutSource = directBuyItem ? 'directBuy' : 'cart';
 
     useEffect(() => {
         if (!currentUser?.email) {
@@ -227,7 +216,7 @@ const Checkout = () => {
 
         const hydrateProfile = async () => {
             try {
-                const profile = await userApi.getProfile(currentUser.email);
+                const profile = await userApi.getProfile({ firebaseUser: currentUser });
                 if (!isMounted) return;
                 applyProfile(profile);
                 return;
@@ -245,7 +234,7 @@ const Checkout = () => {
                     currentUser.phoneNumber || ''
                 );
 
-                const recoveredProfile = await userApi.getProfile(currentUser.email);
+                const recoveredProfile = await userApi.getProfile({ firebaseUser: currentUser });
                 if (!isMounted) return;
                 applyProfile(recoveredProfile);
             }
@@ -286,11 +275,11 @@ const Checkout = () => {
     }, [currentUser?.uid, setDraft]);
 
     const checkoutItems = useMemo(() => {
-        if (draft.checkoutSource === 'directBuy' && draft.directBuyItem) {
-            return [draft.directBuyItem];
+        if (directBuyItem) {
+            return [directBuyItem];
         }
         return cartItems;
-    }, [cartItems, draft.checkoutSource, draft.directBuyItem]);
+    }, [cartItems, directBuyItem]);
 
     const fallbackTotals = useMemo(() => getFallbackTotals(checkoutItems), [checkoutItems]);
 
@@ -300,8 +289,8 @@ const Checkout = () => {
     );
 
     const quotePayload = useMemo(
-        () => getQuotePayload({ checkoutItems, draft }),
-        [checkoutItems, draft]
+        () => getQuotePayload({ checkoutItems, draft, checkoutSource }),
+        [checkoutItems, checkoutSource, draft]
     );
 
     const quoteSignature = useMemo(
@@ -782,7 +771,7 @@ const Checkout = () => {
                 deliveryOption: draft.deliveryOption,
                 deliverySlot: draft.deliverySlot,
                 couponCode: draft.couponCode,
-                checkoutSource: draft.checkoutSource,
+                checkoutSource,
                 paymentIntentId: draft.paymentIntent.intentId || undefined,
                 quoteSnapshot: {
                     totalPrice: quote.totalPrice,
@@ -802,8 +791,10 @@ const Checkout = () => {
 
             const createdOrder = await orderApi.createOrder(payload);
 
-            if (draft.checkoutSource !== 'directBuy') {
+            if (checkoutSource !== 'directBuy') {
                 clearCart();
+            } else {
+                clearDirectBuy();
             }
 
             clearDraft();

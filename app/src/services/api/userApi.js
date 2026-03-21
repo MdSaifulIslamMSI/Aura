@@ -22,6 +22,23 @@ const invalidateProfileCache = () => {
     profileCache.promise = null;
 };
 
+const normalizeCartPayload = (payload = {}) => ({
+    items: Array.isArray(payload?.items)
+        ? payload.items
+        : Array.isArray(payload?.cart)
+            ? payload.cart
+            : [],
+    revision: Number(payload?.revision ?? 0),
+    syncedAt: payload?.syncedAt || null,
+});
+
+const coerceProfileOptions = (options = {}) => {
+    if (typeof options === 'string') {
+        return {};
+    }
+    return options || {};
+};
+
 export const userApi = {
     login: async (email, name, phone, options = {}) => {
         // Assume authApi is imported or we can just fetch from /auth/sync directly since authApi might not be accessible here cleanly without a circular dependency.
@@ -35,7 +52,7 @@ export const userApi = {
         return data?.profile || null;
     },
     getProfile: async (options = {}) => {
-        const { firebaseUser, force, cacheMs = PROFILE_CACHE_TTL_MS } = options;
+        const { firebaseUser, force, cacheMs = PROFILE_CACHE_TTL_MS } = coerceProfileOptions(options);
         const cacheKey = getProfileCacheKey(firebaseUser);
         const cacheAge = Date.now() - profileCache.cachedAt;
 
@@ -68,21 +85,87 @@ export const userApi = {
         invalidateProfileCache();
         return data;
     },
-    syncCart: async (email, cartItems) => {
-        const headers = await getAuthHeader();
+    getCart: async (options = {}) => {
+        const { firebaseUser } = coerceProfileOptions(options);
+        const headers = await getAuthHeader(firebaseUser);
+        const { data } = await apiFetch('/users/cart', {
+            headers,
+        });
+        return normalizeCartPayload(data);
+    },
+    addCartItem: async ({ productId, quantity = 1, expectedRevision = null, firebaseUser = null } = {}) => {
+        const headers = await getAuthHeader(firebaseUser);
+        const { data } = await apiFetch('/users/cart/items', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+                productId,
+                quantity,
+                ...(expectedRevision !== null && expectedRevision !== undefined ? { expectedRevision } : {}),
+            }),
+        });
+        invalidateProfileCache();
+        return data;
+    },
+    setCartItemQuantity: async ({ productId, quantity, expectedRevision = null, firebaseUser = null } = {}) => {
+        const headers = await getAuthHeader(firebaseUser);
+        const { data } = await apiFetch(`/users/cart/items/${productId}`, {
+            method: 'PATCH',
+            headers,
+            body: JSON.stringify({
+                quantity,
+                ...(expectedRevision !== null && expectedRevision !== undefined ? { expectedRevision } : {}),
+            }),
+        });
+        invalidateProfileCache();
+        return data;
+    },
+    removeCartItem: async ({ productId, expectedRevision = null, firebaseUser = null } = {}) => {
+        const headers = await getAuthHeader(firebaseUser);
+        const { data } = await apiFetch(`/users/cart/items/${productId}`, {
+            method: 'DELETE',
+            headers,
+            body: JSON.stringify({
+                ...(expectedRevision !== null && expectedRevision !== undefined ? { expectedRevision } : {}),
+            }),
+        });
+        invalidateProfileCache();
+        return data;
+    },
+    mergeCart: async ({ items = [], expectedRevision = null, firebaseUser = null } = {}) => {
+        const headers = await getAuthHeader(firebaseUser);
+        const { data } = await apiFetch('/users/cart/merge', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+                items,
+                ...(expectedRevision !== null && expectedRevision !== undefined ? { expectedRevision } : {}),
+            }),
+        });
+        invalidateProfileCache();
+        return normalizeCartPayload(data);
+    },
+    syncCart: async (cartItems, options = {}) => {
+        const { firebaseUser, expectedRevision = null } = coerceProfileOptions(options);
+        const headers = await getAuthHeader(firebaseUser);
         const { data } = await apiFetch('/users/cart', {
             method: 'PUT',
             headers,
-            body: JSON.stringify({ email, cartItems }),
+            body: JSON.stringify({
+                cartItems,
+                ...(expectedRevision !== null && expectedRevision !== undefined ? { expectedRevision } : {}),
+            }),
         });
-        return data;
+        invalidateProfileCache();
+        return normalizeCartPayload(data);
     },
-    syncWishlist: async (email, wishlistItems) => {
-        const headers = await getAuthHeader();
+    syncWishlist: async (wishlistItems, options = {}) => {
+        const { firebaseUser } = coerceProfileOptions(options);
+        const headers = await getAuthHeader(firebaseUser);
         const { data } = await apiFetch('/users/wishlist', {
             method: 'PUT',
             headers,
-            body: JSON.stringify({ email, wishlistItems }),
+            body: JSON.stringify({ wishlistItems }),
         });
         return data;
     },

@@ -124,6 +124,8 @@ const userSchema = mongoose.Schema({
         isDefault: { type: Boolean, default: false }
     }],
     cart: [cartItemSchema],
+    cartRevision: { type: Number, default: 0, min: 0 },
+    cartSyncedAt: { type: Date, default: null },
     wishlist: [wishlistItemSchema],
     loyalty: { type: loyaltySchema, default: () => ({}) }
 }, {

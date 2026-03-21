@@ -4,7 +4,6 @@ import { Toaster } from 'sonner';
 import { AuthProvider } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
 import { WishlistProvider } from './context/WishlistContext';
-import { ProductProvider } from './context/ProductContext';
 import { ColorModeProvider } from './context/ColorModeContext';
 import { MotionModeProvider, useMotionMode } from './context/MotionModeContext';
 import { SocketProvider } from './context/SocketContext';
@@ -231,7 +230,7 @@ function AppContent() {
               <Route path="/seller/:id" element={renderRoute(<SellerProfile />)} />
 
               {/* Protected Routes - require authentication */}
-              <Route path="/cart" element={renderCriticalRoute(<ProtectedRoute><Cart /></ProtectedRoute>)} />
+              <Route path="/cart" element={renderRoute(<Cart />)} />
               <Route path="/wishlist" element={renderCriticalRoute(<ProtectedRoute><Wishlist /></ProtectedRoute>)} />
               <Route path="/checkout" element={renderCriticalRoute(<ProtectedRoute><Checkout /></ProtectedRoute>)} />
               <Route path="/orders" element={renderCriticalRoute(<ProtectedRoute><Orders /></ProtectedRoute>)} />
@@ -289,11 +288,9 @@ function App() {
               <VideoCallProvider>
                 <CartProvider>
                   <WishlistProvider>
-                    <ProductProvider>
-                      <Router>
-                        <AppContent />
-                      </Router>
-                    </ProductProvider>
+                    <Router>
+                      <AppContent />
+                    </Router>
                   </WishlistProvider>
                 </CartProvider>
               </VideoCallProvider>
