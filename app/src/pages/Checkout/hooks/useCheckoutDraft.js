@@ -36,11 +36,17 @@ const mergeDraftState = (initialState, storedState) => {
     };
 };
 
-const useCheckoutDraft = (userId, initialState) => {
+const buildDraftKey = ({ userId, checkoutSource = 'cart', cartRevision = 'guest' } = {}) => (
+    `${DRAFT_PREFIX}${userId}_${checkoutSource}_${cartRevision}`
+);
+
+const useCheckoutDraft = (userId, initialState, options = {}) => {
+    const checkoutSource = options?.checkoutSource || 'cart';
+    const cartRevision = options?.cartRevision ?? 'guest';
     const storageKey = useMemo(() => {
         if (!userId) return null;
-        return `${DRAFT_PREFIX}${userId}`;
-    }, [userId]);
+        return buildDraftKey({ userId, checkoutSource, cartRevision });
+    }, [cartRevision, checkoutSource, userId]);
 
     const [draft, setDraft] = useState(initialState);
     const [isHydrated, setIsHydrated] = useState(false);
@@ -53,11 +59,12 @@ const useCheckoutDraft = (userId, initialState) => {
             return;
         }
 
-        const storedValue = localStorage.getItem(storageKey);
+        const legacyKey = `${DRAFT_PREFIX}${userId}`;
+        const storedValue = localStorage.getItem(storageKey) ?? localStorage.getItem(legacyKey);
         const storedState = safeParse(storedValue);
         setDraft(mergeDraftState(initialState, storedState));
         setIsHydrated(true);
-    }, [storageKey, initialState]);
+    }, [initialState, storageKey, userId]);
 
     useEffect(() => {
         if (!storageKey || !isHydrated) return;
