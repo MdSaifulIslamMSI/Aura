@@ -561,6 +561,15 @@ export const useAssistantController = () => {
             return;
         }
 
+        if (action.kind === 'navigate' && action.payload?.page) {
+            void registry.executeAssistantAction({
+                type: 'navigate_to',
+                page: action.payload.page,
+                params: action.payload.params || {},
+            });
+            return;
+        }
+
         if (action.kind === 'add-to-cart' && action.payload?.id) {
             void registry.executeAssistantAction({
                 type: 'add_to_cart',
