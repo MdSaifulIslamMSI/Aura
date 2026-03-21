@@ -14,15 +14,33 @@ const conversationEntrySchema = z.object({
     content: z.string().trim().min(1).max(2400),
 }).strict();
 
+const assistantActionRequestSchema = z.object({
+    type: z.string().trim().min(1).max(80),
+    page: z.string().trim().max(80).optional(),
+    productId: z.string().trim().max(120).optional(),
+    quantity: z.number().int().positive().max(20).optional(),
+    params: z.object({}).passthrough().optional(),
+}).strict();
+
 const aiChatSchema = z.object({
     body: z.object({
-        message: z.string().trim().min(1).max(1200),
+        message: z.string().trim().max(1200).optional(),
         assistantMode: z.enum(['chat', 'voice', 'compare', 'bundle']).optional(),
+        sessionId: z.string().trim().max(120).optional(),
+        confirmation: z.object({
+            actionId: z.string().trim().min(1).max(120),
+            approved: z.boolean(),
+            contextVersion: z.number().int().nonnegative().optional(),
+        }).strict().optional(),
+        actionRequest: assistantActionRequestSchema.optional(),
         locale: z.string().trim().max(32).optional(),
         conversationHistory: z.array(conversationEntrySchema).max(12).optional(),
         images: z.array(assistantImageSchema).max(3).optional(),
         context: z.object({}).passthrough().optional(),
-    }).strict(),
+    }).strict().refine((value) => Boolean(String(value.message || '').trim() || value.confirmation || value.actionRequest), {
+        message: 'Message, confirmation, or actionRequest is required',
+        path: ['message'],
+    }),
 });
 
 const aiVoiceSessionSchema = z.object({

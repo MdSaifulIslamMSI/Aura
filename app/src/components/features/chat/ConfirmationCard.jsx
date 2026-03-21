@@ -6,6 +6,7 @@ const ConfirmationCard = ({
     isWhiteMode = false,
     onConfirm,
     onCancel,
+    onModify,
 }) => {
     if (!confirmation?.action) return null;
 
@@ -42,7 +43,15 @@ const ConfirmationCard = ({
                     className={cn('inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition-colors', cancelClassName)}
                 >
                     <PauseCircle className="h-3.5 w-3.5" />
-                    Not now
+                    Cancel
+                </button>
+                <button
+                    type="button"
+                    onClick={() => onModify?.()}
+                    className={cn('inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition-colors', cancelClassName)}
+                >
+                    <PauseCircle className="h-3.5 w-3.5" />
+                    Modify
                 </button>
             </div>
         </div>

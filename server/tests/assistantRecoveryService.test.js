@@ -196,14 +196,26 @@ describe('assistantRecoveryService', () => {
 
         expect(result.assistantTurn).toMatchObject({
             intent: 'product_search',
-            decision: 'respond',
+            decision: 'clarify',
             entities: {
                 query: 'oppo phones',
                 maxPrice: 10000,
             },
+            ui: {
+                surface: 'confirmation_card',
+                confirmation: {
+                    action: {
+                        type: 'search_products',
+                    },
+                },
+            },
+            policy: {
+                decision: 'CONFIRM',
+                risk: 'LOW',
+            },
         });
-        expect(result.answer).toContain('Showing results based on your request');
-        expect(result.products.map((product) => product.id)).toEqual(['oppo-budget']);
+        expect(result.answer).toContain('Search for oppo phones under Rs 10,000?');
+        expect(result.products).toEqual([]);
     });
 
     test('answers general knowledge without product ui payload', async () => {
@@ -252,7 +264,7 @@ describe('assistantRecoveryService', () => {
         expect(result.answer).toContain('Prime Minister of India');
     });
 
-    test('uses session memory for add this to cart', async () => {
+    test('requires confirmation before executing add this to cart', async () => {
         getProductByIdentifier.mockResolvedValue({
             id: 'iphone-15',
             title: 'Apple iPhone 15',
@@ -285,16 +297,26 @@ describe('assistantRecoveryService', () => {
 
         expect(result.assistantTurn).toMatchObject({
             intent: 'cart_action',
-            decision: 'act',
+            decision: 'clarify',
             entities: {
                 productId: 'iphone-15',
                 quantity: 1,
             },
+            ui: {
+                surface: 'confirmation_card',
+                confirmation: {
+                    action: {
+                        type: 'add_to_cart',
+                        productId: 'iphone-15',
+                    },
+                },
+            },
+            policy: {
+                decision: 'CONFIRM',
+                risk: 'HIGH',
+            },
         });
-        expect(result.assistantTurn.actions[0]).toMatchObject({
-            type: 'add_to_cart',
-            productId: 'iphone-15',
-        });
+        expect(result.answer).toContain('Add Apple iPhone 15 to your cart?');
     });
 
     test('escalates repeated cart clarification instead of looping the same question', async () => {

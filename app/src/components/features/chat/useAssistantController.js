@@ -56,36 +56,6 @@ const surfaceToMode = (surface = 'plain_answer') => {
 
 const PRODUCT_SURFACES = new Set(['product_results', 'product_focus']);
 
-const buildCheckoutConfirmationTurn = () => ({
-    intent: 'navigation',
-    entities: {
-        query: '',
-        productId: '',
-        quantity: 0,
-    },
-    confidence: 1,
-    decision: 'clarify',
-    response: 'Checkout affects payment and order placement. Confirm before continuing.',
-    actions: [],
-    ui: {
-        surface: 'confirmation_card',
-        confirmation: {
-            token: `confirm-${Date.now().toString(36)}`,
-            message: 'Checkout affects payment and order placement. Confirm before continuing.',
-            action: {
-                type: 'navigate_to',
-                page: 'checkout',
-                params: {},
-                requiresConfirmation: true,
-                reason: 'client_checkout_confirmation',
-            },
-        },
-    },
-    contextPatch: {},
-    followUps: [],
-    safetyFlags: [],
-});
-
 const normalizeUiProducts = (assistantTurn = {}, response = {}) => {
     const surface = safeString(assistantTurn?.ui?.surface || 'plain_answer');
     if (!PRODUCT_SURFACES.has(surface)) {
@@ -189,6 +159,7 @@ export const useAssistantController = () => {
     const messages = useChatStore((state) => state.messages);
     const visibleProducts = useChatStore((state) => state.visibleProducts);
     const context = useChatStore((state) => state.context);
+    const assistantSession = useChatStore((state) => state.context.assistantSession);
     const sessionMemory = useChatStore((state) => state.context.sessionMemory);
     const supportPrefill = useChatStore((state) => state.supportPrefill);
     const pendingConfirmation = useChatStore((state) => state.pendingConfirmation);
@@ -322,6 +293,7 @@ export const useAssistantController = () => {
             navigation: execution?.navigation || assistantTurn?.ui?.navigation || null,
             activeProductId: safeString(execution?.activeProductId || product?.id || ''),
             assistantTurn,
+            assistantSession: response?.assistantSession || assistantTurn?.assistantSession || null,
             pendingAction: null,
         });
     }, [appendAssistantTurn, cartSummary, context.lastQuery]);
@@ -335,31 +307,56 @@ export const useAssistantController = () => {
         clearPendingConfirmation();
 
         try {
-            const result = await registry.executeAssistantAction(pendingConfirmation.action, {
-                uiProducts: normalizeUiProducts(lastAssistantTurn || {}, {}),
-            });
-            const syntheticTurn = {
-                ...(lastAssistantTurn || buildCheckoutConfirmationTurn()),
-                decision: 'act',
-                response: safeString(result.message || 'Continuing.'),
-                ui: {
-                    ...(lastAssistantTurn?.ui || {}),
-                    confirmation: null,
-                    navigation: result.navigation || lastAssistantTurn?.ui?.navigation || null,
+            const response = await chatApi.sendMessage({
+                message: '',
+                conversationHistory: conversationHistory.slice(-MAX_HISTORY_ENTRIES),
+                assistantMode: 'chat',
+                sessionId: assistantSession?.sessionId || '',
+                confirmation: {
+                    actionId: pendingConfirmation.token,
+                    approved: true,
+                    contextVersion: pendingConfirmation.action?.contextVersion || assistantSession?.contextVersion || 0,
                 },
-            };
+                context: {
+                    route: location.pathname,
+                    routeLabel: context.routeLabel,
+                    cartItems,
+                    cartSummary,
+                    currentProductId: context.activeProductId || routeProductId,
+                    currentProduct: productCandidates.find((product) => product.id === (context.activeProductId || routeProductId)) || null,
+                    assistantSession,
+                },
+            });
+            const assistantTurn = response?.assistantTurn;
+            if (!assistantTurn || typeof assistantTurn !== 'object') {
+                throw new Error('Assistant confirmation response is missing a structured turn');
+            }
 
-            presentAssistantTurn(syntheticTurn, {}, result);
+            const plannedActions = assistantTurn?.actionRequest
+                ? [assistantTurn.actionRequest]
+                : (Array.isArray(assistantTurn.actions) ? assistantTurn.actions : []);
 
-            if (
-                pendingConfirmation.action.type === 'go_to_checkout'
-                || pendingConfirmation.action.type === 'open_support'
-                || (
-                    pendingConfirmation.action.type === 'navigate_to'
-                    && ['checkout', 'support', 'orders'].includes(safeString(pendingConfirmation.action.page || ''))
-                )
-            ) {
-                close();
+            if (assistantTurn.decision === 'act' && plannedActions.length > 0) {
+                const execution = await executePlannedActions(assistantTurn);
+                if (!execution?.suppressedDuplicate) {
+                    const responseTurn = {
+                        ...assistantTurn,
+                        response: safeString(execution.message || assistantTurn.response),
+                    };
+                    presentAssistantTurn(responseTurn, response, execution);
+
+                    const leadingActionType = plannedActions[0]?.type;
+                    const leadingPage = plannedActions[0]?.page;
+                    if (
+                        leadingActionType === 'go_to_checkout'
+                        || leadingActionType === 'open_support'
+                        || (leadingActionType === 'navigate_to' && ['checkout', 'support', 'orders'].includes(safeString(leadingPage || '')))
+                    ) {
+                        close();
+                    }
+                }
+            } else {
+                presentAssistantTurn(assistantTurn, response, null);
             }
         } catch (error) {
             appendAssistantTurn({
@@ -376,37 +373,99 @@ export const useAssistantController = () => {
                 },
             });
         } finally {
-            setStatus('idle');
-            setPendingAction(null);
+        setStatus('idle');
+        setPendingAction(null);
         }
     }, [
+        assistantSession,
         appendAssistantTurn,
+        cartItems,
+        cartSummary,
         clearPendingConfirmation,
         close,
+        context.activeProductId,
+        context.routeLabel,
+        conversationHistory,
+        executePlannedActions,
         lastAssistantTurn,
+        location.pathname,
         pendingConfirmation,
         presentAssistantTurn,
-        registry,
+        productCandidates,
+        routeProductId,
         setPendingAction,
         setStatus,
     ]);
 
-    const cancelPendingAction = useCallback(() => {
+    const cancelPendingAction = useCallback(async () => {
+        if (!pendingConfirmation?.token) {
+            return;
+        }
+
         clearPendingConfirmation();
-        appendAssistantTurn({
-            text: 'Okay, I will hold here.',
-            mode: 'checkout',
-            assistantTurn: {
-                intent: 'navigation',
-                decision: 'respond',
-                response: 'Okay, I will hold here.',
-                ui: {
-                    surface: 'plain_answer',
+        try {
+            const response = await chatApi.sendMessage({
+                message: '',
+                conversationHistory: conversationHistory.slice(-MAX_HISTORY_ENTRIES),
+                assistantMode: 'chat',
+                sessionId: assistantSession?.sessionId || '',
+                confirmation: {
+                    actionId: pendingConfirmation.token,
+                    approved: false,
+                    contextVersion: pendingConfirmation.action?.contextVersion || assistantSession?.contextVersion || 0,
                 },
-                followUps: ['Show my cart', 'Continue shopping'],
-            },
+                context: {
+                    route: location.pathname,
+                    routeLabel: context.routeLabel,
+                    cartItems,
+                    cartSummary,
+                    currentProductId: context.activeProductId || routeProductId,
+                    currentProduct: productCandidates.find((product) => product.id === (context.activeProductId || routeProductId)) || null,
+                    assistantSession,
+                },
+            });
+            const assistantTurn = response?.assistantTurn;
+            if (!assistantTurn || typeof assistantTurn !== 'object') {
+                throw new Error('Assistant cancellation response is missing a structured turn');
+            }
+
+            presentAssistantTurn(assistantTurn, response, null);
+        } catch {
+            appendAssistantTurn({
+                text: 'Okay, I will hold here.',
+                mode: 'checkout',
+                assistantTurn: {
+                    intent: 'navigation',
+                    decision: 'respond',
+                    response: 'Okay, I will hold here.',
+                    ui: {
+                        surface: 'plain_answer',
+                    },
+                    followUps: ['Show my cart', 'Continue shopping'],
+                },
+            });
+        }
+    }, [
+        assistantSession,
+        appendAssistantTurn,
+        cartItems,
+        cartSummary,
+        clearPendingConfirmation,
+        context.activeProductId,
+        context.routeLabel,
+        conversationHistory,
+        location.pathname,
+        pendingConfirmation,
+        presentAssistantTurn,
+        productCandidates,
+        routeProductId,
+    ]);
+
+    const modifyPendingAction = useCallback(() => {
+        void cancelPendingAction().finally(() => {
+            window.requestAnimationFrame(() => inputRef.current?.focus());
         });
-    }, [appendAssistantTurn, clearPendingConfirmation]);
+    }, [cancelPendingAction]);
 
     const handleUserInput = useCallback(async (rawText, { confirmationToken } = {}) => {
         const cleanedText = safeString(rawText);
@@ -445,13 +504,14 @@ export const useAssistantController = () => {
                     { role: 'user', content: cleanedText },
                 ].slice(-MAX_HISTORY_ENTRIES),
                 assistantMode: requestConfig.assistantMode,
+                sessionId: assistantSession?.sessionId || '',
                 context: {
                     ...requestConfig.context,
                     cartItems,
                     cartSummary,
                     currentProductId: context.activeProductId || routeProductId,
                     currentProduct: productCandidates.find((product) => product.id === (context.activeProductId || routeProductId)) || null,
-                    sessionMemory,
+                    assistantSession,
                 },
             });
 
@@ -534,6 +594,7 @@ export const useAssistantController = () => {
             }
         }
     }, [
+        assistantSession,
         appendAssistantTurn,
         appendUserMessage,
         cartItems,
@@ -549,7 +610,6 @@ export const useAssistantController = () => {
         presentAssistantTurn,
         productCandidates,
         routeProductId,
-        sessionMemory,
         setInputValue,
         setPendingAction,
         setStatus,
@@ -625,8 +685,43 @@ export const useAssistantController = () => {
         }
 
         if (action.kind === 'prepare-checkout') {
-            const checkoutTurn = buildCheckoutConfirmationTurn();
-            presentAssistantTurn(checkoutTurn, {}, null);
+            setStatus('thinking');
+            void chatApi.sendMessage({
+                message: '',
+                conversationHistory,
+                assistantMode: 'chat',
+                sessionId: assistantSession?.sessionId || '',
+                actionRequest: {
+                    type: 'checkout',
+                },
+                context: {
+                    cartItems,
+                    cartSummary,
+                    currentProductId: context.activeProductId || routeProductId,
+                    currentProduct: productCandidates.find((product) => product.id === (context.activeProductId || routeProductId)) || null,
+                    assistantSession,
+                },
+            }).then((response) => {
+                const assistantTurn = response?.assistantTurn;
+                if (!assistantTurn || typeof assistantTurn !== 'object') {
+                    throw new Error('Assistant response is missing a structured turn');
+                }
+                presentAssistantTurn(assistantTurn, response, null);
+            }).catch(() => {
+                presentAssistantTurn({
+                    intent: 'navigation',
+                    confidence: 1,
+                    decision: 'respond',
+                    response: 'Checkout confirmation is unavailable right now. Please try again.',
+                    actions: [],
+                    ui: {
+                        surface: 'plain_answer',
+                    },
+                    followUps: ['View cart'],
+                }, {}, null);
+            }).finally(() => {
+                setStatus('idle');
+            });
             return;
         }
 
@@ -649,13 +744,22 @@ export const useAssistantController = () => {
         }
     }, [
         close,
+        assistantSession,
+        cartItems,
+        cartSummary,
+        conversationHistory,
         confirmPendingAction,
         context.lastOrderId,
+        context.activeProductId,
         handleUserInput,
         lastAssistantTurn,
+        location.pathname,
         pendingConfirmation?.token,
         presentAssistantTurn,
+        productCandidates,
         registry,
+        routeProductId,
+        setStatus,
         setSurface,
         supportPrefill,
         visibleProducts,
@@ -711,6 +815,7 @@ export const useAssistantController = () => {
         confirmPendingAction,
         handleAction,
         handleUserInput,
+        modifyPendingAction,
         openSupport,
         selectProduct,
     };
