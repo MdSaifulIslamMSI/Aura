@@ -19,6 +19,7 @@ import SectionAnchorRail from './components/shared/SectionAnchorRail';
 import RouteTransitionShell from './components/shared/RouteTransitionShell';
 import AppErrorBoundary from './components/shared/AppErrorBoundary';
 import BackendStatusBanner from './components/shared/BackendStatusBanner';
+import GlobalSupportLauncher from './components/shared/GlobalSupportLauncher';
 import { trustRoutes } from './config/trustContent';
 import { assertRouteA11yContracts } from './utils/a11yContracts';
 import { lazyWithRetry } from './utils/lazyWithRetry';
@@ -259,6 +260,9 @@ function AppContent() {
           </AppErrorBoundary>
         </Suspense>
       ) : null}
+      <AppErrorBoundary>
+        <GlobalSupportLauncher />
+      </AppErrorBoundary>
       <AppErrorBoundary>
         <Footer />
       </AppErrorBoundary>

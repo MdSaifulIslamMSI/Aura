@@ -6,6 +6,7 @@ import { otpApi } from '@/services/api';
 import { cn } from '@/lib/utils';
 import { AuthFeedback } from '@/components/shared/AuthFeedback';
 import { resolveAuthError, AUTH_SUCCESS } from '@/utils/authErrors';
+import { resolveNavigationTarget } from '@/utils/navigation';
 import { verifyCredentialsWithoutSession } from '@/utils/precheckCredentials';
 import { getFirebaseSocialAuthStatus } from '@/config/firebase';
 
@@ -46,7 +47,10 @@ const Login = () => {
   const [otpValues, setOtpValues] = useState(Array(OTP_LENGTH).fill(''));
   const otpRefs = useRef([]);
 
-  const from = location.state?.from?.pathname || '/';
+  const from = useMemo(
+    () => resolveNavigationTarget(location.state?.from, '/'),
+    [location.state?.from]
+  );
   const socialAuthStatus = getFirebaseSocialAuthStatus();
 
   // OTP resend countdown timer
