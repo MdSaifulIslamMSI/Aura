@@ -2,7 +2,8 @@ const { resolveCategory } = require('../../config/categories');
 const { queryProducts } = require('../catalogService');
 
 const DEFAULT_LIMIT = 6;
-const MAX_CANDIDATES = 24;
+const MAX_RETURN_LIMIT = 30;
+const MAX_CANDIDATES = 60;
 
 const CATEGORY_HINTS = [
     { aliases: ['iphone', 'phone', 'smartphone', 'mobile', 'mobiles', 'android', 'pixel', 'oneplus', 'samsung', 'oppo', 'vivo', 'realme'], category: 'Mobiles' },
@@ -345,7 +346,13 @@ const buildQueryCandidates = (query = '', category = '') => {
     return [...new Set(candidates)];
 };
 
-const collectCandidateProducts = async ({ query = '', category = '', maxPrice = 0 }) => {
+const collectCandidateProducts = async ({
+    query = '',
+    category = '',
+    maxPrice = 0,
+    minPrice = 0,
+    candidateLimit = MAX_CANDIDATES,
+}) => {
     const candidates = buildQueryCandidates(query, category);
     const searches = candidates.length > 0 ? candidates : [safeString(category)];
 
@@ -353,8 +360,9 @@ const collectCandidateProducts = async ({ query = '', category = '', maxPrice = 
         searches.slice(0, 3).map((keyword) => queryProducts({
             keyword,
             category,
+            minPrice: minPrice || undefined,
             maxPrice: maxPrice || undefined,
-            limit: MAX_CANDIDATES,
+            limit: candidateLimit,
             includeSponsored: false,
             sort: 'relevance',
         }))
@@ -394,13 +402,14 @@ const rankCandidates = ({
             }
             return String(right._id || '').localeCompare(String(left._id || ''));
         })
-        .slice(0, clamp(limit, 1, DEFAULT_LIMIT))
+        .slice(0, clamp(limit, 1, MAX_RETURN_LIMIT))
         .map(({ __assistantScore, ...product }) => product);
 };
 
 const searchProducts = async ({
     query = '',
     category = '',
+    minPrice = 0,
     maxPrice = 0,
     excludeIds = [],
     limit = DEFAULT_LIMIT,
@@ -408,7 +417,7 @@ const searchProducts = async ({
 } = {}) => {
     const detectedCategory = resolveCategory(category) || detectCategoryHint(query);
     const cleanedQuery = cleanSearchQuery(query, detectedCategory);
-    const searchQuery = cleanedQuery || safeString(query) || safeString(detectedCategory);
+    const searchQuery = cleanedQuery || safeString(query) || safeString(detectedCategory || category);
     const normalizedExcludeIds = [...new Set((Array.isArray(excludeIds) ? excludeIds : []).map((entry) => safeString(entry)).filter(Boolean))];
 
     if (!searchQuery && !detectedCategory) {
@@ -419,6 +428,7 @@ const searchProducts = async ({
             totalCandidates: 0,
             usedClosestMatch: false,
             matchConfidence: 0,
+            minPrice: Number(minPrice || 0),
             maxPrice: Number(maxPrice || 0),
         };
     }
@@ -426,7 +436,9 @@ const searchProducts = async ({
     const candidates = await collectCandidateProducts({
         query: searchQuery,
         category: detectedCategory,
+        minPrice,
         maxPrice,
+        candidateLimit: Math.max(MAX_CANDIDATES, clamp(limit, 1, MAX_RETURN_LIMIT) * 3),
     });
 
     const strictThreshold = tokenize(searchQuery).filter((token) => !SEARCH_NOISE.has(token)).length <= 1 && detectedCategory ? 8 : 14;
@@ -447,6 +459,7 @@ const searchProducts = async ({
             totalCandidates: candidates.length,
             usedClosestMatch: false,
             matchConfidence: strictResults.length > 0 ? 0.86 : 0,
+            minPrice: Number(minPrice || 0),
             maxPrice: Number(maxPrice || 0),
         };
     }
@@ -455,7 +468,9 @@ const searchProducts = async ({
         ? await collectCandidateProducts({
             query: searchQuery,
             category: detectedCategory,
+            minPrice,
             maxPrice: 0,
+            candidateLimit: Math.max(MAX_CANDIDATES, clamp(limit, 1, MAX_RETURN_LIMIT) * 3),
         })
         : candidates;
 
@@ -475,6 +490,7 @@ const searchProducts = async ({
         totalCandidates: relaxedCandidates.length,
         usedClosestMatch: relaxedResults.length > 0,
         matchConfidence: relaxedResults.length > 0 ? 0.58 : 0,
+        minPrice: Number(minPrice || 0),
         maxPrice: Number(maxPrice || 0),
     };
 };

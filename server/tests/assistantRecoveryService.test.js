@@ -196,44 +196,63 @@ describe('assistantRecoveryService', () => {
 
         expect(result.assistantTurn).toMatchObject({
             intent: 'product_search',
-            decision: 'clarify',
+            decision: 'respond',
             entities: {
-                query: 'oppo phones',
+                query: 'oppo',
+                category: 'Mobiles',
                 maxPrice: 10000,
             },
-            ui: {
-                surface: 'confirmation_card',
-                confirmation: {
-                    action: {
-                        type: 'search_products',
-                    },
-                },
-            },
             policy: {
-                decision: 'CONFIRM',
+                decision: 'EXECUTE',
                 risk: 'LOW',
             },
         });
-        expect(result.answer).toContain('Search for oppo phones under Rs 10,000?');
-        expect(result.products).toEqual([]);
+        expect(result.answer).toContain('Found 1 relevant result');
+        expect(result.products.map((product) => product.id)).toEqual(['oppo-budget']);
+    });
+
+    test('uses compiled limit and category parameters for category-only searches', async () => {
+        const kitchenProducts = Array.from({ length: 35 }, (_, index) => ({
+            id: `kitchen-${index + 1}`,
+            title: `Kitchen Product ${index + 1}`,
+            brand: 'Aura Home',
+            category: 'Home & Kitchen',
+            price: 499 + index,
+            stock: 20,
+            rating: 4.2,
+            ratingCount: 100 + index,
+        }));
+
+        queryProducts.mockResolvedValue({
+            products: kitchenProducts,
+        });
+
+        const result = await processRecoveredAssistantTurn({
+            message: 'give me 30 kitchen products',
+            context: {
+                sessionMemory: {
+                    lastQuery: '',
+                    lastResults: [],
+                    activeProduct: null,
+                    currentIntent: '',
+                },
+            },
+        });
+
+        expect(result.assistantTurn).toMatchObject({
+            intent: 'product_search',
+            decision: 'respond',
+            entities: {
+                query: '',
+                category: 'Home & Kitchen',
+                limit: 30,
+            },
+        });
+        expect(result.products).toHaveLength(30);
     });
 
     test('answers general knowledge without product ui payload', async () => {
         generateStructuredResponse
-            .mockResolvedValueOnce({
-                payload: {
-                    intent: 'general_knowledge',
-                    entities: {
-                        query: 'who is narendra modi',
-                        productId: '',
-                        quantity: 0,
-                    },
-                    confidence: 0.94,
-                    decision: 'respond',
-                    response: 'Narendra Modi is the Prime Minister of India.',
-                },
-                provider: 'groq',
-            })
             .mockResolvedValueOnce({
                 payload: {
                     answer: 'Narendra Modi is the Prime Minister of India.',
