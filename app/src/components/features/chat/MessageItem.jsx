@@ -5,6 +5,7 @@ import ProductCardInline from './ProductCardInline';
 import SupportHandoffCard from './SupportHandoffCard';
 
 const formatInr = (value = 0) => `Rs ${Number(value || 0).toLocaleString('en-IN')}`;
+const PRODUCT_SURFACES = new Set(['product_results', 'product_focus']);
 
 const renderParagraphs = (text = '') => {
     const paragraphs = String(text || '')
@@ -72,6 +73,10 @@ const MessageItem = ({
             : 'border-white/10 bg-white/[0.04] text-slate-100');
 
     const messageMode = message?.mode || (Array.isArray(message?.products) && message.products.length === 1 ? 'product' : 'explore');
+    const shouldRenderProducts = !isUser
+        && PRODUCT_SURFACES.has(String(message?.uiSurface || ''))
+        && Array.isArray(message?.products)
+        && message.products.length > 0;
 
     return (
         <div className={cn('flex flex-col gap-3', isUser ? 'items-end' : 'items-start')}>
@@ -83,7 +88,7 @@ const MessageItem = ({
 
             {!isUser && message?.cartSummary ? renderCartSummary(message.cartSummary, isWhiteMode) : null}
 
-            {!isUser && Array.isArray(message?.products) && message.products.length > 0 ? (
+            {shouldRenderProducts ? (
                 <div className="grid w-full gap-3">
                     {message.products.map((product) => (
                         <ProductCardInline

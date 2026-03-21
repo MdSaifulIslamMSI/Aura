@@ -44,6 +44,8 @@ const SUPPORT_CATEGORY_RULES = [
     { category: 'account', pattern: /\b(account|login|password|profile)\b/i },
 ];
 
+const FOLLOW_UP_SELECTION_PATTERN = /^(?:yes|yeah|yep|sure|ok(?:ay)?|do it|go ahead|continue|any(?:\s+one)?|anyone|first(?:\s+one)?|best(?:\s+one)?|pick (?:one|it)|open (?:one|it)|show (?:one|it)|this one|that one)$/i;
+
 const stripNoise = (value = '') => safeString(value)
     .replace(/[^\w\s&'-]/g, ' ')
     .replace(/\s+/g, ' ')
@@ -143,6 +145,22 @@ const inferCompareTerms = (message = '') => {
         .slice(0, 2);
 };
 
+const resolveContextProductIds = (context = {}) => {
+    const directIds = Array.isArray(context?.productIds)
+        ? context.productIds
+        : Array.isArray(context?.visibleProductIds)
+            ? context.visibleProductIds
+            : Array.isArray(context?.candidateProductIds)
+                ? context.candidateProductIds
+                : [];
+
+    return [...new Set(
+        directIds
+            .map((entry) => safeString(entry))
+            .filter(Boolean)
+    )].slice(0, 4);
+};
+
 const resolveContextProductId = (context = {}) => safeString(
     context?.productId
     || context?.currentProductId
@@ -208,12 +226,18 @@ const buildDeterministicClassification = ({
 }) => {
     const priceRange = extractPriceRange(message);
     const category = detectCategoryHint(message);
+    const query = cleanSearchQuery(message, category);
     const pageTarget = inferNavigationTarget(message);
     const orderId = extractOrderId(message, context);
     const supportCategory = inferSupportCategory(message);
+    const contextProductIds = resolveContextProductIds(context);
+    const followUpSelection = FOLLOW_UP_SELECTION_PATTERN.test(safeString(message)) && contextProductIds.length > 0;
+    const productReference = /\b(this|that|it|selected|current)\b/i.test(message);
+    const shouldUseContextProduct = followUpSelection || productReference || /\b(add|remove)\b/i.test(message);
     const productId = safeString(
         message.match(/\b(?:product|item)\s+([a-z0-9._-]{4,})\b/i)?.[1]
-        || resolveContextProductId(context)
+        || (followUpSelection ? contextProductIds[0] : '')
+        || (shouldUseContextProduct ? (resolveContextProductId(context) || contextProductIds[0] || '') : '')
     );
     const compareTerms = inferCompareTerms(message);
     const operation = inferCartOperation(message) || inferProductAction(message);
@@ -223,7 +247,10 @@ const buildDeterministicClassification = ({
     const explicitTracking = /\b(track|where is my order|order status|delivery status)\b/i.test(message);
     const explicitNavigation = /\b(go to|take me to|open|show|navigate)\b/i.test(message) && Boolean(pageTarget);
     const explicitCartAction = /\b(add|remove|delete)\b/i.test(message) && /\b(cart|bag)\b/i.test(message) || /^(add|remove)\b/i.test(safeLower(message));
-    const explicitSelection = /\b(select|choose|pick|this one|that one|open product|view details)\b/i.test(message);
+    const explicitProductOpen = !pageTarget
+        && /\b(open|show|view)\b/i.test(message)
+        && (Boolean(query) || Boolean(category) || compareTerms.length > 0 || productReference || contextProductIds.length > 0);
+    const explicitSelection = followUpSelection || explicitProductOpen || /\b(select|choose|pick|this one|that one|open product|view details)\b/i.test(message);
     const commerceIntent = looksCommerceIntent(message, []);
 
     let intent = 'general_knowledge';
@@ -250,6 +277,9 @@ const buildDeterministicClassification = ({
     } else if (explicitCartAction) {
         intent = 'cart_action';
         confidence = productId ? 0.94 : 0.82;
+    } else if (followUpSelection || explicitProductOpen) {
+        intent = 'product_selection';
+        confidence = productId ? 0.96 : 0.9;
     } else if (explicitSelection || (assistantMode === 'voice' && productId)) {
         intent = 'product_selection';
         confidence = productId ? 0.9 : 0.68;
@@ -265,9 +295,9 @@ const buildDeterministicClassification = ({
         intent,
         confidence,
         entities: normalizeEntities({
-            query: cleanSearchQuery(message, category),
+            query,
             productId,
-            productIds: Array.isArray(context?.productIds) ? context.productIds : [],
+            productIds: contextProductIds,
             quantity: extractQuantity(message, intent === 'cart_action' ? 1 : 0),
             priceMin: priceRange.priceMin,
             priceMax: priceRange.priceMax,
@@ -412,10 +442,12 @@ const enrichAssistantContext = async ({
     const entities = normalizeEntities(classification.entities || {});
     const cartSummary = buildCartSummary(context);
     const contextProduct = resolveContextProduct(context);
+    const contextProductIds = resolveContextProductIds(context);
     let selectedProduct = contextProduct || null;
     let groundedCatalog = null;
     let compareProducts = [];
     let bundleProducts = [];
+    let contextProducts = [];
 
     if (assistantMode === 'compare' && Array.isArray(context?.productIds) && context.productIds.length > 0) {
         compareProducts = (await Promise.all(
@@ -425,6 +457,12 @@ const enrichAssistantContext = async ({
 
     if (assistantMode === 'bundle' && Array.isArray(context?.bundle?.items)) {
         bundleProducts = context.bundle.items.filter(Boolean);
+    }
+
+    if (contextProductIds.length > 0 && (classification.intent === 'product_search' || classification.intent === 'product_selection')) {
+        contextProducts = (await Promise.all(
+            contextProductIds.slice(0, 4).map((productId) => getProductByIdentifier(productId).catch(() => null))
+        )).filter(Boolean);
     }
 
     if (classification.intent === 'product_search' || classification.intent === 'product_selection') {
@@ -444,6 +482,10 @@ const enrichAssistantContext = async ({
 
     if (!selectedProduct && classification.intent === 'product_selection') {
         selectedProduct = groundedCatalog?.products?.[0] || null;
+    }
+
+    if (!selectedProduct && classification.intent === 'product_selection' && contextProducts.length > 0) {
+        selectedProduct = contextProducts[0];
     }
 
     const routeTarget = entities.page
@@ -468,7 +510,7 @@ const enrichAssistantContext = async ({
                 ? bundleProducts
                 : Array.isArray(groundedCatalog?.products)
                     ? groundedCatalog.products
-                    : [],
+                    : contextProducts,
         cartSummary,
         routeTarget,
         supportPrefill,
