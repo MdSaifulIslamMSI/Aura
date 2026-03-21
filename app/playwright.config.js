@@ -41,7 +41,12 @@ export default defineConfig({
     projects: [
         {
             name: 'chromium',
+            testIgnore: /.*\.mobile\.spec\.js/,
             use: { ...devices['Desktop Chrome'] },
+        },
+        {
+            name: 'mobile-chrome',
+            use: { ...devices['Pixel 7'] },
         },
     ],
 

@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { GUEST_CART_STORAGE_KEY, resetCommerceStoreForTests, useCommerceStore } from './commerceStore';
+import {
+    GUEST_CART_STORAGE_KEY,
+    GUEST_WISHLIST_STORAGE_KEY,
+    resetCommerceStoreForTests,
+    useCommerceStore,
+} from './commerceStore';
 import { userApi } from '../services/api';
 
 const createUserCartState = (overrides = {}) => ({
@@ -145,5 +150,111 @@ describe('commerceStore', () => {
 
         useCommerceStore.getState().clearDirectBuy();
         expect(sessionStorage.getItem('aura_checkout_session_v1')).toBeNull();
+    });
+
+    it('merges guest wishlist once when the authenticated session hydrates', async () => {
+        localStorage.setItem(GUEST_WISHLIST_STORAGE_KEY, JSON.stringify([
+            {
+                id: 303,
+                title: 'Guest Camera',
+                price: 799,
+                image: '/camera.png',
+                brand: 'Aura',
+            },
+        ]));
+
+        vi.spyOn(userApi, 'getCart').mockResolvedValue({
+            items: [],
+            revision: 2,
+            syncedAt: null,
+        });
+        vi.spyOn(userApi, 'getWishlist').mockResolvedValue({
+            items: [],
+            revision: 5,
+            syncedAt: null,
+        });
+        vi.spyOn(userApi, 'mergeCart').mockResolvedValue({
+            items: [],
+            revision: 2,
+            syncedAt: null,
+        });
+        const mergeWishlistSpy = vi.spyOn(userApi, 'mergeWishlist').mockResolvedValue({
+            items: [
+                {
+                    id: 303,
+                    title: 'Guest Camera',
+                    price: 799,
+                    image: '/camera.png',
+                    brand: 'Aura',
+                },
+            ],
+            revision: 6,
+            syncedAt: null,
+        });
+
+        await useCommerceStore.getState().bindAuthUser({ uid: 'wishlist-user', email: 'wishlist@example.com' });
+
+        expect(mergeWishlistSpy).toHaveBeenCalledWith({
+            items: [
+                expect.objectContaining({ id: 303 }),
+            ],
+            expectedRevision: 5,
+        });
+        expect(useCommerceStore.getState().wishlist.orderedIds).toEqual(['303']);
+        expect(localStorage.getItem(GUEST_WISHLIST_STORAGE_KEY)).toBeNull();
+    });
+
+    it('drops stale authenticated sync responses after logout', async () => {
+        let resolveAdd;
+        vi.spyOn(userApi, 'addCartItem').mockImplementation(() => new Promise((resolve) => {
+            resolveAdd = resolve;
+        }));
+
+        useCommerceStore.setState({
+            authUser: { uid: 'user-9', email: 'user9@example.com' },
+            sync: { authGeneration: 1 },
+            cart: createUserCartState({
+                revision: 3,
+            }),
+        });
+
+        const addPromise = useCommerceStore.getState().addItem({
+            id: 909,
+            title: 'Delayed Console',
+            price: 499,
+            image: '/console.png',
+            stock: 3,
+        }, 1);
+
+        useCommerceStore.setState({
+            authUser: null,
+            sync: { authGeneration: 2 },
+            cart: {
+                ...createUserCartState({
+                    source: 'guest',
+                    revision: null,
+                }),
+                pendingOps: [],
+            },
+        });
+
+        resolveAdd({
+            item: {
+                id: 909,
+                title: 'Delayed Console',
+                price: 499,
+                image: '/console.png',
+                stock: 3,
+                quantity: 1,
+            },
+            revision: 4,
+            syncedAt: null,
+        });
+
+        await addPromise;
+
+        expect(useCommerceStore.getState().authUser).toBeNull();
+        expect(useCommerceStore.getState().cart.source).toBe('guest');
+        expect(useCommerceStore.getState().cart.orderedIds).toEqual([]);
     });
 });

@@ -9,7 +9,11 @@ const {
     setCartItemQuantity,
     removeCartItem,
     mergeCart,
+    getWishlist,
     syncWishlist,
+    addWishlistItem,
+    removeWishlistItem,
+    mergeWishlist,
     updateUserProfile,
     getProfileDashboard,
     getRewards,
@@ -71,6 +75,10 @@ router.post('/cart/merge', protect, mergeCart); // Protected
 router.post('/cart/items', protect, addCartItem); // Protected
 router.patch('/cart/items/:productId', protect, setCartItemQuantity); // Protected
 router.delete('/cart/items/:productId', protect, removeCartItem); // Protected
+router.get('/wishlist', protect, getWishlist); // Protected
 router.put('/wishlist', protect, syncWishlist); // Protected
+router.post('/wishlist/merge', protect, mergeWishlist); // Protected
+router.post('/wishlist/items', protect, addWishlistItem); // Protected
+router.delete('/wishlist/items/:productId', protect, removeWishlistItem); // Protected
 
 module.exports = router;
