@@ -43,10 +43,22 @@ export const findAssistantNavigationTarget = (value = '') => {
 
 export const extractAssistantBudget = (value = '') => {
     const normalized = safeString(value);
-    const match = normalized.match(/\b(?:under|below|less than|max|within)\s+(\d{1,3})(k)?\b/i);
-    if (!match) return 0;
-    const base = Number(match[1]) || 0;
-    return match[2] ? base * 1000 : base;
+    const patterns = [
+        /\b(?:under|below|less than|max|within|around|about)\s+(\d[\d,]*)(k)?\b/i,
+        /\b(?:rs|inr)\s*(\d[\d,]*)(k)?\b/i,
+        /\b(\d[\d,]*)\s*(k)\b(?:\s*(?:price|budget))?/i,
+        /\b(\d[\d,]*)\b\s*(?:price|budget)\b/i,
+    ];
+
+    for (const pattern of patterns) {
+        const match = normalized.match(pattern);
+        if (!match) continue;
+        const base = Number(String(match[1] || '').replace(/,/g, '')) || 0;
+        if (base <= 0) continue;
+        return match[2] ? base * 1000 : base;
+    }
+
+    return 0;
 };
 
 export const parseClientAssistantIntent = (value = '') => {
@@ -68,6 +80,9 @@ export const parseClientAssistantIntent = (value = '') => {
     const inStock = /\bin stock|available now|ready stock\b/.test(normalized);
     const deliveryTime = /\bfast delivery|quick delivery|same day|one day\b/.test(normalized) ? '1-2 days' : undefined;
     const productId = raw.match(/\b(?:product|item)\s+([a-z0-9._-]{3,})\b/i)?.[1] || '';
+    const browseCategory = Boolean(category)
+        && /\b(open|browse|go to|take me to)\b/.test(normalized)
+        && !/\b(search|find|show me|best|cheap|affordable|under|below|within|price)\b/.test(normalized);
     const cartOperation = /\b(add|buy|put in cart|place in cart)\b/.test(normalized)
         ? 'add'
         : /\b(remove|delete|take out)\b/.test(normalized)
@@ -132,6 +147,25 @@ export const parseClientAssistantIntent = (value = '') => {
             entities: {
                 productId,
                 operation: cartOperation,
+            },
+        };
+    }
+
+    if (browseCategory && category?.value) {
+        return {
+            intent: 'navigation',
+            confidence: 0.82,
+            entities: {
+                page: 'category',
+                category: category.value,
+            },
+            action: {
+                type: 'navigate',
+                path: `/category/${category.value}`,
+                label: `Browse ${category.label}`,
+                params: {
+                    category: category.value,
+                },
             },
         };
     }

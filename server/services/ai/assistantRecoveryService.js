@@ -1,8 +1,15 @@
 const { generateStructuredResponse } = require('./providerRegistry');
 const { getProductByIdentifier } = require('../catalogService');
-const { cleanSearchQuery, extractBudget, searchProducts } = require('./assistantSearchService');
+const {
+    cleanSearchQuery,
+    extractBudget,
+    mergeSearchContext,
+    searchProducts,
+} = require('./assistantSearchService');
 
-const CONFIDENCE_THRESHOLD = 0.62;
+const ACT_DIRECT_THRESHOLD = 0.7;
+const INFER_CONFIRM_THRESHOLD = 0.4;
+const MAX_CLARIFICATION_REPEATS = 1;
 
 const PAGE_TARGETS = [
     { page: 'home', path: '/', aliases: ['home', 'homepage'] },
@@ -25,10 +32,55 @@ const CART_REMOVE_PATTERN = /\b(remove|delete|take out|drop)\b.*\b(cart|bag|bask
 const NAVIGATION_PATTERN = /\b(open|go to|take me to|navigate|show)\b/i;
 const PRODUCT_REFERENCE_PATTERN = /\b(this|that|it|selected|current)\b/i;
 const SHOW_MORE_PATTERN = /\b(show more|more options|more results|next results|next page)\b/i;
+const CATEGORY_BROWSE_PATTERN = /\b(open|browse|go to|take me to)\b/i;
+const FILTER_REFINEMENT_PATTERN = /^(?:then|now|also|only|just)?\s*(?:under|below|less than|max|within|around|about)?\s*(?:rs\.?|inr)?\s*[\d,]+\s*k?\s*(?:price|budget)?$/i;
+const PRODUCT_SEARCH_CUE_PATTERN = /\b(iphone|samsung|pixel|oppo|vivo|realme|phone|phones|laptop|laptops|headphone|headphones|earbuds|watch|tv|book|books|shoes?)\b/i;
+
+const CATEGORY_SLUG_LOOKUP = new Map([
+    ['Mobiles', 'mobiles'],
+    ['Laptops', 'laptops'],
+    ['Electronics', 'electronics'],
+    ["Men's Fashion", "men's-fashion"],
+    ["Women's Fashion", "women's-fashion"],
+    ['Footwear', 'footwear'],
+    ['Home & Kitchen', 'home-kitchen'],
+    ['Gaming & Accessories', 'gaming'],
+    ['Books', 'books'],
+]);
 
 const safeString = (value, fallback = '') => String(value === undefined || value === null ? fallback : value).trim();
 const safeLower = (value, fallback = '') => safeString(value, fallback).toLowerCase();
 const clamp = (value, min, max) => Math.min(Math.max(Number(value) || 0, min), max);
+const titleCase = (value = '') => safeString(value)
+    .replace(/[-_]/g, ' ')
+    .replace(/\b\w/g, (character) => character.toUpperCase());
+
+const toCategorySlug = (value = '') => {
+    const normalized = safeString(value);
+    if (!normalized) return '';
+    return CATEGORY_SLUG_LOOKUP.get(normalized) || safeLower(normalized)
+        .replace(/&/g, 'and')
+        .replace(/['"]/g, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+};
+
+const normalizeClarificationState = (value = {}) => ({
+    fingerprint: safeString(value?.fingerprint || ''),
+    count: Math.max(0, Number(value?.count || 0)),
+    lastQuestion: safeString(value?.lastQuestion || ''),
+});
+
+const stripCategoryBrowseQuery = (message = '', categoryLabel = '') => cleanSearchQuery(
+    safeString(message).replace(/\b(open|browse|go to|take me to)\b/gi, ' '),
+    categoryLabel
+);
+
+const resolveCategoryBrowseQuery = (message = '', categoryLabel = '') => {
+    const cleaned = safeString(stripCategoryBrowseQuery(message, categoryLabel));
+    const normalizedCategory = safeLower(categoryLabel);
+    return safeLower(cleaned) === normalizedCategory ? '' : cleaned;
+};
 
 const normalizeProductSummary = (product = {}) => {
     const id = safeString(product?.id || product?._id || '');
@@ -104,7 +156,11 @@ const resolveSessionMemory = (context = {}) => {
         lastQuery: safeString(rawMemory.lastQuery || context.lastQuery || ''),
         lastResults,
         activeProduct,
-        currentIntent: safeString(rawMemory.currentIntent || context.currentIntent || ''),
+        lastIntent: safeString(rawMemory.lastIntent || rawMemory.currentIntent || context.lastIntent || context.currentIntent || ''),
+        currentIntent: safeString(rawMemory.lastIntent || rawMemory.currentIntent || context.lastIntent || context.currentIntent || ''),
+        clarificationState: normalizeClarificationState(rawMemory.clarificationState || context.clarificationState || {}),
+        lastActionFingerprint: safeString(rawMemory.lastActionFingerprint || context.lastActionFingerprint || ''),
+        lastActionAt: Math.max(0, Number(rawMemory.lastActionAt || context.lastActionAt || 0)),
     };
 };
 
@@ -184,10 +240,24 @@ const buildDeterministicInterpretation = ({ message = '', context = {}, sessionM
     });
     const orderId = extractOrderId(safeMessage, context);
     const lastQuery = safeString(sessionMemory.lastQuery || '');
+    const lastIntent = safeString(sessionMemory.lastIntent || sessionMemory.currentIntent || '');
     const showMore = SHOW_MORE_PATTERN.test(safeMessage) && Boolean(lastQuery);
-    const searchQuery = cleanSearchQuery(
-        showMore ? lastQuery : safeMessage,
-        context?.category || ''
+    const mergedSearch = mergeSearchContext({
+        message: showMore ? lastQuery : safeMessage,
+        lastQuery,
+        category: context?.category || '',
+    });
+    const categoryLabel = safeString(mergedSearch.category || '');
+    const categorySlug = toCategorySlug(categoryLabel);
+    const searchQuery = safeString(mergedSearch.query || cleanSearchQuery(showMore ? lastQuery : safeMessage, context?.category || '') || lastQuery || safeMessage);
+    const categoryBrowseQuery = resolveCategoryBrowseQuery(safeMessage, categoryLabel);
+    const categoryBrowse = Boolean(categorySlug)
+        && CATEGORY_BROWSE_PATTERN.test(safeMessage)
+        && !categoryBrowseQuery;
+    const refinementFollowUp = Boolean(lastQuery) && (
+        showMore
+        || FILTER_REFINEMENT_PATTERN.test(safeMessage)
+        || (lastIntent === 'product_search' && mergedSearch.usedLastQuery)
     );
 
     if (CART_ADD_PATTERN.test(safeMessage)) {
@@ -197,6 +267,8 @@ const buildDeterministicInterpretation = ({ message = '', context = {}, sessionM
                 query: lastQuery,
                 productId: productReference.productId,
                 quantity,
+                category: categoryLabel,
+                maxPrice: 0,
             },
             confidence: productReference.ambiguous ? 0.58 : 0.92,
             decision: productReference.productId ? 'act' : 'clarify',
@@ -210,6 +282,9 @@ const buildDeterministicInterpretation = ({ message = '', context = {}, sessionM
                 page: '',
                 orderId: '',
                 showMore: false,
+                categorySlug: '',
+                categoryLabel: '',
+                refinementFollowUp: false,
             },
         };
     }
@@ -221,6 +296,8 @@ const buildDeterministicInterpretation = ({ message = '', context = {}, sessionM
                 query: lastQuery,
                 productId: productReference.productId,
                 quantity,
+                category: categoryLabel,
+                maxPrice: 0,
             },
             confidence: productReference.ambiguous ? 0.58 : 0.9,
             decision: productReference.productId ? 'act' : 'clarify',
@@ -232,6 +309,9 @@ const buildDeterministicInterpretation = ({ message = '', context = {}, sessionM
                 page: '',
                 orderId: '',
                 showMore: false,
+                categorySlug: '',
+                categoryLabel: '',
+                refinementFollowUp: false,
             },
         };
     }
@@ -243,6 +323,8 @@ const buildDeterministicInterpretation = ({ message = '', context = {}, sessionM
                 query: safeMessage,
                 productId: productReference.productId,
                 quantity: 0,
+                category: '',
+                maxPrice: 0,
             },
             confidence: orderId ? 0.95 : 0.86,
             decision: 'act',
@@ -252,26 +334,9 @@ const buildDeterministicInterpretation = ({ message = '', context = {}, sessionM
                 page: orderId || /\b(track|tracking)\b/i.test(safeMessage) ? 'orders' : 'support',
                 orderId,
                 showMore: false,
-            },
-        };
-    }
-
-    if (pageTarget && NAVIGATION_PATTERN.test(safeMessage)) {
-        return {
-            intent: 'navigation',
-            entities: {
-                query: '',
-                productId: productReference.productId,
-                quantity: 0,
-            },
-            confidence: 0.91,
-            decision: 'act',
-            response: '',
-            meta: {
-                operation: '',
-                page: pageTarget.page,
-                orderId,
-                showMore: false,
+                categorySlug: '',
+                categoryLabel: '',
+                refinementFollowUp: false,
             },
         };
     }
@@ -283,6 +348,8 @@ const buildDeterministicInterpretation = ({ message = '', context = {}, sessionM
                 query: '',
                 productId: '',
                 quantity: 0,
+                category: '',
+                maxPrice: 0,
             },
             confidence: 0.93,
             decision: 'clarify',
@@ -292,6 +359,34 @@ const buildDeterministicInterpretation = ({ message = '', context = {}, sessionM
                 page: 'checkout',
                 orderId: '',
                 showMore: false,
+                categorySlug: '',
+                categoryLabel: '',
+                refinementFollowUp: false,
+            },
+        };
+    }
+
+    if (categoryBrowse) {
+        return {
+            intent: 'navigation',
+            entities: {
+                query: '',
+                productId: '',
+                quantity: 0,
+                category: categoryLabel,
+                maxPrice: 0,
+            },
+            confidence: 0.78,
+            decision: 'act',
+            response: '',
+            meta: {
+                operation: '',
+                page: 'category',
+                orderId: '',
+                showMore: false,
+                categorySlug,
+                categoryLabel,
+                refinementFollowUp: false,
             },
         };
     }
@@ -303,6 +398,8 @@ const buildDeterministicInterpretation = ({ message = '', context = {}, sessionM
                 query: '',
                 productId: productReference.productId,
                 quantity: 0,
+                category: '',
+                maxPrice: 0,
             },
             confidence: 0.89,
             decision: 'act',
@@ -312,26 +409,74 @@ const buildDeterministicInterpretation = ({ message = '', context = {}, sessionM
                 page: 'product',
                 orderId: '',
                 showMore: false,
+                categorySlug: '',
+                categoryLabel: '',
+                refinementFollowUp: false,
             },
         };
     }
 
-    if (showMore || SEARCH_PATTERN.test(safeMessage) || extractBudget(safeMessage) > 0 || /\biphone|samsung|pixel|laptop|headphone|earbuds|watch|tv|book|shoes?\b/i.test(normalized)) {
+    if (pageTarget && NAVIGATION_PATTERN.test(safeMessage)) {
+        return {
+            intent: 'navigation',
+            entities: {
+                query: '',
+                productId: productReference.productId,
+                quantity: 0,
+                category: '',
+                maxPrice: 0,
+            },
+            confidence: 0.91,
+            decision: 'act',
+            response: '',
+            meta: {
+                operation: '',
+                page: pageTarget.page,
+                orderId,
+                showMore: false,
+                categorySlug: '',
+                categoryLabel: '',
+                refinementFollowUp: false,
+            },
+        };
+    }
+
+    if (
+        showMore
+        || refinementFollowUp
+        || SEARCH_PATTERN.test(safeMessage)
+        || mergedSearch.maxPrice > 0
+        || PRODUCT_SEARCH_CUE_PATTERN.test(normalized)
+        || (Boolean(categoryLabel) && Boolean(cleanSearchQuery(safeMessage, categoryLabel)))
+    ) {
         return {
             intent: 'product_search',
             entities: {
                 query: searchQuery || lastQuery || safeMessage,
                 productId: '',
                 quantity: 0,
+                category: categoryLabel,
+                maxPrice: mergedSearch.maxPrice,
             },
-            confidence: showMore ? 0.9 : 0.84,
+            confidence: showMore
+                ? 0.9
+                : refinementFollowUp
+                    ? 0.66
+                    : PRODUCT_SEARCH_CUE_PATTERN.test(normalized)
+                        ? 0.84
+                        : Boolean(categoryLabel)
+                            ? 0.58
+                            : 0.5,
             decision: searchQuery || lastQuery ? 'act' : 'clarify',
-            response: searchQuery || lastQuery ? '' : 'What product should I search for?',
+            response: '',
             meta: {
                 operation: '',
                 page: '',
                 orderId: '',
                 showMore,
+                categorySlug,
+                categoryLabel,
+                refinementFollowUp,
             },
         };
     }
@@ -343,6 +488,8 @@ const buildDeterministicInterpretation = ({ message = '', context = {}, sessionM
                 query: safeMessage,
                 productId: '',
                 quantity: 0,
+                category: '',
+                maxPrice: 0,
             },
             confidence: 0.76,
             decision: 'respond',
@@ -352,6 +499,9 @@ const buildDeterministicInterpretation = ({ message = '', context = {}, sessionM
                 page: '',
                 orderId: '',
                 showMore: false,
+                categorySlug: '',
+                categoryLabel: '',
+                refinementFollowUp: false,
             },
         };
     }
@@ -362,36 +512,39 @@ const buildDeterministicInterpretation = ({ message = '', context = {}, sessionM
             query: safeMessage,
             productId: '',
             quantity: 0,
+            category: categoryLabel,
+            maxPrice: mergedSearch.maxPrice,
         },
-        confidence: 0.32,
+        confidence: categoryLabel ? 0.36 : 0.28,
         decision: 'clarify',
-        response: 'Do you want a product search, a cart action, navigation help, or a general answer?',
+        response: '',
         meta: {
             operation: '',
             page: '',
             orderId: '',
             showMore: false,
+            categorySlug,
+            categoryLabel,
+            refinementFollowUp,
         },
     };
 };
 
 const buildInterpreterSystemPrompt = () => [
-    'You classify turns for a production ecommerce assistant.',
-    'Return strict JSON only.',
-    'Use this exact schema and no extra fields:',
-    '{"intent":"product_search | general_knowledge | cart_action | navigation | support | unclear","entities":{"query":"","productId":"","quantity":0},"confidence":0.0,"decision":"respond | act | clarify","response":""}',
+    'You are an AI assistant for an e-commerce app.',
+    'You MUST return ONLY valid JSON.',
+    'Format:',
+    '{"intent":"general_knowledge | product_search | navigation | cart_action | unclear","entities":{"query":"","productId":"","category":"","maxPrice":0},"confidence":0.0,"response":""}',
     'Rules:',
-    '- product_search is only for shopping discovery, recommendations, comparisons, budgets, or more results.',
+    '- NEVER return plain text.',
+    '- Extract intent and entities clearly.',
+    '- If unsure, set intent = "unclear".',
+    '- Confidence must be between 0 and 1.',
     '- general_knowledge is only for non-commerce factual or explanatory questions.',
+    '- product_search is only for shopping discovery, recommendations, comparisons, budgets, or more results.',
+    '- navigation is for opening app pages or browsing a product category.',
     '- cart_action is only for adding or removing a product from cart.',
-    '- navigation is for opening app pages like cart, checkout, orders, profile, wishlist, marketplace, or a product detail page.',
-    '- support is for refunds, returns, replacements, tracking, account help, payment issues, or complaints.',
-    '- unclear is for ambiguous requests with insufficient evidence.',
-    '- Never invent productId. Only populate it when the user explicitly names it or the provided session memory makes the reference unambiguous.',
-    '- quantity must be an integer. Use 0 when absent except for cart actions, where 1 is the safe default.',
-    '- If the request is ambiguous, use decision="clarify" and ask one short question in response.',
-    '- For product_search, cart_action, navigation, and support, response should describe the next validated step without claiming it already happened.',
-    '- For general_knowledge, answer the question directly and do not mention shopping UI.',
+    '- Never invent productId. Only use it when the user explicitly names it or session memory makes it unambiguous.',
 ].join('\n');
 
 const buildInterpreterUserPrompt = ({
@@ -413,7 +566,7 @@ const buildInterpreterUserPrompt = ({
                 title: safeString(product?.title),
             }))
             : [],
-        currentIntent: safeString(sessionMemory?.currentIntent || ''),
+        lastIntent: safeString(sessionMemory?.lastIntent || sessionMemory?.currentIntent || ''),
     };
 
     return [
@@ -423,32 +576,30 @@ const buildInterpreterUserPrompt = ({
             intent: deterministic.intent,
             entities: deterministic.entities,
             confidence: deterministic.confidence,
-            decision: deterministic.decision,
         })}`,
         'Return JSON only.',
     ].join('\n\n');
 };
 
 const normalizeModelInterpretation = (payload = {}, fallback = {}) => ({
-    intent: ['product_search', 'general_knowledge', 'cart_action', 'navigation', 'support', 'unclear'].includes(safeString(payload?.intent))
+    intent: ['product_search', 'general_knowledge', 'cart_action', 'navigation', 'unclear'].includes(safeString(payload?.intent))
         ? safeString(payload.intent)
         : safeString(fallback.intent || 'unclear'),
     entities: {
         query: safeString(payload?.entities?.query || fallback?.entities?.query || ''),
         productId: safeString(payload?.entities?.productId || fallback?.entities?.productId || ''),
+        category: safeString(payload?.entities?.category || fallback?.entities?.category || ''),
+        maxPrice: Math.max(0, Number(payload?.entities?.maxPrice ?? fallback?.entities?.maxPrice ?? 0) || 0),
         quantity: Math.max(0, Number(payload?.entities?.quantity ?? fallback?.entities?.quantity ?? 0) || 0),
     },
     confidence: clamp(payload?.confidence ?? fallback?.confidence ?? 0, 0, 1),
-    decision: ['respond', 'act', 'clarify'].includes(safeString(payload?.decision))
-        ? safeString(payload.decision)
-        : safeString(fallback.decision || 'clarify'),
     response: safeString(payload?.response || fallback?.response || ''),
 });
 
 const shouldUseModel = (deterministic = {}) => (
     deterministic.intent === 'general_knowledge'
     || deterministic.intent === 'unclear'
-    || Number(deterministic.confidence || 0) < 0.84
+    || Number(deterministic.confidence || 0) < ACT_DIRECT_THRESHOLD
 );
 
 const interpretWithModel = async ({ message = '', sessionMemory = {}, deterministic = {} }) => {
@@ -480,12 +631,16 @@ const mergeInterpretations = (deterministic = {}, model = {}) => {
     const deterministicConfidence = Number(deterministic.confidence || 0);
     const modelConfidence = Number(model.confidence || 0);
 
-    if (deterministicConfidence >= 0.9 && deterministic.intent !== 'general_knowledge') {
+    if (deterministic.intent === 'support') {
+        return deterministic;
+    }
+
+    if (deterministicConfidence >= 0.88 && deterministic.intent !== 'general_knowledge') {
         return deterministic;
     }
 
     if (!model.intent || model.intent === 'unclear') {
-        return deterministicConfidence >= modelConfidence ? deterministic : model;
+        return deterministic;
     }
 
     if (deterministic.intent === model.intent) {
@@ -494,6 +649,8 @@ const mergeInterpretations = (deterministic = {}, model = {}) => {
             entities: {
                 query: safeString(model.entities?.query || deterministic.entities?.query || ''),
                 productId: safeString(model.entities?.productId || deterministic.entities?.productId || ''),
+                category: safeString(model.entities?.category || deterministic.entities?.category || ''),
+                maxPrice: Math.max(0, Number(model.entities?.maxPrice || deterministic.entities?.maxPrice || 0)),
                 quantity: Math.max(0, Number(model.entities?.quantity || deterministic.entities?.quantity || 0)),
             },
             confidence: Math.max(modelConfidence, deterministicConfidence),
@@ -501,7 +658,7 @@ const mergeInterpretations = (deterministic = {}, model = {}) => {
         };
     }
 
-    if (modelConfidence >= deterministicConfidence + 0.14) {
+    if (modelConfidence >= deterministicConfidence + 0.12) {
         return model;
     }
 
@@ -545,45 +702,112 @@ const answerGeneralKnowledge = async (message = '') => {
     };
 };
 
+const getDecisionBand = (confidence = 0) => {
+    const normalized = Number(confidence || 0);
+    if (normalized >= ACT_DIRECT_THRESHOLD) return 'act';
+    if (normalized >= INFER_CONFIRM_THRESHOLD) return 'infer';
+    return 'clarify';
+};
+
+const buildClarificationFingerprint = ({
+    message = '',
+    intent = '',
+    response = '',
+    followUps = [],
+} = {}) => [
+    safeLower(message),
+    safeLower(intent),
+    safeLower(response),
+    (Array.isArray(followUps) ? followUps : []).map((entry) => safeLower(entry)).join('|'),
+].filter(Boolean).join('::').slice(0, 240);
+
+const buildNextClarificationState = ({
+    current = {},
+    fingerprint = '',
+    question = '',
+} = {}) => ({
+    fingerprint: safeString(fingerprint),
+    count: safeString(fingerprint) && safeString(current?.fingerprint) === safeString(fingerprint)
+        ? Math.max(0, Number(current?.count || 0)) + 1
+        : 1,
+    lastQuestion: safeString(question),
+});
+
+const buildCategoryFollowUps = (categoryLabel = '') => {
+    const normalized = safeLower(categoryLabel);
+    if (!normalized) return [];
+    return [`Browse ${normalized}`, `Search ${normalized} products`];
+};
+
 const buildSessionMemory = ({
     current = {},
     assistantTurn = {},
     products = [],
     activeProduct = null,
-}) => ({
-    lastQuery: safeString(
-        assistantTurn?.intent === 'product_search'
-            ? assistantTurn?.entities?.query
-            : current?.lastQuery || ''
-    ),
-    lastResults: assistantTurn?.intent === 'product_search'
-        ? uniqueProducts(products).slice(0, 6)
-        : uniqueProducts(current?.lastResults || []).slice(0, 6),
-    activeProduct: normalizeProductSummary(activeProduct || current?.activeProduct || null),
-    currentIntent: safeString(assistantTurn?.intent || current?.currentIntent || ''),
-});
+    clarificationState = null,
+    lastActionFingerprint,
+    lastActionAt,
+}) => {
+    const nextIntent = safeString(assistantTurn?.intent || current?.lastIntent || current?.currentIntent || '');
 
-const buildFollowUps = ({ intent = '', products = [], actionType = '', hasMoreContext = false }) => {
+    return {
+        lastQuery: safeString(
+            assistantTurn?.intent === 'product_search'
+                ? assistantTurn?.entities?.query
+                : current?.lastQuery || ''
+        ),
+        lastResults: assistantTurn?.intent === 'product_search'
+            ? uniqueProducts(products).slice(0, 6)
+            : uniqueProducts(current?.lastResults || []).slice(0, 6),
+        activeProduct: normalizeProductSummary(activeProduct || current?.activeProduct || null),
+        lastIntent: nextIntent,
+        currentIntent: nextIntent,
+        clarificationState: clarificationState
+            ? normalizeClarificationState(clarificationState)
+            : normalizeClarificationState(current?.clarificationState || {}),
+        lastActionFingerprint: safeString((lastActionFingerprint ?? current?.lastActionFingerprint) || ''),
+        lastActionAt: Math.max(0, Number((lastActionAt ?? current?.lastActionAt) || 0)),
+    };
+};
+
+const buildFollowUps = ({
+    intent = '',
+    products = [],
+    actionType = '',
+    hasMoreContext = false,
+    categoryLabel = '',
+    inferred = false,
+    existing = [],
+}) => {
+    const next = Array.isArray(existing) ? existing.map((entry) => safeString(entry)).filter(Boolean) : [];
+
     if (intent === 'product_search') {
-        const next = [];
         if (products.length > 1) next.push('show more');
         if (products.length === 1) next.push('add this to cart');
-        return next.slice(0, 3);
+        if (inferred && categoryLabel) next.unshift(`Browse ${safeLower(categoryLabel)}`);
+        return [...new Set(next)].slice(0, 4);
     }
 
     if (intent === 'cart_action') {
-        return ['show my cart', 'go to checkout'].slice(0, 2);
+        next.push('show my cart', 'go to checkout');
+        return [...new Set(next)].slice(0, 3);
     }
 
     if (intent === 'support') {
-        return hasMoreContext ? ['open support'] : ['show my orders'];
+        next.push(hasMoreContext ? 'open support' : 'show my orders');
+        return [...new Set(next)].slice(0, 3);
     }
 
     if (intent === 'navigation' && actionType === 'checkout') {
-        return ['show my cart'];
+        next.push('show my cart');
+        return [...new Set(next)].slice(0, 3);
     }
 
-    return [];
+    if (intent === 'navigation' && inferred && categoryLabel) {
+        next.push(`Search ${safeLower(categoryLabel)} products`);
+    }
+
+    return [...new Set(next)].slice(0, 4);
 };
 
 const createAssistantTurn = ({
@@ -601,6 +825,8 @@ const createAssistantTurn = ({
     entities: {
         query: safeString(entities?.query || ''),
         productId: safeString(entities?.productId || ''),
+        category: safeString(entities?.category || ''),
+        maxPrice: Math.max(0, Number(entities?.maxPrice || 0)),
         quantity: Math.max(0, Number(entities?.quantity) || 0),
     },
     confidence: clamp(confidence, 0, 1),
@@ -624,57 +850,308 @@ const createAssistantTurn = ({
     safetyFlags: [],
 });
 
+const buildClarificationPayload = ({
+    message = '',
+    interpretation = {},
+    sessionMemory = {},
+} = {}) => {
+    const categoryLabel = safeString(interpretation?.entities?.category || interpretation?.meta?.categoryLabel || '');
+    const lastQuery = safeString(sessionMemory?.lastQuery || '');
+    const lastResults = uniqueProducts(sessionMemory?.lastResults || []).slice(0, 4);
+    const operation = safeString(interpretation?.meta?.operation || '');
+    const page = safeString(interpretation?.meta?.page || '');
+
+    if (interpretation?.intent === 'cart_action' && !safeString(interpretation?.entities?.productId || '')) {
+        if (lastResults.length > 1) {
+            return {
+                response: operation === 'remove'
+                    ? 'Pick the cart item you want me to remove.'
+                    : 'Pick the product you want me to add to your cart.',
+                followUps: [],
+                ui: {
+                    surface: 'product_results',
+                    products: lastResults,
+                },
+            };
+        }
+
+        return {
+            response: operation === 'remove'
+                ? 'Which cart item should I remove?'
+                : 'Which product should I add to your cart?',
+            followUps: [],
+            ui: {
+                surface: 'plain_answer',
+            },
+        };
+    }
+
+    if (interpretation?.intent === 'navigation' && page === 'product' && !safeString(interpretation?.entities?.productId || '')) {
+        return {
+            response: lastResults.length > 1 ? 'Pick the product you want me to open.' : 'Which product should I open?',
+            followUps: [],
+            ui: {
+                surface: lastResults.length > 1 ? 'product_results' : 'plain_answer',
+                products: lastResults,
+            },
+        };
+    }
+
+    if (categoryLabel) {
+        return {
+            response: `Do you mean browse ${safeLower(categoryLabel)} or search products in ${safeLower(categoryLabel)}?`,
+            followUps: buildCategoryFollowUps(categoryLabel),
+            ui: {
+                surface: 'plain_answer',
+            },
+        };
+    }
+
+    if (lastQuery && safeString(sessionMemory?.lastIntent || sessionMemory?.currentIntent || '') === 'product_search') {
+        return {
+            response: `Do you want more results for ${lastQuery} or a tighter budget?`,
+            followUps: ['show more', `Search ${lastQuery}`],
+            ui: {
+                surface: 'plain_answer',
+            },
+        };
+    }
+
+    return {
+        response: 'Can you clarify what you want?',
+        followUps: [],
+        ui: {
+            surface: 'plain_answer',
+        },
+    };
+};
+
+const escalateClarificationPayload = (clarification = {}) => ({
+    ...clarification,
+    response: clarification?.ui?.surface === 'product_results'
+        ? 'Choose one of these options so I can continue.'
+        : Array.isArray(clarification?.followUps) && clarification.followUps.length > 0
+            ? 'Pick one of these options so I can continue.'
+            : safeString(clarification?.response || ''),
+});
+
+const forceInferenceFromContext = ({
+    message = '',
+    interpretation = {},
+    sessionMemory = {},
+} = {}) => {
+    const categoryLabel = safeString(interpretation?.entities?.category || interpretation?.meta?.categoryLabel || '');
+    const categorySlug = safeString(interpretation?.meta?.categorySlug || toCategorySlug(categoryLabel));
+    const activeProductId = safeString(sessionMemory?.activeProduct?.id || '');
+    const singleResultId = Array.isArray(sessionMemory?.lastResults) && sessionMemory.lastResults.length === 1
+        ? safeString(sessionMemory.lastResults[0]?.id)
+        : '';
+    const lastQuery = safeString(sessionMemory?.lastQuery || '');
+
+    if (interpretation.intent === 'cart_action' && !safeString(interpretation?.entities?.productId || '')) {
+        const resolvedProductId = activeProductId || singleResultId;
+        if (resolvedProductId) {
+            return {
+                ...interpretation,
+                confidence: Math.max(INFER_CONFIRM_THRESHOLD, Number(interpretation.confidence || 0)),
+                entities: {
+                    ...interpretation.entities,
+                    productId: resolvedProductId,
+                },
+            };
+        }
+    }
+
+    if (interpretation.intent === 'navigation' && safeString(interpretation?.meta?.page || '') === 'product' && !safeString(interpretation?.entities?.productId || '')) {
+        const resolvedProductId = activeProductId || singleResultId;
+        if (resolvedProductId) {
+            return {
+                ...interpretation,
+                confidence: Math.max(INFER_CONFIRM_THRESHOLD, Number(interpretation.confidence || 0)),
+                entities: {
+                    ...interpretation.entities,
+                    productId: resolvedProductId,
+                },
+            };
+        }
+    }
+
+    if (
+        (interpretation.intent === 'unclear' || interpretation.intent === 'product_search')
+        && categorySlug
+        && CATEGORY_BROWSE_PATTERN.test(message)
+        && !resolveCategoryBrowseQuery(message, categoryLabel)
+    ) {
+        return {
+            ...interpretation,
+            intent: 'navigation',
+            confidence: Math.max(INFER_CONFIRM_THRESHOLD, Number(interpretation.confidence || 0)),
+            entities: {
+                ...interpretation.entities,
+                category: categoryLabel,
+            },
+            meta: {
+                ...interpretation.meta,
+                page: 'category',
+                categorySlug,
+                categoryLabel,
+            },
+        };
+    }
+
+    if ((interpretation.intent === 'unclear' || interpretation.intent === 'product_search') && lastQuery) {
+        const merged = mergeSearchContext({
+            message,
+            lastQuery,
+            category: categoryLabel,
+        });
+
+        return {
+            ...interpretation,
+            intent: 'product_search',
+            confidence: Math.max(INFER_CONFIRM_THRESHOLD, Number(interpretation.confidence || 0)),
+            entities: {
+                ...interpretation.entities,
+                query: safeString(merged.query || lastQuery),
+                category: safeString(merged.category || categoryLabel),
+                maxPrice: Math.max(0, Number(merged.maxPrice || interpretation?.entities?.maxPrice || 0)),
+            },
+            meta: {
+                ...interpretation.meta,
+                categorySlug: toCategorySlug(merged.category || categoryLabel),
+                categoryLabel: safeString(merged.category || categoryLabel),
+                showMore: Boolean(interpretation?.meta?.showMore),
+            },
+        };
+    }
+
+    return null;
+};
+
 const executeDecision = async ({
     message = '',
     interpretation = {},
     context = {},
     sessionMemory = {},
 }) => {
-    const meta = interpretation.meta || {};
-    const provider = safeString(interpretation.provider || 'local');
-    const lowConfidence = Number(interpretation.confidence || 0) < CONFIDENCE_THRESHOLD;
+    let workingInterpretation = {
+        ...interpretation,
+        entities: {
+            query: safeString(interpretation?.entities?.query || ''),
+            productId: safeString(interpretation?.entities?.productId || ''),
+            category: safeString(interpretation?.entities?.category || ''),
+            maxPrice: Math.max(0, Number(interpretation?.entities?.maxPrice || 0)),
+            quantity: Math.max(0, Number(interpretation?.entities?.quantity || 0)),
+        },
+        meta: interpretation?.meta || {},
+    };
+    let band = getDecisionBand(workingInterpretation.confidence);
+    const provider = safeString(workingInterpretation.provider || 'local');
 
-    if (lowConfidence || interpretation.intent === 'unclear') {
-        const assistantTurn = createAssistantTurn({
-            intent: 'unclear',
-            entities: interpretation.entities,
-            confidence: interpretation.confidence,
-            decision: 'clarify',
-            response: interpretation.response || 'Can you tell me whether you want a product search, a cart action, navigation help, or a general answer?',
-            ui: {
-                surface: 'plain_answer',
-            },
-            followUps: [],
-            sessionMemory: buildSessionMemory({
-                current: sessionMemory,
-                assistantTurn: interpretation,
-            }),
+    if (band === 'clarify' || workingInterpretation.intent === 'unclear') {
+        const clarification = buildClarificationPayload({
+            message,
+            interpretation: workingInterpretation,
+            sessionMemory,
+        });
+        const fingerprint = buildClarificationFingerprint({
+            message,
+            intent: workingInterpretation.intent,
+            response: clarification.response,
+            followUps: clarification.followUps,
+        });
+        const nextClarificationState = buildNextClarificationState({
+            current: sessionMemory?.clarificationState || {},
+            fingerprint,
+            question: clarification.response,
         });
 
-        return {
-            answer: assistantTurn.response,
-            assistantTurn,
-            products: [],
-            followUps: assistantTurn.followUps,
-            provider,
-        };
+        if (nextClarificationState.count > MAX_CLARIFICATION_REPEATS) {
+            const forcedInterpretation = forceInferenceFromContext({
+                message,
+                interpretation: workingInterpretation,
+                sessionMemory,
+            });
+
+            if (forcedInterpretation) {
+                workingInterpretation = forcedInterpretation;
+                band = getDecisionBand(Math.max(forcedInterpretation.confidence, INFER_CONFIRM_THRESHOLD));
+            } else {
+                const escalatedClarification = escalateClarificationPayload(clarification);
+                const assistantTurn = createAssistantTurn({
+                    intent: safeString(workingInterpretation.intent || 'unclear'),
+                    entities: workingInterpretation.entities,
+                    confidence: workingInterpretation.confidence,
+                    decision: 'clarify',
+                    response: escalatedClarification.response,
+                    ui: escalatedClarification.ui,
+                    followUps: escalatedClarification.followUps,
+                    sessionMemory: buildSessionMemory({
+                        current: sessionMemory,
+                        assistantTurn: workingInterpretation,
+                        clarificationState: buildNextClarificationState({
+                            current: sessionMemory?.clarificationState || {},
+                            fingerprint: buildClarificationFingerprint({
+                                message,
+                                intent: workingInterpretation.intent,
+                                response: escalatedClarification.response,
+                                followUps: escalatedClarification.followUps,
+                            }),
+                            question: escalatedClarification.response,
+                        }),
+                    }),
+                });
+
+                return {
+                    answer: assistantTurn.response,
+                    assistantTurn,
+                    products: uniqueProducts(escalatedClarification?.ui?.products || []).slice(0, 6),
+                    followUps: assistantTurn.followUps,
+                    provider,
+                };
+            }
+        } else {
+            const assistantTurn = createAssistantTurn({
+                intent: safeString(workingInterpretation.intent || 'unclear'),
+                entities: workingInterpretation.entities,
+                confidence: workingInterpretation.confidence,
+                decision: 'clarify',
+                response: clarification.response,
+                ui: clarification.ui,
+                followUps: clarification.followUps,
+                sessionMemory: buildSessionMemory({
+                    current: sessionMemory,
+                    assistantTurn: workingInterpretation,
+                    clarificationState: nextClarificationState,
+                }),
+            });
+
+            return {
+                answer: assistantTurn.response,
+                assistantTurn,
+                products: uniqueProducts(clarification?.ui?.products || []).slice(0, 6),
+                followUps: assistantTurn.followUps,
+                provider,
+            };
+        }
     }
 
-    if (interpretation.intent === 'general_knowledge') {
+    if (workingInterpretation.intent === 'general_knowledge') {
         const knowledge = await answerGeneralKnowledge(message);
         const assistantTurn = createAssistantTurn({
             intent: 'general_knowledge',
-            entities: interpretation.entities,
-            confidence: interpretation.confidence,
+            entities: workingInterpretation.entities,
+            confidence: workingInterpretation.confidence,
             decision: 'respond',
-            response: knowledge.response || interpretation.response,
+            response: knowledge.response || workingInterpretation.response,
             ui: {
                 surface: 'plain_answer',
             },
             followUps: [],
             sessionMemory: buildSessionMemory({
                 current: sessionMemory,
-                assistantTurn: interpretation,
+                assistantTurn: workingInterpretation,
+                clarificationState: {},
             }),
         });
 
@@ -687,30 +1164,91 @@ const executeDecision = async ({
         };
     }
 
-    if (interpretation.intent === 'product_search') {
-        const excludeIds = meta.showMore
+    if (workingInterpretation.intent === 'product_search') {
+        const categoryLabel = safeString(workingInterpretation.entities?.category || workingInterpretation.meta?.categoryLabel || '');
+        const excludeIds = workingInterpretation.meta?.showMore
             ? (sessionMemory?.lastResults || []).map((product) => safeString(product?.id)).filter(Boolean)
             : [];
         const search = await searchProducts({
-            query: interpretation.entities?.query,
-            category: context?.category || '',
-            maxPrice: extractBudget(message),
+            query: workingInterpretation.entities?.query,
+            category: categoryLabel || context?.category || '',
+            maxPrice: Math.max(0, Number(workingInterpretation.entities?.maxPrice || extractBudget(message) || 0)),
             excludeIds,
             limit: 6,
         });
 
         const products = uniqueProducts(search.products).slice(0, 6);
+        const inferred = band === 'infer';
+
+        if (products.length === 0) {
+            const response = `I couldn't find relevant products for ${safeString(search.query || workingInterpretation.entities?.query || 'that search')}. Try a more specific product name or budget.`;
+            const followUps = categoryLabel ? buildCategoryFollowUps(categoryLabel) : [];
+            const fingerprint = buildClarificationFingerprint({
+                message,
+                intent: 'product_search',
+                response,
+                followUps,
+            });
+            const nextClarificationState = buildNextClarificationState({
+                current: sessionMemory?.clarificationState || {},
+                fingerprint,
+                question: response,
+            });
+
+            const assistantTurn = createAssistantTurn({
+                intent: 'product_search',
+                entities: {
+                    ...workingInterpretation.entities,
+                    query: safeString(search.query || workingInterpretation.entities?.query || ''),
+                    category: safeString(search.category || categoryLabel),
+                    maxPrice: Math.max(0, Number(search.maxPrice || workingInterpretation.entities?.maxPrice || 0)),
+                },
+                confidence: workingInterpretation.confidence,
+                decision: 'clarify',
+                response,
+                ui: {
+                    surface: 'plain_answer',
+                },
+                followUps,
+                sessionMemory: buildSessionMemory({
+                    current: sessionMemory,
+                    assistantTurn: {
+                        ...workingInterpretation,
+                        entities: {
+                            ...workingInterpretation.entities,
+                            query: safeString(search.query || workingInterpretation.entities?.query || ''),
+                            category: safeString(search.category || categoryLabel),
+                            maxPrice: Math.max(0, Number(search.maxPrice || workingInterpretation.entities?.maxPrice || 0)),
+                        },
+                    },
+                    clarificationState: nextClarificationState,
+                }),
+            });
+
+            return {
+                answer: assistantTurn.response,
+                assistantTurn,
+                products: [],
+                followUps: assistantTurn.followUps,
+                provider,
+            };
+        }
+
         const assistantTurn = createAssistantTurn({
             intent: 'product_search',
             entities: {
-                ...interpretation.entities,
-                query: safeString(search.query || interpretation.entities?.query || ''),
+                ...workingInterpretation.entities,
+                query: safeString(search.query || workingInterpretation.entities?.query || ''),
+                category: safeString(search.category || categoryLabel),
+                maxPrice: Math.max(0, Number(search.maxPrice || workingInterpretation.entities?.maxPrice || 0)),
             },
-            confidence: interpretation.confidence,
-            decision: products.length > 0 ? 'respond' : 'clarify',
-            response: products.length > 0
-                ? `Found ${products.length} relevant result${products.length === 1 ? '' : 's'} for ${safeString(search.query || interpretation.entities?.query || 'your search')}.`
-                : `I couldn't find relevant products for ${safeString(search.query || interpretation.entities?.query || 'that search')}. Try a more specific product name or category.`,
+            confidence: workingInterpretation.confidence,
+            decision: 'respond',
+            response: search.usedClosestMatch
+                ? `No exact match${search.maxPrice ? ` under Rs ${Number(search.maxPrice).toLocaleString('en-IN')}` : ''}. Showing closest results.`
+                : inferred
+                    ? `Showing results based on your request for ${safeString(search.query || workingInterpretation.entities?.query || 'your search')}.`
+                    : `Found ${products.length} relevant result${products.length === 1 ? '' : 's'} for ${safeString(search.query || workingInterpretation.entities?.query || 'your search')}.`,
             ui: {
                 surface: products.length > 1 ? 'product_results' : products.length === 1 ? 'product_focus' : 'plain_answer',
                 products,
@@ -719,18 +1257,23 @@ const executeDecision = async ({
             followUps: buildFollowUps({
                 intent: 'product_search',
                 products,
+                categoryLabel: safeString(search.category || categoryLabel),
+                inferred,
             }),
             sessionMemory: buildSessionMemory({
                 current: sessionMemory,
                 assistantTurn: {
-                    ...interpretation,
+                    ...workingInterpretation,
                     entities: {
-                        ...interpretation.entities,
-                        query: safeString(search.query || interpretation.entities?.query || ''),
+                        ...workingInterpretation.entities,
+                        query: safeString(search.query || workingInterpretation.entities?.query || ''),
+                        category: safeString(search.category || categoryLabel),
+                        maxPrice: Math.max(0, Number(search.maxPrice || workingInterpretation.entities?.maxPrice || 0)),
                     },
                 },
                 products,
                 activeProduct: products.length === 1 ? products[0] : null,
+                clarificationState: {},
             }),
         });
 
@@ -743,51 +1286,114 @@ const executeDecision = async ({
         };
     }
 
-    if (interpretation.intent === 'cart_action') {
-        const productId = safeString(interpretation.entities?.productId || '');
-        const operation = safeString(meta.operation || 'add');
+    if (workingInterpretation.intent === 'cart_action') {
+        const productId = safeString(workingInterpretation.entities?.productId || '');
+        const operation = safeString(workingInterpretation.meta?.operation || 'add');
         if (!productId) {
-            const assistantTurn = createAssistantTurn({
+            const clarification = buildClarificationPayload({
+                message,
+                interpretation: workingInterpretation,
+                sessionMemory,
+            });
+            const fingerprint = buildClarificationFingerprint({
+                message,
                 intent: 'cart_action',
-                entities: interpretation.entities,
-                confidence: interpretation.confidence,
-                decision: 'clarify',
-                response: operation === 'remove'
-                    ? 'Which cart item should I remove?'
-                    : 'Which product should I add to your cart?',
-                ui: {
-                    surface: 'plain_answer',
-                },
-                sessionMemory: buildSessionMemory({
-                    current: sessionMemory,
-                    assistantTurn: interpretation,
-                }),
+                response: clarification.response,
+                followUps: clarification.followUps,
+            });
+            const nextClarificationState = buildNextClarificationState({
+                current: sessionMemory?.clarificationState || {},
+                fingerprint,
+                question: clarification.response,
             });
 
-            return {
-                answer: assistantTurn.response,
-                assistantTurn,
-                products: [],
-                followUps: [],
-                provider,
-            };
+            if (nextClarificationState.count > MAX_CLARIFICATION_REPEATS) {
+                const forcedInterpretation = forceInferenceFromContext({
+                    message,
+                    interpretation: workingInterpretation,
+                    sessionMemory,
+                });
+
+                if (forcedInterpretation) {
+                    workingInterpretation = forcedInterpretation;
+                } else {
+                    const escalatedClarification = escalateClarificationPayload(clarification);
+                    const assistantTurn = createAssistantTurn({
+                        intent: 'cart_action',
+                        entities: workingInterpretation.entities,
+                        confidence: workingInterpretation.confidence,
+                        decision: 'clarify',
+                        response: escalatedClarification.response,
+                        ui: escalatedClarification.ui,
+                        followUps: escalatedClarification.followUps,
+                        sessionMemory: buildSessionMemory({
+                            current: sessionMemory,
+                            assistantTurn: workingInterpretation,
+                            clarificationState: buildNextClarificationState({
+                                current: sessionMemory?.clarificationState || {},
+                                fingerprint: buildClarificationFingerprint({
+                                    message,
+                                    intent: 'cart_action',
+                                    response: escalatedClarification.response,
+                                    followUps: escalatedClarification.followUps,
+                                }),
+                                question: escalatedClarification.response,
+                            }),
+                        }),
+                    });
+
+                    return {
+                        answer: assistantTurn.response,
+                        assistantTurn,
+                        products: uniqueProducts(escalatedClarification?.ui?.products || []).slice(0, 6),
+                        followUps: assistantTurn.followUps,
+                        provider,
+                    };
+                }
+            }
+
+            if (!safeString(workingInterpretation.entities?.productId || '')) {
+                const assistantTurn = createAssistantTurn({
+                    intent: 'cart_action',
+                    entities: workingInterpretation.entities,
+                    confidence: workingInterpretation.confidence,
+                    decision: 'clarify',
+                    response: clarification.response,
+                    ui: clarification.ui,
+                    followUps: clarification.followUps,
+                    sessionMemory: buildSessionMemory({
+                        current: sessionMemory,
+                        assistantTurn: workingInterpretation,
+                        clarificationState: nextClarificationState,
+                    }),
+                });
+
+                return {
+                    answer: assistantTurn.response,
+                    assistantTurn,
+                    products: uniqueProducts(clarification?.ui?.products || []).slice(0, 6),
+                    followUps: assistantTurn.followUps,
+                    provider,
+                };
+            }
         }
 
-        const product = await getProductByIdentifier(productId).catch(() => null);
+        const resolvedProductId = safeString(workingInterpretation.entities?.productId || productId);
+        const product = await getProductByIdentifier(resolvedProductId).catch(() => null);
         const action = {
             type: operation === 'remove' ? 'remove_from_cart' : 'add_to_cart',
-            productId,
-            quantity: Math.max(1, Number(interpretation.entities?.quantity || 1)),
+            productId: resolvedProductId,
+            quantity: Math.max(1, Number(workingInterpretation.entities?.quantity || 1)),
             reason: 'validated_cart_action',
         };
         const assistantTurn = createAssistantTurn({
             intent: 'cart_action',
             entities: {
-                ...interpretation.entities,
-                productId,
-                quantity: Math.max(1, Number(interpretation.entities?.quantity || 1)),
+                ...workingInterpretation.entities,
+                productId: resolvedProductId,
+                quantity: Math.max(1, Number(workingInterpretation.entities?.quantity || 1)),
             },
-            confidence: interpretation.confidence,
+            confidence: workingInterpretation.confidence,
             decision: 'act',
             response: '',
             actions: [action],
@@ -802,8 +1408,9 @@ const executeDecision = async ({
             }),
             sessionMemory: buildSessionMemory({
                 current: sessionMemory,
-                assistantTurn: interpretation,
+                assistantTurn: workingInterpretation,
                 activeProduct: product || sessionMemory.activeProduct,
+                clarificationState: {},
             }),
         });
 
@@ -816,39 +1423,154 @@ const executeDecision = async ({
         };
     }
 
-    if (interpretation.intent === 'navigation') {
-        const page = safeString(meta.page || '');
+    if (workingInterpretation.intent === 'navigation') {
+        const page = safeString(workingInterpretation.meta?.page || '');
         const path = PAGE_TARGETS.find((entry) => entry.page === page)?.path || '/';
         const params = {};
+        const inferred = band === 'infer';
+        const categoryLabel = safeString(workingInterpretation.entities?.category || workingInterpretation.meta?.categoryLabel || '');
 
         if (page === 'product') {
-            const productId = safeString(interpretation.entities?.productId || '');
+            const productId = safeString(workingInterpretation.entities?.productId || '');
             if (!productId) {
-                const assistantTurn = createAssistantTurn({
+                const clarification = buildClarificationPayload({
+                    message,
+                    interpretation: workingInterpretation,
+                    sessionMemory,
+                });
+                const fingerprint = buildClarificationFingerprint({
+                    message,
                     intent: 'navigation',
-                    entities: interpretation.entities,
-                    confidence: interpretation.confidence,
-                    decision: 'clarify',
-                    response: 'Which product should I open?',
-                    ui: {
-                        surface: 'plain_answer',
-                    },
-                    sessionMemory: buildSessionMemory({
-                        current: sessionMemory,
-                        assistantTurn: interpretation,
-                    }),
+                    response: clarification.response,
+                    followUps: clarification.followUps,
+                });
+                const nextClarificationState = buildNextClarificationState({
+                    current: sessionMemory?.clarificationState || {},
+                    fingerprint,
+                    question: clarification.response,
                 });
 
-                return {
-                    answer: assistantTurn.response,
-                    assistantTurn,
-                    products: [],
-                    followUps: [],
-                    provider,
-                };
+                if (nextClarificationState.count > MAX_CLARIFICATION_REPEATS) {
+                    const forcedInterpretation = forceInferenceFromContext({
+                        message,
+                        interpretation: workingInterpretation,
+                        sessionMemory,
+                    });
+
+                    if (forcedInterpretation) {
+                        workingInterpretation = forcedInterpretation;
+                    } else {
+                        const escalatedClarification = escalateClarificationPayload(clarification);
+                        const assistantTurn = createAssistantTurn({
+                            intent: 'navigation',
+                            entities: workingInterpretation.entities,
+                            confidence: workingInterpretation.confidence,
+                            decision: 'clarify',
+                            response: escalatedClarification.response,
+                            ui: escalatedClarification.ui,
+                            followUps: escalatedClarification.followUps,
+                            sessionMemory: buildSessionMemory({
+                                current: sessionMemory,
+                                assistantTurn: workingInterpretation,
+                                clarificationState: buildNextClarificationState({
+                                    current: sessionMemory?.clarificationState || {},
+                                    fingerprint: buildClarificationFingerprint({
+                                        message,
+                                        intent: 'navigation',
+                                        response: escalatedClarification.response,
+                                        followUps: escalatedClarification.followUps,
+                                    }),
+                                    question: escalatedClarification.response,
+                                }),
+                            }),
+                        });
+
+                        return {
+                            answer: assistantTurn.response,
+                            assistantTurn,
+                            products: uniqueProducts(escalatedClarification?.ui?.products || []).slice(0, 6),
+                            followUps: assistantTurn.followUps,
+                            provider,
+                        };
+                    }
+                }
+
+                if (!safeString(workingInterpretation.entities?.productId || '')) {
+                    const assistantTurn = createAssistantTurn({
+                        intent: 'navigation',
+                        entities: workingInterpretation.entities,
+                        confidence: workingInterpretation.confidence,
+                        decision: 'clarify',
+                        response: clarification.response,
+                        ui: clarification.ui,
+                        followUps: clarification.followUps,
+                        sessionMemory: buildSessionMemory({
+                            current: sessionMemory,
+                            assistantTurn: workingInterpretation,
+                            clarificationState: nextClarificationState,
+                        }),
+                    });
+
+                    return {
+                        answer: assistantTurn.response,
+                        assistantTurn,
+                        products: uniqueProducts(clarification?.ui?.products || []).slice(0, 6),
+                        followUps: assistantTurn.followUps,
+                        provider,
+                    };
+                }
             }
 
-            params.productId = productId;
+            params.productId = safeString(workingInterpretation.entities?.productId || productId);
+        }
+
+        if (page === 'category') {
+            const categorySlug = safeString(workingInterpretation.meta?.categorySlug || toCategorySlug(categoryLabel));
+            const categoryPath = categorySlug ? `/category/${categorySlug}` : '/products';
+            const action = {
+                type: 'navigate_to',
+                page: 'category',
+                params: {
+                    category: categorySlug,
+                },
+                reason: 'validated_category_navigation',
+            };
+            const assistantTurn = createAssistantTurn({
+                intent: 'navigation',
+                entities: workingInterpretation.entities,
+                confidence: workingInterpretation.confidence,
+                decision: 'act',
+                response: '',
+                actions: [action],
+                ui: {
+                    surface: 'navigation_notice',
+                    navigation: {
+                        page: 'category',
+                        path: categoryPath,
+                        params: {
+                            category: categorySlug,
+                        },
+                    },
+                },
+                followUps: buildFollowUps({
+                    intent: 'navigation',
+                    categoryLabel,
+                    inferred,
+                }),
+                sessionMemory: buildSessionMemory({
+                    current: sessionMemory,
+                    assistantTurn: workingInterpretation,
+                    clarificationState: {},
+                }),
+            });
+
+            return {
+                answer: assistantTurn.response,
+                assistantTurn,
+                products: [],
+                followUps: assistantTurn.followUps,
+                provider,
+            };
         }
 
         if (page === 'checkout') {
@@ -861,8 +1583,8 @@ const executeDecision = async ({
             };
             const assistantTurn = createAssistantTurn({
                 intent: 'navigation',
-                entities: interpretation.entities,
-                confidence: interpretation.confidence,
+                entities: workingInterpretation.entities,
+                confidence: workingInterpretation.confidence,
                 decision: 'clarify',
                 response: 'Checkout affects payment and order placement. Should I open checkout?',
                 actions: [],
@@ -880,7 +1602,8 @@ const executeDecision = async ({
                 }),
                 sessionMemory: buildSessionMemory({
                     current: sessionMemory,
-                    assistantTurn: interpretation,
+                    assistantTurn: workingInterpretation,
+                    clarificationState: {},
                 }),
             });
 
@@ -901,8 +1624,8 @@ const executeDecision = async ({
         };
         const assistantTurn = createAssistantTurn({
             intent: 'navigation',
-            entities: interpretation.entities,
-            confidence: interpretation.confidence,
+            entities: workingInterpretation.entities,
+            confidence: workingInterpretation.confidence,
             decision: 'act',
             response: '',
             actions: [action],
@@ -915,10 +1638,15 @@ const executeDecision = async ({
                 },
                 cartSummary: page === 'cart' ? context?.cartSummary || null : null,
             },
-            followUps: [],
+            followUps: buildFollowUps({
+                intent: 'navigation',
+                categoryLabel,
+                inferred,
+            }),
             sessionMemory: buildSessionMemory({
                 current: sessionMemory,
-                assistantTurn: interpretation,
+                assistantTurn: workingInterpretation,
+                clarificationState: {},
             }),
         });
 
@@ -931,13 +1659,13 @@ const executeDecision = async ({
         };
     }
 
-    if (interpretation.intent === 'support') {
-        const orderId = safeString(meta.orderId || '');
+    if (workingInterpretation.intent === 'support') {
+        const orderId = safeString(workingInterpretation.meta?.orderId || '');
         const prefill = buildSupportPrefill({
             message,
             orderId,
         });
-        const page = safeString(meta.page || (orderId ? 'orders' : 'support'));
+        const page = safeString(workingInterpretation.meta?.page || (orderId ? 'orders' : 'support'));
         const params = orderId
             ? {
                 focus: orderId,
@@ -961,8 +1689,8 @@ const executeDecision = async ({
         };
         const assistantTurn = createAssistantTurn({
             intent: 'support',
-            entities: interpretation.entities,
-            confidence: interpretation.confidence,
+            entities: workingInterpretation.entities,
+            confidence: workingInterpretation.confidence,
             decision: 'act',
             response: '',
             actions: [action],
@@ -984,7 +1712,8 @@ const executeDecision = async ({
             }),
             sessionMemory: buildSessionMemory({
                 current: sessionMemory,
-                assistantTurn: interpretation,
+                assistantTurn: workingInterpretation,
+                clarificationState: {},
             }),
         });
 
@@ -999,16 +1728,17 @@ const executeDecision = async ({
 
     const assistantTurn = createAssistantTurn({
         intent: 'unclear',
-        entities: interpretation.entities,
-        confidence: interpretation.confidence,
+        entities: workingInterpretation.entities,
+        confidence: workingInterpretation.confidence,
         decision: 'clarify',
-        response: 'Can you tell me what you want me to do?',
+        response: 'Can you clarify what you want?',
         ui: {
             surface: 'plain_answer',
         },
         sessionMemory: buildSessionMemory({
             current: sessionMemory,
-            assistantTurn: interpretation,
+            assistantTurn: workingInterpretation,
+            clarificationState: normalizeClarificationState(sessionMemory?.clarificationState || {}),
         }),
     });
 

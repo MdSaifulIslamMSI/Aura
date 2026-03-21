@@ -313,6 +313,7 @@ export const buildSuggestionActions = (suggestions = []) => capVisibleActions((A
                 page: parsed.entities.page,
                 path: parsed.action?.path || '',
                 label: parsed.action?.label || suggestion,
+                params: parsed.action?.params || {},
             })];
         }
 
