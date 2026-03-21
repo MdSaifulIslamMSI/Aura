@@ -10,7 +10,7 @@ const logger = require('../utils/logger');
 const AppError = require('../utils/AppError');
 const { buildProductImageDeliveryUrl } = require('../services/productImageResolver');
 
-const PROFILE_PROJECTION = 'name email phone avatar gender dob bio isAdmin isVerified isSeller sellerActivatedAt accountState moderation addresses cart cartRevision cartSyncedAt wishlist loyalty createdAt';
+const PROFILE_PROJECTION = 'name email phone avatar gender dob bio isAdmin isVerified isSeller sellerActivatedAt accountState moderation addresses cart cartRevision cartSyncedAt wishlist wishlistRevision wishlistSyncedAt loyalty createdAt';
 const AUTH_ONLY_PROJECTION = 'name email phone isAdmin isVerified isSeller sellerActivatedAt accountState moderation loyalty';
 
 const PHONE_REGEX = /^\+?\d{10,15}$/;
@@ -83,12 +83,58 @@ const hydrateCartWithLiveProducts = async (cartItems = []) => {
     });
 };
 
+const hydrateWishlistWithLiveProducts = async (wishlistItems = []) => {
+    if (!Array.isArray(wishlistItems) || wishlistItems.length === 0) return [];
+
+    const normalizedItems = wishlistItems
+        .map((item) => normalizeWishlistItemPayload(item))
+        .filter((item) => Number.isFinite(item.id) && item.id > 0);
+
+    if (normalizedItems.length === 0) return [];
+
+    const itemIds = [...new Set(normalizedItems.map((item) => Number(item.id)))];
+    const liveProducts = await Product.find({ id: { $in: itemIds } })
+        .select('id title price originalPrice discountPercentage image stock brand rating ratingCount deliveryTime category')
+        .lean();
+
+    const productById = new Map(
+        (liveProducts || []).map((product) => [Number(product.id), product])
+    );
+
+    return normalizedItems.map((item) => {
+        const live = productById.get(Number(item.id));
+        if (!live) return item;
+
+        return {
+            ...item,
+            title: normalizeText(live.title) || item.title,
+            price: Number(live.price ?? item.price ?? 0),
+            originalPrice: Number(live.originalPrice ?? item.originalPrice ?? live.price ?? item.price ?? 0),
+            discountPercentage: Number(live.discountPercentage ?? item.discountPercentage ?? 0),
+            image: buildProductImageDeliveryUrl(normalizeText(live.image) || item.image),
+            brand: normalizeText(live.brand) || item.brand,
+            rating: Number(live.rating ?? item.rating ?? 0),
+            ratingCount: Math.max(0, Number(live.ratingCount ?? item.ratingCount ?? 0)),
+            stock: Math.max(0, Number(live.stock ?? item.stock ?? 0)),
+            deliveryTime: normalizeText(live.deliveryTime) || item.deliveryTime,
+            category: normalizeText(live.category) || item.category,
+        };
+    });
+};
+
 const cartSnapshotsEqual = (left = [], right = []) => JSON.stringify(left || []) === JSON.stringify(right || []);
+const wishlistSnapshotsEqual = (left = [], right = []) => JSON.stringify(left || []) === JSON.stringify(right || []);
 
 const buildCartResponse = (userLike = {}) => ({
     items: Array.isArray(userLike?.cart) ? userLike.cart : [],
     revision: Number(userLike?.cartRevision || 0),
     syncedAt: userLike?.cartSyncedAt || null,
+});
+
+const buildWishlistResponse = (userLike = {}) => ({
+    items: Array.isArray(userLike?.wishlist) ? userLike.wishlist : [],
+    revision: Number(userLike?.wishlistRevision || 0),
+    syncedAt: userLike?.wishlistSyncedAt || null,
 });
 
 const parseExpectedRevision = (value) => {
@@ -106,9 +152,22 @@ const sendCartConflict = (res, userLike) => (
     })
 );
 
+const sendWishlistConflict = (res, userLike) => (
+    res.status(409).json({
+        code: 'wishlist_revision_conflict',
+        message: 'Wishlist revision conflict',
+        ...buildWishlistResponse(userLike),
+    })
+);
+
 const buildCartMutationPayload = (hydratedCart = []) => ({
     cart: hydratedCart,
     cartSyncedAt: new Date(),
+});
+
+const buildWishlistMutationPayload = (hydratedWishlist = []) => ({
+    wishlist: hydratedWishlist,
+    wishlistSyncedAt: new Date(),
 });
 
 const buildCartLineFromProduct = (productDoc, quantity = 1) => ({
@@ -121,6 +180,22 @@ const buildCartLineFromProduct = (productDoc, quantity = 1) => ({
     brand: normalizeText(productDoc?.brand) || '',
     discountPercentage: Number(productDoc?.discountPercentage || 0),
     originalPrice: Number(productDoc?.originalPrice || productDoc?.price || 0),
+});
+
+const buildWishlistLineFromProduct = (productDoc, addedAt = new Date()) => ({
+    id: Number(productDoc?.id || 0),
+    title: normalizeText(productDoc?.title) || '',
+    price: Number(productDoc?.price || 0),
+    originalPrice: Number(productDoc?.originalPrice || productDoc?.price || 0),
+    discountPercentage: Number(productDoc?.discountPercentage || 0),
+    image: buildProductImageDeliveryUrl(normalizeText(productDoc?.image) || ''),
+    brand: normalizeText(productDoc?.brand) || '',
+    rating: Number(productDoc?.rating || 0),
+    ratingCount: Math.max(0, Number(productDoc?.ratingCount || 0)),
+    stock: Math.max(0, Number(productDoc?.stock || 0)),
+    deliveryTime: normalizeText(productDoc?.deliveryTime) || '',
+    category: normalizeText(productDoc?.category) || '',
+    addedAt,
 });
 
 const mergeCartItems = (primaryItems = [], secondaryItems = []) => {
@@ -148,6 +223,32 @@ const mergeCartItems = (primaryItems = [], secondaryItems = []) => {
     return orderedIds.map((id) => mergedById.get(id));
 };
 
+const mergeWishlistItems = (primaryItems = [], secondaryItems = []) => {
+    const mergedById = new Map();
+    const orderedIds = [];
+
+    [...primaryItems, ...secondaryItems].forEach((item) => {
+        const normalized = normalizeWishlistItemPayload(item);
+        const key = Number(normalized.id);
+        if (!Number.isFinite(key) || key <= 0) return;
+
+        if (!mergedById.has(key)) {
+            orderedIds.push(key);
+            mergedById.set(key, normalized);
+            return;
+        }
+
+        const existing = mergedById.get(key);
+        mergedById.set(key, {
+            ...existing,
+            ...normalized,
+            addedAt: existing.addedAt || normalized.addedAt || new Date(),
+        });
+    });
+
+    return orderedIds.map((id) => mergedById.get(id));
+};
+
 const ensureHydratedUserCartDocument = async (user) => {
     if (!user) return null;
 
@@ -156,6 +257,20 @@ const ensureHydratedUserCartDocument = async (user) => {
         user.cart = hydratedCart;
         user.cartRevision = Number(user.cartRevision || 0) + 1;
         user.cartSyncedAt = new Date();
+        await user.save();
+    }
+
+    return user;
+};
+
+const ensureHydratedUserWishlistDocument = async (user) => {
+    if (!user) return null;
+
+    const hydratedWishlist = await hydrateWishlistWithLiveProducts(user.wishlist || []);
+    if (!wishlistSnapshotsEqual(hydratedWishlist, user.wishlist || [])) {
+        user.wishlist = hydratedWishlist;
+        user.wishlistRevision = Number(user.wishlistRevision || 0) + 1;
+        user.wishlistSyncedAt = new Date();
         await user.save();
     }
 
@@ -174,6 +289,39 @@ const persistCartMutation = async (user, nextCart = []) => {
     };
 };
 
+const persistWishlistMutation = async (user, nextWishlist = []) => {
+    const hydratedWishlist = await hydrateWishlistWithLiveProducts(nextWishlist);
+    user.wishlist = hydratedWishlist;
+    user.wishlistRevision = Number(user.wishlistRevision || 0) + 1;
+    user.wishlistSyncedAt = new Date();
+    await user.save();
+    return {
+        user,
+        hydratedWishlist,
+    };
+};
+
+const normalizeWishlistItemPayload = (item = {}) => {
+    const normalizedId = Number(item.id);
+    const normalizedPrice = Number(item.price || 0);
+    const normalizedOriginalPrice = Number(item.originalPrice || item.price || 0);
+    return {
+        id: Number.isFinite(normalizedId) ? normalizedId : 0,
+        title: normalizeText(item.title) || '',
+        price: Number.isFinite(normalizedPrice) ? normalizedPrice : 0,
+        originalPrice: Number.isFinite(normalizedOriginalPrice) ? normalizedOriginalPrice : 0,
+        discountPercentage: Number(item.discountPercentage || 0),
+        image: normalizeText(item.image) || '',
+        brand: normalizeText(item.brand) || '',
+        rating: Number(item.rating || 0),
+        ratingCount: Math.max(0, Number(item.ratingCount || 0)),
+        stock: Math.max(0, Number(item.stock || 0)),
+        deliveryTime: normalizeText(item.deliveryTime) || '',
+        category: normalizeText(item.category) || '',
+        addedAt: item?.addedAt || new Date(),
+    };
+};
+
 const requireAuthorizedEmail = (req, next) => {
     const safeEmail = normalizeEmail(req.user?.email);
     if (!safeEmail) {
@@ -188,7 +336,7 @@ const loadLiveProductById = async (productId) => {
     if (!Number.isFinite(safeProductId) || safeProductId <= 0) return null;
 
     return Product.findOne({ id: safeProductId })
-        .select('id title price image stock brand discountPercentage originalPrice')
+        .select('id title price image stock brand discountPercentage originalPrice rating ratingCount deliveryTime category')
         .lean();
 };
 
@@ -418,12 +566,26 @@ const getUserProfile = asyncHandler(async (req, res, next) => {
     }
 
     const hydratedCart = await hydrateCartWithLiveProducts(user.cart || []);
+    const hydratedWishlist = await hydrateWishlistWithLiveProducts(user.wishlist || []);
+    const mutationPayload = {};
+    const mutationInc = {};
+
     if (!cartSnapshotsEqual(hydratedCart, user.cart || [])) {
+        Object.assign(mutationPayload, buildCartMutationPayload(hydratedCart));
+        mutationInc.cartRevision = 1;
+    }
+
+    if (!wishlistSnapshotsEqual(hydratedWishlist, user.wishlist || [])) {
+        Object.assign(mutationPayload, buildWishlistMutationPayload(hydratedWishlist));
+        mutationInc.wishlistRevision = 1;
+    }
+
+    if (Object.keys(mutationPayload).length > 0 || Object.keys(mutationInc).length > 0) {
         await User.updateOne(
             { _id: user._id },
             {
-                $set: buildCartMutationPayload(hydratedCart),
-                $inc: { cartRevision: 1 },
+                ...(Object.keys(mutationPayload).length > 0 ? { $set: mutationPayload } : {}),
+                ...(Object.keys(mutationInc).length > 0 ? { $inc: mutationInc } : {}),
             }
         );
     }
@@ -447,7 +609,11 @@ const getUserProfile = asyncHandler(async (req, res, next) => {
         moderation: user.moderation || {},
         addresses: user.addresses || [],
         cart: hydratedCart,
-        wishlist: user.wishlist,
+        wishlist: hydratedWishlist,
+        wishlistRevision: Number(user.wishlistRevision || 0) + (mutationInc.wishlistRevision || 0),
+        wishlistSyncedAt: mutationPayload.wishlistSyncedAt || user.wishlistSyncedAt || null,
+        cartRevision: Number(user.cartRevision || 0) + (mutationInc.cartRevision || 0),
+        cartSyncedAt: mutationPayload.cartSyncedAt || user.cartSyncedAt || null,
         loyalty: getRewardSnapshotFromUser(user),
         createdAt: user.createdAt,
     });
@@ -536,7 +702,7 @@ const getProfileDashboard = asyncHandler(async (req, res, next) => {
     const user = await ensureUserLean({
         email,
         authUser: req.user,
-        projection: '_id loyalty',
+        projection: '_id loyalty cart wishlist',
     });
     if (!user) return next(new AppError('Unable to recover user profile', 500));
 
@@ -575,8 +741,10 @@ const getProfileDashboard = asyncHandler(async (req, res, next) => {
         stats: {
             totalOrders,
             totalSpent,
-            wishlistCount: 0,
-            cartCount: 0,
+            wishlistCount: Array.isArray(user?.wishlist) ? user.wishlist.length : 0,
+            cartCount: Array.isArray(user?.cart)
+                ? user.cart.reduce((sum, item) => sum + Math.max(1, Number(item?.quantity || 1)), 0)
+                : 0,
             listings,
             rewards: getRewardSnapshotFromUser(user),
         },
@@ -969,46 +1137,202 @@ const mergeCart = asyncHandler(async (req, res, next) => {
     return res.json(buildCartResponse(persistedUser));
 });
 
-// @desc    Sync Wishlist
-// @route   PUT /api/users/wishlist
+// @desc    Get wishlist snapshot
+// @route   GET /api/users/wishlist
 // @access  Private
-const syncWishlist = asyncHandler(async (req, res, next) => {
-    const { wishlistItems } = req.body;
+const getWishlist = asyncHandler(async (req, res, next) => {
+    const safeEmail = requireAuthorizedEmail(req, next);
+    if (!safeEmail) return;
 
-    if (!Array.isArray(wishlistItems)) {
-        return next(new AppError('wishlistItems must be an array', 400));
-    }
-
-    const safeEmail = normalizeEmail(req.user?.email);
-    if (!safeEmail) {
-        return next(new AppError('Not authorized', 401));
-    }
-
-    let user = await User.findOneAndUpdate(
-        { email: safeEmail },
-        { $set: { wishlist: wishlistItems } },
-        { new: true, projection: 'wishlist', lean: true }
-    );
-
-    if (!user) {
-        await bootstrapUserRecord({
-            email: safeEmail,
-            authUser: req.user,
-            projection: '_id',
-            lean: true,
-        });
-        user = await User.findOneAndUpdate(
-            { email: safeEmail },
-            { $set: { wishlist: wishlistItems } },
-            { new: true, projection: 'wishlist', lean: true }
-        );
-    }
-
+    const user = await ensureUserDocument({
+        email: safeEmail,
+        authUser: req.user,
+    });
     if (!user) {
         return next(new AppError('Unable to recover user profile', 500));
     }
 
-    res.json(user.wishlist);
+    await ensureHydratedUserWishlistDocument(user);
+    return res.json(buildWishlistResponse(user));
+});
+
+// @desc    Sync wishlist snapshot (legacy full replacement)
+// @route   PUT /api/users/wishlist
+// @access  Private
+const syncWishlist = asyncHandler(async (req, res, next) => {
+    const { wishlistItems } = req.body;
+    const expectedRevision = parseExpectedRevision(req.body?.expectedRevision);
+
+    if (!Array.isArray(wishlistItems)) {
+        return next(new AppError('wishlistItems must be an array', 400));
+    }
+    if (Number.isNaN(expectedRevision)) {
+        return next(new AppError('expectedRevision must be a non-negative number', 400));
+    }
+
+    const safeEmail = requireAuthorizedEmail(req, next);
+    if (!safeEmail) return;
+
+    const user = await ensureUserDocument({
+        email: safeEmail,
+        authUser: req.user,
+    });
+    if (!user) {
+        return next(new AppError('Unable to recover user profile', 500));
+    }
+
+    await ensureHydratedUserWishlistDocument(user);
+
+    if (expectedRevision !== null && Number(user.wishlistRevision || 0) !== expectedRevision) {
+        return sendWishlistConflict(res, user);
+    }
+
+    const { user: persistedUser } = await persistWishlistMutation(user, wishlistItems);
+    return res.json(buildWishlistResponse(persistedUser));
+});
+
+// @desc    Add wishlist item
+// @route   POST /api/users/wishlist/items
+// @access  Private
+const addWishlistItem = asyncHandler(async (req, res, next) => {
+    const productId = Number(req.body?.productId);
+    const expectedRevision = parseExpectedRevision(req.body?.expectedRevision);
+
+    if (!Number.isFinite(productId) || productId <= 0) {
+        return next(new AppError('productId must be a valid product identifier', 400));
+    }
+    if (Number.isNaN(expectedRevision)) {
+        return next(new AppError('expectedRevision must be a non-negative number', 400));
+    }
+
+    const safeEmail = requireAuthorizedEmail(req, next);
+    if (!safeEmail) return;
+
+    const user = await ensureUserDocument({
+        email: safeEmail,
+        authUser: req.user,
+    });
+    if (!user) {
+        return next(new AppError('Unable to recover user profile', 500));
+    }
+
+    await ensureHydratedUserWishlistDocument(user);
+
+    if (expectedRevision !== null && Number(user.wishlistRevision || 0) !== expectedRevision) {
+        return sendWishlistConflict(res, user);
+    }
+
+    const liveProduct = await loadLiveProductById(productId);
+    if (!liveProduct) {
+        return next(new AppError('Product not found', 404));
+    }
+
+    const nextWishlist = Array.isArray(user.wishlist)
+        ? user.wishlist.map((item) => normalizeWishlistItemPayload(item))
+        : [];
+    const existingIndex = nextWishlist.findIndex((item) => Number(item.id) === productId);
+
+    if (existingIndex >= 0) {
+        const existingAddedAt = nextWishlist[existingIndex]?.addedAt || new Date();
+        nextWishlist[existingIndex] = buildWishlistLineFromProduct(liveProduct, existingAddedAt);
+    } else {
+        nextWishlist.push(buildWishlistLineFromProduct(liveProduct));
+    }
+
+    const { user: persistedUser, hydratedWishlist } = await persistWishlistMutation(user, nextWishlist);
+    const changedItem = hydratedWishlist.find((item) => Number(item.id) === productId) || null;
+
+    return res.status(existingIndex >= 0 ? 200 : 201).json({
+        item: changedItem,
+        revision: Number(persistedUser.wishlistRevision || 0),
+        syncedAt: persistedUser.wishlistSyncedAt || null,
+    });
+});
+
+// @desc    Remove wishlist item
+// @route   DELETE /api/users/wishlist/items/:productId
+// @access  Private
+const removeWishlistItem = asyncHandler(async (req, res, next) => {
+    const productId = Number(req.params.productId);
+    const expectedRevision = parseExpectedRevision(req.body?.expectedRevision);
+
+    if (!Number.isFinite(productId) || productId <= 0) {
+        return next(new AppError('productId must be a valid product identifier', 400));
+    }
+    if (Number.isNaN(expectedRevision)) {
+        return next(new AppError('expectedRevision must be a non-negative number', 400));
+    }
+
+    const safeEmail = requireAuthorizedEmail(req, next);
+    if (!safeEmail) return;
+
+    const user = await ensureUserDocument({
+        email: safeEmail,
+        authUser: req.user,
+    });
+    if (!user) {
+        return next(new AppError('Unable to recover user profile', 500));
+    }
+
+    await ensureHydratedUserWishlistDocument(user);
+
+    if (expectedRevision !== null && Number(user.wishlistRevision || 0) !== expectedRevision) {
+        return sendWishlistConflict(res, user);
+    }
+
+    const currentWishlist = Array.isArray(user.wishlist)
+        ? user.wishlist.map((item) => normalizeWishlistItemPayload(item))
+        : [];
+    const nextWishlist = currentWishlist.filter((item) => Number(item.id) !== productId);
+
+    if (nextWishlist.length === currentWishlist.length) {
+        return res.json({
+            revision: Number(user.wishlistRevision || 0),
+            syncedAt: user.wishlistSyncedAt || null,
+        });
+    }
+
+    const { user: persistedUser } = await persistWishlistMutation(user, nextWishlist);
+    return res.json({
+        revision: Number(persistedUser.wishlistRevision || 0),
+        syncedAt: persistedUser.wishlistSyncedAt || null,
+    });
+});
+
+// @desc    Merge guest wishlist into user wishlist
+// @route   POST /api/users/wishlist/merge
+// @access  Private
+const mergeWishlist = asyncHandler(async (req, res, next) => {
+    const incomingItems = req.body?.items;
+    const expectedRevision = parseExpectedRevision(req.body?.expectedRevision);
+
+    if (!Array.isArray(incomingItems)) {
+        return next(new AppError('items must be an array', 400));
+    }
+    if (Number.isNaN(expectedRevision)) {
+        return next(new AppError('expectedRevision must be a non-negative number', 400));
+    }
+
+    const safeEmail = requireAuthorizedEmail(req, next);
+    if (!safeEmail) return;
+
+    const user = await ensureUserDocument({
+        email: safeEmail,
+        authUser: req.user,
+    });
+    if (!user) {
+        return next(new AppError('Unable to recover user profile', 500));
+    }
+
+    await ensureHydratedUserWishlistDocument(user);
+
+    if (expectedRevision !== null && Number(user.wishlistRevision || 0) !== expectedRevision) {
+        return sendWishlistConflict(res, user);
+    }
+
+    const mergedWishlist = mergeWishlistItems(user.wishlist || [], incomingItems);
+    const { user: persistedUser } = await persistWishlistMutation(user, mergedWishlist);
+    return res.json(buildWishlistResponse(persistedUser));
 });
 
 // @desc    Activate seller mode for current user
@@ -1160,7 +1484,11 @@ module.exports = {
     setCartItemQuantity,
     removeCartItem,
     mergeCart,
+    getWishlist,
     syncWishlist,
+    addWishlistItem,
+    removeWishlistItem,
+    mergeWishlist,
     updateUserProfile,
     getProfileDashboard,
     getRewards,

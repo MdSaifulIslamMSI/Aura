@@ -93,6 +93,16 @@ const Checkout = () => {
     const { currentUser, syncUserWithBackend } = useContext(AuthContext);
     const checkoutSession = useCommerceStore((state) => state.checkoutSession);
     const clearDirectBuy = useCommerceStore((state) => state.clearDirectBuy);
+    const cartRevision = useCommerceStore((state) => state.cart.revision);
+    const directBuyItem = useMemo(
+        () => (
+            checkoutSession?.source === 'direct-buy'
+                ? checkoutSession?.directBuy?.item || null
+                : null
+        ),
+        [checkoutSession]
+    );
+    const checkoutSource = directBuyItem ? 'directBuy' : 'cart';
 
     const defaultDraft = useMemo(() => ({
         step: 1,
@@ -112,7 +122,10 @@ const Checkout = () => {
         acceptedTerms: false,
     }), []);
 
-    const { draft, setDraft, clearDraft, isHydrated } = useCheckoutDraft(currentUser?.uid, defaultDraft);
+    const { draft, setDraft, clearDraft, isHydrated } = useCheckoutDraft(currentUser?.uid, defaultDraft, {
+        checkoutSource: checkoutSource === 'directBuy' ? 'direct-buy' : 'cart',
+        cartRevision: checkoutSource === 'directBuy' ? 'direct-buy' : Number(cartRevision ?? 0),
+    });
 
     const [savedAddresses, setSavedAddresses] = useState([]);
     const [isLoadingProfile, setIsLoadingProfile] = useState(true);
@@ -163,16 +176,6 @@ const Checkout = () => {
     const handleOtpModalError = useCallback((errorMessage) => {
         setOtpModal((prev) => ({ ...prev, loading: false, error: errorMessage }));
     }, []);
-
-    const directBuyItem = useMemo(
-        () => (
-            checkoutSession?.source === 'direct-buy'
-                ? checkoutSession?.directBuy?.item || null
-                : null
-        ),
-        [checkoutSession]
-    );
-    const checkoutSource = directBuyItem ? 'directBuy' : 'cart';
 
     useEffect(() => {
         if (!currentUser?.email) {

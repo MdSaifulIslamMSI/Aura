@@ -2,15 +2,12 @@ import { useContext } from 'react';
 import { Link } from 'react-router-dom';
 import { Heart, ShoppingCart, Trash2, Zap } from 'lucide-react';
 import { WishlistContext } from '@/context/WishlistContext';
-import { CartContext } from '@/context/CartContext';
 import ProductCard from '@/components/features/product/ProductCard';
 
 const Wishlist = () => {
   const { wishlistItems, removeFromWishlist, moveToCart } = useContext(WishlistContext);
-  const { addToCart } = useContext(CartContext);
-
   const handleMoveToCart = (productId) => {
-    moveToCart(productId, addToCart);
+    moveToCart(productId);
   };
 
   if (wishlistItems.length === 0) {
@@ -72,9 +69,11 @@ const Wishlist = () => {
               <ProductCard product={item} />
 
               {/* Action Buttons */}
-              <div className="absolute top-3 right-3 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-30 translate-x-2 group-hover:translate-x-0">
+              <div className="absolute top-3 right-3 flex flex-col gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-300 z-30 md:translate-x-2 md:group-hover:translate-x-0">
                 <button
+                  type="button"
                   onClick={() => removeFromWishlist(item.id)}
+                  aria-label={`Remove ${item.title} from Wishlist`}
                   className="p-3 bg-zinc-950/80 rounded-full border border-white/10 shadow-[0_0_15px_rgba(0,0,0,0.5)] hover:border-neo-rose hover:bg-neo-rose/20 text-slate-400 hover:text-neo-rose transition-all"
                   title="Remove from Wishlist"
                 >
@@ -84,8 +83,9 @@ const Wishlist = () => {
 
               {/* Move to Cart Button */}
               <button
+                type="button"
                 onClick={() => handleMoveToCart(item.id)}
-                className="absolute bottom-4 left-4 right-4 bg-neo-cyan/20 hover:bg-neo-cyan/40 border border-neo-cyan/50 text-white font-bold py-3 text-sm rounded-xl flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0 z-30 shadow-[0_0_15px_rgba(6,182,212,0.3)] group/btn"
+                className="absolute bottom-4 left-4 right-4 bg-neo-cyan/20 hover:bg-neo-cyan/40 border border-neo-cyan/50 text-white font-bold py-3 text-sm rounded-xl flex items-center justify-center gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all duration-300 md:translate-y-2 md:group-hover:translate-y-0 z-30 shadow-[0_0_15px_rgba(6,182,212,0.3)] group/btn"
               >
                 <ShoppingCart className="w-4 h-4 group-hover/btn:-translate-x-1 transition-transform" />
                 Add to Bag

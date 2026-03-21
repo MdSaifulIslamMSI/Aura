@@ -32,6 +32,16 @@ const normalizeCartPayload = (payload = {}) => ({
     syncedAt: payload?.syncedAt || null,
 });
 
+const normalizeWishlistPayload = (payload = {}) => ({
+    items: Array.isArray(payload?.items)
+        ? payload.items
+        : Array.isArray(payload?.wishlist)
+            ? payload.wishlist
+            : [],
+    revision: Number(payload?.revision ?? 0),
+    syncedAt: payload?.syncedAt || null,
+});
+
 const coerceProfileOptions = (options = {}) => {
     if (typeof options === 'string') {
         return {};
@@ -160,14 +170,64 @@ export const userApi = {
         return normalizeCartPayload(data);
     },
     syncWishlist: async (wishlistItems, options = {}) => {
-        const { firebaseUser } = coerceProfileOptions(options);
+        const { firebaseUser, expectedRevision = null } = coerceProfileOptions(options);
         const headers = await getAuthHeader(firebaseUser);
         const { data } = await apiFetch('/users/wishlist', {
             method: 'PUT',
             headers,
-            body: JSON.stringify({ wishlistItems }),
+            body: JSON.stringify({
+                wishlistItems,
+                ...(expectedRevision !== null && expectedRevision !== undefined ? { expectedRevision } : {}),
+            }),
         });
+        invalidateProfileCache();
+        return normalizeWishlistPayload(data);
+    },
+    getWishlist: async (options = {}) => {
+        const { firebaseUser } = coerceProfileOptions(options);
+        const headers = await getAuthHeader(firebaseUser);
+        const { data } = await apiFetch('/users/wishlist', {
+            headers,
+        });
+        return normalizeWishlistPayload(data);
+    },
+    addWishlistItem: async ({ productId, expectedRevision = null, firebaseUser = null } = {}) => {
+        const headers = await getAuthHeader(firebaseUser);
+        const { data } = await apiFetch('/users/wishlist/items', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+                productId,
+                ...(expectedRevision !== null && expectedRevision !== undefined ? { expectedRevision } : {}),
+            }),
+        });
+        invalidateProfileCache();
         return data;
+    },
+    removeWishlistItem: async ({ productId, expectedRevision = null, firebaseUser = null } = {}) => {
+        const headers = await getAuthHeader(firebaseUser);
+        const { data } = await apiFetch(`/users/wishlist/items/${productId}`, {
+            method: 'DELETE',
+            headers,
+            body: JSON.stringify({
+                ...(expectedRevision !== null && expectedRevision !== undefined ? { expectedRevision } : {}),
+            }),
+        });
+        invalidateProfileCache();
+        return data;
+    },
+    mergeWishlist: async ({ items = [], expectedRevision = null, firebaseUser = null } = {}) => {
+        const headers = await getAuthHeader(firebaseUser);
+        const { data } = await apiFetch('/users/wishlist/merge', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+                items,
+                ...(expectedRevision !== null && expectedRevision !== undefined ? { expectedRevision } : {}),
+            }),
+        });
+        invalidateProfileCache();
+        return normalizeWishlistPayload(data);
     },
     getRewards: async () => {
         const headers = await getAuthHeader();

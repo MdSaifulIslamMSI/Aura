@@ -22,6 +22,7 @@ export const CartProvider = ({ children }) => {
   const addItem = useCommerceStore((state) => state.addItem);
   const setQuantity = useCommerceStore((state) => state.setQuantity);
   const removeItem = useCommerceStore((state) => state.removeItem);
+  const moveCartItemToWishlist = useCommerceStore((state) => state.moveCartItemToWishlist);
   const clearCartState = useCommerceStore((state) => state.clearCart);
 
   useEffect(() => {
@@ -34,28 +35,11 @@ export const CartProvider = ({ children }) => {
       return;
     }
 
-    const authPayload = currentUser?.uid
-      ? { uid: currentUser.uid, email: currentUser.email || '' }
-      : null;
-
-    bindAuthUser(authPayload).catch(() => {});
+    bindAuthUser(currentUser || null).catch(() => {});
   }, [bindAuthUser, currentUser?.email, currentUser?.uid, isAuthLoading]);
 
-  const moveToWishlist = (productId, wishlistCallback) => {
-    const item = cartItems.find((entry) => entry.id === productId);
-    if (!item || !wishlistCallback) return;
-
-    wishlistCallback({
-      id: item.id,
-      title: item.title,
-      brand: item.brand,
-      price: item.price,
-      originalPrice: item.originalPrice,
-      discountPercentage: item.discountPercentage,
-      image: item.image,
-      stock: item.stock,
-    });
-    void removeItem(productId);
+  const moveToWishlist = (productId) => {
+    void moveCartItemToWishlist(productId);
   };
 
   const value = useMemo(() => ({
@@ -80,8 +64,10 @@ export const CartProvider = ({ children }) => {
     currentUser?.uid,
     hydrateCart,
     isLoading,
-    refreshIfStale,
+    moveToWishlist,
     removeItem,
+    refreshIfStale,
+    moveCartItemToWishlist,
     setQuantity,
   ]);
 
