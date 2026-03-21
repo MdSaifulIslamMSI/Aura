@@ -37,6 +37,31 @@ jest.mock('../services/ai/assistantOrchestratorService', () => ({
         products: [],
         actions: [],
         followUps: ['Best deals today'],
+        assistantTurn: {
+            intent: 'general_knowledge',
+            entities: {
+                query: '',
+                productId: '',
+                productIds: [],
+                quantity: 0,
+                priceMin: 0,
+                priceMax: 0,
+                category: '',
+                page: '',
+                orderId: '',
+                supportCategory: '',
+                operation: '',
+                compareTerms: [],
+            },
+            confidence: 0.81,
+            decision: 'respond',
+            response: 'Legacy-compatible answer',
+            actions: [],
+            ui: { surface: 'plain_answer' },
+            contextPatch: {},
+            followUps: ['Best deals today'],
+            safetyFlags: [],
+        },
         grounding: {
             mode: 'chat',
             actionType: 'assistant',
@@ -63,6 +88,7 @@ describe('Chat Routes Security', () => {
 
         expect(res.statusCode).toBe(200);
         expect(res.body).toHaveProperty('text');
+        expect(res.body).toHaveProperty('assistantTurn');
         expect(res.body.mode).toBe('public');
     });
 

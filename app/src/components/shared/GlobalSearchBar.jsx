@@ -23,6 +23,7 @@ import {
   normalizeCategorySlug,
 } from '@/config/catalogTaxonomy';
 import { cn } from '@/lib/utils';
+import { parseSemanticSearchIntent } from '@/utils/assistantIntent';
 import VoiceSearch from '@/components/shared/VoiceSearch';
 import { useDismissableLayer } from '@/hooks/useDismissableLayer';
 
@@ -106,49 +107,6 @@ const formatPrice = (value) => {
   const amount = Number(value);
   if (!Number.isFinite(amount)) return null;
   return `Rs ${amount.toLocaleString('en-IN')}`;
-};
-
-const parseSemanticIntent = (value = '') => {
-  const raw = String(value || '').trim();
-  if (!raw) return null;
-  const lower = raw.toLowerCase();
-
-  let category = '';
-  if (/\bmobile|iphone|android|phone\b/.test(lower)) category = 'mobiles';
-  else if (/\blaptop|notebook|macbook\b/.test(lower)) category = 'laptops';
-  else if (/\bgaming|console\b/.test(lower)) category = 'gaming';
-  else if (/\belectronic|gadget\b/.test(lower)) category = 'electronics';
-
-  const maxPriceMatch = lower.match(/\b(?:under|below|less than)\s+(\d{1,3})(k)?\b/);
-  const maxPrice = maxPriceMatch
-    ? Number(maxPriceMatch[1]) * (maxPriceMatch[2] ? 1000 : 1)
-    : undefined;
-
-  const ratingMatch = lower.match(/\brating\s*([1-5](?:\.\d)?)\+?\b/);
-  const rating = ratingMatch ? Number(ratingMatch[1]) : undefined;
-
-  const fastDelivery = /\bfast delivery|quick delivery|same day|one day\b/.test(lower);
-  const inStock = /\bin stock|available now|ready stock\b/.test(lower);
-
-  const cleanedQuery = raw
-    .replace(/\b(?:under|below|less than)\s+\d{1,3}k?\b/gi, ' ')
-    .replace(/\brating\s*[1-5](?:\.\d)?\+?\b/gi, ' ')
-    .replace(/\bfast delivery|quick delivery|same day|one day|in stock|available now|ready stock\b/gi, ' ')
-    .replace(/\s{2,}/g, ' ')
-    .trim();
-
-  const hasSignals = Boolean(category || maxPrice || rating || fastDelivery || inStock);
-  if (!hasSignals) return null;
-
-  return {
-    name: raw,
-    query: cleanedQuery || raw,
-    category: category || undefined,
-    maxPrice: maxPrice ? Math.max(1000, Math.min(DEFAULT_MAX_PRICE, maxPrice)) : undefined,
-    rating: rating || undefined,
-    inStock: inStock ? 'true' : undefined,
-    deliveryTime: fastDelivery ? '1-2 days' : undefined,
-  };
 };
 
 const readPersistedSearchState = () => {
@@ -256,7 +214,7 @@ const GlobalSearchBar = ({
   }, [persistRecentSearches]);
 
   const saveCurrentIntent = useCallback(() => {
-    const intent = parseSemanticIntent(query.trim());
+    const intent = parseSemanticSearchIntent(query.trim());
     if (!intent) return;
 
     const payload = {
@@ -335,7 +293,7 @@ const GlobalSearchBar = ({
   const executeSearch = useCallback(
     (value = query) => {
       const cleaned = value.trim();
-      const intent = parseSemanticIntent(cleaned);
+      const intent = parseSemanticSearchIntent(cleaned);
       if (cleaned) {
         pushRecentSearch(cleaned);
       }

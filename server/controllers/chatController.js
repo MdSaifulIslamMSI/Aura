@@ -21,6 +21,7 @@ const buildLegacyResponse = (result, mode) => {
         actions: safeResult.actions || [],
         followUps: safeResult.followUps || [],
         grounding: safeResult.grounding || null,
+        assistantTurn: safeResult.assistantTurn || null,
         latencyMs: Number(safeResult.latencyMs || 0),
         provider: safeResult.provider || 'local',
         mode,
