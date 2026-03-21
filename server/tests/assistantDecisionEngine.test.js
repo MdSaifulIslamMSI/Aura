@@ -38,6 +38,32 @@ describe('assistantDecisionEngine', () => {
         expect(result.entities.priceMax).toBe(20000);
     });
 
+    test('treats explicit open requests with product cues as product selection', () => {
+        const result = buildDeterministicClassification({
+            message: 'Open dell laptop',
+            assistantMode: 'chat',
+            context: {},
+        });
+
+        expect(result.intent).toBe('product_selection');
+        expect(result.confidence).toBeGreaterThanOrEqual(0.9);
+        expect(result.entities.query).toBe('dell laptop');
+    });
+
+    test('reuses visible product context for short follow-up selections', () => {
+        const result = buildDeterministicClassification({
+            message: 'anyone',
+            assistantMode: 'chat',
+            context: {
+                productIds: ['400003142', '400049987'],
+            },
+        });
+
+        expect(result.intent).toBe('product_selection');
+        expect(result.entities.productId).toBe('400003142');
+        expect(result.entities.productIds).toEqual(['400003142', '400049987']);
+    });
+
     test('routes cart navigation requests through navigation intent', () => {
         const result = buildDeterministicClassification({
             message: 'Show my cart',

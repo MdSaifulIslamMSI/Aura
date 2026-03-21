@@ -54,6 +54,8 @@ const surfaceToMode = (surface = 'plain_answer') => {
     }
 };
 
+const PRODUCT_SURFACES = new Set(['product_results', 'product_focus']);
+
 const buildFallbackAssistantTurn = (response = {}) => {
     const products = Array.isArray(response?.products) ? response.products : [];
     const surface = products.length > 1
@@ -135,6 +137,11 @@ const buildCheckoutConfirmationTurn = () => ({
 });
 
 const normalizeUiProducts = (assistantTurn = {}, response = {}) => {
+    const surface = safeString(assistantTurn?.ui?.surface || 'plain_answer');
+    if (!PRODUCT_SURFACES.has(surface)) {
+        return [];
+    }
+
     const turnProducts = Array.isArray(assistantTurn?.ui?.products) ? assistantTurn.ui.products : [];
     const responseProducts = Array.isArray(response?.products) ? response.products : [];
     const product = assistantTurn?.ui?.product ? [assistantTurn.ui.product] : [];
