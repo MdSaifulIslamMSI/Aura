@@ -22,11 +22,15 @@ const wishlistItemSchema = mongoose.Schema({
     id: { type: Number, required: true },
     title: { type: String, required: true },
     price: { type: Number, required: true },
+    originalPrice: { type: Number },
+    discountPercentage: { type: Number },
     image: { type: String, required: true },
     brand: { type: String },
     rating: { type: Number },
     ratingCount: { type: Number },
     stock: { type: Number },
+    deliveryTime: { type: String },
+    category: { type: String },
     addedAt: { type: Date, default: Date.now }
 }, { _id: false });
 
@@ -127,6 +131,8 @@ const userSchema = mongoose.Schema({
     cartRevision: { type: Number, default: 0, min: 0 },
     cartSyncedAt: { type: Date, default: null },
     wishlist: [wishlistItemSchema],
+    wishlistRevision: { type: Number, default: 0, min: 0 },
+    wishlistSyncedAt: { type: Date, default: null },
     loyalty: { type: loyaltySchema, default: () => ({}) }
 }, {
     timestamps: true

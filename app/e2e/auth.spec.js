@@ -25,6 +25,13 @@ test.describe('Authentication Guards', () => {
         await expect(page.getByRole('heading', { name: /your bag|your bag is empty/i })).toBeVisible();
     });
 
+    test('/wishlist remains accessible when not authenticated', async ({ page }) => {
+        await waitForAuthShell(page, '/wishlist');
+        await expect(page).toHaveURL(/\/wishlist$/);
+        await expect(page.locator('main')).toBeVisible();
+        await expect(page.getByRole('heading', { name: /saved items|your wishlist is empty/i })).toBeVisible();
+    });
+
     test('/checkout redirects to login when not authenticated', async ({ page }) => {
         await waitForAuthShell(page, '/checkout');
         await page.waitForURL(/\/login/, { timeout: 8_000 });

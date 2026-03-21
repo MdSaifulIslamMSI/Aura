@@ -2,12 +2,10 @@ import { useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Trash2, Plus, Minus, ShoppingBag, Heart, ArrowRight, ShieldCheck, Zap, ChevronRight } from 'lucide-react';
 import { CartContext } from '@/context/CartContext';
-import { WishlistContext } from '@/context/WishlistContext';
 import { useCommerceStore } from '@/store/commerceStore';
 
 const Cart = () => {
   const { cartItems, removeFromCart, updateQuantity, totalPrice, totalOriginalPrice, totalDiscount, moveToWishlist, isLoading } = useContext(CartContext);
-  const { addToWishlist } = useContext(WishlistContext);
   const clearDirectBuy = useCommerceStore((state) => state.clearDirectBuy);
   const navigate = useNavigate();
 
@@ -20,7 +18,7 @@ const Cart = () => {
   };
 
   const handleMoveToWishlist = (productId) => {
-    moveToWishlist(productId, addToWishlist);
+    moveToWishlist(productId);
   };
 
   const handleProceedToCheckout = () => {
@@ -155,8 +153,10 @@ const Cart = () => {
                         <div className="flex justify-center sm:justify-start">
                           <div className="flex items-center border border-white/10 rounded-xl bg-zinc-950/50 p-1">
                             <button
+                              type="button"
                               onClick={() => updateQuantity(item.id, item.quantity - 1)}
                               disabled={item.quantity <= 1}
+                              aria-label={`Decrease quantity for ${item.title}`}
                               className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 text-slate-300 hover:text-white disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
                             >
                               <Minus className="w-4 h-4" />
@@ -165,8 +165,10 @@ const Cart = () => {
                               {item.quantity}
                             </span>
                             <button
+                              type="button"
                               onClick={() => updateQuantity(item.id, item.quantity + 1)}
                               disabled={item.quantity >= item.stock}
+                              aria-label={`Increase quantity for ${item.title}`}
                               className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 text-slate-300 hover:text-white disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
                             >
                               <Plus className="w-4 h-4" />

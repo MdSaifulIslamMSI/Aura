@@ -17,7 +17,7 @@ describe('useCheckoutDraft', () => {
 
     test('restores draft from localStorage when available', () => {
         localStorage.setItem(
-            'aura_checkout_draft_user-1',
+            'aura_checkout_draft_user-1_cart_7',
             JSON.stringify({
                 step: 3,
                 contact: { name: 'Ada', phone: '9999999999' },
@@ -25,7 +25,7 @@ describe('useCheckoutDraft', () => {
             })
         );
 
-        const { result } = renderHook(() => useCheckoutDraft('user-1', INITIAL_STATE));
+        const { result } = renderHook(() => useCheckoutDraft('user-1', INITIAL_STATE, { checkoutSource: 'cart', cartRevision: 7 }));
         expect(result.current.isHydrated).toBe(true);
         expect(result.current.draft.step).toBe(3);
         expect(result.current.draft.contact.name).toBe('Ada');
@@ -33,7 +33,7 @@ describe('useCheckoutDraft', () => {
     });
 
     test('persists updates and clears draft', () => {
-        const { result } = renderHook(() => useCheckoutDraft('user-2', INITIAL_STATE));
+        const { result } = renderHook(() => useCheckoutDraft('user-2', INITIAL_STATE, { checkoutSource: 'cart', cartRevision: 2 }));
 
         act(() => {
             result.current.setDraft((prev) => ({
@@ -43,7 +43,7 @@ describe('useCheckoutDraft', () => {
             }));
         });
 
-        const stored = JSON.parse(localStorage.getItem('aura_checkout_draft_user-2'));
+        const stored = JSON.parse(localStorage.getItem('aura_checkout_draft_user-2_cart_2'));
         expect(stored.step).toBe(2);
         expect(stored.contact.name).toBe('Grace');
 
@@ -51,7 +51,7 @@ describe('useCheckoutDraft', () => {
             result.current.clearDraft();
         });
 
-        expect(localStorage.getItem('aura_checkout_draft_user-2')).toBeNull();
+        expect(localStorage.getItem('aura_checkout_draft_user-2_cart_2')).toBeNull();
         expect(result.current.draft.step).toBe(1);
     });
 });

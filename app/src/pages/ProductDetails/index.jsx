@@ -139,24 +139,6 @@ const ProductDetails = () => {
     setQuantity(1);
   }, [productId]);
 
-  useEffect(() => {
-    if (!cartItem) return;
-
-    setQuantity((previousQuantity) => {
-      if (previousQuantity !== cartItem.quantity) {
-        pushClientDiagnostic('cart_ui_mismatch', {
-          context: {
-            source: 'product_details',
-            productId,
-            localQuantity: previousQuantity,
-            cartQuantity: cartItem.quantity,
-          },
-        }, 'warn');
-      }
-      return cartItem.quantity;
-    });
-  }, [cartItem, productId]);
-
   // Fetch Related Products
   useEffect(() => {
     let isMounted = true;
@@ -297,7 +279,7 @@ const ProductDetails = () => {
 
   // Handlers
   const handleAddToCart = () => {
-    if (product) addToCart(product, effectiveQuantity);
+    if (product && !cartItem) addToCart(product, quantity);
   };
 
   const handleBuyNow = () => {
@@ -628,14 +610,18 @@ const ProductDetails = () => {
                 />
 
                 <button
+                  type="button"
                   onClick={() => toggleWishlist(product)}
+                  aria-label={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
                   className="absolute right-0 top-0 z-20 rounded-full border border-white/10 bg-zinc-950/50 p-2.5 shadow-[0_0_15px_rgba(0,0,0,0.5)] transition-all duration-300 hover:border-neo-rose hover:bg-neo-rose/10 group/btn sm:p-3"
                 >
                   <Heart className={cn('w-6 h-6 transition-colors', isWishlisted ? 'fill-neo-rose text-neo-rose drop-shadow-[0_0_8px_rgba(244,63,94,0.6)]' : 'text-slate-400 group-hover/btn:text-neo-rose')} />
                 </button>
 
                 <button
+                  type="button"
                   onClick={() => navigator?.share?.({ title: heroTitle, url: window.location.href })}
+                  aria-label="Share product"
                   className="absolute left-0 top-0 z-20 rounded-full border border-white/10 bg-zinc-950/50 p-2.5 shadow-[0_0_15px_rgba(0,0,0,0.5)] transition-all duration-300 hover:border-neo-cyan hover:bg-neo-cyan/10 group/btn sm:p-3"
                 >
                   <Share2 className="w-5 h-5 text-slate-400 group-hover/btn:text-neo-cyan transition-colors" />
@@ -648,16 +634,20 @@ const ProductDetails = () => {
               {cartItem ? (
                 <div className="flex flex-1 items-center justify-center gap-4 rounded-2xl border border-neo-cyan/40 bg-neo-cyan/10 px-3 py-3 shadow-[0_0_15px_rgba(6,182,212,0.12)]">
                   <button
+                    type="button"
                     onClick={() => handleUpdateQty(-1)}
                     disabled={cartItem.quantity <= 1}
+                    aria-label={`Decrease quantity for ${heroTitle}`}
                     className="text-neo-cyan transition-colors hover:text-white disabled:opacity-50"
                   >
                     <Minus className="w-5 h-5" />
                   </button>
                   <span className="min-w-[2rem] text-center text-lg font-black text-white">{cartItem.quantity}</span>
                   <button
+                    type="button"
                     onClick={() => handleUpdateQty(1)}
                     disabled={cartItem.quantity >= stock}
+                    aria-label={`Increase quantity for ${heroTitle}`}
                     className="text-neo-cyan transition-colors hover:text-white disabled:opacity-50"
                   >
                     <Plus className="w-5 h-5" />
@@ -665,6 +655,7 @@ const ProductDetails = () => {
                 </div>
               ) : (
                 <button
+                  type="button"
                   onClick={handleAddToCart}
                   disabled={stock === 0}
                   className="relative flex flex-1 items-center justify-center gap-2 overflow-hidden border-white/20 py-3.5 text-[11px] tracking-[0.18em] shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)] btn-secondary group"
@@ -674,6 +665,7 @@ const ProductDetails = () => {
                 </button>
               )}
               <button
+                type="button"
                 onClick={handleBuyNow}
                 disabled={stock === 0}
                 className="relative flex-1 overflow-hidden py-3.5 text-[11px] tracking-[0.18em] shadow-[0_0_15px_rgba(217,70,239,0.3)] btn-primary group"
@@ -750,21 +742,43 @@ const ProductDetails = () => {
                 <div className="hidden lg:flex gap-6 mb-12">
                   {cartItem ? (
                     <div className="flex items-center gap-6 border-2 border-neo-cyan/50 bg-neo-cyan/5 rounded-2xl px-6 py-3 shadow-[0_0_15px_rgba(6,182,212,0.1)]">
-                      <button onClick={() => handleUpdateQty(-1)} disabled={cartItem.quantity <= 1} className="text-neo-cyan hover:text-white disabled:opacity-50 transition-colors">
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateQty(-1)}
+                        disabled={cartItem.quantity <= 1}
+                        aria-label={`Decrease quantity for ${heroTitle}`}
+                        className="text-neo-cyan hover:text-white disabled:opacity-50 transition-colors"
+                      >
                         <Minus className="w-6 h-6" />
                       </button>
                       <span className="font-black text-2xl text-white w-8 text-center">{cartItem.quantity}</span>
-                      <button onClick={() => handleUpdateQty(1)} disabled={cartItem.quantity >= stock} className="text-neo-cyan hover:text-white disabled:opacity-50 transition-colors">
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateQty(1)}
+                        disabled={cartItem.quantity >= stock}
+                        aria-label={`Increase quantity for ${heroTitle}`}
+                        className="text-neo-cyan hover:text-white disabled:opacity-50 transition-colors"
+                      >
                         <Plus className="w-6 h-6" />
                       </button>
                     </div>
                   ) : (
-                    <button onClick={handleAddToCart} disabled={stock === 0} className="btn-secondary px-10 py-4 flex items-center gap-3 text-sm tracking-widest border-white/20 group/add">
+                    <button
+                      type="button"
+                      onClick={handleAddToCart}
+                      disabled={stock === 0}
+                      className="btn-secondary px-10 py-4 flex items-center gap-3 text-sm tracking-widest border-white/20 group/add"
+                    >
                       <ShoppingCart className="w-5 h-5 group-hover/add:-translate-x-1 transition-transform" />
                       <span className="relative z-10">Add to Bag</span>
                     </button>
                   )}
-                  <button onClick={handleBuyNow} disabled={stock === 0} className="btn-primary px-10 py-4 text-sm tracking-widest flex items-center gap-2 group/buy shadow-[0_0_20px_rgba(16,185,129,0.3)]">
+                  <button
+                    type="button"
+                    onClick={handleBuyNow}
+                    disabled={stock === 0}
+                    className="btn-primary px-10 py-4 text-sm tracking-widest flex items-center gap-2 group/buy shadow-[0_0_20px_rgba(16,185,129,0.3)]"
+                  >
                     <Zap className="w-4 h-4 fill-white group-hover/buy:animate-pulse" />
                     <span className="relative z-10">Buy Now</span>
                   </button>
