@@ -19,6 +19,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { trustApi } from '@/services/api';
+import { buildSupportHandoffPath } from '@/utils/assistantCommands';
 
 const STATUS_CLASSES = {
   healthy: 'bg-emerald-500/15 border-emerald-400/40 text-emerald-300 shadow-emerald-500/0 hover:shadow-emerald-500/20',
@@ -51,10 +52,11 @@ const Footer = () => {
     client: { online: true, secureContext: false, language: 'unknown', timezone: 'unknown' },
     derivedStatus: 'checking',
   });
+  const supportDeskPath = buildSupportHandoffPath();
 
   const footerLinks = {
     about: [
-      { name: 'Contact Us', path: '/contact' },
+      { name: 'Contact Us', path: supportDeskPath },
       { name: 'About Us', path: '/about' },
       { name: 'Careers', path: '/careers' },
       { name: 'Aura Stories', path: '/stories' },
@@ -205,7 +207,7 @@ const Footer = () => {
             </div>
 
             <Link
-              to="/contact"
+              to={supportDeskPath}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-amber-400/30 bg-amber-500/10 text-amber-200 text-xs font-bold uppercase tracking-wider hover:bg-amber-500/20 transition-colors"
             >
               <AlertTriangle className="w-3.5 h-3.5" />
