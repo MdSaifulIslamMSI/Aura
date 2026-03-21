@@ -34,6 +34,7 @@ const normalizeChatResponse = (response = {}, payload = {}) => {
         latencyMs: Number(response?.latencyMs || 0),
         grounding: response?.grounding || null,
         providerCapabilities: response?.providerCapabilities || null,
+        assistantSession: response?.assistantSession || assistantTurn?.assistantSession || null,
         sessionMemory: response?.sessionMemory || assistantTurn?.sessionMemory || null,
     };
 };
@@ -49,6 +50,9 @@ export const chatApi = {
                 message: input?.message || '',
                 conversationHistory: Array.isArray(input?.conversationHistory) ? input.conversationHistory : [],
                 assistantMode: input?.assistantMode || 'chat',
+                sessionId: input?.sessionId || '',
+                confirmation: input?.confirmation || undefined,
+                actionRequest: input?.actionRequest || undefined,
                 context: input?.context || {},
                 images: Array.isArray(input?.images) ? input.images : [],
             };

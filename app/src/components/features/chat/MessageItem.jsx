@@ -53,6 +53,24 @@ const renderCartSummary = (cartSummary, isWhiteMode) => {
     );
 };
 
+const renderSearchSignal = (searchMeta, isWhiteMode) => {
+    if (!searchMeta?.matchType || searchMeta.matchType === 'exact') {
+        return null;
+    }
+
+    const noteClassName = isWhiteMode
+        ? 'border-amber-200 bg-amber-50 text-amber-900'
+        : 'border-amber-300/20 bg-amber-500/10 text-amber-100';
+    const confidence = Math.round(Math.max(0, Number(searchMeta?.confidence || 0)) * 100);
+
+    return (
+        <div className={cn('rounded-[1rem] border px-3 py-2 text-[11px] font-medium', noteClassName)}>
+            No exact match for "{searchMeta.query || 'your search'}". Showing closest matches
+            {confidence > 0 ? ` (${confidence}% confidence).` : '.'}
+        </div>
+    );
+};
+
 const MessageItem = ({
     message,
     isWhiteMode = false,
@@ -63,6 +81,7 @@ const MessageItem = ({
     onOpenSupport,
     onConfirmPending,
     onCancelPending,
+    onModifyPending,
 }) => {
     const isUser = message?.role === 'user';
     const bubbleClassName = isUser
@@ -79,6 +98,7 @@ const MessageItem = ({
         && PRODUCT_SURFACES.has(String(message?.uiSurface || ''))
         && Array.isArray(message?.products)
         && message.products.length > 0;
+    const searchMeta = message?.assistantTurn?.ui?.search || null;
 
     return (
         <div className={cn('flex flex-col gap-3', isUser ? 'items-end' : 'items-start')}>
@@ -89,6 +109,7 @@ const MessageItem = ({
             </div>
 
             {!isUser && message?.cartSummary ? renderCartSummary(message.cartSummary, isWhiteMode) : null}
+            {!isUser ? renderSearchSignal(searchMeta, isWhiteMode) : null}
 
             {shouldRenderProducts ? (
                 <div className="grid w-full gap-3">
@@ -112,6 +133,7 @@ const MessageItem = ({
                     isWhiteMode={isWhiteMode}
                     onConfirm={onConfirmPending}
                     onCancel={onCancelPending}
+                    onModify={onModifyPending}
                 />
             ) : null}
 

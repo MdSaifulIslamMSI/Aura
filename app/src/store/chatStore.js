@@ -62,6 +62,25 @@ const createInitialClarificationState = () => ({
     lastQuestion: '',
 });
 
+const createInitialAssistantSession = () => ({
+    sessionId: '',
+    contextVersion: 0,
+    lastIntent: '',
+    lastEntities: {
+        query: '',
+        productId: '',
+        category: '',
+        maxPrice: 0,
+        quantity: 0,
+    },
+    contextPath: '',
+    pendingAction: null,
+    clarificationState: createInitialClarificationState(),
+    lastResolvedEntityId: '',
+    lastResults: [],
+    activeProduct: null,
+});
+
 const createInitialSessionMemory = () => ({
     lastQuery: '',
     lastResults: [],
@@ -81,6 +100,7 @@ const createInitialContext = () => ({
     cartCount: 0,
     isAuthenticated: false,
     lastOrderId: null,
+    assistantSession: createInitialAssistantSession(),
     sessionMemory: createInitialSessionMemory(),
 });
 
@@ -139,6 +159,10 @@ const mergeState = (persistedState, currentState) => {
         context: {
             ...currentState.context,
             ...(nextState.context || {}),
+            assistantSession: {
+                ...currentState.context.assistantSession,
+                ...(nextState.context?.assistantSession || {}),
+            },
             sessionMemory: {
                 ...currentState.context.sessionMemory,
                 ...(nextState.context?.sessionMemory || {}),
@@ -219,6 +243,10 @@ export const useChatStore = create(
                 context: {
                     ...state.context,
                     ...partial,
+                    assistantSession: {
+                        ...state.context.assistantSession,
+                        ...(partial.assistantSession || {}),
+                    },
                     sessionMemory: {
                         ...state.context.sessionMemory,
                         ...(partial.sessionMemory || {}),
@@ -289,6 +317,7 @@ export const useChatStore = create(
                 navigation = null,
                 activeProductId,
                 assistantTurn = null,
+                assistantSession = null,
                 pendingAction = null,
             } = {}) => {
                 const safeProducts = Array.isArray(products) ? products.slice(0, 4) : [];
@@ -317,6 +346,11 @@ export const useChatStore = create(
                     const assistantSessionMemory = assistantTurn?.sessionMemory && typeof assistantTurn.sessionMemory === 'object'
                         ? assistantTurn.sessionMemory
                         : null;
+                    const resolvedAssistantSession = assistantSession && typeof assistantSession === 'object'
+                        ? assistantSession
+                        : assistantTurn?.assistantSession && typeof assistantTurn.assistantSession === 'object'
+                            ? assistantTurn.assistantSession
+                            : null;
                     const nextSessionMemory = {
                         ...state.context.sessionMemory,
                         ...(assistantSessionMemory || {}),
@@ -374,6 +408,12 @@ export const useChatStore = create(
                             candidateProductIds,
                             activeProductId: resolvedActiveProductId,
                             lastOrderId: assistantTurn?.ui?.support?.orderId || state.context.lastOrderId,
+                            assistantSession: resolvedAssistantSession
+                                ? {
+                                    ...state.context.assistantSession,
+                                    ...resolvedAssistantSession,
+                                }
+                                : state.context.assistantSession,
                             sessionMemory: nextSessionMemory,
                         },
                     };

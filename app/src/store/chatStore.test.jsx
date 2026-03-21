@@ -58,6 +58,26 @@ describe('chatStore', () => {
                 },
                 followUps: ['Show more'],
             },
+            assistantSession: {
+                sessionId: 'session-1',
+                contextVersion: 3,
+                lastIntent: 'product_search',
+                lastEntities: {
+                    query: 'oppo phones',
+                    productId: '',
+                    category: 'Mobiles',
+                    maxPrice: 10000,
+                    quantity: 0,
+                },
+                contextPath: '/category/mobiles',
+                pendingAction: null,
+                clarificationState: {
+                    fingerprint: 'clarify:budget',
+                    count: 1,
+                    lastQuestion: 'Pick a budget',
+                },
+                lastResolvedEntityId: '101',
+            },
         });
 
         useChatStore.getState().rememberExecutedAction('add_to_cart:101:1', 4321);
@@ -73,6 +93,13 @@ describe('chatStore', () => {
             },
             lastActionFingerprint: 'add_to_cart:101:1',
             lastActionAt: 4321,
+        });
+        expect(useChatStore.getState().context.assistantSession).toMatchObject({
+            sessionId: 'session-1',
+            contextVersion: 3,
+            lastIntent: 'product_search',
+            contextPath: '/category/mobiles',
+            lastResolvedEntityId: '101',
         });
     });
 

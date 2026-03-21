@@ -54,6 +54,7 @@ const ChatBot = () => {
         confirmPendingAction,
         handleAction,
         handleUserInput,
+        modifyPendingAction,
         openSupport,
         selectProduct,
     } = useAssistantController();
@@ -179,6 +180,7 @@ const ChatBot = () => {
                     onOpenSupport={(prefill, orderId) => void openSupport(prefill, orderId)}
                     onConfirmPending={(token) => void confirmPendingAction(token)}
                     onCancelPending={cancelPendingAction}
+                    onModifyPending={modifyPendingAction}
                 />
             ) : (
                 <button

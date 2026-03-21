@@ -12,6 +12,7 @@ const MessageList = ({
     onOpenSupport,
     onConfirmPending,
     onCancelPending,
+    onModifyPending,
 }) => {
     const endRef = useRef(null);
     const latestAssistantMessageId = [...messages]
@@ -42,6 +43,7 @@ const MessageList = ({
                         onOpenSupport={onOpenSupport}
                         onConfirmPending={onConfirmPending}
                         onCancelPending={onCancelPending}
+                        onModifyPending={onModifyPending}
                     />
                 ))}
 

@@ -58,4 +58,31 @@ describe('MessageItem', () => {
         expect(screen.queryByText('Aura Focus Laptop')).not.toBeInTheDocument();
         expect(screen.getByText('Opening Marketplace.')).toBeInTheDocument();
     });
+
+    it('shows an approximate match signal when search fallback was used', () => {
+        render(
+            <MessageItem
+                message={{
+                    id: 'assistant-approximate',
+                    role: 'assistant',
+                    text: 'No exact match. Showing closest results.',
+                    uiSurface: 'product_results',
+                    products: [product],
+                    assistantTurn: {
+                        ui: {
+                            search: {
+                                query: 'oppo',
+                                matchType: 'approximate',
+                                confidence: 0.58,
+                            },
+                        },
+                    },
+                }}
+                {...noopProps}
+            />
+        );
+
+        expect(screen.getByText(/No exact match for "oppo"/i)).toBeInTheDocument();
+        expect(screen.getByText(/58% confidence/i)).toBeInTheDocument();
+    });
 });

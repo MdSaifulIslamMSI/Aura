@@ -3,9 +3,11 @@ const AppError = require('../utils/AppError');
 const { createVoiceSessionConfig, processAssistantTurn, synthesizeVoiceReply } = require('../services/ai/assistantOrchestratorService');
 
 const handleAiChat = asyncHandler(async (req, res, next) => {
-    const message = req.body?.message;
-    if (!message || typeof message !== 'string') {
-        return next(new AppError('Message is required', 400));
+    const message = typeof req.body?.message === 'string' ? req.body.message : '';
+    const confirmation = req.body?.confirmation || null;
+    const actionRequest = req.body?.actionRequest || null;
+    if (!message && !confirmation && !actionRequest) {
+        return next(new AppError('Message, confirmation, or actionRequest is required', 400));
     }
 
     const result = await processAssistantTurn({
@@ -13,6 +15,9 @@ const handleAiChat = asyncHandler(async (req, res, next) => {
         message,
         conversationHistory: req.body?.conversationHistory || [],
         assistantMode: req.body?.assistantMode || 'chat',
+        sessionId: req.body?.sessionId || '',
+        confirmation,
+        actionRequest,
         context: req.body?.context || {},
         images: req.body?.images || [],
     });
