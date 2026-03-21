@@ -91,10 +91,7 @@ const CHATBOT_PREFIXES = [
   '/marketplace',
   '/product/',
   '/listing/',
-  '/seller/',
-  '/compare',
-  '/visual-search',
-  '/bundles',
+  '/cart',
 ];
 
 const routeMatches = (pathname, prefixes) => {

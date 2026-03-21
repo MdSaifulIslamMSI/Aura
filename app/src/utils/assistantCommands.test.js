@@ -2,77 +2,107 @@ import { describe, expect, it } from 'vitest';
 import {
     buildAssistantRequestPayload,
     buildLocalAssistantResponse,
-    getAssistantRouteLabel,
+    buildModeActions,
+    buildSupportHandoffPath,
+    capVisibleActions,
+    deriveAssistantMode,
+    normalizeBackendActions,
     parseAssistantCommand,
 } from './assistantCommands';
 
 describe('assistantCommands', () => {
-    it('parses direct navigation commands', () => {
-        expect(parseAssistantCommand('open marketplace')).toMatchObject({
-            type: 'navigate',
-            path: '/marketplace',
-        });
-    });
-
-    it('parses search-style commands', () => {
+    it('keeps explicit search commands in the guided chat flow', () => {
         expect(parseAssistantCommand('search for wireless earbuds')).toMatchObject({
             type: 'search',
             query: 'wireless earbuds',
         });
     });
 
-    it('keeps general prompts in chat mode instead of forcing catalog search', () => {
-        expect(parseAssistantCommand('Which phone is better for camera and battery life?')).toMatchObject({
-            type: 'chat',
-            message: 'Which phone is better for camera and battery life?',
-        });
-    });
-
-    it('does not auto-execute explicit search prompts locally', () => {
-        expect(buildLocalAssistantResponse('search for wireless earbuds')).toMatchObject({
-            local: false,
-            actions: [{ type: 'search', query: 'wireless earbuds', reason: 'guided_search' }],
-        });
-    });
-
-    it('builds local responses for instant voice assistant launch', () => {
-        expect(buildLocalAssistantResponse('open voice assistant')).toMatchObject({
+    it('routes order issues into support mode locally', () => {
+        expect(buildLocalAssistantResponse('I need help with a delayed order', {
+            cartCount: 1,
+        })).toMatchObject({
             local: true,
-            autoExecute: true,
-            actions: [{ type: 'open_voice_assistant', reason: 'voice_requested' }],
+            mode: 'support',
+            supportPrefill: expect.objectContaining({
+                category: 'orders',
+            }),
+            primaryAction: expect.objectContaining({
+                kind: 'handoff-support',
+            }),
         });
     });
 
-    it('builds compare payloads from recent products when enough context exists', () => {
+    it('derives hidden compare mode only when enough candidate products exist', () => {
+        expect(deriveAssistantMode({
+            message: 'compare the two best phones',
+            candidateProductIds: ['101', '202'],
+        })).toBe('compare');
+
+        expect(deriveAssistantMode({
+            message: 'compare the two best phones',
+            candidateProductIds: ['101'],
+        })).toBe('chat');
+    });
+
+    it('derives hidden bundle mode from budget language', () => {
+        expect(deriveAssistantMode({
+            message: 'show me something under Rs 50000',
+            candidateProductIds: [],
+        })).toBe('bundle');
+    });
+
+    it('builds request payloads with normalized product ids and route context', () => {
         const payload = buildAssistantRequestPayload({
-            message: 'compare the strongest recent picks',
-            selectedMode: 'compare',
+            message: 'compare these laptops',
             pathname: '/products',
-            latestProducts: [
-                { id: 101, category: 'mobiles', brand: 'Apple' },
-                { id: 202, category: 'mobiles', brand: 'Samsung' },
-            ],
+            candidateProductIds: ['501', '502'],
+            latestProducts: [{ id: 501, brand: 'Aura' }, { _id: 502, brand: 'Prime' }],
         });
 
         expect(payload.assistantMode).toBe('compare');
-        expect(payload.context.productIds).toEqual(['101', '202']);
+        expect(payload.context.productIds).toEqual(['501', '502']);
+        expect(payload.context.routeLabel).toBe('Catalog');
     });
 
-    it('builds bundle payloads with inferred budget and theme', () => {
-        const payload = buildAssistantRequestPayload({
-            message: 'build a gaming setup under Rs 80000',
-            selectedMode: 'bundle',
-            pathname: '/',
-            latestProducts: [],
+    it('normalizes only supported backend actions', () => {
+        expect(normalizeBackendActions([
+            { type: 'open_voice_assistant' },
+            { type: 'navigate', path: '/cart' },
+            { type: 'open_product', productId: '333' },
+        ])).toEqual([
+            expect.objectContaining({ kind: 'view-cart' }),
+            expect.objectContaining({ kind: 'view-details', payload: { id: '333' } }),
+        ]);
+    });
+
+    it('builds support handoff urls with support-tab prefill', () => {
+        expect(buildSupportHandoffPath({
+            category: 'orders',
+            subject: 'Support: Delayed order',
+            intent: 'Delayed order',
+        })).toBe('/profile?tab=support&compose=1&category=orders&subject=Support%3A+Delayed+order&intent=Delayed+order');
+    });
+
+    it('caps visible actions to three choices', () => {
+        expect(capVisibleActions([
+            { id: 'a' },
+            { id: 'b' },
+            { id: 'c' },
+            { id: 'd' },
+        ])).toHaveLength(3);
+    });
+
+    it('keeps product mode limited to purchase and detail actions', () => {
+        const actions = buildModeActions({
+            mode: 'product',
+            products: [{ id: '11', title: 'Focus Phone', price: 49999 }],
+            cartCount: 0,
         });
 
-        expect(payload.assistantMode).toBe('bundle');
-        expect(payload.context.budget).toBe(80000);
-        expect(payload.context.theme).toBe('gaming setup');
-    });
-
-    it('returns route-aware labels for supported surfaces', () => {
-        expect(getAssistantRouteLabel('/marketplace')).toBe('Marketplace scouting');
-        expect(getAssistantRouteLabel('/')).toBe('Home command deck');
+        expect(actions.primaryAction).toMatchObject({ kind: 'add-to-cart' });
+        expect(actions.secondaryActions).toEqual([
+            expect.objectContaining({ kind: 'view-details' }),
+        ]);
     });
 });

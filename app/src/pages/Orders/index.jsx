@@ -1,9 +1,9 @@
-import { useState, useEffect, useContext, useMemo } from 'react';
+import { useState, useEffect, useContext, useMemo, useRef } from 'react';
 import { orderApi } from '@/services/api';
 import { AuthContext } from '@/context/AuthContext';
 import { formatPrice } from '@/utils/format';
 import { Package, Clock, CheckCircle, ChevronDown, ChevronUp, Zap, Server, ShieldCheck, AlertTriangle, Loader2, MessageSquare, RefreshCw, ShieldAlert, Wallet, XCircle } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 
 const Orders = () => {
@@ -11,6 +11,9 @@ const Orders = () => {
     const [loading, setLoading] = useState(true);
     const { currentUser } = useContext(AuthContext);
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    const focusOrderId = String(searchParams.get('focus') || '').trim();
+    const shouldExpandFocus = searchParams.get('expand') === '1' || searchParams.get('support') === '1';
 
     const orderSummary = useMemo(() => {
         const activeOrders = orders.filter((order) => {
@@ -179,7 +182,11 @@ const Orders = () => {
 
                 <div className="space-y-6">
                     {orders.map((order) => (
-                        <OrderCard key={order._id} order={order} />
+                        <OrderCard
+                            key={order._id}
+                            order={order}
+                            autoExpand={shouldExpandFocus && String(order._id) === focusOrderId}
+                        />
                     ))}
                 </div>
             </div>
@@ -187,7 +194,7 @@ const Orders = () => {
     );
 };
 
-export const OrderCard = ({ order }) => {
+export const OrderCard = ({ order, autoExpand = false }) => {
     const [expanded, setExpanded] = useState(false);
     const [orderMeta, setOrderMeta] = useState({
         orderStatus: order.orderStatus || (order.isDelivered ? 'delivered' : 'placed'),
@@ -209,12 +216,24 @@ export const OrderCard = ({ order }) => {
         supportMessage: '',
         warrantyIssue: '',
     });
+    const cardRef = useRef(null);
 
     // Format Date
     const date = new Date(order.createdAt).toLocaleDateString("en-US", {
         year: 'numeric', month: 'short', day: 'numeric',
         hour: '2-digit', minute: '2-digit'
     }).toUpperCase();
+
+    useEffect(() => {
+        if (!autoExpand) return;
+        setExpanded(true);
+        window.requestAnimationFrame(() => {
+            cardRef.current?.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start',
+            });
+        });
+    }, [autoExpand]);
 
     useEffect(() => {
         if (!expanded || timelineLoading || timeline.length > 0 || timelineError) {
@@ -378,7 +397,7 @@ export const OrderCard = ({ order }) => {
     };
 
     return (
-        <div className={cn("bg-white/5 rounded-2xl shadow-glass border transition-all duration-300 overflow-hidden relative group", expanded ? "border-neo-cyan/50 shadow-[0_0_25px_rgba(6,182,212,0.15)] bg-zinc-950/80" : "border-white/10 hover:border-white/30")}>
+        <div ref={cardRef} className={cn("bg-white/5 rounded-2xl shadow-glass border transition-all duration-300 overflow-hidden relative group", expanded ? "border-neo-cyan/50 shadow-[0_0_25px_rgba(6,182,212,0.15)] bg-zinc-950/80" : "border-white/10 hover:border-white/30")}>
             {expanded && <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-neo-cyan to-neo-fuchsia z-10" />}
 
             {/* Header */}

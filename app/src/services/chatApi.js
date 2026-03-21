@@ -20,7 +20,10 @@ export const chatApi = {
             if (response?.legacy && typeof response.legacy === 'object') {
                 return {
                     ...response.legacy,
+                    assistantTurn: response?.assistantTurn || null,
+                    answer: response?.answer || response.legacy?.text || '',
                     actions: response?.actions || [],
+                    followUps: response?.followUps || response.legacy?.suggestions || [],
                     provider: response?.provider || response.legacy?.provider || 'local',
                     mode: response?.grounding?.mode || response.legacy?.mode || payload.assistantMode || 'chat',
                     latencyMs: response?.latencyMs || 0,
@@ -30,9 +33,12 @@ export const chatApi = {
             }
             return {
                 text: response?.answer || "Sorry, I'm having trouble connecting. Please try again!",
+                answer: response?.answer || "Sorry, I'm having trouble connecting. Please try again!",
                 products: response?.products || [],
                 suggestions: response?.followUps || [],
+                followUps: response?.followUps || [],
                 actions: response?.actions || [],
+                assistantTurn: response?.assistantTurn || null,
                 actionType: response?.grounding?.actionType || 'assistant',
                 isAI: response?.provider !== 'local',
                 provider: response?.provider || 'local',
@@ -45,9 +51,12 @@ export const chatApi = {
             console.error("Chat Error:", error);
             return {
                 text: "Sorry, I'm having trouble connecting. Please try again!",
+                answer: "Sorry, I'm having trouble connecting. Please try again!",
                 products: [],
                 suggestions: ['Best deals today', 'Search premium phones', 'Build a smart bundle'],
+                followUps: ['Best deals today', 'Search premium phones', 'Build a smart bundle'],
                 actions: [],
+                assistantTurn: null,
                 actionType: 'error',
                 isAI: false,
                 provider: 'local',

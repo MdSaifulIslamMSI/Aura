@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Bot, Loader2, Mic, MicOff, Send, Volume2, VolumeX, X } from 'lucide-react';
 import { aiApi } from '@/services/aiApi';
+import { buildLocalVoiceCommand } from '@/utils/assistantIntent';
 
 const COMMAND_HINTS = [
   'Search for iPhone 15',
@@ -12,137 +13,8 @@ const COMMAND_HINTS = [
   'Help',
 ];
 
-const CATEGORY_ROUTES = [
-  { aliases: ['mobiles', 'mobile', 'phone', 'smartphone'], slug: 'mobiles', label: 'Mobiles' },
-  { aliases: ['laptops', 'laptop', 'notebook', 'macbook'], slug: 'laptops', label: 'Laptops' },
-  { aliases: ['electronics', 'electronic', 'gadgets'], slug: 'electronics', label: 'Electronics' },
-  { aliases: ['mens fashion', "men's fashion", 'mens'], slug: "men's-fashion", label: "Men's Fashion" },
-  { aliases: ['womens fashion', "women's fashion", 'womens', "ladies' fashion"], slug: "women's-fashion", label: "Women's Fashion" },
-  { aliases: ['home kitchen', 'home', 'kitchen'], slug: 'home-kitchen', label: 'Home & Kitchen' },
-  { aliases: ['gaming', 'games', 'console'], slug: 'gaming', label: 'Gaming' },
-  { aliases: ['books', 'book'], slug: 'books', label: 'Books' },
-  { aliases: ['sports', 'sport', 'fitness'], slug: 'sports', label: 'Sports' },
-];
-
-const ROUTE_COMMANDS = [
-  { aliases: ['home', 'homepage'], path: '/', label: 'Home' },
-  { aliases: ['marketplace', 'market place'], path: '/marketplace', label: 'Marketplace' },
-  { aliases: ['cart', 'bag'], path: '/cart', label: 'Cart' },
-  { aliases: ['wishlist', 'favorites', 'favourites'], path: '/wishlist', label: 'Wishlist' },
-  { aliases: ['orders', 'my orders'], path: '/orders', label: 'Orders' },
-  { aliases: ['profile', 'account'], path: '/profile', label: 'Profile' },
-  { aliases: ['sell', 'sell item'], path: '/sell', label: 'Sell' },
-  { aliases: ['bundles', 'smart bundles'], path: '/bundles', label: 'Bundles' },
-  { aliases: ['compare', 'ai compare'], path: '/compare', label: 'AI Compare' },
-  { aliases: ['visual search', 'camera search'], path: '/visual-search', label: 'Visual Search' },
-  { aliases: ['deals'], path: '/deals', label: 'Deals' },
-  { aliases: ['trending'], path: '/trending', label: 'Trending' },
-  { aliases: ['new arrivals', 'latest'], path: '/new-arrivals', label: 'New Arrivals' },
-  { aliases: ['checkout'], path: '/checkout', label: 'Checkout' },
-];
-
-const normalizeText = (value = '') =>
-  String(value)
-    .toLowerCase()
-    .replace(/[^\w\s]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-
-const findCategoryCommand = (normalized) => {
-  for (const category of CATEGORY_ROUTES) {
-    const hit = category.aliases.some((alias) => normalized.includes(alias));
-    if (hit) {
-      return category;
-    }
-  }
-  return null;
-};
-
-const findRouteCommand = (normalized) => {
-  for (const route of ROUTE_COMMANDS) {
-    const hit = route.aliases.some((alias) => normalized.includes(alias));
-    if (hit) {
-      return route;
-    }
-  }
-  return null;
-};
-
-const parseAssistantCommand = (rawText) => {
-  const raw = String(rawText || '').trim();
-  if (!raw) return { type: 'empty' };
-
-  const normalized = normalizeText(raw);
-
-  if (/\b(help|commands|what can you do)\b/.test(normalized)) {
-    return {
-      type: 'help',
-      message:
-        'Try saying search for iPhone fifteen, open cart, show laptops category, or open marketplace.',
-    };
-  }
-
-  if (/\b(close|exit|cancel|stop)\b/.test(normalized)) {
-    return { type: 'close', message: 'Closing voice assistant.' };
-  }
-
-  const productIdMatch = normalized.match(/\b(?:open|show)\s+(?:product|item)\s+(\d{4,})\b/);
-  if (productIdMatch) {
-    return {
-      type: 'product',
-      productId: productIdMatch[1],
-      message: `Opening product ${productIdMatch[1]}.`,
-    };
-  }
-
-  const categoryIntent = /\b(category|section|show)\b/.test(normalized)
-    ? findCategoryCommand(normalized)
-    : null;
-  if (categoryIntent) {
-    return {
-      type: 'category',
-      slug: categoryIntent.slug,
-      message: `Opening ${categoryIntent.label} category.`,
-    };
-  }
-
-  const searchMatch = raw.match(/^\s*(?:search(?:\s+for)?|find|look\s+for|show\s+me|buy)\s+(.+)$/i);
-  if (searchMatch?.[1]?.trim()) {
-    return {
-      type: 'search',
-      query: searchMatch[1].trim(),
-      message: `Searching for ${searchMatch[1].trim()}.`,
-    };
-  }
-
-  const explicitNavigate = /\b(open|go to|navigate to|take me to|show)\b/.test(normalized);
-  if (explicitNavigate || ROUTE_COMMANDS.some((item) => item.aliases.includes(normalized))) {
-    const route = findRouteCommand(normalized);
-    if (route) {
-      return {
-        type: 'navigate',
-        path: route.path,
-        message: `Opening ${route.label}.`,
-      };
-    }
-  }
-
-  if (raw.length >= 2) {
-    return {
-      type: 'search',
-      query: raw,
-      message: `Searching for ${raw}.`,
-    };
-  }
-
-  return {
-    type: 'unknown',
-    message: 'I could not understand that. Say help for examples.',
-  };
-};
-
 const buildLocalAssistantResponse = (rawInput) => {
-  const command = parseAssistantCommand(rawInput);
+  const command = buildLocalVoiceCommand(rawInput);
   const answer = command.message || 'Done.';
 
   switch (command.type) {
@@ -152,12 +24,6 @@ const buildLocalAssistantResponse = (rawInput) => {
       return {
         answer,
         actions: [{ type: 'open_product', productId: command.productId }],
-        followUps: [],
-      };
-    case 'category':
-      return {
-        answer,
-        actions: [{ type: 'navigate', path: `/category/${command.slug}` }],
         followUps: [],
       };
     case 'navigate':
