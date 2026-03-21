@@ -1006,6 +1006,9 @@ const buildComposerSystemPrompt = () => [
     '- If decision is clarify, ask only one clear question.',
     '- If intent is general_knowledge, answer directly and plainly.',
     '- Stay grounded in the provided products, order ids, and UI plan.',
+    '- followUps must be short actionable commands, not questions.',
+    '- Good followUps: "Open marketplace", "Show deals", "View details", "Open cart".',
+    '- Bad followUps: "Need more details on a specific product?", "Do you want to add any of these iPhones to your cart?"',
 ].join('\n');
 
 const buildComposerUserPrompt = ({ message, turn, enriched }) => {

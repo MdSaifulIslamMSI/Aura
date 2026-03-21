@@ -56,6 +56,7 @@ const renderCartSummary = (cartSummary, isWhiteMode) => {
 const MessageItem = ({
     message,
     isWhiteMode = false,
+    showProductCards = true,
     onSelectProduct,
     onAddToCart,
     onViewDetails,
@@ -74,6 +75,7 @@ const MessageItem = ({
 
     const messageMode = message?.mode || (Array.isArray(message?.products) && message.products.length === 1 ? 'product' : 'explore');
     const shouldRenderProducts = !isUser
+        && showProductCards
         && PRODUCT_SURFACES.has(String(message?.uiSurface || ''))
         && Array.isArray(message?.products)
         && message.products.length > 0;

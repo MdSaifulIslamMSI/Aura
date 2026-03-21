@@ -3,6 +3,7 @@ import {
     buildAssistantRequestPayload,
     buildLocalAssistantResponse,
     buildModeActions,
+    buildSuggestionActions,
     buildSupportHandoffPath,
     capVisibleActions,
     deriveAssistantMode,
@@ -103,6 +104,15 @@ describe('assistantCommands', () => {
         expect(actions.primaryAction).toMatchObject({ kind: 'add-to-cart' });
         expect(actions.secondaryActions).toEqual([
             expect.objectContaining({ kind: 'view-details' }),
+        ]);
+    });
+
+    it('ignores question-style follow-up suggestions', () => {
+        expect(buildSuggestionActions([
+            'Need more details on a specific product?',
+            'Show deals',
+        ])).toEqual([
+            expect.objectContaining({ kind: 'navigate', payload: expect.objectContaining({ page: 'deals' }) }),
         ]);
     });
 });

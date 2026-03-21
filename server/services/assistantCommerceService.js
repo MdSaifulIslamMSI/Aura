@@ -44,7 +44,7 @@ const normalizeKeyword = (message, categoryHint = '') => {
     if (!withoutBudget) return '';
 
     const scrubbed = withoutBudget
-        .replace(/\b(show|find|need|want|recommend|suggest|compare|versus|vs|best|top|cheap|affordable|budget|deal|deals|discount|trending|popular|products?|items?)\b/ig, ' ')
+        .replace(/\b(search|show|find|look|browse|open|view|need|want|recommend|suggest|compare|versus|vs|best|top|cheap|affordable|budget|deal|deals|discount|offer|offers|sale|flash|trending|popular|today|all|products?|items?|details?)\b/ig, ' ')
         .replace(/\s+/g, ' ')
         .trim();
 
@@ -225,7 +225,7 @@ const buildGroundedCatalogContext = async ({ message, conversationHistory = [] }
     } else if (/deal|discount|offer|sale|cheap|affordable|budget/i.test(lower)) {
         products = await getDeals({
             category,
-            keyword: keyword || safeMessage,
+            keyword,
             maxPrice,
             minDiscount: 10,
             limit: MAX_RESULTS,

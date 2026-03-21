@@ -42,6 +42,7 @@ const toTitleCase = (value = '') => safeString(value)
 const formatInr = (value = 0) => `Rs ${Number(value || 0).toLocaleString('en-IN')}`;
 
 const buildActionId = (kind = 'action', payload = {}) => `${kind}:${JSON.stringify(payload)}`;
+const QUESTION_SUGGESTION_PATTERN = /\?\s*$/;
 
 export const createChatAction = (kind, label, payload = {}, tone = 'secondary') => ({
     id: buildActionId(kind, payload),
@@ -288,7 +289,39 @@ export const normalizeBackendActions = (actions = []) => capVisibleActions((Arra
 export const buildSuggestionActions = (suggestions = []) => capVisibleActions((Array.isArray(suggestions) ? suggestions : [])
     .map((suggestion) => safeString(suggestion))
     .filter(Boolean)
-    .map((suggestion) => createChatAction('search', suggestion, { query: suggestion })));
+    .flatMap((suggestion) => {
+        if (QUESTION_SUGGESTION_PATTERN.test(suggestion)) {
+            return [];
+        }
+
+        const parsed = parseClientAssistantIntent(suggestion);
+
+        if (parsed.intent === 'checkout') {
+            return [createChatAction('prepare-checkout', suggestion, {})];
+        }
+
+        if (parsed.intent === 'support') {
+            return [createChatAction('handoff-support', suggestion, {})];
+        }
+
+        if (parsed.intent === 'navigation' && parsed.entities?.page === 'cart') {
+            return [createChatAction('view-cart', suggestion, {})];
+        }
+
+        if (parsed.intent === 'navigation' && parsed.entities?.page) {
+            return [createChatAction('navigate', suggestion, {
+                page: parsed.entities.page,
+                path: parsed.action?.path || '',
+                label: parsed.action?.label || suggestion,
+            })];
+        }
+
+        if (parsed.intent === 'product_search' && parsed.entities?.query) {
+            return [createChatAction('search', suggestion, { query: parsed.entities.query })];
+        }
+
+        return [createChatAction('search', suggestion, { query: suggestion })];
+    }));
 
 export const buildModeActions = ({
     mode = 'explore',
