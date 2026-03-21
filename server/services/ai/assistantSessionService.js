@@ -11,8 +11,10 @@ const normalizeEntities = (value = {}) => ({
     query: safeString(value?.query || ''),
     productId: safeString(value?.productId || ''),
     category: safeString(value?.category || ''),
+    priceMin: Math.max(0, Number(value?.priceMin || 0)),
     maxPrice: Math.max(0, Number(value?.maxPrice || 0)),
     quantity: Math.max(0, Number(value?.quantity || 0)),
+    limit: Math.max(0, Number(value?.limit || 0)),
 });
 
 const normalizeClarificationState = (value = {}) => ({
@@ -95,8 +97,10 @@ const buildBootstrapSnapshot = (context = {}) => {
             query: assistantSession?.lastEntities?.query || legacyMemory?.lastQuery || '',
             productId: assistantSession?.lastEntities?.productId || activeProductId,
             category: assistantSession?.lastEntities?.category || context?.category || '',
+            priceMin: assistantSession?.lastEntities?.priceMin || 0,
             maxPrice: assistantSession?.lastEntities?.maxPrice || 0,
             quantity: assistantSession?.lastEntities?.quantity || 0,
+            limit: assistantSession?.lastEntities?.limit || 0,
         }),
         contextPath: safeString(assistantSession?.contextPath || context?.route || context?.routeLabel || context?.category || ''),
         clarificationState: normalizeClarificationState(assistantSession?.clarificationState || legacyMemory?.clarificationState || {}),
