@@ -91,8 +91,113 @@ export const AUTH_ERRORS = {
         action: null,
         actionLabel: null
     },
+    'auth/invalid-app-credential': {
+        title: 'Phone Verification Blocked',
+        detail: 'Firebase could not initialize the secure phone verification challenge.',
+        hint: 'Retry once. If it still fails, the app can fall back to the secure backup OTP path.',
+        action: null,
+        actionLabel: null
+    },
+    'auth/missing-app-credential': {
+        title: 'Phone Verification Unavailable',
+        detail: 'The browser challenge for Firebase phone verification did not complete.',
+        hint: 'Retry once, then refresh if the challenge keeps failing.',
+        action: null,
+        actionLabel: null
+    },
+    'auth/captcha-check-failed': {
+        title: 'Security Check Failed',
+        detail: 'The Firebase phone verification challenge did not validate cleanly.',
+        hint: 'Retry the challenge and make sure browser protections are not blocking reCAPTCHA.',
+        action: null,
+        actionLabel: null
+    },
+    'auth/invalid-verification-code': {
+        title: 'Incorrect Code',
+        detail: 'That phone verification code is not valid.',
+        hint: 'Re-enter the latest 6-digit code, or request a fresh one.',
+        action: null,
+        actionLabel: null
+    },
+    'auth/code-expired': {
+        title: 'Code Expired',
+        detail: 'That phone verification code is no longer valid.',
+        hint: 'Request a fresh code and try again.',
+        action: 'resend',
+        actionLabel: 'Send a new code'
+    },
+    'auth/quota-exceeded': {
+        title: 'Too Many OTP Requests',
+        detail: 'Firebase temporarily throttled phone verification requests for this project.',
+        hint: 'Wait a bit before retrying, or use the secure backup OTP route if it appears.',
+        action: null,
+        actionLabel: null
+    },
+    'auth/phone-mismatch': {
+        title: 'Registered Phone Mismatch',
+        detail: 'The phone number you entered does not match the phone already linked to this account.',
+        hint: 'Use your registered phone number for login, or contact support if the account needs recovery.',
+        action: null,
+        actionLabel: null
+    },
 
     // ── OTP / Backend errors (matched by message content)
+    'firebase phone verification is required': {
+        title: 'Phone Verification Required',
+        detail: 'Firebase phone verification must finish before the login can be completed.',
+        hint: 'Request a fresh code and finish the phone step before signing in again.',
+        action: null,
+        actionLabel: null
+    },
+    'verified phone number does not match': {
+        title: 'Verified Phone Mismatch',
+        detail: 'The verified Firebase phone number does not match the phone entered for this login.',
+        hint: 'Use the registered phone number tied to this account and try again.',
+        action: null,
+        actionLabel: null
+    },
+    'phone number does not match your registered account': {
+        title: 'Registered Phone Mismatch',
+        detail: 'The verified phone number does not match the account record.',
+        hint: 'Use the phone number already registered on the account, or contact support for recovery.',
+        action: null,
+        actionLabel: null
+    },
+    'email address does not match your registered account': {
+        title: 'Registered Email Mismatch',
+        detail: 'The email address does not match the account record for this phone number.',
+        hint: 'Use the same email address that was used when this account was created.',
+        action: null,
+        actionLabel: null
+    },
+    'email otp verification is required before completing phone factor login': {
+        title: 'Email Verification Required',
+        detail: 'Finish the email OTP step before completing phone verification.',
+        hint: 'Start the secure sign-in flow again and enter the email code first.',
+        action: 'back',
+        actionLabel: 'Start over'
+    },
+    'email otp verification expired': {
+        title: 'Email Code Expired',
+        detail: 'The verified email step has expired for this login attempt.',
+        hint: 'Request fresh login codes to your email and phone, then try again.',
+        action: 'back',
+        actionLabel: 'Start over'
+    },
+    'you are already signed in': {
+        title: 'Already Signed In',
+        detail: 'This browser session is already authenticated.',
+        hint: 'Log out first if you want to create a different account.',
+        action: null,
+        actionLabel: null
+    },
+    'no verified account found for this email and phone number': {
+        title: 'Account Not Ready',
+        detail: 'We could not find a verified account matching this email and phone number.',
+        hint: 'Create your account first, then sign in with the same email, phone, and password.',
+        action: 'signup',
+        actionLabel: 'Sign up'
+    },
     'no account found with this phone': {
         title: 'Verification Required',
         detail: 'We could not verify those account details for OTP.',

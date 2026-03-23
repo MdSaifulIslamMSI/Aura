@@ -535,6 +535,26 @@ describe('POST /api/otp/send — Login & Forgot Password', () => {
             message: 'If the account details are valid, we will continue with verification steps.'
         });
     });
+
+    test('50c. strict login send rejects when no verified database account matches email and phone', async () => {
+        const u = uniqueUser();
+        const res = await request(app).post('/api/otp/send')
+            .send({ email: u.email, phone: u.phone, purpose: 'login', strictIdentity: true, skipSms: true });
+
+        expect(res.statusCode).toBe(404);
+        expect(res.body.message).toContain('No verified account found');
+    });
+
+    test('50d. signup rejects an existing verified phone even when stored in a different format', async () => {
+        await seedVerified({ phone: '9876543210' });
+        const duplicate = uniqueUser();
+
+        const res = await request(app).post('/api/otp/send')
+            .send({ email: duplicate.email, phone: '+919876543210', purpose: 'signup' });
+
+        expect(res.statusCode).toBe(409);
+        expect(res.body.message).toContain('phone number already exists');
+    });
 });
 
 // ═══════════════════════════════════════════════════════════════════
@@ -781,17 +801,35 @@ describe('POST /api/otp/verify', () => {
     });
 });
 
-    test('75a. login verification does not force account verification', async () => {
+    test('75a. login email-factor verification sets only the email marker before Firebase phone completes', async () => {
         const user = await seedVerified({ otp: '313131', otpPurpose: 'login', isVerified: false });
         await User.updateOne({ _id: user._id }, { $set: { isVerified: false } });
 
         const res = await request(app).post('/api/otp/verify')
-            .send({ phone: user.phone, otp: '313131', purpose: 'login' });
+            .send({ phone: user.phone, email: user.email, otp: '313131', purpose: 'login', factor: 'email' });
 
         expect(res.statusCode).toBe(200);
         const updated = await User.findById(user._id)
-            .select('+loginOtpVerifiedAt +loginOtpAssuranceExpiresAt +resetOtpVerifiedAt');
+            .select('+loginEmailOtpVerifiedAt +loginOtpVerifiedAt +loginOtpAssuranceExpiresAt +resetOtpVerifiedAt');
         expect(updated.isVerified).toBe(false);
+        expect(updated.loginEmailOtpVerifiedAt).not.toBeNull();
+        expect(updated.loginOtpVerifiedAt).toBeNull();
+        expect(updated.loginOtpAssuranceExpiresAt).toBeNull();
+        expect(updated.resetOtpVerifiedAt).toBeNull();
+    });
+
+    test('75aa. legacy login verification still upgrades assurance when a single backend OTP is used', async () => {
+        const user = await seedVerified({ otp: '323232', otpPurpose: 'login', isVerified: false });
+        await User.updateOne({ _id: user._id }, { $set: { isVerified: false } });
+
+        const res = await request(app).post('/api/otp/verify')
+            .send({ phone: user.phone, otp: '323232', purpose: 'login' });
+
+        expect(res.statusCode).toBe(200);
+        const updated = await User.findById(user._id)
+            .select('+loginEmailOtpVerifiedAt +loginOtpVerifiedAt +loginOtpAssuranceExpiresAt +resetOtpVerifiedAt');
+        expect(updated.isVerified).toBe(false);
+        expect(updated.loginEmailOtpVerifiedAt).toBeNull();
         expect(updated.loginOtpVerifiedAt).not.toBeNull();
         expect(updated.loginOtpAssuranceExpiresAt).not.toBeNull();
         expect(updated.resetOtpVerifiedAt).toBeNull();
