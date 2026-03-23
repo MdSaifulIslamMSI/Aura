@@ -91,6 +91,20 @@ export const AUTH_ERRORS = {
         action: null,
         actionLabel: null
     },
+    'auth/billing-not-enabled': {
+        title: 'Phone Verification Provider Unavailable',
+        detail: 'Firebase phone verification is not enabled for this project billing setup.',
+        hint: 'Use the secure backup OTP route for now, or enable Firebase billing for phone authentication in the project console.',
+        action: null,
+        actionLabel: null
+    },
+    'auth/operation-not-allowed': {
+        title: 'Phone Verification Disabled',
+        detail: 'Firebase phone authentication is disabled for this project.',
+        hint: 'Enable Phone as a Firebase sign-in provider, or continue with the secure backup OTP route.',
+        action: null,
+        actionLabel: null
+    },
     'auth/invalid-app-credential': {
         title: 'Phone Verification Blocked',
         detail: 'Firebase could not initialize the secure phone verification challenge.',
