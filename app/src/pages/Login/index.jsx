@@ -11,6 +11,7 @@ import {
 import { cn } from '@/lib/utils';
 import { AuthFeedback } from '@/components/shared/AuthFeedback';
 import { resolveAuthError, AUTH_SUCCESS } from '@/utils/authErrors';
+import { resolveFirebasePhoneFallback } from '@/utils/firebasePhoneFallback';
 import { resolveNavigationTarget } from '@/utils/navigation';
 import { verifyCredentialsWithoutSession } from '@/utils/precheckCredentials';
 import { getFirebaseSocialAuthStatus } from '@/config/firebase';
@@ -51,6 +52,7 @@ const Login = () => {
   const [signInProofToken, setSignInProofToken] = useState('');
   const [otpTransport, setOtpTransport] = useState(OTP_TRANSPORT.BACKEND_OTP);
   const [otpStage, setOtpStage] = useState(OTP_STAGE.SINGLE);
+  const [firebasePhoneFallback, setFirebasePhoneFallback] = useState(null);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -70,7 +72,9 @@ const Login = () => {
     [location.state?.from]
   );
   const socialAuthStatus = getFirebaseSocialAuthStatus();
-  const canUseFirebasePhoneOtp = mode === 'signin' && socialAuthStatus.ready;
+  const canUseFirebasePhoneOtp = mode === 'signin'
+    && socialAuthStatus.ready
+    && !firebasePhoneFallback?.disableFirebasePhoneOtp;
   const isEmailOtpStage = mode === 'signin' && otpStage === OTP_STAGE.EMAIL;
   const isPhoneOtpStage = mode === 'signin' && otpStage === OTP_STAGE.PHONE;
 
@@ -175,7 +179,16 @@ const Login = () => {
     setTimeout(() => otpRefs.current[0]?.focus(), 300);
   };
 
-  const buildOtpSuccessState = ({ transport, stage = OTP_STAGE.SINGLE, resend = false } = {}) => {
+  const buildOtpSuccessState = ({
+    transport,
+    stage = OTP_STAGE.SINGLE,
+    resend = false,
+    fallback = null,
+  } = {}) => {
+    if (fallback) {
+      return resend ? fallback.resendSuccess : fallback.success;
+    }
+
     if (mode === 'signup') {
       return resend ? AUTH_SUCCESS.otp_resent : AUTH_SUCCESS.otp_sent;
     }
@@ -213,23 +226,14 @@ const Login = () => {
     };
   };
 
-  const shouldFallbackToBackendOtp = (error) => {
-    const code = String(error?.code || '').trim().toLowerCase();
-    const message = String(error?.message || '').toLowerCase();
-
-    return [
-      'auth/configuration-unavailable',
-      'auth/invalid-api-key',
-      'auth/invalid-app-credential',
-      'auth/missing-app-credential',
-      'auth/network-request-failed',
-      'auth/too-many-requests',
-      'auth/quota-exceeded',
-      'auth/captcha-check-failed',
-    ].includes(code) || message.includes('recaptcha');
-  };
-
-  const sendBackendOtp = async ({ email, phone, purpose, password }) => {
+  const sendBackendOtp = async ({
+    email,
+    phone,
+    purpose,
+    password,
+    resend = false,
+    successOverride = null,
+  }) => {
     let credentialProofToken = '';
 
     if (mode === 'signin') {
@@ -248,9 +252,10 @@ const Login = () => {
     startOtpStep({
       transport: OTP_TRANSPORT.BACKEND_OTP,
       stage: OTP_STAGE.SINGLE,
-      success: buildOtpSuccessState({
+      success: successOverride || buildOtpSuccessState({
         transport: OTP_TRANSPORT.BACKEND_OTP,
         stage: OTP_STAGE.SINGLE,
+        resend,
       }),
     });
   };
@@ -382,16 +387,26 @@ const Login = () => {
       const email = normalizeEmail(formData.email);
       const phone = normalizePhone(formData.phone);
       const purpose = mode === 'forgot-password' ? 'forgot-password' : mode === 'signup' ? 'signup' : 'login';
+      let backendSuccessOverride = null;
 
       if (mode === 'signin' && canUseFirebasePhoneOtp) {
         try {
           await startDualChannelSignIn({ email, phone });
           return;
         } catch (firebasePhoneError) {
-          if (!shouldFallbackToBackendOtp(firebasePhoneError)) {
+          const fallback = resolveFirebasePhoneFallback(firebasePhoneError);
+          if (!fallback) {
             setErr(firebasePhoneError);
             return;
           }
+          if (fallback.disableFirebasePhoneOtp) {
+            setFirebasePhoneFallback(fallback);
+          }
+          backendSuccessOverride = buildOtpSuccessState({
+            transport: OTP_TRANSPORT.BACKEND_OTP,
+            stage: OTP_STAGE.SINGLE,
+            fallback,
+          });
           await clearFirebaseChallenge();
         }
       }
@@ -401,6 +416,7 @@ const Login = () => {
         phone,
         purpose,
         password: formData.password,
+        successOverride: backendSuccessOverride,
       });
     } catch (err) {
       if ((mode === 'signin' || mode === 'forgot-password') && isEnumerationSensitiveOtpError(err) && !shouldKeepSpecificOtpError(err)) {
@@ -516,10 +532,28 @@ const Login = () => {
       const email = normalizeEmail(formData.email);
       const phone = normalizePhone(formData.phone);
       const purpose = mode === 'forgot-password' ? 'forgot-password' : mode === 'signup' ? 'signup' : 'login';
+      let backendSuccessOverride = null;
 
       if (mode === 'signin' && otpStage !== OTP_STAGE.SINGLE && canUseFirebasePhoneOtp) {
-        await startDualChannelSignIn({ email, phone, resend: true });
-        return;
+        try {
+          await startDualChannelSignIn({ email, phone, resend: true });
+          return;
+        } catch (firebasePhoneError) {
+          const fallback = resolveFirebasePhoneFallback(firebasePhoneError);
+          if (!fallback) {
+            throw firebasePhoneError;
+          }
+          if (fallback.disableFirebasePhoneOtp) {
+            setFirebasePhoneFallback(fallback);
+          }
+          backendSuccessOverride = buildOtpSuccessState({
+            transport: OTP_TRANSPORT.BACKEND_OTP,
+            stage: OTP_STAGE.SINGLE,
+            resend: true,
+            fallback,
+          });
+          await clearFirebaseChallenge();
+        }
       }
 
       if (mode === 'signin' && !signInProofToken) {
@@ -528,19 +562,14 @@ const Login = () => {
         return;
       }
 
-      await otpApi.sendOtp(email, phone, purpose, {
-        ...(mode === 'signin' ? { credentialProofToken: signInProofToken } : {}),
-      });
-      setCountdown(60);
-      setOtpValues(Array(OTP_LENGTH).fill(''));
-      setOtpStage(OTP_STAGE.SINGLE);
-      setOtpTransport(OTP_TRANSPORT.BACKEND_OTP);
-      setAuthSuccess(buildOtpSuccessState({
-        transport: OTP_TRANSPORT.BACKEND_OTP,
-        stage: OTP_STAGE.SINGLE,
+      await sendBackendOtp({
+        email,
+        phone,
+        purpose,
+        password: formData.password,
         resend: true,
-      }));
-      otpRefs.current[0]?.focus();
+        successOverride: backendSuccessOverride,
+      });
     } catch (err) {
       if ((mode === 'signin' || mode === 'forgot-password') && isEnumerationSensitiveOtpError(err) && !shouldKeepSpecificOtpError(err)) {
         setErr(buildGenericOtpFlowError());
@@ -633,7 +662,9 @@ const Login = () => {
       default:
         return {
           title: 'WELCOME BACK',
-          desc: canUseFirebasePhoneOtp
+          desc: firebasePhoneFallback?.disableFirebasePhoneOtp
+            ? 'Firebase phone delivery is unavailable on this deployment, so secure backup OTP codes will be sent to your email and mobile after your password is checked.'
+            : canUseFirebasePhoneOtp
             ? 'Sign in with your password, then verify the login with one code to email and one Firebase SMS code to your phone.'
             : 'Sign in with your credentials. We\'ll verify your identity with an OTP.'
         };
@@ -684,7 +715,9 @@ const Login = () => {
     }
 
     return [
-      canUseFirebasePhoneOtp
+      firebasePhoneFallback?.disableFirebasePhoneOtp
+        ? 'Firebase phone verification is unavailable here, so Aura is using secure backup delivery to email and mobile.'
+        : canUseFirebasePhoneOtp
         ? 'Password is verified first, then login codes are sent to both your email and Firebase phone channel.'
         : 'Password validity is checked before an OTP is issued.',
       'Phone confirmation reduces account-takeover risk before the session is finalized.',
@@ -704,7 +737,9 @@ const Login = () => {
           ? 'Email OTP live, Firebase phone pending'
           : isPhoneOtpStage
             ? 'Email verified, Firebase SMS active'
-            : canUseFirebasePhoneOtp
+            : firebasePhoneFallback?.disableFirebasePhoneOtp
+              ? 'Email + mobile backup OTP'
+              : canUseFirebasePhoneOtp
               ? 'Email + Firebase SMS'
               : formData.phone ? 'Email + phone active' : 'Email first, phone required'
         : formData.phone ? 'Email + phone active' : 'Email first, phone required',
@@ -717,7 +752,7 @@ const Login = () => {
           ? 'OTP-only until this tab is refreshed'
           : `OTP-only on ${socialAuthStatus.runtimeHost || 'this host'}`,
     },
-  ]), [canUseFirebasePhoneOtp, formData.phone, isEmailOtpStage, isPhoneOtpStage, mode, socialAuthStatus.runtimeBlocked, socialAuthStatus.runtimeHost, socialAuthStatus.supported, step]);
+  ]), [canUseFirebasePhoneOtp, firebasePhoneFallback?.disableFirebasePhoneOtp, formData.phone, isEmailOtpStage, isPhoneOtpStage, mode, socialAuthStatus.runtimeBlocked, socialAuthStatus.runtimeHost, socialAuthStatus.supported, step]);
 
   const handleFeedbackAction = () => {
     if (!authError?.action) return;
@@ -766,6 +801,7 @@ const Login = () => {
 
     if (mode === 'signup') return 'SEND OTP & SIGN UP';
     if (mode === 'forgot-password') return 'SEND OTP';
+    if (firebasePhoneFallback?.disableFirebasePhoneOtp) return 'SEND BACKUP OTP';
     return canUseFirebasePhoneOtp ? 'SEND EMAIL + PHONE OTP' : 'SEND OTP & SIGN IN';
   })();
 
@@ -917,7 +953,9 @@ const Login = () => {
                           className="w-full pl-12 pr-4 py-4 bg-zinc-950/50 border border-white/10 rounded-2xl focus:outline-none focus:border-neo-cyan focus:ring-1 focus:ring-neo-cyan text-white placeholder:text-slate-600 font-medium transition-all shadow-inner" />
                       </div>
                       <p className="text-[10px] text-slate-600 mt-1.5 uppercase tracking-widest font-bold pl-1">
-                        {mode === 'signin' && canUseFirebasePhoneOtp
+                        {mode === 'signin' && firebasePhoneFallback?.disableFirebasePhoneOtp
+                          ? 'Firebase SMS is unavailable here. Secure backup OTP will be sent to your email and mobile instead.'
+                          : mode === 'signin' && canUseFirebasePhoneOtp
                           ? 'Sign-in sends one code to email and one Firebase SMS code to your phone.'
                           : 'OTP will be sent to your email & phone'}
                       </p>
