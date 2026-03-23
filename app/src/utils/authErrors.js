@@ -198,6 +198,34 @@ export const AUTH_ERRORS = {
         action: 'back',
         actionLabel: 'Start over'
     },
+    'signup email verification is required before completing phone verification': {
+        title: 'Email Verification Required',
+        detail: 'Finish the signup email OTP step before completing phone verification.',
+        hint: 'Start the signup verification flow again and enter the email code first.',
+        action: 'back',
+        actionLabel: 'Start over'
+    },
+    'signup email verification expired': {
+        title: 'Signup Verification Expired',
+        detail: 'Your verified signup email step has expired.',
+        hint: 'Request fresh signup codes to your email and phone, then try again.',
+        action: 'back',
+        actionLabel: 'Start over'
+    },
+    'password recovery email verification is required before completing phone verification': {
+        title: 'Recovery Email Verification Required',
+        detail: 'Finish the recovery email OTP step before completing phone verification.',
+        hint: 'Start the recovery flow again and enter the email code first.',
+        action: 'back',
+        actionLabel: 'Start over'
+    },
+    'password recovery email verification expired': {
+        title: 'Recovery Verification Expired',
+        detail: 'Your verified recovery email step has expired.',
+        hint: 'Request fresh recovery codes to your email and phone, then try again.',
+        action: 'back',
+        actionLabel: 'Start over'
+    },
     'password reset verification is required before setting a new password': {
         title: 'Reset Verification Required',
         detail: 'Verify the recovery OTP before choosing a new password.',
@@ -253,6 +281,13 @@ export const AUTH_ERRORS = {
         hint: 'Avoid patterns like qwerty, asdf, or similar keyboard runs.',
         action: null,
         actionLabel: null
+    },
+    'phone number does not match your pending signup': {
+        title: 'Pending Signup Mismatch',
+        detail: 'The verified phone number does not match the phone entered for this signup.',
+        hint: 'Use the same phone number you entered when you started the signup flow.',
+        action: 'back',
+        actionLabel: 'Start over'
     },
     'you are already signed in': {
         title: 'Already Signed In',

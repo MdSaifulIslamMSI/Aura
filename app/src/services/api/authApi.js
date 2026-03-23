@@ -58,6 +58,16 @@ const postWithFreshCsrf = async (path, body, options = {}) => {
     }
 };
 
+const postWithFirebaseBearer = async (path, body, options = {}) => {
+    const headers = await getAuthHeader(options.firebaseUser);
+    const { data } = await apiFetch(path, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(body),
+    });
+    return data;
+};
+
 export const authApi = {
     getSession: async (options = {}) => {
         const headers = await getAuthHeader(options.firebaseUser);
@@ -81,6 +91,9 @@ export const authApi = {
     },
     completePhoneFactorLogin: async (email, phone, options = {}) => {
         return postWithFreshCsrf('/auth/complete-phone-factor-login', { email, phone }, options);
+    },
+    completePhoneFactorVerification: async (purpose, email, phone, options = {}) => {
+        return postWithFirebaseBearer('/auth/complete-phone-factor-verification', { purpose, email, phone }, options);
     },
     verifyLatticeChallenge: async (challengeId, proof, options = {}) => {
         return postWithFreshCsrf('/auth/verify-lattice', { challengeId, proof }, options);

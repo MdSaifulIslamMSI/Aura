@@ -141,6 +141,52 @@ describe('OTP API Routes Integration', () => {
                 .send({ phone: u.phone, otp: '654321', purpose: 'signup' });
             expect(res.statusCode).toBe(401);
         });
+
+        test('should mark signup email OTP as verified without activating the account yet', async () => {
+            const u = uniqueUser();
+            const otpPlain = '123456';
+            const otpHash = await bcrypt.hash(otpPlain, 8);
+            const user = await User.create({
+                ...u,
+                isVerified: false,
+                otp: otpHash,
+                otpExpiry: new Date(Date.now() + 100000),
+                otpPurpose: 'signup',
+            });
+
+            const res = await request(app).post('/api/otp/verify')
+                .send({ phone: u.phone, otp: otpPlain, purpose: 'signup', email: u.email, factor: 'email' });
+
+            expect(res.statusCode).toBe(200);
+            expect(res.body.nextFactor).toBe('phone');
+
+            const updated = await User.findById(user._id).select('+signupEmailOtpVerifiedAt');
+            expect(updated.isVerified).toBe(false);
+            expect(updated.signupEmailOtpVerifiedAt).toBeTruthy();
+        });
+
+        test('should mark forgot-password email OTP as verified before Firebase phone completion', async () => {
+            const u = uniqueUser();
+            const otpPlain = '123456';
+            const otpHash = await bcrypt.hash(otpPlain, 8);
+            const user = await User.create({
+                ...u,
+                isVerified: true,
+                otp: otpHash,
+                otpExpiry: new Date(Date.now() + 100000),
+                otpPurpose: 'forgot-password',
+            });
+
+            const res = await request(app).post('/api/otp/verify')
+                .send({ phone: u.phone, otp: otpPlain, purpose: 'forgot-password', email: u.email, factor: 'email' });
+
+            expect(res.statusCode).toBe(200);
+            expect(res.body.nextFactor).toBe('phone');
+
+            const updated = await User.findById(user._id).select('+resetEmailOtpVerifiedAt +resetOtpVerifiedAt');
+            expect(updated.resetEmailOtpVerifiedAt).toBeTruthy();
+            expect(updated.resetOtpVerifiedAt).toBeNull();
+        });
     });
 
     describe('POST /api/otp/check-user', () => {
