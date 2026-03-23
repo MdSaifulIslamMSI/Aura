@@ -79,6 +79,9 @@ export const authApi = {
     syncSession: async (email, name, phone, options = {}) => {
         return postWithFreshCsrf('/auth/sync', { email, name, phone }, options);
     },
+    completePhoneFactorLogin: async (email, phone, options = {}) => {
+        return postWithFreshCsrf('/auth/complete-phone-factor-login', { email, phone }, options);
+    },
     verifyLatticeChallenge: async (challengeId, proof, options = {}) => {
         return postWithFreshCsrf('/auth/verify-lattice', { challengeId, proof }, options);
     },
@@ -106,14 +109,17 @@ export const otpApi = {
         }
         throw lastError || new Error('Failed to send OTP');
     },
-    verifyOtp: async (phone, otp, purpose, intentId = '') => {
+    verifyOtp: async (phone, otp, purpose, intentIdOrOptions = '', extraOptions = {}) => {
         const candidatePaths = ['/auth/otp/verify', '/otp/verify'];
+        const options = typeof intentIdOrOptions === 'string'
+            ? { intentId: intentIdOrOptions, ...extraOptions }
+            : { ...(intentIdOrOptions || {}) };
         let lastError = null;
         for (const path of candidatePaths) {
             try {
                 const { data } = await apiFetch(path, {
                     method: 'POST',
-                    body: JSON.stringify({ phone, otp, purpose, intentId }),
+                    body: JSON.stringify({ phone, otp, purpose, ...options }),
                 });
                 return data;
             } catch (error) {

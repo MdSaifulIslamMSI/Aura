@@ -173,3 +173,144 @@ describe('Auth sync lattice challenge policy', () => {
         expect(generateLatticeChallenge).toHaveBeenCalledTimes(1);
     });
 });
+
+describe('Firebase phone factor completion', () => {
+    afterEach(() => {
+        jest.resetModules();
+        jest.clearAllMocks();
+    });
+
+    const buildIsolatedPhoneFactorApp = ({
+        storedPhone = '+919876543210',
+        tokenPhone = '+919876543210',
+        loginEmailOtpVerifiedAt = new Date().toISOString(),
+    } = {}) => {
+        let isolatedApp;
+
+        jest.isolateModules(() => {
+            jest.doMock('../models/User', () => ({
+                findOne: jest.fn().mockReturnValue({
+                    select: jest.fn().mockReturnValue({
+                        lean: jest.fn().mockResolvedValue({
+                            _id: 'user-1',
+                            name: 'Verified User',
+                            email: 'verified@example.com',
+                            phone: storedPhone,
+                            avatar: '',
+                            gender: '',
+                            dob: null,
+                            bio: '',
+                            isAdmin: false,
+                            isVerified: true,
+                            loginEmailOtpVerifiedAt,
+                            isSeller: false,
+                            sellerActivatedAt: null,
+                            accountState: 'active',
+                            moderation: {},
+                            loyalty: {},
+                            createdAt: new Date('2026-01-01T00:00:00.000Z'),
+                        }),
+                    }),
+                }),
+                findOneAndUpdate: jest.fn().mockResolvedValue({
+                    _id: 'user-1',
+                    name: 'Verified User',
+                    email: 'verified@example.com',
+                    phone: storedPhone,
+                    avatar: '',
+                    gender: '',
+                    dob: null,
+                    bio: '',
+                    isAdmin: false,
+                    isVerified: true,
+                    isSeller: false,
+                    sellerActivatedAt: null,
+                    accountState: 'active',
+                    moderation: {},
+                    loyalty: {},
+                    createdAt: new Date('2026-01-01T00:00:00.000Z'),
+                }),
+            }));
+            jest.doMock('../services/authSessionService', () => {
+                const actual = jest.requireActual('../services/authSessionService');
+                return {
+                    ...actual,
+                    persistAuthSnapshot: jest.fn().mockResolvedValue(undefined),
+                };
+            });
+            jest.doMock('../middleware/authMiddleware', () => ({
+                invalidateUserCache: jest.fn().mockResolvedValue(undefined),
+                invalidateUserCacheByEmail: jest.fn().mockResolvedValue(undefined),
+            }));
+
+            const express = require('express');
+            const { completePhoneFactorLogin } = require('../controllers/authController');
+            const { errorHandler } = require('../middleware/errorMiddleware');
+
+            isolatedApp = express();
+            isolatedApp.use(express.json());
+            isolatedApp.post('/api/auth/complete-phone-factor-login', (req, _res, next) => {
+                req.user = {
+                    email: 'verified@example.com',
+                    name: 'Verified User',
+                    phone: storedPhone,
+                    isVerified: true,
+                };
+                req.authUid = 'uid-verified';
+                req.authToken = {
+                    email: 'verified@example.com',
+                    email_verified: true,
+                    phone_number: tokenPhone,
+                };
+                next();
+            }, completePhoneFactorLogin);
+            isolatedApp.use(errorHandler);
+        });
+
+        return isolatedApp;
+    };
+
+    test('POST /api/auth/complete-phone-factor-login upgrades assurance when Firebase phone matches the account', async () => {
+        const isolatedApp = buildIsolatedPhoneFactorApp();
+
+        const res = await request(isolatedApp)
+            .post('/api/auth/complete-phone-factor-login')
+            .send({
+                email: 'verified@example.com',
+                phone: '+919876543210',
+            });
+
+        expect(res.statusCode).toBe(200);
+        expect(res.body.status).toBe('authenticated');
+        expect(res.body.session.phone).toBe('+919876543210');
+        expect(res.body.profile.email).toBe('verified@example.com');
+    });
+
+    test('POST /api/auth/complete-phone-factor-login rejects mismatched verified phone numbers', async () => {
+        const isolatedApp = buildIsolatedPhoneFactorApp({ tokenPhone: '+919811112222' });
+
+        const res = await request(isolatedApp)
+            .post('/api/auth/complete-phone-factor-login')
+            .send({
+                email: 'verified@example.com',
+                phone: '+919876543210',
+            });
+
+        expect(res.statusCode).toBe(403);
+        expect(res.body.message).toContain('Verified phone number does not match');
+    });
+
+    test('POST /api/auth/complete-phone-factor-login requires a recent email OTP verification first', async () => {
+        const isolatedApp = buildIsolatedPhoneFactorApp({ loginEmailOtpVerifiedAt: null });
+
+        const res = await request(isolatedApp)
+            .post('/api/auth/complete-phone-factor-login')
+            .send({
+                email: 'verified@example.com',
+                phone: '+919876543210',
+            });
+
+        expect(res.statusCode).toBe(403);
+        expect(res.body.message).toContain('Email OTP verification is required');
+    });
+});

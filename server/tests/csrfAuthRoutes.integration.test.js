@@ -68,6 +68,7 @@ jest.mock('../routes/otpRoutes', () => {
 jest.mock('../controllers/authController', () => ({
     getSession: (_req, res) => res.json({ ok: true }),
     syncSession: (_req, res) => res.json({ synced: true }),
+    completePhoneFactorLogin: (_req, res) => res.json({ completed: true }),
     verifyLatticeChallenge: (_req, res) => res.json({ ok: true }),
     verifyQuantumChallenge: (_req, res) => res.json({ ok: true }),
 }));

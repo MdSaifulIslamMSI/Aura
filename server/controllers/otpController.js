@@ -27,6 +27,7 @@ const SIGNUP_IDENTIFIER_TELEMETRY_THRESHOLD = 3;
 const GENERIC_OTP_VERIFICATION_MESSAGE = 'If account details are valid, verification will proceed.';
 
 const ALLOWED_PURPOSES = ['signup', 'login', 'forgot-password', 'payment-challenge'];
+const ALLOWED_LOGIN_FACTORS = new Set(['', 'email']);
 const ALLOWED_GENDERS = new Set(['male', 'female', 'other', 'prefer-not-to-say', '']);
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_REGEX = /^\+?\d{10,15}$/;
@@ -105,6 +106,10 @@ const buildPhoneLookupCandidates = (phoneInput, canonicalPhone) => {
 
 const normalizePurpose = (value) => (
     typeof value === 'string' ? value.trim() : ''
+);
+
+const normalizeLoginFactor = (value) => (
+    typeof value === 'string' ? value.trim().toLowerCase() : ''
 );
 
 const parseBooleanEnv = (value, fallback = false) => {
@@ -475,6 +480,8 @@ const sendOtp = asyncHandler(async (req, res, next) => {
     const rawPhone = req.body?.phone;
     const rawPurpose = req.body?.purpose;
     const rawCredentialProofToken = req.body?.credentialProofToken;
+    const rawSkipSms = req.body?.skipSms;
+    const rawStrictIdentity = req.body?.strictIdentity;
     const clientIp = extractClientIp(req);
     const requestId = req.requestId || '-';
 
@@ -500,14 +507,23 @@ const sendOtp = asyncHandler(async (req, res, next) => {
     if (rawCredentialProofToken !== undefined && rawCredentialProofToken !== null && typeof rawCredentialProofToken !== 'string') {
         return next(new AppError('credentialProofToken must be a string', 400));
     }
+    if (rawSkipSms !== undefined && rawSkipSms !== null && typeof rawSkipSms !== 'boolean') {
+        return next(new AppError('skipSms must be a boolean', 400));
+    }
+    if (rawStrictIdentity !== undefined && rawStrictIdentity !== null && typeof rawStrictIdentity !== 'boolean') {
+        return next(new AppError('strictIdentity must be a boolean', 400));
+    }
 
     const email = normalizeEmail(rawEmail);
     const phone = normalizePhone(rawPhone);
     const canonicalPhone = canonicalizePhoneIdentity(phone);
     const purpose = normalizePurpose(rawPurpose);
+    const skipSms = rawSkipSms === true;
+    const strictIdentity = rawStrictIdentity === true;
     const credentialProofToken = typeof rawCredentialProofToken === 'string'
         ? rawCredentialProofToken.trim()
         : '';
+    const useStrictLoginIdentity = purpose === 'login' && strictIdentity;
 
     if (!EMAIL_REGEX.test(email)) {
         return next(new AppError('Valid email address is required', 400));
@@ -528,8 +544,17 @@ const sendOtp = asyncHandler(async (req, res, next) => {
     let targetUser = null;
     let credentialProof = null;
     const shouldReturnGenericNonSignupResponse = () => (
-        purpose !== 'signup' && ['login', 'forgot-password'].includes(purpose)
+        !useStrictLoginIdentity
+        && purpose !== 'signup'
+        && ['login', 'forgot-password'].includes(purpose)
     );
+    const failStrictLoginIdentity = (message, statusCode = 403) => {
+        if (!useStrictLoginIdentity) {
+            return false;
+        }
+        next(new AppError(message, statusCode));
+        return true;
+    };
     const returnGenericNonSignupResponse = ({ event, reason }) => {
         audit(event, {
             phone,
@@ -569,8 +594,15 @@ const sendOtp = asyncHandler(async (req, res, next) => {
             return next(new AppError('Too many signup OTP requests for this account. Please wait a few minutes and try again.', 429));
         }
 
+        const signupPhoneCandidates = buildPhoneLookupCandidates(phone, canonicalPhone);
         const existingVerified = await User.findOne(
-            { $or: [{ email }, { phone: canonicalPhone }], isVerified: true },
+            {
+                isVerified: true,
+                $or: [
+                    { email },
+                    { phone: { $in: signupPhoneCandidates } },
+                ],
+            },
             'email phone'
         ).lean();
 
@@ -659,6 +691,7 @@ const sendOtp = asyncHandler(async (req, res, next) => {
 
         if (verifiedByEmail && !phoneIdentityMatches(verifiedByEmail.phone, canonicalPhone)) {
             const reason = `phone mismatch expected ${maskPhoneSuffix(verifiedByEmail.phone)}`;
+            if (failStrictLoginIdentity('Phone number does not match your registered account.', 403)) return;
             if (shouldReturnGenericNonSignupResponse()) {
                 return returnGenericNonSignupResponse({ event: 'SEND_MISMATCH', reason });
             }
@@ -667,6 +700,7 @@ const sendOtp = asyncHandler(async (req, res, next) => {
 
         if (!verifiedByEmail && verifiedByPhone && normalizeEmail(verifiedByPhone.email) !== email) {
             const reason = 'email mismatch for registered phone';
+            if (failStrictLoginIdentity('Email address does not match your registered account.', 403)) return;
             if (shouldReturnGenericNonSignupResponse()) {
                 return returnGenericNonSignupResponse({ event: 'SEND_MISMATCH', reason });
             }
@@ -675,7 +709,7 @@ const sendOtp = asyncHandler(async (req, res, next) => {
 
         targetUser = verifiedByEmail || verifiedByPhone || null;
 
-        if (!targetUser && ['login', 'forgot-password'].includes(purpose) && isLoginAutoRecoverEnabled()) {
+        if (!targetUser && !useStrictLoginIdentity && ['login', 'forgot-password'].includes(purpose) && isLoginAutoRecoverEnabled()) {
             const vaultProfile = await getAuthProfileSnapshotByEmail(email);
             if (vaultProfile) {
                 if (vaultProfile.phone && !phoneIdentityMatches(vaultProfile.phone, canonicalPhone)) {
@@ -710,7 +744,7 @@ const sendOtp = asyncHandler(async (req, res, next) => {
             }
         }
 
-        if (!targetUser && purpose === 'login' && credentialProof && isLoginAutoRecoverEnabled()) {
+        if (!targetUser && !useStrictLoginIdentity && purpose === 'login' && credentialProof && isLoginAutoRecoverEnabled()) {
             try {
                 const recoveredName = buildRecoveredName(credentialProof, email);
                 targetUser = await User.create({
@@ -759,6 +793,10 @@ const sendOtp = asyncHandler(async (req, res, next) => {
 
         if (!targetUser) {
             const reason = 'verified user not found for login context';
+            if (failStrictLoginIdentity(
+                'No verified account found for this email and phone number. Please sign up first.',
+                404
+            )) return;
             if (shouldReturnGenericNonSignupResponse()) {
                 return returnGenericNonSignupResponse({ event: 'SEND_404', reason });
             }
@@ -823,6 +861,7 @@ const sendOtp = asyncHandler(async (req, res, next) => {
     let emailDelivered = false;
     let smsDelivered = false;
     let mobileChannel = 'sms';
+    const shouldSendSms = !skipSms && shouldAttemptSmsSend();
 
     if (shouldAttemptEmailSend()) {
         try {
@@ -866,7 +905,7 @@ const sendOtp = asyncHandler(async (req, res, next) => {
         }
     }
 
-    if (shouldAttemptSmsSend()) {
+    if (shouldSendSms) {
         try {
             const smsResult = await sendOtpSms({
                 toPhone: smsTarget,
@@ -976,6 +1015,7 @@ const verifyOtp = asyncHandler(async (req, res, next) => {
     const rawPurpose = req.body?.purpose;
     const rawIntentId = req.body?.intentId;
     const rawEmail = req.body?.email;
+    const rawFactor = req.body?.factor;
     const rawUserId = req.body?.userId;
     const clientIp = extractClientIp(req);
     const requestId = req.requestId || '-';
@@ -1002,6 +1042,9 @@ const verifyOtp = asyncHandler(async (req, res, next) => {
     if (rawEmail !== undefined && rawEmail !== null && rawEmail !== '' && typeof rawEmail !== 'string') {
         return next(new AppError('Email must be a string', 400));
     }
+    if (rawFactor !== undefined && rawFactor !== null && rawFactor !== '' && typeof rawFactor !== 'string') {
+        return next(new AppError('factor must be a string', 400));
+    }
     if (rawUserId !== undefined && rawUserId !== null && rawUserId !== '' && typeof rawUserId !== 'string') {
         return next(new AppError('userId must be a string', 400));
     }
@@ -1011,7 +1054,9 @@ const verifyOtp = asyncHandler(async (req, res, next) => {
     const otp = rawOtp.trim();
     const purpose = normalizePurpose(rawPurpose);
     const email = rawEmail ? normalizeEmail(rawEmail) : '';
+    const factor = normalizeLoginFactor(rawFactor);
     const userId = rawUserId ? rawUserId.trim() : '';
+    const isEmailFactorLogin = purpose === 'login' && factor === 'email';
 
     if (!canonicalPhone) {
         return next(new AppError('Valid phone number is required', 400));
@@ -1029,6 +1074,12 @@ const verifyOtp = asyncHandler(async (req, res, next) => {
     const purposeIsFormatted = rawPurpose === purpose;
     if (!purposeIsFormatted || !ALLOWED_PURPOSES.includes(purpose)) {
         return next(new AppError('Invalid OTP purpose. Must be: signup, login, forgot-password, or payment-challenge', 400));
+    }
+    if ((purpose !== 'login' && factor) || (purpose === 'login' && !ALLOWED_LOGIN_FACTORS.has(factor))) {
+        return next(new AppError('Invalid OTP factor. Login OTP currently supports the email factor only.', 400));
+    }
+    if (isEmailFactorLogin && !email) {
+        return next(new AppError('Email is required for login email OTP verification', 400));
     }
 
     if (rawIntentId !== undefined && rawIntentId !== null && rawIntentId !== '') {
@@ -1268,7 +1319,6 @@ const verifyOtp = asyncHandler(async (req, res, next) => {
     }
 
     await clearOtpSession({ identityKey: canonicalPhone, purpose });
-    const authAssurance = getAssuranceForPurpose(purpose);
     const verificationMutation = {
         otp: null,
         otpExpiry: null,
@@ -1276,11 +1326,18 @@ const verifyOtp = asyncHandler(async (req, res, next) => {
         otpAttempts: 0,
         otpLockedUntil: null,
         isVerified: user.isVerified || purpose === 'signup',
-        authAssurance,
-        authAssuranceAt: new Date(),
     };
 
-    if (purpose === 'login') {
+    if (isEmailFactorLogin) {
+        verificationMutation.loginEmailOtpVerifiedAt = new Date();
+    } else {
+        const authAssurance = getAssuranceForPurpose(purpose);
+        verificationMutation.authAssurance = authAssurance;
+        verificationMutation.authAssuranceAt = new Date();
+    }
+
+    if (purpose === 'login' && !isEmailFactorLogin) {
+        verificationMutation.loginEmailOtpVerifiedAt = null;
         verificationMutation.loginOtpVerifiedAt = new Date();
         verificationMutation.loginOtpAssuranceExpiresAt = new Date(Date.now() + LOGIN_ASSURANCE_TTL_MS);
     } else if (purpose === 'forgot-password') {
@@ -1318,9 +1375,10 @@ const verifyOtp = asyncHandler(async (req, res, next) => {
 
     res.json({
         success: true,
-        message: 'OTP verified successfully',
+        message: isEmailFactorLogin ? 'Email OTP verified successfully' : 'OTP verified successfully',
         verified: true,
-        maskedIdentifier: maskPhoneSuffix(user.phone),
+        maskedIdentifier: isEmailFactorLogin ? maskEmail(user.email) : maskPhoneSuffix(user.phone),
+        ...(isEmailFactorLogin ? { nextFactor: 'phone' } : {}),
         ...flowPayload,
         ...(challengePayload || {}),
     });

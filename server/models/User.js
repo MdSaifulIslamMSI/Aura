@@ -114,6 +114,7 @@ const userSchema = mongoose.Schema({
     otpPurpose: { type: String, enum: ['signup', 'login', 'forgot-password', 'payment-challenge', null], default: null, select: false },
     otpAttempts: { type: Number, default: 0, select: false },    // wrong attempts (max 5)
     otpLockedUntil: { type: Date, default: null, select: false },// lockout expiry
+    loginEmailOtpVerifiedAt: { type: Date, default: null, select: false },
     loginOtpVerifiedAt: { type: Date, default: null, select: false },
     loginOtpAssuranceExpiresAt: { type: Date, default: null, select: false },
     resetOtpVerifiedAt: { type: Date, default: null, select: false },
