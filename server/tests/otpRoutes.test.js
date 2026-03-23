@@ -1,8 +1,9 @@
 const request = require('supertest');
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
-const app = require('../index');
-const User = require('../models/User');
+const mockGetUserByEmail = jest.fn();
+const mockUpdateUser = jest.fn();
+const mockRevokeRefreshTokens = jest.fn();
 
 // Mock services
 jest.mock('../services/emailService', () => ({
@@ -13,6 +14,17 @@ jest.mock('../services/sms', () => ({
     sendOtpSms: jest.fn().mockResolvedValue({ channel: 'sms' }),
     normalizePhoneE164: jest.fn((phone) => phone.startsWith('+') ? phone : `+91${phone}`),
 }));
+
+jest.mock('../config/firebase', () => ({
+    auth: () => ({
+        getUserByEmail: mockGetUserByEmail,
+        updateUser: mockUpdateUser,
+        revokeRefreshTokens: mockRevokeRefreshTokens,
+    }),
+}));
+
+const app = require('../index');
+const User = require('../models/User');
 
 const { sendOtpEmail } = require('../services/emailService');
 const { sendOtpSms } = require('../services/sms');
@@ -38,6 +50,9 @@ describe('OTP API Routes Integration', () => {
 
     beforeEach(async () => {
         jest.clearAllMocks();
+        mockGetUserByEmail.mockResolvedValue({ uid: 'firebase-user-1' });
+        mockUpdateUser.mockResolvedValue({ uid: 'firebase-user-1' });
+        mockRevokeRefreshTokens.mockResolvedValue();
         await User.deleteMany({});
     });
 
@@ -135,6 +150,75 @@ describe('OTP API Routes Integration', () => {
             expect(res.statusCode).toBe(200);
             expect(res.body.message).toBe(GENERIC_ACCOUNT_DISCOVERY_MESSAGE);
             expect(res.body.exists).toBeUndefined();
+        });
+    });
+
+    describe('POST /api/otp/reset-password', () => {
+        test('should update Firebase password after a recent forgot-password OTP verification', async () => {
+            const u = uniqueUser();
+            const user = await User.create({
+                ...u,
+                isVerified: true,
+                resetOtpVerifiedAt: new Date(),
+            });
+
+            const res = await request(app).post('/api/otp/reset-password')
+                .send({
+                    email: u.email,
+                    phone: u.phone,
+                    password: 'Orbital!59Qa',
+                });
+
+            expect(res.statusCode).toBe(200);
+            expect(res.body.message).toContain('Password reset successful');
+            expect(mockGetUserByEmail).toHaveBeenCalledWith(u.email);
+            expect(mockUpdateUser).toHaveBeenCalledWith('firebase-user-1', {
+                password: 'Orbital!59Qa',
+            });
+            expect(mockRevokeRefreshTokens).toHaveBeenCalledWith('firebase-user-1');
+
+            const updated = await User.findById(user._id).select('+resetOtpVerifiedAt');
+            expect(updated.resetOtpVerifiedAt).toBeNull();
+        });
+
+        test('should reject password reset when the verified recovery session is missing', async () => {
+            const u = uniqueUser();
+            await User.create({
+                ...u,
+                isVerified: true,
+                resetOtpVerifiedAt: null,
+            });
+
+            const res = await request(app).post('/api/otp/reset-password')
+                .send({
+                    email: u.email,
+                    phone: u.phone,
+                    password: 'Orbital!59Qa',
+                });
+
+            expect(res.statusCode).toBe(403);
+            expect(res.body.message).toContain('Password reset verification is required');
+            expect(mockUpdateUser).not.toHaveBeenCalled();
+        });
+
+        test('should reject predictable new passwords even after OTP verification', async () => {
+            const u = uniqueUser();
+            await User.create({
+                ...u,
+                isVerified: true,
+                resetOtpVerifiedAt: new Date(),
+            });
+
+            const res = await request(app).post('/api/otp/reset-password')
+                .send({
+                    email: u.email,
+                    phone: u.phone,
+                    password: 'Secure1234!Aa',
+                });
+
+            expect(res.statusCode).toBe(400);
+            expect(res.body.message).toContain('sequential characters');
+            expect(mockUpdateUser).not.toHaveBeenCalled();
         });
     });
 });

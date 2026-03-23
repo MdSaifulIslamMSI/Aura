@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { sendOtp, verifyOtp, checkUserExists } = require('../controllers/otpController');
+const { sendOtp, verifyOtp, resetPasswordWithOtp, checkUserExists } = require('../controllers/otpController');
 const { createDistributedRateLimit } = require('../middleware/distributedRateLimit');
 
 const otpLimiter = createDistributedRateLimit({
@@ -19,6 +19,14 @@ const verifyLimiter = createDistributedRateLimit({
     message: 'Too many verification attempts. Please wait before trying again.',
 });
 
+const resetPasswordLimiter = createDistributedRateLimit({
+    securityCritical: true,
+    name: 'otp_reset_password',
+    windowMs: 15 * 60 * 1000,
+    max: 5,
+    message: 'Too many password reset attempts. Please wait before trying again.',
+});
+
 const checkUserLimiter = createDistributedRateLimit({
     securityCritical: true,
     name: 'otp_check_user',
@@ -29,6 +37,7 @@ const checkUserLimiter = createDistributedRateLimit({
 
 router.post('/send', otpLimiter, sendOtp);
 router.post('/verify', verifyLimiter, verifyOtp);
+router.post('/reset-password', resetPasswordLimiter, resetPasswordWithOtp);
 router.post('/check-user', checkUserLimiter, checkUserExists);
 
 module.exports = router;

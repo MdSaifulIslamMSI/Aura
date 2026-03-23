@@ -129,6 +129,23 @@ export const otpApi = {
         }
         throw lastError || new Error('Failed to verify OTP');
     },
+    resetPassword: async (email, phone, password) => {
+        const candidatePaths = ['/auth/otp/reset-password', '/otp/reset-password'];
+        let lastError = null;
+        for (const path of candidatePaths) {
+            try {
+                const { data } = await apiFetch(path, {
+                    method: 'POST',
+                    body: JSON.stringify({ email, phone, password }),
+                });
+                return data;
+            } catch (error) {
+                lastError = error;
+                if (error?.status !== 404) break;
+            }
+        }
+        throw lastError || new Error('Failed to reset password');
+    },
     checkUserExists: async (phone, email = '') => {
         const candidatePaths = ['/auth/otp/check-user', '/otp/check-user'];
         let lastError = null;
