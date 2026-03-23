@@ -3,6 +3,7 @@ const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
 const { saveAuthProfileSnapshot } = require('./authProfileVault');
 const { awardLoyaltyPoints, getRewardSnapshotFromUser } = require('./loyaltyService');
+const { normalizePhoneE164 } = require('./sms');
 
 const PROFILE_PROJECTION = 'name email phone avatar gender dob bio isAdmin isVerified isSeller sellerActivatedAt accountState moderation addresses cart wishlist loyalty createdAt';
 const AUTH_ONLY_PROJECTION = 'name email phone isAdmin isVerified isSeller sellerActivatedAt accountState moderation loyalty createdAt';
@@ -13,6 +14,46 @@ const PHONE_REGEX = /^\+?\d{10,15}$/;
 const normalizePhone = (value) => (
     typeof value === 'string' ? value.trim().replace(/[\s\-()]/g, '') : ''
 );
+
+const canonicalizePhone = (value) => {
+    const normalized = normalizePhone(value);
+    if (!normalized || !PHONE_REGEX.test(normalized)) return '';
+    try {
+        return normalizePhoneE164(normalized);
+    } catch {
+        return '';
+    }
+};
+
+const buildPhoneLookupCandidates = (value) => {
+    const candidates = new Set();
+    const normalizedInput = normalizePhone(value);
+    const canonicalPhone = canonicalizePhone(value);
+
+    if (canonicalPhone) {
+        candidates.add(canonicalPhone);
+        const canonicalDigits = canonicalPhone.replace(/\D/g, '');
+        if (canonicalDigits) {
+            candidates.add(canonicalDigits);
+            if (canonicalDigits.length > 10) {
+                candidates.add(canonicalDigits.slice(-10));
+            }
+        }
+    }
+
+    if (normalizedInput) {
+        candidates.add(normalizedInput);
+        const normalizedDigits = normalizedInput.replace(/\D/g, '');
+        if (normalizedDigits) {
+            candidates.add(normalizedDigits);
+            if (normalizedDigits.length > 10) {
+                candidates.add(normalizedDigits.slice(-10));
+            }
+        }
+    }
+
+    return Array.from(candidates).filter(Boolean);
+};
 
 const normalizeText = (value) => (
     typeof value === 'string' ? value.trim() : ''
@@ -32,8 +73,7 @@ const getDuplicateField = (error) => {
 const buildUserBootstrapPayload = ({ email, authUser = {} }) => {
     const safeEmail = normalizeEmail(email || authUser.email);
     const safeName = normalizeText(authUser.name || authUser.displayName) || safeEmail.split('@')[0] || 'Aura User';
-    const rawPhone = normalizePhone(authUser.phone || authUser.phoneNumber || authUser.phone_number || '');
-    const safePhone = PHONE_REGEX.test(rawPhone) ? rawPhone : '';
+    const safePhone = canonicalizePhone(authUser.phone || authUser.phoneNumber || authUser.phone_number || '');
 
     const setOnInsert = {
         email: safeEmail,
@@ -179,7 +219,7 @@ const toProfilePayload = (user = null, options = {}) => {
 
 const buildSessionIdentity = ({ authUser = {}, authToken = null, authUid = '' } = {}) => {
     const email = normalizeEmail(authToken?.email || authUser.email);
-    const phone = normalizePhone(authToken?.phone_number || authUser.phoneNumber || authUser.phone || '');
+    const phone = canonicalizePhone(authToken?.phone_number || authUser.phoneNumber || authUser.phone || '');
     const providerIds = Array.isArray(authUser?.providerData)
         ? authUser.providerData.map((entry) => normalizeText(entry?.providerId)).filter(Boolean)
         : [];
@@ -200,7 +240,7 @@ const buildSessionIdentity = ({ authUser = {}, authToken = null, authUid = '' } 
         email,
         emailVerified: Boolean(authToken?.email_verified ?? authUser.emailVerified),
         displayName: normalizeText(authToken?.name || authUser.displayName || authUser.name),
-        phone: PHONE_REGEX.test(phone) ? phone : '',
+        phone: phone || '',
         providerIds,
         authTime: toIso(authToken?.auth_time),
         issuedAt: toIso(authToken?.iat),
@@ -253,9 +293,21 @@ const syncAuthenticatedUser = async ({
         if (typeof phone !== 'string') {
             throw new AppError('Phone number must be a string', 400);
         }
-        normalizedPhone = normalizePhone(phone);
-        if (!PHONE_REGEX.test(normalizedPhone)) {
+        normalizedPhone = canonicalizePhone(phone);
+        if (!normalizedPhone) {
             throw new AppError('Valid phone number is required', 400);
+        }
+
+        const phoneConflict = await User.findOne(
+            {
+                email: { $ne: tokenEmail },
+                phone: { $in: buildPhoneLookupCandidates(normalizedPhone) },
+            },
+            'email phone'
+        ).lean();
+
+        if (phoneConflict) {
+            throw new AppError('Phone number is already linked to another account', 409);
         }
     }
 

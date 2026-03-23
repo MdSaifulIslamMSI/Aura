@@ -2,7 +2,12 @@ import { useState, useContext, useRef, useEffect, useMemo } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Eye, EyeOff, Mail, Lock, User, Phone, Zap, Network, ArrowLeft, Shield, Loader2 } from 'lucide-react';
 import { AuthContext } from '@/context/AuthContext';
-import { otpApi } from '@/services/api';
+import { authApi, otpApi } from '@/services/api';
+import {
+  completeFirebasePhoneLoginChallenge,
+  disposeFirebasePhoneLoginChallenge,
+  startFirebasePhoneLoginChallenge,
+} from '@/services/firebasePhoneChallenge';
 import { cn } from '@/lib/utils';
 import { AuthFeedback } from '@/components/shared/AuthFeedback';
 import { resolveAuthError, AUTH_SUCCESS } from '@/utils/authErrors';
@@ -11,6 +16,15 @@ import { verifyCredentialsWithoutSession } from '@/utils/precheckCredentials';
 import { getFirebaseSocialAuthStatus } from '@/config/firebase';
 
 const OTP_LENGTH = 6;
+const OTP_TRANSPORT = {
+  FIREBASE_SMS: 'firebase_sms',
+  BACKEND_OTP: 'backend_otp',
+};
+const OTP_STAGE = {
+  SINGLE: 'single',
+  EMAIL: 'email',
+  PHONE: 'phone',
+};
 
 const Login = () => {
   const navigate = useNavigate();
@@ -35,6 +49,8 @@ const Login = () => {
   const [authSuccess, setAuthSuccess] = useState(null); // structured success
   const [countdown, setCountdown] = useState(0);
   const [signInProofToken, setSignInProofToken] = useState('');
+  const [otpTransport, setOtpTransport] = useState(OTP_TRANSPORT.BACKEND_OTP);
+  const [otpStage, setOtpStage] = useState(OTP_STAGE.SINGLE);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -46,12 +62,17 @@ const Login = () => {
 
   const [otpValues, setOtpValues] = useState(Array(OTP_LENGTH).fill(''));
   const otpRefs = useRef([]);
+  const recaptchaContainerRef = useRef(null);
+  const firebaseLoginChallengeRef = useRef(null);
 
   const from = useMemo(
     () => resolveNavigationTarget(location.state?.from, '/'),
     [location.state?.from]
   );
   const socialAuthStatus = getFirebaseSocialAuthStatus();
+  const canUseFirebasePhoneOtp = mode === 'signin' && socialAuthStatus.ready;
+  const isEmailOtpStage = mode === 'signin' && otpStage === OTP_STAGE.EMAIL;
+  const isPhoneOtpStage = mode === 'signin' && otpStage === OTP_STAGE.PHONE;
 
   // OTP resend countdown timer
   useEffect(() => {
@@ -65,6 +86,18 @@ const Login = () => {
     if (!currentUser) return;
     navigate(from, { replace: true });
   }, [currentUser, from, navigate]);
+
+  const clearFirebaseChallenge = async () => {
+    const activeChallenge = firebaseLoginChallengeRef.current;
+    firebaseLoginChallengeRef.current = null;
+
+    if (!activeChallenge) return;
+    await disposeFirebasePhoneLoginChallenge(activeChallenge);
+  };
+
+  useEffect(() => () => {
+    clearFirebaseChallenge().catch(() => {});
+  }, []);
 
   const handleChange = (e) => {
     setFormData((prev) => ({
@@ -125,6 +158,146 @@ const Login = () => {
 
   const setErr = (rawErr) => setAuthError(resolveAuthError(rawErr));
 
+  const startOtpStep = ({
+    transport,
+    stage = OTP_STAGE.SINGLE,
+    success,
+    resetCountdown = true,
+  }) => {
+    setOtpTransport(transport);
+    setOtpStage(stage);
+    setStep('otp');
+    setOtpValues(Array(OTP_LENGTH).fill(''));
+    if (resetCountdown) {
+      setCountdown(60);
+    }
+    setAuthSuccess(success);
+    setTimeout(() => otpRefs.current[0]?.focus(), 300);
+  };
+
+  const buildOtpSuccessState = ({ transport, stage = OTP_STAGE.SINGLE, resend = false } = {}) => {
+    if (mode === 'signup') {
+      return resend ? AUTH_SUCCESS.otp_resent : AUTH_SUCCESS.otp_sent;
+    }
+
+    if (mode === 'signin' && stage === OTP_STAGE.EMAIL) {
+      return {
+        title: resend ? 'Codes Re-Sent' : 'Email Code Sent',
+        detail: resend
+          ? 'Fresh sign-in codes were sent. Enter the email code first, then confirm the same login with Firebase SMS.'
+          : 'Your email code is ready. After that, you will confirm the same login with Firebase SMS on your phone.',
+      };
+    }
+
+    if (mode === 'signin' && stage === OTP_STAGE.PHONE && transport === OTP_TRANSPORT.FIREBASE_SMS) {
+      return {
+        title: 'Email Verified',
+        detail: 'Step 1 is complete. Enter the Firebase SMS code sent to your phone to finish signing in.',
+      };
+    }
+
+    if (mode === 'signin' && transport === OTP_TRANSPORT.FIREBASE_SMS) {
+      return {
+        title: resend ? 'Firebase Code Re-Sent' : 'Firebase SMS Sent',
+        detail: resend
+          ? 'A fresh 6-digit Firebase verification code is on its way to your phone.'
+          : 'A 6-digit Firebase verification code has been sent to your phone.',
+      };
+    }
+
+    return {
+      title: 'Check for a Code',
+      detail: resend
+        ? 'If the account details are valid, a fresh verification code has been sent.'
+        : 'If the account details are valid, a 6-digit verification code has been sent.',
+    };
+  };
+
+  const shouldFallbackToBackendOtp = (error) => {
+    const code = String(error?.code || '').trim().toLowerCase();
+    const message = String(error?.message || '').toLowerCase();
+
+    return [
+      'auth/configuration-unavailable',
+      'auth/invalid-api-key',
+      'auth/invalid-app-credential',
+      'auth/missing-app-credential',
+      'auth/network-request-failed',
+      'auth/too-many-requests',
+      'auth/quota-exceeded',
+      'auth/captcha-check-failed',
+    ].includes(code) || message.includes('recaptcha');
+  };
+
+  const sendBackendOtp = async ({ email, phone, purpose, password }) => {
+    let credentialProofToken = '';
+
+    if (mode === 'signin') {
+      const precheck = await verifyCredentialsWithoutSession(email, password);
+      credentialProofToken = precheck?.credentialProofToken || '';
+      if (!credentialProofToken) {
+        throw new Error('Unable to verify credentials for secure OTP flow.');
+      }
+      setSignInProofToken(credentialProofToken);
+    }
+
+    await otpApi.sendOtp(email, phone, purpose, {
+      ...(mode === 'signin' ? { credentialProofToken } : {}),
+    });
+
+    startOtpStep({
+      transport: OTP_TRANSPORT.BACKEND_OTP,
+      stage: OTP_STAGE.SINGLE,
+      success: buildOtpSuccessState({
+        transport: OTP_TRANSPORT.BACKEND_OTP,
+        stage: OTP_STAGE.SINGLE,
+      }),
+    });
+  };
+
+  const startDualChannelSignIn = async ({ email, phone, resend = false }) => {
+    await clearFirebaseChallenge();
+    setSignInProofToken('');
+
+    try {
+      const challenge = await startFirebasePhoneLoginChallenge({
+        email,
+        password: formData.password,
+        phone,
+        recaptchaContainer: recaptchaContainerRef.current,
+      });
+
+      firebaseLoginChallengeRef.current = challenge;
+
+      const credentialProofToken = String(challenge?.credentialProofToken || '').trim();
+      if (!credentialProofToken) {
+        throw new Error('Unable to start secure sign-in proof. Please try again.');
+      }
+
+      setSignInProofToken(credentialProofToken);
+
+      await otpApi.sendOtp(email, phone, 'login', {
+        credentialProofToken,
+        skipSms: true,
+        strictIdentity: true,
+      });
+
+      startOtpStep({
+        transport: OTP_TRANSPORT.BACKEND_OTP,
+        stage: OTP_STAGE.EMAIL,
+        success: buildOtpSuccessState({
+          transport: OTP_TRANSPORT.BACKEND_OTP,
+          stage: OTP_STAGE.EMAIL,
+          resend,
+        }),
+      });
+    } catch (error) {
+      setSignInProofToken('');
+      await clearFirebaseChallenge();
+      throw error;
+    }
+  };
+
 
   const buildGenericOtpFlowError = () => ({
     message: 'If the account details are valid, continue with OTP verification.'
@@ -144,6 +317,19 @@ const Login = () => {
       || rawMessage.includes('does not match the account')
       || rawMessage.includes('phone mismatch')
       || rawMessage.includes('email mismatch');
+  };
+
+  const shouldKeepSpecificOtpError = (err) => {
+    const rawMessage = String(
+      err?.response?.data?.message
+      || err?.message
+      || err?.error
+      || ''
+    ).toLowerCase();
+
+    return rawMessage.includes('registered account')
+      || rawMessage.includes('no verified account found')
+      || rawMessage.includes('sign up first');
   };
 
 
@@ -183,6 +369,10 @@ const Login = () => {
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   const handleSendOtp = async () => {
     if (!validateForm()) return;
+    if (mode === 'signup' && currentUser) {
+      setErr({ message: 'You are already signed in. Please log out before creating another account.' });
+      return;
+    }
 
     setIsLoading(true);
     setAuthError(null);
@@ -191,40 +381,29 @@ const Login = () => {
     try {
       const email = normalizeEmail(formData.email);
       const phone = normalizePhone(formData.phone);
-      let credentialProofToken = '';
+      const purpose = mode === 'forgot-password' ? 'forgot-password' : mode === 'signup' ? 'signup' : 'login';
 
-      if (mode === 'signin') {
+      if (mode === 'signin' && canUseFirebasePhoneOtp) {
         try {
-          const precheck = await verifyCredentialsWithoutSession(email, formData.password);
-          credentialProofToken = precheck?.credentialProofToken || '';
-          if (!credentialProofToken) {
-            throw new Error('Unable to verify credentials for secure OTP flow.');
-          }
-          setSignInProofToken(credentialProofToken);
-        } catch (firebaseErr) {
-          setErr(firebaseErr);
-          setIsLoading(false);
+          await startDualChannelSignIn({ email, phone });
           return;
+        } catch (firebasePhoneError) {
+          if (!shouldFallbackToBackendOtp(firebasePhoneError)) {
+            setErr(firebasePhoneError);
+            return;
+          }
+          await clearFirebaseChallenge();
         }
       }
 
-      const purpose = mode === 'forgot-password' ? 'forgot-password' : mode === 'signup' ? 'signup' : 'login';
-      await otpApi.sendOtp(email, phone, purpose, {
-        ...(mode === 'signin' ? { credentialProofToken } : {}),
+      await sendBackendOtp({
+        email,
+        phone,
+        purpose,
+        password: formData.password,
       });
-
-      setStep('otp');
-      setOtpValues(Array(OTP_LENGTH).fill(''));
-      setCountdown(60);
-      setAuthSuccess(mode === 'signup'
-        ? AUTH_SUCCESS.otp_sent
-        : {
-          title: 'Check for a Code',
-          detail: 'If the account details are valid, a 6-digit verification code has been sent.'
-        });
-      setTimeout(() => otpRefs.current[0]?.focus(), 300);
     } catch (err) {
-      if ((mode === 'signin' || mode === 'forgot-password') && isEnumerationSensitiveOtpError(err)) {
+      if ((mode === 'signin' || mode === 'forgot-password') && isEnumerationSensitiveOtpError(err) && !shouldKeepSpecificOtpError(err)) {
         setErr(buildGenericOtpFlowError());
       } else {
         setErr(err);
@@ -252,6 +431,49 @@ const Login = () => {
       const email = normalizeEmail(formData.email);
       const phone = normalizePhone(formData.phone);
       const purpose = mode === 'forgot-password' ? 'forgot-password' : mode === 'signup' ? 'signup' : 'login';
+
+      if (isEmailOtpStage) {
+        await otpApi.verifyOtp(phone, otpString, purpose, {
+          email,
+          factor: 'email',
+        });
+        startOtpStep({
+          transport: OTP_TRANSPORT.FIREBASE_SMS,
+          stage: OTP_STAGE.PHONE,
+          success: buildOtpSuccessState({
+            transport: OTP_TRANSPORT.FIREBASE_SMS,
+            stage: OTP_STAGE.PHONE,
+          }),
+          resetCountdown: false,
+        });
+        return;
+      }
+
+      if (isPhoneOtpStage) {
+        const activeChallenge = firebaseLoginChallengeRef.current;
+        if (!activeChallenge) {
+          setErr({ message: 'Secure phone challenge expired. Please request a new code.' });
+          setStep('form');
+          return;
+        }
+
+        const verifiedPhoneFactor = await completeFirebasePhoneLoginChallenge(activeChallenge, otpString);
+        try {
+          await authApi.completePhoneFactorLogin(email, verifiedPhoneFactor.phoneE164, {
+            firebaseUser: verifiedPhoneFactor.user,
+          });
+        } finally {
+          await clearFirebaseChallenge();
+        }
+        await login(email, formData.password);
+        setSignInProofToken('');
+        setOtpStage(OTP_STAGE.SINGLE);
+        setOtpTransport(OTP_TRANSPORT.BACKEND_OTP);
+        setAuthSuccess(AUTH_SUCCESS.signin_success);
+        setTimeout(() => navigate(from, { replace: true }), 1200);
+        return;
+      }
+
       await otpApi.verifyOtp(phone, otpString, purpose);
 
       if (mode === 'signup') {
@@ -260,6 +482,8 @@ const Login = () => {
         setTimeout(() => navigate(from, { replace: true }), 1200);
       } else if (mode === 'signin') {
         await login(email, formData.password);
+        setOtpStage(OTP_STAGE.SINGLE);
+        setOtpTransport(OTP_TRANSPORT.BACKEND_OTP);
         setAuthSuccess(AUTH_SUCCESS.signin_success);
         setTimeout(() => navigate(from, { replace: true }), 1200);
       } else if (mode === 'forgot-password') {
@@ -269,7 +493,7 @@ const Login = () => {
       }
       setSignInProofToken('');
     } catch (err) {
-      if ((mode === 'signin' || mode === 'forgot-password') && isEnumerationSensitiveOtpError(err)) {
+      if ((mode === 'signin' || mode === 'forgot-password') && isEnumerationSensitiveOtpError(err) && !shouldKeepSpecificOtpError(err)) {
         setErr(buildGenericOtpFlowError());
       } else {
         setErr(err);
@@ -292,26 +516,33 @@ const Login = () => {
       const email = normalizeEmail(formData.email);
       const phone = normalizePhone(formData.phone);
       const purpose = mode === 'forgot-password' ? 'forgot-password' : mode === 'signup' ? 'signup' : 'login';
+
+      if (mode === 'signin' && otpStage !== OTP_STAGE.SINGLE && canUseFirebasePhoneOtp) {
+        await startDualChannelSignIn({ email, phone, resend: true });
+        return;
+      }
+
       if (mode === 'signin' && !signInProofToken) {
         setErr({ message: 'Secure sign-in proof expired. Please re-enter credentials.' });
         setStep('form');
-        setIsLoading(false);
         return;
       }
+
       await otpApi.sendOtp(email, phone, purpose, {
         ...(mode === 'signin' ? { credentialProofToken: signInProofToken } : {}),
       });
       setCountdown(60);
       setOtpValues(Array(OTP_LENGTH).fill(''));
-      setAuthSuccess(mode === 'signup'
-        ? AUTH_SUCCESS.otp_resent
-        : {
-          title: 'Check for a Code',
-          detail: 'If the account details are valid, a fresh verification code has been sent.'
-        });
+      setOtpStage(OTP_STAGE.SINGLE);
+      setOtpTransport(OTP_TRANSPORT.BACKEND_OTP);
+      setAuthSuccess(buildOtpSuccessState({
+        transport: OTP_TRANSPORT.BACKEND_OTP,
+        stage: OTP_STAGE.SINGLE,
+        resend: true,
+      }));
       otpRefs.current[0]?.focus();
     } catch (err) {
-      if ((mode === 'signin' || mode === 'forgot-password') && isEnumerationSensitiveOtpError(err)) {
+      if ((mode === 'signin' || mode === 'forgot-password') && isEnumerationSensitiveOtpError(err) && !shouldKeepSpecificOtpError(err)) {
         setErr(buildGenericOtpFlowError());
       } else {
         setErr(err);
@@ -325,21 +556,29 @@ const Login = () => {
   // Mode/Step Reset
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   const switchMode = (newMode) => {
+    clearFirebaseChallenge().catch(() => {});
     setMode(newMode);
     setStep('form');
     setAuthError(null);
     setAuthSuccess(null);
+    setCountdown(0);
     setOtpValues(Array(OTP_LENGTH).fill(''));
     setFormData({ name: '', email: '', phone: '', password: '', confirmPassword: '' });
     setSignInProofToken('');
+    setOtpStage(OTP_STAGE.SINGLE);
+    setOtpTransport(OTP_TRANSPORT.BACKEND_OTP);
   };
 
   const goBack = () => {
+    clearFirebaseChallenge().catch(() => {});
     setStep('form');
     setAuthError(null);
     setAuthSuccess(null);
+    setCountdown(0);
     setOtpValues(Array(OTP_LENGTH).fill(''));
     setSignInProofToken('');
+    setOtpStage(OTP_STAGE.SINGLE);
+    setOtpTransport(OTP_TRANSPORT.BACKEND_OTP);
   };
 
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -359,9 +598,25 @@ const Login = () => {
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   const getInfoText = () => {
     if (step === 'otp') {
+      if (isEmailOtpStage) {
+        return {
+          title: 'VERIFY EMAIL',
+          desc: 'Step 1 of 2. Enter the 6-digit code sent to your email, then finish the same sign-in with Firebase SMS on your phone.'
+        };
+      }
+
+      if (isPhoneOtpStage) {
+        return {
+          title: 'VERIFY PHONE',
+          desc: 'Step 2 of 2. Enter the Firebase SMS code sent to your phone to complete secure sign-in.'
+        };
+      }
+
       return {
         title: 'VERIFY OTP',
-        desc: `Enter the 6-digit code sent to your email${formData.phone ? ' and phone' : ''}.`
+        desc: otpTransport === OTP_TRANSPORT.FIREBASE_SMS
+          ? 'Enter the 6-digit Firebase SMS code sent to your phone to complete the login.'
+          : `Enter the 6-digit code sent to your email${formData.phone ? ' and phone' : ''}.`
       };
     }
     switch (mode) {
@@ -378,7 +633,9 @@ const Login = () => {
       default:
         return {
           title: 'WELCOME BACK',
-          desc: 'Sign in with your credentials. We\'ll verify your identity with an OTP.'
+          desc: canUseFirebasePhoneOtp
+            ? 'Sign in with your password, then verify the login with one code to email and one Firebase SMS code to your phone.'
+            : 'Sign in with your credentials. We\'ll verify your identity with an OTP.'
         };
     }
   };
@@ -387,6 +644,22 @@ const Login = () => {
 
   const trustNotes = useMemo(() => {
     if (step === 'otp') {
+      if (isEmailOtpStage) {
+        return [
+          'Step 1 checks the email address tied to your password and registered phone number.',
+          'Step 2 will still require the Firebase phone code before the session is finalized.',
+          'Both codes expire quickly and each resend refreshes the full secure sign-in chain.',
+        ];
+      }
+
+      if (isPhoneOtpStage) {
+        return [
+          'Your email step is already verified for this login attempt.',
+          'The final Firebase SMS confirmation binds this session to your registered phone.',
+          'If the phone code expires, resend refreshes both email and phone factors together.',
+        ];
+      }
+
       return [
         'Codes expire in 5 minutes and can be used only once.',
         'Aura never asks for your OTP outside this secure verification step.',
@@ -411,11 +684,13 @@ const Login = () => {
     }
 
     return [
-      'Password validity is checked before an OTP is issued.',
-      'Email and phone confirmation reduce account-takeover risk.',
+      canUseFirebasePhoneOtp
+        ? 'Password is verified first, then login codes are sent to both your email and Firebase phone channel.'
+        : 'Password validity is checked before an OTP is issued.',
+      'Phone confirmation reduces account-takeover risk before the session is finalized.',
       'Rate limits, device checks, and audit logs guard repeated attempts.',
     ];
-  }, [mode, step]);
+  }, [canUseFirebasePhoneOtp, isEmailOtpStage, isPhoneOtpStage, mode, step]);
 
   const secureSignals = useMemo(() => ([
     {
@@ -424,7 +699,15 @@ const Login = () => {
     },
     {
       label: 'Delivery',
-      value: formData.phone ? 'Email + phone active' : 'Email first, phone required',
+      value: mode === 'signin'
+        ? isEmailOtpStage
+          ? 'Email OTP live, Firebase phone pending'
+          : isPhoneOtpStage
+            ? 'Email verified, Firebase SMS active'
+            : canUseFirebasePhoneOtp
+              ? 'Email + Firebase SMS'
+              : formData.phone ? 'Email + phone active' : 'Email first, phone required'
+        : formData.phone ? 'Email + phone active' : 'Email first, phone required',
     },
     {
       label: 'Social access',
@@ -432,9 +715,25 @@ const Login = () => {
         ? 'Google, Facebook, and X available'
         : socialAuthStatus.runtimeBlocked
           ? 'OTP-only until this tab is refreshed'
-        : `OTP-only on ${socialAuthStatus.runtimeHost || 'this host'}`,
+          : `OTP-only on ${socialAuthStatus.runtimeHost || 'this host'}`,
     },
-  ]), [formData.phone, socialAuthStatus.runtimeBlocked, socialAuthStatus.runtimeHost, socialAuthStatus.supported, step]);
+  ]), [canUseFirebasePhoneOtp, formData.phone, isEmailOtpStage, isPhoneOtpStage, mode, socialAuthStatus.runtimeBlocked, socialAuthStatus.runtimeHost, socialAuthStatus.supported, step]);
+
+  const handleFeedbackAction = () => {
+    if (!authError?.action) return;
+
+    if (authError.action === 'resend') {
+      handleResendOtp();
+      return;
+    }
+
+    if (authError.action === 'back') {
+      goBack();
+      return;
+    }
+
+    switchMode(authError.action);
+  };
 
   const handleSocialSignIn = async (providerSignIn) => {
     setIsLoading(true);
@@ -457,6 +756,18 @@ const Login = () => {
       setIsLoading(false);
     }
   };
+
+  const submitLabel = (() => {
+    if (step === 'otp') {
+      if (isEmailOtpStage) return 'VERIFY EMAIL CODE';
+      if (isPhoneOtpStage) return 'VERIFY PHONE & SIGN IN';
+      return mode === 'signin' ? 'VERIFY OTP & SIGN IN' : 'VERIFY OTP';
+    }
+
+    if (mode === 'signup') return 'SEND OTP & SIGN UP';
+    if (mode === 'forgot-password') return 'SEND OTP';
+    return canUseFirebasePhoneOtp ? 'SEND EMAIL + PHONE OTP' : 'SEND OTP & SIGN IN';
+  })();
 
   return (
     <div className="min-h-screen py-8 sm:py-12 md:py-20 relative flex items-center justify-center overflow-hidden">
@@ -551,7 +862,7 @@ const Login = () => {
                     detail={authError.detail}
                     hint={authError.hint}
                     actionLabel={authError.actionLabel}
-                    onAction={authError.action ? () => switchMode(authError.action) : undefined}
+                    onAction={authError.action ? handleFeedbackAction : undefined}
                   />
                 </div>
               )}
@@ -568,6 +879,7 @@ const Login = () => {
               )}
 
               <form onSubmit={handleSubmit} className="space-y-5" autoComplete="on">
+                <div ref={recaptchaContainerRef} id="firebase-phone-recaptcha" className="sr-only" aria-hidden="true" />
 
                 {/* â•â•â•â•â•â•â• STEP 1: FORM â•â•â•â•â•â•â• */}
                 {step === 'form' && (
@@ -604,7 +916,11 @@ const Login = () => {
                         <input type="tel" name="phone" value={formData.phone} onChange={handleChange} placeholder="+91 98765 43210" autoComplete="tel"
                           className="w-full pl-12 pr-4 py-4 bg-zinc-950/50 border border-white/10 rounded-2xl focus:outline-none focus:border-neo-cyan focus:ring-1 focus:ring-neo-cyan text-white placeholder:text-slate-600 font-medium transition-all shadow-inner" />
                       </div>
-                      <p className="text-[10px] text-slate-600 mt-1.5 uppercase tracking-widest font-bold pl-1">OTP will be sent to your email & phone</p>
+                      <p className="text-[10px] text-slate-600 mt-1.5 uppercase tracking-widest font-bold pl-1">
+                        {mode === 'signin' && canUseFirebasePhoneOtp
+                          ? 'Sign-in sends one code to email and one Firebase SMS code to your phone.'
+                          : 'OTP will be sent to your email & phone'}
+                      </p>
                     </div>
 
                     {/* Password â€” Signup & Signin */}
@@ -671,10 +987,25 @@ const Login = () => {
                         <Shield className="w-8 h-8 text-neo-cyan" />
                       </div>
                       <h3 className="text-xl font-black text-white uppercase tracking-widest mb-2">Enter Verification Code</h3>
-                      <p className="text-slate-400 text-sm">
-                        We sent a 6-digit code to <span className="text-white font-bold">{formData.email}</span>
-                        {formData.phone && <> and <span className="text-white font-bold">{formData.phone}</span></>}
-                      </p>
+                      {isEmailOtpStage ? (
+                        <p className="text-slate-400 text-sm">
+                          Step 1 of 2. We sent a 6-digit email code to <span className="text-white font-bold">{formData.email}</span>.
+                          Your Firebase SMS code for <span className="text-white font-bold">{formData.phone}</span> will complete the same login next.
+                        </p>
+                      ) : isPhoneOtpStage ? (
+                        <p className="text-slate-400 text-sm">
+                          Step 2 of 2. Your email is verified. Enter the Firebase SMS code sent to <span className="text-white font-bold">{formData.phone}</span>.
+                        </p>
+                      ) : otpTransport === OTP_TRANSPORT.FIREBASE_SMS ? (
+                        <p className="text-slate-400 text-sm">
+                          We sent a 6-digit Firebase SMS code to <span className="text-white font-bold">{formData.phone}</span>.
+                        </p>
+                      ) : (
+                        <p className="text-slate-400 text-sm">
+                          We sent a 6-digit code to <span className="text-white font-bold">{formData.email}</span>
+                          {formData.phone && <> and <span className="text-white font-bold">{formData.phone}</span></>}
+                        </p>
+                      )}
                     </div>
 
                     {/* OTP Input Boxes */}
@@ -733,7 +1064,7 @@ const Login = () => {
                     </span>
                   ) : (
                     <span className="relative z-10 flex items-center justify-center gap-2">
-                      {step === 'otp' ? 'VERIFY OTP' : mode === 'signup' ? 'SEND OTP & SIGN UP' : mode === 'forgot-password' ? 'SEND OTP' : 'SEND OTP & SIGN IN'}
+                      {submitLabel}
                       <Zap className="w-5 h-5 fill-white group-hover/submit:animate-pulse" />
                     </span>
                   )}
