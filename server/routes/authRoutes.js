@@ -3,10 +3,11 @@ const {
     getSession,
     syncSession,
     completePhoneFactorLogin,
+    completePhoneFactorVerification,
     verifyLatticeChallenge,
     verifyQuantumChallenge,
 } = require('../controllers/authController');
-const { protect } = require('../middleware/authMiddleware');
+const { protect, protectPhoneFactorProof } = require('../middleware/authMiddleware');
 const validate = require('../middleware/validate');
 const { loginSchema } = require('../validators/userValidators');
 const { createDistributedRateLimit } = require('../middleware/distributedRateLimit');
@@ -32,6 +33,7 @@ const authSyncLimiter = createDistributedRateLimit({
 router.get('/session', protect, csrfTokenGenerator, getSession);
 router.post('/sync', protect, csrfTokenValidator, authSyncLimiter, validate(loginSchema), syncSession);
 router.post('/complete-phone-factor-login', protect, csrfTokenValidator, completePhoneFactorLogin);
+router.post('/complete-phone-factor-verification', protectPhoneFactorProof, completePhoneFactorVerification);
 router.post('/verify-lattice', protect, csrfTokenValidator, verifyLatticeChallenge);
 router.post('/verify-quantum', protect, csrfTokenValidator, verifyQuantumChallenge);
 router.use('/otp', otpRoutes);

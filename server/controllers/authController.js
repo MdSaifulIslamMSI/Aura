@@ -22,6 +22,7 @@ const normalizeChallengeMode = (value) => {
 
 const AUTH_LATTICE_CHALLENGE_MODE = normalizeChallengeMode(process.env.AUTH_LATTICE_CHALLENGE_MODE);
 const LOGIN_ASSURANCE_TTL_MS = 10 * 60 * 1000;
+const PHONE_FACTOR_ASSURANCE_TTL_MS = 10 * 60 * 1000;
 
 const normalizeEmail = (value) => (
     typeof value === 'string' ? value.trim().toLowerCase() : ''
@@ -33,6 +34,20 @@ const canonicalizePhone = (value) => {
     } catch {
         return '';
     }
+};
+
+const normalizePhoneFactorPurpose = (value) => {
+    const normalized = String(value || '').trim().toLowerCase();
+    if (['signup', 'forgot-password'].includes(normalized)) {
+        return normalized;
+    }
+    return '';
+};
+
+const resolveVerifiedAtMillis = (value) => {
+    if (!value) return 0;
+    const resolved = new Date(value).getTime();
+    return Number.isFinite(resolved) ? resolved : 0;
 };
 
 const shouldRequireLatticeChallenge = ({ user }) => {
@@ -194,6 +209,164 @@ const completePhoneFactorLogin = asyncHandler(async (req, res) => {
     }));
 });
 
+const completePhoneFactorVerification = asyncHandler(async (req, res) => {
+    const purpose = normalizePhoneFactorPurpose(req.body?.purpose);
+    const requestEmail = normalizeEmail(req.body?.email);
+    const requestPhone = canonicalizePhone(req.body?.phone);
+    const verifiedTokenPhone = canonicalizePhone(req.authToken?.phone_number || '');
+
+    if (!purpose) {
+        throw new AppError('Invalid phone factor purpose. Must be signup or forgot-password.', 400);
+    }
+    if (!requestEmail) {
+        throw new AppError('Email is required', 400);
+    }
+    if (!requestPhone) {
+        throw new AppError('Valid phone number is required', 400);
+    }
+    if (!verifiedTokenPhone) {
+        throw new AppError('Firebase phone verification is required before continuing.', 403);
+    }
+    if (verifiedTokenPhone !== requestPhone) {
+        throw new AppError('Verified phone number does not match the requested phone.', 403);
+    }
+
+    if (purpose === 'signup') {
+        const pendingUser = await User.findOne(
+            { email: requestEmail },
+            'name email phone avatar gender dob bio isAdmin isVerified'
+        )
+            .select('+signupEmailOtpVerifiedAt')
+            .lean();
+
+        if (!pendingUser) {
+            throw new AppError('Signup email verification is required before completing phone verification.', 403);
+        }
+        if (pendingUser.isVerified) {
+            throw new AppError('An account with this email already exists. Please sign in.', 409);
+        }
+
+        const emailOtpVerifiedAt = resolveVerifiedAtMillis(pendingUser.signupEmailOtpVerifiedAt);
+        const emailOtpStillFresh = emailOtpVerifiedAt > 0
+            && (Date.now() - emailOtpVerifiedAt) <= PHONE_FACTOR_ASSURANCE_TTL_MS;
+
+        if (!emailOtpStillFresh) {
+            if (emailOtpVerifiedAt > 0) {
+                await User.updateOne(
+                    { email: requestEmail, isVerified: false },
+                    { $set: { signupEmailOtpVerifiedAt: null } }
+                );
+            }
+            throw new AppError(
+                emailOtpVerifiedAt > 0
+                    ? 'Signup email verification expired. Please restart signup.'
+                    : 'Signup email verification is required before completing phone verification.',
+                403
+            );
+        }
+
+        const storedPhone = canonicalizePhone(pendingUser.phone || '');
+        if (storedPhone && storedPhone !== requestPhone) {
+            throw new AppError('Phone number does not match your pending signup.', 403);
+        }
+
+        const updatedUser = await User.findOneAndUpdate(
+            { email: requestEmail, isVerified: false },
+            {
+                $set: {
+                    phone: storedPhone || requestPhone,
+                    isVerified: true,
+                    authAssurance: 'otp',
+                    authAssuranceAt: new Date(),
+                    signupEmailOtpVerifiedAt: null,
+                },
+            },
+            {
+                new: true,
+                projection: 'name email phone avatar gender dob bio isAdmin isVerified isSeller sellerActivatedAt accountState moderation loyalty createdAt',
+                lean: true,
+            }
+        );
+
+        if (!updatedUser) {
+            throw new AppError('Signup session expired. Please restart signup.', 409);
+        }
+
+        await persistAuthSnapshot(updatedUser);
+        await invalidateUserCacheByEmail(requestEmail);
+
+        return res.json({
+            success: true,
+            message: 'Firebase phone verification completed for signup.',
+            purpose,
+            phone: updatedUser.phone,
+        });
+    }
+
+    const existingUser = await User.findOne(
+        { email: requestEmail, isVerified: true },
+        'name email phone avatar gender dob bio isAdmin isVerified isSeller sellerActivatedAt accountState moderation loyalty createdAt'
+    )
+        .select('+resetEmailOtpVerifiedAt')
+        .lean();
+
+    if (!existingUser) {
+        throw new AppError('Password recovery email verification is required before completing phone verification.', 403);
+    }
+
+    const emailOtpVerifiedAt = resolveVerifiedAtMillis(existingUser.resetEmailOtpVerifiedAt);
+    const emailOtpStillFresh = emailOtpVerifiedAt > 0
+        && (Date.now() - emailOtpVerifiedAt) <= PHONE_FACTOR_ASSURANCE_TTL_MS;
+
+    if (!emailOtpStillFresh) {
+        if (emailOtpVerifiedAt > 0) {
+            await User.updateOne(
+                { email: requestEmail, isVerified: true },
+                { $set: { resetEmailOtpVerifiedAt: null } }
+            );
+        }
+        throw new AppError(
+            emailOtpVerifiedAt > 0
+                ? 'Password recovery email verification expired. Please restart recovery.'
+                : 'Password recovery email verification is required before completing phone verification.',
+            403
+        );
+    }
+
+    const storedPhone = canonicalizePhone(existingUser.phone || '');
+    if (storedPhone && storedPhone !== requestPhone) {
+        throw new AppError('Phone number does not match your registered account.', 403);
+    }
+
+    const updatedUser = await User.findOneAndUpdate(
+        { email: requestEmail, isVerified: true },
+        {
+            $set: {
+                phone: storedPhone || requestPhone,
+                authAssurance: 'otp',
+                authAssuranceAt: new Date(),
+                resetEmailOtpVerifiedAt: null,
+                resetOtpVerifiedAt: new Date(),
+            },
+        },
+        {
+            new: true,
+            projection: 'name email phone avatar gender dob bio isAdmin isVerified isSeller sellerActivatedAt accountState moderation loyalty createdAt',
+            lean: true,
+        }
+    );
+
+    await persistAuthSnapshot(updatedUser);
+    await invalidateUserCacheByEmail(requestEmail);
+
+    return res.json({
+        success: true,
+        message: 'Firebase phone verification completed for password recovery.',
+        purpose,
+        phone: updatedUser.phone,
+    });
+});
+
 // @desc    Verify lattice challenge proof
 // @route   POST /api/auth/verify-lattice
 // @access  Private
@@ -242,6 +415,7 @@ module.exports = {
     getSession,
     syncSession,
     completePhoneFactorLogin,
+    completePhoneFactorVerification,
     verifyLatticeChallenge,
     verifyQuantumChallenge,
 };

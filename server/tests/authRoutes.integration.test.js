@@ -35,6 +35,13 @@ describe('Auth API surface', () => {
         expect(res.statusCode).toBe(400);
         expect(res.body.message).toContain('required');
     });
+
+    test('POST /api/auth/complete-phone-factor-verification should fail without token', async () => {
+        const res = await request(app)
+            .post('/api/auth/complete-phone-factor-verification')
+            .send({ purpose: 'signup', email: 'test@example.com', phone: '+919876543210' });
+        expect(res.statusCode).toBe(401);
+    });
 });
 
 
@@ -320,5 +327,146 @@ describe('Firebase phone factor completion', () => {
 
         expect(res.statusCode).toBe(403);
         expect(res.body.message).toContain('Email OTP verification is required');
+    });
+});
+
+describe('Firebase phone factor completion for signup and recovery', () => {
+    afterEach(() => {
+        jest.resetModules();
+        jest.clearAllMocks();
+    });
+
+    const buildIsolatedPhoneFactorVerificationApp = ({
+        purpose = 'signup',
+        storedPhone = '+919876543210',
+        tokenPhone = '+919876543210',
+        signupEmailOtpVerifiedAt = new Date().toISOString(),
+        resetEmailOtpVerifiedAt = new Date().toISOString(),
+        isVerified = false,
+    } = {}) => {
+        let isolatedApp;
+
+        jest.isolateModules(() => {
+            jest.doMock('../models/User', () => ({
+                findOne: jest.fn().mockReturnValue({
+                    select: jest.fn().mockReturnValue({
+                        lean: jest.fn().mockResolvedValue({
+                            _id: 'user-1',
+                            name: purpose === 'signup' ? 'Pending User' : 'Verified User',
+                            email: 'verified@example.com',
+                            phone: storedPhone,
+                            avatar: '',
+                            gender: '',
+                            dob: null,
+                            bio: '',
+                            isAdmin: false,
+                            isVerified,
+                            signupEmailOtpVerifiedAt,
+                            resetEmailOtpVerifiedAt,
+                            isSeller: false,
+                            sellerActivatedAt: null,
+                            accountState: 'active',
+                            moderation: {},
+                            loyalty: {},
+                            createdAt: new Date('2026-01-01T00:00:00.000Z'),
+                        }),
+                    }),
+                }),
+                updateOne: jest.fn().mockResolvedValue({ acknowledged: true, modifiedCount: 1 }),
+                findOneAndUpdate: jest.fn().mockResolvedValue({
+                    _id: 'user-1',
+                    name: purpose === 'signup' ? 'Pending User' : 'Verified User',
+                    email: 'verified@example.com',
+                    phone: storedPhone,
+                    avatar: '',
+                    gender: '',
+                    dob: null,
+                    bio: '',
+                    isAdmin: false,
+                    isVerified: purpose === 'signup' ? true : true,
+                    isSeller: false,
+                    sellerActivatedAt: null,
+                    accountState: 'active',
+                    moderation: {},
+                    loyalty: {},
+                    createdAt: new Date('2026-01-01T00:00:00.000Z'),
+                }),
+            }));
+            jest.doMock('../services/authSessionService', () => {
+                const actual = jest.requireActual('../services/authSessionService');
+                return {
+                    ...actual,
+                    persistAuthSnapshot: jest.fn().mockResolvedValue(undefined),
+                };
+            });
+            jest.doMock('../middleware/authMiddleware', () => ({
+                invalidateUserCache: jest.fn().mockResolvedValue(undefined),
+                invalidateUserCacheByEmail: jest.fn().mockResolvedValue(undefined),
+            }));
+
+            const express = require('express');
+            const { completePhoneFactorVerification } = require('../controllers/authController');
+            const { errorHandler } = require('../middleware/errorMiddleware');
+
+            isolatedApp = express();
+            isolatedApp.use(express.json());
+            isolatedApp.post('/api/auth/complete-phone-factor-verification', (req, _res, next) => {
+                req.authUid = 'uid-phone';
+                req.authToken = {
+                    phone_number: tokenPhone,
+                };
+                next();
+            }, completePhoneFactorVerification);
+            isolatedApp.use(errorHandler);
+        });
+
+        return isolatedApp;
+    };
+
+    test('POST /api/auth/complete-phone-factor-verification completes signup when Firebase phone matches', async () => {
+        const isolatedApp = buildIsolatedPhoneFactorVerificationApp({ purpose: 'signup', isVerified: false });
+
+        const res = await request(isolatedApp)
+            .post('/api/auth/complete-phone-factor-verification')
+            .send({
+                purpose: 'signup',
+                email: 'verified@example.com',
+                phone: '+919876543210',
+            });
+
+        expect(res.statusCode).toBe(200);
+        expect(res.body.success).toBe(true);
+        expect(res.body.purpose).toBe('signup');
+    });
+
+    test('POST /api/auth/complete-phone-factor-verification completes recovery when Firebase phone matches', async () => {
+        const isolatedApp = buildIsolatedPhoneFactorVerificationApp({ purpose: 'forgot-password', isVerified: true });
+
+        const res = await request(isolatedApp)
+            .post('/api/auth/complete-phone-factor-verification')
+            .send({
+                purpose: 'forgot-password',
+                email: 'verified@example.com',
+                phone: '+919876543210',
+            });
+
+        expect(res.statusCode).toBe(200);
+        expect(res.body.success).toBe(true);
+        expect(res.body.purpose).toBe('forgot-password');
+    });
+
+    test('POST /api/auth/complete-phone-factor-verification requires a recent signup email OTP first', async () => {
+        const isolatedApp = buildIsolatedPhoneFactorVerificationApp({ purpose: 'signup', signupEmailOtpVerifiedAt: null, isVerified: false });
+
+        const res = await request(isolatedApp)
+            .post('/api/auth/complete-phone-factor-verification')
+            .send({
+                purpose: 'signup',
+                email: 'verified@example.com',
+                phone: '+919876543210',
+            });
+
+        expect(res.statusCode).toBe(403);
+        expect(res.body.message).toContain('Signup email verification is required');
     });
 });

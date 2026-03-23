@@ -4,8 +4,10 @@ import { Eye, EyeOff, Mail, Lock, User, Phone, Zap, Network, ArrowLeft, Shield, 
 import { AuthContext } from '@/context/AuthContext';
 import { authApi, otpApi } from '@/services/api';
 import {
+  completeFirebasePhoneCodeChallenge,
   completeFirebasePhoneLoginChallenge,
   disposeFirebasePhoneLoginChallenge,
+  startFirebasePhoneCodeChallenge,
   startFirebasePhoneLoginChallenge,
 } from '@/services/firebasePhoneChallenge';
 import { cn } from '@/lib/utils';
@@ -64,18 +66,18 @@ const Login = () => {
   const [otpValues, setOtpValues] = useState(Array(OTP_LENGTH).fill(''));
   const otpRefs = useRef([]);
   const recaptchaContainerRef = useRef(null);
-  const firebaseLoginChallengeRef = useRef(null);
+  const firebasePhoneChallengeRef = useRef(null);
 
   const from = useMemo(
     () => resolveNavigationTarget(location.state?.from, '/'),
     [location.state?.from]
   );
   const socialAuthStatus = getFirebaseSocialAuthStatus();
-  const canUseFirebasePhoneOtp = mode === 'signin'
+  const canUseFirebasePhoneOtp = step !== 'reset-password'
     && socialAuthStatus.ready
     && !firebasePhoneFallback?.disableFirebasePhoneOtp;
-  const isEmailOtpStage = mode === 'signin' && otpStage === OTP_STAGE.EMAIL;
-  const isPhoneOtpStage = mode === 'signin' && otpStage === OTP_STAGE.PHONE;
+  const isEmailOtpStage = otpStage === OTP_STAGE.EMAIL;
+  const isPhoneOtpStage = otpStage === OTP_STAGE.PHONE;
 
   // OTP resend countdown timer
   useEffect(() => {
@@ -91,8 +93,8 @@ const Login = () => {
   }, [currentUser, from, navigate]);
 
   const clearFirebaseChallenge = async () => {
-    const activeChallenge = firebaseLoginChallengeRef.current;
-    firebaseLoginChallengeRef.current = null;
+    const activeChallenge = firebasePhoneChallengeRef.current;
+    firebasePhoneChallengeRef.current = null;
 
     if (!activeChallenge) return;
     await disposeFirebasePhoneLoginChallenge(activeChallenge);
@@ -184,31 +186,38 @@ const Login = () => {
     resend = false,
     fallback = null,
   } = {}) => {
+    const modeLabel = mode === 'signup'
+      ? 'account setup'
+      : mode === 'forgot-password'
+        ? 'password recovery'
+        : 'sign-in';
+    const phoneOutcome = mode === 'signup'
+      ? 'finish activating your account'
+      : mode === 'forgot-password'
+        ? 'unlock password reset'
+        : 'finish signing in';
+
     if (fallback) {
       return resend ? fallback.resendSuccess : fallback.success;
     }
 
-    if (mode === 'signup') {
-      return resend ? AUTH_SUCCESS.otp_resent : AUTH_SUCCESS.otp_sent;
-    }
-
-    if (mode === 'signin' && stage === OTP_STAGE.EMAIL) {
+    if (stage === OTP_STAGE.EMAIL) {
       return {
         title: resend ? 'Codes Re-Sent' : 'Email Code Sent',
         detail: resend
-          ? 'Fresh sign-in codes were sent. Enter the email code first, then confirm the same login with Firebase SMS.'
-          : 'Your email code is ready. After that, you will confirm the same login with Firebase SMS on your phone.',
+          ? `Fresh ${modeLabel} codes were sent. Enter the email code first, then confirm the same flow with Firebase SMS.`
+          : `Your email code is ready. After that, you will confirm the same ${modeLabel} with Firebase SMS on your phone.`,
       };
     }
 
-    if (mode === 'signin' && stage === OTP_STAGE.PHONE && transport === OTP_TRANSPORT.FIREBASE_SMS) {
+    if (stage === OTP_STAGE.PHONE && transport === OTP_TRANSPORT.FIREBASE_SMS) {
       return {
         title: 'Email Verified',
-        detail: 'Step 1 is complete. Enter the Firebase SMS code sent to your phone to finish signing in.',
+        detail: `Step 1 is complete. Enter the Firebase SMS code sent to your phone to ${phoneOutcome}.`,
       };
     }
 
-    if (mode === 'signin' && transport === OTP_TRANSPORT.FIREBASE_SMS) {
+    if (transport === OTP_TRANSPORT.FIREBASE_SMS) {
       return {
         title: resend ? 'Firebase Code Re-Sent' : 'Firebase SMS Sent',
         detail: resend
@@ -259,32 +268,47 @@ const Login = () => {
     });
   };
 
-  const startDualChannelSignIn = async ({ email, phone, resend = false }) => {
+  const startDualChannelFlow = async ({ email, phone, resend = false }) => {
     await clearFirebaseChallenge();
     setSignInProofToken('');
 
     try {
-      const challenge = await startFirebasePhoneLoginChallenge({
-        email,
-        password: formData.password,
-        phone,
-        recaptchaContainer: recaptchaContainerRef.current,
-      });
+      const purpose = mode === 'forgot-password' ? 'forgot-password' : mode === 'signup' ? 'signup' : 'login';
 
-      firebaseLoginChallengeRef.current = challenge;
+      if (mode === 'signin') {
+        const challenge = await startFirebasePhoneLoginChallenge({
+          email,
+          password: formData.password,
+          phone,
+          recaptchaContainer: recaptchaContainerRef.current,
+        });
 
-      const credentialProofToken = String(challenge?.credentialProofToken || '').trim();
-      if (!credentialProofToken) {
-        throw new Error('Unable to start secure sign-in proof. Please try again.');
+        firebasePhoneChallengeRef.current = challenge;
+
+        const credentialProofToken = String(challenge?.credentialProofToken || '').trim();
+        if (!credentialProofToken) {
+          throw new Error('Unable to start secure sign-in proof. Please try again.');
+        }
+
+        setSignInProofToken(credentialProofToken);
+
+        await otpApi.sendOtp(email, phone, purpose, {
+          credentialProofToken,
+          skipSms: true,
+          strictIdentity: true,
+        });
+      } else {
+        const challenge = await startFirebasePhoneCodeChallenge({
+          phone,
+          recaptchaContainer: recaptchaContainerRef.current,
+        });
+
+        firebasePhoneChallengeRef.current = challenge;
+
+        await otpApi.sendOtp(email, phone, purpose, {
+          skipSms: true,
+        });
       }
-
-      setSignInProofToken(credentialProofToken);
-
-      await otpApi.sendOtp(email, phone, 'login', {
-        credentialProofToken,
-        skipSms: true,
-        strictIdentity: true,
-      });
 
       startOtpStep({
         transport: OTP_TRANSPORT.BACKEND_OTP,
@@ -396,9 +420,9 @@ const Login = () => {
       const purpose = mode === 'forgot-password' ? 'forgot-password' : mode === 'signup' ? 'signup' : 'login';
       let backendSuccessOverride = null;
 
-      if (mode === 'signin' && canUseFirebasePhoneOtp) {
+      if (canUseFirebasePhoneOtp) {
         try {
-          await startDualChannelSignIn({ email, phone });
+          await startDualChannelFlow({ email, phone });
           return;
         } catch (firebasePhoneError) {
           const fallback = resolveFirebasePhoneFallback(firebasePhoneError);
@@ -473,27 +497,59 @@ const Login = () => {
       }
 
       if (isPhoneOtpStage) {
-        const activeChallenge = firebaseLoginChallengeRef.current;
+        const activeChallenge = firebasePhoneChallengeRef.current;
         if (!activeChallenge) {
           setErr({ message: 'Secure phone challenge expired. Please request a new code.' });
           setStep('form');
           return;
         }
 
-        const verifiedPhoneFactor = await completeFirebasePhoneLoginChallenge(activeChallenge, otpString);
+        const verifiedPhoneFactor = mode === 'signin'
+          ? await completeFirebasePhoneLoginChallenge(activeChallenge, otpString)
+          : await completeFirebasePhoneCodeChallenge(activeChallenge, otpString);
+
         try {
-          await authApi.completePhoneFactorLogin(email, verifiedPhoneFactor.phoneE164, {
-            firebaseUser: verifiedPhoneFactor.user,
-          });
+          if (mode === 'signin') {
+            await authApi.completePhoneFactorLogin(email, verifiedPhoneFactor.phoneE164, {
+              firebaseUser: verifiedPhoneFactor.user,
+            });
+          } else {
+            await authApi.completePhoneFactorVerification(purpose, email, verifiedPhoneFactor.phoneE164, {
+              firebaseUser: verifiedPhoneFactor.user,
+            });
+          }
         } finally {
           await clearFirebaseChallenge();
         }
-        await login(email, formData.password);
-        setSignInProofToken('');
-        setOtpStage(OTP_STAGE.SINGLE);
-        setOtpTransport(OTP_TRANSPORT.BACKEND_OTP);
-        setAuthSuccess(AUTH_SUCCESS.signin_success);
-        setTimeout(() => navigate(from, { replace: true }), 1200);
+
+        if (mode === 'signin') {
+          await login(email, formData.password);
+          setSignInProofToken('');
+          setOtpStage(OTP_STAGE.SINGLE);
+          setOtpTransport(OTP_TRANSPORT.BACKEND_OTP);
+          setAuthSuccess(AUTH_SUCCESS.signin_success);
+          setTimeout(() => navigate(from, { replace: true }), 1200);
+        } else if (mode === 'signup') {
+          await signup(email, formData.password, formData.name.trim(), phone);
+          setOtpStage(OTP_STAGE.SINGLE);
+          setOtpTransport(OTP_TRANSPORT.BACKEND_OTP);
+          setAuthSuccess(AUTH_SUCCESS.signup_success);
+          setTimeout(() => navigate(from, { replace: true }), 1200);
+        } else if (mode === 'forgot-password') {
+          setStep('reset-password');
+          setOtpValues(Array(OTP_LENGTH).fill(''));
+          setOtpStage(OTP_STAGE.SINGLE);
+          setOtpTransport(OTP_TRANSPORT.BACKEND_OTP);
+          setFormData((prev) => ({
+            ...prev,
+            password: '',
+            confirmPassword: '',
+          }));
+          setAuthSuccess({
+            title: 'Recovery Verified',
+            detail: 'Your email OTP and Firebase phone verification are complete. Set a new password for this account now.',
+          });
+        }
         return;
       }
 
@@ -550,9 +606,9 @@ const Login = () => {
       const purpose = mode === 'forgot-password' ? 'forgot-password' : mode === 'signup' ? 'signup' : 'login';
       let backendSuccessOverride = null;
 
-      if (mode === 'signin' && otpStage !== OTP_STAGE.SINGLE && canUseFirebasePhoneOtp) {
+      if (otpStage !== OTP_STAGE.SINGLE && canUseFirebasePhoneOtp) {
         try {
-          await startDualChannelSignIn({ email, phone, resend: true });
+          await startDualChannelFlow({ email, phone, resend: true });
           return;
         } catch (firebasePhoneError) {
           const fallback = resolveFirebasePhoneFallback(firebasePhoneError);
@@ -652,7 +708,7 @@ const Login = () => {
     if (step === 'reset-password') {
       return {
         title: 'SET NEW PASSWORD',
-        desc: 'Your recovery OTP was verified with your registered email and phone. Choose a fresh password to regain access securely.'
+        desc: 'Your recovery verification is complete for the registered email and phone. Choose a fresh password to regain access securely.'
       };
     }
 
@@ -660,14 +716,22 @@ const Login = () => {
       if (isEmailOtpStage) {
         return {
           title: 'VERIFY EMAIL',
-          desc: 'Step 1 of 2. Enter the 6-digit code sent to your email, then finish the same sign-in with Firebase SMS on your phone.'
+          desc: mode === 'signup'
+            ? 'Step 1 of 2. Enter the 6-digit code sent to your email, then finish account activation with Firebase SMS on your phone.'
+            : mode === 'forgot-password'
+              ? 'Step 1 of 2. Enter the 6-digit code sent to your email, then finish recovery with Firebase SMS on your phone.'
+              : 'Step 1 of 2. Enter the 6-digit code sent to your email, then finish the same sign-in with Firebase SMS on your phone.'
         };
       }
 
       if (isPhoneOtpStage) {
         return {
           title: 'VERIFY PHONE',
-          desc: 'Step 2 of 2. Enter the Firebase SMS code sent to your phone to complete secure sign-in.'
+          desc: mode === 'signup'
+            ? 'Step 2 of 2. Enter the Firebase SMS code sent to your phone to activate your account securely.'
+            : mode === 'forgot-password'
+              ? 'Step 2 of 2. Enter the Firebase SMS code sent to your phone to unlock secure password recovery.'
+              : 'Step 2 of 2. Enter the Firebase SMS code sent to your phone to complete secure sign-in.'
         };
       }
 
@@ -682,12 +746,20 @@ const Login = () => {
       case 'signup':
         return {
           title: 'CREATE ACCOUNT',
-          desc: 'Sign up with your phone number. We\'ll verify it with an OTP sent to your email and phone.'
+          desc: firebasePhoneFallback?.disableFirebasePhoneOtp
+            ? 'Firebase phone delivery is unavailable on this deployment, so secure backup OTP codes will be sent to your email and mobile before account creation.'
+            : canUseFirebasePhoneOtp
+              ? 'Sign up with your details, then verify the account with one code to email and one Firebase SMS code to your phone.'
+              : 'Sign up with your phone number. We\'ll verify it with an OTP sent to your email and phone.'
         };
       case 'forgot-password':
         return {
           title: 'RESET PASSWORD',
-          desc: 'Enter your registered email and phone number. We\'ll verify both before allowing a new password.'
+          desc: firebasePhoneFallback?.disableFirebasePhoneOtp
+            ? 'Firebase phone delivery is unavailable on this deployment, so secure backup OTP codes will be sent to your registered email and mobile before password reset.'
+            : canUseFirebasePhoneOtp
+              ? 'Enter your registered email and phone number, then verify recovery with one code to email and one Firebase SMS code to your phone.'
+              : 'Enter your registered email and phone number. We\'ll verify both before allowing a new password.'
         };
       default:
         return {
@@ -748,7 +820,7 @@ const Login = () => {
   const trustNotes = useMemo(() => {
     if (step === 'reset-password') {
       return [
-        'This password change is allowed only after a verified recovery OTP for the same email and phone.',
+        'This password change is allowed only after verified recovery for the same email and phone.',
         'Your new password must meet the full strength policy before it is saved.',
         'Existing Firebase sessions are revoked after the reset so the new password takes effect cleanly.',
       ];
@@ -757,16 +829,24 @@ const Login = () => {
     if (step === 'otp') {
       if (isEmailOtpStage) {
         return [
-          'Step 1 checks the email address tied to your password and registered phone number.',
-          'Step 2 will still require the Firebase phone code before the session is finalized.',
-          'Both codes expire quickly and each resend refreshes the full secure sign-in chain.',
+          mode === 'signup'
+            ? 'Step 1 verifies the email address that will own the new account.'
+            : mode === 'forgot-password'
+              ? 'Step 1 verifies the registered recovery email for this account.'
+              : 'Step 1 checks the email address tied to your password and registered phone number.',
+          'Step 2 will still require the Firebase phone code before this flow is finalized.',
+          'Both codes expire quickly and each resend refreshes the full secure verification chain.',
         ];
       }
 
       if (isPhoneOtpStage) {
         return [
-          'Your email step is already verified for this login attempt.',
-          'The final Firebase SMS confirmation binds this session to your registered phone.',
+          mode === 'signup'
+            ? 'Your email step is already verified for this new account.'
+            : mode === 'forgot-password'
+              ? 'Your recovery email step is already verified for this account.'
+              : 'Your email step is already verified for this login attempt.',
+          'The final Firebase SMS confirmation binds this flow to your registered phone.',
           'If the phone code expires, resend refreshes both email and phone factors together.',
         ];
       }
@@ -780,7 +860,11 @@ const Login = () => {
 
     if (mode === 'signup') {
       return [
-        'Email and phone are verified before a new account becomes active.',
+        firebasePhoneFallback?.disableFirebasePhoneOtp
+          ? 'Firebase phone delivery is unavailable here, so Aura is using secure backup delivery to email and mobile before account creation.'
+          : canUseFirebasePhoneOtp
+            ? 'Email is checked first, then Firebase phone verification finishes the new account securely.'
+            : 'Email and phone are verified before a new account becomes active.',
         'Seller, payment, and order access stay locked behind verified identity.',
         'Fraud checks and duplicate-account controls run before activation.',
       ];
@@ -788,8 +872,12 @@ const Login = () => {
 
     if (mode === 'forgot-password') {
       return [
-        'Reset requests stay tied to your registered email and phone.',
-        'A fresh OTP is required before any password recovery step.',
+        firebasePhoneFallback?.disableFirebasePhoneOtp
+          ? 'Firebase phone delivery is unavailable here, so Aura is using secure backup delivery to email and mobile before recovery continues.'
+          : canUseFirebasePhoneOtp
+            ? 'Recovery checks your email first, then requires Firebase phone verification before password reset.'
+            : 'Reset requests stay tied to your registered email and phone.',
+        'A fresh verification chain is required before any password recovery step.',
         'Suspicious recovery attempts are rate-limited automatically.',
       ];
     }
@@ -816,17 +904,25 @@ const Login = () => {
     },
     {
       label: 'Delivery',
-      value: mode === 'signin'
-        ? isEmailOtpStage
-          ? 'Email OTP live, Firebase phone pending'
-          : isPhoneOtpStage
-            ? 'Email verified, Firebase SMS active'
-            : firebasePhoneFallback?.disableFirebasePhoneOtp
-              ? 'Email + mobile backup OTP'
-              : canUseFirebasePhoneOtp
+      value: isEmailOtpStage
+        ? 'Email OTP live, Firebase phone pending'
+        : isPhoneOtpStage
+          ? 'Email verified, Firebase SMS active'
+          : firebasePhoneFallback?.disableFirebasePhoneOtp
+            ? 'Email + mobile backup OTP'
+            : canUseFirebasePhoneOtp
               ? 'Email + Firebase SMS'
-              : formData.phone ? 'Email + phone active' : 'Email first, phone required'
-        : formData.phone ? 'Email + phone active' : 'Email first, phone required',
+              : formData.phone ? 'Email + phone active' : 'Email first, phone required',
+    },
+    {
+      label: 'Flow',
+      value: mode === 'signup'
+        ? 'New account activation'
+        : mode === 'forgot-password'
+          ? step === 'reset-password'
+            ? 'Recovery unlocked'
+            : 'Password recovery'
+          : 'Secure sign-in',
     },
     {
       label: 'Social access',
@@ -881,13 +977,17 @@ const Login = () => {
 
     if (step === 'otp') {
       if (isEmailOtpStage) return 'VERIFY EMAIL CODE';
-      if (isPhoneOtpStage) return 'VERIFY PHONE & SIGN IN';
+      if (isPhoneOtpStage) {
+        if (mode === 'signup') return 'VERIFY PHONE & CREATE ACCOUNT';
+        if (mode === 'forgot-password') return 'VERIFY PHONE & CONTINUE';
+        return 'VERIFY PHONE & SIGN IN';
+      }
       return mode === 'signin' ? 'VERIFY OTP & SIGN IN' : 'VERIFY OTP';
     }
 
-    if (mode === 'signup') return 'SEND OTP & SIGN UP';
-    if (mode === 'forgot-password') return 'SEND OTP';
     if (firebasePhoneFallback?.disableFirebasePhoneOtp) return 'SEND BACKUP OTP';
+    if (mode === 'signup') return canUseFirebasePhoneOtp ? 'SEND EMAIL + PHONE OTP' : 'SEND OTP & SIGN UP';
+    if (mode === 'forgot-password') return canUseFirebasePhoneOtp ? 'SEND EMAIL + PHONE OTP' : 'SEND OTP';
     return canUseFirebasePhoneOtp ? 'SEND EMAIL + PHONE OTP' : 'SEND OTP & SIGN IN';
   })();
 
@@ -1039,10 +1139,14 @@ const Login = () => {
                           className="w-full pl-12 pr-4 py-4 bg-zinc-950/50 border border-white/10 rounded-2xl focus:outline-none focus:border-neo-cyan focus:ring-1 focus:ring-neo-cyan text-white placeholder:text-slate-600 font-medium transition-all shadow-inner" />
                       </div>
                       <p className="text-[10px] text-slate-600 mt-1.5 uppercase tracking-widest font-bold pl-1">
-                        {mode === 'signin' && firebasePhoneFallback?.disableFirebasePhoneOtp
+                        {firebasePhoneFallback?.disableFirebasePhoneOtp
                           ? 'Firebase SMS is unavailable here. Secure backup OTP will be sent to your email and mobile instead.'
-                          : mode === 'signin' && canUseFirebasePhoneOtp
-                          ? 'Sign-in sends one code to email and one Firebase SMS code to your phone.'
+                          : canUseFirebasePhoneOtp
+                          ? mode === 'signup'
+                            ? 'Signup sends one code to email and one Firebase SMS code to your phone.'
+                            : mode === 'forgot-password'
+                              ? 'Recovery sends one code to email and one Firebase SMS code to your phone.'
+                              : 'Sign-in sends one code to email and one Firebase SMS code to your phone.'
                           : 'OTP will be sent to your email & phone'}
                       </p>
                     </div>
@@ -1114,11 +1218,21 @@ const Login = () => {
                       {isEmailOtpStage ? (
                         <p className="text-slate-400 text-sm">
                           Step 1 of 2. We sent a 6-digit email code to <span className="text-white font-bold">{formData.email}</span>.
-                          Your Firebase SMS code for <span className="text-white font-bold">{formData.phone}</span> will complete the same login next.
+                          {' '}
+                          {mode === 'signup'
+                            ? <>Your Firebase SMS code for <span className="text-white font-bold">{formData.phone}</span> will finish activating this account next.</>
+                            : mode === 'forgot-password'
+                              ? <>Your Firebase SMS code for <span className="text-white font-bold">{formData.phone}</span> will unlock password recovery next.</>
+                              : <>Your Firebase SMS code for <span className="text-white font-bold">{formData.phone}</span> will complete the same login next.</>}
                         </p>
                       ) : isPhoneOtpStage ? (
                         <p className="text-slate-400 text-sm">
-                          Step 2 of 2. Your email is verified. Enter the Firebase SMS code sent to <span className="text-white font-bold">{formData.phone}</span>.
+                          Step 2 of 2. Your email is verified. Enter the Firebase SMS code sent to <span className="text-white font-bold">{formData.phone}</span>{' '}
+                          {mode === 'signup'
+                            ? 'to activate the account.'
+                            : mode === 'forgot-password'
+                              ? 'to continue password recovery.'
+                              : 'to finish signing in.'}
                         </p>
                       ) : otpTransport === OTP_TRANSPORT.FIREBASE_SMS ? (
                         <p className="text-slate-400 text-sm">
