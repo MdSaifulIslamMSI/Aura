@@ -34,7 +34,6 @@ const Login = () => {
     currentUser,
     login,
     signup,
-    forgotPassword,
     signInWithGoogle,
     signInWithFacebook,
     signInWithX,
@@ -337,6 +336,17 @@ const Login = () => {
       || rawMessage.includes('sign up first');
   };
 
+  const validateStrongPasswordFields = ({ password, confirmPassword }) => {
+    if (!password) { setErr({ message: 'Password is required' }); return false; }
+    if (password.length < 12) { setErr({ message: 'Password must be at least 12 characters' }); return false; }
+    if (!/[A-Z]/.test(password)) { setErr({ message: 'Password must contain an uppercase letter' }); return false; }
+    if (!/[a-z]/.test(password)) { setErr({ message: 'Password must contain a lowercase letter' }); return false; }
+    if (!/[0-9]/.test(password)) { setErr({ message: 'Password must contain a digit' }); return false; }
+    if (!/[!@#$%^&*]/.test(password)) { setErr({ message: 'Password must contain a special character (!@#$%^&*)' }); return false; }
+    if (password !== confirmPassword) { setErr({ message: 'Passwords do not match' }); return false; }
+    return true;
+  };
+
 
   const validateForm = () => {
     if (!formData.phone) {
@@ -349,13 +359,10 @@ const Login = () => {
       if (!formData.name) { setErr({ message: 'Full name is required' }); return false; }
       if (!formData.email) { setErr({ message: 'Email address is required' }); return false; }
       if (!validateEmail(formData.email)) { setErr({ message: 'Valid email address is required' }); return false; }
-      if (!formData.password) { setErr({ message: 'Password is required' }); return false; }
-      if (formData.password.length < 12) { setErr({ message: 'Password must be at least 12 characters' }); return false; }
-      if (!/[A-Z]/.test(formData.password)) { setErr({ message: 'Password must contain an uppercase letter' }); return false; }
-      if (!/[a-z]/.test(formData.password)) { setErr({ message: 'Password must contain a lowercase letter' }); return false; }
-      if (!/[0-9]/.test(formData.password)) { setErr({ message: 'Password must contain a digit' }); return false; }
-      if (!/[!@#$%^&*]/.test(formData.password)) { setErr({ message: 'Password must contain a special character (!@#$%^&*)' }); return false; }
-      if (formData.password !== formData.confirmPassword) { setErr({ message: 'Passwords do not match' }); return false; }
+      if (!validateStrongPasswordFields({
+        password: formData.password,
+        confirmPassword: formData.confirmPassword,
+      })) { return false; }
     }
     if (mode === 'signin') {
       if (!formData.email) { setErr({ message: 'Email address is required' }); return false; }
@@ -503,9 +510,18 @@ const Login = () => {
         setAuthSuccess(AUTH_SUCCESS.signin_success);
         setTimeout(() => navigate(from, { replace: true }), 1200);
       } else if (mode === 'forgot-password') {
-        await forgotPassword(email);
-        setAuthSuccess(AUTH_SUCCESS.reset_sent);
-        setTimeout(() => { setMode('signin'); setStep('form'); }, 3000);
+        setStep('reset-password');
+        setOtpValues(Array(OTP_LENGTH).fill(''));
+        setFormData((prev) => ({
+          ...prev,
+          password: '',
+          confirmPassword: '',
+        }));
+        setAuthSuccess({
+          title: 'Recovery Verified',
+          detail: 'Your email and phone are verified. Set a new password for this account now.',
+        });
+        return;
       }
       setSignInProofToken('');
     } catch (err) {
@@ -608,6 +624,11 @@ const Login = () => {
     setSignInProofToken('');
     setOtpStage(OTP_STAGE.SINGLE);
     setOtpTransport(OTP_TRANSPORT.BACKEND_OTP);
+    setFormData((prev) => ({
+      ...prev,
+      password: '',
+      confirmPassword: '',
+    }));
   };
 
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -619,6 +640,8 @@ const Login = () => {
       handleSendOtp();
     } else if (step === 'otp') {
       handleVerifyOtp();
+    } else if (step === 'reset-password') {
+      handleResetPassword();
     }
   };
 
@@ -626,6 +649,13 @@ const Login = () => {
   // Info Panel Text
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   const getInfoText = () => {
+    if (step === 'reset-password') {
+      return {
+        title: 'SET NEW PASSWORD',
+        desc: 'Your recovery OTP was verified with your registered email and phone. Choose a fresh password to regain access securely.'
+      };
+    }
+
     if (step === 'otp') {
       if (isEmailOtpStage) {
         return {
@@ -657,7 +687,7 @@ const Login = () => {
       case 'forgot-password':
         return {
           title: 'RESET PASSWORD',
-          desc: 'Enter your phone number. We\'ll send a verification code to reset your password.'
+          desc: 'Enter your registered email and phone number. We\'ll verify both before allowing a new password.'
         };
       default:
         return {
@@ -671,9 +701,59 @@ const Login = () => {
     }
   };
 
+  const handleResetPassword = async () => {
+    if (!validateStrongPasswordFields({
+      password: formData.password,
+      confirmPassword: formData.confirmPassword,
+    })) {
+      return;
+    }
+
+    setIsLoading(true);
+    setAuthError(null);
+    setAuthSuccess(null);
+
+    try {
+      const email = normalizeEmail(formData.email);
+      const phone = normalizePhone(formData.phone);
+
+      await otpApi.resetPassword(email, phone, formData.password);
+
+      setAuthSuccess(AUTH_SUCCESS.password_reset_success);
+      setTimeout(() => {
+        setMode('signin');
+        setStep('form');
+        setCountdown(0);
+        setOtpValues(Array(OTP_LENGTH).fill(''));
+        setOtpStage(OTP_STAGE.SINGLE);
+        setOtpTransport(OTP_TRANSPORT.BACKEND_OTP);
+        setSignInProofToken('');
+        setAuthError(null);
+        setAuthSuccess(null);
+        setFormData((prev) => ({
+          ...prev,
+          password: '',
+          confirmPassword: '',
+        }));
+      }, 1400);
+    } catch (err) {
+      setErr(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const info = getInfoText();
 
   const trustNotes = useMemo(() => {
+    if (step === 'reset-password') {
+      return [
+        'This password change is allowed only after a verified recovery OTP for the same email and phone.',
+        'Your new password must meet the full strength policy before it is saved.',
+        'Existing Firebase sessions are revoked after the reset so the new password takes effect cleanly.',
+      ];
+    }
+
     if (step === 'otp') {
       if (isEmailOtpStage) {
         return [
@@ -727,8 +807,12 @@ const Login = () => {
 
   const secureSignals = useMemo(() => ([
     {
-      label: step === 'otp' ? 'OTP window' : 'Identity gate',
-      value: step === 'otp' ? '5-minute secure verify' : 'Credentials checked before send',
+      label: step === 'otp' ? 'OTP window' : step === 'reset-password' ? 'Reset window' : 'Identity gate',
+      value: step === 'otp'
+        ? '5-minute secure verify'
+        : step === 'reset-password'
+          ? 'OTP verified, new password pending'
+          : 'Credentials checked before send',
     },
     {
       label: 'Delivery',
@@ -793,6 +877,8 @@ const Login = () => {
   };
 
   const submitLabel = (() => {
+    if (step === 'reset-password') return 'RESET PASSWORD';
+
     if (step === 'otp') {
       if (isEmailOtpStage) return 'VERIFY EMAIL CODE';
       if (isPhoneOtpStage) return 'VERIFY PHONE & SIGN IN';
@@ -856,7 +942,7 @@ const Login = () => {
               </div>
 
               <div className="hidden md:flex relative z-10 items-center justify-center p-8 mt-10">
-                {step === 'otp' ? (
+                {step === 'otp' || step === 'reset-password' ? (
                   <Shield className="w-40 h-40 text-neo-cyan/20 drop-shadow-[0_0_30px_rgba(6,182,212,0.4)] animate-spin-slow" />
                 ) : (
                   <Network className="w-40 h-40 text-neo-fuchsia/20 drop-shadow-[0_0_30px_rgba(217,70,239,0.4)] animate-spin-slow" />
@@ -1082,6 +1168,64 @@ const Login = () => {
                           Resend OTP
                         </button>
                       )}
+                    </div>
+                  </div>
+                )}
+
+                {step === 'reset-password' && (
+                  <div className="animate-fade-in">
+                    <button type="button" onClick={goBack}
+                      className="flex items-center gap-2 text-slate-400 hover:text-white text-xs uppercase tracking-widest font-bold mb-6 transition-colors">
+                      <ArrowLeft className="w-4 h-4" /> Back to form
+                    </button>
+
+                    <div className="text-center mb-8">
+                      <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-neo-cyan/20 to-neo-fuchsia/20 border border-white/10 flex items-center justify-center">
+                        <Lock className="w-8 h-8 text-neo-cyan" />
+                      </div>
+                      <h3 className="text-xl font-black text-white uppercase tracking-widest mb-2">Create New Password</h3>
+                      <p className="text-slate-400 text-sm">
+                        Recovery is verified for <span className="text-white font-bold">{formData.email}</span>.
+                        Set a strong new password for the account tied to <span className="text-white font-bold">{formData.phone}</span>.
+                      </p>
+                    </div>
+
+                    <div className="space-y-5">
+                      <div className="animate-fade-in">
+                        <label className="block text-xs uppercase tracking-widest font-bold text-slate-400 mb-2">New Password *</label>
+                        <div className="relative group/input">
+                          <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 group-focus-within/input:text-neo-cyan transition-colors" />
+                          <input
+                            type={showPassword ? 'text' : 'password'}
+                            name="password"
+                            value={formData.password}
+                            onChange={handleChange}
+                            placeholder="........"
+                            autoComplete="new-password"
+                            className="w-full pl-12 pr-14 py-4 bg-zinc-950/50 border border-white/10 rounded-2xl focus:outline-none focus:border-neo-cyan focus:ring-1 focus:ring-neo-cyan text-white placeholder:text-slate-600 font-medium transition-all shadow-inner"
+                          />
+                          <button type="button" onClick={() => setShowPassword(!showPassword)}
+                            className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors p-1">
+                            {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="animate-fade-in">
+                        <label className="block text-xs uppercase tracking-widest font-bold text-slate-400 mb-2">Confirm Password *</label>
+                        <div className="relative group/input">
+                          <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 group-focus-within/input:text-neo-cyan transition-colors" />
+                          <input
+                            type={showPassword ? 'text' : 'password'}
+                            name="confirmPassword"
+                            value={formData.confirmPassword}
+                            onChange={handleChange}
+                            placeholder="........"
+                            autoComplete="new-password"
+                            className="w-full pl-12 pr-4 py-4 bg-zinc-950/50 border border-white/10 rounded-2xl focus:outline-none focus:border-neo-cyan focus:ring-1 focus:ring-neo-cyan text-white placeholder:text-slate-600 font-medium transition-all shadow-inner"
+                          />
+                        </div>
+                      </div>
                     </div>
                   </div>
                 )}

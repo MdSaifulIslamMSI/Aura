@@ -27,6 +27,14 @@ describe('Auth API surface', () => {
         expect(res.statusCode).toBe(400);
         expect(res.body.message).toContain('required');
     });
+
+    test('POST /api/auth/otp/reset-password should expose recovery validation under auth aliases', async () => {
+        const res = await request(app)
+            .post('/api/auth/otp/reset-password')
+            .send({ email: 'test@example.com' });
+        expect(res.statusCode).toBe(400);
+        expect(res.body.message).toContain('required');
+    });
 });
 
 

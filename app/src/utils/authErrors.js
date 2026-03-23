@@ -198,6 +198,62 @@ export const AUTH_ERRORS = {
         action: 'back',
         actionLabel: 'Start over'
     },
+    'password reset verification is required before setting a new password': {
+        title: 'Reset Verification Required',
+        detail: 'Verify the recovery OTP before choosing a new password.',
+        hint: 'Start the forgot-password flow again and complete the OTP step first.',
+        action: 'back',
+        actionLabel: 'Start over'
+    },
+    'password reset verification expired': {
+        title: 'Recovery Session Expired',
+        detail: 'Your verified recovery session has expired.',
+        hint: 'Request a fresh OTP to your registered email and phone, then try again.',
+        action: 'back',
+        actionLabel: 'Start over'
+    },
+    'password reset account is not ready': {
+        title: 'Account Recovery Unavailable',
+        detail: 'We could not find a password-auth account ready for reset.',
+        hint: 'Contact support if this account was created recently or was migrated from another sign-in method.',
+        action: null,
+        actionLabel: null
+    },
+    'unable to update password right now': {
+        title: 'Password Update Failed',
+        detail: 'We could not finish updating your password right now.',
+        hint: 'Please try again in a moment. If this continues, contact support.',
+        action: null,
+        actionLabel: null
+    },
+    'password contains sequential characters': {
+        title: 'Password Too Predictable',
+        detail: 'Your new password contains an easy-to-guess sequence.',
+        hint: 'Avoid patterns like 123, abc, or similar runs of characters.',
+        action: null,
+        actionLabel: null
+    },
+    'password contains repeated characters': {
+        title: 'Password Too Predictable',
+        detail: 'Your new password repeats the same character too many times.',
+        hint: 'Use a more varied password with mixed words, numbers, and symbols.',
+        action: null,
+        actionLabel: null
+    },
+    'password contains common date patterns': {
+        title: 'Password Too Predictable',
+        detail: 'Your new password contains a common date-like pattern.',
+        hint: 'Avoid birthdays, years, and obvious numeric sequences.',
+        action: null,
+        actionLabel: null
+    },
+    'password follows keyboard patterns': {
+        title: 'Password Too Predictable',
+        detail: 'Your new password follows an easy keyboard pattern.',
+        hint: 'Avoid patterns like qwerty, asdf, or similar keyboard runs.',
+        action: null,
+        actionLabel: null
+    },
     'you are already signed in': {
         title: 'Already Signed In',
         detail: 'This browser session is already authenticated.',
@@ -413,5 +469,9 @@ export const AUTH_SUCCESS = {
     reset_sent: {
         title: 'Reset Email Sent!',
         detail: 'Check your inbox for a password reset link.'
+    },
+    password_reset_success: {
+        title: 'Password Updated!',
+        detail: 'Your password was changed successfully. Sign in with the new password now.'
     }
 };

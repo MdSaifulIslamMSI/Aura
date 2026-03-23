@@ -13,6 +13,7 @@ const { issuePaymentChallengeToken } = require('../utils/paymentChallengeToken')
 const { issueOtpFlowToken } = require('../utils/otpFlowToken');
 const { flags: otpEmailFlags } = require('../config/otpEmailFlags');
 const { flags: otpSmsFlags } = require('../config/otpSmsFlags');
+const { validatePasswordPolicy, detectWeakPasswordPatterns } = require('../utils/passwordValidator');
 
 const OTP_LENGTH = 6;
 const OTP_EXPIRY_MS = otpEmailFlags.otpEmailTtlMinutes * 60 * 1000;
@@ -21,6 +22,7 @@ const LOCKOUT_DURATION_MS = 15 * 60 * 1000;
 const BCRYPT_SALT_ROUNDS = 8;
 const LOGIN_PROOF_MAX_AGE_SECONDS = 10 * 60;
 const LOGIN_ASSURANCE_TTL_MS = 10 * 60 * 1000;
+const RESET_PASSWORD_SESSION_TTL_MS = 10 * 60 * 1000;
 const SIGNUP_IDENTIFIER_WINDOW_MS = 10 * 60 * 1000;
 const SIGNUP_IDENTIFIER_MAX_REQUESTS = 5;
 const SIGNUP_IDENTIFIER_TELEMETRY_THRESHOLD = 3;
@@ -1385,6 +1387,182 @@ const verifyOtp = asyncHandler(async (req, res, next) => {
 });
 
 /**
+ * @desc    Reset password after OTP verification
+ * @route   POST /api/otp/reset-password
+ * @access  Public
+ */
+const resetPasswordWithOtp = asyncHandler(async (req, res, next) => {
+    const rawEmail = req.body?.email;
+    const rawPhone = req.body?.phone;
+    const rawPassword = req.body?.password;
+    const clientIp = extractClientIp(req);
+    const requestId = req.requestId || '-';
+
+    if (rawEmail === undefined || rawEmail === null || rawEmail === '') {
+        return next(new AppError('Email is required', 400));
+    }
+    if (rawPhone === undefined || rawPhone === null || rawPhone === '') {
+        return next(new AppError('Phone number is required', 400));
+    }
+    if (rawPassword === undefined || rawPassword === null || rawPassword === '') {
+        return next(new AppError('Password is required', 400));
+    }
+
+    if (typeof rawEmail !== 'string') {
+        return next(new AppError('Email must be a string', 400));
+    }
+    if (typeof rawPhone !== 'string') {
+        return next(new AppError('Phone number must be a string', 400));
+    }
+    if (typeof rawPassword !== 'string') {
+        return next(new AppError('Password must be a string', 400));
+    }
+
+    const email = normalizeEmail(rawEmail);
+    const phone = normalizePhone(rawPhone);
+    const canonicalPhone = canonicalizePhoneIdentity(phone);
+    const password = rawPassword;
+
+    if (!EMAIL_REGEX.test(email)) {
+        return next(new AppError('Valid email address is required', 400));
+    }
+    if (!canonicalPhone) {
+        return next(new AppError('Valid phone number is required', 400));
+    }
+
+    const passwordValidation = validatePasswordPolicy(password);
+    if (!passwordValidation.isValid) {
+        return next(new AppError(passwordValidation.errors[0], 400));
+    }
+
+    const weakPassword = detectWeakPasswordPatterns(password);
+    if (weakPassword.isWeak) {
+        return next(new AppError(weakPassword.reason || 'Password is too weak', 400));
+    }
+
+    const phoneLookupCandidates = buildPhoneLookupCandidates(phone, canonicalPhone);
+    const user = await User.findOne({
+        email,
+        phone: { $in: phoneLookupCandidates },
+        isVerified: true,
+    })
+        .select('name email phone avatar gender dob bio isAdmin isVerified +resetOtpVerifiedAt')
+        .lean();
+
+    if (!user) {
+        audit('RESET_PASSWORD_REJECTED', {
+            phone,
+            email,
+            purpose: 'forgot-password',
+            ip: clientIp,
+            requestId,
+            success: false,
+            reason: 'verified account not found for reset',
+        });
+        return next(new AppError('Password reset verification is required before setting a new password.', 403));
+    }
+
+    const resetOtpVerifiedAt = user.resetOtpVerifiedAt
+        ? new Date(user.resetOtpVerifiedAt).getTime()
+        : 0;
+    const resetSessionStillFresh = Number.isFinite(resetOtpVerifiedAt)
+        && resetOtpVerifiedAt > 0
+        && (Date.now() - resetOtpVerifiedAt) <= RESET_PASSWORD_SESSION_TTL_MS;
+
+    if (!resetSessionStillFresh) {
+        if (resetOtpVerifiedAt > 0) {
+            await User.updateOne(
+                { _id: user._id },
+                { $set: { resetOtpVerifiedAt: null } }
+            );
+        }
+
+        audit('RESET_PASSWORD_REJECTED', {
+            phone,
+            email,
+            purpose: 'forgot-password',
+            ip: clientIp,
+            requestId,
+            success: false,
+            reason: resetOtpVerifiedAt > 0 ? 'reset verification expired' : 'reset verification missing',
+        });
+
+        return next(new AppError(
+            resetOtpVerifiedAt > 0
+                ? 'Password reset verification expired. Please request a new OTP.'
+                : 'Password reset verification is required before setting a new password.',
+            403
+        ));
+    }
+
+    try {
+        const authUser = await firebaseAdmin.auth().getUserByEmail(email);
+        await firebaseAdmin.auth().updateUser(authUser.uid, { password });
+        await firebaseAdmin.auth().revokeRefreshTokens(authUser.uid);
+    } catch (error) {
+        if (error?.code === 'auth/user-not-found') {
+            audit('RESET_PASSWORD_REJECTED', {
+                phone,
+                email,
+                purpose: 'forgot-password',
+                ip: clientIp,
+                requestId,
+                success: false,
+                reason: 'firebase user not found',
+            });
+            return next(new AppError('Password reset account is not ready. Please contact support.', 404));
+        }
+
+        logger.error('otp.reset_password_failed', {
+            email: maskEmail(email),
+            phone: maskPhoneSuffix(phone),
+            requestId,
+            error: error?.message || 'unknown',
+            code: error?.code || '',
+        });
+
+        return next(new AppError('Unable to update password right now. Please try again shortly.', 503));
+    }
+
+    await User.updateOne(
+        { _id: user._id },
+        {
+            $set: {
+                resetOtpVerifiedAt: null,
+                authAssurance: 'password',
+                authAssuranceAt: new Date(),
+            },
+        }
+    );
+
+    await saveAuthProfileSnapshot({
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        avatar: user.avatar || '',
+        gender: user.gender || '',
+        dob: user.dob || null,
+        bio: user.bio || '',
+        isVerified: Boolean(user.isVerified),
+        isAdmin: Boolean(user.isAdmin),
+    });
+
+    audit('RESET_PASSWORD_OK', {
+        phone,
+        email,
+        purpose: 'forgot-password',
+        ip: clientIp,
+        requestId,
+        success: true,
+    });
+
+    res.json({
+        success: true,
+        message: 'Password reset successful. Please sign in with your new password.',
+    });
+});
+
+/**
  * @desc    Check if a user exists by phone number
  * @route   POST /api/otp/check-user
  * @access  Public
@@ -1456,4 +1634,4 @@ const checkUserExists = asyncHandler(async (req, res, next) => {
     return res.json({ success: true, message: GENERIC_ACCOUNT_DISCOVERY_MESSAGE });
 });
 
-module.exports = { sendOtp, verifyOtp, checkUserExists };
+module.exports = { sendOtp, verifyOtp, resetPasswordWithOtp, checkUserExists };
