@@ -5,6 +5,7 @@ import {
   linkWithPhoneNumber,
   reauthenticateWithPhoneNumber,
   signInWithEmailAndPassword,
+  signInWithPhoneNumber,
   signOut,
 } from 'firebase/auth';
 import { assertFirebaseReady, firebaseConfig } from '@/config/firebase';
@@ -134,6 +135,36 @@ export const startFirebasePhoneLoginChallenge = async ({
   }
 };
 
+export const startFirebasePhoneCodeChallenge = async ({
+  phone,
+  recaptchaContainer,
+}) => {
+  assertFirebaseReady('Firebase phone verification');
+
+  const phoneE164 = normalizePhoneToE164(phone);
+  const tempApp = initializeApp(firebaseConfig, createTempAppName());
+  const tempAuth = getAuth(tempApp);
+
+  let verifier = null;
+
+  try {
+    verifier = buildRecaptchaVerifier(tempAuth, recaptchaContainer);
+    const confirmationResult = await signInWithPhoneNumber(tempAuth, phoneE164, verifier);
+
+    return {
+      app: tempApp,
+      auth: tempAuth,
+      verifier,
+      confirmationResult,
+      phoneE164,
+      mode: 'phone_sign_in',
+    };
+  } catch (error) {
+    await cleanupTempAuth({ auth: tempAuth, app: tempApp, verifier });
+    throw error;
+  }
+};
+
 export const completeFirebasePhoneLoginChallenge = async (challenge, otp) => {
   if (!challenge?.confirmationResult) {
     throw new Error('Phone verification challenge is unavailable');
@@ -154,6 +185,8 @@ export const completeFirebasePhoneLoginChallenge = async (challenge, otp) => {
     mode: challenge.mode,
   };
 };
+
+export const completeFirebasePhoneCodeChallenge = completeFirebasePhoneLoginChallenge;
 
 export const disposeFirebasePhoneLoginChallenge = async (challenge) => {
   await cleanupTempAuth({

@@ -240,6 +240,31 @@ const requireOtpAssurance = (req, res, next) => {
     return next();
 };
 
+const protectPhoneFactorProof = asyncHandler(async (req, res, next) => {
+    if (!req.headers.authorization?.startsWith('Bearer')) {
+        throw new AppError('Not authorized, no token', 401);
+    }
+
+    try {
+        const token = req.headers.authorization.split(' ')[1];
+        const decodedToken = await firebaseAdmin.auth().verifyIdToken(token, true);
+        const verifiedPhone = normalizePhone(decodedToken?.phone_number || '');
+
+        req.authUid = decodedToken?.uid || '';
+        req.authToken = decodedToken;
+
+        if (!verifiedPhone || !PHONE_REGEX.test(verifiedPhone)) {
+            throw new AppError('Firebase phone verification is required before continuing.', 403);
+        }
+
+        return next();
+    } catch (error) {
+        if (error instanceof AppError) throw error;
+        logger.error('auth.phone_factor_verify_failed', { error: error?.message || 'unknown' });
+        throw new AppError('Not authorized, token failed', 401);
+    }
+});
+
 const requireActiveAccount = asyncHandler(async (req, res, next) => {
     if (!req.user) {
         return next(new AppError('Not authorized', 401));
@@ -418,6 +443,7 @@ const seller = (req, res, next) => {
 
 module.exports = {
     protect,
+    protectPhoneFactorProof,
     protectOptional,
     requireOtpAssurance,
     requireActiveAccount,

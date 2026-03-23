@@ -29,7 +29,6 @@ const SIGNUP_IDENTIFIER_TELEMETRY_THRESHOLD = 3;
 const GENERIC_OTP_VERIFICATION_MESSAGE = 'If account details are valid, verification will proceed.';
 
 const ALLOWED_PURPOSES = ['signup', 'login', 'forgot-password', 'payment-challenge'];
-const ALLOWED_LOGIN_FACTORS = new Set(['', 'email']);
 const ALLOWED_GENDERS = new Set(['male', 'female', 'other', 'prefer-not-to-say', '']);
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_REGEX = /^\+?\d{10,15}$/;
@@ -39,6 +38,7 @@ const GENERIC_ACCOUNT_RESPONSE_MESSAGE = 'If the account details are valid, we w
 
 const OTP_FIELDS = 'name email phone isAdmin isVerified authAssurance authAssuranceAt +otp +otpExpiry +otpPurpose +otpAttempts +otpLockedUntil';
 const signupIdentifierRateStore = new Map();
+const EMAIL_FACTOR_PURPOSES = new Set(['signup', 'login', 'forgot-password']);
 
 const maskEmail = (email) => (
     typeof email === 'string'
@@ -110,7 +110,7 @@ const normalizePurpose = (value) => (
     typeof value === 'string' ? value.trim() : ''
 );
 
-const normalizeLoginFactor = (value) => (
+const normalizeOtpFactor = (value) => (
     typeof value === 'string' ? value.trim().toLowerCase() : ''
 );
 
@@ -1056,9 +1056,9 @@ const verifyOtp = asyncHandler(async (req, res, next) => {
     const otp = rawOtp.trim();
     const purpose = normalizePurpose(rawPurpose);
     const email = rawEmail ? normalizeEmail(rawEmail) : '';
-    const factor = normalizeLoginFactor(rawFactor);
+    const factor = normalizeOtpFactor(rawFactor);
     const userId = rawUserId ? rawUserId.trim() : '';
-    const isEmailFactorLogin = purpose === 'login' && factor === 'email';
+    const isEmailFactorOtp = factor === 'email';
 
     if (!canonicalPhone) {
         return next(new AppError('Valid phone number is required', 400));
@@ -1077,11 +1077,11 @@ const verifyOtp = asyncHandler(async (req, res, next) => {
     if (!purposeIsFormatted || !ALLOWED_PURPOSES.includes(purpose)) {
         return next(new AppError('Invalid OTP purpose. Must be: signup, login, forgot-password, or payment-challenge', 400));
     }
-    if ((purpose !== 'login' && factor) || (purpose === 'login' && !ALLOWED_LOGIN_FACTORS.has(factor))) {
-        return next(new AppError('Invalid OTP factor. Login OTP currently supports the email factor only.', 400));
+    if ((factor && factor !== 'email') || (factor && !EMAIL_FACTOR_PURPOSES.has(purpose))) {
+        return next(new AppError('Invalid OTP factor. Email OTP verification is supported for signup, login, and forgot-password only.', 400));
     }
-    if (isEmailFactorLogin && !email) {
-        return next(new AppError('Email is required for login email OTP verification', 400));
+    if (isEmailFactorOtp && !email) {
+        return next(new AppError(`Email is required for ${purpose} email OTP verification`, 400));
     }
 
     if (rawIntentId !== undefined && rawIntentId !== null && rawIntentId !== '') {
@@ -1327,22 +1327,34 @@ const verifyOtp = asyncHandler(async (req, res, next) => {
         otpPurpose: null,
         otpAttempts: 0,
         otpLockedUntil: null,
-        isVerified: user.isVerified || purpose === 'signup',
+        isVerified: purpose === 'signup'
+            ? Boolean(user.isVerified || !isEmailFactorOtp)
+            : Boolean(user.isVerified),
     };
 
-    if (isEmailFactorLogin) {
-        verificationMutation.loginEmailOtpVerifiedAt = new Date();
+    if (isEmailFactorOtp) {
+        if (purpose === 'signup') {
+            verificationMutation.signupEmailOtpVerifiedAt = new Date();
+        } else if (purpose === 'login') {
+            verificationMutation.loginEmailOtpVerifiedAt = new Date();
+        } else if (purpose === 'forgot-password') {
+            verificationMutation.resetEmailOtpVerifiedAt = new Date();
+            verificationMutation.resetOtpVerifiedAt = null;
+        }
     } else {
         const authAssurance = getAssuranceForPurpose(purpose);
         verificationMutation.authAssurance = authAssurance;
         verificationMutation.authAssuranceAt = new Date();
     }
 
-    if (purpose === 'login' && !isEmailFactorLogin) {
+    if (purpose === 'login' && !isEmailFactorOtp) {
         verificationMutation.loginEmailOtpVerifiedAt = null;
         verificationMutation.loginOtpVerifiedAt = new Date();
         verificationMutation.loginOtpAssuranceExpiresAt = new Date(Date.now() + LOGIN_ASSURANCE_TTL_MS);
-    } else if (purpose === 'forgot-password') {
+    } else if (purpose === 'signup' && !isEmailFactorOtp) {
+        verificationMutation.signupEmailOtpVerifiedAt = null;
+    } else if (purpose === 'forgot-password' && !isEmailFactorOtp) {
+        verificationMutation.resetEmailOtpVerifiedAt = null;
         verificationMutation.resetOtpVerifiedAt = new Date();
     }
 
@@ -1356,7 +1368,9 @@ const verifyOtp = asyncHandler(async (req, res, next) => {
         gender: user.gender || '',
         dob: user.dob || null,
         bio: user.bio || '',
-        isVerified: purpose === 'signup' ? true : Boolean(user.isVerified),
+        isVerified: purpose === 'signup'
+            ? Boolean(user.isVerified || !isEmailFactorOtp)
+            : Boolean(user.isVerified),
         isAdmin: Boolean(user.isAdmin),
     });
 
@@ -1377,10 +1391,10 @@ const verifyOtp = asyncHandler(async (req, res, next) => {
 
     res.json({
         success: true,
-        message: isEmailFactorLogin ? 'Email OTP verified successfully' : 'OTP verified successfully',
+        message: isEmailFactorOtp ? 'Email OTP verified successfully' : 'OTP verified successfully',
         verified: true,
-        maskedIdentifier: isEmailFactorLogin ? maskEmail(user.email) : maskPhoneSuffix(user.phone),
-        ...(isEmailFactorLogin ? { nextFactor: 'phone' } : {}),
+        maskedIdentifier: isEmailFactorOtp ? maskEmail(user.email) : maskPhoneSuffix(user.phone),
+        ...(isEmailFactorOtp ? { nextFactor: 'phone' } : {}),
         ...flowPayload,
         ...(challengePayload || {}),
     });
