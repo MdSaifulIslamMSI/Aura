@@ -3,6 +3,7 @@ import {
   createUserWithEmailAndPassword,
   getRedirectResult,
   signInWithEmailAndPassword,
+  signInWithCredential,
   signInWithRedirect,
   signOut,
   onAuthStateChanged,
@@ -143,6 +144,10 @@ export const AuthProvider = ({ children }) => {
     lastSyncedAt: 0,
     inFlight: null,
   });
+  const controlledAuthFlowRef = useRef({
+    uid: '',
+    email: '',
+  });
   const sessionStateRef = useRef(EMPTY_SESSION_STATE);
   const redirectResolutionRef = useRef(false);
 
@@ -158,9 +163,38 @@ export const AuthProvider = ({ children }) => {
     };
   };
 
+  const setControlledAuthFlow = ({ uid = '', email = '' } = {}) => {
+    controlledAuthFlowRef.current = {
+      uid: normalizeText(uid),
+      email: normalizeEmail(email),
+    };
+  };
+
+  const clearControlledAuthFlow = () => {
+    setControlledAuthFlow();
+  };
+
+  const hasActiveControlledAuthFlow = () => Boolean(
+    controlledAuthFlowRef.current.uid || controlledAuthFlowRef.current.email
+  );
+
+  const isControlledAuthFlow = (firebaseUser = null) => {
+    if (!firebaseUser) return false;
+
+    const pending = controlledAuthFlowRef.current;
+    const uid = normalizeText(firebaseUser.uid);
+    const email = normalizeEmail(firebaseUser.email);
+
+    return Boolean(
+      (pending.uid && pending.uid === uid)
+      || (pending.email && pending.email === email)
+    );
+  };
+
   const applySignedOutState = () => {
     clearCsrfTokenCache();
     resetSyncTracking();
+    clearControlledAuthFlow();
     setSessionState({
       status: SESSION_STATUS.SIGNED_OUT,
       latticeChallenge: null,
@@ -352,19 +386,83 @@ export const AuthProvider = ({ children }) => {
     };
   };
 
+  const completeControlledAuthFlow = async ({ email = '', execute, finalize }) => {
+    setControlledAuthFlow({ email });
+    let shouldHoldGuardForAuthEvent = false;
+
+    try {
+      const result = await execute();
+      const firebaseUser = result?.user || result?.firebaseUser || null;
+
+      if (firebaseUser && hasActiveControlledAuthFlow()) {
+        setControlledAuthFlow({
+          uid: firebaseUser.uid,
+          email: firebaseUser.email || email,
+        });
+        shouldHoldGuardForAuthEvent = true;
+      }
+
+      await finalize(result, firebaseUser);
+      return result;
+    } finally {
+      if (!shouldHoldGuardForAuthEvent) {
+        clearControlledAuthFlow();
+      }
+    }
+  };
+
   const signup = async (email, password, name, phone) => {
     assertFirebaseReady('Sign up');
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    await updateFirebaseProfile(userCredential.user, { displayName: name });
-    await syncUserWithBackend(email, name, phone, userCredential.user, { force: true });
-    return userCredential;
+    return completeControlledAuthFlow({
+      email,
+      execute: async () => {
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        await updateFirebaseProfile(userCredential.user, { displayName: name });
+        return userCredential;
+      },
+      finalize: async (_result, firebaseUser) => {
+        await syncUserWithBackend(email, name, phone, firebaseUser, { force: true });
+      },
+    });
   };
 
   const login = async (email, password) => {
     assertFirebaseReady('Sign in');
-    const result = await signInWithEmailAndPassword(auth, email, password);
-    await refreshSession(result.user, { force: true });
-    return result;
+    return completeControlledAuthFlow({
+      email,
+      execute: async () => signInWithEmailAndPassword(auth, email, password),
+      finalize: async (_result, firebaseUser) => {
+        await refreshSession(firebaseUser, { force: true });
+      },
+    });
+  };
+
+  const loginWithPhoneCredential = async (credential, options = {}) => {
+    assertFirebaseReady('Phone sign in');
+
+    if (!credential) {
+      throw new Error('Phone credential is required');
+    }
+
+    const expectedEmail = normalizeEmail(options?.email);
+
+    return completeControlledAuthFlow({
+      email: expectedEmail,
+      execute: async () => {
+        const result = await signInWithCredential(auth, credential);
+        const resolvedEmail = normalizeEmail(result?.user?.email);
+
+        if (expectedEmail && resolvedEmail && resolvedEmail !== expectedEmail) {
+          await signOut(auth);
+          throw new Error('Verified phone sign-in resolved to a different account.');
+        }
+
+        return result;
+      },
+      finalize: async (_result, firebaseUser) => {
+        await refreshSession(firebaseUser, { force: true });
+      },
+    });
   };
 
   const signInWithOAuthProvider = async (provider, providerLabel = 'OAuth') => {
@@ -521,6 +619,12 @@ export const AuthProvider = ({ children }) => {
       }
 
       clearCsrfTokenCache();
+
+      if (isControlledAuthFlow(user)) {
+        clearControlledAuthFlow();
+        return;
+      }
+
       resetSyncTracking();
       setSessionState({
         status: SESSION_STATUS.LOADING,
@@ -554,6 +658,7 @@ export const AuthProvider = ({ children }) => {
     isAuthenticated: Boolean(currentUser),
     signup,
     login,
+    loginWithPhoneCredential,
     signInWithGoogle,
     signInWithFacebook,
     signInWithX,
