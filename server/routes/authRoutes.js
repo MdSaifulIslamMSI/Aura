@@ -32,7 +32,7 @@ const authSyncLimiter = createDistributedRateLimit({
 
 router.get('/session', protect, csrfTokenGenerator, getSession);
 router.post('/sync', protect, csrfTokenValidator, authSyncLimiter, validate(loginSchema), syncSession);
-router.post('/complete-phone-factor-login', protect, csrfTokenValidator, completePhoneFactorLogin);
+router.post('/complete-phone-factor-login', protect, completePhoneFactorLogin);
 router.post('/complete-phone-factor-verification', protectPhoneFactorProof, completePhoneFactorVerification);
 router.post('/verify-lattice', protect, csrfTokenValidator, verifyLatticeChallenge);
 router.post('/verify-quantum', protect, csrfTokenValidator, verifyQuantumChallenge);

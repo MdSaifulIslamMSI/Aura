@@ -1,5 +1,6 @@
 import { deleteApp, initializeApp } from 'firebase/app';
 import {
+  PhoneAuthProvider,
   RecaptchaVerifier,
   getAuth,
   linkWithPhoneNumber,
@@ -170,7 +171,12 @@ export const completeFirebasePhoneLoginChallenge = async (challenge, otp) => {
     throw new Error('Phone verification challenge is unavailable');
   }
 
-  const result = await challenge.confirmationResult.confirm(String(otp || '').trim());
+  const otpCode = String(otp || '').trim();
+  const verificationId = String(challenge.confirmationResult.verificationId || '').trim();
+  const credential = verificationId
+    ? PhoneAuthProvider.credential(verificationId, otpCode)
+    : null;
+  const result = await challenge.confirmationResult.confirm(otpCode);
   const verifiedUser = result?.user || challenge.auth?.currentUser || null;
 
   if (!verifiedUser) {
@@ -183,6 +189,7 @@ export const completeFirebasePhoneLoginChallenge = async (challenge, otp) => {
     user: verifiedUser,
     phoneE164: challenge.phoneE164,
     mode: challenge.mode,
+    credential,
   };
 };
 

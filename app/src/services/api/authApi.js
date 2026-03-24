@@ -5,7 +5,8 @@ import { ensureCsrfToken, addCsrfTokenToHeaders, cacheToken, clearCsrfTokenCache
 /**
  * Auth API CSRF flow:
  * - Read endpoint (/auth/session) returns X-CSRF-Token header for the current auth identity.
- * - Write endpoints fetch a fresh single-use token in X-CSRF-Token with the same user context.
+ * - Session-bound write endpoints fetch a fresh single-use token in X-CSRF-Token.
+ * - Fresh Firebase bearer proof routes (phone-factor completion) skip CSRF and rely on Authorization only.
  */
 
 const extractAuthTokenFromHeaders = (headers = {}) => {
@@ -90,7 +91,7 @@ export const authApi = {
         return postWithFreshCsrf('/auth/sync', { email, name, phone }, options);
     },
     completePhoneFactorLogin: async (email, phone, options = {}) => {
-        return postWithFreshCsrf('/auth/complete-phone-factor-login', { email, phone }, options);
+        return postWithFirebaseBearer('/auth/complete-phone-factor-login', { email, phone }, options);
     },
     completePhoneFactorVerification: async (purpose, email, phone, options = {}) => {
         return postWithFirebaseBearer('/auth/complete-phone-factor-verification', { purpose, email, phone }, options);

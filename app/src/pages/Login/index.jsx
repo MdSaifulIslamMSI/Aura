@@ -35,6 +35,7 @@ const Login = () => {
   const {
     currentUser,
     login,
+    loginWithPhoneCredential,
     signup,
     signInWithGoogle,
     signInWithFacebook,
@@ -326,6 +327,19 @@ const Login = () => {
     }
   };
 
+  const finalizePhoneBackedSignIn = async (email, verifiedPhoneFactor) => {
+    if (!verifiedPhoneFactor?.credential) {
+      await login(email, formData.password);
+      return;
+    }
+
+    try {
+      await loginWithPhoneCredential(verifiedPhoneFactor.credential, { email });
+    } catch {
+      await login(email, formData.password);
+    }
+  };
+
 
   const buildGenericOtpFlowError = () => ({
     message: 'If the account details are valid, continue with OTP verification.'
@@ -523,7 +537,7 @@ const Login = () => {
         }
 
         if (mode === 'signin') {
-          await login(email, formData.password);
+          await finalizePhoneBackedSignIn(email, verifiedPhoneFactor);
           setSignInProofToken('');
           setOtpStage(OTP_STAGE.SINGLE);
           setOtpTransport(OTP_TRANSPORT.BACKEND_OTP);
