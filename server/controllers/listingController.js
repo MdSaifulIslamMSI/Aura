@@ -40,6 +40,7 @@ const {
     makeIntentId,
     normalizeMethod,
     roundCurrency,
+    mapProviderTypeToPaymentMethod,
 } = require('../services/payments/helpers');
 const { sendMessageToUser } = require('../services/socketService');
 const { solveAuraMatch, solveAuraCluster } = require('../services/marketplaceOptimizers');
@@ -93,7 +94,7 @@ const createEscrowIntent = asyncHandler(async (req, res, next) => {
 
     const paymentMethod = normalizeMethod(req.body?.paymentMethod || 'UPI');
     if (!DIGITAL_METHODS.includes(paymentMethod)) {
-        return next(new AppError('Marketplace escrow supports digital methods only (UPI/CARD/WALLET)', 400));
+        return next(new AppError('Marketplace escrow supports digital methods only (UPI/CARD/WALLET/NETBANKING)', 400));
     }
 
     const activeIntent = await PaymentIntent.findOne({
@@ -149,7 +150,7 @@ const createEscrowIntent = asyncHandler(async (req, res, next) => {
     const provider = await getPaymentProvider({
         amount,
         currency: 'INR',
-        paymentMethod: 'CARD', // Defaulting for escrow if unknown
+        paymentMethod,
         userId: req.user._id,
     });
     const intentId = makeIntentId();
@@ -174,6 +175,7 @@ const createEscrowIntent = asyncHandler(async (req, res, next) => {
         amount,
         currency: 'INR',
         user: req.user,
+        paymentMethod,
     });
     const simulatedConfirm = checkoutPayload.simulatedConfirm || null;
 
@@ -307,9 +309,14 @@ const confirmEscrowIntent = asyncHandler(async (req, res, next) => {
     const payment = await provider.fetchPayment(providerPaymentId);
     const providerStatus = String(payment?.status || '').toLowerCase();
     const nextStatus = providerStatus === 'captured' ? PAYMENT_STATUSES.CAPTURED : PAYMENT_STATUSES.AUTHORIZED;
+    const methodInfo = provider.parsePaymentMethod(payment);
+    const providerConfirmedMethod = mapProviderTypeToPaymentMethod(methodInfo.type);
+    if (providerConfirmedMethod !== intent.method) {
+        return next(new AppError('Provider payment method does not match the selected escrow method', 409));
+    }
 
     intent.providerPaymentId = providerPaymentId;
-    intent.providerMethodId = payment.card_id || payment.vpa || payment.wallet || '';
+    intent.providerMethodId = methodInfo.providerMethodId || '';
     intent.status = nextStatus;
     intent.authorizedAt = new Date();
     intent.attemptCount = Number(intent.attemptCount || 0) + 1;

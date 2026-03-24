@@ -48,6 +48,21 @@ describe('Order Pricing Service', () => {
         expect(normalized.deliverySlot).toEqual({ date: '2026-03-01', window: '12:00-15:00' });
     });
 
+    test('normalizeCheckoutPayload accepts NETBANKING rails from checkout clients', () => {
+        const normalized = normalizeCheckoutPayload({
+            orderItems: [{ product: '15', quantity: 1 }],
+            shippingAddress: {
+                address: '42 Main Road',
+                city: 'Pune',
+                postalCode: '411001',
+                country: 'India',
+            },
+            paymentMethod: 'netbanking',
+        });
+
+        expect(normalized.paymentMethod).toBe('NETBANKING');
+    });
+
     test('calculatePricing applies valid coupon', async () => {
         const pricing = await calculatePricing({
             resolvedItems: [{ lineTotal: 2000 }],
@@ -93,6 +108,17 @@ describe('Order Pricing Service', () => {
         expect(first).toEqual(second);
         expect(['success', 'pending', 'failure']).toContain(first.status);
         expect(first.referenceId.startsWith('SIM-')).toBe(true);
+    });
+
+    test('simulatePaymentResult supports NETBANKING as a digital rail', () => {
+        const result = simulatePaymentResult({
+            paymentMethod: 'NETBANKING',
+            amount: 2499,
+            attemptToken: 'attempt-netbanking-1',
+        });
+
+        expect(['success', 'pending', 'failure']).toContain(result.status);
+        expect(result.referenceId.startsWith('SIM-')).toBe(true);
     });
 
     test('simulatePaymentResult rejects COD simulation', () => {

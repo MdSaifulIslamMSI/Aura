@@ -1,5 +1,19 @@
 import { CreditCard } from 'lucide-react';
 
+const PAYMENT_TYPE_LABELS = {
+    upi: 'UPI',
+    card: 'Card',
+    wallet: 'Wallet',
+    bank: 'NetBanking',
+    other: 'Method',
+};
+
+const formatPaymentType = (type) => {
+    const normalized = String(type || '').trim().toLowerCase();
+    if (!normalized) return 'Method';
+    return PAYMENT_TYPE_LABELS[normalized] || normalized.toUpperCase();
+};
+
 export default function PaymentsSection({ 
     paymentMethodsLoading, paymentMethods, handleSetDefaultMethod, handleDeletePaymentMethod 
 }) {
@@ -24,8 +38,8 @@ export default function PaymentsSection({
                         {paymentMethods.map((method) => (
                             <div key={method._id} className="border rounded-xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                                 <div>
-                                    <p className="font-semibold text-gray-900 capitalize">
-                                        {method.type || 'method'}
+                                    <p className="font-semibold text-gray-900">
+                                        {formatPaymentType(method.type)}
                                         {method.brand ? ` | ${method.brand}` : ''}
                                         {method.last4 ? ` | **** ${method.last4}` : ''}
                                     </p>

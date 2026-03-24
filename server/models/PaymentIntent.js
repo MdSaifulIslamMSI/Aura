@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { PAYMENT_METHODS } = require('../services/payments/constants');
 
 const riskSnapshotSchema = new mongoose.Schema({
     score: { type: Number, default: 0 },
@@ -29,7 +30,7 @@ const paymentIntentSchema = new mongoose.Schema({
     providerMethodId: { type: String, default: '' },
     amount: { type: Number, required: true },
     currency: { type: String, required: true, default: 'INR' },
-    method: { type: String, enum: ['COD', 'UPI', 'CARD', 'WALLET'], required: true },
+    method: { type: String, enum: PAYMENT_METHODS, required: true },
     status: {
         type: String,
         enum: ['created', 'challenge_pending', 'authorized', 'captured', 'failed', 'partially_refunded', 'refunded', 'expired'],

@@ -12,9 +12,10 @@ const {
     createRefundForIntent,
     scheduleRefundTask,
 } = require('./payments/paymentService');
+const { DIGITAL_METHODS } = require('./payments/constants');
 const { sendMessageToUser } = require('./socketService');
 
-const DIGITAL_PAYMENT_METHODS = new Set(['UPI', 'CARD', 'WALLET']);
+const DIGITAL_PAYMENT_METHODS = new Set(DIGITAL_METHODS);
 
 /**
  * Normalizes command center objects to ensure all arrays exist

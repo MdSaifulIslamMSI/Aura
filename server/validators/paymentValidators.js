@@ -1,6 +1,7 @@
 const { z } = require('zod');
+const { DIGITAL_METHODS } = require('../services/payments/constants');
 
-const paymentMethodEnum = z.enum(['UPI', 'CARD', 'WALLET']);
+const paymentMethodEnum = z.enum(DIGITAL_METHODS);
 
 
 const paymentMethodMetadataSchema = z.object({
