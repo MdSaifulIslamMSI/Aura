@@ -7,6 +7,7 @@ const Order = require('../models/Order');
 const User = require('../models/User');
 const { notifyAdminActionToUser } = require('../services/email/adminActionEmailService');
 const { flags: paymentFlags } = require('../config/paymentFlags');
+const { DIGITAL_METHODS } = require('../services/payments/constants');
 const {
     createPaymentIntent,
     confirmPaymentIntent,
@@ -84,7 +85,7 @@ const notifyPaymentOwnerAdminAction = async ({
     );
 };
 
-const DIGITAL_PAYMENT_METHODS = new Set(['UPI', 'CARD', 'WALLET']);
+const DIGITAL_PAYMENT_METHODS = new Set(DIGITAL_METHODS);
 
 const parseDateMaybe = (value) => {
     if (!value) return null;

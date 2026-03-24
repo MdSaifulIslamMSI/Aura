@@ -158,6 +158,7 @@ const buildEscrowCheckoutPayload = ({
     amount,
     currency,
     user,
+    paymentMethod = 'UPI',
 }) => {
     if (paymentFlags.paymentProvider === 'razorpay') {
         return {
@@ -176,7 +177,7 @@ const buildEscrowCheckoutPayload = ({
         };
     }
 
-    const simulatedPaymentId = makeEventId('sim_pay');
+    const simulatedPaymentId = makeEventId(`sim_pay_${String(paymentMethod || 'UPI').toLowerCase()}`);
     // Using a hash of the prompt for "privacy" in the simulation
     const simulatedSignature = `sim_${crypto.createHash('sha1').update(`${providerOrderId}|${simulatedPaymentId}`).digest('hex').slice(0, 14)}`;
     return {

@@ -30,6 +30,8 @@ const {
     makeEventId,
     roundCurrency,
     normalizeMethod,
+    mapPaymentMethodToProviderType,
+    mapProviderTypeToPaymentMethod,
 } = require('./helpers');
 const {
     diff,
@@ -207,6 +209,10 @@ const createPaymentIntent = async ({
         const saved = await PaymentMethod.findOne({ _id: savedMethodId, user: user._id, status: 'active' }).lean();
         if (!saved) {
             throw new AppError('Saved payment method is invalid', 400);
+        }
+        const expectedSavedType = mapPaymentMethodToProviderType(normalizedMethod);
+        if (expectedSavedType && String(saved.type || '').trim().toLowerCase() !== expectedSavedType) {
+            throw new AppError('Saved payment method does not match the selected payment rail', 400);
         }
     }
 
@@ -497,8 +503,20 @@ const confirmPaymentIntent = async ({
 
     const nextStatus = status === 'captured' ? PAYMENT_STATUSES.CAPTURED : PAYMENT_STATUSES.AUTHORIZED;
 
+    const methodInfo = provider.parsePaymentMethod(payment);
+    const providerConfirmedMethod = mapProviderTypeToPaymentMethod(methodInfo.type);
+    if (providerConfirmedMethod !== intent.method) {
+        await registerConfirmFailure({
+            intent,
+            reason: `provider_method_mismatch:${providerConfirmedMethod || 'unknown'}`,
+            providerOrderId: cleanOrderId,
+            providerPaymentId: cleanPaymentId,
+        });
+        throw new AppError('Provider payment method does not match the selected checkout method', 409);
+    }
+
     intent.providerPaymentId = cleanPaymentId;
-    intent.providerMethodId = payment.card_id || payment.vpa || payment.wallet || '';
+    intent.providerMethodId = methodInfo.providerMethodId || '';
     intent.status = nextStatus;
     intent.authorizedAt = new Date();
     if (nextStatus === PAYMENT_STATUSES.CAPTURED) {
@@ -506,7 +524,6 @@ const confirmPaymentIntent = async ({
     }
     intent.attemptCount = Number(intent.attemptCount || 0) + 1;
 
-    const methodInfo = provider.parsePaymentMethod(payment);
     setSecurityState(intent, {
         failedConfirmAttempts: 0,
         lastConfirmFailedAt: null,

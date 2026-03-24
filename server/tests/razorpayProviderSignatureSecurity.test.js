@@ -40,6 +40,21 @@ describe('RazorpayProvider signature verification security', () => {
         expect(provider.verifyWebhookSignature({ rawBody, signature: mutateHex(validSignature) })).toBe(false);
         expect(provider.verifyWebhookSignature({ rawBody, signature: 'short' })).toBe(false);
     });
+
+    test('maps netbanking payloads to the shared bank method shape', () => {
+        expect(provider.parsePaymentMethod({
+            method: 'netbanking',
+            bank: 'HDFC',
+            acquirer_data: {
+                bank_transaction_id: 'nbk_hdfc_123',
+            },
+        })).toEqual({
+            type: 'bank',
+            brand: 'HDFC',
+            last4: '',
+            providerMethodId: 'HDFC',
+        });
+    });
 });
 
 describe('SimulatedProvider webhook signature verification security', () => {
@@ -55,5 +70,20 @@ describe('SimulatedProvider webhook signature verification security', () => {
         expect(provider.verifyWebhookSignature({ rawBody, signature: validSignature })).toBe(true);
         expect(provider.verifyWebhookSignature({ rawBody, signature: mutateHex(validSignature) })).toBe(false);
         expect(provider.verifyWebhookSignature({ rawBody, signature: '' })).toBe(false);
+    });
+
+    test('parses simulated netbanking payloads using the shared bank method shape', () => {
+        expect(provider.parsePaymentMethod({
+            method: 'netbanking',
+            bank: 'HDFC',
+            acquirer_data: {
+                bank_transaction_id: 'nbk_simulated_hdfc',
+            },
+        })).toEqual({
+            type: 'bank',
+            brand: 'HDFC',
+            last4: '',
+            providerMethodId: 'HDFC',
+        });
     });
 });

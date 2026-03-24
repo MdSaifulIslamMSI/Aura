@@ -1,6 +1,19 @@
-const { completeChallengeSchema, paymentMethodSchema } = require('../validators/paymentValidators');
+const { createIntentSchema, completeChallengeSchema, paymentMethodSchema } = require('../validators/paymentValidators');
 
 describe('Payment Validators', () => {
+    test('createIntentSchema accepts NETBANKING as a digital payment method', async () => {
+        const parsed = await createIntentSchema.parseAsync({
+            body: {
+                quotePayload: {
+                    orderItems: [{ product: 10, quantity: 1 }],
+                },
+                paymentMethod: 'NETBANKING',
+            },
+        });
+
+        expect(parsed.body.paymentMethod).toBe('NETBANKING');
+    });
+
     test('completeChallengeSchema requires challengeToken', async () => {
         await expect(completeChallengeSchema.parseAsync({
             params: { intentId: 'pi_123456' },

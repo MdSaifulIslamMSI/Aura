@@ -13,6 +13,26 @@ const makeIntentId = () => `pi_${Date.now()}_${crypto.randomBytes(6).toString('h
 const makeEventId = (prefix = 'evt') => `${prefix}_${Date.now()}_${crypto.randomBytes(5).toString('hex')}`;
 
 const normalizeMethod = (method) => String(method || '').trim().toUpperCase();
+const PAYMENT_METHOD_TO_PROVIDER_TYPE = {
+    UPI: 'upi',
+    CARD: 'card',
+    WALLET: 'wallet',
+    NETBANKING: 'bank',
+};
+const PROVIDER_TYPE_TO_PAYMENT_METHOD = {
+    upi: 'UPI',
+    card: 'CARD',
+    wallet: 'WALLET',
+    bank: 'NETBANKING',
+};
+
+const mapPaymentMethodToProviderType = (method) => (
+    PAYMENT_METHOD_TO_PROVIDER_TYPE[normalizeMethod(method)] || ''
+);
+
+const mapProviderTypeToPaymentMethod = (type) => (
+    PROVIDER_TYPE_TO_PAYMENT_METHOD[String(type || '').trim().toLowerCase()] || ''
+);
 
 module.exports = {
     roundCurrency,
@@ -22,5 +42,6 @@ module.exports = {
     makeIntentId,
     makeEventId,
     normalizeMethod,
+    mapPaymentMethodToProviderType,
+    mapProviderTypeToPaymentMethod,
 };
-

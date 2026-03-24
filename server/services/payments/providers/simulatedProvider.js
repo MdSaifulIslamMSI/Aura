@@ -3,6 +3,13 @@ const AppError = require('../../../utils/AppError');
 const { makeEventId, toPaise, fromPaise } = require('../helpers');
 
 const simulateRef = (seed) => `sim_${crypto.createHash('sha1').update(seed).digest('hex').slice(0, 14)}`;
+const detectMethodFromPaymentId = (paymentId = '') => {
+    const normalized = String(paymentId || '').trim().toLowerCase();
+    if (normalized.includes('netbanking') || normalized.includes('bank')) return 'netbanking';
+    if (normalized.includes('wallet')) return 'wallet';
+    if (normalized.includes('card')) return 'card';
+    return 'upi';
+};
 
 class SimulatedProvider {
     constructor({ webhookSecret } = {}) {
@@ -29,12 +36,53 @@ class SimulatedProvider {
     }
 
     async fetchPayment(paymentId) {
+        const method = detectMethodFromPaymentId(paymentId);
+        if (method === 'card') {
+            return {
+                id: paymentId,
+                status: 'authorized',
+                amount: toPaise(100),
+                currency: 'INR',
+                method,
+                card_id: 'card_simulated_visa',
+                card: {
+                    network: 'VISA',
+                    last4: '4242',
+                },
+            };
+        }
+
+        if (method === 'wallet') {
+            return {
+                id: paymentId,
+                status: 'authorized',
+                amount: toPaise(100),
+                currency: 'INR',
+                method,
+                wallet: 'paytm',
+            };
+        }
+
+        if (method === 'netbanking') {
+            return {
+                id: paymentId,
+                status: 'authorized',
+                amount: toPaise(100),
+                currency: 'INR',
+                method,
+                bank: 'HDFC',
+                acquirer_data: {
+                    bank_transaction_id: 'nbk_simulated_hdfc',
+                },
+            };
+        }
+
         return {
             id: paymentId,
             status: 'authorized',
             amount: toPaise(100),
             currency: 'INR',
-            method: 'upi',
+            method,
             card_id: '',
             vpa: 'user@upi',
         };
@@ -88,6 +136,14 @@ class SimulatedProvider {
                 brand: String(payment.wallet || 'Wallet'),
                 last4: '',
                 providerMethodId: String(payment.wallet || ''),
+            };
+        }
+        if (method === 'netbanking') {
+            return {
+                type: 'bank',
+                brand: String(payment.bank || 'NetBanking'),
+                last4: '',
+                providerMethodId: String(payment.bank || payment.acquirer_data?.bank_transaction_id || ''),
             };
         }
         return { type: 'other', brand: '', last4: '', providerMethodId: '' };

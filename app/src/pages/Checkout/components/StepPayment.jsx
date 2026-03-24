@@ -1,4 +1,4 @@
-import { AlertCircle, CheckCircle2, CreditCard, Loader2, ShieldCheck, Smartphone, Wallet } from 'lucide-react';
+import { AlertCircle, Building2, CheckCircle2, CreditCard, Loader2, ShieldCheck, Smartphone, Wallet } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const PAYMENT_OPTIONS = [
@@ -6,6 +6,7 @@ const PAYMENT_OPTIONS = [
     { id: 'UPI', title: 'UPI', description: 'Fast payment via UPI apps', icon: Smartphone },
     { id: 'CARD', title: 'Card', description: 'Debit / credit card checkout', icon: CreditCard },
     { id: 'WALLET', title: 'Wallet', description: 'Wallet balance or linked wallet', icon: Wallet },
+    { id: 'NETBANKING', title: 'NetBanking', description: 'Authorize directly from your bank portal', icon: Building2 },
 ];
 
 const STATUS_STYLES = {
@@ -15,10 +16,11 @@ const STATUS_STYLES = {
 };
 
 const humanizeSavedMethod = (method) => {
-    const type = String(method.type || '').toUpperCase();
+    const type = String(method.type || '').trim().toLowerCase();
+    const typeLabel = type === 'bank' ? 'NETBANKING' : type.toUpperCase();
     const brand = method.brand || '';
     const last4 = method.last4 ? `**** ${method.last4}` : '';
-    return [type, brand, last4].filter(Boolean).join(' ');
+    return [typeLabel, brand, last4].filter(Boolean).join(' ');
 };
 
 const StepPayment = ({
