@@ -130,6 +130,14 @@ class RazorpayProvider {
                 providerMethodId: String(payment.wallet || ''),
             };
         }
+        if (method === 'netbanking') {
+            return {
+                type: 'bank',
+                brand: String(payment.bank || payment.acquirer_data?.bank || 'NetBanking'),
+                last4: '',
+                providerMethodId: String(payment.bank || payment.acquirer_data?.bank_transaction_id || ''),
+            };
+        }
         return {
             type: 'other',
             brand: String(payment.method || ''),

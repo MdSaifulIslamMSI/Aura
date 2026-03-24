@@ -1,4 +1,5 @@
 const { z } = require('zod');
+const { PAYMENT_METHODS } = require('../services/payments/constants');
 
 const productIdentifier = z.union([z.number(), z.string()]).optional();
 const quantityField = z.coerce.number().int().positive().optional();
@@ -47,7 +48,7 @@ const deliverySlotSchema = z.object({
 const checkoutBodySchema = z.object({
     orderItems: z.array(orderItemSchema).min(1),
     shippingAddress: shippingAddressSchema,
-    paymentMethod: z.enum(['COD', 'UPI', 'CARD', 'WALLET']).optional(),
+    paymentMethod: z.enum(PAYMENT_METHODS).optional(),
     paymentIntentId: z.string().trim().min(6).optional(),
     deliveryOption: z.enum(['standard', 'express']).optional(),
     deliverySlot: deliverySlotSchema.optional(),
@@ -73,7 +74,7 @@ const createOrderSchema = z.object({
 
 const simulatePaymentSchema = z.object({
     body: z.object({
-        paymentMethod: z.enum(['COD', 'UPI', 'CARD', 'WALLET']),
+        paymentMethod: z.enum(PAYMENT_METHODS),
         amount: z.coerce.number().positive(),
         attemptToken: z.string().min(3),
     }),

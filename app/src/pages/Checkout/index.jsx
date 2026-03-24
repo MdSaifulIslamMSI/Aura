@@ -32,6 +32,12 @@ const EMPTY_INTENT = {
     checkoutPayload: null,
 };
 const PAYMENT_PROVIDER = String(import.meta.env.VITE_PAYMENT_PROVIDER || '').trim().toLowerCase();
+const PAYMENT_METHOD_TO_SAVED_TYPE = {
+    UPI: 'upi',
+    CARD: 'card',
+    WALLET: 'wallet',
+    NETBANKING: 'bank',
+};
 
 const isPhoneValid = (phone) => /^\+?\d[\d\s-]{8,15}$/.test(String(phone || '').trim());
 
@@ -79,6 +85,12 @@ const getQuotePayload = ({ checkoutItems, draft, checkoutSource }) => ({
     couponCode: draft.couponCode,
     checkoutSource,
 });
+
+const getCompatibleSavedMethods = (methods = [], paymentMethod = 'COD') => {
+    const expectedType = PAYMENT_METHOD_TO_SAVED_TYPE[String(paymentMethod || '').trim().toUpperCase()];
+    if (!expectedType) return [];
+    return (methods || []).filter((method) => String(method?.type || '').trim().toLowerCase() === expectedType);
+};
 
 const CHECKOUT_STEPS = [
     { id: 1, label: 'Address' },
@@ -283,6 +295,10 @@ const Checkout = () => {
         }
         return cartItems;
     }, [cartItems, directBuyItem]);
+    const compatibleSavedMethods = useMemo(
+        () => getCompatibleSavedMethods(savedPaymentMethods, draft.paymentMethod),
+        [savedPaymentMethods, draft.paymentMethod]
+    );
 
     const fallbackTotals = useMemo(() => getFallbackTotals(checkoutItems), [checkoutItems]);
 
@@ -332,6 +348,26 @@ const Checkout = () => {
 
         return () => clearTimeout(timeout);
     }, [canQuote, isHydrated, quotePayload, quoteSignature]);
+
+    useEffect(() => {
+        const availableMethodIds = new Set(compatibleSavedMethods.map((method) => method._id));
+        const selectedSavedMethodId = String(draft.selectedSavedMethodId || '').trim();
+
+        if (selectedSavedMethodId && availableMethodIds.has(selectedSavedMethodId)) {
+            return;
+        }
+
+        const defaultMethod = compatibleSavedMethods.find((method) => method.isDefault) || compatibleSavedMethods[0];
+        const nextMethodId = defaultMethod?._id || '';
+        if (selectedSavedMethodId === nextMethodId) {
+            return;
+        }
+
+        setDraft((prev) => ({
+            ...prev,
+            selectedSavedMethodId: nextMethodId,
+        }));
+    }, [compatibleSavedMethods, draft.selectedSavedMethodId, setDraft]);
 
     const updateContactField = (key, value) => {
         setDraft((prev) => ({
@@ -963,7 +999,7 @@ const Checkout = () => {
                         paymentSimulation={draft.paymentSimulation}
                         isSimulatingPayment={isSimulatingPayment}
                         paymentError={stepErrors.payment}
-                        savedMethods={savedPaymentMethods}
+                        savedMethods={compatibleSavedMethods}
                         selectedSavedMethodId={draft.selectedSavedMethodId}
                         onSelectSavedMethod={(methodId) => setDraft((prev) => ({ ...prev, selectedSavedMethodId: methodId }))}
                         challengeRequired={Boolean(draft.paymentIntent.challengeRequired)}

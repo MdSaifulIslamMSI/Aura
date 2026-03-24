@@ -120,6 +120,39 @@ describe('Payment Order Integrity', () => {
         });
     });
 
+    test('validatePaymentIntentForOrder treats NETBANKING as a first-class digital rail', async () => {
+        await expect(validatePaymentIntentForOrder({
+            userId: new mongoose.Types.ObjectId(),
+            paymentIntentId: '',
+            paymentMethod: 'NETBANKING',
+            totalPrice: 899,
+            paymentSimulation: { status: 'success' },
+        })).resolves.toMatchObject({
+            paymentIntent: null,
+            isPaid: true,
+            paymentState: PAYMENT_STATUSES.CAPTURED,
+        });
+
+        const user = await makeUser();
+        const intent = await makeIntent({
+            userId: user._id,
+            amount: 1899,
+            method: 'NETBANKING',
+            status: PAYMENT_STATUSES.AUTHORIZED,
+        });
+
+        await expect(validatePaymentIntentForOrder({
+            userId: user._id,
+            paymentIntentId: intent.intentId,
+            paymentMethod: 'NETBANKING',
+            totalPrice: 1899,
+        })).resolves.toMatchObject({
+            paymentIntent: expect.objectContaining({ intentId: intent.intentId, method: 'NETBANKING' }),
+            isPaid: false,
+            paymentState: PAYMENT_STATUSES.AUTHORIZED,
+        });
+    });
+
     test('validatePaymentIntentForOrder rejects foreign-user, expired, amount mismatch, method mismatch, and unauthorized intents', async () => {
         const owner = await makeUser();
         const attacker = await makeUser();

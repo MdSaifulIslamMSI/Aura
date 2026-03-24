@@ -185,7 +185,7 @@ export default function AdminRefundLedger() {
                     value={filters.method}
                     onChange={(e) => { setPage(1); setFilters((prev) => ({ ...prev, method: e.target.value.toUpperCase() })); }}
                     className="admin-premium-control"
-                    placeholder="Method (UPI/CARD/WALLET/COD)"
+                    placeholder="Method (UPI/CARD/WALLET/NETBANKING/COD)"
                 />
                 <input
                     type="text"

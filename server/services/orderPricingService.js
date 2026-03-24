@@ -7,8 +7,8 @@ const COUPON_RULES = require('../config/coupons');
 const { flags: catalogFlags } = require('../config/catalogFlags');
 const { calculateOptimalLogisticsCost } = require('./logisticsOptimizer');
 const { solveAuraCover } = require('./marketplaceOptimizers');
+const { PAYMENT_METHODS } = require('./payments/constants');
 
-const PAYMENT_METHODS = ['COD', 'UPI', 'CARD', 'WALLET'];
 const DELIVERY_OPTIONS = ['standard', 'express'];
 const SLOT_WINDOWS = ['09:00-12:00', '12:00-15:00', '15:00-18:00', '18:00-21:00'];
 const PRICING_VERSION = 'v2';
@@ -290,6 +290,7 @@ const getPaymentAdjustment = (paymentMethod) => {
         case 'WALLET':
             return -10;
         case 'CARD':
+        case 'NETBANKING':
         default:
             return 0;
     }
