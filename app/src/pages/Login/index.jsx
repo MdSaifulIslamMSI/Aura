@@ -28,10 +28,27 @@ const OTP_STAGE = {
   EMAIL: 'email',
   PHONE: 'phone',
 };
+const AUTH_MODES = new Set(['signin', 'signup', 'forgot-password']);
+
+const resolveLaunchMode = (value = '') => {
+  const nextMode = String(value || '').trim();
+  return AUTH_MODES.has(nextMode) ? nextMode : 'signin';
+};
+
+const resolveLaunchPrefill = (state = null) => ({
+  email: typeof state?.authPrefill?.email === 'string'
+    ? state.authPrefill.email.trim().toLowerCase()
+    : '',
+  phone: typeof state?.authPrefill?.phone === 'string'
+    ? state.authPrefill.phone.trim()
+    : '',
+});
 
 const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const launchMode = resolveLaunchMode(location.state?.authMode);
+  const launchPrefill = resolveLaunchPrefill(location.state);
   const {
     currentUser,
     login,
@@ -43,7 +60,7 @@ const Login = () => {
   } = useContext(AuthContext);
 
   // Mode: 'signin' | 'signup' | 'forgot-password'
-  const [mode, setMode] = useState('signin');
+  const [mode, setMode] = useState(launchMode);
   // Step: 'form' | 'otp' | 'reset-password'
   const [step, setStep] = useState('form');
   const [showPassword, setShowPassword] = useState(false);
@@ -58,8 +75,8 @@ const Login = () => {
 
   const [formData, setFormData] = useState({
     name: '',
-    email: '',
-    phone: '',
+    email: launchPrefill.email,
+    phone: launchPrefill.phone,
     password: '',
     confirmPassword: '',
   });
