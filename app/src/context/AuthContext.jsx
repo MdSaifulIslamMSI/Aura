@@ -8,7 +8,6 @@ import {
   signOut,
   onAuthStateChanged,
   updateProfile as updateFirebaseProfile,
-  sendPasswordResetEmail,
   signInWithPopup,
 } from 'firebase/auth';
 import {
@@ -531,11 +530,6 @@ export const AuthProvider = ({ children }) => {
     await signOut(auth);
   };
 
-  const forgotPassword = (email) => {
-    assertFirebaseReady('Password reset');
-    return sendPasswordResetEmail(auth, email);
-  };
-
   const updatePhone = async (phone) => {
     if (!currentUser?.email) return null;
     return syncUserWithBackend(
@@ -663,7 +657,6 @@ export const AuthProvider = ({ children }) => {
     signInWithFacebook,
     signInWithX,
     logout,
-    forgotPassword,
     refreshSession,
     syncUserWithBackend,
     updatePhone,

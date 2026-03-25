@@ -1,5 +1,5 @@
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import {
     Activity,
     AlertTriangle,
@@ -68,9 +68,11 @@ const trimText = (value) => String(value || '').trim();
 const isNotFoundError = (error) => Number(error?.status) === 404 || /not found/i.test(String(error?.message || ''));
 
 export default function Profile() {
-    const { currentUser, dbUser, logout, updateProfile: updateProfileInContext, forgotPassword } = useContext(AuthContext);
+    const { currentUser, dbUser, logout, updateProfile: updateProfileInContext } = useContext(AuthContext);
     const { cartItems } = useContext(CartContext);
     const { wishlistItems } = useContext(WishlistContext);
+    const navigate = useNavigate();
+    const location = useLocation();
     const [searchParams, setSearchParams] = useSearchParams();
 
     const [activeTab, setActiveTab] = useState('overview');
@@ -78,7 +80,7 @@ export default function Profile() {
     const [dashboard, setDashboard] = useState(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
-    const [passwordResetting, setPasswordResetting] = useState(false);
+    const [recoveryLaunching, setRecoveryLaunching] = useState(false);
     const [message, setMessage] = useState({ type: '', text: '' });
     const [paymentMethods, setPaymentMethods] = useState([]);
     const [paymentMethodsLoading, setPaymentMethodsLoading] = useState(false);
@@ -393,16 +395,36 @@ export default function Profile() {
         }
     };
 
-    const handlePasswordReset = async () => {
-        setPasswordResetting(true);
-        try {
-            await forgotPassword(profile?.email || currentUser?.email);
-            showMsg('success', 'Password reset link sent.');
-        } catch (error) {
-            showMsg('error', error.message || 'Failed to send reset link.');
-        } finally {
-            setPasswordResetting(false);
+    const handleSecureRecovery = async () => {
+        const recoveryEmail = String(profileEmail || '').trim().toLowerCase();
+        const recoveryPhone = normalizedProfilePhone;
+
+        if (!recoveryEmail || !PHONE_REGEX.test(recoveryPhone) || !hasOtpReadyIdentity) {
+            showMsg('error', 'Secure recovery requires the verified account email and registered phone number.');
+            return;
         }
+
+        setRecoveryLaunching(true);
+
+        try {
+            await logout();
+            navigate('/login', {
+                replace: true,
+                state: {
+                    authMode: 'forgot-password',
+                    authPrefill: {
+                        email: recoveryEmail,
+                        phone: recoveryPhone,
+                    },
+                    from: `${location.pathname}${location.search}`,
+                },
+            });
+            return;
+        } catch (error) {
+            showMsg('error', error.message || 'Failed to open secure recovery.');
+        }
+
+        setRecoveryLaunching(false);
     };
 
     const handleSetDefaultMethod = async (methodId) => {
@@ -806,8 +828,9 @@ export default function Profile() {
 
                     {activeTab === 'settings' ? (
                         <SettingsSection
-                            handlePasswordReset={handlePasswordReset}
-                            passwordResetting={passwordResetting}
+                            handleSecureRecovery={handleSecureRecovery}
+                            recoveryLaunching={recoveryLaunching}
+                            canStartSecureRecovery={Boolean(profileEmail && hasOtpReadyIdentity)}
                             hasOtpReadyIdentity={hasOtpReadyIdentity}
                             trustHealthy={trustHealthy}
                             trustLoading={trustLoading}
