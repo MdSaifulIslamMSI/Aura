@@ -34,6 +34,8 @@ const shouldHideSupportLauncher = (pathname = '/', search = '') => {
     return false;
 };
 
+const shouldUseCompactLauncher = (pathname = '/') => pathname.startsWith('/product/');
+
 const GlobalSupportLauncher = () => {
     const navigate = useNavigate();
     const location = useLocation();
@@ -47,6 +49,7 @@ const GlobalSupportLauncher = () => {
 
     const isAuthenticated = Boolean(currentUser);
     const isLoginRoute = location.pathname === '/login';
+    const useCompactLauncher = shouldUseCompactLauncher(location.pathname);
     const eyebrow = isAuthenticated ? 'Need help now?' : (isLoginRoute ? 'Blocked account?' : 'Need admin help?');
     const title = isAuthenticated ? 'Talk to admin' : 'Sign in for support';
     const detail = isAuthenticated
@@ -65,6 +68,40 @@ const GlobalSupportLauncher = () => {
             },
         });
     };
+
+    if (useCompactLauncher) {
+        return (
+            <>
+                <button
+                    type="button"
+                    onClick={handleOpenSupport}
+                    className="fixed bottom-[calc(5.9rem+env(safe-area-inset-bottom))] right-4 z-[70] flex h-14 w-14 items-center justify-center rounded-full border border-amber-300/25 bg-[linear-gradient(140deg,rgba(7,12,24,0.96),rgba(15,23,42,0.94))] text-amber-100 shadow-[0_22px_58px_rgba(2,8,23,0.48)] backdrop-blur-xl transition-transform duration-200 hover:-translate-y-1 sm:hidden"
+                    aria-label="Talk to admin support"
+                    title={title}
+                >
+                    {isAuthenticated ? <LifeBuoy className="h-5 w-5" /> : <ShieldAlert className="h-5 w-5" />}
+                </button>
+
+                <button
+                    type="button"
+                    onClick={handleOpenSupport}
+                    className="fixed bottom-6 left-6 z-[70] hidden max-w-[min(92vw,24rem)] items-center gap-3 rounded-[1.5rem] border border-amber-300/25 bg-[linear-gradient(140deg,rgba(7,12,24,0.96),rgba(15,23,42,0.94))] px-4 py-3 text-left text-slate-50 shadow-[0_22px_58px_rgba(2,8,23,0.48)] backdrop-blur-xl transition-transform duration-200 hover:-translate-y-1 sm:flex"
+                    aria-label="Talk to admin support"
+                >
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[1rem] border border-amber-300/25 bg-amber-400/12 text-amber-100">
+                        {isAuthenticated ? <LifeBuoy className="h-5 w-5" /> : <ShieldAlert className="h-5 w-5" />}
+                    </div>
+                    <div className="min-w-0">
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-200">{eyebrow}</p>
+                        <p className="mt-1 text-sm font-black text-white">{title}</p>
+                        <p className={cn('mt-1 text-xs leading-5 text-slate-300', isLoginRoute && !isAuthenticated ? 'max-w-[18rem]' : '')}>
+                            {detail}
+                        </p>
+                    </div>
+                </button>
+            </>
+        );
+    }
 
     return (
         <button

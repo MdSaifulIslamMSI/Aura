@@ -1,5 +1,4 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
-import { Room, RoomEvent, Track } from 'livekit-client';
 import { toast } from 'sonner';
 import { useAuth } from './AuthContext';
 import { useSocketDemand } from './SocketContext';
@@ -9,6 +8,20 @@ import { listingApi, supportApi } from '../services/api';
 const VideoCallContext = createContext(null);
 
 export const useVideoCall = () => useContext(VideoCallContext);
+
+let liveKitModulePromise = null;
+
+const loadLiveKitModule = async () => {
+    if (!liveKitModulePromise) {
+        liveKitModulePromise = import('livekit-client').then((module) => ({
+            Room: module.Room,
+            RoomEvent: module.RoomEvent,
+            Track: module.Track,
+        }));
+    }
+
+    return liveKitModulePromise;
+};
 
 const stopStreamTracks = (stream) => {
     stream?.getTracks?.().forEach((track) => {
@@ -68,13 +81,17 @@ const normalizeCallRequest = (targetOrRequest, listingId) => {
     };
 };
 
-const collectLocalTracks = (room) => {
+const collectLocalTracks = (room, trackApi) => {
+    if (!trackApi?.Source) {
+        return null;
+    }
+
     const cameraTrack = room.localParticipant
-        .getTrackPublication(Track.Source.Camera)
+        .getTrackPublication(trackApi.Source.Camera)
         ?.videoTrack
         ?.mediaStreamTrack;
     const microphoneTrack = room.localParticipant
-        .getTrackPublication(Track.Source.Microphone)
+        .getTrackPublication(trackApi.Source.Microphone)
         ?.audioTrack
         ?.mediaStreamTrack;
 
@@ -183,12 +200,12 @@ export const VideoCallProvider = ({ children }) => {
         }
     };
 
-    const syncSupportRoomState = async (room) => {
+    const syncSupportRoomState = async (room, trackApi) => {
         if (supportRoomRef.current !== room) {
             return;
         }
 
-        setLocalMediaStream(collectLocalTracks(room));
+        setLocalMediaStream(collectLocalTracks(room, trackApi));
         setRemoteMediaStream(collectRemoteTracks(room));
 
         if (room.remoteParticipants.size > 0) {
@@ -208,28 +225,29 @@ export const VideoCallProvider = ({ children }) => {
     };
 
     const connectSupportRoom = async ({ session, nextContext, status = 'calling' }) => {
+        const { Room, RoomEvent, Track } = await loadLiveKitModule();
         const room = new Room();
         supportRoomRef.current = room;
         supportSessionRef.current = session;
         supportMarkedConnectedRef.current = false;
 
         room.on(RoomEvent.LocalTrackPublished, () => {
-            void syncSupportRoomState(room);
+            void syncSupportRoomState(room, Track);
         });
         room.on(RoomEvent.LocalTrackUnpublished, () => {
-            void syncSupportRoomState(room);
+            void syncSupportRoomState(room, Track);
         });
         room.on(RoomEvent.TrackSubscribed, () => {
-            void syncSupportRoomState(room);
+            void syncSupportRoomState(room, Track);
         });
         room.on(RoomEvent.TrackUnsubscribed, () => {
-            void syncSupportRoomState(room);
+            void syncSupportRoomState(room, Track);
         });
         room.on(RoomEvent.ParticipantConnected, () => {
-            void syncSupportRoomState(room);
+            void syncSupportRoomState(room, Track);
         });
         room.on(RoomEvent.ParticipantDisconnected, () => {
-            void syncSupportRoomState(room);
+            void syncSupportRoomState(room, Track);
         });
         room.on(RoomEvent.Disconnected, () => {
             if (supportRoomRef.current === room) {
@@ -247,7 +265,7 @@ export const VideoCallProvider = ({ children }) => {
         setActiveCallContext(nextContext);
         callContextRef.current = nextContext;
         setCallStatus(status);
-        await syncSupportRoomState(room);
+        await syncSupportRoomState(room, Track);
     };
 
     const startLiveKitCall = async (targetOrRequest, listingId) => {

@@ -93,7 +93,7 @@ const bootstrapUserRecord = async ({ email, authUser = {}, projection = PROFILE_
     if (!safeEmail) return null;
 
     const queryOptions = {
-        new: true,
+        returnDocument: 'after',
         upsert: true,
         setDefaultsOnInsert: true,
         projection,
@@ -327,7 +327,7 @@ const syncAuthenticatedUser = async ({
             { email: tokenEmail },
             { $set: setPayload, $setOnInsert: { email: tokenEmail } },
             {
-                new: true,
+                returnDocument: 'after',
                 upsert: true,
                 setDefaultsOnInsert: true,
                 projection: AUTH_ONLY_PROJECTION,

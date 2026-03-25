@@ -144,14 +144,14 @@ const bootstrapUserRecord = async ({ decodedToken, email }) => {
         return await User.findOneAndUpdate(
             { email: safeEmail },
             buildUpdate(true),
-            { new: true, upsert: true, setDefaultsOnInsert: true, projection: AUTH_PROJECTION, lean: true }
+            { returnDocument: 'after', upsert: true, setDefaultsOnInsert: true, projection: AUTH_PROJECTION, lean: true }
         );
     } catch (error) {
         if (!isDuplicatePhoneError(error)) throw error;
         return User.findOneAndUpdate(
             { email: safeEmail },
             buildUpdate(false),
-            { new: true, upsert: true, setDefaultsOnInsert: true, projection: AUTH_PROJECTION, lean: true }
+            { returnDocument: 'after', upsert: true, setDefaultsOnInsert: true, projection: AUTH_PROJECTION, lean: true }
         );
     }
 };

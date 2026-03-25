@@ -110,7 +110,7 @@ const seedCatalog = async () => {
                 manualProductCounter: 1000000,
             },
         },
-        { upsert: true, new: true, setDefaultsOnInsert: true }
+        { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
     );
 
     const counts = await Promise.all(CATEGORY_ORDER.map(async (category) => ({

@@ -186,7 +186,7 @@ const completePhoneFactorLogin = asyncHandler(async (req, res) => {
             },
         },
         {
-            new: true,
+            returnDocument: 'after',
             projection: 'name email phone avatar gender dob bio isAdmin isVerified isSeller sellerActivatedAt accountState moderation loyalty createdAt',
             lean: true,
         }
@@ -282,7 +282,7 @@ const completePhoneFactorVerification = asyncHandler(async (req, res) => {
                 },
             },
             {
-                new: true,
+                returnDocument: 'after',
                 projection: 'name email phone avatar gender dob bio isAdmin isVerified isSeller sellerActivatedAt accountState moderation loyalty createdAt',
                 lean: true,
             }
@@ -350,7 +350,7 @@ const completePhoneFactorVerification = asyncHandler(async (req, res) => {
             },
         },
         {
-            new: true,
+            returnDocument: 'after',
             projection: 'name email phone avatar gender dob bio isAdmin isVerified isSeller sellerActivatedAt accountState moderation loyalty createdAt',
             lean: true,
         }
