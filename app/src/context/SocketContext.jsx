@@ -4,7 +4,8 @@ import { useAuth } from './AuthContext';
 import { resolveServiceOrigin } from '../services/runtimeApiConfig';
 
 const SocketContext = createContext(null);
-const SOCKET_RUNTIME_ENABLED = import.meta.env.DEV || import.meta.env.VITE_ENABLE_REALTIME_SOCKET === 'true';
+const SOCKET_RUNTIME_FLAG = String(import.meta.env.VITE_ENABLE_REALTIME_SOCKET || '').trim().toLowerCase();
+const SOCKET_RUNTIME_ENABLED = SOCKET_RUNTIME_FLAG === '' ? true : SOCKET_RUNTIME_FLAG === 'true';
 
 export const useSocket = () => useContext(SocketContext);
 export const useSocketDemand = (key, enabled = true) => {

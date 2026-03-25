@@ -42,8 +42,20 @@ const {
     roundCurrency,
     mapProviderTypeToPaymentMethod,
 } = require('../services/payments/helpers');
-const { sendMessageToUser } = require('../services/socketService');
+const {
+    clearListingVideoSession,
+    getListingVideoSession,
+    markListingVideoSessionConnected,
+    registerListingVideoSession,
+    sendMessageToUser,
+} = require('../services/socketService');
 const { solveAuraMatch, solveAuraCluster } = require('../services/marketplaceOptimizers');
+const {
+    buildListingRoomName,
+    createSupportParticipantSession,
+    deleteSupportRoom,
+    ensureSupportRoom,
+} = require('../services/livekitService');
 
 const MAX_ACTIVE_LISTINGS = 10;
 const MAX_CHAT_MESSAGE_LENGTH = 1200;
@@ -79,6 +91,69 @@ const diff = (a, b) => Math.abs(Number(a) - Number(b));
 const isIntentExpired = (intent) => intent?.expiresAt && new Date(intent.expiresAt).getTime() < Date.now();
 
 // Escrow eligibility checks moved to listingService
+
+const loadListingForLiveInspection = async (listingId) => {
+    const listing = await Listing.findById(listingId)
+        .populate('seller', 'name email avatar isVerified');
+
+    if (!listing || !isRealListingDoc(listing)) {
+        throw new AppError('Listing not found', 404);
+    }
+
+    return listing;
+};
+
+const getListingLiveInspectionParticipants = (listing) => {
+    const sellerUserId = String(listing?.seller?._id || listing?.seller || '').trim();
+    const buyerUserId = String(listing?.escrow?.buyer || '').trim();
+
+    return {
+        sellerUserId,
+        buyerUserId,
+    };
+};
+
+const authorizeListingLiveInspection = ({ listing, userId, allowJoinOnly = false }) => {
+    const normalizedUserId = String(userId || '').trim();
+    const { sellerUserId, buyerUserId } = getListingLiveInspectionParticipants(listing);
+
+    if (!buyerUserId) {
+        throw new AppError('Start escrow to unlock live inspection for this listing', 409);
+    }
+
+    const isSeller = normalizedUserId === sellerUserId;
+    const isBuyer = normalizedUserId === buyerUserId;
+
+    if (!isSeller && !isBuyer) {
+        throw new AppError('Unauthorized live inspection access', 403);
+    }
+
+    if (!allowJoinOnly && !isBuyer) {
+        throw new AppError('Only the active escrow buyer can start a live inspection', 403);
+    }
+
+    return {
+        sellerUserId,
+        buyerUserId,
+        isSeller,
+        isBuyer,
+        counterpartUserId: isSeller ? buyerUserId : sellerUserId,
+    };
+};
+
+const buildListingLiveInspectionLabel = (listing) => `Live inspection for "${String(listing?.title || 'listing')}"`;
+const buildListingLiveCallMeta = ({ session, listing }) => ({
+    liveCall: {
+        channelType: 'listing',
+        contextId: String(listing?._id || ''),
+        listingId: String(listing?._id || ''),
+        sessionKey: String(session?.sessionKey || session?.roomName || '').trim(),
+        roomName: String(session?.roomName || session?.sessionKey || '').trim(),
+        contextLabel: String(session?.contextLabel || buildListingLiveInspectionLabel(listing)).trim(),
+        status: String(session?.status || 'ringing').trim() || 'ringing',
+        startedByUserId: String(session?.startedByUserId || '').trim(),
+    },
+});
 
 const createEscrowIntent = asyncHandler(async (req, res, next) => {
     if (!paymentFlags.paymentsEnabled) {
@@ -525,11 +600,26 @@ const getListingById = asyncHandler(async (req, res, next) => {
     const trustPassport = listing?.seller?._id
         ? await buildSellerTrustPassport({ sellerId: listing.seller._id, sellerUser: listing.seller })
         : null;
+    const viewerId = String(req.user?._id || '').trim();
+    const activeLiveCall = getListingVideoSession(listing._id);
+    const { sellerUserId, buyerUserId } = getListingLiveInspectionParticipants(listing);
+    const viewerCanAccessLiveCall = Boolean(
+        viewerId
+        && activeLiveCall?.sessionKey
+        && sellerUserId
+        && buyerUserId
+        && (viewerId === sellerUserId || viewerId === buyerUserId)
+        && String(activeLiveCall.sellerUserId || '') === sellerUserId
+        && String(activeLiveCall.buyerUserId || '') === buyerUserId
+    );
 
     res.json({
         success: true,
         listing,
         trustPassport,
+        meta: viewerCanAccessLiveCall
+            ? buildListingLiveCallMeta({ session: activeLiveCall, listing })
+            : {},
     });
 });
 
@@ -1097,6 +1187,217 @@ const sendListingMessage = asyncHandler(async (req, res, next) => {
     });
 });
 
+const startListingVideoSession = asyncHandler(async (req, res, next) => {
+    const listing = await loadListingForLiveInspection(req.params.id);
+    const participants = authorizeListingLiveInspection({
+        listing,
+        userId: req.user._id,
+    });
+
+    const currentSession = getListingVideoSession(listing._id);
+    const hasActiveSession = Boolean(currentSession?.sessionKey);
+    const contextLabel = buildListingLiveInspectionLabel(listing);
+    const sessionKey = hasActiveSession
+        ? currentSession.sessionKey
+        : buildListingRoomName(listing._id);
+
+    await ensureSupportRoom(sessionKey, {
+        listingId: String(listing._id),
+        channelType: 'listing',
+        title: String(listing.title || ''),
+    });
+
+    registerListingVideoSession({
+        listingId: listing._id,
+        sessionKey,
+        roomName: sessionKey,
+        sellerUserId: participants.sellerUserId,
+        buyerUserId: participants.buyerUserId,
+        startedByUserId: req.user._id,
+        contextLabel,
+        status: hasActiveSession && currentSession?.status === 'connected' ? 'connected' : 'ringing',
+    });
+
+    if (!hasActiveSession) {
+        sendMessageToUser(participants.counterpartUserId, 'listing:video:incoming', {
+            fromUserId: String(req.user._id),
+            fromName: String(req.user?.name || req.user?.email || 'Marketplace user'),
+            listingId: String(listing._id),
+            channelType: 'listing',
+            contextId: String(listing._id),
+            contextLabel,
+            sessionKey,
+        });
+    }
+
+    const session = await createSupportParticipantSession({
+        ticketId: listing._id,
+        roomName: sessionKey,
+        role: participants.isBuyer ? 'buyer' : 'seller',
+        user: req.user,
+        contextLabel,
+    });
+
+    res.status(hasActiveSession ? 200 : 201).json({
+        success: true,
+        data: {
+            listingId: String(listing._id),
+            sellerUserId: participants.sellerUserId,
+            buyerUserId: participants.buyerUserId,
+        },
+        meta: {
+            liveCall: {
+                ...session,
+                channelType: 'listing',
+                contextId: String(listing._id),
+                listingId: String(listing._id),
+                contextLabel,
+            },
+        },
+    });
+});
+
+const joinListingVideoSession = asyncHandler(async (req, res, next) => {
+    const listing = await loadListingForLiveInspection(req.params.id);
+    const participants = authorizeListingLiveInspection({
+        listing,
+        userId: req.user._id,
+        allowJoinOnly: true,
+    });
+    const currentSession = getListingVideoSession(listing._id);
+    const sessionKey = String(
+        req.body?.sessionKey
+        || currentSession?.sessionKey
+        || ''
+    ).trim();
+
+    if (!sessionKey) {
+        return next(new AppError('There is no active live inspection to join', 409));
+    }
+
+    const contextLabel = currentSession?.contextLabel || buildListingLiveInspectionLabel(listing);
+
+    await ensureSupportRoom(sessionKey, {
+        listingId: String(listing._id),
+        channelType: 'listing',
+        title: String(listing.title || ''),
+    });
+
+    registerListingVideoSession({
+        listingId: listing._id,
+        sessionKey,
+        roomName: sessionKey,
+        sellerUserId: participants.sellerUserId,
+        buyerUserId: participants.buyerUserId,
+        startedByUserId: currentSession?.startedByUserId || participants.buyerUserId,
+        contextLabel,
+        status: currentSession?.status === 'connected' ? 'connected' : 'ringing',
+    });
+
+    const session = await createSupportParticipantSession({
+        ticketId: listing._id,
+        roomName: sessionKey,
+        role: participants.isBuyer ? 'buyer' : 'seller',
+        user: req.user,
+        contextLabel,
+    });
+
+    res.json({
+        success: true,
+        data: {
+            listingId: String(listing._id),
+            sellerUserId: participants.sellerUserId,
+            buyerUserId: participants.buyerUserId,
+        },
+        meta: {
+            liveCall: {
+                ...session,
+                channelType: 'listing',
+                contextId: String(listing._id),
+                listingId: String(listing._id),
+                contextLabel,
+            },
+        },
+    });
+});
+
+const connectListingVideoSession = asyncHandler(async (req, res, next) => {
+    const listing = await loadListingForLiveInspection(req.params.id);
+    authorizeListingLiveInspection({
+        listing,
+        userId: req.user._id,
+        allowJoinOnly: true,
+    });
+
+    const sessionKey = String(req.body?.sessionKey || getListingVideoSession(listing._id)?.sessionKey || '').trim();
+    if (!sessionKey) {
+        return next(new AppError('There is no active live inspection to connect', 409));
+    }
+
+    markListingVideoSessionConnected({
+        listingId: listing._id,
+        sessionKey,
+    });
+
+    res.json({
+        success: true,
+        data: {
+            listingId: String(listing._id),
+            liveCallConnected: true,
+            sessionKey,
+        },
+    });
+});
+
+const endListingVideoSession = asyncHandler(async (req, res, next) => {
+    const listing = await loadListingForLiveInspection(req.params.id);
+    const participants = authorizeListingLiveInspection({
+        listing,
+        userId: req.user._id,
+        allowJoinOnly: true,
+    });
+    const currentSession = getListingVideoSession(listing._id);
+    const sessionKey = String(
+        req.body?.sessionKey
+        || currentSession?.sessionKey
+        || ''
+    ).trim();
+
+    if (!sessionKey) {
+        return next(new AppError('There is no active live inspection to end', 409));
+    }
+
+    clearListingVideoSession({
+        listingId: listing._id,
+        sessionKey,
+    });
+
+    await deleteSupportRoom(sessionKey).catch((error) => {
+        logger.warn('listing.livekit_room_cleanup_failed', {
+            listingId: String(listing._id),
+            sessionKey,
+            reason: error?.message || 'unknown',
+        });
+    });
+
+    sendMessageToUser(participants.counterpartUserId, 'listing:video:terminated', {
+        listingId: String(listing._id),
+        channelType: 'listing',
+        contextId: String(listing._id),
+        sessionKey,
+        reason: String(req.body?.reason || '').trim().toLowerCase() || 'hangup',
+    });
+
+    res.json({
+        success: true,
+        data: {
+            listingId: String(listing._id),
+            liveCallEnded: true,
+            sessionKey,
+        },
+    });
+});
+
 const startEscrow = asyncHandler(async (req, res, next) => {
     const listing = await Listing.findById(req.params.id).populate('seller', SELLER_PRIVATE_THREAD);
     try {
@@ -1334,6 +1635,8 @@ module.exports = {
     updateListing, markSold, deleteListing,
     getMyListings, getSellerProfile,
     getMyMessageInbox, getListingMessages, sendListingMessage,
+    startListingVideoSession, joinListingVideoSession,
+    connectListingVideoSession, endListingVideoSession,
     createEscrowIntent, confirmEscrowIntent,
     startEscrow, confirmEscrowDelivery, cancelEscrow,
     getCityHotspots,

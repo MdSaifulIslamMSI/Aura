@@ -11,6 +11,10 @@ const {
     addSystemLogToTicket,
     adminGetTickets,
     adminUpdateTicketStatus,
+    startSupportLiveCallSession,
+    joinSupportLiveCallSession,
+    connectSupportLiveCallSession,
+    endSupportLiveCallSession,
 } = require('../controllers/supportController');
 const {
     createSupportTicketSchema,
@@ -19,6 +23,7 @@ const {
     ticketIdParamSchema,
     adminUpdateTicketSchema,
     requestSupportLiveCallSchema,
+    supportLiveCallActionSchema,
 } = require('../validators/supportValidators');
 
 // --- User Routes ---
@@ -33,6 +38,18 @@ router.route('/:id/messages')
 
 router.route('/:id/video/request')
     .post(protect, validate(requestSupportLiveCallSchema), requestSupportLiveCall);
+
+router.route('/:id/video/start')
+    .post(protect, admin, validate(ticketIdParamSchema), startSupportLiveCallSession);
+
+router.route('/:id/video/join')
+    .post(protect, validate(supportLiveCallActionSchema), joinSupportLiveCallSession);
+
+router.route('/:id/video/connected')
+    .post(protect, validate(supportLiveCallActionSchema), connectSupportLiveCallSession);
+
+router.route('/:id/video/end')
+    .post(protect, validate(supportLiveCallActionSchema), endSupportLiveCallSession);
 
 // --- Admin Routes ---
 router.route('/admin/all')
