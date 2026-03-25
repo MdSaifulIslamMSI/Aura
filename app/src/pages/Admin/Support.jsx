@@ -70,7 +70,7 @@ const appendUniqueMessage = (messages, incoming) => {
 export default function AdminSupport() {
     useSocketDemand('admin-support', true);
     const { socket, isConnected } = useSocket();
-    const { startCall, callStatus, activeCallContext } = useVideoCall();
+    const { startCall, joinSupportCall, callStatus, activeCallContext } = useVideoCall();
     const [tickets, setTickets] = useState([]);
     const [loading, setLoading] = useState(true);
     const [activeTicketId, setActiveTicketId] = useState(null);
@@ -295,21 +295,36 @@ export default function AdminSupport() {
     const isActiveSupportCall = activeCallContext?.channelType === 'support_ticket'
         && String(activeCallContext?.contextId || '') === String(activeTicketId || '')
         && ['calling', 'incoming', 'connected'].includes(callStatus);
+    const canJoinSupportCall = Boolean(
+        activeTicket?._id
+        && activeTicket.liveCallLastSessionKey
+        && ['ringing', 'connected'].includes(String(activeTicket.liveCallLastStatus || ''))
+        && !isActiveSupportCall
+    );
 
     const handleStartLiveCall = async () => {
         if (!activeTicket?._id || !activeTicket?.user?._id || startingLiveCall) return;
 
         try {
             setStartingLiveCall(true);
-            const started = await startCall({
-                targetUserId: activeTicket.user._id,
-                channelType: 'support_ticket',
-                contextId: activeTicket._id,
-                supportTicketId: activeTicket._id,
-                contextLabel: `Aura Support live call for "${activeTicket.subject}"`,
-            });
-            if (!started) {
-                setError('Failed to start the live support call');
+            const liveCallAction = canJoinSupportCall
+                ? await joinSupportCall({
+                    channelType: 'support_ticket',
+                    contextId: activeTicket._id,
+                    supportTicketId: activeTicket._id,
+                    contextLabel: activeTicket.liveCallLastContextLabel || `Aura Support live call for "${activeTicket.subject}"`,
+                    sessionKey: activeTicket.liveCallLastSessionKey,
+                    callerName: 'Aura Support',
+                })
+                : await startCall({
+                    targetUserId: activeTicket.user._id,
+                    channelType: 'support_ticket',
+                    contextId: activeTicket._id,
+                    supportTicketId: activeTicket._id,
+                    contextLabel: `Aura Support live call for "${activeTicket.subject}"`,
+                });
+            if (!liveCallAction) {
+                setError(canJoinSupportCall ? 'Failed to join the live support call' : 'Failed to start the live support call');
             }
         } finally {
             setStartingLiveCall(false);
@@ -468,7 +483,7 @@ export default function AdminSupport() {
                                             className="admin-premium-button"
                                         >
                                             {startingLiveCall ? <RefreshCw className="h-4 w-4 animate-spin" /> : <PhoneCall className="h-4 w-4" />}
-                                            {isActiveSupportCall ? 'Live now' : 'Start live call'}
+                                            {isActiveSupportCall ? 'Live now' : canJoinSupportCall ? 'Join live call' : 'Start live call'}
                                         </button>
                                     </div>
                                 </div>
@@ -493,9 +508,13 @@ export default function AdminSupport() {
                                             <div className="mt-2 font-semibold text-slate-900">
                                                 {isActiveSupportCall
                                                     ? 'A live support call is ringing or connected on this ticket.'
+                                                    : !isConnected
+                                                        ? 'Ticket updates are on polling fallback, but the live call itself can still run over LiveKit.'
                                                     : activeTicket.liveCallRequested
                                                         ? 'Customer requested real-time support. Start the call when ready.'
-                                                        : activeTicket.liveCallLastStatus === 'ended' || activeTicket.liveCallLastStatus === 'missed'
+                                                        : canJoinSupportCall
+                                                            ? 'A live support session is already open for this ticket. Rejoin it from here.'
+                                                            : activeTicket.liveCallLastStatus === 'ended' || activeTicket.liveCallLastStatus === 'missed'
                                                             ? 'The last live call finished. Start another one if real-time handling is still needed.'
                                                             : 'Escalate this ticket into a real-time video call when text support is too slow.'}
                                             </div>

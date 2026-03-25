@@ -165,7 +165,7 @@ export default function SupportSection({
 }) {
     useSocketDemand('profile-support', true);
     const { socket, isConnected } = useSocket();
-    const { callStatus, activeCallContext } = useVideoCall();
+    const { callStatus, activeCallContext, joinSupportCall } = useVideoCall();
 
     const [tickets, setTickets] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -444,6 +444,40 @@ export default function SupportSection({
     const isActiveSupportCall = activeCallContext?.channelType === 'support_ticket'
         && String(activeCallContext?.contextId || '') === String(activeTicketId || '')
         && ['calling', 'incoming', 'connected'].includes(callStatus);
+    const canJoinSupportCall = Boolean(
+        activeTicket?._id
+        && activeTicket.liveCallLastSessionKey
+        && ['ringing', 'connected'].includes(String(activeTicket.liveCallLastStatus || ''))
+        && !isActiveSupportCall
+    );
+
+    const handleLiveCallAction = async () => {
+        if (!activeTicketId || requestingLiveCall) return;
+
+        if (canJoinSupportCall) {
+            try {
+                setRequestingLiveCall(true);
+                const joined = await joinSupportCall({
+                    channelType: 'support_ticket',
+                    contextId: activeTicketId,
+                    supportTicketId: activeTicketId,
+                    contextLabel: activeTicket?.liveCallLastContextLabel || `Aura Support live call for "${activeTicket?.subject || 'support ticket'}"`,
+                    sessionKey: activeTicket?.liveCallLastSessionKey,
+                    callerName: 'Aura Support',
+                });
+                if (!joined) {
+                    setError('Failed to join the live support call');
+                } else {
+                    setError('');
+                }
+            } finally {
+                setRequestingLiveCall(false);
+            }
+            return;
+        }
+
+        await handleRequestLiveCall();
+    };
 
     return (
         <div className="grid gap-6 xl:grid-cols-[22rem_minmax(0,1fr)]">
@@ -776,6 +810,8 @@ export default function SupportSection({
                                                     ? 'Aura Support is actively ringing or connected on this ticket.'
                                                     : activeTicket.liveCallRequested
                                                         ? 'Your live support call request is queued for the admin team.'
+                                                        : canJoinSupportCall
+                                                            ? 'Aura Support already opened a live session for this ticket. Join it from here.'
                                                         : activeTicket.liveCallLastStatus === 'ended' || activeTicket.liveCallLastStatus === 'missed'
                                                             ? 'You can request another live support call if the issue still needs real-time help.'
                                                             : 'Escalate this ticket into a real-time video call when text support is too slow.'}
@@ -790,12 +826,12 @@ export default function SupportSection({
                                         </div>
                                         <button
                                             type="button"
-                                            onClick={handleRequestLiveCall}
-                                            disabled={requestingLiveCall || activeTicket.status === 'closed' || activeTicket.liveCallRequested || isActiveSupportCall}
+                                            onClick={handleLiveCallAction}
+                                            disabled={requestingLiveCall || activeTicket.status === 'closed' || isActiveSupportCall || (!canJoinSupportCall && activeTicket.liveCallRequested)}
                                             className="inline-flex items-center gap-2 rounded-2xl border border-cyan-300/20 bg-cyan-400/12 px-4 py-3 text-sm font-black text-cyan-100 transition-colors hover:bg-cyan-400/18 disabled:cursor-not-allowed disabled:opacity-55"
                                         >
                                             {requestingLiveCall ? <RefreshCw className="h-4 w-4 animate-spin" /> : <PhoneCall className="h-4 w-4" />}
-                                            {activeTicket.liveCallRequested ? 'Requested' : isActiveSupportCall ? 'Live now' : 'Request live call'}
+                                            {isActiveSupportCall ? 'Live now' : canJoinSupportCall ? 'Join live call' : activeTicket.liveCallRequested ? 'Requested' : 'Request live call'}
                                         </button>
                                     </div>
                                 </div>
@@ -891,12 +927,12 @@ export default function SupportSection({
                                     </div>
                                     <button
                                         type="button"
-                                        onClick={handleRequestLiveCall}
-                                        disabled={requestingLiveCall || activeTicket.liveCallRequested || isActiveSupportCall}
+                                        onClick={handleLiveCallAction}
+                                        disabled={requestingLiveCall || isActiveSupportCall || (!canJoinSupportCall && activeTicket.liveCallRequested)}
                                         className="inline-flex items-center justify-center gap-2 rounded-2xl border border-cyan-300/20 bg-cyan-400/12 px-4 py-3 text-sm font-black text-cyan-100 transition-colors hover:bg-cyan-400/18 disabled:opacity-55"
                                     >
                                         {requestingLiveCall ? <RefreshCw className="h-4 w-4 animate-spin" /> : <PhoneCall className="h-4 w-4" />}
-                                        {activeTicket.liveCallRequested ? 'Live call queued' : isActiveSupportCall ? 'Live call active' : 'Escalate to live call'}
+                                        {isActiveSupportCall ? 'Live call active' : canJoinSupportCall ? 'Join live call' : activeTicket.liveCallRequested ? 'Live call queued' : 'Escalate to live call'}
                                     </button>
                                 </div>
                             </form>

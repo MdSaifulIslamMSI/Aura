@@ -40,6 +40,7 @@ export default function ListingDetail() {
     const { id } = useParams();
     const { currentUser, dbUser } = useContext(AuthContext);
     const [listing, setListing] = useState(null);
+    const [listingLiveCall, setListingLiveCall] = useState(null);
     const [trustPassport, setTrustPassport] = useState(null);
     const [loading, setLoading] = useState(true);
     const [currentImage, setCurrentImage] = useState(0);
@@ -55,13 +56,14 @@ export default function ListingDetail() {
     const [chatInput, setChatInput] = useState('');
     const [conversation, setConversation] = useState(null);
     const { socket } = useSocket();
-    const { startCall } = useVideoCall();
+    const { startCall, joinCall, callStatus, activeCallContext } = useVideoCall();
 
     useEffect(() => {
         (async () => {
             try {
                 const data = await listingApi.getListingById(id);
                 setListing(data.listing);
+                setListingLiveCall(data?.meta?.liveCall || null);
                 setTrustPassport(data.trustPassport || null);
             } catch (err) {
                 console.error(err);
@@ -69,7 +71,7 @@ export default function ListingDetail() {
                 setLoading(false);
             }
         })();
-    }, [id]);
+    }, [currentUser?.uid, dbUser?._id, id]);
 
     if (loading) {
         return (
@@ -107,6 +109,78 @@ export default function ListingDetail() {
     const isEscrowBuyer = buyerId && dbUser?._id && buyerId === String(dbUser._id);
     const escrowEnabled = Boolean(listing?.escrowOptIn);
     const showEscrowControls = !isOwner && escrowEnabled;
+    const canRequestLiveInspection = Boolean(!isOwner && currentUser && isEscrowBuyer);
+    const activeListingCallContext = activeCallContext?.channelType === 'listing'
+        && String(activeCallContext?.contextId || activeCallContext?.listingId || '') === String(id)
+        ? activeCallContext
+        : null;
+    const isListingCallActive = Boolean(activeListingCallContext && callStatus !== 'idle');
+    const liveInspectionStatus = String(listingLiveCall?.status || '').trim().toLowerCase();
+    const canJoinLiveInspection = Boolean(
+        currentUser
+        && listingLiveCall?.sessionKey
+        && (isOwner || isEscrowBuyer)
+        && (liveInspectionStatus === 'ringing' || liveInspectionStatus === 'connected')
+    );
+    const canStartLiveInspection = Boolean(canRequestLiveInspection || canJoinLiveInspection);
+    const showLiveInspectionAction = Boolean(canRequestLiveInspection || canJoinLiveInspection || isListingCallActive);
+    const liveInspectionHint = isOwner
+        ? canJoinLiveInspection
+            ? 'A live inspection is already active for this escrow. Join it again from here if you refreshed the page.'
+            : ''
+        : !currentUser
+            ? 'Sign in and start escrow to unlock live inspection with the seller.'
+        : !escrowEnabled
+            ? 'Seller has not enabled escrow, so live inspection is unavailable for this listing.'
+        : canJoinLiveInspection
+            ? 'A live inspection is already active for this escrow. Join it again from here if you refreshed the page.'
+        : isEscrowBuyer
+                    ? ''
+                    : buyerId
+                        ? 'Live inspection is reserved for the active escrow buyer on this listing.'
+                        : 'Start escrow to unlock live inspection with the seller.';
+
+    const handleLiveInspection = useCallback(async () => {
+        if (isListingCallActive) {
+            return;
+        }
+
+        if (canJoinLiveInspection) {
+            await joinCall({
+                channelType: 'listing',
+                contextId: id,
+                listingId: id,
+                contextLabel: listingLiveCall?.contextLabel || `Live inspection for "${listing?.title || 'listing'}"`,
+                sessionKey: listingLiveCall?.sessionKey,
+                callerName: isOwner ? 'Escrow buyer' : (seller?.name || 'Seller'),
+                transport: 'livekit',
+            });
+            return;
+        }
+
+        await startCall({
+            targetUserId: seller?._id,
+            listingId: id,
+            contextId: id,
+            channelType: 'listing',
+            contextLabel: `Live inspection for "${listing?.title || 'listing'}"`,
+            callerName: seller?.name || 'Seller',
+            transport: 'livekit',
+        });
+    }, [
+        canJoinLiveInspection,
+        id,
+        isListingCallActive,
+        isOwner,
+        joinCall,
+        listing?.title,
+        listingLiveCall?.contextLabel,
+        listingLiveCall?.sessionKey,
+        seller?._id,
+        seller?.name,
+        startCall,
+    ]);
+
     useSocketDemand(`listing-realtime:${id}`, Boolean(currentUser && !isOwner));
 
     const loadConversation = useCallback(async (options = {}) => {
@@ -493,16 +567,25 @@ export default function ListingDetail() {
                                     <MessageCircle className="mr-2 inline h-4 w-4" />
                                     {isOwner ? 'This is your listing' : 'Chat with seller'}
                                 </button>
-                                {!isOwner && (
+                                {showLiveInspectionAction && (
                                     <button
-                                        disabled={!currentUser}
-                                        onClick={() => startCall(seller._id, id)}
+                                        disabled={!canStartLiveInspection || isListingCallActive}
+                                        onClick={handleLiveInspection}
                                         className="w-full rounded-xl border border-blue-300/40 bg-blue-500/20 py-3 text-sm font-bold text-blue-100 transition hover:bg-blue-500/30 disabled:cursor-not-allowed disabled:opacity-60"
                                     >
                                         <Video className="mr-2 inline h-4 w-4" />
-                                        Request Live Inspection
+                                        {isListingCallActive
+                                            ? 'Live Inspection Active'
+                                            : canJoinLiveInspection
+                                                ? 'Join Live Inspection'
+                                                : 'Request Live Inspection'}
                                     </button>
                                 )}
+                                {liveInspectionHint ? (
+                                    <div className="rounded-xl border border-blue-300/20 bg-blue-500/10 px-3 py-2 text-xs font-semibold text-blue-100/90">
+                                        {liveInspectionHint}
+                                    </div>
+                                ) : null}
                                 {showEscrowControls && escrowState === 'none' && (
                                     <button
                                         disabled={escrowBusy}
@@ -666,14 +749,17 @@ export default function ListingDetail() {
                                 </p>
                             </div>
                             <div className="flex gap-2">
-                                <button
-                                    type="button"
-                                    onClick={() => startCall(seller._id, id)}
-                                    className="rounded-lg border border-slate-700 bg-slate-900/80 p-2 text-slate-300 transition hover:border-blue-300/35 hover:text-blue-100"
-                                    title="Start Live Inspection"
-                                >
-                                    <Video className="h-4 w-4" />
-                                </button>
+                                {showLiveInspectionAction ? (
+                                    <button
+                                        type="button"
+                                        disabled={!canStartLiveInspection || isListingCallActive}
+                                        onClick={handleLiveInspection}
+                                        className="rounded-lg border border-slate-700 bg-slate-900/80 p-2 text-slate-300 transition hover:border-blue-300/35 hover:text-blue-100"
+                                        title={canJoinLiveInspection ? 'Join Live Inspection' : 'Start Live Inspection'}
+                                    >
+                                        <Video className="h-4 w-4" />
+                                    </button>
+                                ) : null}
                                 <button
                                     type="button"
                                     onClick={() => setChatOpen(false)}

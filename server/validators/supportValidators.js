@@ -52,6 +52,16 @@ const requestSupportLiveCallSchema = z.object({
     }).default({}),
 });
 
+const supportLiveCallActionSchema = z.object({
+    params: z.object({
+        id: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid ID format'),
+    }),
+    body: z.object({
+        sessionKey: z.string().trim().max(160).optional(),
+        reason: z.enum(['hangup', 'declined', 'missed', 'failed', 'participant_disconnect']).optional(),
+    }).default({}),
+});
+
 module.exports = {
     createSupportTicketSchema,
     sendSupportMessageSchema,
@@ -59,4 +69,5 @@ module.exports = {
     ticketIdParamSchema,
     adminUpdateTicketSchema,
     requestSupportLiveCallSchema,
+    supportLiveCallActionSchema,
 };
