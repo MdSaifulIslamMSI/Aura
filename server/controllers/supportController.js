@@ -3,15 +3,35 @@ const SupportTicket = require('../models/SupportTicket');
 const SupportMessage = require('../models/SupportMessage');
 const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
-const { sendMessageToAdmins, sendMessageToUser } = require('../services/socketService'); // Push via websockets
+const {
+    clearSupportVideoSession,
+    emitSupportRealtimeUpdate,
+    getSupportVideoSession,
+    markSupportVideoSessionConnected,
+    registerSupportVideoSession,
+    sendMessageToAdmins,
+    sendMessageToUser,
+} = require('../services/socketService'); // Push via websockets
 const { sendPersistentNotification } = require('../services/notificationService');
 const { buildProfileSupportUrl } = require('../utils/frontendLinks');
 const {
     loadAdminTicketView,
+    loadUserTicketView,
     serializeTicketForAdmin,
     serializeTicketForUser,
 } = require('../services/supportTicketViews');
-const { requestSupportTicketLiveCall } = require('../services/supportVideoService');
+const {
+    markSupportTicketLiveCallConnected,
+    markSupportTicketLiveCallEnded,
+    markSupportTicketLiveCallStarted,
+    requestSupportTicketLiveCall,
+} = require('../services/supportVideoService');
+const {
+    buildSupportRoomName,
+    createSupportParticipantSession,
+    deleteSupportRoom,
+    ensureSupportRoom,
+} = require('../services/livekitService');
 
 const getPagination = (req) => {
     const page = Number(req.query.page) || 1;
@@ -96,6 +116,44 @@ const emitAdminTicketUpdate = async ({ ticketId, eventName = 'support:ticket:upd
         });
     }
 };
+
+const loadSupportTicketForSession = async (ticketId) => {
+    const ticket = await SupportTicket.findById(ticketId).populate('user', 'name email accountState');
+    if (!ticket) {
+        throw new AppError('Support ticket not found', 404);
+    }
+    return ticket;
+};
+
+const ensureSupportTicketViewer = (ticket, user) => {
+    if (!ticket?._id) {
+        throw new AppError('Support ticket not found', 404);
+    }
+
+    const isAdmin = Boolean(user?.isAdmin);
+    const isOwner = String(ticket.user?._id || ticket.user || '') === String(user?._id || '');
+    if (!isAdmin && !isOwner) {
+        throw new AppError('Unauthorized access to ticket', 403);
+    }
+
+    return {
+        isAdmin,
+        isOwner,
+        ticketOwnerId: String(ticket.user?._id || ticket.user || ''),
+    };
+};
+
+const buildSupportLiveCallLabel = (ticket) => `Aura Support live call for "${String(ticket?.subject || 'support ticket')}"`;
+
+const buildSupportLiveCallMeta = ({ session, ticket }) => ({
+    liveCall: {
+        ...session,
+        channelType: 'support_ticket',
+        contextId: String(ticket?._id || ''),
+        supportTicketId: String(ticket?._id || ''),
+        contextLabel: String(session?.contextLabel || buildSupportLiveCallLabel(ticket)),
+    },
+});
 
 // @desc    Create a new support ticket
 // @route   POST /api/support
@@ -223,6 +281,305 @@ const requestSupportLiveCall = asyncHandler(async (req, res, next) => {
             : serializeTicketForUser(updatedTicket.toObject()),
         meta: {
             liveCallRequested: true,
+        },
+    });
+});
+
+// @desc    Admin: start or rejoin a LiveKit support session
+// @route   POST /api/support/:id/video/start
+// @access  Admin
+const startSupportLiveCallSession = asyncHandler(async (req, res, next) => {
+    const ticket = await loadSupportTicketForSession(req.params.id);
+    const { isAdmin, ticketOwnerId } = ensureSupportTicketViewer(ticket, req.user);
+
+    if (!isAdmin) {
+        return next(new AppError('Only Aura Support can start live calls', 403));
+    }
+
+    if (ticket.status === 'closed') {
+        return next(new AppError('Closed tickets cannot start live support calls', 400));
+    }
+
+    const currentStatus = String(ticket.liveCallLastStatus || '');
+    const hasActiveSession = Boolean(
+        ['ringing', 'connected'].includes(currentStatus)
+        && String(ticket.liveCallLastSessionKey || '').trim()
+    );
+
+    if (
+        hasActiveSession
+        && ticket.liveCallStartedBy
+        && String(ticket.liveCallStartedBy) !== String(req.user._id)
+    ) {
+        return next(new AppError('Another support agent already owns this live call', 409));
+    }
+
+    const contextLabel = buildSupportLiveCallLabel(ticket);
+    const roomName = hasActiveSession
+        ? String(ticket.liveCallLastSessionKey || '').trim()
+        : buildSupportRoomName(ticket._id);
+
+    await ensureSupportRoom(roomName, {
+        supportTicketId: String(ticket._id),
+        channelType: 'support_ticket',
+        subject: String(ticket.subject || ''),
+    });
+
+    if (!hasActiveSession) {
+        const supportCallUpdate = await markSupportTicketLiveCallStarted({
+            ticketId: ticket._id,
+            startedByUserId: req.user._id,
+            startedByRole: 'admin',
+            sessionKey: roomName,
+            contextLabel,
+        });
+
+        await emitSupportRealtimeUpdate({
+            ticketId: ticket._id,
+            eventName: 'support:message:new',
+            message: supportCallUpdate?.message || null,
+        });
+
+        sendMessageToUser(ticketOwnerId, 'support:video:incoming', {
+            fromUserId: String(req.user._id),
+            fromName: String(req.user?.name || 'Aura Support'),
+            supportTicketId: String(ticket._id),
+            channelType: 'support_ticket',
+            contextId: String(ticket._id),
+            contextLabel,
+            sessionKey: roomName,
+        });
+
+        await notifyUserAboutSupportEvent(ticketOwnerId, buildSupportNotificationPayload({
+            ticket,
+            title: 'Aura Support started a live call',
+            message: `Aura Support started a live support call for "${ticket.subject}".`,
+            actionLabel: 'Join live call',
+            priority: ticket.priority === 'urgent' ? 'high' : 'medium',
+            metadata: {
+                liveCallSessionKey: roomName,
+                liveCallStatus: 'ringing',
+            },
+        }));
+    }
+
+    registerSupportVideoSession({
+        ticketId: ticket._id,
+        sessionKey: roomName,
+        roomName,
+        userId: ticketOwnerId,
+        adminUserId: req.user._id,
+        contextLabel,
+        status: currentStatus === 'connected' ? 'connected' : 'ringing',
+    });
+
+    const session = await createSupportParticipantSession({
+        ticketId: ticket._id,
+        roomName,
+        role: 'admin',
+        user: req.user,
+        contextLabel,
+    });
+
+    res.status(hasActiveSession ? 200 : 201).json({
+        success: true,
+        data: await loadAdminTicketView(ticket._id),
+        meta: buildSupportLiveCallMeta({
+            session,
+            ticket,
+        }),
+    });
+});
+
+// @desc    Join an active LiveKit support session
+// @route   POST /api/support/:id/video/join
+// @access  Protected (ticket owner or assigned admin)
+const joinSupportLiveCallSession = asyncHandler(async (req, res, next) => {
+    const ticket = await loadSupportTicketForSession(req.params.id);
+    const { isAdmin, ticketOwnerId } = ensureSupportTicketViewer(ticket, req.user);
+    const sessionState = getSupportVideoSession(ticket._id);
+    const sessionKey = String(
+        req.body?.sessionKey
+        || sessionState?.sessionKey
+        || ticket.liveCallLastSessionKey
+        || ''
+    ).trim();
+    const lastStatus = String(ticket.liveCallLastStatus || '');
+
+    if (!sessionKey || !['ringing', 'connected'].includes(lastStatus)) {
+        return next(new AppError('There is no active live support call to join', 409));
+    }
+
+    if (
+        isAdmin
+        && ticket.liveCallStartedBy
+        && String(ticket.liveCallStartedBy) !== String(req.user._id)
+    ) {
+        return next(new AppError('Another support agent already owns this live call', 409));
+    }
+
+    const contextLabel = String(ticket.liveCallLastContextLabel || buildSupportLiveCallLabel(ticket)).trim()
+        || buildSupportLiveCallLabel(ticket);
+
+    await ensureSupportRoom(sessionKey, {
+        supportTicketId: String(ticket._id),
+        channelType: 'support_ticket',
+        subject: String(ticket.subject || ''),
+    });
+
+    registerSupportVideoSession({
+        ticketId: ticket._id,
+        sessionKey,
+        roomName: sessionKey,
+        userId: ticketOwnerId,
+        adminUserId: sessionState?.adminUserId || ticket.liveCallStartedBy || req.user._id,
+        contextLabel,
+        status: lastStatus === 'connected' ? 'connected' : 'ringing',
+    });
+
+    const session = await createSupportParticipantSession({
+        ticketId: ticket._id,
+        roomName: sessionKey,
+        role: isAdmin ? 'admin' : 'user',
+        user: req.user,
+        contextLabel,
+    });
+
+    res.json({
+        success: true,
+        data: isAdmin
+            ? await loadAdminTicketView(ticket._id)
+            : await loadUserTicketView(ticket._id),
+        meta: buildSupportLiveCallMeta({
+            session,
+            ticket,
+        }),
+    });
+});
+
+// @desc    Mark an active LiveKit support session as connected
+// @route   POST /api/support/:id/video/connected
+// @access  Protected (ticket owner or assigned admin)
+const connectSupportLiveCallSession = asyncHandler(async (req, res, next) => {
+    const ticket = await loadSupportTicketForSession(req.params.id);
+    const { isAdmin } = ensureSupportTicketViewer(ticket, req.user);
+    const sessionKey = String(req.body?.sessionKey || ticket.liveCallLastSessionKey || '').trim();
+
+    if (!sessionKey) {
+        return next(new AppError('There is no active live support call to connect', 409));
+    }
+
+    if (
+        isAdmin
+        && ticket.liveCallStartedBy
+        && String(ticket.liveCallStartedBy) !== String(req.user._id)
+    ) {
+        return next(new AppError('Another support agent already owns this live call', 409));
+    }
+
+    await markSupportTicketLiveCallConnected({
+        ticketId: ticket._id,
+        sessionKey,
+    });
+    markSupportVideoSessionConnected({
+        ticketId: ticket._id,
+        sessionKey,
+    });
+
+    await emitSupportRealtimeUpdate({
+        ticketId: ticket._id,
+    });
+
+    res.json({
+        success: true,
+        data: isAdmin
+            ? await loadAdminTicketView(ticket._id)
+            : await loadUserTicketView(ticket._id),
+        meta: {
+            liveCallConnected: true,
+            sessionKey,
+        },
+    });
+});
+
+// @desc    End an active LiveKit support session
+// @route   POST /api/support/:id/video/end
+// @access  Protected (ticket owner or assigned admin)
+const endSupportLiveCallSession = asyncHandler(async (req, res, next) => {
+    const ticket = await loadSupportTicketForSession(req.params.id);
+    const { isAdmin, ticketOwnerId } = ensureSupportTicketViewer(ticket, req.user);
+    const sessionState = getSupportVideoSession(ticket._id);
+    const sessionKey = String(
+        req.body?.sessionKey
+        || sessionState?.sessionKey
+        || ticket.liveCallLastSessionKey
+        || ''
+    ).trim();
+
+    if (!sessionKey) {
+        return next(new AppError('There is no active live support call to end', 409));
+    }
+
+    if (
+        isAdmin
+        && ticket.liveCallStartedBy
+        && String(ticket.liveCallStartedBy) !== String(req.user._id)
+    ) {
+        return next(new AppError('Another support agent already owns this live call', 409));
+    }
+
+    const reason = String(req.body?.reason || '').trim().toLowerCase()
+        || (String(ticket.liveCallLastStatus || '') === 'ringing' ? 'missed' : 'hangup');
+    const clearedSession = clearSupportVideoSession({
+        ticketId: ticket._id,
+        sessionKey,
+    });
+
+    await deleteSupportRoom(sessionKey).catch((error) => {
+        logger.warn('support.livekit_room_cleanup_failed', {
+            ticketId: String(ticket._id),
+            sessionKey,
+            reason: error?.message || 'unknown',
+        });
+    });
+
+    const supportCallUpdate = await markSupportTicketLiveCallEnded({
+        ticketId: ticket._id,
+        endedByRole: isAdmin ? 'admin' : 'user',
+        sessionKey,
+        reason,
+    });
+
+    await emitSupportRealtimeUpdate({
+        ticketId: ticket._id,
+        eventName: 'support:message:new',
+        message: supportCallUpdate?.message || null,
+    });
+
+    const counterpartyUserId = clearedSession?.participants?.find((participantId) => participantId !== String(req.user._id))
+        || (isAdmin
+            ? ticketOwnerId
+            : String(ticket.liveCallStartedBy || clearedSession?.adminUserId || ''));
+
+    if (counterpartyUserId) {
+        sendMessageToUser(counterpartyUserId, 'support:video:terminated', {
+            supportTicketId: String(ticket._id),
+            channelType: 'support_ticket',
+            contextId: String(ticket._id),
+            sessionKey,
+            reason,
+        });
+    }
+
+    res.json({
+        success: true,
+        data: isAdmin
+            ? await loadAdminTicketView(ticket._id)
+            : await loadUserTicketView(ticket._id),
+        meta: {
+            liveCallEnded: true,
+            sessionKey,
+            reason,
         },
     });
 });
@@ -507,6 +864,10 @@ module.exports = {
     getSupportTickets,
     getSupportTicketMessages,
     sendSupportMessage,
+    startSupportLiveCallSession,
+    joinSupportLiveCallSession,
+    connectSupportLiveCallSession,
+    endSupportLiveCallSession,
     requestSupportLiveCall,
     addSystemLogToTicket,
     adminGetTickets,

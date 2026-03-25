@@ -151,6 +151,42 @@ export const listingApi = {
         const headers = await getAuthHeader();
         const { data } = await apiFetch(`/listings/${id}/messages`, { headers, params });
         return data;
+    },
+    startVideoSession: async (id) => {
+        const headers = await getAuthHeader();
+        const { data } = await apiFetch(`/listings/${id}/video/start`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({}),
+        });
+        return data;
+    },
+    joinVideoSession: async (id, payload = {}) => {
+        const headers = await getAuthHeader();
+        const { data } = await apiFetch(`/listings/${id}/video/join`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(payload),
+        });
+        return data;
+    },
+    markVideoSessionConnected: async (id, payload = {}) => {
+        const headers = await getAuthHeader();
+        const { data } = await apiFetch(`/listings/${id}/video/connected`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(payload),
+        });
+        return data;
+    },
+    endVideoSession: async (id, payload = {}) => {
+        const headers = await getAuthHeader();
+        const { data } = await apiFetch(`/listings/${id}/video/end`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(payload),
+        });
+        return data;
     }
 };
 

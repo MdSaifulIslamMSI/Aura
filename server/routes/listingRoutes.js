@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { protect, seller, requireActiveAccount } = require('../middleware/authMiddleware');
+const { protect, protectOptional, seller, requireActiveAccount } = require('../middleware/authMiddleware');
 const {
     createListing,
     getListings,
@@ -13,6 +13,10 @@ const {
     getMyMessageInbox,
     getListingMessages,
     sendListingMessage,
+    startListingVideoSession,
+    joinListingVideoSession,
+    connectListingVideoSession,
+    endListingVideoSession,
     createEscrowIntent,
     confirmEscrowIntent,
     startEscrow,
@@ -32,9 +36,13 @@ router.get('/messages/inbox', protect, getMyMessageInbox);
 router.post('/', protect, requireActiveAccount, seller, createListing);
 router.get('/:id/messages', protect, getListingMessages);
 router.post('/:id/messages', protect, requireActiveAccount, sendListingMessage);
+router.post('/:id/video/start', protect, requireActiveAccount, startListingVideoSession);
+router.post('/:id/video/join', protect, requireActiveAccount, joinListingVideoSession);
+router.post('/:id/video/connected', protect, requireActiveAccount, connectListingVideoSession);
+router.post('/:id/video/end', protect, requireActiveAccount, endListingVideoSession);
 
 // Parameterized routes
-router.get('/:id', getListingById);
+router.get('/:id', protectOptional, getListingById);
 router.put('/:id', protect, requireActiveAccount, seller, updateListing);
 router.patch('/:id/sold', protect, requireActiveAccount, seller, markSold);
 router.post('/:id/escrow/intents', protect, requireActiveAccount, createEscrowIntent);

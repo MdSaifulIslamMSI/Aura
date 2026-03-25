@@ -29,6 +29,26 @@ export const supportApi = {
         const { data } = await apiFetch(`/support/${ticketId}/video/request`, { method: 'POST', headers, body: JSON.stringify(body) });
         return data;
     },
+    startVideoSession: async (ticketId) => {
+        const headers = await getAuthHeader();
+        const { data } = await apiFetch(`/support/${ticketId}/video/start`, { method: 'POST', headers, body: JSON.stringify({}) });
+        return data;
+    },
+    joinVideoSession: async (ticketId, payload = {}) => {
+        const headers = await getAuthHeader();
+        const { data } = await apiFetch(`/support/${ticketId}/video/join`, { method: 'POST', headers, body: JSON.stringify(payload) });
+        return data;
+    },
+    markVideoSessionConnected: async (ticketId, payload = {}) => {
+        const headers = await getAuthHeader();
+        const { data } = await apiFetch(`/support/${ticketId}/video/connected`, { method: 'POST', headers, body: JSON.stringify(payload) });
+        return data;
+    },
+    endVideoSession: async (ticketId, payload = {}) => {
+        const headers = await getAuthHeader();
+        const { data } = await apiFetch(`/support/${ticketId}/video/end`, { method: 'POST', headers, body: JSON.stringify(payload) });
+        return data;
+    },
 
     // Admin endpoints
     adminGetTickets: async (params) => {
