@@ -62,7 +62,7 @@ const ensureBackendUser = async ({
         },
     },
     {
-        new: true,
+        returnDocument: 'after',
         upsert: true,
         setDefaultsOnInsert: true,
     }

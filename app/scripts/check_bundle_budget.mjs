@@ -45,6 +45,7 @@ try {
     const cssAssets = readAssetSizes(listFiles(assetsDir, '.css'));
     const indexHtml = fs.readFileSync(path.join(distDir, 'index.html'), 'utf8');
     const initialAssets = parseInitialAssets(indexHtml);
+    const initialJsAssets = initialAssets.filter((assetPath) => assetPath.endsWith('.js'));
 
     const resolveAssetGzipKb = (relativePath) => {
         const filePath = path.join(distDir, relativePath);
@@ -52,7 +53,11 @@ try {
         return gzipKb(fs.readFileSync(filePath));
     };
 
-    const totalJsGzipKb = Number(jsAssets.reduce((sum, asset) => sum + asset.gzipKb, 0).toFixed(2));
+    // Treat the JS budget as "eager shell JS" so lazy route bundles do not
+    // incorrectly count against first-load guardrails.
+    const totalJsGzipKb = Number(initialJsAssets.reduce((sum, assetPath) => sum + resolveAssetGzipKb(assetPath), 0).toFixed(2));
+    const allJsGzipKb = Number(jsAssets.reduce((sum, asset) => sum + asset.gzipKb, 0).toFixed(2));
+    const lazyJsGzipKb = Number((allJsGzipKb - totalJsGzipKb).toFixed(2));
     const largestJsAsset = jsAssets.reduce(
         (largest, asset) => (asset.gzipKb > largest.gzipKb ? asset : largest),
         { file: '', gzipKb: 0 }
@@ -78,6 +83,8 @@ try {
     console.log(JSON.stringify({
         budgetsVersion: budgets.version,
         totalJsGzipKb,
+        allJsGzipKb,
+        lazyJsGzipKb,
         largestJsAsset: {
             file: largestJsAsset.file ? formatAssetName(largestJsAsset.file) : '',
             gzipKb: largestJsAsset.gzipKb,

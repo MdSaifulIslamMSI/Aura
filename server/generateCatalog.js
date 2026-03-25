@@ -697,7 +697,7 @@ const switchCatalogVersion = async (previousCatalogVersion) => {
                 manualProductCounter: 1000000,
             },
         },
-        { upsert: true, new: true, setDefaultsOnInsert: true }
+        { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
     );
 };
 

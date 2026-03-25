@@ -2,10 +2,23 @@ import path from "path"
 import react from "@vitejs/plugin-react"
 import { defineConfig } from "vite"
 
+const DEFERRED_ROUTE_PRELOAD_PATTERNS = [
+  /^assets\/admin-pages-/,
+  /^assets\/commerce-flow-/,
+  /^assets\/discovery-/,
+  /^assets\/marketplace-/,
+  /^assets\/product-experience-/,
+]
+
 // https://vite.dev/config/
 export default defineConfig({
   base: '/',
   build: {
+    modulePreload: {
+      resolveDependencies(_filename, deps) {
+        return deps.filter((dependency) => !DEFERRED_ROUTE_PRELOAD_PATTERNS.some((pattern) => pattern.test(dependency)));
+      },
+    },
     rollupOptions: {
       output: {
         manualChunks(id) {

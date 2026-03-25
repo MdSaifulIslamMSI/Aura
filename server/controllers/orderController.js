@@ -565,7 +565,7 @@ const createOrderReplacementRequest = asyncHandler(async (req, res, next) => {
     const stockUpdate = await Product.findOneAndUpdate(
         { _id: targetOrderItem.product, stock: { $gte: quantity } },
         { $inc: { stock: -quantity } },
-        { new: true }
+        { returnDocument: 'after' }
     );
 
     if (stockUpdate) {
@@ -862,7 +862,7 @@ const processOrderReplacementRequestAdmin = asyncHandler(async (req, res, next) 
         const stockReserved = await Product.findOneAndUpdate(
             { _id: itemProductId, stock: { $gte: quantity } },
             { $inc: { stock: -quantity } },
-            { new: true }
+            { returnDocument: 'after' }
         );
 
         if (!stockReserved) {

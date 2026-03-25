@@ -820,7 +820,7 @@ const updateListing = asyncHandler(async (req, res, next) => {
     const updated = await Listing.findByIdAndUpdate(
         req.params.id,
         { $set: updates },
-        { new: true, runValidators: true }
+        { returnDocument: 'after', runValidators: true }
     ).populate('seller', SELLER_PUBLIC_STRICT);
 
     res.json({ success: true, listing: updated });
@@ -1117,7 +1117,7 @@ const sendListingMessage = asyncHandler(async (req, res, next) => {
                 unreadByBuyer: viewerIsSeller ? 1 : 0,
             }
         },
-        { upsert: true, new: true, setDefaultsOnInsert: true }
+        { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
     );
 
     // Insert Message
