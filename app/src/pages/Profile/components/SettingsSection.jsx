@@ -4,8 +4,9 @@ import { Link } from 'react-router-dom';
 import { TogglePref } from './ProfileShared';
 
 export default function SettingsSection({
-    handlePasswordReset,
-    passwordResetting,
+    handleSecureRecovery,
+    recoveryLaunching,
+    canStartSecureRecovery,
     hasOtpReadyIdentity,
     trustHealthy,
     trustLoading,
@@ -36,14 +37,19 @@ export default function SettingsSection({
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                             <div>
                                 <p className="font-semibold text-white text-sm">Password</p>
-                                <p className="text-xs text-slate-400 mt-1">Managed through Firebase Authentication with recovery by email.</p>
+                                <p className="text-xs text-slate-400 mt-1">Password recovery now follows the same email + phone OTP flow as sign-in.</p>
+                                {!canStartSecureRecovery ? (
+                                    <p className="mt-2 text-[11px] text-amber-200">
+                                        Add a verified email and registered phone to unlock secure recovery from this panel.
+                                    </p>
+                                ) : null}
                             </div>
                             <button
-                                onClick={handlePasswordReset}
-                                disabled={passwordResetting}
+                                onClick={handleSecureRecovery}
+                                disabled={recoveryLaunching || !canStartSecureRecovery}
                                 className="px-4 py-2 rounded-xl border border-white/10 bg-white/5 text-sm font-bold text-white hover:bg-white/10 disabled:opacity-60"
                             >
-                                {passwordResetting ? 'Sending...' : 'Send Reset Link'}
+                                {recoveryLaunching ? 'Opening...' : 'Open Secure Recovery'}
                             </button>
                         </div>
                     </div>
