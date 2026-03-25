@@ -370,7 +370,7 @@ const upsertOtpSession = async ({
                 },
             },
             {
-                new: true,
+                returnDocument: 'after',
                 upsert: true,
                 setDefaultsOnInsert: true,
                 runValidators: true,
@@ -637,7 +637,7 @@ const sendOtp = asyncHandler(async (req, res, next) => {
                     },
                 },
                 {
-                    new: true,
+                    returnDocument: 'after',
                     upsert: true,
                     setDefaultsOnInsert: true,
                     runValidators: true,

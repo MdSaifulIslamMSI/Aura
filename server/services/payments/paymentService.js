@@ -660,7 +660,7 @@ const validatePaymentIntentForOrder = async ({
                     },
                 },
             },
-            { new: true }
+            { returnDocument: 'after' }
         );
         const claimedIntent = session ? await claimQuery.session(session) : await claimQuery;
         if (!claimedIntent) {
@@ -700,7 +700,7 @@ const linkIntentToOrder = async ({ intentId, orderId, session = null, claimKey =
                 },
             },
         },
-        { new: true }
+        { returnDocument: 'after' }
     );
     return session ? query.session(session) : query;
 };
@@ -1127,7 +1127,7 @@ const runOutboxCycle = async () => {
                     lockedBy: WORKER_ID
                 }
             },
-            { new: true, sort: { nextRunAt: 1 } }
+            { returnDocument: 'after', sort: { nextRunAt: 1 } }
         );
 
         if (!task) break; // Exhausted queue

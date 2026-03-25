@@ -371,7 +371,7 @@ const bootstrapUserRecord = async ({ email, authUser = {}, projection = PROFILE_
     if (!safeEmail) return null;
 
     const queryOptions = {
-        new: true,
+        returnDocument: 'after',
         upsert: true,
         setDefaultsOnInsert: true,
         projection,
@@ -494,7 +494,7 @@ const loginUser = asyncHandler(async (req, res, next) => {
             { email: tokenEmail },
             { $set: setPayload, $setOnInsert: { email: tokenEmail } },
             {
-                new: true,
+                returnDocument: 'after',
                 upsert: true,
                 setDefaultsOnInsert: true,
                 projection: AUTH_ONLY_PROJECTION,
@@ -654,7 +654,7 @@ const updateUserProfile = asyncHandler(async (req, res, next) => {
         user = await User.findOneAndUpdate(
             { email: req.user.email },
             { $set: updates },
-            { new: true, projection: PROFILE_PROJECTION, lean: true }
+            { returnDocument: 'after', projection: PROFILE_PROJECTION, lean: true }
         );
     } catch (error) {
         if (getDuplicateField(error) === 'phone') {

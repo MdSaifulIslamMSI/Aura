@@ -34,7 +34,7 @@ const activateDemoCatalogVersion = async ({ catalogVersion }) => {
     const state = await SystemState.findOneAndUpdate(
         { key: DEFAULT_SYSTEM_KEY },
         { $setOnInsert: { key: DEFAULT_SYSTEM_KEY } },
-        { upsert: true, new: true, setDefaultsOnInsert: true }
+        { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
     );
 
     const previousVersion = state.activeCatalogVersion || 'legacy-v1';

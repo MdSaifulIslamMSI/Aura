@@ -559,7 +559,7 @@ const ensureSystemState = async () => {
                     manualProductCounter: 1000000,
                 },
             },
-            { upsert: true, new: true, setDefaultsOnInsert: true }
+            { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
         );
     } catch (error) {
         if (!isSystemStateWriteBlocked(error)) throw error;
@@ -1526,7 +1526,7 @@ const allocateManualProductId = async (session = null) => {
                 $inc: { manualProductCounter: 1 },
                 $setOnInsert: { key: DEFAULT_SYSTEM_KEY },
             },
-            { new: true, upsert: true, setDefaultsOnInsert: true }
+            { returnDocument: 'after', upsert: true, setDefaultsOnInsert: true }
         );
         const state = session ? await query.session(session) : await query;
         return state.manualProductCounter;
@@ -2089,7 +2089,7 @@ const publishCatalogVersion = async (jobId) => {
         const state = await SystemState.findOneAndUpdate(
             { key: DEFAULT_SYSTEM_KEY },
             { $setOnInsert: { key: DEFAULT_SYSTEM_KEY } },
-            { new: true, upsert: true, session, setDefaultsOnInsert: true }
+            { returnDocument: 'after', upsert: true, session, setDefaultsOnInsert: true }
         );
 
         const previousVersion = state.activeCatalogVersion || '';
@@ -2192,7 +2192,7 @@ const claimNextPendingImportJob = async () => CatalogImportJob.findOneAndUpdate(
             startedAt: new Date(),
         },
     },
-    { sort: { createdAt: 1 }, new: true }
+    { sort: { createdAt: 1 }, returnDocument: 'after' }
 );
 
 const claimNextPendingSyncRun = async () => CatalogSyncRun.findOneAndUpdate(
@@ -2205,7 +2205,7 @@ const claimNextPendingSyncRun = async () => CatalogSyncRun.findOneAndUpdate(
             startedAt: new Date(),
         },
     },
-    { sort: { createdAt: 1 }, new: true }
+    { sort: { createdAt: 1 }, returnDocument: 'after' }
 );
 
 const processCatalogSyncRunById = async (syncRunId) => {
