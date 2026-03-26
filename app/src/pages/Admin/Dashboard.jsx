@@ -100,6 +100,8 @@ const getDeltaClass = (value, invert = false) => {
     const positiveIsGood = !invert;
     return num > 0 ? (positiveIsGood ? 'text-emerald-600' : 'text-rose-600') : (positiveIsGood ? 'text-rose-600' : 'text-emerald-600');
 };
+const POSITIVE_HEALTH_STATES = new Set(['ok', 'healthy', 'connected']);
+const isPositiveHealthStatus = (value) => POSITIVE_HEALTH_STATES.has(String(value || '').trim().toLowerCase());
 
 const downloadBlob = (blob, filename) => {
     if (typeof window === 'undefined') return;
@@ -447,7 +449,7 @@ export default function AdminDashboard() {
                             icon={<Database className="h-4 w-4 text-indigo-600" />}
                             label="Database"
                             value={String(health?.db || 'unknown')}
-                            ok={String(health?.db || '').toLowerCase() === 'connected'}
+                            ok={isPositiveHealthStatus(health?.db)}
                             loading={healthLoading}
                         />
                         <HealthCell
@@ -461,14 +463,14 @@ export default function AdminDashboard() {
                             icon={<Activity className="h-4 w-4 text-emerald-600" />}
                             label="Payment Queue"
                             value={health?.queues?.paymentOutbox?.status || 'unknown'}
-                            ok={String(health?.queues?.paymentOutbox?.status || '').toLowerCase() === 'healthy'}
+                            ok={isPositiveHealthStatus(health?.queues?.paymentOutbox?.status)}
                             loading={healthLoading}
                         />
                         <HealthCell
                             icon={<Bell className="h-4 w-4 text-violet-600" />}
                             label="Order Email Queue"
                             value={health?.queues?.orderEmail?.status || 'unknown'}
-                            ok={String(health?.queues?.orderEmail?.status || '').toLowerCase() === 'healthy'}
+                            ok={isPositiveHealthStatus(health?.queues?.orderEmail?.status)}
                             loading={healthLoading}
                         />
                     </div>
