@@ -410,75 +410,10 @@ const buildOrderQuote = async (payload, { session = null, checkStock = true } = 
     };
 };
 
-const normalizePaymentSimulation = (simulation = {}) => {
-    const status = String(simulation.status || '').toLowerCase();
-    const referenceId = String(simulation.referenceId || '').trim();
-
-    return { status, referenceId };
-};
-
-const getSimulationBucket = ({ paymentMethod, amount, attemptToken }) => {
-    const digest = crypto
-        .createHash('sha256')
-        .update(`${paymentMethod}|${amount}|${attemptToken}`)
-        .digest('hex');
-
-    const numeric = parseInt(digest.slice(0, 8), 16);
-    return {
-        bucket: numeric % 100,
-        digest,
-    };
-};
-
-const simulatePaymentResult = ({ paymentMethod, amount, attemptToken }) => {
-    const normalizedMethod = normalizePaymentMethod(paymentMethod);
-    if (normalizedMethod === 'COD') {
-        throw new AppError('Payment simulation is only available for digital methods', 400);
-    }
-
-    const normalizedAmount = Number(amount);
-    if (!Number.isFinite(normalizedAmount) || normalizedAmount <= 0) {
-        throw new AppError('amount must be a positive number', 400);
-    }
-
-    const token = String(attemptToken || '').trim();
-    if (!token) {
-        throw new AppError('attemptToken is required', 400);
-    }
-
-    const { bucket, digest } = getSimulationBucket({
-        paymentMethod: normalizedMethod,
-        amount: roundCurrency(normalizedAmount),
-        attemptToken: token,
-    });
-
-    let status = 'success';
-    if (bucket >= 65 && bucket < 85) {
-        status = 'pending';
-    } else if (bucket >= 85) {
-        status = 'failure';
-    }
-
-    const referenceId = `SIM-${digest.slice(0, 12).toUpperCase()}`;
-    const messageMap = {
-        success: 'Payment processed successfully',
-        pending: 'Payment is pending confirmation',
-        failure: 'Payment failed during processing',
-    };
-
-    return {
-        status,
-        referenceId,
-        message: messageMap[status],
-    };
-};
-
 module.exports = {
     PRICING_VERSION,
     SLOT_WINDOWS,
     normalizeCheckoutPayload,
-    normalizePaymentSimulation,
     calculatePricing,
     buildOrderQuote,
-    simulatePaymentResult,
 };

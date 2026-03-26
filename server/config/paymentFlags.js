@@ -15,7 +15,7 @@ const flags = {
     nodeEnv,
     isProduction,
     paymentsEnabled: parseBoolean(process.env.PAYMENTS_ENABLED, true),
-    paymentProvider: asLower(process.env.PAYMENT_PROVIDER, isProduction ? 'razorpay' : 'simulated'),
+    paymentProvider: asLower(process.env.PAYMENT_PROVIDER, 'razorpay'),
     paymentRiskMode: asLower(process.env.PAYMENT_RISK_MODE, 'shadow'),
     paymentCaptureMode: asLower(process.env.PAYMENT_CAPTURE_MODE, 'post_order_auth_capture'),
     paymentSavedMethodsEnabled: parseBoolean(process.env.PAYMENT_SAVED_METHODS_ENABLED, true),
@@ -28,8 +28,12 @@ const flags = {
 const assertWebhookConfig = () => {
     if (!flags.paymentsEnabled || !flags.paymentWebhooksEnabled) return;
 
-    if (flags.paymentProvider === 'simulated' && !process.env.SIMULATED_WEBHOOK_SECRET) {
-        throw new Error('Missing SIMULATED_WEBHOOK_SECRET for simulated payment webhook mode');
+    if (flags.paymentProvider !== 'razorpay') {
+        throw new Error(`Unsupported PAYMENT_PROVIDER=${flags.paymentProvider}. Only razorpay is supported.`);
+    }
+
+    if (!process.env.RAZORPAY_WEBHOOK_SECRET) {
+        throw new Error('Missing RAZORPAY_WEBHOOK_SECRET for Razorpay webhook mode');
     }
 };
 

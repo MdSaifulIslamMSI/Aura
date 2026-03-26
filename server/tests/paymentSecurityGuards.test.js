@@ -80,13 +80,13 @@ describe('payment webhook security guards', () => {
         jest.resetModules();
     });
 
-    test('simulated webhook processing rejects invalid or missing signatures', async () => {
+    test('razorpay webhook processing rejects invalid or missing signatures', async () => {
         let processRazorpayWebhook;
 
         jest.isolateModules(() => {
             jest.doMock('../services/payments/providerFactory', () => ({
                 getPaymentProvider: jest.fn().mockResolvedValue({
-                    name: 'simulated',
+                    name: 'razorpay',
                     verifyWebhookSignature: jest.fn().mockReturnValue(false),
                     parseWebhook: jest.fn(),
                 }),
@@ -103,15 +103,15 @@ describe('payment webhook security guards', () => {
             .toThrow('Invalid webhook signature');
     });
 
-    test('simulated provider webhook mode requires SIMULATED_WEBHOOK_SECRET', () => {
+    test('razorpay webhook mode requires RAZORPAY_WEBHOOK_SECRET', () => {
         process.env.PAYMENTS_ENABLED = 'true';
-        process.env.PAYMENT_PROVIDER = 'simulated';
+        process.env.PAYMENT_PROVIDER = 'razorpay';
         process.env.PAYMENT_WEBHOOKS_ENABLED = 'true';
-        delete process.env.SIMULATED_WEBHOOK_SECRET;
+        delete process.env.RAZORPAY_WEBHOOK_SECRET;
 
         jest.isolateModules(() => {
             const { assertWebhookConfig } = require('../config/paymentFlags');
-            expect(() => assertWebhookConfig()).toThrow('Missing SIMULATED_WEBHOOK_SECRET');
+            expect(() => assertWebhookConfig()).toThrow('Missing RAZORPAY_WEBHOOK_SECRET');
         });
     });
 });

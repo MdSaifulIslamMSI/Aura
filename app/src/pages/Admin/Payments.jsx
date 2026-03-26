@@ -19,7 +19,7 @@ const STATUS_COLORS = {
 
 const STATUS_OPTIONS = ['', 'created', 'challenge_pending', 'authorized', 'captured', 'failed', 'partially_refunded', 'refunded', 'expired'];
 const METHOD_OPTIONS = ['', 'UPI', 'CARD', 'WALLET', 'NETBANKING'];
-const PROVIDER_OPTIONS = ['', 'razorpay', 'simulated'];
+const PROVIDER_OPTIONS = ['', 'razorpay'];
 
 const getStatusClass = (status) => STATUS_COLORS[status] || 'bg-slate-100 text-slate-700';
 

@@ -1,7 +1,5 @@
 const crypto = require('crypto');
 const RazorpayProvider = require('../services/payments/providers/razorpayProvider');
-const SimulatedProvider = require('../services/payments/providers/simulatedProvider');
-
 
 const mutateHex = (signature) => {
     if (!signature) return '0';
@@ -47,37 +45,6 @@ describe('RazorpayProvider signature verification security', () => {
             bank: 'HDFC',
             acquirer_data: {
                 bank_transaction_id: 'nbk_hdfc_123',
-            },
-        })).toEqual({
-            type: 'bank',
-            brand: 'HDFC',
-            last4: '',
-            providerMethodId: 'HDFC',
-        });
-    });
-});
-
-describe('SimulatedProvider webhook signature verification security', () => {
-    const provider = new SimulatedProvider({ webhookSecret: 'sim-webhook-secret' });
-
-    test('rejects missing and invalid webhook signatures while accepting valid hmac signatures', () => {
-        const rawBody = JSON.stringify({ event: 'payment.captured', payload: { id: 'evt_sim_1' } });
-        const validSignature = crypto
-            .createHmac('sha256', 'sim-webhook-secret')
-            .update(rawBody)
-            .digest('hex');
-
-        expect(provider.verifyWebhookSignature({ rawBody, signature: validSignature })).toBe(true);
-        expect(provider.verifyWebhookSignature({ rawBody, signature: mutateHex(validSignature) })).toBe(false);
-        expect(provider.verifyWebhookSignature({ rawBody, signature: '' })).toBe(false);
-    });
-
-    test('parses simulated netbanking payloads using the shared bank method shape', () => {
-        expect(provider.parsePaymentMethod({
-            method: 'netbanking',
-            bank: 'HDFC',
-            acquirer_data: {
-                bank_transaction_id: 'nbk_simulated_hdfc',
             },
         })).toEqual({
             type: 'bank',

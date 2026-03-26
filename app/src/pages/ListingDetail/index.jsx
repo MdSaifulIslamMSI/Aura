@@ -107,7 +107,6 @@ function getParticipantInitial(name = '') {
     return trimmed ? trimmed.charAt(0).toUpperCase() : 'A';
 }
 
-const PAYMENT_PROVIDER = String(import.meta.env.VITE_PAYMENT_PROVIDER || '').trim().toLowerCase();
 const MARKETPLACE_CHAT_MAX_LENGTH = 1200;
 const MARKETPLACE_CHAT_POLL_MS = 15000;
 const normalizeLiveCallMode = (value) => (String(value || '').trim().toLowerCase() === 'voice' ? 'voice' : 'video');
@@ -625,13 +624,7 @@ export default function ListingDetail() {
                 });
             }
 
-            if ((intent.provider || PAYMENT_PROVIDER) === 'simulated') {
-                const simulatedConfirm = intent.simulatedConfirm || intent.checkoutPayload?.simulatedConfirm;
-                if (!simulatedConfirm) {
-                    throw new Error('Simulated payment confirmation payload is missing.');
-                }
-                await listingApi.confirmEscrowIntent(id, intent.intentId, simulatedConfirm);
-            } else {
+            if (!['authorized', 'captured'].includes(String(intent.status || '').toLowerCase())) {
                 await loadRazorpayScript();
                 await new Promise((resolve, reject) => {
                     const rzp = new window.Razorpay({

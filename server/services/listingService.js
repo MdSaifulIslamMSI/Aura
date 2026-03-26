@@ -160,36 +160,23 @@ const buildEscrowCheckoutPayload = ({
     user,
     paymentMethod = 'UPI',
 }) => {
-    if (paymentFlags.paymentProvider === 'razorpay') {
-        return {
-            key: process.env.RAZORPAY_KEY_ID || '',
-            orderId: providerOrderId,
-            amount,
-            currency,
-            name: 'Aura Marketplace',
-            description: 'Aura Marketplace Escrow Hold',
-            prefill: {
-                name: user?.name || '',
-                email: user?.email || '',
-                contact: user?.phone || '',
-            },
-            theme: { color: '#06b6d4' },
-        };
+    if (paymentFlags.paymentProvider !== 'razorpay') {
+        throw new AppError(`Unsupported PAYMENT_PROVIDER=${paymentFlags.paymentProvider} for marketplace escrow`, 503);
     }
 
-    const simulatedPaymentId = makeEventId(`sim_pay_${String(paymentMethod || 'UPI').toLowerCase()}`);
-    // Using a hash of the prompt for "privacy" in the simulation
-    const simulatedSignature = `sim_${crypto.createHash('sha1').update(`${providerOrderId}|${simulatedPaymentId}`).digest('hex').slice(0, 14)}`;
     return {
-        key: 'simulated',
+        key: process.env.RAZORPAY_KEY_ID || '',
         orderId: providerOrderId,
         amount,
         currency,
-        simulatedConfirm: {
-            providerPaymentId: simulatedPaymentId,
-            providerOrderId,
-            providerSignature: simulatedSignature,
+        name: 'Aura Marketplace',
+        description: 'Aura Marketplace Escrow Hold',
+        prefill: {
+            name: user?.name || '',
+            email: user?.email || '',
+            contact: user?.phone || '',
         },
+        theme: { color: '#06b6d4' },
     };
 };
 

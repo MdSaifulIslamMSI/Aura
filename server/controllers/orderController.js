@@ -13,11 +13,9 @@ const { placeOrderWithIdempotency } = require('../services/orderPlacementService
 const {
     PRICING_VERSION,
     buildOrderQuote,
-    simulatePaymentResult,
 } = require('../services/orderPricingService');
 const asyncHandler = require('express-async-handler');
 const AppError = require('../utils/AppError');
-const { flags: paymentFlags } = require('../config/paymentFlags');
 const Order = require('../models/Order');
 const Product = require('../models/Product');
 
@@ -73,22 +71,6 @@ const quoteOrder = asyncHandler(async (req, res, next) => {
     } catch (error) {
         if (error instanceof AppError) return next(error);
         return next(new AppError(error.message || 'Failed to quote order', 500));
-    }
-});
-
-// @desc    Simulate digital payment result
-// @route   POST /api/orders/simulate-payment
-// @access  Private
-const simulatePayment = asyncHandler(async (req, res, next) => {
-    try {
-        if (paymentFlags.paymentProvider !== 'simulated' && paymentFlags.nodeEnv === 'production') {
-            return next(new AppError('Simulation is disabled in production payment mode', 403));
-        }
-        const result = simulatePaymentResult(req.body);
-        res.json(result);
-    } catch (error) {
-        if (error instanceof AppError) return next(error);
-        return next(new AppError(error.message || 'Payment simulation failed', 500));
     }
 });
 
@@ -1192,7 +1174,6 @@ const getOrders = asyncHandler(async (req, res) => {
 
 module.exports = {
     quoteOrder,
-    simulatePayment,
     addOrderItems,
     getMyOrderTimeline,
     getMyOrderCommandCenter,

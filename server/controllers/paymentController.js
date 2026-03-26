@@ -641,7 +641,11 @@ const handleRazorpayWebhook = asyncHandler(async (req, res, next) => {
     try {
         const signature = req.headers['x-razorpay-signature'];
 
-        if (paymentFlags.paymentProvider === 'simulated' && !signature) {
+        if (paymentFlags.paymentProvider !== 'razorpay') {
+            throw new AppError(`Unsupported PAYMENT_PROVIDER=${paymentFlags.paymentProvider} for Razorpay webhook route`, 409);
+        }
+
+        if (!signature) {
             throw new AppError('Missing webhook signature', 403);
         }
 

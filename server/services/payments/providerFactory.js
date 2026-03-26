@@ -1,27 +1,30 @@
 const RazorpayProvider = require('./providers/razorpayProvider');
-const SimulatedProvider = require('./providers/simulatedProvider');
+const AppError = require('../../utils/AppError');
 const { flags } = require('../../config/paymentFlags');
 const { calculateOptimalRoute } = require('./paymentRouter');
 
 const providers = new Map();
+const SUPPORTED_GATEWAYS = new Set(['razorpay']);
 
 const getInternalProvider = (gatewayId) => {
-    if (providers.has(gatewayId)) return providers.get(gatewayId);
-
-    let provider;
-    if (gatewayId === 'razorpay') {
-        provider = new RazorpayProvider({
-            keyId: process.env.RAZORPAY_KEY_ID,
-            keySecret: process.env.RAZORPAY_KEY_SECRET,
-            webhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET,
-        });
-    } else {
-        provider = new SimulatedProvider({
-            webhookSecret: process.env.SIMULATED_WEBHOOK_SECRET,
-        });
+    const normalizedGatewayId = String(gatewayId || '').trim().toLowerCase();
+    if (!SUPPORTED_GATEWAYS.has(normalizedGatewayId)) {
+        throw new AppError(`Unsupported payment gateway route: ${normalizedGatewayId || 'unknown'}`, 503);
     }
 
-    providers.set(gatewayId, provider);
+    if (providers.has(normalizedGatewayId)) return providers.get(normalizedGatewayId);
+
+    let provider;
+    if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+        throw new AppError('Razorpay credentials are not configured on the server', 503);
+    }
+    provider = new RazorpayProvider({
+        keyId: process.env.RAZORPAY_KEY_ID,
+        keySecret: process.env.RAZORPAY_KEY_SECRET,
+        webhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET,
+    });
+
+    providers.set(normalizedGatewayId, provider);
     return provider;
 };
 

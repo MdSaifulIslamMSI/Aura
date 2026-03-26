@@ -137,29 +137,23 @@ const buildCheckoutPayload = ({
     currency,
     user,
 }) => {
-    if (flags.paymentProvider === 'razorpay') {
-        return {
-            key: process.env.RAZORPAY_KEY_ID || '',
-            orderId: providerOrderId,
-            amount,
-            currency,
-            name: 'Aura Marketplace',
-            description: 'Aura Secure Checkout',
-            prefill: {
-                name: user?.name || '',
-                email: user?.email || '',
-                contact: user?.phone || '',
-            },
-            theme: { color: '#06b6d4' },
-        };
+    if (!process.env.RAZORPAY_KEY_ID) {
+        throw new AppError('Razorpay checkout key is not configured on the server', 503);
     }
 
     return {
-        key: 'simulated',
+        key: process.env.RAZORPAY_KEY_ID,
         orderId: providerOrderId,
         amount,
         currency,
-        simulatedSignature: `sim_${hashPayload(`${providerOrderId}|${amount}`).slice(0, 14)}`,
+        name: 'Aura Marketplace',
+        description: 'Aura Secure Checkout',
+        prefill: {
+            name: user?.name || '',
+            email: user?.email || '',
+            contact: user?.phone || '',
+        },
+        theme: { color: '#06b6d4' },
     };
 };
 
@@ -599,7 +593,6 @@ const validatePaymentIntentForOrder = async ({
     paymentIntentId,
     paymentMethod,
     totalPrice,
-    paymentSimulation,
     session = null,
     claimForOrder = false,
     claimKey = '',
@@ -607,13 +600,6 @@ const validatePaymentIntentForOrder = async ({
     const normalizedMethod = normalizeMethod(paymentMethod);
     if (!DIGITAL_METHODS.includes(normalizedMethod)) {
         return { paymentIntent: null, isPaid: false, paymentState: 'pending' };
-    }
-
-    if (flags.paymentProvider === 'simulated' && !paymentIntentId) {
-        if (paymentSimulation?.status === 'success') {
-            return { paymentIntent: null, isPaid: true, paymentState: 'captured' };
-        }
-        throw new AppError('Digital payment simulation must be successful before placing order', 400);
     }
 
     if (!paymentIntentId) {
@@ -919,7 +905,7 @@ const mapWebhookEventToPaymentStatus = ({ eventType, currentStatus }) => {
 
 const processRazorpayWebhook = async ({ signature, rawBody }) => {
     const provider = await getPaymentProvider();
-    if (provider.name !== 'razorpay' && provider.name !== 'simulated') {
+    if (provider.name !== 'razorpay') {
         throw new AppError('Unsupported payment provider for webhook processing', 400);
     }
 

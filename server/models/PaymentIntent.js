@@ -24,7 +24,7 @@ const paymentIntentSchema = new mongoose.Schema({
     intentId: { type: String, required: true, unique: true, index: true },
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     order: { type: mongoose.Schema.Types.ObjectId, ref: 'Order', default: null, index: true },
-    provider: { type: String, required: true, default: 'simulated' },
+    provider: { type: String, required: true, default: 'razorpay' },
     providerOrderId: { type: String, required: true, index: true },
     providerPaymentId: { type: String, default: '', index: true },
     providerMethodId: { type: String, default: '' },
