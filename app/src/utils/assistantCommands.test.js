@@ -82,7 +82,7 @@ describe('assistantCommands', () => {
             category: 'orders',
             subject: 'Support: Delayed order',
             intent: 'Delayed order',
-        })).toBe('/profile?tab=support&compose=1&category=orders&subject=Support%3A+Delayed+order&intent=Delayed+order');
+        })).toBe('/contact?compose=1&category=orders&subject=Support%3A+Delayed+order&intent=Delayed+order');
     });
 
     it('caps visible actions to three choices', () => {
