@@ -58,10 +58,6 @@ const checkoutBodySchema = z.object({
         totalPrice: z.coerce.number().positive().optional(),
         pricingVersion: z.string().optional(),
     }).optional(),
-    paymentSimulation: z.object({
-        status: z.enum(['success', 'pending', 'failure']),
-        referenceId: z.string().optional(),
-    }).optional(),
 });
 
 const quoteOrderSchema = z.object({
@@ -70,14 +66,6 @@ const quoteOrderSchema = z.object({
 
 const createOrderSchema = z.object({
     body: checkoutBodySchema,
-});
-
-const simulatePaymentSchema = z.object({
-    body: z.object({
-        paymentMethod: z.enum(PAYMENT_METHODS),
-        amount: z.coerce.number().positive(),
-        attemptToken: z.string().min(3),
-    }),
 });
 
 const getOrderTimelineSchema = z.object({
@@ -200,7 +188,6 @@ const adminCommandWarrantyDecisionSchema = z.object({
 module.exports = {
     quoteOrderSchema,
     createOrderSchema,
-    simulatePaymentSchema,
     getOrderTimelineSchema,
     commandCenterParamsSchema,
     commandCenterRefundSchema,

@@ -10,9 +10,23 @@ const PAYMENT_OPTIONS = [
 ];
 
 const STATUS_STYLES = {
-    success: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300',
-    pending: 'border-amber-500/30 bg-amber-500/10 text-amber-200',
-    failure: 'border-rose-500/30 bg-rose-500/10 text-rose-200',
+    created: 'border-slate-500/30 bg-slate-500/10 text-slate-200',
+    challenge_pending: 'border-amber-500/30 bg-amber-500/10 text-amber-200',
+    authorized: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300',
+    captured: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300',
+    failed: 'border-rose-500/30 bg-rose-500/10 text-rose-200',
+    expired: 'border-rose-500/30 bg-rose-500/10 text-rose-200',
+};
+
+const getPaymentStatusMessage = (paymentIntent = {}) => {
+    const status = String(paymentIntent.status || '').trim().toLowerCase();
+    if (status === 'challenge_pending') return 'Additional verification is required before payment authorization can continue.';
+    if (status === 'created') return 'Payment authorization is ready. Complete the secure checkout window to continue.';
+    if (status === 'authorized') return 'Payment has been authorized and is ready for order placement.';
+    if (status === 'captured') return 'Payment has already been captured by the provider.';
+    if (status === 'failed') return 'The provider rejected the payment authorization.';
+    if (status === 'expired') return 'This payment authorization expired. Start it again to continue.';
+    return '';
 };
 
 const humanizeSavedMethod = (method) => {
@@ -27,12 +41,12 @@ const StepPayment = ({
     isActive,
     completed,
     paymentMethod,
-    paymentSimulation,
-    isSimulatingPayment,
+    paymentIntent,
+    isProcessingPayment,
     paymentError,
     onSetActive,
     onPaymentMethodChange,
-    onSimulatePayment,
+    onExecutePayment,
     onFallbackToCod,
     onBack,
     onContinue,
@@ -44,10 +58,11 @@ const StepPayment = ({
     onSendChallengeOtp,
     onMarkChallengeComplete,
     isChallengeLoading = false,
-    useSimulatedFlow = false,
 }) => {
     const isDigital = paymentMethod !== 'COD';
-    const actionLabel = useSimulatedFlow ? 'Run Payment Simulation' : 'Pay Securely';
+    const paymentStatus = String(paymentIntent?.status || 'idle').trim().toLowerCase();
+    const paymentReady = paymentStatus === 'authorized' || paymentStatus === 'captured';
+    const actionLabel = paymentReady ? 'Payment Authorized' : 'Pay Securely';
 
     return (
         <section
@@ -126,7 +141,7 @@ const StepPayment = ({
                     {isDigital ? (
                         <div className="checkout-premium-surface space-y-4">
                             <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-400">
-                                {useSimulatedFlow ? 'Simulated Digital Payment' : 'Razorpay Secure Payment'}
+                                Razorpay Secure Payment
                             </p>
 
                             {challengeRequired ? (
@@ -174,11 +189,11 @@ const StepPayment = ({
 
                             <button
                                 type="button"
-                                onClick={onSimulatePayment}
-                                disabled={isSimulatingPayment || (challengeRequired && !challengeVerified)}
+                                onClick={onExecutePayment}
+                                disabled={isProcessingPayment || (challengeRequired && !challengeVerified) || paymentReady}
                                 className="checkout-premium-primary w-full px-5 py-3 text-xs font-black uppercase tracking-[0.24em] disabled:opacity-60 sm:w-auto"
                             >
-                                {isSimulatingPayment ? (
+                                {isProcessingPayment ? (
                                     <span className="flex items-center gap-2">
                                         <Loader2 className="w-4 h-4 animate-spin" />
                                         Processing...
@@ -186,19 +201,19 @@ const StepPayment = ({
                                 ) : actionLabel}
                             </button>
 
-                            {paymentSimulation.status && paymentSimulation.status !== 'idle' ? (
-                                <div className={cn('checkout-premium-alert', STATUS_STYLES[paymentSimulation.status])}>
+                            {paymentStatus && paymentStatus !== 'idle' ? (
+                                <div className={cn('checkout-premium-alert', STATUS_STYLES[paymentStatus] || STATUS_STYLES.created)}>
                                     <p className="mb-1 text-xs font-semibold uppercase tracking-[0.2em]">
-                                        Status: {paymentSimulation.status}
+                                        Status: {paymentStatus.replace(/_/g, ' ')}
                                     </p>
-                                    <p>{paymentSimulation.message}</p>
-                                    {paymentSimulation.referenceId ? (
-                                        <p className="mt-2 text-xs opacity-90">Ref: {paymentSimulation.referenceId}</p>
+                                    <p>{getPaymentStatusMessage(paymentIntent)}</p>
+                                    {paymentIntent?.providerPaymentId ? (
+                                        <p className="mt-2 text-xs opacity-90">Ref: {paymentIntent.providerPaymentId}</p>
                                     ) : null}
                                 </div>
                             ) : null}
 
-                            {(paymentSimulation.status === 'failure' || paymentSimulation.status === 'pending') ? (
+                            {!paymentReady ? (
                                 <button
                                     type="button"
                                     onClick={onFallbackToCod}

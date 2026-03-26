@@ -89,16 +89,6 @@ const buildPaymentConfirmation = ({
     amount,
 }) => {
     const normalizedProvider = String(provider || '').trim().toLowerCase();
-    if (normalizedProvider === 'simulated') {
-        const providerPaymentId = `sim_pay_${crypto.randomBytes(6).toString('hex')}`;
-        const providerSignature = `sim_${crypto.createHash('sha1').update(`${providerOrderId}|${providerPaymentId}`).digest('hex').slice(0, 14)}`;
-        return {
-            providerPaymentId,
-            providerOrderId,
-            providerSignature,
-        };
-    }
-
     if (normalizedProvider === 'razorpay') {
         const keySecret = String(process.env.RAZORPAY_KEY_SECRET || '').trim();
         if (!razorpayPaymentId) {
