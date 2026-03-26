@@ -19,9 +19,11 @@ let io;
 const userSockets = new Map();
 const activeSupportVideoSessions = new Map();
 const activeListingVideoSessions = new Map();
+const pendingVideoSessionDisconnectCleanups = new Map();
 const ADMIN_ROOM = 'admins';
 let socketAdapterPubClient = null;
 let socketAdapterSubClient = null;
+const DEFAULT_VIDEO_SESSION_DISCONNECT_GRACE_MS = 15000;
 
 const socketHealth = {
     initialized: false,
@@ -31,6 +33,15 @@ const socketHealth = {
 };
 
 const normalizeEmail = (value) => (typeof value === 'string' ? value.trim().toLowerCase() : '');
+const normalizeId = (value) => String(value || '').trim();
+const parsePositiveInteger = (value, fallback) => {
+    const parsed = Number.parseInt(String(value || ''), 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+const getVideoSessionDisconnectGraceMs = () => parsePositiveInteger(
+    process.env.VIDEO_SESSION_DISCONNECT_GRACE_MS,
+    DEFAULT_VIDEO_SESSION_DISCONNECT_GRACE_MS,
+);
 
 const resolveSocketUser = async (token) => {
     const decoded = await firebaseAdmin.auth().verifyIdToken(token);
@@ -231,6 +242,162 @@ const closeListingVideoSessionsForUser = ({ userId }) => {
     return sessions;
 };
 
+const cancelPendingVideoSessionDisconnectCleanup = ({ userId }) => {
+    const normalizedUserId = normalizeId(userId);
+    if (!normalizedUserId) {
+        return false;
+    }
+
+    const pendingCleanup = pendingVideoSessionDisconnectCleanups.get(normalizedUserId);
+    if (!pendingCleanup) {
+        return false;
+    }
+
+    clearTimeout(pendingCleanup.timeoutId);
+    pendingVideoSessionDisconnectCleanups.delete(normalizedUserId);
+    logger.info('socket.video_cleanup_cancelled', {
+        userId: normalizedUserId,
+    });
+    return true;
+};
+
+const finishVideoSessionDisconnectCleanup = async ({ userId, reason = 'participant_disconnect' }) => {
+    const normalizedUserId = normalizeId(userId);
+    if (!normalizedUserId) {
+        return {
+            canceled: true,
+            endedSupportSessions: [],
+            endedListingSessions: [],
+        };
+    }
+
+    pendingVideoSessionDisconnectCleanups.delete(normalizedUserId);
+
+    const userSet = userSockets.get(normalizedUserId);
+    if (userSet && userSet.size > 0) {
+        logger.info('socket.video_cleanup_skipped_user_reconnected', {
+            userId: normalizedUserId,
+            activeSocketCount: userSet.size,
+        });
+        return {
+            canceled: true,
+            endedSupportSessions: [],
+            endedListingSessions: [],
+        };
+    }
+
+    const endedSupportSessions = closeSupportVideoSessionsForUser({ userId: normalizedUserId });
+    const endedListingSessions = closeListingVideoSessionsForUser({ userId: normalizedUserId });
+
+    for (const session of endedSupportSessions) {
+        await deleteSupportRoom(session.roomName || session.sessionKey).catch(() => null);
+
+        const supportCallUpdate = await markSupportTicketLiveCallEnded({
+            ticketId: session.ticketId,
+            endedByRole: 'system',
+            sessionKey: session.sessionKey,
+            reason,
+        }).catch(() => null);
+
+        if (supportCallUpdate) {
+            await emitSupportRealtimeUpdate({
+                ticketId: session.ticketId,
+                eventName: 'support:message:new',
+                message: supportCallUpdate?.message || null,
+            }).catch(() => null);
+        }
+
+        const counterpartyUserId = session.participants.find((participantId) => participantId !== normalizedUserId);
+        if (counterpartyUserId) {
+            sendMessageToUser(counterpartyUserId, 'support:video:terminated', {
+                supportTicketId: session.ticketId,
+                channelType: 'support_ticket',
+                contextId: session.ticketId,
+                sessionKey: session.sessionKey,
+                reason,
+            });
+        }
+    }
+
+    for (const session of endedListingSessions) {
+        await deleteSupportRoom(session.roomName || session.sessionKey).catch(() => null);
+
+        const counterpartyUserId = session.participants.find((participantId) => participantId !== normalizedUserId);
+        if (counterpartyUserId) {
+            sendMessageToUser(counterpartyUserId, 'listing:video:terminated', {
+                listingId: session.listingId,
+                channelType: 'listing',
+                contextId: session.listingId,
+                sessionKey: session.sessionKey,
+                reason,
+            });
+        }
+    }
+
+    logger.info('socket.video_cleanup_completed', {
+        userId: normalizedUserId,
+        endedSupportSessions: endedSupportSessions.length,
+        endedListingSessions: endedListingSessions.length,
+    });
+
+    return {
+        canceled: false,
+        endedSupportSessions,
+        endedListingSessions,
+    };
+};
+
+const scheduleVideoSessionDisconnectCleanup = ({
+    userId,
+    reason = 'participant_disconnect',
+    graceMs = getVideoSessionDisconnectGraceMs(),
+}) => {
+    const normalizedUserId = normalizeId(userId);
+    if (!normalizedUserId) {
+        return null;
+    }
+
+    cancelPendingVideoSessionDisconnectCleanup({ userId: normalizedUserId });
+
+    const timeoutId = setTimeout(() => {
+        void finishVideoSessionDisconnectCleanup({
+            userId: normalizedUserId,
+            reason,
+        });
+    }, graceMs);
+    timeoutId.unref?.();
+
+    pendingVideoSessionDisconnectCleanups.set(normalizedUserId, {
+        timeoutId,
+        graceMs,
+        reason,
+        scheduledAt: new Date().toISOString(),
+    });
+
+    logger.info('socket.video_cleanup_scheduled', {
+        userId: normalizedUserId,
+        graceMs,
+        reason,
+    });
+
+    return {
+        userId: normalizedUserId,
+        graceMs,
+        reason,
+    };
+};
+
+const resetSocketStateForTests = () => {
+    for (const pendingCleanup of pendingVideoSessionDisconnectCleanups.values()) {
+        clearTimeout(pendingCleanup.timeoutId);
+    }
+
+    userSockets.clear();
+    activeSupportVideoSessions.clear();
+    activeListingVideoSessions.clear();
+    pendingVideoSessionDisconnectCleanups.clear();
+};
+
 const countSessionStatus = (sessionsMap, status) => {
     let count = 0;
     for (const session of sessionsMap.values()) {
@@ -399,6 +566,7 @@ const initializeSocket = (httpServer) => {
             userSockets.set(userId, new Set());
         }
         userSockets.get(userId).add(socket.id);
+        cancelPendingVideoSessionDisconnectCleanup({ userId });
 
         logger.info('socket.client_connected', { userId, socketId: socket.id });
 
@@ -417,53 +585,7 @@ const initializeSocket = (httpServer) => {
             }
 
             if (!userStillConnected) {
-                const endedSupportSessions = closeSupportVideoSessionsForUser({ userId });
-                const endedListingSessions = closeListingVideoSessionsForUser({ userId });
-
-                for (const session of endedSupportSessions) {
-                    await deleteSupportRoom(session.roomName || session.sessionKey).catch(() => null);
-
-                    const supportCallUpdate = await markSupportTicketLiveCallEnded({
-                        ticketId: session.ticketId,
-                        endedByRole: 'system',
-                        sessionKey: session.sessionKey,
-                        reason: 'participant_disconnect',
-                    }).catch(() => null);
-
-                    if (supportCallUpdate) {
-                        await emitSupportRealtimeUpdate({
-                            ticketId: session.ticketId,
-                            eventName: 'support:message:new',
-                            message: supportCallUpdate?.message || null,
-                        }).catch(() => null);
-                    }
-
-                    const counterpartyUserId = session.participants.find((participantId) => participantId !== String(userId));
-                    if (counterpartyUserId) {
-                        sendMessageToUser(counterpartyUserId, 'support:video:terminated', {
-                            supportTicketId: session.ticketId,
-                            channelType: 'support_ticket',
-                            contextId: session.ticketId,
-                            sessionKey: session.sessionKey,
-                            reason: 'participant_disconnect',
-                        });
-                    }
-                }
-
-                for (const session of endedListingSessions) {
-                    await deleteSupportRoom(session.roomName || session.sessionKey).catch(() => null);
-
-                    const counterpartyUserId = session.participants.find((participantId) => participantId !== String(userId));
-                    if (counterpartyUserId) {
-                        sendMessageToUser(counterpartyUserId, 'listing:video:terminated', {
-                            listingId: session.listingId,
-                            channelType: 'listing',
-                            contextId: session.listingId,
-                            sessionKey: session.sessionKey,
-                            reason: 'participant_disconnect',
-                        });
-                    }
-                }
+                scheduleVideoSessionDisconnectCleanup({ userId });
             }
 
             socket.leave(`user:${userId}`);
@@ -514,9 +636,11 @@ const sendMessageToAdmins = (eventName, payload, options = {}) => {
 
 module.exports = {
     attachSocketBackplane,
+    cancelPendingVideoSessionDisconnectCleanup,
     clearListingVideoSession,
     clearSupportVideoSession,
     emitSupportRealtimeUpdate,
+    finishVideoSessionDisconnectCleanup,
     getSocketHealth,
     getListingVideoSession,
     getSupportVideoSession,
@@ -526,6 +650,8 @@ module.exports = {
     markSupportVideoSessionConnected,
     registerListingVideoSession,
     registerSupportVideoSession,
+    resetSocketStateForTests,
+    scheduleVideoSessionDisconnectCleanup,
     sendMessageToUser,
     sendMessageToAdmins,
 };
