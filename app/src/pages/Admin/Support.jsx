@@ -67,6 +67,17 @@ const appendUniqueMessage = (messages, incoming) => {
     });
 };
 
+const STICKY_SCROLL_THRESHOLD_PX = 64;
+
+const buildMessagesSignature = (messages = []) => messages.map((message) => (
+    `${message?._id || message?.sentAt || message?.createdAt || ''}:${message?.text || ''}`
+)).join('|');
+
+const isNearBottom = (element) => {
+    if (!element) return true;
+    return (element.scrollHeight - element.scrollTop - element.clientHeight) <= STICKY_SCROLL_THRESHOLD_PX;
+};
+
 export default function AdminSupport() {
     useSocketDemand('admin-support', true);
     const { socket, isConnected } = useSocket();
@@ -87,6 +98,14 @@ export default function AdminSupport() {
     const [startingLiveCall, setStartingLiveCall] = useState(false);
 
     const messagesEndRef = useRef(null);
+    const messagesContainerRef = useRef(null);
+    const shouldStickToBottomRef = useRef(true);
+    const pendingScrollBehaviorRef = useRef('auto');
+    const messageSignatureRef = useRef('');
+
+    const handleMessagesScroll = () => {
+        shouldStickToBottomRef.current = isNearBottom(messagesContainerRef.current);
+    };
 
     const fetchTickets = useCallback(async ({ silent = false } = {}) => {
         try {
@@ -150,15 +169,37 @@ export default function AdminSupport() {
 
     useEffect(() => {
         if (activeTicketId) {
+            shouldStickToBottomRef.current = true;
+            pendingScrollBehaviorRef.current = 'auto';
             fetchMessages(activeTicketId);
             return;
         }
 
+        messageSignatureRef.current = '';
+        pendingScrollBehaviorRef.current = '';
         setMessages([]);
     }, [activeTicketId, fetchMessages]);
 
     useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+        const nextSignature = buildMessagesSignature(messages);
+        const signatureChanged = nextSignature !== messageSignatureRef.current;
+        const requestedBehavior = pendingScrollBehaviorRef.current;
+
+        if (!signatureChanged && !requestedBehavior) {
+            return;
+        }
+
+        messageSignatureRef.current = nextSignature;
+
+        if (!requestedBehavior && !shouldStickToBottomRef.current) {
+            return;
+        }
+
+        pendingScrollBehaviorRef.current = '';
+        messagesEndRef.current?.scrollIntoView({
+            behavior: requestedBehavior || 'auto',
+            block: 'end',
+        });
     }, [messages]);
 
     useEffect(() => {
@@ -247,6 +288,8 @@ export default function AdminSupport() {
             setSending(true);
             const res = await supportApi.sendMessage(activeTicketId, tempText);
             const nextMessage = res.data;
+            shouldStickToBottomRef.current = true;
+            pendingScrollBehaviorRef.current = 'smooth';
             setMessages((prev) => appendUniqueMessage(prev, nextMessage));
             setTickets((prev) => prev.map((ticket) => (
                 String(ticket._id) === String(activeTicketId)
@@ -264,7 +307,6 @@ export default function AdminSupport() {
             setNewMessage(tempText);
         } finally {
             setSending(false);
-            setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
         }
     };
 
@@ -572,7 +614,11 @@ export default function AdminSupport() {
                                 </div>
                             </div>
 
-                            <div className="flex-1 space-y-6 overflow-y-auto bg-slate-50/50 p-6 scrollbar-hide">
+                            <div
+                                ref={messagesContainerRef}
+                                onScroll={handleMessagesScroll}
+                                className="flex-1 space-y-6 overflow-y-auto bg-slate-50/50 p-6 scrollbar-hide"
+                            >
                                 {messagesLoading ? (
                                     <div className="mt-10 text-center text-slate-400">Loading chat history...</div>
                                 ) : (

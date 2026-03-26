@@ -116,6 +116,17 @@ const appendUniqueMessage = (messages, incoming) => {
     });
 };
 
+const STICKY_SCROLL_THRESHOLD_PX = 64;
+
+const buildMessagesSignature = (messages = []) => messages.map((message) => (
+    `${message?._id || message?.sentAt || message?.createdAt || ''}:${message?.text || ''}`
+)).join('|');
+
+const isNearBottom = (element) => {
+    if (!element) return true;
+    return (element.scrollHeight - element.scrollTop - element.clientHeight) <= STICKY_SCROLL_THRESHOLD_PX;
+};
+
 const getStatusBadge = (status) => {
     switch (status) {
         case 'resolved':
@@ -181,7 +192,15 @@ export default function SupportSection({
     const [error, setError] = useState('');
 
     const messagesEndRef = useRef(null);
+    const messagesContainerRef = useRef(null);
+    const shouldStickToBottomRef = useRef(true);
+    const pendingScrollBehaviorRef = useRef('auto');
+    const messageSignatureRef = useRef('');
     const launchRef = useRef('');
+
+    const handleMessagesScroll = () => {
+        shouldStickToBottomRef.current = isNearBottom(messagesContainerRef.current);
+    };
 
     const supportLaunchSignature = useMemo(() => JSON.stringify({
         focusTicketId: String(focusTicketId || ''),
@@ -261,14 +280,37 @@ export default function SupportSection({
 
     useEffect(() => {
         if (!activeTicketId) {
+            messageSignatureRef.current = '';
+            pendingScrollBehaviorRef.current = '';
             setMessages([]);
             return;
         }
+
+        shouldStickToBottomRef.current = true;
+        pendingScrollBehaviorRef.current = 'auto';
         fetchMessages(activeTicketId);
     }, [activeTicketId, fetchMessages]);
 
     useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        const nextSignature = buildMessagesSignature(messages);
+        const signatureChanged = nextSignature !== messageSignatureRef.current;
+        const requestedBehavior = pendingScrollBehaviorRef.current;
+
+        if (!signatureChanged && !requestedBehavior) {
+            return;
+        }
+
+        messageSignatureRef.current = nextSignature;
+
+        if (!requestedBehavior && !shouldStickToBottomRef.current) {
+            return;
+        }
+
+        pendingScrollBehaviorRef.current = '';
+        messagesEndRef.current?.scrollIntoView({
+            behavior: requestedBehavior || 'auto',
+            block: 'end',
+        });
     }, [messages]);
 
     useEffect(() => {
@@ -398,6 +440,8 @@ export default function SupportSection({
             setSending(true);
             const res = await supportApi.sendMessage(activeTicketId, tempText);
             const nextMessage = res?.data;
+            shouldStickToBottomRef.current = true;
+            pendingScrollBehaviorRef.current = 'smooth';
             setMessages((previous) => appendUniqueMessage(previous, nextMessage));
             setTickets((previous) => previous.map((ticket) => (
                 String(ticket._id) === String(activeTicketId)
@@ -848,7 +892,11 @@ export default function SupportSection({
                             </div>
                         </div>
 
-                        <div className="flex-1 overflow-y-auto px-6 py-5 scrollbar-hide">
+                        <div
+                            ref={messagesContainerRef}
+                            onScroll={handleMessagesScroll}
+                            className="flex-1 overflow-y-auto px-6 py-5 scrollbar-hide"
+                        >
                             {messagesLoading ? (
                                 <div className="flex h-full items-center justify-center text-sm text-slate-400">Loading conversation...</div>
                             ) : (
