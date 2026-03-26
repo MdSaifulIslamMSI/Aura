@@ -30,6 +30,7 @@ export const SocketProvider = ({ children }) => {
     const [socket, setSocket] = useState(null);
     const [isConnected, setIsConnected] = useState(false);
     const [socketDemandKeys, setSocketDemandKeys] = useState([]);
+    const hasRealtimeDemand = socketDemandKeys.length > 0;
 
     const activateSocketDemand = useCallback((key) => {
         setSocketDemandKeys((previous) => (
@@ -44,7 +45,6 @@ export const SocketProvider = ({ children }) => {
     useEffect(() => {
         let isActive = true;
         let activeSocket = null;
-        const hasRealtimeDemand = socketDemandKeys.length > 0;
 
         const resetConnection = () => {
             if (!isActive) return;
@@ -116,15 +116,15 @@ export const SocketProvider = ({ children }) => {
                 activeSocket.disconnect();
             }
         };
-    }, [currentUser, loading, socketDemandKeys]);
+    }, [currentUser, hasRealtimeDemand, loading]);
 
     const contextValue = useMemo(() => ({
             socket,
             isConnected,
-            hasRealtimeDemand: socketDemandKeys.length > 0,
+            hasRealtimeDemand,
             activateSocketDemand,
             deactivateSocketDemand,
-        }), [socket, isConnected, socketDemandKeys.length, activateSocketDemand, deactivateSocketDemand]);
+        }), [socket, isConnected, hasRealtimeDemand, activateSocketDemand, deactivateSocketDemand]);
 
     return (
         <SocketContext.Provider value={contextValue}>
