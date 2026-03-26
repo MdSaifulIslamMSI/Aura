@@ -12,7 +12,7 @@ const DEFAULT_PAGE_PATHS = {
     checkout: '/checkout',
     orders: '/orders',
     profile: '/profile',
-    support: '/profile?tab=support',
+    support: '/contact',
     wishlist: '/wishlist',
     marketplace: '/marketplace',
     deals: '/deals',

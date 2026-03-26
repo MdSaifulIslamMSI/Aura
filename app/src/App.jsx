@@ -56,6 +56,7 @@ const TradeInPage = lazyWithRetry(() => import('./pages/TradeIn'), 'trade-in');
 const PriceAlertsPage = lazyWithRetry(() => import('./pages/PriceAlerts'), 'price-alerts');
 const BecomeSeller = lazyWithRetry(() => import('./pages/BecomeSeller'), 'become-seller');
 const TrustPage = lazyWithRetry(() => import('./pages/Trust'), 'trust');
+const ContactPage = lazyWithRetry(() => import('./pages/Contact'), 'contact');
 const AICompare = lazyWithRetry(() => import('./pages/AICompare'), 'ai-compare');
 const VisualSearch = lazyWithRetry(() => import('./pages/VisualSearch'), 'visual-search');
 const Bundles = lazyWithRetry(() => import('./pages/Bundles'), 'bundles');
@@ -217,7 +218,8 @@ function AppContent() {
               <Route path="/visual-search" element={renderRoute(<VisualSearch />)} />
               <Route path="/bundles" element={renderRoute(<Bundles />)} />
               <Route path="/mission-control" element={renderRoute(<MissionControl />)} />
-              {trustRoutes.map((path) => (
+              <Route path="/contact" element={renderRoute(<ContactPage />)} />
+              {trustRoutes.filter((path) => path !== '/contact').map((path) => (
                 <Route key={path} path={path} element={renderRoute(<TrustPage />)} />
               ))}
               <Route path="/trust/:slug" element={renderRoute(<TrustPage />)} />

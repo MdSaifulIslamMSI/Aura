@@ -28,7 +28,7 @@ const renderProtectedRoute = (authValue, initialEntries = ['/profile']) => {
                         element={<div>Login Screen</div>}
                     />
                     <Route
-                        path="/profile"
+                        path="*"
                         element={(
                             <ProtectedRoute>
                                 <div>Profile Screen</div>
@@ -89,5 +89,25 @@ describe('ProtectedRoute', () => {
         expect(screen.getByTestId('location-probe')).toHaveTextContent('"pathname":"/login"');
         expect(screen.getByTestId('location-probe')).toHaveTextContent('"pathname":"/profile"');
         expect(screen.getByTestId('location-probe')).toHaveTextContent('"search":"?tab=support&ticket=abc123"');
+    });
+
+    it('opens the recovery-safe admin support route from the blocked state', async () => {
+        const refreshSession = vi.fn().mockResolvedValue(null);
+
+        renderProtectedRoute({
+            status: 'recoverable_error',
+            sessionError: {
+                message: 'Profile sync failed while opening checkout.',
+            },
+            refreshSession,
+            logout: vi.fn().mockResolvedValue(null),
+            currentUser: { uid: 'u_1', email: 'user@example.com' },
+        }, ['/checkout']);
+
+        fireEvent.click(screen.getByRole('button', { name: /open admin support/i }));
+
+        expect(screen.getByTestId('location-probe')).toHaveTextContent('"pathname":"/contact"');
+        expect(screen.getByTestId('location-probe')).toHaveTextContent('"search":"?compose=1');
+        expect(screen.getByTestId('location-probe')).toHaveTextContent('Session+sync+blocked+account+access');
     });
 });

@@ -38,8 +38,8 @@ describe('GlobalSupportLauncher', () => {
 
         fireEvent.click(screen.getByRole('button', { name: /talk to admin support/i }));
 
-        expect(screen.getByTestId('location-probe')).toHaveTextContent('"pathname":"/profile"');
-        expect(screen.getByTestId('location-probe')).toHaveTextContent('"search":"?tab=support&compose=1"');
+        expect(screen.getByTestId('location-probe')).toHaveTextContent('"pathname":"/contact"');
+        expect(screen.getByTestId('location-probe')).toHaveTextContent('"search":"?compose=1"');
     });
 
     it('stores the support deep link in login state for signed-out users', async () => {
@@ -51,14 +51,14 @@ describe('GlobalSupportLauncher', () => {
         fireEvent.click(screen.getByRole('button', { name: /talk to admin support/i }));
 
         expect(screen.getByTestId('location-probe')).toHaveTextContent('"pathname":"/login"');
-        expect(screen.getByTestId('location-probe')).toHaveTextContent('"pathname":"/profile"');
-        expect(screen.getByTestId('location-probe')).toHaveTextContent('"search":"?tab=support&compose=1"');
+        expect(screen.getByTestId('location-probe')).toHaveTextContent('"pathname":"/contact"');
+        expect(screen.getByTestId('location-probe')).toHaveTextContent('"search":"?compose=1"');
     });
 
     it('hides itself while the user is already in a support surface', () => {
         renderLauncher({
             currentUser: { uid: 'user-1', email: 'member@example.com' },
-            initialEntry: '/profile?tab=support&compose=1',
+            initialEntry: '/contact?compose=1',
         });
 
         expect(screen.queryByRole('button', { name: /talk to admin support/i })).not.toBeInTheDocument();
