@@ -73,6 +73,7 @@ const VideoCallOverlay = ({
     const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
     const localVideoRef = useRef(null);
+    const localBackdropVideoRef = useRef(null);
     const remoteVideoRef = useRef(null);
     const overlayHistoryActiveRef = useRef(false);
     const ignoreNextPopstateRef = useRef(false);
@@ -82,6 +83,10 @@ const VideoCallOverlay = ({
     useEffect(() => {
         if (localVideoRef.current) {
             localVideoRef.current.srcObject = localStream || null;
+        }
+
+        if (localBackdropVideoRef.current) {
+            localBackdropVideoRef.current.srcObject = localStream || null;
         }
     }, [localStream]);
 
@@ -180,6 +185,8 @@ const VideoCallOverlay = ({
     const showAnswerControls = callStatus === 'incoming';
     const showConnectedControls = callStatus === 'connected';
     const showDialingControls = callStatus === 'calling';
+    const showLocalVideoBackdrop = hasLocalVideo && !isVoiceCall && !hasRemoteVideo && !isMinimized && !isVideoOff;
+    const showMiniLocalPreview = hasLocalVideo && !isMinimized && !isVoiceCall && !showLocalVideoBackdrop;
     const showElapsed = showDialingControls || showConnectedControls;
     const elapsedLabel = formatElapsedDuration(elapsedSeconds);
     const participantStatusCopy = remoteParticipantCount > 0
@@ -269,6 +276,16 @@ const VideoCallOverlay = ({
                         }`}
                     />
 
+                    {showLocalVideoBackdrop ? (
+                        <video
+                            ref={localBackdropVideoRef}
+                            autoPlay
+                            playsInline
+                            muted
+                            className="absolute inset-0 h-full w-full scale-x-[-1] object-cover"
+                        />
+                    ) : null}
+
                     <div className="absolute inset-0 bg-gradient-to-b from-[#041812]/20 via-[#031017]/35 to-[#020617]/85" />
 
                     {!isMinimized ? (
@@ -347,7 +364,7 @@ const VideoCallOverlay = ({
                         </div>
                     ) : null}
 
-                    {hasLocalVideo && !isMinimized && !isVoiceCall ? (
+                    {showMiniLocalPreview ? (
                         <div className="absolute right-4 top-24 h-28 w-24 overflow-hidden rounded-[1.6rem] border border-white/15 bg-black/70 shadow-[0_20px_40px_rgba(2,8,23,0.35)] sm:h-36 sm:w-28">
                             <video
                                 ref={localVideoRef}
@@ -365,45 +382,78 @@ const VideoCallOverlay = ({
                     ) : null}
 
                     {(!showConnectedControls || !hasRemoteVideo) && (
-                        <div className="absolute inset-0 flex flex-col items-center justify-center px-6 text-center">
-                            <div className="relative flex h-36 w-36 items-center justify-center">
-                                <div className="absolute inset-0 animate-pulse rounded-full border border-emerald-300/20 bg-emerald-500/10" />
-                                <div className="absolute inset-[18%] rounded-full border border-cyan-300/20 bg-cyan-500/10" />
-                                <div className="relative flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-cyan-500 text-3xl font-black shadow-[0_20px_40px_rgba(16,185,129,0.35)]">
-                                    {getInitials(callerName)}
+                        showLocalVideoBackdrop ? (
+                            <div className="absolute inset-x-0 bottom-32 flex justify-center px-6 text-center">
+                                <div className="max-w-xl rounded-[2rem] border border-white/10 bg-black/35 px-6 py-5 shadow-[0_24px_60px_rgba(2,8,23,0.35)] backdrop-blur-md">
+                                    <div className="text-xs font-black uppercase tracking-[0.3em] text-cyan-200">Your camera preview is live</div>
+                                    <div className="mt-3 text-3xl font-black tracking-tight text-white">{callerName}</div>
+                                    <div className="mt-2 text-sm uppercase tracking-[0.24em] text-white/55">{callLabel}</div>
+                                    <div className="mt-4 text-base font-medium text-white/80">{statusCopy}</div>
+                                    <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
+                                        <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-white/70">
+                                            <Users className="h-3.5 w-3.5" />
+                                            {participantStatusCopy}
+                                        </div>
+                                        <div className="inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-cyan-500/12 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-cyan-100">
+                                            <PhoneCall className="h-3.5 w-3.5" />
+                                            Camera preview on
+                                        </div>
+                                        {isReconnecting ? (
+                                            <div className="inline-flex items-center gap-2 rounded-full border border-amber-300/20 bg-amber-500/12 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-amber-100">
+                                                <WifiOff className="h-3.5 w-3.5" />
+                                                Trying to restore the call
+                                            </div>
+                                        ) : null}
+                                    </div>
+                                    <div className="mt-3 text-sm text-white/55">Use back to app and the call keeps running in the corner.</div>
+                                    {callError ? (
+                                        <div className="mt-4 rounded-full border border-rose-300/20 bg-rose-500/12 px-4 py-2 text-sm text-rose-100">
+                                            {callError}
+                                        </div>
+                                    ) : null}
                                 </div>
                             </div>
+                        ) : (
+                            <div className="absolute inset-0 flex flex-col items-center justify-center px-6 text-center">
+                                <div className="relative flex h-36 w-36 items-center justify-center">
+                                    <div className="absolute inset-0 animate-pulse rounded-full border border-emerald-300/20 bg-emerald-500/10" />
+                                    <div className="absolute inset-[18%] rounded-full border border-cyan-300/20 bg-cyan-500/10" />
+                                    <div className="relative flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-cyan-500 text-3xl font-black shadow-[0_20px_40px_rgba(16,185,129,0.35)]">
+                                        {getInitials(callerName)}
+                                    </div>
+                                </div>
 
-                            <div className="mt-6">
-                                <div className="text-3xl font-black tracking-tight">{callerName}</div>
-                                <div className="mt-2 text-sm uppercase tracking-[0.26em] text-white/55">{callLabel}</div>
-                                <div className="mt-4 text-base font-medium text-white/80">{statusCopy}</div>
-                                <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-white/70">
-                                    <Users className="h-3.5 w-3.5" />
-                                    {participantStatusCopy}
-                                </div>
-                                <div className={`mt-3 inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-black uppercase tracking-[0.18em] ${
-                                    isVoiceCall
-                                        ? 'border-emerald-300/20 bg-emerald-500/12 text-emerald-100'
-                                        : 'border-cyan-300/20 bg-cyan-500/12 text-cyan-100'
-                                }`}>
-                                    <PhoneCall className="h-3.5 w-3.5" />
-                                    {isVoiceCall ? 'Audio only' : 'Camera + mic'}
-                                </div>
-                                {isReconnecting ? (
-                                    <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-amber-300/20 bg-amber-500/12 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-amber-100">
-                                        <WifiOff className="h-3.5 w-3.5" />
-                                        Trying to restore the call
+                                <div className="mt-6">
+                                    <div className="text-3xl font-black tracking-tight">{callerName}</div>
+                                    <div className="mt-2 text-sm uppercase tracking-[0.26em] text-white/55">{callLabel}</div>
+                                    <div className="mt-4 text-base font-medium text-white/80">{statusCopy}</div>
+                                    <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-white/70">
+                                        <Users className="h-3.5 w-3.5" />
+                                        {participantStatusCopy}
                                     </div>
-                                ) : null}
-                                <div className="mt-3 text-sm text-white/55">Use back to app and the call keeps running in the corner.</div>
-                                {callError ? (
-                                    <div className="mt-4 rounded-full border border-rose-300/20 bg-rose-500/12 px-4 py-2 text-sm text-rose-100">
-                                        {callError}
+                                    <div className={`mt-3 inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-black uppercase tracking-[0.18em] ${
+                                        isVoiceCall
+                                            ? 'border-emerald-300/20 bg-emerald-500/12 text-emerald-100'
+                                            : 'border-cyan-300/20 bg-cyan-500/12 text-cyan-100'
+                                    }`}>
+                                        <PhoneCall className="h-3.5 w-3.5" />
+                                        {isVoiceCall ? 'Audio only' : 'Camera + mic'}
                                     </div>
-                                ) : null}
+                                    {isReconnecting ? (
+                                        <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-amber-300/20 bg-amber-500/12 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-amber-100">
+                                            <WifiOff className="h-3.5 w-3.5" />
+                                            Trying to restore the call
+                                        </div>
+                                    ) : null}
+                                    <div className="mt-3 text-sm text-white/55">Use back to app and the call keeps running in the corner.</div>
+                                    {callError ? (
+                                        <div className="mt-4 rounded-full border border-rose-300/20 bg-rose-500/12 px-4 py-2 text-sm text-rose-100">
+                                            {callError}
+                                        </div>
+                                    ) : null}
+                                </div>
                             </div>
-                        </div>
+                        )
                     )}
 
                     {showConnectedControls && !isMinimized ? (

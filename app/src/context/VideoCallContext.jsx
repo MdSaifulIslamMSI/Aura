@@ -69,6 +69,27 @@ const formatLiveCallErrorMessage = (message, fallback = 'Live call failed') => {
     return nextMessage;
 };
 
+const formatLiveCallTerminationNotice = (reason) => {
+    const normalizedReason = String(reason || '').trim().toLowerCase();
+    if (!normalizedReason) {
+        return '';
+    }
+
+    if (normalizedReason === 'connection_lost') {
+        return 'Live call ended because the connection could not be restored.';
+    }
+
+    if (normalizedReason === 'participant_disconnect') {
+        return 'Live call ended after the other participant disconnected.';
+    }
+
+    if (normalizedReason === 'failed') {
+        return 'Live call ended before the connection finished stabilizing.';
+    }
+
+    return '';
+};
+
 const buildMediaPublishWarning = (results = []) => {
     const failedKinds = results
         .filter((result) => !result?.enabled)
@@ -859,6 +880,10 @@ export const VideoCallProvider = ({ children }) => {
             const matchesSession = !payload.sessionKey || String(activeContext.sessionKey || '') === String(payload.sessionKey || '');
 
             if (matchesContext && matchesSession) {
+                const terminationNotice = formatLiveCallTerminationNotice(payload.reason);
+                if (terminationNotice) {
+                    toast.warning(terminationNotice);
+                }
                 void cleanupCallState();
             }
         };

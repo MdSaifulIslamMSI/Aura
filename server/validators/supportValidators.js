@@ -69,7 +69,7 @@ const supportLiveCallActionSchema = z.object({
     body: z.object({
         sessionKey: z.string().trim().max(160).optional(),
         mediaMode: z.enum(['voice', 'video']).optional(),
-        reason: z.enum(['hangup', 'declined', 'missed', 'failed', 'participant_disconnect']).optional(),
+        reason: z.enum(['hangup', 'declined', 'missed', 'failed', 'participant_disconnect', 'connection_lost']).optional(),
     }).default({}),
 });
 

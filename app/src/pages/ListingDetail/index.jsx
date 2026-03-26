@@ -144,7 +144,7 @@ export default function ListingDetail() {
     const [chatInbox, setChatInbox] = useState([]);
     const chatMessagesEndRef = useRef(null);
     const chatInputRef = useRef(null);
-    const { socket, isConnected } = useSocket();
+    const { socket, isConnected, connectionState } = useSocket();
     const { startCall, joinCall, callStatus, activeCallContext } = useVideoCall();
 
     useEffect(() => {
@@ -234,10 +234,17 @@ export default function ListingDetail() {
                     : buyerId
                         ? 'Live calls are reserved for the active escrow buyer on this listing.'
                         : 'Start escrow to unlock voice and video calls with the seller.';
-    const chatConnectionLabel = isConnected ? 'Live updates on' : 'Polling fallback';
-    const chatConnectionCopy = isConnected
+    const isSocketReconnecting = connectionState === 'connecting' || connectionState === 'reconnecting';
+    const chatConnectionLabel = connectionState === 'connected'
+        ? 'Live updates on'
+        : isSocketReconnecting
+            ? 'Reconnecting...'
+            : 'Polling fallback';
+    const chatConnectionCopy = connectionState === 'connected'
         ? 'Realtime is connected for this deal.'
-        : `Realtime is reconnecting. Aura refreshes this thread every ${Math.round(MARKETPLACE_CHAT_POLL_MS / 1000)} seconds.`;
+        : isSocketReconnecting
+            ? 'Realtime is reconnecting for this deal.'
+            : `Realtime is on polling fallback. Aura refreshes this thread every ${Math.round(MARKETPLACE_CHAT_POLL_MS / 1000)} seconds.`;
     const chatCharacterCount = String(chatInput || '').length;
 
     const handleLiveInspection = useCallback(async (mediaMode = 'video') => {

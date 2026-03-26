@@ -161,7 +161,7 @@ const formatMessageTime = (value) => {
 
 export default function AdminSupport() {
     useSocketDemand('admin-support', true);
-    const { socket, isConnected } = useSocket();
+    const { socket, isConnected, connectionState } = useSocket();
     const { startCall, joinSupportCall, callStatus, activeCallContext } = useVideoCall();
     const [tickets, setTickets] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -415,6 +415,13 @@ export default function AdminSupport() {
     };
 
     const activeTicket = tickets.find((ticket) => String(ticket._id) === String(activeTicketId));
+    const isSocketReconnecting = connectionState === 'connecting' || connectionState === 'reconnecting';
+    const isSocketFallback = connectionState === 'disconnected';
+    const socketStatusLabel = connectionState === 'connected'
+        ? 'Live socket'
+        : isSocketReconnecting
+            ? 'Reconnecting...'
+            : 'Polling fallback';
     const isActiveSupportCall = activeCallContext?.channelType === 'support_ticket'
         && String(activeCallContext?.contextId || '') === String(activeTicketId || '')
         && ['calling', 'incoming', 'connected'].includes(callStatus);
@@ -474,8 +481,10 @@ export default function AdminSupport() {
             : `Start ${supportLiveCallLabel}`;
     const liveCallStatusCopy = isActiveSupportCall
         ? `A ${supportLiveCallLabel} is already ringing or connected on this ticket.`
-        : !isConnected
+        : isSocketFallback
             ? 'Ticket updates are on polling fallback, but the live call itself can still run over LiveKit.'
+            : isSocketReconnecting
+                ? 'Ticket updates are reconnecting now. LiveKit calls can stay active while the socket recovers.'
             : activeTicket?.liveCallRequested
                 ? `The customer requested a ${getLiveCallModeLabel(activeTicket?.liveCallRequestedMode)}. Start the call when you are ready.`
                 : canJoinSupportCall
@@ -511,12 +520,14 @@ export default function AdminSupport() {
                 <div className="flex flex-wrap gap-3">
                     <div className={cn(
                         'inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold',
-                        isConnected
+                        connectionState === 'connected'
                             ? 'border-emerald-300/20 bg-emerald-500/12 text-emerald-100'
-                            : 'border-amber-300/20 bg-amber-500/12 text-amber-100'
+                            : isSocketReconnecting
+                                ? 'border-amber-300/20 bg-amber-500/12 text-amber-100'
+                                : 'border-rose-300/20 bg-rose-500/12 text-rose-100'
                     )}>
-                        {isConnected ? <Wifi className="h-3.5 w-3.5" /> : <WifiOff className="h-3.5 w-3.5" />}
-                        {isConnected ? 'Live socket' : 'Polling fallback'}
+                        {connectionState === 'connected' ? <Wifi className="h-3.5 w-3.5" /> : <WifiOff className="h-3.5 w-3.5" />}
+                        {socketStatusLabel}
                     </div>
                     <PremiumSelect value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="w-[150px]">
                         <option value="">All Tickets</option>
