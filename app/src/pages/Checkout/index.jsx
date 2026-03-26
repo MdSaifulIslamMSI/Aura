@@ -20,6 +20,13 @@ import useCheckoutDraft from './hooks/useCheckoutDraft';
 const EMPTY_CONTACT = { name: '', phone: '', email: '' };
 const EMPTY_SHIPPING = { address: '', city: '', postalCode: '', country: 'India' };
 const EMPTY_SLOT = { date: '', window: '' };
+const EMPTY_PAYMENT_CONTEXT = {
+    netbanking: {
+        bankCode: '',
+        bankName: '',
+        source: 'manual',
+    },
+};
 const EMPTY_INTENT = {
     intentId: '',
     provider: '',
@@ -29,6 +36,7 @@ const EMPTY_INTENT = {
     riskDecision: 'allow',
     challengeRequired: false,
     challengeVerified: false,
+    paymentContext: null,
     checkoutPayload: null,
 };
 const PAID_INTENT_STATUSES = new Set(['authorized', 'captured']);
@@ -40,6 +48,19 @@ const PAYMENT_METHOD_TO_SAVED_TYPE = {
 };
 
 const isPhoneValid = (phone) => /^\+?\d[\d\s-]{8,15}$/.test(String(phone || '').trim());
+const normalizeNetbankingBankCode = (value) => String(value || '').trim().toUpperCase();
+const extractNetbankingSelectionFromMethod = (method) => {
+    if (String(method?.type || '').trim().toLowerCase() !== 'bank') return null;
+
+    const bankCode = normalizeNetbankingBankCode(method?.metadata?.bankCode || method?.providerMethodId);
+    if (!bankCode) return null;
+
+    return {
+        bankCode,
+        bankName: String(method?.metadata?.bankName || method?.brand || bankCode).trim(),
+        source: 'saved_method',
+    };
+};
 
 const isAddressValid = (shippingAddress) =>
     Boolean(
@@ -128,6 +149,10 @@ const Checkout = () => {
         deliveryOption: 'standard',
         deliverySlot: EMPTY_SLOT,
         paymentMethod: 'COD',
+        paymentContext: {
+            ...EMPTY_PAYMENT_CONTEXT,
+            netbanking: { ...EMPTY_PAYMENT_CONTEXT.netbanking },
+        },
         paymentIntent: EMPTY_INTENT,
         couponCode: '',
         acceptedTerms: false,
@@ -144,6 +169,8 @@ const Checkout = () => {
     const [isDetectingAddressGps, setIsDetectingAddressGps] = useState(false);
     const [addressGpsHint, setAddressGpsHint] = useState('');
     const [savedPaymentMethods, setSavedPaymentMethods] = useState([]);
+    const [netbankingCatalog, setNetbankingCatalog] = useState(null);
+    const [isLoadingNetbankingCatalog, setIsLoadingNetbankingCatalog] = useState(false);
     const [stepErrors, setStepErrors] = useState({
         address: '',
         delivery: '',
@@ -298,6 +325,20 @@ const Checkout = () => {
         () => getCompatibleSavedMethods(savedPaymentMethods, draft.paymentMethod),
         [savedPaymentMethods, draft.paymentMethod]
     );
+    const selectedNetbankingBankCode = normalizeNetbankingBankCode(draft.paymentContext?.netbanking?.bankCode);
+    const selectedNetbankingBank = useMemo(() => {
+        if (!selectedNetbankingBankCode) return null;
+
+        const bankFromCatalog = (netbankingCatalog?.banks || []).find(
+            (bank) => normalizeNetbankingBankCode(bank.code) === selectedNetbankingBankCode
+        );
+        if (bankFromCatalog) return bankFromCatalog;
+
+        return {
+            code: selectedNetbankingBankCode,
+            name: draft.paymentContext?.netbanking?.bankName || selectedNetbankingBankCode,
+        };
+    }, [draft.paymentContext?.netbanking?.bankName, netbankingCatalog?.banks, selectedNetbankingBankCode]);
 
     const fallbackTotals = useMemo(() => getFallbackTotals(checkoutItems), [checkoutItems]);
 
@@ -367,6 +408,75 @@ const Checkout = () => {
             selectedSavedMethodId: nextMethodId,
         }));
     }, [compatibleSavedMethods, draft.selectedSavedMethodId, setDraft]);
+
+    useEffect(() => {
+        if (!currentUser?.uid || draft.paymentMethod !== 'NETBANKING' || netbankingCatalog) return;
+
+        let cancelled = false;
+        setIsLoadingNetbankingCatalog(true);
+
+        paymentApi.getNetbankingBanks()
+            .then((catalog) => {
+                if (cancelled) return;
+                setNetbankingCatalog(catalog || { banks: [], featuredBanks: [] });
+            })
+            .catch((error) => {
+                if (!cancelled) {
+                    setNetbankingCatalog({ banks: [], featuredBanks: [], stale: true, source: 'unavailable' });
+                    setStepErrors((prev) => ({
+                        ...prev,
+                        payment: error.message || 'Unable to load supported netbanking banks right now',
+                    }));
+                }
+            })
+            .finally(() => {
+                if (!cancelled) setIsLoadingNetbankingCatalog(false);
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [currentUser?.uid, draft.paymentMethod, netbankingCatalog]);
+
+    useEffect(() => {
+        if (draft.paymentMethod !== 'NETBANKING' || selectedNetbankingBankCode) return;
+
+        const selectedSavedMethod = compatibleSavedMethods.find(
+            (method) => method._id === draft.selectedSavedMethodId
+        );
+        const savedSelection = extractNetbankingSelectionFromMethod(selectedSavedMethod);
+        if (!savedSelection) return;
+
+        setDraft((prev) => ({
+            ...prev,
+            paymentContext: {
+                ...prev.paymentContext,
+                netbanking: savedSelection,
+            },
+        }));
+    }, [compatibleSavedMethods, draft.paymentMethod, draft.selectedSavedMethodId, selectedNetbankingBankCode, setDraft]);
+
+    useEffect(() => {
+        if (draft.paymentMethod !== 'NETBANKING' || !selectedNetbankingBankCode || !netbankingCatalog?.banks?.length) return;
+
+        const bankStillSupported = netbankingCatalog.banks.some(
+            (bank) => normalizeNetbankingBankCode(bank.code) === selectedNetbankingBankCode
+        );
+        if (bankStillSupported) return;
+
+        setDraft((prev) => ({
+            ...prev,
+            paymentIntent: EMPTY_INTENT,
+            paymentContext: {
+                ...prev.paymentContext,
+                netbanking: { ...EMPTY_PAYMENT_CONTEXT.netbanking },
+            },
+        }));
+        setStepErrors((prev) => ({
+            ...prev,
+            payment: 'The previously selected bank is not available right now. Choose another netbanking bank.',
+        }));
+    }, [draft.paymentMethod, netbankingCatalog?.banks, selectedNetbankingBankCode, setDraft]);
 
     const updateContactField = (key, value) => {
         setDraft((prev) => ({
@@ -511,6 +621,9 @@ const Checkout = () => {
 
     const validatePaymentStep = () => {
         if (!draft.paymentMethod) return 'Choose a payment method';
+        if (draft.paymentMethod === 'NETBANKING' && !selectedNetbankingBankCode) {
+            return 'Choose a supported bank for NetBanking before continuing';
+        }
         if (draft.paymentMethod !== 'COD' && !PAID_INTENT_STATUSES.has(String(draft.paymentIntent.status || '').toLowerCase())) {
             return 'Complete secure digital payment before continuing';
         }
@@ -552,7 +665,62 @@ const Checkout = () => {
         setDraft((prev) => ({
             ...prev,
             paymentMethod: method,
+            paymentContext: method === 'NETBANKING'
+                ? prev.paymentContext
+                : {
+                    ...prev.paymentContext,
+                    netbanking: { ...EMPTY_PAYMENT_CONTEXT.netbanking },
+                },
             paymentIntent: EMPTY_INTENT,
+        }));
+        setStepErrors((prev) => ({ ...prev, payment: '' }));
+    };
+
+    const handleSelectSavedMethod = (methodId) => {
+        const selectedMethod = compatibleSavedMethods.find((method) => method._id === methodId);
+        const savedSelection = draft.paymentMethod === 'NETBANKING'
+            ? extractNetbankingSelectionFromMethod(selectedMethod)
+            : null;
+
+        setDraft((prev) => ({
+            ...prev,
+            selectedSavedMethodId: methodId,
+            paymentIntent: PAID_INTENT_STATUSES.has(String(prev.paymentIntent.status || '').toLowerCase())
+                ? prev.paymentIntent
+                : EMPTY_INTENT,
+            paymentContext: savedSelection
+                ? {
+                    ...prev.paymentContext,
+                    netbanking: savedSelection,
+                }
+                : prev.paymentContext,
+        }));
+        setStepErrors((prev) => ({ ...prev, payment: '' }));
+    };
+
+    const handleSelectNetbankingBank = (bank) => {
+        const normalizedBankCode = normalizeNetbankingBankCode(bank?.code);
+        if (!normalizedBankCode) return;
+
+        const matchingSavedMethod = compatibleSavedMethods.find((method) => {
+            const savedSelection = extractNetbankingSelectionFromMethod(method);
+            return savedSelection?.bankCode === normalizedBankCode;
+        });
+
+        setDraft((prev) => ({
+            ...prev,
+            selectedSavedMethodId: matchingSavedMethod?._id || '',
+            paymentIntent: PAID_INTENT_STATUSES.has(String(prev.paymentIntent.status || '').toLowerCase())
+                ? prev.paymentIntent
+                : EMPTY_INTENT,
+            paymentContext: {
+                ...prev.paymentContext,
+                netbanking: {
+                    bankCode: normalizedBankCode,
+                    bankName: String(bank?.name || normalizedBankCode).trim(),
+                    source: matchingSavedMethod ? 'saved_method' : 'catalog',
+                },
+            },
         }));
         setStepErrors((prev) => ({ ...prev, payment: '' }));
     };
@@ -611,6 +779,11 @@ const Checkout = () => {
                 draft.paymentIntent.intentId
                 && draft.paymentIntent.checkoutPayload
                 && String(draft.paymentIntent.status || '').toLowerCase() === 'created'
+                && (
+                    draft.paymentMethod !== 'NETBANKING'
+                    || normalizeNetbankingBankCode(draft.paymentIntent.paymentContext?.netbanking?.bankCode)
+                        === selectedNetbankingBankCode
+                )
                 && (!draft.paymentIntent.challengeRequired || draft.paymentIntent.challengeVerified)
             );
 
@@ -633,6 +806,7 @@ const Checkout = () => {
                 quoteSnapshot,
                 paymentMethod: draft.paymentMethod,
                 savedMethodId: draft.selectedSavedMethodId || undefined,
+                paymentContext: draft.paymentContext,
                 deviceContext: {
                     userAgent: navigator.userAgent,
                     platform: navigator.platform,
@@ -652,6 +826,7 @@ const Checkout = () => {
                     riskDecision: intent.riskDecision,
                     challengeRequired: Boolean(intent.challengeRequired),
                     challengeVerified: false,
+                    paymentContext: intent.paymentContext || null,
                     checkoutPayload: intent.checkoutPayload || null,
                 },
             }));
@@ -751,6 +926,10 @@ const Checkout = () => {
         setDraft((prev) => ({
             ...prev,
             paymentMethod: 'COD',
+            paymentContext: {
+                ...prev.paymentContext,
+                netbanking: { ...EMPTY_PAYMENT_CONTEXT.netbanking },
+            },
             paymentIntent: EMPTY_INTENT,
         }));
         toast.info('Switched to Cash on Delivery');
@@ -994,7 +1173,7 @@ const Checkout = () => {
                         paymentError={stepErrors.payment}
                         savedMethods={compatibleSavedMethods}
                         selectedSavedMethodId={draft.selectedSavedMethodId}
-                        onSelectSavedMethod={(methodId) => setDraft((prev) => ({ ...prev, selectedSavedMethodId: methodId }))}
+                        onSelectSavedMethod={handleSelectSavedMethod}
                         challengeRequired={Boolean(draft.paymentIntent.challengeRequired)}
                         challengeVerified={Boolean(draft.paymentIntent.challengeVerified)}
                         onSendChallengeOtp={sendPaymentChallengeOtp}
@@ -1002,6 +1181,10 @@ const Checkout = () => {
                         isChallengeLoading={isProcessingPayment}
                         onSetActive={() => draft.step > 2 && gotoStep(3)}
                         onPaymentMethodChange={handlePaymentMethodChange}
+                        netbankingCatalog={netbankingCatalog}
+                        isNetbankingCatalogLoading={isLoadingNetbankingCatalog}
+                        selectedNetbankingBank={selectedNetbankingBank}
+                        onSelectNetbankingBank={handleSelectNetbankingBank}
                         onExecutePayment={executeDigitalPayment}
                         onFallbackToCod={fallbackToCod}
                         onBack={() => gotoStep(2)}

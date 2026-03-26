@@ -1,17 +1,36 @@
 const { createIntentSchema, completeChallengeSchema, paymentMethodSchema } = require('../validators/paymentValidators');
 
 describe('Payment Validators', () => {
-    test('createIntentSchema accepts NETBANKING as a digital payment method', async () => {
+    test('createIntentSchema accepts NETBANKING with explicit bank context', async () => {
         const parsed = await createIntentSchema.parseAsync({
             body: {
                 quotePayload: {
                     orderItems: [{ product: 10, quantity: 1 }],
                 },
                 paymentMethod: 'NETBANKING',
+                paymentContext: {
+                    netbanking: {
+                        bankCode: 'hdfc',
+                        bankName: 'HDFC Bank',
+                        source: 'catalog',
+                    },
+                },
             },
         });
 
         expect(parsed.body.paymentMethod).toBe('NETBANKING');
+        expect(parsed.body.paymentContext.netbanking.bankCode).toBe('HDFC');
+    });
+
+    test('createIntentSchema requires bank context for NETBANKING', async () => {
+        await expect(createIntentSchema.parseAsync({
+            body: {
+                quotePayload: {
+                    orderItems: [{ product: 10, quantity: 1 }],
+                },
+                paymentMethod: 'NETBANKING',
+            },
+        })).rejects.toBeTruthy();
     });
 
     test('completeChallengeSchema requires challengeToken', async () => {

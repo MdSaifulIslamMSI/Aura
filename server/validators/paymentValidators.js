@@ -1,31 +1,65 @@
 const { z } = require('zod');
 const { DIGITAL_METHODS } = require('../services/payments/constants');
+const { normalizeNetbankingBankCode } = require('../services/payments/netbankingCatalog');
 
 const paymentMethodEnum = z.enum(DIGITAL_METHODS);
 
+const netbankingContextSchema = z.object({
+    bankCode: z.string().trim().min(3).max(20)
+        .regex(/^[A-Za-z0-9_]+$/, 'bankCode must contain only provider-safe characters')
+        .transform((value) => normalizeNetbankingBankCode(value)),
+    bankName: z.string().trim().min(2).max(120).optional(),
+    source: z.enum(['catalog', 'saved_method', 'manual']).optional(),
+}).strict();
 
 const paymentMethodMetadataSchema = z.object({
     nickname: z.string().trim().min(1).max(40).optional(),
     enrollmentSource: z.enum(['checkout', 'settings']).optional(),
     reference: z.string().trim().min(1).max(80).optional(),
+    bankCode: z.string().trim().min(3).max(20)
+        .regex(/^[A-Za-z0-9_]+$/)
+        .transform((value) => normalizeNetbankingBankCode(value))
+        .optional(),
+    bankName: z.string().trim().min(2).max(120).optional(),
 }).strict();
 
+const createIntentBodySchema = z.object({
+    quotePayload: z.object({}).passthrough(),
+    quoteSnapshot: z.object({
+        totalPrice: z.coerce.number().positive().optional(),
+        pricingVersion: z.string().optional(),
+    }).optional(),
+    paymentMethod: paymentMethodEnum,
+    savedMethodId: z.string().trim().min(6).max(64).optional(),
+    paymentContext: z.object({
+        netbanking: netbankingContextSchema.optional(),
+    }).strict().optional(),
+    deviceContext: z.object({
+        userAgent: z.string().max(400).optional(),
+        platform: z.string().max(120).optional(),
+        language: z.string().max(40).optional(),
+        screen: z.string().max(40).optional(),
+    }).optional(),
+}).superRefine((body, context) => {
+    if (body.paymentMethod === 'NETBANKING' && !body.paymentContext?.netbanking?.bankCode) {
+        context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['paymentContext', 'netbanking', 'bankCode'],
+            message: 'bankCode is required for NETBANKING payment intents',
+        });
+    }
+
+    if (body.paymentMethod !== 'NETBANKING' && body.paymentContext?.netbanking?.bankCode) {
+        context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['paymentContext', 'netbanking', 'bankCode'],
+            message: 'netbanking context can only be sent for NETBANKING intents',
+        });
+    }
+});
+
 const createIntentSchema = z.object({
-    body: z.object({
-        quotePayload: z.object({}).passthrough(),
-        quoteSnapshot: z.object({
-            totalPrice: z.coerce.number().positive().optional(),
-            pricingVersion: z.string().optional(),
-        }).optional(),
-        paymentMethod: paymentMethodEnum,
-        savedMethodId: z.string().trim().min(6).max(64).optional(),
-        deviceContext: z.object({
-            userAgent: z.string().max(400).optional(),
-            platform: z.string().max(120).optional(),
-            language: z.string().max(40).optional(),
-            screen: z.string().max(40).optional(),
-        }).optional(),
-    }),
+    body: createIntentBodySchema,
 });
 
 const completeChallengeSchema = z.object({
