@@ -199,7 +199,6 @@ const createEscrowIntent = asyncHandler(async (req, res, next) => {
             riskDecision: activeIntent.riskSnapshot?.decision || 'allow',
             challengeRequired: Boolean(activeIntent.challenge?.required && activeIntent.challenge?.status !== 'verified'),
             checkoutPayload: activeIntent.metadata?.checkoutPayload || null,
-            simulatedConfirm: activeIntent.metadata?.simulatedConfirm || null,
             listingId: String(listing._id),
         });
     }
@@ -260,7 +259,6 @@ const createEscrowIntent = asyncHandler(async (req, res, next) => {
         user: req.user,
         paymentMethod,
     });
-    const simulatedConfirm = checkoutPayload.simulatedConfirm || null;
 
     const intent = await PaymentIntent.create({
         intentId,
@@ -290,7 +288,6 @@ const createEscrowIntent = asyncHandler(async (req, res, next) => {
             sellerId: String(listing.seller?._id || listing.seller),
             sellerEmail: String(listing.seller?.email || ''),
             checkoutPayload,
-            simulatedConfirm,
             ip: req.ip || '',
             userAgent: req.headers['user-agent'] || '',
             deviceContext: req.body?.deviceContext || {},
@@ -319,7 +316,6 @@ const createEscrowIntent = asyncHandler(async (req, res, next) => {
         riskDecision: risk.strictDecision,
         challengeRequired,
         checkoutPayload,
-        simulatedConfirm,
         listingId: String(listing._id),
     });
 });

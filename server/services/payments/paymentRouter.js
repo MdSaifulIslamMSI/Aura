@@ -13,8 +13,6 @@
 const logger = require('../../utils/logger');
 const crypto = require('crypto');
 
-// Simulated Gateway Registry 
-// In production, these would be loaded from a config or vault
 const GATEWAYS = {
     razorpay: {
         id: 'razorpay',
@@ -25,26 +23,6 @@ const GATEWAYS = {
         binAffinities: ['4', '5'], // Visa/Mastercard strong affinity
         healthScore: 0.98,
         latency: 120,
-    },
-    stripe_in: {
-        id: 'stripe_in',
-        baseUrl: 'https://api.stripe.com/v1',
-        baseFee: 0.025, // 2.5%
-        fixedFee: 0,
-        supportedCurrencies: ['INR', 'USD'],
-        binAffinities: ['37', '34'], // AMEX strong affinity
-        healthScore: 0.99,
-        latency: 80,
-    },
-    simulated: {
-        id: 'simulated',
-        baseUrl: 'http://localhost:5000/mock/pay',
-        baseFee: 0,
-        fixedFee: 0,
-        supportedCurrencies: ['INR'],
-        binAffinities: [],
-        healthScore: 1.0,
-        latency: 10,
     }
 };
 
@@ -53,7 +31,7 @@ const GATEWAYS = {
  * @param {Object} transaction - Transaction context
  */
 const calculateOptimalRoute = async (transaction) => {
-    const { amount, currency = 'INR', paymentMethod, bin, email } = transaction;
+    const { amount, currency = 'INR', paymentMethod, bin } = transaction;
     
     const candidates = [];
     const logs = [];
@@ -62,8 +40,6 @@ const calculateOptimalRoute = async (transaction) => {
 
     // Phase 1: Constraint Filtering
     for (const [id, gw] of Object.entries(GATEWAYS)) {
-        if (id === 'simulated' && process.env.NODE_ENV === 'production') continue;
-        
         if (gw.supportedCurrencies.includes(currency)) {
             candidates.push({ ...gw });
         } else {

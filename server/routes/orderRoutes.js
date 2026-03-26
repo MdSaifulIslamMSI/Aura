@@ -2,7 +2,6 @@ const express = require('express');
 const router = express.Router();
 const {
     quoteOrder,
-    simulatePayment,
     addOrderItems,
     getMyOrderTimeline,
     getMyOrderCommandCenter,
@@ -25,7 +24,6 @@ const validate = require('../middleware/validate');
 const {
     quoteOrderSchema,
     createOrderSchema,
-    simulatePaymentSchema,
     getOrderTimelineSchema,
     commandCenterParamsSchema,
     commandCenterRefundSchema,
@@ -42,7 +40,6 @@ const {
 } = require('../validators/orderValidators');
 
 router.post('/quote', protect, requireActiveAccount, requireOtpAssurance, validate(quoteOrderSchema), quoteOrder);
-router.post('/simulate-payment', protect, requireActiveAccount, requireOtpAssurance, validate(simulatePaymentSchema), simulatePayment);
 
 router.route('/').post(protect, requireActiveAccount, requireOtpAssurance, validate(createOrderSchema), addOrderItems).get(protect, admin, getOrders);
 router.route('/myorders').get(protect, getMyOrders);

@@ -52,9 +52,9 @@ const makeAuthorizedIntent = async ({
 } = {}) => PaymentIntent.create({
     intentId,
     user: userId,
-    provider: 'simulated',
-    providerOrderId: `sim_order_${Math.random().toString(36).slice(2, 10)}`,
-    providerPaymentId: `sim_payment_${Math.random().toString(36).slice(2, 10)}`,
+    provider: 'razorpay',
+    providerOrderId: `order_${Math.random().toString(36).slice(2, 10)}`,
+    providerPaymentId: `pay_${Math.random().toString(36).slice(2, 10)}`,
     amount,
     currency: 'INR',
     method,

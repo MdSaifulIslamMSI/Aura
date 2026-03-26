@@ -139,14 +139,5 @@ export const orderApi = {
             body: JSON.stringify(payload),
         });
         return data;
-    },
-    simulatePayment: async (payload) => {
-        const headers = await getAuthHeader();
-        const { data } = await apiFetch('/orders/simulate-payment', {
-            method: 'POST',
-            headers,
-            body: JSON.stringify(payload),
-        });
-        return data;
     }
 };

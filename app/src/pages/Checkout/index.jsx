@@ -20,18 +20,18 @@ import useCheckoutDraft from './hooks/useCheckoutDraft';
 const EMPTY_CONTACT = { name: '', phone: '', email: '' };
 const EMPTY_SHIPPING = { address: '', city: '', postalCode: '', country: 'India' };
 const EMPTY_SLOT = { date: '', window: '' };
-const EMPTY_SIMULATION = { status: 'idle', referenceId: '', message: '', attemptToken: '' };
 const EMPTY_INTENT = {
     intentId: '',
     provider: '',
     providerOrderId: '',
+    providerPaymentId: '',
     status: 'idle',
     riskDecision: 'allow',
     challengeRequired: false,
     challengeVerified: false,
     checkoutPayload: null,
 };
-const PAYMENT_PROVIDER = String(import.meta.env.VITE_PAYMENT_PROVIDER || '').trim().toLowerCase();
+const PAID_INTENT_STATUSES = new Set(['authorized', 'captured']);
 const PAYMENT_METHOD_TO_SAVED_TYPE = {
     UPI: 'upi',
     CARD: 'card',
@@ -128,7 +128,6 @@ const Checkout = () => {
         deliveryOption: 'standard',
         deliverySlot: EMPTY_SLOT,
         paymentMethod: 'COD',
-        paymentSimulation: EMPTY_SIMULATION,
         paymentIntent: EMPTY_INTENT,
         couponCode: '',
         acceptedTerms: false,
@@ -162,7 +161,7 @@ const Checkout = () => {
     const [lastQuoteSignature, setLastQuoteSignature] = useState('');
     const [lastQuoteAt, setLastQuoteAt] = useState(0);
     const [isPlacingOrder, setIsPlacingOrder] = useState(false);
-    const [isSimulatingPayment, setIsSimulatingPayment] = useState(false);
+    const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
     /**
      * promptOtp — opens the secure OTP modal and returns a Promise that resolves
@@ -512,8 +511,8 @@ const Checkout = () => {
 
     const validatePaymentStep = () => {
         if (!draft.paymentMethod) return 'Choose a payment method';
-        if (draft.paymentMethod !== 'COD' && draft.paymentSimulation.status !== 'success') {
-            return 'Complete digital payment simulation before continuing';
+        if (draft.paymentMethod !== 'COD' && !PAID_INTENT_STATUSES.has(String(draft.paymentIntent.status || '').toLowerCase())) {
+            return 'Complete secure digital payment before continuing';
         }
         return '';
     };
@@ -553,52 +552,81 @@ const Checkout = () => {
         setDraft((prev) => ({
             ...prev,
             paymentMethod: method,
-            paymentSimulation: EMPTY_SIMULATION,
             paymentIntent: EMPTY_INTENT,
         }));
         setStepErrors((prev) => ({ ...prev, payment: '' }));
     };
 
-    const simulateDigitalPayment = async () => {
+    const openRazorpayCheckout = async ({ intentId, checkoutPayload }) => {
+        if (!intentId || !checkoutPayload?.orderId) {
+            throw new Error('Payment checkout payload is missing. Please retry.');
+        }
+
+        await loadRazorpayScript();
+        await new Promise((resolve, reject) => {
+            const rzp = new window.Razorpay({
+                ...checkoutPayload,
+                handler: async (paymentResponse) => {
+                    try {
+                        const confirmResult = await paymentApi.confirmIntent(intentId, {
+                            providerPaymentId: paymentResponse.razorpay_payment_id,
+                            providerOrderId: paymentResponse.razorpay_order_id,
+                            providerSignature: paymentResponse.razorpay_signature,
+                        });
+                        setDraft((prev) => ({
+                            ...prev,
+                            paymentIntent: {
+                                ...prev.paymentIntent,
+                                intentId,
+                                providerPaymentId: paymentResponse.razorpay_payment_id,
+                                status: confirmResult.status,
+                            },
+                        }));
+                        toast.success('Payment authorized successfully');
+                        resolve();
+                    } catch (confirmError) {
+                        reject(confirmError);
+                    }
+                },
+                modal: {
+                    ondismiss: () => reject(new Error('Payment window closed before completion')),
+                },
+            });
+            rzp.open();
+        });
+    };
+
+    const executeDigitalPayment = async () => {
         if (draft.paymentMethod === 'COD') return;
         try {
-            setIsSimulatingPayment(true);
+            setIsProcessingPayment(true);
             setStepErrors((prev) => ({ ...prev, payment: '' }));
+
+            if (PAID_INTENT_STATUSES.has(String(draft.paymentIntent.status || '').toLowerCase())) {
+                toast.success('Payment is already authorized for this checkout session');
+                return;
+            }
+
+            const hasReusableIntent = (
+                draft.paymentIntent.intentId
+                && draft.paymentIntent.checkoutPayload
+                && String(draft.paymentIntent.status || '').toLowerCase() === 'created'
+                && (!draft.paymentIntent.challengeRequired || draft.paymentIntent.challengeVerified)
+            );
+
+            if (hasReusableIntent) {
+                await openRazorpayCheckout({
+                    intentId: draft.paymentIntent.intentId,
+                    checkoutPayload: draft.paymentIntent.checkoutPayload,
+                });
+                return;
+            }
+
             const amount = quote?.totalPrice || fallbackTotals.totalPrice;
             const quoteSnapshot = {
                 totalPrice: amount,
                 pricingVersion: quote?.pricingVersion || 'v2',
             };
-
-            const useSimulatedFlow = PAYMENT_PROVIDER === 'simulated';
-            if (useSimulatedFlow) {
-                const attemptToken = `${currentUser.uid}-${Date.now()}`;
-                const response = await orderApi.simulatePayment({
-                    paymentMethod: draft.paymentMethod,
-                    amount,
-                    attemptToken,
-                });
-                setDraft((prev) => ({
-                    ...prev,
-                    paymentSimulation: {
-                        ...response,
-                        attemptToken,
-                    },
-                    paymentIntent: {
-                        ...EMPTY_INTENT,
-                        status: response.status,
-                    },
-                }));
-
-                if (response.status === 'success') {
-                    toast.success('Payment simulation successful');
-                } else if (response.status === 'pending') {
-                    toast.warning('Payment is pending. Retry or fallback to COD.');
-                } else {
-                    toast.error('Payment simulation failed. Retry or fallback to COD.');
-                }
-                return;
-            }
 
             const intent = await paymentApi.createIntent({
                 quotePayload,
@@ -619,13 +647,13 @@ const Checkout = () => {
                     intentId: intent.intentId,
                     provider: intent.provider,
                     providerOrderId: intent.providerOrderId,
+                    providerPaymentId: '',
                     status: intent.status,
                     riskDecision: intent.riskDecision,
                     challengeRequired: Boolean(intent.challengeRequired),
                     challengeVerified: false,
                     checkoutPayload: intent.checkoutPayload || null,
                 },
-                paymentSimulation: EMPTY_SIMULATION,
             }));
 
             if (intent.challengeRequired) {
@@ -633,68 +661,36 @@ const Checkout = () => {
                 return;
             }
 
-            await loadRazorpayScript();
-            await new Promise((resolve, reject) => {
-                const rzp = new window.Razorpay({
-                    ...intent.checkoutPayload,
-                    handler: async (paymentResponse) => {
-                        try {
-                            const confirmResult = await paymentApi.confirmIntent(intent.intentId, {
-                                providerPaymentId: paymentResponse.razorpay_payment_id,
-                                providerOrderId: paymentResponse.razorpay_order_id,
-                                providerSignature: paymentResponse.razorpay_signature,
-                            });
-                            setDraft((prev) => ({
-                                ...prev,
-                                paymentIntent: {
-                                    ...prev.paymentIntent,
-                                    status: confirmResult.status,
-                                },
-                                paymentSimulation: {
-                                    status: 'success',
-                                    message: 'Payment authorized successfully',
-                                    referenceId: paymentResponse.razorpay_payment_id,
-                                    attemptToken: `${intent.intentId}-confirm`,
-                                },
-                            }));
-                            toast.success('Payment authorized successfully');
-                            resolve();
-                        } catch (confirmError) {
-                            reject(confirmError);
-                        }
-                    },
-                    modal: {
-                        ondismiss: () => reject(new Error('Payment window closed before completion')),
-                    },
-                });
-                rzp.open();
+            await openRazorpayCheckout({
+                intentId: intent.intentId,
+                checkoutPayload: intent.checkoutPayload,
             });
         } catch (error) {
-            setStepErrors((prev) => ({ ...prev, payment: error.message || 'Payment simulation failed' }));
+            setStepErrors((prev) => ({ ...prev, payment: error.message || 'Payment authorization failed' }));
         } finally {
-            setIsSimulatingPayment(false);
+            setIsProcessingPayment(false);
         }
     };
 
     const sendPaymentChallengeOtp = async () => {
         if (!draft.paymentIntent.intentId) {
-            setStepErrors((prev) => ({ ...prev, payment: 'Create payment intent first' }));
+            setStepErrors((prev) => ({ ...prev, payment: 'Create payment authorization first' }));
             return;
         }
         try {
-            setIsSimulatingPayment(true);
+            setIsProcessingPayment(true);
             await otpApi.sendOtp(draft.contact.email, draft.contact.phone, 'payment-challenge');
             toast.success('Payment challenge OTP sent');
         } catch (error) {
             setStepErrors((prev) => ({ ...prev, payment: error.message || 'Failed to send challenge OTP' }));
         } finally {
-            setIsSimulatingPayment(false);
+            setIsProcessingPayment(false);
         }
     };
 
     const markPaymentChallengeComplete = async () => {
         if (!draft.paymentIntent.intentId) {
-            setStepErrors((prev) => ({ ...prev, payment: 'Create payment intent first' }));
+            setStepErrors((prev) => ({ ...prev, payment: 'Create payment authorization first' }));
             return;
         }
 
@@ -710,7 +706,7 @@ const Checkout = () => {
         }
 
         try {
-            setIsSimulatingPayment(true);
+            setIsProcessingPayment(true);
             const otpResult = await otpApi.verifyOtp(
                 draft.contact.phone,
                 String(otp),
@@ -737,13 +733,17 @@ const Checkout = () => {
                     status: 'created',
                 },
             }));
-            toast.success('Challenge verification complete. Run secure payment now.');
+            toast.success('Challenge verification complete. Opening secure checkout...');
+            await openRazorpayCheckout({
+                intentId: draft.paymentIntent.intentId,
+                checkoutPayload: draft.paymentIntent.checkoutPayload,
+            });
         } catch (error) {
             // Show error inside modal instead of closing
             handleOtpModalError(error.message || 'OTP verification failed');
             setStepErrors((prev) => ({ ...prev, payment: error.message || 'Payment challenge verification failed' }));
         } finally {
-            setIsSimulatingPayment(false);
+            setIsProcessingPayment(false);
         }
     };
 
@@ -751,7 +751,6 @@ const Checkout = () => {
         setDraft((prev) => ({
             ...prev,
             paymentMethod: 'COD',
-            paymentSimulation: EMPTY_SIMULATION,
             paymentIntent: EMPTY_INTENT,
         }));
         toast.info('Switched to Cash on Delivery');
@@ -787,11 +786,11 @@ const Checkout = () => {
             setStepErrors((prev) => ({ ...prev, review: 'Quote is stale. Recalculate before placing order.' }));
             return;
         }
-        if (draft.paymentMethod !== 'COD' && draft.paymentSimulation.status !== 'success') {
+        if (draft.paymentMethod !== 'COD' && !PAID_INTENT_STATUSES.has(String(draft.paymentIntent.status || '').toLowerCase())) {
             setStepErrors((prev) => ({ ...prev, review: 'Digital payment is not confirmed yet.' }));
             return;
         }
-        if (draft.paymentMethod !== 'COD' && PAYMENT_PROVIDER !== 'simulated' && !draft.paymentIntent.intentId) {
+        if (draft.paymentMethod !== 'COD' && !draft.paymentIntent.intentId) {
             setStepErrors((prev) => ({ ...prev, review: 'Payment intent is missing. Please retry payment.' }));
             return;
         }
@@ -816,12 +815,6 @@ const Checkout = () => {
                     totalPrice: quote.totalPrice,
                     pricingVersion: quote.pricingVersion || 'v2',
                 },
-                paymentSimulation: draft.paymentMethod === 'COD'
-                    ? undefined
-                    : {
-                        status: draft.paymentSimulation.status,
-                        referenceId: draft.paymentSimulation.referenceId,
-                    },
                 // crypto.randomUUID() is collision-safe (RFC 4122 UUID v4).
                 // Math.random() was used previously but is not cryptographically
                 // secure and could produce duplicates under concurrent submissions.
@@ -996,8 +989,8 @@ const Checkout = () => {
                         isActive={draft.step === 3}
                         completed={draft.step > 3}
                         paymentMethod={draft.paymentMethod}
-                        paymentSimulation={draft.paymentSimulation}
-                        isSimulatingPayment={isSimulatingPayment}
+                        paymentIntent={draft.paymentIntent}
+                        isProcessingPayment={isProcessingPayment}
                         paymentError={stepErrors.payment}
                         savedMethods={compatibleSavedMethods}
                         selectedSavedMethodId={draft.selectedSavedMethodId}
@@ -1006,11 +999,10 @@ const Checkout = () => {
                         challengeVerified={Boolean(draft.paymentIntent.challengeVerified)}
                         onSendChallengeOtp={sendPaymentChallengeOtp}
                         onMarkChallengeComplete={markPaymentChallengeComplete}
-                        isChallengeLoading={isSimulatingPayment}
-                        useSimulatedFlow={PAYMENT_PROVIDER === 'simulated'}
+                        isChallengeLoading={isProcessingPayment}
                         onSetActive={() => draft.step > 2 && gotoStep(3)}
                         onPaymentMethodChange={handlePaymentMethodChange}
-                        onSimulatePayment={simulateDigitalPayment}
+                        onExecutePayment={executeDigitalPayment}
                         onFallbackToCod={fallbackToCod}
                         onBack={() => gotoStep(2)}
                         onContinue={handlePaymentContinue}

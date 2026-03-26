@@ -7,7 +7,6 @@ const logger = require('../utils/logger');
 const {
     PRICING_VERSION,
     buildOrderQuote,
-    normalizePaymentSimulation,
 } = require('./orderPricingService');
 const {
     validatePaymentIntentForOrder,
@@ -87,7 +86,6 @@ const executeOrderCreation = async ({
         paymentIntentId: body.paymentIntentId,
         paymentMethod: quote.normalized.paymentMethod,
         totalPrice: quote.pricing.totalPrice,
-        paymentSimulation: normalizePaymentSimulation(body.paymentSimulation || {}),
         session,
         claimForOrder: true,
         claimKey: idempotencyKey,
@@ -127,7 +125,7 @@ const executeOrderCreation = async ({
             integrityInsights: integrityResults
         },
         paymentIntentId: paymentIntent?.intentId || body.paymentIntentId || '',
-        paymentProvider: paymentIntent?.provider || (paymentFlags.paymentProvider === 'simulated' ? 'simulated' : ''),
+        paymentProvider: paymentIntent?.provider || '',
         paymentState: paymentValidation.paymentState,
         paymentAuthorizedAt: paymentIntent?.authorizedAt || null,
         paymentCapturedAt: paymentIntent?.capturedAt || null,
@@ -145,14 +143,7 @@ const executeOrderCreation = async ({
                 update_time: new Date().toISOString(),
                 email_address: user.email || '',
             }
-            : body.paymentSimulation
-                ? {
-                    id: body.paymentSimulation.referenceId || '',
-                    status: body.paymentSimulation.status,
-                    update_time: new Date().toISOString(),
-                    email_address: user.email || '',
-                }
-                : undefined,
+            : undefined,
         isPaid: paymentValidation.isPaid,
         paidAt: paymentValidation.isPaid ? new Date() : undefined,
         orderStatus: 'placed',

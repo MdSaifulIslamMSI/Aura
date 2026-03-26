@@ -154,7 +154,7 @@ describe('Admin payment routes integration', () => {
                 intentId: 'pi_admin_1',
                 status: 'authorized',
                 amount: 2499,
-                provider: 'simulated',
+                provider: 'razorpay',
             }],
         });
         getPaymentIntentForUser.mockResolvedValue({
@@ -180,7 +180,7 @@ describe('Admin payment routes integration', () => {
             order: '69cc00000000000000000001',
             amount: 2499,
             currency: 'INR',
-            provider: 'simulated',
+            provider: 'razorpay',
             method: 'CARD',
         }));
         User.findById.mockReturnValue(makeChain({
@@ -197,7 +197,7 @@ describe('Admin payment routes integration', () => {
                 orderId: '69cc00000000000000000001',
                 user: '69cc0000000000000000user1',
                 paymentMethod: 'CARD',
-                paymentProvider: 'simulated',
+                paymentProvider: 'razorpay',
                 paymentIntentId: 'pi_admin_1',
                 paymentState: 'authorized',
                 orderStatus: 'placed',

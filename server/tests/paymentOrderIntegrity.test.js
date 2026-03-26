@@ -33,8 +33,8 @@ const makeIntent = async ({
 } = {}) => PaymentIntent.create({
     intentId,
     user: userId,
-    provider: 'simulated',
-    providerOrderId: `sim_order_${Math.random().toString(36).slice(2, 10)}`,
+    provider: 'razorpay',
+    providerOrderId: `order_${Math.random().toString(36).slice(2, 10)}`,
     amount,
     currency: 'INR',
     method,
@@ -95,28 +95,15 @@ const makeOrder = async ({
 });
 
 describe('Payment Order Integrity', () => {
-    test('digital checkout requires a successful simulation when no intent exists in simulated mode', async () => {
+    test('digital checkout requires paymentIntentId for live payment rails', async () => {
         await expect(validatePaymentIntentForOrder({
             userId: new mongoose.Types.ObjectId(),
             paymentIntentId: '',
             paymentMethod: 'UPI',
             totalPrice: 499,
-            paymentSimulation: { status: 'failure' },
         })).rejects.toMatchObject({
             statusCode: 400,
-            message: expect.stringMatching(/simulation/i),
-        });
-
-        await expect(validatePaymentIntentForOrder({
-            userId: new mongoose.Types.ObjectId(),
-            paymentIntentId: '',
-            paymentMethod: 'UPI',
-            totalPrice: 499,
-            paymentSimulation: { status: 'success' },
-        })).resolves.toMatchObject({
-            paymentIntent: null,
-            isPaid: true,
-            paymentState: PAYMENT_STATUSES.CAPTURED,
+            message: expect.stringMatching(/paymentintentid is required/i),
         });
     });
 
@@ -126,11 +113,9 @@ describe('Payment Order Integrity', () => {
             paymentIntentId: '',
             paymentMethod: 'NETBANKING',
             totalPrice: 899,
-            paymentSimulation: { status: 'success' },
-        })).resolves.toMatchObject({
-            paymentIntent: null,
-            isPaid: true,
-            paymentState: PAYMENT_STATUSES.CAPTURED,
+        })).rejects.toMatchObject({
+            statusCode: 400,
+            message: expect.stringMatching(/paymentintentid is required/i),
         });
 
         const user = await makeUser();
@@ -340,7 +325,7 @@ describe('Payment Order Integrity', () => {
             status: PAYMENT_STATUSES.CAPTURED,
             order: order._id,
         });
-        intent.providerPaymentId = 'pay_simulated_123';
+        intent.providerPaymentId = 'pay_live_123';
         await intent.save();
 
         await Order.updateOne(
@@ -357,6 +342,19 @@ describe('Payment Order Integrity', () => {
         })).rejects.toMatchObject({
             statusCode: 403,
             message: expect.stringMatching(/not authorized/i),
+        });
+
+        const originalFetch = global.fetch;
+        process.env.RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID || 'rzp_test_key';
+        process.env.RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET || 'rzp_test_secret';
+        global.fetch = jest.fn().mockResolvedValue({
+            ok: true,
+            json: async () => ({
+                id: 'rfnd_live_123',
+                amount: 100000,
+                currency: 'INR',
+                status: 'processed',
+            }),
         });
 
         const firstRefund = await createRefundForIntent({
@@ -399,5 +397,7 @@ describe('Payment Order Integrity', () => {
         expect(afterFullIntent.status).toBe(PAYMENT_STATUSES.REFUNDED);
         expect(afterFullOrder.refundSummary.refunds).toHaveLength(2);
         expect(refundEvents).toHaveLength(2);
+
+        global.fetch = originalFetch;
     });
 });

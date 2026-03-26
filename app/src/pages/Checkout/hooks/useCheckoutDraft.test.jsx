@@ -7,7 +7,7 @@ const INITIAL_STATE = {
     contact: { name: '', phone: '', email: '' },
     shippingAddress: { address: '', city: '', postalCode: '', country: 'India' },
     deliverySlot: { date: '', window: '' },
-    paymentSimulation: { status: 'idle', referenceId: '' },
+    paymentIntent: { status: 'idle', providerPaymentId: '' },
 };
 
 describe('useCheckoutDraft', () => {
