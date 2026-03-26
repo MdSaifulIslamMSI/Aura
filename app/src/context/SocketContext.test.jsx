@@ -10,23 +10,43 @@ const { authState, ioMock, socketInstances } = vi.hoisted(() => {
         loading: false,
     };
     const sharedIoMock = vi.fn((origin, options) => {
-        const handlers = new Map();
+        const socketHandlers = new Map();
+        const managerHandlers = new Map();
         const socket = {
+            auth: options?.auth || null,
+            connected: false,
+            io: {
+                opts: { auth: options?.auth || null },
+                on: vi.fn((eventName, handler) => {
+                    managerHandlers.set(eventName, handler);
+                }),
+                off: vi.fn((eventName) => {
+                    managerHandlers.delete(eventName);
+                }),
+            },
             on: vi.fn((eventName, handler) => {
-                handlers.set(eventName, handler);
-                if (eventName === 'connect') {
+                socketHandlers.set(eventName, handler);
+            }),
+            off: vi.fn((eventName) => {
+                socketHandlers.delete(eventName);
+            }),
+            connect: vi.fn(() => {
+                socket.connected = true;
+                const handler = socketHandlers.get('connect');
+                if (handler) {
                     queueMicrotask(() => handler());
                 }
             }),
             disconnect: vi.fn(() => {
-                const handler = handlers.get('disconnect');
+                socket.connected = false;
+                const handler = socketHandlers.get('disconnect');
                 if (handler) {
                     handler('io client disconnect');
                 }
             }),
         };
 
-        sharedSocketInstances.push({ origin, options, socket });
+        sharedSocketInstances.push({ origin, options, socket, socketHandlers, managerHandlers });
         return socket;
     });
 
@@ -113,5 +133,20 @@ describe('SocketProvider', () => {
 
         expect(ioMock).toHaveBeenCalledTimes(1);
         expect(firstSocket.disconnect).not.toHaveBeenCalled();
+    });
+
+    it('maintains a socket for authenticated users even without explicit demand hooks', async () => {
+        render(
+            <SocketProvider>
+                <div>child</div>
+            </SocketProvider>
+        );
+
+        await waitFor(() => {
+            expect(ioMock).toHaveBeenCalledTimes(1);
+        });
+
+        expect(authState.currentUser.getIdToken).toHaveBeenCalled();
+        expect(socketInstances[0]?.socket.connect).toHaveBeenCalledTimes(1);
     });
 });

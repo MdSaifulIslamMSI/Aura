@@ -24,6 +24,8 @@ const ADMIN_ROOM = 'admins';
 let socketAdapterPubClient = null;
 let socketAdapterSubClient = null;
 const DEFAULT_VIDEO_SESSION_DISCONNECT_GRACE_MS = 15000;
+const DEFAULT_RINGING_VIDEO_SESSION_DISCONNECT_GRACE_MS = 45000;
+const DEFAULT_CONNECTED_VIDEO_SESSION_DISCONNECT_GRACE_MS = 180000;
 
 const socketHealth = {
     initialized: false,
@@ -45,6 +47,14 @@ const normalizeLiveCallMediaMode = (value) => (
 const getVideoSessionDisconnectGraceMs = () => parsePositiveInteger(
     process.env.VIDEO_SESSION_DISCONNECT_GRACE_MS,
     DEFAULT_VIDEO_SESSION_DISCONNECT_GRACE_MS,
+);
+const getRingingVideoSessionDisconnectGraceMs = () => parsePositiveInteger(
+    process.env.RINGING_VIDEO_SESSION_DISCONNECT_GRACE_MS,
+    DEFAULT_RINGING_VIDEO_SESSION_DISCONNECT_GRACE_MS,
+);
+const getConnectedVideoSessionDisconnectGraceMs = () => parsePositiveInteger(
+    process.env.CONNECTED_VIDEO_SESSION_DISCONNECT_GRACE_MS,
+    DEFAULT_CONNECTED_VIDEO_SESSION_DISCONNECT_GRACE_MS,
 );
 
 const resolveSocketUser = async (token) => {
@@ -269,7 +279,7 @@ const cancelPendingVideoSessionDisconnectCleanup = ({ userId }) => {
     return true;
 };
 
-const finishVideoSessionDisconnectCleanup = async ({ userId, reason = 'participant_disconnect' }) => {
+const finishVideoSessionDisconnectCleanup = async ({ userId, reason = '' }) => {
     const normalizedUserId = normalizeId(userId);
     if (!normalizedUserId) {
         return {
@@ -281,11 +291,9 @@ const finishVideoSessionDisconnectCleanup = async ({ userId, reason = 'participa
 
     pendingVideoSessionDisconnectCleanups.delete(normalizedUserId);
 
-    const userSet = userSockets.get(normalizedUserId);
-    if (userSet && userSet.size > 0) {
+    if (await hasActiveSocketPresence({ userId: normalizedUserId })) {
         logger.info('socket.video_cleanup_skipped_user_reconnected', {
             userId: normalizedUserId,
-            activeSocketCount: userSet.size,
         });
         return {
             canceled: true,
@@ -298,13 +306,17 @@ const finishVideoSessionDisconnectCleanup = async ({ userId, reason = 'participa
     const endedListingSessions = closeListingVideoSessionsForUser({ userId: normalizedUserId });
 
     for (const session of endedSupportSessions) {
+        const sessionReason = resolveDisconnectCleanupReason({
+            session,
+            fallbackReason: reason,
+        });
         await deleteSupportRoom(session.roomName || session.sessionKey).catch(() => null);
 
         const supportCallUpdate = await markSupportTicketLiveCallEnded({
             ticketId: session.ticketId,
             endedByRole: 'system',
             sessionKey: session.sessionKey,
-            reason,
+            reason: sessionReason,
         }).catch(() => null);
 
         if (supportCallUpdate) {
@@ -322,12 +334,16 @@ const finishVideoSessionDisconnectCleanup = async ({ userId, reason = 'participa
                 channelType: 'support_ticket',
                 contextId: session.ticketId,
                 sessionKey: session.sessionKey,
-                reason,
+                reason: sessionReason,
             });
         }
     }
 
     for (const session of endedListingSessions) {
+        const sessionReason = resolveDisconnectCleanupReason({
+            session,
+            fallbackReason: reason,
+        });
         await deleteSupportRoom(session.roomName || session.sessionKey).catch(() => null);
 
         const counterpartyUserId = session.participants.find((participantId) => participantId !== normalizedUserId);
@@ -337,7 +353,7 @@ const finishVideoSessionDisconnectCleanup = async ({ userId, reason = 'participa
                 channelType: 'listing',
                 contextId: session.listingId,
                 sessionKey: session.sessionKey,
-                reason,
+                reason: sessionReason,
             });
         }
     }
@@ -357,8 +373,8 @@ const finishVideoSessionDisconnectCleanup = async ({ userId, reason = 'participa
 
 const scheduleVideoSessionDisconnectCleanup = ({
     userId,
-    reason = 'participant_disconnect',
-    graceMs = getVideoSessionDisconnectGraceMs(),
+    reason = '',
+    graceMs,
 }) => {
     const normalizedUserId = normalizeId(userId);
     if (!normalizedUserId) {
@@ -366,31 +382,35 @@ const scheduleVideoSessionDisconnectCleanup = ({
     }
 
     cancelPendingVideoSessionDisconnectCleanup({ userId: normalizedUserId });
+    const resolvedGraceMs = resolveDisconnectCleanupGraceMs({
+        userId: normalizedUserId,
+        graceMs,
+    });
 
     const timeoutId = setTimeout(() => {
         void finishVideoSessionDisconnectCleanup({
             userId: normalizedUserId,
             reason,
         });
-    }, graceMs);
+    }, resolvedGraceMs);
     timeoutId.unref?.();
 
     pendingVideoSessionDisconnectCleanups.set(normalizedUserId, {
         timeoutId,
-        graceMs,
+        graceMs: resolvedGraceMs,
         reason,
         scheduledAt: new Date().toISOString(),
     });
 
     logger.info('socket.video_cleanup_scheduled', {
         userId: normalizedUserId,
-        graceMs,
+        graceMs: resolvedGraceMs,
         reason,
     });
 
     return {
         userId: normalizedUserId,
-        graceMs,
+        graceMs: resolvedGraceMs,
         reason,
     };
 };
@@ -414,6 +434,86 @@ const countSessionStatus = (sessionsMap, status) => {
         }
     }
     return count;
+};
+
+const getUserVideoSessionsSnapshot = ({ userId }) => {
+    const normalizedUserId = normalizeId(userId);
+    if (!normalizedUserId) {
+        return [];
+    }
+
+    const sessions = [];
+    for (const session of activeSupportVideoSessions.values()) {
+        if (Array.isArray(session?.participants) && session.participants.includes(normalizedUserId)) {
+            sessions.push(session);
+        }
+    }
+
+    for (const session of activeListingVideoSessions.values()) {
+        if (Array.isArray(session?.participants) && session.participants.includes(normalizedUserId)) {
+            sessions.push(session);
+        }
+    }
+
+    return sessions;
+};
+
+const resolveDisconnectCleanupGraceMs = ({ userId, graceMs } = {}) => {
+    const explicitGraceMs = Number.parseInt(String(graceMs || ''), 10);
+    if (Number.isFinite(explicitGraceMs) && explicitGraceMs > 0) {
+        return explicitGraceMs;
+    }
+
+    const sessions = getUserVideoSessionsSnapshot({ userId });
+    const hasConnectedSession = sessions.some((session) => String(session?.status || '').trim() === 'connected');
+    if (hasConnectedSession) {
+        return getConnectedVideoSessionDisconnectGraceMs();
+    }
+
+    const hasRingingSession = sessions.some((session) => String(session?.status || '').trim() === 'ringing');
+    if (hasRingingSession) {
+        return getRingingVideoSessionDisconnectGraceMs();
+    }
+
+    return getVideoSessionDisconnectGraceMs();
+};
+
+const resolveDisconnectCleanupReason = ({ session, fallbackReason = '' } = {}) => {
+    const normalizedFallbackReason = String(fallbackReason || '').trim().toLowerCase();
+    if (normalizedFallbackReason) {
+        return normalizedFallbackReason;
+    }
+
+    return String(session?.status || '').trim().toLowerCase() === 'connected'
+        ? 'connection_lost'
+        : 'failed';
+};
+
+const hasActiveSocketPresence = async ({ userId }) => {
+    const normalizedUserId = normalizeId(userId);
+    if (!normalizedUserId) {
+        return false;
+    }
+
+    const localSockets = userSockets.get(normalizedUserId);
+    if (localSockets && localSockets.size > 0) {
+        return true;
+    }
+
+    if (!io || typeof io.in !== 'function') {
+        return false;
+    }
+
+    try {
+        const socketIds = await io.in(`user:${normalizedUserId}`).allSockets();
+        return socketIds.size > 0;
+    } catch (error) {
+        logger.warn('socket.presence_lookup_failed', {
+            userId: normalizedUserId,
+            reason: error?.message || 'unknown',
+        });
+        return false;
+    }
 };
 
 const emitSupportRealtimeUpdate = async ({

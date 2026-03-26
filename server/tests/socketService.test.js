@@ -40,6 +40,7 @@ jest.mock('../services/livekitService', () => ({
 
 const {
     cancelPendingVideoSessionDisconnectCleanup,
+    finishVideoSessionDisconnectCleanup,
     getSupportVideoSession,
     registerSupportVideoSession,
     resetSocketStateForTests,
@@ -86,7 +87,7 @@ describe('socketService video disconnect cleanup', () => {
         expect(markSupportTicketLiveCallEnded).toHaveBeenCalledWith(expect.objectContaining({
             ticketId: 'ticket-1',
             sessionKey: 'room-1',
-            reason: 'participant_disconnect',
+            reason: 'connection_lost',
         }));
     });
 
@@ -114,5 +115,28 @@ describe('socketService video disconnect cleanup', () => {
         expect(getSupportVideoSession('ticket-1')).not.toBeNull();
         expect(deleteSupportRoom).not.toHaveBeenCalled();
         expect(markSupportTicketLiveCallEnded).not.toHaveBeenCalled();
+    });
+
+    test('marks ringing sessions as failed when cleanup runs before the call connects', async () => {
+        registerSupportVideoSession({
+            ticketId: 'ticket-2',
+            sessionKey: 'room-2',
+            roomName: 'room-2',
+            userId: 'user-2',
+            adminUserId: 'admin-2',
+            contextLabel: 'Aura Support live call',
+            status: 'ringing',
+        });
+
+        await finishVideoSessionDisconnectCleanup({
+            userId: 'user-2',
+        });
+
+        expect(getSupportVideoSession('ticket-2')).toBeNull();
+        expect(markSupportTicketLiveCallEnded).toHaveBeenCalledWith(expect.objectContaining({
+            ticketId: 'ticket-2',
+            sessionKey: 'room-2',
+            reason: 'failed',
+        }));
     });
 });
