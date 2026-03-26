@@ -23,6 +23,10 @@ const shouldHideSupportLauncher = (pathname = '/', search = '') => {
         return true;
     }
 
+    if (pathname === '/contact') {
+        return true;
+    }
+
     if (pathname === '/profile' && params.get('tab') === 'support') {
         return true;
     }

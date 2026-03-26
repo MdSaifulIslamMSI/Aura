@@ -1,6 +1,7 @@
 import { useContext } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { AuthContext } from '@/context/AuthContext';
+import { buildSupportHandoffPath } from '@/utils/assistantCommands';
 
 const AUTH_BOOTSTRAP_STATES = new Set(['bootstrap', 'loading']);
 
@@ -20,7 +21,22 @@ const toRouteState = (location) => ({
     hash: location?.hash || '',
 });
 
-const AuthRecoveryState = ({ message, onRetry, onResetSignIn }) => (
+const buildRecoverySupportPath = (location, sessionError) => {
+    const blockedPath = `${location?.pathname || '/'}${location?.search || ''}${location?.hash || ''}`;
+    const normalizedMessage = String(sessionError?.message || '')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+    return buildSupportHandoffPath({
+        category: 'general_support',
+        subject: 'Support: Session sync blocked account access',
+        intent: normalizedMessage
+            ? `Blocked from ${blockedPath} because the session sync could not finish. Error: ${normalizedMessage}`.slice(0, 320)
+            : `Blocked from ${blockedPath} because the session sync could not finish.`.slice(0, 320),
+    });
+};
+
+const AuthRecoveryState = ({ message, onRetry, onResetSignIn, onOpenSupport }) => (
     <div className="flex min-h-[60vh] items-center justify-center px-4">
         <div className="w-full max-w-lg rounded-3xl border border-amber-300/15 bg-zinc-950/70 p-8 shadow-glass">
             <div className="inline-flex rounded-full border border-amber-300/20 bg-amber-300/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.24em] text-amber-200">
@@ -33,6 +49,9 @@ const AuthRecoveryState = ({ message, onRetry, onResetSignIn }) => (
             <p className="mt-3 text-xs leading-5 text-slate-400">
                 If retry keeps failing, reset the sign-in flow and we will bring you back to the same page after login.
             </p>
+            <p className="mt-3 text-xs leading-5 text-slate-400">
+                Need a real escalation path? Open the admin support desk from here. Tickets created there stay visible to the support team even when profile sync is degraded.
+            </p>
             <div className="mt-6 flex flex-wrap gap-3">
                 <button
                     type="button"
@@ -43,11 +62,22 @@ const AuthRecoveryState = ({ message, onRetry, onResetSignIn }) => (
                 </button>
                 <button
                     type="button"
+                    onClick={onOpenSupport}
+                    className="inline-flex items-center justify-center rounded-full border border-cyan-300/20 bg-cyan-400/12 px-5 py-3 text-sm font-black uppercase tracking-[0.18em] text-cyan-100 transition-colors hover:bg-cyan-400/18"
+                >
+                    Open admin support
+                </button>
+                <button
+                    type="button"
                     onClick={onResetSignIn}
                     className="inline-flex items-center justify-center rounded-full border border-amber-300/20 bg-amber-300/10 px-5 py-3 text-sm font-black uppercase tracking-[0.18em] text-amber-100 transition-colors hover:bg-amber-300/16"
                 >
                     Reset sign-in
                 </button>
+            </div>
+            <div className="mt-5 flex flex-wrap gap-4 text-xs text-slate-400">
+                <a href="mailto:support@aura.shop" className="transition-colors hover:text-white">support@aura.shop</a>
+                <a href="tel:1-800-AURA-01" className="transition-colors hover:text-white">1-800-AURA-01</a>
             </div>
         </div>
     </div>
@@ -76,10 +106,18 @@ const renderResolvedGate = ({
     }
 
     if (status === 'recoverable_error' && currentUser) {
+        const supportPath = buildRecoverySupportPath(location, sessionError);
         return (
             <AuthRecoveryState
                 message={sessionError?.message}
                 onRetry={() => { refreshSession(currentUser, { force: true }).catch(() => {}); }}
+                onOpenSupport={() => {
+                    navigate(supportPath, {
+                        state: {
+                            from: toRouteState(location),
+                        },
+                    });
+                }}
                 onResetSignIn={() => {
                     Promise.resolve(logout?.())
                         .catch(() => {})
