@@ -24,11 +24,16 @@ class RazorpayProvider {
         return `Basic ${token}`;
     }
 
-    async request(path, { method = 'GET', body } = {}) {
+    get keyIdOnlyAuthHeader() {
+        const token = Buffer.from(`${this.keyId}:`).toString('base64');
+        return `Basic ${token}`;
+    }
+
+    async request(path, { method = 'GET', body, authHeader } = {}) {
         const response = await fetch(`${this.baseUrl}${path}`, {
             method,
             headers: {
-                Authorization: this.authHeader,
+                Authorization: authHeader || this.authHeader,
                 'Content-Type': 'application/json',
             },
             body: body ? JSON.stringify(body) : undefined,
@@ -54,6 +59,12 @@ class RazorpayProvider {
                 notes,
                 payment_capture: 0,
             },
+        });
+    }
+
+    async fetchSupportedMethods() {
+        return this.request('/methods', {
+            authHeader: this.keyIdOnlyAuthHeader,
         });
     }
 
@@ -131,11 +142,14 @@ class RazorpayProvider {
             };
         }
         if (method === 'netbanking') {
+            const bankCode = String(payment.bank || payment.acquirer_data?.bank || '');
             return {
                 type: 'bank',
-                brand: String(payment.bank || payment.acquirer_data?.bank || 'NetBanking'),
+                brand: bankCode || 'NetBanking',
                 last4: '',
-                providerMethodId: String(payment.bank || payment.acquirer_data?.bank_transaction_id || ''),
+                providerMethodId: bankCode || String(payment.acquirer_data?.bank_transaction_id || ''),
+                bankCode,
+                bankName: bankCode || 'NetBanking',
             };
         }
         return {
