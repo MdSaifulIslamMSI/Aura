@@ -95,6 +95,14 @@ const buildMediaPublishFailureMessage = (results = []) => {
         return 'Live call media failed';
     }
 
+    if (failedResults.length === 1 && failedResults[0]?.kind === 'microphone') {
+        return 'Microphone could not start for the live call. Check device permissions and try again.';
+    }
+
+    if (failedResults.length === 1 && failedResults[0]?.kind === 'camera') {
+        return 'Camera could not start for the live call. Check device permissions and try again.';
+    }
+
     if (failedResults.every((result) => isLiveKitEngineTimeoutError(result?.error))) {
         return 'Live call media took too long to initialize. Rejoin and try again.';
     }
@@ -103,6 +111,9 @@ const buildMediaPublishFailureMessage = (results = []) => {
 };
 
 const readLiveCallMeta = (payload) => payload?.meta?.liveCall || payload?.liveCall || null;
+const normalizeLiveCallMediaMode = (value) => (
+    String(value || '').trim().toLowerCase() === 'voice' ? 'voice' : 'video'
+);
 
 const normalizeCallRequest = (targetOrRequest, listingId) => {
     if (targetOrRequest && typeof targetOrRequest === 'object') {
@@ -129,6 +140,7 @@ const normalizeCallRequest = (targetOrRequest, listingId) => {
             callerName: String(targetOrRequest.callerName || '').trim(),
             transport: String(targetOrRequest.transport || 'livekit').trim() || 'livekit',
             sessionKey: String(targetOrRequest.sessionKey || '').trim(),
+            mediaMode: normalizeLiveCallMediaMode(targetOrRequest.mediaMode),
         };
     }
 
@@ -142,6 +154,7 @@ const normalizeCallRequest = (targetOrRequest, listingId) => {
         callerName: '',
         transport: 'livekit',
         sessionKey: '',
+        mediaMode: 'video',
     };
 };
 
@@ -443,6 +456,7 @@ export const VideoCallProvider = ({ children }) => {
         const liveKitApi = await loadLiveKitModule();
         const { Room, RoomEvent, Track } = liveKitApi;
         const room = new Room();
+        const mediaMode = normalizeLiveCallMediaMode(session?.mediaMode || nextContext?.mediaMode);
         supportRoomRef.current = room;
         supportSessionRef.current = session;
         supportMarkedConnectedRef.current = false;
@@ -500,8 +514,10 @@ export const VideoCallProvider = ({ children }) => {
         setRoomConnectionState('connected');
 
         const mediaResults = [];
-        mediaResults.push(await enableRoomParticipantTrack({ room, liveKitApi, kind: 'camera' }));
         mediaResults.push(await enableRoomParticipantTrack({ room, liveKitApi, kind: 'microphone' }));
+        if (mediaMode === 'video') {
+            mediaResults.unshift(await enableRoomParticipantTrack({ room, liveKitApi, kind: 'camera' }));
+        }
         const enabledMediaCount = mediaResults.filter((result) => result.enabled).length;
         if (enabledMediaCount === 0) {
             throw new Error(buildMediaPublishFailureMessage(mediaResults));
@@ -512,8 +528,12 @@ export const VideoCallProvider = ({ children }) => {
             toast.warning(warningMessage);
         }
 
-        setActiveCallContext(nextContext);
-        callContextRef.current = nextContext;
+        const resolvedContext = {
+            ...nextContext,
+            mediaMode,
+        };
+        setActiveCallContext(resolvedContext);
+        callContextRef.current = resolvedContext;
         setCallStatus(status);
         await syncSupportRoomState(room, Track);
     };
@@ -561,9 +581,12 @@ export const VideoCallProvider = ({ children }) => {
 
             const liveKitApi = getLiveKitApi(request.channelType);
             const response = shouldStartLiveKitSession
-                ? await liveKitApi.start(contextId)
+                ? await liveKitApi.start(contextId, {
+                    mediaMode: request.mediaMode,
+                })
                 : await liveKitApi.join(contextId, {
                     sessionKey: request.sessionKey || undefined,
+                    mediaMode: request.mediaMode,
                 });
 
             const session = readLiveCallMeta(response);
@@ -582,6 +605,7 @@ export const VideoCallProvider = ({ children }) => {
                 transport: 'livekit',
                 sessionKey: String(session.sessionKey || '').trim(),
                 roomName: String(session.roomName || '').trim(),
+                mediaMode: normalizeLiveCallMediaMode(session.mediaMode || request.mediaMode),
             };
 
             await connectSupportRoom({
@@ -650,6 +674,7 @@ export const VideoCallProvider = ({ children }) => {
             const liveKitApi = getLiveKitApi(request.channelType);
             const response = await liveKitApi.join(contextId, {
                 sessionKey: request.sessionKey || undefined,
+                mediaMode: request.mediaMode,
             });
             const session = readLiveCallMeta(response);
 
@@ -668,6 +693,7 @@ export const VideoCallProvider = ({ children }) => {
                 transport: 'livekit',
                 sessionKey: String(session.sessionKey || '').trim(),
                 roomName: String(session.roomName || '').trim(),
+                mediaMode: normalizeLiveCallMediaMode(session.mediaMode || request.mediaMode),
             };
 
             await connectSupportRoom({
@@ -751,6 +777,11 @@ export const VideoCallProvider = ({ children }) => {
             return false;
         }
 
+        if (normalizeLiveCallMediaMode(callContextRef.current?.mediaMode) !== 'video') {
+            toast.error('Camera switching is available during video calls only.');
+            return false;
+        }
+
         const room = supportRoomRef.current;
         if (!room || typeof room.switchActiveDevice !== 'function') {
             toast.error('Camera switching is not available in this call yet.');
@@ -805,6 +836,7 @@ export const VideoCallProvider = ({ children }) => {
                 contextLabel: String(payload.contextLabel || '').trim(),
                 transport: String(payload.transport || 'livekit').trim() || 'livekit',
                 sessionKey: String(payload.sessionKey || '').trim(),
+                mediaMode: normalizeLiveCallMediaMode(payload.mediaMode),
             };
 
             setCallerInfo({ userId: payload.fromUserId, name: payload.fromName });
@@ -860,7 +892,8 @@ export const VideoCallProvider = ({ children }) => {
                 roomConnectionState,
                 remoteParticipantCount,
                 participantCount: 1 + Number(remoteParticipantCount || 0),
-                canSwitchCamera: videoInputDevices.length > 1,
+                mediaMode: normalizeLiveCallMediaMode(activeCallContext?.mediaMode),
+                canSwitchCamera: normalizeLiveCallMediaMode(activeCallContext?.mediaMode) === 'video' && videoInputDevices.length > 1,
                 availableCameraCount: videoInputDevices.length,
                 activeVideoInputId,
                 switchingCamera,
@@ -879,7 +912,8 @@ export const VideoCallProvider = ({ children }) => {
                     roomConnectionState,
                     remoteParticipantCount,
                     participantCount: 1 + Number(remoteParticipantCount || 0),
-                    canSwitchCamera: videoInputDevices.length > 1,
+                    mediaMode: normalizeLiveCallMediaMode(activeCallContext?.mediaMode),
+                    canSwitchCamera: normalizeLiveCallMediaMode(activeCallContext?.mediaMode) === 'video' && videoInputDevices.length > 1,
                     availableCameraCount: videoInputDevices.length,
                     activeVideoInputId,
                     switchingCamera,

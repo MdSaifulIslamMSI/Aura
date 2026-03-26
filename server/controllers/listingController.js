@@ -141,7 +141,14 @@ const authorizeListingLiveInspection = ({ listing, userId, allowJoinOnly = false
     };
 };
 
-const buildListingLiveInspectionLabel = (listing) => `Live inspection for "${String(listing?.title || 'listing')}"`;
+const normalizeLiveCallMediaMode = (value) => (
+    String(value || '').trim().toLowerCase() === 'voice' ? 'voice' : 'video'
+);
+const buildListingLiveInspectionLabel = (listing, mediaMode = 'video') => (
+    normalizeLiveCallMediaMode(mediaMode) === 'voice'
+        ? `Voice call about "${String(listing?.title || 'listing')}"`
+        : `Live inspection for "${String(listing?.title || 'listing')}"`
+);
 const buildListingLiveCallMeta = ({ session, listing }) => ({
     liveCall: {
         channelType: 'listing',
@@ -149,9 +156,10 @@ const buildListingLiveCallMeta = ({ session, listing }) => ({
         listingId: String(listing?._id || ''),
         sessionKey: String(session?.sessionKey || session?.roomName || '').trim(),
         roomName: String(session?.roomName || session?.sessionKey || '').trim(),
-        contextLabel: String(session?.contextLabel || buildListingLiveInspectionLabel(listing)).trim(),
+        contextLabel: String(session?.contextLabel || buildListingLiveInspectionLabel(listing, session?.mediaMode)).trim(),
         status: String(session?.status || 'ringing').trim() || 'ringing',
         startedByUserId: String(session?.startedByUserId || '').trim(),
+        mediaMode: normalizeLiveCallMediaMode(session?.mediaMode),
     },
 });
 
@@ -1196,7 +1204,8 @@ const startListingVideoSession = asyncHandler(async (req, res, next) => {
 
     const currentSession = getListingVideoSession(listing._id);
     const hasActiveSession = Boolean(currentSession?.sessionKey);
-    const contextLabel = buildListingLiveInspectionLabel(listing);
+    const mediaMode = normalizeLiveCallMediaMode(req.body?.mediaMode || currentSession?.mediaMode);
+    const contextLabel = buildListingLiveInspectionLabel(listing, mediaMode);
     const sessionKey = hasActiveSession
         ? currentSession.sessionKey
         : buildListingRoomName(listing._id);
@@ -1216,6 +1225,7 @@ const startListingVideoSession = asyncHandler(async (req, res, next) => {
         startedByUserId: req.user._id,
         contextLabel,
         status: hasActiveSession && currentSession?.status === 'connected' ? 'connected' : 'ringing',
+        mediaMode,
     });
 
     if (!hasActiveSession) {
@@ -1227,6 +1237,7 @@ const startListingVideoSession = asyncHandler(async (req, res, next) => {
             contextId: String(listing._id),
             contextLabel,
             sessionKey,
+            mediaMode,
         });
     }
 
@@ -1252,6 +1263,7 @@ const startListingVideoSession = asyncHandler(async (req, res, next) => {
                 contextId: String(listing._id),
                 listingId: String(listing._id),
                 contextLabel,
+                mediaMode,
             },
         },
     });
@@ -1275,7 +1287,8 @@ const joinListingVideoSession = asyncHandler(async (req, res, next) => {
         return next(new AppError('There is no active live inspection to join', 409));
     }
 
-    const contextLabel = currentSession?.contextLabel || buildListingLiveInspectionLabel(listing);
+    const mediaMode = normalizeLiveCallMediaMode(req.body?.mediaMode || currentSession?.mediaMode);
+    const contextLabel = currentSession?.contextLabel || buildListingLiveInspectionLabel(listing, mediaMode);
 
     await ensureSupportRoom(sessionKey, {
         listingId: String(listing._id),
@@ -1292,6 +1305,7 @@ const joinListingVideoSession = asyncHandler(async (req, res, next) => {
         startedByUserId: currentSession?.startedByUserId || participants.buyerUserId,
         contextLabel,
         status: currentSession?.status === 'connected' ? 'connected' : 'ringing',
+        mediaMode,
     });
 
     const session = await createSupportParticipantSession({
@@ -1316,6 +1330,7 @@ const joinListingVideoSession = asyncHandler(async (req, res, next) => {
                 contextId: String(listing._id),
                 listingId: String(listing._id),
                 contextLabel,
+                mediaMode,
             },
         },
     });

@@ -152,12 +152,12 @@ export const listingApi = {
         const { data } = await apiFetch(`/listings/${id}/messages`, { headers, params });
         return data;
     },
-    startVideoSession: async (id) => {
+    startVideoSession: async (id, payload = {}) => {
         const headers = await getAuthHeader();
         const { data } = await apiFetch(`/listings/${id}/video/start`, {
             method: 'POST',
             headers,
-            body: JSON.stringify({}),
+            body: JSON.stringify(payload),
         });
         return data;
     },
