@@ -143,7 +143,17 @@ const ensureSupportTicketViewer = (ticket, user) => {
     };
 };
 
-const buildSupportLiveCallLabel = (ticket) => `Aura Support live call for "${String(ticket?.subject || 'support ticket')}"`;
+const normalizeLiveCallMediaMode = (value) => (
+    String(value || '').trim().toLowerCase() === 'voice' ? 'voice' : 'video'
+);
+const getSupportCallModeLabel = (mediaMode = 'video') => (
+    normalizeLiveCallMediaMode(mediaMode) === 'voice' ? 'voice call' : 'video call'
+);
+const buildSupportLiveCallLabel = (ticket, mediaMode = 'video') => (
+    normalizeLiveCallMediaMode(mediaMode) === 'voice'
+        ? `Aura Support voice call for "${String(ticket?.subject || 'support ticket')}"`
+        : `Aura Support live call for "${String(ticket?.subject || 'support ticket')}"`
+);
 
 const buildSupportLiveCallMeta = ({ session, ticket }) => ({
     liveCall: {
@@ -151,7 +161,8 @@ const buildSupportLiveCallMeta = ({ session, ticket }) => ({
         channelType: 'support_ticket',
         contextId: String(ticket?._id || ''),
         supportTicketId: String(ticket?._id || ''),
-        contextLabel: String(session?.contextLabel || buildSupportLiveCallLabel(ticket)),
+        contextLabel: String(session?.contextLabel || buildSupportLiveCallLabel(ticket, session?.mediaMode)),
+        mediaMode: normalizeLiveCallMediaMode(session?.mediaMode),
     },
 });
 
@@ -220,11 +231,14 @@ const requestSupportLiveCall = asyncHandler(async (req, res, next) => {
     }
 
     const note = String(req.body?.note || '').trim();
+    const mediaMode = normalizeLiveCallMediaMode(req.body?.mediaMode);
+    const modeLabel = getSupportCallModeLabel(mediaMode);
     const { ticket: updatedTicket, message } = await requestSupportTicketLiveCall({
         ticketId: ticket._id,
         requesterUserId: req.user._id,
         requesterRole: isAdmin ? 'admin' : 'user',
         note,
+        mediaMode,
     });
 
     await emitAdminTicketUpdate({
@@ -263,13 +277,14 @@ const requestSupportLiveCall = asyncHandler(async (req, res, next) => {
     if (isAdmin) {
         await notifyUserAboutSupportEvent(updatedTicket.user, buildSupportNotificationPayload({
             ticket: updatedTicket,
-            title: 'Aura Support requested a live call',
-            message: `Aura Support requested a live support call for "${updatedTicket.subject}".`,
+            title: `Aura Support requested a ${modeLabel}`,
+            message: `Aura Support requested a ${modeLabel} for "${updatedTicket.subject}".`,
             actionLabel: 'Open support thread',
             priority: updatedTicket.priority === 'urgent' ? 'high' : 'medium',
             metadata: {
                 liveCallRequested: true,
                 liveCallRequestedByRole: 'admin',
+                liveCallMediaMode: mediaMode,
             },
         }));
     }
@@ -281,6 +296,7 @@ const requestSupportLiveCall = asyncHandler(async (req, res, next) => {
             : serializeTicketForUser(updatedTicket.toObject()),
         meta: {
             liveCallRequested: true,
+            mediaMode,
         },
     });
 });
@@ -305,6 +321,14 @@ const startSupportLiveCallSession = asyncHandler(async (req, res, next) => {
         ['ringing', 'connected'].includes(currentStatus)
         && String(ticket.liveCallLastSessionKey || '').trim()
     );
+    const existingSession = getSupportVideoSession(ticket._id);
+    const mediaMode = normalizeLiveCallMediaMode(
+        req.body?.mediaMode
+        || existingSession?.mediaMode
+        || ticket.liveCallLastMediaMode
+        || ticket.liveCallRequestedMode
+    );
+    const modeLabel = getSupportCallModeLabel(mediaMode);
 
     if (
         hasActiveSession
@@ -314,7 +338,7 @@ const startSupportLiveCallSession = asyncHandler(async (req, res, next) => {
         return next(new AppError('Another support agent already owns this live call', 409));
     }
 
-    const contextLabel = buildSupportLiveCallLabel(ticket);
+    const contextLabel = buildSupportLiveCallLabel(ticket, mediaMode);
     const roomName = hasActiveSession
         ? String(ticket.liveCallLastSessionKey || '').trim()
         : buildSupportRoomName(ticket._id);
@@ -332,6 +356,7 @@ const startSupportLiveCallSession = asyncHandler(async (req, res, next) => {
             startedByRole: 'admin',
             sessionKey: roomName,
             contextLabel,
+            mediaMode,
         });
 
         await emitSupportRealtimeUpdate({
@@ -348,17 +373,19 @@ const startSupportLiveCallSession = asyncHandler(async (req, res, next) => {
             contextId: String(ticket._id),
             contextLabel,
             sessionKey: roomName,
+            mediaMode,
         });
 
         await notifyUserAboutSupportEvent(ticketOwnerId, buildSupportNotificationPayload({
             ticket,
-            title: 'Aura Support started a live call',
-            message: `Aura Support started a live support call for "${ticket.subject}".`,
+            title: `Aura Support started a ${modeLabel}`,
+            message: `Aura Support started a ${modeLabel} for "${ticket.subject}".`,
             actionLabel: 'Join live call',
             priority: ticket.priority === 'urgent' ? 'high' : 'medium',
             metadata: {
                 liveCallSessionKey: roomName,
                 liveCallStatus: 'ringing',
+                liveCallMediaMode: mediaMode,
             },
         }));
     }
@@ -371,6 +398,7 @@ const startSupportLiveCallSession = asyncHandler(async (req, res, next) => {
         adminUserId: req.user._id,
         contextLabel,
         status: currentStatus === 'connected' ? 'connected' : 'ringing',
+        mediaMode,
     });
 
     const session = await createSupportParticipantSession({
@@ -385,7 +413,10 @@ const startSupportLiveCallSession = asyncHandler(async (req, res, next) => {
         success: true,
         data: await loadAdminTicketView(ticket._id),
         meta: buildSupportLiveCallMeta({
-            session,
+            session: {
+                ...session,
+                mediaMode,
+            },
             ticket,
         }),
     });
@@ -418,8 +449,14 @@ const joinSupportLiveCallSession = asyncHandler(async (req, res, next) => {
         return next(new AppError('Another support agent already owns this live call', 409));
     }
 
-    const contextLabel = String(ticket.liveCallLastContextLabel || buildSupportLiveCallLabel(ticket)).trim()
-        || buildSupportLiveCallLabel(ticket);
+    const mediaMode = normalizeLiveCallMediaMode(
+        req.body?.mediaMode
+        || sessionState?.mediaMode
+        || ticket.liveCallLastMediaMode
+        || ticket.liveCallRequestedMode
+    );
+    const contextLabel = String(ticket.liveCallLastContextLabel || buildSupportLiveCallLabel(ticket, mediaMode)).trim()
+        || buildSupportLiveCallLabel(ticket, mediaMode);
 
     await ensureSupportRoom(sessionKey, {
         supportTicketId: String(ticket._id),
@@ -435,6 +472,7 @@ const joinSupportLiveCallSession = asyncHandler(async (req, res, next) => {
         adminUserId: sessionState?.adminUserId || ticket.liveCallStartedBy || req.user._id,
         contextLabel,
         status: lastStatus === 'connected' ? 'connected' : 'ringing',
+        mediaMode,
     });
 
     const session = await createSupportParticipantSession({
@@ -451,7 +489,10 @@ const joinSupportLiveCallSession = asyncHandler(async (req, res, next) => {
             ? await loadAdminTicketView(ticket._id)
             : await loadUserTicketView(ticket._id),
         meta: buildSupportLiveCallMeta({
-            session,
+            session: {
+                ...session,
+                mediaMode,
+            },
             ticket,
         }),
     });
@@ -464,6 +505,13 @@ const connectSupportLiveCallSession = asyncHandler(async (req, res, next) => {
     const ticket = await loadSupportTicketForSession(req.params.id);
     const { isAdmin } = ensureSupportTicketViewer(ticket, req.user);
     const sessionKey = String(req.body?.sessionKey || ticket.liveCallLastSessionKey || '').trim();
+    const sessionState = getSupportVideoSession(ticket._id);
+    const mediaMode = normalizeLiveCallMediaMode(
+        req.body?.mediaMode
+        || sessionState?.mediaMode
+        || ticket.liveCallLastMediaMode
+        || ticket.liveCallRequestedMode
+    );
 
     if (!sessionKey) {
         return next(new AppError('There is no active live support call to connect', 409));
@@ -480,6 +528,7 @@ const connectSupportLiveCallSession = asyncHandler(async (req, res, next) => {
     await markSupportTicketLiveCallConnected({
         ticketId: ticket._id,
         sessionKey,
+        mediaMode,
     });
     markSupportVideoSessionConnected({
         ticketId: ticket._id,
@@ -509,6 +558,12 @@ const endSupportLiveCallSession = asyncHandler(async (req, res, next) => {
     const ticket = await loadSupportTicketForSession(req.params.id);
     const { isAdmin, ticketOwnerId } = ensureSupportTicketViewer(ticket, req.user);
     const sessionState = getSupportVideoSession(ticket._id);
+    const mediaMode = normalizeLiveCallMediaMode(
+        req.body?.mediaMode
+        || sessionState?.mediaMode
+        || ticket.liveCallLastMediaMode
+        || ticket.liveCallRequestedMode
+    );
     const sessionKey = String(
         req.body?.sessionKey
         || sessionState?.sessionKey
@@ -548,6 +603,7 @@ const endSupportLiveCallSession = asyncHandler(async (req, res, next) => {
         endedByRole: isAdmin ? 'admin' : 'user',
         sessionKey,
         reason,
+        mediaMode,
     });
 
     await emitSupportRealtimeUpdate({
@@ -568,6 +624,7 @@ const endSupportLiveCallSession = asyncHandler(async (req, res, next) => {
             contextId: String(ticket._id),
             sessionKey,
             reason,
+            mediaMode,
         });
     }
 

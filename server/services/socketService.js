@@ -38,6 +38,10 @@ const parsePositiveInteger = (value, fallback) => {
     const parsed = Number.parseInt(String(value || ''), 10);
     return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 };
+
+const normalizeLiveCallMediaMode = (value) => (
+    String(value || '').trim().toLowerCase() === 'voice' ? 'voice' : 'video'
+);
 const getVideoSessionDisconnectGraceMs = () => parsePositiveInteger(
     process.env.VIDEO_SESSION_DISCONNECT_GRACE_MS,
     DEFAULT_VIDEO_SESSION_DISCONNECT_GRACE_MS,
@@ -78,6 +82,7 @@ const registerSupportVideoSession = ({
     adminUserId,
     contextLabel = '',
     status = 'ringing',
+    mediaMode = 'video',
 }) => {
     const normalizedTicketId = String(ticketId || '').trim();
     if (!normalizedTicketId) {
@@ -93,6 +98,7 @@ const registerSupportVideoSession = ({
         adminUserId: String(adminUserId || '').trim(),
         contextLabel: String(contextLabel || '').trim(),
         status: String(status || 'ringing').trim() || 'ringing',
+        mediaMode: normalizeLiveCallMediaMode(mediaMode),
         updatedAt: new Date().toISOString(),
     };
 
@@ -164,6 +170,7 @@ const registerListingVideoSession = ({
     startedByUserId,
     contextLabel = '',
     status = 'ringing',
+    mediaMode = 'video',
 }) => {
     const normalizedListingId = String(listingId || '').trim();
     if (!normalizedListingId) {
@@ -180,6 +187,7 @@ const registerListingVideoSession = ({
         startedByUserId: String(startedByUserId || '').trim(),
         contextLabel: String(contextLabel || '').trim(),
         status: String(status || 'ringing').trim() || 'ringing',
+        mediaMode: normalizeLiveCallMediaMode(mediaMode),
         updatedAt: new Date().toISOString(),
     };
 

@@ -23,15 +23,20 @@ export const supportApi = {
         const { data } = await apiFetch(`/support/${ticketId}/messages`, { method: 'POST', headers, body: JSON.stringify({ message }) });
         return data;
     },
-    requestVideoCall: async (ticketId, note = '') => {
+    requestVideoCall: async (ticketId, noteOrPayload = '', mediaMode = undefined) => {
         const headers = await getAuthHeader();
-        const body = note ? { note } : {};
+        const body = typeof noteOrPayload === 'object' && noteOrPayload !== null
+            ? noteOrPayload
+            : {
+                ...(noteOrPayload ? { note: noteOrPayload } : {}),
+                ...(mediaMode ? { mediaMode } : {}),
+            };
         const { data } = await apiFetch(`/support/${ticketId}/video/request`, { method: 'POST', headers, body: JSON.stringify(body) });
         return data;
     },
-    startVideoSession: async (ticketId) => {
+    startVideoSession: async (ticketId, payload = {}) => {
         const headers = await getAuthHeader();
-        const { data } = await apiFetch(`/support/${ticketId}/video/start`, { method: 'POST', headers, body: JSON.stringify({}) });
+        const { data } = await apiFetch(`/support/${ticketId}/video/start`, { method: 'POST', headers, body: JSON.stringify(payload) });
         return data;
     },
     joinVideoSession: async (ticketId, payload = {}) => {

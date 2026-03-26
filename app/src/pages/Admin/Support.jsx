@@ -8,6 +8,7 @@ import {
     RefreshCw,
     Send,
     ShieldAlert,
+    Video,
     Wifi,
     WifiOff,
     X,
@@ -21,6 +22,9 @@ import { useVideoCall } from '@/context/VideoCallContext';
 
 const TICKET_LIST_POLL_MS = 20000;
 const ACTIVE_TICKET_POLL_MS = 12000;
+const normalizeLiveCallMode = (value) => (String(value || '').trim().toLowerCase() === 'voice' ? 'voice' : 'video');
+const getLiveCallModeLabel = (value) => (normalizeLiveCallMode(value) === 'voice' ? 'voice call' : 'video call');
+const getLiveCallModeTitle = (value) => (normalizeLiveCallMode(value) === 'voice' ? 'Voice Call' : 'Video Call');
 
 const sortTickets = (tickets = []) => (
     [...tickets].sort((left, right) => {
@@ -36,6 +40,8 @@ const normalizeTicket = (ticket) => {
         ...ticket,
         unreadByAdmin: Number(ticket.unreadByAdmin || 0),
         unreadByUser: Number(ticket.unreadByUser || 0),
+        liveCallRequestedMode: normalizeLiveCallMode(ticket.liveCallRequestedMode),
+        liveCallLastMediaMode: normalizeLiveCallMode(ticket.liveCallLastMediaMode),
     };
 };
 
@@ -412,6 +418,13 @@ export default function AdminSupport() {
     const isActiveSupportCall = activeCallContext?.channelType === 'support_ticket'
         && String(activeCallContext?.contextId || '') === String(activeTicketId || '')
         && ['calling', 'incoming', 'connected'].includes(callStatus);
+    const supportLiveCallMode = normalizeLiveCallMode(
+        activeCallContext?.mediaMode
+        || activeTicket?.liveCallLastMediaMode
+        || activeTicket?.liveCallRequestedMode
+    );
+    const supportLiveCallLabel = getLiveCallModeLabel(supportLiveCallMode);
+    const supportLiveCallTitle = getLiveCallModeTitle(supportLiveCallMode);
     const canJoinSupportCall = Boolean(
         activeTicket?._id
         && activeTicket.liveCallLastSessionKey
@@ -419,7 +432,7 @@ export default function AdminSupport() {
         && !isActiveSupportCall
     );
 
-    const handleStartLiveCall = async () => {
+    const handleStartLiveCall = async (mediaMode = 'video') => {
         if (!activeTicket?._id || !activeTicket?.user?._id || startingLiveCall) return;
 
         try {
@@ -432,16 +445,22 @@ export default function AdminSupport() {
                     contextLabel: activeTicket.liveCallLastContextLabel || `Aura Support live call for "${activeTicket.subject}"`,
                     sessionKey: activeTicket.liveCallLastSessionKey,
                     callerName: 'Aura Support',
+                    mediaMode: supportLiveCallMode,
                 })
                 : await startCall({
                     targetUserId: activeTicket.user._id,
                     channelType: 'support_ticket',
                     contextId: activeTicket._id,
                     supportTicketId: activeTicket._id,
-                    contextLabel: `Aura Support live call for "${activeTicket.subject}"`,
+                    contextLabel: normalizeLiveCallMode(mediaMode) === 'voice'
+                        ? `Aura Support voice call for "${activeTicket.subject}"`
+                        : `Aura Support live call for "${activeTicket.subject}"`,
+                    mediaMode,
                 });
             if (!liveCallAction) {
-                setError(canJoinSupportCall ? 'Failed to join the live support call' : 'Failed to start the live support call');
+                setError(canJoinSupportCall
+                    ? `Failed to join the ${supportLiveCallLabel}`
+                    : `Failed to start the ${getLiveCallModeLabel(mediaMode)}`);
             }
         } finally {
             setStartingLiveCall(false);
@@ -451,19 +470,19 @@ export default function AdminSupport() {
     const liveCallActionLabel = isActiveSupportCall
         ? 'Live now'
         : canJoinSupportCall
-            ? 'Join live call'
-            : 'Start live call';
+            ? `Join ${supportLiveCallLabel}`
+            : `Start ${supportLiveCallLabel}`;
     const liveCallStatusCopy = isActiveSupportCall
-        ? 'A live support call is already ringing or connected on this ticket.'
+        ? `A ${supportLiveCallLabel} is already ringing or connected on this ticket.`
         : !isConnected
             ? 'Ticket updates are on polling fallback, but the live call itself can still run over LiveKit.'
             : activeTicket?.liveCallRequested
-                ? 'The customer requested real-time support. Start the call when you are ready.'
+                ? `The customer requested a ${getLiveCallModeLabel(activeTicket?.liveCallRequestedMode)}. Start the call when you are ready.`
                 : canJoinSupportCall
-                    ? 'A live support session is already open for this ticket. Rejoin it from here.'
+                    ? `A ${supportLiveCallLabel} is already open for this ticket. Rejoin it from here.`
                     : activeTicket?.liveCallLastStatus === 'ended' || activeTicket?.liveCallLastStatus === 'missed'
-                        ? 'The last live call finished. Start another one if real-time handling is still needed.'
-                        : 'Escalate this ticket into a real-time video call when text support is too slow.';
+                        ? `The last ${supportLiveCallLabel} finished. Start another one if real-time handling is still needed.`
+                        : 'Escalate this ticket into a real-time voice or video call when text support is too slow.';
     const liveCallStatusTime = activeTicket?.liveCallRequestedAt
         ? `Requested ${new Date(activeTicket.liveCallRequestedAt).toLocaleString()}`
         : activeTicket?.liveCallEndedAt
@@ -661,12 +680,12 @@ export default function AdminSupport() {
                                         ) : null}
                                         {activeTicket.liveCallRequested ? (
                                             <span className="rounded-full border border-cyan-300/20 bg-cyan-500/12 px-2 py-0.5 text-cyan-100">
-                                                live call requested
+                                                {getLiveCallModeTitle(activeTicket.liveCallRequestedMode)} requested
                                             </span>
                                         ) : null}
                                         {activeTicket.liveCallLastStatus === 'connected' || isActiveSupportCall ? (
                                             <span className="rounded-full border border-emerald-300/20 bg-emerald-500/12 px-2 py-0.5 text-emerald-100">
-                                                live call active
+                                                {supportLiveCallTitle} active
                                             </span>
                                         ) : null}
                                     </div>
@@ -674,15 +693,44 @@ export default function AdminSupport() {
                                     </div>
                                     <div className="flex shrink-0 items-center gap-2">
                                         {getStatusBadge(activeTicket.status)}
-                                        <button
-                                            type="button"
-                                            onClick={handleStartLiveCall}
-                                            disabled={startingLiveCall || activeTicket.status === 'closed' || !activeTicket.user?._id || isActiveSupportCall}
-                                            className="support-chat-send inline-flex items-center gap-2 px-4 py-2.5 text-sm font-black disabled:cursor-not-allowed"
-                                        >
-                                            {startingLiveCall ? <RefreshCw className="h-4 w-4 animate-spin" /> : <PhoneCall className="h-4 w-4" />}
-                                            {liveCallActionLabel}
-                                        </button>
+                                        {canJoinSupportCall || isActiveSupportCall ? (
+                                            <button
+                                                type="button"
+                                                onClick={() => handleStartLiveCall(supportLiveCallMode)}
+                                                disabled={startingLiveCall || activeTicket.status === 'closed' || !activeTicket.user?._id || isActiveSupportCall}
+                                                className="support-chat-send inline-flex items-center gap-2 px-4 py-2.5 text-sm font-black disabled:cursor-not-allowed"
+                                            >
+                                                {startingLiveCall ? (
+                                                    <RefreshCw className="h-4 w-4 animate-spin" />
+                                                ) : supportLiveCallMode === 'voice' ? (
+                                                    <PhoneCall className="h-4 w-4" />
+                                                ) : (
+                                                    <Video className="h-4 w-4" />
+                                                )}
+                                                {liveCallActionLabel}
+                                            </button>
+                                        ) : (
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleStartLiveCall('voice')}
+                                                    disabled={startingLiveCall || activeTicket.status === 'closed' || !activeTicket.user?._id}
+                                                    className="support-chat-utility inline-flex items-center gap-2 px-4 py-2.5 text-sm font-black disabled:cursor-not-allowed disabled:opacity-55"
+                                                >
+                                                    {startingLiveCall ? <RefreshCw className="h-4 w-4 animate-spin" /> : <PhoneCall className="h-4 w-4" />}
+                                                    Voice call
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleStartLiveCall('video')}
+                                                    disabled={startingLiveCall || activeTicket.status === 'closed' || !activeTicket.user?._id}
+                                                    className="support-chat-send inline-flex items-center gap-2 px-4 py-2.5 text-sm font-black disabled:cursor-not-allowed"
+                                                >
+                                                    {startingLiveCall ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Video className="h-4 w-4" />}
+                                                    Video call
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                                 {activeTicket.resolutionSummary ? (
