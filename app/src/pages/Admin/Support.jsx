@@ -78,6 +78,81 @@ const isNearBottom = (element) => {
     return (element.scrollHeight - element.scrollTop - element.clientHeight) <= STICKY_SCROLL_THRESHOLD_PX;
 };
 
+const isValidDateValue = (value) => {
+    const date = new Date(value || 0);
+    return !Number.isNaN(date.getTime());
+};
+
+const getDayKey = (value) => {
+    if (!isValidDateValue(value)) return '';
+    const date = new Date(value);
+    return [date.getFullYear(), date.getMonth(), date.getDate()].join('-');
+};
+
+const getInitials = (value = '') => {
+    const parts = String(value || '')
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2);
+
+    if (parts.length === 0) return 'AU';
+    return parts.map((part) => part[0]?.toUpperCase() || '').join('');
+};
+
+const formatThreadPreviewTime = (value) => {
+    if (!isValidDateValue(value)) return 'Now';
+
+    const date = new Date(value);
+    const today = new Date();
+    const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+    const startOfDate = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+    const diffDays = Math.round((startOfToday - startOfDate) / 86400000);
+
+    if (diffDays === 0) {
+        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    if (diffDays === 1) {
+        return 'Yesterday';
+    }
+
+    if (diffDays > 1 && diffDays < 7) {
+        return date.toLocaleDateString([], { weekday: 'short' });
+    }
+
+    return date.toLocaleDateString([], { day: 'numeric', month: 'short' });
+};
+
+const formatMessageDayLabel = (value) => {
+    if (!isValidDateValue(value)) return 'Today';
+
+    const date = new Date(value);
+    const today = new Date();
+    const yesterday = new Date();
+    yesterday.setDate(today.getDate() - 1);
+
+    if (date.toDateString() === today.toDateString()) {
+        return 'Today';
+    }
+
+    if (date.toDateString() === yesterday.toDateString()) {
+        return 'Yesterday';
+    }
+
+    const includeYear = date.getFullYear() !== today.getFullYear();
+    return date.toLocaleDateString([], {
+        day: 'numeric',
+        month: 'short',
+        ...(includeYear ? { year: 'numeric' } : {}),
+    });
+};
+
+const formatMessageTime = (value) => {
+    if (!isValidDateValue(value)) return '';
+    return new Date(value).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+};
+
 export default function AdminSupport() {
     useSocketDemand('admin-support', true);
     const { socket, isConnected } = useSocket();
@@ -373,6 +448,28 @@ export default function AdminSupport() {
         }
     };
 
+    const liveCallActionLabel = isActiveSupportCall
+        ? 'Live now'
+        : canJoinSupportCall
+            ? 'Join live call'
+            : 'Start live call';
+    const liveCallStatusCopy = isActiveSupportCall
+        ? 'A live support call is already ringing or connected on this ticket.'
+        : !isConnected
+            ? 'Ticket updates are on polling fallback, but the live call itself can still run over LiveKit.'
+            : activeTicket?.liveCallRequested
+                ? 'The customer requested real-time support. Start the call when you are ready.'
+                : canJoinSupportCall
+                    ? 'A live support session is already open for this ticket. Rejoin it from here.'
+                    : activeTicket?.liveCallLastStatus === 'ended' || activeTicket?.liveCallLastStatus === 'missed'
+                        ? 'The last live call finished. Start another one if real-time handling is still needed.'
+                        : 'Escalate this ticket into a real-time video call when text support is too slow.';
+    const liveCallStatusTime = activeTicket?.liveCallRequestedAt
+        ? `Requested ${new Date(activeTicket.liveCallRequestedAt).toLocaleString()}`
+        : activeTicket?.liveCallEndedAt
+            ? `Last ended ${new Date(activeTicket.liveCallEndedAt).toLocaleString()}`
+            : 'No live call yet';
+
     const getStatusBadge = (status) => {
         switch (status) {
             case 'open':
@@ -415,15 +512,35 @@ export default function AdminSupport() {
                 </div>
             )}
         >
-            <div className="flex h-[700px] flex-col gap-6 xl:flex-row">
-                <div className="flex w-full flex-col overflow-hidden admin-premium-panel p-0 xl:w-1/3">
-                    {error ? <div className="m-3 rounded-2xl border border-rose-400/20 bg-rose-500/12 p-3 text-sm font-medium text-rose-100">{error}</div> : null}
+            <div className="grid min-h-[700px] gap-6 xl:grid-cols-[24rem_minmax(0,1fr)]">
+                <div className="flex w-full flex-col overflow-hidden admin-premium-panel p-0">
+                    <div className="border-b border-white/10 px-5 py-5">
+                        <p className="text-[11px] font-black uppercase tracking-[0.28em] text-emerald-200">Support desk</p>
+                        <h3 className="mt-2 text-2xl font-black text-white">Customer chat queue</h3>
+                        <p className="mt-1.5 text-sm text-slate-400">
+                            Ticket handling, resolution notes, and live support now move like a shared messaging tool.
+                        </p>
 
-                    <div className="relative flex-1 space-y-1 overflow-y-auto p-2 scrollbar-hide">
+                        {error ? (
+                            <div className="mt-4 rounded-[1.25rem] border border-rose-400/20 bg-rose-500/12 p-3 text-sm font-medium text-rose-100">
+                                {error}
+                            </div>
+                        ) : null}
+                    </div>
+
+                    <div className="relative flex-1 space-y-3 overflow-y-auto p-3 scrollbar-hide">
                         {loading ? (
                             <div className="p-6 text-center text-sm text-slate-400">Loading tickets...</div>
                         ) : tickets.length === 0 ? (
-                            <div className="p-6 text-center text-sm text-slate-400">No support tickets found</div>
+                            <div className="flex h-full flex-col items-center justify-center p-6 text-center">
+                                <div className="support-chat-avatar h-16 w-16 text-emerald-100">
+                                    <MessageSquare className="h-8 w-8" />
+                                </div>
+                                <div className="mt-5 text-lg font-black text-white">No tickets found</div>
+                                <p className="mt-2 max-w-xs text-sm text-slate-400">
+                                    When customers need help, their threads will appear here in queue order.
+                                </p>
+                            </div>
                         ) : (
                             tickets.map((ticket) => (
                                 <button
@@ -431,30 +548,59 @@ export default function AdminSupport() {
                                     type="button"
                                     onClick={() => setActiveTicketId(ticket._id)}
                                     className={cn(
-                                        'w-full rounded-xl border p-4 text-left transition-all',
-                                        activeTicketId === ticket._id
-                                            ? 'border-cyan-300/30 bg-[linear-gradient(135deg,rgba(34,211,238,0.16),rgba(16,185,129,0.12))] shadow-[0_18px_36px_rgba(34,211,238,0.12)]'
-                                            : 'border-white/8 bg-white/[0.04] hover:border-white/12 hover:bg-white/[0.07]'
+                                        'support-chat-card w-full p-4 text-left transition-all',
+                                        activeTicketId === ticket._id ? 'support-chat-card-active' : ''
                                     )}
                                 >
-                                    <div className="mb-1 flex items-start justify-between">
-                                        <div className="truncate pr-2 font-bold text-white" title={ticket.subject}>{ticket.subject}</div>
-                                        {getStatusBadge(ticket.status)}
-                                    </div>
-                                    <div className="mb-2 flex items-center gap-2 truncate font-mono text-xs text-slate-400">
-                                        <span className="rounded-full border border-white/10 bg-white/[0.06] px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.16em] text-slate-200">{ticket.category}</span>
-                                        <span className="truncate">{ticket.user?.email}</span>
-                                    </div>
-                                    <div className="truncate text-sm text-slate-300">
-                                        {ticket.lastMessagePreview || 'No messages'}
-                                    </div>
-                                    <div className="mt-3 flex items-center justify-between">
-                                        <div className="font-mono text-[10px] text-slate-500">ID: {String(ticket._id).slice(-6)}</div>
-                                        {ticket.unreadByAdmin > 0 ? (
-                                            <div className="rounded-full bg-rose-500 px-2 py-0.5 text-[10px] font-bold text-white shadow-sm">
-                                                {ticket.unreadByAdmin} NEW
+                                    <div className="flex items-start gap-3">
+                                        <div className="support-chat-avatar h-12 w-12 shrink-0 text-sm font-black">
+                                            {getInitials(ticket.user?.name || ticket.user?.email || ticket.subject)}
+                                        </div>
+
+                                        <div className="min-w-0 flex-1">
+                                            <div className="flex items-start justify-between gap-3">
+                                                <div className="min-w-0">
+                                                    <div className="truncate text-sm font-black text-white" title={ticket.subject}>{ticket.subject}</div>
+                                                    <div className="mt-1 truncate text-[11px] font-medium text-slate-400">
+                                                        {ticket.user?.email || ticket.user?.name || 'Unknown user'}
+                                                    </div>
+                                                </div>
+                                                <span className="shrink-0 text-[11px] font-medium text-slate-400">
+                                                    {formatThreadPreviewTime(ticket.lastMessageAt || ticket.updatedAt || ticket.createdAt)}
+                                                </span>
                                             </div>
-                                        ) : null}
+
+                                            <div className="mt-3 line-clamp-2 text-sm leading-6 text-slate-300">
+                                                {ticket.lastMessagePreview || 'No messages yet.'}
+                                            </div>
+
+                                            <div className="mt-3 flex items-center justify-between gap-3">
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    <span className="rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-slate-200">
+                                                        {ticket.category}
+                                                    </span>
+                                                    <span className={cn(
+                                                        'rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em]',
+                                                        ticket.priority === 'urgent'
+                                                            ? 'border-rose-300/20 bg-rose-500/12 text-rose-100'
+                                                            : ticket.priority === 'high'
+                                                                ? 'border-amber-300/20 bg-amber-500/12 text-amber-100'
+                                                                : 'border-cyan-300/20 bg-cyan-500/12 text-cyan-100'
+                                                    )}>
+                                                        {ticket.priority}
+                                                    </span>
+                                                </div>
+
+                                                <div className="flex shrink-0 items-center gap-2">
+                                                    {ticket.unreadByAdmin > 0 ? (
+                                                        <span className="rounded-full bg-emerald-400 px-2.5 py-1 text-[10px] font-black text-[#032114]">
+                                                            {ticket.unreadByAdmin}
+                                                        </span>
+                                                    ) : null}
+                                                    {getStatusBadge(ticket.status)}
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                 </button>
                             ))
@@ -464,25 +610,34 @@ export default function AdminSupport() {
 
                 <div className="relative flex flex-1 flex-col overflow-hidden admin-premium-panel p-0">
                     {!activeTicketId ? (
-                        <div className="flex flex-1 flex-col items-center justify-center text-slate-300">
-                            <MessageSquare className="mb-4 h-16 w-16 opacity-20" />
-                            <p className="font-medium text-slate-400">Select a ticket to view conversation</p>
+                        <div className="support-chat-thread flex flex-1 flex-col items-center justify-center px-6 text-center text-slate-300">
+                            <div className="support-chat-avatar h-20 w-20 text-emerald-100">
+                                <MessageSquare className="h-10 w-10" />
+                            </div>
+                            <h4 className="mt-5 text-2xl font-black text-white">Select a customer thread</h4>
+                            <p className="mt-3 max-w-xl text-sm leading-7 text-slate-300">
+                                Open any ticket on the left to jump into the conversation, update the resolution state, or escalate to live support.
+                            </p>
                         </div>
                     ) : activeTicket ? (
                         <>
-                            <div className="border-b border-white/10 bg-white/[0.03] p-4">
+                            <div className="border-b border-white/10 px-5 py-5">
                                 <div className="flex items-start justify-between gap-4">
-                                    <div className="min-w-0 flex-1 pr-4">
-                                    <h3 className="truncate text-lg font-bold text-white">{activeTicket.subject}</h3>
-                                    <div className="mt-1 flex items-center gap-3 font-mono text-xs text-slate-400">
-                                        <span>User: {activeTicket.user?.email || activeTicket.user?.name}</span>
-                                        <span>•</span>
+                                    <div className="flex min-w-0 flex-1 items-start gap-4 pr-4">
+                                        <div className="support-chat-avatar h-14 w-14 shrink-0 text-base font-black">
+                                            {getInitials(activeTicket.user?.name || activeTicket.user?.email || activeTicket.subject)}
+                                        </div>
+                                        <div className="min-w-0 flex-1">
+                                    <h3 className="truncate text-2xl font-black text-white">{activeTicket.subject}</h3>
+                                    <div className="mt-1 flex flex-wrap items-center gap-2 font-mono text-xs text-slate-400">
+                                        <span>{activeTicket.user?.email || activeTicket.user?.name || 'Unknown user'}</span>
+                                        <span>|</span>
                                         <span className={cn(
                                             activeTicket.user?.accountState === 'suspended'
                                                 ? 'font-bold text-rose-300'
                                                 : 'font-bold text-emerald-300'
                                         )}>
-                                            [{activeTicket.user?.accountState}]
+                                            {activeTicket.user?.accountState || 'active'}
                                         </span>
                                     </div>
                                     <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em]">
@@ -515,65 +670,50 @@ export default function AdminSupport() {
                                             </span>
                                         ) : null}
                                     </div>
-                                </div>
+                                        </div>
+                                    </div>
                                     <div className="flex shrink-0 items-center gap-2">
                                         {getStatusBadge(activeTicket.status)}
                                         <button
                                             type="button"
                                             onClick={handleStartLiveCall}
                                             disabled={startingLiveCall || activeTicket.status === 'closed' || !activeTicket.user?._id || isActiveSupportCall}
-                                            className="admin-premium-button"
+                                            className="support-chat-send inline-flex items-center gap-2 px-4 py-2.5 text-sm font-black disabled:cursor-not-allowed"
                                         >
                                             {startingLiveCall ? <RefreshCw className="h-4 w-4 animate-spin" /> : <PhoneCall className="h-4 w-4" />}
-                                            {isActiveSupportCall ? 'Live now' : canJoinSupportCall ? 'Join live call' : 'Start live call'}
+                                            {liveCallActionLabel}
                                         </button>
                                     </div>
                                 </div>
                                 {activeTicket.resolutionSummary ? (
-                                    <div className="mt-4 rounded-xl border border-emerald-300/20 bg-emerald-500/12 p-3 text-sm text-emerald-100">
+                                    <div className="mt-4 rounded-[1.5rem] border border-emerald-300/20 bg-emerald-500/12 p-4 text-sm text-emerald-100">
                                         <div className="mb-1 text-xs font-black uppercase tracking-[0.18em] text-emerald-200">Current resolution summary</div>
-                                        <div>{activeTicket.resolutionSummary}</div>
+                                        <div className="leading-6">{activeTicket.resolutionSummary}</div>
                                     </div>
                                 ) : null}
 
                                 <div className={cn(
-                                    'mt-4 rounded-2xl border p-4 text-sm',
+                                    'mt-4 rounded-[1.6rem] border p-4 text-sm',
                                     isActiveSupportCall || activeTicket.liveCallLastStatus === 'connected'
                                         ? 'border-emerald-300/20 bg-emerald-500/12 text-emerald-100'
                                         : activeTicket.liveCallRequested
                                             ? 'border-cyan-300/20 bg-cyan-500/12 text-cyan-100'
                                             : 'border-white/10 bg-white/[0.04] text-slate-200'
                                 )}>
-                                    <div className="flex items-center justify-between gap-3">
-                                        <div>
+                                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                                        <div className="min-w-0 flex-1">
                                             <div className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Live support lane</div>
-                                            <div className="mt-2 font-semibold text-white">
-                                                {isActiveSupportCall
-                                                    ? 'A live support call is ringing or connected on this ticket.'
-                                                    : !isConnected
-                                                        ? 'Ticket updates are on polling fallback, but the live call itself can still run over LiveKit.'
-                                                    : activeTicket.liveCallRequested
-                                                        ? 'Customer requested real-time support. Start the call when ready.'
-                                                        : canJoinSupportCall
-                                                            ? 'A live support session is already open for this ticket. Rejoin it from here.'
-                                                            : activeTicket.liveCallLastStatus === 'ended' || activeTicket.liveCallLastStatus === 'missed'
-                                                            ? 'The last live call finished. Start another one if real-time handling is still needed.'
-                                                            : 'Escalate this ticket into a real-time video call when text support is too slow.'}
+                                            <div className="mt-2 font-semibold leading-6 text-white">
+                                                {liveCallStatusCopy}
                                             </div>
                                         </div>
                                         <div className="text-right text-xs text-slate-400">
-                                            {activeTicket.liveCallRequestedAt ? (
-                                                <div>Requested {new Date(activeTicket.liveCallRequestedAt).toLocaleString()}</div>
-                                            ) : activeTicket.liveCallEndedAt ? (
-                                                <div>Last ended {new Date(activeTicket.liveCallEndedAt).toLocaleString()}</div>
-                                            ) : (
-                                                <div>No live call yet</div>
-                                            )}
+                                            <div>{liveCallStatusTime}</div>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div className="mt-4 grid gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-4 lg:grid-cols-[140px_minmax(0,1fr)_auto]">
+                                <div className="mt-4 grid gap-3 rounded-[1.7rem] border border-white/10 bg-white/[0.04] p-4 lg:grid-cols-[150px_minmax(0,1fr)_auto]">
                                     <PremiumSelect
                                         value={statusDraft}
                                         onChange={(e) => setStatusDraft(e.target.value)}
@@ -605,7 +745,7 @@ export default function AdminSupport() {
                                             type="button"
                                             onClick={handleUpdateStatus}
                                             disabled={updatingStatus}
-                                            className="admin-premium-button justify-center"
+                                            className="support-chat-utility justify-center px-4 py-3 text-sm font-black"
                                         >
                                             {updatingStatus ? <RefreshCw className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
                                             Apply update
@@ -617,84 +757,95 @@ export default function AdminSupport() {
                             <div
                                 ref={messagesContainerRef}
                                 onScroll={handleMessagesScroll}
-                                className="flex-1 space-y-6 overflow-y-auto bg-white/[0.02] p-6 scrollbar-hide"
+                                className="support-chat-thread flex-1 overflow-y-auto p-6 scrollbar-hide"
                             >
                                 {messagesLoading ? (
                                     <div className="mt-10 text-center text-slate-400">Loading chat history...</div>
                                 ) : (
-                                    messages.map((message, index) => {
-                                        const isAdmin = message.isAdmin;
-                                        const sentAt = message?.sentAt || message?.createdAt;
+                                    <div className="space-y-3">
+                                        {messages.map((message, index) => {
+                                            const isAdmin = Boolean(message.isAdmin);
+                                            const sentAt = message?.sentAt || message?.createdAt;
+                                            const previousSentAt = messages[index - 1]?.sentAt || messages[index - 1]?.createdAt;
+                                            const showDayDivider = getDayKey(sentAt) !== getDayKey(previousSentAt);
 
-                                        if (message.isSystem) {
                                             return (
-                                                <div key={message._id || index} className="my-4 flex justify-center">
-                                                    <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-4 py-1.5 text-xs font-medium text-slate-300">
-                                                        <AlertCircle className="h-3 w-3" /> {message.text}
-                                                    </div>
-                                                </div>
-                                            );
-                                        }
-
-                                        return (
-                                            <div key={message._id || index} className={cn('flex', isAdmin ? 'justify-end' : 'justify-start')}>
-                                                <div className={cn(
-                                                    'max-w-[85%] rounded-2xl p-4 shadow-sm',
-                                                    isAdmin
-                                                        ? 'rounded-tr-sm border border-cyan-300/20 bg-cyan-500/16 text-cyan-50 shadow-[0_18px_30px_rgba(34,211,238,0.08)]'
-                                                        : 'rounded-tl-sm border border-white/10 bg-white/[0.05] text-white'
-                                                )}>
-                                                    {!isAdmin ? (
-                                                        <div className="mb-2 flex items-center gap-2">
-                                                            <div className="flex h-5 w-5 items-center justify-center rounded-full bg-white/10 text-[10px] font-bold text-slate-200">
-                                                                {(message.sender?.name || 'U')[0].toUpperCase()}
+                                                <div key={message._id || index} className="space-y-2">
+                                                    {showDayDivider ? (
+                                                        <div className="flex justify-center">
+                                                            <div className="support-chat-date-pill text-xs font-semibold">
+                                                                {formatMessageDayLabel(sentAt)}
                                                             </div>
-                                                            <span className="text-xs font-bold tracking-wide text-slate-400">
-                                                                {message.sender?.name || message.sender?.email || 'User'}
-                                                            </span>
+                                                        </div>
+                                                    ) : null}
+
+                                                    {message.isSystem ? (
+                                                        <div className="my-4 flex justify-center">
+                                                            <div className="support-chat-system-pill text-xs">
+                                                                <AlertCircle className="h-3.5 w-3.5" />
+                                                                {message.text}
+                                                            </div>
                                                         </div>
                                                     ) : (
-                                                        <div className="mb-2 flex items-center justify-end gap-2">
-                                                            <span className="text-xs font-bold uppercase tracking-wider text-cyan-100">Staff Reply</span>
-                                                            <ShieldAlert className="h-3.5 w-3.5 text-cyan-200" />
+                                                        <div className={cn('flex', isAdmin ? 'justify-end' : 'justify-start')}>
+                                                            <div className="max-w-[min(88%,34rem)]">
+                                                                <div className={cn(
+                                                                    'support-chat-bubble',
+                                                                    isAdmin ? 'support-chat-bubble-self' : 'support-chat-bubble-peer'
+                                                                )}>
+                                                                    {!isAdmin ? (
+                                                                        <div className="mb-2 flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">
+                                                                            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/10 text-[10px] font-black text-slate-200">
+                                                                                {getInitials(message.sender?.name || message.sender?.email || 'User')}
+                                                                            </span>
+                                                                            {message.sender?.name || message.sender?.email || 'User'}
+                                                                        </div>
+                                                                    ) : (
+                                                                        <div className="mb-2 flex items-center justify-end gap-2 text-[11px] font-black uppercase tracking-[0.18em] text-emerald-50/85">
+                                                                            Staff reply
+                                                                            <ShieldAlert className="h-3.5 w-3.5" />
+                                                                        </div>
+                                                                    )}
+                                                                    <div className="whitespace-pre-wrap text-[15px] leading-7 text-inherit">{message.text}</div>
+                                                                    <div className={cn(
+                                                                        'mt-3 text-right text-[11px] font-medium',
+                                                                        isAdmin ? 'text-emerald-50/75' : 'text-slate-400'
+                                                                    )}>
+                                                                        {formatMessageTime(sentAt)}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
                                                         </div>
                                                     )}
-                                                    <div className="whitespace-pre-wrap text-[15px] leading-relaxed">{message.text}</div>
-                                                    <div className={cn(
-                                                        'mt-2 text-right text-[10px] font-medium opacity-70',
-                                                        isAdmin ? 'text-cyan-100' : 'text-slate-400'
-                                                    )}>
-                                                        {sentAt ? new Date(sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
-                                                    </div>
                                                 </div>
-                                            </div>
-                                        );
-                                    })
+                                            );
+                                        })}
+                                    </div>
                                 )}
                                 <div ref={messagesEndRef} />
                             </div>
 
                             {activeTicket.status !== 'closed' ? (
-                                <form onSubmit={handleSendMessage} className="border-t border-white/10 bg-white/[0.03] p-4">
+                                <form onSubmit={handleSendMessage} className="support-chat-composer p-4">
                                     <div className="relative flex gap-3">
                                         <input
                                             type="text"
                                             value={newMessage}
                                             onChange={(e) => setNewMessage(e.target.value)}
                                             placeholder="Type your official response..."
-                                            className="admin-premium-control flex-1 border-none px-4 py-3.5 pr-14 font-medium"
+                                            className="support-chat-input flex-1 px-5 py-3.5 pr-14 font-medium"
                                         />
                                         <button
                                             type="submit"
                                             disabled={!newMessage.trim() || sending}
-                                            className="absolute bottom-2 right-2 top-2 aspect-square rounded-lg border border-cyan-300/20 bg-cyan-500/18 text-cyan-50 shadow-sm transition-colors hover:bg-cyan-500/28 disabled:opacity-50"
+                                            className="support-chat-send absolute bottom-2 right-2 top-2 aspect-square disabled:opacity-50"
                                         >
-                                            <Send className="ml-0.5 h-4 w-4" />
+                                            {sending ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Send className="ml-0.5 h-4 w-4" />}
                                         </button>
                                     </div>
                                 </form>
                             ) : (
-                                <div className="border-t border-white/10 bg-white/[0.03] p-4 text-center text-sm font-medium text-slate-400">
+                                <div className="support-chat-composer p-4 text-center text-sm font-medium text-slate-400">
                                     This ticket is closed. Reopen it to send a new message.
                                 </div>
                             )}
