@@ -27,13 +27,13 @@ Core capabilities:
 ## Split Runtime
 - Production backend is now intended to run as a long-lived Node service, not Vercel serverless.
 - Frontend can remain static/Vercel; backend should run with Mongo replica set support and Redis enabled.
-- The default hosted split-runtime target in this repo is now `Vercel frontend + Render backend`.
+- The default hosted split-runtime target in this repo is now `Vercel frontend + Azure Container Apps backend`.
 - Local split-runtime bootstrap:
   - `cd server`
   - `npm run runtime:split:up`
 - Deployment details and validation commands:
   - [`docs/split-runtime-deployment.md`](docs/split-runtime-deployment.md)
-  - [`infra/render/README.md`](infra/render/README.md)
+  - [`docs/azure-github-actions-backend.md`](docs/azure-github-actions-backend.md)
   - [`docs/performance-budgets.json`](docs/performance-budgets.json)
 
 ## Production Catalog + Search Gates

@@ -6,7 +6,7 @@
   - MongoDB replica set connectivity
   - Redis enabled and required
   - in-process workers for payment capture, order email, catalog sync, and reconciliation
-- The repo includes a Render deployment path under [`infra/render/README.md`](../infra/render/README.md) with managed Redis provisioning for production security controls.
+- The repo includes an Azure Container Apps deployment path under [`docs/azure-github-actions-backend.md`](./azure-github-actions-backend.md) and the scripts in [`infra/azure`](../infra/azure).
 
 ## Local Bootstrap
 1. `cd server`
