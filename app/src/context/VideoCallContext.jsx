@@ -10,10 +10,16 @@ const VideoCallContext = createContext(null);
 export const useVideoCall = () => useContext(VideoCallContext);
 
 let liveKitModulePromise = null;
+const LIVEKIT_ENGINE_TIMEOUT_FRAGMENT = 'engine not connected within timeout';
+const LIVEKIT_CONNECTION_READY_TIMEOUT_MS = 12000;
+const LIVEKIT_CONNECTION_SETTLE_MS = 300;
+const LIVEKIT_PUBLISH_RETRY_LIMIT = 2;
+const LIVEKIT_PUBLISH_RETRY_DELAY_MS = 1200;
 
 const loadLiveKitModule = async () => {
     if (!liveKitModulePromise) {
         liveKitModulePromise = import('livekit-client').then((module) => ({
+            ConnectionState: module.ConnectionState,
             Room: module.Room,
             RoomEvent: module.RoomEvent,
             Track: module.Track,
@@ -36,6 +42,60 @@ const stopStreamTracks = (stream) => {
 const buildMediaStreamFromTracks = (tracks = []) => {
     const nextTracks = tracks.filter(Boolean);
     return nextTracks.length > 0 ? new MediaStream(nextTracks) : null;
+};
+
+const waitForDelay = (durationMs) => new Promise((resolve) => {
+    window.setTimeout(resolve, durationMs);
+});
+
+const isLiveKitEngineTimeoutError = (error) => String(error?.message || '')
+    .toLowerCase()
+    .includes(LIVEKIT_ENGINE_TIMEOUT_FRAGMENT);
+
+const formatLiveCallErrorMessage = (message, fallback = 'Live call failed') => {
+    const nextMessage = String(message || '').trim();
+    if (!nextMessage) {
+        return fallback;
+    }
+
+    if (isLiveKitEngineTimeoutError({ message: nextMessage })) {
+        return 'Live call media took too long to initialize. Rejoin and try again.';
+    }
+
+    return nextMessage;
+};
+
+const buildMediaPublishWarning = (results = []) => {
+    const failedKinds = results
+        .filter((result) => !result?.enabled)
+        .map((result) => result.kind);
+
+    if (failedKinds.length === 0) {
+        return '';
+    }
+
+    if (failedKinds.length === 1 && failedKinds[0] === 'camera') {
+        return 'Camera could not start. The live call will continue with audio only.';
+    }
+
+    if (failedKinds.length === 1 && failedKinds[0] === 'microphone') {
+        return 'Microphone could not start. The live call will continue without your audio.';
+    }
+
+    return 'Some live-call media could not start. Rejoin if audio or video is missing.';
+};
+
+const buildMediaPublishFailureMessage = (results = []) => {
+    const failedResults = results.filter((result) => !result?.enabled);
+    if (failedResults.length === 0) {
+        return 'Live call media failed';
+    }
+
+    if (failedResults.every((result) => isLiveKitEngineTimeoutError(result?.error))) {
+        return 'Live call media took too long to initialize. Rejoin and try again.';
+    }
+
+    return 'Camera and microphone could not start for the live call. Check device permissions and try again.';
 };
 
 const readLiveCallMeta = (payload) => payload?.meta?.liveCall || payload?.liveCall || null;
@@ -166,7 +226,7 @@ export const VideoCallProvider = ({ children }) => {
     };
 
     const reportCallError = (message) => {
-        const nextMessage = String(message || 'Live call failed').trim() || 'Live call failed';
+        const nextMessage = formatLiveCallErrorMessage(message, 'Live call failed');
         setCallError(nextMessage);
         toast.error(nextMessage);
     };
@@ -224,8 +284,95 @@ export const VideoCallProvider = ({ children }) => {
         }
     };
 
+    const waitForRoomConnected = async (room, liveKitApi) => {
+        const { ConnectionState, RoomEvent } = liveKitApi;
+
+        if (room?.state === ConnectionState.Connected) {
+            await waitForDelay(LIVEKIT_CONNECTION_SETTLE_MS);
+            return;
+        }
+
+        await new Promise((resolve, reject) => {
+            let settled = false;
+            let timeoutId = null;
+
+            const cleanup = () => {
+                if (timeoutId) {
+                    window.clearTimeout(timeoutId);
+                    timeoutId = null;
+                }
+                room.off(RoomEvent.Connected, handleConnected);
+                room.off(RoomEvent.Disconnected, handleDisconnected);
+            };
+
+            const finish = (callback) => {
+                if (settled) {
+                    return;
+                }
+                settled = true;
+                cleanup();
+                callback();
+            };
+
+            const handleConnected = () => {
+                finish(resolve);
+            };
+
+            const handleDisconnected = () => {
+                finish(() => reject(new Error('Live call disconnected before media could start.')));
+            };
+
+            timeoutId = window.setTimeout(() => {
+                finish(() => reject(new Error('Live call connection did not finish initializing in time.')));
+            }, LIVEKIT_CONNECTION_READY_TIMEOUT_MS);
+
+            room.on(RoomEvent.Connected, handleConnected);
+            room.on(RoomEvent.Disconnected, handleDisconnected);
+        });
+
+        await waitForDelay(LIVEKIT_CONNECTION_SETTLE_MS);
+    };
+
+    const enableRoomParticipantTrack = async ({ room, liveKitApi, kind }) => {
+        const run = kind === 'camera'
+            ? () => room.localParticipant.setCameraEnabled(true)
+            : () => room.localParticipant.setMicrophoneEnabled(true);
+
+        let lastError = null;
+
+        for (let attempt = 1; attempt <= LIVEKIT_PUBLISH_RETRY_LIMIT; attempt += 1) {
+            try {
+                await waitForRoomConnected(room, liveKitApi);
+                await run();
+                return {
+                    kind,
+                    enabled: true,
+                    error: null,
+                };
+            } catch (error) {
+                lastError = error;
+                const shouldRetry = isLiveKitEngineTimeoutError(error)
+                    && attempt < LIVEKIT_PUBLISH_RETRY_LIMIT
+                    && room?.state !== liveKitApi.ConnectionState.Disconnected;
+
+                if (!shouldRetry) {
+                    break;
+                }
+
+                await waitForDelay(LIVEKIT_PUBLISH_RETRY_DELAY_MS * attempt);
+            }
+        }
+
+        return {
+            kind,
+            enabled: false,
+            error: lastError,
+        };
+    };
+
     const connectSupportRoom = async ({ session, nextContext, status = 'calling' }) => {
-        const { Room, RoomEvent, Track } = await loadLiveKitModule();
+        const liveKitApi = await loadLiveKitModule();
+        const { Room, RoomEvent, Track } = liveKitApi;
         const room = new Room();
         supportRoomRef.current = room;
         supportSessionRef.current = session;
@@ -258,9 +405,25 @@ export const VideoCallProvider = ({ children }) => {
             reportCallError(error?.message || 'Unable to access camera or microphone');
         });
 
+        if (typeof room.prepareConnection === 'function') {
+            void room.prepareConnection(session.wsUrl, session.accessToken).catch(() => null);
+        }
+
         await room.connect(session.wsUrl, session.accessToken);
-        await room.localParticipant.setCameraEnabled(true);
-        await room.localParticipant.setMicrophoneEnabled(true);
+        await waitForRoomConnected(room, liveKitApi);
+
+        const mediaResults = [];
+        mediaResults.push(await enableRoomParticipantTrack({ room, liveKitApi, kind: 'camera' }));
+        mediaResults.push(await enableRoomParticipantTrack({ room, liveKitApi, kind: 'microphone' }));
+        const enabledMediaCount = mediaResults.filter((result) => result.enabled).length;
+        if (enabledMediaCount === 0) {
+            throw new Error(buildMediaPublishFailureMessage(mediaResults));
+        }
+
+        const warningMessage = buildMediaPublishWarning(mediaResults);
+        if (warningMessage) {
+            toast.warning(warningMessage);
+        }
 
         setActiveCallContext(nextContext);
         callContextRef.current = nextContext;
