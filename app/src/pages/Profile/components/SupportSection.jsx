@@ -23,6 +23,7 @@ import { useVideoCall } from '@/context/VideoCallContext';
 
 const TICKET_LIST_POLL_MS = 25000;
 const ACTIVE_TICKET_POLL_MS = 15000;
+const SUPPORT_MESSAGE_MAX_LENGTH = 2000;
 
 const CATEGORY_OPTIONS = [
     {
@@ -267,6 +268,7 @@ export default function SupportSection({
 
     const messagesEndRef = useRef(null);
     const messagesContainerRef = useRef(null);
+    const composerRef = useRef(null);
     const shouldStickToBottomRef = useRef(true);
     const pendingScrollBehaviorRef = useRef('auto');
     const messageSignatureRef = useRef('');
@@ -386,6 +388,25 @@ export default function SupportSection({
             block: 'end',
         });
     }, [messages]);
+
+    useEffect(() => {
+        const composer = composerRef.current;
+        if (!composer) return;
+
+        composer.style.height = '0px';
+        const nextHeight = Math.min(Math.max(composer.scrollHeight, 56), 180);
+        composer.style.height = `${nextHeight}px`;
+    }, [activeTicketId, newMessage]);
+
+    useEffect(() => {
+        if (!activeTicketId || creating) return undefined;
+
+        const focusTimer = window.setTimeout(() => {
+            composerRef.current?.focus();
+        }, 120);
+
+        return () => window.clearTimeout(focusTimer);
+    }, [activeTicketId, creating]);
 
     useEffect(() => {
         if (launchRef.current === supportLaunchSignature) return;
@@ -617,6 +638,10 @@ export default function SupportSection({
             : activeTicket?.liveCallRequested
                 ? 'Live call queued'
                 : 'Escalate to live call';
+    const supportComposerConnectionCopy = isConnected
+        ? 'Realtime is connected for this thread.'
+        : `Realtime is reconnecting. Aura refreshes this chat every ${Math.round(ACTIVE_TICKET_POLL_MS / 1000)} seconds.`;
+    const supportCharacterCount = String(newMessage || '').length;
     const liveCallStatusCopy = isActiveSupportCall
         ? 'Aura Support is already ringing or connected on this ticket.'
         : activeTicket?.liveCallRequested
@@ -1150,14 +1175,24 @@ export default function SupportSection({
 
                         {activeTicket.status !== 'closed' ? (
                             <form onSubmit={handleSendMessage} className="support-chat-composer px-4 py-4 sm:px-6">
-                                <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+                                <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
                                     <div className="relative min-w-0 flex-1">
-                                        <input
-                                            type="text"
+                                        <textarea
+                                            ref={composerRef}
                                             value={newMessage}
                                             onChange={(event) => setNewMessage(event.target.value)}
+                                            onKeyDown={(event) => {
+                                                if (event.key === 'Enter' && !event.shiftKey) {
+                                                    event.preventDefault();
+                                                    if (!sending && String(newMessage || '').trim()) {
+                                                        void handleSendMessage(event);
+                                                    }
+                                                }
+                                            }}
+                                            rows={1}
+                                            maxLength={SUPPORT_MESSAGE_MAX_LENGTH}
                                             placeholder={activeTicket.userActionRequired ? 'Reply to Aura Support and keep things moving...' : 'Type a message...'}
-                                            className="support-chat-input px-5 py-3.5 pr-16 text-sm"
+                                            className="support-chat-input min-h-[3.5rem] max-h-44 resize-none overflow-y-auto px-5 py-4 pr-16 text-sm leading-6"
                                         />
                                         <button
                                             type="submit"
@@ -1176,6 +1211,19 @@ export default function SupportSection({
                                         {requestingLiveCall ? <RefreshCw className="h-4 w-4 animate-spin" /> : <PhoneCall className="h-4 w-4" />}
                                         {liveCallComposerLabel}
                                     </button>
+                                </div>
+                                <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[11px] font-semibold text-slate-400">
+                                    <div className="flex items-center gap-2">
+                                        {isConnected ? <Wifi className="h-3.5 w-3.5 text-emerald-200" /> : <WifiOff className="h-3.5 w-3.5 text-amber-200" />}
+                                        <span>{supportComposerConnectionCopy}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span>Enter sends</span>
+                                        <span className="text-slate-600">|</span>
+                                        <span>Shift+Enter adds a new line</span>
+                                        <span className="text-slate-600">|</span>
+                                        <span>{supportCharacterCount}/{SUPPORT_MESSAGE_MAX_LENGTH}</span>
+                                    </div>
                                 </div>
                             </form>
                         ) : (

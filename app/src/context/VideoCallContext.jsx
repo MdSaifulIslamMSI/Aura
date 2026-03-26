@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { useAuth } from './AuthContext';
 import { useSocketDemand } from './SocketContext';
@@ -43,6 +43,10 @@ const buildMediaStreamFromTracks = (tracks = []) => {
     const nextTracks = tracks.filter(Boolean);
     return nextTracks.length > 0 ? new MediaStream(nextTracks) : null;
 };
+
+const getVideoTrackDeviceId = (stream) => String(
+    stream?.getVideoTracks?.()?.[0]?.getSettings?.()?.deviceId || ''
+).trim();
 
 const waitForDelay = (durationMs) => new Promise((resolve) => {
     window.setTimeout(resolve, durationMs);
@@ -183,6 +187,11 @@ export const VideoCallProvider = ({ children }) => {
     const [callStatus, setCallStatus] = useState('idle');
     const [callerInfo, setCallerInfo] = useState(null);
     const [callError, setCallError] = useState('');
+    const [roomConnectionState, setRoomConnectionState] = useState('idle');
+    const [remoteParticipantCount, setRemoteParticipantCount] = useState(0);
+    const [videoInputDevices, setVideoInputDevices] = useState([]);
+    const [activeVideoInputId, setActiveVideoInputId] = useState('');
+    const [switchingCamera, setSwitchingCamera] = useState(false);
 
     const callContextRef = useRef(null);
     const supportRoomRef = useRef(null);
@@ -215,6 +224,45 @@ export const VideoCallProvider = ({ children }) => {
         callStatusRef.current = callStatus;
     }, [callStatus]);
 
+    useEffect(() => {
+        if (callStatus === 'idle') return undefined;
+
+        const handleBeforeUnload = (event) => {
+            event.preventDefault();
+            event.returnValue = '';
+            return '';
+        };
+
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }, [callStatus]);
+
+    const refreshVideoInputDevices = useCallback(async () => {
+        if (!navigator?.mediaDevices?.enumerateDevices) {
+            setVideoInputDevices([]);
+            setActiveVideoInputId(getVideoTrackDeviceId(localStreamRef.current));
+            return [];
+        }
+
+        try {
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const nextInputs = devices
+                .filter((device) => device.kind === 'videoinput')
+                .map((device, index) => ({
+                    deviceId: String(device.deviceId || ''),
+                    label: String(device.label || `Camera ${index + 1}`),
+                }));
+
+            setVideoInputDevices(nextInputs);
+            setActiveVideoInputId(getVideoTrackDeviceId(localStreamRef.current));
+            return nextInputs;
+        } catch {
+            setVideoInputDevices([]);
+            setActiveVideoInputId(getVideoTrackDeviceId(localStreamRef.current));
+            return [];
+        }
+    }, []);
+
     const setLocalMediaStream = (stream) => {
         localStreamRef.current = stream || null;
         setLocalStream(stream || null);
@@ -224,6 +272,19 @@ export const VideoCallProvider = ({ children }) => {
         remoteStreamRef.current = stream || null;
         setRemoteStream(stream || null);
     };
+
+    useEffect(() => {
+        if (callStatus === 'idle' || !navigator?.mediaDevices?.addEventListener) {
+            return undefined;
+        }
+
+        const handleDeviceChange = () => {
+            void refreshVideoInputDevices();
+        };
+
+        navigator.mediaDevices.addEventListener('devicechange', handleDeviceChange);
+        return () => navigator.mediaDevices.removeEventListener('devicechange', handleDeviceChange);
+    }, [callStatus, refreshVideoInputDevices]);
 
     const reportCallError = (message) => {
         const nextMessage = formatLiveCallErrorMessage(message, 'Live call failed');
@@ -253,6 +314,11 @@ export const VideoCallProvider = ({ children }) => {
         setRemoteMediaStream(null);
         setCallStatus('idle');
         setCallerInfo(null);
+        setRoomConnectionState('idle');
+        setRemoteParticipantCount(0);
+        setVideoInputDevices([]);
+        setActiveVideoInputId('');
+        setSwitchingCamera(false);
         setActiveCallContext(null);
         callContextRef.current = null;
         if (!preserveError) {
@@ -267,6 +333,9 @@ export const VideoCallProvider = ({ children }) => {
 
         setLocalMediaStream(collectLocalTracks(room, trackApi));
         setRemoteMediaStream(collectRemoteTracks(room));
+        setRemoteParticipantCount(room.remoteParticipants.size);
+        setRoomConnectionState((previous) => (previous === 'reconnecting' ? previous : 'connected'));
+        await refreshVideoInputDevices();
 
         if (room.remoteParticipants.size > 0) {
             setCallStatus('connected');
@@ -377,6 +446,8 @@ export const VideoCallProvider = ({ children }) => {
         supportRoomRef.current = room;
         supportSessionRef.current = session;
         supportMarkedConnectedRef.current = false;
+        setRoomConnectionState('connecting');
+        setRemoteParticipantCount(0);
 
         room.on(RoomEvent.LocalTrackPublished, () => {
             void syncSupportRoomState(room, Track);
@@ -396,6 +467,21 @@ export const VideoCallProvider = ({ children }) => {
         room.on(RoomEvent.ParticipantDisconnected, () => {
             void syncSupportRoomState(room, Track);
         });
+        if (RoomEvent.Reconnecting) {
+            room.on(RoomEvent.Reconnecting, () => {
+                if (supportRoomRef.current === room) {
+                    setRoomConnectionState('reconnecting');
+                }
+            });
+        }
+        if (RoomEvent.Reconnected) {
+            room.on(RoomEvent.Reconnected, () => {
+                if (supportRoomRef.current === room) {
+                    setRoomConnectionState('connected');
+                    void syncSupportRoomState(room, Track);
+                }
+            });
+        }
         room.on(RoomEvent.Disconnected, () => {
             if (supportRoomRef.current === room) {
                 void cleanupCallState({ disconnectSupportRoom: false });
@@ -411,6 +497,7 @@ export const VideoCallProvider = ({ children }) => {
 
         await room.connect(session.wsUrl, session.accessToken);
         await waitForRoomConnected(room, liveKitApi);
+        setRoomConnectionState('connected');
 
         const mediaResults = [];
         mediaResults.push(await enableRoomParticipantTrack({ room, liveKitApi, kind: 'camera' }));
@@ -454,6 +541,8 @@ export const VideoCallProvider = ({ children }) => {
         try {
             setCallError('');
             setCallerInfo(request.callerName ? { name: request.callerName } : null);
+            setRoomConnectionState('connecting');
+            setRemoteParticipantCount(0);
             setActiveCallContext({
                 ...request,
                 supportTicketId: request.channelType === 'support_ticket' ? contextId : '',
@@ -540,6 +629,8 @@ export const VideoCallProvider = ({ children }) => {
             setCallerInfo((previous) => previous || {
                 name: request.callerName || (request.channelType === 'support_ticket' ? 'Aura Support' : 'Marketplace user'),
             });
+            setRoomConnectionState('connecting');
+            setRemoteParticipantCount(0);
             setActiveCallContext({
                 ...request,
                 supportTicketId: request.channelType === 'support_ticket' ? contextId : '',
@@ -655,6 +746,53 @@ export const VideoCallProvider = ({ children }) => {
         return terminateLiveKitCall({ reason: nextReason });
     };
 
+    const switchCamera = useCallback(async () => {
+        if (switchingCamera) {
+            return false;
+        }
+
+        const room = supportRoomRef.current;
+        if (!room || typeof room.switchActiveDevice !== 'function') {
+            toast.error('Camera switching is not available in this call yet.');
+            return false;
+        }
+
+        const devices = await refreshVideoInputDevices();
+        const nextDevices = Array.isArray(devices) && devices.length > 0 ? devices : videoInputDevices;
+        if (nextDevices.length < 2) {
+            toast.error('Connect another camera to switch video input.');
+            return false;
+        }
+
+        const currentDeviceId = String(activeVideoInputId || getVideoTrackDeviceId(localStreamRef.current) || '').trim();
+        const currentIndex = nextDevices.findIndex((device) => String(device.deviceId || '') === currentDeviceId);
+        const nextIndex = currentIndex >= 0
+            ? (currentIndex + 1) % nextDevices.length
+            : 0;
+        const nextDevice = nextDevices[nextIndex];
+
+        if (!nextDevice?.deviceId || String(nextDevice.deviceId) === currentDeviceId) {
+            return false;
+        }
+
+        try {
+            setSwitchingCamera(true);
+            await room.switchActiveDevice('videoinput', nextDevice.deviceId);
+            await waitForDelay(250);
+            const liveKitApi = await loadLiveKitModule();
+            await syncSupportRoomState(room, liveKitApi.Track);
+            await refreshVideoInputDevices();
+            toast.success(`Switched to ${nextDevice.label || 'next camera'}`);
+            return true;
+        } catch (error) {
+            console.error('LiveKit: Failed to switch camera', error);
+            toast.error(error?.message || 'Unable to switch camera');
+            return false;
+        } finally {
+            setSwitchingCamera(false);
+        }
+    }, [activeVideoInputId, refreshVideoInputDevices, switchingCamera, videoInputDevices]);
+
     useEffect(() => {
         if (!socket) return undefined;
 
@@ -670,6 +808,8 @@ export const VideoCallProvider = ({ children }) => {
             };
 
             setCallerInfo({ userId: payload.fromUserId, name: payload.fromName });
+            setRoomConnectionState('idle');
+            setRemoteParticipantCount(0);
             setActiveCallContext(nextContext);
             callContextRef.current = nextContext;
             setCallStatus('incoming');
@@ -709,12 +849,22 @@ export const VideoCallProvider = ({ children }) => {
             joinCall: joinLiveKitCall,
             answerCall,
             hangUp,
+            switchCamera,
             joinSupportCall: joinLiveKitCall,
             callStatus,
             activeListingId: activeCallContext?.listingId || null,
             activeCallContext,
             callerInfo,
             callError,
+            callMeta: {
+                roomConnectionState,
+                remoteParticipantCount,
+                participantCount: 1 + Number(remoteParticipantCount || 0),
+                canSwitchCamera: videoInputDevices.length > 1,
+                availableCameraCount: videoInputDevices.length,
+                activeVideoInputId,
+                switchingCamera,
+            },
             clearCallError: () => setCallError(''),
         }}>
             {children}
@@ -725,8 +875,18 @@ export const VideoCallProvider = ({ children }) => {
                 callerInfo={callerInfo}
                 callContext={activeCallContext}
                 callError={callError}
+                callMeta={{
+                    roomConnectionState,
+                    remoteParticipantCount,
+                    participantCount: 1 + Number(remoteParticipantCount || 0),
+                    canSwitchCamera: videoInputDevices.length > 1,
+                    availableCameraCount: videoInputDevices.length,
+                    activeVideoInputId,
+                    switchingCamera,
+                }}
                 onAnswer={answerCall}
                 onHangUp={hangUp}
+                onSwitchCamera={switchCamera}
             />
         </VideoCallContext.Provider>
     );
