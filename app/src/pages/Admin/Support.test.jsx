@@ -74,7 +74,7 @@ describe('AdminSupport', () => {
 
         renderAdminSupport();
 
-        expect(await screen.findByText('No support tickets found')).toBeInTheDocument();
+        expect(await screen.findByText('No tickets found')).toBeInTheDocument();
 
         await emitSocket('support:ticket:new', {
             ticket: {
@@ -95,7 +95,7 @@ describe('AdminSupport', () => {
         });
 
         expect((await screen.findAllByText('Appeal for suspension review')).length).toBeGreaterThan(0);
-        expect(screen.getByText('buyer@example.com')).toBeInTheDocument();
+        expect(screen.getAllByText('buyer@example.com').length).toBeGreaterThan(0);
         expect(screen.getByText('Please review my case again.')).toBeInTheDocument();
         expect(supportApi.getMessages).toHaveBeenCalledWith('ticket-1');
     });

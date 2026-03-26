@@ -79,16 +79,45 @@ const VideoCallOverlay = ({
     const ignoreNextPopstateRef = useRef(false);
     const miniOffsetX = useMotionValue(0);
     const miniOffsetY = useMotionValue(0);
+    const isSupportCall = callContext?.channelType === 'support_ticket';
+    const mediaMode = callContext?.mediaMode === 'voice' ? 'voice' : 'video';
+    const isVoiceCall = mediaMode === 'voice';
+    const callerName = callerInfo?.name || (isSupportCall ? 'Aura Support' : 'Marketplace peer');
+    const callLabel = callContext?.contextLabel || (isSupportCall ? 'Aura Support live call' : 'Marketplace live inspection');
+    const remoteParticipantCount = Number(callMeta?.remoteParticipantCount || 0);
+    const participantCount = Math.max(1, Number(callMeta?.participantCount || (1 + remoteParticipantCount)));
+    const isReconnecting = callMeta?.roomConnectionState === 'reconnecting';
+    const canSwitchCamera = Boolean(callMeta?.canSwitchCamera && typeof onSwitchCamera === 'function');
+    const switchingCamera = Boolean(callMeta?.switchingCamera);
+    const hasRemoteVideo = Boolean(remoteStream && remoteStream.getTracks?.().length);
+    const hasLocalVideo = Boolean(localStream && localStream.getVideoTracks?.().length);
+    const showAnswerControls = callStatus === 'incoming';
+    const showConnectedControls = callStatus === 'connected';
+    const showDialingControls = callStatus === 'calling';
+    const showLocalVideoBackdrop = hasLocalVideo && !isVoiceCall && !hasRemoteVideo && !isMinimized && !isVideoOff;
+    const showMiniLocalPreview = hasLocalVideo && !isMinimized && !isVoiceCall && !showLocalVideoBackdrop;
+    const showElapsed = showDialingControls || showConnectedControls;
+    const elapsedLabel = formatElapsedDuration(elapsedSeconds);
+    const participantStatusCopy = remoteParticipantCount > 0
+        ? `${participantCount} people on call`
+        : 'Waiting for the other participant';
+    const statusCopy = isReconnecting
+        ? 'Reconnecting call...'
+        : showConnectedControls && remoteParticipantCount === 0
+            ? 'Waiting for other participant'
+            : getStatusCopy(callStatus, isSupportCall, mediaMode);
 
     useEffect(() => {
-        if (localVideoRef.current) {
+        if (showMiniLocalPreview && localVideoRef.current) {
             localVideoRef.current.srcObject = localStream || null;
         }
+    }, [localStream, showMiniLocalPreview]);
 
-        if (localBackdropVideoRef.current) {
+    useEffect(() => {
+        if (showLocalVideoBackdrop && localBackdropVideoRef.current) {
             localBackdropVideoRef.current.srcObject = localStream || null;
         }
-    }, [localStream]);
+    }, [localStream, showLocalVideoBackdrop]);
 
     useEffect(() => {
         if (remoteVideoRef.current) {
@@ -169,34 +198,6 @@ const VideoCallOverlay = ({
             overlayHistoryActiveRef.current = false;
         }
     }, []);
-
-    const isSupportCall = callContext?.channelType === 'support_ticket';
-    const mediaMode = callContext?.mediaMode === 'voice' ? 'voice' : 'video';
-    const isVoiceCall = mediaMode === 'voice';
-    const callerName = callerInfo?.name || (isSupportCall ? 'Aura Support' : 'Marketplace peer');
-    const callLabel = callContext?.contextLabel || (isSupportCall ? 'Aura Support live call' : 'Marketplace live inspection');
-    const remoteParticipantCount = Number(callMeta?.remoteParticipantCount || 0);
-    const participantCount = Math.max(1, Number(callMeta?.participantCount || (1 + remoteParticipantCount)));
-    const isReconnecting = callMeta?.roomConnectionState === 'reconnecting';
-    const canSwitchCamera = Boolean(callMeta?.canSwitchCamera && typeof onSwitchCamera === 'function');
-    const switchingCamera = Boolean(callMeta?.switchingCamera);
-    const hasRemoteVideo = Boolean(remoteStream && remoteStream.getTracks?.().length);
-    const hasLocalVideo = Boolean(localStream && localStream.getVideoTracks?.().length);
-    const showAnswerControls = callStatus === 'incoming';
-    const showConnectedControls = callStatus === 'connected';
-    const showDialingControls = callStatus === 'calling';
-    const showLocalVideoBackdrop = hasLocalVideo && !isVoiceCall && !hasRemoteVideo && !isMinimized && !isVideoOff;
-    const showMiniLocalPreview = hasLocalVideo && !isMinimized && !isVoiceCall && !showLocalVideoBackdrop;
-    const showElapsed = showDialingControls || showConnectedControls;
-    const elapsedLabel = formatElapsedDuration(elapsedSeconds);
-    const participantStatusCopy = remoteParticipantCount > 0
-        ? `${participantCount} people on call`
-        : 'Waiting for the other participant';
-    const statusCopy = isReconnecting
-        ? 'Reconnecting call...'
-        : showConnectedControls && remoteParticipantCount === 0
-            ? 'Waiting for other participant'
-            : getStatusCopy(callStatus, isSupportCall, mediaMode);
 
     useEffect(() => {
         if (callStatus === 'idle' || isMinimized || overlayHistoryActiveRef.current) {
