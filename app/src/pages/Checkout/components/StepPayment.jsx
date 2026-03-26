@@ -1,4 +1,5 @@
-import { AlertCircle, Building2, CheckCircle2, CreditCard, Loader2, ShieldCheck, Smartphone, Wallet } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { AlertCircle, Building2, CheckCircle2, CreditCard, Loader2, Search, ShieldCheck, Smartphone, Wallet } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const PAYMENT_OPTIONS = [
@@ -32,7 +33,9 @@ const getPaymentStatusMessage = (paymentIntent = {}) => {
 const humanizeSavedMethod = (method) => {
     const type = String(method.type || '').trim().toLowerCase();
     const typeLabel = type === 'bank' ? 'NETBANKING' : type.toUpperCase();
-    const brand = method.brand || '';
+    const brand = type === 'bank'
+        ? method?.metadata?.bankName || method.brand || method?.metadata?.bankCode || ''
+        : method.brand || '';
     const last4 = method.last4 ? `**** ${method.last4}` : '';
     return [typeLabel, brand, last4].filter(Boolean).join(' ');
 };
@@ -58,11 +61,35 @@ const StepPayment = ({
     onSendChallengeOtp,
     onMarkChallengeComplete,
     isChallengeLoading = false,
+    netbankingCatalog = null,
+    isNetbankingCatalogLoading = false,
+    selectedNetbankingBank = null,
+    onSelectNetbankingBank,
 }) => {
+    const [bankSearch, setBankSearch] = useState('');
     const isDigital = paymentMethod !== 'COD';
+    const isNetbanking = paymentMethod === 'NETBANKING';
     const paymentStatus = String(paymentIntent?.status || 'idle').trim().toLowerCase();
     const paymentReady = paymentStatus === 'authorized' || paymentStatus === 'captured';
     const actionLabel = paymentReady ? 'Payment Authorized' : 'Pay Securely';
+    const selectedBankCode = String(selectedNetbankingBank?.code || '').trim().toUpperCase();
+    const featuredBanks = Array.isArray(netbankingCatalog?.featuredBanks) ? netbankingCatalog.featuredBanks : [];
+    const filteredBanks = useMemo(() => {
+        const banks = Array.isArray(netbankingCatalog?.banks) ? netbankingCatalog.banks : [];
+        const query = String(bankSearch || '').trim().toLowerCase();
+        if (!query) return banks.slice(0, 18);
+        return banks
+            .filter((bank) => {
+                const code = String(bank?.code || '').trim().toLowerCase();
+                const name = String(bank?.name || '').trim().toLowerCase();
+                return code.includes(query) || name.includes(query);
+            })
+            .slice(0, 18);
+    }, [bankSearch, netbankingCatalog?.banks]);
+    const paymentDisabled = isProcessingPayment
+        || (challengeRequired && !challengeVerified)
+        || paymentReady
+        || (isNetbanking && !selectedBankCode);
 
     return (
         <section
@@ -138,6 +165,126 @@ const StepPayment = ({
                         </div>
                     ) : null}
 
+                    {isNetbanking ? (
+                        <div className="checkout-premium-surface space-y-4">
+                            <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                                <div>
+                                    <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-400">NetBanking Directory</p>
+                                    <p className="mt-2 text-sm text-slate-300">Pick the bank you want locked into this secure checkout session.</p>
+                                </div>
+                                {isNetbankingCatalogLoading ? (
+                                    <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.2em] text-neo-cyan">
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                        Syncing banks
+                                    </div>
+                                ) : null}
+                            </div>
+
+                            {netbankingCatalog?.stale ? (
+                                <div className="checkout-premium-alert border-amber-500/30 bg-amber-500/10 text-amber-200">
+                                    Live bank availability could not be refreshed, so checkout is using the last known directory.
+                                </div>
+                            ) : null}
+
+                            {selectedNetbankingBank ? (
+                                <div className="checkout-premium-alert border-emerald-500/30 bg-emerald-500/10 text-emerald-200">
+                                    <p className="text-xs font-black uppercase tracking-[0.2em]">Selected Bank</p>
+                                    <p className="mt-2 text-sm font-semibold text-white">{selectedNetbankingBank.name}</p>
+                                    <p className="mt-1 text-xs text-emerald-100/90">Provider code: {selectedNetbankingBank.code}</p>
+                                </div>
+                            ) : (
+                                <div className="checkout-premium-alert border-slate-500/30 bg-slate-500/10 text-slate-200">
+                                    Choose a bank before launching netbanking checkout.
+                                </div>
+                            )}
+
+                            {featuredBanks.length > 0 ? (
+                                <div className="space-y-3">
+                                    <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Featured Banks</p>
+                                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                                        {featuredBanks.map((bank) => {
+                                            const selected = selectedBankCode === String(bank.code || '').trim().toUpperCase();
+                                            return (
+                                                <button
+                                                    key={bank.code}
+                                                    type="button"
+                                                    onClick={() => onSelectNetbankingBank?.(bank)}
+                                                    className={cn(
+                                                        'checkout-premium-option text-left',
+                                                        selected && 'checkout-premium-option-active'
+                                                    )}
+                                                >
+                                                    <div className="flex items-center justify-between gap-3">
+                                                        <div>
+                                                            <p className="text-sm font-black uppercase tracking-[0.18em] text-white">{bank.name}</p>
+                                                            <p className="mt-1 text-[11px] text-slate-400">{bank.code}</p>
+                                                        </div>
+                                                        {bank.isDefaultSaved ? (
+                                                            <span className="premium-chip-muted text-[10px] font-black uppercase tracking-[0.18em] text-emerald-200">Default</span>
+                                                        ) : bank.isSaved ? (
+                                                            <span className="premium-chip-muted text-[10px] font-black uppercase tracking-[0.18em] text-neo-cyan">Saved</span>
+                                                        ) : null}
+                                                    </div>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            ) : null}
+
+                            <label className="block">
+                                <span className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Search Bank</span>
+                                <div className="relative mt-3">
+                                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+                                    <input
+                                        value={bankSearch}
+                                        onChange={(event) => setBankSearch(event.target.value)}
+                                        placeholder="Search by bank name or code"
+                                        className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-10 py-3 text-sm text-white outline-none transition focus:border-neo-cyan/60 focus:ring-2 focus:ring-neo-cyan/20"
+                                    />
+                                </div>
+                            </label>
+
+                            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                                {filteredBanks.map((bank) => {
+                                    const selected = selectedBankCode === String(bank.code || '').trim().toUpperCase();
+                                    return (
+                                        <button
+                                            key={bank.code}
+                                            type="button"
+                                            onClick={() => onSelectNetbankingBank?.(bank)}
+                                            className={cn(
+                                                'checkout-premium-option w-full text-left',
+                                                selected && 'checkout-premium-option-active'
+                                            )}
+                                        >
+                                            <div className="flex items-start justify-between gap-3">
+                                                <div>
+                                                    <p className="text-sm font-semibold text-white">{bank.name}</p>
+                                                    <p className="mt-1 text-[11px] uppercase tracking-[0.18em] text-slate-400">{bank.code}</p>
+                                                </div>
+                                                <div className="flex flex-col items-end gap-1">
+                                                    {bank.isDefaultSaved ? (
+                                                        <span className="premium-chip-muted text-[10px] font-black uppercase tracking-[0.18em] text-emerald-200">Default</span>
+                                                    ) : null}
+                                                    {bank.isSaved && !bank.isDefaultSaved ? (
+                                                        <span className="premium-chip-muted text-[10px] font-black uppercase tracking-[0.18em] text-neo-cyan">Saved</span>
+                                                    ) : null}
+                                                </div>
+                                            </div>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+
+                            {!isNetbankingCatalogLoading && filteredBanks.length === 0 ? (
+                                <div className="checkout-premium-alert border-slate-500/30 bg-slate-500/10 text-slate-200">
+                                    No banks matched your search. Try the official bank code or a shorter name fragment.
+                                </div>
+                            ) : null}
+                        </div>
+                    ) : null}
+
                     {isDigital ? (
                         <div className="checkout-premium-surface space-y-4">
                             <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-400">
@@ -190,7 +337,7 @@ const StepPayment = ({
                             <button
                                 type="button"
                                 onClick={onExecutePayment}
-                                disabled={isProcessingPayment || (challengeRequired && !challengeVerified) || paymentReady}
+                                disabled={paymentDisabled}
                                 className="checkout-premium-primary w-full px-5 py-3 text-xs font-black uppercase tracking-[0.24em] disabled:opacity-60 sm:w-auto"
                             >
                                 {isProcessingPayment ? (
@@ -200,6 +347,10 @@ const StepPayment = ({
                                     </span>
                                 ) : actionLabel}
                             </button>
+
+                            {isNetbanking && !selectedNetbankingBank ? (
+                                <p className="text-xs text-slate-400">Select a supported bank to unlock secure netbanking authorization.</p>
+                            ) : null}
 
                             {paymentStatus && paymentStatus !== 'idle' ? (
                                 <div className={cn('checkout-premium-alert', STATUS_STYLES[paymentStatus] || STATUS_STYLES.created)}>

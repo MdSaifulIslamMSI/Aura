@@ -10,6 +10,7 @@ const {
     createRefund,
     handleRazorpayWebhook,
     getPaymentMethods,
+    getNetbankingBanks,
     addPaymentMethod,
     makeDefaultPaymentMethod,
     removePaymentMethod,
@@ -33,6 +34,7 @@ router.get('/intents/:intentId', protect, validate(getIntentSchema), getIntent);
 router.post('/intents/:intentId/refunds', protect, requireActiveAccount, requireOtpAssurance, validate(refundSchema), createRefund);
 
 router.get('/methods', protect, getPaymentMethods);
+router.get('/netbanking/banks', protect, getNetbankingBanks);
 router.post('/methods', protect, requireActiveAccount, requireOtpAssurance, validate(paymentMethodSchema), addPaymentMethod);
 router.patch('/methods/:methodId/default', protect, requireActiveAccount, requireOtpAssurance, validate(methodIdParamSchema), makeDefaultPaymentMethod);
 router.delete('/methods/:methodId', protect, requireActiveAccount, requireOtpAssurance, validate(methodIdParamSchema), removePaymentMethod);

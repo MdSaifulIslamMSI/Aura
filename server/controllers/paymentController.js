@@ -16,6 +16,7 @@ const {
     createRefundForIntent,
     markChallengeVerified,
     listUserPaymentMethods,
+    listNetbankingBanks,
     saveUserPaymentMethod,
     deleteUserPaymentMethod,
     setDefaultPaymentMethod,
@@ -505,6 +506,7 @@ const createIntent = asyncHandler(async (req, res, next) => {
                     quoteSnapshot: req.body.quoteSnapshot,
                     paymentMethod: req.body.paymentMethod,
                     savedMethodId: req.body.savedMethodId,
+                    paymentContext: req.body.paymentContext || {},
                     deviceContext: req.body.deviceContext || {},
                     requestMeta: getRequestMeta(req),
                 });
@@ -668,6 +670,19 @@ const getPaymentMethods = asyncHandler(async (req, res, next) => {
     } catch (error) {
         if (error instanceof AppError) return next(error);
         return next(new AppError(error.message || 'Failed to fetch payment methods', 500));
+    }
+});
+
+// @desc    List supported netbanking banks for secure checkout
+// @route   GET /api/payments/netbanking/banks
+// @access  Private
+const getNetbankingBanks = asyncHandler(async (req, res, next) => {
+    try {
+        const catalog = await listNetbankingBanks({ userId: req.user._id });
+        return res.json(catalog);
+    } catch (error) {
+        if (error instanceof AppError) return next(error);
+        return next(new AppError(error.message || 'Failed to fetch netbanking banks', 500));
     }
 });
 
@@ -855,6 +870,7 @@ module.exports = {
     createRefund,
     handleRazorpayWebhook,
     getPaymentMethods,
+    getNetbankingBanks,
     addPaymentMethod,
     makeDefaultPaymentMethod,
     removePaymentMethod,

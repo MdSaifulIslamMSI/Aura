@@ -51,6 +51,8 @@ describe('RazorpayProvider signature verification security', () => {
             brand: 'HDFC',
             last4: '',
             providerMethodId: 'HDFC',
+            bankCode: 'HDFC',
+            bankName: 'HDFC',
         });
     });
 });

@@ -53,6 +53,12 @@ const {
     updateOrderCommandRefundEntry,
     getPaymentOutboxStats,
 } = require('./outboxState');
+const {
+    getNetbankingBankCatalog,
+    lookupNetbankingBankName,
+    normalizeNetbankingBankCode,
+    resolveNetbankingBank,
+} = require('./netbankingCatalog');
 const { flags } = require('../../config/paymentFlags');
 const { verifyPaymentChallengeToken } = require('../../utils/paymentChallengeToken');
 const logger = require('../../utils/logger');
@@ -136,12 +142,14 @@ const buildCheckoutPayload = ({
     amount,
     currency,
     user,
+    paymentMethod,
+    paymentContext = {},
 }) => {
     if (!process.env.RAZORPAY_KEY_ID) {
         throw new AppError('Razorpay checkout key is not configured on the server', 503);
     }
 
-    return {
+    const checkoutPayload = {
         key: process.env.RAZORPAY_KEY_ID,
         orderId: providerOrderId,
         amount,
@@ -155,6 +163,147 @@ const buildCheckoutPayload = ({
         },
         theme: { color: '#06b6d4' },
     };
+
+    const preferredBankCode = normalizeNetbankingBankCode(paymentContext?.netbanking?.bankCode);
+    if (paymentMethod === 'NETBANKING' && preferredBankCode) {
+        const preferredBankName = lookupNetbankingBankName(
+            preferredBankCode,
+            paymentContext?.netbanking?.bankName
+        );
+        checkoutPayload.config = {
+            display: {
+                blocks: {
+                    preferred_netbanking_bank: {
+                        name: `Continue with ${preferredBankName}`,
+                        instruments: [
+                            {
+                                method: 'netbanking',
+                                banks: [preferredBankCode],
+                            },
+                        ],
+                    },
+                },
+                hide: [
+                    { method: 'upi' },
+                    { method: 'card' },
+                    { method: 'wallet' },
+                ],
+                sequence: ['block.preferred_netbanking_bank', 'netbanking'],
+                preferences: {
+                    show_default_blocks: false,
+                },
+            },
+        };
+    }
+
+    return checkoutPayload;
+};
+
+const normalizeSavedBankPreference = (savedMethod = {}) => {
+    if (String(savedMethod?.type || '').trim().toLowerCase() !== 'bank') return null;
+
+    const bankCode = normalizeNetbankingBankCode(
+        savedMethod?.metadata?.bankCode || savedMethod?.providerMethodId
+    );
+    if (!bankCode) return null;
+
+    return {
+        bankCode,
+        bankName: lookupNetbankingBankName(bankCode, savedMethod?.metadata?.bankName || savedMethod?.brand),
+        source: 'saved_method',
+        savedMethodId: String(savedMethod?._id || ''),
+        isDefault: Boolean(savedMethod?.isDefault),
+    };
+};
+
+const decorateStoredPaymentMethod = (method = {}) => {
+    if (String(method?.type || '').trim().toLowerCase() !== 'bank') {
+        return method;
+    }
+
+    const bankCode = normalizeNetbankingBankCode(method?.metadata?.bankCode || method?.providerMethodId);
+    if (!bankCode) return method;
+
+    const bankName = lookupNetbankingBankName(bankCode, method?.metadata?.bankName || method?.brand);
+    return {
+        ...method,
+        brand: bankName,
+        metadata: {
+            ...(method.metadata || {}),
+            bankCode,
+            bankName,
+        },
+    };
+};
+
+const annotateBankCatalogEntries = (banks = [], savedBanks = []) => {
+    const savedByCode = new Map(savedBanks.map((bank) => [bank.bankCode, bank]));
+
+    return (banks || []).map((bank) => {
+        const savedBank = savedByCode.get(bank.code);
+        return {
+            ...bank,
+            isSaved: Boolean(savedBank),
+            isDefaultSaved: Boolean(savedBank?.isDefault),
+            savedMethodId: savedBank?.savedMethodId || '',
+        };
+    });
+};
+
+const resolveIntentPaymentContext = async ({
+    paymentMethod,
+    paymentContext = {},
+    savedMethod = null,
+    provider = null,
+}) => {
+    if (paymentMethod !== 'NETBANKING') {
+        return {};
+    }
+
+    const requestedBankCode = normalizeNetbankingBankCode(paymentContext?.netbanking?.bankCode);
+    const savedBank = normalizeSavedBankPreference(savedMethod);
+
+    if (requestedBankCode && savedBank?.bankCode && requestedBankCode !== savedBank.bankCode) {
+        throw new AppError('Selected netbanking bank does not match the saved bank preference', 409);
+    }
+
+    const resolvedBankCode = requestedBankCode || savedBank?.bankCode;
+    if (!resolvedBankCode) {
+        throw new AppError('Select a supported netbanking bank before continuing', 400);
+    }
+
+    const catalog = await getNetbankingBankCatalog({
+        provider,
+        allowFallback: false,
+    });
+    const providerBank = resolveNetbankingBank(catalog, resolvedBankCode);
+    if (!providerBank) {
+        throw new AppError('Selected bank is not available for netbanking right now', 409);
+    }
+
+    return {
+        netbanking: {
+            bankCode: providerBank.code,
+            bankName: providerBank.name,
+            source: savedBank?.bankCode === providerBank.code ? 'saved_method' : (paymentContext?.netbanking?.source || 'catalog'),
+        },
+    };
+};
+
+const normalizeProviderMethodSnapshot = (methodInfo = {}) => {
+    if (String(methodInfo.type || '').trim().toLowerCase() !== 'bank') {
+        return methodInfo;
+    }
+
+    const bankCode = normalizeNetbankingBankCode(methodInfo.bankCode || methodInfo.providerMethodId);
+    const bankName = lookupNetbankingBankName(bankCode, methodInfo.bankName || methodInfo.brand);
+    return {
+        ...methodInfo,
+        bankCode,
+        bankName,
+        brand: bankName || methodInfo.brand || bankCode,
+        providerMethodId: bankCode || methodInfo.providerMethodId || '',
+    };
 };
 
 const createPaymentIntent = async ({
@@ -163,6 +312,7 @@ const createPaymentIntent = async ({
     quoteSnapshot,
     paymentMethod,
     savedMethodId,
+    paymentContext = {},
     deviceContext = {},
     requestMeta = {},
 }) => {
@@ -199,13 +349,14 @@ const createPaymentIntent = async ({
     );
     assertQuoteMatches(quoteSnapshot, quote.pricing.totalPrice);
 
+    let savedMethod = null;
     if (savedMethodId && flags.paymentSavedMethodsEnabled) {
-        const saved = await PaymentMethod.findOne({ _id: savedMethodId, user: user._id, status: 'active' }).lean();
-        if (!saved) {
+        savedMethod = await PaymentMethod.findOne({ _id: savedMethodId, user: user._id, status: 'active' }).lean();
+        if (!savedMethod) {
             throw new AppError('Saved payment method is invalid', 400);
         }
         const expectedSavedType = mapPaymentMethodToProviderType(normalizedMethod);
-        if (expectedSavedType && String(saved.type || '').trim().toLowerCase() !== expectedSavedType) {
+        if (expectedSavedType && String(savedMethod.type || '').trim().toLowerCase() !== expectedSavedType) {
             throw new AppError('Saved payment method does not match the selected payment rail', 400);
         }
     }
@@ -230,6 +381,12 @@ const createPaymentIntent = async ({
         bin: String(requestMeta.cardBin || ''),
         userId: user._id,
     });
+    const resolvedPaymentContext = await resolveIntentPaymentContext({
+        paymentMethod: normalizedMethod,
+        paymentContext,
+        savedMethod,
+        provider,
+    });
     const intentId = makeIntentId();
     const providerOrder = await provider.createOrder({
         amount: quote.pricing.totalPrice,
@@ -239,6 +396,8 @@ const createPaymentIntent = async ({
             intentId,
             userId: String(user._id),
             checkoutSource: quote.normalized.checkoutSource,
+            paymentMethod: normalizedMethod,
+            netbankingBankCode: resolvedPaymentContext?.netbanking?.bankCode || '',
         },
     });
 
@@ -285,6 +444,8 @@ const createPaymentIntent = async ({
             userAgent: requestMeta.userAgent || '',
             deviceContext,
             savedMethodId: savedMethodId || '',
+            paymentContext: resolvedPaymentContext,
+            netbanking: resolvedPaymentContext?.netbanking || null,
             securityLayer: {
                 failedConfirmAttempts: 0,
                 totalConfirmFailures: 0,
@@ -315,11 +476,14 @@ const createPaymentIntent = async ({
         status: intent.status,
         riskDecision: risk.strictDecision,
         challengeRequired,
+        paymentContext: resolvedPaymentContext,
         checkoutPayload: buildCheckoutPayload({
             providerOrderId: intent.providerOrderId,
             amount: quote.pricing.totalPrice,
             currency: 'INR',
             user,
+            paymentMethod: normalizedMethod,
+            paymentContext: resolvedPaymentContext,
         }),
     };
 };
@@ -497,7 +661,7 @@ const confirmPaymentIntent = async ({
 
     const nextStatus = status === 'captured' ? PAYMENT_STATUSES.CAPTURED : PAYMENT_STATUSES.AUTHORIZED;
 
-    const methodInfo = provider.parsePaymentMethod(payment);
+    const methodInfo = normalizeProviderMethodSnapshot(provider.parsePaymentMethod(payment));
     const providerConfirmedMethod = mapProviderTypeToPaymentMethod(methodInfo.type);
     if (providerConfirmedMethod !== intent.method) {
         await registerConfirmFailure({
@@ -507,6 +671,19 @@ const confirmPaymentIntent = async ({
             providerPaymentId: cleanPaymentId,
         });
         throw new AppError('Provider payment method does not match the selected checkout method', 409);
+    }
+
+    const expectedBankCode = normalizeNetbankingBankCode(
+        intent.metadata?.paymentContext?.netbanking?.bankCode || intent.metadata?.netbanking?.bankCode
+    );
+    if (intent.method === 'NETBANKING' && expectedBankCode && methodInfo.bankCode && expectedBankCode !== methodInfo.bankCode) {
+        await registerConfirmFailure({
+            intent,
+            reason: `provider_bank_mismatch:${methodInfo.bankCode}`,
+            providerOrderId: cleanOrderId,
+            providerPaymentId: cleanPaymentId,
+        });
+        throw new AppError('Provider bank does not match the selected netbanking bank', 409);
     }
 
     intent.providerPaymentId = cleanPaymentId;
@@ -538,7 +715,7 @@ const confirmPaymentIntent = async ({
                 providerMethodId: methodInfo.providerMethodId,
             },
             {
-                $setOnInsert: {
+                $set: {
                     user: userId,
                     provider: provider.name,
                     providerMethodId: methodInfo.providerMethodId,
@@ -546,7 +723,15 @@ const confirmPaymentIntent = async ({
                     brand: methodInfo.brand,
                     last4: methodInfo.last4,
                     status: 'active',
+                    metadata: methodInfo.bankCode ? {
+                        bankCode: methodInfo.bankCode,
+                        bankName: methodInfo.bankName || methodInfo.brand || '',
+                        enrollmentSource: 'checkout',
+                    } : {},
+                },
+                $setOnInsert: {
                     fingerprintHash: hashPayload(`${methodInfo.type}|${methodInfo.brand}|${methodInfo.last4}|${methodInfo.providerMethodId}`),
+                    isDefault: false,
                 },
             },
             { upsert: true }
@@ -1142,7 +1327,41 @@ const getPaymentOutboxStatsWithWorker = async () => {
 
 const listUserPaymentMethods = async ({ userId }) => {
     if (!flags.paymentSavedMethodsEnabled) return [];
-    return PaymentMethod.find({ user: userId, status: 'active' }).sort({ isDefault: -1, updatedAt: -1 }).lean();
+    const methods = await PaymentMethod.find({ user: userId, status: 'active' })
+        .sort({ isDefault: -1, updatedAt: -1 })
+        .lean();
+    return methods.map(decorateStoredPaymentMethod);
+};
+
+const listNetbankingBanks = async ({ userId }) => {
+    ensurePaymentsEnabled();
+
+    const provider = await getPaymentProvider({
+        currency: 'INR',
+        paymentMethod: 'NETBANKING',
+        userId,
+    });
+    const [catalog, storedMethods] = await Promise.all([
+        getNetbankingBankCatalog({ provider, allowFallback: true }),
+        flags.paymentSavedMethodsEnabled
+            ? PaymentMethod.find({ user: userId, status: 'active', type: 'bank' })
+                .sort({ isDefault: -1, updatedAt: -1 })
+                .lean()
+            : [],
+    ]);
+
+    const savedBanks = storedMethods
+        .map(normalizeSavedBankPreference)
+        .filter(Boolean);
+    const defaultSavedBank = savedBanks.find((bank) => bank.isDefault) || null;
+
+    return {
+        ...catalog,
+        defaultBankCode: defaultSavedBank?.bankCode || '',
+        savedBanks,
+        banks: annotateBankCatalogEntries(catalog.banks, savedBanks),
+        featuredBanks: annotateBankCatalogEntries(catalog.featuredBanks, savedBanks),
+    };
 };
 
 const PAYMENT_METHOD_ENROLLMENT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
@@ -1194,7 +1413,7 @@ const saveUserPaymentMethod = async ({ userId, method, paymentIntentId = '' }) =
         throw new AppError('Unable to verify payment method with provider right now. Please retry.', 502);
     }
 
-    const providerMethodSnapshot = provider.parsePaymentMethod(providerPayment || {});
+    const providerMethodSnapshot = normalizeProviderMethodSnapshot(provider.parsePaymentMethod(providerPayment || {}));
     if (providerMethodSnapshot.providerMethodId !== providerMethodId) {
         throw new AppError('Unable to establish payment method ownership for this user', 403);
     }
@@ -1212,7 +1431,13 @@ const saveUserPaymentMethod = async ({ userId, method, paymentIntentId = '' }) =
         last4: providerMethodSnapshot.last4 || method.last4 || '',
         status: 'active',
         fingerprintHash: hashPayload(`${providerMethodId}|${providerMethodSnapshot.type || method.type || 'other'}|${providerMethodSnapshot.last4 || method.last4 || ''}`),
-        metadata: method.metadata || {},
+        metadata: {
+            ...(method.metadata || {}),
+            ...(providerMethodSnapshot.bankCode ? {
+                bankCode: providerMethodSnapshot.bankCode,
+                bankName: providerMethodSnapshot.bankName || providerMethodSnapshot.brand || '',
+            } : {}),
+        },
     };
 
     await PaymentMethod.updateOne(
@@ -1221,7 +1446,8 @@ const saveUserPaymentMethod = async ({ userId, method, paymentIntentId = '' }) =
         { upsert: true }
     );
 
-    return PaymentMethod.findOne({ user: userId, providerMethodId }).lean();
+    const storedMethod = await PaymentMethod.findOne({ user: userId, providerMethodId }).lean();
+    return decorateStoredPaymentMethod(storedMethod);
 };
 
 const deleteUserPaymentMethod = async ({ userId, methodId }) => {
@@ -1280,6 +1506,7 @@ module.exports = {
     getPaymentOutboxStats: getPaymentOutboxStatsWithWorker,
     markChallengeVerified,
     listUserPaymentMethods,
+    listNetbankingBanks,
     saveUserPaymentMethod,
     deleteUserPaymentMethod,
     setDefaultPaymentMethod,

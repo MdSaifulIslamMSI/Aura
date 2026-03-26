@@ -25,6 +25,14 @@ const mergeDraftState = (initialState, storedState) => {
             ...(storedState.shippingAddress || {}),
         },
         deliverySlot: storedState.deliverySlot || initialState.deliverySlot,
+        paymentContext: {
+            ...(initialState.paymentContext || {}),
+            ...((storedState.paymentContext || {})),
+            netbanking: {
+                ...(initialState.paymentContext?.netbanking || {}),
+                ...((storedState.paymentContext?.netbanking || {})),
+            },
+        },
         paymentIntent: {
             ...(initialState.paymentIntent || {}),
             ...((storedState.paymentIntent || {})),

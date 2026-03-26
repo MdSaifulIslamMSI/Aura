@@ -7,6 +7,9 @@ const INITIAL_STATE = {
     contact: { name: '', phone: '', email: '' },
     shippingAddress: { address: '', city: '', postalCode: '', country: 'India' },
     deliverySlot: { date: '', window: '' },
+    paymentContext: {
+        netbanking: { bankCode: '', bankName: '', source: 'manual' },
+    },
     paymentIntent: { status: 'idle', providerPaymentId: '' },
 };
 
@@ -22,6 +25,9 @@ describe('useCheckoutDraft', () => {
                 step: 3,
                 contact: { name: 'Ada', phone: '9999999999' },
                 shippingAddress: { address: 'Line 1', city: 'Pune', postalCode: '411001', country: 'India' },
+                paymentContext: {
+                    netbanking: { bankCode: 'HDFC', bankName: 'HDFC Bank', source: 'catalog' },
+                },
             })
         );
 
@@ -30,6 +36,7 @@ describe('useCheckoutDraft', () => {
         expect(result.current.draft.step).toBe(3);
         expect(result.current.draft.contact.name).toBe('Ada');
         expect(result.current.draft.shippingAddress.city).toBe('Pune');
+        expect(result.current.draft.paymentContext.netbanking.bankCode).toBe('HDFC');
     });
 
     test('persists updates and clears draft', () => {
@@ -40,12 +47,17 @@ describe('useCheckoutDraft', () => {
                 ...prev,
                 step: 2,
                 contact: { ...prev.contact, name: 'Grace' },
+                paymentContext: {
+                    ...prev.paymentContext,
+                    netbanking: { bankCode: 'SBIN', bankName: 'State Bank of India', source: 'saved_method' },
+                },
             }));
         });
 
         const stored = JSON.parse(localStorage.getItem('aura_checkout_draft_user-2_cart_2'));
         expect(stored.step).toBe(2);
         expect(stored.contact.name).toBe('Grace');
+        expect(stored.paymentContext.netbanking.bankCode).toBe('SBIN');
 
         act(() => {
             result.current.clearDraft();

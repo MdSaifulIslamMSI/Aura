@@ -53,6 +53,11 @@ export const paymentApi = {
         const { data } = await apiFetch('/payments/methods', { headers });
         return data;
     },
+    getNetbankingBanks: async () => {
+        const headers = await getAuthHeader();
+        const { data } = await apiFetch('/payments/netbanking/banks', { headers });
+        return data;
+    },
     saveMethod: async (payload) => {
         const headers = await getAuthHeader();
         const { data } = await apiFetch('/payments/methods', {
