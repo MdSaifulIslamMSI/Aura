@@ -376,11 +376,11 @@ export default function AdminSupport() {
     const getStatusBadge = (status) => {
         switch (status) {
             case 'open':
-                return <span className="inline-flex items-center gap-1 rounded border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-xs font-bold text-amber-500"><Clock className="h-3 w-3" /> Open</span>;
+                return <span className="inline-flex items-center gap-1 rounded-full border border-amber-300/20 bg-amber-500/12 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-amber-100"><Clock className="h-3 w-3" /> Open</span>;
             case 'resolved':
-                return <span className="inline-flex items-center gap-1 rounded border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-xs font-bold text-emerald-500"><CheckCircle className="h-3 w-3" /> Resolved</span>;
+                return <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300/20 bg-emerald-500/12 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-emerald-100"><CheckCircle className="h-3 w-3" /> Resolved</span>;
             case 'closed':
-                return <span className="inline-flex items-center gap-1 rounded border border-zinc-500/30 bg-zinc-500/10 px-2 py-0.5 text-xs font-bold text-zinc-500"><X className="h-3 w-3" /> Closed</span>;
+                return <span className="inline-flex items-center gap-1 rounded-full border border-slate-400/20 bg-slate-500/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-slate-300"><X className="h-3 w-3" /> Closed</span>;
             default:
                 return null;
         }
@@ -396,8 +396,8 @@ export default function AdminSupport() {
                     <div className={cn(
                         'inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold',
                         isConnected
-                            ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                            : 'border-amber-200 bg-amber-50 text-amber-700'
+                            ? 'border-emerald-300/20 bg-emerald-500/12 text-emerald-100'
+                            : 'border-amber-300/20 bg-amber-500/12 text-amber-100'
                     )}>
                         {isConnected ? <Wifi className="h-3.5 w-3.5" /> : <WifiOff className="h-3.5 w-3.5" />}
                         {isConnected ? 'Live socket' : 'Polling fallback'}
@@ -417,13 +417,13 @@ export default function AdminSupport() {
         >
             <div className="flex h-[700px] flex-col gap-6 xl:flex-row">
                 <div className="flex w-full flex-col overflow-hidden admin-premium-panel p-0 xl:w-1/3">
-                    {error ? <div className="m-3 rounded bg-red-50 p-3 text-sm font-medium text-red-600">{error}</div> : null}
+                    {error ? <div className="m-3 rounded-2xl border border-rose-400/20 bg-rose-500/12 p-3 text-sm font-medium text-rose-100">{error}</div> : null}
 
                     <div className="relative flex-1 space-y-1 overflow-y-auto p-2 scrollbar-hide">
                         {loading ? (
-                            <div className="p-6 text-center text-sm text-slate-500">Loading tickets...</div>
+                            <div className="p-6 text-center text-sm text-slate-400">Loading tickets...</div>
                         ) : tickets.length === 0 ? (
-                            <div className="p-6 text-center text-sm text-slate-500">No support tickets found</div>
+                            <div className="p-6 text-center text-sm text-slate-400">No support tickets found</div>
                         ) : (
                             tickets.map((ticket) => (
                                 <button
@@ -433,23 +433,23 @@ export default function AdminSupport() {
                                     className={cn(
                                         'w-full rounded-xl border p-4 text-left transition-all',
                                         activeTicketId === ticket._id
-                                            ? 'border-indigo-200 bg-indigo-50'
-                                            : 'border-transparent bg-white hover:bg-slate-50'
+                                            ? 'border-cyan-300/30 bg-[linear-gradient(135deg,rgba(34,211,238,0.16),rgba(16,185,129,0.12))] shadow-[0_18px_36px_rgba(34,211,238,0.12)]'
+                                            : 'border-white/8 bg-white/[0.04] hover:border-white/12 hover:bg-white/[0.07]'
                                     )}
                                 >
                                     <div className="mb-1 flex items-start justify-between">
-                                        <div className="truncate pr-2 font-bold text-slate-900" title={ticket.subject}>{ticket.subject}</div>
+                                        <div className="truncate pr-2 font-bold text-white" title={ticket.subject}>{ticket.subject}</div>
                                         {getStatusBadge(ticket.status)}
                                     </div>
-                                    <div className="mb-2 flex items-center gap-2 truncate font-mono text-xs text-slate-500">
-                                        <span className="rounded bg-slate-100 px-1.5 py-0.5">{ticket.category}</span>
+                                    <div className="mb-2 flex items-center gap-2 truncate font-mono text-xs text-slate-400">
+                                        <span className="rounded-full border border-white/10 bg-white/[0.06] px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.16em] text-slate-200">{ticket.category}</span>
                                         <span className="truncate">{ticket.user?.email}</span>
                                     </div>
-                                    <div className="truncate text-sm text-slate-600">
+                                    <div className="truncate text-sm text-slate-300">
                                         {ticket.lastMessagePreview || 'No messages'}
                                     </div>
                                     <div className="mt-3 flex items-center justify-between">
-                                        <div className="font-mono text-[10px] text-slate-400">ID: {String(ticket._id).slice(-6)}</div>
+                                        <div className="font-mono text-[10px] text-slate-500">ID: {String(ticket._id).slice(-6)}</div>
                                         {ticket.unreadByAdmin > 0 ? (
                                             <div className="rounded-full bg-rose-500 px-2 py-0.5 text-[10px] font-bold text-white shadow-sm">
                                                 {ticket.unreadByAdmin} NEW
@@ -464,53 +464,53 @@ export default function AdminSupport() {
 
                 <div className="relative flex flex-1 flex-col overflow-hidden admin-premium-panel p-0">
                     {!activeTicketId ? (
-                        <div className="flex flex-1 flex-col items-center justify-center text-slate-400">
+                        <div className="flex flex-1 flex-col items-center justify-center text-slate-300">
                             <MessageSquare className="mb-4 h-16 w-16 opacity-20" />
-                            <p className="font-medium text-slate-500">Select a ticket to view conversation</p>
+                            <p className="font-medium text-slate-400">Select a ticket to view conversation</p>
                         </div>
                     ) : activeTicket ? (
                         <>
-                            <div className="border-b border-slate-200 bg-slate-50 p-4">
+                            <div className="border-b border-white/10 bg-white/[0.03] p-4">
                                 <div className="flex items-start justify-between gap-4">
                                     <div className="min-w-0 flex-1 pr-4">
-                                    <h3 className="truncate text-lg font-bold text-slate-900">{activeTicket.subject}</h3>
-                                    <div className="mt-1 flex items-center gap-3 font-mono text-xs text-slate-500">
+                                    <h3 className="truncate text-lg font-bold text-white">{activeTicket.subject}</h3>
+                                    <div className="mt-1 flex items-center gap-3 font-mono text-xs text-slate-400">
                                         <span>User: {activeTicket.user?.email || activeTicket.user?.name}</span>
                                         <span>•</span>
                                         <span className={cn(
                                             activeTicket.user?.accountState === 'suspended'
-                                                ? 'font-bold text-rose-600'
-                                                : 'font-bold text-emerald-600'
+                                                ? 'font-bold text-rose-300'
+                                                : 'font-bold text-emerald-300'
                                         )}>
                                             [{activeTicket.user?.accountState}]
                                         </span>
                                     </div>
                                     <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em]">
-                                        <span className="rounded-full border border-slate-300 bg-slate-100 px-2 py-0.5 text-slate-600">
+                                        <span className="rounded-full border border-white/10 bg-white/[0.06] px-2 py-0.5 text-slate-200">
                                             {activeTicket.category}
                                         </span>
                                         <span className={cn(
                                             'rounded-full border px-2 py-0.5',
                                             activeTicket.priority === 'urgent'
-                                                ? 'border-rose-200 bg-rose-50 text-rose-600'
+                                                ? 'border-rose-300/20 bg-rose-500/12 text-rose-100'
                                                 : activeTicket.priority === 'high'
-                                                    ? 'border-amber-200 bg-amber-50 text-amber-700'
-                                                    : 'border-cyan-200 bg-cyan-50 text-cyan-700'
+                                                    ? 'border-amber-300/20 bg-amber-500/12 text-amber-100'
+                                                    : 'border-cyan-300/20 bg-cyan-500/12 text-cyan-100'
                                         )}>
                                             {activeTicket.priority}
                                         </span>
                                         {activeTicket.userActionRequired ? (
-                                            <span className="rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-rose-600">
+                                            <span className="rounded-full border border-rose-300/20 bg-rose-500/12 px-2 py-0.5 text-rose-100">
                                                 user action required
                                             </span>
                                         ) : null}
                                         {activeTicket.liveCallRequested ? (
-                                            <span className="rounded-full border border-cyan-200 bg-cyan-50 px-2 py-0.5 text-cyan-700">
+                                            <span className="rounded-full border border-cyan-300/20 bg-cyan-500/12 px-2 py-0.5 text-cyan-100">
                                                 live call requested
                                             </span>
                                         ) : null}
                                         {activeTicket.liveCallLastStatus === 'connected' || isActiveSupportCall ? (
-                                            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-emerald-700">
+                                            <span className="rounded-full border border-emerald-300/20 bg-emerald-500/12 px-2 py-0.5 text-emerald-100">
                                                 live call active
                                             </span>
                                         ) : null}
@@ -530,8 +530,8 @@ export default function AdminSupport() {
                                     </div>
                                 </div>
                                 {activeTicket.resolutionSummary ? (
-                                    <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">
-                                        <div className="mb-1 text-xs font-black uppercase tracking-[0.18em] text-emerald-600">Current resolution summary</div>
+                                    <div className="mt-4 rounded-xl border border-emerald-300/20 bg-emerald-500/12 p-3 text-sm text-emerald-100">
+                                        <div className="mb-1 text-xs font-black uppercase tracking-[0.18em] text-emerald-200">Current resolution summary</div>
                                         <div>{activeTicket.resolutionSummary}</div>
                                     </div>
                                 ) : null}
@@ -539,15 +539,15 @@ export default function AdminSupport() {
                                 <div className={cn(
                                     'mt-4 rounded-2xl border p-4 text-sm',
                                     isActiveSupportCall || activeTicket.liveCallLastStatus === 'connected'
-                                        ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                                        ? 'border-emerald-300/20 bg-emerald-500/12 text-emerald-100'
                                         : activeTicket.liveCallRequested
-                                            ? 'border-cyan-200 bg-cyan-50 text-cyan-700'
-                                            : 'border-slate-200 bg-white text-slate-600'
+                                            ? 'border-cyan-300/20 bg-cyan-500/12 text-cyan-100'
+                                            : 'border-white/10 bg-white/[0.04] text-slate-200'
                                 )}>
                                     <div className="flex items-center justify-between gap-3">
                                         <div>
-                                            <div className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Live support lane</div>
-                                            <div className="mt-2 font-semibold text-slate-900">
+                                            <div className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Live support lane</div>
+                                            <div className="mt-2 font-semibold text-white">
                                                 {isActiveSupportCall
                                                     ? 'A live support call is ringing or connected on this ticket.'
                                                     : !isConnected
@@ -561,7 +561,7 @@ export default function AdminSupport() {
                                                             : 'Escalate this ticket into a real-time video call when text support is too slow.'}
                                             </div>
                                         </div>
-                                        <div className="text-right text-xs text-slate-500">
+                                        <div className="text-right text-xs text-slate-400">
                                             {activeTicket.liveCallRequestedAt ? (
                                                 <div>Requested {new Date(activeTicket.liveCallRequestedAt).toLocaleString()}</div>
                                             ) : activeTicket.liveCallEndedAt ? (
@@ -573,7 +573,7 @@ export default function AdminSupport() {
                                     </div>
                                 </div>
 
-                                <div className="mt-4 grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 lg:grid-cols-[140px_minmax(0,1fr)_auto]">
+                                <div className="mt-4 grid gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-4 lg:grid-cols-[140px_minmax(0,1fr)_auto]">
                                     <PremiumSelect
                                         value={statusDraft}
                                         onChange={(e) => setStatusDraft(e.target.value)}
@@ -589,10 +589,10 @@ export default function AdminSupport() {
                                         rows={2}
                                         maxLength={800}
                                         placeholder="Add the resolution, policy note, or next step the user should actually see."
-                                        className="min-h-[84px] rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 outline-none transition-colors focus:border-indigo-300"
+                                        className="admin-premium-control min-h-[84px] resize-none px-3 py-2"
                                     />
                                     <div className="flex flex-col justify-between gap-3">
-                                        <label className="flex items-start gap-2 text-sm text-slate-600">
+                                        <label className="flex items-start gap-2 text-sm text-slate-300">
                                             <input
                                                 type="checkbox"
                                                 checked={userActionRequiredDraft}
@@ -617,7 +617,7 @@ export default function AdminSupport() {
                             <div
                                 ref={messagesContainerRef}
                                 onScroll={handleMessagesScroll}
-                                className="flex-1 space-y-6 overflow-y-auto bg-slate-50/50 p-6 scrollbar-hide"
+                                className="flex-1 space-y-6 overflow-y-auto bg-white/[0.02] p-6 scrollbar-hide"
                             >
                                 {messagesLoading ? (
                                     <div className="mt-10 text-center text-slate-400">Loading chat history...</div>
@@ -629,7 +629,7 @@ export default function AdminSupport() {
                                         if (message.isSystem) {
                                             return (
                                                 <div key={message._id || index} className="my-4 flex justify-center">
-                                                    <div className="flex items-center gap-2 rounded-full border border-slate-300 bg-slate-200/50 px-4 py-1.5 text-xs font-medium text-slate-600">
+                                                    <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-4 py-1.5 text-xs font-medium text-slate-300">
                                                         <AlertCircle className="h-3 w-3" /> {message.text}
                                                     </div>
                                                 </div>
@@ -641,28 +641,28 @@ export default function AdminSupport() {
                                                 <div className={cn(
                                                     'max-w-[85%] rounded-2xl p-4 shadow-sm',
                                                     isAdmin
-                                                        ? 'rounded-tr-sm bg-indigo-600 text-white'
-                                                        : 'rounded-tl-sm border border-slate-200 bg-white text-slate-900'
+                                                        ? 'rounded-tr-sm border border-cyan-300/20 bg-cyan-500/16 text-cyan-50 shadow-[0_18px_30px_rgba(34,211,238,0.08)]'
+                                                        : 'rounded-tl-sm border border-white/10 bg-white/[0.05] text-white'
                                                 )}>
                                                     {!isAdmin ? (
                                                         <div className="mb-2 flex items-center gap-2">
-                                                            <div className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-200 text-[10px] font-bold text-slate-600">
+                                                            <div className="flex h-5 w-5 items-center justify-center rounded-full bg-white/10 text-[10px] font-bold text-slate-200">
                                                                 {(message.sender?.name || 'U')[0].toUpperCase()}
                                                             </div>
-                                                            <span className="text-xs font-bold tracking-wide text-slate-500">
+                                                            <span className="text-xs font-bold tracking-wide text-slate-400">
                                                                 {message.sender?.name || message.sender?.email || 'User'}
                                                             </span>
                                                         </div>
                                                     ) : (
                                                         <div className="mb-2 flex items-center justify-end gap-2">
-                                                            <span className="text-xs font-bold uppercase tracking-wider text-indigo-200">Staff Reply</span>
-                                                            <ShieldAlert className="h-3.5 w-3.5 text-indigo-300" />
+                                                            <span className="text-xs font-bold uppercase tracking-wider text-cyan-100">Staff Reply</span>
+                                                            <ShieldAlert className="h-3.5 w-3.5 text-cyan-200" />
                                                         </div>
                                                     )}
                                                     <div className="whitespace-pre-wrap text-[15px] leading-relaxed">{message.text}</div>
                                                     <div className={cn(
                                                         'mt-2 text-right text-[10px] font-medium opacity-70',
-                                                        isAdmin ? 'text-indigo-200' : 'text-slate-400'
+                                                        isAdmin ? 'text-cyan-100' : 'text-slate-400'
                                                     )}>
                                                         {sentAt ? new Date(sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
                                                     </div>
@@ -675,26 +675,26 @@ export default function AdminSupport() {
                             </div>
 
                             {activeTicket.status !== 'closed' ? (
-                                <form onSubmit={handleSendMessage} className="border-t border-slate-200 bg-white p-4">
+                                <form onSubmit={handleSendMessage} className="border-t border-white/10 bg-white/[0.03] p-4">
                                     <div className="relative flex gap-3">
                                         <input
                                             type="text"
                                             value={newMessage}
                                             onChange={(e) => setNewMessage(e.target.value)}
                                             placeholder="Type your official response..."
-                                            className="flex-1 rounded-xl border-none bg-slate-100 px-4 py-3.5 pr-14 font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                            className="admin-premium-control flex-1 border-none px-4 py-3.5 pr-14 font-medium"
                                         />
                                         <button
                                             type="submit"
                                             disabled={!newMessage.trim() || sending}
-                                            className="absolute bottom-2 right-2 top-2 aspect-square rounded-lg bg-indigo-600 text-white shadow-sm transition-colors hover:bg-indigo-700 disabled:opacity-50"
+                                            className="absolute bottom-2 right-2 top-2 aspect-square rounded-lg border border-cyan-300/20 bg-cyan-500/18 text-cyan-50 shadow-sm transition-colors hover:bg-cyan-500/28 disabled:opacity-50"
                                         >
                                             <Send className="ml-0.5 h-4 w-4" />
                                         </button>
                                     </div>
                                 </form>
                             ) : (
-                                <div className="border-t border-slate-200 bg-slate-100 p-4 text-center text-sm font-medium text-slate-500">
+                                <div className="border-t border-white/10 bg-white/[0.03] p-4 text-center text-sm font-medium text-slate-400">
                                     This ticket is closed. Reopen it to send a new message.
                                 </div>
                             )}
