@@ -16,6 +16,11 @@ const normalizeLiveCallStatus = (value) => {
         : 'idle';
 };
 
+const normalizeLiveCallMediaMode = (value) => (toIdString(value).toLowerCase() === 'voice' ? 'voice' : 'video');
+const getSupportCallModeLabel = (mediaMode = 'video') => (
+    normalizeLiveCallMediaMode(mediaMode) === 'voice' ? 'voice call' : 'video call'
+);
+
 const buildSystemPreview = (text) => `[System] ${String(text || '').trim().slice(0, 120)}`;
 
 const appendSupportSystemMessage = async ({
@@ -61,6 +66,7 @@ const requestSupportTicketLiveCall = async ({
     requesterUserId,
     requesterRole = 'user',
     note = '',
+    mediaMode = 'video',
 }) => {
     const ticket = await loadSupportTicketForVideo(ticketId);
 
@@ -70,6 +76,8 @@ const requestSupportTicketLiveCall = async ({
 
     const normalizedRole = normalizeRole(requesterRole);
     const normalizedNote = String(note || '').trim().slice(0, 280);
+    const normalizedMediaMode = normalizeLiveCallMediaMode(mediaMode);
+    const modeLabel = getSupportCallModeLabel(normalizedMediaMode);
     const now = new Date();
 
     ticket.liveCallRequested = true;
@@ -77,17 +85,19 @@ const requestSupportTicketLiveCall = async ({
     ticket.liveCallRequestedBy = requesterUserId || null;
     ticket.liveCallRequestedByRole = normalizedRole;
     ticket.liveCallRequestNote = normalizedNote;
+    ticket.liveCallRequestedMode = normalizedMediaMode;
     ticket.liveCallStartedAt = null;
     ticket.liveCallStartedBy = null;
     ticket.liveCallConnectedAt = null;
     ticket.liveCallEndedAt = null;
     ticket.liveCallLastStatus = 'requested';
-    ticket.liveCallLastContextLabel = 'Support call requested';
+    ticket.liveCallLastContextLabel = `${modeLabel.replace(/^./, (letter) => letter.toUpperCase())} requested`;
     ticket.liveCallLastSessionKey = '';
+    ticket.liveCallLastMediaMode = normalizedMediaMode;
 
     const messageText = normalizedRole === 'admin'
-        ? `Aura Support requested a live support call.${normalizedNote ? ` Note: ${normalizedNote}` : ''}`
-        : `Customer requested a live support call.${normalizedNote ? ` Note: ${normalizedNote}` : ''}`;
+        ? `Aura Support requested a ${modeLabel}.${normalizedNote ? ` Note: ${normalizedNote}` : ''}`
+        : `Customer requested a ${modeLabel}.${normalizedNote ? ` Note: ${normalizedNote}` : ''}`;
 
     return appendSupportSystemMessage({
         ticket,
@@ -104,13 +114,16 @@ const markSupportTicketLiveCallStarted = async ({
     startedByRole = 'admin',
     sessionKey = '',
     contextLabel = 'Live support call started',
+    mediaMode = 'video',
 }) => {
     const ticket = await loadSupportTicketForVideo(ticketId);
     const now = new Date();
     const normalizedRole = normalizeRole(startedByRole);
+    const normalizedMediaMode = normalizeLiveCallMediaMode(mediaMode);
 
     ticket.liveCallRequested = false;
     ticket.liveCallRequestNote = '';
+    ticket.liveCallRequestedMode = normalizedMediaMode;
     ticket.liveCallStartedAt = now;
     ticket.liveCallStartedBy = startedByUserId || null;
     ticket.liveCallConnectedAt = null;
@@ -118,6 +131,7 @@ const markSupportTicketLiveCallStarted = async ({
     ticket.liveCallLastStatus = 'ringing';
     ticket.liveCallLastSessionKey = toIdString(sessionKey);
     ticket.liveCallLastContextLabel = String(contextLabel || 'Live support call started').trim();
+    ticket.liveCallLastMediaMode = normalizedMediaMode;
 
     return appendSupportSystemMessage({
         ticket,
@@ -131,15 +145,19 @@ const markSupportTicketLiveCallStarted = async ({
 const markSupportTicketLiveCallConnected = async ({
     ticketId,
     sessionKey = '',
+    mediaMode = 'video',
 }) => {
     const ticket = await loadSupportTicketForVideo(ticketId);
+    const normalizedMediaMode = normalizeLiveCallMediaMode(mediaMode);
+    const modeLabel = getSupportCallModeLabel(normalizedMediaMode);
 
     ticket.liveCallRequested = false;
     ticket.liveCallConnectedAt = new Date();
     ticket.liveCallEndedAt = null;
     ticket.liveCallLastStatus = 'connected';
     ticket.liveCallLastSessionKey = toIdString(sessionKey) || ticket.liveCallLastSessionKey;
-    ticket.liveCallLastContextLabel = 'Live support call connected';
+    ticket.liveCallLastContextLabel = `${modeLabel.replace(/^./, (letter) => letter.toUpperCase())} connected`;
+    ticket.liveCallLastMediaMode = normalizedMediaMode;
     await ticket.save();
 
     return { ticket, message: null };
@@ -166,10 +184,14 @@ const markSupportTicketLiveCallEnded = async ({
     endedByRole = 'system',
     sessionKey = '',
     reason = 'hangup',
+    mediaMode = '',
 }) => {
     const ticket = await loadSupportTicketForVideo(ticketId);
     const normalizedRole = normalizeRole(endedByRole);
     const { status, text } = humanizeEndReason(reason);
+    const normalizedMediaMode = mediaMode
+        ? normalizeLiveCallMediaMode(mediaMode)
+        : normalizeLiveCallMediaMode(ticket.liveCallLastMediaMode || ticket.liveCallRequestedMode || 'video');
 
     ticket.liveCallRequested = false;
     ticket.liveCallRequestNote = '';
@@ -177,6 +199,7 @@ const markSupportTicketLiveCallEnded = async ({
     ticket.liveCallLastStatus = normalizeLiveCallStatus(status);
     ticket.liveCallLastSessionKey = toIdString(sessionKey) || ticket.liveCallLastSessionKey;
     ticket.liveCallLastContextLabel = text.replace(/\.$/, '');
+    ticket.liveCallLastMediaMode = normalizedMediaMode;
 
     return appendSupportSystemMessage({
         ticket,

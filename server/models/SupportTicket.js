@@ -103,6 +103,11 @@ const supportTicketSchema = new mongoose.Schema({
         maxlength: 280,
         default: '',
     },
+    liveCallRequestedMode: {
+        type: String,
+        enum: ['voice', 'video'],
+        default: 'video',
+    },
     liveCallStartedAt: {
         type: Date,
         default: null,
@@ -136,6 +141,11 @@ const supportTicketSchema = new mongoose.Schema({
         trim: true,
         maxlength: 120,
         default: '',
+    },
+    liveCallLastMediaMode: {
+        type: String,
+        enum: ['voice', 'video'],
+        default: 'video',
     },
 }, { timestamps: true });
 

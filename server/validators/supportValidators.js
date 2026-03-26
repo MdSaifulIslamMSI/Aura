@@ -49,6 +49,16 @@ const requestSupportLiveCallSchema = z.object({
     }),
     body: z.object({
         note: z.string().trim().max(280).optional(),
+        mediaMode: z.enum(['voice', 'video']).optional(),
+    }).default({}),
+});
+
+const supportLiveCallStartSchema = z.object({
+    params: z.object({
+        id: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid ID format'),
+    }),
+    body: z.object({
+        mediaMode: z.enum(['voice', 'video']).optional(),
     }).default({}),
 });
 
@@ -58,6 +68,7 @@ const supportLiveCallActionSchema = z.object({
     }),
     body: z.object({
         sessionKey: z.string().trim().max(160).optional(),
+        mediaMode: z.enum(['voice', 'video']).optional(),
         reason: z.enum(['hangup', 'declined', 'missed', 'failed', 'participant_disconnect']).optional(),
     }).default({}),
 });
@@ -69,5 +80,6 @@ module.exports = {
     ticketIdParamSchema,
     adminUpdateTicketSchema,
     requestSupportLiveCallSchema,
+    supportLiveCallStartSchema,
     supportLiveCallActionSchema,
 };

@@ -23,6 +23,7 @@ const {
     ticketIdParamSchema,
     adminUpdateTicketSchema,
     requestSupportLiveCallSchema,
+    supportLiveCallStartSchema,
     supportLiveCallActionSchema,
 } = require('../validators/supportValidators');
 
@@ -40,7 +41,7 @@ router.route('/:id/video/request')
     .post(protect, validate(requestSupportLiveCallSchema), requestSupportLiveCall);
 
 router.route('/:id/video/start')
-    .post(protect, admin, validate(ticketIdParamSchema), startSupportLiveCallSession);
+    .post(protect, admin, validate(supportLiveCallStartSchema), startSupportLiveCallSession);
 
 router.route('/:id/video/join')
     .post(protect, validate(supportLiveCallActionSchema), joinSupportLiveCallSession);

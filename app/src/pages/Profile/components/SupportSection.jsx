@@ -12,6 +12,7 @@ import {
     ShieldAlert,
     ShieldCheck,
     Sparkles,
+    Video,
     Wifi,
     WifiOff,
     X,
@@ -24,6 +25,9 @@ import { useVideoCall } from '@/context/VideoCallContext';
 const TICKET_LIST_POLL_MS = 25000;
 const ACTIVE_TICKET_POLL_MS = 15000;
 const SUPPORT_MESSAGE_MAX_LENGTH = 2000;
+const normalizeLiveCallMode = (value) => (String(value || '').trim().toLowerCase() === 'voice' ? 'voice' : 'video');
+const getLiveCallModeLabel = (value) => (normalizeLiveCallMode(value) === 'voice' ? 'voice call' : 'video call');
+const getLiveCallModeTitle = (value) => (normalizeLiveCallMode(value) === 'voice' ? 'Voice Call' : 'Video Call');
 
 const CATEGORY_OPTIONS = [
     {
@@ -89,6 +93,8 @@ const normalizeTicket = (ticket) => {
         lastActorRole: String(ticket.lastActorRole || 'user'),
         resolutionSummary: String(ticket.resolutionSummary || ''),
         lastMessagePreview: String(ticket.lastMessagePreview || ''),
+        liveCallRequestedMode: normalizeLiveCallMode(ticket.liveCallRequestedMode),
+        liveCallLastMediaMode: normalizeLiveCallMode(ticket.liveCallLastMediaMode),
     };
 };
 
@@ -559,12 +565,14 @@ export default function SupportSection({
         }
     };
 
-    const handleRequestLiveCall = async () => {
+    const handleRequestLiveCall = async (mediaMode = 'video') => {
         if (!activeTicketId || requestingLiveCall) return;
 
         try {
             setRequestingLiveCall(true);
-            const res = await supportApi.requestVideoCall(activeTicketId);
+            const res = await supportApi.requestVideoCall(activeTicketId, {
+                mediaMode: normalizeLiveCallMode(mediaMode),
+            });
             const updatedTicket = normalizeTicket(res?.data);
             if (updatedTicket?._id) {
                 setTickets((previous) => upsertTicket(previous, updatedTicket));
@@ -583,6 +591,13 @@ export default function SupportSection({
     const isActiveSupportCall = activeCallContext?.channelType === 'support_ticket'
         && String(activeCallContext?.contextId || '') === String(activeTicketId || '')
         && ['calling', 'incoming', 'connected'].includes(callStatus);
+    const supportLiveCallMode = normalizeLiveCallMode(
+        activeCallContext?.mediaMode
+        || activeTicket?.liveCallLastMediaMode
+        || activeTicket?.liveCallRequestedMode
+    );
+    const supportLiveCallLabel = getLiveCallModeLabel(supportLiveCallMode);
+    const supportLiveCallTitle = getLiveCallModeTitle(supportLiveCallMode);
     const canJoinSupportCall = Boolean(
         activeTicket?._id
         && activeTicket.liveCallLastSessionKey
@@ -590,7 +605,7 @@ export default function SupportSection({
         && !isActiveSupportCall
     );
 
-    const handleLiveCallAction = async () => {
+    const handleLiveCallAction = async (mediaMode = 'video') => {
         if (!activeTicketId || requestingLiveCall) return;
 
         if (canJoinSupportCall) {
@@ -603,9 +618,10 @@ export default function SupportSection({
                     contextLabel: activeTicket?.liveCallLastContextLabel || `Aura Support live call for "${activeTicket?.subject || 'support ticket'}"`,
                     sessionKey: activeTicket?.liveCallLastSessionKey,
                     callerName: 'Aura Support',
+                    mediaMode: supportLiveCallMode,
                 });
                 if (!joined) {
-                    setError('Failed to join the live support call');
+                    setError(`Failed to join the ${supportLiveCallLabel}`);
                 } else {
                     setError('');
                 }
@@ -615,7 +631,7 @@ export default function SupportSection({
             return;
         }
 
-        await handleRequestLiveCall();
+        await handleRequestLiveCall(mediaMode);
     };
 
     const liveCallActionDisabled = Boolean(
@@ -627,30 +643,30 @@ export default function SupportSection({
     const liveCallActionLabel = isActiveSupportCall
         ? 'Live now'
         : canJoinSupportCall
-            ? 'Join live call'
+            ? `Join ${supportLiveCallLabel}`
             : activeTicket?.liveCallRequested
                 ? 'Requested'
-                : 'Request live call';
+                : `Request ${supportLiveCallLabel}`;
     const liveCallComposerLabel = isActiveSupportCall
-        ? 'Live call active'
+        ? `${supportLiveCallTitle} Active`
         : canJoinSupportCall
-            ? 'Join live call'
+            ? `Join ${supportLiveCallLabel}`
             : activeTicket?.liveCallRequested
-                ? 'Live call queued'
-                : 'Escalate to live call';
+                ? `${supportLiveCallTitle} queued`
+                : `Escalate to ${supportLiveCallLabel}`;
     const supportComposerConnectionCopy = isConnected
         ? 'Realtime is connected for this thread.'
         : `Realtime is reconnecting. Aura refreshes this chat every ${Math.round(ACTIVE_TICKET_POLL_MS / 1000)} seconds.`;
     const supportCharacterCount = String(newMessage || '').length;
     const liveCallStatusCopy = isActiveSupportCall
-        ? 'Aura Support is already ringing or connected on this ticket.'
+        ? `Aura Support is already ringing or connected on this ${supportLiveCallLabel}.`
         : activeTicket?.liveCallRequested
-            ? 'Your real-time support request is queued for the support team.'
+            ? `Your ${supportLiveCallLabel} request is queued for the support team.`
             : canJoinSupportCall
-                ? 'Aura Support already opened a live session for this ticket. Join it from here.'
+                ? `Aura Support already opened a ${supportLiveCallLabel} for this ticket. Join it from here.`
                 : activeTicket?.liveCallLastStatus === 'ended' || activeTicket?.liveCallLastStatus === 'missed'
-                    ? 'The last live call finished. Request another one if text support is still not enough.'
-                    : 'Move this thread into a real-time video call when typing is too slow.';
+                    ? `The last ${supportLiveCallLabel} finished. Request another one if text support is still not enough.`
+                    : 'Move this thread into a real-time voice or video call when typing is too slow.';
     const liveCallStatusTime = activeTicket?.liveCallRequestedAt
         ? `Requested ${new Date(activeTicket.liveCallRequestedAt).toLocaleString()}`
         : activeTicket?.liveCallEndedAt
@@ -1074,15 +1090,44 @@ export default function SupportSection({
                                                 </p>
                                             ) : null}
                                         </div>
-                                        <button
-                                            type="button"
-                                            onClick={handleLiveCallAction}
-                                            disabled={liveCallActionDisabled}
-                                            className="support-chat-send inline-flex items-center justify-center gap-2 px-4 py-3 text-sm font-black disabled:cursor-not-allowed"
-                                        >
-                                            {requestingLiveCall ? <RefreshCw className="h-4 w-4 animate-spin" /> : <PhoneCall className="h-4 w-4" />}
-                                            {liveCallActionLabel}
-                                        </button>
+                                        {canJoinSupportCall || isActiveSupportCall || activeTicket?.liveCallRequested ? (
+                                            <button
+                                                type="button"
+                                                onClick={() => handleLiveCallAction(supportLiveCallMode)}
+                                                disabled={liveCallActionDisabled}
+                                                className="support-chat-send inline-flex items-center justify-center gap-2 px-4 py-3 text-sm font-black disabled:cursor-not-allowed"
+                                            >
+                                                {requestingLiveCall ? (
+                                                    <RefreshCw className="h-4 w-4 animate-spin" />
+                                                ) : supportLiveCallMode === 'voice' ? (
+                                                    <PhoneCall className="h-4 w-4" />
+                                                ) : (
+                                                    <Video className="h-4 w-4" />
+                                                )}
+                                                {liveCallActionLabel}
+                                            </button>
+                                        ) : (
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleLiveCallAction('voice')}
+                                                    disabled={requestingLiveCall || activeTicket?.status === 'closed'}
+                                                    className="support-chat-utility inline-flex items-center justify-center gap-2 px-4 py-3 text-sm font-black disabled:cursor-not-allowed disabled:opacity-55"
+                                                >
+                                                    {requestingLiveCall ? <RefreshCw className="h-4 w-4 animate-spin" /> : <PhoneCall className="h-4 w-4" />}
+                                                    Voice call
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleLiveCallAction('video')}
+                                                    disabled={requestingLiveCall || activeTicket?.status === 'closed'}
+                                                    className="support-chat-send inline-flex items-center justify-center gap-2 px-4 py-3 text-sm font-black disabled:cursor-not-allowed"
+                                                >
+                                                    {requestingLiveCall ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Video className="h-4 w-4" />}
+                                                    Video call
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 
@@ -1202,15 +1247,44 @@ export default function SupportSection({
                                             {sending ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                                         </button>
                                     </div>
-                                    <button
-                                        type="button"
-                                        onClick={handleLiveCallAction}
-                                        disabled={liveCallActionDisabled}
-                                        className="support-chat-utility inline-flex h-12 justify-center gap-2 px-4 text-sm font-black disabled:cursor-not-allowed disabled:opacity-55"
-                                    >
-                                        {requestingLiveCall ? <RefreshCw className="h-4 w-4 animate-spin" /> : <PhoneCall className="h-4 w-4" />}
-                                        {liveCallComposerLabel}
-                                    </button>
+                                    {canJoinSupportCall || isActiveSupportCall || activeTicket?.liveCallRequested ? (
+                                        <button
+                                            type="button"
+                                            onClick={() => handleLiveCallAction(supportLiveCallMode)}
+                                            disabled={liveCallActionDisabled}
+                                            className="support-chat-utility inline-flex h-12 justify-center gap-2 px-4 text-sm font-black disabled:cursor-not-allowed disabled:opacity-55"
+                                        >
+                                            {requestingLiveCall ? (
+                                                <RefreshCw className="h-4 w-4 animate-spin" />
+                                            ) : supportLiveCallMode === 'voice' ? (
+                                                <PhoneCall className="h-4 w-4" />
+                                            ) : (
+                                                <Video className="h-4 w-4" />
+                                            )}
+                                            {liveCallComposerLabel}
+                                        </button>
+                                    ) : (
+                                        <div className="flex flex-wrap gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => handleLiveCallAction('voice')}
+                                                disabled={requestingLiveCall || activeTicket?.status === 'closed'}
+                                                className="support-chat-utility inline-flex h-12 justify-center gap-2 px-4 text-sm font-black disabled:cursor-not-allowed disabled:opacity-55"
+                                            >
+                                                {requestingLiveCall ? <RefreshCw className="h-4 w-4 animate-spin" /> : <PhoneCall className="h-4 w-4" />}
+                                                Voice call
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleLiveCallAction('video')}
+                                                disabled={requestingLiveCall || activeTicket?.status === 'closed'}
+                                                className="support-chat-send inline-flex h-12 items-center justify-center gap-2 px-4 text-sm font-black disabled:cursor-not-allowed"
+                                            >
+                                                {requestingLiveCall ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Video className="h-4 w-4" />}
+                                                Video call
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[11px] font-semibold text-slate-400">
                                     <div className="flex items-center gap-2">

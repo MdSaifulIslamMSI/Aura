@@ -9,6 +9,7 @@ import {
     MicOff,
     Minimize2,
     Phone,
+    PhoneCall,
     PhoneOff,
     Users,
     Video,
@@ -27,14 +28,21 @@ const getInitials = (value = '') => {
     return parts.map((part) => part[0]?.toUpperCase() || '').join('');
 };
 
-const getStatusCopy = (callStatus, isSupportCall) => {
+const getStatusCopy = (callStatus, isSupportCall, mediaMode = 'video') => {
+    const isVoiceCall = mediaMode === 'voice';
     switch (callStatus) {
         case 'incoming':
-            return isSupportCall ? 'Incoming support call' : 'Incoming video request';
+            return isSupportCall
+                ? `Incoming support ${isVoiceCall ? 'voice call' : 'video call'}`
+                : `Incoming ${isVoiceCall ? 'voice call' : 'video request'}`;
         case 'calling':
-            return isSupportCall ? 'Calling support...' : 'Calling now...';
+            return isSupportCall
+                ? `Calling support ${isVoiceCall ? 'by voice' : 'on video'}...`
+                : `Starting ${isVoiceCall ? 'voice' : 'video'} call...`;
         case 'connected':
-            return isSupportCall ? 'Connected securely' : 'Live and connected';
+            return isSupportCall
+                ? `${isVoiceCall ? 'Voice' : 'Video'} call connected securely`
+                : `${isVoiceCall ? 'Voice' : 'Video'} call live and connected`;
         default:
             return 'Preparing call...';
     }
@@ -158,6 +166,8 @@ const VideoCallOverlay = ({
     }, []);
 
     const isSupportCall = callContext?.channelType === 'support_ticket';
+    const mediaMode = callContext?.mediaMode === 'voice' ? 'voice' : 'video';
+    const isVoiceCall = mediaMode === 'voice';
     const callerName = callerInfo?.name || (isSupportCall ? 'Aura Support' : 'Marketplace peer');
     const callLabel = callContext?.contextLabel || (isSupportCall ? 'Aura Support live call' : 'Marketplace live inspection');
     const remoteParticipantCount = Number(callMeta?.remoteParticipantCount || 0);
@@ -179,7 +189,7 @@ const VideoCallOverlay = ({
         ? 'Reconnecting call...'
         : showConnectedControls && remoteParticipantCount === 0
             ? 'Waiting for other participant'
-            : getStatusCopy(callStatus, isSupportCall);
+            : getStatusCopy(callStatus, isSupportCall, mediaMode);
 
     useEffect(() => {
         if (callStatus === 'idle' || isMinimized || overlayHistoryActiveRef.current) {
@@ -267,6 +277,14 @@ const VideoCallOverlay = ({
                                 <div className="text-[11px] font-black uppercase tracking-[0.22em] text-emerald-200">{statusCopy}</div>
                                 <div className="mt-1 text-sm font-semibold text-white/90">{callLabel}</div>
                                 <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] font-semibold text-white/65">
+                                    <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 ${
+                                        isVoiceCall
+                                            ? 'border-emerald-300/20 bg-emerald-500/12 text-emerald-100'
+                                            : 'border-cyan-300/20 bg-cyan-500/12 text-cyan-100'
+                                    }`}>
+                                        <PhoneCall className="h-3 w-3" />
+                                        {isVoiceCall ? 'Voice call' : 'Video call'}
+                                    </span>
                                     {showElapsed ? (
                                         <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2.5 py-1">
                                             <Clock3 className="h-3 w-3" />
@@ -288,9 +306,11 @@ const VideoCallOverlay = ({
                                             <span className={`rounded-full border px-2.5 py-1 ${isMuted ? 'border-rose-300/20 bg-rose-500/12 text-rose-100' : 'border-emerald-300/20 bg-emerald-500/12 text-emerald-100'}`}>
                                                 {isMuted ? 'Mic off' : 'Mic on'}
                                             </span>
-                                            <span className={`rounded-full border px-2.5 py-1 ${isVideoOff ? 'border-rose-300/20 bg-rose-500/12 text-rose-100' : 'border-cyan-300/20 bg-cyan-500/12 text-cyan-100'}`}>
-                                                {isVideoOff ? 'Camera off' : 'Camera on'}
-                                            </span>
+                                            {!isVoiceCall ? (
+                                                <span className={`rounded-full border px-2.5 py-1 ${isVideoOff ? 'border-rose-300/20 bg-rose-500/12 text-rose-100' : 'border-cyan-300/20 bg-cyan-500/12 text-cyan-100'}`}>
+                                                    {isVideoOff ? 'Camera off' : 'Camera on'}
+                                                </span>
+                                            ) : null}
                                             {canSwitchCamera ? (
                                                 <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-white/75">
                                                     {callMeta?.availableCameraCount || 2} cameras
@@ -327,7 +347,7 @@ const VideoCallOverlay = ({
                         </div>
                     ) : null}
 
-                    {hasLocalVideo && !isMinimized ? (
+                    {hasLocalVideo && !isMinimized && !isVoiceCall ? (
                         <div className="absolute right-4 top-24 h-28 w-24 overflow-hidden rounded-[1.6rem] border border-white/15 bg-black/70 shadow-[0_20px_40px_rgba(2,8,23,0.35)] sm:h-36 sm:w-28">
                             <video
                                 ref={localVideoRef}
@@ -361,6 +381,14 @@ const VideoCallOverlay = ({
                                 <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-white/70">
                                     <Users className="h-3.5 w-3.5" />
                                     {participantStatusCopy}
+                                </div>
+                                <div className={`mt-3 inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-black uppercase tracking-[0.18em] ${
+                                    isVoiceCall
+                                        ? 'border-emerald-300/20 bg-emerald-500/12 text-emerald-100'
+                                        : 'border-cyan-300/20 bg-cyan-500/12 text-cyan-100'
+                                }`}>
+                                    <PhoneCall className="h-3.5 w-3.5" />
+                                    {isVoiceCall ? 'Audio only' : 'Camera + mic'}
                                 </div>
                                 {isReconnecting ? (
                                     <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-amber-300/20 bg-amber-500/12 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-amber-100">
@@ -401,13 +429,15 @@ const VideoCallOverlay = ({
                                 {isMuted ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
                             </button>
 
-                            <button
-                                type="button"
-                                onClick={toggleVideo}
-                                className={`support-chat-utility h-12 w-12 ${isVideoOff ? 'bg-rose-500/90 text-white' : 'bg-white/10 text-white'}`}
-                            >
-                                {isVideoOff ? <VideoOff className="h-4 w-4" /> : <Video className="h-4 w-4" />}
-                            </button>
+                            {!isVoiceCall ? (
+                                <button
+                                    type="button"
+                                    onClick={toggleVideo}
+                                    className={`support-chat-utility h-12 w-12 ${isVideoOff ? 'bg-rose-500/90 text-white' : 'bg-white/10 text-white'}`}
+                                >
+                                    {isVideoOff ? <VideoOff className="h-4 w-4" /> : <Video className="h-4 w-4" />}
+                                </button>
+                            ) : null}
 
                             {canSwitchCamera ? (
                                 <button

@@ -18,6 +18,7 @@ import {
     Sparkles,
     TicketPercent,
     Loader2,
+    PhoneCall,
     Wifi,
     WifiOff,
 } from 'lucide-react';
@@ -109,6 +110,14 @@ function getParticipantInitial(name = '') {
 const PAYMENT_PROVIDER = String(import.meta.env.VITE_PAYMENT_PROVIDER || '').trim().toLowerCase();
 const MARKETPLACE_CHAT_MAX_LENGTH = 1200;
 const MARKETPLACE_CHAT_POLL_MS = 15000;
+const normalizeLiveCallMode = (value) => (String(value || '').trim().toLowerCase() === 'voice' ? 'voice' : 'video');
+const getListingCallModeLabel = (value) => (normalizeLiveCallMode(value) === 'voice' ? 'voice call' : 'live inspection');
+const getListingCallTitle = (value) => (normalizeLiveCallMode(value) === 'voice' ? 'Voice Call' : 'Live Inspection');
+const getListingCallContextLabel = (title, mediaMode = 'video') => (
+    normalizeLiveCallMode(mediaMode) === 'voice'
+        ? `Voice call about "${String(title || 'listing')}"`
+        : `Live inspection for "${String(title || 'listing')}"`
+);
 
 export default function ListingDetail() {
     const { id } = useParams();
@@ -195,6 +204,12 @@ export default function ListingDetail() {
         ? activeCallContext
         : null;
     const isListingCallActive = Boolean(activeListingCallContext && callStatus !== 'idle');
+    const listingLiveCallMode = normalizeLiveCallMode(
+        activeListingCallContext?.mediaMode
+        || listingLiveCall?.mediaMode
+    );
+    const listingLiveCallLabel = getListingCallModeLabel(listingLiveCallMode);
+    const listingLiveCallTitle = getListingCallTitle(listingLiveCallMode);
     const liveInspectionStatus = String(listingLiveCall?.status || '').trim().toLowerCase();
     const canJoinLiveInspection = Boolean(
         currentUser
@@ -206,39 +221,45 @@ export default function ListingDetail() {
     const showLiveInspectionAction = Boolean(canRequestLiveInspection || canJoinLiveInspection || isListingCallActive);
     const liveInspectionHint = isOwner
         ? canJoinLiveInspection
-            ? 'A live inspection is already active for this escrow. Join it again from here if you refreshed the page.'
+            ? `A ${listingLiveCallLabel} is already active for this escrow. Join it again from here if you refreshed the page.`
             : ''
         : !currentUser
-            ? 'Sign in and start escrow to unlock live inspection with the seller.'
+            ? 'Sign in and start escrow to unlock voice and video calls with the seller.'
         : !escrowEnabled
-            ? 'Seller has not enabled escrow, so live inspection is unavailable for this listing.'
+            ? 'Seller has not enabled escrow, so live calls are unavailable for this listing.'
         : canJoinLiveInspection
-            ? 'A live inspection is already active for this escrow. Join it again from here if you refreshed the page.'
+            ? `A ${listingLiveCallLabel} is already active for this escrow. Join it again from here if you refreshed the page.`
         : isEscrowBuyer
                     ? ''
                     : buyerId
-                        ? 'Live inspection is reserved for the active escrow buyer on this listing.'
-                        : 'Start escrow to unlock live inspection with the seller.';
+                        ? 'Live calls are reserved for the active escrow buyer on this listing.'
+                        : 'Start escrow to unlock voice and video calls with the seller.';
     const chatConnectionLabel = isConnected ? 'Live updates on' : 'Polling fallback';
     const chatConnectionCopy = isConnected
         ? 'Realtime is connected for this deal.'
         : `Realtime is reconnecting. Aura refreshes this thread every ${Math.round(MARKETPLACE_CHAT_POLL_MS / 1000)} seconds.`;
     const chatCharacterCount = String(chatInput || '').length;
 
-    const handleLiveInspection = useCallback(async () => {
+    const handleLiveInspection = useCallback(async (mediaMode = 'video') => {
         if (isListingCallActive) {
             return;
         }
+
+        const requestedMode = canJoinLiveInspection
+            ? listingLiveCallMode
+            : normalizeLiveCallMode(mediaMode);
+        const contextLabel = listingLiveCall?.contextLabel || getListingCallContextLabel(listing?.title, requestedMode);
 
         if (canJoinLiveInspection) {
             await joinCall({
                 channelType: 'listing',
                 contextId: id,
                 listingId: id,
-                contextLabel: listingLiveCall?.contextLabel || `Live inspection for "${listing?.title || 'listing'}"`,
+                contextLabel,
                 sessionKey: listingLiveCall?.sessionKey,
                 callerName: isOwner ? 'Escrow buyer' : (seller?.name || 'Seller'),
                 transport: 'livekit',
+                mediaMode: requestedMode,
             });
             return;
         }
@@ -248,9 +269,10 @@ export default function ListingDetail() {
             listingId: id,
             contextId: id,
             channelType: 'listing',
-            contextLabel: `Live inspection for "${listing?.title || 'listing'}"`,
+            contextLabel,
             callerName: seller?.name || 'Seller',
             transport: 'livekit',
+            mediaMode: requestedMode,
         });
     }, [
         canJoinLiveInspection,
@@ -260,6 +282,7 @@ export default function ListingDetail() {
         joinCall,
         listing?.title,
         listingLiveCall?.contextLabel,
+        listingLiveCallMode,
         listingLiveCall?.sessionKey,
         seller?._id,
         seller?.name,
@@ -372,7 +395,7 @@ export default function ListingDetail() {
         return [
             'Is this still available?',
             listing?.negotiable ? `Would you consider Rs ${suggestedOffer.toLocaleString('en-IN')}?` : 'Can you share a few more close-up photos?',
-            showLiveInspectionAction ? 'Can we inspect it on a live video call?' : 'Can we meet today to check the item?',
+            showLiveInspectionAction ? 'Can we hop on a quick call about this?' : 'Can we meet today to check the item?',
         ];
     }, [listing?.negotiable, listing?.price, showLiveInspectionAction]);
 
@@ -812,18 +835,35 @@ export default function ListingDetail() {
                                     {isOwner ? 'This is your listing' : 'Chat with seller'}
                                 </button>
                                 {showLiveInspectionAction && (
-                                    <button
-                                        disabled={!canStartLiveInspection || isListingCallActive}
-                                        onClick={handleLiveInspection}
-                                        className="w-full rounded-xl border border-blue-300/40 bg-blue-500/20 py-3 text-sm font-bold text-blue-100 transition hover:bg-blue-500/30 disabled:cursor-not-allowed disabled:opacity-60"
-                                    >
-                                        <Video className="mr-2 inline h-4 w-4" />
-                                        {isListingCallActive
-                                            ? 'Live Inspection Active'
-                                            : canJoinLiveInspection
-                                                ? 'Join Live Inspection'
-                                                : 'Request Live Inspection'}
-                                    </button>
+                                    canJoinLiveInspection || isListingCallActive ? (
+                                        <button
+                                            disabled={!canStartLiveInspection || isListingCallActive}
+                                            onClick={() => handleLiveInspection(listingLiveCallMode)}
+                                            className="w-full rounded-xl border border-blue-300/40 bg-blue-500/20 py-3 text-sm font-bold text-blue-100 transition hover:bg-blue-500/30 disabled:cursor-not-allowed disabled:opacity-60"
+                                        >
+                                            {listingLiveCallMode === 'voice' ? <PhoneCall className="mr-2 inline h-4 w-4" /> : <Video className="mr-2 inline h-4 w-4" />}
+                                            {isListingCallActive ? `${listingLiveCallTitle} Active` : `Join ${listingLiveCallTitle}`}
+                                        </button>
+                                    ) : (
+                                        <div className="grid gap-3 sm:grid-cols-2">
+                                            <button
+                                                disabled={!canStartLiveInspection}
+                                                onClick={() => handleLiveInspection('voice')}
+                                                className="w-full rounded-xl border border-emerald-300/35 bg-emerald-500/18 py-3 text-sm font-bold text-emerald-100 transition hover:bg-emerald-500/28 disabled:cursor-not-allowed disabled:opacity-60"
+                                            >
+                                                <PhoneCall className="mr-2 inline h-4 w-4" />
+                                                Voice Call
+                                            </button>
+                                            <button
+                                                disabled={!canStartLiveInspection}
+                                                onClick={() => handleLiveInspection('video')}
+                                                className="w-full rounded-xl border border-blue-300/40 bg-blue-500/20 py-3 text-sm font-bold text-blue-100 transition hover:bg-blue-500/30 disabled:cursor-not-allowed disabled:opacity-60"
+                                            >
+                                                <Video className="mr-2 inline h-4 w-4" />
+                                                Live Inspection
+                                            </button>
+                                        </div>
+                                    )
                                 )}
                                 {liveInspectionHint ? (
                                     <div className="rounded-xl border border-blue-300/20 bg-blue-500/10 px-3 py-2 text-xs font-semibold text-blue-100/90">
@@ -1112,15 +1152,38 @@ export default function ListingDetail() {
 
                                     <div className="flex items-center gap-2">
                                         {showLiveInspectionAction ? (
-                                            <button
-                                                type="button"
-                                                disabled={!canStartLiveInspection || isListingCallActive}
-                                                onClick={handleLiveInspection}
-                                                className="support-chat-utility h-11 w-11 bg-white/6 text-white transition hover:text-emerald-100"
-                                                title={canJoinLiveInspection ? 'Join live inspection' : 'Start live inspection'}
-                                            >
-                                                <Video className="h-4 w-4" />
-                                            </button>
+                                            canJoinLiveInspection || isListingCallActive ? (
+                                                <button
+                                                    type="button"
+                                                    disabled={!canStartLiveInspection || isListingCallActive}
+                                                    onClick={() => handleLiveInspection(listingLiveCallMode)}
+                                                    className="support-chat-utility h-11 w-11 bg-white/6 text-white transition hover:text-emerald-100"
+                                                    title={canJoinLiveInspection ? `Join ${listingLiveCallLabel}` : listingLiveCallTitle}
+                                                >
+                                                    {listingLiveCallMode === 'voice' ? <PhoneCall className="h-4 w-4" /> : <Video className="h-4 w-4" />}
+                                                </button>
+                                            ) : (
+                                                <>
+                                                    <button
+                                                        type="button"
+                                                        disabled={!canStartLiveInspection}
+                                                        onClick={() => handleLiveInspection('voice')}
+                                                        className="support-chat-utility h-11 w-11 bg-white/6 text-white transition hover:text-emerald-100"
+                                                        title="Start voice call"
+                                                    >
+                                                        <PhoneCall className="h-4 w-4" />
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        disabled={!canStartLiveInspection}
+                                                        onClick={() => handleLiveInspection('video')}
+                                                        className="support-chat-utility h-11 w-11 bg-white/6 text-white transition hover:text-cyan-100"
+                                                        title="Start live inspection"
+                                                    >
+                                                        <Video className="h-4 w-4" />
+                                                    </button>
+                                                </>
+                                            )
                                         ) : null}
                                         <button
                                             type="button"
@@ -1172,7 +1235,7 @@ export default function ListingDetail() {
                                         ) : null}
                                         {showLiveInspectionAction ? (
                                             <span className="rounded-full border border-violet-300/20 bg-violet-500/10 px-3 py-1 text-[11px] font-bold text-violet-100">
-                                                Live inspection
+                                                {canJoinLiveInspection || isListingCallActive ? listingLiveCallTitle : 'Voice + video calls'}
                                             </span>
                                         ) : null}
                                     </div>
