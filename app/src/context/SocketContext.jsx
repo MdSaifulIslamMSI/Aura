@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
 import { useAuth } from './AuthContext';
 import { resolveServiceOrigin } from '../services/runtimeApiConfig';
@@ -6,6 +6,10 @@ import { resolveServiceOrigin } from '../services/runtimeApiConfig';
 const SocketContext = createContext(null);
 const SOCKET_RUNTIME_FLAG = String(import.meta.env.VITE_ENABLE_REALTIME_SOCKET || '').trim().toLowerCase();
 const SOCKET_RUNTIME_ENABLED = SOCKET_RUNTIME_FLAG === '' ? true : SOCKET_RUNTIME_FLAG === 'true';
+const SOCKET_RECONNECT_GRACE_MS = 20000;
+const SOCKET_CONNECT_TIMEOUT_MS = 20000;
+const SOCKET_RECONNECTION_DELAY_MS = 1000;
+const SOCKET_RECONNECTION_DELAY_MAX_MS = 15000;
 
 export const useSocket = () => useContext(SocketContext);
 export const useSocketDemand = (key, enabled = true) => {
@@ -29,8 +33,12 @@ export const SocketProvider = ({ children }) => {
     const { currentUser, loading } = useAuth();
     const [socket, setSocket] = useState(null);
     const [isConnected, setIsConnected] = useState(false);
+    const [connectionState, setConnectionState] = useState('idle');
     const [socketDemandKeys, setSocketDemandKeys] = useState([]);
     const hasRealtimeDemand = socketDemandKeys.length > 0;
+    const reconnectGraceTimerRef = useRef(null);
+    const activeSocketRef = useRef(null);
+    const hasConnectedOnceRef = useRef(false);
 
     const activateSocketDemand = useCallback((key) => {
         setSocketDemandKeys((previous) => (
@@ -42,69 +50,223 @@ export const SocketProvider = ({ children }) => {
         setSocketDemandKeys((previous) => previous.filter((entry) => entry !== key));
     }, []);
 
+    const clearReconnectGraceTimer = useCallback(() => {
+        if (reconnectGraceTimerRef.current) {
+            window.clearTimeout(reconnectGraceTimerRef.current);
+            reconnectGraceTimerRef.current = null;
+        }
+    }, []);
+
+    const enterReconnectGrace = useCallback(() => {
+        clearReconnectGraceTimer();
+
+        if (!hasConnectedOnceRef.current) {
+            setIsConnected(false);
+            setConnectionState('connecting');
+            return;
+        }
+
+        setIsConnected(true);
+        setConnectionState('reconnecting');
+        reconnectGraceTimerRef.current = window.setTimeout(() => {
+            if (!activeSocketRef.current?.connected) {
+                setIsConnected(false);
+                setConnectionState('disconnected');
+            }
+        }, SOCKET_RECONNECT_GRACE_MS);
+    }, [clearReconnectGraceTimer]);
+
+    const resetConnection = useCallback((nextState = 'idle') => {
+        clearReconnectGraceTimer();
+        activeSocketRef.current = null;
+        hasConnectedOnceRef.current = false;
+        setSocket(null);
+        setIsConnected(false);
+        setConnectionState(nextState);
+    }, [clearReconnectGraceTimer]);
+
     useEffect(() => {
         let isActive = true;
         let activeSocket = null;
+        let handleConnect = () => {};
+        let handleDisconnect = () => {};
+        let handleConnectError = () => {};
+        let handleReconnectAttempt = () => {};
+        let handleReconnect = () => {};
+        let handleReconnectError = () => {};
+        let handleReconnectFailed = () => {};
+        let handleOnline = () => {};
+        let handleVisibilityChange = () => {};
 
-        const resetConnection = () => {
-            if (!isActive) return;
-            setSocket(null);
-            setIsConnected(false);
-        };
-
-        if (!SOCKET_RUNTIME_ENABLED || !hasRealtimeDemand || loading || !currentUser) {
-            resetConnection();
+        const shouldMaintainSocket = SOCKET_RUNTIME_ENABLED && !loading && Boolean(currentUser);
+        if (!shouldMaintainSocket) {
+            resetConnection('idle');
             return () => {
                 isActive = false;
             };
         }
 
+        const getSocketAuth = async (forceRefresh = false) => {
+            const token = await currentUser.getIdToken(forceRefresh);
+            return token ? { token } : null;
+        };
+
+        const syncSocketAuth = async (forceRefresh = false) => {
+            if (!activeSocket) {
+                return null;
+            }
+
+            const auth = await getSocketAuth(forceRefresh);
+            if (!auth || !isActive) {
+                return null;
+            }
+
+            activeSocket.auth = auth;
+            if (activeSocket.io?.opts) {
+                activeSocket.io.opts.auth = auth;
+            }
+
+            return auth;
+        };
+
+        const reconnectSocket = async (forceRefresh = false) => {
+            if (!activeSocket || activeSocket.connected) {
+                return;
+            }
+
+            try {
+                await syncSocketAuth(forceRefresh);
+                activeSocket.connect();
+            } catch (error) {
+                if (import.meta.env.DEV) {
+                    console.error('Socket reconnect bootstrap failed:', error);
+                }
+            }
+        };
+
         const connectSocket = async () => {
             try {
-                const token = await currentUser.getIdToken();
-                if (!isActive || !token) {
-                    resetConnection();
+                const auth = await getSocketAuth();
+                if (!isActive || !auth) {
+                    resetConnection('disconnected');
                     return;
                 }
 
                 const socketOrigin = resolveServiceOrigin('');
 
                 activeSocket = io(socketOrigin, {
-                    auth: { token },
+                    autoConnect: false,
+                    auth,
                     reconnection: true,
-                    reconnectionAttempts: 5,
-                    reconnectionDelay: 1000,
+                    reconnectionAttempts: Number.POSITIVE_INFINITY,
+                    reconnectionDelay: SOCKET_RECONNECTION_DELAY_MS,
+                    reconnectionDelayMax: SOCKET_RECONNECTION_DELAY_MAX_MS,
+                    randomizationFactor: 0.5,
+                    timeout: SOCKET_CONNECT_TIMEOUT_MS,
+                    transports: ['websocket', 'polling'],
+                    upgrade: true,
+                    rememberUpgrade: true,
                 });
 
-                activeSocket.on('connect', () => {
+                activeSocketRef.current = activeSocket;
+                setSocket(activeSocket);
+                setConnectionState(hasConnectedOnceRef.current ? 'reconnecting' : 'connecting');
+
+                handleConnect = () => {
                     if (!isActive) return;
+                    hasConnectedOnceRef.current = true;
+                    clearReconnectGraceTimer();
                     setIsConnected(true);
-                });
+                    setConnectionState('connected');
+                };
 
-                activeSocket.on('disconnect', () => {
+                handleDisconnect = (reason) => {
                     if (!isActive) return;
-                    setIsConnected(false);
-                });
+                    if (reason === 'io client disconnect') {
+                        clearReconnectGraceTimer();
+                        setIsConnected(false);
+                        setConnectionState('disconnected');
+                        return;
+                    }
+                    enterReconnectGrace();
+                };
 
-                activeSocket.on('connect_error', (error) => {
+                handleConnectError = (error) => {
                     if (import.meta.env.DEV) {
                         console.error('Socket connection error:', error);
                     }
                     if (!isActive) return;
+
+                    const errorMessage = String(error?.message || '').toLowerCase();
+                    if (errorMessage.includes('auth') || errorMessage.includes('token')) {
+                        void syncSocketAuth(true);
+                    }
+
+                    if (!hasConnectedOnceRef.current) {
+                        setIsConnected(false);
+                        setConnectionState('disconnected');
+                        return;
+                    }
+
+                    enterReconnectGrace();
+                };
+
+                handleReconnectAttempt = () => {
+                    if (!isActive) return;
+                    void syncSocketAuth();
+                    enterReconnectGrace();
+                };
+
+                handleReconnect = () => {
+                    if (!isActive) return;
+                    hasConnectedOnceRef.current = true;
+                    clearReconnectGraceTimer();
+                    setIsConnected(true);
+                    setConnectionState('connected');
+                };
+
+                handleReconnectError = () => {
+                    if (!isActive) return;
+                    enterReconnectGrace();
+                };
+
+                handleReconnectFailed = () => {
+                    if (!isActive) return;
+                    clearReconnectGraceTimer();
                     setIsConnected(false);
-                });
+                    setConnectionState('disconnected');
+                };
+
+                handleOnline = () => {
+                    void reconnectSocket(true);
+                };
+
+                handleVisibilityChange = () => {
+                    if (document.visibilityState === 'visible') {
+                        void reconnectSocket();
+                    }
+                };
+
+                activeSocket.on('connect', handleConnect);
+                activeSocket.on('disconnect', handleDisconnect);
+                activeSocket.on('connect_error', handleConnectError);
+                activeSocket.io?.on?.('reconnect_attempt', handleReconnectAttempt);
+                activeSocket.io?.on?.('reconnect', handleReconnect);
+                activeSocket.io?.on?.('reconnect_error', handleReconnectError);
+                activeSocket.io?.on?.('reconnect_failed', handleReconnectFailed);
+                window.addEventListener('online', handleOnline);
+                document.addEventListener('visibilitychange', handleVisibilityChange);
+
+                activeSocket.connect();
 
                 if (!isActive) {
                     activeSocket.disconnect();
-                    return;
                 }
-
-                setSocket(activeSocket);
             } catch (error) {
                 if (import.meta.env.DEV) {
                     console.error('Socket token bootstrap failed:', error);
                 }
-                resetConnection();
+                resetConnection('disconnected');
             }
         };
 
@@ -112,19 +274,33 @@ export const SocketProvider = ({ children }) => {
 
         return () => {
             isActive = false;
+            clearReconnectGraceTimer();
+            window.removeEventListener('online', handleOnline);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+
             if (activeSocket) {
+                activeSocket.off('connect', handleConnect);
+                activeSocket.off('disconnect', handleDisconnect);
+                activeSocket.off('connect_error', handleConnectError);
+                activeSocket.io?.off?.('reconnect_attempt', handleReconnectAttempt);
+                activeSocket.io?.off?.('reconnect', handleReconnect);
+                activeSocket.io?.off?.('reconnect_error', handleReconnectError);
+                activeSocket.io?.off?.('reconnect_failed', handleReconnectFailed);
                 activeSocket.disconnect();
             }
+
+            resetConnection('idle');
         };
-    }, [currentUser, hasRealtimeDemand, loading]);
+    }, [clearReconnectGraceTimer, currentUser, enterReconnectGrace, loading, resetConnection]);
 
     const contextValue = useMemo(() => ({
             socket,
             isConnected,
+            connectionState,
             hasRealtimeDemand,
             activateSocketDemand,
             deactivateSocketDemand,
-        }), [socket, isConnected, hasRealtimeDemand, activateSocketDemand, deactivateSocketDemand]);
+        }), [socket, isConnected, connectionState, hasRealtimeDemand, activateSocketDemand, deactivateSocketDemand]);
 
     return (
         <SocketContext.Provider value={contextValue}>

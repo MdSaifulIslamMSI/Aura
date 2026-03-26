@@ -172,6 +172,8 @@ const humanizeEndReason = (reason) => {
             return { status: 'missed', text: 'Live support call was missed.' };
         case 'failed':
             return { status: 'failed', text: 'Live support call failed before connecting.' };
+        case 'connection_lost':
+            return { status: 'ended', text: 'Live support call ended because the connection could not be restored.' };
         case 'participant_disconnect':
             return { status: 'ended', text: 'Live support call ended after a participant disconnected.' };
         default:

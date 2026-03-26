@@ -256,7 +256,7 @@ export default function SupportSection({
     prefill = {},
 }) {
     useSocketDemand('profile-support', true);
-    const { socket, isConnected } = useSocket();
+    const { socket, isConnected, connectionState } = useSocket();
     const { callStatus, activeCallContext, joinSupportCall } = useVideoCall();
 
     const [tickets, setTickets] = useState([]);
@@ -587,6 +587,12 @@ export default function SupportSection({
     };
 
     const activeTicket = tickets.find((ticket) => String(ticket._id) === String(activeTicketId));
+    const isSocketReconnecting = connectionState === 'connecting' || connectionState === 'reconnecting';
+    const socketStatusLabel = connectionState === 'connected'
+        ? 'Live'
+        : isSocketReconnecting
+            ? 'Reconnecting...'
+            : 'Polling';
     const activeCategory = CATEGORY_MAP.get(activeTicket?.category || form.category || 'general_support');
     const isActiveSupportCall = activeCallContext?.channelType === 'support_ticket'
         && String(activeCallContext?.contextId || '') === String(activeTicketId || '')
@@ -654,9 +660,11 @@ export default function SupportSection({
             : activeTicket?.liveCallRequested
                 ? `${supportLiveCallTitle} queued`
                 : `Escalate to ${supportLiveCallLabel}`;
-    const supportComposerConnectionCopy = isConnected
+    const supportComposerConnectionCopy = connectionState === 'connected'
         ? 'Realtime is connected for this thread.'
-        : `Realtime is reconnecting. Aura refreshes this chat every ${Math.round(ACTIVE_TICKET_POLL_MS / 1000)} seconds.`;
+        : isSocketReconnecting
+            ? 'Realtime is reconnecting for this thread.'
+            : `Realtime is on polling fallback. Aura refreshes this chat every ${Math.round(ACTIVE_TICKET_POLL_MS / 1000)} seconds.`;
     const supportCharacterCount = String(newMessage || '').length;
     const liveCallStatusCopy = isActiveSupportCall
         ? `Aura Support is already ringing or connected on this ${supportLiveCallLabel}.`
@@ -687,12 +695,14 @@ export default function SupportSection({
                         </div>
                         <div className={cn(
                             'inline-flex shrink-0 items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-bold',
-                            isConnected
+                            connectionState === 'connected'
                                 ? 'border-emerald-300/20 bg-emerald-500/12 text-emerald-100'
-                                : 'border-amber-300/20 bg-amber-500/12 text-amber-100'
+                                : isSocketReconnecting
+                                    ? 'border-amber-300/20 bg-amber-500/12 text-amber-100'
+                                    : 'border-rose-300/20 bg-rose-500/12 text-rose-100'
                         )}>
-                            {isConnected ? <Wifi className="h-3.5 w-3.5" /> : <WifiOff className="h-3.5 w-3.5" />}
-                            {isConnected ? 'Live' : 'Polling'}
+                            {connectionState === 'connected' ? <Wifi className="h-3.5 w-3.5" /> : <WifiOff className="h-3.5 w-3.5" />}
+                            {socketStatusLabel}
                         </div>
                     </div>
 
