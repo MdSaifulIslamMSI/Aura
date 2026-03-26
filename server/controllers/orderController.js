@@ -10,6 +10,11 @@ const {
 } = require('../services/orderService');
 const { getRequiredIdempotencyKey, getStableUserKey } = require('../services/payments/idempotencyService');
 const { placeOrderWithIdempotency } = require('../services/orderPlacementService');
+const {
+    PRICING_VERSION,
+    buildOrderQuote,
+    simulatePaymentResult,
+} = require('../services/orderPricingService');
 const asyncHandler = require('express-async-handler');
 const AppError = require('../utils/AppError');
 const { flags: paymentFlags } = require('../config/paymentFlags');
