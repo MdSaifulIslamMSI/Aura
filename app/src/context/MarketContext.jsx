@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
   BROWSE_BASE_CURRENCY,
   DEFAULT_MARKET_PREFERENCE,
@@ -6,8 +6,9 @@ import {
   MARKET_STORAGE_KEY,
   SUPPORTED_LANGUAGES,
   SUPPORTED_MARKETS,
-  createTranslator,
   detectMarketPreference,
+  formatMessageTemplate,
+  getMessageTemplate,
   getCountryDisplayName,
   getCurrencyDisplayName,
   getSupportedLanguage,
@@ -15,6 +16,7 @@ import {
   normalizeMarketPreference,
   resolveLocaleForSelection,
 } from '@/config/marketConfig';
+import { i18nApi } from '@/services/api';
 import {
   formatDateTime as formatDateTimeUtil,
   formatNumber as formatNumberUtil,
@@ -63,6 +65,8 @@ const buildLanguageOptions = (languageCode) => SUPPORTED_LANGUAGES.map((language
   direction: language.direction,
   activeLocale: resolveLocaleForSelection(language.code, languageCode),
 }));
+
+const getRuntimeTranslationCacheKey = (languageCode, text) => `${String(languageCode || '').trim().toLowerCase()}::${String(text || '')}`;
 
 export function MarketProvider({
   children,
@@ -187,8 +191,11 @@ export function MarketProvider({
     [language.code, market.countryCode]
   );
   const direction = language.direction || 'ltr';
-  const translator = useMemo(() => createTranslator(language.code), [language.code]);
   const isEstimatedPricing = preference.currency !== BROWSE_BASE_CURRENCY;
+  const runtimeTranslationsRef = useRef(new Map());
+  const runtimeTranslationRequestsRef = useRef(new Set());
+  const runtimeTranslationsInFlightRef = useRef(new Set());
+  const [runtimeTranslationVersion, setRuntimeTranslationVersion] = useState(0);
 
   useEffect(() => {
     const nextPreference = {
@@ -221,6 +228,61 @@ export function MarketProvider({
     }
   }, [browseFxState.rates, direction, locale, preference]);
 
+  useEffect(() => {
+    if (language.code === 'en') {
+      runtimeTranslationRequestsRef.current.clear();
+      return;
+    }
+
+    const pendingTexts = [...runtimeTranslationRequestsRef.current].filter((text) => {
+      const cacheKey = getRuntimeTranslationCacheKey(language.code, text);
+      return !runtimeTranslationsRef.current.has(cacheKey) && !runtimeTranslationsInFlightRef.current.has(cacheKey);
+    });
+
+    runtimeTranslationRequestsRef.current.clear();
+
+    if (pendingTexts.length === 0) {
+      return;
+    }
+
+    pendingTexts.forEach((text) => {
+      runtimeTranslationsInFlightRef.current.add(getRuntimeTranslationCacheKey(language.code, text));
+    });
+
+    void i18nApi.translateTexts({
+      texts: pendingTexts,
+      language: language.code,
+      sourceLanguage: 'en',
+    })
+      .then((translations) => {
+        let didChange = false;
+
+        pendingTexts.forEach((text) => {
+          const cacheKey = getRuntimeTranslationCacheKey(language.code, text);
+          runtimeTranslationsInFlightRef.current.delete(cacheKey);
+
+          const translated = String(translations?.[text] || text);
+          if (runtimeTranslationsRef.current.get(cacheKey) !== translated) {
+            runtimeTranslationsRef.current.set(cacheKey, translated);
+            didChange = true;
+          }
+        });
+
+        if (didChange) {
+          setRuntimeTranslationVersion((version) => version + 1);
+        }
+      })
+      .catch(() => {
+        pendingTexts.forEach((text) => {
+          const cacheKey = getRuntimeTranslationCacheKey(language.code, text);
+          runtimeTranslationsInFlightRef.current.delete(cacheKey);
+          if (!runtimeTranslationsRef.current.has(cacheKey)) {
+            runtimeTranslationsRef.current.set(cacheKey, text);
+          }
+        });
+      });
+  });
+
   const setCountryCode = (countryCode) => {
     setPreference((currentPreference) => normalizeMarketPreference({
       ...currentPreference,
@@ -245,6 +307,31 @@ export function MarketProvider({
   const resetToDetected = () => {
     setPreference(normalizeMarketPreference(detectedPreference));
   };
+
+  const translateMessage = useMemo(() => (
+    (key, values = {}, fallback = '') => {
+      const localizedTemplate = getMessageTemplate(language.code, key);
+      if (localizedTemplate) {
+        return formatMessageTemplate(localizedTemplate, values);
+      }
+
+      const englishTemplate = getMessageTemplate('en', key) || fallback || key;
+      const englishText = formatMessageTemplate(englishTemplate, values);
+
+      if (language.code === 'en') {
+        return englishText;
+      }
+
+      const cacheKey = getRuntimeTranslationCacheKey(language.code, englishText);
+      const translated = runtimeTranslationsRef.current.get(cacheKey);
+      if (translated) {
+        return translated;
+      }
+
+      runtimeTranslationRequestsRef.current.add(englishText);
+      return englishText;
+    }
+  ), [language.code, runtimeTranslationVersion]);
 
   const value = useMemo(() => {
     const detectedMarket = getSupportedMarket(detectedPreference.countryCode);
@@ -272,7 +359,7 @@ export function MarketProvider({
       setLanguage,
       setCurrency,
       resetToDetected,
-      t: (key, values = {}, fallback = '') => translator(key, values, fallback),
+      t: translateMessage,
       formatPrice: (value, currency, customLocale, options = {}) => formatPriceUtil(
         value,
         currency,
@@ -286,7 +373,7 @@ export function MarketProvider({
       ),
       formatNumber: (value, customLocale, options) => formatNumberUtil(value, customLocale || locale, options),
       formatDateTime: (value, customLocale, options) => formatDateTimeUtil(value, customLocale || locale, options),
-      browseCurrencyNote: translator(
+      browseCurrencyNote: translateMessage(
         isEstimatedPricing ? 'market.estimated' : 'market.exact',
         {},
         isEstimatedPricing ? 'Estimated browse FX' : 'Native catalog FX'
@@ -301,7 +388,7 @@ export function MarketProvider({
     market,
     preference,
     browseFxState,
-    translator,
+    translateMessage,
   ]);
 
   return <MarketContext.Provider value={value}>{children}</MarketContext.Provider>;
