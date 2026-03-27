@@ -9,6 +9,7 @@
     "build:budget": "npm run build && node scripts/check_bundle_budget.mjs",
     "bundle:budget": "node scripts/check_bundle_budget.mjs",
     "bench:mobile": "node scripts/mobile_benchmark.mjs",
+    "i18n:generate": "node scripts/generate_market_messages.mjs",
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",

@@ -1,8 +1,16 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MARKET_STORAGE_KEY } from '@/config/marketConfig';
 import { getActiveMarketState, resetActiveMarketHeaders } from '@/services/marketRuntime';
 import { MarketProvider, useMarket } from './MarketContext';
+
+vi.mock('@/services/api', () => ({
+    i18nApi: {
+        translateTexts: vi.fn(async ({ texts = [], language }) => Object.fromEntries(
+            texts.map((text) => [text, language === 'en' ? text : `${language}:${text}`])
+        )),
+    },
+}));
 
 const MarketProbe = () => {
     const {
@@ -22,6 +30,19 @@ const MarketProbe = () => {
             <div data-testid="market-price">{formatPrice(1000)}</div>
             <button type="button" onClick={() => setCurrency('USD')}>USD</button>
             <button type="button" onClick={() => setLanguage('ar')}>AR</button>
+        </div>
+    );
+};
+
+const RuntimeFallbackProbe = () => {
+    const { setLanguage, t } = useMarket();
+
+    return (
+        <div>
+            <button type="button" onClick={() => setLanguage('es')}>ES</button>
+            <div data-testid="runtime-fallback">
+                {t('checkout.runtimeAutoTranslationProbe', {}, 'Ready for translation')}
+            </div>
         </div>
     );
 };
@@ -91,6 +112,22 @@ describe('MarketContext', () => {
             countryCode: 'IN',
             currency: 'USD',
             language: 'en',
+        });
+    });
+
+    it('runtime-translates missing keyed messages for non-English languages', async () => {
+        render(
+            <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+                <RuntimeFallbackProbe />
+            </MarketProvider>
+        );
+
+        expect(screen.getByTestId('runtime-fallback')).toHaveTextContent('Ready for translation');
+
+        fireEvent.click(screen.getByRole('button', { name: 'ES' }));
+
+        await waitFor(() => {
+            expect(screen.getByTestId('runtime-fallback')).toHaveTextContent('es:Ready for translation');
         });
     });
 });
