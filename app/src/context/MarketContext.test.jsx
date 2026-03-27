@@ -1,14 +1,31 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MARKET_STORAGE_KEY } from '@/config/marketConfig';
 import { getActiveMarketState, resetActiveMarketHeaders } from '@/services/marketRuntime';
 import { MarketProvider, useMarket } from './MarketContext';
 
+const {
+    getBrowseFxRatesMock,
+    readCachedBrowseFxRatesMock,
+    translateTextsMock,
+} = vi.hoisted(() => ({
+    getBrowseFxRatesMock: vi.fn(),
+    readCachedBrowseFxRatesMock: vi.fn(),
+    translateTextsMock: vi.fn(async ({ texts = [], language }) => Object.fromEntries(
+        texts.map((text) => [text, language === 'en' ? text : `${language}:${text}`])
+    )),
+}));
+
+vi.mock('@/services/api/marketApi', () => ({
+    marketApi: {
+        getBrowseFxRates: getBrowseFxRatesMock,
+    },
+    readCachedBrowseFxRates: readCachedBrowseFxRatesMock,
+}));
+
 vi.mock('@/services/api', () => ({
     i18nApi: {
-        translateTexts: vi.fn(async ({ texts = [], language }) => Object.fromEntries(
-            texts.map((text) => [text, language === 'en' ? text : `${language}:${text}`])
-        )),
+        translateTexts: translateTextsMock,
     },
 }));
 
@@ -47,38 +64,72 @@ const RuntimeFallbackProbe = () => {
     );
 };
 
+beforeEach(() => {
+    getBrowseFxRatesMock.mockReset();
+    readCachedBrowseFxRatesMock.mockReset();
+    translateTextsMock.mockClear();
+    readCachedBrowseFxRatesMock.mockReturnValue(null);
+    getBrowseFxRatesMock.mockResolvedValue({
+        baseCurrency: 'INR',
+        rates: {
+            INR: 1,
+            USD: 0.02,
+            AED: 0.08,
+        },
+        source: 'unit-test',
+        provider: 'unit-test',
+        fetchedAt: '2026-03-27T10:00:00.000Z',
+        asOfDate: '2026-03-27',
+        stale: false,
+        staleReason: '',
+    });
+});
+
 afterEach(() => {
     window.localStorage.clear();
+    window.sessionStorage.clear();
     document.documentElement.removeAttribute('dir');
     document.documentElement.removeAttribute('lang');
     resetActiveMarketHeaders();
-  });
+});
 
 describe('MarketContext', () => {
-    it('formats catalog prices using the selected browse currency', () => {
-        render(
-            <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
-                <MarketProbe />
-            </MarketProvider>
-        );
+    it('formats catalog prices using the fetched browse currency rates', async () => {
+        await act(async () => {
+            render(
+                <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+                    <MarketProbe />
+                </MarketProvider>
+            );
+        });
 
         expect(screen.getByTestId('market-country')).toHaveTextContent('IN');
-        expect(screen.getByTestId('market-price').textContent).toMatch(/₹|Rs|INR/);
+        expect(screen.getByTestId('market-price').textContent).toMatch(/INR|Rs|\u20B9/);
+
+        await waitFor(() => {
+            expect(getBrowseFxRatesMock).toHaveBeenCalledTimes(1);
+        });
 
         fireEvent.click(screen.getByRole('button', { name: 'USD' }));
 
         expect(screen.getByTestId('market-currency')).toHaveTextContent('USD');
-        expect(screen.getByTestId('market-price').textContent).toContain('$');
+        expect(screen.getByTestId('market-price').textContent).toContain('$20');
     });
 
-    it('updates document direction when switching to an rtl language', () => {
-        render(
-            <MarketProvider initialPreference={{ countryCode: 'AE', language: 'en', currency: 'AED' }}>
-                <MarketProbe />
-            </MarketProvider>
-        );
+    it('updates document direction when switching to an rtl language', async () => {
+        await act(async () => {
+            render(
+                <MarketProvider initialPreference={{ countryCode: 'AE', language: 'en', currency: 'AED' }}>
+                    <MarketProbe />
+                </MarketProvider>
+            );
+        });
 
-        act(() => {
+        await waitFor(() => {
+            expect(getBrowseFxRatesMock).toHaveBeenCalledTimes(1);
+        });
+
+        await act(async () => {
             fireEvent.click(screen.getByRole('button', { name: 'AR' }));
         });
 
@@ -87,12 +138,18 @@ describe('MarketContext', () => {
         expect(document.documentElement.lang).toContain('ar');
     });
 
-    it('persists the selected market and syncs runtime request headers', () => {
-        render(
-            <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
-                <MarketProbe />
-            </MarketProvider>
-        );
+    it('persists the selected market and syncs runtime request headers', async () => {
+        await act(async () => {
+            render(
+                <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+                    <MarketProbe />
+                </MarketProvider>
+            );
+        });
+
+        await waitFor(() => {
+            expect(getBrowseFxRatesMock).toHaveBeenCalledTimes(1);
+        });
 
         expect(getActiveMarketState()).toMatchObject({
             country: 'IN',
@@ -116,11 +173,13 @@ describe('MarketContext', () => {
     });
 
     it('runtime-translates missing keyed messages for non-English languages', async () => {
-        render(
-            <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
-                <RuntimeFallbackProbe />
-            </MarketProvider>
-        );
+        await act(async () => {
+            render(
+                <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+                    <RuntimeFallbackProbe />
+                </MarketProvider>
+            );
+        });
 
         expect(screen.getByTestId('runtime-fallback')).toHaveTextContent('Ready for translation');
 
