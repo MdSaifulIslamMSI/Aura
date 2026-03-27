@@ -34,7 +34,7 @@ const isUnsupportedTransactionError = (error) => {
     );
 };
 
-const assertQuoteSnapshot = (quoteSnapshot, totalPrice) => {
+const assertQuoteSnapshot = (quoteSnapshot, pricing) => {
     if (!quoteSnapshot || quoteSnapshot.totalPrice === undefined || quoteSnapshot.totalPrice === null) {
         return;
     }
@@ -42,9 +42,17 @@ const assertQuoteSnapshot = (quoteSnapshot, totalPrice) => {
     const provided = Number(quoteSnapshot.totalPrice);
     if (!Number.isFinite(provided)) return;
 
-    const delta = Math.abs(provided - totalPrice);
+    const delta = Math.abs(provided - Number(pricing?.totalPrice || 0));
     if (delta > 0.01) {
         throw new AppError('Quote expired. Please recalculate before placing the order.', 409);
+    }
+
+    const presentmentProvided = Number(quoteSnapshot.presentmentTotalPrice);
+    if (Number.isFinite(presentmentProvided) && pricing?.presentmentTotalPrice !== undefined) {
+        const presentmentDelta = Math.abs(presentmentProvided - Number(pricing.presentmentTotalPrice || 0));
+        if (presentmentDelta > 0.01) {
+            throw new AppError('Presentment quote expired. Please recalculate before placing the order.', 409);
+        }
     }
 };
 
@@ -79,13 +87,15 @@ const executeOrderCreation = async ({
     session = null,
 }) => {
     const quote = await buildOrderQuote(body, { session, checkStock: true });
-    assertQuoteSnapshot(body.quoteSnapshot, quote.pricing.totalPrice);
+    assertQuoteSnapshot(body.quoteSnapshot, quote.pricing);
 
     const paymentValidation = await validatePaymentIntentForOrder({
         userId,
         paymentIntentId: body.paymentIntentId,
         paymentMethod: quote.normalized.paymentMethod,
         totalPrice: quote.pricing.totalPrice,
+        presentmentTotalPrice: quote.pricing.presentmentTotalPrice,
+        presentmentCurrency: quote.pricing.presentmentCurrency,
         session,
         claimForOrder: true,
         claimKey: idempotencyKey,
@@ -113,6 +123,11 @@ const executeOrderCreation = async ({
         taxPrice: quote.pricing.taxPrice,
         shippingPrice: quote.pricing.shippingPrice,
         totalPrice: quote.pricing.totalPrice,
+        settlementCurrency: quote.pricing.settlementCurrency || 'INR',
+        settlementAmount: quote.pricing.settlementAmount ?? quote.pricing.totalPrice,
+        presentmentCurrency: quote.pricing.presentmentCurrency || quote.pricing.settlementCurrency || 'INR',
+        presentmentTotalPrice: quote.pricing.presentmentTotalPrice ?? quote.pricing.totalPrice,
+        marketCountryCode: quote.pricing.market?.countryCode || 'IN',
         couponCode: quote.normalized.couponCode || '',
         couponDiscount: quote.pricing.couponDiscount,
         paymentAdjustment: quote.pricing.paymentAdjustment,
@@ -122,6 +137,8 @@ const executeOrderCreation = async ({
         pricingVersion: quote.pricing.pricingVersion || PRICING_VERSION,
         priceBreakdown: {
             ...quote.pricing.priceBreakdown,
+            market: quote.pricing.market || null,
+            charge: quote.pricing.charge || null,
             integrityInsights: integrityResults
         },
         paymentIntentId: paymentIntent?.intentId || body.paymentIntentId || '',
@@ -147,6 +164,14 @@ const executeOrderCreation = async ({
         isPaid: paymentValidation.isPaid,
         paidAt: paymentValidation.isPaid ? new Date() : undefined,
         orderStatus: 'placed',
+        refundSummary: {
+            totalRefunded: 0,
+            settlementCurrency: quote.pricing.settlementCurrency || 'INR',
+            presentmentCurrency: quote.pricing.presentmentCurrency || quote.pricing.settlementCurrency || 'INR',
+            presentmentTotalRefunded: 0,
+            fullyRefunded: false,
+            refunds: [],
+        },
     });
 
     const createdOrder = session ? await order.save({ session }) : await order.save();

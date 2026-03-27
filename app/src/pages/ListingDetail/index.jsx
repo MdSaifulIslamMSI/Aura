@@ -29,6 +29,7 @@ import { useVideoCall } from '@/context/VideoCallContext';
 import { toast } from 'sonner';
 
 import { loadRazorpayScript } from '@/utils/razorpay';
+import OtpChallengeModal from '@/pages/Checkout/components/OtpChallengeModal';
 
 function timeAgo(dateStr) {
     const diff = Date.now() - new Date(dateStr).getTime();
@@ -133,6 +134,7 @@ export default function ListingDetail() {
     const [escrowBusy, setEscrowBusy] = useState(false);
     const [escrowError, setEscrowError] = useState('');
     const [escrowNotice, setEscrowNotice] = useState('');
+    const [escrowOtpModal, setEscrowOtpModal] = useState({ open: false, loading: false, error: '' });
     const [chatOpen, setChatOpen] = useState(false);
     const [chatLoading, setChatLoading] = useState(false);
     const [chatSending, setChatSending] = useState(false);
@@ -143,6 +145,7 @@ export default function ListingDetail() {
     const [chatInbox, setChatInbox] = useState([]);
     const chatMessagesEndRef = useRef(null);
     const chatInputRef = useRef(null);
+    const escrowOtpResolverRef = useRef(null);
     const { socket, isConnected, connectionState } = useSocket();
     const { startCall, joinCall, callStatus, activeCallContext } = useVideoCall();
 
@@ -577,6 +580,22 @@ export default function ListingDetail() {
         }
     };
 
+    const promptEscrowOtp = useCallback(() => new Promise((resolve, reject) => {
+        escrowOtpResolverRef.current = { resolve, reject };
+        setEscrowOtpModal({ open: true, loading: false, error: '' });
+    }), []);
+
+    const handleEscrowOtpSubmit = useCallback((otp) => {
+        setEscrowOtpModal((prev) => ({ ...prev, loading: true, error: '' }));
+        escrowOtpResolverRef.current?.resolve(otp);
+    }, []);
+
+    const handleEscrowOtpClose = useCallback(() => {
+        escrowOtpResolverRef.current?.reject(new Error('Payment challenge OTP entry cancelled.'));
+        escrowOtpResolverRef.current = null;
+        setEscrowOtpModal({ open: false, loading: false, error: '' });
+    }, []);
+
     const handleEscrowStart = async () => {
         if (!currentUser) {
             setEscrowError('Sign in is required to start escrow.');
@@ -605,7 +624,7 @@ export default function ListingDetail() {
                 }
 
                 await otpApi.sendOtp(challengeEmail, challengePhone, 'payment-challenge');
-                const otp = window.prompt('Enter payment challenge OTP to continue escrow payment');
+                const otp = await promptEscrowOtp();
                 if (!otp) {
                     throw new Error('Payment challenge OTP is required to continue.');
                 }
@@ -622,6 +641,8 @@ export default function ListingDetail() {
                 await paymentApi.completeChallenge(intent.intentId, {
                     challengeToken: otpResult.challengeToken,
                 });
+                setEscrowOtpModal({ open: false, loading: false, error: '' });
+                escrowOtpResolverRef.current = null;
             }
 
             if (!['authorized', 'captured'].includes(String(intent.status || '').toLowerCase())) {
@@ -655,6 +676,8 @@ export default function ListingDetail() {
             setListing(result.listing);
             setEscrowNotice(result.message || 'Escrow hold created with verified payment authorization.');
         } catch (error) {
+            setEscrowOtpModal({ open: false, loading: false, error: '' });
+            escrowOtpResolverRef.current = null;
             setEscrowError(error.message || 'Failed to start escrow');
         } finally {
             setEscrowBusy(false);
@@ -1467,6 +1490,13 @@ export default function ListingDetail() {
                     </div>
                 </div>
             )}
+            <OtpChallengeModal
+                open={escrowOtpModal.open}
+                loading={escrowOtpModal.loading}
+                error={escrowOtpModal.error}
+                onSubmit={handleEscrowOtpSubmit}
+                onClose={handleEscrowOtpClose}
+            />
         </div>
     );
 }

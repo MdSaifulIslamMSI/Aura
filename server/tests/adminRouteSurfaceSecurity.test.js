@@ -33,6 +33,8 @@ describe('Admin Route Surface Security Matrix', () => {
         ['DELETE', '/api/admin/products/1001'],
 
         ['GET', '/api/admin/payments'],
+        ['GET', '/api/admin/payments/ops/overview'],
+        ['POST', '/api/admin/payments/ops/expire-stale'],
         ['GET', '/api/admin/payments/refunds/ledger'],
         ['PATCH', '/api/admin/payments/refunds/ledger/507f1f77bcf86cd799439011/req_1/reference'],
         ['GET', '/api/admin/payments/pi_test'],

@@ -6,6 +6,7 @@ const OrderSummary = ({
     items,
     quote,
     fallbackTotals,
+    chargeQuote,
     isQuoting,
     quoteError,
     isQuoteStale,
@@ -23,6 +24,10 @@ const OrderSummary = ({
     const totalPrice = quote?.totalPrice ?? fallbackTotals.totalPrice;
     const appliedCoupon = quote?.appliedCoupon;
     const logistics = quote?.logisticsInsights;
+    const chargeAmount = chargeQuote?.amount ?? totalPrice;
+    const chargeCurrency = chargeQuote?.currency || quote?.presentmentCurrency || 'INR';
+    const settlementAmount = chargeQuote?.settlementAmount ?? totalPrice;
+    const settlementCurrency = chargeQuote?.settlementCurrency || quote?.settlementCurrency || 'INR';
 
     return (
         <aside className="h-fit lg:sticky lg:top-32">
@@ -113,34 +118,41 @@ const OrderSummary = ({
                     )}
 
                     <div className="checkout-premium-surface space-y-3">
+                        {chargeCurrency !== settlementCurrency ? (
+                            <div className="checkout-premium-alert border-emerald-500/20 bg-emerald-500/10 text-emerald-100">
+                                <p className="text-[11px] font-black uppercase tracking-[0.22em] text-emerald-200">International Charge</p>
+                                <p className="mt-2 text-sm font-semibold text-white">{formatPrice(chargeAmount, chargeCurrency)}</p>
+                                <p className="mt-1 text-xs text-emerald-100/80">Base order value remains {formatPrice(settlementAmount, settlementCurrency)} for settlement integrity and refunds.</p>
+                            </div>
+                        ) : null}
                         <div className="flex justify-between text-sm text-slate-300">
                             <span>Items</span>
-                            <span>{formatPrice(itemsPrice)}</span>
+                            <span>{formatPrice(itemsPrice, settlementCurrency)}</span>
                         </div>
                         <div className="flex justify-between text-sm text-slate-300">
                             <span>Shipping</span>
                             <div className="text-right">
-                                <span>{shippingPrice === 0 ? 'FREE' : formatPrice(shippingPrice)}</span>
+                                <span>{shippingPrice === 0 ? 'FREE' : formatPrice(shippingPrice, settlementCurrency)}</span>
                                 {logistics && <p className="text-[10px] text-neo-cyan font-bold tracking-tight mt-0.5">ALGO-CONSOLIDATED</p>}
                             </div>
                         </div>
                         <div className="flex justify-between text-sm text-slate-300">
                             <span>Payment Adjustment</span>
                             <span className={cn(paymentAdjustment <= 0 ? 'text-neo-cyan' : 'text-amber-300')}>
-                                {paymentAdjustment === 0 ? formatPrice(0) : `${paymentAdjustment > 0 ? '+' : '-'} ${formatPrice(Math.abs(paymentAdjustment))}`}
+                                {paymentAdjustment === 0 ? formatPrice(0, settlementCurrency) : `${paymentAdjustment > 0 ? '+' : '-'} ${formatPrice(Math.abs(paymentAdjustment), settlementCurrency)}`}
                             </span>
                         </div>
                         <div className="flex justify-between text-sm text-slate-300">
                             <span>Coupon Discount</span>
-                            <span className="text-neo-cyan">- {formatPrice(couponDiscount)}</span>
+                            <span className="text-neo-cyan">- {formatPrice(couponDiscount, settlementCurrency)}</span>
                         </div>
                         <div className="flex justify-between text-sm text-slate-300">
                             <span>Tax</span>
-                            <span>{formatPrice(taxPrice)}</span>
+                            <span>{formatPrice(taxPrice, settlementCurrency)}</span>
                         </div>
                         <div className="flex items-center justify-between gap-3 border-t border-white/10 pt-4">
                             <span className="text-xs font-black uppercase tracking-[0.22em] text-slate-400">Total</span>
-                            <span className="text-2xl font-black tracking-tight text-white">{formatPrice(totalPrice)}</span>
+                            <span className="text-2xl font-black tracking-tight text-white">{formatPrice(chargeAmount, chargeCurrency)}</span>
                         </div>
                     </div>
 

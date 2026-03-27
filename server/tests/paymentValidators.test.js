@@ -9,6 +9,10 @@ describe('Payment Validators', () => {
                 },
                 paymentMethod: 'NETBANKING',
                 paymentContext: {
+                    market: {
+                        countryCode: 'in',
+                        currency: 'inr',
+                    },
                     netbanking: {
                         bankCode: 'hdfc',
                         bankName: 'HDFC Bank',
@@ -19,6 +23,8 @@ describe('Payment Validators', () => {
         });
 
         expect(parsed.body.paymentMethod).toBe('NETBANKING');
+        expect(parsed.body.paymentContext.market.countryCode).toBe('IN');
+        expect(parsed.body.paymentContext.market.currency).toBe('INR');
         expect(parsed.body.paymentContext.netbanking.bankCode).toBe('HDFC');
     });
 
@@ -80,5 +86,42 @@ describe('Payment Validators', () => {
         });
 
         expect(parsed.body.metadata.enrollmentSource).toBe('checkout');
+    });
+
+    test('createIntentSchema accepts ISO market context and blocks malformed codes', async () => {
+        const parsed = await createIntentSchema.parseAsync({
+            body: {
+                quotePayload: {
+                    orderItems: [{ product: 10, quantity: 1 }],
+                },
+                paymentMethod: 'CARD',
+                paymentContext: {
+                    market: {
+                        countryCode: 'us',
+                        currency: 'usd',
+                    },
+                },
+            },
+        });
+
+        expect(parsed.body.paymentContext.market).toEqual({
+            countryCode: 'US',
+            currency: 'USD',
+        });
+
+        await expect(createIntentSchema.parseAsync({
+            body: {
+                quotePayload: {
+                    orderItems: [{ product: 10, quantity: 1 }],
+                },
+                paymentMethod: 'CARD',
+                paymentContext: {
+                    market: {
+                        countryCode: 'USA',
+                        currency: 'usd',
+                    },
+                },
+            },
+        })).rejects.toBeTruthy();
     });
 });
