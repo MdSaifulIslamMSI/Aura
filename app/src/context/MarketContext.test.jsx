@@ -104,7 +104,7 @@ describe('MarketContext', () => {
         });
 
         expect(screen.getByTestId('market-country')).toHaveTextContent('IN');
-        expect(screen.getByTestId('market-price').textContent).toMatch(/INR|Rs|₹/);
+        expect(screen.getByTestId('market-price').textContent).toMatch(/INR|Rs|\u20B9/);
 
         await waitFor(() => {
             expect(getBrowseFxRatesMock).toHaveBeenCalledTimes(1);
