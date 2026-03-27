@@ -6,6 +6,7 @@ import { AuthContext } from '@/context/AuthContext';
 import { CartContext } from '@/context/CartContext';
 import { WishlistContext } from '@/context/WishlistContext';
 import { ColorModeProvider } from '@/context/ColorModeContext';
+import { MarketProvider } from '@/context/MarketContext';
 import { MotionModeProvider } from '@/context/MotionModeContext';
 
 vi.mock('@/context/NotificationContext', () => ({
@@ -58,14 +59,16 @@ describe('Navbar Component', () => {
             <MemoryRouter>
                 <ColorModeProvider>
                     <MotionModeProvider>
-                        <AuthContext.Provider value={{ ...mockAuth, ...authOverride }}>
-                            <CartContext.Provider value={{ ...mockCart, ...cartOverride }}>
-                                <WishlistContext.Provider value={{ ...mockWishlist, ...wishlistOverride }}>
-                                    <Navbar />
-                                    <LocationProbe />
-                                </WishlistContext.Provider>
-                            </CartContext.Provider>
-                        </AuthContext.Provider>
+                        <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+                            <AuthContext.Provider value={{ ...mockAuth, ...authOverride }}>
+                                <CartContext.Provider value={{ ...mockCart, ...cartOverride }}>
+                                    <WishlistContext.Provider value={{ ...mockWishlist, ...wishlistOverride }}>
+                                        <Navbar />
+                                        <LocationProbe />
+                                    </WishlistContext.Provider>
+                                </CartContext.Provider>
+                            </AuthContext.Provider>
+                        </MarketProvider>
                     </MotionModeProvider>
                 </ColorModeProvider>
             </MemoryRouter>

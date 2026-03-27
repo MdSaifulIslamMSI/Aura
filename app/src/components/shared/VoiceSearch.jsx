@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Bot, Loader2, Mic, MicOff, Send, Volume2, VolumeX, X } from 'lucide-react';
+import { useMarket } from '@/context/MarketContext';
 import { aiApi } from '@/services/aiApi';
 import { buildLocalVoiceCommand } from '@/utils/assistantIntent';
 
@@ -65,6 +66,7 @@ const VoiceSearch = ({ onClose, onResult }) => {
   const audioRef = useRef(null);
   const audioUrlRef = useRef('');
   const navigate = useNavigate();
+  const { t, voiceLocale } = useMarket();
 
   const browserSupportsSpeechRecognition =
     typeof window !== 'undefined' &&
@@ -76,7 +78,7 @@ const VoiceSearch = ({ onClose, onResult }) => {
 
     const response = await aiApi.speakText({
       text,
-      locale: voiceSessionRef.current?.locale || 'en-IN',
+      locale: voiceSessionRef.current?.locale || voiceLocale,
     });
 
     const audioBlob = decodeBase64Audio(response?.audioBase64, response?.mimeType || 'audio/mpeg');
@@ -95,7 +97,7 @@ const VoiceSearch = ({ onClose, onResult }) => {
     audioUrlRef.current = objectUrl;
     await audio.play();
     return true;
-  }, []);
+  }, [voiceLocale]);
 
   const speak = useCallback(
     async (text) => {
@@ -113,13 +115,13 @@ const VoiceSearch = ({ onClose, onResult }) => {
       if (!('speechSynthesis' in window)) return;
 
       const utterance = new SpeechSynthesisUtterance(message);
-      utterance.lang = voiceSession?.locale || 'en-IN';
+      utterance.lang = voiceSession?.locale || voiceLocale;
       utterance.rate = 1;
       utterance.pitch = 1;
       window.speechSynthesis.cancel();
       window.speechSynthesis.speak(utterance);
     },
-    [playServerSpeech, speechEnabled, voiceSession?.locale]
+    [playServerSpeech, speechEnabled, voiceLocale, voiceSession?.locale]
   );
 
   const stopListening = useCallback(() => {
@@ -176,7 +178,7 @@ const VoiceSearch = ({ onClose, onResult }) => {
     async (rawInput) => {
       const message = String(rawInput || '').trim();
       if (!message) {
-        setAssistantReply('Say a command like search for iPhone fifteen.');
+        setAssistantReply(t('voice.waiting', {}, 'Waiting for your command...'));
         return;
       }
 
@@ -189,7 +191,7 @@ const VoiceSearch = ({ onClose, onResult }) => {
           message,
           assistantMode: 'voice',
           context: {
-            locale: voiceSessionRef.current?.locale || 'en-IN',
+            locale: voiceSessionRef.current?.locale || voiceLocale,
             voiceSessionId: voiceSessionRef.current?.sessionId || '',
           },
         });
@@ -205,7 +207,7 @@ const VoiceSearch = ({ onClose, onResult }) => {
         setIsProcessing(false);
       }
     },
-    [applyAssistantActions, executeLocalCommand, speak]
+    [applyAssistantActions, executeLocalCommand, speak, t, voiceLocale]
   );
 
   const startListening = useCallback(() => {
@@ -224,7 +226,7 @@ const VoiceSearch = ({ onClose, onResult }) => {
     recognitionRef.current = recognition;
     recognition.continuous = false;
     recognition.interimResults = true;
-    recognition.lang = voiceSessionRef.current?.locale || 'en-IN';
+    recognition.lang = voiceSessionRef.current?.locale || voiceLocale;
     recognition.maxAlternatives = 1;
 
     recognition.onstart = () => {
@@ -279,7 +281,7 @@ const VoiceSearch = ({ onClose, onResult }) => {
   useEffect(() => {
     let active = true;
 
-    aiApi.createVoiceSession({ locale: 'en-IN' })
+    aiApi.createVoiceSession({ locale: voiceLocale })
       .then((session) => {
         if (!active) return;
         voiceSessionRef.current = session;
@@ -302,7 +304,7 @@ const VoiceSearch = ({ onClose, onResult }) => {
         window.speechSynthesis.cancel();
       }
     };
-  }, [startListening]);
+  }, [startListening, voiceLocale]);
 
   return (
     <div
@@ -320,8 +322,8 @@ const VoiceSearch = ({ onClose, onResult }) => {
                 <Bot className="w-5 h-5 text-cyan-200" />
               </div>
               <div>
-                <h2 className="text-base sm:text-lg font-black text-slate-100 tracking-wide">Aura Voice Assistant</h2>
-                <p className="text-xs sm:text-sm text-slate-400">Browser capture plus server-backed command reasoning</p>
+                <h2 className="text-base sm:text-lg font-black text-slate-100 tracking-wide">{t('voice.title', {}, 'Aura Voice Assistant')}</h2>
+                <p className="text-xs sm:text-sm text-slate-400">{t('voice.subtitle', {}, 'Browser capture plus server-backed command reasoning')}</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -329,7 +331,7 @@ const VoiceSearch = ({ onClose, onResult }) => {
                 type="button"
                 onClick={() => setSpeechEnabled((value) => !value)}
                 className="rounded-lg border border-white/15 bg-white/5 p-2 text-slate-300 hover:text-white hover:border-white/25"
-                title={speechEnabled ? 'Mute assistant voice' : 'Enable assistant voice'}
+                title={speechEnabled ? t('voice.mute', {}, 'Mute assistant voice') : t('voice.enable', {}, 'Enable assistant voice')}
               >
                 {speechEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
               </button>
@@ -348,7 +350,7 @@ const VoiceSearch = ({ onClose, onResult }) => {
         <div className="p-5 sm:p-6 space-y-4">
           <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-4 items-start">
             <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-              <div className="text-[11px] font-black uppercase tracking-[0.2em] text-cyan-300 mb-2">Microphone</div>
+              <div className="text-[11px] font-black uppercase tracking-[0.2em] text-cyan-300 mb-2">{t('voice.microphone', {}, 'Microphone')}</div>
               <div className="relative mx-auto w-20 h-20 mb-3">
                 {isListening && (
                   <>
@@ -376,28 +378,28 @@ const VoiceSearch = ({ onClose, onResult }) => {
                 disabled={isListening || isProcessing}
                 className="w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-xs font-bold uppercase tracking-wider text-slate-200 hover:bg-white/10 disabled:opacity-50"
               >
-                Retry
+                {t('voice.retry', {}, 'Retry')}
               </button>
             </div>
 
             <div className="space-y-3">
               <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 min-h-[8.5rem]">
-                <div className="text-[11px] font-black uppercase tracking-[0.2em] text-cyan-300 mb-2">I Heard</div>
+                <div className="text-[11px] font-black uppercase tracking-[0.2em] text-cyan-300 mb-2">{t('voice.heard', {}, 'I Heard')}</div>
                 <p className="text-slate-100 text-base sm:text-lg font-semibold break-words">
-                  {transcript ? `"${transcript}"` : 'Waiting for your command...'}
+                  {transcript ? `"${transcript}"` : t('voice.waiting', {}, 'Waiting for your command...')}
                 </p>
 
                 {isListening && (
                   <div className="mt-3 flex items-center gap-2 text-xs text-cyan-200">
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    Listening for command...
+                    {t('voice.listening', {}, 'Listening for command...')}
                   </div>
                 )}
 
                 {isProcessing && !isListening && (
                   <div className="mt-3 flex items-center gap-2 text-xs text-cyan-200">
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    Aura is resolving your command...
+                    {t('voice.resolving', {}, 'Aura is resolving your command...')}
                   </div>
                 )}
 
@@ -415,7 +417,7 @@ const VoiceSearch = ({ onClose, onResult }) => {
               </div>
 
               <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
-                <div className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 mb-2">Type Command</div>
+                <div className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 mb-2">{t('voice.typeCommand', {}, 'Type Command')}</div>
                 <div className="flex items-center gap-2">
                   <input
                     value={manualCommand}
@@ -427,7 +429,7 @@ const VoiceSearch = ({ onClose, onResult }) => {
                         setManualCommand('');
                       }
                     }}
-                    placeholder="Example: search for bluetooth headphones"
+                    placeholder={t('voice.commandPlaceholder', {}, 'Example: search for bluetooth headphones')}
                     className="flex-1 rounded-xl border border-white/15 bg-zinc-900/90 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 outline-none focus:border-cyan-400/70"
                   />
                   <button
@@ -449,13 +451,13 @@ const VoiceSearch = ({ onClose, onResult }) => {
 
           <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Voice Commands</div>
+              <div className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">{t('voice.commandLibrary', {}, 'Voice Commands')}</div>
               <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
                 <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1">
                   {voiceSession?.capabilities?.speechToText?.provider || 'browser'}
                 </span>
                 <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1">
-                  {voiceSession?.locale || 'en-IN'}
+                  {voiceSession?.locale || voiceLocale}
                 </span>
               </div>
             </div>
@@ -473,7 +475,7 @@ const VoiceSearch = ({ onClose, onResult }) => {
             </div>
             {!browserSupportsSpeechRecognition && (
               <p className="mt-3 text-xs text-amber-200">
-                Voice capture is unavailable in this browser. Typed command mode is enabled.
+                {t('voice.captureUnavailable', {}, 'Voice capture is unavailable in this browser. Typed command mode is enabled.')}
               </p>
             )}
           </div>

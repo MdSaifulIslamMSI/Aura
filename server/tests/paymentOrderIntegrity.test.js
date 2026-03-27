@@ -152,6 +152,30 @@ describe('Payment Order Integrity', () => {
         });
     });
 
+    test('validatePaymentIntentForOrder remains backward compatible with legacy same-currency intents', async () => {
+        const user = await makeUser();
+        const intent = await makeIntent({
+            userId: user._id,
+            amount: 2199,
+            method: 'CARD',
+            status: PAYMENT_STATUSES.AUTHORIZED,
+        });
+
+        await expect(validatePaymentIntentForOrder({
+            userId: user._id,
+            paymentIntentId: intent.intentId,
+            paymentMethod: 'CARD',
+            baseAmount: 2199,
+            baseCurrency: 'INR',
+            displayAmount: 2199,
+            displayCurrency: 'INR',
+            totalPrice: 2199,
+        })).resolves.toMatchObject({
+            paymentIntent: expect.objectContaining({ intentId: intent.intentId }),
+            paymentState: PAYMENT_STATUSES.AUTHORIZED,
+        });
+    });
+
     test('validatePaymentIntentForOrder rejects foreign-user, expired, amount mismatch, method mismatch, and unauthorized intents', async () => {
         const owner = await makeUser();
         const attacker = await makeUser();

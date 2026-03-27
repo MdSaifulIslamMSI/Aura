@@ -13,6 +13,8 @@ import {
   X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useMarket } from '@/context/MarketContext';
+import { formatPrice } from '@/utils/format';
 
 const DEFAULT_MAX_PRICE = 200000;
 const REVIEW_OPTIONS = [0, 100, 500, 1000, 5000];
@@ -58,9 +60,8 @@ const sanitizeFilters = (raw = {}) => {
   };
 };
 
-const formatPrice = (value) => `Rs ${Number(value || 0).toLocaleString('en-IN')}`;
-
 const Filters = ({ filters, onFilterChange, className, closeMobile }) => {
+  const { currency } = useMarket();
   const [expandedSections, setExpandedSections] = useState({
     price: true,
     category: true,
@@ -107,7 +108,7 @@ const Filters = ({ filters, onFilterChange, className, closeMobile }) => {
     const chips = [];
 
     if (draft.priceRange[0] > 0 || draft.priceRange[1] < DEFAULT_MAX_PRICE) {
-      chips.push({ key: 'price', label: `${formatPrice(draft.priceRange[0])} - ${formatPrice(draft.priceRange[1])}` });
+      chips.push({ key: 'price', label: `${formatPrice(draft.priceRange[0], currency)} - ${formatPrice(draft.priceRange[1], currency)}` });
     }
 
     draft.categories.forEach((entry) => {
@@ -365,7 +366,7 @@ const Filters = ({ filters, onFilterChange, className, closeMobile }) => {
                       : 'border-white/15 bg-white/5 text-slate-300 hover:text-white hover:border-white/30'
                   )}
                 >
-                  Up to {formatPrice(amount)}
+                  Up to {formatPrice(amount, currency)}
                 </button>
               ))}
             </div>

@@ -4,6 +4,7 @@ import { BadgeCheck, Brain, Camera, Heart, ShoppingCart, Share2, Star, ChevronRi
 import { CartContext } from '@/context/CartContext';
 import { WishlistContext } from '@/context/WishlistContext';
 import { AuthContext } from '@/context/AuthContext';
+import { useMarket } from '@/context/MarketContext';
 import { useCommerceStore } from '@/store/commerceStore';
 import { priceAlertApi, productApi, uploadApi } from '@/services/api';
 import { pushClientDiagnostic } from '@/services/clientObservability';
@@ -14,6 +15,8 @@ import PremiumSelect from '@/components/ui/premium-select';
 import { cn } from '@/lib/utils';
 import { buildLifecycleIntelligence, buildProductTrustGraph } from '@/utils/commerceIntelligence';
 import { pushRecentlyViewed } from '@/utils/recentlyViewed';
+import { formatPrice as formatPriceValue } from '@/utils/format';
+import { getDisplayAmount, getDisplayCurrency, getOriginalDisplayAmount } from '@/utils/pricing';
 
 const DEFAULT_REVIEWS_SUMMARY = {
   averageRating: 0,
@@ -31,6 +34,7 @@ const ProductDetails = () => {
   const cartContext = useContext(CartContext);
   const wishlistContext = useContext(WishlistContext);
   const authContext = useContext(AuthContext);
+  const { t, formatDateTime } = useMarket();
 
   const addToCart = cartContext?.addToCart || (() => console.warn('addToCart missing'));
   const cartItems = cartContext?.cartItems || [];
@@ -194,7 +198,7 @@ const ProductDetails = () => {
         setHasLoadedCompatibility(true);
       } catch (error) {
         if (!active) return;
-        setCompatibilityError(error.message || 'Unable to build compatibility map');
+        setCompatibilityError(error.message || t('productPage.error.compatibility', {}, 'Unable to build compatibility map'));
       } finally {
         if (active) setCompatibilityLoading(false);
       }
@@ -226,7 +230,7 @@ const ProductDetails = () => {
         }) : prev);
       }
     } catch (error) {
-      setReviewsError(error.message || 'Unable to load customer reviews');
+      setReviewsError(error.message || t('productPage.error.loadReviews', {}, 'Unable to load customer reviews'));
     } finally {
       setReviewsLoading(false);
     }
@@ -263,19 +267,8 @@ const ProductDetails = () => {
     return () => { active = false; };
   }, [product?.id, product?._id]);
 
-  // Safe Formatters
-  const formatPrice = (price) => {
-    try {
-      if (price === undefined || price === null) return '₹0';
-      return new Intl.NumberFormat('en-IN', {
-        style: 'currency',
-        currency: 'INR',
-        maximumFractionDigits: 0,
-      }).format(price);
-    } catch (e) {
-      return '₹0';
-    }
-  };
+  // All visible product pricing should follow the backend-authored display currency.
+  const formatDisplayPrice = (price, currency = getDisplayCurrency(product)) => formatPriceValue(price, currency);
 
   // Handlers
   const handleAddToCart = () => {
@@ -322,14 +315,14 @@ const ProductDetails = () => {
 
   const handleOpenBundleBuilder = () => {
     const theme = `${product?.category || product?.brand || 'smart essentials'}`.toLowerCase();
-    const budget = Math.max(5000, Math.min(200000, Math.round((Number(product?.price) || 15000) * 2.5)));
+    const budget = Math.max(5000, Math.min(200000, Math.round((getDisplayAmount(product) || 15000) * 2.5)));
     navigate(`/bundles?theme=${encodeURIComponent(theme)}&budget=${budget}`);
   };
 
   const handleOpenMissionControl = () => {
     const params = new URLSearchParams();
     params.set('goal', `${product?.brand || ''} ${product?.title || product?.category || 'upgrade'}`.trim());
-    params.set('budget', String(Math.max(5000, Math.round((Number(product?.price) || 15000) * 2))));
+    params.set('budget', String(Math.max(5000, Math.round((getDisplayAmount(product) || 15000) * 2))));
     if (product?.category) {
       params.set('category', String(product.category));
     }
@@ -349,11 +342,13 @@ const ProductDetails = () => {
     setLifecycleError('');
 
     try {
-      const suggestedTarget = Math.max(1, Math.round((Number(product?.price) || 0) * 0.92));
+      const suggestedTarget = Math.max(1, Math.round((getDisplayAmount(product) || 0) * 0.92));
       const response = await priceAlertApi.create(productIdentifier, suggestedTarget);
-      setLifecycleNotice(response?.message || `Price alert armed at ${formatPrice(suggestedTarget)}.`);
+      setLifecycleNotice(response?.message || t('productPage.priceAlertArmed', {
+        price: formatDisplayPrice(suggestedTarget, getDisplayCurrency(product)),
+      }, `Price alert armed at ${formatDisplayPrice(suggestedTarget, getDisplayCurrency(product))}.`));
     } catch (error) {
-      setLifecycleError(error.message || 'Unable to create price alert right now.');
+      setLifecycleError(error.message || t('productPage.error.priceAlert', {}, 'Unable to create price alert right now.'));
     }
   };
 
@@ -372,7 +367,7 @@ const ProductDetails = () => {
     if (incomingFiles.length === 0) return;
 
     if (!currentUser) {
-      setReviewSubmitError('Login is required before media upload.');
+      setReviewSubmitError(t('productPage.error.loginMediaUpload', {}, 'Login is required before media upload.'));
       return;
     }
 
@@ -384,7 +379,7 @@ const ProductDetails = () => {
     }
 
     setReviewUploadInProgress(true);
-    setReviewUploadMessage(`Uploading ${filesToUpload.length} file(s)...`);
+      setReviewUploadMessage(t('productPage.uploadingFiles', { count: filesToUpload.length }, `Uploading ${filesToUpload.length} file(s)...`));
     setReviewSubmitError('');
 
     try {
@@ -416,9 +411,9 @@ const ProductDetails = () => {
           media: [...prev.media, ...uploadedMedia].slice(0, 8),
         }));
       }
-      setReviewUploadMessage(`${uploadedMedia.length} media file(s) uploaded.`);
+      setReviewUploadMessage(t('productPage.uploadedFiles', { count: uploadedMedia.length }, `${uploadedMedia.length} media file(s) uploaded.`));
     } catch (error) {
-      setReviewSubmitError(error?.message || 'Media upload failed.');
+      setReviewSubmitError(error?.message || t('productPage.error.mediaUpload', {}, 'Media upload failed.'));
       setReviewUploadMessage('');
     } finally {
       setReviewUploadInProgress(false);
@@ -433,7 +428,7 @@ const ProductDetails = () => {
     if (!url) return;
 
     if (!/^https?:\/\/[^\s]+$/i.test(url) && !/^\/uploads\/[^\s]+$/i.test(url)) {
-      setReviewSubmitError('Media URL must be an http(s) link or /uploads path.');
+      setReviewSubmitError(t('productPage.error.invalidMediaUrl', {}, 'Media URL must be an http(s) link or /uploads path.'));
       return;
     }
 
@@ -473,13 +468,13 @@ const ProductDetails = () => {
 
     const trimmedComment = String(reviewForm.comment || '').trim();
     if (trimmedComment.length < 8) {
-      setReviewSubmitError('Review comment must be at least 8 characters.');
+      setReviewSubmitError(t('productPage.error.reviewCommentShort', {}, 'Review comment must be at least 8 characters.'));
       return;
     }
 
     const productIdentifier = product?.id || product?._id;
     if (!productIdentifier) {
-      setReviewSubmitError('Invalid product for review submission.');
+      setReviewSubmitError(t('productPage.error.invalidReviewProduct', {}, 'Invalid product for review submission.'));
       return;
     }
 
@@ -490,7 +485,7 @@ const ProductDetails = () => {
         comment: trimmedComment,
         media: reviewForm.media,
       });
-      setReviewSubmitMessage(response?.message || 'Review submitted successfully.');
+      setReviewSubmitMessage(response?.message || t('productPage.success.reviewSubmitted', {}, 'Review submitted successfully.'));
       setReviewForm({
         rating: 5,
         comment: '',
@@ -499,7 +494,7 @@ const ProductDetails = () => {
       setMediaDraft({ type: 'image', url: '', caption: '' });
       await loadReviews(reviewSort);
     } catch (error) {
-      setReviewSubmitError(error.message || 'Review submission failed.');
+      setReviewSubmitError(error.message || t('productPage.error.reviewSubmit', {}, 'Review submission failed.'));
     } finally {
       setReviewSubmitting(false);
     }
@@ -530,9 +525,9 @@ const ProductDetails = () => {
       <div className="container-custom max-w-7xl mx-auto py-20 px-4 text-center">
         <div className="bg-white/5 border border-white/10 rounded-3xl p-12 max-w-2xl mx-auto shadow-glass relative overflow-hidden group">
           <div className="absolute inset-0 bg-gradient-to-br from-neo-cyan/5 to-neo-rose/5 pointer-events-none" />
-          <h2 className="text-3xl font-black mb-6 text-white tracking-widest uppercase">Product Not Found</h2>
-          <p className="text-slate-400 mb-8">The item you are looking for could not be found.</p>
-          <Link to="/" className="btn-primary inline-block px-10 py-3">Continue Shopping</Link>
+          <h2 className="text-3xl font-black mb-6 text-white tracking-widest uppercase">{t('productPage.notFoundTitle', {}, 'Product Not Found')}</h2>
+          <p className="text-slate-400 mb-8">{t('productPage.notFoundBody', {}, 'The item you are looking for could not be found.')}</p>
+          <Link to="/" className="btn-primary inline-block px-10 py-3">{t('productPage.continueShopping', {}, 'Continue Shopping')}</Link>
         </div>
       </div>
     );
@@ -554,12 +549,22 @@ const ProductDetails = () => {
     description = 'No description available.',
     highlights = [],
     deliveryTime = 'Instant Delivery',
-    warranty = 'No warranty specified',
+    warranty = t('productPage.noWarranty', {}, 'No warranty specified'),
     category = 'General',
     subCategory = ''
   } = product;
+  const displayCurrency = getDisplayCurrency(product);
+  const displayPrice = getDisplayAmount(product);
+  const displayOriginalPrice = getOriginalDisplayAmount(product);
   const heroTitle = displayTitle || title;
   const heroSubtitle = subtitle || subCategory || category;
+  const tabLabels = {
+    description: t('productPage.tab.description', {}, 'Description'),
+    specifications: t('productPage.tab.specifications', {}, 'Specifications'),
+    'deal-dna': t('productPage.tab.dealDna', {}, 'Deal DNA'),
+    compatibility: t('productPage.tab.compatibility', {}, 'Compatibility'),
+    reviews: t('productPage.tab.reviews', {}, 'Reviews'),
+  };
 
   const dealDna = product?.dealDna || null;
   const isDemoCatalog = product?.publishGate?.status === 'dev_only' || product?.provenance?.sourceType === 'dev_seed';
@@ -569,7 +574,7 @@ const ProductDetails = () => {
       ? 'border-rose-400/40 bg-rose-500/15 text-rose-100'
       : 'border-amber-400/40 bg-amber-500/15 text-amber-100';
   const dealLabel = dealDna?.verdict === 'good_deal'
-    ? 'Good Deal'
+    ? t('product.goodDeal', {}, 'Good Deal')
     : dealDna?.verdict === 'avoid'
       ? 'Avoid'
       : dealDna?.verdict === 'wait'
@@ -661,7 +666,7 @@ const ProductDetails = () => {
                   className="relative flex flex-1 items-center justify-center gap-2 overflow-hidden border-white/20 py-3.5 text-[11px] tracking-[0.18em] shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)] btn-secondary group"
                 >
                   <ShoppingCart className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
-                  <span className="relative z-10">Add to Bag</span>
+                  <span className="relative z-10">{t('product.addToBag', {}, 'Add to Bag')}</span>
                 </button>
               )}
               <button
@@ -671,7 +676,7 @@ const ProductDetails = () => {
                 className="relative flex-1 overflow-hidden py-3.5 text-[11px] tracking-[0.18em] shadow-[0_0_15px_rgba(217,70,239,0.3)] btn-primary group"
               >
                 <span className="relative z-10 flex items-center justify-center gap-2">
-                  <Zap className="w-4 h-4 fill-white animate-pulse" /> Buy Now
+                  <Zap className="w-4 h-4 fill-white animate-pulse" /> {t('productPage.buyNow', {}, 'Buy Now')}
                 </span>
                 <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
               </button>
@@ -707,26 +712,26 @@ const ProductDetails = () => {
                     {rating}<Star className="w-3 h-3 fill-zinc-950 ml-1" />
                   </span>
                   <span className="text-slate-400 font-medium text-sm tracking-wide bg-white/5 px-3 py-1 rounded-full border border-white/5">
-                    {ratingCount.toLocaleString()} Reviews
+                    {t('productPage.reviewsCount', { count: ratingCount.toLocaleString() }, `${ratingCount.toLocaleString()} Reviews`)}
                   </span>
                   {dealDna && (
                     <span className={cn('text-[10px] px-3 py-1 rounded-full border font-black uppercase tracking-widest inline-flex items-center gap-1.5', dealTone)}>
                       <BadgeCheck className="w-3 h-3" />
-                      Deal DNA {dealDna.score} • {dealLabel}
+                      {t('productPage.dealDnaScore', { score: dealDna.score, label: dealLabel }, `Deal DNA ${dealDna.score} • ${dealLabel}`)}
                     </span>
                   )}
                 </div>
 
                 <div className="mb-6 flex flex-wrap items-end gap-3 rounded-2xl border border-white/5 bg-zinc-950/50 p-4 shadow-inner sm:gap-4 sm:p-6">
                   <span className="text-4xl font-black tracking-tighter text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.2)] sm:text-5xl">
-                    {formatPrice(price)}
+                    {formatDisplayPrice(displayPrice, displayCurrency)}
                   </span>
                   <div className="flex flex-col pb-1">
                     <span className="text-slate-500 line-through text-lg font-medium tracking-wide">
-                      {formatPrice(originalPrice)}
+                      {formatDisplayPrice(displayOriginalPrice, displayCurrency)}
                     </span>
                     <span className="text-neo-cyan font-black uppercase tracking-wider text-sm flex items-center gap-1">
-                      <Zap className="w-3 h-3 fill-neo-cyan" /> {discountPercentage}% Off
+                      <Zap className="w-3 h-3 fill-neo-cyan" /> {t('product.off', {}, '% off').replace('%', String(discountPercentage))}
                     </span>
                   </div>
                 </div>
@@ -734,7 +739,9 @@ const ProductDetails = () => {
                 <div className="mb-8 flex flex-wrap items-center gap-3">
                   <div className={cn('w-3 h-3 rounded-full animate-pulse', stock > 0 ? 'bg-neo-cyan shadow-[0_0_10px_rgba(6,182,212,0.8)]' : 'bg-neo-rose shadow-[0_0_10px_rgba(244,63,94,0.8)]')} />
                   <p className={cn('text-sm font-bold uppercase tracking-widest', stock > 0 ? 'text-neo-cyan' : 'text-neo-rose')}>
-                    {stock > 0 ? `In Stock (${stock} Available)` : 'Out of Stock'}
+                    {stock > 0
+                      ? t('productPage.inStockAvailable', { count: stock }, `In Stock (${stock} Available)`)
+                      : t('productPage.outOfStock', {}, 'Out of Stock')}
                   </p>
                 </div>
 
@@ -770,7 +777,7 @@ const ProductDetails = () => {
                       className="btn-secondary px-10 py-4 flex items-center gap-3 text-sm tracking-widest border-white/20 group/add"
                     >
                       <ShoppingCart className="w-5 h-5 group-hover/add:-translate-x-1 transition-transform" />
-                      <span className="relative z-10">Add to Bag</span>
+                      <span className="relative z-10">{t('product.addToBag', {}, 'Add to Bag')}</span>
                     </button>
                   )}
                   <button
@@ -780,7 +787,7 @@ const ProductDetails = () => {
                     className="btn-primary px-10 py-4 text-sm tracking-widest flex items-center gap-2 group/buy shadow-[0_0_20px_rgba(16,185,129,0.3)]"
                   >
                     <Zap className="w-4 h-4 fill-white group-hover/buy:animate-pulse" />
-                    <span className="relative z-10">Buy Now</span>
+                    <span className="relative z-10">{t('productPage.buyNow', {}, 'Buy Now')}</span>
                   </button>
                 </div>
 
@@ -790,28 +797,28 @@ const ProductDetails = () => {
                     className="rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-sm font-black uppercase tracking-widest text-slate-100 hover:border-neo-cyan/45 hover:text-neo-cyan transition-colors inline-flex items-center justify-center gap-2"
                   >
                     <Brain className="w-4 h-4" />
-                    AI Compare
+                    {t('nav.aiCompare', {}, 'AI Compare')}
                   </button>
                   <button
                     onClick={handleOpenVisualSearch}
                     className="rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-sm font-black uppercase tracking-widest text-slate-100 hover:border-neo-emerald/45 hover:text-neo-emerald transition-colors inline-flex items-center justify-center gap-2"
                   >
                     <Camera className="w-4 h-4" />
-                    Visual Match
+                    {t('nav.visualSearch', {}, 'Visual Search')}
                   </button>
                   <button
                     onClick={handleOpenBundleBuilder}
                     className="rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-sm font-black uppercase tracking-widest text-slate-100 hover:border-violet-400/45 hover:text-violet-300 transition-colors inline-flex items-center justify-center gap-2"
                   >
                     <Zap className="w-4 h-4" />
-                    Smart Bundle
+                    {t('productPage.smartBundle', {}, 'Smart Bundle')}
                   </button>
                   <button
                     onClick={() => setActiveTab('compatibility')}
                     className="rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-sm font-black uppercase tracking-widest text-slate-100 hover:border-emerald-400/45 hover:text-emerald-300 transition-colors inline-flex items-center justify-center gap-2"
                   >
                     <BadgeCheck className="w-4 h-4" />
-                    Compatibility
+                    {t('productPage.tab.compatibility', {}, 'Compatibility')}
                   </button>
                 </div>
 
@@ -865,17 +872,17 @@ const ProductDetails = () => {
                     <div className="mt-4 grid gap-3 sm:grid-cols-2">
                       <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-3">
                         <p className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-400">Trade-in estimate</p>
-                        <p className="mt-2 text-2xl font-black text-white">{formatPrice(lifecycleIntelligence.tradeInEstimate)}</p>
+                        <p className="mt-2 text-2xl font-black text-white">{formatDisplayPrice(lifecycleIntelligence.tradeInEstimate, displayCurrency)}</p>
                       </div>
                       <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-3">
                         <p className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-400">Expected 90-day slide</p>
-                        <p className="mt-2 text-2xl font-black text-white">{formatPrice(lifecycleIntelligence.ninetyDayDepreciation)}</p>
+                        <p className="mt-2 text-2xl font-black text-white">{formatDisplayPrice(lifecycleIntelligence.ninetyDayDepreciation, displayCurrency)}</p>
                       </div>
                     </div>
                     <div className="mt-4 rounded-xl border border-emerald-400/20 bg-emerald-500/10 p-3">
                       <p className="text-sm text-slate-200">{lifecycleIntelligence.nextBestAction.reason}</p>
                       <p className="mt-2 text-xs text-slate-400">
-                        Resale band {formatPrice(lifecycleIntelligence.resaleLow)} - {formatPrice(lifecycleIntelligence.resaleHigh)}
+                        Resale band {formatDisplayPrice(lifecycleIntelligence.resaleLow, displayCurrency)} - {formatDisplayPrice(lifecycleIntelligence.resaleHigh, displayCurrency)}
                       </p>
                     </div>
                     {(lifecycleNotice || lifecycleError) && (
@@ -894,20 +901,20 @@ const ProductDetails = () => {
                         onClick={handleSetPriceAlert}
                         className="rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm font-bold text-slate-100 hover:border-neo-cyan/45 hover:text-neo-cyan transition-colors"
                       >
-                        Set price alert
+                        {t('productPage.setPriceAlert', {}, 'Set price alert')}
                       </button>
                       <Link
                         to="/trade-in"
                         className="rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm font-bold text-slate-100 hover:border-emerald-400/45 hover:text-emerald-300 transition-colors"
                       >
-                        Trade-in path
+                        {t('productPage.tradeInPath', {}, 'Trade-in path')}
                       </Link>
                       <button
                         type="button"
                         onClick={handleOpenMissionControl}
                         className="rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm font-bold text-slate-100 hover:border-violet-400/45 hover:text-violet-300 transition-colors"
                       >
-                        Open Mission OS
+                        {t('productPage.openMissionOs', {}, 'Open Mission OS')}
                       </button>
                     </div>
                   </section>
@@ -920,7 +927,7 @@ const ProductDetails = () => {
                       <button key={tab} onClick={() => setActiveTab(tab)}
                         className={cn('pb-4 text-xs md:text-sm font-bold tracking-widest uppercase transition-colors relative whitespace-nowrap',
                           activeTab === tab ? 'text-neo-cyan' : 'text-slate-500 hover:text-slate-300')}>
-                        {tab === 'deal-dna' ? 'Deal DNA' : tab}
+                        {tabLabels[tab] || tab}
                         {activeTab === tab && (
                           <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-neo-cyan to-neo-emerald shadow-[0_0_8px_rgba(6,182,212,0.8)]" />
                         )}
@@ -934,7 +941,7 @@ const ProductDetails = () => {
                         <p className="text-base font-medium leading-relaxed sm:text-lg">{description}</p>
                         {highlights.length > 0 && (
                           <div className="bg-zinc-950/50 p-6 rounded-2xl border border-white/5">
-                            <h3 className="font-bold text-white mb-4 uppercase tracking-widest text-sm text-neo-emerald">Core Specs:</h3>
+                            <h3 className="font-bold text-white mb-4 uppercase tracking-widest text-sm text-neo-emerald">{t('productPage.coreSpecs', {}, 'Core Specs:')}</h3>
                             <ul className="space-y-3">
                               {highlights.map((h, i) => (
                                 <li key={i} className="flex items-start gap-3">
@@ -951,15 +958,15 @@ const ProductDetails = () => {
                     {activeTab === 'specifications' && (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="bg-zinc-950/50 p-5 rounded-xl border border-white/5 flex flex-col gap-1">
-                          <span className="text-slate-500 text-xs uppercase tracking-widest font-bold">Manufacturer</span>
+                          <span className="text-slate-500 text-xs uppercase tracking-widest font-bold">{t('productPage.manufacturer', {}, 'Manufacturer')}</span>
                           <p className="text-white font-medium text-lg">{brand}</p>
                         </div>
                         <div className="bg-zinc-950/50 p-5 rounded-xl border border-white/5 flex flex-col gap-1">
-                          <span className="text-slate-500 text-xs uppercase tracking-widest font-bold">Warranty</span>
+                          <span className="text-slate-500 text-xs uppercase tracking-widest font-bold">{t('productPage.warranty', {}, 'Warranty')}</span>
                           <p className="text-white font-medium text-lg">{warranty}</p>
                         </div>
                         <div className="bg-zinc-950/50 p-5 rounded-xl border border-white/5 flex flex-col gap-1 md:col-span-2">
-                          <span className="text-slate-500 text-xs uppercase tracking-widest font-bold">Delivery Time</span>
+                          <span className="text-slate-500 text-xs uppercase tracking-widest font-bold">{t('productPage.deliveryTime', {}, 'Delivery Time')}</span>
                           <p className="text-white font-medium text-lg">{deliveryTime}</p>
                         </div>
                       </div>
@@ -968,11 +975,11 @@ const ProductDetails = () => {
                     {activeTab === 'deal-dna' && (
                       <div className="space-y-4">
                         {!dealDna ? (
-                          <p className="text-sm text-slate-400">Deal DNA is not available for this product yet.</p>
+                          <p className="text-sm text-slate-400">{t('productPage.dealDnaUnavailable', {}, 'Deal DNA is not available for this product yet.')}</p>
                         ) : (
                           <>
                             <div className={cn('rounded-2xl border p-5', dealTone)}>
-                              <p className="text-xs font-black uppercase tracking-[0.16em]">Trust Verdict</p>
+                              <p className="text-xs font-black uppercase tracking-[0.16em]">{t('productPage.trustVerdict', {}, 'Trust Verdict')}</p>
                               <p className="mt-2 text-2xl font-black">{dealLabel} • Score {dealDna.score}/100</p>
                               <p className="mt-2 text-sm text-slate-100/90">{dealDna.message}</p>
                             </div>
@@ -986,7 +993,7 @@ const ProductDetails = () => {
                             </div>
                             {(dealDna.returnRisk?.reasons || []).length > 0 && (
                               <div className="rounded-xl border border-amber-400/30 bg-amber-500/10 p-4">
-                                <p className="text-xs font-black uppercase tracking-[0.16em] text-amber-200 mb-2">Return Risk Drivers</p>
+                                <p className="text-xs font-black uppercase tracking-[0.16em] text-amber-200 mb-2">{t('productPage.returnRiskDrivers', {}, 'Return Risk Drivers')}</p>
                                 <ul className="space-y-1 text-sm text-amber-100/90">
                                   {(dealDna.returnRisk.reasons || []).map((reason) => (
                                     <li key={reason}>- {reason}</li>
@@ -1002,13 +1009,13 @@ const ProductDetails = () => {
                     {activeTab === 'compatibility' && (
                       <div className="space-y-4">
                         {compatibilityLoading && (
-                          <p className="text-sm text-slate-400">Building compatibility graph...</p>
+                          <p className="text-sm text-slate-400">{t('productPage.buildingCompatibility', {}, 'Building compatibility graph...')}</p>
                         )}
                         {!compatibilityLoading && compatibilityError && (
                           <p className="text-sm text-rose-300">{compatibilityError}</p>
                         )}
                         {!compatibilityLoading && !compatibilityError && (!compatibilityGraph?.groups || compatibilityGraph.groups.length === 0) && (
-                          <p className="text-sm text-slate-400">No compatibility data available for this category yet.</p>
+                          <p className="text-sm text-slate-400">{t('productPage.noCompatibility', {}, 'No compatibility data available for this category yet.')}</p>
                         )}
                         {!compatibilityLoading && !compatibilityError && Array.isArray(compatibilityGraph?.groups) && compatibilityGraph.groups.length > 0 && (
                           <div className="space-y-4">
@@ -1048,13 +1055,13 @@ const ProductDetails = () => {
                       <div className="space-y-6">
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                           <div className="lg:col-span-1 rounded-2xl border border-white/10 bg-zinc-950/45 p-5">
-                            <p className="text-xs uppercase tracking-[0.16em] text-slate-400 font-bold">Community Score</p>
+                            <p className="text-xs uppercase tracking-[0.16em] text-slate-400 font-bold">{t('productPage.communityScore', {}, 'Community Score')}</p>
                             <p className="mt-2 text-4xl font-black text-white">{Number(reviewsSummary.averageRating || 0).toFixed(1)}</p>
                             <p className="mt-1 text-sm text-slate-400">
-                              {Number(reviewsSummary.totalReviews || 0).toLocaleString()} verified reviews
+                              {t('productPage.verifiedReviews', { count: Number(reviewsSummary.totalReviews || 0).toLocaleString() }, `${Number(reviewsSummary.totalReviews || 0).toLocaleString()} verified reviews`)}
                             </p>
                             <p className="mt-1 text-xs text-neo-cyan font-semibold">
-                              {Number(reviewsSummary.withMediaCount || 0).toLocaleString()} with photo/video proof
+                              {t('productPage.withProof', { count: Number(reviewsSummary.withMediaCount || 0).toLocaleString() }, `${Number(reviewsSummary.withMediaCount || 0).toLocaleString()} with photo/video proof`)}
                             </p>
                             <div className="mt-4 space-y-2">
                               {[5, 4, 3, 2, 1].map((score) => {
@@ -1080,16 +1087,16 @@ const ProductDetails = () => {
 
                           <div className="lg:col-span-2 rounded-2xl border border-white/10 bg-zinc-950/45 p-5">
                             <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-                              <p className="text-xs uppercase tracking-[0.16em] text-slate-400 font-bold">Verified Customer Feedback</p>
+                              <p className="text-xs uppercase tracking-[0.16em] text-slate-400 font-bold">{t('productPage.verifiedFeedback', {}, 'Verified Customer Feedback')}</p>
                               <PremiumSelect
                                 value={reviewSort}
                                 onChange={(e) => setReviewSort(e.target.value)}
                                 className="rounded-lg border border-white/15 bg-zinc-950/70 px-3 py-2 text-xs font-bold uppercase tracking-[0.1em] text-slate-200"
                               >
-                                <option value="newest">Newest</option>
-                                <option value="top-rating">Top Rated</option>
-                                <option value="oldest">Oldest</option>
-                                <option value="helpful">Most Helpful</option>
+                                <option value="newest">{t('productPage.sort.newest', {}, 'Newest')}</option>
+                                <option value="top-rating">{t('productPage.sort.topRated', {}, 'Top Rated')}</option>
+                                <option value="oldest">{t('productPage.sort.oldest', {}, 'Oldest')}</option>
+                                <option value="helpful">{t('productPage.sort.mostHelpful', {}, 'Most Helpful')}</option>
                               </PremiumSelect>
                             </div>
 
@@ -1104,7 +1111,7 @@ const ProductDetails = () => {
                             ) : reviewsData.length === 0 ? (
                               <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-6 text-center">
                                 <MessageSquare className="w-8 h-8 mx-auto text-slate-500 mb-2" />
-                                <p className="text-sm text-slate-300">No verified reviews yet for this product.</p>
+                                <p className="text-sm text-slate-300">{t('productPage.noVerifiedReviews', {}, 'No verified reviews yet for this product.')}</p>
                               </div>
                             ) : (
                               <div className="space-y-4 max-h-[480px] overflow-y-auto pr-1">
@@ -1112,9 +1119,9 @@ const ProductDetails = () => {
                                   <article key={review.id} className="rounded-xl border border-white/10 bg-white/5 p-4">
                                     <div className="flex flex-wrap items-start justify-between gap-2">
                                       <div>
-                                        <p className="text-sm font-bold text-white">{review.user?.name || 'Verified Buyer'}</p>
+                                        <p className="text-sm font-bold text-white">{review.user?.name || t('productPage.verifiedBuyer', {}, 'Verified Buyer')}</p>
                                         <p className="text-[11px] text-slate-400">
-                                          {new Date(review.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                          {formatDateTime(review.createdAt, undefined, { day: '2-digit', month: 'short', year: 'numeric' })}
                                         </p>
                                       </div>
                                       <div className="flex items-center gap-2">
@@ -1125,7 +1132,7 @@ const ProductDetails = () => {
                                         {review.isVerifiedPurchase && (
                                           <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.12em] text-emerald-300">
                                             <BadgeCheck className="w-3 h-3" />
-                                            Verified Purchase
+                                            {t('productPage.verifiedPurchase', {}, 'Verified Purchase')}
                                           </span>
                                         )}
                                       </div>
@@ -1152,10 +1159,10 @@ const ProductDetails = () => {
                         </div>
 
                         <div className="rounded-2xl border border-white/10 bg-zinc-950/45 p-5">
-                          <p className="text-xs uppercase tracking-[0.16em] text-slate-400 font-bold mb-4">Post Your Verified Review</p>
+                          <p className="text-xs uppercase tracking-[0.16em] text-slate-400 font-bold mb-4">{t('productPage.postReview', {}, 'Post Your Verified Review')}</p>
                           {!currentUser && (
                             <div className="rounded-xl border border-amber-400/30 bg-amber-500/10 p-3 text-sm text-amber-100 mb-4">
-                              Login is required to post a review. Only real customers with a valid purchase can submit feedback.
+                              {t('productPage.reviewLoginRequired', {}, 'Login is required to post a review. Only real customers with a valid purchase can submit feedback.')}
                             </div>
                           )}
                           {reviewSubmitMessage && (
@@ -1172,25 +1179,25 @@ const ProductDetails = () => {
                           <form onSubmit={handleSubmitReview} className="space-y-4">
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                               <div>
-                                <label className="text-xs uppercase tracking-[0.12em] text-slate-400 font-bold">Rating</label>
+                                <label className="text-xs uppercase tracking-[0.12em] text-slate-400 font-bold">{t('productPage.rating', {}, 'Rating')}</label>
                                 <PremiumSelect
                                   value={reviewForm.rating}
                                   onChange={(e) => setReviewForm((prev) => ({ ...prev, rating: Number(e.target.value) }))}
                                   className="mt-1 w-full rounded-lg border border-white/15 bg-zinc-950/70 px-3 py-2 text-sm text-white"
                                 >
-                                  <option value={5}>5 - Excellent</option>
-                                  <option value={4}>4 - Good</option>
-                                  <option value={3}>3 - Average</option>
-                                  <option value={2}>2 - Poor</option>
-                                  <option value={1}>1 - Bad</option>
+                                  <option value={5}>{t('productPage.rating.excellent', {}, '5 - Excellent')}</option>
+                                  <option value={4}>{t('productPage.rating.good', {}, '4 - Good')}</option>
+                                  <option value={3}>{t('productPage.rating.average', {}, '3 - Average')}</option>
+                                  <option value={2}>{t('productPage.rating.poor', {}, '2 - Poor')}</option>
+                                  <option value={1}>{t('productPage.rating.bad', {}, '1 - Bad')}</option>
                                 </PremiumSelect>
                               </div>
                               <div className="md:col-span-2">
-                                <label className="text-xs uppercase tracking-[0.12em] text-slate-400 font-bold">Comment</label>
+                                <label className="text-xs uppercase tracking-[0.12em] text-slate-400 font-bold">{t('productPage.comment', {}, 'Comment')}</label>
                                 <textarea
                                   value={reviewForm.comment}
                                   onChange={(e) => setReviewForm((prev) => ({ ...prev, comment: e.target.value }))}
-                                  placeholder="Share real usage experience, quality, delivery, and value details..."
+                                  placeholder={t('productPage.commentPlaceholder', {}, 'Share real usage experience, quality, delivery, and value details...')}
                                   rows={3}
                                   className="mt-1 w-full rounded-lg border border-white/15 bg-zinc-950/70 px-3 py-2 text-sm text-white resize-none"
                                 />
@@ -1200,7 +1207,7 @@ const ProductDetails = () => {
                             <div className="rounded-xl border border-white/10 bg-white/5 p-3">
                               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                                 <p className="text-xs uppercase tracking-[0.12em] text-slate-400 font-bold">
-                                  Add Proof Media (Direct Upload + URL)
+                                  {t('productPage.proofMedia', {}, 'Add Proof Media (Direct Upload + URL)')}
                                 </p>
                                 <button
                                   type="button"
@@ -1209,7 +1216,7 @@ const ProductDetails = () => {
                                   className="rounded-lg border border-emerald-400/40 bg-emerald-500/15 px-3 py-1.5 text-xs font-bold text-emerald-200 hover:bg-emerald-500/25 inline-flex items-center gap-1.5 disabled:opacity-70"
                                 >
                                   {reviewUploadInProgress ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <UploadCloud className="w-3.5 h-3.5" />}
-                                  {reviewUploadInProgress ? 'Uploading...' : 'Upload From Device'}
+                                  {reviewUploadInProgress ? t('productPage.uploading', {}, 'Uploading...') : t('productPage.uploadFromDevice', {}, 'Upload From Device')}
                                 </button>
                                 <input
                                   ref={filePickerRef}
@@ -1229,8 +1236,8 @@ const ProductDetails = () => {
                                   onChange={(e) => setMediaDraft((prev) => ({ ...prev, type: e.target.value }))}
                                   className="rounded-lg border border-white/15 bg-zinc-950/70 px-3 py-2 text-sm text-white"
                                 >
-                                  <option value="image">Image</option>
-                                  <option value="video">Video</option>
+                                  <option value="image">{t('productPage.image', {}, 'Image')}</option>
+                                  <option value="video">{t('productPage.video', {}, 'Video')}</option>
                                 </PremiumSelect>
                                 <input
                                   type="text"
@@ -1244,14 +1251,14 @@ const ProductDetails = () => {
                                   onClick={handleAddReviewMedia}
                                   className="rounded-lg border border-neo-cyan/40 bg-neo-cyan/15 px-3 py-2 text-sm font-bold text-neo-cyan hover:bg-neo-cyan/25"
                                 >
-                                  Add Media
+                                  {t('productPage.addMedia', {}, 'Add Media')}
                                 </button>
                               </div>
                               <input
                                 type="text"
                                 value={mediaDraft.caption}
                                 onChange={(e) => setMediaDraft((prev) => ({ ...prev, caption: e.target.value }))}
-                                placeholder="Optional caption"
+                                placeholder={t('productPage.optionalCaption', {}, 'Optional caption')}
                                 className="mt-2 w-full rounded-lg border border-white/15 bg-zinc-950/70 px-3 py-2 text-sm text-white"
                               />
                               {reviewForm.media.length > 0 && (
@@ -1275,7 +1282,7 @@ const ProductDetails = () => {
                               className="btn-primary px-6 py-3 inline-flex items-center gap-2 disabled:opacity-70"
                             >
                               <Send className="w-4 h-4" />
-                              {reviewSubmitting ? 'Submitting...' : 'Submit Verified Review'}
+                              {reviewSubmitting ? t('productPage.submitting', {}, 'Submitting...') : t('productPage.submitReview', {}, 'Submit Verified Review')}
                             </button>
                           </form>
                         </div>

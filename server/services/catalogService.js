@@ -14,6 +14,11 @@ const logger = require('../utils/logger');
 const { resolveCategory } = require('../config/categories');
 const { flags } = require('../config/catalogFlags');
 const { prepareCatalogSnapshotForImport } = require('./catalogSnapshotService');
+const {
+    ensureMarketAccess,
+    isProductRestrictedForMarket,
+} = require('./markets/marketCatalog');
+const { convertDisplayAmountToBaseAmount } = require('./markets/marketPricing');
 
 // — Domain modules extracted from this file —
 const {
@@ -800,13 +805,30 @@ const buildBaseProductFilter = async (options = {}) => {
     }
 };
 
-const buildFilterFromQuery = (query = {}) => {
+const buildFilterFromQuery = async (query = {}, { market = null } = {}) => {
     const filter = {};
+    const activeMarket = market ? ensureMarketAccess(market) : null;
 
     if (query.minPrice !== undefined || query.maxPrice !== undefined) {
         filter.price = {};
-        if (query.minPrice !== undefined) filter.price.$gte = safeNumber(query.minPrice, 0);
-        if (query.maxPrice !== undefined) filter.price.$lte = safeNumber(query.maxPrice, Number.MAX_SAFE_INTEGER);
+        if (query.minPrice !== undefined) {
+            filter.price.$gte = activeMarket
+                ? await convertDisplayAmountToBaseAmount({
+                    amount: safeNumber(query.minPrice, 0),
+                    displayCurrency: activeMarket.currency,
+                    baseCurrency: activeMarket.baseCurrency,
+                })
+                : safeNumber(query.minPrice, 0);
+        }
+        if (query.maxPrice !== undefined) {
+            filter.price.$lte = activeMarket
+                ? await convertDisplayAmountToBaseAmount({
+                    amount: safeNumber(query.maxPrice, Number.MAX_SAFE_INTEGER),
+                    displayCurrency: activeMarket.currency,
+                    baseCurrency: activeMarket.baseCurrency,
+                })
+                : safeNumber(query.maxPrice, Number.MAX_SAFE_INTEGER);
+        }
     }
 
     if (query.brand) {
@@ -879,6 +901,33 @@ const buildFilterFromQuery = (query = {}) => {
         if (windows.length > 0) {
             filter.deliveryTime = {
                 $in: windows.map((window) => new RegExp(`^${escapeRegExp(window)}$`, 'i')),
+            };
+        }
+    }
+
+    if (activeMarket?.restrictedCategories?.length) {
+        const restrictedPatterns = activeMarket.restrictedCategories
+            .map((entry) => safeString(entry))
+            .filter(Boolean)
+            .map((entry) => new RegExp(`^${escapeRegExp(entry)}$`, 'i'));
+
+        if (restrictedPatterns.length > 0) {
+            filter.category = {
+                ...(filter.category || {}),
+                $nin: restrictedPatterns,
+            };
+        }
+    }
+
+    if (activeMarket?.restrictedProductIds?.length) {
+        const restrictedIds = activeMarket.restrictedProductIds
+            .map((entry) => Number(entry))
+            .filter(Number.isFinite);
+
+        if (restrictedIds.length > 0) {
+            filter.id = {
+                ...(filter.id || {}),
+                $nin: restrictedIds,
             };
         }
     }
@@ -1191,7 +1240,7 @@ const queryProducts = async (query = {}, options = {}) => {
     const allowDemoFallback = options.allowDemoFallback === true;
     const baseFilter = await buildBaseProductFilter({ allowDemoFallback });
     const catalogReadMode = resolveCatalogReadMode(baseFilter);
-    const logicalFilter = buildFilterFromQuery(query);
+    const logicalFilter = await buildFilterFromQuery(query, { market: options.market || null });
     const mergedBase = { ...baseFilter, ...logicalFilter };
 
     if (countFilterComplexity(mergedBase) > MAX_FILTER_COMPLEXITY) {
@@ -1251,6 +1300,9 @@ const queryProducts = async (query = {}, options = {}) => {
         }
 
         let finalProducts = (products || []).map((entry) => toPlainProduct(entry));
+        if (options.market) {
+            finalProducts = finalProducts.filter((entry) => !isProductRestrictedForMarket(entry, options.market));
+        }
         if (relevanceSort) {
             finalProducts = sortProductsForDecisionVelocity(finalProducts, keywordCandidates).slice(0, limit);
         }
@@ -1397,6 +1449,9 @@ const queryProducts = async (query = {}, options = {}) => {
 
         if (total > 0) {
             let finalProducts = products.map((entry) => toPlainProduct(entry));
+            if (options.market) {
+                finalProducts = finalProducts.filter((entry) => !isProductRestrictedForMarket(entry, options.market));
+            }
             if (relevanceSort) {
                 finalProducts = sortProductsForDecisionVelocity(finalProducts, keywordCandidates).slice(0, limit);
             }
@@ -1480,7 +1535,12 @@ const getProductByIdentifier = async (identifier, options = {}) => {
         const filter = await resolveProductIdentifierFilter(identifier, options);
         const activeCatalogQuery = Product.findOne(filter);
         const inActiveCatalog = hydrate ? await activeCatalogQuery : await activeCatalogQuery.lean();
-        if (inActiveCatalog) return inActiveCatalog;
+        if (inActiveCatalog) {
+            if (options.market && isProductRestrictedForMarket(inActiveCatalog, options.market)) {
+                return null;
+            }
+            return inActiveCatalog;
+        }
         if (!allowOutsideActiveCatalog) return null;
 
         // Admin/governance fallback:
@@ -1488,7 +1548,11 @@ const getProductByIdentifier = async (identifier, options = {}) => {
         const fallbackOr = buildIdentifierOrClauses(identifier);
         if (!fallbackOr.length) return null;
         const fallbackQuery = Product.findOne({ $or: fallbackOr });
-        return hydrate ? fallbackQuery : fallbackQuery.lean();
+        const fallbackProduct = hydrate ? await fallbackQuery : await fallbackQuery.lean();
+        if (fallbackProduct && options.market && isProductRestrictedForMarket(fallbackProduct, options.market)) {
+            return null;
+        }
+        return fallbackProduct;
     };
 
     if (hydrate) {

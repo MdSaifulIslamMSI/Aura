@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { RefreshCw, ServerCrash, WifiOff } from 'lucide-react';
+import { useMarket } from '@/context/MarketContext';
 import { buildServiceUrl, requestWithTrace } from '@/services/apiBase';
 import {
   getBufferedClientDiagnostics,
@@ -55,8 +56,8 @@ const resolveRecentDiagnosticReference = () => {
 
 const createUnavailableStatus = ({ reference = '', checkedAt = '', detail = '' } = {}) => ({
   level: 'unavailable',
-  title: 'Backend unavailable',
-  message: 'The frontend cannot reach a healthy backend right now. Requests are failing before the API responds cleanly.',
+  titleKey: 'status.unavailableTitle',
+  messageKey: 'status.unavailableMessage',
   detail,
   reference,
   checkedAt: checkedAt || new Date().toISOString(),
@@ -64,8 +65,8 @@ const createUnavailableStatus = ({ reference = '', checkedAt = '', detail = '' }
 
 const createWarmingStatus = ({ reference = '', checkedAt = '', detail = '' } = {}) => ({
   level: 'warming',
-  title: 'Backend waking up',
-  message: 'The backend is restarting or reconnecting dependencies. The first request can fail while the runtime settles, so retry in a few seconds.',
+  titleKey: 'status.warmingTitle',
+  messageKey: 'status.warmingMessage',
   detail,
   reference,
   checkedAt: checkedAt || new Date().toISOString(),
@@ -73,23 +74,12 @@ const createWarmingStatus = ({ reference = '', checkedAt = '', detail = '' } = {
 
 const createDegradedStatus = ({ reference = '', checkedAt = '', detail = '' } = {}) => ({
   level: 'degraded',
-  title: 'Backend health degraded',
-  message: 'The API is responding, but the health endpoint is reporting a degraded or unready state.',
+  titleKey: 'status.degradedTitle',
+  messageKey: 'status.degradedMessage',
   detail,
   reference,
   checkedAt: checkedAt || new Date().toISOString(),
 });
-
-const formatCheckedAt = (value) => {
-  if (!value) return '';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  return date.toLocaleTimeString('en-IN', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  });
-};
 
 const normalizeDetail = (value = '') => String(value || '').trim();
 
@@ -124,6 +114,7 @@ const resolveFailureStatus = ({
 };
 
 const BackendStatusBanner = () => {
+  const { formatDateTime, t } = useMarket();
   const [status, setStatus] = useState(null);
   const [isChecking, setIsChecking] = useState(false);
   const failureCountRef = useRef(0);
@@ -263,7 +254,11 @@ const BackendStatusBanner = () => {
     return null;
   }
 
-  const checkedAtLabel = useMemo(() => formatCheckedAt(status?.checkedAt), [status?.checkedAt]);
+  const checkedAtLabel = useMemo(() => formatDateTime(status?.checkedAt, undefined, {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  }), [formatDateTime, status?.checkedAt]);
 
   if (!status) {
     return null;
@@ -304,22 +299,22 @@ const BackendStatusBanner = () => {
               </span>
               <div className="min-w-0">
                 <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-300">
-                  Runtime Status
+                  {t('status.runtime', {}, 'Runtime Status')}
                 </p>
                 <h2 className="truncate text-sm font-black text-white sm:text-base">
-                  {status.title}
+                  {t(status.titleKey, {}, 'Runtime status')}
                 </h2>
               </div>
             </div>
 
             <p className="mt-3 text-sm leading-relaxed text-slate-200">
-              {status.message}
+              {t(status.messageKey, {}, 'The backend is responding with degraded status.')}
             </p>
 
             <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
               {status.reference ? (
                 <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1.5">
-                  Debug Ref {status.reference}
+                  {t('status.debugRef', { reference: status.reference }, `Debug Ref ${status.reference}`)}
                 </span>
               ) : null}
               {status.detail ? (
@@ -329,7 +324,7 @@ const BackendStatusBanner = () => {
               ) : null}
               {checkedAtLabel ? (
                 <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1.5">
-                  Checked {checkedAtLabel}
+                  {t('status.checkedAt', { time: checkedAtLabel }, `Checked ${checkedAtLabel}`)}
                 </span>
               ) : null}
             </div>
@@ -342,14 +337,14 @@ const BackendStatusBanner = () => {
               className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/[0.06] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/[0.12]"
             >
               <RefreshCw className={cn('h-4 w-4', isChecking && 'animate-spin')} />
-              Retry Check
+              {t('status.retry', {}, 'Retry Check')}
             </button>
             <button
               type="button"
               onClick={() => window.location.reload()}
               className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-black/20 px-4 py-2 text-sm font-semibold text-slate-200 transition-colors hover:bg-black/30 hover:text-white"
             >
-              Reload App
+              {t('status.reload', {}, 'Reload App')}
             </button>
           </div>
         </div>

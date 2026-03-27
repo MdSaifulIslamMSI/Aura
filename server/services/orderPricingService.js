@@ -9,8 +9,9 @@ const { calculateOptimalLogisticsCost } = require('./logisticsOptimizer');
 const { solveAuraCover } = require('./marketplaceOptimizers');
 const { PAYMENT_METHODS } = require('./payments/constants');
 const { resolvePaymentMarketContext } = require('./payments/paymentMarketCatalog');
-const { getFxQuote } = require('./payments/fxRateService');
 const { roundCurrency: roundPaymentCurrency } = require('./payments/helpers');
+const { resolveMarketContext } = require('./markets/marketCatalog');
+const { buildLockedPrice } = require('./markets/marketPricing');
 
 const DELIVERY_OPTIONS = ['standard', 'express'];
 const SLOT_WINDOWS = ['09:00-12:00', '12:00-15:00', '15:00-18:00', '18:00-21:00'];
@@ -368,75 +369,90 @@ const buildChargePricing = async ({
     pricing,
     paymentMethod,
     paymentContext = {},
+    market = null,
 }) => {
+    const requestedMarket = market || resolveMarketContext({
+        country: paymentContext?.market?.countryCode || 'IN',
+        currency: paymentContext?.market?.currency || 'INR',
+        language: paymentContext?.market?.language,
+    });
+    const lockedDisplay = await buildLockedPrice({
+        baseAmount: pricing.totalPrice,
+        baseCurrency: requestedMarket.baseCurrency,
+        market: requestedMarket,
+        allowFallback: true,
+    });
+
     if (paymentMethod === 'COD') {
         return {
             market: {
-                countryCode: 'IN',
-                countryName: 'India',
-                currency: 'INR',
-                currencyName: 'Indian Rupee',
-                settlementCurrency: 'INR',
-                settlementCurrencyName: 'Indian Rupee',
-                isInternational: false,
-                settlementDiffersFromRequestedCurrency: false,
+                ...requestedMarket,
+                settlementCurrency: requestedMarket.settlementCurrency || 'INR',
+                settlementCurrencyName: requestedMarket.settlementCurrency || 'INR',
+                isInternational: requestedMarket.countryCode !== 'IN' || lockedDisplay.displayCurrency !== 'INR',
+                settlementDiffersFromRequestedCurrency: lockedDisplay.displayCurrency !== (requestedMarket.settlementCurrency || 'INR'),
                 railAvailabilityMode: 'domestic_only',
                 crossBorder: false,
             },
-            settlementCurrency: 'INR',
-            settlementAmount: roundPaymentCurrency(pricing.totalPrice, 'INR'),
+            baseAmount: lockedDisplay.baseAmount,
+            baseCurrency: lockedDisplay.baseCurrency,
+            displayAmount: lockedDisplay.displayAmount,
+            displayCurrency: lockedDisplay.displayCurrency,
+            fxRateLocked: lockedDisplay.fxRateLocked,
+            fxTimestamp: lockedDisplay.fxTimestamp,
+            settlementCurrency: requestedMarket.settlementCurrency || 'INR',
+            settlementAmount: roundPaymentCurrency(pricing.totalPrice, requestedMarket.settlementCurrency || 'INR'),
             charge: {
-                amount: roundPaymentCurrency(pricing.totalPrice, 'INR'),
-                currency: 'INR',
-                isPresentmentOnly: false,
-                fxQuote: null,
+                amount: lockedDisplay.displayAmount,
+                currency: lockedDisplay.displayCurrency,
+                isPresentmentOnly: lockedDisplay.displayCurrency !== (requestedMarket.settlementCurrency || 'INR'),
+                fxQuote: lockedDisplay.providerFx,
             },
+            display: lockedDisplay,
         };
     }
 
     const marketContext = resolvePaymentMarketContext({
         paymentMethod,
-        paymentContext,
+        paymentContext: {
+            ...paymentContext,
+            market: {
+                ...(paymentContext.market || {}),
+                countryCode: requestedMarket.countryCode,
+                currency: lockedDisplay.displayCurrency,
+            },
+        },
     });
     const settlementCurrency = marketContext.market.settlementCurrency || 'INR';
     const settlementAmount = roundPaymentCurrency(pricing.totalPrice, settlementCurrency);
-    const chargeCurrency = marketContext.market.currency || settlementCurrency;
-
-    let fxQuote = null;
-    let chargeAmount = roundPaymentCurrency(settlementAmount, chargeCurrency);
-
-    if (chargeCurrency !== settlementCurrency) {
-        fxQuote = await getFxQuote({
-            baseCurrency: settlementCurrency,
-            targetCurrency: chargeCurrency,
-            amount: settlementAmount,
-        });
-        chargeAmount = roundPaymentCurrency(fxQuote.amount, chargeCurrency);
-    }
+    const chargeCurrency = lockedDisplay.displayCurrency || marketContext.market.currency || settlementCurrency;
+    const chargeAmount = roundPaymentCurrency(lockedDisplay.displayAmount, chargeCurrency);
 
     return {
-        market: marketContext.market,
+        market: {
+            ...marketContext.market,
+            language: requestedMarket.language,
+            locale: requestedMarket.locale,
+        },
+        baseAmount: lockedDisplay.baseAmount,
+        baseCurrency: lockedDisplay.baseCurrency,
+        displayAmount: chargeAmount,
+        displayCurrency: chargeCurrency,
+        fxRateLocked: lockedDisplay.fxRateLocked,
+        fxTimestamp: lockedDisplay.fxTimestamp,
         settlementCurrency,
         settlementAmount,
         charge: {
             amount: chargeAmount,
             currency: chargeCurrency,
             isPresentmentOnly: chargeCurrency !== settlementCurrency,
-            fxQuote: fxQuote ? {
-                source: fxQuote.source,
-                provider: fxQuote.provider,
-                referenceBaseCurrency: fxQuote.referenceBaseCurrency || '',
-                rate: fxQuote.rate,
-                quotedAt: fxQuote.quotedAt,
-                asOfDate: fxQuote.asOfDate,
-                stale: Boolean(fxQuote.stale),
-                staleReason: fxQuote.staleReason || '',
-            } : null,
+            fxQuote: lockedDisplay.providerFx,
         },
+        display: lockedDisplay,
     };
 };
 
-const buildOrderQuote = async (payload, { session = null, checkStock = true } = {}) => {
+const buildOrderQuote = async (payload, { session = null, checkStock = true, market = null } = {}) => {
     const normalized = normalizeCheckoutPayload(payload);
     const { resolvedItems, itemsPrice } = await resolveProductsForItems(normalized.orderItems, { session, checkStock });
     const pricing = await calculatePricing({
@@ -470,6 +486,7 @@ const buildOrderQuote = async (payload, { session = null, checkStock = true } = 
         pricing,
         paymentMethod: normalized.paymentMethod,
         paymentContext: normalized.paymentContext,
+        market,
     });
 
     return {
@@ -478,11 +495,17 @@ const buildOrderQuote = async (payload, { session = null, checkStock = true } = 
         pricing: {
             ...pricing,
             market: chargePricing.market,
+            baseAmount: chargePricing.baseAmount,
+            baseCurrency: chargePricing.baseCurrency,
+            displayAmount: chargePricing.displayAmount,
+            displayCurrency: chargePricing.displayCurrency,
+            fxRateLocked: chargePricing.fxRateLocked,
+            fxTimestamp: chargePricing.fxTimestamp,
             settlementCurrency: chargePricing.settlementCurrency,
             settlementAmount: chargePricing.settlementAmount,
             charge: chargePricing.charge,
-            presentmentCurrency: chargePricing.charge.currency,
-            presentmentTotalPrice: chargePricing.charge.amount,
+            presentmentCurrency: chargePricing.displayCurrency,
+            presentmentTotalPrice: chargePricing.displayAmount,
             deliveryEstimate,
             optimizedSlots, 
             optimizedPackages, // Injecting Set Cover results
@@ -493,10 +516,17 @@ const buildOrderQuote = async (payload, { session = null, checkStock = true } = 
                 couponDiscount: pricing.couponDiscount,
                 taxPrice: pricing.taxPrice,
                 totalPrice: pricing.totalPrice,
+                baseAmount: chargePricing.baseAmount,
+                baseCurrency: chargePricing.baseCurrency,
+                displayAmount: chargePricing.displayAmount,
+                displayCurrency: chargePricing.displayCurrency,
+                fxRateLocked: chargePricing.fxRateLocked,
+                fxTimestamp: chargePricing.fxTimestamp,
                 logisticsInsights: pricing.logisticsInsights,
                 settlementCurrency: chargePricing.settlementCurrency,
                 chargeCurrency: chargePricing.charge.currency,
                 chargeTotalPrice: chargePricing.charge.amount,
+                fallbackMessage: chargePricing.display?.fallbackMessage || '',
             },
             pricingVersion: PRICING_VERSION,
         },

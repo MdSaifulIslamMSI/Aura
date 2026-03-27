@@ -1,5 +1,6 @@
 import { prepareTraceHeaders } from './clientObservability';
 import { getSafeEnv, resolveApiBaseUrl, trimTrailingSlash } from './runtimeApiConfig';
+import { getActiveMarketHeaders } from './marketRuntime';
 
 const normalizePath = (path = '') => (String(path || '').startsWith('/')
     ? String(path || '')
@@ -188,7 +189,10 @@ export const requestWithTrace = async (input, options = {}) => {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
         const abortExternal = () => controller.abort();
-        const trace = prepareTraceHeaders(url, headers);
+        const trace = prepareTraceHeaders(url, {
+            ...getActiveMarketHeaders(),
+            ...headers,
+        });
         const startedAt = Date.now();
 
         // Default to JSON if body is present and it's a string, and Content-Type is not set
