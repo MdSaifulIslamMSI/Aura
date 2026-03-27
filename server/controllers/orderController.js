@@ -14,6 +14,15 @@ const {
     PRICING_VERSION,
     buildOrderQuote,
 } = require('../services/orderPricingService');
+const {
+    createRefundForIntent,
+    scheduleRefundTask,
+} = require('../services/payments/paymentService');
+const {
+    resolveRefundAmounts,
+    buildRefundEntry,
+    buildRefundMutation,
+} = require('../services/payments/refundState');
 const asyncHandler = require('express-async-handler');
 const AppError = require('../utils/AppError');
 const Order = require('../models/Order');
@@ -63,6 +72,12 @@ const quoteOrder = asyncHandler(async (req, res, next) => {
             shippingPrice: quote.pricing.shippingPrice,
             taxPrice: quote.pricing.taxPrice,
             totalPrice: quote.pricing.totalPrice,
+            settlementCurrency: quote.pricing.settlementCurrency || 'INR',
+            settlementAmount: quote.pricing.settlementAmount ?? quote.pricing.totalPrice,
+            charge: quote.pricing.charge || null,
+            presentmentCurrency: quote.pricing.presentmentCurrency || quote.pricing.settlementCurrency || 'INR',
+            presentmentTotalPrice: quote.pricing.presentmentTotalPrice ?? quote.pricing.totalPrice,
+            market: quote.pricing.market || null,
             appliedCoupon: quote.pricing.appliedCoupon,
             deliveryEstimate: quote.pricing.deliveryEstimate,
             priceBreakdown: quote.pricing.priceBreakdown,
@@ -742,18 +757,27 @@ const processOrderRefundRequestAdmin = asyncHandler(async (req, res, next) => {
         }
         if (finalStatus === 'processed') {
             processedAt = new Date();
-            const refundSummary = order.refundSummary || { totalRefunded: 0, fullyRefunded: false, refunds: [] };
-            refundSummary.refunds = Array.isArray(refundSummary.refunds) ? refundSummary.refunds : [];
-            refundSummary.refunds.push({
-                refundId: finalRefundId || createCommandId('manual-rfnd'),
+            const refundAmounts = resolveRefundAmounts({
+                order,
                 amount,
-                reason: reasonForProvider,
-                status: 'processed',
-                createdAt: new Date(),
+                amountMode: 'settlement',
             });
-            refundSummary.totalRefunded = Number(refundSummary.totalRefunded || 0) + amount;
-            refundSummary.fullyRefunded = refundSummary.totalRefunded >= Number(order.totalPrice || 0) - 0.01;
-            order.refundSummary = refundSummary;
+            const refundEntry = buildRefundEntry({
+                providerRefund: {
+                    id: finalRefundId || createCommandId('manual-rfnd'),
+                    status: 'processed',
+                },
+                refundAmounts,
+                reason: reasonForProvider,
+                fallbackRefundId: finalRefundId || createCommandId('manual-rfnd'),
+                createdAt: processedAt,
+            });
+            const refundMutation = buildRefundMutation({
+                order,
+                refundEntry,
+            });
+            order.refundSummary = refundMutation.refundSummary;
+            order.paymentState = refundMutation.paymentState;
         }
     }
 

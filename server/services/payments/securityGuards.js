@@ -34,12 +34,22 @@ const getLockUntilDate = (intent) => {
     return lockedUntil;
 };
 
-const assertQuoteMatches = (quoteSnapshot, totalPrice) => {
+const assertQuoteMatches = (quoteSnapshot, pricing) => {
     if (!quoteSnapshot || quoteSnapshot.totalPrice === undefined || quoteSnapshot.totalPrice === null) {
         return;
     }
-    if (diff(quoteSnapshot.totalPrice, totalPrice) > 0.01) {
+    if (diff(quoteSnapshot.totalPrice, pricing?.totalPrice) > 0.01) {
         throw new AppError('Quote expired. Please recalculate before payment.', 409);
+    }
+
+    if (
+        quoteSnapshot.presentmentTotalPrice !== undefined
+        && quoteSnapshot.presentmentTotalPrice !== null
+        && pricing?.presentmentTotalPrice !== undefined
+        && pricing?.presentmentTotalPrice !== null
+        && diff(quoteSnapshot.presentmentTotalPrice, pricing.presentmentTotalPrice) > 0.01
+    ) {
+        throw new AppError('Presentment quote expired. Please recalculate before payment.', 409);
     }
 };
 

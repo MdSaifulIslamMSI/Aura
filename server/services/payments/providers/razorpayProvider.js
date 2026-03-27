@@ -1,6 +1,10 @@
 const crypto = require('crypto');
 const AppError = require('../../../utils/AppError');
-const { toPaise, fromPaise } = require('../helpers');
+const {
+    toMinorUnits,
+    fromMinorUnits,
+    normalizeCurrencyCode,
+} = require('../helpers');
 
 const secureCompare = (left, right) => {
     const leftBuffer = Buffer.from(String(left || ''), 'utf8');
@@ -53,7 +57,7 @@ class RazorpayProvider {
         return this.request('/orders', {
             method: 'POST',
             body: {
-                amount: toPaise(amount),
+                amount: toMinorUnits(amount, currency),
                 currency,
                 receipt,
                 notes,
@@ -98,15 +102,15 @@ class RazorpayProvider {
         return this.request(`/payments/${paymentId}/capture`, {
             method: 'POST',
             body: {
-                amount: toPaise(amount),
+                amount: toMinorUnits(amount, currency),
                 currency,
             },
         });
     }
 
-    async refund({ paymentId, amount, notes = {} }) {
+    async refund({ paymentId, amount, currency = 'INR', notes = {} }) {
         const payload = {
-            amount: toPaise(amount),
+            amount: toMinorUnits(amount, currency),
             notes,
         };
         return this.request(`/payments/${paymentId}/refund`, {
@@ -160,8 +164,31 @@ class RazorpayProvider {
         };
     }
 
-    normalizeAmount(amountPaise) {
-        return fromPaise(amountPaise);
+    parsePaymentAmounts(payment = {}) {
+        const currency = normalizeCurrencyCode(payment.currency || 'INR');
+        const amountMinor = Number(payment.amount || 0);
+        const amount = fromMinorUnits(amountMinor, currency);
+        const baseCurrency = String(payment.base_currency || '').trim().toUpperCase();
+        const baseAmountMinor = Number(payment.base_amount || 0);
+        const amountRefundedMinor = Number(payment.amount_refunded || 0);
+
+        return {
+            amount,
+            amountMinor,
+            currency,
+            amountRefunded: fromMinorUnits(amountRefundedMinor, currency),
+            amountRefundedMinor,
+            baseAmount: baseCurrency && Number.isFinite(baseAmountMinor) && baseAmountMinor >= 0
+                ? fromMinorUnits(baseAmountMinor, baseCurrency)
+                : null,
+            baseAmountMinor: baseCurrency && Number.isFinite(baseAmountMinor) ? baseAmountMinor : null,
+            baseCurrency: baseCurrency || '',
+            international: Boolean(payment.international),
+        };
+    }
+
+    normalizeAmount(amountMinor, currency = 'INR') {
+        return fromMinorUnits(amountMinor, currency);
     }
 }
 

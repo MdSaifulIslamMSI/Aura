@@ -8,6 +8,9 @@ const { flags: catalogFlags } = require('../config/catalogFlags');
 const { calculateOptimalLogisticsCost } = require('./logisticsOptimizer');
 const { solveAuraCover } = require('./marketplaceOptimizers');
 const { PAYMENT_METHODS } = require('./payments/constants');
+const { resolvePaymentMarketContext } = require('./payments/paymentMarketCatalog');
+const { getFxQuote } = require('./payments/fxRateService');
+const { roundCurrency: roundPaymentCurrency } = require('./payments/helpers');
 
 const DELIVERY_OPTIONS = ['standard', 'express'];
 const SLOT_WINDOWS = ['09:00-12:00', '12:00-15:00', '15:00-18:00', '18:00-21:00'];
@@ -178,6 +181,9 @@ const normalizeCheckoutPayload = (payload = {}) => {
     const deliverySlot = normalizeDeliverySlot(payload.deliverySlot);
     const couponCode = String(payload.couponCode || '').trim().toUpperCase();
     const checkoutSource = payload.checkoutSource === 'directBuy' ? 'directBuy' : 'cart';
+    const paymentContext = payload.paymentContext && typeof payload.paymentContext === 'object'
+        ? payload.paymentContext
+        : {};
 
     return {
         orderItems,
@@ -187,6 +193,7 @@ const normalizeCheckoutPayload = (payload = {}) => {
         deliverySlot,
         couponCode,
         checkoutSource,
+        paymentContext,
     };
 };
 
@@ -357,6 +364,78 @@ const calculatePricing = async ({
     };
 };
 
+const buildChargePricing = async ({
+    pricing,
+    paymentMethod,
+    paymentContext = {},
+}) => {
+    if (paymentMethod === 'COD') {
+        return {
+            market: {
+                countryCode: 'IN',
+                countryName: 'India',
+                currency: 'INR',
+                currencyName: 'Indian Rupee',
+                settlementCurrency: 'INR',
+                settlementCurrencyName: 'Indian Rupee',
+                isInternational: false,
+                settlementDiffersFromRequestedCurrency: false,
+                railAvailabilityMode: 'domestic_only',
+                crossBorder: false,
+            },
+            settlementCurrency: 'INR',
+            settlementAmount: roundPaymentCurrency(pricing.totalPrice, 'INR'),
+            charge: {
+                amount: roundPaymentCurrency(pricing.totalPrice, 'INR'),
+                currency: 'INR',
+                isPresentmentOnly: false,
+                fxQuote: null,
+            },
+        };
+    }
+
+    const marketContext = resolvePaymentMarketContext({
+        paymentMethod,
+        paymentContext,
+    });
+    const settlementCurrency = marketContext.market.settlementCurrency || 'INR';
+    const settlementAmount = roundPaymentCurrency(pricing.totalPrice, settlementCurrency);
+    const chargeCurrency = marketContext.market.currency || settlementCurrency;
+
+    let fxQuote = null;
+    let chargeAmount = roundPaymentCurrency(settlementAmount, chargeCurrency);
+
+    if (chargeCurrency !== settlementCurrency) {
+        fxQuote = await getFxQuote({
+            baseCurrency: settlementCurrency,
+            targetCurrency: chargeCurrency,
+            amount: settlementAmount,
+        });
+        chargeAmount = roundPaymentCurrency(fxQuote.amount, chargeCurrency);
+    }
+
+    return {
+        market: marketContext.market,
+        settlementCurrency,
+        settlementAmount,
+        charge: {
+            amount: chargeAmount,
+            currency: chargeCurrency,
+            isPresentmentOnly: chargeCurrency !== settlementCurrency,
+            fxQuote: fxQuote ? {
+                source: fxQuote.source,
+                provider: fxQuote.provider,
+                referenceBaseCurrency: fxQuote.referenceBaseCurrency || '',
+                rate: fxQuote.rate,
+                quotedAt: fxQuote.quotedAt,
+                asOfDate: fxQuote.asOfDate,
+                stale: Boolean(fxQuote.stale),
+                staleReason: fxQuote.staleReason || '',
+            } : null,
+        },
+    };
+};
+
 const buildOrderQuote = async (payload, { session = null, checkStock = true } = {}) => {
     const normalized = normalizeCheckoutPayload(payload);
     const { resolvedItems, itemsPrice } = await resolveProductsForItems(normalized.orderItems, { session, checkStock });
@@ -387,12 +466,23 @@ const buildOrderQuote = async (payload, { session = null, checkStock = true } = 
     const optimizedPackages = solveAuraCover(itemIds, sellerInventoryMap);
 
     const deliveryEstimate = getDeliveryEstimate(normalized.deliveryOption, normalized.deliverySlot);
+    const chargePricing = await buildChargePricing({
+        pricing,
+        paymentMethod: normalized.paymentMethod,
+        paymentContext: normalized.paymentContext,
+    });
 
     return {
         normalized,
         resolvedItems,
         pricing: {
             ...pricing,
+            market: chargePricing.market,
+            settlementCurrency: chargePricing.settlementCurrency,
+            settlementAmount: chargePricing.settlementAmount,
+            charge: chargePricing.charge,
+            presentmentCurrency: chargePricing.charge.currency,
+            presentmentTotalPrice: chargePricing.charge.amount,
             deliveryEstimate,
             optimizedSlots, 
             optimizedPackages, // Injecting Set Cover results
@@ -404,6 +494,9 @@ const buildOrderQuote = async (payload, { session = null, checkStock = true } = 
                 taxPrice: pricing.taxPrice,
                 totalPrice: pricing.totalPrice,
                 logisticsInsights: pricing.logisticsInsights,
+                settlementCurrency: chargePricing.settlementCurrency,
+                chargeCurrency: chargePricing.charge.currency,
+                chargeTotalPrice: chargePricing.charge.amount,
             },
             pricingVersion: PRICING_VERSION,
         },

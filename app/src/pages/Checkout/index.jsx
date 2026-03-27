@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import { ArrowLeft, CheckCircle2, Layers, Loader2 } from 'lucide-react';
 import { loadRazorpayScript } from '@/utils/razorpay';
 import { detectLocationFromGps } from '@/utils/geolocation';
+import { formatPrice } from '@/utils/format';
 import StepAddress from './components/StepAddress';
 import StepDelivery from './components/StepDelivery';
 import StepPayment from './components/StepPayment';
@@ -20,7 +21,9 @@ import useCheckoutDraft from './hooks/useCheckoutDraft';
 const EMPTY_CONTACT = { name: '', phone: '', email: '' };
 const EMPTY_SHIPPING = { address: '', city: '', postalCode: '', country: 'India' };
 const EMPTY_SLOT = { date: '', window: '' };
+const DEFAULT_MARKET = { countryCode: 'IN', currency: 'INR' };
 const EMPTY_PAYMENT_CONTEXT = {
+    market: { ...DEFAULT_MARKET },
     netbanking: {
         bankCode: '',
         bankName: '',
@@ -36,6 +39,8 @@ const EMPTY_INTENT = {
     riskDecision: 'allow',
     challengeRequired: false,
     challengeVerified: false,
+    settlementAmount: 0,
+    settlementCurrency: 'INR',
     paymentContext: null,
     checkoutPayload: null,
 };
@@ -49,6 +54,8 @@ const PAYMENT_METHOD_TO_SAVED_TYPE = {
 
 const isPhoneValid = (phone) => /^\+?\d[\d\s-]{8,15}$/.test(String(phone || '').trim());
 const normalizeNetbankingBankCode = (value) => String(value || '').trim().toUpperCase();
+const normalizeMarketCountryCode = (value) => String(value || '').trim().toUpperCase().slice(0, 2);
+const normalizeMarketCurrencyCode = (value) => String(value || '').trim().toUpperCase().slice(0, 3);
 const extractNetbankingSelectionFromMethod = (method) => {
     if (String(method?.type || '').trim().toLowerCase() !== 'bank') return null;
 
@@ -60,6 +67,20 @@ const extractNetbankingSelectionFromMethod = (method) => {
         bankName: String(method?.metadata?.bankName || method?.brand || bankCode).trim(),
         source: 'saved_method',
     };
+};
+
+const buildPaymentContextForQuote = (draft) => {
+    const market = {
+        countryCode: normalizeMarketCountryCode(draft.paymentContext?.market?.countryCode) || DEFAULT_MARKET.countryCode,
+        currency: normalizeMarketCurrencyCode(draft.paymentContext?.market?.currency) || DEFAULT_MARKET.currency,
+    };
+
+    const context = { market };
+    if (draft.paymentMethod === 'NETBANKING' && draft.paymentContext?.netbanking?.bankCode) {
+        context.netbanking = draft.paymentContext.netbanking;
+    }
+
+    return context;
 };
 
 const isAddressValid = (shippingAddress) =>
@@ -105,6 +126,7 @@ const getQuotePayload = ({ checkoutItems, draft, checkoutSource }) => ({
     ...(draft.deliverySlot?.date && draft.deliverySlot?.window ? { deliverySlot: draft.deliverySlot } : {}),
     couponCode: draft.couponCode,
     checkoutSource,
+    paymentContext: buildPaymentContextForQuote(draft),
 });
 
 const getCompatibleSavedMethods = (methods = [], paymentMethod = 'COD') => {
@@ -151,6 +173,7 @@ const Checkout = () => {
         paymentMethod: 'COD',
         paymentContext: {
             ...EMPTY_PAYMENT_CONTEXT,
+            market: { ...EMPTY_PAYMENT_CONTEXT.market },
             netbanking: { ...EMPTY_PAYMENT_CONTEXT.netbanking },
         },
         paymentIntent: EMPTY_INTENT,
@@ -169,6 +192,7 @@ const Checkout = () => {
     const [isDetectingAddressGps, setIsDetectingAddressGps] = useState(false);
     const [addressGpsHint, setAddressGpsHint] = useState('');
     const [savedPaymentMethods, setSavedPaymentMethods] = useState([]);
+    const [paymentCapabilities, setPaymentCapabilities] = useState(null);
     const [netbankingCatalog, setNetbankingCatalog] = useState(null);
     const [isLoadingNetbankingCatalog, setIsLoadingNetbankingCatalog] = useState(false);
     const [stepErrors, setStepErrors] = useState({
@@ -298,20 +322,48 @@ const Checkout = () => {
 
     useEffect(() => {
         if (!currentUser?.uid) return;
-        paymentApi.getMethods()
-            .then((methods) => {
-                setSavedPaymentMethods(methods || []);
-                setDraft((prev) => {
-                    if (prev.selectedSavedMethodId) return prev;
-                    const defaultMethod = (methods || []).find((method) => method.isDefault) || (methods || [])[0];
-                    return {
-                        ...prev,
-                        selectedSavedMethodId: defaultMethod?._id || '',
-                    };
-                });
-            })
-            .catch(() => {
-                setSavedPaymentMethods([]);
+        Promise.allSettled([
+            paymentApi.getMethods(),
+            paymentApi.getCapabilities(),
+        ])
+            .then(([methodsResult, capabilitiesResult]) => {
+                if (methodsResult.status === 'fulfilled') {
+                    const methods = methodsResult.value || [];
+                    setSavedPaymentMethods(methods);
+                    setDraft((prev) => {
+                        if (prev.selectedSavedMethodId) return prev;
+                        const defaultMethod = (methods || []).find((method) => method.isDefault) || (methods || [])[0];
+                        return {
+                            ...prev,
+                            selectedSavedMethodId: defaultMethod?._id || '',
+                        };
+                    });
+                } else {
+                    setSavedPaymentMethods([]);
+                }
+
+                if (capabilitiesResult.status === 'fulfilled') {
+                    const capabilities = capabilitiesResult.value || null;
+                    setPaymentCapabilities(capabilities);
+                    setDraft((prev) => {
+                        const defaultCountryCode = capabilities?.markets?.defaultCountryCode || DEFAULT_MARKET.countryCode;
+                        const defaultCurrency = capabilities?.markets?.defaultCurrency || DEFAULT_MARKET.currency;
+                        const currentCountryCode = normalizeMarketCountryCode(prev.paymentContext?.market?.countryCode);
+                        const currentCurrency = normalizeMarketCurrencyCode(prev.paymentContext?.market?.currency);
+                        return {
+                            ...prev,
+                            paymentContext: {
+                                ...prev.paymentContext,
+                                market: {
+                                    countryCode: currentCountryCode || defaultCountryCode,
+                                    currency: currentCurrency || defaultCurrency,
+                                },
+                            },
+                        };
+                    });
+                } else {
+                    setPaymentCapabilities(null);
+                }
             });
     }, [currentUser?.uid, setDraft]);
 
@@ -325,6 +377,8 @@ const Checkout = () => {
         () => getCompatibleSavedMethods(savedPaymentMethods, draft.paymentMethod),
         [savedPaymentMethods, draft.paymentMethod]
     );
+    const selectedMarketCountryCode = normalizeMarketCountryCode(draft.paymentContext?.market?.countryCode) || DEFAULT_MARKET.countryCode;
+    const selectedMarketCurrency = normalizeMarketCurrencyCode(draft.paymentContext?.market?.currency) || DEFAULT_MARKET.currency;
     const selectedNetbankingBankCode = normalizeNetbankingBankCode(draft.paymentContext?.netbanking?.bankCode);
     const selectedNetbankingBank = useMemo(() => {
         if (!selectedNetbankingBankCode) return null;
@@ -341,6 +395,12 @@ const Checkout = () => {
     }, [draft.paymentContext?.netbanking?.bankName, netbankingCatalog?.banks, selectedNetbankingBankCode]);
 
     const fallbackTotals = useMemo(() => getFallbackTotals(checkoutItems), [checkoutItems]);
+    const chargeQuote = useMemo(() => ({
+        amount: Number(quote?.presentmentTotalPrice ?? fallbackTotals.totalPrice ?? 0),
+        currency: quote?.presentmentCurrency || selectedMarketCurrency || 'INR',
+        settlementAmount: Number(quote?.settlementAmount ?? quote?.totalPrice ?? fallbackTotals.totalPrice ?? 0),
+        settlementCurrency: quote?.settlementCurrency || 'INR',
+    }), [fallbackTotals.totalPrice, quote, selectedMarketCurrency]);
 
     const canQuote = useMemo(
         () => checkoutItems.length > 0 && isAddressValid(draft.shippingAddress),
@@ -621,6 +681,14 @@ const Checkout = () => {
 
     const validatePaymentStep = () => {
         if (!draft.paymentMethod) return 'Choose a payment method';
+        if (draft.paymentMethod === 'CARD') {
+            if (!selectedMarketCountryCode || selectedMarketCountryCode.length !== 2) {
+                return 'Select a valid two-letter market country code for card checkout';
+            }
+            if (!selectedMarketCurrency || selectedMarketCurrency.length !== 3) {
+                return 'Select a valid three-letter charge currency for card checkout';
+            }
+        }
         if (draft.paymentMethod === 'NETBANKING' && !selectedNetbankingBankCode) {
             return 'Choose a supported bank for NetBanking before continuing';
         }
@@ -665,13 +733,49 @@ const Checkout = () => {
         setDraft((prev) => ({
             ...prev,
             paymentMethod: method,
-            paymentContext: method === 'NETBANKING'
-                ? prev.paymentContext
-                : {
-                    ...prev.paymentContext,
-                    netbanking: { ...EMPTY_PAYMENT_CONTEXT.netbanking },
+            paymentContext: {
+                ...prev.paymentContext,
+                market: {
+                    countryCode: normalizeMarketCountryCode(prev.paymentContext?.market?.countryCode) || DEFAULT_MARKET.countryCode,
+                    currency: normalizeMarketCurrencyCode(prev.paymentContext?.market?.currency) || DEFAULT_MARKET.currency,
                 },
+                netbanking: method === 'NETBANKING'
+                    ? prev.paymentContext?.netbanking || { ...EMPTY_PAYMENT_CONTEXT.netbanking }
+                    : { ...EMPTY_PAYMENT_CONTEXT.netbanking },
+            },
             paymentIntent: EMPTY_INTENT,
+        }));
+        setStepErrors((prev) => ({ ...prev, payment: '' }));
+    };
+
+    const handleMarketCountryChange = (value) => {
+        const nextCountryCode = normalizeMarketCountryCode(value);
+        setDraft((prev) => ({
+            ...prev,
+            paymentIntent: EMPTY_INTENT,
+            paymentContext: {
+                ...prev.paymentContext,
+                market: {
+                    ...prev.paymentContext?.market,
+                    countryCode: nextCountryCode || DEFAULT_MARKET.countryCode,
+                },
+            },
+        }));
+        setStepErrors((prev) => ({ ...prev, payment: '' }));
+    };
+
+    const handleMarketCurrencyChange = (value) => {
+        const nextCurrency = normalizeMarketCurrencyCode(value);
+        setDraft((prev) => ({
+            ...prev,
+            paymentIntent: EMPTY_INTENT,
+            paymentContext: {
+                ...prev.paymentContext,
+                market: {
+                    ...prev.paymentContext?.market,
+                    currency: nextCurrency || DEFAULT_MARKET.currency,
+                },
+            },
         }));
         setStepErrors((prev) => ({ ...prev, payment: '' }));
     };
@@ -748,6 +852,8 @@ const Checkout = () => {
                                 intentId,
                                 providerPaymentId: paymentResponse.razorpay_payment_id,
                                 status: confirmResult.status,
+                                settlementAmount: confirmResult.settlementAmount ?? prev.paymentIntent.settlementAmount ?? 0,
+                                settlementCurrency: confirmResult.settlementCurrency || prev.paymentIntent.settlementCurrency || 'INR',
                             },
                         }));
                         toast.success('Payment authorized successfully');
@@ -795,9 +901,10 @@ const Checkout = () => {
                 return;
             }
 
-            const amount = quote?.totalPrice || fallbackTotals.totalPrice;
             const quoteSnapshot = {
-                totalPrice: amount,
+                totalPrice: quote?.totalPrice || fallbackTotals.totalPrice,
+                presentmentTotalPrice: chargeQuote.amount,
+                presentmentCurrency: chargeQuote.currency,
                 pricingVersion: quote?.pricingVersion || 'v2',
             };
 
@@ -826,6 +933,8 @@ const Checkout = () => {
                     riskDecision: intent.riskDecision,
                     challengeRequired: Boolean(intent.challengeRequired),
                     challengeVerified: false,
+                    settlementAmount: intent.settlementAmount ?? chargeQuote.settlementAmount,
+                    settlementCurrency: intent.settlementCurrency || chargeQuote.settlementCurrency || 'INR',
                     paymentContext: intent.paymentContext || null,
                     checkoutPayload: intent.checkoutPayload || null,
                 },
@@ -989,9 +1098,12 @@ const Checkout = () => {
                 deliverySlot: draft.deliverySlot,
                 couponCode: draft.couponCode,
                 checkoutSource,
+                paymentContext: buildPaymentContextForQuote(draft),
                 paymentIntentId: draft.paymentIntent.intentId || undefined,
                 quoteSnapshot: {
                     totalPrice: quote.totalPrice,
+                    presentmentTotalPrice: chargeQuote.amount,
+                    presentmentCurrency: chargeQuote.currency,
                     pricingVersion: quote.pricingVersion || 'v2',
                 },
                 // crypto.randomUUID() is collision-safe (RFC 4122 UUID v4).
@@ -1108,8 +1220,12 @@ const Checkout = () => {
                         <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
                             <div className="checkout-premium-surface">
                                 <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Current total</p>
-                                <p className="mt-3 text-3xl font-black tracking-tight text-white">{quote ? `Rs ${Number(quote.totalPrice || 0).toLocaleString('en-IN')}` : `Rs ${Number(fallbackTotals.totalPrice || 0).toLocaleString('en-IN')}`}</p>
-                                <p className="mt-2 text-xs text-slate-400">Backend validated before capture.</p>
+                                <p className="mt-3 text-3xl font-black tracking-tight text-white">{formatPrice(chargeQuote.amount, chargeQuote.currency)}</p>
+                                <p className="mt-2 text-xs text-slate-400">
+                                    {chargeQuote.currency !== chargeQuote.settlementCurrency
+                                        ? `Settles near ${formatPrice(chargeQuote.settlementAmount, chargeQuote.settlementCurrency)} after provider conversion.`
+                                        : 'Backend validated before capture.'}
+                                </p>
                             </div>
                             <div className="checkout-premium-surface">
                                 <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Delivery mode</p>
@@ -1179,12 +1295,20 @@ const Checkout = () => {
                         onSendChallengeOtp={sendPaymentChallengeOtp}
                         onMarkChallengeComplete={markPaymentChallengeComplete}
                         isChallengeLoading={isProcessingPayment}
+                        paymentCapabilities={paymentCapabilities}
                         onSetActive={() => draft.step > 2 && gotoStep(3)}
                         onPaymentMethodChange={handlePaymentMethodChange}
                         netbankingCatalog={netbankingCatalog}
                         isNetbankingCatalogLoading={isLoadingNetbankingCatalog}
                         selectedNetbankingBank={selectedNetbankingBank}
                         onSelectNetbankingBank={handleSelectNetbankingBank}
+                        paymentMarket={{
+                            countryCode: selectedMarketCountryCode,
+                            currency: selectedMarketCurrency,
+                        }}
+                        onMarketCountryChange={handleMarketCountryChange}
+                        onMarketCurrencyChange={handleMarketCurrencyChange}
+                        chargeQuote={chargeQuote}
                         onExecutePayment={executeDigitalPayment}
                         onFallbackToCod={fallbackToCod}
                         onBack={() => gotoStep(2)}
@@ -1199,6 +1323,7 @@ const Checkout = () => {
                         deliveryOption={draft.deliveryOption}
                         deliverySlot={draft.deliverySlot}
                         paymentMethod={draft.paymentMethod}
+                        quote={quote}
                         acceptedTerms={draft.acceptedTerms}
                         reviewError={stepErrors.review}
                         isPlacingOrder={isPlacingOrder}
@@ -1213,6 +1338,7 @@ const Checkout = () => {
                         items={checkoutItems}
                         quote={quote}
                         fallbackTotals={fallbackTotals}
+                        chargeQuote={chargeQuote}
                         isQuoting={isQuoting}
                         quoteError={quoteError}
                         isQuoteStale={isQuoteStale}

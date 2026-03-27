@@ -53,6 +53,11 @@ export const paymentApi = {
         const { data } = await apiFetch('/payments/methods', { headers });
         return data;
     },
+    getCapabilities: async () => {
+        const headers = await getAuthHeader();
+        const { data } = await apiFetch('/payments/capabilities', { headers });
+        return data;
+    },
     getNetbankingBanks: async () => {
         const headers = await getAuthHeader();
         const { data } = await apiFetch('/payments/netbanking/banks', { headers });
@@ -86,6 +91,23 @@ export const paymentApi = {
     getAdminPayments: async (params = {}) => {
         const headers = await getAuthHeader();
         const { data } = await apiFetch('/admin/payments', { headers, params });
+        return data;
+    },
+    getAdminPaymentOpsOverview: async () => {
+        const headers = await getAuthHeader();
+        const { data } = await apiFetch('/admin/payments/ops/overview', { headers });
+        return data;
+    },
+    expireAdminStaleIntents: async (payload = {}) => {
+        const headers = await getAuthHeader();
+        const { data } = await apiFetch('/admin/payments/ops/expire-stale', {
+            method: 'POST',
+            headers: {
+                ...headers,
+                'Idempotency-Key': payload?.idempotencyKey || createIdempotencyKey('expire-stale'),
+            },
+            body: JSON.stringify(payload),
+        });
         return data;
     },
     getRefundLedger: async (params = {}) => {

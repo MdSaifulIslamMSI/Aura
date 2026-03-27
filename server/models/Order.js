@@ -98,10 +98,18 @@ const orderSchema = mongoose.Schema({
     },
     refundSummary: {
         totalRefunded: { type: Number, default: 0 },
+        settlementCurrency: { type: String, default: 'INR' },
+        presentmentCurrency: { type: String, default: 'INR' },
+        presentmentTotalRefunded: { type: Number, default: 0 },
         fullyRefunded: { type: Boolean, default: false },
         refunds: [{
             refundId: { type: String },
             amount: { type: Number, default: 0 },
+            currency: { type: String, default: 'INR' },
+            settlementAmount: { type: Number, default: 0 },
+            settlementCurrency: { type: String, default: 'INR' },
+            presentmentAmount: { type: Number, default: 0 },
+            presentmentCurrency: { type: String, default: 'INR' },
             reason: { type: String, default: '' },
             status: { type: String, default: '' },
             createdAt: { type: Date, default: Date.now },
@@ -187,6 +195,26 @@ const orderSchema = mongoose.Schema({
         type: Number,
         required: true,
         default: 0.0
+    },
+    settlementCurrency: {
+        type: String,
+        default: 'INR'
+    },
+    settlementAmount: {
+        type: Number,
+        default: 0.0
+    },
+    presentmentCurrency: {
+        type: String,
+        default: 'INR'
+    },
+    presentmentTotalPrice: {
+        type: Number,
+        default: 0.0
+    },
+    marketCountryCode: {
+        type: String,
+        default: 'IN'
     },
     couponCode: {
         type: String,
