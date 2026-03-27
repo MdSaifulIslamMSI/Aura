@@ -9,6 +9,17 @@ import { ColorModeProvider } from '@/context/ColorModeContext';
 import { MarketProvider } from '@/context/MarketContext';
 import { MotionModeProvider } from '@/context/MotionModeContext';
 
+vi.mock('@/services/api/marketApi', () => ({
+    marketApi: {
+        getBrowseFxRates: vi.fn().mockResolvedValue({
+            baseCurrency: 'INR',
+            rates: { INR: 1, USD: 0.02 },
+            stale: false,
+        }),
+    },
+    readCachedBrowseFxRates: vi.fn(() => null),
+}));
+
 vi.mock('@/context/NotificationContext', () => ({
     useNotifications: () => ({
         notifications: [],
