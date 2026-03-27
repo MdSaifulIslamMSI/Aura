@@ -520,9 +520,9 @@ export const getMessageTemplate = (languageCode = DEFAULT_LANGUAGE_CODE, key = '
   return MARKET_MESSAGES[normalizedLanguage]?.[key] || '';
 };
 
-const resolveMessageValue = (languageCode = DEFAULT_LANGUAGE_CODE, key = '') => {
-  return getMessageTemplate(languageCode, key) || MARKET_MESSAGES.en?.[key] || '';
-};
+const resolveMessageValue = (languageCode = DEFAULT_LANGUAGE_CODE, key = '') => (
+  getMessageTemplate(languageCode, key) || MARKET_MESSAGES.en?.[key] || ''
+);
 
 export const createTranslator = (languageCode = DEFAULT_LANGUAGE_CODE) => (key, values = {}, fallback = '') => {
   const template = resolveMessageValue(languageCode, key) || fallback || key;
