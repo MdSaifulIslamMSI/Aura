@@ -1,5 +1,5 @@
-import { GENERATED_MARKET_MESSAGES } from './generatedMarketMessages';
-import { PRIORITY_MARKET_MESSAGES } from './priorityMarketMessages';
+import { GENERATED_MARKET_MESSAGES } from './generatedMarketMessages.js';
+import { PRIORITY_MARKET_MESSAGES } from './priorityMarketMessages.js';
 
 const DEFAULT_COUNTRY_CODE = 'IN';
 const DEFAULT_LANGUAGE_CODE = 'en';
