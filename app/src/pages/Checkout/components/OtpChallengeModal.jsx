@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Loader2, ShieldCheck, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useMarket } from '@/context/MarketContext';
 
 /**
  * OtpChallengeModal
@@ -19,6 +20,7 @@ import { cn } from '@/lib/utils';
 const OTP_LENGTH = 6;
 
 const OtpChallengeModal = ({ open, loading = false, error = '', onSubmit, onClose }) => {
+    const { t } = useMarket();
     const [digits, setDigits] = useState(Array(OTP_LENGTH).fill(''));
     const inputRefs = useRef([]);
 
@@ -98,7 +100,7 @@ const OtpChallengeModal = ({ open, loading = false, error = '', onSubmit, onClos
             <div
                 className="fixed inset-0 z-[90] bg-zinc-950/70"
                 onClick={onClose}
-                aria-label="Close OTP dialog"
+                aria-label={t('checkout.otp.closeDialog', {}, 'Close OTP dialog')}
                 role="button"
                 tabIndex={-1}
                 onKeyDown={(e) => e.key === 'Enter' && onClose?.()}
@@ -117,7 +119,7 @@ const OtpChallengeModal = ({ open, loading = false, error = '', onSubmit, onClos
                         type="button"
                         onClick={onClose}
                         className="absolute right-4 top-4 rounded-full p-1.5 text-slate-400 hover:bg-white/10 hover:text-white transition-colors"
-                        aria-label="Close"
+                        aria-label={t('nav.close', {}, 'Close')}
                         disabled={loading}
                     >
                         <X className="w-4 h-4" />
@@ -133,10 +135,10 @@ const OtpChallengeModal = ({ open, loading = false, error = '', onSubmit, onClos
                                 id="otp-modal-title"
                                 className="text-base font-black text-white tracking-tight"
                             >
-                                Payment Challenge
+                                {t('checkout.otp.title', {}, 'Payment Challenge')}
                             </h2>
                             <p className="mt-1 text-sm text-slate-400">
-                                Enter the 6-digit OTP sent to your registered contact.
+                                {t('checkout.otp.subtitle', {}, 'Enter the 6-digit OTP sent to your registered contact.')}
                             </p>
                         </div>
                     </div>
@@ -166,7 +168,7 @@ const OtpChallengeModal = ({ open, loading = false, error = '', onSubmit, onClos
                                     digits[i] ? 'border-white/25' : 'border-white/10',
                                     loading && 'opacity-50 cursor-not-allowed'
                                 )}
-                                aria-label={`OTP digit ${i + 1}`}
+                                aria-label={t('checkout.otp.digitLabel', { index: i + 1 }, `OTP digit ${i + 1}`)}
                             />
                         ))}
                     </div>
@@ -193,22 +195,22 @@ const OtpChallengeModal = ({ open, loading = false, error = '', onSubmit, onClos
                         {loading ? (
                             <>
                                 <Loader2 className="w-4 h-4 animate-spin" />
-                                Verifying...
+                                {t('checkout.otp.verifying', {}, 'Verifying...')}
                             </>
                         ) : (
-                            'Verify OTP'
+                            t('checkout.otp.verify', {}, 'Verify OTP')
                         )}
                     </button>
 
                     <p className="mt-3 text-center text-xs text-slate-500">
-                        Didn&apos;t receive it?{' '}
+                        {t('checkout.otp.didNotReceive', {}, "Didn't receive it?")}{' '}
                         <button
                             type="button"
                             onClick={onClose}
                             className="text-neo-cyan hover:underline"
                             disabled={loading}
                         >
-                            Cancel and retry
+                            {t('checkout.otp.cancelRetry', {}, 'Cancel and retry')}
                         </button>
                     </p>
                 </div>

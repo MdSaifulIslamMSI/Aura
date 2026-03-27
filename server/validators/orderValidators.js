@@ -54,6 +54,7 @@ const marketContextSchema = z.object({
     currency: z.string().trim().length(3)
         .regex(/^[A-Za-z]{3}$/)
         .transform((value) => normalizeUpper(value)),
+    language: z.string().trim().min(2).max(5).optional(),
 }).strict();
 
 const netbankingContextSchema = z.object({
@@ -75,6 +76,18 @@ const checkoutBodySchema = z.object({
     checkoutSource: z.enum(['cart', 'directBuy']).optional(),
     quoteSnapshot: z.object({
         totalPrice: z.coerce.number().positive().optional(),
+        baseAmount: z.coerce.number().positive().optional(),
+        baseCurrency: z.string().trim().length(3)
+            .regex(/^[A-Za-z]{3}$/)
+            .transform((value) => normalizeUpper(value))
+            .optional(),
+        displayAmount: z.coerce.number().positive().optional(),
+        displayCurrency: z.string().trim().length(3)
+            .regex(/^[A-Za-z]{3}$/)
+            .transform((value) => normalizeUpper(value))
+            .optional(),
+        fxRateLocked: z.coerce.number().positive().optional(),
+        fxTimestamp: z.string().trim().min(4).optional(),
         presentmentTotalPrice: z.coerce.number().positive().optional(),
         presentmentCurrency: z.string().trim().length(3)
             .regex(/^[A-Za-z]{3}$/)

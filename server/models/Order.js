@@ -196,6 +196,30 @@ const orderSchema = mongoose.Schema({
         required: true,
         default: 0.0
     },
+    baseAmount: {
+        type: Number,
+        default: 0.0
+    },
+    baseCurrency: {
+        type: String,
+        default: 'INR'
+    },
+    displayAmount: {
+        type: Number,
+        default: 0.0
+    },
+    displayCurrency: {
+        type: String,
+        default: 'INR'
+    },
+    fxRateLocked: {
+        type: Number,
+        default: 1
+    },
+    fxTimestamp: {
+        type: String,
+        default: ''
+    },
     settlementCurrency: {
         type: String,
         default: 'INR'

@@ -16,6 +16,7 @@ import {
   X,
 } from 'lucide-react';
 import PremiumSelect from '@/components/ui/premium-select';
+import { useMarket } from '@/context/MarketContext';
 import { productApi } from '@/services/api';
 import {
   CATALOG_CATEGORY_OPTIONS,
@@ -24,6 +25,7 @@ import {
 } from '@/config/catalogTaxonomy';
 import { cn } from '@/lib/utils';
 import { parseSemanticSearchIntent } from '@/utils/assistantIntent';
+import { formatPrice } from '@/utils/format';
 import VoiceSearch from '@/components/shared/VoiceSearch';
 import { useDismissableLayer } from '@/hooks/useDismissableLayer';
 
@@ -103,12 +105,6 @@ const attachSearchTelemetry = (products = [], telemetry = {}) => (
   }))
 );
 
-const formatPrice = (value) => {
-  const amount = Number(value);
-  if (!Number.isFinite(amount)) return null;
-  return `Rs ${amount.toLocaleString('en-IN')}`;
-};
-
 const readPersistedSearchState = () => {
   try {
     const raw = localStorage.getItem(SEARCH_STATE_KEY);
@@ -163,20 +159,21 @@ const GlobalSearchBar = ({
 
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useMarket();
 
   const quickActions = useMemo(
     () => [
-      { label: 'Marketplace', description: 'Browse peer-to-peer listings', to: '/marketplace' },
+      { label: t('nav.marketplace', {}, 'Marketplace'), description: 'Browse peer-to-peer listings', to: '/marketplace' },
       { label: 'Deals', description: 'Open highest discount picks', to: '/deals' },
       { label: 'Trending', description: 'See top rated products', to: '/trending' },
       { label: 'New Arrivals', description: 'Fresh inventory drops', to: '/new-arrivals' },
-      { label: 'Visual Search', description: 'Find products from image hints', to: '/visual-search' },
-      { label: 'AI Compare', description: 'Compare up to four products instantly', to: '/compare' },
+      { label: t('nav.visualSearch', {}, 'Visual Search'), description: 'Find products from image hints', to: '/visual-search' },
+      { label: t('nav.aiCompare', {}, 'AI Compare'), description: 'Compare up to four products instantly', to: '/compare' },
       { label: 'Smart Bundle', description: 'Generate AI bundles with budget slider', to: '/bundles' },
       { label: 'Sell Item', description: 'Create a marketplace listing', to: '/sell' },
-      { label: 'Orders', description: 'Track placed orders', to: '/orders' },
+      { label: t('nav.orders', {}, 'Orders'), description: 'Track placed orders', to: '/orders' },
     ],
-    []
+    [t]
   );
 
   const hasSearchText = query.trim().length > 0;
@@ -570,7 +567,7 @@ const GlobalSearchBar = ({
             type="button"
             onClick={() => executeSearch()}
             className="search-control-icon"
-            aria-label="Search now"
+            aria-label={t('search.searchNow', {}, 'Search now')}
           >
             <Search className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
@@ -584,12 +581,12 @@ const GlobalSearchBar = ({
               setIsOpen(true);
             }}
             onKeyDown={handleKeyDown}
-            placeholder={placeholder}
+            placeholder={placeholder || t('nav.searchDesktop', {}, 'Search products, brands, and live deals')}
             className={cn(
               'search-control-input pr-2',
               'text-sm sm:text-base'
             )}
-            aria-label="Global search"
+            aria-label={t('search.globalLabel', {}, 'Global search')}
           />
 
           {!mobile && enableGlobalShortcuts && (
@@ -603,8 +600,8 @@ const GlobalSearchBar = ({
             type="button"
             onClick={openVoiceAssistant}
             className="search-control-icon text-slate-300 hover:text-neo-emerald border-l border-white/10"
-            aria-label="Voice search"
-            title="Voice search (Ctrl/Cmd + Shift + V)"
+            aria-label={t('search.voice', {}, 'Voice search')}
+            title={`${t('search.voice', {}, 'Voice search')} (Ctrl/Cmd + Shift + V)`}
           >
             <Mic className="w-4 h-4" />
           </button>
@@ -618,7 +615,7 @@ const GlobalSearchBar = ({
                 inputRef.current?.focus();
               }}
               className="search-control-icon text-slate-400 hover:text-white border-l border-white/10"
-              aria-label="Clear search"
+              aria-label={t('search.clearSearch', {}, 'Clear search')}
             >
               <X className="w-4 h-4" />
             </button>
@@ -631,10 +628,10 @@ const GlobalSearchBar = ({
           <div className="mb-4 flex flex-col gap-3 border-b border-white/8 pb-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <div className="text-[11px] font-black uppercase tracking-[0.24em] text-neo-cyan">
-                Search Intelligence
+                {t('search.title', {}, 'Search Intelligence')}
               </div>
               <p className="mt-1 text-sm text-slate-400">
-                Run live search first. Open advanced controls only when you need tighter filtering.
+                {t('search.subtitle', {}, 'Run live search first. Open advanced controls only when you need tighter filtering.')}
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -650,7 +647,7 @@ const GlobalSearchBar = ({
                 aria-label="Toggle advanced search controls"
               >
                 <SlidersHorizontal className="h-3.5 w-3.5" />
-                Controls
+                {t('search.controls', {}, 'Controls')}
               </button>
               <button
                 type="button"
@@ -658,7 +655,7 @@ const GlobalSearchBar = ({
                 className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-neo-cyan to-neo-emerald px-3.5 py-2 text-xs font-black uppercase tracking-[0.18em] text-white transition-all hover:-translate-y-0.5"
               >
                 <Search className="h-3.5 w-3.5" />
-                Run Search
+                {t('search.run', {}, 'Run Search')}
               </button>
             </div>
           </div>
@@ -668,23 +665,23 @@ const GlobalSearchBar = ({
               <div className="mb-3 flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-neo-cyan">
                   <Sparkles className="w-3.5 h-3.5" />
-                  Search Controls
+                  {t('search.controlsTitle', {}, 'Search Controls')}
                 </div>
                 <button
                   type="button"
                   onClick={saveCurrentIntent}
-                  disabled={!parseSemanticIntent(query)}
+                  disabled={!parseSemanticSearchIntent(query)}
                   className="inline-flex items-center gap-1 rounded-lg border border-white/20 bg-white/5 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-slate-300 hover:text-white disabled:opacity-50"
                   title="Save semantic intent (Ctrl/Cmd+Enter)"
                 >
                   <BookmarkPlus className="w-3.5 h-3.5" />
-                  Save Intent
+                  {t('search.saveIntent', {}, 'Save Intent')}
                 </button>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <label className="text-xs font-semibold text-slate-300">
-                  Category
+                  {t('search.category', {}, 'Category')}
                   <PremiumSelect
                     value={categoryScope}
                     onChange={(event) => setCategoryScope(event.target.value)}
@@ -699,7 +696,7 @@ const GlobalSearchBar = ({
                 </label>
 
                 <label className="text-xs font-semibold text-slate-300">
-                  Sort
+                  {t('search.sort', {}, 'Sort')}
                   <PremiumSelect
                     value={sortMode}
                     onChange={(event) => setSortMode(normalizeSort(event.target.value))}
@@ -714,7 +711,7 @@ const GlobalSearchBar = ({
                 </label>
 
                 <label className="text-xs font-semibold text-slate-300">
-                  Budget Cap ({formatPrice(maxPrice) || `Rs ${DEFAULT_MAX_PRICE}`})
+                  {t('search.budgetCap', {}, 'Budget Cap')} ({formatPrice(maxPrice) || formatPrice(DEFAULT_MAX_PRICE)})
                   <input
                     type="range"
                     min={1000}
@@ -732,13 +729,13 @@ const GlobalSearchBar = ({
           {isLoading ? (
             <div className="rounded-xl border border-white/10 bg-white/5 p-4 flex items-center gap-3 text-slate-300">
               <Loader2 className="w-4 h-4 animate-spin text-neo-cyan" />
-              Scanning live catalog...
+              {t('search.loading', {}, 'Scanning live catalog...')}
             </div>
           ) : null}
 
           {!isLoading && suggestions.length > 0 && (
             <div className="mb-3">
-              <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400 px-1 mb-2">Live Suggestions</div>
+              <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400 px-1 mb-2">{t('search.liveSuggestions', {}, 'Live Suggestions')}</div>
               <div className="space-y-2">
                 {suggestions.map((product, index) => {
                   const productId = extractProductId(product);
@@ -790,7 +787,7 @@ const GlobalSearchBar = ({
 
           {!isLoading && hasSearchText && suggestions.length === 0 && (
             <div className="mb-3 rounded-xl border border-amber-400/20 bg-amber-400/10 p-3 text-sm text-amber-100">
-              No direct matches yet. Press Enter to run a full catalog search.
+              {t('search.noMatches', {}, 'No direct matches yet. Press Enter to run a full catalog search.')}
             </div>
           )}
 
@@ -805,7 +802,7 @@ const GlobalSearchBar = ({
               <div className="flex items-center justify-between mb-2">
                 <h4 className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400 flex items-center gap-1.5">
                   <Clock3 className="w-3.5 h-3.5" />
-                  Recent
+                  {t('search.recent', {}, 'Recent')}
                 </h4>
                 {recentSearches.length > 0 && (
                   <button
@@ -813,13 +810,13 @@ const GlobalSearchBar = ({
                     onClick={clearRecentSearches}
                     className="text-[11px] font-semibold text-slate-500 hover:text-slate-300 transition-colors"
                   >
-                    Clear
+                    {t('search.clear', {}, 'Clear')}
                   </button>
                 )}
               </div>
 
               {recentSearches.length === 0 ? (
-                <p className="text-xs text-slate-500">Your recent searches will appear here.</p>
+                <p className="text-xs text-slate-500">{t('search.recentEmpty', {}, 'Your recent searches will appear here.')}</p>
               ) : (
                 <div className="flex flex-wrap gap-2">
                   {recentSearches.map((term) => (
@@ -842,7 +839,7 @@ const GlobalSearchBar = ({
             <section className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
               <h4 className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400 flex items-center gap-1.5 mb-2">
                 <TrendingUp className="w-3.5 h-3.5" />
-                Trending
+                {t('search.trending', {}, 'Trending')}
               </h4>
               <div className="flex flex-wrap gap-2">
                 {TRENDING_QUERIES.map((term) => (
@@ -867,14 +864,14 @@ const GlobalSearchBar = ({
               <div className="flex items-center justify-between mb-2">
                 <h4 className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400 flex items-center gap-1.5">
                   <BookmarkPlus className="w-3.5 h-3.5" />
-                  Saved Intents
+                  {t('search.savedIntents', {}, 'Saved Intents')}
                 </h4>
                 <button
                   type="button"
                   onClick={() => persistSavedIntents([])}
                   className="text-[11px] font-semibold text-slate-500 hover:text-slate-300 transition-colors"
                 >
-                  Clear
+                  {t('search.clear', {}, 'Clear')}
                 </button>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -893,7 +890,7 @@ const GlobalSearchBar = ({
           )}
 
           <section className="mt-3 rounded-xl border border-white/10 bg-white/[0.03] p-3">
-            <h4 className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400 mb-2">Quick Actions</h4>
+            <h4 className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400 mb-2">{t('search.quickActions', {}, 'Quick Actions')}</h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
               {quickActions.map((action) => (
                 <button

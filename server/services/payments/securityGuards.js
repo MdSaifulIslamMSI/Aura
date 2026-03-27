@@ -38,6 +38,43 @@ const assertQuoteMatches = (quoteSnapshot, pricing) => {
     if (!quoteSnapshot || quoteSnapshot.totalPrice === undefined || quoteSnapshot.totalPrice === null) {
         return;
     }
+
+    if (
+        quoteSnapshot.baseAmount !== undefined
+        && quoteSnapshot.baseAmount !== null
+        && pricing?.baseAmount !== undefined
+        && pricing?.baseAmount !== null
+        && diff(quoteSnapshot.baseAmount, pricing.baseAmount) > 0.01
+    ) {
+        throw new AppError('Base currency quote expired. Please recalculate before payment.', 409);
+    }
+
+    if (quoteSnapshot.baseCurrency && pricing?.baseCurrency) {
+        const expectedBaseCurrency = String(pricing.baseCurrency || '').trim().toUpperCase();
+        const actualBaseCurrency = String(quoteSnapshot.baseCurrency || '').trim().toUpperCase();
+        if (expectedBaseCurrency && actualBaseCurrency && expectedBaseCurrency !== actualBaseCurrency) {
+            throw new AppError('Base currency quote mismatch. Please recalculate before payment.', 409);
+        }
+    }
+
+    if (
+        quoteSnapshot.displayAmount !== undefined
+        && quoteSnapshot.displayAmount !== null
+        && pricing?.displayAmount !== undefined
+        && pricing?.displayAmount !== null
+        && diff(quoteSnapshot.displayAmount, pricing.displayAmount) > 0.01
+    ) {
+        throw new AppError('Display currency quote expired. Please recalculate before payment.', 409);
+    }
+
+    if (quoteSnapshot.displayCurrency && pricing?.displayCurrency) {
+        const expectedDisplayCurrency = String(pricing.displayCurrency || '').trim().toUpperCase();
+        const actualDisplayCurrency = String(quoteSnapshot.displayCurrency || '').trim().toUpperCase();
+        if (expectedDisplayCurrency && actualDisplayCurrency && expectedDisplayCurrency !== actualDisplayCurrency) {
+            throw new AppError('Display currency quote mismatch. Please recalculate before payment.', 409);
+        }
+    }
+
     if (diff(quoteSnapshot.totalPrice, pricing?.totalPrice) > 0.01) {
         throw new AppError('Quote expired. Please recalculate before payment.', 409);
     }

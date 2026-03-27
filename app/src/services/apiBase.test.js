@@ -1,9 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiFetch, requestWithTrace } from './apiBase';
+import { resetActiveMarketHeaders, setActiveMarketHeaders } from './marketRuntime';
 
 describe('apiFetch observability', () => {
     beforeEach(() => {
         window.sessionStorage.clear();
+        resetActiveMarketHeaders();
         vi.restoreAllMocks();
     });
 
@@ -32,6 +34,33 @@ describe('apiFetch observability', () => {
         expect(headers.get('X-Request-Id')).toMatch(/^req-/);
         expect(headers.get('X-Client-Session-Id')).toMatch(/^session-/);
         expect(headers.get('X-Client-Route')).toBe('/');
+    });
+
+    it('propagates the active market headers on API requests', async () => {
+        setActiveMarketHeaders({
+            country: 'US',
+            currency: 'USD',
+            language: 'es',
+        });
+
+        const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+            new Response(JSON.stringify({ ok: true }), {
+                status: 200,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Request-Id': 'srv-market',
+                },
+            })
+        );
+
+        await apiFetch('/products', { method: 'GET' });
+
+        const [, init] = fetchMock.mock.calls[0];
+        const headers = new Headers(init?.headers);
+
+        expect(headers.get('x-market-country')).toBe('US');
+        expect(headers.get('x-market-currency')).toBe('USD');
+        expect(headers.get('x-market-language')).toBe('es');
     });
 
     it('surfaces request ids on API failures', async () => {

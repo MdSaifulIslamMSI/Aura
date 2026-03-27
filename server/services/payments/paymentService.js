@@ -99,6 +99,19 @@ const PAYMENT_FX_SETTLEMENT_TOLERANCE_PCT = (() => {
     return Math.min(raw, 25);
 })();
 
+const hasBasePricingSnapshot = (intent = {}) => (
+    Boolean(String(intent?.fxTimestamp || '').trim())
+    || Boolean(intent?.metadata?.pricingLock)
+    || Number(intent?.baseAmount || 0) > 0
+    || Number(intent?.settlementAmount || 0) > 0
+);
+
+const hasPresentmentPricingSnapshot = (intent = {}) => (
+    Boolean(String(intent?.fxTimestamp || '').trim())
+    || Boolean(intent?.metadata?.pricingLock)
+    || Number(intent?.displayAmount || 0) > 0
+);
+
 const getIntentSettlementCurrency = (intent = {}) => (
     normalizeCurrencyCode(intent?.settlementCurrency || intent?.currency || 'INR')
 );
@@ -111,12 +124,20 @@ const getIntentSettlementAmount = (intent = {}) => (
 );
 
 const getIntentPresentmentCurrency = (intent = {}) => (
-    normalizeCurrencyCode(intent?.currency || intent?.settlementCurrency || 'INR')
+    normalizeCurrencyCode(
+        hasPresentmentPricingSnapshot(intent)
+            ? (intent?.displayCurrency || intent?.currency || intent?.settlementCurrency || 'INR')
+            : (intent?.currency || intent?.settlementCurrency || 'INR')
+    )
 );
 
 const getIntentPresentmentAmount = (intent = {}) => (
     roundCurrency(
-        Number(intent?.amount ?? intent?.settlementAmount ?? 0),
+        Number(
+            hasPresentmentPricingSnapshot(intent)
+                ? (intent?.displayAmount ?? intent?.amount ?? intent?.settlementAmount ?? 0)
+                : (intent?.amount ?? intent?.settlementAmount ?? 0)
+        ),
         getIntentPresentmentCurrency(intent)
     )
 );
@@ -445,7 +466,10 @@ const createPaymentIntent = async ({
 
     const quote = await buildOrderQuote(
         { ...quotePayload, paymentMethod: normalizedMethod },
-        { checkStock: true }
+        {
+            checkStock: true,
+            market: requestMeta.market || null,
+        }
     );
     assertQuoteMatches(quoteSnapshot, quote.pricing);
 
@@ -475,11 +499,18 @@ const createPaymentIntent = async ({
     }
 
     const chargeAmount = roundCurrency(
-        quote.pricing.charge?.amount ?? quote.pricing.totalPrice,
-        quote.pricing.presentmentCurrency || quote.pricing.settlementCurrency || 'INR'
+        quote.pricing.displayAmount ?? quote.pricing.charge?.amount ?? quote.pricing.totalPrice,
+        quote.pricing.displayCurrency || quote.pricing.presentmentCurrency || quote.pricing.settlementCurrency || 'INR'
     );
     const chargeCurrency = normalizeCurrencyCode(
-        quote.pricing.presentmentCurrency || quote.pricing.settlementCurrency || 'INR'
+        quote.pricing.displayCurrency || quote.pricing.presentmentCurrency || quote.pricing.settlementCurrency || 'INR'
+    );
+    const baseAmount = roundCurrency(
+        quote.pricing.baseAmount ?? quote.pricing.totalPrice,
+        quote.pricing.baseCurrency || quote.pricing.settlementCurrency || 'INR'
+    );
+    const baseCurrency = normalizeCurrencyCode(
+        quote.pricing.baseCurrency || quote.pricing.settlementCurrency || 'INR'
     );
     const settlementAmount = roundCurrency(
         quote.pricing.settlementAmount ?? quote.pricing.totalPrice,
@@ -497,7 +528,13 @@ const createPaymentIntent = async ({
     const capabilities = await getPaymentCapabilities({ provider, allowFallback: true });
     const resolvedMarketContext = resolvePaymentMarketContext({
         paymentMethod: normalizedMethod,
-        paymentContext,
+        paymentContext: {
+            ...paymentContext,
+            market: {
+                countryCode: quote.pricing.market?.countryCode,
+                currency: chargeCurrency,
+            },
+        },
         capabilities,
     });
     const resolvedPaymentContext = await resolveIntentPaymentContext({
@@ -540,6 +577,12 @@ const createPaymentIntent = async ({
         providerOrderId: providerOrder.id,
         amount: chargeAmount,
         currency: chargeCurrency,
+        baseAmount,
+        baseCurrency,
+        displayAmount: chargeAmount,
+        displayCurrency: chargeCurrency,
+        fxRateLocked: Number(quote.pricing.fxRateLocked || 1),
+        fxTimestamp: quote.pricing.fxTimestamp || new Date().toISOString(),
         settlementAmount,
         marketCountryCode: resolvedMarketContext.market.countryCode,
         marketCurrency: resolvedMarketContext.market.currency,
@@ -578,6 +621,16 @@ const createPaymentIntent = async ({
             paymentContext: finalPaymentContext,
             market: resolvedMarketContext.market,
             charge: quote.pricing.charge || null,
+            pricingLock: {
+                baseAmount,
+                baseCurrency,
+                displayAmount: chargeAmount,
+                displayCurrency: chargeCurrency,
+                fxRateLocked: Number(quote.pricing.fxRateLocked || 1),
+                fxTimestamp: quote.pricing.fxTimestamp || new Date().toISOString(),
+                settlementAmount,
+                settlementCurrency,
+            },
             netbanking: resolvedPaymentContext?.netbanking || null,
             securityLayer: {
                 failedConfirmAttempts: 0,
@@ -609,6 +662,12 @@ const createPaymentIntent = async ({
         providerOrderId: intent.providerOrderId,
         amount: intent.amount,
         currency: intent.currency,
+        baseAmount: intent.baseAmount,
+        baseCurrency: intent.baseCurrency,
+        displayAmount: intent.displayAmount,
+        displayCurrency: intent.displayCurrency,
+        fxRateLocked: intent.fxRateLocked,
+        fxTimestamp: intent.fxTimestamp,
         settlementAmount: intent.settlementAmount,
         settlementCurrency: intent.settlementCurrency,
         status: intent.status,
@@ -734,6 +793,10 @@ const confirmPaymentIntent = async ({
             authorizedAt: intent.authorizedAt,
             riskDecision: intent.riskSnapshot?.decision || 'allow',
             providerMethod: intent.metadata?.providerMethodSnapshot || null,
+            baseAmount: Number(intent.baseAmount ?? intent.settlementAmount ?? 0),
+            baseCurrency: intent.baseCurrency || intent.settlementCurrency || 'INR',
+            displayAmount: getIntentPresentmentAmount(intent),
+            displayCurrency: getIntentPresentmentCurrency(intent),
             settlementAmount: getIntentSettlementAmount(intent),
             settlementCurrency: getIntentSettlementCurrency(intent),
         };
@@ -970,6 +1033,10 @@ const confirmPaymentIntent = async ({
         authorizedAt: intent.authorizedAt,
         riskDecision: intent.riskSnapshot?.decision || 'allow',
         providerMethod: methodInfo,
+        baseAmount: Number(intent.baseAmount ?? intent.settlementAmount ?? 0),
+        baseCurrency: intent.baseCurrency || intent.settlementCurrency || 'INR',
+        displayAmount: getIntentPresentmentAmount(intent),
+        displayCurrency: getIntentPresentmentCurrency(intent),
         settlementAmount: getIntentSettlementAmount(intent),
         settlementCurrency: getIntentSettlementCurrency(intent),
     };
@@ -993,6 +1060,10 @@ const validatePaymentIntentForOrder = async ({
     userId,
     paymentIntentId,
     paymentMethod,
+    baseAmount,
+    baseCurrency,
+    displayAmount,
+    displayCurrency,
     totalPrice,
     presentmentTotalPrice,
     presentmentCurrency,
@@ -1013,6 +1084,50 @@ const validatePaymentIntentForOrder = async ({
     const intent = session ? await findIntentQuery.session(session) : await findIntentQuery;
     if (!intent) throw new AppError('Payment intent not found for this user', 404);
     if (isIntentExpired(intent)) throw new AppError('Payment intent expired. Please retry payment.', 409);
+
+    if (baseAmount !== undefined && baseAmount !== null) {
+        const normalizedBaseCurrency = normalizeCurrencyCode(
+            baseCurrency || intent.baseCurrency || intent.settlementCurrency || intent.currency || 'INR'
+        );
+        const explicitBaseCurrency = hasBasePricingSnapshot(intent)
+            ? normalizeCurrencyCode(intent.baseCurrency || intent.settlementCurrency || '')
+            : '';
+        if (explicitBaseCurrency && explicitBaseCurrency !== normalizedBaseCurrency) {
+            throw new AppError('Payment base currency mismatch with latest quote', 409);
+        }
+
+        const legacyCurrency = normalizeCurrencyCode(intent.currency || '');
+        const lockedBaseAmount = hasBasePricingSnapshot(intent)
+            ? (Number(intent.baseAmount || 0) > 0
+                ? intent.baseAmount
+                : Number(intent.settlementAmount || 0) > 0
+                    ? intent.settlementAmount
+                    : null)
+            : null;
+        const comparableBaseAmount = lockedBaseAmount !== null
+            ? lockedBaseAmount
+            : (legacyCurrency && legacyCurrency === normalizedBaseCurrency ? intent.amount : null);
+
+        if (
+            comparableBaseAmount !== undefined
+            && comparableBaseAmount !== null
+            && diff(Number(comparableBaseAmount), Number(baseAmount)) > 0.01
+        ) {
+            throw new AppError('Payment base amount mismatch with latest quote', 409);
+        }
+    }
+
+    if (displayAmount !== undefined && displayAmount !== null) {
+        if (diff(getIntentPresentmentAmount(intent), displayAmount) > 0.01) {
+            throw new AppError('Payment display amount mismatch with latest quote', 409);
+        }
+    }
+    if (displayCurrency) {
+        const normalizedDisplayCurrency = normalizeCurrencyCode(displayCurrency);
+        if (normalizedDisplayCurrency !== getIntentPresentmentCurrency(intent)) {
+            throw new AppError('Payment display currency mismatch with latest quote', 409);
+        }
+    }
 
     assertPresentmentQuoteMatchesIntent({
         intent,

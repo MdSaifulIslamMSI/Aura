@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { CartContext } from '@/context/CartContext';
 import { AuthContext } from '@/context/AuthContext';
+import { useMarket } from '@/context/MarketContext';
 import { useCommerceStore } from '@/store/commerceStore';
 import { orderApi, otpApi, paymentApi, userApi } from '@/services/api';
 import { cn } from '@/lib/utils';
@@ -10,6 +11,7 @@ import { ArrowLeft, CheckCircle2, Layers, Loader2 } from 'lucide-react';
 import { loadRazorpayScript } from '@/utils/razorpay';
 import { detectLocationFromGps } from '@/utils/geolocation';
 import { formatPrice } from '@/utils/format';
+import { getDisplayAmount, getDisplayCurrency } from '@/utils/pricing';
 import StepAddress from './components/StepAddress';
 import StepDelivery from './components/StepDelivery';
 import StepPayment from './components/StepPayment';
@@ -21,7 +23,7 @@ import useCheckoutDraft from './hooks/useCheckoutDraft';
 const EMPTY_CONTACT = { name: '', phone: '', email: '' };
 const EMPTY_SHIPPING = { address: '', city: '', postalCode: '', country: 'India' };
 const EMPTY_SLOT = { date: '', window: '' };
-const DEFAULT_MARKET = { countryCode: 'IN', currency: 'INR' };
+const DEFAULT_MARKET = { countryCode: 'IN', currency: 'INR', language: 'en' };
 const EMPTY_PAYMENT_CONTEXT = {
     market: { ...DEFAULT_MARKET },
     netbanking: {
@@ -39,6 +41,10 @@ const EMPTY_INTENT = {
     riskDecision: 'allow',
     challengeRequired: false,
     challengeVerified: false,
+    baseAmount: 0,
+    baseCurrency: 'INR',
+    displayAmount: 0,
+    displayCurrency: 'INR',
     settlementAmount: 0,
     settlementCurrency: 'INR',
     paymentContext: null,
@@ -73,6 +79,7 @@ const buildPaymentContextForQuote = (draft) => {
     const market = {
         countryCode: normalizeMarketCountryCode(draft.paymentContext?.market?.countryCode) || DEFAULT_MARKET.countryCode,
         currency: normalizeMarketCurrencyCode(draft.paymentContext?.market?.currency) || DEFAULT_MARKET.currency,
+        language: String(draft.paymentContext?.market?.language || 'en').trim().toLowerCase(),
     };
 
     const context = { market };
@@ -103,7 +110,7 @@ const shouldAttemptProfileRecovery = (error) => {
 };
 
 const getFallbackTotals = (items) => {
-    const itemsPrice = items.reduce((sum, item) => sum + ((Number(item.price) || 0) * (Number(item.quantity) || 0)), 0);
+    const itemsPrice = items.reduce((sum, item) => sum + (getDisplayAmount(item) * (Number(item.quantity) || 0)), 0);
     return {
         itemsPrice,
         totalPrice: itemsPrice,
@@ -146,6 +153,15 @@ const Checkout = () => {
     const navigate = useNavigate();
     const { cartItems, clearCart } = useContext(CartContext);
     const { currentUser, syncUserWithBackend } = useContext(AuthContext);
+    const {
+        countryCode: globalCountryCode,
+        currency: globalCurrency,
+        languageCode: globalLanguage,
+        countryOptions,
+        setCountryCode: setGlobalCountryCode,
+        setCurrency: setGlobalCurrency,
+        t,
+    } = useMarket();
     const checkoutSession = useCommerceStore((state) => state.checkoutSession);
     const clearDirectBuy = useCommerceStore((state) => state.clearDirectBuy);
     const cartRevision = useCommerceStore((state) => state.cart.revision);
@@ -173,18 +189,62 @@ const Checkout = () => {
         paymentMethod: 'COD',
         paymentContext: {
             ...EMPTY_PAYMENT_CONTEXT,
-            market: { ...EMPTY_PAYMENT_CONTEXT.market },
+            market: {
+                countryCode: globalCountryCode || EMPTY_PAYMENT_CONTEXT.market.countryCode,
+                currency: globalCurrency || EMPTY_PAYMENT_CONTEXT.market.currency,
+                language: globalLanguage || 'en',
+            },
             netbanking: { ...EMPTY_PAYMENT_CONTEXT.netbanking },
         },
         paymentIntent: EMPTY_INTENT,
         couponCode: '',
         acceptedTerms: false,
-    }), []);
+    }), [globalCountryCode, globalCurrency, globalLanguage]);
 
     const { draft, setDraft, clearDraft, isHydrated } = useCheckoutDraft(currentUser?.uid, defaultDraft, {
         checkoutSource: checkoutSource === 'directBuy' ? 'direct-buy' : 'cart',
         cartRevision: checkoutSource === 'directBuy' ? 'direct-buy' : Number(cartRevision ?? 0),
     });
+    const localizedCheckoutSteps = useMemo(() => ([
+        { id: 1, label: t('checkout.step.address', {}, 'Address') },
+        { id: 2, label: t('checkout.step.delivery', {}, 'Delivery') },
+        { id: 3, label: t('checkout.step.payment', {}, 'Payment') },
+        { id: 4, label: t('checkout.step.review', {}, 'Review') },
+    ]), [t]);
+
+    useEffect(() => {
+        if (!isHydrated) return;
+
+        setDraft((prev) => {
+            const nextCountryCode = normalizeMarketCountryCode(globalCountryCode) || DEFAULT_MARKET.countryCode;
+            const nextCurrency = normalizeMarketCurrencyCode(globalCurrency) || DEFAULT_MARKET.currency;
+            const nextLanguage = String(globalLanguage || 'en').trim().toLowerCase();
+            const currentCountryCode = normalizeMarketCountryCode(prev.paymentContext?.market?.countryCode);
+            const currentCurrency = normalizeMarketCurrencyCode(prev.paymentContext?.market?.currency);
+            const currentLanguage = String(prev.paymentContext?.market?.language || '').trim().toLowerCase();
+
+            if (
+                currentCountryCode === nextCountryCode
+                && currentCurrency === nextCurrency
+                && currentLanguage === nextLanguage
+            ) {
+                return prev;
+            }
+
+            return {
+                ...prev,
+                paymentIntent: EMPTY_INTENT,
+                paymentContext: {
+                    ...prev.paymentContext,
+                    market: {
+                        countryCode: nextCountryCode,
+                        currency: nextCurrency,
+                        language: nextLanguage,
+                    },
+                },
+            };
+        });
+    }, [globalCountryCode, globalCurrency, globalLanguage, isHydrated, setDraft]);
 
     const [savedAddresses, setSavedAddresses] = useState([]);
     const [isLoadingProfile, setIsLoadingProfile] = useState(true);
@@ -193,6 +253,7 @@ const Checkout = () => {
     const [addressGpsHint, setAddressGpsHint] = useState('');
     const [savedPaymentMethods, setSavedPaymentMethods] = useState([]);
     const [paymentCapabilities, setPaymentCapabilities] = useState(null);
+    const [checkoutConfig, setCheckoutConfig] = useState(null);
     const [netbankingCatalog, setNetbankingCatalog] = useState(null);
     const [isLoadingNetbankingCatalog, setIsLoadingNetbankingCatalog] = useState(false);
     const [stepErrors, setStepErrors] = useState({
@@ -308,7 +369,7 @@ const Checkout = () => {
         hydrateProfile()
             .catch((error) => {
                 if (isMounted) {
-                    toast.error(error.message || 'Failed to load profile for checkout');
+                    toast.error(error.message || t('checkout.error.loadProfile', {}, 'Failed to load profile for checkout'));
                 }
             })
             .finally(() => {
@@ -325,8 +386,9 @@ const Checkout = () => {
         Promise.allSettled([
             paymentApi.getMethods(),
             paymentApi.getCapabilities(),
+            orderApi.getCheckoutConfig(),
         ])
-            .then(([methodsResult, capabilitiesResult]) => {
+            .then(([methodsResult, capabilitiesResult, checkoutConfigResult]) => {
                 if (methodsResult.status === 'fulfilled') {
                     const methods = methodsResult.value || [];
                     setSavedPaymentMethods(methods);
@@ -345,27 +407,17 @@ const Checkout = () => {
                 if (capabilitiesResult.status === 'fulfilled') {
                     const capabilities = capabilitiesResult.value || null;
                     setPaymentCapabilities(capabilities);
-                    setDraft((prev) => {
-                        const defaultCountryCode = capabilities?.markets?.defaultCountryCode || DEFAULT_MARKET.countryCode;
-                        const defaultCurrency = capabilities?.markets?.defaultCurrency || DEFAULT_MARKET.currency;
-                        const currentCountryCode = normalizeMarketCountryCode(prev.paymentContext?.market?.countryCode);
-                        const currentCurrency = normalizeMarketCurrencyCode(prev.paymentContext?.market?.currency);
-                        return {
-                            ...prev,
-                            paymentContext: {
-                                ...prev.paymentContext,
-                                market: {
-                                    countryCode: currentCountryCode || defaultCountryCode,
-                                    currency: currentCurrency || defaultCurrency,
-                                },
-                            },
-                        };
-                    });
                 } else {
                     setPaymentCapabilities(null);
                 }
+
+                if (checkoutConfigResult.status === 'fulfilled') {
+                    setCheckoutConfig(checkoutConfigResult.value || null);
+                } else {
+                    setCheckoutConfig(null);
+                }
             });
-    }, [currentUser?.uid, setDraft]);
+    }, [currentUser?.uid, globalCountryCode, globalCurrency, globalLanguage, setDraft]);
 
     const checkoutItems = useMemo(() => {
         if (directBuyItem) {
@@ -396,15 +448,25 @@ const Checkout = () => {
 
     const fallbackTotals = useMemo(() => getFallbackTotals(checkoutItems), [checkoutItems]);
     const chargeQuote = useMemo(() => ({
-        amount: Number(quote?.presentmentTotalPrice ?? fallbackTotals.totalPrice ?? 0),
-        currency: quote?.presentmentCurrency || selectedMarketCurrency || 'INR',
+        amount: Number(quote?.displayAmount ?? quote?.presentmentTotalPrice ?? fallbackTotals.totalPrice ?? 0),
+        currency: quote?.displayCurrency || quote?.presentmentCurrency || selectedMarketCurrency || 'INR',
+        baseAmount: Number(quote?.baseAmount ?? quote?.totalPrice ?? fallbackTotals.totalPrice ?? 0),
+        baseCurrency: quote?.baseCurrency || quote?.settlementCurrency || 'INR',
         settlementAmount: Number(quote?.settlementAmount ?? quote?.totalPrice ?? fallbackTotals.totalPrice ?? 0),
         settlementCurrency: quote?.settlementCurrency || 'INR',
+        fxRateLocked: Number(quote?.fxRateLocked || 1),
+        fxTimestamp: quote?.fxTimestamp || '',
     }), [fallbackTotals.totalPrice, quote, selectedMarketCurrency]);
 
     const canQuote = useMemo(
         () => checkoutItems.length > 0 && isAddressValid(draft.shippingAddress),
         [checkoutItems.length, draft.shippingAddress]
+    );
+    const checkoutPaymentMethods = useMemo(
+        () => Array.isArray(checkoutConfig?.paymentMethods) && checkoutConfig.paymentMethods.length > 0
+            ? checkoutConfig.paymentMethods
+            : ['COD', 'UPI', 'CARD', 'WALLET', 'NETBANKING'],
+        [checkoutConfig?.paymentMethods]
     );
 
     const quotePayload = useMemo(
@@ -433,7 +495,7 @@ const Checkout = () => {
             setLastQuoteSignature(signature);
             setLastQuoteAt(Date.now());
         } catch (error) {
-            setQuoteError(error.message || 'Unable to fetch live pricing');
+            setQuoteError(error.message || t('checkout.error.livePricing', {}, 'Unable to fetch live pricing'));
         } finally {
             setIsQuoting(false);
         }
@@ -470,6 +532,22 @@ const Checkout = () => {
     }, [compatibleSavedMethods, draft.selectedSavedMethodId, setDraft]);
 
     useEffect(() => {
+        if (checkoutPaymentMethods.includes(draft.paymentMethod)) return;
+        const fallbackMethod = checkoutPaymentMethods[0] || 'COD';
+        setDraft((prev) => ({
+            ...prev,
+            paymentMethod: fallbackMethod,
+            paymentIntent: EMPTY_INTENT,
+            paymentContext: {
+                ...prev.paymentContext,
+                netbanking: fallbackMethod === 'NETBANKING'
+                    ? prev.paymentContext?.netbanking || { ...EMPTY_PAYMENT_CONTEXT.netbanking }
+                    : { ...EMPTY_PAYMENT_CONTEXT.netbanking },
+            },
+        }));
+    }, [checkoutPaymentMethods, draft.paymentMethod, setDraft]);
+
+    useEffect(() => {
         if (!currentUser?.uid || draft.paymentMethod !== 'NETBANKING' || netbankingCatalog) return;
 
         let cancelled = false;
@@ -483,10 +561,10 @@ const Checkout = () => {
             .catch((error) => {
                 if (!cancelled) {
                     setNetbankingCatalog({ banks: [], featuredBanks: [], stale: true, source: 'unavailable' });
-                    setStepErrors((prev) => ({
-                        ...prev,
-                        payment: error.message || 'Unable to load supported netbanking banks right now',
-                    }));
+            setStepErrors((prev) => ({
+                ...prev,
+                payment: error.message || t('checkout.error.netbankingUnavailable', {}, 'Unable to load supported netbanking banks right now'),
+            }));
                 }
             })
             .finally(() => {
@@ -614,16 +692,16 @@ const Checkout = () => {
 
             const locationParts = [detected.city, detected.state || detected.country].filter(Boolean);
             const qualityParts = [
-                Number.isFinite(detected.confidence) ? `confidence ${detected.confidence}%` : '',
-                Number.isFinite(detected.accuracy) && detected.accuracy > 0 ? `${Math.round(detected.accuracy)}m accuracy` : '',
+                Number.isFinite(detected.confidence) ? t('checkout.gps.confidence', { value: detected.confidence }, `confidence ${detected.confidence}%`) : '',
+                Number.isFinite(detected.accuracy) && detected.accuracy > 0 ? t('checkout.gps.accuracy', { value: Math.round(detected.accuracy) }, `${Math.round(detected.accuracy)}m accuracy`) : '',
             ].filter(Boolean);
             setAddressGpsHint(
-                `${locationParts.length ? `Detected ${locationParts.join(', ')}` : 'Detected location'}${
+                `${locationParts.length ? t('checkout.gps.detected', { value: locationParts.join(', ') }, `Detected ${locationParts.join(', ')}`) : t('checkout.gps.detectedFallback', {}, 'Detected location')}${
                     qualityParts.length ? ` (${qualityParts.join(', ')})` : ''
                 }`
             );
         } catch (error) {
-            setStepErrors((prev) => ({ ...prev, address: error.message || 'Unable to detect your location' }));
+            setStepErrors((prev) => ({ ...prev, address: error.message || t('checkout.error.detectLocation', {}, 'Unable to detect your location') }));
         } finally {
             setIsDetectingAddressGps(false);
         }
@@ -639,9 +717,9 @@ const Checkout = () => {
             if (latest?._id) {
                 setDraft((prev) => ({ ...prev, selectedAddressId: latest._id }));
             }
-            toast.success('Address saved');
+            toast.success(t('checkout.success.addressSaved', {}, 'Address saved'));
         } catch (error) {
-            setStepErrors((prev) => ({ ...prev, address: error.message || 'Unable to save address' }));
+            setStepErrors((prev) => ({ ...prev, address: error.message || t('checkout.error.saveAddress', {}, 'Unable to save address') }));
         } finally {
             setIsSavingAddress(false);
         }
@@ -649,7 +727,7 @@ const Checkout = () => {
 
     const updateSelectedAddress = async () => {
         if (!draft.selectedAddressId) {
-            setStepErrors((prev) => ({ ...prev, address: 'Select a saved address before updating' }));
+            setStepErrors((prev) => ({ ...prev, address: t('checkout.error.selectSavedBeforeUpdate', {}, 'Select a saved address before updating') }));
             return;
         }
 
@@ -658,42 +736,50 @@ const Checkout = () => {
             const payload = getAddressPayloadFromDraft();
             const response = await userApi.updateAddress(draft.selectedAddressId, payload);
             setSavedAddresses(response.addresses || []);
-            toast.success('Address updated');
+            toast.success(t('checkout.success.addressUpdated', {}, 'Address updated'));
         } catch (error) {
-            setStepErrors((prev) => ({ ...prev, address: error.message || 'Unable to update address' }));
+            setStepErrors((prev) => ({ ...prev, address: error.message || t('checkout.error.updateAddress', {}, 'Unable to update address') }));
         } finally {
             setIsSavingAddress(false);
         }
     };
 
     const validateAddressStep = () => {
-        if (!draft.contact.name.trim()) return 'Contact name is required';
-        if (!isPhoneValid(draft.contact.phone)) return 'Enter a valid phone number';
-        if (!isAddressValid(draft.shippingAddress)) return 'Complete shipping address is required';
+        if (!draft.contact.name.trim()) return t('checkout.error.contactNameRequired', {}, 'Contact name is required');
+        if (!isPhoneValid(draft.contact.phone)) return t('checkout.error.phoneInvalid', {}, 'Enter a valid phone number');
+        if (!isAddressValid(draft.shippingAddress)) return t('checkout.error.shippingAddressRequired', {}, 'Complete shipping address is required');
+        const postalPattern = checkoutConfig?.addressSchema?.postalCodePattern;
+        if (postalPattern) {
+            try {
+                const regex = new RegExp(postalPattern, 'i');
+                if (!regex.test(String(draft.shippingAddress.postalCode || '').trim())) {
+                    return t('checkout.error.postalInvalid', {
+                        label: checkoutConfig?.addressSchema?.postalCodeLabel || 'Postal code',
+                    }, `${checkoutConfig?.addressSchema?.postalCodeLabel || 'Postal code'} format is invalid for the selected market`);
+                }
+            } catch {
+                // Ignore malformed remote regex patterns.
+            }
+        }
         return '';
     };
 
     const validateDeliveryStep = () => {
-        if (!draft.deliverySlot.date) return 'Select a delivery date';
-        if (!draft.deliverySlot.window) return 'Select a delivery window';
+        if (!draft.deliverySlot.date) return t('checkout.error.deliveryDate', {}, 'Select a delivery date');
+        if (!draft.deliverySlot.window) return t('checkout.error.deliveryWindow', {}, 'Select a delivery window');
         return '';
     };
 
     const validatePaymentStep = () => {
-        if (!draft.paymentMethod) return 'Choose a payment method';
-        if (draft.paymentMethod === 'CARD') {
-            if (!selectedMarketCountryCode || selectedMarketCountryCode.length !== 2) {
-                return 'Select a valid two-letter market country code for card checkout';
-            }
-            if (!selectedMarketCurrency || selectedMarketCurrency.length !== 3) {
-                return 'Select a valid three-letter charge currency for card checkout';
-            }
+        if (!draft.paymentMethod) return t('checkout.error.choosePaymentMethod', {}, 'Choose a payment method');
+        if (!checkoutPaymentMethods.includes(draft.paymentMethod)) {
+            return t('checkout.error.paymentMethodUnavailable', {}, 'The selected payment method is not available in this market');
         }
         if (draft.paymentMethod === 'NETBANKING' && !selectedNetbankingBankCode) {
-            return 'Choose a supported bank for NetBanking before continuing';
+            return t('checkout.error.netbankingBankRequired', {}, 'Choose a supported bank for NetBanking before continuing');
         }
         if (draft.paymentMethod !== 'COD' && !PAID_INTENT_STATUSES.has(String(draft.paymentIntent.status || '').toLowerCase())) {
-            return 'Complete secure digital payment before continuing';
+            return t('checkout.error.completeDigitalPayment', {}, 'Complete secure digital payment before continuing');
         }
         return '';
     };
@@ -738,6 +824,7 @@ const Checkout = () => {
                 market: {
                     countryCode: normalizeMarketCountryCode(prev.paymentContext?.market?.countryCode) || DEFAULT_MARKET.countryCode,
                     currency: normalizeMarketCurrencyCode(prev.paymentContext?.market?.currency) || DEFAULT_MARKET.currency,
+                    language: String(prev.paymentContext?.market?.language || globalLanguage || 'en').trim().toLowerCase(),
                 },
                 netbanking: method === 'NETBANKING'
                     ? prev.paymentContext?.netbanking || { ...EMPTY_PAYMENT_CONTEXT.netbanking }
@@ -750,33 +837,13 @@ const Checkout = () => {
 
     const handleMarketCountryChange = (value) => {
         const nextCountryCode = normalizeMarketCountryCode(value);
-        setDraft((prev) => ({
-            ...prev,
-            paymentIntent: EMPTY_INTENT,
-            paymentContext: {
-                ...prev.paymentContext,
-                market: {
-                    ...prev.paymentContext?.market,
-                    countryCode: nextCountryCode || DEFAULT_MARKET.countryCode,
-                },
-            },
-        }));
+        setGlobalCountryCode(nextCountryCode || DEFAULT_MARKET.countryCode);
         setStepErrors((prev) => ({ ...prev, payment: '' }));
     };
 
     const handleMarketCurrencyChange = (value) => {
         const nextCurrency = normalizeMarketCurrencyCode(value);
-        setDraft((prev) => ({
-            ...prev,
-            paymentIntent: EMPTY_INTENT,
-            paymentContext: {
-                ...prev.paymentContext,
-                market: {
-                    ...prev.paymentContext?.market,
-                    currency: nextCurrency || DEFAULT_MARKET.currency,
-                },
-            },
-        }));
+        setGlobalCurrency(nextCurrency || DEFAULT_MARKET.currency);
         setStepErrors((prev) => ({ ...prev, payment: '' }));
     };
 
@@ -831,7 +898,7 @@ const Checkout = () => {
 
     const openRazorpayCheckout = async ({ intentId, checkoutPayload }) => {
         if (!intentId || !checkoutPayload?.orderId) {
-            throw new Error('Payment checkout payload is missing. Please retry.');
+            throw new Error(t('checkout.error.checkoutPayloadMissing', {}, 'Payment checkout payload is missing. Please retry.'));
         }
 
         await loadRazorpayScript();
@@ -852,18 +919,22 @@ const Checkout = () => {
                                 intentId,
                                 providerPaymentId: paymentResponse.razorpay_payment_id,
                                 status: confirmResult.status,
+                                baseAmount: confirmResult.baseAmount ?? prev.paymentIntent.baseAmount ?? 0,
+                                baseCurrency: confirmResult.baseCurrency || prev.paymentIntent.baseCurrency || 'INR',
+                                displayAmount: confirmResult.displayAmount ?? prev.paymentIntent.displayAmount ?? 0,
+                                displayCurrency: confirmResult.displayCurrency || prev.paymentIntent.displayCurrency || 'INR',
                                 settlementAmount: confirmResult.settlementAmount ?? prev.paymentIntent.settlementAmount ?? 0,
                                 settlementCurrency: confirmResult.settlementCurrency || prev.paymentIntent.settlementCurrency || 'INR',
                             },
                         }));
-                        toast.success('Payment authorized successfully');
+                        toast.success(t('checkout.success.paymentAuthorized', {}, 'Payment authorized successfully'));
                         resolve();
                     } catch (confirmError) {
                         reject(confirmError);
                     }
                 },
                 modal: {
-                    ondismiss: () => reject(new Error('Payment window closed before completion')),
+                    ondismiss: () => reject(new Error(t('checkout.error.paymentClosed', {}, 'Payment window closed before completion'))),
                 },
             });
             rzp.open();
@@ -877,7 +948,7 @@ const Checkout = () => {
             setStepErrors((prev) => ({ ...prev, payment: '' }));
 
             if (PAID_INTENT_STATUSES.has(String(draft.paymentIntent.status || '').toLowerCase())) {
-                toast.success('Payment is already authorized for this checkout session');
+                toast.success(t('checkout.success.paymentAlreadyAuthorized', {}, 'Payment is already authorized for this checkout session'));
                 return;
             }
 
@@ -903,6 +974,12 @@ const Checkout = () => {
 
             const quoteSnapshot = {
                 totalPrice: quote?.totalPrice || fallbackTotals.totalPrice,
+                baseAmount: quote?.baseAmount || chargeQuote.baseAmount,
+                baseCurrency: quote?.baseCurrency || chargeQuote.baseCurrency,
+                displayAmount: chargeQuote.amount,
+                displayCurrency: chargeQuote.currency,
+                fxRateLocked: quote?.fxRateLocked || chargeQuote.fxRateLocked,
+                fxTimestamp: quote?.fxTimestamp || chargeQuote.fxTimestamp,
                 presentmentTotalPrice: chargeQuote.amount,
                 presentmentCurrency: chargeQuote.currency,
                 pricingVersion: quote?.pricingVersion || 'v2',
@@ -933,6 +1010,10 @@ const Checkout = () => {
                     riskDecision: intent.riskDecision,
                     challengeRequired: Boolean(intent.challengeRequired),
                     challengeVerified: false,
+                    baseAmount: intent.baseAmount ?? chargeQuote.baseAmount,
+                    baseCurrency: intent.baseCurrency || chargeQuote.baseCurrency || 'INR',
+                    displayAmount: intent.displayAmount ?? chargeQuote.amount,
+                    displayCurrency: intent.displayCurrency || chargeQuote.currency || 'INR',
                     settlementAmount: intent.settlementAmount ?? chargeQuote.settlementAmount,
                     settlementCurrency: intent.settlementCurrency || chargeQuote.settlementCurrency || 'INR',
                     paymentContext: intent.paymentContext || null,
@@ -941,7 +1022,7 @@ const Checkout = () => {
             }));
 
             if (intent.challengeRequired) {
-                toast.warning('Additional OTP verification is required before payment confirmation');
+                toast.warning(t('checkout.warning.otpRequired', {}, 'Additional OTP verification is required before payment confirmation'));
                 return;
             }
 
@@ -950,7 +1031,7 @@ const Checkout = () => {
                 checkoutPayload: intent.checkoutPayload,
             });
         } catch (error) {
-            setStepErrors((prev) => ({ ...prev, payment: error.message || 'Payment authorization failed' }));
+            setStepErrors((prev) => ({ ...prev, payment: error.message || t('checkout.error.paymentAuthorizationFailed', {}, 'Payment authorization failed') }));
         } finally {
             setIsProcessingPayment(false);
         }
@@ -958,15 +1039,15 @@ const Checkout = () => {
 
     const sendPaymentChallengeOtp = async () => {
         if (!draft.paymentIntent.intentId) {
-            setStepErrors((prev) => ({ ...prev, payment: 'Create payment authorization first' }));
+            setStepErrors((prev) => ({ ...prev, payment: t('checkout.error.createPaymentFirst', {}, 'Create payment authorization first') }));
             return;
         }
         try {
             setIsProcessingPayment(true);
             await otpApi.sendOtp(draft.contact.email, draft.contact.phone, 'payment-challenge');
-            toast.success('Payment challenge OTP sent');
+            toast.success(t('checkout.success.challengeOtpSent', {}, 'Payment challenge OTP sent'));
         } catch (error) {
-            setStepErrors((prev) => ({ ...prev, payment: error.message || 'Failed to send challenge OTP' }));
+            setStepErrors((prev) => ({ ...prev, payment: error.message || t('checkout.error.sendChallengeOtp', {}, 'Failed to send challenge OTP') }));
         } finally {
             setIsProcessingPayment(false);
         }
@@ -974,7 +1055,7 @@ const Checkout = () => {
 
     const markPaymentChallengeComplete = async () => {
         if (!draft.paymentIntent.intentId) {
-            setStepErrors((prev) => ({ ...prev, payment: 'Create payment authorization first' }));
+            setStepErrors((prev) => ({ ...prev, payment: t('checkout.error.createPaymentFirst', {}, 'Create payment authorization first') }));
             return;
         }
 
@@ -998,7 +1079,7 @@ const Checkout = () => {
                 draft.paymentIntent.intentId
             );
             if (!otpResult?.challengeToken) {
-                throw new Error('Challenge token missing after OTP verification');
+                throw new Error(t('checkout.error.challengeTokenMissing', {}, 'Challenge token missing after OTP verification'));
             }
             await paymentApi.completeChallenge(draft.paymentIntent.intentId, {
                 challengeToken: otpResult.challengeToken,
@@ -1017,15 +1098,15 @@ const Checkout = () => {
                     status: 'created',
                 },
             }));
-            toast.success('Challenge verification complete. Opening secure checkout...');
+            toast.success(t('checkout.success.challengeVerified', {}, 'Challenge verification complete. Opening secure checkout...'));
             await openRazorpayCheckout({
                 intentId: draft.paymentIntent.intentId,
                 checkoutPayload: draft.paymentIntent.checkoutPayload,
             });
         } catch (error) {
             // Show error inside modal instead of closing
-            handleOtpModalError(error.message || 'OTP verification failed');
-            setStepErrors((prev) => ({ ...prev, payment: error.message || 'Payment challenge verification failed' }));
+            handleOtpModalError(error.message || t('checkout.error.otpVerification', {}, 'OTP verification failed'));
+            setStepErrors((prev) => ({ ...prev, payment: error.message || t('checkout.error.paymentChallengeVerification', {}, 'Payment challenge verification failed') }));
         } finally {
             setIsProcessingPayment(false);
         }
@@ -1041,12 +1122,12 @@ const Checkout = () => {
             },
             paymentIntent: EMPTY_INTENT,
         }));
-        toast.info('Switched to Cash on Delivery');
+        toast.info(t('checkout.info.switchedToCod', {}, 'Switched to Cash on Delivery'));
     };
 
     const applyCoupon = async () => {
         if (!draft.couponCode.trim()) {
-            setStepErrors((prev) => ({ ...prev, review: 'Enter a coupon code first' }));
+            setStepErrors((prev) => ({ ...prev, review: t('checkout.error.enterCoupon', {}, 'Enter a coupon code first') }));
             return;
         }
 
@@ -1067,19 +1148,19 @@ const Checkout = () => {
 
     const placeOrder = async () => {
         if (!draft.acceptedTerms) {
-            setStepErrors((prev) => ({ ...prev, review: 'Accept the checkout terms before placing order' }));
+            setStepErrors((prev) => ({ ...prev, review: t('checkout.error.acceptTerms', {}, 'Accept the checkout terms before placing order') }));
             return;
         }
         if (isQuoteStale) {
-            setStepErrors((prev) => ({ ...prev, review: 'Quote is stale. Recalculate before placing order.' }));
+            setStepErrors((prev) => ({ ...prev, review: t('checkout.error.quoteStale', {}, 'Quote is stale. Recalculate before placing order.') }));
             return;
         }
         if (draft.paymentMethod !== 'COD' && !PAID_INTENT_STATUSES.has(String(draft.paymentIntent.status || '').toLowerCase())) {
-            setStepErrors((prev) => ({ ...prev, review: 'Digital payment is not confirmed yet.' }));
+            setStepErrors((prev) => ({ ...prev, review: t('checkout.error.paymentNotConfirmed', {}, 'Digital payment is not confirmed yet.') }));
             return;
         }
         if (draft.paymentMethod !== 'COD' && !draft.paymentIntent.intentId) {
-            setStepErrors((prev) => ({ ...prev, review: 'Payment intent is missing. Please retry payment.' }));
+            setStepErrors((prev) => ({ ...prev, review: t('checkout.error.paymentIntentMissing', {}, 'Payment intent is missing. Please retry payment.') }));
             return;
         }
 
@@ -1102,6 +1183,12 @@ const Checkout = () => {
                 paymentIntentId: draft.paymentIntent.intentId || undefined,
                 quoteSnapshot: {
                     totalPrice: quote.totalPrice,
+                    baseAmount: quote.baseAmount,
+                    baseCurrency: quote.baseCurrency,
+                    displayAmount: chargeQuote.amount,
+                    displayCurrency: chargeQuote.currency,
+                    fxRateLocked: quote.fxRateLocked,
+                    fxTimestamp: quote.fxTimestamp,
                     presentmentTotalPrice: chargeQuote.amount,
                     presentmentCurrency: chargeQuote.currency,
                     pricingVersion: quote.pricingVersion || 'v2',
@@ -1121,12 +1208,12 @@ const Checkout = () => {
             }
 
             clearDraft();
-            toast.success('Order placed successfully');
+            toast.success(t('checkout.success.orderPlaced', {}, 'Order placed successfully'));
             navigate('/orders', {
                 state: { orderPlaced: true, orderId: createdOrder?._id },
             });
         } catch (error) {
-            setStepErrors((prev) => ({ ...prev, review: error.message || 'Order placement failed' }));
+            setStepErrors((prev) => ({ ...prev, review: error.message || t('checkout.error.orderPlacementFailed', {}, 'Order placement failed') }));
         } finally {
             setIsPlacingOrder(false);
         }
@@ -1136,10 +1223,10 @@ const Checkout = () => {
         return (
             <div className="checkout-premium-shell min-h-screen flex items-center justify-center px-4 py-20">
                 <div className="premium-panel premium-grid-backdrop relative z-10 w-full max-w-xl p-8 text-center">
-                    <span className="premium-eyebrow">Checkout Studio</span>
-                    <h2 className="mt-5 text-3xl font-black tracking-tight text-white">Nothing queued for checkout</h2>
-                    <p className="mt-3 text-sm leading-7 text-slate-400">Add products to your bag or jump back into the marketplace to build your next premium order.</p>
-                    <button onClick={() => navigate('/')} className="checkout-premium-primary mt-8 w-full sm:w-auto px-8 py-3 text-sm font-black uppercase tracking-[0.22em]">Continue Shopping</button>
+                    <span className="premium-eyebrow">{t('checkout.emptyEyebrow', {}, 'Checkout Studio')}</span>
+                    <h2 className="mt-5 text-3xl font-black tracking-tight text-white">{t('checkout.emptyTitle', {}, 'Nothing queued for checkout')}</h2>
+                    <p className="mt-3 text-sm leading-7 text-slate-400">{t('checkout.emptyBody', {}, 'Add products to your bag or jump back into the marketplace to build your next premium order.')}</p>
+                    <button onClick={() => navigate('/')} className="checkout-premium-primary mt-8 w-full sm:w-auto px-8 py-3 text-sm font-black uppercase tracking-[0.22em]">{t('checkout.continueShopping', {}, 'Continue Shopping')}</button>
                 </div>
             </div>
         );
@@ -1152,9 +1239,9 @@ const Checkout = () => {
                     <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/5">
                         <Loader2 className="w-6 h-6 animate-spin text-neo-cyan" />
                     </div>
-                    <p className="premium-kicker">Aura Payment Rail</p>
-                    <h2 className="mt-3 text-2xl font-black text-white">Preparing a secure session</h2>
-                    <p className="mt-3 text-sm text-slate-400">Loading your profile, payment methods, delivery preferences, and quote context.</p>
+                    <p className="premium-kicker">{t('checkout.loadingKicker', {}, 'Aura Payment Rail')}</p>
+                    <h2 className="mt-3 text-2xl font-black text-white">{t('checkout.loadingTitle', {}, 'Preparing a secure session')}</h2>
+                    <p className="mt-3 text-sm text-slate-400">{t('checkout.loadingBody', {}, 'Loading your profile, payment methods, delivery preferences, and quote context.')}</p>
                 </div>
             </div>
         );
@@ -1173,15 +1260,15 @@ const Checkout = () => {
                                     className="checkout-premium-secondary"
                                 >
                                     <ArrowLeft className="w-4 h-4" />
-                                    Back
+                                    {t('checkout.back', {}, 'Back')}
                                 </button>
                                 <div className="hidden sm:flex items-center gap-2 text-xs font-black uppercase tracking-[0.24em] text-slate-400">
                                     <Layers className="w-4 h-4 text-neo-cyan" />
-                                    Secure checkout rail
+                                    {t('checkout.secureRail', {}, 'Secure checkout rail')}
                                 </div>
                             </div>
                             <div className="flex flex-wrap gap-2">
-                                {CHECKOUT_STEPS.map((step) => (
+                                {localizedCheckoutSteps.map((step) => (
                                     <button
                                         key={step.id}
                                         type="button"
@@ -1206,36 +1293,38 @@ const Checkout = () => {
                 <section className="checkout-premium-hero">
                     <div className="grid gap-8 xl:grid-cols-[minmax(0,1.3fr)_minmax(18rem,0.7fr)] xl:items-end">
                         <div>
-                            <span className="premium-eyebrow">Aura Secure Checkout</span>
-                            <h1 className="mt-5 text-3xl font-black tracking-tight text-white md:text-5xl">Finish with the same premium precision as the storefront.</h1>
+                            <span className="premium-eyebrow">{t('checkout.heroEyebrow', {}, 'Aura Secure Checkout')}</span>
+                            <h1 className="mt-5 text-3xl font-black tracking-tight text-white md:text-5xl">{t('checkout.heroTitle', {}, 'Finish with the same premium precision as the storefront.')}</h1>
                             <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-300 md:text-base">
-                                Your delivery address, slot, payment challenge, and final quote stay synchronized in one protected checkout session.
+                                {t('checkout.heroBody', {}, 'Your delivery address, slot, payment challenge, and final quote stay synchronized in one protected checkout session.')}
                             </p>
                             <div className="mt-5 flex flex-wrap gap-3">
-                                <span className="premium-chip">{checkoutItems.length} line items</span>
-                                <span className="premium-chip-muted">Step {draft.step} of 4</span>
-                                <span className="premium-chip-muted">{draft.paymentMethod} payment rail</span>
+                                <span className="premium-chip">{t('checkout.lineItems', { count: checkoutItems.length }, `${checkoutItems.length} line items`)}</span>
+                                <span className="premium-chip-muted">{t('checkout.stepProgress', { current: draft.step, total: 4 }, `Step ${draft.step} of 4`)}</span>
+                                <span className="premium-chip-muted">{t('checkout.paymentRail', { method: draft.paymentMethod }, `${draft.paymentMethod} payment rail`)}</span>
                             </div>
                         </div>
                         <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
                             <div className="checkout-premium-surface">
-                                <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Current total</p>
+                                <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">{t('checkout.currentTotal', {}, 'Current total')}</p>
                                 <p className="mt-3 text-3xl font-black tracking-tight text-white">{formatPrice(chargeQuote.amount, chargeQuote.currency)}</p>
                                 <p className="mt-2 text-xs text-slate-400">
                                     {chargeQuote.currency !== chargeQuote.settlementCurrency
-                                        ? `Settles near ${formatPrice(chargeQuote.settlementAmount, chargeQuote.settlementCurrency)} after provider conversion.`
-                                        : 'Backend validated before capture.'}
+                                        ? t('checkout.settlesNear', {
+                                            amount: formatPrice(chargeQuote.settlementAmount, chargeQuote.settlementCurrency),
+                                        }, `Settles near ${formatPrice(chargeQuote.settlementAmount, chargeQuote.settlementCurrency)} after provider conversion.`)
+                                        : t('checkout.backendValidated', {}, 'Backend validated before capture.')}
                                 </p>
                             </div>
                             <div className="checkout-premium-surface">
-                                <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Delivery mode</p>
+                                <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">{t('checkout.deliveryMode', {}, 'Delivery mode')}</p>
                                 <p className="mt-3 text-xl font-black text-white capitalize">{draft.deliveryOption}</p>
-                                <p className="mt-2 text-xs text-slate-400">{draft.deliverySlot.window || 'Choose your preferred window.'}</p>
+                                <p className="mt-2 text-xs text-slate-400">{draft.deliverySlot.window || t('checkout.choosePreferredWindow', {}, 'Choose your preferred window.')}</p>
                             </div>
                             <div className="checkout-premium-surface">
-                                <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Session trust</p>
-                                <p className="mt-3 text-xl font-black text-white">{draft.paymentMethod === 'COD' ? 'Protected order hold' : 'Challenge-ready payment'}</p>
-                                <p className="mt-2 text-xs text-slate-400">Fraud checks, quote locks, and OTP controls stay active.</p>
+                                <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">{t('checkout.sessionTrust', {}, 'Session trust')}</p>
+                                <p className="mt-3 text-xl font-black text-white">{draft.paymentMethod === 'COD' ? t('checkout.protectedOrderHold', {}, 'Protected order hold') : t('checkout.challengeReadyPayment', {}, 'Challenge-ready payment')}</p>
+                                <p className="mt-2 text-xs text-slate-400">{t('checkout.sessionTrustBody', {}, 'Fraud checks, quote locks, and OTP controls stay active.')}</p>
                             </div>
                         </div>
                     </div>
@@ -1248,6 +1337,7 @@ const Checkout = () => {
                         completed={draft.step > 1}
                         contact={draft.contact}
                         shippingAddress={draft.shippingAddress}
+                        addressSchema={checkoutConfig?.addressSchema || {}}
                         savedAddresses={savedAddresses}
                         selectedAddressId={draft.selectedAddressId}
                         addressType={draft.addressType}
@@ -1271,6 +1361,7 @@ const Checkout = () => {
                         completed={draft.step > 2}
                         deliveryOption={draft.deliveryOption}
                         deliverySlot={draft.deliverySlot}
+                        shippingOptions={checkoutConfig?.shippingOptions || []}
                         optimizedSlots={quote?.pricing?.optimizedSlots || []}
                         deliveryError={stepErrors.delivery}
                         onSetActive={() => draft.step > 1 && gotoStep(2)}
@@ -1296,6 +1387,7 @@ const Checkout = () => {
                         onMarkChallengeComplete={markPaymentChallengeComplete}
                         isChallengeLoading={isProcessingPayment}
                         paymentCapabilities={paymentCapabilities}
+                        paymentMethods={checkoutPaymentMethods}
                         onSetActive={() => draft.step > 2 && gotoStep(3)}
                         onPaymentMethodChange={handlePaymentMethodChange}
                         netbankingCatalog={netbankingCatalog}
@@ -1309,6 +1401,11 @@ const Checkout = () => {
                         onMarketCountryChange={handleMarketCountryChange}
                         onMarketCurrencyChange={handleMarketCurrencyChange}
                         chargeQuote={chargeQuote}
+                        marketOptions={(countryOptions || []).map((option) => ({
+                            code: option.value,
+                            label: option.label,
+                        }))}
+                        currencyOptions={paymentCapabilities?.markets?.railMatrix?.CARD?.currencies || []}
                         onExecutePayment={executeDigitalPayment}
                         onFallbackToCod={fallbackToCod}
                         onBack={() => gotoStep(2)}
@@ -1355,8 +1452,8 @@ const Checkout = () => {
                 <div className="fixed inset-0 bg-zinc-950/70 z-50 flex items-center justify-center">
                     <div className="premium-panel premium-grid-backdrop w-full max-w-sm p-6 text-center text-slate-200">
                         <Loader2 className="w-6 h-6 animate-spin text-neo-cyan mx-auto mb-3" />
-                        <p className="font-bold uppercase tracking-wider text-sm">Placing your order...</p>
-                        <p className="text-xs text-slate-400 mt-1">Validating stock and final pricing</p>
+                        <p className="font-bold uppercase tracking-wider text-sm">{t('checkout.placingOrder', {}, 'Placing your order...')}</p>
+                        <p className="text-xs text-slate-400 mt-1">{t('checkout.validatingOrder', {}, 'Validating stock and final pricing')}</p>
                     </div>
                 </div>
             ) : null}
