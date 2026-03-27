@@ -1,3 +1,4 @@
+import { GENERATED_MARKET_MESSAGES } from './generatedMarketMessages';
 import { PRIORITY_MARKET_MESSAGES } from './priorityMarketMessages';
 
 const DEFAULT_COUNTRY_CODE = 'IN';
@@ -400,10 +401,18 @@ const SIMPLE_OVERRIDES = {
   },
 };
 
-export const MARKET_MESSAGES = {
-  en: EN_MESSAGES,
-  ...SIMPLE_OVERRIDES,
-};
+export const MARKET_MESSAGES = SUPPORTED_LANGUAGES.reduce((result, language) => {
+  const code = language.code;
+  const generatedMessages = GENERATED_MARKET_MESSAGES[code] || {};
+  const curatedMessages = code === 'en' ? EN_MESSAGES : (SIMPLE_OVERRIDES[code] || {});
+
+  result[code] = {
+    ...generatedMessages,
+    ...curatedMessages,
+  };
+
+  return result;
+}, {});
 
 const getRegionFromLocale = (localeValue = '') => {
   const locale = String(localeValue || '').trim();
