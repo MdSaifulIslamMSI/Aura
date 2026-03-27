@@ -60,6 +60,11 @@ jest.mock('../services/payments/paymentService', () => ({
     scheduleCaptureTask: jest.fn(),
 }));
 
+jest.mock('../services/payments/paymentOperationsService', () => ({
+    getPaymentOpsOverview: jest.fn(),
+    expireStalePaymentIntents: jest.fn(),
+}));
+
 jest.mock('../services/payments/idempotencyService', () => {
     const AppError = require('../utils/AppError');
     return {
@@ -89,6 +94,10 @@ const {
     captureIntentNow,
     scheduleCaptureTask,
 } = require('../services/payments/paymentService');
+const {
+    getPaymentOpsOverview,
+    expireStalePaymentIntents,
+} = require('../services/payments/paymentOperationsService');
 
 const makeChain = (result) => ({
     select: jest.fn().mockReturnThis(),
@@ -173,6 +182,36 @@ describe('Admin payment routes integration', () => {
             taskType: 'capture',
             status: 'pending',
         });
+        getPaymentOpsOverview.mockResolvedValue({
+            attentionLevel: 'warning',
+            provider: {
+                name: 'razorpay',
+                status: 'ok',
+            },
+            intents: {
+                staleExpiredCandidates: 2,
+                expiringSoon: 1,
+                authorizedNeedingAttention: 1,
+            },
+            outbox: {
+                pending: 3,
+                processing: 1,
+                failed: 1,
+                staleLocks: 0,
+            },
+            webhooks: {
+                events24h: 9,
+                discardedTransitions24h: 1,
+                confirmFailures24h: 2,
+            },
+            alerts: [],
+        });
+        expireStalePaymentIntents.mockResolvedValue({
+            dryRun: false,
+            scanned: 2,
+            expiredCount: 2,
+            intentIds: ['pi_expired_1', 'pi_expired_2'],
+        });
 
         PaymentIntentModel.findOne.mockReturnValue(makeChain({
             intentId: 'pi_admin_1',
@@ -241,6 +280,22 @@ describe('Admin payment routes integration', () => {
         }));
     });
 
+    test('GET /api/admin/payments/ops/overview returns payment operations overview', async () => {
+        const res = await request(app).get('/api/admin/payments/ops/overview');
+
+        expect(res.statusCode).toBe(200);
+        expect(res.body).toMatchObject({
+            attentionLevel: 'warning',
+            provider: {
+                name: 'razorpay',
+            },
+            intents: {
+                staleExpiredCandidates: 2,
+            },
+        });
+        expect(getPaymentOpsOverview).toHaveBeenCalled();
+    });
+
     test('GET /api/admin/payments/:intentId returns payment detail through the real route', async () => {
         const res = await request(app).get('/api/admin/payments/pi_admin_1');
 
@@ -303,6 +358,30 @@ describe('Admin payment routes integration', () => {
 
         expect(res.statusCode).toBe(400);
         expect(res.body.message).toBe('Idempotency-Key header is required');
+    });
+
+    test('POST /api/admin/payments/ops/expire-stale requires Idempotency-Key', async () => {
+        const res = await request(app).post('/api/admin/payments/ops/expire-stale').send({});
+
+        expect(res.statusCode).toBe(400);
+        expect(res.body.message).toBe('Idempotency-Key header is required');
+    });
+
+    test('POST /api/admin/payments/ops/expire-stale runs stale intent sweep', async () => {
+        const res = await request(app)
+            .post('/api/admin/payments/ops/expire-stale')
+            .set('Idempotency-Key', 'admin-expire-stale-12345')
+            .send({ limit: 50, dryRun: false });
+
+        expect(res.statusCode).toBe(200);
+        expect(res.body).toMatchObject({
+            expiredCount: 2,
+            scanned: 2,
+        });
+        expect(expireStalePaymentIntents).toHaveBeenCalledWith({
+            limit: 50,
+            dryRun: false,
+        });
     });
 
     test('POST /api/admin/payments/:intentId/capture captures and notifies through the real route', async () => {

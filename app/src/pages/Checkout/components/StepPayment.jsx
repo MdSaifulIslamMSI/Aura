@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { AlertCircle, Building2, CheckCircle2, CreditCard, Loader2, Search, ShieldCheck, Smartphone, Wallet } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { formatPrice } from '@/utils/format';
 
 const PAYMENT_OPTIONS = [
     { id: 'COD', title: 'Cash on Delivery', description: 'Pay when your order arrives', icon: Wallet },
@@ -8,6 +9,16 @@ const PAYMENT_OPTIONS = [
     { id: 'CARD', title: 'Card', description: 'Debit / credit card checkout', icon: CreditCard },
     { id: 'WALLET', title: 'Wallet', description: 'Wallet balance or linked wallet', icon: Wallet },
     { id: 'NETBANKING', title: 'NetBanking', description: 'Authorize directly from your bank portal', icon: Building2 },
+];
+
+const MARKET_COUNTRY_PRESETS = [
+    { code: 'IN', label: 'India' },
+    { code: 'US', label: 'United States' },
+    { code: 'GB', label: 'United Kingdom' },
+    { code: 'SG', label: 'Singapore' },
+    { code: 'AU', label: 'Australia' },
+    { code: 'CA', label: 'Canada' },
+    { code: 'JP', label: 'Japan' },
 ];
 
 const STATUS_STYLES = {
@@ -28,6 +39,64 @@ const getPaymentStatusMessage = (paymentIntent = {}) => {
     if (status === 'failed') return 'The provider rejected the payment authorization.';
     if (status === 'expired') return 'This payment authorization expired. Start it again to continue.';
     return '';
+};
+
+const RAIL_SUMMARY = {
+    UPI: {
+        title: 'UPI Live Rail',
+        empty: 'UPI capability data is loading from the provider.',
+        format: (capability = {}) => {
+            const apps = (capability.apps || []).slice(0, 4).map((entry) => entry.name).filter(Boolean);
+            const flows = (capability.flows || []).join(', ');
+            if (!capability.available) return 'UPI is currently unavailable from the provider directory.';
+            return `${capability.appCount || apps.length || 0} apps live${apps.length ? `: ${apps.join(', ')}` : ''}${flows ? ` | flows: ${flows}` : ''}`;
+        },
+    },
+    CARD: {
+        title: 'Card Rail Matrix',
+        empty: 'Card network capability data is loading from the provider.',
+        format: (capability = {}) => {
+            const networks = (capability.networks || []).slice(0, 4).map((entry) => entry.name).filter(Boolean);
+            if (!capability.available) return 'Card checkout is currently unavailable from the provider directory.';
+            return `${capability.networkCount || networks.length || 0} card networks live${networks.length ? `: ${networks.join(', ')}` : ''}${capability.issuerCount ? ` | ${capability.issuerCount} issuers mapped` : ''}`;
+        },
+    },
+    WALLET: {
+        title: 'Wallet Rail Matrix',
+        empty: 'Wallet capability data is loading from the provider.',
+        format: (capability = {}) => {
+            const wallets = (capability.wallets || []).slice(0, 4).map((entry) => entry.name).filter(Boolean);
+            if (!capability.available) return 'Wallet checkout is currently unavailable from the provider directory.';
+            return `${capability.walletCount || wallets.length || 0} wallets live${wallets.length ? `: ${wallets.join(', ')}` : ''}`;
+        },
+    },
+    NETBANKING: {
+        title: 'NetBanking Rail Matrix',
+        empty: 'NetBanking capability data is loading from the provider.',
+        format: (capability = {}) => {
+            const banks = (capability.featuredBanks || []).slice(0, 4).map((entry) => entry.name).filter(Boolean);
+            if (!capability.available) return 'NetBanking is currently unavailable from the provider directory.';
+            return `${capability.bankCount || 0} banks live${banks.length ? ` | featured: ${banks.join(', ')}` : ''}`;
+        },
+    },
+};
+
+const getMarketRailSummary = (paymentMethod, marketCatalog = null) => {
+    const rail = marketCatalog?.railMatrix?.[paymentMethod];
+    if (!rail) return '';
+
+    if (paymentMethod === 'CARD') {
+        const currencyCount = (rail.currencies || []).length;
+        const coverage = rail.countryMode === 'allowlist'
+            ? `${(rail.countries || []).length} configured countries`
+            : rail.blockedCountryCodes?.length
+                ? `global except ${rail.blockedCountryCodes.length} blocked countries`
+                : 'global country coverage';
+        return `${coverage} | ${currencyCount} configured currencies | settles in ${rail.settlementCurrency || marketCatalog?.settlementCurrency || 'INR'}`;
+    }
+
+    const domesticCountry = marketCatalog?.defaultCountryName || 'India';
+    return `Domestic-only rail for ${domesticCountry} in ${rail.settlementCurrency || marketCatalog?.settlementCurrency || 'INR'}`;
 };
 
 const humanizeSavedMethod = (method) => {
@@ -65,6 +134,11 @@ const StepPayment = ({
     isNetbankingCatalogLoading = false,
     selectedNetbankingBank = null,
     onSelectNetbankingBank,
+    paymentCapabilities = null,
+    paymentMarket = null,
+    onMarketCountryChange,
+    onMarketCurrencyChange,
+    chargeQuote = null,
 }) => {
     const [bankSearch, setBankSearch] = useState('');
     const isDigital = paymentMethod !== 'COD';
@@ -73,7 +147,18 @@ const StepPayment = ({
     const paymentReady = paymentStatus === 'authorized' || paymentStatus === 'captured';
     const actionLabel = paymentReady ? 'Payment Authorized' : 'Pay Securely';
     const selectedBankCode = String(selectedNetbankingBank?.code || '').trim().toUpperCase();
+    const selectedMarketCountryCode = String(paymentMarket?.countryCode || 'IN').trim().toUpperCase();
+    const selectedMarketCurrency = String(paymentMarket?.currency || 'INR').trim().toUpperCase();
     const featuredBanks = Array.isArray(netbankingCatalog?.featuredBanks) ? netbankingCatalog.featuredBanks : [];
+    const cardCurrencies = paymentCapabilities?.markets?.railMatrix?.CARD?.currencies || [];
+    const cardCurrencyOptions = useMemo(() => {
+        if (Array.isArray(cardCurrencies) && cardCurrencies.length > 0) {
+            return cardCurrencies;
+        }
+        return selectedMarketCurrency
+            ? [{ code: selectedMarketCurrency, name: '' }]
+            : [{ code: 'INR', name: 'Indian Rupee' }];
+    }, [cardCurrencies, selectedMarketCurrency]);
     const filteredBanks = useMemo(() => {
         const banks = Array.isArray(netbankingCatalog?.banks) ? netbankingCatalog.banks : [];
         const query = String(bankSearch || '').trim().toLowerCase();
@@ -90,6 +175,17 @@ const StepPayment = ({
         || (challengeRequired && !challengeVerified)
         || paymentReady
         || (isNetbanking && !selectedBankCode);
+    const selectedRailSummary = RAIL_SUMMARY[paymentMethod];
+    const selectedRailCapability = paymentMethod === 'UPI'
+        ? paymentCapabilities?.rails?.upi
+        : paymentMethod === 'CARD'
+            ? paymentCapabilities?.rails?.card
+            : paymentMethod === 'WALLET'
+                ? paymentCapabilities?.rails?.wallet
+                : paymentMethod === 'NETBANKING'
+                    ? paymentCapabilities?.rails?.netbanking
+                    : null;
+    const selectedMarketSummary = getMarketRailSummary(paymentMethod, paymentCapabilities?.markets);
 
     return (
         <section
@@ -285,11 +381,92 @@ const StepPayment = ({
                         </div>
                     ) : null}
 
+                    {paymentMethod === 'CARD' ? (
+                        <div className="checkout-premium-surface space-y-4">
+                            <div>
+                                <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-400">International Card Market</p>
+                                <p className="mt-2 text-sm text-slate-300">Lock the card country and the charge currency before opening provider checkout.</p>
+                            </div>
+
+                            <div className="flex flex-wrap gap-2">
+                                {MARKET_COUNTRY_PRESETS.map((country) => (
+                                    <button
+                                        key={country.code}
+                                        type="button"
+                                        onClick={() => onMarketCountryChange?.(country.code)}
+                                        className={cn(
+                                            'checkout-premium-secondary px-4 py-2 text-[11px] font-black uppercase tracking-[0.18em]',
+                                            selectedMarketCountryCode === country.code && 'border-neo-cyan/60 text-neo-cyan'
+                                        )}
+                                    >
+                                        {country.label}
+                                    </button>
+                                ))}
+                            </div>
+
+                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                <label className="space-y-2">
+                                    <span className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Market Country</span>
+                                    <input
+                                        value={selectedMarketCountryCode}
+                                        onChange={(event) => onMarketCountryChange?.(event.target.value)}
+                                        maxLength={2}
+                                        placeholder="IN"
+                                        className="checkout-premium-input uppercase"
+                                    />
+                                </label>
+                                <label className="space-y-2">
+                                    <span className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Charge Currency</span>
+                                    <select
+                                        value={selectedMarketCurrency}
+                                        onChange={(event) => onMarketCurrencyChange?.(event.target.value)}
+                                        className="checkout-premium-input"
+                                    >
+                                        {cardCurrencyOptions.map((entry) => (
+                                            <option key={entry.code} value={entry.code}>
+                                                {entry.code} {entry.name ? `- ${entry.name}` : ''}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </label>
+                            </div>
+
+                            {chargeQuote ? (
+                                <div className="checkout-premium-alert border-emerald-500/20 bg-emerald-500/10 text-emerald-100">
+                                    <p className="text-[11px] font-black uppercase tracking-[0.22em] text-emerald-200">Charge Quote</p>
+                                    <p className="mt-2 text-sm leading-6">
+                                        {formatPrice(chargeQuote.amount || 0, chargeQuote.currency || 'INR')}
+                                        {chargeQuote.currency !== chargeQuote.settlementCurrency
+                                            ? ` | target settlement ${formatPrice(chargeQuote.settlementAmount || 0, chargeQuote.settlementCurrency || 'INR')}`
+                                            : ' | domestic settlement'}
+                                    </p>
+                                </div>
+                            ) : null}
+                        </div>
+                    ) : null}
+
                     {isDigital ? (
                         <div className="checkout-premium-surface space-y-4">
                             <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-400">
                                 Razorpay Secure Payment
                             </p>
+
+                            {selectedRailSummary ? (
+                                <div className="checkout-premium-alert border-cyan-500/20 bg-cyan-500/10 text-slate-100">
+                                    <p className="text-[11px] font-black uppercase tracking-[0.22em] text-cyan-200">{selectedRailSummary.title}</p>
+                                    <p className="mt-2 text-sm leading-6">
+                                        {selectedRailCapability
+                                            ? selectedRailSummary.format(selectedRailCapability)
+                                            : selectedRailSummary.empty}
+                                    </p>
+                                    {paymentCapabilities?.stale ? (
+                                        <p className="mt-2 text-xs text-cyan-100/80">Provider capability data is stale, so the checkout is using the last trusted catalog snapshot.</p>
+                                    ) : null}
+                                    {selectedMarketSummary ? (
+                                        <p className="mt-2 text-xs text-cyan-100/80">{selectedMarketSummary}</p>
+                                    ) : null}
+                                </div>
+                            ) : null}
 
                             {challengeRequired ? (
                                 <div className="checkout-premium-alert border-amber-500/30 bg-amber-500/10 text-amber-200">

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Loader2, RefreshCw, CreditCard, ShieldAlert, CircleCheck, CircleX } from 'lucide-react';
+import { Loader2, RefreshCw, CreditCard, ShieldAlert, CircleCheck, CircleX, Activity, Clock3 } from 'lucide-react';
 import { toast } from 'sonner';
 import AdminPremiumShell, { AdminHeroStat } from '@/components/shared/AdminPremiumShell';
 import PremiumSelect from '@/components/ui/premium-select';
@@ -20,8 +20,26 @@ const STATUS_COLORS = {
 const STATUS_OPTIONS = ['', 'created', 'challenge_pending', 'authorized', 'captured', 'failed', 'partially_refunded', 'refunded', 'expired'];
 const METHOD_OPTIONS = ['', 'UPI', 'CARD', 'WALLET', 'NETBANKING'];
 const PROVIDER_OPTIONS = ['', 'razorpay'];
+const REFUND_MODE_OPTIONS = [
+    { value: 'settlement', label: 'Settlement Amount' },
+    { value: 'charge', label: 'Charge Amount' },
+];
 
 const getStatusClass = (status) => STATUS_COLORS[status] || 'bg-slate-100 text-slate-700';
+const getChargeCurrency = (intent = {}) => intent.currency || 'INR';
+const getSettlementCurrency = (intent = {}) => intent.providerBaseCurrency || intent.settlementCurrency || intent.currency || 'INR';
+const getSettlementAmount = (intent = {}) => (
+    intent.providerBaseAmount ?? intent.settlementAmount ?? intent.amount ?? 0
+);
+const getMarketSummary = (intent = {}) => {
+    const country = intent.marketCountryCode || intent.metadata?.paymentContext?.market?.countryCode || '';
+    const currency = intent.marketCurrency || intent.metadata?.paymentContext?.market?.currency || '';
+    return [country, currency].filter(Boolean).join(' / ');
+};
+const getRefundInputLabel = (detail, amountMode) => {
+    if (amountMode === 'charge') return `Refund charge amount (${getChargeCurrency(detail)})`;
+    return `Refund settlement amount (${getSettlementCurrency(detail)})`;
+};
 
 export default function AdminPayments() {
     const [listLoading, setListLoading] = useState(true);
@@ -33,8 +51,10 @@ export default function AdminPayments() {
     const [filters, setFilters] = useState({ status: '', provider: '', method: '' });
     const [selectedIntentId, setSelectedIntentId] = useState('');
     const [selectedDetail, setSelectedDetail] = useState(null);
-    const [refundForm, setRefundForm] = useState({ amount: '', reason: '' });
+    const [refundForm, setRefundForm] = useState({ amount: '', reason: '', amountMode: 'settlement' });
     const [actionBusy, setActionBusy] = useState(false);
+    const [overviewLoading, setOverviewLoading] = useState(true);
+    const [overview, setOverview] = useState(null);
 
     const totalPages = useMemo(() => Math.max(Math.ceil(total / limit), 1), [total, limit]);
 
@@ -63,6 +83,18 @@ export default function AdminPayments() {
         }
     };
 
+    const loadOverview = async () => {
+        try {
+            setOverviewLoading(true);
+            const data = await paymentApi.getAdminPaymentOpsOverview();
+            setOverview(data);
+        } catch (error) {
+            toast.error(error.message || 'Failed to load payment operations overview');
+        } finally {
+            setOverviewLoading(false);
+        }
+    };
+
     const loadDetail = async (intentId) => {
         if (!intentId) {
             setSelectedDetail(null);
@@ -85,9 +117,23 @@ export default function AdminPayments() {
     }, [page, limit, filters.status, filters.provider, filters.method]);
 
     useEffect(() => {
+        loadOverview();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    useEffect(() => {
         loadDetail(selectedIntentId);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedIntentId]);
+
+    useEffect(() => {
+        const isInternational = getChargeCurrency(selectedDetail) !== getSettlementCurrency(selectedDetail);
+        setRefundForm({
+            amount: '',
+            reason: '',
+            amountMode: isInternational ? 'charge' : 'settlement',
+        });
+    }, [selectedDetail?.intentId, selectedDetail?.currency, selectedDetail?.settlementCurrency, selectedDetail?.providerBaseCurrency]);
 
     const onCaptureNow = async () => {
         if (!selectedDetail?.intentId) return;
@@ -95,7 +141,7 @@ export default function AdminPayments() {
             setActionBusy(true);
             await paymentApi.captureAdminPayment(selectedDetail.intentId);
             toast.success('Capture completed');
-            await Promise.all([loadList(), loadDetail(selectedDetail.intentId)]);
+            await Promise.all([loadList(), loadOverview(), loadDetail(selectedDetail.intentId)]);
         } catch (error) {
             toast.error(error.message || 'Capture failed');
         } finally {
@@ -109,7 +155,7 @@ export default function AdminPayments() {
             setActionBusy(true);
             await paymentApi.retryAdminCapture(selectedDetail.intentId);
             toast.success('Capture retry queued');
-            await Promise.all([loadList(), loadDetail(selectedDetail.intentId)]);
+            await Promise.all([loadList(), loadOverview(), loadDetail(selectedDetail.intentId)]);
         } catch (error) {
             toast.error(error.message || 'Failed to queue capture retry');
         } finally {
@@ -129,13 +175,35 @@ export default function AdminPayments() {
             setActionBusy(true);
             await paymentApi.createRefund(selectedDetail.intentId, {
                 amount,
+                amountMode: refundForm.amountMode,
                 reason: refundForm.reason || undefined,
             });
-            setRefundForm({ amount: '', reason: '' });
+            setRefundForm((prev) => ({ ...prev, amount: '', reason: '' }));
             toast.success('Refund created');
-            await Promise.all([loadList(), loadDetail(selectedDetail.intentId)]);
+            await Promise.all([loadList(), loadOverview(), loadDetail(selectedDetail.intentId)]);
         } catch (error) {
             toast.error(error.message || 'Refund failed');
+        } finally {
+            setActionBusy(false);
+        }
+    };
+
+    const onExpireStaleIntents = async () => {
+        try {
+            setActionBusy(true);
+            const result = await paymentApi.expireAdminStaleIntents({ limit: 100, dryRun: false });
+            if (Number(result.expiredCount || 0) > 0) {
+                toast.success(`Expired ${result.expiredCount} stale payment intents`);
+            } else {
+                toast.info('No stale payment intents needed cleanup');
+            }
+            await Promise.all([
+                loadList(),
+                loadOverview(),
+                selectedIntentId ? loadDetail(selectedIntentId) : Promise.resolve(),
+            ]);
+        } catch (error) {
+            toast.error(error.message || 'Failed to expire stale payment intents');
         } finally {
             setActionBusy(false);
         }
@@ -147,7 +215,7 @@ export default function AdminPayments() {
             title="Payment operations"
             description="Review intents, capture operations, provider status, and refund execution from a more premium payment command console."
             actions={(
-                <button type="button" onClick={loadList} className="admin-premium-button">
+                <button type="button" onClick={() => Promise.all([loadList(), loadOverview(), selectedIntentId ? loadDetail(selectedIntentId) : Promise.resolve()])} className="admin-premium-button">
                     <RefreshCw className="h-4 w-4" />
                     Refresh
                 </button>
@@ -155,8 +223,80 @@ export default function AdminPayments() {
             stats={[
                 <AdminHeroStat key="records" label="Records" value={total} detail={`Page ${page} of ${totalPages}`} icon={<CreditCard className="h-5 w-5" />} />,
                 <AdminHeroStat key="selected" label="Selected intent" value={selectedDetail?.status || 'none'} detail={selectedDetail?.intentId || 'Choose an intent from the queue'} icon={<ShieldAlert className="h-5 w-5" />} />,
+                <AdminHeroStat key="ops" label="Ops attention" value={overview?.attentionLevel || (overviewLoading ? 'loading' : 'nominal')} detail={overview?.alerts?.[0]?.message || 'No critical payment alerts'} icon={<Activity className="h-5 w-5" />} />,
             ]}
         >
+            <div className="admin-premium-panel mb-4">
+                {overviewLoading ? (
+                    <div className="flex items-center gap-2 text-sm text-gray-500">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Loading payment operations overview...
+                    </div>
+                ) : overview ? (
+                    <div className="space-y-4">
+                        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                            <div>
+                                <p className="text-xs font-bold uppercase tracking-[0.24em] text-gray-500">Finance control tower</p>
+                                <h2 className="mt-2 text-lg font-bold text-gray-900">
+                                    Provider {overview.provider?.name || 'unknown'} is {overview.provider?.status || 'unknown'}
+                                </h2>
+                                <p className="mt-1 text-sm text-gray-500">
+                                    Attention level: <span className="font-semibold text-gray-800">{overview.attentionLevel}</span>
+                                    {' '}| Capture mode: {overview.provider?.captureMode || 'n/a'}
+                                </p>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                                <button
+                                    type="button"
+                                    disabled={actionBusy || Number(overview?.intents?.staleExpiredCandidates || 0) === 0}
+                                    onClick={onExpireStaleIntents}
+                                    className="admin-premium-button admin-premium-button-accent px-4 py-2 text-xs font-bold uppercase tracking-wider disabled:opacity-50"
+                                >
+                                    <Clock3 className="h-3.5 w-3.5" />
+                                    Expire Stale Intents
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+                            <OpsTile label="Stale intents" value={overview.intents?.staleExpiredCandidates || 0} detail={`${overview.intents?.expiringSoon || 0} expiring soon`} />
+                            <OpsTile label="Authorized aging" value={overview.intents?.authorizedNeedingAttention || 0} detail={overview.intents?.oldestAuthorized ? `${overview.intents.oldestAuthorized.ageMinutes} min oldest auth` : 'No aging authorizations'} />
+                            <OpsTile label="Outbox backlog" value={overview.outbox?.pending || 0} detail={`${overview.outbox?.failed || 0} failed | ${overview.outbox?.processing || 0} processing`} />
+                            <OpsTile label="Webhook flow" value={overview.webhooks?.events24h || 0} detail={`${overview.webhooks?.confirmFailures24h || 0} confirm failures in 24h`} />
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-3 xl:grid-cols-3">
+                            <OpsTile
+                                label="International intents"
+                                value={overview.markets?.internationalIntents || 0}
+                                detail={overview.markets?.settlementCurrency ? `Settlement currency ${overview.markets.settlementCurrency}` : 'Settlement currency unavailable'}
+                            />
+                            <OpsTile
+                                label="Top countries"
+                                value={(overview.markets?.topCountries || []).slice(0, 2).map((entry) => entry.countryCode).join(', ') || 'n/a'}
+                                detail={(overview.markets?.topCountries || []).slice(0, 2).map((entry) => `${entry.countryCode}: ${entry.count}`).join(' | ') || 'No market spread yet'}
+                            />
+                            <OpsTile
+                                label="Top currencies"
+                                value={(overview.markets?.topCurrencies || []).slice(0, 2).map((entry) => entry.currency).join(', ') || 'n/a'}
+                                detail={(overview.markets?.topCurrencies || []).slice(0, 2).map((entry) => `${entry.currency}: ${entry.count}`).join(' | ') || 'No currency spread yet'}
+                            />
+                        </div>
+
+                        {(overview.alerts || []).length > 0 ? (
+                            <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+                                {overview.alerts.map((alert) => (
+                                    <div key={alert.key} className="admin-premium-subpanel rounded-lg p-3">
+                                        <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-gray-500">{alert.severity}</p>
+                                        <p className="mt-2 text-sm text-gray-900">{alert.message}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : null}
+                    </div>
+                ) : null}
+            </div>
+
             <div className="admin-premium-panel mb-4 grid grid-cols-1 gap-3 md:grid-cols-4">
                 <PremiumSelect
                     value={filters.status}
@@ -218,7 +358,12 @@ export default function AdminPayments() {
                                     <div className="mt-1 text-xs text-gray-500 flex flex-wrap gap-2">
                                         <span>{item.method}</span>
                                         <span>{item.provider}</span>
-                                        <span>{formatPrice(item.amount || 0)}</span>
+                                        <span>{formatPrice(item.amount || 0, getChargeCurrency(item))}</span>
+                                        {getChargeCurrency(item) !== getSettlementCurrency(item) ? (
+                                            <span className="text-emerald-600">
+                                                Settles {formatPrice(getSettlementAmount(item), getSettlementCurrency(item))}
+                                            </span>
+                                        ) : null}
                                     </div>
                                     <p className="text-xs text-gray-400 mt-1">{new Date(item.createdAt).toLocaleString()}</p>
                                 </button>
@@ -260,7 +405,7 @@ export default function AdminPayments() {
                                 <div>
                                     <h2 className="text-lg font-bold text-gray-900">{selectedDetail.intentId}</h2>
                                     <p className="text-xs text-gray-500 mt-1">
-                                        {selectedDetail.provider} | {selectedDetail.method} | {formatPrice(selectedDetail.amount || 0)}
+                                        {selectedDetail.provider} | {selectedDetail.method} | {formatPrice(selectedDetail.amount || 0, getChargeCurrency(selectedDetail))}
                                     </p>
                                 </div>
                                 <span className={`inline-flex px-3 py-1 rounded-full text-xs font-bold uppercase ${getStatusClass(selectedDetail.status)}`}>
@@ -268,10 +413,43 @@ export default function AdminPayments() {
                                 </span>
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                                 <InfoTile label="User" value={selectedDetail.user?.email || '-'} />
                                 <InfoTile label="Order" value={selectedDetail.order?._id || '-'} />
+                                <InfoTile label="Charge" value={formatPrice(selectedDetail.amount || 0, getChargeCurrency(selectedDetail))} />
+                                <InfoTile label="Settlement" value={formatPrice(getSettlementAmount(selectedDetail), getSettlementCurrency(selectedDetail))} />
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                                 <InfoTile label="Risk Decision" value={selectedDetail.riskSnapshot?.decision || '-'} />
+                                <InfoTile label="Market" value={getMarketSummary(selectedDetail) || '-'} />
+                                <InfoTile label="FX Mode" value={getChargeCurrency(selectedDetail) !== getSettlementCurrency(selectedDetail) ? 'Cross-border presentment' : 'Domestic settlement'} />
+                            </div>
+
+                            {getChargeCurrency(selectedDetail) !== getSettlementCurrency(selectedDetail) ? (
+                                <div className="admin-premium-subpanel">
+                                    <h3 className="font-semibold text-sm text-gray-900 mb-3">Charge Architecture</h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                                        <div>
+                                            <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-gray-500">Customer charge</p>
+                                            <p className="mt-2 text-base font-semibold text-gray-900">
+                                                {formatPrice(selectedDetail.amount || 0, getChargeCurrency(selectedDetail))}
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-gray-500">Provider settlement</p>
+                                            <p className="mt-2 text-base font-semibold text-gray-900">
+                                                {formatPrice(getSettlementAmount(selectedDetail), getSettlementCurrency(selectedDetail))}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : null}
+
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                <InfoTile label="Provider Payment ID" value={selectedDetail.providerPaymentId || '-'} />
+                                <InfoTile label="Provider Order ID" value={selectedDetail.providerOrderId || '-'} />
+                                <InfoTile label="Bank / Rail Context" value={selectedDetail.metadata?.paymentContext?.netbanking?.bankCode || selectedDetail.metadata?.providerMethodSnapshot?.bankCode || '-'} />
                             </div>
 
                             <div className="admin-premium-subpanel">
@@ -304,17 +482,37 @@ export default function AdminPayments() {
                                         value={refundForm.amount}
                                         onChange={(e) => setRefundForm((prev) => ({ ...prev, amount: e.target.value }))}
                                         className="admin-premium-control"
-                                        placeholder="Refund amount (optional)"
+                                        placeholder={`${getRefundInputLabel(selectedDetail, refundForm.amountMode)} (optional)`}
                                     />
+                                    <PremiumSelect
+                                        value={refundForm.amountMode}
+                                        onChange={(e) => setRefundForm((prev) => ({ ...prev, amountMode: e.target.value }))}
+                                        className="admin-premium-control"
+                                    >
+                                        {REFUND_MODE_OPTIONS.map((option) => (
+                                            <option
+                                                key={option.value}
+                                                value={option.value}
+                                                disabled={option.value === 'charge' && getChargeCurrency(selectedDetail) === getSettlementCurrency(selectedDetail)}
+                                            >
+                                                {option.label}
+                                            </option>
+                                        ))}
+                                    </PremiumSelect>
                                     <input
                                         type="text"
                                         maxLength={140}
                                         value={refundForm.reason}
                                         onChange={(e) => setRefundForm((prev) => ({ ...prev, reason: e.target.value }))}
-                                        className="admin-premium-control md:col-span-2"
+                                        className="admin-premium-control"
                                         placeholder="Refund reason"
                                     />
                                 </div>
+                                <p className="mt-2 text-xs text-gray-500">
+                                    {refundForm.amountMode === 'charge'
+                                        ? `This amount is interpreted in ${getChargeCurrency(selectedDetail)} and converted back into settlement totals for refund integrity.`
+                                        : `This amount is interpreted in ${getSettlementCurrency(selectedDetail)} settlement currency.`}
+                                </p>
                                 <button
                                     type="button"
                                     disabled={actionBusy}
@@ -345,6 +543,30 @@ export default function AdminPayments() {
                                     ))}
                                 </div>
                             </div>
+
+                            {Array.isArray(selectedDetail.refundSummary?.refunds) && selectedDetail.refundSummary.refunds.length > 0 ? (
+                                <div className="admin-premium-subpanel">
+                                    <h3 className="font-semibold text-sm text-gray-900 mb-3">Refund Timeline</h3>
+                                    <div className="space-y-2 max-h-72 overflow-y-auto">
+                                        {selectedDetail.refundSummary.refunds.map((refund) => (
+                                            <div key={refund.refundId || refund.createdAt} className="admin-premium-subpanel rounded-lg text-xs">
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <span className="font-semibold text-gray-800">{refund.refundId || 'refund'}</span>
+                                                    <span className="text-gray-400">{refund.status || 'processed'}</span>
+                                                </div>
+                                                <p className="mt-1 text-gray-700">
+                                                    {formatPrice(refund.amount || refund.presentmentAmount || 0, refund.currency || refund.presentmentCurrency || 'INR')}
+                                                </p>
+                                                {(refund.presentmentCurrency || refund.settlementCurrency) && (refund.presentmentCurrency !== refund.settlementCurrency) ? (
+                                                    <p className="mt-1 text-gray-500">
+                                                        Settlement {formatPrice(refund.settlementAmount || 0, refund.settlementCurrency || 'INR')}
+                                                    </p>
+                                                ) : null}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            ) : null}
                         </div>
                     )}
                 </div>
@@ -358,6 +580,16 @@ function InfoTile({ label, value }) {
         <div className="admin-premium-subpanel rounded-lg p-3">
             <p className="text-[11px] uppercase tracking-wider text-gray-500 font-semibold">{label}</p>
             <p className="text-sm text-gray-900 mt-1 break-all">{value}</p>
+        </div>
+    );
+}
+
+function OpsTile({ label, value, detail }) {
+    return (
+        <div className="admin-premium-subpanel rounded-lg p-3">
+            <p className="text-[11px] uppercase tracking-wider text-gray-500 font-semibold">{label}</p>
+            <p className="mt-2 text-2xl font-bold text-gray-900">{value}</p>
+            <p className="mt-1 text-xs text-gray-500">{detail}</p>
         </div>
     );
 }

@@ -16,6 +16,7 @@ const {
     createRefundForIntent,
     markChallengeVerified,
     listUserPaymentMethods,
+    listPaymentCapabilities,
     listNetbankingBanks,
     saveUserPaymentMethod,
     deleteUserPaymentMethod,
@@ -24,6 +25,15 @@ const {
     captureIntentNow,
     scheduleCaptureTask,
 } = require('../services/payments/paymentService');
+const {
+    getPaymentOpsOverview,
+    expireStalePaymentIntents,
+} = require('../services/payments/paymentOperationsService');
+const {
+    resolveRefundAmounts,
+    buildRefundEntry,
+    buildRefundMutation,
+} = require('../services/payments/refundState');
 const { sendPersistentNotification } = require('../services/notificationService');
 const {
     getRequiredIdempotencyKey,
@@ -412,19 +422,27 @@ const updateAdminRefundLedgerReference = asyncHandler(async (req, res, next) => 
 
         const amount = Number(refund.amount || 0);
         if (amount > 0) {
-            const refundSummary = order.refundSummary || { totalRefunded: 0, fullyRefunded: false, refunds: [] };
-            refundSummary.refunds = Array.isArray(refundSummary.refunds) ? refundSummary.refunds : [];
-            refundSummary.refunds.push({
-                refundId,
+            const refundAmounts = resolveRefundAmounts({
+                order,
                 amount,
-                reason: refund.reason || note || 'manual_refund_reconciliation',
-                status: 'processed',
-                createdAt: new Date(),
+                amountMode: 'settlement',
             });
-            refundSummary.totalRefunded = Number(refundSummary.totalRefunded || 0) + amount;
-            refundSummary.fullyRefunded = refundSummary.totalRefunded >= Number(order.totalPrice || 0) - 0.01;
-            order.refundSummary = refundSummary;
-            order.paymentState = refundSummary.fullyRefunded ? 'refunded' : 'partially_refunded';
+            const refundEntry = buildRefundEntry({
+                providerRefund: {
+                    id: refundId,
+                    status: 'processed',
+                },
+                refundAmounts,
+                reason: refund.reason || note || 'manual_refund_reconciliation',
+                fallbackRefundId: refundId,
+                createdAt: refund.processedAt,
+            });
+            const refundMutation = buildRefundMutation({
+                order,
+                refundEntry,
+            });
+            order.refundSummary = refundMutation.refundSummary;
+            order.paymentState = refundMutation.paymentState;
         }
 
         message = 'Manual refund marked processed with reference';
@@ -607,6 +625,7 @@ const createRefund = asyncHandler(async (req, res, next) => {
                     isAdmin: Boolean(req.user?.isAdmin),
                     intentId: req.params.intentId,
                     amount: req.body.amount,
+                    amountMode: req.body.amountMode,
                     reason: req.body.reason,
                 });
                 return { statusCode: 200, response };
@@ -670,6 +689,19 @@ const getPaymentMethods = asyncHandler(async (req, res, next) => {
     } catch (error) {
         if (error instanceof AppError) return next(error);
         return next(new AppError(error.message || 'Failed to fetch payment methods', 500));
+    }
+});
+
+// @desc    List live payment rail capabilities for checkout
+// @route   GET /api/payments/capabilities
+// @access  Private
+const getPaymentCapabilitiesCatalog = asyncHandler(async (req, res, next) => {
+    try {
+        const capabilities = await listPaymentCapabilities({ userId: req.user._id });
+        return res.json(capabilities);
+    } catch (error) {
+        if (error instanceof AppError) return next(error);
+        return next(new AppError(error.message || 'Failed to fetch payment capabilities', 500));
     }
 });
 
@@ -862,6 +894,48 @@ const retryAdminCapture = asyncHandler(async (req, res, next) => {
     }
 });
 
+// @desc    Payment operations overview for admin command center
+// @route   GET /api/admin/payments/ops/overview
+// @access  Private/Admin
+const getAdminPaymentOpsOverview = asyncHandler(async (req, res, next) => {
+    try {
+        const overview = await getPaymentOpsOverview();
+        return res.json(overview);
+    } catch (error) {
+        if (error instanceof AppError) return next(error);
+        return next(new AppError(error.message || 'Failed to fetch payment operations overview', 500));
+    }
+});
+
+// @desc    Expire stale payment intents from admin ops
+// @route   POST /api/admin/payments/ops/expire-stale
+// @access  Private/Admin
+const expireAdminStalePaymentIntents = asyncHandler(async (req, res, next) => {
+    try {
+        const idempotencyKey = getRequiredIdempotencyKey(req);
+        const userKey = getStableUserKey(req);
+
+        const result = await withIdempotency({
+            key: idempotencyKey,
+            userKey,
+            route: 'payments:admin_expire_stale',
+            requestPayload: req.body || {},
+            handler: async () => {
+                const response = await expireStalePaymentIntents({
+                    limit: req.body?.limit,
+                    dryRun: Boolean(req.body?.dryRun),
+                });
+                return { statusCode: 200, response };
+            },
+        });
+
+        return res.status(result.statusCode).json(result.response);
+    } catch (error) {
+        if (error instanceof AppError) return next(error);
+        return next(new AppError(error.message || 'Failed to expire stale payment intents', 500));
+    }
+});
+
 module.exports = {
     createIntent,
     completeChallenge,
@@ -870,6 +944,7 @@ module.exports = {
     createRefund,
     handleRazorpayWebhook,
     getPaymentMethods,
+    getPaymentCapabilitiesCatalog,
     getNetbankingBanks,
     addPaymentMethod,
     makeDefaultPaymentMethod,
@@ -880,4 +955,6 @@ module.exports = {
     updateAdminRefundLedgerReference,
     captureAdminPayment,
     retryAdminCapture,
+    getAdminPaymentOpsOverview,
+    expireAdminStalePaymentIntents,
 };

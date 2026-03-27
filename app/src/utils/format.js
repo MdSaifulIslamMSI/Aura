@@ -1,9 +1,20 @@
-// Hyperscale-optimized formatter (Singleton)
-// Prevents garbage collection churn on list renders
-export const priceFormatter = new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    maximumFractionDigits: 0,
-});
+const formatterCache = new Map();
 
-export const formatPrice = (price) => priceFormatter.format(price);
+const getCurrencyFormatter = (currency = 'INR', locale = 'en-IN') => {
+    const normalizedCurrency = String(currency || 'INR').trim().toUpperCase() || 'INR';
+    const cacheKey = `${locale}:${normalizedCurrency}`;
+    if (!formatterCache.has(cacheKey)) {
+        formatterCache.set(cacheKey, new Intl.NumberFormat(locale, {
+            style: 'currency',
+            currency: normalizedCurrency,
+            maximumFractionDigits: normalizedCurrency === 'JPY' ? 0 : 2,
+        }));
+    }
+    return formatterCache.get(cacheKey);
+};
+
+export const priceFormatter = getCurrencyFormatter('INR');
+
+export const formatPrice = (price, currency = 'INR', locale = 'en-IN') => (
+    getCurrencyFormatter(currency, locale).format(Number(price || 0))
+);

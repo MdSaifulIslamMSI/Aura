@@ -3,6 +3,7 @@ const { DIGITAL_METHODS } = require('../services/payments/constants');
 const { normalizeNetbankingBankCode } = require('../services/payments/netbankingCatalog');
 
 const paymentMethodEnum = z.enum(DIGITAL_METHODS);
+const normalizeUpper = (value) => String(value || '').trim().toUpperCase();
 
 const netbankingContextSchema = z.object({
     bankCode: z.string().trim().min(3).max(20)
@@ -10,6 +11,15 @@ const netbankingContextSchema = z.object({
         .transform((value) => normalizeNetbankingBankCode(value)),
     bankName: z.string().trim().min(2).max(120).optional(),
     source: z.enum(['catalog', 'saved_method', 'manual']).optional(),
+}).strict();
+
+const marketContextSchema = z.object({
+    countryCode: z.string().trim().length(2)
+        .regex(/^[A-Za-z]{2}$/, 'countryCode must be a two-letter ISO code')
+        .transform((value) => normalizeUpper(value)),
+    currency: z.string().trim().length(3)
+        .regex(/^[A-Za-z]{3}$/, 'currency must be a three-letter ISO code')
+        .transform((value) => normalizeUpper(value)),
 }).strict();
 
 const paymentMethodMetadataSchema = z.object({
@@ -27,11 +37,17 @@ const createIntentBodySchema = z.object({
     quotePayload: z.object({}).passthrough(),
     quoteSnapshot: z.object({
         totalPrice: z.coerce.number().positive().optional(),
+        presentmentTotalPrice: z.coerce.number().positive().optional(),
+        presentmentCurrency: z.string().trim().length(3)
+            .regex(/^[A-Za-z]{3}$/)
+            .transform((value) => normalizeUpper(value))
+            .optional(),
         pricingVersion: z.string().optional(),
     }).optional(),
     paymentMethod: paymentMethodEnum,
     savedMethodId: z.string().trim().min(6).max(64).optional(),
     paymentContext: z.object({
+        market: marketContextSchema.optional(),
         netbanking: netbankingContextSchema.optional(),
     }).strict().optional(),
     deviceContext: z.object({
@@ -94,6 +110,7 @@ const refundSchema = z.object({
     }),
     body: z.object({
         amount: z.coerce.number().positive().optional(),
+        amountMode: z.enum(['settlement', 'charge']).optional(),
         reason: z.string().trim().min(2).max(140).optional(),
     }),
 });
@@ -130,6 +147,17 @@ const adminPaymentDetailSchema = z.object({
     params: z.object({
         intentId: z.string().min(6),
     }),
+});
+
+const adminPaymentOpsOverviewSchema = z.object({
+    query: z.object({}).passthrough().optional(),
+});
+
+const adminExpireStaleIntentsSchema = z.object({
+    body: z.object({
+        limit: z.coerce.number().int().min(1).max(500).optional(),
+        dryRun: z.boolean().optional(),
+    }).partial(),
 });
 
 const adminRefundLedgerListSchema = z.object({
@@ -175,6 +203,8 @@ module.exports = {
     methodIdParamSchema,
     adminPaymentListSchema,
     adminPaymentDetailSchema,
+    adminPaymentOpsOverviewSchema,
+    adminExpireStaleIntentsSchema,
     adminRefundLedgerListSchema,
     adminRefundLedgerUpdateSchema,
 };

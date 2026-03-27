@@ -30,6 +30,12 @@ const paymentIntentSchema = new mongoose.Schema({
     providerMethodId: { type: String, default: '' },
     amount: { type: Number, required: true },
     currency: { type: String, required: true, default: 'INR' },
+    settlementAmount: { type: Number, default: 0 },
+    marketCountryCode: { type: String, default: 'IN', index: true },
+    marketCurrency: { type: String, default: 'INR', index: true },
+    settlementCurrency: { type: String, default: 'INR' },
+    providerBaseAmount: { type: Number, default: null },
+    providerBaseCurrency: { type: String, default: '' },
     method: { type: String, enum: PAYMENT_METHODS, required: true },
     status: {
         type: String,
@@ -53,5 +59,6 @@ paymentIntentSchema.index({ provider: 1, providerOrderId: 1 });
 paymentIntentSchema.index({ provider: 1, providerPaymentId: 1 });
 paymentIntentSchema.index({ user: 1, status: 1, expiresAt: 1 });
 paymentIntentSchema.index({ user: 1, order: 1, 'orderClaim.state': 1 });
+paymentIntentSchema.index({ marketCountryCode: 1, marketCurrency: 1, status: 1 });
 
 module.exports = mongoose.model('PaymentIntent', paymentIntentSchema);

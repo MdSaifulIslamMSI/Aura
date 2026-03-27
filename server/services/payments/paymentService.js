@@ -29,6 +29,7 @@ const {
     makeIntentId,
     makeEventId,
     roundCurrency,
+    normalizeCurrencyCode,
     normalizeMethod,
     mapPaymentMethodToProviderType,
     mapProviderTypeToPaymentMethod,
@@ -44,6 +45,8 @@ const {
 } = require('./securityGuards');
 const {
     calculateRefundable,
+    calculatePresentmentRefundable,
+    resolveRefundAmounts,
     buildRefundEntry,
     buildRefundMutation,
 } = require('./refundState');
@@ -59,6 +62,8 @@ const {
     normalizeNetbankingBankCode,
     resolveNetbankingBank,
 } = require('./netbankingCatalog');
+const { getPaymentCapabilities } = require('./paymentCapabilities');
+const { resolvePaymentMarketContext } = require('./paymentMarketCatalog');
 const { flags } = require('../../config/paymentFlags');
 const { verifyPaymentChallengeToken } = require('../../utils/paymentChallengeToken');
 const logger = require('../../utils/logger');
@@ -85,6 +90,96 @@ const appendPaymentEvent = async ({
 const ensurePaymentsEnabled = () => {
     if (!flags.paymentsEnabled) {
         throw new AppError('Payments are currently disabled', 503);
+    }
+};
+
+const PAYMENT_FX_SETTLEMENT_TOLERANCE_PCT = (() => {
+    const raw = Number.parseFloat(String(process.env.PAYMENT_FX_SETTLEMENT_TOLERANCE_PCT || '5'));
+    if (!Number.isFinite(raw) || raw < 0) return 5;
+    return Math.min(raw, 25);
+})();
+
+const getIntentSettlementCurrency = (intent = {}) => (
+    normalizeCurrencyCode(intent?.settlementCurrency || intent?.currency || 'INR')
+);
+
+const getIntentSettlementAmount = (intent = {}) => (
+    roundCurrency(
+        Number(intent?.settlementAmount ?? intent?.amount ?? 0),
+        getIntentSettlementCurrency(intent)
+    )
+);
+
+const getIntentPresentmentCurrency = (intent = {}) => (
+    normalizeCurrencyCode(intent?.currency || intent?.settlementCurrency || 'INR')
+);
+
+const getIntentPresentmentAmount = (intent = {}) => (
+    roundCurrency(
+        Number(intent?.amount ?? intent?.settlementAmount ?? 0),
+        getIntentPresentmentCurrency(intent)
+    )
+);
+
+const getVerifiedSettlementAmount = (intent = {}) => {
+    const providerBaseCurrency = normalizeCurrencyCode(
+        intent?.providerBaseCurrency || intent?.metadata?.providerSettlement?.currency || ''
+    );
+    const settlementCurrency = getIntentSettlementCurrency(intent);
+    const providerBaseAmount = Number(
+        intent?.providerBaseAmount ?? intent?.metadata?.providerSettlement?.amount ?? NaN
+    );
+
+    if (
+        providerBaseCurrency
+        && providerBaseCurrency === settlementCurrency
+        && Number.isFinite(providerBaseAmount)
+        && providerBaseAmount >= 0
+    ) {
+        return roundCurrency(providerBaseAmount, settlementCurrency);
+    }
+
+    return getIntentSettlementAmount(intent);
+};
+
+const assertPresentmentQuoteMatchesIntent = ({
+    intent,
+    presentmentTotalPrice,
+    presentmentCurrency,
+}) => {
+    if (presentmentTotalPrice === undefined || presentmentTotalPrice === null) return;
+
+    if (diff(getIntentPresentmentAmount(intent), presentmentTotalPrice) > 0.01) {
+        throw new AppError('Payment presentment amount mismatch with latest quote', 409);
+    }
+
+    const normalizedCurrency = normalizeCurrencyCode(presentmentCurrency || intent.currency || 'INR');
+    if (normalizedCurrency !== getIntentPresentmentCurrency(intent)) {
+        throw new AppError('Payment presentment currency mismatch with latest quote', 409);
+    }
+};
+
+const assertSettlementWithinTolerance = ({
+    expectedAmount,
+    actualAmount,
+    currency,
+    failureMessage,
+}) => {
+    const normalizedCurrency = normalizeCurrencyCode(currency || 'INR');
+    const expected = roundCurrency(expectedAmount, normalizedCurrency);
+    const actual = roundCurrency(actualAmount, normalizedCurrency);
+    if (expected <= 0 || actual <= 0) return;
+
+    const allowedVariance = Math.max(
+        0.01,
+        roundCurrency((expected * PAYMENT_FX_SETTLEMENT_TOLERANCE_PCT) / 100, normalizedCurrency)
+    );
+
+    if (diff(expected, actual) > allowedVariance) {
+        throw new AppError(
+            failureMessage || `Provider settlement variance exceeds the allowed ${PAYMENT_FX_SETTLEMENT_TOLERANCE_PCT}% threshold`,
+            409
+        );
     }
 };
 
@@ -162,6 +257,11 @@ const buildCheckoutPayload = ({
             contact: user?.phone || '',
         },
         theme: { color: '#06b6d4' },
+        notes: {
+            marketCountryCode: paymentContext?.market?.countryCode || '',
+            marketCurrency: paymentContext?.market?.currency || '',
+            settlementCurrency: paymentContext?.market?.settlementCurrency || currency,
+        },
     };
 
     const preferredBankCode = normalizeNetbankingBankCode(paymentContext?.netbanking?.bankCode);
@@ -347,7 +447,7 @@ const createPaymentIntent = async ({
         { ...quotePayload, paymentMethod: normalizedMethod },
         { checkStock: true }
     );
-    assertQuoteMatches(quoteSnapshot, quote.pricing.totalPrice);
+    assertQuoteMatches(quoteSnapshot, quote.pricing);
 
     let savedMethod = null;
     if (savedMethodId && flags.paymentSavedMethodsEnabled) {
@@ -374,12 +474,31 @@ const createPaymentIntent = async ({
         throw new AppError('Payment blocked by risk policy. Try COD or contact support.', 403);
     }
 
+    const chargeAmount = roundCurrency(
+        quote.pricing.charge?.amount ?? quote.pricing.totalPrice,
+        quote.pricing.presentmentCurrency || quote.pricing.settlementCurrency || 'INR'
+    );
+    const chargeCurrency = normalizeCurrencyCode(
+        quote.pricing.presentmentCurrency || quote.pricing.settlementCurrency || 'INR'
+    );
+    const settlementAmount = roundCurrency(
+        quote.pricing.settlementAmount ?? quote.pricing.totalPrice,
+        quote.pricing.settlementCurrency || 'INR'
+    );
+    const settlementCurrency = normalizeCurrencyCode(quote.pricing.settlementCurrency || 'INR');
+
     const provider = await getPaymentProvider({
-        amount: quote.pricing.totalPrice,
-        currency: 'INR',
+        amount: chargeAmount,
+        currency: chargeCurrency,
         paymentMethod: normalizedMethod,
         bin: String(requestMeta.cardBin || ''),
         userId: user._id,
+    });
+    const capabilities = await getPaymentCapabilities({ provider, allowFallback: true });
+    const resolvedMarketContext = resolvePaymentMarketContext({
+        paymentMethod: normalizedMethod,
+        paymentContext,
+        capabilities,
     });
     const resolvedPaymentContext = await resolveIntentPaymentContext({
         paymentMethod: normalizedMethod,
@@ -387,10 +506,14 @@ const createPaymentIntent = async ({
         savedMethod,
         provider,
     });
+    const finalPaymentContext = {
+        ...resolvedPaymentContext,
+        market: resolvedMarketContext.market,
+    };
     const intentId = makeIntentId();
     const providerOrder = await provider.createOrder({
-        amount: quote.pricing.totalPrice,
-        currency: 'INR',
+        amount: chargeAmount,
+        currency: chargeCurrency,
         receipt: intentId,
         notes: {
             intentId,
@@ -398,6 +521,10 @@ const createPaymentIntent = async ({
             checkoutSource: quote.normalized.checkoutSource,
             paymentMethod: normalizedMethod,
             netbankingBankCode: resolvedPaymentContext?.netbanking?.bankCode || '',
+            marketCountryCode: resolvedMarketContext.market.countryCode,
+            marketCurrency: resolvedMarketContext.market.currency,
+            settlementAmount: String(settlementAmount),
+            settlementCurrency,
         },
     });
 
@@ -411,8 +538,12 @@ const createPaymentIntent = async ({
         provider: provider.name,
         routingInsights: provider.routingInsights || null,
         providerOrderId: providerOrder.id,
-        amount: quote.pricing.totalPrice,
-        currency: 'INR',
+        amount: chargeAmount,
+        currency: chargeCurrency,
+        settlementAmount,
+        marketCountryCode: resolvedMarketContext.market.countryCode,
+        marketCurrency: resolvedMarketContext.market.currency,
+        settlementCurrency,
         method: normalizedMethod,
         status: intentStatus,
         riskSnapshot: {
@@ -444,7 +575,9 @@ const createPaymentIntent = async ({
             userAgent: requestMeta.userAgent || '',
             deviceContext,
             savedMethodId: savedMethodId || '',
-            paymentContext: resolvedPaymentContext,
+            paymentContext: finalPaymentContext,
+            market: resolvedMarketContext.market,
+            charge: quote.pricing.charge || null,
             netbanking: resolvedPaymentContext?.netbanking || null,
             securityLayer: {
                 failedConfirmAttempts: 0,
@@ -462,7 +595,10 @@ const createPaymentIntent = async ({
         type: 'intent.created',
         payload: {
             providerOrderId: providerOrder.id,
-            amount: quote.pricing.totalPrice,
+            amount: chargeAmount,
+            currency: chargeCurrency,
+            settlementAmount,
+            settlementCurrency,
             risk,
         },
     });
@@ -473,17 +609,20 @@ const createPaymentIntent = async ({
         providerOrderId: intent.providerOrderId,
         amount: intent.amount,
         currency: intent.currency,
+        settlementAmount: intent.settlementAmount,
+        settlementCurrency: intent.settlementCurrency,
         status: intent.status,
         riskDecision: risk.strictDecision,
         challengeRequired,
-        paymentContext: resolvedPaymentContext,
+        paymentContext: finalPaymentContext,
+        marketContext: resolvedMarketContext.market,
         checkoutPayload: buildCheckoutPayload({
             providerOrderId: intent.providerOrderId,
-            amount: quote.pricing.totalPrice,
-            currency: 'INR',
+            amount: chargeAmount,
+            currency: chargeCurrency,
             user,
             paymentMethod: normalizedMethod,
-            paymentContext: resolvedPaymentContext,
+            paymentContext: finalPaymentContext,
         }),
     };
 };
@@ -595,6 +734,8 @@ const confirmPaymentIntent = async ({
             authorizedAt: intent.authorizedAt,
             riskDecision: intent.riskSnapshot?.decision || 'allow',
             providerMethod: intent.metadata?.providerMethodSnapshot || null,
+            settlementAmount: getIntentSettlementAmount(intent),
+            settlementCurrency: getIntentSettlementCurrency(intent),
         };
     }
 
@@ -662,6 +803,14 @@ const confirmPaymentIntent = async ({
     const nextStatus = status === 'captured' ? PAYMENT_STATUSES.CAPTURED : PAYMENT_STATUSES.AUTHORIZED;
 
     const methodInfo = normalizeProviderMethodSnapshot(provider.parsePaymentMethod(payment));
+    const amountInfo = typeof provider.parsePaymentAmounts === 'function'
+        ? provider.parsePaymentAmounts(payment)
+        : {
+            amount: intent.amount,
+            currency: intent.currency,
+            baseAmount: null,
+            baseCurrency: '',
+        };
     const providerConfirmedMethod = mapProviderTypeToPaymentMethod(methodInfo.type);
     if (providerConfirmedMethod !== intent.method) {
         await registerConfirmFailure({
@@ -671,6 +820,29 @@ const confirmPaymentIntent = async ({
             providerPaymentId: cleanPaymentId,
         });
         throw new AppError('Provider payment method does not match the selected checkout method', 409);
+    }
+
+    if (amountInfo.currency !== getIntentPresentmentCurrency(intent) || diff(amountInfo.amount, getIntentPresentmentAmount(intent)) > 0.01) {
+        await registerConfirmFailure({
+            intent,
+            reason: 'provider_amount_mismatch',
+            providerOrderId: cleanOrderId,
+            providerPaymentId: cleanPaymentId,
+        });
+        throw new AppError('Provider payment amount does not match the locked checkout amount', 409);
+    }
+
+    if (
+        getIntentPresentmentCurrency(intent) !== getIntentSettlementCurrency(intent)
+        && (!amountInfo.baseCurrency || amountInfo.baseAmount === null)
+    ) {
+        await registerConfirmFailure({
+            intent,
+            reason: 'provider_settlement_missing',
+            providerOrderId: cleanOrderId,
+            providerPaymentId: cleanPaymentId,
+        });
+        throw new AppError('Provider did not return settlement conversion details for this international payment', 409);
     }
 
     const expectedBankCode = normalizeNetbankingBankCode(
@@ -686,8 +858,38 @@ const confirmPaymentIntent = async ({
         throw new AppError('Provider bank does not match the selected netbanking bank', 409);
     }
 
+    if (amountInfo.baseCurrency && amountInfo.baseAmount !== null) {
+        if (amountInfo.baseCurrency !== getIntentSettlementCurrency(intent)) {
+            await registerConfirmFailure({
+                intent,
+                reason: 'provider_settlement_currency_mismatch',
+                providerOrderId: cleanOrderId,
+                providerPaymentId: cleanPaymentId,
+            });
+            throw new AppError('Provider settlement currency does not match the locked settlement currency', 409);
+        }
+        try {
+            assertSettlementWithinTolerance({
+                expectedAmount: getIntentSettlementAmount(intent),
+                actualAmount: amountInfo.baseAmount,
+                currency: amountInfo.baseCurrency,
+                failureMessage: `Provider settlement moved outside the allowed ${PAYMENT_FX_SETTLEMENT_TOLERANCE_PCT}% tolerance window`,
+            });
+        } catch (error) {
+            await registerConfirmFailure({
+                intent,
+                reason: 'provider_settlement_variance',
+                providerOrderId: cleanOrderId,
+                providerPaymentId: cleanPaymentId,
+            });
+            throw error;
+        }
+    }
+
     intent.providerPaymentId = cleanPaymentId;
     intent.providerMethodId = methodInfo.providerMethodId || '';
+    intent.providerBaseAmount = amountInfo.baseAmount;
+    intent.providerBaseCurrency = amountInfo.baseCurrency || '';
     intent.status = nextStatus;
     intent.authorizedAt = new Date();
     if (nextStatus === PAYMENT_STATUSES.CAPTURED) {
@@ -704,6 +906,11 @@ const confirmPaymentIntent = async ({
     intent.metadata = {
         ...(intent.metadata || {}),
         providerMethodSnapshot: methodInfo,
+        providerSettlement: {
+            amount: amountInfo.baseAmount,
+            currency: amountInfo.baseCurrency || '',
+            international: Boolean(amountInfo.international),
+        },
     };
     intent.markModified('metadata');
     await intent.save();
@@ -746,6 +953,10 @@ const confirmPaymentIntent = async ({
             providerPaymentId: cleanPaymentId,
             providerOrderId: cleanOrderId,
             status: nextStatus,
+            amount: amountInfo.amount,
+            currency: amountInfo.currency,
+            settlementAmount: amountInfo.baseAmount,
+            settlementCurrency: amountInfo.baseCurrency || '',
             securityLayer: {
                 maxAttempts: PAYMENT_SECURITY_MAX_CONFIRM_ATTEMPTS,
                 maxFailures: PAYMENT_SECURITY_MAX_CONFIRM_FAILURES,
@@ -759,6 +970,8 @@ const confirmPaymentIntent = async ({
         authorizedAt: intent.authorizedAt,
         riskDecision: intent.riskSnapshot?.decision || 'allow',
         providerMethod: methodInfo,
+        settlementAmount: getIntentSettlementAmount(intent),
+        settlementCurrency: getIntentSettlementCurrency(intent),
     };
 };
 
@@ -766,7 +979,10 @@ const getPaymentIntentForUser = async ({ intentId, userId, allowAdmin = false })
     const filter = { intentId };
     if (!allowAdmin) filter.user = userId;
 
-    const intent = await PaymentIntent.findOne(filter).lean();
+    const intent = await PaymentIntent.findOne(filter)
+        .populate('user', 'name email phone')
+        .populate('order', '_id totalPrice paymentState createdAt settlementCurrency settlementAmount presentmentCurrency presentmentTotalPrice')
+        .lean();
     if (!intent) throw new AppError('Payment intent not found', 404);
 
     const events = await PaymentEvent.find({ intentId }).sort({ receivedAt: 1 }).lean();
@@ -778,6 +994,8 @@ const validatePaymentIntentForOrder = async ({
     paymentIntentId,
     paymentMethod,
     totalPrice,
+    presentmentTotalPrice,
+    presentmentCurrency,
     session = null,
     claimForOrder = false,
     claimKey = '',
@@ -796,9 +1014,17 @@ const validatePaymentIntentForOrder = async ({
     if (!intent) throw new AppError('Payment intent not found for this user', 404);
     if (isIntentExpired(intent)) throw new AppError('Payment intent expired. Please retry payment.', 409);
 
-    if (diff(intent.amount, totalPrice) > 0.01) {
-        throw new AppError('Payment amount mismatch with latest quote', 409);
-    }
+    assertPresentmentQuoteMatchesIntent({
+        intent,
+        presentmentTotalPrice,
+        presentmentCurrency,
+    });
+    assertSettlementWithinTolerance({
+        expectedAmount: totalPrice,
+        actualAmount: getVerifiedSettlementAmount(intent),
+        currency: getIntentSettlementCurrency(intent),
+        failureMessage: 'Payment settlement amount moved outside the allowed tolerance for this order quote',
+    });
     if (intent.method !== normalizedMethod) {
         throw new AppError('Payment method mismatch for intent', 409);
     }
@@ -906,14 +1132,30 @@ const captureIntentNow = async ({ intentId }) => {
         paymentMethod: intent.method,
         userId: intent.user,
     });
-    await provider.capture({
+    const capturedPayment = await provider.capture({
         paymentId: intent.providerPaymentId,
         amount: intent.amount,
         currency: intent.currency,
     });
+    const amountInfo = typeof provider.parsePaymentAmounts === 'function'
+        ? provider.parsePaymentAmounts(capturedPayment || {})
+        : null;
 
     intent.status = PAYMENT_STATUSES.CAPTURED;
     intent.capturedAt = new Date();
+    if (amountInfo?.baseCurrency && amountInfo.baseAmount !== null) {
+        intent.providerBaseAmount = amountInfo.baseAmount;
+        intent.providerBaseCurrency = amountInfo.baseCurrency;
+        intent.metadata = {
+            ...(intent.metadata || {}),
+            providerSettlement: {
+                amount: amountInfo.baseAmount,
+                currency: amountInfo.baseCurrency,
+                international: Boolean(amountInfo.international),
+            },
+        };
+        intent.markModified('metadata');
+    }
     await intent.save();
 
     await appendPaymentEvent({
@@ -932,6 +1174,7 @@ const createRefundForIntent = async ({
     isAdmin,
     intentId,
     amount,
+    amountMode = 'settlement',
     reason,
 }) => {
     if (!flags.paymentRefundsEnabled) {
@@ -952,23 +1195,42 @@ const createRefundForIntent = async ({
     }
 
     const refundable = calculateRefundable(order);
-    if (refundable <= 0) {
+    const presentmentRefundable = calculatePresentmentRefundable(order);
+    if (refundable <= 0 || presentmentRefundable <= 0) {
         throw new AppError('No refundable amount remaining', 400);
     }
 
-    const requestedAmount = amount === undefined || amount === null ? refundable : roundCurrency(amount);
-    if (requestedAmount <= 0) throw new AppError('Refund amount must be positive', 400);
-    if (requestedAmount > refundable) throw new AppError('Refund amount exceeds refundable balance', 400);
+    let refundAmounts;
+    try {
+        refundAmounts = resolveRefundAmounts({
+            order,
+            amount,
+            amountMode,
+        });
+    } catch (error) {
+        throw new AppError(error.message || 'Unable to resolve refund amount', 400);
+    }
+
+    if (refundAmounts.settlementAmount <= 0 || refundAmounts.presentmentAmount <= 0) {
+        throw new AppError('Refund amount must be positive', 400);
+    }
+    if (refundAmounts.settlementAmount - refundable > 0.01) {
+        throw new AppError('Refund amount exceeds refundable settlement balance', 400);
+    }
+    if (refundAmounts.presentmentAmount - presentmentRefundable > 0.01) {
+        throw new AppError('Refund amount exceeds refundable charge balance', 400);
+    }
 
     const provider = await getPaymentProvider({
-        amount: requestedAmount,
+        amount: refundAmounts.presentmentAmount,
         currency: intent.currency,
         paymentMethod: intent.method,
         userId: intent.user,
     });
     const providerRefund = await provider.refund({
         paymentId: intent.providerPaymentId,
-        amount: requestedAmount,
+        amount: refundAmounts.presentmentAmount,
+        currency: intent.currency,
         notes: {
             reason: reason || 'requested_by_user',
             intentId,
@@ -977,13 +1239,12 @@ const createRefundForIntent = async ({
 
     const refundEntry = buildRefundEntry({
         providerRefund,
-        requestedAmount,
+        refundAmounts,
         reason,
         fallbackRefundId: makeEventId('refund'),
     });
     const refundMutation = buildRefundMutation({
         order,
-        requestedAmount,
         refundEntry,
     });
 
@@ -1012,6 +1273,8 @@ const createRefundForIntent = async ({
         status: refundEntry.status,
         amount: refundEntry.amount,
         currency: intent.currency,
+        settlementAmount: refundEntry.settlementAmount,
+        settlementCurrency: refundEntry.settlementCurrency,
         intentId,
     };
 };
@@ -1179,6 +1442,23 @@ const processRazorpayWebhook = async ({ signature, rawBody }) => {
     if (parsedEvent.paymentId) {
         intent.providerPaymentId = parsedEvent.paymentId;
     }
+    const webhookPayment = parsed?.payload?.payment?.entity || null;
+    if (webhookPayment && typeof provider.parsePaymentAmounts === 'function') {
+        const amountInfo = provider.parsePaymentAmounts(webhookPayment);
+        if (amountInfo?.baseCurrency && amountInfo.baseAmount !== null) {
+            intent.providerBaseAmount = amountInfo.baseAmount;
+            intent.providerBaseCurrency = amountInfo.baseCurrency;
+            intent.metadata = {
+                ...(intent.metadata || {}),
+                providerSettlement: {
+                    amount: amountInfo.baseAmount,
+                    currency: amountInfo.baseCurrency,
+                    international: Boolean(amountInfo.international),
+                },
+            };
+            intent.markModified('metadata');
+        }
+    }
     if (parsedEvent.eventType === 'payment.authorized') {
         intent.authorizedAt = new Date();
     }
@@ -1219,6 +1499,7 @@ const processOutboxTask = async (task) => {
                 isAdmin: true,
                 intentId: task.intentId,
                 amount: task.payload?.amount ?? undefined,
+                amountMode: task.payload?.amountMode || 'settlement',
                 reason: task.payload?.reason || 'queued_refund_retry',
             });
 
@@ -1331,6 +1612,44 @@ const listUserPaymentMethods = async ({ userId }) => {
         .sort({ isDefault: -1, updatedAt: -1 })
         .lean();
     return methods.map(decorateStoredPaymentMethod);
+};
+
+const listPaymentCapabilities = async ({ userId }) => {
+    ensurePaymentsEnabled();
+
+    let provider = null;
+    try {
+        provider = await getPaymentProvider({
+            currency: 'INR',
+            paymentMethod: 'CARD',
+            userId,
+        });
+    } catch (error) {
+        logger.warn('payment.capabilities_provider_unavailable', {
+            userId: String(userId || ''),
+            error: error.message,
+        });
+    }
+
+    const [capabilities, savedMethods] = await Promise.all([
+        getPaymentCapabilities({ provider, allowFallback: true }),
+        flags.paymentSavedMethodsEnabled ? listUserPaymentMethods({ userId }) : [],
+    ]);
+
+    const savedMethodSummary = {
+        total: savedMethods.length,
+        byType: {
+            upi: savedMethods.filter((method) => method.type === 'upi').length,
+            card: savedMethods.filter((method) => method.type === 'card').length,
+            wallet: savedMethods.filter((method) => method.type === 'wallet').length,
+            bank: savedMethods.filter((method) => method.type === 'bank').length,
+        },
+    };
+
+    return {
+        ...capabilities,
+        savedMethodSummary,
+    };
 };
 
 const listNetbankingBanks = async ({ userId }) => {
@@ -1479,7 +1798,7 @@ const listAdminPaymentIntents = async ({ page = 1, limit = 20, status, provider,
     const [items, total] = await Promise.all([
         PaymentIntent.find(query)
             .populate('user', 'name email phone')
-            .populate('order', '_id totalPrice paymentState createdAt')
+            .populate('order', '_id totalPrice paymentState createdAt settlementCurrency settlementAmount presentmentCurrency presentmentTotalPrice')
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(Math.max(Number(limit), 1))
@@ -1506,6 +1825,7 @@ module.exports = {
     getPaymentOutboxStats: getPaymentOutboxStatsWithWorker,
     markChallengeVerified,
     listUserPaymentMethods,
+    listPaymentCapabilities,
     listNetbankingBanks,
     saveUserPaymentMethod,
     deleteUserPaymentMethod,

@@ -1,5 +1,6 @@
 import { CheckCircle2, ClipboardCheck, ShieldCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { formatPrice } from '@/utils/format';
 
 const StepReview = ({
     isActive,
@@ -9,6 +10,7 @@ const StepReview = ({
     deliveryOption,
     deliverySlot,
     paymentMethod,
+    quote,
     acceptedTerms,
     reviewError,
     isPlacingOrder,
@@ -17,6 +19,14 @@ const StepReview = ({
     onBack,
     onPlaceOrder,
 }) => {
+    const chargeAmount = Number(quote?.presentmentTotalPrice ?? quote?.totalPrice ?? 0);
+    const chargeCurrency = quote?.presentmentCurrency || quote?.settlementCurrency || 'INR';
+    const settlementAmount = Number(quote?.settlementAmount ?? quote?.totalPrice ?? 0);
+    const settlementCurrency = quote?.settlementCurrency || 'INR';
+    const marketSummary = quote?.market?.countryCode
+        ? `${quote.market.countryName || quote.market.countryCode} | ${chargeCurrency}`
+        : '';
+
     return (
         <section
             className={cn(
@@ -60,7 +70,15 @@ const StepReview = ({
                         <div className="checkout-premium-surface">
                             <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-400">Payment</p>
                             <p className="mt-3 text-base font-semibold text-white">{paymentMethod}</p>
-                            <p className="text-xs text-slate-500">Server-side quote remains the source of truth for final charging.</p>
+                            <p className="mt-2 text-sm text-slate-300">{formatPrice(chargeAmount, chargeCurrency)}</p>
+                            <p className="text-xs text-slate-500">
+                                {chargeCurrency !== settlementCurrency
+                                    ? `Settles against ${formatPrice(settlementAmount, settlementCurrency)} after provider conversion.`
+                                    : 'Server-side quote remains the source of truth for final charging.'}
+                            </p>
+                            {marketSummary ? (
+                                <p className="mt-1 text-xs text-slate-500">{marketSummary}</p>
+                            ) : null}
                         </div>
                     </div>
 

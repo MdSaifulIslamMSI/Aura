@@ -65,6 +65,7 @@ const scheduleCaptureTask = async ({ intentId, session = null }) => {
 const scheduleRefundTask = async ({
     intentId,
     amount,
+    amountMode = 'settlement',
     reason,
     orderId,
     requestId,
@@ -75,6 +76,7 @@ const scheduleRefundTask = async ({
 
     const payload = {
         amount: amount === undefined || amount === null ? null : roundCurrency(Number(amount)),
+        amountMode: String(amountMode || 'settlement').trim().toLowerCase() === 'charge' ? 'charge' : 'settlement',
         reason: reason || 'queued_refund_retry',
         orderId: String(orderId),
         requestId: String(requestId),

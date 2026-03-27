@@ -1,8 +1,73 @@
 const crypto = require('crypto');
+const Decimal = require('decimal.js');
 
-const roundCurrency = (value) => Number((Number(value) || 0).toFixed(2));
-const toPaise = (value) => Math.max(1, Math.round(roundCurrency(value) * 100));
-const fromPaise = (value) => roundCurrency(Number(value) / 100);
+const ZERO_DECIMAL_CURRENCIES = new Set([
+    'BIF',
+    'CLP',
+    'DJF',
+    'GNF',
+    'ISK',
+    'JPY',
+    'KMF',
+    'KRW',
+    'PYG',
+    'RWF',
+    'UGX',
+    'VND',
+    'VUV',
+    'XAF',
+    'XOF',
+    'XPF',
+]);
+
+const THREE_DECIMAL_CURRENCIES = new Set([
+    'BHD',
+    'IQD',
+    'JOD',
+    'KWD',
+    'LYD',
+    'OMR',
+    'TND',
+]);
+
+const normalizeCurrencyCode = (value, fallback = 'INR') => {
+    const normalized = String(value || fallback).trim().toUpperCase();
+    return /^[A-Z]{3}$/.test(normalized) ? normalized : fallback;
+};
+
+const getCurrencyExponent = (currency = 'INR') => {
+    const normalized = normalizeCurrencyCode(currency);
+    if (ZERO_DECIMAL_CURRENCIES.has(normalized)) return 0;
+    if (THREE_DECIMAL_CURRENCIES.has(normalized)) return 3;
+    return 2;
+};
+
+const getCurrencyScale = (currency = 'INR') => (
+    new Decimal(10).pow(getCurrencyExponent(currency))
+);
+
+const roundCurrency = (value, currency = 'INR') => (
+    new Decimal(value || 0)
+        .toDecimalPlaces(getCurrencyExponent(currency), Decimal.ROUND_HALF_UP)
+        .toNumber()
+);
+
+const toMinorUnits = (value, currency = 'INR') => {
+    const rounded = new Decimal(roundCurrency(value, currency));
+    const minorUnits = rounded.times(getCurrencyScale(currency)).toNearest(1, Decimal.ROUND_HALF_UP);
+    if (rounded.gt(0) && minorUnits.lt(1)) return 1;
+    return minorUnits.toNumber();
+};
+
+const fromMinorUnits = (value, currency = 'INR') => (
+    new Decimal(value || 0)
+        .div(getCurrencyScale(currency))
+        .toDecimalPlaces(getCurrencyExponent(currency), Decimal.ROUND_HALF_UP)
+        .toNumber()
+);
+
+const toPaise = (value, currency = 'INR') => toMinorUnits(value, currency);
+const fromPaise = (value, currency = 'INR') => fromMinorUnits(value, currency);
 
 const hashPayload = (value) => {
     const input = typeof value === 'string' ? value : JSON.stringify(value || {});
@@ -35,7 +100,12 @@ const mapProviderTypeToPaymentMethod = (type) => (
 );
 
 module.exports = {
+    normalizeCurrencyCode,
+    getCurrencyExponent,
+    getCurrencyScale,
     roundCurrency,
+    toMinorUnits,
+    fromMinorUnits,
     toPaise,
     fromPaise,
     hashPayload,

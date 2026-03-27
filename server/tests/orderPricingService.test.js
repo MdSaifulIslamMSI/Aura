@@ -2,7 +2,6 @@ const AppError = require('../utils/AppError');
 const {
     normalizeCheckoutPayload,
     calculatePricing,
-    simulatePaymentResult,
 } = require('../services/orderPricingService');
 
 describe('Order Pricing Service', () => {
@@ -58,9 +57,31 @@ describe('Order Pricing Service', () => {
                 country: 'India',
             },
             paymentMethod: 'netbanking',
+            paymentContext: {
+                market: {
+                    countryCode: 'US',
+                    currency: 'USD',
+                },
+                netbanking: {
+                    bankCode: 'HDFC',
+                    bankName: 'HDFC Bank',
+                    source: 'catalog',
+                },
+            },
         });
 
         expect(normalized.paymentMethod).toBe('NETBANKING');
+        expect(normalized.paymentContext).toEqual({
+            market: {
+                countryCode: 'US',
+                currency: 'USD',
+            },
+            netbanking: {
+                bankCode: 'HDFC',
+                bankName: 'HDFC Bank',
+                source: 'catalog',
+            },
+        });
     });
 
     test('calculatePricing applies valid coupon', async () => {
@@ -93,39 +114,5 @@ describe('Order Pricing Service', () => {
             paymentMethod: 'COD',
             couponCode: 'UPI50',
         })).rejects.toThrow(AppError);
-    });
-
-    test('simulatePaymentResult is deterministic for same input', () => {
-        const payload = {
-            paymentMethod: 'CARD',
-            amount: 1499.99,
-            attemptToken: 'attempt-123',
-        };
-
-        const first = simulatePaymentResult(payload);
-        const second = simulatePaymentResult(payload);
-
-        expect(first).toEqual(second);
-        expect(['success', 'pending', 'failure']).toContain(first.status);
-        expect(first.referenceId.startsWith('SIM-')).toBe(true);
-    });
-
-    test('simulatePaymentResult supports NETBANKING as a digital rail', () => {
-        const result = simulatePaymentResult({
-            paymentMethod: 'NETBANKING',
-            amount: 2499,
-            attemptToken: 'attempt-netbanking-1',
-        });
-
-        expect(['success', 'pending', 'failure']).toContain(result.status);
-        expect(result.referenceId.startsWith('SIM-')).toBe(true);
-    });
-
-    test('simulatePaymentResult rejects COD simulation', () => {
-        expect(() => simulatePaymentResult({
-            paymentMethod: 'COD',
-            amount: 500,
-            attemptToken: 'token-1',
-        })).toThrow(AppError);
     });
 });

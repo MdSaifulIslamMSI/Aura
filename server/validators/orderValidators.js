@@ -45,6 +45,25 @@ const deliverySlotSchema = z.object({
     window: z.string().min(1),
 });
 
+const normalizeUpper = (value) => String(value || '').trim().toUpperCase();
+
+const marketContextSchema = z.object({
+    countryCode: z.string().trim().length(2)
+        .regex(/^[A-Za-z]{2}$/)
+        .transform((value) => normalizeUpper(value)),
+    currency: z.string().trim().length(3)
+        .regex(/^[A-Za-z]{3}$/)
+        .transform((value) => normalizeUpper(value)),
+}).strict();
+
+const netbankingContextSchema = z.object({
+    bankCode: z.string().trim().min(3).max(20)
+        .regex(/^[A-Za-z0-9_]+$/)
+        .transform((value) => normalizeUpper(value)),
+    bankName: z.string().trim().min(2).max(120).optional(),
+    source: z.enum(['catalog', 'saved_method', 'manual']).optional(),
+}).strict();
+
 const checkoutBodySchema = z.object({
     orderItems: z.array(orderItemSchema).min(1),
     shippingAddress: shippingAddressSchema,
@@ -56,8 +75,17 @@ const checkoutBodySchema = z.object({
     checkoutSource: z.enum(['cart', 'directBuy']).optional(),
     quoteSnapshot: z.object({
         totalPrice: z.coerce.number().positive().optional(),
+        presentmentTotalPrice: z.coerce.number().positive().optional(),
+        presentmentCurrency: z.string().trim().length(3)
+            .regex(/^[A-Za-z]{3}$/)
+            .transform((value) => normalizeUpper(value))
+            .optional(),
         pricingVersion: z.string().optional(),
     }).optional(),
+    paymentContext: z.object({
+        market: marketContextSchema.optional(),
+        netbanking: netbankingContextSchema.optional(),
+    }).strict().optional(),
 });
 
 const quoteOrderSchema = z.object({
