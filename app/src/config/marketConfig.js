@@ -1,4 +1,5 @@
-import { PRIORITY_MARKET_MESSAGES } from './priorityMarketMessages';
+import { GENERATED_MARKET_MESSAGES } from './generatedMarketMessages.js';
+import { PRIORITY_MARKET_MESSAGES } from './priorityMarketMessages.js';
 
 const DEFAULT_COUNTRY_CODE = 'IN';
 const DEFAULT_LANGUAGE_CODE = 'en';
@@ -400,10 +401,18 @@ const SIMPLE_OVERRIDES = {
   },
 };
 
-export const MARKET_MESSAGES = {
-  en: EN_MESSAGES,
-  ...SIMPLE_OVERRIDES,
-};
+export const MARKET_MESSAGES = SUPPORTED_LANGUAGES.reduce((result, language) => {
+  const code = language.code;
+  const generatedMessages = GENERATED_MARKET_MESSAGES[code] || {};
+  const curatedMessages = code === 'en' ? EN_MESSAGES : (SIMPLE_OVERRIDES[code] || {});
+
+  result[code] = {
+    ...generatedMessages,
+    ...curatedMessages,
+  };
+
+  return result;
+}, {});
 
 const getRegionFromLocale = (localeValue = '') => {
   const locale = String(localeValue || '').trim();
@@ -502,18 +511,22 @@ export const detectMarketPreference = () => {
   };
 };
 
-const formatTemplate = (template = '', values = {}) => String(template || '').replace(/\{\{\s*([^}\s]+)\s*\}\}/g, (match, token) => (
+export const formatMessageTemplate = (template = '', values = {}) => String(template || '').replace(/\{\{\s*([^}\s]+)\s*\}\}/g, (match, token) => (
   Object.prototype.hasOwnProperty.call(values, token) ? String(values[token]) : ''
 ));
 
-const resolveMessageValue = (languageCode = DEFAULT_LANGUAGE_CODE, key = '') => {
+export const getMessageTemplate = (languageCode = DEFAULT_LANGUAGE_CODE, key = '') => {
   const normalizedLanguage = getSupportedLanguage(languageCode).code;
-  return MARKET_MESSAGES[normalizedLanguage]?.[key] || MARKET_MESSAGES.en?.[key] || '';
+  return MARKET_MESSAGES[normalizedLanguage]?.[key] || '';
+};
+
+const resolveMessageValue = (languageCode = DEFAULT_LANGUAGE_CODE, key = '') => {
+  return getMessageTemplate(languageCode, key) || MARKET_MESSAGES.en?.[key] || '';
 };
 
 export const createTranslator = (languageCode = DEFAULT_LANGUAGE_CODE) => (key, values = {}, fallback = '') => {
   const template = resolveMessageValue(languageCode, key) || fallback || key;
-  return formatTemplate(template, values);
+  return formatMessageTemplate(template, values);
 };
 
 export const getCountryDisplayName = (countryCode = DEFAULT_COUNTRY_CODE, locale = 'en-US') => {
