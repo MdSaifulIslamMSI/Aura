@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import { MarketProvider } from '@/context/MarketContext';
 import ProductCardInline from './ProductCardInline';
 
 const product = {
@@ -12,11 +13,17 @@ const product = {
     rating: 4.5,
 };
 
+const renderWithMarket = (ui) => render(
+    <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+        {ui}
+    </MarketProvider>
+);
+
 describe('ProductCardInline', () => {
     it('shows a single select action in explore mode', () => {
         const onSelect = vi.fn();
 
-        render(
+        renderWithMarket(
             <ProductCardInline
                 product={product}
                 mode="explore"
@@ -35,7 +42,7 @@ describe('ProductCardInline', () => {
         const onAddToCart = vi.fn();
         const onViewDetails = vi.fn();
 
-        render(
+        renderWithMarket(
             <ProductCardInline
                 product={product}
                 mode="product"
@@ -49,5 +56,27 @@ describe('ProductCardInline', () => {
 
         expect(onAddToCart).toHaveBeenCalledWith('101');
         expect(onViewDetails).toHaveBeenCalledWith('101');
+    });
+
+    it('renders backend display pricing instead of falling back to base product price', () => {
+        renderWithMarket(
+            <ProductCardInline
+                product={{
+                    ...product,
+                    pricing: {
+                        baseAmount: 54999,
+                        baseCurrency: 'INR',
+                        displayAmount: 699,
+                        displayCurrency: 'USD',
+                        originalDisplayAmount: 749,
+                    },
+                }}
+                mode="explore"
+                onSelect={vi.fn()}
+            />
+        );
+
+        expect(screen.getByText(/\$699(?:\.00)?/)).toBeInTheDocument();
+        expect(screen.getByText(/\$749(?:\.00)?/)).toBeInTheDocument();
     });
 });

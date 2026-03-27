@@ -44,6 +44,7 @@ const {
 const getRequestMeta = (req) => ({
     ip: req.ip || req.connection?.remoteAddress || '',
     userAgent: req.headers['user-agent'] || '',
+    market: req.market || null,
 });
 
 const notifyPaymentOwnerAdminAction = async ({

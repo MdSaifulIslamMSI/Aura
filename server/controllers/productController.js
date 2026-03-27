@@ -29,6 +29,8 @@ const {
     buildProductImageFetchUrl,
     shouldProxyProductImage,
 } = require('../services/productImageResolver');
+const { buildCatalogMarketMetadata } = require('../services/markets/marketCatalog');
+const { buildDisplayPair } = require('../services/markets/marketPricing');
 
 const REVIEW_LIMIT_DEFAULT = 8;
 const REVIEW_LIMIT_MAX = 20;
@@ -38,10 +40,22 @@ const PRODUCT_IMAGE_PROXY_TIMEOUT_MS = 15000;
 
 const clamp = (value, min, max) => Math.min(Math.max(Number(value) || min, min), max);
 
-const toClientProduct = (product) => {
+const toClientProduct = async (product, market = null) => {
     const plain = product?.toObject?.() ? product.toObject() : product;
     if (!plain || typeof plain !== 'object') return plain;
     const clientTitle = plain.displayTitle || plain.title;
+    const pricing = market
+        ? await buildDisplayPair({
+            amount: plain.price || 0,
+            originalAmount: plain.originalPrice || plain.price || 0,
+            baseCurrency: market.baseCurrency,
+            market,
+        })
+        : null;
+    const marketMetadata = market
+        ? buildCatalogMarketMetadata({ product: plain, market })
+        : null;
+
     return {
         ...plain,
         title: clientTitle,
@@ -49,6 +63,13 @@ const toClientProduct = (product) => {
         images: Array.isArray(plain.images)
             ? plain.images.map((entry) => buildProductImageDeliveryUrl(entry))
             : [],
+        pricing,
+        market: market ? {
+            countryCode: market.countryCode,
+            currency: pricing?.displayCurrency || market.currency,
+            language: market.language,
+        } : null,
+        catalog: marketMetadata,
     };
 };
 
@@ -136,16 +157,17 @@ const buildReviewSummary = async (productId) => {
 // @access  Public
 const getProducts = asyncHandler(async (req, res, next) => {
     try {
-        const result = await queryProducts(req.query);
+        const result = await queryProducts(req.query, { market: req.market });
         const includeDealDna = String(req.query.includeDealDna || '').toLowerCase() !== 'false';
         const includeTelemetry = String(req.query.includeTelemetry ?? true).toLowerCase() !== 'false'
             && Boolean(String(req.query.telemetryContext || '').trim());
+        const serializedProducts = await Promise.all((result.products || []).map((product) => toClientProduct(product, req.market)));
         const products = includeDealDna
-            ? (result.products || []).map((product) => ({
-                ...toClientProduct(product),
+            ? serializedProducts.map((product, index) => ({
+                ...product,
                 dealDna: computeDealDna(product),
             }))
-            : (result.products || []).map(toClientProduct);
+            : serializedProducts;
         let searchEvent = null;
         if (includeTelemetry) {
             try {
@@ -232,10 +254,10 @@ const getRecommendedProducts = asyncHandler(async (req, res, next) => {
 // @route   GET /api/products/:id
 // @access  Public
 const getProductById = asyncHandler(async (req, res, next) => {
-    const product = await getProductByIdentifier(req.params.id);
+    const product = await getProductByIdentifier(req.params.id, { market: req.market });
 
     if (product) {
-        const serialized = toClientProduct(product);
+        const serialized = await toClientProduct(product, req.market);
         res.set('Cache-Control', 'public, max-age=0, s-maxage=60, stale-while-revalidate=300');
         res.json({
             ...serialized,
@@ -250,7 +272,7 @@ const getProductById = asyncHandler(async (req, res, next) => {
 // @route   GET /api/products/:id/deal-dna
 // @access  Public
 const getProductDealDna = asyncHandler(async (req, res, next) => {
-    const product = await getProductByIdentifier(req.params.id);
+    const product = await getProductByIdentifier(req.params.id, { market: req.market });
     if (!product) {
         return next(new AppError('Product not found', 404));
     }
@@ -265,7 +287,7 @@ const getProductDealDna = asyncHandler(async (req, res, next) => {
 // @route   GET /api/products/:id/compatibility
 // @access  Public
 const getProductCompatibility = asyncHandler(async (req, res, next) => {
-    const product = await getProductByIdentifier(req.params.id);
+    const product = await getProductByIdentifier(req.params.id, { market: req.market });
     if (!product) {
         return next(new AppError('Product not found', 404));
     }
@@ -280,7 +302,7 @@ const getProductCompatibility = asyncHandler(async (req, res, next) => {
 // @route   GET /api/products/:id/reviews
 // @access  Public
 const getProductReviews = asyncHandler(async (req, res, next) => {
-    const product = await getProductByIdentifier(req.params.id);
+    const product = await getProductByIdentifier(req.params.id, { market: req.market });
     if (!product) {
         return next(new AppError('Product not found', 404));
     }
@@ -354,7 +376,7 @@ const getProductReviews = asyncHandler(async (req, res, next) => {
 // @route   POST /api/products/:id/reviews
 // @access  Private
 const createProductReview = asyncHandler(async (req, res, next) => {
-    const product = await getProductByIdentifier(req.params.id);
+    const product = await getProductByIdentifier(req.params.id, { market: req.market });
     if (!product) {
         return next(new AppError('Product not found', 404));
     }
@@ -685,11 +707,12 @@ const visualSearchProducts = asyncHandler(async (req, res, next) => {
             limit,
         });
 
-        const scoredProducts = (multimodal.matches || []).map((product) => ({
-            ...toClientProduct(product),
+        const scoredProducts = await Promise.all((multimodal.matches || []).map(async (product) => ({
+            ...(await toClientProduct(product, req.market)),
             visualConfidence: Number(product.visualConfidence || getVisualConfidence(product, multimodal.querySignals?.tokens || [])),
             visualSignals: product.visualSignals || null,
-        })).sort((a, b) => b.visualConfidence - a.visualConfidence);
+        })));
+        scoredProducts.sort((a, b) => b.visualConfidence - a.visualConfidence);
 
         const priceStats = computePriceStats(scoredProducts);
         const topPrice = Number(scoredProducts[0]?.price) || 0;

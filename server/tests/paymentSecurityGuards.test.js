@@ -62,10 +62,42 @@ describe('payment security guards', () => {
 
     test('quote and expiry guards detect mismatch and expired intents', () => {
         expect(diff(10, 9.98)).toBeCloseTo(0.02, 5);
-        expect(() => assertQuoteMatches({ totalPrice: 100 }, 100.005)).not.toThrow();
-        expect(() => assertQuoteMatches({ totalPrice: 100 }, 101))
+        expect(() => assertQuoteMatches({ totalPrice: 100 }, { totalPrice: 100.005 })).not.toThrow();
+        expect(() => assertQuoteMatches({ totalPrice: 100 }, { totalPrice: 101 }))
             .toThrow('Quote expired. Please recalculate before payment.');
-        expect(() => assertQuoteMatches(null, 101)).not.toThrow();
+        expect(() => assertQuoteMatches(null, { totalPrice: 101 })).not.toThrow();
+        expect(() => assertQuoteMatches(
+            {
+                totalPrice: 100,
+                baseAmount: 100,
+                baseCurrency: 'INR',
+                displayAmount: 12,
+                displayCurrency: 'USD',
+            },
+            {
+                totalPrice: 100,
+                baseAmount: 100,
+                baseCurrency: 'INR',
+                displayAmount: 12,
+                displayCurrency: 'USD',
+            }
+        )).not.toThrow();
+        expect(() => assertQuoteMatches(
+            {
+                totalPrice: 100,
+                baseAmount: 100,
+                baseCurrency: 'INR',
+                displayAmount: 12,
+                displayCurrency: 'USD',
+            },
+            {
+                totalPrice: 100,
+                baseAmount: 100,
+                baseCurrency: 'INR',
+                displayAmount: 13,
+                displayCurrency: 'USD',
+            }
+        )).toThrow('Display currency quote expired. Please recalculate before payment.');
 
         expect(Boolean(isIntentExpired({ expiresAt: new Date(Date.now() - 1_000).toISOString() }))).toBe(true);
         expect(Boolean(isIntentExpired({ expiresAt: new Date(Date.now() + 60_000).toISOString() }))).toBe(false);

@@ -39,6 +39,30 @@ const assertQuoteSnapshot = (quoteSnapshot, pricing) => {
         return;
     }
 
+    if (quoteSnapshot.baseAmount !== undefined && quoteSnapshot.baseAmount !== null) {
+        const baseDelta = Math.abs(Number(quoteSnapshot.baseAmount) - Number(pricing?.baseAmount || 0));
+        if (baseDelta > 0.01) {
+            throw new AppError('Base currency quote expired. Please recalculate before placing the order.', 409);
+        }
+    }
+    if (quoteSnapshot.baseCurrency && pricing?.baseCurrency) {
+        if (String(quoteSnapshot.baseCurrency).trim().toUpperCase() !== String(pricing.baseCurrency).trim().toUpperCase()) {
+            throw new AppError('Base currency quote mismatch. Please recalculate before placing the order.', 409);
+        }
+    }
+
+    if (quoteSnapshot.displayAmount !== undefined && quoteSnapshot.displayAmount !== null) {
+        const displayDelta = Math.abs(Number(quoteSnapshot.displayAmount) - Number(pricing?.displayAmount || 0));
+        if (displayDelta > 0.01) {
+            throw new AppError('Display currency quote expired. Please recalculate before placing the order.', 409);
+        }
+    }
+    if (quoteSnapshot.displayCurrency && pricing?.displayCurrency) {
+        if (String(quoteSnapshot.displayCurrency).trim().toUpperCase() !== String(pricing.displayCurrency).trim().toUpperCase()) {
+            throw new AppError('Display currency quote mismatch. Please recalculate before placing the order.', 409);
+        }
+    }
+
     const provided = Number(quoteSnapshot.totalPrice);
     if (!Number.isFinite(provided)) return;
 
@@ -84,15 +108,20 @@ const executeOrderCreation = async ({
     userId,
     requestId,
     idempotencyKey,
+    market = null,
     session = null,
 }) => {
-    const quote = await buildOrderQuote(body, { session, checkStock: true });
+    const quote = await buildOrderQuote(body, { session, checkStock: true, market });
     assertQuoteSnapshot(body.quoteSnapshot, quote.pricing);
 
     const paymentValidation = await validatePaymentIntentForOrder({
         userId,
         paymentIntentId: body.paymentIntentId,
         paymentMethod: quote.normalized.paymentMethod,
+        baseAmount: quote.pricing.baseAmount,
+        baseCurrency: quote.pricing.baseCurrency,
+        displayAmount: quote.pricing.displayAmount,
+        displayCurrency: quote.pricing.displayCurrency,
         totalPrice: quote.pricing.totalPrice,
         presentmentTotalPrice: quote.pricing.presentmentTotalPrice,
         presentmentCurrency: quote.pricing.presentmentCurrency,
@@ -123,6 +152,12 @@ const executeOrderCreation = async ({
         taxPrice: quote.pricing.taxPrice,
         shippingPrice: quote.pricing.shippingPrice,
         totalPrice: quote.pricing.totalPrice,
+        baseAmount: quote.pricing.baseAmount ?? quote.pricing.totalPrice,
+        baseCurrency: quote.pricing.baseCurrency || 'INR',
+        displayAmount: quote.pricing.displayAmount ?? quote.pricing.presentmentTotalPrice ?? quote.pricing.totalPrice,
+        displayCurrency: quote.pricing.displayCurrency || quote.pricing.presentmentCurrency || 'INR',
+        fxRateLocked: quote.pricing.fxRateLocked ?? 1,
+        fxTimestamp: quote.pricing.fxTimestamp || new Date().toISOString(),
         settlementCurrency: quote.pricing.settlementCurrency || 'INR',
         settlementAmount: quote.pricing.settlementAmount ?? quote.pricing.totalPrice,
         presentmentCurrency: quote.pricing.presentmentCurrency || quote.pricing.settlementCurrency || 'INR',
@@ -262,6 +297,7 @@ const placeOrderWithIdempotency = async ({
     requestId,
     idempotencyKey,
     userKey,
+    market = null,
 }) => withIdempotency({
     key: idempotencyKey,
     userKey,
@@ -286,6 +322,7 @@ const placeOrderWithIdempotency = async ({
                 userId,
                 requestId,
                 idempotencyKey,
+                market,
                 session,
             });
             await session.commitTransaction();
@@ -316,6 +353,7 @@ const placeOrderWithIdempotency = async ({
                         userId,
                         requestId,
                         idempotencyKey,
+                        market,
                         session: null,
                     });
                     return { statusCode: 201, response: createdOrder };

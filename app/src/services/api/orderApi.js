@@ -2,6 +2,14 @@ import { apiFetch } from '../apiBase';
 import { getAuthHeader, createIdempotencyKey } from './apiUtils';
 
 export const orderApi = {
+    getCheckoutConfig: async () => {
+        const headers = await getAuthHeader();
+        const { data } = await apiFetch('/checkout/config', {
+            method: 'GET',
+            headers,
+        });
+        return data;
+    },
     quoteOrder: async (payload) => {
         const headers = await getAuthHeader();
         const { data } = await apiFetch('/orders/quote', {

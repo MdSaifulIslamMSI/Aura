@@ -17,6 +17,8 @@ import { cn } from '@/lib/utils';
 import PremiumSelect from '@/components/ui/premium-select';
 import { solveAuraGrid, solveChromaticHarmony } from '@/utils/frontendOptimizers';
 import { usePrefetchOracle } from '@/hooks/usePrefetchOracle';
+import { useMarket } from '@/context/MarketContext';
+import { formatPrice } from '@/utils/format';
 
 const SORT_OPTIONS = new Set(['relevance', 'price-asc', 'price-desc', 'newest', 'rating', 'discount']);
 const DEFAULT_MIN_PRICE = 0;
@@ -125,6 +127,7 @@ const isDefaultLaneOnlyView = ({ effectiveCategorySlug, searchQuery, filters }) 
 );
 
 const ProductListing = () => {
+  const { currency } = useMarket();
   const { category } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
@@ -189,7 +192,7 @@ const ProductListing = () => {
       filters.priceRange[0] !== DEFAULT_MIN_PRICE ||
       filters.priceRange[1] !== DEFAULT_MAX_PRICE
     ) {
-      signals.push(`Price Rs ${filters.priceRange[0].toLocaleString('en-IN')} - Rs ${filters.priceRange[1].toLocaleString('en-IN')}`);
+      signals.push(`Price ${formatPrice(filters.priceRange[0], currency)} - ${formatPrice(filters.priceRange[1], currency)}`);
     }
 
     return signals;

@@ -1,7 +1,8 @@
 import { ArrowUpRight, ShoppingCart, Star } from 'lucide-react';
+import { useMarket } from '@/context/MarketContext';
 import { cn } from '@/lib/utils';
-
-const formatInr = (value = 0) => `Rs ${Number(value || 0).toLocaleString('en-IN')}`;
+import { formatPrice } from '@/utils/format';
+import { getDisplayAmount, getDisplayCurrency, getOriginalDisplayAmount } from '@/utils/pricing';
 
 const ProductCardInline = ({
     product,
@@ -11,6 +12,7 @@ const ProductCardInline = ({
     onAddToCart,
     onViewDetails,
 }) => {
+    const { t } = useMarket();
     const cardClassName = isWhiteMode
         ? 'border-slate-200 bg-white text-slate-950'
         : 'border-white/10 bg-white/[0.04] text-slate-100';
@@ -21,6 +23,9 @@ const ProductCardInline = ({
     const primaryButtonClass = isWhiteMode
         ? 'border-slate-950 bg-slate-950 text-white hover:bg-slate-800'
         : 'border-cyan-400/30 bg-cyan-400/10 text-cyan-100 hover:bg-cyan-400/15';
+    const priceAmount = getDisplayAmount(product);
+    const priceCurrency = getDisplayCurrency(product);
+    const originalPriceAmount = getOriginalDisplayAmount(product);
 
     const isDecisionMode = mode === 'product';
 
@@ -56,11 +61,11 @@ const ProductCardInline = ({
 
                     <div className="mt-3 flex flex-wrap items-center gap-2">
                         <span className="text-sm font-black text-emerald-500">
-                            {formatInr(product?.price)}
+                            {formatPrice(priceAmount, priceCurrency)}
                         </span>
-                        {Number(product?.originalPrice || 0) > Number(product?.price || 0) ? (
+                        {originalPriceAmount > priceAmount ? (
                             <span className={cn('text-xs line-through', mutedTextClass)}>
-                                {formatInr(product.originalPrice)}
+                                {formatPrice(originalPriceAmount, priceCurrency)}
                             </span>
                         ) : null}
                     </div>
@@ -76,14 +81,14 @@ const ProductCardInline = ({
                             className={cn('inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition-colors', primaryButtonClass)}
                         >
                             <ShoppingCart className="h-3.5 w-3.5" />
-                            Add to cart
+                            {t('product.addToCart', {}, 'Add to cart')}
                         </button>
                         <button
                             type="button"
                             onClick={() => onViewDetails?.(product?.id)}
                             className={cn('inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition-colors', outlineButtonClass)}
                         >
-                            View details
+                            {t('product.viewDetails', {}, 'View details')}
                             <ArrowUpRight className="h-3.5 w-3.5" />
                         </button>
                     </>
@@ -93,7 +98,7 @@ const ProductCardInline = ({
                         onClick={() => onSelect?.(product?.id)}
                         className={cn('inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition-colors', outlineButtonClass)}
                     >
-                        Select
+                        {t('product.select', {}, 'Select')}
                         <ArrowUpRight className="h-3.5 w-3.5" />
                     </button>
                 )}

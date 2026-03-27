@@ -1,5 +1,6 @@
 import { apiFetch, requestWithTrace, API_BASE_URL as BASE_URL } from '../apiBase';
 import { parseApiError, getAuthHeader, runWhenIdle } from './apiUtils';
+import { getActiveMarketHeaders } from '../marketRuntime';
 
 const PRODUCT_DETAIL_CACHE_TTL_MS = 30 * 1000;
 const productDetailCache = new Map();
@@ -144,6 +145,7 @@ export const catalogApi = {
                 headers: {
                     'Accept': 'application/json',
                     'Content-Type': 'application/json',
+                    ...getActiveMarketHeaders(),
                 },
                 body: JSON.stringify(payload),
             });

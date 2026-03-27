@@ -2,20 +2,18 @@ import { useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Trash2, Plus, Minus, ShoppingBag, Heart, ArrowRight, ShieldCheck, Zap, ChevronRight } from 'lucide-react';
 import { CartContext } from '@/context/CartContext';
+import { useMarket } from '@/context/MarketContext';
 import { useCommerceStore } from '@/store/commerceStore';
+import { formatPrice as formatPriceValue } from '@/utils/format';
+import { getDisplayAmount, getDisplayCurrency, getLineDisplayTotal, getOriginalDisplayAmount } from '@/utils/pricing';
 
 const Cart = () => {
-  const { cartItems, removeFromCart, updateQuantity, totalPrice, totalOriginalPrice, totalDiscount, moveToWishlist, isLoading } = useContext(CartContext);
+  const { cartItems, removeFromCart, updateQuantity, totalPrice, totalOriginalPrice, totalDiscount, currency: cartCurrency, moveToWishlist, isLoading } = useContext(CartContext);
+  const { currency: marketCurrency } = useMarket();
   const clearDirectBuy = useCommerceStore((state) => state.clearDirectBuy);
   const navigate = useNavigate();
 
-  const formatPrice = (price) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      maximumFractionDigits: 0,
-    }).format(price);
-  };
+  const formatPrice = (price, currency = cartCurrency || marketCurrency) => formatPriceValue(price, currency);
 
   const handleMoveToWishlist = (productId) => {
     moveToWishlist(productId);
@@ -129,7 +127,7 @@ const Cart = () => {
                         </Link>
                         {/* Subtotal - Desktop */}
                         <div className="hidden md:block text-right flex-shrink-0">
-                          <p className="font-black text-2xl tracking-tighter text-white drop-shadow-md">{formatPrice(item.price * item.quantity)}</p>
+                          <p className="font-black text-2xl tracking-tighter text-white drop-shadow-md">{formatPrice(getLineDisplayTotal(item), getDisplayCurrency(item))}</p>
                         </div>
                       </div>
 
@@ -137,9 +135,9 @@ const Cart = () => {
 
                       {/* Price */}
                       <div className="flex items-end gap-3 mb-4 flex-wrap">
-                        <span className="font-black text-xl text-white tracking-tight">{formatPrice(item.price)}</span>
+                        <span className="font-black text-xl text-white tracking-tight">{formatPrice(getDisplayAmount(item), getDisplayCurrency(item))}</span>
                         <span className="text-slate-500 font-medium line-through text-xs mb-1">
-                          {formatPrice(item.originalPrice)}
+                          {formatPrice(getOriginalDisplayAmount(item), getDisplayCurrency(item))}
                         </span>
                         <span className="bg-neo-cyan/10 border border-neo-cyan/20 text-neo-cyan px-2 py-0.5 rounded text-xs font-black uppercase tracking-wider mb-0.5 flex items-center gap-1 shadow-[0_0_10px_rgba(6,182,212,0.1)]">
                           <Zap className="w-3 h-3 fill-neo-cyan" />
@@ -199,7 +197,7 @@ const Cart = () => {
                       {/* Subtotal - Mobile */}
                       <div className="md:hidden mt-4 pt-4 border-t border-white/5 flex justify-between items-center">
                         <span className="text-slate-400 text-sm font-medium">Subtotal</span>
-                        <span className="font-black text-xl text-white tracking-tighter">{formatPrice(item.price * item.quantity)}</span>
+                        <span className="font-black text-xl text-white tracking-tighter">{formatPrice(getLineDisplayTotal(item), getDisplayCurrency(item))}</span>
                       </div>
                     </div>
                   </div>
@@ -239,7 +237,7 @@ const Cart = () => {
 
                 <div className="flex justify-between items-center text-sm font-medium">
                   <span className="text-neo-cyan">Delta Offset</span>
-                  <span className="text-neo-cyan">− {formatPrice(totalDiscount)}</span>
+                  <span className="text-neo-cyan">- {formatPrice(totalDiscount)}</span>
                 </div>
 
                 <div className="flex justify-between items-center text-sm font-medium">

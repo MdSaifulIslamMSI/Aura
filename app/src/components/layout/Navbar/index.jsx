@@ -4,6 +4,7 @@ import {
   Bell,
   ChevronDown,
   Gauge,
+  Globe2,
   Heart,
   LayoutGrid,
   Menu,
@@ -21,6 +22,7 @@ import PremiumSelect from '@/components/ui/premium-select';
 import { AuthContext } from '@/context/AuthContext';
 import { CartContext } from '@/context/CartContext';
 import { useColorMode } from '@/context/ColorModeContext';
+import { useMarket } from '@/context/MarketContext';
 import { useMotionMode } from '@/context/MotionModeContext';
 import { cn } from '@/lib/utils';
 import AppErrorBoundary from '@/components/shared/AppErrorBoundary';
@@ -61,6 +63,123 @@ const NavbarNotificationsFallback = () => (
     <Bell className="h-[1.125rem] w-[1.125rem]" />
   </button>
 );
+
+const MarketPreferenceCard = ({
+  t,
+  countryCode,
+  language,
+  currency,
+  regionLabel,
+  countryOptions,
+  currencyOptions,
+  languageOptions,
+  setCountryCode,
+  setLanguage,
+  setCurrency,
+  resetToDetected,
+  detectedCountryLabel,
+  detectedRegionLabel,
+  browseCurrencyNote,
+  isEstimatedPricing,
+  compact = false,
+}) => {
+  const currentLanguage = languageOptions.find((option) => option.value === language) || languageOptions[0];
+
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-cyan-300/80">
+            <Globe2 className="h-3.5 w-3.5" />
+            {t('market.title', {}, 'Market Studio')}
+          </div>
+          <p className="mt-1 max-w-xl text-xs leading-5 text-slate-400">
+            {t('market.subtitle', {}, 'Tune country, language, and browse currency without losing your place.')}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={resetToDetected}
+          className="rounded-full border border-white/12 bg-white/[0.05] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.14em] text-slate-200 transition-colors hover:bg-white/[0.09] hover:text-white"
+        >
+          {t('market.reset', {}, 'Reset to detected market')}
+        </button>
+      </div>
+
+      <div className={cn('mt-3 grid gap-3', compact ? 'grid-cols-1' : 'grid-cols-1 xl:grid-cols-3')}>
+        <label className="text-xs font-semibold text-slate-300">
+          {t('market.country', {}, 'Country')}
+          <PremiumSelect
+            value={countryCode}
+            onChange={(event) => setCountryCode(event.target.value)}
+            className="mt-1.5 w-full rounded-xl border border-white/10 bg-zinc-950/80 px-3 py-2 text-sm font-semibold text-slate-100 outline-none transition-colors hover:border-white/20"
+          >
+            {countryOptions.map((option) => (
+              <option key={option.value} value={option.value} className="bg-zinc-950 text-slate-100">
+                {option.label}
+              </option>
+            ))}
+          </PremiumSelect>
+        </label>
+
+        <label className="text-xs font-semibold text-slate-300">
+          {t('market.language', {}, 'Language')}
+          <PremiumSelect
+            value={language}
+            onChange={(event) => setLanguage(event.target.value)}
+            className="mt-1.5 w-full rounded-xl border border-white/10 bg-zinc-950/80 px-3 py-2 text-sm font-semibold text-slate-100 outline-none transition-colors hover:border-white/20"
+          >
+            {languageOptions.map((option) => (
+              <option key={option.value} value={option.value} className="bg-zinc-950 text-slate-100">
+                {option.nativeLabel}
+              </option>
+            ))}
+          </PremiumSelect>
+        </label>
+
+        <label className="text-xs font-semibold text-slate-300">
+          {t('market.currency', {}, 'Currency')}
+          <PremiumSelect
+            value={currency}
+            onChange={(event) => setCurrency(event.target.value)}
+            className="mt-1.5 w-full rounded-xl border border-white/10 bg-zinc-950/80 px-3 py-2 text-sm font-semibold text-slate-100 outline-none transition-colors hover:border-white/20"
+          >
+            {currencyOptions.map((option) => (
+              <option key={option.value} value={option.value} className="bg-zinc-950 text-slate-100">
+                {option.label}
+              </option>
+            ))}
+          </PremiumSelect>
+        </label>
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] font-semibold text-slate-300">
+        <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1.5">
+          {t('market.detected', {}, 'Detected')}: {detectedCountryLabel}
+        </span>
+        <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1.5">
+          {t('market.region', {}, 'Region')}: {regionLabel || detectedRegionLabel}
+        </span>
+        <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1.5">
+          {t('market.localPrices', {}, 'Local prices')}: {browseCurrencyNote}
+        </span>
+        {currentLanguage ? (
+          <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1.5">
+            {currentLanguage.nativeLabel}
+          </span>
+        ) : null}
+      </div>
+
+      <p className="mt-3 text-[11px] leading-5 text-slate-400">
+        {t('market.priceHint', {}, 'Catalog prices convert from INR for browsing. Final payment quotes lock at checkout.')}
+      </p>
+      <p className="mt-2 text-[11px] leading-5 text-slate-500">
+        {t('market.voiceHint', {}, 'Voice commands, dates, and UI copy follow the selected language and locale where translated.')}
+        {isEstimatedPricing ? '' : ` ${t('market.exact', {}, 'Native catalog FX')}.`}
+      </p>
+    </div>
+  );
+};
 
 export const NavbarFailureFallback = () => (
   <>
@@ -137,6 +256,25 @@ const Navbar = () => {
   const { cartItems } = useContext(CartContext);
   const { colorMode, setColorMode, colorModeOptions } = useColorMode();
   const { motionMode, setMotionMode, motionModeOptions, autoDowngraded, effectiveMotionMode } = useMotionMode();
+  const {
+    countryCode,
+    currency,
+    language,
+    regionLabel,
+    countryLabel,
+    countryOptions,
+    currencyOptions,
+    languageOptions,
+    setCountryCode,
+    setCurrency,
+    setLanguage,
+    resetToDetected,
+    detectedCountryLabel,
+    detectedRegionLabel,
+    browseCurrencyNote,
+    formatNumber,
+    t,
+  } = useMarket();
   const goToLoginPage = () => {
     if (typeof window !== 'undefined') {
       window.location.assign('/login');
@@ -144,7 +282,7 @@ const Navbar = () => {
   };
 
   const activeUser = currentUser;
-  const displayName = activeUser?.displayName || dbUser?.name || activeUser?.email?.split('@')[0] || 'Profile';
+  const displayName = activeUser?.displayName || dbUser?.name || activeUser?.email?.split('@')[0] || t('nav.profile', {}, 'Profile');
 
   useEffect(() => {
     const handleScroll = () => {
@@ -248,42 +386,44 @@ const Navbar = () => {
   const loyaltyPoints = Number(dbUser?.loyalty?.pointsBalance || 0);
   const isSeller = Boolean(dbUser?.isSeller);
   const sellerCtaTarget = isSeller ? '/sell' : '/become-seller';
-  const sellerCtaLabel = isSeller ? 'Sell' : 'Become Seller';
+  const sellerCtaLabel = isSeller
+    ? t('nav.sell', {}, 'Sell')
+    : t('nav.becomeSeller', {}, 'Become seller');
   const navActionClasses =
     'hidden xl:inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.045] px-4 py-2.5 text-sm font-semibold text-slate-200 transition-all duration-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] hover:-translate-y-0.5 hover:border-white/18 hover:bg-white/[0.075] hover:text-white';
   const quickActionLinks = [
     {
-      label: 'Marketplace',
+      label: t('nav.marketplace', {}, 'Marketplace'),
       path: '/marketplace',
       icon: Store,
       tone: 'border-sky-300/20 bg-sky-500/10 text-sky-100 hover:bg-sky-500/15',
     },
     {
-      label: 'Mission OS',
+      label: t('nav.missionOs', {}, 'Mission OS'),
       path: '/mission-control',
       icon: Sparkles,
       tone: 'border-cyan-300/25 bg-cyan-500/10 text-cyan-100 hover:bg-cyan-500/15',
     },
     {
-      label: 'AI Compare',
+      label: t('nav.aiCompare', {}, 'AI Compare'),
       path: '/compare',
       icon: Gauge,
       tone: 'border-cyan-300/25 bg-cyan-500/10 text-cyan-100 hover:bg-cyan-500/15',
     },
     {
-      label: 'Visual Search',
+      label: t('nav.visualSearch', {}, 'Visual Search'),
       path: '/visual-search',
       icon: Sparkles,
       tone: 'border-emerald-300/20 bg-emerald-500/10 text-emerald-100 hover:bg-emerald-500/15',
     },
     {
-      label: 'Smart Bundles',
+      label: t('nav.smartBundles', {}, 'Smart Bundles'),
       path: '/bundles',
       icon: Plus,
       tone: 'border-violet-300/20 bg-violet-500/10 text-violet-100 hover:bg-violet-500/15',
     },
     {
-      label: 'Wishlist',
+      label: t('nav.wishlist', {}, 'Wishlist'),
       path: '/wishlist',
       icon: Heart,
       tone: 'border-white/10 bg-white/[0.03] text-slate-200 hover:bg-white/[0.08]',
@@ -291,7 +431,7 @@ const Navbar = () => {
   ];
   const workspaceLinks = [
     {
-      label: isSeller ? 'Seller Desk' : 'Become Seller',
+      label: isSeller ? 'Seller Desk' : t('nav.becomeSeller', {}, 'Become seller'),
       path: isSeller ? '/my-listings' : '/become-seller',
       icon: Store,
       tone: 'border-white/10 bg-white/[0.03] text-slate-200 hover:bg-white/[0.08]',
@@ -303,7 +443,7 @@ const Navbar = () => {
       tone: 'border-white/10 bg-white/[0.03] text-slate-200 hover:bg-white/[0.08]',
     },
     ...(dbUser?.isAdmin ? [{
-      label: 'Admin Portal',
+      label: t('nav.adminPortal', {}, 'Admin portal'),
       path: '/admin/dashboard',
       icon: Shield,
       tone: 'border-amber-300/25 bg-amber-400/12 text-amber-100 hover:bg-amber-400/18',
@@ -311,9 +451,11 @@ const Navbar = () => {
   ];
   const voiceSearchFallback = (
     <div className="fixed inset-x-4 bottom-24 z-[70] mx-auto max-w-sm rounded-2xl border border-amber-400/25 bg-zinc-950/95 p-4 shadow-glass">
-      <div className="text-sm font-black uppercase tracking-[0.18em] text-amber-200">Voice search unavailable</div>
+      <div className="text-sm font-black uppercase tracking-[0.18em] text-amber-200">
+        {t('nav.voiceUnavailableTitle', {}, 'Voice search unavailable')}
+      </div>
       <p className="mt-2 text-sm text-slate-300">
-        The voice assistant failed in this tab. Use typed search now and reopen voice search after a refresh.
+        {t('nav.voiceUnavailableBody', {}, 'The voice assistant failed in this tab. Use typed search now and reopen voice search after a refresh.')}
       </p>
       <div className="mt-4 flex flex-wrap gap-2">
         <button
@@ -324,14 +466,14 @@ const Navbar = () => {
           }}
           className="inline-flex items-center rounded-xl border border-amber-300/30 bg-amber-300/10 px-4 py-2 text-sm font-semibold text-amber-100 transition-colors hover:bg-amber-300/16"
         >
-          Use typed search
+          {t('nav.useTypedSearch', {}, 'Use typed search')}
         </button>
         <button
           type="button"
           onClick={() => setShowVoiceSearch(false)}
           className="inline-flex items-center rounded-xl border border-white/15 bg-white/[0.04] px-4 py-2 text-sm font-semibold text-slate-200 transition-colors hover:bg-white/[0.08] hover:text-white"
         >
-          Close
+          {t('nav.close', {}, 'Close')}
         </button>
       </div>
     </div>
@@ -441,7 +583,7 @@ const Navbar = () => {
             >
               <GlobalSearchBar
                 className="hidden lg:flex flex-[1.2] min-w-[18rem] xl:min-w-[24rem] max-w-[32rem] xl:max-w-[40rem] 2xl:max-w-[46rem]"
-                placeholder="Search products, brands, and live deals"
+                placeholder={t('nav.searchDesktop', {}, 'Search products, brands, and live deals')}
                 onVoiceSearch={() => setShowVoiceSearch(true)}
               />
             </AppErrorBoundary>
@@ -459,6 +601,21 @@ const Navbar = () => {
 
             {/* Right Actions */}
             <div className="flex items-center gap-1 sm:gap-1.5 lg:gap-2 flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsQuickPanelOpen((open) => !open)}
+                className={cn(
+                  'hidden lg:inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-black uppercase tracking-[0.14em] text-slate-200 transition-all duration-200',
+                  isQuickPanelOpen
+                    ? 'border-cyan-300/35 bg-cyan-400/12 text-white shadow-[0_0_18px_rgba(34,211,238,0.18)]'
+                    : 'border-white/10 bg-white/[0.045] hover:border-white/18 hover:bg-white/[0.08] hover:text-white'
+                )}
+                aria-label={`${countryLabel} ${currency} ${language.toUpperCase()}`}
+              >
+                <Globe2 className="h-4 w-4 text-neo-cyan" />
+                <span>{countryCode}</span>
+                <span className="hidden xl:inline">{currency}</span>
+              </button>
               <div className="relative hidden lg:block" ref={quickPanelRef}>
                 <button
                   type="button"
@@ -492,6 +649,28 @@ const Navbar = () => {
                         <p className="mt-1 text-sm text-slate-400">
                           Discovery, comparison, and seller tools stay composed here so the main rail feels calm.
                         </p>
+                      </div>
+
+                      <div className="mt-3">
+                        <MarketPreferenceCard
+                          t={t}
+                          countryCode={countryCode}
+                          language={language}
+                          currency={currency}
+                          regionLabel={regionLabel}
+                          countryOptions={countryOptions}
+                          currencyOptions={currencyOptions}
+                          languageOptions={languageOptions}
+                          setCountryCode={setCountryCode}
+                          setLanguage={setLanguage}
+                          setCurrency={setCurrency}
+                          resetToDetected={resetToDetected}
+                          detectedCountryLabel={detectedCountryLabel}
+                          detectedRegionLabel={detectedRegionLabel}
+                          browseCurrencyNote={browseCurrencyNote}
+                          isEstimatedPricing={currency !== 'INR'}
+                          compact
+                        />
                       </div>
 
                       <div className="mt-3">
@@ -577,18 +756,18 @@ const Navbar = () => {
                         />
                         <div className={userMenuPanelClasses}>
                           <div className="px-4 pb-2">
-                            {isCompactViewport && (
-                              <div className="mb-3 flex items-center justify-between gap-3">
-                                <div>
-                                  <div className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-300/80">Account</div>
-                                  <div className="mt-1 text-sm text-slate-400">Profile, preferences, and control links.</div>
+                              {isCompactViewport && (
+                                <div className="mb-3 flex items-center justify-between gap-3">
+                                  <div>
+                                    <div className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-300/80">Account</div>
+                                    <div className="mt-1 text-sm text-slate-400">Profile, preferences, and control links.</div>
                                 </div>
                                 <button
                                   type="button"
                                   onClick={handleCloseUserMenu}
                                   className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-semibold text-slate-200 transition-colors hover:bg-white/[0.08] hover:text-white"
                                 >
-                                  Close
+                                  {t('nav.close', {}, 'Close')}
                                 </button>
                               </div>
                             )}
@@ -596,7 +775,7 @@ const Navbar = () => {
                             <div className="text-xs text-slate-400 truncate">{activeUser.email}</div>
                             <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-amber-300/20 bg-amber-400/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-amber-100">
                               <Sparkles className="h-3 w-3" />
-                              {loyaltyPoints.toLocaleString('en-IN')} AP
+                              {formatNumber(loyaltyPoints)} AP
                             </div>
                           </div>
                           <div className="my-1 border-t border-white/10" />
@@ -605,7 +784,7 @@ const Navbar = () => {
                             className="block px-4 py-2.5 text-sm text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
                             onClick={handlePanelNavigate('/profile')}
                           >
-                            My Profile
+                            {t('nav.profile', {}, 'My profile')}
                           </Link>
                           {isSeller ? (
                             <Link
@@ -613,7 +792,7 @@ const Navbar = () => {
                               className="block px-4 py-2.5 text-sm text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
                               onClick={handlePanelNavigate('/my-listings')}
                             >
-                              My Listings
+                              {t('nav.myListings', {}, 'My listings')}
                             </Link>
                           ) : (
                             <Link
@@ -621,7 +800,7 @@ const Navbar = () => {
                               className="block px-4 py-2.5 text-sm text-neo-cyan transition-colors hover:bg-cyan-500/10 hover:text-cyan-200"
                               onClick={handlePanelNavigate('/become-seller')}
                             >
-                              Become Seller
+                              {t('nav.becomeSeller', {}, 'Become seller')}
                             </Link>
                           )}
                           <Link
@@ -629,14 +808,14 @@ const Navbar = () => {
                             className="block px-4 py-2.5 text-sm text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
                             onClick={handlePanelNavigate('/wishlist')}
                           >
-                            Wishlist
+                            {t('nav.wishlist', {}, 'Wishlist')}
                           </Link>
                           <Link
                             to="/orders"
                             className="block px-4 py-2.5 text-sm text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
                             onClick={handlePanelNavigate('/orders')}
                           >
-                            Orders
+                            {t('nav.orders', {}, 'Orders')}
                           </Link>
                           {dbUser?.isAdmin && (
                             <>
@@ -674,14 +853,14 @@ const Navbar = () => {
                                       className="block rounded-xl px-3 py-2 text-sm text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
                                       onClick={handlePanelNavigate('/admin/users')}
                                     >
-                                      User Governance
+                                      {t('nav.userGovernance', {}, 'User governance')}
                                     </Link>
                                     <Link
                                       to="/admin/support"
                                       className="block rounded-xl px-3 py-2 text-sm text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
                                       onClick={handlePanelNavigate('/admin/support')}
                                     >
-                                      Customer Support
+                                      {t('nav.customerSupport', {}, 'Customer support')}
                                     </Link>
                                   </div>
                                 </div>
@@ -696,14 +875,33 @@ const Navbar = () => {
                           >
                             <span className="flex items-center gap-2">
                               <Palette className="h-4 w-4 text-neo-cyan" />
-                              Preferences
+                              {t('nav.preferences', {}, 'Preferences')}
                             </span>
                             <ChevronDown className={cn('h-4 w-4 opacity-50 transition-transform', isPreferencesOpen && 'rotate-180')} />
                           </button>
                           {isPreferencesOpen && (
                             <div className="px-3 pb-3">
-                              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
-                                <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Color mode</div>
+                              <MarketPreferenceCard
+                                t={t}
+                                countryCode={countryCode}
+                                language={language}
+                                currency={currency}
+                                regionLabel={regionLabel}
+                                countryOptions={countryOptions}
+                                currencyOptions={currencyOptions}
+                                languageOptions={languageOptions}
+                                setCountryCode={setCountryCode}
+                                setLanguage={setLanguage}
+                                setCurrency={setCurrency}
+                                resetToDetected={resetToDetected}
+                                detectedCountryLabel={detectedCountryLabel}
+                                detectedRegionLabel={detectedRegionLabel}
+                                browseCurrencyNote={browseCurrencyNote}
+                                isEstimatedPricing={currency !== 'INR'}
+                                compact
+                              />
+                              <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+                                <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">{t('nav.colorMode', {}, 'Color mode')}</div>
                                 <PremiumSelect
                                   value={colorMode}
                                   onChange={(e) => setColorMode(e.target.value)}
@@ -725,7 +923,7 @@ const Navbar = () => {
                                   {currentColorLabel}
                                 </div>
 
-                                <div className="mt-4 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Motion</div>
+                                <div className="mt-4 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">{t('nav.motion', {}, 'Motion')}</div>
                                 <div className="mt-2 grid grid-cols-1 gap-2">
                                   {motionModeOptions.map((mode) => (
                                     <button
@@ -743,24 +941,24 @@ const Navbar = () => {
                                         <span className="text-[11px] font-black uppercase tracking-[0.16em]">{mode.label}</span>
                                         {motionMode === mode.value && (
                                           <span className="rounded-full border border-cyan-300/30 bg-cyan-500/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.14em] text-cyan-100">
-                                            Selected
+                                            {t('nav.selected', {}, 'Selected')}
                                           </span>
                                         )}
                                       </div>
                                       <div className="mt-1 text-[11px] font-medium normal-case tracking-normal text-slate-400">
-                                        {motionOptionDescriptions[mode.value] || 'Motion profile'}
+                                        {motionOptionDescriptions[mode.value] || t('nav.motionProfile', {}, 'Motion profile')}
                                       </div>
                                     </button>
                                   ))}
                                 </div>
                                 <div className="mt-3 text-[11px] text-slate-400">
-                                  Selected: <span className="font-semibold text-slate-200">{currentMotionMode?.label || 'Balanced'}</span>
+                                  {t('nav.selected', {}, 'Selected')}: <span className="font-semibold text-slate-200">{currentMotionMode?.label || 'Balanced'}</span>
                                   {' | '}
-                                  Effective: <span className="font-semibold text-slate-200">{effectiveMotionLabel}</span>
+                                  {t('nav.effective', {}, 'Effective')}: <span className="font-semibold text-slate-200">{effectiveMotionLabel}</span>
                                 </div>
                                 {autoDowngraded && (
                                   <p className="mt-2 text-[11px] leading-5 text-amber-200">
-                                    Auto performance mode is overriding the selected motion profile to keep interactions stable.
+                                    {t('nav.autoMotionNotice', {}, 'Auto performance mode is overriding the selected motion profile to keep interactions stable.')}
                                   </p>
                                 )}
                               </div>
@@ -774,7 +972,7 @@ const Navbar = () => {
                             }}
                             className="block w-full px-4 py-2.5 text-left text-sm text-neo-rose transition-colors hover:bg-neo-rose/10"
                           >
-                            Logout
+                            {t('nav.logout', {}, 'Logout')}
                           </button>
                         </div>
                       </>
@@ -794,7 +992,7 @@ const Navbar = () => {
                   onClick={goToLoginPage}
                   className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.045] px-3 py-2 text-sm font-semibold text-white shadow-[0_16px_36px_rgba(2,8,23,0.18),inset_0_1px_0_rgba(255,255,255,0.05)] transition-all duration-300 hover:-translate-y-0.5 hover:border-neo-cyan hover:bg-white/[0.08] active:translate-y-0 sm:px-4 lg:px-5"
                 >
-                  Login
+                  {t('nav.login', {}, 'Login')}
                 </button>
               )}
 
@@ -844,7 +1042,7 @@ const Navbar = () => {
             >
               <GlobalSearchBar
                 mobile
-                placeholder="Search products, categories, and actions..."
+                placeholder={t('nav.searchMobile', {}, 'Search products, categories, and actions...')}
                 onVoiceSearch={() => setShowVoiceSearch(true)}
                 onNavigate={() => setIsMobileMenuOpen(false)}
                 enableGlobalShortcuts={false}
@@ -867,7 +1065,7 @@ const Navbar = () => {
           <div className="absolute left-0 top-full z-50 w-full border-t border-white/10 bg-zinc-950/95 animate-fade-in md:hidden">
             <nav className="max-h-[calc(100vh-5.5rem)] overflow-y-auto px-4 py-4">
               <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 animate-fade-up" style={{ animationDelay: '50ms' }}>
-                <div className="mb-3 text-[11px] font-black uppercase tracking-[0.24em] text-slate-400">Quick access</div>
+                <div className="mb-3 text-[11px] font-black uppercase tracking-[0.24em] text-slate-400">{t('nav.quickAccess', {}, 'Quick access')}</div>
                 <div className="grid grid-cols-2 gap-2">
                   <Link
                     to="/mission-control"
@@ -875,7 +1073,7 @@ const Navbar = () => {
                     className="flex items-center gap-2 rounded-xl border border-cyan-300/25 bg-cyan-500/10 px-3 py-3 text-sm font-semibold text-cyan-100 transition-colors hover:bg-cyan-500/15"
                   >
                     <Sparkles className="h-4 w-4" />
-                    Mission OS
+                    {t('nav.missionOs', {}, 'Mission OS')}
                   </Link>
                   <Link
                     to="/marketplace"
@@ -883,7 +1081,7 @@ const Navbar = () => {
                     className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/[0.08]"
                   >
                     <Store className="h-4 w-4 text-neo-cyan" />
-                    Marketplace
+                    {t('nav.marketplace', {}, 'Marketplace')}
                   </Link>
                   <Link
                     to={isSeller ? '/sell' : '/become-seller'}
@@ -891,7 +1089,7 @@ const Navbar = () => {
                     className="flex items-center gap-2 rounded-xl border border-emerald-400/20 bg-emerald-500/10 px-3 py-3 text-sm font-semibold text-emerald-200 transition-colors hover:bg-emerald-500/15"
                   >
                     <Plus className="h-4 w-4" />
-                    {isSeller ? 'Sell' : 'Become seller'}
+                    {isSeller ? t('nav.sell', {}, 'Sell') : t('nav.becomeSeller', {}, 'Become seller')}
                   </Link>
                   <Link
                     to="/wishlist"
@@ -899,7 +1097,7 @@ const Navbar = () => {
                     className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-sm font-semibold text-slate-200 transition-colors hover:bg-white/[0.08]"
                   >
                     <Heart className="h-4 w-4 text-neo-emerald" />
-                    Wishlist
+                    {t('nav.wishlist', {}, 'Wishlist')}
                   </Link>
                   <Link
                     to="/cart"
@@ -907,13 +1105,13 @@ const Navbar = () => {
                     className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-sm font-semibold text-slate-200 transition-colors hover:bg-white/[0.08]"
                   >
                     <ShoppingCart className="h-4 w-4 text-neo-cyan" />
-                    Cart {cartItemCount > 0 ? `(${cartItemCount > 9 ? '9+' : cartItemCount})` : ''}
+                    {t('nav.cart', {}, 'Cart')} {cartItemCount > 0 ? `(${cartItemCount > 9 ? '9+' : cartItemCount})` : ''}
                   </Link>
                 </div>
               </section>
 
               <section className="mt-4 rounded-2xl border border-white/10 bg-white/[0.04] p-4 animate-fade-up" style={{ animationDelay: '100ms', animationFillMode: 'both' }}>
-                <div className="mb-3 text-[11px] font-black uppercase tracking-[0.24em] text-slate-400">Browse by category</div>
+                <div className="mb-3 text-[11px] font-black uppercase tracking-[0.24em] text-slate-400">{t('nav.browseByCategory', {}, 'Browse by category')}</div>
                 <div className="grid grid-cols-2 gap-2">
                   {categories.map((category) => (
                     <Link
@@ -930,19 +1128,19 @@ const Navbar = () => {
 
               {(activeUser || dbUser?.isAdmin) && (
                 <section className="mt-4 rounded-2xl border border-white/10 bg-white/[0.04] p-4 animate-fade-up" style={{ animationDelay: '150ms', animationFillMode: 'both' }}>
-                  <div className="mb-3 text-[11px] font-black uppercase tracking-[0.24em] text-slate-400">Account control</div>
+                  <div className="mb-3 text-[11px] font-black uppercase tracking-[0.24em] text-slate-400">{t('nav.accountControl', {}, 'Account control')}</div>
                   <div className="space-y-2">
                     {activeUser && (
                       <>
                         <Link to="/profile" onClick={handlePanelNavigate('/profile')} className="block rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-sm font-medium text-slate-200 transition-colors hover:bg-white/[0.08]">
-                          My profile
+                          {t('nav.profile', {}, 'My profile')}
                         </Link>
                         <Link to="/orders" onClick={handlePanelNavigate('/orders')} className="block rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-sm font-medium text-slate-200 transition-colors hover:bg-white/[0.08]">
-                          Orders
+                          {t('nav.orders', {}, 'Orders')}
                         </Link>
                         {isSeller && (
                           <Link to="/my-listings" onClick={handlePanelNavigate('/my-listings')} className="block rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-sm font-medium text-slate-200 transition-colors hover:bg-white/[0.08]">
-                            My listings
+                            {t('nav.myListings', {}, 'My listings')}
                           </Link>
                         )}
                       </>
@@ -951,16 +1149,16 @@ const Navbar = () => {
                       <>
                         <Link to="/admin/dashboard" onClick={handlePanelNavigate('/admin/dashboard')} className="flex items-center gap-2 rounded-xl border border-violet-400/25 bg-violet-500/10 px-3 py-3 text-sm font-semibold text-violet-100 transition-colors hover:bg-violet-500/15">
                           <Shield className="h-4 w-4" />
-                          Admin portal
+                          {t('nav.adminPortal', {}, 'Admin portal')}
                         </Link>
                         <Link to="/admin/products" onClick={handlePanelNavigate('/admin/products')} className="block rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-sm font-medium text-slate-200 transition-colors hover:bg-white/[0.08]">
-                          Product control
+                          {t('nav.productControl', {}, 'Product control')}
                         </Link>
                         <Link to="/admin/users" onClick={handlePanelNavigate('/admin/users')} className="block rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-sm font-medium text-slate-200 transition-colors hover:bg-white/[0.08]">
-                          User governance
+                          {t('nav.userGovernance', {}, 'User governance')}
                         </Link>
                         <Link to="/admin/support" onClick={handlePanelNavigate('/admin/support')} className="block rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-sm font-medium text-slate-200 transition-colors hover:bg-white/[0.08]">
-                          Customer support
+                          {t('nav.customerSupport', {}, 'Customer support')}
                         </Link>
                       </>
                     )}
@@ -968,12 +1166,34 @@ const Navbar = () => {
                 </section>
               )}
 
+              <section className="mt-4 rounded-2xl border border-white/10 bg-white/[0.04] p-4 animate-fade-up" style={{ animationDelay: '175ms', animationFillMode: 'both' }}>
+                <MarketPreferenceCard
+                  t={t}
+                  countryCode={countryCode}
+                  language={language}
+                  currency={currency}
+                  regionLabel={regionLabel}
+                  countryOptions={countryOptions}
+                  currencyOptions={currencyOptions}
+                  languageOptions={languageOptions}
+                  setCountryCode={setCountryCode}
+                  setLanguage={setLanguage}
+                  setCurrency={setCurrency}
+                  resetToDetected={resetToDetected}
+                  detectedCountryLabel={detectedCountryLabel}
+                  detectedRegionLabel={detectedRegionLabel}
+                  browseCurrencyNote={browseCurrencyNote}
+                  isEstimatedPricing={currency !== 'INR'}
+                  compact
+                />
+              </section>
+
               <section className="mt-4 rounded-2xl border border-white/10 bg-white/[0.04] p-4 animate-fade-up" style={{ animationDelay: '200ms', animationFillMode: 'both' }}>
-                <div className="mb-3 text-[11px] font-black uppercase tracking-[0.24em] text-slate-400">Experience</div>
+                <div className="mb-3 text-[11px] font-black uppercase tracking-[0.24em] text-slate-400">{t('nav.experience', {}, 'Experience')}</div>
                 <div className="mb-4">
                   <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-200">
                     <Palette className="h-4 w-4 text-neo-cyan" />
-                    Color mode
+                    {t('nav.colorMode', {}, 'Color mode')}
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     {colorModeOptions.map((mode) => (
@@ -1004,7 +1224,7 @@ const Navbar = () => {
                 <div>
                   <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-200">
                     <Gauge className="h-4 w-4 text-cyan-300" />
-                    Motion mode
+                    {t('nav.motion', {}, 'Motion')}
                   </div>
                   <div className="grid grid-cols-1 gap-2">
                     {motionModeOptions.map((mode) => (
@@ -1022,24 +1242,24 @@ const Navbar = () => {
                           <span className="text-[11px] font-black uppercase tracking-wider">{mode.label}</span>
                           {motionMode === mode.value && (
                             <span className="rounded-full border border-cyan-300/30 bg-cyan-500/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.14em] text-cyan-100">
-                              Selected
+                              {t('nav.selected', {}, 'Selected')}
                             </span>
                           )}
                         </div>
                         <div className="mt-1 text-[11px] font-medium normal-case tracking-normal text-slate-400">
-                          {motionOptionDescriptions[mode.value] || 'Motion profile'}
+                          {motionOptionDescriptions[mode.value] || t('nav.motionProfile', {}, 'Motion profile')}
                         </div>
                       </button>
                     ))}
                   </div>
                   <p className="mt-3 text-[11px] text-slate-400">
-                    Selected: <span className="font-semibold text-slate-200">{currentMotionMode?.label || 'Balanced'}</span>
+                    {t('nav.selected', {}, 'Selected')}: <span className="font-semibold text-slate-200">{currentMotionMode?.label || 'Balanced'}</span>
                     {' | '}
-                    Effective: <span className="font-semibold text-slate-200">{effectiveMotionLabel}</span>
+                    {t('nav.effective', {}, 'Effective')}: <span className="font-semibold text-slate-200">{effectiveMotionLabel}</span>
                   </p>
                   {autoDowngraded && (
                     <p className="mt-2 text-[11px] leading-5 text-amber-200">
-                      Auto performance mode is overriding the selected motion profile to keep interactions stable.
+                      {t('nav.autoMotionNotice', {}, 'Auto performance mode is overriding the selected motion profile to keep interactions stable.')}
                     </p>
                   )}
                 </div>
@@ -1054,7 +1274,7 @@ const Navbar = () => {
                   }}
                   className="mt-4 block w-full rounded-2xl border border-cyan-400/30 bg-cyan-500/10 px-4 py-4 text-left font-bold text-neo-cyan transition-colors hover:bg-cyan-500/15"
                 >
-                  Login / Sign up
+                  {t('nav.loginSignup', {}, 'Login / Sign up')}
                 </button>
               )}
             </nav>

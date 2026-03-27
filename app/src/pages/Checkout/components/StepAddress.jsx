@@ -1,6 +1,7 @@
 import { CheckCircle2, Loader2, MapPin, Truck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import PremiumSelect from '@/components/ui/premium-select';
+import { useMarket } from '@/context/MarketContext';
 
 const ADDRESS_TYPES = ['home', 'work', 'other'];
 
@@ -15,6 +16,7 @@ const StepAddress = ({
     isSavingAddress,
     isDetectingGps,
     gpsHint,
+    addressSchema = {},
     addressError,
     onSetActive,
     onContactChange,
@@ -26,6 +28,12 @@ const StepAddress = ({
     onDetectGps,
     onContinue,
 }) => {
+    const { t } = useMarket();
+    const administrativeAreaLabel = addressSchema.administrativeAreaLabel || 'State / Country';
+    const postalCodeLabel = addressSchema.postalCodeLabel || 'Postal Code';
+    const postalCodeExample = addressSchema.postalCodeExample || 'Postal code';
+    const phoneCode = addressSchema.phoneCode || '+91';
+
     return (
         <section
             className={cn(
@@ -40,7 +48,7 @@ const StepAddress = ({
             >
                 <h3 className={cn('flex items-center gap-3 text-sm font-black uppercase tracking-[0.22em] md:text-base', isActive ? 'text-neo-cyan' : 'text-white')}>
                     <Truck className="w-5 h-5" />
-                    1. Delivery Address
+                    {t('checkout.stepAddress.title', {}, '1. Delivery Address')}
                 </h3>
                 {completed ? <CheckCircle2 className="w-5 h-5 text-neo-cyan" /> : null}
             </button>
@@ -49,7 +57,7 @@ const StepAddress = ({
                 <div className="p-6 md:p-8 space-y-6">
                     {savedAddresses.length > 0 ? (
                         <div>
-                            <p className="mb-3 text-xs font-black uppercase tracking-[0.22em] text-slate-400">Saved Addresses</p>
+                            <p className="mb-3 text-xs font-black uppercase tracking-[0.22em] text-slate-400">{t('checkout.savedAddresses', {}, 'Saved Addresses')}</p>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                 {savedAddresses.map((addr) => (
                                     <button
@@ -62,8 +70,8 @@ const StepAddress = ({
                                         )}
                                     >
                                         <div className="flex items-center gap-2 mb-2">
-                                            <span className="text-[10px] uppercase tracking-[0.22em] font-black text-neo-cyan">{addr.type}</span>
-                                            {addr.isDefault ? <span className="premium-chip-muted text-[10px] font-black uppercase tracking-[0.2em]">default</span> : null}
+                                            <span className="text-[10px] uppercase tracking-[0.22em] font-black text-neo-cyan">{t(`checkout.addressType.${addr.type}`, {}, addr.type)}</span>
+                                            {addr.isDefault ? <span className="premium-chip-muted text-[10px] font-black uppercase tracking-[0.2em]">{t('checkout.default', {}, 'default')}</span> : null}
                                         </div>
                                         <p className="text-white font-semibold text-sm">{addr.name}</p>
                                         <p className="mt-1 text-slate-400 text-xs leading-6">{addr.address}</p>
@@ -76,68 +84,68 @@ const StepAddress = ({
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <label className="space-y-2">
-                            <span className="text-xs uppercase tracking-[0.22em] font-black text-slate-400">Contact Name</span>
+                            <span className="text-xs uppercase tracking-[0.22em] font-black text-slate-400">{t('checkout.contactName', {}, 'Contact Name')}</span>
                             <input
                                 value={contact.name}
                                 onChange={(event) => onContactChange('name', event.target.value)}
                                 className="checkout-premium-input"
-                                placeholder="Full Name"
+                                placeholder={t('checkout.fullName', {}, 'Full Name')}
                             />
                         </label>
                         <label className="space-y-2">
-                            <span className="text-xs uppercase tracking-[0.22em] font-black text-slate-400">Phone Number</span>
+                            <span className="text-xs uppercase tracking-[0.22em] font-black text-slate-400">{t('checkout.phoneNumber', {}, 'Phone Number')}</span>
                             <input
                                 value={contact.phone}
                                 onChange={(event) => onContactChange('phone', event.target.value)}
                                 className="checkout-premium-input"
-                                placeholder="+91 98XXXXXXXX"
+                                placeholder={`${phoneCode} 98XXXXXXXX`}
                             />
                         </label>
                         <label className="space-y-2 md:col-span-2">
-                            <span className="text-xs uppercase tracking-[0.22em] font-black text-slate-400">Street Address</span>
+                            <span className="text-xs uppercase tracking-[0.22em] font-black text-slate-400">{t('checkout.streetAddress', {}, 'Street Address')}</span>
                             <input
                                 value={shippingAddress.address}
                                 onChange={(event) => onAddressChange('address', event.target.value)}
                                 className="checkout-premium-input"
-                                placeholder="Apartment, area, street"
+                                placeholder={t('checkout.streetAddressPlaceholder', {}, 'Apartment, area, street')}
                             />
                         </label>
                         <label className="space-y-2">
-                            <span className="text-xs uppercase tracking-[0.22em] font-black text-slate-400">City</span>
+                            <span className="text-xs uppercase tracking-[0.22em] font-black text-slate-400">{t('checkout.city', {}, 'City')}</span>
                             <input
                                 value={shippingAddress.city}
                                 onChange={(event) => onAddressChange('city', event.target.value)}
                                 className="checkout-premium-input"
-                                placeholder="City"
+                                placeholder={t('checkout.city', {}, 'City')}
                             />
                         </label>
                         <label className="space-y-2">
-                            <span className="text-xs uppercase tracking-[0.22em] font-black text-slate-400">Postal Code</span>
+                            <span className="text-xs uppercase tracking-[0.22em] font-black text-slate-400">{postalCodeLabel}</span>
                             <input
                                 value={shippingAddress.postalCode}
                                 onChange={(event) => onAddressChange('postalCode', event.target.value)}
                                 className="checkout-premium-input"
-                                placeholder="Pincode"
+                                placeholder={postalCodeExample}
                             />
                         </label>
                         <label className="space-y-2">
-                            <span className="text-xs uppercase tracking-[0.22em] font-black text-slate-400">State / Country</span>
+                            <span className="text-xs uppercase tracking-[0.22em] font-black text-slate-400">{administrativeAreaLabel}</span>
                             <input
                                 value={shippingAddress.country}
                                 onChange={(event) => onAddressChange('country', event.target.value)}
                                 className="checkout-premium-input"
-                                placeholder="State"
+                                placeholder={administrativeAreaLabel}
                             />
                         </label>
                         <label className="space-y-2">
-                            <span className="text-xs uppercase tracking-[0.22em] font-black text-slate-400">Address Type</span>
+                            <span className="text-xs uppercase tracking-[0.22em] font-black text-slate-400">{t('checkout.addressTypeLabel', {}, 'Address Type')}</span>
                             <PremiumSelect
                                 value={addressType}
                                 onChange={(event) => onAddressTypeChange(event.target.value)}
                                 className="checkout-premium-input"
                             >
                                 {ADDRESS_TYPES.map((type) => (
-                                    <option key={type} value={type}>{type}</option>
+                                    <option key={type} value={type}>{t(`checkout.addressType.${type}`, {}, type)}</option>
                                 ))}
                             </PremiumSelect>
                         </label>
@@ -151,7 +159,7 @@ const StepAddress = ({
                             className="checkout-premium-secondary w-full sm:w-auto text-xs font-black uppercase tracking-[0.2em] text-neo-cyan disabled:opacity-60 disabled:cursor-not-allowed"
                         >
                             {isDetectingGps ? <Loader2 className="w-4 h-4 animate-spin" /> : <MapPin className="w-4 h-4" />}
-                            {isDetectingGps ? 'Detecting GPS...' : 'Autofill from GPS'}
+                            {isDetectingGps ? t('checkout.detectingGps', {}, 'Detecting GPS...') : t('checkout.autofillGps', {}, 'Autofill from GPS')}
                         </button>
                         {gpsHint ? <p className="text-xs text-emerald-300 font-semibold">{gpsHint}</p> : null}
                     </div>
@@ -169,7 +177,7 @@ const StepAddress = ({
                             disabled={isSavingAddress}
                             className="checkout-premium-secondary w-full sm:w-auto text-xs font-black uppercase tracking-[0.2em] disabled:opacity-50"
                         >
-                            {isSavingAddress ? 'Saving...' : 'Save As New Address'}
+                            {isSavingAddress ? t('checkout.saving', {}, 'Saving...') : t('checkout.saveAsNewAddress', {}, 'Save As New Address')}
                         </button>
                         {selectedAddressId ? (
                             <button
@@ -178,7 +186,7 @@ const StepAddress = ({
                                 disabled={isSavingAddress}
                                 className="checkout-premium-secondary w-full sm:w-auto text-xs font-black uppercase tracking-[0.2em] disabled:opacity-50"
                             >
-                                {isSavingAddress ? 'Updating...' : 'Update Selected Address'}
+                                {isSavingAddress ? t('checkout.updating', {}, 'Updating...') : t('checkout.updateSelectedAddress', {}, 'Update Selected Address')}
                             </button>
                         ) : null}
                         <button
@@ -186,13 +194,13 @@ const StepAddress = ({
                             onClick={onContinue}
                             className="checkout-premium-primary w-full sm:w-auto sm:ml-auto px-8 py-3 text-sm uppercase tracking-[0.24em] font-black"
                         >
-                            Continue
+                            {t('checkout.continue', {}, 'Continue')}
                         </button>
                     </div>
 
                     <div className="checkout-premium-note text-xs">
                         <MapPin className="w-4 h-4" />
-                        Address details are saved securely to your profile for faster checkout.
+                        {t('checkout.addressSecureNote', {}, 'Address details are saved securely to your profile for faster checkout.')}
                     </div>
                 </div>
             ) : null}

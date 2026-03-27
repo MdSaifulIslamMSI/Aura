@@ -14,6 +14,7 @@ const xssSanitizer = require('./middleware/xssSanitizer');
 const activityEmailMiddleware = require('./middleware/activityEmailMiddleware');
 const adminNotificationMiddleware = require('./middleware/adminNotificationMiddleware');
 const { requestId } = require('./middleware/requestId');
+const { resolveMarketContextMiddleware } = require('./middleware/marketContext');
 require('colors');
 
 const { notFound, errorHandler } = require('./middleware/errorMiddleware');
@@ -26,6 +27,7 @@ const productRoutes = require('./routes/productRoutes');
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
 const orderRoutes = require('./routes/orderRoutes');
+const checkoutRoutes = require('./routes/checkoutRoutes');
 const chatRoutes = require('./routes/chatRoutes');
 const aiRoutes = require('./routes/aiRoutes');
 const otpRoutes = require('./routes/otpRoutes');
@@ -33,6 +35,7 @@ const listingRoutes = require('./routes/listingRoutes');
 const tradeInRoutes = require('./routes/tradeInRoutes');
 const priceAlertRoutes = require('./routes/priceAlertRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
+const i18nRoutes = require('./routes/i18nRoutes');
 const adminPaymentRoutes = require('./routes/adminPaymentRoutes');
 const adminOrderEmailRoutes = require('./routes/adminOrderEmailRoutes');
 const adminEmailOpsRoutes = require('./routes/adminEmailOpsRoutes');
@@ -190,6 +193,7 @@ app.use(express.json({
         req.rawBody = buf.toString('utf8');
     }
 }));
+app.use(resolveMarketContextMiddleware);
 
 // Security: Data Sanitization
 app.use(mongoSanitize());
@@ -236,6 +240,7 @@ app.use('/api/products', productRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/orders', orderRoutes);
+app.use('/api/checkout', checkoutRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/otp', otpRoutes);
@@ -243,6 +248,7 @@ app.use('/api/listings', listingRoutes);
 app.use('/api/trade-in', tradeInRoutes);
 app.use('/api/price-alerts', priceAlertRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/i18n', i18nRoutes);
 app.use('/api/admin/payments', adminPaymentRoutes);
 app.use('/api/admin/order-emails', adminOrderEmailRoutes);
 app.use('/api/admin/email-ops', adminEmailOpsRoutes);

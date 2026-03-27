@@ -1,4 +1,5 @@
 import { buildApiUrl } from './apiBase';
+import { getActiveMarketHeaders } from './marketRuntime';
 
 /**
  * CSRF Token Manager
@@ -123,6 +124,7 @@ export const fetchCsrfToken = async (authToken) => {
                 'Authorization': `Bearer ${authToken}`,
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
+                ...getActiveMarketHeaders(),
             },
         });
 

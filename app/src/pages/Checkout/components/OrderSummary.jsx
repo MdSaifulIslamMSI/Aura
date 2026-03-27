@@ -1,6 +1,8 @@
 import { Box, Info, Loader2, RefreshCcw, TicketPercent, Zap } from 'lucide-react';
 import { formatPrice } from '@/utils/format';
 import { cn } from '@/lib/utils';
+import { getDisplayCurrency, getLineDisplayTotal } from '@/utils/pricing';
+import { useMarket } from '@/context/MarketContext';
 
 const OrderSummary = ({
     items,
@@ -16,6 +18,7 @@ const OrderSummary = ({
     onRemoveCoupon,
     onRecalculate,
 }) => {
+    const { t } = useMarket();
     const itemsPrice = quote?.itemsPrice ?? fallbackTotals.itemsPrice;
     const shippingPrice = quote?.shippingPrice ?? 0;
     const couponDiscount = quote?.couponDiscount ?? 0;
@@ -24,10 +27,12 @@ const OrderSummary = ({
     const totalPrice = quote?.totalPrice ?? fallbackTotals.totalPrice;
     const appliedCoupon = quote?.appliedCoupon;
     const logistics = quote?.logisticsInsights;
-    const chargeAmount = chargeQuote?.amount ?? totalPrice;
-    const chargeCurrency = chargeQuote?.currency || quote?.presentmentCurrency || 'INR';
+    const chargeAmount = chargeQuote?.amount ?? quote?.displayAmount ?? totalPrice;
+    const chargeCurrency = chargeQuote?.currency || quote?.displayCurrency || quote?.presentmentCurrency || 'INR';
     const settlementAmount = chargeQuote?.settlementAmount ?? totalPrice;
     const settlementCurrency = chargeQuote?.settlementCurrency || quote?.settlementCurrency || 'INR';
+    const baseAmount = chargeQuote?.baseAmount ?? quote?.baseAmount ?? totalPrice;
+    const baseCurrency = chargeQuote?.baseCurrency || quote?.baseCurrency || settlementCurrency;
 
     return (
         <aside className="h-fit lg:sticky lg:top-32">
@@ -35,8 +40,8 @@ const OrderSummary = ({
                 <div className="border-b border-white/10 bg-white/5 p-6">
                     <div className="flex items-center justify-between gap-3">
                         <div>
-                            <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-400">Order Summary</p>
-                            <h3 className="mt-2 text-2xl font-black tracking-tight text-white">Final price intelligence</h3>
+                            <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-400">{t('checkout.orderSummaryEyebrow', {}, 'Order Summary')}</p>
+                            <h3 className="mt-2 text-2xl font-black tracking-tight text-white">{t('checkout.orderSummaryTitle', {}, 'Final price intelligence')}</h3>
                         </div>
                         {isQuoting ? <Loader2 className="h-4 w-4 animate-spin text-neo-cyan" /> : null}
                     </div>
@@ -51,9 +56,9 @@ const OrderSummary = ({
                                 </div>
                                 <div className="min-w-0 flex-1">
                                     <p className="line-clamp-1 text-sm font-semibold text-white">{item.title}</p>
-                                    <p className="mt-1 text-xs uppercase tracking-[0.18em] text-slate-400">Qty {item.quantity}</p>
+                                    <p className="mt-1 text-xs uppercase tracking-[0.18em] text-slate-400">{t('checkout.qty', { count: item.quantity }, `Qty ${item.quantity}`)}</p>
                                 </div>
-                                <p className="text-sm font-bold text-slate-200">{formatPrice(item.price * item.quantity)}</p>
+                                <p className="text-sm font-bold text-slate-200">{formatPrice(getLineDisplayTotal(item), getDisplayCurrency(item))}</p>
                             </div>
                         ))}
                     </div>
@@ -63,32 +68,32 @@ const OrderSummary = ({
                             <div className="flex items-center justify-between">
                                 <p className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.22em] text-neo-cyan">
                                     <Box className="h-4 w-4" />
-                                    Aura Logistics Insight
+                                    {t('checkout.logisticsInsight', {}, 'Aura Logistics Insight')}
                                 </p>
                                 <span className="bg-neo-cyan/20 text-neo-cyan px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider">
-                                    NP-Hard Optimized
+                                    {t('checkout.optimized', {}, 'NP-Hard Optimized')}
                                 </span>
                             </div>
                             
                             <div className="grid grid-cols-2 gap-2 mt-2">
                                 <div className="bg-white/5 p-2 rounded-xl border border-white/5">
-                                    <p className="text-[10px] text-slate-400 uppercase tracking-wider">Consolidation</p>
+                                    <p className="text-[10px] text-slate-400 uppercase tracking-wider">{t('checkout.consolidation', {}, 'Consolidation')}</p>
                                     <p className="text-sm font-bold text-white">{logistics.consolidationEfficiency || 'Direct'}</p>
                                 </div>
                                 <div className="bg-white/5 p-2 rounded-xl border border-white/5">
-                                    <p className="text-[10px] text-slate-400 uppercase tracking-wider">Eco-Impact</p>
+                                    <p className="text-[10px] text-slate-400 uppercase tracking-wider">{t('checkout.ecoImpact', {}, 'Eco-Impact')}</p>
                                     <p className="text-[11px] font-bold text-neo-cyan truncate">{logistics.ecoBadge || 'Standard'}</p>
                                 </div>
                             </div>
 
                             <div className="grid grid-cols-2 gap-2">
                                 <div className="bg-white/5 p-2 rounded-xl border border-white/5">
-                                    <p className="text-[10px] text-slate-400 uppercase tracking-wider">Efficiency</p>
+                                    <p className="text-[10px] text-slate-400 uppercase tracking-wider">{t('checkout.efficiency', {}, 'Efficiency')}</p>
                                     <p className="text-sm font-bold text-white">{logistics.efficiency}</p>
                                 </div>
                                 <div className="bg-white/5 p-2 rounded-xl border border-white/5">
-                                    <p className="text-[10px] text-slate-400 uppercase tracking-wider">Net Savings</p>
-                                    <p className="text-sm font-bold text-neo-cyan">-{formatPrice(logistics.savings)}</p>
+                                    <p className="text-[10px] text-slate-400 uppercase tracking-wider">{t('checkout.netSavings', {}, 'Net Savings')}</p>
+                                    <p className="text-sm font-bold text-neo-cyan">-{formatPrice(logistics.savings, settlementCurrency)}</p>
                                 </div>
                             </div>
                             
@@ -96,7 +101,7 @@ const OrderSummary = ({
                                 {logistics.hub && (
                                     <div className="flex items-center gap-2 text-[11px] text-neo-cyan font-bold">
                                         <div className="w-1 h-1 rounded-full bg-neo-cyan" />
-                                        <span>Merging at {logistics.hub}</span>
+                                        <span>{t('checkout.mergingAt', { hub: logistics.hub }, `Merging at ${logistics.hub}`)}</span>
                                     </div>
                                 )}
                                 {logistics.containers.map((c, i) => (
@@ -105,14 +110,14 @@ const OrderSummary = ({
                                             <div className="w-1 h-1 rounded-full bg-neo-cyan/50" />
                                             <span>{c.type} ({c.itemCount} items)</span>
                                         </div>
-                                        <span className="text-slate-500 font-mono">Density: {c.efficiency}</span>
+                                        <span className="text-slate-500 font-mono">{t('checkout.density', { value: c.efficiency }, `Density: ${c.efficiency}`)}</span>
                                     </div>
                                 ))}
                             </div>
                             
                             <div className="flex items-center gap-2 mt-1 text-[10px] text-slate-400 italic">
                                 <Info className="h-3 w-3" />
-                                Strategy: {logistics.strategy}
+                                {t('checkout.strategy', { value: logistics.strategy }, `Strategy: ${logistics.strategy}`)}
                             </div>
                         </div>
                     )}
@@ -120,38 +125,41 @@ const OrderSummary = ({
                     <div className="checkout-premium-surface space-y-3">
                         {chargeCurrency !== settlementCurrency ? (
                             <div className="checkout-premium-alert border-emerald-500/20 bg-emerald-500/10 text-emerald-100">
-                                <p className="text-[11px] font-black uppercase tracking-[0.22em] text-emerald-200">International Charge</p>
+                                <p className="text-[11px] font-black uppercase tracking-[0.22em] text-emerald-200">{t('checkout.internationalCharge', {}, 'International Charge')}</p>
                                 <p className="mt-2 text-sm font-semibold text-white">{formatPrice(chargeAmount, chargeCurrency)}</p>
-                                <p className="mt-1 text-xs text-emerald-100/80">Base order value remains {formatPrice(settlementAmount, settlementCurrency)} for settlement integrity and refunds.</p>
+                                <p className="mt-1 text-xs text-emerald-100/80">{t('checkout.baseOrderValue', {
+                                    base: formatPrice(baseAmount, baseCurrency),
+                                    settlement: formatPrice(settlementAmount, settlementCurrency),
+                                }, `Base order value remains ${formatPrice(baseAmount, baseCurrency)} and settles at ${formatPrice(settlementAmount, settlementCurrency)} for integrity and refunds.`)}</p>
                             </div>
                         ) : null}
                         <div className="flex justify-between text-sm text-slate-300">
-                            <span>Items</span>
+                            <span>{t('checkout.items', {}, 'Items')}</span>
                             <span>{formatPrice(itemsPrice, settlementCurrency)}</span>
                         </div>
                         <div className="flex justify-between text-sm text-slate-300">
-                            <span>Shipping</span>
+                            <span>{t('checkout.shipping', {}, 'Shipping')}</span>
                             <div className="text-right">
-                                <span>{shippingPrice === 0 ? 'FREE' : formatPrice(shippingPrice, settlementCurrency)}</span>
-                                {logistics && <p className="text-[10px] text-neo-cyan font-bold tracking-tight mt-0.5">ALGO-CONSOLIDATED</p>}
+                                <span>{shippingPrice === 0 ? t('checkout.free', {}, 'FREE') : formatPrice(shippingPrice, settlementCurrency)}</span>
+                                {logistics && <p className="text-[10px] text-neo-cyan font-bold tracking-tight mt-0.5">{t('checkout.algoConsolidated', {}, 'ALGO-CONSOLIDATED')}</p>}
                             </div>
                         </div>
                         <div className="flex justify-between text-sm text-slate-300">
-                            <span>Payment Adjustment</span>
+                            <span>{t('checkout.paymentAdjustment', {}, 'Payment Adjustment')}</span>
                             <span className={cn(paymentAdjustment <= 0 ? 'text-neo-cyan' : 'text-amber-300')}>
                                 {paymentAdjustment === 0 ? formatPrice(0, settlementCurrency) : `${paymentAdjustment > 0 ? '+' : '-'} ${formatPrice(Math.abs(paymentAdjustment), settlementCurrency)}`}
                             </span>
                         </div>
                         <div className="flex justify-between text-sm text-slate-300">
-                            <span>Coupon Discount</span>
+                            <span>{t('checkout.couponDiscount', {}, 'Coupon Discount')}</span>
                             <span className="text-neo-cyan">- {formatPrice(couponDiscount, settlementCurrency)}</span>
                         </div>
                         <div className="flex justify-between text-sm text-slate-300">
-                            <span>Tax</span>
+                            <span>{t('checkout.tax', {}, 'Tax')}</span>
                             <span>{formatPrice(taxPrice, settlementCurrency)}</span>
                         </div>
                         <div className="flex items-center justify-between gap-3 border-t border-white/10 pt-4">
-                            <span className="text-xs font-black uppercase tracking-[0.22em] text-slate-400">Total</span>
+                            <span className="text-xs font-black uppercase tracking-[0.22em] text-slate-400">{t('checkout.total', {}, 'Total')}</span>
                             <span className="text-2xl font-black tracking-tight text-white">{formatPrice(chargeAmount, chargeCurrency)}</span>
                         </div>
                     </div>
@@ -159,13 +167,13 @@ const OrderSummary = ({
                     <div className="checkout-premium-surface space-y-3">
                         <p className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.22em] text-slate-400">
                             <TicketPercent className="h-4 w-4 text-neo-cyan" />
-                            Coupon
+                            {t('checkout.coupon', {}, 'Coupon')}
                         </p>
                         <div className="flex flex-col gap-2 sm:flex-row">
                             <input
                                 value={couponCode}
                                 onChange={(event) => onCouponCodeChange(event.target.value.toUpperCase())}
-                                placeholder="Enter code"
+                                placeholder={t('checkout.enterCode', {}, 'Enter code')}
                                 className="checkout-premium-input flex-1"
                             />
                             <button
@@ -173,14 +181,14 @@ const OrderSummary = ({
                                 onClick={onApplyCoupon}
                                 className="checkout-premium-secondary w-full text-xs font-black uppercase tracking-[0.2em] sm:w-auto"
                             >
-                                Apply
+                                {t('checkout.apply', {}, 'Apply')}
                             </button>
                         </div>
                         {appliedCoupon ? (
                             <div className="checkout-premium-alert flex items-center justify-between gap-2 border-neo-cyan/20 bg-neo-cyan/10 text-neo-cyan">
-                                <span>{appliedCoupon.code} applied</span>
+                                <span>{t('checkout.applied', { code: appliedCoupon.code }, `${appliedCoupon.code} applied`)}</span>
                                 <button type="button" onClick={onRemoveCoupon} className="underline">
-                                    Remove
+                                    {t('checkout.remove', {}, 'Remove')}
                                 </button>
                             </div>
                         ) : null}
@@ -192,12 +200,12 @@ const OrderSummary = ({
                         className="checkout-premium-secondary flex w-full items-center justify-center gap-2 text-xs font-black uppercase tracking-[0.2em]"
                     >
                         <RefreshCcw className="h-3.5 w-3.5" />
-                        Recalculate Quote
+                        {t('checkout.recalculateQuote', {}, 'Recalculate Quote')}
                     </button>
 
                     {isQuoteStale ? (
                         <div className="checkout-premium-alert border-amber-500/30 bg-amber-500/10 text-amber-200">
-                            Pricing may be stale. Recalculate before placing the order.
+                            {t('checkout.quoteStale', {}, 'Pricing may be stale. Recalculate before placing the order.')}
                         </div>
                     ) : null}
 
@@ -209,7 +217,7 @@ const OrderSummary = ({
 
                     <div className="checkout-premium-note text-xs">
                         <Zap className="mt-0.5 h-4 w-4 text-neo-cyan" />
-                        <span>All totals are backend-validated during order placement.</span>
+                        <span>{t('checkout.backendTotalsValidated', {}, 'All totals are backend-validated during order placement.')}</span>
                     </div>
                 </div>
             </div>

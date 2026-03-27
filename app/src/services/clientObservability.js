@@ -1,4 +1,5 @@
 import { resolveApiBaseUrl, trimTrailingSlash } from './runtimeApiConfig';
+import { getActiveMarketHeaders } from './marketRuntime';
 
 const API_BASE_URL = trimTrailingSlash(resolveApiBaseUrl('/api'));
 const CLIENT_SESSION_STORAGE_KEY = 'aura_observability_session_id';
@@ -202,6 +203,7 @@ export const flushBufferedClientDiagnostics = async ({ useBeacon = false, force 
                     'X-Client-Session-Id': getClientSessionId(),
                     'X-Client-Route': getCurrentRoute(),
                     'X-Client-Diagnostic-Source': 'browser',
+                    ...getActiveMarketHeaders(),
                 },
                 body: payload,
                 keepalive: true,
@@ -320,9 +322,15 @@ export const prepareTraceHeaders = (input, headersInit = undefined) => {
     const requestId = headers.get('X-Request-Id') || createId('req');
     const clientSessionId = headers.get('X-Client-Session-Id') || getClientSessionId();
     const clientRoute = headers.get('X-Client-Route') || getCurrentRoute();
+    const marketHeaders = getActiveMarketHeaders();
 
     headers.set('X-Request-Id', requestId);
     headers.set('X-Client-Session-Id', clientSessionId);
+    Object.entries(marketHeaders).forEach(([key, value]) => {
+        if (!headers.has(key) && value) {
+            headers.set(key, value);
+        }
+    });
     if (clientRoute) {
         headers.set('X-Client-Route', clientRoute);
     }

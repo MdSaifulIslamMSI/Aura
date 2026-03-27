@@ -1,10 +1,11 @@
 import { ShoppingCart } from 'lucide-react';
+import { useMarket } from '@/context/MarketContext';
 import { cn } from '@/lib/utils';
+import { formatPrice } from '@/utils/format';
 import ConfirmationCard from './ConfirmationCard';
 import ProductCardInline from './ProductCardInline';
 import SupportHandoffCard from './SupportHandoffCard';
 
-const formatInr = (value = 0) => `Rs ${Number(value || 0).toLocaleString('en-IN')}`;
 const PRODUCT_SURFACES = new Set(['product_results', 'product_focus']);
 
 const renderParagraphs = (text = '') => {
@@ -20,7 +21,7 @@ const renderParagraphs = (text = '') => {
     ));
 };
 
-const renderCartSummary = (cartSummary, isWhiteMode) => {
+const renderCartSummary = (cartSummary, isWhiteMode, t) => {
     if (!cartSummary) return null;
 
     const cardClassName = isWhiteMode
@@ -32,28 +33,28 @@ const renderCartSummary = (cartSummary, isWhiteMode) => {
         <div className={cn('rounded-[1.25rem] border p-4', cardClassName)}>
             <div className="flex items-center gap-2">
                 <ShoppingCart className="h-4 w-4" />
-                <p className="text-sm font-bold">Cart summary</p>
+                <p className="text-sm font-bold">{t('product.cartSummary', {}, 'Cart summary')}</p>
             </div>
 
             <div className="mt-3 grid grid-cols-3 gap-3 text-xs">
                 <div>
-                    <span className={mutedTextClass}>Items</span>
+                    <span className={mutedTextClass}>{t('product.items', {}, 'Items')}</span>
                     <p className="mt-1 text-sm font-bold">{cartSummary.totalItems || 0}</p>
                 </div>
                 <div>
-                    <span className={mutedTextClass}>Total</span>
-                    <p className="mt-1 text-sm font-bold">{formatInr(cartSummary.totalPrice)}</p>
+                    <span className={mutedTextClass}>{t('product.total', {}, 'Total')}</span>
+                    <p className="mt-1 text-sm font-bold">{formatPrice(cartSummary.totalPrice, cartSummary.currency)}</p>
                 </div>
                 <div>
-                    <span className={mutedTextClass}>Saved</span>
-                    <p className="mt-1 text-sm font-bold">{formatInr(cartSummary.totalDiscount)}</p>
+                    <span className={mutedTextClass}>{t('product.saved', {}, 'Saved')}</span>
+                    <p className="mt-1 text-sm font-bold">{formatPrice(cartSummary.totalDiscount, cartSummary.currency)}</p>
                 </div>
             </div>
         </div>
     );
 };
 
-const renderSearchSignal = (searchMeta, isWhiteMode) => {
+const renderSearchSignal = (searchMeta, isWhiteMode, t) => {
     if (!searchMeta?.matchType || searchMeta.matchType === 'exact') {
         return null;
     }
@@ -65,8 +66,10 @@ const renderSearchSignal = (searchMeta, isWhiteMode) => {
 
     return (
         <div className={cn('rounded-[1rem] border px-3 py-2 text-[11px] font-medium', noteClassName)}>
-            No exact match for "{searchMeta.query || 'your search'}". Showing closest matches
-            {confidence > 0 ? ` (${confidence}% confidence).` : '.'}
+            {t('product.closestMatches', {
+                query: searchMeta.query || 'your search',
+                confidence: confidence > 0 ? ` (${confidence}% confidence).` : '.',
+            }, `No exact match for "${searchMeta.query || 'your search'}". Showing closest matches${confidence > 0 ? ` (${confidence}% confidence).` : '.'}`)}
         </div>
     );
 };
@@ -83,6 +86,7 @@ const MessageItem = ({
     onCancelPending,
     onModifyPending,
 }) => {
+    const { t } = useMarket();
     const isUser = message?.role === 'user';
     const bubbleClassName = isUser
         ? (isWhiteMode
@@ -108,8 +112,8 @@ const MessageItem = ({
                 </div>
             </div>
 
-            {!isUser && message?.cartSummary ? renderCartSummary(message.cartSummary, isWhiteMode) : null}
-            {!isUser ? renderSearchSignal(searchMeta, isWhiteMode) : null}
+            {!isUser && message?.cartSummary ? renderCartSummary(message.cartSummary, isWhiteMode, t) : null}
+            {!isUser ? renderSearchSignal(searchMeta, isWhiteMode, t) : null}
 
             {shouldRenderProducts ? (
                 <div className="grid w-full gap-3">

@@ -64,7 +64,7 @@ const touchCommandCenter = (order) => {
 // @access  Private
 const quoteOrder = asyncHandler(async (req, res, next) => {
     try {
-        const quote = await buildOrderQuote(req.body, { checkStock: true });
+        const quote = await buildOrderQuote(req.body, { checkStock: true, market: req.market });
         res.json({
             itemsPrice: quote.pricing.itemsPrice,
             couponDiscount: quote.pricing.couponDiscount,
@@ -72,6 +72,12 @@ const quoteOrder = asyncHandler(async (req, res, next) => {
             shippingPrice: quote.pricing.shippingPrice,
             taxPrice: quote.pricing.taxPrice,
             totalPrice: quote.pricing.totalPrice,
+            baseAmount: quote.pricing.baseAmount,
+            baseCurrency: quote.pricing.baseCurrency,
+            displayAmount: quote.pricing.displayAmount,
+            displayCurrency: quote.pricing.displayCurrency,
+            fxRateLocked: quote.pricing.fxRateLocked,
+            fxTimestamp: quote.pricing.fxTimestamp,
             settlementCurrency: quote.pricing.settlementCurrency || 'INR',
             settlementAmount: quote.pricing.settlementAmount ?? quote.pricing.totalPrice,
             charge: quote.pricing.charge || null,
@@ -108,6 +114,7 @@ const addOrderItems = asyncHandler(async (req, res, next) => {
             requestId: req.requestId,
             idempotencyKey,
             userKey,
+            market: req.market,
         });
 
         res.status(result.statusCode).json(result.response);

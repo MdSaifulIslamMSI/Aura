@@ -1,8 +1,15 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import BackendStatusBanner from './BackendStatusBanner';
+import { MarketProvider } from '@/context/MarketContext';
 import { pushClientDiagnostic } from '@/services/clientObservability';
 import * as apiBase from '@/services/apiBase';
+
+const renderBanner = () => render(
+  <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+    <BackendStatusBanner />
+  </MarketProvider>
+);
 
 describe('BackendStatusBanner', () => {
   beforeEach(() => {
@@ -28,7 +35,7 @@ describe('BackendStatusBanner', () => {
       })
     ));
 
-    render(<BackendStatusBanner />);
+    renderBanner();
 
     expect(await screen.findByText('Backend health degraded')).toBeInTheDocument();
     expect(screen.getByText(/Debug Ref srv-health-1/i)).toBeInTheDocument();
@@ -46,7 +53,7 @@ describe('BackendStatusBanner', () => {
       })
     ));
 
-    render(<BackendStatusBanner />);
+    renderBanner();
 
     await waitFor(() => {
       expect(screen.queryByText('Backend unavailable')).not.toBeInTheDocument();
@@ -86,7 +93,7 @@ describe('BackendStatusBanner', () => {
       })
     ));
 
-    render(<BackendStatusBanner />);
+    renderBanner();
 
     // Wait for initial health check
     await waitFor(() => {
@@ -141,7 +148,7 @@ describe('BackendStatusBanner', () => {
       })
     );
 
-    render(<BackendStatusBanner />);
+    renderBanner();
 
     await waitFor(() => {
       expect(screen.queryByText('Backend unavailable')).not.toBeInTheDocument();

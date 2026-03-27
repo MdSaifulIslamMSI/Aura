@@ -9,6 +9,7 @@ const { invalidateUserCache, invalidateUserCacheByEmail } = require('../middlewa
 const logger = require('../utils/logger');
 const AppError = require('../utils/AppError');
 const { buildProductImageDeliveryUrl } = require('../services/productImageResolver');
+const { buildDisplayPair } = require('../services/markets/marketPricing');
 
 const PROFILE_PROJECTION = 'name email phone avatar gender dob bio isAdmin isVerified isSeller sellerActivatedAt accountState moderation addresses cart cartRevision cartSyncedAt wishlist wishlistRevision wishlistSyncedAt loyalty createdAt';
 const AUTH_ONLY_PROJECTION = 'name email phone isAdmin isVerified isSeller sellerActivatedAt accountState moderation loyalty';
@@ -125,16 +126,51 @@ const hydrateWishlistWithLiveProducts = async (wishlistItems = []) => {
 const cartSnapshotsEqual = (left = [], right = []) => JSON.stringify(left || []) === JSON.stringify(right || []);
 const wishlistSnapshotsEqual = (left = [], right = []) => JSON.stringify(left || []) === JSON.stringify(right || []);
 
-const buildCartResponse = (userLike = {}) => ({
-    items: Array.isArray(userLike?.cart) ? userLike.cart : [],
+const attachMarketPricingToLine = async (item = {}, market = null) => {
+    if (!market) return item;
+
+    const pricing = await buildDisplayPair({
+        amount: Number(item?.price || 0),
+        originalAmount: Number(item?.originalPrice || item?.price || 0),
+        baseCurrency: market.baseCurrency,
+        market,
+    });
+
+    return {
+        ...item,
+        pricing,
+        market: {
+            countryCode: market.countryCode,
+            currency: pricing.displayCurrency,
+            language: market.language,
+        },
+    };
+};
+
+const mapItemsWithMarketPricing = async (items = [], market = null) => Promise.all(
+    (Array.isArray(items) ? items : []).map((item) => attachMarketPricingToLine(item, market))
+);
+
+const buildCartResponse = async (userLike = {}, market = null) => ({
+    items: await mapItemsWithMarketPricing(userLike?.cart || [], market),
     revision: Number(userLike?.cartRevision || 0),
     syncedAt: userLike?.cartSyncedAt || null,
+    market: market ? {
+        countryCode: market.countryCode,
+        currency: market.currency,
+        language: market.language,
+    } : null,
 });
 
-const buildWishlistResponse = (userLike = {}) => ({
-    items: Array.isArray(userLike?.wishlist) ? userLike.wishlist : [],
+const buildWishlistResponse = async (userLike = {}, market = null) => ({
+    items: await mapItemsWithMarketPricing(userLike?.wishlist || [], market),
     revision: Number(userLike?.wishlistRevision || 0),
     syncedAt: userLike?.wishlistSyncedAt || null,
+    market: market ? {
+        countryCode: market.countryCode,
+        currency: market.currency,
+        language: market.language,
+    } : null,
 });
 
 const parseExpectedRevision = (value) => {
@@ -144,19 +180,19 @@ const parseExpectedRevision = (value) => {
     return parsed;
 };
 
-const sendCartConflict = (res, userLike) => (
+const sendCartConflict = async (res, userLike, market = null) => (
     res.status(409).json({
         code: 'cart_revision_conflict',
         message: 'Cart revision conflict',
-        ...buildCartResponse(userLike),
+        ...(await buildCartResponse(userLike, market)),
     })
 );
 
-const sendWishlistConflict = (res, userLike) => (
+const sendWishlistConflict = async (res, userLike, market = null) => (
     res.status(409).json({
         code: 'wishlist_revision_conflict',
         message: 'Wishlist revision conflict',
-        ...buildWishlistResponse(userLike),
+        ...(await buildWishlistResponse(userLike, market)),
     })
 );
 
@@ -887,7 +923,7 @@ const getCart = asyncHandler(async (req, res, next) => {
     }
 
     await ensureHydratedUserCartDocument(user);
-    return res.json(buildCartResponse(user));
+    return res.json(await buildCartResponse(user, req.market));
 });
 
 const syncCart = asyncHandler(async (req, res, next) => {
@@ -916,11 +952,11 @@ const syncCart = asyncHandler(async (req, res, next) => {
     await ensureHydratedUserCartDocument(user);
 
     if (expectedRevision !== null && Number(user.cartRevision || 0) !== expectedRevision) {
-        return sendCartConflict(res, user);
+        return sendCartConflict(res, user, req.market);
     }
 
     const { user: persistedUser } = await persistCartMutation(user, cartItems);
-    res.json(buildCartResponse(persistedUser));
+    res.json(await buildCartResponse(persistedUser, req.market));
 });
 
 const addCartItem = asyncHandler(async (req, res, next) => {
@@ -952,7 +988,7 @@ const addCartItem = asyncHandler(async (req, res, next) => {
     await ensureHydratedUserCartDocument(user);
 
     if (expectedRevision !== null && Number(user.cartRevision || 0) !== expectedRevision) {
-        return sendCartConflict(res, user);
+        return sendCartConflict(res, user, req.market);
     }
 
     const liveProduct = await loadLiveProductById(productId);
@@ -1016,7 +1052,7 @@ const setCartItemQuantity = asyncHandler(async (req, res, next) => {
     await ensureHydratedUserCartDocument(user);
 
     if (expectedRevision !== null && Number(user.cartRevision || 0) !== expectedRevision) {
-        return sendCartConflict(res, user);
+        return sendCartConflict(res, user, req.market);
     }
 
     const currentCart = Array.isArray(user.cart)
@@ -1082,7 +1118,7 @@ const removeCartItem = asyncHandler(async (req, res, next) => {
     await ensureHydratedUserCartDocument(user);
 
     if (expectedRevision !== null && Number(user.cartRevision || 0) !== expectedRevision) {
-        return sendCartConflict(res, user);
+        return sendCartConflict(res, user, req.market);
     }
 
     const currentCart = Array.isArray(user.cart)
@@ -1129,12 +1165,12 @@ const mergeCart = asyncHandler(async (req, res, next) => {
     await ensureHydratedUserCartDocument(user);
 
     if (expectedRevision !== null && Number(user.cartRevision || 0) !== expectedRevision) {
-        return sendCartConflict(res, user);
+        return sendCartConflict(res, user, req.market);
     }
 
     const mergedCart = mergeCartItems(user.cart || [], incomingItems);
     const { user: persistedUser } = await persistCartMutation(user, mergedCart);
-    return res.json(buildCartResponse(persistedUser));
+    return res.json(await buildCartResponse(persistedUser, req.market));
 });
 
 // @desc    Get wishlist snapshot
@@ -1153,7 +1189,7 @@ const getWishlist = asyncHandler(async (req, res, next) => {
     }
 
     await ensureHydratedUserWishlistDocument(user);
-    return res.json(buildWishlistResponse(user));
+    return res.json(await buildWishlistResponse(user, req.market));
 });
 
 // @desc    Sync wishlist snapshot (legacy full replacement)
@@ -1184,11 +1220,11 @@ const syncWishlist = asyncHandler(async (req, res, next) => {
     await ensureHydratedUserWishlistDocument(user);
 
     if (expectedRevision !== null && Number(user.wishlistRevision || 0) !== expectedRevision) {
-        return sendWishlistConflict(res, user);
+        return sendWishlistConflict(res, user, req.market);
     }
 
     const { user: persistedUser } = await persistWishlistMutation(user, wishlistItems);
-    return res.json(buildWishlistResponse(persistedUser));
+    return res.json(await buildWishlistResponse(persistedUser, req.market));
 });
 
 // @desc    Add wishlist item
@@ -1219,7 +1255,7 @@ const addWishlistItem = asyncHandler(async (req, res, next) => {
     await ensureHydratedUserWishlistDocument(user);
 
     if (expectedRevision !== null && Number(user.wishlistRevision || 0) !== expectedRevision) {
-        return sendWishlistConflict(res, user);
+        return sendWishlistConflict(res, user, req.market);
     }
 
     const liveProduct = await loadLiveProductById(productId);
@@ -1277,7 +1313,7 @@ const removeWishlistItem = asyncHandler(async (req, res, next) => {
     await ensureHydratedUserWishlistDocument(user);
 
     if (expectedRevision !== null && Number(user.wishlistRevision || 0) !== expectedRevision) {
-        return sendWishlistConflict(res, user);
+        return sendWishlistConflict(res, user, req.market);
     }
 
     const currentWishlist = Array.isArray(user.wishlist)
@@ -1327,12 +1363,12 @@ const mergeWishlist = asyncHandler(async (req, res, next) => {
     await ensureHydratedUserWishlistDocument(user);
 
     if (expectedRevision !== null && Number(user.wishlistRevision || 0) !== expectedRevision) {
-        return sendWishlistConflict(res, user);
+        return sendWishlistConflict(res, user, req.market);
     }
 
     const mergedWishlist = mergeWishlistItems(user.wishlist || [], incomingItems);
     const { user: persistedUser } = await persistWishlistMutation(user, mergedWishlist);
-    return res.json(buildWishlistResponse(persistedUser));
+    return res.json(await buildWishlistResponse(persistedUser, req.market));
 });
 
 // @desc    Activate seller mode for current user

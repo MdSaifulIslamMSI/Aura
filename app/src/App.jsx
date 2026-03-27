@@ -5,6 +5,7 @@ import { AuthProvider } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
 import { WishlistProvider } from './context/WishlistContext';
 import { ColorModeProvider } from './context/ColorModeContext';
+import { MarketProvider } from './context/MarketContext';
 import { MotionModeProvider, useMotionMode } from './context/MotionModeContext';
 import { SocketProvider } from './context/SocketContext';
 import { AdminRoute, ProtectedRoute, SellerRoute } from './components/shared/ProtectedRoute';
@@ -20,6 +21,7 @@ import RouteTransitionShell from './components/shared/RouteTransitionShell';
 import AppErrorBoundary from './components/shared/AppErrorBoundary';
 import BackendStatusBanner from './components/shared/BackendStatusBanner';
 import GlobalSupportLauncher from './components/shared/GlobalSupportLauncher';
+import MarketAutoLocalizer from './components/shared/MarketAutoLocalizer';
 import { trustRoutes } from './config/trustContent';
 import { assertRouteA11yContracts } from './utils/a11yContracts';
 import { lazyWithRetry } from './utils/lazyWithRetry';
@@ -175,6 +177,7 @@ function AppContent() {
 
   return (
     <div className="aura-app-shell flex min-h-screen flex-col">
+      <MarketAutoLocalizer />
       {/* Skip-to-main-content — first focusable element for keyboard/screen-reader users.
           Hidden by default, revealed on focus via sr-only + focus:not-sr-only pattern. */}
       <a
@@ -285,21 +288,23 @@ function App() {
   return (
     <ColorModeProvider>
       <MotionModeProvider>
-        <AuthProvider>
-          <SocketProvider>
-            <NotificationProvider>
-              <VideoCallProvider>
-                <CartProvider>
-                  <WishlistProvider>
-                    <Router>
-                      <AppContent />
-                    </Router>
-                  </WishlistProvider>
-                </CartProvider>
-              </VideoCallProvider>
-            </NotificationProvider>
-          </SocketProvider>
-        </AuthProvider>
+        <MarketProvider>
+          <AuthProvider>
+            <SocketProvider>
+              <NotificationProvider>
+                <VideoCallProvider>
+                  <CartProvider>
+                    <WishlistProvider>
+                      <Router>
+                        <AppContent />
+                      </Router>
+                    </WishlistProvider>
+                  </CartProvider>
+                </VideoCallProvider>
+              </NotificationProvider>
+            </SocketProvider>
+          </AuthProvider>
+        </MarketProvider>
       </MotionModeProvider>
     </ColorModeProvider>
   );

@@ -19,6 +19,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { trustApi } from '@/services/api';
+import { useMarket } from '@/context/MarketContext';
 import { buildSupportHandoffPath } from '@/utils/assistantCommands';
 
 const STATUS_CLASSES = {
@@ -47,6 +48,7 @@ const FOOTER_PILLARS = [
 
 const Footer = () => {
   const location = useLocation();
+  const { t } = useMarket();
   const [trustStatus, setTrustStatus] = useState({
     backend: { status: 'checking', db: 'unknown', uptime: 0, timestamp: null },
     client: { online: true, secureContext: false, language: 'unknown', timezone: 'unknown' },
@@ -172,13 +174,13 @@ const Footer = () => {
             <div className="flex items-center gap-2">
               <Activity className="w-4 h-4 text-neo-cyan" />
               <h3 className="text-xs font-bold tracking-[0.2em] uppercase text-slate-100">
-                Security Operations
+                {t('footer.securityOps', {}, 'Security Operations')}
               </h3>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full lg:max-w-4xl">
               <div className={`footer-card px-3 py-2 transition-all duration-300 hover:-translate-y-1 ${STATUS_CLASSES[systemHealthStatus]}`}>
-                <p className="text-[10px] uppercase tracking-wider font-bold">System Health</p>
+                <p className="text-[10px] uppercase tracking-wider font-bold">{t('footer.systemHealth', {}, 'System Health')}</p>
                 <p className="text-sm font-semibold mt-0.5 flex items-center gap-2">
                   <Server className="w-3.5 h-3.5" />
                   {systemHealthStatus === 'healthy'
@@ -190,7 +192,7 @@ const Footer = () => {
               </div>
 
               <div className={`footer-card px-3 py-2 transition-all duration-300 hover:-translate-y-1 ${STATUS_CLASSES[paymentSafetyStatus]}`}>
-                <p className="text-[10px] uppercase tracking-wider font-bold">Payments Safety</p>
+                <p className="text-[10px] uppercase tracking-wider font-bold">{t('footer.paymentSafety', {}, 'Payments Safety')}</p>
                 <p className="text-sm font-semibold mt-0.5 flex items-center gap-2">
                   <ShieldCheck className="w-3.5 h-3.5" />
                   {paymentSafetyStatus === 'healthy' ? 'Protected' : 'Monitoring'}
@@ -198,7 +200,7 @@ const Footer = () => {
               </div>
 
               <div className={`footer-card px-3 py-2 transition-all duration-300 hover:-translate-y-1 ${STATUS_CLASSES[emailSecurityStatus]}`}>
-                <p className="text-[10px] uppercase tracking-wider font-bold">Email Security</p>
+                <p className="text-[10px] uppercase tracking-wider font-bold">{t('footer.emailSecurity', {}, 'Email Security')}</p>
                 <p className="text-sm font-semibold mt-0.5 flex items-center gap-2">
                   <Lock className="w-3.5 h-3.5" />
                   {emailSecurityStatus === 'healthy' ? 'Strict Active' : 'Syncing'}
@@ -211,7 +213,7 @@ const Footer = () => {
               className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-amber-400/30 bg-amber-500/10 text-amber-200 text-xs font-bold uppercase tracking-wider hover:bg-amber-500/20 transition-colors"
             >
               <AlertTriangle className="w-3.5 h-3.5" />
-              Incident Support
+              {t('footer.incidentSupport', {}, 'Incident Support')}
             </Link>
           </div>
         </div>
@@ -226,8 +228,8 @@ const Footer = () => {
                 <Truck className="w-6 h-6 text-neo-cyan" />
               </div>
               <div>
-                <p className="font-bold text-slate-100 mb-1">Express Delivery</p>
-                <p className="text-xs text-slate-400">Fast shipping on all orders</p>
+                <p className="font-bold text-slate-100 mb-1">{t('footer.expressDelivery', {}, 'Express Delivery')}</p>
+                <p className="text-xs text-slate-400">{t('footer.expressDeliveryBody', {}, 'Fast shipping on all orders')}</p>
               </div>
             </div>
 
@@ -236,8 +238,8 @@ const Footer = () => {
                 <RotateCcw className="w-6 h-6 text-neo-emerald" />
               </div>
               <div>
-                <p className="font-bold text-slate-100 mb-1">Easy Returns</p>
-                <p className="text-xs text-slate-400">30 days hassle-free return policy</p>
+                <p className="font-bold text-slate-100 mb-1">{t('footer.easyReturns', {}, 'Easy Returns')}</p>
+                <p className="text-xs text-slate-400">{t('footer.easyReturnsBody', {}, '30 days hassle-free return policy')}</p>
               </div>
             </div>
 
@@ -246,8 +248,8 @@ const Footer = () => {
                 <ShieldCheck className="w-6 h-6 text-neo-cyan" />
               </div>
               <div>
-                <p className="font-bold text-slate-100 mb-1">Secure Checkout</p>
-                <p className="text-xs text-slate-400">Server-authoritative transaction checks</p>
+                <p className="font-bold text-slate-100 mb-1">{t('footer.secureCheckout', {}, 'Secure Checkout')}</p>
+                <p className="text-xs text-slate-400">{t('footer.secureCheckoutBody', {}, 'Server-authoritative transaction checks')}</p>
               </div>
             </div>
 
@@ -256,8 +258,8 @@ const Footer = () => {
                 <CreditCard className="w-6 h-6 text-neo-emerald" />
               </div>
               <div>
-                <p className="font-bold text-slate-100 mb-1">Flexible Payments</p>
-                <p className="text-xs text-slate-400">Tokenized methods with protected fallback paths</p>
+                <p className="font-bold text-slate-100 mb-1">{t('footer.flexiblePayments', {}, 'Flexible Payments')}</p>
+                <p className="text-xs text-slate-400">{t('footer.flexiblePaymentsBody', {}, 'Tokenized methods with protected fallback paths')}</p>
               </div>
             </div>
           </div>
@@ -269,20 +271,20 @@ const Footer = () => {
           <section className="premium-hero-panel premium-grid-backdrop p-6 sm:p-7">
             <div className="premium-eyebrow">
               <Sparkles className="h-4 w-4" />
-              Aura Network
+              {t('footer.network', {}, 'Aura Network')}
             </div>
             <h2 className="mt-5 max-w-3xl text-3xl font-black leading-[0.96] tracking-tight text-white sm:text-4xl">
-              Commerce should feel assured before it feels fast.
+              {t('footer.headline', {}, 'Commerce should feel assured before it feels fast.')}
             </h2>
             <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-300 sm:text-base">
-              Aura is built to feel like a premium retail operating system: trusted product discovery, clear transaction signals, and a marketplace layer that still looks composed under pressure.
+              {t('footer.body', {}, 'Aura is built to feel like a premium retail operating system: trusted product discovery, clear transaction signals, and a marketplace layer that still looks composed under pressure.')}
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
               <Link to="/trust" className="btn-secondary inline-flex items-center gap-2">
-                Open Trust Center
+                {t('footer.trustCenter', {}, 'Open Trust Center')}
               </Link>
               <Link to="/marketplace" className="btn-primary inline-flex items-center gap-2">
-                Explore Marketplace
+                {t('footer.exploreMarketplace', {}, 'Explore Marketplace')}
               </Link>
             </div>
           </section>
@@ -307,22 +309,22 @@ const Footer = () => {
       <div className="container-custom max-w-7xl mx-auto px-4 py-12 relative z-10">
         <div className="grid grid-cols-2 md:grid-cols-6 gap-8 md:gap-12">
           <div className="col-span-2 md:col-span-1">
-            <h3 className="footer-section-title text-neo-cyan">About</h3>
+            <h3 className="footer-section-title text-neo-cyan">{t('footer.about', {}, 'About')}</h3>
             <ul className="space-y-3">{footerLinks.about.map((link) => <li key={link.path}>{renderNavLink(link)}</li>)}</ul>
           </div>
 
           <div className="col-span-2 md:col-span-1">
-            <h3 className="footer-section-title text-neo-emerald">Support</h3>
+            <h3 className="footer-section-title text-neo-emerald">{t('footer.support', {}, 'Support')}</h3>
             <ul className="space-y-3">{footerLinks.help.map((link) => <li key={link.path}>{renderNavLink(link)}</li>)}</ul>
           </div>
 
           <div className="col-span-2 md:col-span-1">
-            <h3 className="footer-section-title text-neo-cyan">Legal</h3>
+            <h3 className="footer-section-title text-neo-cyan">{t('footer.legal', {}, 'Legal')}</h3>
             <ul className="space-y-3">{footerLinks.policy.map((link) => <li key={link.path}>{renderNavLink(link)}</li>)}</ul>
           </div>
 
           <div className="col-span-2 md:col-span-1">
-            <h3 className="footer-section-title text-neo-emerald">Network</h3>
+            <h3 className="footer-section-title text-neo-emerald">{t('footer.networkLinks', {}, 'Network')}</h3>
             <ul className="space-y-3">
               {footerLinks.social.map((link) => (
                 <li key={link.path}>
@@ -343,7 +345,7 @@ const Footer = () => {
           </div>
 
           <div className="col-span-2 md:col-span-2">
-            <h3 className="footer-section-title text-slate-100">Headquarters</h3>
+            <h3 className="footer-section-title text-slate-100">{t('footer.headquarters', {}, 'Headquarters')}</h3>
             <div className="space-y-4">
               <div className="footer-contact-card">
                 <MapPin className="w-5 h-5 text-neo-cyan flex-shrink-0 mt-1" />
@@ -375,7 +377,7 @@ const Footer = () => {
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-2 text-sm text-slate-500">
               <span className="text-neo-cyan font-black tracking-widest uppercase text-xs">Aura</span>
-              <span>© {new Date().getFullYear()} All Rights Reserved.</span>
+              <span>Copyright {new Date().getFullYear()} {t('footer.rights', {}, 'All Rights Reserved.')}</span>
             </div>
             <div className="flex items-center gap-3 opacity-60 hover:opacity-100 transition-opacity duration-300">
               <div className="h-8 w-12 bg-white/10 rounded-md flex items-center justify-center">

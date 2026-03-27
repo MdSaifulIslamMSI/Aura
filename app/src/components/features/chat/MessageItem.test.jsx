@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import { MarketProvider } from '@/context/MarketContext';
 import MessageItem from './MessageItem';
 
 const product = {
@@ -21,9 +22,15 @@ const noopProps = {
     onCancelPending: vi.fn(),
 };
 
+const renderWithMarket = (ui) => render(
+    <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+        {ui}
+    </MarketProvider>
+);
+
 describe('MessageItem', () => {
     it('renders product cards for product result messages', () => {
-        render(
+        renderWithMarket(
             <MessageItem
                 message={{
                     id: 'assistant-results',
@@ -41,7 +48,7 @@ describe('MessageItem', () => {
     });
 
     it('does not render stale product cards for navigation messages', () => {
-        render(
+        renderWithMarket(
             <MessageItem
                 message={{
                     id: 'assistant-navigation',
@@ -60,7 +67,7 @@ describe('MessageItem', () => {
     });
 
     it('shows an approximate match signal when search fallback was used', () => {
-        render(
+        renderWithMarket(
             <MessageItem
                 message={{
                     id: 'assistant-approximate',

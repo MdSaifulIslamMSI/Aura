@@ -99,6 +99,7 @@ describe('Payment Validators', () => {
                     market: {
                         countryCode: 'us',
                         currency: 'usd',
+                        language: 'es',
                     },
                 },
             },
@@ -107,6 +108,7 @@ describe('Payment Validators', () => {
         expect(parsed.body.paymentContext.market).toEqual({
             countryCode: 'US',
             currency: 'USD',
+            language: 'es',
         });
 
         await expect(createIntentSchema.parseAsync({

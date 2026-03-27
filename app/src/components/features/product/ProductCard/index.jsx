@@ -14,9 +14,11 @@ import {
 import { WishlistContext } from '@/context/WishlistContext';
 import { CartContext } from '@/context/CartContext';
 import { useColorMode } from '@/context/ColorModeContext';
+import { useMarket } from '@/context/MarketContext';
 import { FIGMA_COLOR_MODE_OPTIONS } from '@/config/figmaTokens';
 import { cn } from '@/lib/utils';
 import { formatPrice } from '@/utils/format';
+import { getDisplayAmount, getDisplayCurrency, getOriginalDisplayAmount } from '@/utils/pricing';
 import { productApi } from '@/services/api';
 
 const FALLBACK_IMAGE = 'https://placehold.co/400x400/18181b/4ade80?text=Aura+Select';
@@ -120,6 +122,7 @@ const ProductCard = ({ product, variant = 'default', gridLayout = null, harmonyI
   const { toggleWishlist, isInWishlist } = useContext(WishlistContext);
   const { addToCart } = useContext(CartContext);
   const { colorMode } = useColorMode();
+  const { t, formatNumber } = useMarket();
   const navigate = useNavigate();
   const [imageError, setImageError] = useState(false);
   const hasPrefetchedRef = useRef(false);
@@ -128,8 +131,15 @@ const ProductCard = ({ product, variant = 'default', gridLayout = null, harmonyI
   const modePalette = FIGMA_COLOR_MODE_OPTIONS.find((mode) => mode.value === colorMode) || FIGMA_COLOR_MODE_OPTIONS[0];
   const dealDna = product?.dealDna || null;
   const dealTheme = resolveDealTheme(dealDna);
+  const localizedDealLabel = dealDna?.verdict === 'good_deal'
+    ? t('product.goodDeal', {}, dealTheme.label)
+    : dealDna?.verdict === 'avoid'
+      ? t('product.skipNow', {}, dealTheme.label)
+      : dealDna?.verdict === 'wait'
+        ? t('product.watchPrice', {}, dealTheme.label)
+        : t('product.reviewSignal', {}, dealTheme.label);
   const isSponsored = Boolean(product?.adMeta?.isSponsored || product?.adCampaign?.isSponsored);
-  const sponsoredLabel = product?.adMeta?.label || 'Sponsored';
+  const sponsoredLabel = product?.adMeta?.label || t('product.sponsored', {}, 'Sponsored');
   const sponsoredTagline = product?.adCampaign?.creativeTagline || '';
   const productId = product?.id || product?._id || '';
   const productPath = productId ? `/product/${productId}` : '/products';
@@ -142,13 +152,14 @@ const ProductCard = ({ product, variant = 'default', gridLayout = null, harmonyI
   const inWishlist = productId ? isInWishlist(productId) : false;
   const ratingValue = formatRating(product?.rating);
   const ratingCount = Number(product?.ratingCount || 0);
-  const priceValue = Number(product?.price || 0);
-  const originalPrice = Number(product?.originalPrice || 0);
+  const priceValue = getDisplayAmount(product);
+  const priceCurrency = getDisplayCurrency(product);
+  const originalPrice = getOriginalDisplayAmount(product);
   const hasOriginalPrice = Number.isFinite(originalPrice) && originalPrice > priceValue;
   const discountValue = Math.max(0, Number(product?.discountPercentage || 0));
   const stockCount = Number(product?.stock || 0);
   const isOutOfStock = stockCount <= 0;
-  const deliveryLabel = product?.deliveryTime || 'Fast dispatch';
+  const deliveryLabel = product?.deliveryTime || t('product.fastDispatch', {}, 'Fast dispatch');
   const primaryStory = sponsoredTagline || (product?.highlights || []).find(Boolean) || '';
   const secondaryStory = (product?.highlights || [])
     .filter(Boolean)
@@ -230,7 +241,7 @@ const ProductCard = ({ product, variant = 'default', gridLayout = null, harmonyI
   const handleOpenSmartBundle = (event) => {
     stopCardNavigation(event);
     const theme = `${product?.category || product?.brand || 'smart essentials'}`.toLowerCase();
-    const budget = Math.max(5000, Math.min(200000, Math.round((Number(product?.price) || 15000) * 2.5)));
+    const budget = Math.max(5000, Math.min(200000, Math.round((priceValue || 15000) * 2.5)));
     navigate(`/bundles?theme=${encodeURIComponent(theme)}&budget=${budget}`);
   };
 
@@ -319,7 +330,7 @@ const ProductCard = ({ product, variant = 'default', gridLayout = null, harmonyI
       ? {
           key: 'demo',
           icon: BadgeCheck,
-          label: 'Demo Catalog',
+          label: t('product.demoCatalog', {}, 'Demo Catalog'),
           tone: isWhiteMode
             ? 'border-sky-300 bg-sky-50 text-sky-700'
             : 'border-sky-400/40 bg-sky-500/15 text-sky-100',
@@ -410,8 +421,8 @@ const ProductCard = ({ product, variant = 'default', gridLayout = null, harmonyI
 
           {isOutOfStock ? (
             <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/60">
-              <span className="rounded-full border border-white/20 bg-zinc-950/85 px-4 py-2 text-[11px] font-black uppercase tracking-[0.22em] text-white">
-                Sold Out
+            <span className="rounded-full border border-white/20 bg-zinc-950/85 px-4 py-2 text-[11px] font-black uppercase tracking-[0.22em] text-white">
+                {t('product.soldOut', {}, 'Sold Out')}
               </span>
             </div>
           ) : null}
@@ -462,7 +473,7 @@ const ProductCard = ({ product, variant = 'default', gridLayout = null, harmonyI
                 <Star className="h-3 w-3 fill-current" />
               </span>
               <span className={subtleTextClass}>
-                {ratingCount.toLocaleString()} reviews
+                {formatNumber(ratingCount)} {t('product.reviews', {}, 'reviews')}
               </span>
             </div>
           </div>
@@ -472,11 +483,11 @@ const ProductCard = ({ product, variant = 'default', gridLayout = null, harmonyI
               'text-4xl font-black tracking-tight',
               isWhiteMode ? 'text-slate-950' : 'text-white'
             )}>
-              {formatPrice(priceValue)}
+              {formatPrice(priceValue, priceCurrency)}
             </span>
             {hasOriginalPrice ? (
               <span className={cn('pb-1 text-sm line-through', subtleTextClass)}>
-                {formatPrice(originalPrice)}
+                {formatPrice(originalPrice, priceCurrency)}
               </span>
             ) : null}
             {discountValue > 0 ? (
@@ -486,7 +497,7 @@ const ProductCard = ({ product, variant = 'default', gridLayout = null, harmonyI
                   ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
                   : 'border-neo-emerald/30 bg-neo-emerald/12 text-neo-emerald'
               )}>
-                {Math.round(discountValue)}% off
+                {Math.round(discountValue)}{t('product.off', {}, '% off')}
               </span>
             ) : null}
           </div>
@@ -506,7 +517,7 @@ const ProductCard = ({ product, variant = 'default', gridLayout = null, harmonyI
                   ? 'border-slate-300 bg-slate-100 text-slate-700'
                   : 'border-white/12 bg-white/5 text-slate-200'
             )}>
-              {isOutOfStock ? 'Unavailable' : `${stockCount} in stock`}
+              {isOutOfStock ? t('product.unavailable', {}, 'Unavailable') : t('product.inStock', { count: formatNumber(stockCount) }, `${formatNumber(stockCount)} in stock`)}
             </span>
           </div>
 
@@ -533,7 +544,7 @@ const ProductCard = ({ product, variant = 'default', gridLayout = null, harmonyI
               <div className="flex items-center justify-between gap-4">
                 <div>
                   <p className="text-[10px] font-black uppercase tracking-[0.2em]">Deal DNA</p>
-                  <p className="mt-1 text-sm font-semibold">{dealTheme.label}</p>
+                  <p className="mt-1 text-sm font-semibold">{localizedDealLabel}</p>
                 </div>
                 <div className="text-right">
                   <p className="text-3xl font-black leading-none">{dealDna.score}</p>
@@ -570,7 +581,7 @@ const ProductCard = ({ product, variant = 'default', gridLayout = null, harmonyI
               style={primaryCtaStyle}
             >
               <ShoppingCart className="h-4 w-4" />
-              {isOutOfStock ? 'Unavailable' : 'Add to Bag'}
+              {isOutOfStock ? t('product.unavailable', {}, 'Unavailable') : t('product.addToBag', {}, 'Add to Bag')}
               <ArrowRight className="h-4 w-4" />
             </button>
           </div>
@@ -669,7 +680,7 @@ const ProductCard = ({ product, variant = 'default', gridLayout = null, harmonyI
         {isOutOfStock ? (
           <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/60">
             <span className="rounded-full border border-white/20 bg-zinc-950/85 px-4 py-2 text-[11px] font-black uppercase tracking-[0.22em] text-white">
-              Sold Out
+              {t('product.soldOut', {}, 'Sold Out')}
             </span>
           </div>
         ) : null}
@@ -717,7 +728,7 @@ const ProductCard = ({ product, variant = 'default', gridLayout = null, harmonyI
               {ratingValue}
               <Star className="h-3 w-3 fill-current" />
             </span>
-            <span className={cn('text-[10px]', subtleTextClass)}>{ratingCount.toLocaleString()}</span>
+            <span className={cn('text-[10px]', subtleTextClass)}>{formatNumber(ratingCount)}</span>
           </div>
         </div>
 
@@ -726,11 +737,11 @@ const ProductCard = ({ product, variant = 'default', gridLayout = null, harmonyI
             'text-[1.48rem] font-black tracking-tight sm:text-[1.62rem]',
             isWhiteMode ? 'text-slate-950' : 'text-white'
           )}>
-            {formatPrice(priceValue)}
+            {formatPrice(priceValue, priceCurrency)}
           </span>
           {hasOriginalPrice ? (
             <span className={cn('pb-1 text-xs line-through', subtleTextClass)}>
-              {formatPrice(originalPrice)}
+              {formatPrice(originalPrice, priceCurrency)}
             </span>
           ) : null}
         </div>
@@ -743,7 +754,7 @@ const ProductCard = ({ product, variant = 'default', gridLayout = null, harmonyI
                 ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
                 : 'border-neo-emerald/30 bg-neo-emerald/12 text-neo-emerald'
             )}>
-              {Math.round(discountValue)}% off
+              {Math.round(discountValue)}{t('product.off', {}, '% off')}
             </span>
           ) : null}
           <span className={cn(
@@ -759,7 +770,7 @@ const ProductCard = ({ product, variant = 'default', gridLayout = null, harmonyI
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
                 <p className="text-[9px] font-black uppercase tracking-[0.22em]">Deal DNA</p>
-                <p className="mt-0.5 truncate text-[11px] font-semibold">{dealTheme.label}</p>
+                <p className="mt-0.5 truncate text-[11px] font-semibold">{localizedDealLabel}</p>
               </div>
               <div className="flex flex-shrink-0 items-baseline gap-1">
                 <p className="text-lg font-black leading-none">{dealDna.score}</p>
@@ -782,7 +793,7 @@ const ProductCard = ({ product, variant = 'default', gridLayout = null, harmonyI
           style={primaryCtaStyle}
         >
           <ShoppingCart className="h-4 w-4" />
-          {isOutOfStock ? 'Unavailable' : 'Add to Bag'}
+          {isOutOfStock ? t('product.unavailable', {}, 'Unavailable') : t('product.addToBag', {}, 'Add to Bag')}
           <ArrowRight className="h-4 w-4" />
         </button>
       </div>

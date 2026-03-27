@@ -3,6 +3,7 @@ import {
     GUEST_CART_STORAGE_KEY,
     GUEST_WISHLIST_STORAGE_KEY,
     resetCommerceStoreForTests,
+    selectCartSummary,
     useCommerceStore,
 } from './commerceStore';
 import { userApi } from '../services/api';
@@ -256,5 +257,37 @@ describe('commerceStore', () => {
         expect(useCommerceStore.getState().authUser).toBeNull();
         expect(useCommerceStore.getState().cart.source).toBe('guest');
         expect(useCommerceStore.getState().cart.orderedIds).toEqual([]);
+    });
+
+    it('builds cart totals from backend-authoritative display pricing', () => {
+        useCommerceStore.setState({
+            cart: createUserCartState({
+                itemsById: {
+                    '808': {
+                        id: 808,
+                        title: 'Global Camera',
+                        price: 10000,
+                        originalPrice: 12000,
+                        quantity: 2,
+                        pricing: {
+                            baseAmount: 10000,
+                            baseCurrency: 'INR',
+                            displayAmount: 135,
+                            displayCurrency: 'USD',
+                            originalDisplayAmount: 150,
+                        },
+                    },
+                },
+                orderedIds: ['808'],
+                source: 'guest',
+            }),
+        });
+
+        const summary = selectCartSummary(useCommerceStore.getState());
+
+        expect(summary.totalPrice).toBe(270);
+        expect(summary.totalOriginalPrice).toBe(300);
+        expect(summary.totalDiscount).toBe(30);
+        expect(summary.currency).toBe('USD');
     });
 });
