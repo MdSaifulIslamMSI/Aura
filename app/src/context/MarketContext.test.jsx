@@ -4,9 +4,16 @@ import { MARKET_STORAGE_KEY } from '@/config/marketConfig';
 import { getActiveMarketState, resetActiveMarketHeaders } from '@/services/marketRuntime';
 import { MarketProvider, useMarket } from './MarketContext';
 
-const { getBrowseFxRatesMock, readCachedBrowseFxRatesMock } = vi.hoisted(() => ({
+const {
+    getBrowseFxRatesMock,
+    readCachedBrowseFxRatesMock,
+    translateTextsMock,
+} = vi.hoisted(() => ({
     getBrowseFxRatesMock: vi.fn(),
     readCachedBrowseFxRatesMock: vi.fn(),
+    translateTextsMock: vi.fn(async ({ texts = [], language }) => Object.fromEntries(
+        texts.map((text) => [text, language === 'en' ? text : `${language}:${text}`])
+    )),
 }));
 
 vi.mock('@/services/api/marketApi', () => ({
@@ -14,6 +21,12 @@ vi.mock('@/services/api/marketApi', () => ({
         getBrowseFxRates: getBrowseFxRatesMock,
     },
     readCachedBrowseFxRates: readCachedBrowseFxRatesMock,
+}));
+
+vi.mock('@/services/api', () => ({
+    i18nApi: {
+        translateTexts: translateTextsMock,
+    },
 }));
 
 const MarketProbe = () => {
@@ -38,9 +51,23 @@ const MarketProbe = () => {
     );
 };
 
+const RuntimeFallbackProbe = () => {
+    const { setLanguage, t } = useMarket();
+
+    return (
+        <div>
+            <button type="button" onClick={() => setLanguage('es')}>ES</button>
+            <div data-testid="runtime-fallback">
+                {t('checkout.runtimeAutoTranslationProbe', {}, 'Ready for translation')}
+            </div>
+        </div>
+    );
+};
+
 beforeEach(() => {
     getBrowseFxRatesMock.mockReset();
     readCachedBrowseFxRatesMock.mockReset();
+    translateTextsMock.mockClear();
     readCachedBrowseFxRatesMock.mockReturnValue(null);
     getBrowseFxRatesMock.mockResolvedValue({
         baseCurrency: 'INR',
@@ -68,11 +95,13 @@ afterEach(() => {
 
 describe('MarketContext', () => {
     it('formats catalog prices using the fetched browse currency rates', async () => {
-        render(
-            <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
-                <MarketProbe />
-            </MarketProvider>
-        );
+        await act(async () => {
+            render(
+                <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+                    <MarketProbe />
+                </MarketProvider>
+            );
+        });
 
         expect(screen.getByTestId('market-country')).toHaveTextContent('IN');
         expect(screen.getByTestId('market-price').textContent).toMatch(/INR|Rs|₹/);
@@ -88,17 +117,19 @@ describe('MarketContext', () => {
     });
 
     it('updates document direction when switching to an rtl language', async () => {
-        render(
-            <MarketProvider initialPreference={{ countryCode: 'AE', language: 'en', currency: 'AED' }}>
-                <MarketProbe />
-            </MarketProvider>
-        );
+        await act(async () => {
+            render(
+                <MarketProvider initialPreference={{ countryCode: 'AE', language: 'en', currency: 'AED' }}>
+                    <MarketProbe />
+                </MarketProvider>
+            );
+        });
 
         await waitFor(() => {
             expect(getBrowseFxRatesMock).toHaveBeenCalledTimes(1);
         });
 
-        act(() => {
+        await act(async () => {
             fireEvent.click(screen.getByRole('button', { name: 'AR' }));
         });
 
@@ -108,11 +139,13 @@ describe('MarketContext', () => {
     });
 
     it('persists the selected market and syncs runtime request headers', async () => {
-        render(
-            <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
-                <MarketProbe />
-            </MarketProvider>
-        );
+        await act(async () => {
+            render(
+                <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+                    <MarketProbe />
+                </MarketProvider>
+            );
+        });
 
         await waitFor(() => {
             expect(getBrowseFxRatesMock).toHaveBeenCalledTimes(1);
@@ -136,6 +169,24 @@ describe('MarketContext', () => {
             countryCode: 'IN',
             currency: 'USD',
             language: 'en',
+        });
+    });
+
+    it('runtime-translates missing keyed messages for non-English languages', async () => {
+        await act(async () => {
+            render(
+                <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+                    <RuntimeFallbackProbe />
+                </MarketProvider>
+            );
+        });
+
+        expect(screen.getByTestId('runtime-fallback')).toHaveTextContent('Ready for translation');
+
+        fireEvent.click(screen.getByRole('button', { name: 'ES' }));
+
+        await waitFor(() => {
+            expect(screen.getByTestId('runtime-fallback')).toHaveTextContent('es:Ready for translation');
         });
     });
 });

@@ -502,18 +502,22 @@ export const detectMarketPreference = () => {
   };
 };
 
-const formatTemplate = (template = '', values = {}) => String(template || '').replace(/\{\{\s*([^}\s]+)\s*\}\}/g, (match, token) => (
+export const formatMessageTemplate = (template = '', values = {}) => String(template || '').replace(/\{\{\s*([^}\s]+)\s*\}\}/g, (match, token) => (
   Object.prototype.hasOwnProperty.call(values, token) ? String(values[token]) : ''
 ));
 
-const resolveMessageValue = (languageCode = DEFAULT_LANGUAGE_CODE, key = '') => {
+export const getMessageTemplate = (languageCode = DEFAULT_LANGUAGE_CODE, key = '') => {
   const normalizedLanguage = getSupportedLanguage(languageCode).code;
-  return MARKET_MESSAGES[normalizedLanguage]?.[key] || MARKET_MESSAGES.en?.[key] || '';
+  return MARKET_MESSAGES[normalizedLanguage]?.[key] || '';
 };
+
+const resolveMessageValue = (languageCode = DEFAULT_LANGUAGE_CODE, key = '') => (
+  getMessageTemplate(languageCode, key) || MARKET_MESSAGES.en?.[key] || ''
+);
 
 export const createTranslator = (languageCode = DEFAULT_LANGUAGE_CODE) => (key, values = {}, fallback = '') => {
   const template = resolveMessageValue(languageCode, key) || fallback || key;
-  return formatTemplate(template, values);
+  return formatMessageTemplate(template, values);
 };
 
 export const getCountryDisplayName = (countryCode = DEFAULT_COUNTRY_CODE, locale = 'en-US') => {
