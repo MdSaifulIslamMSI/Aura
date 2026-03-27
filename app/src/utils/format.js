@@ -1,6 +1,7 @@
 const formatterCache = new Map();
 const numberFormatterCache = new Map();
 const dateFormatterCache = new Map();
+const conversionFactorCache = new WeakMap();
 
 const marketDefaults = {
     currency: 'INR',
@@ -53,10 +54,64 @@ const getDateFormatter = (locale = 'en-IN', options = {}) => {
     return dateFormatterCache.get(cacheKey);
 };
 
+const getCurrencyFractionDigits = (currency = 'INR') => (
+    toCurrencyCode(currency) === 'JPY' ? 0 : 2
+);
+
+const roundCurrencyAmount = (amount, currency = 'INR') => {
+    const digits = getCurrencyFractionDigits(currency);
+    const precision = 10 ** digits;
+    return Math.round((Number(amount || 0) + Number.EPSILON) * precision) / precision;
+};
+
 const resolveRate = (currency = 'INR', rates = marketDefaults.rates) => {
     const normalizedCurrency = toCurrencyCode(currency);
     const rate = Number(rates?.[normalizedCurrency] || 0);
     return Number.isFinite(rate) && rate > 0 ? rate : normalizedCurrency === marketDefaults.baseCurrency ? 1 : 0;
+};
+
+const getConversionBucket = (rates = marketDefaults.rates) => {
+    const rateTable = rates && typeof rates === 'object' ? rates : marketDefaults.rates;
+    let bucket = conversionFactorCache.get(rateTable);
+    if (!bucket) {
+        bucket = new Map();
+        conversionFactorCache.set(rateTable, bucket);
+    }
+    return bucket;
+};
+
+const getConversionFactor = (
+    fromCurrency = marketDefaults.baseCurrency,
+    toCurrency = marketDefaults.currency,
+    rates = marketDefaults.rates
+) => {
+    const normalizedFrom = toCurrencyCode(fromCurrency, marketDefaults.baseCurrency);
+    const normalizedTo = toCurrencyCode(toCurrency, marketDefaults.currency);
+
+    if (normalizedFrom === normalizedTo) {
+        return 1;
+    }
+
+    const bucket = getConversionBucket(rates);
+    const cacheKey = `${normalizedFrom}:${normalizedTo}:${marketDefaults.baseCurrency}`;
+    if (bucket.has(cacheKey)) {
+        return bucket.get(cacheKey);
+    }
+
+    const fromRate = resolveRate(normalizedFrom, rates);
+    const toRate = resolveRate(normalizedTo, rates);
+    if (!fromRate || !toRate) {
+        return 0;
+    }
+
+    const factor = normalizedFrom === marketDefaults.baseCurrency
+        ? toRate
+        : normalizedTo === marketDefaults.baseCurrency
+            ? 1 / fromRate
+            : toRate / fromRate;
+
+    bucket.set(cacheKey, factor);
+    return factor;
 };
 
 export const setMarketFormatDefaults = ({
@@ -100,23 +155,15 @@ export const convertAmount = (
     const normalizedTo = toCurrencyCode(toCurrency, marketDefaults.currency);
 
     if (normalizedFrom === normalizedTo) {
+        return roundCurrencyAmount(numericAmount, normalizedTo);
+    }
+
+    const factor = getConversionFactor(normalizedFrom, normalizedTo, rates);
+    if (!factor) {
         return numericAmount;
     }
 
-    const fromRate = resolveRate(normalizedFrom, rates);
-    const toRate = resolveRate(normalizedTo, rates);
-
-    if (!fromRate || !toRate) {
-        return numericAmount;
-    }
-
-    const amountInBase = normalizedFrom === marketDefaults.baseCurrency
-        ? numericAmount
-        : numericAmount / fromRate;
-
-    return normalizedTo === marketDefaults.baseCurrency
-        ? amountInBase
-        : amountInBase * toRate;
+    return roundCurrencyAmount(numericAmount * factor, normalizedTo);
 };
 
 export const formatPrice = (price, currency, locale, options = {}) => {

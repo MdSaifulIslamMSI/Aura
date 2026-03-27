@@ -3,12 +3,25 @@ import { describe, expect, it, vi } from 'vitest';
 import { MarketProvider, useMarket } from '@/context/MarketContext';
 import MarketAutoLocalizer from './MarketAutoLocalizer';
 
+const { translateTextsMock, getBrowseFxRatesMock, readCachedBrowseFxRatesMock } = vi.hoisted(() => ({
+    translateTextsMock: vi.fn(async ({ texts = [], language }) => Object.fromEntries(
+        texts.map((text) => [text, language === 'en' ? text : `${language}:${text}`])
+    )),
+    getBrowseFxRatesMock: vi.fn(),
+    readCachedBrowseFxRatesMock: vi.fn(),
+}));
+
 vi.mock('@/services/api', () => ({
     i18nApi: {
-        translateTexts: vi.fn(async ({ texts = [], language }) => Object.fromEntries(
-            texts.map((text) => [text, language === 'en' ? text : `${language}:${text}`])
-        )),
+        translateTexts: translateTextsMock,
     },
+}));
+
+vi.mock('@/services/api/marketApi', () => ({
+    marketApi: {
+        getBrowseFxRates: getBrowseFxRatesMock,
+    },
+    readCachedBrowseFxRates: readCachedBrowseFxRatesMock,
 }));
 
 const Probe = () => {
@@ -27,6 +40,16 @@ const Probe = () => {
 
 describe('MarketAutoLocalizer', () => {
     it('translates raw UI text and restores the original English copy', async () => {
+        translateTextsMock.mockClear();
+        getBrowseFxRatesMock.mockReset();
+        readCachedBrowseFxRatesMock.mockReset();
+        readCachedBrowseFxRatesMock.mockReturnValue(null);
+        getBrowseFxRatesMock.mockResolvedValue({
+            baseCurrency: 'INR',
+            rates: { INR: 1, USD: 0.02 },
+            stale: false,
+        });
+
         render(
             <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
                 <Probe />
@@ -41,6 +64,7 @@ describe('MarketAutoLocalizer', () => {
             expect(screen.getByRole('heading', { name: 'es:Continue Shopping' })).toBeInTheDocument();
         });
 
+        expect(translateTextsMock).toHaveBeenCalledTimes(1);
         expect(screen.getByRole('textbox')).toHaveAttribute('placeholder', 'es:Search products');
 
         fireEvent.click(screen.getByTestId('switch-en'));
@@ -49,6 +73,7 @@ describe('MarketAutoLocalizer', () => {
             expect(screen.getByRole('heading', { name: 'Continue Shopping' })).toBeInTheDocument();
         });
 
+        expect(translateTextsMock).toHaveBeenCalledTimes(1);
         expect(screen.getByRole('textbox')).toHaveAttribute('placeholder', 'Search products');
     });
 });
