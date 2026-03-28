@@ -5,6 +5,7 @@ import { defineConfig } from "vite"
 const DEFERRED_ROUTE_PRELOAD_PATTERNS = [
   /^assets\/admin-/,
   /^assets\/commerce-flow-/,
+  /^assets\/market-locale-/,
   /^assets\/discovery-/,
   /^assets\/market-messages-/,
   /^assets\/marketplace-/,
@@ -56,6 +57,9 @@ export default defineConfig({
 
           const matchedInternalChunk = INTERNAL_CHUNK_MATCHERS.find(({ pattern }) => pattern.test(id));
           if (matchedInternalChunk) return matchedInternalChunk.chunk;
+
+          const localePackMatch = id.match(/\/src\/config\/marketMessagePacks\/([a-z-]+)\.js$/);
+          if (localePackMatch?.[1]) return `market-locale-${localePackMatch[1]}`;
 
           const matchedAdminChunk = ADMIN_CHUNK_MATCHERS.find(({ pattern }) => pattern.test(id));
           if (matchedAdminChunk) return matchedAdminChunk.chunk;
