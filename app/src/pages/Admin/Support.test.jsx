@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import AdminSupport from './Support';
 import { supportApi } from '@/services/api';
 import { ColorModeProvider } from '@/context/ColorModeContext';
+import { MarketProvider } from '@/context/MarketContext';
 
 const socketHandlers = new Map();
 const socketMock = {
@@ -28,14 +29,19 @@ const emitSocket = async (eventName, payload) => {
     });
 };
 
-vi.mock('@/services/api', () => ({
-    supportApi: {
-        adminGetTickets: vi.fn(),
-        getMessages: vi.fn(),
-        sendMessage: vi.fn(),
-        adminUpdateStatus: vi.fn(),
-    },
-}));
+vi.mock('@/services/api', async (importOriginal) => {
+    const actual = await importOriginal();
+    return {
+        ...actual,
+        supportApi: {
+            ...actual.supportApi,
+            adminGetTickets: vi.fn(),
+            getMessages: vi.fn(),
+            sendMessage: vi.fn(),
+            adminUpdateStatus: vi.fn(),
+        },
+    };
+});
 
 vi.mock('@/context/SocketContext', () => ({
     useSocket: () => ({
@@ -56,9 +62,11 @@ vi.mock('@/context/VideoCallContext', () => ({
 describe('AdminSupport', () => {
     const renderAdminSupport = () => render(
         <MemoryRouter initialEntries={['/admin/support']}>
-            <ColorModeProvider>
-                <AdminSupport />
-            </ColorModeProvider>
+            <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+                <ColorModeProvider>
+                    <AdminSupport />
+                </ColorModeProvider>
+            </MarketProvider>
         </MemoryRouter>
     );
 

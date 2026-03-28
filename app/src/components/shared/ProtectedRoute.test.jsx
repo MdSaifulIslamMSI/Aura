@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import { AuthContext } from '@/context/AuthContext';
+import { MarketProvider } from '@/context/MarketContext';
 import { ProtectedRoute } from './ProtectedRoute';
 
 const LocationProbe = () => {
@@ -19,25 +20,27 @@ const LocationProbe = () => {
 
 const renderProtectedRoute = (authValue, initialEntries = ['/profile']) => {
     render(
-        <AuthContext.Provider value={authValue}>
-            <MemoryRouter initialEntries={initialEntries}>
-                <LocationProbe />
-                <Routes>
-                    <Route
-                        path="/login"
-                        element={<div>Login Screen</div>}
-                    />
-                    <Route
-                        path="*"
-                        element={(
-                            <ProtectedRoute>
-                                <div>Profile Screen</div>
-                            </ProtectedRoute>
-                        )}
-                    />
-                </Routes>
-            </MemoryRouter>
-        </AuthContext.Provider>
+        <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+            <AuthContext.Provider value={authValue}>
+                <MemoryRouter initialEntries={initialEntries}>
+                    <LocationProbe />
+                    <Routes>
+                        <Route
+                            path="/login"
+                            element={<div>Login Screen</div>}
+                        />
+                        <Route
+                            path="*"
+                            element={(
+                                <ProtectedRoute>
+                                    <div>Profile Screen</div>
+                                </ProtectedRoute>
+                            )}
+                        />
+                    </Routes>
+                </MemoryRouter>
+            </AuthContext.Provider>
+        </MarketProvider>
     );
 };
 
@@ -85,10 +88,12 @@ describe('ProtectedRoute', () => {
             expect(logout).toHaveBeenCalledTimes(1);
         });
 
-        expect(screen.getByText('Login Screen')).toBeInTheDocument();
-        expect(screen.getByTestId('location-probe')).toHaveTextContent('"pathname":"/login"');
-        expect(screen.getByTestId('location-probe')).toHaveTextContent('"pathname":"/profile"');
-        expect(screen.getByTestId('location-probe')).toHaveTextContent('"search":"?tab=support&ticket=abc123"');
+        await waitFor(() => {
+            expect(screen.getByText('Login Screen')).toBeInTheDocument();
+            expect(screen.getByTestId('location-probe')).toHaveTextContent('"pathname":"/login"');
+            expect(screen.getByTestId('location-probe')).toHaveTextContent('"pathname":"/profile"');
+            expect(screen.getByTestId('location-probe')).toHaveTextContent('"search":"?tab=support&ticket=abc123"');
+        });
     });
 
     it('opens the recovery-safe admin support route from the blocked state', async () => {
