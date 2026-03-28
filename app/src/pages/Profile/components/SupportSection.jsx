@@ -21,45 +21,49 @@ import { supportApi } from '@/services/api';
 import { cn } from '@/lib/utils';
 import { useSocket, useSocketDemand } from '@/context/SocketContext';
 import { useVideoCall } from '@/context/VideoCallContext';
+import { useMarket } from '@/context/MarketContext';
+import { useDynamicTranslations } from '@/hooks/useDynamicTranslations';
 
 const TICKET_LIST_POLL_MS = 25000;
 const ACTIVE_TICKET_POLL_MS = 15000;
 const SUPPORT_MESSAGE_MAX_LENGTH = 2000;
 const normalizeLiveCallMode = (value) => (String(value || '').trim().toLowerCase() === 'voice' ? 'voice' : 'video');
-const getLiveCallModeLabel = (value) => (normalizeLiveCallMode(value) === 'voice' ? 'voice call' : 'video call');
-const getLiveCallModeTitle = (value) => (normalizeLiveCallMode(value) === 'voice' ? 'Voice Call' : 'Video Call');
+const getLiveCallModeLabel = (value, t) => (normalizeLiveCallMode(value) === 'voice'
+    ? t('profile.support.call.voiceLabel', {}, 'voice call')
+    : t('profile.support.call.videoLabel', {}, 'video call'));
+const getLiveCallModeTitle = (value, t) => (normalizeLiveCallMode(value) === 'voice'
+    ? t('profile.support.call.voiceTitle', {}, 'Voice Call')
+    : t('profile.support.call.videoTitle', {}, 'Video Call'));
 
-const CATEGORY_OPTIONS = [
+const buildCategoryOptions = (t) => [
     {
         value: 'moderation_appeal',
-        label: 'Moderation appeal',
-        description: 'Warnings, suspensions, account governance, and appeal handling.',
+        label: t('profile.support.category.moderation.label', {}, 'Moderation appeal'),
+        description: t('profile.support.category.moderation.desc', {}, 'Warnings, suspensions, account governance, and appeal handling.'),
         accent: 'text-rose-300',
     },
     {
         value: 'order_issue',
-        label: 'Order issue',
-        description: 'Payment, cancellation, refund, delivery, or post-order disputes.',
+        label: t('profile.support.category.order.label', {}, 'Order issue'),
+        description: t('profile.support.category.order.desc', {}, 'Payment, cancellation, refund, delivery, or post-order disputes.'),
         accent: 'text-amber-200',
     },
     {
         value: 'general_support',
-        label: 'General support',
-        description: 'Profile, listing, account, or product questions that need human help.',
+        label: t('profile.support.category.general.label', {}, 'General support'),
+        description: t('profile.support.category.general.desc', {}, 'Profile, listing, account, or product questions that need human help.'),
         accent: 'text-cyan-200',
     },
     {
         value: 'other',
-        label: 'Other',
-        description: 'Anything else that needs manual review and a durable response trail.',
+        label: t('profile.support.category.other.label', {}, 'Other'),
+        description: t('profile.support.category.other.desc', {}, 'Anything else that needs manual review and a durable response trail.'),
         accent: 'text-slate-200',
     },
 ];
 
-const CATEGORY_MAP = new Map(CATEGORY_OPTIONS.map((option) => [option.value, option]));
-
-const createInitialForm = (prefill = {}) => {
-    const category = CATEGORY_MAP.has(prefill?.category)
+const createInitialForm = (prefill = {}, categoryMap = new Map()) => {
+    const category = categoryMap.has(prefill?.category)
         ? prefill.category
         : (prefill?.intent === 'appeal' || prefill?.relatedActionId ? 'moderation_appeal' : 'general_support');
 
@@ -134,24 +138,24 @@ const isNearBottom = (element) => {
     return (element.scrollHeight - element.scrollTop - element.clientHeight) <= STICKY_SCROLL_THRESHOLD_PX;
 };
 
-const getStatusBadge = (status) => {
+const getStatusBadge = (status, t) => {
     switch (status) {
         case 'resolved':
             return (
                 <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300/20 bg-emerald-500/12 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-emerald-100">
-                    <CheckCircle2 className="h-3 w-3" /> Resolved
+                    <CheckCircle2 className="h-3 w-3" /> {t('profile.support.status.resolved', {}, 'Resolved')}
                 </span>
             );
         case 'closed':
             return (
                 <span className="inline-flex items-center gap-1 rounded-full border border-slate-400/20 bg-slate-500/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-slate-300">
-                    <X className="h-3 w-3" /> Closed
+                    <X className="h-3 w-3" /> {t('profile.support.status.closed', {}, 'Closed')}
                 </span>
             );
         default:
             return (
                 <span className="inline-flex items-center gap-1 rounded-full border border-amber-300/20 bg-amber-500/12 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-amber-100">
-                    <Clock3 className="h-3 w-3" /> Open
+                    <Clock3 className="h-3 w-3" /> {t('profile.support.status.open', {}, 'Open')}
                 </span>
             );
     }
@@ -167,6 +171,12 @@ const getPriorityBadge = (priority) => {
             return 'border-cyan-300/20 bg-cyan-500/12 text-cyan-100';
     }
 };
+
+const formatSupportPriority = (priority, t) => t(
+    `profile.support.priority.${String(priority || 'normal').toLowerCase()}`,
+    {},
+    String(priority || 'normal'),
+);
 
 const isPrefillMeaningful = (prefill = {}) => Boolean(
     prefill?.category
@@ -197,8 +207,8 @@ const getInitials = (value = '') => {
     return parts.map((part) => part[0]?.toUpperCase() || '').join('');
 };
 
-const formatThreadPreviewTime = (value) => {
-    if (!isValidDateValue(value)) return 'Now';
+const formatThreadPreviewTime = (value, t) => {
+    if (!isValidDateValue(value)) return t('profile.support.time.now', {}, 'Now');
 
     const date = new Date(value);
     const now = new Date();
@@ -210,7 +220,7 @@ const formatThreadPreviewTime = (value) => {
     }
 
     if (diffDays === 1) {
-        return 'Yesterday';
+        return t('profile.support.time.yesterday', {}, 'Yesterday');
     }
 
     if (diffDays > 1 && diffDays < 7) {
@@ -220,8 +230,8 @@ const formatThreadPreviewTime = (value) => {
     return date.toLocaleDateString([], { day: 'numeric', month: 'short' });
 };
 
-const formatMessageDayLabel = (value) => {
-    if (!isValidDateValue(value)) return 'Today';
+const formatMessageDayLabel = (value, t) => {
+    if (!isValidDateValue(value)) return t('profile.support.day.today', {}, 'Today');
 
     const date = new Date(value);
     const today = new Date();
@@ -229,11 +239,11 @@ const formatMessageDayLabel = (value) => {
     yesterday.setDate(today.getDate() - 1);
 
     if (date.toDateString() === today.toDateString()) {
-        return 'Today';
+        return t('profile.support.day.today', {}, 'Today');
     }
 
     if (date.toDateString() === yesterday.toDateString()) {
-        return 'Yesterday';
+        return t('profile.support.day.yesterday', {}, 'Yesterday');
     }
 
     const includeYear = date.getFullYear() !== today.getFullYear();
@@ -256,8 +266,11 @@ export default function SupportSection({
     prefill = {},
 }) {
     useSocketDemand('profile-support', true);
+    const { t } = useMarket();
     const { socket, isConnected, connectionState } = useSocket();
     const { callStatus, activeCallContext, joinSupportCall } = useVideoCall();
+    const categoryOptions = useMemo(() => buildCategoryOptions(t), [t]);
+    const categoryMap = useMemo(() => new Map(categoryOptions.map((option) => [option.value, option])), [categoryOptions]);
 
     const [tickets, setTickets] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -265,7 +278,7 @@ export default function SupportSection({
     const [activeTicketId, setActiveTicketId] = useState(null);
     const [messages, setMessages] = useState([]);
     const [messagesLoading, setMessagesLoading] = useState(false);
-    const [form, setForm] = useState(() => createInitialForm(prefill));
+    const [form, setForm] = useState(() => createInitialForm(prefill, categoryMap));
     const [newMessage, setNewMessage] = useState('');
     const [sending, setSending] = useState(false);
     const [creatingTicket, setCreatingTicket] = useState(false);
@@ -320,7 +333,7 @@ export default function SupportSection({
                 return previous || nextTickets[0]?._id || null;
             });
         } catch (err) {
-            setError(err.message || 'Failed to load support tickets');
+            setError(err.message || t('profile.support.error.loadTickets', {}, 'Failed to load support tickets'));
         } finally {
             if (!silent) {
                 setLoading(false);
@@ -348,7 +361,7 @@ export default function SupportSection({
             )));
             setError('');
         } catch (err) {
-            setError(err.message || 'Failed to load support conversation');
+            setError(err.message || t('profile.support.error.loadConversation', {}, 'Failed to load support conversation'));
         } finally {
             if (!silent) {
                 setMessagesLoading(false);
@@ -418,7 +431,7 @@ export default function SupportSection({
         if (launchRef.current === supportLaunchSignature) return;
         launchRef.current = supportLaunchSignature;
 
-        setForm(createInitialForm(prefill));
+        setForm(createInitialForm(prefill, categoryMap));
 
         if (focusTicketId) {
             setCreating(false);
@@ -430,7 +443,7 @@ export default function SupportSection({
             setCreating(true);
             setActiveTicketId(null);
         }
-    }, [focusTicketId, prefill, startCompose, supportLaunchSignature]);
+    }, [categoryMap, focusTicketId, prefill, startCompose, supportLaunchSignature]);
 
     useEffect(() => {
         if (isConnected) return undefined;
@@ -519,12 +532,12 @@ export default function SupportSection({
                 setTickets((previous) => upsertTicket(previous, createdTicket));
                 setActiveTicketId(createdTicket._id);
                 setCreating(false);
-                setForm(createInitialForm({}));
+                setForm(createInitialForm({}, categoryMap));
                 await fetchMessages(createdTicket._id);
             }
             setError('');
         } catch (err) {
-            setError(err.message || 'Failed to create support ticket');
+            setError(err.message || t('profile.support.error.createTicket', {}, 'Failed to create support ticket'));
         } finally {
             setCreatingTicket(false);
         }
@@ -558,7 +571,7 @@ export default function SupportSection({
             )));
             setError('');
         } catch (err) {
-            setError(err.message || 'Failed to send support reply');
+            setError(err.message || t('profile.support.error.sendReply', {}, 'Failed to send support reply'));
             setNewMessage(tempText);
         } finally {
             setSending(false);
@@ -580,7 +593,7 @@ export default function SupportSection({
             await fetchMessages(activeTicketId, { silent: true });
             setError('');
         } catch (err) {
-            setError(err.message || 'Failed to request a live support call');
+            setError(err.message || t('profile.support.error.liveCallRequest', {}, 'Failed to request a live support call'));
         } finally {
             setRequestingLiveCall(false);
         }
@@ -589,11 +602,11 @@ export default function SupportSection({
     const activeTicket = tickets.find((ticket) => String(ticket._id) === String(activeTicketId));
     const isSocketReconnecting = connectionState === 'connecting' || connectionState === 'reconnecting';
     const socketStatusLabel = connectionState === 'connected'
-        ? 'Live'
+        ? t('profile.support.socket.live', {}, 'Live')
         : isSocketReconnecting
-            ? 'Reconnecting...'
-            : 'Polling';
-    const activeCategory = CATEGORY_MAP.get(activeTicket?.category || form.category || 'general_support');
+            ? t('profile.support.socket.reconnecting', {}, 'Reconnecting...')
+            : t('profile.support.socket.polling', {}, 'Polling');
+    const activeCategory = categoryMap.get(activeTicket?.category || form.category || 'general_support');
     const isActiveSupportCall = activeCallContext?.channelType === 'support_ticket'
         && String(activeCallContext?.contextId || '') === String(activeTicketId || '')
         && ['calling', 'incoming', 'connected'].includes(callStatus);
@@ -602,8 +615,8 @@ export default function SupportSection({
         || activeTicket?.liveCallLastMediaMode
         || activeTicket?.liveCallRequestedMode
     );
-    const supportLiveCallLabel = getLiveCallModeLabel(supportLiveCallMode);
-    const supportLiveCallTitle = getLiveCallModeTitle(supportLiveCallMode);
+    const supportLiveCallLabel = getLiveCallModeLabel(supportLiveCallMode, t);
+    const supportLiveCallTitle = getLiveCallModeTitle(supportLiveCallMode, t);
     const canJoinSupportCall = Boolean(
         activeTicket?._id
         && activeTicket.liveCallLastSessionKey
@@ -621,13 +634,13 @@ export default function SupportSection({
                     channelType: 'support_ticket',
                     contextId: activeTicketId,
                     supportTicketId: activeTicketId,
-                    contextLabel: activeTicket?.liveCallLastContextLabel || `Aura Support live call for "${activeTicket?.subject || 'support ticket'}"`,
+                    contextLabel: activeTicket?.liveCallLastContextLabel || t('profile.support.call.contextLabel', { subject: activeTicket?.subject || t('profile.support.ticketFallback', {}, 'support ticket') }, `Aura Support live call for "${activeTicket?.subject || 'support ticket'}"`),
                     sessionKey: activeTicket?.liveCallLastSessionKey,
-                    callerName: 'Aura Support',
+                    callerName: t('profile.support.callerName', {}, 'Aura Support'),
                     mediaMode: supportLiveCallMode,
                 });
                 if (!joined) {
-                    setError(`Failed to join the ${supportLiveCallLabel}`);
+                    setError(t('profile.support.error.joinCall', { label: supportLiveCallLabel }, `Failed to join the ${supportLiveCallLabel}`));
                 } else {
                     setError('');
                 }
@@ -647,39 +660,50 @@ export default function SupportSection({
         || (!canJoinSupportCall && activeTicket?.liveCallRequested)
     );
     const liveCallActionLabel = isActiveSupportCall
-        ? 'Live now'
+        ? t('profile.support.call.liveNow', {}, 'Live now')
         : canJoinSupportCall
-            ? `Join ${supportLiveCallLabel}`
+            ? t('profile.support.call.join', { label: supportLiveCallLabel }, `Join ${supportLiveCallLabel}`)
             : activeTicket?.liveCallRequested
-                ? 'Requested'
-                : `Request ${supportLiveCallLabel}`;
+                ? t('profile.support.call.requested', {}, 'Requested')
+                : t('profile.support.call.request', { label: supportLiveCallLabel }, `Request ${supportLiveCallLabel}`);
     const liveCallComposerLabel = isActiveSupportCall
-        ? `${supportLiveCallTitle} Active`
+        ? t('profile.support.call.active', { title: supportLiveCallTitle }, `${supportLiveCallTitle} Active`)
         : canJoinSupportCall
-            ? `Join ${supportLiveCallLabel}`
+            ? t('profile.support.call.join', { label: supportLiveCallLabel }, `Join ${supportLiveCallLabel}`)
             : activeTicket?.liveCallRequested
-                ? `${supportLiveCallTitle} queued`
-                : `Escalate to ${supportLiveCallLabel}`;
+                ? t('profile.support.call.queued', { title: supportLiveCallTitle }, `${supportLiveCallTitle} queued`)
+                : t('profile.support.call.escalate', { label: supportLiveCallLabel }, `Escalate to ${supportLiveCallLabel}`);
     const supportComposerConnectionCopy = connectionState === 'connected'
-        ? 'Realtime is connected for this thread.'
+        ? t('profile.support.connection.live', {}, 'Realtime is connected for this thread.')
         : isSocketReconnecting
-            ? 'Realtime is reconnecting for this thread.'
-            : `Realtime is on polling fallback. Aura refreshes this chat every ${Math.round(ACTIVE_TICKET_POLL_MS / 1000)} seconds.`;
+            ? t('profile.support.connection.reconnecting', {}, 'Realtime is reconnecting for this thread.')
+            : t('profile.support.connection.polling', { seconds: Math.round(ACTIVE_TICKET_POLL_MS / 1000) }, `Realtime is on polling fallback. Aura refreshes this chat every ${Math.round(ACTIVE_TICKET_POLL_MS / 1000)} seconds.`);
     const supportCharacterCount = String(newMessage || '').length;
     const liveCallStatusCopy = isActiveSupportCall
-        ? `Aura Support is already ringing or connected on this ${supportLiveCallLabel}.`
+        ? t('profile.support.call.status.active', { label: supportLiveCallLabel }, `Aura Support is already ringing or connected on this ${supportLiveCallLabel}.`)
         : activeTicket?.liveCallRequested
-            ? `Your ${supportLiveCallLabel} request is queued for the support team.`
+            ? t('profile.support.call.status.queued', { label: supportLiveCallLabel }, `Your ${supportLiveCallLabel} request is queued for the support team.`)
             : canJoinSupportCall
-                ? `Aura Support already opened a ${supportLiveCallLabel} for this ticket. Join it from here.`
+                ? t('profile.support.call.status.joinable', { label: supportLiveCallLabel }, `Aura Support already opened a ${supportLiveCallLabel} for this ticket. Join it from here.`)
                 : activeTicket?.liveCallLastStatus === 'ended' || activeTicket?.liveCallLastStatus === 'missed'
-                    ? `The last ${supportLiveCallLabel} finished. Request another one if text support is still not enough.`
-                    : 'Move this thread into a real-time voice or video call when typing is too slow.';
+                    ? t('profile.support.call.status.ended', { label: supportLiveCallLabel }, `The last ${supportLiveCallLabel} finished. Request another one if text support is still not enough.`)
+                    : t('profile.support.call.status.default', {}, 'Move this thread into a real-time voice or video call when typing is too slow.');
     const liveCallStatusTime = activeTicket?.liveCallRequestedAt
-        ? `Requested ${new Date(activeTicket.liveCallRequestedAt).toLocaleString()}`
+        ? t('profile.support.call.requestedAt', { time: new Date(activeTicket.liveCallRequestedAt).toLocaleString() }, `Requested ${new Date(activeTicket.liveCallRequestedAt).toLocaleString()}`)
         : activeTicket?.liveCallEndedAt
-            ? `Last call ${new Date(activeTicket.liveCallEndedAt).toLocaleString()}`
+            ? t('profile.support.call.lastCallAt', { time: new Date(activeTicket.liveCallEndedAt).toLocaleString() }, `Last call ${new Date(activeTicket.liveCallEndedAt).toLocaleString()}`)
             : '';
+    const supportDynamicTexts = useMemo(() => ([
+        ...(tickets || []).flatMap((ticket) => [
+            ticket?.subject,
+            ticket?.lastMessagePreview,
+            ticket?.resolutionSummary,
+            ticket?.liveCallLastContextLabel,
+        ]),
+        ...(messages || []).map((message) => message?.text),
+        error,
+    ]), [error, messages, tickets]);
+    const { translateText: translateSupportText } = useDynamicTranslations(supportDynamicTexts);
 
     return (
         <div className="grid gap-6 xl:grid-cols-[22rem_minmax(0,1fr)]">
@@ -687,10 +711,10 @@ export default function SupportSection({
                 <div className="border-b border-white/10 px-5 py-5">
                     <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                            <p className="text-[11px] font-black uppercase tracking-[0.28em] text-emerald-200">Support inbox</p>
-                            <h3 className="mt-2 text-2xl font-black text-white">Chat with Aura Support</h3>
+                            <p className="text-[11px] font-black uppercase tracking-[0.28em] text-emerald-200">{t('profile.support.inbox.kicker', {}, 'Support inbox')}</p>
+                            <h3 className="mt-2 text-2xl font-black text-white">{t('profile.support.inbox.title', {}, 'Chat with Aura Support')}</h3>
                             <p className="mt-1.5 text-sm text-slate-400">
-                                Appeals, order issues, and live support handoffs stay in one conversation flow.
+                                {t('profile.support.inbox.body', {}, 'Appeals, order issues, and live support handoffs stay in one conversation flow.')}
                             </p>
                         </div>
                         <div className={cn(
@@ -712,12 +736,12 @@ export default function SupportSection({
                             onClick={() => {
                                 setCreating(true);
                                 setActiveTicketId(null);
-                                setForm(createInitialForm(prefill));
+                                setForm(createInitialForm(prefill, categoryMap));
                             }}
                             className="support-chat-send inline-flex items-center gap-2 px-4 py-2 text-sm font-black"
                         >
                             <Plus className="h-4 w-4" />
-                            New chat
+                            {t('profile.support.inbox.newChat', {}, 'New chat')}
                         </button>
                         <button
                             type="button"
@@ -725,13 +749,13 @@ export default function SupportSection({
                             className="support-chat-utility inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold"
                         >
                             <RefreshCw className="h-4 w-4" />
-                            Refresh
+                            {t('profile.support.inbox.refresh', {}, 'Refresh')}
                         </button>
                     </div>
 
                     {error ? (
                         <div className="mt-4 rounded-[1.25rem] border border-rose-400/20 bg-rose-500/12 px-4 py-3 text-sm text-rose-100">
-                            {error}
+                            {translateSupportText(error)}
                         </div>
                     ) : null}
                 </div>
@@ -739,16 +763,16 @@ export default function SupportSection({
                 <div className="flex-1 overflow-y-auto p-3 scrollbar-hide">
                     {loading ? (
                         <div className="flex h-full items-center justify-center px-6 text-center text-sm text-slate-400">
-                            Loading your support threads...
+                            {t('profile.support.inbox.loading', {}, 'Loading your support threads...')}
                         </div>
                     ) : tickets.length === 0 ? (
                         <div className="flex h-full flex-col items-center justify-center px-6 text-center">
                             <div className="support-chat-avatar h-16 w-16 text-emerald-100">
                                 <LifeBuoy className="h-8 w-8" />
                             </div>
-                            <h4 className="mt-5 text-lg font-black text-white">No chats yet</h4>
+                            <h4 className="mt-5 text-lg font-black text-white">{t('profile.support.inbox.emptyTitle', {}, 'No chats yet')}</h4>
                             <p className="mt-2 max-w-xs text-sm text-slate-400">
-                                Start a thread when you need help with moderation, orders, or account support.
+                                {t('profile.support.inbox.emptyBody', {}, 'Start a thread when you need help with moderation, orders, or account support.')}
                             </p>
                         </div>
                     ) : (
@@ -768,24 +792,24 @@ export default function SupportSection({
                                 >
                                     <div className="flex items-start gap-3">
                                         <div className="support-chat-avatar h-12 w-12 shrink-0 text-sm font-black">
-                                            {getInitials(CATEGORY_MAP.get(ticket.category)?.label || ticket.subject)}
+                                            {getInitials(categoryMap.get(ticket.category)?.label || translateSupportText(ticket.subject))}
                                         </div>
 
                                         <div className="min-w-0 flex-1">
                                             <div className="flex items-start justify-between gap-3">
                                                 <div className="min-w-0">
-                                                    <div className="truncate text-sm font-black text-white">{ticket.subject}</div>
+                                                    <div className="truncate text-sm font-black text-white">{translateSupportText(ticket.subject)}</div>
                                                     <div className="mt-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-                                                        {CATEGORY_MAP.get(ticket.category)?.label || ticket.category}
+                                                        {categoryMap.get(ticket.category)?.label || ticket.category}
                                                     </div>
                                                 </div>
                                                 <span className="shrink-0 text-[11px] font-medium text-slate-400">
-                                                    {formatThreadPreviewTime(ticket.lastMessageAt || ticket.updatedAt || ticket.createdAt)}
+                                                    {formatThreadPreviewTime(ticket.lastMessageAt || ticket.updatedAt || ticket.createdAt, t)}
                                                 </span>
                                             </div>
 
                                             <div className="mt-3 line-clamp-2 text-sm leading-6 text-slate-300">
-                                                {ticket.lastMessagePreview || 'No messages yet.'}
+                                                {translateSupportText(ticket.lastMessagePreview) || t('profile.support.thread.noMessages', {}, 'No messages yet.')}
                                             </div>
 
                                             <div className="mt-3 flex items-center justify-between gap-3">
@@ -794,15 +818,17 @@ export default function SupportSection({
                                                         'rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em]',
                                                         getPriorityBadge(ticket.priority)
                                                     )}>
-                                                        {ticket.priority}
+                                                        {formatSupportPriority(ticket.priority, t)}
                                                     </span>
                                                     {ticket.userActionRequired ? (
                                                         <span className="rounded-full border border-rose-300/20 bg-rose-500/12 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-rose-100">
-                                                            Reply needed
+                                                            {t('profile.support.thread.replyNeeded', {}, 'Reply needed')}
                                                         </span>
                                                     ) : (
                                                         <span className="rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-slate-300">
-                                                            {ticket.lastActorRole === 'admin' ? 'Aura replied' : 'You replied'}
+                                                            {ticket.lastActorRole === 'admin'
+                                                                ? t('profile.support.thread.auraReplied', {}, 'Aura replied')
+                                                                : t('profile.support.thread.youReplied', {}, 'You replied')}
                                                         </span>
                                                     )}
                                                 </div>
@@ -813,7 +839,7 @@ export default function SupportSection({
                                                             {ticket.unreadByUser}
                                                         </span>
                                                     ) : null}
-                                                    {getStatusBadge(ticket.status)}
+                                                    {getStatusBadge(ticket.status, t)}
                                                 </div>
                                             </div>
                                         </div>
@@ -829,10 +855,10 @@ export default function SupportSection({
                 {!creating && !activeTicket ? (
                     <div className="support-chat-thread flex h-full flex-col">
                         <div className="border-b border-white/10 px-6 py-6">
-                            <p className="text-[11px] font-black uppercase tracking-[0.28em] text-emerald-200">Conversation-first support</p>
-                            <h3 className="mt-2 text-3xl font-black text-white">Pick a thread or start a new one</h3>
+                            <p className="text-[11px] font-black uppercase tracking-[0.28em] text-emerald-200">{t('profile.support.empty.kicker', {}, 'Conversation-first support')}</p>
+                            <h3 className="mt-2 text-3xl font-black text-white">{t('profile.support.empty.title', {}, 'Pick a thread or start a new one')}</h3>
                             <p className="mt-3 max-w-2xl text-sm text-slate-400">
-                                Everything important lands here: text replies, resolution notes, and live support escalation.
+                                {t('profile.support.empty.body', {}, 'Everything important lands here: text replies, resolution notes, and live support escalation.')}
                             </p>
                         </div>
 
@@ -842,14 +868,14 @@ export default function SupportSection({
                                     <div className="support-chat-avatar h-20 w-20 text-emerald-100">
                                         <MessageSquare className="h-10 w-10" />
                                     </div>
-                                    <h4 className="mt-5 text-2xl font-black text-white">Support should feel like a real conversation</h4>
+                                    <h4 className="mt-5 text-2xl font-black text-white">{t('profile.support.empty.headline', {}, 'Support should feel like a real conversation')}</h4>
                                     <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-300">
-                                        Open a durable thread for governance appeals, orders, or account help. Aura Support keeps the full trail visible in one place.
+                                        {t('profile.support.empty.headlineBody', {}, 'Open a durable thread for governance appeals, orders, or account help. Aura Support keeps the full trail visible in one place.')}
                                     </p>
                                 </div>
 
                                 <div className="grid gap-4 md:grid-cols-3">
-                                    {CATEGORY_OPTIONS.slice(0, 3).map((option) => (
+                                    {categoryOptions.slice(0, 3).map((option) => (
                                         <button
                                             key={option.value}
                                             type="button"
@@ -857,9 +883,11 @@ export default function SupportSection({
                                                 setCreating(true);
                                                 setActiveTicketId(null);
                                                 setForm((previous) => ({
-                                                    ...createInitialForm(prefill),
+                                                    ...createInitialForm(prefill, categoryMap),
                                                     category: option.value,
-                                                    subject: previous.subject || (option.value === 'moderation_appeal' ? 'Appeal moderation action' : ''),
+                                                    subject: previous.subject || (option.value === 'moderation_appeal'
+                                                        ? t('profile.support.compose.defaultAppealSubject', {}, 'Appeal moderation action')
+                                                        : ''),
                                                 }));
                                             }}
                                             className="support-chat-card p-5 text-left transition-all hover:-translate-y-1"
@@ -879,10 +907,10 @@ export default function SupportSection({
                         <div className="border-b border-white/10 px-6 py-6">
                             <div className="flex items-start justify-between gap-3">
                                 <div className="min-w-0">
-                                    <p className="text-[11px] font-black uppercase tracking-[0.28em] text-emerald-200">New chat</p>
-                                    <h3 className="mt-2 text-3xl font-black text-white">Start a support conversation</h3>
+                                    <p className="text-[11px] font-black uppercase tracking-[0.28em] text-emerald-200">{t('profile.support.compose.kicker', {}, 'New chat')}</p>
+                                    <h3 className="mt-2 text-3xl font-black text-white">{t('profile.support.compose.title', {}, 'Start a support conversation')}</h3>
                                     <p className="mt-3 max-w-2xl text-sm text-slate-400">
-                                        This thread stays visible to you and Aura Support until the issue is actually resolved.
+                                        {t('profile.support.compose.body', {}, 'This thread stays visible to you and Aura Support until the issue is actually resolved.')}
                                     </p>
                                 </div>
                                 <button
@@ -907,10 +935,10 @@ export default function SupportSection({
                                         <div className="flex items-start gap-3">
                                             <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0" />
                                             <div>
-                                                <div className="font-black text-amber-50">Appeal-ready path</div>
-                                                <p className="mt-1.5 leading-6 text-amber-100/90">
-                                                    Governance-related actions route through this thread so you can contest or clarify the decision in one place.
-                                                </p>
+                                        <div className="font-black text-amber-50">{t('profile.support.compose.appealTitle', {}, 'Appeal-ready path')}</div>
+                                        <p className="mt-1.5 leading-6 text-amber-100/90">
+                                                    {t('profile.support.compose.appealBody', {}, 'Governance-related actions route through this thread so you can contest or clarify the decision in one place.')}
+                                        </p>
                                             </div>
                                         </div>
                                     </div>
@@ -918,12 +946,12 @@ export default function SupportSection({
 
                                 <div className="rounded-[2rem] border border-white/10 bg-[#0f1720]/80 p-5 shadow-[0_24px_60px_rgba(2,8,23,0.18)]">
                                     <div className="mb-4">
-                                        <div className="text-[11px] font-black uppercase tracking-[0.24em] text-slate-400">Choose a lane</div>
-                                        <div className="mt-2 text-sm text-slate-300">Pick the chat type that best matches the issue.</div>
+                                        <div className="text-[11px] font-black uppercase tracking-[0.24em] text-slate-400">{t('profile.support.compose.chooseLane', {}, 'Choose a lane')}</div>
+                                        <div className="mt-2 text-sm text-slate-300">{t('profile.support.compose.chooseLaneBody', {}, 'Pick the chat type that best matches the issue.')}</div>
                                     </div>
 
                                     <div className="grid gap-3 sm:grid-cols-2">
-                                        {CATEGORY_OPTIONS.map((option) => (
+                                        {categoryOptions.map((option) => (
                                             <button
                                                 key={option.value}
                                                 type="button"
@@ -945,7 +973,7 @@ export default function SupportSection({
                                 <div className="rounded-[2rem] border border-white/10 bg-[#0f1720]/80 p-5 shadow-[0_24px_60px_rgba(2,8,23,0.18)]">
                                     <div className="grid gap-4 md:grid-cols-2">
                                         <label className="block">
-                                            <span className="mb-2 block text-[11px] font-black uppercase tracking-[0.24em] text-slate-400">Subject</span>
+                                            <span className="mb-2 block text-[11px] font-black uppercase tracking-[0.24em] text-slate-400">{t('profile.support.compose.subject', {}, 'Subject')}</span>
                                             <input
                                                 type="text"
                                                 required
@@ -953,27 +981,27 @@ export default function SupportSection({
                                                 value={form.subject}
                                                 onChange={(event) => setForm((previous) => ({ ...previous, subject: event.target.value }))}
                                                 className="support-chat-input px-4 py-3 text-sm"
-                                                placeholder="Brief summary of the issue"
+                                                placeholder={t('profile.support.compose.subjectPlaceholder', {}, 'Brief summary of the issue')}
                                             />
                                         </label>
 
                                         <div className="rounded-[1.5rem] border border-white/10 bg-white/[0.04] px-4 py-4">
                                             <div className={cn('text-sm font-black uppercase tracking-[0.18em]', activeCategory?.accent || 'text-emerald-200')}>
-                                                {activeCategory?.label || 'Support'}
+                                                {activeCategory?.label || t('profile.support.compose.supportFallback', {}, 'Support')}
                                             </div>
                                             <p className="mt-2 text-sm leading-6 text-slate-300">
-                                                {activeCategory?.description || 'Open a thread and let Aura Support respond in the same conversation.'}
+                                                {activeCategory?.description || t('profile.support.compose.supportFallbackBody', {}, 'Open a thread and let Aura Support respond in the same conversation.')}
                                             </p>
                                             {prefill?.relatedActionId ? (
                                                 <div className="mt-3 rounded-full border border-violet-300/20 bg-violet-500/12 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.18em] text-violet-100">
-                                                    Linked action: {prefill.relatedActionId}
+                                                    {t('profile.support.compose.linkedAction', { id: prefill.relatedActionId }, `Linked action: ${prefill.relatedActionId}`)}
                                                 </div>
                                             ) : null}
                                         </div>
                                     </div>
 
                                     <label className="mt-5 block">
-                                        <span className="mb-2 block text-[11px] font-black uppercase tracking-[0.24em] text-slate-400">Tell Aura Support what happened</span>
+                                        <span className="mb-2 block text-[11px] font-black uppercase tracking-[0.24em] text-slate-400">{t('profile.support.compose.messageLabel', {}, 'Tell Aura Support what happened')}</span>
                                         <textarea
                                             required
                                             minLength={5}
@@ -981,13 +1009,13 @@ export default function SupportSection({
                                             value={form.message}
                                             onChange={(event) => setForm((previous) => ({ ...previous, message: event.target.value }))}
                                             className="min-h-[16rem] w-full rounded-[1.8rem] border border-white/10 bg-white/[0.05] px-4 py-4 text-sm leading-7 text-white outline-none transition-colors focus:border-emerald-300/30"
-                                            placeholder="Describe the problem, what action was taken, and what kind of resolution you need."
+                                            placeholder={t('profile.support.compose.messagePlaceholder', {}, 'Describe the problem, what action was taken, and what kind of resolution you need.')}
                                         />
                                     </label>
 
                                     <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
                                         <div className="text-xs leading-6 text-slate-400">
-                                            This thread is persistent. Replies, policy notes, and next steps stay together like a real chat history.
+                                            {t('profile.support.compose.persistentNote', {}, 'This thread is persistent. Replies, policy notes, and next steps stay together like a real chat history.')}
                                         </div>
                                         <button
                                             type="submit"
@@ -995,7 +1023,7 @@ export default function SupportSection({
                                             className="support-chat-send inline-flex items-center gap-2 px-5 py-3 text-sm font-black"
                                         >
                                             {creatingTicket ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                                            Open support chat
+                                            {t('profile.support.compose.openChat', {}, 'Open support chat')}
                                         </button>
                                     </div>
                                 </div>
@@ -1010,33 +1038,35 @@ export default function SupportSection({
                             <div className="flex items-start justify-between gap-4">
                                 <div className="flex min-w-0 flex-1 items-start gap-4">
                                     <div className="support-chat-avatar h-14 w-14 shrink-0 text-base font-black">
-                                        {getInitials(CATEGORY_MAP.get(activeTicket.category)?.label || activeTicket.subject)}
+                                        {getInitials(categoryMap.get(activeTicket.category)?.label || translateSupportText(activeTicket.subject))}
                                     </div>
 
                                     <div className="min-w-0 flex-1">
                                         <div className="flex flex-wrap items-center gap-2">
-                                            <h3 className="truncate text-2xl font-black text-white">{activeTicket.subject}</h3>
-                                            {getStatusBadge(activeTicket.status)}
+                                            <h3 className="truncate text-2xl font-black text-white">{translateSupportText(activeTicket.subject)}</h3>
+                                            {getStatusBadge(activeTicket.status, t)}
                                             <span className={cn(
                                                 'rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em]',
                                                 getPriorityBadge(activeTicket.priority)
                                             )}>
-                                                {activeTicket.priority}
+                                                {formatSupportPriority(activeTicket.priority, t)}
                                             </span>
                                         </div>
 
                                         <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-400">
                                             <span className={cn('font-semibold uppercase tracking-[0.18em]', activeCategory?.accent || 'text-emerald-200')}>
-                                                {CATEGORY_MAP.get(activeTicket.category)?.label || activeTicket.category}
+                                                {categoryMap.get(activeTicket.category)?.label || activeTicket.category}
                                             </span>
                                             <span className="text-slate-600">|</span>
-                                            <span>Ticket {String(activeTicket._id).slice(-8)}</span>
+                                            <span>{t('profile.support.ticketNumber', { id: String(activeTicket._id).slice(-8) }, `Ticket ${String(activeTicket._id).slice(-8)}`)}</span>
                                             <span className="text-slate-600">|</span>
-                                            <span>{activeTicket.lastMessageAt ? `Last activity ${new Date(activeTicket.lastMessageAt).toLocaleString()}` : 'Just opened'}</span>
+                                            <span>{activeTicket.lastMessageAt
+                                                ? t('profile.support.lastActivity', { time: new Date(activeTicket.lastMessageAt).toLocaleString() }, `Last activity ${new Date(activeTicket.lastMessageAt).toLocaleString()}`)
+                                                : t('profile.support.justOpened', {}, 'Just opened')}</span>
                                         </div>
 
                                         <p className="mt-3 text-sm leading-6 text-slate-300">
-                                            Text support, policy notes, and live support escalation all stay in this single thread.
+                                            {t('profile.support.thread.body', {}, 'Text support, policy notes, and live support escalation all stay in this single thread.')}
                                         </p>
                                     </div>
                                 </div>
@@ -1058,9 +1088,9 @@ export default function SupportSection({
                                         <div className="flex items-start gap-3">
                                             <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-rose-200" />
                                             <div>
-                                                <div className="font-black text-white">Aura Support is waiting on your reply</div>
+                                                <div className="font-black text-white">{t('profile.support.thread.waitingTitle', {}, 'Aura Support is waiting on your reply')}</div>
                                                 <p className="mt-1.5 leading-6 text-rose-100/90">
-                                                    Reply in this chat to keep the support or governance action moving.
+                                                    {t('profile.support.thread.waitingBody', {}, 'Reply in this chat to keep the support or governance action moving.')}
                                                 </p>
                                             </div>
                                         </div>
@@ -1070,9 +1100,9 @@ export default function SupportSection({
                                         <div className="flex items-start gap-3">
                                             <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-200" />
                                             <div>
-                                                <div className="font-black text-white">Two-way support is active</div>
+                                                <div className="font-black text-white">{t('profile.support.thread.activeTitle', {}, 'Two-way support is active')}</div>
                                                 <p className="mt-1.5 leading-6 text-slate-300">
-                                                    This thread is the shared record for you and Aura Support. No more disconnected alerts.
+                                                    {t('profile.support.thread.activeBody', {}, 'This thread is the shared record for you and Aura Support. No more disconnected alerts.')}
                                                 </p>
                                             </div>
                                         </div>
@@ -1091,7 +1121,7 @@ export default function SupportSection({
                                         <div className="min-w-0 flex-1">
                                             <div className="flex items-center gap-2 font-black text-white">
                                                 <PhoneCall className="h-4 w-4 text-emerald-200" />
-                                                Live support line
+                                                {t('profile.support.call.lineTitle', {}, 'Live support line')}
                                             </div>
                                             <p className="mt-2 leading-6">{liveCallStatusCopy}</p>
                                             {liveCallStatusTime ? (
@@ -1125,7 +1155,7 @@ export default function SupportSection({
                                                     className="support-chat-utility inline-flex items-center justify-center gap-2 px-4 py-3 text-sm font-black disabled:cursor-not-allowed disabled:opacity-55"
                                                 >
                                                     {requestingLiveCall ? <RefreshCw className="h-4 w-4 animate-spin" /> : <PhoneCall className="h-4 w-4" />}
-                                                    Voice call
+                                                    {t('profile.support.call.voiceTitle', {}, 'Voice Call')}
                                                 </button>
                                                 <button
                                                     type="button"
@@ -1134,7 +1164,7 @@ export default function SupportSection({
                                                     className="support-chat-send inline-flex items-center justify-center gap-2 px-4 py-3 text-sm font-black disabled:cursor-not-allowed"
                                                 >
                                                     {requestingLiveCall ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Video className="h-4 w-4" />}
-                                                    Video call
+                                                    {t('profile.support.call.videoTitle', {}, 'Video Call')}
                                                 </button>
                                             </div>
                                         )}
@@ -1145,9 +1175,9 @@ export default function SupportSection({
                                     <div className="rounded-[1.6rem] border border-emerald-300/20 bg-emerald-500/12 px-4 py-4 text-sm text-emerald-100">
                                         <div className="flex items-center gap-2 font-black text-emerald-50">
                                             <CheckCircle2 className="h-4 w-4" />
-                                            Resolution summary
+                                            {t('profile.support.resolutionSummary', {}, 'Resolution summary')}
                                         </div>
-                                        <p className="mt-2 leading-6 text-emerald-100/90">{activeTicket.resolutionSummary}</p>
+                                        <p className="mt-2 leading-6 text-emerald-100/90">{translateSupportText(activeTicket.resolutionSummary)}</p>
                                     </div>
                                 ) : null}
                             </div>
@@ -1159,7 +1189,7 @@ export default function SupportSection({
                             className="support-chat-thread flex-1 overflow-y-auto px-4 py-5 scrollbar-hide sm:px-6"
                         >
                             {messagesLoading ? (
-                                <div className="flex h-full items-center justify-center text-sm text-slate-400">Loading conversation...</div>
+                                <div className="flex h-full items-center justify-center text-sm text-slate-400">{t('profile.support.thread.loading', {}, 'Loading conversation...')}</div>
                             ) : (
                                 <div className="space-y-3">
                                     {messages.map((message, index) => {
@@ -1174,7 +1204,7 @@ export default function SupportSection({
                                                 {showDayDivider ? (
                                                     <div className="flex justify-center">
                                                         <div className="support-chat-date-pill text-xs font-semibold">
-                                                            {formatMessageDayLabel(sentAt)}
+                                                            {formatMessageDayLabel(sentAt, t)}
                                                         </div>
                                                     </div>
                                                 ) : null}
@@ -1183,7 +1213,7 @@ export default function SupportSection({
                                                     <div className="flex justify-center">
                                                         <div className="support-chat-system-pill text-xs">
                                                             <AlertCircle className="h-3.5 w-3.5" />
-                                                            {message.text}
+                                                            {translateSupportText(message.text)}
                                                         </div>
                                                     </div>
                                                 ) : (
@@ -1200,16 +1230,16 @@ export default function SupportSection({
                                                                     {isAdmin ? (
                                                                         <>
                                                                             <ShieldAlert className="h-3.5 w-3.5" />
-                                                                            Aura Support
+                                                                            {t('profile.support.callerName', {}, 'Aura Support')}
                                                                         </>
                                                                     ) : (
                                                                         <>
                                                                             <MessageSquare className="h-3.5 w-3.5" />
-                                                                            You
+                                                                            {t('profile.support.you', {}, 'You')}
                                                                         </>
                                                                     )}
                                                                 </div>
-                                                                <div className="whitespace-pre-wrap text-sm leading-7 text-inherit">{message.text}</div>
+                                                                    <div className="whitespace-pre-wrap text-sm leading-7 text-inherit">{translateSupportText(message.text)}</div>
                                                                 <div className={cn(
                                                                     'mt-3 text-right text-[11px] font-medium',
                                                                     isAdmin ? 'text-slate-400' : 'text-emerald-50/75'
@@ -1246,7 +1276,9 @@ export default function SupportSection({
                                             }}
                                             rows={1}
                                             maxLength={SUPPORT_MESSAGE_MAX_LENGTH}
-                                            placeholder={activeTicket.userActionRequired ? 'Reply to Aura Support and keep things moving...' : 'Type a message...'}
+                                            placeholder={activeTicket.userActionRequired
+                                                ? t('profile.support.compose.replyPlaceholder', {}, 'Reply to Aura Support and keep things moving...')
+                                                : t('profile.support.compose.typePlaceholder', {}, 'Type a message...')}
                                             className="support-chat-input min-h-[3.5rem] max-h-44 resize-none overflow-y-auto px-5 py-4 pr-16 text-sm leading-6"
                                         />
                                         <button
@@ -1282,7 +1314,7 @@ export default function SupportSection({
                                                 className="support-chat-utility inline-flex h-12 justify-center gap-2 px-4 text-sm font-black disabled:cursor-not-allowed disabled:opacity-55"
                                             >
                                                 {requestingLiveCall ? <RefreshCw className="h-4 w-4 animate-spin" /> : <PhoneCall className="h-4 w-4" />}
-                                                Voice call
+                                                {t('profile.support.call.voiceTitle', {}, 'Voice Call')}
                                             </button>
                                             <button
                                                 type="button"
@@ -1291,7 +1323,7 @@ export default function SupportSection({
                                                 className="support-chat-send inline-flex h-12 items-center justify-center gap-2 px-4 text-sm font-black disabled:cursor-not-allowed"
                                             >
                                                 {requestingLiveCall ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Video className="h-4 w-4" />}
-                                                Video call
+                                                {t('profile.support.call.videoTitle', {}, 'Video Call')}
                                             </button>
                                         </div>
                                     )}
@@ -1302,9 +1334,9 @@ export default function SupportSection({
                                         <span>{supportComposerConnectionCopy}</span>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <span>Enter sends</span>
+                                        <span>{t('profile.support.composer.enterSends', {}, 'Enter sends')}</span>
                                         <span className="text-slate-600">|</span>
-                                        <span>Shift+Enter adds a new line</span>
+                                        <span>{t('profile.support.composer.shiftEnter', {}, 'Shift+Enter adds a new line')}</span>
                                         <span className="text-slate-600">|</span>
                                         <span>{supportCharacterCount}/{SUPPORT_MESSAGE_MAX_LENGTH}</span>
                                     </div>
@@ -1312,7 +1344,7 @@ export default function SupportSection({
                             </form>
                         ) : (
                             <div className="support-chat-composer px-6 py-4 text-sm text-slate-400">
-                                This chat is closed. If the issue is still active, open a new thread so the next action is tracked cleanly.
+                                {t('profile.support.closedNotice', {}, 'This chat is closed. If the issue is still active, open a new thread so the next action is tracked cleanly.')}
                             </div>
                         )}
                     </div>
