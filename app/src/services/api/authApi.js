@@ -88,7 +88,12 @@ export const authApi = {
         return response.data;
     },
     syncSession: async (email, name, phone, options = {}) => {
-        return postWithFreshCsrf('/auth/sync', { email, name, phone }, options);
+        return postWithFreshCsrf('/auth/sync', {
+            email,
+            name,
+            phone,
+            ...(options.flowToken ? { flowToken: options.flowToken } : {}),
+        }, options);
     },
     completePhoneFactorLogin: async (email, phone, options = {}) => {
         return postWithFirebaseBearer('/auth/complete-phone-factor-login', { email, phone }, options);

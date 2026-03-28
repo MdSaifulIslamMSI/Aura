@@ -71,6 +71,7 @@ const Login = () => {
   const [authSuccess, setAuthSuccess] = useState(null); // structured success
   const [countdown, setCountdown] = useState(0);
   const [signInProofToken, setSignInProofToken] = useState('');
+  const [loginFlowToken, setLoginFlowToken] = useState('');
   const [otpTransport, setOtpTransport] = useState(OTP_TRANSPORT.BACKEND_OTP);
   const [otpStage, setOtpStage] = useState(OTP_STAGE.SINGLE);
   const [firebasePhoneFallback, setFirebasePhoneFallback] = useState(null);
@@ -291,6 +292,7 @@ const Login = () => {
   const startDualChannelFlow = async ({ email, phone, resend = false }) => {
     await clearFirebaseChallenge();
     setSignInProofToken('');
+    setLoginFlowToken('');
 
     try {
       const purpose = mode === 'forgot-password' ? 'forgot-password' : mode === 'signup' ? 'signup' : 'login';
@@ -347,16 +349,20 @@ const Login = () => {
   };
 
   const finalizePhoneBackedSignIn = async (email, verifiedPhoneFactor) => {
-    if (!verifiedPhoneFactor?.credential) {
-      await login(email, formData.password);
-      return;
+    const resolvedFlowToken = typeof loginFlowToken === 'string' ? loginFlowToken.trim() : '';
+    if (!resolvedFlowToken) {
+      throw new Error('Secure login token expired. Please request a fresh code.');
     }
 
-    try {
-      await loginWithPhoneCredential(verifiedPhoneFactor.credential, { email });
-    } catch {
-      await login(email, formData.password);
+    if (!verifiedPhoneFactor?.credential) {
+      throw new Error('Secure phone-backed sign-in could not be completed. Please request a new code.');
     }
+
+    await loginWithPhoneCredential(verifiedPhoneFactor.credential, {
+      email,
+      phone: verifiedPhoneFactor.phoneE164 || formData.phone,
+      loginFlowToken: resolvedFlowToken,
+    });
   };
 
 
@@ -445,6 +451,7 @@ const Login = () => {
 
     setIsLoading(true);
     setAuthError(null);
+    setLoginFlowToken('');
     setAuthSuccess(null);
 
     try {
@@ -513,10 +520,15 @@ const Login = () => {
       const purpose = mode === 'forgot-password' ? 'forgot-password' : mode === 'signup' ? 'signup' : 'login';
 
       if (isEmailOtpStage) {
-        await otpApi.verifyOtp(phone, otpString, purpose, {
+        const verificationResult = await otpApi.verifyOtp(phone, otpString, purpose, {
           email,
           factor: 'email',
         });
+        const nextFlowToken = String(verificationResult?.flowToken || '').trim();
+        if (mode === 'signin' && !nextFlowToken) {
+          throw new Error('Secure login token expired. Please request a fresh code.');
+        }
+        setLoginFlowToken(nextFlowToken);
         startOtpStep({
           transport: OTP_TRANSPORT.FIREBASE_SMS,
           stage: OTP_STAGE.PHONE,
@@ -542,11 +554,7 @@ const Login = () => {
           : await completeFirebasePhoneCodeChallenge(activeChallenge, otpString);
 
         try {
-          if (mode === 'signin') {
-            await authApi.completePhoneFactorLogin(email, verifiedPhoneFactor.phoneE164, {
-              firebaseUser: verifiedPhoneFactor.user,
-            });
-          } else {
+          if (mode !== 'signin') {
             await authApi.completePhoneFactorVerification(purpose, email, verifiedPhoneFactor.phoneE164, {
               firebaseUser: verifiedPhoneFactor.user,
             });
@@ -558,6 +566,7 @@ const Login = () => {
         if (mode === 'signin') {
           await finalizePhoneBackedSignIn(email, verifiedPhoneFactor);
           setSignInProofToken('');
+          setLoginFlowToken('');
           setOtpStage(OTP_STAGE.SINGLE);
           setOtpTransport(OTP_TRANSPORT.BACKEND_OTP);
           setAuthSuccess(AUTH_SUCCESS.signin_success);
@@ -586,14 +595,21 @@ const Login = () => {
         return;
       }
 
-      await otpApi.verifyOtp(phone, otpString, purpose);
+      const otpResult = await otpApi.verifyOtp(phone, otpString, purpose);
 
       if (mode === 'signup') {
         await signup(email, formData.password, formData.name.trim(), phone);
         setAuthSuccess(AUTH_SUCCESS.signup_success);
         setTimeout(() => navigate(from, { replace: true }), 1200);
       } else if (mode === 'signin') {
-        await login(email, formData.password);
+        const flowToken = String(otpResult?.flowToken || '').trim();
+        if (!flowToken) {
+          throw new Error('Secure login token expired. Please request a fresh code.');
+        }
+        await login(email, formData.password, {
+          loginFlowToken: flowToken,
+          phone,
+        });
         setOtpStage(OTP_STAGE.SINGLE);
         setOtpTransport(OTP_TRANSPORT.BACKEND_OTP);
         setAuthSuccess(AUTH_SUCCESS.signin_success);
@@ -613,6 +629,7 @@ const Login = () => {
         return;
       }
       setSignInProofToken('');
+      setLoginFlowToken('');
     } catch (err) {
       if ((mode === 'signin' || mode === 'forgot-password') && isEnumerationSensitiveOtpError(err) && !shouldKeepSpecificOtpError(err)) {
         setErr(buildGenericOtpFlowError());
@@ -699,6 +716,7 @@ const Login = () => {
     setOtpValues(Array(OTP_LENGTH).fill(''));
     setFormData({ name: '', email: '', phone: '', password: '', confirmPassword: '' });
     setSignInProofToken('');
+    setLoginFlowToken('');
     setOtpStage(OTP_STAGE.SINGLE);
     setOtpTransport(OTP_TRANSPORT.BACKEND_OTP);
   };
@@ -711,6 +729,7 @@ const Login = () => {
     setCountdown(0);
     setOtpValues(Array(OTP_LENGTH).fill(''));
     setSignInProofToken('');
+    setLoginFlowToken('');
     setOtpStage(OTP_STAGE.SINGLE);
     setOtpTransport(OTP_TRANSPORT.BACKEND_OTP);
     setFormData((prev) => ({
@@ -833,6 +852,7 @@ const Login = () => {
         setOtpStage(OTP_STAGE.SINGLE);
         setOtpTransport(OTP_TRANSPORT.BACKEND_OTP);
         setSignInProofToken('');
+        setLoginFlowToken('');
         setAuthError(null);
         setAuthSuccess(null);
         setFormData((prev) => ({
