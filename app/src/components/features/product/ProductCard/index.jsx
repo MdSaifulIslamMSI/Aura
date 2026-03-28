@@ -1,4 +1,4 @@
-import { useContext, useRef, useState } from 'react';
+import { useContext, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   ArrowRight,
@@ -15,6 +15,8 @@ import { WishlistContext } from '@/context/WishlistContext';
 import { CartContext } from '@/context/CartContext';
 import { useColorMode } from '@/context/ColorModeContext';
 import { useMarket } from '@/context/MarketContext';
+import { useDynamicTranslations } from '@/hooks/useDynamicTranslations';
+import { getLocalizedCategoryLabel } from '@/config/catalogTaxonomy';
 import { FIGMA_COLOR_MODE_OPTIONS } from '@/config/figmaTokens';
 import { cn } from '@/lib/utils';
 import { formatPrice } from '@/utils/format';
@@ -145,7 +147,7 @@ const ProductCard = ({ product, variant = 'default', gridLayout = null, harmonyI
   const productPath = productId ? `/product/${productId}` : '/products';
   const displayTitle = product?.displayTitle || product?.title || '';
   const subtitle = product?.subtitle || '';
-  const categoryLabel = product?.category || '';
+  const categoryLabel = product?.category ? getLocalizedCategoryLabel(product.category, t) : '';
   const brandLabel = product?.brand || 'Aura';
   const searchTelemetry = product?.searchTelemetry || null;
   const isDemoCatalog = product?.publishGate?.status === 'dev_only' || product?.provenance?.sourceType === 'dev_seed';
@@ -165,6 +167,24 @@ const ProductCard = ({ product, variant = 'default', gridLayout = null, harmonyI
     .filter(Boolean)
     .filter((story) => story !== primaryStory)
     .slice(0, 2);
+  const cardDynamicTexts = useMemo(() => ([
+    displayTitle,
+    subtitle,
+    sponsoredLabel,
+    deliveryLabel,
+    primaryStory,
+    ...secondaryStory,
+  ]), [deliveryLabel, displayTitle, primaryStory, secondaryStory, sponsoredLabel, subtitle]);
+  const { translateText: translateCardText } = useDynamicTranslations(cardDynamicTexts);
+  const translatedDisplayTitle = translateCardText(displayTitle) || displayTitle;
+  const translatedSubtitle = translateCardText(subtitle) || subtitle;
+  const translatedSponsoredLabel = translateCardText(sponsoredLabel) || sponsoredLabel;
+  const translatedDeliveryLabel = translateCardText(deliveryLabel) || deliveryLabel;
+  const translatedPrimaryStory = translateCardText(primaryStory) || primaryStory;
+  const translatedSecondaryStory = useMemo(
+    () => secondaryStory.map((story) => translateCardText(story) || story),
+    [secondaryStory, translateCardText]
+  );
   const accentColors = [
     modePalette.primary,
     '#06b6d4', // Cyan
@@ -252,12 +272,15 @@ const ProductCard = ({ product, variant = 'default', gridLayout = null, harmonyI
   const textToolTone = isWhiteMode
     ? 'border-slate-300 bg-white text-slate-700 hover:border-blue-400 hover:text-blue-700'
     : '';
+  const wishlistToggleLabel = inWishlist
+    ? t('product.removeFromWishlist', {}, 'Remove from wishlist')
+    : t('product.addToWishlist', {}, 'Add to wishlist');
 
   const quickTools = [
-    { key: 'compare', label: 'Compare', icon: Brain, onClick: handleOpenCompare },
-    { key: 'visual', label: 'Visual Search', icon: Camera, onClick: handleOpenVisualSearch },
-    { key: 'deal-dna', label: 'Deal DNA', icon: BadgeCheck, onClick: handleOpenDealDna },
-    { key: 'bundle', label: 'Bundle AI', icon: Clock3, onClick: handleOpenSmartBundle },
+    { key: 'compare', label: t('product.compare', {}, 'Compare'), icon: Brain, onClick: handleOpenCompare },
+    { key: 'visual', label: t('nav.visualSearch', {}, 'Visual Search'), icon: Camera, onClick: handleOpenVisualSearch },
+    { key: 'deal-dna', label: t('product.dealDna', {}, 'Deal DNA'), icon: BadgeCheck, onClick: handleOpenDealDna },
+    { key: 'bundle', label: t('product.bundleAi', {}, 'Bundle AI'), icon: Clock3, onClick: handleOpenSmartBundle },
   ];
 
   const surfaceClass = isWhiteMode
@@ -320,7 +343,7 @@ const ProductCard = ({ product, variant = 'default', gridLayout = null, harmonyI
       ? {
           key: 'sponsored',
           icon: Megaphone,
-          label: sponsoredLabel,
+          label: translatedSponsoredLabel,
           tone: isWhiteMode
             ? 'border-amber-300 bg-amber-50 text-amber-700'
             : 'border-amber-400/40 bg-amber-500/15 text-amber-100',
@@ -385,7 +408,7 @@ const ProductCard = ({ product, variant = 'default', gridLayout = null, harmonyI
                 ? 'border-slate-300 bg-white/95 text-slate-600 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-500'
                 : 'border-white/12 bg-zinc-950/72 text-slate-300 hover:border-neo-rose/55 hover:bg-neo-rose/12 hover:text-neo-rose'
             )}
-            aria-label={inWishlist ? 'Remove from wishlist' : 'Add to wishlist'}
+            aria-label={wishlistToggleLabel}
           >
             <Heart className={cn('h-5 w-5', inWishlist && 'fill-current')} />
           </button>
@@ -405,7 +428,7 @@ const ProductCard = ({ product, variant = 'default', gridLayout = null, harmonyI
 
           <img
             src={imageError ? FALLBACK_IMAGE : product.image || FALLBACK_IMAGE}
-            alt={displayTitle}
+            alt={translatedDisplayTitle}
             loading="lazy"
             className={cn(
               'h-full w-full object-contain transition-transform duration-700 group-hover:scale-[1.045]',
@@ -443,7 +466,7 @@ const ProductCard = ({ product, variant = 'default', gridLayout = null, harmonyI
                 </span>
                 {categoryLabel ? (
                   <span className={cn('text-[11px] uppercase tracking-[0.18em]', subtleTextClass)}>
-                    {categoryLabel}
+                {categoryLabel}
                   </span>
                 ) : null}
               </div>
@@ -452,12 +475,12 @@ const ProductCard = ({ product, variant = 'default', gridLayout = null, harmonyI
                 'max-w-3xl text-2xl font-black tracking-tight md:text-[2rem]',
                 isWhiteMode ? 'text-slate-950' : 'text-white'
               )}>
-                {displayTitle}
+                {translatedDisplayTitle}
               </h3>
 
-              {(subtitle || primaryStory) ? (
+              {(translatedSubtitle || translatedPrimaryStory) ? (
                 <p className={cn('mt-3 max-w-3xl text-sm leading-6', mutedTextClass)}>
-                  {primaryStory || subtitle}
+                  {translatedPrimaryStory || translatedSubtitle}
                 </p>
               ) : null}
             </div>
@@ -507,7 +530,7 @@ const ProductCard = ({ product, variant = 'default', gridLayout = null, harmonyI
               'rounded-full border px-3 py-1 text-[11px] font-medium',
               isWhiteMode ? 'border-slate-300 bg-slate-100 text-slate-700' : 'border-white/12 bg-white/5 text-slate-200'
             )}>
-              {deliveryLabel}
+              {translatedDeliveryLabel}
             </span>
             <span className={cn(
               'rounded-full border px-3 py-1 text-[11px] font-medium',
@@ -521,9 +544,9 @@ const ProductCard = ({ product, variant = 'default', gridLayout = null, harmonyI
             </span>
           </div>
 
-          {secondaryStory.length > 0 ? (
+          {translatedSecondaryStory.length > 0 ? (
             <div className="mt-5 flex flex-wrap gap-2">
-              {secondaryStory.map((story) => (
+              {translatedSecondaryStory.map((story) => (
                 <span
                   key={story}
                   className={cn(
@@ -543,12 +566,12 @@ const ProductCard = ({ product, variant = 'default', gridLayout = null, harmonyI
             <div className={cn('mt-5 rounded-[1.25rem] border p-4', dealTheme.surface)}>
               <div className="flex items-center justify-between gap-4">
                 <div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.2em]">Deal DNA</p>
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em]">{t('product.dealDna', {}, 'Deal DNA')}</p>
                   <p className="mt-1 text-sm font-semibold">{localizedDealLabel}</p>
                 </div>
                 <div className="text-right">
                   <p className="text-3xl font-black leading-none">{dealDna.score}</p>
-                  <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.16em] opacity-80">Score</p>
+                  <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.16em] opacity-80">{t('product.score', {}, 'Score')}</p>
                 </div>
               </div>
             </div>
@@ -643,14 +666,14 @@ const ProductCard = ({ product, variant = 'default', gridLayout = null, harmonyI
               ? 'border-slate-300 bg-white/95 text-slate-600 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-500'
               : 'border-white/12 bg-zinc-950/72 text-slate-300 hover:border-neo-rose/55 hover:bg-neo-rose/12 hover:text-neo-rose'
           )}
-          aria-label={inWishlist ? 'Remove from wishlist' : 'Add to wishlist'}
+          aria-label={wishlistToggleLabel}
         >
           <Heart className={cn('h-[18px] w-[18px]', inWishlist && 'fill-current')} />
         </button>
 
         <img
           src={imageError ? FALLBACK_IMAGE : product.image || FALLBACK_IMAGE}
-          alt={displayTitle}
+          alt={translatedDisplayTitle}
           loading="lazy"
           className={cn(
             'h-full w-full object-contain transition-transform duration-700 group-hover:scale-[1.045]',
@@ -708,12 +731,12 @@ const ProductCard = ({ product, variant = 'default', gridLayout = null, harmonyI
           'line-clamp-2 text-[0.9rem] font-black leading-[1.18] tracking-tight sm:text-[0.96rem]',
           isWhiteMode ? 'text-slate-950' : 'text-white'
         )}>
-          {displayTitle}
+          {translatedDisplayTitle}
         </h3>
 
-        {(subtitle || primaryStory) ? (
+        {(translatedSubtitle || translatedPrimaryStory) ? (
           <p className={cn('mt-1.5 line-clamp-1 text-[12px] leading-5', mutedTextClass)}>
-            {primaryStory || subtitle}
+            {translatedPrimaryStory || translatedSubtitle}
           </p>
         ) : null}
 
@@ -761,7 +784,7 @@ const ProductCard = ({ product, variant = 'default', gridLayout = null, harmonyI
             'rounded-full border px-2.5 py-1 text-[10px] font-medium',
             isWhiteMode ? 'border-slate-300 bg-slate-100 text-slate-700' : 'border-white/12 bg-white/5 text-slate-200'
           )}>
-            {deliveryLabel}
+            {translatedDeliveryLabel}
           </span>
         </div>
 
@@ -769,12 +792,12 @@ const ProductCard = ({ product, variant = 'default', gridLayout = null, harmonyI
           <div className={cn('mt-3 rounded-[1rem] border px-3 py-2.5', dealTheme.surface)}>
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
-                <p className="text-[9px] font-black uppercase tracking-[0.22em]">Deal DNA</p>
+                <p className="text-[9px] font-black uppercase tracking-[0.22em]">{t('product.dealDna', {}, 'Deal DNA')}</p>
                 <p className="mt-0.5 truncate text-[11px] font-semibold">{localizedDealLabel}</p>
               </div>
               <div className="flex flex-shrink-0 items-baseline gap-1">
                 <p className="text-lg font-black leading-none">{dealDna.score}</p>
-                <p className="text-[9px] font-semibold uppercase tracking-[0.16em] opacity-80">Score</p>
+                <p className="text-[9px] font-semibold uppercase tracking-[0.16em] opacity-80">{t('product.score', {}, 'Score')}</p>
               </div>
             </div>
           </div>

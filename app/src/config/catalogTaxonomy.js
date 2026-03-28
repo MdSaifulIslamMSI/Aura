@@ -64,6 +64,17 @@ const normalizeCategoryKey = (value = '') => String(value || '')
     .replace(/^-+|-+$/g, '');
 
 const CATEGORY_LOOKUP = new Map();
+const CATEGORY_LABEL_KEYS = {
+    mobiles: 'category.mobiles',
+    laptops: 'category.laptops',
+    electronics: 'category.electronics',
+    "men's-fashion": 'category.mensFashion',
+    "women's-fashion": 'category.womensFashion',
+    footwear: 'category.footwear',
+    'home-kitchen': 'category.homeKitchen',
+    gaming: 'category.gaming',
+    books: 'category.books',
+};
 
 CATEGORY_DEFINITIONS.forEach((entry) => {
     [
@@ -99,6 +110,18 @@ export const getCategoryLabel = (value) => resolveCatalogCategory(value)?.label 
     .replace(/-/g, ' ')
     .replace(/\b\w/g, (char) => char.toUpperCase())
     .trim();
+
+export const getLocalizedCategoryLabel = (value, translate) => {
+    const resolved = resolveCatalogCategory(value);
+    const fallback = resolved?.label || getCategoryLabel(value);
+    const key = resolved ? CATEGORY_LABEL_KEYS[resolved.slug] : '';
+
+    if (typeof translate !== 'function' || !key) {
+        return fallback;
+    }
+
+    return translate(key, {}, fallback);
+};
 
 export const getCategoryPath = (value) => {
     const slug = normalizeCategorySlug(value);

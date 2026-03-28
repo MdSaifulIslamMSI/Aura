@@ -21,7 +21,6 @@ import RouteTransitionShell from './components/shared/RouteTransitionShell';
 import AppErrorBoundary from './components/shared/AppErrorBoundary';
 import BackendStatusBanner from './components/shared/BackendStatusBanner';
 import GlobalSupportLauncher from './components/shared/GlobalSupportLauncher';
-import MarketAutoLocalizer from './components/shared/MarketAutoLocalizer';
 import { trustRoutes } from './config/trustContent';
 import { assertRouteA11yContracts } from './utils/a11yContracts';
 import { lazyWithRetry } from './utils/lazyWithRetry';
@@ -176,8 +175,7 @@ function AppContent() {
   }, [chatBotReady, pathname, showChatBot]);
 
   return (
-    <div className="aura-app-shell flex min-h-screen flex-col">
-      <MarketAutoLocalizer />
+    <div className="aura-app-shell flex min-h-screen min-w-0 flex-col overflow-x-hidden">
       {/* Skip-to-main-content — first focusable element for keyboard/screen-reader users.
           Hidden by default, revealed on focus via sr-only + focus:not-sr-only pattern. */}
       <a
@@ -196,7 +194,7 @@ function AppContent() {
       <AppErrorBoundary>
         <BackendStatusBanner />
       </AppErrorBoundary>
-      <main id="main-content" className="relative z-10 flex-1" role="main" aria-label="Main content">
+      <main id="main-content" className="relative z-10 flex-1 min-w-0 overflow-x-hidden" role="main" aria-label="Main content">
         <Suspense
           key={routeRenderKey}
           fallback={(

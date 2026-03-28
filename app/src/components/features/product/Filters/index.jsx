@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useMarket } from '@/context/MarketContext';
+import { getLocalizedCategoryLabel } from '@/config/catalogTaxonomy';
 import { formatPrice } from '@/utils/format';
 
 const DEFAULT_MAX_PRICE = 200000;
@@ -22,6 +23,15 @@ const DISCOUNT_QUICK_OPTIONS = [0, 10, 20, 30, 40, 50];
 const RATING_OPTIONS = [4, 3, 2, 1, 0];
 const PRICE_CEILING_OPTIONS = [5000, 10000, 25000, 50000, 100000, 200000];
 const DELIVERY_WINDOWS = ['1-2 days', '2-3 days', '3-5 days', '5-7 days', '7+ days'];
+const DELIVERY_WINDOW_LABEL_KEYS = {
+  '1-2 days': 'deliveryWindow.1to2Days',
+  '2-3 days': 'deliveryWindow.2to3Days',
+  '3-5 days': 'deliveryWindow.3to5Days',
+  '5-7 days': 'deliveryWindow.5to7Days',
+  '7+ days': 'deliveryWindow.7PlusDays',
+};
+
+const getDeliveryWindowLabel = (value, t) => t(DELIVERY_WINDOW_LABEL_KEYS[value], {}, value);
 
 const uniqueStrings = (items = []) => {
   if (!Array.isArray(items)) return [];
@@ -61,7 +71,7 @@ const sanitizeFilters = (raw = {}) => {
 };
 
 const Filters = ({ filters, onFilterChange, className, closeMobile }) => {
-  const { currency } = useMarket();
+  const { currency, t } = useMarket();
   const [expandedSections, setExpandedSections] = useState({
     price: true,
     category: true,
@@ -108,38 +118,52 @@ const Filters = ({ filters, onFilterChange, className, closeMobile }) => {
     const chips = [];
 
     if (draft.priceRange[0] > 0 || draft.priceRange[1] < DEFAULT_MAX_PRICE) {
-      chips.push({ key: 'price', label: `${formatPrice(draft.priceRange[0], currency)} - ${formatPrice(draft.priceRange[1], currency)}` });
+      chips.push({
+        key: 'price',
+        label: t(
+          'filters.chip.price',
+          {
+            min: formatPrice(draft.priceRange[0], currency),
+            max: formatPrice(draft.priceRange[1], currency),
+          },
+          `${formatPrice(draft.priceRange[0], currency)} - ${formatPrice(draft.priceRange[1], currency)}`
+        ),
+      });
     }
 
     draft.categories.forEach((entry) => {
-      chips.push({ key: `category:${entry}`, label: `Category: ${entry}` });
+      const localizedCategory = getLocalizedCategoryLabel(entry, t);
+      chips.push({
+        key: `category:${entry}`,
+        label: t('filters.chip.category', { category: localizedCategory }, `Category: ${localizedCategory}`),
+      });
     });
 
     draft.brands.forEach((entry) => {
-      chips.push({ key: `brand:${entry}`, label: `Brand: ${entry}` });
+      chips.push({ key: `brand:${entry}`, label: t('filters.chip.brand', { brand: entry }, `Brand: ${entry}`) });
     });
 
     if (draft.minRating > 0) {
-      chips.push({ key: 'rating', label: `${draft.minRating}+ rating` });
+      chips.push({ key: 'rating', label: t('filters.chip.rating', { count: draft.minRating }, `${draft.minRating}+ rating`) });
     }
     if (draft.minDiscount > 0) {
-      chips.push({ key: 'discount', label: `${draft.minDiscount}%+ off` });
+      chips.push({ key: 'discount', label: t('filters.chip.discount', { count: draft.minDiscount }, `${draft.minDiscount}%+ off`) });
     }
     if (draft.minReviews > 0) {
-      chips.push({ key: 'reviews', label: `${draft.minReviews}+ reviews` });
+      chips.push({ key: 'reviews', label: t('filters.chip.reviews', { count: draft.minReviews }, `${draft.minReviews}+ reviews`) });
     }
     if (draft.inStockOnly) {
-      chips.push({ key: 'stock', label: 'In stock only' });
+      chips.push({ key: 'stock', label: t('filters.inStockOnly', {}, 'In stock only') });
     }
     if (draft.warrantyOnly) {
-      chips.push({ key: 'warranty', label: 'Warranty only' });
+      chips.push({ key: 'warranty', label: t('filters.warrantyOnly', {}, 'Warranty only') });
     }
     draft.deliveryWindows.forEach((entry) => {
-      chips.push({ key: `delivery:${entry}`, label: entry });
+      chips.push({ key: `delivery:${entry}`, label: getDeliveryWindowLabel(entry, t) });
     });
 
     return chips;
-  }, [draft]);
+  }, [currency, draft, t]);
 
   const clearAll = () => {
     updateDraft((prev) => ({
@@ -239,9 +263,11 @@ const Filters = ({ filters, onFilterChange, className, closeMobile }) => {
         <div>
           <h2 className="text-xl font-black text-white tracking-tight flex items-center gap-2">
             <ShieldCheck className="w-5 h-5 text-neo-cyan" />
-            FILTER ENGINE
+            {t('filters.title', {}, 'Filter Engine')}
           </h2>
-          <p className="mt-1 text-xs uppercase tracking-[0.16em] text-slate-400">Precision Controls For Product Intelligence</p>
+          <p className="mt-1 text-xs uppercase tracking-[0.16em] text-slate-400">
+            {t('filters.subtitle', {}, 'Precision Controls For Product Intelligence')}
+          </p>
         </div>
         <div className="flex items-center gap-2">
           {hasActiveFilters && (
@@ -251,7 +277,7 @@ const Filters = ({ filters, onFilterChange, className, closeMobile }) => {
               className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider rounded-md border border-neo-rose/35 bg-neo-rose/10 px-2.5 py-1 text-neo-rose hover:text-white hover:bg-neo-rose/20 transition-colors"
             >
               <X className="w-3 h-3" />
-              Clear
+              {t('filters.clear', {}, 'Clear')}
             </button>
           )}
           {typeof closeMobile === 'function' && (
@@ -260,7 +286,7 @@ const Filters = ({ filters, onFilterChange, className, closeMobile }) => {
               onClick={closeMobile}
               className="lg:hidden inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider rounded-md border border-white/20 bg-white/5 px-2.5 py-1 text-slate-300 hover:text-white"
             >
-              Done
+              {t('filters.done', {}, 'Done')}
             </button>
           )}
         </div>
@@ -283,11 +309,11 @@ const Filters = ({ filters, onFilterChange, className, closeMobile }) => {
       )}
 
       <div className="space-y-1">
-        <FilterSection id="price" title="Price Range" icon={Filter}>
+        <FilterSection id="price" title={t('filters.section.price', {}, 'Price Range')} icon={Filter}>
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <label className="text-[11px] font-semibold text-slate-300">
-                Min
+                {t('filters.min', {}, 'Min')}
                 <input
                   type="number"
                   min="0"
@@ -303,7 +329,7 @@ const Filters = ({ filters, onFilterChange, className, closeMobile }) => {
                 />
               </label>
               <label className="text-[11px] font-semibold text-slate-300">
-                Max
+                {t('filters.max', {}, 'Max')}
                 <input
                   type="number"
                   min={draft.priceRange[0]}
@@ -366,14 +392,14 @@ const Filters = ({ filters, onFilterChange, className, closeMobile }) => {
                       : 'border-white/15 bg-white/5 text-slate-300 hover:text-white hover:border-white/30'
                   )}
                 >
-                  Up to {formatPrice(amount, currency)}
+                  {t('filters.upTo', { amount: formatPrice(amount, currency) }, `Up to ${formatPrice(amount, currency)}`)}
                 </button>
               ))}
             </div>
           </div>
         </FilterSection>
 
-        <FilterSection id="category" title="Category Matrix" icon={ListFilter}>
+        <FilterSection id="category" title={t('filters.section.category', {}, 'Category Matrix')} icon={ListFilter}>
           <div className="flex flex-wrap gap-2">
             {draft.availableCategories.map((entry) => {
               const active = draft.categories.includes(entry);
@@ -389,14 +415,14 @@ const Filters = ({ filters, onFilterChange, className, closeMobile }) => {
                       : 'border-white/15 bg-white/5 text-slate-300 hover:text-white hover:border-white/30'
                   )}
                 >
-                  {entry}
+                  {getLocalizedCategoryLabel(entry, t)}
                 </button>
               );
             })}
           </div>
         </FilterSection>
 
-        <FilterSection id="brand" title="Brand Radar" icon={Search}>
+        <FilterSection id="brand" title={t('filters.section.brand', {}, 'Brand Radar')} icon={Search}>
           <div className="space-y-3">
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
@@ -404,7 +430,7 @@ const Filters = ({ filters, onFilterChange, className, closeMobile }) => {
                 type="text"
                 value={brandQuery}
                 onChange={(event) => setBrandQuery(event.target.value)}
-                placeholder="Filter brands"
+                placeholder={t('filters.brandPlaceholder', {}, 'Filter brands')}
                 className="w-full rounded-lg border border-white/15 bg-zinc-950/70 pl-9 pr-3 py-2 text-sm text-white placeholder:text-slate-500 outline-none focus:border-neo-cyan"
               />
             </div>
@@ -424,16 +450,16 @@ const Filters = ({ filters, onFilterChange, className, closeMobile }) => {
                 );
               })}
               {filteredBrandOptions.length === 0 && (
-                <p className="text-xs text-slate-500">No brand matches this search.</p>
+                <p className="text-xs text-slate-500">{t('filters.noBrandMatches', {}, 'No brand matches this search.')}</p>
               )}
             </div>
           </div>
         </FilterSection>
 
-        <FilterSection id="quality" title="Quality Signals" icon={Star}>
+        <FilterSection id="quality" title={t('filters.section.quality', {}, 'Quality Signals')} icon={Star}>
           <div className="space-y-4">
             <div>
-              <p className="text-[11px] uppercase tracking-wider text-slate-500 font-semibold mb-2">Minimum Rating</p>
+              <p className="text-[11px] uppercase tracking-wider text-slate-500 font-semibold mb-2">{t('filters.minimumRating', {}, 'Minimum Rating')}</p>
               <div className="flex flex-wrap gap-2">
                 {RATING_OPTIONS.map((rating) => (
                   <button
@@ -447,14 +473,14 @@ const Filters = ({ filters, onFilterChange, className, closeMobile }) => {
                         : 'border-white/15 bg-white/5 text-slate-300 hover:text-white hover:border-white/30'
                     )}
                   >
-                    {rating === 0 ? 'Any' : `${rating}+`}
+                    {rating === 0 ? t('filters.any', {}, 'Any') : `${rating}+`}
                   </button>
                 ))}
               </div>
             </div>
 
             <div>
-              <p className="text-[11px] uppercase tracking-wider text-slate-500 font-semibold mb-2">Minimum Discount</p>
+              <p className="text-[11px] uppercase tracking-wider text-slate-500 font-semibold mb-2">{t('filters.minimumDiscount', {}, 'Minimum Discount')}</p>
               <input
                 type="range"
                 min="0"
@@ -477,14 +503,14 @@ const Filters = ({ filters, onFilterChange, className, closeMobile }) => {
                         : 'border-white/15 bg-white/5 text-slate-300 hover:text-white hover:border-white/30'
                     )}
                   >
-                    {value === 0 ? 'Any' : `${value}%+`}
+                    {value === 0 ? t('filters.any', {}, 'Any') : `${value}%+`}
                   </button>
                 ))}
               </div>
             </div>
 
             <div>
-              <p className="text-[11px] uppercase tracking-wider text-slate-500 font-semibold mb-2">Minimum Review Volume</p>
+              <p className="text-[11px] uppercase tracking-wider text-slate-500 font-semibold mb-2">{t('filters.minimumReviewVolume', {}, 'Minimum Review Volume')}</p>
               <div className="flex flex-wrap gap-2">
                 {REVIEW_OPTIONS.map((count) => (
                   <button
@@ -498,7 +524,7 @@ const Filters = ({ filters, onFilterChange, className, closeMobile }) => {
                         : 'border-white/15 bg-white/5 text-slate-300 hover:text-white hover:border-white/30'
                     )}
                   >
-                    {count === 0 ? 'Any' : `${count}+`}
+                    {count === 0 ? t('filters.any', {}, 'Any') : `${count}+`}
                   </button>
                 ))}
               </div>
@@ -506,7 +532,7 @@ const Filters = ({ filters, onFilterChange, className, closeMobile }) => {
           </div>
         </FilterSection>
 
-        <FilterSection id="fulfillment" title="Fulfillment Shield" icon={Truck}>
+        <FilterSection id="fulfillment" title={t('filters.section.fulfillment', {}, 'Fulfillment Shield')} icon={Truck}>
           <div className="space-y-4">
             <div className="space-y-2">
               <label className="flex items-center gap-2.5 text-sm text-slate-300 hover:text-white">
@@ -517,7 +543,7 @@ const Filters = ({ filters, onFilterChange, className, closeMobile }) => {
                   className="w-4 h-4 rounded border-white/25 bg-zinc-950/70 text-cyan-400 focus:ring-cyan-400"
                 />
                 <Box className="w-4 h-4 text-neo-cyan" />
-                In Stock Only
+                {t('filters.inStockOnly', {}, 'In Stock Only')}
               </label>
 
               <label className="flex items-center gap-2.5 text-sm text-slate-300 hover:text-white">
@@ -528,12 +554,12 @@ const Filters = ({ filters, onFilterChange, className, closeMobile }) => {
                   className="w-4 h-4 rounded border-white/25 bg-zinc-950/70 text-cyan-400 focus:ring-cyan-400"
                 />
                 <ShieldCheck className="w-4 h-4 text-neo-emerald" />
-                Warranty Coverage Only
+                {t('filters.warrantyCoverageOnly', {}, 'Warranty Coverage Only')}
               </label>
             </div>
 
             <div>
-              <p className="text-[11px] uppercase tracking-wider text-slate-500 font-semibold mb-2">Delivery Window</p>
+              <p className="text-[11px] uppercase tracking-wider text-slate-500 font-semibold mb-2">{t('filters.deliveryWindow', {}, 'Delivery Window')}</p>
               <div className="space-y-2">
                 {DELIVERY_WINDOWS.map((window) => (
                   <label key={window} className="flex items-center gap-2.5 text-sm text-slate-300 hover:text-white">
@@ -544,7 +570,7 @@ const Filters = ({ filters, onFilterChange, className, closeMobile }) => {
                       className="w-4 h-4 rounded border-white/25 bg-zinc-950/70 text-cyan-400 focus:ring-cyan-400"
                     />
                     <Tag className="w-4 h-4 text-slate-400" />
-                    {window}
+                    {getDeliveryWindowLabel(window, t)}
                   </label>
                 ))}
               </div>

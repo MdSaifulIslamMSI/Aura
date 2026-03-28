@@ -2,10 +2,13 @@ import { useContext } from 'react';
 import { Link } from 'react-router-dom';
 import { Heart, ShoppingCart, Trash2, Zap } from 'lucide-react';
 import { WishlistContext } from '@/context/WishlistContext';
+import { useMarket } from '@/context/MarketContext';
 import ProductCard from '@/components/features/product/ProductCard';
 
 const Wishlist = () => {
   const { wishlistItems, removeFromWishlist, moveToCart } = useContext(WishlistContext);
+  const { t } = useMarket();
+  const wishlistItemLabel = t(wishlistItems.length === 1 ? 'wishlist.item' : 'wishlist.items', {}, wishlistItems.length === 1 ? 'item' : 'items');
   const handleMoveToCart = (productId) => {
     moveToCart(productId);
   };
@@ -24,12 +27,12 @@ const Wishlist = () => {
               <Heart className="w-10 h-10 text-slate-500 group-hover:text-neo-rose transition-colors duration-300" />
             </div>
 
-            <h2 className="text-3xl font-black mb-4 text-white tracking-tight">Your Wishlist is Empty</h2>
+            <h2 className="text-3xl font-black mb-4 text-white tracking-tight">{t('wishlist.emptyTitle', {}, 'Your Wishlist is Empty')}</h2>
             <p className="text-slate-400 mb-8 max-w-sm mx-auto font-medium leading-relaxed">
-              You haven't saved any items yet.
+              {t('wishlist.emptyBody', {}, "You haven't saved any items yet.")}
             </p>
             <Link to="/" className="btn-primary inline-flex items-center gap-2 px-10 py-3 shadow-[0_0_15px_rgba(244,63,94,0.3)]">
-              <Zap className="w-4 h-4 fill-white" /> Explore Aura
+              <Zap className="w-4 h-4 fill-white" /> {t('wishlist.explore', {}, 'Explore Aura')}
             </Link>
           </div>
         </div>
@@ -48,16 +51,16 @@ const Wishlist = () => {
         <nav className="text-xs md:text-sm text-slate-500 font-bold uppercase tracking-widest mb-8 flex items-center flex-wrap gap-y-2">
           <Link to="/" className="hover:text-neo-rose transition-colors">Aura</Link>
           <span className="mx-2 text-slate-700">/</span>
-          <span className="text-white">Wishlist</span>
+          <span className="text-white">{t('wishlist.breadcrumb', {}, 'Wishlist')}</span>
         </nav>
 
         {/* Header */}
         <div className="flex items-center justify-between mb-8 pb-4 border-b border-white/10">
           <h1 className="text-2xl md:text-3xl font-black text-white tracking-tighter flex items-center gap-3">
             <Heart className="w-7 h-7 text-neo-rose drop-shadow-[0_0_8px_rgba(244,63,94,0.6)] fill-neo-rose" />
-            Saved Items
+            {t('wishlist.title', {}, 'Saved Items')}
             <span className="bg-neo-rose/20 text-neo-rose text-sm px-3 py-1 rounded-full border border-neo-rose/30 mt-1">
-              {wishlistItems.length} {wishlistItems.length === 1 ? 'item' : 'items'}
+              {wishlistItems.length} {wishlistItemLabel}
             </span>
           </h1>
         </div>
@@ -73,9 +76,9 @@ const Wishlist = () => {
                 <button
                   type="button"
                   onClick={() => removeFromWishlist(item.id)}
-                  aria-label={`Remove ${item.title} from Wishlist`}
+                  aria-label={t('wishlist.removeAria', { title: item.title }, 'Remove {{title}} from Wishlist')}
                   className="p-3 bg-zinc-950/80 rounded-full border border-white/10 shadow-[0_0_15px_rgba(0,0,0,0.5)] hover:border-neo-rose hover:bg-neo-rose/20 text-slate-400 hover:text-neo-rose transition-all"
-                  title="Remove from Wishlist"
+                  title={t('wishlist.remove', {}, 'Remove from Wishlist')}
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
@@ -88,7 +91,7 @@ const Wishlist = () => {
                 className="absolute bottom-4 left-4 right-4 bg-neo-cyan/20 hover:bg-neo-cyan/40 border border-neo-cyan/50 text-white font-bold py-3 text-sm rounded-xl flex items-center justify-center gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all duration-300 md:translate-y-2 md:group-hover:translate-y-0 z-30 shadow-[0_0_15px_rgba(6,182,212,0.3)] group/btn"
               >
                 <ShoppingCart className="w-4 h-4 group-hover/btn:-translate-x-1 transition-transform" />
-                Add to Bag
+                {t('wishlist.addToBag', {}, 'Add to Bag')}
               </button>
             </div>
           ))}

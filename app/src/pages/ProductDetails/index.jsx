@@ -1,4 +1,4 @@
-import { useState, useEffect, useContext, useCallback, useRef } from 'react';
+import { useState, useEffect, useContext, useCallback, useMemo, useRef } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { BadgeCheck, Brain, Camera, Heart, ShoppingCart, Share2, Star, ChevronRight, Minus, Plus, Zap, MessageSquare, Send, Image as ImageIcon, Video, X, UploadCloud, Loader2 } from 'lucide-react';
 import { CartContext } from '@/context/CartContext';
@@ -12,6 +12,7 @@ import ProductCard from '@/components/features/product/ProductCard';
 import ProductPageSkeleton from '@/components/shared/ProductPageSkeleton';
 import SectionErrorBoundary from '@/components/shared/SectionErrorBoundary';
 import PremiumSelect from '@/components/ui/premium-select';
+import { useDynamicTranslations } from '@/hooks/useDynamicTranslations';
 import { cn } from '@/lib/utils';
 import { buildLifecycleIntelligence, buildProductTrustGraph } from '@/utils/commerceIntelligence';
 import { pushRecentlyViewed } from '@/utils/recentlyViewed';
@@ -514,24 +515,7 @@ const ProductDetails = () => {
     setQuantity(newQty);
   };
 
-  // --- RENDER GUARDS ---
-
-  if (isLoading) {
-    return <ProductPageSkeleton />;
-  }
-
-  if (!product) {
-    return (
-      <div className="container-custom max-w-7xl mx-auto py-20 px-4 text-center">
-        <div className="bg-white/5 border border-white/10 rounded-3xl p-12 max-w-2xl mx-auto shadow-glass relative overflow-hidden group">
-          <div className="absolute inset-0 bg-gradient-to-br from-neo-cyan/5 to-neo-rose/5 pointer-events-none" />
-          <h2 className="text-3xl font-black mb-6 text-white tracking-widest uppercase">{t('productPage.notFoundTitle', {}, 'Product Not Found')}</h2>
-          <p className="text-slate-400 mb-8">{t('productPage.notFoundBody', {}, 'The item you are looking for could not be found.')}</p>
-          <Link to="/" className="btn-primary inline-block px-10 py-3">{t('productPage.continueShopping', {}, 'Continue Shopping')}</Link>
-        </div>
-      </div>
-    );
-  }
+  const resolvedProduct = product || {};
 
   // Safe Data Access
   const {
@@ -552,12 +536,14 @@ const ProductDetails = () => {
     warranty = t('productPage.noWarranty', {}, 'No warranty specified'),
     category = 'General',
     subCategory = ''
-  } = product;
-  const displayCurrency = getDisplayCurrency(product);
-  const displayPrice = getDisplayAmount(product);
-  const displayOriginalPrice = getOriginalDisplayAmount(product);
+  } = resolvedProduct;
+  const displayCurrency = getDisplayCurrency(resolvedProduct);
+  const displayPrice = getDisplayAmount(resolvedProduct);
+  const displayOriginalPrice = getOriginalDisplayAmount(resolvedProduct);
   const heroTitle = displayTitle || title;
   const heroSubtitle = subtitle || subCategory || category;
+  const trustGraph = buildProductTrustGraph({ product: resolvedProduct, reviewsSummary, priceHistory });
+  const lifecycleIntelligence = buildLifecycleIntelligence({ product: resolvedProduct, priceHistory });
   const tabLabels = {
     description: t('productPage.tab.description', {}, 'Description'),
     specifications: t('productPage.tab.specifications', {}, 'Specifications'),
@@ -565,9 +551,155 @@ const ProductDetails = () => {
     compatibility: t('productPage.tab.compatibility', {}, 'Compatibility'),
     reviews: t('productPage.tab.reviews', {}, 'Reviews'),
   };
+  const productDynamicTexts = useMemo(() => ([
+    heroTitle,
+    heroSubtitle,
+    category,
+    description,
+    deliveryTime,
+    lifecycleNotice,
+    lifecycleError,
+    compatibilityError,
+    reviewsError,
+    reviewSubmitMessage,
+    reviewSubmitError,
+    reviewUploadMessage,
+    ...(Array.isArray(highlights) ? highlights : []),
+    ...(Array.isArray(reviewsData)
+      ? reviewsData.flatMap((review) => [
+        review?.comment,
+        ...((Array.isArray(review?.media) ? review.media : []).map((asset) => asset?.caption)),
+      ])
+      : []),
+    ...(Array.isArray(relatedProducts)
+      ? relatedProducts.flatMap((item) => [
+        item?.displayTitle,
+        item?.title,
+        item?.subtitle,
+        item?.deliveryTime,
+        item?.adCampaign?.creativeTagline,
+        ...((Array.isArray(item?.highlights) ? item.highlights : [])),
+      ])
+      : []),
+    ...(Array.isArray(compatibilityGraph?.groups)
+      ? compatibilityGraph.groups.flatMap((group) => [
+        group?.accessoryType,
+        ...((Array.isArray(group?.matches) ? group.matches : []).flatMap((item) => [item?.title, item?.category])),
+      ])
+      : []),
+    trustGraph?.headline,
+    trustGraph?.summary,
+    trustGraph?.label,
+    ...(Array.isArray(trustGraph?.metrics)
+      ? trustGraph.metrics.flatMap((metric) => [metric?.label, metric?.insight])
+      : []),
+    ...(Array.isArray(trustGraph?.watchouts) ? trustGraph.watchouts : []),
+    ...(Array.isArray(trustGraph?.strengths) ? trustGraph.strengths : []),
+    lifecycleIntelligence?.upgradeWindow,
+    lifecycleIntelligence?.nextBestAction?.label,
+    lifecycleIntelligence?.nextBestAction?.reason,
+    ...(Array.isArray(lifecycleIntelligence?.milestones) ? lifecycleIntelligence.milestones : []),
+  ]), [
+    category,
+    compatibilityError,
+    compatibilityGraph,
+    deliveryTime,
+    description,
+    heroSubtitle,
+    heroTitle,
+    highlights,
+    lifecycleError,
+    lifecycleNotice,
+    lifecycleIntelligence,
+    relatedProducts,
+    reviewSubmitError,
+    reviewSubmitMessage,
+    reviewUploadMessage,
+    reviewsData,
+    reviewsError,
+    trustGraph,
+  ]);
+  const { translateText: translateProductText } = useDynamicTranslations(productDynamicTexts);
+  const translatedHeroTitle = translateProductText(heroTitle) || heroTitle;
+  const translatedHeroSubtitle = translateProductText(heroSubtitle) || heroSubtitle;
+  const translatedCategory = translateProductText(category) || category;
+  const translatedDescription = translateProductText(description) || description;
+  const translatedDeliveryTime = translateProductText(deliveryTime) || deliveryTime;
+  const translatedHighlights = useMemo(
+    () => (Array.isArray(highlights) ? highlights.map((highlight) => translateProductText(highlight) || highlight) : []),
+    [highlights, translateProductText]
+  );
+  const translatedRelatedProducts = useMemo(() => (
+    Array.isArray(relatedProducts)
+      ? relatedProducts.map((item) => ({
+        ...item,
+        displayTitle: item?.displayTitle ? (translateProductText(item.displayTitle) || item.displayTitle) : item?.displayTitle,
+        title: translateProductText(item?.title) || item?.title,
+        subtitle: translateProductText(item?.subtitle) || item?.subtitle,
+        deliveryTime: translateProductText(item?.deliveryTime) || item?.deliveryTime,
+        highlights: Array.isArray(item?.highlights)
+          ? item.highlights.map((highlight) => translateProductText(highlight) || highlight)
+          : item?.highlights,
+        adCampaign: item?.adCampaign
+          ? {
+            ...item.adCampaign,
+            creativeTagline: translateProductText(item.adCampaign.creativeTagline) || item.adCampaign.creativeTagline,
+          }
+          : item?.adCampaign,
+      }))
+      : []
+  ), [relatedProducts, translateProductText]);
+  const translatedCompatibilityGroups = useMemo(() => (
+    Array.isArray(compatibilityGraph?.groups)
+      ? compatibilityGraph.groups.map((group) => ({
+        ...group,
+        accessoryTypeLabel: translateProductText(group?.accessoryType) || group?.accessoryType,
+        matches: Array.isArray(group?.matches)
+          ? group.matches.map((item) => ({
+            ...item,
+            translatedTitle: translateProductText(item?.title) || item?.title,
+            category: translateProductText(item?.category) || item?.category,
+          }))
+          : [],
+      }))
+      : []
+  ), [compatibilityGraph, translateProductText]);
+  const translatedTrustGraph = useMemo(() => ({
+    ...trustGraph,
+    label: translateProductText(trustGraph?.label) || trustGraph?.label,
+    headline: translateProductText(trustGraph?.headline) || trustGraph?.headline,
+    summary: translateProductText(trustGraph?.summary) || trustGraph?.summary,
+    metrics: Array.isArray(trustGraph?.metrics)
+      ? trustGraph.metrics.map((metric) => ({
+        ...metric,
+        label: translateProductText(metric?.label) || metric?.label,
+        insight: translateProductText(metric?.insight) || metric?.insight,
+      }))
+      : [],
+    strengths: Array.isArray(trustGraph?.strengths)
+      ? trustGraph.strengths.map((item) => translateProductText(item) || item)
+      : [],
+    watchouts: Array.isArray(trustGraph?.watchouts)
+      ? trustGraph.watchouts.map((item) => translateProductText(item) || item)
+      : [],
+  }), [translateProductText, trustGraph]);
+  const translatedLifecycleIntelligence = useMemo(() => ({
+    ...lifecycleIntelligence,
+    upgradeWindow: translateProductText(lifecycleIntelligence?.upgradeWindow) || lifecycleIntelligence?.upgradeWindow,
+    nextBestAction: lifecycleIntelligence?.nextBestAction
+      ? {
+        ...lifecycleIntelligence.nextBestAction,
+        label: translateProductText(lifecycleIntelligence.nextBestAction.label) || lifecycleIntelligence.nextBestAction.label,
+        reason: translateProductText(lifecycleIntelligence.nextBestAction.reason) || lifecycleIntelligence.nextBestAction.reason,
+      }
+      : lifecycleIntelligence?.nextBestAction,
+    milestones: Array.isArray(lifecycleIntelligence?.milestones)
+      ? lifecycleIntelligence.milestones.map((item) => translateProductText(item) || item)
+      : [],
+  }), [lifecycleIntelligence, translateProductText]);
 
-  const dealDna = product?.dealDna || null;
-  const isDemoCatalog = product?.publishGate?.status === 'dev_only' || product?.provenance?.sourceType === 'dev_seed';
+  const dealDna = resolvedProduct?.dealDna || null;
+  const isDemoCatalog = resolvedProduct?.publishGate?.status === 'dev_only' || resolvedProduct?.provenance?.sourceType === 'dev_seed';
   const dealTone = dealDna?.verdict === 'good_deal'
     ? 'border-emerald-400/40 bg-emerald-500/15 text-emerald-100'
     : dealDna?.verdict === 'avoid'
@@ -576,48 +708,65 @@ const ProductDetails = () => {
   const dealLabel = dealDna?.verdict === 'good_deal'
     ? t('product.goodDeal', {}, 'Good Deal')
     : dealDna?.verdict === 'avoid'
-      ? 'Avoid'
+      ? t('product.avoid', {}, 'Avoid')
       : dealDna?.verdict === 'wait'
-        ? 'Wait'
-        : 'Review';
-  const trustGraph = buildProductTrustGraph({ product, reviewsSummary, priceHistory });
-  const lifecycleIntelligence = buildLifecycleIntelligence({ product, priceHistory });
+        ? t('product.wait', {}, 'Wait')
+        : t('product.review', {}, 'Review');
+
+  if (isLoading) {
+    return <ProductPageSkeleton />;
+  }
+
+  if (!product) {
+    return (
+      <div className="container-custom max-w-7xl mx-auto py-20 px-4 text-center">
+        <div className="bg-white/5 border border-white/10 rounded-3xl p-12 max-w-2xl mx-auto shadow-glass relative overflow-hidden group">
+          <div className="absolute inset-0 bg-gradient-to-br from-neo-cyan/5 to-neo-rose/5 pointer-events-none" />
+          <h2 className="text-3xl font-black mb-6 text-white tracking-widest uppercase">{t('productPage.notFoundTitle', {}, 'Product Not Found')}</h2>
+          <p className="text-slate-400 mb-8">{t('productPage.notFoundBody', {}, 'The item you are looking for could not be found.')}</p>
+          <Link to="/" className="btn-primary inline-block px-10 py-3">{t('productPage.continueShopping', {}, 'Continue Shopping')}</Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="relative min-h-screen pb-32 pt-3 sm:pt-4 lg:pb-16">
+    <div className="relative min-h-screen min-w-0 overflow-x-hidden pb-32 pt-3 sm:pt-4 lg:pb-16">
       {/* Background Decor */}
       <div className="absolute top-0 right-0 w-[min(70vw,500px)] h-[min(70vw,500px)] bg-neo-cyan/10 rounded-full blur-[150px] pointer-events-none -z-10" />
       <div className="absolute bottom-40 left-0 w-[min(70vw,500px)] h-[min(70vw,500px)] bg-neo-emerald/10 rounded-full blur-[150px] pointer-events-none -z-10" />
 
-      <div className="container-custom mx-auto max-w-7xl border-t border-white/5 px-3 py-4 sm:px-4 md:px-6 md:py-6">
+      <div className="container-custom mx-auto max-w-7xl min-w-0 border-t border-white/5 px-3 py-4 sm:px-4 md:px-6 md:py-6">
         {/* Breadcrumb */}
         <nav className="mb-5 flex flex-wrap items-center gap-y-2 text-[9px] font-bold uppercase tracking-widest text-slate-500 sm:mb-8 sm:text-[10px] md:text-sm">
           <Link to="/" className="hover:text-neo-cyan transition-colors">Aura</Link>
           <ChevronRight className="w-4 h-4 mx-2 text-slate-700" />
           <Link to={`/category/${(category || 'all').toLowerCase().replace(/\s+/g, '-')}`} className="hover:text-neo-cyan transition-colors">
-            {category}
+            {translatedCategory}
           </Link>
           <ChevronRight className="w-4 h-4 mx-2 text-slate-700" />
-          <span className="text-white truncate max-w-[200px] md:max-w-md">{heroTitle}</span>
+          <span className="text-white truncate max-w-[200px] md:max-w-md">{translatedHeroTitle}</span>
         </nav>
 
-        <div className="grid gap-6 lg:grid-cols-12 lg:gap-12">
+        <div className="grid min-w-0 gap-6 lg:grid-cols-12 lg:gap-12">
           {/* Left Column: Image & Buttons */}
-          <div className="flex flex-col gap-4 sm:gap-6 lg:col-span-5">
-            <div className="group relative overflow-hidden rounded-[1.75rem] border border-white/10 bg-white/[0.045] p-4 shadow-glass sm:rounded-3xl sm:p-6 lg:sticky lg:top-24">
+          <div className="flex min-w-0 flex-col gap-4 sm:gap-6 lg:col-span-5">
+            <div className="group relative min-w-0 overflow-hidden rounded-[1.75rem] border border-white/10 bg-white/[0.045] p-4 shadow-glass sm:rounded-3xl sm:p-6 lg:sticky lg:top-24">
               <div className="absolute inset-0 bg-gradient-to-tr from-neo-cyan/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
 
-              <div className="relative flex aspect-square items-center justify-center p-2 sm:p-4">
+              <div className="relative flex min-w-0 aspect-square items-center justify-center p-2 sm:p-4">
                 <img
                   src={image}
-                  alt={heroTitle}
+                  alt={translatedHeroTitle}
                   className="w-full h-full object-contain drop-shadow-[0_0_20px_rgba(255,255,255,0.15)] mix-blend-screen hover:scale-105 transition-transform duration-700 relative z-10"
                 />
 
                 <button
                   type="button"
                   onClick={() => toggleWishlist(product)}
-                  aria-label={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
+                  aria-label={isWishlisted
+                    ? t('product.removeFromWishlist', {}, 'Remove from wishlist')
+                    : t('product.addToWishlist', {}, 'Add to wishlist')}
                   className="absolute right-0 top-0 z-20 rounded-full border border-white/10 bg-zinc-950/50 p-2.5 shadow-[0_0_15px_rgba(0,0,0,0.5)] transition-all duration-300 hover:border-neo-rose hover:bg-neo-rose/10 group/btn sm:p-3"
                 >
                   <Heart className={cn('w-6 h-6 transition-colors', isWishlisted ? 'fill-neo-rose text-neo-rose drop-shadow-[0_0_8px_rgba(244,63,94,0.6)]' : 'text-slate-400 group-hover/btn:text-neo-rose')} />
@@ -625,8 +774,8 @@ const ProductDetails = () => {
 
                 <button
                   type="button"
-                  onClick={() => navigator?.share?.({ title: heroTitle, url: window.location.href })}
-                  aria-label="Share product"
+                  onClick={() => navigator?.share?.({ title: translatedHeroTitle, url: window.location.href })}
+                  aria-label={t('product.share', {}, 'Share product')}
                   className="absolute left-0 top-0 z-20 rounded-full border border-white/10 bg-zinc-950/50 p-2.5 shadow-[0_0_15px_rgba(0,0,0,0.5)] transition-all duration-300 hover:border-neo-cyan hover:bg-neo-cyan/10 group/btn sm:p-3"
                 >
                   <Share2 className="w-5 h-5 text-slate-400 group-hover/btn:text-neo-cyan transition-colors" />
@@ -635,14 +784,17 @@ const ProductDetails = () => {
             </div>
 
             {/* Mobile Actions - Sticky Bottom */}
-            <div className="fixed bottom-0 left-0 right-0 z-50 flex gap-3 border-t border-white/10 bg-zinc-950/92 px-3 pb-[calc(0.85rem+env(safe-area-inset-bottom))] pt-3 sm:gap-4 sm:p-4 lg:hidden">
+            <div
+              className="fixed bottom-0 left-0 right-0 z-50 flex min-w-0 gap-3 border-t border-white/10 bg-zinc-950/92 px-3 pb-[calc(0.85rem+env(safe-area-inset-bottom))] pt-3 sm:gap-4 sm:p-4 lg:hidden"
+              style={{ width: '100dvw', maxWidth: '100dvw' }}
+            >
               {cartItem ? (
-                <div className="flex flex-1 items-center justify-center gap-4 rounded-2xl border border-neo-cyan/40 bg-neo-cyan/10 px-3 py-3 shadow-[0_0_15px_rgba(6,182,212,0.12)]">
+                <div className="flex min-w-0 flex-1 items-center justify-center gap-4 rounded-2xl border border-neo-cyan/40 bg-neo-cyan/10 px-3 py-3 shadow-[0_0_15px_rgba(6,182,212,0.12)]">
                   <button
                     type="button"
                     onClick={() => handleUpdateQty(-1)}
                     disabled={cartItem.quantity <= 1}
-                    aria-label={`Decrease quantity for ${heroTitle}`}
+                    aria-label={`Decrease quantity for ${translatedHeroTitle}`}
                     className="text-neo-cyan transition-colors hover:text-white disabled:opacity-50"
                   >
                     <Minus className="w-5 h-5" />
@@ -652,7 +804,7 @@ const ProductDetails = () => {
                     type="button"
                     onClick={() => handleUpdateQty(1)}
                     disabled={cartItem.quantity >= stock}
-                    aria-label={`Increase quantity for ${heroTitle}`}
+                    aria-label={`Increase quantity for ${translatedHeroTitle}`}
                     className="text-neo-cyan transition-colors hover:text-white disabled:opacity-50"
                   >
                     <Plus className="w-5 h-5" />
@@ -663,20 +815,21 @@ const ProductDetails = () => {
                   type="button"
                   onClick={handleAddToCart}
                   disabled={stock === 0}
-                  className="relative flex flex-1 items-center justify-center gap-2 overflow-hidden border-white/20 py-3.5 text-[11px] tracking-[0.18em] shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)] btn-secondary group"
+                  className="relative flex min-w-0 flex-1 items-center justify-center gap-2 overflow-hidden border-white/20 py-3.5 text-[11px] tracking-[0.18em] shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)] btn-secondary group"
                 >
                   <ShoppingCart className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
-                  <span className="relative z-10">{t('product.addToBag', {}, 'Add to Bag')}</span>
+                  <span className="relative z-10 truncate">{t('product.addToBag', {}, 'Add to Bag')}</span>
                 </button>
               )}
               <button
                 type="button"
                 onClick={handleBuyNow}
                 disabled={stock === 0}
-                className="relative flex-1 overflow-hidden py-3.5 text-[11px] tracking-[0.18em] shadow-[0_0_15px_rgba(217,70,239,0.3)] btn-primary group"
+                className="relative min-w-0 flex-1 overflow-hidden py-3.5 text-[11px] tracking-[0.18em] shadow-[0_0_15px_rgba(217,70,239,0.3)] btn-primary group"
               >
-                <span className="relative z-10 flex items-center justify-center gap-2">
-                  <Zap className="w-4 h-4 fill-white animate-pulse" /> {t('productPage.buyNow', {}, 'Buy Now')}
+                <span className="relative z-10 flex min-w-0 items-center justify-center gap-2">
+                  <Zap className="w-4 h-4 shrink-0 fill-white animate-pulse" />
+                  <span className="truncate">{t('productPage.buyNow', {}, 'Buy Now')}</span>
                 </span>
                 <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
               </button>
@@ -684,25 +837,27 @@ const ProductDetails = () => {
           </div>
 
           {/* Right Column: Details */}
-          <div className="lg:col-span-7">
-            <div className="relative overflow-hidden rounded-[1.75rem] border border-white/10 bg-white/[0.045] p-5 shadow-glass sm:rounded-3xl sm:p-6 md:p-10">
+          <div className="min-w-0 lg:col-span-7">
+            <div className="relative min-w-0 overflow-hidden rounded-[1.75rem] border border-white/10 bg-white/[0.045] p-5 shadow-glass sm:rounded-3xl sm:p-6 md:p-10">
               <div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-neo-emerald/5 to-transparent pointer-events-none" />
 
-              <div className="relative z-10">
+              <div className="relative z-10 min-w-0">
                 <p className="text-neo-cyan font-bold tracking-[0.3em] uppercase text-xs mb-3">{brand}</p>
-                {heroSubtitle && (
+                {translatedHeroSubtitle && (
                   <p className="mb-3 text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">
-                    {heroSubtitle}
+                    {translatedHeroSubtitle}
                   </p>
                 )}
                 <h1 className="mb-5 text-[1.9rem] font-black leading-tight tracking-tighter text-white sm:text-3xl md:mb-6 md:text-5xl">
-                  {heroTitle}
+                  {translatedHeroTitle}
                 </h1>
                 {isDemoCatalog && (
                   <div className="mb-6 rounded-2xl border border-sky-400/30 bg-sky-500/10 px-4 py-3">
-                    <p className="text-xs font-black uppercase tracking-[0.16em] text-sky-200">Demo Catalog</p>
+                    <p className="text-xs font-black uppercase tracking-[0.16em] text-sky-200">
+                      {t('product.demoCatalog', {}, 'Demo Catalog')}
+                    </p>
                     <p className="mt-2 text-sm leading-relaxed text-sky-50/90">
-                      This item is being served from the demo catalog fallback because the active catalog currently has no published inventory.
+                      {t('productPage.demoCatalogBody', {}, 'This item is being served from the demo catalog fallback because the active catalog currently has no published inventory.')}
                     </p>
                   </div>
                 )}
@@ -753,7 +908,7 @@ const ProductDetails = () => {
                         type="button"
                         onClick={() => handleUpdateQty(-1)}
                         disabled={cartItem.quantity <= 1}
-                        aria-label={`Decrease quantity for ${heroTitle}`}
+                        aria-label={`Decrease quantity for ${translatedHeroTitle}`}
                         className="text-neo-cyan hover:text-white disabled:opacity-50 transition-colors"
                       >
                         <Minus className="w-6 h-6" />
@@ -763,7 +918,7 @@ const ProductDetails = () => {
                         type="button"
                         onClick={() => handleUpdateQty(1)}
                         disabled={cartItem.quantity >= stock}
-                        aria-label={`Increase quantity for ${heroTitle}`}
+                        aria-label={`Increase quantity for ${translatedHeroTitle}`}
                         className="text-neo-cyan hover:text-white disabled:opacity-50 transition-colors"
                       >
                         <Plus className="w-6 h-6" />
@@ -826,25 +981,27 @@ const ProductDetails = () => {
                   <section className="rounded-2xl border border-white/10 bg-zinc-950/45 p-4 sm:p-5">
                     <div className="flex items-center justify-between gap-3">
                       <div>
-                        <p className="text-xs font-black uppercase tracking-[0.16em] text-neo-cyan">Trust Graph</p>
-                        <h2 className="mt-2 text-xl font-black text-white">{trustGraph.headline}</h2>
+                        <p className="text-xs font-black uppercase tracking-[0.16em] text-neo-cyan">
+                          {t('productPage.trustGraph', {}, 'Trust Graph')}
+                        </p>
+                        <h2 className="mt-2 text-xl font-black text-white">{translatedTrustGraph.headline}</h2>
                       </div>
                       <div className={cn(
                         'rounded-full border px-3 py-1 text-xs font-black uppercase tracking-[0.14em]',
-                        trustGraph.tone === 'emerald'
+                        translatedTrustGraph.tone === 'emerald'
                           ? 'border-emerald-400/35 bg-emerald-500/10 text-emerald-100'
-                          : trustGraph.tone === 'amber'
+                          : translatedTrustGraph.tone === 'amber'
                             ? 'border-amber-400/35 bg-amber-500/10 text-amber-100'
-                            : trustGraph.tone === 'rose'
+                            : translatedTrustGraph.tone === 'rose'
                               ? 'border-rose-400/35 bg-rose-500/10 text-rose-100'
                               : 'border-neo-cyan/35 bg-neo-cyan/10 text-neo-cyan'
                       )}>
-                        Trust {trustGraph.overallScore}
+                        {t('productPage.trustScoreLabel', { score: translatedTrustGraph.overallScore }, `Trust ${translatedTrustGraph.overallScore}`)}
                       </div>
                     </div>
-                    <p className="mt-3 text-sm text-slate-400">{trustGraph.summary}</p>
+                    <p className="mt-3 text-sm text-slate-400">{translatedTrustGraph.summary}</p>
                     <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                      {trustGraph.metrics.slice(0, 4).map((metric) => (
+                      {translatedTrustGraph.metrics.slice(0, 4).map((metric) => (
                         <div key={metric.key} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2">
                           <div className="flex items-center justify-between gap-2">
                             <span className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-400">{metric.label}</span>
@@ -854,11 +1011,13 @@ const ProductDetails = () => {
                         </div>
                       ))}
                     </div>
-                    {trustGraph.watchouts.length > 0 && (
+                    {translatedTrustGraph.watchouts.length > 0 && (
                       <div className="mt-4 rounded-xl border border-amber-400/25 bg-amber-500/10 p-3">
-                        <p className="text-[11px] font-black uppercase tracking-[0.14em] text-amber-200">Watchouts</p>
+                        <p className="text-[11px] font-black uppercase tracking-[0.14em] text-amber-200">
+                          {t('productPage.watchouts', {}, 'Watchouts')}
+                        </p>
                         <ul className="mt-2 space-y-1 text-sm text-amber-100/90">
-                          {trustGraph.watchouts.map((item) => (
+                          {translatedTrustGraph.watchouts.map((item) => (
                             <li key={item}>- {item}</li>
                           ))}
                         </ul>
@@ -867,22 +1026,35 @@ const ProductDetails = () => {
                   </section>
 
                   <section className="rounded-2xl border border-white/10 bg-zinc-950/45 p-4 sm:p-5">
-                    <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-200">Resale + Upgrade Intelligence</p>
-                    <h2 className="mt-2 text-xl font-black text-white">{lifecycleIntelligence.upgradeWindow}</h2>
+                    <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-200">
+                      {t('productPage.resaleUpgradeIntelligence', {}, 'Resale + Upgrade Intelligence')}
+                    </p>
+                    <h2 className="mt-2 text-xl font-black text-white">{translatedLifecycleIntelligence.upgradeWindow}</h2>
                     <div className="mt-4 grid gap-3 sm:grid-cols-2">
                       <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-3">
-                        <p className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-400">Trade-in estimate</p>
-                        <p className="mt-2 text-2xl font-black text-white">{formatDisplayPrice(lifecycleIntelligence.tradeInEstimate, displayCurrency)}</p>
+                        <p className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-400">
+                          {t('productPage.tradeInEstimate', {}, 'Trade-in estimate')}
+                        </p>
+                        <p className="mt-2 text-2xl font-black text-white">{formatDisplayPrice(translatedLifecycleIntelligence.tradeInEstimate, displayCurrency)}</p>
                       </div>
                       <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-3">
-                        <p className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-400">Expected 90-day slide</p>
-                        <p className="mt-2 text-2xl font-black text-white">{formatDisplayPrice(lifecycleIntelligence.ninetyDayDepreciation, displayCurrency)}</p>
+                        <p className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-400">
+                          {t('productPage.expectedNinetyDaySlide', {}, 'Expected 90-day slide')}
+                        </p>
+                        <p className="mt-2 text-2xl font-black text-white">{formatDisplayPrice(translatedLifecycleIntelligence.ninetyDayDepreciation, displayCurrency)}</p>
                       </div>
                     </div>
                     <div className="mt-4 rounded-xl border border-emerald-400/20 bg-emerald-500/10 p-3">
-                      <p className="text-sm text-slate-200">{lifecycleIntelligence.nextBestAction.reason}</p>
+                      <p className="text-sm text-slate-200">{translatedLifecycleIntelligence.nextBestAction.reason}</p>
                       <p className="mt-2 text-xs text-slate-400">
-                        Resale band {formatDisplayPrice(lifecycleIntelligence.resaleLow, displayCurrency)} - {formatDisplayPrice(lifecycleIntelligence.resaleHigh, displayCurrency)}
+                        {t(
+                          'productPage.resaleBand',
+                          {
+                            low: formatDisplayPrice(translatedLifecycleIntelligence.resaleLow, displayCurrency),
+                            high: formatDisplayPrice(translatedLifecycleIntelligence.resaleHigh, displayCurrency),
+                          },
+                          `Resale band ${formatDisplayPrice(translatedLifecycleIntelligence.resaleLow, displayCurrency)} - ${formatDisplayPrice(translatedLifecycleIntelligence.resaleHigh, displayCurrency)}`
+                        )}
                       </p>
                     </div>
                     {(lifecycleNotice || lifecycleError) && (
@@ -892,7 +1064,7 @@ const ProductDetails = () => {
                           ? 'border-rose-400/30 bg-rose-500/10 text-rose-100'
                           : 'border-emerald-400/30 bg-emerald-500/10 text-emerald-100'
                       )}>
-                        {lifecycleError || lifecycleNotice}
+                        {translateProductText(lifecycleError || lifecycleNotice)}
                       </div>
                     )}
                     <div className="mt-4 flex flex-wrap gap-2">
@@ -925,6 +1097,7 @@ const ProductDetails = () => {
                   <div className="-mx-5 mb-6 flex gap-6 overflow-x-auto border-b border-white/5 px-5 scrollbar-hide sm:mx-0 sm:mb-8 sm:gap-8 sm:px-0">
                     {['description', 'specifications', 'deal-dna', 'compatibility', 'reviews'].map(tab => (
                       <button key={tab} onClick={() => setActiveTab(tab)}
+                        data-testid={`product-tab-${tab}`}
                         className={cn('pb-4 text-xs md:text-sm font-bold tracking-widest uppercase transition-colors relative whitespace-nowrap',
                           activeTab === tab ? 'text-neo-cyan' : 'text-slate-500 hover:text-slate-300')}>
                         {tabLabels[tab] || tab}
@@ -938,12 +1111,12 @@ const ProductDetails = () => {
                   <div className="min-h-[200px] animate-fade-in text-slate-300">
                     {activeTab === 'description' && (
                       <div className="space-y-8">
-                        <p className="text-base font-medium leading-relaxed sm:text-lg">{description}</p>
-                        {highlights.length > 0 && (
+                        <p className="text-base font-medium leading-relaxed sm:text-lg">{translatedDescription}</p>
+                        {translatedHighlights.length > 0 && (
                           <div className="bg-zinc-950/50 p-6 rounded-2xl border border-white/5">
                             <h3 className="font-bold text-white mb-4 uppercase tracking-widest text-sm text-neo-emerald">{t('productPage.coreSpecs', {}, 'Core Specs:')}</h3>
                             <ul className="space-y-3">
-                              {highlights.map((h, i) => (
+                              {translatedHighlights.map((h, i) => (
                                 <li key={i} className="flex items-start gap-3">
                                   <div className="w-1.5 h-1.5 rounded-full bg-neo-cyan mt-2 shadow-[0_0_5px_rgba(6,182,212,0.8)]" />
                                   <span className="leading-relaxed">{h}</span>
@@ -967,7 +1140,7 @@ const ProductDetails = () => {
                         </div>
                         <div className="bg-zinc-950/50 p-5 rounded-xl border border-white/5 flex flex-col gap-1 md:col-span-2">
                           <span className="text-slate-500 text-xs uppercase tracking-widest font-bold">{t('productPage.deliveryTime', {}, 'Delivery Time')}</span>
-                          <p className="text-white font-medium text-lg">{deliveryTime}</p>
+                          <p className="text-white font-medium text-lg">{translatedDeliveryTime}</p>
                         </div>
                       </div>
                     )}
@@ -1012,17 +1185,17 @@ const ProductDetails = () => {
                           <p className="text-sm text-slate-400">{t('productPage.buildingCompatibility', {}, 'Building compatibility graph...')}</p>
                         )}
                         {!compatibilityLoading && compatibilityError && (
-                          <p className="text-sm text-rose-300">{compatibilityError}</p>
+                          <p className="text-sm text-rose-300">{translateProductText(compatibilityError)}</p>
                         )}
-                        {!compatibilityLoading && !compatibilityError && (!compatibilityGraph?.groups || compatibilityGraph.groups.length === 0) && (
+                        {!compatibilityLoading && !compatibilityError && translatedCompatibilityGroups.length === 0 && (
                           <p className="text-sm text-slate-400">{t('productPage.noCompatibility', {}, 'No compatibility data available for this category yet.')}</p>
                         )}
-                        {!compatibilityLoading && !compatibilityError && Array.isArray(compatibilityGraph?.groups) && compatibilityGraph.groups.length > 0 && (
+                        {!compatibilityLoading && !compatibilityError && translatedCompatibilityGroups.length > 0 && (
                           <div className="space-y-4">
-                            {compatibilityGraph.groups.map((group) => (
+                            {translatedCompatibilityGroups.map((group) => (
                               <div key={group.accessoryType} className="rounded-2xl border border-white/10 bg-zinc-950/40 p-4">
                                 <p className="text-xs font-black uppercase tracking-[0.16em] text-neo-cyan mb-3">
-                                  {group.accessoryType}
+                                  {group.accessoryTypeLabel}
                                 </p>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                   {(group.matches || []).map((item) => (
@@ -1032,12 +1205,12 @@ const ProductDetails = () => {
                                       className="rounded-xl border border-white/10 bg-white/5 p-3 hover:border-neo-emerald/45 transition-colors"
                                     >
                                       <div className="flex items-center gap-3">
-                                        <img src={item.image} alt={item.title} className="w-14 h-14 rounded-lg object-cover bg-zinc-900/70" />
+                                        <img src={item.image} alt={item.translatedTitle} className="w-14 h-14 rounded-lg object-cover bg-zinc-900/70" />
                                         <div className="min-w-0">
-                                          <p className="text-sm font-bold text-white truncate">{item.title}</p>
+                                          <p className="text-sm font-bold text-white truncate">{item.translatedTitle}</p>
                                           <p className="text-xs text-slate-400 truncate">{item.brand} • {item.category}</p>
                                           <p className="text-xs text-neo-cyan font-bold mt-1">
-                                            Compatibility {item.compatibilityScore}/100
+                                            {t('productPage.compatibilityScore', { score: item.compatibilityScore }, `Compatibility ${item.compatibilityScore}/100`)}
                                           </p>
                                         </div>
                                       </div>
@@ -1107,7 +1280,7 @@ const ProductDetails = () => {
                                 ))}
                               </div>
                             ) : reviewsError ? (
-                              <p className="text-sm text-rose-300">{reviewsError}</p>
+                              <p className="text-sm text-rose-300">{translateProductText(reviewsError)}</p>
                             ) : reviewsData.length === 0 ? (
                               <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-6 text-center">
                                 <MessageSquare className="w-8 h-8 mx-auto text-slate-500 mb-2" />
@@ -1137,7 +1310,7 @@ const ProductDetails = () => {
                                         )}
                                       </div>
                                     </div>
-                                    <p className="mt-3 text-sm leading-relaxed text-slate-200">{review.comment}</p>
+                                    <p className="mt-3 text-sm leading-relaxed text-slate-200">{translateProductText(review.comment)}</p>
                                     {Array.isArray(review.media) && review.media.length > 0 && (
                                       <div className="mt-3 grid grid-cols-2 md:grid-cols-3 gap-2">
                                         {review.media.map((asset, index) => (
@@ -1145,7 +1318,7 @@ const ProductDetails = () => {
                                             {asset.type === 'video' ? (
                                               <video src={asset.url} controls className="w-full h-24 object-cover" />
                                             ) : (
-                                              <img src={asset.url} alt={asset.caption || 'Review media'} className="w-full h-24 object-cover" />
+                                              <img src={asset.url} alt={translateProductText(asset.caption) || t('productPage.reviewMedia', {}, 'Review media')} className="w-full h-24 object-cover" />
                                             )}
                                           </div>
                                         ))}
@@ -1167,12 +1340,12 @@ const ProductDetails = () => {
                           )}
                           {reviewSubmitMessage && (
                             <div className="rounded-xl border border-emerald-400/30 bg-emerald-500/10 p-3 text-sm text-emerald-100 mb-4">
-                              {reviewSubmitMessage}
+                              {translateProductText(reviewSubmitMessage)}
                             </div>
                           )}
                           {reviewSubmitError && (
                             <div className="rounded-xl border border-rose-400/30 bg-rose-500/10 p-3 text-sm text-rose-100 mb-4">
-                              {reviewSubmitError}
+                              {translateProductText(reviewSubmitError)}
                             </div>
                           )}
 
@@ -1228,7 +1401,7 @@ const ProductDetails = () => {
                                 />
                               </div>
                               {reviewUploadMessage && (
-                                <p className="mb-2 text-xs font-semibold text-emerald-200">{reviewUploadMessage}</p>
+                                <p className="mb-2 text-xs font-semibold text-emerald-200">{translateProductText(reviewUploadMessage)}</p>
                               )}
                               <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
                                 <PremiumSelect
@@ -1296,14 +1469,14 @@ const ProductDetails = () => {
         </div>
 
         {relatedProducts.length > 0 && (
-          <SectionErrorBoundary label="Similar Items">
+          <SectionErrorBoundary label={t('productPage.similarItems', {}, 'Similar Items')}>
             <div className="mt-14 sm:mt-20">
               <div className="flex items-center gap-4 mb-8">
-                <h2 className="text-2xl font-black text-white tracking-tight">Similar Items</h2>
+                <h2 className="text-2xl font-black text-white tracking-tight">{t('productPage.similarItems', {}, 'Similar Items')}</h2>
                 <div className="flex-1 h-px bg-gradient-to-r from-white/10 to-transparent" />
               </div>
               <div className="space-y-4 md:hidden">
-                {relatedProducts.map((item) => (
+                {translatedRelatedProducts.map((item) => (
                   <ProductCard
                     key={item.id || item._id}
                     product={item}
@@ -1312,7 +1485,7 @@ const ProductDetails = () => {
                 ))}
               </div>
               <div className="hidden gap-6 md:grid md:grid-cols-2 xl:grid-cols-4">
-                {relatedProducts.map((item) => (
+                {translatedRelatedProducts.map((item) => (
                   <ProductCard
                     key={item.id || item._id}
                     product={item}

@@ -1,4 +1,8 @@
-import { PRIORITY_MARKET_MESSAGES } from './priorityMarketMessages';
+import { PRIORITY_MARKET_MESSAGES } from './priorityMarketMessages.js';
+import { GENERATED_MARKET_MESSAGES } from './generatedLocaleMessages.js';
+import { GENERATED_DYNAMIC_MARKET_MESSAGES } from './generatedDynamicLocaleMessages.js';
+import { REMAINING_UI_LOCALE_MESSAGES } from './remainingUiLocaleMessages.js';
+import { LOCALE_POLISH_MESSAGES } from './localePolishMessages.js';
 
 const DEFAULT_COUNTRY_CODE = 'IN';
 const DEFAULT_LANGUAGE_CODE = 'en';
@@ -218,6 +222,27 @@ const EN_MESSAGES = {
   'nav.becomeSeller': 'Become seller',
   'nav.cart': 'Cart',
   'nav.autoMotionNotice': 'Auto performance mode is overriding the selected motion profile to keep interactions stable.',
+  'nav.network': 'Network',
+  'nav.sellerDesk': 'Seller Desk',
+  'nav.priceAlerts': 'Price Alerts',
+  'nav.openQuickPanel': 'Open quick access panel',
+  'nav.closeExploreBackdrop': 'Close explore panel backdrop',
+  'nav.explore': 'Explore',
+  'nav.exploreTitle': 'Curated routes for higher-intent shopping.',
+  'nav.exploreBody': 'Discovery, comparison, and seller tools stay composed here so the main rail feels calm.',
+  'nav.tools': 'Tools',
+  'nav.workspace': 'Workspace',
+  'nav.openProfileMenu': 'Open profile menu',
+  'nav.closeProfileBackdrop': 'Close profile menu backdrop',
+  'nav.auraPoints': '{{count}} AP',
+  'nav.adminTools': 'Admin Tools',
+  'nav.adminDashboard': 'Admin Dashboard',
+  'nav.paymentOps': 'Payment Ops',
+  'nav.toggleMenu': 'Toggle menu',
+  'nav.closeMobileMenuBackdrop': 'Close mobile menu backdrop',
+  'nav.motionCinematic': 'Full transitions and richer movement.',
+  'nav.motionBalanced': 'Default motion with lighter overhead.',
+  'nav.motionMinimal': 'Reduced motion for clarity and speed.',
   'search.title': 'Search Intelligence',
   'search.subtitle': 'Run live search first. Open advanced controls only when you need tighter filtering.',
   'search.controls': 'Controls',
@@ -240,6 +265,32 @@ const EN_MESSAGES = {
   'search.voice': 'Voice search',
   'search.clearSearch': 'Clear search',
   'search.globalLabel': 'Global search',
+  'search.allCategories': 'All Categories',
+  'search.sort.relevance': 'Relevance',
+  'search.sort.rating': 'Top Rated',
+  'search.sort.newest': 'Newest',
+  'search.sort.priceAsc': 'Price: Low to High',
+  'search.sort.priceDesc': 'Price: High to Low',
+  'search.quickAction.marketplaceDesc': 'Browse peer-to-peer listings',
+  'search.quickAction.deals': 'Deals',
+  'search.quickAction.dealsDesc': 'Open highest discount picks',
+  'search.quickAction.trendingDesc': 'See top rated products',
+  'search.quickAction.newArrivals': 'New Arrivals',
+  'search.quickAction.newArrivalsDesc': 'Fresh inventory drops',
+  'search.quickAction.visualDesc': 'Find products from image hints',
+  'search.quickAction.aiCompareDesc': 'Compare up to four products instantly',
+  'search.quickAction.smartBundle': 'Smart Bundle',
+  'search.quickAction.smartBundleDesc': 'Generate AI bundles with budget slider',
+  'search.quickAction.sellItemDesc': 'Create a marketplace listing',
+  'search.quickAction.ordersDesc': 'Track placed orders',
+  'search.liveSuggestionsError': 'Unable to load live suggestions right now.',
+  'search.toggleControls': 'Toggle advanced search controls',
+  'search.saveIntentTitle': 'Save semantic intent (Ctrl/Cmd+Enter)',
+  'search.productFallback': 'Product',
+  'search.untitledProduct': 'Untitled product',
+  'search.generalCategory': 'General',
+  'search.view': 'View',
+  'search.open': 'Open',
   'voice.title': 'Aura Voice Assistant',
   'voice.subtitle': 'Browser capture plus server-backed command reasoning',
   'voice.mute': 'Mute assistant voice',
@@ -304,6 +355,12 @@ const EN_MESSAGES = {
   'product.soldOut': 'Sold Out',
   'product.addToBag': 'Add to Bag',
   'product.addToCart': 'Add to cart',
+  'product.addToWishlist': 'Add to wishlist',
+  'product.removeFromWishlist': 'Remove from wishlist',
+  'product.compare': 'Compare',
+  'product.dealDna': 'Deal DNA',
+  'product.bundleAi': 'Bundle AI',
+  'product.score': 'Score',
   'product.viewDetails': 'View details',
   'product.select': 'Select',
   'product.cartSummary': 'Cart summary',
@@ -311,6 +368,72 @@ const EN_MESSAGES = {
   'product.total': 'Total',
   'product.saved': 'Saved',
   'product.closestMatches': 'No exact match for "{{query}}". Showing closest matches{{confidence}}',
+  'seller.shared.today': 'Today',
+  'seller.shared.yesterday': 'Yesterday',
+  'seller.shared.daysAgo': '{{count}}d ago',
+  'seller.shared.monthsAgo': '{{count}}mo ago',
+  'seller.shared.views': '{{count}} views',
+  'seller.shared.unknownCity': 'Unknown city',
+  'seller.shared.status.active': 'Active',
+  'seller.shared.status.sold': 'Sold',
+  'seller.shared.status.all': 'All',
+  'seller.shared.posted': 'Posted {{time}}',
+  'sellerBecome.title': 'Become a Seller',
+  'sellerBecome.body': 'Seller mode protects marketplace quality. Only verified accounts with valid contact info can create listings.',
+  'sellerBecome.requirement.verified.ok': 'Account verification complete',
+  'sellerBecome.requirement.verified.missing': 'Account verification required',
+  'sellerBecome.requirement.phone.ok': 'Phone on file: {{phone}}',
+  'sellerBecome.requirement.phone.missing': 'Add phone number in profile',
+  'sellerBecome.requirement.mode.ok': 'Seller mode already active',
+  'sellerBecome.requirement.mode.missing': 'Seller mode not active yet',
+  'sellerBecome.error.addPhone': 'Add a valid phone number in your profile before seller activation.',
+  'sellerBecome.error.verificationRequired': 'Account verification is required before seller activation.',
+  'sellerBecome.success.activated': 'Seller mode activated. You can now post listings.',
+  'sellerBecome.error.activateFailed': 'Failed to activate seller mode',
+  'sellerBecome.confirmDeactivate': 'Deactivate seller mode? You will lose access to /sell until you activate it again.',
+  'sellerBecome.success.deactivated': 'Seller mode deactivated.',
+  'sellerBecome.error.deactivateFailed': 'Failed to deactivate seller mode',
+  'sellerBecome.activate': 'Activate Seller Mode',
+  'sellerBecome.activating': 'Activating...',
+  'sellerBecome.goToSell': 'Go to Sell',
+  'sellerBecome.deactivate': 'Deactivate Seller Mode',
+  'sellerBecome.deactivating': 'Deactivating...',
+  'sellerBecome.openProfile': 'Open Profile',
+  'sellerListings.title': 'My Listings',
+  'sellerListings.subtitle': 'Manage active items, sold history, and marketplace visibility.',
+  'sellerListings.newListing': 'New Listing',
+  'sellerListings.stats.active': 'Active',
+  'sellerListings.stats.sold': 'Sold',
+  'sellerListings.stats.totalViews': 'Total Views',
+  'sellerListings.emptyTitle.active': 'No active listings',
+  'sellerListings.emptyTitle.sold': 'No sold listings',
+  'sellerListings.emptyTitle.all': 'No listings yet',
+  'sellerListings.emptyBodyActive': 'Create your first live listing and start getting buyers.',
+  'sellerListings.emptyBodyGeneric': 'No items in this state yet.',
+  'sellerListings.createListing': 'Create listing',
+  'sellerListings.error.markSold': 'Unable to mark listing as sold right now.',
+  'sellerListings.confirmDelete': 'Delete this listing permanently?',
+  'sellerListings.error.delete': 'Unable to delete listing right now.',
+  'sellerListings.escrowOptIn': 'Escrow Opt-in',
+  'sellerListings.escrowState': 'Escrow {{state}}',
+  'sellerListings.markSold': 'Mark sold',
+  'sellerListings.delete': 'Delete',
+  'sellerProfile.loading': 'Loading seller profile...',
+  'sellerProfile.notFoundTitle': 'Seller not found',
+  'sellerProfile.backToMarketplace': 'Back to Marketplace',
+  'sellerProfile.memberSince': 'Member since {{date}}',
+  'sellerProfile.stats.activeListings': 'Active listings',
+  'sellerProfile.stats.soldItems': 'Sold items',
+  'sellerProfile.stats.trustScore': 'Trust score',
+  'sellerProfile.passportTitle': 'Seller Trust Passport',
+  'sellerProfile.passport.fraudRisk': 'Fraud Risk',
+  'sellerProfile.passport.disputeRate': 'Dispute Rate',
+  'sellerProfile.passport.onTimeHistory': 'On-time History',
+  'sellerProfile.passport.responseSla': 'Response SLA',
+  'sellerProfile.passport.highRiskNotice': 'High risk tier means extra care is recommended before payment.',
+  'sellerProfile.activeListingsTitle': 'Active Listings ({{count}})',
+  'sellerProfile.emptyListings': 'This seller has no active listings right now.',
+  'sellerProfile.negotiable': 'Negotiable',
 };
 
 const SIMPLE_OVERRIDES = {
@@ -404,6 +527,34 @@ export const MARKET_MESSAGES = {
   en: EN_MESSAGES,
   ...SIMPLE_OVERRIDES,
 };
+
+Object.entries(GENERATED_MARKET_MESSAGES).forEach(([locale, messages]) => {
+  MARKET_MESSAGES[locale] = {
+    ...(MARKET_MESSAGES[locale] || {}),
+    ...messages,
+  };
+});
+
+Object.entries(GENERATED_DYNAMIC_MARKET_MESSAGES).forEach(([locale, messages]) => {
+  MARKET_MESSAGES[locale] = {
+    ...(MARKET_MESSAGES[locale] || {}),
+    ...messages,
+  };
+});
+
+Object.entries(REMAINING_UI_LOCALE_MESSAGES).forEach(([locale, messages]) => {
+  MARKET_MESSAGES[locale] = {
+    ...(MARKET_MESSAGES[locale] || {}),
+    ...messages,
+  };
+});
+
+Object.entries(LOCALE_POLISH_MESSAGES).forEach(([locale, messages]) => {
+  MARKET_MESSAGES[locale] = {
+    ...(MARKET_MESSAGES[locale] || {}),
+    ...messages,
+  };
+});
 
 const getRegionFromLocale = (localeValue = '') => {
   const locale = String(localeValue || '').trim();
