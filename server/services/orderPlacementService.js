@@ -11,6 +11,7 @@ const {
 const {
     validatePaymentIntentForOrder,
     linkIntentToOrder,
+    releaseIntentOrderClaim,
     scheduleCaptureTask,
 } = require('./payments/paymentService');
 const {
@@ -308,6 +309,24 @@ const placeOrderWithIdempotency = async ({
             throw new AppError('A valid account email is required to place order', 400);
         }
 
+        const releaseClaimLock = async () => {
+            if (!body?.paymentIntentId || !idempotencyKey) return;
+
+            try {
+                await releaseIntentOrderClaim({
+                    intentId: body.paymentIntentId,
+                    claimKey: idempotencyKey,
+                });
+            } catch (releaseError) {
+                logger.warn('order.release_payment_claim_failed', {
+                    requestId,
+                    userId: String(userId),
+                    intentId: body.paymentIntentId,
+                    error: releaseError.message,
+                });
+            }
+        };
+
         let session = null;
         let transactionStarted = false;
 
@@ -358,6 +377,7 @@ const placeOrderWithIdempotency = async ({
                     });
                     return { statusCode: 201, response: createdOrder };
                 } catch (fallbackError) {
+                    await releaseClaimLock();
                     logger.error('order.create_failed', {
                         requestId,
                         userId: String(userId),
@@ -367,6 +387,7 @@ const placeOrderWithIdempotency = async ({
                 }
             }
 
+            await releaseClaimLock();
             logger.error('order.create_failed', {
                 requestId,
                 userId: String(userId),

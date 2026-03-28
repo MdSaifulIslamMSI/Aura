@@ -5,6 +5,9 @@ const idempotencyRecordSchema = new mongoose.Schema({
     user: { type: String, required: true },
     route: { type: String, required: true },
     requestHash: { type: String, required: true },
+    state: { type: String, enum: ['processing', 'completed'], default: 'processing', index: true },
+    lockToken: { type: String, default: '' },
+    lockExpiresAt: { type: Date, default: null, index: true },
     statusCode: { type: Number, required: true, default: 200 },
     response: { type: mongoose.Schema.Types.Mixed, default: {} },
     processedAt: { type: Date, default: Date.now },
@@ -15,4 +18,3 @@ idempotencyRecordSchema.index({ key: 1, user: 1, route: 1 }, { unique: true });
 idempotencyRecordSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 module.exports = mongoose.model('IdempotencyRecord', idempotencyRecordSchema);
-
