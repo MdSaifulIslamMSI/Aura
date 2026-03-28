@@ -185,6 +185,8 @@ export function MarketProvider({
 
     let cancelled = false;
     let activeController = null;
+    let refreshTimeoutId = 0;
+    let refreshIdleId = 0;
 
     const applyBrowseFxPayload = (payload = null) => {
       if (!payload?.rates || cancelled) {
@@ -240,7 +242,16 @@ export function MarketProvider({
     };
 
     applyBrowseFxPayload(readCachedBrowseFxRates(BROWSE_BASE_CURRENCY));
-    void refreshBrowseFxRates();
+    refreshTimeoutId = window.setTimeout(() => {
+      if (typeof window.requestIdleCallback === 'function') {
+        refreshIdleId = window.requestIdleCallback(() => {
+          void refreshBrowseFxRates();
+        }, { timeout: 1500 });
+        return;
+      }
+
+      void refreshBrowseFxRates();
+    }, 250);
 
     const intervalId = window.setInterval(() => {
       void refreshBrowseFxRates();
@@ -249,6 +260,12 @@ export function MarketProvider({
     return () => {
       cancelled = true;
       activeController?.abort();
+      if (refreshTimeoutId) {
+        window.clearTimeout(refreshTimeoutId);
+      }
+      if (refreshIdleId && typeof window.cancelIdleCallback === 'function') {
+        window.cancelIdleCallback(refreshIdleId);
+      }
       window.clearInterval(intervalId);
     };
   }, []);
