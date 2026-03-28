@@ -10,8 +10,10 @@ const TRANSLATION_ENDPOINT = 'https://translate.googleapis.com/translate_a/singl
 const MAX_BATCH_SIZE = 50;
 const MAX_TEXT_LENGTH = 800;
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+const TRANSLATION_CONCURRENCY = 6;
 
 const translationCache = new Map();
+const inflightTranslationCache = new Map();
 
 const isSupportedLanguage = (value = '') => {
     const normalized = normalizeLanguageCode(value);
@@ -30,20 +32,20 @@ const normalizeSourceLanguage = (value = 'auto') => {
 
 const normalizeText = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
 
-const getCacheKey = (language, text) => `${language}::${text}`;
+const getCacheKey = (language, sourceLanguage, text) => `${language}::${sourceLanguage}::${text}`;
 
-const readFromCache = (language, text) => {
-    const entry = translationCache.get(getCacheKey(language, text));
+const readFromCache = (language, sourceLanguage, text) => {
+    const entry = translationCache.get(getCacheKey(language, sourceLanguage, text));
     if (!entry) return '';
     if (Date.now() - entry.cachedAt > CACHE_TTL_MS) {
-        translationCache.delete(getCacheKey(language, text));
+        translationCache.delete(getCacheKey(language, sourceLanguage, text));
         return '';
     }
     return entry.value || '';
 };
 
-const writeToCache = (language, text, value) => {
-    translationCache.set(getCacheKey(language, text), {
+const writeToCache = (language, sourceLanguage, text, value) => {
+    translationCache.set(getCacheKey(language, sourceLanguage, text), {
         value: String(value || ''),
         cachedAt: Date.now(),
     });
@@ -89,6 +91,89 @@ const translateSingleText = async ({
 
 const clearTranslationCache = () => {
     translationCache.clear();
+    inflightTranslationCache.clear();
+};
+
+const runWithConcurrency = async (items = [], worker, concurrency = TRANSLATION_CONCURRENCY) => {
+    const normalizedItems = Array.isArray(items) ? items : [];
+    if (normalizedItems.length === 0) {
+        return;
+    }
+
+    const workerCount = Math.max(1, Math.min(Number(concurrency) || 1, normalizedItems.length));
+    let nextIndex = 0;
+
+    await Promise.all(Array.from({ length: workerCount }, async () => {
+        while (nextIndex < normalizedItems.length) {
+            const currentIndex = nextIndex;
+            nextIndex += 1;
+            await worker(normalizedItems[currentIndex], currentIndex);
+        }
+    }));
+};
+
+const createFallbackTranslation = ({
+    error,
+    normalizedSourceLanguage,
+    normalizedTarget,
+    text,
+}) => {
+    logger.warn('i18n.translation_upstream_failed', {
+        targetLanguage: normalizedTarget,
+        sourceLanguage: normalizedSourceLanguage,
+        textPreview: text.slice(0, 120),
+        error: error?.message || 'unknown_error',
+    });
+    return text;
+};
+
+const getOrCreateTranslationPromise = ({
+    normalizedSourceLanguage,
+    normalizedTarget,
+    text,
+}) => {
+    if (
+        !text
+        || text.length > MAX_TEXT_LENGTH
+        || normalizedTarget === DEFAULT_LANGUAGE_CODE
+        || (normalizedSourceLanguage !== 'auto' && normalizedSourceLanguage === normalizedTarget)
+    ) {
+        return Promise.resolve(text);
+    }
+
+    const cachedValue = readFromCache(normalizedTarget, normalizedSourceLanguage, text);
+    if (cachedValue) {
+        return Promise.resolve(cachedValue);
+    }
+
+    const cacheKey = getCacheKey(normalizedTarget, normalizedSourceLanguage, text);
+    const inflightPromise = inflightTranslationCache.get(cacheKey);
+    if (inflightPromise) {
+        return inflightPromise;
+    }
+
+    const translationPromise = translateSingleText({
+        text,
+        targetLanguage: normalizedTarget,
+        sourceLanguage: normalizedSourceLanguage,
+    })
+        .then((translated) => {
+            const resolvedTranslation = translated || text;
+            writeToCache(normalizedTarget, normalizedSourceLanguage, text, resolvedTranslation);
+            return resolvedTranslation;
+        })
+        .catch((error) => createFallbackTranslation({
+            error,
+            normalizedSourceLanguage,
+            normalizedTarget,
+            text,
+        }))
+        .finally(() => {
+            inflightTranslationCache.delete(cacheKey);
+        });
+
+    inflightTranslationCache.set(cacheKey, translationPromise);
+    return translationPromise;
 };
 
 const translateTexts = async ({
@@ -97,6 +182,7 @@ const translateTexts = async ({
     sourceLanguage = 'auto',
 } = {}) => {
     const normalizedTarget = normalizeTargetLanguage(targetLanguage);
+    const normalizedSourceLanguage = normalizeSourceLanguage(sourceLanguage);
     const uniqueTexts = [...new Set(
         (Array.isArray(texts) ? texts : [])
             .map(normalizeText)
@@ -106,36 +192,13 @@ const translateTexts = async ({
 
     const results = {};
 
-    for (const text of uniqueTexts) {
-        if (text.length > MAX_TEXT_LENGTH) {
-            results[text] = text;
-            continue;
-        }
-
-        const cachedValue = readFromCache(normalizedTarget, text);
-        if (cachedValue) {
-            results[text] = cachedValue;
-            continue;
-        }
-
-        try {
-            const translated = await translateSingleText({
-                text,
-                targetLanguage: normalizedTarget,
-                sourceLanguage,
-            });
-            results[text] = translated;
-            writeToCache(normalizedTarget, text, translated);
-        } catch (error) {
-            logger.warn('i18n.translation_upstream_failed', {
-                targetLanguage: normalizedTarget,
-                sourceLanguage: normalizeSourceLanguage(sourceLanguage),
-                textPreview: text.slice(0, 120),
-                error: error?.message || 'unknown_error',
-            });
-            results[text] = text;
-        }
-    }
+    await runWithConcurrency(uniqueTexts, async (text) => {
+        results[text] = await getOrCreateTranslationPromise({
+            normalizedSourceLanguage,
+            normalizedTarget,
+            text,
+        });
+    });
 
     return results;
 };
