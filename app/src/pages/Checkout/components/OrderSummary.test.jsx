@@ -1,7 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
-import { MarketProvider } from '@/context/MarketContext';
-import OrderSummary from './OrderSummary';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const noop = vi.fn();
 
@@ -16,8 +14,17 @@ vi.mock('@/services/api/marketApi', () => ({
     readCachedBrowseFxRates: vi.fn(() => null),
 }));
 
+beforeEach(() => {
+    vi.resetModules();
+});
+
 describe('OrderSummary', () => {
-    it('shows the locked checkout charge currency from the backend quote', () => {
+    it('shows the locked checkout charge currency from the backend quote', async () => {
+        const [{ MarketProvider }, { default: OrderSummary }] = await Promise.all([
+            import('@/context/MarketContext'),
+            import('./OrderSummary'),
+        ]);
+
         render(
             <MarketProvider initialPreference={{ countryCode: 'US', language: 'en', currency: 'USD' }}>
                 <OrderSummary
@@ -69,7 +76,10 @@ describe('OrderSummary', () => {
             </MarketProvider>
         );
 
-        expect(screen.getAllByText(/\$699(?:\.00)?/).length).toBeGreaterThan(0);
+        expect(screen.getAllByText((_, node) => {
+            const text = node?.textContent?.replace(/\u00a0/g, ' ') || '';
+            return /(?:US\$|\$)\s*699(?:[.,]00)?|699(?:[.,]00)?\s*(?:US\$|\$)/.test(text);
+        }).length).toBeGreaterThan(0);
         expect(screen.getByText(/Base order value remains/i)).toBeInTheDocument();
     });
 });

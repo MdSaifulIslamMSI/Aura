@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { clearI18nApiCache, i18nApi } from './i18nApi';
 
 const { apiFetchMock } = vi.hoisted(() => ({
     apiFetchMock: vi.fn(),
@@ -11,11 +10,13 @@ vi.mock('../apiBase', () => ({
 
 describe('i18nApi', () => {
     beforeEach(() => {
-        clearI18nApiCache();
+        vi.resetModules();
         apiFetchMock.mockReset();
     });
 
     it('dedupes overlapping requests and reuses cached translations', async () => {
+        const { i18nApi } = await import('./i18nApi');
+
         apiFetchMock.mockResolvedValue({
             data: {
                 translations: {
@@ -39,12 +40,16 @@ describe('i18nApi', () => {
     });
 
     it('short-circuits English requests without calling the API', async () => {
+        const { i18nApi } = await import('./i18nApi');
+
         const result = await i18nApi.translateTexts({ texts: ['Hello'], language: 'en' });
         expect(result).toEqual({ Hello: 'Hello' });
         expect(apiFetchMock).not.toHaveBeenCalled();
     });
 
     it('falls back to the source text when the upstream request fails', async () => {
+        const { i18nApi } = await import('./i18nApi');
+
         apiFetchMock.mockRejectedValue(new Error('upstream down'));
 
         const result = await i18nApi.translateTexts({ texts: ['Hello'], language: 'es' });

@@ -1,4 +1,4 @@
-import { useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   Bell,
@@ -23,24 +23,27 @@ import { AuthContext } from '@/context/AuthContext';
 import { CartContext } from '@/context/CartContext';
 import { useColorMode } from '@/context/ColorModeContext';
 import { useMarket } from '@/context/MarketContext';
+import { createTranslator } from '@/config/marketConfig';
 import { useMotionMode } from '@/context/MotionModeContext';
 import { cn } from '@/lib/utils';
 import AppErrorBoundary from '@/components/shared/AppErrorBoundary';
 import VoiceSearch from '@/components/shared/VoiceSearch';
 import GlobalSearchBar from '@/components/shared/GlobalSearchBar';
 import { useDismissableLayer } from '@/hooks/useDismissableLayer';
+import { getLocalizedCategoryLabel } from '@/config/catalogTaxonomy';
 import NotificationDropdown from './NotificationDropdown';
 
 const NavbarSearchFallback = ({
   mobile = false,
   className,
   label = 'Search products, brands, and live deals',
+  openLabel = 'Open search',
   onNavigate,
 }) => (
   <Link
     to="/search"
     onClick={onNavigate}
-    aria-label="Open search"
+    aria-label={openLabel}
     className={cn(
       mobile
         ? 'flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-semibold text-slate-200 transition-colors hover:border-white/18 hover:bg-white/[0.08] hover:text-white'
@@ -53,11 +56,14 @@ const NavbarSearchFallback = ({
   </Link>
 );
 
-const NavbarNotificationsFallback = () => (
+const NavbarNotificationsFallback = ({
+  label = 'Notifications temporarily unavailable',
+  title = 'Notifications are temporarily unavailable',
+}) => (
   <button
     type="button"
-    aria-label="Notifications temporarily unavailable"
-    title="Notifications are temporarily unavailable"
+    aria-label={label}
+    title={title}
     className="relative flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.045] text-slate-200 opacity-80"
   >
     <Bell className="h-[1.125rem] w-[1.125rem]" />
@@ -181,9 +187,12 @@ const MarketPreferenceCard = ({
   );
 };
 
-export const NavbarFailureFallback = () => (
-  <>
-    <header className="fixed top-0 left-0 right-0 z-50 overflow-x-clip aura-nav-shell bg-[linear-gradient(180deg,rgba(2,6,23,0.92),rgba(2,6,23,0.58))]">
+export const NavbarFailureFallback = () => {
+  const t = createTranslator('en');
+
+  return (
+    <>
+      <header className="fixed top-0 left-0 right-0 z-50 overflow-x-clip aura-nav-shell bg-[linear-gradient(180deg,rgba(2,6,23,0.92),rgba(2,6,23,0.58))]">
       <div className="container-custom max-w-[90rem] mx-auto px-3 sm:px-5 lg:px-6">
         <div className="relative min-w-0 rounded-[1.85rem] border border-white/12 bg-[linear-gradient(180deg,rgba(7,12,24,0.96),rgba(5,10,20,0.88))] px-2.5 py-2.5 shadow-[0_20px_58px_rgba(2,8,23,0.38)] sm:px-3.5 lg:px-4">
           <div className="pointer-events-none absolute inset-[1px] rounded-[calc(1.85rem-1px)] bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.01)_30%,transparent)]" />
@@ -199,12 +208,16 @@ export const NavbarFailureFallback = () => (
                   AURA
                 </span>
                 <span className="hidden sm:inline text-slate-500 text-[10px] font-bold tracking-[0.24em] uppercase -mt-1">
-                  Network
+                  {t('nav.network', {}, 'Network')}
                 </span>
               </div>
             </Link>
 
-            <NavbarSearchFallback className="flex-[1.1] min-w-[18rem] xl:min-w-[24rem] max-w-[34rem] xl:max-w-[40rem]" />
+            <NavbarSearchFallback
+              className="flex-[1.1] min-w-[18rem] xl:min-w-[24rem] max-w-[34rem] xl:max-w-[40rem]"
+              openLabel={t('nav.searchFallbackOpen', {}, 'Open search')}
+              label={t('nav.searchDesktop', {}, 'Search products, brands, and live deals')}
+            />
 
             <div className="flex items-center gap-2 flex-shrink-0">
               <Link
@@ -212,18 +225,18 @@ export const NavbarFailureFallback = () => (
                 className="hidden xl:inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.045] px-4 py-2.5 text-sm font-semibold text-slate-200 transition-all duration-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] hover:border-white/18 hover:bg-white/[0.075] hover:text-white"
               >
                 <Store className="w-4 h-4" />
-                Marketplace
+                {t('nav.marketplace', {}, 'Marketplace')}
               </Link>
               <Link
                 to="/login"
                 className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.045] px-3 py-2 text-sm font-semibold text-white shadow-[0_16px_36px_rgba(2,8,23,0.18),inset_0_1px_0_rgba(255,255,255,0.05)] transition-all duration-300 hover:-translate-y-0.5 hover:border-neo-cyan hover:bg-white/[0.08] active:translate-y-0 sm:px-4 lg:px-5"
               >
-                Login
+                {t('nav.login', {}, 'Login')}
               </Link>
               <Link
                 to="/cart"
                 className="group flex items-center gap-2 rounded-full border border-transparent p-2 text-slate-300 transition-all hover:border-white/10 hover:bg-white/[0.05] hover:text-neo-cyan"
-                aria-label="Cart"
+                aria-label={t('nav.cart', {}, 'Cart')}
               >
                 <ShoppingCart className="w-5 h-5 transition-all duration-300" />
               </Link>
@@ -231,10 +244,11 @@ export const NavbarFailureFallback = () => (
           </div>
         </div>
       </div>
-    </header>
-    <div className="aura-nav-spacer" />
-  </>
-);
+      </header>
+      <div className="aura-nav-spacer" />
+    </>
+  );
+};
 
 const Navbar = () => {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -361,17 +375,23 @@ const Navbar = () => {
     };
   }, [isNotificationsOpen, isQuickPanelOpen, isUserMenuOpen]);
 
-  const categories = [
-    { name: 'Mobiles', path: '/category/mobiles' },
-    { name: 'Laptops', path: '/category/laptops' },
-    { name: 'Electronics', path: '/category/electronics' },
-    { name: "Men's Fashion", path: "/category/men's-fashion" },
-    { name: "Women's Fashion", path: "/category/women's-fashion" },
-    { name: 'Footwear', path: '/category/footwear' },
-    { name: 'Home & Kitchen', path: '/category/home-kitchen' },
-    { name: 'Books', path: '/category/books' },
-    { name: 'Gaming', path: '/category/gaming' },
-  ];
+  const categories = useMemo(
+    () => [
+      { slug: 'mobiles', path: '/category/mobiles' },
+      { slug: 'laptops', path: '/category/laptops' },
+      { slug: 'electronics', path: '/category/electronics' },
+      { slug: "men's-fashion", path: "/category/men's-fashion" },
+      { slug: "women's-fashion", path: "/category/women's-fashion" },
+      { slug: 'footwear', path: '/category/footwear' },
+      { slug: 'home-kitchen', path: '/category/home-kitchen' },
+      { slug: 'books', path: '/category/books' },
+      { slug: 'gaming', path: '/category/gaming' },
+    ].map((category) => ({
+      ...category,
+      name: getLocalizedCategoryLabel(category.slug, t),
+    })),
+    [t]
+  );
 
   const cartItemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
   const currentColorMode = colorModeOptions.find((mode) => mode.value === colorMode) || colorModeOptions[0];
@@ -379,9 +399,9 @@ const Navbar = () => {
   const currentMotionMode = motionModeOptions.find((mode) => mode.value === motionMode) || motionModeOptions[0];
   const effectiveMotionLabel = motionModeOptions.find((mode) => mode.value === effectiveMotionMode)?.label || effectiveMotionMode;
   const motionOptionDescriptions = {
-    cinematic: 'Full transitions and richer movement.',
-    balanced: 'Default motion with lighter overhead.',
-    minimal: 'Reduced motion for clarity and speed.',
+    cinematic: t('nav.motionCinematic', {}, 'Full transitions and richer movement.'),
+    balanced: t('nav.motionBalanced', {}, 'Default motion with lighter overhead.'),
+    minimal: t('nav.motionMinimal', {}, 'Reduced motion for clarity and speed.'),
   };
   const loyaltyPoints = Number(dbUser?.loyalty?.pointsBalance || 0);
   const isSeller = Boolean(dbUser?.isSeller);
@@ -431,13 +451,13 @@ const Navbar = () => {
   ];
   const workspaceLinks = [
     {
-      label: isSeller ? 'Seller Desk' : t('nav.becomeSeller', {}, 'Become seller'),
+      label: isSeller ? t('nav.sellerDesk', {}, 'Seller Desk') : t('nav.becomeSeller', {}, 'Become seller'),
       path: isSeller ? '/my-listings' : '/become-seller',
       icon: Store,
       tone: 'border-white/10 bg-white/[0.03] text-slate-200 hover:bg-white/[0.08]',
     },
     {
-      label: 'Price Alerts',
+      label: t('nav.priceAlerts', {}, 'Price Alerts'),
       path: '/price-alerts',
       icon: Sparkles,
       tone: 'border-white/10 bg-white/[0.03] text-slate-200 hover:bg-white/[0.08]',
@@ -542,6 +562,7 @@ const Navbar = () => {
             ? 'aura-nav-scrolled bg-[linear-gradient(180deg,rgba(2,6,23,0.84),rgba(2,6,23,0.38))] border-transparent'
             : 'bg-[linear-gradient(180deg,rgba(2,6,23,0.74),rgba(2,6,23,0.18))] border-transparent'
         )}
+        style={isCompactViewport ? { width: '100dvw', maxWidth: '100dvw' } : undefined}
       >
         <div className="pointer-events-none absolute inset-x-[14%] top-0 h-px bg-gradient-to-r from-transparent via-neo-cyan/60 to-transparent animate-gradient-x" style={{ backgroundSize: '200% auto' }} />
         <div className="pointer-events-none absolute inset-x-[20%] top-2 h-20 rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.12),transparent_68%)] blur-3xl" />
@@ -568,7 +589,7 @@ const Navbar = () => {
                   AURA
                 </span>
                 <span className="hidden sm:inline text-slate-500 text-[10px] font-bold tracking-[0.24em] uppercase -mt-1 group-hover:text-neo-cyan transition-colors">
-                  Network
+                  {t('nav.network', {}, 'Network')}
                 </span>
               </div>
             </Link>
@@ -578,6 +599,7 @@ const Navbar = () => {
               fallback={(
                 <NavbarSearchFallback
                   className="flex-[1.2] min-w-[18rem] xl:min-w-[24rem] max-w-[32rem] xl:max-w-[40rem] 2xl:max-w-[46rem]"
+                  openLabel={t('nav.searchFallbackOpen', {}, 'Open search')}
                 />
               )}
             >
@@ -626,11 +648,11 @@ const Navbar = () => {
                       ? 'border-cyan-300/35 bg-cyan-400/12 text-white shadow-[0_0_18px_rgba(34,211,238,0.18)]'
                       : 'border-white/10 bg-white/[0.045] text-slate-200 hover:border-white/18 hover:bg-white/[0.08] hover:text-white'
                   )}
-                  aria-label="Open quick access panel"
+                  aria-label={t('nav.openQuickPanel', {}, 'Open quick access panel')}
                   aria-expanded={isQuickPanelOpen}
                 >
                   <LayoutGrid className="h-4 w-4 text-neo-cyan" />
-                      <span className="hidden 2xl:inline">Explore</span>
+                      <span className="hidden 2xl:inline">{t('nav.explore', {}, 'Explore')}</span>
                   <ChevronDown className={cn('h-4 w-4 opacity-60 transition-transform', isQuickPanelOpen && 'rotate-180')} />
                 </button>
 
@@ -638,16 +660,16 @@ const Navbar = () => {
                   <>
                     <button
                       type="button"
-                      aria-label="Close explore panel backdrop"
+                      aria-label={t('nav.closeExploreBackdrop', {}, 'Close explore panel backdrop')}
                       className="fixed inset-0 z-40 bg-zinc-950/34"
                       onClick={() => setIsQuickPanelOpen(false)}
                     />
                     <div className="absolute right-0 z-[60] mt-3 w-[23rem] max-w-[calc(100vw-2rem)] rounded-[1.7rem] border border-white/10 bg-[linear-gradient(180deg,rgba(7,12,24,0.98),rgba(5,9,20,0.98))] p-3.5 shadow-[0_26px_80px_rgba(2,8,23,0.7)] ring-1 ring-cyan-400/10">
                       <div className="rounded-[1.35rem] border border-white/10 bg-white/[0.03] px-4 py-3">
-                        <div className="text-[10px] font-black uppercase tracking-[0.24em] text-cyan-300/80">Explore</div>
-                        <div className="mt-1 text-base font-black text-white">Curated routes for higher-intent shopping.</div>
+                        <div className="text-[10px] font-black uppercase tracking-[0.24em] text-cyan-300/80">{t('nav.explore', {}, 'Explore')}</div>
+                        <div className="mt-1 text-base font-black text-white">{t('nav.exploreTitle', {}, 'Curated routes for higher-intent shopping.')}</div>
                         <p className="mt-1 text-sm text-slate-400">
-                          Discovery, comparison, and seller tools stay composed here so the main rail feels calm.
+                          {t('nav.exploreBody', {}, 'Discovery, comparison, and seller tools stay composed here so the main rail feels calm.')}
                         </p>
                       </div>
 
@@ -674,7 +696,7 @@ const Navbar = () => {
                       </div>
 
                       <div className="mt-3">
-                        <div className="mb-2 px-1 text-[10px] font-black uppercase tracking-[0.22em] text-slate-500">Tools</div>
+                        <div className="mb-2 px-1 text-[10px] font-black uppercase tracking-[0.22em] text-slate-500">{t('nav.tools', {}, 'Tools')}</div>
                         <div className="grid grid-cols-2 gap-2">
                           {quickActionLinks.map((item) => {
                             const ItemIcon = item.icon;
@@ -697,7 +719,7 @@ const Navbar = () => {
                       </div>
 
                       <div className="mt-3">
-                        <div className="mb-2 px-1 text-[10px] font-black uppercase tracking-[0.22em] text-slate-500">Workspace</div>
+                        <div className="mb-2 px-1 text-[10px] font-black uppercase tracking-[0.22em] text-slate-500">{t('nav.workspace', {}, 'Workspace')}</div>
                         <div className="space-y-2">
                           {workspaceLinks.map((item) => {
                             const ItemIcon = item.icon;
@@ -732,7 +754,7 @@ const Navbar = () => {
                     <button
                       onClick={handleProfileMenuToggle}
                       className="flex max-w-[8.2rem] items-center gap-2 rounded-full border border-white/10 bg-white/[0.045] px-2.5 py-2 text-slate-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition-all hover:border-white/18 hover:bg-white/[0.08] hover:text-white xl:max-w-[9.5rem] 2xl:max-w-[11rem]"
-                      aria-label="Open profile menu"
+                      aria-label={t('nav.openProfileMenu', {}, 'Open profile menu')}
                       aria-expanded={isUserMenuOpen}
                     >
                       <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-neo-cyan/25 to-neo-emerald/25 border border-white/10">
@@ -748,7 +770,7 @@ const Navbar = () => {
                       <>
                         <button
                           type="button"
-                          aria-label="Close profile menu backdrop"
+                          aria-label={t('nav.closeProfileBackdrop', {}, 'Close profile menu backdrop')}
                           className={cn('fixed inset-0 z-40', isCompactViewport ? 'bg-zinc-950/45' : 'bg-zinc-950/34')}
                           onClick={() => {
                             handleCloseUserMenu();
@@ -759,8 +781,12 @@ const Navbar = () => {
                               {isCompactViewport && (
                                 <div className="mb-3 flex items-center justify-between gap-3">
                                   <div>
-                                    <div className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-300/80">Account</div>
-                                    <div className="mt-1 text-sm text-slate-400">Profile, preferences, and control links.</div>
+                                    <div className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-300/80">
+                                      {t('nav.account', {}, 'Account')}
+                                    </div>
+                                    <div className="mt-1 text-sm text-slate-400">
+                                      {t('nav.accountSummary', {}, 'Profile, preferences, and control links.')}
+                                    </div>
                                 </div>
                                 <button
                                   type="button"
@@ -775,7 +801,7 @@ const Navbar = () => {
                             <div className="text-xs text-slate-400 truncate">{activeUser.email}</div>
                             <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-amber-300/20 bg-amber-400/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-amber-100">
                               <Sparkles className="h-3 w-3" />
-                              {formatNumber(loyaltyPoints)} AP
+                              {t('nav.auraPoints', { count: formatNumber(loyaltyPoints) }, `${formatNumber(loyaltyPoints)} AP`)}
                             </div>
                           </div>
                           <div className="my-1 border-t border-white/10" />
@@ -827,7 +853,7 @@ const Navbar = () => {
                               >
                                 <span className="flex items-center gap-2">
                                   <Shield className="h-4 w-4 text-amber-200" />
-                                  Admin Tools
+                                  {t('nav.adminTools', {}, 'Admin Tools')}
                                 </span>
                                 <ChevronDown className={cn('h-4 w-4 opacity-50 transition-transform', isAdminToolsOpen && 'rotate-180')} />
                               </button>
@@ -839,14 +865,14 @@ const Navbar = () => {
                                       className="block rounded-xl px-3 py-2 text-sm text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
                                       onClick={handlePanelNavigate('/admin/dashboard')}
                                     >
-                                      Admin Dashboard
+                                      {t('nav.adminDashboard', {}, 'Admin Dashboard')}
                                     </Link>
                                     <Link
                                       to="/admin/payments"
                                       className="block rounded-xl px-3 py-2 text-sm text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
                                       onClick={handlePanelNavigate('/admin/payments')}
                                     >
-                                      Payment Ops
+                                      {t('nav.paymentOps', {}, 'Payment Ops')}
                                     </Link>
                                     <Link
                                       to="/admin/users"
@@ -978,7 +1004,14 @@ const Navbar = () => {
                       </>
                     )}
                   </div>
-                  <AppErrorBoundary fallback={<NavbarNotificationsFallback />}>
+                  <AppErrorBoundary
+                    fallback={(
+                      <NavbarNotificationsFallback
+                        label={t('nav.notificationsUnavailable', {}, 'Notifications temporarily unavailable')}
+                        title={t('nav.notificationsUnavailableTitle', {}, 'Notifications are temporarily unavailable')}
+                      />
+                    )}
+                  >
                     <NotificationDropdown
                       isCompact={isCompactViewport}
                       isOpen={isNotificationsOpen}
@@ -1000,7 +1033,7 @@ const Navbar = () => {
               <Link
                 to="/cart"
                 className="group flex items-center gap-2 rounded-full border border-transparent p-2 text-slate-300 transition-all hover:border-white/10 hover:bg-white/[0.05] hover:text-neo-cyan"
-                aria-label="Cart"
+                aria-label={t('nav.cart', {}, 'Cart')}
               >
                 <div className="relative">
                   <ShoppingCart className="w-5 h-5 group-hover:-translate-y-1 group-hover:text-neo-emerald transition-all duration-300" />
@@ -1016,7 +1049,7 @@ const Navbar = () => {
               <button
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                 className="rounded-full p-2 text-slate-300 transition-colors hover:bg-white/[0.06] hover:text-white focus:outline-none md:hidden"
-                aria-label="Toggle menu"
+                aria-label={t('nav.toggleMenu', {}, 'Toggle menu')}
               >
                 {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
               </button>
@@ -1031,30 +1064,33 @@ const Navbar = () => {
               isMobileMenuOpen ? 'max-h-[30rem] mt-4 pb-2' : 'max-h-0'
             )}
           >
-            <AppErrorBoundary
-              fallback={(
-                <NavbarSearchFallback
+            {isMobileMenuOpen ? (
+              <AppErrorBoundary
+                fallback={(
+                  <NavbarSearchFallback
+                    mobile
+                    label={t('nav.searchMobile', {}, 'Search products, categories, and actions...')}
+                    openLabel={t('nav.searchFallbackOpen', {}, 'Open search')}
+                    onNavigate={() => setIsMobileMenuOpen(false)}
+                  />
+                )}
+              >
+                <GlobalSearchBar
                   mobile
-                  label="Search products, categories, and actions..."
+                  placeholder={t('nav.searchMobile', {}, 'Search products, categories, and actions...')}
+                  onVoiceSearch={() => setShowVoiceSearch(true)}
                   onNavigate={() => setIsMobileMenuOpen(false)}
+                  enableGlobalShortcuts={false}
                 />
-              )}
-            >
-              <GlobalSearchBar
-                mobile
-                placeholder={t('nav.searchMobile', {}, 'Search products, categories, and actions...')}
-                onVoiceSearch={() => setShowVoiceSearch(true)}
-                onNavigate={() => setIsMobileMenuOpen(false)}
-                enableGlobalShortcuts={false}
-              />
-            </AppErrorBoundary>
+              </AppErrorBoundary>
+            ) : null}
           </div>
         </div>
 
         {isMobileMenuOpen && (
           <button
             type="button"
-            aria-label="Close mobile menu backdrop"
+            aria-label={t('nav.closeMobileMenuBackdrop', {}, 'Close mobile menu backdrop')}
             className="fixed inset-0 z-40 bg-zinc-950/70 md:hidden"
             onClick={() => setIsMobileMenuOpen(false)}
           />

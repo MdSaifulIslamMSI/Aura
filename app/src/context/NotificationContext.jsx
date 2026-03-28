@@ -1,9 +1,11 @@
 import { useEffect } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { toast } from 'sonner';
+import { useMarket } from './MarketContext';
 import { useSocket } from './SocketContext';
 import { useAuth } from './AuthContext';
 import { useNotificationStore } from '../store/notificationStore';
+import { normalizeDynamicTranslationText, translateDynamicTextBatch } from '../hooks/useDynamicTranslations';
 
 const DEFAULT_NOTIFICATION_CONTEXT = {
     notifications: [],
@@ -28,6 +30,7 @@ export function useNotifications() {
 export function NotificationProvider({ children }) {
     const { isAuthenticated } = useAuth();
     const { socket } = useSocket();
+    const { language, t } = useMarket();
     const setAuthenticated = useNotificationStore((state) => state.setAuthenticated);
     const fetchNotifications = useNotificationStore((state) => state.fetchNotifications);
     const prependNotification = useNotificationStore((state) => state.prependNotification);
@@ -51,9 +54,26 @@ export function NotificationProvider({ children }) {
 
         const handleNewNotification = (notification) => {
             prependNotification(notification);
-            toast(notification?.title || 'New notification', {
-                description: notification?.message || '',
-                duration: 5000,
+            const title = notification?.title || t('notifications.new', {}, 'New notification');
+            const description = notification?.message || '';
+
+            if (language === 'en') {
+                toast(title, { description, duration: 5000 });
+                return;
+            }
+
+            void translateDynamicTextBatch({
+                texts: [title, description],
+                language,
+            }).then((translations) => {
+                const translatedTitle = translations[normalizeDynamicTranslationText(title)] || title;
+                const translatedDescription = translations[normalizeDynamicTranslationText(description)] || description;
+                toast(translatedTitle, {
+                    description: translatedDescription,
+                    duration: 5000,
+                });
+            }).catch(() => {
+                toast(title, { description, duration: 5000 });
             });
         };
 
@@ -62,7 +82,7 @@ export function NotificationProvider({ children }) {
         return () => {
             socket.off('user:notification:new', handleNewNotification);
         };
-    }, [socket, isAuthenticated, prependNotification]);
+    }, [socket, isAuthenticated, language, prependNotification, t]);
 
     return children;
 }

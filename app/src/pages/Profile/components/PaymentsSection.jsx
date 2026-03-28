@@ -1,70 +1,65 @@
 import { CreditCard } from 'lucide-react';
+import { useMarket } from '@/context/MarketContext';
 
-const PAYMENT_TYPE_LABELS = {
-    upi: 'UPI',
-    card: 'Card',
-    wallet: 'Wallet',
-    bank: 'NetBanking',
-    other: 'Method',
-};
-
-const formatPaymentType = (type) => {
+const formatPaymentType = (type, t) => {
     const normalized = String(type || '').trim().toLowerCase();
-    if (!normalized) return 'Method';
-    return PAYMENT_TYPE_LABELS[normalized] || normalized.toUpperCase();
+    if (!normalized) return t('profile.payments.type.other', {}, 'Method');
+    return t(`profile.payments.type.${normalized}`, {}, normalized.toUpperCase());
 };
 
-export default function PaymentsSection({ 
-    paymentMethodsLoading, paymentMethods, handleSetDefaultMethod, handleDeletePaymentMethod 
+export default function PaymentsSection({
+    paymentMethodsLoading, paymentMethods, handleSetDefaultMethod, handleDeletePaymentMethod,
 }) {
+    const { t } = useMarket();
+
     return (
         <div className="max-w-3xl">
-            <div className="bg-white rounded-2xl border shadow-sm p-6">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
-                    <h3 className="text-lg font-bold text-gray-900">Saved Payment Methods</h3>
-                    <span className="text-xs text-gray-500 font-semibold uppercase tracking-wider">Tokenized methods only</span>
+            <div className="rounded-2xl border bg-white p-6 shadow-sm">
+                <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <h3 className="text-lg font-bold text-gray-900">{t('profile.payments.title', {}, 'Saved Payment Methods')}</h3>
+                    <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">{t('profile.payments.tokenizedOnly', {}, 'Tokenized methods only')}</span>
                 </div>
 
                 {paymentMethodsLoading ? (
-                    <div className="text-sm text-gray-500 py-6">Loading payment methods...</div>
+                    <div className="py-6 text-sm text-gray-500">{t('profile.payments.loading', {}, 'Loading payment methods...')}</div>
                 ) : paymentMethods.length === 0 ? (
-                    <div className="text-center py-10 border border-dashed rounded-xl">
-                        <CreditCard className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-                        <p className="font-semibold text-gray-700">No saved payment methods yet</p>
-                        <p className="text-xs text-gray-400 mt-1">Complete a digital payment to auto-save tokenized methods.</p>
+                    <div className="rounded-xl border border-dashed py-10 text-center">
+                        <CreditCard className="mx-auto mb-3 h-10 w-10 text-gray-300" />
+                        <p className="font-semibold text-gray-700">{t('profile.payments.empty.title', {}, 'No saved payment methods yet')}</p>
+                        <p className="mt-1 text-xs text-gray-400">{t('profile.payments.empty.body', {}, 'Complete a digital payment to auto-save tokenized methods.')}</p>
                     </div>
                 ) : (
                     <div className="space-y-3">
                         {paymentMethods.map((method) => (
-                            <div key={method._id} className="border rounded-xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                            <div key={method._id} className="flex flex-col gap-4 rounded-xl border p-4 sm:flex-row sm:items-center sm:justify-between">
                                 <div>
                                     <p className="font-semibold text-gray-900">
-                                        {formatPaymentType(method.type)}
+                                        {formatPaymentType(method.type, t)}
                                         {method.brand ? ` | ${method.brand}` : ''}
                                         {method.last4 ? ` | **** ${method.last4}` : ''}
                                     </p>
-                                    <p className="text-xs text-gray-500 mt-1">Provider: {method.provider || 'razorpay'}</p>
+                                    <p className="mt-1 text-xs text-gray-500">{t('profile.payments.provider', { provider: method.provider || 'razorpay' }, `Provider: ${method.provider || 'razorpay'}`)}</p>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     {method.isDefault ? (
-                                        <span className="text-[10px] uppercase tracking-wider px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 font-bold">
-                                            Default
+                                        <span className="rounded-full border border-emerald-200 bg-emerald-100 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-700">
+                                            {t('profile.payments.defaultBadge', {}, 'Default')}
                                         </span>
                                     ) : (
                                         <button
                                             type="button"
                                             onClick={() => handleSetDefaultMethod(method._id)}
-                                            className="px-3 py-1.5 text-xs font-bold text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50"
+                                            className="rounded-lg border border-indigo-200 px-3 py-1.5 text-xs font-bold text-indigo-600 hover:bg-indigo-50"
                                         >
-                                            Set Default
+                                            {t('profile.payments.setDefault', {}, 'Set Default')}
                                         </button>
                                     )}
                                     <button
                                         type="button"
                                         onClick={() => handleDeletePaymentMethod(method._id)}
-                                        className="px-3 py-1.5 text-xs font-bold text-red-600 border border-red-200 rounded-lg hover:bg-red-50"
+                                        className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-bold text-red-600 hover:bg-red-50"
                                     >
-                                        Remove
+                                        {t('profile.payments.remove', {}, 'Remove')}
                                     </button>
                                 </div>
                             </div>

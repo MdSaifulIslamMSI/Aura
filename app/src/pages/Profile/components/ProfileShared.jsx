@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useMarket } from '@/context/MarketContext';
 
 export function StatCard({ icon: Icon, label, value, color }) {
     const colorMap = {
@@ -27,6 +28,8 @@ export function StatCard({ icon: Icon, label, value, color }) {
 }
 
 export function QuickLink({ to, icon: Icon, label, desc }) {
+    const { t } = useMarket();
+
     return (
         <Link to={to} className="premium-panel premium-card-hover group p-5">
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-neo-cyan">
@@ -35,13 +38,15 @@ export function QuickLink({ to, icon: Icon, label, desc }) {
             <p className="mt-4 text-base font-black text-white">{label}</p>
             <p className="mt-1 text-sm text-slate-400">{desc}</p>
             <div className="mt-5 inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.22em] text-neo-cyan">
-                Open <ChevronRight className="w-4 h-4" />
+                {t('profile.shared.open', {}, 'Open')} <ChevronRight className="w-4 h-4" />
             </div>
         </Link>
     );
 }
 
 export function InfoRow({ icon: Icon, label, value, badge }) {
+    const { t } = useMarket();
+
     return (
         <div className="profile-premium-info-row">
             <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-neo-cyan">
@@ -49,7 +54,7 @@ export function InfoRow({ icon: Icon, label, value, badge }) {
             </div>
             <div className="flex-1 min-w-0">
                 <p className="mb-1 text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">{label}</p>
-                <div className="text-sm font-semibold text-white">{value || 'Not set'}</div>
+                <div className="text-sm font-semibold text-white">{value || t('profile.shared.notSet', {}, 'Not set')}</div>
             </div>
             {badge && <span className="premium-chip-muted mt-1 text-[10px] font-black uppercase tracking-[0.2em]">{badge}</span>}
         </div>

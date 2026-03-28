@@ -9,6 +9,7 @@ import {
     ShieldAlert,
 } from 'lucide-react';
 import PremiumSelect from '@/components/ui/premium-select';
+import { useMarket } from '@/context/MarketContext';
 import { adminApi } from '@/services/api';
 
 const INITIAL_FILTERS = {
@@ -25,12 +26,6 @@ const SEVERITY_STYLES = {
     warning: 'border-amber-200 bg-amber-50 text-amber-700',
     error: 'border-rose-200 bg-rose-50 text-rose-700',
     critical: 'border-rose-200 bg-rose-50 text-rose-700',
-};
-
-const formatDateTime = (value) => {
-    if (!value) return '-';
-    const parsed = new Date(value);
-    return Number.isNaN(parsed.getTime()) ? '-' : parsed.toLocaleString();
 };
 
 const normalizeFilters = (filters = INITIAL_FILTERS) => ({
@@ -81,6 +76,7 @@ function MetaPill({ label, value }) {
 }
 
 export default function ClientDiagnosticsPanel() {
+    const { t, formatDateTime } = useMarket();
     const [draftFilters, setDraftFilters] = useState(INITIAL_FILTERS);
     const [appliedFilters, setAppliedFilters] = useState(INITIAL_FILTERS);
     const [diagnostics, setDiagnostics] = useState([]);
@@ -104,7 +100,7 @@ export default function ClientDiagnosticsPanel() {
             setDiagnostics([]);
             setSource('unavailable');
             setCount(0);
-            toast.error(error?.message || 'Failed to load client diagnostics');
+            toast.error(error?.message || t('admin.diagnostics.error.load', {}, 'Failed to load client diagnostics'));
         } finally {
             setLoading(false);
         }
@@ -129,18 +125,18 @@ export default function ClientDiagnosticsPanel() {
                 <div>
                     <div className="flex items-center gap-2">
                         <ShieldAlert className="h-5 w-5 text-rose-600" />
-                        <h2 className="text-lg font-semibold text-slate-900">Client Diagnostics</h2>
+                        <h2 className="text-lg font-semibold text-slate-900">{t('admin.diagnostics.title', {}, 'Client Diagnostics')}</h2>
                     </div>
                     <p className="mt-1 text-sm text-slate-500">
-                        Persisted browser-side failures, proxy outages, and runtime traces.
+                        {t('admin.diagnostics.description', {}, 'Persisted browser-side failures, proxy outages, and runtime traces.')}
                     </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                     <span className="admin-premium-tag">
-                        Source {source}
+                        {t('admin.diagnostics.source', { source }, `Source ${source}`)}
                     </span>
                     <span className="admin-premium-tag">
-                        {count} records
+                        {t('admin.diagnostics.recordCount', { count }, `${count} records`)}
                     </span>
                     <button
                         type="button"
@@ -149,26 +145,26 @@ export default function ClientDiagnosticsPanel() {
                         className="admin-premium-button px-3 py-2 text-sm disabled:opacity-60"
                     >
                         {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                        Refresh
+                        {t('admin.shared.refresh', {}, 'Refresh')}
                     </button>
                 </div>
             </div>
 
             <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
                 <div className="admin-premium-subpanel">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Freshest Event</p>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t('admin.diagnostics.cards.freshestEvent', {}, 'Freshest Event')}</p>
                     <p className="mt-2 text-sm font-semibold text-slate-900">{formatDateTime(freshestTimestamp)}</p>
                 </div>
                 <div className="admin-premium-subpanel">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Dashboard Sync</p>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t('admin.diagnostics.cards.dashboardSync', {}, 'Dashboard Sync')}</p>
                     <p className="mt-2 text-sm font-semibold text-slate-900">{formatDateTime(lastLoadedAt)}</p>
                 </div>
                 <div className="admin-premium-subpanel">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Active Filters</p>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t('admin.diagnostics.cards.activeFilters', {}, 'Active Filters')}</p>
                     <p className="mt-2 text-sm font-semibold text-slate-900">{activeFilterCount}</p>
                 </div>
                 <div className="admin-premium-subpanel">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Limit</p>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t('admin.diagnostics.cards.limit', {}, 'Limit')}</p>
                     <p className="mt-2 text-sm font-semibold text-slate-900">{appliedFilters.limit}</p>
                 </div>
             </div>
@@ -176,22 +172,22 @@ export default function ClientDiagnosticsPanel() {
             <div className="admin-premium-subpanel mt-4">
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-6">
                     <label className="text-sm text-slate-600">
-                        <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Severity</span>
+                        <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">{t('admin.diagnostics.filters.severity', {}, 'Severity')}</span>
                         <PremiumSelect
                             value={draftFilters.severity}
                             onChange={(event) => setDraftFilters((prev) => ({ ...prev, severity: event.target.value }))}
                             className="admin-premium-control"
                         >
-                            <option value="">All severities</option>
-                            <option value="info">Info</option>
-                            <option value="warning">Warning</option>
-                            <option value="error">Error</option>
-                            <option value="critical">Critical</option>
+                            <option value="">{t('admin.diagnostics.filters.allSeverities', {}, 'All severities')}</option>
+                            <option value="info">{t('admin.diagnostics.severity.info', {}, 'Info')}</option>
+                            <option value="warning">{t('admin.diagnostics.severity.warning', {}, 'Warning')}</option>
+                            <option value="error">{t('admin.diagnostics.severity.error', {}, 'Error')}</option>
+                            <option value="critical">{t('admin.diagnostics.severity.critical', {}, 'Critical')}</option>
                         </PremiumSelect>
                     </label>
 
                     <label className="text-sm text-slate-600">
-                        <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Type</span>
+                        <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">{t('admin.diagnostics.filters.type', {}, 'Type')}</span>
                         <input
                             type="text"
                             value={draftFilters.type}
@@ -202,7 +198,7 @@ export default function ClientDiagnosticsPanel() {
                     </label>
 
                     <label className="text-sm text-slate-600">
-                        <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Request ID</span>
+                        <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">{t('admin.diagnostics.filters.requestId', {}, 'Request ID')}</span>
                         <input
                             type="text"
                             value={draftFilters.requestId}
@@ -213,7 +209,7 @@ export default function ClientDiagnosticsPanel() {
                     </label>
 
                     <label className="text-sm text-slate-600">
-                        <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Session</span>
+                        <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">{t('admin.diagnostics.filters.session', {}, 'Session')}</span>
                         <input
                             type="text"
                             value={draftFilters.sessionId}
@@ -224,7 +220,7 @@ export default function ClientDiagnosticsPanel() {
                     </label>
 
                     <label className="text-sm text-slate-600">
-                        <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Route Contains</span>
+                        <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">{t('admin.diagnostics.filters.routeContains', {}, 'Route Contains')}</span>
                         <input
                             type="text"
                             value={draftFilters.route}
@@ -235,7 +231,7 @@ export default function ClientDiagnosticsPanel() {
                     </label>
 
                     <label className="text-sm text-slate-600">
-                        <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Limit</span>
+                        <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">{t('admin.diagnostics.filters.limit', {}, 'Limit')}</span>
                         <PremiumSelect
                             value={draftFilters.limit}
                             onChange={(event) => setDraftFilters((prev) => ({ ...prev, limit: event.target.value }))}
@@ -256,17 +252,17 @@ export default function ClientDiagnosticsPanel() {
                         className="admin-premium-button admin-premium-button-accent px-3 py-2 text-sm"
                     >
                         <Search className="h-4 w-4" />
-                        Apply Filters
+                        {t('admin.diagnostics.actions.applyFilters', {}, 'Apply Filters')}
                     </button>
                     <button
                         type="button"
                         onClick={clearFilters}
                         className="admin-premium-button px-3 py-2 text-sm"
                     >
-                        Clear
+                        {t('admin.diagnostics.actions.clear', {}, 'Clear')}
                     </button>
                     <p className="text-xs text-slate-500">
-                        Request ID matches client, server, or ingestion request ids. Route filters use contains matching.
+                        {t('admin.diagnostics.filters.hint', {}, 'Request ID matches client, server, or ingestion request ids. Route filters use contains matching.')}
                     </p>
                 </div>
             </div>
@@ -275,11 +271,11 @@ export default function ClientDiagnosticsPanel() {
                 {loading ? (
                     <div className="flex items-center gap-2 rounded-xl border border-dashed border-slate-300 p-4 text-sm text-slate-500">
                         <Loader2 className="h-4 w-4 animate-spin" />
-                        Loading persisted client diagnostics...
+                        {t('admin.diagnostics.loading', {}, 'Loading persisted client diagnostics...')}
                     </div>
                 ) : diagnostics.length === 0 ? (
                     <div className="rounded-xl border border-dashed border-slate-300 p-4 text-sm text-slate-500">
-                        No client diagnostics matched the current filters.
+                        {t('admin.diagnostics.empty', {}, 'No client diagnostics matched the current filters.')}
                     </div>
                 ) : (
                     diagnostics.map((entry, index) => {
@@ -292,9 +288,9 @@ export default function ClientDiagnosticsPanel() {
                                 <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                                     <div>
                                         <div className="flex flex-wrap items-center gap-2">
-                                            <h3 className="text-sm font-bold text-slate-900">{entry?.type || 'unknown'}</h3>
+                                            <h3 className="text-sm font-bold text-slate-900">{entry?.type || t('admin.shared.unknown', {}, 'unknown')}</h3>
                                             <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${SEVERITY_STYLES[severity] || SEVERITY_STYLES.info}`}>
-                                                {severity}
+                                                {t(`admin.diagnostics.severity.${severity}`, {}, severity)}
                                             </span>
                                             {entry?.status ? (
                                                 <span className="rounded-full border border-slate-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
@@ -316,21 +312,21 @@ export default function ClientDiagnosticsPanel() {
                                 </div>
 
                                 <div className="mt-3 flex flex-wrap gap-2">
-                                    <MetaPill label="Request" value={entry?.requestId} />
-                                    <MetaPill label="Server" value={entry?.serverRequestId} />
-                                    <MetaPill label="Ingest" value={entry?.ingestionRequestId} />
-                                    <MetaPill label="Session" value={entry?.sessionId} />
-                                    <MetaPill label="Method" value={entry?.method} />
-                                    <MetaPill label="Route" value={entry?.route} />
+                                    <MetaPill label={t('admin.diagnostics.meta.request', {}, 'Request')} value={entry?.requestId} />
+                                    <MetaPill label={t('admin.diagnostics.meta.server', {}, 'Server')} value={entry?.serverRequestId} />
+                                    <MetaPill label={t('admin.diagnostics.meta.ingest', {}, 'Ingest')} value={entry?.ingestionRequestId} />
+                                    <MetaPill label={t('admin.diagnostics.meta.session', {}, 'Session')} value={entry?.sessionId} />
+                                    <MetaPill label={t('admin.diagnostics.meta.method', {}, 'Method')} value={entry?.method} />
+                                    <MetaPill label={t('admin.diagnostics.meta.route', {}, 'Route')} value={entry?.route} />
                                 </div>
 
                                 <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
                                     <div className="admin-premium-subpanel rounded-lg">
-                                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">URL</p>
+                                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t('admin.diagnostics.meta.url', {}, 'URL')}</p>
                                         <p className="mt-1 break-all text-sm text-slate-700">{entry?.url || '-'}</p>
                                     </div>
                                     <div className="admin-premium-subpanel rounded-lg">
-                                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Ingested At</p>
+                                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t('admin.diagnostics.meta.ingestedAt', {}, 'Ingested At')}</p>
                                         <p className="mt-1 text-sm text-slate-700">{formatDateTime(entry?.ingestedAt || entry?.timestamp)}</p>
                                     </div>
                                 </div>
@@ -339,7 +335,7 @@ export default function ClientDiagnosticsPanel() {
                                     <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 p-3">
                                         <div className="flex items-center gap-2 text-rose-700">
                                             <AlertTriangle className="h-4 w-4" />
-                                            <p className="text-xs font-semibold uppercase tracking-wide">Error Snapshot</p>
+                                            <p className="text-xs font-semibold uppercase tracking-wide">{t('admin.diagnostics.meta.errorSnapshot', {}, 'Error Snapshot')}</p>
                                         </div>
                                         <pre className="mt-2 overflow-x-auto whitespace-pre-wrap break-words text-xs text-rose-900">
                                             {JSON.stringify(entry.error, null, 2)}

@@ -3,6 +3,7 @@ import { Loader2, RefreshCw, Save, ShieldCheck, ShieldAlert } from 'lucide-react
 import { toast } from 'sonner';
 import AdminPremiumShell, { AdminHeroStat } from '@/components/shared/AdminPremiumShell';
 import PremiumSelect from '@/components/ui/premium-select';
+import { useMarket } from '@/context/MarketContext';
 import { adminApi } from '@/services/api';
 import { formatPrice } from '@/utils/format';
 
@@ -44,6 +45,7 @@ const toDateTime = (value) => {
 };
 
 export default function AdminRefundLedger() {
+    const { t, formatDateTime } = useMarket();
     const [loading, setLoading] = useState(true);
     const [busyLedgerId, setBusyLedgerId] = useState('');
     const [page, setPage] = useState(1);
@@ -88,7 +90,7 @@ export default function AdminRefundLedger() {
             setReferenceDrafts(refs);
             setNoteDrafts(notes);
         } catch (error) {
-            toast.error(error.message || 'Failed to load refund ledger');
+            toast.error(error.message || t('admin.refunds.error.load', {}, 'Failed to load refund ledger'));
         } finally {
             setLoading(false);
         }
@@ -111,7 +113,7 @@ export default function AdminRefundLedger() {
         const refundId = String(referenceDrafts[row.ledgerId] || '').trim();
         const note = String(noteDrafts[row.ledgerId] || '').trim();
         if (!refundId) {
-            toast.error('Refund reference is required');
+            toast.error(t('admin.refunds.error.referenceRequired', {}, 'Refund reference is required'));
             return;
         }
 
@@ -121,10 +123,10 @@ export default function AdminRefundLedger() {
                 refundId,
                 note: note || undefined,
             });
-            toast.success(response?.message || 'Refund reference updated');
+            toast.success(response?.message || t('admin.refunds.success.referenceUpdated', {}, 'Refund reference updated'));
             await loadLedger();
         } catch (error) {
-            toast.error(error.message || 'Failed to update refund reference');
+            toast.error(error.message || t('admin.refunds.error.referenceUpdate', {}, 'Failed to update refund reference'));
         } finally {
             setBusyLedgerId('');
         }
@@ -132,18 +134,18 @@ export default function AdminRefundLedger() {
 
     return (
         <AdminPremiumShell
-            eyebrow="Refund ops"
-            title="Refund ledger"
-            description="Track provider references, manual bank records, queue retries, and reconciliation decisions from one premium refund surface."
+            eyebrow={t('admin.refunds.eyebrow', {}, 'Refund ops')}
+            title={t('admin.refunds.title', {}, 'Refund ledger')}
+            description={t('admin.refunds.description', {}, 'Track provider references, manual bank records, queue retries, and reconciliation decisions from one premium refund surface.')}
             actions={(
                 <button type="button" onClick={loadLedger} className="admin-premium-button">
                     <RefreshCw className="h-4 w-4" />
-                    Refresh
+                    {t('admin.shared.refresh', {}, 'Refresh')}
                 </button>
             )}
             stats={[
-                <AdminHeroStat key="records" label="Ledger rows" value={total} detail={`Page ${page} of ${pages}`} icon={<ShieldCheck className="h-5 w-5" />} />,
-                <AdminHeroStat key="pending" label="Pending filter" value={filters.status || 'all'} detail={filters.query || 'No active search query'} icon={<ShieldAlert className="h-5 w-5" />} />,
+                <AdminHeroStat key="records" label={t('admin.refunds.stats.ledgerRows', {}, 'Ledger rows')} value={total} detail={t('admin.shared.pageOf', { page, total: pages }, `Page ${page} of ${pages}`)} icon={<ShieldCheck className="h-5 w-5" />} />,
+                <AdminHeroStat key="pending" label={t('admin.refunds.stats.pendingFilter', {}, 'Pending filter')} value={filters.status || t('admin.shared.all', {}, 'all')} detail={filters.query || t('admin.refunds.stats.noQuery', {}, 'No active search query')} icon={<ShieldAlert className="h-5 w-5" />} />,
             ]}
         >
             <div className="admin-premium-panel mb-4 grid grid-cols-1 gap-3 md:grid-cols-3 xl:grid-cols-6">
@@ -154,7 +156,7 @@ export default function AdminRefundLedger() {
                 >
                     {STATUS_OPTIONS.map((value) => (
                         <option key={value || 'all-status'} value={value}>
-                            {value ? `Status: ${value}` : 'All statuses'}
+                            {value ? t('admin.refunds.filters.statusOption', { value }, `Status: ${value}`) : t('admin.refunds.filters.allStatuses', {}, 'All statuses')}
                         </option>
                     ))}
                 </PremiumSelect>
@@ -165,7 +167,7 @@ export default function AdminRefundLedger() {
                 >
                     {SETTLEMENT_OPTIONS.map((value) => (
                         <option key={value || 'all-settlement'} value={value}>
-                            {value ? `Settlement: ${value}` : 'All settlements'}
+                            {value ? t('admin.refunds.filters.settlementOption', { value }, `Settlement: ${value}`) : t('admin.refunds.filters.allSettlements', {}, 'All settlements')}
                         </option>
                     ))}
                 </PremiumSelect>
@@ -176,7 +178,7 @@ export default function AdminRefundLedger() {
                 >
                     {RECON_OPTIONS.map((value) => (
                         <option key={value || 'all-recon'} value={value}>
-                            {value ? `Recon: ${value}` : 'All reconciliation'}
+                            {value ? t('admin.refunds.filters.reconOption', { value }, `Recon: ${value}`) : t('admin.refunds.filters.allReconciliation', {}, 'All reconciliation')}
                         </option>
                     ))}
                 </PremiumSelect>
@@ -185,21 +187,21 @@ export default function AdminRefundLedger() {
                     value={filters.method}
                     onChange={(e) => { setPage(1); setFilters((prev) => ({ ...prev, method: e.target.value.toUpperCase() })); }}
                     className="admin-premium-control"
-                    placeholder="Method (UPI/CARD/WALLET/NETBANKING/COD)"
+                    placeholder={t('admin.refunds.filters.methodPlaceholder', {}, 'Method (UPI/CARD/WALLET/NETBANKING/COD)')}
                 />
                 <input
                     type="text"
                     value={filters.provider}
                     onChange={(e) => { setPage(1); setFilters((prev) => ({ ...prev, provider: e.target.value })); }}
                     className="admin-premium-control"
-                    placeholder="Provider"
+                    placeholder={t('admin.refunds.filters.provider', {}, 'Provider')}
                 />
                 <input
                     type="text"
                     value={filters.query}
                     onChange={(e) => { setPage(1); setFilters((prev) => ({ ...prev, query: e.target.value })); }}
                     className="admin-premium-control"
-                    placeholder="Search order/email/request/ref id"
+                    placeholder={t('admin.refunds.filters.searchPlaceholder', {}, 'Search order/email/request/ref id')}
                 />
             </div>
 
@@ -207,23 +209,23 @@ export default function AdminRefundLedger() {
                 {loading ? (
                     <div className="flex items-center gap-2 p-6 text-sm text-gray-500">
                         <Loader2 className="h-4 w-4 animate-spin" />
-                        Loading refund ledger...
+                        {t('admin.refunds.loading', {}, 'Loading refund ledger...')}
                     </div>
                 ) : items.length === 0 ? (
-                    <div className="p-6 text-sm text-gray-500">No ledger entries match your filters.</div>
+                    <div className="p-6 text-sm text-gray-500">{t('admin.refunds.empty', {}, 'No ledger entries match your filters.')}</div>
                 ) : (
                     <div className="admin-premium-scroll overflow-x-auto">
                         <table className="admin-premium-table min-w-[1650px]">
                             <thead>
                                 <tr>
-                                    <th>Order</th>
-                                    <th>Customer</th>
-                                    <th>Payment</th>
-                                    <th>Refund</th>
-                                    <th>State</th>
-                                    <th>References</th>
-                                    <th>Timeline</th>
-                                    <th>Reconciliation</th>
+                                    <th>{t('admin.refunds.table.order', {}, 'Order')}</th>
+                                    <th>{t('admin.refunds.table.customer', {}, 'Customer')}</th>
+                                    <th>{t('admin.refunds.table.payment', {}, 'Payment')}</th>
+                                    <th>{t('admin.refunds.table.refund', {}, 'Refund')}</th>
+                                    <th>{t('admin.refunds.table.state', {}, 'State')}</th>
+                                    <th>{t('admin.refunds.table.references', {}, 'References')}</th>
+                                    <th>{t('admin.refunds.table.timeline', {}, 'Timeline')}</th>
+                                    <th>{t('admin.refunds.table.reconciliation', {}, 'Reconciliation')}</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -239,7 +241,7 @@ export default function AdminRefundLedger() {
                                                 <div className="text-[11px]">Order total: <span className="font-semibold">{formatPrice(row.order?.totalPrice || 0)}</span></div>
                                             </td>
                                             <td className="px-3 py-3 text-xs text-gray-700">
-                                                <div className="font-semibold text-gray-900">{row.user?.name || 'Unknown'}</div>
+                                                <div className="font-semibold text-gray-900">{row.user?.name || t('admin.refunds.unknownUser', {}, 'Unknown')}</div>
                                                 <div className="mt-1">{row.user?.email || '-'}</div>
                                                 <div className="mt-1">{row.user?.phone || '-'}</div>
                                             </td>
@@ -247,7 +249,7 @@ export default function AdminRefundLedger() {
                                                 <div>{row.payment?.method || '-'}</div>
                                                 <div className="mt-1">{row.payment?.provider || '-'}</div>
                                                 <div className="mt-1 font-mono text-[11px]">{row.payment?.intentId || '-'}</div>
-                                                <div className="mt-1 text-[11px]">State: <span className="font-semibold">{row.payment?.state || '-'}</span></div>
+                                                <div className="mt-1 text-[11px]">{t('admin.refunds.paymentState', {}, 'State')}: <span className="font-semibold">{row.payment?.state || '-'}</span></div>
                                             </td>
                                             <td className="px-3 py-3 text-xs text-gray-700">
                                                 <div className="font-semibold text-gray-900">{formatPrice(row.refund?.amount || 0)}</div>
@@ -270,7 +272,7 @@ export default function AdminRefundLedger() {
                                                     className="admin-premium-control w-full px-2 py-1 text-[11px]"
                                                     value={referenceDrafts[row.ledgerId] || ''}
                                                     onChange={(e) => updateDraft(row.ledgerId, 'refundId', e.target.value)}
-                                                    placeholder="Provider/manual ref id"
+                                                    placeholder={t('admin.refunds.referencePlaceholder', {}, 'Provider/manual ref id')}
                                                     disabled={!canRecordReference || isBusy}
                                                 />
                                                 <input
@@ -278,7 +280,7 @@ export default function AdminRefundLedger() {
                                                     className="admin-premium-control mt-1 w-full px-2 py-1 text-[11px]"
                                                     value={noteDrafts[row.ledgerId] || ''}
                                                     onChange={(e) => updateDraft(row.ledgerId, 'note', e.target.value)}
-                                                    placeholder="Reconciliation note"
+                                                    placeholder={t('admin.refunds.notePlaceholder', {}, 'Reconciliation note')}
                                                     disabled={!canRecordReference || isBusy}
                                                 />
                                                 <button
@@ -288,16 +290,16 @@ export default function AdminRefundLedger() {
                                                     className="admin-premium-button mt-1 inline-flex items-center gap-1 px-2 py-1 text-[10px] font-bold disabled:opacity-50"
                                                 >
                                                     {isBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
-                                                    Record
+                                                    {t('admin.refunds.actions.record', {}, 'Record')}
                                                 </button>
                                             </td>
                                             <td className="px-3 py-3 text-xs text-gray-700">
-                                                <div>Created: {toDateTime(row.refund?.createdAt)}</div>
-                                                <div className="mt-1">Updated: {toDateTime(row.refund?.updatedAt)}</div>
-                                                <div className="mt-1">Processed: {toDateTime(row.refund?.processedAt)}</div>
+                                                <div>{t('admin.refunds.timeline.created', {}, 'Created')}: {formatDateTime(row.refund?.createdAt)}</div>
+                                                <div className="mt-1">{t('admin.refunds.timeline.updated', {}, 'Updated')}: {formatDateTime(row.refund?.updatedAt)}</div>
+                                                <div className="mt-1">{t('admin.refunds.timeline.processed', {}, 'Processed')}: {formatDateTime(row.refund?.processedAt)}</div>
                                                 {row.queue ? (
                                                     <div className="mt-2 rounded border border-amber-200 bg-amber-50 p-1 text-[10px] text-amber-700">
-                                                        Retry #{row.queue.retryCount} | Next: {toDateTime(row.queue.nextRunAt)}
+                                                        {t('admin.refunds.timeline.retry', { count: row.queue.retryCount, time: formatDateTime(row.queue.nextRunAt) }, `Retry #${row.queue.retryCount} | Next: ${formatDateTime(row.queue.nextRunAt)}`)}
                                                     </div>
                                                 ) : null}
                                             </td>
@@ -311,10 +313,10 @@ export default function AdminRefundLedger() {
                                                     {row.reconciliation}
                                                 </span>
                                                 <div className="mt-2 text-[11px]">
-                                                    Provider verification: <span className="font-semibold">{row.providerVerification}</span>
+                                                    {t('admin.refunds.providerVerification', {}, 'Provider verification')}: <span className="font-semibold">{row.providerVerification}</span>
                                                 </div>
                                                 <div className="mt-1 font-mono text-[11px] break-all">
-                                                    Ref: {row.refund?.refundId || '-'}
+                                                    {t('admin.refunds.reference', {}, 'Ref')}: {row.refund?.refundId || '-'}
                                                 </div>
                                             </td>
                                         </tr>
@@ -325,8 +327,8 @@ export default function AdminRefundLedger() {
                     </div>
                 )}
 
-                <div className="flex items-center justify-between border-t border-white/10 bg-white/5 px-4 py-3 text-sm text-gray-600">
-                    <span>{total} records | page {page}/{pages}</span>
+            <div className="flex items-center justify-between border-t border-white/10 bg-white/5 px-4 py-3 text-sm text-gray-600">
+                    <span>{t('admin.refunds.footer.recordPage', { total, page, pages }, `${total} records | page ${page}/${pages}`)}</span>
                     <div className="flex items-center gap-2">
                         <button
                             type="button"
@@ -334,7 +336,7 @@ export default function AdminRefundLedger() {
                             onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
                             className="admin-premium-button px-3 py-1.5 text-xs disabled:opacity-50"
                         >
-                            Previous
+                            {t('admin.shared.previous', {}, 'Previous')}
                         </button>
                         <button
                             type="button"
@@ -342,7 +344,7 @@ export default function AdminRefundLedger() {
                             onClick={() => setPage((prev) => prev + 1)}
                             className="admin-premium-button px-3 py-1.5 text-xs disabled:opacity-50"
                         >
-                            Next
+                            {t('admin.shared.next', {}, 'Next')}
                         </button>
                     </div>
                 </div>

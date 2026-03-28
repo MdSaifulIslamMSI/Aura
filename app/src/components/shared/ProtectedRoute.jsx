@@ -1,15 +1,16 @@
 import { useContext } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { AuthContext } from '@/context/AuthContext';
+import { useMarket } from '@/context/MarketContext';
 import { buildSupportHandoffPath } from '@/utils/assistantCommands';
 
 const AUTH_BOOTSTRAP_STATES = new Set(['bootstrap', 'loading']);
 
-const AuthPendingState = ({ message = 'Resolving your session...' }) => (
+const AuthPendingState = ({ message = 'Resolving your session...', title = 'Session checkpoint' }) => (
     <div className="flex min-h-[60vh] items-center justify-center px-4">
         <div className="w-full max-w-md rounded-3xl border border-white/10 bg-white/[0.045] p-8 text-center shadow-glass">
             <div className="mx-auto h-12 w-12 rounded-full border-4 border-neo-cyan/70 border-t-transparent animate-spin" />
-            <h2 className="mt-5 text-xl font-black text-white">Session checkpoint</h2>
+            <h2 className="mt-5 text-xl font-black text-white">{title}</h2>
             <p className="mt-2 text-sm text-slate-400">{message}</p>
         </div>
     </div>
@@ -36,21 +37,34 @@ const buildRecoverySupportPath = (location, sessionError) => {
     });
 };
 
-const AuthRecoveryState = ({ message, onRetry, onResetSignIn, onOpenSupport }) => (
+const AuthRecoveryState = ({
+    message,
+    onRetry,
+    onResetSignIn,
+    onOpenSupport,
+    badge = 'Recoverable session issue',
+    title = 'This account needs a fresh session sync.',
+    fallbackMessage = 'The identity provider succeeded, but the commerce profile could not be resolved yet.',
+    hint = 'If retry keeps failing, reset the sign-in flow and we will bring you back to the same page after login.',
+    supportHint = 'Need a real escalation path? Open the admin support desk from here. Tickets created there stay visible to the support team even when profile sync is degraded.',
+    retryLabel = 'Retry session sync',
+    supportLabel = 'Open admin support',
+    resetLabel = 'Reset sign-in',
+}) => (
     <div className="flex min-h-[60vh] items-center justify-center px-4">
         <div className="w-full max-w-lg rounded-3xl border border-amber-300/15 bg-zinc-950/70 p-8 shadow-glass">
             <div className="inline-flex rounded-full border border-amber-300/20 bg-amber-300/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.24em] text-amber-200">
-                Recoverable session issue
+                {badge}
             </div>
-            <h2 className="mt-4 text-2xl font-black text-white">This account needs a fresh session sync.</h2>
+            <h2 className="mt-4 text-2xl font-black text-white">{title}</h2>
             <p className="mt-3 text-sm leading-6 text-slate-300">
-                {message || 'The identity provider succeeded, but the commerce profile could not be resolved yet.'}
+                {message || fallbackMessage}
             </p>
             <p className="mt-3 text-xs leading-5 text-slate-400">
-                If retry keeps failing, reset the sign-in flow and we will bring you back to the same page after login.
+                {hint}
             </p>
             <p className="mt-3 text-xs leading-5 text-slate-400">
-                Need a real escalation path? Open the admin support desk from here. Tickets created there stay visible to the support team even when profile sync is degraded.
+                {supportHint}
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
                 <button
@@ -58,21 +72,21 @@ const AuthRecoveryState = ({ message, onRetry, onResetSignIn, onOpenSupport }) =
                     onClick={onRetry}
                     className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/[0.06] px-5 py-3 text-sm font-black uppercase tracking-[0.18em] text-neo-cyan transition-colors hover:bg-white/[0.1]"
                 >
-                    Retry session sync
+                    {retryLabel}
                 </button>
                 <button
                     type="button"
                     onClick={onOpenSupport}
                     className="inline-flex items-center justify-center rounded-full border border-cyan-300/20 bg-cyan-400/12 px-5 py-3 text-sm font-black uppercase tracking-[0.18em] text-cyan-100 transition-colors hover:bg-cyan-400/18"
                 >
-                    Open admin support
+                    {supportLabel}
                 </button>
                 <button
                     type="button"
                     onClick={onResetSignIn}
                     className="inline-flex items-center justify-center rounded-full border border-amber-300/20 bg-amber-300/10 px-5 py-3 text-sm font-black uppercase tracking-[0.18em] text-amber-100 transition-colors hover:bg-amber-300/16"
                 >
-                    Reset sign-in
+                    {resetLabel}
                 </button>
             </div>
             <div className="mt-5 flex flex-wrap gap-4 text-xs text-slate-400">
@@ -85,9 +99,10 @@ const AuthRecoveryState = ({ message, onRetry, onResetSignIn, onOpenSupport }) =
 
 const useAuthGate = () => {
     const auth = useContext(AuthContext);
+    const { t } = useMarket();
     const location = useLocation();
     const navigate = useNavigate();
-    return { auth, location, navigate };
+    return { auth, location, navigate, t };
 };
 
 const renderResolvedGate = ({
@@ -99,10 +114,12 @@ const renderResolvedGate = ({
     navigate,
     location,
     pendingMessage,
+    pendingTitle,
+    t,
     children,
 }) => {
     if (AUTH_BOOTSTRAP_STATES.has(status)) {
-        return <AuthPendingState message={pendingMessage} />;
+        return <AuthPendingState message={pendingMessage} title={pendingTitle} />;
     }
 
     if (status === 'recoverable_error' && currentUser) {
@@ -130,6 +147,14 @@ const renderResolvedGate = ({
                             });
                         });
                 }}
+                badge={t('auth.recoverableIssue', {}, 'Recoverable session issue')}
+                title={t('auth.recovery.title', {}, 'This account needs a fresh session sync.')}
+                fallbackMessage={t('auth.recovery.message', {}, 'The identity provider succeeded, but the commerce profile could not be resolved yet.')}
+                hint={t('auth.recovery.hint', {}, 'If retry keeps failing, reset the sign-in flow and we will bring you back to the same page after login.')}
+                supportHint={t('auth.recovery.supportHint', {}, 'Need a real escalation path? Open the admin support desk from here. Tickets created there stay visible to the support team even when profile sync is degraded.')}
+                retryLabel={t('auth.recovery.retry', {}, 'Retry session sync')}
+                supportLabel={t('auth.recovery.openSupport', {}, 'Open admin support')}
+                resetLabel={t('auth.recovery.resetSignIn', {}, 'Reset sign-in')}
             />
         );
     }
@@ -138,7 +163,7 @@ const renderResolvedGate = ({
 };
 
 export const ProtectedRoute = ({ children }) => {
-    const { auth, location, navigate } = useAuthGate();
+    const { auth, location, navigate, t } = useAuthGate();
     const { status, sessionError, refreshSession, currentUser, logout } = auth;
 
     const resolved = renderResolvedGate({
@@ -149,7 +174,9 @@ export const ProtectedRoute = ({ children }) => {
         logout,
         navigate,
         location,
-        pendingMessage: 'Resolving your session...',
+        pendingMessage: t('auth.pending.resolveSession', {}, 'Resolving your session...'),
+        pendingTitle: t('auth.pending.title', {}, 'Session checkpoint'),
+        t,
         children,
     });
 
@@ -165,7 +192,7 @@ export const ProtectedRoute = ({ children }) => {
 };
 
 export const AdminRoute = ({ children }) => {
-    const { auth, location, navigate } = useAuthGate();
+    const { auth, location, navigate, t } = useAuthGate();
     const { status, roles, sessionError, refreshSession, currentUser, logout } = auth;
 
     const resolved = renderResolvedGate({
@@ -176,7 +203,9 @@ export const AdminRoute = ({ children }) => {
         logout,
         navigate,
         location,
-        pendingMessage: 'Checking admin session access...',
+        pendingMessage: t('auth.pending.admin', {}, 'Checking admin session access...'),
+        pendingTitle: t('auth.pending.title', {}, 'Session checkpoint'),
+        t,
         children,
     });
 
@@ -196,7 +225,7 @@ export const AdminRoute = ({ children }) => {
 };
 
 export const SellerRoute = ({ children }) => {
-    const { auth, location, navigate } = useAuthGate();
+    const { auth, location, navigate, t } = useAuthGate();
     const { status, roles, sessionError, refreshSession, currentUser, logout } = auth;
 
     const resolved = renderResolvedGate({
@@ -207,7 +236,9 @@ export const SellerRoute = ({ children }) => {
         logout,
         navigate,
         location,
-        pendingMessage: 'Checking seller account state...',
+        pendingMessage: t('auth.pending.seller', {}, 'Checking seller account state...'),
+        pendingTitle: t('auth.pending.title', {}, 'Session checkpoint'),
+        t,
         children,
     });
 
