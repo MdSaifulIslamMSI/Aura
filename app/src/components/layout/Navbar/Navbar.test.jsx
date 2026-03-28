@@ -148,4 +148,19 @@ describe('Navbar Component', () => {
             expect(screen.getByTestId('location-probe')).toHaveTextContent('/wishlist');
         });
     });
+
+    it('keeps explore navigation separate from market controls', () => {
+        renderNavbar();
+
+        fireEvent.click(screen.getByRole('button', { name: /Open quick access panel/i }));
+
+        expect(screen.getByText(/Tune market/i)).toBeInTheDocument();
+        expect(screen.queryByText('Country')).not.toBeInTheDocument();
+
+        fireEvent.click(screen.getByRole('button', { name: /Open market settings/i }));
+
+        expect(screen.getByText('Country')).toBeInTheDocument();
+        expect(screen.getByText('Language')).toBeInTheDocument();
+        expect(screen.getByText('Currency')).toBeInTheDocument();
+    });
 });

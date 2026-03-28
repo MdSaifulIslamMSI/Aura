@@ -41,6 +41,9 @@ export const getPricingModel = (entity = {}) => {
 export const getDisplayAmount = (entity = {}) => Number(getPricingModel(entity).displayAmount || 0);
 export const getDisplayCurrency = (entity = {}) => getPricingModel(entity).displayCurrency || 'INR';
 export const getOriginalDisplayAmount = (entity = {}) => Number(getPricingModel(entity).originalDisplayAmount || getDisplayAmount(entity));
+export const getBaseAmount = (entity = {}) => Number(getPricingModel(entity).baseAmount || 0);
+export const getBaseCurrency = (entity = {}) => getPricingModel(entity).baseCurrency || 'INR';
+export const getOriginalBaseAmount = (entity = {}) => Number(getPricingModel(entity).originalBaseAmount || getBaseAmount(entity));
 
 export const getLineDisplayTotal = (entity = {}) => {
   const quantity = Math.max(1, Number(entity?.quantity || 1));
