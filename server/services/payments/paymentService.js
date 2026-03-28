@@ -22,6 +22,7 @@ const {
     PAYMENT_SECURITY_MAX_CONFIRM_ATTEMPTS,
     PAYMENT_SECURITY_MAX_CONFIRM_FAILURES,
     PAYMENT_SECURITY_CONFIRM_LOCK_MINUTES,
+    PAYMENT_ORDER_CLAIM_LOCK_MINUTES,
     PAYMENT_STATUSES,
 } = require('./constants');
 const {
@@ -369,6 +370,23 @@ const annotateBankCatalogEntries = (banks = [], savedBanks = []) => {
             savedMethodId: savedBank?.savedMethodId || '',
         };
     });
+};
+
+const buildOrderClaimReuseFilter = (lockKey) => {
+    const staleLockCutoff = new Date(Date.now() - (PAYMENT_ORDER_CLAIM_LOCK_MINUTES * 60 * 1000));
+
+    return [
+        { 'orderClaim.state': 'none' },
+        { 'orderClaim.state': 'locked', 'orderClaim.key': lockKey },
+        {
+            'orderClaim.state': 'locked',
+            $or: [
+                { 'orderClaim.lockedAt': { $lte: staleLockCutoff } },
+                { 'orderClaim.lockedAt': null },
+                { 'orderClaim.lockedAt': { $exists: false } },
+            ],
+        },
+    ];
 };
 
 const resolveIntentPaymentContext = async ({
@@ -1155,12 +1173,7 @@ const validatePaymentIntentForOrder = async ({
                 _id: intent._id,
                 $and: [
                     { $or: [{ order: null }, { order: { $exists: false } }] },
-                    {
-                        $or: [
-                            { 'orderClaim.state': 'none' },
-                            { 'orderClaim.state': 'locked', 'orderClaim.key': lockKey },
-                        ],
-                    },
+                    { $or: buildOrderClaimReuseFilter(lockKey) },
                 ],
             },
             {
@@ -1201,6 +1214,15 @@ const linkIntentToOrder = async ({ intentId, orderId, session = null, claimKey =
         {
             intentId,
             $or: [{ order: null }, { order: orderId }],
+            $or: [
+                { 'orderClaim.state': 'none' },
+                { 'orderClaim.state': 'locked', 'orderClaim.key': String(claimKey || '') },
+                {
+                    order: orderId,
+                    'orderClaim.state': 'consumed',
+                    'orderClaim.key': String(claimKey || ''),
+                },
+            ],
         },
         {
             $set: {
@@ -1214,6 +1236,33 @@ const linkIntentToOrder = async ({ intentId, orderId, session = null, claimKey =
         },
         { returnDocument: 'after' }
     );
+    return session ? query.session(session) : query;
+};
+
+const releaseIntentOrderClaim = async ({ intentId, claimKey, session = null }) => {
+    const cleanIntentId = String(intentId || '').trim();
+    const cleanClaimKey = String(claimKey || '').trim();
+    if (!cleanIntentId || !cleanClaimKey) return null;
+
+    const query = PaymentIntent.findOneAndUpdate(
+        {
+            intentId: cleanIntentId,
+            $or: [{ order: null }, { order: { $exists: false } }],
+            'orderClaim.state': 'locked',
+            'orderClaim.key': cleanClaimKey,
+        },
+        {
+            $set: {
+                orderClaim: {
+                    state: 'none',
+                    key: '',
+                    lockedAt: null,
+                },
+            },
+        },
+        { returnDocument: 'after' }
+    );
+
     return session ? query.session(session) : query;
 };
 
@@ -1931,6 +1980,7 @@ module.exports = {
     processRazorpayWebhook,
     validatePaymentIntentForOrder,
     linkIntentToOrder,
+    releaseIntentOrderClaim,
     scheduleCaptureTask,
     scheduleRefundTask,
     captureIntentNow,
