@@ -28,6 +28,8 @@ import { setActiveMarketHeaders } from '@/services/marketRuntime';
 
 const MarketContext = createContext(null);
 const LIVE_BROWSE_FX_REFRESH_MS = 30 * 60 * 1000;
+const RUNTIME_TRANSLATION_STORAGE_KEY = 'aura_runtime_translation_cache_v1';
+const MAX_PERSISTED_RUNTIME_TRANSLATIONS = 300;
 
 const readStoredPreference = () => {
   if (typeof window === 'undefined') {
@@ -67,6 +69,73 @@ const buildLanguageOptions = (languageCode) => SUPPORTED_LANGUAGES.map((language
 }));
 
 const getRuntimeTranslationCacheKey = (languageCode, text) => `${String(languageCode || '').trim().toLowerCase()}::${String(text || '')}`;
+
+const readPersistedRuntimeTranslationStore = () => {
+  if (typeof window === 'undefined') {
+    return {};
+  }
+
+  try {
+    return JSON.parse(window.localStorage.getItem(RUNTIME_TRANSLATION_STORAGE_KEY) || '{}');
+  } catch {
+    return {};
+  }
+};
+
+const hydratePersistedRuntimeTranslations = (languageCode, cache, hydratedLanguages) => {
+  const normalizedLanguageCode = String(languageCode || '').trim().toLowerCase();
+  if (
+    !normalizedLanguageCode
+    || normalizedLanguageCode === 'en'
+    || hydratedLanguages.has(normalizedLanguageCode)
+  ) {
+    return;
+  }
+
+  const persistedEntries = readPersistedRuntimeTranslationStore()?.[normalizedLanguageCode] || {};
+  Object.entries(persistedEntries).forEach(([sourceText, translatedText]) => {
+    if (!sourceText) {
+      return;
+    }
+    cache.set(
+      getRuntimeTranslationCacheKey(normalizedLanguageCode, sourceText),
+      String(translatedText || sourceText)
+    );
+  });
+  hydratedLanguages.add(normalizedLanguageCode);
+};
+
+const persistRuntimeTranslations = (languageCode, nextEntries = {}) => {
+  const normalizedLanguageCode = String(languageCode || '').trim().toLowerCase();
+  const normalizedEntries = Object.fromEntries(
+    Object.entries(nextEntries || {})
+      .map(([sourceText, translatedText]) => [String(sourceText || '').trim(), String(translatedText || sourceText || '').trim()])
+      .filter(([sourceText]) => Boolean(sourceText))
+  );
+
+  if (
+    typeof window === 'undefined'
+    || !normalizedLanguageCode
+    || normalizedLanguageCode === 'en'
+    || Object.keys(normalizedEntries).length === 0
+  ) {
+    return;
+  }
+
+  try {
+    const persistedStore = readPersistedRuntimeTranslationStore();
+    const mergedEntries = {
+      ...(persistedStore?.[normalizedLanguageCode] || {}),
+      ...normalizedEntries,
+    };
+    persistedStore[normalizedLanguageCode] = Object.fromEntries(
+      Object.entries(mergedEntries).slice(-MAX_PERSISTED_RUNTIME_TRANSLATIONS)
+    );
+    window.localStorage.setItem(RUNTIME_TRANSLATION_STORAGE_KEY, JSON.stringify(persistedStore));
+  } catch {
+    // Ignore storage failures and keep using the in-memory cache.
+  }
+};
 
 export function MarketProvider({
   children,
@@ -193,12 +262,37 @@ export function MarketProvider({
   const direction = language.direction || 'ltr';
   const isEstimatedPricing = preference.currency !== BROWSE_BASE_CURRENCY;
   const runtimeTranslationsRef = useRef(new Map());
+  const runtimeTranslationsHydratedLanguagesRef = useRef(new Set());
   const runtimeTranslationRequestsRef = useRef(new Set());
   const runtimeTranslationsInFlightRef = useRef(new Set());
   const runtimeTranslationFlushScheduledRef = useRef(false);
   const runtimeTranslationMountedRef = useRef(true);
   const [runtimeTranslationVersion, setRuntimeTranslationVersion] = useState(0);
   const [runtimeTranslationRequestSignal, setRuntimeTranslationRequestSignal] = useState(0);
+
+  const nextPreference = useMemo(() => ({
+    ...preference,
+    locale,
+  }), [locale, preference]);
+
+  // Prime global market helpers before children render so direct formatters
+  // and API effects see the selected market on the very first paint.
+  setMarketFormatDefaults({
+    currency: nextPreference.currency,
+    locale: nextPreference.locale,
+    baseCurrency: BROWSE_BASE_CURRENCY,
+    rates: browseFxState.rates,
+  });
+  setActiveMarketHeaders({
+    country: nextPreference.countryCode,
+    currency: nextPreference.currency,
+    language: nextPreference.language,
+  });
+  hydratePersistedRuntimeTranslations(
+    language.code,
+    runtimeTranslationsRef.current,
+    runtimeTranslationsHydratedLanguagesRef.current
+  );
 
   useEffect(() => {
     runtimeTranslationMountedRef.current = true;
@@ -208,11 +302,6 @@ export function MarketProvider({
   }, []);
 
   useEffect(() => {
-    const nextPreference = {
-      ...preference,
-      locale,
-    };
-
     setMarketFormatDefaults({
       currency: nextPreference.currency,
       locale: nextPreference.locale,
@@ -285,6 +374,7 @@ export function MarketProvider({
     })
       .then((translations) => {
         let didChange = false;
+        const persistedTranslations = {};
 
         pendingTexts.forEach((text) => {
           const cacheKey = getRuntimeTranslationCacheKey(language.code, text);
@@ -293,9 +383,14 @@ export function MarketProvider({
           const translated = String(translations?.[text] || text);
           if (runtimeTranslationsRef.current.get(cacheKey) !== translated) {
             runtimeTranslationsRef.current.set(cacheKey, translated);
+            persistedTranslations[text] = translated;
             didChange = true;
           }
         });
+
+        if (Object.keys(persistedTranslations).length > 0) {
+          persistRuntimeTranslations(language.code, persistedTranslations);
+        }
 
         if (didChange) {
           setRuntimeTranslationVersion((version) => version + 1);
