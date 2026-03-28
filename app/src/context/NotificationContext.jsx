@@ -5,7 +5,7 @@ import { useMarket } from './MarketContext';
 import { useSocket } from './SocketContext';
 import { useAuth } from './AuthContext';
 import { useNotificationStore } from '../store/notificationStore';
-import { normalizeDynamicTranslationText, translateDynamicTextBatch } from '../hooks/useDynamicTranslations';
+import { normalizeRuntimeTranslationText, requestRuntimeTranslations } from '../services/runtimeTranslation';
 
 const DEFAULT_NOTIFICATION_CONTEXT = {
     notifications: [],
@@ -62,12 +62,12 @@ export function NotificationProvider({ children }) {
                 return;
             }
 
-            void translateDynamicTextBatch({
+            void requestRuntimeTranslations({
                 texts: [title, description],
                 language,
             }).then((translations) => {
-                const translatedTitle = translations[normalizeDynamicTranslationText(title)] || title;
-                const translatedDescription = translations[normalizeDynamicTranslationText(description)] || description;
+                const translatedTitle = translations[normalizeRuntimeTranslationText(title)] || title;
+                const translatedDescription = translations[normalizeRuntimeTranslationText(description)] || description;
                 toast(translatedTitle, {
                     description: translatedDescription,
                     duration: 5000,
