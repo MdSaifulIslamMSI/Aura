@@ -84,6 +84,7 @@ const userSchema = mongoose.Schema({
         index: true,
     },
     authAssuranceAt: { type: Date, default: null },
+    authAssuranceAuthTime: { type: Number, default: null, select: false },
     isSeller: { type: Boolean, default: false },
     sellerActivatedAt: { type: Date, default: null },
     accountState: {

@@ -275,6 +275,7 @@ export const AuthProvider = ({ children }) => {
     email = '',
     name = '',
     phone = '',
+    flowToken = '',
     force = false,
     silent = false,
   } = {}) => {
@@ -315,7 +316,10 @@ export const AuthProvider = ({ children }) => {
 
     const requestPromise = (async () => {
       const payload = mode === 'sync'
-        ? await authApi.syncSession(safeEmail, name, phone, { firebaseUser: activeUser })
+        ? await authApi.syncSession(safeEmail, name, phone, {
+          firebaseUser: activeUser,
+          flowToken: normalizeText(flowToken),
+        })
         : await authApi.getSession({ firebaseUser: activeUser });
       return applyResolvedSession(payload, activeUser, identity);
     })()
@@ -354,6 +358,7 @@ export const AuthProvider = ({ children }) => {
     email,
     name,
     phone,
+    flowToken: options?.flowToken || '',
     force: options?.force === true,
     silent: options?.silent === true,
   });
@@ -425,12 +430,23 @@ export const AuthProvider = ({ children }) => {
     });
   };
 
-  const login = async (email, password) => {
+  const login = async (email, password, options = {}) => {
     assertFirebaseReady('Sign in');
     return completeControlledAuthFlow({
       email,
       execute: async () => signInWithEmailAndPassword(auth, email, password),
       finalize: async (_result, firebaseUser) => {
+        const flowToken = normalizeText(options?.loginFlowToken);
+        if (flowToken) {
+          await syncUserWithBackend(
+            email,
+            firebaseUser?.displayName || '',
+            options?.phone || firebaseUser?.phoneNumber || '',
+            firebaseUser,
+            { force: true, flowToken }
+          );
+          return;
+        }
         await refreshSession(firebaseUser, { force: true });
       },
     });
@@ -459,6 +475,17 @@ export const AuthProvider = ({ children }) => {
         return result;
       },
       finalize: async (_result, firebaseUser) => {
+        const flowToken = normalizeText(options?.loginFlowToken);
+        if (flowToken) {
+          await syncUserWithBackend(
+            expectedEmail || firebaseUser?.email || '',
+            firebaseUser?.displayName || '',
+            options?.phone || firebaseUser?.phoneNumber || '',
+            firebaseUser,
+            { force: true, flowToken }
+          );
+          return;
+        }
         await refreshSession(firebaseUser, { force: true });
       },
     });

@@ -51,6 +51,8 @@ const AUTH_PROJECTION = {
     isVerified: 1,
     authAssurance: 1,
     authAssuranceAt: 1,
+    authAssuranceAuthTime: 1,
+    loginOtpAssuranceExpiresAt: 1,
     isSeller: 1,
     accountState: 1,
     softDeleted: 1,
@@ -157,12 +159,34 @@ const bootstrapUserRecord = async ({ decodedToken, email }) => {
 };
 
 
-const OTP_ASSURANCE_LEVELS = new Set(['otp', 'password+otp']);
+const resolveAuthTimeSeconds = (authToken = null) => {
+    const authTime = Number(authToken?.auth_time || 0);
+    return Number.isFinite(authTime) && authTime > 0 ? authTime : 0;
+};
 
-const hasOtpAssurance = (user) => OTP_ASSURANCE_LEVELS.has(String(user?.authAssurance || '').trim());
+const resolveOtpAssuranceExpiryMillis = (user = null) => {
+    if (!user?.loginOtpAssuranceExpiresAt) return 0;
+    const expiresAt = new Date(user.loginOtpAssuranceExpiresAt).getTime();
+    return Number.isFinite(expiresAt) ? expiresAt : 0;
+};
+
+const hasOtpAssurance = (req) => {
+    if (String(req.user?.authAssurance || '').trim() !== 'password+otp') {
+        return false;
+    }
+
+    const requiredAuthTime = Number(req.user?.authAssuranceAuthTime || 0);
+    const currentAuthTime = resolveAuthTimeSeconds(req.authToken);
+    const expiresAt = resolveOtpAssuranceExpiryMillis(req.user);
+
+    return requiredAuthTime > 0
+        && currentAuthTime > 0
+        && requiredAuthTime === currentAuthTime
+        && expiresAt > Date.now();
+};
 
 const enforceOtpAssurance = (req) => {
-    if (!hasOtpAssurance(req.user)) {
+    if (!hasOtpAssurance(req)) {
         throw new AppError('OTP verification required for this action', 403);
     }
 };
