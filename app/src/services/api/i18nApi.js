@@ -7,6 +7,13 @@ const inflightTranslationCache = new Map();
 
 const normalizeText = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
 const normalizeLanguage = (value = '', fallback = 'en') => String(value || fallback).trim().toLowerCase() || fallback;
+const createDeferred = () => {
+    let resolve;
+    const promise = new Promise((nextResolve) => {
+        resolve = nextResolve;
+    });
+    return { promise, resolve };
+};
 
 const chunk = (values = [], size = MAX_BATCH_SIZE) => {
     const chunks = [];
@@ -73,6 +80,7 @@ export const i18nApi = {
 
         for (const batch of chunk(normalizedTexts, MAX_BATCH_SIZE)) {
             const uncachedTexts = [];
+            const createdInflightEntries = [];
 
             batch.forEach((text) => {
                 const cachedValue = readFromCache(targetLanguage, normalizedSourceLanguage, text);
@@ -90,6 +98,9 @@ export const i18nApi = {
                     return;
                 }
 
+                const deferred = createDeferred();
+                inflightTranslationCache.set(cacheKey, deferred.promise);
+                createdInflightEntries.push({ text, cacheKey, deferred });
                 uncachedTexts.push(text);
             });
 
@@ -97,38 +108,52 @@ export const i18nApi = {
                 continue;
             }
 
-            const batchRequest = apiFetch('/i18n/translate', {
-                method: 'POST',
-                timeoutMs: 20000,
-                body: JSON.stringify({
-                    texts: uncachedTexts,
-                    language: targetLanguage,
-                    sourceLanguage: normalizedSourceLanguage,
-                }),
-            })
-                .then(({ data }) => data?.translations || {})
-                .catch(() => ({}));
-
-            uncachedTexts.forEach((text) => {
-                const cacheKey = getCacheKey(targetLanguage, normalizedSourceLanguage, text);
-                const translationPromise = batchRequest
+            pending.push(
+                apiFetch('/i18n/translate', {
+                    method: 'POST',
+                    timeoutMs: 20000,
+                    body: JSON.stringify({
+                        texts: uncachedTexts,
+                        language: targetLanguage,
+                        sourceLanguage: normalizedSourceLanguage,
+                    }),
+                })
                     .then((translations) => {
-                        const value = String(translations[text] || text);
-                        writeToCache(targetLanguage, normalizedSourceLanguage, text, value);
-                        return value;
+                        const payload = translations?.data?.translations || {};
+                        createdInflightEntries.forEach(({ text, cacheKey, deferred }) => {
+                            const value = String(payload[text] || text);
+                            writeToCache(targetLanguage, normalizedSourceLanguage, text, value);
+                            results[text] = value;
+                            deferred.resolve(value);
+                            inflightTranslationCache.delete(cacheKey);
+                        });
                     })
-                    .finally(() => {
-                        inflightTranslationCache.delete(cacheKey);
-                    });
-
-                inflightTranslationCache.set(cacheKey, translationPromise);
-                pending.push(translationPromise.then((value) => {
-                    results[text] = value;
-                }));
-            });
+                    .catch(() => {
+                        createdInflightEntries.forEach(({ text, cacheKey, deferred }) => {
+                            const value = text;
+                            writeToCache(targetLanguage, normalizedSourceLanguage, text, value);
+                            results[text] = value;
+                            deferred.resolve(value);
+                            inflightTranslationCache.delete(cacheKey);
+                        });
+                    })
+            );
         }
 
         await Promise.all(pending);
+
+        normalizedTexts.forEach((text) => {
+            const cachedValue = readFromCache(targetLanguage, normalizedSourceLanguage, text);
+            if (cachedValue) {
+                results[text] = cachedValue;
+                return;
+            }
+
+            if (!Object.prototype.hasOwnProperty.call(results, text)) {
+                results[text] = text;
+            }
+        });
+
         return results;
     },
 };

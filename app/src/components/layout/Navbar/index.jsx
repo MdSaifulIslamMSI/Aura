@@ -23,6 +23,7 @@ import { AuthContext } from '@/context/AuthContext';
 import { CartContext } from '@/context/CartContext';
 import { useColorMode } from '@/context/ColorModeContext';
 import { useMarket } from '@/context/MarketContext';
+import { createTranslator } from '@/config/marketConfig';
 import { useMotionMode } from '@/context/MotionModeContext';
 import { cn } from '@/lib/utils';
 import AppErrorBoundary from '@/components/shared/AppErrorBoundary';
@@ -187,7 +188,7 @@ const MarketPreferenceCard = ({
 };
 
 export const NavbarFailureFallback = () => {
-  const { t } = useMarket();
+  const t = createTranslator('en');
 
   return (
     <>

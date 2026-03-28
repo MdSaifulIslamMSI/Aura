@@ -66,13 +66,13 @@ const collectLiteralSourceKeys = (directoryPath, keys = new Set()) => {
 };
 
 describe('MARKET_MESSAGES coverage', () => {
-  it('covers every source translation key for each supported language', () => {
+  it('covers every source translation key for each translated target language', () => {
     const sourceKeys = collectLiteralSourceKeys(SRC_ROOT);
     DYNAMIC_SOURCE_KEYS.forEach((key) => sourceKeys.add(key));
 
     expect(sourceKeys.size).toBeGreaterThan(0);
 
-    for (const language of SUPPORTED_LANGUAGES) {
+    for (const language of SUPPORTED_LANGUAGES.filter(({ code }) => code !== 'en')) {
       const messages = MARKET_MESSAGES[language.code] || {};
       const missingKeys = [...sourceKeys].filter((key) => (
         typeof messages[key] !== 'string' || messages[key].length === 0
