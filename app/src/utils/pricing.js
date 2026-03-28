@@ -49,3 +49,13 @@ export const getLineDisplayTotal = (entity = {}) => {
   const quantity = Math.max(1, Number(entity?.quantity || 1));
   return getDisplayAmount(entity) * quantity;
 };
+
+export const getLineBaseTotal = (entity = {}) => {
+  const quantity = Math.max(1, Number(entity?.quantity || 1));
+  return getBaseAmount(entity) * quantity;
+};
+
+export const getLineOriginalBaseTotal = (entity = {}) => {
+  const quantity = Math.max(1, Number(entity?.quantity || 1));
+  return getOriginalBaseAmount(entity) * quantity;
+};

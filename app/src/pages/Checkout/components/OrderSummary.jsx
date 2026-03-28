@@ -1,7 +1,7 @@
 import { Box, Info, Loader2, RefreshCcw, TicketPercent, Zap } from 'lucide-react';
 import { formatPrice } from '@/utils/format';
 import { cn } from '@/lib/utils';
-import { getDisplayCurrency, getLineDisplayTotal } from '@/utils/pricing';
+import { getBaseCurrency, getLineBaseTotal } from '@/utils/pricing';
 import { useMarket } from '@/context/MarketContext';
 
 const OrderSummary = ({
@@ -18,7 +18,7 @@ const OrderSummary = ({
     onRemoveCoupon,
     onRecalculate,
 }) => {
-    const { t } = useMarket();
+    const { t, currency: marketCurrency, formatPrice: formatMarketPrice } = useMarket();
     const itemsPrice = quote?.itemsPrice ?? fallbackTotals.itemsPrice;
     const shippingPrice = quote?.shippingPrice ?? 0;
     const couponDiscount = quote?.couponDiscount ?? 0;
@@ -28,9 +28,9 @@ const OrderSummary = ({
     const appliedCoupon = quote?.appliedCoupon;
     const logistics = quote?.logisticsInsights;
     const chargeAmount = chargeQuote?.amount ?? quote?.displayAmount ?? totalPrice;
-    const chargeCurrency = chargeQuote?.currency || quote?.displayCurrency || quote?.presentmentCurrency || 'INR';
+    const chargeCurrency = chargeQuote?.currency || quote?.displayCurrency || quote?.presentmentCurrency || marketCurrency || 'INR';
     const settlementAmount = chargeQuote?.settlementAmount ?? totalPrice;
-    const settlementCurrency = chargeQuote?.settlementCurrency || quote?.settlementCurrency || 'INR';
+    const settlementCurrency = chargeQuote?.settlementCurrency || quote?.settlementCurrency || marketCurrency || 'INR';
     const baseAmount = chargeQuote?.baseAmount ?? quote?.baseAmount ?? totalPrice;
     const baseCurrency = chargeQuote?.baseCurrency || quote?.baseCurrency || settlementCurrency;
 
@@ -58,7 +58,9 @@ const OrderSummary = ({
                                     <p className="line-clamp-1 text-sm font-semibold text-white">{item.title}</p>
                                     <p className="mt-1 text-xs uppercase tracking-[0.18em] text-slate-400">{t('checkout.qty', { count: item.quantity }, `Qty ${item.quantity}`)}</p>
                                 </div>
-                                <p className="text-sm font-bold text-slate-200">{formatPrice(getLineDisplayTotal(item), getDisplayCurrency(item))}</p>
+                                <p className="text-sm font-bold text-slate-200">
+                                    {formatMarketPrice(getLineBaseTotal(item), undefined, undefined, { baseCurrency: getBaseCurrency(item) })}
+                                </p>
                             </div>
                         ))}
                     </div>
