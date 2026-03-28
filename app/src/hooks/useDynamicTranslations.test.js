@@ -6,21 +6,25 @@ const { translateTextsMock } = vi.hoisted(() => ({
     )),
 }));
 
-vi.mock('@/services/api', () => ({
-    i18nApi: {
-        translateTexts: translateTextsMock,
-    },
-}));
-
-import {
-    collectDynamicTranslationTexts,
-    shouldTranslateDynamicText,
-    translateDynamicTextBatch,
-} from './useDynamicTranslations';
+let collectDynamicTranslationTexts;
+let shouldTranslateDynamicText;
+let translateDynamicTextBatch;
 
 describe('useDynamicTranslations helpers', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
         translateTextsMock.mockClear();
+        vi.resetModules();
+        vi.doMock('@/services/api', () => ({
+            i18nApi: {
+                translateTexts: translateTextsMock,
+            },
+        }));
+
+        ({
+            collectDynamicTranslationTexts,
+            shouldTranslateDynamicText,
+            translateDynamicTextBatch,
+        } = await import('./useDynamicTranslations'));
     });
 
     it('filters obviously non-translatable values', () => {
