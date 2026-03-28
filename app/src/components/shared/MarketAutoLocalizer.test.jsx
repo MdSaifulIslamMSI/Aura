@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MarketProvider, useMarket } from '@/context/MarketContext';
+import { clearRuntimeTranslationCache } from '@/services/runtimeTranslation';
 import MarketAutoLocalizer from './MarketAutoLocalizer';
 
 const { translateTextsMock, getBrowseFxRatesMock, readCachedBrowseFxRatesMock } = vi.hoisted(() => ({
@@ -39,6 +40,11 @@ const Probe = () => {
 };
 
 describe('MarketAutoLocalizer', () => {
+    beforeEach(() => {
+        window.localStorage.clear();
+        clearRuntimeTranslationCache();
+    });
+
     it('translates raw UI text and restores the original English copy', async () => {
         translateTextsMock.mockClear();
         getBrowseFxRatesMock.mockReset();
