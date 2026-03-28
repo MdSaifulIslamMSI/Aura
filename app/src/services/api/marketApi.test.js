@@ -1,16 +1,25 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { clearMarketApiCache, marketApi, readCachedBrowseFxRates } from './marketApi';
 
 const { apiFetchMock } = vi.hoisted(() => ({
     apiFetchMock: vi.fn(),
 }));
 
-vi.mock('../apiBase', () => ({
-    apiFetch: apiFetchMock,
-}));
+let clearMarketApiCache;
+let marketApi;
+let readCachedBrowseFxRates;
 
 describe('marketApi', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
+        vi.resetModules();
+        vi.doMock('../apiBase', () => ({
+            apiFetch: apiFetchMock,
+        }));
+        ({
+            clearMarketApiCache,
+            marketApi,
+            readCachedBrowseFxRates,
+        } = await import('./marketApi'));
+
         clearMarketApiCache();
         window.sessionStorage.clear();
         apiFetchMock.mockReset();

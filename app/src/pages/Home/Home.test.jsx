@@ -7,6 +7,7 @@ import { AuthContext } from '@/context/AuthContext';
 import { CartContext } from '@/context/CartContext';
 import { WishlistContext } from '@/context/WishlistContext';
 import { ColorModeProvider } from '@/context/ColorModeContext';
+import { MarketProvider } from '@/context/MarketContext';
 import { MotionModeProvider } from '@/context/MotionModeContext';
 
 vi.mock('@/components/features/home/Carousel', () => ({
@@ -26,13 +27,18 @@ vi.mock('@/components/shared/RevealOnScroll', () => ({
 }));
 
 // Mock the API layer
-vi.mock('@/services/api', () => ({
-    productApi: {
-        getProducts: vi.fn(),
-        getProductById: vi.fn(),
-        getRecommendations: vi.fn(),
-    },
-}));
+vi.mock('@/services/api', async (importOriginal) => {
+    const actual = await importOriginal();
+    return {
+        ...actual,
+        productApi: {
+            ...actual.productApi,
+            getProducts: vi.fn(),
+            getProductById: vi.fn(),
+            getRecommendations: vi.fn(),
+        },
+    };
+});
 
 describe('Home Page', () => {
     const mockAuth = { currentUser: null };
@@ -50,17 +56,19 @@ describe('Home Page', () => {
 
         const { container } = render(
             <MemoryRouter>
-                <ColorModeProvider>
-                    <MotionModeProvider>
-                        <AuthContext.Provider value={mockAuth}>
-                            <CartContext.Provider value={mockCart}>
-                                <WishlistContext.Provider value={mockWishlist}>
-                                    <Home />
-                                </WishlistContext.Provider>
-                            </CartContext.Provider>
-                        </AuthContext.Provider>
-                    </MotionModeProvider>
-                </ColorModeProvider>
+                <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+                    <ColorModeProvider>
+                        <MotionModeProvider>
+                            <AuthContext.Provider value={mockAuth}>
+                                <CartContext.Provider value={mockCart}>
+                                    <WishlistContext.Provider value={mockWishlist}>
+                                        <Home />
+                                    </WishlistContext.Provider>
+                                </CartContext.Provider>
+                            </AuthContext.Provider>
+                        </MotionModeProvider>
+                    </ColorModeProvider>
+                </MarketProvider>
             </MemoryRouter>
         );
 

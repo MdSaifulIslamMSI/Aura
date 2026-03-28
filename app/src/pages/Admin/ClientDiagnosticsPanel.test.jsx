@@ -1,13 +1,19 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { MarketProvider } from '@/context/MarketContext';
 import ClientDiagnosticsPanel from './ClientDiagnosticsPanel';
 import { adminApi } from '@/services/api';
 
-vi.mock('@/services/api', () => ({
-    adminApi: {
-        getClientDiagnostics: vi.fn(),
-    },
-}));
+vi.mock('@/services/api', async (importOriginal) => {
+    const actual = await importOriginal();
+    return {
+        ...actual,
+        adminApi: {
+            ...actual.adminApi,
+            getClientDiagnostics: vi.fn(),
+        },
+    };
+});
 
 vi.mock('sonner', () => ({
     toast: {
@@ -16,6 +22,12 @@ vi.mock('sonner', () => ({
 }));
 
 describe('ClientDiagnosticsPanel', () => {
+    const renderWithMarket = (ui) => render(
+        <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+            {ui}
+        </MarketProvider>
+    );
+
     beforeEach(() => {
         vi.clearAllMocks();
     });
@@ -44,7 +56,7 @@ describe('ClientDiagnosticsPanel', () => {
             ],
         });
 
-        render(<ClientDiagnosticsPanel />);
+        renderWithMarket(<ClientDiagnosticsPanel />);
 
         expect(await screen.findByText('Client Diagnostics')).toBeInTheDocument();
         expect(await screen.findByText('api.network_error')).toBeInTheDocument();
@@ -86,7 +98,7 @@ describe('ClientDiagnosticsPanel', () => {
                 ],
             });
 
-        render(<ClientDiagnosticsPanel />);
+        renderWithMarket(<ClientDiagnosticsPanel />);
 
         await screen.findByText('api.network_error');
 

@@ -1,18 +1,24 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { MarketProvider } from '@/context/MarketContext';
 import { OrderCard } from './index';
 
-vi.mock('@/services/api', () => ({
-    orderApi: {
-        getOrderTimeline: vi.fn(),
-        getCommandCenter: vi.fn(),
-        cancelOrder: vi.fn(),
-        requestRefund: vi.fn(),
-        requestReplacement: vi.fn(),
-        sendSupportMessage: vi.fn(),
-        createWarrantyClaim: vi.fn(),
-    },
-}));
+vi.mock('@/services/api', async (importOriginal) => {
+    const actual = await importOriginal();
+    return {
+        ...actual,
+        orderApi: {
+            ...actual.orderApi,
+            getOrderTimeline: vi.fn(),
+            getCommandCenter: vi.fn(),
+            cancelOrder: vi.fn(),
+            requestRefund: vi.fn(),
+            requestReplacement: vi.fn(),
+            sendSupportMessage: vi.fn(),
+            createWarrantyClaim: vi.fn(),
+        },
+    };
+});
 
 import { orderApi } from '@/services/api';
 
@@ -70,7 +76,11 @@ describe('OrderCard', () => {
             },
         });
 
-        render(<OrderCard order={baseOrder} />);
+        render(
+            <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+                <OrderCard order={baseOrder} />
+            </MarketProvider>
+        );
 
         fireEvent.click(screen.getByText(/Order ID:/i));
 
