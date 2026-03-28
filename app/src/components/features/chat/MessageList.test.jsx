@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import { MarketProvider } from '@/context/MarketContext';
 import MessageList from './MessageList';
 
 window.HTMLElement.prototype.scrollIntoView = vi.fn();
@@ -13,6 +14,12 @@ const noopProps = {
     onCancelPending: vi.fn(),
 };
 
+const renderWithMarket = (ui) => render(
+    <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+        {ui}
+    </MarketProvider>
+);
+
 const makeProduct = (id, title) => ({
     id,
     title,
@@ -25,7 +32,7 @@ const makeProduct = (id, title) => ({
 
 describe('MessageList', () => {
     it('renders product cards only for the latest assistant result set', () => {
-        render(
+        renderWithMarket(
             <MessageList
                 messages={[
                     {
@@ -52,7 +59,7 @@ describe('MessageList', () => {
     });
 
     it('hides previous product cards once a later navigation reply arrives', () => {
-        render(
+        renderWithMarket(
             <MessageList
                 messages={[
                     {
