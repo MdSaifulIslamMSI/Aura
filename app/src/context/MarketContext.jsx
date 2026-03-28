@@ -315,20 +315,37 @@ export function MarketProvider({
         return formatMessageTemplate(localizedTemplate, values);
       }
 
-      const englishTemplate = getMessageTemplate('en', key) || fallback || key;
-      const englishText = formatMessageTemplate(englishTemplate, values);
+      const englishTemplate = getMessageTemplate('en', key);
+      const fallbackTemplate = fallback || key;
+      const template = englishTemplate || fallbackTemplate;
+      const englishText = formatMessageTemplate(template, values);
+      const hasInterpolationValues = Object.values(values || {}).some((value) => (
+        value !== undefined && value !== null && String(value) !== ''
+      ));
+      const translationTemplate = englishTemplate || (!hasInterpolationValues ? fallbackTemplate : '');
 
       if (language.code === 'en') {
         return englishText;
       }
 
-      const cacheKey = getRuntimeTranslationCacheKey(language.code, englishText);
-      const translated = runtimeTranslationsRef.current.get(cacheKey);
-      if (translated) {
-        return translated;
+      // Only queue stable catalog templates for runtime translation.
+      // Interpolated fallback strings such as timestamps, IDs, and counts
+      // would otherwise create a fresh translation job on every render.
+      if (!translationTemplate) {
+        return englishText;
       }
 
-      runtimeTranslationRequestsRef.current.add(englishText);
+      const cacheKey = getRuntimeTranslationCacheKey(language.code, translationTemplate);
+      const translatedTemplate = runtimeTranslationsRef.current.get(cacheKey);
+      if (translatedTemplate) {
+        return formatMessageTemplate(translatedTemplate, values);
+      }
+
+      if (runtimeTranslationsInFlightRef.current.has(cacheKey)) {
+        return englishText;
+      }
+
+      runtimeTranslationRequestsRef.current.add(translationTemplate);
       return englishText;
     }
   ), [language.code, runtimeTranslationVersion]);
