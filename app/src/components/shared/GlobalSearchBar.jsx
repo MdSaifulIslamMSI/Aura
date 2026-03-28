@@ -21,8 +21,10 @@ import { productApi } from '@/services/api';
 import {
   CATALOG_CATEGORY_OPTIONS,
   getCategoryApiValue,
+  getLocalizedCategoryLabel,
   normalizeCategorySlug,
 } from '@/config/catalogTaxonomy';
+import { useDynamicTranslations } from '@/hooks/useDynamicTranslations';
 import { cn } from '@/lib/utils';
 import { parseSemanticSearchIntent } from '@/utils/assistantIntent';
 import { formatPrice } from '@/utils/format';
@@ -36,18 +38,8 @@ const MAX_HISTORY_ITEMS = 8;
 const MAX_INTENT_ITEMS = 6;
 const DEFAULT_MAX_PRICE = 200000;
 
-const CATEGORY_OPTIONS = [
-  { value: 'all', label: 'All Categories' },
-  ...CATALOG_CATEGORY_OPTIONS,
-];
-
-const SORT_OPTIONS = [
-  { value: 'relevance', label: 'Relevance' },
-  { value: 'rating', label: 'Top Rated' },
-  { value: 'newest', label: 'Newest' },
-  { value: 'price-asc', label: 'Price: Low to High' },
-  { value: 'price-desc', label: 'Price: High to Low' },
-];
+const CATEGORY_SCOPE_VALUES = ['all', ...CATALOG_CATEGORY_OPTIONS.map((option) => option.value)];
+const SORT_VALUES = ['relevance', 'rating', 'newest', 'price-asc', 'price-desc'];
 
 const TRENDING_QUERIES = [
   'iPhone 15',
@@ -71,11 +63,27 @@ const isEditableTarget = (target) => {
 };
 
 const normalizeSort = (value) => {
-  if (SORT_OPTIONS.some((option) => option.value === value)) {
+  if (SORT_VALUES.includes(value)) {
     return value;
   }
   return 'relevance';
 };
+
+const buildCategoryOptions = (t) => [
+  { value: 'all', label: t('search.allCategories', {}, 'All Categories') },
+  ...CATALOG_CATEGORY_OPTIONS.map((option) => ({
+    value: option.value,
+    label: getLocalizedCategoryLabel(option.value, t),
+  })),
+];
+
+const buildSortOptions = (t) => [
+  { value: 'relevance', label: t('search.sort.relevance', {}, 'Relevance') },
+  { value: 'rating', label: t('search.sort.rating', {}, 'Top Rated') },
+  { value: 'newest', label: t('search.sort.newest', {}, 'Newest') },
+  { value: 'price-asc', label: t('search.sort.priceAsc', {}, 'Price: Low to High') },
+  { value: 'price-desc', label: t('search.sort.priceDesc', {}, 'Price: High to Low') },
+];
 
 const parseCategoryFromPath = (pathname = '') => {
   const match = pathname.match(/^\/category\/([^/?#]+)/i);
@@ -109,7 +117,7 @@ const readPersistedSearchState = () => {
   try {
     const raw = localStorage.getItem(SEARCH_STATE_KEY);
     const parsed = JSON.parse(raw || '{}');
-    const categoryScope = CATEGORY_OPTIONS.some((option) => option.value === parsed?.categoryScope)
+    const categoryScope = CATEGORY_SCOPE_VALUES.includes(parsed?.categoryScope)
       ? parsed.categoryScope
       : 'all';
 
@@ -130,7 +138,7 @@ const readPersistedSearchState = () => {
 const GlobalSearchBar = ({
   className,
   mobile = false,
-  placeholder = 'Search products, brands, categories...',
+  placeholder = '',
   onVoiceSearch,
   onNavigate,
   enableGlobalShortcuts = true,
@@ -160,18 +168,25 @@ const GlobalSearchBar = ({
   const navigate = useNavigate();
   const location = useLocation();
   const { t } = useMarket();
+  const categoryOptions = useMemo(() => buildCategoryOptions(t), [t]);
+  const sortOptions = useMemo(() => buildSortOptions(t), [t]);
+  const searchDynamicTexts = useMemo(() => ([
+    ...TRENDING_QUERIES,
+    ...suggestions.flatMap((product) => [product?.title, product?.name]),
+  ]), [suggestions]);
+  const { translateText: translateSearchText } = useDynamicTranslations(searchDynamicTexts);
 
   const quickActions = useMemo(
     () => [
-      { label: t('nav.marketplace', {}, 'Marketplace'), description: 'Browse peer-to-peer listings', to: '/marketplace' },
-      { label: 'Deals', description: 'Open highest discount picks', to: '/deals' },
-      { label: 'Trending', description: 'See top rated products', to: '/trending' },
-      { label: 'New Arrivals', description: 'Fresh inventory drops', to: '/new-arrivals' },
-      { label: t('nav.visualSearch', {}, 'Visual Search'), description: 'Find products from image hints', to: '/visual-search' },
-      { label: t('nav.aiCompare', {}, 'AI Compare'), description: 'Compare up to four products instantly', to: '/compare' },
-      { label: 'Smart Bundle', description: 'Generate AI bundles with budget slider', to: '/bundles' },
-      { label: 'Sell Item', description: 'Create a marketplace listing', to: '/sell' },
-      { label: t('nav.orders', {}, 'Orders'), description: 'Track placed orders', to: '/orders' },
+      { label: t('nav.marketplace', {}, 'Marketplace'), description: t('search.quickAction.marketplaceDesc', {}, 'Browse peer-to-peer listings'), to: '/marketplace' },
+      { label: t('search.quickAction.deals', {}, 'Deals'), description: t('search.quickAction.dealsDesc', {}, 'Open highest discount picks'), to: '/deals' },
+      { label: t('search.trending', {}, 'Trending'), description: t('search.quickAction.trendingDesc', {}, 'See top rated products'), to: '/trending' },
+      { label: t('search.quickAction.newArrivals', {}, 'New Arrivals'), description: t('search.quickAction.newArrivalsDesc', {}, 'Fresh inventory drops'), to: '/new-arrivals' },
+      { label: t('nav.visualSearch', {}, 'Visual Search'), description: t('search.quickAction.visualDesc', {}, 'Find products from image hints'), to: '/visual-search' },
+      { label: t('nav.aiCompare', {}, 'AI Compare'), description: t('search.quickAction.aiCompareDesc', {}, 'Compare up to four products instantly'), to: '/compare' },
+      { label: t('search.quickAction.smartBundle', {}, 'Smart Bundle'), description: t('search.quickAction.smartBundleDesc', {}, 'Generate AI bundles with budget slider'), to: '/bundles' },
+      { label: t('nav.sell', {}, 'Sell'), description: t('search.quickAction.sellItemDesc', {}, 'Create a marketplace listing'), to: '/sell' },
+      { label: t('nav.orders', {}, 'Orders'), description: t('search.quickAction.ordersDesc', {}, 'Track placed orders'), to: '/orders' },
     ],
     [t]
   );
@@ -386,13 +401,13 @@ const GlobalSearchBar = ({
     const queryCategory = params.get('category');
     const hasQuery = Boolean(locationQuery.trim());
     const normalizedQueryCategory = normalizeCategorySlug(queryCategory || '');
-    const isKnownRouteCategory = routeCategory && CATEGORY_OPTIONS.some((entry) => entry.value === routeCategory);
+    const isKnownRouteCategory = routeCategory && CATEGORY_SCOPE_VALUES.includes(routeCategory);
 
     setQuery(locationQuery);
     setSortMode(normalizeSort(params.get('sort') || persistedState.sortMode));
     setMaxPrice(parsePositiveNumber(params.get('maxPrice') ?? persistedState.maxPrice, DEFAULT_MAX_PRICE));
 
-    if (normalizedQueryCategory && CATEGORY_OPTIONS.some((entry) => entry.value === normalizedQueryCategory)) {
+    if (normalizedQueryCategory && CATEGORY_SCOPE_VALUES.includes(normalizedQueryCategory)) {
       setCategoryScope(normalizedQueryCategory);
     } else if (!hasQuery && isKnownRouteCategory) {
       setCategoryScope(routeCategory);
@@ -503,7 +518,7 @@ const GlobalSearchBar = ({
         }
         if (!isActive) return;
         setSuggestions([]);
-        setError('Unable to load live suggestions right now.');
+        setError(t('search.liveSuggestionsError', {}, 'Unable to load live suggestions right now.'));
       } finally {
         if (isActive) {
           setIsLoading(false);
@@ -517,7 +532,7 @@ const GlobalSearchBar = ({
       clearTimeout(timer);
       controller.abort();
     };
-  }, [categoryScope, isOpen, maxPrice, mobile, query, sortMode]);
+  }, [categoryScope, isOpen, maxPrice, mobile, query, sortMode, t]);
 
   const handleKeyDown = (event) => {
     if (event.key === 'ArrowDown') {
@@ -644,7 +659,7 @@ const GlobalSearchBar = ({
                     ? 'border-neo-cyan/40 bg-neo-cyan/12 text-neo-cyan'
                     : 'border-white/12 bg-white/[0.04] text-slate-300 hover:border-white/20 hover:text-white'
                 )}
-                aria-label="Toggle advanced search controls"
+                aria-label={t('search.toggleControls', {}, 'Toggle advanced search controls')}
               >
                 <SlidersHorizontal className="h-3.5 w-3.5" />
                 {t('search.controls', {}, 'Controls')}
@@ -672,7 +687,7 @@ const GlobalSearchBar = ({
                   onClick={saveCurrentIntent}
                   disabled={!parseSemanticSearchIntent(query)}
                   className="inline-flex items-center gap-1 rounded-lg border border-white/20 bg-white/5 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-slate-300 hover:text-white disabled:opacity-50"
-                  title="Save semantic intent (Ctrl/Cmd+Enter)"
+                  title={t('search.saveIntentTitle', {}, 'Save semantic intent (Ctrl/Cmd+Enter)')}
                 >
                   <BookmarkPlus className="w-3.5 h-3.5" />
                   {t('search.saveIntent', {}, 'Save Intent')}
@@ -687,7 +702,7 @@ const GlobalSearchBar = ({
                     onChange={(event) => setCategoryScope(event.target.value)}
                     className="mt-1.5 w-full rounded-lg border border-white/15 bg-zinc-900/90 px-3 py-2 text-sm text-slate-100 outline-none focus:border-neo-cyan"
                   >
-                    {CATEGORY_OPTIONS.map((option) => (
+                    {categoryOptions.map((option) => (
                       <option key={option.value} value={option.value} className="bg-zinc-900 text-slate-100">
                         {option.label}
                       </option>
@@ -702,7 +717,7 @@ const GlobalSearchBar = ({
                     onChange={(event) => setSortMode(normalizeSort(event.target.value))}
                     className="mt-1.5 w-full rounded-lg border border-white/15 bg-zinc-900/90 px-3 py-2 text-sm text-slate-100 outline-none focus:border-neo-cyan"
                   >
-                    {SORT_OPTIONS.map((option) => (
+                    {sortOptions.map((option) => (
                       <option key={option.value} value={option.value} className="bg-zinc-900 text-slate-100">
                         {option.label}
                       </option>
@@ -758,7 +773,7 @@ const GlobalSearchBar = ({
                     >
                       <div className="w-11 h-11 rounded-lg overflow-hidden bg-zinc-900/80 border border-white/10 flex-shrink-0">
                         {imageUrl ? (
-                          <img src={imageUrl} alt={product.title || product.name || 'Product'} className="w-full h-full object-cover" loading="lazy" />
+                          <img src={imageUrl} alt={translateSearchText(product.title || product.name) || product.title || product.name || t('search.productFallback', {}, 'Product')} className="w-full h-full object-cover" loading="lazy" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-slate-500">
                             <PackageSearch className="w-4 h-4" />
@@ -767,14 +782,18 @@ const GlobalSearchBar = ({
                       </div>
 
                       <div className="min-w-0 flex-1">
-                        <div className="text-sm font-bold text-slate-100 truncate">{product.title || product.name || 'Untitled product'}</div>
-                        <div className="text-xs text-slate-400 truncate">{product.category || product.brand || 'General'}</div>
+                        <div className="text-sm font-bold text-slate-100 truncate">{translateSearchText(product.title || product.name) || product.title || product.name || t('search.untitledProduct', {}, 'Untitled product')}</div>
+                        <div className="text-xs text-slate-400 truncate">
+                          {product.category
+                            ? getLocalizedCategoryLabel(product.category, t)
+                            : product.brand || t('search.generalCategory', {}, 'General')}
+                        </div>
                       </div>
 
                       <div className="text-right flex-shrink-0">
-                        <div className="text-sm font-black text-neo-cyan">{formatPrice(product.price) || 'View'}</div>
+                        <div className="text-sm font-black text-neo-cyan">{formatPrice(product.price) || t('search.view', {}, 'View')}</div>
                         <div className="text-[11px] text-slate-500 flex items-center justify-end gap-1">
-                          Open
+                          {t('search.open', {}, 'Open')}
                           <ChevronRight className="w-3 h-3" />
                         </div>
                       </div>
@@ -852,7 +871,7 @@ const GlobalSearchBar = ({
                     }}
                     className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-semibold text-slate-200 hover:border-neo-emerald/50 hover:text-neo-emerald transition-colors"
                   >
-                    {term}
+                    {translateSearchText(term) || term}
                   </button>
                 ))}
               </div>

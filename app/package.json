@@ -8,12 +8,14 @@
     "build": "vite build",
     "build:budget": "npm run build && node scripts/check_bundle_budget.mjs",
     "bundle:budget": "node scripts/check_bundle_budget.mjs",
+    "audit:locale": "node scripts/check_locale_coverage.mjs",
     "bench:mobile": "node scripts/mobile_benchmark.mjs",
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "test:e2e:locale": "node scripts/run_locale_visual_qa.mjs",
     "test:e2e:ui": "playwright test --ui"
   },
   "dependencies": {

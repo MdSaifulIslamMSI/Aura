@@ -8,7 +8,7 @@ import { productApi } from '@/services/api';
 import {
   DEFAULT_CATALOG_CATEGORY_LABELS,
   getCategoryApiValue,
-  getCategoryLabel,
+  getLocalizedCategoryLabel,
   normalizeCategorySlug,
 } from '@/config/catalogTaxonomy';
 import { getErrorReference } from '@/services/clientObservability';
@@ -30,6 +30,26 @@ const CATEGORY_ROUTE_FALLBACKS = {
   gaming: ['electronics'],
   'home-kitchen': [],
   books: [],
+};
+const SORT_LABEL_KEY_MAP = {
+  relevance: 'listing.sort.relevance',
+  'price-asc': 'listing.sort.priceAsc',
+  'price-desc': 'listing.sort.priceDesc',
+  newest: 'listing.sort.newest',
+  rating: 'listing.sort.rating',
+  discount: 'listing.sort.discount',
+};
+
+const getSortLabel = (value, t) => {
+  const fallbackMap = {
+    relevance: 'Relevance',
+    'price-asc': 'Price: Low to High',
+    'price-desc': 'Price: High to Low',
+    newest: 'Newest First',
+    rating: 'Top Rated',
+    discount: 'Best Discount',
+  };
+  return t(SORT_LABEL_KEY_MAP[value], {}, fallbackMap[value] || value);
 };
 
 const createDefaultFilters = (priceRange = [DEFAULT_MIN_PRICE, DEFAULT_MAX_PRICE]) => ({
@@ -127,7 +147,7 @@ const isDefaultLaneOnlyView = ({ effectiveCategorySlug, searchQuery, filters }) 
 );
 
 const ProductListing = () => {
-  const { currency } = useMarket();
+  const { currency, t } = useMarket();
   const { category } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
@@ -137,6 +157,10 @@ const ProductListing = () => {
   const effectiveCategorySlug = useMemo(
     () => normalizeCategorySlug(queryCategory || (!searchQuery ? category : '')),
     [category, queryCategory, searchQuery]
+  );
+  const localizedCategoryLabel = useMemo(
+    () => getLocalizedCategoryLabel(effectiveCategorySlug, t),
+    [effectiveCategorySlug, t]
   );
   const activeRequestRef = useRef(0);
 
@@ -180,23 +204,36 @@ const ProductListing = () => {
   const activeScanSignals = useMemo(() => {
     const signals = [];
 
-    if (searchQuery) signals.push(`Query: ${searchQuery}`);
-    if (effectiveCategorySlug) signals.push(`Lane: ${getCategoryLabel(effectiveCategorySlug)}`);
-    if (filters.brands.length > 0) signals.push(`Brands: ${filters.brands.join(', ')}`);
-    if (filters.minRating > 0) signals.push(`Rating ${filters.minRating}+`);
-    if (filters.inStockOnly) signals.push('In stock only');
-    if (filters.warrantyOnly) signals.push('Warranty only');
-    if (filters.minDiscount > 0) signals.push(`${filters.minDiscount}%+ off`);
-    if (filters.deliveryWindows.length > 0) signals.push(`Delivery: ${filters.deliveryWindows.join(', ')}`);
+    if (searchQuery) signals.push(t('listing.signal.query', { query: searchQuery }, `Query: ${searchQuery}`));
+    if (effectiveCategorySlug) {
+      signals.push(t('listing.signal.lane', { category: localizedCategoryLabel }, `Lane: ${localizedCategoryLabel}`));
+    }
+    if (filters.brands.length > 0) {
+      signals.push(t('listing.signal.brands', { brands: filters.brands.join(', ') }, `Brands: ${filters.brands.join(', ')}`));
+    }
+    if (filters.minRating > 0) signals.push(t('listing.signal.rating', { count: filters.minRating }, `Rating ${filters.minRating}+`));
+    if (filters.inStockOnly) signals.push(t('listing.signal.stock', {}, 'In stock only'));
+    if (filters.warrantyOnly) signals.push(t('listing.signal.warranty', {}, 'Warranty only'));
+    if (filters.minDiscount > 0) signals.push(t('listing.signal.discount', { count: filters.minDiscount }, `${filters.minDiscount}%+ off`));
+    if (filters.deliveryWindows.length > 0) {
+      signals.push(t('listing.signal.delivery', { window: filters.deliveryWindows.join(', ') }, `Delivery: ${filters.deliveryWindows.join(', ')}`));
+    }
     if (
       filters.priceRange[0] !== DEFAULT_MIN_PRICE ||
       filters.priceRange[1] !== DEFAULT_MAX_PRICE
     ) {
-      signals.push(`Price ${formatPrice(filters.priceRange[0], currency)} - ${formatPrice(filters.priceRange[1], currency)}`);
+      signals.push(t(
+        'listing.signal.price',
+        {
+          min: formatPrice(filters.priceRange[0], currency),
+          max: formatPrice(filters.priceRange[1], currency),
+        },
+        `Price ${formatPrice(filters.priceRange[0], currency)} - ${formatPrice(filters.priceRange[1], currency)}`
+      ));
     }
 
     return signals;
-  }, [effectiveCategorySlug, filters, searchQuery]);
+  }, [currency, effectiveCategorySlug, filters, localizedCategoryLabel, searchQuery, t]);
 
   const fetchProducts = useCallback(async (signal) => {
     const requestId = Date.now();
@@ -283,9 +320,12 @@ const ProductListing = () => {
         const fallbackData = await productApi.getProducts(buildQuery(fallbackCategoryFilter), { signal });
         if (signal?.aborted || activeRequestRef.current !== requestId) return;
         if ((fallbackData.total || 0) > 0) {
+          const fallbackDisplayLabel = fallbackSlugs.length > 0
+            ? fallbackSlugs.map((slug) => getLocalizedCategoryLabel(slug, t)).join(' + ')
+            : t('listing.liveCatalog', {}, 'Live Catalog');
           setLaneFallback({
-            requestedLabel: getCategoryLabel(effectiveCategorySlug),
-            fallbackLabel: fallbackCategories.length > 0 ? fallbackCategories.join(' + ') : 'Live Catalog',
+            requestedLabel: getLocalizedCategoryLabel(effectiveCategorySlug, t),
+            fallbackLabel: fallbackDisplayLabel,
             fallbackType: fallbackCategories.length > 0 ? 'adjacent' : 'catalog',
           });
           applyListingPayload(fallbackData, fallbackCategoryFilter);
@@ -308,7 +348,7 @@ const ProductListing = () => {
         setLoading(false);
       }
     }
-  }, [page, sortBy, searchQuery, effectiveCategorySlug, filters, viewMode]);
+  }, [page, sortBy, searchQuery, effectiveCategorySlug, filters, t, viewMode]);
 
   const retryFetch = useCallback(() => {
     const controller = new AbortController();
@@ -356,25 +396,29 @@ const ProductListing = () => {
       {effectiveCategorySlug && (
         <RevealOnScroll anchorId="listing-header" anchorLabel="Listing Header" className="mb-8">
           <h1 className="text-3xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-slate-200 to-neo-cyan capitalize tracking-tight mb-2">
-            {getCategoryLabel(effectiveCategorySlug)}
+            {localizedCategoryLabel}
           </h1>
-          <p className="text-neo-cyan font-bold tracking-widest text-sm uppercase">Curated Collection</p>
+          <p className="text-neo-cyan font-bold tracking-widest text-sm uppercase">
+            {t('listing.curatedCollection', {}, 'Curated Collection')}
+          </p>
         </RevealOnScroll>
       )}
       {searchQuery && (
         <RevealOnScroll anchorId="listing-search" anchorLabel="Search Results" className="mb-8">
           <h1 className="text-3xl md:text-5xl font-black text-white tracking-tight mb-2">
-            Results for <span className="text-transparent bg-clip-text bg-gradient-to-r from-neo-cyan to-neo-emerald">"{searchQuery}"</span>
+            {t('listing.resultsFor', {}, 'Results for')} <span className="text-transparent bg-clip-text bg-gradient-to-r from-neo-cyan to-neo-emerald">"{searchQuery}"</span>
           </h1>
-          <p className="text-slate-400 font-medium">Filtered from live catalog inventory</p>
+          <p className="text-slate-400 font-medium">{t('listing.filteredLiveCatalog', {}, 'Filtered from live catalog inventory')}</p>
         </RevealOnScroll>
       )}
       {!effectiveCategorySlug && !searchQuery && (
         <RevealOnScroll anchorId="listing-default" anchorLabel="Aura Catalog" className="mb-8">
           <h1 className="text-3xl md:text-5xl font-black text-white tracking-tight mb-2">
-            Aura <span className="text-transparent bg-clip-text bg-gradient-to-r from-neo-cyan to-neo-emerald">Catalog</span>
+            Aura <span className="text-transparent bg-clip-text bg-gradient-to-r from-neo-cyan to-neo-emerald">{t('listing.catalogTitle', {}, 'Catalog')}</span>
           </h1>
-          <p className="text-slate-400 font-medium">Explore our full selection of premium products</p>
+          <p className="text-slate-400 font-medium">
+            {t('listing.catalogSubtitle', {}, 'Explore our full selection of premium products')}
+          </p>
         </RevealOnScroll>
       )}
 
@@ -385,10 +429,10 @@ const ProductListing = () => {
           className="flex items-center gap-2 bg-white/10 hover:bg-white/20 px-4 py-2 rounded-xl transition-colors font-medium text-white border border-white/10"
         >
           <SlidersHorizontal className="w-4 h-4 text-neo-cyan" />
-          Filters
+          {t('filters.open', {}, 'Filters')}
         </button>
         <span className="text-sm text-slate-400 font-bold tracking-wider">
-          <span className="text-white">{totalProducts}</span> Items
+          <span className="text-white">{totalProducts}</span> {t('listing.itemsLabel', {}, 'Items')}
         </span>
       </div>
 
@@ -434,7 +478,7 @@ const ProductListing = () => {
           >
             <div className="absolute left-0 top-0 w-1 h-full bg-gradient-to-b from-neo-cyan to-neo-emerald" />
             <div className="text-sm text-slate-400 font-medium pl-2">
-              Displaying <span className="font-bold text-white tracking-wide">{products.length}</span> of <span className="font-bold text-white tracking-wide">{totalProducts}</span> items
+              {t('listing.displaying', {}, 'Displaying')} <span className="font-bold text-white tracking-wide">{products.length}</span> {t('listing.of', {}, 'of')} <span className="font-bold text-white tracking-wide">{totalProducts}</span> {t('listing.itemsLower', {}, 'items')}
             </div>
 
             <div className="flex items-center gap-4 lg:gap-6 w-full sm:w-auto">
@@ -444,12 +488,12 @@ const ProductListing = () => {
                   onChange={(e) => setSortBy(e.target.value)}
                   className="w-full appearance-none bg-zinc-950/50 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:ring-1 focus:ring-neo-cyan focus:border-neo-cyan cursor-pointer hover:bg-white/5 transition-colors outline-none font-medium"
                 >
-                  <option value="relevance">Relevance</option>
-                  <option value="price-asc">Price: Low to High</option>
-                  <option value="price-desc">Price: High to Low</option>
-                  <option value="newest">Newest First</option>
-                  <option value="rating">Top Rated</option>
-                  <option value="discount">Best Discount</option>
+                  <option value="relevance">{getSortLabel('relevance', t)}</option>
+                  <option value="price-asc">{getSortLabel('price-asc', t)}</option>
+                  <option value="price-desc">{getSortLabel('price-desc', t)}</option>
+                  <option value="newest">{getSortLabel('newest', t)}</option>
+                  <option value="rating">{getSortLabel('rating', t)}</option>
+                  <option value="discount">{getSortLabel('discount', t)}</option>
                 </PremiumSelect>
                 <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-neo-cyan">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
@@ -494,7 +538,7 @@ const ProductListing = () => {
                 onClick={resetScanParameters}
                 className="rounded-full border border-neo-cyan/25 bg-neo-cyan/10 px-3 py-1.5 text-xs font-black uppercase tracking-[0.18em] text-neo-cyan transition-colors hover:bg-neo-cyan/15"
               >
-                Reset filters
+                {t('filters.reset', {}, 'Reset filters')}
               </button>
             </div>
           )}
@@ -502,9 +546,18 @@ const ProductListing = () => {
           {/* Product Grid */}
           {laneFallback && (
             <div className="mb-6 rounded-2xl border border-amber-400/25 bg-amber-500/10 px-4 py-4">
-              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-amber-200">Lane Expanded</p>
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-amber-200">
+                {t('listing.laneExpanded', {}, 'Lane Expanded')}
+              </p>
               <p className="mt-2 text-sm leading-relaxed text-amber-50/90">
-                {laneFallback.requestedLabel} has no direct inventory in the current provider snapshot. Showing {laneFallback.fallbackLabel} instead so this lane does not dead-end.
+                {t(
+                  'listing.laneExpandedBody',
+                  {
+                    requested: laneFallback.requestedLabel,
+                    fallback: laneFallback.fallbackLabel,
+                  },
+                  `${laneFallback.requestedLabel} has no direct inventory in the current provider snapshot. Showing ${laneFallback.fallbackLabel} instead so this lane does not dead-end.`
+                )}
               </p>
             </div>
           )}
@@ -535,10 +588,10 @@ const ProductListing = () => {
               ) : null}
               <div className="flex flex-wrap items-center justify-center gap-3">
                 <button className="btn-secondary" onClick={retryFetch}>
-                Retry Loading
+                  {t('listing.retryLoading', {}, 'Retry Loading')}
                 </button>
                 <button className="btn-secondary" onClick={resetScanParameters}>
-                  Reset filters
+                  {t('filters.reset', {}, 'Reset filters')}
                 </button>
               </div>
             </div>
@@ -550,9 +603,11 @@ const ProductListing = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
               </div>
-              <h3 className="text-2xl font-black text-white mb-2 tracking-tight">No matching products</h3>
+              <h3 className="text-2xl font-black text-white mb-2 tracking-tight">
+                {t('listing.emptyTitle', {}, 'No matching products')}
+              </h3>
               <p className="text-slate-400 mb-4 max-w-md mx-auto">
-                The current scan parameters eliminate every item in this lane. Clear filters or broaden the search to reopen the catalog.
+                {t('listing.emptyBody', {}, 'The current scan parameters eliminate every item in this lane. Clear filters or broaden the search to reopen the catalog.')}
               </p>
               {activeScanSignals.length > 0 && (
                 <div className="mb-8 flex flex-wrap justify-center gap-2 px-6">
@@ -568,10 +623,10 @@ const ProductListing = () => {
               )}
               <div className="flex flex-wrap items-center justify-center gap-3">
                 <button className="btn-secondary" onClick={resetScanParameters}>
-                  Reset filters
+                  {t('filters.reset', {}, 'Reset filters')}
                 </button>
                 <button className="btn-secondary" onClick={() => navigate('/search')}>
-                  Open broader search
+                  {t('listing.openBroaderSearch', {}, 'Open broader search')}
                 </button>
               </div>
             </div>
@@ -614,12 +669,12 @@ const ProductListing = () => {
                 onClick={() => handlePageChange(page - 1)}
                 className="flex items-center gap-2 text-slate-300 hover:text-white disabled:opacity-30 disabled:hover:text-slate-300 font-bold tracking-wider uppercase text-xs transition-colors p-2"
               >
-                <ChevronLeft className="w-5 h-5 text-neo-cyan" /> Prev
+                <ChevronLeft className="w-5 h-5 text-neo-cyan" /> {t('listing.prev', {}, 'Prev')}
               </button>
 
               <div className="flex items-center bg-zinc-950/50 rounded-lg px-4 py-2 border border-white/5">
                 <span className="text-sm font-bold text-slate-400 tracking-widest">
-                  PAGE <span className="text-white mx-1 text-base">{page}</span>
+                  {t('listing.page', {}, 'Page')} <span className="text-white mx-1 text-base">{page}</span>
                   <span className="text-slate-600 mx-2">/</span> {totalPages}
                 </span>
               </div>
@@ -629,7 +684,7 @@ const ProductListing = () => {
                 onClick={() => handlePageChange(page + 1)}
                 className="flex items-center gap-2 text-slate-300 hover:text-white disabled:opacity-30 disabled:hover:text-slate-300 font-bold tracking-wider uppercase text-xs transition-colors p-2"
               >
-                Next <ChevronRight className="w-5 h-5 text-neo-emerald" />
+                {t('listing.next', {}, 'Next')} <ChevronRight className="w-5 h-5 text-neo-emerald" />
               </button>
             </div>
           )}

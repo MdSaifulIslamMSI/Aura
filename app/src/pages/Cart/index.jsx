@@ -9,11 +9,12 @@ import { getDisplayAmount, getDisplayCurrency, getLineDisplayTotal, getOriginalD
 
 const Cart = () => {
   const { cartItems, removeFromCart, updateQuantity, totalPrice, totalOriginalPrice, totalDiscount, currency: cartCurrency, moveToWishlist, isLoading } = useContext(CartContext);
-  const { currency: marketCurrency } = useMarket();
+  const { currency: marketCurrency, t } = useMarket();
   const clearDirectBuy = useCommerceStore((state) => state.clearDirectBuy);
   const navigate = useNavigate();
 
   const formatPrice = (price, currency = cartCurrency || marketCurrency) => formatPriceValue(price, currency);
+  const cartItemLabel = t(cartItems.length === 1 ? 'cart.item' : 'cart.items', {}, cartItems.length === 1 ? 'item' : 'items');
 
   const handleMoveToWishlist = (productId) => {
     moveToWishlist(productId);
@@ -35,9 +36,9 @@ const Cart = () => {
             <div className="w-24 h-24 rounded-full bg-zinc-950/50 border border-white/10 flex items-center justify-center mx-auto mb-6 shadow-[0_0_30px_rgba(0,0,0,0.5)]">
               <div className="w-10 h-10 rounded-full border-4 border-neo-cyan/70 border-t-transparent animate-spin" />
             </div>
-            <h2 className="text-3xl font-black mb-4 text-white tracking-tight">Restoring Your Bag</h2>
+            <h2 className="text-3xl font-black mb-4 text-white tracking-tight">{t('cart.loadingTitle', {}, 'Restoring Your Bag')}</h2>
             <p className="text-slate-400 max-w-sm mx-auto font-medium">
-              Syncing your latest cart state before we render the checkout view.
+              {t('cart.loadingBody', {}, 'Syncing your latest cart state before we render the checkout view.')}
             </p>
           </div>
         </div>
@@ -59,12 +60,12 @@ const Cart = () => {
               <ShoppingBag className="w-10 h-10 text-slate-500 group-hover:text-neo-cyan transition-colors duration-300" />
             </div>
 
-            <h2 className="text-3xl font-black mb-4 text-white tracking-tight">Your Bag is Empty</h2>
+            <h2 className="text-3xl font-black mb-4 text-white tracking-tight">{t('cart.emptyTitle', {}, 'Your Bag is Empty')}</h2>
             <p className="text-slate-400 mb-8 max-w-sm mx-auto font-medium">
-              We couldn't find any items in your bag.
+              {t('cart.emptyBody', {}, "We couldn't find any items in your bag.")}
             </p>
             <Link to="/" className="btn-primary inline-flex items-center gap-2 px-10 py-3 shadow-[0_0_15px_rgba(6,182,212,0.3)]">
-              <Zap className="w-4 h-4 fill-white" /> Continue Shopping
+              <Zap className="w-4 h-4 fill-white" /> {t('cart.continueShopping', {}, 'Continue Shopping')}
             </Link>
           </div>
         </div>
@@ -83,7 +84,7 @@ const Cart = () => {
         <nav className="text-xs md:text-sm text-slate-500 font-bold uppercase tracking-widest mb-8 flex items-center flex-wrap gap-y-2">
           <Link to="/" className="hover:text-neo-cyan transition-colors">Aura</Link>
           <span className="mx-2 text-slate-700">/</span>
-          <span className="text-white">Shopping Bag</span>
+          <span className="text-white">{t('cart.breadcrumb', {}, 'Shopping Bag')}</span>
         </nav>
 
         <div className="flex flex-col xl:flex-row gap-8">
@@ -94,12 +95,12 @@ const Cart = () => {
               <div className="flex items-center justify-between p-6 border-b border-white/5 bg-zinc-950/50">
                 <h1 className="text-2xl font-black text-white tracking-tight flex items-center gap-3">
                   <ShoppingBag className="w-6 h-6 text-neo-cyan" />
-                  Your Bag
+                  {t('cart.title', {}, 'Your Bag')}
                   <span className="bg-neo-cyan/20 text-neo-cyan text-sm px-3 py-1 rounded-full border border-neo-cyan/30">
-                    {cartItems.length} {cartItems.length === 1 ? 'item' : 'items'}
+                    {cartItems.length} {cartItemLabel}
                   </span>
                 </h1>
-                <span className="text-slate-400 text-sm hidden md:block border border-white/10 px-4 py-1.5 rounded-full bg-white/5 font-medium">Link: Primary Local Node</span>
+                <span className="text-slate-400 text-sm hidden md:block border border-white/10 px-4 py-1.5 rounded-full bg-white/5 font-medium">{t('cart.nodeLabel', {}, 'Link: Primary Local Node')}</span>
               </div>
 
               {/* Items */}
@@ -141,7 +142,7 @@ const Cart = () => {
                         </span>
                         <span className="bg-neo-cyan/10 border border-neo-cyan/20 text-neo-cyan px-2 py-0.5 rounded text-xs font-black uppercase tracking-wider mb-0.5 flex items-center gap-1 shadow-[0_0_10px_rgba(6,182,212,0.1)]">
                           <Zap className="w-3 h-3 fill-neo-cyan" />
-                          {item.discountPercentage}% off
+                          {t('cart.discountOff', { count: item.discountPercentage }, '{{count}}% off')}
                         </span>
                       </div>
 
@@ -154,7 +155,7 @@ const Cart = () => {
                               type="button"
                               onClick={() => updateQuantity(item.id, item.quantity - 1)}
                               disabled={item.quantity <= 1}
-                              aria-label={`Decrease quantity for ${item.title}`}
+                              aria-label={t('cart.quantity.decrease', { title: item.title }, 'Decrease quantity for {{title}}')}
                               className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 text-slate-300 hover:text-white disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
                             >
                               <Minus className="w-4 h-4" />
@@ -166,7 +167,7 @@ const Cart = () => {
                               type="button"
                               onClick={() => updateQuantity(item.id, item.quantity + 1)}
                               disabled={item.quantity >= item.stock}
-                              aria-label={`Increase quantity for ${item.title}`}
+                              aria-label={t('cart.quantity.increase', { title: item.title }, 'Increase quantity for {{title}}')}
                               className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 text-slate-300 hover:text-white disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
                             >
                               <Plus className="w-4 h-4" />
@@ -181,7 +182,7 @@ const Cart = () => {
                             className="text-slate-400 hover:text-neo-fuchsia text-sm font-bold uppercase tracking-wider transition-colors flex items-center gap-2"
                           >
                             <Heart className="w-4 h-4" />
-                            Save
+                            {t('cart.action.save', {}, 'Save')}
                           </button>
                           <div className="w-px h-4 bg-white/10" />
                           <button
@@ -189,14 +190,14 @@ const Cart = () => {
                             className="text-slate-400 hover:text-neo-rose text-sm font-bold uppercase tracking-wider transition-colors flex items-center gap-2"
                           >
                             <Trash2 className="w-4 h-4" />
-                            Remove
+                            {t('cart.action.remove', {}, 'Remove')}
                           </button>
                         </div>
                       </div>
 
                       {/* Subtotal - Mobile */}
                       <div className="md:hidden mt-4 pt-4 border-t border-white/5 flex justify-between items-center">
-                        <span className="text-slate-400 text-sm font-medium">Subtotal</span>
+                        <span className="text-slate-400 text-sm font-medium">{t('cart.subtotal', {}, 'Subtotal')}</span>
                         <span className="font-black text-xl text-white tracking-tighter">{formatPrice(getLineDisplayTotal(item), getDisplayCurrency(item))}</span>
                       </div>
                     </div>
@@ -211,7 +212,7 @@ const Cart = () => {
                   className="text-neo-cyan hover:text-white font-bold tracking-widest uppercase text-sm flex items-center gap-2 group/link w-fit"
                 >
                   <ChevronRight className="w-4 h-4 rotate-180 group-hover/link:-translate-x-1 transition-transform" />
-                  Continue Shopping
+                  {t('cart.continueShopping', {}, 'Continue Shopping')}
                 </Link>
               </div>
             </div>
@@ -222,7 +223,7 @@ const Cart = () => {
             <div className="bg-white/5 border border-white/10 rounded-3xl shadow-glass sticky top-24 overflow-hidden">
               <div className="p-6 border-b border-white/5 bg-gradient-to-b from-neo-cyan/10 to-transparent">
                 <h2 className="font-black text-white uppercase tracking-widest flex items-center gap-2">
-                  Transaction Summary
+                  {t('cart.summary.title', {}, 'Transaction Summary')}
                 </h2>
               </div>
 
@@ -230,24 +231,26 @@ const Cart = () => {
                 {/* Price Breakdown */}
                 <div className="flex justify-between items-center text-sm font-medium">
                   <span className="text-slate-400">
-                    Subtotal ({cartItems.reduce((sum, item) => sum + item.quantity, 0)} items)
+                    {t('cart.summary.subtotalWithCount', {
+                      count: cartItems.reduce((sum, item) => sum + item.quantity, 0),
+                    }, 'Subtotal ({{count}} items)')}
                   </span>
                   <span className="text-slate-200">{formatPrice(totalOriginalPrice)}</span>
                 </div>
 
                 <div className="flex justify-between items-center text-sm font-medium">
-                  <span className="text-neo-cyan">Delta Offset</span>
+                  <span className="text-neo-cyan">{t('cart.summary.discount', {}, 'Delta Offset')}</span>
                   <span className="text-neo-cyan">- {formatPrice(totalDiscount)}</span>
                 </div>
 
                 <div className="flex justify-between items-center text-sm font-medium">
-                  <span className="text-slate-400">Shipping</span>
-                  <span className="bg-white/10 px-2 py-0.5 rounded text-white text-xs font-bold tracking-widest uppercase">FREE</span>
+                  <span className="text-slate-400">{t('cart.summary.shipping', {}, 'Shipping')}</span>
+                  <span className="bg-white/10 px-2 py-0.5 rounded text-white text-xs font-bold tracking-widest uppercase">{t('cart.summary.free', {}, 'FREE')}</span>
                 </div>
 
                 <div className="border-t border-white/10 pt-5 mt-5">
                   <div className="flex justify-between items-center">
-                    <span className="font-bold text-slate-300 uppercase tracking-wider text-sm">Net Value</span>
+                    <span className="font-bold text-slate-300 uppercase tracking-wider text-sm">{t('cart.summary.netValue', {}, 'Net Value')}</span>
                     <span className="font-black text-3xl tracking-tighter text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.2)]">{formatPrice(totalPrice)}</span>
                   </div>
                 </div>
@@ -255,14 +258,16 @@ const Cart = () => {
                 <div className="bg-neo-cyan/5 border border-neo-cyan/20 rounded-xl p-3 flex items-start gap-3 mt-4">
                   <Zap className="w-5 h-5 text-neo-cyan flex-shrink-0 mt-0.5" />
                   <p className="text-neo-cyan font-medium text-sm leading-relaxed">
-                    You are saving <span className="font-black">{formatPrice(totalDiscount)}</span> on this order.
+                    {t('cart.summary.savingPrefix', {}, 'You are saving')}{' '}
+                    <span className="font-black">{formatPrice(totalDiscount)}</span>
+                    {' '}{t('cart.summary.savingSuffix', {}, 'on this order.')}
                   </p>
                 </div>
 
                 {/* Secure Badge */}
                 <div className="flex items-center gap-3 justify-center text-xs font-bold uppercase tracking-widest text-slate-500 pt-4 pb-2">
                   <ShieldCheck className="w-5 h-5 text-neo-cyan/70" />
-                  <span>Secure Encrypted Checkout</span>
+                  <span>{t('cart.summary.secureCheckout', {}, 'Secure Encrypted Checkout')}</span>
                 </div>
 
                 {/* Checkout Button */}
@@ -271,7 +276,7 @@ const Cart = () => {
                   className="w-full btn-primary py-4 mt-2 flex items-center justify-center gap-2 text-sm tracking-widest shadow-[0_0_20px_rgba(217,70,239,0.3)] group/btn relative overflow-hidden"
                 >
                   <span className="relative z-10 flex items-center gap-2">
-                    Proceed to Checkout
+                    {t('cart.summary.proceed', {}, 'Proceed to Checkout')}
                     <ArrowRight className="w-5 h-5 group-hover/btn:translate-x-1 transition-transform" />
                   </span>
                   <div className="absolute inset-0 bg-gradient-to-r from-neo-cyan to-neo-fuchsia opacity-0 group-hover/btn:opacity-50 transition-opacity duration-300 pointer-events-none" />
