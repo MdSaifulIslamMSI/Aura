@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import PremiumSelect from '@/components/ui/premium-select';
 import { useMarket } from '@/context/MarketContext';
-import { adminApi } from '@/services/api';
+import { adminApi } from '@/services/api/adminApi';
 
 const INITIAL_FILTERS = {
     limit: '25',

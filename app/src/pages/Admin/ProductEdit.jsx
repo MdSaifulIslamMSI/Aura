@@ -5,7 +5,7 @@ import { ArrowLeft, Plus, Save, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import AdminPremiumShell from '@/components/shared/AdminPremiumShell';
 import { useMarket } from '@/context/MarketContext';
-import { adminApi } from '@/services/api';
+import { adminApi } from '@/services/api/adminApi';
 import { translateEnumLabel } from '@/utils/enumLocalization';
 import { formatPrice } from '@/utils/format';
 

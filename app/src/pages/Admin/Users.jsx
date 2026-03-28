@@ -4,7 +4,7 @@ import { AlertTriangle, Loader2, ShieldAlert, ShieldCheck, UserRound, UserX } fr
 import AdminPremiumShell, { AdminHeroStat, AdminPremiumPanel, AdminPremiumSubpanel } from '@/components/shared/AdminPremiumShell';
 import PremiumSelect from '@/components/ui/premium-select';
 import { useMarket } from '@/context/MarketContext';
-import { adminApi } from '@/services/api';
+import { adminApi } from '@/services/api/adminApi';
 
 const LIMIT = 25;
 

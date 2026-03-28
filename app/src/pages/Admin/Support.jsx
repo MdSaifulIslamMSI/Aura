@@ -13,7 +13,7 @@ import {
     WifiOff,
     X,
 } from 'lucide-react';
-import { supportApi } from '@/services/api';
+import { supportApi } from '@/services/api/supportApi';
 import { cn } from '@/lib/utils';
 import AdminPremiumShell from '@/components/shared/AdminPremiumShell';
 import PremiumSelect from '@/components/ui/premium-select';

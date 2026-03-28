@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import AdminPremiumShell, { AdminHeroStat } from '@/components/shared/AdminPremiumShell';
 import PremiumSelect from '@/components/ui/premium-select';
 import { useMarket } from '@/context/MarketContext';
-import { adminApi } from '@/services/api';
+import { adminApi } from '@/services/api/adminApi';
 import { formatPrice } from '@/utils/format';
 
 const STATUS_OPTIONS = ['', 'pending', 'approved', 'processed', 'rejected'];

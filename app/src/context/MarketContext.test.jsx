@@ -21,7 +21,7 @@ vi.mock('@/services/api/marketApi', () => ({
     readCachedBrowseFxRates: readCachedBrowseFxRatesMock,
 }));
 
-vi.mock('@/services/api', () => ({
+vi.mock('@/services/api/i18nApi', () => ({
     i18nApi: {
         translateTexts: translateTextsMock,
     },

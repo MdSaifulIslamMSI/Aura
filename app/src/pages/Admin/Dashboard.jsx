@@ -24,7 +24,7 @@ import AdminPremiumShell, { AdminHeroStat } from '@/components/shared/AdminPremi
 import { AuthContext } from '@/context/AuthContext';
 import { useMarket } from '@/context/MarketContext';
 import { useDynamicTranslations } from '@/hooks/useDynamicTranslations';
-import { adminApi } from '@/services/api';
+import { adminApi } from '@/services/api/adminApi';
 import { translateEnumLabel } from '@/utils/enumLocalization';
 import ClientDiagnosticsPanel from './ClientDiagnosticsPanel';
 

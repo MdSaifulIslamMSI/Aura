@@ -1,5 +1,5 @@
 import { useState, useEffect, useContext } from 'react';
-import { orderApi } from '@/services/api';
+import { orderApi } from '@/services/api/orderApi';
 import { AuthContext } from '@/context/AuthContext';
 import { formatPrice } from '@/utils/format';
 import { XCircle, CheckCircle, Loader2, RefreshCw } from 'lucide-react';
