@@ -10,8 +10,9 @@ import { cn } from '@/lib/utils';
 import { ArrowLeft, CheckCircle2, Layers, Loader2 } from 'lucide-react';
 import { loadRazorpayScript } from '@/utils/razorpay';
 import { detectLocationFromGps } from '@/utils/geolocation';
-import { formatPrice } from '@/utils/format';
-import { getDisplayAmount, getDisplayCurrency } from '@/utils/pricing';
+import { convertAmount, formatPrice } from '@/utils/format';
+import { BROWSE_BASE_CURRENCY } from '@/config/marketConfig';
+import { getBaseCurrency, getLineBaseTotal } from '@/utils/pricing';
 import StepAddress from './components/StepAddress';
 import StepDelivery from './components/StepDelivery';
 import StepPayment from './components/StepPayment';
@@ -109,11 +110,23 @@ const shouldAttemptProfileRecovery = (error) => {
     );
 };
 
-const getFallbackTotals = (items) => {
-    const itemsPrice = items.reduce((sum, item) => sum + (getDisplayAmount(item) * (Number(item.quantity) || 0)), 0);
+const getFallbackTotals = (items, presentmentCurrency = DEFAULT_MARKET.currency) => {
+    const totals = items.reduce((summary, item) => {
+        const itemBaseCurrency = getBaseCurrency(item);
+        const lineBaseTotal = getLineBaseTotal(item);
+
+        summary.itemsPrice += convertAmount(lineBaseTotal, itemBaseCurrency, presentmentCurrency);
+        summary.baseTotalPrice += convertAmount(lineBaseTotal, itemBaseCurrency, BROWSE_BASE_CURRENCY);
+        return summary;
+    }, {
+        itemsPrice: 0,
+        baseTotalPrice: 0,
+    });
+
     return {
-        itemsPrice,
-        totalPrice: itemsPrice,
+        itemsPrice: totals.itemsPrice,
+        totalPrice: totals.itemsPrice,
+        baseTotalPrice: totals.baseTotalPrice,
     };
 };
 
@@ -446,17 +459,20 @@ const Checkout = () => {
         };
     }, [draft.paymentContext?.netbanking?.bankName, netbankingCatalog?.banks, selectedNetbankingBankCode]);
 
-    const fallbackTotals = useMemo(() => getFallbackTotals(checkoutItems), [checkoutItems]);
+    const fallbackTotals = useMemo(
+        () => getFallbackTotals(checkoutItems, selectedMarketCurrency),
+        [checkoutItems, selectedMarketCurrency]
+    );
     const chargeQuote = useMemo(() => ({
         amount: Number(quote?.displayAmount ?? quote?.presentmentTotalPrice ?? fallbackTotals.totalPrice ?? 0),
         currency: quote?.displayCurrency || quote?.presentmentCurrency || selectedMarketCurrency || 'INR',
-        baseAmount: Number(quote?.baseAmount ?? quote?.totalPrice ?? fallbackTotals.totalPrice ?? 0),
-        baseCurrency: quote?.baseCurrency || quote?.settlementCurrency || 'INR',
+        baseAmount: Number(quote?.baseAmount ?? fallbackTotals.baseTotalPrice ?? 0),
+        baseCurrency: quote?.baseCurrency || quote?.settlementCurrency || BROWSE_BASE_CURRENCY,
         settlementAmount: Number(quote?.settlementAmount ?? quote?.totalPrice ?? fallbackTotals.totalPrice ?? 0),
-        settlementCurrency: quote?.settlementCurrency || 'INR',
+        settlementCurrency: quote?.settlementCurrency || selectedMarketCurrency || 'INR',
         fxRateLocked: Number(quote?.fxRateLocked || 1),
         fxTimestamp: quote?.fxTimestamp || '',
-    }), [fallbackTotals.totalPrice, quote, selectedMarketCurrency]);
+    }), [fallbackTotals.baseTotalPrice, fallbackTotals.totalPrice, quote, selectedMarketCurrency]);
 
     const canQuote = useMemo(
         () => checkoutItems.length > 0 && isAddressValid(draft.shippingAddress),
@@ -1291,8 +1307,9 @@ const Checkout = () => {
 
             <div className="checkout-premium-content container-custom py-8 space-y-8">
                 <section className="checkout-premium-hero">
-                    <div className="grid gap-8 xl:grid-cols-[minmax(0,1.3fr)_minmax(18rem,0.7fr)] xl:items-end">
-                        <div>
+                    <div className="absolute inset-x-8 top-0 h-24 rounded-b-[2rem] bg-gradient-to-r from-white/6 via-transparent to-white/4 blur-2xl pointer-events-none" />
+                    <div className="grid gap-8 xl:grid-cols-[minmax(0,1.1fr)_minmax(21rem,0.9fr)] xl:items-start">
+                        <div className="max-w-3xl">
                             <span className="premium-eyebrow">{t('checkout.heroEyebrow', {}, 'Aura Secure Checkout')}</span>
                             <h1 className="mt-5 text-3xl font-black tracking-tight text-white md:text-5xl">{t('checkout.heroTitle', {}, 'Finish with the same premium precision as the storefront.')}</h1>
                             <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-300 md:text-base">
@@ -1304,8 +1321,8 @@ const Checkout = () => {
                                 <span className="premium-chip-muted">{t('checkout.paymentRail', { method: draft.paymentMethod }, `${draft.paymentMethod} payment rail`)}</span>
                             </div>
                         </div>
-                        <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
-                            <div className="checkout-premium-surface">
+                        <div className="grid gap-3 self-start md:grid-cols-3 xl:grid-cols-2 xl:grid-rows-[auto_auto]">
+                            <div className="checkout-premium-surface border border-white/10 bg-white/[0.055] xl:col-span-2">
                                 <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">{t('checkout.currentTotal', {}, 'Current total')}</p>
                                 <p className="mt-3 text-3xl font-black tracking-tight text-white">{formatPrice(chargeQuote.amount, chargeQuote.currency)}</p>
                                 <p className="mt-2 text-xs text-slate-400">
@@ -1316,12 +1333,12 @@ const Checkout = () => {
                                         : t('checkout.backendValidated', {}, 'Backend validated before capture.')}
                                 </p>
                             </div>
-                            <div className="checkout-premium-surface">
+                            <div className="checkout-premium-surface border border-white/10 bg-white/[0.04]">
                                 <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">{t('checkout.deliveryMode', {}, 'Delivery mode')}</p>
                                 <p className="mt-3 text-xl font-black text-white capitalize">{draft.deliveryOption}</p>
                                 <p className="mt-2 text-xs text-slate-400">{draft.deliverySlot.window || t('checkout.choosePreferredWindow', {}, 'Choose your preferred window.')}</p>
                             </div>
-                            <div className="checkout-premium-surface">
+                            <div className="checkout-premium-surface border border-white/10 bg-white/[0.04]">
                                 <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">{t('checkout.sessionTrust', {}, 'Session trust')}</p>
                                 <p className="mt-3 text-xl font-black text-white">{draft.paymentMethod === 'COD' ? t('checkout.protectedOrderHold', {}, 'Protected order hold') : t('checkout.challengeReadyPayment', {}, 'Challenge-ready payment')}</p>
                                 <p className="mt-2 text-xs text-slate-400">{t('checkout.sessionTrustBody', {}, 'Fraud checks, quote locks, and OTP controls stay active.')}</p>

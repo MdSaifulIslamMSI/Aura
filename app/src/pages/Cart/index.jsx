@@ -1,20 +1,33 @@
-import { useContext } from 'react';
+import { useContext, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Trash2, Plus, Minus, ShoppingBag, Heart, ArrowRight, ShieldCheck, Zap, ChevronRight } from 'lucide-react';
 import { CartContext } from '@/context/CartContext';
 import { useMarket } from '@/context/MarketContext';
 import { useCommerceStore } from '@/store/commerceStore';
-import { formatPrice as formatPriceValue } from '@/utils/format';
-import { getDisplayAmount, getDisplayCurrency, getLineDisplayTotal, getOriginalDisplayAmount } from '@/utils/pricing';
+import { convertAmount } from '@/utils/format';
+import { BROWSE_BASE_CURRENCY } from '@/config/marketConfig';
+import { getBaseCurrency, getLineBaseTotal, getLineOriginalBaseTotal } from '@/utils/pricing';
 
 const Cart = () => {
-  const { cartItems, removeFromCart, updateQuantity, totalPrice, totalOriginalPrice, totalDiscount, currency: cartCurrency, moveToWishlist, isLoading } = useContext(CartContext);
-  const { currency: marketCurrency, t } = useMarket();
+  const { cartItems, removeFromCart, updateQuantity, moveToWishlist, isLoading } = useContext(CartContext);
+  const { t, formatPrice } = useMarket();
   const clearDirectBuy = useCommerceStore((state) => state.clearDirectBuy);
   const navigate = useNavigate();
 
-  const formatPrice = (price, currency = cartCurrency || marketCurrency) => formatPriceValue(price, currency);
   const cartItemLabel = t(cartItems.length === 1 ? 'cart.item' : 'cart.items', {}, cartItems.length === 1 ? 'item' : 'items');
+  const browseSummary = useMemo(() => cartItems.reduce((summary, item) => {
+    const itemBaseCurrency = getBaseCurrency(item);
+    const lineTotal = getLineBaseTotal(item);
+    const lineOriginalTotal = Math.max(lineTotal, getLineOriginalBaseTotal(item));
+
+    summary.totalPrice += convertAmount(lineTotal, itemBaseCurrency, BROWSE_BASE_CURRENCY);
+    summary.totalOriginalPrice += convertAmount(lineOriginalTotal, itemBaseCurrency, BROWSE_BASE_CURRENCY);
+    return summary;
+  }, {
+    totalPrice: 0,
+    totalOriginalPrice: 0,
+  }), [cartItems]);
+  const browseDiscount = Math.max(0, browseSummary.totalOriginalPrice - browseSummary.totalPrice);
 
   const handleMoveToWishlist = (productId) => {
     moveToWishlist(productId);
@@ -128,7 +141,9 @@ const Cart = () => {
                         </Link>
                         {/* Subtotal - Desktop */}
                         <div className="hidden md:block text-right flex-shrink-0">
-                          <p className="font-black text-2xl tracking-tighter text-white drop-shadow-md">{formatPrice(getLineDisplayTotal(item), getDisplayCurrency(item))}</p>
+                          <p className="font-black text-2xl tracking-tighter text-white drop-shadow-md">
+                            {formatPrice(getLineBaseTotal(item), undefined, undefined, { baseCurrency: getBaseCurrency(item) })}
+                          </p>
                         </div>
                       </div>
 
@@ -136,9 +151,11 @@ const Cart = () => {
 
                       {/* Price */}
                       <div className="flex items-end gap-3 mb-4 flex-wrap">
-                        <span className="font-black text-xl text-white tracking-tight">{formatPrice(getDisplayAmount(item), getDisplayCurrency(item))}</span>
+                        <span className="font-black text-xl text-white tracking-tight">
+                          {formatPrice(getLineBaseTotal({ ...item, quantity: 1 }), undefined, undefined, { baseCurrency: getBaseCurrency(item) })}
+                        </span>
                         <span className="text-slate-500 font-medium line-through text-xs mb-1">
-                          {formatPrice(getOriginalDisplayAmount(item), getDisplayCurrency(item))}
+                          {formatPrice(getLineOriginalBaseTotal({ ...item, quantity: 1 }), undefined, undefined, { baseCurrency: getBaseCurrency(item) })}
                         </span>
                         <span className="bg-neo-cyan/10 border border-neo-cyan/20 text-neo-cyan px-2 py-0.5 rounded text-xs font-black uppercase tracking-wider mb-0.5 flex items-center gap-1 shadow-[0_0_10px_rgba(6,182,212,0.1)]">
                           <Zap className="w-3 h-3 fill-neo-cyan" />
@@ -198,7 +215,9 @@ const Cart = () => {
                       {/* Subtotal - Mobile */}
                       <div className="md:hidden mt-4 pt-4 border-t border-white/5 flex justify-between items-center">
                         <span className="text-slate-400 text-sm font-medium">{t('cart.subtotal', {}, 'Subtotal')}</span>
-                        <span className="font-black text-xl text-white tracking-tighter">{formatPrice(getLineDisplayTotal(item), getDisplayCurrency(item))}</span>
+                        <span className="font-black text-xl text-white tracking-tighter">
+                          {formatPrice(getLineBaseTotal(item), undefined, undefined, { baseCurrency: getBaseCurrency(item) })}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -235,12 +254,16 @@ const Cart = () => {
                       count: cartItems.reduce((sum, item) => sum + item.quantity, 0),
                     }, 'Subtotal ({{count}} items)')}
                   </span>
-                  <span className="text-slate-200">{formatPrice(totalOriginalPrice)}</span>
+                  <span className="text-slate-200">
+                    {formatPrice(browseSummary.totalOriginalPrice, undefined, undefined, { baseCurrency: BROWSE_BASE_CURRENCY })}
+                  </span>
                 </div>
 
                 <div className="flex justify-between items-center text-sm font-medium">
                   <span className="text-neo-cyan">{t('cart.summary.discount', {}, 'Delta Offset')}</span>
-                  <span className="text-neo-cyan">- {formatPrice(totalDiscount)}</span>
+                  <span className="text-neo-cyan">
+                    - {formatPrice(browseDiscount, undefined, undefined, { baseCurrency: BROWSE_BASE_CURRENCY })}
+                  </span>
                 </div>
 
                 <div className="flex justify-between items-center text-sm font-medium">
@@ -251,7 +274,9 @@ const Cart = () => {
                 <div className="border-t border-white/10 pt-5 mt-5">
                   <div className="flex justify-between items-center">
                     <span className="font-bold text-slate-300 uppercase tracking-wider text-sm">{t('cart.summary.netValue', {}, 'Net Value')}</span>
-                    <span className="font-black text-3xl tracking-tighter text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.2)]">{formatPrice(totalPrice)}</span>
+                    <span className="font-black text-3xl tracking-tighter text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.2)]">
+                      {formatPrice(browseSummary.totalPrice, undefined, undefined, { baseCurrency: BROWSE_BASE_CURRENCY })}
+                    </span>
                   </div>
                 </div>
 
@@ -259,7 +284,9 @@ const Cart = () => {
                   <Zap className="w-5 h-5 text-neo-cyan flex-shrink-0 mt-0.5" />
                   <p className="text-neo-cyan font-medium text-sm leading-relaxed">
                     {t('cart.summary.savingPrefix', {}, 'You are saving')}{' '}
-                    <span className="font-black">{formatPrice(totalDiscount)}</span>
+                    <span className="font-black">
+                      {formatPrice(browseDiscount, undefined, undefined, { baseCurrency: BROWSE_BASE_CURRENCY })}
+                    </span>
                     {' '}{t('cart.summary.savingSuffix', {}, 'on this order.')}
                   </p>
                 </div>

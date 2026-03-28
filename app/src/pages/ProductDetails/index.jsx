@@ -16,8 +16,8 @@ import { useDynamicTranslations } from '@/hooks/useDynamicTranslations';
 import { cn } from '@/lib/utils';
 import { buildLifecycleIntelligence, buildProductTrustGraph } from '@/utils/commerceIntelligence';
 import { pushRecentlyViewed } from '@/utils/recentlyViewed';
-import { formatPrice as formatPriceValue } from '@/utils/format';
-import { getDisplayAmount, getDisplayCurrency, getOriginalDisplayAmount } from '@/utils/pricing';
+import { convertAmount } from '@/utils/format';
+import { getBaseAmount, getBaseCurrency, getOriginalBaseAmount } from '@/utils/pricing';
 
 const DEFAULT_REVIEWS_SUMMARY = {
   averageRating: 0,
@@ -35,7 +35,7 @@ const ProductDetails = () => {
   const cartContext = useContext(CartContext);
   const wishlistContext = useContext(WishlistContext);
   const authContext = useContext(AuthContext);
-  const { t, formatDateTime } = useMarket();
+  const { t, formatDateTime, formatPrice, currency: marketCurrency } = useMarket();
 
   const addToCart = cartContext?.addToCart || (() => console.warn('addToCart missing'));
   const cartItems = cartContext?.cartItems || [];
@@ -268,8 +268,13 @@ const ProductDetails = () => {
     return () => { active = false; };
   }, [product?.id, product?._id]);
 
-  // All visible product pricing should follow the backend-authored display currency.
-  const formatDisplayPrice = (price, currency = getDisplayCurrency(product)) => formatPriceValue(price, currency);
+  const formatMarketPrice = useCallback((amount, baseCurrency = getBaseCurrency(product)) => (
+    formatPrice(amount, undefined, undefined, { baseCurrency })
+  ), [formatPrice, product]);
+
+  const convertToMarketAmount = useCallback((amount, baseCurrency = getBaseCurrency(product)) => (
+    convertAmount(amount, baseCurrency, marketCurrency)
+  ), [marketCurrency, product]);
 
   // Handlers
   const handleAddToCart = () => {
@@ -316,14 +321,23 @@ const ProductDetails = () => {
 
   const handleOpenBundleBuilder = () => {
     const theme = `${product?.category || product?.brand || 'smart essentials'}`.toLowerCase();
-    const budget = Math.max(5000, Math.min(200000, Math.round((getDisplayAmount(product) || 15000) * 2.5)));
+    const budget = Math.max(
+      5000,
+      Math.min(
+        200000,
+        Math.round(convertToMarketAmount(getBaseAmount(product) || 15000, getBaseCurrency(product)) * 2.5)
+      )
+    );
     navigate(`/bundles?theme=${encodeURIComponent(theme)}&budget=${budget}`);
   };
 
   const handleOpenMissionControl = () => {
     const params = new URLSearchParams();
     params.set('goal', `${product?.brand || ''} ${product?.title || product?.category || 'upgrade'}`.trim());
-    params.set('budget', String(Math.max(5000, Math.round((getDisplayAmount(product) || 15000) * 2))));
+    params.set(
+      'budget',
+      String(Math.max(5000, Math.round(convertToMarketAmount(getBaseAmount(product) || 15000, getBaseCurrency(product)) * 2)))
+    );
     if (product?.category) {
       params.set('category', String(product.category));
     }
@@ -343,11 +357,12 @@ const ProductDetails = () => {
     setLifecycleError('');
 
     try {
-      const suggestedTarget = Math.max(1, Math.round((getDisplayAmount(product) || 0) * 0.92));
+      const suggestedTarget = Math.max(1, Math.round((getBaseAmount(product) || 0) * 0.92));
+      const formattedTargetPrice = formatMarketPrice(suggestedTarget, getBaseCurrency(product));
       const response = await priceAlertApi.create(productIdentifier, suggestedTarget);
       setLifecycleNotice(response?.message || t('productPage.priceAlertArmed', {
-        price: formatDisplayPrice(suggestedTarget, getDisplayCurrency(product)),
-      }, `Price alert armed at ${formatDisplayPrice(suggestedTarget, getDisplayCurrency(product))}.`));
+        price: formattedTargetPrice,
+      }, `Price alert armed at ${formattedTargetPrice}.`));
     } catch (error) {
       setLifecycleError(error.message || t('productPage.error.priceAlert', {}, 'Unable to create price alert right now.'));
     }
@@ -537,9 +552,9 @@ const ProductDetails = () => {
     category = 'General',
     subCategory = ''
   } = resolvedProduct;
-  const displayCurrency = getDisplayCurrency(resolvedProduct);
-  const displayPrice = getDisplayAmount(resolvedProduct);
-  const displayOriginalPrice = getOriginalDisplayAmount(resolvedProduct);
+  const priceCurrency = getBaseCurrency(resolvedProduct);
+  const priceValue = getBaseAmount(resolvedProduct);
+  const originalPriceValue = getOriginalBaseAmount(resolvedProduct);
   const heroTitle = displayTitle || title;
   const heroSubtitle = subtitle || subCategory || category;
   const trustGraph = useMemo(
@@ -756,10 +771,10 @@ const ProductDetails = () => {
           <span className="text-white truncate max-w-[200px] md:max-w-md">{translatedHeroTitle}</span>
         </nav>
 
-        <div className="grid min-w-0 gap-6 lg:grid-cols-12 lg:gap-12">
+        <div className="grid min-w-0 gap-6 lg:grid-cols-12 lg:items-start lg:gap-12">
           {/* Left Column: Image & Buttons */}
-          <div className="flex min-w-0 flex-col gap-4 sm:gap-6 lg:col-span-5">
-            <div className="group relative min-w-0 overflow-hidden rounded-[1.75rem] border border-white/10 bg-white/[0.045] p-4 shadow-glass sm:rounded-3xl sm:p-6 lg:sticky lg:top-24">
+          <div className="flex min-w-0 flex-col gap-4 sm:gap-6 lg:col-span-5 lg:sticky lg:top-28 lg:self-start">
+            <div className="group relative min-w-0 overflow-hidden rounded-[1.75rem] border border-white/10 bg-white/[0.045] p-4 shadow-glass sm:rounded-3xl sm:p-6">
               <div className="absolute inset-0 bg-gradient-to-tr from-neo-cyan/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
 
               <div className="relative flex min-w-0 aspect-square items-center justify-center p-2 sm:p-4">
@@ -887,11 +902,11 @@ const ProductDetails = () => {
 
                 <div className="mb-6 flex flex-wrap items-end gap-3 rounded-2xl border border-white/5 bg-zinc-950/50 p-4 shadow-inner sm:gap-4 sm:p-6">
                   <span className="text-4xl font-black tracking-tighter text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.2)] sm:text-5xl">
-                    {formatDisplayPrice(displayPrice, displayCurrency)}
+                    {formatMarketPrice(priceValue, priceCurrency)}
                   </span>
                   <div className="flex flex-col pb-1">
                     <span className="text-slate-500 line-through text-lg font-medium tracking-wide">
-                      {formatDisplayPrice(displayOriginalPrice, displayCurrency)}
+                      {formatMarketPrice(originalPriceValue, priceCurrency)}
                     </span>
                     <span className="text-neo-cyan font-black uppercase tracking-wider text-sm flex items-center gap-1">
                       <Zap className="w-3 h-3 fill-neo-cyan" /> {t('product.off', {}, '% off').replace('%', String(discountPercentage))}
@@ -1043,13 +1058,13 @@ const ProductDetails = () => {
                         <p className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-400">
                           {t('productPage.tradeInEstimate', {}, 'Trade-in estimate')}
                         </p>
-                        <p className="mt-2 text-2xl font-black text-white">{formatDisplayPrice(translatedLifecycleIntelligence.tradeInEstimate, displayCurrency)}</p>
+                        <p className="mt-2 text-2xl font-black text-white">{formatMarketPrice(translatedLifecycleIntelligence.tradeInEstimate, priceCurrency)}</p>
                       </div>
                       <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-3">
                         <p className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-400">
                           {t('productPage.expectedNinetyDaySlide', {}, 'Expected 90-day slide')}
                         </p>
-                        <p className="mt-2 text-2xl font-black text-white">{formatDisplayPrice(translatedLifecycleIntelligence.ninetyDayDepreciation, displayCurrency)}</p>
+                        <p className="mt-2 text-2xl font-black text-white">{formatMarketPrice(translatedLifecycleIntelligence.ninetyDayDepreciation, priceCurrency)}</p>
                       </div>
                     </div>
                     <div className="mt-4 rounded-xl border border-emerald-400/20 bg-emerald-500/10 p-3">
@@ -1058,10 +1073,10 @@ const ProductDetails = () => {
                         {t(
                           'productPage.resaleBand',
                           {
-                            low: formatDisplayPrice(translatedLifecycleIntelligence.resaleLow, displayCurrency),
-                            high: formatDisplayPrice(translatedLifecycleIntelligence.resaleHigh, displayCurrency),
+                            low: formatMarketPrice(translatedLifecycleIntelligence.resaleLow, priceCurrency),
+                            high: formatMarketPrice(translatedLifecycleIntelligence.resaleHigh, priceCurrency),
                           },
-                          `Resale band ${formatDisplayPrice(translatedLifecycleIntelligence.resaleLow, displayCurrency)} - ${formatDisplayPrice(translatedLifecycleIntelligence.resaleHigh, displayCurrency)}`
+                          `Resale band ${formatMarketPrice(translatedLifecycleIntelligence.resaleLow, priceCurrency)} - ${formatMarketPrice(translatedLifecycleIntelligence.resaleHigh, priceCurrency)}`
                         )}
                       </p>
                     </div>
