@@ -14,7 +14,7 @@ describe('useDynamicTranslations helpers', () => {
     beforeEach(async () => {
         translateTextsMock.mockClear();
         vi.resetModules();
-        vi.doMock('@/services/api', () => ({
+        vi.doMock('@/services/api/i18nApi', () => ({
             i18nApi: {
                 translateTexts: translateTextsMock,
             },

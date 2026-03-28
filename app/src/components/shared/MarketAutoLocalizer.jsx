@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useMarket } from '@/context/MarketContext';
-import { i18nApi } from '@/services/api';
+import { i18nApi } from '@/services/api/i18nApi';
 
 const BLOCKED_TAGS = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'CODE', 'PRE']);
 const ATTRIBUTE_NAMES = ['placeholder', 'title', 'aria-label', 'aria-description', 'alt'];

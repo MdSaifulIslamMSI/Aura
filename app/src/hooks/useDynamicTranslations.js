@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useMarket } from '@/context/MarketContext';
-import { i18nApi } from '@/services/api';
+import { i18nApi } from '@/services/api/i18nApi';
 
 const translationCache = new Map();
 
