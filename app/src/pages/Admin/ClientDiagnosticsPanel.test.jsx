@@ -2,9 +2,9 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MarketProvider } from '@/context/MarketContext';
 import ClientDiagnosticsPanel from './ClientDiagnosticsPanel';
-import { adminApi } from '@/services/api';
+import { adminApi } from '@/services/api/adminApi';
 
-vi.mock('@/services/api', async (importOriginal) => {
+vi.mock('@/services/api/adminApi', async (importOriginal) => {
     const actual = await importOriginal();
     return {
         ...actual,

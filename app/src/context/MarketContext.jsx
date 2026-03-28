@@ -16,7 +16,7 @@ import {
   normalizeMarketPreference,
   resolveLocaleForSelection,
 } from '@/config/marketConfig';
-import { i18nApi } from '@/services/api';
+import { i18nApi } from '@/services/api/i18nApi';
 import {
   formatDateTime as formatDateTimeUtil,
   formatNumber as formatNumberUtil,

@@ -2,7 +2,7 @@ import { act, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import AdminSupport from './Support';
-import { supportApi } from '@/services/api';
+import { supportApi } from '@/services/api/supportApi';
 import { ColorModeProvider } from '@/context/ColorModeContext';
 import { MarketProvider } from '@/context/MarketContext';
 
@@ -29,7 +29,7 @@ const emitSocket = async (eventName, payload) => {
     });
 };
 
-vi.mock('@/services/api', async (importOriginal) => {
+vi.mock('@/services/api/supportApi', async (importOriginal) => {
     const actual = await importOriginal();
     return {
         ...actual,

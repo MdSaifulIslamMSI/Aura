@@ -5,7 +5,7 @@ import { Boxes, Edit, Layers3, Plus, Search, Trash2 } from 'lucide-react';
 import AdminPremiumShell, { AdminHeroStat, AdminPremiumPanel } from '@/components/shared/AdminPremiumShell';
 import PremiumSelect from '@/components/ui/premium-select';
 import { useMarket } from '@/context/MarketContext';
-import { adminApi } from '@/services/api';
+import { adminApi } from '@/services/api/adminApi';
 import { formatPrice } from '@/utils/format';
 
 const DEFAULT_FILTERS = {

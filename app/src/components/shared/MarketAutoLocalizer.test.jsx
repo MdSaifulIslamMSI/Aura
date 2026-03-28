@@ -11,7 +11,7 @@ const { translateTextsMock, getBrowseFxRatesMock, readCachedBrowseFxRatesMock } 
     readCachedBrowseFxRatesMock: vi.fn(),
 }));
 
-vi.mock('@/services/api', () => ({
+vi.mock('@/services/api/i18nApi', () => ({
     i18nApi: {
         translateTexts: translateTextsMock,
     },
