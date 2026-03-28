@@ -36,6 +36,12 @@ const PAYMENT_SECURITY_CONFIRM_LOCK_MINUTES = parseBoundedInt(
     { min: 1, max: 240 }
 );
 
+const PAYMENT_ORDER_CLAIM_LOCK_MINUTES = parseBoundedInt(
+    process.env.PAYMENT_ORDER_CLAIM_LOCK_MINUTES,
+    5,
+    { min: 1, max: 240 }
+);
+
 const PAYMENT_STATUSES = {
     CREATED: 'created',
     CHALLENGE_PENDING: 'challenge_pending',
@@ -57,5 +63,6 @@ module.exports = {
     PAYMENT_SECURITY_MAX_CONFIRM_ATTEMPTS,
     PAYMENT_SECURITY_MAX_CONFIRM_FAILURES,
     PAYMENT_SECURITY_CONFIRM_LOCK_MINUTES,
+    PAYMENT_ORDER_CLAIM_LOCK_MINUTES,
     PAYMENT_STATUSES,
 };
