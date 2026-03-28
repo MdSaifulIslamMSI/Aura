@@ -3,8 +3,7 @@ import { ArrowUpRight, ShoppingCart, Star } from 'lucide-react';
 import { useMarket } from '@/context/MarketContext';
 import { useDynamicTranslations } from '@/hooks/useDynamicTranslations';
 import { cn } from '@/lib/utils';
-import { formatPrice } from '@/utils/format';
-import { getDisplayAmount, getDisplayCurrency, getOriginalDisplayAmount } from '@/utils/pricing';
+import { getBaseAmount, getBaseCurrency, getOriginalBaseAmount } from '@/utils/pricing';
 
 const ProductCardInline = ({
     product,
@@ -14,7 +13,7 @@ const ProductCardInline = ({
     onAddToCart,
     onViewDetails,
 }) => {
-    const { t } = useMarket();
+    const { t, formatPrice } = useMarket();
     const cardClassName = isWhiteMode
         ? 'border-slate-200 bg-white text-slate-950'
         : 'border-white/10 bg-white/[0.04] text-slate-100';
@@ -25,9 +24,9 @@ const ProductCardInline = ({
     const primaryButtonClass = isWhiteMode
         ? 'border-slate-950 bg-slate-950 text-white hover:bg-slate-800'
         : 'border-cyan-400/30 bg-cyan-400/10 text-cyan-100 hover:bg-cyan-400/15';
-    const priceAmount = getDisplayAmount(product);
-    const priceCurrency = getDisplayCurrency(product);
-    const originalPriceAmount = getOriginalDisplayAmount(product);
+    const priceAmount = getBaseAmount(product);
+    const priceCurrency = getBaseCurrency(product);
+    const originalPriceAmount = getOriginalBaseAmount(product);
     const productTitle = product?.displayTitle || product?.title || '';
     const dynamicTexts = useMemo(() => [productTitle], [productTitle]);
     const { translateText } = useDynamicTranslations(dynamicTexts);
@@ -67,11 +66,11 @@ const ProductCardInline = ({
 
                     <div className="mt-3 flex flex-wrap items-center gap-2">
                         <span className="text-sm font-black text-emerald-500">
-                            {formatPrice(priceAmount, priceCurrency)}
+                            {formatPrice(priceAmount, undefined, undefined, { baseCurrency: priceCurrency })}
                         </span>
                         {originalPriceAmount > priceAmount ? (
                             <span className={cn('text-xs line-through', mutedTextClass)}>
-                                {formatPrice(originalPriceAmount, priceCurrency)}
+                                {formatPrice(originalPriceAmount, undefined, undefined, { baseCurrency: priceCurrency })}
                             </span>
                         ) : null}
                     </div>
