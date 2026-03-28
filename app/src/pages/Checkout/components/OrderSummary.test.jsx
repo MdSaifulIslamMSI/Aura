@@ -5,6 +5,17 @@ import OrderSummary from './OrderSummary';
 
 const noop = vi.fn();
 
+vi.mock('@/services/api/marketApi', () => ({
+    marketApi: {
+        getBrowseFxRates: vi.fn().mockResolvedValue({
+            baseCurrency: 'INR',
+            rates: { INR: 1, USD: 0.02 },
+            stale: false,
+        }),
+    },
+    readCachedBrowseFxRates: vi.fn(() => null),
+}));
+
 describe('OrderSummary', () => {
     it('shows the locked checkout charge currency from the backend quote', () => {
         render(
