@@ -12,6 +12,17 @@ const REQUEST_SIGNATURE_PATTERN = /^(GET|POST|PUT|PATCH|DELETE|OPTIONS|HEAD)\s+\
 const CODE_TOKEN_PATTERN = /^(?:[A-Z]{2,}[A-Z0-9.+-]*|\d+[A-Za-z][A-Za-z0-9.+-]*|[A-Za-z]+-\d+[A-Za-z0-9.+-]*)$/;
 const DIGIT_PATTERN = /\d/;
 
+const areTranslationMapsEqual = (left = {}, right = {}) => {
+    const leftKeys = Object.keys(left);
+    const rightKeys = Object.keys(right);
+
+    if (leftKeys.length !== rightKeys.length) {
+        return false;
+    }
+
+    return leftKeys.every((key) => left[key] === right[key]);
+};
+
 const isLikelyDynamicIdentifier = (normalized = '') => {
     if (!normalized) return false;
     if (IDENTIFIER_ONLY_PATTERN.test(normalized)) return true;
@@ -97,7 +108,8 @@ export const translateDynamicTextBatch = async ({
 };
 
 export const useDynamicTranslations = (values = [], { enabled = true } = {}) => {
-    const { language } = useMarket();
+    const market = useMarket();
+    const language = market?.languageConfig?.code || market?.languageCode || market?.language || 'en';
 
     const translatableTexts = useMemo(
         () => (enabled ? collectDynamicTranslationTexts(values) : []),
@@ -108,7 +120,9 @@ export const useDynamicTranslations = (values = [], { enabled = true } = {}) => 
 
     useEffect(() => {
         if (!enabled || language === 'en' || translatableTexts.length === 0) {
-            setTranslations({});
+            setTranslations((currentTranslations) => (
+                Object.keys(currentTranslations).length === 0 ? currentTranslations : {}
+            ));
             return undefined;
         }
 
@@ -118,11 +132,9 @@ export const useDynamicTranslations = (values = [], { enabled = true } = {}) => 
                 .filter(([, value]) => Boolean(value))
         );
 
-        if (Object.keys(cachedEntries).length > 0) {
-            setTranslations(cachedEntries);
-        } else {
-            setTranslations({});
-        }
+        setTranslations((currentTranslations) => (
+            areTranslationMapsEqual(currentTranslations, cachedEntries) ? currentTranslations : cachedEntries
+        ));
 
         let cancelled = false;
 
@@ -131,14 +143,18 @@ export const useDynamicTranslations = (values = [], { enabled = true } = {}) => 
             language,
         }).then((nextTranslations) => {
             if (!cancelled) {
-                setTranslations(nextTranslations);
+                setTranslations((currentTranslations) => (
+                    areTranslationMapsEqual(currentTranslations, nextTranslations)
+                        ? currentTranslations
+                        : nextTranslations
+                ));
             }
         });
 
         return () => {
             cancelled = true;
         };
-    }, [enabled, language, signature, translatableTexts]);
+    }, [enabled, language, signature]);
 
     const translateText = useCallback((value = '') => {
         const sourceText = String(value || '');
