@@ -2,10 +2,12 @@
 
 ## Target Topology
 - `app/` stays static and can be served by Vercel.
-- `server/` runs as a long-lived Node process with:
+- `server/` is deployed as two long-lived Node processes that share MongoDB and Redis:
+  - API process for HTTP, sockets, uploads, and health endpoints
+  - Worker process for payment capture, order email, catalog sync, reconciliation, and maintenance jobs
+- The shared backend runtime requires:
   - MongoDB replica set connectivity
   - Redis enabled and required
-  - in-process workers for payment capture, order email, catalog sync, and reconciliation
 - The repo includes an Azure Container Apps deployment path under [`docs/azure-github-actions-backend.md`](./azure-github-actions-backend.md) and the scripts in [`infra/azure`](../infra/azure).
 
 ## Local Bootstrap
@@ -18,7 +20,7 @@
 The compose stack lives in [`docker-compose.split-runtime.yml`](../docker-compose.split-runtime.yml) and provisions:
 - a single-node Mongo replica set
 - Redis
-- the long-lived backend container
+- the long-lived backend API container
 
 ## Environment Rules
 - `SPLIT_RUNTIME_ENABLED=true`
