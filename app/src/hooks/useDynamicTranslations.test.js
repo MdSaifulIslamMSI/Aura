@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { translateTextsMock } = vi.hoisted(() => ({
@@ -12,28 +12,33 @@ let shouldTranslateDynamicText;
 let translateDynamicTextBatch;
 let useDynamicTranslations;
 
+const loadHookModule = async () => {
+    vi.resetModules();
+    vi.doMock('@/services/api/i18nApi', () => ({
+        i18nApi: {
+            translateTexts: translateTextsMock,
+        },
+    }));
+    vi.doMock('@/context/MarketContext', () => ({
+        useMarket: () => ({
+            languageCode: 'zz-cache-test',
+            languageConfig: { code: 'zz-cache-test' },
+        }),
+    }));
+
+    return import('./useDynamicTranslations');
+};
+
 describe('useDynamicTranslations helpers', () => {
     beforeEach(async () => {
         translateTextsMock.mockClear();
-        vi.resetModules();
-        vi.doMock('@/services/api/i18nApi', () => ({
-            i18nApi: {
-                translateTexts: translateTextsMock,
-            },
-        }));
-        vi.doMock('@/context/MarketContext', () => ({
-            useMarket: () => ({
-                languageCode: 'zz-cache-test',
-                languageConfig: { code: 'zz-cache-test' },
-            }),
-        }));
-
         ({
             collectDynamicTranslationTexts,
             shouldTranslateDynamicText,
             translateDynamicTextBatch,
             useDynamicTranslations,
-        } = await import('./useDynamicTranslations'));
+        } = await loadHookModule());
+        window.localStorage.clear();
     });
 
     it('filters obviously non-translatable values', () => {
@@ -101,5 +106,33 @@ describe('useDynamicTranslations helpers', () => {
 
         expect(translateTextsMock).toHaveBeenCalledTimes(1);
         expect(renderCount.current).toBeLessThanOrEqual(settledRenderCount + 1);
+    });
+
+    it('hydrates persisted translations on reload without waiting for another network request', async () => {
+        const React = await import('react');
+
+        await translateDynamicTextBatch({
+            texts: ['Hello world'],
+            language: 'zz-cache-test',
+        });
+
+        expect(translateTextsMock).toHaveBeenCalledTimes(1);
+
+        ({
+            useDynamicTranslations,
+        } = await loadHookModule());
+        translateTextsMock.mockClear();
+
+        function Harness() {
+            const { translateText } = useDynamicTranslations(['Hello world']);
+            return React.createElement('div', null, translateText('Hello world'));
+        }
+
+        await act(async () => {
+            render(React.createElement(Harness));
+        });
+
+        expect(screen.getByText('zz-cache-test:Hello world')).toBeTruthy();
+        expect(translateTextsMock).not.toHaveBeenCalled();
     });
 });
