@@ -9,6 +9,7 @@ const {
     validatePaymentIntentForOrder,
     scheduleCaptureTask,
     linkIntentToOrder,
+    releaseIntentOrderClaim,
     createRefundForIntent,
 } = require('../services/payments/paymentService');
 const { PAYMENT_STATUSES } = require('../services/payments/constants');
@@ -299,6 +300,74 @@ describe('Payment Order Integrity', () => {
         expect(String(linked.order)).toBe(String(orderId));
         expect(linked.orderClaim.state).toBe('consumed');
         expect(linked.orderClaim.key).toBe('claim-alpha');
+    });
+
+    test('stale claim locks can be reclaimed and explicit claim release reopens the intent safely', async () => {
+        const user = await makeUser();
+        const staleIntent = await makeIntent({
+            userId: user._id,
+            amount: 1499,
+            method: 'CARD',
+            orderClaim: {
+                state: 'locked',
+                key: 'claim-stale',
+                lockedAt: new Date(Date.now() - 10 * 60 * 1000),
+            },
+        });
+
+        const reclaimed = await validatePaymentIntentForOrder({
+            userId: user._id,
+            paymentIntentId: staleIntent.intentId,
+            paymentMethod: 'CARD',
+            totalPrice: 1499,
+            claimForOrder: true,
+            claimKey: 'claim-fresh',
+        });
+
+        expect(reclaimed.paymentIntent.orderClaim.state).toBe('locked');
+        expect(reclaimed.paymentIntent.orderClaim.key).toBe('claim-fresh');
+
+        const wrongLink = await linkIntentToOrder({
+            intentId: staleIntent.intentId,
+            orderId: new mongoose.Types.ObjectId(),
+            claimKey: 'claim-wrong',
+        });
+        expect(wrongLink).toBeNull();
+
+        const freshIntent = await makeIntent({
+            userId: user._id,
+            amount: 1599,
+            method: 'CARD',
+            orderClaim: {
+                state: 'locked',
+                key: 'claim-release',
+                lockedAt: new Date(),
+            },
+        });
+
+        const released = await releaseIntentOrderClaim({
+            intentId: freshIntent.intentId,
+            claimKey: 'claim-release',
+        });
+        expect(released.orderClaim.state).toBe('none');
+        expect(released.orderClaim.key).toBe('');
+
+        await expect(validatePaymentIntentForOrder({
+            userId: user._id,
+            paymentIntentId: freshIntent.intentId,
+            paymentMethod: 'CARD',
+            totalPrice: 1599,
+            claimForOrder: true,
+            claimKey: 'claim-retry',
+        })).resolves.toMatchObject({
+            paymentIntent: expect.objectContaining({
+                intentId: freshIntent.intentId,
+                orderClaim: expect.objectContaining({
+                    state: 'locked',
+                    key: 'claim-retry',
+                }),
+            }),
+        });
     });
 
     test('scheduleCaptureTask creates one durable pending capture task for authorized intents and is idempotent', async () => {
