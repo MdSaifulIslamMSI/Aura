@@ -293,7 +293,9 @@ function App() {
                 <VideoCallProvider>
                   <CartProvider>
                     <WishlistProvider>
-                      <Router>
+                      {/* React Router v7 defaults BrowserRouter navigations to startTransition,
+                          which can leave the previous lazy route visible after URL changes. */}
+                      <Router unstable_useTransitions={false}>
                         <AppContent />
                       </Router>
                     </WishlistProvider>
