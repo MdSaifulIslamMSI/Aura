@@ -7,9 +7,9 @@ describe('runtimeApiConfig', () => {
   });
 
   it('prefers the configured API origin even on hosted frontend domains', () => {
-    vi.stubEnv('VITE_API_URL', 'https://aura-msi-api-ca.wittycliff-f743de69.southeastasia.azurecontainerapps.io/api');
+    vi.stubEnv('VITE_API_URL', 'https://backend.example.com/api');
 
-    expect(resolveApiBaseUrl('/api')).toBe('https://aura-msi-api-ca.wittycliff-f743de69.southeastasia.azurecontainerapps.io/api');
+    expect(resolveApiBaseUrl('/api')).toBe('https://backend.example.com/api');
   });
 
   it('falls back to the local proxy path when no API origin is configured', () => {
