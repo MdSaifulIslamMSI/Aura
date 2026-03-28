@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
   BROWSE_BASE_CURRENCY,
   DEFAULT_MARKET_PREFERENCE,
@@ -6,8 +6,9 @@ import {
   MARKET_STORAGE_KEY,
   SUPPORTED_LANGUAGES,
   SUPPORTED_MARKETS,
-  createTranslator,
   detectMarketPreference,
+  formatMessageTemplate,
+  getMessageTemplate,
   getCountryDisplayName,
   getCurrencyDisplayName,
   getSupportedLanguage,
@@ -15,15 +16,18 @@ import {
   normalizeMarketPreference,
   resolveLocaleForSelection,
 } from '@/config/marketConfig';
+import { i18nApi } from '@/services/api';
 import {
   formatDateTime as formatDateTimeUtil,
   formatNumber as formatNumberUtil,
   formatPrice as formatPriceUtil,
   setMarketFormatDefaults,
 } from '@/utils/format';
+import { marketApi, readCachedBrowseFxRates } from '@/services/api/marketApi';
 import { setActiveMarketHeaders } from '@/services/marketRuntime';
 
 const MarketContext = createContext(null);
+const LIVE_BROWSE_FX_REFRESH_MS = 30 * 60 * 1000;
 
 const readStoredPreference = () => {
   if (typeof window === 'undefined') {
@@ -62,6 +66,8 @@ const buildLanguageOptions = (languageCode) => SUPPORTED_LANGUAGES.map((language
   activeLocale: resolveLocaleForSelection(language.code, languageCode),
 }));
 
+const getRuntimeTranslationCacheKey = (languageCode, text) => `${String(languageCode || '').trim().toLowerCase()}::${String(text || '')}`;
+
 export function MarketProvider({
   children,
   initialPreference = null,
@@ -78,10 +84,105 @@ export function MarketProvider({
   }, [disableBrowserDetection, initialPreference]);
 
   const [preference, setPreference] = useState(() => readStoredPreference() || detectedPreference);
+  const [browseFxState, setBrowseFxState] = useState(() => {
+    const cachedPayload = readCachedBrowseFxRates(BROWSE_BASE_CURRENCY);
+    return {
+      rates: {
+        ...MARKET_PRESENTMENT_RATES,
+        ...(cachedPayload?.rates || {}),
+        [BROWSE_BASE_CURRENCY]: 1,
+      },
+      meta: cachedPayload
+        ? {
+            source: cachedPayload.source || '',
+            provider: cachedPayload.provider || '',
+            fetchedAt: cachedPayload.fetchedAt || '',
+            asOfDate: cachedPayload.asOfDate || '',
+            stale: Boolean(cachedPayload.stale),
+            staleReason: cachedPayload.staleReason || '',
+          }
+        : null,
+    };
+  });
 
   useEffect(() => {
     setPreference((currentPreference) => currentPreference || detectedPreference);
   }, [detectedPreference]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return undefined;
+    }
+
+    let cancelled = false;
+    let activeController = null;
+
+    const applyBrowseFxPayload = (payload = null) => {
+      if (!payload?.rates || cancelled) {
+        return;
+      }
+
+      setBrowseFxState((currentState) => {
+        const nextRates = {
+          ...MARKET_PRESENTMENT_RATES,
+          ...currentState.rates,
+          ...payload.rates,
+          [BROWSE_BASE_CURRENCY]: 1,
+        };
+
+        const currentKeys = Object.keys(currentState.rates || {});
+        const nextKeys = Object.keys(nextRates);
+        const ratesChanged = currentKeys.length !== nextKeys.length
+          || nextKeys.some((key) => currentState.rates?.[key] !== nextRates[key]);
+        const nextMeta = {
+          source: payload.source || '',
+          provider: payload.provider || '',
+          fetchedAt: payload.fetchedAt || '',
+          asOfDate: payload.asOfDate || '',
+          stale: Boolean(payload.stale),
+          staleReason: payload.staleReason || '',
+        };
+        const metaChanged = JSON.stringify(currentState.meta || {}) !== JSON.stringify(nextMeta);
+
+        if (!ratesChanged && !metaChanged) {
+          return currentState;
+        }
+
+        return {
+          rates: nextRates,
+          meta: nextMeta,
+        };
+      });
+    };
+
+    const refreshBrowseFxRates = async () => {
+      activeController?.abort();
+      activeController = new AbortController();
+
+      try {
+        const payload = await marketApi.getBrowseFxRates({
+          baseCurrency: BROWSE_BASE_CURRENCY,
+          signal: activeController.signal,
+        });
+        applyBrowseFxPayload(payload);
+      } catch {
+        // Keep the fallback browse rates when live FX refresh fails.
+      }
+    };
+
+    applyBrowseFxPayload(readCachedBrowseFxRates(BROWSE_BASE_CURRENCY));
+    void refreshBrowseFxRates();
+
+    const intervalId = window.setInterval(() => {
+      void refreshBrowseFxRates();
+    }, LIVE_BROWSE_FX_REFRESH_MS);
+
+    return () => {
+      cancelled = true;
+      activeController?.abort();
+      window.clearInterval(intervalId);
+    };
+  }, []);
 
   const market = useMemo(() => getSupportedMarket(preference.countryCode), [preference.countryCode]);
   const language = useMemo(() => getSupportedLanguage(preference.language), [preference.language]);
@@ -90,8 +191,11 @@ export function MarketProvider({
     [language.code, market.countryCode]
   );
   const direction = language.direction || 'ltr';
-  const translator = useMemo(() => createTranslator(language.code), [language.code]);
   const isEstimatedPricing = preference.currency !== BROWSE_BASE_CURRENCY;
+  const runtimeTranslationsRef = useRef(new Map());
+  const runtimeTranslationRequestsRef = useRef(new Set());
+  const runtimeTranslationsInFlightRef = useRef(new Set());
+  const [runtimeTranslationVersion, setRuntimeTranslationVersion] = useState(0);
 
   useEffect(() => {
     const nextPreference = {
@@ -103,7 +207,7 @@ export function MarketProvider({
       currency: nextPreference.currency,
       locale: nextPreference.locale,
       baseCurrency: BROWSE_BASE_CURRENCY,
-      rates: MARKET_PRESENTMENT_RATES,
+      rates: browseFxState.rates,
     });
     setActiveMarketHeaders({
       country: nextPreference.countryCode,
@@ -122,7 +226,62 @@ export function MarketProvider({
     if (typeof window !== 'undefined') {
       window.localStorage.setItem(MARKET_STORAGE_KEY, JSON.stringify(nextPreference));
     }
-  }, [direction, locale, preference]);
+  }, [browseFxState.rates, direction, locale, preference]);
+
+  useEffect(() => {
+    if (language.code === 'en') {
+      runtimeTranslationRequestsRef.current.clear();
+      return;
+    }
+
+    const pendingTexts = [...runtimeTranslationRequestsRef.current].filter((text) => {
+      const cacheKey = getRuntimeTranslationCacheKey(language.code, text);
+      return !runtimeTranslationsRef.current.has(cacheKey) && !runtimeTranslationsInFlightRef.current.has(cacheKey);
+    });
+
+    runtimeTranslationRequestsRef.current.clear();
+
+    if (pendingTexts.length === 0) {
+      return;
+    }
+
+    pendingTexts.forEach((text) => {
+      runtimeTranslationsInFlightRef.current.add(getRuntimeTranslationCacheKey(language.code, text));
+    });
+
+    void i18nApi.translateTexts({
+      texts: pendingTexts,
+      language: language.code,
+      sourceLanguage: 'en',
+    })
+      .then((translations) => {
+        let didChange = false;
+
+        pendingTexts.forEach((text) => {
+          const cacheKey = getRuntimeTranslationCacheKey(language.code, text);
+          runtimeTranslationsInFlightRef.current.delete(cacheKey);
+
+          const translated = String(translations?.[text] || text);
+          if (runtimeTranslationsRef.current.get(cacheKey) !== translated) {
+            runtimeTranslationsRef.current.set(cacheKey, translated);
+            didChange = true;
+          }
+        });
+
+        if (didChange) {
+          setRuntimeTranslationVersion((version) => version + 1);
+        }
+      })
+      .catch(() => {
+        pendingTexts.forEach((text) => {
+          const cacheKey = getRuntimeTranslationCacheKey(language.code, text);
+          runtimeTranslationsInFlightRef.current.delete(cacheKey);
+          if (!runtimeTranslationsRef.current.has(cacheKey)) {
+            runtimeTranslationsRef.current.set(cacheKey, text);
+          }
+        });
+      });
+  });
 
   const setCountryCode = (countryCode) => {
     setPreference((currentPreference) => normalizeMarketPreference({
@@ -149,6 +308,31 @@ export function MarketProvider({
     setPreference(normalizeMarketPreference(detectedPreference));
   };
 
+  const translateMessage = useMemo(() => (
+    (key, values = {}, fallback = '') => {
+      const localizedTemplate = getMessageTemplate(language.code, key);
+      if (localizedTemplate) {
+        return formatMessageTemplate(localizedTemplate, values);
+      }
+
+      const englishTemplate = getMessageTemplate('en', key) || fallback || key;
+      const englishText = formatMessageTemplate(englishTemplate, values);
+
+      if (language.code === 'en') {
+        return englishText;
+      }
+
+      const cacheKey = getRuntimeTranslationCacheKey(language.code, englishText);
+      const translated = runtimeTranslationsRef.current.get(cacheKey);
+      if (translated) {
+        return translated;
+      }
+
+      runtimeTranslationRequestsRef.current.add(englishText);
+      return englishText;
+    }
+  ), [language.code, runtimeTranslationVersion]);
+
   const value = useMemo(() => {
     const detectedMarket = getSupportedMarket(detectedPreference.countryCode);
 
@@ -164,6 +348,7 @@ export function MarketProvider({
       currencyLabel: getCurrencyDisplayName(preference.currency, locale),
       voiceLocale: locale,
       isEstimatedPricing,
+      browseFxMeta: browseFxState.meta,
       detectedPreference: normalizeMarketPreference(detectedPreference),
       detectedRegionLabel: detectedMarket.regionLabel,
       detectedCountryLabel: getCountryDisplayName(detectedMarket.countryCode, locale),
@@ -174,7 +359,7 @@ export function MarketProvider({
       setLanguage,
       setCurrency,
       resetToDetected,
-      t: (key, values = {}, fallback = '') => translator(key, values, fallback),
+      t: translateMessage,
       formatPrice: (value, currency, customLocale, options = {}) => formatPriceUtil(
         value,
         currency,
@@ -183,12 +368,12 @@ export function MarketProvider({
           ...options,
           baseCurrency: options.baseCurrency || BROWSE_BASE_CURRENCY,
           presentmentCurrency: options.presentmentCurrency || preference.currency,
-          rates: options.rates || MARKET_PRESENTMENT_RATES,
+          rates: options.rates || browseFxState.rates,
         }
       ),
       formatNumber: (value, customLocale, options) => formatNumberUtil(value, customLocale || locale, options),
       formatDateTime: (value, customLocale, options) => formatDateTimeUtil(value, customLocale || locale, options),
-      browseCurrencyNote: translator(
+      browseCurrencyNote: translateMessage(
         isEstimatedPricing ? 'market.estimated' : 'market.exact',
         {},
         isEstimatedPricing ? 'Estimated browse FX' : 'Native catalog FX'
@@ -202,7 +387,8 @@ export function MarketProvider({
     locale,
     market,
     preference,
-    translator,
+    browseFxState,
+    translateMessage,
   ]);
 
   return <MarketContext.Provider value={value}>{children}</MarketContext.Provider>;

@@ -10,6 +10,7 @@
     "bundle:budget": "node scripts/check_bundle_budget.mjs",
     "audit:locale": "node scripts/check_locale_coverage.mjs",
     "bench:mobile": "node scripts/mobile_benchmark.mjs",
+    "i18n:generate": "node scripts/generate_market_messages.mjs",
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",

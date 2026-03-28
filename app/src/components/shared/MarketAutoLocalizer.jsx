@@ -4,10 +4,11 @@ import { i18nApi } from '@/services/api';
 
 const BLOCKED_TAGS = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'CODE', 'PRE']);
 const ATTRIBUTE_NAMES = ['placeholder', 'title', 'aria-label', 'aria-description', 'alt'];
+const OBSERVED_ATTRIBUTE_NAMES = [...new Set([...ATTRIBUTE_NAMES, 'value'])];
 const INPUT_VALUE_TYPES = new Set(['button', 'submit', 'reset']);
 const WHITESPACE_ONLY_PATTERN = /^\s*$/;
 const NON_TRANSLATABLE_PATTERN = /^(https?:\/\/|www\.|mailto:|tel:|\/[A-Za-z0-9._/-]+|[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,})/i;
-const SYMBOL_ONLY_PATTERN = /^[\d\s.,:%₹$€£¥()+\-–—/\\|[\]{}<>*_#@!?=&]+$/;
+const SYMBOL_ONLY_PATTERN = /^[\d\s.,:%â‚¹$â‚¬Â£Â¥()+\-â€“â€”/\\|[\]{}<>*_#@!?=&]+$/;
 
 const normalizeText = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
 
@@ -77,6 +78,9 @@ export default function MarketAutoLocalizer() {
             return undefined;
         }
 
+        let pendingFullScan = true;
+        const pendingRoots = new Set();
+
         const updateTextEntry = (node) => {
             const currentValue = String(node.nodeValue || '');
             let entry = textEntriesRef.current.get(node);
@@ -134,6 +138,86 @@ export default function MarketAutoLocalizer() {
             return titleEntryRef.current;
         };
 
+        const collectSourceText = (entry, sourceTexts) => {
+            if (!entry || language === 'en' || !shouldTranslate(entry.sourceText)) {
+                return;
+            }
+
+            if (!(language === 'en' && entry.capturedLanguage === 'en')) {
+                sourceTexts.push(entry.sourceText);
+            }
+        };
+
+        const collectBindingsFromRoot = (root, textBindings, attributeBindings, sourceTexts) => {
+            if (!root) {
+                return;
+            }
+
+            const stack = [root];
+
+            while (stack.length > 0) {
+                const currentNode = stack.pop();
+                if (!currentNode) {
+                    continue;
+                }
+
+                if (currentNode.nodeType === Node.DOCUMENT_FRAGMENT_NODE) {
+                    const fragmentChildren = currentNode.childNodes || [];
+                    for (let index = fragmentChildren.length - 1; index >= 0; index -= 1) {
+                        stack.push(fragmentChildren[index]);
+                    }
+                    continue;
+                }
+
+                if (currentNode.nodeType === Node.TEXT_NODE) {
+                    if (!currentNode.isConnected) {
+                        continue;
+                    }
+
+                    const parentElement = currentNode.parentElement;
+                    if (shouldSkipElement(parentElement)) {
+                        continue;
+                    }
+
+                    const entry = updateTextEntry(currentNode);
+                    if (!shouldTranslate(entry.sourceText)) {
+                        continue;
+                    }
+
+                    textBindings.push({ node: currentNode, entry });
+                    collectSourceText(entry, sourceTexts);
+                    continue;
+                }
+
+                if (currentNode.nodeType !== Node.ELEMENT_NODE || !currentNode.isConnected) {
+                    continue;
+                }
+
+                if (shouldSkipElement(currentNode)) {
+                    continue;
+                }
+
+                getAttributeNames(currentNode).forEach((attributeName) => {
+                    if (!currentNode.hasAttribute(attributeName)) {
+                        return;
+                    }
+
+                    const entry = updateAttributeEntry(currentNode, attributeName);
+                    if (!shouldTranslate(entry.sourceText)) {
+                        return;
+                    }
+
+                    attributeBindings.push({ element: currentNode, attributeName, entry });
+                    collectSourceText(entry, sourceTexts);
+                });
+
+                const childNodes = currentNode.childNodes || [];
+                for (let index = childNodes.length - 1; index >= 0; index -= 1) {
+                    stack.push(childNodes[index]);
+                }
+            }
+        };
+
         const translateSources = async (targetLanguage, sources) => {
             const uniqueSources = [...new Set(
                 sources
@@ -141,19 +225,24 @@ export default function MarketAutoLocalizer() {
                     .filter(Boolean)
             )];
 
-            const missing = uniqueSources.filter((source) => !cacheRef.current.has(`${targetLanguage}::${source}`));
-
-            if (missing.length > 0) {
-                const translated = await i18nApi.translateTexts({
-                    texts: missing,
-                    language: targetLanguage,
-                    sourceLanguage: 'auto',
-                });
-
-                Object.entries(translated).forEach(([source, value]) => {
-                    cacheRef.current.set(`${targetLanguage}::${source}`, String(value || source));
-                });
+            if (uniqueSources.length === 0 || targetLanguage === 'en') {
+                return;
             }
+
+            const missing = uniqueSources.filter((source) => !cacheRef.current.has(`${targetLanguage}::${source}`));
+            if (missing.length === 0) {
+                return;
+            }
+
+            const translated = await i18nApi.translateTexts({
+                texts: missing,
+                language: targetLanguage,
+                sourceLanguage: 'auto',
+            });
+
+            Object.entries(translated).forEach(([source, value]) => {
+                cacheRef.current.set(`${targetLanguage}::${source}`, String(value || source));
+            });
         };
 
         const resolveTranslation = (entry, targetLanguage) => {
@@ -162,7 +251,7 @@ export default function MarketAutoLocalizer() {
                 return entry.sourceText;
             }
 
-            if (targetLanguage === 'en' && entry.capturedLanguage === 'en') {
+            if (targetLanguage === 'en') {
                 return entry.sourceText;
             }
 
@@ -177,53 +266,22 @@ export default function MarketAutoLocalizer() {
                 return;
             }
 
+            const rootsToProcess = pendingFullScan ? [root] : [...pendingRoots];
+            pendingFullScan = false;
+            pendingRoots.clear();
+
             const textBindings = [];
             const attributeBindings = [];
             const sourceTexts = [];
 
-            const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-            let currentNode = walker.nextNode();
-
-            while (currentNode) {
-                const parentElement = currentNode.parentElement;
-                if (!shouldSkipElement(parentElement)) {
-                    const entry = updateTextEntry(currentNode);
-                    if (shouldTranslate(entry.sourceText)) {
-                        textBindings.push({ node: currentNode, entry });
-                        if (!(language === 'en' && entry.capturedLanguage === 'en')) {
-                            sourceTexts.push(entry.sourceText);
-                        }
-                    }
-                }
-                currentNode = walker.nextNode();
-            }
-
-            root.querySelectorAll('*').forEach((element) => {
-                if (shouldSkipElement(element)) {
-                    return;
-                }
-
-                getAttributeNames(element).forEach((attributeName) => {
-                    if (!element.hasAttribute(attributeName)) {
-                        return;
-                    }
-
-                    const entry = updateAttributeEntry(element, attributeName);
-                    if (!shouldTranslate(entry.sourceText)) {
-                        return;
-                    }
-
-                    attributeBindings.push({ element, attributeName, entry });
-                    if (!(language === 'en' && entry.capturedLanguage === 'en')) {
-                        sourceTexts.push(entry.sourceText);
-                    }
-                });
+            rootsToProcess.forEach((rootNode) => {
+                collectBindingsFromRoot(rootNode, textBindings, attributeBindings, sourceTexts);
             });
 
             const titleEntry = updateTitleEntry();
             const shouldTranslateTitle = shouldTranslate(titleEntry?.sourceText || '');
-            if (shouldTranslateTitle && !(language === 'en' && titleEntry.capturedLanguage === 'en')) {
-                sourceTexts.push(titleEntry.sourceText);
+            if (shouldTranslateTitle) {
+                collectSourceText(titleEntry, sourceTexts);
             }
 
             await translateSources(language, sourceTexts);
@@ -276,11 +334,48 @@ export default function MarketAutoLocalizer() {
             }, 80);
         };
 
-        const observer = new MutationObserver(() => {
+        const queueRoot = (node) => {
+            if (!node) {
+                return;
+            }
+
+            if (node.nodeType === Node.DOCUMENT_FRAGMENT_NODE) {
+                const fragmentChildren = node.childNodes || [];
+                for (let index = 0; index < fragmentChildren.length; index += 1) {
+                    queueRoot(fragmentChildren[index]);
+                }
+                return;
+            }
+
+            pendingRoots.add(node);
+        };
+
+        const observer = new MutationObserver((mutations) => {
             if (applyingRef.current) {
                 return;
             }
-            scheduleProcess();
+
+            mutations.forEach((mutation) => {
+                if (mutation.type === 'characterData') {
+                    queueRoot(mutation.target);
+                    return;
+                }
+
+                if (mutation.type === 'attributes') {
+                    queueRoot(mutation.target);
+                    return;
+                }
+
+                if (mutation.type === 'childList') {
+                    mutation.addedNodes.forEach((node) => {
+                        queueRoot(node);
+                    });
+                }
+            });
+
+            if (pendingFullScan || pendingRoots.size > 0) {
+                scheduleProcess();
+            }
         });
 
         observer.observe(document.body, {
@@ -288,7 +383,7 @@ export default function MarketAutoLocalizer() {
             subtree: true,
             characterData: true,
             attributes: true,
-            attributeFilter: ATTRIBUTE_NAMES,
+            attributeFilter: OBSERVED_ATTRIBUTE_NAMES,
         });
 
         scheduleProcess();

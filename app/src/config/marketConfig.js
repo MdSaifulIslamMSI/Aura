@@ -1,5 +1,6 @@
+import { GENERATED_MARKET_MESSAGES as GENERATED_BASE_MARKET_MESSAGES } from './generatedMarketMessages.js';
 import { PRIORITY_MARKET_MESSAGES } from './priorityMarketMessages.js';
-import { GENERATED_MARKET_MESSAGES } from './generatedLocaleMessages.js';
+import { GENERATED_MARKET_MESSAGES as GENERATED_LOCALE_MESSAGES } from './generatedLocaleMessages.js';
 import { GENERATED_DYNAMIC_MARKET_MESSAGES } from './generatedDynamicLocaleMessages.js';
 import { REMAINING_UI_LOCALE_MESSAGES } from './remainingUiLocaleMessages.js';
 import { LOCALE_POLISH_MESSAGES } from './localePolishMessages.js';
@@ -528,32 +529,19 @@ export const MARKET_MESSAGES = {
   ...SIMPLE_OVERRIDES,
 };
 
-Object.entries(GENERATED_MARKET_MESSAGES).forEach(([locale, messages]) => {
-  MARKET_MESSAGES[locale] = {
-    ...(MARKET_MESSAGES[locale] || {}),
-    ...messages,
-  };
-});
-
-Object.entries(GENERATED_DYNAMIC_MARKET_MESSAGES).forEach(([locale, messages]) => {
-  MARKET_MESSAGES[locale] = {
-    ...(MARKET_MESSAGES[locale] || {}),
-    ...messages,
-  };
-});
-
-Object.entries(REMAINING_UI_LOCALE_MESSAGES).forEach(([locale, messages]) => {
-  MARKET_MESSAGES[locale] = {
-    ...(MARKET_MESSAGES[locale] || {}),
-    ...messages,
-  };
-});
-
-Object.entries(LOCALE_POLISH_MESSAGES).forEach(([locale, messages]) => {
-  MARKET_MESSAGES[locale] = {
-    ...(MARKET_MESSAGES[locale] || {}),
-    ...messages,
-  };
+[
+  GENERATED_BASE_MARKET_MESSAGES,
+  GENERATED_LOCALE_MESSAGES,
+  GENERATED_DYNAMIC_MARKET_MESSAGES,
+  REMAINING_UI_LOCALE_MESSAGES,
+  LOCALE_POLISH_MESSAGES,
+].forEach((localeGroup) => {
+  Object.entries(localeGroup || {}).forEach(([locale, messages]) => {
+    MARKET_MESSAGES[locale] = {
+      ...(MARKET_MESSAGES[locale] || {}),
+      ...(messages || {}),
+    };
+  });
 });
 
 const getRegionFromLocale = (localeValue = '') => {
@@ -653,18 +641,22 @@ export const detectMarketPreference = () => {
   };
 };
 
-const formatTemplate = (template = '', values = {}) => String(template || '').replace(/\{\{\s*([^}\s]+)\s*\}\}/g, (match, token) => (
+export const formatMessageTemplate = (template = '', values = {}) => String(template || '').replace(/\{\{\s*([^}\s]+)\s*\}\}/g, (match, token) => (
   Object.prototype.hasOwnProperty.call(values, token) ? String(values[token]) : ''
 ));
 
-const resolveMessageValue = (languageCode = DEFAULT_LANGUAGE_CODE, key = '') => {
+export const getMessageTemplate = (languageCode = DEFAULT_LANGUAGE_CODE, key = '') => {
   const normalizedLanguage = getSupportedLanguage(languageCode).code;
-  return MARKET_MESSAGES[normalizedLanguage]?.[key] || MARKET_MESSAGES.en?.[key] || '';
+  return MARKET_MESSAGES[normalizedLanguage]?.[key] || '';
 };
+
+const resolveMessageValue = (languageCode = DEFAULT_LANGUAGE_CODE, key = '') => (
+  getMessageTemplate(languageCode, key) || MARKET_MESSAGES.en?.[key] || ''
+);
 
 export const createTranslator = (languageCode = DEFAULT_LANGUAGE_CODE) => (key, values = {}, fallback = '') => {
   const template = resolveMessageValue(languageCode, key) || fallback || key;
-  return formatTemplate(template, values);
+  return formatMessageTemplate(template, values);
 };
 
 export const getCountryDisplayName = (countryCode = DEFAULT_COUNTRY_CODE, locale = 'en-US') => {
