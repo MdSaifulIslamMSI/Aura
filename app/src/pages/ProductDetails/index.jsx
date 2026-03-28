@@ -1,4 +1,4 @@
-import { useState, useEffect, useContext, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useContext, useCallback, useDeferredValue, useMemo, useRef } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { BadgeCheck, Brain, Camera, Heart, ShoppingCart, Share2, Star, ChevronRight, Minus, Plus, Zap, MessageSquare, Send, Image as ImageIcon, Video, X, UploadCloud, Loader2 } from 'lucide-react';
 import { CartContext } from '@/context/CartContext';
@@ -542,8 +542,14 @@ const ProductDetails = () => {
   const displayOriginalPrice = getOriginalDisplayAmount(resolvedProduct);
   const heroTitle = displayTitle || title;
   const heroSubtitle = subtitle || subCategory || category;
-  const trustGraph = buildProductTrustGraph({ product: resolvedProduct, reviewsSummary, priceHistory });
-  const lifecycleIntelligence = buildLifecycleIntelligence({ product: resolvedProduct, priceHistory });
+  const trustGraph = useMemo(
+    () => buildProductTrustGraph({ product: resolvedProduct, reviewsSummary, priceHistory }),
+    [priceHistory, resolvedProduct, reviewsSummary]
+  );
+  const lifecycleIntelligence = useMemo(
+    () => buildLifecycleIntelligence({ product: resolvedProduct, priceHistory }),
+    [priceHistory, resolvedProduct]
+  );
   const tabLabels = {
     description: t('productPage.tab.description', {}, 'Description'),
     specifications: t('productPage.tab.specifications', {}, 'Specifications'),
@@ -551,12 +557,14 @@ const ProductDetails = () => {
     compatibility: t('productPage.tab.compatibility', {}, 'Compatibility'),
     reviews: t('productPage.tab.reviews', {}, 'Reviews'),
   };
-  const productDynamicTexts = useMemo(() => ([
+  const criticalProductDynamicTexts = useMemo(() => ([
     heroTitle,
     heroSubtitle,
     category,
-    description,
     deliveryTime,
+  ]), [category, deliveryTime, heroSubtitle, heroTitle]);
+  const secondaryProductDynamicTexts = useMemo(() => ([
+    description,
     lifecycleNotice,
     lifecycleError,
     compatibilityError,
@@ -600,17 +608,13 @@ const ProductDetails = () => {
     lifecycleIntelligence?.nextBestAction?.reason,
     ...(Array.isArray(lifecycleIntelligence?.milestones) ? lifecycleIntelligence.milestones : []),
   ]), [
-    category,
     compatibilityError,
     compatibilityGraph,
-    deliveryTime,
     description,
-    heroSubtitle,
-    heroTitle,
     highlights,
     lifecycleError,
-    lifecycleNotice,
     lifecycleIntelligence,
+    lifecycleNotice,
     relatedProducts,
     reviewSubmitError,
     reviewSubmitMessage,
@@ -619,7 +623,11 @@ const ProductDetails = () => {
     reviewsError,
     trustGraph,
   ]);
-  const { translateText: translateProductText } = useDynamicTranslations(productDynamicTexts);
+  const deferredProductDynamicTexts = useDeferredValue(secondaryProductDynamicTexts);
+  const { translateText: translateProductText } = useDynamicTranslations(criticalProductDynamicTexts);
+  useDynamicTranslations(deferredProductDynamicTexts, {
+    enabled: deferredProductDynamicTexts.length > 0,
+  });
   const translatedHeroTitle = translateProductText(heroTitle) || heroTitle;
   const translatedHeroSubtitle = translateProductText(heroSubtitle) || heroSubtitle;
   const translatedCategory = translateProductText(category) || category;

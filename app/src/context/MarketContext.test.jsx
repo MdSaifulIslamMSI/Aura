@@ -166,7 +166,9 @@ describe('MarketContext', () => {
         fireEvent.click(screen.getByRole('button', { name: 'USD' }));
 
         expect(screen.getByTestId('market-currency')).toHaveTextContent('USD');
-        expect(screen.getByTestId('market-price').textContent).toContain('$20');
+        await waitFor(() => {
+            expect(screen.getByTestId('market-price').textContent).toContain('$20');
+        });
     });
 
     it('primes global formatters from stored market preferences before the first child render', async () => {
