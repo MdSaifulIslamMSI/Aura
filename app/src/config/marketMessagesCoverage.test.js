@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { MARKET_MESSAGES, SUPPORTED_LANGUAGES } from './marketConfig';
+import { ensureAllMarketMessagesLoaded, MARKET_MESSAGES, SUPPORTED_LANGUAGES } from './marketConfig';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -66,7 +66,9 @@ const collectLiteralSourceKeys = (directoryPath, keys = new Set()) => {
 };
 
 describe('MARKET_MESSAGES coverage', () => {
-  it('covers every source translation key for each translated target language', () => {
+  it('covers every source translation key for each translated target language', async () => {
+    await ensureAllMarketMessagesLoaded();
+
     const sourceKeys = collectLiteralSourceKeys(SRC_ROOT);
     DYNAMIC_SOURCE_KEYS.forEach((key) => sourceKeys.add(key));
 

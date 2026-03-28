@@ -7,10 +7,12 @@ import {
   SUPPORTED_LANGUAGES,
   SUPPORTED_MARKETS,
   detectMarketPreference,
+  ensureMarketMessagesLoaded,
   formatMessageTemplate,
   getMessageTemplate,
   getCountryDisplayName,
   getCurrencyDisplayName,
+  hasLoadedMarketMessagePack,
   getSupportedLanguage,
   getSupportedMarket,
   normalizeMarketPreference,
@@ -215,6 +217,7 @@ export function MarketProvider({
   const runtimeTranslationPendingRef = useRef(new Set());
   const runtimeTranslationFlushScheduledRef = useRef(false);
   const runtimeTranslationMountedRef = useRef(true);
+  const [marketMessageVersion, setMarketMessageVersion] = useState(0);
   const [runtimeTranslationVersion, setRuntimeTranslationVersion] = useState(0);
   const [runtimeTranslationRequestSignal, setRuntimeTranslationRequestSignal] = useState(0);
 
@@ -244,6 +247,20 @@ export function MarketProvider({
       runtimeTranslationMountedRef.current = false;
     };
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void ensureMarketMessagesLoaded(language.code).then((didLoad) => {
+      if (!cancelled && didLoad) {
+        setMarketMessageVersion((version) => version + 1);
+      }
+    }).catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [language.code]);
 
   useEffect(() => {
     setMarketFormatDefaults({
@@ -367,6 +384,7 @@ export function MarketProvider({
 
   const translateMessage = useMemo(() => (
     (key, values = {}, fallback = '') => {
+      const localePackReady = hasLoadedMarketMessagePack(language.code);
       const localizedTemplate = getMessageTemplate(language.code, key);
       if (localizedTemplate) {
         return formatMessageTemplate(localizedTemplate, values);
@@ -382,6 +400,12 @@ export function MarketProvider({
       const translationTemplate = englishTemplate || (!hasInterpolationValues ? fallbackTemplate : '');
 
       if (language.code === 'en') {
+        return englishText;
+      }
+
+      // Wait for the locale pack before falling back to ad hoc runtime translation.
+      // This avoids spending API calls on copy that already exists in a deferred pack.
+      if (!localePackReady) {
         return englishText;
       }
 
@@ -411,7 +435,7 @@ export function MarketProvider({
       }
       return englishText;
     }
-  ), [language.code, runtimeTranslationVersion, scheduleRuntimeTranslationFlush]);
+  ), [language.code, marketMessageVersion, runtimeTranslationVersion, scheduleRuntimeTranslationFlush]);
 
   const value = useMemo(() => {
     const detectedMarket = getSupportedMarket(detectedPreference.countryCode);

@@ -1,13 +1,9 @@
-import { GENERATED_MARKET_MESSAGES as GENERATED_BASE_MARKET_MESSAGES } from './generatedMarketMessages.js';
-import { PRIORITY_MARKET_MESSAGES } from './priorityMarketMessages.js';
-import { GENERATED_MARKET_MESSAGES as GENERATED_LOCALE_MESSAGES } from './generatedLocaleMessages.js';
-import { GENERATED_DYNAMIC_MARKET_MESSAGES } from './generatedDynamicLocaleMessages.js';
-import { REMAINING_UI_LOCALE_MESSAGES } from './remainingUiLocaleMessages.js';
-import { LOCALE_POLISH_MESSAGES } from './localePolishMessages.js';
+import { MARKET_MESSAGE_PACK as EN_GENERATED_MARKET_MESSAGES } from './marketMessagePacks/en.js';
 
 const DEFAULT_COUNTRY_CODE = 'IN';
 const DEFAULT_LANGUAGE_CODE = 'en';
 const DEFAULT_CURRENCY = 'INR';
+const MARKET_MESSAGE_PACK_LOADERS = import.meta.glob('./marketMessagePacks/*.js');
 
 export const MARKET_STORAGE_KEY = 'aura_market_preferences_v1';
 export const BROWSE_BASE_CURRENCY = 'INR';
@@ -470,7 +466,6 @@ const SIMPLE_OVERRIDES = {
     'status.retry': 'Retry Check',
     'footer.headline': 'Commerce ko fast se pehle assured feel hona chahiye.',
     'product.addToBag': 'Add to Bag',
-    ...(PRIORITY_MARKET_MESSAGES.hi || {}),
   },
   es: {
     'market.title': 'Centro de mercado',
@@ -490,7 +485,6 @@ const SIMPLE_OVERRIDES = {
     'voice.title': 'Asistente de voz Aura',
     'footer.headline': 'El comercio debe sentirse seguro antes de sentirse rapido.',
     'product.addToBag': 'Agregar',
-    ...(PRIORITY_MARKET_MESSAGES.es || {}),
   },
   fr: {
     'market.title': 'Studio marche',
@@ -507,7 +501,6 @@ const SIMPLE_OVERRIDES = {
     'search.run': 'Rechercher',
     'voice.title': 'Assistant vocal Aura',
     'footer.headline': 'Le commerce doit inspirer confiance avant de sembler rapide.',
-    ...(PRIORITY_MARKET_MESSAGES.fr || {}),
   },
   de: {
     'market.title': 'Markt Studio',
@@ -524,7 +517,6 @@ const SIMPLE_OVERRIDES = {
     'search.run': 'Suche starten',
     'voice.title': 'Aura Sprachassistent',
     'footer.headline': 'Handel sollte sich sicher anfuhlen, bevor er sich schnell anfuhlt.',
-    ...(PRIORITY_MARKET_MESSAGES.de || {}),
   },
   ar: {
     'market.title': 'Market Studio',
@@ -541,7 +533,6 @@ const SIMPLE_OVERRIDES = {
     'search.run': 'Run Search',
     'voice.title': 'Aura Voice Assistant',
     'footer.headline': 'Yajeb an yabdu altasawwuq mauthuqan qabl an yabdu sariaan.',
-    ...(PRIORITY_MARKET_MESSAGES.ar || {}),
   },
   ja: {
     'market.title': 'Market Studio',
@@ -558,7 +549,6 @@ const SIMPLE_OVERRIDES = {
     'search.run': 'Run Search',
     'voice.title': 'Aura Voice Assistant',
     'footer.headline': 'Commerce should feel assured before it feels fast.',
-    ...(PRIORITY_MARKET_MESSAGES.ja || {}),
   },
   pt: {
     'market.title': 'Estudio de mercado',
@@ -575,7 +565,6 @@ const SIMPLE_OVERRIDES = {
     'search.run': 'Buscar',
     'voice.title': 'Assistente de voz Aura',
     'footer.headline': 'O comercio deve parecer confiavel antes de parecer rapido.',
-    ...(PRIORITY_MARKET_MESSAGES.pt || {}),
   },
   zh: {
     'market.title': 'Market Studio',
@@ -592,29 +581,70 @@ const SIMPLE_OVERRIDES = {
     'search.run': 'Run Search',
     'voice.title': 'Aura Voice Assistant',
     'footer.headline': 'Commerce should feel assured before it feels fast.',
-    ...(PRIORITY_MARKET_MESSAGES.zh || {}),
   },
 };
 
 export const MARKET_MESSAGES = {
-  en: EN_MESSAGES,
+  en: {
+    ...EN_MESSAGES,
+    ...EN_GENERATED_MARKET_MESSAGES,
+  },
   ...SIMPLE_OVERRIDES,
 };
 
-[
-  GENERATED_BASE_MARKET_MESSAGES,
-  GENERATED_LOCALE_MESSAGES,
-  GENERATED_DYNAMIC_MARKET_MESSAGES,
-  REMAINING_UI_LOCALE_MESSAGES,
-  LOCALE_POLISH_MESSAGES,
-].forEach((localeGroup) => {
-  Object.entries(localeGroup || {}).forEach(([locale, messages]) => {
-    MARKET_MESSAGES[locale] = {
-      ...(MARKET_MESSAGES[locale] || {}),
-      ...(messages || {}),
-    };
+const loadedMarketMessagePackLanguages = new Set(['en']);
+const inflightMarketMessagePackLoads = new Map();
+
+const mergeMarketMessages = (languageCode = DEFAULT_LANGUAGE_CODE, messages = {}) => {
+  const normalizedLanguage = getSupportedLanguage(languageCode).code;
+  MARKET_MESSAGES[normalizedLanguage] = {
+    ...(MARKET_MESSAGES[normalizedLanguage] || {}),
+    ...(messages || {}),
+  };
+};
+
+const getMarketMessagePackPath = (languageCode = DEFAULT_LANGUAGE_CODE) => `./marketMessagePacks/${languageCode}.js`;
+
+export const hasLoadedMarketMessagePack = (languageCode = DEFAULT_LANGUAGE_CODE) => (
+  loadedMarketMessagePackLanguages.has(getSupportedLanguage(languageCode).code)
+);
+
+export const ensureMarketMessagesLoaded = async (languageCode = DEFAULT_LANGUAGE_CODE) => {
+  const normalizedLanguage = getSupportedLanguage(languageCode).code;
+  if (hasLoadedMarketMessagePack(normalizedLanguage)) {
+    return false;
+  }
+
+  const inflightLoad = inflightMarketMessagePackLoads.get(normalizedLanguage);
+  if (inflightLoad) {
+    await inflightLoad;
+    return false;
+  }
+
+  const loader = MARKET_MESSAGE_PACK_LOADERS[getMarketMessagePackPath(normalizedLanguage)];
+  if (!loader) {
+    loadedMarketMessagePackLanguages.add(normalizedLanguage);
+    return false;
+  }
+
+  const loadPromise = loader().then((module) => {
+    mergeMarketMessages(normalizedLanguage, module?.MARKET_MESSAGE_PACK || module?.default || {});
+    loadedMarketMessagePackLanguages.add(normalizedLanguage);
   });
-});
+
+  inflightMarketMessagePackLoads.set(normalizedLanguage, loadPromise);
+
+  try {
+    await loadPromise;
+    return true;
+  } finally {
+    inflightMarketMessagePackLoads.delete(normalizedLanguage);
+  }
+};
+
+export const ensureAllMarketMessagesLoaded = async () => {
+  await Promise.all(SUPPORTED_LANGUAGES.map(({ code }) => ensureMarketMessagesLoaded(code)));
+};
 
 const getRegionFromLocale = (localeValue = '') => {
   const locale = String(localeValue || '').trim();
