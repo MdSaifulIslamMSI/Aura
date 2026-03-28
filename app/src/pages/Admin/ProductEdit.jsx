@@ -4,7 +4,9 @@ import { toast } from 'sonner';
 import { ArrowLeft, Plus, Save, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import AdminPremiumShell from '@/components/shared/AdminPremiumShell';
+import { useMarket } from '@/context/MarketContext';
 import { adminApi } from '@/services/api';
+import { translateEnumLabel } from '@/utils/enumLocalization';
 import { formatPrice } from '@/utils/format';
 
 const emptySpecification = () => ({ key: '', value: '' });
@@ -71,7 +73,10 @@ const pricingSnapshotFromForm = (form) => ({
     discountPercentage: Number(form.discountPercentage || 0),
 });
 
+const formatProductLogActionType = (t, value) => translateEnumLabel(t, 'admin.productEdit.actionType', value);
+
 const ProductEdit = () => {
+    const { t, formatDateTime } = useMarket();
     const { id } = useParams();
     const navigate = useNavigate();
     const isNew = !id || id === 'new';
@@ -110,7 +115,7 @@ const ProductEdit = () => {
                 updatedAt: product.updatedAt || '',
             });
         } catch (error) {
-            toast.error(error.message || 'Failed to load product');
+            toast.error(error.message || t('admin.productEdit.error.loadProduct', {}, 'Failed to load product'));
         } finally {
             setLoading(false);
         }
@@ -123,7 +128,7 @@ const ProductEdit = () => {
             const response = await adminApi.getProductLogs(id);
             setLogs(Array.isArray(response?.logs) ? response.logs : []);
         } catch (error) {
-            toast.error(error.message || 'Failed to load product logs');
+            toast.error(error.message || t('admin.productEdit.error.loadLogs', {}, 'Failed to load product logs'));
         } finally {
             setLogsLoading(false);
         }
@@ -182,31 +187,31 @@ const ProductEdit = () => {
         warranty: form.warranty,
         highlights: sanitizeHighlights(form.highlightsText),
         specifications: sanitizeSpecifications(form.specifications),
-        reason: String(form.coreReason || '').trim() || 'Admin core update',
+        reason: String(form.coreReason || '').trim() || t('admin.productEdit.notes.coreUpdate', {}, 'Admin core update'),
     });
 
     const buildPricingPayload = () => ({
         price: Number(form.price || 0),
         originalPrice: Number(form.originalPrice || 0),
         discountPercentage: Number(form.discountPercentage || 0),
-        reason: String(form.pricingReason || '').trim() || 'Admin pricing update',
+        reason: String(form.pricingReason || '').trim() || t('admin.productEdit.notes.pricingUpdate', {}, 'Admin pricing update'),
     });
 
     const validateForm = () => {
         if (!form.title.trim() || !form.brand.trim() || !form.category.trim()) {
-            toast.error('Title, brand, and category are required');
+            toast.error(t('admin.productEdit.error.requiredFields', {}, 'Title, brand, and category are required'));
             return false;
         }
         if (!form.image.trim()) {
-            toast.error('Image URL is required');
+            toast.error(t('admin.productEdit.error.imageRequired', {}, 'Image URL is required'));
             return false;
         }
         if (Number(form.price) < 0 || Number(form.originalPrice) < 0) {
-            toast.error('Price values must be non-negative');
+            toast.error(t('admin.productEdit.error.priceNonNegative', {}, 'Price values must be non-negative'));
             return false;
         }
         if (Number(form.price) > Number(form.originalPrice || form.price)) {
-            toast.error('Selling price cannot be greater than original price');
+            toast.error(t('admin.productEdit.error.priceBounds', {}, 'Selling price cannot be greater than original price'));
             return false;
         }
         return true;
@@ -227,7 +232,7 @@ const ProductEdit = () => {
                 };
                 const response = await adminApi.createProduct(createPayload);
                 const createdRef = response?.product?.id || response?.product?.externalId || response?.product?._id;
-                toast.success('Product created');
+                toast.success(t('admin.productEdit.success.created', {}, 'Product created'));
                 if (createdRef) {
                     navigate(`/admin/product/${encodeURIComponent(String(createdRef))}/edit`);
                     return;
@@ -242,11 +247,11 @@ const ProductEdit = () => {
                 setInitialPricing(pricingSnapshotFromForm(form));
             }
 
-            toast.success('Product updated');
+            toast.success(t('admin.productEdit.success.updated', {}, 'Product updated'));
             setForm((prev) => ({ ...prev, coreReason: '', pricingReason: '' }));
             await Promise.all([loadProduct(), loadLogs()]);
         } catch (error) {
-            toast.error(error.message || 'Failed to save product');
+            toast.error(error.message || t('admin.productEdit.error.save', {}, 'Failed to save product'));
         } finally {
             setSaving(false);
         }
@@ -255,30 +260,35 @@ const ProductEdit = () => {
     if (loading) {
         return (
             <AdminPremiumShell
-                eyebrow="Catalog editor"
-                title={isNew ? 'Create product' : 'Product edit studio'}
-                description="Refine product details, pricing, and governance notes from a premium edit surface."
+                eyebrow={t('admin.productEdit.eyebrow', {}, 'Catalog editor')}
+                title={isNew ? t('admin.productEdit.title.create', {}, 'Create product') : t('admin.productEdit.title.editStudio', {}, 'Product edit studio')}
+                description={t('admin.productEdit.loadingDescription', {}, 'Refine product details, pricing, and governance notes from a premium edit surface.')}
             >
-                <div className="admin-premium-panel p-8 text-center text-slate-400">Loading product...</div>
+                <div className="admin-premium-panel p-8 text-center text-slate-400">{t('admin.productEdit.loading', {}, 'Loading product...')}</div>
             </AdminPremiumShell>
         );
     }
 
     return (
         <AdminPremiumShell
-            eyebrow="Catalog editor"
-            title={isNew ? 'Create product' : 'Product edit studio'}
-            description="Admin-governed control for core product details, specs, pricing, and audit reasons."
+            eyebrow={t('admin.productEdit.eyebrow', {}, 'Catalog editor')}
+            title={isNew ? t('admin.productEdit.title.create', {}, 'Create product') : t('admin.productEdit.title.editStudio', {}, 'Product edit studio')}
+            description={t('admin.productEdit.description', {}, 'Admin-governed control for core product details, specs, pricing, and audit reasons.')}
         >
         <div className="mx-auto max-w-6xl space-y-6">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <Button variant="ghost" className="w-full md:w-auto" onClick={() => navigate('/admin/products')}>
                     <ArrowLeft className="w-4 h-4 mr-2" />
-                    Back to Products
+                    {t('admin.productEdit.backToProducts', {}, 'Back to Products')}
                 </Button>
                 {!isNew ? (
                     <div className="text-xs text-slate-500 rounded-lg border px-3 py-2 bg-white">
-                        ID: {meta.id || '-'} | Source: {meta.source || '-'} | Catalog: {meta.catalogVersion || '-'} | Updated: {meta.updatedAt ? new Date(meta.updatedAt).toLocaleString() : '-'}
+                        {t('admin.productEdit.metaRow', {
+                            id: meta.id || '-',
+                            source: meta.source || '-',
+                            catalog: meta.catalogVersion || '-',
+                            updated: meta.updatedAt ? formatDateTime(meta.updatedAt) : '-',
+                        }, `ID: ${meta.id || '-'} | Source: ${meta.source || '-'} | Catalog: ${meta.catalogVersion || '-'} | Updated: ${meta.updatedAt ? formatDateTime(meta.updatedAt) : '-'}`)}
                     </div>
                 ) : null}
             </div>
@@ -286,12 +296,12 @@ const ProductEdit = () => {
             <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
                 <form onSubmit={handleSubmit} className="admin-premium-panel xl:col-span-2 space-y-6">
                     <div>
-                        <h1 className="text-2xl font-bold">{isNew ? 'Create Product' : 'Edit Product'}</h1>
-                        <p className="text-sm text-slate-500">Admin-governed control for core product details, specs, and pricing.</p>
+                        <h1 className="text-2xl font-bold">{isNew ? t('admin.productEdit.heading.create', {}, 'Create Product') : t('admin.productEdit.heading.edit', {}, 'Edit Product')}</h1>
+                        <p className="text-sm text-slate-500">{t('admin.productEdit.headingBody', {}, 'Admin-governed control for core product details, specs, and pricing.')}</p>
                     </div>
 
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                        <Field label="Title">
+                        <Field label={t('admin.productEdit.fields.title', {}, 'Title')}>
                             <input
                                 type="text"
                                 className={inputClass}
@@ -300,7 +310,7 @@ const ProductEdit = () => {
                                 required
                             />
                         </Field>
-                        <Field label="Brand">
+                        <Field label={t('admin.productEdit.fields.brand', {}, 'Brand')}>
                             <input
                                 type="text"
                                 className={inputClass}
@@ -309,7 +319,7 @@ const ProductEdit = () => {
                                 required
                             />
                         </Field>
-                        <Field label="Category">
+                        <Field label={t('admin.productEdit.fields.category', {}, 'Category')}>
                             <input
                                 type="text"
                                 className={inputClass}
@@ -318,7 +328,7 @@ const ProductEdit = () => {
                                 required
                             />
                         </Field>
-                        <Field label="Sub Category">
+                        <Field label={t('admin.productEdit.fields.subCategory', {}, 'Sub Category')}>
                             <input
                                 type="text"
                                 className={inputClass}
@@ -328,7 +338,7 @@ const ProductEdit = () => {
                         </Field>
                     </div>
 
-                    <Field label="Image URL">
+                    <Field label={t('admin.productEdit.fields.imageUrl', {}, 'Image URL')}>
                         <input
                             type="url"
                             className={inputClass}
@@ -339,7 +349,7 @@ const ProductEdit = () => {
                     </Field>
 
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                        <Field label="Selling Price (INR)">
+                        <Field label={t('admin.productEdit.fields.sellingPrice', {}, 'Selling Price (INR)')}>
                             <input
                                 type="number"
                                 min="0"
@@ -349,7 +359,7 @@ const ProductEdit = () => {
                                 required
                             />
                         </Field>
-                        <Field label="Original Price (INR)">
+                        <Field label={t('admin.productEdit.fields.originalPrice', {}, 'Original Price (INR)')}>
                             <input
                                 type="number"
                                 min="0"
@@ -359,7 +369,7 @@ const ProductEdit = () => {
                                 required
                             />
                         </Field>
-                        <Field label="Discount %">
+                        <Field label={t('admin.productEdit.fields.discount', {}, 'Discount %')}>
                             <input
                                 type="number"
                                 min="0"
@@ -371,11 +381,11 @@ const ProductEdit = () => {
                         </Field>
                     </div>
                     <div className="text-xs text-slate-500">
-                        Effective pricing: {formatPrice(form.price)} vs MRP {formatPrice(form.originalPrice || form.price)}
+                        {t('admin.productEdit.effectivePricing', { price: formatPrice(form.price), mrp: formatPrice(form.originalPrice || form.price) }, `Effective pricing: ${formatPrice(form.price)} vs MRP ${formatPrice(form.originalPrice || form.price)}`)}
                     </div>
 
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                        <Field label="Stock">
+                        <Field label={t('admin.productEdit.fields.stock', {}, 'Stock')}>
                             <input
                                 type="number"
                                 min="0"
@@ -384,27 +394,27 @@ const ProductEdit = () => {
                                 onChange={(event) => setForm((prev) => ({ ...prev, countInStock: Number(event.target.value || 0) }))}
                             />
                         </Field>
-                        <Field label="Delivery Time">
+                        <Field label={t('admin.productEdit.fields.deliveryTime', {}, 'Delivery Time')}>
                             <input
                                 type="text"
                                 className={inputClass}
                                 value={form.deliveryTime}
                                 onChange={(event) => setForm((prev) => ({ ...prev, deliveryTime: event.target.value }))}
-                                placeholder="e.g. 2-4 days"
+                                placeholder={t('admin.productEdit.placeholders.deliveryTime', {}, 'e.g. 2-4 days')}
                             />
                         </Field>
-                        <Field label="Warranty">
+                        <Field label={t('admin.productEdit.fields.warranty', {}, 'Warranty')}>
                             <input
                                 type="text"
                                 className={inputClass}
                                 value={form.warranty}
                                 onChange={(event) => setForm((prev) => ({ ...prev, warranty: event.target.value }))}
-                                placeholder="e.g. 1 year manufacturer warranty"
+                                placeholder={t('admin.productEdit.placeholders.warranty', {}, 'e.g. 1 year manufacturer warranty')}
                             />
                         </Field>
                     </div>
 
-                    <Field label="Description">
+                    <Field label={t('admin.productEdit.fields.description', {}, 'Description')}>
                         <textarea
                             rows={4}
                             className={inputClass}
@@ -414,22 +424,22 @@ const ProductEdit = () => {
                         />
                     </Field>
 
-                    <Field label="Highlights (one per line)">
+                    <Field label={t('admin.productEdit.fields.highlights', {}, 'Highlights (one per line)')}>
                         <textarea
                             rows={4}
                             className={inputClass}
                             value={form.highlightsText}
                             onChange={(event) => setForm((prev) => ({ ...prev, highlightsText: event.target.value }))}
-                            placeholder={'Fast charging\nPremium build\nWater resistant'}
+                            placeholder={t('admin.productEdit.placeholders.highlights', {}, 'Fast charging\nPremium build\nWater resistant')}
                         />
                     </Field>
 
                     <div className="admin-premium-subpanel space-y-3">
                         <div className="flex items-center justify-between">
-                            <h2 className="text-sm font-semibold text-slate-800">Specifications</h2>
+                            <h2 className="text-sm font-semibold text-slate-800">{t('admin.productEdit.specifications', {}, 'Specifications')}</h2>
                             <Button type="button" variant="outline" onClick={addSpecification}>
                                 <Plus className="w-4 h-4 mr-2" />
-                                Add Spec
+                                {t('admin.productEdit.addSpec', {}, 'Add Spec')}
                             </Button>
                         </div>
                         <div className="space-y-2">
@@ -438,14 +448,14 @@ const ProductEdit = () => {
                                     <input
                                         type="text"
                                         className="input md:col-span-4"
-                                        placeholder="Key (e.g. Processor)"
+                                        placeholder={t('admin.productEdit.placeholders.specKey', {}, 'Key (e.g. Processor)')}
                                         value={entry.key}
                                         onChange={(event) => updateSpecification(index, 'key', event.target.value)}
                                     />
                                     <input
                                         type="text"
                                         className="input md:col-span-7"
-                                        placeholder="Value (e.g. Snapdragon 8 Gen 3)"
+                                        placeholder={t('admin.productEdit.placeholders.specValue', {}, 'Value (e.g. Snapdragon 8 Gen 3)')}
                                         value={entry.value}
                                         onChange={(event) => updateSpecification(index, 'value', event.target.value)}
                                     />
@@ -462,22 +472,22 @@ const ProductEdit = () => {
                     </div>
 
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                        <Field label="Core Update Reason (Audit)">
+                        <Field label={t('admin.productEdit.fields.coreReason', {}, 'Core Update Reason (Audit)')}>
                             <input
                                 type="text"
                                 className={inputClass}
                                 value={form.coreReason}
                                 onChange={(event) => setForm((prev) => ({ ...prev, coreReason: event.target.value }))}
-                                placeholder="Why core fields changed"
+                                placeholder={t('admin.productEdit.placeholders.coreReason', {}, 'Why core fields changed')}
                             />
                         </Field>
-                        <Field label="Pricing Change Reason (Audit)">
+                        <Field label={t('admin.productEdit.fields.pricingReason', {}, 'Pricing Change Reason (Audit)')}>
                             <input
                                 type="text"
                                 className={inputClass}
                                 value={form.pricingReason}
                                 onChange={(event) => setForm((prev) => ({ ...prev, pricingReason: event.target.value }))}
-                                placeholder="Why pricing changed"
+                                placeholder={t('admin.productEdit.placeholders.pricingReason', {}, 'Why pricing changed')}
                             />
                         </Field>
                     </div>
@@ -485,34 +495,34 @@ const ProductEdit = () => {
                     <div className="flex justify-end">
                         <Button type="submit" disabled={saving} className="w-full md:w-auto">
                             <Save className="w-4 h-4 mr-2" />
-                            {saving ? 'Saving...' : (isNew ? 'Create Product' : 'Save Changes')}
+                            {saving ? t('admin.productEdit.saving', {}, 'Saving...') : (isNew ? t('admin.productEdit.actions.createProduct', {}, 'Create Product') : t('admin.productEdit.actions.saveChanges', {}, 'Save Changes'))}
                         </Button>
                     </div>
                 </form>
 
                 <aside className="admin-premium-panel p-5">
-                    <h2 className="text-lg font-semibold text-slate-900">Governance Timeline</h2>
-                    <p className="text-xs text-slate-500 mb-4">Every admin change is tracked for audit and rollback analysis.</p>
+                    <h2 className="text-lg font-semibold text-slate-900">{t('admin.productEdit.timeline.title', {}, 'Governance Timeline')}</h2>
+                    <p className="text-xs text-slate-500 mb-4">{t('admin.productEdit.timeline.description', {}, 'Every admin change is tracked for audit and rollback analysis.')}</p>
                     {isNew ? (
-                        <p className="text-sm text-slate-500">Logs appear after first save.</p>
+                        <p className="text-sm text-slate-500">{t('admin.productEdit.timeline.afterFirstSave', {}, 'Logs appear after first save.')}</p>
                     ) : logsLoading ? (
-                        <p className="text-sm text-slate-500">Loading logs...</p>
+                        <p className="text-sm text-slate-500">{t('admin.productEdit.timeline.loading', {}, 'Loading logs...')}</p>
                     ) : logs.length === 0 ? (
-                        <p className="text-sm text-slate-500">No admin changes recorded yet.</p>
+                        <p className="text-sm text-slate-500">{t('admin.productEdit.timeline.empty', {}, 'No admin changes recorded yet.')}</p>
                     ) : (
                         <div className="space-y-3 max-h-[560px] overflow-y-auto pr-1">
                             {logs.map((log) => (
                                 <div key={log.actionId} className="admin-premium-subpanel">
                                     <div className="flex items-center justify-between gap-2">
-                                        <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">{log.actionType}</span>
+                                        <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">{formatProductLogActionType(t, log.actionType)}</span>
                                         <span className="text-[11px] text-slate-400">
-                                            {log.createdAt ? new Date(log.createdAt).toLocaleString() : '-'}
+                                            {log.createdAt ? formatDateTime(log.createdAt) : '-'}
                                         </span>
                                     </div>
-                                    <p className="mt-1 text-xs text-slate-600">By: {log.actorEmail || 'admin'}</p>
-                                    <p className="mt-1 text-xs text-slate-700">{log.reason || 'No reason provided'}</p>
+                                    <p className="mt-1 text-xs text-slate-600">{t('admin.productEdit.timeline.by', { actor: log.actorEmail || t('admin.shared.adminActor', {}, 'admin') }, `By: ${log.actorEmail || 'admin'}`)}</p>
+                                    <p className="mt-1 text-xs text-slate-700">{log.reason || t('admin.productEdit.timeline.noReason', {}, 'No reason provided')}</p>
                                     <p className="mt-1 text-[11px] text-slate-500">
-                                        Fields changed: {Object.keys(log.changeSet || {}).length}
+                                        {t('admin.productEdit.timeline.fieldsChanged', { count: Object.keys(log.changeSet || {}).length }, `Fields changed: ${Object.keys(log.changeSet || {}).length}`)}
                                     </p>
                                 </div>
                             ))}

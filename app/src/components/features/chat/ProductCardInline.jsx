@@ -1,5 +1,7 @@
+import { useMemo } from 'react';
 import { ArrowUpRight, ShoppingCart, Star } from 'lucide-react';
 import { useMarket } from '@/context/MarketContext';
+import { useDynamicTranslations } from '@/hooks/useDynamicTranslations';
 import { cn } from '@/lib/utils';
 import { formatPrice } from '@/utils/format';
 import { getDisplayAmount, getDisplayCurrency, getOriginalDisplayAmount } from '@/utils/pricing';
@@ -26,6 +28,10 @@ const ProductCardInline = ({
     const priceAmount = getDisplayAmount(product);
     const priceCurrency = getDisplayCurrency(product);
     const originalPriceAmount = getOriginalDisplayAmount(product);
+    const productTitle = product?.displayTitle || product?.title || '';
+    const dynamicTexts = useMemo(() => [productTitle], [productTitle]);
+    const { translateText } = useDynamicTranslations(dynamicTexts);
+    const translatedProductTitle = translateText(productTitle) || productTitle;
 
     const isDecisionMode = mode === 'product';
 
@@ -36,7 +42,7 @@ const ProductCardInline = ({
                     {product?.image ? (
                         <img
                             src={product.image}
-                            alt={product.title}
+                            alt={translatedProductTitle}
                             className="h-full w-full object-contain"
                         />
                     ) : null}
@@ -45,7 +51,7 @@ const ProductCardInline = ({
                 <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                            <h4 className="truncate text-sm font-bold">{product?.title}</h4>
+                            <h4 className="truncate text-sm font-bold">{translatedProductTitle}</h4>
                             <p className={cn('mt-1 truncate text-xs', mutedTextClass)}>
                                 {product?.brand || 'Aura catalog'}
                             </p>

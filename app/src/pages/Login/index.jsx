@@ -2,6 +2,7 @@ import { useState, useContext, useRef, useEffect, useMemo } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Eye, EyeOff, Mail, Lock, User, Phone, Zap, Network, ArrowLeft, Shield, Loader2 } from 'lucide-react';
 import { AuthContext } from '@/context/AuthContext';
+import { useMarket } from '@/context/MarketContext';
 import { authApi, otpApi } from '@/services/api';
 import {
   completeFirebasePhoneCodeChallenge,
@@ -47,6 +48,7 @@ const resolveLaunchPrefill = (state = null) => ({
 const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useMarket();
   const launchMode = resolveLaunchMode(location.state?.authMode);
   const launchPrefill = resolveLaunchPrefill(location.state);
   const {
@@ -359,7 +361,7 @@ const Login = () => {
 
 
   const buildGenericOtpFlowError = () => ({
-    message: 'If the account details are valid, continue with OTP verification.'
+    message: t('login.error.genericOtpFlow', {}, 'If the account details are valid, continue with OTP verification.')
   });
 
   const isEnumerationSensitiveOtpError = (err) => {
@@ -392,41 +394,41 @@ const Login = () => {
   };
 
   const validateStrongPasswordFields = ({ password, confirmPassword }) => {
-    if (!password) { setErr({ message: 'Password is required' }); return false; }
-    if (password.length < 12) { setErr({ message: 'Password must be at least 12 characters' }); return false; }
-    if (!/[A-Z]/.test(password)) { setErr({ message: 'Password must contain an uppercase letter' }); return false; }
-    if (!/[a-z]/.test(password)) { setErr({ message: 'Password must contain a lowercase letter' }); return false; }
-    if (!/[0-9]/.test(password)) { setErr({ message: 'Password must contain a digit' }); return false; }
-    if (!/[!@#$%^&*]/.test(password)) { setErr({ message: 'Password must contain a special character (!@#$%^&*)' }); return false; }
-    if (password !== confirmPassword) { setErr({ message: 'Passwords do not match' }); return false; }
+    if (!password) { setErr({ message: t('login.error.passwordRequired', {}, 'Password is required') }); return false; }
+    if (password.length < 12) { setErr({ message: t('login.error.passwordLength', {}, 'Password must be at least 12 characters') }); return false; }
+    if (!/[A-Z]/.test(password)) { setErr({ message: t('login.error.passwordUppercase', {}, 'Password must contain an uppercase letter') }); return false; }
+    if (!/[a-z]/.test(password)) { setErr({ message: t('login.error.passwordLowercase', {}, 'Password must contain a lowercase letter') }); return false; }
+    if (!/[0-9]/.test(password)) { setErr({ message: t('login.error.passwordDigit', {}, 'Password must contain a digit') }); return false; }
+    if (!/[!@#$%^&*]/.test(password)) { setErr({ message: t('login.error.passwordSpecial', {}, 'Password must contain a special character (!@#$%^&*)') }); return false; }
+    if (password !== confirmPassword) { setErr({ message: t('login.error.passwordMismatch', {}, 'Passwords do not match') }); return false; }
     return true;
   };
 
 
   const validateForm = () => {
     if (!formData.phone) {
-      setErr({ message: 'Phone number is required' }); return false;
+      setErr({ message: t('login.error.phoneRequired', {}, 'Phone number is required') }); return false;
     }
     if (!validatePhone(formData.phone)) {
-      setErr({ message: 'Valid phone number is required' }); return false;
+      setErr({ message: t('login.error.phoneValid', {}, 'Valid phone number is required') }); return false;
     }
     if (mode === 'signup') {
-      if (!formData.name) { setErr({ message: 'Full name is required' }); return false; }
-      if (!formData.email) { setErr({ message: 'Email address is required' }); return false; }
-      if (!validateEmail(formData.email)) { setErr({ message: 'Valid email address is required' }); return false; }
+      if (!formData.name) { setErr({ message: t('login.error.fullNameRequired', {}, 'Full name is required') }); return false; }
+      if (!formData.email) { setErr({ message: t('login.error.emailRequired', {}, 'Email address is required') }); return false; }
+      if (!validateEmail(formData.email)) { setErr({ message: t('login.error.emailValid', {}, 'Valid email address is required') }); return false; }
       if (!validateStrongPasswordFields({
         password: formData.password,
         confirmPassword: formData.confirmPassword,
       })) { return false; }
     }
     if (mode === 'signin') {
-      if (!formData.email) { setErr({ message: 'Email address is required' }); return false; }
-      if (!validateEmail(formData.email)) { setErr({ message: 'Valid email address is required' }); return false; }
-      if (!formData.password) { setErr({ message: 'Password is required' }); return false; }
+      if (!formData.email) { setErr({ message: t('login.error.emailRequired', {}, 'Email address is required') }); return false; }
+      if (!validateEmail(formData.email)) { setErr({ message: t('login.error.emailValid', {}, 'Valid email address is required') }); return false; }
+      if (!formData.password) { setErr({ message: t('login.error.passwordRequired', {}, 'Password is required') }); return false; }
     }
     if (mode === 'forgot-password') {
-      if (!formData.email) { setErr({ message: 'Email address is required' }); return false; }
-      if (!validateEmail(formData.email)) { setErr({ message: 'Valid email address is required' }); return false; }
+      if (!formData.email) { setErr({ message: t('login.error.emailRequired', {}, 'Email address is required') }); return false; }
+      if (!validateEmail(formData.email)) { setErr({ message: t('login.error.emailValid', {}, 'Valid email address is required') }); return false; }
     }
     return true;
   };
@@ -437,7 +439,7 @@ const Login = () => {
   const handleSendOtp = async () => {
     if (!validateForm()) return;
     if (mode === 'signup' && currentUser) {
-      setErr({ message: 'You are already signed in. Please log out before creating another account.' });
+      setErr({ message: t('login.error.alreadySignedIn', {}, 'You are already signed in. Please log out before creating another account.') });
       return;
     }
 
@@ -577,8 +579,8 @@ const Login = () => {
             confirmPassword: '',
           }));
           setAuthSuccess({
-            title: 'Recovery Verified',
-            detail: 'Your email OTP and Firebase phone verification are complete. Set a new password for this account now.',
+            title: t('login.reset.verifiedTitle', {}, 'Recovery Verified'),
+            detail: t('login.reset.verifiedDual', {}, 'Your email OTP and Firebase phone verification are complete. Set a new password for this account now.'),
           });
         }
         return;
@@ -605,8 +607,8 @@ const Login = () => {
           confirmPassword: '',
         }));
         setAuthSuccess({
-          title: 'Recovery Verified',
-          detail: 'Your email and phone are verified. Set a new password for this account now.',
+          title: t('login.reset.verifiedTitle', {}, 'Recovery Verified'),
+          detail: t('login.reset.verifiedSingle', {}, 'Your email and phone are verified. Set a new password for this account now.'),
         });
         return;
       }
@@ -738,68 +740,68 @@ const Login = () => {
   const getInfoText = () => {
     if (step === 'reset-password') {
       return {
-        title: 'SET NEW PASSWORD',
-        desc: 'Your recovery verification is complete for the registered email and phone. Choose a fresh password to regain access securely.'
+        title: t('login.info.reset.title', {}, 'SET NEW PASSWORD'),
+        desc: t('login.info.reset.desc', {}, 'Your recovery verification is complete for the registered email and phone. Choose a fresh password to regain access securely.')
       };
     }
 
     if (step === 'otp') {
       if (isEmailOtpStage) {
         return {
-          title: 'VERIFY EMAIL',
+          title: t('login.info.otp.email.title', {}, 'VERIFY EMAIL'),
           desc: mode === 'signup'
-            ? 'Step 1 of 2. Enter the 6-digit code sent to your email, then finish account activation with Firebase SMS on your phone.'
+            ? t('login.info.otp.email.signup', {}, 'Step 1 of 2. Enter the 6-digit code sent to your email, then finish account activation with Firebase SMS on your phone.')
             : mode === 'forgot-password'
-              ? 'Step 1 of 2. Enter the 6-digit code sent to your email, then finish recovery with Firebase SMS on your phone.'
-              : 'Step 1 of 2. Enter the 6-digit code sent to your email, then finish the same sign-in with Firebase SMS on your phone.'
+              ? t('login.info.otp.email.forgot', {}, 'Step 1 of 2. Enter the 6-digit code sent to your email, then finish recovery with Firebase SMS on your phone.')
+              : t('login.info.otp.email.signin', {}, 'Step 1 of 2. Enter the 6-digit code sent to your email, then finish the same sign-in with Firebase SMS on your phone.')
         };
       }
 
       if (isPhoneOtpStage) {
         return {
-          title: 'VERIFY PHONE',
+          title: t('login.info.otp.phone.title', {}, 'VERIFY PHONE'),
           desc: mode === 'signup'
-            ? 'Step 2 of 2. Enter the Firebase SMS code sent to your phone to activate your account securely.'
+            ? t('login.info.otp.phone.signup', {}, 'Step 2 of 2. Enter the Firebase SMS code sent to your phone to activate your account securely.')
             : mode === 'forgot-password'
-              ? 'Step 2 of 2. Enter the Firebase SMS code sent to your phone to unlock secure password recovery.'
-              : 'Step 2 of 2. Enter the Firebase SMS code sent to your phone to complete secure sign-in.'
+              ? t('login.info.otp.phone.forgot', {}, 'Step 2 of 2. Enter the Firebase SMS code sent to your phone to unlock secure password recovery.')
+              : t('login.info.otp.phone.signin', {}, 'Step 2 of 2. Enter the Firebase SMS code sent to your phone to complete secure sign-in.')
         };
       }
 
       return {
-        title: 'VERIFY OTP',
+        title: t('login.info.otp.title', {}, 'VERIFY OTP'),
         desc: otpTransport === OTP_TRANSPORT.FIREBASE_SMS
-          ? 'Enter the 6-digit Firebase SMS code sent to your phone to complete the login.'
-          : `Enter the 6-digit code sent to your email${formData.phone ? ' and phone' : ''}.`
+          ? t('login.info.otp.firebase', {}, 'Enter the 6-digit Firebase SMS code sent to your phone to complete the login.')
+          : t('login.info.otp.default', { extra: formData.phone ? t('login.info.otp.defaultExtra', {}, ' and phone') : '' }, 'Enter the 6-digit code sent to your email{{extra}}.')
       };
     }
     switch (mode) {
       case 'signup':
         return {
-          title: 'CREATE ACCOUNT',
+          title: t('login.info.signup.title', {}, 'CREATE ACCOUNT'),
           desc: firebasePhoneFallback?.disableFirebasePhoneOtp
-            ? 'Firebase phone delivery is unavailable on this deployment, so secure backup OTP codes will be sent to your email and mobile before account creation.'
+            ? t('login.info.signup.fallback', {}, 'Firebase phone delivery is unavailable on this deployment, so secure backup OTP codes will be sent to your email and mobile before account creation.')
             : canUseFirebasePhoneOtp
-              ? 'Sign up with your details, then verify the account with one code to email and one Firebase SMS code to your phone.'
-              : 'Sign up with your phone number. We\'ll verify it with an OTP sent to your email and phone.'
+              ? t('login.info.signup.dual', {}, 'Sign up with your details, then verify the account with one code to email and one Firebase SMS code to your phone.')
+              : t('login.info.signup.single', {}, 'Sign up with your phone number. We\'ll verify it with an OTP sent to your email and phone.')
         };
       case 'forgot-password':
         return {
-          title: 'RESET PASSWORD',
+          title: t('login.info.forgot.title', {}, 'RESET PASSWORD'),
           desc: firebasePhoneFallback?.disableFirebasePhoneOtp
-            ? 'Firebase phone delivery is unavailable on this deployment, so secure backup OTP codes will be sent to your registered email and mobile before password reset.'
+            ? t('login.info.forgot.fallback', {}, 'Firebase phone delivery is unavailable on this deployment, so secure backup OTP codes will be sent to your registered email and mobile before password reset.')
             : canUseFirebasePhoneOtp
-              ? 'Enter your registered email and phone number, then verify recovery with one code to email and one Firebase SMS code to your phone.'
-              : 'Enter your registered email and phone number. We\'ll verify both before allowing a new password.'
+              ? t('login.info.forgot.dual', {}, 'Enter your registered email and phone number, then verify recovery with one code to email and one Firebase SMS code to your phone.')
+              : t('login.info.forgot.single', {}, 'Enter your registered email and phone number. We\'ll verify both before allowing a new password.')
         };
       default:
         return {
-          title: 'WELCOME BACK',
+          title: t('login.info.signin.title', {}, 'WELCOME BACK'),
           desc: firebasePhoneFallback?.disableFirebasePhoneOtp
-            ? 'Firebase phone delivery is unavailable on this deployment, so secure backup OTP codes will be sent to your email and mobile after your password is checked.'
+            ? t('login.info.signin.fallback', {}, 'Firebase phone delivery is unavailable on this deployment, so secure backup OTP codes will be sent to your email and mobile after your password is checked.')
             : canUseFirebasePhoneOtp
-            ? 'Sign in with your password, then verify the login with one code to email and one Firebase SMS code to your phone.'
-            : 'Sign in with your credentials. We\'ll verify your identity with an OTP.'
+            ? t('login.info.signin.dual', {}, 'Sign in with your password, then verify the login with one code to email and one Firebase SMS code to your phone.')
+            : t('login.info.signin.single', {}, 'Sign in with your credentials. We\'ll verify your identity with an OTP.')
         };
     }
   };
@@ -851,9 +853,9 @@ const Login = () => {
   const trustNotes = useMemo(() => {
     if (step === 'reset-password') {
       return [
-        'This password change is allowed only after verified recovery for the same email and phone.',
-        'Your new password must meet the full strength policy before it is saved.',
-        'Existing Firebase sessions are revoked after the reset so the new password takes effect cleanly.',
+        t('login.trust.reset.1', {}, 'This password change is allowed only after verified recovery for the same email and phone.'),
+        t('login.trust.reset.2', {}, 'Your new password must meet the full strength policy before it is saved.'),
+        t('login.trust.reset.3', {}, 'Existing Firebase sessions are revoked after the reset so the new password takes effect cleanly.'),
       ];
     }
 
@@ -861,109 +863,109 @@ const Login = () => {
       if (isEmailOtpStage) {
         return [
           mode === 'signup'
-            ? 'Step 1 verifies the email address that will own the new account.'
+            ? t('login.trust.otp.email.signup', {}, 'Step 1 verifies the email address that will own the new account.')
             : mode === 'forgot-password'
-              ? 'Step 1 verifies the registered recovery email for this account.'
-              : 'Step 1 checks the email address tied to your password and registered phone number.',
-          'Step 2 will still require the Firebase phone code before this flow is finalized.',
-          'Both codes expire quickly and each resend refreshes the full secure verification chain.',
+              ? t('login.trust.otp.email.forgot', {}, 'Step 1 verifies the registered recovery email for this account.')
+              : t('login.trust.otp.email.signin', {}, 'Step 1 checks the email address tied to your password and registered phone number.'),
+          t('login.trust.otp.email.2', {}, 'Step 2 will still require the Firebase phone code before this flow is finalized.'),
+          t('login.trust.otp.email.3', {}, 'Both codes expire quickly and each resend refreshes the full secure verification chain.'),
         ];
       }
 
       if (isPhoneOtpStage) {
         return [
           mode === 'signup'
-            ? 'Your email step is already verified for this new account.'
+            ? t('login.trust.otp.phone.signup', {}, 'Your email step is already verified for this new account.')
             : mode === 'forgot-password'
-              ? 'Your recovery email step is already verified for this account.'
-              : 'Your email step is already verified for this login attempt.',
-          'The final Firebase SMS confirmation binds this flow to your registered phone.',
-          'If the phone code expires, resend refreshes both email and phone factors together.',
+              ? t('login.trust.otp.phone.forgot', {}, 'Your recovery email step is already verified for this account.')
+              : t('login.trust.otp.phone.signin', {}, 'Your email step is already verified for this login attempt.'),
+          t('login.trust.otp.phone.2', {}, 'The final Firebase SMS confirmation binds this flow to your registered phone.'),
+          t('login.trust.otp.phone.3', {}, 'If the phone code expires, resend refreshes both email and phone factors together.'),
         ];
       }
 
       return [
-        'Codes expire in 5 minutes and can be used only once.',
-        'Aura never asks for your OTP outside this secure verification step.',
-        'Retry and resend controls stay available if delivery is delayed.',
+        t('login.trust.otp.default.1', {}, 'Codes expire in 5 minutes and can be used only once.'),
+        t('login.trust.otp.default.2', {}, 'Aura never asks for your OTP outside this secure verification step.'),
+        t('login.trust.otp.default.3', {}, 'Retry and resend controls stay available if delivery is delayed.'),
       ];
     }
 
     if (mode === 'signup') {
       return [
         firebasePhoneFallback?.disableFirebasePhoneOtp
-          ? 'Firebase phone delivery is unavailable here, so Aura is using secure backup delivery to email and mobile before account creation.'
+          ? t('login.trust.signup.1fallback', {}, 'Firebase phone delivery is unavailable here, so Aura is using secure backup delivery to email and mobile before account creation.')
           : canUseFirebasePhoneOtp
-            ? 'Email is checked first, then Firebase phone verification finishes the new account securely.'
-            : 'Email and phone are verified before a new account becomes active.',
-        'Seller, payment, and order access stay locked behind verified identity.',
-        'Fraud checks and duplicate-account controls run before activation.',
+            ? t('login.trust.signup.1dual', {}, 'Email is checked first, then Firebase phone verification finishes the new account securely.')
+            : t('login.trust.signup.1single', {}, 'Email and phone are verified before a new account becomes active.'),
+        t('login.trust.signup.2', {}, 'Seller, payment, and order access stay locked behind verified identity.'),
+        t('login.trust.signup.3', {}, 'Fraud checks and duplicate-account controls run before activation.'),
       ];
     }
 
     if (mode === 'forgot-password') {
       return [
         firebasePhoneFallback?.disableFirebasePhoneOtp
-          ? 'Firebase phone delivery is unavailable here, so Aura is using secure backup delivery to email and mobile before recovery continues.'
+          ? t('login.trust.forgot.1fallback', {}, 'Firebase phone delivery is unavailable here, so Aura is using secure backup delivery to email and mobile before recovery continues.')
           : canUseFirebasePhoneOtp
-            ? 'Recovery checks your email first, then requires Firebase phone verification before password reset.'
-            : 'Reset requests stay tied to your registered email and phone.',
-        'A fresh verification chain is required before any password recovery step.',
-        'Suspicious recovery attempts are rate-limited automatically.',
+            ? t('login.trust.forgot.1dual', {}, 'Recovery checks your email first, then requires Firebase phone verification before password reset.')
+            : t('login.trust.forgot.1single', {}, 'Reset requests stay tied to your registered email and phone.'),
+        t('login.trust.forgot.2', {}, 'A fresh verification chain is required before any password recovery step.'),
+        t('login.trust.forgot.3', {}, 'Suspicious recovery attempts are rate-limited automatically.'),
       ];
     }
 
     return [
       firebasePhoneFallback?.disableFirebasePhoneOtp
-        ? 'Firebase phone verification is unavailable here, so Aura is using secure backup delivery to email and mobile.'
+        ? t('login.trust.signin.1fallback', {}, 'Firebase phone verification is unavailable here, so Aura is using secure backup delivery to email and mobile.')
         : canUseFirebasePhoneOtp
-        ? 'Password is verified first, then login codes are sent to both your email and Firebase phone channel.'
-        : 'Password validity is checked before an OTP is issued.',
-      'Phone confirmation reduces account-takeover risk before the session is finalized.',
-      'Rate limits, device checks, and audit logs guard repeated attempts.',
+        ? t('login.trust.signin.1dual', {}, 'Password is verified first, then login codes are sent to both your email and Firebase phone channel.')
+        : t('login.trust.signin.1single', {}, 'Password validity is checked before an OTP is issued.'),
+      t('login.trust.signin.2', {}, 'Phone confirmation reduces account-takeover risk before the session is finalized.'),
+      t('login.trust.signin.3', {}, 'Rate limits, device checks, and audit logs guard repeated attempts.'),
     ];
-  }, [canUseFirebasePhoneOtp, isEmailOtpStage, isPhoneOtpStage, mode, step]);
+  }, [canUseFirebasePhoneOtp, firebasePhoneFallback?.disableFirebasePhoneOtp, isEmailOtpStage, isPhoneOtpStage, mode, step, t]);
 
   const secureSignals = useMemo(() => ([
     {
-      label: step === 'otp' ? 'OTP window' : step === 'reset-password' ? 'Reset window' : 'Identity gate',
+      label: step === 'otp' ? t('login.signal.windowOtp', {}, 'OTP window') : step === 'reset-password' ? t('login.signal.windowReset', {}, 'Reset window') : t('login.signal.identityGate', {}, 'Identity gate'),
       value: step === 'otp'
-        ? '5-minute secure verify'
+        ? t('login.signal.valueOtp', {}, '5-minute secure verify')
         : step === 'reset-password'
-          ? 'OTP verified, new password pending'
-          : 'Credentials checked before send',
+          ? t('login.signal.valueReset', {}, 'OTP verified, new password pending')
+          : t('login.signal.valueIdentity', {}, 'Credentials checked before send'),
     },
     {
-      label: 'Delivery',
+      label: t('login.signal.delivery', {}, 'Delivery'),
       value: isEmailOtpStage
-        ? 'Email OTP live, Firebase phone pending'
+        ? t('login.signal.deliveryEmail', {}, 'Email OTP live, Firebase phone pending')
         : isPhoneOtpStage
-          ? 'Email verified, Firebase SMS active'
+          ? t('login.signal.deliveryPhone', {}, 'Email verified, Firebase SMS active')
           : firebasePhoneFallback?.disableFirebasePhoneOtp
-            ? 'Email + mobile backup OTP'
+            ? t('login.signal.deliveryFallback', {}, 'Email + mobile backup OTP')
             : canUseFirebasePhoneOtp
-              ? 'Email + Firebase SMS'
-              : formData.phone ? 'Email + phone active' : 'Email first, phone required',
+              ? t('login.signal.deliveryDual', {}, 'Email + Firebase SMS')
+              : formData.phone ? t('login.signal.deliveryActive', {}, 'Email + phone active') : t('login.signal.deliveryRequired', {}, 'Email first, phone required'),
     },
     {
-      label: 'Flow',
+      label: t('login.signal.flow', {}, 'Flow'),
       value: mode === 'signup'
-        ? 'New account activation'
+        ? t('login.signal.flowSignup', {}, 'New account activation')
         : mode === 'forgot-password'
           ? step === 'reset-password'
-            ? 'Recovery unlocked'
-            : 'Password recovery'
-          : 'Secure sign-in',
+            ? t('login.signal.flowRecoveryUnlocked', {}, 'Recovery unlocked')
+            : t('login.signal.flowRecovery', {}, 'Password recovery')
+          : t('login.signal.flowSignin', {}, 'Secure sign-in'),
     },
     {
-      label: 'Social access',
+      label: t('login.signal.social', {}, 'Social access'),
       value: socialAuthStatus.supported
-        ? 'Google, Facebook, and X available'
+        ? t('login.signal.socialAvailable', {}, 'Google, Facebook, and X available')
         : socialAuthStatus.runtimeBlocked
-          ? 'OTP-only until this tab is refreshed'
-          : `OTP-only on ${socialAuthStatus.runtimeHost || 'this host'}`,
+          ? t('login.signal.socialBlocked', {}, 'OTP-only until this tab is refreshed')
+          : t('login.signal.socialHost', { host: socialAuthStatus.runtimeHost || t('login.signal.thisHost', {}, 'this host') }, 'OTP-only on {{host}}'),
     },
-  ]), [canUseFirebasePhoneOtp, firebasePhoneFallback?.disableFirebasePhoneOtp, formData.phone, isEmailOtpStage, isPhoneOtpStage, mode, socialAuthStatus.runtimeBlocked, socialAuthStatus.runtimeHost, socialAuthStatus.supported, step]);
+  ]), [canUseFirebasePhoneOtp, firebasePhoneFallback?.disableFirebasePhoneOtp, formData.phone, isEmailOtpStage, isPhoneOtpStage, mode, socialAuthStatus.runtimeBlocked, socialAuthStatus.runtimeHost, socialAuthStatus.supported, step, t]);
 
   const handleFeedbackAction = () => {
     if (!authError?.action) return;
@@ -1004,22 +1006,22 @@ const Login = () => {
   };
 
   const submitLabel = (() => {
-    if (step === 'reset-password') return 'RESET PASSWORD';
+    if (step === 'reset-password') return t('login.submit.reset', {}, 'RESET PASSWORD');
 
     if (step === 'otp') {
-      if (isEmailOtpStage) return 'VERIFY EMAIL CODE';
+      if (isEmailOtpStage) return t('login.submit.verifyEmail', {}, 'VERIFY EMAIL CODE');
       if (isPhoneOtpStage) {
-        if (mode === 'signup') return 'VERIFY PHONE & CREATE ACCOUNT';
-        if (mode === 'forgot-password') return 'VERIFY PHONE & CONTINUE';
-        return 'VERIFY PHONE & SIGN IN';
+        if (mode === 'signup') return t('login.submit.verifyPhoneCreate', {}, 'VERIFY PHONE & CREATE ACCOUNT');
+        if (mode === 'forgot-password') return t('login.submit.verifyPhoneContinue', {}, 'VERIFY PHONE & CONTINUE');
+        return t('login.submit.verifyPhoneSignin', {}, 'VERIFY PHONE & SIGN IN');
       }
-      return mode === 'signin' ? 'VERIFY OTP & SIGN IN' : 'VERIFY OTP';
+      return mode === 'signin' ? t('login.submit.verifyOtpSignin', {}, 'VERIFY OTP & SIGN IN') : t('login.submit.verifyOtp', {}, 'VERIFY OTP');
     }
 
-    if (firebasePhoneFallback?.disableFirebasePhoneOtp) return 'SEND BACKUP OTP';
-    if (mode === 'signup') return canUseFirebasePhoneOtp ? 'SEND EMAIL + PHONE OTP' : 'SEND OTP & SIGN UP';
-    if (mode === 'forgot-password') return canUseFirebasePhoneOtp ? 'SEND EMAIL + PHONE OTP' : 'SEND OTP';
-    return canUseFirebasePhoneOtp ? 'SEND EMAIL + PHONE OTP' : 'SEND OTP & SIGN IN';
+    if (firebasePhoneFallback?.disableFirebasePhoneOtp) return t('login.submit.sendBackupOtp', {}, 'SEND BACKUP OTP');
+    if (mode === 'signup') return canUseFirebasePhoneOtp ? t('login.submit.sendDualOtp', {}, 'SEND EMAIL + PHONE OTP') : t('login.submit.sendOtpSignup', {}, 'SEND OTP & SIGN UP');
+    if (mode === 'forgot-password') return canUseFirebasePhoneOtp ? t('login.submit.sendDualOtp', {}, 'SEND EMAIL + PHONE OTP') : t('login.submit.sendOtp', {}, 'SEND OTP');
+    return canUseFirebasePhoneOtp ? t('login.submit.sendDualOtp', {}, 'SEND EMAIL + PHONE OTP') : t('login.submit.sendOtpSignin', {}, 'SEND OTP & SIGN IN');
   })();
 
   return (
@@ -1087,7 +1089,7 @@ const Login = () => {
               <div className="mb-6 rounded-[24px] border border-white/10 bg-white/[0.035] p-4 shadow-[0_18px_45px_rgba(2,8,23,0.28)]">
                 <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.24em] text-neo-cyan">
                   <Shield className="h-4 w-4" />
-                  Secure Entry Layer
+                  {t('login.secureEntry', {}, 'Secure Entry Layer')}
                 </div>
                 <div className="mt-3 grid gap-3 sm:grid-cols-3">
                   {secureSignals.map((signal) => (
@@ -1140,10 +1142,10 @@ const Login = () => {
                     {/* Name â€” Signup Only */}
                     {mode === 'signup' && (
                       <div className="animate-fade-in">
-                        <label className="block text-xs uppercase tracking-widest font-bold text-slate-400 mb-2">Full Name *</label>
+                        <label className="block text-xs uppercase tracking-widest font-bold text-slate-400 mb-2">{t('login.field.fullName', {}, 'Full Name')} *</label>
                         <div className="relative group/input">
                           <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 group-focus-within/input:text-neo-cyan transition-colors" />
-                          <input type="text" name="name" value={formData.name} onChange={handleChange} placeholder="John Doe" autoComplete="name"
+                          <input type="text" name="name" value={formData.name} onChange={handleChange} placeholder={t('login.placeholder.fullName', {}, 'John Doe')} autoComplete="name"
                             className="w-full pl-12 pr-4 py-4 bg-zinc-950/50 border border-white/10 rounded-2xl focus:outline-none focus:border-neo-cyan focus:ring-1 focus:ring-neo-cyan text-white placeholder:text-slate-600 font-medium transition-all shadow-inner" />
                         </div>
                       </div>
@@ -1152,10 +1154,10 @@ const Login = () => {
                     {/* Email â€” Signup & Signin */}
                     {mode !== 'forgot-password' && (
                       <div className="animate-fade-in">
-                        <label className="block text-xs uppercase tracking-widest font-bold text-slate-400 mb-2">Email Address *</label>
+                        <label className="block text-xs uppercase tracking-widest font-bold text-slate-400 mb-2">{t('login.field.email', {}, 'Email Address')} *</label>
                         <div className="relative group/input">
                           <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 group-focus-within/input:text-neo-cyan transition-colors" />
-                          <input type="email" name="email" value={formData.email} onChange={handleChange} placeholder="you@example.com" autoComplete={mode === 'signin' ? 'username' : 'email'}
+                          <input type="email" name="email" value={formData.email} onChange={handleChange} placeholder={t('login.placeholder.email', {}, 'you@example.com')} autoComplete={mode === 'signin' ? 'username' : 'email'}
                             className="w-full pl-12 pr-4 py-4 bg-zinc-950/50 border border-white/10 rounded-2xl focus:outline-none focus:border-neo-cyan focus:ring-1 focus:ring-neo-cyan text-white placeholder:text-slate-600 font-medium transition-all shadow-inner" />
                         </div>
                       </div>
@@ -1163,7 +1165,7 @@ const Login = () => {
 
                     {/* Phone â€” Always Required */}
                     <div className="animate-fade-in">
-                      <label className="block text-xs uppercase tracking-widest font-bold text-slate-400 mb-2">Phone Number *</label>
+                      <label className="block text-xs uppercase tracking-widest font-bold text-slate-400 mb-2">{t('login.field.phone', {}, 'Phone Number')} *</label>
                       <div className="relative group/input">
                         <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 group-focus-within/input:text-neo-cyan transition-colors" />
                         <input type="tel" name="phone" value={formData.phone} onChange={handleChange} placeholder="+91 98765 43210" autoComplete="tel"
@@ -1171,14 +1173,14 @@ const Login = () => {
                       </div>
                       <p className="text-[10px] text-slate-600 mt-1.5 uppercase tracking-widest font-bold pl-1">
                         {firebasePhoneFallback?.disableFirebasePhoneOtp
-                          ? 'Firebase SMS is unavailable here. Secure backup OTP will be sent to your email and mobile instead.'
+                          ? t('login.phoneHint.fallback', {}, 'Firebase SMS is unavailable here. Secure backup OTP will be sent to your email and mobile instead.')
                           : canUseFirebasePhoneOtp
                           ? mode === 'signup'
-                            ? 'Signup sends one code to email and one Firebase SMS code to your phone.'
+                            ? t('login.phoneHint.signup', {}, 'Signup sends one code to email and one Firebase SMS code to your phone.')
                             : mode === 'forgot-password'
-                              ? 'Recovery sends one code to email and one Firebase SMS code to your phone.'
-                              : 'Sign-in sends one code to email and one Firebase SMS code to your phone.'
-                          : 'OTP will be sent to your email & phone'}
+                              ? t('login.phoneHint.forgot', {}, 'Recovery sends one code to email and one Firebase SMS code to your phone.')
+                              : t('login.phoneHint.signin', {}, 'Sign-in sends one code to email and one Firebase SMS code to your phone.')
+                          : t('login.phoneHint.default', {}, 'OTP will be sent to your email & phone')}
                       </p>
                     </div>
 
@@ -1186,11 +1188,11 @@ const Login = () => {
                     {mode !== 'forgot-password' && (
                       <div className="animate-fade-in">
                         <div className="flex justify-between items-end mb-2">
-                          <label className="block text-xs uppercase tracking-widest font-bold text-slate-400">Password *</label>
+                          <label className="block text-xs uppercase tracking-widest font-bold text-slate-400">{t('login.field.password', {}, 'Password')} *</label>
                           {mode === 'signin' && (
                             <button type="button" onClick={() => switchMode('forgot-password')}
                               className="text-neo-cyan text-xs font-bold uppercase tracking-widest hover:text-neo-fuchsia transition-colors">
-                              Forgot Password?
+                              {t('login.action.forgotPassword', {}, 'Forgot Password?')}
                             </button>
                           )}
                         </div>
@@ -1209,7 +1211,7 @@ const Login = () => {
                     {/* Confirm Password â€” Signup Only */}
                     {mode === 'signup' && (
                       <div className="animate-fade-in">
-                        <label className="block text-xs uppercase tracking-widest font-bold text-slate-400 mb-2">Confirm Password *</label>
+                        <label className="block text-xs uppercase tracking-widest font-bold text-slate-400 mb-2">{t('login.field.confirmPassword', {}, 'Confirm Password')} *</label>
                         <div className="relative group/input">
                           <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 group-focus-within/input:text-neo-cyan transition-colors" />
                           <input type={showPassword ? 'text' : 'password'} name="confirmPassword" value={formData.confirmPassword} onChange={handleChange} placeholder="........" autoComplete="new-password"
@@ -1221,10 +1223,10 @@ const Login = () => {
                     {/* Forgot Password â€” Email field */}
                     {mode === 'forgot-password' && (
                       <div className="animate-fade-in">
-                        <label className="block text-xs uppercase tracking-widest font-bold text-slate-400 mb-2">Registered Email *</label>
+                        <label className="block text-xs uppercase tracking-widest font-bold text-slate-400 mb-2">{t('login.field.registeredEmail', {}, 'Registered Email')} *</label>
                         <div className="relative group/input">
                           <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 group-focus-within/input:text-neo-cyan transition-colors" />
-                          <input type="email" name="email" value={formData.email} onChange={handleChange} placeholder="you@example.com" autoComplete="email"
+                          <input type="email" name="email" value={formData.email} onChange={handleChange} placeholder={t('login.placeholder.email', {}, 'you@example.com')} autoComplete="email"
                             className="w-full pl-12 pr-4 py-4 bg-zinc-950/50 border border-white/10 rounded-2xl focus:outline-none focus:border-neo-cyan focus:ring-1 focus:ring-neo-cyan text-white placeholder:text-slate-600 font-medium transition-all shadow-inner" />
                         </div>
                       </div>
@@ -1238,41 +1240,41 @@ const Login = () => {
                     {/* Back button */}
                     <button type="button" onClick={goBack}
                       className="flex items-center gap-2 text-slate-400 hover:text-white text-xs uppercase tracking-widest font-bold mb-6 transition-colors">
-                      <ArrowLeft className="w-4 h-4" /> Back to form
+                      <ArrowLeft className="w-4 h-4" /> {t('login.action.backToForm', {}, 'Back to form')}
                     </button>
 
                     <div className="text-center mb-8">
                       <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-neo-cyan/20 to-neo-fuchsia/20 border border-white/10 flex items-center justify-center">
                         <Shield className="w-8 h-8 text-neo-cyan" />
                       </div>
-                      <h3 className="text-xl font-black text-white uppercase tracking-widest mb-2">Enter Verification Code</h3>
+                      <h3 className="text-xl font-black text-white uppercase tracking-widest mb-2">{t('login.otp.title', {}, 'Enter Verification Code')}</h3>
                       {isEmailOtpStage ? (
                         <p className="text-slate-400 text-sm">
-                          Step 1 of 2. We sent a 6-digit email code to <span className="text-white font-bold">{formData.email}</span>.
+                          {t('login.otp.emailStepPrefix', {}, 'Step 1 of 2. We sent a 6-digit email code to')} <span className="text-white font-bold">{formData.email}</span>.
                           {' '}
                           {mode === 'signup'
-                            ? <>Your Firebase SMS code for <span className="text-white font-bold">{formData.phone}</span> will finish activating this account next.</>
+                            ? <>{t('login.otp.emailStepSignupPrefix', {}, 'Your Firebase SMS code for')} <span className="text-white font-bold">{formData.phone}</span> {t('login.otp.emailStepSignupSuffix', {}, 'will finish activating this account next.')}</>
                             : mode === 'forgot-password'
-                              ? <>Your Firebase SMS code for <span className="text-white font-bold">{formData.phone}</span> will unlock password recovery next.</>
-                              : <>Your Firebase SMS code for <span className="text-white font-bold">{formData.phone}</span> will complete the same login next.</>}
+                              ? <>{t('login.otp.emailStepForgotPrefix', {}, 'Your Firebase SMS code for')} <span className="text-white font-bold">{formData.phone}</span> {t('login.otp.emailStepForgotSuffix', {}, 'will unlock password recovery next.')}</>
+                              : <>{t('login.otp.emailStepSigninPrefix', {}, 'Your Firebase SMS code for')} <span className="text-white font-bold">{formData.phone}</span> {t('login.otp.emailStepSigninSuffix', {}, 'will complete the same login next.')}</>}
                         </p>
                       ) : isPhoneOtpStage ? (
                         <p className="text-slate-400 text-sm">
-                          Step 2 of 2. Your email is verified. Enter the Firebase SMS code sent to <span className="text-white font-bold">{formData.phone}</span>{' '}
+                          {t('login.otp.phoneStepPrefix', {}, 'Step 2 of 2. Your email is verified. Enter the Firebase SMS code sent to')} <span className="text-white font-bold">{formData.phone}</span>{' '}
                           {mode === 'signup'
-                            ? 'to activate the account.'
+                            ? t('login.otp.phoneStepSignup', {}, 'to activate the account.')
                             : mode === 'forgot-password'
-                              ? 'to continue password recovery.'
-                              : 'to finish signing in.'}
+                              ? t('login.otp.phoneStepForgot', {}, 'to continue password recovery.')
+                              : t('login.otp.phoneStepSignin', {}, 'to finish signing in.')}
                         </p>
                       ) : otpTransport === OTP_TRANSPORT.FIREBASE_SMS ? (
                         <p className="text-slate-400 text-sm">
-                          We sent a 6-digit Firebase SMS code to <span className="text-white font-bold">{formData.phone}</span>.
+                          {t('login.otp.firebaseSent', {}, 'We sent a 6-digit Firebase SMS code to')} <span className="text-white font-bold">{formData.phone}</span>.
                         </p>
                       ) : (
                         <p className="text-slate-400 text-sm">
-                          We sent a 6-digit code to <span className="text-white font-bold">{formData.email}</span>
-                          {formData.phone && <> and <span className="text-white font-bold">{formData.phone}</span></>}
+                          {t('login.otp.defaultSent', {}, 'We sent a 6-digit code to')} <span className="text-white font-bold">{formData.email}</span>
+                          {formData.phone && <> {t('login.otp.and', {}, 'and')} <span className="text-white font-bold">{formData.phone}</span></>}
                         </p>
                       )}
                     </div>
@@ -1305,12 +1307,12 @@ const Login = () => {
                     <div className="text-center mb-4">
                       {countdown > 0 ? (
                         <p className="text-slate-500 text-xs uppercase tracking-widest font-bold">
-                          Resend in <span className="text-neo-cyan">{countdown}s</span>
+                          {t('login.otp.resendIn', { seconds: countdown }, 'Resend in {{seconds}}s')}
                         </p>
                       ) : (
                         <button type="button" onClick={handleResendOtp} disabled={isLoading}
                           className="text-neo-cyan text-xs uppercase tracking-widest font-bold hover:text-white transition-colors">
-                          Resend OTP
+                          {t('login.otp.resend', {}, 'Resend OTP')}
                         </button>
                       )}
                     </div>
@@ -1321,23 +1323,24 @@ const Login = () => {
                   <div className="animate-fade-in">
                     <button type="button" onClick={goBack}
                       className="flex items-center gap-2 text-slate-400 hover:text-white text-xs uppercase tracking-widest font-bold mb-6 transition-colors">
-                      <ArrowLeft className="w-4 h-4" /> Back to form
+                      <ArrowLeft className="w-4 h-4" /> {t('login.action.backToForm', {}, 'Back to form')}
                     </button>
 
                     <div className="text-center mb-8">
                       <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-neo-cyan/20 to-neo-fuchsia/20 border border-white/10 flex items-center justify-center">
                         <Lock className="w-8 h-8 text-neo-cyan" />
                       </div>
-                      <h3 className="text-xl font-black text-white uppercase tracking-widest mb-2">Create New Password</h3>
+                      <h3 className="text-xl font-black text-white uppercase tracking-widest mb-2">{t('login.reset.title', {}, 'Create New Password')}</h3>
                       <p className="text-slate-400 text-sm">
-                        Recovery is verified for <span className="text-white font-bold">{formData.email}</span>.
-                        Set a strong new password for the account tied to <span className="text-white font-bold">{formData.phone}</span>.
+                        {t('login.reset.bodyPrefix', {}, 'Recovery is verified for')} <span className="text-white font-bold">{formData.email}</span>.
+                        {' '}
+                        {t('login.reset.bodySuffix', {}, 'Set a strong new password for the account tied to')} <span className="text-white font-bold">{formData.phone}</span>.
                       </p>
                     </div>
 
-                    <div className="space-y-5">
+                      <div className="space-y-5">
                       <div className="animate-fade-in">
-                        <label className="block text-xs uppercase tracking-widest font-bold text-slate-400 mb-2">New Password *</label>
+                        <label className="block text-xs uppercase tracking-widest font-bold text-slate-400 mb-2">{t('login.field.newPassword', {}, 'New Password')} *</label>
                         <div className="relative group/input">
                           <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 group-focus-within/input:text-neo-cyan transition-colors" />
                           <input
@@ -1357,7 +1360,7 @@ const Login = () => {
                       </div>
 
                       <div className="animate-fade-in">
-                        <label className="block text-xs uppercase tracking-widest font-bold text-slate-400 mb-2">Confirm Password *</label>
+                        <label className="block text-xs uppercase tracking-widest font-bold text-slate-400 mb-2">{t('login.field.confirmPassword', {}, 'Confirm Password')} *</label>
                         <div className="relative group/input">
                           <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 group-focus-within/input:text-neo-cyan transition-colors" />
                           <input
@@ -1387,7 +1390,7 @@ const Login = () => {
                   {isLoading ? (
                     <span className="flex items-center justify-center gap-3 relative z-10 text-white">
                       <Loader2 className="w-5 h-5 animate-spin" />
-                      PROCESSING...
+                      {t('login.processing', {}, 'PROCESSING...')}
                     </span>
                   ) : (
                     <span className="relative z-10 flex items-center justify-center gap-2">
@@ -1404,7 +1407,7 @@ const Login = () => {
                 <div className="mt-6 animate-fade-in">
                   <div className="flex items-center gap-4 mb-6">
                     <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
-                    <span className="text-[10px] uppercase tracking-[0.3em] font-bold text-slate-500">or</span>
+                    <span className="text-[10px] uppercase tracking-[0.3em] font-bold text-slate-500">{t('login.or', {}, 'or')}</span>
                     <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
                   </div>
                   {socialAuthStatus.supported ? (
@@ -1452,21 +1455,21 @@ const Login = () => {
                     <div className="rounded-2xl border border-amber-400/20 bg-amber-500/5 px-4 py-3">
                       <p className="text-[11px] uppercase tracking-[0.18em] font-bold text-amber-300">
                         {socialAuthStatus.runtimeBlocked
-                          ? 'Social sign-in paused on this tab'
-                          : 'Social sign-in is disabled on this host'}
+                          ? t('login.social.paused', {}, 'Social sign-in paused on this tab')
+                          : t('login.social.disabledHost', {}, 'Social sign-in is disabled on this host')}
                       </p>
                       <p className="mt-1 text-xs text-slate-400">
                         {socialAuthStatus.runtimeBlocked ? (
                           <>
-                            Firebase rejected popup sign-in for{' '}
-                            <span className="font-semibold text-slate-200">{socialAuthStatus.runtimeHost || 'this domain'}</span>{' '}
-                            in this tab. Refresh after confirming the domain is authorized, or continue with email and OTP now.
+                            {t('login.social.runtimeBlockedPrefix', {}, 'Firebase rejected popup sign-in for')}{' '}
+                            <span className="font-semibold text-slate-200">{socialAuthStatus.runtimeHost || t('login.social.thisDomain', {}, 'this domain')}</span>{' '}
+                            {t('login.social.runtimeBlockedSuffix', {}, 'in this tab. Refresh after confirming the domain is authorized, or continue with email and OTP now.')}
                           </>
                         ) : (
                           <>
-                            Use email and OTP sign-in here. To enable Google, Facebook, and X, authorize{' '}
-                            <span className="font-semibold text-slate-200">{socialAuthStatus.runtimeHost || 'this domain'}</span>{' '}
-                            in Firebase Authentication settings.
+                            {t('login.social.enablePrefix', {}, 'Use email and OTP sign-in here. To enable Google, Facebook, and X, authorize')}{' '}
+                            <span className="font-semibold text-slate-200">{socialAuthStatus.runtimeHost || t('login.social.thisDomain', {}, 'this domain')}</span>{' '}
+                            {t('login.social.enableSuffix', {}, 'in Firebase Authentication settings.')}
                           </>
                         )}
                       </p>
@@ -1474,14 +1477,14 @@ const Login = () => {
                   ) : (
                     <div className="rounded-2xl border border-rose-400/20 bg-rose-500/5 px-4 py-3">
                       <p className="text-[11px] uppercase tracking-[0.18em] font-bold text-rose-300">
-                        Social sign-in is unavailable on this deployment
+                        {t('login.social.unavailable', {}, 'Social sign-in is unavailable on this deployment')}
                       </p>
                       <p className="mt-1 text-xs text-slate-400">
-                        Firebase authentication did not initialize cleanly for this frontend build. Email and OTP sign-in remain available.
+                        {t('login.social.unavailableBody', {}, 'Firebase authentication did not initialize cleanly for this frontend build. Email and OTP sign-in remain available.')}
                       </p>
                       {socialAuthStatus.initErrorCode && (
                         <p className="mt-2 text-[11px] text-slate-500">
-                          Runtime code: <span className="font-semibold text-slate-300">{socialAuthStatus.initErrorCode}</span>
+                          {t('login.social.runtimeCode', {}, 'Runtime code:')} <span className="font-semibold text-slate-300">{socialAuthStatus.initErrorCode}</span>
                         </p>
                       )}
                     </div>
@@ -1492,18 +1495,20 @@ const Login = () => {
               <div className="mt-10 pt-8 border-t border-white/10 text-center space-y-3">
                 {mode === 'forgot-password' ? (
                   <p className="text-slate-400 font-medium uppercase tracking-widest text-xs">
-                    Remember your password?
+                    {t('login.modeToggle.rememberPassword', {}, 'Remember your password?')}
                     <button onClick={() => switchMode('signin')}
                       className="ml-2 text-white font-bold hover:text-neo-cyan transition-colors underline decoration-neo-cyan/50 decoration-2 underline-offset-4">
-                      Sign In
+                      {t('login.mode.signin.cta', {}, 'Sign In')}
                     </button>
                   </p>
                 ) : (
                   <p className="text-slate-400 font-medium uppercase tracking-widest text-xs">
-                    {mode === 'signin' ? "Don't have an account?" : 'Already have an account?'}
+                    {mode === 'signin'
+                      ? t('login.modeToggle.noAccount', {}, "Don't have an account?")
+                      : t('login.modeToggle.haveAccount', {}, 'Already have an account?')}
                     <button onClick={() => switchMode(mode === 'signin' ? 'signup' : 'signin')}
                       className="ml-2 text-white font-bold hover:text-neo-cyan transition-colors underline decoration-neo-cyan/50 decoration-2 underline-offset-4">
-                      {mode === 'signin' ? 'Sign Up' : 'Sign In'}
+                      {mode === 'signin' ? t('login.mode.signup.cta', {}, 'Sign Up') : t('login.mode.signin.cta', {}, 'Sign In')}
                     </button>
                   </p>
                 )}
@@ -1511,10 +1516,10 @@ const Login = () => {
 
               {/* Terms */}
               <p className="mt-8 text-xs font-bold text-slate-600 text-center uppercase tracking-widest max-w-sm mx-auto leading-relaxed">
-                By continuing, you accept our{' '}
-                <Link to="/terms" className="text-slate-400 hover:text-white transition-colors underline decoration-white/30 decoration-1 underline-offset-2">Terms of Use</Link>{' '}
-                and allow{' '}
-                <Link to="/privacy" className="text-slate-400 hover:text-white transition-colors underline decoration-white/30 decoration-1 underline-offset-2">Privacy Policy</Link>.
+                {t('login.terms.prefix', {}, 'By continuing, you accept our')}{' '}
+                <Link to="/terms" className="text-slate-400 hover:text-white transition-colors underline decoration-white/30 decoration-1 underline-offset-2">{t('login.terms.use', {}, 'Terms of Use')}</Link>{' '}
+                {t('login.terms.middle', {}, 'and allow')}{' '}
+                <Link to="/privacy" className="text-slate-400 hover:text-white transition-colors underline decoration-white/30 decoration-1 underline-offset-2">{t('login.terms.privacy', {}, 'Privacy Policy')}</Link>.
               </p>
             </div>
           </div>

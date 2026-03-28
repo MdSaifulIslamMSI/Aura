@@ -31,6 +31,8 @@ import {
 } from 'lucide-react';
 import PremiumSelect from '@/components/ui/premium-select';
 import { useColorMode } from '@/context/ColorModeContext';
+import { useMarket } from '@/context/MarketContext';
+import { useDynamicTranslations } from '@/hooks/useDynamicTranslations';
 import { FIGMA_COLOR_MODE_OPTIONS } from '@/config/figmaTokens';
 import { cn } from '@/lib/utils';
 import { formatPrice } from '@/utils/format';
@@ -104,15 +106,64 @@ const TRUST_NOTES = [
     'Listings with multiple real photos and verified sellers deserve the shortest trust path.',
 ];
 
-function timeAgo(dateStr) {
+const CATEGORY_LABEL_KEYS = {
+    '': 'marketplace.category.all',
+    mobiles: 'marketplace.category.mobiles',
+    laptops: 'marketplace.category.laptops',
+    electronics: 'marketplace.category.electronics',
+    vehicles: 'marketplace.category.vehicles',
+    furniture: 'marketplace.category.furniture',
+    fashion: 'marketplace.category.fashion',
+    books: 'marketplace.category.books',
+    sports: 'marketplace.category.sports',
+    'home-appliances': 'marketplace.category.homeAppliances',
+    gaming: 'marketplace.category.gaming',
+    other: 'marketplace.category.other',
+};
+
+const SORT_LABEL_KEYS = {
+    newest: 'marketplace.sort.newest',
+    'price-low': 'marketplace.sort.priceLow',
+    'price-high': 'marketplace.sort.priceHigh',
+    'most-viewed': 'marketplace.sort.mostViewed',
+};
+
+const CONDITION_LABEL_KEYS = {
+    '': 'marketplace.condition.any',
+    new: 'marketplace.condition.new',
+    'like-new': 'marketplace.condition.likeNew',
+    good: 'marketplace.condition.good',
+    fair: 'marketplace.condition.fair',
+};
+
+const HEAT_LABEL_KEYS = {
+    blazing: 'marketplace.heat.blazing',
+    rising: 'marketplace.heat.rising',
+    balanced: 'marketplace.heat.balanced',
+    cooling: 'marketplace.heat.cooling',
+};
+
+const PROXIMITY_LABEL_KEYS = {
+    local: 'marketplace.proximity.local',
+    regional: 'marketplace.proximity.regional',
+    national: 'marketplace.proximity.national',
+};
+
+const TRUST_NOTE_KEYS = [
+    'marketplace.trust.noteEscrow',
+    'marketplace.trust.noteMeetup',
+    'marketplace.trust.noteVerified',
+];
+
+function timeAgo(dateStr, t) {
     const diff = Date.now() - new Date(dateStr).getTime();
     const mins = Math.floor(diff / 60000);
-    if (mins < 60) return `${mins}m ago`;
+    if (mins < 60) return t('marketplace.time.minutesAgo', { count: mins }, '{{count}}m ago');
     const hrs = Math.floor(mins / 60);
-    if (hrs < 24) return `${hrs}h ago`;
+    if (hrs < 24) return t('marketplace.time.hoursAgo', { count: hrs }, '{{count}}h ago');
     const days = Math.floor(hrs / 24);
-    if (days < 30) return `${days}d ago`;
-    return `${Math.floor(days / 30)}mo ago`;
+    if (days < 30) return t('marketplace.time.daysAgo', { count: days }, '{{count}}d ago');
+    return t('marketplace.time.monthsAgo', { count: Math.floor(days / 30) }, '{{count}}mo ago');
 }
 
 const hexToRgb = (hex) => {
@@ -169,7 +220,7 @@ const StatCard = ({ label, value, detail, isWhiteMode, style }) => (
     </div>
 );
 
-const HotspotCard = ({ hotspot, getCategoryLabel }) => {
+const HotspotCard = ({ hotspot, getCategoryLabel, getHeatLabel, getProximityLabel, t }) => {
     const heatStyle = HEAT_STYLE[hotspot.heatLabel] || HEAT_STYLE.balanced;
     const demandBarWidth = `${Math.max(4, Number(hotspot.demandScore || 0))}%`;
     const supplyBarWidth = `${Math.max(4, Number(hotspot.supplyScore || 0))}%`;
@@ -187,18 +238,18 @@ const HotspotCard = ({ hotspot, getCategoryLabel }) => {
                     </p>
                 </div>
                 <span className={`rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.12em] ${heatStyle.badge}`}>
-                    {hotspot.heatLabel}
+                    {getHeatLabel(hotspot.heatLabel)}
                 </span>
             </div>
 
             <div className="mb-3 flex items-center justify-between text-xs text-slate-200/90">
                 <span className="inline-flex items-center gap-1">
                     <Flame className="h-3.5 w-3.5 text-fuchsia-200" />
-                    Heat {hotspot.heatScore}
+                    {t('marketplace.hotspot.heat', { score: hotspot.heatScore }, 'Heat {{score}}')}
                 </span>
                 <span className="inline-flex items-center gap-1">
                     <MapPin className="h-3.5 w-3.5 text-cyan-200" />
-                    {PROXIMITY_LABELS[hotspot.proximity] || 'Signal'}
+                    {getProximityLabel(hotspot.proximity)}
                 </span>
             </div>
 
@@ -207,7 +258,7 @@ const HotspotCard = ({ hotspot, getCategoryLabel }) => {
                     <div className="mb-1 flex items-center justify-between text-[11px] font-semibold text-slate-300/90">
                         <span className="inline-flex items-center gap-1">
                             <TrendingUp className="h-3.5 w-3.5 text-emerald-300" />
-                            Demand
+                            {t('marketplace.hotspot.demand', {}, 'Demand')}
                         </span>
                         <span>{hotspot.demandLevel}</span>
                     </div>
@@ -219,7 +270,7 @@ const HotspotCard = ({ hotspot, getCategoryLabel }) => {
                     <div className="mb-1 flex items-center justify-between text-[11px] font-semibold text-slate-300/90">
                         <span className="inline-flex items-center gap-1">
                             <Package className="h-3.5 w-3.5 text-cyan-300" />
-                            Supply
+                            {t('marketplace.hotspot.supply', {}, 'Supply')}
                         </span>
                         <span>{hotspot.supplyLevel}</span>
                     </div>
@@ -231,11 +282,11 @@ const HotspotCard = ({ hotspot, getCategoryLabel }) => {
 
             <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] text-slate-300/90">
                 <div className="rounded-lg border border-slate-700/70 bg-slate-950/45 px-2 py-1.5">
-                    <p className="font-semibold text-slate-400">Listings</p>
+                    <p className="font-semibold text-slate-400">{t('marketplace.hotspot.listings', {}, 'Listings')}</p>
                     <p className="text-sm font-black text-slate-100">{hotspot.supplyCount}</p>
                 </div>
                 <div className="rounded-lg border border-slate-700/70 bg-slate-950/45 px-2 py-1.5">
-                    <p className="font-semibold text-slate-400">Sold / 21d</p>
+                    <p className="font-semibold text-slate-400">{t('marketplace.hotspot.soldWindow', {}, 'Sold / 21d')}</p>
                     <p className="text-sm font-black text-slate-100">{hotspot.soldCount}</p>
                 </div>
             </div>
@@ -252,7 +303,16 @@ const ListingCard = ({
     isWhiteMode,
     accentPrimary,
     accentSecondary,
+    getCategoryLabel,
+    getConditionLabel,
+    t,
+    translateListingText,
 }) => {
+    const translatedListingTitle = translateListingText(listing?.title) || listing?.title;
+    const translatedSafetyNote = translateListingText(safety?.highlights?.[0] || safety?.watchouts?.[0] || '')
+        || safety?.highlights?.[0]
+        || safety?.watchouts?.[0]
+        || '';
     const cardStyle = isWhiteMode
         ? {
             background: `radial-gradient(circle at top right, ${toRgba(accentPrimary, 0.08)}, transparent 36%), linear-gradient(180deg, rgba(255,255,255,0.98), rgba(245,248,255,0.98))`,
@@ -290,24 +350,24 @@ const ListingCard = ({
             >
                 <img
                     src={listing.images?.[0] || '/placeholder.png'}
-                    alt={listing.title}
+                    alt={translatedListingTitle}
                     className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.045]"
                 />
                 <div className="absolute inset-x-4 top-4 flex items-start justify-between gap-3">
                     <div className="flex flex-wrap gap-2">
                         <span className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] ${getConditionTone(listing.condition)}`}>
-                            {String(listing.condition || 'fair').replace('-', ' ')}
+                            {getConditionLabel(listing.condition || 'fair')}
                         </span>
                         {listing.escrowOptIn ? (
                             <span className="inline-flex items-center gap-1 rounded-full border border-cyan-200/40 bg-cyan-500/25 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-cyan-100">
                                 <ShieldCheck className="h-3 w-3" />
-                                Escrow
+                                {t('marketplace.card.escrow', {}, 'Escrow')}
                             </span>
                         ) : null}
                     </div>
                     {listing.negotiable ? (
                         <span className="rounded-full bg-emerald-500/90 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-white">
-                            Negotiable
+                            {t('marketplace.card.negotiable', {}, 'Negotiable')}
                         </span>
                     ) : null}
                 </div>
@@ -317,16 +377,16 @@ const ListingCard = ({
                 <div className="flex items-start justify-between gap-3">
                     <div>
                         <p className={cn('text-[11px] font-black uppercase tracking-[0.22em]', isWhiteMode ? 'text-slate-500' : 'text-slate-400')}>
-                            {listing.category || 'Marketplace'}
+                            {getCategoryLabel(listing.category) || t('marketplace.card.marketplace', {}, 'Marketplace')}
                         </p>
                         <h3 className={cn('mt-2 line-clamp-2 text-lg font-black leading-tight tracking-tight', isWhiteMode ? 'text-slate-950' : 'text-white')}>
-                            {listing.title}
+                            {translatedListingTitle}
                         </h3>
                     </div>
                     {listing.seller?.isVerified ? (
                         <span className="inline-flex flex-shrink-0 items-center gap-1 rounded-full border border-emerald-400/35 bg-emerald-500/12 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-emerald-100">
                             <ShieldCheck className="h-3 w-3" />
-                            Verified
+                            {t('marketplace.card.verified', {}, 'Verified')}
                         </span>
                     ) : null}
                 </div>
@@ -338,13 +398,13 @@ const ListingCard = ({
                         </p>
                         {listing.seller?.name ? (
                             <p className={cn('mt-1 text-xs font-medium', isWhiteMode ? 'text-slate-600' : 'text-slate-400')}>
-                                Seller: {listing.seller.name}
+                                {t('marketplace.card.seller', { name: listing.seller.name }, 'Seller: {{name}}')}
                             </p>
                         ) : null}
                     </div>
                     {safetyMode && safety ? (
                         <div className="rounded-full border border-cyan-300/30 bg-cyan-500/12 px-3 py-1.5 text-right">
-                            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-cyan-100">Safety</p>
+                            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-cyan-100">{t('marketplace.card.safety', {}, 'Safety')}</p>
                             <p className="text-sm font-black text-cyan-50">{safety.score}</p>
                         </div>
                     ) : null}
@@ -353,26 +413,26 @@ const ListingCard = ({
                 <div className={cn('mt-4 grid gap-2 text-xs', isWhiteMode ? 'text-slate-600' : 'text-slate-400')}>
                     <span className="inline-flex items-center gap-2">
                         <MapPin className="h-3.5 w-3.5" style={{ color: accentPrimary }} />
-                        {listing.location?.city || 'Unknown city'}
+                        {listing.location?.city || t('marketplace.card.unknownCity', {}, 'Unknown city')}
                     </span>
                     <span className="inline-flex items-center gap-2">
                         <Clock className="h-3.5 w-3.5" style={{ color: accentPrimary }} />
-                        {timeAgo(listing.createdAt)}
+                        {timeAgo(listing.createdAt, t)}
                     </span>
                     <span className="inline-flex items-center gap-2">
                         <Eye className="h-3.5 w-3.5" style={{ color: accentPrimary }} />
-                        {(listing.views || 0).toLocaleString('en-IN')} views
+                        {t('marketplace.card.views', { count: (listing.views || 0).toLocaleString('en-IN') }, '{{count}} views')}
                     </span>
                 </div>
 
                 {safetyMode && safety ? (
                     <div className={cn('mt-4 rounded-[1.15rem] border px-3.5 py-3 text-sm', isWhiteMode ? 'bg-slate-50 text-slate-700' : 'bg-white/[0.04] text-slate-200')} style={{ borderColor: toRgba(accentPrimary, 0.16) }}>
-                        {safety.highlights[0] || safety.watchouts[0] || 'Review the listing carefully before payment.'}
+                        {translatedSafetyNote || t('marketplace.card.reviewBeforePayment', {}, 'Review the listing carefully before payment.')}
                     </div>
                 ) : null}
 
                 <div className="mt-4 inline-flex items-center gap-2 text-sm font-black uppercase tracking-[0.18em]" style={{ color: accentPrimary }}>
-                    Open listing
+                    {t('marketplace.card.openListing', {}, 'Open listing')}
                     <ArrowRight className="h-4 w-4" />
                 </div>
             </div>
@@ -382,6 +442,7 @@ const ListingCard = ({
 
 export default function Marketplace() {
     const { colorMode } = useColorMode();
+    const { t } = useMarket();
     const [listings, setListings] = useState([]);
     const [loading, setLoading] = useState(true);
     const [pagination, setPagination] = useState({ page: 1, pages: 1, total: 0 });
@@ -437,12 +498,12 @@ export default function Marketplace() {
             });
             setHotspots(Array.isArray(data?.hotspots) ? data.hotspots : []);
         } catch (error) {
-            setHotspotsError(error?.message || 'Hotspot telemetry is unavailable right now.');
+            setHotspotsError(error?.message || t('marketplace.error.hotspotTelemetry', {}, 'Hotspot telemetry is unavailable right now.'));
             setHotspots([]);
         } finally {
             setHotspotsLoading(false);
         }
-    }, [filters.category, filters.city, gpsContext?.city, gpsContext?.state]);
+    }, [filters.category, filters.city, gpsContext?.city, gpsContext?.state, t]);
 
     useEffect(() => {
         fetchHotspots();
@@ -491,7 +552,7 @@ export default function Marketplace() {
             const detected = await detectLocationFromGps();
             const detectedCity = detected.city || detected.state;
             if (!detectedCity) {
-                throw new Error('Could not detect city from your location.');
+                throw new Error(t('marketplace.error.detectCity', {}, 'Could not detect city from your location.'));
             }
 
             setGpsContext({
@@ -505,21 +566,64 @@ export default function Marketplace() {
             });
             setFilters((prev) => ({ ...prev, city: detectedCity, page: 1 }));
             const qualityBits = [
-                Number.isFinite(detected.confidence) ? `confidence ${detected.confidence}%` : '',
-                Number.isFinite(detected.accuracy) && detected.accuracy > 0 ? `${Math.round(detected.accuracy)}m accuracy` : '',
+                Number.isFinite(detected.confidence) ? t('marketplace.location.confidence', { value: detected.confidence }, 'confidence {{value}}%') : '',
+                Number.isFinite(detected.accuracy) && detected.accuracy > 0 ? t('marketplace.location.accuracy', { value: Math.round(detected.accuracy) }, '{{value}}m accuracy') : '',
             ].filter(Boolean);
             setLocationHint(
-                `Using GPS city: ${detectedCity}${detected.state ? `, ${detected.state}` : ''}${qualityBits.length ? ` (${qualityBits.join(', ')})` : ''}`
+                t(
+                    'marketplace.location.usingGpsCity',
+                    {
+                        city: detectedCity,
+                        state: detected.state ? `, ${detected.state}` : '',
+                        quality: qualityBits.length ? ` (${qualityBits.join(', ')})` : '',
+                    },
+                    'Using GPS city: {{city}}{{state}}{{quality}}'
+                )
             );
         } catch (error) {
-            setLocationError(error?.message || 'Unable to detect your city right now.');
+            setLocationError(error?.message || t('marketplace.error.detectCityNow', {}, 'Unable to detect your city right now.'));
         } finally {
             setLocatingCity(false);
         }
     };
 
-    const getCategoryLabel = (categoryValue) =>
-        CATEGORIES.find((item) => item.value === categoryValue)?.label || 'All Categories';
+    const translatedCategories = useMemo(() => CATEGORIES.map((category) => ({
+        ...category,
+        label: t(CATEGORY_LABEL_KEYS[category.value] || '', {}, category.label),
+    })), [t]);
+
+    const translatedSorts = useMemo(() => SORTS.map((sort) => ({
+        ...sort,
+        label: t(SORT_LABEL_KEYS[sort.value] || '', {}, sort.label),
+    })), [t]);
+
+    const translatedConditions = useMemo(() => CONDITIONS.map((condition) => ({
+        ...condition,
+        label: t(CONDITION_LABEL_KEYS[condition.value] || '', {}, condition.label),
+    })), [t]);
+
+    const trustNotes = useMemo(() => TRUST_NOTES.map((note, index) => (
+        t(TRUST_NOTE_KEYS[index] || '', {}, note)
+    )), [t]);
+
+    const getCategoryLabel = useCallback((categoryValue) => (
+        translatedCategories.find((item) => item.value === categoryValue)?.label
+        || String(categoryValue || t('marketplace.category.allCategories', {}, 'All Categories'))
+    ), [t, translatedCategories]);
+
+    const getConditionLabel = useCallback((conditionValue) => (
+        translatedConditions.find((item) => item.value === conditionValue)?.label
+        || String(conditionValue || t('marketplace.condition.fair', {}, 'Fair'))
+    ), [t, translatedConditions]);
+
+    const getProximityLabel = useCallback((value) => {
+        const fallback = PROXIMITY_LABELS[value] || 'Signal';
+        return t(PROXIMITY_LABEL_KEYS[value] || 'marketplace.proximity.signal', {}, fallback);
+    }, [t]);
+
+    const getHeatLabel = useCallback((value) => (
+        t(HEAT_LABEL_KEYS[value] || '', {}, value)
+    ), [t]);
 
     const prefetchListingDetails = (listingId) => {
         if (!listingId) return;
@@ -548,6 +652,19 @@ export default function Marketplace() {
         hotspots,
         city: filters.city || gpsContext?.city || '',
     }), [filters.city, gpsContext?.city, hotspots, listings]);
+    const marketplaceDynamicTexts = useMemo(() => ([
+        ...listings.map((entry) => entry?.title),
+        safetySummary?.meetupBrief,
+        ...enhancedListings.flatMap((entry) => [
+            ...(Array.isArray(entry?.safety?.highlights) ? entry.safety.highlights : []),
+            ...(Array.isArray(entry?.safety?.watchouts) ? entry.safety.watchouts : []),
+        ]),
+    ]), [enhancedListings, listings, safetySummary?.meetupBrief]);
+    const { translateText: translateListingText } = useDynamicTranslations(marketplaceDynamicTexts);
+    const translatedSafetySummary = useMemo(() => ({
+        ...safetySummary,
+        meetupBrief: translateListingText(safetySummary?.meetupBrief) || safetySummary?.meetupBrief,
+    }), [safetySummary, translateListingText]);
 
     const isWhiteMode = colorMode === 'white';
     const modePalette = FIGMA_COLOR_MODE_OPTIONS.find((mode) => mode.value === colorMode) || FIGMA_COLOR_MODE_OPTIONS[0];
@@ -589,14 +706,14 @@ export default function Marketplace() {
         color: isWhiteMode ? accentPrimary : '#f8fafc',
     };
 
-    const selectedCategory = CATEGORIES.find((item) => item.value === filters.category) || CATEGORIES[0];
+    const selectedCategory = translatedCategories.find((item) => item.value === filters.category) || translatedCategories[0];
     const activeEntries = safetyMode ? enhancedListings : listings.map((listing) => ({ listing, safety: null }));
     const activeFilterLabels = [
         filters.category ? getCategoryLabel(filters.category) : '',
-        filters.city ? `City: ${filters.city}` : '',
-        filters.condition ? `Condition: ${CONDITIONS.find((item) => item.value === filters.condition)?.label || filters.condition}` : '',
-        filters.minPrice ? `Min ${formatPrice(Number(filters.minPrice || 0))}` : '',
-        filters.maxPrice ? `Max ${formatPrice(Number(filters.maxPrice || 0))}` : '',
+        filters.city ? t('marketplace.filter.cityValue', { city: filters.city }, 'City: {{city}}') : '',
+        filters.condition ? t('marketplace.filter.conditionValue', { condition: getConditionLabel(filters.condition) }, 'Condition: {{condition}}') : '',
+        filters.minPrice ? t('marketplace.filter.minValue', { price: formatPrice(Number(filters.minPrice || 0)) }, 'Min {{price}}') : '',
+        filters.maxPrice ? t('marketplace.filter.maxValue', { price: formatPrice(Number(filters.maxPrice || 0)) }, 'Max {{price}}') : '',
     ].filter(Boolean);
 
     const renderFilterPanel = (extraClassName = '') => (
@@ -604,26 +721,26 @@ export default function Marketplace() {
             <div className="flex items-start justify-between gap-3">
                 <div>
                     <p className={cn('text-[11px] font-black uppercase tracking-[0.22em]', subtleTextClass)}>
-                        Filter deck
+                        {t('marketplace.filters.deck', {}, 'Filter deck')}
                     </p>
                     <h2 className={cn('mt-2 text-xl font-black tracking-tight', isWhiteMode ? 'text-slate-950' : 'text-white')}>
-                        Refine the market view.
+                        {t('marketplace.filters.title', {}, 'Refine the market view.')}
                     </h2>
                 </div>
                 <span className={cn('rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em]', chipClass)} style={sectionStyle}>
-                    {activeFilterCount} active
+                    {t('marketplace.filters.activeCount', { count: activeFilterCount }, '{{count}} active')}
                 </span>
             </div>
 
             <div className="mt-5 space-y-4">
                 <div>
-                    <label className={cn('mb-2 block text-xs font-black uppercase tracking-[0.18em]', labelClass)}>Condition</label>
+                    <label className={cn('mb-2 block text-xs font-black uppercase tracking-[0.18em]', labelClass)}>{t('marketplace.filters.condition', {}, 'Condition')}</label>
                     <PremiumSelect
                         value={filters.condition}
                         onChange={(event) => updateFilter('condition', event.target.value)}
                         className={cn('h-12 w-full rounded-[1rem] border px-3 text-sm outline-none transition-all', fieldClass)}
                     >
-                        {CONDITIONS.map((condition) => (
+                        {translatedConditions.map((condition) => (
                             <option key={condition.value} value={condition.value} className={isWhiteMode ? 'bg-white' : 'bg-slate-900'}>
                                 {condition.label}
                             </option>
@@ -633,7 +750,7 @@ export default function Marketplace() {
 
                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
                     <div>
-                        <label className={cn('mb-2 block text-xs font-black uppercase tracking-[0.18em]', labelClass)}>Min price</label>
+                        <label className={cn('mb-2 block text-xs font-black uppercase tracking-[0.18em]', labelClass)}>{t('marketplace.filters.minPrice', {}, 'Min price')}</label>
                         <input
                             type="number"
                             value={filters.minPrice}
@@ -643,24 +760,24 @@ export default function Marketplace() {
                         />
                     </div>
                     <div>
-                        <label className={cn('mb-2 block text-xs font-black uppercase tracking-[0.18em]', labelClass)}>Max price</label>
+                        <label className={cn('mb-2 block text-xs font-black uppercase tracking-[0.18em]', labelClass)}>{t('marketplace.filters.maxPrice', {}, 'Max price')}</label>
                         <input
                             type="number"
                             value={filters.maxPrice}
                             onChange={(event) => updateFilter('maxPrice', event.target.value)}
-                            placeholder="No limit"
+                            placeholder={t('marketplace.filters.noLimit', {}, 'No limit')}
                             className={cn('h-12 w-full rounded-[1rem] border px-3 text-sm outline-none transition-all', fieldClass)}
                         />
                     </div>
                 </div>
 
                 <div>
-                    <label className={cn('mb-2 block text-xs font-black uppercase tracking-[0.18em]', labelClass)}>City</label>
+                    <label className={cn('mb-2 block text-xs font-black uppercase tracking-[0.18em]', labelClass)}>{t('marketplace.filters.city', {}, 'City')}</label>
                     <input
                         type="text"
                         value={filters.city}
                         onChange={(event) => updateFilter('city', event.target.value)}
-                        placeholder="Any city"
+                        placeholder={t('marketplace.filters.anyCity', {}, 'Any city')}
                         className={cn('h-12 w-full rounded-[1rem] border px-3 text-sm outline-none transition-all', fieldClass)}
                     />
                 </div>
@@ -688,7 +805,7 @@ export default function Marketplace() {
                 style={sectionStyle}
             >
                 <X className="h-4 w-4" />
-                Reset filters
+                {t('marketplace.filters.reset', {}, 'Reset filters')}
             </button>
         </section>
     );
@@ -714,13 +831,13 @@ export default function Marketplace() {
                             <div>
                                 <div className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-[0.24em]" style={accentOutlineStyle}>
                                     <Sparkles className="h-4 w-4" />
-                                    Marketplace command deck
+                                    {t('marketplace.hero.eyebrow', {}, 'Marketplace command deck')}
                                 </div>
                                 <h1 className={cn('mt-5 max-w-3xl text-4xl font-black leading-[0.95] tracking-tight sm:text-5xl', isWhiteMode ? 'text-slate-950' : 'text-white')}>
-                                    Browse the local market with trust signals built in.
+                                    {t('marketplace.hero.title', {}, 'Browse the local market with trust signals built in.')}
                                 </h1>
                                 <p className={cn('mt-4 max-w-3xl text-sm leading-7 sm:text-base', mutedTextClass)}>
-                                    Aura Marketplace now behaves like a premium acquisition desk: sharper search, location-aware discovery, live demand hotspots, and seller safety cues that stay visible while you browse.
+                                    {t('marketplace.hero.body', {}, 'Aura Marketplace now behaves like a premium acquisition desk: sharper search, location-aware discovery, live demand hotspots, and seller safety cues that stay visible while you browse.')}
                                 </p>
 
                                 <div className="mt-6 grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px_auto_auto]">
@@ -730,7 +847,7 @@ export default function Marketplace() {
                                             type="text"
                                             value={filters.search}
                                             onChange={(event) => updateFilter('search', event.target.value)}
-                                            placeholder="Search by title, category, brand, or keyword"
+                                            placeholder={t('marketplace.hero.searchPlaceholder', {}, 'Search by title, category, brand, or keyword')}
                                             className={cn('h-12 w-full rounded-[1rem] border pl-12 pr-4 text-sm outline-none transition-all', fieldClass)}
                                         />
                                     </div>
@@ -740,7 +857,7 @@ export default function Marketplace() {
                                             type="text"
                                             value={filters.city}
                                             onChange={(event) => updateFilter('city', event.target.value)}
-                                            placeholder="City"
+                                            placeholder={t('marketplace.hero.cityPlaceholder', {}, 'City')}
                                             className={cn('h-12 w-full rounded-[1rem] border pl-12 pr-4 text-sm outline-none transition-all', fieldClass)}
                                         />
                                     </div>
@@ -752,7 +869,7 @@ export default function Marketplace() {
                                         style={accentFillStyle}
                                     >
                                         {locatingCity ? <Loader2 className="h-4 w-4 animate-spin" /> : <LocateFixed className="h-4 w-4" />}
-                                        {locatingCity ? 'Detecting' : 'Near me'}
+                                        {locatingCity ? t('marketplace.hero.detecting', {}, 'Detecting') : t('marketplace.hero.nearMe', {}, 'Near me')}
                                     </button>
                                     <Link
                                         to="/sell"
@@ -763,7 +880,7 @@ export default function Marketplace() {
                                         style={sectionStyle}
                                     >
                                         <Store className="h-4 w-4" />
-                                        Sell now
+                                        {t('marketplace.hero.sellNow', {}, 'Sell now')}
                                     </Link>
                                 </div>
 
@@ -774,7 +891,7 @@ export default function Marketplace() {
                                 )}
 
                                 <div className="mt-6 flex flex-wrap gap-2">
-                                    {CATEGORIES.map((category) => {
+                                    {translatedCategories.map((category) => {
                                         const Icon = category.icon;
                                         const active = filters.category === category.value;
                                         return (
@@ -810,36 +927,38 @@ export default function Marketplace() {
                                         )}
                                         style={safetyMode ? accentOutlineStyle : sectionStyle}
                                     >
-                                        Safety mode {safetyMode ? 'on' : 'off'}
+                                        {safetyMode
+                                            ? t('marketplace.hero.safetyOn', {}, 'Safety mode on')
+                                            : t('marketplace.hero.safetyOff', {}, 'Safety mode off')}
                                     </button>
                                     <span className={cn('rounded-full border px-4 py-2 text-xs font-semibold', chipClass)} style={sectionStyle}>
-                                        {selectedCategory.label} lane
+                                        {t('marketplace.hero.categoryLane', { category: selectedCategory.label }, '{{category}} lane')}
                                     </span>
                                     <span className={cn('rounded-full border px-4 py-2 text-xs font-semibold', chipClass)} style={sectionStyle}>
-                                        {(pagination.total || 0).toLocaleString('en-IN')} live listings
+                                        {t('marketplace.hero.liveListings', { count: (pagination.total || 0).toLocaleString('en-IN') }, '{{count}} live listings')}
                                     </span>
                                 </div>
                             </div>
 
                             <div className="grid gap-4 sm:grid-cols-3 xl:grid-cols-1">
                                 <StatCard
-                                    label="Average safety"
-                                    value={safetySummary.averageSafety || 0}
-                                    detail="Composite marketplace trust score"
+                                    label={t('marketplace.hero.stats.averageSafety.label', {}, 'Average safety')}
+                                    value={translatedSafetySummary.averageSafety || 0}
+                                    detail={t('marketplace.hero.stats.averageSafety.detail', {}, 'Composite marketplace trust score')}
                                     style={sectionStyle}
                                     isWhiteMode={isWhiteMode}
                                 />
                                 <StatCard
-                                    label="Escrow coverage"
-                                    value={`${safetySummary.escrowCoverage || 0}%`}
-                                    detail="Listings with payment protection enabled"
+                                    label={t('marketplace.hero.stats.escrowCoverage.label', {}, 'Escrow coverage')}
+                                    value={`${translatedSafetySummary.escrowCoverage || 0}%`}
+                                    detail={t('marketplace.hero.stats.escrowCoverage.detail', {}, 'Listings with payment protection enabled')}
                                     style={sectionStyle}
                                     isWhiteMode={isWhiteMode}
                                 />
                                 <StatCard
-                                    label="Verified sellers"
-                                    value={`${safetySummary.verifiedSellerRate || 0}%`}
-                                    detail="Identity-cleared sellers in the current result set"
+                                    label={t('marketplace.hero.stats.verifiedSellers.label', {}, 'Verified sellers')}
+                                    value={`${translatedSafetySummary.verifiedSellerRate || 0}%`}
+                                    detail={t('marketplace.hero.stats.verifiedSellers.detail', {}, 'Identity-cleared sellers in the current result set')}
                                     style={sectionStyle}
                                     isWhiteMode={isWhiteMode}
                                 />
@@ -854,16 +973,16 @@ export default function Marketplace() {
 
                         <section className={cn('rounded-[1.75rem] border p-5', panelClass)} style={sectionStyle}>
                             <p className={cn('text-[11px] font-black uppercase tracking-[0.22em]', subtleTextClass)}>
-                                Trust notes
+                                {t('marketplace.trust.eyebrow', {}, 'Trust notes')}
                             </p>
                             <h2 className={cn('mt-2 text-xl font-black tracking-tight', isWhiteMode ? 'text-slate-950' : 'text-white')}>
-                                Buyer discipline stays premium.
+                                {t('marketplace.trust.title', {}, 'Buyer discipline stays premium.')}
                             </h2>
                             <p className={cn('mt-3 text-sm leading-6', mutedTextClass)}>
-                                {safetySummary.meetupBrief}
+                                {translatedSafetySummary.meetupBrief}
                             </p>
                             <div className="mt-4 space-y-3">
-                                {TRUST_NOTES.map((note) => (
+                                {trustNotes.map((note) => (
                                     <div key={note} className={cn('rounded-[1.1rem] border px-4 py-3 text-sm leading-6', chipClass)} style={sectionStyle}>
                                         {note}
                                     </div>
@@ -878,19 +997,19 @@ export default function Marketplace() {
                                 <div className="flex flex-col gap-4 border-b pb-5 sm:flex-row sm:items-end sm:justify-between" style={{ borderColor: toRgba(accentPrimary, 0.14) }}>
                                     <div>
                                         <p className={cn('text-[11px] font-black uppercase tracking-[0.22em]', subtleTextClass)}>
-                                            Market pulse
+                                            {t('marketplace.pulse.eyebrow', {}, 'Market pulse')}
                                         </p>
                                         <h2 className={cn('mt-2 text-2xl font-black tracking-tight', isWhiteMode ? 'text-slate-950' : 'text-white')}>
-                                            Live demand and supply hotspots
+                                            {t('marketplace.pulse.title', {}, 'Live demand and supply hotspots')}
                                         </h2>
                                     </div>
                                     <div className={cn('rounded-full border px-4 py-2 text-xs font-semibold', chipClass)} style={sectionStyle}>
-                                        {filters.city || gpsContext?.city || 'All cities'} | {selectedCategory.label}
+                                        {(filters.city || gpsContext?.city || t('marketplace.pulse.allCities', {}, 'All cities'))} | {selectedCategory.label}
                                     </div>
                                 </div>
 
                                 <p className={cn('mt-4 text-sm leading-6', mutedTextClass)}>
-                                    GPS-aware hotspot signals show where listings are moving, where demand is climbing, and which categories feel hottest in the current market window.
+                                    {t('marketplace.pulse.body', {}, 'GPS-aware hotspot signals show where listings are moving, where demand is climbing, and which categories feel hottest in the current market window.')}
                                 </p>
 
                                 {hotspotsLoading ? (
@@ -910,12 +1029,19 @@ export default function Marketplace() {
                                     </div>
                                 ) : hotspots.length === 0 ? (
                                     <div className={cn('mt-5 rounded-[1.35rem] border px-4 py-5 text-sm', chipClass)} style={sectionStyle}>
-                                        Not enough live marketplace signals for this filter yet. Try another city or broaden the lane.
+                                        {t('marketplace.pulse.empty', {}, 'Not enough live marketplace signals for this filter yet. Try another city or broaden the lane.')}
                                     </div>
                                 ) : (
                                     <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                                         {hotspots.map((hotspot) => (
-                                            <HotspotCard key={`${hotspot.city}-${hotspot.state}-${hotspot.category}`} hotspot={hotspot} getCategoryLabel={getCategoryLabel} />
+                                            <HotspotCard
+                                                key={`${hotspot.city}-${hotspot.state}-${hotspot.category}`}
+                                                hotspot={hotspot}
+                                                getCategoryLabel={getCategoryLabel}
+                                                getHeatLabel={getHeatLabel}
+                                                getProximityLabel={getProximityLabel}
+                                                t={t}
+                                            />
                                         ))}
                                     </div>
                                 )}
@@ -926,7 +1052,7 @@ export default function Marketplace() {
                             <div className="flex flex-col gap-4 border-b pb-5 lg:flex-row lg:items-center lg:justify-between" style={{ borderColor: toRgba(accentPrimary, 0.14) }}>
                                 <div className="flex flex-wrap items-center gap-3">
                                     <div className={cn('rounded-full border px-4 py-2 text-xs font-semibold', chipClass)} style={sectionStyle}>
-                                        {(pagination.total || 0).toLocaleString('en-IN')} listings
+                                        {t('marketplace.results.listingsCount', { count: (pagination.total || 0).toLocaleString('en-IN') }, '{{count}} listings')}
                                     </div>
                                     <button
                                         type="button"
@@ -938,7 +1064,9 @@ export default function Marketplace() {
                                         style={sectionStyle}
                                     >
                                         <SlidersHorizontal className="h-4 w-4" />
-                                        {showFilters ? 'Hide filters' : 'Show filters'}
+                                        {showFilters
+                                            ? t('marketplace.results.hideFilters', {}, 'Hide filters')
+                                            : t('marketplace.results.showFilters', {}, 'Show filters')}
                                     </button>
                                     {activeFilterLabels.length > 0 ? (
                                         <div className="flex flex-wrap gap-2">
@@ -981,7 +1109,7 @@ export default function Marketplace() {
                                         onChange={(event) => updateFilter('sort', event.target.value)}
                                         className={cn('h-11 rounded-full border px-4 text-sm font-medium outline-none transition-all', fieldClass)}
                                     >
-                                        {SORTS.map((sort) => (
+                                        {translatedSorts.map((sort) => (
                                             <option key={sort.value} value={sort.value} className={isWhiteMode ? 'bg-white' : 'bg-slate-900'}>
                                                 {sort.label}
                                             </option>
@@ -999,7 +1127,7 @@ export default function Marketplace() {
                                             )}
                                         >
                                             <X className="h-4 w-4" />
-                                            Clear all
+                                            {t('marketplace.results.clearAll', {}, 'Clear all')}
                                         </button>
                                     ) : null}
                                 </div>
@@ -1020,13 +1148,13 @@ export default function Marketplace() {
                                 <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                                     <div className="max-w-3xl">
                                         <p className={cn('text-[11px] font-black uppercase tracking-[0.22em]', subtleTextClass)}>
-                                            Local commerce safety mode
+                                            {t('marketplace.safety.eyebrow', {}, 'Local commerce safety mode')}
                                         </p>
                                         <h2 className={cn('mt-2 text-xl font-black tracking-tight', isWhiteMode ? 'text-slate-950' : 'text-white')}>
-                                            Meetup, escrow, and seller-risk cues stay visible while browsing.
+                                            {t('marketplace.safety.title', {}, 'Meetup, escrow, and seller-risk cues stay visible while browsing.')}
                                         </h2>
                                         <p className={cn('mt-2 text-sm leading-6', mutedTextClass)}>
-                                            {safetySummary.meetupBrief}
+                                            {translatedSafetySummary.meetupBrief}
                                         </p>
                                     </div>
                                     <button
@@ -1036,29 +1164,31 @@ export default function Marketplace() {
                                         style={safetyMode ? accentFillStyle : accentOutlineStyle}
                                     >
                                         <ShieldCheck className="h-4 w-4" />
-                                        {safetyMode ? 'Safety mode on' : 'Enable safety mode'}
+                                        {safetyMode
+                                            ? t('marketplace.safety.enabled', {}, 'Safety mode on')
+                                            : t('marketplace.safety.enable', {}, 'Enable safety mode')}
                                     </button>
                                 </div>
 
                                 <div className="mt-5 grid gap-3 sm:grid-cols-3">
                                     <StatCard
-                                        label="Average safety"
-                                        value={safetySummary.averageSafety || 0}
-                                        detail="Composite trust score for visible listings"
+                                        label={t('marketplace.safety.stats.averageSafety.label', {}, 'Average safety')}
+                                        value={translatedSafetySummary.averageSafety || 0}
+                                        detail={t('marketplace.safety.stats.averageSafety.detail', {}, 'Composite trust score for visible listings')}
                                         style={sectionStyle}
                                         isWhiteMode={isWhiteMode}
                                     />
                                     <StatCard
-                                        label="High safety"
-                                        value={safetySummary.highSafetyCount || 0}
-                                        detail="Listings currently above the strong-trust threshold"
+                                        label={t('marketplace.safety.stats.highSafety.label', {}, 'High safety')}
+                                        value={translatedSafetySummary.highSafetyCount || 0}
+                                        detail={t('marketplace.safety.stats.highSafety.detail', {}, 'Listings currently above the strong-trust threshold')}
                                         style={sectionStyle}
                                         isWhiteMode={isWhiteMode}
                                     />
                                     <StatCard
-                                        label="Escrow"
-                                        value={`${safetySummary.escrowCoverage || 0}%`}
-                                        detail="Coverage across the current result page"
+                                        label={t('marketplace.safety.stats.escrow.label', {}, 'Escrow')}
+                                        value={`${translatedSafetySummary.escrowCoverage || 0}%`}
+                                        detail={t('marketplace.safety.stats.escrow.detail', {}, 'Coverage across the current result page')}
                                         style={sectionStyle}
                                         isWhiteMode={isWhiteMode}
                                     />
@@ -1092,17 +1222,17 @@ export default function Marketplace() {
                                             <Search className="h-9 w-9" />
                                         </div>
                                         <h3 className={cn('mt-5 text-2xl font-black tracking-tight', isWhiteMode ? 'text-slate-950' : 'text-white')}>
-                                            No listings match this market view.
+                                            {t('marketplace.empty.title', {}, 'No listings match this market view.')}
                                         </h3>
                                         <p className={cn('mx-auto mt-3 max-w-xl text-sm leading-6', mutedTextClass)}>
-                                            Try relaxing filters, switching to another city, or be the first seller to publish inventory in this lane.
+                                            {t('marketplace.empty.body', {}, 'Try relaxing filters, switching to another city, or be the first seller to publish inventory in this lane.')}
                                         </p>
                                         <Link
                                             to="/sell"
                                             className="mt-6 inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-black uppercase tracking-[0.16em] transition-all"
                                             style={accentFillStyle}
                                         >
-                                            Create listing
+                                            {t('marketplace.empty.createListing', {}, 'Create listing')}
                                             <ArrowRight className="h-4 w-4" />
                                         </Link>
                                     </div>
@@ -1129,6 +1259,10 @@ export default function Marketplace() {
                                                     isWhiteMode={isWhiteMode}
                                                     accentPrimary={accentPrimary}
                                                     accentSecondary={accentSecondary}
+                                                    getCategoryLabel={getCategoryLabel}
+                                                    getConditionLabel={getConditionLabel}
+                                                    t={t}
+                                                    translateListingText={translateListingText}
                                                 />
                                             </RevealOnScroll>
                                         ))}

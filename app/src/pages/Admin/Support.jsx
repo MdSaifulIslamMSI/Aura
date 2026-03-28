@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     AlertCircle,
     CheckCircle,
@@ -17,8 +17,11 @@ import { supportApi } from '@/services/api';
 import { cn } from '@/lib/utils';
 import AdminPremiumShell from '@/components/shared/AdminPremiumShell';
 import PremiumSelect from '@/components/ui/premium-select';
+import { useMarket } from '@/context/MarketContext';
+import { useDynamicTranslations } from '@/hooks/useDynamicTranslations';
 import { useSocket, useSocketDemand } from '@/context/SocketContext';
 import { useVideoCall } from '@/context/VideoCallContext';
+import { humanizeEnumLabel, normalizeEnumToken, translateEnumLabel } from '@/utils/enumLocalization';
 
 const TICKET_LIST_POLL_MS = 20000;
 const ACTIVE_TICKET_POLL_MS = 12000;
@@ -106,8 +109,8 @@ const getInitials = (value = '') => {
     return parts.map((part) => part[0]?.toUpperCase() || '').join('');
 };
 
-const formatThreadPreviewTime = (value) => {
-    if (!isValidDateValue(value)) return 'Now';
+const formatThreadPreviewTime = (value, labels = {}) => {
+    if (!isValidDateValue(value)) return labels.now || 'Now';
 
     const date = new Date(value);
     const today = new Date();
@@ -120,7 +123,7 @@ const formatThreadPreviewTime = (value) => {
     }
 
     if (diffDays === 1) {
-        return 'Yesterday';
+        return labels.yesterday || 'Yesterday';
     }
 
     if (diffDays > 1 && diffDays < 7) {
@@ -130,8 +133,8 @@ const formatThreadPreviewTime = (value) => {
     return date.toLocaleDateString([], { day: 'numeric', month: 'short' });
 };
 
-const formatMessageDayLabel = (value) => {
-    if (!isValidDateValue(value)) return 'Today';
+const formatMessageDayLabel = (value, labels = {}) => {
+    if (!isValidDateValue(value)) return labels.today || 'Today';
 
     const date = new Date(value);
     const today = new Date();
@@ -139,11 +142,11 @@ const formatMessageDayLabel = (value) => {
     yesterday.setDate(today.getDate() - 1);
 
     if (date.toDateString() === today.toDateString()) {
-        return 'Today';
+        return labels.today || 'Today';
     }
 
     if (date.toDateString() === yesterday.toDateString()) {
-        return 'Yesterday';
+        return labels.yesterday || 'Yesterday';
     }
 
     const includeYear = date.getFullYear() !== today.getFullYear();
@@ -159,8 +162,57 @@ const formatMessageTime = (value) => {
     return new Date(value).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 };
 
+const formatSupportPriority = (t, value) => {
+    const normalized = String(value || '').trim().toLowerCase();
+    switch (normalized) {
+        case 'urgent':
+            return t('profile.support.priority.urgent', {}, 'Urgent');
+        case 'high':
+            return t('profile.support.priority.high', {}, 'High');
+        case 'medium':
+            return t('profile.support.priority.medium', {}, 'Medium');
+        case 'low':
+            return t('profile.support.priority.low', {}, 'Low');
+        default:
+            return humanizeEnumLabel(value) || t('admin.shared.unknown', {}, 'unknown');
+    }
+};
+
+const formatSupportAccountState = (t, value) => {
+    const normalized = String(value || '').trim().toLowerCase();
+    switch (normalized) {
+        case 'active':
+            return t('admin.users.state.active', {}, 'Active');
+        case 'warned':
+            return t('admin.users.state.warned', {}, 'Warned');
+        case 'suspended':
+            return t('admin.users.state.suspended', {}, 'Suspended');
+        case 'deleted':
+            return t('admin.users.state.deleted', {}, 'Deleted');
+        default:
+            return value || t('admin.shared.unknown', {}, 'unknown');
+    }
+};
+
+const formatSupportCategory = (t, value) => {
+    const normalized = normalizeEnumToken(value);
+    switch (normalized) {
+        case 'moderation_appeal':
+            return t('profile.support.category.moderation.label', {}, 'Moderation appeal');
+        case 'order_issue':
+            return t('profile.support.category.order.label', {}, 'Order issue');
+        case 'general_support':
+            return t('profile.support.category.general.label', {}, 'General support');
+        case 'other':
+            return t('profile.support.category.other.label', {}, 'Other');
+        default:
+            return translateEnumLabel(t, 'admin.support.category', value);
+    }
+};
+
 export default function AdminSupport() {
     useSocketDemand('admin-support', true);
+    const { t, formatDateTime } = useMarket();
     const { socket, isConnected, connectionState } = useSocket();
     const { startCall, joinSupportCall, callStatus, activeCallContext } = useVideoCall();
     const [tickets, setTickets] = useState([]);
@@ -208,7 +260,7 @@ export default function AdminSupport() {
             });
             setError('');
         } catch (err) {
-            setError(err.message || 'Failed to load tickets');
+            setError(err.message || t('admin.support.error.loadTickets', {}, 'Failed to load tickets'));
         } finally {
             if (!silent) {
                 setLoading(false);
@@ -236,7 +288,7 @@ export default function AdminSupport() {
             )));
             setError('');
         } catch (err) {
-            setError(err.message || 'Failed to load messages');
+            setError(err.message || t('admin.support.error.loadMessages', {}, 'Failed to load messages'));
         } finally {
             if (!silent) {
                 setMessagesLoading(false);
@@ -384,7 +436,7 @@ export default function AdminSupport() {
             )));
             setError('');
         } catch (err) {
-            setError(err.message || 'Failed to send message');
+            setError(err.message || t('admin.support.error.sendMessage', {}, 'Failed to send message'));
             setNewMessage(tempText);
         } finally {
             setSending(false);
@@ -408,7 +460,7 @@ export default function AdminSupport() {
             await fetchMessages(activeTicketId, { silent: true });
             setError('');
         } catch (err) {
-            setError(err.message || 'Failed to update status');
+            setError(err.message || t('admin.support.error.updateStatus', {}, 'Failed to update status'));
         } finally {
             setUpdatingStatus(false);
         }
@@ -418,10 +470,15 @@ export default function AdminSupport() {
     const isSocketReconnecting = connectionState === 'connecting' || connectionState === 'reconnecting';
     const isSocketFallback = connectionState === 'disconnected';
     const socketStatusLabel = connectionState === 'connected'
-        ? 'Live socket'
+        ? t('admin.support.liveSocket', {}, 'Live socket')
         : isSocketReconnecting
-            ? 'Reconnecting...'
-            : 'Polling fallback';
+            ? t('admin.support.reconnecting', {}, 'Reconnecting...')
+            : t('admin.support.pollingFallback', {}, 'Polling fallback');
+    const supportRelativeLabels = {
+        now: t('admin.support.now', {}, 'Now'),
+        today: t('admin.support.today', {}, 'Today'),
+        yesterday: t('admin.support.yesterday', {}, 'Yesterday'),
+    };
     const isActiveSupportCall = activeCallContext?.channelType === 'support_ticket'
         && String(activeCallContext?.contextId || '') === String(activeTicketId || '')
         && ['calling', 'incoming', 'connected'].includes(callStatus);
@@ -430,14 +487,29 @@ export default function AdminSupport() {
         || activeTicket?.liveCallLastMediaMode
         || activeTicket?.liveCallRequestedMode
     );
-    const supportLiveCallLabel = getLiveCallModeLabel(supportLiveCallMode);
-    const supportLiveCallTitle = getLiveCallModeTitle(supportLiveCallMode);
+    const supportLiveCallLabel = supportLiveCallMode === 'voice'
+        ? t('admin.support.voiceCall', {}, 'voice call')
+        : t('admin.support.videoCall', {}, 'video call');
+    const supportLiveCallTitle = supportLiveCallMode === 'voice'
+        ? t('admin.support.voiceCallTitle', {}, 'Voice Call')
+        : t('admin.support.videoCallTitle', {}, 'Video Call');
     const canJoinSupportCall = Boolean(
         activeTicket?._id
         && activeTicket.liveCallLastSessionKey
         && ['ringing', 'connected'].includes(String(activeTicket.liveCallLastStatus || ''))
         && !isActiveSupportCall
     );
+    const supportDynamicTexts = useMemo(() => ([
+        ...(tickets || []).flatMap((ticket) => [
+            ticket?.subject,
+            ticket?.lastMessagePreview,
+            ticket?.resolutionSummary,
+            ticket?.liveCallLastContextLabel,
+        ]),
+        ...(messages || []).map((message) => message?.text),
+        error,
+    ]), [error, messages, tickets]);
+    const { translateText: translateSupportText } = useDynamicTranslations(supportDynamicTexts);
 
     const handleStartLiveCall = async (mediaMode = 'video') => {
         if (!activeTicket?._id || !activeTicket?.user?._id || startingLiveCall) return;
@@ -449,9 +521,9 @@ export default function AdminSupport() {
                     channelType: 'support_ticket',
                     contextId: activeTicket._id,
                     supportTicketId: activeTicket._id,
-                    contextLabel: activeTicket.liveCallLastContextLabel || `Aura Support live call for "${activeTicket.subject}"`,
+                    contextLabel: activeTicket.liveCallLastContextLabel || t('admin.support.liveCallContext', { subject: activeTicket.subject }, `Aura Support live call for "${activeTicket.subject}"`),
                     sessionKey: activeTicket.liveCallLastSessionKey,
-                    callerName: 'Aura Support',
+                    callerName: t('admin.support.callerName', {}, 'Aura Support'),
                     mediaMode: supportLiveCallMode,
                 })
                 : await startCall({
@@ -460,14 +532,14 @@ export default function AdminSupport() {
                     contextId: activeTicket._id,
                     supportTicketId: activeTicket._id,
                     contextLabel: normalizeLiveCallMode(mediaMode) === 'voice'
-                        ? `Aura Support voice call for "${activeTicket.subject}"`
-                        : `Aura Support live call for "${activeTicket.subject}"`,
+                        ? t('admin.support.voiceCallContext', { subject: activeTicket.subject }, `Aura Support voice call for "${activeTicket.subject}"`)
+                        : t('admin.support.liveCallContext', { subject: activeTicket.subject }, `Aura Support live call for "${activeTicket.subject}"`),
                     mediaMode,
                 });
             if (!liveCallAction) {
                 setError(canJoinSupportCall
-                    ? `Failed to join the ${supportLiveCallLabel}`
-                    : `Failed to start the ${getLiveCallModeLabel(mediaMode)}`);
+                    ? t('admin.support.error.joinCall', { label: supportLiveCallLabel }, `Failed to join the ${supportLiveCallLabel}`)
+                    : t('admin.support.error.startCall', { label: normalizeLiveCallMode(mediaMode) === 'voice' ? t('admin.support.voiceCall', {}, 'voice call') : t('admin.support.videoCall', {}, 'video call') }, `Failed to start the ${normalizeLiveCallMode(mediaMode) === 'voice' ? 'voice call' : 'video call'}`));
             }
         } finally {
             setStartingLiveCall(false);
@@ -475,37 +547,37 @@ export default function AdminSupport() {
     };
 
     const liveCallActionLabel = isActiveSupportCall
-        ? 'Live now'
+        ? t('admin.support.liveNow', {}, 'Live now')
         : canJoinSupportCall
-            ? `Join ${supportLiveCallLabel}`
-            : `Start ${supportLiveCallLabel}`;
+            ? t('admin.support.joinCall', { label: supportLiveCallLabel }, `Join ${supportLiveCallLabel}`)
+            : t('admin.support.startCall', { label: supportLiveCallLabel }, `Start ${supportLiveCallLabel}`);
     const liveCallStatusCopy = isActiveSupportCall
-        ? `A ${supportLiveCallLabel} is already ringing or connected on this ticket.`
+        ? t('admin.support.status.activeCall', { label: supportLiveCallLabel }, `A ${supportLiveCallLabel} is already ringing or connected on this ticket.`)
         : isSocketFallback
-            ? 'Ticket updates are on polling fallback, but the live call itself can still run over LiveKit.'
+            ? t('admin.support.status.pollingFallback', {}, 'Ticket updates are on polling fallback, but the live call itself can still run over LiveKit.')
             : isSocketReconnecting
-                ? 'Ticket updates are reconnecting now. LiveKit calls can stay active while the socket recovers.'
+                ? t('admin.support.status.reconnecting', {}, 'Ticket updates are reconnecting now. LiveKit calls can stay active while the socket recovers.')
             : activeTicket?.liveCallRequested
-                ? `The customer requested a ${getLiveCallModeLabel(activeTicket?.liveCallRequestedMode)}. Start the call when you are ready.`
+                ? t('admin.support.status.requested', { label: normalizeLiveCallMode(activeTicket?.liveCallRequestedMode) === 'voice' ? t('admin.support.voiceCall', {}, 'voice call') : t('admin.support.videoCall', {}, 'video call') }, `The customer requested a ${normalizeLiveCallMode(activeTicket?.liveCallRequestedMode) === 'voice' ? 'voice call' : 'video call'}. Start the call when you are ready.`)
                 : canJoinSupportCall
-                    ? `A ${supportLiveCallLabel} is already open for this ticket. Rejoin it from here.`
+                    ? t('admin.support.status.rejoin', { label: supportLiveCallLabel }, `A ${supportLiveCallLabel} is already open for this ticket. Rejoin it from here.`)
                     : activeTicket?.liveCallLastStatus === 'ended' || activeTicket?.liveCallLastStatus === 'missed'
-                        ? `The last ${supportLiveCallLabel} finished. Start another one if real-time handling is still needed.`
-                        : 'Escalate this ticket into a real-time voice or video call when text support is too slow.';
+                        ? t('admin.support.status.lastFinished', { label: supportLiveCallLabel }, `The last ${supportLiveCallLabel} finished. Start another one if real-time handling is still needed.`)
+                        : t('admin.support.status.default', {}, 'Escalate this ticket into a real-time voice or video call when text support is too slow.');
     const liveCallStatusTime = activeTicket?.liveCallRequestedAt
-        ? `Requested ${new Date(activeTicket.liveCallRequestedAt).toLocaleString()}`
+        ? t('admin.support.requestedAt', { time: formatDateTime(activeTicket.liveCallRequestedAt) }, `Requested ${formatDateTime(activeTicket.liveCallRequestedAt)}`)
         : activeTicket?.liveCallEndedAt
-            ? `Last ended ${new Date(activeTicket.liveCallEndedAt).toLocaleString()}`
-            : 'No live call yet';
+            ? t('admin.support.lastEndedAt', { time: formatDateTime(activeTicket.liveCallEndedAt) }, `Last ended ${formatDateTime(activeTicket.liveCallEndedAt)}`)
+            : t('admin.support.noLiveCallYet', {}, 'No live call yet');
 
     const getStatusBadge = (status) => {
         switch (status) {
             case 'open':
-                return <span className="inline-flex items-center gap-1 rounded-full border border-amber-300/20 bg-amber-500/12 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-amber-100"><Clock className="h-3 w-3" /> Open</span>;
+                return <span className="inline-flex items-center gap-1 rounded-full border border-amber-300/20 bg-amber-500/12 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-amber-100"><Clock className="h-3 w-3" /> {t('admin.support.open', {}, 'Open')}</span>;
             case 'resolved':
-                return <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300/20 bg-emerald-500/12 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-emerald-100"><CheckCircle className="h-3 w-3" /> Resolved</span>;
+                return <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300/20 bg-emerald-500/12 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-emerald-100"><CheckCircle className="h-3 w-3" /> {t('admin.support.resolved', {}, 'Resolved')}</span>;
             case 'closed':
-                return <span className="inline-flex items-center gap-1 rounded-full border border-slate-400/20 bg-slate-500/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-slate-300"><X className="h-3 w-3" /> Closed</span>;
+                return <span className="inline-flex items-center gap-1 rounded-full border border-slate-400/20 bg-slate-500/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-slate-300"><X className="h-3 w-3" /> {t('admin.support.closed', {}, 'Closed')}</span>;
             default:
                 return null;
         }
@@ -513,9 +585,9 @@ export default function AdminSupport() {
 
     return (
         <AdminPremiumShell
-            eyebrow="Customer Service"
-            title="Support & Appeals"
-            description="Manage moderation appeals and support tickets with live admin updates, resilient polling fallback, and direct conversation control."
+            eyebrow={t('admin.support.eyebrow', {}, 'Customer Service')}
+            title={t('admin.support.title', {}, 'Support & Appeals')}
+            description={t('admin.support.description', {}, 'Manage moderation appeals and support tickets with live admin updates, resilient polling fallback, and direct conversation control.')}
             actions={(
                 <div className="flex flex-wrap gap-3">
                     <div className={cn(
@@ -530,14 +602,14 @@ export default function AdminSupport() {
                         {socketStatusLabel}
                     </div>
                     <PremiumSelect value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="w-[150px]">
-                        <option value="">All Tickets</option>
-                        <option value="open">Open</option>
-                        <option value="resolved">Resolved</option>
-                        <option value="closed">Closed</option>
+                        <option value="">{t('admin.support.allTickets', {}, 'All Tickets')}</option>
+                        <option value="open">{t('admin.support.open', {}, 'Open')}</option>
+                        <option value="resolved">{t('admin.support.resolved', {}, 'Resolved')}</option>
+                        <option value="closed">{t('admin.support.closed', {}, 'Closed')}</option>
                     </PremiumSelect>
                     <button type="button" onClick={() => fetchTickets()} className="admin-premium-button">
                         <RefreshCw className="h-4 w-4" />
-                        Refresh
+                        {t('admin.shared.refresh', {}, 'Refresh')}
                     </button>
                 </div>
             )}
@@ -545,30 +617,30 @@ export default function AdminSupport() {
             <div className="grid min-h-[700px] gap-6 xl:grid-cols-[24rem_minmax(0,1fr)]">
                 <div className="flex w-full flex-col overflow-hidden admin-premium-panel p-0">
                     <div className="border-b border-white/10 px-5 py-5">
-                        <p className="text-[11px] font-black uppercase tracking-[0.28em] text-emerald-200">Support desk</p>
-                        <h3 className="mt-2 text-2xl font-black text-white">Customer chat queue</h3>
+                        <p className="text-[11px] font-black uppercase tracking-[0.28em] text-emerald-200">{t('admin.support.supportDesk', {}, 'Support desk')}</p>
+                        <h3 className="mt-2 text-2xl font-black text-white">{t('admin.support.customerChatQueue', {}, 'Customer chat queue')}</h3>
                         <p className="mt-1.5 text-sm text-slate-400">
-                            Ticket handling, resolution notes, and live support now move like a shared messaging tool.
+                            {t('admin.support.queueBody', {}, 'Ticket handling, resolution notes, and live support now move like a shared messaging tool.')}
                         </p>
 
                         {error ? (
                             <div className="mt-4 rounded-[1.25rem] border border-rose-400/20 bg-rose-500/12 p-3 text-sm font-medium text-rose-100">
-                                {error}
+                                {translateSupportText(error)}
                             </div>
                         ) : null}
                     </div>
 
                     <div className="relative flex-1 space-y-3 overflow-y-auto p-3 scrollbar-hide">
                         {loading ? (
-                            <div className="p-6 text-center text-sm text-slate-400">Loading tickets...</div>
+                            <div className="p-6 text-center text-sm text-slate-400">{t('admin.support.loadingTickets', {}, 'Loading tickets...')}</div>
                         ) : tickets.length === 0 ? (
                             <div className="flex h-full flex-col items-center justify-center p-6 text-center">
                                 <div className="support-chat-avatar h-16 w-16 text-emerald-100">
                                     <MessageSquare className="h-8 w-8" />
                                 </div>
-                                <div className="mt-5 text-lg font-black text-white">No tickets found</div>
+                                <div className="mt-5 text-lg font-black text-white">{t('admin.support.noTicketsFound', {}, 'No tickets found')}</div>
                                 <p className="mt-2 max-w-xs text-sm text-slate-400">
-                                    When customers need help, their threads will appear here in queue order.
+                                    {t('admin.support.noTicketsBody', {}, 'When customers need help, their threads will appear here in queue order.')}
                                 </p>
                             </div>
                         ) : (
@@ -584,30 +656,30 @@ export default function AdminSupport() {
                                 >
                                     <div className="flex items-start gap-3">
                                         <div className="support-chat-avatar h-12 w-12 shrink-0 text-sm font-black">
-                                            {getInitials(ticket.user?.name || ticket.user?.email || ticket.subject)}
+                                            {getInitials(ticket.user?.name || ticket.user?.email || translateSupportText(ticket.subject))}
                                         </div>
 
                                         <div className="min-w-0 flex-1">
                                             <div className="flex items-start justify-between gap-3">
-                                                <div className="min-w-0">
-                                                    <div className="truncate text-sm font-black text-white" title={ticket.subject}>{ticket.subject}</div>
+                                                    <div className="min-w-0">
+                                                    <div className="truncate text-sm font-black text-white" title={translateSupportText(ticket.subject)}>{translateSupportText(ticket.subject)}</div>
                                                     <div className="mt-1 truncate text-[11px] font-medium text-slate-400">
-                                                        {ticket.user?.email || ticket.user?.name || 'Unknown user'}
+                                                        {ticket.user?.email || ticket.user?.name || t('admin.support.unknownUser', {}, 'Unknown user')}
                                                     </div>
                                                 </div>
                                                 <span className="shrink-0 text-[11px] font-medium text-slate-400">
-                                                    {formatThreadPreviewTime(ticket.lastMessageAt || ticket.updatedAt || ticket.createdAt)}
+                                                    {formatThreadPreviewTime(ticket.lastMessageAt || ticket.updatedAt || ticket.createdAt, supportRelativeLabels)}
                                                 </span>
                                             </div>
 
                                             <div className="mt-3 line-clamp-2 text-sm leading-6 text-slate-300">
-                                                {ticket.lastMessagePreview || 'No messages yet.'}
+                                                {translateSupportText(ticket.lastMessagePreview) || t('admin.support.noMessagesYet', {}, 'No messages yet.')}
                                             </div>
 
                                             <div className="mt-3 flex items-center justify-between gap-3">
                                                 <div className="flex flex-wrap items-center gap-2">
                                                     <span className="rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-slate-200">
-                                                        {ticket.category}
+                                                        {formatSupportCategory(t, ticket.category)}
                                                     </span>
                                                     <span className={cn(
                                                         'rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em]',
@@ -617,7 +689,7 @@ export default function AdminSupport() {
                                                                 ? 'border-amber-300/20 bg-amber-500/12 text-amber-100'
                                                                 : 'border-cyan-300/20 bg-cyan-500/12 text-cyan-100'
                                                     )}>
-                                                        {ticket.priority}
+                                                        {formatSupportPriority(t, ticket.priority)}
                                                     </span>
                                                 </div>
 
@@ -644,9 +716,9 @@ export default function AdminSupport() {
                             <div className="support-chat-avatar h-20 w-20 text-emerald-100">
                                 <MessageSquare className="h-10 w-10" />
                             </div>
-                            <h4 className="mt-5 text-2xl font-black text-white">Select a customer thread</h4>
+                            <h4 className="mt-5 text-2xl font-black text-white">{t('admin.support.selectThread', {}, 'Select a customer thread')}</h4>
                             <p className="mt-3 max-w-xl text-sm leading-7 text-slate-300">
-                                Open any ticket on the left to jump into the conversation, update the resolution state, or escalate to live support.
+                                {t('admin.support.selectThreadBody', {}, 'Open any ticket on the left to jump into the conversation, update the resolution state, or escalate to live support.')}
                             </p>
                         </div>
                     ) : activeTicket ? (
@@ -655,24 +727,24 @@ export default function AdminSupport() {
                                 <div className="flex items-start justify-between gap-4">
                                     <div className="flex min-w-0 flex-1 items-start gap-4 pr-4">
                                         <div className="support-chat-avatar h-14 w-14 shrink-0 text-base font-black">
-                                            {getInitials(activeTicket.user?.name || activeTicket.user?.email || activeTicket.subject)}
+                                            {getInitials(activeTicket.user?.name || activeTicket.user?.email || translateSupportText(activeTicket.subject))}
                                         </div>
                                         <div className="min-w-0 flex-1">
-                                    <h3 className="truncate text-2xl font-black text-white">{activeTicket.subject}</h3>
+                                    <h3 className="truncate text-2xl font-black text-white">{translateSupportText(activeTicket.subject)}</h3>
                                     <div className="mt-1 flex flex-wrap items-center gap-2 font-mono text-xs text-slate-400">
-                                        <span>{activeTicket.user?.email || activeTicket.user?.name || 'Unknown user'}</span>
+                                        <span>{activeTicket.user?.email || activeTicket.user?.name || t('admin.support.unknownUser', {}, 'Unknown user')}</span>
                                         <span>|</span>
                                         <span className={cn(
                                             activeTicket.user?.accountState === 'suspended'
                                                 ? 'font-bold text-rose-300'
                                                 : 'font-bold text-emerald-300'
                                         )}>
-                                            {activeTicket.user?.accountState || 'active'}
+                                            {formatSupportAccountState(t, activeTicket.user?.accountState)}
                                         </span>
                                     </div>
                                     <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em]">
                                         <span className="rounded-full border border-white/10 bg-white/[0.06] px-2 py-0.5 text-slate-200">
-                                            {activeTicket.category}
+                                            {formatSupportCategory(t, activeTicket.category)}
                                         </span>
                                         <span className={cn(
                                             'rounded-full border px-2 py-0.5',
@@ -682,21 +754,21 @@ export default function AdminSupport() {
                                                     ? 'border-amber-300/20 bg-amber-500/12 text-amber-100'
                                                     : 'border-cyan-300/20 bg-cyan-500/12 text-cyan-100'
                                         )}>
-                                            {activeTicket.priority}
+                                            {formatSupportPriority(t, activeTicket.priority)}
                                         </span>
                                         {activeTicket.userActionRequired ? (
                                             <span className="rounded-full border border-rose-300/20 bg-rose-500/12 px-2 py-0.5 text-rose-100">
-                                                user action required
+                                                {t('admin.support.userActionRequired', {}, 'user action required')}
                                             </span>
                                         ) : null}
                                         {activeTicket.liveCallRequested ? (
                                             <span className="rounded-full border border-cyan-300/20 bg-cyan-500/12 px-2 py-0.5 text-cyan-100">
-                                                {getLiveCallModeTitle(activeTicket.liveCallRequestedMode)} requested
+                                                {t('admin.support.requestedBadge', { label: normalizeLiveCallMode(activeTicket.liveCallRequestedMode) === 'voice' ? t('admin.support.voiceCallTitle', {}, 'Voice Call') : t('admin.support.videoCallTitle', {}, 'Video Call') }, `${normalizeLiveCallMode(activeTicket.liveCallRequestedMode) === 'voice' ? 'Voice Call' : 'Video Call'} requested`)}
                                             </span>
                                         ) : null}
                                         {activeTicket.liveCallLastStatus === 'connected' || isActiveSupportCall ? (
                                             <span className="rounded-full border border-emerald-300/20 bg-emerald-500/12 px-2 py-0.5 text-emerald-100">
-                                                {supportLiveCallTitle} active
+                                                {t('admin.support.activeBadge', { label: supportLiveCallTitle }, `${supportLiveCallTitle} active`)}
                                             </span>
                                         ) : null}
                                     </div>
@@ -729,7 +801,7 @@ export default function AdminSupport() {
                                                     className="support-chat-utility inline-flex items-center gap-2 px-4 py-2.5 text-sm font-black disabled:cursor-not-allowed disabled:opacity-55"
                                                 >
                                                     {startingLiveCall ? <RefreshCw className="h-4 w-4 animate-spin" /> : <PhoneCall className="h-4 w-4" />}
-                                                    Voice call
+                                                    {t('admin.support.voiceCallTitle', {}, 'Voice call')}
                                                 </button>
                                                 <button
                                                     type="button"
@@ -738,7 +810,7 @@ export default function AdminSupport() {
                                                     className="support-chat-send inline-flex items-center gap-2 px-4 py-2.5 text-sm font-black disabled:cursor-not-allowed"
                                                 >
                                                     {startingLiveCall ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Video className="h-4 w-4" />}
-                                                    Video call
+                                                    {t('admin.support.videoCallTitle', {}, 'Video call')}
                                                 </button>
                                             </div>
                                         )}
@@ -746,8 +818,8 @@ export default function AdminSupport() {
                                 </div>
                                 {activeTicket.resolutionSummary ? (
                                     <div className="mt-4 rounded-[1.5rem] border border-emerald-300/20 bg-emerald-500/12 p-4 text-sm text-emerald-100">
-                                        <div className="mb-1 text-xs font-black uppercase tracking-[0.18em] text-emerald-200">Current resolution summary</div>
-                                        <div className="leading-6">{activeTicket.resolutionSummary}</div>
+                                        <div className="mb-1 text-xs font-black uppercase tracking-[0.18em] text-emerald-200">{t('admin.support.currentResolutionSummary', {}, 'Current resolution summary')}</div>
+                                        <div className="leading-6">{translateSupportText(activeTicket.resolutionSummary)}</div>
                                     </div>
                                 ) : null}
 
@@ -761,7 +833,7 @@ export default function AdminSupport() {
                                 )}>
                                     <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                                         <div className="min-w-0 flex-1">
-                                            <div className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Live support lane</div>
+                                            <div className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">{t('admin.support.liveSupportLane', {}, 'Live support lane')}</div>
                                             <div className="mt-2 font-semibold leading-6 text-white">
                                                 {liveCallStatusCopy}
                                             </div>
@@ -778,16 +850,16 @@ export default function AdminSupport() {
                                         onChange={(e) => setStatusDraft(e.target.value)}
                                         className="w-full text-xs font-bold"
                                     >
-                                        <option value="open">Open</option>
-                                        <option value="resolved">Resolved</option>
-                                        <option value="closed">Closed</option>
+                                        <option value="open">{t('admin.support.open', {}, 'Open')}</option>
+                                        <option value="resolved">{t('admin.support.resolved', {}, 'Resolved')}</option>
+                                        <option value="closed">{t('admin.support.closed', {}, 'Closed')}</option>
                                     </PremiumSelect>
                                     <textarea
                                         value={resolutionDraft}
                                         onChange={(e) => setResolutionDraft(e.target.value)}
                                         rows={2}
                                         maxLength={800}
-                                        placeholder="Add the resolution, policy note, or next step the user should actually see."
+                                        placeholder={t('admin.support.resolutionPlaceholder', {}, 'Add the resolution, policy note, or next step the user should actually see.')}
                                         className="admin-premium-control min-h-[84px] resize-none px-3 py-2"
                                     />
                                     <div className="flex flex-col justify-between gap-3">
@@ -798,7 +870,7 @@ export default function AdminSupport() {
                                                 onChange={(e) => setUserActionRequiredDraft(e.target.checked)}
                                                 className="mt-1"
                                             />
-                                            <span>User action required</span>
+                                            <span>{t('admin.support.userActionRequired', {}, 'User action required')}</span>
                                         </label>
                                         <button
                                             type="button"
@@ -807,7 +879,7 @@ export default function AdminSupport() {
                                             className="support-chat-utility justify-center px-4 py-3 text-sm font-black"
                                         >
                                             {updatingStatus ? <RefreshCw className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
-                                            Apply update
+                                            {t('admin.support.applyUpdate', {}, 'Apply update')}
                                         </button>
                                     </div>
                                 </div>
@@ -819,7 +891,7 @@ export default function AdminSupport() {
                                 className="support-chat-thread flex-1 overflow-y-auto p-6 scrollbar-hide"
                             >
                                 {messagesLoading ? (
-                                    <div className="mt-10 text-center text-slate-400">Loading chat history...</div>
+                                    <div className="mt-10 text-center text-slate-400">{t('admin.support.loadingChatHistory', {}, 'Loading chat history...')}</div>
                                 ) : (
                                     <div className="space-y-3">
                                         {messages.map((message, index) => {
@@ -833,7 +905,7 @@ export default function AdminSupport() {
                                                     {showDayDivider ? (
                                                         <div className="flex justify-center">
                                                             <div className="support-chat-date-pill text-xs font-semibold">
-                                                                {formatMessageDayLabel(sentAt)}
+                                                                {formatMessageDayLabel(sentAt, supportRelativeLabels)}
                                                             </div>
                                                         </div>
                                                     ) : null}
@@ -842,7 +914,7 @@ export default function AdminSupport() {
                                                         <div className="my-4 flex justify-center">
                                                             <div className="support-chat-system-pill text-xs">
                                                                 <AlertCircle className="h-3.5 w-3.5" />
-                                                                {message.text}
+                                                                {translateSupportText(message.text)}
                                                             </div>
                                                         </div>
                                                     ) : (
@@ -855,17 +927,17 @@ export default function AdminSupport() {
                                                                     {!isAdmin ? (
                                                                         <div className="mb-2 flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">
                                                                             <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/10 text-[10px] font-black text-slate-200">
-                                                                                {getInitials(message.sender?.name || message.sender?.email || 'User')}
+                                                                                {getInitials(message.sender?.name || message.sender?.email || t('admin.support.user', {}, 'User'))}
                                                                             </span>
-                                                                            {message.sender?.name || message.sender?.email || 'User'}
+                                                                            {message.sender?.name || message.sender?.email || t('admin.support.user', {}, 'User')}
                                                                         </div>
                                                                     ) : (
                                                                         <div className="mb-2 flex items-center justify-end gap-2 text-[11px] font-black uppercase tracking-[0.18em] text-emerald-50/85">
-                                                                            Staff reply
+                                                                            {t('admin.support.staffReply', {}, 'Staff reply')}
                                                                             <ShieldAlert className="h-3.5 w-3.5" />
                                                                         </div>
                                                                     )}
-                                                                    <div className="whitespace-pre-wrap text-[15px] leading-7 text-inherit">{message.text}</div>
+                                                                    <div className="whitespace-pre-wrap text-[15px] leading-7 text-inherit">{translateSupportText(message.text)}</div>
                                                                     <div className={cn(
                                                                         'mt-3 text-right text-[11px] font-medium',
                                                                         isAdmin ? 'text-emerald-50/75' : 'text-slate-400'
@@ -891,7 +963,7 @@ export default function AdminSupport() {
                                             type="text"
                                             value={newMessage}
                                             onChange={(e) => setNewMessage(e.target.value)}
-                                            placeholder="Type your official response..."
+                                            placeholder={t('admin.support.composerPlaceholder', {}, 'Type your official response...')}
                                             className="support-chat-input flex-1 px-5 py-3.5 pr-14 font-medium"
                                         />
                                         <button
@@ -905,7 +977,7 @@ export default function AdminSupport() {
                                 </form>
                             ) : (
                                 <div className="support-chat-composer p-4 text-center text-sm font-medium text-slate-400">
-                                    This ticket is closed. Reopen it to send a new message.
+                                    {t('admin.support.closedTicketBody', {}, 'This ticket is closed. Reopen it to send a new message.')}
                                 </div>
                             )}
                         </>

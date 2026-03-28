@@ -7,10 +7,12 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import AdminPremiumShell, { AdminHeroStat } from '@/components/shared/AdminPremiumShell';
 import PremiumSelect from '@/components/ui/premium-select';
+import { useMarket } from '@/context/MarketContext';
 
 const STATUS_OPTIONS = ['processing', 'shipped', 'delivered'];
 
 const OrderList = () => {
+    const { t, formatDateTime } = useMarket();
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
     const [statusDrafts, setStatusDrafts] = useState({});
@@ -47,7 +49,7 @@ const OrderList = () => {
             setSupportReplyDrafts(supportDrafts);
             setTrackingDrafts(trkDrafts);
         } catch (error) {
-            toast.error(error.message || 'Failed to fetch orders');
+            toast.error(error.message || t('admin.orders.error.load', {}, 'Failed to fetch orders'));
         } finally {
             setLoading(false);
         }
@@ -76,7 +78,7 @@ const OrderList = () => {
     const updateStatus = async (orderId) => {
         const status = statusDrafts[orderId];
         if (!STATUS_OPTIONS.includes(status)) {
-            toast.error('Select a valid status');
+            toast.error(t('admin.orders.error.invalidStatus', {}, 'Select a valid status'));
             return;
         }
 
@@ -84,7 +86,7 @@ const OrderList = () => {
         try {
             const response = await orderApi.updateOrderStatusAdmin(orderId, {
                 status,
-                note: 'Updated from admin order console',
+                note: t('admin.orders.notes.statusUpdate', {}, 'Updated from admin order console'),
             });
             const updated = response?.order;
             if (updated) {
@@ -94,16 +96,16 @@ const OrderList = () => {
                     [orderId]: updated.orderStatus || (updated.isDelivered ? 'delivered' : 'placed'),
                 }));
             }
-            toast.success(response?.message || 'Order status updated');
+            toast.success(response?.message || t('admin.orders.success.statusUpdated', {}, 'Order status updated'));
         } catch (error) {
-            toast.error(error.message || 'Failed to update status');
+            toast.error(error.message || t('admin.orders.error.updateStatus', {}, 'Failed to update status'));
         } finally {
             setStatusSubmitting((prev) => ({ ...prev, [orderId]: false }));
         }
     };
 
     const cancelOrderAsAdmin = async (orderId) => {
-        const reason = (cancelReasonDrafts[orderId] || '').trim() || 'Cancelled by admin';
+        const reason = (cancelReasonDrafts[orderId] || '').trim() || t('admin.orders.notes.cancelledByAdmin', {}, 'Cancelled by admin');
         setCancelSubmitting((prev) => ({ ...prev, [orderId]: true }));
         try {
             const response = await orderApi.cancelOrderAdmin(orderId, { reason });
@@ -116,9 +118,9 @@ const OrderList = () => {
                 }));
             }
             setCancelReasonDrafts((prev) => ({ ...prev, [orderId]: '' }));
-            toast.success(response?.message || 'Order cancelled');
+            toast.success(response?.message || t('admin.orders.success.cancelled', {}, 'Order cancelled'));
         } catch (error) {
-            toast.error(error.message || 'Failed to cancel order');
+            toast.error(error.message || t('admin.orders.error.cancel', {}, 'Failed to cancel order'));
         } finally {
             setCancelSubmitting((prev) => ({ ...prev, [orderId]: false }));
         }
@@ -129,12 +131,12 @@ const OrderList = () => {
         try {
             const response = await orderApi.processRefundRequestAdmin(orderId, requestId, {
                 status,
-                note: `Admin ${status} via order console`,
+                note: t('admin.orders.notes.refundAction', { status }, `Admin ${status} via order console`),
             });
-            toast.success(response?.message || 'Refund request updated');
+            toast.success(response?.message || t('admin.orders.success.refundUpdated', {}, 'Refund request updated'));
             await loadOrders();
         } catch (error) {
-            toast.error(error.message || 'Failed to process refund request');
+            toast.error(error.message || t('admin.orders.error.refund', {}, 'Failed to process refund request'));
         } finally {
             setRefundSubmitting((prev) => ({ ...prev, [orderId]: false }));
         }
@@ -146,12 +148,12 @@ const OrderList = () => {
             const response = await orderApi.processReplacementRequestAdmin(orderId, requestId, {
                 status,
                 trackingId: trackingDrafts[orderId] || undefined,
-                note: `Admin ${status} via order console`,
+                note: t('admin.orders.notes.replacementAction', { status }, `Admin ${status} via order console`),
             });
-            toast.success(response?.message || 'Replacement request updated');
+            toast.success(response?.message || t('admin.orders.success.replacementUpdated', {}, 'Replacement request updated'));
             await loadOrders();
         } catch (error) {
-            toast.error(error.message || 'Failed to process replacement request');
+            toast.error(error.message || t('admin.orders.error.replacement', {}, 'Failed to process replacement request'));
         } finally {
             setReplacementSubmitting((prev) => ({ ...prev, [orderId]: false }));
         }
@@ -162,12 +164,12 @@ const OrderList = () => {
         try {
             const response = await orderApi.processWarrantyClaimAdmin(orderId, claimId, {
                 status,
-                note: `Admin ${status} via order console`,
+                note: t('admin.orders.notes.warrantyAction', { status }, `Admin ${status} via order console`),
             });
-            toast.success(response?.message || 'Warranty claim updated');
+            toast.success(response?.message || t('admin.orders.success.warrantyUpdated', {}, 'Warranty claim updated'));
             await loadOrders();
         } catch (error) {
-            toast.error(error.message || 'Failed to process warranty claim');
+            toast.error(error.message || t('admin.orders.error.warranty', {}, 'Failed to process warranty claim'));
         } finally {
             setWarrantySubmitting((prev) => ({ ...prev, [orderId]: false }));
         }
@@ -176,18 +178,18 @@ const OrderList = () => {
     const sendSupportReply = async (orderId) => {
         const message = (supportReplyDrafts[orderId] || '').trim();
         if (!message) {
-            toast.error('Write a support reply message first');
+            toast.error(t('admin.orders.error.supportMessageRequired', {}, 'Write a support reply message first'));
             return;
         }
 
         setSupportSubmitting((prev) => ({ ...prev, [orderId]: true }));
         try {
             const response = await orderApi.replySupportAdmin(orderId, { message });
-            toast.success(response?.message || 'Support reply sent');
+            toast.success(response?.message || t('admin.orders.success.supportSent', {}, 'Support reply sent'));
             setSupportReplyDrafts((prev) => ({ ...prev, [orderId]: '' }));
             await loadOrders();
         } catch (error) {
-            toast.error(error.message || 'Failed to send support reply');
+            toast.error(error.message || t('admin.orders.error.supportReply', {}, 'Failed to send support reply'));
         } finally {
             setSupportSubmitting((prev) => ({ ...prev, [orderId]: false }));
         }
@@ -196,13 +198,13 @@ const OrderList = () => {
     if (loading) {
         return (
             <AdminPremiumShell
-                eyebrow="Order command"
-                title="Order operations console"
-                description="Track shipping, cancellations, refunds, replacements, warranty claims, and support replies from one premium ops surface."
+                eyebrow={t('admin.orders.eyebrow', {}, 'Order command')}
+                title={t('admin.orders.title', {}, 'Order operations console')}
+                description={t('admin.orders.description', {}, 'Track shipping, cancellations, refunds, replacements, warranty claims, and support replies from one premium ops surface.')}
             >
                 <div className="admin-premium-panel flex items-center gap-2 p-8 text-slate-400">
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    Loading orders...
+                    {t('admin.orders.loading', {}, 'Loading orders...')}
                 </div>
             </AdminPremiumShell>
         );
@@ -210,19 +212,19 @@ const OrderList = () => {
 
     return (
         <AdminPremiumShell
-            eyebrow="Order command"
-            title="Order operations console"
-            description="Track shipping, cancellations, refunds, replacements, warranty claims, and support replies from one premium operational surface."
+            eyebrow={t('admin.orders.eyebrow', {}, 'Order command')}
+            title={t('admin.orders.title', {}, 'Order operations console')}
+            description={t('admin.orders.description', {}, 'Track shipping, cancellations, refunds, replacements, warranty claims, and support replies from one premium operational surface.')}
             actions={(
                 <button type="button" onClick={loadOrders} className="admin-premium-button">
                     <RefreshCw className="h-4 w-4" />
-                    Refresh
+                    {t('admin.shared.refresh', {}, 'Refresh')}
                 </button>
             )}
             stats={[
-                <AdminHeroStat key="orders" label="Orders" value={orders.length} detail="Current loaded console set" icon={<RefreshCw className="h-5 w-5" />} />,
-                <AdminHeroStat key="paid" label="Paid" value={orders.filter((order) => order.isPaid).length} detail="Successfully funded orders" icon={<CheckCircle className="h-5 w-5" />} />,
-                <AdminHeroStat key="pending" label="Pending pay" value={orders.filter((order) => !order.isPaid).length} detail="Awaiting successful capture" icon={<XCircle className="h-5 w-5" />} />,
+                <AdminHeroStat key="orders" label={t('admin.orders.stats.orders', {}, 'Orders')} value={orders.length} detail={t('admin.orders.stats.loadedSet', {}, 'Current loaded console set')} icon={<RefreshCw className="h-5 w-5" />} />,
+                <AdminHeroStat key="paid" label={t('admin.orders.stats.paid', {}, 'Paid')} value={orders.filter((order) => order.isPaid).length} detail={t('admin.orders.stats.funded', {}, 'Successfully funded orders')} icon={<CheckCircle className="h-5 w-5" />} />,
+                <AdminHeroStat key="pending" label={t('admin.orders.stats.pendingPay', {}, 'Pending pay')} value={orders.filter((order) => !order.isPaid).length} detail={t('admin.orders.stats.awaitingCapture', {}, 'Awaiting successful capture')} icon={<XCircle className="h-5 w-5" />} />,
             ]}
         >
 
@@ -231,13 +233,13 @@ const OrderList = () => {
                     <table className="admin-premium-table min-w-[1100px]">
                         <thead>
                             <tr>
-                                <th>ID</th>
-                                <th>User</th>
-                                <th>Order</th>
-                                <th>Payment</th>
-                                <th>Refund Ops</th>
-                                <th>Replacement Ops</th>
-                                <th>Shipping / Support Ops</th>
+                                <th>{t('admin.orders.table.id', {}, 'ID')}</th>
+                                <th>{t('admin.orders.table.user', {}, 'User')}</th>
+                                <th>{t('admin.orders.table.order', {}, 'Order')}</th>
+                                <th>{t('admin.orders.table.payment', {}, 'Payment')}</th>
+                                <th>{t('admin.orders.table.refundOps', {}, 'Refund Ops')}</th>
+                                <th>{t('admin.orders.table.replacementOps', {}, 'Replacement Ops')}</th>
+                                <th>{t('admin.orders.table.shippingSupportOps', {}, 'Shipping / Support Ops')}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -262,29 +264,29 @@ const OrderList = () => {
                                             {order._id.slice(-8)}
                                         </td>
                                         <td className="px-4 py-4 text-sm text-gray-900">
-                                            {order.user ? order.user.name : 'Unknown User'}
+                                            {order.user ? order.user.name : t('admin.orders.userFallback', {}, 'Unknown User')}
                                             <div className="text-xs text-gray-400">{order.user?.email}</div>
                                         </td>
                                         <td className="px-4 py-4 text-sm text-gray-900">
                                             <div className="font-semibold">{formatPrice(order.totalPrice)}</div>
                                             <div className="text-xs text-gray-500">
-                                                {new Date(order.createdAt).toLocaleString()}
+                                                {formatDateTime(order.createdAt)}
                                             </div>
                                             <div className="text-xs text-gray-500">
-                                                {order.orderItems?.length || 0} item(s)
+                                                {t('admin.orders.items', { count: order.orderItems?.length || 0 }, `${order.orderItems?.length || 0} item(s)`)}
                                             </div>
                                         </td>
                                         <td className="px-4 py-4 text-sm">
                                             {order.isPaid ? (
                                                 <span className="text-green-600 inline-flex items-center gap-1 font-semibold">
-                                                    <CheckCircle className="w-3 h-3" /> Paid
+                                                    <CheckCircle className="w-3 h-3" /> {t('admin.orders.payment.paid', {}, 'Paid')}
                                                 </span>
                                             ) : (
                                                 <span className="text-red-500 inline-flex items-center gap-1 font-semibold">
-                                                    <XCircle className="w-3 h-3" /> Pending
+                                                    <XCircle className="w-3 h-3" /> {t('admin.orders.payment.pending', {}, 'Pending')}
                                                 </span>
                                             )}
-                                            <div className="text-xs text-gray-500 mt-1">State: {order.paymentState || 'pending'}</div>
+                                            <div className="text-xs text-gray-500 mt-1">{t('admin.orders.payment.state', {}, 'State')}: {order.paymentState || t('admin.orders.payment.pending', {}, 'pending')}</div>
                                         </td>
                                         <td className="px-4 py-4 text-xs text-gray-700 max-w-[220px]">
                                             {latestRefund ? (
@@ -309,7 +311,7 @@ const OrderList = () => {
                                                                 disabled={isRefundBusy}
                                                                 className="rounded bg-emerald-600 px-2 py-1 text-[10px] font-bold text-white disabled:opacity-60"
                                                             >
-                                                                {isRefundBusy ? '...' : 'Process'}
+                                                                {isRefundBusy ? t('admin.shared.busy', {}, '...') : t('admin.orders.actions.process', {}, 'Process')}
                                                             </button>
                                                             <button
                                                                 type="button"
@@ -317,13 +319,13 @@ const OrderList = () => {
                                                                 disabled={isRefundBusy}
                                                                 className="rounded bg-rose-600 px-2 py-1 text-[10px] font-bold text-white disabled:opacity-60"
                                                             >
-                                                                Reject
+                                                                {t('admin.orders.actions.reject', {}, 'Reject')}
                                                             </button>
                                                         </div>
                                                     ) : null}
                                                 </div>
                                             ) : (
-                                                <span className="text-gray-400">No refunds</span>
+                                                <span className="text-gray-400">{t('admin.orders.empty.refunds', {}, 'No refunds')}</span>
                                             )}
                                         </td>
                                         <td className="px-4 py-4 text-xs text-gray-700 max-w-[220px]">
@@ -345,7 +347,7 @@ const OrderList = () => {
                                                         <>
                                                             <input
                                                                 type="text"
-                                                                placeholder="Tracking ID (optional)"
+                                                                placeholder={t('admin.orders.trackingPlaceholder', {}, 'Tracking ID (optional)')}
                                                                 value={trackingDrafts[order._id] || ''}
                                                                 onChange={(e) => setTrackingDraft(order._id, e.target.value)}
                                                                 className="admin-premium-control w-full px-2 py-1 text-[10px]"
@@ -358,7 +360,7 @@ const OrderList = () => {
                                                                     disabled={isReplacementBusy}
                                                                     className="rounded bg-emerald-600 px-2 py-1 text-[10px] font-bold text-white disabled:opacity-60"
                                                                 >
-                                                                    {isReplacementBusy ? '...' : 'Ship'}
+                                                                    {isReplacementBusy ? t('admin.shared.busy', {}, '...') : t('admin.orders.actions.ship', {}, 'Ship')}
                                                                 </button>
                                                                 <button
                                                                     type="button"
@@ -366,20 +368,20 @@ const OrderList = () => {
                                                                     disabled={isReplacementBusy}
                                                                     className="rounded bg-rose-600 px-2 py-1 text-[10px] font-bold text-white disabled:opacity-60"
                                                                 >
-                                                                    Reject
+                                                                    {t('admin.orders.actions.reject', {}, 'Reject')}
                                                                 </button>
                                                             </div>
                                                         </>
                                                     ) : null}
                                                 </div>
                                             ) : (
-                                                <span className="text-gray-400">No replacements</span>
+                                                <span className="text-gray-400">{t('admin.orders.empty.replacements', {}, 'No replacements')}</span>
                                             )}
                                         </td>
                                         <td className="px-4 py-4 text-xs">
                                             <div className="space-y-2">
                                                 <div className="text-[10px] uppercase tracking-wider text-gray-500 font-bold">
-                                                    Current: {currentStatus}
+                                                    {t('admin.orders.currentStatus', { status: currentStatus }, `Current: ${currentStatus}`)}
                                                 </div>
                                                 <PremiumSelect
                                                     value={statusDrafts[order._id] || currentStatus}
@@ -398,12 +400,12 @@ const OrderList = () => {
                                                     disabled={isBusy || currentStatus === 'cancelled' || currentStatus === 'delivered'}
                                                     className="admin-premium-button admin-premium-button-primary w-full px-2 py-1.5 text-xs font-bold disabled:opacity-50"
                                                 >
-                                                    {isBusy ? 'Updating...' : 'Apply'}
+                                                    {isBusy ? t('admin.orders.actions.updating', {}, 'Updating...') : t('admin.orders.actions.apply', {}, 'Apply')}
                                                 </button>
 
                                                 <input
                                                     type="text"
-                                                    placeholder="Cancel reason (optional)"
+                                                    placeholder={t('admin.orders.cancelReasonPlaceholder', {}, 'Cancel reason (optional)')}
                                                     value={cancelReasonDrafts[order._id] || ''}
                                                     onChange={(e) => setDraftCancelReason(order._id, e.target.value)}
                                                     className="admin-premium-control w-full px-2 py-1.5 text-xs"
@@ -416,15 +418,15 @@ const OrderList = () => {
                                                     className="admin-premium-button admin-premium-button-danger w-full px-2 py-1.5 text-xs font-bold disabled:opacity-50"
                                                 >
                                                     {currentStatus === 'cancelled'
-                                                        ? 'Cancelled'
+                                                        ? t('admin.orders.cancelled', {}, 'Cancelled')
                                                         : isCancelBusy
-                                                            ? 'Cancelling...'
-                                                            : 'Admin Cancel'}
+                                                            ? t('admin.orders.actions.cancelling', {}, 'Cancelling...')
+                                                            : t('admin.orders.actions.adminCancel', {}, 'Admin Cancel')}
                                                 </button>
 
                                                 <div className="rounded border border-gray-200 p-2">
                                                     <div className="mb-1 text-[10px] uppercase tracking-wider text-gray-500 font-bold">
-                                                        Warranty
+                                                        {t('admin.orders.warranty.title', {}, 'Warranty')}
                                                     </div>
                                                     {latestWarranty ? (
                                                         <div className="space-y-1">
@@ -446,34 +448,34 @@ const OrderList = () => {
                                                                     <button
                                                                         type="button"
                                                                         onClick={() => processWarrantyClaim(order._id, latestWarranty.claimId, 'approved')}
-                                                                        disabled={isWarrantyBusy}
-                                                                        className="rounded bg-emerald-600 px-2 py-1 text-[10px] font-bold text-white disabled:opacity-60"
+                                                                    disabled={isWarrantyBusy}
+                                                                    className="rounded bg-emerald-600 px-2 py-1 text-[10px] font-bold text-white disabled:opacity-60"
                                                                     >
-                                                                        {isWarrantyBusy ? '...' : 'Approve'}
+                                                                        {isWarrantyBusy ? t('admin.shared.busy', {}, '...') : t('admin.orders.actions.approve', {}, 'Approve')}
                                                                     </button>
                                                                     <button
                                                                         type="button"
                                                                         onClick={() => processWarrantyClaim(order._id, latestWarranty.claimId, 'rejected')}
-                                                                        disabled={isWarrantyBusy}
-                                                                        className="rounded bg-rose-600 px-2 py-1 text-[10px] font-bold text-white disabled:opacity-60"
-                                                                    >
-                                                                        Reject
+                                                                    disabled={isWarrantyBusy}
+                                                                    className="rounded bg-rose-600 px-2 py-1 text-[10px] font-bold text-white disabled:opacity-60"
+                                                                >
+                                                                        {t('admin.orders.actions.reject', {}, 'Reject')}
                                                                     </button>
                                                                 </div>
                                                             ) : null}
                                                         </div>
                                                     ) : (
-                                                        <span className="text-[10px] text-gray-400">No warranty claims</span>
+                                                        <span className="text-[10px] text-gray-400">{t('admin.orders.empty.warranty', {}, 'No warranty claims')}</span>
                                                     )}
                                                 </div>
 
                                                 <div className="rounded border border-gray-200 p-2">
                                                     <div className="mb-1 text-[10px] uppercase tracking-wider text-gray-500 font-bold">
-                                                        Support Reply
+                                                        {t('admin.orders.supportReply', {}, 'Support Reply')}
                                                     </div>
                                                     <input
                                                         type="text"
-                                                        placeholder="Reply to customer..."
+                                                        placeholder={t('admin.orders.supportPlaceholder', {}, 'Reply to customer...')}
                                                         value={supportReplyDrafts[order._id] || ''}
                                                         onChange={(e) => setSupportDraft(order._id, e.target.value)}
                                                     className="admin-premium-control w-full px-2 py-1.5 text-[10px]"
@@ -485,7 +487,7 @@ const OrderList = () => {
                                                     disabled={isSupportBusy}
                                                     className="admin-premium-button mt-1 w-full px-2 py-1.5 text-[10px] font-bold disabled:opacity-60"
                                                 >
-                                                    {isSupportBusy ? 'Sending...' : 'Send Reply'}
+                                                    {isSupportBusy ? t('admin.orders.actions.sending', {}, 'Sending...') : t('admin.orders.actions.sendReply', {}, 'Send Reply')}
                                                 </button>
                                                 </div>
                                             </div>

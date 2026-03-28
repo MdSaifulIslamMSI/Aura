@@ -22,7 +22,10 @@ import {
 import PremiumSelect from '@/components/ui/premium-select';
 import AdminPremiumShell, { AdminHeroStat } from '@/components/shared/AdminPremiumShell';
 import { AuthContext } from '@/context/AuthContext';
+import { useMarket } from '@/context/MarketContext';
+import { useDynamicTranslations } from '@/hooks/useDynamicTranslations';
 import { adminApi } from '@/services/api';
+import { translateEnumLabel } from '@/utils/enumLocalization';
 import ClientDiagnosticsPanel from './ClientDiagnosticsPanel';
 
 const SEVERITY_STYLES = {
@@ -103,6 +106,59 @@ const getDeltaClass = (value, invert = false) => {
 const POSITIVE_HEALTH_STATES = new Set(['ok', 'healthy', 'connected']);
 const isPositiveHealthStatus = (value) => POSITIVE_HEALTH_STATES.has(String(value || '').trim().toLowerCase());
 
+const formatDashboardSeverity = (t, value) => {
+    const normalized = String(value || '').trim().toLowerCase();
+    switch (normalized) {
+        case 'info':
+            return t('admin.dashboard.severity.info', {}, 'Info');
+        case 'warning':
+            return t('admin.dashboard.severity.warning', {}, 'Warning');
+        case 'critical':
+            return t('admin.dashboard.severity.critical', {}, 'Critical');
+        default:
+            return value || t('admin.shared.unknown', {}, 'unknown');
+    }
+};
+
+const formatDashboardState = (t, value) => {
+    const normalized = String(value || '').trim().toLowerCase();
+    switch (normalized) {
+        case 'ok':
+            return t('admin.dashboard.state.ok', {}, 'OK');
+        case 'healthy':
+            return t('admin.dashboard.state.healthy', {}, 'Healthy');
+        case 'connected':
+            return t('admin.dashboard.state.connected', {}, 'Connected');
+        case 'disconnected':
+            return t('admin.dashboard.state.disconnected', {}, 'Disconnected');
+        case 'degraded':
+            return t('admin.dashboard.state.degraded', {}, 'Degraded');
+        case 'unknown':
+            return t('admin.dashboard.state.unknown', {}, 'Unknown');
+        default:
+            return value || t('admin.shared.unknown', {}, 'unknown');
+    }
+};
+
+const formatDashboardTier = (t, value) => {
+    const normalized = String(value || '').trim().toLowerCase();
+    switch (normalized) {
+        case 'stable':
+            return t('admin.dashboard.tier.stable', {}, 'Stable');
+        case 'warning':
+            return t('admin.dashboard.tier.warning', {}, 'Warning');
+        case 'critical':
+            return t('admin.dashboard.tier.critical', {}, 'Critical');
+        case 'degraded':
+            return t('admin.dashboard.tier.degraded', {}, 'Degraded');
+        default:
+            return value || t('admin.shared.unknown', {}, 'unknown');
+    }
+};
+
+const formatDashboardActionKey = (t, value) => translateEnumLabel(t, 'admin.dashboard.actionKey', value);
+const formatDashboardMethod = (t, value) => translateEnumLabel(t, 'admin.dashboard.method', value, String(value || '').toUpperCase());
+
 const downloadBlob = (blob, filename) => {
     if (typeof window === 'undefined') return;
     const url = window.URL.createObjectURL(blob);
@@ -117,6 +173,7 @@ const downloadBlob = (blob, filename) => {
 
 export default function AdminDashboard() {
     const { currentUser } = useContext(AuthContext);
+    const { t } = useMarket();
     const navigate = useNavigate();
 
     const [summary, setSummary] = useState(SUMMARY_FALLBACK);
@@ -150,7 +207,7 @@ export default function AdminDashboard() {
             const response = await adminApi.getNotificationSummary();
             setSummary(response?.summary || SUMMARY_FALLBACK);
         } catch (error) {
-            toast.error(error.message || 'Failed to load admin summary');
+            toast.error(error.message || t('admin.dashboard.error.loadSummary', {}, 'Failed to load admin summary'));
         } finally {
             setSummaryLoading(false);
         }
@@ -173,7 +230,7 @@ export default function AdminDashboard() {
             });
             setBiConfig(biResponse?.config || BI_CONFIG_FALLBACK);
         } catch (error) {
-            toast.error(error.message || 'Failed to load analytics intelligence');
+            toast.error(error.message || t('admin.dashboard.error.loadAnalytics', {}, 'Failed to load analytics intelligence'));
         } finally {
             setAnalyticsLoading(false);
         }
@@ -185,7 +242,7 @@ export default function AdminDashboard() {
             const response = await adminApi.getSystemHealth();
             setHealth(response || HEALTH_FALLBACK);
         } catch (error) {
-            toast.error(error.message || 'Failed to load system health');
+            toast.error(error.message || t('admin.dashboard.error.loadHealth', {}, 'Failed to load system health'));
             setHealth(HEALTH_FALLBACK);
         } finally {
             setHealthLoading(false);
@@ -198,7 +255,7 @@ export default function AdminDashboard() {
             const response = await adminApi.getOpsReadiness();
             setOpsReadiness(response?.readiness || OPS_READINESS_FALLBACK);
         } catch (error) {
-            toast.error(error.message || 'Failed to load admin readiness');
+            toast.error(error.message || t('admin.dashboard.error.loadReadiness', {}, 'Failed to load admin readiness'));
             setOpsReadiness(OPS_READINESS_FALLBACK);
         } finally {
             setOpsLoading(false);
@@ -218,7 +275,7 @@ export default function AdminDashboard() {
             setNotifications(response?.notifications || []);
             setTotal(Number(response?.total || 0));
         } catch (error) {
-            toast.error(error.message || 'Failed to load admin notifications');
+            toast.error(error.message || t('admin.dashboard.error.loadNotifications', {}, 'Failed to load admin notifications'));
         } finally {
             setListLoading(false);
         }
@@ -244,9 +301,9 @@ export default function AdminDashboard() {
             setExportBusy(dataset);
             const { blob, filename, rowCount } = await adminApi.exportAnalyticsCsv({ dataset, range: analyticsRange, limit: 3000 });
             downloadBlob(blob, filename);
-            toast.success(`Export ready: ${rowCount} rows`);
+            toast.success(t('admin.dashboard.success.exportReady', { count: rowCount }, `Export ready: ${rowCount} rows`));
         } catch (error) {
-            toast.error(error.message || 'Failed to export analytics CSV');
+            toast.error(error.message || t('admin.dashboard.error.export', {}, 'Failed to export analytics CSV'));
         } finally {
             setExportBusy('');
         }
@@ -261,7 +318,7 @@ export default function AdminDashboard() {
             setNotifications((prev) => prev.map((item) => (item.notificationId === entry.notificationId ? { ...item, isRead: nextReadState } : item)));
             await loadSummary();
         } catch (error) {
-            toast.error(error.message || 'Failed to update notification');
+            toast.error(error.message || t('admin.dashboard.error.updateNotification', {}, 'Failed to update notification'));
         } finally {
             setBusyNotificationId('');
         }
@@ -272,9 +329,9 @@ export default function AdminDashboard() {
             setMarkAllBusy(true);
             await adminApi.markAllNotificationsRead({ severity: filters.severity || undefined, search: filters.search.trim() || undefined, unreadOnly: true });
             await refreshAll();
-            toast.success('All matching unread notifications marked read');
+            toast.success(t('admin.dashboard.success.markAllRead', {}, 'All matching unread notifications marked read'));
         } catch (error) {
-            toast.error(error.message || 'Failed to mark all as read');
+            toast.error(error.message || t('admin.dashboard.error.markAllRead', {}, 'Failed to mark all as read'));
         } finally {
             setMarkAllBusy(false);
         }
@@ -286,23 +343,23 @@ export default function AdminDashboard() {
             const response = await adminApi.runOpsSmoke();
             const smoke = response?.smoke || {};
             if (smoke.passed) {
-                toast.success(`Admin smoke checks passed (${Number(smoke.readinessScore || 0)} / 100)`);
+                toast.success(t('admin.dashboard.success.smokePassed', { score: Number(smoke.readinessScore || 0) }, `Admin smoke checks passed (${Number(smoke.readinessScore || 0)} / 100)`));
             } else {
-                toast.error(`Admin smoke checks found blocking issues (${Number(smoke.readinessScore || 0)} / 100)`);
+                toast.error(t('admin.dashboard.error.smokeBlocking', { score: Number(smoke.readinessScore || 0) }, `Admin smoke checks found blocking issues (${Number(smoke.readinessScore || 0)} / 100)`));
             }
             await loadOpsReadiness();
         } catch (error) {
-            toast.error(error.message || 'Admin smoke checks failed');
+            toast.error(error.message || t('admin.dashboard.error.smokeFailed', {}, 'Admin smoke checks failed'));
         } finally {
             setOpsSmokeBusy(false);
         }
     };
 
     const kpis = [
-        { key: 'orders', title: 'Orders', value: formatNumber(analytics.overview.orders.totalOrders), delta: analytics.deltas.ordersPct, hint: `${formatNumber(analytics.overview.orders.deliveredOrders)} delivered`, icon: <ShoppingBag className="h-4 w-4 text-emerald-600" />, invert: false },
-        { key: 'revenue', title: 'Gross Revenue', value: formatCurrency(analytics.overview.orders.grossRevenue), delta: analytics.deltas.revenuePct, hint: `AOV ${formatCurrency(analytics.overview.orders.avgOrderValue)}`, icon: <TrendingUp className="h-4 w-4 text-sky-600" />, invert: false },
-        { key: 'paymentFailures', title: 'Payment Failures', value: formatNumber(analytics.overview.payments.failedPayments), delta: analytics.deltas.paymentFailuresPct, hint: `${formatNumber(analytics.overview.payments.totalIntents)} intents`, icon: <AlertTriangle className="h-4 w-4 text-rose-600" />, invert: true },
-        { key: 'users', title: 'New Users', value: formatNumber(analytics.overview.users.newUsers), delta: analytics.deltas.newUsersPct, hint: `${formatNumber(analytics.overview.users.newVerifiedUsers)} verified`, icon: <Users className="h-4 w-4 text-violet-600" />, invert: false },
+        { key: 'orders', title: t('admin.dashboard.kpi.orders', {}, 'Orders'), value: formatNumber(analytics.overview.orders.totalOrders), delta: analytics.deltas.ordersPct, hint: t('admin.dashboard.kpi.delivered', { count: formatNumber(analytics.overview.orders.deliveredOrders) }, `${formatNumber(analytics.overview.orders.deliveredOrders)} delivered`), icon: <ShoppingBag className="h-4 w-4 text-emerald-600" />, invert: false },
+        { key: 'revenue', title: t('admin.dashboard.kpi.grossRevenue', {}, 'Gross Revenue'), value: formatCurrency(analytics.overview.orders.grossRevenue), delta: analytics.deltas.revenuePct, hint: t('admin.dashboard.kpi.aov', { value: formatCurrency(analytics.overview.orders.avgOrderValue) }, `AOV ${formatCurrency(analytics.overview.orders.avgOrderValue)}`), icon: <TrendingUp className="h-4 w-4 text-sky-600" />, invert: false },
+        { key: 'paymentFailures', title: t('admin.dashboard.kpi.paymentFailures', {}, 'Payment Failures'), value: formatNumber(analytics.overview.payments.failedPayments), delta: analytics.deltas.paymentFailuresPct, hint: t('admin.dashboard.kpi.intents', { count: formatNumber(analytics.overview.payments.totalIntents) }, `${formatNumber(analytics.overview.payments.totalIntents)} intents`), icon: <AlertTriangle className="h-4 w-4 text-rose-600" />, invert: true },
+        { key: 'users', title: t('admin.dashboard.kpi.newUsers', {}, 'New Users'), value: formatNumber(analytics.overview.users.newUsers), delta: analytics.deltas.newUsersPct, hint: t('admin.dashboard.kpi.verified', { count: formatNumber(analytics.overview.users.newVerifiedUsers) }, `${formatNumber(analytics.overview.users.newVerifiedUsers)} verified`), icon: <Users className="h-4 w-4 text-violet-600" />, invert: false },
     ];
 
     const incidentScore = useMemo(() => {
@@ -325,79 +382,84 @@ export default function AdminDashboard() {
             })
             .slice(0, 5);
     }, [notifications]);
+    const dashboardDynamicTexts = useMemo(() => ([
+        ...(notifications || []).flatMap((entry) => [entry?.title, entry?.summary]),
+        ...(analytics.anomalies || []).flatMap((item) => [item?.title, item?.recommendation]),
+    ]), [analytics.anomalies, notifications]);
+    const { translateText: translateDashboardText } = useDynamicTranslations(dashboardDynamicTexts);
 
     return (
         <AdminPremiumShell
-            eyebrow="Mission control"
-            title="Admin operations portal"
-            description="Real-time intelligence, anomaly alerts, readiness signals, and persistent operational controls in one premium command surface."
+            eyebrow={t('admin.dashboard.eyebrow', {}, 'Mission control')}
+            title={t('admin.dashboard.title', {}, 'Admin operations portal')}
+            description={t('admin.dashboard.description', {}, 'Real-time intelligence, anomaly alerts, readiness signals, and persistent operational controls in one premium command surface.')}
             actions={(
                 <>
                     <PremiumSelect value={analyticsRange} onChange={(e) => setAnalyticsRange(e.target.value)} className="admin-premium-control min-w-[9rem]">
-                        <option value="24h">Last 24h</option>
-                        <option value="7d">Last 7 days</option>
-                        <option value="30d">Last 30 days</option>
-                        <option value="90d">Last 90 days</option>
+                        <option value="24h">{t('admin.dashboard.range.24h', {}, 'Last 24h')}</option>
+                        <option value="7d">{t('admin.dashboard.range.7d', {}, 'Last 7 days')}</option>
+                        <option value="30d">{t('admin.dashboard.range.30d', {}, 'Last 30 days')}</option>
+                        <option value="90d">{t('admin.dashboard.range.90d', {}, 'Last 90 days')}</option>
                     </PremiumSelect>
                     <PremiumSelect value={anomalyWindow} onChange={(e) => setAnomalyWindow(Number(e.target.value))} className="admin-premium-control min-w-[9rem]">
-                        <option value={30}>Anomaly 30m</option>
-                        <option value={60}>Anomaly 60m</option>
-                        <option value={120}>Anomaly 120m</option>
+                        <option value={30}>{t('admin.dashboard.anomaly.30m', {}, 'Anomaly 30m')}</option>
+                        <option value={60}>{t('admin.dashboard.anomaly.60m', {}, 'Anomaly 60m')}</option>
+                        <option value={120}>{t('admin.dashboard.anomaly.120m', {}, 'Anomaly 120m')}</option>
                     </PremiumSelect>
                     <button type="button" onClick={refreshAll} className="admin-premium-button">
                         <RefreshCw className="h-4 w-4" />
-                        Refresh
+                        {t('admin.shared.refresh', {}, 'Refresh')}
                     </button>
                     <button type="button" onClick={runOpsSmoke} disabled={opsSmokeBusy} className="admin-premium-button admin-premium-button-accent">
                         {opsSmokeBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
-                        Run Ops Smoke
+                        {t('admin.dashboard.actions.runOpsSmoke', {}, 'Run Ops Smoke')}
                     </button>
                     <button type="button" onClick={markAllRead} disabled={markAllBusy} className="admin-premium-button admin-premium-button-success">
                         {markAllBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCheck className="h-4 w-4" />}
-                        Mark Matching Read
+                        {t('admin.dashboard.actions.markMatchingRead', {}, 'Mark Matching Read')}
                     </button>
                     <button type="button" onClick={() => navigate('/admin/users')} className="admin-premium-button admin-premium-button-primary">
                         <Users className="h-4 w-4" />
-                        User Governance
+                        {t('admin.dashboard.actions.userGovernance', {}, 'User Governance')}
                     </button>
                 </>
             )}
             stats={[
-                <AdminHeroStat key="readiness" label="Ops readiness" value={opsLoading ? '...' : Number(opsReadiness.readinessScore || 0)} detail={opsLoading ? 'Loading readiness' : String(opsReadiness.saturation || 'degraded').toUpperCase()} icon={<ShieldCheck className="h-5 w-5" />} />,
-                <AdminHeroStat key="signals" label="Unread signals" value={summaryLoading ? '...' : Number(summary.unreadCount || 0)} detail={`${Number(summary.criticalUnreadCount || 0)} critical unread`} icon={<Bell className="h-5 w-5" />} />,
-                <AdminHeroStat key="revenue" label="Gross revenue" value={analyticsLoading ? '...' : formatCurrency(analytics.overview.orders.grossRevenue)} detail={`AOV ${formatCurrency(analytics.overview.orders.avgOrderValue)}`} icon={<TrendingUp className="h-5 w-5" />} />,
-                <AdminHeroStat key="incident" label="Incident score" value={healthLoading || analyticsLoading || summaryLoading ? '...' : incidentScore} detail={incidentTier} icon={<AlertTriangle className="h-5 w-5" />} />,
+                <AdminHeroStat key="readiness" label={t('admin.dashboard.stats.opsReadiness', {}, 'Ops readiness')} value={opsLoading ? t('admin.shared.busy', {}, '...') : Number(opsReadiness.readinessScore || 0)} detail={opsLoading ? t('admin.dashboard.loadingReadiness', {}, 'Loading readiness') : formatDashboardTier(t, opsReadiness.saturation || 'degraded')} icon={<ShieldCheck className="h-5 w-5" />} />,
+                <AdminHeroStat key="signals" label={t('admin.dashboard.stats.unreadSignals', {}, 'Unread signals')} value={summaryLoading ? t('admin.shared.busy', {}, '...') : Number(summary.unreadCount || 0)} detail={t('admin.dashboard.stats.criticalUnread', { count: Number(summary.criticalUnreadCount || 0) }, `${Number(summary.criticalUnreadCount || 0)} critical unread`)} icon={<Bell className="h-5 w-5" />} />,
+                <AdminHeroStat key="revenue" label={t('admin.dashboard.kpi.grossRevenue', {}, 'Gross revenue')} value={analyticsLoading ? t('admin.shared.busy', {}, '...') : formatCurrency(analytics.overview.orders.grossRevenue)} detail={t('admin.dashboard.kpi.aov', { value: formatCurrency(analytics.overview.orders.avgOrderValue) }, `AOV ${formatCurrency(analytics.overview.orders.avgOrderValue)}`)} icon={<TrendingUp className="h-5 w-5" />} />,
+                <AdminHeroStat key="incident" label={t('admin.dashboard.incidentScore', {}, 'Incident score')} value={healthLoading || analyticsLoading || summaryLoading ? t('admin.shared.busy', {}, '...') : incidentScore} detail={formatDashboardTier(t, incidentTier)} icon={<AlertTriangle className="h-5 w-5" />} />,
             ]}
         >
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-                <StatCard title="Unread Signals" value={summary.unreadCount} icon={<Bell className="h-5 w-5 text-cyan-600" />} loading={summaryLoading} />
-                <StatCard title="Critical Unread" value={summary.criticalUnreadCount} icon={<AlertTriangle className="h-5 w-5 text-rose-600" />} loading={summaryLoading} />
-                <StatCard title="Events Today" value={summary.createdToday} icon={<ShieldCheck className="h-5 w-5 text-indigo-600" />} loading={summaryLoading} />
-                <StatCard title="Events Last 24h" value={summary.createdLast24h} icon={<RefreshCw className="h-5 w-5 text-violet-600" />} loading={summaryLoading} />
+                <StatCard title={t('admin.dashboard.cards.unreadSignals', {}, 'Unread Signals')} value={summary.unreadCount} icon={<Bell className="h-5 w-5 text-cyan-600" />} loading={summaryLoading} />
+                <StatCard title={t('admin.dashboard.cards.criticalUnread', {}, 'Critical Unread')} value={summary.criticalUnreadCount} icon={<AlertTriangle className="h-5 w-5 text-rose-600" />} loading={summaryLoading} />
+                <StatCard title={t('admin.dashboard.cards.eventsToday', {}, 'Events Today')} value={summary.createdToday} icon={<ShieldCheck className="h-5 w-5 text-indigo-600" />} loading={summaryLoading} />
+                <StatCard title={t('admin.dashboard.cards.events24h', {}, 'Events Last 24h')} value={summary.createdLast24h} icon={<RefreshCw className="h-5 w-5 text-violet-600" />} loading={summaryLoading} />
             </div>
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
                 <StatCard
-                    title="Ops Readiness"
+                    title={t('admin.dashboard.stats.opsReadiness', {}, 'Ops Readiness')}
                     value={opsLoading ? 0 : Number(opsReadiness.readinessScore || 0)}
                     icon={<ShieldCheck className="h-5 w-5 text-emerald-600" />}
                     loading={opsLoading}
                 />
                 <StatCard
-                    title="Saturation Tier"
-                    value={opsLoading ? '-' : String(opsReadiness.saturation || 'degraded').toUpperCase()}
+                    title={t('admin.dashboard.cards.saturationTier', {}, 'Saturation Tier')}
+                    value={opsLoading ? '-' : formatDashboardTier(t, opsReadiness.saturation || 'degraded')}
                     icon={<Activity className="h-5 w-5 text-cyan-600" />}
                     loading={opsLoading}
                 />
                 <StatCard
-                    title="Blocking Issues"
+                    title={t('admin.dashboard.cards.blockingIssues', {}, 'Blocking Issues')}
                     value={opsLoading ? 0 : Number(opsReadiness.blockingIssues?.length || 0)}
                     icon={<AlertTriangle className="h-5 w-5 text-rose-600" />}
                     loading={opsLoading}
                 />
                 <StatCard
-                    title="Ops Warnings"
+                    title={t('admin.dashboard.cards.opsWarnings', {}, 'Ops Warnings')}
                     value={opsLoading ? 0 : Number(opsReadiness.warnings?.length || 0)}
                     icon={<Bell className="h-5 w-5 text-amber-600" />}
                     loading={opsLoading}
@@ -408,7 +470,7 @@ export default function AdminDashboard() {
                 <div className="admin-premium-panel xl:col-span-3">
                     <div className="flex items-start justify-between gap-3">
                         <div>
-                            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Incident Score</p>
+                            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t('admin.dashboard.incidentScore', {}, 'Incident Score')}</p>
                             <p className="mt-2 text-4xl font-black text-slate-900">
                                 {healthLoading || analyticsLoading || summaryLoading ? (
                                     <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
@@ -416,76 +478,76 @@ export default function AdminDashboard() {
                                     incidentScore
                                 )}
                             </p>
-                            <p className="mt-1 text-xs text-slate-500">Aggregates anomalies, failed payments, critical alerts, and health degradation.</p>
+                            <p className="mt-1 text-xs text-slate-500">{t('admin.dashboard.incidentBody', {}, 'Aggregates anomalies, failed payments, critical alerts, and health degradation.')}</p>
                         </div>
                         <span className={`rounded-full border px-2 py-1 text-xs font-bold uppercase tracking-wider ${INCIDENT_TIER_STYLES[incidentTier] || INCIDENT_TIER_STYLES.warning}`}>
-                            {incidentTier}
+                            {formatDashboardTier(t, incidentTier)}
                         </span>
                     </div>
                     <div className="mt-4 space-y-1 text-xs text-slate-600">
-                        <p>Critical unread: <span className="font-semibold text-slate-900">{summary.criticalUnreadCount}</span></p>
-                        <p>Anomalies: <span className="font-semibold text-slate-900">{analytics.anomalies.length}</span></p>
-                        <p>Payment failure rate: <span className="font-semibold text-slate-900">{((Number(analytics.overview.payments.failedPayments || 0) / Math.max(Number(analytics.overview.payments.totalIntents || 0), 1)) * 100).toFixed(2)}%</span></p>
+                        <p>{t('admin.dashboard.criticalUnreadLabel', {}, 'Critical unread')}: <span className="font-semibold text-slate-900">{summary.criticalUnreadCount}</span></p>
+                        <p>{t('admin.dashboard.anomaliesLabel', {}, 'Anomalies')}: <span className="font-semibold text-slate-900">{analytics.anomalies.length}</span></p>
+                        <p>{t('admin.dashboard.paymentFailureRate', {}, 'Payment failure rate')}: <span className="font-semibold text-slate-900">{((Number(analytics.overview.payments.failedPayments || 0) / Math.max(Number(analytics.overview.payments.totalIntents || 0), 1)) * 100).toFixed(2)}%</span></p>
                     </div>
                 </div>
 
                 <div className="admin-premium-panel xl:col-span-6">
                     <div className="flex items-center justify-between">
                         <div>
-                            <h2 className="text-lg font-semibold text-slate-900">System Health Fabric</h2>
-                            <p className="text-xs text-slate-500">Live backend readiness snapshot for admin decisions.</p>
+                            <h2 className="text-lg font-semibold text-slate-900">{t('admin.dashboard.systemHealthFabric', {}, 'System Health Fabric')}</h2>
+                            <p className="text-xs text-slate-500">{t('admin.dashboard.systemHealthBody', {}, 'Live backend readiness snapshot for admin decisions.')}</p>
                         </div>
                         <span className={`rounded-full border px-2 py-1 text-xs font-semibold uppercase tracking-wide ${
                             health?.status === 'ok'
                                 ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
                                 : 'border-rose-200 bg-rose-50 text-rose-700'
                         }`}>
-                            {health?.status || 'unknown'}
+                            {formatDashboardState(t, health?.status)}
                         </span>
                     </div>
 
                     <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
                         <HealthCell
                             icon={<Database className="h-4 w-4 text-indigo-600" />}
-                            label="Database"
-                            value={String(health?.db || 'unknown')}
+                            label={t('admin.dashboard.database', {}, 'Database')}
+                            value={formatDashboardState(t, health?.db)}
                             ok={isPositiveHealthStatus(health?.db)}
                             loading={healthLoading}
                         />
                         <HealthCell
                             icon={<Server className="h-4 w-4 text-cyan-600" />}
-                            label="Redis"
-                            value={health?.redis?.connected ? 'connected' : 'disconnected'}
+                            label={t('admin.dashboard.redis', {}, 'Redis')}
+                            value={health?.redis?.connected ? t('admin.dashboard.state.connected', {}, 'Connected') : t('admin.dashboard.state.disconnected', {}, 'Disconnected')}
                             ok={Boolean(health?.redis?.connected)}
                             loading={healthLoading}
                         />
                         <HealthCell
                             icon={<Activity className="h-4 w-4 text-emerald-600" />}
-                            label="Payment Queue"
-                            value={health?.queues?.paymentOutbox?.status || 'unknown'}
+                            label={t('admin.dashboard.paymentQueue', {}, 'Payment Queue')}
+                            value={formatDashboardState(t, health?.queues?.paymentOutbox?.status)}
                             ok={isPositiveHealthStatus(health?.queues?.paymentOutbox?.status)}
                             loading={healthLoading}
                         />
                         <HealthCell
                             icon={<Bell className="h-4 w-4 text-violet-600" />}
-                            label="Order Email Queue"
-                            value={health?.queues?.orderEmail?.status || 'unknown'}
+                            label={t('admin.dashboard.orderEmailQueue', {}, 'Order Email Queue')}
+                            value={formatDashboardState(t, health?.queues?.orderEmail?.status)}
                             ok={isPositiveHealthStatus(health?.queues?.orderEmail?.status)}
                             loading={healthLoading}
                         />
                     </div>
 
                     <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs text-slate-600">
-                        Catalog: <span className="font-semibold text-slate-900">{health?.catalog?.activeVersion || 'unknown'}</span> | stale data:
+                        {t('admin.dashboard.catalog', {}, 'Catalog')}: <span className="font-semibold text-slate-900">{health?.catalog?.activeVersion || t('admin.shared.unknown', {}, 'unknown')}</span> | {t('admin.dashboard.staleData', {}, 'stale data')}:
                         <span className={`ml-1 font-semibold ${health?.catalog?.staleData ? 'text-rose-600' : 'text-emerald-600'}`}>
-                            {health?.catalog?.staleData ? 'yes' : 'no'}
+                            {health?.catalog?.staleData ? t('admin.shared.yes', {}, 'yes') : t('admin.shared.no', {}, 'no')}
                         </span>
                     </div>
                 </div>
 
                 <div className="admin-premium-panel xl:col-span-3">
-                    <h2 className="text-lg font-semibold text-slate-900">Auto-Refresh Control</h2>
-                    <p className="text-xs text-slate-500">Tune dashboard polling during incidents.</p>
+                    <h2 className="text-lg font-semibold text-slate-900">{t('admin.dashboard.autoRefreshControl', {}, 'Auto-Refresh Control')}</h2>
+                    <p className="text-xs text-slate-500">{t('admin.dashboard.autoRefreshBody', {}, 'Tune dashboard polling during incidents.')}</p>
                     <div className="mt-3 flex items-center gap-2">
                         <button
                             type="button"
@@ -495,7 +557,7 @@ export default function AdminDashboard() {
                             }`}
                         >
                             {autoRefreshEnabled ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
-                            {autoRefreshEnabled ? 'Pause Polling' : 'Resume Polling'}
+                            {autoRefreshEnabled ? t('admin.dashboard.pausePolling', {}, 'Pause Polling') : t('admin.dashboard.resumePolling', {}, 'Resume Polling')}
                         </button>
                         <PremiumSelect
                             value={autoRefreshSec}
@@ -513,28 +575,28 @@ export default function AdminDashboard() {
                     <div className="mt-3 rounded-lg border border-slate-200 p-2 text-xs text-slate-600">
                         <div className="flex items-center gap-2">
                             <Clock3 className="h-3.5 w-3.5 text-slate-500" />
-                            Last health sync: <span className="font-semibold text-slate-900">{formatDateTime(health?.timestamp)}</span>
+                            {t('admin.dashboard.lastHealthSync', {}, 'Last health sync')}: <span className="font-semibold text-slate-900">{formatDateTime(health?.timestamp)}</span>
                         </div>
                     </div>
 
                     <div className="mt-3">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Priority Queue</p>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t('admin.dashboard.priorityQueue', {}, 'Priority Queue')}</p>
                         <div className="mt-2 space-y-2">
                             {priorityQueue.length === 0 ? (
-                                <p className="rounded-lg border border-dashed px-2 py-2 text-xs text-slate-500">No alerts in queue.</p>
+                                <p className="rounded-lg border border-dashed px-2 py-2 text-xs text-slate-500">{t('admin.dashboard.noAlertsInQueue', {}, 'No alerts in queue.')}</p>
                             ) : (
                                 priorityQueue.map((entry) => (
                                     <div key={entry.notificationId} className="rounded-lg border border-slate-200 p-2">
                                         <div className="flex items-center justify-between gap-2">
-                                            <p className="line-clamp-1 text-xs font-semibold text-slate-800">{entry.title}</p>
+                                            <p className="line-clamp-1 text-xs font-semibold text-slate-800">{translateDashboardText(entry.title)}</p>
                                             <span className={`rounded-full border px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${SEVERITY_STYLES[entry.severity] || SEVERITY_STYLES.info}`}>
-                                                {entry.severity}
+                                                {formatDashboardSeverity(t, entry.severity)}
                                             </span>
                                         </div>
-                                        <p className="mt-1 line-clamp-2 text-[11px] text-slate-500">{entry.summary}</p>
+                                        <p className="mt-1 line-clamp-2 text-[11px] text-slate-500">{translateDashboardText(entry.summary)}</p>
                                         {!entry.isRead ? (
                                             <button type="button" className="admin-premium-button admin-premium-button-success mt-2 px-2 py-1 text-[10px] font-semibold" onClick={() => toggleRead(entry)} disabled={busyNotificationId === entry.notificationId}>
-                                                {busyNotificationId === entry.notificationId ? 'Updating...' : 'Mark Read'}
+                                                {busyNotificationId === entry.notificationId ? t('admin.dashboard.updating', {}, 'Updating...') : t('admin.dashboard.markRead', {}, 'Mark Read')}
                                             </button>
                                         ) : null}
                                     </div>
@@ -550,14 +612,14 @@ export default function AdminDashboard() {
             <div className="admin-premium-panel">
                 <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                     <div>
-                        <h2 className="text-lg font-semibold text-gray-900">Business Intelligence Layer</h2>
-                        <p className="text-sm text-gray-500">Native analytics, export pipeline, and anomaly monitor.</p>
+                        <h2 className="text-lg font-semibold text-gray-900">{t('admin.dashboard.businessIntelligence', {}, 'Business Intelligence Layer')}</h2>
+                        <p className="text-sm text-gray-500">{t('admin.dashboard.businessIntelligenceBody', {}, 'Native analytics, export pipeline, and anomaly monitor.')}</p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
-                        <ExportButton label="Export Overview" busy={exportBusy === 'overview'} onClick={() => runCsvExport('overview')} />
-                        <ExportButton label="Export Orders" busy={exportBusy === 'orders'} onClick={() => runCsvExport('orders')} />
-                        <ExportButton label="Export Payments" busy={exportBusy === 'payments'} onClick={() => runCsvExport('payments')} />
-                        <ExportButton label="Export Listings" busy={exportBusy === 'listings'} onClick={() => runCsvExport('listings')} />
+                        <ExportButton label={t('admin.dashboard.export.overview', {}, 'Export Overview')} busy={exportBusy === 'overview'} onClick={() => runCsvExport('overview')} />
+                        <ExportButton label={t('admin.dashboard.export.orders', {}, 'Export Orders')} busy={exportBusy === 'orders'} onClick={() => runCsvExport('orders')} />
+                        <ExportButton label={t('admin.dashboard.export.payments', {}, 'Export Payments')} busy={exportBusy === 'payments'} onClick={() => runCsvExport('payments')} />
+                        <ExportButton label={t('admin.dashboard.export.listings', {}, 'Export Listings')} busy={exportBusy === 'listings'} onClick={() => runCsvExport('listings')} />
                     </div>
                 </div>
 
@@ -569,37 +631,37 @@ export default function AdminDashboard() {
                                 {kpi.icon}
                             </div>
                             <p className="mt-2 text-2xl font-bold text-slate-900">{analyticsLoading ? <Loader2 className="h-6 w-6 animate-spin text-gray-400" /> : kpi.value}</p>
-                            <p className={`mt-1 text-xs font-semibold ${getDeltaClass(kpi.delta, kpi.invert)}`}>{formatDelta(kpi.delta)} vs previous period</p>
+                            <p className={`mt-1 text-xs font-semibold ${getDeltaClass(kpi.delta, kpi.invert)}`}>{t('admin.dashboard.vsPreviousPeriod', { delta: formatDelta(kpi.delta) }, `${formatDelta(kpi.delta)} vs previous period`)}</p>
                             <p className="mt-1 text-xs text-slate-500">{kpi.hint}</p>
                         </div>
                     ))}
                 </div>
 
                 <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-3">
-                    <SeriesCard title="Orders Timeline" icon={<Activity className="h-4 w-4 text-indigo-600" />} points={analytics.points} dataKey="orders" formatter={formatNumber} loading={analyticsLoading} />
-                    <SeriesCard title="Revenue Timeline" icon={<TrendingUp className="h-4 w-4 text-emerald-600" />} points={analytics.points} dataKey="revenue" formatter={formatCurrency} loading={analyticsLoading} />
-                    <SeriesCard title="Failed Payments Timeline" icon={<AlertTriangle className="h-4 w-4 text-rose-600" />} points={analytics.points} dataKey="failedPayments" formatter={formatNumber} loading={analyticsLoading} />
+                    <SeriesCard title={t('admin.dashboard.series.orders', {}, 'Orders Timeline')} icon={<Activity className="h-4 w-4 text-indigo-600" />} points={analytics.points} dataKey="orders" formatter={formatNumber} loading={analyticsLoading} />
+                    <SeriesCard title={t('admin.dashboard.series.revenue', {}, 'Revenue Timeline')} icon={<TrendingUp className="h-4 w-4 text-emerald-600" />} points={analytics.points} dataKey="revenue" formatter={formatCurrency} loading={analyticsLoading} />
+                    <SeriesCard title={t('admin.dashboard.series.failedPayments', {}, 'Failed Payments Timeline')} icon={<AlertTriangle className="h-4 w-4 text-rose-600" />} points={analytics.points} dataKey="failedPayments" formatter={formatNumber} loading={analyticsLoading} />
                 </div>
 
                 <div className="admin-premium-subpanel mt-4">
-                    <h3 className="text-sm font-semibold text-slate-900">Detected Anomalies</h3>
+                    <h3 className="text-sm font-semibold text-slate-900">{t('admin.dashboard.detectedAnomalies', {}, 'Detected Anomalies')}</h3>
                     {analyticsLoading ? (
                         <div className="mt-2 flex items-center gap-2 text-sm text-slate-500">
                             <Loader2 className="h-4 w-4 animate-spin" />
-                            Scanning anomaly windows...
+                            {t('admin.dashboard.scanningAnomalies', {}, 'Scanning anomaly windows...')}
                         </div>
                     ) : analytics.anomalies.length === 0 ? (
-                        <p className="mt-2 text-sm text-emerald-700">No active anomaly trigger in the selected window.</p>
+                        <p className="mt-2 text-sm text-emerald-700">{t('admin.dashboard.noActiveAnomaly', {}, 'No active anomaly trigger in the selected window.')}</p>
                     ) : (
                         <div className="mt-2 space-y-2">
                             {analytics.anomalies.map((item) => (
                                 <div key={item.key} className="rounded-lg border border-amber-200 bg-amber-50 p-3">
                                     <div className="flex flex-wrap items-center gap-2">
-                                        <span className="text-sm font-bold text-amber-900">{item.title}</span>
-                                        <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${SEVERITY_STYLES[item.severity] || SEVERITY_STYLES.warning}`}>{item.severity}</span>
+                                        <span className="text-sm font-bold text-amber-900">{translateDashboardText(item.title)}</span>
+                                        <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${SEVERITY_STYLES[item.severity] || SEVERITY_STYLES.warning}`}>{formatDashboardSeverity(t, item.severity)}</span>
                                     </div>
-                                    <p className="mt-1 text-xs text-amber-900">Current {item.currentCount} | Expected {item.baselineExpected} | Ratio {item.ratio}x</p>
-                                    <p className="mt-1 text-xs text-amber-800">{item.recommendation}</p>
+                                    <p className="mt-1 text-xs text-amber-900">{t('admin.dashboard.anomalyMetrics', { current: item.currentCount, expected: item.baselineExpected, ratio: item.ratio }, `Current ${item.currentCount} | Expected ${item.baselineExpected} | Ratio ${item.ratio}x`)}</p>
+                                    <p className="mt-1 text-xs text-amber-800">{translateDashboardText(item.recommendation)}</p>
                                 </div>
                             ))}
                         </div>
@@ -610,11 +672,11 @@ export default function AdminDashboard() {
             {biConfig?.powerBi?.enabled && biConfig?.powerBi?.dashboardUrl ? (
                 <div className="admin-premium-panel">
                     <div className="flex items-center justify-between">
-                        <h2 className="text-lg font-semibold text-gray-900">Power BI: {biConfig.powerBi.workspaceLabel || 'Executive Workspace'}</h2>
-                        <span className="rounded-full border border-indigo-200 bg-indigo-50 px-2 py-1 text-xs font-semibold text-indigo-700">Mode: {biConfig.mode}</span>
+                        <h2 className="text-lg font-semibold text-gray-900">{t('admin.dashboard.powerBiTitle', { workspace: biConfig.powerBi.workspaceLabel || t('admin.dashboard.executiveWorkspace', {}, 'Executive Workspace') }, `Power BI: ${biConfig.powerBi.workspaceLabel || 'Executive Workspace'}`)}</h2>
+                        <span className="rounded-full border border-indigo-200 bg-indigo-50 px-2 py-1 text-xs font-semibold text-indigo-700">{t('admin.dashboard.mode', { mode: biConfig.mode }, `Mode: ${biConfig.mode}`)}</span>
                     </div>
                     <div className="admin-premium-table-shell mt-3 overflow-hidden">
-                        <iframe src={biConfig.powerBi.dashboardUrl} title="Power BI Dashboard" className="h-[520px] w-full" loading="lazy" />
+                        <iframe src={biConfig.powerBi.dashboardUrl} title={t('admin.dashboard.powerBiFrame', {}, 'Power BI Dashboard')} className="h-[520px] w-full" loading="lazy" />
                     </div>
                 </div>
             ) : null}
@@ -622,14 +684,14 @@ export default function AdminDashboard() {
             <div className="grid grid-cols-1 gap-4 xl:grid-cols-5">
                 <div className="space-y-4 xl:col-span-2">
                     <div className="admin-premium-panel">
-                        <h2 className="text-lg font-semibold text-gray-900">Top Actions (24h)</h2>
+                        <h2 className="text-lg font-semibold text-gray-900">{t('admin.dashboard.topActions', {}, 'Top Actions (24h)')}</h2>
                         <div className="mt-3 space-y-2">
                             {(summary.topActions || []).length === 0 ? (
-                                <p className="text-sm text-gray-500">No recent action bursts.</p>
+                                <p className="text-sm text-gray-500">{t('admin.dashboard.noRecentActionBursts', {}, 'No recent action bursts.')}</p>
                             ) : (
                                 summary.topActions.map((entry) => (
                                     <div key={entry.actionKey} className="flex items-center justify-between rounded-lg border px-3 py-2">
-                                        <p className="break-all pr-2 text-sm font-medium text-gray-700">{entry.actionKey}</p>
+                                        <p className="break-all pr-2 text-sm font-medium text-gray-700">{formatDashboardActionKey(t, entry.actionKey)}</p>
                                         <span className="text-sm font-bold text-gray-900">{entry.count}</span>
                                     </div>
                                 ))
@@ -638,55 +700,55 @@ export default function AdminDashboard() {
                     </div>
 
                     <div className="admin-premium-panel">
-                        <h2 className="text-lg font-semibold text-gray-900">Quick Actions</h2>
+                        <h2 className="text-lg font-semibold text-gray-900">{t('admin.dashboard.quickActions', {}, 'Quick Actions')}</h2>
                         <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                            <button type="button" onClick={() => navigate('/admin/orders')} className="admin-premium-button px-3 py-2 text-sm font-semibold">Open Orders Console</button>
-                            <button type="button" onClick={() => navigate('/admin/payments')} className="admin-premium-button px-3 py-2 text-sm font-semibold">Open Payment Ops</button>
-                            <button type="button" onClick={() => navigate('/admin/products')} className="admin-premium-button px-3 py-2 text-sm font-semibold">Product Control</button>
-                            <button type="button" onClick={() => navigate('/admin/dashboard')} className="admin-premium-button admin-premium-button-accent px-3 py-2 text-sm font-semibold">{currentUser?.email || 'Portal Session'}</button>
+                            <button type="button" onClick={() => navigate('/admin/orders')} className="admin-premium-button px-3 py-2 text-sm font-semibold">{t('admin.dashboard.quick.openOrders', {}, 'Open Orders Console')}</button>
+                            <button type="button" onClick={() => navigate('/admin/payments')} className="admin-premium-button px-3 py-2 text-sm font-semibold">{t('admin.dashboard.quick.openPayments', {}, 'Open Payment Ops')}</button>
+                            <button type="button" onClick={() => navigate('/admin/products')} className="admin-premium-button px-3 py-2 text-sm font-semibold">{t('admin.dashboard.quick.productControl', {}, 'Product Control')}</button>
+                            <button type="button" onClick={() => navigate('/admin/dashboard')} className="admin-premium-button admin-premium-button-accent px-3 py-2 text-sm font-semibold">{currentUser?.email || t('admin.dashboard.portalSession', {}, 'Portal Session')}</button>
                         </div>
                     </div>
                 </div>
 
                 <div className="admin-premium-panel xl:col-span-3">
                     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                        <h2 className="text-lg font-semibold text-gray-900">Live Notification Feed</h2>
+                        <h2 className="text-lg font-semibold text-gray-900">{t('admin.dashboard.liveNotificationFeed', {}, 'Live Notification Feed')}</h2>
                         <div className="flex flex-wrap items-center gap-2">
-                            <input type="text" value={filters.search} onChange={(e) => { setPage(1); setFilters((prev) => ({ ...prev, search: e.target.value })); }} placeholder="Search action, actor, path..." className="admin-premium-control" />
+                            <input type="text" value={filters.search} onChange={(e) => { setPage(1); setFilters((prev) => ({ ...prev, search: e.target.value })); }} placeholder={t('admin.dashboard.searchNotifications', {}, 'Search action, actor, path...')} className="admin-premium-control" />
                             <PremiumSelect value={filters.severity} onChange={(e) => { setPage(1); setFilters((prev) => ({ ...prev, severity: e.target.value })); }} className="admin-premium-control">
-                                <option value="">All Severities</option>
-                                <option value="info">Info</option>
-                                <option value="warning">Warning</option>
-                                <option value="critical">Critical</option>
+                                <option value="">{t('admin.diagnostics.filters.allSeverities', {}, 'All Severities')}</option>
+                                <option value="info">{t('admin.diagnostics.severity.info', {}, 'Info')}</option>
+                                <option value="warning">{t('admin.diagnostics.severity.warning', {}, 'Warning')}</option>
+                                <option value="critical">{t('admin.diagnostics.severity.critical', {}, 'Critical')}</option>
                             </PremiumSelect>
                             <label className="admin-premium-button inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm">
                                 <input type="checkbox" checked={filters.unreadOnly} onChange={(e) => { setPage(1); setFilters((prev) => ({ ...prev, unreadOnly: e.target.checked })); }} />
-                                Unread Only
+                                {t('admin.dashboard.unreadOnly', {}, 'Unread Only')}
                             </label>
                         </div>
                     </div>
 
                     <div className="mt-4 space-y-3">
                         {listLoading ? (
-                            <div className="flex items-center gap-2 rounded-lg border border-dashed p-4 text-sm text-gray-500"><Loader2 className="h-4 w-4 animate-spin" />Loading notifications...</div>
+                            <div className="flex items-center gap-2 rounded-lg border border-dashed p-4 text-sm text-gray-500"><Loader2 className="h-4 w-4 animate-spin" />{t('admin.dashboard.loadingNotifications', {}, 'Loading notifications...')}</div>
                         ) : notifications.length === 0 ? (
-                            <div className="rounded-lg border border-dashed p-4 text-sm text-gray-500">No notifications match current filters.</div>
+                            <div className="rounded-lg border border-dashed p-4 text-sm text-gray-500">{t('admin.dashboard.noNotificationsMatch', {}, 'No notifications match current filters.')}</div>
                         ) : (
                             notifications.map((entry) => (
                                 <div key={entry.notificationId} className="admin-premium-subpanel">
                                     <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
                                         <div>
                                             <div className="flex flex-wrap items-center gap-2">
-                                                <span className="text-sm font-bold text-gray-900">{entry.title}</span>
-                                                <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${SEVERITY_STYLES[entry.severity] || SEVERITY_STYLES.info}`}>{entry.severity}</span>
-                                                <span className="rounded-full border border-gray-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600">{entry.actionKey}</span>
+                                                <span className="text-sm font-bold text-gray-900">{translateDashboardText(entry.title)}</span>
+                                                <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${SEVERITY_STYLES[entry.severity] || SEVERITY_STYLES.info}`}>{formatDashboardSeverity(t, entry.severity)}</span>
+                                                <span className="rounded-full border border-gray-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600">{formatDashboardActionKey(t, entry.actionKey)}</span>
                                             </div>
-                                            <p className="mt-1 text-sm text-gray-600">{entry.summary}</p>
-                                            <p className="mt-1 text-xs text-gray-500">{entry.actor?.email || 'Unknown actor'} | {entry.method} {entry.path}</p>
-                                            <p className="mt-1 text-xs text-gray-400">{formatDateTime(entry.createdAt)} | {entry.durationMs} ms | status {entry.statusCode}</p>
+                                            <p className="mt-1 text-sm text-gray-600">{translateDashboardText(entry.summary)}</p>
+                                            <p className="mt-1 text-xs text-gray-500">{entry.actor?.email || t('admin.dashboard.unknownActor', {}, 'Unknown actor')} | {formatDashboardMethod(t, entry.method)} {entry.path}</p>
+                                            <p className="mt-1 text-xs text-gray-400">{t('admin.dashboard.notificationMeta', { time: formatDateTime(entry.createdAt), duration: entry.durationMs, status: entry.statusCode }, `${formatDateTime(entry.createdAt)} | ${entry.durationMs} ms | status ${entry.statusCode}`)}</p>
                                         </div>
                                         <button type="button" disabled={busyNotificationId === entry.notificationId} onClick={() => toggleRead(entry)} className={`admin-premium-button inline-flex items-center justify-center px-3 py-2 text-xs font-semibold ${entry.isRead ? '' : 'admin-premium-button-success'} disabled:opacity-60`}>
-                                            {busyNotificationId === entry.notificationId ? 'Updating...' : entry.isRead ? 'Mark Unread' : 'Mark Read'}
+                                            {busyNotificationId === entry.notificationId ? t('admin.dashboard.updating', {}, 'Updating...') : entry.isRead ? t('admin.dashboard.markUnread', {}, 'Mark Unread') : t('admin.dashboard.markRead', {}, 'Mark Read')}
                                         </button>
                                     </div>
                                 </div>
@@ -695,10 +757,10 @@ export default function AdminDashboard() {
                     </div>
 
                     <div className="mt-4 flex items-center justify-between border-t pt-3">
-                        <p className="text-sm text-gray-500">{total} total records | page {page} / {totalPages}</p>
+                        <p className="text-sm text-gray-500">{t('admin.dashboard.totalRecordsPage', { total, page, pages: totalPages }, `${total} total records | page ${page} / ${totalPages}`)}</p>
                         <div className="flex items-center gap-2">
-                            <button type="button" disabled={page <= 1} onClick={() => setPage((prev) => Math.max(prev - 1, 1))} className="admin-premium-button px-3 py-1.5 text-sm disabled:opacity-50">Previous</button>
-                            <button type="button" disabled={page >= totalPages} onClick={() => setPage((prev) => prev + 1)} className="admin-premium-button px-3 py-1.5 text-sm disabled:opacity-50">Next</button>
+                            <button type="button" disabled={page <= 1} onClick={() => setPage((prev) => Math.max(prev - 1, 1))} className="admin-premium-button px-3 py-1.5 text-sm disabled:opacity-50">{t('admin.shared.previous', {}, 'Previous')}</button>
+                            <button type="button" disabled={page >= totalPages} onClick={() => setPage((prev) => prev + 1)} className="admin-premium-button px-3 py-1.5 text-sm disabled:opacity-50">{t('admin.shared.next', {}, 'Next')}</button>
                         </div>
                     </div>
                 </div>
@@ -722,6 +784,7 @@ function ExportButton({ label, busy, onClick }) {
 }
 
 function SeriesCard({ title, icon, points, dataKey, formatter, loading }) {
+    const { t } = useMarket();
     const values = points.map((item) => Number(item?.[dataKey] || 0));
     const max = Math.max(...values, 1);
     const visible = points.slice(-24);
@@ -736,10 +799,10 @@ function SeriesCard({ title, icon, points, dataKey, formatter, loading }) {
             {loading ? (
                 <div className="mt-4 flex items-center gap-2 text-xs text-slate-500">
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    Loading timeline...
+                    {t('admin.dashboard.loadingTimeline', {}, 'Loading timeline...')}
                 </div>
             ) : visible.length === 0 ? (
-                <p className="mt-4 text-xs text-slate-500">No timeline data in current range.</p>
+                <p className="mt-4 text-xs text-slate-500">{t('admin.dashboard.noTimelineData', {}, 'No timeline data in current range.')}</p>
             ) : (
                 <>
                     <div className="mt-3 flex h-24 items-end gap-1">
@@ -756,7 +819,7 @@ function SeriesCard({ title, icon, points, dataKey, formatter, loading }) {
                             );
                         })}
                     </div>
-                    <p className="mt-2 text-xs font-semibold text-slate-700">Latest: {formatter(latest)}</p>
+                    <p className="mt-2 text-xs font-semibold text-slate-700">{t('admin.dashboard.latest', { value: formatter(latest) }, `Latest: ${formatter(latest)}`)}</p>
                 </>
             )}
         </div>
@@ -764,6 +827,7 @@ function SeriesCard({ title, icon, points, dataKey, formatter, loading }) {
 }
 
 function HealthCell({ icon, label, value, ok, loading }) {
+    const { t } = useMarket();
     return (
         <div className="admin-premium-subpanel rounded-lg p-2">
             <div className="flex items-center justify-between gap-2">
@@ -774,7 +838,7 @@ function HealthCell({ icon, label, value, ok, loading }) {
                 <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
                     ok ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-rose-200 bg-rose-50 text-rose-700'
                 }`}>
-                    {ok ? 'ok' : 'risk'}
+                    {ok ? t('admin.dashboard.ok', {}, 'ok') : t('admin.dashboard.risk', {}, 'risk')}
                 </span>
             </div>
             <p className="mt-1 text-sm font-semibold text-slate-900">

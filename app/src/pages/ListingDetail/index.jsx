@@ -24,22 +24,24 @@ import {
 } from 'lucide-react';
 import { listingApi, otpApi, paymentApi } from '@/services/api';
 import { AuthContext } from '@/context/AuthContext';
+import { useMarket } from '@/context/MarketContext';
 import { useSocket, useSocketDemand } from '@/context/SocketContext';
 import { useVideoCall } from '@/context/VideoCallContext';
+import { useDynamicTranslations } from '@/hooks/useDynamicTranslations';
 import { toast } from 'sonner';
 
 import { loadRazorpayScript } from '@/utils/razorpay';
 import OtpChallengeModal from '@/pages/Checkout/components/OtpChallengeModal';
 
-function timeAgo(dateStr) {
+function timeAgo(dateStr, t) {
     const diff = Date.now() - new Date(dateStr).getTime();
     const mins = Math.floor(diff / 60000);
-    if (mins < 60) return `${mins} min ago`;
+    if (mins < 60) return t('listingDetail.time.minutesAgo', { count: mins }, '{{count}} min ago');
     const hrs = Math.floor(mins / 60);
-    if (hrs < 24) return `${hrs} hours ago`;
+    if (hrs < 24) return t('listingDetail.time.hoursAgo', { count: hrs }, '{{count}} hours ago');
     const days = Math.floor(hrs / 24);
-    if (days < 30) return `${days} days ago`;
-    return `${Math.floor(days / 30)} months ago`;
+    if (days < 30) return t('listingDetail.time.daysAgo', { count: days }, '{{count}} days ago');
+    return t('listingDetail.time.monthsAgo', { count: Math.floor(days / 30) }, '{{count}} months ago');
 }
 
 function formatThreadPreviewTime(dateStr) {
@@ -65,19 +67,19 @@ function isSameCalendarDay(left, right) {
     return new Date(left).toDateString() === new Date(right).toDateString();
 }
 
-function formatChatDayLabel(dateStr) {
-    if (!dateStr) return 'Recently';
+function formatChatDayLabel(dateStr, t) {
+    if (!dateStr) return t('listingDetail.chat.day.recently', {}, 'Recently');
     const date = new Date(dateStr);
     const now = new Date();
     const yesterday = new Date();
     yesterday.setDate(now.getDate() - 1);
 
     if (date.toDateString() === now.toDateString()) {
-        return 'Today';
+        return t('listingDetail.chat.day.today', {}, 'Today');
     }
 
     if (date.toDateString() === yesterday.toDateString()) {
-        return 'Yesterday';
+        return t('listingDetail.chat.day.yesterday', {}, 'Yesterday');
     }
 
     return date.toLocaleDateString('en-IN', {
@@ -111,12 +113,16 @@ function getParticipantInitial(name = '') {
 const MARKETPLACE_CHAT_MAX_LENGTH = 1200;
 const MARKETPLACE_CHAT_POLL_MS = 15000;
 const normalizeLiveCallMode = (value) => (String(value || '').trim().toLowerCase() === 'voice' ? 'voice' : 'video');
-const getListingCallModeLabel = (value) => (normalizeLiveCallMode(value) === 'voice' ? 'voice call' : 'live inspection');
-const getListingCallTitle = (value) => (normalizeLiveCallMode(value) === 'voice' ? 'Voice Call' : 'Live Inspection');
-const getListingCallContextLabel = (title, mediaMode = 'video') => (
+const getListingCallModeLabel = (value, t) => (normalizeLiveCallMode(value) === 'voice'
+    ? t('listingDetail.call.voiceLabel', {}, 'voice call')
+    : t('listingDetail.call.liveInspectionLabel', {}, 'live inspection'));
+const getListingCallTitle = (value, t) => (normalizeLiveCallMode(value) === 'voice'
+    ? t('listingDetail.call.voiceTitle', {}, 'Voice Call')
+    : t('listingDetail.call.liveInspectionTitle', {}, 'Live Inspection'));
+const getListingCallContextLabel = (title, mediaMode = 'video', t) => (
     normalizeLiveCallMode(mediaMode) === 'voice'
-        ? `Voice call about "${String(title || 'listing')}"`
-        : `Live inspection for "${String(title || 'listing')}"`
+        ? t('listingDetail.call.voiceContext', { title: String(title || 'listing') }, 'Voice call about "{{title}}"')
+        : t('listingDetail.call.liveInspectionContext', { title: String(title || 'listing') }, 'Live inspection for "{{title}}"')
 );
 
 export default function ListingDetail() {
@@ -124,6 +130,7 @@ export default function ListingDetail() {
     const location = useLocation();
     const navigate = useNavigate();
     const { currentUser, dbUser } = useContext(AuthContext);
+    const { t } = useMarket();
     const [listing, setListing] = useState(null);
     const [listingLiveCall, setListingLiveCall] = useState(null);
     const [trustPassport, setTrustPassport] = useState(null);
@@ -176,13 +183,13 @@ export default function ListingDetail() {
         return (
             <div className="flex min-h-screen items-center justify-center bg-[#04060f] px-4 text-center text-slate-100">
                 <div>
-                    <h2 className="mb-2 text-2xl font-black">Listing not found</h2>
+                    <h2 className="mb-2 text-2xl font-black">{t('listingDetail.notFound.title', {}, 'Listing not found')}</h2>
                     <Link
                         to="/marketplace"
                         className="inline-flex items-center gap-2 rounded-xl border border-cyan-300/35 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/20"
                     >
                         <ArrowLeft className="h-4 w-4" />
-                        Back to Marketplace
+                        {t('listingDetail.notFound.back', {}, 'Back to Marketplace')}
                     </Link>
                 </div>
             </div>
@@ -210,8 +217,8 @@ export default function ListingDetail() {
         activeListingCallContext?.mediaMode
         || listingLiveCall?.mediaMode
     );
-    const listingLiveCallLabel = getListingCallModeLabel(listingLiveCallMode);
-    const listingLiveCallTitle = getListingCallTitle(listingLiveCallMode);
+    const listingLiveCallLabel = getListingCallModeLabel(listingLiveCallMode, t);
+    const listingLiveCallTitle = getListingCallTitle(listingLiveCallMode, t);
     const liveInspectionStatus = String(listingLiveCall?.status || '').trim().toLowerCase();
     const canJoinLiveInspection = Boolean(
         currentUser
@@ -223,30 +230,30 @@ export default function ListingDetail() {
     const showLiveInspectionAction = Boolean(canRequestLiveInspection || canJoinLiveInspection || isListingCallActive);
     const liveInspectionHint = isOwner
         ? canJoinLiveInspection
-            ? `A ${listingLiveCallLabel} is already active for this escrow. Join it again from here if you refreshed the page.`
+            ? t('listingDetail.liveHint.ownerRejoin', { mode: listingLiveCallLabel }, 'A {{mode}} is already active for this escrow. Join it again from here if you refreshed the page.')
             : ''
         : !currentUser
-            ? 'Sign in and start escrow to unlock voice and video calls with the seller.'
+            ? t('listingDetail.liveHint.signIn', {}, 'Sign in and start escrow to unlock voice and video calls with the seller.')
         : !escrowEnabled
-            ? 'Seller has not enabled escrow, so live calls are unavailable for this listing.'
+            ? t('listingDetail.liveHint.escrowUnavailable', {}, 'Seller has not enabled escrow, so live calls are unavailable for this listing.')
         : canJoinLiveInspection
-            ? `A ${listingLiveCallLabel} is already active for this escrow. Join it again from here if you refreshed the page.`
+            ? t('listingDetail.liveHint.rejoin', { mode: listingLiveCallLabel }, 'A {{mode}} is already active for this escrow. Join it again from here if you refreshed the page.')
         : isEscrowBuyer
                     ? ''
                     : buyerId
-                        ? 'Live calls are reserved for the active escrow buyer on this listing.'
-                        : 'Start escrow to unlock voice and video calls with the seller.';
+                        ? t('listingDetail.liveHint.reserved', {}, 'Live calls are reserved for the active escrow buyer on this listing.')
+                        : t('listingDetail.liveHint.startEscrow', {}, 'Start escrow to unlock voice and video calls with the seller.');
     const isSocketReconnecting = connectionState === 'connecting' || connectionState === 'reconnecting';
     const chatConnectionLabel = connectionState === 'connected'
-        ? 'Live updates on'
+        ? t('listingDetail.chat.connection.live', {}, 'Live updates on')
         : isSocketReconnecting
-            ? 'Reconnecting...'
-            : 'Polling fallback';
+            ? t('listingDetail.chat.connection.reconnecting', {}, 'Reconnecting...')
+            : t('listingDetail.chat.connection.polling', {}, 'Polling fallback');
     const chatConnectionCopy = connectionState === 'connected'
-        ? 'Realtime is connected for this deal.'
+        ? t('listingDetail.chat.copy.live', {}, 'Realtime is connected for this deal.')
         : isSocketReconnecting
-            ? 'Realtime is reconnecting for this deal.'
-            : `Realtime is on polling fallback. Aura refreshes this thread every ${Math.round(MARKETPLACE_CHAT_POLL_MS / 1000)} seconds.`;
+            ? t('listingDetail.chat.copy.reconnecting', {}, 'Realtime is reconnecting for this deal.')
+            : t('listingDetail.chat.copy.polling', { seconds: Math.round(MARKETPLACE_CHAT_POLL_MS / 1000) }, 'Realtime is on polling fallback. Aura refreshes this thread every {{seconds}} seconds.');
     const chatCharacterCount = String(chatInput || '').length;
 
     const handleLiveInspection = useCallback(async (mediaMode = 'video') => {
@@ -257,7 +264,7 @@ export default function ListingDetail() {
         const requestedMode = canJoinLiveInspection
             ? listingLiveCallMode
             : normalizeLiveCallMode(mediaMode);
-        const contextLabel = listingLiveCall?.contextLabel || getListingCallContextLabel(listing?.title, requestedMode);
+        const contextLabel = listingLiveCall?.contextLabel || getListingCallContextLabel(listing?.title, requestedMode, t);
 
         if (canJoinLiveInspection) {
             await joinCall({
@@ -266,7 +273,7 @@ export default function ListingDetail() {
                 listingId: id,
                 contextLabel,
                 sessionKey: listingLiveCall?.sessionKey,
-                callerName: isOwner ? 'Escrow buyer' : (seller?.name || 'Seller'),
+                callerName: isOwner ? t('listingDetail.chat.escrowBuyer', {}, 'Escrow buyer') : (seller?.name || t('listingDetail.chat.seller', {}, 'Seller')),
                 transport: 'livekit',
                 mediaMode: requestedMode,
             });
@@ -279,7 +286,7 @@ export default function ListingDetail() {
             contextId: id,
             channelType: 'listing',
             contextLabel,
-            callerName: seller?.name || 'Seller',
+            callerName: seller?.name || t('listingDetail.chat.seller', {}, 'Seller'),
             transport: 'livekit',
             mediaMode: requestedMode,
         });
@@ -327,11 +334,11 @@ export default function ListingDetail() {
             const result = await listingApi.getListingMessages(id);
             setConversation(result.conversation || null);
         } catch (error) {
-            setChatError(error.message || 'Failed to load conversation');
+            setChatError(error.message || t('listingDetail.chat.error.load', {}, 'Failed to load conversation'));
         } finally {
             if (!silent) setChatLoading(false);
         }
-    }, [currentUser, id, isOwner]);
+    }, [currentUser, id, isOwner, t]);
 
     // WebSocket real-time listener
     useEffect(() => {
@@ -384,15 +391,15 @@ export default function ListingDetail() {
         buyerUser: conversation?.buyerUser || null,
         unreadCount: 0,
         lastMessageAt: conversation?.lastMessageAt || chatMessages[chatMessages.length - 1]?.sentAt || listing.createdAt,
-        lastMessagePreview: conversation?.lastMessagePreview || chatMessages[chatMessages.length - 1]?.text || 'Start your negotiation in Aura chat.',
-    }), [chatMessages, conversation, isOwner, listing, seller]);
+        lastMessagePreview: conversation?.lastMessagePreview || chatMessages[chatMessages.length - 1]?.text || t('listingDetail.chat.readyPreview', {}, 'Start your negotiation in Aura chat.'),
+    }), [chatMessages, conversation, isOwner, listing, seller, t]);
 
     const counterpart = useMemo(
         () => getThreadCounterpart(activeThread, seller),
         [activeThread, seller]
     );
 
-    const counterpartName = counterpart?.name || seller?.name || 'Seller';
+    const counterpartName = counterpart?.name || seller?.name || t('listingDetail.chat.seller', {}, 'Seller');
 
     const otherInboxThreads = useMemo(
         () => chatInbox.filter((thread) => String(thread?.listing?._id || '') !== String(id)),
@@ -402,11 +409,15 @@ export default function ListingDetail() {
     const quickReplies = useMemo(() => {
         const suggestedOffer = Math.max(1, Math.round(Number(listing?.price || 0) * 0.92));
         return [
-            'Is this still available?',
-            listing?.negotiable ? `Would you consider Rs ${suggestedOffer.toLocaleString('en-IN')}?` : 'Can you share a few more close-up photos?',
-            showLiveInspectionAction ? 'Can we hop on a quick call about this?' : 'Can we meet today to check the item?',
+            t('listingDetail.quickReply.available', {}, 'Is this still available?'),
+            listing?.negotiable
+                ? t('listingDetail.quickReply.offer', { amount: suggestedOffer.toLocaleString('en-IN') }, 'Would you consider Rs {{amount}}?')
+                : t('listingDetail.quickReply.photos', {}, 'Can you share a few more close-up photos?'),
+            showLiveInspectionAction
+                ? t('listingDetail.quickReply.call', {}, 'Can we hop on a quick call about this?')
+                : t('listingDetail.quickReply.meet', {}, 'Can we meet today to check the item?'),
         ];
-    }, [listing?.negotiable, listing?.price, showLiveInspectionAction]);
+    }, [listing?.negotiable, listing?.price, showLiveInspectionAction, t]);
 
     const offerSuggestions = useMemo(() => {
         const listingPrice = Number(listing?.price || 0);
@@ -440,11 +451,47 @@ export default function ListingDetail() {
             isMine,
             isOffer: isOfferMessage(message?.text),
             showDatePill: !previousMessage || !isSameCalendarDay(sentAt, previousSentAt),
-            dateLabel: formatChatDayLabel(sentAt),
+            dateLabel: formatChatDayLabel(sentAt, t),
             groupedWithPrevious: Boolean(previousMessage && previousIsMine === isMine && isSameCalendarDay(sentAt, previousSentAt)),
             groupedWithNext: Boolean(nextMessage && nextIsMine === isMine && isSameCalendarDay(sentAt, nextSentAt)),
         };
-    }), [chatMessages, dbUser?._id, isOwner]);
+    }), [chatMessages, dbUser?._id, isOwner, t]);
+    const listingDynamicTexts = useMemo(() => ([
+        listing?.title,
+        listing?.description,
+        chatError,
+        escrowError,
+        escrowNotice,
+        activeThread?.lastMessagePreview,
+        ...otherInboxThreads.flatMap((thread) => [thread?.listing?.title, thread?.lastMessagePreview]),
+        ...chatMessages.map((message) => message?.text),
+    ]), [
+        activeThread?.lastMessagePreview,
+        chatError,
+        chatMessages,
+        escrowError,
+        escrowNotice,
+        listing?.description,
+        listing?.title,
+        otherInboxThreads,
+    ]);
+    const { translateText: translateListingText } = useDynamicTranslations(listingDynamicTexts, { enabled: Boolean(listing) });
+    const translatedListingTitle = translateListingText(listing?.title) || listing?.title;
+    const translatedListingDescription = translateListingText(listing?.description) || listing?.description;
+    const translatedActiveThreadPreview = translateListingText(activeThread?.lastMessagePreview) || activeThread?.lastMessagePreview;
+    const translatedOtherInboxThreads = useMemo(() => (
+        otherInboxThreads.map((thread) => ({
+            ...thread,
+            translatedListingTitle: translateListingText(thread?.listing?.title) || thread?.listing?.title,
+            translatedPreview: translateListingText(thread?.lastMessagePreview) || thread?.lastMessagePreview,
+        }))
+    ), [otherInboxThreads, translateListingText]);
+    const translatedChatTimeline = useMemo(() => (
+        chatTimeline.map((entry) => ({
+            ...entry,
+            translatedText: translateListingText(entry?.message?.text) || entry?.message?.text,
+        }))
+    ), [chatTimeline, translateListingText]);
 
     useEffect(() => {
         if (!chatOpen) return undefined;
@@ -503,7 +550,7 @@ export default function ListingDetail() {
     const handleOpenChat = ({ focusOffer = false } = {}) => {
         if (isOwner) return;
         if (!currentUser) {
-            toast.error('Sign in to start a chat with seller');
+            toast.error(t('listingDetail.chat.error.signIn', {}, 'Sign in to start a chat with seller'));
             return;
         }
         setChatOpen(true);
@@ -532,7 +579,7 @@ export default function ListingDetail() {
     const handleSendMessage = async (event) => {
         event?.preventDefault?.();
         if (!currentUser) {
-            setChatError('Sign in required to send messages.');
+            setChatError(t('listingDetail.chat.error.signIn', {}, 'Sign in required to send messages.'));
             return;
         }
         const text = String(chatInput || '').trim();
@@ -545,7 +592,7 @@ export default function ListingDetail() {
             setConversation(result.conversation || null);
             setChatInput('');
         } catch (error) {
-            setChatError(error.message || 'Failed to send message');
+            setChatError(error.message || t('listingDetail.chat.error.send', {}, 'Failed to send message'));
         } finally {
             setChatSending(false);
         }
@@ -554,11 +601,11 @@ export default function ListingDetail() {
     const handleSendOffer = async () => {
         const amount = Number(offerPrice);
         if (!Number.isFinite(amount) || amount <= 0) {
-            toast.error('Enter a valid offer amount');
+            toast.error(t('listingDetail.offer.error.invalidAmount', {}, 'Enter a valid offer amount'));
             return;
         }
         if (!currentUser) {
-            toast.error('Sign in to send an offer');
+            toast.error(t('listingDetail.offer.error.signIn', {}, 'Sign in to send an offer'));
             return;
         }
 
@@ -571,10 +618,10 @@ export default function ListingDetail() {
             setOfferPrice('');
             setShowOffer(false);
             setChatOpen(true);
-            toast.success('Offer sent to seller');
+            toast.success(t('listingDetail.offer.success.sent', {}, 'Offer sent to seller'));
         } catch (error) {
-            setChatError(error.message || 'Failed to send offer');
-            toast.error(error.message || 'Failed to send offer');
+            setChatError(error.message || t('listingDetail.offer.error.sendFailed', {}, 'Failed to send offer'));
+            toast.error(error.message || t('listingDetail.offer.error.sendFailed', {}, 'Failed to send offer'));
         } finally {
             setChatSending(false);
         }
@@ -598,7 +645,7 @@ export default function ListingDetail() {
 
     const handleEscrowStart = async () => {
         if (!currentUser) {
-            setEscrowError('Sign in is required to start escrow.');
+            setEscrowError(t('listingDetail.escrow.error.signIn', {}, 'Sign in is required to start escrow.'));
             return;
         }
 
@@ -674,11 +721,11 @@ export default function ListingDetail() {
                 paymentIntentId: intent.intentId,
             });
             setListing(result.listing);
-            setEscrowNotice(result.message || 'Escrow hold created with verified payment authorization.');
+            setEscrowNotice(result.message || t('listingDetail.escrow.notice.started', {}, 'Escrow hold created with verified payment authorization.'));
         } catch (error) {
             setEscrowOtpModal({ open: false, loading: false, error: '' });
             escrowOtpResolverRef.current = null;
-            setEscrowError(error.message || 'Failed to start escrow');
+            setEscrowError(error.message || t('listingDetail.escrow.error.start', {}, 'Failed to start escrow'));
         } finally {
             setEscrowBusy(false);
         }
@@ -691,9 +738,9 @@ export default function ListingDetail() {
         try {
             const result = await listingApi.confirmEscrow(id);
             setListing(result.listing);
-            setEscrowNotice(result.message || 'Delivery confirmed and escrow released.');
+            setEscrowNotice(result.message || t('listingDetail.escrow.notice.confirmed', {}, 'Delivery confirmed and escrow released.'));
         } catch (error) {
-            setEscrowError(error.message || 'Failed to confirm delivery');
+            setEscrowError(error.message || t('listingDetail.escrow.error.confirm', {}, 'Failed to confirm delivery'));
         } finally {
             setEscrowBusy(false);
         }
@@ -706,9 +753,9 @@ export default function ListingDetail() {
         try {
             const result = await listingApi.cancelEscrow(id);
             setListing(result.listing);
-            setEscrowNotice(result.message || 'Escrow cancelled.');
+            setEscrowNotice(result.message || t('listingDetail.escrow.notice.cancelled', {}, 'Escrow cancelled.'));
         } catch (error) {
-            setEscrowError(error.message || 'Failed to cancel escrow');
+            setEscrowError(error.message || t('listingDetail.escrow.error.cancel', {}, 'Failed to cancel escrow'));
         } finally {
             setEscrowBusy(false);
         }
@@ -730,7 +777,7 @@ export default function ListingDetail() {
                     <span className="mx-2 text-slate-500">&gt;</span>
                     <span className="capitalize text-slate-300">{listing.category}</span>
                     <span className="mx-2 text-slate-500">&gt;</span>
-                    <span className="text-slate-100">{listing.title}</span>
+                    <span className="text-slate-100">{translatedListingTitle}</span>
                 </div>
             </div>
 
@@ -739,7 +786,7 @@ export default function ListingDetail() {
                     <div className="space-y-6 lg:col-span-2">
                         <div className="overflow-hidden rounded-3xl border border-cyan-400/20 bg-slate-900/70 shadow-[0_0_40px_rgba(34,211,238,0.1)]">
                             <div className="relative aspect-[16/10] bg-slate-950/80">
-                                <img src={images[currentImage] || '/placeholder.png'} alt={listing.title} className="h-full w-full object-contain" />
+                                <img src={images[currentImage] || '/placeholder.png'} alt={translatedListingTitle} className="h-full w-full object-contain" />
                                 {images.length > 1 && (
                                     <>
                                         <button
@@ -788,7 +835,7 @@ export default function ListingDetail() {
 
                         <div className="space-y-5 rounded-3xl border border-cyan-400/20 bg-slate-900/70 p-6 shadow-[0_0_30px_rgba(15,23,42,0.65)]">
                             <div>
-                                <h1 className="text-2xl font-black md:text-3xl">{listing.title}</h1>
+                                <h1 className="text-2xl font-black md:text-3xl">{translatedListingTitle}</h1>
                                 <div className="mt-3 flex flex-wrap items-center gap-2">
                                     <span className="rounded-full border border-cyan-300/35 bg-cyan-400/15 px-3 py-1 text-xs font-bold uppercase tracking-wide text-cyan-100">
                                         {listing.category}
@@ -798,7 +845,7 @@ export default function ListingDetail() {
                                     </span>
                                     {listing.negotiable && (
                                         <span className="rounded-full border border-emerald-300/40 bg-emerald-500/15 px-3 py-1 text-xs font-bold uppercase tracking-wide text-emerald-100">
-                                            Negotiable
+                                            {t('listingDetail.badge.negotiable', {}, 'Negotiable')}
                                         </span>
                                     )}
                                 </div>
@@ -807,8 +854,8 @@ export default function ListingDetail() {
                             <div className="h-px bg-gradient-to-r from-transparent via-cyan-300/30 to-transparent" />
 
                             <div>
-                                <h3 className="mb-2 text-sm font-bold uppercase tracking-wide text-cyan-100/80">Description</h3>
-                                <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-300">{listing.description}</p>
+                                <h3 className="mb-2 text-sm font-bold uppercase tracking-wide text-cyan-100/80">{t('listingDetail.description', {}, 'Description')}</h3>
+                                <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-300">{translatedListingDescription}</p>
                             </div>
 
                             <div className="h-px bg-gradient-to-r from-transparent via-cyan-300/30 to-transparent" />
@@ -820,11 +867,11 @@ export default function ListingDetail() {
                                 </span>
                                 <span className="flex items-center gap-2">
                                     <Clock className="h-4 w-4 text-cyan-300/80" />
-                                    Posted {timeAgo(listing.createdAt)}
+                                    {t('listingDetail.posted', { time: timeAgo(listing.createdAt, t) }, 'Posted {{time}}')}
                                 </span>
                                 <span className="flex items-center gap-2">
                                     <Eye className="h-4 w-4 text-cyan-300/80" />
-                                    {listing.views || 0} views
+                                    {t('listingDetail.views', { count: listing.views || 0 }, '{{count}} views')}
                                 </span>
                             </div>
                         </div>
@@ -833,11 +880,11 @@ export default function ListingDetail() {
                     <div className="space-y-6">
                         <div className="sticky top-4 rounded-3xl border border-cyan-400/20 bg-slate-900/75 p-6 shadow-[0_0_40px_rgba(34,211,238,0.12)]">
                             <p className="text-3xl font-black text-slate-100">Rs. {listing.price?.toLocaleString('en-IN')}</p>
-                            {listing.negotiable && <p className="mt-1 text-sm text-emerald-300">Price is negotiable</p>}
+                            {listing.negotiable && <p className="mt-1 text-sm text-emerald-300">{t('listingDetail.price.negotiable', {}, 'Price is negotiable')}</p>}
                             {escrowEnabled && (
                                 <p className="mt-1 inline-flex items-center gap-1.5 rounded-full border border-cyan-300/35 bg-cyan-500/15 px-3 py-1 text-[11px] font-black uppercase tracking-[0.12em] text-cyan-100">
                                     <ShieldCheck className="h-3.5 w-3.5" />
-                                    Escrow Mode Enabled
+                                    {t('listingDetail.escrow.enabled', {}, 'Escrow Mode Enabled')}
                                 </p>
                             )}
 
@@ -847,7 +894,7 @@ export default function ListingDetail() {
                                     disabled={isOwner}
                                     className="w-full rounded-xl border border-cyan-300/40 bg-gradient-to-r from-cyan-500/25 to-violet-500/25 py-3 text-sm font-bold text-cyan-100 transition hover:from-cyan-500/35 hover:to-violet-500/35 disabled:cursor-not-allowed disabled:opacity-60"
                                 >
-                                    {isOwner ? 'Your listing' : 'Make an offer'}
+                                    {isOwner ? t('listingDetail.action.yourListing', {}, 'Your listing') : t('listingDetail.action.makeOffer', {}, 'Make an offer')}
                                 </button>
                                 <button
                                     disabled={isOwner}
@@ -855,7 +902,7 @@ export default function ListingDetail() {
                                     className="w-full rounded-xl border border-slate-600 bg-slate-800/60 py-3 text-sm font-bold text-slate-200 transition hover:border-cyan-300/35 hover:text-cyan-100 disabled:cursor-not-allowed disabled:opacity-60"
                                 >
                                     <MessageCircle className="mr-2 inline h-4 w-4" />
-                                    {isOwner ? 'This is your listing' : 'Chat with seller'}
+                                    {isOwner ? t('listingDetail.action.thisIsYourListing', {}, 'This is your listing') : t('listingDetail.action.chatWithSeller', {}, 'Chat with seller')}
                                 </button>
                                 {showLiveInspectionAction && (
                                     canJoinLiveInspection || isListingCallActive ? (
@@ -865,7 +912,9 @@ export default function ListingDetail() {
                                             className="w-full rounded-xl border border-blue-300/40 bg-blue-500/20 py-3 text-sm font-bold text-blue-100 transition hover:bg-blue-500/30 disabled:cursor-not-allowed disabled:opacity-60"
                                         >
                                             {listingLiveCallMode === 'voice' ? <PhoneCall className="mr-2 inline h-4 w-4" /> : <Video className="mr-2 inline h-4 w-4" />}
-                                            {isListingCallActive ? `${listingLiveCallTitle} Active` : `Join ${listingLiveCallTitle}`}
+                                            {isListingCallActive
+                                                ? t('listingDetail.call.active', { title: listingLiveCallTitle }, '{{title}} Active')
+                                                : t('listingDetail.call.join', { title: listingLiveCallTitle }, 'Join {{title}}')}
                                         </button>
                                     ) : (
                                         <div className="grid gap-3 sm:grid-cols-2">
@@ -875,7 +924,7 @@ export default function ListingDetail() {
                                                 className="w-full rounded-xl border border-emerald-300/35 bg-emerald-500/18 py-3 text-sm font-bold text-emerald-100 transition hover:bg-emerald-500/28 disabled:cursor-not-allowed disabled:opacity-60"
                                             >
                                                 <PhoneCall className="mr-2 inline h-4 w-4" />
-                                                Voice Call
+                                                {t('listingDetail.call.voiceTitle', {}, 'Voice Call')}
                                             </button>
                                             <button
                                                 disabled={!canStartLiveInspection}
@@ -883,7 +932,7 @@ export default function ListingDetail() {
                                                 className="w-full rounded-xl border border-blue-300/40 bg-blue-500/20 py-3 text-sm font-bold text-blue-100 transition hover:bg-blue-500/30 disabled:cursor-not-allowed disabled:opacity-60"
                                             >
                                                 <Video className="mr-2 inline h-4 w-4" />
-                                                Live Inspection
+                                                {t('listingDetail.call.liveInspectionTitle', {}, 'Live Inspection')}
                                             </button>
                                         </div>
                                     )
@@ -899,7 +948,7 @@ export default function ListingDetail() {
                                         onClick={handleEscrowStart}
                                         className="w-full rounded-xl border border-cyan-300/45 bg-cyan-400/20 py-3 text-sm font-black uppercase tracking-[0.12em] text-cyan-50 transition hover:bg-cyan-400/30 disabled:opacity-60"
                                     >
-                                        {escrowBusy ? 'Starting...' : 'Secure Escrow Buy'}
+                                        {escrowBusy ? t('listingDetail.escrow.starting', {}, 'Starting...') : t('listingDetail.escrow.buy', {}, 'Secure Escrow Buy')}
                                     </button>
                                 )}
                                 {showEscrowControls && escrowState === 'held' && isEscrowBuyer && (
@@ -909,7 +958,7 @@ export default function ListingDetail() {
                                             onClick={handleEscrowConfirm}
                                             className="w-full rounded-xl border border-emerald-300/45 bg-emerald-500/20 py-3 text-sm font-black uppercase tracking-[0.12em] text-emerald-100 transition hover:bg-emerald-500/30 disabled:opacity-60"
                                         >
-                                            {escrowBusy ? 'Processing...' : 'Confirm Delivery & Release'}
+                                            {escrowBusy ? t('listingDetail.escrow.processing', {}, 'Processing...') : t('listingDetail.escrow.confirmRelease', {}, 'Confirm Delivery & Release')}
                                         </button>
                                         <button
                                             disabled={escrowBusy}
@@ -960,35 +1009,35 @@ export default function ListingDetail() {
                                     {seller.name?.charAt(0)?.toUpperCase() || 'S'}
                                 </div>
                                 <div>
-                                    <h3 className="font-bold text-slate-100">{seller.name || 'Seller'}</h3>
-                                    {memberSince && <p className="text-xs text-slate-400">Member since {memberSince}</p>}
+                                    <h3 className="font-bold text-slate-100">{seller.name || t('listingDetail.seller.default', {}, 'Seller')}</h3>
+                                    {memberSince && <p className="text-xs text-slate-400">{t('listingDetail.seller.memberSince', { date: memberSince }, 'Member since {{date}}')}</p>}
                                 </div>
                             </div>
                             <Link
                                 to={`/seller/${seller._id}`}
                                 className="block rounded-xl border border-cyan-300/35 bg-cyan-400/10 py-2 text-center text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/20"
                             >
-                                View seller profile
+                                {t('listingDetail.seller.viewProfile', {}, 'View seller profile')}
                             </Link>
 
                             {trustPassport && (
                                 <div className="mt-4 rounded-xl border border-cyan-300/25 bg-cyan-500/10 p-4">
-                                    <p className="text-[11px] font-black uppercase tracking-[0.16em] text-cyan-100 mb-2">Seller Trust Passport</p>
+                                    <p className="text-[11px] font-black uppercase tracking-[0.16em] text-cyan-100 mb-2">{t('listingDetail.seller.passport', {}, 'Seller Trust Passport')}</p>
                                     <div className="grid grid-cols-2 gap-2 text-xs">
                                         <div className="rounded-lg border border-white/10 bg-slate-950/40 px-2 py-2">
-                                            <p className="text-slate-400 uppercase tracking-wider">Trust</p>
+                                            <p className="text-slate-400 uppercase tracking-wider">{t('listingDetail.seller.trust', {}, 'Trust')}</p>
                                             <p className="text-cyan-100 font-black text-base">{trustPassport.trustScore}</p>
                                         </div>
                                         <div className="rounded-lg border border-white/10 bg-slate-950/40 px-2 py-2">
-                                            <p className="text-slate-400 uppercase tracking-wider">Fraud Tier</p>
+                                            <p className="text-slate-400 uppercase tracking-wider">{t('listingDetail.seller.fraudTier', {}, 'Fraud Tier')}</p>
                                             <p className="text-cyan-100 font-black text-base uppercase">{trustPassport.fraudRiskTier}</p>
                                         </div>
                                         <div className="rounded-lg border border-white/10 bg-slate-950/40 px-2 py-2">
-                                            <p className="text-slate-400 uppercase tracking-wider">Disputes</p>
+                                            <p className="text-slate-400 uppercase tracking-wider">{t('listingDetail.seller.disputes', {}, 'Disputes')}</p>
                                             <p className="text-cyan-100 font-black text-base">{trustPassport.disputeRate}%</p>
                                         </div>
                                         <div className="rounded-lg border border-white/10 bg-slate-950/40 px-2 py-2">
-                                            <p className="text-slate-400 uppercase tracking-wider">On-time</p>
+                                            <p className="text-slate-400 uppercase tracking-wider">{t('listingDetail.seller.onTime', {}, 'On-time')}</p>
                                             <p className="text-cyan-100 font-black text-base">{trustPassport.onTimeHistory}%</p>
                                         </div>
                                     </div>
@@ -999,13 +1048,13 @@ export default function ListingDetail() {
                         <div className="rounded-3xl border border-amber-300/25 bg-amber-500/10 p-5">
                             <h4 className="mb-2 flex items-center gap-2 font-bold text-amber-100">
                                 <Shield className="h-4 w-4" />
-                                Safety checks
+                                {t('listingDetail.safety.title', {}, 'Safety checks')}
                             </h4>
                             <ul className="space-y-1 text-xs text-amber-100/85">
-                                <li>- Meet in public, well-lit places.</li>
-                                <li>- Verify the item physically before payment.</li>
-                                <li>- Do not share card, OTP, or banking details.</li>
-                                <li>- Keep all negotiation inside Aura chat.</li>
+                                <li>- {t('listingDetail.safety.note1', {}, 'Meet in public, well-lit places.')}</li>
+                                <li>- {t('listingDetail.safety.note2', {}, 'Verify the item physically before payment.')}</li>
+                                <li>- {t('listingDetail.safety.note3', {}, 'Do not share card, OTP, or banking details.')}</li>
+                                <li>- {t('listingDetail.safety.note4', {}, 'Keep all negotiation inside Aura chat.')}</li>
                             </ul>
                         </div>
                     </div>
@@ -1025,10 +1074,10 @@ export default function ListingDetail() {
                             <div className="border-b border-white/8 px-5 py-5">
                                 <div className="flex items-start justify-between gap-3">
                                     <div className="min-w-0">
-                                        <p className="text-[11px] font-black uppercase tracking-[0.28em] text-emerald-200">Marketplace chats</p>
-                                        <h3 className="mt-2 text-2xl font-black text-white">Deals that feel like a real messenger</h3>
+                                        <p className="text-[11px] font-black uppercase tracking-[0.28em] text-emerald-200">{t('listingDetail.chat.eyebrow', {}, 'Marketplace chats')}</p>
+                                        <h3 className="mt-2 text-2xl font-black text-white">{t('listingDetail.chat.title', {}, 'Deals that feel like a real messenger')}</h3>
                                         <p className="mt-2 text-sm text-slate-400">
-                                            Switch threads the way you would in WhatsApp, but keep pricing, escrow, and inspection inside Aura.
+                                            {t('listingDetail.chat.body', {}, 'Switch threads the way you would in WhatsApp, but keep pricing, escrow, and inspection inside Aura.')}
                                         </p>
                                     </div>
                                     <div className={`inline-flex shrink-0 items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-black ${
@@ -1060,10 +1109,10 @@ export default function ListingDetail() {
                                                 </span>
                                             </div>
                                             <p className="mt-1 truncate text-xs font-semibold uppercase tracking-[0.18em] text-cyan-100/65">
-                                                {listing.title}
+                                                {translatedListingTitle}
                                             </p>
                                             <p className="mt-2 line-clamp-2 text-sm text-slate-300">
-                                                {activeThread.lastMessagePreview || 'This thread is ready for your first message.'}
+                                                {translatedActiveThreadPreview || t('listingDetail.chat.firstMessage', {}, 'This thread is ready for your first message.')}
                                             </p>
                                         </div>
                                     </div>
@@ -1071,7 +1120,7 @@ export default function ListingDetail() {
 
                                 <div className="mt-4 space-y-2">
                                     <p className="px-2 text-[10px] font-black uppercase tracking-[0.22em] text-slate-500">
-                                        Other marketplace threads
+                                        {t('listingDetail.chat.otherThreads', {}, 'Other marketplace threads')}
                                     </p>
 
                                     {chatInboxLoading ? (
@@ -1089,8 +1138,8 @@ export default function ListingDetail() {
                                                 </div>
                                             </div>
                                         ))
-                                    ) : otherInboxThreads.length > 0 ? (
-                                        otherInboxThreads.map((thread) => {
+                                    ) : translatedOtherInboxThreads.length > 0 ? (
+                                        translatedOtherInboxThreads.map((thread) => {
                                             const threadCounterpart = getThreadCounterpart(thread);
                                             return (
                                                 <button
@@ -1106,17 +1155,17 @@ export default function ListingDetail() {
                                                         <div className="min-w-0 flex-1">
                                                             <div className="flex items-center justify-between gap-3">
                                                                 <p className="truncate text-sm font-bold text-white/95">
-                                                                    {threadCounterpart?.name || 'Marketplace thread'}
+                                                                    {threadCounterpart?.name || t('listingDetail.chat.threadFallback', {}, 'Marketplace thread')}
                                                                 </p>
                                                                 <span className="text-[11px] text-slate-500">
                                                                     {formatThreadPreviewTime(thread?.lastMessageAt)}
                                                                 </span>
                                                             </div>
                                                             <p className="mt-1 truncate text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                                                                {thread?.listing?.title || 'Other listing'}
+                                                                {thread?.translatedListingTitle || t('listingDetail.chat.otherListing', {}, 'Other listing')}
                                                             </p>
                                                             <p className="mt-2 line-clamp-2 text-sm text-slate-400">
-                                                                {thread?.lastMessagePreview || 'Open this thread'}
+                                                                {thread?.translatedPreview || t('listingDetail.chat.openThread', {}, 'Open this thread')}
                                                             </p>
                                                         </div>
                                                         {Number(thread?.unreadCount || 0) > 0 ? (
@@ -1130,7 +1179,7 @@ export default function ListingDetail() {
                                         })
                                     ) : (
                                         <div className="support-chat-card px-4 py-5 text-sm text-slate-400">
-                                            This is your first marketplace thread. New listing chats will appear here like a real messenger inbox.
+                                            {t('listingDetail.chat.emptyInbox', {}, 'This is your first marketplace thread. New listing chats will appear here like a real messenger inbox.')}
                                         </div>
                                     )}
                                 </div>
@@ -1150,14 +1199,14 @@ export default function ListingDetail() {
                                                 {counterpart?.isVerified ? (
                                                     <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300/25 bg-emerald-500/10 px-2 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-emerald-200">
                                                         <ShieldCheck className="h-3 w-3" />
-                                                        Verified
+                                                        {t('listingDetail.badge.verifiedSeller', {}, 'Verified')}
                                                     </span>
                                                 ) : null}
                                             </div>
                                             <p className="mt-1 text-sm text-slate-400">
                                                 {activeThread.lastMessageAt
-                                                    ? `Last message ${timeAgo(activeThread.lastMessageAt)}`
-                                                    : 'Fresh marketplace thread'}
+                                                    ? t('listingDetail.chat.lastMessage', { time: timeAgo(activeThread.lastMessageAt, t) }, 'Last message {{time}}')
+                                                    : t('listingDetail.chat.freshThread', {}, 'Fresh marketplace thread')}
                                             </p>
                                             <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-400">
                                                 <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 font-black uppercase tracking-[0.16em] ${
@@ -1181,7 +1230,7 @@ export default function ListingDetail() {
                                                     disabled={!canStartLiveInspection || isListingCallActive}
                                                     onClick={() => handleLiveInspection(listingLiveCallMode)}
                                                     className="support-chat-utility h-11 w-11 bg-white/6 text-white transition hover:text-emerald-100"
-                                                    title={canJoinLiveInspection ? `Join ${listingLiveCallLabel}` : listingLiveCallTitle}
+                                                    title={canJoinLiveInspection ? t('listingDetail.call.join', { title: listingLiveCallLabel }, 'Join {{title}}') : listingLiveCallTitle}
                                                 >
                                                     {listingLiveCallMode === 'voice' ? <PhoneCall className="h-4 w-4" /> : <Video className="h-4 w-4" />}
                                                 </button>
@@ -1192,7 +1241,7 @@ export default function ListingDetail() {
                                                         disabled={!canStartLiveInspection}
                                                         onClick={() => handleLiveInspection('voice')}
                                                         className="support-chat-utility h-11 w-11 bg-white/6 text-white transition hover:text-emerald-100"
-                                                        title="Start voice call"
+                                                        title={t('listingDetail.call.startVoice', {}, 'Start voice call')}
                                                     >
                                                         <PhoneCall className="h-4 w-4" />
                                                     </button>
@@ -1201,7 +1250,7 @@ export default function ListingDetail() {
                                                         disabled={!canStartLiveInspection}
                                                         onClick={() => handleLiveInspection('video')}
                                                         className="support-chat-utility h-11 w-11 bg-white/6 text-white transition hover:text-cyan-100"
-                                                        title="Start live inspection"
+                                                        title={t('listingDetail.call.startInspection', {}, 'Start live inspection')}
                                                     >
                                                         <Video className="h-4 w-4" />
                                                     </button>
@@ -1223,17 +1272,17 @@ export default function ListingDetail() {
                                         <div className="h-16 w-16 overflow-hidden rounded-[1.2rem] border border-white/10 bg-slate-950/70">
                                             <img
                                                 src={images[0] || '/placeholder.png'}
-                                                alt={listing.title}
+                                                alt={translatedListingTitle}
                                                 className="h-full w-full object-cover"
                                             />
                                         </div>
                                         <div className="min-w-0 flex-1">
-                                            <p className="text-[11px] font-black uppercase tracking-[0.22em] text-cyan-200/80">Pinned listing</p>
-                                            <p className="mt-1 truncate text-base font-bold text-white">{listing.title}</p>
+                                            <p className="text-[11px] font-black uppercase tracking-[0.22em] text-cyan-200/80">{t('listingDetail.chat.pinnedListing', {}, 'Pinned listing')}</p>
+                                            <p className="mt-1 truncate text-base font-bold text-white">{translatedListingTitle}</p>
                                             <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-slate-300">
                                                 <span className="font-black text-emerald-200">Rs. {Number(listing.price || 0).toLocaleString('en-IN')}</span>
                                                 <span className="text-slate-500">|</span>
-                                                <span>{listing.location?.city || 'Marketplace'}</span>
+                                                <span>{listing.location?.city || t('listingDetail.marketplace', {}, 'Marketplace')}</span>
                                                 <span className="text-slate-500">|</span>
                                                 <span>{listing.condition}</span>
                                             </div>
@@ -1243,22 +1292,22 @@ export default function ListingDetail() {
                                     <div className="mt-3 flex flex-wrap gap-2">
                                         {seller?.isVerified ? (
                                             <span className="rounded-full border border-emerald-300/20 bg-emerald-500/10 px-3 py-1 text-[11px] font-bold text-emerald-100">
-                                                Verified seller
+                                                {t('listingDetail.badge.verifiedSellerText', {}, 'Verified seller')}
                                             </span>
                                         ) : null}
                                         {listing?.negotiable ? (
                                             <span className="rounded-full border border-cyan-300/20 bg-cyan-500/10 px-3 py-1 text-[11px] font-bold text-cyan-100">
-                                                Negotiable pricing
+                                                {t('listingDetail.badge.negotiablePricing', {}, 'Negotiable pricing')}
                                             </span>
                                         ) : null}
                                         {escrowEnabled ? (
                                             <span className="rounded-full border border-blue-300/20 bg-blue-500/10 px-3 py-1 text-[11px] font-bold text-blue-100">
-                                                Escrow ready
+                                                {t('listingDetail.badge.escrowReady', {}, 'Escrow ready')}
                                             </span>
                                         ) : null}
                                         {showLiveInspectionAction ? (
                                             <span className="rounded-full border border-violet-300/20 bg-violet-500/10 px-3 py-1 text-[11px] font-bold text-violet-100">
-                                                {canJoinLiveInspection || isListingCallActive ? listingLiveCallTitle : 'Voice + video calls'}
+                                                {canJoinLiveInspection || isListingCallActive ? listingLiveCallTitle : t('listingDetail.badge.voiceVideo', {}, 'Voice + video calls')}
                                             </span>
                                         ) : null}
                                     </div>
@@ -1270,15 +1319,15 @@ export default function ListingDetail() {
                                     <div className="flex h-full items-center justify-center">
                                         <div className="h-10 w-10 animate-spin rounded-full border-2 border-cyan-300/60 border-t-transparent" />
                                     </div>
-                                ) : chatTimeline.length === 0 ? (
+                                ) : translatedChatTimeline.length === 0 ? (
                                     <div className="mx-auto flex max-w-xl flex-col items-center justify-center rounded-[2rem] border border-white/8 bg-white/[0.03] px-6 py-10 text-center shadow-[0_24px_60px_rgba(2,8,23,0.18)]">
                                         <div className="support-chat-avatar h-16 w-16 border border-cyan-300/20 bg-cyan-500/10 text-cyan-100">
                                             <MessageCircle className="h-7 w-7" />
                                         </div>
-                                        <p className="mt-5 text-[11px] font-black uppercase tracking-[0.28em] text-cyan-200">Start the conversation</p>
-                                        <h4 className="mt-3 text-3xl font-black text-white">This listing now has a real thread</h4>
+                                        <p className="mt-5 text-[11px] font-black uppercase tracking-[0.28em] text-cyan-200">{t('listingDetail.chat.start', {}, 'Start the conversation')}</p>
+                                        <h4 className="mt-3 text-3xl font-black text-white">{t('listingDetail.chat.threadTitle', {}, 'This listing now has a real thread')}</h4>
                                         <p className="mt-3 max-w-lg text-sm leading-6 text-slate-400">
-                                            Negotiate, ask for proof, lock an offer, and move to live inspection without leaving Aura.
+                                            {t('listingDetail.chat.threadBody', {}, 'Negotiate, ask for proof, lock an offer, and move to live inspection without leaving Aura.')}
                                         </p>
                                         <div className="mt-6 flex flex-wrap justify-center gap-2">
                                             {quickReplies.map((reply) => (
@@ -1295,7 +1344,7 @@ export default function ListingDetail() {
                                     </div>
                                 ) : (
                                     <div className="space-y-1">
-                                        {chatTimeline.map((entry) => (
+                                        {translatedChatTimeline.map((entry) => (
                                             <div
                                                 key={entry.key}
                                                 className={entry.groupedWithPrevious ? 'mt-2' : 'mt-5'}
@@ -1336,12 +1385,12 @@ export default function ListingDetail() {
                                                                         : 'bg-emerald-500/15 text-emerald-200'
                                                                 }`}>
                                                                     <TicketPercent className="h-3 w-3" />
-                                                                    Offer
+                                                                    {t('listingDetail.offer.badge', {}, 'Offer')}
                                                                 </span>
                                                             ) : null}
 
                                                             <p className="whitespace-pre-wrap break-words text-[15px] leading-6">
-                                                                {entry.message?.text}
+                                                                {entry.translatedText}
                                                             </p>
 
                                                             <div className={`mt-2 flex items-center justify-end gap-1.5 text-[11px] ${
@@ -1366,7 +1415,7 @@ export default function ListingDetail() {
 
                             {chatError ? (
                                 <div className="border-t border-rose-300/20 bg-rose-500/10 px-4 py-3 text-xs font-semibold text-rose-100 sm:px-6">
-                                    {chatError}
+                                    {translateListingText(chatError) || chatError}
                                 </div>
                             ) : null}
 
@@ -1375,10 +1424,10 @@ export default function ListingDetail() {
                                     <div className="rounded-[1.6rem] border border-cyan-300/18 bg-cyan-500/8 p-4">
                                         <div className="flex flex-wrap items-start justify-between gap-3">
                                             <div>
-                                                <p className="text-[11px] font-black uppercase tracking-[0.22em] text-cyan-200">Offer builder</p>
-                                                <p className="mt-2 text-lg font-bold text-white">Send a price proposal inside the chat</p>
+                                                <p className="text-[11px] font-black uppercase tracking-[0.22em] text-cyan-200">{t('listingDetail.offer.builder', {}, 'Offer builder')}</p>
+                                                <p className="mt-2 text-lg font-bold text-white">{t('listingDetail.offer.title', {}, 'Send a price proposal inside the chat')}</p>
                                                 <p className="mt-1 text-sm text-slate-400">
-                                                    The seller receives this as a normal message, so your negotiation stays in one thread.
+                                                    {t('listingDetail.offer.body', {}, 'The seller receives this as a normal message, so your negotiation stays in one thread.')}
                                                 </p>
                                             </div>
                                             <button
@@ -1386,7 +1435,7 @@ export default function ListingDetail() {
                                                 onClick={() => setShowOffer(false)}
                                                 className="rounded-full border border-white/10 px-3 py-1.5 text-xs font-bold text-slate-300 transition hover:border-cyan-300/25 hover:text-cyan-100"
                                             >
-                                                Close offer
+                                                {t('listingDetail.offer.close', {}, 'Close offer')}
                                             </button>
                                         </div>
 
@@ -1408,7 +1457,7 @@ export default function ListingDetail() {
                                                 type="number"
                                                 value={offerPrice}
                                                 onChange={(event) => setOfferPrice(event.target.value)}
-                                                placeholder={`Example: ${Math.max(1, Math.round(Number(listing.price || 0) * 0.9)).toLocaleString('en-IN')}`}
+                                                placeholder={t('listingDetail.offer.placeholder', { amount: Math.max(1, Math.round(Number(listing.price || 0) * 0.9)).toLocaleString('en-IN') }, 'Example: {{amount}}')}
                                                 className="support-chat-input h-12 px-4 text-sm text-white"
                                             />
                                             <button
@@ -1417,7 +1466,7 @@ export default function ListingDetail() {
                                                 disabled={chatSending || !String(offerPrice || '').trim()}
                                                 className="support-chat-send h-12 rounded-full bg-gradient-to-r from-cyan-500 to-emerald-500 px-5 text-sm font-black text-slate-950 shadow-[0_18px_36px_rgba(16,185,129,0.22)] transition hover:shadow-[0_22px_42px_rgba(16,185,129,0.28)]"
                                             >
-                                                Send offer
+                                                {t('listingDetail.offer.send', {}, 'Send offer')}
                                             </button>
                                         </div>
                                     </div>
@@ -1443,7 +1492,7 @@ export default function ListingDetail() {
                                         type="button"
                                         onClick={() => setShowOffer((previous) => !previous)}
                                         className="support-chat-utility h-11 w-11 bg-white/[0.06] text-cyan-100"
-                                        title="Create offer"
+                                        title={t('listingDetail.offer.create', {}, 'Create offer')}
                                     >
                                         <Sparkles className="h-4 w-4" />
                                     </button>
@@ -1461,7 +1510,7 @@ export default function ListingDetail() {
                                         }}
                                         rows={1}
                                         maxLength={MARKETPLACE_CHAT_MAX_LENGTH}
-                                        placeholder="Write a message, ask for proof, or negotiate the final price"
+                                        placeholder={t('listingDetail.chat.placeholder', {}, 'Write a message, ask for proof, or negotiate the final price')}
                                         className="support-chat-input min-h-[3.25rem] max-h-40 resize-none overflow-y-auto px-4 py-3 text-sm leading-6 text-white"
                                     />
                                     <button
@@ -1478,9 +1527,9 @@ export default function ListingDetail() {
                                         <span>{chatConnectionCopy}</span>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <span>Enter sends</span>
+                                        <span>{t('listingDetail.chat.enterSends', {}, 'Enter sends')}</span>
                                         <span className="text-slate-600">|</span>
-                                        <span>Shift+Enter adds a new line</span>
+                                        <span>{t('listingDetail.chat.shiftEnter', {}, 'Shift+Enter adds a new line')}</span>
                                         <span className="text-slate-600">|</span>
                                         <span>{chatCharacterCount}/{MARKETPLACE_CHAT_MAX_LENGTH}</span>
                                     </div>

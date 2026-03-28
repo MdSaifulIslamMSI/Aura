@@ -30,62 +30,63 @@ import {
 } from 'lucide-react';
 import { AuthContext } from '@/context/AuthContext';
 import { useColorMode } from '@/context/ColorModeContext';
+import { useMarket } from '@/context/MarketContext';
 import { FIGMA_COLOR_MODE_OPTIONS } from '@/config/figmaTokens';
 import { cn } from '@/lib/utils';
 import { listingApi } from '@/services/api';
 import { formatPrice } from '@/utils/format';
 import { detectLocationFromGps } from '@/utils/geolocation';
 
-const CATEGORIES = [
-    { value: 'mobiles', label: 'Mobiles', subtitle: 'Phones, accessories, and flagship drops', icon: Smartphone, color: '#3b82f6' },
-    { value: 'laptops', label: 'Laptops', subtitle: 'Workstations, ultrabooks, and rigs', icon: Laptop, color: '#8b5cf6' },
-    { value: 'electronics', label: 'Electronics', subtitle: 'Audio, cameras, wearables, and more', icon: Package, color: '#06b6d4' },
-    { value: 'vehicles', label: 'Vehicles', subtitle: 'Cars, bikes, and premium mobility', icon: Car, color: '#f59e0b' },
-    { value: 'furniture', label: 'Furniture', subtitle: 'Home pieces with strong resale appeal', icon: Sofa, color: '#10b981' },
-    { value: 'fashion', label: 'Fashion', subtitle: 'Designerwear, sneakers, and statement pieces', icon: Shirt, color: '#ec4899' },
-    { value: 'books', label: 'Books', subtitle: 'Academic, collectible, and lifestyle shelves', icon: BookOpen, color: '#6366f1' },
-    { value: 'sports', label: 'Sports', subtitle: 'Performance gear and fitness hardware', icon: Dumbbell, color: '#14b8a6' },
-    { value: 'home-appliances', label: 'Home and Kitchen', subtitle: 'Trusted appliances and utility devices', icon: HomeIcon, color: '#f97316' },
-    { value: 'gaming', label: 'Gaming', subtitle: 'Consoles, titles, and pro accessories', icon: Gamepad2, color: '#a855f7' },
-    { value: 'other', label: 'Other', subtitle: 'Anything niche, collectible, or rare', icon: Tag, color: '#64748b' },
+const buildCategories = (t) => [
+    { value: 'mobiles', label: t('sell.category.mobiles.label', {}, 'Mobiles'), subtitle: t('sell.category.mobiles.subtitle', {}, 'Phones, accessories, and flagship drops'), icon: Smartphone, color: '#3b82f6' },
+    { value: 'laptops', label: t('sell.category.laptops.label', {}, 'Laptops'), subtitle: t('sell.category.laptops.subtitle', {}, 'Workstations, ultrabooks, and rigs'), icon: Laptop, color: '#8b5cf6' },
+    { value: 'electronics', label: t('sell.category.electronics.label', {}, 'Electronics'), subtitle: t('sell.category.electronics.subtitle', {}, 'Audio, cameras, wearables, and more'), icon: Package, color: '#06b6d4' },
+    { value: 'vehicles', label: t('sell.category.vehicles.label', {}, 'Vehicles'), subtitle: t('sell.category.vehicles.subtitle', {}, 'Cars, bikes, and premium mobility'), icon: Car, color: '#f59e0b' },
+    { value: 'furniture', label: t('sell.category.furniture.label', {}, 'Furniture'), subtitle: t('sell.category.furniture.subtitle', {}, 'Home pieces with strong resale appeal'), icon: Sofa, color: '#10b981' },
+    { value: 'fashion', label: t('sell.category.fashion.label', {}, 'Fashion'), subtitle: t('sell.category.fashion.subtitle', {}, 'Designerwear, sneakers, and statement pieces'), icon: Shirt, color: '#ec4899' },
+    { value: 'books', label: t('sell.category.books.label', {}, 'Books'), subtitle: t('sell.category.books.subtitle', {}, 'Academic, collectible, and lifestyle shelves'), icon: BookOpen, color: '#6366f1' },
+    { value: 'sports', label: t('sell.category.sports.label', {}, 'Sports'), subtitle: t('sell.category.sports.subtitle', {}, 'Performance gear and fitness hardware'), icon: Dumbbell, color: '#14b8a6' },
+    { value: 'home-appliances', label: t('sell.category.homeAppliances.label', {}, 'Home and Kitchen'), subtitle: t('sell.category.homeAppliances.subtitle', {}, 'Trusted appliances and utility devices'), icon: HomeIcon, color: '#f97316' },
+    { value: 'gaming', label: t('sell.category.gaming.label', {}, 'Gaming'), subtitle: t('sell.category.gaming.subtitle', {}, 'Consoles, titles, and pro accessories'), icon: Gamepad2, color: '#a855f7' },
+    { value: 'other', label: t('sell.category.other.label', {}, 'Other'), subtitle: t('sell.category.other.subtitle', {}, 'Anything niche, collectible, or rare'), icon: Tag, color: '#64748b' },
 ];
 
-const CONDITIONS = [
-    { value: 'new', label: 'Brand New', desc: 'Unused item with original packaging and accessories.' },
-    { value: 'like-new', label: 'Like New', desc: 'Opened or lightly used, but still presentation-grade.' },
-    { value: 'good', label: 'Good', desc: 'Clear signs of use with dependable performance.' },
-    { value: 'fair', label: 'Fair', desc: 'Visible wear, priced honestly, fully functional.' },
+const buildConditions = (t) => [
+    { value: 'new', label: t('sell.condition.new.label', {}, 'Brand New'), desc: t('sell.condition.new.desc', {}, 'Unused item with original packaging and accessories.') },
+    { value: 'like-new', label: t('sell.condition.likeNew.label', {}, 'Like New'), desc: t('sell.condition.likeNew.desc', {}, 'Opened or lightly used, but still presentation-grade.') },
+    { value: 'good', label: t('sell.condition.good.label', {}, 'Good'), desc: t('sell.condition.good.desc', {}, 'Clear signs of use with dependable performance.') },
+    { value: 'fair', label: t('sell.condition.fair.label', {}, 'Fair'), desc: t('sell.condition.fair.desc', {}, 'Visible wear, priced honestly, fully functional.') },
 ];
 
-const STEP_META = [
+const buildStepMeta = (t) => [
     {
-        title: 'Choose your lane',
-        kicker: 'Category',
-        description: 'Start with the category buyers naturally browse so your listing lands in the right high-intent shelf.',
+        title: t('sell.step.category.title', {}, 'Choose your lane'),
+        kicker: t('sell.step.category.kicker', {}, 'Category'),
+        description: t('sell.step.category.description', {}, 'Start with the category buyers naturally browse so your listing lands in the right high-intent shelf.'),
         icon: Tag,
     },
     {
-        title: 'Shape the story',
-        kicker: 'Details',
-        description: 'Strong titles, credible pricing, and honest condition notes make a premium first impression.',
+        title: t('sell.step.details.title', {}, 'Shape the story'),
+        kicker: t('sell.step.details.kicker', {}, 'Details'),
+        description: t('sell.step.details.description', {}, 'Strong titles, credible pricing, and honest condition notes make a premium first impression.'),
         icon: Sparkles,
     },
     {
-        title: 'Stage the visuals',
-        kicker: 'Photos',
-        description: 'Clear photography builds trust, lifts click-through, and helps buyers understand condition fast.',
+        title: t('sell.step.photos.title', {}, 'Stage the visuals'),
+        kicker: t('sell.step.photos.kicker', {}, 'Photos'),
+        description: t('sell.step.photos.description', {}, 'Clear photography builds trust, lifts click-through, and helps buyers understand condition fast.'),
         icon: Camera,
     },
     {
-        title: 'Pin the pickup zone',
-        kicker: 'Location',
-        description: 'Accurate location data improves buyer confidence and keeps local discovery sharp.',
+        title: t('sell.step.location.title', {}, 'Pin the pickup zone'),
+        kicker: t('sell.step.location.kicker', {}, 'Location'),
+        description: t('sell.step.location.description', {}, 'Accurate location data improves buyer confidence and keeps local discovery sharp.'),
         icon: MapPin,
     },
     {
-        title: 'Approve the final cut',
-        kicker: 'Review',
-        description: 'Check the preview before publishing so the listing feels intentional from day one.',
+        title: t('sell.step.review.title', {}, 'Approve the final cut'),
+        kicker: t('sell.step.review.kicker', {}, 'Review'),
+        description: t('sell.step.review.description', {}, 'Check the preview before publishing so the listing feels intentional from day one.'),
         icon: CheckCircle2,
     },
 ];
@@ -96,24 +97,24 @@ const MAX_ENCODED_IMAGE_BYTES = 1_200_000;
 const MAX_IMAGE_DIMENSION = 1600;
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
 
-const readFileAsDataUrl = (file) => new Promise((resolve, reject) => {
+const readFileAsDataUrl = (file, errors) => new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result);
-    reader.onerror = () => reject(new Error('Failed to read selected image.'));
+    reader.onerror = () => reject(new Error(errors.read));
     reader.readAsDataURL(file);
 });
 
-const loadImage = (src) => new Promise((resolve, reject) => {
+const loadImage = (src, errors) => new Promise((resolve, reject) => {
     const image = new Image();
     image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error('Invalid image file.'));
+    image.onerror = () => reject(new Error(errors.invalid));
     image.src = src;
 });
 
-const blobToDataUrl = (blob) => new Promise((resolve, reject) => {
+const blobToDataUrl = (blob, errors) => new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result);
-    reader.onerror = () => reject(new Error('Failed to encode image.'));
+    reader.onerror = () => reject(new Error(errors.encode));
     reader.readAsDataURL(blob);
 });
 
@@ -145,9 +146,9 @@ const toRgba = (hex, alpha) => {
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 };
 
-const compressImageToWebp = async (file) => {
-    const sourceDataUrl = await readFileAsDataUrl(file);
-    const image = await loadImage(sourceDataUrl);
+const compressImageToWebp = async (file, errors) => {
+    const sourceDataUrl = await readFileAsDataUrl(file, errors);
+    const image = await loadImage(sourceDataUrl, errors);
     const scale = Math.min(1, MAX_IMAGE_DIMENSION / Math.max(image.width, image.height));
     const width = Math.max(1, Math.round(image.width * scale));
     const height = Math.max(1, Math.round(image.height * scale));
@@ -158,7 +159,7 @@ const compressImageToWebp = async (file) => {
     const context = canvas.getContext('2d');
 
     if (!context) {
-        throw new Error('Could not process image.');
+        throw new Error(errors.process);
     }
 
     context.drawImage(image, 0, 0, width, height);
@@ -168,18 +169,18 @@ const compressImageToWebp = async (file) => {
         const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/webp', quality));
         if (!blob) continue;
         if (blob.size <= MAX_ENCODED_IMAGE_BYTES) {
-            return blobToDataUrl(blob);
+            return blobToDataUrl(blob, errors);
         }
     }
 
-    throw new Error('Image is too large after compression. Choose a smaller photo.');
+    throw new Error(errors.tooLarge);
 };
 
-const studioChecklist = (form) => [
-    { label: 'Category selected', ready: Boolean(form.category) },
-    { label: 'Title and description ready', ready: form.title.trim().length >= 5 && form.description.trim().length >= 10 },
-    { label: 'At least one real photo', ready: form.images.length >= 1 },
-    { label: 'Location filled', ready: Boolean(form.city.trim() && form.state.trim()) },
+const studioChecklist = (t, form) => [
+    { label: t('sell.checklist.category', {}, 'Category selected'), ready: Boolean(form.category) },
+    { label: t('sell.checklist.details', {}, 'Title and description ready'), ready: form.title.trim().length >= 5 && form.description.trim().length >= 10 },
+    { label: t('sell.checklist.photos', {}, 'At least one real photo'), ready: form.images.length >= 1 },
+    { label: t('sell.checklist.location', {}, 'Location filled'), ready: Boolean(form.city.trim() && form.state.trim()) },
 ];
 
 const StatCard = ({ label, value, detail, style, isWhiteMode }) => (
@@ -203,6 +204,7 @@ const StatCard = ({ label, value, detail, style, isWhiteMode }) => (
 export default function Sell() {
     const { currentUser } = useContext(AuthContext);
     const { colorMode } = useColorMode();
+    const { t } = useMarket();
     const navigate = useNavigate();
     const [step, setStep] = useState(0);
     const [loading, setLoading] = useState(false);
@@ -238,14 +240,24 @@ export default function Sell() {
     const modePalette = FIGMA_COLOR_MODE_OPTIONS.find((mode) => mode.value === colorMode) || FIGMA_COLOR_MODE_OPTIONS[0];
     const accentPrimary = modePalette.primary;
     const accentSecondary = modePalette.secondary;
-    const selectedCat = CATEGORIES.find((category) => category.value === form.category) || null;
-    const selectedCondition = CONDITIONS.find((condition) => condition.value === form.condition) || CONDITIONS[2];
-    const sellerLabel = currentUser?.displayName || currentUser?.email?.split('@')[0] || 'Seller';
-    const progressPercent = ((step + 1) / STEP_META.length) * 100;
-    const completionItems = useMemo(() => studioChecklist(form), [form]);
+    const categories = useMemo(() => buildCategories(t), [t]);
+    const conditions = useMemo(() => buildConditions(t), [t]);
+    const stepMeta = useMemo(() => buildStepMeta(t), [t]);
+    const imageErrors = useMemo(() => ({
+        read: t('sell.error.imageRead', {}, 'Failed to read selected image.'),
+        invalid: t('sell.error.imageInvalid', {}, 'Invalid image file.'),
+        encode: t('sell.error.imageEncode', {}, 'Failed to encode image.'),
+        process: t('sell.error.imageProcess', {}, 'Could not process image.'),
+        tooLarge: t('sell.error.imageTooLarge', {}, 'Image is too large after compression. Choose a smaller photo.'),
+    }), [t]);
+    const selectedCat = categories.find((category) => category.value === form.category) || null;
+    const selectedCondition = conditions.find((condition) => condition.value === form.condition) || conditions[2];
+    const sellerLabel = currentUser?.displayName || currentUser?.email?.split('@')[0] || t('sell.preview.sellerFallback', {}, 'Seller');
+    const progressPercent = ((step + 1) / stepMeta.length) * 100;
+    const completionItems = useMemo(() => studioChecklist(t, form), [form, t]);
     const readyCount = completionItems.filter((item) => item.ready).length;
-    const previewLocation = [form.city.trim(), form.state.trim()].filter(Boolean).join(', ') || 'Location pending';
-    const pricePreview = Number(form.price) > 0 ? formatPrice(Number(form.price)) : 'Set your ask';
+    const previewLocation = [form.city.trim(), form.state.trim()].filter(Boolean).join(', ') || t('sell.preview.locationPending', {}, 'Location pending');
+    const pricePreview = Number(form.price) > 0 ? formatPrice(Number(form.price)) : t('sell.preview.askFallback', {}, 'Set your ask');
 
     const shellClass = isWhiteMode ? 'bg-[#eef4ff] text-slate-900' : 'bg-[#050816] text-slate-100';
     const panelClass = isWhiteMode
@@ -337,7 +349,7 @@ export default function Sell() {
         if (files.length === 0) return;
 
         if (form.images.length + files.length > MAX_IMAGES) {
-            setError(`Maximum ${MAX_IMAGES} images allowed`);
+            setError(t('sell.error.maxImages', { count: MAX_IMAGES }, `Maximum ${MAX_IMAGES} images allowed`));
             return;
         }
 
@@ -349,16 +361,16 @@ export default function Sell() {
 
             for (const file of files) {
                 if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
-                    throw new Error('Only JPG, PNG, and WEBP images are allowed.');
+                    throw new Error(t('sell.error.fileTypes', {}, 'Only JPG, PNG, and WEBP images are allowed.'));
                 }
 
                 if (file.size > MAX_SOURCE_FILE_BYTES) {
-                    throw new Error('Each source image must be smaller than 10MB.');
+                    throw new Error(t('sell.error.fileSize', {}, 'Each source image must be smaller than 10MB.'));
                 }
 
-                const dataUrl = await compressImageToWebp(file);
+                const dataUrl = await compressImageToWebp(file, imageErrors);
                 if (estimateDataUriBytes(dataUrl) > MAX_ENCODED_IMAGE_BYTES) {
-                    throw new Error('Image is too large after compression. Choose a smaller photo.');
+                    throw new Error(imageErrors.tooLarge);
                 }
 
                 processedImages.push(dataUrl);
@@ -369,7 +381,7 @@ export default function Sell() {
                 images: [...prev.images, ...processedImages].slice(0, MAX_IMAGES),
             }));
         } catch (uploadError) {
-            setError(uploadError.message || 'Failed to process image.');
+            setError(uploadError.message || t('sell.error.uploadProcess', {}, 'Failed to process image.'));
         } finally {
             setProcessingImages(false);
         }
@@ -407,13 +419,15 @@ export default function Sell() {
             const locationParts = [detected.city, detected.state].filter(Boolean);
             const summary = locationParts.join(', ');
             const qualityBits = [
-                Number.isFinite(detected.confidence) ? `confidence ${detected.confidence}%` : '',
-                Number.isFinite(detected.accuracy) && detected.accuracy > 0 ? `${Math.round(detected.accuracy)}m accuracy` : '',
+                Number.isFinite(detected.confidence) ? t('sell.location.confidence', { value: detected.confidence }, `confidence ${detected.confidence}%`) : '',
+                Number.isFinite(detected.accuracy) && detected.accuracy > 0 ? t('sell.location.accuracy', { value: Math.round(detected.accuracy) }, `${Math.round(detected.accuracy)}m accuracy`) : '',
             ].filter(Boolean);
             const qualitySuffix = qualityBits.length > 0 ? ` (${qualityBits.join(', ')})` : '';
-            setLocationHint(summary ? `Detected: ${summary}${qualitySuffix}` : `Location detected from GPS${qualitySuffix}.`);
+            setLocationHint(summary
+                ? t('sell.location.detectedSummary', { summary, quality: qualitySuffix }, `Detected: ${summary}${qualitySuffix}`)
+                : t('sell.location.detectedFromGps', { quality: qualitySuffix }, `Location detected from GPS${qualitySuffix}.`));
         } catch (locationError) {
-            setError(locationError?.message || 'Could not detect your location. Enter it manually.');
+            setError(locationError?.message || t('sell.error.locationDetect', {}, 'Could not detect your location. Enter it manually.'));
         } finally {
             setDetectingLocation(false);
         }
@@ -450,7 +464,7 @@ export default function Sell() {
             setSuccess(true);
             setTimeout(() => navigate('/my-listings'), 1800);
         } catch (submitError) {
-            setError(submitError.message || 'Failed to create listing.');
+            setError(submitError.message || t('sell.error.submit', {}, 'Failed to create listing.'));
         } finally {
             setLoading(false);
         }
@@ -460,7 +474,7 @@ export default function Sell() {
         if (step === 0) {
             return (
                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                    {CATEGORIES.map((category) => {
+                    {categories.map((category) => {
                         const Icon = category.icon;
                         const selected = form.category === category.value;
 
@@ -527,58 +541,58 @@ export default function Sell() {
             return (
                 <div className="grid gap-6">
                     <div>
-                        <label className={cn('mb-2 block text-sm font-bold', labelClass)}>Title</label>
+                        <label className={cn('mb-2 block text-sm font-bold', labelClass)}>{t('sell.details.titleLabel', {}, 'Title')}</label>
                         <input
                             type="text"
                             value={form.title}
                             onChange={(event) => update('title', event.target.value)}
-                            placeholder="Example: iPhone 14 Pro Max 256GB, graphite, pristine battery"
+                            placeholder={t('sell.details.titlePlaceholder', {}, 'Example: iPhone 14 Pro Max 256GB, graphite, pristine battery')}
                             maxLength={120}
                             className={cn('w-full rounded-[1.25rem] border px-4 py-4 text-base outline-none transition-all', inputClass)}
                         />
                         <div className={cn('mt-2 flex items-center justify-between text-xs', subtleTextClass)}>
-                            <span>Use a title buyers can trust in one glance.</span>
+                            <span>{t('sell.details.titleHint', {}, 'Use a title buyers can trust in one glance.')}</span>
                             <span>{form.title.length}/120</span>
                         </div>
                     </div>
 
                     <div>
-                        <label className={cn('mb-2 block text-sm font-bold', labelClass)}>Description</label>
+                        <label className={cn('mb-2 block text-sm font-bold', labelClass)}>{t('sell.details.descriptionLabel', {}, 'Description')}</label>
                         <textarea
                             value={form.description}
                             onChange={(event) => update('description', event.target.value)}
-                            placeholder="Describe condition, included accessories, purchase age, warranty status, and why you are selling."
+                            placeholder={t('sell.details.descriptionPlaceholder', {}, 'Describe condition, included accessories, purchase age, warranty status, and why you are selling.')}
                             rows={6}
                             maxLength={2000}
                             className={cn('w-full resize-none rounded-[1.25rem] border px-4 py-4 text-base outline-none transition-all', inputClass)}
                         />
                         <div className={cn('mt-2 flex items-center justify-between text-xs', subtleTextClass)}>
-                            <span>Specificity builds credibility and saves buyer questions.</span>
+                            <span>{t('sell.details.descriptionHint', {}, 'Specificity builds credibility and saves buyer questions.')}</span>
                             <span>{form.description.length}/2000</span>
                         </div>
                     </div>
 
                     <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
                         <div className={cn('rounded-[1.5rem] border p-4', helperCardClass)} style={panelStyle}>
-                            <label className={cn('mb-2 block text-sm font-bold', labelClass)}>Ask price</label>
+                            <label className={cn('mb-2 block text-sm font-bold', labelClass)}>{t('sell.details.priceLabel', {}, 'Ask price')}</label>
                             <div className="relative">
                                 <DollarSign className={cn('absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2', subtleTextClass)} />
                                 <input
                                     type="number"
                                     value={form.price}
                                     onChange={(event) => update('price', event.target.value)}
-                                    placeholder="0"
+                                    placeholder={t('sell.details.pricePlaceholder', {}, '0')}
                                     min={0}
                                     className={cn('w-full rounded-[1.15rem] border px-4 py-4 pl-11 text-lg font-black outline-none transition-all', inputClass)}
                                 />
                             </div>
                             <p className={cn('mt-2 text-xs', subtleTextClass)}>
-                                Premium pricing wins when the story, photos, and condition all support it.
+                                {t('sell.details.priceHint', {}, 'Premium pricing wins when the story, photos, and condition all support it.')}
                             </p>
                         </div>
 
                         <div className={cn('rounded-[1.5rem] border p-4', helperCardClass)} style={panelStyle}>
-                            <p className={cn('text-sm font-bold', labelClass)}>Sale settings</p>
+                            <p className={cn('text-sm font-bold', labelClass)}>{t('sell.details.settingsTitle', {}, 'Sale settings')}</p>
                             <label className="mt-3 flex items-start gap-3">
                                 <input
                                     type="checkbox"
@@ -587,8 +601,8 @@ export default function Sell() {
                                     className="mt-1 h-4 w-4 rounded border-slate-400"
                                 />
                                 <div>
-                                    <p className={cn('text-sm font-semibold', labelClass)}>Negotiable</p>
-                                    <p className={cn('text-xs', mutedTextClass)}>Allow room for buyer offers.</p>
+                                    <p className={cn('text-sm font-semibold', labelClass)}>{t('sell.details.negotiableLabel', {}, 'Negotiable')}</p>
+                                    <p className={cn('text-xs', mutedTextClass)}>{t('sell.details.negotiableHint', {}, 'Allow room for buyer offers.')}</p>
                                 </div>
                             </label>
                             <label className="mt-4 flex items-start gap-3">
@@ -599,17 +613,17 @@ export default function Sell() {
                                     className="mt-1 h-4 w-4 rounded border-slate-400"
                                 />
                                 <div>
-                                    <p className={cn('text-sm font-semibold', labelClass)}>Escrow mode</p>
-                                    <p className={cn('text-xs', mutedTextClass)}>Release funds after delivery confirmation.</p>
+                                    <p className={cn('text-sm font-semibold', labelClass)}>{t('sell.details.escrowLabel', {}, 'Escrow mode')}</p>
+                                    <p className={cn('text-xs', mutedTextClass)}>{t('sell.details.escrowHint', {}, 'Release funds after delivery confirmation.')}</p>
                                 </div>
                             </label>
                         </div>
                     </div>
 
                     <div>
-                        <label className={cn('mb-3 block text-sm font-bold', labelClass)}>Condition</label>
+                        <label className={cn('mb-3 block text-sm font-bold', labelClass)}>{t('sell.details.conditionLabel', {}, 'Condition')}</label>
                         <div className="grid gap-3 sm:grid-cols-2">
-                            {CONDITIONS.map((condition) => {
+                            {conditions.map((condition) => {
                                 const selected = form.condition === condition.value;
                                 return (
                                     <button
@@ -670,14 +684,16 @@ export default function Sell() {
                             {processingImages ? <Loader2 className="h-7 w-7 animate-spin" /> : <ImagePlus className="h-7 w-7" />}
                         </div>
                         <p className={cn('mt-5 text-lg font-black tracking-tight', isWhiteMode ? 'text-slate-950' : 'text-white')}>
-                            {processingImages ? 'Processing your media' : 'Drop up to five premium-quality photos'}
+                            {processingImages
+                                ? t('sell.photos.processing', {}, 'Processing your media')
+                                : t('sell.photos.title', {}, 'Drop up to five premium-quality photos')}
                         </p>
                         <p className={cn('mt-2 max-w-xl text-sm leading-6', mutedTextClass)}>
-                            Natural light, multiple angles, and one clean hero image will instantly make the listing feel more credible.
+                            {t('sell.photos.body', {}, 'Natural light, multiple angles, and one clean hero image will instantly make the listing feel more credible.')}
                         </p>
                         <div className="mt-5 inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-black uppercase tracking-[0.18em]" style={accentOutlineStyle}>
                             <Camera className="h-4 w-4" />
-                            {form.images.length}/{MAX_IMAGES} uploaded
+                            {t('sell.photos.uploaded', { count: form.images.length, max: MAX_IMAGES }, `${form.images.length}/${MAX_IMAGES} uploaded`)}
                         </div>
                         <input type="file" accept="image/*" multiple onChange={handleImageUpload} className="hidden" />
                     </label>
@@ -691,19 +707,19 @@ export default function Sell() {
                                     isWhiteMode ? 'border-slate-200 bg-white' : 'border-white/10 bg-white/[0.04]'
                                 )}
                             >
-                                <img src={image} alt={`Listing preview ${index + 1}`} className="h-full w-full object-cover" />
+                                <img src={image} alt={t('sell.photos.previewAlt', { count: index + 1 }, `Listing preview ${index + 1}`)} className="h-full w-full object-cover" />
                                 <button
                                     type="button"
                                     onClick={() => removeImage(index)}
                                     className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-full bg-black/70 text-white opacity-0 transition-opacity group-hover:opacity-100"
-                                    aria-label={`Remove photo ${index + 1}`}
+                                    aria-label={t('sell.photos.removeAria', { count: index + 1 }, `Remove photo ${index + 1}`)}
                                 >
                                     <X className="h-4 w-4" />
                                 </button>
                                 <div className="absolute inset-x-3 bottom-3 flex items-center justify-between">
                                     {index === 0 ? (
                                         <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-slate-900">
-                                            Cover shot
+                                            {t('sell.photos.coverShot', {}, 'Cover shot')}
                                         </span>
                                     ) : <span />}
                                 </div>
@@ -727,13 +743,13 @@ export default function Sell() {
                         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                             <div>
                                 <p className={cn('text-sm font-black uppercase tracking-[0.2em]', subtleTextClass)}>
-                                    Precision location
+                                    {t('sell.location.kicker', {}, 'Precision location')}
                                 </p>
                                 <p className={cn('mt-2 text-lg font-black tracking-tight', isWhiteMode ? 'text-slate-950' : 'text-white')}>
-                                    Use current location for higher trust.
+                                    {t('sell.location.title', {}, 'Use current location for higher trust.')}
                                 </p>
                                 <p className={cn('mt-2 text-sm leading-6', mutedTextClass)}>
-                                    GPS-assisted detection helps buyers gauge pickup confidence and distance faster.
+                                    {t('sell.location.body', {}, 'GPS-assisted detection helps buyers gauge pickup confidence and distance faster.')}
                                 </p>
                             </div>
 
@@ -745,7 +761,9 @@ export default function Sell() {
                                 style={accentFillStyle}
                             >
                                 {detectingLocation ? <Loader2 className="h-4 w-4 animate-spin" /> : <LocateFixed className="h-4 w-4" />}
-                                {detectingLocation ? 'Detecting' : 'Use current location'}
+                                {detectingLocation
+                                    ? t('sell.location.detecting', {}, 'Detecting')
+                                    : t('sell.location.useCurrent', {}, 'Use current location')}
                             </button>
                         </div>
                         {locationHint ? (
@@ -757,38 +775,38 @@ export default function Sell() {
 
                     <div className="grid gap-4 md:grid-cols-2">
                         <div>
-                            <label className={cn('mb-2 block text-sm font-bold', labelClass)}>City</label>
+                            <label className={cn('mb-2 block text-sm font-bold', labelClass)}>{t('sell.location.cityLabel', {}, 'City')}</label>
                             <div className="relative">
                                 <MapPin className={cn('absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2', subtleTextClass)} />
                                 <input
                                     type="text"
                                     value={form.city}
                                     onChange={(event) => updateLocationField('city', event.target.value)}
-                                    placeholder="Example: Mumbai"
+                                    placeholder={t('sell.location.cityPlaceholder', {}, 'Example: Mumbai')}
                                     className={cn('w-full rounded-[1.25rem] border px-4 py-4 pl-11 outline-none transition-all', inputClass)}
                                 />
                             </div>
                         </div>
 
                         <div>
-                            <label className={cn('mb-2 block text-sm font-bold', labelClass)}>State</label>
+                            <label className={cn('mb-2 block text-sm font-bold', labelClass)}>{t('sell.location.stateLabel', {}, 'State')}</label>
                             <input
                                 type="text"
                                 value={form.state}
                                 onChange={(event) => updateLocationField('state', event.target.value)}
-                                placeholder="Example: Maharashtra"
+                                placeholder={t('sell.location.statePlaceholder', {}, 'Example: Maharashtra')}
                                 className={cn('w-full rounded-[1.25rem] border px-4 py-4 outline-none transition-all', inputClass)}
                             />
                         </div>
                     </div>
 
                     <div className="max-w-sm">
-                        <label className={cn('mb-2 block text-sm font-bold', labelClass)}>Pincode</label>
+                        <label className={cn('mb-2 block text-sm font-bold', labelClass)}>{t('sell.location.pincodeLabel', {}, 'Pincode')}</label>
                         <input
                             type="text"
                             value={form.pincode}
                             onChange={(event) => updateLocationField('pincode', event.target.value)}
-                            placeholder="Example: 400001"
+                            placeholder={t('sell.location.pincodePlaceholder', {}, 'Example: 400001')}
                             maxLength={6}
                             className={cn('w-full rounded-[1.25rem] border px-4 py-4 outline-none transition-all', inputClass)}
                         />
@@ -821,10 +839,10 @@ export default function Sell() {
                                 </span>
                             </div>
                             <h3 className="mt-5 text-2xl font-black tracking-tight text-white sm:text-3xl">
-                                {form.title.trim() || 'Your listing headline will appear here'}
+                                {form.title.trim() || t('sell.preview.headlineFallback', {}, 'Your listing headline will appear here')}
                             </h3>
                             <p className="mt-2 text-sm leading-6 text-white/80">
-                                {form.description.trim() || 'Add a confident, detail-rich description so buyers know why this item is worth the ask.'}
+                                {form.description.trim() || t('sell.preview.descriptionFallback', {}, 'Add a confident, detail-rich description so buyers know why this item is worth the ask.')}
                             </p>
                         </div>
                     </div>
@@ -833,11 +851,13 @@ export default function Sell() {
                         <div className="space-y-4">
                             <div className="flex flex-wrap items-center gap-2">
                                 <span className="rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em]" style={accentOutlineStyle}>
-                                    {form.negotiable ? 'Negotiable' : 'Fixed price'}
+                                    {form.negotiable
+                                        ? t('sell.preview.negotiable', {}, 'Negotiable')
+                                        : t('sell.preview.fixedPrice', {}, 'Fixed price')}
                                 </span>
                                 {form.escrowOptIn ? (
                                     <span className="rounded-full border border-emerald-400/35 bg-emerald-500/12 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-emerald-100">
-                                        Escrow enabled
+                                        {t('sell.preview.escrowEnabled', {}, 'Escrow enabled')}
                                     </span>
                                 ) : null}
                             </div>
@@ -862,7 +882,7 @@ export default function Sell() {
 
                         <div className={cn('rounded-[1.5rem] border p-4', helperCardClass)} style={panelStyle}>
                             <p className={cn('text-[11px] font-black uppercase tracking-[0.22em]', subtleTextClass)}>
-                                Quality signal
+                                {t('sell.preview.qualitySignal', {}, 'Quality signal')}
                             </p>
                             <div className="mt-3 space-y-3 text-sm">
                                 {completionItems.map((item) => (
@@ -903,13 +923,13 @@ export default function Sell() {
                             <CheckCircle2 className="h-10 w-10" />
                         </div>
                         <p className={cn('mt-6 text-[11px] font-black uppercase tracking-[0.24em]', subtleTextClass)}>
-                            Listing published
+                            {t('sell.success.kicker', {}, 'Listing published')}
                         </p>
                         <h1 className={cn('mt-3 text-4xl font-black tracking-tight', isWhiteMode ? 'text-slate-950' : 'text-white')}>
-                            Your item is now live.
+                            {t('sell.success.title', {}, 'Your item is now live.')}
                         </h1>
                         <p className={cn('mx-auto mt-4 max-w-xl text-base leading-7', mutedTextClass)}>
-                            We are taking you to your seller dashboard so you can manage responses, price moves, and listing health in one place.
+                            {t('sell.success.body', {}, 'We are taking you to your seller dashboard so you can manage responses, price moves, and listing health in one place.')}
                         </p>
                     </div>
                 </div>
@@ -936,13 +956,13 @@ export default function Sell() {
                         <div>
                             <div className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-[0.24em]" style={accentOutlineStyle}>
                                 <Sparkles className="h-4 w-4" />
-                                Seller studio
+                                {t('sell.hero.eyebrow', {}, 'Seller studio')}
                             </div>
                             <h1 className={cn('mt-5 max-w-3xl text-4xl font-black leading-[0.95] tracking-tight sm:text-5xl', isWhiteMode ? 'text-slate-950' : 'text-white')}>
-                                List with the polish of a premium storefront.
+                                {t('sell.hero.title', {}, 'List with the polish of a premium storefront.')}
                             </h1>
                             <p className={cn('mt-4 max-w-2xl text-sm leading-7 sm:text-base', mutedTextClass)}>
-                                This flow is tuned to help your listing look intentional from the first glance: stronger categorization, cleaner media, trustworthy location, and a review pass before buyers ever land on the page.
+                                {t('sell.hero.body', {}, 'This flow is tuned to help your listing look intentional from the first glance: stronger categorization, cleaner media, trustworthy location, and a review pass before buyers ever land on the page.')}
                             </p>
 
                             <div className="mt-6 flex flex-wrap gap-3">
@@ -952,34 +972,38 @@ export default function Sell() {
                                 </span>
                                 <span className={cn('inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm', chipClass)} style={panelStyle}>
                                     <ShieldCheck className="h-4 w-4" />
-                                    {form.escrowOptIn ? 'Escrow ready' : 'Escrow optional'}
+                                    {form.escrowOptIn
+                                        ? t('sell.hero.escrowReady', {}, 'Escrow ready')
+                                        : t('sell.hero.escrowOptional', {}, 'Escrow optional')}
                                 </span>
                                 <span className={cn('inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm', chipClass)} style={panelStyle}>
                                     <Camera className="h-4 w-4" />
-                                    {form.images.length}/{MAX_IMAGES} photos
+                                    {t('sell.hero.photosCount', { count: form.images.length, max: MAX_IMAGES }, `${form.images.length}/${MAX_IMAGES} photos`)}
                                 </span>
                             </div>
                         </div>
 
                         <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-1">
                             <StatCard
-                                label="Studio progress"
+                                label={t('sell.stats.progress.label', {}, 'Studio progress')}
                                 value={`${Math.round(progressPercent)}%`}
-                                detail={`${readyCount}/${completionItems.length} publish checks ready`}
+                                detail={t('sell.stats.progress.detail', { ready: readyCount, total: completionItems.length }, `${readyCount}/${completionItems.length} publish checks ready`)}
                                 style={panelStyle}
                                 isWhiteMode={isWhiteMode}
                             />
                             <StatCard
-                                label="Current lane"
-                                value={selectedCat?.label || 'Unassigned'}
-                                detail={selectedCat?.subtitle || 'Choose the category where the item belongs.'}
+                                label={t('sell.stats.lane.label', {}, 'Current lane')}
+                                value={selectedCat?.label || t('sell.stats.lane.unassigned', {}, 'Unassigned')}
+                                detail={selectedCat?.subtitle || t('sell.stats.lane.detail', {}, 'Choose the category where the item belongs.')}
                                 style={panelStyle}
                                 isWhiteMode={isWhiteMode}
                             />
                             <StatCard
-                                label="Listing mode"
-                                value={form.escrowOptIn ? 'Escrow' : 'Direct'}
-                                detail={form.negotiable ? 'Negotiation is open.' : 'Price is fixed for now.'}
+                                label={t('sell.stats.mode.label', {}, 'Listing mode')}
+                                value={form.escrowOptIn ? t('sell.stats.mode.escrow', {}, 'Escrow') : t('sell.stats.mode.direct', {}, 'Direct')}
+                                detail={form.negotiable
+                                    ? t('sell.stats.mode.negotiationOpen', {}, 'Negotiation is open.')
+                                    : t('sell.stats.mode.fixedPrice', {}, 'Price is fixed for now.')}
                                 style={panelStyle}
                                 isWhiteMode={isWhiteMode}
                             />
@@ -1002,7 +1026,7 @@ export default function Sell() {
                 <div className="mt-8 grid gap-8 xl:grid-cols-[minmax(0,1fr)_360px]">
                     <section className={cn('rounded-[2rem] border p-5 sm:p-6', panelClass)} style={panelStyle}>
                         <div className="flex flex-wrap gap-3">
-                            {STEP_META.map((item, index) => {
+                            {stepMeta.map((item, index) => {
                                 const Icon = item.icon;
                                 const isActive = index === step;
                                 const isComplete = index < step;
@@ -1074,14 +1098,14 @@ export default function Sell() {
                             <div className="flex flex-col gap-4 border-b pb-5 sm:flex-row sm:items-end sm:justify-between" style={{ borderColor: toRgba(accentPrimary, 0.14) }}>
                                 <div>
                                     <p className={cn('text-[11px] font-black uppercase tracking-[0.24em]', subtleTextClass)}>
-                                        {STEP_META[step].kicker}
+                                        {stepMeta[step].kicker}
                                     </p>
                                     <h2 className={cn('mt-3 text-2xl font-black tracking-tight sm:text-3xl', isWhiteMode ? 'text-slate-950' : 'text-white')}>
-                                        {STEP_META[step].title}
+                                        {stepMeta[step].title}
                                     </h2>
                                 </div>
-                                <p className={cn('max-w-xl text-sm leading-6 sm:text-right', mutedTextClass)}>
-                                    {STEP_META[step].description}
+                                    <p className={cn('max-w-xl text-sm leading-6 sm:text-right', mutedTextClass)}>
+                                    {stepMeta[step].description}
                                 </p>
                             </div>
 
@@ -1102,13 +1126,13 @@ export default function Sell() {
                                     style={panelStyle}
                                 >
                                     <ChevronLeft className="h-4 w-4" />
-                                    Back
+                                    {t('sell.action.back', {}, 'Back')}
                                 </button>
                             ) : (
                                 <div />
                             )}
 
-                            {step < STEP_META.length - 1 ? (
+                            {step < stepMeta.length - 1 ? (
                                 <button
                                     type="button"
                                     onClick={() => goToStep(step + 1)}
@@ -1119,7 +1143,7 @@ export default function Sell() {
                                     )}
                                     style={accentFillStyle}
                                 >
-                                    Continue
+                                    {t('sell.action.continue', {}, 'Continue')}
                                     <ChevronRight className="h-4 w-4" />
                                 </button>
                             ) : (
@@ -1134,7 +1158,9 @@ export default function Sell() {
                                     style={accentFillStyle}
                                 >
                                     {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wallet className="h-4 w-4" />}
-                                    {loading ? 'Publishing' : 'Publish listing'}
+                                    {loading
+                                        ? t('sell.action.publishing', {}, 'Publishing')
+                                        : t('sell.action.publish', {}, 'Publish listing')}
                                 </button>
                             )}
                         </div>
@@ -1163,13 +1189,13 @@ export default function Sell() {
                                         >
                                             <Camera className="h-7 w-7" />
                                         </div>
-                                        <p className="mt-4 text-sm font-bold text-white/90">Live buyer preview</p>
+                                        <p className="mt-4 text-sm font-bold text-white/90">{t('sell.preview.liveBuyer', {}, 'Live buyer preview')}</p>
                                     </div>
                                 ) : null}
 
                                 <div className="absolute left-5 top-5 flex flex-wrap gap-2">
                                     <span className="rounded-full bg-white px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-slate-900">
-                                        {selectedCat?.label || 'Category'}
+                                        {selectedCat?.label || t('sell.preview.categoryFallback', {}, 'Category')}
                                     </span>
                                     <span className="rounded-full border border-white/25 bg-black/30 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-white">
                                         {selectedCondition.label}
@@ -1180,13 +1206,13 @@ export default function Sell() {
                             <div className="space-y-5 p-5">
                                 <div>
                                     <p className={cn('text-[11px] font-black uppercase tracking-[0.22em]', subtleTextClass)}>
-                                        Live listing preview
+                                        {t('sell.preview.liveListing', {}, 'Live listing preview')}
                                     </p>
                                     <h3 className={cn('mt-3 text-2xl font-black leading-tight tracking-tight', isWhiteMode ? 'text-slate-950' : 'text-white')}>
-                                        {form.title.trim() || 'Your title will appear here'}
+                                        {form.title.trim() || t('sell.preview.titleFallback', {}, 'Your title will appear here')}
                                     </h3>
                                     <p className={cn('mt-2 text-sm leading-6', mutedTextClass)}>
-                                        {form.description.trim() || 'A premium listing reads clearly, sounds credible, and answers the buyer before they ask.'}
+                                        {form.description.trim() || t('sell.preview.bodyFallback', {}, 'A premium listing reads clearly, sounds credible, and answers the buyer before they ask.')}
                                     </p>
                                 </div>
 
@@ -1196,12 +1222,14 @@ export default function Sell() {
                                             {pricePreview}
                                         </p>
                                         <p className={cn('mt-1 text-xs uppercase tracking-[0.18em]', subtleTextClass)}>
-                                            {form.negotiable ? 'Negotiation open' : 'Fixed ask'}
+                                            {form.negotiable
+                                                ? t('sell.preview.negotiationOpen', {}, 'Negotiation open')
+                                                : t('sell.preview.fixedAsk', {}, 'Fixed ask')}
                                         </p>
                                     </div>
                                     {form.escrowOptIn ? (
                                         <span className="rounded-full border border-emerald-400/35 bg-emerald-500/12 px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-emerald-100">
-                                            Escrow
+                                            {t('sell.preview.escrowBadge', {}, 'Escrow')}
                                         </span>
                                     ) : null}
                                 </div>
@@ -1217,7 +1245,11 @@ export default function Sell() {
                                     </div>
                                     <div className={cn('flex items-center gap-3 rounded-[1.15rem] border px-4 py-3', helperCardClass)} style={panelStyle}>
                                         <ShieldCheck className="h-4 w-4" style={{ color: accentPrimary }} />
-                                        <span className="text-sm">{form.escrowOptIn ? 'Protected by escrow workflow' : 'Direct seller workflow'}</span>
+                                        <span className="text-sm">
+                                            {form.escrowOptIn
+                                                ? t('sell.preview.escrowWorkflow', {}, 'Protected by escrow workflow')
+                                                : t('sell.preview.directWorkflow', {}, 'Direct seller workflow')}
+                                        </span>
                                     </div>
                                 </div>
                             </div>
@@ -1225,7 +1257,7 @@ export default function Sell() {
 
                         <section className={cn('rounded-[2rem] border p-5', panelClass)} style={panelStyle}>
                             <p className={cn('text-[11px] font-black uppercase tracking-[0.22em]', subtleTextClass)}>
-                                Publish checklist
+                                {t('sell.preview.publishChecklist', {}, 'Publish checklist')}
                             </p>
                             <div className="mt-4 space-y-3">
                                 {completionItems.map((item) => (
