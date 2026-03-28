@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MarketProvider } from '@/context/MarketContext';
+import { MARKET_STORAGE_KEY } from '@/config/marketConfig';
 import ProductCardInline from './ProductCardInline';
 
 const product = {
@@ -13,13 +14,17 @@ const product = {
     rating: 4.5,
 };
 
-const renderWithMarket = (ui) => render(
-    <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+const renderWithMarket = (ui, initialPreference = { countryCode: 'IN', language: 'en', currency: 'INR' }) => render(
+    <MarketProvider initialPreference={initialPreference}>
         {ui}
     </MarketProvider>
 );
 
 describe('ProductCardInline', () => {
+    beforeEach(() => {
+        window.localStorage.removeItem(MARKET_STORAGE_KEY);
+    });
+
     it('shows a single select action in explore mode', () => {
         const onSelect = vi.fn();
 
@@ -58,7 +63,7 @@ describe('ProductCardInline', () => {
         expect(onViewDetails).toHaveBeenCalledWith('101');
     });
 
-    it('renders backend display pricing instead of falling back to base product price', () => {
+    it('renders inline pricing in the active market currency even when stale backend display pricing differs', () => {
         renderWithMarket(
             <ProductCardInline
                 product={{
@@ -69,14 +74,17 @@ describe('ProductCardInline', () => {
                         displayAmount: 699,
                         displayCurrency: 'USD',
                         originalDisplayAmount: 749,
+                        originalBaseAmount: 59999,
                     },
                 }}
                 mode="explore"
                 onSelect={vi.fn()}
-            />
+            />,
+            { countryCode: 'IN', language: 'en', currency: 'JPY' }
         );
 
-        expect(screen.getByText(/\$699(?:\.00)?/)).toBeInTheDocument();
-        expect(screen.getByText(/\$749(?:\.00)?/)).toBeInTheDocument();
+        expect(screen.queryByText(/\$699(?:\.00)?/)).not.toBeInTheDocument();
+        expect(screen.queryByText(/\$749(?:\.00)?/)).not.toBeInTheDocument();
+        expect(screen.getAllByText(/¥|JP¥/).length).toBeGreaterThan(0);
     });
 });

@@ -187,6 +187,50 @@ const MarketPreferenceCard = ({
   );
 };
 
+const MarketSnapshotCard = ({
+  t,
+  countryLabel,
+  currency,
+  languageLabel,
+  regionLabel,
+  browseCurrencyNote,
+  onOpenStudio,
+}) => (
+  <div className="rounded-[1.35rem] border border-white/10 bg-white/[0.03] px-4 py-3">
+    <div className="flex items-start justify-between gap-3">
+      <div>
+        <div className="text-[10px] font-black uppercase tracking-[0.22em] text-cyan-300/80">
+          {t('market.title', {}, 'Market Studio')}
+        </div>
+        <div className="mt-1 text-sm font-bold text-white">
+          {t('nav.marketSnapshotTitle', {}, 'Browse tuned to your market.')}
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={onOpenStudio}
+        className="rounded-full border border-white/12 bg-white/[0.05] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.14em] text-slate-200 transition-colors hover:bg-white/[0.09] hover:text-white"
+      >
+        {t('nav.tuneMarket', {}, 'Tune market')}
+      </button>
+    </div>
+
+    <div className="mt-3 flex flex-wrap gap-2 text-[11px] font-semibold text-slate-300">
+      <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1.5">{countryLabel}</span>
+      <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1.5">{languageLabel}</span>
+      <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1.5">{currency}</span>
+    </div>
+
+    <p className="mt-3 text-[11px] leading-5 text-slate-400">
+      {t(
+        'nav.marketSnapshotBody',
+        { region: regionLabel || t('market.regionFallback', {}, 'your region'), browseCurrencyNote },
+        `Region: ${regionLabel || t('market.regionFallback', {}, 'your region')}. ${browseCurrencyNote}`
+      )}
+    </p>
+  </div>
+);
+
 export const NavbarFailureFallback = () => {
   const t = createTranslator('en');
 
@@ -258,12 +302,14 @@ const Navbar = () => {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isQuickPanelOpen, setIsQuickPanelOpen] = useState(false);
+  const [isMarketPanelOpen, setIsMarketPanelOpen] = useState(false);
   const [isPreferencesOpen, setIsPreferencesOpen] = useState(false);
   const [isAdminToolsOpen, setIsAdminToolsOpen] = useState(false);
   const [showVoiceSearch, setShowVoiceSearch] = useState(false);
   const lastScrollYRef = useRef(0);
   const userMenuRef = useRef(null);
   const quickPanelRef = useRef(null);
+  const marketPanelRef = useRef(null);
   const location = useLocation();
   const navigate = useNavigate();
   const { currentUser, dbUser, logout } = useContext(AuthContext);
@@ -289,6 +335,7 @@ const Navbar = () => {
     formatNumber,
     t,
   } = useMarket();
+  const currentLanguage = languageOptions.find((option) => option.value === language) || languageOptions[0];
   const goToLoginPage = () => {
     if (typeof window !== 'undefined') {
       window.location.assign('/login');
@@ -337,6 +384,7 @@ const Navbar = () => {
     setIsUserMenuOpen(false);
     setIsNotificationsOpen(false);
     setIsQuickPanelOpen(false);
+    setIsMarketPanelOpen(false);
     setIsPreferencesOpen(false);
     setIsAdminToolsOpen(false);
   }, [location.pathname, location.search]);
@@ -344,6 +392,7 @@ const Navbar = () => {
   const handleNavigationShellDismiss = useCallback(() => {
     setIsUserMenuOpen(false);
     setIsQuickPanelOpen(false);
+    setIsMarketPanelOpen(false);
     setIsPreferencesOpen(false);
     setIsAdminToolsOpen(false);
   }, []);
@@ -353,12 +402,13 @@ const Navbar = () => {
     setIsUserMenuOpen(false);
     setIsNotificationsOpen(false);
     setIsQuickPanelOpen(false);
+    setIsMarketPanelOpen(false);
     setIsPreferencesOpen(false);
     setIsAdminToolsOpen(false);
   }, []);
 
   useDismissableLayer({
-    refs: [userMenuRef, quickPanelRef],
+    refs: [userMenuRef, quickPanelRef, marketPanelRef],
     onDismiss: handleNavigationShellDismiss,
     onEscape: handleNavigationShellEscape,
     ignoreSelectors: ['.premium-select-menu'],
@@ -367,13 +417,13 @@ const Navbar = () => {
   useEffect(() => {
     if (typeof document === 'undefined') return undefined;
 
-    const hasOverlayOpen = isQuickPanelOpen || isUserMenuOpen || isNotificationsOpen;
+    const hasOverlayOpen = isQuickPanelOpen || isMarketPanelOpen || isUserMenuOpen || isNotificationsOpen;
     document.body.classList.toggle('aura-nav-overlay-open', hasOverlayOpen);
 
     return () => {
       document.body.classList.remove('aura-nav-overlay-open');
     };
-  }, [isNotificationsOpen, isQuickPanelOpen, isUserMenuOpen]);
+  }, [isMarketPanelOpen, isNotificationsOpen, isQuickPanelOpen, isUserMenuOpen]);
 
   const categories = useMemo(
     () => [
@@ -504,10 +554,12 @@ const Navbar = () => {
     setIsAdminToolsOpen(false);
   };
   const closeQuickPanel = () => setIsQuickPanelOpen(false);
+  const closeMarketPanel = () => setIsMarketPanelOpen(false);
   const closeNotifications = () => setIsNotificationsOpen(false);
   const closeAllNavigationPanels = () => {
     setIsMobileMenuOpen(false);
     closeQuickPanel();
+    closeMarketPanel();
     closeNotifications();
     closeUserPanel();
   };
@@ -523,6 +575,7 @@ const Navbar = () => {
   };
   const handleProfileMenuToggle = () => {
     closeQuickPanel();
+    closeMarketPanel();
     closeNotifications();
     setIsMobileMenuOpen(false);
     setIsUserMenuOpen((open) => {
@@ -537,6 +590,7 @@ const Navbar = () => {
   const handleNotificationsOpenChange = (nextOpen) => {
     if (nextOpen) {
       closeQuickPanel();
+      closeMarketPanel();
       closeUserPanel();
       setIsMobileMenuOpen(false);
     }
@@ -544,6 +598,26 @@ const Navbar = () => {
   };
   const handleCloseUserMenu = () => {
     closeUserPanel();
+  };
+  const handleQuickPanelToggle = () => {
+    closeNotifications();
+    closeMarketPanel();
+    closeUserPanel();
+    setIsMobileMenuOpen(false);
+    setIsQuickPanelOpen((open) => !open);
+  };
+  const handleMarketPanelToggle = () => {
+    closeNotifications();
+    closeQuickPanel();
+    closeUserPanel();
+    setIsMobileMenuOpen(false);
+    setIsMarketPanelOpen((open) => !open);
+  };
+  const handleOpenMarketStudio = () => {
+    closeQuickPanel();
+    closeNotifications();
+    setIsMobileMenuOpen(false);
+    setIsMarketPanelOpen(true);
   };
   const userMenuPanelClasses = cn(
     'z-[60] overflow-x-hidden overflow-y-auto border border-white/12 bg-[#061018] shadow-[0_28px_90px_rgba(2,8,23,0.8)] ring-1 ring-white/8 animate-fade-in',
@@ -623,53 +697,50 @@ const Navbar = () => {
 
             {/* Right Actions */}
             <div className="flex items-center gap-1 sm:gap-1.5 lg:gap-2 flex-shrink-0">
-              <button
-                type="button"
-                onClick={() => setIsQuickPanelOpen((open) => !open)}
-                className={cn(
-                  'hidden lg:inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-black uppercase tracking-[0.14em] text-slate-200 transition-all duration-200',
-                  isQuickPanelOpen
-                    ? 'border-cyan-300/35 bg-cyan-400/12 text-white shadow-[0_0_18px_rgba(34,211,238,0.18)]'
-                    : 'border-white/10 bg-white/[0.045] hover:border-white/18 hover:bg-white/[0.08] hover:text-white'
-                )}
-                aria-label={`${countryLabel} ${currency} ${language.toUpperCase()}`}
-              >
-                <Globe2 className="h-4 w-4 text-neo-cyan" />
-                <span>{countryCode}</span>
-                <span className="hidden xl:inline">{currency}</span>
-              </button>
-              <div className="relative hidden lg:block" ref={quickPanelRef}>
+              <div className="relative hidden lg:block" ref={marketPanelRef}>
                 <button
                   type="button"
-                  onClick={() => setIsQuickPanelOpen((open) => !open)}
+                  onClick={handleMarketPanelToggle}
                   className={cn(
-                    'inline-flex items-center gap-2 rounded-full border px-3.5 py-2.5 text-sm font-semibold transition-all duration-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]',
-                    isQuickPanelOpen
+                    'inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-black uppercase tracking-[0.14em] text-slate-200 transition-all duration-200',
+                    isMarketPanelOpen
                       ? 'border-cyan-300/35 bg-cyan-400/12 text-white shadow-[0_0_18px_rgba(34,211,238,0.18)]'
-                      : 'border-white/10 bg-white/[0.045] text-slate-200 hover:border-white/18 hover:bg-white/[0.08] hover:text-white'
+                      : 'border-white/10 bg-white/[0.045] hover:border-white/18 hover:bg-white/[0.08] hover:text-white'
                   )}
-                  aria-label={t('nav.openQuickPanel', {}, 'Open quick access panel')}
-                  aria-expanded={isQuickPanelOpen}
+                  aria-label={t(
+                    'nav.openMarketPanel',
+                    { country: countryLabel, currency, language: currentLanguage?.nativeLabel || language.toUpperCase() },
+                    `Open market settings for ${countryLabel}, ${currency}, ${currentLanguage?.nativeLabel || language.toUpperCase()}`
+                  )}
+                  aria-expanded={isMarketPanelOpen}
                 >
-                  <LayoutGrid className="h-4 w-4 text-neo-cyan" />
-                      <span className="hidden 2xl:inline">{t('nav.explore', {}, 'Explore')}</span>
-                  <ChevronDown className={cn('h-4 w-4 opacity-60 transition-transform', isQuickPanelOpen && 'rotate-180')} />
+                  <Globe2 className="h-4 w-4 text-neo-cyan" />
+                  <span>{countryCode}</span>
+                  <span className="hidden xl:inline">{currency}</span>
                 </button>
 
-                {isQuickPanelOpen && (
+                {isMarketPanelOpen && (
                   <>
                     <button
                       type="button"
-                      aria-label={t('nav.closeExploreBackdrop', {}, 'Close explore panel backdrop')}
+                      aria-label={t('nav.closeMarketBackdrop', {}, 'Close market panel backdrop')}
                       className="fixed inset-0 z-40 bg-zinc-950/34"
-                      onClick={() => setIsQuickPanelOpen(false)}
+                      onClick={closeMarketPanel}
                     />
-                    <div className="absolute right-0 z-[60] mt-3 w-[23rem] max-w-[calc(100vw-2rem)] rounded-[1.7rem] border border-white/10 bg-[linear-gradient(180deg,rgba(7,12,24,0.98),rgba(5,9,20,0.98))] p-3.5 shadow-[0_26px_80px_rgba(2,8,23,0.7)] ring-1 ring-cyan-400/10">
+                    <div className="absolute right-0 z-[60] mt-3 w-[22rem] max-w-[calc(100vw-2rem)] rounded-[1.7rem] border border-white/10 bg-[linear-gradient(180deg,rgba(7,12,24,0.98),rgba(5,9,20,0.98))] p-3.5 shadow-[0_26px_80px_rgba(2,8,23,0.7)] ring-1 ring-cyan-400/10">
                       <div className="rounded-[1.35rem] border border-white/10 bg-white/[0.03] px-4 py-3">
-                        <div className="text-[10px] font-black uppercase tracking-[0.24em] text-cyan-300/80">{t('nav.explore', {}, 'Explore')}</div>
-                        <div className="mt-1 text-base font-black text-white">{t('nav.exploreTitle', {}, 'Curated routes for higher-intent shopping.')}</div>
+                        <div className="text-[10px] font-black uppercase tracking-[0.24em] text-cyan-300/80">
+                          {t('market.title', {}, 'Market Studio')}
+                        </div>
+                        <div className="mt-1 text-base font-black text-white">
+                          {t('nav.marketPanelTitle', {}, 'Country, language, and currency controls.')}
+                        </div>
                         <p className="mt-1 text-sm text-slate-400">
-                          {t('nav.exploreBody', {}, 'Discovery, comparison, and seller tools stay composed here so the main rail feels calm.')}
+                          {t(
+                            'nav.marketPanelBody',
+                            {},
+                            'Tune browsing without disturbing the main navigation rail.'
+                          )}
                         </p>
                       </div>
 
@@ -692,6 +763,56 @@ const Navbar = () => {
                           browseCurrencyNote={browseCurrencyNote}
                           isEstimatedPricing={currency !== 'INR'}
                           compact
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+              <div className="relative hidden lg:block" ref={quickPanelRef}>
+                <button
+                  type="button"
+                  onClick={handleQuickPanelToggle}
+                  className={cn(
+                    'inline-flex items-center gap-2 rounded-full border px-3.5 py-2.5 text-sm font-semibold transition-all duration-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]',
+                    isQuickPanelOpen
+                      ? 'border-cyan-300/35 bg-cyan-400/12 text-white shadow-[0_0_18px_rgba(34,211,238,0.18)]'
+                      : 'border-white/10 bg-white/[0.045] text-slate-200 hover:border-white/18 hover:bg-white/[0.08] hover:text-white'
+                  )}
+                  aria-label={t('nav.openQuickPanel', {}, 'Open quick access panel')}
+                  aria-expanded={isQuickPanelOpen}
+                >
+                  <LayoutGrid className="h-4 w-4 text-neo-cyan" />
+                      <span className="hidden 2xl:inline">{t('nav.explore', {}, 'Explore')}</span>
+                  <ChevronDown className={cn('h-4 w-4 opacity-60 transition-transform', isQuickPanelOpen && 'rotate-180')} />
+                </button>
+
+                {isQuickPanelOpen && (
+                  <>
+                    <button
+                      type="button"
+                      aria-label={t('nav.closeExploreBackdrop', {}, 'Close explore panel backdrop')}
+                      className="fixed inset-0 z-40 bg-zinc-950/34"
+                      onClick={closeQuickPanel}
+                    />
+                    <div className="absolute right-0 z-[60] mt-3 w-[23rem] max-w-[calc(100vw-2rem)] rounded-[1.7rem] border border-white/10 bg-[linear-gradient(180deg,rgba(7,12,24,0.98),rgba(5,9,20,0.98))] p-3.5 shadow-[0_26px_80px_rgba(2,8,23,0.7)] ring-1 ring-cyan-400/10">
+                      <div className="rounded-[1.35rem] border border-white/10 bg-white/[0.03] px-4 py-3">
+                        <div className="text-[10px] font-black uppercase tracking-[0.24em] text-cyan-300/80">{t('nav.explore', {}, 'Explore')}</div>
+                        <div className="mt-1 text-base font-black text-white">{t('nav.exploreTitle', {}, 'Curated routes for higher-intent shopping.')}</div>
+                        <p className="mt-1 text-sm text-slate-400">
+                          {t('nav.exploreBody', {}, 'Jump into discovery, comparison, and workspace routes without opening a full control surface.')}
+                        </p>
+                      </div>
+
+                      <div className="mt-3">
+                        <MarketSnapshotCard
+                          t={t}
+                          countryLabel={countryLabel}
+                          currency={currency}
+                          languageLabel={currentLanguage?.nativeLabel || language.toUpperCase()}
+                          regionLabel={regionLabel}
+                          browseCurrencyNote={browseCurrencyNote}
+                          onOpenStudio={handleOpenMarketStudio}
                         />
                       </div>
 

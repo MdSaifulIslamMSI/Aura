@@ -121,6 +121,8 @@ const loadMarketTestKit = async () => {
 };
 
 beforeEach(() => {
+    window.localStorage.clear();
+    window.sessionStorage.clear();
     getBrowseFxRatesMock.mockReset();
     readCachedBrowseFxRatesMock.mockReset();
     translateTextsMock.mockClear();

@@ -19,8 +19,7 @@ import { useDynamicTranslations } from '@/hooks/useDynamicTranslations';
 import { getLocalizedCategoryLabel } from '@/config/catalogTaxonomy';
 import { FIGMA_COLOR_MODE_OPTIONS } from '@/config/figmaTokens';
 import { cn } from '@/lib/utils';
-import { formatPrice } from '@/utils/format';
-import { getDisplayAmount, getDisplayCurrency, getOriginalDisplayAmount } from '@/utils/pricing';
+import { getBaseAmount, getBaseCurrency, getOriginalBaseAmount } from '@/utils/pricing';
 import { productApi } from '@/services/api';
 
 const FALLBACK_IMAGE = 'https://placehold.co/400x400/18181b/4ade80?text=Aura+Select';
@@ -124,7 +123,7 @@ const ProductCard = ({ product, variant = 'default', gridLayout = null, harmonyI
   const { toggleWishlist, isInWishlist } = useContext(WishlistContext);
   const { addToCart } = useContext(CartContext);
   const { colorMode } = useColorMode();
-  const { t, formatNumber } = useMarket();
+  const { t, formatNumber, formatPrice } = useMarket();
   const navigate = useNavigate();
   const [imageError, setImageError] = useState(false);
   const hasPrefetchedRef = useRef(false);
@@ -154,9 +153,9 @@ const ProductCard = ({ product, variant = 'default', gridLayout = null, harmonyI
   const inWishlist = productId ? isInWishlist(productId) : false;
   const ratingValue = formatRating(product?.rating);
   const ratingCount = Number(product?.ratingCount || 0);
-  const priceValue = getDisplayAmount(product);
-  const priceCurrency = getDisplayCurrency(product);
-  const originalPrice = getOriginalDisplayAmount(product);
+  const priceValue = getBaseAmount(product);
+  const priceCurrency = getBaseCurrency(product);
+  const originalPrice = getOriginalBaseAmount(product);
   const hasOriginalPrice = Number.isFinite(originalPrice) && originalPrice > priceValue;
   const discountValue = Math.max(0, Number(product?.discountPercentage || 0));
   const stockCount = Number(product?.stock || 0);
@@ -502,15 +501,15 @@ const ProductCard = ({ product, variant = 'default', gridLayout = null, harmonyI
           </div>
 
           <div className="mt-5 flex flex-wrap items-end gap-x-4 gap-y-2">
-            <span className={cn(
-              'text-4xl font-black tracking-tight',
-              isWhiteMode ? 'text-slate-950' : 'text-white'
-            )}>
-              {formatPrice(priceValue, priceCurrency)}
+              <span className={cn(
+                'text-4xl font-black tracking-tight',
+                isWhiteMode ? 'text-slate-950' : 'text-white'
+              )}>
+              {formatPrice(priceValue, undefined, undefined, { baseCurrency: priceCurrency })}
             </span>
             {hasOriginalPrice ? (
               <span className={cn('pb-1 text-sm line-through', subtleTextClass)}>
-                {formatPrice(originalPrice, priceCurrency)}
+                {formatPrice(originalPrice, undefined, undefined, { baseCurrency: priceCurrency })}
               </span>
             ) : null}
             {discountValue > 0 ? (
@@ -760,11 +759,11 @@ const ProductCard = ({ product, variant = 'default', gridLayout = null, harmonyI
             'text-[1.48rem] font-black tracking-tight sm:text-[1.62rem]',
             isWhiteMode ? 'text-slate-950' : 'text-white'
           )}>
-            {formatPrice(priceValue, priceCurrency)}
+            {formatPrice(priceValue, undefined, undefined, { baseCurrency: priceCurrency })}
           </span>
           {hasOriginalPrice ? (
             <span className={cn('pb-1 text-xs line-through', subtleTextClass)}>
-              {formatPrice(originalPrice, priceCurrency)}
+              {formatPrice(originalPrice, undefined, undefined, { baseCurrency: priceCurrency })}
             </span>
           ) : null}
         </div>
