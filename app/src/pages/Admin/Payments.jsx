@@ -3,6 +3,7 @@ import { Loader2, RefreshCw, CreditCard, ShieldAlert, CircleCheck, CircleX, Acti
 import { toast } from 'sonner';
 import AdminPremiumShell, { AdminHeroStat } from '@/components/shared/AdminPremiumShell';
 import PremiumSelect from '@/components/ui/premium-select';
+import { useMarket } from '@/context/MarketContext';
 import { paymentApi } from '@/services/api';
 import { formatPrice } from '@/utils/format';
 
@@ -36,12 +37,15 @@ const getMarketSummary = (intent = {}) => {
     const currency = intent.marketCurrency || intent.metadata?.paymentContext?.market?.currency || '';
     return [country, currency].filter(Boolean).join(' / ');
 };
-const getRefundInputLabel = (detail, amountMode) => {
-    if (amountMode === 'charge') return `Refund charge amount (${getChargeCurrency(detail)})`;
-    return `Refund settlement amount (${getSettlementCurrency(detail)})`;
+const getRefundInputLabel = (t, detail, amountMode) => {
+    if (amountMode === 'charge') {
+        return t('admin.payments.refund.chargeAmount', { currency: getChargeCurrency(detail) }, `Refund charge amount (${getChargeCurrency(detail)})`);
+    }
+    return t('admin.payments.refund.settlementAmount', { currency: getSettlementCurrency(detail) }, `Refund settlement amount (${getSettlementCurrency(detail)})`);
 };
 
 export default function AdminPayments() {
+    const { t, formatDateTime } = useMarket();
     const [listLoading, setListLoading] = useState(true);
     const [detailLoading, setDetailLoading] = useState(false);
     const [items, setItems] = useState([]);
@@ -77,7 +81,7 @@ export default function AdminPayments() {
                 setSelectedIntentId(data.items?.[0]?.intentId || '');
             }
         } catch (error) {
-            toast.error(error.message || 'Failed to load payments');
+            toast.error(error.message || t('admin.payments.error.loadList', {}, 'Failed to load payments'));
         } finally {
             setListLoading(false);
         }
@@ -89,7 +93,7 @@ export default function AdminPayments() {
             const data = await paymentApi.getAdminPaymentOpsOverview();
             setOverview(data);
         } catch (error) {
-            toast.error(error.message || 'Failed to load payment operations overview');
+            toast.error(error.message || t('admin.payments.error.loadOverview', {}, 'Failed to load payment operations overview'));
         } finally {
             setOverviewLoading(false);
         }
@@ -105,7 +109,7 @@ export default function AdminPayments() {
             const detail = await paymentApi.getAdminPaymentById(intentId);
             setSelectedDetail(detail);
         } catch (error) {
-            toast.error(error.message || 'Failed to load payment detail');
+            toast.error(error.message || t('admin.payments.error.loadDetail', {}, 'Failed to load payment detail'));
         } finally {
             setDetailLoading(false);
         }
@@ -140,10 +144,10 @@ export default function AdminPayments() {
         try {
             setActionBusy(true);
             await paymentApi.captureAdminPayment(selectedDetail.intentId);
-            toast.success('Capture completed');
+            toast.success(t('admin.payments.success.capture', {}, 'Capture completed'));
             await Promise.all([loadList(), loadOverview(), loadDetail(selectedDetail.intentId)]);
         } catch (error) {
-            toast.error(error.message || 'Capture failed');
+            toast.error(error.message || t('admin.payments.error.capture', {}, 'Capture failed'));
         } finally {
             setActionBusy(false);
         }
@@ -154,10 +158,10 @@ export default function AdminPayments() {
         try {
             setActionBusy(true);
             await paymentApi.retryAdminCapture(selectedDetail.intentId);
-            toast.success('Capture retry queued');
+            toast.success(t('admin.payments.success.retryQueued', {}, 'Capture retry queued'));
             await Promise.all([loadList(), loadOverview(), loadDetail(selectedDetail.intentId)]);
         } catch (error) {
-            toast.error(error.message || 'Failed to queue capture retry');
+            toast.error(error.message || t('admin.payments.error.retryCapture', {}, 'Failed to queue capture retry'));
         } finally {
             setActionBusy(false);
         }
@@ -167,7 +171,7 @@ export default function AdminPayments() {
         if (!selectedDetail?.intentId) return;
         const amount = refundForm.amount ? Number(refundForm.amount) : undefined;
         if (amount !== undefined && (!Number.isFinite(amount) || amount <= 0)) {
-            toast.error('Enter a valid refund amount');
+            toast.error(t('admin.payments.error.refundAmount', {}, 'Enter a valid refund amount'));
             return;
         }
 
@@ -179,10 +183,10 @@ export default function AdminPayments() {
                 reason: refundForm.reason || undefined,
             });
             setRefundForm((prev) => ({ ...prev, amount: '', reason: '' }));
-            toast.success('Refund created');
+            toast.success(t('admin.payments.success.refundCreated', {}, 'Refund created'));
             await Promise.all([loadList(), loadOverview(), loadDetail(selectedDetail.intentId)]);
         } catch (error) {
-            toast.error(error.message || 'Refund failed');
+            toast.error(error.message || t('admin.payments.error.refundFailed', {}, 'Refund failed'));
         } finally {
             setActionBusy(false);
         }
@@ -193,9 +197,9 @@ export default function AdminPayments() {
             setActionBusy(true);
             const result = await paymentApi.expireAdminStaleIntents({ limit: 100, dryRun: false });
             if (Number(result.expiredCount || 0) > 0) {
-                toast.success(`Expired ${result.expiredCount} stale payment intents`);
+                toast.success(t('admin.payments.success.expiredStale', { count: Number(result.expiredCount || 0) }, `Expired ${result.expiredCount} stale payment intents`));
             } else {
-                toast.info('No stale payment intents needed cleanup');
+                toast.info(t('admin.payments.info.noStaleIntents', {}, 'No stale payment intents needed cleanup'));
             }
             await Promise.all([
                 loadList(),
@@ -203,7 +207,7 @@ export default function AdminPayments() {
                 selectedIntentId ? loadDetail(selectedIntentId) : Promise.resolve(),
             ]);
         } catch (error) {
-            toast.error(error.message || 'Failed to expire stale payment intents');
+            toast.error(error.message || t('admin.payments.error.expireStale', {}, 'Failed to expire stale payment intents'));
         } finally {
             setActionBusy(false);
         }
@@ -211,38 +215,38 @@ export default function AdminPayments() {
 
     return (
         <AdminPremiumShell
-            eyebrow="Payment ops"
-            title="Payment operations"
-            description="Review intents, capture operations, provider status, and refund execution from a more premium payment command console."
+            eyebrow={t('admin.payments.eyebrow', {}, 'Payment ops')}
+            title={t('admin.payments.title', {}, 'Payment operations')}
+            description={t('admin.payments.description', {}, 'Review intents, capture operations, provider status, and refund execution from a more premium payment command console.')}
             actions={(
                 <button type="button" onClick={() => Promise.all([loadList(), loadOverview(), selectedIntentId ? loadDetail(selectedIntentId) : Promise.resolve()])} className="admin-premium-button">
                     <RefreshCw className="h-4 w-4" />
-                    Refresh
+                    {t('admin.shared.refresh', {}, 'Refresh')}
                 </button>
             )}
             stats={[
-                <AdminHeroStat key="records" label="Records" value={total} detail={`Page ${page} of ${totalPages}`} icon={<CreditCard className="h-5 w-5" />} />,
-                <AdminHeroStat key="selected" label="Selected intent" value={selectedDetail?.status || 'none'} detail={selectedDetail?.intentId || 'Choose an intent from the queue'} icon={<ShieldAlert className="h-5 w-5" />} />,
-                <AdminHeroStat key="ops" label="Ops attention" value={overview?.attentionLevel || (overviewLoading ? 'loading' : 'nominal')} detail={overview?.alerts?.[0]?.message || 'No critical payment alerts'} icon={<Activity className="h-5 w-5" />} />,
+                <AdminHeroStat key="records" label={t('admin.payments.stats.records', {}, 'Records')} value={total} detail={t('admin.shared.pageOf', { page, total: totalPages }, `Page ${page} of ${totalPages}`)} icon={<CreditCard className="h-5 w-5" />} />,
+                <AdminHeroStat key="selected" label={t('admin.payments.stats.selectedIntent', {}, 'Selected intent')} value={selectedDetail?.status || t('admin.shared.none', {}, 'none')} detail={selectedDetail?.intentId || t('admin.payments.stats.chooseIntent', {}, 'Choose an intent from the queue')} icon={<ShieldAlert className="h-5 w-5" />} />,
+                <AdminHeroStat key="ops" label={t('admin.payments.stats.opsAttention', {}, 'Ops attention')} value={overview?.attentionLevel || (overviewLoading ? t('admin.shared.loadingWord', {}, 'loading') : t('admin.payments.stats.nominal', {}, 'nominal'))} detail={overview?.alerts?.[0]?.message || t('admin.payments.stats.noCriticalAlerts', {}, 'No critical payment alerts')} icon={<Activity className="h-5 w-5" />} />,
             ]}
         >
             <div className="admin-premium-panel mb-4">
                 {overviewLoading ? (
                     <div className="flex items-center gap-2 text-sm text-gray-500">
                         <Loader2 className="h-4 w-4 animate-spin" />
-                        Loading payment operations overview...
+                        {t('admin.payments.loadingOverview', {}, 'Loading payment operations overview...')}
                     </div>
                 ) : overview ? (
                     <div className="space-y-4">
                         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                             <div>
-                                <p className="text-xs font-bold uppercase tracking-[0.24em] text-gray-500">Finance control tower</p>
+                                <p className="text-xs font-bold uppercase tracking-[0.24em] text-gray-500">{t('admin.payments.overview.kicker', {}, 'Finance control tower')}</p>
                                 <h2 className="mt-2 text-lg font-bold text-gray-900">
-                                    Provider {overview.provider?.name || 'unknown'} is {overview.provider?.status || 'unknown'}
+                                    {t('admin.payments.overview.providerStatus', { provider: overview.provider?.name || t('admin.shared.unknown', {}, 'unknown'), status: overview.provider?.status || t('admin.shared.unknown', {}, 'unknown') }, `Provider ${overview.provider?.name || 'unknown'} is ${overview.provider?.status || 'unknown'}`)}
                                 </h2>
                                 <p className="mt-1 text-sm text-gray-500">
-                                    Attention level: <span className="font-semibold text-gray-800">{overview.attentionLevel}</span>
-                                    {' '}| Capture mode: {overview.provider?.captureMode || 'n/a'}
+                                    {t('admin.payments.overview.attentionLevel', {}, 'Attention level')}: <span className="font-semibold text-gray-800">{overview.attentionLevel}</span>
+                                    {' '}| {t('admin.payments.overview.captureMode', {}, 'Capture mode')}: {overview.provider?.captureMode || t('admin.shared.notAvailable', {}, 'n/a')}
                                 </p>
                             </div>
                             <div className="flex flex-wrap gap-2">
@@ -253,33 +257,33 @@ export default function AdminPayments() {
                                     className="admin-premium-button admin-premium-button-accent px-4 py-2 text-xs font-bold uppercase tracking-wider disabled:opacity-50"
                                 >
                                     <Clock3 className="h-3.5 w-3.5" />
-                                    Expire Stale Intents
+                                    {t('admin.payments.actions.expireStaleIntents', {}, 'Expire Stale Intents')}
                                 </button>
                             </div>
                         </div>
 
                         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-                            <OpsTile label="Stale intents" value={overview.intents?.staleExpiredCandidates || 0} detail={`${overview.intents?.expiringSoon || 0} expiring soon`} />
-                            <OpsTile label="Authorized aging" value={overview.intents?.authorizedNeedingAttention || 0} detail={overview.intents?.oldestAuthorized ? `${overview.intents.oldestAuthorized.ageMinutes} min oldest auth` : 'No aging authorizations'} />
-                            <OpsTile label="Outbox backlog" value={overview.outbox?.pending || 0} detail={`${overview.outbox?.failed || 0} failed | ${overview.outbox?.processing || 0} processing`} />
-                            <OpsTile label="Webhook flow" value={overview.webhooks?.events24h || 0} detail={`${overview.webhooks?.confirmFailures24h || 0} confirm failures in 24h`} />
+                            <OpsTile label={t('admin.payments.tiles.staleIntents', {}, 'Stale intents')} value={overview.intents?.staleExpiredCandidates || 0} detail={t('admin.payments.tiles.expiringSoon', { count: overview.intents?.expiringSoon || 0 }, `${overview.intents?.expiringSoon || 0} expiring soon`)} />
+                            <OpsTile label={t('admin.payments.tiles.authorizedAging', {}, 'Authorized aging')} value={overview.intents?.authorizedNeedingAttention || 0} detail={overview.intents?.oldestAuthorized ? t('admin.payments.tiles.oldestAuth', { minutes: overview.intents.oldestAuthorized.ageMinutes }, `${overview.intents.oldestAuthorized.ageMinutes} min oldest auth`) : t('admin.payments.tiles.noAgingAuthorizations', {}, 'No aging authorizations')} />
+                            <OpsTile label={t('admin.payments.tiles.outboxBacklog', {}, 'Outbox backlog')} value={overview.outbox?.pending || 0} detail={t('admin.payments.tiles.outboxDetail', { failed: overview.outbox?.failed || 0, processing: overview.outbox?.processing || 0 }, `${overview.outbox?.failed || 0} failed | ${overview.outbox?.processing || 0} processing`)} />
+                            <OpsTile label={t('admin.payments.tiles.webhookFlow', {}, 'Webhook flow')} value={overview.webhooks?.events24h || 0} detail={t('admin.payments.tiles.webhookFailures', { count: overview.webhooks?.confirmFailures24h || 0 }, `${overview.webhooks?.confirmFailures24h || 0} confirm failures in 24h`)} />
                         </div>
 
                         <div className="grid grid-cols-1 gap-3 xl:grid-cols-3">
                             <OpsTile
-                                label="International intents"
+                                label={t('admin.payments.tiles.internationalIntents', {}, 'International intents')}
                                 value={overview.markets?.internationalIntents || 0}
-                                detail={overview.markets?.settlementCurrency ? `Settlement currency ${overview.markets.settlementCurrency}` : 'Settlement currency unavailable'}
+                                detail={overview.markets?.settlementCurrency ? t('admin.payments.tiles.settlementCurrency', { currency: overview.markets.settlementCurrency }, `Settlement currency ${overview.markets.settlementCurrency}`) : t('admin.payments.tiles.settlementCurrencyUnavailable', {}, 'Settlement currency unavailable')}
                             />
                             <OpsTile
-                                label="Top countries"
-                                value={(overview.markets?.topCountries || []).slice(0, 2).map((entry) => entry.countryCode).join(', ') || 'n/a'}
-                                detail={(overview.markets?.topCountries || []).slice(0, 2).map((entry) => `${entry.countryCode}: ${entry.count}`).join(' | ') || 'No market spread yet'}
+                                label={t('admin.payments.tiles.topCountries', {}, 'Top countries')}
+                                value={(overview.markets?.topCountries || []).slice(0, 2).map((entry) => entry.countryCode).join(', ') || t('admin.shared.notAvailable', {}, 'n/a')}
+                                detail={(overview.markets?.topCountries || []).slice(0, 2).map((entry) => `${entry.countryCode}: ${entry.count}`).join(' | ') || t('admin.payments.tiles.noMarketSpread', {}, 'No market spread yet')}
                             />
                             <OpsTile
-                                label="Top currencies"
-                                value={(overview.markets?.topCurrencies || []).slice(0, 2).map((entry) => entry.currency).join(', ') || 'n/a'}
-                                detail={(overview.markets?.topCurrencies || []).slice(0, 2).map((entry) => `${entry.currency}: ${entry.count}`).join(' | ') || 'No currency spread yet'}
+                                label={t('admin.payments.tiles.topCurrencies', {}, 'Top currencies')}
+                                value={(overview.markets?.topCurrencies || []).slice(0, 2).map((entry) => entry.currency).join(', ') || t('admin.shared.notAvailable', {}, 'n/a')}
+                                detail={(overview.markets?.topCurrencies || []).slice(0, 2).map((entry) => `${entry.currency}: ${entry.count}`).join(' | ') || t('admin.payments.tiles.noCurrencySpread', {}, 'No currency spread yet')}
                             />
                         </div>
 
@@ -304,7 +308,7 @@ export default function AdminPayments() {
                     className="admin-premium-control"
                 >
                     {STATUS_OPTIONS.map((value) => (
-                        <option key={value || 'all'} value={value}>{value ? `Status: ${value}` : 'All Statuses'}</option>
+                        <option key={value || 'all'} value={value}>{value ? t('admin.payments.filters.statusOption', { value }, `Status: ${value}`) : t('admin.payments.filters.allStatuses', {}, 'All Statuses')}</option>
                     ))}
                 </PremiumSelect>
                 <PremiumSelect
@@ -313,7 +317,7 @@ export default function AdminPayments() {
                     className="admin-premium-control"
                 >
                     {METHOD_OPTIONS.map((value) => (
-                        <option key={value || 'all'} value={value}>{value ? `Method: ${value}` : 'All Methods'}</option>
+                        <option key={value || 'all'} value={value}>{value ? t('admin.payments.filters.methodOption', { value }, `Method: ${value}`) : t('admin.payments.filters.allMethods', {}, 'All Methods')}</option>
                     ))}
                 </PremiumSelect>
                 <PremiumSelect
@@ -322,12 +326,12 @@ export default function AdminPayments() {
                     className="admin-premium-control"
                 >
                     {PROVIDER_OPTIONS.map((value) => (
-                        <option key={value || 'all'} value={value}>{value ? `Provider: ${value}` : 'All Providers'}</option>
+                        <option key={value || 'all'} value={value}>{value ? t('admin.payments.filters.providerOption', { value }, `Provider: ${value}`) : t('admin.payments.filters.allProviders', {}, 'All Providers')}</option>
                     ))}
                 </PremiumSelect>
                 <div className="flex items-center justify-between gap-3 text-sm md:justify-end">
-                    <span className="text-gray-500">{total} records</span>
-                    <span className="text-gray-500">Page {page}/{totalPages}</span>
+                    <span className="text-gray-500">{t('admin.payments.filters.recordCount', { count: total }, `${total} records`)}</span>
+                    <span className="text-gray-500">{t('admin.shared.pageFraction', { page, pages: totalPages }, `Page ${page}/${totalPages}`)}</span>
                 </div>
             </div>
 
@@ -336,10 +340,10 @@ export default function AdminPayments() {
                     {listLoading ? (
                         <div className="p-6 text-gray-500 flex items-center gap-2">
                             <Loader2 className="w-4 h-4 animate-spin" />
-                            Loading payment intents...
+                            {t('admin.payments.loadingList', {}, 'Loading payment intents...')}
                         </div>
                     ) : items.length === 0 ? (
-                        <div className="p-6 text-sm text-gray-500">No payment intents found for selected filters.</div>
+                        <div className="p-6 text-sm text-gray-500">{t('admin.payments.empty', {}, 'No payment intents found for selected filters.')}</div>
                     ) : (
                         <div className="max-h-[70vh] overflow-y-auto">
                             {items.map((item) => (
@@ -361,11 +365,11 @@ export default function AdminPayments() {
                                         <span>{formatPrice(item.amount || 0, getChargeCurrency(item))}</span>
                                         {getChargeCurrency(item) !== getSettlementCurrency(item) ? (
                                             <span className="text-emerald-600">
-                                                Settles {formatPrice(getSettlementAmount(item), getSettlementCurrency(item))}
+                                                {t('admin.payments.list.settles', { amount: formatPrice(getSettlementAmount(item), getSettlementCurrency(item)) }, `Settles ${formatPrice(getSettlementAmount(item), getSettlementCurrency(item))}`)}
                                             </span>
                                         ) : null}
                                     </div>
-                                    <p className="text-xs text-gray-400 mt-1">{new Date(item.createdAt).toLocaleString()}</p>
+                                    <p className="text-xs text-gray-400 mt-1">{formatDateTime(item.createdAt)}</p>
                                 </button>
                             ))}
                         </div>
@@ -378,7 +382,7 @@ export default function AdminPayments() {
                             onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
                             className="admin-premium-button px-3 py-1.5 text-xs disabled:opacity-50"
                         >
-                            Previous
+                            {t('admin.shared.previous', {}, 'Previous')}
                         </button>
                         <button
                             type="button"
@@ -386,7 +390,7 @@ export default function AdminPayments() {
                             onClick={() => setPage((prev) => prev + 1)}
                             className="admin-premium-button px-3 py-1.5 text-xs disabled:opacity-50"
                         >
-                            Next
+                            {t('admin.shared.next', {}, 'Next')}
                         </button>
                     </div>
                 </div>
@@ -395,10 +399,10 @@ export default function AdminPayments() {
                     {detailLoading ? (
                         <div className="text-gray-500 flex items-center gap-2">
                             <Loader2 className="w-4 h-4 animate-spin" />
-                            Loading payment detail...
+                            {t('admin.payments.loadingDetail', {}, 'Loading payment detail...')}
                         </div>
                     ) : !selectedDetail ? (
-                        <p className="text-sm text-gray-500">Select a payment intent to view details.</p>
+                        <p className="text-sm text-gray-500">{t('admin.payments.selectIntentPrompt', {}, 'Select a payment intent to view details.')}</p>
                     ) : (
                         <div className="space-y-5">
                             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
@@ -414,30 +418,30 @@ export default function AdminPayments() {
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                                <InfoTile label="User" value={selectedDetail.user?.email || '-'} />
-                                <InfoTile label="Order" value={selectedDetail.order?._id || '-'} />
-                                <InfoTile label="Charge" value={formatPrice(selectedDetail.amount || 0, getChargeCurrency(selectedDetail))} />
-                                <InfoTile label="Settlement" value={formatPrice(getSettlementAmount(selectedDetail), getSettlementCurrency(selectedDetail))} />
+                                <InfoTile label={t('admin.payments.detail.user', {}, 'User')} value={selectedDetail.user?.email || '-'} />
+                                <InfoTile label={t('admin.payments.detail.order', {}, 'Order')} value={selectedDetail.order?._id || '-'} />
+                                <InfoTile label={t('admin.payments.detail.charge', {}, 'Charge')} value={formatPrice(selectedDetail.amount || 0, getChargeCurrency(selectedDetail))} />
+                                <InfoTile label={t('admin.payments.detail.settlement', {}, 'Settlement')} value={formatPrice(getSettlementAmount(selectedDetail), getSettlementCurrency(selectedDetail))} />
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                <InfoTile label="Risk Decision" value={selectedDetail.riskSnapshot?.decision || '-'} />
-                                <InfoTile label="Market" value={getMarketSummary(selectedDetail) || '-'} />
-                                <InfoTile label="FX Mode" value={getChargeCurrency(selectedDetail) !== getSettlementCurrency(selectedDetail) ? 'Cross-border presentment' : 'Domestic settlement'} />
+                                <InfoTile label={t('admin.payments.detail.riskDecision', {}, 'Risk Decision')} value={selectedDetail.riskSnapshot?.decision || '-'} />
+                                <InfoTile label={t('admin.payments.detail.market', {}, 'Market')} value={getMarketSummary(selectedDetail) || '-'} />
+                                <InfoTile label={t('admin.payments.detail.fxMode', {}, 'FX Mode')} value={getChargeCurrency(selectedDetail) !== getSettlementCurrency(selectedDetail) ? t('admin.payments.detail.crossBorderPresentment', {}, 'Cross-border presentment') : t('admin.payments.detail.domesticSettlement', {}, 'Domestic settlement')} />
                             </div>
 
                             {getChargeCurrency(selectedDetail) !== getSettlementCurrency(selectedDetail) ? (
                                 <div className="admin-premium-subpanel">
-                                    <h3 className="font-semibold text-sm text-gray-900 mb-3">Charge Architecture</h3>
+                                    <h3 className="font-semibold text-sm text-gray-900 mb-3">{t('admin.payments.detail.chargeArchitecture', {}, 'Charge Architecture')}</h3>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
                                         <div>
-                                            <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-gray-500">Customer charge</p>
+                                            <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-gray-500">{t('admin.payments.detail.customerCharge', {}, 'Customer charge')}</p>
                                             <p className="mt-2 text-base font-semibold text-gray-900">
                                                 {formatPrice(selectedDetail.amount || 0, getChargeCurrency(selectedDetail))}
                                             </p>
                                         </div>
                                         <div>
-                                            <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-gray-500">Provider settlement</p>
+                                            <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-gray-500">{t('admin.payments.detail.providerSettlement', {}, 'Provider settlement')}</p>
                                             <p className="mt-2 text-base font-semibold text-gray-900">
                                                 {formatPrice(getSettlementAmount(selectedDetail), getSettlementCurrency(selectedDetail))}
                                             </p>
@@ -447,13 +451,13 @@ export default function AdminPayments() {
                             ) : null}
 
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                <InfoTile label="Provider Payment ID" value={selectedDetail.providerPaymentId || '-'} />
-                                <InfoTile label="Provider Order ID" value={selectedDetail.providerOrderId || '-'} />
-                                <InfoTile label="Bank / Rail Context" value={selectedDetail.metadata?.paymentContext?.netbanking?.bankCode || selectedDetail.metadata?.providerMethodSnapshot?.bankCode || '-'} />
+                                <InfoTile label={t('admin.payments.detail.providerPaymentId', {}, 'Provider Payment ID')} value={selectedDetail.providerPaymentId || '-'} />
+                                <InfoTile label={t('admin.payments.detail.providerOrderId', {}, 'Provider Order ID')} value={selectedDetail.providerOrderId || '-'} />
+                                <InfoTile label={t('admin.payments.detail.bankRailContext', {}, 'Bank / Rail Context')} value={selectedDetail.metadata?.paymentContext?.netbanking?.bankCode || selectedDetail.metadata?.providerMethodSnapshot?.bankCode || '-'} />
                             </div>
 
                             <div className="admin-premium-subpanel">
-                                <h3 className="font-semibold text-sm text-gray-900 mb-3">Admin Actions</h3>
+                                <h3 className="font-semibold text-sm text-gray-900 mb-3">{t('admin.payments.actions.title', {}, 'Admin Actions')}</h3>
                                 <div className="flex flex-wrap gap-2 mb-4">
                                     <button
                                         type="button"
@@ -462,7 +466,7 @@ export default function AdminPayments() {
                                         className="admin-premium-button admin-premium-button-accent px-4 py-2 text-xs font-bold uppercase tracking-wider disabled:opacity-50"
                                     >
                                         <CircleCheck className="w-3.5 h-3.5" />
-                                        Capture Now
+                                        {t('admin.payments.actions.captureNow', {}, 'Capture Now')}
                                     </button>
                                     <button
                                         type="button"
@@ -471,7 +475,7 @@ export default function AdminPayments() {
                                         className="admin-premium-button px-4 py-2 text-xs font-bold uppercase tracking-wider disabled:opacity-50"
                                     >
                                         <ShieldAlert className="w-3.5 h-3.5" />
-                                        Retry Capture
+                                        {t('admin.payments.actions.retryCapture', {}, 'Retry Capture')}
                                     </button>
                                 </div>
 
@@ -482,7 +486,7 @@ export default function AdminPayments() {
                                         value={refundForm.amount}
                                         onChange={(e) => setRefundForm((prev) => ({ ...prev, amount: e.target.value }))}
                                         className="admin-premium-control"
-                                        placeholder={`${getRefundInputLabel(selectedDetail, refundForm.amountMode)} (optional)`}
+                                        placeholder={`${getRefundInputLabel(t, selectedDetail, refundForm.amountMode)} (${t('admin.shared.optional', {}, 'optional')})`}
                                     />
                                     <PremiumSelect
                                         value={refundForm.amountMode}
@@ -495,7 +499,9 @@ export default function AdminPayments() {
                                                 value={option.value}
                                                 disabled={option.value === 'charge' && getChargeCurrency(selectedDetail) === getSettlementCurrency(selectedDetail)}
                                             >
-                                                {option.label}
+                                                {option.value === 'charge'
+                                                    ? t('admin.payments.refund.mode.charge', {}, option.label)
+                                                    : t('admin.payments.refund.mode.settlement', {}, option.label)}
                                             </option>
                                         ))}
                                     </PremiumSelect>
@@ -505,13 +511,13 @@ export default function AdminPayments() {
                                         value={refundForm.reason}
                                         onChange={(e) => setRefundForm((prev) => ({ ...prev, reason: e.target.value }))}
                                         className="admin-premium-control"
-                                        placeholder="Refund reason"
+                                        placeholder={t('admin.payments.refund.reason', {}, 'Refund reason')}
                                     />
                                 </div>
                                 <p className="mt-2 text-xs text-gray-500">
                                     {refundForm.amountMode === 'charge'
-                                        ? `This amount is interpreted in ${getChargeCurrency(selectedDetail)} and converted back into settlement totals for refund integrity.`
-                                        : `This amount is interpreted in ${getSettlementCurrency(selectedDetail)} settlement currency.`}
+                                        ? t('admin.payments.refund.chargeHint', { currency: getChargeCurrency(selectedDetail) }, `This amount is interpreted in ${getChargeCurrency(selectedDetail)} and converted back into settlement totals for refund integrity.`)
+                                        : t('admin.payments.refund.settlementHint', { currency: getSettlementCurrency(selectedDetail) }, `This amount is interpreted in ${getSettlementCurrency(selectedDetail)} settlement currency.`)}
                                 </p>
                                 <button
                                     type="button"
@@ -520,23 +526,23 @@ export default function AdminPayments() {
                                     className="admin-premium-button admin-premium-button-danger mt-2 px-4 py-2 text-xs font-bold uppercase tracking-wider disabled:opacity-50"
                                 >
                                     <CircleX className="w-3.5 h-3.5" />
-                                    Create Refund
+                                    {t('admin.payments.actions.createRefund', {}, 'Create Refund')}
                                 </button>
                             </div>
 
                             <div className="admin-premium-subpanel">
                                 <h3 className="font-semibold text-sm text-gray-900 mb-3 flex items-center gap-2">
                                     <CreditCard className="w-4 h-4" />
-                                    Event Timeline
+                                    {t('admin.payments.timeline.events', {}, 'Event Timeline')}
                                 </h3>
                                 <div className="space-y-2 max-h-72 overflow-y-auto">
                                     {(selectedDetail.events || []).length === 0 ? (
-                                        <p className="text-xs text-gray-500">No events logged yet.</p>
+                                        <p className="text-xs text-gray-500">{t('admin.payments.timeline.eventsEmpty', {}, 'No events logged yet.')}</p>
                                     ) : selectedDetail.events.map((event) => (
                                         <div key={event.eventId} className="admin-premium-subpanel rounded-lg text-xs">
                                             <div className="flex items-center justify-between gap-2">
                                                 <span className="font-semibold text-gray-800">{event.type}</span>
-                                                <span className="text-gray-400">{new Date(event.receivedAt).toLocaleString()}</span>
+                                                <span className="text-gray-400">{formatDateTime(event.receivedAt)}</span>
                                             </div>
                                             <p className="text-gray-500 mt-1">{event.source}</p>
                                         </div>
@@ -546,20 +552,20 @@ export default function AdminPayments() {
 
                             {Array.isArray(selectedDetail.refundSummary?.refunds) && selectedDetail.refundSummary.refunds.length > 0 ? (
                                 <div className="admin-premium-subpanel">
-                                    <h3 className="font-semibold text-sm text-gray-900 mb-3">Refund Timeline</h3>
+                                    <h3 className="font-semibold text-sm text-gray-900 mb-3">{t('admin.payments.timeline.refunds', {}, 'Refund Timeline')}</h3>
                                     <div className="space-y-2 max-h-72 overflow-y-auto">
                                         {selectedDetail.refundSummary.refunds.map((refund) => (
                                             <div key={refund.refundId || refund.createdAt} className="admin-premium-subpanel rounded-lg text-xs">
                                                 <div className="flex items-center justify-between gap-2">
-                                                    <span className="font-semibold text-gray-800">{refund.refundId || 'refund'}</span>
-                                                    <span className="text-gray-400">{refund.status || 'processed'}</span>
+                                                    <span className="font-semibold text-gray-800">{refund.refundId || t('admin.payments.timeline.refundFallback', {}, 'refund')}</span>
+                                                    <span className="text-gray-400">{refund.status || t('admin.payments.timeline.processed', {}, 'processed')}</span>
                                                 </div>
                                                 <p className="mt-1 text-gray-700">
                                                     {formatPrice(refund.amount || refund.presentmentAmount || 0, refund.currency || refund.presentmentCurrency || 'INR')}
                                                 </p>
                                                 {(refund.presentmentCurrency || refund.settlementCurrency) && (refund.presentmentCurrency !== refund.settlementCurrency) ? (
                                                     <p className="mt-1 text-gray-500">
-                                                        Settlement {formatPrice(refund.settlementAmount || 0, refund.settlementCurrency || 'INR')}
+                                                        {t('admin.payments.detail.settlementValue', { amount: formatPrice(refund.settlementAmount || 0, refund.settlementCurrency || 'INR') }, `Settlement ${formatPrice(refund.settlementAmount || 0, refund.settlementCurrency || 'INR')}`)}
                                                     </p>
                                                 ) : null}
                                             </div>

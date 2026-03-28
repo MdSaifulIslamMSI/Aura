@@ -14,7 +14,9 @@ import {
 import { toast } from 'sonner';
 import AdminPremiumShell, { AdminHeroStat } from '@/components/shared/AdminPremiumShell';
 import PremiumSelect from '@/components/ui/premium-select';
+import { useMarket } from '@/context/MarketContext';
 import { adminApi } from '@/services/api';
+import { normalizeEnumToken, translateEnumLabel } from '@/utils/enumLocalization';
 
 const SUMMARY_FALLBACK = {
     provider: {
@@ -48,12 +50,6 @@ const SUMMARY_FALLBACK = {
 const DELIVERIES_FALLBACK = { items: [], total: 0, page: 1, limit: 12 };
 const QUEUE_FALLBACK = { items: [], total: 0, page: 1, limit: 10 };
 
-const formatDateTime = (value) => {
-    if (!value) return '-';
-    const date = new Date(value);
-    return Number.isNaN(date.getTime()) ? '-' : date.toLocaleString();
-};
-
 const statusPillClass = (status) => {
     switch (String(status || '').toLowerCase()) {
         case 'sent':
@@ -75,7 +71,48 @@ const providerPillClass = (enabled) => enabled
     ? 'border-cyan-200 bg-cyan-50 text-cyan-700'
     : 'border-slate-200 bg-slate-50 text-slate-500';
 
+const formatEmailStatus = (t, value) => {
+    const normalized = String(value || '').trim().toLowerCase();
+    switch (normalized) {
+        case 'sent':
+            return t('admin.email.status.sent', {}, 'Sent');
+        case 'failed':
+            return t('admin.email.status.failed', {}, 'Failed');
+        case 'retry':
+            return t('admin.email.status.retry', {}, 'Retry');
+        case 'processing':
+            return t('admin.email.status.processing', {}, 'Processing');
+        case 'pending':
+            return t('admin.email.status.pending', {}, 'Pending');
+        case 'skipped':
+            return t('admin.email.status.skipped', {}, 'Skipped');
+        case 'unknown':
+            return t('admin.email.status.unknown', {}, 'Unknown');
+        default:
+            return value || t('admin.shared.unknown', {}, 'unknown');
+    }
+};
+
+const formatEmailProvider = (t, value) => {
+    const normalized = normalizeEnumToken(value);
+    switch (normalized) {
+        case 'gmail':
+            return 'Gmail';
+        case 'resend':
+            return 'Resend';
+        case 'disabled':
+            return t('admin.email.disabled', {}, 'Disabled');
+        case 'unknown':
+            return t('admin.shared.unknown', {}, 'Unknown');
+        default:
+            return translateEnumLabel(t, 'admin.email.provider', value);
+    }
+};
+
+const formatEmailEventType = (t, value) => translateEnumLabel(t, 'admin.email.eventType', value);
+
 export default function AdminEmailOps() {
+    const { t, formatDateTime } = useMarket();
     const [summary, setSummary] = useState(SUMMARY_FALLBACK);
     const [summaryLoading, setSummaryLoading] = useState(true);
     const [deliveries, setDeliveries] = useState(DELIVERIES_FALLBACK);
@@ -106,7 +143,7 @@ export default function AdminEmailOps() {
             const response = await adminApi.getEmailOpsSummary();
             setSummary(response?.summary || SUMMARY_FALLBACK);
         } catch (error) {
-            toast.error(error.message || 'Failed to load email operations summary');
+            toast.error(error.message || t('admin.email.error.loadSummary', {}, 'Failed to load email operations summary'));
             setSummary(SUMMARY_FALLBACK);
         } finally {
             setSummaryLoading(false);
@@ -124,7 +161,7 @@ export default function AdminEmailOps() {
                 limit: Number(response?.limit || deliveryFilters.limit || 12),
             });
         } catch (error) {
-            toast.error(error.message || 'Failed to load delivery logs');
+            toast.error(error.message || t('admin.email.error.loadDeliveries', {}, 'Failed to load delivery logs'));
             setDeliveries(DELIVERIES_FALLBACK);
         } finally {
             setDeliveriesLoading(false);
@@ -142,7 +179,7 @@ export default function AdminEmailOps() {
                 limit: Number(response?.limit || queueFilters.limit || 10),
             });
         } catch (error) {
-            toast.error(error.message || 'Failed to load order email queue');
+            toast.error(error.message || t('admin.email.error.loadQueue', {}, 'Failed to load order email queue'));
             setQueue(QUEUE_FALLBACK);
         } finally {
             setQueueLoading(false);
@@ -166,10 +203,10 @@ export default function AdminEmailOps() {
         try {
             setRetryingId(notificationId);
             await adminApi.retryEmailQueueItem(notificationId);
-            toast.success('Order email retry queued');
+            toast.success(t('admin.email.success.retryQueued', {}, 'Order email retry queued'));
             await Promise.all([loadSummary(), loadQueue()]);
         } catch (error) {
-            toast.error(error.message || 'Failed to retry order email');
+            toast.error(error.message || t('admin.email.error.retry', {}, 'Failed to retry order email'));
         } finally {
             setRetryingId('');
         }
@@ -181,10 +218,10 @@ export default function AdminEmailOps() {
             const response = await adminApi.sendEmailOpsTest({
                 recipientEmail: testRecipient.trim() || undefined,
             });
-            toast.success(`Test email queued to ${response?.delivery?.recipientEmail || 'designated inbox'}`);
+            toast.success(t('admin.email.success.testSent', { recipient: response?.delivery?.recipientEmail || t('admin.email.designatedInbox', {}, 'designated inbox') }, `Test email queued to ${response?.delivery?.recipientEmail || 'designated inbox'}`));
             await Promise.all([loadSummary(), loadDeliveries()]);
         } catch (error) {
-            toast.error(error.message || 'Failed to send test email');
+            toast.error(error.message || t('admin.email.error.sendTest', {}, 'Failed to send test email'));
         } finally {
             setTestSending(false);
         }
@@ -192,55 +229,55 @@ export default function AdminEmailOps() {
 
     return (
         <AdminPremiumShell
-            eyebrow="Unified Messaging Control"
-            title="Email operations portal"
-            description="One operational command deck for provider posture, persistent delivery logs, live failure visibility, and order-email recovery workflows."
+            eyebrow={t('admin.email.eyebrow', {}, 'Unified Messaging Control')}
+            title={t('admin.email.title', {}, 'Email operations portal')}
+            description={t('admin.email.description', {}, 'One operational command deck for provider posture, persistent delivery logs, live failure visibility, and order-email recovery workflows.')}
             actions={(
                 <>
                     <input
                         type="email"
                         value={testRecipient}
                         onChange={(event) => setTestRecipient(event.target.value)}
-                        placeholder="Optional designate email"
+                        placeholder={t('admin.email.testRecipientPlaceholder', {}, 'Optional designate email')}
                         className="admin-premium-control min-w-[240px]"
                     />
                     <button type="button" className="admin-premium-button admin-premium-button-success" onClick={sendTestEmail} disabled={testSending}>
                         <Send className="h-4 w-4" />
-                        {testSending ? 'Sending test...' : 'Send test'}
+                        {testSending ? t('admin.email.sendingTest', {}, 'Sending test...') : t('admin.email.actions.sendTest', {}, 'Send test')}
                     </button>
                     <button type="button" className="admin-premium-button admin-premium-button-accent" onClick={refreshAll}>
                         <RefreshCw className="h-4 w-4" />
-                        Refresh all
+                        {t('admin.email.actions.refreshAll', {}, 'Refresh all')}
                     </button>
                 </>
             )}
             stats={[
                 <AdminHeroStat
                     key="provider"
-                    label="Active provider"
-                    value={summaryLoading ? '...' : String(summary.provider.active || 'unknown').toUpperCase()}
-                    detail={summaryLoading ? 'Loading provider posture' : (summary.provider.orderEmailsEnabled ? 'Transactional email armed' : 'Transactional email disabled')}
+                    label={t('admin.email.stats.activeProvider', {}, 'Active provider')}
+                    value={summaryLoading ? t('admin.shared.busy', {}, '...') : formatEmailProvider(t, summary.provider.active || t('admin.shared.unknown', {}, 'unknown'))}
+                    detail={summaryLoading ? t('admin.email.loadingProviderPosture', {}, 'Loading provider posture') : (summary.provider.orderEmailsEnabled ? t('admin.email.transactionalArmed', {}, 'Transactional email armed') : t('admin.email.transactionalDisabled', {}, 'Transactional email disabled'))}
                     icon={<Mail className="h-5 w-5" />}
                 />,
                 <AdminHeroStat
                     key="sent"
-                    label="Sent in 24h"
-                    value={summaryLoading ? '...' : Number(summary.last24h.statuses.sent || 0)}
-                    detail={summaryLoading ? 'Loading delivery log' : `${Number(summary.last24h.total || 0)} total attempts`}
+                    label={t('admin.email.stats.sent24h', {}, 'Sent in 24h')}
+                    value={summaryLoading ? t('admin.shared.busy', {}, '...') : Number(summary.last24h.statuses.sent || 0)}
+                    detail={summaryLoading ? t('admin.email.loadingDeliveryLog', {}, 'Loading delivery log') : t('admin.email.totalAttempts', { count: Number(summary.last24h.total || 0) }, `${Number(summary.last24h.total || 0)} total attempts`)}
                     icon={<Send className="h-5 w-5" />}
                 />,
                 <AdminHeroStat
                     key="failed"
-                    label="Failed in 24h"
-                    value={summaryLoading ? '...' : Number(summary.last24h.statuses.failed || 0)}
-                    detail={summaryLoading ? 'Loading failures' : `${Number(summary.recentFailures.length || 0)} recent failure records`}
+                    label={t('admin.email.stats.failed24h', {}, 'Failed in 24h')}
+                    value={summaryLoading ? t('admin.shared.busy', {}, '...') : Number(summary.last24h.statuses.failed || 0)}
+                    detail={summaryLoading ? t('admin.email.loadingFailures', {}, 'Loading failures') : t('admin.email.recentFailureRecords', { count: Number(summary.recentFailures.length || 0) }, `${Number(summary.recentFailures.length || 0)} recent failure records`)}
                     icon={<MailWarning className="h-5 w-5" />}
                 />,
                 <AdminHeroStat
                     key="queue"
-                    label="Queue backlog"
-                    value={summaryLoading ? '...' : queueBacklog}
-                    detail={summaryLoading ? 'Loading queue health' : (summary.queue.workerRunning ? 'Worker online' : 'Worker attention required')}
+                    label={t('admin.email.stats.queueBacklog', {}, 'Queue backlog')}
+                    value={summaryLoading ? t('admin.shared.busy', {}, '...') : queueBacklog}
+                    detail={summaryLoading ? t('admin.email.loadingQueueHealth', {}, 'Loading queue health') : (summary.queue.workerRunning ? t('admin.email.workerOnline', {}, 'Worker online') : t('admin.email.workerAttentionRequired', {}, 'Worker attention required'))}
                     icon={<ShieldCheck className="h-5 w-5" />}
                 />,
             ]}
@@ -249,33 +286,33 @@ export default function AdminEmailOps() {
                 <section className="admin-premium-panel">
                     <div className="flex items-center justify-between">
                         <div>
-                            <h2 className="text-lg font-semibold text-slate-900">Provider posture</h2>
-                            <p className="text-sm text-slate-500">Real sender wiring and designate addresses.</p>
+                            <h2 className="text-lg font-semibold text-slate-900">{t('admin.email.providerPosture', {}, 'Provider posture')}</h2>
+                            <p className="text-sm text-slate-500">{t('admin.email.providerPostureBody', {}, 'Real sender wiring and designate addresses.')}</p>
                         </div>
                         <span className={`rounded-full border px-2.5 py-1 text-xs font-bold uppercase tracking-wide ${providerPillClass(summary.provider.orderEmailsEnabled)}`}>
-                            {summary.provider.orderEmailsEnabled ? 'armed' : 'disabled'}
+                            {summary.provider.orderEmailsEnabled ? t('admin.email.armed', {}, 'armed') : t('admin.email.disabled', {}, 'disabled')}
                         </span>
                     </div>
 
                     <div className="mt-4 grid grid-cols-1 gap-3">
-                        <ProviderLine label="Active provider" value={summary.provider.active || 'unknown'} />
-                        <ProviderLine label="From" value={summary.provider.fromAddress || '-'} />
-                        <ProviderLine label="Reply-to" value={summary.provider.replyTo || '-'} />
-                        <ProviderLine label="Failure alert" value={summary.provider.alertTo || '-'} />
+                        <ProviderLine label={t('admin.email.stats.activeProvider', {}, 'Active provider')} value={formatEmailProvider(t, summary.provider.active || t('admin.shared.unknown', {}, 'unknown'))} />
+                        <ProviderLine label={t('admin.email.from', {}, 'From')} value={summary.provider.fromAddress || '-'} />
+                        <ProviderLine label={t('admin.email.replyTo', {}, 'Reply-to')} value={summary.provider.replyTo || '-'} />
+                        <ProviderLine label={t('admin.email.failureAlert', {}, 'Failure alert')} value={summary.provider.alertTo || '-'} />
                     </div>
 
                     <div className="mt-4 flex flex-wrap gap-2">
                         <span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${providerPillClass(summary.provider.available.gmail)}`}>
-                            Gmail {summary.provider.available.gmail ? 'configured' : 'missing'}
+                            Gmail {summary.provider.available.gmail ? t('admin.email.configured', {}, 'configured') : t('admin.email.missing', {}, 'missing')}
                         </span>
                         <span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${providerPillClass(summary.provider.available.resend)}`}>
-                            Resend {summary.provider.available.resend ? 'configured' : 'missing'}
+                            Resend {summary.provider.available.resend ? t('admin.email.configured', {}, 'configured') : t('admin.email.missing', {}, 'missing')}
                         </span>
                         <span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${providerPillClass(summary.provider.resendWebhookConfigured)}`}>
-                            Resend webhook {summary.provider.resendWebhookConfigured ? 'configured' : 'missing'}
+                            {t('admin.email.resendWebhook', {}, 'Resend webhook')} {summary.provider.resendWebhookConfigured ? t('admin.email.configured', {}, 'configured') : t('admin.email.missing', {}, 'missing')}
                         </span>
                         <span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${providerPillClass(summary.provider.activityEmailsEnabled)}`}>
-                            Activity email {summary.provider.activityEmailsEnabled ? 'enabled' : 'disabled'}
+                            {t('admin.email.activityEmail', {}, 'Activity email')} {summary.provider.activityEmailsEnabled ? t('admin.email.enabled', {}, 'enabled') : t('admin.email.disabled', {}, 'disabled')}
                         </span>
                     </div>
                 </section>
@@ -283,31 +320,31 @@ export default function AdminEmailOps() {
                 <section className="admin-premium-panel">
                     <div className="flex items-center justify-between">
                         <div>
-                            <h2 className="text-lg font-semibold text-slate-900">Queue health</h2>
-                            <p className="text-sm text-slate-500">Persistent order-email worker state.</p>
+                            <h2 className="text-lg font-semibold text-slate-900">{t('admin.email.queueHealth', {}, 'Queue health')}</h2>
+                            <p className="text-sm text-slate-500">{t('admin.email.queueHealthBody', {}, 'Persistent order-email worker state.')}</p>
                         </div>
                         <span className={`rounded-full border px-2.5 py-1 text-xs font-bold uppercase tracking-wide ${statusPillClass(summary.queue.status)}`}>
-                            {summary.queue.status}
+                            {formatEmailStatus(t, summary.queue.status)}
                         </span>
                     </div>
                     <div className="mt-4 grid grid-cols-2 gap-3">
-                        <MetricCard label="Pending" value={summary.queue.pending} icon={<Clock3 className="h-4 w-4 text-amber-600" />} />
-                        <MetricCard label="Processing" value={summary.queue.processing} icon={<RefreshCw className="h-4 w-4 text-cyan-600" />} />
-                        <MetricCard label="Retry" value={summary.queue.retry} icon={<RotateCcw className="h-4 w-4 text-indigo-600" />} />
-                        <MetricCard label="Failed" value={summary.queue.failed} icon={<XCircle className="h-4 w-4 text-rose-600" />} />
+                        <MetricCard label={t('admin.email.pending', {}, 'Pending')} value={summary.queue.pending} icon={<Clock3 className="h-4 w-4 text-amber-600" />} />
+                        <MetricCard label={t('admin.email.processing', {}, 'Processing')} value={summary.queue.processing} icon={<RefreshCw className="h-4 w-4 text-cyan-600" />} />
+                        <MetricCard label={t('admin.email.retry', {}, 'Retry')} value={summary.queue.retry} icon={<RotateCcw className="h-4 w-4 text-indigo-600" />} />
+                        <MetricCard label={t('admin.email.failed', {}, 'Failed')} value={summary.queue.failed} icon={<XCircle className="h-4 w-4 text-rose-600" />} />
                     </div>
                 </section>
 
                 <section className="admin-premium-panel">
-                    <h2 className="text-lg font-semibold text-slate-900">Event mix (24h)</h2>
-                    <p className="text-sm text-slate-500">Top email-producing flows across the app.</p>
+                    <h2 className="text-lg font-semibold text-slate-900">{t('admin.email.eventMix', {}, 'Event mix (24h)')}</h2>
+                    <p className="text-sm text-slate-500">{t('admin.email.eventMixBody', {}, 'Top email-producing flows across the app.')}</p>
                     <div className="mt-4 space-y-2">
                         {(summary.last24h.eventTypes || []).length === 0 ? (
-                            <p className="rounded-xl border border-dashed border-slate-200 p-4 text-sm text-slate-500">No persistent events logged yet.</p>
+                            <p className="rounded-xl border border-dashed border-slate-200 p-4 text-sm text-slate-500">{t('admin.email.emptyEvents', {}, 'No persistent events logged yet.')}</p>
                         ) : (
                             summary.last24h.eventTypes.map((entry) => (
                                 <div key={entry.eventType} className="flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2">
-                                    <span className="text-sm font-medium text-slate-700">{entry.eventType}</span>
+                                    <span className="text-sm font-medium text-slate-700">{formatEmailEventType(t, entry.eventType)}</span>
                                     <span className="text-sm font-bold text-slate-900">{entry.count}</span>
                                 </div>
                             ))
@@ -320,26 +357,26 @@ export default function AdminEmailOps() {
                 <section className="admin-premium-panel">
                     <div className="flex items-center justify-between">
                         <div>
-                            <h2 className="text-lg font-semibold text-slate-900">Recent failures</h2>
-                            <p className="text-sm text-slate-500">Fastest signal for live provider trouble.</p>
+                            <h2 className="text-lg font-semibold text-slate-900">{t('admin.email.recentFailures', {}, 'Recent failures')}</h2>
+                            <p className="text-sm text-slate-500">{t('admin.email.recentFailuresBody', {}, 'Fastest signal for live provider trouble.')}</p>
                         </div>
                         <AlertTriangle className="h-5 w-5 text-rose-600" />
                     </div>
                     <div className="mt-4 space-y-3">
                         {(summary.recentFailures || []).length === 0 ? (
-                            <p className="rounded-xl border border-dashed border-slate-200 p-4 text-sm text-emerald-700">No recent persistent failures.</p>
+                            <p className="rounded-xl border border-dashed border-slate-200 p-4 text-sm text-emerald-700">{t('admin.email.emptyFailures', {}, 'No recent persistent failures.')}</p>
                         ) : (
                             summary.recentFailures.map((entry) => (
                                 <div key={entry.deliveryId} className="rounded-xl border border-rose-200 bg-rose-50 p-3">
                                     <div className="flex flex-wrap items-center gap-2">
-                                        <span className="text-sm font-semibold text-rose-900">{entry.eventType}</span>
+                                        <span className="text-sm font-semibold text-rose-900">{formatEmailEventType(t, entry.eventType)}</span>
                                         <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${statusPillClass(entry.status)}`}>
-                                            {entry.status}
+                                            {formatEmailStatus(t, entry.status)}
                                         </span>
-                                        <span className="text-xs text-rose-700">{entry.provider}</span>
+                                        <span className="text-xs text-rose-700">{formatEmailProvider(t, entry.provider)}</span>
                                     </div>
                                     <p className="mt-1 text-xs text-rose-800">{entry.recipientEmail || entry.recipientMask || '-'}</p>
-                                    <p className="mt-1 text-xs text-rose-800">{entry.errorCode || 'UNKNOWN'}: {entry.errorMessage || 'No error message captured'}</p>
+                                    <p className="mt-1 text-xs text-rose-800">{entry.errorCode || t('admin.email.unknownCode', {}, 'UNKNOWN')}: {entry.errorMessage || t('admin.email.noErrorMessage', {}, 'No error message captured')}</p>
                                     <p className="mt-1 text-[11px] text-rose-700">{formatDateTime(entry.createdAt)}</p>
                                 </div>
                             ))
@@ -350,23 +387,23 @@ export default function AdminEmailOps() {
                 <section className="admin-premium-panel">
                     <div className="flex items-center justify-between">
                         <div>
-                            <h2 className="text-lg font-semibold text-slate-900">Latest deliveries</h2>
-                            <p className="text-sm text-slate-500">Persistent gateway records across all email services.</p>
+                            <h2 className="text-lg font-semibold text-slate-900">{t('admin.email.latestDeliveries', {}, 'Latest deliveries')}</h2>
+                            <p className="text-sm text-slate-500">{t('admin.email.latestDeliveriesBody', {}, 'Persistent gateway records across all email services.')}</p>
                         </div>
                         <CheckCircle2 className="h-5 w-5 text-emerald-600" />
                     </div>
                     <div className="mt-4 space-y-3">
                         {(summary.latestDeliveries || []).length === 0 ? (
-                            <p className="rounded-xl border border-dashed border-slate-200 p-4 text-sm text-slate-500">No delivery records yet.</p>
+                            <p className="rounded-xl border border-dashed border-slate-200 p-4 text-sm text-slate-500">{t('admin.email.emptyDeliveries', {}, 'No delivery records yet.')}</p>
                         ) : (
                             summary.latestDeliveries.map((entry) => (
                                 <div key={entry.deliveryId} className="rounded-xl border border-slate-200 p-3">
                                     <div className="flex flex-wrap items-center gap-2">
-                                        <span className="text-sm font-semibold text-slate-900">{entry.eventType}</span>
+                                        <span className="text-sm font-semibold text-slate-900">{formatEmailEventType(t, entry.eventType)}</span>
                                         <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${statusPillClass(entry.status)}`}>
-                                            {entry.status}
+                                            {formatEmailStatus(t, entry.status)}
                                         </span>
-                                        <span className="text-xs text-slate-500">{entry.provider}</span>
+                                        <span className="text-xs text-slate-500">{formatEmailProvider(t, entry.provider)}</span>
                                     </div>
                                     <p className="mt-1 text-xs text-slate-600">{entry.recipientEmail || entry.recipientMask || '-'}</p>
                                     <p className="mt-1 text-[11px] text-slate-500">{formatDateTime(entry.createdAt)}</p>
@@ -380,29 +417,29 @@ export default function AdminEmailOps() {
             <section className="admin-premium-panel">
                 <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
                     <div>
-                        <h2 className="text-lg font-semibold text-slate-900">Delivery explorer</h2>
-                        <p className="text-sm text-slate-500">Search OTP, activity, admin-action, and order email delivery history in one place.</p>
+                        <h2 className="text-lg font-semibold text-slate-900">{t('admin.email.deliveryExplorer', {}, 'Delivery explorer')}</h2>
+                        <p className="text-sm text-slate-500">{t('admin.email.deliveryExplorerBody', {}, 'Search OTP, activity, admin-action, and order email delivery history in one place.')}</p>
                     </div>
                     <div className="flex flex-wrap gap-2">
                         <input
                             type="text"
                             value={deliveryFilters.search}
                             onChange={(event) => setDeliveryFilters((prev) => ({ ...prev, page: 1, search: event.target.value }))}
-                            placeholder="Search recipient, event, request, subject..."
+                            placeholder={t('admin.email.searchDeliveriesPlaceholder', {}, 'Search recipient, event, request, subject...')}
                             className="admin-premium-control min-w-[260px]"
                         />
                         <PremiumSelect value={deliveryFilters.status} onChange={(event) => setDeliveryFilters((prev) => ({ ...prev, page: 1, status: event.target.value }))} className="admin-premium-control min-w-[140px]">
-                            <option value="">All statuses</option>
-                            <option value="sent">Sent</option>
-                            <option value="failed">Failed</option>
-                            <option value="skipped">Skipped</option>
+                            <option value="">{t('admin.email.allStatuses', {}, 'All statuses')}</option>
+                            <option value="sent">{t('admin.email.sent', {}, 'Sent')}</option>
+                            <option value="failed">{t('admin.email.failed', {}, 'Failed')}</option>
+                            <option value="skipped">{t('admin.email.skipped', {}, 'Skipped')}</option>
                         </PremiumSelect>
                         <PremiumSelect value={deliveryFilters.provider} onChange={(event) => setDeliveryFilters((prev) => ({ ...prev, page: 1, provider: event.target.value }))} className="admin-premium-control min-w-[140px]">
-                            <option value="">All providers</option>
-                            <option value="gmail">Gmail</option>
-                            <option value="resend">Resend</option>
-                            <option value="disabled">Disabled</option>
-                            <option value="unknown">Unknown</option>
+                            <option value="">{t('admin.email.allProviders', {}, 'All providers')}</option>
+                            <option value="gmail">{formatEmailProvider(t, 'gmail')}</option>
+                            <option value="resend">{formatEmailProvider(t, 'resend')}</option>
+                            <option value="disabled">{t('admin.email.disabled', {}, 'Disabled')}</option>
+                            <option value="unknown">{t('admin.shared.unknown', {}, 'Unknown')}</option>
                         </PremiumSelect>
                     </div>
                 </div>
@@ -411,33 +448,33 @@ export default function AdminEmailOps() {
                     <table className="min-w-full divide-y divide-slate-200">
                         <thead>
                             <tr className="text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                                <th className="px-3 py-2">Event</th>
-                                <th className="px-3 py-2">Recipient</th>
-                                <th className="px-3 py-2">Provider</th>
-                                <th className="px-3 py-2">Status</th>
-                                <th className="px-3 py-2">Time</th>
+                                <th className="px-3 py-2">{t('admin.email.table.event', {}, 'Event')}</th>
+                                <th className="px-3 py-2">{t('admin.email.table.recipient', {}, 'Recipient')}</th>
+                                <th className="px-3 py-2">{t('admin.email.table.provider', {}, 'Provider')}</th>
+                                <th className="px-3 py-2">{t('admin.email.table.status', {}, 'Status')}</th>
+                                <th className="px-3 py-2">{t('admin.email.table.time', {}, 'Time')}</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                             {deliveriesLoading ? (
-                                <tr><td className="px-3 py-6 text-sm text-slate-500" colSpan={5}>Loading delivery logs...</td></tr>
+                                <tr><td className="px-3 py-6 text-sm text-slate-500" colSpan={5}>{t('admin.email.loadingDeliveries', {}, 'Loading delivery logs...')}</td></tr>
                             ) : deliveries.items.length === 0 ? (
-                                <tr><td className="px-3 py-6 text-sm text-slate-500" colSpan={5}>No delivery logs match current filters.</td></tr>
+                                <tr><td className="px-3 py-6 text-sm text-slate-500" colSpan={5}>{t('admin.email.emptyDeliveryLogs', {}, 'No delivery logs match current filters.')}</td></tr>
                             ) : (
                                 deliveries.items.map((entry) => (
                                     <tr key={entry.deliveryId} className="text-sm text-slate-700">
                                         <td className="px-3 py-3">
-                                            <div className="font-semibold text-slate-900">{entry.eventType}</div>
+                                            <div className="font-semibold text-slate-900">{formatEmailEventType(t, entry.eventType)}</div>
                                             <div className="text-xs text-slate-500">{entry.subject || '-'}</div>
                                         </td>
                                         <td className="px-3 py-3">
                                             <div>{entry.recipientEmail || entry.recipientMask || '-'}</div>
                                             <div className="text-xs text-slate-500">{entry.requestId || '-'}</div>
                                         </td>
-                                        <td className="px-3 py-3">{entry.provider}</td>
+                                        <td className="px-3 py-3">{formatEmailProvider(t, entry.provider)}</td>
                                         <td className="px-3 py-3">
                                             <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${statusPillClass(entry.status)}`}>
-                                                {entry.status}
+                                                {formatEmailStatus(t, entry.status)}
                                             </span>
                                             {entry.errorCode ? <div className="mt-1 text-xs text-rose-600">{entry.errorCode}</div> : null}
                                         </td>
@@ -453,24 +490,24 @@ export default function AdminEmailOps() {
             <section className="admin-premium-panel">
                 <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
                     <div>
-                        <h2 className="text-lg font-semibold text-slate-900">Order email queue</h2>
-                        <p className="text-sm text-slate-500">Persistent retry console for customer order confirmations.</p>
+                        <h2 className="text-lg font-semibold text-slate-900">{t('admin.email.orderQueue', {}, 'Order email queue')}</h2>
+                        <p className="text-sm text-slate-500">{t('admin.email.orderQueueBody', {}, 'Persistent retry console for customer order confirmations.')}</p>
                     </div>
                     <div className="flex flex-wrap gap-2">
                         <input
                             type="text"
                             value={queueFilters.recipient}
                             onChange={(event) => setQueueFilters((prev) => ({ ...prev, page: 1, recipient: event.target.value }))}
-                            placeholder="Filter by recipient"
+                            placeholder={t('admin.email.filterRecipientPlaceholder', {}, 'Filter by recipient')}
                             className="admin-premium-control min-w-[220px]"
                         />
                         <PremiumSelect value={queueFilters.status} onChange={(event) => setQueueFilters((prev) => ({ ...prev, page: 1, status: event.target.value }))} className="admin-premium-control min-w-[150px]">
-                            <option value="">All queue states</option>
-                            <option value="pending">Pending</option>
-                            <option value="processing">Processing</option>
-                            <option value="retry">Retry</option>
-                            <option value="sent">Sent</option>
-                            <option value="failed">Failed</option>
+                            <option value="">{t('admin.email.allQueueStates', {}, 'All queue states')}</option>
+                            <option value="pending">{t('admin.email.pending', {}, 'Pending')}</option>
+                            <option value="processing">{t('admin.email.processing', {}, 'Processing')}</option>
+                            <option value="retry">{t('admin.email.retry', {}, 'Retry')}</option>
+                            <option value="sent">{t('admin.email.sent', {}, 'Sent')}</option>
+                            <option value="failed">{t('admin.email.failed', {}, 'Failed')}</option>
                         </PremiumSelect>
                     </div>
                 </div>
@@ -479,19 +516,19 @@ export default function AdminEmailOps() {
                     <table className="min-w-full divide-y divide-slate-200">
                         <thead>
                             <tr className="text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                                <th className="px-3 py-2">Notification</th>
-                                <th className="px-3 py-2">Recipient</th>
-                                <th className="px-3 py-2">Attempts</th>
-                                <th className="px-3 py-2">State</th>
-                                <th className="px-3 py-2">Next attempt</th>
-                                <th className="px-3 py-2">Action</th>
+                                <th className="px-3 py-2">{t('admin.email.table.notification', {}, 'Notification')}</th>
+                                <th className="px-3 py-2">{t('admin.email.table.recipient', {}, 'Recipient')}</th>
+                                <th className="px-3 py-2">{t('admin.email.table.attempts', {}, 'Attempts')}</th>
+                                <th className="px-3 py-2">{t('admin.email.table.state', {}, 'State')}</th>
+                                <th className="px-3 py-2">{t('admin.email.table.nextAttempt', {}, 'Next attempt')}</th>
+                                <th className="px-3 py-2">{t('admin.email.table.action', {}, 'Action')}</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                             {queueLoading ? (
-                                <tr><td className="px-3 py-6 text-sm text-slate-500" colSpan={6}>Loading queue...</td></tr>
+                                <tr><td className="px-3 py-6 text-sm text-slate-500" colSpan={6}>{t('admin.email.loadingQueue', {}, 'Loading queue...')}</td></tr>
                             ) : queue.items.length === 0 ? (
-                                <tr><td className="px-3 py-6 text-sm text-slate-500" colSpan={6}>No queued notifications match current filters.</td></tr>
+                                <tr><td className="px-3 py-6 text-sm text-slate-500" colSpan={6}>{t('admin.email.emptyQueue', {}, 'No queued notifications match current filters.')}</td></tr>
                             ) : (
                                 queue.items.map((entry) => (
                                     <tr key={entry.notificationId} className="text-sm text-slate-700">
@@ -506,7 +543,7 @@ export default function AdminEmailOps() {
                                         <td className="px-3 py-3">{entry.attemptCount} / {entry.maxAttempts}</td>
                                         <td className="px-3 py-3">
                                             <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${statusPillClass(entry.status)}`}>
-                                                {entry.status}
+                                                {formatEmailStatus(t, entry.status)}
                                             </span>
                                             {entry.lastErrorCode ? <div className="mt-1 text-xs text-rose-600">{entry.lastErrorCode}</div> : null}
                                         </td>
@@ -518,7 +555,7 @@ export default function AdminEmailOps() {
                                                 onClick={() => retryQueueItem(entry.notificationId)}
                                                 disabled={retryingId === entry.notificationId || entry.status === 'processing' || entry.status === 'sent'}
                                             >
-                                                {retryingId === entry.notificationId ? 'Retrying...' : 'Retry'}
+                                                {retryingId === entry.notificationId ? t('admin.email.retrying', {}, 'Retrying...') : t('admin.email.retry', {}, 'Retry')}
                                             </button>
                                         </td>
                                     </tr>

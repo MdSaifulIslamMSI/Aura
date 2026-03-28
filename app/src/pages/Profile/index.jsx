@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { AuthContext } from '@/context/AuthContext';
 import { CartContext } from '@/context/CartContext';
+import { useMarket } from '@/context/MarketContext';
 import { WishlistContext } from '@/context/WishlistContext';
 import { paymentApi, trustApi, userApi, intelligenceApi } from '@/services/api';
 import { cn } from '@/lib/utils';
@@ -37,17 +38,17 @@ import AccountStatusBanner from './components/AccountStatusBanner';
 import SupportSection from './components/SupportSection';
 import NotificationsSection from './components/NotificationsSection';
 
-const TABS = [
-    { id: 'overview', label: 'Overview', icon: BarChart3 },
-    { id: 'personal', label: 'Personal Info', icon: User },
-    { id: 'addresses', label: 'Addresses', icon: MapPin },
-    { id: 'orders', label: 'Orders', icon: Package },
-    { id: 'rewards', label: 'Aura Points', icon: Sparkles },
-    { id: 'listings', label: 'My Listings', icon: Store },
-    { id: 'payments', label: 'Payments', icon: CreditCard },
-    { id: 'notifications', label: 'Notifications', icon: Bell },
-    { id: 'support', label: 'Appeals & Support', icon: Shield },
-    { id: 'settings', label: 'Settings', icon: Settings },
+const buildTabs = (t) => [
+    { id: 'overview', label: t('profile.tab.overview', {}, 'Overview'), icon: BarChart3 },
+    { id: 'personal', label: t('profile.tab.personal', {}, 'Personal Info'), icon: User },
+    { id: 'addresses', label: t('profile.tab.addresses', {}, 'Addresses'), icon: MapPin },
+    { id: 'orders', label: t('profile.tab.orders', {}, 'Orders'), icon: Package },
+    { id: 'rewards', label: t('profile.tab.rewards', {}, 'Aura Points'), icon: Sparkles },
+    { id: 'listings', label: t('profile.tab.listings', {}, 'My Listings'), icon: Store },
+    { id: 'payments', label: t('profile.tab.payments', {}, 'Payments'), icon: CreditCard },
+    { id: 'notifications', label: t('profile.tab.notifications', {}, 'Notifications'), icon: Bell },
+    { id: 'support', label: t('profile.tab.support', {}, 'Appeals & Support'), icon: Shield },
+    { id: 'settings', label: t('profile.tab.settings', {}, 'Settings'), icon: Settings },
 ];
 
 const ADDRESS_TYPES = [
@@ -71,6 +72,7 @@ export default function Profile() {
     const { currentUser, dbUser, logout, updateProfile: updateProfileInContext } = useContext(AuthContext);
     const { cartItems } = useContext(CartContext);
     const { wishlistItems } = useContext(WishlistContext);
+    const { t } = useMarket();
     const navigate = useNavigate();
     const location = useLocation();
     const [searchParams, setSearchParams] = useSearchParams();
@@ -109,6 +111,7 @@ export default function Profile() {
     });
 
     const fileInputRef = useRef(null);
+    const tabs = useMemo(() => buildTabs(t), [t]);
 
     const createEditForm = (source = {}) => ({
         name: source.name || '',
@@ -278,10 +281,10 @@ export default function Profile() {
 
     useEffect(() => {
         const requestedTab = String(searchParams.get('tab') || '').trim();
-        if (requestedTab && TABS.some((tab) => tab.id === requestedTab)) {
+        if (requestedTab && tabs.some((tab) => tab.id === requestedTab)) {
             setActiveTab(requestedTab);
         }
-    }, [searchParams]);
+    }, [searchParams, tabs]);
 
     const handleTabChange = useCallback((tabId) => {
         setActiveTab(tabId);
@@ -315,9 +318,9 @@ export default function Profile() {
             setProfile((previous) => ({ ...previous, ...updated }));
             setEditForm(createEditForm({ ...profile, ...updated }));
             setEditMode(false);
-            showMsg('success', 'Profile updated successfully.');
+            showMsg('success', t('profile.message.profileUpdated', {}, 'Profile updated successfully.'));
         } catch (error) {
-            showMsg('error', error.message || 'Failed to update profile.');
+            showMsg('error', error.message || t('profile.message.profileUpdateFailed', {}, 'Failed to update profile.'));
         } finally {
             setSaving(false);
         }
@@ -334,9 +337,9 @@ export default function Profile() {
                     ? await updateProfileInContext({ avatar: reader.result })
                     : await userApi.updateProfile({ avatar: reader.result });
                 setProfile((previous) => ({ ...previous, avatar: updated.avatar }));
-                showMsg('success', 'Avatar updated.');
+                showMsg('success', t('profile.message.avatarUpdated', {}, 'Avatar updated.'));
             } catch (error) {
-                showMsg('error', error.message || 'Failed to update avatar.');
+                showMsg('error', error.message || t('profile.message.avatarUpdateFailed', {}, 'Failed to update avatar.'));
             }
         };
         reader.readAsDataURL(file);
@@ -376,22 +379,24 @@ export default function Profile() {
 
             setProfile((previous) => ({ ...previous, addresses: result.addresses }));
             resetAddressForm();
-            showMsg('success', editingAddress ? 'Address updated.' : 'Address saved.');
+            showMsg('success', editingAddress
+                ? t('profile.message.addressUpdated', {}, 'Address updated.')
+                : t('profile.message.addressSaved', {}, 'Address saved.'));
         } catch (error) {
-            showMsg('error', error.message || 'Failed to save address.');
+            showMsg('error', error.message || t('profile.message.addressSaveFailed', {}, 'Failed to save address.'));
         } finally {
             setSaving(false);
         }
     };
 
     const handleDeleteAddress = async (id) => {
-        if (!confirm('Delete this address?')) return;
+        if (!confirm(t('profile.confirm.deleteAddress', {}, 'Delete this address?'))) return;
         try {
             const result = await userApi.deleteAddress(id);
             setProfile((previous) => ({ ...previous, addresses: result.addresses }));
-            showMsg('success', 'Address deleted.');
+            showMsg('success', t('profile.message.addressDeleted', {}, 'Address deleted.'));
         } catch (error) {
-            showMsg('error', error.message || 'Failed to delete address.');
+            showMsg('error', error.message || t('profile.message.addressDeleteFailed', {}, 'Failed to delete address.'));
         }
     };
 
@@ -400,7 +405,7 @@ export default function Profile() {
         const recoveryPhone = normalizedProfilePhone;
 
         if (!recoveryEmail || !PHONE_REGEX.test(recoveryPhone) || !hasOtpReadyIdentity) {
-            showMsg('error', 'Secure recovery requires the verified account email and registered phone number.');
+            showMsg('error', t('profile.message.secureRecoveryRequirements', {}, 'Secure recovery requires the verified account email and registered phone number.'));
             return;
         }
 
@@ -421,7 +426,7 @@ export default function Profile() {
             });
             return;
         } catch (error) {
-            showMsg('error', error.message || 'Failed to open secure recovery.');
+            showMsg('error', error.message || t('profile.message.secureRecoveryFailed', {}, 'Failed to open secure recovery.'));
         }
 
         setRecoveryLaunching(false);
@@ -431,20 +436,20 @@ export default function Profile() {
         try {
             await paymentApi.setDefaultMethod(methodId);
             await refreshPaymentMethods();
-            showMsg('success', 'Default payment method updated.');
+            showMsg('success', t('profile.message.defaultPaymentUpdated', {}, 'Default payment method updated.'));
         } catch (error) {
-            showMsg('error', error.message || 'Failed to update default payment method.');
+            showMsg('error', error.message || t('profile.message.defaultPaymentUpdateFailed', {}, 'Failed to update default payment method.'));
         }
     };
 
     const handleDeletePaymentMethod = async (methodId) => {
-        if (!confirm('Are you sure you want to delete this payment method?')) return;
+        if (!confirm(t('profile.confirm.deletePaymentMethod', {}, 'Are you sure you want to delete this payment method?'))) return;
         try {
             await paymentApi.deleteMethod(methodId);
             await refreshPaymentMethods();
-            showMsg('success', 'Payment method deleted.');
+            showMsg('success', t('profile.message.paymentMethodDeleted', {}, 'Payment method deleted.'));
         } catch (error) {
-            showMsg('error', error.message || 'Failed to delete payment method.');
+            showMsg('error', error.message || t('profile.message.paymentMethodDeleteFailed', {}, 'Failed to delete payment method.'));
         }
     };
 
@@ -452,12 +457,12 @@ export default function Profile() {
         setOptimizing(true);
         try {
             await intelligenceApi.optimizeRewards();
-            showMsg('success', 'Aura Intelligence optimization started. Fresh insights will appear shortly.');
+            showMsg('success', t('profile.message.optimizationStarted', {}, 'Aura Intelligence optimization started. Fresh insights will appear shortly.'));
             window.setTimeout(() => {
                 void refreshIntelligence({ silent: true });
             }, 6000);
         } catch (error) {
-            showMsg('error', error.message || 'Failed to start optimization.');
+            showMsg('error', error.message || t('profile.message.optimizationFailed', {}, 'Failed to start optimization.'));
         } finally {
             setOptimizing(false);
         }
@@ -483,9 +488,9 @@ export default function Profile() {
             ? profile.loyalty.ledger.slice(0, 20)
             : [];
     const auraPoints = Number(rewardSnapshot.pointsBalance || 0);
-    const auraTier = rewardSnapshot.tier || 'Rookie';
+    const auraTier = rewardSnapshot.tier || t('profile.rewardTier.rookie', {}, 'Rookie');
     const nextMilestone = rewardSnapshot.nextMilestone === null ? null : Number(rewardSnapshot.nextMilestone || 0);
-    const profileName = profile?.name || dbUser?.name || currentUser?.displayName || 'Aura Member';
+    const profileName = profile?.name || dbUser?.name || currentUser?.displayName || t('profile.memberFallback', {}, 'Aura Member');
     const profileEmail = profile?.email || dbUser?.email || currentUser?.email || '';
     const profilePhone = profile?.phone || dbUser?.phone || '';
     const initials = (profileName || 'U')
@@ -496,7 +501,7 @@ export default function Profile() {
         .slice(0, 2);
     const memberSince = profile?.createdAt
         ? new Date(profile.createdAt).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })
-        : 'Recently joined';
+        : t('profile.memberSince.recent', {}, 'Recently joined');
     const normalizedProfilePhone = normalizePhone(profilePhone);
     const hasValidProfilePhone = PHONE_REGEX.test(normalizedProfilePhone);
     const hasOtpReadyIdentity = Boolean((profile?.isVerified || currentUser?.emailVerified) && hasValidProfilePhone);
@@ -520,26 +525,33 @@ export default function Profile() {
 
     const heroMetrics = [
         {
-            label: 'Orders tracked',
+            label: t('profile.heroMetric.orders.label', {}, 'Orders tracked'),
             value: Number(stats.totalOrders || 0).toLocaleString('en-IN'),
-            detail: 'Customer activity',
+            detail: t('profile.heroMetric.orders.detail', {}, 'Customer activity'),
         },
         {
-            label: 'Wishlist intent',
+            label: t('profile.heroMetric.wishlist.label', {}, 'Wishlist intent'),
             value: Number(wishlistItems?.length || 0).toLocaleString('en-IN'),
-            detail: 'Saved demand signals',
+            detail: t('profile.heroMetric.wishlist.detail', {}, 'Saved demand signals'),
         },
         {
-            label: 'Listings active',
+            label: t('profile.heroMetric.listings.label', {}, 'Listings active'),
             value: Number(stats.listings?.active || 0).toLocaleString('en-IN'),
-            detail: 'Marketplace presence',
+            detail: t('profile.heroMetric.listings.detail', {}, 'Marketplace presence'),
         },
         {
-            label: 'Aura points',
+            label: t('profile.heroMetric.points.label', {}, 'Aura points'),
             value: auraPoints.toLocaleString('en-IN'),
-            detail: `${auraTier} reward posture`,
+            detail: t('profile.heroMetric.points.detail', { tier: auraTier }, `${auraTier} reward posture`),
         },
     ];
+
+    const accountStateLabelMap = {
+        active: t('profile.accountState.active', {}, 'active'),
+        warned: t('profile.accountState.warned', {}, 'warned'),
+        suspended: t('profile.accountState.suspended', {}, 'suspended'),
+        deleted: t('profile.accountState.deleted', {}, 'deleted'),
+    };
 
     const accountStateTone = {
         active: 'border-emerald-400/25 bg-emerald-500/12 text-emerald-200',
@@ -555,9 +567,9 @@ export default function Profile() {
                     <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/5">
                         <div className="h-8 w-8 rounded-full border-4 border-neo-cyan border-t-transparent animate-spin" />
                     </div>
-                    <p className="premium-kicker">Aura Identity Suite</p>
-                    <h2 className="mt-3 text-2xl font-black text-white">Preparing your profile cockpit</h2>
-                    <p className="mt-3 text-sm text-slate-400">Syncing your account, rewards, addresses, and trust posture.</p>
+                    <p className="premium-kicker">{t('profile.loading.kicker', {}, 'Aura Identity Suite')}</p>
+                    <h2 className="mt-3 text-2xl font-black text-white">{t('profile.loading.title', {}, 'Preparing your profile cockpit')}</h2>
+                    <p className="mt-3 text-sm text-slate-400">{t('profile.loading.body', {}, 'Syncing your account, rewards, addresses, and trust posture.')}</p>
                 </div>
             </div>
         );
@@ -584,11 +596,11 @@ export default function Profile() {
 
                 <section className="profile-premium-hero">
                     <div className="mb-6 flex flex-wrap items-center gap-3">
-                        <span className="premium-eyebrow">Profile Command Deck</span>
-                        <span className="premium-chip-muted">Completion {profileCompletion}%</span>
-                        <span className="premium-chip-muted">Aura tier: {auraTier}</span>
+                        <span className="premium-eyebrow">{t('profile.hero.eyebrow', {}, 'Profile Command Deck')}</span>
+                        <span className="premium-chip-muted">{t('profile.hero.completion', { count: profileCompletion }, `Completion ${profileCompletion}%`)}</span>
+                        <span className="premium-chip-muted">{t('profile.hero.auraTier', { tier: auraTier }, `Aura tier: ${auraTier}`)}</span>
                         <span className={cn('premium-chip text-xs font-black uppercase tracking-[0.18em]', accountStateTone[accountState] || accountStateTone.active)}>
-                            {String(accountState).replace(/_/g, ' ')}
+                            {accountStateLabelMap[accountState] || String(accountState).replace(/_/g, ' ')}
                         </span>
                     </div>
 
@@ -633,18 +645,22 @@ export default function Profile() {
                                     )}
                                 >
                                     <Shield className="w-3 h-3" />
-                                    {hasOtpReadyIdentity ? 'Verified identity' : 'Identity needs attention'}
+                                    {hasOtpReadyIdentity
+                                        ? t('profile.hero.identityVerified', {}, 'Verified identity')
+                                        : t('profile.hero.identityNeedsAttention', {}, 'Identity needs attention')}
                                 </span>
                                 {isAdminAccount ? (
                                     <span className="premium-chip text-xs font-black uppercase tracking-[0.18em] border-amber-400/25 bg-amber-500/12 text-amber-100">
-                                        <Star className="w-3 h-3" /> Admin account
+                                        <Star className="w-3 h-3" /> {t('profile.hero.admin', {}, 'Admin account')}
                                     </span>
                                 ) : null}
                                 <span className="premium-chip-muted text-xs">
-                                    <Calendar className="w-3 h-3" /> Member since {memberSince}
+                                    <Calendar className="w-3 h-3" /> {t('profile.hero.memberSince', { date: memberSince }, `Member since ${memberSince}`)}
                                 </span>
                                 <span className="premium-chip-muted text-xs">
-                                    <Activity className="w-3 h-3" /> {trustHealthy ? 'Trust healthy' : 'Trust monitoring degraded'}
+                                    <Activity className="w-3 h-3" /> {trustHealthy
+                                        ? t('profile.hero.trustHealthy', {}, 'Trust healthy')
+                                        : t('profile.hero.trustDegraded', {}, 'Trust monitoring degraded')}
                                 </span>
                             </div>
 
@@ -653,15 +669,26 @@ export default function Profile() {
                             </h1>
                             <p className="mt-3 max-w-3xl text-base text-slate-300 sm:text-lg">
                                 {profile?.bio
-                                    || 'Your Aura profile now acts as a member command deck for identity, trust posture, rewards, support, and marketplace activity.'}
+                                    || t('profile.hero.bioFallback', {}, 'Your Aura profile now acts as a member command deck for identity, trust posture, rewards, support, and marketplace activity.')}
                             </p>
 
                             <div className="mt-5 flex flex-wrap items-center gap-3 text-sm text-slate-400">
-                                <span>{profileEmail || 'No email on file'}</span>
+                                <span>{profileEmail || t('profile.hero.noEmail', {}, 'No email on file')}</span>
                                 <span className="hidden sm:inline text-slate-600">•</span>
-                                <span>{profilePhone || 'No verified phone yet'}</span>
+                                <span>{profilePhone || t('profile.hero.noPhone', {}, 'No verified phone yet')}</span>
                                 <span className="hidden sm:inline text-slate-600">•</span>
-                                <span>{paymentMethods.length} saved payment {paymentMethods.length === 1 ? 'method' : 'methods'}</span>
+                                <span>
+                                    {t(
+                                        'profile.hero.paymentMethods',
+                                        {
+                                            count: paymentMethods.length,
+                                            label: paymentMethods.length === 1
+                                                ? t('profile.hero.paymentMethod.single', {}, 'method')
+                                                : t('profile.hero.paymentMethod.plural', {}, 'methods'),
+                                        },
+                                        `${paymentMethods.length} saved payment ${paymentMethods.length === 1 ? 'method' : 'methods'}`,
+                                    )}
+                                </span>
                             </div>
 
                             <div className="mt-6 flex flex-wrap gap-3">
@@ -671,21 +698,21 @@ export default function Profile() {
                                     className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-400 to-emerald-400 px-5 py-3 text-sm font-black text-[#051018] shadow-[0_18px_40px_rgba(34,211,238,0.22)] transition-transform hover:scale-[1.01]"
                                 >
                                     <Edit3 className="h-4 w-4" />
-                                    Refine profile
+                                    {t('profile.hero.refineProfile', {}, 'Refine profile')}
                                 </button>
                                 <button
                                     type="button"
                                     onClick={() => handleTabChange('orders')}
                                     className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-white/10"
                                 >
-                                    View orders <ArrowRight className="h-4 w-4" />
+                                    {t('profile.hero.viewOrders', {}, 'View orders')} <ArrowRight className="h-4 w-4" />
                                 </button>
                                 <button
                                     type="button"
                                     onClick={() => handleTabChange('support')}
                                     className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-white/10"
                                 >
-                                    Support & appeals
+                                    {t('profile.hero.supportAppeals', {}, 'Support & appeals')}
                                 </button>
                             </div>
 
@@ -703,7 +730,7 @@ export default function Profile() {
                 </section>
 
                 <div className="mt-8 flex gap-2 overflow-x-auto pb-4">
-                    {TABS.map((tab) => (
+                    {tabs.map((tab) => (
                         <button
                             key={tab.id}
                             onClick={() => handleTabChange(tab.id)}
