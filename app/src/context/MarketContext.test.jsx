@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MARKET_STORAGE_KEY } from '@/config/marketConfig';
+import { clearRuntimeTranslationCache } from '@/services/runtimeTranslation';
 
 const {
     getBrowseFxRatesMock,
@@ -123,6 +124,7 @@ const loadMarketTestKit = async () => {
 beforeEach(() => {
     window.localStorage.clear();
     window.sessionStorage.clear();
+    clearRuntimeTranslationCache();
     getBrowseFxRatesMock.mockReset();
     readCachedBrowseFxRatesMock.mockReset();
     translateTextsMock.mockClear();

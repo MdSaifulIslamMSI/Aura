@@ -1,37 +1,23 @@
 import { useEffect, useRef } from 'react';
 import { useMarket } from '@/context/MarketContext';
-import { i18nApi } from '@/services/api/i18nApi';
+import {
+    getCachedRuntimeTranslation,
+    normalizeRuntimeTranslationText,
+    preserveRuntimeTranslationWhitespace,
+    requestRuntimeTranslations,
+    shouldTranslateRuntimeText,
+} from '@/services/runtimeTranslation';
 
 const BLOCKED_TAGS = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'CODE', 'PRE']);
 const ATTRIBUTE_NAMES = ['placeholder', 'title', 'aria-label', 'aria-description', 'alt'];
 const OBSERVED_ATTRIBUTE_NAMES = [...new Set([...ATTRIBUTE_NAMES, 'value'])];
 const INPUT_VALUE_TYPES = new Set(['button', 'submit', 'reset']);
-const WHITESPACE_ONLY_PATTERN = /^\s*$/;
-const NON_TRANSLATABLE_PATTERN = /^(https?:\/\/|www\.|mailto:|tel:|\/[A-Za-z0-9._/-]+|[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,})/i;
-const SYMBOL_ONLY_PATTERN = /^[\d\s.,:%â‚¹$â‚¬Â£Â¥()+\-â€“â€”/\\|[\]{}<>*_#@!?=&]+$/;
-
-const normalizeText = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
-
-const preserveEdgeWhitespace = (source = '', translated = '') => {
-    const leading = String(source || '').match(/^\s*/)?.[0] || '';
-    const trailing = String(source || '').match(/\s*$/)?.[0] || '';
-    return `${leading}${String(translated || '').trim()}${trailing}`;
-};
 
 const createEntry = (value, language) => ({
     sourceText: String(value || ''),
     capturedLanguage: String(language || 'en'),
     lastAppliedValue: String(value || ''),
 });
-
-const shouldTranslate = (value = '') => {
-    const normalized = normalizeText(value);
-    if (!normalized || WHITESPACE_ONLY_PATTERN.test(value)) return false;
-    if (normalized.length < 2) return false;
-    if (NON_TRANSLATABLE_PATTERN.test(normalized)) return false;
-    if (SYMBOL_ONLY_PATTERN.test(normalized)) return false;
-    return /\p{L}/u.test(normalized);
-};
 
 const shouldSkipElement = (element) => {
     if (!element || BLOCKED_TAGS.has(element.tagName)) {
@@ -64,11 +50,11 @@ const getAttributeNames = (element) => {
 };
 
 export default function MarketAutoLocalizer() {
-    const { language } = useMarket();
+    const market = useMarket();
+    const language = market?.languageCode || market?.language || market?.languageConfig?.code || 'en';
     const textEntriesRef = useRef(new WeakMap());
     const attributeEntriesRef = useRef(new WeakMap());
     const titleEntryRef = useRef(null);
-    const cacheRef = useRef(new Map());
     const applyingRef = useRef(false);
     const scheduledRef = useRef(0);
     const runIdRef = useRef(0);
@@ -139,13 +125,11 @@ export default function MarketAutoLocalizer() {
         };
 
         const collectSourceText = (entry, sourceTexts) => {
-            if (!entry || language === 'en' || !shouldTranslate(entry.sourceText)) {
+            if (!entry || language === 'en' || !shouldTranslateRuntimeText(entry.sourceText)) {
                 return;
             }
 
-            if (!(language === 'en' && entry.capturedLanguage === 'en')) {
-                sourceTexts.push(entry.sourceText);
-            }
+            sourceTexts.push(entry.sourceText);
         };
 
         const collectBindingsFromRoot = (root, textBindings, attributeBindings, sourceTexts) => {
@@ -180,7 +164,7 @@ export default function MarketAutoLocalizer() {
                     }
 
                     const entry = updateTextEntry(currentNode);
-                    if (!shouldTranslate(entry.sourceText)) {
+                    if (!shouldTranslateRuntimeText(entry.sourceText)) {
                         continue;
                     }
 
@@ -203,7 +187,7 @@ export default function MarketAutoLocalizer() {
                     }
 
                     const entry = updateAttributeEntry(currentNode, attributeName);
-                    if (!shouldTranslate(entry.sourceText)) {
+                    if (!shouldTranslateRuntimeText(entry.sourceText)) {
                         return;
                     }
 
@@ -221,7 +205,7 @@ export default function MarketAutoLocalizer() {
         const translateSources = async (targetLanguage, sources) => {
             const uniqueSources = [...new Set(
                 sources
-                    .map(normalizeText)
+                    .map(normalizeRuntimeTranslationText)
                     .filter(Boolean)
             )];
 
@@ -229,24 +213,15 @@ export default function MarketAutoLocalizer() {
                 return;
             }
 
-            const missing = uniqueSources.filter((source) => !cacheRef.current.has(`${targetLanguage}::${source}`));
-            if (missing.length === 0) {
-                return;
-            }
-
-            const translated = await i18nApi.translateTexts({
-                texts: missing,
+            await requestRuntimeTranslations({
+                texts: uniqueSources,
                 language: targetLanguage,
                 sourceLanguage: 'auto',
-            });
-
-            Object.entries(translated).forEach(([source, value]) => {
-                cacheRef.current.set(`${targetLanguage}::${source}`, String(value || source));
             });
         };
 
         const resolveTranslation = (entry, targetLanguage) => {
-            const normalizedSource = normalizeText(entry.sourceText);
+            const normalizedSource = normalizeRuntimeTranslationText(entry.sourceText);
             if (!normalizedSource) {
                 return entry.sourceText;
             }
@@ -255,8 +230,12 @@ export default function MarketAutoLocalizer() {
                 return entry.sourceText;
             }
 
-            const cached = cacheRef.current.get(`${targetLanguage}::${normalizedSource}`) || normalizedSource;
-            return preserveEdgeWhitespace(entry.sourceText, cached);
+            const cachedTranslation = getCachedRuntimeTranslation({
+                language: targetLanguage,
+                text: normalizedSource,
+            }) || normalizedSource;
+
+            return preserveRuntimeTranslationWhitespace(entry.sourceText, cachedTranslation);
         };
 
         const processDom = async () => {
@@ -279,7 +258,7 @@ export default function MarketAutoLocalizer() {
             });
 
             const titleEntry = updateTitleEntry();
-            const shouldTranslateTitle = shouldTranslate(titleEntry?.sourceText || '');
+            const shouldTranslateTitle = shouldTranslateRuntimeText(titleEntry?.sourceText || '');
             if (shouldTranslateTitle) {
                 collectSourceText(titleEntry, sourceTexts);
             }
