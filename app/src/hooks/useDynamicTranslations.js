@@ -3,6 +3,9 @@ import { useMarket } from '@/context/MarketContext';
 import { i18nApi } from '@/services/api/i18nApi';
 
 const translationCache = new Map();
+const hydratedLanguages = new Set();
+const DYNAMIC_TRANSLATION_STORAGE_KEY = 'aura_dynamic_translation_cache_v1';
+const MAX_PERSISTED_TRANSLATIONS_PER_LANGUAGE = 500;
 
 const WHITESPACE_ONLY_PATTERN = /^\s*$/;
 const NON_TRANSLATABLE_PATTERN = /^(https?:\/\/|www\.|mailto:|tel:|\/[A-Za-z0-9._/-]+|[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,})/i;
@@ -21,6 +24,65 @@ const areTranslationMapsEqual = (left = {}, right = {}) => {
     }
 
     return leftKeys.every((key) => left[key] === right[key]);
+};
+
+const readPersistedTranslationStore = () => {
+    if (typeof window === 'undefined') {
+        return {};
+    }
+
+    try {
+        return JSON.parse(window.localStorage.getItem(DYNAMIC_TRANSLATION_STORAGE_KEY) || '{}');
+    } catch {
+        return {};
+    }
+};
+
+const hydratePersistedTranslations = (language = 'en') => {
+    const normalizedLanguage = String(language || 'en').trim().toLowerCase();
+    if (!normalizedLanguage || normalizedLanguage === 'en' || hydratedLanguages.has(normalizedLanguage)) {
+        return;
+    }
+
+    const persistedEntries = readPersistedTranslationStore()?.[normalizedLanguage] || {};
+    Object.entries(persistedEntries).forEach(([source, value]) => {
+        const normalizedSource = normalizeDynamicTranslationText(source);
+        if (!normalizedSource) return;
+        translationCache.set(`${normalizedLanguage}::${normalizedSource}`, String(value || normalizedSource));
+    });
+    hydratedLanguages.add(normalizedLanguage);
+};
+
+const persistTranslations = (language = 'en', entries = {}) => {
+    const normalizedLanguage = String(language || 'en').trim().toLowerCase();
+    const normalizedEntries = Object.fromEntries(
+        Object.entries(entries || {})
+            .map(([source, value]) => [normalizeDynamicTranslationText(source), String(value || source || '')])
+            .filter(([source]) => Boolean(source))
+    );
+
+    if (
+        typeof window === 'undefined'
+        || !normalizedLanguage
+        || normalizedLanguage === 'en'
+        || Object.keys(normalizedEntries).length === 0
+    ) {
+        return;
+    }
+
+    try {
+        const persistedStore = readPersistedTranslationStore();
+        const mergedEntries = {
+            ...(persistedStore?.[normalizedLanguage] || {}),
+            ...normalizedEntries,
+        };
+        persistedStore[normalizedLanguage] = Object.fromEntries(
+            Object.entries(mergedEntries).slice(-MAX_PERSISTED_TRANSLATIONS_PER_LANGUAGE)
+        );
+        window.localStorage.setItem(DYNAMIC_TRANSLATION_STORAGE_KEY, JSON.stringify(persistedStore));
+    } catch {
+        // Ignore storage failures and keep using the in-memory cache.
+    }
 };
 
 const isLikelyDynamicIdentifier = (normalized = '') => {
@@ -72,6 +134,8 @@ export const translateDynamicTextBatch = async ({
     language = 'en',
     sourceLanguage = 'auto',
 } = {}) => {
+    hydratePersistedTranslations(language);
+
     const uniqueTexts = collectDynamicTranslationTexts(texts);
 
     if (language === 'en' || uniqueTexts.length === 0) {
@@ -88,11 +152,15 @@ export const translateDynamicTextBatch = async ({
                 sourceLanguage,
             });
 
+            const persistedEntries = {};
             Object.entries(translated || {}).forEach(([source, value]) => {
                 const normalizedSource = normalizeDynamicTranslationText(source);
                 if (!normalizedSource) return;
-                translationCache.set(`${language}::${normalizedSource}`, String(value || normalizedSource));
+                const translatedValue = String(value || normalizedSource);
+                translationCache.set(`${language}::${normalizedSource}`, translatedValue);
+                persistedEntries[normalizedSource] = translatedValue;
             });
+            persistTranslations(language, persistedEntries);
         } catch {
             missingTexts.forEach((text) => {
                 if (!translationCache.has(`${language}::${text}`)) {
@@ -110,6 +178,7 @@ export const translateDynamicTextBatch = async ({
 export const useDynamicTranslations = (values = [], { enabled = true } = {}) => {
     const market = useMarket();
     const language = market?.languageConfig?.code || market?.languageCode || market?.language || 'en';
+    hydratePersistedTranslations(language);
 
     const translatableTexts = useMemo(
         () => (enabled ? collectDynamicTranslationTexts(values) : []),

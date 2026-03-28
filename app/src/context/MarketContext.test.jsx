@@ -63,6 +63,10 @@ const createRuntimeFallbackProbe = (useMarket) => function RuntimeFallbackProbe(
     );
 };
 
+const createStaticFormatProbe = (formatPrice) => function StaticFormatProbe() {
+    return <div data-testid="static-market-price">{formatPrice(1000)}</div>;
+};
+
 const createDynamicTemplateProbe = (useMarket) => function DynamicTemplateProbe() {
     const { setLanguage, t } = useMarket();
 
@@ -103,10 +107,12 @@ const loadMarketTestKit = async () => {
         import('./MarketContext'),
         import('@/services/marketRuntime'),
     ]);
+    const { formatPrice } = await import('@/utils/format');
 
     return {
         MarketProvider,
         MarketProbe: createMarketProbe(useMarket),
+        StaticFormatProbe: createStaticFormatProbe(formatPrice),
         RuntimeFallbackProbe: createRuntimeFallbackProbe(useMarket),
         DynamicTemplateProbe: createDynamicTemplateProbe(useMarket),
         LateArrivalProbe: createLateArrivalProbe(useMarket),
@@ -161,6 +167,40 @@ describe('MarketContext', () => {
 
         expect(screen.getByTestId('market-currency')).toHaveTextContent('USD');
         expect(screen.getByTestId('market-price').textContent).toContain('$20');
+    });
+
+    it('primes global formatters from stored market preferences before the first child render', async () => {
+        window.localStorage.setItem(MARKET_STORAGE_KEY, JSON.stringify({
+            countryCode: 'US',
+            currency: 'USD',
+            language: 'en',
+            locale: 'en-US',
+        }));
+        readCachedBrowseFxRatesMock.mockReturnValue({
+            baseCurrency: 'INR',
+            rates: {
+                INR: 1,
+                USD: 0.02,
+            },
+            source: 'unit-test-cache',
+            provider: 'unit-test-cache',
+            fetchedAt: '2026-03-28T10:00:00.000Z',
+            asOfDate: '2026-03-28',
+            stale: false,
+            staleReason: '',
+        });
+
+        const { MarketProvider, StaticFormatProbe } = await loadMarketTestKit();
+
+        await act(async () => {
+            render(
+                <MarketProvider disableBrowserDetection>
+                    <StaticFormatProbe />
+                </MarketProvider>
+            );
+        });
+
+        expect(screen.getByTestId('static-market-price').textContent).toContain('$20');
     });
 
     it('updates document direction when switching to an rtl language', async () => {
