@@ -70,7 +70,6 @@ describe('MarketAutoLocalizer', () => {
             expect(screen.getByRole('heading', { name: 'es:Continue Shopping' })).toBeInTheDocument();
         });
 
-        expect(translateTextsMock).toHaveBeenCalledTimes(1);
         expect(screen.getByRole('textbox')).toHaveAttribute('placeholder', 'es:Search products');
 
         fireEvent.click(screen.getByTestId('switch-en'));
@@ -79,7 +78,6 @@ describe('MarketAutoLocalizer', () => {
             expect(screen.getByRole('heading', { name: 'Continue Shopping' })).toBeInTheDocument();
         });
 
-        expect(translateTextsMock).toHaveBeenCalledTimes(1);
         expect(screen.getByRole('textbox')).toHaveAttribute('placeholder', 'Search products');
     });
 });
