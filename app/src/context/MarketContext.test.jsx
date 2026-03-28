@@ -62,6 +62,22 @@ const createRuntimeFallbackProbe = (useMarket) => function RuntimeFallbackProbe(
     );
 };
 
+const createDynamicTemplateProbe = (useMarket) => function DynamicTemplateProbe() {
+    const { setLanguage, t } = useMarket();
+
+    return (
+        <div>
+            <button type="button" onClick={() => setLanguage('es')}>ES</button>
+            <div data-testid="runtime-dynamic-template">
+                {t('runtime.dynamicFallbackProbe', { time: '12:00' }, 'Checked {{time}}')}
+            </div>
+            <div data-testid="runtime-ad-hoc-fallback">
+                {t('runtime.adHocLabel', { time: '12:00' }, 'Checked 12:00')}
+            </div>
+        </div>
+    );
+};
+
 const loadMarketTestKit = async () => {
     vi.resetModules();
 
@@ -74,6 +90,7 @@ const loadMarketTestKit = async () => {
         MarketProvider,
         MarketProbe: createMarketProbe(useMarket),
         RuntimeFallbackProbe: createRuntimeFallbackProbe(useMarket),
+        DynamicTemplateProbe: createDynamicTemplateProbe(useMarket),
         ...marketRuntime,
     };
 };
@@ -199,5 +216,29 @@ describe('MarketContext', () => {
         await waitFor(() => {
             expect(screen.getByTestId('runtime-fallback')).toHaveTextContent('es:Ready for translation');
         });
+    });
+
+    it('runtime-translates stable templates without queueing ad-hoc rendered fallbacks', async () => {
+        const { MarketProvider, DynamicTemplateProbe } = await loadMarketTestKit();
+
+        await act(async () => {
+            render(
+                <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+                    <DynamicTemplateProbe />
+                </MarketProvider>
+            );
+        });
+
+        fireEvent.click(screen.getByRole('button', { name: 'ES' }));
+
+        await waitFor(() => {
+            expect(screen.getByTestId('runtime-dynamic-template')).toHaveTextContent('Checked 12:00');
+        });
+
+        expect(screen.getByTestId('runtime-ad-hoc-fallback')).toHaveTextContent('Checked 12:00');
+        expect(translateTextsMock).not.toHaveBeenCalledWith(expect.objectContaining({
+            texts: expect.arrayContaining(['Checked {{time}}', 'Checked 12:00']),
+        }));
+        expect(translateTextsMock).not.toHaveBeenCalled();
     });
 });
