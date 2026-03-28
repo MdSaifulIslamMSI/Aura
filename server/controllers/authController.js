@@ -5,6 +5,7 @@ const {
     persistAuthSnapshot,
     resolveAuthenticatedSession,
     syncAuthenticatedUser,
+    applyLoginAssuranceToSession,
 } = require('../services/authSessionService');
 const { generateLatticeChallenge, verifyLatticeProof } = require('../services/latticeChallengeService');
 const { normalizePhoneE164 } = require('../services/sms');
@@ -87,13 +88,29 @@ const getSession = asyncHandler(async (req, res) => {
 
 const syncSession = asyncHandler(async (req, res) => {
     const authUser = buildRequestAuthUser(req);
-    const user = await syncAuthenticatedUser({
+    const flowToken = typeof req.body?.flowToken === 'string'
+        ? req.body.flowToken.trim()
+        : '';
+
+    let user = await syncAuthenticatedUser({
         authUser,
         email: req.body?.email,
         name: req.body?.name,
         phone: req.body?.phone,
         awardLoginPoints: true,
     });
+
+    if (flowToken) {
+        user = await applyLoginAssuranceToSession({
+            user,
+            flowToken,
+            authToken: req.authToken || null,
+            phone: req.body?.phone,
+        });
+    }
+
+    await invalidateUserCache(req.authUid || '');
+    await invalidateUserCacheByEmail(user?.email || authUser.email || '');
 
     const requiresLatticeChallenge = shouldRequireLatticeChallenge({ user });
     let latticeChallenge = null;
@@ -180,6 +197,7 @@ const completePhoneFactorLogin = asyncHandler(async (req, res) => {
                 isVerified: Boolean(existingUser.isVerified || req.authToken?.email_verified),
                 authAssurance: 'password+otp',
                 authAssuranceAt: new Date(),
+                authAssuranceAuthTime: Number(req.authToken?.auth_time || 0) || null,
                 loginEmailOtpVerifiedAt: null,
                 loginOtpVerifiedAt: new Date(),
                 loginOtpAssuranceExpiresAt: new Date(Date.now() + LOGIN_ASSURANCE_TTL_MS),
@@ -274,12 +292,13 @@ const completePhoneFactorVerification = asyncHandler(async (req, res) => {
             { email: requestEmail, isVerified: false },
             {
                 $set: {
-                    phone: storedPhone || requestPhone,
-                    isVerified: true,
-                    authAssurance: 'otp',
-                    authAssuranceAt: new Date(),
-                    signupEmailOtpVerifiedAt: null,
-                },
+                phone: storedPhone || requestPhone,
+                isVerified: true,
+                authAssurance: 'otp',
+                authAssuranceAt: new Date(),
+                authAssuranceAuthTime: null,
+                signupEmailOtpVerifiedAt: null,
+            },
             },
             {
                 returnDocument: 'after',
@@ -345,6 +364,7 @@ const completePhoneFactorVerification = asyncHandler(async (req, res) => {
                 phone: storedPhone || requestPhone,
                 authAssurance: 'otp',
                 authAssuranceAt: new Date(),
+                authAssuranceAuthTime: null,
                 resetEmailOtpVerifiedAt: null,
                 resetOtpVerifiedAt: new Date(),
             },

@@ -4,12 +4,14 @@ const logger = require('../utils/logger');
 const { saveAuthProfileSnapshot } = require('./authProfileVault');
 const { awardLoyaltyPoints, getRewardSnapshotFromUser } = require('./loyaltyService');
 const { normalizePhoneE164 } = require('./sms');
+const { verifyOtpFlowToken } = require('../utils/otpFlowToken');
 
 const PROFILE_PROJECTION = 'name email phone avatar gender dob bio isAdmin isVerified isSeller sellerActivatedAt accountState moderation addresses cart wishlist loyalty createdAt';
 const AUTH_ONLY_PROJECTION = 'name email phone isAdmin isVerified isSeller sellerActivatedAt accountState moderation loyalty createdAt';
 const SESSION_PROFILE_PROJECTION = 'name email phone avatar gender dob bio isAdmin isVerified isSeller sellerActivatedAt accountState moderation loyalty createdAt';
 
 const PHONE_REGEX = /^\+?\d{10,15}$/;
+const LOGIN_ASSURANCE_TTL_MS = 10 * 60 * 1000;
 
 const normalizePhone = (value) => (
     typeof value === 'string' ? value.trim().replace(/[\s\-()]/g, '') : ''
@@ -265,6 +267,68 @@ const buildSessionPayload = ({
     error: error ? { message: String(error?.message || error) } : null,
 });
 
+const resolveAuthTimeSeconds = (authToken = null) => {
+    const authTime = Number(authToken?.auth_time || 0);
+    return Number.isFinite(authTime) && authTime > 0 ? authTime : 0;
+};
+
+const applyLoginAssuranceToSession = async ({
+    user = null,
+    flowToken = '',
+    authToken = null,
+    phone = '',
+}) => {
+    if (!user?._id || !flowToken) {
+        return user;
+    }
+
+    const verifiedFlow = verifyOtpFlowToken({
+        token: flowToken,
+        expectedPurpose: 'login',
+        expectedSubject: user._id,
+    });
+
+    const authTimeSeconds = resolveAuthTimeSeconds(authToken);
+    if (!authTimeSeconds) {
+        throw new AppError('Fresh login is required before secure access can be granted.', 401);
+    }
+
+    const flowFactor = normalizeText(verifiedFlow.factor || 'otp');
+    const verifiedPhone = canonicalizePhone(authToken?.phone_number || '');
+    const requestedPhone = canonicalizePhone(phone || user.phone || '');
+
+    if (flowFactor === 'email') {
+        if (!verifiedPhone) {
+            throw new AppError('Firebase phone verification is required before completing secure sign-in.', 403);
+        }
+        if (requestedPhone && verifiedPhone !== requestedPhone) {
+            throw new AppError('Verified phone number does not match the requested login phone.', 403);
+        }
+    }
+
+    const now = new Date();
+
+    return User.findOneAndUpdate(
+        { _id: user._id },
+        {
+            $set: {
+                authAssurance: 'password+otp',
+                authAssuranceAt: now,
+                authAssuranceAuthTime: authTimeSeconds,
+                loginEmailOtpVerifiedAt: null,
+                loginOtpVerifiedAt: now,
+                loginOtpAssuranceExpiresAt: new Date(now.getTime() + LOGIN_ASSURANCE_TTL_MS),
+                ...(flowFactor === 'email' && verifiedPhone ? { phone: requestedPhone || verifiedPhone } : {}),
+            },
+        },
+        {
+            returnDocument: 'after',
+            projection: AUTH_ONLY_PROJECTION,
+            lean: true,
+        }
+    );
+};
+
 const syncAuthenticatedUser = async ({
     authUser = {},
     email: bodyEmail,
@@ -416,4 +480,5 @@ module.exports = {
     buildSessionPayload,
     syncAuthenticatedUser,
     resolveAuthenticatedSession,
+    applyLoginAssuranceToSession,
 };

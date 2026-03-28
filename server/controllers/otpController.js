@@ -1341,10 +1341,11 @@ const verifyOtp = asyncHandler(async (req, res, next) => {
             verificationMutation.resetEmailOtpVerifiedAt = new Date();
             verificationMutation.resetOtpVerifiedAt = null;
         }
-    } else {
+    } else if (purpose === 'signup' || purpose === 'forgot-password') {
         const authAssurance = getAssuranceForPurpose(purpose);
         verificationMutation.authAssurance = authAssurance;
         verificationMutation.authAssuranceAt = new Date();
+        verificationMutation.authAssuranceAuthTime = null;
     }
 
     if (purpose === 'login' && !isEmailFactorOtp) {
@@ -1387,6 +1388,7 @@ const verifyOtp = asyncHandler(async (req, res, next) => {
     const flowPayload = issueOtpFlowToken({
         userId: user._id,
         purpose,
+        factor: isEmailFactorOtp ? 'email' : 'otp',
     });
 
     res.json({
@@ -1545,6 +1547,7 @@ const resetPasswordWithOtp = asyncHandler(async (req, res, next) => {
                 resetOtpVerifiedAt: null,
                 authAssurance: 'password',
                 authAssuranceAt: new Date(),
+                authAssuranceAuthTime: null,
             },
         }
     );

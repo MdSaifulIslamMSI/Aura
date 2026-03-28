@@ -71,11 +71,19 @@ describe('Auth Middleware Tests', () => {
     });
 
     describe('OTP assurance middleware', () => {
-        const buildTestApp = (assurance) => {
+        const buildTestApp = (assurance, options = {}) => {
             const testApp = express();
             testApp.get('/secure',
                 (req, _res, next) => {
-                    req.user = { authAssurance: assurance };
+                    req.user = {
+                        authAssurance: assurance,
+                        authAssuranceAuthTime: options.authAssuranceAuthTime ?? 1700000000,
+                        loginOtpAssuranceExpiresAt: options.loginOtpAssuranceExpiresAt
+                            || new Date(Date.now() + 60_000).toISOString(),
+                    };
+                    req.authToken = {
+                        auth_time: options.authTime ?? 1700000000,
+                    };
                     next();
                 },
                 requireOtpAssurance,
@@ -100,6 +108,25 @@ describe('Auth Middleware Tests', () => {
             const res = await request(testApp).get('/secure');
             expect(res.statusCode).toBe(200);
             expect(res.body).toEqual({ ok: true });
+        });
+
+        test('denies access when the current session auth_time does not match the assured session', async () => {
+            const testApp = buildTestApp('password+otp', {
+                authAssuranceAuthTime: 1700000000,
+                authTime: 1700001234,
+            });
+            const res = await request(testApp).get('/secure');
+            expect(res.statusCode).toBe(403);
+            expect(res.body.message).toMatch(/OTP verification required/i);
+        });
+
+        test('denies access when the assured session has expired', async () => {
+            const testApp = buildTestApp('password+otp', {
+                loginOtpAssuranceExpiresAt: new Date(Date.now() - 60_000).toISOString(),
+            });
+            const res = await request(testApp).get('/secure');
+            expect(res.statusCode).toBe(403);
+            expect(res.body.message).toMatch(/OTP verification required/i);
         });
     });
 });

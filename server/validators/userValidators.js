@@ -9,6 +9,7 @@ const loginSchema = z.object({
             .trim()
             .optional()
             .refine((value) => !value || PHONE_REGEX.test(value), 'Invalid phone number'),
+        flowToken: z.string().trim().max(4096, 'Invalid login assurance token').optional(),
     }),
 });
 

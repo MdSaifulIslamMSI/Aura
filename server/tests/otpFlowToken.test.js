@@ -1,4 +1,4 @@
-const { issueOtpFlowToken } = require('../utils/otpFlowToken');
+const { issueOtpFlowToken, verifyOtpFlowToken } = require('../utils/otpFlowToken');
 
 describe('otpFlowToken', () => {
     const originalNodeEnv = process.env.NODE_ENV;
@@ -23,6 +23,43 @@ describe('otpFlowToken', () => {
         expect(typeof flowToken).toBe('string');
         expect(flowToken.split('.')).toHaveLength(2);
         expect(typeof flowTokenExpiresAt).toBe('string');
+    });
+
+    test('verifies a token and preserves the factor claim', () => {
+        process.env.NODE_ENV = 'test';
+        process.env.OTP_FLOW_SECRET = 'otp-flow-test-secret';
+
+        const { flowToken } = issueOtpFlowToken({
+            userId: 'u123',
+            purpose: 'login',
+            factor: 'email',
+        });
+
+        expect(verifyOtpFlowToken({
+            token: flowToken,
+            expectedPurpose: 'login',
+            expectedSubject: 'u123',
+        })).toMatchObject({
+            sub: 'u123',
+            purpose: 'login',
+            factor: 'email',
+        });
+    });
+
+    test('rejects a token when the expected subject does not match', () => {
+        process.env.NODE_ENV = 'test';
+        process.env.OTP_FLOW_SECRET = 'otp-flow-test-secret';
+
+        const { flowToken } = issueOtpFlowToken({
+            userId: 'u123',
+            purpose: 'login',
+        });
+
+        expect(() => verifyOtpFlowToken({
+            token: flowToken,
+            expectedPurpose: 'login',
+            expectedSubject: 'u999',
+        })).toThrow('Login assurance token does not match this account');
     });
 
     test.each(['development', 'staging', 'production'])(
