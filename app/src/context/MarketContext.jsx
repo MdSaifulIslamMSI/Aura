@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
   BROWSE_BASE_CURRENCY,
   DEFAULT_MARKET_PREFERENCE,
@@ -195,7 +195,17 @@ export function MarketProvider({
   const runtimeTranslationsRef = useRef(new Map());
   const runtimeTranslationRequestsRef = useRef(new Set());
   const runtimeTranslationsInFlightRef = useRef(new Set());
+  const runtimeTranslationFlushScheduledRef = useRef(false);
+  const runtimeTranslationMountedRef = useRef(true);
   const [runtimeTranslationVersion, setRuntimeTranslationVersion] = useState(0);
+  const [runtimeTranslationRequestSignal, setRuntimeTranslationRequestSignal] = useState(0);
+
+  useEffect(() => {
+    runtimeTranslationMountedRef.current = true;
+    return () => {
+      runtimeTranslationMountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     const nextPreference = {
@@ -227,6 +237,25 @@ export function MarketProvider({
       window.localStorage.setItem(MARKET_STORAGE_KEY, JSON.stringify(nextPreference));
     }
   }, [browseFxState.rates, direction, locale, preference]);
+
+  const scheduleRuntimeTranslationFlush = useCallback(() => {
+    if (runtimeTranslationFlushScheduledRef.current) {
+      return;
+    }
+
+    runtimeTranslationFlushScheduledRef.current = true;
+    const schedule = typeof queueMicrotask === 'function'
+      ? queueMicrotask
+      : (callback) => Promise.resolve().then(callback);
+
+    schedule(() => {
+      runtimeTranslationFlushScheduledRef.current = false;
+      if (!runtimeTranslationMountedRef.current) {
+        return;
+      }
+      setRuntimeTranslationRequestSignal((version) => version + 1);
+    });
+  }, []);
 
   useEffect(() => {
     if (language.code === 'en') {
@@ -281,7 +310,7 @@ export function MarketProvider({
           }
         });
       });
-  });
+  }, [language.code, runtimeTranslationRequestSignal]);
 
   const setCountryCode = (countryCode) => {
     setPreference((currentPreference) => normalizeMarketPreference({
@@ -345,10 +374,14 @@ export function MarketProvider({
         return englishText;
       }
 
-      runtimeTranslationRequestsRef.current.add(translationTemplate);
+      const queue = runtimeTranslationRequestsRef.current;
+      if (!queue.has(translationTemplate)) {
+        queue.add(translationTemplate);
+        scheduleRuntimeTranslationFlush();
+      }
       return englishText;
     }
-  ), [language.code, runtimeTranslationVersion]);
+  ), [language.code, runtimeTranslationVersion, scheduleRuntimeTranslationFlush]);
 
   const value = useMemo(() => {
     const detectedMarket = getSupportedMarket(detectedPreference.countryCode);

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MARKET_STORAGE_KEY } from '@/config/marketConfig';
@@ -78,6 +79,23 @@ const createDynamicTemplateProbe = (useMarket) => function DynamicTemplateProbe(
     );
 };
 
+const createLateArrivalProbe = (useMarket) => function LateArrivalProbe() {
+    const { setLanguage, t } = useMarket();
+    const [showLateFallback, setShowLateFallback] = useState(false);
+
+    return (
+        <div>
+            <button type="button" onClick={() => setLanguage('es')}>ES</button>
+            <button type="button" onClick={() => setShowLateFallback(true)}>SHOW</button>
+            {showLateFallback ? (
+                <div data-testid="runtime-late-fallback">
+                    {t('runtime.lateArrivalProbe', {}, 'Late arrival')}
+                </div>
+            ) : null}
+        </div>
+    );
+};
+
 const loadMarketTestKit = async () => {
     vi.resetModules();
 
@@ -91,6 +109,7 @@ const loadMarketTestKit = async () => {
         MarketProbe: createMarketProbe(useMarket),
         RuntimeFallbackProbe: createRuntimeFallbackProbe(useMarket),
         DynamicTemplateProbe: createDynamicTemplateProbe(useMarket),
+        LateArrivalProbe: createLateArrivalProbe(useMarket),
         ...marketRuntime,
     };
 };
@@ -240,5 +259,30 @@ describe('MarketContext', () => {
             texts: expect.arrayContaining(['Checked {{time}}', 'Checked 12:00']),
         }));
         expect(translateTextsMock).not.toHaveBeenCalled();
+    });
+
+    it('flushes newly queued fallback text after the language switch without an always-running effect', async () => {
+        const { MarketProvider, LateArrivalProbe } = await loadMarketTestKit();
+
+        await act(async () => {
+            render(
+                <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+                    <LateArrivalProbe />
+                </MarketProvider>
+            );
+        });
+
+        fireEvent.click(screen.getByRole('button', { name: 'ES' }));
+        fireEvent.click(screen.getByRole('button', { name: 'SHOW' }));
+
+        await waitFor(() => {
+            expect(screen.getByTestId('runtime-late-fallback')).toHaveTextContent('es:Late arrival');
+        });
+
+        expect(translateTextsMock).toHaveBeenCalledWith(expect.objectContaining({
+            texts: ['Late arrival'],
+            language: 'es',
+            sourceLanguage: 'en',
+        }));
     });
 });
