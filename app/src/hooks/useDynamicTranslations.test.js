@@ -1,3 +1,4 @@
+import { render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { translateTextsMock } = vi.hoisted(() => ({
@@ -9,6 +10,7 @@ const { translateTextsMock } = vi.hoisted(() => ({
 let collectDynamicTranslationTexts;
 let shouldTranslateDynamicText;
 let translateDynamicTextBatch;
+let useDynamicTranslations;
 
 describe('useDynamicTranslations helpers', () => {
     beforeEach(async () => {
@@ -19,11 +21,18 @@ describe('useDynamicTranslations helpers', () => {
                 translateTexts: translateTextsMock,
             },
         }));
+        vi.doMock('@/context/MarketContext', () => ({
+            useMarket: () => ({
+                languageCode: 'zz-cache-test',
+                languageConfig: { code: 'zz-cache-test' },
+            }),
+        }));
 
         ({
             collectDynamicTranslationTexts,
             shouldTranslateDynamicText,
             translateDynamicTextBatch,
+            useDynamicTranslations,
         } = await import('./useDynamicTranslations'));
     });
 
@@ -63,5 +72,34 @@ describe('useDynamicTranslations helpers', () => {
             'Hello world': 'zz-cache-test:Hello world',
         });
         expect(translateTextsMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not re-trigger translation state updates when the same text batch is rebuilt', async () => {
+        const React = await import('react');
+        const renderCount = { current: 0 };
+
+        function Harness({ value }) {
+            renderCount.current += 1;
+            const values = [value];
+            const { translateText } = useDynamicTranslations(values);
+            return React.createElement('div', null, translateText(value));
+        }
+
+        const { rerender } = render(React.createElement(Harness, { value: 'Hello world' }));
+
+        await waitFor(() => {
+            expect(screen.getByText('zz-cache-test:Hello world')).toBeTruthy();
+        });
+
+        const settledRenderCount = renderCount.current;
+
+        rerender(React.createElement(Harness, { value: 'Hello world' }));
+
+        await waitFor(() => {
+            expect(screen.getByText('zz-cache-test:Hello world')).toBeTruthy();
+        });
+
+        expect(translateTextsMock).toHaveBeenCalledTimes(1);
+        expect(renderCount.current).toBeLessThanOrEqual(settledRenderCount + 1);
     });
 });
