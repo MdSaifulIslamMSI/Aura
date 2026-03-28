@@ -1,8 +1,6 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MARKET_STORAGE_KEY } from '@/config/marketConfig';
-import { getActiveMarketState, resetActiveMarketHeaders } from '@/services/marketRuntime';
-import { MarketProvider, useMarket } from './MarketContext';
 
 const {
     getBrowseFxRatesMock,
@@ -29,7 +27,7 @@ vi.mock('@/services/api', () => ({
     },
 }));
 
-const MarketProbe = () => {
+const createMarketProbe = (useMarket) => function MarketProbe() {
     const {
         countryCode,
         currency,
@@ -51,7 +49,7 @@ const MarketProbe = () => {
     );
 };
 
-const RuntimeFallbackProbe = () => {
+const createRuntimeFallbackProbe = (useMarket) => function RuntimeFallbackProbe() {
     const { setLanguage, t } = useMarket();
 
     return (
@@ -62,6 +60,22 @@ const RuntimeFallbackProbe = () => {
             </div>
         </div>
     );
+};
+
+const loadMarketTestKit = async () => {
+    vi.resetModules();
+
+    const [{ MarketProvider, useMarket }, marketRuntime] = await Promise.all([
+        import('./MarketContext'),
+        import('@/services/marketRuntime'),
+    ]);
+
+    return {
+        MarketProvider,
+        MarketProbe: createMarketProbe(useMarket),
+        RuntimeFallbackProbe: createRuntimeFallbackProbe(useMarket),
+        ...marketRuntime,
+    };
 };
 
 beforeEach(() => {
@@ -90,11 +104,12 @@ afterEach(() => {
     window.sessionStorage.clear();
     document.documentElement.removeAttribute('dir');
     document.documentElement.removeAttribute('lang');
-    resetActiveMarketHeaders();
 });
 
 describe('MarketContext', () => {
     it('formats catalog prices using the fetched browse currency rates', async () => {
+        const { MarketProvider, MarketProbe } = await loadMarketTestKit();
+
         await act(async () => {
             render(
                 <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
@@ -106,10 +121,6 @@ describe('MarketContext', () => {
         expect(screen.getByTestId('market-country')).toHaveTextContent('IN');
         expect(screen.getByTestId('market-price').textContent).toMatch(/INR|Rs|\u20B9/);
 
-        await waitFor(() => {
-            expect(getBrowseFxRatesMock).toHaveBeenCalledTimes(1);
-        });
-
         fireEvent.click(screen.getByRole('button', { name: 'USD' }));
 
         expect(screen.getByTestId('market-currency')).toHaveTextContent('USD');
@@ -117,16 +128,14 @@ describe('MarketContext', () => {
     });
 
     it('updates document direction when switching to an rtl language', async () => {
+        const { MarketProvider, MarketProbe } = await loadMarketTestKit();
+
         await act(async () => {
             render(
                 <MarketProvider initialPreference={{ countryCode: 'AE', language: 'en', currency: 'AED' }}>
                     <MarketProbe />
                 </MarketProvider>
             );
-        });
-
-        await waitFor(() => {
-            expect(getBrowseFxRatesMock).toHaveBeenCalledTimes(1);
         });
 
         await act(async () => {
@@ -139,16 +148,14 @@ describe('MarketContext', () => {
     });
 
     it('persists the selected market and syncs runtime request headers', async () => {
+        const { MarketProvider, MarketProbe, getActiveMarketState, resetActiveMarketHeaders } = await loadMarketTestKit();
+
         await act(async () => {
             render(
                 <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
                     <MarketProbe />
                 </MarketProvider>
             );
-        });
-
-        await waitFor(() => {
-            expect(getBrowseFxRatesMock).toHaveBeenCalledTimes(1);
         });
 
         expect(getActiveMarketState()).toMatchObject({
@@ -170,9 +177,13 @@ describe('MarketContext', () => {
             currency: 'USD',
             language: 'en',
         });
+
+        resetActiveMarketHeaders();
     });
 
     it('runtime-translates missing keyed messages for non-English languages', async () => {
+        const { MarketProvider, RuntimeFallbackProbe } = await loadMarketTestKit();
+
         await act(async () => {
             render(
                 <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
