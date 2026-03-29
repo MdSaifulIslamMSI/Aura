@@ -9,6 +9,7 @@
  * Scrape: GET /metrics (see metricsRoute.js)
  */
 
+const crypto = require('crypto');
 const client = require('prom-client');
 
 // Use a dedicated registry so tests can reset it cleanly
@@ -90,23 +91,43 @@ const metricsMiddleware = (req, res, next) => {
     next();
 };
 
+const safeEqual = (left, right) => {
+    const leftBuffer = Buffer.from(String(left || ''), 'utf8');
+    const rightBuffer = Buffer.from(String(right || ''), 'utf8');
+
+    if (leftBuffer.length !== rightBuffer.length) {
+        return false;
+    }
+
+    return crypto.timingSafeEqual(leftBuffer, rightBuffer);
+};
+
 const metricsAuth = (req, res, next) => {
     const isProduction = (process.env.NODE_ENV || 'production') === 'production';
     const metricsSecret = String(process.env.METRICS_SECRET || process.env.CRON_SECRET || '').trim();
-    
-    if (isProduction && metricsSecret) {
-        const provided = String(
-            req.headers['x-metrics-key'] || 
-            req.headers['x-metrics-token'] || 
-            req.query.token || 
-            ''
-        ).trim();
 
-        if (provided !== metricsSecret) {
-            return res.status(401).json({ status: 'error', message: 'Unauthorized' });
-        }
+    if (!isProduction) {
+        return next();
     }
-    next();
+
+    if (!metricsSecret) {
+        return res.status(503).json({
+            status: 'error',
+            message: 'Metrics authentication is not configured',
+        });
+    }
+
+    const provided = String(
+        req.headers['x-metrics-key']
+        || req.headers['x-metrics-token']
+        || '',
+    ).trim();
+
+    if (!provided || !safeEqual(provided, metricsSecret)) {
+        return res.status(401).json({ status: 'error', message: 'Unauthorized' });
+    }
+
+    return next();
 };
 
 module.exports = { metricsMiddleware, metricsAuth, registry };
