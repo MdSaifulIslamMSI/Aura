@@ -6,9 +6,9 @@ const { awardLoyaltyPoints, getRewardSnapshotFromUser } = require('./loyaltyServ
 const { normalizePhoneE164 } = require('./sms');
 const { verifyOtpFlowToken } = require('../utils/otpFlowToken');
 
-const PROFILE_PROJECTION = 'name email phone avatar gender dob bio isAdmin isVerified isSeller sellerActivatedAt accountState moderation addresses cart wishlist loyalty createdAt';
-const AUTH_ONLY_PROJECTION = 'name email phone isAdmin isVerified isSeller sellerActivatedAt accountState moderation loyalty createdAt';
-const SESSION_PROFILE_PROJECTION = 'name email phone avatar gender dob bio isAdmin isVerified isSeller sellerActivatedAt accountState moderation loyalty createdAt';
+const PROFILE_PROJECTION = 'name email phone avatar gender dob bio isAdmin isVerified isSeller sellerActivatedAt accountState moderation authAssurance authAssuranceAt +loginOtpAssuranceExpiresAt addresses cart wishlist loyalty createdAt';
+const AUTH_ONLY_PROJECTION = 'name email phone isAdmin isVerified isSeller sellerActivatedAt accountState moderation authAssurance authAssuranceAt +loginOtpAssuranceExpiresAt loyalty createdAt';
+const SESSION_PROFILE_PROJECTION = 'name email phone avatar gender dob bio isAdmin isVerified isSeller sellerActivatedAt accountState moderation authAssurance authAssuranceAt +loginOtpAssuranceExpiresAt loyalty createdAt';
 
 const PHONE_REGEX = /^\+?\d{10,15}$/;
 const LOGIN_ASSURANCE_TTL_MS = 10 * 60 * 1000;
@@ -176,6 +176,12 @@ const toRoleState = (user = null) => ({
     isVerified: Boolean(user?.isVerified),
 });
 
+const toIsoOrNull = (value) => {
+    if (!value) return null;
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date.toISOString();
+};
+
 const toProfilePayload = (user = null, options = {}) => {
     if (!user) return null;
 
@@ -250,6 +256,48 @@ const buildSessionIdentity = ({ authUser = {}, authToken = null, authUid = '' } 
     };
 };
 
+const toSessionIntelligence = (user = null, session = null) => {
+    const assuranceLevel = normalizeText(user?.authAssurance) || 'none';
+    const providerIds = Array.isArray(session?.providerIds) ? session.providerIds : [];
+    const assuranceExpiresAt = toIsoOrNull(user?.loginOtpAssuranceExpiresAt);
+
+    return {
+        assurance: {
+            level: assuranceLevel,
+            label: assuranceLevel === 'password+otp'
+                ? 'Strong verification'
+                : assuranceLevel === 'otp'
+                    ? 'OTP verified'
+                    : assuranceLevel === 'password'
+                        ? 'Password verified'
+                        : 'Standard session',
+            verifiedAt: toIsoOrNull(user?.authAssuranceAt),
+            expiresAt: assuranceExpiresAt,
+            isRecent: Boolean(
+                assuranceExpiresAt
+                    ? new Date(assuranceExpiresAt).getTime() > Date.now()
+                    : user?.authAssuranceAt
+            ),
+        },
+        readiness: {
+            hasVerifiedEmail: Boolean(user?.isVerified || session?.emailVerified),
+            hasPhone: Boolean(user?.phone || session?.phone),
+            accountState: user?.accountState || 'active',
+            isPrivileged: Boolean(user?.isAdmin || user?.isSeller),
+        },
+        acceleration: {
+            suggestedRoute: providerIds.some((providerId) => /google|facebook|twitter|x\.com/i.test(providerId))
+                ? 'social'
+                : assuranceLevel === 'password+otp'
+                    ? 'password+otp'
+                    : 'password',
+            rememberedIdentifier: Boolean(user?.phone || session?.phone) ? 'email+phone' : 'email',
+            suggestedProvider: normalizeText(providerIds[0] || ''),
+            providerIds,
+        },
+    };
+};
+
 const buildSessionPayload = ({
     authUser = {},
     authToken = null,
@@ -258,14 +306,18 @@ const buildSessionPayload = ({
     status = 'authenticated',
     latticeChallenge = null,
     error = null,
-} = {}) => ({
-    status,
-    latticeChallenge: latticeChallenge || null,
-    session: buildSessionIdentity({ authUser, authToken, authUid }),
-    profile: toProfilePayload(user),
-    roles: toRoleState(user),
-    error: error ? { message: String(error?.message || error) } : null,
-});
+} = {}) => {
+    const session = buildSessionIdentity({ authUser, authToken, authUid });
+    return {
+        status,
+        latticeChallenge: latticeChallenge || null,
+        session,
+        intelligence: toSessionIntelligence(user, session),
+        profile: toProfilePayload(user),
+        roles: toRoleState(user),
+        error: error ? { message: String(error?.message || error) } : null,
+    };
+};
 
 const resolveAuthTimeSeconds = (authToken = null) => {
     const authTime = Number(authToken?.auth_time || 0);
@@ -477,6 +529,7 @@ module.exports = {
     persistAuthSnapshot,
     toRoleState,
     toProfilePayload,
+    toSessionIntelligence,
     buildSessionPayload,
     syncAuthenticatedUser,
     resolveAuthenticatedSession,

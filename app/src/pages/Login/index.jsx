@@ -12,7 +12,15 @@ import {
   startFirebasePhoneLoginChallenge,
 } from '@/services/firebasePhoneChallenge';
 import { cn } from '@/lib/utils';
+import AuthAccelerationRail from '@/components/features/auth/AuthAccelerationRail';
 import { AuthFeedback } from '@/components/shared/AuthFeedback';
+import {
+  clearAuthJourneyDraft,
+  describeAccelerationLane,
+  readAuthIdentityMemory,
+  readAuthJourneyDraft,
+  writeAuthJourneyDraft,
+} from '@/utils/authAcceleration';
 import { resolveAuthError, AUTH_SUCCESS } from '@/utils/authErrors';
 import { resolveFirebasePhoneFallback } from '@/utils/firebasePhoneFallback';
 import { resolveNavigationTarget } from '@/utils/navigation';
@@ -75,6 +83,8 @@ const Login = () => {
   const [otpTransport, setOtpTransport] = useState(OTP_TRANSPORT.BACKEND_OTP);
   const [otpStage, setOtpStage] = useState(OTP_STAGE.SINGLE);
   const [firebasePhoneFallback, setFirebasePhoneFallback] = useState(null);
+  const [resumeDraft, setResumeDraft] = useState(null);
+  const [identityMemory, setIdentityMemory] = useState(null);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -88,11 +98,13 @@ const Login = () => {
   const otpRefs = useRef([]);
   const recaptchaContainerRef = useRef(null);
   const firebasePhoneChallengeRef = useRef(null);
+  const authAccelerationHydratedRef = useRef(false);
 
   const from = useMemo(
     () => resolveNavigationTarget(location.state?.from, '/'),
     [location.state?.from]
   );
+  const hasLaunchDirective = Boolean(location.state?.authMode || launchPrefill.email || launchPrefill.phone);
   const socialAuthStatus = getFirebaseSocialAuthStatus();
   const canUseFirebasePhoneOtp = step !== 'reset-password'
     && socialAuthStatus.ready
@@ -112,6 +124,47 @@ const Login = () => {
     if (!currentUser) return;
     navigate(from, { replace: true });
   }, [currentUser, from, navigate]);
+
+  useEffect(() => {
+    if (authAccelerationHydratedRef.current) return;
+    authAccelerationHydratedRef.current = true;
+
+    const storedIdentity = readAuthIdentityMemory();
+    const storedDraft = readAuthJourneyDraft();
+
+    if (storedIdentity) {
+      setIdentityMemory(storedIdentity);
+      if (!hasLaunchDirective) {
+        setFormData((prev) => ({
+          ...prev,
+          email: prev.email || storedIdentity.email || '',
+          phone: prev.phone || storedIdentity.phone || '',
+        }));
+      }
+    }
+
+    if (!storedDraft) return;
+
+    setResumeDraft(storedDraft);
+    setFormData((prev) => ({
+      ...prev,
+      name: prev.name || storedDraft.name || storedIdentity?.displayName || '',
+      email: prev.email || storedDraft.email || storedIdentity?.email || '',
+      phone: prev.phone || storedDraft.phone || storedIdentity?.phone || '',
+    }));
+
+    if (!hasLaunchDirective) {
+      setMode(storedDraft.mode);
+    }
+
+    if (storedDraft.canResumeOtp) {
+      setMode(storedDraft.mode);
+      setStep('otp');
+      setOtpStage(storedDraft.otpStage);
+      setOtpTransport(storedDraft.otpTransport);
+      setCountdown(storedDraft.countdown);
+    }
+  }, [hasLaunchDirective]);
 
   const clearFirebaseChallenge = async () => {
     const activeChallenge = firebasePhoneChallengeRef.current;
@@ -183,6 +236,72 @@ const Login = () => {
   const validateEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizeEmail(email));
 
   const setErr = (rawErr) => setAuthError(resolveAuthError(rawErr));
+
+  const applySavedIdentity = (memory = null) => {
+    if (!memory) return;
+
+    clearFirebaseChallenge().catch(() => {});
+    setResumeDraft(null);
+    setMode('signin');
+    setStep('form');
+    setAuthError(null);
+    setAuthSuccess(null);
+    setCountdown(0);
+    setOtpValues(Array(OTP_LENGTH).fill(''));
+    setSignInProofToken('');
+    setLoginFlowToken('');
+    setOtpStage(OTP_STAGE.SINGLE);
+    setOtpTransport(OTP_TRANSPORT.BACKEND_OTP);
+    setFirebasePhoneFallback(null);
+    setFormData((prev) => ({
+      ...prev,
+      name: prev.name || memory.displayName || '',
+      email: memory.email || prev.email,
+      phone: memory.phone || prev.phone,
+      password: '',
+      confirmPassword: '',
+    }));
+  };
+
+  useEffect(() => {
+    if (currentUser) {
+      clearAuthJourneyDraft();
+      return;
+    }
+
+    const email = normalizeEmail(formData.email);
+    const phone = normalizePhone(formData.phone);
+    const name = formData.name.trim();
+    const hasIdentity = Boolean(email || phone || name);
+
+    if (!hasIdentity && step === 'form') {
+      clearAuthJourneyDraft();
+      return;
+    }
+
+    writeAuthJourneyDraft({
+      mode,
+      step,
+      name,
+      email,
+      phone,
+      otpStage,
+      otpTransport,
+      countdown,
+      fallbackToBackupOtp: Boolean(firebasePhoneFallback?.disableFirebasePhoneOtp),
+    });
+  }, [
+    countdown,
+    currentUser,
+    firebasePhoneFallback?.disableFirebasePhoneOtp,
+    formData.email,
+    formData.name,
+    formData.phone,
+    mode,
+    otpStage,
+    otpTransport,
+    step,
+  ]);
 
   const startOtpStep = ({
     transport,
@@ -708,6 +827,8 @@ const Login = () => {
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   const switchMode = (newMode) => {
     clearFirebaseChallenge().catch(() => {});
+    clearAuthJourneyDraft();
+    setResumeDraft(null);
     setMode(newMode);
     setStep('form');
     setAuthError(null);
@@ -719,6 +840,7 @@ const Login = () => {
     setLoginFlowToken('');
     setOtpStage(OTP_STAGE.SINGLE);
     setOtpTransport(OTP_TRANSPORT.BACKEND_OTP);
+    setFirebasePhoneFallback(null);
   };
 
   const goBack = () => {
@@ -984,8 +1106,83 @@ const Login = () => {
         : socialAuthStatus.runtimeBlocked
           ? t('login.signal.socialBlocked', {}, 'OTP-only until this tab is refreshed')
           : t('login.signal.socialHost', { host: socialAuthStatus.runtimeHost || t('login.signal.thisHost', {}, 'this host') }, 'OTP-only on {{host}}'),
-    },
-  ]), [canUseFirebasePhoneOtp, firebasePhoneFallback?.disableFirebasePhoneOtp, formData.phone, isEmailOtpStage, isPhoneOtpStage, mode, socialAuthStatus.runtimeBlocked, socialAuthStatus.runtimeHost, socialAuthStatus.supported, step, t]);
+      },
+    ]), [canUseFirebasePhoneOtp, firebasePhoneFallback?.disableFirebasePhoneOtp, formData.phone, isEmailOtpStage, isPhoneOtpStage, mode, socialAuthStatus.runtimeBlocked, socialAuthStatus.runtimeHost, socialAuthStatus.supported, step, t]);
+
+  const accelerationCards = useMemo(() => {
+    const cards = [];
+
+    if (resumeDraft) {
+      cards.push({
+        key: 'resume-draft',
+        icon: 'resume',
+        eyebrow: t('login.acceleration.resume', {}, 'Resumable flow'),
+        title: resumeDraft.resumeMessage?.title || t('login.acceleration.resumeTitle', {}, 'Fast recovery ready'),
+        body: resumeDraft.resumeMessage?.detail || t('login.acceleration.resumeBody', {}, 'Your previous secure auth attempt can be restarted with the saved identity details.'),
+        meta: resumeDraft.savedAtLabel
+          ? t('login.acceleration.savedAt', { age: resumeDraft.savedAtLabel }, 'Saved {{age}}')
+          : '',
+      });
+    }
+
+    if (identityMemory) {
+      const identityTitle = identityMemory.maskedEmail || identityMemory.maskedPhone || t('login.acceleration.identityTitle', {}, 'Known identity');
+      const identityBody = identityMemory.assuranceLabel
+        ? t(
+          'login.acceleration.identityBody',
+          {
+            assurance: identityMemory.assuranceLabel,
+            provider: identityMemory.providerLabel,
+            age: identityMemory.savedAtLabel || t('login.acceleration.justNow', {}, 'just now'),
+          },
+          'Last secure session used {{assurance}} via {{provider}} {{age}}.'
+        )
+        : t(
+          'login.acceleration.identityBodyFallback',
+          {
+            provider: identityMemory.providerLabel,
+            age: identityMemory.savedAtLabel || t('login.acceleration.justNow', {}, 'just now'),
+          },
+          'Last secure session used {{provider}} {{age}}.'
+        );
+
+      cards.push({
+        key: 'identity-memory',
+        icon: 'identity',
+        eyebrow: t('login.acceleration.identity', {}, 'Known identity'),
+        title: identityTitle,
+        body: identityBody,
+        meta: identityMemory.maskedPhone || '',
+        actionLabel: t('login.acceleration.useIdentity', {}, 'Use saved identity'),
+        onAction: () => applySavedIdentity(identityMemory),
+      });
+    }
+
+    const lane = describeAccelerationLane({
+      mode,
+      canUseFirebasePhoneOtp,
+      socialAuthSupported: socialAuthStatus.supported,
+      fallbackToBackupOtp: Boolean(firebasePhoneFallback?.disableFirebasePhoneOtp || resumeDraft?.fallbackToBackupOtp),
+    });
+
+    cards.push({
+      key: 'lane',
+      icon: 'lane',
+      eyebrow: t('login.acceleration.lane', {}, 'Fastest lane'),
+      title: lane.title,
+      body: lane.detail,
+    });
+
+    return cards;
+  }, [
+    canUseFirebasePhoneOtp,
+    firebasePhoneFallback?.disableFirebasePhoneOtp,
+    identityMemory,
+    mode,
+    resumeDraft,
+    socialAuthStatus.supported,
+    t,
+  ]);
 
   const handleFeedbackAction = () => {
     if (!authError?.action) return;
@@ -1105,6 +1302,8 @@ const Login = () => {
 
             {/* â”€â”€â”€ Right Side â€” Form â”€â”€â”€ */}
             <div className="md:w-[55%] p-6 sm:p-8 lg:p-14 relative z-10 flex flex-col justify-center bg-transparent">
+
+              <AuthAccelerationRail cards={accelerationCards} busy={isLoading} />
 
               <div className="mb-6 rounded-[24px] border border-white/10 bg-white/[0.035] p-4 shadow-[0_18px_45px_rgba(2,8,23,0.28)]">
                 <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.24em] text-neo-cyan">
