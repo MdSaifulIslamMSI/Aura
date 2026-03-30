@@ -49,7 +49,7 @@ const AuraQuantumChallenge = () => {
         return array[0] % max;
       };
 
-      const proof = latticeChallenge.A[0].map(() => getSecureRandomInt(257)); // Mock proof
+      const proof = latticeChallenge.A[0].map(() => getSecureRandomInt(3329)); // Mock proof
       
       // Since this is a demo of the flow, let's just use the known secret from the challenge if available
       // or a mock that the server will accept for the sake of the walkthrough.

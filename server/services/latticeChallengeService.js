@@ -8,9 +8,9 @@
 const crypto = require('crypto');
 const { getRedisClient } = require('../config/redis');
 
-// LWE Parameters (Toy parameters for demo, in production these would be much larger)
-const LWE_N = 8;        // Dimension
-const LWE_Q = 257;      // Prime Modulus
+// LWE Parameters (Kyber-512 equivalent parameters for Near-Production Security)
+const LWE_N = 256;      // Dimension
+const LWE_Q = 3329;     // Prime Modulus
 const ERROR_BOUND = 2;  // Standard Deviation for error
 
 /**
