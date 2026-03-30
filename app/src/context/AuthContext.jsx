@@ -750,8 +750,8 @@ export const AuthProvider = ({ children }) => {
     updateProfile: updateProfileInBackend,
     activateSeller,
     deactivateSeller,
-    verifyLatticeChallenge: async (challengeId, proof) => {
-      const response = await authApi.verifyLatticeChallenge(challengeId, proof);
+    verifyLatticeChallenge: async (token, proof, deviceId) => {
+      const response = await authApi.verifyLatticeChallenge(token, proof, deviceId);
       if (response.success) {
         setSessionState((prev) => ({
           ...prev,

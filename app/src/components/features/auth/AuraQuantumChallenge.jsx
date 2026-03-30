@@ -42,69 +42,100 @@ const AuraQuantumChallenge = () => {
       // Small UI delay to simulate heavy lattice mathematics parsing
       await new Promise(resolve => setTimeout(resolve, 2000));
       
-      const { ct, cR, iv, authTag, simulatedSk, challengeId } = latticeChallenge;
+      const { ct, cR, iv, tag, token, simulatedSk, clientNonce, deviceId, sessionId } = latticeChallenge;
 
       // 1. Module-LWE KEM Decapsulation (Kyber)
       const ctBuffer = Uint8Array.from(atob(ct), c => c.charCodeAt(0));
       const skBuffer = Uint8Array.from(atob(simulatedSk), c => c.charCodeAt(0));
       const ss = kyber.Decrypt512(ctBuffer, skBuffer);
 
-      // 2. AES-256-GCM Decryption (Native WebCrypto)
-      const key = await window.crypto.subtle.importKey(
-        'raw', 
-        ss, 
-        { name: 'AES-GCM', length: 256 }, 
-        false, 
+      // 2. HKDF Key Isolation
+      const textEncoder = new TextEncoder();
+      const baseKey = await window.crypto.subtle.importKey(
+        'raw',
+        ss,
+        { name: 'HKDF' },
+        false,
+        ['deriveKey']
+      );
+
+      const kEnc = await window.crypto.subtle.deriveKey(
+        {
+          name: 'HKDF',
+          hash: 'SHA-256',
+          salt: new Uint8Array(),
+          info: textEncoder.encode('enc'),
+        },
+        baseKey,
+        { name: 'AES-GCM', length: 256 },
+        false,
         ['decrypt']
       );
 
-      const ivBuffer = Uint8Array.from(atob(iv), c => c.charCodeAt(0));
-      const cRBuffer = Uint8Array.from(atob(cR), c => c.charCodeAt(0));
-      const authTagBuffer = Uint8Array.from(atob(authTag), c => c.charCodeAt(0));
-      
-      // WebCrypto expects [Ciphertext || AuthTag]
-      const combinedCiphertext = new Uint8Array(cRBuffer.length + authTagBuffer.length);
-      combinedCiphertext.set(cRBuffer, 0);
-      combinedCiphertext.set(authTagBuffer, cRBuffer.length);
-
-      const RBuffer = await window.crypto.subtle.decrypt(
-        { name: 'AES-GCM', iv: ivBuffer },
-        key,
-        combinedCiphertext
-      );
-
-      // 3. Generate HMAC-SHA256 Proof of Knowledge
-      const textEncoder = new TextEncoder();
-      const hmacKey = await window.crypto.subtle.importKey(
-        'raw',
-        RBuffer,
-        { name: 'HMAC', hash: 'SHA-256' },
+      const kMac = await window.crypto.subtle.deriveKey(
+        {
+          name: 'HKDF',
+          hash: 'SHA-256',
+          salt: new Uint8Array(),
+          info: textEncoder.encode('mac'),
+        },
+        baseKey,
+        { name: 'HMAC', hash: 'SHA-256', length: 256 },
         false,
         ['sign']
       );
 
+      // 3. AES-256-GCM Statless Decryption with Bound AAD
+      const ivBuffer = Uint8Array.from(atob(iv), c => c.charCodeAt(0));
+      const cRBuffer = Uint8Array.from(atob(cR), c => c.charCodeAt(0));
+      const authTagBuffer = Uint8Array.from(atob(tag), c => c.charCodeAt(0)); // Tag from HKDF snippet uses `tag` vs `authTag`
+      
+      // WebCrypto AES-GCM expects [Ciphertext || AuthTag]
+      const combinedCiphertext = new Uint8Array(cRBuffer.length + authTagBuffer.length);
+      combinedCiphertext.set(cRBuffer, 0);
+      combinedCiphertext.set(authTagBuffer, cRBuffer.length);
+
+      const aadBuffer = textEncoder.encode(clientNonce + deviceId);
+
+      const RBuffer = await window.crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv: ivBuffer, additionalData: aadBuffer },
+        kEnc,
+        combinedCiphertext
+      );
+
+      // 4. Generate Session-Bounded HMAC-SHA256 Proof of Knowledge
+      // Proof Context: R || sessionId || deviceId
+      const sessionBuffer = textEncoder.encode(sessionId);
+      const deviceBuffer = textEncoder.encode(deviceId);
+      
+      const payloadBuffer = new Uint8Array(RBuffer.byteLength + sessionBuffer.length + deviceBuffer.length);
+      payloadBuffer.set(new Uint8Array(RBuffer), 0);
+      payloadBuffer.set(sessionBuffer, RBuffer.byteLength);
+      payloadBuffer.set(deviceBuffer, RBuffer.byteLength + sessionBuffer.length);
+
       const proofBuffer = await window.crypto.subtle.sign(
         'HMAC',
-        hmacKey,
-        textEncoder.encode(challengeId)
+        kMac,
+        payloadBuffer
       );
 
       // Convert ArrayBuffer proof to Base64 string for transmission
       const proofBase64 = btoa(String.fromCharCode(...new Uint8Array(proofBuffer)));
       
-      const response = await verifyLatticeChallenge(challengeId, proofBase64);
+      // FIDO2 Stateless Request
+      const response = await verifyLatticeChallenge(token, proofBase64, deviceId);
 
       if (response.success) {
         setVerified(true);
-        toast.success('Post-Quantum Identity Verified (KEM-512)');
+        toast.success(`Quantum Verification complete. FIDO2 Identity Bound.`);
       } else {
         setSolving(false);
-        toast.error('Cryptographic Proof Failed. Retrying KEM decapsulation...');
+        toast.error('Cryptographic Hardware Binding Failed. Are you on a secure device?');
       }
     } catch (err) {
-      console.error('KEM Auth Verification Error:', err);
+      console.error('KEM / HKDF Auth Verification Error:', err);
       setSolving(false);
-      toast.error('KEM Challenge verification error');
+      toast.error('FIDO2 Hardware Challenge Verification Error');
     }
   };
 

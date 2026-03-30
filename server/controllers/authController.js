@@ -7,7 +7,7 @@ const {
     syncAuthenticatedUser,
     applyLoginAssuranceToSession,
 } = require('../services/authSessionService');
-const { generateLatticeChallenge, verifyLatticeProof } = require('../services/latticeChallengeService');
+const { generateChallenge: generateLatticeChallenge, verifyProof: verifyLatticeProof } = require('../services/latticeChallengeService');
 const { normalizePhoneE164 } = require('../services/sms');
 const { invalidateUserCache, invalidateUserCacheByEmail } = require('../middleware/authMiddleware');
 const { validatePasswordPolicy, detectWeakPasswordPatterns } = require('../utils/passwordValidator');
@@ -115,7 +115,11 @@ const syncSession = asyncHandler(async (req, res) => {
     const requiresLatticeChallenge = shouldRequireLatticeChallenge({ user });
     let latticeChallenge = null;
     if (requiresLatticeChallenge) {
-        latticeChallenge = await generateLatticeChallenge(user._id);
+        const crypto = require('crypto');
+        const clientNonce = typeof req.body?.clientNonce === 'string' ? req.body.clientNonce : crypto.randomUUID();
+        const deviceId = typeof req.body?.deviceId === 'string' ? req.body.deviceId : 'unknown-device';
+        const sessionId = req.sessionID || req.ip || 'anon-session';
+        latticeChallenge = await generateLatticeChallenge(user._id, clientNonce, deviceId, sessionId);
     }
 
     res.json(buildSessionPayload({
@@ -391,14 +395,17 @@ const completePhoneFactorVerification = asyncHandler(async (req, res) => {
 // @route   POST /api/auth/verify-lattice
 // @access  Private
 const verifyLatticeChallenge = asyncHandler(async (req, res) => {
-    const { challengeId, proof } = req.body;
-    if (!challengeId || !proof) {
-        throw new AppError('Challenge ID and mathematical proof are required', 400);
+    const { token, proof, deviceId } = req.body;
+    if (!token || !proof) {
+        throw new AppError('Challenge token and cryptographic proof are required', 400);
     }
 
-    const verification = await verifyLatticeProof(challengeId, proof);
+    const sessionId = req.sessionID || req.ip || 'anon-session';
+    const requestDeviceId = deviceId || 'unknown-device';
+
+    const verification = await verifyLatticeProof(token, proof, sessionId, requestDeviceId);
     if (!verification.success) {
-        throw new AppError('Cryptographic proof verification failed', 403);
+        throw new AppError(`Cryptographic verification failed: ${verification.reason}`, 403);
     }
 
     res.json({
@@ -412,16 +419,18 @@ const verifyLatticeChallenge = asyncHandler(async (req, res) => {
 // @route   POST /api/auth/verify-quantum
 // @access  Private
 const verifyQuantumChallenge = asyncHandler(async (req, res) => {
-    const { challengeId, proof } = req.body;
-    if (!challengeId || !proof) {
-        throw new AppError('Challenge ID and quantum proof are required', 400);
+    const { token, proof, deviceId } = req.body;
+    if (!token || !proof) {
+        throw new AppError('Challenge token and quantum proof are required', 400);
     }
 
+    const sessionId = req.sessionID || req.ip || 'anon-session';
+    const requestDeviceId = deviceId || 'unknown-device';
+
     // Quantum challenges reuse the same lattice-based verification engine
-    // but with a different challenge type flag for audit logging
-    const verification = await verifyLatticeProof(challengeId, proof);
+    const verification = await verifyLatticeProof(token, proof, sessionId, requestDeviceId);
     if (!verification.success) {
-        throw new AppError('Quantum cryptographic proof verification failed', 403);
+        throw new AppError(`Quantum cryptographic verification failed: ${verification.reason}`, 403);
     }
 
     res.json({
