@@ -95,6 +95,7 @@ const {
     checkServiceReadiness,
 } = require('./services/healthService');
 const { getChatQuotaHealth } = require('./services/chatQuotaService');
+const { getTrustedRequestIp } = require('./utils/requestIdentity');
 const { createDistributedRateLimit } = require('./middleware/distributedRateLimit');
 const { metricsMiddleware } = require('./middleware/metrics');
 const { createRequestTimeout } = require('./middleware/requestTimeout');
@@ -220,18 +221,7 @@ if (process.env.NODE_ENV !== 'test') {
                 || path.startsWith('/api/email-webhooks')
                 || path.startsWith('/api/observability');
         },
-        keyGenerator: (req) => {
-            const clientSessionId = String(req.headers['x-client-session-id'] || '').trim();
-            if (clientSessionId) {
-                return `session:${clientSessionId}`;
-            }
-
-            const forwardedFor = String(req.headers['x-forwarded-for'] || '')
-                .split(',')[0]
-                .trim();
-
-            return forwardedFor || req.ip || req.socket?.remoteAddress || 'unknown';
-        },
+        keyGenerator: (req) => getTrustedRequestIp(req),
     });
     app.use(limiter);
 }
