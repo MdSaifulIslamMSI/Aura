@@ -4,6 +4,8 @@ import { ShieldCheck, Cpu, Lock, Loader2, Sparkles, Zap } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { toast } from 'sonner';
 
+import kyber from 'crystals-kyber';
+
 const AuraQuantumChallenge = () => {
   const { status, latticeChallenge, verifyLatticeChallenge } = useAuth();
   const [solving, setSolving] = useState(false);
@@ -23,8 +25,7 @@ const AuraQuantumChallenge = () => {
     setSolving(true);
     setProgress(0);
 
-    // Simulated Lattice Solving Logic (NP-Hard Proof Generation)
-    // In a production app, this would be a Web Worker solving for 's' in As + e = b
+    // KEM Decapsulation & Verification Engine Simulation
     const interval = setInterval(() => {
       setProgress((prev) => {
         if (prev >= 100) {
@@ -38,35 +39,72 @@ const AuraQuantumChallenge = () => {
     setSolveInterval(interval);
 
     try {
-      // Small delay to simulate heavy math
+      // Small UI delay to simulate heavy lattice mathematics parsing
       await new Promise(resolve => setTimeout(resolve, 2000));
       
-      // The challenge contains the solution 's' for this demo.
-      // In production, the client would use its private lattice parameters to solve.
-      const getSecureRandomInt = (max) => {
-        const array = new Uint32Array(1);
-        window.crypto.getRandomValues(array);
-        return array[0] % max;
-      };
+      const { ct, cR, iv, authTag, simulatedSk, challengeId } = latticeChallenge;
 
-      const proof = latticeChallenge.A[0].map(() => getSecureRandomInt(3329)); // Mock proof
+      // 1. Module-LWE KEM Decapsulation (Kyber)
+      const ctBuffer = Uint8Array.from(atob(ct), c => c.charCodeAt(0));
+      const skBuffer = Uint8Array.from(atob(simulatedSk), c => c.charCodeAt(0));
+      const ss = kyber.Decrypt512(ctBuffer, skBuffer);
+
+      // 2. AES-256-GCM Decryption (Native WebCrypto)
+      const key = await window.crypto.subtle.importKey(
+        'raw', 
+        ss, 
+        { name: 'AES-GCM', length: 256 }, 
+        false, 
+        ['decrypt']
+      );
+
+      const ivBuffer = Uint8Array.from(atob(iv), c => c.charCodeAt(0));
+      const cRBuffer = Uint8Array.from(atob(cR), c => c.charCodeAt(0));
+      const authTagBuffer = Uint8Array.from(atob(authTag), c => c.charCodeAt(0));
       
-      // Since this is a demo of the flow, let's just use the known secret from the challenge if available
-      // or a mock that the server will accept for the sake of the walkthrough.
-      // For this implementation, the server's 'verifyLweProof' expects the exact secret 's'.
-      // We'll simulate a perfect solver.
-      const response = await verifyLatticeChallenge(latticeChallenge.challengeId, proof);
+      // WebCrypto expects [Ciphertext || AuthTag]
+      const combinedCiphertext = new Uint8Array(cRBuffer.length + authTagBuffer.length);
+      combinedCiphertext.set(cRBuffer, 0);
+      combinedCiphertext.set(authTagBuffer, cRBuffer.length);
+
+      const RBuffer = await window.crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv: ivBuffer },
+        key,
+        combinedCiphertext
+      );
+
+      // 3. Generate HMAC-SHA256 Proof of Knowledge
+      const textEncoder = new TextEncoder();
+      const hmacKey = await window.crypto.subtle.importKey(
+        'raw',
+        RBuffer,
+        { name: 'HMAC', hash: 'SHA-256' },
+        false,
+        ['sign']
+      );
+
+      const proofBuffer = await window.crypto.subtle.sign(
+        'HMAC',
+        hmacKey,
+        textEncoder.encode(challengeId)
+      );
+
+      // Convert ArrayBuffer proof to Base64 string for transmission
+      const proofBase64 = btoa(String.fromCharCode(...new Uint8Array(proofBuffer)));
+      
+      const response = await verifyLatticeChallenge(challengeId, proofBase64);
 
       if (response.success) {
         setVerified(true);
-        toast.success('Post-Quantum Identity Verified');
+        toast.success('Post-Quantum Identity Verified (KEM-512)');
       } else {
         setSolving(false);
-        toast.error('Cryptographic Proof Failed. Retrying lattice search...');
+        toast.error('Cryptographic Proof Failed. Retrying KEM decapsulation...');
       }
     } catch (err) {
+      console.error('KEM Auth Verification Error:', err);
       setSolving(false);
-      toast.error('Challenge verification error');
+      toast.error('KEM Challenge verification error');
     }
   };
 
