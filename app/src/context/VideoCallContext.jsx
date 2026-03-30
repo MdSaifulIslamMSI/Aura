@@ -1,9 +1,10 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { useAuth } from './AuthContext';
 import { useSocketDemand } from './SocketContext';
 import VideoCallOverlay from '../components/features/video/VideoCallOverlay';
 import { listingApi, supportApi } from '../services/api';
+import { useChatStore } from '@/store/chatStore';
 
 const VideoCallContext = createContext(null);
 
@@ -214,6 +215,10 @@ export const VideoCallProvider = ({ children }) => {
     const { currentUser, profile, roles } = useAuth();
     const socketContext = useSocketDemand('video-calls-global', Boolean(currentUser));
     const { socket } = socketContext || {};
+    const chatMode = useChatStore((state) => state.mode);
+    const lastQuery = useChatStore((state) => state.context.lastQuery);
+    const currentIntent = useChatStore((state) => state.currentIntent || state.context.sessionMemory?.currentIntent || '');
+    const visibleProductCount = useChatStore((state) => state.visibleProducts.length);
 
     const [activeCallContext, setActiveCallContext] = useState(null);
     const [localStream, setLocalStream] = useState(null);
@@ -237,6 +242,12 @@ export const VideoCallProvider = ({ children }) => {
     const callStatusRef = useRef('idle');
 
     const isSupportAdmin = Boolean(roles?.isAdmin || profile?.isAdmin);
+    const assistantContinuity = useMemo(() => ({
+        lastQuery: String(lastQuery || '').trim(),
+        mode: String(chatMode || 'explore').trim() || 'explore',
+        intent: String(currentIntent || '').trim(),
+        visibleProductCount: Number(visibleProductCount || 0),
+    }), [chatMode, currentIntent, lastQuery, visibleProductCount]);
 
     const getLiveKitApi = (channelType) => (
         channelType === 'support_ticket'
@@ -900,6 +911,26 @@ export const VideoCallProvider = ({ children }) => {
         };
     }, [socket]);
 
+    const callMetaValue = useMemo(() => ({
+        roomConnectionState,
+        remoteParticipantCount,
+        participantCount: 1 + Number(remoteParticipantCount || 0),
+        mediaMode: normalizeLiveCallMediaMode(activeCallContext?.mediaMode),
+        canSwitchCamera: normalizeLiveCallMediaMode(activeCallContext?.mediaMode) === 'video' && videoInputDevices.length > 1,
+        availableCameraCount: videoInputDevices.length,
+        activeVideoInputId,
+        switchingCamera,
+        assistantContinuity,
+    }), [
+        activeCallContext?.mediaMode,
+        activeVideoInputId,
+        assistantContinuity,
+        remoteParticipantCount,
+        roomConnectionState,
+        switchingCamera,
+        videoInputDevices.length,
+    ]);
+
     return (
         <VideoCallContext.Provider value={{
             startCall,
@@ -913,16 +944,7 @@ export const VideoCallProvider = ({ children }) => {
             activeCallContext,
             callerInfo,
             callError,
-            callMeta: {
-                roomConnectionState,
-                remoteParticipantCount,
-                participantCount: 1 + Number(remoteParticipantCount || 0),
-                mediaMode: normalizeLiveCallMediaMode(activeCallContext?.mediaMode),
-                canSwitchCamera: normalizeLiveCallMediaMode(activeCallContext?.mediaMode) === 'video' && videoInputDevices.length > 1,
-                availableCameraCount: videoInputDevices.length,
-                activeVideoInputId,
-                switchingCamera,
-            },
+            callMeta: callMetaValue,
             clearCallError: () => setCallError(''),
         }}>
             {children}
@@ -933,16 +955,7 @@ export const VideoCallProvider = ({ children }) => {
                 callerInfo={callerInfo}
                 callContext={activeCallContext}
                 callError={callError}
-                callMeta={{
-                    roomConnectionState,
-                    remoteParticipantCount,
-                    participantCount: 1 + Number(remoteParticipantCount || 0),
-                    mediaMode: normalizeLiveCallMediaMode(activeCallContext?.mediaMode),
-                    canSwitchCamera: normalizeLiveCallMediaMode(activeCallContext?.mediaMode) === 'video' && videoInputDevices.length > 1,
-                    availableCameraCount: videoInputDevices.length,
-                    activeVideoInputId,
-                    switchingCamera,
-                }}
+                callMeta={callMetaValue}
                 onAnswer={answerCall}
                 onHangUp={hangUp}
                 onSwitchCamera={switchCamera}

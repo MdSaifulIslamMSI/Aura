@@ -2,6 +2,7 @@ import { Mic, MicOff, Send, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import MessageList from './MessageList';
 import ActionBar from './ActionBar';
+import MultimodalDock from './MultimodalDock';
 
 const ChatContainer = ({
     isWhiteMode = false,
@@ -67,6 +68,8 @@ const ChatContainer = ({
                     </button>
                 </div>
             </header>
+
+            <MultimodalDock isWhiteMode={isWhiteMode} />
 
             <MessageList
                 messages={messages}
