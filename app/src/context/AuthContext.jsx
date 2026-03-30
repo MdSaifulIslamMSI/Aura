@@ -24,6 +24,7 @@ import {
 } from '../config/firebase';
 import { authApi, userApi } from '../services/api';
 import { clearCsrfTokenCache } from '../services/csrfTokenManager';
+import { cacheTrustedDeviceSessionToken, clearTrustedDeviceSessionToken } from '../services/deviceTrustClient';
 import { clearAuthJourneyDraft, writeAuthIdentityMemory } from '../utils/authAcceleration';
 
 export const AuthContext = createContext();
@@ -45,16 +46,20 @@ const SESSION_STATUS = {
   BOOTSTRAP: 'bootstrap',
   LOADING: 'loading',
   AUTHENTICATED: 'authenticated',
-  LATTICE_CHALLENGE: 'lattice_challenge_required',
+  DEVICE_CHALLENGE: 'device_challenge_required',
   RECOVERABLE_ERROR: 'recoverable_error',
   SIGNED_OUT: 'signed_out',
 };
 
+const LEGACY_SESSION_STATUS = {
+  LATTICE_CHALLENGE: 'lattice_challenge_required',
+};
+
 const VALID_TRANSITIONS = {
   [SESSION_STATUS.BOOTSTRAP]: [SESSION_STATUS.LOADING, SESSION_STATUS.SIGNED_OUT, SESSION_STATUS.RECOVERABLE_ERROR],
-  [SESSION_STATUS.LOADING]: [SESSION_STATUS.AUTHENTICATED, SESSION_STATUS.SIGNED_OUT, SESSION_STATUS.RECOVERABLE_ERROR, SESSION_STATUS.LATTICE_CHALLENGE],
-  [SESSION_STATUS.AUTHENTICATED]: [SESSION_STATUS.SIGNED_OUT, SESSION_STATUS.LOADING, SESSION_STATUS.LATTICE_CHALLENGE],
-  [SESSION_STATUS.LATTICE_CHALLENGE]: [SESSION_STATUS.AUTHENTICATED, SESSION_STATUS.SIGNED_OUT, SESSION_STATUS.LOADING],
+  [SESSION_STATUS.LOADING]: [SESSION_STATUS.AUTHENTICATED, SESSION_STATUS.SIGNED_OUT, SESSION_STATUS.RECOVERABLE_ERROR, SESSION_STATUS.DEVICE_CHALLENGE],
+  [SESSION_STATUS.AUTHENTICATED]: [SESSION_STATUS.SIGNED_OUT, SESSION_STATUS.LOADING, SESSION_STATUS.DEVICE_CHALLENGE],
+  [SESSION_STATUS.DEVICE_CHALLENGE]: [SESSION_STATUS.AUTHENTICATED, SESSION_STATUS.SIGNED_OUT, SESSION_STATUS.LOADING],
   [SESSION_STATUS.RECOVERABLE_ERROR]: [SESSION_STATUS.LOADING, SESSION_STATUS.SIGNED_OUT, SESSION_STATUS.AUTHENTICATED],
   [SESSION_STATUS.SIGNED_OUT]: [SESSION_STATUS.LOADING, SESSION_STATUS.BOOTSTRAP],
 };
@@ -67,7 +72,7 @@ const EMPTY_ROLES = {
 
 const EMPTY_SESSION_STATE = {
   status: SESSION_STATUS.BOOTSTRAP,
-  latticeChallenge: null,
+  deviceChallenge: null,
   session: null,
   intelligence: null,
   profile: null,
@@ -80,6 +85,17 @@ const normalizeEmail = (value) => (typeof value === 'string' ? value.trim().toLo
 const normalizePhone = (value) => (
   typeof value === 'string' ? value.trim().replace(/[\s\-()]/g, '') : ''
 );
+
+const normalizeSessionStatus = (value) => {
+  const normalized = normalizeText(value);
+  if (normalized === LEGACY_SESSION_STATUS.LATTICE_CHALLENGE) {
+    return SESSION_STATUS.DEVICE_CHALLENGE;
+  }
+
+  return Object.values(SESSION_STATUS).includes(normalized)
+    ? normalized
+    : SESSION_STATUS.SIGNED_OUT;
+};
 
 const buildRoleState = (profile = null, fallbackVerified = false) => ({
   isAdmin: Boolean(profile?.isAdmin),
@@ -142,8 +158,8 @@ const buildSessionStateFromPayload = (payload = {}, firebaseUser = null) => {
   const roles = payload?.roles || buildRoleState(profile, session?.emailVerified);
 
   return {
-    status: payload?.status || (session ? SESSION_STATUS.AUTHENTICATED : SESSION_STATUS.SIGNED_OUT),
-    latticeChallenge: payload?.latticeChallenge || null,
+    status: normalizeSessionStatus(payload?.status || (session ? SESSION_STATUS.AUTHENTICATED : SESSION_STATUS.SIGNED_OUT)),
+    deviceChallenge: payload?.deviceChallenge || payload?.latticeChallenge || null,
     session,
     intelligence: payload?.intelligence || buildSessionIntelligenceFallback(session, profile, roles),
     profile,
@@ -188,7 +204,7 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     if (!sessionState.profile?.email) return;
-    if (![SESSION_STATUS.AUTHENTICATED, SESSION_STATUS.LATTICE_CHALLENGE].includes(sessionState.status)) return;
+    if (![SESSION_STATUS.AUTHENTICATED, SESSION_STATUS.DEVICE_CHALLENGE].includes(sessionState.status)) return;
 
     writeAuthIdentityMemory({
       email: sessionState.session?.email || sessionState.profile.email,
@@ -239,11 +255,12 @@ export const AuthProvider = ({ children }) => {
 
   const applySignedOutState = () => {
     clearCsrfTokenCache();
+    clearTrustedDeviceSessionToken();
     resetSyncTracking();
     clearControlledAuthFlow();
     setSessionState({
       status: SESSION_STATUS.SIGNED_OUT,
-      latticeChallenge: null,
+      deviceChallenge: null,
       session: null,
       intelligence: null,
       profile: null,
@@ -266,7 +283,7 @@ export const AuthProvider = ({ children }) => {
     const previousState = sessionStateRef.current;
     const canPreserveResolvedSession = previousState.profile
       && syncStateRef.current.identity === identity
-      && [SESSION_STATUS.AUTHENTICATED, SESSION_STATUS.LATTICE_CHALLENGE].includes(previousState.status);
+      && [SESSION_STATUS.AUTHENTICATED, SESSION_STATUS.DEVICE_CHALLENGE].includes(previousState.status);
 
     if (canPreserveResolvedSession) {
       setSessionState({
@@ -286,7 +303,7 @@ export const AuthProvider = ({ children }) => {
 
     setSessionState({
       status: SESSION_STATUS.RECOVERABLE_ERROR,
-      latticeChallenge: null,
+      deviceChallenge: null,
       session: buildFirebaseSessionFallback(firebaseUser),
       intelligence: buildSessionIntelligenceFallback(buildFirebaseSessionFallback(firebaseUser), null, EMPTY_ROLES),
       profile: null,
@@ -313,7 +330,7 @@ export const AuthProvider = ({ children }) => {
     return !force
       && identity
       && syncStateRef.current.identity === identity
-      && [SESSION_STATUS.AUTHENTICATED, SESSION_STATUS.LATTICE_CHALLENGE].includes(state.status)
+      && [SESSION_STATUS.AUTHENTICATED, SESSION_STATUS.DEVICE_CHALLENGE].includes(state.status)
       && state.profile
       && (Date.now() - syncStateRef.current.lastSyncedAt) < AUTH_SYNC_DEDUPE_MS;
   };
@@ -340,6 +357,7 @@ export const AuthProvider = ({ children }) => {
 
     if (syncStateRef.current.identity && syncStateRef.current.identity !== identity) {
       clearCsrfTokenCache();
+      clearTrustedDeviceSessionToken();
     }
 
     if (shouldReuseResolvedSession(identity, force)) {
@@ -354,7 +372,7 @@ export const AuthProvider = ({ children }) => {
       const sessionFallback = buildFirebaseSessionFallback(activeUser);
       setSessionState((prev) => ({
         status: prev.status === SESSION_STATUS.BOOTSTRAP ? SESSION_STATUS.BOOTSTRAP : SESSION_STATUS.LOADING,
-        latticeChallenge: syncStateRef.current.identity === identity ? (prev.latticeChallenge || null) : null,
+        deviceChallenge: syncStateRef.current.identity === identity ? (prev.deviceChallenge || null) : null,
         session: syncStateRef.current.identity === identity
           ? (prev.session || sessionFallback)
           : sessionFallback,
@@ -629,7 +647,7 @@ export const AuthProvider = ({ children }) => {
       const nextRoles = buildRoleState(nextProfile, prev.session?.emailVerified);
       return {
         status: SESSION_STATUS.AUTHENTICATED,
-        latticeChallenge: prev.latticeChallenge || null,
+        deviceChallenge: prev.deviceChallenge || null,
         session: prev.session,
         intelligence: buildSessionIntelligenceFallback(prev.session, nextProfile, nextRoles),
         profile: nextProfile,
@@ -666,7 +684,7 @@ export const AuthProvider = ({ children }) => {
       if (!isMounted || sessionStateRef.current.status !== SESSION_STATUS.BOOTSTRAP) return;
       setSessionState({
         status: SESSION_STATUS.RECOVERABLE_ERROR,
-        latticeChallenge: null,
+        deviceChallenge: null,
         session: null,
         intelligence: null,
         profile: null,
@@ -707,7 +725,7 @@ export const AuthProvider = ({ children }) => {
       const sessionFallback = buildFirebaseSessionFallback(user);
       setSessionState({
         status: SESSION_STATUS.LOADING,
-        latticeChallenge: null,
+        deviceChallenge: null,
         session: sessionFallback,
         intelligence: buildSessionIntelligenceFallback(sessionFallback, null, EMPTY_ROLES),
         profile: null,
@@ -725,6 +743,31 @@ export const AuthProvider = ({ children }) => {
     };
   }, []);
 
+  const verifyDeviceChallenge = async (token, proof, publicKeySpkiBase64 = '') => {
+    const response = await authApi.verifyDeviceChallenge(token, proof, publicKeySpkiBase64, {
+      firebaseUser: currentUser,
+    });
+    if (response?.deviceSessionToken) {
+      cacheTrustedDeviceSessionToken(response.deviceSessionToken);
+    }
+    if (response.success) {
+      setSessionState((prev) => ({
+        ...prev,
+        status: SESSION_STATUS.AUTHENTICATED,
+        deviceChallenge: null,
+        error: null,
+      }));
+      if (currentUser) {
+        refreshSession(currentUser, { force: true, silent: true }).catch(() => {});
+      }
+    }
+    return response;
+  };
+
+  const verifyLatticeChallenge = async (token, proof, _deviceId) => (
+    verifyDeviceChallenge(token, proof, '')
+  );
+
   const value = {
     currentUser,
     dbUser: sessionState.profile,
@@ -733,7 +776,7 @@ export const AuthProvider = ({ children }) => {
     profile: sessionState.profile,
     roles: sessionState.roles,
     status: sessionState.status,
-    latticeChallenge: sessionState.latticeChallenge,
+    deviceChallenge: sessionState.deviceChallenge,
     sessionError: sessionState.error,
     loading: sessionState.status === SESSION_STATUS.BOOTSTRAP || sessionState.status === SESSION_STATUS.LOADING,
     isAuthenticated: Boolean(currentUser),
@@ -750,18 +793,8 @@ export const AuthProvider = ({ children }) => {
     updateProfile: updateProfileInBackend,
     activateSeller,
     deactivateSeller,
-    verifyLatticeChallenge: async (token, proof, deviceId) => {
-      const response = await authApi.verifyLatticeChallenge(token, proof, deviceId);
-      if (response.success) {
-        setSessionState((prev) => ({
-          ...prev,
-          status: SESSION_STATUS.AUTHENTICATED,
-          latticeChallenge: null,
-          error: null,
-        }));
-      }
-      return response;
-    },
+    verifyDeviceChallenge,
+    verifyLatticeChallenge,
   };
 
   return (

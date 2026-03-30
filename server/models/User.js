@@ -67,6 +67,16 @@ const loyaltySchema = mongoose.Schema({
     ledger: { type: [loyaltyLedgerSchema], default: [] },
 }, { _id: false });
 
+const trustedDeviceSchema = mongoose.Schema({
+    deviceId: { type: String, required: true },
+    label: { type: String, default: '' },
+    algorithm: { type: String, default: 'RSA-PSS-SHA256' },
+    publicKeySpkiBase64: { type: String, required: true },
+    createdAt: { type: Date, default: Date.now },
+    lastSeenAt: { type: Date, default: Date.now },
+    lastVerifiedAt: { type: Date, default: Date.now },
+}, { _id: false });
+
 const userSchema = mongoose.Schema({
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true },
@@ -121,6 +131,7 @@ const userSchema = mongoose.Schema({
     loginOtpAssuranceExpiresAt: { type: Date, default: null, select: false },
     resetEmailOtpVerifiedAt: { type: Date, default: null, select: false },
     resetOtpVerifiedAt: { type: Date, default: null, select: false },
+    trustedDevices: { type: [trustedDeviceSchema], default: [] },
     addresses: [{
         type: { type: String, enum: ['home', 'work', 'other'], default: 'home' },
         name: { type: String, required: true },

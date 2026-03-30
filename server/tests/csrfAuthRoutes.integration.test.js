@@ -22,6 +22,7 @@ jest.mock('../middleware/authMiddleware', () => ({
 
         return next({ statusCode: 401, message: 'Unauthorized' });
     },
+    protectPhoneFactorProof: (_req, _res, next) => next(),
     protectOptional: (req, _res, next) => next(),
 }));
 
@@ -69,6 +70,8 @@ jest.mock('../controllers/authController', () => ({
     getSession: (_req, res) => res.json({ ok: true }),
     syncSession: (_req, res) => res.json({ synced: true }),
     completePhoneFactorLogin: (_req, res) => res.json({ completed: true }),
+    completePhoneFactorVerification: (_req, res) => res.json({ completed: true }),
+    verifyDeviceChallenge: (_req, res) => res.json({ ok: true }),
     verifyLatticeChallenge: (_req, res) => res.json({ ok: true }),
     verifyQuantumChallenge: (_req, res) => res.json({ ok: true }),
 }));
