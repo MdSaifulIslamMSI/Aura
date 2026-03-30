@@ -17,12 +17,19 @@ import {
     WifiOff,
     X,
 } from 'lucide-react';
+import SupportArchitecturePanel from '@/components/features/support/SupportArchitecturePanel';
+import SupportSpeechButton from '@/components/features/support/SupportSpeechButton';
 import { supportApi } from '@/services/api';
 import { cn } from '@/lib/utils';
 import { useSocket, useSocketDemand } from '@/context/SocketContext';
 import { useVideoCall } from '@/context/VideoCallContext';
 import { useMarket } from '@/context/MarketContext';
+import { useSpeechInput } from '@/hooks/useSpeechInput';
 import { useDynamicTranslations } from '@/hooks/useDynamicTranslations';
+import {
+    buildSupportSummaryFromTickets,
+    buildSupportTimeline,
+} from '@/utils/supportArchitecture';
 
 const TICKET_LIST_POLL_MS = 25000;
 const ACTIVE_TICKET_POLL_MS = 15000;
@@ -292,6 +299,26 @@ export default function SupportSection({
     const pendingScrollBehaviorRef = useRef('auto');
     const messageSignatureRef = useRef('');
     const launchRef = useRef('');
+    const activeComposerValue = creating ? form.message : newMessage;
+    const handleSupportComposerChange = useCallback((nextValue) => {
+        if (creating) {
+            setForm((previous) => ({ ...previous, message: nextValue }));
+            return;
+        }
+
+        setNewMessage(nextValue);
+    }, [creating]);
+    const {
+        isListening: isVoiceDrafting,
+        supportsSpeechInput,
+        stopListening: stopVoiceDrafting,
+        toggleListening: toggleVoiceDrafting,
+    } = useSpeechInput({
+        value: activeComposerValue,
+        onChange: handleSupportComposerChange,
+        clearOnStart: false,
+        lang: 'en-IN',
+    });
 
     const handleMessagesScroll = () => {
         shouldStickToBottomRef.current = isNearBottom(messagesContainerRef.current);
@@ -514,6 +541,10 @@ export default function SupportSection({
         event.preventDefault();
         if (creatingTicket) return;
 
+        if (isVoiceDrafting) {
+            stopVoiceDrafting();
+        }
+
         const payload = {
             subject: String(form.subject || '').trim(),
             category: form.category,
@@ -546,6 +577,10 @@ export default function SupportSection({
     const handleSendMessage = async (event) => {
         event.preventDefault();
         if (!newMessage.trim() || sending || !activeTicketId) return;
+
+        if (isVoiceDrafting) {
+            stopVoiceDrafting();
+        }
 
         const tempText = newMessage;
         setNewMessage('');
@@ -704,10 +739,217 @@ export default function SupportSection({
         error,
     ]), [error, messages, tickets]);
     const { translateText: translateSupportText } = useDynamicTranslations(supportDynamicTexts);
+    const supportSummary = useMemo(
+        () => buildSupportSummaryFromTickets(tickets),
+        [tickets]
+    );
+    const liveSupportLaneCount = supportSummary.queuedLiveCalls + supportSummary.ringingLiveCalls + supportSummary.connectedLiveCalls;
+    const customerArchitectureMetrics = useMemo(() => ([
+        {
+            label: t('profile.support.arch.threads', {}, 'Threads'),
+            value: supportSummary.totalTickets,
+            detail: t(
+                'profile.support.arch.threadsBody',
+                { open: supportSummary.openTickets },
+                `${supportSummary.openTickets} conversations are still open for follow-up.`
+            ),
+            tone: supportSummary.totalTickets > 0 ? 'cyan' : 'slate',
+            icon: 'chat',
+        },
+        {
+            label: t('profile.support.arch.replyNeeded', {}, 'Reply needed'),
+            value: supportSummary.waitingOnUser,
+            detail: t(
+                'profile.support.arch.replyNeededBody',
+                { count: tickets.filter((ticket) => Number(ticket.unreadByUser || 0) > 0).length },
+                `${tickets.filter((ticket) => Number(ticket.unreadByUser || 0) > 0).length} threads have unread support replies for you.`
+            ),
+            tone: supportSummary.waitingOnUser > 0 ? 'amber' : 'emerald',
+            icon: 'queue',
+        },
+        {
+            label: t('profile.support.arch.liveLanes', {}, 'Live support'),
+            value: liveSupportLaneCount,
+            detail: t(
+                'profile.support.arch.liveLanesBody',
+                { connected: supportSummary.connectedLiveCalls },
+                `${supportSummary.connectedLiveCalls} live calls are already connected across your support threads.`
+            ),
+            tone: liveSupportLaneCount > 0 ? 'emerald' : 'slate',
+            icon: 'video',
+        },
+        {
+            label: t('profile.support.arch.voiceLanes', {}, 'Voice ready'),
+            value: supportSummary.voiceLiveCalls,
+            detail: t(
+                'profile.support.arch.voiceLanesBody',
+                { video: supportSummary.videoLiveCalls },
+                `${supportSummary.videoLiveCalls} video escalations can happen without losing the chat trail.`
+            ),
+            tone: supportSummary.voiceLiveCalls > 0 ? 'cyan' : 'slate',
+            icon: 'voice',
+        },
+    ]), [liveSupportLaneCount, supportSummary, t, tickets]);
+    const customerArchitectureInsight = useMemo(() => {
+        if (canJoinSupportCall) {
+            return {
+                label: t('profile.support.arch.nextStep', {}, 'Next step'),
+                title: t(
+                    'profile.support.arch.joinTitle',
+                    { label: supportLiveCallLabel },
+                    `Aura Support already opened a ${supportLiveCallLabel}`
+                ),
+                body: t(
+                    'profile.support.arch.joinBody',
+                    {},
+                    'Join the live lane from this thread and the chat history stays right here after the call.'
+                ),
+                tone: 'emerald',
+                icon: supportLiveCallMode === 'voice' ? 'voice' : 'video',
+            };
+        }
+
+        if (activeTicket?.liveCallRequested) {
+            return {
+                label: t('profile.support.arch.nextStep', {}, 'Next step'),
+                title: t(
+                    'profile.support.arch.requestedTitle',
+                    { label: supportLiveCallLabel },
+                    `Your ${supportLiveCallLabel} request is queued`
+                ),
+                body: t(
+                    'profile.support.arch.requestedBody',
+                    {},
+                    'Stay in this chat while the support team prepares the call so no context gets lost.'
+                ),
+                tone: 'amber',
+                icon: supportLiveCallMode === 'voice' ? 'voice' : 'video',
+            };
+        }
+
+        if (supportSummary.waitingOnUser > 0) {
+            return {
+                label: t('profile.support.arch.nextStep', {}, 'Next step'),
+                title: t(
+                    'profile.support.arch.replyTitle',
+                    { count: supportSummary.waitingOnUser },
+                    `${supportSummary.waitingOnUser} support threads are waiting on you`
+                ),
+                body: t(
+                    'profile.support.arch.replyBody',
+                    {},
+                    'Reply in chat first, then escalate to voice or video only if the issue still needs real-time handling.'
+                ),
+                tone: 'amber',
+                icon: 'chat',
+            };
+        }
+
+        if (['resolved', 'closed'].includes(String(activeTicket?.status || '').toLowerCase())) {
+            return {
+                label: t('profile.support.arch.nextStep', {}, 'Next step'),
+                title: t('profile.support.arch.resolvedTitle', {}, 'Resolution is already captured'),
+                body: t(
+                    'profile.support.arch.resolvedBody',
+                    {},
+                    'Keep this thread as the durable record. Open a fresh one only if the issue truly changes.'
+                ),
+                tone: 'cyan',
+                icon: 'resolution',
+            };
+        }
+
+        return {
+            label: t('profile.support.arch.nextStep', {}, 'Next step'),
+            title: t('profile.support.arch.defaultTitle', {}, 'Start in chat and accelerate when needed'),
+            body: t(
+                'profile.support.arch.defaultBody',
+                {},
+                'Aura Support can move this same thread into voice or video without losing the written history or the resolution summary.'
+            ),
+            tone: 'cyan',
+            icon: 'insight',
+        };
+    }, [activeTicket?.liveCallRequested, activeTicket?.status, canJoinSupportCall, supportLiveCallLabel, supportLiveCallMode, supportSummary.waitingOnUser, t]);
+    const customerArchitectureStages = useMemo(() => {
+        if (activeTicket?._id) {
+            return buildSupportTimeline({
+                ticket: activeTicket,
+                activeCallContext,
+                callStatus,
+            });
+        }
+
+        return [
+            {
+                key: 'chat',
+                icon: 'chat',
+                label: 'Chat',
+                state: supportSummary.totalTickets > 0 ? 'active' : 'pending',
+                detail: supportSummary.totalTickets > 0
+                    ? `${supportSummary.totalTickets} support conversations already preserve their written history.`
+                    : 'Start with chat so the issue is durable from the first message.',
+            },
+            {
+                key: 'voice',
+                icon: 'voice',
+                label: 'Voice',
+                state: supportSummary.voiceLiveCalls > 0 ? 'active' : 'pending',
+                detail: supportSummary.voiceLiveCalls > 0
+                    ? `${supportSummary.voiceLiveCalls} voice escalations are active or queued.`
+                    : 'Voice is available when typing is too slow for the issue.',
+            },
+            {
+                key: 'video',
+                icon: 'video',
+                label: 'Video',
+                state: supportSummary.videoLiveCalls > 0 ? 'active' : 'pending',
+                detail: supportSummary.videoLiveCalls > 0
+                    ? `${supportSummary.videoLiveCalls} video escalations are active or queued.`
+                    : 'Video is ready when visual proof or walkthroughs matter.',
+            },
+            {
+                key: 'resolution',
+                icon: 'resolution',
+                label: 'Resolution',
+                state: (supportSummary.resolvedTickets + supportSummary.closedTickets) > 0 ? 'complete' : 'active',
+                detail: `${supportSummary.resolvedTickets + supportSummary.closedTickets} threads already have durable outcomes saved here.`,
+            },
+        ];
+    }, [activeCallContext, activeTicket, callStatus, supportSummary]);
+    const customerArchitectureBadges = useMemo(() => ([
+        {
+            label: socketStatusLabel,
+            tone: connectionState === 'connected' ? 'emerald' : isSocketReconnecting ? 'amber' : 'rose',
+            icon: 'queue',
+        },
+        {
+            label: supportsSpeechInput
+                ? t('profile.support.arch.voiceBadgeReady', {}, 'Voice drafting ready')
+                : t('profile.support.arch.voiceBadgeFallback', {}, 'Text drafting only'),
+            tone: supportsSpeechInput ? 'cyan' : 'slate',
+            icon: 'voice',
+        },
+    ]), [connectionState, isSocketReconnecting, socketStatusLabel, supportsSpeechInput, t]);
 
     return (
-        <div className="grid gap-6 xl:grid-cols-[22rem_minmax(0,1fr)]">
-            <div className="premium-panel flex min-h-[42rem] flex-col overflow-hidden p-0">
+        <div className="space-y-6">
+            <SupportArchitecturePanel
+                eyebrow={t('profile.support.arch.eyebrow', {}, 'Omnichannel support')}
+                title={t('profile.support.arch.title', {}, 'Chat, voice, and video stay in one support thread')}
+                description={t(
+                    'profile.support.arch.description',
+                    {},
+                    'Move from written support into live voice or video without losing history, status, or the eventual resolution.'
+                )}
+                metrics={customerArchitectureMetrics}
+                insight={customerArchitectureInsight}
+                stages={customerArchitectureStages}
+                badges={customerArchitectureBadges}
+            />
+
+            <div className="grid gap-6 xl:grid-cols-[22rem_minmax(0,1fr)]">
+                <div className="premium-panel flex min-h-[42rem] flex-col overflow-hidden p-0">
                 <div className="border-b border-white/10 px-5 py-5">
                     <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
@@ -849,9 +1091,9 @@ export default function SupportSection({
                         </div>
                     )}
                 </div>
-            </div>
+                </div>
 
-            <div className="premium-panel min-h-[42rem] overflow-hidden p-0">
+                <div className="premium-panel min-h-[42rem] overflow-hidden p-0">
                 {!creating && !activeTicket ? (
                     <div className="support-chat-thread flex h-full flex-col">
                         <div className="border-b border-white/10 px-6 py-6">
@@ -1007,24 +1249,35 @@ export default function SupportSection({
                                             minLength={5}
                                             maxLength={2000}
                                             value={form.message}
-                                            onChange={(event) => setForm((previous) => ({ ...previous, message: event.target.value }))}
+                                            onChange={(event) => handleSupportComposerChange(event.target.value)}
                                             className="min-h-[16rem] w-full rounded-[1.8rem] border border-white/10 bg-white/[0.05] px-4 py-4 text-sm leading-7 text-white outline-none transition-colors focus:border-emerald-300/30"
                                             placeholder={t('profile.support.compose.messagePlaceholder', {}, 'Describe the problem, what action was taken, and what kind of resolution you need.')}
                                         />
                                     </label>
 
                                     <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-                                        <div className="text-xs leading-6 text-slate-400">
+                                        <div className="max-w-xl text-xs leading-6 text-slate-400">
                                             {t('profile.support.compose.persistentNote', {}, 'This thread is persistent. Replies, policy notes, and next steps stay together like a real chat history.')}
                                         </div>
-                                        <button
-                                            type="submit"
-                                            disabled={creatingTicket}
-                                            className="support-chat-send inline-flex items-center gap-2 px-5 py-3 text-sm font-black"
-                                        >
-                                            {creatingTicket ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                                            {t('profile.support.compose.openChat', {}, 'Open support chat')}
-                                        </button>
+                                        <div className="flex flex-wrap items-center gap-3">
+                                            <SupportSpeechButton
+                                                supportsSpeechInput={supportsSpeechInput}
+                                                isListening={isVoiceDrafting}
+                                                onToggle={toggleVoiceDrafting}
+                                                disabled={creatingTicket}
+                                                idleLabel={t('profile.support.compose.voiceDraft', {}, 'Voice draft')}
+                                                activeLabel={t('profile.support.compose.voiceDraftStop', {}, 'Stop voice')}
+                                                className="h-12"
+                                            />
+                                            <button
+                                                type="submit"
+                                                disabled={creatingTicket}
+                                                className="support-chat-send inline-flex items-center gap-2 px-5 py-3 text-sm font-black"
+                                            >
+                                                {creatingTicket ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                                                {t('profile.support.compose.openChat', {}, 'Open support chat')}
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             </form>
@@ -1262,10 +1515,10 @@ export default function SupportSection({
                             <form onSubmit={handleSendMessage} className="support-chat-composer px-4 py-4 sm:px-6">
                                 <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
                                     <div className="relative min-w-0 flex-1">
-                                        <textarea
-                                            ref={composerRef}
-                                            value={newMessage}
-                                            onChange={(event) => setNewMessage(event.target.value)}
+                                            <textarea
+                                                ref={composerRef}
+                                                value={newMessage}
+                                                onChange={(event) => handleSupportComposerChange(event.target.value)}
                                             onKeyDown={(event) => {
                                                 if (event.key === 'Enter' && !event.shiftKey) {
                                                     event.preventDefault();
@@ -1290,23 +1543,43 @@ export default function SupportSection({
                                         </button>
                                     </div>
                                     {canJoinSupportCall || isActiveSupportCall || activeTicket?.liveCallRequested ? (
-                                        <button
-                                            type="button"
-                                            onClick={() => handleLiveCallAction(supportLiveCallMode)}
-                                            disabled={liveCallActionDisabled}
-                                            className="support-chat-utility inline-flex h-12 justify-center gap-2 px-4 text-sm font-black disabled:cursor-not-allowed disabled:opacity-55"
-                                        >
-                                            {requestingLiveCall ? (
-                                                <RefreshCw className="h-4 w-4 animate-spin" />
-                                            ) : supportLiveCallMode === 'voice' ? (
-                                                <PhoneCall className="h-4 w-4" />
-                                            ) : (
-                                                <Video className="h-4 w-4" />
-                                            )}
-                                            {liveCallComposerLabel}
-                                        </button>
+                                        <div className="flex flex-wrap gap-2">
+                                            <SupportSpeechButton
+                                                supportsSpeechInput={supportsSpeechInput}
+                                                isListening={isVoiceDrafting}
+                                                onToggle={toggleVoiceDrafting}
+                                                disabled={sending}
+                                                idleLabel={t('profile.support.compose.voiceDraft', {}, 'Voice draft')}
+                                                activeLabel={t('profile.support.compose.voiceDraftStop', {}, 'Stop voice')}
+                                                className="h-12"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => handleLiveCallAction(supportLiveCallMode)}
+                                                disabled={liveCallActionDisabled}
+                                                className="support-chat-utility inline-flex h-12 justify-center gap-2 px-4 text-sm font-black disabled:cursor-not-allowed disabled:opacity-55"
+                                            >
+                                                {requestingLiveCall ? (
+                                                    <RefreshCw className="h-4 w-4 animate-spin" />
+                                                ) : supportLiveCallMode === 'voice' ? (
+                                                    <PhoneCall className="h-4 w-4" />
+                                                ) : (
+                                                    <Video className="h-4 w-4" />
+                                                )}
+                                                {liveCallComposerLabel}
+                                            </button>
+                                        </div>
                                     ) : (
                                         <div className="flex flex-wrap gap-2">
+                                            <SupportSpeechButton
+                                                supportsSpeechInput={supportsSpeechInput}
+                                                isListening={isVoiceDrafting}
+                                                onToggle={toggleVoiceDrafting}
+                                                disabled={sending}
+                                                idleLabel={t('profile.support.compose.voiceDraft', {}, 'Voice draft')}
+                                                activeLabel={t('profile.support.compose.voiceDraftStop', {}, 'Stop voice')}
+                                                className="h-12"
+                                            />
                                             <button
                                                 type="button"
                                                 onClick={() => handleLiveCallAction('voice')}
@@ -1349,6 +1622,7 @@ export default function SupportSection({
                         )}
                     </div>
                 ) : null}
+            </div>
             </div>
         </div>
     );

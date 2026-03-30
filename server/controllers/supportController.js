@@ -26,6 +26,7 @@ const {
     markSupportTicketLiveCallStarted,
     requestSupportTicketLiveCall,
 } = require('../services/supportVideoService');
+const { buildSupportQueueSummary } = require('../services/supportQueueSummaryService');
 const {
     buildSupportRoomName,
     createSupportParticipantSession,
@@ -828,6 +829,7 @@ const adminGetTickets = asyncHandler(async (req, res, next) => {
         filter.status = req.query.status;
     }
 
+    const summary = await buildSupportQueueSummary(filter);
     const tickets = await SupportTicket.find(filter)
         .sort({ lastMessageAt: -1 })
         .populate('user', 'name email accountState')
@@ -841,6 +843,10 @@ const adminGetTickets = asyncHandler(async (req, res, next) => {
         success: true,
         data: tickets.map(serializeTicketForAdmin),
         pagination: { total, limit, skip },
+        meta: {
+            summary,
+            generatedAt: new Date().toISOString(),
+        },
     });
 });
 

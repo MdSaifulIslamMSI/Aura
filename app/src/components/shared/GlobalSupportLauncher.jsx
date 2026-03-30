@@ -55,9 +55,9 @@ const GlobalSupportLauncher = () => {
     const isLoginRoute = location.pathname === '/login';
     const useCompactLauncher = shouldUseCompactLauncher(location.pathname);
     const eyebrow = isAuthenticated ? 'Need help now?' : (isLoginRoute ? 'Blocked account?' : 'Need admin help?');
-    const title = isAuthenticated ? 'Talk to admin' : 'Sign in for support';
+    const title = isAuthenticated ? 'Chat, voice, video support' : 'Sign in for support';
     const detail = isAuthenticated
-        ? 'Open the support desk for issues, appeals, refunds, or account problems.'
+        ? 'Open the support desk for issues, appeals, refunds, or account problems with one thread that can escalate into voice or video.'
         : 'Keep your sign-in flow pointed at the support desk so a suspension or warning is not a dead end.';
 
     const handleOpenSupport = () => {
