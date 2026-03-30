@@ -6,9 +6,9 @@ const { awardLoyaltyPoints, getRewardSnapshotFromUser } = require('./loyaltyServ
 const { normalizePhoneE164 } = require('./sms');
 const { verifyOtpFlowToken } = require('../utils/otpFlowToken');
 
-const PROFILE_PROJECTION = 'name email phone avatar gender dob bio isAdmin isVerified isSeller sellerActivatedAt accountState moderation authAssurance authAssuranceAt +loginOtpAssuranceExpiresAt addresses cart wishlist loyalty createdAt';
-const AUTH_ONLY_PROJECTION = 'name email phone isAdmin isVerified isSeller sellerActivatedAt accountState moderation authAssurance authAssuranceAt +loginOtpAssuranceExpiresAt loyalty createdAt';
-const SESSION_PROFILE_PROJECTION = 'name email phone avatar gender dob bio isAdmin isVerified isSeller sellerActivatedAt accountState moderation authAssurance authAssuranceAt +loginOtpAssuranceExpiresAt loyalty createdAt';
+const PROFILE_PROJECTION = 'name email phone avatar gender dob bio isAdmin isVerified isSeller sellerActivatedAt accountState moderation authAssurance authAssuranceAt trustedDevices +loginOtpAssuranceExpiresAt addresses cart wishlist loyalty createdAt';
+const AUTH_ONLY_PROJECTION = 'name email phone isAdmin isVerified isSeller sellerActivatedAt accountState moderation authAssurance authAssuranceAt trustedDevices +loginOtpAssuranceExpiresAt loyalty createdAt';
+const SESSION_PROFILE_PROJECTION = 'name email phone avatar gender dob bio isAdmin isVerified isSeller sellerActivatedAt accountState moderation authAssurance authAssuranceAt trustedDevices +loginOtpAssuranceExpiresAt loyalty createdAt';
 
 const PHONE_REGEX = /^\+?\d{10,15}$/;
 const LOGIN_ASSURANCE_TTL_MS = 10 * 60 * 1000;
@@ -304,13 +304,13 @@ const buildSessionPayload = ({
     authUid = '',
     user = null,
     status = 'authenticated',
-    latticeChallenge = null,
+    deviceChallenge = null,
     error = null,
 } = {}) => {
     const session = buildSessionIdentity({ authUser, authToken, authUid });
     return {
         status,
-        latticeChallenge: latticeChallenge || null,
+        deviceChallenge: deviceChallenge || null,
         session,
         intelligence: toSessionIntelligence(user, session),
         profile: toProfilePayload(user),
@@ -503,15 +503,18 @@ const resolveAuthenticatedSession = async ({
 
     await persistAuthSnapshot(user);
 
-    return buildSessionPayload({
-        authUser: {
-            ...authUser,
-            email,
-        },
-        authToken,
-        authUid,
+    return {
         user,
-    });
+        payload: buildSessionPayload({
+            authUser: {
+                ...authUser,
+                email,
+            },
+            authToken,
+            authUid,
+            user,
+        }),
+    };
 };
 
 module.exports = {
