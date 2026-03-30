@@ -2,9 +2,9 @@ param(
     [string]$SubscriptionId = "",
     [string]$ResourceGroup = "rg-aura-prod",
     [string]$Location = "southeastasia",
-    [string]$FrontendOrigin = "https://aurapilot.vercel.app",
+    [string]$FrontendOrigin = "",
     [string]$ApiPublicUrl = "",
-    [string]$SecretsEnvFile = "C:\Users\mdsai\Downloads\aura-api.env",
+    [string]$SecretsEnvFile = "",
     [string]$KeyVaultName = "aura-msi-20260318-kv",
     [string]$AppInsightsName = "aura-msi-20260318-appi",
     [string]$StorageAccountName = "auramsi20260318media",
@@ -181,6 +181,41 @@ function Read-EnvFile {
     return $map
 }
 
+function Read-FrontendEnvFallbacks {
+    param([string]$RepositoryRoot)
+
+    $result = [ordered]@{}
+    $candidates = @(
+        (Join-Path $RepositoryRoot "app\.env.local"),
+        (Join-Path $RepositoryRoot "app\.env")
+    )
+
+    foreach ($candidate in $candidates) {
+        $values = Read-EnvFile -Path $candidate
+        foreach ($entry in $values.GetEnumerator()) {
+            if (-not $result.Contains($entry.Key)) {
+                $result[$entry.Key] = $entry.Value
+            }
+        }
+    }
+
+    return $result
+}
+
+function Get-SourceEnvValues {
+    param(
+        [string]$EnvFilePath,
+        [string]$RepositoryRoot
+    )
+
+    $values = Read-EnvFile -Path $EnvFilePath
+    $frontendValues = Read-FrontendEnvFallbacks -RepositoryRoot $RepositoryRoot
+
+    Set-IfMissing -Map $values -Key "FIREBASE_PROJECT_ID" -Value (Trim-OrDefault $frontendValues["VITE_FIREBASE_PROJECT_ID"])
+
+    return $values
+}
+
 function Trim-OrDefault {
     param(
         [string]$Value,
@@ -191,6 +226,17 @@ function Trim-OrDefault {
         return $Fallback
     }
     return [string]$Value.Trim()
+}
+
+function Get-PrimaryOrigin {
+    param([string]$Value)
+
+    $trimmed = Trim-OrDefault $Value
+    if ([string]::IsNullOrWhiteSpace($trimmed)) {
+        return ""
+    }
+
+    return ($trimmed -split ",")[0].Trim()
 }
 
 function New-RandomSecret {
@@ -425,7 +471,8 @@ function Apply-RuntimeOverrides {
     param(
         [hashtable]$ApiSettings,
         [hashtable]$WorkerSettings,
-        [hashtable]$SourceValues
+        [hashtable]$SourceValues,
+        [string]$FrontendUrl
     )
 
     $sharedKeys = @(
@@ -521,7 +568,8 @@ function Apply-RuntimeOverrides {
     }
 
     if ([string]::IsNullOrWhiteSpace([string]$ApiSettings["ACTIVITY_EMAIL_CTA_URL"])) {
-        $ApiSettings["ACTIVITY_EMAIL_CTA_URL"] = "$FrontendOrigin/profile"
+        $ctaBaseUrl = Trim-OrDefault $FrontendUrl "https://app.example.com"
+        $ApiSettings["ACTIVITY_EMAIL_CTA_URL"] = "$ctaBaseUrl/profile"
     }
 
     return @{
@@ -590,13 +638,30 @@ $RepoRoot = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $MyInvoca
 $ApiSettingsPath = Join-Path $PSScriptRoot "server-api.appsettings.example.env"
 $WorkerSettingsPath = Join-Path $PSScriptRoot "server-worker.appsettings.example.env"
 
+$defaultSecretsEnvFile = Join-Path $RepoRoot "server\.env.azure-secrets"
+if ([string]::IsNullOrWhiteSpace($SecretsEnvFile) -and (Test-Path $defaultSecretsEnvFile)) {
+    $SecretsEnvFile = $defaultSecretsEnvFile
+}
+
 foreach ($namespace in @("Microsoft.App", "Microsoft.OperationalInsights", "Microsoft.ContainerRegistry", "Microsoft.ManagedIdentity", "Microsoft.KeyVault", "Microsoft.Storage")) {
     Ensure-ResourceProvider -Namespace $namespace
 }
 
-$sourceValues = Read-EnvFile -Path $SecretsEnvFile
+$sourceValues = Get-SourceEnvValues -EnvFilePath $SecretsEnvFile -RepositoryRoot $RepoRoot
 Add-GeneratedSecretsIfMissing -Values $sourceValues
 Ensure-StorageConnectionString -Values $sourceValues -GroupName $ResourceGroup -AccountName $StorageAccountName
+
+$resolvedFrontendOrigin = Trim-OrDefault $FrontendOrigin
+if ([string]::IsNullOrWhiteSpace($resolvedFrontendOrigin)) {
+    $resolvedFrontendOrigin = Trim-OrDefault $sourceValues["FRONTEND_URL"]
+}
+if ([string]::IsNullOrWhiteSpace($resolvedFrontendOrigin)) {
+    $resolvedFrontendOrigin = Get-PrimaryOrigin -Value $sourceValues["CORS_ORIGIN"]
+}
+if ([string]::IsNullOrWhiteSpace($resolvedFrontendOrigin)) {
+    $resolvedFrontendOrigin = "https://app.example.com"
+    Write-Host "Frontend origin was not supplied. Falling back to $resolvedFrontendOrigin. Pass -FrontendOrigin or set FRONTEND_URL/CORS_ORIGIN in server/.env.azure-secrets to avoid placeholder routing." -ForegroundColor Yellow
+}
 
 Write-Host "Importing backend secrets into Key Vault..." -ForegroundColor Cyan
 Import-SecretsToKeyVault -VaultName $KeyVaultName -Values $sourceValues
@@ -674,7 +739,7 @@ $apiSettings = Read-EnvFile -Path $ApiSettingsPath
 $workerSettings = Read-EnvFile -Path $WorkerSettingsPath
 $appInsightsConnectionString = Get-AppInsightsConnectionString -Name $AppInsightsName -GroupName $ResourceGroup
 $apiSettings["PORT"] = "8080"
-$resolvedApiPublicUrl = if ([string]::IsNullOrWhiteSpace($ApiPublicUrl)) { "https://placeholder.invalid" } else { $ApiPublicUrl.Trim() }
+$resolvedApiPublicUrl = if ([string]::IsNullOrWhiteSpace($ApiPublicUrl)) { Trim-OrDefault $sourceValues["APP_PUBLIC_URL"] "https://placeholder.invalid" } else { $ApiPublicUrl.Trim() }
 $apiSettings["APP_PUBLIC_URL"] = $resolvedApiPublicUrl
 $workerSettings["PORT"] = "8080"
 if (-not [string]::IsNullOrWhiteSpace($appInsightsConnectionString)) {
@@ -683,9 +748,9 @@ if (-not [string]::IsNullOrWhiteSpace($appInsightsConnectionString)) {
     $workerSettings["APPLICATIONINSIGHTS_CONNECTION_STRING"] = $appInsightsConnectionString
     $workerSettings["APPINSIGHTS_CONNECTIONSTRING"] = $appInsightsConnectionString
 }
-$apiSettings = Apply-Overrides -Settings $apiSettings -KeyVaultNameUnused $KeyVaultName -ApiUrl $resolvedApiPublicUrl -FrontendUrl $FrontendOrigin
-$workerSettings = Apply-Overrides -Settings $workerSettings -KeyVaultNameUnused $KeyVaultName -ApiUrl "https://placeholder.invalid" -FrontendUrl $FrontendOrigin
-$runtimeOverrides = Apply-RuntimeOverrides -ApiSettings $apiSettings -WorkerSettings $workerSettings -SourceValues $sourceValues
+$apiSettings = Apply-Overrides -Settings $apiSettings -KeyVaultNameUnused $KeyVaultName -ApiUrl $resolvedApiPublicUrl -FrontendUrl $resolvedFrontendOrigin
+$workerSettings = Apply-Overrides -Settings $workerSettings -KeyVaultNameUnused $KeyVaultName -ApiUrl "https://placeholder.invalid" -FrontendUrl $resolvedFrontendOrigin
+$runtimeOverrides = Apply-RuntimeOverrides -ApiSettings $apiSettings -WorkerSettings $workerSettings -SourceValues $sourceValues -FrontendUrl $resolvedFrontendOrigin
 $apiSettings = $runtimeOverrides.ApiSettings
 $workerSettings = $runtimeOverrides.WorkerSettings
 
