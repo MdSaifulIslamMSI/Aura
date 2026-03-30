@@ -66,6 +66,7 @@ const VideoCallOverlay = ({
     onAnswer,
     onHangUp,
     onSwitchCamera,
+    onToggleScreenShare,
 }) => {
     const [isMuted, setIsMuted] = useState(false);
     const [isVideoOff, setIsVideoOff] = useState(false);
@@ -88,6 +89,8 @@ const VideoCallOverlay = ({
     const participantCount = Math.max(1, Number(callMeta?.participantCount || (1 + remoteParticipantCount)));
     const isReconnecting = callMeta?.roomConnectionState === 'reconnecting';
     const canSwitchCamera = Boolean(callMeta?.canSwitchCamera && typeof onSwitchCamera === 'function');
+    const canScreenShare = Boolean(callMeta?.canScreenShare && typeof onToggleScreenShare === 'function');
+    const isScreenSharing = Boolean(callMeta?.isScreenSharing);
     const switchingCamera = Boolean(callMeta?.switchingCamera);
     const assistantContinuity = callMeta?.assistantContinuity || null;
     const hasRemoteVideo = Boolean(remoteStream && remoteStream.getTracks?.().length);
@@ -330,6 +333,11 @@ const VideoCallOverlay = ({
                                                     {isVideoOff ? 'Camera off' : 'Camera on'}
                                                 </span>
                                             ) : null}
+                                            {canScreenShare ? (
+                                                <span className={`rounded-full border px-2.5 py-1 ${isScreenSharing ? 'border-emerald-300/20 bg-emerald-500/12 text-emerald-100' : 'border-white/10 bg-white/5 text-white/75'}`}>
+                                                    {isScreenSharing ? 'Sharing screen' : 'Screen share ready'}
+                                                </span>
+                                            ) : null}
                                             {canSwitchCamera ? (
                                                 <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-white/75">
                                                     {callMeta?.availableCameraCount || 2} cameras
@@ -511,6 +519,21 @@ const VideoCallOverlay = ({
                                     className={`support-chat-utility h-12 w-12 ${isVideoOff ? 'bg-rose-500/90 text-white' : 'bg-white/10 text-white'}`}
                                 >
                                     {isVideoOff ? <VideoOff className="h-4 w-4" /> : <Video className="h-4 w-4" />}
+                                </button>
+                            ) : null}
+
+                            {canScreenShare ? (
+                                <button
+                                    type="button"
+                                    onClick={onToggleScreenShare}
+                                    className={`inline-flex h-12 items-center rounded-full px-4 text-xs font-black uppercase tracking-[0.18em] transition-colors ${
+                                        isScreenSharing
+                                            ? 'bg-emerald-500 text-white shadow-[0_18px_34px_rgba(16,185,129,0.3)] hover:bg-emerald-600'
+                                            : 'border border-white/10 bg-white/10 text-white hover:bg-white/15'
+                                    }`}
+                                    title={isScreenSharing ? 'Stop sharing screen' : 'Share screen'}
+                                >
+                                    {isScreenSharing ? 'Stop share' : 'Share screen'}
                                 </button>
                             ) : null}
 
