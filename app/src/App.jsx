@@ -24,6 +24,7 @@ import GlobalSupportLauncher from './components/shared/GlobalSupportLauncher';
 import { trustRoutes } from './config/trustContent';
 import { assertRouteA11yContracts } from './utils/a11yContracts';
 import { lazyWithRetry } from './utils/lazyWithRetry';
+import { MultimodalAssistantProvider } from './context/MultimodalAssistantContext';
 
 // Pages (Lazy Loaded for Performance)
 const Home = lazyWithRetry(() => import('./pages/Home'), 'home');
@@ -296,7 +297,9 @@ function App() {
                       {/* React Router v7 defaults BrowserRouter navigations to startTransition,
                           which can leave the previous lazy route visible after URL changes. */}
                       <Router unstable_useTransitions={false}>
-                        <AppContent />
+                        <MultimodalAssistantProvider>
+                          <AppContent />
+                        </MultimodalAssistantProvider>
                       </Router>
                     </WishlistProvider>
                   </CartProvider>

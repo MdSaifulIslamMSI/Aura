@@ -197,8 +197,8 @@ const ChatBot = () => {
                         <MessageCircle className="h-5 w-5" />
                     </div>
                     <div className="hidden text-left sm:block">
-                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-300">Shopping Assistant</p>
-                        <p className="text-sm font-semibold">Understand, decide, act, guide</p>
+                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-300">Multimodal Assistant</p>
+                        <p className="text-sm font-semibold">Chat, voice, live inspect</p>
                     </div>
                 </button>
             )}

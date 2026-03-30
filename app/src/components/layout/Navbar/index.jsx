@@ -27,10 +27,10 @@ import { createTranslator } from '@/config/marketConfig';
 import { useMotionMode } from '@/context/MotionModeContext';
 import { cn } from '@/lib/utils';
 import AppErrorBoundary from '@/components/shared/AppErrorBoundary';
-import VoiceSearch from '@/components/shared/VoiceSearch';
 import GlobalSearchBar from '@/components/shared/GlobalSearchBar';
 import { useDismissableLayer } from '@/hooks/useDismissableLayer';
 import { getLocalizedCategoryLabel } from '@/config/catalogTaxonomy';
+import { useMultimodalAssistant } from '@/context/MultimodalAssistantContext';
 import NotificationDropdown from './NotificationDropdown';
 
 const NavbarSearchFallback = ({
@@ -305,13 +305,13 @@ const Navbar = () => {
   const [isMarketPanelOpen, setIsMarketPanelOpen] = useState(false);
   const [isPreferencesOpen, setIsPreferencesOpen] = useState(false);
   const [isAdminToolsOpen, setIsAdminToolsOpen] = useState(false);
-  const [showVoiceSearch, setShowVoiceSearch] = useState(false);
   const lastScrollYRef = useRef(0);
   const userMenuRef = useRef(null);
   const quickPanelRef = useRef(null);
   const marketPanelRef = useRef(null);
   const location = useLocation();
   const navigate = useNavigate();
+  const { openVoiceAssistant } = useMultimodalAssistant();
   const { currentUser, dbUser, logout } = useContext(AuthContext);
   const { cartItems } = useContext(CartContext);
   const { colorMode, setColorMode, colorModeOptions } = useColorMode();
@@ -519,35 +519,6 @@ const Navbar = () => {
       tone: 'border-amber-300/25 bg-amber-400/12 text-amber-100 hover:bg-amber-400/18',
     }] : []),
   ];
-  const voiceSearchFallback = (
-    <div className="fixed inset-x-4 bottom-24 z-[70] mx-auto max-w-sm rounded-2xl border border-amber-400/25 bg-zinc-950/95 p-4 shadow-glass">
-      <div className="text-sm font-black uppercase tracking-[0.18em] text-amber-200">
-        {t('nav.voiceUnavailableTitle', {}, 'Voice search unavailable')}
-      </div>
-      <p className="mt-2 text-sm text-slate-300">
-        {t('nav.voiceUnavailableBody', {}, 'The voice assistant failed in this tab. Use typed search now and reopen voice search after a refresh.')}
-      </p>
-      <div className="mt-4 flex flex-wrap gap-2">
-        <button
-          type="button"
-          onClick={() => {
-            setShowVoiceSearch(false);
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-          }}
-          className="inline-flex items-center rounded-xl border border-amber-300/30 bg-amber-300/10 px-4 py-2 text-sm font-semibold text-amber-100 transition-colors hover:bg-amber-300/16"
-        >
-          {t('nav.useTypedSearch', {}, 'Use typed search')}
-        </button>
-        <button
-          type="button"
-          onClick={() => setShowVoiceSearch(false)}
-          className="inline-flex items-center rounded-xl border border-white/15 bg-white/[0.04] px-4 py-2 text-sm font-semibold text-slate-200 transition-colors hover:bg-white/[0.08] hover:text-white"
-        >
-          {t('nav.close', {}, 'Close')}
-        </button>
-      </div>
-    </div>
-  );
   const closeUserPanel = () => {
     setIsUserMenuOpen(false);
     setIsPreferencesOpen(false);
@@ -680,7 +651,7 @@ const Navbar = () => {
               <GlobalSearchBar
                 className="hidden lg:flex flex-[1.2] min-w-[18rem] xl:min-w-[24rem] max-w-[32rem] xl:max-w-[40rem] 2xl:max-w-[46rem]"
                 placeholder={t('nav.searchDesktop', {}, 'Search products, brands, and live deals')}
-                onVoiceSearch={() => setShowVoiceSearch(true)}
+                onVoiceSearch={() => openVoiceAssistant({ origin: 'navbar_search_desktop' })}
               />
             </AppErrorBoundary>
 
@@ -1199,7 +1170,10 @@ const Navbar = () => {
                 <GlobalSearchBar
                   mobile
                   placeholder={t('nav.searchMobile', {}, 'Search products, categories, and actions...')}
-                  onVoiceSearch={() => setShowVoiceSearch(true)}
+                  onVoiceSearch={() => {
+                    setIsMobileMenuOpen(false);
+                    openVoiceAssistant({ origin: 'navbar_search_mobile' });
+                  }}
                   onNavigate={() => setIsMobileMenuOpen(false)}
                   enableGlobalShortcuts={false}
                 />
@@ -1441,13 +1415,6 @@ const Navbar = () => {
 
       {/* Spacer to prevent content from hiding behind fixed navbar */}
       <div className="aura-nav-spacer" />
-
-      <AppErrorBoundary
-        key={`voice-search-${showVoiceSearch ? 'open' : 'closed'}`}
-        fallback={voiceSearchFallback}
-      >
-        {showVoiceSearch && <VoiceSearch onClose={() => setShowVoiceSearch(false)} />}
-      </AppErrorBoundary>
     </>
   );
 };
