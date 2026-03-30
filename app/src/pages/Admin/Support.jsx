@@ -14,14 +14,22 @@ import {
     X,
 } from 'lucide-react';
 import { supportApi } from '@/services/api/supportApi';
+import SupportArchitecturePanel from '@/components/features/support/SupportArchitecturePanel';
+import SupportSpeechButton from '@/components/features/support/SupportSpeechButton';
 import { cn } from '@/lib/utils';
 import AdminPremiumShell from '@/components/shared/AdminPremiumShell';
 import PremiumSelect from '@/components/ui/premium-select';
 import { useMarket } from '@/context/MarketContext';
+import { useSpeechInput } from '@/hooks/useSpeechInput';
 import { useDynamicTranslations } from '@/hooks/useDynamicTranslations';
 import { useSocket, useSocketDemand } from '@/context/SocketContext';
 import { useVideoCall } from '@/context/VideoCallContext';
 import { humanizeEnumLabel, normalizeEnumToken, translateEnumLabel } from '@/utils/enumLocalization';
+import {
+    buildSupportTimeline,
+    createEmptySupportSummary,
+    normalizeSupportSummary,
+} from '@/utils/supportArchitecture';
 
 const TICKET_LIST_POLL_MS = 20000;
 const ACTIVE_TICKET_POLL_MS = 12000;
@@ -223,6 +231,7 @@ export default function AdminSupport() {
     const [newMessage, setNewMessage] = useState('');
     const [sending, setSending] = useState(false);
     const [error, setError] = useState('');
+    const [supportSummary, setSupportSummary] = useState(() => createEmptySupportSummary());
     const [statusFilter, setStatusFilter] = useState('');
     const [statusDraft, setStatusDraft] = useState('open');
     const [resolutionDraft, setResolutionDraft] = useState('');
@@ -235,6 +244,17 @@ export default function AdminSupport() {
     const shouldStickToBottomRef = useRef(true);
     const pendingScrollBehaviorRef = useRef('auto');
     const messageSignatureRef = useRef('');
+    const {
+        isListening: isVoiceDrafting,
+        supportsSpeechInput,
+        stopListening: stopVoiceDrafting,
+        toggleListening: toggleVoiceDrafting,
+    } = useSpeechInput({
+        value: newMessage,
+        onChange: setNewMessage,
+        clearOnStart: false,
+        lang: 'en-IN',
+    });
 
     const handleMessagesScroll = () => {
         shouldStickToBottomRef.current = isNearBottom(messagesContainerRef.current);
@@ -252,6 +272,7 @@ export default function AdminSupport() {
             const nextTickets = sortTickets(Array.isArray(res.data) ? res.data.map(normalizeTicket) : []);
 
             setTickets(nextTickets);
+            setSupportSummary(normalizeSupportSummary(res?.meta?.summary, nextTickets));
             setActiveTicketId((prev) => {
                 if (prev && nextTickets.some((ticket) => String(ticket._id) === String(prev))) {
                     return prev;
@@ -414,6 +435,10 @@ export default function AdminSupport() {
         event.preventDefault();
         if (!newMessage.trim() || sending || !activeTicketId) return;
 
+        if (isVoiceDrafting) {
+            stopVoiceDrafting();
+        }
+
         const tempText = newMessage;
         setNewMessage('');
 
@@ -510,6 +535,195 @@ export default function AdminSupport() {
         error,
     ]), [error, messages, tickets]);
     const { translateText: translateSupportText } = useDynamicTranslations(supportDynamicTexts);
+    const queueSummary = useMemo(
+        () => normalizeSupportSummary(supportSummary, tickets),
+        [supportSummary, tickets]
+    );
+    const liveQueueCount = queueSummary.queuedLiveCalls + queueSummary.ringingLiveCalls + queueSummary.connectedLiveCalls;
+    const adminArchitectureMetrics = useMemo(() => ([
+        {
+            label: t('admin.support.arch.openQueue', {}, 'Open queue'),
+            value: queueSummary.openTickets,
+            detail: t(
+                'admin.support.arch.openQueueBody',
+                { total: queueSummary.totalTickets },
+                `${queueSummary.totalTickets} total threads are in the current queue view.`
+            ),
+            tone: queueSummary.openTickets > 0 ? 'cyan' : 'slate',
+            icon: 'queue',
+        },
+        {
+            label: t('admin.support.arch.needsReply', {}, 'Needs reply'),
+            value: queueSummary.waitingOnAdmin,
+            detail: t(
+                'admin.support.arch.needsReplyBody',
+                { count: queueSummary.unreadBacklog },
+                `${queueSummary.unreadBacklog} unread customer messages are waiting for staff review.`
+            ),
+            tone: queueSummary.waitingOnAdmin > 0 ? 'amber' : 'emerald',
+            icon: 'chat',
+        },
+        {
+            label: t('admin.support.arch.liveLanes', {}, 'Live lanes'),
+            value: liveQueueCount,
+            detail: t(
+                'admin.support.arch.liveLanesBody',
+                { connected: queueSummary.connectedLiveCalls, queued: queueSummary.queuedLiveCalls + queueSummary.ringingLiveCalls },
+                `${queueSummary.connectedLiveCalls} connected and ${queueSummary.queuedLiveCalls + queueSummary.ringingLiveCalls} preparing or queued.`
+            ),
+            tone: liveQueueCount > 0 ? 'emerald' : 'slate',
+            icon: 'video',
+        },
+        {
+            label: t('admin.support.arch.voiceLanes', {}, 'Voice lanes'),
+            value: queueSummary.voiceLiveCalls,
+            detail: t(
+                'admin.support.arch.voiceLanesBody',
+                { video: queueSummary.videoLiveCalls },
+                `${queueSummary.videoLiveCalls} video lanes are active or queued beside voice.`
+            ),
+            tone: queueSummary.voiceLiveCalls > 0 ? 'cyan' : 'slate',
+            icon: 'voice',
+        },
+        {
+            label: t('admin.support.arch.urgent', {}, 'Urgent'),
+            value: queueSummary.urgentTickets,
+            detail: t(
+                'admin.support.arch.urgentBody',
+                { stale: queueSummary.staleOpenTickets },
+                `${queueSummary.staleOpenTickets} open threads are aging past the fast-response window.`
+            ),
+            tone: queueSummary.urgentTickets > 0 || queueSummary.staleOpenTickets > 0 ? 'rose' : 'slate',
+            icon: 'resolution',
+        },
+    ]), [liveQueueCount, queueSummary, t]);
+    const adminArchitectureInsight = useMemo(() => {
+        if (queueSummary.waitingOnAdmin > 0) {
+            return {
+                label: t('admin.support.arch.action', {}, 'Action focus'),
+                title: t(
+                    'admin.support.arch.actionReplyTitle',
+                    { count: queueSummary.waitingOnAdmin },
+                    `${queueSummary.waitingOnAdmin} threads are waiting on a staff reply`
+                ),
+                body: t(
+                    'admin.support.arch.actionReplyBody',
+                    { urgent: queueSummary.urgentTickets },
+                    queueSummary.urgentTickets > 0
+                        ? `${queueSummary.urgentTickets} of those threads are urgent, so the fastest acceleration is reply-first triage before opening more live lanes.`
+                        : 'Fastest acceleration right now is clearing text backlog so live calls stay reserved for the issues that truly need real-time handling.'
+                ),
+                tone: queueSummary.urgentTickets > 0 ? 'rose' : 'amber',
+                icon: 'insight',
+            };
+        }
+
+        if (queueSummary.connectedLiveCalls > 0) {
+            return {
+                label: t('admin.support.arch.action', {}, 'Action focus'),
+                title: t(
+                    'admin.support.arch.actionLiveTitle',
+                    { count: queueSummary.connectedLiveCalls },
+                    `${queueSummary.connectedLiveCalls} live support lanes are active`
+                ),
+                body: t(
+                    'admin.support.arch.actionLiveBody',
+                    {},
+                    'Keep the queue moving by using chat for lightweight follow-up while voice and video handle the trust-critical moments.'
+                ),
+                tone: 'emerald',
+                icon: 'insight',
+            };
+        }
+
+        if (queueSummary.urgentTickets > 0) {
+            return {
+                label: t('admin.support.arch.action', {}, 'Action focus'),
+                title: t(
+                    'admin.support.arch.actionUrgentTitle',
+                    { count: queueSummary.urgentTickets },
+                    `${queueSummary.urgentTickets} urgent cases are in scope`
+                ),
+                body: t(
+                    'admin.support.arch.actionUrgentBody',
+                    {},
+                    'Moderation and high-trust issues should move through a tight chat-to-call path so the resolution notes stay durable after the live interaction ends.'
+                ),
+                tone: 'rose',
+                icon: 'insight',
+            };
+        }
+
+        return {
+            label: t('admin.support.arch.action', {}, 'Action focus'),
+            title: t('admin.support.arch.actionStableTitle', {}, 'Queue is stable and ready to accelerate'),
+            body: t(
+                'admin.support.arch.actionStableBody',
+                {},
+                'Use voice and video selectively while the durable chat trail continues to carry the official resolution record.'
+            ),
+            tone: 'cyan',
+            icon: 'insight',
+        };
+    }, [queueSummary, t]);
+    const adminArchitectureStages = useMemo(() => {
+        if (activeTicket?._id) {
+            return buildSupportTimeline({
+                ticket: activeTicket,
+                activeCallContext,
+                callStatus,
+            });
+        }
+
+        return [
+            {
+                key: 'chat',
+                icon: 'chat',
+                label: 'Chat intake',
+                state: queueSummary.openTickets > 0 ? 'active' : 'complete',
+                detail: `${queueSummary.openTickets} open tickets are flowing through the durable support thread.`,
+            },
+            {
+                key: 'voice',
+                icon: 'voice',
+                label: 'Voice escalation',
+                state: queueSummary.voiceLiveCalls > 0 ? 'active' : 'pending',
+                detail: queueSummary.voiceLiveCalls > 0
+                    ? `${queueSummary.voiceLiveCalls} voice lanes are active or queued.`
+                    : 'Voice is ready for faster trust repair when text slows down.',
+            },
+            {
+                key: 'video',
+                icon: 'video',
+                label: 'Video escalation',
+                state: queueSummary.videoLiveCalls > 0 ? 'active' : 'pending',
+                detail: queueSummary.videoLiveCalls > 0
+                    ? `${queueSummary.videoLiveCalls} video lanes are active or queued.`
+                    : 'Video stays available for visual proof, walkthroughs, and high-touch support.',
+            },
+            {
+                key: 'resolution',
+                icon: 'resolution',
+                label: 'Resolution record',
+                state: (queueSummary.resolvedTickets + queueSummary.closedTickets) > 0 ? 'complete' : 'active',
+                detail: `${queueSummary.resolvedTickets + queueSummary.closedTickets} tickets already have durable outcomes captured in-thread.`,
+            },
+        ];
+    }, [activeCallContext, activeTicket, callStatus, queueSummary]);
+    const adminArchitectureBadges = useMemo(() => ([
+        {
+            label: socketStatusLabel,
+            tone: connectionState === 'connected' ? 'emerald' : isSocketReconnecting ? 'amber' : 'rose',
+            icon: 'queue',
+        },
+        {
+            label: activeTicket?._id
+                ? t('admin.support.arch.focusBadge', { subject: activeTicket.subject }, `Focused on ${activeTicket.subject}`)
+                : t('admin.support.arch.focusNone', {}, 'Queue-wide view'),
+            tone: activeTicket?._id ? 'cyan' : 'slate',
+            icon: activeTicket?._id && supportLiveCallMode === 'voice' ? 'voice' : 'video',
+        },
+    ]), [activeTicket, connectionState, isSocketReconnecting, socketStatusLabel, supportLiveCallMode, t]);
 
     const handleStartLiveCall = async (mediaMode = 'video') => {
         if (!activeTicket?._id || !activeTicket?.user?._id || startingLiveCall) return;
@@ -614,8 +828,23 @@ export default function AdminSupport() {
                 </div>
             )}
         >
-            <div className="grid min-h-[700px] gap-6 xl:grid-cols-[24rem_minmax(0,1fr)]">
-                <div className="flex w-full flex-col overflow-hidden admin-premium-panel p-0">
+            <div className="space-y-6">
+                <SupportArchitecturePanel
+                    eyebrow={t('admin.support.arch.eyebrow', {}, 'Omnichannel architecture')}
+                    title={t('admin.support.arch.title', {}, 'Chat, voice, and video now move as one support system')}
+                    description={t(
+                        'admin.support.arch.description',
+                        {},
+                        'Keep durable chat history, accelerate into voice or video when necessary, and manage the whole queue with live operational context.'
+                    )}
+                    metrics={adminArchitectureMetrics}
+                    insight={adminArchitectureInsight}
+                    stages={adminArchitectureStages}
+                    badges={adminArchitectureBadges}
+                />
+
+                <div className="grid min-h-[700px] gap-6 xl:grid-cols-[24rem_minmax(0,1fr)]">
+                    <div className="flex w-full flex-col overflow-hidden admin-premium-panel p-0">
                     <div className="border-b border-white/10 px-5 py-5">
                         <p className="text-[11px] font-black uppercase tracking-[0.28em] text-emerald-200">{t('admin.support.supportDesk', {}, 'Support desk')}</p>
                         <h3 className="mt-2 text-2xl font-black text-white">{t('admin.support.customerChatQueue', {}, 'Customer chat queue')}</h3>
@@ -708,9 +937,9 @@ export default function AdminSupport() {
                             ))
                         )}
                     </div>
-                </div>
+                    </div>
 
-                <div className="relative flex flex-1 flex-col overflow-hidden admin-premium-panel p-0">
+                    <div className="relative flex flex-1 flex-col overflow-hidden admin-premium-panel p-0">
                     {!activeTicketId ? (
                         <div className="support-chat-thread flex flex-1 flex-col items-center justify-center px-6 text-center text-slate-300">
                             <div className="support-chat-avatar h-20 w-20 text-emerald-100">
@@ -958,21 +1187,42 @@ export default function AdminSupport() {
 
                             {activeTicket.status !== 'closed' ? (
                                 <form onSubmit={handleSendMessage} className="support-chat-composer p-4">
-                                    <div className="relative flex gap-3">
-                                        <input
-                                            type="text"
-                                            value={newMessage}
-                                            onChange={(e) => setNewMessage(e.target.value)}
-                                            placeholder={t('admin.support.composerPlaceholder', {}, 'Type your official response...')}
-                                            className="support-chat-input flex-1 px-5 py-3.5 pr-14 font-medium"
-                                        />
-                                        <button
-                                            type="submit"
-                                            disabled={!newMessage.trim() || sending}
-                                            className="support-chat-send absolute bottom-2 right-2 top-2 aspect-square disabled:opacity-50"
-                                        >
-                                            {sending ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Send className="ml-0.5 h-4 w-4" />}
-                                        </button>
+                                    <div className="flex flex-col gap-3">
+                                        <div className="relative flex gap-3">
+                                            <input
+                                                type="text"
+                                                value={newMessage}
+                                                onChange={(e) => setNewMessage(e.target.value)}
+                                                placeholder={t('admin.support.composerPlaceholder', {}, 'Type your official response...')}
+                                                className="support-chat-input flex-1 px-5 py-3.5 pr-14 font-medium"
+                                            />
+                                            <button
+                                                type="submit"
+                                                disabled={!newMessage.trim() || sending}
+                                                className="support-chat-send absolute bottom-2 right-2 top-2 aspect-square disabled:opacity-50"
+                                            >
+                                                {sending ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Send className="ml-0.5 h-4 w-4" />}
+                                            </button>
+                                        </div>
+
+                                        <div className="flex flex-wrap items-center justify-between gap-3 text-[11px] font-semibold text-slate-400">
+                                            <div>
+                                                {t(
+                                                    'admin.support.voiceDraftHint',
+                                                    {},
+                                                    'Voice drafting keeps the response in this same support thread before you send it.'
+                                                )}
+                                            </div>
+                                            <SupportSpeechButton
+                                                supportsSpeechInput={supportsSpeechInput}
+                                                isListening={isVoiceDrafting}
+                                                onToggle={toggleVoiceDrafting}
+                                                disabled={sending}
+                                                idleLabel={t('admin.support.voiceDraft', {}, 'Voice draft')}
+                                                activeLabel={t('admin.support.voiceDraftStop', {}, 'Stop voice')}
+                                                className="h-11"
+                                            />
+                                        </div>
                                     </div>
                                 </form>
                             ) : (
@@ -983,6 +1233,7 @@ export default function AdminSupport() {
                         </>
                     ) : null}
                 </div>
+            </div>
             </div>
         </AdminPremiumShell>
     );
