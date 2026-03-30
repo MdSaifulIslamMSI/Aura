@@ -311,7 +311,7 @@ const Navbar = () => {
   const marketPanelRef = useRef(null);
   const location = useLocation();
   const navigate = useNavigate();
-  const { openVoiceAssistant } = useMultimodalAssistant();
+  const { openVoiceAssistant = () => {} } = useMultimodalAssistant() || {};
   const { currentUser, dbUser, logout } = useContext(AuthContext);
   const { cartItems } = useContext(CartContext);
   const { colorMode, setColorMode, colorModeOptions } = useColorMode();
