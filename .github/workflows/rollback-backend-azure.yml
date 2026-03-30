@@ -17,18 +17,18 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  AZURE_CLIENT_ID: 03748f55-bdf3-4f48-8f88-303b118193b2
-  AZURE_TENANT_ID: 7f9460de-1fc8-477a-b8ba-80609bc24a31
-  AZURE_SUBSCRIPTION_ID: f7bef511-7ed6-4896-a010-45e5ecd699ef
-  RESOURCE_GROUP: rg-aura-prod
-  ACR_NAME: auramsi20260318acr
-  ACR_LOGIN_SERVER: auramsi20260318acr.azurecr.io
-  IMAGE_NAME: aura-backend
-  API_APP_NAME: aura-msi-api-ca
-  WORKER_APP_NAME: aura-msi-worker-ca
-  HEALTH_PATH: /health
-  HEALTH_TIMEOUT_SECONDS: "240"
-  HEALTH_POLL_INTERVAL_SECONDS: "10"
+  AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID || '03748f55-bdf3-4f48-8f88-303b118193b2' }}
+  AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID || '7f9460de-1fc8-477a-b8ba-80609bc24a31' }}
+  AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID || 'f7bef511-7ed6-4896-a010-45e5ecd699ef' }}
+  RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP || 'rg-aura-prod' }}
+  ACR_NAME: ${{ vars.ACR_NAME || 'auramsi20260318acr' }}
+  ACR_LOGIN_SERVER: ${{ vars.ACR_LOGIN_SERVER || 'auramsi20260318acr.azurecr.io' }}
+  IMAGE_NAME: ${{ vars.ACR_IMAGE_NAME || 'aura-backend' }}
+  API_APP_NAME: ${{ vars.API_APP_NAME || 'aura-msi-api-ca' }}
+  WORKER_APP_NAME: ${{ vars.WORKER_APP_NAME || 'aura-msi-worker-ca' }}
+  HEALTH_PATH: ${{ vars.AZURE_HEALTH_PATH || '/health' }}
+  HEALTH_TIMEOUT_SECONDS: ${{ vars.AZURE_HEALTH_TIMEOUT_SECONDS || '240' }}
+  HEALTH_POLL_INTERVAL_SECONDS: ${{ vars.AZURE_HEALTH_POLL_INTERVAL_SECONDS || '10' }}
 
 jobs:
   rollback:
@@ -72,4 +72,5 @@ jobs:
             echo "- API revision: \`${{ steps.rollback_release.outputs.candidate_api_revision }}\`"
             echo "- Worker revision: \`${{ steps.rollback_release.outputs.candidate_worker_revision }}\`"
             echo "- API URL: [https://${{ steps.rollback_release.outputs.production_fqdn }}](https://${{ steps.rollback_release.outputs.production_fqdn }})"
+            echo "- Frontend routing sync: \`powershell -ExecutionPolicy Bypass -File infra/azure/sync-frontend-routing.ps1 -BackendUrl https://${{ steps.rollback_release.outputs.production_fqdn }}\`"
           } >> "${GITHUB_STEP_SUMMARY}"

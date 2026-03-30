@@ -5,6 +5,12 @@ import { useSocketDemand } from './SocketContext';
 import VideoCallOverlay from '../components/features/video/VideoCallOverlay';
 import { listingApi, supportApi } from '../services/api';
 import { useChatStore } from '@/store/chatStore';
+import {
+    getIncomingCallDisposition,
+    getUnexpectedLiveKitDisconnectReason,
+    normalizeLiveCallMediaMode,
+    shouldSynchronizeUnexpectedLiveKitDisconnect,
+} from './videoCallSessionUtils';
 
 const VideoCallContext = createContext(null);
 
@@ -133,9 +139,6 @@ const buildMediaPublishFailureMessage = (results = []) => {
 };
 
 const readLiveCallMeta = (payload) => payload?.meta?.liveCall || payload?.liveCall || null;
-const normalizeLiveCallMediaMode = (value) => (
-    String(value || '').trim().toLowerCase() === 'voice' ? 'voice' : 'video'
-);
 
 const normalizeCallRequest = (targetOrRequest, listingId) => {
     if (targetOrRequest && typeof targetOrRequest === 'object') {
@@ -240,6 +243,8 @@ export const VideoCallProvider = ({ children }) => {
     const localStreamRef = useRef(null);
     const remoteStreamRef = useRef(null);
     const callStatusRef = useRef('idle');
+    const roomConnectionStateRef = useRef('idle');
+    const remoteParticipantCountRef = useRef(0);
 
     const isSupportAdmin = Boolean(roles?.isAdmin || profile?.isAdmin);
     const assistantContinuity = useMemo(() => ({
@@ -265,9 +270,23 @@ export const VideoCallProvider = ({ children }) => {
             }
     );
 
+    const getCallContextId = (context = {}) => String(
+        context?.channelType === 'support_ticket'
+            ? (context?.supportTicketId || context?.contextId || '')
+            : (context?.listingId || context?.contextId || '')
+    ).trim();
+
     useEffect(() => {
         callStatusRef.current = callStatus;
     }, [callStatus]);
+
+    useEffect(() => {
+        roomConnectionStateRef.current = roomConnectionState;
+    }, [roomConnectionState]);
+
+    useEffect(() => {
+        remoteParticipantCountRef.current = remoteParticipantCount;
+    }, [remoteParticipantCount]);
 
     useEffect(() => {
         if (callStatus === 'idle') return undefined;
@@ -337,6 +356,23 @@ export const VideoCallProvider = ({ children }) => {
         toast.error(nextMessage);
     };
 
+    const endLiveKitSessionForContext = async (context = {}, {
+        reason = 'hangup',
+        sessionKey = '',
+    } = {}) => {
+        const contextId = getCallContextId(context);
+        if (!contextId) {
+            return false;
+        }
+
+        const liveKitApi = getLiveKitApi(context?.channelType);
+        await liveKitApi.end(contextId, {
+            sessionKey: String(sessionKey || context?.sessionKey || '').trim() || undefined,
+            reason,
+        });
+        return true;
+    };
+
     const cleanupCallState = async ({ disconnectSupportRoom = true, preserveError = false } = {}) => {
         const room = supportRoomRef.current;
         supportRoomRef.current = null;
@@ -369,6 +405,38 @@ export const VideoCallProvider = ({ children }) => {
         if (!preserveError) {
             setCallError('');
         }
+    };
+
+    const handleUnexpectedRoomDisconnect = async (room, disconnectReason) => {
+        if (supportRoomRef.current !== room) {
+            return;
+        }
+
+        const activeContext = callContextRef.current;
+        const shouldSyncDisconnect = shouldSynchronizeUnexpectedLiveKitDisconnect(disconnectReason);
+
+        if (shouldSyncDisconnect && activeContext) {
+            const terminationReason = getUnexpectedLiveKitDisconnectReason({
+                callStatus: callStatusRef.current,
+                roomConnectionState: roomConnectionStateRef.current,
+                remoteParticipantCount: remoteParticipantCountRef.current,
+            });
+
+            try {
+                await endLiveKitSessionForContext(activeContext, {
+                    reason: terminationReason,
+                    sessionKey: String(
+                        supportSessionRef.current?.sessionKey
+                        || activeContext?.sessionKey
+                        || ''
+                    ).trim(),
+                });
+            } catch (error) {
+                console.warn('LiveKit: Failed to synchronize unexpected disconnect', error);
+            }
+        }
+
+        await cleanupCallState({ disconnectSupportRoom: false });
     };
 
     const syncSupportRoomState = async (room, trackApi) => {
@@ -528,9 +596,9 @@ export const VideoCallProvider = ({ children }) => {
                 }
             });
         }
-        room.on(RoomEvent.Disconnected, () => {
+        room.on(RoomEvent.Disconnected, (disconnectReason) => {
             if (supportRoomRef.current === room) {
-                void cleanupCallState({ disconnectSupportRoom: false });
+                void handleUnexpectedRoomDisconnect(room, disconnectReason);
             }
         });
         room.on(RoomEvent.MediaDevicesError, (error) => {
@@ -764,10 +832,9 @@ export const VideoCallProvider = ({ children }) => {
         supportEndingRef.current = true;
         try {
             if (contextId) {
-                const liveKitApi = getLiveKitApi(activeContext?.channelType);
-                await liveKitApi.end(contextId, {
-                    sessionKey: sessionKey || undefined,
+                await endLiveKitSessionForContext(activeContext, {
                     reason,
+                    sessionKey,
                 });
             }
             await cleanupCallState({ preserveError });
@@ -870,6 +937,24 @@ export const VideoCallProvider = ({ children }) => {
                 sessionKey: String(payload.sessionKey || '').trim(),
                 mediaMode: normalizeLiveCallMediaMode(payload.mediaMode),
             };
+
+            const incomingCallDisposition = getIncomingCallDisposition({
+                activeCallContext: callContextRef.current,
+                callStatus: callStatusRef.current,
+                nextContext,
+            });
+
+            if (incomingCallDisposition === 'duplicate') {
+                return;
+            }
+
+            if (incomingCallDisposition === 'busy') {
+                toast.warning('Another live call reached you while you were already on one, so it was declined.');
+                void endLiveKitSessionForContext(nextContext, {
+                    reason: 'declined',
+                }).catch(() => null);
+                return;
+            }
 
             setCallerInfo({ userId: payload.fromUserId, name: payload.fromName });
             setRoomConnectionState('idle');

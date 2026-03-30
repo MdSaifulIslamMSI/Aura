@@ -233,6 +233,11 @@ write_output "candidate_api_revision" "${candidate_api_revision}"
 write_output "candidate_api_fqdn" "${candidate_api_fqdn}"
 
 wait_for_revision_ready "${API_APP_NAME}" "${candidate_api_revision}" "API candidate"
+if [[ -z "${candidate_api_fqdn}" ]]; then
+  echo "Could not resolve a direct FQDN for API revision ${candidate_api_revision}." >&2
+  exit 1
+fi
+wait_for_http_health "https://${candidate_api_fqdn}" "candidate"
 production_fqdn="$(az containerapp show --name "${API_APP_NAME}" --resource-group "${RESOURCE_GROUP}" --query "properties.configuration.ingress.fqdn" --output tsv)"
 wait_for_http_health "https://${production_fqdn}" "production"
 

@@ -1,6 +1,6 @@
 # Azure Backend CI/CD
 
-This repo now supports zero-touch backend deployment from GitHub Actions to Azure Container Apps.
+This repo supports backend deployment from GitHub Actions to Azure Container Apps, but the real topology is a split runtime and not a magic one-box deploy.
 
 ## Pipeline
 
@@ -10,13 +10,15 @@ This repo now supports zero-touch backend deployment from GitHub Actions to Azur
 
 Release flow:
 
-1. Build immutable backend image with `docker buildx`
-2. Push image plus registry cache to Azure Container Registry
+1. Build an immutable backend image with `docker buildx`
+2. Push the image and cache to Azure Container Registry
 3. Create a new API revision in Azure Container Apps
-4. Health-check the candidate revision directly
-5. Shift production traffic only after the candidate passes
-6. Update the worker to the same image
-7. Roll back automatically if deploy or health verification fails
+4. Wait for that revision to become provisioned and healthy
+5. Health-check the candidate revision FQDN directly
+6. Re-check the production app FQDN after API and worker promotion
+7. Roll back to the previous image automatically if any stage fails
+
+Important: the workflow keeps the API app in single-revision mode, so this is fast rollback with health gates, not full pre-traffic blue/green.
 
 ## Azure bootstrap
 
@@ -36,9 +38,31 @@ This creates or refreshes:
 
 It also writes `infra/azure/github-oidc.env` with the Azure OIDC IDs for reference.
 
-The current workflows already inline those non-secret IDs, so no GitHub secret is required for Azure login. The repo only needs the committed workflow files and the Azure federated credential created by the bootstrap script.
+The workflows now accept GitHub repository variables for the Azure IDs and app names:
+
+- `AZURE_CLIENT_ID`
+- `AZURE_TENANT_ID`
+- `AZURE_SUBSCRIPTION_ID`
+- `AZURE_RESOURCE_GROUP`
+- `ACR_NAME`
+- `ACR_LOGIN_SERVER`
+- `ACR_IMAGE_NAME`
+- `API_APP_NAME`
+- `WORKER_APP_NAME`
+
+If those variables are missing, the committed defaults are still used as fallbacks.
 
 The workflows do not depend on a GitHub Environment, so a push to `main` stays fully automatic.
+
+## Frontend routing follow-up
+
+The backend deploy does not rewrite Vercel config for you. If the public backend host changes, sync the two tracked rewrite files with:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File infra\azure\sync-frontend-routing.ps1 -BackendUrl https://your-backend-host
+```
+
+That updates both `vercel.json` files without hand-editing them separately.
 
 ## Rollback
 
