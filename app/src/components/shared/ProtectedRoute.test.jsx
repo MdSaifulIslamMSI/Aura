@@ -68,6 +68,18 @@ describe('ProtectedRoute', () => {
         expect(screen.getByText('Profile Screen')).toBeInTheDocument();
     });
 
+    it('holds protected pages behind the trusted device checkpoint when device proof is pending', () => {
+        renderProtectedRoute({
+            status: 'device_challenge_required',
+            sessionError: null,
+            refreshSession: async () => null,
+            currentUser: { uid: 'u_1', email: 'user@example.com' },
+        });
+
+        expect(screen.getByText('Trusted device checkpoint')).toBeInTheDocument();
+        expect(screen.queryByText('Profile Screen')).not.toBeInTheDocument();
+    });
+
     it('offers a reset sign-in path that preserves the blocked support route', async () => {
         const refreshSession = vi.fn().mockResolvedValue(null);
         const logout = vi.fn().mockResolvedValue(null);

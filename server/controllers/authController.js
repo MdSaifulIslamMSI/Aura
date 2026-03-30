@@ -7,11 +7,17 @@ const {
     syncAuthenticatedUser,
     applyLoginAssuranceToSession,
 } = require('../services/authSessionService');
-const { generateChallenge: generateLatticeChallenge, verifyProof: verifyLatticeProof } = require('../services/latticeChallengeService');
 const { normalizePhoneE164 } = require('../services/sms');
 const { invalidateUserCache, invalidateUserCacheByEmail } = require('../middleware/authMiddleware');
 const { validatePasswordPolicy, detectWeakPasswordPatterns } = require('../utils/passwordValidator');
 const AppError = require('../utils/AppError');
+const {
+    TRUSTED_DEVICE_SESSION_HEADER,
+    extractTrustedDeviceContext,
+    issueTrustedDeviceChallenge,
+    verifyTrustedDeviceChallenge,
+    verifyTrustedDeviceSession,
+} = require('../services/trustedDeviceChallengeService');
 
 const normalizeChallengeMode = (value) => {
     const normalized = String(value || '').trim().toLowerCase();
@@ -21,7 +27,9 @@ const normalizeChallengeMode = (value) => {
     return 'off';
 };
 
-const AUTH_LATTICE_CHALLENGE_MODE = normalizeChallengeMode(process.env.AUTH_LATTICE_CHALLENGE_MODE);
+const AUTH_DEVICE_CHALLENGE_MODE = normalizeChallengeMode(
+    process.env.AUTH_DEVICE_CHALLENGE_MODE || process.env.AUTH_LATTICE_CHALLENGE_MODE
+);
 const LOGIN_ASSURANCE_TTL_MS = 10 * 60 * 1000;
 const PHONE_FACTOR_ASSURANCE_TTL_MS = 10 * 60 * 1000;
 
@@ -51,8 +59,8 @@ const resolveVerifiedAtMillis = (value) => {
     return Number.isFinite(resolved) ? resolved : 0;
 };
 
-const shouldRequireLatticeChallenge = ({ user }) => {
-    switch (AUTH_LATTICE_CHALLENGE_MODE) {
+const shouldRequireDeviceChallenge = ({ user }) => {
+    switch (AUTH_DEVICE_CHALLENGE_MODE) {
     case 'always':
         return true;
     case 'admin':
@@ -67,6 +75,54 @@ const shouldRequireLatticeChallenge = ({ user }) => {
     }
 };
 
+const resolveTrustedDeviceSessionToken = (req = {}) => String(
+    req.get?.(TRUSTED_DEVICE_SESSION_HEADER)
+    || req.headers?.[TRUSTED_DEVICE_SESSION_HEADER]
+    || ''
+).trim();
+
+const resolveDeviceChallengeState = async ({
+    req,
+    authUser = {},
+    authToken = null,
+    authUid = '',
+    user = null,
+}) => {
+    if (!shouldRequireDeviceChallenge({ user })) {
+        return { status: 'authenticated', deviceChallenge: null };
+    }
+
+    const { deviceId, deviceLabel } = extractTrustedDeviceContext(req);
+    if (!deviceId) {
+        throw new AppError('Trusted device identity is required for this account. Refresh and try again.', 400);
+    }
+
+    const trustedDeviceSession = verifyTrustedDeviceSession({
+        user,
+        authUid,
+        authToken,
+        deviceId,
+        deviceSessionToken: resolveTrustedDeviceSessionToken(req),
+    });
+
+    if (trustedDeviceSession.success) {
+        return { status: 'authenticated', deviceChallenge: null };
+    }
+
+    const deviceChallenge = await issueTrustedDeviceChallenge({
+        user,
+        authUid,
+        authToken,
+        deviceId,
+        deviceLabel,
+    });
+
+    return {
+        status: 'device_challenge_required',
+        deviceChallenge,
+    };
+};
+
 const buildRequestAuthUser = (req) => ({
     ...req.user,
     uid: req.authUid || '',
@@ -77,13 +133,25 @@ const buildRequestAuthUser = (req) => ({
 });
 
 const getSession = asyncHandler(async (req, res) => {
-    const payload = await resolveAuthenticatedSession({
+    const resolved = await resolveAuthenticatedSession({
         authUser: buildRequestAuthUser(req),
         authToken: req.authToken || null,
         authUid: req.authUid || '',
     });
 
-    res.json(payload);
+    const { status, deviceChallenge } = await resolveDeviceChallengeState({
+        req,
+        authUser: buildRequestAuthUser(req),
+        authToken: req.authToken || null,
+        authUid: req.authUid || '',
+        user: resolved.user,
+    });
+
+    res.json({
+        ...resolved.payload,
+        status,
+        deviceChallenge,
+    });
 });
 
 const syncSession = asyncHandler(async (req, res) => {
@@ -112,23 +180,21 @@ const syncSession = asyncHandler(async (req, res) => {
     await invalidateUserCache(req.authUid || '');
     await invalidateUserCacheByEmail(user?.email || authUser.email || '');
 
-    const requiresLatticeChallenge = shouldRequireLatticeChallenge({ user });
-    let latticeChallenge = null;
-    if (requiresLatticeChallenge) {
-        const crypto = require('crypto');
-        const clientNonce = typeof req.body?.clientNonce === 'string' ? req.body.clientNonce : crypto.randomUUID();
-        const deviceId = typeof req.body?.deviceId === 'string' ? req.body.deviceId : 'unknown-device';
-        const sessionId = req.sessionID || req.ip || 'anon-session';
-        latticeChallenge = await generateLatticeChallenge(user._id, clientNonce, deviceId, sessionId);
-    }
+    const { status, deviceChallenge } = await resolveDeviceChallengeState({
+        req,
+        authUser,
+        authToken: req.authToken || null,
+        authUid: req.authUid || '',
+        user,
+    });
 
     res.json(buildSessionPayload({
         authUser,
         authToken: req.authToken || null,
         authUid: req.authUid || '',
         user,
-        status: requiresLatticeChallenge ? 'lattice_challenge_required' : 'authenticated',
-        latticeChallenge,
+        status,
+        deviceChallenge,
     }));
 });
 
@@ -391,60 +457,56 @@ const completePhoneFactorVerification = asyncHandler(async (req, res) => {
     });
 });
 
-// @desc    Verify lattice challenge proof
-// @route   POST /api/auth/verify-lattice
+// @desc    Verify trusted device proof
+// @route   POST /api/auth/verify-device
 // @access  Private
-const verifyLatticeChallenge = asyncHandler(async (req, res) => {
-    const { token, proof, deviceId } = req.body;
+const verifyDeviceChallenge = asyncHandler(async (req, res) => {
+    const { token, proof, publicKeySpkiBase64 } = req.body;
     if (!token || !proof) {
-        throw new AppError('Challenge token and cryptographic proof are required', 400);
+        throw new AppError('Trusted device token and proof are required', 400);
     }
 
-    const sessionId = req.sessionID || req.ip || 'anon-session';
-    const requestDeviceId = deviceId || 'unknown-device';
+    const { deviceId, deviceLabel } = extractTrustedDeviceContext(req);
+    if (!deviceId) {
+        throw new AppError('Trusted device identity is missing', 400);
+    }
 
-    const verification = await verifyLatticeProof(token, proof, sessionId, requestDeviceId);
+    const verification = await verifyTrustedDeviceChallenge({
+        user: req.user,
+        authUid: req.authUid || '',
+        authToken: req.authToken || null,
+        token,
+        proof,
+        deviceId,
+        deviceLabel,
+        publicKeySpkiBase64,
+    });
+
     if (!verification.success) {
-        throw new AppError(`Cryptographic verification failed: ${verification.reason}`, 403);
+        throw new AppError(`Trusted device verification failed: ${verification.reason}`, 403);
     }
+
+    await invalidateUserCache(req.authUid || '');
+    await invalidateUserCacheByEmail(req.user?.email || '');
 
     res.json({
         success: true,
-        message: 'Lattice-based identity verified',
+        message: verification.mode === 'enroll'
+            ? 'Trusted device registered and verified'
+            : 'Trusted device verified',
         ...verification
     });
 });
 
-// @desc    Verify quantum challenge proof
-// @route   POST /api/auth/verify-quantum
-// @access  Private
-const verifyQuantumChallenge = asyncHandler(async (req, res) => {
-    const { token, proof, deviceId } = req.body;
-    if (!token || !proof) {
-        throw new AppError('Challenge token and quantum proof are required', 400);
-    }
-
-    const sessionId = req.sessionID || req.ip || 'anon-session';
-    const requestDeviceId = deviceId || 'unknown-device';
-
-    // Quantum challenges reuse the same lattice-based verification engine
-    const verification = await verifyLatticeProof(token, proof, sessionId, requestDeviceId);
-    if (!verification.success) {
-        throw new AppError(`Quantum cryptographic verification failed: ${verification.reason}`, 403);
-    }
-
-    res.json({
-        success: true,
-        message: 'Quantum-resistant identity verified',
-        ...verification
-    });
-});
+const verifyLatticeChallenge = verifyDeviceChallenge;
+const verifyQuantumChallenge = verifyDeviceChallenge;
 
 module.exports = {
     getSession,
     syncSession,
     completePhoneFactorLogin,
     completePhoneFactorVerification,
+    verifyDeviceChallenge,
     verifyLatticeChallenge,
     verifyQuantumChallenge,
 };

@@ -92,6 +92,14 @@ All 10 identified login architecture vulnerabilities have been fixed and are pro
 - `server/middleware/csrfMiddleware.js` - CSRF token generation & validation
 - `server/utils/passwordValidator.js` - Password policy enforcement
 - `app/src/services/csrfTokenManager.js` - Frontend CSRF token lifecycle
+- `server/services/trustedDeviceChallengeService.js` - Session-bound trusted-device challenge + verification
+- `app/src/services/deviceTrustClient.js` - Browser-held signing key + trusted-device session token handling
+
+## Trusted Device Gate
+- The legacy "LWE" challenge path has been removed.
+- Privileged device verification now uses a real browser-held `RSA-PSS` signing key stored locally in IndexedDB.
+- Successful verification returns a session-bound trusted-device token which is enforced on privileged server routes.
+- Architecture notes and the postmortem live in [`docs/trusted-device-architecture.md`](docs/trusted-device-architecture.md).
 
 ---
 

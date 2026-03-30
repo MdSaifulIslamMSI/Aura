@@ -4,6 +4,11 @@ const User = require('../models/User');
 const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
 const { getRedisClient, flags: redisFlags } = require('../config/redis');
+const {
+    TRUSTED_DEVICE_SESSION_HEADER,
+    extractTrustedDeviceContext,
+    verifyTrustedDeviceSession,
+} = require('../services/trustedDeviceChallengeService');
 
 // Redis-backed token cache.
 // Replaces the in-process Map which broke horizontal scaling:
@@ -94,6 +99,16 @@ const ADMIN_REQUIRE_EMAIL_VERIFIED = parseBooleanEnv(process.env.ADMIN_REQUIRE_E
 const ADMIN_REQUIRE_2FA = parseBooleanEnv(process.env.ADMIN_REQUIRE_2FA, false);
 const ADMIN_REQUIRE_ALLOWLIST = parseBooleanEnv(process.env.ADMIN_REQUIRE_ALLOWLIST, false);
 const ADMIN_REQUIRE_FRESH_LOGIN_MINUTES = parsePositiveIntEnv(process.env.ADMIN_REQUIRE_FRESH_LOGIN_MINUTES, 30);
+const normalizeTrustedDeviceMode = (value) => {
+    const normalized = String(value || '').trim().toLowerCase();
+    if (['always', 'admin', 'seller', 'privileged', 'off'].includes(normalized)) {
+        return normalized;
+    }
+    return 'off';
+};
+const AUTH_DEVICE_CHALLENGE_MODE = normalizeTrustedDeviceMode(
+    process.env.AUTH_DEVICE_CHALLENGE_MODE || process.env.AUTH_LATTICE_CHALLENGE_MODE
+);
 const ADMIN_ALLOWLIST_EMAILS = new Set(
     String(process.env.ADMIN_ALLOWLIST_EMAILS || '')
         .split(',')
@@ -191,6 +206,60 @@ const enforceOtpAssurance = (req) => {
     }
 };
 
+const shouldRequireTrustedDeviceForUser = (user = null) => {
+    switch (AUTH_DEVICE_CHALLENGE_MODE) {
+    case 'always':
+        return true;
+    case 'admin':
+        return Boolean(user?.isAdmin);
+    case 'seller':
+        return Boolean(user?.isSeller);
+    case 'privileged':
+        return Boolean(user?.isAdmin || user?.isSeller);
+    case 'off':
+    default:
+        return false;
+    }
+};
+
+const isTrustedDeviceBypassPath = (req = {}) => {
+    const path = String(req.originalUrl || '').toLowerCase();
+    return path.startsWith('/api/auth/session')
+        || path.startsWith('/api/auth/sync')
+        || path.startsWith('/api/auth/verify-device')
+        || path.startsWith('/api/auth/verify-lattice')
+        || path.startsWith('/api/auth/verify-quantum');
+};
+
+const enforceTrustedDevice = (req) => {
+    if (!shouldRequireTrustedDeviceForUser(req.user) || isTrustedDeviceBypassPath(req)) {
+        return;
+    }
+
+    const { deviceId } = extractTrustedDeviceContext(req);
+    const deviceSessionToken = String(
+        req.get?.(TRUSTED_DEVICE_SESSION_HEADER)
+        || req.headers?.[TRUSTED_DEVICE_SESSION_HEADER]
+        || ''
+    ).trim();
+
+    if (!deviceId || !deviceSessionToken) {
+        throw new AppError('Trusted device verification required for this account', 403);
+    }
+
+    const verification = verifyTrustedDeviceSession({
+        user: req.user,
+        authUid: req.authUid || '',
+        authToken: req.authToken || null,
+        deviceId,
+        deviceSessionToken,
+    });
+
+    if (!verification.success) {
+        throw new AppError('Trusted device verification required for this account', 403);
+    }
+};
+
 const protect = asyncHandler(async (req, res, next) => {
     let token;
 
@@ -216,6 +285,9 @@ const protect = asyncHandler(async (req, res, next) => {
                 if (AUTH_REQUIRE_OTP_FOR_ALL_PROTECTED) {
                     enforceOtpAssurance(req);
                 }
+                if (AUTH_DEVICE_CHALLENGE_MODE === 'always') {
+                    enforceTrustedDevice(req);
+                }
                 return next();
             }
 
@@ -237,6 +309,9 @@ const protect = asyncHandler(async (req, res, next) => {
                 if (AUTH_REQUIRE_OTP_FOR_ALL_PROTECTED) {
                     enforceOtpAssurance(req);
                 }
+                if (AUTH_DEVICE_CHALLENGE_MODE === 'always') {
+                    enforceTrustedDevice(req);
+                }
                 return next();
             }
 
@@ -247,6 +322,9 @@ const protect = asyncHandler(async (req, res, next) => {
             req.user = user;
             if (AUTH_REQUIRE_OTP_FOR_ALL_PROTECTED) {
                 enforceOtpAssurance(req);
+            }
+            if (AUTH_DEVICE_CHALLENGE_MODE === 'always') {
+                enforceTrustedDevice(req);
             }
             next();
         } catch (error) {
@@ -455,11 +533,14 @@ const admin = asyncHandler(async (req, res, next) => {
         throw new AppError('Admin access requires multi-factor authentication', 403);
     }
 
+    enforceTrustedDevice(req);
+
     return next();
 });
 
 const seller = (req, res, next) => {
     if (req.user?.isSeller) {
+        enforceTrustedDevice(req);
         return next();
     }
     throw new AppError('Seller account required. Activate seller mode to continue.', 403);

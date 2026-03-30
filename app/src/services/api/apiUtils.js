@@ -1,5 +1,6 @@
 import { createResponseError } from '../apiBase';
 import { auth, isFirebaseReady } from '../../config/firebase';
+import { getTrustedDeviceHeaders } from '../deviceTrustClient';
 
 export const PROFILE_CACHE_TTL_MS = 15 * 1000;
 export const PRODUCT_DETAIL_CACHE_TTL_MS = 30 * 1000;
@@ -8,15 +9,20 @@ export const PRODUCT_DETAIL_CACHE_TTL_MS = 30 * 1000;
  * Retrieves the Firebase ID token and returns an Authorization header.
  */
 export const getAuthHeader = async (firebaseUser = null) => {
+    const trustedDeviceHeaders = getTrustedDeviceHeaders();
+
     if (!isFirebaseReady || !auth) {
-        return {};
+        return trustedDeviceHeaders;
     }
     const user = firebaseUser || auth.currentUser;
     if (user) {
         const token = await user.getIdToken();
-        return { 'Authorization': `Bearer ${token}` };
+        return {
+            'Authorization': `Bearer ${token}`,
+            ...trustedDeviceHeaders,
+        };
     }
-    return {};
+    return trustedDeviceHeaders;
 };
 
 /**

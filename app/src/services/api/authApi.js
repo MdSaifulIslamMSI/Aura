@@ -101,11 +101,14 @@ export const authApi = {
     completePhoneFactorVerification: async (purpose, email, phone, options = {}) => {
         return postWithFirebaseBearer('/auth/complete-phone-factor-verification', { purpose, email, phone }, options);
     },
-    verifyLatticeChallenge: async (token, proof, deviceId, options = {}) => {
-        return postWithFreshCsrf('/auth/verify-lattice', { token, proof, deviceId }, options);
+    verifyDeviceChallenge: async (token, proof, publicKeySpkiBase64 = '', options = {}) => {
+        return postWithFreshCsrf('/auth/verify-device', { token, proof, publicKeySpkiBase64 }, options);
     },
-    verifyQuantumChallenge: async (token, proof, deviceId, options = {}) => {
-        return postWithFreshCsrf('/auth/verify-quantum', { token, proof, deviceId }, options);
+    verifyLatticeChallenge: async (token, proof, _deviceId, options = {}) => {
+        return authApi.verifyDeviceChallenge(token, proof, '', options);
+    },
+    verifyQuantumChallenge: async (token, proof, _deviceId, options = {}) => {
+        return authApi.verifyDeviceChallenge(token, proof, '', options);
     }
 };
 

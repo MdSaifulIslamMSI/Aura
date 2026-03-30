@@ -122,6 +122,15 @@ const renderResolvedGate = ({
         return <AuthPendingState message={pendingMessage} title={pendingTitle} />;
     }
 
+    if (status === 'device_challenge_required' && currentUser) {
+        return (
+            <AuthPendingState
+                title={t('auth.deviceChallenge.title', {}, 'Trusted device checkpoint')}
+                message={t('auth.deviceChallenge.message', {}, 'Approve this browser in the security checkpoint to continue.')}
+            />
+        );
+    }
+
     if (status === 'recoverable_error' && currentUser) {
         const supportPath = buildRecoverySupportPath(location, sessionError);
         return (

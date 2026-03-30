@@ -4,6 +4,7 @@ const {
     syncSession,
     completePhoneFactorLogin,
     completePhoneFactorVerification,
+    verifyDeviceChallenge,
     verifyLatticeChallenge,
     verifyQuantumChallenge,
 } = require('../controllers/authController');
@@ -34,6 +35,7 @@ router.get('/session', protect, csrfTokenGenerator, getSession);
 router.post('/sync', protect, csrfTokenValidator, authSyncLimiter, validate(loginSchema), syncSession);
 router.post('/complete-phone-factor-login', protect, completePhoneFactorLogin);
 router.post('/complete-phone-factor-verification', protectPhoneFactorProof, completePhoneFactorVerification);
+router.post('/verify-device', protect, csrfTokenValidator, verifyDeviceChallenge);
 router.post('/verify-lattice', protect, csrfTokenValidator, verifyLatticeChallenge);
 router.post('/verify-quantum', protect, csrfTokenValidator, verifyQuantumChallenge);
 router.use('/otp', otpRoutes);

@@ -55,9 +55,12 @@ describe('Auth sync verified-email gating', () => {
                 findById: jest.fn(),
                 findOne: jest.fn(),
             }));
-            jest.doMock('../services/latticeChallengeService', () => ({
-                generateChallenge: jest.fn().mockResolvedValue({ token: 'stub' }),
-                verifyProof: jest.fn(),
+            jest.doMock('../services/trustedDeviceChallengeService', () => ({
+                TRUSTED_DEVICE_SESSION_HEADER: 'x-aura-device-session',
+                extractTrustedDeviceContext: jest.fn().mockReturnValue({ deviceId: '', deviceLabel: '' }),
+                issueTrustedDeviceChallenge: jest.fn().mockResolvedValue({ token: 'stub' }),
+                verifyTrustedDeviceChallenge: jest.fn(),
+                verifyTrustedDeviceSession: jest.fn().mockReturnValue({ success: false }),
             }));
 
             const express = require('express');
@@ -92,22 +95,30 @@ describe('Auth sync verified-email gating', () => {
 });
 
 describe('Auth sync lattice challenge policy', () => {
+    const originalDeviceChallengeMode = process.env.AUTH_DEVICE_CHALLENGE_MODE;
     const originalChallengeMode = process.env.AUTH_LATTICE_CHALLENGE_MODE;
 
     afterEach(() => {
+        process.env.AUTH_DEVICE_CHALLENGE_MODE = originalDeviceChallengeMode;
         process.env.AUTH_LATTICE_CHALLENGE_MODE = originalChallengeMode;
         jest.resetModules();
         jest.clearAllMocks();
         jest.dontMock('../services/authSessionService');
-        jest.dontMock('../services/latticeChallengeService');
+        jest.dontMock('../services/trustedDeviceChallengeService');
     });
 
     const buildIsolatedSyncApp = ({ challengeMode = '', isAdmin = false } = {}) => {
         let isolatedApp;
-        const generateLatticeChallenge = jest.fn().mockResolvedValue({ token: 'stub-challenge' });
+        const issueTrustedDeviceChallenge = jest.fn().mockResolvedValue({
+            token: 'stub-challenge',
+            challenge: 'device-proof',
+            mode: 'assert',
+            deviceId: 'device-test-1234',
+        });
 
         jest.isolateModules(() => {
-            process.env.AUTH_LATTICE_CHALLENGE_MODE = challengeMode;
+            process.env.AUTH_DEVICE_CHALLENGE_MODE = challengeMode;
+            process.env.AUTH_LATTICE_CHALLENGE_MODE = '';
 
             jest.doMock('../services/authSessionService', () => {
                 const actual = jest.requireActual('../services/authSessionService');
@@ -129,9 +140,15 @@ describe('Auth sync lattice challenge policy', () => {
                 };
             });
 
-            jest.doMock('../services/latticeChallengeService', () => ({
-                generateChallenge: generateLatticeChallenge,
-                verifyProof: jest.fn(),
+            jest.doMock('../services/trustedDeviceChallengeService', () => ({
+                TRUSTED_DEVICE_SESSION_HEADER: 'x-aura-device-session',
+                extractTrustedDeviceContext: jest.fn((req) => ({
+                    deviceId: req.headers['x-aura-device-id'] || '',
+                    deviceLabel: req.headers['x-aura-device-label'] || '',
+                })),
+                issueTrustedDeviceChallenge,
+                verifyTrustedDeviceChallenge: jest.fn(),
+                verifyTrustedDeviceSession: jest.fn().mockReturnValue({ success: false }),
             }));
 
             const express = require('express');
@@ -159,11 +176,11 @@ describe('Auth sync lattice challenge policy', () => {
             isolatedApp.use(errorHandler);
         });
 
-        return { isolatedApp, generateLatticeChallenge };
+        return { isolatedApp, issueTrustedDeviceChallenge };
     };
 
-    test('POST /api/auth/sync does not require lattice challenge by default', async () => {
-        const { isolatedApp, generateLatticeChallenge } = buildIsolatedSyncApp();
+    test('POST /api/auth/sync does not require trusted device challenge by default', async () => {
+        const { isolatedApp, issueTrustedDeviceChallenge } = buildIsolatedSyncApp();
 
         const res = await request(isolatedApp)
             .post('/api/auth/sync')
@@ -171,21 +188,27 @@ describe('Auth sync lattice challenge policy', () => {
 
         expect(res.statusCode).toBe(200);
         expect(res.body.status).toBe('authenticated');
-        expect(res.body.latticeChallenge).toBeNull();
-        expect(generateLatticeChallenge).not.toHaveBeenCalled();
+        expect(res.body.deviceChallenge).toBeNull();
+        expect(issueTrustedDeviceChallenge).not.toHaveBeenCalled();
     });
 
-    test('POST /api/auth/sync can require lattice challenge when policy is always', async () => {
-        const { isolatedApp, generateLatticeChallenge } = buildIsolatedSyncApp({ challengeMode: 'always' });
+    test('POST /api/auth/sync can require trusted device challenge when policy is always', async () => {
+        const { isolatedApp, issueTrustedDeviceChallenge } = buildIsolatedSyncApp({ challengeMode: 'always' });
 
         const res = await request(isolatedApp)
             .post('/api/auth/sync')
+            .set('x-aura-device-id', 'device-test-1234')
             .send({ email: 'verified@example.com', name: 'Verified User' });
 
         expect(res.statusCode).toBe(200);
-        expect(res.body.status).toBe('lattice_challenge_required');
-        expect(res.body.latticeChallenge).toEqual({ token: 'stub-challenge' });
-        expect(generateLatticeChallenge).toHaveBeenCalledTimes(1);
+        expect(res.body.status).toBe('device_challenge_required');
+        expect(res.body.deviceChallenge).toEqual({
+            token: 'stub-challenge',
+            challenge: 'device-proof',
+            mode: 'assert',
+            deviceId: 'device-test-1234',
+        });
+        expect(issueTrustedDeviceChallenge).toHaveBeenCalledTimes(1);
     });
 });
 

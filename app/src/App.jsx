@@ -21,6 +21,7 @@ import RouteTransitionShell from './components/shared/RouteTransitionShell';
 import AppErrorBoundary from './components/shared/AppErrorBoundary';
 import BackendStatusBanner from './components/shared/BackendStatusBanner';
 import GlobalSupportLauncher from './components/shared/GlobalSupportLauncher';
+import AuraTrustedDeviceChallenge from './components/features/auth/AuraTrustedDeviceChallenge';
 import { trustRoutes } from './config/trustContent';
 import { assertRouteA11yContracts } from './utils/a11yContracts';
 import { lazyWithRetry } from './utils/lazyWithRetry';
@@ -266,6 +267,9 @@ function AppContent() {
       ) : null}
       <AppErrorBoundary>
         <GlobalSupportLauncher />
+      </AppErrorBoundary>
+      <AppErrorBoundary>
+        <AuraTrustedDeviceChallenge />
       </AppErrorBoundary>
       <AppErrorBoundary>
         <Footer />
