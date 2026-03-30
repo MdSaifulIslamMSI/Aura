@@ -24,6 +24,7 @@ import {
 } from '../config/firebase';
 import { authApi, userApi } from '../services/api';
 import { clearCsrfTokenCache } from '../services/csrfTokenManager';
+import { clearAuthJourneyDraft, writeAuthIdentityMemory } from '../utils/authAcceleration';
 
 export const AuthContext = createContext();
 
@@ -68,6 +69,7 @@ const EMPTY_SESSION_STATE = {
   status: SESSION_STATUS.BOOTSTRAP,
   latticeChallenge: null,
   session: null,
+  intelligence: null,
   profile: null,
   roles: EMPTY_ROLES,
   error: null,
@@ -105,6 +107,35 @@ const buildFirebaseSessionFallback = (firebaseUser = null) => {
   };
 };
 
+const buildSessionIntelligenceFallback = (session = null, profile = null, roles = EMPTY_ROLES) => {
+  const providerIds = Array.isArray(session?.providerIds) ? session.providerIds : [];
+  const assuranceLevel = roles?.isVerified ? 'password' : 'none';
+
+  return {
+    assurance: {
+      level: assuranceLevel,
+      label: roles?.isVerified ? 'Verified session' : 'Standard session',
+      verifiedAt: session?.authTime || null,
+      expiresAt: session?.expiresAt || null,
+      isRecent: Boolean(session?.authTime),
+    },
+    readiness: {
+      hasVerifiedEmail: Boolean(session?.emailVerified || roles?.isVerified),
+      hasPhone: Boolean(profile?.phone || session?.phone),
+      accountState: profile?.accountState || 'active',
+      isPrivileged: Boolean(roles?.isAdmin || roles?.isSeller),
+    },
+    acceleration: {
+      suggestedRoute: providerIds.some((providerId) => /google|facebook|twitter|x\.com/i.test(providerId))
+        ? 'social'
+        : 'password',
+      rememberedIdentifier: Boolean(profile?.phone || session?.phone) ? 'email+phone' : 'email',
+      suggestedProvider: providerIds[0] || '',
+      providerIds,
+    },
+  };
+};
+
 const buildSessionStateFromPayload = (payload = {}, firebaseUser = null) => {
   const session = payload?.session || buildFirebaseSessionFallback(firebaseUser);
   const profile = payload?.profile || null;
@@ -114,6 +145,7 @@ const buildSessionStateFromPayload = (payload = {}, firebaseUser = null) => {
     status: payload?.status || (session ? SESSION_STATUS.AUTHENTICATED : SESSION_STATUS.SIGNED_OUT),
     latticeChallenge: payload?.latticeChallenge || null,
     session,
+    intelligence: payload?.intelligence || buildSessionIntelligenceFallback(session, profile, roles),
     profile,
     roles,
     error: payload?.error || null,
@@ -152,6 +184,21 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     sessionStateRef.current = sessionState;
+  }, [sessionState]);
+
+  useEffect(() => {
+    if (!sessionState.profile?.email) return;
+    if (![SESSION_STATUS.AUTHENTICATED, SESSION_STATUS.LATTICE_CHALLENGE].includes(sessionState.status)) return;
+
+    writeAuthIdentityMemory({
+      email: sessionState.session?.email || sessionState.profile.email,
+      phone: sessionState.profile?.phone || sessionState.session?.phone || '',
+      displayName: sessionState.profile?.name || sessionState.session?.displayName || '',
+      assuranceLevel: sessionState.intelligence?.assurance?.level || '',
+      assuranceLabel: sessionState.intelligence?.assurance?.label || '',
+      providerIds: sessionState.intelligence?.acceleration?.providerIds || sessionState.session?.providerIds || [],
+    });
+    clearAuthJourneyDraft();
   }, [sessionState]);
 
   const resetSyncTracking = () => {
@@ -198,6 +245,7 @@ export const AuthProvider = ({ children }) => {
       status: SESSION_STATUS.SIGNED_OUT,
       latticeChallenge: null,
       session: null,
+      intelligence: null,
       profile: null,
       roles: EMPTY_ROLES,
       error: null,
@@ -240,6 +288,7 @@ export const AuthProvider = ({ children }) => {
       status: SESSION_STATUS.RECOVERABLE_ERROR,
       latticeChallenge: null,
       session: buildFirebaseSessionFallback(firebaseUser),
+      intelligence: buildSessionIntelligenceFallback(buildFirebaseSessionFallback(firebaseUser), null, EMPTY_ROLES),
       profile: null,
       roles: EMPTY_ROLES,
       error: {
@@ -302,12 +351,16 @@ export const AuthProvider = ({ children }) => {
     }
 
     if (!silent) {
+      const sessionFallback = buildFirebaseSessionFallback(activeUser);
       setSessionState((prev) => ({
         status: prev.status === SESSION_STATUS.BOOTSTRAP ? SESSION_STATUS.BOOTSTRAP : SESSION_STATUS.LOADING,
         latticeChallenge: syncStateRef.current.identity === identity ? (prev.latticeChallenge || null) : null,
         session: syncStateRef.current.identity === identity
-          ? (prev.session || buildFirebaseSessionFallback(activeUser))
-          : buildFirebaseSessionFallback(activeUser),
+          ? (prev.session || sessionFallback)
+          : sessionFallback,
+        intelligence: syncStateRef.current.identity === identity
+          ? (prev.intelligence || buildSessionIntelligenceFallback(prev.session || sessionFallback, prev.profile, prev.roles))
+          : buildSessionIntelligenceFallback(sessionFallback, null, EMPTY_ROLES),
         profile: syncStateRef.current.identity === identity ? prev.profile : null,
         roles: syncStateRef.current.identity === identity ? prev.roles : EMPTY_ROLES,
         error: null,
@@ -547,6 +600,7 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     clearCsrfTokenCache();
+    clearAuthJourneyDraft();
     setCurrentUser(null);
     applySignedOutState();
 
@@ -572,12 +626,14 @@ export const AuthProvider = ({ children }) => {
     const updated = await userApi.updateProfile(data);
     setSessionState((prev) => {
       const nextProfile = { ...(prev.profile || {}), ...updated };
+      const nextRoles = buildRoleState(nextProfile, prev.session?.emailVerified);
       return {
         status: SESSION_STATUS.AUTHENTICATED,
         latticeChallenge: prev.latticeChallenge || null,
         session: prev.session,
+        intelligence: buildSessionIntelligenceFallback(prev.session, nextProfile, nextRoles),
         profile: nextProfile,
-        roles: buildRoleState(nextProfile, prev.session?.emailVerified),
+        roles: nextRoles,
         error: null,
       };
     });
@@ -612,6 +668,7 @@ export const AuthProvider = ({ children }) => {
         status: SESSION_STATUS.RECOVERABLE_ERROR,
         latticeChallenge: null,
         session: null,
+        intelligence: null,
         profile: null,
         roles: EMPTY_ROLES,
         error: {
@@ -647,10 +704,12 @@ export const AuthProvider = ({ children }) => {
       }
 
       resetSyncTracking();
+      const sessionFallback = buildFirebaseSessionFallback(user);
       setSessionState({
         status: SESSION_STATUS.LOADING,
         latticeChallenge: null,
-        session: buildFirebaseSessionFallback(user),
+        session: sessionFallback,
+        intelligence: buildSessionIntelligenceFallback(sessionFallback, null, EMPTY_ROLES),
         profile: null,
         roles: EMPTY_ROLES,
         error: null,
@@ -670,10 +729,11 @@ export const AuthProvider = ({ children }) => {
     currentUser,
     dbUser: sessionState.profile,
     session: sessionState.session,
+    sessionIntelligence: sessionState.intelligence,
     profile: sessionState.profile,
     roles: sessionState.roles,
-        status: sessionState.status,
-        latticeChallenge: sessionState.latticeChallenge,
+    status: sessionState.status,
+    latticeChallenge: sessionState.latticeChallenge,
     sessionError: sessionState.error,
     loading: sessionState.status === SESSION_STATUS.BOOTSTRAP || sessionState.status === SESSION_STATUS.LOADING,
     isAuthenticated: Boolean(currentUser),
