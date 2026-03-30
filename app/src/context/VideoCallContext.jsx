@@ -515,7 +515,7 @@ export const VideoCallProvider = ({ children }) => {
         await waitForDelay(LIVEKIT_CONNECTION_SETTLE_MS);
     };
 
-    const enableRoomParticipantTrack = async ({ room, liveKitApi, kind }) => {
+    const enableRoomParticipantTrack = async ({ room, liveKitApi, kind, waitForReady = true }) => {
         const run = kind === 'camera'
             ? () => room.localParticipant.setCameraEnabled(true)
             : () => room.localParticipant.setMicrophoneEnabled(true);
@@ -524,7 +524,9 @@ export const VideoCallProvider = ({ children }) => {
 
         for (let attempt = 1; attempt <= LIVEKIT_PUBLISH_RETRY_LIMIT; attempt += 1) {
             try {
-                await waitForRoomConnected(room, liveKitApi);
+                if (waitForReady || room?.state !== liveKitApi.ConnectionState.Connected) {
+                    await waitForRoomConnected(room, liveKitApi);
+                }
                 await run();
                 return {
                     kind,
@@ -613,11 +615,13 @@ export const VideoCallProvider = ({ children }) => {
         await waitForRoomConnected(room, liveKitApi);
         setRoomConnectionState('connected');
 
-        const mediaResults = [];
-        mediaResults.push(await enableRoomParticipantTrack({ room, liveKitApi, kind: 'microphone' }));
+        const mediaTasks = [
+            enableRoomParticipantTrack({ room, liveKitApi, kind: 'microphone', waitForReady: false }),
+        ];
         if (mediaMode === 'video') {
-            mediaResults.unshift(await enableRoomParticipantTrack({ room, liveKitApi, kind: 'camera' }));
+            mediaTasks.unshift(enableRoomParticipantTrack({ room, liveKitApi, kind: 'camera', waitForReady: false }));
         }
+        const mediaResults = await Promise.all(mediaTasks);
         const enabledMediaCount = mediaResults.filter((result) => result.enabled).length;
         if (enabledMediaCount === 0) {
             throw new Error(buildMediaPublishFailureMessage(mediaResults));
@@ -659,6 +663,7 @@ export const VideoCallProvider = ({ children }) => {
         }
 
         try {
+            void loadLiveKitModule().catch(() => null);
             setCallError('');
             setCallerInfo(request.callerName ? { name: request.callerName } : null);
             setRoomConnectionState('connecting');
@@ -749,6 +754,7 @@ export const VideoCallProvider = ({ children }) => {
         }
 
         try {
+            void loadLiveKitModule().catch(() => null);
             setCallError('');
             setCallerInfo((previous) => previous || {
                 name: request.callerName || (request.channelType === 'support_ticket' ? 'Aura Support' : 'Marketplace user'),
@@ -924,9 +930,38 @@ export const VideoCallProvider = ({ children }) => {
     }, [activeVideoInputId, refreshVideoInputDevices, switchingCamera, videoInputDevices]);
 
     useEffect(() => {
+        if (!currentUser || typeof window === 'undefined') {
+            return undefined;
+        }
+
+        let timeoutId = 0;
+        let idleId = 0;
+        const preloadLiveKit = () => {
+            void loadLiveKitModule().catch(() => null);
+        };
+
+        if (typeof window.requestIdleCallback === 'function') {
+            idleId = window.requestIdleCallback(preloadLiveKit, { timeout: 1200 });
+            return () => {
+                if (idleId && typeof window.cancelIdleCallback === 'function') {
+                    window.cancelIdleCallback(idleId);
+                }
+            };
+        }
+
+        timeoutId = window.setTimeout(preloadLiveKit, 180);
+        return () => {
+            if (timeoutId) {
+                window.clearTimeout(timeoutId);
+            }
+        };
+    }, [currentUser]);
+
+    useEffect(() => {
         if (!socket) return undefined;
 
         const handleIncoming = (payload) => {
+            void loadLiveKitModule().catch(() => null);
             const nextContext = {
                 channelType: payload.channelType === 'support_ticket' ? 'support_ticket' : 'listing',
                 contextId: String(payload.contextId || payload.listingId || payload.supportTicketId || ''),
