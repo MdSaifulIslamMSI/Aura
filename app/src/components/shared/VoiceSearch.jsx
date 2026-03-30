@@ -50,7 +50,14 @@ const decodeBase64Audio = (base64Value = '', mimeType = 'audio/mpeg') => {
   return new Blob([bytes], { type: mimeType });
 };
 
-const VoiceSearch = ({ onClose, onResult }) => {
+const VoiceSearch = ({
+  onClose,
+  onResult,
+  initialCommand = '',
+  handoffContext = null,
+  onTelemetryEvent,
+  onOpenChat,
+}) => {
   const [isListening, setIsListening] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [transcript, setTranscript] = useState('');
@@ -72,13 +79,19 @@ const VoiceSearch = ({ onClose, onResult }) => {
     typeof window !== 'undefined' &&
     ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window);
 
+  useEffect(() => {
+    const nextCommand = String(initialCommand || '').trim();
+    if (!nextCommand) return;
+    setManualCommand(nextCommand);
+  }, [initialCommand]);
+
   const playServerSpeech = useCallback(async (text) => {
     const provider = voiceSessionRef.current?.capabilities?.textToSpeech?.provider;
     if (provider !== 'elevenlabs') return false;
 
-    const response = await aiApi.speakText({
-      text,
-      locale: voiceSessionRef.current?.locale || voiceLocale,
+      const response = await aiApi.speakText({
+        text,
+        locale: voiceSessionRef.current?.locale || voiceLocale,
     });
 
     const audioBlob = decodeBase64Audio(response?.audioBase64, response?.mimeType || 'audio/mpeg');
@@ -182,6 +195,10 @@ const VoiceSearch = ({ onClose, onResult }) => {
         return;
       }
 
+      onTelemetryEvent?.({
+        type: 'command_submitted',
+        transcript: message,
+      });
       setTranscript(message);
       setIsProcessing(true);
       setError('');
@@ -199,9 +216,20 @@ const VoiceSearch = ({ onClose, onResult }) => {
         const answer = String(response?.answer || '').trim() || 'Voice command processed.';
         setAssistantReply(answer);
         void speak(answer);
+        onTelemetryEvent?.({
+          type: 'command_completed',
+          transcript: message,
+          answer,
+          actionType: response?.actions?.[0]?.type || '',
+        });
         applyAssistantActions(response?.actions || []);
       } catch (requestError) {
         executeLocalCommand(message, 'Using local voice fallback.');
+        onTelemetryEvent?.({
+          type: 'command_fallback',
+          transcript: message,
+          error: requestError?.message || '',
+        });
         console.error('Voice assistant fallback:', requestError);
       } finally {
         setIsProcessing(false);
@@ -286,6 +314,11 @@ const VoiceSearch = ({ onClose, onResult }) => {
         if (!active) return;
         voiceSessionRef.current = session;
         setVoiceSession(session);
+        onTelemetryEvent?.({
+          type: 'session_ready',
+          provider: session?.capabilities?.speechToText?.provider || 'browser',
+          locale: session?.locale || voiceLocale,
+        });
       })
       .catch((requestError) => {
         if (!active) return;
@@ -348,6 +381,53 @@ const VoiceSearch = ({ onClose, onResult }) => {
         </div>
 
         <div className="p-5 sm:p-6 space-y-4">
+          {handoffContext ? (
+            <div className="rounded-2xl border border-cyan-300/20 bg-cyan-500/10 p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <div className="text-[11px] font-black uppercase tracking-[0.2em] text-cyan-200">
+                    Multimodal Handoff
+                  </div>
+                  <p className="mt-2 text-sm text-slate-100">
+                    {handoffContext.routeLabel || 'Shopping flow'} stays attached while voice takes over.
+                  </p>
+                </div>
+                {typeof onOpenChat === 'function' ? (
+                  <button
+                    type="button"
+                    onClick={onOpenChat}
+                    className="rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-xs font-black uppercase tracking-[0.14em] text-slate-100 hover:border-white/25 hover:bg-white/10"
+                  >
+                    Return to chat
+                  </button>
+                ) : null}
+              </div>
+
+              <div className="mt-3 flex flex-wrap gap-2 text-[11px] font-semibold text-slate-200">
+                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">
+                  Mode {handoffContext.chatMode || 'explore'}
+                </span>
+                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">
+                  Cart {handoffContext.cartCount || 0}
+                </span>
+                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">
+                  Intent {handoffContext.currentIntent || 'adaptive'}
+                </span>
+                {handoffContext.canLaunchInspection ? (
+                  <span className="rounded-full border border-emerald-300/20 bg-emerald-500/10 px-3 py-1.5 text-emerald-100">
+                    Live inspection ready
+                  </span>
+                ) : null}
+              </div>
+
+              {(handoffContext.inputValue || handoffContext.lastQuery) ? (
+                <div className="mt-3 rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-sm text-slate-100">
+                  {handoffContext.inputValue || handoffContext.lastQuery}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
           <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-4 items-start">
             <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
               <div className="text-[11px] font-black uppercase tracking-[0.2em] text-cyan-300 mb-2">{t('voice.microphone', {}, 'Microphone')}</div>
