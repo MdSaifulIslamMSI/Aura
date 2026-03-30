@@ -197,7 +197,7 @@ export default function AdminPayments() {
             setActionBusy(true);
             const result = await paymentApi.expireAdminStaleIntents({ limit: 100, dryRun: false });
             if (Number(result.expiredCount || 0) > 0) {
-                toast.success(t('admin.payments.success.expiredStale', { count: Number(result.expiredCount || 0) }, `Expired ${result.expiredCount} stale payment intents`));
+                toast.success(t('admin.payments.success.expiredStale', { count: Number(result.expiredCount || 0) }, `Expired ${Number(result.expiredCount || 0)} stale payment intents`));
             } else {
                 toast.info(t('admin.payments.info.noStaleIntents', {}, 'No stale payment intents needed cleanup'));
             }

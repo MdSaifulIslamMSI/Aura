@@ -22,52 +22,59 @@ vi.mock('@/services/api/marketApi', () => ({
     readCachedBrowseFxRates: vi.fn(() => null),
 }));
 
-vi.mock('@/services/api', () => ({
-    productApi: {
-        getProductById: vi.fn().mockResolvedValue({
-            id: 400046371,
-            title: 'Eco Plus Speaker',
-            displayTitle: 'Eco Plus Speaker 09275-1',
-            brand: 'Amazon',
-            category: 'electronics',
-            price: 54999,
-            originalPrice: 70999,
-            discountPercentage: 22,
-            stock: 4,
-            image: '/speaker.png',
-            description: 'Smart speaker tuned for catalog browse tests.',
-            deliveryTime: '2-4 days',
-            rating: 5,
-            ratingCount: 4312,
-            pricing: {
-                baseAmount: 54999,
-                baseCurrency: 'INR',
-                displayAmount: 1056.96,
-                displayCurrency: 'MXN',
-                originalDisplayAmount: 1363.48,
-                originalBaseAmount: 70999,
-            },
-        }),
-        getProducts: vi.fn().mockResolvedValue({ products: [] }),
-        getProductReviews: vi.fn().mockResolvedValue({
-            reviews: [],
-            summary: {
-                averageRating: 5,
-                totalReviews: 4312,
-                withMediaCount: 0,
-                ratingBreakdown: { 5: 4312, 4: 0, 3: 0, 2: 0, 1: 0 },
-            },
-        }),
-        getCompatibility: vi.fn().mockResolvedValue({ groups: [] }),
-    },
-    priceAlertApi: {
-        getHistory: vi.fn().mockResolvedValue({ history: [] }),
-        create: vi.fn(),
-    },
-    uploadApi: {
-        uploadReviewMediaFromFile: vi.fn(),
-    },
-}));
+vi.mock('@/services/api', async (importOriginal) => {
+    const actual = await importOriginal();
+    return {
+        ...actual,
+        productApi: {
+            ...actual.productApi,
+            getProductById: vi.fn().mockResolvedValue({
+                id: 400046371,
+                title: 'Eco Plus Speaker',
+                displayTitle: 'Eco Plus Speaker 09275-1',
+                brand: 'Amazon',
+                category: 'electronics',
+                price: 54999,
+                originalPrice: 70999,
+                discountPercentage: 22,
+                stock: 4,
+                image: '/speaker.png',
+                description: 'Smart speaker tuned for catalog browse tests.',
+                deliveryTime: '2-4 days',
+                rating: 5,
+                ratingCount: 4312,
+                pricing: {
+                    baseAmount: 54999,
+                    baseCurrency: 'INR',
+                    displayAmount: 1056.96,
+                    displayCurrency: 'MXN',
+                    originalDisplayAmount: 1363.48,
+                    originalBaseAmount: 70999,
+                },
+            }),
+            getProducts: vi.fn().mockResolvedValue({ products: [] }),
+            getProductReviews: vi.fn().mockResolvedValue({
+                reviews: [],
+                summary: {
+                    averageRating: 5,
+                    totalReviews: 4312,
+                    withMediaCount: 0,
+                    ratingBreakdown: { 5: 4312, 4: 0, 3: 0, 2: 0, 1: 0 },
+                },
+            }),
+            getCompatibility: vi.fn().mockResolvedValue({ groups: [] }),
+        },
+        priceAlertApi: {
+            ...actual.priceAlertApi,
+            getHistory: vi.fn().mockResolvedValue({ history: [] }),
+            create: vi.fn(),
+        },
+        uploadApi: {
+            ...actual.uploadApi,
+            uploadReviewMediaFromFile: vi.fn(),
+        },
+    };
+});
 
 vi.mock('@/components/features/product/ProductCard', () => ({
     default: () => <div data-testid="related-product-card" />,
