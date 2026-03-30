@@ -588,6 +588,8 @@ const SIMPLE_OVERRIDES = {
 };
 
 const NON_ENGLISH_RUNTIME_MESSAGE_BACKFILL = {
+  'auth.deviceChallenge.title': 'Trusted device checkpoint',
+  'auth.deviceChallenge.message': 'Approve this browser in the security checkpoint to continue.',
   'admin.support.arch.openQueue': 'Open queue',
   'admin.support.arch.openQueueBody': '{{total}} total threads are in the current queue view.',
   'admin.support.arch.needsReply': 'Needs reply',
