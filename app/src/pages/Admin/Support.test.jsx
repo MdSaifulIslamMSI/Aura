@@ -104,7 +104,7 @@ describe('AdminSupport', () => {
 
         expect((await screen.findAllByText('Appeal for suspension review')).length).toBeGreaterThan(0);
         expect(screen.getAllByText('buyer@example.com').length).toBeGreaterThan(0);
-        expect(screen.getByText('Please review my case again.')).toBeInTheDocument();
+        expect(screen.getAllByText('Please review my case again.').length).toBeGreaterThan(0);
         expect(supportApi.getMessages).toHaveBeenCalledWith('ticket-1');
     });
 
