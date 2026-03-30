@@ -56,8 +56,8 @@ describe('Auth sync verified-email gating', () => {
                 findOne: jest.fn(),
             }));
             jest.doMock('../services/latticeChallengeService', () => ({
-                generateLatticeChallenge: jest.fn().mockResolvedValue({ challengeId: 'stub' }),
-                verifyLatticeProof: jest.fn(),
+                generateChallenge: jest.fn().mockResolvedValue({ token: 'stub' }),
+                verifyProof: jest.fn(),
             }));
 
             const express = require('express');
@@ -104,7 +104,7 @@ describe('Auth sync lattice challenge policy', () => {
 
     const buildIsolatedSyncApp = ({ challengeMode = '', isAdmin = false } = {}) => {
         let isolatedApp;
-        const generateLatticeChallenge = jest.fn().mockResolvedValue({ challengeId: 'stub-challenge' });
+        const generateLatticeChallenge = jest.fn().mockResolvedValue({ token: 'stub-challenge' });
 
         jest.isolateModules(() => {
             process.env.AUTH_LATTICE_CHALLENGE_MODE = challengeMode;
@@ -130,8 +130,8 @@ describe('Auth sync lattice challenge policy', () => {
             });
 
             jest.doMock('../services/latticeChallengeService', () => ({
-                generateLatticeChallenge,
-                verifyLatticeProof: jest.fn(),
+                generateChallenge: generateLatticeChallenge,
+                verifyProof: jest.fn(),
             }));
 
             const express = require('express');
@@ -184,7 +184,7 @@ describe('Auth sync lattice challenge policy', () => {
 
         expect(res.statusCode).toBe(200);
         expect(res.body.status).toBe('lattice_challenge_required');
-        expect(res.body.latticeChallenge).toEqual({ challengeId: 'stub-challenge' });
+        expect(res.body.latticeChallenge).toEqual({ token: 'stub-challenge' });
         expect(generateLatticeChallenge).toHaveBeenCalledTimes(1);
     });
 });
