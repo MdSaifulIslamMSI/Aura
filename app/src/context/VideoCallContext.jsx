@@ -69,6 +69,25 @@ const waitForDelay = (durationMs) => new Promise((resolve) => {
     window.setTimeout(resolve, durationMs);
 });
 
+const canUseScreenShareInBrowser = () => {
+    if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+        return false;
+    }
+
+    if (typeof navigator.mediaDevices?.getDisplayMedia !== 'function') {
+        return false;
+    }
+
+    const userAgent = String(navigator.userAgent || '').toLowerCase();
+    const isMobileDevice = Boolean(
+        navigator.userAgentData?.mobile
+        || /android|iphone|ipad|ipod|mobile/i.test(userAgent)
+        || (window.matchMedia?.('(pointer: coarse)')?.matches && Math.min(window.innerWidth, window.innerHeight) < 1024)
+    );
+
+    return !isMobileDevice;
+};
+
 const isLiveKitEngineTimeoutError = (error) => String(error?.message || '')
     .toLowerCase()
     .includes(LIVEKIT_ENGINE_TIMEOUT_FRAGMENT);
@@ -517,6 +536,11 @@ export const VideoCallProvider = ({ children }) => {
     };
 
     const toggleScreenShare = async () => {
+        if (!canUseScreenShareInBrowser()) {
+            toast.error('Screen sharing is available on desktop browsers only right now.');
+            return false;
+        }
+
         const room = supportRoomRef.current;
         if (!room || typeof room.localParticipant?.setScreenShareEnabled !== 'function') {
             toast.error('Screen sharing is not available in this call yet.');
@@ -1110,7 +1134,9 @@ export const VideoCallProvider = ({ children }) => {
         mediaMode: normalizeLiveCallMediaMode(activeCallContext?.mediaMode),
         canSwitchCamera: normalizeLiveCallMediaMode(activeCallContext?.mediaMode) === 'video' && videoInputDevices.length > 1,
         canScreenShare: Boolean(
-            supportRoomRef.current
+            canUseScreenShareInBrowser()
+            && normalizeLiveCallMediaMode(activeCallContext?.mediaMode) === 'video'
+            && supportRoomRef.current
             && typeof supportRoomRef.current.localParticipant?.setScreenShareEnabled === 'function'
         ),
         isScreenSharing,
