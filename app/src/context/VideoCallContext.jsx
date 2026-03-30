@@ -46,6 +46,16 @@ const stopStreamTracks = (stream) => {
     });
 };
 
+const stopParticipantPublishedTracks = (participant) => {
+    participant?.trackPublications?.forEach?.((publication) => {
+        try {
+            publication?.track?.mediaStreamTrack?.stop?.();
+        } catch {
+            // Best-effort cleanup for browser-managed capture tracks.
+        }
+    });
+};
+
 const buildMediaStreamFromTracks = (tracks = []) => {
     const nextTracks = tracks.filter(Boolean);
     return nextTracks.length > 0 ? new MediaStream(nextTracks) : null;
@@ -200,18 +210,54 @@ const collectLocalTracks = (room, trackApi) => {
     return buildMediaStreamFromTracks([cameraTrack, microphoneTrack]);
 };
 
-const collectRemoteTracks = (room) => {
-    const tracks = [];
+const getLocalScreenShareTrack = (room, trackApi) => {
+    if (!trackApi?.Source) {
+        return null;
+    }
+
+    return room.localParticipant
+        .getTrackPublication(trackApi.Source.ScreenShare)
+        ?.videoTrack
+        ?.mediaStreamTrack;
+};
+
+const collectRemoteTracks = (room, trackApi) => {
+    const prioritizedVideoTracks = [];
+    const standardVideoTracks = [];
+    const audioTracks = [];
 
     room.remoteParticipants.forEach((participant) => {
         participant.trackPublications.forEach((publication) => {
-            if (publication.track?.mediaStreamTrack) {
-                tracks.push(publication.track.mediaStreamTrack);
+            const mediaStreamTrack = publication.track?.mediaStreamTrack;
+            if (!mediaStreamTrack) {
+                return;
             }
+
+            const isScreenTrack = Boolean(
+                trackApi?.Source
+                && mediaStreamTrack.kind === 'video'
+                && publication.source === trackApi.Source.ScreenShare
+            );
+
+            if (isScreenTrack) {
+                prioritizedVideoTracks.push(mediaStreamTrack);
+                return;
+            }
+
+            if (mediaStreamTrack.kind === 'video') {
+                standardVideoTracks.push(mediaStreamTrack);
+                return;
+            }
+
+            audioTracks.push(mediaStreamTrack);
         });
     });
 
-    return buildMediaStreamFromTracks(tracks);
+    return buildMediaStreamFromTracks([
+        ...prioritizedVideoTracks,
+        ...standardVideoTracks,
+        ...audioTracks,
+    ]);
 };
 
 export const VideoCallProvider = ({ children }) => {
@@ -234,6 +280,7 @@ export const VideoCallProvider = ({ children }) => {
     const [videoInputDevices, setVideoInputDevices] = useState([]);
     const [activeVideoInputId, setActiveVideoInputId] = useState('');
     const [switchingCamera, setSwitchingCamera] = useState(false);
+    const [isScreenSharing, setIsScreenSharing] = useState(false);
 
     const callContextRef = useRef(null);
     const supportRoomRef = useRef(null);
@@ -391,6 +438,7 @@ export const VideoCallProvider = ({ children }) => {
 
         stopStreamTracks(localStreamRef.current);
         stopStreamTracks(remoteStreamRef.current);
+        stopParticipantPublishedTracks(room?.localParticipant);
         setLocalMediaStream(null);
         setRemoteMediaStream(null);
         setCallStatus('idle');
@@ -400,6 +448,7 @@ export const VideoCallProvider = ({ children }) => {
         setVideoInputDevices([]);
         setActiveVideoInputId('');
         setSwitchingCamera(false);
+        setIsScreenSharing(false);
         setActiveCallContext(null);
         callContextRef.current = null;
         if (!preserveError) {
@@ -445,7 +494,8 @@ export const VideoCallProvider = ({ children }) => {
         }
 
         setLocalMediaStream(collectLocalTracks(room, trackApi));
-        setRemoteMediaStream(collectRemoteTracks(room));
+        setRemoteMediaStream(collectRemoteTracks(room, trackApi));
+        setIsScreenSharing(Boolean(getLocalScreenShareTrack(room, trackApi)));
         setRemoteParticipantCount(room.remoteParticipants.size);
         setRoomConnectionState((previous) => (previous === 'reconnecting' ? previous : 'connected'));
         await refreshVideoInputDevices();
@@ -463,6 +513,28 @@ export const VideoCallProvider = ({ children }) => {
                     console.warn('Live support connection mark failed', error);
                 });
             }
+        }
+    };
+
+    const toggleScreenShare = async () => {
+        const room = supportRoomRef.current;
+        if (!room || typeof room.localParticipant?.setScreenShareEnabled !== 'function') {
+            toast.error('Screen sharing is not available in this call yet.');
+            return false;
+        }
+
+        try {
+            const nextEnabled = !isScreenSharing;
+            await room.localParticipant.setScreenShareEnabled(nextEnabled);
+            const liveKitApi = await loadLiveKitModule();
+            await waitForDelay(150);
+            await syncSupportRoomState(room, liveKitApi.Track);
+            toast.success(nextEnabled ? 'Screen sharing started.' : 'Screen sharing stopped.');
+            return true;
+        } catch (error) {
+            console.error('LiveKit: Failed to toggle screen sharing', error);
+            toast.error(error?.message || 'Unable to change screen sharing');
+            return false;
         }
     };
 
@@ -1037,6 +1109,11 @@ export const VideoCallProvider = ({ children }) => {
         participantCount: 1 + Number(remoteParticipantCount || 0),
         mediaMode: normalizeLiveCallMediaMode(activeCallContext?.mediaMode),
         canSwitchCamera: normalizeLiveCallMediaMode(activeCallContext?.mediaMode) === 'video' && videoInputDevices.length > 1,
+        canScreenShare: Boolean(
+            supportRoomRef.current
+            && typeof supportRoomRef.current.localParticipant?.setScreenShareEnabled === 'function'
+        ),
+        isScreenSharing,
         availableCameraCount: videoInputDevices.length,
         activeVideoInputId,
         switchingCamera,
@@ -1045,6 +1122,7 @@ export const VideoCallProvider = ({ children }) => {
         activeCallContext?.mediaMode,
         activeVideoInputId,
         assistantContinuity,
+        isScreenSharing,
         remoteParticipantCount,
         roomConnectionState,
         switchingCamera,
@@ -1058,6 +1136,7 @@ export const VideoCallProvider = ({ children }) => {
             answerCall,
             hangUp,
             switchCamera,
+            toggleScreenShare,
             joinSupportCall: joinLiveKitCall,
             callStatus,
             activeListingId: activeCallContext?.listingId || null,
@@ -1079,6 +1158,7 @@ export const VideoCallProvider = ({ children }) => {
                 onAnswer={answerCall}
                 onHangUp={hangUp}
                 onSwitchCamera={switchCamera}
+                onToggleScreenShare={toggleScreenShare}
             />
         </VideoCallContext.Provider>
     );
