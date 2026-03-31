@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useContext } from 'react';
 import { CartContext, CartProvider } from './CartContext';
 import { AuthContext } from './AuthContext';
-import { GUEST_CART_STORAGE_KEY, resetCommerceStoreForTests } from '../store/commerceStore';
+import { GUEST_CART_STORAGE_KEY, resetCommerceStoreForTests, useCommerceStore } from '../store/commerceStore';
 
 vi.mock('../services/api', async () => {
   const actual = await vi.importActual('../services/api');
@@ -136,6 +136,49 @@ describe('CartProvider', () => {
     await waitFor(() => {
       expect(getCartSpy).toHaveBeenCalledTimes(1);
       expect(screen.getByTestId('item-count')).toHaveTextContent('0');
+    });
+  });
+
+  it('keeps recovered cart items visible while authenticated hydration is still in flight', async () => {
+    useCommerceStore.setState({
+      authUser: { uid: 'user-4', email: 'restore@example.com' },
+      cart: {
+        itemsById: {
+          '404': {
+            id: 404,
+            title: 'Resume-safe Console',
+            brand: 'Aura',
+            price: 2999,
+            originalPrice: 3499,
+            discountPercentage: 14,
+            image: '/console.png',
+            stock: 5,
+            deliveryTime: '1-2 days',
+            quantity: 1,
+          },
+        },
+        orderedIds: ['404'],
+        revision: 6,
+        status: 'ready',
+        source: 'user',
+        pendingOps: [],
+        lastHydratedAt: Date.now(),
+        syncedAt: '2026-04-01T00:20:00.000Z',
+        error: null,
+      },
+    });
+
+    await useCommerceStore.getState().bindAuthUser(null);
+
+    vi.spyOn(userApi, 'getCart').mockImplementation(() => new Promise(() => {}));
+    vi.spyOn(userApi, 'getWishlist').mockImplementation(() => new Promise(() => {}));
+
+    renderCartProvider({ currentUser: { uid: 'user-4', email: 'restore@example.com' }, loading: false });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('item-ids')).toHaveTextContent('404');
+      expect(screen.getByTestId('item-count')).toHaveTextContent('1');
+      expect(screen.getByTestId('is-loading')).toHaveTextContent('false');
     });
   });
 });
