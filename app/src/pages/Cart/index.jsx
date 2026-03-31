@@ -32,6 +32,7 @@ const Cart = () => {
     totalOriginalPrice: 0,
   }), [cartItems]);
   const browseDiscount = Math.max(0, browseSummary.totalOriginalPrice - browseSummary.totalPrice);
+  const shouldShowHydrationScreen = isLoading && cartItems.length === 0;
 
   const handleMoveToWishlist = (productId) => {
     moveToWishlist(productId);
@@ -42,7 +43,7 @@ const Cart = () => {
     navigate('/checkout');
   };
 
-  if (isLoading) {
+  if (shouldShowHydrationScreen) {
     return (
       <div className="min-h-[80vh] flex items-center justify-center relative overflow-hidden">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[min(80vw,600px)] h-[min(80vw,600px)] bg-neo-cyan/5 rounded-full blur-[150px] pointer-events-none -z-10" />
