@@ -31,7 +31,7 @@ export const CartProvider = ({ children }) => {
   }, []);
 
   useEffect(() => {
-    if (!currentUser?.uid && isAuthLoading) {
+    if (isAuthLoading) {
       return;
     }
 
