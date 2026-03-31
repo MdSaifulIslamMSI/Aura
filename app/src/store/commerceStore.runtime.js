@@ -8,6 +8,8 @@ export const GUEST_WISHLIST_STORAGE_KEY = 'aura_wishlist_guest_v2';
 const COMMERCE_SYNC_STORAGE_KEY = 'aura_commerce_sync_v2';
 const COMMERCE_SYNC_CHANNEL = 'aura-commerce-sync-v2';
 const COMMERCE_CHECKOUT_SESSION_KEY = 'aura_checkout_session_v1';
+const AUTH_COMMERCE_STORAGE_KEY = 'aura_commerce_auth_v1';
+const MAX_PERSISTED_AUTH_IDENTITIES = 5;
 const ENTITY_REFRESH_TTL_MS = {
     cart: 45 * 1000,
     wishlist: 45 * 1000,
@@ -252,6 +254,105 @@ const persistGuestSnapshot = (storageKey, items, normalizeLine, isValidLine) => 
     }
 
     windowRef.localStorage.setItem(storageKey, serializeSnapshot(normalizedItems, normalizeLine));
+};
+
+const normalizeAuthIdentityPart = (value = '') => String(value || '').trim().toLowerCase();
+
+const getPersistedAuthIdentityKey = (authUser = null) => {
+    const uid = String(authUser?.uid || '').trim();
+    const email = normalizeAuthIdentityPart(authUser?.email);
+
+    if (!uid && !email) {
+        return '';
+    }
+
+    return `${uid || 'nouid'}::${email || 'noemail'}`;
+};
+
+const readPersistedAuthCommerceStore = () => {
+    const windowRef = getWindowRef();
+    if (!windowRef?.localStorage) return {};
+
+    const parsed = safeParse(windowRef.localStorage.getItem(AUTH_COMMERCE_STORAGE_KEY));
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+};
+
+const writePersistedAuthCommerceStore = (store = {}) => {
+    const windowRef = getWindowRef();
+    if (!windowRef?.localStorage) return;
+
+    const trimmedEntries = Object.entries(store)
+        .filter(([, value]) => value && typeof value === 'object' && !Array.isArray(value))
+        .sort(([, left], [, right]) => Number(right?.updatedAt || 0) - Number(left?.updatedAt || 0))
+        .slice(0, MAX_PERSISTED_AUTH_IDENTITIES);
+
+    try {
+        if (trimmedEntries.length === 0) {
+            windowRef.localStorage.removeItem(AUTH_COMMERCE_STORAGE_KEY);
+            return;
+        }
+
+        windowRef.localStorage.setItem(
+            AUTH_COMMERCE_STORAGE_KEY,
+            JSON.stringify(Object.fromEntries(trimmedEntries)),
+        );
+    } catch {
+        // Ignore auth snapshot persistence failures.
+    }
+};
+
+const serializePersistedAuthEntityState = (entityKey, entityState = {}) => {
+    const normalizeLine = entityKey === 'cart' ? normalizeCartLine : normalizeWishlistLine;
+    const items = (entityState?.orderedIds || [])
+        .map((id) => entityState?.itemsById?.[id])
+        .filter(Boolean)
+        .map((item) => normalizeLine(item));
+
+    return {
+        items,
+        revision: Number(entityState?.revision || 0),
+        syncedAt: entityState?.syncedAt || null,
+        lastHydratedAt: Number(entityState?.lastHydratedAt || 0) || null,
+    };
+};
+
+const readPersistedAuthEntityState = (authUser, entityKey) => {
+    const config = getEntityConfig(entityKey);
+    const identityKey = getPersistedAuthIdentityKey(authUser);
+
+    if (!identityKey) return null;
+
+    const entry = readPersistedAuthCommerceStore()?.[identityKey]?.[entityKey];
+    if (!entry || !Array.isArray(entry.items)) return null;
+
+    return {
+        items: entry.items
+            .map((item) => config.normalizeLine(item))
+            .filter(config.isValidLine),
+        revision: Number(entry.revision || 0),
+        syncedAt: entry.syncedAt || null,
+        lastHydratedAt: Number(entry.lastHydratedAt || 0) || null,
+    };
+};
+
+const persistAuthenticatedEntityState = (authUser, entityKey, entityState = {}) => {
+    const identityKey = getPersistedAuthIdentityKey(authUser);
+    if (!identityKey || entityState?.source !== 'user') {
+        return;
+    }
+
+    const store = readPersistedAuthCommerceStore();
+    const currentEntry = store?.[identityKey] && typeof store[identityKey] === 'object'
+        ? store[identityKey]
+        : {};
+
+    store[identityKey] = {
+        ...currentEntry,
+        updatedAt: Date.now(),
+        [entityKey]: serializePersistedAuthEntityState(entityKey, entityState),
+    };
+
+    writePersistedAuthCommerceStore(store);
 };
 
 const buildEntityState = (
@@ -681,6 +782,32 @@ export const useCommerceStore = create((set, get) => {
                     await config.getSnapshot(firebaseUser),
                     'user',
                 );
+                const persistedAuthSnapshot = readPersistedAuthEntityState(currentAuthUser, entityKey);
+
+                if (
+                    persistedAuthSnapshot
+                    && payload.items.length === 0
+                    && Number(payload.revision || 0) === 0
+                    && persistedAuthSnapshot.items.length > 0
+                ) {
+                    try {
+                        payload = extractEntityPayload(
+                            entityKey,
+                            await config.syncSnapshot({
+                                items: persistedAuthSnapshot.items,
+                                expectedRevision: payload.revision,
+                                firebaseUser,
+                            }),
+                            'user',
+                        );
+                    } catch (error) {
+                        const conflictPayload = extractConflictPayload(entityKey, error);
+                        if (!conflictPayload) {
+                            throw error;
+                        }
+                        payload = conflictPayload;
+                    }
+                }
 
                 if (mergeGuest) {
                     const guestItems = readGuestEntitySnapshot(entityKey);
@@ -1068,6 +1195,42 @@ export const useCommerceStore = create((set, get) => {
                         : state.sync.authGeneration + 1,
                 },
             }));
+
+            if (nextUid) {
+                const recoveredCart = readPersistedAuthEntityState(normalizedAuthUser, 'cart');
+                const recoveredWishlist = readPersistedAuthEntityState(normalizedAuthUser, 'wishlist');
+
+                if (recoveredCart || recoveredWishlist) {
+                    set((state) => ({
+                        cart: recoveredCart
+                            ? buildEntityState(
+                                'cart',
+                                recoveredCart.items,
+                                'user',
+                                recoveredCart.revision,
+                                [],
+                                'ready',
+                                null,
+                                recoveredCart.lastHydratedAt || Date.now(),
+                                recoveredCart.syncedAt,
+                            )
+                            : state.cart,
+                        wishlist: recoveredWishlist
+                            ? buildEntityState(
+                                'wishlist',
+                                recoveredWishlist.items,
+                                'user',
+                                recoveredWishlist.revision,
+                                [],
+                                'ready',
+                                null,
+                                recoveredWishlist.lastHydratedAt || Date.now(),
+                                recoveredWishlist.syncedAt,
+                            )
+                            : state.wishlist,
+                    }));
+                }
+            }
 
             if (!nextUid) {
                 const nextCart = buildEntityState(
@@ -1502,3 +1665,12 @@ export const resetCommerceStoreForTests = () => {
     activeHydratePromises.wishlist = null;
     activeHydratePromises.commerce = null;
 };
+
+useCommerceStore.subscribe((state) => {
+    if (!state?.authUser?.uid) {
+        return;
+    }
+
+    persistAuthenticatedEntityState(state.authUser, 'cart', state.cart);
+    persistAuthenticatedEntityState(state.authUser, 'wishlist', state.wishlist);
+});
