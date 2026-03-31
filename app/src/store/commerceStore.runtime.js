@@ -716,6 +716,42 @@ const getCanonicalSnapshotForBroadcast = (state, entityKey) => ({
     syncedAt: state[entityKey].syncedAt || null,
 });
 
+const toComparableRevision = (value) => {
+    if (value === null || value === undefined || value === '') return null;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+};
+
+const toComparableTimestamp = (value) => {
+    const parsed = Date.parse(String(value || ''));
+    return Number.isFinite(parsed) ? parsed : null;
+};
+
+const isStaleUserSnapshot = (currentEntity = {}, incomingSnapshot = {}) => {
+    if (currentEntity?.source !== 'user' || incomingSnapshot?.source !== 'user') {
+        return false;
+    }
+
+    const currentRevision = toComparableRevision(currentEntity?.revision);
+    const incomingRevision = toComparableRevision(incomingSnapshot?.revision);
+
+    if (currentRevision !== null && incomingRevision !== null) {
+        if (incomingRevision < currentRevision) {
+            return true;
+        }
+        if (incomingRevision > currentRevision) {
+            return false;
+        }
+    }
+
+    const currentSyncedAt = toComparableTimestamp(currentEntity?.syncedAt);
+    const incomingSyncedAt = toComparableTimestamp(incomingSnapshot?.syncedAt);
+
+    return currentSyncedAt !== null
+        && incomingSyncedAt !== null
+        && incomingSyncedAt < currentSyncedAt;
+};
+
 export const useCommerceStore = create((set, get) => {
     const hydrateEntity = async (entityKey, { force = false, mergeGuest = false, authGeneration = null } = {}) => {
         if (activeHydratePromises[entityKey]) {
@@ -852,6 +888,28 @@ export const useCommerceStore = create((set, get) => {
                         reason: 'stale_hydration_ignored',
                     }, 'warn');
                     return getEntityItems(entityKey, get()[entityKey]);
+                }
+
+                const latestState = get();
+                const latestEntity = latestState[entityKey];
+                if (
+                    (latestEntity.pendingOps || []).length > 0
+                    || isStaleUserSnapshot(latestEntity, {
+                        source: 'user',
+                        revision: payload.revision,
+                        syncedAt: payload.syncedAt,
+                    })
+                ) {
+                    emitCommerceDiagnostic('commerce_divergence_detected', {
+                        entity: entityKey,
+                        authMode: 'user',
+                        userId: currentAuthUser.uid,
+                        revision: payload.revision,
+                        pendingOps: (latestEntity.pendingOps || []).length,
+                        requestId,
+                        reason: 'older_hydration_payload_ignored',
+                    }, 'warn');
+                    return getEntityItems(entityKey, latestEntity);
                 }
 
                 const nextEntity = buildEntityState(
@@ -1151,6 +1209,14 @@ export const useCommerceStore = create((set, get) => {
                 revision: snapshot?.revision,
                 syncedAt: snapshot?.syncedAt,
             }, snapshot?.source || currentEntity.source);
+
+            if (isStaleUserSnapshot(currentEntity, {
+                source: snapshot?.source || currentEntity.source,
+                revision: extracted.revision,
+                syncedAt: extracted.syncedAt,
+            })) {
+                return;
+            }
 
             updateEntityState(set, entityKey, buildEntityState(
                 entityKey,
