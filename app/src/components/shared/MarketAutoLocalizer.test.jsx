@@ -1,8 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { MarketProvider, useMarket } from '@/context/MarketContext';
-import { clearRuntimeTranslationCache } from '@/services/runtimeTranslation';
-import MarketAutoLocalizer from './MarketAutoLocalizer';
 
 const { translateTextsMock, getBrowseFxRatesMock, readCachedBrowseFxRatesMock } = vi.hoisted(() => ({
     translateTextsMock: vi.fn(async ({ texts = [], language }) => Object.fromEntries(
@@ -25,6 +22,11 @@ vi.mock('@/services/api/marketApi', () => ({
     readCachedBrowseFxRates: readCachedBrowseFxRatesMock,
 }));
 
+let MarketProvider;
+let useMarket;
+let MarketAutoLocalizer;
+let clearRuntimeTranslationCache;
+
 const Probe = () => {
     const { setLanguage } = useMarket();
 
@@ -40,8 +42,12 @@ const Probe = () => {
 };
 
 describe('MarketAutoLocalizer', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
+        vi.resetModules();
         window.localStorage.clear();
+        ({ MarketProvider, useMarket } = await import('@/context/MarketContext'));
+        ({ clearRuntimeTranslationCache } = await import('@/services/runtimeTranslation'));
+        ({ default: MarketAutoLocalizer } = await import('./MarketAutoLocalizer'));
         clearRuntimeTranslationCache();
     });
 
@@ -67,8 +73,12 @@ describe('MarketAutoLocalizer', () => {
         fireEvent.click(screen.getByTestId('switch-es'));
 
         await waitFor(() => {
+            expect(translateTextsMock).toHaveBeenCalled();
+        }, { timeout: 3000 });
+
+        await waitFor(() => {
             expect(screen.getByRole('heading', { name: 'es:Continue Shopping' })).toBeInTheDocument();
-        });
+        }, { timeout: 3000 });
 
         expect(screen.getByRole('textbox')).toHaveAttribute('placeholder', 'es:Search products');
 
@@ -76,7 +86,7 @@ describe('MarketAutoLocalizer', () => {
 
         await waitFor(() => {
             expect(screen.getByRole('heading', { name: 'Continue Shopping' })).toBeInTheDocument();
-        });
+        }, { timeout: 3000 });
 
         expect(screen.getByRole('textbox')).toHaveAttribute('placeholder', 'Search products');
     });
