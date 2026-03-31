@@ -5,6 +5,7 @@ import { afterEach, vi } from 'vitest';
 // Cleanup after each test case (e.g. clearing jsdom)
 afterEach(() => {
     cleanup();
+    vi.useRealTimers();
 });
 
 // Mock URL.createObjectURL (used by some libraries)
