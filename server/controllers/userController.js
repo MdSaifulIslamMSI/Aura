@@ -206,6 +206,110 @@ const buildWishlistMutationPayload = (hydratedWishlist = []) => ({
     wishlistSyncedAt: new Date(),
 });
 
+const getEntityMutationConfig = (entityKey) => {
+    if (entityKey === 'cart') {
+        return {
+            field: 'cart',
+            revisionField: 'cartRevision',
+            hydrateItems: hydrateCartWithLiveProducts,
+            buildMutationPayload: buildCartMutationPayload,
+            snapshotsEqual: cartSnapshotsEqual,
+        };
+    }
+
+    return {
+        field: 'wishlist',
+        revisionField: 'wishlistRevision',
+        hydrateItems: hydrateWishlistWithLiveProducts,
+        buildMutationPayload: buildWishlistMutationPayload,
+        snapshotsEqual: wishlistSnapshotsEqual,
+    };
+};
+
+const loadFreshUserDocument = async (userId) => {
+    if (!userId) return null;
+    return User.findById(userId);
+};
+
+const commitEntityMutationByRevision = async (user, entityKey, hydratedItems = [], baseRevision = null) => {
+    const config = getEntityMutationConfig(entityKey);
+    const expectedRevision = Number(baseRevision ?? user?.[config.revisionField] ?? 0);
+    const persistedUser = await User.findOneAndUpdate(
+        {
+            _id: user._id,
+            [config.revisionField]: expectedRevision,
+        },
+        {
+            $set: config.buildMutationPayload(hydratedItems),
+            $inc: { [config.revisionField]: 1 },
+        },
+        {
+            new: true,
+        }
+    );
+
+    return {
+        user: persistedUser,
+        hydratedItems,
+    };
+};
+
+const ensureHydratedUserEntityDocument = async (user, entityKey) => {
+    const config = getEntityMutationConfig(entityKey);
+    let currentUser = user;
+    let attempts = 0;
+
+    while (currentUser && attempts < 3) {
+        const currentItems = Array.isArray(currentUser?.[config.field]) ? currentUser[config.field] : [];
+        const hydratedItems = await config.hydrateItems(currentItems);
+
+        if (config.snapshotsEqual(hydratedItems, currentItems)) {
+            return currentUser;
+        }
+
+        const { user: persistedUser } = await commitEntityMutationByRevision(
+            currentUser,
+            entityKey,
+            hydratedItems,
+            Number(currentUser?.[config.revisionField] ?? 0)
+        );
+
+        if (persistedUser) {
+            return persistedUser;
+        }
+
+        currentUser = await loadFreshUserDocument(currentUser._id);
+        attempts += 1;
+    }
+
+    return currentUser;
+};
+
+const persistEntityMutation = async (user, entityKey, nextItems = []) => {
+    const config = getEntityMutationConfig(entityKey);
+    const hydratedItems = await config.hydrateItems(nextItems);
+    const { user: persistedUser } = await commitEntityMutationByRevision(
+        user,
+        entityKey,
+        hydratedItems,
+        Number(user?.[config.revisionField] ?? 0)
+    );
+
+    if (persistedUser) {
+        return {
+            user: persistedUser,
+            hydratedItems,
+            conflict: false,
+        };
+    }
+
+    return {
+        user: await ensureHydratedUserEntityDocument(await loadFreshUserDocument(user?._id), entityKey),
+        hydratedItems,
+        conflict: true,
+    };
+};
+
 const buildCartLineFromProduct = (productDoc, quantity = 1) => ({
     id: Number(productDoc?.id || 0),
     title: normalizeText(productDoc?.title) || '',
@@ -286,54 +390,28 @@ const mergeWishlistItems = (primaryItems = [], secondaryItems = []) => {
 };
 
 const ensureHydratedUserCartDocument = async (user) => {
-    if (!user) return null;
-
-    const hydratedCart = await hydrateCartWithLiveProducts(user.cart || []);
-    if (!cartSnapshotsEqual(hydratedCart, user.cart || [])) {
-        user.cart = hydratedCart;
-        user.cartRevision = Number(user.cartRevision || 0) + 1;
-        user.cartSyncedAt = new Date();
-        await user.save();
-    }
-
-    return user;
+    return ensureHydratedUserEntityDocument(user, 'cart');
 };
 
 const ensureHydratedUserWishlistDocument = async (user) => {
-    if (!user) return null;
-
-    const hydratedWishlist = await hydrateWishlistWithLiveProducts(user.wishlist || []);
-    if (!wishlistSnapshotsEqual(hydratedWishlist, user.wishlist || [])) {
-        user.wishlist = hydratedWishlist;
-        user.wishlistRevision = Number(user.wishlistRevision || 0) + 1;
-        user.wishlistSyncedAt = new Date();
-        await user.save();
-    }
-
-    return user;
+    return ensureHydratedUserEntityDocument(user, 'wishlist');
 };
 
 const persistCartMutation = async (user, nextCart = []) => {
-    const hydratedCart = await hydrateCartWithLiveProducts(nextCart);
-    user.cart = hydratedCart;
-    user.cartRevision = Number(user.cartRevision || 0) + 1;
-    user.cartSyncedAt = new Date();
-    await user.save();
+    const result = await persistEntityMutation(user, 'cart', nextCart);
     return {
-        user,
-        hydratedCart,
+        user: result.user,
+        hydratedCart: result.hydratedItems,
+        conflict: result.conflict,
     };
 };
 
 const persistWishlistMutation = async (user, nextWishlist = []) => {
-    const hydratedWishlist = await hydrateWishlistWithLiveProducts(nextWishlist);
-    user.wishlist = hydratedWishlist;
-    user.wishlistRevision = Number(user.wishlistRevision || 0) + 1;
-    user.wishlistSyncedAt = new Date();
-    await user.save();
+    const result = await persistEntityMutation(user, 'wishlist', nextWishlist);
     return {
-        user,
-        hydratedWishlist,
+        user: result.user,
+        hydratedWishlist: result.hydratedItems,
+        conflict: result.conflict,
     };
 };
 
@@ -601,57 +679,35 @@ const getUserProfile = asyncHandler(async (req, res, next) => {
         return next(new AppError('Unable to recover user profile', 500));
     }
 
-    const hydratedCart = await hydrateCartWithLiveProducts(user.cart || []);
-    const hydratedWishlist = await hydrateWishlistWithLiveProducts(user.wishlist || []);
-    const mutationPayload = {};
-    const mutationInc = {};
+    const cartHydratedUser = await ensureHydratedUserCartDocument(user);
+    const hydratedUser = await ensureHydratedUserWishlistDocument(cartHydratedUser);
 
-    if (!cartSnapshotsEqual(hydratedCart, user.cart || [])) {
-        Object.assign(mutationPayload, buildCartMutationPayload(hydratedCart));
-        mutationInc.cartRevision = 1;
-    }
-
-    if (!wishlistSnapshotsEqual(hydratedWishlist, user.wishlist || [])) {
-        Object.assign(mutationPayload, buildWishlistMutationPayload(hydratedWishlist));
-        mutationInc.wishlistRevision = 1;
-    }
-
-    if (Object.keys(mutationPayload).length > 0 || Object.keys(mutationInc).length > 0) {
-        await User.updateOne(
-            { _id: user._id },
-            {
-                ...(Object.keys(mutationPayload).length > 0 ? { $set: mutationPayload } : {}),
-                ...(Object.keys(mutationInc).length > 0 ? { $inc: mutationInc } : {}),
-            }
-        );
-    }
-
-    await persistAuthSnapshot(user);
+    await persistAuthSnapshot(hydratedUser);
 
     res.json({
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        phone: user.phone,
-        avatar: user.avatar || '',
-        gender: user.gender || '',
-        dob: user.dob || null,
-        bio: user.bio || '',
-        isAdmin: user.isAdmin,
-        isVerified: user.isVerified,
-        isSeller: Boolean(user.isSeller),
-        sellerActivatedAt: user.sellerActivatedAt || null,
-        accountState: user.accountState || 'active',
-        moderation: user.moderation || {},
-        addresses: user.addresses || [],
-        cart: hydratedCart,
-        wishlist: hydratedWishlist,
-        wishlistRevision: Number(user.wishlistRevision || 0) + (mutationInc.wishlistRevision || 0),
-        wishlistSyncedAt: mutationPayload.wishlistSyncedAt || user.wishlistSyncedAt || null,
-        cartRevision: Number(user.cartRevision || 0) + (mutationInc.cartRevision || 0),
-        cartSyncedAt: mutationPayload.cartSyncedAt || user.cartSyncedAt || null,
-        loyalty: getRewardSnapshotFromUser(user),
-        createdAt: user.createdAt,
+        _id: hydratedUser._id,
+        name: hydratedUser.name,
+        email: hydratedUser.email,
+        phone: hydratedUser.phone,
+        avatar: hydratedUser.avatar || '',
+        gender: hydratedUser.gender || '',
+        dob: hydratedUser.dob || null,
+        bio: hydratedUser.bio || '',
+        isAdmin: hydratedUser.isAdmin,
+        isVerified: hydratedUser.isVerified,
+        isSeller: Boolean(hydratedUser.isSeller),
+        sellerActivatedAt: hydratedUser.sellerActivatedAt || null,
+        accountState: hydratedUser.accountState || 'active',
+        moderation: hydratedUser.moderation || {},
+        addresses: hydratedUser.addresses || [],
+        cart: hydratedUser.cart || [],
+        wishlist: hydratedUser.wishlist || [],
+        wishlistRevision: Number(hydratedUser.wishlistRevision || 0),
+        wishlistSyncedAt: hydratedUser.wishlistSyncedAt || null,
+        cartRevision: Number(hydratedUser.cartRevision || 0),
+        cartSyncedAt: hydratedUser.cartSyncedAt || null,
+        loyalty: getRewardSnapshotFromUser(hydratedUser),
+        createdAt: hydratedUser.createdAt,
     });
 });
 
@@ -914,7 +970,7 @@ const getCart = asyncHandler(async (req, res, next) => {
     const safeEmail = requireAuthorizedEmail(req, next);
     if (!safeEmail) return;
 
-    const user = await ensureUserDocument({
+    let user = await ensureUserDocument({
         email: safeEmail,
         authUser: req.user,
     });
@@ -922,7 +978,7 @@ const getCart = asyncHandler(async (req, res, next) => {
         return next(new AppError('Unable to recover user profile', 500));
     }
 
-    await ensureHydratedUserCartDocument(user);
+    user = await ensureHydratedUserCartDocument(user);
     return res.json(await buildCartResponse(user, req.market));
 });
 
@@ -941,7 +997,7 @@ const syncCart = asyncHandler(async (req, res, next) => {
     const safeEmail = requireAuthorizedEmail(req, next);
     if (!safeEmail) return;
 
-    const user = await ensureUserDocument({
+    let user = await ensureUserDocument({
         email: safeEmail,
         authUser: req.user,
     });
@@ -949,13 +1005,16 @@ const syncCart = asyncHandler(async (req, res, next) => {
         return next(new AppError('Unable to recover user profile', 500));
     }
 
-    await ensureHydratedUserCartDocument(user);
+    user = await ensureHydratedUserCartDocument(user);
 
     if (expectedRevision !== null && Number(user.cartRevision || 0) !== expectedRevision) {
         return sendCartConflict(res, user, req.market);
     }
 
-    const { user: persistedUser } = await persistCartMutation(user, cartItems);
+    const { user: persistedUser, conflict } = await persistCartMutation(user, cartItems);
+    if (conflict) {
+        return sendCartConflict(res, persistedUser || user, req.market);
+    }
     res.json(await buildCartResponse(persistedUser, req.market));
 });
 
@@ -977,7 +1036,7 @@ const addCartItem = asyncHandler(async (req, res, next) => {
     const safeEmail = requireAuthorizedEmail(req, next);
     if (!safeEmail) return;
 
-    const user = await ensureUserDocument({
+    let user = await ensureUserDocument({
         email: safeEmail,
         authUser: req.user,
     });
@@ -985,7 +1044,7 @@ const addCartItem = asyncHandler(async (req, res, next) => {
         return next(new AppError('Unable to recover user profile', 500));
     }
 
-    await ensureHydratedUserCartDocument(user);
+    user = await ensureHydratedUserCartDocument(user);
 
     if (expectedRevision !== null && Number(user.cartRevision || 0) !== expectedRevision) {
         return sendCartConflict(res, user, req.market);
@@ -1013,7 +1072,10 @@ const addCartItem = asyncHandler(async (req, res, next) => {
         nextCart.push(buildCartLineFromProduct(liveProduct, quantity));
     }
 
-    const { user: persistedUser, hydratedCart } = await persistCartMutation(user, nextCart);
+    const { user: persistedUser, hydratedCart, conflict } = await persistCartMutation(user, nextCart);
+    if (conflict) {
+        return sendCartConflict(res, persistedUser || user, req.market);
+    }
     const changedItem = hydratedCart.find((item) => Number(item.id) === productId) || null;
 
     res.status(existingIndex >= 0 ? 200 : 201).json({
@@ -1041,7 +1103,7 @@ const setCartItemQuantity = asyncHandler(async (req, res, next) => {
     const safeEmail = requireAuthorizedEmail(req, next);
     if (!safeEmail) return;
 
-    const user = await ensureUserDocument({
+    let user = await ensureUserDocument({
         email: safeEmail,
         authUser: req.user,
     });
@@ -1049,7 +1111,7 @@ const setCartItemQuantity = asyncHandler(async (req, res, next) => {
         return next(new AppError('Unable to recover user profile', 500));
     }
 
-    await ensureHydratedUserCartDocument(user);
+    user = await ensureHydratedUserCartDocument(user);
 
     if (expectedRevision !== null && Number(user.cartRevision || 0) !== expectedRevision) {
         return sendCartConflict(res, user, req.market);
@@ -1070,7 +1132,10 @@ const setCartItemQuantity = asyncHandler(async (req, res, next) => {
 
     if (quantity === 0) {
         const nextCart = currentCart.filter((item) => Number(item.id) !== productId);
-        const { user: persistedUser } = await persistCartMutation(user, nextCart);
+        const { user: persistedUser, conflict } = await persistCartMutation(user, nextCart);
+        if (conflict) {
+            return sendCartConflict(res, persistedUser || user, req.market);
+        }
         return res.json({
             item: null,
             revision: Number(persistedUser.cartRevision || 0),
@@ -1083,7 +1148,10 @@ const setCartItemQuantity = asyncHandler(async (req, res, next) => {
         quantity: Math.max(1, quantity),
     };
 
-    const { user: persistedUser, hydratedCart } = await persistCartMutation(user, currentCart);
+    const { user: persistedUser, hydratedCart, conflict } = await persistCartMutation(user, currentCart);
+    if (conflict) {
+        return sendCartConflict(res, persistedUser || user, req.market);
+    }
     const changedItem = hydratedCart.find((item) => Number(item.id) === productId) || null;
 
     return res.json({
@@ -1107,7 +1175,7 @@ const removeCartItem = asyncHandler(async (req, res, next) => {
     const safeEmail = requireAuthorizedEmail(req, next);
     if (!safeEmail) return;
 
-    const user = await ensureUserDocument({
+    let user = await ensureUserDocument({
         email: safeEmail,
         authUser: req.user,
     });
@@ -1115,7 +1183,7 @@ const removeCartItem = asyncHandler(async (req, res, next) => {
         return next(new AppError('Unable to recover user profile', 500));
     }
 
-    await ensureHydratedUserCartDocument(user);
+    user = await ensureHydratedUserCartDocument(user);
 
     if (expectedRevision !== null && Number(user.cartRevision || 0) !== expectedRevision) {
         return sendCartConflict(res, user, req.market);
@@ -1133,7 +1201,10 @@ const removeCartItem = asyncHandler(async (req, res, next) => {
         });
     }
 
-    const { user: persistedUser } = await persistCartMutation(user, nextCart);
+    const { user: persistedUser, conflict } = await persistCartMutation(user, nextCart);
+    if (conflict) {
+        return sendCartConflict(res, persistedUser || user, req.market);
+    }
     return res.json({
         revision: Number(persistedUser.cartRevision || 0),
         syncedAt: persistedUser.cartSyncedAt || null,
@@ -1154,7 +1225,7 @@ const mergeCart = asyncHandler(async (req, res, next) => {
     const safeEmail = requireAuthorizedEmail(req, next);
     if (!safeEmail) return;
 
-    const user = await ensureUserDocument({
+    let user = await ensureUserDocument({
         email: safeEmail,
         authUser: req.user,
     });
@@ -1162,14 +1233,17 @@ const mergeCart = asyncHandler(async (req, res, next) => {
         return next(new AppError('Unable to recover user profile', 500));
     }
 
-    await ensureHydratedUserCartDocument(user);
+    user = await ensureHydratedUserCartDocument(user);
 
     if (expectedRevision !== null && Number(user.cartRevision || 0) !== expectedRevision) {
         return sendCartConflict(res, user, req.market);
     }
 
     const mergedCart = mergeCartItems(user.cart || [], incomingItems);
-    const { user: persistedUser } = await persistCartMutation(user, mergedCart);
+    const { user: persistedUser, conflict } = await persistCartMutation(user, mergedCart);
+    if (conflict) {
+        return sendCartConflict(res, persistedUser || user, req.market);
+    }
     return res.json(await buildCartResponse(persistedUser, req.market));
 });
 
@@ -1180,7 +1254,7 @@ const getWishlist = asyncHandler(async (req, res, next) => {
     const safeEmail = requireAuthorizedEmail(req, next);
     if (!safeEmail) return;
 
-    const user = await ensureUserDocument({
+    let user = await ensureUserDocument({
         email: safeEmail,
         authUser: req.user,
     });
@@ -1188,7 +1262,7 @@ const getWishlist = asyncHandler(async (req, res, next) => {
         return next(new AppError('Unable to recover user profile', 500));
     }
 
-    await ensureHydratedUserWishlistDocument(user);
+    user = await ensureHydratedUserWishlistDocument(user);
     return res.json(await buildWishlistResponse(user, req.market));
 });
 
@@ -1209,7 +1283,7 @@ const syncWishlist = asyncHandler(async (req, res, next) => {
     const safeEmail = requireAuthorizedEmail(req, next);
     if (!safeEmail) return;
 
-    const user = await ensureUserDocument({
+    let user = await ensureUserDocument({
         email: safeEmail,
         authUser: req.user,
     });
@@ -1217,13 +1291,16 @@ const syncWishlist = asyncHandler(async (req, res, next) => {
         return next(new AppError('Unable to recover user profile', 500));
     }
 
-    await ensureHydratedUserWishlistDocument(user);
+    user = await ensureHydratedUserWishlistDocument(user);
 
     if (expectedRevision !== null && Number(user.wishlistRevision || 0) !== expectedRevision) {
         return sendWishlistConflict(res, user, req.market);
     }
 
-    const { user: persistedUser } = await persistWishlistMutation(user, wishlistItems);
+    const { user: persistedUser, conflict } = await persistWishlistMutation(user, wishlistItems);
+    if (conflict) {
+        return sendWishlistConflict(res, persistedUser || user, req.market);
+    }
     return res.json(await buildWishlistResponse(persistedUser, req.market));
 });
 
@@ -1244,7 +1321,7 @@ const addWishlistItem = asyncHandler(async (req, res, next) => {
     const safeEmail = requireAuthorizedEmail(req, next);
     if (!safeEmail) return;
 
-    const user = await ensureUserDocument({
+    let user = await ensureUserDocument({
         email: safeEmail,
         authUser: req.user,
     });
@@ -1252,7 +1329,7 @@ const addWishlistItem = asyncHandler(async (req, res, next) => {
         return next(new AppError('Unable to recover user profile', 500));
     }
 
-    await ensureHydratedUserWishlistDocument(user);
+    user = await ensureHydratedUserWishlistDocument(user);
 
     if (expectedRevision !== null && Number(user.wishlistRevision || 0) !== expectedRevision) {
         return sendWishlistConflict(res, user, req.market);
@@ -1275,7 +1352,10 @@ const addWishlistItem = asyncHandler(async (req, res, next) => {
         nextWishlist.push(buildWishlistLineFromProduct(liveProduct));
     }
 
-    const { user: persistedUser, hydratedWishlist } = await persistWishlistMutation(user, nextWishlist);
+    const { user: persistedUser, hydratedWishlist, conflict } = await persistWishlistMutation(user, nextWishlist);
+    if (conflict) {
+        return sendWishlistConflict(res, persistedUser || user, req.market);
+    }
     const changedItem = hydratedWishlist.find((item) => Number(item.id) === productId) || null;
 
     return res.status(existingIndex >= 0 ? 200 : 201).json({
@@ -1302,7 +1382,7 @@ const removeWishlistItem = asyncHandler(async (req, res, next) => {
     const safeEmail = requireAuthorizedEmail(req, next);
     if (!safeEmail) return;
 
-    const user = await ensureUserDocument({
+    let user = await ensureUserDocument({
         email: safeEmail,
         authUser: req.user,
     });
@@ -1310,7 +1390,7 @@ const removeWishlistItem = asyncHandler(async (req, res, next) => {
         return next(new AppError('Unable to recover user profile', 500));
     }
 
-    await ensureHydratedUserWishlistDocument(user);
+    user = await ensureHydratedUserWishlistDocument(user);
 
     if (expectedRevision !== null && Number(user.wishlistRevision || 0) !== expectedRevision) {
         return sendWishlistConflict(res, user, req.market);
@@ -1328,7 +1408,10 @@ const removeWishlistItem = asyncHandler(async (req, res, next) => {
         });
     }
 
-    const { user: persistedUser } = await persistWishlistMutation(user, nextWishlist);
+    const { user: persistedUser, conflict } = await persistWishlistMutation(user, nextWishlist);
+    if (conflict) {
+        return sendWishlistConflict(res, persistedUser || user, req.market);
+    }
     return res.json({
         revision: Number(persistedUser.wishlistRevision || 0),
         syncedAt: persistedUser.wishlistSyncedAt || null,
@@ -1352,7 +1435,7 @@ const mergeWishlist = asyncHandler(async (req, res, next) => {
     const safeEmail = requireAuthorizedEmail(req, next);
     if (!safeEmail) return;
 
-    const user = await ensureUserDocument({
+    let user = await ensureUserDocument({
         email: safeEmail,
         authUser: req.user,
     });
@@ -1360,14 +1443,17 @@ const mergeWishlist = asyncHandler(async (req, res, next) => {
         return next(new AppError('Unable to recover user profile', 500));
     }
 
-    await ensureHydratedUserWishlistDocument(user);
+    user = await ensureHydratedUserWishlistDocument(user);
 
     if (expectedRevision !== null && Number(user.wishlistRevision || 0) !== expectedRevision) {
         return sendWishlistConflict(res, user, req.market);
     }
 
     const mergedWishlist = mergeWishlistItems(user.wishlist || [], incomingItems);
-    const { user: persistedUser } = await persistWishlistMutation(user, mergedWishlist);
+    const { user: persistedUser, conflict } = await persistWishlistMutation(user, mergedWishlist);
+    if (conflict) {
+        return sendWishlistConflict(res, persistedUser || user, req.market);
+    }
     return res.json(await buildWishlistResponse(persistedUser, req.market));
 });
 
