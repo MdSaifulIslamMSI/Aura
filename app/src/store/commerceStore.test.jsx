@@ -66,6 +66,74 @@ describe('commerceStore', () => {
         ]);
     });
 
+    it('ignores older hydration payloads that resolve after a newer cart add succeeds', async () => {
+        let resolveCartSnapshot;
+        vi.spyOn(userApi, 'getCart').mockImplementation(() => new Promise((resolve) => {
+            resolveCartSnapshot = resolve;
+        }));
+
+        const product = {
+            id: 73,
+            title: 'Race-safe Tablet',
+            brand: 'Aura',
+            price: 2199,
+            originalPrice: 2499,
+            discountPercentage: 12,
+            image: '/tablet.png',
+            stock: 6,
+            deliveryTime: '1-2 days',
+        };
+
+        vi.spyOn(userApi, 'addCartItem').mockResolvedValue({
+            item: {
+                ...product,
+                quantity: 1,
+            },
+            revision: 5,
+            syncedAt: '2026-04-01T00:30:05.000Z',
+        });
+
+        useCommerceStore.setState({
+            authUser: { uid: 'user-race', email: 'race@example.com' },
+            cart: createUserCartState({
+                revision: 4,
+                syncedAt: '2026-04-01T00:30:00.000Z',
+            }),
+        });
+
+        const hydratePromise = useCommerceStore.getState().hydrateCart({ force: true });
+        await useCommerceStore.getState().addItem(product, 1);
+
+        resolveCartSnapshot({
+            items: [
+                {
+                    id: 11,
+                    title: 'Older Snapshot Headphones',
+                    brand: 'Aura',
+                    price: 799,
+                    originalPrice: 999,
+                    discountPercentage: 20,
+                    image: '/headphones.png',
+                    stock: 3,
+                    deliveryTime: '2-3 days',
+                    quantity: 1,
+                },
+            ],
+            revision: 4,
+            syncedAt: '2026-04-01T00:30:00.000Z',
+        });
+
+        await hydratePromise;
+
+        expect(useCommerceStore.getState().cart.orderedIds).toEqual(['73']);
+        expect(useCommerceStore.getState().cart.itemsById['73']).toMatchObject({
+            id: 73,
+            quantity: 1,
+            title: 'Race-safe Tablet',
+        });
+        expect(useCommerceStore.getState().cart.revision).toBe(5);
+    });
+
     it('replays optimistic cart ops after a revision conflict', async () => {
         const product = {
             id: 55,
@@ -367,6 +435,43 @@ describe('commerceStore', () => {
         });
         expect(useCommerceStore.getState().wishlist.orderedIds).toEqual(['303']);
         expect(localStorage.getItem(GUEST_WISHLIST_STORAGE_KEY)).toBeNull();
+    });
+
+    it('ignores stale external user cart snapshots with an older revision', () => {
+        useCommerceStore.setState({
+            authUser: { uid: 'user-snapshot', email: 'snapshot@example.com' },
+            cart: createUserCartState({
+                itemsById: {
+                    '808': {
+                        id: 808,
+                        title: 'Fresh Camera',
+                        brand: 'Aura',
+                        price: 8999,
+                        originalPrice: 9999,
+                        discountPercentage: 10,
+                        image: '/camera.png',
+                        stock: 4,
+                        deliveryTime: '1-2 days',
+                        quantity: 1,
+                    },
+                },
+                orderedIds: ['808'],
+                revision: 5,
+                syncedAt: '2026-04-01T00:40:00.000Z',
+            }),
+        });
+
+        useCommerceStore.getState().receiveExternalSnapshot({
+            entity: 'cart',
+            source: 'user',
+            userId: 'user-snapshot',
+            items: [],
+            revision: 4,
+            syncedAt: '2026-04-01T00:39:00.000Z',
+        });
+
+        expect(useCommerceStore.getState().cart.orderedIds).toEqual(['808']);
+        expect(useCommerceStore.getState().cart.revision).toBe(5);
     });
 
     it('drops stale authenticated sync responses after logout', async () => {
