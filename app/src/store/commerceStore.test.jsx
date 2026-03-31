@@ -211,6 +211,59 @@ describe('commerceStore', () => {
         });
     });
 
+    it('does not force a second hydrate when the same authenticated user is rebound', async () => {
+        const recoveredItem = {
+            id: 515,
+            title: 'Stable Cart Speaker',
+            brand: 'Aura',
+            price: 3499,
+            originalPrice: 3999,
+            discountPercentage: 13,
+            image: '/speaker.png',
+            stock: 4,
+            deliveryTime: '1-2 days',
+            quantity: 1,
+        };
+
+        useCommerceStore.setState({
+            authUser: { uid: 'user-stable', email: 'stable@example.com' },
+            cart: createUserCartState({
+                itemsById: {
+                    '515': recoveredItem,
+                },
+                orderedIds: ['515'],
+                revision: 3,
+                syncedAt: '2026-03-30T18:00:00.000Z',
+            }),
+        });
+
+        await useCommerceStore.getState().bindAuthUser(null);
+
+        const getCartSpy = vi.spyOn(userApi, 'getCart').mockResolvedValue({
+            items: [],
+            revision: 0,
+            syncedAt: null,
+        });
+        const getWishlistSpy = vi.spyOn(userApi, 'getWishlist').mockResolvedValue({
+            items: [],
+            revision: 0,
+            syncedAt: null,
+        });
+        const syncCartSpy = vi.spyOn(userApi, 'syncCart').mockResolvedValue({
+            items: [recoveredItem],
+            revision: 1,
+            syncedAt: '2026-03-31T08:20:00.000Z',
+        });
+
+        await useCommerceStore.getState().bindAuthUser({ uid: 'user-stable', email: 'stable@example.com' });
+        await useCommerceStore.getState().bindAuthUser({ uid: 'user-stable', email: 'stable@example.com' });
+
+        expect(getCartSpy).toHaveBeenCalledTimes(1);
+        expect(getWishlistSpy).toHaveBeenCalledTimes(1);
+        expect(syncCartSpy).toHaveBeenCalledTimes(1);
+        expect(useCommerceStore.getState().cart.orderedIds).toEqual(['515']);
+    });
+
     it('merges guest wishlist once when the authenticated session hydrates', async () => {
         localStorage.setItem(GUEST_WISHLIST_STORAGE_KEY, JSON.stringify([
             {

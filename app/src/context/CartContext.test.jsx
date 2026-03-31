@@ -107,4 +107,35 @@ describe('CartProvider', () => {
     expect(screen.getByTestId('is-loading')).toHaveTextContent('true');
     expect(getCartSpy).not.toHaveBeenCalled();
   });
+
+  it('waits for auth bootstrap to settle before hydrating an authenticated cart', async () => {
+    const getCartSpy = vi.spyOn(userApi, 'getCart').mockResolvedValue({
+      items: [],
+      revision: 2,
+      syncedAt: null,
+    });
+    vi.spyOn(userApi, 'getWishlist').mockResolvedValue({
+      items: [],
+      revision: 0,
+      syncedAt: null,
+    });
+
+    const authUser = { uid: 'user-3', email: 'settled@example.com' };
+    const view = renderCartProvider({ currentUser: authUser, loading: true });
+
+    expect(getCartSpy).not.toHaveBeenCalled();
+
+    view.rerender(
+      <AuthContext.Provider value={{ currentUser: authUser, loading: false }}>
+        <CartProvider>
+          <CartProbe />
+        </CartProvider>
+      </AuthContext.Provider>
+    );
+
+    await waitFor(() => {
+      expect(getCartSpy).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId('item-count')).toHaveTextContent('0');
+    });
+  });
 });
