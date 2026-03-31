@@ -14,7 +14,11 @@ const Cart = () => {
   const clearDirectBuy = useCommerceStore((state) => state.clearDirectBuy);
   const navigate = useNavigate();
 
-  const cartItemLabel = t(cartItems.length === 1 ? 'cart.item' : 'cart.items', {}, cartItems.length === 1 ? 'item' : 'items');
+  const cartUnitCount = useMemo(
+    () => cartItems.reduce((sum, item) => sum + Math.max(1, Number(item?.quantity || 1)), 0),
+    [cartItems],
+  );
+  const cartItemLabel = t(cartUnitCount === 1 ? 'cart.item' : 'cart.items', {}, cartUnitCount === 1 ? 'item' : 'items');
   const browseSummary = useMemo(() => cartItems.reduce((summary, item) => {
     const itemBaseCurrency = getBaseCurrency(item);
     const lineTotal = getLineBaseTotal(item);
@@ -110,7 +114,7 @@ const Cart = () => {
                   <ShoppingBag className="w-6 h-6 text-neo-cyan" />
                   {t('cart.title', {}, 'Your Bag')}
                   <span className="bg-neo-cyan/20 text-neo-cyan text-sm px-3 py-1 rounded-full border border-neo-cyan/30">
-                    {cartItems.length} {cartItemLabel}
+                    {cartUnitCount} {cartItemLabel}
                   </span>
                 </h1>
                 <span className="text-slate-400 text-sm hidden md:block border border-white/10 px-4 py-1.5 rounded-full bg-white/5 font-medium">{t('cart.nodeLabel', {}, 'Link: Primary Local Node')}</span>
@@ -251,7 +255,7 @@ const Cart = () => {
                 <div className="flex justify-between items-center text-sm font-medium">
                   <span className="text-slate-400">
                     {t('cart.summary.subtotalWithCount', {
-                      count: cartItems.reduce((sum, item) => sum + item.quantity, 0),
+                      count: cartUnitCount,
                     }, 'Subtotal ({{count}} items)')}
                   </span>
                   <span className="text-slate-200">
