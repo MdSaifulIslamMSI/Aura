@@ -217,6 +217,7 @@ export function MarketProvider({
   const runtimeTranslationPendingRef = useRef(new Set());
   const runtimeTranslationFlushScheduledRef = useRef(false);
   const runtimeTranslationMountedRef = useRef(true);
+  const runtimeTranslationQueuedKeyRef = useRef('');
   const [marketMessageVersion, setMarketMessageVersion] = useState(0);
   const [runtimeTranslationVersion, setRuntimeTranslationVersion] = useState(0);
   const [runtimeTranslationRequestSignal, setRuntimeTranslationRequestSignal] = useState(0);
@@ -309,8 +310,30 @@ export function MarketProvider({
 
   useEffect(() => {
     if (language.code === 'en') {
+      runtimeTranslationQueuedKeyRef.current = '';
+      return;
+    }
+
+    const queuedTexts = [...runtimeTranslationRequestsRef.current];
+    if (queuedTexts.length === 0) {
+      runtimeTranslationQueuedKeyRef.current = '';
+      return;
+    }
+
+    const queuedKey = queuedTexts.join('\u0000');
+    if (queuedKey === runtimeTranslationQueuedKeyRef.current) {
+      return;
+    }
+
+    runtimeTranslationQueuedKeyRef.current = queuedKey;
+    scheduleRuntimeTranslationFlush();
+  });
+
+  useEffect(() => {
+    if (language.code === 'en') {
       runtimeTranslationRequestsRef.current.clear();
       runtimeTranslationPendingRef.current.clear();
+      runtimeTranslationQueuedKeyRef.current = '';
       return;
     }
 
@@ -322,6 +345,7 @@ export function MarketProvider({
     });
 
     runtimeTranslationRequestsRef.current.clear();
+    runtimeTranslationQueuedKeyRef.current = '';
 
     if (pendingTexts.length === 0) {
       return;
@@ -431,11 +455,10 @@ export function MarketProvider({
       const queue = runtimeTranslationRequestsRef.current;
       if (!queue.has(translationTemplate)) {
         queue.add(translationTemplate);
-        scheduleRuntimeTranslationFlush();
       }
       return englishText;
     }
-  ), [language.code, marketMessageVersion, runtimeTranslationVersion, scheduleRuntimeTranslationFlush]);
+  ), [language.code, marketMessageVersion, runtimeTranslationVersion]);
 
   const value = useMemo(() => {
     const detectedMarket = getSupportedMarket(detectedPreference.countryCode);

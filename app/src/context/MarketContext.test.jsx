@@ -331,4 +331,34 @@ describe('MarketContext', () => {
             sourceLanguage: 'en',
         }));
     });
+
+    it('does not emit a maximum update depth warning when fallback text is queued after render', async () => {
+        const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+        const { MarketProvider, LateArrivalProbe } = await loadMarketTestKit();
+
+        try {
+            await act(async () => {
+                render(
+                    <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+                        <LateArrivalProbe />
+                    </MarketProvider>
+                );
+            });
+
+            fireEvent.click(screen.getByRole('button', { name: 'ES' }));
+            fireEvent.click(screen.getByRole('button', { name: 'SHOW' }));
+
+            await waitFor(() => {
+                expect(screen.getByTestId('runtime-late-fallback')).toHaveTextContent('es:Late arrival');
+            });
+
+            expect(
+                consoleErrorSpy.mock.calls.some((call) => call.some((entry) => (
+                    String(entry || '').includes('Maximum update depth exceeded')
+                )))
+            ).toBe(false);
+        } finally {
+            consoleErrorSpy.mockRestore();
+        }
+    });
 });
