@@ -29,7 +29,7 @@ export const WishlistProvider = ({ children }) => {
   }, []);
 
   useEffect(() => {
-    if (!currentUser?.uid && isAuthLoading) {
+    if (isAuthLoading) {
       return;
     }
 

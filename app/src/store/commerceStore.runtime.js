@@ -1167,10 +1167,33 @@ export const useCommerceStore = create((set, get) => {
         },
 
         bindAuthUser: async (nextAuthUser) => {
-            const previousAuthUser = get().authUser;
+            const stateBeforeBind = get();
+            const previousAuthUser = stateBeforeBind.authUser;
             const previousUid = previousAuthUser?.uid || null;
             const normalizedAuthUser = normalizeAuthUser(nextAuthUser);
             const nextUid = normalizedAuthUser?.uid || null;
+            const isSamePrincipal = previousUid === nextUid;
+            const alreadyUsingExpectedSource = nextUid
+                ? stateBeforeBind.cart.source === 'user' && stateBeforeBind.wishlist.source === 'user'
+                : stateBeforeBind.cart.source === 'guest' && stateBeforeBind.wishlist.source === 'guest';
+
+            if (isSamePrincipal) {
+                set((state) => ({
+                    authUser: normalizedAuthUser,
+                    sync: state.sync,
+                }));
+
+                if (activeHydratePromises.commerce) {
+                    return activeHydratePromises.commerce;
+                }
+
+                if (alreadyUsingExpectedSource) {
+                    return {
+                        cart: getEntityItems('cart', get().cart),
+                        wishlist: getEntityItems('wishlist', get().wishlist),
+                    };
+                }
+            }
 
             if (previousUid !== nextUid) {
                 const pendingOpCount = (get().cart.pendingOps || []).length + (get().wishlist.pendingOps || []).length;
