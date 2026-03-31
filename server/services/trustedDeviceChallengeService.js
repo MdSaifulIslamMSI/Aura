@@ -1,5 +1,19 @@
 const crypto = require('crypto');
 const User = require('../models/User');
+const {
+    flags: trustedDeviceFlags,
+    getCurrentTrustedDeviceKeyEntry,
+    getTrustedDeviceSecretsByVersion,
+} = require('../config/authTrustedDeviceFlags');
+const {
+    PASSKEY_METHOD,
+    buildAssertionOptions,
+    buildRegistrationOptions,
+    normalizeTransports,
+    resolveWebAuthnRequestContext,
+    verifyWebAuthnAssertion,
+    verifyWebAuthnRegistration,
+} = require('./webauthnTrustedDeviceService');
 
 const TRUSTED_DEVICE_ID_HEADER = 'x-aura-device-id';
 const TRUSTED_DEVICE_LABEL_HEADER = 'x-aura-device-label';
@@ -8,17 +22,8 @@ const DEVICE_CHALLENGE_TTL_MS = Math.max(Number(process.env.AUTH_DEVICE_CHALLENG
 const MAX_TRUSTED_DEVICES = Math.max(Number(process.env.AUTH_TRUSTED_DEVICE_LIMIT || 5), 1);
 const DEVICE_SESSION_TTL_MS = Math.max(Number(process.env.AUTH_DEVICE_SESSION_TTL_MS || (12 * 60 * 60 * 1000)), 5 * 60 * 1000);
 
-const SERVER_KEY = (() => {
-    const source = String(
-        process.env.AUTH_DEVICE_CHALLENGE_SECRET
-        || process.env.AUTH_VAULT_SECRET
-        || ''
-    ).trim();
-
-    return source
-        ? crypto.createHash('sha256').update(source).digest()
-        : crypto.randomBytes(32);
-})();
+const TOKEN_KEY_DERIVATION_SALT = 'aura-trusted-device-token';
+const BROWSER_KEY_METHOD = 'browser_key';
 
 const normalizeDeviceId = (value) => {
     const normalized = String(value || '').trim();
@@ -54,29 +59,97 @@ const buildSessionBinding = ({ authUid = '', authToken = null } = {}) => {
     return `${String(authUid || '').trim()}:${Number.isFinite(issuedAt) ? issuedAt : 0}`;
 };
 
-const sealToken = (payload) => {
+const deriveTokenKey = (secret) => crypto.scryptSync(String(secret || ''), TOKEN_KEY_DERIVATION_SALT, 32);
+
+const encryptPayload = (payload, secret) => {
     const iv = crypto.randomBytes(12);
-    const cipher = crypto.createCipheriv('aes-256-gcm', SERVER_KEY, iv);
+    const cipher = crypto.createCipheriv('aes-256-gcm', deriveTokenKey(secret), iv);
     const encoded = Buffer.from(JSON.stringify(payload));
     const ciphertext = Buffer.concat([cipher.update(encoded), cipher.final()]);
     const tag = cipher.getAuthTag();
     return Buffer.concat([iv, tag, ciphertext]).toString('base64url');
 };
 
-const openToken = (token) => {
-    const buffer = Buffer.from(String(token || ''), 'base64url');
+const decryptPayload = (encodedToken, secret) => {
+    const buffer = Buffer.from(String(encodedToken || ''), 'base64url');
     const iv = buffer.subarray(0, 12);
     const tag = buffer.subarray(12, 28);
     const ciphertext = buffer.subarray(28);
-    const decipher = crypto.createDecipheriv('aes-256-gcm', SERVER_KEY, iv);
+    const decipher = crypto.createDecipheriv('aes-256-gcm', deriveTokenKey(secret), iv);
     decipher.setAuthTag(tag);
     const plaintext = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
     return JSON.parse(plaintext.toString('utf8'));
 };
 
+const parseTokenEnvelope = (token) => {
+    const rawToken = String(token || '').trim();
+    const separatorIndex = rawToken.indexOf('.');
+    if (separatorIndex <= 0) {
+        return { keyVersion: '', encodedToken: rawToken, legacyToken: rawToken };
+    }
+
+    return {
+        keyVersion: rawToken.slice(0, separatorIndex),
+        encodedToken: rawToken.slice(separatorIndex + 1),
+        legacyToken: rawToken,
+    };
+};
+
+const sealToken = (payload) => {
+    const keyEntry = getCurrentTrustedDeviceKeyEntry();
+    if (!keyEntry?.secret) {
+        throw new Error('Trusted device challenge secret is not configured');
+    }
+
+    const encodedToken = encryptPayload(payload, keyEntry.secret);
+    return `${keyEntry.version}.${encodedToken}`;
+};
+
+const openToken = (token) => {
+    const { keyVersion, encodedToken, legacyToken } = parseTokenEnvelope(token);
+    const secretsByVersion = getTrustedDeviceSecretsByVersion();
+
+    const attempts = [];
+    if (keyVersion && secretsByVersion.has(keyVersion)) {
+        attempts.push({
+            keyVersion,
+            secret: secretsByVersion.get(keyVersion),
+            candidateToken: encodedToken,
+        });
+    }
+
+    for (const [candidateVersion, secret] of secretsByVersion.entries()) {
+        if (candidateVersion === keyVersion) continue;
+        attempts.push({
+            keyVersion: candidateVersion,
+            secret,
+            candidateToken: keyVersion ? encodedToken : legacyToken,
+        });
+    }
+
+    for (const attempt of attempts) {
+        try {
+            return {
+                payload: decryptPayload(attempt.candidateToken, attempt.secret),
+                keyVersion: attempt.keyVersion,
+            };
+        } catch {
+            // Keep trying rotation entries until one succeeds.
+        }
+    }
+
+    throw new Error('Trusted device token invalid');
+};
+
 const buildChallengeMessage = ({ challenge = '', mode = '', deviceId = '' } = {}) => (
     Buffer.from(`aura-device-proof|${String(mode)}|${String(deviceId)}|${String(challenge)}`, 'utf8')
 );
+
+const normalizeChallengeMethod = (value) => {
+    const normalized = String(value || '').trim().toLowerCase();
+    if (normalized === PASSKEY_METHOD) return PASSKEY_METHOD;
+    return BROWSER_KEY_METHOD;
+};
 
 const issueTrustedDeviceSession = ({
     user,
@@ -107,7 +180,7 @@ const verifyTrustedDeviceSession = ({
     deviceSessionToken = '',
 } = {}) => {
     try {
-        const payload = openToken(deviceSessionToken);
+        const { payload } = openToken(deviceSessionToken);
         const normalizedDeviceId = normalizeDeviceId(deviceId);
 
         if (payload?.typ !== 'trusted_device_session') {
@@ -151,10 +224,28 @@ const verifyRsaPssSignature = ({ publicKeySpkiBase64 = '', signatureBase64 = '',
     );
 };
 
+const getTrustedDeviceMethod = (device = {}) => {
+    const normalizedMethod = normalizeChallengeMethod(device?.method);
+    if (normalizedMethod === PASSKEY_METHOD && device?.webauthnCredentialIdBase64Url) {
+        return PASSKEY_METHOD;
+    }
+    if (device?.webauthnCredentialIdBase64Url) {
+        return PASSKEY_METHOD;
+    }
+    return BROWSER_KEY_METHOD;
+};
+
 const sanitizeTrustedDevice = (device = {}) => ({
     deviceId: normalizeDeviceId(device.deviceId),
     label: normalizeDeviceLabel(device.label),
+    method: getTrustedDeviceMethod(device),
     algorithm: String(device.algorithm || 'RSA-PSS-SHA256'),
+    authenticatorAttachment: String(device.authenticatorAttachment || ''),
+    webauthnCredentialIdBase64Url: String(device.webauthnCredentialIdBase64Url || ''),
+    webauthnTransports: normalizeTransports(device.webauthnTransports),
+    webauthnCounter: Number(device.webauthnCounter || 0),
+    webauthnUserVerification: String(device.webauthnUserVerification || ''),
+    webauthnAaguid: String(device.webauthnAaguid || ''),
     createdAt: device.createdAt ? new Date(device.createdAt).toISOString() : null,
     lastSeenAt: device.lastSeenAt ? new Date(device.lastSeenAt).toISOString() : null,
     lastVerifiedAt: device.lastVerifiedAt ? new Date(device.lastVerifiedAt).toISOString() : null,
@@ -177,28 +268,57 @@ const upsertTrustedDevice = async ({
     userId,
     deviceId,
     deviceLabel = '',
+    method = BROWSER_KEY_METHOD,
+    algorithm = 'RSA-PSS-SHA256',
     publicKeySpkiBase64 = '',
     replaceExistingKey = false,
+    webauthnCredentialIdBase64Url = '',
+    webauthnTransports = [],
+    webauthnCounter = 0,
+    webauthnUserVerification = '',
+    webauthnAaguid = '',
+    authenticatorAttachment = '',
 }) => {
     const normalizedDeviceId = normalizeDeviceId(deviceId);
     const normalizedLabel = normalizeDeviceLabel(deviceLabel) || 'Trusted browser';
     const normalizedPublicKey = String(publicKeySpkiBase64 || '').trim();
+    const normalizedMethod = normalizeChallengeMethod(method);
     const now = new Date();
 
     const user = await User.findById(userId, 'trustedDevices').lean();
     const currentDevices = Array.isArray(user?.trustedDevices) ? [...user.trustedDevices] : [];
     const existingIndex = currentDevices.findIndex((entry) => normalizeDeviceId(entry?.deviceId) === normalizedDeviceId);
+    const existingDevice = existingIndex >= 0 ? currentDevices[existingIndex] : null;
 
     const nextRecord = {
         deviceId: normalizedDeviceId,
         label: normalizedLabel,
-        algorithm: 'RSA-PSS-SHA256',
-        createdAt: existingIndex >= 0 ? currentDevices[existingIndex].createdAt || now : now,
+        method: normalizedMethod,
+        algorithm,
+        createdAt: existingDevice?.createdAt || now,
         lastSeenAt: now,
         lastVerifiedAt: now,
         publicKeySpkiBase64: replaceExistingKey || existingIndex < 0
             ? normalizedPublicKey
-            : String(currentDevices[existingIndex].publicKeySpkiBase64 || normalizedPublicKey),
+            : String(existingDevice?.publicKeySpkiBase64 || normalizedPublicKey),
+        webauthnCredentialIdBase64Url: normalizedMethod === PASSKEY_METHOD
+            ? String(webauthnCredentialIdBase64Url || existingDevice?.webauthnCredentialIdBase64Url || '')
+            : '',
+        webauthnTransports: normalizedMethod === PASSKEY_METHOD
+            ? normalizeTransports(webauthnTransports.length ? webauthnTransports : existingDevice?.webauthnTransports)
+            : [],
+        webauthnCounter: normalizedMethod === PASSKEY_METHOD
+            ? Number(webauthnCounter || existingDevice?.webauthnCounter || 0)
+            : 0,
+        webauthnUserVerification: normalizedMethod === PASSKEY_METHOD
+            ? String(webauthnUserVerification || existingDevice?.webauthnUserVerification || 'required')
+            : '',
+        webauthnAaguid: normalizedMethod === PASSKEY_METHOD
+            ? String(webauthnAaguid || existingDevice?.webauthnAaguid || '')
+            : '',
+        authenticatorAttachment: normalizedMethod === PASSKEY_METHOD
+            ? String(authenticatorAttachment || existingDevice?.authenticatorAttachment || '')
+            : '',
     };
 
     if (existingIndex >= 0) {
@@ -227,6 +347,7 @@ const issueTrustedDeviceChallenge = async ({
     authToken = null,
     deviceId = '',
     deviceLabel = '',
+    req = {},
 }) => {
     const normalizedDeviceId = normalizeDeviceId(deviceId);
     if (!user?._id || !normalizedDeviceId) {
@@ -237,6 +358,16 @@ const issueTrustedDeviceChallenge = async ({
     const challenge = crypto.randomBytes(32).toString('base64url');
     const expiresAt = Date.now() + DEVICE_CHALLENGE_TTL_MS;
     const mode = existingDevice ? 'assert' : 'enroll';
+    const registeredMethod = existingDevice ? getTrustedDeviceMethod(existingDevice) : '';
+    const webauthnContext = resolveWebAuthnRequestContext(req);
+    const preferredMethod = mode === 'enroll'
+        ? (trustedDeviceFlags.authTrustedDevicePreferWebAuthn ? PASSKEY_METHOD : BROWSER_KEY_METHOD)
+        : registeredMethod || BROWSER_KEY_METHOD;
+    const availableMethods = mode === 'enroll'
+        ? (trustedDeviceFlags.authTrustedDevicePreferWebAuthn
+            ? [PASSKEY_METHOD, BROWSER_KEY_METHOD]
+            : [BROWSER_KEY_METHOD, PASSKEY_METHOD])
+        : [preferredMethod];
 
     const token = sealToken({
         sub: String(user._id),
@@ -244,19 +375,49 @@ const issueTrustedDeviceChallenge = async ({
         mode,
         deviceId: normalizedDeviceId,
         deviceLabel: normalizeDeviceLabel(deviceLabel),
+        preferredMethod,
+        registeredMethod,
+        webauthnContext,
         sessionBinding: buildSessionBinding({ authUid, authToken }),
         exp: expiresAt,
     });
+
+    const webauthn = availableMethods.includes(PASSKEY_METHOD)
+        ? (mode === 'enroll'
+            ? {
+                registrationOptions: buildRegistrationOptions({
+                    challenge,
+                    context: webauthnContext,
+                    user,
+                }),
+            }
+            : registeredMethod === PASSKEY_METHOD
+                ? {
+                    assertionOptions: buildAssertionOptions({
+                        challenge,
+                        context: webauthnContext,
+                        credentialIdBase64Url: existingDevice?.webauthnCredentialIdBase64Url || '',
+                        transports: existingDevice?.webauthnTransports || [],
+                    }),
+                }
+                : null)
+        : null;
 
     return {
         token,
         challenge,
         mode,
-        algorithm: 'RSA-PSS-SHA256',
+        algorithm: preferredMethod === PASSKEY_METHOD
+            ? 'WEBAUTHN'
+            : 'RSA-PSS-SHA256',
         deviceId: normalizedDeviceId,
         expiresAt: new Date(expiresAt).toISOString(),
         registered: Boolean(existingDevice),
         registeredLabel: existingDevice ? normalizeDeviceLabel(existingDevice.label) : '',
+        preferredMethod,
+        availableMethods,
+        registeredMethod,
+        webauthn,
     };
 };
 
@@ -265,14 +426,16 @@ const verifyTrustedDeviceChallenge = async ({
     authUid = '',
     authToken = null,
     token = '',
+    method = '',
     proof = '',
     deviceId = '',
     deviceLabel = '',
     publicKeySpkiBase64 = '',
+    credential = null,
 }) => {
     let payload;
     try {
-        payload = openToken(token);
+        ({ payload } = openToken(token));
     } catch {
         return { success: false, reason: 'Trusted device challenge token invalid' };
     }
@@ -293,11 +456,118 @@ const verifyTrustedDeviceChallenge = async ({
         return { success: false, reason: 'Device challenge session binding mismatch' };
     }
 
+    const requestedMethod = normalizeChallengeMethod(
+        method
+        || (credential ? PASSKEY_METHOD : '')
+        || (proof ? BROWSER_KEY_METHOD : '')
+        || payload.registeredMethod
+        || payload.preferredMethod
+        || BROWSER_KEY_METHOD
+    );
+
     const message = buildChallengeMessage({
         challenge: payload.challenge,
         mode: payload.mode,
         deviceId: normalizedDeviceId,
     });
+
+    if (requestedMethod === PASSKEY_METHOD) {
+        try {
+            if (!payload.webauthnContext) {
+                return { success: false, reason: 'Trusted device challenge is missing WebAuthn context' };
+            }
+
+            if (payload.mode === 'assert') {
+                const registeredDevice = getTrustedDeviceRegistration(user, normalizedDeviceId);
+                if (!registeredDevice?.publicKeySpkiBase64 || getTrustedDeviceMethod(registeredDevice) !== PASSKEY_METHOD) {
+                    return { success: false, reason: 'Trusted passkey registration missing' };
+                }
+
+                const assertion = verifyWebAuthnAssertion({
+                    credential,
+                    expectedChallenge: payload.challenge,
+                    expectedOrigin: payload.webauthnContext.origin,
+                    expectedRpId: payload.webauthnContext.rpId,
+                    userVerification: payload.webauthnContext.userVerification,
+                    storedPublicKeySpkiBase64: registeredDevice.publicKeySpkiBase64,
+                    storedCredentialIdBase64Url: registeredDevice.webauthnCredentialIdBase64Url,
+                    storedCounter: registeredDevice.webauthnCounter,
+                });
+
+                const trustedDevice = await upsertTrustedDevice({
+                    userId: user._id,
+                    deviceId: normalizedDeviceId,
+                    deviceLabel: deviceLabel || registeredDevice.label || payload.deviceLabel || '',
+                    method: PASSKEY_METHOD,
+                    algorithm: String(registeredDevice.algorithm || 'WEBAUTHN'),
+                    publicKeySpkiBase64: registeredDevice.publicKeySpkiBase64,
+                    replaceExistingKey: false,
+                    webauthnCredentialIdBase64Url: registeredDevice.webauthnCredentialIdBase64Url,
+                    webauthnTransports: registeredDevice.webauthnTransports || [],
+                    webauthnCounter: assertion.counter,
+                    webauthnUserVerification: assertion.userVerification,
+                    webauthnAaguid: registeredDevice.webauthnAaguid || '',
+                    authenticatorAttachment: registeredDevice.authenticatorAttachment || '',
+                });
+
+                return {
+                    success: true,
+                    mode: 'assert',
+                    method: PASSKEY_METHOD,
+                    trustedDevice,
+                    ...issueTrustedDeviceSession({
+                        user,
+                        authUid,
+                        authToken,
+                        deviceId: normalizedDeviceId,
+                    }),
+                };
+            }
+
+            const registration = verifyWebAuthnRegistration({
+                credential,
+                expectedChallenge: payload.challenge,
+                expectedOrigin: payload.webauthnContext.origin,
+                expectedRpId: payload.webauthnContext.rpId,
+                userVerification: payload.webauthnContext.userVerification,
+            });
+
+            const trustedDevice = await upsertTrustedDevice({
+                userId: user._id,
+                deviceId: normalizedDeviceId,
+                deviceLabel: deviceLabel || payload.deviceLabel || 'Trusted passkey device',
+                method: PASSKEY_METHOD,
+                algorithm: registration.algorithm,
+                publicKeySpkiBase64: registration.publicKeySpkiBase64,
+                replaceExistingKey: true,
+                webauthnCredentialIdBase64Url: registration.credentialIdBase64Url,
+                webauthnTransports: registration.transports,
+                webauthnCounter: registration.counter,
+                webauthnUserVerification: registration.userVerification,
+                webauthnAaguid: registration.aaguid,
+                authenticatorAttachment: registration.authenticatorAttachment,
+            });
+
+            return {
+                success: true,
+                mode: 'enroll',
+                method: PASSKEY_METHOD,
+                trustedDevice,
+                ...issueTrustedDeviceSession({
+                    user,
+                    authUid,
+                    authToken,
+                    deviceId: normalizedDeviceId,
+                }),
+            };
+        } catch (error) {
+            return { success: false, reason: error.message || 'Trusted device WebAuthn verification failed' };
+        }
+    }
+
+    if (payload.mode === 'assert' && payload.registeredMethod === PASSKEY_METHOD) {
+        return { success: false, reason: 'Trusted device requires passkey verification for this browser' };
+    }
 
     if (payload.mode === 'assert') {
         const registeredDevice = getTrustedDeviceRegistration(user, normalizedDeviceId);
@@ -319,6 +589,8 @@ const verifyTrustedDeviceChallenge = async ({
             userId: user._id,
             deviceId: normalizedDeviceId,
             deviceLabel: deviceLabel || registeredDevice.label || payload.deviceLabel || '',
+            method: BROWSER_KEY_METHOD,
+            algorithm: 'RSA-PSS-SHA256',
             publicKeySpkiBase64: registeredDevice.publicKeySpkiBase64,
             replaceExistingKey: false,
         });
@@ -326,6 +598,7 @@ const verifyTrustedDeviceChallenge = async ({
         return {
             success: true,
             mode: 'assert',
+            method: BROWSER_KEY_METHOD,
             trustedDevice,
             ...issueTrustedDeviceSession({
                 user,
@@ -355,6 +628,8 @@ const verifyTrustedDeviceChallenge = async ({
         userId: user._id,
         deviceId: normalizedDeviceId,
         deviceLabel: deviceLabel || payload.deviceLabel || 'Trusted browser',
+        method: BROWSER_KEY_METHOD,
+        algorithm: 'RSA-PSS-SHA256',
         publicKeySpkiBase64: normalizedPublicKey,
         replaceExistingKey: true,
     });
@@ -362,6 +637,7 @@ const verifyTrustedDeviceChallenge = async ({
     return {
         success: true,
         mode: 'enroll',
+        method: BROWSER_KEY_METHOD,
         trustedDevice,
         ...issueTrustedDeviceSession({
             user,
