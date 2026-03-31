@@ -18,18 +18,7 @@ const {
     verifyTrustedDeviceChallenge,
     verifyTrustedDeviceSession,
 } = require('../services/trustedDeviceChallengeService');
-
-const normalizeChallengeMode = (value) => {
-    const normalized = String(value || '').trim().toLowerCase();
-    if (['always', 'admin', 'seller', 'privileged', 'off'].includes(normalized)) {
-        return normalized;
-    }
-    return 'off';
-};
-
-const AUTH_DEVICE_CHALLENGE_MODE = normalizeChallengeMode(
-    process.env.AUTH_DEVICE_CHALLENGE_MODE || process.env.AUTH_LATTICE_CHALLENGE_MODE
-);
+const { shouldRequireTrustedDevice } = require('../config/authTrustedDeviceFlags');
 const LOGIN_ASSURANCE_TTL_MS = 10 * 60 * 1000;
 const PHONE_FACTOR_ASSURANCE_TTL_MS = 10 * 60 * 1000;
 
@@ -59,22 +48,6 @@ const resolveVerifiedAtMillis = (value) => {
     return Number.isFinite(resolved) ? resolved : 0;
 };
 
-const shouldRequireDeviceChallenge = ({ user }) => {
-    switch (AUTH_DEVICE_CHALLENGE_MODE) {
-    case 'always':
-        return true;
-    case 'admin':
-        return Boolean(user?.isAdmin);
-    case 'seller':
-        return Boolean(user?.isSeller);
-    case 'privileged':
-        return Boolean(user?.isAdmin || user?.isSeller);
-    case 'off':
-    default:
-        return false;
-    }
-};
-
 const resolveTrustedDeviceSessionToken = (req = {}) => String(
     req.get?.(TRUSTED_DEVICE_SESSION_HEADER)
     || req.headers?.[TRUSTED_DEVICE_SESSION_HEADER]
@@ -88,7 +61,7 @@ const resolveDeviceChallengeState = async ({
     authUid = '',
     user = null,
 }) => {
-    if (!shouldRequireDeviceChallenge({ user })) {
+    if (!shouldRequireTrustedDevice({ user })) {
         return { status: 'authenticated', deviceChallenge: null };
     }
 
@@ -110,6 +83,7 @@ const resolveDeviceChallengeState = async ({
     }
 
     const deviceChallenge = await issueTrustedDeviceChallenge({
+        req,
         user,
         authUid,
         authToken,
@@ -461,9 +435,15 @@ const completePhoneFactorVerification = asyncHandler(async (req, res) => {
 // @route   POST /api/auth/verify-device
 // @access  Private
 const verifyDeviceChallenge = asyncHandler(async (req, res) => {
-    const { token, proof, publicKeySpkiBase64 } = req.body;
-    if (!token || !proof) {
-        throw new AppError('Trusted device token and proof are required', 400);
+    const {
+        token,
+        method,
+        proof,
+        publicKeySpkiBase64,
+        credential,
+    } = req.body;
+    if (!token || (!proof && !credential)) {
+        throw new AppError('Trusted device token and proof or passkey credential are required', 400);
     }
 
     const { deviceId, deviceLabel } = extractTrustedDeviceContext(req);
@@ -476,10 +456,12 @@ const verifyDeviceChallenge = asyncHandler(async (req, res) => {
         authUid: req.authUid || '',
         authToken: req.authToken || null,
         token,
+        method,
         proof,
         deviceId,
         deviceLabel,
         publicKeySpkiBase64,
+        credential,
     });
 
     if (!verification.success) {
