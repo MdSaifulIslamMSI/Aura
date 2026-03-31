@@ -58,6 +58,7 @@ const { assertProductionPaymentConfig, assertWebhookConfig, flags: paymentFlags 
 const { assertProductionEmailConfig, flags: emailFlags } = require('./config/emailFlags');
 const { assertProductionOtpSmsConfig } = require('./config/otpSmsFlags');
 const { assertAuthVaultConfig } = require('./config/authVaultFlags');
+const { assertTrustedDeviceConfig } = require('./config/authTrustedDeviceFlags');
 const {
     startPaymentOutboxWorker,
     getPaymentOutboxStats,
@@ -491,9 +492,10 @@ if (require.main === module) {
     assertWebhookConfig();
     assertProductionPaymentConfig();
     assertProductionEmailConfig();
-    assertProductionOtpSmsConfig();
-    assertProductionRedisConfig();
-    assertAuthVaultConfig();
+assertProductionOtpSmsConfig();
+assertProductionRedisConfig();
+assertAuthVaultConfig();
+assertTrustedDeviceConfig();
 
     connectDB().then(() => {
         // Start listening IMMEDIATELY after DB connection to satisfy Render health checks.

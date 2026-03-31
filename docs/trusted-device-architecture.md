@@ -18,9 +18,10 @@ The repo now uses a real trusted-device checkpoint for privileged access.
 ### Browser side
 
 - Each browser gets a stable device identifier via `localStorage`.
-- The browser stores a non-extractable `RSA-PSS` private key in IndexedDB.
-- When the server issues a challenge, the browser signs a short-lived challenge payload locally.
-- On first use for a device, the browser also sends its exported public key so the server can register the device.
+- The trusted-device flow now prefers WebAuthn or platform passkeys when the browser exposes them.
+- Passkey-capable browsers complete a real WebAuthn challenge locally and send the resulting credential payload to the server.
+- Browsers that cannot use WebAuthn can still fall back to a non-extractable `RSA-PSS` private key stored in IndexedDB when the server allows the fallback path.
+- On first use for a device, the browser either registers a WebAuthn credential or sends an exported browser-key public key so the server can bind the device.
 
 ### Server side
 
@@ -28,7 +29,12 @@ The repo now uses a real trusted-device checkpoint for privileged access.
   - user id
   - device id
   - current Firebase session binding (`authUid` + token `iat`)
-- Verification requires a valid browser signature over the challenge payload.
+- WebAuthn challenges also carry relying-party context (`origin`, `rpId`, user-verification policy, timeout) so the browser and server verify the same passkey ceremony.
+- Trusted-device tokens now use their own rotation-aware secret contract:
+  - primary secret: `AUTH_DEVICE_CHALLENGE_SECRET`
+  - primary version: `AUTH_DEVICE_CHALLENGE_SECRET_VERSION`
+  - previous secrets: `AUTH_DEVICE_CHALLENGE_PREVIOUS_SECRETS`
+- Verification requires either a valid WebAuthn assertion or a valid browser-key signature over the challenge payload.
 - Successful verification returns a sealed trusted-device session token, also bound to the current Firebase session and device id.
 - Privileged middleware requires that trusted-device session token on protected privileged requests.
 
@@ -39,11 +45,12 @@ The repo now uses a real trusted-device checkpoint for privileged access.
 - Seller and admin access paths enforce the trusted-device session token on the server.
 - `AUTH_DEVICE_CHALLENGE_MODE` is the primary environment flag.
 - `AUTH_LATTICE_CHALLENGE_MODE` is still read as a legacy alias so existing deployments do not silently break.
+- When trusted-device challenge mode is enabled, startup now fails closed unless the deployment provides a dedicated device secret or explicitly opts into vault-secret fallback.
 
 ## Capability boundaries
 
-This is a trusted-browser proof, not a hardware attestation system.
+This is now a passkey-first trusted-device proof with a browser-key fallback, not a full hardware-attestation platform.
 
-- It is materially stronger than the removed fake LWE flow because the private signing key never leaves the browser.
-- It is still browser-resident, so it should not be described as hardware-backed or passkey-backed.
-- If hardware-bound proof is needed later, the next step is WebAuthn or platform passkeys, not reintroducing synthetic cryptography claims.
+- It is materially stronger than the removed fake LWE flow because the private signing material never leaves the authenticator or browser.
+- The WebAuthn branch is genuinely passkey-backed, but the fallback branch is still browser-resident and should be described honestly.
+- If hardware-bound attestation policy is needed later, the next step is stronger WebAuthn attestation and device-management policy, not synthetic cryptography claims.
