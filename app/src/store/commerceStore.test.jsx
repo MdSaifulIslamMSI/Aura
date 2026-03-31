@@ -264,6 +264,59 @@ describe('commerceStore', () => {
         expect(useCommerceStore.getState().cart.orderedIds).toEqual(['515']);
     });
 
+    it('recovers a persisted authenticated cart even when the empty server snapshot has a revision', async () => {
+        const recoveredItem = {
+            id: 616,
+            title: 'Recovered Watch',
+            brand: 'Aura',
+            price: 5999,
+            originalPrice: 6999,
+            discountPercentage: 14,
+            image: '/watch.png',
+            stock: 5,
+            deliveryTime: '1-2 days',
+            quantity: 1,
+        };
+
+        useCommerceStore.setState({
+            authUser: { uid: 'user-revisioned', email: 'revisioned@example.com' },
+            cart: createUserCartState({
+                itemsById: {
+                    '616': recoveredItem,
+                },
+                orderedIds: ['616'],
+                revision: 4,
+                syncedAt: '2026-03-31T18:30:00.000Z',
+            }),
+        });
+
+        await useCommerceStore.getState().bindAuthUser(null);
+
+        vi.spyOn(userApi, 'getCart').mockResolvedValue({
+            items: [],
+            revision: 9,
+            syncedAt: '2026-04-01T00:15:00.000Z',
+        });
+        vi.spyOn(userApi, 'getWishlist').mockResolvedValue({
+            items: [],
+            revision: 0,
+            syncedAt: null,
+        });
+        const syncCartSpy = vi.spyOn(userApi, 'syncCart').mockResolvedValue({
+            items: [recoveredItem],
+            revision: 10,
+            syncedAt: '2026-04-01T00:15:10.000Z',
+        });
+
+        await useCommerceStore.getState().bindAuthUser({ uid: 'user-revisioned', email: 'revisioned@example.com' });
+
+        expect(syncCartSpy).toHaveBeenCalledWith(
+            [expect.objectContaining({ id: 616, quantity: 1 })],
+            { expectedRevision: 9 },
+        );
+        expect(useCommerceStore.getState().cart.orderedIds).toEqual(['616']);
+    });
+
     it('merges guest wishlist once when the authenticated session hydrates', async () => {
         localStorage.setItem(GUEST_WISHLIST_STORAGE_KEY, JSON.stringify([
             {
