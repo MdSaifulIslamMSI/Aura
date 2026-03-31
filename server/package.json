@@ -45,6 +45,7 @@
     "@azure/storage-blob": "^12.31.0",
     "@socket.io/redis-adapter": "^8.3.0",
     "bcryptjs": "^3.0.3",
+    "cbor": "^9.0.2",
     "colors": "^1.4.0",
     "compression": "^1.8.1",
     "cors": "^2.8.6",

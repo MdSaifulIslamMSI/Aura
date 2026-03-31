@@ -4,7 +4,7 @@ import { AlertTriangle, KeyRound, Laptop, Loader2, RefreshCw, ShieldCheck } from
 import { toast } from 'sonner';
 import { useAuth } from '../../../context/AuthContext';
 import {
-  isTrustedDeviceSupported,
+  getTrustedDeviceSupportProfile,
   resetTrustedDeviceIdentity,
   signTrustedDeviceChallenge,
 } from '../../../services/deviceTrustClient';
@@ -18,7 +18,23 @@ const AuraTrustedDeviceChallenge = () => {
   const challengeMode = String(deviceChallenge?.mode || '').trim() === 'enroll'
     ? 'enroll'
     : 'assert';
-  const supported = useMemo(() => isTrustedDeviceSupported(), []);
+  const supportProfile = useMemo(() => getTrustedDeviceSupportProfile(), []);
+  const availableMethods = useMemo(() => (
+    Array.isArray(deviceChallenge?.availableMethods)
+      ? deviceChallenge.availableMethods
+        .map((method) => String(method || '').trim().toLowerCase())
+        .filter(Boolean)
+      : []
+  ), [deviceChallenge?.availableMethods]);
+  const passkeyOffered = availableMethods.includes('webauthn');
+  const browserKeyOffered = availableMethods.includes('browser_key');
+  const canUsePasskey = supportProfile.webauthn && passkeyOffered;
+  const canUseBrowserKey = supportProfile.browserKeyFallback && browserKeyOffered;
+  const supported = canUsePasskey || canUseBrowserKey;
+  const primaryMethodLabel = passkeyOffered ? 'Passkey / WebAuthn' : 'RSA-PSS browser key';
+  const actionLabel = passkeyOffered
+    ? (challengeMode === 'enroll' ? 'Register Passkey' : 'Verify Passkey')
+    : (challengeMode === 'enroll' ? 'Register Browser' : 'Verify Browser');
 
   if (status !== 'device_challenge_required' || !deviceChallenge || import.meta.env.MODE === 'test') {
     return null;
@@ -26,7 +42,11 @@ const AuraTrustedDeviceChallenge = () => {
 
   const handleVerify = async () => {
     if (!supported) {
-      setErrorMessage('This browser cannot complete trusted device verification. Use a secure browser context with WebCrypto and IndexedDB.');
+      setErrorMessage(
+        passkeyOffered
+          ? 'This browser cannot complete passkey verification here. Use a secure browser with WebAuthn support or a device that already has this passkey.'
+          : 'This browser cannot complete trusted device verification. Use HTTPS or localhost with WebCrypto and IndexedDB enabled.'
+      );
       return;
     }
 
@@ -35,20 +55,16 @@ const AuraTrustedDeviceChallenge = () => {
 
     try {
       const signedChallenge = await signTrustedDeviceChallenge(deviceChallenge);
-      const response = await verifyDeviceChallenge(
-        deviceChallenge.token,
-        signedChallenge.proofBase64,
-        signedChallenge.publicKeySpkiBase64
-      );
+      const response = await verifyDeviceChallenge(deviceChallenge.token, signedChallenge);
 
       if (!response?.success) {
         throw new Error(response?.message || 'Trusted device verification failed.');
       }
 
       toast.success(
-        challengeMode === 'enroll'
-          ? 'Trusted browser registered.'
-          : 'Trusted browser verified.'
+        signedChallenge?.method === 'webauthn'
+          ? (challengeMode === 'enroll' ? 'Trusted passkey registered.' : 'Trusted passkey verified.')
+          : (challengeMode === 'enroll' ? 'Trusted browser registered.' : 'Trusted browser verified.')
       );
     } catch (error) {
       const nextMessage = String(error?.message || 'Trusted device verification failed.');
@@ -68,7 +84,7 @@ const AuraTrustedDeviceChallenge = () => {
       if (currentUser) {
         await refreshSession(currentUser, { force: true, silent: true });
       }
-      toast.success('Browser identity reset. You can register this browser again.');
+      toast.success('Local device identity reset. You can register this device again.');
     } catch (error) {
       const nextMessage = String(error?.message || 'Unable to reset this browser identity.');
       setErrorMessage(nextMessage);
@@ -102,12 +118,18 @@ const AuraTrustedDeviceChallenge = () => {
 
             <div className="space-y-3">
               <h2 className="text-3xl font-black tracking-tight text-white">
-                {challengeMode === 'enroll' ? 'Register this browser' : 'Prove this browser'}
+                {passkeyOffered
+                  ? (challengeMode === 'enroll' ? 'Register this device' : 'Verify this device')
+                  : (challengeMode === 'enroll' ? 'Register this browser' : 'Prove this browser')}
               </h2>
               <p className="max-w-xl text-sm leading-6 text-slate-300">
                 {challengeMode === 'enroll'
-                  ? 'The old LWE checkpoint has been removed. This flow now creates a real browser-held signing key and binds it to your account for privileged access.'
-                  : 'Privileged access now requires a fresh signature from the trusted browser key already registered to this account.'}
+                  ? (passkeyOffered
+                    ? 'This checkpoint now prefers a real passkey. Your authenticator creates a WebAuthn credential tied to this account, with browser-key fallback only when needed.'
+                    : 'This flow creates a real browser-held signing key and binds it to your account for privileged access.')
+                  : (passkeyOffered
+                    ? 'Privileged access now requires a fresh passkey assertion from the authenticator already registered to this account.'
+                    : 'Privileged access now requires a fresh signature from the trusted browser key already registered to this account.')}
               </p>
             </div>
 
@@ -117,7 +139,7 @@ const AuraTrustedDeviceChallenge = () => {
                   <KeyRound className="h-4 w-4 text-cyan-200" />
                   <div>
                     <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">Proof</p>
-                    <p className="mt-1 text-sm font-semibold text-white">RSA-PSS signature</p>
+                    <p className="mt-1 text-sm font-semibold text-white">{primaryMethodLabel}</p>
                   </div>
                 </div>
               </div>
@@ -136,13 +158,17 @@ const AuraTrustedDeviceChallenge = () => {
 
             <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4 text-sm leading-6 text-slate-300">
               <p>
-                The browser signs a short-lived challenge locally. The server verifies that proof against your registered public key and then issues a session-bound device token for this Firebase session.
+                {passkeyOffered
+                  ? 'Your authenticator completes a short-lived WebAuthn challenge locally. The server verifies that passkey assertion and then issues a session-bound trusted-device token for this Firebase session.'
+                  : 'The browser signs a short-lived challenge locally. The server verifies that proof against your registered public key and then issues a session-bound device token for this Firebase session.'}
               </p>
             </div>
 
             {!supported ? (
               <div className="rounded-2xl border border-amber-300/20 bg-amber-300/10 p-4 text-sm leading-6 text-amber-100">
-                This browser cannot complete trusted device verification here. Use HTTPS or localhost with WebCrypto and IndexedDB enabled.
+                {passkeyOffered
+                  ? 'This device does not expose the passkey APIs needed for this challenge here. Use a secure browser with passkey support, or switch to a device that already has the registered passkey.'
+                  : 'This browser cannot complete trusted device verification here. Use HTTPS or localhost with WebCrypto and IndexedDB enabled.'}
               </div>
             ) : null}
 
@@ -163,7 +189,7 @@ const AuraTrustedDeviceChallenge = () => {
                 className="inline-flex flex-1 items-center justify-center gap-3 rounded-2xl bg-cyan-300 px-5 py-4 text-sm font-black uppercase tracking-[0.18em] text-slate-950 transition-transform hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isWorking ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
-                {challengeMode === 'enroll' ? 'Register Browser' : 'Verify Browser'}
+                {actionLabel}
               </button>
 
               <button
@@ -173,7 +199,7 @@ const AuraTrustedDeviceChallenge = () => {
                 className="inline-flex items-center justify-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-4 text-sm font-black uppercase tracking-[0.18em] text-slate-100 transition-colors hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isResetting ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                Reset Browser Identity
+                Reset Local Identity
               </button>
             </div>
           </div>

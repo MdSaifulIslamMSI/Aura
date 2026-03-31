@@ -101,8 +101,28 @@ export const authApi = {
     completePhoneFactorVerification: async (purpose, email, phone, options = {}) => {
         return postWithFirebaseBearer('/auth/complete-phone-factor-verification', { purpose, email, phone }, options);
     },
-    verifyDeviceChallenge: async (token, proof, publicKeySpkiBase64 = '', options = {}) => {
-        return postWithFreshCsrf('/auth/verify-device', { token, proof, publicKeySpkiBase64 }, options);
+    verifyDeviceChallenge: async (token, proofOrPayload, publicKeySpkiBase64 = '', options = {}) => {
+        const normalizedPayload = proofOrPayload && typeof proofOrPayload === 'object' && !Array.isArray(proofOrPayload)
+            ? {
+                method: proofOrPayload.method || 'browser_key',
+                proof: proofOrPayload.proofBase64 || '',
+                publicKeySpkiBase64: proofOrPayload.publicKeySpkiBase64 || '',
+                credential: proofOrPayload.credential || null,
+            }
+            : {
+                method: 'browser_key',
+                proof: String(proofOrPayload || ''),
+                publicKeySpkiBase64: String(publicKeySpkiBase64 || ''),
+                credential: null,
+            };
+
+        return postWithFreshCsrf('/auth/verify-device', {
+            token,
+            method: normalizedPayload.method,
+            proof: normalizedPayload.proof,
+            publicKeySpkiBase64: normalizedPayload.publicKeySpkiBase64,
+            credential: normalizedPayload.credential,
+        }, options);
     },
     verifyLatticeChallenge: async (token, proof, _deviceId, options = {}) => {
         return authApi.verifyDeviceChallenge(token, proof, '', options);
