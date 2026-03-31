@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import {
     clearAuthIdentityMemory,
     clearAuthJourneyDraft,
@@ -15,6 +15,10 @@ describe('authAcceleration', () => {
         vi.setSystemTime(new Date('2026-03-30T12:00:00.000Z'));
         window.localStorage.clear();
         window.sessionStorage.clear();
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
     });
 
     test('restores a safe signup OTP draft when the OTP can continue', () => {
