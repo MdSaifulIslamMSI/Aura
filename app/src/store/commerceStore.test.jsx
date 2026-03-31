@@ -153,6 +153,64 @@ describe('commerceStore', () => {
         expect(sessionStorage.getItem('aura_checkout_session_v1')).toBeNull();
     });
 
+    it('recovers a persisted authenticated cart when the next login session resolves an empty server cart', async () => {
+        const recoveredItem = {
+            id: 414,
+            title: 'Recovered Headphones',
+            brand: 'Aura',
+            price: 2499,
+            originalPrice: 2999,
+            discountPercentage: 17,
+            image: '/headphones.png',
+            stock: 6,
+            deliveryTime: '1-2 days',
+            quantity: 1,
+        };
+
+        useCommerceStore.setState({
+            authUser: { uid: 'user-recover', email: 'recover@example.com' },
+            cart: createUserCartState({
+                itemsById: {
+                    '414': recoveredItem,
+                },
+                orderedIds: ['414'],
+                revision: 7,
+                syncedAt: '2026-03-30T18:00:00.000Z',
+            }),
+        });
+
+        await useCommerceStore.getState().bindAuthUser(null);
+
+        vi.spyOn(userApi, 'getCart').mockResolvedValue({
+            items: [],
+            revision: 0,
+            syncedAt: null,
+        });
+        vi.spyOn(userApi, 'getWishlist').mockResolvedValue({
+            items: [],
+            revision: 0,
+            syncedAt: null,
+        });
+        const syncCartSpy = vi.spyOn(userApi, 'syncCart').mockResolvedValue({
+            items: [recoveredItem],
+            revision: 1,
+            syncedAt: '2026-03-31T08:15:00.000Z',
+        });
+
+        await useCommerceStore.getState().bindAuthUser({ uid: 'user-recover', email: 'recover@example.com' });
+
+        expect(syncCartSpy).toHaveBeenCalledWith(
+            [expect.objectContaining({ id: 414, quantity: 1 })],
+            { expectedRevision: 0 },
+        );
+        expect(useCommerceStore.getState().cart.orderedIds).toEqual(['414']);
+        expect(useCommerceStore.getState().cart.itemsById['414']).toMatchObject({
+            id: 414,
+            quantity: 1,
+            title: 'Recovered Headphones',
+        });
+    });
+
     it('merges guest wishlist once when the authenticated session hydrates', async () => {
         localStorage.setItem(GUEST_WISHLIST_STORAGE_KEY, JSON.stringify([
             {
