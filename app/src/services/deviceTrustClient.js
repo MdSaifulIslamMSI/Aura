@@ -26,6 +26,19 @@ const toBase64 = (input) => {
   return window.btoa(binary);
 };
 
+const toBase64Url = (input) => toBase64(input).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+
+const fromBase64Url = (value = '') => {
+  const normalized = String(value || '').replace(/-/g, '+').replace(/_/g, '/');
+  const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=');
+  const binary = window.atob(padded);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  return bytes;
+};
+
 const ensureIndexedDb = () => {
   if (!hasWindow() || !window.indexedDB) {
     throw new Error('Trusted device storage requires IndexedDB support.');
@@ -154,9 +167,30 @@ export const clearTrustedDeviceSessionToken = () => {
 export const isTrustedDeviceSupported = () => Boolean(
   hasWindow()
   && window.isSecureContext
+  && (
+    (window.PublicKeyCredential && window.navigator?.credentials)
+    || (window.crypto?.subtle && window.indexedDB)
+  )
+);
+
+export const isWebAuthnSupported = () => Boolean(
+  hasWindow()
+  && window.isSecureContext
+  && window.PublicKeyCredential
+  && window.navigator?.credentials
+);
+
+const canUseBrowserKeyFallback = () => Boolean(
+  hasWindow()
+  && window.isSecureContext
   && window.crypto?.subtle
   && window.indexedDB
 );
+
+export const getTrustedDeviceSupportProfile = () => ({
+  webauthn: isWebAuthnSupported(),
+  browserKeyFallback: canUseBrowserKeyFallback(),
+});
 
 const exportPublicKey = async (publicKey) => {
   const spki = await window.crypto.subtle.exportKey('spki', publicKey);
@@ -202,9 +236,144 @@ const buildChallengeMessage = ({ challenge = '', mode = '', deviceId = '' } = {}
   new TextEncoder().encode(`aura-device-proof|${mode}|${deviceId}|${challenge}`)
 );
 
+const normalizeWebAuthnCredentialDescriptor = (credential = {}) => ({
+  ...credential,
+  id: fromBase64Url(credential.id || credential.rawId || ''),
+});
+
+const toCreationOptions = (options = {}) => ({
+  ...options,
+  challenge: fromBase64Url(options.challenge || ''),
+  user: {
+    ...(options.user || {}),
+    id: fromBase64Url(options.user?.id || ''),
+  },
+  excludeCredentials: Array.isArray(options.excludeCredentials)
+    ? options.excludeCredentials.map((credential) => normalizeWebAuthnCredentialDescriptor(credential))
+    : [],
+});
+
+const toAssertionOptions = (options = {}) => ({
+  ...options,
+  challenge: fromBase64Url(options.challenge || ''),
+  allowCredentials: Array.isArray(options.allowCredentials)
+    ? options.allowCredentials.map((credential) => normalizeWebAuthnCredentialDescriptor(credential))
+    : [],
+});
+
+const serializePasskeyRegistration = (credential, deviceId) => ({
+  method: 'webauthn',
+  deviceId,
+  deviceLabel: getTrustedDeviceLabel(),
+  credential: {
+    id: credential.id,
+    rawIdBase64Url: toBase64Url(credential.rawId),
+    type: credential.type,
+    authenticatorAttachment: credential.authenticatorAttachment || '',
+    response: {
+      clientDataJSONBase64Url: toBase64Url(credential.response.clientDataJSON),
+      attestationObjectBase64Url: toBase64Url(credential.response.attestationObject),
+      transports: typeof credential.response.getTransports === 'function'
+        ? credential.response.getTransports()
+        : [],
+    },
+  },
+});
+
+const serializePasskeyAssertion = (credential, deviceId) => ({
+  method: 'webauthn',
+  deviceId,
+  deviceLabel: getTrustedDeviceLabel(),
+  credential: {
+    id: credential.id,
+    rawIdBase64Url: toBase64Url(credential.rawId),
+    type: credential.type,
+    authenticatorAttachment: credential.authenticatorAttachment || '',
+    response: {
+      clientDataJSONBase64Url: toBase64Url(credential.response.clientDataJSON),
+      authenticatorDataBase64Url: toBase64Url(credential.response.authenticatorData),
+      signatureBase64Url: toBase64Url(credential.response.signature),
+      userHandleBase64Url: credential.response.userHandle
+        ? toBase64Url(credential.response.userHandle)
+        : '',
+    },
+  },
+});
+
+const shouldFallbackFromWebAuthn = (error) => {
+  const errorName = String(error?.name || '');
+  const errorMessage = String(error?.message || '').toLowerCase();
+  return errorName === 'NotSupportedError'
+    || errorMessage.includes('publickeycredential is not defined')
+    || errorMessage.includes('not supported');
+};
+
+const runWebAuthnEnrollment = async (challenge = {}) => {
+  if (!isWebAuthnSupported()) {
+    throw new Error('Passkey verification requires a WebAuthn-capable secure browser.');
+  }
+
+  const options = challenge?.webauthn?.registrationOptions;
+  if (!options) {
+    throw new Error('Passkey enrollment options are missing for this challenge.');
+  }
+
+  const credential = await window.navigator.credentials.create({
+    publicKey: toCreationOptions(options),
+  });
+
+  if (!credential) {
+    throw new Error('Passkey enrollment did not return a credential.');
+  }
+
+  return serializePasskeyRegistration(credential, getTrustedDeviceId());
+};
+
+const runWebAuthnAssertion = async (challenge = {}) => {
+  if (!isWebAuthnSupported()) {
+    throw new Error('Passkey verification requires a WebAuthn-capable secure browser.');
+  }
+
+  const options = challenge?.webauthn?.assertionOptions;
+  if (!options) {
+    throw new Error('Passkey assertion options are missing for this challenge.');
+  }
+
+  const credential = await window.navigator.credentials.get({
+    publicKey: toAssertionOptions(options),
+  });
+
+  if (!credential) {
+    throw new Error('Passkey verification did not return a credential.');
+  }
+
+  return serializePasskeyAssertion(credential, getTrustedDeviceId());
+};
+
 export const signTrustedDeviceChallenge = async (challenge = {}) => {
   if (!isTrustedDeviceSupported()) {
     throw new Error('Trusted device verification requires a secure browser with WebCrypto and IndexedDB support.');
+  }
+
+  const availableMethods = Array.isArray(challenge?.availableMethods)
+    ? challenge.availableMethods.map((method) => String(method || '').trim().toLowerCase()).filter(Boolean)
+    : [];
+  const shouldTryWebAuthn = availableMethods.includes('webauthn') && isWebAuthnSupported();
+
+  if (shouldTryWebAuthn) {
+    try {
+      return challenge?.mode === 'enroll'
+        ? await runWebAuthnEnrollment(challenge)
+        : await runWebAuthnAssertion(challenge);
+    } catch (error) {
+      if (!availableMethods.includes('browser_key') || !shouldFallbackFromWebAuthn(error)) {
+        throw error;
+      }
+    }
+  }
+
+  if (!canUseBrowserKeyFallback()) {
+    throw new Error('Trusted device verification requires a secure browser with WebAuthn or WebCrypto support.');
   }
 
   const deviceId = getTrustedDeviceId();
@@ -230,6 +399,7 @@ export const signTrustedDeviceChallenge = async (challenge = {}) => {
   );
 
   return {
+    method: 'browser_key',
     deviceId,
     deviceLabel: getTrustedDeviceLabel(),
     proofBase64: toBase64(signature),
