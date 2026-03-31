@@ -787,7 +787,6 @@ export const useCommerceStore = create((set, get) => {
                 if (
                     persistedAuthSnapshot
                     && payload.items.length === 0
-                    && Number(payload.revision || 0) === 0
                     && persistedAuthSnapshot.items.length > 0
                 ) {
                     try {
@@ -1665,9 +1664,15 @@ export const initializeCommerceSync = () => {
 
 export const selectCartItems = (state) => getEntityItems('cart', state.cart);
 export const selectCartSummary = (state) => buildCartSummary(getEntityItems('cart', state.cart));
-export const selectCartLoading = (state) => state.cart.status === 'idle' || state.cart.status === 'hydrating';
+export const selectCartLoading = (state) => (
+    getEntityItems('cart', state.cart).length === 0
+    && (state.cart.status === 'idle' || state.cart.status === 'hydrating')
+);
 export const selectWishlistItems = (state) => getEntityItems('wishlist', state.wishlist);
-export const selectWishlistLoading = (state) => state.wishlist.status === 'idle' || state.wishlist.status === 'hydrating';
+export const selectWishlistLoading = (state) => (
+    getEntityItems('wishlist', state.wishlist).length === 0
+    && (state.wishlist.status === 'idle' || state.wishlist.status === 'hydrating')
+);
 export const selectWishlistCount = (state) => getEntityItems('wishlist', state.wishlist).length;
 
 export const resetCommerceStoreForTests = () => {
