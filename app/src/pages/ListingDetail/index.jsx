@@ -174,7 +174,7 @@ export default function ListingDetail() {
 
     if (loading) {
         return (
-            <div className="flex min-h-screen items-center justify-center bg-[#04060f]">
+            <div className="listing-detail-theme-shell flex min-h-screen items-center justify-center bg-[#04060f]">
                 <div className="h-12 w-12 animate-spin rounded-full border-4 border-cyan-300/70 border-t-transparent" />
             </div>
         );
@@ -182,7 +182,7 @@ export default function ListingDetail() {
 
     if (!listing) {
         return (
-            <div className="flex min-h-screen items-center justify-center bg-[#04060f] px-4 text-center text-slate-100">
+            <div className="listing-detail-theme-shell flex min-h-screen items-center justify-center bg-[#04060f] px-4 text-center text-slate-100">
                 <div>
                     <h2 className="mb-2 text-2xl font-black">{t('listingDetail.notFound.title', {}, 'Listing not found')}</h2>
                     <Link
@@ -766,7 +766,7 @@ export default function ListingDetail() {
     };
 
     return (
-        <div className="min-h-screen bg-[#04060f] text-slate-100">
+        <div className="listing-detail-theme-shell min-h-screen bg-[#04060f] text-slate-100">
             <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
                 <div className="absolute left-[-10%] top-[8%] h-[360px] w-[360px] rounded-full bg-cyan-500/15 blur-3xl" />
                 <div className="absolute right-[-10%] top-[18%] h-[420px] w-[420px] rounded-full bg-violet-500/15 blur-3xl" />

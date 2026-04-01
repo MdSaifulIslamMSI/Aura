@@ -388,7 +388,7 @@ const ProductListing = () => {
   };
 
   return (
-    <div className="container-custom max-w-7xl mx-auto px-4 py-5 sm:py-6 lg:py-8 min-h-screen relative">
+    <div className="product-listing-theme-shell container-custom max-w-7xl mx-auto px-4 py-5 sm:py-6 lg:py-8 min-h-screen relative">
       <div className="absolute top-20 left-6 h-72 w-72 bg-neo-cyan/8 rounded-full blur-[100px] pointer-events-none -z-10" />
       <div className="absolute bottom-12 right-6 h-72 w-72 bg-neo-emerald/8 rounded-full blur-[100px] pointer-events-none -z-10" />
 

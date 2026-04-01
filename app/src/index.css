@@ -2390,6 +2390,165 @@ html[data-color-mode] .hover\:shadow-neon-cyan:hover {
   }
 
   html[data-color-mode='white'] :is(
+    .orders-theme-shell,
+    .login-theme-shell,
+    .mission-control-theme-shell,
+    .listing-detail-theme-shell,
+    .visual-search-theme-shell,
+    .product-listing-theme-shell
+  ) {
+    color: #0f172a;
+    background:
+      radial-gradient(circle at top right, rgb(var(--theme-primary-rgb) / 0.1), transparent 30%),
+      radial-gradient(circle at bottom left, rgb(var(--theme-secondary-rgb) / 0.08), transparent 34%),
+      linear-gradient(180deg, rgba(248, 250, 252, 0.98), rgba(241, 245, 249, 0.82)) !important;
+  }
+
+  html[data-color-mode='white'] :is(
+    .orders-theme-shell,
+    .login-theme-shell,
+    .mission-control-theme-shell,
+    .listing-detail-theme-shell,
+    .visual-search-theme-shell,
+    .product-listing-theme-shell
+  ) :is(
+    [class~='bg-[#04060f]'],
+    [class~='bg-[#050817]/80'],
+    [class~='bg-[#050817]/96'],
+    [class~='bg-slate-950/80'],
+    [class~='bg-slate-950/75'],
+    [class~='bg-slate-900'],
+    [class~='bg-slate-900/70'],
+    [class~='bg-slate-800'],
+    [class~='bg-slate-800/60'],
+    [class~='via-slate-950/80'],
+    [class~='via-slate-900/80']
+  ) {
+    border-color: rgba(15, 23, 42, 0.08) !important;
+    background:
+      radial-gradient(circle at top right, rgb(var(--theme-primary-rgb) / 0.08), transparent 34%),
+      radial-gradient(circle at bottom left, rgb(var(--theme-secondary-rgb) / 0.06), transparent 32%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(245, 248, 255, 0.96)) !important;
+    box-shadow:
+      0 24px 60px rgba(15, 23, 42, 0.08),
+      inset 0 1px 0 rgba(255, 255, 255, 0.9) !important;
+  }
+
+  html[data-color-mode='white'] :is(
+    .orders-theme-shell,
+    .login-theme-shell,
+    .mission-control-theme-shell,
+    .listing-detail-theme-shell,
+    .visual-search-theme-shell,
+    .product-listing-theme-shell
+  ) :is(
+    [class~='bg-white/[0.03]'],
+    [class~='bg-white/[0.035]'],
+    [class~='bg-white/[0.04]'],
+    [class~='bg-white/[0.045]'],
+    [class~='bg-white/[0.05]'],
+    [class~='bg-white/[0.06]'],
+    [class~='bg-white/5'],
+    [class~='bg-white/6'],
+    [class~='bg-white/10'],
+    [class~='bg-white/15'],
+    [class~='bg-black/20']
+  ) {
+    border-color: rgba(15, 23, 42, 0.08) !important;
+    background: rgba(255, 255, 255, 0.82) !important;
+    box-shadow:
+      0 12px 28px rgba(15, 23, 42, 0.06),
+      inset 0 1px 0 rgba(255, 255, 255, 0.92) !important;
+  }
+
+  html[data-color-mode='white'] :is(
+    .orders-theme-shell,
+    .login-theme-shell,
+    .mission-control-theme-shell,
+    .listing-detail-theme-shell,
+    .visual-search-theme-shell,
+    .product-listing-theme-shell
+  ) :is(
+    [class*='border-white/'],
+    [class*='border-slate-600'],
+    [class*='border-slate-700'],
+    [class*='border-slate-800']
+  ) {
+    border-color: rgba(15, 23, 42, 0.08) !important;
+  }
+
+  html[data-color-mode='white'] :is(
+    .orders-theme-shell,
+    .login-theme-shell,
+    .mission-control-theme-shell,
+    .listing-detail-theme-shell,
+    .visual-search-theme-shell,
+    .product-listing-theme-shell
+  ) :is(
+    [class*='text-white'],
+    [class*='text-slate-50'],
+    [class*='text-slate-100'],
+    [class*='text-slate-200']
+  ) {
+    color: #0f172a !important;
+  }
+
+  html[data-color-mode='white'] :is(
+    .orders-theme-shell,
+    .login-theme-shell,
+    .mission-control-theme-shell,
+    .listing-detail-theme-shell,
+    .visual-search-theme-shell,
+    .product-listing-theme-shell
+  ) :is(
+    [class*='text-slate-300'],
+    [class*='text-slate-400']
+  ) {
+    color: #475569 !important;
+  }
+
+  html[data-color-mode='white'] :is(
+    .orders-theme-shell,
+    .login-theme-shell,
+    .mission-control-theme-shell,
+    .listing-detail-theme-shell,
+    .visual-search-theme-shell,
+    .product-listing-theme-shell
+  ) :is(
+    [class*='text-slate-500'],
+    [class*='text-slate-600']
+  ) {
+    color: #64748b !important;
+  }
+
+  html[data-color-mode='white'] :is(
+    .orders-theme-shell,
+    .login-theme-shell,
+    .mission-control-theme-shell,
+    .listing-detail-theme-shell,
+    .visual-search-theme-shell,
+    .product-listing-theme-shell
+  ) :is(input, textarea, select):not([type='checkbox']):not([type='radio']) {
+    color: #0f172a !important;
+    border-color: rgba(15, 23, 42, 0.08) !important;
+    background: rgba(255, 255, 255, 0.88) !important;
+    box-shadow:
+      0 10px 24px rgba(15, 23, 42, 0.06),
+      inset 0 1px 0 rgba(255, 255, 255, 0.92) !important;
+  }
+
+  html[data-color-mode='white'] :is(
+    .orders-theme-shell,
+    .login-theme-shell,
+    .mission-control-theme-shell,
+    .listing-detail-theme-shell,
+    .visual-search-theme-shell,
+    .product-listing-theme-shell
+  ) :is(input, textarea, select):not([type='checkbox']):not([type='radio'])::placeholder {
+    color: #64748b !important;
+  }
+
+  html[data-color-mode='white'] :is(
     .btn-primary,
     .profile-premium-button-primary,
     .admin-premium-button-primary,
