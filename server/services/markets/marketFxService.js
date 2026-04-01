@@ -54,6 +54,10 @@ const buildRelativeRate = ({
     return Number(new Decimal(targetRate).div(baseRate).toSignificantDigits(12).toString());
 };
 
+const isUnavailableRateError = (error) => (
+    error instanceof AppError && Number(error.statusCode) === 409
+);
+
 const getBrowseFxPayload = async ({
     baseCurrency = DEFAULT_BASE_CURRENCY,
     currencies = DEFAULT_BROWSE_CURRENCIES,
@@ -62,13 +66,21 @@ const getBrowseFxPayload = async ({
     const normalizedBaseCurrency = normalizeCurrencyCode(baseCurrency) || DEFAULT_BASE_CURRENCY;
     const normalizedCurrencies = normalizeCurrencyList([normalizedBaseCurrency, ...currencies]);
     const ratesPayload = await getFxRates({ forceRefresh });
+    const unavailableCurrencies = [];
 
     const rateMap = normalizedCurrencies.reduce((result, currency) => {
-        result[currency] = buildRelativeRate({
-            rates: ratesPayload.rates,
-            baseCurrency: normalizedBaseCurrency,
-            targetCurrency: currency,
-        });
+        try {
+            result[currency] = buildRelativeRate({
+                rates: ratesPayload.rates,
+                baseCurrency: normalizedBaseCurrency,
+                targetCurrency: currency,
+            });
+        } catch (error) {
+            if (!isUnavailableRateError(error)) {
+                throw error;
+            }
+            unavailableCurrencies.push(currency);
+        }
         return result;
     }, {});
 
@@ -76,6 +88,8 @@ const getBrowseFxPayload = async ({
         baseCurrency: normalizedBaseCurrency,
         currencies: normalizedCurrencies,
         rates: rateMap,
+        unavailableCurrencies,
+        cacheTtlMs: Number(ratesPayload.cacheTtlMs || 0),
         source: ratesPayload.source || '',
         provider: ratesPayload.provider || '',
         referenceBaseCurrency: ratesPayload.referenceBaseCurrency || '',

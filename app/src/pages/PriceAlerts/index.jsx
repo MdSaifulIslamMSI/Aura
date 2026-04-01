@@ -4,6 +4,7 @@ import { Bell, BellRing, Trash2, TrendingDown, Target, ArrowDown, Plus } from 'l
 import { priceAlertApi } from '@/services/api';
 import { AuthContext } from '@/context/AuthContext';
 import { useMarket } from '@/context/MarketContext';
+import { BROWSE_BASE_CURRENCY } from '@/config/marketConfig';
 
 export default function PriceAlerts() {
     const { currentUser } = useContext(AuthContext);
@@ -11,8 +12,8 @@ export default function PriceAlerts() {
     const [alerts, setAlerts] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    const formatMoney = (value) => formatPrice(Number(value || 0), 'INR', undefined, {
-        presentmentCurrency: 'INR',
+    const formatMoney = (value) => formatPrice(Number(value || 0), undefined, undefined, {
+        baseCurrency: BROWSE_BASE_CURRENCY,
         minimumFractionDigits: 0,
         maximumFractionDigits: 0,
     });

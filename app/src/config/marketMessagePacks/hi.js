@@ -1341,7 +1341,7 @@ export const MARKET_MESSAGE_PACK = {
   "listingDetail.quickReply.available": "Kya yeh abhi bhi available hai?",
   "listingDetail.quickReply.call": "Kya hum is par ek quick call kar sakte hain?",
   "listingDetail.quickReply.meet": "Kya aaj milkar item check kar sakte hain?",
-  "listingDetail.quickReply.offer": "Kya aap Rs {{amount}} consider karenge?",
+  "listingDetail.quickReply.offer": "Kya aap {{amount}} consider karenge?",
   "listingDetail.quickReply.photos": "Kya aap kuch aur close-up photos share kar sakte hain?",
   "listingDetail.safety.note1": "Public aur achhi roshni wali jagah par milo.",
   "listingDetail.safety.note2": "Payment se pehle item ko physically verify karo.",
