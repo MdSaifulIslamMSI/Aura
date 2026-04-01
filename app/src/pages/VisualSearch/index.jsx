@@ -316,7 +316,7 @@ const VisualSearch = () => {
   useEffect(() => () => clearUploadedPreview(), [clearUploadedPreview]);
 
   return (
-    <div className="container-custom max-w-7xl mx-auto px-4 py-8 min-h-screen">
+    <div className="visual-search-theme-shell container-custom max-w-7xl mx-auto px-4 py-8 min-h-screen">
       <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-xs uppercase tracking-[0.2em] text-neo-cyan font-bold">Search Lab</p>
