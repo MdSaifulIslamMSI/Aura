@@ -130,20 +130,21 @@ export const marketApi = {
         baseCurrency = 'INR',
         signal,
         force = false,
+        revalidate = false,
     } = {}) => {
         const normalizedBaseCurrency = normalizeCurrencyCode(baseCurrency);
         const cacheKey = getCacheKey(normalizedBaseCurrency);
 
-        if (!force) {
+        if (!force && !revalidate) {
             const cached = readCachedPayload(normalizedBaseCurrency);
             if (cached) {
                 return cached;
             }
+        }
 
-            const inflight = inflightFxRequests.get(cacheKey);
-            if (inflight) {
-                return inflight;
-            }
+        const inflight = inflightFxRequests.get(cacheKey);
+        if (inflight) {
+            return inflight;
         }
 
         const request = apiFetch('/markets/fx-rates', {

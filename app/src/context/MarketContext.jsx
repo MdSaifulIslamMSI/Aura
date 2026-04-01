@@ -181,6 +181,7 @@ export function MarketProvider({
         const payload = await marketApi.getBrowseFxRates({
           baseCurrency: BROWSE_BASE_CURRENCY,
           signal: activeController.signal,
+          revalidate: true,
         });
         applyBrowseFxPayload(payload);
       } catch {

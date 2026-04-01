@@ -114,4 +114,60 @@ describe('marketApi', () => {
         expect(refreshed.rates.USD).toBe(0.03);
         expect(apiFetchMock).toHaveBeenCalledTimes(2);
     });
+
+    it('revalidates against the backend even when a fresh browser cache entry exists', async () => {
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date('2026-04-01T10:00:00.000Z'));
+
+        apiFetchMock
+            .mockResolvedValueOnce({
+                data: {
+                    baseCurrency: 'INR',
+                    rates: {
+                        INR: 1,
+                        EUR: 0.00922305024718,
+                    },
+                    source: 'ecb_reference_rates',
+                    provider: 'ecb',
+                    fetchedAt: '2026-04-01T10:00:00.000Z',
+                    asOfDate: '2026-04-01',
+                    cacheTtlMs: 3600000,
+                    stale: false,
+                    staleReason: '',
+                },
+            })
+            .mockResolvedValueOnce({
+                data: {
+                    baseCurrency: 'INR',
+                    rates: {
+                        INR: 1,
+                        EUR: 0.00925728307589,
+                    },
+                    source: 'open_exchange_rates_latest',
+                    provider: 'openexchangerates',
+                    fetchedAt: '2026-04-01T17:00:00.000Z',
+                    asOfDate: '2026-04-01',
+                    cacheTtlMs: 3600000,
+                    stale: false,
+                    staleReason: '',
+                },
+            });
+
+        const first = await marketApi.getBrowseFxRates({ baseCurrency: 'INR' });
+        expect(first.rates.EUR).toBe(0.00922305024718);
+
+        const revalidated = await marketApi.getBrowseFxRates({
+            baseCurrency: 'INR',
+            revalidate: true,
+        });
+
+        expect(revalidated.rates.EUR).toBe(0.00925728307589);
+        expect(apiFetchMock).toHaveBeenCalledTimes(2);
+        expect(apiFetchMock).toHaveBeenLastCalledWith('/markets/fx-rates', expect.objectContaining({
+            params: expect.objectContaining({
+                baseCurrency: 'INR',
+                refresh: undefined,
+            }),
+        }));
+    });
 });
