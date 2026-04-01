@@ -591,7 +591,7 @@ export default function Profile() {
                 </div>
             ) : null}
 
-            <div className="max-w-7xl mx-auto px-4 pt-6 sm:pt-8">
+            <div className="profile-premium-content max-w-7xl mx-auto px-4 pt-6 sm:pt-8">
                 <AccountStatusBanner accountState={profile?.accountState} moderation={profile?.moderation} />
 
                 <section className="profile-premium-hero">
@@ -729,16 +729,18 @@ export default function Profile() {
                     </div>
                 </section>
 
-                <div className="mt-8 flex gap-2 overflow-x-auto pb-4">
-                    {tabs.map((tab) => (
-                        <button
-                            key={tab.id}
-                            onClick={() => handleTabChange(tab.id)}
-                            className={cn('profile-premium-tab-pill', activeTab === tab.id && 'profile-premium-tab-pill-active')}
-                        >
-                            <tab.icon className="w-4 h-4" /> {tab.label}
-                        </button>
-                    ))}
+                <div className="profile-premium-tab-shell mt-8 overflow-x-auto pb-2 scrollbar-hide">
+                    <div className="profile-premium-tab-list">
+                        {tabs.map((tab) => (
+                            <button
+                                key={tab.id}
+                                onClick={() => handleTabChange(tab.id)}
+                                className={cn('profile-premium-tab-pill', activeTab === tab.id && 'profile-premium-tab-pill-active')}
+                            >
+                                <tab.icon className="w-4 h-4" /> {tab.label}
+                            </button>
+                        ))}
+                    </div>
                 </div>
 
                 <div className="py-8">
