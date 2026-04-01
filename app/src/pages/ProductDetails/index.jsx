@@ -773,36 +773,147 @@ const ProductDetails = () => {
 
         <div className="grid min-w-0 gap-6 lg:grid-cols-12 lg:items-start lg:gap-12">
           {/* Left Column: Image & Buttons */}
-          <div className="flex min-w-0 flex-col gap-4 sm:gap-6 lg:col-span-5 lg:sticky lg:top-28 lg:self-start">
-            <div className="group relative min-w-0 overflow-hidden rounded-[1.75rem] border border-white/10 bg-white/[0.045] p-4 shadow-glass sm:rounded-3xl sm:p-6">
-              <div className="absolute inset-0 bg-gradient-to-tr from-neo-cyan/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
+          <div className="flex min-w-0 flex-col gap-4 sm:gap-6 lg:col-span-5 lg:self-start">
+            <div className="lg:sticky lg:top-28 lg:max-h-[calc(100vh-8rem)] lg:overflow-y-auto lg:pr-2">
+              <div className="flex min-w-0 flex-col gap-4 sm:gap-6 lg:pb-4">
+                <div className="group relative min-w-0 overflow-hidden rounded-[1.9rem] border border-white/10 bg-[linear-gradient(145deg,rgba(255,255,255,0.08),rgba(255,255,255,0.03))] p-4 shadow-[0_24px_70px_rgba(6,182,212,0.08)] ring-1 ring-white/10 sm:rounded-[2.15rem] sm:p-6">
+                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_18%,rgba(217,70,239,0.16),transparent_32%),radial-gradient(circle_at_82%_14%,rgba(6,182,212,0.18),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.03),transparent_52%)] pointer-events-none" />
+                  <div className="absolute inset-x-8 top-5 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent pointer-events-none" />
 
-              <div className="relative flex min-w-0 aspect-square items-center justify-center p-2 sm:p-4">
-                <img
-                  src={image}
-                  alt={translatedHeroTitle}
-                  className="w-full h-full object-contain drop-shadow-[0_0_20px_rgba(255,255,255,0.15)] mix-blend-screen hover:scale-105 transition-transform duration-700 relative z-10"
-                />
+                  <div className="relative z-10 flex flex-wrap items-center justify-between gap-3">
+                    <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-black/20 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-200">
+                      <BadgeCheck className="h-3.5 w-3.5 text-neo-cyan" />
+                      {t('productPage.curatedHardware', {}, 'Curated hardware')}
+                    </div>
+                    <div className="inline-flex items-center gap-2 rounded-full border border-neo-cyan/20 bg-neo-cyan/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-neo-cyan">
+                      <Zap className="h-3.5 w-3.5" />
+                      {t('productPage.liveMarketFx', {}, 'Live market FX')}
+                    </div>
+                  </div>
 
-                <button
-                  type="button"
-                  onClick={() => toggleWishlist(product)}
-                  aria-label={isWishlisted
-                    ? t('product.removeFromWishlist', {}, 'Remove from wishlist')
-                    : t('product.addToWishlist', {}, 'Add to wishlist')}
-                  className="absolute right-0 top-0 z-20 rounded-full border border-white/10 bg-zinc-950/50 p-2.5 shadow-[0_0_15px_rgba(0,0,0,0.5)] transition-all duration-300 hover:border-neo-rose hover:bg-neo-rose/10 group/btn sm:p-3"
-                >
-                  <Heart className={cn('w-6 h-6 transition-colors', isWishlisted ? 'fill-neo-rose text-neo-rose drop-shadow-[0_0_8px_rgba(244,63,94,0.6)]' : 'text-slate-400 group-hover/btn:text-neo-rose')} />
-                </button>
+                  <div className="relative mt-4 flex min-w-0 aspect-square items-center justify-center overflow-hidden rounded-[1.6rem] border border-white/10 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.05),rgba(9,9,11,0.2)_58%,rgba(9,9,11,0.78)_100%)] p-2 sm:mt-5 sm:rounded-[1.9rem] sm:p-4">
+                    <div className="absolute inset-x-[16%] bottom-10 h-16 rounded-full bg-neo-cyan/15 blur-3xl transition-all duration-700 group-hover:bg-neo-cyan/25" />
+                    <div className="absolute inset-y-[14%] right-[10%] w-20 rounded-full bg-fuchsia-500/10 blur-3xl transition-opacity duration-700 group-hover:opacity-90" />
+                    <img
+                      src={image}
+                      alt={translatedHeroTitle}
+                      className="relative z-10 h-full w-full object-contain drop-shadow-[0_24px_60px_rgba(15,23,42,0.55)] mix-blend-screen transition-transform duration-700 group-hover:scale-[1.08]"
+                    />
 
-                <button
-                  type="button"
-                  onClick={() => navigator?.share?.({ title: translatedHeroTitle, url: window.location.href })}
-                  aria-label={t('product.share', {}, 'Share product')}
-                  className="absolute left-0 top-0 z-20 rounded-full border border-white/10 bg-zinc-950/50 p-2.5 shadow-[0_0_15px_rgba(0,0,0,0.5)] transition-all duration-300 hover:border-neo-cyan hover:bg-neo-cyan/10 group/btn sm:p-3"
-                >
-                  <Share2 className="w-5 h-5 text-slate-400 group-hover/btn:text-neo-cyan transition-colors" />
-                </button>
+                    <button
+                      type="button"
+                      onClick={() => toggleWishlist(product)}
+                      aria-label={isWishlisted
+                        ? t('product.removeFromWishlist', {}, 'Remove from wishlist')
+                        : t('product.addToWishlist', {}, 'Add to wishlist')}
+                      className="absolute right-4 top-4 z-20 rounded-full border border-white/10 bg-zinc-950/65 p-2.5 shadow-[0_0_15px_rgba(0,0,0,0.5)] transition-all duration-300 hover:border-neo-rose hover:bg-neo-rose/10 group/btn sm:p-3"
+                    >
+                      <Heart className={cn('w-6 h-6 transition-colors', isWishlisted ? 'fill-neo-rose text-neo-rose drop-shadow-[0_0_8px_rgba(244,63,94,0.6)]' : 'text-slate-400 group-hover/btn:text-neo-rose')} />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => navigator?.share?.({ title: translatedHeroTitle, url: window.location.href })}
+                      aria-label={t('product.share', {}, 'Share product')}
+                      className="absolute left-4 top-4 z-20 rounded-full border border-white/10 bg-zinc-950/65 p-2.5 shadow-[0_0_15px_rgba(0,0,0,0.5)] transition-all duration-300 hover:border-neo-cyan hover:bg-neo-cyan/10 group/btn sm:p-3"
+                    >
+                      <Share2 className="w-5 h-5 text-slate-400 group-hover/btn:text-neo-cyan transition-colors" />
+                    </button>
+
+                    <div className="absolute bottom-4 left-4 right-4 z-20 hidden rounded-2xl border border-white/10 bg-black/35 p-3 backdrop-blur-md lg:block">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+                            {t('productPage.marketSnapshot', {}, 'Market snapshot')}
+                          </p>
+                          <p className="mt-1 text-lg font-black text-white">{formatMarketPrice(priceValue, priceCurrency)}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+                            {t('productPage.trustScore', {}, 'Trust score')}
+                          </p>
+                          <p className="mt-1 text-lg font-black text-neo-cyan">
+                            {t('productPage.trustScoreValue', { score: translatedTrustGraph.overallScore }, `${translatedTrustGraph.overallScore}/100`)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="hidden grid-cols-2 gap-3 lg:grid">
+                  <div className="rounded-[1.4rem] border border-white/10 bg-white/[0.045] p-4 shadow-[0_18px_40px_rgba(6,182,212,0.05)]">
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+                      {t('productPage.marketPrice', {}, 'Market price')}
+                    </p>
+                    <p className="mt-2 text-2xl font-black text-white">{formatMarketPrice(priceValue, priceCurrency)}</p>
+                    <p className="mt-2 text-xs text-slate-400">
+                      {t('productPage.fxPinned', {}, 'Refreshed from the active browse FX feed')}
+                    </p>
+                  </div>
+                  <div className="rounded-[1.4rem] border border-white/10 bg-white/[0.045] p-4 shadow-[0_18px_40px_rgba(217,70,239,0.05)]">
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+                      {t('productPage.dealVerdict', {}, 'Deal verdict')}
+                    </p>
+                    <p className="mt-2 text-2xl font-black text-white">{dealLabel}</p>
+                    <p className="mt-2 text-xs text-slate-400">
+                      {t('productPage.ratingSummary', { score: rating, count: ratingCount.toLocaleString() }, `${rating} stars • ${ratingCount.toLocaleString()} reviews`)}
+                    </p>
+                  </div>
+                  <div className="rounded-[1.4rem] border border-white/10 bg-white/[0.045] p-4">
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+                      {t('productPage.deliveryTime', {}, 'Delivery time')}
+                    </p>
+                    <p className="mt-2 text-lg font-black text-white">{translatedDeliveryTime}</p>
+                    <p className="mt-2 text-xs text-slate-400">
+                      {t('productPage.deliveryPromise', {}, 'Priority routing with live order tracking at checkout')}
+                    </p>
+                  </div>
+                  <div className="rounded-[1.4rem] border border-white/10 bg-white/[0.045] p-4">
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+                      {t('productPage.coverage', {}, 'Coverage')}
+                    </p>
+                    <p className="mt-2 text-lg font-black text-white">{warranty}</p>
+                    <p className="mt-2 text-xs text-slate-400">
+                      {t('productPage.premiumProtection', {}, 'Protected by Aura verification and support flows')}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="hidden overflow-hidden rounded-[1.75rem] border border-white/10 bg-[linear-gradient(180deg,rgba(9,9,11,0.82),rgba(17,24,39,0.62))] p-5 shadow-[0_24px_60px_rgba(0,0,0,0.28)] lg:block">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-neo-emerald">
+                        {t('productPage.concierge', {}, 'Concierge')}
+                      </p>
+                      <h3 className="mt-2 text-xl font-black text-white">
+                        {t('productPage.needHelpNow', {}, 'Need help now?')}
+                      </h3>
+                    </div>
+                    <div className="rounded-full border border-white/10 bg-white/5 p-3 text-neo-cyan">
+                      <MessageSquare className="h-5 w-5" />
+                    </div>
+                  </div>
+                  <p className="mt-3 text-sm leading-relaxed text-slate-300">
+                    {t('productPage.conciergeBody', {}, 'Chat, compare, and visually inspect this product without losing your place on the page. The media rail stays pinned while the buying details continue below.')}
+                  </p>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <button
+                      onClick={handleOpenCompare}
+                      className="inline-flex items-center justify-center gap-2 rounded-full border border-neo-cyan/25 bg-neo-cyan/10 px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-neo-cyan transition-colors hover:border-neo-cyan/45 hover:bg-neo-cyan/15"
+                    >
+                      <Brain className="h-3.5 w-3.5" />
+                      {t('nav.aiCompare', {}, 'AI Compare')}
+                    </button>
+                    <button
+                      onClick={handleOpenVisualSearch}
+                      className="inline-flex items-center justify-center gap-2 rounded-full border border-emerald-400/25 bg-emerald-500/10 px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-emerald-200 transition-colors hover:border-emerald-400/45 hover:bg-emerald-500/15"
+                    >
+                      <Camera className="h-3.5 w-3.5" />
+                      {t('nav.visualSearch', {}, 'Visual Search')}
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -861,11 +972,19 @@ const ProductDetails = () => {
 
           {/* Right Column: Details */}
           <div className="min-w-0 lg:col-span-7">
-            <div className="relative min-w-0 overflow-hidden rounded-[1.75rem] border border-white/10 bg-white/[0.045] p-5 shadow-glass sm:rounded-3xl sm:p-6 md:p-10">
-              <div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-neo-emerald/5 to-transparent pointer-events-none" />
+            <div className="relative min-w-0 overflow-hidden rounded-[1.9rem] border border-white/10 bg-[linear-gradient(140deg,rgba(255,255,255,0.06),rgba(17,24,39,0.18)_46%,rgba(9,9,11,0.26)_100%)] p-5 shadow-[0_28px_90px_rgba(15,23,42,0.28)] ring-1 ring-white/5 sm:rounded-[2.2rem] sm:p-6 md:p-10">
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(6,182,212,0.12),transparent_28%),radial-gradient(circle_at_20%_18%,rgba(217,70,239,0.12),transparent_24%),linear-gradient(180deg,rgba(255,255,255,0.02),transparent_48%)] pointer-events-none" />
+              <div className="absolute inset-x-8 top-6 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent pointer-events-none" />
+              <div className="absolute bottom-0 right-0 h-[55%] w-[55%] bg-gradient-to-l from-neo-emerald/10 to-transparent pointer-events-none" />
 
               <div className="relative z-10 min-w-0">
-                <p className="text-neo-cyan font-bold tracking-[0.3em] uppercase text-xs mb-3">{brand}</p>
+                <div className="mb-4 flex flex-wrap items-center gap-3">
+                  <p className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.28em] text-neo-cyan">{brand}</p>
+                  <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/20 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-slate-300">
+                    <BadgeCheck className="h-3.5 w-3.5 text-amber-300" />
+                    {t('productPage.premiumSelection', {}, 'Premium selection')}
+                  </span>
+                </div>
                 {translatedHeroSubtitle && (
                   <p className="mb-3 text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">
                     {translatedHeroSubtitle}
@@ -900,17 +1019,37 @@ const ProductDetails = () => {
                   )}
                 </div>
 
-                <div className="mb-6 flex flex-wrap items-end gap-3 rounded-2xl border border-white/5 bg-zinc-950/50 p-4 shadow-inner sm:gap-4 sm:p-6">
-                  <span className="text-4xl font-black tracking-tighter text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.2)] sm:text-5xl">
-                    {formatMarketPrice(priceValue, priceCurrency)}
-                  </span>
-                  <div className="flex flex-col pb-1">
-                    <span className="text-slate-500 line-through text-lg font-medium tracking-wide">
-                      {formatMarketPrice(originalPriceValue, priceCurrency)}
-                    </span>
-                    <span className="text-neo-cyan font-black uppercase tracking-wider text-sm flex items-center gap-1">
-                      <Zap className="w-3 h-3 fill-neo-cyan" /> {t('product.off', {}, '% off').replace('%', String(discountPercentage))}
-                    </span>
+                <div className="mb-6 grid gap-4 xl:grid-cols-[minmax(0,1fr)_220px]">
+                  <div className="relative flex flex-wrap items-end gap-3 overflow-hidden rounded-[1.7rem] border border-white/10 bg-[linear-gradient(135deg,rgba(9,9,11,0.92),rgba(24,24,27,0.72))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_20px_45px_rgba(0,0,0,0.28)] sm:gap-4 sm:p-6">
+                    <div className="absolute inset-y-0 left-0 w-1.5 bg-gradient-to-b from-neo-cyan via-violet-400 to-amber-300" />
+                    <div className="pl-3">
+                      <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500">
+                        {t('productPage.livePrice', {}, 'Live price')}
+                      </p>
+                      <span className="mt-2 block text-4xl font-black tracking-tighter text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.2)] sm:text-5xl">
+                        {formatMarketPrice(priceValue, priceCurrency)}
+                      </span>
+                    </div>
+                    <div className="flex flex-col pb-1">
+                      <span className="text-slate-500 line-through text-lg font-medium tracking-wide">
+                        {formatMarketPrice(originalPriceValue, priceCurrency)}
+                      </span>
+                      <span className="text-neo-cyan font-black uppercase tracking-wider text-sm flex items-center gap-1">
+                        <Zap className="w-3 h-3 fill-neo-cyan" /> {t('product.off', {}, '% off').replace('%', String(discountPercentage))}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="rounded-[1.7rem] border border-white/10 bg-white/[0.045] p-4 shadow-[0_18px_40px_rgba(217,70,239,0.08)]">
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+                      {t('productPage.curatorNote', {}, 'Curator note')}
+                    </p>
+                    <p className="mt-3 text-sm font-semibold leading-relaxed text-slate-200">
+                      {t('productPage.curatorBody', {}, 'A crisp, high-utility kitchen essential with strong deal DNA and a clean resale profile for everyday use.')}
+                    </p>
+                    <div className="mt-4 flex flex-wrap gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
+                      <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1.5">{translatedCategory}</span>
+                      <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1.5">{marketCurrency}</span>
+                    </div>
                   </div>
                 </div>
 
