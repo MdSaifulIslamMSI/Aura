@@ -18,6 +18,7 @@ import { buildLifecycleIntelligence, buildProductTrustGraph } from '@/utils/comm
 import { pushRecentlyViewed } from '@/utils/recentlyViewed';
 import { convertAmount } from '@/utils/format';
 import { getBaseAmount, getBaseCurrency, getOriginalBaseAmount } from '@/utils/pricing';
+import { useColorMode } from '@/context/ColorModeContext';
 
 const DEFAULT_REVIEWS_SUMMARY = {
   averageRating: 0,
@@ -36,6 +37,7 @@ const ProductDetails = () => {
   const wishlistContext = useContext(WishlistContext);
   const authContext = useContext(AuthContext);
   const { t, formatDateTime, formatPrice, currency: marketCurrency } = useMarket();
+  const { colorMode } = useColorMode();
 
   const addToCart = cartContext?.addToCart || (() => console.warn('addToCart missing'));
   const cartItems = cartContext?.cartItems || [];
@@ -735,6 +737,53 @@ const ProductDetails = () => {
       : dealDna?.verdict === 'wait'
         ? t('product.wait', {}, 'Wait')
         : t('product.review', {}, 'Review');
+  const isStylishWhite = colorMode === 'white';
+  const strongTextClass = isStylishWhite ? 'text-slate-950' : 'text-white';
+  const bodyTextClass = isStylishWhite ? 'text-slate-700' : 'text-slate-300';
+  const mutedTextClass = isStylishWhite ? 'text-slate-600' : 'text-slate-400';
+  const subtleTextClass = isStylishWhite ? 'text-slate-500' : 'text-slate-500';
+  const mediaCardClass = isStylishWhite
+    ? 'border-slate-200/80 bg-[linear-gradient(145deg,rgba(255,255,255,0.97),rgba(241,245,249,0.92))] shadow-[0_24px_70px_rgba(148,163,184,0.22)] ring-slate-200/70'
+    : 'border-white/10 bg-[linear-gradient(145deg,rgba(255,255,255,0.08),rgba(255,255,255,0.03))] shadow-[0_24px_70px_rgba(6,182,212,0.08)] ring-white/10';
+  const mediaFrameClass = isStylishWhite
+    ? 'border-slate-200/80 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.98),rgba(226,232,240,0.92)_58%,rgba(203,213,225,0.95)_100%)]'
+    : 'border-white/10 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.05),rgba(9,9,11,0.2)_58%,rgba(9,9,11,0.78)_100%)]';
+  const floatingActionClass = isStylishWhite
+    ? 'border-slate-200/80 bg-white/90 shadow-[0_12px_28px_rgba(148,163,184,0.22)]'
+    : 'border-white/10 bg-zinc-950/65 shadow-[0_0_15px_rgba(0,0,0,0.5)]';
+  const statCardClass = isStylishWhite
+    ? 'border-slate-200/80 bg-white/84 shadow-[0_18px_40px_rgba(148,163,184,0.16)]'
+    : 'border-white/10 bg-white/[0.045]';
+  const heroCardClass = isStylishWhite
+    ? 'border-slate-200/80 bg-[linear-gradient(140deg,rgba(255,255,255,0.96),rgba(241,245,249,0.9)_46%,rgba(226,232,240,0.84)_100%)] shadow-[0_28px_90px_rgba(148,163,184,0.2)] ring-slate-200/60'
+    : 'border-white/10 bg-[linear-gradient(140deg,rgba(255,255,255,0.06),rgba(17,24,39,0.18)_46%,rgba(9,9,11,0.26)_100%)] shadow-[0_28px_90px_rgba(15,23,42,0.28)] ring-white/5';
+  const surfaceCardClass = isStylishWhite
+    ? 'border-slate-200/80 bg-white/82 shadow-[0_18px_40px_rgba(148,163,184,0.14)]'
+    : 'border-white/10 bg-zinc-950/45';
+  const softPanelClass = isStylishWhite
+    ? 'border-slate-200/80 bg-slate-50/90 shadow-[0_14px_32px_rgba(148,163,184,0.14)]'
+    : 'border-white/10 bg-white/5';
+  const chipClass = isStylishWhite
+    ? 'border-slate-200/80 bg-white/88 text-slate-700'
+    : 'border-white/10 bg-black/20 text-slate-300';
+  const reviewChipClass = isStylishWhite
+    ? 'border-slate-200/80 bg-white/88 text-slate-600'
+    : 'border-white/5 bg-white/5 text-slate-400';
+  const actionButtonClass = isStylishWhite
+    ? 'border-slate-200/80 bg-white/88 text-slate-800 shadow-[0_12px_30px_rgba(148,163,184,0.16)]'
+    : 'border-white/15 bg-white/5 text-slate-100';
+  const pillButtonClass = isStylishWhite
+    ? 'border-slate-200/80 bg-white/88 text-slate-800 shadow-[0_10px_24px_rgba(148,163,184,0.12)]'
+    : 'border-white/15 bg-white/5 text-slate-100';
+  const mobileBuybarClass = isStylishWhite
+    ? 'border-slate-200/80 bg-white/92 shadow-[0_-18px_48px_rgba(148,163,184,0.22)]'
+    : 'border-white/10 bg-zinc-950/92';
+  const inputClass = isStylishWhite
+    ? 'border-slate-200/80 bg-white text-slate-900 shadow-sm placeholder:text-slate-400'
+    : 'border-white/15 bg-zinc-950/70 text-white';
+  const productImageClass = isStylishWhite
+    ? 'relative z-10 h-full w-full object-contain drop-shadow-[0_24px_60px_rgba(148,163,184,0.35)] transition-transform duration-700 group-hover:scale-[1.05]'
+    : 'relative z-10 h-full w-full object-contain drop-shadow-[0_24px_60px_rgba(15,23,42,0.55)] mix-blend-screen transition-transform duration-700 group-hover:scale-[1.08]';
 
   if (isLoading) {
     return <ProductPageSkeleton />;
@@ -743,10 +792,10 @@ const ProductDetails = () => {
   if (!product) {
     return (
       <div className="container-custom max-w-7xl mx-auto py-20 px-4 text-center">
-        <div className="bg-white/5 border border-white/10 rounded-3xl p-12 max-w-2xl mx-auto shadow-glass relative overflow-hidden group">
+        <div className={cn('border rounded-3xl p-12 max-w-2xl mx-auto shadow-glass relative overflow-hidden group', isStylishWhite ? 'bg-white/92 border-slate-200/80' : 'bg-white/5 border-white/10')}>
           <div className="absolute inset-0 bg-gradient-to-br from-neo-cyan/5 to-neo-rose/5 pointer-events-none" />
-          <h2 className="text-3xl font-black mb-6 text-white tracking-widest uppercase">{t('productPage.notFoundTitle', {}, 'Product Not Found')}</h2>
-          <p className="text-slate-400 mb-8">{t('productPage.notFoundBody', {}, 'The item you are looking for could not be found.')}</p>
+          <h2 className={cn('text-3xl font-black mb-6 tracking-widest uppercase', strongTextClass)}>{t('productPage.notFoundTitle', {}, 'Product Not Found')}</h2>
+          <p className={cn('mb-8', mutedTextClass)}>{t('productPage.notFoundBody', {}, 'The item you are looking for could not be found.')}</p>
           <Link to="/" className="btn-primary inline-block px-10 py-3">{t('productPage.continueShopping', {}, 'Continue Shopping')}</Link>
         </div>
       </div>
@@ -754,12 +803,15 @@ const ProductDetails = () => {
   }
 
   return (
-    <div className="relative min-h-screen min-w-0 overflow-x-hidden pb-32 pt-3 sm:pt-4 lg:pb-16">
+    <div className="product-details-shell relative min-h-screen min-w-0 overflow-x-hidden pb-32 pt-3 sm:pt-4 lg:pb-16">
       {/* Background Decor */}
       <div className="absolute top-0 right-0 w-[min(70vw,500px)] h-[min(70vw,500px)] bg-neo-cyan/10 rounded-full blur-[150px] pointer-events-none -z-10" />
       <div className="absolute bottom-40 left-0 w-[min(70vw,500px)] h-[min(70vw,500px)] bg-neo-emerald/10 rounded-full blur-[150px] pointer-events-none -z-10" />
 
-      <div className="container-custom mx-auto max-w-7xl min-w-0 border-t border-white/5 px-3 py-4 sm:px-4 md:px-6 md:py-6">
+      <div className={cn(
+        'container-custom mx-auto max-w-7xl min-w-0 px-3 py-4 sm:px-4 md:px-6 md:py-6',
+        isStylishWhite ? 'border-t border-slate-200/80' : 'border-t border-white/5'
+      )}>
         {/* Breadcrumb */}
         <nav className="mb-5 flex flex-wrap items-center gap-y-2 text-[9px] font-bold uppercase tracking-widest text-slate-500 sm:mb-8 sm:text-[10px] md:text-sm">
           <Link to="/" className="hover:text-neo-cyan transition-colors">Aura</Link>
@@ -768,7 +820,7 @@ const ProductDetails = () => {
             {translatedCategory}
           </Link>
           <ChevronRight className="w-4 h-4 mx-2 text-slate-700" />
-          <span className="text-white truncate max-w-[200px] md:max-w-md">{translatedHeroTitle}</span>
+          <span className={cn('truncate max-w-[200px] md:max-w-md', strongTextClass)}>{translatedHeroTitle}</span>
         </nav>
 
         <div className="grid min-w-0 gap-6 lg:grid-cols-12 lg:items-start lg:gap-12">
@@ -776,12 +828,18 @@ const ProductDetails = () => {
           <div className="flex min-w-0 flex-col gap-4 sm:gap-6 lg:col-span-5 lg:self-start">
             <div className="lg:sticky lg:top-28 lg:max-h-[calc(100vh-8rem)] lg:overflow-y-auto lg:pr-2">
               <div className="flex min-w-0 flex-col gap-4 sm:gap-6 lg:pb-4">
-                <div className="group relative min-w-0 overflow-hidden rounded-[1.9rem] border border-white/10 bg-[linear-gradient(145deg,rgba(255,255,255,0.08),rgba(255,255,255,0.03))] p-4 shadow-[0_24px_70px_rgba(6,182,212,0.08)] ring-1 ring-white/10 sm:rounded-[2.15rem] sm:p-6">
+                <div className={cn(
+                  'group relative min-w-0 overflow-hidden rounded-[1.9rem] border p-4 ring-1 sm:rounded-[2.15rem] sm:p-6',
+                  mediaCardClass
+                )}>
                   <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_18%,rgba(217,70,239,0.16),transparent_32%),radial-gradient(circle_at_82%_14%,rgba(6,182,212,0.18),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.03),transparent_52%)] pointer-events-none" />
                   <div className="absolute inset-x-8 top-5 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent pointer-events-none" />
 
                   <div className="relative z-10 flex flex-wrap items-center justify-between gap-3">
-                    <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-black/20 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-200">
+                    <div className={cn(
+                      'inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.2em]',
+                      chipClass
+                    )}>
                       <BadgeCheck className="h-3.5 w-3.5 text-neo-cyan" />
                       {t('productPage.curatedHardware', {}, 'Curated hardware')}
                     </div>
@@ -791,13 +849,16 @@ const ProductDetails = () => {
                     </div>
                   </div>
 
-                  <div className="relative mt-4 flex min-w-0 aspect-square items-center justify-center overflow-hidden rounded-[1.6rem] border border-white/10 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.05),rgba(9,9,11,0.2)_58%,rgba(9,9,11,0.78)_100%)] p-2 sm:mt-5 sm:rounded-[1.9rem] sm:p-4">
+                  <div className={cn(
+                    'relative mt-4 flex min-w-0 aspect-square items-center justify-center overflow-hidden rounded-[1.6rem] border p-2 sm:mt-5 sm:rounded-[1.9rem] sm:p-4',
+                    mediaFrameClass
+                  )}>
                     <div className="absolute inset-x-[16%] bottom-10 h-16 rounded-full bg-neo-cyan/15 blur-3xl transition-all duration-700 group-hover:bg-neo-cyan/25" />
                     <div className="absolute inset-y-[14%] right-[10%] w-20 rounded-full bg-fuchsia-500/10 blur-3xl transition-opacity duration-700 group-hover:opacity-90" />
                     <img
                       src={image}
                       alt={translatedHeroTitle}
-                      className="relative z-10 h-full w-full object-contain drop-shadow-[0_24px_60px_rgba(15,23,42,0.55)] mix-blend-screen transition-transform duration-700 group-hover:scale-[1.08]"
+                      className={productImageClass}
                     />
 
                     <button
@@ -806,30 +867,39 @@ const ProductDetails = () => {
                       aria-label={isWishlisted
                         ? t('product.removeFromWishlist', {}, 'Remove from wishlist')
                         : t('product.addToWishlist', {}, 'Add to wishlist')}
-                      className="absolute right-4 top-4 z-20 rounded-full border border-white/10 bg-zinc-950/65 p-2.5 shadow-[0_0_15px_rgba(0,0,0,0.5)] transition-all duration-300 hover:border-neo-rose hover:bg-neo-rose/10 group/btn sm:p-3"
+                      className={cn(
+                        'absolute right-4 top-4 z-20 rounded-full border p-2.5 transition-all duration-300 hover:border-neo-rose hover:bg-neo-rose/10 group/btn sm:p-3',
+                        floatingActionClass
+                      )}
                     >
-                      <Heart className={cn('w-6 h-6 transition-colors', isWishlisted ? 'fill-neo-rose text-neo-rose drop-shadow-[0_0_8px_rgba(244,63,94,0.6)]' : 'text-slate-400 group-hover/btn:text-neo-rose')} />
+                      <Heart className={cn('w-6 h-6 transition-colors', isWishlisted ? 'fill-neo-rose text-neo-rose drop-shadow-[0_0_8px_rgba(244,63,94,0.6)]' : `${mutedTextClass} group-hover/btn:text-neo-rose`)} />
                     </button>
 
                     <button
                       type="button"
                       onClick={() => navigator?.share?.({ title: translatedHeroTitle, url: window.location.href })}
                       aria-label={t('product.share', {}, 'Share product')}
-                      className="absolute left-4 top-4 z-20 rounded-full border border-white/10 bg-zinc-950/65 p-2.5 shadow-[0_0_15px_rgba(0,0,0,0.5)] transition-all duration-300 hover:border-neo-cyan hover:bg-neo-cyan/10 group/btn sm:p-3"
+                      className={cn(
+                        'absolute left-4 top-4 z-20 rounded-full border p-2.5 transition-all duration-300 hover:border-neo-cyan hover:bg-neo-cyan/10 group/btn sm:p-3',
+                        floatingActionClass
+                      )}
                     >
-                      <Share2 className="w-5 h-5 text-slate-400 group-hover/btn:text-neo-cyan transition-colors" />
+                      <Share2 className={cn('w-5 h-5 group-hover/btn:text-neo-cyan transition-colors', mutedTextClass)} />
                     </button>
 
-                    <div className="absolute bottom-4 left-4 right-4 z-20 hidden rounded-2xl border border-white/10 bg-black/35 p-3 backdrop-blur-md lg:block">
+                    <div className={cn(
+                      'absolute bottom-4 left-4 right-4 z-20 hidden rounded-2xl border p-3 lg:block',
+                      softPanelClass
+                    )}>
                       <div className="flex items-center justify-between gap-3">
                         <div>
-                          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+                          <p className={cn('text-[10px] font-black uppercase tracking-[0.18em]', mutedTextClass)}>
                             {t('productPage.marketSnapshot', {}, 'Market snapshot')}
                           </p>
-                          <p className="mt-1 text-lg font-black text-white">{formatMarketPrice(priceValue, priceCurrency)}</p>
+                          <p className={cn('mt-1 text-lg font-black', strongTextClass)}>{formatMarketPrice(priceValue, priceCurrency)}</p>
                         </div>
                         <div className="text-right">
-                          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+                          <p className={cn('text-[10px] font-black uppercase tracking-[0.18em]', mutedTextClass)}>
                             {t('productPage.trustScore', {}, 'Trust score')}
                           </p>
                           <p className="mt-1 text-lg font-black text-neo-cyan">
@@ -842,59 +912,64 @@ const ProductDetails = () => {
                 </div>
 
                 <div className="hidden grid-cols-2 gap-3 lg:grid">
-                  <div className="rounded-[1.4rem] border border-white/10 bg-white/[0.045] p-4 shadow-[0_18px_40px_rgba(6,182,212,0.05)]">
-                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+                  <div className={cn('rounded-[1.4rem] border p-4 shadow-[0_18px_40px_rgba(6,182,212,0.05)]', statCardClass)}>
+                    <p className={cn('text-[10px] font-black uppercase tracking-[0.18em]', mutedTextClass)}>
                       {t('productPage.marketPrice', {}, 'Market price')}
                     </p>
-                    <p className="mt-2 text-2xl font-black text-white">{formatMarketPrice(priceValue, priceCurrency)}</p>
-                    <p className="mt-2 text-xs text-slate-400">
+                    <p className={cn('mt-2 text-2xl font-black', strongTextClass)}>{formatMarketPrice(priceValue, priceCurrency)}</p>
+                    <p className={cn('mt-2 text-xs', mutedTextClass)}>
                       {t('productPage.fxPinned', {}, 'Refreshed from the active browse FX feed')}
                     </p>
                   </div>
-                  <div className="rounded-[1.4rem] border border-white/10 bg-white/[0.045] p-4 shadow-[0_18px_40px_rgba(217,70,239,0.05)]">
-                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+                  <div className={cn('rounded-[1.4rem] border p-4 shadow-[0_18px_40px_rgba(217,70,239,0.05)]', statCardClass)}>
+                    <p className={cn('text-[10px] font-black uppercase tracking-[0.18em]', mutedTextClass)}>
                       {t('productPage.dealVerdict', {}, 'Deal verdict')}
                     </p>
-                    <p className="mt-2 text-2xl font-black text-white">{dealLabel}</p>
-                    <p className="mt-2 text-xs text-slate-400">
+                    <p className={cn('mt-2 text-2xl font-black', strongTextClass)}>{dealLabel}</p>
+                    <p className={cn('mt-2 text-xs', mutedTextClass)}>
                       {t('productPage.ratingSummary', { score: rating, count: ratingCount.toLocaleString() }, `${rating} stars • ${ratingCount.toLocaleString()} reviews`)}
                     </p>
                   </div>
-                  <div className="rounded-[1.4rem] border border-white/10 bg-white/[0.045] p-4">
-                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+                  <div className={cn('rounded-[1.4rem] border p-4', statCardClass)}>
+                    <p className={cn('text-[10px] font-black uppercase tracking-[0.18em]', mutedTextClass)}>
                       {t('productPage.deliveryTime', {}, 'Delivery time')}
                     </p>
-                    <p className="mt-2 text-lg font-black text-white">{translatedDeliveryTime}</p>
-                    <p className="mt-2 text-xs text-slate-400">
+                    <p className={cn('mt-2 text-lg font-black', strongTextClass)}>{translatedDeliveryTime}</p>
+                    <p className={cn('mt-2 text-xs', mutedTextClass)}>
                       {t('productPage.deliveryPromise', {}, 'Priority routing with live order tracking at checkout')}
                     </p>
                   </div>
-                  <div className="rounded-[1.4rem] border border-white/10 bg-white/[0.045] p-4">
-                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+                  <div className={cn('rounded-[1.4rem] border p-4', statCardClass)}>
+                    <p className={cn('text-[10px] font-black uppercase tracking-[0.18em]', mutedTextClass)}>
                       {t('productPage.coverage', {}, 'Coverage')}
                     </p>
-                    <p className="mt-2 text-lg font-black text-white">{warranty}</p>
-                    <p className="mt-2 text-xs text-slate-400">
+                    <p className={cn('mt-2 text-lg font-black', strongTextClass)}>{warranty}</p>
+                    <p className={cn('mt-2 text-xs', mutedTextClass)}>
                       {t('productPage.premiumProtection', {}, 'Protected by Aura verification and support flows')}
                     </p>
                   </div>
                 </div>
 
-                <div className="hidden overflow-hidden rounded-[1.75rem] border border-white/10 bg-[linear-gradient(180deg,rgba(9,9,11,0.82),rgba(17,24,39,0.62))] p-5 shadow-[0_24px_60px_rgba(0,0,0,0.28)] lg:block">
+                <div className={cn(
+                  'hidden overflow-hidden rounded-[1.75rem] border p-5 lg:block',
+                  isStylishWhite
+                    ? 'border-slate-200/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(241,245,249,0.9))] shadow-[0_24px_60px_rgba(148,163,184,0.18)]'
+                    : 'border-white/10 bg-[linear-gradient(180deg,rgba(9,9,11,0.82),rgba(17,24,39,0.62))] shadow-[0_24px_60px_rgba(0,0,0,0.28)]'
+                )}>
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <p className="text-[10px] font-black uppercase tracking-[0.2em] text-neo-emerald">
                         {t('productPage.concierge', {}, 'Concierge')}
                       </p>
-                      <h3 className="mt-2 text-xl font-black text-white">
+                      <h3 className={cn('mt-2 text-xl font-black', strongTextClass)}>
                         {t('productPage.needHelpNow', {}, 'Need help now?')}
                       </h3>
                     </div>
-                    <div className="rounded-full border border-white/10 bg-white/5 p-3 text-neo-cyan">
+                    <div className={cn('rounded-full border p-3 text-neo-cyan', softPanelClass)}>
                       <MessageSquare className="h-5 w-5" />
                     </div>
                   </div>
-                  <p className="mt-3 text-sm leading-relaxed text-slate-300">
+                  <p className={cn('mt-3 text-sm leading-relaxed', bodyTextClass)}>
                     {t('productPage.conciergeBody', {}, 'Chat, compare, and visually inspect this product without losing your place on the page. The media rail stays pinned while the buying details continue below.')}
                   </p>
                   <div className="mt-4 flex flex-wrap gap-2">
@@ -919,7 +994,10 @@ const ProductDetails = () => {
 
             {/* Mobile Actions - Sticky Bottom */}
             <div
-              className="fixed bottom-0 left-0 right-0 z-50 flex min-w-0 gap-3 border-t border-white/10 bg-zinc-950/92 px-3 pb-[calc(0.85rem+env(safe-area-inset-bottom))] pt-3 sm:gap-4 sm:p-4 lg:hidden"
+              className={cn(
+                'fixed bottom-0 left-0 right-0 z-50 flex min-w-0 gap-3 border-t px-3 pb-[calc(0.85rem+env(safe-area-inset-bottom))] pt-3 sm:gap-4 sm:p-4 lg:hidden',
+                mobileBuybarClass
+              )}
               style={{ width: '100dvw', maxWidth: '100dvw' }}
             >
               {cartItem ? (
@@ -933,7 +1011,7 @@ const ProductDetails = () => {
                   >
                     <Minus className="w-5 h-5" />
                   </button>
-                  <span className="min-w-[2rem] text-center text-lg font-black text-white">{cartItem.quantity}</span>
+                  <span className={cn('min-w-[2rem] text-center text-lg font-black', strongTextClass)}>{cartItem.quantity}</span>
                   <button
                     type="button"
                     onClick={() => handleUpdateQty(1)}
@@ -972,25 +1050,28 @@ const ProductDetails = () => {
 
           {/* Right Column: Details */}
           <div className="min-w-0 lg:col-span-7">
-            <div className="relative min-w-0 overflow-hidden rounded-[1.9rem] border border-white/10 bg-[linear-gradient(140deg,rgba(255,255,255,0.06),rgba(17,24,39,0.18)_46%,rgba(9,9,11,0.26)_100%)] p-5 shadow-[0_28px_90px_rgba(15,23,42,0.28)] ring-1 ring-white/5 sm:rounded-[2.2rem] sm:p-6 md:p-10">
+            <div className={cn(
+              'relative min-w-0 overflow-hidden rounded-[1.9rem] border p-5 ring-1 sm:rounded-[2.2rem] sm:p-6 md:p-10',
+              heroCardClass
+            )}>
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(6,182,212,0.12),transparent_28%),radial-gradient(circle_at_20%_18%,rgba(217,70,239,0.12),transparent_24%),linear-gradient(180deg,rgba(255,255,255,0.02),transparent_48%)] pointer-events-none" />
               <div className="absolute inset-x-8 top-6 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent pointer-events-none" />
               <div className="absolute bottom-0 right-0 h-[55%] w-[55%] bg-gradient-to-l from-neo-emerald/10 to-transparent pointer-events-none" />
 
               <div className="relative z-10 min-w-0">
                 <div className="mb-4 flex flex-wrap items-center gap-3">
-                  <p className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.28em] text-neo-cyan">{brand}</p>
-                  <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/20 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-slate-300">
+                  <p className={cn('rounded-full border px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.28em] text-neo-cyan', isStylishWhite ? 'border-slate-200/80 bg-white/88' : 'border-white/10 bg-white/5')}>{brand}</p>
+                  <span className={cn('inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em]', chipClass)}>
                     <BadgeCheck className="h-3.5 w-3.5 text-amber-300" />
                     {t('productPage.premiumSelection', {}, 'Premium selection')}
                   </span>
                 </div>
                 {translatedHeroSubtitle && (
-                  <p className="mb-3 text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">
+                  <p className={cn('mb-3 text-xs font-semibold uppercase tracking-[0.22em]', mutedTextClass)}>
                     {translatedHeroSubtitle}
                   </p>
                 )}
-                <h1 className="mb-5 text-[1.9rem] font-black leading-tight tracking-tighter text-white sm:text-3xl md:mb-6 md:text-5xl">
+                <h1 className={cn('mb-5 text-[1.9rem] font-black leading-tight tracking-tighter sm:text-3xl md:mb-6 md:text-5xl', strongTextClass)}>
                   {translatedHeroTitle}
                 </h1>
                 {isDemoCatalog && (
@@ -1008,7 +1089,7 @@ const ProductDetails = () => {
                   <span className="rating-badge text-sm px-3 py-1 shadow-[0_0_10px_rgba(250,204,21,0.3)]">
                     {rating}<Star className="w-3 h-3 fill-zinc-950 ml-1" />
                   </span>
-                  <span className="text-slate-400 font-medium text-sm tracking-wide bg-white/5 px-3 py-1 rounded-full border border-white/5">
+                  <span className={cn('font-medium text-sm tracking-wide px-3 py-1 rounded-full border', reviewChipClass)}>
                     {t('productPage.reviewsCount', { count: ratingCount.toLocaleString() }, `${ratingCount.toLocaleString()} Reviews`)}
                   </span>
                   {dealDna && (
@@ -1039,16 +1120,16 @@ const ProductDetails = () => {
                       </span>
                     </div>
                   </div>
-                  <div className="rounded-[1.7rem] border border-white/10 bg-white/[0.045] p-4 shadow-[0_18px_40px_rgba(217,70,239,0.08)]">
-                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+                  <div className={cn('rounded-[1.7rem] border p-4 shadow-[0_18px_40px_rgba(217,70,239,0.08)]', statCardClass)}>
+                    <p className={cn('text-[10px] font-black uppercase tracking-[0.18em]', mutedTextClass)}>
                       {t('productPage.curatorNote', {}, 'Curator note')}
                     </p>
-                    <p className="mt-3 text-sm font-semibold leading-relaxed text-slate-200">
+                    <p className={cn('mt-3 text-sm font-semibold leading-relaxed', bodyTextClass)}>
                       {t('productPage.curatorBody', {}, 'A crisp, high-utility kitchen essential with strong deal DNA and a clean resale profile for everyday use.')}
                     </p>
-                    <div className="mt-4 flex flex-wrap gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
-                      <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1.5">{translatedCategory}</span>
-                      <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1.5">{marketCurrency}</span>
+                    <div className={cn('mt-4 flex flex-wrap gap-2 text-[10px] font-black uppercase tracking-[0.16em]', mutedTextClass)}>
+                      <span className={cn('rounded-full border px-3 py-1.5', chipClass)}>{translatedCategory}</span>
+                      <span className={cn('rounded-full border px-3 py-1.5', chipClass)}>{marketCurrency}</span>
                     </div>
                   </div>
                 </div>
@@ -1075,7 +1156,7 @@ const ProductDetails = () => {
                       >
                         <Minus className="w-6 h-6" />
                       </button>
-                      <span className="font-black text-2xl text-white w-8 text-center">{cartItem.quantity}</span>
+                      <span className={cn('font-black text-2xl w-8 text-center', strongTextClass)}>{cartItem.quantity}</span>
                       <button
                         type="button"
                         onClick={() => handleUpdateQty(1)}
@@ -1111,28 +1192,28 @@ const ProductDetails = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-12">
                   <button
                     onClick={handleOpenCompare}
-                    className="rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-sm font-black uppercase tracking-widest text-slate-100 hover:border-neo-cyan/45 hover:text-neo-cyan transition-colors inline-flex items-center justify-center gap-2"
+                    className={cn('rounded-xl border px-4 py-3 text-sm font-black uppercase tracking-widest hover:border-neo-cyan/45 hover:text-neo-cyan transition-colors inline-flex items-center justify-center gap-2', actionButtonClass)}
                   >
                     <Brain className="w-4 h-4" />
                     {t('nav.aiCompare', {}, 'AI Compare')}
                   </button>
                   <button
                     onClick={handleOpenVisualSearch}
-                    className="rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-sm font-black uppercase tracking-widest text-slate-100 hover:border-neo-emerald/45 hover:text-neo-emerald transition-colors inline-flex items-center justify-center gap-2"
+                    className={cn('rounded-xl border px-4 py-3 text-sm font-black uppercase tracking-widest hover:border-neo-emerald/45 hover:text-neo-emerald transition-colors inline-flex items-center justify-center gap-2', actionButtonClass)}
                   >
                     <Camera className="w-4 h-4" />
                     {t('nav.visualSearch', {}, 'Visual Search')}
                   </button>
                   <button
                     onClick={handleOpenBundleBuilder}
-                    className="rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-sm font-black uppercase tracking-widest text-slate-100 hover:border-violet-400/45 hover:text-violet-300 transition-colors inline-flex items-center justify-center gap-2"
+                    className={cn('rounded-xl border px-4 py-3 text-sm font-black uppercase tracking-widest hover:border-violet-400/45 hover:text-violet-300 transition-colors inline-flex items-center justify-center gap-2', actionButtonClass)}
                   >
                     <Zap className="w-4 h-4" />
                     {t('productPage.smartBundle', {}, 'Smart Bundle')}
                   </button>
                   <button
                     onClick={() => setActiveTab('compatibility')}
-                    className="rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-sm font-black uppercase tracking-widest text-slate-100 hover:border-emerald-400/45 hover:text-emerald-300 transition-colors inline-flex items-center justify-center gap-2"
+                    className={cn('rounded-xl border px-4 py-3 text-sm font-black uppercase tracking-widest hover:border-emerald-400/45 hover:text-emerald-300 transition-colors inline-flex items-center justify-center gap-2', actionButtonClass)}
                   >
                     <BadgeCheck className="w-4 h-4" />
                     {t('productPage.tab.compatibility', {}, 'Compatibility')}
@@ -1140,13 +1221,13 @@ const ProductDetails = () => {
                 </div>
 
                 <div className="mb-8 grid gap-4 lg:mb-12 lg:grid-cols-2">
-                  <section className="rounded-2xl border border-white/10 bg-zinc-950/45 p-4 sm:p-5">
+                  <section className={cn('rounded-2xl border p-4 sm:p-5', surfaceCardClass)}>
                     <div className="flex items-center justify-between gap-3">
                       <div>
                         <p className="text-xs font-black uppercase tracking-[0.16em] text-neo-cyan">
                           {t('productPage.trustGraph', {}, 'Trust Graph')}
                         </p>
-                        <h2 className="mt-2 text-xl font-black text-white">{translatedTrustGraph.headline}</h2>
+                        <h2 className={cn('mt-2 text-xl font-black', strongTextClass)}>{translatedTrustGraph.headline}</h2>
                       </div>
                       <div className={cn(
                         'rounded-full border px-3 py-1 text-xs font-black uppercase tracking-[0.14em]',
@@ -1161,15 +1242,15 @@ const ProductDetails = () => {
                         {t('productPage.trustScoreLabel', { score: translatedTrustGraph.overallScore }, `Trust ${translatedTrustGraph.overallScore}`)}
                       </div>
                     </div>
-                    <p className="mt-3 text-sm text-slate-400">{translatedTrustGraph.summary}</p>
+                    <p className={cn('mt-3 text-sm', mutedTextClass)}>{translatedTrustGraph.summary}</p>
                     <div className="mt-4 grid gap-3 sm:grid-cols-2">
                       {translatedTrustGraph.metrics.slice(0, 4).map((metric) => (
-                        <div key={metric.key} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2">
+                        <div key={metric.key} className={cn('rounded-xl border px-3 py-2', softPanelClass)}>
                           <div className="flex items-center justify-between gap-2">
-                            <span className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-400">{metric.label}</span>
-                            <span className="text-sm font-black text-white">{metric.score}</span>
+                            <span className={cn('text-[11px] font-black uppercase tracking-[0.14em]', mutedTextClass)}>{metric.label}</span>
+                            <span className={cn('text-sm font-black', strongTextClass)}>{metric.score}</span>
                           </div>
-                          <p className="mt-1 text-xs text-slate-400">{metric.insight}</p>
+                          <p className={cn('mt-1 text-xs', mutedTextClass)}>{metric.insight}</p>
                         </div>
                       ))}
                     </div>
@@ -1187,28 +1268,28 @@ const ProductDetails = () => {
                     )}
                   </section>
 
-                  <section className="rounded-2xl border border-white/10 bg-zinc-950/45 p-4 sm:p-5">
+                  <section className={cn('rounded-2xl border p-4 sm:p-5', surfaceCardClass)}>
                     <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-200">
                       {t('productPage.resaleUpgradeIntelligence', {}, 'Resale + Upgrade Intelligence')}
                     </p>
-                    <h2 className="mt-2 text-xl font-black text-white">{translatedLifecycleIntelligence.upgradeWindow}</h2>
+                    <h2 className={cn('mt-2 text-xl font-black', strongTextClass)}>{translatedLifecycleIntelligence.upgradeWindow}</h2>
                     <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                      <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-3">
-                        <p className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-400">
+                      <div className={cn('rounded-xl border px-3 py-3', softPanelClass)}>
+                        <p className={cn('text-[11px] font-black uppercase tracking-[0.14em]', mutedTextClass)}>
                           {t('productPage.tradeInEstimate', {}, 'Trade-in estimate')}
                         </p>
-                        <p className="mt-2 text-2xl font-black text-white">{formatMarketPrice(translatedLifecycleIntelligence.tradeInEstimate, priceCurrency)}</p>
+                        <p className={cn('mt-2 text-2xl font-black', strongTextClass)}>{formatMarketPrice(translatedLifecycleIntelligence.tradeInEstimate, priceCurrency)}</p>
                       </div>
-                      <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-3">
-                        <p className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-400">
+                      <div className={cn('rounded-xl border px-3 py-3', softPanelClass)}>
+                        <p className={cn('text-[11px] font-black uppercase tracking-[0.14em]', mutedTextClass)}>
                           {t('productPage.expectedNinetyDaySlide', {}, 'Expected 90-day slide')}
                         </p>
-                        <p className="mt-2 text-2xl font-black text-white">{formatMarketPrice(translatedLifecycleIntelligence.ninetyDayDepreciation, priceCurrency)}</p>
+                        <p className={cn('mt-2 text-2xl font-black', strongTextClass)}>{formatMarketPrice(translatedLifecycleIntelligence.ninetyDayDepreciation, priceCurrency)}</p>
                       </div>
                     </div>
                     <div className="mt-4 rounded-xl border border-emerald-400/20 bg-emerald-500/10 p-3">
-                      <p className="text-sm text-slate-200">{translatedLifecycleIntelligence.nextBestAction.reason}</p>
-                      <p className="mt-2 text-xs text-slate-400">
+                      <p className={cn('text-sm', bodyTextClass)}>{translatedLifecycleIntelligence.nextBestAction.reason}</p>
+                      <p className={cn('mt-2 text-xs', mutedTextClass)}>
                         {t(
                           'productPage.resaleBand',
                           {
@@ -1233,20 +1314,20 @@ const ProductDetails = () => {
                       <button
                         type="button"
                         onClick={handleSetPriceAlert}
-                        className="rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm font-bold text-slate-100 hover:border-neo-cyan/45 hover:text-neo-cyan transition-colors"
+                        className={cn('rounded-full border px-4 py-2 text-sm font-bold hover:border-neo-cyan/45 hover:text-neo-cyan transition-colors', pillButtonClass)}
                       >
                         {t('productPage.setPriceAlert', {}, 'Set price alert')}
                       </button>
                       <Link
                         to="/trade-in"
-                        className="rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm font-bold text-slate-100 hover:border-emerald-400/45 hover:text-emerald-300 transition-colors"
+                        className={cn('rounded-full border px-4 py-2 text-sm font-bold hover:border-emerald-400/45 hover:text-emerald-300 transition-colors', pillButtonClass)}
                       >
                         {t('productPage.tradeInPath', {}, 'Trade-in path')}
                       </Link>
                       <button
                         type="button"
                         onClick={handleOpenMissionControl}
-                        className="rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm font-bold text-slate-100 hover:border-violet-400/45 hover:text-violet-300 transition-colors"
+                        className={cn('rounded-full border px-4 py-2 text-sm font-bold hover:border-violet-400/45 hover:text-violet-300 transition-colors', pillButtonClass)}
                       >
                         {t('productPage.openMissionOs', {}, 'Open Mission OS')}
                       </button>
@@ -1270,13 +1351,13 @@ const ProductDetails = () => {
                     ))}
                   </div>
 
-                  <div className="min-h-[200px] animate-fade-in text-slate-300">
+                  <div className={cn('min-h-[200px] animate-fade-in', bodyTextClass)}>
                     {activeTab === 'description' && (
                       <div className="space-y-8">
                         <p className="text-base font-medium leading-relaxed sm:text-lg">{translatedDescription}</p>
                         {translatedHighlights.length > 0 && (
-                          <div className="bg-zinc-950/50 p-6 rounded-2xl border border-white/5">
-                            <h3 className="font-bold text-white mb-4 uppercase tracking-widest text-sm text-neo-emerald">{t('productPage.coreSpecs', {}, 'Core Specs:')}</h3>
+                          <div className={cn('p-6 rounded-2xl border', isStylishWhite ? 'border-slate-200/80 bg-slate-50/92 shadow-[0_14px_32px_rgba(148,163,184,0.14)]' : 'bg-zinc-950/50 border-white/5')}>
+                            <h3 className="font-bold mb-4 uppercase tracking-widest text-sm text-neo-emerald">{t('productPage.coreSpecs', {}, 'Core Specs:')}</h3>
                             <ul className="space-y-3">
                               {translatedHighlights.map((h, i) => (
                                 <li key={i} className="flex items-start gap-3">
@@ -1292,17 +1373,17 @@ const ProductDetails = () => {
 
                     {activeTab === 'specifications' && (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="bg-zinc-950/50 p-5 rounded-xl border border-white/5 flex flex-col gap-1">
-                          <span className="text-slate-500 text-xs uppercase tracking-widest font-bold">{t('productPage.manufacturer', {}, 'Manufacturer')}</span>
-                          <p className="text-white font-medium text-lg">{brand}</p>
+                        <div className={cn('p-5 rounded-xl border flex flex-col gap-1', isStylishWhite ? 'border-slate-200/80 bg-slate-50/92 shadow-[0_14px_32px_rgba(148,163,184,0.14)]' : 'bg-zinc-950/50 border-white/5')}>
+                          <span className={cn('text-xs uppercase tracking-widest font-bold', subtleTextClass)}>{t('productPage.manufacturer', {}, 'Manufacturer')}</span>
+                          <p className={cn('font-medium text-lg', strongTextClass)}>{brand}</p>
                         </div>
-                        <div className="bg-zinc-950/50 p-5 rounded-xl border border-white/5 flex flex-col gap-1">
-                          <span className="text-slate-500 text-xs uppercase tracking-widest font-bold">{t('productPage.warranty', {}, 'Warranty')}</span>
-                          <p className="text-white font-medium text-lg">{warranty}</p>
+                        <div className={cn('p-5 rounded-xl border flex flex-col gap-1', isStylishWhite ? 'border-slate-200/80 bg-slate-50/92 shadow-[0_14px_32px_rgba(148,163,184,0.14)]' : 'bg-zinc-950/50 border-white/5')}>
+                          <span className={cn('text-xs uppercase tracking-widest font-bold', subtleTextClass)}>{t('productPage.warranty', {}, 'Warranty')}</span>
+                          <p className={cn('font-medium text-lg', strongTextClass)}>{warranty}</p>
                         </div>
-                        <div className="bg-zinc-950/50 p-5 rounded-xl border border-white/5 flex flex-col gap-1 md:col-span-2">
-                          <span className="text-slate-500 text-xs uppercase tracking-widest font-bold">{t('productPage.deliveryTime', {}, 'Delivery Time')}</span>
-                          <p className="text-white font-medium text-lg">{translatedDeliveryTime}</p>
+                        <div className={cn('p-5 rounded-xl border flex flex-col gap-1 md:col-span-2', isStylishWhite ? 'border-slate-200/80 bg-slate-50/92 shadow-[0_14px_32px_rgba(148,163,184,0.14)]' : 'bg-zinc-950/50 border-white/5')}>
+                          <span className={cn('text-xs uppercase tracking-widest font-bold', subtleTextClass)}>{t('productPage.deliveryTime', {}, 'Delivery Time')}</span>
+                          <p className={cn('font-medium text-lg', strongTextClass)}>{translatedDeliveryTime}</p>
                         </div>
                       </div>
                     )}
@@ -1310,7 +1391,7 @@ const ProductDetails = () => {
                     {activeTab === 'deal-dna' && (
                       <div className="space-y-4">
                         {!dealDna ? (
-                          <p className="text-sm text-slate-400">{t('productPage.dealDnaUnavailable', {}, 'Deal DNA is not available for this product yet.')}</p>
+                          <p className={cn('text-sm', mutedTextClass)}>{t('productPage.dealDnaUnavailable', {}, 'Deal DNA is not available for this product yet.')}</p>
                         ) : (
                           <>
                             <div className={cn('rounded-2xl border p-5', dealTone)}>
@@ -1320,9 +1401,9 @@ const ProductDetails = () => {
                             </div>
                             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                               {Object.entries(dealDna.components || {}).map(([key, value]) => (
-                                <div key={key} className="rounded-xl border border-white/10 bg-zinc-950/50 px-3 py-2">
-                                  <p className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">{key}</p>
-                                  <p className="text-lg font-black text-white">{value}</p>
+                                <div key={key} className={cn('rounded-xl border px-3 py-2', softPanelClass)}>
+                                  <p className={cn('text-[10px] uppercase tracking-wider font-bold', mutedTextClass)}>{key}</p>
+                                  <p className={cn('text-lg font-black', strongTextClass)}>{value}</p>
                                 </div>
                               ))}
                             </div>
@@ -1344,18 +1425,18 @@ const ProductDetails = () => {
                     {activeTab === 'compatibility' && (
                       <div className="space-y-4">
                         {compatibilityLoading && (
-                          <p className="text-sm text-slate-400">{t('productPage.buildingCompatibility', {}, 'Building compatibility graph...')}</p>
+                          <p className={cn('text-sm', mutedTextClass)}>{t('productPage.buildingCompatibility', {}, 'Building compatibility graph...')}</p>
                         )}
                         {!compatibilityLoading && compatibilityError && (
                           <p className="text-sm text-rose-300">{translateProductText(compatibilityError)}</p>
                         )}
                         {!compatibilityLoading && !compatibilityError && translatedCompatibilityGroups.length === 0 && (
-                          <p className="text-sm text-slate-400">{t('productPage.noCompatibility', {}, 'No compatibility data available for this category yet.')}</p>
+                          <p className={cn('text-sm', mutedTextClass)}>{t('productPage.noCompatibility', {}, 'No compatibility data available for this category yet.')}</p>
                         )}
                         {!compatibilityLoading && !compatibilityError && translatedCompatibilityGroups.length > 0 && (
                           <div className="space-y-4">
                             {translatedCompatibilityGroups.map((group) => (
-                              <div key={group.accessoryType} className="rounded-2xl border border-white/10 bg-zinc-950/40 p-4">
+                              <div key={group.accessoryType} className={cn('rounded-2xl border p-4', surfaceCardClass)}>
                                 <p className="text-xs font-black uppercase tracking-[0.16em] text-neo-cyan mb-3">
                                   {group.accessoryTypeLabel}
                                 </p>
@@ -1364,13 +1445,13 @@ const ProductDetails = () => {
                                     <Link
                                       key={`${group.accessoryType}-${item.id}`}
                                       to={`/product/${item.id}`}
-                                      className="rounded-xl border border-white/10 bg-white/5 p-3 hover:border-neo-emerald/45 transition-colors"
+                                      className={cn('rounded-xl border p-3 hover:border-neo-emerald/45 transition-colors', softPanelClass)}
                                     >
                                       <div className="flex items-center gap-3">
                                         <img src={item.image} alt={item.translatedTitle} className="w-14 h-14 rounded-lg object-cover bg-zinc-900/70" />
                                         <div className="min-w-0">
-                                          <p className="text-sm font-bold text-white truncate">{item.translatedTitle}</p>
-                                          <p className="text-xs text-slate-400 truncate">{item.brand} • {item.category}</p>
+                                          <p className={cn('text-sm font-bold truncate', strongTextClass)}>{item.translatedTitle}</p>
+                                          <p className={cn('text-xs truncate', mutedTextClass)}>{item.brand} • {item.category}</p>
                                           <p className="text-xs text-neo-cyan font-bold mt-1">
                                             {t('productPage.compatibilityScore', { score: item.compatibilityScore }, `Compatibility ${item.compatibilityScore}/100`)}
                                           </p>
@@ -1389,10 +1470,10 @@ const ProductDetails = () => {
                     {activeTab === 'reviews' && (
                       <div className="space-y-6">
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                          <div className="lg:col-span-1 rounded-2xl border border-white/10 bg-zinc-950/45 p-5">
-                            <p className="text-xs uppercase tracking-[0.16em] text-slate-400 font-bold">{t('productPage.communityScore', {}, 'Community Score')}</p>
-                            <p className="mt-2 text-4xl font-black text-white">{Number(reviewsSummary.averageRating || 0).toFixed(1)}</p>
-                            <p className="mt-1 text-sm text-slate-400">
+                          <div className={cn('lg:col-span-1 rounded-2xl border p-5', surfaceCardClass)}>
+                            <p className={cn('text-xs uppercase tracking-[0.16em] font-bold', mutedTextClass)}>{t('productPage.communityScore', {}, 'Community Score')}</p>
+                            <p className={cn('mt-2 text-4xl font-black', strongTextClass)}>{Number(reviewsSummary.averageRating || 0).toFixed(1)}</p>
+                            <p className={cn('mt-1 text-sm', mutedTextClass)}>
                               {t('productPage.verifiedReviews', { count: Number(reviewsSummary.totalReviews || 0).toLocaleString() }, `${Number(reviewsSummary.totalReviews || 0).toLocaleString()} verified reviews`)}
                             </p>
                             <p className="mt-1 text-xs text-neo-cyan font-semibold">
@@ -1405,9 +1486,9 @@ const ProductDetails = () => {
                                   ? Math.round((count / reviewsSummary.totalReviews) * 100)
                                   : 0;
                                 return (
-                                  <div key={score} className="flex items-center gap-3 text-xs text-slate-300">
+                                  <div key={score} className={cn('flex items-center gap-3 text-xs', bodyTextClass)}>
                                     <span className="w-4 font-bold">{score}</span>
-                                    <div className="h-2 flex-1 rounded-full bg-white/10 overflow-hidden">
+                                    <div className={cn('h-2 flex-1 rounded-full overflow-hidden', isStylishWhite ? 'bg-slate-200/80' : 'bg-white/10')}>
                                       <div
                                         className="h-2 bg-gradient-to-r from-neo-cyan to-neo-emerald"
                                         style={{ width: `${percent}%` }}
@@ -1420,13 +1501,13 @@ const ProductDetails = () => {
                             </div>
                           </div>
 
-                          <div className="lg:col-span-2 rounded-2xl border border-white/10 bg-zinc-950/45 p-5">
+                          <div className={cn('lg:col-span-2 rounded-2xl border p-5', surfaceCardClass)}>
                             <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-                              <p className="text-xs uppercase tracking-[0.16em] text-slate-400 font-bold">{t('productPage.verifiedFeedback', {}, 'Verified Customer Feedback')}</p>
+                              <p className={cn('text-xs uppercase tracking-[0.16em] font-bold', mutedTextClass)}>{t('productPage.verifiedFeedback', {}, 'Verified Customer Feedback')}</p>
                               <PremiumSelect
                                 value={reviewSort}
                                 onChange={(e) => setReviewSort(e.target.value)}
-                                className="rounded-lg border border-white/15 bg-zinc-950/70 px-3 py-2 text-xs font-bold uppercase tracking-[0.1em] text-slate-200"
+                                className={cn('rounded-lg border px-3 py-2 text-xs font-bold uppercase tracking-[0.1em]', inputClass)}
                               >
                                 <option value="newest">{t('productPage.sort.newest', {}, 'Newest')}</option>
                                 <option value="top-rating">{t('productPage.sort.topRated', {}, 'Top Rated')}</option>
@@ -1438,24 +1519,24 @@ const ProductDetails = () => {
                             {reviewsLoading ? (
                               <div className="space-y-3">
                                 {[...Array(3)].map((_, idx) => (
-                                  <div key={idx} className="h-24 rounded-xl bg-white/5 animate-pulse border border-white/5" />
+                                  <div key={idx} className={cn('h-24 rounded-xl animate-pulse border', isStylishWhite ? 'border-slate-200/80 bg-slate-100/80' : 'bg-white/5 border-white/5')} />
                                 ))}
                               </div>
                             ) : reviewsError ? (
                               <p className="text-sm text-rose-300">{translateProductText(reviewsError)}</p>
                             ) : reviewsData.length === 0 ? (
-                              <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-6 text-center">
-                                <MessageSquare className="w-8 h-8 mx-auto text-slate-500 mb-2" />
-                                <p className="text-sm text-slate-300">{t('productPage.noVerifiedReviews', {}, 'No verified reviews yet for this product.')}</p>
+                              <div className={cn('rounded-xl border px-4 py-6 text-center', softPanelClass)}>
+                                <MessageSquare className={cn('w-8 h-8 mx-auto mb-2', subtleTextClass)} />
+                                <p className={cn('text-sm', bodyTextClass)}>{t('productPage.noVerifiedReviews', {}, 'No verified reviews yet for this product.')}</p>
                               </div>
                             ) : (
                               <div className="space-y-4 max-h-[480px] overflow-y-auto pr-1">
                                 {reviewsData.map((review) => (
-                                  <article key={review.id} className="rounded-xl border border-white/10 bg-white/5 p-4">
+                                  <article key={review.id} className={cn('rounded-xl border p-4', softPanelClass)}>
                                     <div className="flex flex-wrap items-start justify-between gap-2">
                                       <div>
-                                        <p className="text-sm font-bold text-white">{review.user?.name || t('productPage.verifiedBuyer', {}, 'Verified Buyer')}</p>
-                                        <p className="text-[11px] text-slate-400">
+                                        <p className={cn('text-sm font-bold', strongTextClass)}>{review.user?.name || t('productPage.verifiedBuyer', {}, 'Verified Buyer')}</p>
+                                        <p className={cn('text-[11px]', mutedTextClass)}>
                                           {formatDateTime(review.createdAt, undefined, { day: '2-digit', month: 'short', year: 'numeric' })}
                                         </p>
                                       </div>
@@ -1472,11 +1553,11 @@ const ProductDetails = () => {
                                         )}
                                       </div>
                                     </div>
-                                    <p className="mt-3 text-sm leading-relaxed text-slate-200">{translateProductText(review.comment)}</p>
+                                    <p className={cn('mt-3 text-sm leading-relaxed', bodyTextClass)}>{translateProductText(review.comment)}</p>
                                     {Array.isArray(review.media) && review.media.length > 0 && (
                                       <div className="mt-3 grid grid-cols-2 md:grid-cols-3 gap-2">
                                         {review.media.map((asset, index) => (
-                                          <div key={`${review.id}-media-${index}`} className="rounded-lg overflow-hidden border border-white/10 bg-zinc-900/70">
+                                          <div key={`${review.id}-media-${index}`} className={cn('rounded-lg overflow-hidden border', isStylishWhite ? 'border-slate-200/80 bg-slate-100/90' : 'border-white/10 bg-zinc-900/70')}>
                                             {asset.type === 'video' ? (
                                               <video src={asset.url} controls className="w-full h-24 object-cover" />
                                             ) : (
@@ -1493,8 +1574,8 @@ const ProductDetails = () => {
                           </div>
                         </div>
 
-                        <div className="rounded-2xl border border-white/10 bg-zinc-950/45 p-5">
-                          <p className="text-xs uppercase tracking-[0.16em] text-slate-400 font-bold mb-4">{t('productPage.postReview', {}, 'Post Your Verified Review')}</p>
+                        <div className={cn('rounded-2xl border p-5', surfaceCardClass)}>
+                          <p className={cn('text-xs uppercase tracking-[0.16em] font-bold mb-4', mutedTextClass)}>{t('productPage.postReview', {}, 'Post Your Verified Review')}</p>
                           {!currentUser && (
                             <div className="rounded-xl border border-amber-400/30 bg-amber-500/10 p-3 text-sm text-amber-100 mb-4">
                               {t('productPage.reviewLoginRequired', {}, 'Login is required to post a review. Only real customers with a valid purchase can submit feedback.')}
@@ -1514,11 +1595,11 @@ const ProductDetails = () => {
                           <form onSubmit={handleSubmitReview} className="space-y-4">
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                               <div>
-                                <label className="text-xs uppercase tracking-[0.12em] text-slate-400 font-bold">{t('productPage.rating', {}, 'Rating')}</label>
+                                <label className={cn('text-xs uppercase tracking-[0.12em] font-bold', mutedTextClass)}>{t('productPage.rating', {}, 'Rating')}</label>
                                 <PremiumSelect
                                   value={reviewForm.rating}
                                   onChange={(e) => setReviewForm((prev) => ({ ...prev, rating: Number(e.target.value) }))}
-                                  className="mt-1 w-full rounded-lg border border-white/15 bg-zinc-950/70 px-3 py-2 text-sm text-white"
+                                  className={cn('mt-1 w-full rounded-lg border px-3 py-2 text-sm', inputClass)}
                                 >
                                   <option value={5}>{t('productPage.rating.excellent', {}, '5 - Excellent')}</option>
                                   <option value={4}>{t('productPage.rating.good', {}, '4 - Good')}</option>
@@ -1528,20 +1609,20 @@ const ProductDetails = () => {
                                 </PremiumSelect>
                               </div>
                               <div className="md:col-span-2">
-                                <label className="text-xs uppercase tracking-[0.12em] text-slate-400 font-bold">{t('productPage.comment', {}, 'Comment')}</label>
+                                <label className={cn('text-xs uppercase tracking-[0.12em] font-bold', mutedTextClass)}>{t('productPage.comment', {}, 'Comment')}</label>
                                 <textarea
                                   value={reviewForm.comment}
                                   onChange={(e) => setReviewForm((prev) => ({ ...prev, comment: e.target.value }))}
                                   placeholder={t('productPage.commentPlaceholder', {}, 'Share real usage experience, quality, delivery, and value details...')}
                                   rows={3}
-                                  className="mt-1 w-full rounded-lg border border-white/15 bg-zinc-950/70 px-3 py-2 text-sm text-white resize-none"
+                                  className={cn('mt-1 w-full rounded-lg border px-3 py-2 text-sm resize-none', inputClass)}
                                 />
                               </div>
                             </div>
 
-                            <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+                            <div className={cn('rounded-xl border p-3', softPanelClass)}>
                               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                                <p className="text-xs uppercase tracking-[0.12em] text-slate-400 font-bold">
+                                <p className={cn('text-xs uppercase tracking-[0.12em] font-bold', mutedTextClass)}>
                                   {t('productPage.proofMedia', {}, 'Add Proof Media (Direct Upload + URL)')}
                                 </p>
                                 <button
@@ -1569,7 +1650,7 @@ const ProductDetails = () => {
                                 <PremiumSelect
                                   value={mediaDraft.type}
                                   onChange={(e) => setMediaDraft((prev) => ({ ...prev, type: e.target.value }))}
-                                  className="rounded-lg border border-white/15 bg-zinc-950/70 px-3 py-2 text-sm text-white"
+                                  className={cn('rounded-lg border px-3 py-2 text-sm', inputClass)}
                                 >
                                   <option value="image">{t('productPage.image', {}, 'Image')}</option>
                                   <option value="video">{t('productPage.video', {}, 'Video')}</option>
@@ -1579,7 +1660,7 @@ const ProductDetails = () => {
                                   value={mediaDraft.url}
                                   onChange={(e) => setMediaDraft((prev) => ({ ...prev, url: e.target.value }))}
                                   placeholder="https://..."
-                                  className="md:col-span-2 rounded-lg border border-white/15 bg-zinc-950/70 px-3 py-2 text-sm text-white"
+                                  className={cn('md:col-span-2 rounded-lg border px-3 py-2 text-sm', inputClass)}
                                 />
                                 <button
                                   type="button"
@@ -1594,15 +1675,15 @@ const ProductDetails = () => {
                                 value={mediaDraft.caption}
                                 onChange={(e) => setMediaDraft((prev) => ({ ...prev, caption: e.target.value }))}
                                 placeholder={t('productPage.optionalCaption', {}, 'Optional caption')}
-                                className="mt-2 w-full rounded-lg border border-white/15 bg-zinc-950/70 px-3 py-2 text-sm text-white"
+                                className={cn('mt-2 w-full rounded-lg border px-3 py-2 text-sm', inputClass)}
                               />
                               {reviewForm.media.length > 0 && (
                                 <div className="mt-3 flex flex-wrap gap-2">
                                   {reviewForm.media.map((asset, index) => (
-                                    <div key={`${asset.url}-${index}`} className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs text-slate-200">
+                                    <div key={`${asset.url}-${index}`} className={cn('inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs', isStylishWhite ? 'border-slate-200/80 bg-white/92 text-slate-700' : 'border-white/15 bg-white/10 text-slate-200')}>
                                       {asset.type === 'video' ? <Video className="w-3.5 h-3.5 text-violet-300" /> : <ImageIcon className="w-3.5 h-3.5 text-neo-cyan" />}
                                       <span className="max-w-[180px] truncate">{asset.url}</span>
-                                      <button type="button" onClick={() => handleRemoveReviewMedia(index)} className="text-slate-400 hover:text-rose-300">
+                                      <button type="button" onClick={() => handleRemoveReviewMedia(index)} className={cn(mutedTextClass, 'hover:text-rose-300')}>
                                         <X className="w-3.5 h-3.5" />
                                       </button>
                                     </div>
@@ -1634,7 +1715,7 @@ const ProductDetails = () => {
           <SectionErrorBoundary label={t('productPage.similarItems', {}, 'Similar Items')}>
             <div className="mt-14 sm:mt-20">
               <div className="flex items-center gap-4 mb-8">
-                <h2 className="text-2xl font-black text-white tracking-tight">{t('productPage.similarItems', {}, 'Similar Items')}</h2>
+                <h2 className={cn('text-2xl font-black tracking-tight', strongTextClass)}>{t('productPage.similarItems', {}, 'Similar Items')}</h2>
                 <div className="flex-1 h-px bg-gradient-to-r from-white/10 to-transparent" />
               </div>
               <div className="space-y-4 md:hidden">
