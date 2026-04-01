@@ -8,18 +8,19 @@ const MARKET_MESSAGE_PACK_LOADERS = import.meta.glob('./marketMessagePacks/*.js'
 export const MARKET_STORAGE_KEY = 'aura_market_preferences_v1';
 export const BROWSE_BASE_CURRENCY = 'INR';
 
+// Snapshot fallback used before the live ECB refresh completes.
 export const MARKET_PRESENTMENT_RATES = {
   INR: 1,
-  USD: 0.012,
-  EUR: 0.011,
-  GBP: 0.0095,
-  AED: 0.044,
-  JPY: 1.82,
-  BRL: 0.069,
-  CAD: 0.016,
-  AUD: 0.018,
-  MXN: 0.2,
-  CNY: 0.087,
+  USD: 0.0107033498118,
+  EUR: 0.00922305024718,
+  GBP: 0.00803447576182,
+  AED: 0.039308052184,
+  JPY: 1.69455102191,
+  BRL: 0.0552267025751,
+  CAD: 0.0148712462185,
+  AUD: 0.0153923485575,
+  MXN: 0.191090533461,
+  CNY: 0.0735731941268,
 };
 
 export const SUPPORTED_LANGUAGES = [

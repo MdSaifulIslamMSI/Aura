@@ -11,6 +11,7 @@ Core capabilities:
 - OTP verification with fail-closed email delivery
 - Durable order email queue with retry and admin APIs
 - Split-runtime backend support with Redis-backed workers and reconciliation
+- Market-aware browse FX with real-time provider support plus ECB fallback
 
 ## Run Locally
 1. Backend:
@@ -142,3 +143,9 @@ All 10 identified login architecture vulnerabilities have been fixed and are pro
 - Keep `.env` secrets out of source control
 - For legacy OTP TTL cleanup, run:
   - `npm run migrate:drop-user-otp-ttl` (in `server/`)
+
+## FX Rate Providers
+- The backend now supports `PAYMENT_FX_PROVIDER=auto|openexchangerates|ecb`.
+- `auto` prefers Open Exchange Rates when `OPEN_EXCHANGE_RATES_APP_ID` is configured and falls back to ECB reference rates if the real-time provider is unavailable.
+- `PAYMENT_FX_RATES_TTL_MS` overrides the backend FX cache TTL. Leave it blank to use provider-aware defaults.
+- The frontend keeps a short local poll loop and respects the server-provided FX cache TTL so it can pick up fresher rates without hammering the provider.

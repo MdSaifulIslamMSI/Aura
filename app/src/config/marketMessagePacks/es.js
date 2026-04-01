@@ -1328,7 +1328,7 @@ export const MARKET_MESSAGE_PACK = {
   "listingDetail.quickReply.available": "\"Esto todavia esta disponible\"",
   "listingDetail.quickReply.call": "\"Podemos realizar una llamada rapida sobre esto\"",
   "listingDetail.quickReply.meet": "\"Podemos reunirnos hoy para comprobar el articulo\"",
-  "listingDetail.quickReply.offer": "\"Considerarias Rs {{amount}}\"",
+  "listingDetail.quickReply.offer": "\"Considerarias {{amount}}\"",
   "listingDetail.quickReply.photos": "\"Puedes compartir algunas fotos mas en primer plano\"",
   "listingDetail.safety.note1": "Reunase en lugares publicos y bien iluminados.",
   "listingDetail.safety.note2": "Verifique el articulo fisicamente antes del pago.",

@@ -1328,7 +1328,7 @@ export const MARKET_MESSAGE_PACK = {
   "listingDetail.quickReply.available": "hl hdh l yzl mtH\"",
   "listingDetail.quickReply.call": "hl ymknn lqfz `l~ mklm@ sry`@ Hwl hdh lmwDw`\"",
   "listingDetail.quickReply.meet": "hl ymknn 'n njtm` lywm lltHqq mn hdh lbnd\"",
-  "listingDetail.quickReply.offer": "hl tfkr fy Rs {{amount}}\"",
+  "listingDetail.quickReply.offer": "hl tfkr fy {{amount}}\"",
   "listingDetail.quickReply.photos": "hl ymknk mshrk@ b`D lSwr lqryb@\"",
   "listingDetail.safety.note1": "ltqi fy l'mkn l`m@ lmD@ jydan.",
   "listingDetail.safety.note2": "tHqq mn l`nSr mdyan qbl ldf`.",

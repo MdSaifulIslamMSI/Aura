@@ -1328,7 +1328,7 @@ export const MARKET_MESSAGE_PACK = {
   "listingDetail.quickReply.available": "korehamadaRu Shou Ke Neng desuka\"",
   "listingDetail.quickReply.call": "konoJian nitsuiteJian Dan niDian Hua dekimasuka\"",
   "listingDetail.quickReply.meet": "Jin Ri Shang Pin woQue Ren surutamenioHui idekimasuka\"",
-  "listingDetail.quickReply.offer": "{{amount}}rupi-woJian Tao shiteitadakemasuka\"",
+  "listingDetail.quickReply.offer": "{{amount}}woJian Tao shiteitadakemasuka\"",
   "listingDetail.quickReply.photos": "motsutokuro-zuatsupunoXie Zhen woikutsukaGong You shiteitadakemasuka\"",
   "listingDetail.safety.note1": "Gong Gong noMing ruiChang Suo deJi marimashiyou.",
   "listingDetail.safety.note2": "Zhi Fu iQian niShang Pin woWu Li De niQue Ren shitekudasai.",

@@ -5,9 +5,13 @@ const {
     roundCurrency,
 } = require('./helpers');
 
+const OPEN_EXCHANGE_RATES_LATEST_URL = process.env.PAYMENT_FX_OPEN_EXCHANGE_RATES_URL
+    || 'https://openexchangerates.org/api/latest.json';
 const ECB_DAILY_RATES_URL = process.env.PAYMENT_FX_ECB_DAILY_URL
     || 'https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml';
-const DEFAULT_TTL_MS = 6 * 60 * 60 * 1000;
+const DEFAULT_ECB_TTL_MS = 60 * 60 * 1000;
+const DEFAULT_REALTIME_TTL_MS = 60 * 60 * 1000;
+const AED_PER_USD = 3.6725;
 
 let fxCache = {
     data: null,
@@ -15,11 +19,41 @@ let fxCache = {
     inFlight: null,
 };
 
-const parseTtlMs = () => {
+const applyDerivedRates = (rates = {}) => {
+    const nextRates = { ...(rates || {}) };
+    const usdRate = Number(nextRates.USD);
+    const aedRate = Number(nextRates.AED);
+
+    // ECB does not publish AED directly, so derive it from the USD peg.
+    if ((!Number.isFinite(aedRate) || aedRate <= 0) && Number.isFinite(usdRate) && usdRate > 0) {
+        nextRates.AED = Number(new Decimal(usdRate).times(AED_PER_USD).toSignificantDigits(12).toString());
+    }
+
+    return nextRates;
+};
+
+const normalizeProviderName = (value = '') => {
+    const normalized = String(value || '').trim().toLowerCase();
+    if (!normalized) return 'auto';
+    if (['oxr', 'openexchangerates', 'open_exchange_rates'].includes(normalized)) {
+        return 'openexchangerates';
+    }
+    if (normalized === 'ecb') {
+        return 'ecb';
+    }
+    return 'auto';
+};
+
+const parseTtlMs = (fallbackTtlMs = DEFAULT_ECB_TTL_MS) => {
     const raw = Number.parseInt(String(process.env.PAYMENT_FX_RATES_TTL_MS || ''), 10);
-    if (!Number.isFinite(raw) || raw < 60_000) return DEFAULT_TTL_MS;
+    if (!Number.isFinite(raw) || raw < 1_000) return fallbackTtlMs;
     return Math.min(raw, 24 * 60 * 60 * 1000);
 };
+
+const withCacheMetadata = (payload = {}, ttlMs = DEFAULT_ECB_TTL_MS) => ({
+    ...payload,
+    cacheTtlMs: ttlMs,
+});
 
 const extractEcbRates = (xml = '') => {
     const asOfMatch = xml.match(/time=['"](\d{4}-\d{2}-\d{2})['"]/i);
@@ -38,14 +72,14 @@ const extractEcbRates = (xml = '') => {
         rates[match[1]] = Number(match[2]);
     });
 
-    return {
+    return withCacheMetadata({
         source: 'ecb_reference_rates',
         provider: 'ecb',
         referenceBaseCurrency: 'EUR',
         asOfDate: asOfMatch?.[1] || '',
         fetchedAt: new Date().toISOString(),
-        rates,
-    };
+        rates: applyDerivedRates(rates),
+    }, parseTtlMs(DEFAULT_ECB_TTL_MS));
 };
 
 const fetchEcbRates = async () => {
@@ -68,9 +102,122 @@ const fetchEcbRates = async () => {
     return extractEcbRates(xml);
 };
 
+const extractOpenExchangeRates = (payload = {}) => {
+    const timestampSeconds = Number(payload?.timestamp || 0);
+    const fetchedAt = Number.isFinite(timestampSeconds) && timestampSeconds > 0
+        ? new Date(timestampSeconds * 1000).toISOString()
+        : new Date().toISOString();
+    const baseCurrency = normalizeCurrencyCode(payload?.base) || 'USD';
+    const rawRates = {
+        [baseCurrency]: 1,
+        ...(payload?.rates || {}),
+    };
+    const rates = Object.entries(rawRates).reduce((result, [currency, rate]) => {
+        const normalizedCurrency = normalizeCurrencyCode(currency);
+        const numericRate = Number(rate);
+        if (normalizedCurrency && Number.isFinite(numericRate) && numericRate > 0) {
+            result[normalizedCurrency] = numericRate;
+        }
+        return result;
+    }, {});
+
+    if (!Object.keys(rates).length) {
+        throw new AppError('Open Exchange Rates did not return any rates', 502);
+    }
+
+    return withCacheMetadata({
+        source: 'open_exchange_rates_latest',
+        provider: 'openexchangerates',
+        referenceBaseCurrency: baseCurrency,
+        asOfDate: fetchedAt.slice(0, 10),
+        fetchedAt,
+        rates: applyDerivedRates(rates),
+    }, parseTtlMs(DEFAULT_REALTIME_TTL_MS));
+};
+
+const fetchOpenExchangeRates = async () => {
+    const appId = String(process.env.OPEN_EXCHANGE_RATES_APP_ID || '').trim();
+    if (!appId) {
+        throw new AppError('Open Exchange Rates App ID is not configured', 502);
+    }
+
+    const requestUrl = new URL(OPEN_EXCHANGE_RATES_LATEST_URL);
+    requestUrl.searchParams.set('app_id', appId);
+    requestUrl.searchParams.set('prettyprint', '0');
+
+    let response;
+    try {
+        response = await fetch(requestUrl, {
+            headers: {
+                Accept: 'application/json',
+            },
+        });
+    } catch (error) {
+        throw new AppError(`Unable to reach Open Exchange Rates: ${error.message}`, 502);
+    }
+
+    if (!response.ok) {
+        let errorBody = '';
+        try {
+            errorBody = await response.text();
+        } catch {
+            errorBody = '';
+        }
+        throw new AppError(`Open Exchange Rates returned ${response.status}${errorBody ? ` ${errorBody}` : ''}`, 502);
+    }
+
+    let payload;
+    try {
+        payload = await response.json();
+    } catch (error) {
+        throw new AppError(`Open Exchange Rates returned invalid JSON: ${error.message}`, 502);
+    }
+
+    return extractOpenExchangeRates(payload);
+};
+
+const getProviderSequence = () => {
+    const configuredProvider = normalizeProviderName(process.env.PAYMENT_FX_PROVIDER);
+    if (configuredProvider === 'openexchangerates') {
+        return ['openexchangerates', 'ecb'];
+    }
+    if (configuredProvider === 'ecb') {
+        return ['ecb'];
+    }
+    return String(process.env.OPEN_EXCHANGE_RATES_APP_ID || '').trim()
+        ? ['openexchangerates', 'ecb']
+        : ['ecb'];
+};
+
+const fetchRatesFromProvider = async (provider = 'ecb') => {
+    if (provider === 'openexchangerates') {
+        return fetchOpenExchangeRates();
+    }
+    return fetchEcbRates();
+};
+
+const fetchProviderChain = async () => {
+    const providers = getProviderSequence();
+    const providerErrors = [];
+
+    for (const provider of providers) {
+        try {
+            return await fetchRatesFromProvider(provider);
+        } catch (error) {
+            providerErrors.push(`${provider}: ${error.message}`);
+        }
+    }
+
+    throw new AppError(
+        providerErrors.length > 0
+            ? `Unable to fetch FX rates from any provider (${providerErrors.join(' | ')})`
+            : 'Unable to fetch FX rates from any provider',
+        502,
+    );
+};
+
 const getFxRates = async ({ forceRefresh = false } = {}) => {
     const now = Date.now();
-    const ttlMs = parseTtlMs();
 
     if (!forceRefresh && fxCache.data && fxCache.expiresAt > now) {
         return fxCache.data;
@@ -82,10 +229,10 @@ const getFxRates = async ({ forceRefresh = false } = {}) => {
 
     fxCache.inFlight = (async () => {
         try {
-            const data = await fetchEcbRates();
+            const data = await fetchProviderChain();
             fxCache = {
                 data,
-                expiresAt: Date.now() + ttlMs,
+                expiresAt: Date.now() + Number(data?.cacheTtlMs || parseTtlMs()),
                 inFlight: null,
             };
             return data;

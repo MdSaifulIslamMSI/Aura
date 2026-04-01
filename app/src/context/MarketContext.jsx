@@ -33,7 +33,17 @@ import { marketApi, readCachedBrowseFxRates } from '@/services/api/marketApi';
 import { setActiveMarketHeaders } from '@/services/marketRuntime';
 
 const MarketContext = createContext(null);
-const LIVE_BROWSE_FX_REFRESH_MS = 30 * 60 * 1000;
+const DEFAULT_LIVE_BROWSE_FX_REFRESH_MS = 60 * 1000;
+const MIN_LIVE_BROWSE_FX_REFRESH_MS = 1000;
+const MAX_LIVE_BROWSE_FX_REFRESH_MS = 60 * 1000;
+
+const getLiveBrowseFxRefreshMs = (cacheTtlMs = DEFAULT_LIVE_BROWSE_FX_REFRESH_MS) => {
+  const numericValue = Number(cacheTtlMs);
+  if (!Number.isFinite(numericValue) || numericValue < MIN_LIVE_BROWSE_FX_REFRESH_MS) {
+    return DEFAULT_LIVE_BROWSE_FX_REFRESH_MS;
+  }
+  return Math.max(MIN_LIVE_BROWSE_FX_REFRESH_MS, Math.min(numericValue, MAX_LIVE_BROWSE_FX_REFRESH_MS));
+};
 
 const readStoredPreference = () => {
   if (typeof window === 'undefined') {
@@ -102,6 +112,7 @@ export function MarketProvider({
             provider: cachedPayload.provider || '',
             fetchedAt: cachedPayload.fetchedAt || '',
             asOfDate: cachedPayload.asOfDate || '',
+            cacheTtlMs: Number(cachedPayload.cacheTtlMs || 0),
             stale: Boolean(cachedPayload.stale),
             staleReason: cachedPayload.staleReason || '',
           }
@@ -145,6 +156,7 @@ export function MarketProvider({
           provider: payload.provider || '',
           fetchedAt: payload.fetchedAt || '',
           asOfDate: payload.asOfDate || '',
+          cacheTtlMs: Number(payload.cacheTtlMs || 0),
           stale: Boolean(payload.stale),
           staleReason: payload.staleReason || '',
         };
@@ -176,6 +188,18 @@ export function MarketProvider({
       }
     };
 
+    const handleForegroundRefresh = () => {
+      if (cancelled) {
+        return;
+      }
+
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+        return;
+      }
+
+      void refreshBrowseFxRates();
+    };
+
     applyBrowseFxPayload(readCachedBrowseFxRates(BROWSE_BASE_CURRENCY));
     refreshTimeoutId = window.setTimeout(() => {
       if (typeof window.requestIdleCallback === 'function') {
@@ -190,7 +214,11 @@ export function MarketProvider({
 
     const intervalId = window.setInterval(() => {
       void refreshBrowseFxRates();
-    }, LIVE_BROWSE_FX_REFRESH_MS);
+    }, getLiveBrowseFxRefreshMs(browseFxState.meta?.cacheTtlMs));
+
+    window.addEventListener('focus', handleForegroundRefresh);
+    window.addEventListener('online', handleForegroundRefresh);
+    document.addEventListener('visibilitychange', handleForegroundRefresh);
 
     return () => {
       cancelled = true;
@@ -201,9 +229,12 @@ export function MarketProvider({
       if (refreshIdleId && typeof window.cancelIdleCallback === 'function') {
         window.cancelIdleCallback(refreshIdleId);
       }
+      window.removeEventListener('focus', handleForegroundRefresh);
+      window.removeEventListener('online', handleForegroundRefresh);
+      document.removeEventListener('visibilitychange', handleForegroundRefresh);
       window.clearInterval(intervalId);
     };
-  }, []);
+  }, [browseFxState.meta?.cacheTtlMs]);
 
   const market = useMemo(() => getSupportedMarket(preference.countryCode), [preference.countryCode]);
   const language = useMemo(() => getSupportedLanguage(preference.language), [preference.language]);

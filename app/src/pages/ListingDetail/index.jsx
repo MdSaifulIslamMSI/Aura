@@ -30,6 +30,7 @@ import { useVideoCall } from '@/context/VideoCallContext';
 import { useDynamicTranslations } from '@/hooks/useDynamicTranslations';
 import { toast } from 'sonner';
 
+import { BROWSE_BASE_CURRENCY } from '@/config/marketConfig';
 import { loadRazorpayScript } from '@/utils/razorpay';
 import OtpChallengeModal from '@/pages/Checkout/components/OtpChallengeModal';
 
@@ -130,7 +131,7 @@ export default function ListingDetail() {
     const location = useLocation();
     const navigate = useNavigate();
     const { currentUser, dbUser } = useContext(AuthContext);
-    const { t } = useMarket();
+    const { t, formatPrice } = useMarket();
     const [listing, setListing] = useState(null);
     const [listingLiveCall, setListingLiveCall] = useState(null);
     const [trustPassport, setTrustPassport] = useState(null);
@@ -400,6 +401,9 @@ export default function ListingDetail() {
     );
 
     const counterpartName = counterpart?.name || seller?.name || t('listingDetail.chat.seller', {}, 'Seller');
+    const formatListingPrice = useCallback((value) => formatPrice(Number(value || 0), undefined, undefined, {
+        baseCurrency: BROWSE_BASE_CURRENCY,
+    }), [formatPrice]);
 
     const otherInboxThreads = useMemo(
         () => chatInbox.filter((thread) => String(thread?.listing?._id || '') !== String(id)),
@@ -411,13 +415,13 @@ export default function ListingDetail() {
         return [
             t('listingDetail.quickReply.available', {}, 'Is this still available?'),
             listing?.negotiable
-                ? t('listingDetail.quickReply.offer', { amount: suggestedOffer.toLocaleString('en-IN') }, 'Would you consider Rs {{amount}}?')
+                ? t('listingDetail.quickReply.offer', { amount: formatListingPrice(suggestedOffer) }, 'Would you consider {{amount}}?')
                 : t('listingDetail.quickReply.photos', {}, 'Can you share a few more close-up photos?'),
             showLiveInspectionAction
                 ? t('listingDetail.quickReply.call', {}, 'Can we hop on a quick call about this?')
                 : t('listingDetail.quickReply.meet', {}, 'Can we meet today to check the item?'),
         ];
-    }, [listing?.negotiable, listing?.price, showLiveInspectionAction, t]);
+    }, [formatListingPrice, listing?.negotiable, listing?.price, showLiveInspectionAction, t]);
 
     const offerSuggestions = useMemo(() => {
         const listingPrice = Number(listing?.price || 0);
@@ -612,7 +616,7 @@ export default function ListingDetail() {
         setChatSending(true);
         setChatError('');
         try {
-            const offerText = `Offer: Rs ${Math.round(amount).toLocaleString('en-IN')} for ${listing.title}`;
+            const offerText = `Offer: ${formatListingPrice(Math.round(amount))} for ${listing.title}`;
             const result = await listingApi.sendListingMessage(id, { text: offerText });
             setConversation(result.conversation || null);
             setOfferPrice('');
@@ -879,7 +883,7 @@ export default function ListingDetail() {
 
                     <div className="space-y-6">
                         <div className="sticky top-4 rounded-3xl border border-cyan-400/20 bg-slate-900/75 p-6 shadow-[0_0_40px_rgba(34,211,238,0.12)]">
-                            <p className="text-3xl font-black text-slate-100">Rs. {listing.price?.toLocaleString('en-IN')}</p>
+                            <p className="text-3xl font-black text-slate-100">{formatListingPrice(listing.price)}</p>
                             {listing.negotiable && <p className="mt-1 text-sm text-emerald-300">{t('listingDetail.price.negotiable', {}, 'Price is negotiable')}</p>}
                             {escrowEnabled && (
                                 <p className="mt-1 inline-flex items-center gap-1.5 rounded-full border border-cyan-300/35 bg-cyan-500/15 px-3 py-1 text-[11px] font-black uppercase tracking-[0.12em] text-cyan-100">
@@ -1280,7 +1284,7 @@ export default function ListingDetail() {
                                             <p className="text-[11px] font-black uppercase tracking-[0.22em] text-cyan-200/80">{t('listingDetail.chat.pinnedListing', {}, 'Pinned listing')}</p>
                                             <p className="mt-1 truncate text-base font-bold text-white">{translatedListingTitle}</p>
                                             <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-slate-300">
-                                                <span className="font-black text-emerald-200">Rs. {Number(listing.price || 0).toLocaleString('en-IN')}</span>
+                                                <span className="font-black text-emerald-200">{formatListingPrice(listing.price)}</span>
                                                 <span className="text-slate-500">|</span>
                                                 <span>{listing.location?.city || t('listingDetail.marketplace', {}, 'Marketplace')}</span>
                                                 <span className="text-slate-500">|</span>
@@ -1447,7 +1451,7 @@ export default function ListingDetail() {
                                                     onClick={() => setOfferPrice(String(suggestedValue))}
                                                     className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-sm font-semibold text-slate-200 transition hover:border-cyan-300/25 hover:text-cyan-100"
                                                 >
-                                                    Rs {suggestedValue.toLocaleString('en-IN')}
+                                                    {formatListingPrice(suggestedValue)}
                                                 </button>
                                             ))}
                                         </div>
@@ -1457,7 +1461,7 @@ export default function ListingDetail() {
                                                 type="number"
                                                 value={offerPrice}
                                                 onChange={(event) => setOfferPrice(event.target.value)}
-                                                placeholder={t('listingDetail.offer.placeholder', { amount: Math.max(1, Math.round(Number(listing.price || 0) * 0.9)).toLocaleString('en-IN') }, 'Example: {{amount}}')}
+                                                placeholder={t('listingDetail.offer.placeholder', { amount: formatListingPrice(Math.max(1, Math.round(Number(listing.price || 0) * 0.9))) }, 'Example: {{amount}}')}
                                                 className="support-chat-input h-12 px-4 text-sm text-white"
                                             />
                                             <button
