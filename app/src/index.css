@@ -168,19 +168,19 @@ html[data-color-mode='sunset'] body {
 }
 
 html[data-color-mode='white'] body {
-  background-color: #f4f7fb;
+  background-color: #eef3f8;
   color: #0f172a;
   background-image:
-      radial-gradient(circle at 8% 10%, rgba(191, 219, 254, 0.42) 0%, rgba(191, 219, 254, 0) 32%),
-    radial-gradient(circle at 90% 6%, rgba(186, 230, 253, 0.34) 0%, rgba(186, 230, 253, 0) 30%),
-    radial-gradient(circle at 12% 88%, rgba(209, 250, 229, 0.35) 0%, rgba(209, 250, 229, 0) 24%),
-    linear-gradient(120deg, rgba(15, 23, 42, 0.03) 0%, rgba(15, 23, 42, 0) 45%);
+    radial-gradient(circle at 8% 10%, rgba(191, 219, 254, 0.24) 0%, rgba(191, 219, 254, 0) 30%),
+    radial-gradient(circle at 90% 6%, rgba(186, 230, 253, 0.18) 0%, rgba(186, 230, 253, 0) 28%),
+    radial-gradient(circle at 12% 88%, rgba(209, 250, 229, 0.22) 0%, rgba(209, 250, 229, 0) 22%),
+    linear-gradient(160deg, rgba(255, 255, 255, 0.86) 0%, rgba(241, 245, 249, 0.96) 52%, rgba(226, 232, 240, 0.96) 100%);
 }
 
 html[data-color-mode='white'] body::before {
   background:
-    radial-gradient(circle at top center, rgba(255, 255, 255, 0.65) 0%, rgba(255, 255, 255, 0) 38%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.18) 0%, rgba(241, 245, 249, 0.24) 42%, rgba(226, 232, 240, 0.38) 100%);
+    radial-gradient(circle at top center, rgba(255, 255, 255, 0.32) 0%, rgba(255, 255, 255, 0) 34%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(241, 245, 249, 0.12) 42%, rgba(203, 213, 225, 0.2) 100%);
 }
 
 html[data-color-mode='white'] body::after {
