@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { MapPin, Eye, Package, ShieldCheck, Calendar, ArrowLeft, AlertTriangle } from 'lucide-react';
 import { listingApi } from '@/services/api';
 import { useMarket } from '@/context/MarketContext';
+import { BROWSE_BASE_CURRENCY } from '@/config/marketConfig';
 
 const formatRelativeSellerTime = (dateStr, t, formatNumber) => {
   const timestamp = new Date(dateStr).getTime();
@@ -191,7 +192,9 @@ export default function SellerProfile() {
                   )}
                 </div>
                 <div className="p-3">
-                  <p className="text-lg font-black text-slate-100">{formatPrice(listing.price, 'INR')}</p>
+                  <p className="text-lg font-black text-slate-100">
+                    {formatPrice(Number(listing.price || 0), undefined, undefined, { baseCurrency: BROWSE_BASE_CURRENCY })}
+                  </p>
                   <h3 className="mt-1 line-clamp-1 text-sm font-medium text-slate-200">{listing.title}</h3>
                   <div className="mt-2 flex items-center justify-between text-xs text-slate-400">
                     <span className="flex items-center gap-1">

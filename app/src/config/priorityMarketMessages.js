@@ -418,7 +418,7 @@ export const PRIORITY_MARKET_MESSAGES = {
     'listingDetail.chat.copy.reconnecting': 'Is deal ke liye realtime dobara connect ho raha hai.',
     'listingDetail.chat.copy.polling': 'Realtime polling fallback par hai. Aura is thread ko har {{seconds}} seconds me refresh karta hai.',
     'listingDetail.quickReply.available': 'Kya yeh abhi bhi available hai?',
-    'listingDetail.quickReply.offer': 'Kya aap Rs {{amount}} consider karenge?',
+    'listingDetail.quickReply.offer': 'Kya aap {{amount}} consider karenge?',
     'listingDetail.quickReply.photos': 'Kya aap kuch aur close-up photos share kar sakte hain?',
     'listingDetail.quickReply.call': 'Kya hum is par ek quick call kar sakte hain?',
     'listingDetail.quickReply.meet': 'Kya aaj milkar item check kar sakte hain?',

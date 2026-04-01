@@ -1328,7 +1328,7 @@ export const MARKET_MESSAGE_PACK = {
   "listingDetail.quickReply.available": "Zhe Huan Ke Yong Ma \"",
   "listingDetail.quickReply.call": "Wo Men Ke Yi Jiu Ci Shi Jin Xing Kuai Su Tong Hua Ma \"",
   "listingDetail.quickReply.meet": "Wo Men Jin Tian Ke Yi Jian Mian Jian Cha Yi Xia Gai Wu Pin Ma \"",
-  "listingDetail.quickReply.offer": "Nin Hui Kao Lu {{amount}} Lu Bi Ma \"",
+  "listingDetail.quickReply.offer": "Nin Hui Kao Lu {{amount}} Ma \"",
   "listingDetail.quickReply.photos": "Ke Yi Zai Fen Xiang Ji Zhang Te Xie Zhao Pian Ma \"",
   "listingDetail.safety.note1": "Zai Gong Gong , Guang Xian Chong Zu De Di Fang Jian Mian .",
   "listingDetail.safety.note2": "Fu Kuan Qian Dui Shang Pin Jin Xing Shi Wu Yan Zheng .",

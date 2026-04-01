@@ -1,6 +1,6 @@
 import { apiFetch } from '../apiBase';
 
-const FX_CACHE_TTL_MS = 30 * 60 * 1000;
+const DEFAULT_FX_CACHE_TTL_MS = 60 * 1000;
 const FX_STORAGE_KEY_PREFIX = 'aura_market_fx_rates_v1';
 const fxPayloadCache = new Map();
 const inflightFxRequests = new Map();
@@ -11,7 +11,17 @@ const normalizeCurrencyCode = (value = '', fallback = 'INR') => (
 
 const getCacheKey = (baseCurrency = 'INR') => normalizeCurrencyCode(baseCurrency);
 
-const isFresh = (cachedAt = 0) => (Date.now() - Number(cachedAt || 0)) < FX_CACHE_TTL_MS;
+const normalizeCacheTtlMs = (value = 0) => {
+    const numericValue = Number(value);
+    if (!Number.isFinite(numericValue) || numericValue < 1_000) {
+        return DEFAULT_FX_CACHE_TTL_MS;
+    }
+    return Math.min(numericValue, 24 * 60 * 60 * 1000);
+};
+
+const isFresh = (cachedAt = 0, cacheTtlMs = DEFAULT_FX_CACHE_TTL_MS) => (
+    (Date.now() - Number(cachedAt || 0)) < normalizeCacheTtlMs(cacheTtlMs)
+);
 
 const normalizeRates = (rates = {}, baseCurrency = 'INR') => {
     const normalizedBaseCurrency = normalizeCurrencyCode(baseCurrency);
@@ -40,13 +50,14 @@ const readSessionPayload = (baseCurrency = 'INR') => {
         }
 
         const parsed = JSON.parse(rawValue);
-        if (!isFresh(parsed.cachedAt)) {
+        if (!isFresh(parsed.cachedAt, parsed.cacheTtlMs)) {
             window.sessionStorage.removeItem(`${FX_STORAGE_KEY_PREFIX}:${getCacheKey(baseCurrency)}`);
             return null;
         }
 
         return {
             ...parsed,
+            cacheTtlMs: normalizeCacheTtlMs(parsed.cacheTtlMs),
             baseCurrency: normalizeCurrencyCode(parsed.baseCurrency || baseCurrency),
             rates: normalizeRates(parsed.rates, parsed.baseCurrency || baseCurrency),
         };
@@ -73,7 +84,7 @@ const writeSessionPayload = (payload = {}) => {
 const readCachedPayload = (baseCurrency = 'INR') => {
     const cacheKey = getCacheKey(baseCurrency);
     const memoryCached = fxPayloadCache.get(cacheKey);
-    if (memoryCached && isFresh(memoryCached.cachedAt)) {
+    if (memoryCached && isFresh(memoryCached.cachedAt, memoryCached.value?.cacheTtlMs)) {
         return memoryCached.value;
     }
 
@@ -92,6 +103,7 @@ const readCachedPayload = (baseCurrency = 'INR') => {
 const writeCachedPayload = (payload = {}) => {
     const normalizedPayload = {
         ...payload,
+        cacheTtlMs: normalizeCacheTtlMs(payload.cacheTtlMs),
         baseCurrency: normalizeCurrencyCode(payload.baseCurrency),
         rates: normalizeRates(payload.rates, payload.baseCurrency),
         cachedAt: Date.now(),
@@ -138,6 +150,7 @@ export const marketApi = {
             method: 'GET',
             params: {
                 baseCurrency: normalizedBaseCurrency,
+                refresh: force ? 'true' : undefined,
             },
             signal,
             timeoutMs: 12000,
@@ -150,6 +163,7 @@ export const marketApi = {
                 provider: data?.provider || '',
                 fetchedAt: data?.fetchedAt || '',
                 asOfDate: data?.asOfDate || '',
+                cacheTtlMs: data?.cacheTtlMs,
                 stale: Boolean(data?.stale),
                 staleReason: data?.staleReason || '',
             }))
