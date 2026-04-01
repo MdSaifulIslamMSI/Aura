@@ -105,7 +105,7 @@ const Orders = () => {
 
     if (!currentUser) {
         return (
-            <div className="min-h-[80vh] flex items-center justify-center relative overflow-hidden">
+            <div className="orders-theme-shell min-h-[80vh] flex items-center justify-center relative overflow-hidden">
                 <div className="container-custom py-10">
                     <div className="bg-white/5 border border-white/10 rounded-3xl p-12 text-center max-w-lg mx-auto shadow-glass">
                         <h2 className="text-2xl font-black text-white uppercase tracking-widest mb-6 border-b border-white/10 pb-4">{t('orders.authRequiredTitle', {}, 'Authentication Required')}</h2>
@@ -121,7 +121,7 @@ const Orders = () => {
 
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center relative overflow-hidden">
+            <div className="orders-theme-shell min-h-screen flex items-center justify-center relative overflow-hidden">
                 <div className="absolute inset-0 bg-zinc-950 flex flex-col items-center justify-center">
                     <div className="relative w-24 h-24 flex items-center justify-center mb-6">
                         <div className="absolute inset-0 border-4 border-white/10 rounded-full" />
@@ -136,7 +136,7 @@ const Orders = () => {
 
     if (orders.length === 0) {
         return (
-            <div className="min-h-[80vh] flex items-center justify-center relative overflow-hidden">
+            <div className="orders-theme-shell min-h-[80vh] flex items-center justify-center relative overflow-hidden">
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[min(80vw,600px)] h-[min(80vw,600px)] bg-neo-fuchsia/5 rounded-full blur-[150px] pointer-events-none -z-10" />
                 <div className="container-custom py-10">
                     <div className="bg-white/5 border border-white/10 rounded-3xl p-12 text-center max-w-lg mx-auto shadow-glass relative group overflow-hidden">
@@ -158,7 +158,7 @@ const Orders = () => {
     }
 
     return (
-        <div className="min-h-screen pb-20 pt-8 relative">
+        <div className="orders-theme-shell min-h-screen pb-20 pt-8 relative">
             <div className="absolute top-0 right-0 w-[min(70vw,500px)] h-[min(70vw,500px)] bg-neo-cyan/5 rounded-full blur-[150px] pointer-events-none -z-10" />
 
             <div className="container-custom max-w-4xl mx-auto px-4 lg:px-8">

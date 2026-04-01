@@ -303,7 +303,7 @@ export default function MissionControl() {
   const comparePath = translatedMissionPlan.compareIds.length >= 2 ? `/compare?ids=${translatedMissionPlan.compareIds.join(',')}` : '/compare';
 
   return (
-    <div className="min-h-screen bg-[#04060f] pb-16 text-slate-100">
+    <div className="mission-control-theme-shell min-h-screen bg-[#04060f] pb-16 text-slate-100">
       <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
         <div className="absolute left-[-8%] top-[10%] h-[420px] w-[420px] rounded-full bg-cyan-500/14 blur-3xl" />
         <div className="absolute right-[-10%] top-[18%] h-[460px] w-[460px] rounded-full bg-emerald-500/12 blur-3xl" />
