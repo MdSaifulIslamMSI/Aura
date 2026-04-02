@@ -28,6 +28,7 @@ import { useDynamicTranslations } from '@/hooks/useDynamicTranslations';
 import { cn } from '@/lib/utils';
 import { parseSemanticSearchIntent } from '@/utils/assistantIntent';
 import { formatPrice } from '@/utils/format';
+import { formatEntityPrice } from '@/utils/pricing';
 import VoiceSearch from '@/components/shared/VoiceSearch';
 import { useDismissableLayer } from '@/hooks/useDismissableLayer';
 
@@ -791,7 +792,7 @@ const GlobalSearchBar = ({
                       </div>
 
                       <div className="text-right flex-shrink-0">
-                        <div className="text-sm font-black text-neo-cyan">{formatPrice(product.price) || t('search.view', {}, 'View')}</div>
+                        <div className="text-sm font-black text-neo-cyan">{formatEntityPrice(formatPrice, product) || t('search.view', {}, 'View')}</div>
                         <div className="text-[11px] text-slate-500 flex items-center justify-end gap-1">
                           {t('search.open', {}, 'Open')}
                           <ChevronRight className="w-3 h-3" />

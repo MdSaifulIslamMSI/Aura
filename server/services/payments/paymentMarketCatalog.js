@@ -1,8 +1,15 @@
 const AppError = require('../../utils/AppError');
+const { MARKET_RULES } = require('../markets/marketCatalog');
 
 const DEFAULT_SETTLEMENT_CURRENCY = 'INR';
 const DEFAULT_DOMESTIC_COUNTRY = 'IN';
-const DEFAULT_CARD_PRESENTMENT_CURRENCIES = ['INR', 'USD', 'EUR', 'GBP', 'AED', 'AUD', 'CAD', 'SGD', 'JPY'];
+const DEFAULT_CARD_PRESENTMENT_CURRENCIES = Array.from(new Set([
+    DEFAULT_SETTLEMENT_CURRENCY,
+    ...Object.values(MARKET_RULES)
+        .map((rule) => String(rule?.currency || '').trim().toUpperCase())
+        .filter((currency) => /^[A-Z]{3}$/.test(currency)),
+    'SGD',
+]));
 
 const regionNames = typeof Intl?.DisplayNames === 'function'
     ? new Intl.DisplayNames(['en'], { type: 'region' })

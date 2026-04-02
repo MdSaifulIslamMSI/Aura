@@ -2,11 +2,12 @@ import { useContext, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Loader2, Sparkles, Zap, ShoppingCart, ShieldCheck } from 'lucide-react';
 import PremiumSelect from '@/components/ui/premium-select';
+import { useMarket } from '@/context/MarketContext';
 import { productApi } from '@/services/api';
 import { aiApi } from '@/services/aiApi';
 import { CartContext } from '@/context/CartContext';
 import { useCommerceStore } from '@/store/commerceStore';
-import { formatPrice } from '@/utils/format';
+import { formatBasePrice, formatEntityPrice } from '@/utils/pricing';
 
 const THEME_PRESETS = [
     { value: 'home gym starter kit', label: 'Home Gym Starter Kit' },
@@ -26,6 +27,7 @@ export default function Bundles() {
     const [searchParams, setSearchParams] = useSearchParams();
     const { addToCart } = useContext(CartContext);
     const clearDirectBuy = useCommerceStore((state) => state.clearDirectBuy);
+    const { formatPrice } = useMarket();
 
     const [theme, setTheme] = useState(searchParams.get('theme') || 'home gym starter kit');
     const [budget, setBudget] = useState(clampBudget(searchParams.get('budget')));
@@ -168,7 +170,7 @@ export default function Bundles() {
                         </PremiumSelect>
 
                         <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mt-4 mb-2">
-                            Budget ({formatPrice(budget)})
+                            Budget ({formatBasePrice(formatPrice, budget)})
                         </label>
                         <input
                             type="range"
@@ -221,8 +223,8 @@ export default function Bundles() {
                                     </div>
                                     <div className="text-right">
                                         <p className="text-sm text-slate-400">Bundle Total</p>
-                                        <p className="text-2xl font-black text-cyan-100">{formatPrice(bundle.totalPrice || 0)}</p>
-                                        <p className="text-xs text-emerald-300">Savings {formatPrice(bundle.savings || 0)}</p>
+                                        <p className="text-2xl font-black text-cyan-100">{formatBasePrice(formatPrice, bundle.totalPrice || 0)}</p>
+                                        <p className="text-xs text-emerald-300">Savings {formatBasePrice(formatPrice, bundle.savings || 0)}</p>
                                     </div>
                                 </div>
 
@@ -290,7 +292,7 @@ export default function Bundles() {
                                             <img src={item.image} alt={item.title} className="w-full h-36 object-cover rounded-lg bg-zinc-900/70" />
                                             <p className="mt-2 text-sm font-bold text-white line-clamp-2">{item.title}</p>
                                             <p className="text-xs text-slate-400">{item.brand} • {item.category}</p>
-                                            <p className="mt-1 text-sm font-black text-cyan-100">{formatPrice(item.price)}</p>
+                                            <p className="mt-1 text-sm font-black text-cyan-100">{formatEntityPrice(formatPrice, item)}</p>
                                         </Link>
                                     ))}
                                 </div>
