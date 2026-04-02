@@ -42,17 +42,22 @@ const ChatContainer = ({
         : 'border-cyan-400/25 bg-cyan-400/10 text-cyan-100 hover:bg-cyan-400/15';
 
     return (
-        <div className={cn('pointer-events-auto flex h-[min(78vh,680px)] w-[min(92vw,420px)] flex-col overflow-hidden rounded-[1.9rem] border backdrop-blur-2xl', shellClassName)}>
-            <header className="border-b border-white/10 px-4 py-4">
+        <div
+            className={cn(
+                'pointer-events-auto flex h-[calc(100vh-0.75rem)] w-[calc(100vw-0.75rem)] min-h-0 min-w-0 flex-col overflow-hidden rounded-[1.9rem] border backdrop-blur-2xl sm:h-[min(92vh,860px)] sm:w-[min(96vw,980px)] lg:h-[min(92vh,920px)] lg:w-[min(94vw,1320px)] xl:w-[min(92vw,1480px)]',
+                shellClassName
+            )}
+        >
+            <header className="border-b border-white/10 px-5 py-5 sm:px-6">
                 <div className="flex items-start justify-between gap-4">
                     <div>
                         <div className="flex items-center gap-2">
-                            <h3 className="text-sm font-black uppercase tracking-[0.18em]">Shopping Assistant</h3>
+                            <h3 className="text-sm font-black uppercase tracking-[0.18em] sm:text-[15px]">Shopping Assistant</h3>
                             <span className={cn('rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em]', panelClassName)}>
                                 {modeLabel}
                             </span>
                         </div>
-                        <p className={cn('mt-1 text-sm', mutedTextClass)}>{subtitle}</p>
+                        <p className={cn('mt-1 max-w-3xl text-sm sm:text-[15px]', mutedTextClass)}>{subtitle}</p>
                         <p className={cn('mt-2 text-[11px] font-medium uppercase tracking-[0.14em]', mutedTextClass)}>
                             {routeLabel}
                         </p>
@@ -84,7 +89,7 @@ const ChatContainer = ({
                 onModifyPending={onModifyPending}
             />
 
-            <div className="border-t border-white/10 px-4 py-4">
+            <div className="border-t border-white/10 px-5 py-5 sm:px-6">
                 <ActionBar
                     primaryAction={primaryAction}
                     secondaryActions={secondaryActions}
@@ -107,11 +112,11 @@ const ChatContainer = ({
                                 onSubmit?.(event);
                             }
                         }}
-                        rows={Math.min(Math.max(String(inputValue || '').split('\n').length, 1), 4)}
+                        rows={Math.min(Math.max(String(inputValue || '').split('\n').length, 2), 6)}
                         placeholder={isListening ? 'Listening...' : 'Describe what you want, or tell me the issue to hand off.'}
                         disabled={isLoading}
                         className={cn(
-                            'min-h-[52px] flex-1 resize-none bg-transparent px-2 py-2 text-sm outline-none',
+                            'min-h-[84px] flex-1 resize-none bg-transparent px-2 py-2 text-sm outline-none sm:text-[15px]',
                             mutedTextClass
                         )}
                     />
