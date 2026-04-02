@@ -1,5 +1,6 @@
 import { apiFetch, API_BASE_URL as BASE_URL, buildServiceUrl } from '../apiBase';
 import { getAuthHeader, parseApiError } from './apiUtils';
+import { cartApi, normalizeCartSnapshot } from './cartApi';
 
 const PROFILE_CACHE_TTL_MS = 15 * 1000;
 const profileCache = {
@@ -22,15 +23,22 @@ const invalidateProfileCache = () => {
     profileCache.promise = null;
 };
 
-const normalizeCartPayload = (payload = {}) => ({
-    items: Array.isArray(payload?.items)
-        ? payload.items
-        : Array.isArray(payload?.cart)
-            ? payload.cart
-            : [],
-    revision: Number(payload?.revision ?? 0),
-    syncedAt: payload?.syncedAt || null,
-});
+const normalizeCartPayload = (payload = {}) => {
+    const snapshot = payload?.cart && typeof payload.cart === 'object' && !Array.isArray(payload.cart)
+        ? payload.cart
+        : payload;
+
+    return {
+        items: Array.isArray(snapshot?.items)
+            ? snapshot.items
+            : Array.isArray(snapshot?.cart)
+                ? snapshot.cart
+                : [],
+        revision: Number(snapshot?.revision ?? snapshot?.version ?? 0),
+        syncedAt: snapshot?.syncedAt || snapshot?.updatedAt || null,
+        summary: snapshot?.summary || null,
+    };
+};
 
 const normalizeWishlistPayload = (payload = {}) => ({
     items: Array.isArray(payload?.items)
@@ -47,6 +55,94 @@ const coerceProfileOptions = (options = {}) => {
         return {};
     }
     return options || {};
+};
+
+const normalizeCartItemsForCommands = (items = []) => {
+    const merged = new Map();
+
+    (Array.isArray(items) ? items : []).forEach((item) => {
+        const productId = Number(item?.productId ?? item?.id);
+        const quantity = Number(item?.quantity ?? item?.qty ?? 1);
+        if (!Number.isInteger(productId) || productId <= 0) return;
+        if (!Number.isInteger(quantity) || quantity <= 0) return;
+
+        if (merged.has(productId)) {
+            merged.set(productId, merged.get(productId) + quantity);
+            return;
+        }
+
+        merged.set(productId, quantity);
+    });
+
+    return Array.from(merged.entries()).map(([productId, quantity]) => ({
+        productId,
+        quantity,
+    }));
+};
+
+const buildCartMutationResponse = (snapshot, productId = null) => {
+    const normalizedSnapshot = normalizeCartPayload(snapshot);
+    const selectedItem = productId === null
+        ? null
+        : normalizedSnapshot.items.find((item) => Number(item?.id || item?.productId) === Number(productId)) || null;
+
+    return {
+        item: selectedItem,
+        revision: normalizedSnapshot.revision,
+        syncedAt: normalizedSnapshot.syncedAt,
+    };
+};
+
+const buildCartConflictError = (snapshot) => {
+    const normalizedSnapshot = normalizeCartPayload(snapshot);
+    const error = new Error('Cart revision conflict');
+    error.status = 409;
+    error.data = normalizedSnapshot;
+    return error;
+};
+
+const normalizeCartConflictError = (error) => {
+    if (Number(error?.status || 0) !== 409) {
+        return error;
+    }
+
+    error.data = normalizeCartPayload(error?.data?.cart || error?.data || {});
+    if (!error.message) {
+        error.message = 'Cart revision conflict';
+    }
+    return error;
+};
+
+const buildReplaceCartCommands = (currentItems = [], desiredItems = []) => {
+    const currentById = new Map(
+        normalizeCartItemsForCommands(currentItems).map((item) => [item.productId, item.quantity])
+    );
+    const desiredById = new Map(
+        normalizeCartItemsForCommands(desiredItems).map((item) => [item.productId, item.quantity])
+    );
+
+    const commands = [];
+
+    currentById.forEach((_quantity, productId) => {
+        if (!desiredById.has(productId)) {
+            commands.push({
+                type: 'remove_item',
+                productId,
+            });
+        }
+    });
+
+    desiredById.forEach((quantity, productId) => {
+        if (currentById.get(productId) !== quantity) {
+            commands.push({
+                type: 'set_quantity',
+                productId,
+                quantity,
+            });
+        }
+    });
+
+    return commands;
 };
 
 export const userApi = {
@@ -97,77 +193,128 @@ export const userApi = {
     },
     getCart: async (options = {}) => {
         const { firebaseUser } = coerceProfileOptions(options);
-        const headers = await getAuthHeader(firebaseUser);
-        const { data } = await apiFetch('/users/cart', {
-            headers,
-        });
-        return normalizeCartPayload(data);
+        const snapshot = await cartApi.getCart({ firebaseUser });
+        return normalizeCartPayload(snapshot);
     },
-    addCartItem: async ({ productId, quantity = 1, expectedRevision = null, firebaseUser = null } = {}) => {
-        const headers = await getAuthHeader(firebaseUser);
-        const { data } = await apiFetch('/users/cart/items', {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({
-                productId,
-                quantity,
-                ...(expectedRevision !== null && expectedRevision !== undefined ? { expectedRevision } : {}),
-            }),
-        });
-        invalidateProfileCache();
-        return data;
+    addCartItem: async ({
+        productId,
+        quantity = 1,
+        expectedRevision = null,
+        firebaseUser = null,
+        clientMutationId = '',
+    } = {}) => {
+        try {
+            const response = await cartApi.applyCommands({
+                firebaseUser,
+                expectedVersion: expectedRevision,
+                clientMutationId,
+                commands: [{
+                    type: 'add_item',
+                    productId,
+                    quantity,
+                }],
+            });
+            invalidateProfileCache();
+            return buildCartMutationResponse(response.cart, productId);
+        } catch (error) {
+            throw normalizeCartConflictError(error);
+        }
     },
-    setCartItemQuantity: async ({ productId, quantity, expectedRevision = null, firebaseUser = null } = {}) => {
-        const headers = await getAuthHeader(firebaseUser);
-        const { data } = await apiFetch(`/users/cart/items/${productId}`, {
-            method: 'PATCH',
-            headers,
-            body: JSON.stringify({
-                quantity,
-                ...(expectedRevision !== null && expectedRevision !== undefined ? { expectedRevision } : {}),
-            }),
-        });
-        invalidateProfileCache();
-        return data;
+    setCartItemQuantity: async ({
+        productId,
+        quantity,
+        expectedRevision = null,
+        firebaseUser = null,
+        clientMutationId = '',
+    } = {}) => {
+        try {
+            const response = await cartApi.applyCommands({
+                firebaseUser,
+                expectedVersion: expectedRevision,
+                clientMutationId,
+                commands: [{
+                    type: 'set_quantity',
+                    productId,
+                    quantity,
+                }],
+            });
+            invalidateProfileCache();
+            return buildCartMutationResponse(response.cart, productId);
+        } catch (error) {
+            throw normalizeCartConflictError(error);
+        }
     },
-    removeCartItem: async ({ productId, expectedRevision = null, firebaseUser = null } = {}) => {
-        const headers = await getAuthHeader(firebaseUser);
-        const { data } = await apiFetch(`/users/cart/items/${productId}`, {
-            method: 'DELETE',
-            headers,
-            body: JSON.stringify({
-                ...(expectedRevision !== null && expectedRevision !== undefined ? { expectedRevision } : {}),
-            }),
-        });
-        invalidateProfileCache();
-        return data;
+    removeCartItem: async ({
+        productId,
+        expectedRevision = null,
+        firebaseUser = null,
+        clientMutationId = '',
+    } = {}) => {
+        try {
+            const response = await cartApi.applyCommands({
+                firebaseUser,
+                expectedVersion: expectedRevision,
+                clientMutationId,
+                commands: [{
+                    type: 'remove_item',
+                    productId,
+                }],
+            });
+            invalidateProfileCache();
+            return buildCartMutationResponse(response.cart, productId);
+        } catch (error) {
+            throw normalizeCartConflictError(error);
+        }
     },
     mergeCart: async ({ items = [], expectedRevision = null, firebaseUser = null } = {}) => {
-        const headers = await getAuthHeader(firebaseUser);
-        const { data } = await apiFetch('/users/cart/merge', {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({
-                items,
-                ...(expectedRevision !== null && expectedRevision !== undefined ? { expectedRevision } : {}),
-            }),
-        });
-        invalidateProfileCache();
-        return normalizeCartPayload(data);
+        const normalizedItems = normalizeCartItemsForCommands(items);
+        if (normalizedItems.length === 0) {
+            return userApi.getCart({ firebaseUser });
+        }
+
+        try {
+            const { cart } = await cartApi.applyCommands({
+                firebaseUser,
+                expectedVersion: expectedRevision,
+                commands: normalizedItems.map((item) => ({
+                    type: 'add_item',
+                    productId: item.productId,
+                    quantity: item.quantity,
+                })),
+            });
+            invalidateProfileCache();
+            return normalizeCartPayload(cart);
+        } catch (error) {
+            throw normalizeCartConflictError(error);
+        }
     },
     syncCart: async (cartItems, options = {}) => {
         const { firebaseUser, expectedRevision = null } = coerceProfileOptions(options);
-        const headers = await getAuthHeader(firebaseUser);
-        const { data } = await apiFetch('/users/cart', {
-            method: 'PUT',
-            headers,
-            body: JSON.stringify({
-                cartItems,
-                ...(expectedRevision !== null && expectedRevision !== undefined ? { expectedRevision } : {}),
-            }),
-        });
-        invalidateProfileCache();
-        return normalizeCartPayload(data);
+        try {
+            const currentSnapshot = normalizeCartSnapshot(await cartApi.getCart({ firebaseUser }));
+            if (
+                expectedRevision !== null
+                && expectedRevision !== undefined
+                && Number(currentSnapshot.version || 0) !== Number(expectedRevision)
+            ) {
+                throw buildCartConflictError(currentSnapshot);
+            }
+
+            const commands = buildReplaceCartCommands(currentSnapshot.items, cartItems);
+            if (commands.length === 0) {
+                return normalizeCartPayload(currentSnapshot);
+            }
+
+            const { cart } = await cartApi.applyCommands({
+                firebaseUser,
+                expectedVersion: expectedRevision ?? currentSnapshot.version,
+                commands,
+            });
+            invalidateProfileCache();
+            return normalizeCartPayload(cart);
+        } catch (error) {
+            throw normalizeCartConflictError(error);
+        }
     },
     syncWishlist: async (wishlistItems, options = {}) => {
         const { firebaseUser, expectedRevision = null } = coerceProfileOptions(options);

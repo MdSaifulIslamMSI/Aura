@@ -29,6 +29,13 @@ jest.mock('../models/Product', () => ({
     findOne: jest.fn(),
 }));
 
+jest.mock('../models/Cart', () => ({
+    findOne: jest.fn(),
+    findOneAndUpdate: jest.fn(),
+    findById: jest.fn(),
+    create: jest.fn(),
+}));
+
 jest.mock('../services/authProfileVault', () => ({
     saveAuthProfileSnapshot: jest.fn(),
 }));
@@ -66,6 +73,7 @@ const userRoutes = require('../routes/userRoutes');
 const { errorHandler, notFound } = require('../middleware/errorMiddleware');
 const User = require('../models/User');
 const Product = require('../models/Product');
+const Cart = require('../models/Cart');
 
 const makeLeanChain = (result) => ({
     select: jest.fn().mockReturnThis(),
@@ -101,29 +109,31 @@ describe('User cart concurrency protections', () => {
             brand: 'Aura',
         };
 
-        const staleUser = {
+        const user = {
             _id: 'user-1',
             email: 'shopper@example.com',
-            cart: [],
-            cartRevision: 4,
-            cartSyncedAt: new Date('2026-04-01T00:05:00.000Z'),
         };
 
-        const latestUser = {
-            ...staleUser,
-            cart: [
-                {
-                    ...liveProduct,
-                    quantity: 1,
-                },
-            ],
-            cartRevision: 5,
-            cartSyncedAt: new Date('2026-04-01T00:05:10.000Z'),
+        const staleCart = {
+            _id: 'cart-1',
+            user: 'user-1',
+            items: [],
+            version: 4,
+            recentMutations: [],
+            updatedAtIso: '2026-04-01T00:05:00.000Z',
         };
 
-        User.findOne.mockResolvedValue(staleUser);
-        User.findOneAndUpdate.mockResolvedValue(null);
-        User.findById.mockResolvedValue(latestUser);
+        const latestCart = {
+            ...staleCart,
+            items: [{ productId: 7, quantity: 1 }],
+            version: 5,
+            updatedAtIso: '2026-04-01T00:05:10.000Z',
+        };
+
+        User.findOne.mockResolvedValue(user);
+        Cart.findOne.mockImplementation(() => makeLeanChain(staleCart));
+        Cart.findOneAndUpdate.mockResolvedValue(null);
+        Cart.findById.mockImplementation(() => makeLeanChain(latestCart));
         Product.findOne.mockImplementation(() => makeLeanChain(liveProduct));
         Product.find.mockImplementation(() => makeLeanChain([liveProduct]));
 
@@ -147,19 +157,22 @@ describe('User cart concurrency protections', () => {
                 price: 14999,
             }),
         ]);
-        expect(User.findOneAndUpdate).toHaveBeenCalledWith(
+        expect(Cart.findOneAndUpdate).toHaveBeenCalledWith(
             expect.objectContaining({
-                _id: 'user-1',
-                cartRevision: 4,
+                _id: 'cart-1',
+                version: 4,
             }),
             expect.objectContaining({
-                $inc: { cartRevision: 1 },
+                $inc: { version: 1 },
             }),
-            expect.objectContaining({ new: true }),
+            expect.objectContaining({
+                returnDocument: 'after',
+                lean: true,
+            }),
         );
     });
 
-    test('GET /api/users/cart falls back to the latest cart snapshot when hydration loses the race', async () => {
+    test('GET /api/users/cart reads the dedicated cart aggregate instead of legacy user snapshots', async () => {
         const liveProduct = {
             id: 7,
             title: 'Aura Phone',
@@ -171,36 +184,28 @@ describe('User cart concurrency protections', () => {
             brand: 'Aura',
         };
 
-        const staleUser = {
+        const user = {
             _id: 'user-1',
             email: 'shopper@example.com',
-            cart: [
-                {
-                    ...liveProduct,
-                    price: 14999,
-                    originalPrice: 16999,
-                    quantity: 1,
-                },
-            ],
+            cart: [{
+                ...liveProduct,
+                quantity: 1,
+            }],
             cartRevision: 2,
             cartSyncedAt: new Date('2026-04-01T00:02:00.000Z'),
         };
 
-        const latestUser = {
-            ...staleUser,
-            cart: [
-                {
-                    ...liveProduct,
-                    quantity: 2,
-                },
-            ],
-            cartRevision: 3,
-            cartSyncedAt: new Date('2026-04-01T00:02:08.000Z'),
+        const dedicatedCart = {
+            _id: 'cart-1',
+            user: 'user-1',
+            items: [{ productId: 7, quantity: 2 }],
+            version: 3,
+            recentMutations: [],
+            updatedAtIso: '2026-04-01T00:02:08.000Z',
         };
 
-        User.findOne.mockResolvedValue(staleUser);
-        User.findOneAndUpdate.mockResolvedValue(null);
-        User.findById.mockResolvedValue(latestUser);
+        User.findOne.mockResolvedValue(user);
+        Cart.findOne.mockImplementation(() => makeLeanChain(dedicatedCart));
         Product.find.mockImplementation(() => makeLeanChain([liveProduct]));
 
         const res = await request(app).get('/api/users/cart');
@@ -216,15 +221,7 @@ describe('User cart concurrency protections', () => {
                 price: 15999,
             }),
         ]);
-        expect(User.findOneAndUpdate).toHaveBeenCalledWith(
-            expect.objectContaining({
-                _id: 'user-1',
-                cartRevision: 2,
-            }),
-            expect.objectContaining({
-                $inc: { cartRevision: 1 },
-            }),
-            expect.objectContaining({ new: true }),
-        );
+        expect(Cart.findOne).toHaveBeenCalledWith({ user: 'user-1' });
+        expect(User.findOneAndUpdate).not.toHaveBeenCalled();
     });
 });

@@ -10,6 +10,14 @@ const logger = require('../utils/logger');
 const AppError = require('../utils/AppError');
 const { buildProductImageDeliveryUrl } = require('../services/productImageResolver');
 const { buildDisplayPair } = require('../services/markets/marketPricing');
+const {
+    getCartSnapshot: getDedicatedCartSnapshot,
+    applyCartCommands: applyDedicatedCartCommands,
+    replaceCartItems: replaceDedicatedCartItems,
+    mergeCartItemsIntoCart: mergeDedicatedCartItemsIntoCart,
+    buildLegacyCartResponse: buildDedicatedLegacyCartResponse,
+    toLegacyCartItem: toDedicatedLegacyCartItem,
+} = require('../services/cartService');
 
 const PROFILE_PROJECTION = 'name email phone avatar gender dob bio isAdmin isVerified isSeller sellerActivatedAt accountState moderation addresses cart cartRevision cartSyncedAt wishlist wishlistRevision wishlistSyncedAt loyalty createdAt';
 const AUTH_ONLY_PROJECTION = 'name email phone isAdmin isVerified isSeller sellerActivatedAt accountState moderation loyalty';
@@ -679,8 +687,13 @@ const getUserProfile = asyncHandler(async (req, res, next) => {
         return next(new AppError('Unable to recover user profile', 500));
     }
 
-    const cartHydratedUser = await ensureHydratedUserCartDocument(user);
-    const hydratedUser = await ensureHydratedUserWishlistDocument(cartHydratedUser);
+    const hydratedUser = await ensureHydratedUserWishlistDocument(user);
+    const cartSnapshot = await getDedicatedCartSnapshot({
+        userId: hydratedUser._id,
+        user: hydratedUser,
+        market: req.market,
+    });
+    const legacyCart = buildDedicatedLegacyCartResponse(cartSnapshot, req.market);
 
     await persistAuthSnapshot(hydratedUser);
 
@@ -700,12 +713,12 @@ const getUserProfile = asyncHandler(async (req, res, next) => {
         accountState: hydratedUser.accountState || 'active',
         moderation: hydratedUser.moderation || {},
         addresses: hydratedUser.addresses || [],
-        cart: hydratedUser.cart || [],
+        cart: legacyCart.items,
         wishlist: hydratedUser.wishlist || [],
         wishlistRevision: Number(hydratedUser.wishlistRevision || 0),
         wishlistSyncedAt: hydratedUser.wishlistSyncedAt || null,
-        cartRevision: Number(hydratedUser.cartRevision || 0),
-        cartSyncedAt: hydratedUser.cartSyncedAt || null,
+        cartRevision: legacyCart.revision,
+        cartSyncedAt: legacyCart.syncedAt,
         loyalty: getRewardSnapshotFromUser(hydratedUser),
         createdAt: hydratedUser.createdAt,
     });
@@ -798,7 +811,7 @@ const getProfileDashboard = asyncHandler(async (req, res, next) => {
     });
     if (!user) return next(new AppError('Unable to recover user profile', 500));
 
-    const [orders, listingStats] = await Promise.all([
+    const [orders, listingStats, cartSnapshot] = await Promise.all([
         Order.find({ user: user._id })
             .sort({ createdAt: -1 })
             .limit(5)
@@ -806,7 +819,11 @@ const getProfileDashboard = asyncHandler(async (req, res, next) => {
         Listing.aggregate([
             { $match: { seller: user._id } },
             { $group: { _id: '$status', count: { $sum: 1 }, totalViews: { $sum: '$views' } } }
-        ])
+        ]),
+        getDedicatedCartSnapshot({
+            userId: user._id,
+            user,
+        }),
     ]);
 
     const totalOrders = await Order.countDocuments({ user: user._id });
@@ -834,9 +851,7 @@ const getProfileDashboard = asyncHandler(async (req, res, next) => {
             totalOrders,
             totalSpent,
             wishlistCount: Array.isArray(user?.wishlist) ? user.wishlist.length : 0,
-            cartCount: Array.isArray(user?.cart)
-                ? user.cart.reduce((sum, item) => sum + Math.max(1, Number(item?.quantity || 1)), 0)
-                : 0,
+            cartCount: Number(cartSnapshot?.summary?.totalQuantity || 0),
             listings,
             rewards: getRewardSnapshotFromUser(user),
         },
@@ -978,8 +993,12 @@ const getCart = asyncHandler(async (req, res, next) => {
         return next(new AppError('Unable to recover user profile', 500));
     }
 
-    user = await ensureHydratedUserCartDocument(user);
-    return res.json(await buildCartResponse(user, req.market));
+    const cartSnapshot = await getDedicatedCartSnapshot({
+        userId: user._id,
+        user,
+        market: req.market,
+    });
+    return res.json(buildDedicatedLegacyCartResponse(cartSnapshot, req.market));
 });
 
 const syncCart = asyncHandler(async (req, res, next) => {
@@ -1005,17 +1024,23 @@ const syncCart = asyncHandler(async (req, res, next) => {
         return next(new AppError('Unable to recover user profile', 500));
     }
 
-    user = await ensureHydratedUserCartDocument(user);
+    const result = await replaceDedicatedCartItems({
+        userId: user._id,
+        user,
+        expectedVersion: expectedRevision,
+        cartItems,
+        market: req.market,
+    });
 
-    if (expectedRevision !== null && Number(user.cartRevision || 0) !== expectedRevision) {
-        return sendCartConflict(res, user, req.market);
+    if (result.conflict) {
+        return res.status(409).json({
+            code: 'cart_revision_conflict',
+            message: 'Cart revision conflict',
+            ...buildDedicatedLegacyCartResponse(result.cart, req.market),
+        });
     }
 
-    const { user: persistedUser, conflict } = await persistCartMutation(user, cartItems);
-    if (conflict) {
-        return sendCartConflict(res, persistedUser || user, req.market);
-    }
-    res.json(await buildCartResponse(persistedUser, req.market));
+    res.json(buildDedicatedLegacyCartResponse(result.cart, req.market));
 });
 
 const addCartItem = asyncHandler(async (req, res, next) => {
@@ -1044,44 +1069,36 @@ const addCartItem = asyncHandler(async (req, res, next) => {
         return next(new AppError('Unable to recover user profile', 500));
     }
 
-    user = await ensureHydratedUserCartDocument(user);
+    const currentSnapshot = await getDedicatedCartSnapshot({
+        userId: user._id,
+        user,
+        market: req.market,
+    });
+    const result = await applyDedicatedCartCommands({
+        userId: user._id,
+        user,
+        expectedVersion: expectedRevision,
+        commands: [{
+            type: 'add_item',
+            productId,
+            quantity,
+        }],
+        market: req.market,
+    });
 
-    if (expectedRevision !== null && Number(user.cartRevision || 0) !== expectedRevision) {
-        return sendCartConflict(res, user, req.market);
+    if (result.conflict) {
+        return res.status(409).json({
+            code: 'cart_revision_conflict',
+            message: 'Cart revision conflict',
+            ...buildDedicatedLegacyCartResponse(result.cart, req.market),
+        });
     }
 
-    const liveProduct = await loadLiveProductById(productId);
-    if (!liveProduct) {
-        return next(new AppError('Product not found', 404));
-    }
-    if (Number(liveProduct.stock || 0) <= 0) {
-        return next(new AppError('Product is out of stock', 409));
-    }
-
-    const nextCart = Array.isArray(user.cart)
-        ? user.cart.map((item) => normalizeCartItemPayload(item))
-        : [];
-    const existingIndex = nextCart.findIndex((item) => Number(item.id) === productId);
-
-    if (existingIndex >= 0) {
-        nextCart[existingIndex] = {
-            ...nextCart[existingIndex],
-            quantity: Math.max(1, Number(nextCart[existingIndex].quantity || 1)) + quantity,
-        };
-    } else {
-        nextCart.push(buildCartLineFromProduct(liveProduct, quantity));
-    }
-
-    const { user: persistedUser, hydratedCart, conflict } = await persistCartMutation(user, nextCart);
-    if (conflict) {
-        return sendCartConflict(res, persistedUser || user, req.market);
-    }
-    const changedItem = hydratedCart.find((item) => Number(item.id) === productId) || null;
-
-    res.status(existingIndex >= 0 ? 200 : 201).json({
-        item: changedItem,
-        revision: Number(persistedUser.cartRevision || 0),
-        syncedAt: persistedUser.cartSyncedAt || null,
+    const changedItem = result.cart.items.find((item) => Number(item.productId) === productId) || null;
+    res.status(currentSnapshot.items.some((item) => Number(item.productId) === productId) ? 200 : 201).json({
+        item: changedItem ? toDedicatedLegacyCartItem(changedItem) : null,
+        revision: Number(result.cart.version || 0),
+        syncedAt: result.cart.updatedAt || null,
     });
 });
 
@@ -1111,53 +1128,31 @@ const setCartItemQuantity = asyncHandler(async (req, res, next) => {
         return next(new AppError('Unable to recover user profile', 500));
     }
 
-    user = await ensureHydratedUserCartDocument(user);
+    const result = await applyDedicatedCartCommands({
+        userId: user._id,
+        user,
+        expectedVersion: expectedRevision,
+        commands: [{
+            type: 'set_quantity',
+            productId,
+            quantity,
+        }],
+        market: req.market,
+    });
 
-    if (expectedRevision !== null && Number(user.cartRevision || 0) !== expectedRevision) {
-        return sendCartConflict(res, user, req.market);
-    }
-
-    const currentCart = Array.isArray(user.cart)
-        ? user.cart.map((item) => normalizeCartItemPayload(item))
-        : [];
-    const existingIndex = currentCart.findIndex((item) => Number(item.id) === productId);
-
-    if (existingIndex < 0) {
-        return res.json({
-            item: null,
-            revision: Number(user.cartRevision || 0),
-            syncedAt: user.cartSyncedAt || null,
+    if (result.conflict) {
+        return res.status(409).json({
+            code: 'cart_revision_conflict',
+            message: 'Cart revision conflict',
+            ...buildDedicatedLegacyCartResponse(result.cart, req.market),
         });
     }
 
-    if (quantity === 0) {
-        const nextCart = currentCart.filter((item) => Number(item.id) !== productId);
-        const { user: persistedUser, conflict } = await persistCartMutation(user, nextCart);
-        if (conflict) {
-            return sendCartConflict(res, persistedUser || user, req.market);
-        }
-        return res.json({
-            item: null,
-            revision: Number(persistedUser.cartRevision || 0),
-            syncedAt: persistedUser.cartSyncedAt || null,
-        });
-    }
-
-    currentCart[existingIndex] = {
-        ...currentCart[existingIndex],
-        quantity: Math.max(1, quantity),
-    };
-
-    const { user: persistedUser, hydratedCart, conflict } = await persistCartMutation(user, currentCart);
-    if (conflict) {
-        return sendCartConflict(res, persistedUser || user, req.market);
-    }
-    const changedItem = hydratedCart.find((item) => Number(item.id) === productId) || null;
-
+    const changedItem = result.cart.items.find((item) => Number(item.productId) === productId) || null;
     return res.json({
-        item: changedItem,
-        revision: Number(persistedUser.cartRevision || 0),
-        syncedAt: persistedUser.cartSyncedAt || null,
+        item: changedItem ? toDedicatedLegacyCartItem(changedItem) : null,
+        revision: Number(result.cart.version || 0),
+        syncedAt: result.cart.updatedAt || null,
     });
 });
 
@@ -1183,31 +1178,28 @@ const removeCartItem = asyncHandler(async (req, res, next) => {
         return next(new AppError('Unable to recover user profile', 500));
     }
 
-    user = await ensureHydratedUserCartDocument(user);
+    const result = await applyDedicatedCartCommands({
+        userId: user._id,
+        user,
+        expectedVersion: expectedRevision,
+        commands: [{
+            type: 'remove_item',
+            productId,
+        }],
+        market: req.market,
+    });
 
-    if (expectedRevision !== null && Number(user.cartRevision || 0) !== expectedRevision) {
-        return sendCartConflict(res, user, req.market);
-    }
-
-    const currentCart = Array.isArray(user.cart)
-        ? user.cart.map((item) => normalizeCartItemPayload(item))
-        : [];
-    const nextCart = currentCart.filter((item) => Number(item.id) !== productId);
-
-    if (nextCart.length === currentCart.length) {
-        return res.json({
-            revision: Number(user.cartRevision || 0),
-            syncedAt: user.cartSyncedAt || null,
+    if (result.conflict) {
+        return res.status(409).json({
+            code: 'cart_revision_conflict',
+            message: 'Cart revision conflict',
+            ...buildDedicatedLegacyCartResponse(result.cart, req.market),
         });
     }
 
-    const { user: persistedUser, conflict } = await persistCartMutation(user, nextCart);
-    if (conflict) {
-        return sendCartConflict(res, persistedUser || user, req.market);
-    }
     return res.json({
-        revision: Number(persistedUser.cartRevision || 0),
-        syncedAt: persistedUser.cartSyncedAt || null,
+        revision: Number(result.cart.version || 0),
+        syncedAt: result.cart.updatedAt || null,
     });
 });
 
@@ -1233,18 +1225,23 @@ const mergeCart = asyncHandler(async (req, res, next) => {
         return next(new AppError('Unable to recover user profile', 500));
     }
 
-    user = await ensureHydratedUserCartDocument(user);
+    const result = await mergeDedicatedCartItemsIntoCart({
+        userId: user._id,
+        user,
+        expectedVersion: expectedRevision,
+        items: incomingItems,
+        market: req.market,
+    });
 
-    if (expectedRevision !== null && Number(user.cartRevision || 0) !== expectedRevision) {
-        return sendCartConflict(res, user, req.market);
+    if (result.conflict) {
+        return res.status(409).json({
+            code: 'cart_revision_conflict',
+            message: 'Cart revision conflict',
+            ...buildDedicatedLegacyCartResponse(result.cart, req.market),
+        });
     }
 
-    const mergedCart = mergeCartItems(user.cart || [], incomingItems);
-    const { user: persistedUser, conflict } = await persistCartMutation(user, mergedCart);
-    if (conflict) {
-        return sendCartConflict(res, persistedUser || user, req.market);
-    }
-    return res.json(await buildCartResponse(persistedUser, req.market));
+    return res.json(buildDedicatedLegacyCartResponse(result.cart, req.market));
 });
 
 // @desc    Get wishlist snapshot

@@ -125,6 +125,10 @@ const normalizeCartLine = (item = {}) => {
         stock: Math.max(0, Number(item?.stock || 0)),
         deliveryTime: String(item?.deliveryTime || '2-3 days').trim(),
         quantity: Math.max(1, Number(item?.quantity || 1)),
+        requestedQuantity: Math.max(1, Number(item?.requestedQuantity || item?.quantity || 1)),
+        availableQuantity: Math.max(0, Number(item?.availableQuantity ?? item?.stock ?? 0)),
+        availability: String(item?.availability || 'in_stock').trim() || 'in_stock',
+        isAvailable: item?.isAvailable ?? Math.max(0, Number(item?.stock || 0)) > 0,
         pricing,
         market: item?.market || null,
     };
@@ -446,27 +450,43 @@ const buildCartSummary = (items = []) => items.reduce((acc, item) => {
 });
 
 const extractEntityPayload = (entityKey, payload = {}, source = 'user') => {
-    const items = Array.isArray(payload?.items)
-        ? payload.items
-        : Array.isArray(payload?.cart)
-            ? payload.cart
-            : Array.isArray(payload?.wishlist)
-                ? payload.wishlist
+    const entityPayload = entityKey === 'cart' && payload?.cart && typeof payload.cart === 'object' && !Array.isArray(payload.cart)
+        ? payload.cart
+        : entityKey === 'wishlist' && payload?.wishlist && typeof payload.wishlist === 'object' && !Array.isArray(payload.wishlist)
+            ? payload.wishlist
+            : payload;
+    const items = Array.isArray(entityPayload?.items)
+        ? entityPayload.items
+        : Array.isArray(entityPayload?.cart)
+            ? entityPayload.cart
+            : Array.isArray(entityPayload?.wishlist)
+                ? entityPayload.wishlist
                 : [];
 
     return {
         items: items
             .map((item) => (entityKey === 'cart' ? normalizeCartLine(item) : normalizeWishlistLine(item)))
             .filter((item) => (entityKey === 'cart' ? isValidCartLine(item) : isValidWishlistLine(item))),
-        revision: source === 'user' ? Number(payload?.revision ?? 0) : null,
-        syncedAt: payload?.syncedAt || null,
+        revision: source === 'user' ? Number(entityPayload?.revision ?? entityPayload?.version ?? 0) : null,
+        syncedAt: entityPayload?.syncedAt || entityPayload?.updatedAt || null,
     };
 };
 
 const extractConflictPayload = (entityKey, error) => {
     if (Number(error?.status || 0) !== 409) return null;
-    const data = error?.data || {};
-    if (!Array.isArray(data?.items)) return null;
+    const data = entityKey === 'cart' && error?.data?.cart
+        ? error.data.cart
+        : entityKey === 'wishlist' && error?.data?.wishlist
+            ? error.data.wishlist
+            : (error?.data || {});
+    const items = Array.isArray(data?.items)
+        ? data.items
+        : Array.isArray(data?.cart)
+            ? data.cart
+            : Array.isArray(data?.wishlist)
+                ? data.wishlist
+                : [];
+    if (!Array.isArray(items)) return null;
     return extractEntityPayload(entityKey, data, 'user');
 };
 
@@ -1687,6 +1707,33 @@ export const useCommerceStore = create((set, get) => {
             }
 
             broadcastEntitySnapshot(getCanonicalSnapshotForBroadcast(get(), 'cart'));
+        },
+
+        replaceCartSnapshot: (payload = {}, { source = 'user', broadcast = true } = {}) => {
+            const extracted = extractEntityPayload('cart', payload, source);
+            const nextCart = buildEntityState(
+                'cart',
+                extracted.items,
+                source,
+                extracted.revision,
+                [],
+                'ready',
+                null,
+                Date.now(),
+                extracted.syncedAt,
+            );
+
+            updateEntityState(set, 'cart', nextCart);
+
+            if (source === 'guest') {
+                persistGuestEntitySnapshot('cart', extracted.items);
+            }
+
+            if (broadcast) {
+                broadcastEntitySnapshot(getCanonicalSnapshotForBroadcast(get(), 'cart'));
+            }
+
+            return extracted.items;
         },
 
         clearWishlist: async () => {

@@ -38,6 +38,7 @@ const createIntentBodySchema = z.object({
     quotePayload: z.object({}).passthrough(),
     quoteSnapshot: z.object({
         totalPrice: z.coerce.number().positive().optional(),
+        cartVersion: z.coerce.number().int().nonnegative().optional(),
         baseAmount: z.coerce.number().positive().optional(),
         baseCurrency: z.string().trim().length(3)
             .regex(/^[A-Za-z]{3}$/)

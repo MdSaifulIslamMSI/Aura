@@ -64,7 +64,11 @@ const touchCommandCenter = (order) => {
 // @access  Private
 const quoteOrder = asyncHandler(async (req, res, next) => {
     try {
-        const quote = await buildOrderQuote(req.body, { checkStock: true, market: req.market });
+        const quote = await buildOrderQuote(req.body, {
+            checkStock: true,
+            market: req.market,
+            userId: req.user?._id || null,
+        });
         res.json({
             itemsPrice: quote.pricing.itemsPrice,
             couponDiscount: quote.pricing.couponDiscount,
@@ -88,6 +92,8 @@ const quoteOrder = asyncHandler(async (req, res, next) => {
             deliveryEstimate: quote.pricing.deliveryEstimate,
             priceBreakdown: quote.pricing.priceBreakdown,
             pricingVersion: PRICING_VERSION,
+            cartVersion: quote.cart?.version ?? null,
+            cart: quote.cart || null,
         });
     } catch (error) {
         if (error instanceof AppError) return next(error);
