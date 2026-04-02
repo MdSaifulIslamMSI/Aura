@@ -151,7 +151,6 @@ export const marketApi = {
             method: 'GET',
             params: {
                 baseCurrency: normalizedBaseCurrency,
-                refresh: force ? 'true' : undefined,
             },
             signal,
             timeoutMs: 12000,

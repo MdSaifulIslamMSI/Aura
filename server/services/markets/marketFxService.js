@@ -61,11 +61,10 @@ const isUnavailableRateError = (error) => (
 const getBrowseFxPayload = async ({
     baseCurrency = DEFAULT_BASE_CURRENCY,
     currencies = DEFAULT_BROWSE_CURRENCIES,
-    forceRefresh = false,
 } = {}) => {
     const normalizedBaseCurrency = normalizeCurrencyCode(baseCurrency) || DEFAULT_BASE_CURRENCY;
     const normalizedCurrencies = normalizeCurrencyList([normalizedBaseCurrency, ...currencies]);
-    const ratesPayload = await getFxRates({ forceRefresh });
+    const ratesPayload = await getFxRates({ allowStale: true });
     const unavailableCurrencies = [];
 
     const rateMap = normalizedCurrencies.reduce((result, currency) => {

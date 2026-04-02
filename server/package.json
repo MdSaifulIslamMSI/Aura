@@ -18,6 +18,7 @@
     "catalog:purge-jest-dbs": "node scripts/purge_jest_databases.js --execute",
     "catalog:kaggle:prepare": "node scripts/prepare_kaggle_catalog_snapshot.js",
     "catalog:kaggle:import": "node scripts/import_kaggle_catalog.js",
+    "fx:refresh": "node scripts/refresh_fx_rates.js",
     "test": "cross-env NODE_ENV=test jest --runInBand",
     "test:coverage": "cross-env NODE_ENV=test jest --runInBand --coverage",
     "test:transactions": "cross-env NODE_ENV=test TEST_REQUIRE_TRANSACTION_MONGO=true jest --runInBand",

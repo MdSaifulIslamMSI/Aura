@@ -71,6 +71,10 @@ const {
     startCommerceReconciliationWorker,
     getCommerceReconciliationStatus,
 } = require('./services/commerceReconciliationService');
+const {
+    startFxRateScheduler,
+    stopFxRateScheduler,
+} = require('./services/payments/fxRateService');
 const { startAdminAnalyticsMonitor } = require('./services/adminAnalyticsMonitorService');
 const { startEmailOpsMonitor } = require('./services/email/emailOpsMonitorService');
 const {
@@ -322,6 +326,7 @@ app.get('/health', async (req, res) => {
         },
         catalog: services.catalog || { status: 'unknown' },
         reconciliation: services.reconciliation || { status: 'unknown' },
+        fx: services.fx || { status: 'unknown' },
         realtime: services.realtime || {
             socket: getSocketHealth(),
             videoCalls: { activeRinging: 0, activeConnected: 0, endedRecently: 0 },
@@ -514,6 +519,7 @@ assertTrustedDeviceConfig();
                     startPaymentOutboxWorker();
                     startOrderEmailWorker();
                     startCommerceReconciliationWorker();
+                    startFxRateScheduler();
                     startAdminAnalyticsMonitor();
                     startEmailOpsMonitor();
                     startCatalogWorkers();
@@ -537,6 +543,11 @@ assertTrustedDeviceConfig();
         const gracefulShutdown = (signal) => {
             logger.info('server.shutdown_initiated', { signal, timeoutMs: GRACEFUL_SHUTDOWN_TIMEOUT_MS });
             httpServer.close(async () => {
+                try {
+                    stopFxRateScheduler();
+                } catch (err) {
+                    logger.warn('server.fx_scheduler_stop_failed', { error: err.message });
+                }
                 try {
                     const mongoose = require('mongoose');
                     await mongoose.connection.close(false);
