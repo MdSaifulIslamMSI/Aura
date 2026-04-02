@@ -386,6 +386,99 @@ describe('commerceStore', () => {
         expect(useCommerceStore.getState().cart.orderedIds).toEqual(['616']);
     });
 
+    it('keeps authenticated cart items when a forced hydrate returns an empty snapshot without fresher signals', async () => {
+        const recoveredItem = {
+            id: 717,
+            title: 'Pinned Camera',
+            brand: 'Aura',
+            price: 4299,
+            originalPrice: 4699,
+            discountPercentage: 9,
+            image: '/camera.png',
+            stock: 4,
+            deliveryTime: '1-2 days',
+            quantity: 1,
+        };
+
+        useCommerceStore.setState({
+            authUser: { uid: 'user-pinned', email: 'pinned@example.com' },
+            cart: createUserCartState({
+                itemsById: {
+                    '717': recoveredItem,
+                },
+                orderedIds: ['717'],
+                revision: 0,
+                syncedAt: null,
+            }),
+        });
+
+        vi.spyOn(userApi, 'getCart').mockResolvedValue({
+            items: [],
+            revision: 0,
+            syncedAt: null,
+        });
+        vi.spyOn(userApi, 'syncCart').mockResolvedValue({
+            items: [],
+            revision: 0,
+            syncedAt: null,
+        });
+
+        const result = await useCommerceStore.getState().hydrateCart({ force: true });
+
+        expect(result).toEqual([
+            expect.objectContaining({ id: 717, quantity: 1 }),
+        ]);
+        expect(useCommerceStore.getState().cart.orderedIds).toEqual(['717']);
+        expect(useCommerceStore.getState().cart.itemsById['717']).toMatchObject({
+            id: 717,
+            title: 'Pinned Camera',
+            quantity: 1,
+        });
+    });
+
+    it('ignores empty external user cart snapshots that are not newer than the local cart', () => {
+        const recoveredItem = {
+            id: 818,
+            title: 'Session-safe Console',
+            brand: 'Aura',
+            price: 3799,
+            originalPrice: 4199,
+            discountPercentage: 10,
+            image: '/console.png',
+            stock: 5,
+            deliveryTime: '1-2 days',
+            quantity: 1,
+        };
+
+        useCommerceStore.setState({
+            authUser: { uid: 'user-session', email: 'session@example.com' },
+            cart: createUserCartState({
+                itemsById: {
+                    '818': recoveredItem,
+                },
+                orderedIds: ['818'],
+                revision: 0,
+                syncedAt: null,
+            }),
+        });
+
+        useCommerceStore.getState().receiveExternalSnapshot({
+            entity: 'cart',
+            source: 'user',
+            userId: 'user-session',
+            items: [],
+            revision: 0,
+            syncedAt: null,
+        });
+
+        expect(useCommerceStore.getState().cart.orderedIds).toEqual(['818']);
+        expect(useCommerceStore.getState().cart.itemsById['818']).toMatchObject({
+            id: 818,
+            title: 'Session-safe Console',
+            quantity: 1,
+        });
+    });
+
     it('merges guest wishlist once when the authenticated session hydrates', async () => {
         localStorage.setItem(GUEST_WISHLIST_STORAGE_KEY, JSON.stringify([
             {
