@@ -1,22 +1,21 @@
-import { createContext, useContext, useEffect, useMemo } from 'react';
+import { useContext, useMemo } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { AuthContext } from './AuthContext';
 import {
-  initializeCommerceSync,
+  createCommerceEntityContext,
+  useDeferredStoreAction,
+  useRefreshFromServer,
+} from './commerceEntityContext';
+import {
   selectCartItems,
   selectCartLoading,
   selectCartSummary,
   useCommerceStore,
 } from '../store/commerceStore';
 
-export const CartContext = createContext();
-
-export const CartProvider = ({ children }) => {
-  const { currentUser, loading: isAuthLoading } = useContext(AuthContext);
-  const cartItems = useCommerceStore(useShallow(selectCartItems));
-  const isLoading = useCommerceStore(selectCartLoading);
+const useCartContextValue = ({ items: cartItems, isLoading }) => {
+  const { currentUser } = useContext(AuthContext);
   const cartSummary = useCommerceStore(useShallow(selectCartSummary));
-  const bindAuthUser = useCommerceStore((state) => state.bindAuthUser);
   const hydrateCart = useCommerceStore((state) => state.hydrateCart);
   const refreshIfStale = useCommerceStore((state) => state.refreshIfStale);
   const addItem = useCommerceStore((state) => state.addItem);
@@ -25,55 +24,41 @@ export const CartProvider = ({ children }) => {
   const moveCartItemToWishlist = useCommerceStore((state) => state.moveCartItemToWishlist);
   const clearCartState = useCommerceStore((state) => state.clearCart);
 
-  useEffect(() => {
-    const cleanup = initializeCommerceSync();
-    return () => cleanup?.();
-  }, []);
+  const moveToWishlist = useDeferredStoreAction(moveCartItemToWishlist);
+  const refreshCartFromServer = useRefreshFromServer(hydrateCart, refreshIfStale);
+  const clearCart = useMemo(() => (
+    () => clearCartState({ incrementRevision: Boolean(currentUser?.uid) })
+  ), [clearCartState, currentUser?.uid]);
 
-  useEffect(() => {
-    if (isAuthLoading) {
-      return;
-    }
-
-    bindAuthUser(currentUser || null).catch(() => {});
-  }, [bindAuthUser, currentUser?.email, currentUser?.uid, isAuthLoading]);
-
-  const moveToWishlist = (productId) => {
-    void moveCartItemToWishlist(productId);
-  };
-
-  const value = useMemo(() => ({
+  return useMemo(() => ({
     cartItems,
     isLoading,
     ...cartSummary,
     addToCart: addItem,
     removeFromCart: removeItem,
     updateQuantity: setQuantity,
-    clearCart: () => clearCartState({ incrementRevision: Boolean(currentUser?.uid) }),
+    clearCart,
     moveToWishlist,
-    refreshCartFromServer: (options = {}) => (
-      options?.force === true
-        ? hydrateCart({ force: true, mergeGuest: options?.mergeGuest === true })
-        : refreshIfStale({ force: options?.force === true })
-    ),
+    refreshCartFromServer,
   }), [
     addItem,
     cartItems,
     cartSummary,
-    clearCartState,
-    currentUser?.uid,
-    hydrateCart,
+    clearCart,
     isLoading,
     moveToWishlist,
+    refreshCartFromServer,
     removeItem,
-    refreshIfStale,
-    moveCartItemToWishlist,
     setQuantity,
   ]);
-
-  return (
-    <CartContext.Provider value={value}>
-      {children}
-    </CartContext.Provider>
-  );
 };
+
+const cartEntity = createCommerceEntityContext({
+  displayName: 'CartContext',
+  selectItems: selectCartItems,
+  selectLoading: selectCartLoading,
+  useContextValue: useCartContextValue,
+});
+
+export const CartContext = cartEntity.Context;
+export const CartProvider = cartEntity.Provider;
