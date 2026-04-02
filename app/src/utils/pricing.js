@@ -45,6 +45,20 @@ export const getBaseAmount = (entity = {}) => Number(getPricingModel(entity).bas
 export const getBaseCurrency = (entity = {}) => getPricingModel(entity).baseCurrency || 'INR';
 export const getOriginalBaseAmount = (entity = {}) => Number(getPricingModel(entity).originalBaseAmount || getBaseAmount(entity));
 
+export const formatBasePrice = (formatPrice, amount = 0, baseCurrency = 'INR') => (
+  typeof formatPrice === 'function'
+    ? formatPrice(Number(amount || 0), undefined, undefined, { baseCurrency: String(baseCurrency || 'INR').toUpperCase() })
+    : ''
+);
+
+export const formatEntityPrice = (formatPrice, entity = {}) => (
+  formatBasePrice(formatPrice, getBaseAmount(entity), getBaseCurrency(entity))
+);
+
+export const formatEntityOriginalPrice = (formatPrice, entity = {}) => (
+  formatBasePrice(formatPrice, getOriginalBaseAmount(entity), getBaseCurrency(entity))
+);
+
 export const getLineDisplayTotal = (entity = {}) => {
   const quantity = Math.max(1, Number(entity?.quantity || 1));
   return getDisplayAmount(entity) * quantity;

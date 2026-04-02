@@ -511,6 +511,12 @@ assertTrustedDeviceConfig();
             logger.info(`Server running in ${NODE_ENV} mode on port ${PORT}`.yellow.bold);
             logger.info('server.startup_bind_success', { port: PORT, env: NODE_ENV });
 
+            try {
+                startFxRateScheduler();
+            } catch (error) {
+                logger.error('server.fx_scheduler_start_failed', { error: error.message });
+            }
+
             // Run intensive startup tasks asynchronously
             Promise.resolve()
                 .then(() => initRedis())
@@ -521,7 +527,6 @@ assertTrustedDeviceConfig();
                     startPaymentOutboxWorker();
                     startOrderEmailWorker();
                     startCommerceReconciliationWorker();
-                    startFxRateScheduler();
                     startAdminAnalyticsMonitor();
                     startEmailOpsMonitor();
                     startCatalogWorkers();

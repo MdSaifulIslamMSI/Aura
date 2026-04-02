@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+ï»¿import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Brain, Loader2, Search, Sparkles, Trophy, X } from 'lucide-react';
+import { useMarket } from '@/context/MarketContext';
 import { productApi } from '@/services/api';
 import { aiApi } from '@/services/aiApi';
 import { cn } from '@/lib/utils';
+import { formatEntityPrice } from '@/utils/pricing';
 
 const MAX_COMPARE_ITEMS = 4;
 const MODES = [
@@ -78,11 +80,11 @@ const scoreProduct = ({ product, mode, minPrice, maxPrice, minDays, maxDays, max
   };
 };
 
-const formatPrice = (value) => `Rs ${(Number(value) || 0).toLocaleString('en-IN')}`;
 const getProductId = (product) => product?.id || product?._id || '';
 
 const AICompare = () => {
   const navigate = useNavigate();
+  const { formatPrice } = useMarket();
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedProducts, setSelectedProducts] = useState([]);
   const [query, setQuery] = useState('');
@@ -308,7 +310,7 @@ const AICompare = () => {
                       className="w-full text-left rounded-xl border border-white/10 bg-white/5 px-3 py-2 hover:border-neo-cyan/45 hover:bg-white/10 transition-colors"
                     >
                       <p className="text-sm font-bold text-white line-clamp-1">{product.title}</p>
-                      <p className="text-xs text-slate-400 mt-1">{product.brand} · {formatPrice(product.price)}</p>
+                      <p className="text-xs text-slate-400 mt-1">{product.brand} Â· {formatEntityPrice(formatPrice, product)}</p>
                     </button>
                   );
                 })}
@@ -366,8 +368,8 @@ const AICompare = () => {
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <p className="text-sm font-bold text-white line-clamp-1">{product.title}</p>
-                          <p className="text-xs text-slate-400 mt-1">{product.brand} · {product.category}</p>
-                          <p className="text-xs text-neo-cyan mt-1">{formatPrice(product.price)}</p>
+                          <p className="text-xs text-slate-400 mt-1">{product.brand} Â· {product.category}</p>
+                          <p className="text-xs text-neo-cyan mt-1">{formatEntityPrice(formatPrice, product)}</p>
                         </div>
                         <button
                           type="button"
@@ -475,7 +477,7 @@ const AICompare = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {[['Price', (p) => formatPrice(p.price)], ['Rating', (p) => `${p.rating || 0}/5`], ['Reviews', (p) => (p.ratingCount || 0).toLocaleString('en-IN')], ['Discount', (p) => `${p.discountPercentage || 0}%`], ['Delivery', (p) => p.deliveryTime || 'N/A'], ['Stock', (p) => (p.stock > 0 ? 'In Stock' : 'Out of Stock')], ['Warranty', (p) => (p.warranty ? 'Yes' : 'No')], ['AI Score', (p, row) => `${row.totalScore}`]].map(([label, formatter]) => (
+                  {[['Price', (p) => formatEntityPrice(formatPrice, p)], ['Rating', (p) => `${p.rating || 0}/5`], ['Reviews', (p) => (p.ratingCount || 0).toLocaleString('en-IN')], ['Discount', (p) => `${p.discountPercentage || 0}%`], ['Delivery', (p) => p.deliveryTime || 'N/A'], ['Stock', (p) => (p.stock > 0 ? 'In Stock' : 'Out of Stock')], ['Warranty', (p) => (p.warranty ? 'Yes' : 'No')], ['AI Score', (p, row) => `${row.totalScore}`]].map(([label, formatter]) => (
                     <tr key={label} className="border-b border-white/5 last:border-b-0">
                       <td className="py-2 pr-3 text-slate-300 font-semibold">{label}</td>
                       {compareData.map((entry) => (
@@ -496,4 +498,5 @@ const AICompare = () => {
 };
 
 export default AICompare;
+
 

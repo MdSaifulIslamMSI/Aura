@@ -14,9 +14,10 @@ import {
   Upload,
   XCircle,
 } from 'lucide-react';
+import { useMarket } from '@/context/MarketContext';
 import { productApi } from '@/services/api';
-import { formatPrice } from '@/utils/format';
 import { cn } from '@/lib/utils';
+import { formatBasePrice, formatEntityPrice } from '@/utils/pricing';
 
 const QUICK_HINTS = [
   'iPhone 15 Pro Max titanium',
@@ -75,11 +76,11 @@ const priceGapTone = (position = 'near') => {
   return 'border-white/20 bg-white/10 text-slate-200';
 };
 
-const summarizePriceGap = (priceGap) => {
+const summarizePriceGap = (priceGap, formatAmount) => {
   if (!priceGap || Number(priceGap.medianPrice || 0) <= 0) return 'No median baseline';
   const amount = Number(priceGap.againstMedianAmount || 0);
   if (amount === 0) return 'At median price';
-  return `${formatPrice(Math.abs(amount))} ${amount < 0 ? 'below' : 'above'} median`;
+  return `${formatAmount(Math.abs(amount))} ${amount < 0 ? 'below' : 'above'} median`;
 };
 
 const readImageDimensions = (file) =>
@@ -116,6 +117,7 @@ const formatSize = (sizeBytes = 0) => {
 
 const VisualSearch = () => {
   const navigate = useNavigate();
+  const { formatPrice } = useMarket();
   const [searchParams] = useSearchParams();
   const bootstrappedFromQueryRef = useRef(false);
   const fileInputRef = useRef(null);
@@ -136,6 +138,10 @@ const VisualSearch = () => {
   const [marketSnapshot, setMarketSnapshot] = useState(null);
 
   const previewImage = useMemo(() => String(imageUrl || '').trim() || uploadedPreview, [imageUrl, uploadedPreview]);
+  const formatBrowseAmount = useCallback(
+    (amount) => formatBasePrice(formatPrice, amount),
+    [formatPrice]
+  );
 
   const clearUploadedPreview = useCallback(() => {
     setUploadedPreview((previous) => {
@@ -494,15 +500,15 @@ const VisualSearch = () => {
               <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-2">
                 <div className="rounded-lg border border-white/10 bg-zinc-950/60 px-3 py-2">
                   <p className="text-[10px] uppercase tracking-wider text-slate-500">Median</p>
-                  <p className="text-sm font-black text-white">{formatPrice(marketSnapshot.medianMatchPrice || 0)}</p>
+                  <p className="text-sm font-black text-white">{formatBrowseAmount(marketSnapshot.medianMatchPrice || 0)}</p>
                 </div>
                 <div className="rounded-lg border border-white/10 bg-zinc-950/60 px-3 py-2">
                   <p className="text-[10px] uppercase tracking-wider text-slate-500">Lowest</p>
-                  <p className="text-sm font-black text-neo-emerald">{formatPrice(marketSnapshot.minMatchPrice || 0)}</p>
+                  <p className="text-sm font-black text-neo-emerald">{formatBrowseAmount(marketSnapshot.minMatchPrice || 0)}</p>
                 </div>
                 <div className="rounded-lg border border-white/10 bg-zinc-950/60 px-3 py-2">
                   <p className="text-[10px] uppercase tracking-wider text-slate-500">Highest</p>
-                  <p className="text-sm font-black text-neo-rose">{formatPrice(marketSnapshot.maxMatchPrice || 0)}</p>
+                  <p className="text-sm font-black text-neo-rose">{formatBrowseAmount(marketSnapshot.maxMatchPrice || 0)}</p>
                 </div>
                 <div className="rounded-lg border border-white/10 bg-zinc-950/60 px-3 py-2">
                   <p className="text-[10px] uppercase tracking-wider text-slate-500">Sample</p>
@@ -592,12 +598,12 @@ const VisualSearch = () => {
 
                   <div className="mt-2">
                     <span className={cn('inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold', priceGapTone(priceGap.position))}>
-                      {summarizePriceGap(priceGap)}
+                      {summarizePriceGap(priceGap, formatBrowseAmount)}
                     </span>
                   </div>
 
                   <div className="mt-3 flex items-center justify-between">
-                    <span className="text-base font-black text-white">{formatPrice(product.price)}</span>
+                    <span className="text-base font-black text-white">{formatEntityPrice(formatPrice, product)}</span>
                     <span className="text-xs font-bold text-neo-cyan inline-flex items-center gap-1">
                       Open
                       <ArrowRight className="w-3.5 h-3.5" />

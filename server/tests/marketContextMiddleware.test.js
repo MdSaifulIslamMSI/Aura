@@ -62,4 +62,34 @@ describe('market context middleware', () => {
         });
         expect(next).toHaveBeenCalled();
     });
+
+    test('normalizes unsupported market currencies back to the market default in request context and response headers', () => {
+        const req = {
+            headers: {
+                'x-market-country': 'us',
+                'x-market-currency': 'mxn',
+                'x-market-language': 'en',
+            },
+            query: {},
+            body: {},
+        };
+        const res = {
+            locals: {},
+            setHeader: jest.fn(),
+        };
+        const next = jest.fn();
+
+        resolveMarketContextMiddleware(req, res, next);
+
+        expect(req.market).toMatchObject({
+            countryCode: 'US',
+            currency: 'USD',
+            fallbackBehavior: {
+                currencyFallbackApplied: true,
+                languageFallbackApplied: false,
+            },
+        });
+        expect(res.setHeader).toHaveBeenCalledWith('x-market-currency', 'USD');
+        expect(next).toHaveBeenCalled();
+    });
 });

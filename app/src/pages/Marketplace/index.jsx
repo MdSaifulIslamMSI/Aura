@@ -36,6 +36,7 @@ import { useDynamicTranslations } from '@/hooks/useDynamicTranslations';
 import { FIGMA_COLOR_MODE_OPTIONS } from '@/config/figmaTokens';
 import { cn } from '@/lib/utils';
 import { formatPrice } from '@/utils/format';
+import { formatEntityPrice } from '@/utils/pricing';
 import { listingApi } from '@/services/api';
 import RevealOnScroll from '@/components/shared/RevealOnScroll';
 import { detectLocationFromGps } from '@/utils/geolocation';
@@ -394,7 +395,7 @@ const ListingCard = ({
                 <div className="mt-4 flex items-end justify-between gap-3">
                     <div>
                         <p className={cn('text-[1.7rem] font-black tracking-tight', isWhiteMode ? 'text-slate-950' : 'text-white')}>
-                            {formatPrice(Number(listing.price || 0))}
+                            {formatEntityPrice(formatPrice, listing)}
                         </p>
                         {listing.seller?.name ? (
                             <p className={cn('mt-1 text-xs font-medium', isWhiteMode ? 'text-slate-600' : 'text-slate-400')}>
