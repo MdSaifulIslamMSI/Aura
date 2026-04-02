@@ -1,7 +1,6 @@
 const mongoose = require('mongoose');
 const Order = require('../models/Order');
 const Product = require('../models/Product');
-const User = require('../models/User');
 const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
 const {
@@ -24,6 +23,7 @@ const {
     withIdempotency,
 } = require('./payments/idempotencyService');
 const { scanForMarketplaceAnomalies } = require('./marketplaceIntegrityService');
+const { clearCartAfterCheckout } = require('./cartService');
 
 const transactionFallbackEnabled = paymentFlags.nodeEnv !== 'production';
 
@@ -35,7 +35,7 @@ const isUnsupportedTransactionError = (error) => {
     );
 };
 
-const assertQuoteSnapshot = (quoteSnapshot, pricing) => {
+const assertQuoteSnapshot = (quoteSnapshot, pricing, cart = null) => {
     if (!quoteSnapshot || quoteSnapshot.totalPrice === undefined || quoteSnapshot.totalPrice === null) {
         return;
     }
@@ -79,6 +79,13 @@ const assertQuoteSnapshot = (quoteSnapshot, pricing) => {
             throw new AppError('Presentment quote expired. Please recalculate before placing the order.', 409);
         }
     }
+
+    if (cart && quoteSnapshot.cartVersion !== undefined && quoteSnapshot.cartVersion !== null) {
+        const snapshotVersion = Number(quoteSnapshot.cartVersion);
+        if (Number.isInteger(snapshotVersion) && snapshotVersion !== Number(cart?.version || 0)) {
+            throw new AppError('Cart changed. Refresh checkout before placing the order.', 409);
+        }
+    }
 };
 
 const mapToDbOrderItems = (resolvedItems) => resolvedItems.map((item) => ({
@@ -112,8 +119,13 @@ const executeOrderCreation = async ({
     market = null,
     session = null,
 }) => {
-    const quote = await buildOrderQuote(body, { session, checkStock: true, market });
-    assertQuoteSnapshot(body.quoteSnapshot, quote.pricing);
+    const quote = await buildOrderQuote(body, {
+        session,
+        checkStock: true,
+        market,
+        userId,
+    });
+    assertQuoteSnapshot(body.quoteSnapshot, quote.pricing, quote.cart);
 
     const paymentValidation = await validatePaymentIntentForOrder({
         userId,
@@ -266,29 +278,23 @@ const executeOrderCreation = async ({
         }
     }
 
-    if (quote.normalized.checkoutSource !== 'directBuy') {
-        const cartClearQuery = User.updateOne(
-            { _id: userId },
-            {
-                $set: {
-                    cart: [],
-                    cartSyncedAt: new Date(),
-                },
-                $inc: { cartRevision: 1 },
-            }
-        );
-        if (session) {
-            await cartClearQuery.session(session);
-        } else {
-            await cartClearQuery;
-        }
-    }
+    const cartSnapshot = quote.normalized.checkoutSource !== 'directBuy'
+        ? await clearCartAfterCheckout({
+            userId,
+            expectedVersion: quote.cart?.version ?? quote.normalized.cartVersion,
+            market,
+            session,
+        })
+        : null;
 
     if (paymentIntent?.intentId && paymentIntent.status === 'authorized') {
         await scheduleCaptureTask({ intentId: paymentIntent.intentId, session });
     }
 
-    return createdOrder;
+    return {
+        createdOrder,
+        cartSnapshot,
+    };
 };
 
 const placeOrderWithIdempotency = async ({
@@ -335,7 +341,7 @@ const placeOrderWithIdempotency = async ({
             session.startTransaction();
             transactionStarted = true;
 
-            const createdOrder = await executeOrderCreation({
+            const { createdOrder, cartSnapshot } = await executeOrderCreation({
                 body,
                 user,
                 userId,
@@ -345,7 +351,13 @@ const placeOrderWithIdempotency = async ({
                 session,
             });
             await session.commitTransaction();
-            return { statusCode: 201, response: createdOrder };
+            return {
+                statusCode: 201,
+                response: {
+                    ...(createdOrder.toObject ? createdOrder.toObject() : createdOrder),
+                    cart: cartSnapshot,
+                },
+            };
         } catch (innerError) {
             if (transactionStarted) {
                 try {
@@ -366,7 +378,7 @@ const placeOrderWithIdempotency = async ({
                     reason: innerError.message,
                 });
                 try {
-                    const createdOrder = await executeOrderCreation({
+                    const { createdOrder, cartSnapshot } = await executeOrderCreation({
                         body,
                         user,
                         userId,
@@ -375,7 +387,13 @@ const placeOrderWithIdempotency = async ({
                         market,
                         session: null,
                     });
-                    return { statusCode: 201, response: createdOrder };
+                    return {
+                        statusCode: 201,
+                        response: {
+                            ...(createdOrder.toObject ? createdOrder.toObject() : createdOrder),
+                            cart: cartSnapshot,
+                        },
+                    };
                 } catch (fallbackError) {
                     await releaseClaimLock();
                     logger.error('order.create_failed', {

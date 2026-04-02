@@ -487,6 +487,7 @@ const createPaymentIntent = async ({
         {
             checkStock: true,
             market: requestMeta.market || null,
+            userId: user._id,
         }
     );
     assertQuoteMatches(quoteSnapshot, quote.pricing);

@@ -130,11 +130,17 @@ const getFallbackTotals = (items, presentmentCurrency = DEFAULT_MARKET.currency)
     };
 };
 
-const getQuotePayload = ({ checkoutItems, draft, checkoutSource }) => ({
-    orderItems: checkoutItems.map((item) => ({
-        product: item.id,
-        quantity: Number(item.quantity) || 1,
-    })),
+const getQuotePayload = ({ checkoutItems, draft, checkoutSource, cartVersion = null }) => ({
+    ...(checkoutSource === 'cart'
+        ? {
+            ...(cartVersion !== null && cartVersion !== undefined ? { cartVersion: Number(cartVersion) } : {}),
+        }
+        : {
+            orderItems: checkoutItems.map((item) => ({
+                product: item.id,
+                quantity: Number(item.quantity) || 1,
+            })),
+        }),
     shippingAddress: {
         address: draft.shippingAddress.address,
         city: draft.shippingAddress.city,
@@ -164,7 +170,7 @@ const CHECKOUT_STEPS = [
 
 const Checkout = () => {
     const navigate = useNavigate();
-    const { cartItems, clearCart } = useContext(CartContext);
+    const { cartItems } = useContext(CartContext);
     const { currentUser, syncUserWithBackend } = useContext(AuthContext);
     const {
         countryCode: globalCountryCode,
@@ -177,6 +183,8 @@ const Checkout = () => {
     } = useMarket();
     const checkoutSession = useCommerceStore((state) => state.checkoutSession);
     const clearDirectBuy = useCommerceStore((state) => state.clearDirectBuy);
+    const hydrateCart = useCommerceStore((state) => state.hydrateCart);
+    const replaceCartSnapshot = useCommerceStore((state) => state.replaceCartSnapshot);
     const cartRevision = useCommerceStore((state) => state.cart.revision);
     const directBuyItem = useMemo(
         () => (
@@ -486,8 +494,13 @@ const Checkout = () => {
     );
 
     const quotePayload = useMemo(
-        () => getQuotePayload({ checkoutItems, draft, checkoutSource }),
-        [checkoutItems, checkoutSource, draft]
+        () => getQuotePayload({
+            checkoutItems,
+            draft,
+            checkoutSource,
+            cartVersion: checkoutSource === 'cart' ? Number(cartRevision ?? 0) : null,
+        }),
+        [cartItems, cartRevision, checkoutItems, checkoutSource, draft]
     );
 
     const quoteSignature = useMemo(
@@ -998,6 +1011,7 @@ const Checkout = () => {
                 fxTimestamp: quote?.fxTimestamp || chargeQuote.fxTimestamp,
                 presentmentTotalPrice: chargeQuote.amount,
                 presentmentCurrency: chargeQuote.currency,
+                cartVersion: quote?.cartVersion ?? (checkoutSource === 'cart' ? Number(cartRevision ?? 0) : undefined),
                 pricingVersion: quote?.pricingVersion || 'v2',
             };
 
@@ -1185,10 +1199,16 @@ const Checkout = () => {
             setStepErrors((prev) => ({ ...prev, review: '' }));
 
             const payload = {
-                orderItems: checkoutItems.map((item) => ({
-                    product: item.id,
-                    quantity: Number(item.quantity) || 1,
-                })),
+                ...(checkoutSource === 'cart'
+                    ? {
+                        cartVersion: quote?.cartVersion ?? Number(cartRevision ?? 0),
+                    }
+                    : {
+                        orderItems: checkoutItems.map((item) => ({
+                            product: item.id,
+                            quantity: Number(item.quantity) || 1,
+                        })),
+                    }),
                 shippingAddress: draft.shippingAddress,
                 paymentMethod: draft.paymentMethod,
                 deliveryOption: draft.deliveryOption,
@@ -1207,6 +1227,7 @@ const Checkout = () => {
                     fxTimestamp: quote.fxTimestamp,
                     presentmentTotalPrice: chargeQuote.amount,
                     presentmentCurrency: chargeQuote.currency,
+                    cartVersion: quote?.cartVersion ?? (checkoutSource === 'cart' ? Number(cartRevision ?? 0) : undefined),
                     pricingVersion: quote.pricingVersion || 'v2',
                 },
                 // crypto.randomUUID() is collision-safe (RFC 4122 UUID v4).
@@ -1218,7 +1239,11 @@ const Checkout = () => {
             const createdOrder = await orderApi.createOrder(payload);
 
             if (checkoutSource !== 'directBuy') {
-                clearCart();
+                if (createdOrder?.cart) {
+                    replaceCartSnapshot(createdOrder.cart);
+                } else {
+                    await hydrateCart({ force: true });
+                }
             } else {
                 clearDirectBuy();
             }

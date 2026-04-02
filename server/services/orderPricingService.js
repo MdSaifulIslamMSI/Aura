@@ -12,6 +12,7 @@ const { resolvePaymentMarketContext } = require('./payments/paymentMarketCatalog
 const { roundCurrency: roundPaymentCurrency } = require('./payments/helpers');
 const { resolveMarketContext } = require('./markets/marketCatalog');
 const { buildLockedPrice } = require('./markets/marketPricing');
+const { getCartCheckoutSnapshot } = require('./cartService');
 
 const DELIVERY_OPTIONS = ['standard', 'express'];
 const SLOT_WINDOWS = ['09:00-12:00', '12:00-15:00', '15:00-18:00', '18:00-21:00'];
@@ -48,6 +49,18 @@ const parsePositiveInteger = (value, fieldName) => {
     }
     return parsed;
 };
+
+const parseNonNegativeInteger = (value, fieldName) => {
+    const parsed = Number(value);
+    if (!Number.isInteger(parsed) || parsed < 0) {
+        throw new AppError(`${fieldName} must be a non-negative integer`, 400);
+    }
+    return parsed;
+};
+
+const normalizeCheckoutSource = (checkoutSource) => (
+    checkoutSource === 'directBuy' ? 'directBuy' : 'cart'
+);
 
 const normalizePaymentMethod = (paymentMethod) => {
     const normalized = String(paymentMethod || 'COD').toUpperCase();
@@ -139,8 +152,11 @@ const normalizeShippingAddress = (shippingAddress = {}) => {
     return { address, city, postalCode, country };
 };
 
-const normalizeOrderItems = (orderItems = []) => {
+const normalizeOrderItems = (orderItems = [], { allowEmpty = false } = {}) => {
     if (!Array.isArray(orderItems) || orderItems.length === 0) {
+        if (allowEmpty) {
+            return [];
+        }
         throw new AppError('No order items', 400);
     }
 
@@ -175,13 +191,19 @@ const getActiveCatalogProductFilter = async () => {
 };
 
 const normalizeCheckoutPayload = (payload = {}) => {
-    const orderItems = normalizeOrderItems(payload.orderItems || []);
+    const checkoutSource = normalizeCheckoutSource(payload.checkoutSource);
+    const hasOrderItems = Array.isArray(payload.orderItems) && payload.orderItems.length > 0;
+    const orderItems = hasOrderItems
+        ? normalizeOrderItems(payload.orderItems || [])
+        : normalizeOrderItems(payload.orderItems || [], { allowEmpty: checkoutSource === 'cart' });
     const shippingAddress = normalizeShippingAddress(payload.shippingAddress || {});
     const paymentMethod = normalizePaymentMethod(payload.paymentMethod);
     const deliveryOption = normalizeDeliveryOption(payload.deliveryOption);
     const deliverySlot = normalizeDeliverySlot(payload.deliverySlot);
     const couponCode = String(payload.couponCode || '').trim().toUpperCase();
-    const checkoutSource = payload.checkoutSource === 'directBuy' ? 'directBuy' : 'cart';
+    const cartVersion = payload.cartVersion === undefined || payload.cartVersion === null || payload.cartVersion === ''
+        ? null
+        : parseNonNegativeInteger(payload.cartVersion, 'cartVersion');
     const paymentContext = payload.paymentContext && typeof payload.paymentContext === 'object'
         ? payload.paymentContext
         : {};
@@ -194,6 +216,7 @@ const normalizeCheckoutPayload = (payload = {}) => {
         deliverySlot,
         couponCode,
         checkoutSource,
+        cartVersion,
         paymentContext,
     };
 };
@@ -452,9 +475,34 @@ const buildChargePricing = async ({
     };
 };
 
-const buildOrderQuote = async (payload, { session = null, checkStock = true, market = null } = {}) => {
+const buildOrderQuote = async (payload, {
+    session = null,
+    checkStock = true,
+    market = null,
+    userId = null,
+} = {}) => {
     const normalized = normalizeCheckoutPayload(payload);
-    const { resolvedItems, itemsPrice } = await resolveProductsForItems(normalized.orderItems, { session, checkStock });
+    let resolvedItems = [];
+    let cart = null;
+
+    if (normalized.checkoutSource === 'cart') {
+        if (!userId && normalized.orderItems.length > 0) {
+            ({ resolvedItems } = await resolveProductsForItems(normalized.orderItems, { session, checkStock }));
+        } else if (!userId) {
+            throw new AppError('User id is required for cart checkout', 401);
+        } else {
+            const cartCheckout = await getCartCheckoutSnapshot({
+                userId,
+                expectedVersion: normalized.cartVersion,
+                session,
+            });
+            resolvedItems = cartCheckout.resolvedItems;
+            cart = cartCheckout.cart;
+        }
+    } else {
+        ({ resolvedItems } = await resolveProductsForItems(normalized.orderItems, { session, checkStock }));
+    }
+
     const pricing = await calculatePricing({
         resolvedItems,
         deliveryOption: normalized.deliveryOption,
@@ -490,7 +538,11 @@ const buildOrderQuote = async (payload, { session = null, checkStock = true, mar
     });
 
     return {
-        normalized,
+        normalized: {
+            ...normalized,
+            cartVersion: cart?.version ?? normalized.cartVersion,
+        },
+        cart,
         resolvedItems,
         pricing: {
             ...pricing,
