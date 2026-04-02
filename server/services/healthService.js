@@ -7,6 +7,7 @@ const { getOrderEmailQueueStats } = require('./email/orderEmailQueueService');
 const { getCommerceReconciliationStatus } = require('./commerceReconciliationService');
 const { getSocketHealth } = require('./socketService');
 const { getChatQuotaHealth } = require('./chatQuotaService');
+const { getFxRefreshStatus } = require('./payments/fxRateService');
 const logger = require('../utils/logger');
 
 /**
@@ -30,11 +31,18 @@ const checkCoreDependencies = async () => {
  */
 const checkServiceReadiness = async () => {
     try {
-        const [catalog, paymentQueue, emailQueue, reconciliation] = await Promise.all([
+        const [catalog, paymentQueue, emailQueue, reconciliation, fx] = await Promise.all([
             getCatalogHealth(),
             getPaymentOutboxStats(),
             getOrderEmailQueueStats(),
             getCommerceReconciliationStatus(),
+            getFxRefreshStatus().catch((error) => ({
+                status: 'degraded',
+                error: error.message,
+                schedulerEnabled: false,
+                snapshotAvailable: false,
+                stale: true,
+            })),
         ]);
         const socketHealth = getSocketHealth();
 
@@ -43,6 +51,7 @@ const checkServiceReadiness = async () => {
             paymentQueue,
             emailQueue,
             reconciliation,
+            fx,
             ai: {
                 chatQuota: getChatQuotaHealth(),
             },
@@ -60,6 +69,13 @@ const checkServiceReadiness = async () => {
         return {
             error: error.message,
             catalog: { staleData: true },
+            fx: {
+                status: 'degraded',
+                error: error.message,
+                schedulerEnabled: false,
+                snapshotAvailable: false,
+                stale: true,
+            },
             ai: {
                 chatQuota: getChatQuotaHealth(),
             },
