@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
     GUEST_CART_STORAGE_KEY,
     GUEST_WISHLIST_STORAGE_KEY,
+    initializeCommerceSync,
     resetCommerceStoreForTests,
     selectCartSummary,
     useCommerceStore,
@@ -474,6 +475,58 @@ describe('commerceStore', () => {
         expect(useCommerceStore.getState().cart.revision).toBe(5);
     });
 
+    it('keeps commerce sync active until the last subscriber releases it', () => {
+        const addEventListenerSpy = vi.spyOn(window, 'addEventListener');
+        const removeEventListenerSpy = vi.spyOn(window, 'removeEventListener');
+        const originalBroadcastChannel = window.BroadcastChannel;
+        const closeSpy = vi.fn();
+
+        class FakeBroadcastChannel {
+            constructor() {
+                this.onmessage = null;
+            }
+
+            postMessage() {}
+
+            close() {
+                closeSpy();
+            }
+        }
+
+        Object.defineProperty(window, 'BroadcastChannel', {
+            configurable: true,
+            writable: true,
+            value: FakeBroadcastChannel,
+        });
+
+        try {
+            const releaseCartSync = initializeCommerceSync();
+            const releaseWishlistSync = initializeCommerceSync();
+
+            expect(addEventListenerSpy.mock.calls.filter(([type]) => type === 'storage')).toHaveLength(1);
+            expect(addEventListenerSpy.mock.calls.filter(([type]) => type === 'beforeunload')).toHaveLength(1);
+
+            releaseCartSync();
+
+            expect(removeEventListenerSpy.mock.calls.filter(([type]) => type === 'storage')).toHaveLength(0);
+            expect(removeEventListenerSpy.mock.calls.filter(([type]) => type === 'beforeunload')).toHaveLength(0);
+            expect(closeSpy).not.toHaveBeenCalled();
+
+            releaseWishlistSync();
+            releaseWishlistSync();
+
+            expect(removeEventListenerSpy.mock.calls.filter(([type]) => type === 'storage')).toHaveLength(1);
+            expect(removeEventListenerSpy.mock.calls.filter(([type]) => type === 'beforeunload')).toHaveLength(1);
+            expect(closeSpy).toHaveBeenCalledTimes(1);
+        } finally {
+            Object.defineProperty(window, 'BroadcastChannel', {
+                configurable: true,
+                writable: true,
+                value: originalBroadcastChannel,
+            });
+        }
+    });
+
     it('drops stale authenticated sync responses after logout', async () => {
         let resolveAdd;
         vi.spyOn(userApi, 'addCartItem').mockImplementation(() => new Promise((resolve) => {
@@ -526,6 +579,262 @@ describe('commerceStore', () => {
         expect(useCommerceStore.getState().authUser).toBeNull();
         expect(useCommerceStore.getState().cart.source).toBe('guest');
         expect(useCommerceStore.getState().cart.orderedIds).toEqual([]);
+    });
+
+    it('starts a fresh authenticated cart hydrate when the auth generation changes mid-request', async () => {
+        let resolveUserACart;
+        let resolveUserBCart;
+
+        const getCartSpy = vi.spyOn(userApi, 'getCart')
+            .mockImplementationOnce(() => new Promise((resolve) => {
+                resolveUserACart = resolve;
+            }))
+            .mockImplementationOnce(() => new Promise((resolve) => {
+                resolveUserBCart = resolve;
+            }));
+
+        vi.spyOn(userApi, 'getWishlist').mockResolvedValue({
+            items: [],
+            revision: 0,
+            syncedAt: null,
+        });
+
+        useCommerceStore.setState({
+            authUser: { uid: 'user-a', email: 'user-a@example.com' },
+            sync: { authGeneration: 1 },
+            cart: createUserCartState({ revision: 2 }),
+            wishlist: createUserCartState({ revision: 1 }),
+        });
+
+        const staleHydratePromise = useCommerceStore.getState().hydrateCart({ force: true });
+        const reboundPromise = useCommerceStore.getState().bindAuthUser({ uid: 'user-b', email: 'user-b@example.com' });
+
+        expect(getCartSpy).toHaveBeenCalledTimes(2);
+
+        resolveUserBCart({
+            items: [
+                {
+                    id: 222,
+                    title: 'Fresh Session Speaker',
+                    brand: 'Aura',
+                    price: 3499,
+                    originalPrice: 3999,
+                    discountPercentage: 13,
+                    image: '/speaker.png',
+                    stock: 4,
+                    deliveryTime: '1-2 days',
+                    quantity: 1,
+                },
+            ],
+            revision: 9,
+            syncedAt: '2026-04-01T01:00:10.000Z',
+        });
+
+        await reboundPromise;
+
+        expect(useCommerceStore.getState().authUser).toMatchObject({ uid: 'user-b' });
+        expect(useCommerceStore.getState().cart.orderedIds).toEqual(['222']);
+
+        resolveUserACart({
+            items: [
+                {
+                    id: 111,
+                    title: 'Stale Session Camera',
+                    brand: 'Aura',
+                    price: 8999,
+                    originalPrice: 9999,
+                    discountPercentage: 10,
+                    image: '/camera.png',
+                    stock: 3,
+                    deliveryTime: '2-3 days',
+                    quantity: 1,
+                },
+            ],
+            revision: 3,
+            syncedAt: '2026-04-01T01:00:00.000Z',
+        });
+
+        await staleHydratePromise;
+
+        expect(useCommerceStore.getState().authUser).toMatchObject({ uid: 'user-b' });
+        expect(useCommerceStore.getState().cart.orderedIds).toEqual(['222']);
+        expect(useCommerceStore.getState().cart.revision).toBe(9);
+    });
+
+    it('starts a fresh cart flush when a new auth generation enqueues work during an older flush', async () => {
+        let resolveUserAAdd;
+        let resolveUserBAdd;
+
+        const addCartItemSpy = vi.spyOn(userApi, 'addCartItem')
+            .mockImplementationOnce(() => new Promise((resolve) => {
+                resolveUserAAdd = resolve;
+            }))
+            .mockImplementationOnce(() => new Promise((resolve) => {
+                resolveUserBAdd = resolve;
+            }));
+
+        useCommerceStore.setState({
+            authUser: { uid: 'user-a', email: 'user-a@example.com' },
+            sync: { authGeneration: 1 },
+            cart: createUserCartState({ revision: 3 }),
+        });
+
+        const staleAddPromise = useCommerceStore.getState().addItem({
+            id: 101,
+            title: 'User A Console',
+            price: 499,
+            image: '/console.png',
+            stock: 3,
+        }, 1);
+
+        useCommerceStore.setState({
+            authUser: { uid: 'user-b', email: 'user-b@example.com' },
+            sync: { authGeneration: 2 },
+            cart: createUserCartState({ revision: 8 }),
+        });
+
+        const reboundAddPromise = useCommerceStore.getState().addItem({
+            id: 202,
+            title: 'User B Laptop',
+            price: 1499,
+            image: '/laptop.png',
+            stock: 5,
+        }, 1);
+
+        expect(addCartItemSpy).toHaveBeenCalledTimes(2);
+        expect(addCartItemSpy).toHaveBeenNthCalledWith(2, {
+            productId: 202,
+            quantity: 1,
+            expectedRevision: 8,
+        });
+
+        resolveUserBAdd({
+            item: {
+                id: 202,
+                title: 'User B Laptop',
+                price: 1499,
+                image: '/laptop.png',
+                stock: 5,
+                quantity: 1,
+            },
+            revision: 9,
+            syncedAt: '2026-04-01T01:05:10.000Z',
+        });
+
+        await reboundAddPromise;
+
+        expect(useCommerceStore.getState().authUser).toMatchObject({ uid: 'user-b' });
+        expect(useCommerceStore.getState().cart.orderedIds).toEqual(['202']);
+
+        resolveUserAAdd({
+            item: {
+                id: 101,
+                title: 'User A Console',
+                price: 499,
+                image: '/console.png',
+                stock: 3,
+                quantity: 1,
+            },
+            revision: 4,
+            syncedAt: '2026-04-01T01:05:00.000Z',
+        });
+
+        await staleAddPromise;
+
+        expect(useCommerceStore.getState().authUser).toMatchObject({ uid: 'user-b' });
+        expect(useCommerceStore.getState().cart.orderedIds).toEqual(['202']);
+        expect(useCommerceStore.getState().cart.revision).toBe(9);
+        expect(useCommerceStore.getState().cart.pendingOps).toEqual([]);
+    });
+
+    it('preserves newer same-product optimistic quantity updates while an older cart commit resolves', async () => {
+        let resolveFirstQuantityUpdate;
+        let resolveSecondQuantityUpdate;
+
+        vi.spyOn(userApi, 'setCartItemQuantity')
+            .mockImplementationOnce(() => new Promise((resolve) => {
+                resolveFirstQuantityUpdate = resolve;
+            }))
+            .mockImplementationOnce(() => new Promise((resolve) => {
+                resolveSecondQuantityUpdate = resolve;
+            }));
+
+        useCommerceStore.setState({
+            authUser: { uid: 'user-qty', email: 'qty@example.com' },
+            cart: createUserCartState({
+                revision: 7,
+                itemsById: {
+                    '42': {
+                        id: 42,
+                        title: 'Race-safe Phone',
+                        brand: 'Aura',
+                        price: 899,
+                        originalPrice: 999,
+                        discountPercentage: 10,
+                        image: '/phone.png',
+                        stock: 5,
+                        deliveryTime: '1-2 days',
+                        quantity: 1,
+                    },
+                },
+                orderedIds: ['42'],
+            }),
+        });
+
+        const firstFlushPromise = useCommerceStore.getState().setQuantity(42, 2);
+        const secondFlushPromise = useCommerceStore.getState().setQuantity(42, 3);
+
+        resolveFirstQuantityUpdate({
+            item: {
+                id: 42,
+                title: 'Race-safe Phone',
+                brand: 'Aura',
+                price: 899,
+                originalPrice: 999,
+                discountPercentage: 10,
+                image: '/phone.png',
+                stock: 5,
+                deliveryTime: '1-2 days',
+                quantity: 2,
+            },
+            revision: 8,
+            syncedAt: '2026-04-01T01:10:05.000Z',
+        });
+
+        await vi.waitFor(() => {
+            expect(useCommerceStore.getState().cart.itemsById['42']).toMatchObject({
+                id: 42,
+                quantity: 3,
+            });
+            expect(useCommerceStore.getState().cart.pendingOps).toHaveLength(1);
+        });
+
+        resolveSecondQuantityUpdate({
+            item: {
+                id: 42,
+                title: 'Race-safe Phone',
+                brand: 'Aura',
+                price: 899,
+                originalPrice: 999,
+                discountPercentage: 10,
+                image: '/phone.png',
+                stock: 5,
+                deliveryTime: '1-2 days',
+                quantity: 3,
+            },
+            revision: 9,
+            syncedAt: '2026-04-01T01:10:10.000Z',
+        });
+
+        await firstFlushPromise;
+        await secondFlushPromise;
+
+        expect(useCommerceStore.getState().cart.itemsById['42']).toMatchObject({
+            id: 42,
+            quantity: 3,
+        });
+        expect(useCommerceStore.getState().cart.revision).toBe(9);
+        expect(useCommerceStore.getState().cart.pendingOps).toEqual([]);
     });
 
     it('builds cart totals from backend-authoritative display pricing', () => {

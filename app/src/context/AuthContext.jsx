@@ -28,6 +28,7 @@ import { cacheTrustedDeviceSessionToken, clearTrustedDeviceSessionToken } from '
 import { clearAuthJourneyDraft, writeAuthIdentityMemory } from '../utils/authAcceleration';
 import {
   buildFirebaseSessionFallback,
+  isAuthenticatedSessionStatus,
   buildRoleState,
   buildSessionIntelligenceFallback,
   buildSessionStateFromPayload,
@@ -150,6 +151,20 @@ export const AuthProvider = ({ children }) => {
       deviceChallenge: null,
       session: null,
       intelligence: null,
+      profile: null,
+      roles: EMPTY_ROLES,
+      error: null,
+    });
+  };
+
+  const applySessionLoadingState = (firebaseUser) => {
+    resetSyncTracking();
+    const sessionFallback = buildFirebaseSessionFallback(firebaseUser);
+    setSessionState({
+      status: SESSION_STATUS.LOADING,
+      deviceChallenge: null,
+      session: sessionFallback,
+      intelligence: buildSessionIntelligenceFallback(sessionFallback, null, EMPTY_ROLES),
       profile: null,
       roles: EMPTY_ROLES,
       error: null,
@@ -602,23 +617,12 @@ export const AuthProvider = ({ children }) => {
       }
 
       clearCsrfTokenCache();
+      applySessionLoadingState(user);
 
       if (isControlledAuthFlow(user)) {
         clearControlledAuthFlow();
         return;
       }
-
-      resetSyncTracking();
-      const sessionFallback = buildFirebaseSessionFallback(user);
-      setSessionState({
-        status: SESSION_STATUS.LOADING,
-        deviceChallenge: null,
-        session: sessionFallback,
-        intelligence: buildSessionIntelligenceFallback(sessionFallback, null, EMPTY_ROLES),
-        profile: null,
-        roles: EMPTY_ROLES,
-        error: null,
-      });
 
       refreshSession(user, { force: true }).catch(() => {});
     });
@@ -662,6 +666,8 @@ export const AuthProvider = ({ children }) => {
     verifyDeviceChallenge(token, proof, '')
   );
 
+  const isAuthenticated = isAuthenticatedSessionStatus(sessionState.status);
+
   const value = {
     currentUser,
     dbUser: sessionState.profile,
@@ -673,7 +679,7 @@ export const AuthProvider = ({ children }) => {
     deviceChallenge: sessionState.deviceChallenge,
     sessionError: sessionState.error,
     loading: sessionState.status === SESSION_STATUS.BOOTSTRAP || sessionState.status === SESSION_STATUS.LOADING,
-    isAuthenticated: Boolean(currentUser),
+    isAuthenticated,
     signup,
     login,
     loginWithPhoneCredential,

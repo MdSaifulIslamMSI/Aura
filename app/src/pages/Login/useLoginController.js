@@ -48,8 +48,10 @@ export const useLoginController = () => {
   const launchPrefill = resolveLaunchPrefill(location.state);
   const {
     currentUser,
+    isAuthenticated,
     login,
     loginWithPhoneCredential,
+    loading,
     signup,
     signInWithGoogle,
     signInWithFacebook,
@@ -80,6 +82,7 @@ export const useLoginController = () => {
   const recaptchaContainerRef = useRef(null);
   const firebasePhoneChallengeRef = useRef(null);
   const authAccelerationHydratedRef = useRef(false);
+  const initialResolvedAuthRedirectCheckedRef = useRef(false);
 
   const from = useMemo(
     () => resolveNavigationTarget(location.state?.from, '/'),
@@ -160,9 +163,15 @@ export const useLoginController = () => {
   }, [countdown]);
 
   useEffect(() => {
-    if (!currentUser) return;
-    navigate(from, { replace: true });
-  }, [currentUser, from, navigate]);
+    if (initialResolvedAuthRedirectCheckedRef.current) return;
+    if (loading) return;
+
+    initialResolvedAuthRedirectCheckedRef.current = true;
+
+    if (isAuthenticated) {
+      navigate(from, { replace: true });
+    }
+  }, [from, isAuthenticated, loading, navigate]);
 
   useEffect(() => {
     if (authAccelerationHydratedRef.current) return;

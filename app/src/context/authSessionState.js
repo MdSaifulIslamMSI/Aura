@@ -53,6 +53,10 @@ export const normalizeSessionStatus = (value) => {
         : SESSION_STATUS.SIGNED_OUT;
 };
 
+export const isAuthenticatedSessionStatus = (value) => (
+    normalizeSessionStatus(value) === SESSION_STATUS.AUTHENTICATED
+);
+
 export const buildRoleState = (profile = null, fallbackVerified = false) => ({
     isAdmin: Boolean(profile?.isAdmin),
     isSeller: Boolean(profile?.isSeller),
