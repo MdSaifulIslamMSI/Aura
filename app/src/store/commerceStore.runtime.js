@@ -19,6 +19,7 @@ const tabId = `commerce-${Date.now()}-${Math.random().toString(36).slice(2, 10)}
 let commerceBroadcastChannel = null;
 let commerceSyncInitialized = false;
 let commerceSyncCleanup = null;
+let commerceSyncSubscriberCount = 0;
 const activeFlushPromises = {
     cart: null,
     wishlist: null,
@@ -28,6 +29,21 @@ const activeHydratePromises = {
     wishlist: null,
     commerce: null,
 };
+
+const buildAsyncWorkContext = ({ authUser = null, authGeneration = 0, mergeGuest = false } = {}) => ({
+    userId: authUser?.uid || null,
+    authGeneration: Number(authGeneration || 0),
+    mergeGuest: Boolean(mergeGuest),
+});
+
+const canReuseAsyncWork = (entry, context = {}) => Boolean(
+    entry?.promise
+    && entry.userId === context.userId
+    && entry.authGeneration === context.authGeneration
+    && (entry.mergeGuest || !context.mergeGuest)
+);
+
+const getActivePromise = (entry) => entry?.promise || null;
 
 const getWindowRef = () => (typeof window !== 'undefined' ? window : null);
 
@@ -754,15 +770,23 @@ const isStaleUserSnapshot = (currentEntity = {}, incomingSnapshot = {}) => {
 
 export const useCommerceStore = create((set, get) => {
     const hydrateEntity = async (entityKey, { force = false, mergeGuest = false, authGeneration = null } = {}) => {
-        if (activeHydratePromises[entityKey]) {
-            return activeHydratePromises[entityKey];
+        const state = get();
+        const currentAuthUser = state.authUser;
+        const effectiveGeneration = authGeneration ?? state.sync.authGeneration;
+        const workContext = buildAsyncWorkContext({
+            authUser: currentAuthUser,
+            authGeneration: effectiveGeneration,
+            mergeGuest,
+        });
+
+        if (canReuseAsyncWork(activeHydratePromises[entityKey], workContext)) {
+            return getActivePromise(activeHydratePromises[entityKey]);
         }
 
-        activeHydratePromises[entityKey] = (async () => {
-            const config = getEntityConfig(entityKey);
-            const state = get();
-            const currentAuthUser = state.authUser;
-            const effectiveGeneration = authGeneration ?? state.sync.authGeneration;
+        const config = getEntityConfig(entityKey);
+        let hydratePromise = null;
+
+        hydratePromise = (async () => {
             const requestId = `${entityKey}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 
             if (!currentAuthUser?.uid) {
@@ -961,11 +985,18 @@ export const useCommerceStore = create((set, get) => {
                 }, 'error');
                 throw error;
             } finally {
-                activeHydratePromises[entityKey] = null;
+                if (activeHydratePromises[entityKey]?.promise === hydratePromise) {
+                    activeHydratePromises[entityKey] = null;
+                }
             }
         })();
 
-        return activeHydratePromises[entityKey];
+        activeHydratePromises[entityKey] = {
+            ...workContext,
+            promise: hydratePromise,
+        };
+
+        return hydratePromise;
     };
 
     const refreshEntityIfStale = async (entityKey, { force = false } = {}) => {
@@ -1027,17 +1058,26 @@ export const useCommerceStore = create((set, get) => {
     };
 
     const flushEntityOps = async (entityKey) => {
-        if (activeFlushPromises[entityKey]) {
-            return activeFlushPromises[entityKey];
+        const state = get();
+        const workContext = buildAsyncWorkContext({
+            authUser: state.authUser,
+            authGeneration: state.sync.authGeneration,
+        });
+
+        if (canReuseAsyncWork(activeFlushPromises[entityKey], workContext)) {
+            return getActivePromise(activeFlushPromises[entityKey]);
         }
 
-        activeFlushPromises[entityKey] = (async () => {
+        let flushPromise = null;
+
+        flushPromise = (async () => {
             const config = getEntityConfig(entityKey);
 
             while (true) {
                 const currentState = get();
                 const currentEntity = currentState[entityKey];
                 const currentOp = currentEntity.pendingOps?.[0];
+                const currentAuthGeneration = currentState.sync.authGeneration;
 
                 if (!currentState.authUser?.uid || !currentOp) {
                     const settledState = get();
@@ -1068,7 +1108,10 @@ export const useCommerceStore = create((set, get) => {
 
                 try {
                     const response = await config.commitOp(currentOp, expectedRevision, firebaseUser);
-                    if (get().authUser?.uid !== currentState.authUser.uid) {
+                    if (
+                        get().sync.authGeneration !== currentAuthGeneration
+                        || get().authUser?.uid !== currentState.authUser.uid
+                    ) {
                         emitCommerceDiagnostic('commerce_divergence_detected', {
                             entity: entityKey,
                             authMode: 'user',
@@ -1085,8 +1128,14 @@ export const useCommerceStore = create((set, get) => {
 
                     const stateAfterResponse = get();
                     const currentItems = getEntityItems(entityKey, stateAfterResponse[entityKey]);
-                    const nextItems = resolveCommittedItems(entityKey, currentItems, currentOp, response);
                     const remainingOps = stateAfterResponse[entityKey].pendingOps.slice(1);
+                    const committedItems = resolveCommittedItems(entityKey, currentItems, currentOp, response);
+                    const remainingOpsForSameProduct = remainingOps.filter((pendingOp) => (
+                        String(pendingOp?.productId || '') === String(currentOp.productId || '')
+                    ));
+                    const nextItems = remainingOpsForSameProduct.length > 0
+                        ? replayPendingOps(entityKey, committedItems, remainingOpsForSameProduct)
+                        : committedItems;
 
                     updateEntityState(set, entityKey, buildEntityState(
                         entityKey,
@@ -1115,7 +1164,10 @@ export const useCommerceStore = create((set, get) => {
                 } catch (error) {
                     const conflictPayload = extractConflictPayload(entityKey, error);
                     if (conflictPayload) {
-                        if (get().authUser?.uid !== currentState.authUser.uid) {
+                        if (
+                            get().sync.authGeneration !== currentAuthGeneration
+                            || get().authUser?.uid !== currentState.authUser.uid
+                        ) {
                             return getEntityItems(entityKey, get()[entityKey]);
                         }
 
@@ -1172,11 +1224,19 @@ export const useCommerceStore = create((set, get) => {
                     throw error;
                 }
             }
-        })().finally(() => {
-            activeFlushPromises[entityKey] = null;
+        })();
+        flushPromise = flushPromise.finally(() => {
+            if (activeFlushPromises[entityKey]?.promise === flushPromise) {
+                activeFlushPromises[entityKey] = null;
+            }
         });
 
-        return activeFlushPromises[entityKey];
+        activeFlushPromises[entityKey] = {
+            ...workContext,
+            promise: flushPromise,
+        };
+
+        return flushPromise;
     };
 
     return {
@@ -1248,8 +1308,11 @@ export const useCommerceStore = create((set, get) => {
                     sync: state.sync,
                 }));
 
-                if (activeHydratePromises.commerce) {
-                    return activeHydratePromises.commerce;
+                if (canReuseAsyncWork(activeHydratePromises.commerce, buildAsyncWorkContext({
+                    authUser: normalizedAuthUser,
+                    authGeneration: stateBeforeBind.sync.authGeneration,
+                }))) {
+                    return getActivePromise(activeHydratePromises.commerce);
                 }
 
                 if (alreadyUsingExpectedSource) {
@@ -1372,12 +1435,20 @@ export const useCommerceStore = create((set, get) => {
         },
 
         hydrateCommerce: async ({ force = false, mergeGuest = false } = {}) => {
-            if (activeHydratePromises.commerce) {
-                return activeHydratePromises.commerce;
+            const state = get();
+            const workContext = buildAsyncWorkContext({
+                authUser: state.authUser,
+                authGeneration: state.sync.authGeneration,
+                mergeGuest,
+            });
+
+            if (canReuseAsyncWork(activeHydratePromises.commerce, workContext)) {
+                return getActivePromise(activeHydratePromises.commerce);
             }
 
-            activeHydratePromises.commerce = (async () => {
-                const state = get();
+            let hydrateCommercePromise = null;
+
+            hydrateCommercePromise = (async () => {
                 if (!state.authUser?.uid) {
                     return get().bindAuthUser(null);
                 }
@@ -1392,11 +1463,19 @@ export const useCommerceStore = create((set, get) => {
                     cart: cartItems,
                     wishlist: wishlistItems,
                 };
-            })().finally(() => {
-                activeHydratePromises.commerce = null;
+            })();
+            hydrateCommercePromise = hydrateCommercePromise.finally(() => {
+                if (activeHydratePromises.commerce?.promise === hydrateCommercePromise) {
+                    activeHydratePromises.commerce = null;
+                }
             });
 
-            return activeHydratePromises.commerce;
+            activeHydratePromises.commerce = {
+                ...workContext,
+                promise: hydrateCommercePromise,
+            };
+
+            return hydrateCommercePromise;
         },
 
         hydrateCart: async ({ force = false, mergeGuest = false } = {}) => (
@@ -1657,75 +1736,92 @@ export const useCommerceStore = create((set, get) => {
 
 export const initializeCommerceSync = () => {
     const windowRef = getWindowRef();
-    if (!windowRef || commerceSyncInitialized) {
-        return commerceSyncCleanup || (() => {});
+    if (!windowRef) {
+        return () => {};
     }
 
-    commerceSyncInitialized = true;
+    if (!commerceSyncInitialized) {
+        commerceSyncInitialized = true;
 
-    if (typeof windowRef.BroadcastChannel === 'function') {
-        commerceBroadcastChannel = new windowRef.BroadcastChannel(COMMERCE_SYNC_CHANNEL);
-        commerceBroadcastChannel.onmessage = (event) => {
-            useCommerceStore.getState().receiveExternalSnapshot(event?.data || {});
+        if (typeof windowRef.BroadcastChannel === 'function') {
+            commerceBroadcastChannel = new windowRef.BroadcastChannel(COMMERCE_SYNC_CHANNEL);
+            commerceBroadcastChannel.onmessage = (event) => {
+                useCommerceStore.getState().receiveExternalSnapshot(event?.data || {});
+            };
+        }
+
+        const handleStorage = (event) => {
+            if (!event) return;
+
+            if (event.key === GUEST_CART_STORAGE_KEY && !useCommerceStore.getState().authUser?.uid) {
+                useCommerceStore.getState().receiveExternalSnapshot({
+                    entity: 'cart',
+                    source: 'guest',
+                    userId: null,
+                    items: readGuestEntitySnapshot('cart'),
+                    revision: null,
+                    syncedAt: new Date().toISOString(),
+                });
+                return;
+            }
+
+            if (event.key === GUEST_WISHLIST_STORAGE_KEY && !useCommerceStore.getState().authUser?.uid) {
+                useCommerceStore.getState().receiveExternalSnapshot({
+                    entity: 'wishlist',
+                    source: 'guest',
+                    userId: null,
+                    items: readGuestEntitySnapshot('wishlist'),
+                    revision: null,
+                    syncedAt: new Date().toISOString(),
+                });
+                return;
+            }
+
+            if (event.key === COMMERCE_SYNC_STORAGE_KEY && event.newValue) {
+                useCommerceStore.getState().receiveExternalSnapshot(safeParse(event.newValue) || {});
+            }
+        };
+
+        const handleBeforeUnload = (event) => {
+            const state = useCommerceStore.getState();
+            const pendingOps = (state.cart.pendingOps || []).length + (state.wishlist.pendingOps || []).length;
+            if (pendingOps <= 0) return;
+
+            event.preventDefault();
+            event.returnValue = '';
+        };
+
+        windowRef.addEventListener('storage', handleStorage);
+        windowRef.addEventListener('beforeunload', handleBeforeUnload);
+
+        commerceSyncCleanup = () => {
+            windowRef.removeEventListener('storage', handleStorage);
+            windowRef.removeEventListener('beforeunload', handleBeforeUnload);
+            if (commerceBroadcastChannel) {
+                commerceBroadcastChannel.close();
+                commerceBroadcastChannel = null;
+            }
+            commerceSyncInitialized = false;
+            commerceSyncCleanup = null;
         };
     }
 
-    const handleStorage = (event) => {
-        if (!event) return;
+    commerceSyncSubscriberCount += 1;
 
-        if (event.key === GUEST_CART_STORAGE_KEY && !useCommerceStore.getState().authUser?.uid) {
-            useCommerceStore.getState().receiveExternalSnapshot({
-                entity: 'cart',
-                source: 'guest',
-                userId: null,
-                items: readGuestEntitySnapshot('cart'),
-                revision: null,
-                syncedAt: new Date().toISOString(),
-            });
+    let released = false;
+    return () => {
+        if (released) {
             return;
         }
 
-        if (event.key === GUEST_WISHLIST_STORAGE_KEY && !useCommerceStore.getState().authUser?.uid) {
-            useCommerceStore.getState().receiveExternalSnapshot({
-                entity: 'wishlist',
-                source: 'guest',
-                userId: null,
-                items: readGuestEntitySnapshot('wishlist'),
-                revision: null,
-                syncedAt: new Date().toISOString(),
-            });
+        released = true;
+        commerceSyncSubscriberCount = Math.max(0, commerceSyncSubscriberCount - 1);
+        if (commerceSyncSubscriberCount > 0) {
             return;
         }
 
-        if (event.key === COMMERCE_SYNC_STORAGE_KEY && event.newValue) {
-            useCommerceStore.getState().receiveExternalSnapshot(safeParse(event.newValue) || {});
-        }
+        commerceSyncCleanup?.();
     };
-
-    const handleBeforeUnload = (event) => {
-        const state = useCommerceStore.getState();
-        const pendingOps = (state.cart.pendingOps || []).length + (state.wishlist.pendingOps || []).length;
-        if (pendingOps <= 0) return;
-
-        event.preventDefault();
-        event.returnValue = '';
-    };
-
-    windowRef.addEventListener('storage', handleStorage);
-    windowRef.addEventListener('beforeunload', handleBeforeUnload);
-
-    commerceSyncCleanup = () => {
-        windowRef.removeEventListener('storage', handleStorage);
-        windowRef.removeEventListener('beforeunload', handleBeforeUnload);
-        if (commerceBroadcastChannel) {
-            commerceBroadcastChannel.close();
-            commerceBroadcastChannel = null;
-        }
-        commerceSyncInitialized = false;
-        commerceSyncCleanup = null;
-    };
-
-    return commerceSyncCleanup;
 };
 
 export const selectCartItems = (state) => getEntityItems('cart', state.cart);
@@ -1758,6 +1854,7 @@ export const resetCommerceStoreForTests = () => {
     activeHydratePromises.cart = null;
     activeHydratePromises.wishlist = null;
     activeHydratePromises.commerce = null;
+    commerceSyncSubscriberCount = 0;
 };
 
 useCommerceStore.subscribe((state) => {
