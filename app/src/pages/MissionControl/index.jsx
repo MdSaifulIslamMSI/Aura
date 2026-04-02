@@ -7,6 +7,7 @@ import { useDynamicTranslations } from '@/hooks/useDynamicTranslations';
 import { productApi, listingApi } from '@/services/api';
 import { CATALOG_CATEGORY_OPTIONS, getCategoryApiValue, getLocalizedCategoryLabel, normalizeCategorySlug } from '@/config/catalogTaxonomy';
 import { formatPrice } from '@/utils/format';
+import { formatBasePrice, formatEntityPrice } from '@/utils/pricing';
 import {
   buildLifecycleIntelligence,
   buildListingSafetyLens,
@@ -369,7 +370,7 @@ export default function MissionControl() {
             <section className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               <article className="rounded-2xl border border-white/10 bg-white/[0.045] p-5 shadow-glass"><p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">{translateMissionText('Mission readiness') || 'Mission readiness'}</p><p className="mt-3 text-3xl font-black text-white">{translatedMissionPlan.readinessScore}</p></article>
               <article className="rounded-2xl border border-white/10 bg-white/[0.045] p-5 shadow-glass"><p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">{translateMissionText('Top trust') || 'Top trust'}</p><p className="mt-3 text-3xl font-black text-white">{translatedCandidateDeck[0]?.trust?.overallScore || 0}</p></article>
-              <article className="rounded-2xl border border-white/10 bg-white/[0.045] p-5 shadow-glass"><p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">{translateMissionText('Bundle total') || 'Bundle total'}</p><p className="mt-3 text-3xl font-black text-white">{formatPrice(results.bundle?.totalPrice || 0)}</p></article>
+              <article className="rounded-2xl border border-white/10 bg-white/[0.045] p-5 shadow-glass"><p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">{translateMissionText('Bundle total') || 'Bundle total'}</p><p className="mt-3 text-3xl font-black text-white">{formatBasePrice(formatPrice, results.bundle?.totalPrice || 0)}</p></article>
               <article className="rounded-2xl border border-white/10 bg-white/[0.045] p-5 shadow-glass"><p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">{translateMissionText('Local safety') || 'Local safety'}</p><p className="mt-3 text-3xl font-black text-white">{translatedMarketplaceSummary.averageSafety || 0}</p></article>
             </section>
 
@@ -413,7 +414,7 @@ export default function MissionControl() {
                             ))}
                           </div>
                           <div className="mt-3 rounded-xl border border-emerald-400/20 bg-emerald-500/10 p-3 text-sm text-slate-200">
-                            {lifecycle.upgradeWindow}. {translateMissionText(`Trade-in estimate ${formatPrice(lifecycle.tradeInEstimate)} and resale band ${formatPrice(lifecycle.resaleLow)} - ${formatPrice(lifecycle.resaleHigh)}.`) || `Trade-in estimate ${formatPrice(lifecycle.tradeInEstimate)} and resale band ${formatPrice(lifecycle.resaleLow)} - ${formatPrice(lifecycle.resaleHigh)}.`}
+                            {lifecycle.upgradeWindow}. {translateMissionText(`Trade-in estimate ${formatBasePrice(formatPrice, lifecycle.tradeInEstimate)} and resale band ${formatBasePrice(formatPrice, lifecycle.resaleLow)} - ${formatBasePrice(formatPrice, lifecycle.resaleHigh)}.`) || `Trade-in estimate ${formatBasePrice(formatPrice, lifecycle.tradeInEstimate)} and resale band ${formatBasePrice(formatPrice, lifecycle.resaleLow)} - ${formatBasePrice(formatPrice, lifecycle.resaleHigh)}.`}
                           </div>
                           <div className="mt-4 flex flex-wrap gap-2">
                             <Link to={`/product/${product.id || product._id}`} className="rounded-full border border-cyan-300/30 bg-cyan-500/10 px-4 py-2 text-sm font-bold text-cyan-100">{translateMissionText('Open product') || 'Open product'}</Link>
@@ -434,7 +435,7 @@ export default function MissionControl() {
                     {translatedBundleItems.slice(0, 4).map((item) => (
                       <Link key={item.id || item._id} to={`/product/${item.id || item._id}`} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-zinc-950/45 p-3">
                         <img src={item.image} alt={item.title} className="h-14 w-14 rounded-xl bg-zinc-900/70 object-cover" />
-                        <div className="min-w-0 flex-1"><p className="truncate text-sm font-bold text-white">{item.title}</p><p className="text-xs text-slate-400">{item.brand} | {formatPrice(item.price)}</p></div>
+                        <div className="min-w-0 flex-1"><p className="truncate text-sm font-bold text-white">{item.title}</p><p className="text-xs text-slate-400">{item.brand} | {formatEntityPrice(formatPrice, item)}</p></div>
                       </Link>
                     ))}
                     {!translatedBundleItems.length && <div className="rounded-2xl border border-white/10 bg-zinc-950/45 px-4 py-8 text-center text-sm text-slate-400">{translateMissionText('Bundle generation did not return a stack for this mission yet.') || 'Bundle generation did not return a stack for this mission yet.'}</div>}
@@ -463,7 +464,7 @@ export default function MissionControl() {
                               <div className="rounded-full border border-cyan-300/30 bg-cyan-500/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.14em] text-cyan-100">{translateMissionText(`Safety ${safety.score}`) || `Safety ${safety.score}`}</div>
                             </div>
                             <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                              <span className="font-black text-white">{formatPrice(listing.price || 0)}</span>
+                              <span className="font-black text-white">{formatEntityPrice(formatPrice, listing)}</span>
                               {listing.escrowOptIn && <span className="inline-flex items-center gap-1 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2 py-0.5 font-bold text-emerald-100"><ShieldCheck className="h-3 w-3" />{translateMissionText('Escrow') || 'Escrow'}</span>}
                               {listing.seller?.isVerified && <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 font-bold text-slate-200">{translateMissionText('Verified seller') || 'Verified seller'}</span>}
                             </div>

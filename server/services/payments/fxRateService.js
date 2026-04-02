@@ -1007,6 +1007,7 @@ const getFxRefreshStatus = async () => {
     return {
         status: snapshot ? (expired ? 'degraded' : 'ok') : 'cold',
         schedulerEnabled: isSchedulerEnabled(),
+        schedulerRunning: Boolean(state.schedulerTask),
         cronExpression: getRefreshCron(),
         timezone: getSchedulerTimezone(),
         snapshotAvailable: Boolean(snapshot),

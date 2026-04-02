@@ -520,12 +520,16 @@ const resolveMarketContext = ({
     const requestedCurrency = normalizeCurrencyCode(currency);
     const requestedLanguage = normalizeLanguageCode(language) || parseAcceptLanguage(acceptLanguage) || '';
 
+    const supportedCurrencies = Array.isArray(marketRule.supportedCurrencies)
+        ? marketRule.supportedCurrencies.filter(Boolean)
+        : [];
+    const defaultCurrency = marketRule.currency || DEFAULT_CURRENCY;
     const languageCode = marketRule.supportedLanguages.includes(requestedLanguage)
         ? requestedLanguage
         : (marketRule.supportedLanguages[0] || marketRule.defaultLanguage || DEFAULT_LANGUAGE_CODE);
-    const finalCurrency = marketRule.supportedCurrencies.includes(requestedCurrency)
+    const finalCurrency = supportedCurrencies.includes(requestedCurrency)
         ? requestedCurrency
-        : (requestedCurrency || marketRule.currency || DEFAULT_CURRENCY);
+        : (supportedCurrencies[0] || defaultCurrency);
     const locale = resolveLocale({ marketRule, languageCode, countryCode });
 
     return {
@@ -552,7 +556,7 @@ const resolveMarketContext = ({
         taxRules: { ...(marketRule.taxRules || {}) },
         shippingOptions: [...(marketRule.shippingOptions || [])],
         fallbackBehavior: {
-            currencyFallbackApplied: Boolean(requestedCurrency && !marketRule.supportedCurrencies.includes(requestedCurrency)),
+            currencyFallbackApplied: Boolean(requestedCurrency && !supportedCurrencies.includes(requestedCurrency)),
             languageFallbackApplied: Boolean(requestedLanguage && !marketRule.supportedLanguages.includes(requestedLanguage)),
         },
     };
