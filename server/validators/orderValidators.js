@@ -66,7 +66,8 @@ const netbankingContextSchema = z.object({
 }).strict();
 
 const checkoutBodySchema = z.object({
-    orderItems: z.array(orderItemSchema).min(1),
+    orderItems: z.array(orderItemSchema).optional(),
+    cartVersion: z.coerce.number().int().nonnegative().optional(),
     shippingAddress: shippingAddressSchema,
     paymentMethod: z.enum(PAYMENT_METHODS).optional(),
     paymentIntentId: z.string().trim().min(6).optional(),
@@ -93,12 +94,22 @@ const checkoutBodySchema = z.object({
             .regex(/^[A-Za-z]{3}$/)
             .transform((value) => normalizeUpper(value))
             .optional(),
+        cartVersion: z.coerce.number().int().nonnegative().optional(),
         pricingVersion: z.string().optional(),
     }).optional(),
     paymentContext: z.object({
         market: marketContextSchema.optional(),
         netbanking: netbankingContextSchema.optional(),
     }).strict().optional(),
+}).superRefine((value, ctx) => {
+    const checkoutSource = value.checkoutSource === 'directBuy' ? 'directBuy' : 'cart';
+    if (checkoutSource === 'directBuy' && (!Array.isArray(value.orderItems) || value.orderItems.length === 0)) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'orderItems must contain at least one item for directBuy checkout',
+            path: ['orderItems'],
+        });
+    }
 });
 
 const quoteOrderSchema = z.object({
