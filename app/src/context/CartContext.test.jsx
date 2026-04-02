@@ -1,8 +1,9 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useContext } from 'react';
-import { CartContext, CartProvider } from './CartContext';
+import { CartContext } from './CartContext';
 import { AuthContext } from './AuthContext';
+import { CommerceProvider } from './CommerceContext';
 import { GUEST_CART_STORAGE_KEY, resetCommerceStoreForTests, useCommerceStore } from '../store/commerceStore';
 
 vi.mock('../services/api', async () => {
@@ -25,9 +26,9 @@ const CartProbe = () => {
 
 const renderCartProvider = (authValue) => render(
   <AuthContext.Provider value={authValue}>
-    <CartProvider>
+    <CommerceProvider>
       <CartProbe />
-    </CartProvider>
+    </CommerceProvider>
   </AuthContext.Provider>
 );
 
@@ -127,9 +128,9 @@ describe('CartProvider', () => {
 
     view.rerender(
       <AuthContext.Provider value={{ currentUser: authUser, loading: false }}>
-        <CartProvider>
+        <CommerceProvider>
           <CartProbe />
-        </CartProvider>
+        </CommerceProvider>
       </AuthContext.Provider>
     );
 
