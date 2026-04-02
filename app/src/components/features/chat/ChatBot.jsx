@@ -103,43 +103,58 @@ const ChatBot = () => {
     if (!portalTarget) return null;
 
     return createPortal(
-        <div className="pointer-events-none fixed inset-0 z-[2147483600] flex items-end justify-end p-4 sm:p-6">
+        <div
+            className={cn(
+                'pointer-events-none fixed inset-0 z-[2147483600] flex',
+                isOpen
+                    ? 'items-stretch justify-stretch p-2 sm:p-4 lg:p-6'
+                    : 'items-end justify-end p-4 sm:p-6'
+            )}
+        >
             {isOpen ? (
-                <ChatContainer
-                    isWhiteMode={isWhiteMode}
-                    modeLabel={modeCopy.label}
-                    subtitle={modeCopy.subtitle}
-                    routeLabel={routeLabel}
-                    messages={messages}
-                    isLoading={isLoading}
-                    inputValue={inputValue}
-                    isListening={isListening}
-                    supportsDictation={supportsDictation}
-                    primaryAction={primaryAction}
-                    secondaryActions={secondaryActions}
-                    inputRef={inputRef}
-                    onClose={() => {
-                        stopListening();
-                        close();
-                    }}
-                    onInputChange={setInputValue}
-                    onSubmit={(event) => {
-                        event?.preventDefault?.();
-                        if (isListening) {
-                            stopListening();
-                        }
-                        void handleUserInput(inputValue);
-                    }}
-                    onToggleDictation={toggleListening}
-                    onAction={handleAction}
-                    onSelectProduct={(productId) => void selectProduct(productId)}
-                    onAddToCart={(productId) => void addProductToCart(productId)}
-                    onViewDetails={(productId) => void selectProduct(productId)}
-                    onOpenSupport={(prefill, orderId) => void openSupport(prefill, orderId)}
-                    onConfirmPending={(token) => void confirmPendingAction(token)}
-                    onCancelPending={cancelPendingAction}
-                    onModifyPending={modifyPendingAction}
-                />
+                <>
+                    <div
+                        aria-hidden="true"
+                        className="pointer-events-none absolute inset-0 bg-slate-950/42 backdrop-blur-[2px]"
+                    />
+                    <div className="pointer-events-none relative flex w-full items-stretch justify-end">
+                        <ChatContainer
+                            isWhiteMode={isWhiteMode}
+                            modeLabel={modeCopy.label}
+                            subtitle={modeCopy.subtitle}
+                            routeLabel={routeLabel}
+                            messages={messages}
+                            isLoading={isLoading}
+                            inputValue={inputValue}
+                            isListening={isListening}
+                            supportsDictation={supportsDictation}
+                            primaryAction={primaryAction}
+                            secondaryActions={secondaryActions}
+                            inputRef={inputRef}
+                            onClose={() => {
+                                stopListening();
+                                close();
+                            }}
+                            onInputChange={setInputValue}
+                            onSubmit={(event) => {
+                                event?.preventDefault?.();
+                                if (isListening) {
+                                    stopListening();
+                                }
+                                void handleUserInput(inputValue);
+                            }}
+                            onToggleDictation={toggleListening}
+                            onAction={handleAction}
+                            onSelectProduct={(productId) => void selectProduct(productId)}
+                            onAddToCart={(productId) => void addProductToCart(productId)}
+                            onViewDetails={(productId) => void selectProduct(productId)}
+                            onOpenSupport={(prefill, orderId) => void openSupport(prefill, orderId)}
+                            onConfirmPending={(token) => void confirmPendingAction(token)}
+                            onCancelPending={cancelPendingAction}
+                            onModifyPending={modifyPendingAction}
+                        />
+                    </div>
+                </>
             ) : (
                 <button
                     type="button"
