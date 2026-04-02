@@ -94,6 +94,10 @@ describe('Payment Validators', () => {
                 quotePayload: {
                     orderItems: [{ product: 10, quantity: 1 }],
                 },
+                quoteSnapshot: {
+                    totalPrice: 499,
+                    cartVersion: 0,
+                },
                 paymentMethod: 'CARD',
                 paymentContext: {
                     market: {
@@ -109,6 +113,10 @@ describe('Payment Validators', () => {
             countryCode: 'US',
             currency: 'USD',
             language: 'es',
+        });
+        expect(parsed.body.quoteSnapshot).toEqual({
+            totalPrice: 499,
+            cartVersion: 0,
         });
 
         await expect(createIntentSchema.parseAsync({
