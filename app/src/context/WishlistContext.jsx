@@ -1,20 +1,16 @@
-import { createContext, useContext, useEffect, useMemo } from 'react';
-import { useShallow } from 'zustand/react/shallow';
-import { AuthContext } from './AuthContext';
+import { useMemo } from 'react';
 import {
-  initializeCommerceSync,
+  createCommerceEntityContext,
+  useDeferredStoreAction,
+  useRefreshFromServer,
+} from './commerceEntityContext';
+import {
   selectWishlistItems,
   selectWishlistLoading,
   useCommerceStore,
 } from '../store/commerceStore';
 
-export const WishlistContext = createContext();
-
-export const WishlistProvider = ({ children }) => {
-  const { currentUser, loading: isAuthLoading } = useContext(AuthContext);
-  const wishlistItems = useCommerceStore(useShallow(selectWishlistItems));
-  const isLoading = useCommerceStore(selectWishlistLoading);
-  const bindAuthUser = useCommerceStore((state) => state.bindAuthUser);
+const useWishlistContextValue = ({ items: wishlistItems, isLoading }) => {
   const hydrateWishlist = useCommerceStore((state) => state.hydrateWishlist);
   const refreshWishlistIfStale = useCommerceStore((state) => state.refreshWishlistIfStale);
   const addWishlistItem = useCommerceStore((state) => state.addWishlistItem);
@@ -23,28 +19,13 @@ export const WishlistProvider = ({ children }) => {
   const clearWishlistState = useCommerceStore((state) => state.clearWishlist);
   const moveWishlistItemToCart = useCommerceStore((state) => state.moveWishlistItemToCart);
 
-  useEffect(() => {
-    const cleanup = initializeCommerceSync();
-    return () => cleanup?.();
-  }, []);
+  const isInWishlist = useMemo(() => (
+    (productId) => wishlistItems.some((item) => Number(item.id) === Number(productId))
+  ), [wishlistItems]);
+  const moveToCart = useDeferredStoreAction(moveWishlistItemToCart);
+  const refreshWishlistFromServer = useRefreshFromServer(hydrateWishlist, refreshWishlistIfStale);
 
-  useEffect(() => {
-    if (isAuthLoading) {
-      return;
-    }
-
-    bindAuthUser(currentUser || null).catch(() => {});
-  }, [bindAuthUser, currentUser?.email, currentUser?.uid, isAuthLoading]);
-
-  const isInWishlist = (productId) => (
-    wishlistItems.some((item) => Number(item.id) === Number(productId))
-  );
-
-  const moveToCart = (productId) => {
-    void moveWishlistItemToCart(productId);
-  };
-
-  const value = useMemo(() => ({
+  return useMemo(() => ({
     wishlistItems,
     isLoading,
     itemCount: wishlistItems.length,
@@ -54,27 +35,26 @@ export const WishlistProvider = ({ children }) => {
     isInWishlist,
     clearWishlist: clearWishlistState,
     moveToCart,
-    refreshWishlistFromServer: (options = {}) => (
-      options?.force === true
-        ? hydrateWishlist({ force: true, mergeGuest: options?.mergeGuest === true })
-        : refreshWishlistIfStale({ force: options?.force === true })
-    ),
+    refreshWishlistFromServer,
   }), [
     addWishlistItem,
     clearWishlistState,
-    hydrateWishlist,
-    moveWishlistItemToCart,
-    moveToCart,
+    isInWishlist,
     isLoading,
-    refreshWishlistIfStale,
+    moveToCart,
+    refreshWishlistFromServer,
     removeWishlistItem,
     toggleWishlistItem,
     wishlistItems,
   ]);
-
-  return (
-    <WishlistContext.Provider value={value}>
-      {children}
-    </WishlistContext.Provider>
-  );
 };
+
+const wishlistEntity = createCommerceEntityContext({
+  displayName: 'WishlistContext',
+  selectItems: selectWishlistItems,
+  selectLoading: selectWishlistLoading,
+  useContextValue: useWishlistContextValue,
+});
+
+export const WishlistContext = wishlistEntity.Context;
+export const WishlistProvider = wishlistEntity.Provider;
