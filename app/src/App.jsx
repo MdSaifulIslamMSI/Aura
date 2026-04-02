@@ -2,8 +2,7 @@ import { Suspense, useEffect, useMemo, useState } from 'react';
 import { BrowserRouter as Router, Route, Routes, useLocation } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { AuthProvider } from './context/AuthContext';
-import { CartProvider } from './context/CartContext';
-import { WishlistProvider } from './context/WishlistContext';
+import { CommerceProvider } from './context/CommerceContext';
 import { ColorModeProvider } from './context/ColorModeContext';
 import { MarketProvider } from './context/MarketContext';
 import { MotionModeProvider, useMotionMode } from './context/MotionModeContext';
@@ -296,17 +295,15 @@ function App() {
             <SocketProvider>
               <NotificationProvider>
                 <VideoCallProvider>
-                  <CartProvider>
-                    <WishlistProvider>
-                      {/* React Router v7 defaults BrowserRouter navigations to startTransition,
-                          which can leave the previous lazy route visible after URL changes. */}
-                      <Router unstable_useTransitions={false}>
-                        <MultimodalAssistantProvider>
-                          <AppContent />
-                        </MultimodalAssistantProvider>
-                      </Router>
-                    </WishlistProvider>
-                  </CartProvider>
+                  <CommerceProvider>
+                    {/* React Router v7 defaults BrowserRouter navigations to startTransition,
+                        which can leave the previous lazy route visible after URL changes. */}
+                    <Router unstable_useTransitions={false}>
+                      <MultimodalAssistantProvider>
+                        <AppContent />
+                      </MultimodalAssistantProvider>
+                    </Router>
+                  </CommerceProvider>
                 </VideoCallProvider>
               </NotificationProvider>
             </SocketProvider>

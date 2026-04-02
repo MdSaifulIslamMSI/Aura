@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest';
 import {
     buildFirebaseSessionFallback,
     buildSessionStateFromPayload,
+    isAuthenticatedSessionStatus,
     normalizeEmail,
     normalizePhone,
     normalizeSessionStatus,
@@ -13,6 +14,14 @@ describe('authSessionState', () => {
         expect(normalizeSessionStatus('lattice_challenge_required')).toBe(SESSION_STATUS.DEVICE_CHALLENGE);
         expect(normalizeSessionStatus('authenticated')).toBe(SESSION_STATUS.AUTHENTICATED);
         expect(normalizeSessionStatus('unexpected')).toBe(SESSION_STATUS.SIGNED_OUT);
+    });
+
+    test('treats only a resolved authenticated session as fully authenticated', () => {
+        expect(isAuthenticatedSessionStatus(SESSION_STATUS.AUTHENTICATED)).toBe(true);
+        expect(isAuthenticatedSessionStatus(SESSION_STATUS.LOADING)).toBe(false);
+        expect(isAuthenticatedSessionStatus(SESSION_STATUS.DEVICE_CHALLENGE)).toBe(false);
+        expect(isAuthenticatedSessionStatus(SESSION_STATUS.RECOVERABLE_ERROR)).toBe(false);
+        expect(isAuthenticatedSessionStatus('lattice_challenge_required')).toBe(false);
     });
 
     test('builds a Firebase session fallback with normalized identity fields', () => {
