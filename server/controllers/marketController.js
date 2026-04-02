@@ -18,12 +18,10 @@ const getBrowseFxRates = asyncHandler(async (req, res) => {
         || normalizeCurrencyCode(req.market?.baseCurrency)
         || DEFAULT_BASE_CURRENCY;
     const requestedCurrencies = parseCurrencies(req.query?.currencies);
-    const forceRefresh = String(req.query?.refresh || 'false').trim().toLowerCase() === 'true';
 
     const payload = await getBrowseFxPayload({
         baseCurrency,
         currencies: requestedCurrencies.length > 0 ? requestedCurrencies : DEFAULT_BROWSE_CURRENCIES,
-        forceRefresh,
     });
 
     res.json({

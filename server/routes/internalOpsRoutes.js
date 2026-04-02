@@ -7,6 +7,7 @@ const {
     runCatalogSyncMaintenance,
     runAdminAnalyticsMaintenance,
     runDailyMaintenance,
+    runFxRateRefresh,
 } = require('../controllers/internalOpsController');
 
 const router = express.Router();
@@ -19,5 +20,6 @@ router.get('/cron/catalog-import', runCatalogImportMaintenance);
 router.get('/cron/catalog-sync', runCatalogSyncMaintenance);
 router.get('/cron/admin-analytics', runAdminAnalyticsMaintenance);
 router.get('/cron/daily-maintenance', runDailyMaintenance);
+router.get('/cron/fx-rates', runFxRateRefresh);
 
 module.exports = router;

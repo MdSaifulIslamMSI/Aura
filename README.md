@@ -148,4 +148,8 @@ All 10 identified login architecture vulnerabilities have been fixed and are pro
 - The backend now supports `PAYMENT_FX_PROVIDER=auto|openexchangerates|ecb`.
 - `auto` prefers Open Exchange Rates when `OPEN_EXCHANGE_RATES_APP_ID` is configured and falls back to ECB reference rates if the real-time provider is unavailable.
 - `PAYMENT_FX_RATES_TTL_MS` overrides the backend FX cache TTL. Leave it blank to use provider-aware defaults.
-- The frontend keeps a short local poll loop and respects the server-provided FX cache TTL so it can pick up fresher rates without hammering the provider.
+- The production FX pipeline is scheduler-driven: `node-cron` refreshes rates every hour, stores the last successful snapshot in MongoDB, and serves all client reads from cache instead of from the provider.
+- Hourly refreshes retry up to 3 times, respect `PAYMENT_FX_MAX_CALLS_PER_DAY`, and fall back to the last successful snapshot when the upstream provider is unavailable.
+- Run a one-shot refresh manually with `cd server && npm run fx:refresh`.
+- Use the protected internal endpoint `GET /api/internal/cron/fx-rates` with `Authorization: Bearer $CRON_SECRET` when wiring Vercel Cron, GCP Scheduler, or another external scheduler.
+- Full setup and deployment notes live in [`docs/fx-rate-pipeline.md`](docs/fx-rate-pipeline.md).
