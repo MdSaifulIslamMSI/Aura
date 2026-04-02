@@ -58,7 +58,7 @@ const MultimodalDock = ({ isWhiteMode = false }) => {
     const activeDraft = String(inputValue || continuityContext?.lastQuery || '').trim();
 
     return (
-        <section className={cn('mx-4 mt-4 rounded-[1.6rem] border p-4', shellClassName)}>
+        <section className={cn('mx-5 mt-5 rounded-[1.6rem] border p-4 sm:mx-6 sm:p-5', shellClassName)}>
             <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                     <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.22em] text-cyan-300">
