@@ -94,7 +94,7 @@ const MessageItem = ({
             : 'border-cyan-400/20 bg-cyan-400/10 text-slate-50')
         : (isWhiteMode
             ? 'border-slate-200 bg-white text-slate-950'
-            : 'border-white/10 bg-white/[0.04] text-slate-100');
+            : 'border-white/8 bg-white/[0.045] text-slate-100');
 
     const messageMode = message?.mode || (Array.isArray(message?.products) && message.products.length === 1 ? 'product' : 'explore');
     const shouldRenderProducts = !isUser
@@ -106,7 +106,7 @@ const MessageItem = ({
 
     return (
         <div className={cn('flex flex-col gap-3', isUser ? 'items-end' : 'items-start')}>
-            <div className={cn('max-w-[92%] rounded-[1.4rem] border px-4 py-3 text-sm leading-6 shadow-sm', bubbleClassName)}>
+            <div className={cn('max-w-[92%] rounded-[1.55rem] border px-4 py-3 text-sm leading-6 shadow-sm sm:max-w-[82%]', bubbleClassName)}>
                 <div className="space-y-3">
                     {renderParagraphs(message?.text)}
                 </div>

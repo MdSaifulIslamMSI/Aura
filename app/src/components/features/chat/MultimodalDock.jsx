@@ -25,7 +25,7 @@ const buildStatusTone = (tone = 'neutral', isWhiteMode = false) => {
         : 'border-white/10 bg-white/5 text-white/75';
 };
 
-const MultimodalDock = ({ isWhiteMode = false }) => {
+const MultimodalDock = ({ isWhiteMode = false, variant = 'full' }) => {
     const inputValue = useChatStore((state) => state.inputValue);
     const {
         activeChannel,
@@ -56,6 +56,79 @@ const MultimodalDock = ({ isWhiteMode = false }) => {
     const cameraReady = readiness?.camera === 'granted';
     const networkHealthy = readiness?.network === 'online';
     const activeDraft = String(inputValue || continuityContext?.lastQuery || '').trim();
+
+    if (variant === 'compact') {
+        return (
+            <section className={cn('rounded-[1.6rem] border p-4', shellClassName)}>
+                <div className="flex items-center justify-between gap-3">
+                    <div>
+                        <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.22em] text-cyan-300">
+                            <Sparkles className="h-3.5 w-3.5" />
+                            Assistant Tools
+                        </div>
+                        <p className={cn('mt-2 text-sm font-semibold', isWhiteMode ? 'text-slate-900' : 'text-white')}>
+                            Voice and live inspection lanes
+                        </p>
+                    </div>
+
+                    <span className={cn('inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold', buildStatusTone(activeCallSummary?.active ? 'success' : 'accent', isWhiteMode))}>
+                        {String(activeChannel || 'chat').replace(/-/g, ' ')}
+                    </span>
+                </div>
+
+                <p className={cn('mt-3 text-xs leading-6', mutedTextClass)}>
+                    {continuityContext?.lastQuery || 'Keep one brief across chat, voice, and live assistance.'}
+                </p>
+
+                <div className="mt-4 grid gap-2">
+                    <button
+                        type="button"
+                        onClick={() => openVoiceAssistant?.({
+                            initialCommand: activeDraft,
+                            origin: 'chat_sidebar_lane',
+                        })}
+                        className={cn('flex items-center justify-between rounded-2xl border px-3 py-3 text-left text-sm font-medium transition-colors', primaryLaneClass)}
+                    >
+                        <span className="inline-flex items-center gap-2">
+                            <Mic className="h-4 w-4" />
+                            Voice copilot
+                        </span>
+                        <span className="text-xs uppercase tracking-[0.16em]">Open</span>
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => void startContextualCall?.({ mediaMode: 'voice', source: 'chat_sidebar_lane' })}
+                        disabled={!routeContext?.canLaunchInspection || activeCallSummary?.active}
+                        className={cn('flex items-center justify-between rounded-2xl border px-3 py-3 text-left text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-55', secondaryLaneClass)}
+                    >
+                        <span className="inline-flex items-center gap-2">
+                            <PhoneCall className="h-4 w-4" />
+                            Live voice
+                        </span>
+                        <span className="text-xs uppercase tracking-[0.16em]">
+                            {routeContext?.canLaunchInspection ? 'Ready' : 'Locked'}
+                        </span>
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => void startContextualCall?.({ mediaMode: 'video', source: 'chat_sidebar_lane' })}
+                        disabled={!routeContext?.canLaunchInspection || activeCallSummary?.active}
+                        className={cn('flex items-center justify-between rounded-2xl border px-3 py-3 text-left text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-55', secondaryLaneClass)}
+                    >
+                        <span className="inline-flex items-center gap-2">
+                            <Video className="h-4 w-4" />
+                            Live video
+                        </span>
+                        <span className="text-xs uppercase tracking-[0.16em]">
+                            {cameraReady ? 'Camera ready' : 'Camera check'}
+                        </span>
+                    </button>
+                </div>
+            </section>
+        );
+    }
 
     return (
         <section className={cn('mx-5 mt-5 rounded-[1.6rem] border p-4 sm:mx-6 sm:p-5', shellClassName)}>
