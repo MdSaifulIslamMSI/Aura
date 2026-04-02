@@ -768,6 +768,37 @@ const isStaleUserSnapshot = (currentEntity = {}, incomingSnapshot = {}) => {
         && incomingSyncedAt < currentSyncedAt;
 };
 
+const shouldPreserveCurrentUserItems = (currentEntity = {}, incomingSnapshot = {}, incomingItems = []) => {
+    if (currentEntity?.source !== 'user' || incomingSnapshot?.source !== 'user') {
+        return false;
+    }
+
+    const currentItemCount = Array.isArray(currentEntity?.orderedIds)
+        ? currentEntity.orderedIds.length
+        : 0;
+    const incomingItemCount = Array.isArray(incomingItems)
+        ? incomingItems.length
+        : 0;
+
+    if (currentItemCount === 0 || incomingItemCount > 0) {
+        return false;
+    }
+
+    const currentRevision = toComparableRevision(currentEntity?.revision);
+    const incomingRevision = toComparableRevision(incomingSnapshot?.revision);
+    if (currentRevision !== null && incomingRevision !== null && incomingRevision > currentRevision) {
+        return false;
+    }
+
+    const currentSyncedAt = toComparableTimestamp(currentEntity?.syncedAt);
+    const incomingSyncedAt = toComparableTimestamp(incomingSnapshot?.syncedAt);
+    if (currentSyncedAt !== null && incomingSyncedAt !== null && incomingSyncedAt > currentSyncedAt) {
+        return false;
+    }
+
+    return true;
+};
+
 export const useCommerceStore = create((set, get) => {
     const hydrateEntity = async (entityKey, { force = false, mergeGuest = false, authGeneration = null } = {}) => {
         const state = get();
@@ -932,6 +963,27 @@ export const useCommerceStore = create((set, get) => {
                         pendingOps: (latestEntity.pendingOps || []).length,
                         requestId,
                         reason: 'older_hydration_payload_ignored',
+                    }, 'warn');
+                    return getEntityItems(entityKey, latestEntity);
+                }
+
+                if (shouldPreserveCurrentUserItems(
+                    latestEntity,
+                    {
+                        source: 'user',
+                        revision: payload.revision,
+                        syncedAt: payload.syncedAt,
+                    },
+                    payload.items,
+                )) {
+                    emitCommerceDiagnostic('commerce_divergence_detected', {
+                        entity: entityKey,
+                        authMode: 'user',
+                        userId: currentAuthUser.uid,
+                        revision: payload.revision,
+                        pendingOps: (latestEntity.pendingOps || []).length,
+                        requestId,
+                        reason: 'destructive_hydration_payload_ignored',
                     }, 'warn');
                     return getEntityItems(entityKey, latestEntity);
                 }
@@ -1275,6 +1327,18 @@ export const useCommerceStore = create((set, get) => {
                 revision: extracted.revision,
                 syncedAt: extracted.syncedAt,
             })) {
+                return;
+            }
+
+            if (shouldPreserveCurrentUserItems(
+                currentEntity,
+                {
+                    source: snapshot?.source || currentEntity.source,
+                    revision: extracted.revision,
+                    syncedAt: extracted.syncedAt,
+                },
+                extracted.items,
+            )) {
                 return;
             }
 

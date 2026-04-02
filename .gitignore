@@ -70,3 +70,4 @@ server/test_output.txt
 # Playwright/coverage output
 **/playwright-report/
 **/coverage/
+.vercel
