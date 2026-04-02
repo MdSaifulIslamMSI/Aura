@@ -1,4 +1,5 @@
 export * from './catalogApi';
+export * from './cartApi';
 export * from './userApi';
 export * from './authApi';
 export * from './orderApi';

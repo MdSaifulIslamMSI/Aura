@@ -26,6 +26,7 @@ const { getMongoDeploymentHealth } = require('./config/db');
 const productRoutes = require('./routes/productRoutes');
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
+const cartRoutes = require('./routes/cartRoutes');
 const orderRoutes = require('./routes/orderRoutes');
 const checkoutRoutes = require('./routes/checkoutRoutes');
 const chatRoutes = require('./routes/chatRoutes');
@@ -235,6 +236,7 @@ if (process.env.NODE_ENV !== 'test') {
 app.use('/api/products', productRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/cart', cartRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/checkout', checkoutRoutes);
 app.use('/api/chat', chatRoutes);

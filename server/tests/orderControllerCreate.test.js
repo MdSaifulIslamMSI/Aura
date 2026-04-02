@@ -8,6 +8,7 @@ jest.mock('../services/loyaltyService', () => ({
 
 const mongoose = require('mongoose');
 const User = require('../models/User');
+const Cart = require('../models/Cart');
 const Product = require('../models/Product');
 const Order = require('../models/Order');
 const PaymentIntent = require('../models/PaymentIntent');
@@ -121,15 +122,15 @@ const invokeAddOrderItems = async ({ user, body, idempotencyKey }) => {
 describe('Order Controller Create Integrity', () => {
     test('creates a digital order, consumes the intent, schedules capture, and clears cart', async () => {
         const product = await makeProduct({ stock: 7, price: 1000 });
-        const user = await makeUser({
-            cart: [{
-                id: product.id,
-                title: product.title,
-                price: product.price,
-                image: product.image,
+        const user = await makeUser();
+        await Cart.create({
+            user: user._id,
+            version: 4,
+            items: [{
+                productId: product.id,
                 quantity: 1,
-                stock: product.stock,
             }],
+            updatedAtIso: new Date('2026-04-01T00:05:00.000Z').toISOString(),
         });
 
         const body = {
@@ -144,7 +145,7 @@ describe('Order Controller Create Integrity', () => {
             checkoutSource: 'cart',
         };
 
-        const quote = await buildOrderQuote(body);
+        const quote = await buildOrderQuote(body, { userId: user._id });
         const intent = await makeAuthorizedIntent({
             userId: user._id,
             amount: quote.pricing.totalPrice,
@@ -155,8 +156,12 @@ describe('Order Controller Create Integrity', () => {
             user: { _id: user._id, email: user.email, name: user.name },
             body: {
                 ...body,
+                cartVersion: quote.cart?.version,
                 paymentIntentId: intent.intentId,
-                quoteSnapshot: { totalPrice: quote.pricing.totalPrice },
+                quoteSnapshot: {
+                    totalPrice: quote.pricing.totalPrice,
+                    cartVersion: quote.cart?.version,
+                },
             },
             idempotencyKey: 'order-create-alpha',
         });
@@ -168,7 +173,7 @@ describe('Order Controller Create Integrity', () => {
         const orders = await Order.find({ user: user._id }).lean();
         const outboxTasks = await PaymentOutboxTask.find({ taskType: 'capture', intentId: intent.intentId }).lean();
         const refreshedIntent = await PaymentIntent.findOne({ intentId: intent.intentId }).lean();
-        const refreshedUser = await User.findById(user._id).lean();
+        const refreshedCart = await Cart.findOne({ user: user._id }).lean();
         const refreshedProduct = await Product.findById(product._id).lean();
 
         expect(orders).toHaveLength(1);
@@ -176,7 +181,11 @@ describe('Order Controller Create Integrity', () => {
         expect(outboxTasks[0].status).toBe('pending');
         expect(refreshedIntent.order).toBeTruthy();
         expect(refreshedIntent.orderClaim.state).toBe('consumed');
-        expect(refreshedUser.cart).toHaveLength(0);
+        expect(refreshedCart.items).toHaveLength(0);
+        expect(res.payload.cart).toMatchObject({
+            version: refreshedCart.version,
+            items: [],
+        });
         expect(refreshedProduct.stock).toBe(6);
         expect(orders[0].paymentIntentId).toBe(intent.intentId);
         expect(orders[0].paymentState).toBe(PAYMENT_STATUSES.AUTHORIZED);
@@ -236,6 +245,68 @@ describe('Order Controller Create Integrity', () => {
         expect(orders).toHaveLength(1);
         expect(outboxTasks).toHaveLength(1);
         expect(idempotencyRecords).toHaveLength(1);
+    }, 15000);
+
+    test('rejects cart checkout when the quoted cart version is stale', async () => {
+        const product = await makeProduct({ stock: 5, price: 1200 });
+        const user = await makeUser();
+        await Cart.create({
+            user: user._id,
+            version: 2,
+            items: [{ productId: product.id, quantity: 1 }],
+            updatedAtIso: new Date('2026-04-01T00:10:00.000Z').toISOString(),
+        });
+
+        const body = {
+            shippingAddress: {
+                address: 'MG Road',
+                city: 'Mumbai',
+                postalCode: '400001',
+                country: 'India',
+            },
+            paymentMethod: 'CARD',
+            checkoutSource: 'cart',
+        };
+
+        const quote = await buildOrderQuote(body, { userId: user._id });
+        const intent = await makeAuthorizedIntent({
+            userId: user._id,
+            amount: quote.pricing.totalPrice,
+            method: 'CARD',
+        });
+
+        await Cart.updateOne(
+            { user: user._id },
+            {
+                $set: {
+                    items: [{ productId: product.id, quantity: 2 }],
+                    updatedAtIso: new Date('2026-04-01T00:11:00.000Z').toISOString(),
+                },
+                $inc: { version: 1 },
+            }
+        );
+
+        const { res, nextError } = await invokeAddOrderItems({
+            user: { _id: user._id, email: user.email, name: user.name },
+            body: {
+                ...body,
+                cartVersion: quote.cart?.version,
+                paymentIntentId: intent.intentId,
+                quoteSnapshot: {
+                    totalPrice: quote.pricing.totalPrice,
+                    cartVersion: quote.cart?.version,
+                },
+            },
+            idempotencyKey: 'order-create-cart-stale',
+        });
+
+        expect(res.payload).toBeUndefined();
+        expect(nextError).toBeTruthy();
+        expect(nextError.statusCode).toBe(409);
+        expect(nextError.message).toMatch(/cart changed/i);
+
+        const orders = await Order.find({ user: user._id }).lean();
+        expect(orders).toHaveLength(0);
     }, 15000);
 
     test('rejects a second order attempt with a different idempotency key against an already-consumed intent', async () => {
