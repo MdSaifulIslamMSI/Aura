@@ -37,7 +37,7 @@ describe('supportVideoService', () => {
         const messages = await SupportMessage.find({ ticket: ticket._id }).lean();
         expect(messages).toHaveLength(1);
         expect(messages[0].isSystem).toBe(true);
-        expect(messages[0].text).toContain('Customer requested a live support call');
+        expect(messages[0].text).toContain('Customer requested a video call');
     });
 
     test('tracks support call lifecycle through started, connected, and ended states', async () => {
