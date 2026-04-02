@@ -1,7 +1,8 @@
-import { useEffect } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import { MessageCircle } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { useLocation } from 'react-router-dom';
+import { AuthContext } from '@/context/AuthContext';
 import { useColorMode } from '@/context/ColorModeContext';
 import { cn } from '@/lib/utils';
 import { useSpeechInput } from '@/hooks/useSpeechInput';
@@ -36,6 +37,8 @@ const MODE_COPY = {
 const ChatBot = () => {
     const location = useLocation();
     const { colorMode } = useColorMode();
+    const { currentUser } = useContext(AuthContext);
+    const [workspaceVariant, setWorkspaceVariant] = useState('large');
 
     const isOpen = useChatStore((state) => state.isOpen);
     const mode = useChatStore((state) => state.mode);
@@ -47,6 +50,7 @@ const ChatBot = () => {
     const open = useChatStore((state) => state.open);
     const close = useChatStore((state) => state.close);
     const setInputValue = useChatStore((state) => state.setInputValue);
+    const resetConversation = useChatStore((state) => state.resetConversation);
 
     const {
         inputRef,
@@ -63,6 +67,9 @@ const ChatBot = () => {
     const isWhiteMode = colorMode === 'white';
     const routeLabel = getAssistantRouteLabel(location.pathname);
     const modeCopy = MODE_COPY[mode] || MODE_COPY.explore;
+    const currentUserLabel = currentUser?.displayName
+        || currentUser?.email?.split('@')?.[0]
+        || 'there';
     const launcherClassName = isWhiteMode
         ? 'border-slate-200/90 bg-white/95 text-slate-950 shadow-[0_18px_48px_rgba(15,23,42,0.14)]'
         : 'border-white/10 bg-[linear-gradient(135deg,rgba(6,10,24,0.96),rgba(10,18,34,0.96))] text-slate-50 shadow-[0_22px_60px_rgba(2,6,23,0.56)]';
@@ -107,7 +114,9 @@ const ChatBot = () => {
             className={cn(
                 'pointer-events-none fixed inset-0 z-[2147483600] flex',
                 isOpen
-                    ? 'items-stretch justify-stretch p-2 sm:p-4 lg:p-6'
+                    ? (workspaceVariant === 'large'
+                        ? 'items-stretch justify-stretch p-2 sm:p-4 lg:p-6'
+                        : 'items-end justify-end p-3 sm:p-5 lg:p-6')
                     : 'items-end justify-end p-4 sm:p-6'
             )}
         >
@@ -131,9 +140,18 @@ const ChatBot = () => {
                             primaryAction={primaryAction}
                             secondaryActions={secondaryActions}
                             inputRef={inputRef}
+                            currentUserLabel={currentUserLabel}
+                            workspaceVariant={workspaceVariant}
                             onClose={() => {
                                 stopListening();
                                 close();
+                            }}
+                            onSetWorkspaceVariant={setWorkspaceVariant}
+                            onStartFresh={() => {
+                                stopListening();
+                                resetConversation();
+                                setInputValue('');
+                                window.requestAnimationFrame(() => inputRef.current?.focus());
                             }}
                             onInputChange={setInputValue}
                             onSubmit={(event) => {
@@ -152,6 +170,7 @@ const ChatBot = () => {
                             onConfirmPending={(token) => void confirmPendingAction(token)}
                             onCancelPending={cancelPendingAction}
                             onModifyPending={modifyPendingAction}
+                            onStarterPrompt={(prompt) => void handleUserInput(prompt)}
                         />
                     </div>
                 </>
