@@ -2,6 +2,7 @@ const request = require('supertest');
 
 jest.mock('../middleware/authMiddleware', () => ({
     protect: (req, res, next) => res.status(401).json({ message: 'Not authorized' }),
+    protectPhoneFactorProof: (req, res, next) => next(),
     protectOptional: (req, res, next) => next(),
     admin: (req, res, next) => next(),
     seller: (req, res, next) => next(),

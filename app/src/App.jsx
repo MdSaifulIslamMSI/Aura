@@ -25,6 +25,12 @@ import { trustRoutes } from './config/trustContent';
 import { assertRouteA11yContracts } from './utils/a11yContracts';
 import { lazyWithRetry } from './utils/lazyWithRetry';
 import { MultimodalAssistantProvider } from './context/MultimodalAssistantContext';
+import { isAssistantV2Enabled } from './services/assistantFeatureFlags';
+import {
+  shouldShowAmbientChrome,
+  shouldShowAssistantLauncher,
+  shouldShowLegacyChatBot,
+} from './services/assistantUiConfig';
 
 // Pages (Lazy Loaded for Performance)
 const Home = lazyWithRetry(() => import('./pages/Home'), 'home');
@@ -63,45 +69,9 @@ const AICompare = lazyWithRetry(() => import('./pages/AICompare'), 'ai-compare')
 const VisualSearch = lazyWithRetry(() => import('./pages/VisualSearch'), 'visual-search');
 const Bundles = lazyWithRetry(() => import('./pages/Bundles'), 'bundles');
 const MissionControl = lazyWithRetry(() => import('./pages/MissionControl'), 'mission-control');
+const AssistantPage = lazyWithRetry(() => import('./pages/Assistant'), 'assistant-workspace');
 const ChatBot = lazyWithRetry(() => import('./components/features/chat/ChatBot'), 'chat-bot');
-
-const AMBIENT_CHROME_PREFIXES = [
-  '/',
-  '/products',
-  '/category/',
-  '/search',
-  '/deals',
-  '/trending',
-  '/new-arrivals',
-  '/marketplace',
-  '/product/',
-  '/listing/',
-  '/seller/',
-  '/compare',
-  '/visual-search',
-  '/bundles',
-  '/mission-control',
-  '/trust',
-];
-
-const CHATBOT_PREFIXES = [
-  '/',
-  '/products',
-  '/category/',
-  '/search',
-  '/deals',
-  '/trending',
-  '/new-arrivals',
-  '/marketplace',
-  '/product/',
-  '/listing/',
-  '/cart',
-];
-
-const routeMatches = (pathname, prefixes) => {
-  if (pathname === '/') return prefixes.includes('/');
-  return prefixes.some((prefix) => prefix !== '/' && pathname.startsWith(prefix));
-};
+const AssistantLauncher = lazyWithRetry(() => import('./components/shared/AssistantLauncher'), 'assistant-launcher');
 
 function renderRoute(element) {
   return <AppErrorBoundary>{element}</AppErrorBoundary>;
@@ -117,15 +87,20 @@ function AppContent() {
   const pathname = location.pathname;
   const routeRenderKey = `${location.pathname}${location.search}${location.hash}`;
   const [chatBotReady, setChatBotReady] = useState(false);
+  const assistantV2Enabled = isAssistantV2Enabled();
 
   const showAmbientChrome = useMemo(
-    () => !pathname.startsWith('/admin') && routeMatches(pathname, AMBIENT_CHROME_PREFIXES),
+    () => shouldShowAmbientChrome(pathname),
     [pathname]
   );
   const showAnchorRail = showAmbientChrome && effectiveMotionMode === 'cinematic';
-  const showChatBot = useMemo(
-    () => !pathname.startsWith('/admin') && routeMatches(pathname, CHATBOT_PREFIXES),
-    [pathname]
+  const showLegacyChatBot = useMemo(
+    () => shouldShowLegacyChatBot({ pathname, assistantV2Enabled }),
+    [assistantV2Enabled, pathname]
+  );
+  const showAssistantLauncher = useMemo(
+    () => shouldShowAssistantLauncher({ pathname, assistantV2Enabled }),
+    [assistantV2Enabled, pathname]
   );
 
 
@@ -144,7 +119,7 @@ function AppContent() {
   }, [pathname]);
 
   useEffect(() => {
-    if (typeof window === 'undefined' || !showChatBot || chatBotReady) return undefined;
+    if (typeof window === 'undefined' || !showLegacyChatBot || chatBotReady) return undefined;
 
     let cancelled = false;
     let timeoutId = 0;
@@ -173,7 +148,7 @@ function AppContent() {
         window.cancelIdleCallback(idleId);
       }
     };
-  }, [chatBotReady, pathname, showChatBot]);
+  }, [chatBotReady, pathname, showLegacyChatBot]);
 
   return (
     <div className="aura-app-shell flex min-h-screen min-w-0 flex-col overflow-x-hidden">
@@ -220,6 +195,7 @@ function AppContent() {
               <Route path="/visual-search" element={renderRoute(<VisualSearch />)} />
               <Route path="/bundles" element={renderRoute(<Bundles />)} />
               <Route path="/mission-control" element={renderRoute(<MissionControl />)} />
+              <Route path="/assistant" element={renderRoute(<AssistantPage />)} />
               <Route path="/contact" element={renderRoute(<ContactPage />)} />
               {trustRoutes.filter((path) => path !== '/contact').map((path) => (
                 <Route key={path} path={path} element={renderRoute(<TrustPage />)} />
@@ -257,10 +233,17 @@ function AppContent() {
           </RouteTransitionShell>
         </Suspense>
       </main>
-      {showChatBot && chatBotReady ? (
+      {showLegacyChatBot && chatBotReady ? (
         <Suspense fallback={null}>
           <AppErrorBoundary>
             <ChatBot />
+          </AppErrorBoundary>
+        </Suspense>
+      ) : null}
+      {showAssistantLauncher ? (
+        <Suspense fallback={null}>
+          <AppErrorBoundary>
+            <AssistantLauncher />
           </AppErrorBoundary>
         </Suspense>
       ) : null}

@@ -63,4 +63,13 @@ describe('GlobalSupportLauncher', () => {
 
         expect(screen.queryByRole('button', { name: /talk to admin support/i })).not.toBeInTheDocument();
     });
+
+    it('hides itself inside the dedicated assistant workspace', () => {
+        renderLauncher({
+            currentUser: { uid: 'user-1', email: 'member@example.com' },
+            initialEntry: '/assistant?from=%2Fproduct%2F101',
+        });
+
+        expect(screen.queryByRole('button', { name: /talk to admin support/i })).not.toBeInTheDocument();
+    });
 });
