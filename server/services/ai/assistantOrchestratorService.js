@@ -9,6 +9,11 @@ const {
     processRecoveredAssistantTurn,
 } = require('./assistantRecoveryService');
 const {
+    requestCentralIntelligenceTurn,
+    shouldUseCentralIntelligence,
+    streamCentralIntelligenceTurn,
+} = require('../intelligence/intelligenceGatewayService');
+const {
     createActionId,
     markActionExecuted,
     resolveAssistantSession,
@@ -239,6 +244,22 @@ const processAssistantTurn = async ({
                 pendingAction: validation.pendingAction,
             });
         }
+    } else if (shouldUseCentralIntelligence({
+        message,
+        confirmation,
+        actionRequest,
+        assistantMode,
+        context: authoritativeContext,
+    })) {
+        recovered = await requestCentralIntelligenceTurn({
+            user,
+            message,
+            conversationHistory: normalizeHistory(conversationHistory),
+            assistantMode,
+            context: authoritativeContext,
+            images,
+            session: resolvedSession,
+        });
     } else if (actionRequest?.type) {
         recovered = await processExplicitAssistantAction({
             actionRequest,
@@ -273,8 +294,85 @@ const processAssistantTurn = async ({
     };
 };
 
+const streamAssistantTurn = async ({
+    user = null,
+    message = '',
+    conversationHistory = [],
+    assistantMode = 'chat',
+    sessionId = '',
+    confirmation = null,
+    actionRequest = null,
+    context = {},
+    images = [],
+    writeEvent = () => {},
+}) => {
+    const startedAt = Date.now();
+    const resolvedSession = resolveAssistantSession({
+        sessionId,
+        context,
+    });
+    const authoritativeContext = buildAuthoritativeContext({
+        context,
+        session: resolvedSession,
+    });
+
+    if (shouldUseCentralIntelligence({
+        message,
+        confirmation,
+        actionRequest,
+        assistantMode,
+        context: authoritativeContext,
+    })) {
+        const recovered = await streamCentralIntelligenceTurn({
+            user,
+            message,
+            conversationHistory: normalizeHistory(conversationHistory),
+            assistantMode,
+            context: authoritativeContext,
+            images,
+            session: resolvedSession,
+            writeEvent,
+        });
+
+        const finalized = finalizeAssistantTurnSession({
+            result: recovered,
+            session: resolvedSession,
+            context: authoritativeContext,
+            confirmation,
+        });
+
+        const response = {
+            ...finalized,
+            providerCapabilities: getCapabilitySnapshot(),
+            latencyMs: Date.now() - startedAt,
+            safetyFlags: Array.isArray(finalized?.assistantTurn?.safetyFlags)
+                ? finalized.assistantTurn.safetyFlags
+                : [],
+        };
+
+        writeEvent('final_turn', response);
+        return response;
+    }
+
+    const result = await processAssistantTurn({
+        user,
+        message,
+        conversationHistory,
+        assistantMode,
+        sessionId,
+        confirmation,
+        actionRequest,
+        context,
+        images,
+    });
+
+    writeEvent('final_turn', result);
+    return result;
+};
+
 module.exports = {
     createVoiceSessionConfig,
     processAssistantTurn,
+    streamAssistantTurn,
     synthesizeVoiceReply: synthesizeSpeech,
 };
