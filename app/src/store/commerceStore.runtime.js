@@ -420,6 +420,18 @@ const buildEntityState = (
     };
 };
 
+const buildInitialGuestEntityState = (entityKey) => buildEntityState(
+    entityKey,
+    readGuestEntitySnapshot(entityKey),
+    'guest',
+    null,
+    [],
+    'ready',
+    null,
+    Date.now(),
+    null,
+);
+
 const getEntityItems = (entityKey, entityState = {}) => (
     (entityState?.orderedIds || [])
         .map((id) => entityState?.itemsById?.[id])
@@ -1313,8 +1325,8 @@ export const useCommerceStore = create((set, get) => {
 
     return {
         authUser: null,
-        cart: createEmptyEntityState('guest'),
-        wishlist: createEmptyEntityState('guest'),
+        cart: buildInitialGuestEntityState('cart'),
+        wishlist: buildInitialGuestEntityState('wishlist'),
         checkoutSession: readPersistedCheckoutSession(),
         sync: createEmptySyncState(),
 
