@@ -3,6 +3,7 @@ const { resolveCategory } = require('../../config/categories');
 const FILLER_WORDS = new Set([
     'a',
     'an',
+    'any',
     'for',
     'give',
     'just',
