@@ -1,0 +1,41 @@
+{
+  "services": [
+    {
+      "key": "api",
+      "templatePath": "infra/azure/server-api.appsettings.example.env",
+      "imageRefParameter": "ApiImageRef",
+      "ingress": "external",
+      "targetPort": 8080,
+      "transport": "auto",
+      "cpu": "1.0",
+      "memory": "2.0Gi",
+      "minReplicas": 1,
+      "maxReplicas": 3,
+      "revisionsMode": "single"
+    },
+    {
+      "key": "worker",
+      "templatePath": "infra/azure/server-worker.appsettings.example.env",
+      "imageRefParameter": "WorkerImageRef",
+      "cpu": "1.0",
+      "memory": "2.0Gi",
+      "minReplicas": 1,
+      "maxReplicas": 1,
+      "revisionsMode": "single",
+      "command": ["node", "workerProcess.js"]
+    },
+    {
+      "key": "intelligence",
+      "templatePath": "infra/azure/intelligence-service.appsettings.example.env",
+      "imageRefParameter": "IntelligenceImageRef",
+      "ingress": "external",
+      "targetPort": 8100,
+      "transport": "auto",
+      "cpu": "1.0",
+      "memory": "2.0Gi",
+      "minReplicas": 1,
+      "maxReplicas": 2,
+      "revisionsMode": "single"
+    }
+  ]
+}
