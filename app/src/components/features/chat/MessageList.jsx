@@ -19,6 +19,8 @@ const MessageList = ({
         .reverse()
         .find((message) => message?.role === 'assistant')
         ?.id || null;
+    const hasStreamingAssistantMessage = Array.isArray(messages)
+        && messages.some((message) => message?.role === 'assistant' && message?.isStreaming);
 
     useEffect(() => {
         endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
@@ -47,7 +49,7 @@ const MessageList = ({
                     />
                 ))}
 
-                {isLoading ? (
+                {isLoading && !hasStreamingAssistantMessage ? (
                     <div className="flex items-start">
                         <div className={cn('rounded-[1.4rem] border px-4 py-3 shadow-sm', loadingBubbleClass)}>
                             <div className="flex items-center gap-2">

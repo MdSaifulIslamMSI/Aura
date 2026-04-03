@@ -31,6 +31,7 @@ export const createAssistantMessage = (payload = {}) => ({
     role: 'assistant',
     text: '',
     createdAt: Date.now(),
+    isStreaming: false,
     mode: 'explore',
     uiSurface: 'plain_answer',
     assistantTurn: null,
@@ -40,6 +41,8 @@ export const createAssistantMessage = (payload = {}) => ({
     supportPrefill: null,
     confirmation: null,
     navigation: null,
+    grounding: null,
+    providerInfo: null,
     ...payload,
 });
 
@@ -54,6 +57,19 @@ export const createWelcomeMessage = () => createAssistantMessage({
     text: 'Tell me what you want to buy. I will keep the next step focused.',
     mode: 'explore',
     uiSurface: 'plain_answer',
+});
+
+const createStreamingAssistantTurn = (text = '') => ({
+    intent: 'general_knowledge',
+    decision: 'respond',
+    response: String(text || ''),
+    ui: {
+        surface: 'plain_answer',
+    },
+    followUps: [],
+    citations: [],
+    toolRuns: [],
+    verification: null,
 });
 
 const createInitialClarificationState = () => ({
@@ -188,6 +204,8 @@ const buildAssistantMessage = ({
     confirmation = null,
     navigation = null,
     assistantTurn = null,
+    grounding = null,
+    providerInfo = null,
 }) => {
     const safeProducts = Array.isArray(products) ? products.slice(0, 4) : [];
     const resolvedProduct = product || safeProducts[0] || null;
@@ -199,6 +217,7 @@ const buildAssistantMessage = ({
 
     return createAssistantMessage({
         text,
+        isStreaming: false,
         mode: resolvedMode,
         uiSurface: assistantTurn?.ui?.surface || 'plain_answer',
         assistantTurn,
@@ -208,7 +227,76 @@ const buildAssistantMessage = ({
         supportPrefill,
         confirmation,
         navigation,
+        grounding,
+        providerInfo,
     });
+};
+
+const updateToolRunsForStream = (toolRuns = [], event = {}) => {
+    const currentRuns = Array.isArray(toolRuns) ? [...toolRuns] : [];
+    const toolName = String(event?.toolName || '').trim();
+    if (!toolName) {
+        return currentRuns;
+    }
+
+    const runningIndex = currentRuns.findIndex((toolRun) => toolRun?.toolName === toolName && toolRun?.status === 'running');
+    if (event?.status === 'running') {
+        const nextRun = {
+            id: event?.id || `stream-${toolName}-${Date.now()}`,
+            toolName,
+            status: 'running',
+            latencyMs: 0,
+            summary: String(event?.summary || '').trim(),
+            inputPreview: event?.input || event?.inputPreview || {},
+            outputPreview: {},
+        };
+        if (runningIndex >= 0) {
+            currentRuns[runningIndex] = {
+                ...currentRuns[runningIndex],
+                ...nextRun,
+            };
+            return currentRuns;
+        }
+        return [...currentRuns, nextRun];
+    }
+
+    if (runningIndex >= 0) {
+        currentRuns[runningIndex] = {
+            ...currentRuns[runningIndex],
+            ...event,
+            toolName,
+            status: String(event?.status || 'completed').trim() || 'completed',
+        };
+        return currentRuns;
+    }
+
+    return [
+        ...currentRuns,
+        {
+            ...event,
+            toolName,
+            status: String(event?.status || 'completed').trim() || 'completed',
+        },
+    ];
+};
+
+const appendStreamCitation = (citations = [], citation = {}) => {
+    const currentCitations = Array.isArray(citations) ? [...citations] : [];
+    const nextCitationId = String(citation?.id || `${citation?.path || ''}:${citation?.startLine || 0}`).trim();
+    if (!nextCitationId) {
+        return currentCitations;
+    }
+
+    const existingIndex = currentCitations.findIndex((entry) => String(entry?.id || '').trim() === nextCitationId);
+    if (existingIndex >= 0) {
+        currentCitations[existingIndex] = {
+            ...currentCitations[existingIndex],
+            ...citation,
+        };
+        return currentCitations;
+    }
+
+    return [...currentCitations, citation];
 };
 
 export const useChatStore = create(
@@ -274,6 +362,116 @@ export const useChatStore = create(
                     messages: trimMessages([...state.messages, createAssistantMessage(payload)]),
                 }));
             },
+            beginAssistantStream: ({
+                text = '',
+                providerInfo = null,
+                grounding = null,
+            } = {}) => {
+                const streamingMessage = createAssistantMessage({
+                    text: String(text || ''),
+                    isStreaming: true,
+                    providerInfo,
+                    grounding,
+                    assistantTurn: createStreamingAssistantTurn(text),
+                });
+
+                set((state) => ({
+                    messages: trimMessages([...state.messages, streamingMessage]),
+                }));
+
+                return streamingMessage.id;
+            },
+            appendAssistantStreamToken: (messageId = '', token = '') => {
+                const safeMessageId = String(messageId || '').trim();
+                const nextToken = String(token || '');
+                if (!safeMessageId || !nextToken) {
+                    return;
+                }
+
+                set((state) => ({
+                    messages: trimMessages(state.messages.map((message) => {
+                        if (message.id !== safeMessageId) {
+                            return message;
+                        }
+
+                        const nextText = `${String(message.text || '')}${nextToken}`;
+                        return {
+                            ...message,
+                            text: nextText,
+                            assistantTurn: {
+                                ...(message.assistantTurn || createStreamingAssistantTurn()),
+                                response: nextText,
+                            },
+                        };
+                    })),
+                }));
+            },
+            mergeAssistantStreamEvent: (messageId = '', eventName = '', payload = {}) => {
+                const safeMessageId = String(messageId || '').trim();
+                const safeEventName = String(eventName || '').trim();
+                if (!safeMessageId || !safeEventName) {
+                    return;
+                }
+
+                set((state) => ({
+                    messages: trimMessages(state.messages.map((message) => {
+                        if (message.id !== safeMessageId) {
+                            return message;
+                        }
+
+                        const assistantTurn = {
+                            ...(message.assistantTurn || createStreamingAssistantTurn(message.text || '')),
+                        };
+
+                        if (safeEventName === 'tool_start' || safeEventName === 'tool_end') {
+                            assistantTurn.toolRuns = updateToolRunsForStream(assistantTurn.toolRuns, payload);
+                        }
+
+                        if (safeEventName === 'citation') {
+                            assistantTurn.citations = appendStreamCitation(assistantTurn.citations, payload);
+                        }
+
+                        if (safeEventName === 'verification') {
+                            assistantTurn.verification = payload;
+                        }
+
+                        return {
+                            ...message,
+                            assistantTurn,
+                        };
+                    })),
+                }));
+            },
+            finalizeAssistantStream: (messageId = '', payload = {}) => {
+                const safeMessageId = String(messageId || '').trim();
+                if (!safeMessageId) {
+                    return;
+                }
+
+                const builtMessage = buildAssistantMessage(payload);
+
+                set((state) => ({
+                    messages: trimMessages(state.messages.map((message) => (
+                        message.id === safeMessageId
+                            ? {
+                                ...builtMessage,
+                                id: safeMessageId,
+                                createdAt: message.createdAt,
+                            }
+                            : message
+                    ))),
+                }));
+            },
+            discardAssistantStream: (messageId = '') => {
+                const safeMessageId = String(messageId || '').trim();
+                if (!safeMessageId) {
+                    return;
+                }
+
+                set((state) => ({
+                    messages: trimMessages(state.messages.filter((message) => message.id !== safeMessageId)),
+                }));
+            },
             setSurface: ({
                 mode = 'explore',
                 visibleProducts = [],
@@ -315,6 +513,8 @@ export const useChatStore = create(
                 cartSummary = null,
                 confirmation = null,
                 navigation = null,
+                grounding = null,
+                providerInfo = null,
                 activeProductId,
                 assistantTurn = null,
                 assistantSession = null,
@@ -393,6 +593,8 @@ export const useChatStore = create(
                                 confirmation,
                                 navigation,
                                 assistantTurn,
+                                grounding,
+                                providerInfo,
                             }),
                         ]),
                         visibleProducts: safeProducts,

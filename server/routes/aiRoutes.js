@@ -2,7 +2,12 @@ const express = require('express');
 const validate = require('../middleware/validate');
 const { protectOptional } = require('../middleware/authMiddleware');
 const { createDistributedRateLimit } = require('../middleware/distributedRateLimit');
-const { createAiVoiceSession, handleAiChat, synthesizeAiVoiceReply } = require('../controllers/aiController');
+const {
+    createAiVoiceSession,
+    handleAiChat,
+    handleAiChatStream,
+    synthesizeAiVoiceReply,
+} = require('../controllers/aiController');
 const { aiChatSchema, aiVoiceSessionSchema, aiVoiceSpeakSchema } = require('../validators/aiValidators');
 
 const router = express.Router();
@@ -35,6 +40,7 @@ const aiVoiceSpeechLimiter = createDistributedRateLimit({
 });
 
 router.post('/chat', protectOptional, aiChatLimiter, validate(aiChatSchema), handleAiChat);
+router.post('/chat/stream', protectOptional, aiChatLimiter, validate(aiChatSchema), handleAiChatStream);
 router.post('/voice/session', protectOptional, aiVoiceLimiter, validate(aiVoiceSessionSchema), createAiVoiceSession);
 router.post('/voice/speak', protectOptional, aiVoiceSpeechLimiter, validate(aiVoiceSpeakSchema), synthesizeAiVoiceReply);
 
