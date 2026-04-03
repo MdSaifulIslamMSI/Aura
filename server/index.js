@@ -49,6 +49,7 @@ const adminUserRoutes = require('./routes/adminUserRoutes');
 const adminProductRoutes = require('./routes/adminProductRoutes');
 const adminOpsRoutes = require('./routes/adminOpsRoutes');
 const internalOpsRoutes = require('./routes/internalOpsRoutes');
+const internalAiToolRoutes = require('./routes/internalAiToolRoutes');
 const observabilityRoutes = require('./routes/observabilityRoutes');
 const emailWebhookRoutes = require('./routes/emailWebhookRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
@@ -102,6 +103,7 @@ const {
     checkServiceReadiness,
 } = require('./services/healthService');
 const { getChatQuotaHealth } = require('./services/chatQuotaService');
+const { getCentralIntelligenceHealth } = require('./services/intelligence/intelligenceGatewayService');
 const { getTrustedRequestIp } = require('./utils/requestIdentity');
 const { createDistributedRateLimit } = require('./middleware/distributedRateLimit');
 const { metricsMiddleware } = require('./middleware/metrics');
@@ -260,6 +262,7 @@ app.use('/api/admin/users', adminUserRoutes);
 app.use('/api/admin/products', adminProductRoutes);
 app.use('/api/admin/ops', adminOpsRoutes);
 app.use('/api/internal', internalOpsRoutes);
+app.use('/api/internal/ai-tools', internalAiToolRoutes);
 app.use('/api/observability', observabilityRoutes);
 app.use('/api/email-webhooks', emailWebhookRoutes);
 app.use('/api/uploads', uploadRoutes);
@@ -461,6 +464,11 @@ app.get('/health/ready', async (req, res) => {
         }
     }
 
+    const intelligenceHealth = await getCentralIntelligenceHealth().catch((error) => ({
+        healthy: false,
+        reason: error.message,
+    }));
+
     return res.json({
         ready: true,
         uptime,
@@ -474,6 +482,7 @@ app.get('/health/ready', async (req, res) => {
         },
         ai: {
             chatQuota: getChatQuotaHealth(),
+            intelligence: intelligenceHealth,
         },
         topology: {
             splitRuntimeEnabled,

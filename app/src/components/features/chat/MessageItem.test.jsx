@@ -20,6 +20,7 @@ const noopProps = {
     onOpenSupport: vi.fn(),
     onConfirmPending: vi.fn(),
     onCancelPending: vi.fn(),
+    onModifyPending: vi.fn(),
 };
 
 const renderWithMarket = (ui) => render(
@@ -91,5 +92,54 @@ describe('MessageItem', () => {
 
         expect(screen.getByText(/No exact match for "oppo"/i)).toBeInTheDocument();
         expect(screen.getByText(/58% confidence/i)).toBeInTheDocument();
+    });
+
+    it('renders verification metadata, sources, and tool runs for grounded answers', () => {
+        renderWithMarket(
+            <MessageItem
+                message={{
+                    id: 'assistant-grounded',
+                    role: 'assistant',
+                    text: 'Checkout is controlled by the AI route and the controller state machine.',
+                    uiSurface: 'plain_answer',
+                    grounding: {
+                        bundleVersion: 'abc123',
+                        traceId: 'trace_1',
+                    },
+                    providerInfo: {
+                        name: 'central-intelligence',
+                        model: 'google/gemma-4-31B-it',
+                    },
+                    assistantTurn: {
+                        verification: {
+                            label: 'app_grounded',
+                            summary: 'Verified against indexed app files.',
+                        },
+                        citations: [
+                            {
+                                id: 'c1',
+                                label: 'app/src/components/features/chat/useAssistantController.js:1',
+                                path: 'app/src/components/features/chat/useAssistantController.js',
+                            },
+                        ],
+                        toolRuns: [
+                            {
+                                id: 't1',
+                                toolName: 'search_code_chunks',
+                                latencyMs: 42,
+                                summary: 'Found 3 code evidence matches.',
+                            },
+                        ],
+                    },
+                }}
+                {...noopProps}
+            />
+        );
+
+        expect(screen.getByText('App-grounded')).toBeInTheDocument();
+        expect(screen.getByText('Verified against indexed app files.')).toBeInTheDocument();
+        expect(screen.getByText(/useAssistantController\.js:1/i)).toBeInTheDocument();
+        expect(screen.getByText('search_code_chunks')).toBeInTheDocument();
+        expect(screen.getByText('Trace details')).toBeInTheDocument();
     });
 });
