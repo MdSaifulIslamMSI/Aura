@@ -154,33 +154,37 @@ jobs:
           API_PUBLIC_URL: ${{ vars.API_PUBLIC_URL || '' }}
           APP_BUILD_SHA: ${{ github.sha }}
         run: |
-          $syncArgs = @(
-            "-ResourceGroup", "${{ env.RESOURCE_GROUP }}",
-            "-KeyVaultName", "${{ env.KEY_VAULT_NAME }}",
-            "-ContainerEnvName", "${{ env.CONTAINER_ENV_NAME }}",
-            "-IdentityName", "${{ env.BACKEND_IDENTITY_NAME }}",
-            "-ApiAppName", "${{ env.API_APP_NAME }}",
-            "-WorkerAppName", "${{ env.WORKER_APP_NAME }}",
-            "-IntelligenceAppName", "${{ env.INTELLIGENCE_APP_NAME }}",
-            "-ApiImageRef", "${{ steps.meta.outputs.image_ref }}",
-            "-WorkerImageRef", "${{ steps.meta.outputs.image_ref }}",
-            "-IntelligenceImageRef", "${{ steps.meta.outputs.intelligence_image_ref }}"
-          )
-
-          if ($env:SOURCE_ENV_FILE) {
-            $syncArgs += @("-SourceEnvFile", $env:SOURCE_ENV_FILE)
-          }
-          if ($env:FRONTEND_ORIGIN) {
-            $syncArgs += @("-FrontendOrigin", $env:FRONTEND_ORIGIN)
-          }
-          if ($env:API_PUBLIC_URL) {
-            $syncArgs += @("-ApiPublicUrl", $env:API_PUBLIC_URL)
-          }
           if ($env:SYNC_SECRETS -eq "true") {
-            $syncArgs += "-SyncKeyVaultSecrets"
+            & ".\\infra\\azure\\sync-containerapps-runtime.ps1" `
+              -ResourceGroup "${{ env.RESOURCE_GROUP }}" `
+              -KeyVaultName "${{ env.KEY_VAULT_NAME }}" `
+              -ContainerEnvName "${{ env.CONTAINER_ENV_NAME }}" `
+              -IdentityName "${{ env.BACKEND_IDENTITY_NAME }}" `
+              -ApiAppName "${{ env.API_APP_NAME }}" `
+              -WorkerAppName "${{ env.WORKER_APP_NAME }}" `
+              -IntelligenceAppName "${{ env.INTELLIGENCE_APP_NAME }}" `
+              -ApiImageRef "${{ steps.meta.outputs.image_ref }}" `
+              -WorkerImageRef "${{ steps.meta.outputs.image_ref }}" `
+              -IntelligenceImageRef "${{ steps.meta.outputs.intelligence_image_ref }}" `
+              -SourceEnvFile "${env:SOURCE_ENV_FILE}" `
+              -SyncKeyVaultSecrets `
+              -FrontendOrigin "${env:FRONTEND_ORIGIN}" `
+              -ApiPublicUrl "${env:API_PUBLIC_URL}"
+          } else {
+            & ".\\infra\\azure\\sync-containerapps-runtime.ps1" `
+              -ResourceGroup "${{ env.RESOURCE_GROUP }}" `
+              -KeyVaultName "${{ env.KEY_VAULT_NAME }}" `
+              -ContainerEnvName "${{ env.CONTAINER_ENV_NAME }}" `
+              -IdentityName "${{ env.BACKEND_IDENTITY_NAME }}" `
+              -ApiAppName "${{ env.API_APP_NAME }}" `
+              -WorkerAppName "${{ env.WORKER_APP_NAME }}" `
+              -IntelligenceAppName "${{ env.INTELLIGENCE_APP_NAME }}" `
+              -ApiImageRef "${{ steps.meta.outputs.image_ref }}" `
+              -WorkerImageRef "${{ steps.meta.outputs.image_ref }}" `
+              -IntelligenceImageRef "${{ steps.meta.outputs.intelligence_image_ref }}" `
+              -FrontendOrigin "${env:FRONTEND_ORIGIN}" `
+              -ApiPublicUrl "${env:API_PUBLIC_URL}"
           }
-
-          & ".\\infra\\azure\\sync-containerapps-runtime.ps1" @syncArgs
 
       - name: Verify Azure runtime configuration
         if: steps.runtime_env.outputs.path != ''
