@@ -846,10 +846,16 @@ function New-ServiceRuntimePlan {
 }
 
 function Ensure-IdentityResource {
-    $identityJson = Invoke-AzCli identity show --name $IdentityName --resource-group $ResourceGroup --output json
-    $identity = $identityJson | ConvertFrom-Json
+    $subscriptionId = Trim-OrDefault $SubscriptionId
+    if ([string]::IsNullOrWhiteSpace($subscriptionId)) {
+        $subscriptionId = Trim-OrDefault (Invoke-AzCli account show --query id --output tsv)
+    }
+    if ([string]::IsNullOrWhiteSpace($subscriptionId)) {
+        throw "Could not resolve the Azure subscription id for managed identity resource construction."
+    }
+
     return @{
-        Id = [string]$identity.id
+        Id = "/subscriptions/$subscriptionId/resourceGroups/$ResourceGroup/providers/Microsoft.ManagedIdentity/userAssignedIdentities/$IdentityName"
     }
 }
 
