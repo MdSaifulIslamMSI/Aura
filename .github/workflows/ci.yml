@@ -42,6 +42,9 @@ jobs:
         with:
           mongodb-version: '6.0'
 
+      - name: Build Code Intelligence Bundle
+        run: node scripts/build_code_intelligence_bundle.js
+
       - name: Install Dependencies
         run: npm ci
 
@@ -92,6 +95,9 @@ jobs:
         uses: supercharge/mongodb-github-action@1.12.0
         with:
           mongodb-version: '6.0'
+
+      - name: Build Code Intelligence Bundle
+        run: node scripts/build_code_intelligence_bundle.js
 
       - name: Install Dependencies
         run: npm ci

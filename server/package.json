@@ -8,6 +8,7 @@
     "start:workers": "node workerProcess.js",
     "runtime:split:up": "docker compose -f ../docker-compose.split-runtime.yml up --build",
     "runtime:split:down": "docker compose -f ../docker-compose.split-runtime.yml down -v",
+    "intelligence:bundle": "node scripts/build_code_intelligence_bundle.js",
     "smoke:bootstrap-accounts": "node scripts/bootstrap_staging_smoke_accounts.js",
     "smoke:staging": "node scripts/staging_smoke.js",
     "load:validate": "node scripts/load_validate.js",

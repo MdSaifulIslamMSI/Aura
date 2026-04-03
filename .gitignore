@@ -30,6 +30,8 @@ build/
 # OS
 .DS_Store
 Thumbs.db
+__pycache__/
+*.pyc
 
 # Logs
 *.log
@@ -56,6 +58,7 @@ server/data/auth-vault.tmp.json
 server/data/catalog_1m.jsonl
 generated/catalog/
 server/generated/catalog/
+server/generated/intelligence/
 server/.cache/
 
 # Local mongodb-memory-server cache used for backend integration tests
