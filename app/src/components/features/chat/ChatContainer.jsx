@@ -1,28 +1,27 @@
 import { useMemo } from 'react';
 import {
-    Menu, Maximize2, MessageSquarePlus, Mic, MicOff, Minimize2,
-    Plus, Send, Sparkles, Wand2, X, ChevronRight,
+    ArrowUp,
+    Maximize2,
+    MessageSquarePlus,
+    Mic,
+    MicOff,
+    Minimize2,
+    Paperclip,
+    Sparkles,
+    X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import MessageList from './MessageList';
 import ActionBar from './ActionBar';
-import MultimodalDock from './MultimodalDock';
 
 const STARTER_PROMPTS = [
     { label: 'Find products', prompt: 'Show premium camera phones for photography under Rs 60000' },
-    { label: 'Compare laptops', prompt: 'Compare the best laptops for coding and light gaming' },
     { label: 'Review cart', prompt: 'Review my cart and tell me the smartest next step' },
-    { label: 'Support help', prompt: 'Help me hand off an order issue to support' },
-    { label: 'Gadget upgrade', prompt: 'Find a fast, high-value gadget upgrade for my daily workflow' },
-    { label: 'Shopping advice', prompt: 'Help me decide what to buy based on value, trust, and speed' },
+    { label: 'Order help', prompt: 'Help me hand off an order issue to support' },
+    { label: 'Explain app', prompt: 'Explain checkout end to end' },
 ];
 
 const safeString = (value = '') => String(value ?? '').trim();
-
-const formatDisplayName = (value = '') => {
-    const normalized = safeString(value).split(/\s+/)[0] || 'there';
-    return normalized.charAt(0).toUpperCase() + normalized.slice(1);
-};
 
 const buildRecentPrompts = (messages = []) => {
     const seen = new Set();
@@ -35,11 +34,10 @@ const buildRecentPrompts = (messages = []) => {
             seen.add(text);
             return true;
         })
-        .slice(0, 7);
+        .slice(0, 4);
 };
 
 const ChatContainer = ({
-    currentUserLabel = 'there',
     isWhiteMode = false,
     modeLabel = 'Explore',
     subtitle = '',
@@ -74,272 +72,258 @@ const ChatContainer = ({
         [messages],
     );
     const recentPrompts = useMemo(() => buildRecentPrompts(messages), [messages]);
-    const displayName = useMemo(() => formatDisplayName(currentUserLabel), [currentUserLabel]);
     const isLargeWorkspace = workspaceVariant === 'large';
 
     const shellClass = isWhiteMode
-        ? 'bg-white/88 border-white/60 shadow-[0_24px_80px_rgba(15,23,42,0.12)] ring-1 ring-slate-200/60'
-        : 'bg-[#090D14]/92 border-white/8 shadow-[0_28px_96px_rgba(2,6,23,0.78)] ring-1 ring-white/6';
-    const panelBgClass = isWhiteMode
-        ? 'bg-gradient-to-b from-slate-50/95 to-white/98 border-r border-slate-200/80'
-        : 'bg-gradient-to-b from-[#10151F]/98 to-[#0A0D14]/98 border-r border-white/6';
-    const textPrimary = isWhiteMode ? 'text-slate-900' : 'text-slate-50';
-    const textMuted = isWhiteMode ? 'text-slate-500' : 'text-slate-400';
-    const composerBg = isWhiteMode
-        ? 'bg-white shadow-[0_10px_30px_rgba(15,23,42,0.05)] border border-slate-200/80'
-        : 'bg-[#141923]/92 shadow-[0_10px_34px_rgba(2,6,23,0.5)] border border-white/8';
-    const btnClass = isWhiteMode
-        ? 'hover:bg-slate-100 text-slate-700 active:scale-[0.98]'
-        : 'hover:bg-white/10 text-slate-200 active:scale-[0.98]';
+        ? 'border-slate-200/80 bg-white/95 text-slate-950 shadow-[0_36px_120px_rgba(15,23,42,0.18)]'
+        : 'border-white/10 bg-[#020406]/96 text-white shadow-[0_40px_140px_rgba(0,0,0,0.72)]';
+    const headerText = isWhiteMode ? 'text-slate-500' : 'text-white/45';
+    const controlButton = isWhiteMode
+        ? 'border-slate-200 bg-white text-slate-700 hover:bg-slate-100'
+        : 'border-white/10 bg-white/[0.04] text-white/80 hover:bg-white/[0.08]';
+    const composerClass = isWhiteMode
+        ? 'border-slate-200 bg-white shadow-[0_20px_60px_rgba(15,23,42,0.08)]'
+        : 'border-white/10 bg-black/90 shadow-[0_20px_80px_rgba(0,0,0,0.45)]';
+    const chipClass = isWhiteMode
+        ? 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
+        : 'border-white/10 bg-white/[0.03] text-white/75 hover:bg-white/[0.08]';
+    const subtextClass = isWhiteMode ? 'text-slate-500' : 'text-white/55';
+    const inputPlaceholderClass = isWhiteMode ? 'placeholder:text-slate-400' : 'placeholder:text-white/28';
+    const sendButtonClass = isWhiteMode
+        ? 'bg-slate-950 text-white hover:bg-slate-800'
+        : 'bg-white text-slate-950 hover:bg-white/90';
 
-    const pillBtn = cn(
-        'inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold tracking-wide transition-all duration-300 backdrop-blur-md',
-        isWhiteMode
-            ? 'border border-slate-200 bg-slate-100/80 text-slate-700 hover:bg-slate-200'
-            : 'border border-white/10 bg-white/5 text-slate-200 hover:bg-white/10',
-    );
-
-    const primaryBtn = cn(
-        'flex items-center justify-center rounded-full p-3 transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-40',
-        isWhiteMode
-            ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-md hover:from-indigo-700 hover:to-violet-700'
-            : 'bg-gradient-to-r from-cyan-500 to-blue-500 text-slate-950 shadow-[0_0_20px_rgba(6,182,212,0.3)] hover:from-cyan-400 hover:to-blue-400',
-    );
-
-    const restorePrompt = (prompt) => {
-        onInputChange?.(prompt);
-        window.requestAnimationFrame(() => inputRef?.current?.focus());
-    };
-
-    const handleFormSubmit = (e) => {
-        e?.preventDefault?.();
+    const handleFormSubmit = (event) => {
+        event?.preventDefault?.();
         if (safeString(inputValue) && !isLoading) {
-            onSubmit?.(e);
+            onSubmit?.(event);
         }
     };
 
-    const handleKeyDown = (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            handleFormSubmit(e);
+    const handleKeyDown = (event) => {
+        if (event.key === 'Enter' && !event.shiftKey) {
+            event.preventDefault();
+            handleFormSubmit(event);
         }
     };
 
     return (
         <div
             className={cn(
-                'pointer-events-auto grid min-h-0 min-w-0 grid-cols-1 overflow-hidden rounded-[24px] backdrop-blur-3xl transition-all duration-500 ease-out',
+                'pointer-events-auto relative flex min-h-0 min-w-0 flex-col overflow-hidden rounded-[34px] border backdrop-blur-2xl transition-all duration-500',
                 isLargeWorkspace
-                    ? 'h-[min(90vh,840px)] w-[min(92vw,1220px)] lg:grid-cols-[240px_minmax(0,1fr)]'
-                    : 'h-[min(86vh,760px)] w-[min(94vw,820px)] sm:w-[min(90vw,860px)] lg:w-[min(72vw,920px)] xl:w-[920px]',
+                    ? 'h-[min(90vh,860px)] w-[min(92vw,1120px)]'
+                    : 'h-[min(86vh,780px)] w-[min(94vw,920px)]',
                 shellClass,
             )}
         >
-            <aside className={cn('z-10 hidden min-h-0 flex-col lg:flex', !isLargeWorkspace && 'lg:hidden', panelBgClass)}>
-                <div className="flex items-center gap-3 px-5 py-5">
-                    <button type="button" className={cn('rounded-xl p-2 transition-colors', btnClass)} aria-label="Menu">
-                        <Menu className="h-5 w-5" />
-                    </button>
+            <div
+                aria-hidden="true"
+                className={cn(
+                    'pointer-events-none absolute inset-0 opacity-90',
+                    isWhiteMode
+                        ? 'bg-[radial-gradient(circle_at_top,rgba(148,163,184,0.08),transparent_35%),linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.92))]'
+                        : 'bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_26%),radial-gradient(circle_at_50%_100%,rgba(56,189,248,0.05),transparent_28%),linear-gradient(180deg,rgba(2,4,6,0.98),rgba(0,0,0,0.98))]'
+                )}
+            />
+            <div
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0 opacity-[0.16]"
+                style={{
+                    backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(255,255,255,0.45) 1px, transparent 0)',
+                    backgroundSize: '28px 28px',
+                }}
+            />
+
+            <header className={cn('relative z-10 flex items-center justify-between gap-4 px-5 py-4 sm:px-6', headerText)}>
+                <div className="flex items-center gap-3">
+                    <div className={cn(
+                        'flex h-11 w-11 items-center justify-center rounded-2xl border shadow-[0_0_40px_rgba(255,255,255,0.12)]',
+                        isWhiteMode
+                            ? 'border-slate-200 bg-slate-950 text-white'
+                            : 'border-white/10 bg-[#031019] text-white'
+                    )}>
+                        <Sparkles className="h-5 w-5" />
+                    </div>
                     <div>
-                        <h2 className={cn('text-base font-bold tracking-tight', textPrimary)}>Aura Copilot</h2>
-                        <span className={cn('text-[10px] font-semibold uppercase tracking-widest', textMuted)}>Conversation</span>
+                        <p className={cn('text-sm font-semibold tracking-tight', isWhiteMode ? 'text-slate-950' : 'text-white')}>Aura Intelligence</p>
+                        <p className="text-[11px] uppercase tracking-[0.24em]">{safeString(routeLabel) || 'Store'} / {safeString(modeLabel) || 'Explore'}</p>
                     </div>
                 </div>
 
-                <div className="px-4">
+                <div className="flex items-center gap-2">
                     <button
                         type="button"
                         onClick={onStartFresh}
-                        className={cn(
-                            'group flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-sm font-semibold transition-all duration-300',
-                            isWhiteMode
-                                ? 'border-slate-200 bg-white text-slate-800 hover:border-indigo-300 hover:shadow-sm'
-                                : 'border-white/10 bg-[#1A1D24] text-slate-200 hover:border-cyan-500/30 hover:bg-white/5',
-                        )}
+                        className={cn('inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition-colors', controlButton)}
+                        aria-label="New conversation"
                     >
-                        <MessageSquarePlus className={cn('h-4 w-4 transition-transform group-hover:scale-110', isWhiteMode ? 'text-indigo-500' : 'text-cyan-400')} />
-                        New conversation
+                        <MessageSquarePlus className="h-4 w-4" />
+                        <span className="hidden sm:inline">New thread</span>
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => onSetWorkspaceVariant?.(isLargeWorkspace ? 'small' : 'large')}
+                        className={cn('inline-flex h-10 w-10 items-center justify-center rounded-full border transition-colors', controlButton)}
+                        aria-label={isLargeWorkspace ? 'Use small workspace' : 'Use large workspace'}
+                    >
+                        {isLargeWorkspace ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className={cn('inline-flex h-10 w-10 items-center justify-center rounded-full border transition-colors', controlButton)}
+                        aria-label="Close chat"
+                    >
+                        <X className="h-4 w-4" />
                     </button>
                 </div>
+            </header>
 
-                <div className="flex-1 overflow-y-auto px-4 pt-6 scrollbar-hide">
-                    <p className={cn('mb-3 px-1 text-[10px] font-bold uppercase tracking-widest', textMuted)}>Recent queries</p>
-                    <div className="space-y-2">
-                        {recentPrompts.length > 0 ? recentPrompts.map((prompt) => (
-                            <button
-                                key={prompt}
-                                type="button"
-                                onClick={() => restorePrompt(prompt)}
-                                className={cn(
-                                    'group flex w-full items-start gap-3 rounded-xl p-3 text-left text-sm transition-all duration-200',
-                                    isWhiteMode ? 'text-slate-600 hover:bg-slate-100/80' : 'text-slate-300 hover:bg-white/5',
-                                )}
-                            >
-                                <ChevronRight className={cn('mt-0.5 h-4 w-4 shrink-0 -ml-2 opacity-0 transition-all group-hover:ml-0 group-hover:opacity-100', isWhiteMode ? 'text-indigo-500' : 'text-cyan-400')} />
-                                <span className="line-clamp-2 flex-1 leading-relaxed">{prompt}</span>
-                            </button>
-                        )) : (
-                            <div className={cn('rounded-xl border border-dashed p-4 text-xs leading-relaxed', isWhiteMode ? 'border-slate-200 text-slate-500' : 'border-white/10 text-slate-400')}>
-                                Recent prompts will appear here once the conversation gets moving.
+            <div className="relative z-10 flex min-h-0 flex-1 flex-col">
+                {hasConversation ? (
+                    <div className="min-h-0 flex-1 overflow-hidden">
+                        <MessageList
+                            messages={messages}
+                            isLoading={isLoading}
+                            isWhiteMode={isWhiteMode}
+                            onSelectProduct={onSelectProduct}
+                            onAddToCart={onAddToCart}
+                            onViewDetails={onViewDetails}
+                            onOpenSupport={onOpenSupport}
+                            onConfirmPending={onConfirmPending}
+                            onCancelPending={onCancelPending}
+                            onModifyPending={onModifyPending}
+                        />
+                    </div>
+                ) : (
+                    <div className="flex flex-1 items-center justify-center px-6 py-6 sm:px-10">
+                        <div className="w-full max-w-4xl text-center">
+                            <div className={cn(
+                                'mx-auto flex h-20 w-20 items-center justify-center rounded-[28px] border shadow-[0_0_60px_rgba(255,255,255,0.14)]',
+                                isWhiteMode
+                                    ? 'border-slate-200 bg-slate-950 text-white'
+                                    : 'border-white/10 bg-[#04131d] text-white'
+                            )}>
+                                <Sparkles className="h-9 w-9" />
                             </div>
-                        )}
-                    </div>
-                </div>
+                            <h1 className={cn('mt-8 text-4xl font-semibold tracking-tight sm:text-5xl', isWhiteMode ? 'text-slate-950' : 'text-white')}>
+                                How can I help you today?
+                            </h1>
+                            <p className={cn('mx-auto mt-4 max-w-2xl text-sm leading-7 sm:text-base', subtextClass)}>
+                                {subtitle || 'Ask about products, cart actions, support handoffs, or app flows. The assistant keeps the thread focused and fast.'}
+                            </p>
 
-                <div className="p-4 pb-5">
-                    <MultimodalDock isWhiteMode={isWhiteMode} variant="compact" />
-                </div>
-            </aside>
-
-            <section className="relative z-20 flex min-w-0 flex-col bg-transparent">
-                <header className={cn('z-30 flex items-center justify-between gap-4 border-b px-5 py-4 backdrop-blur-md', isWhiteMode ? 'border-slate-200/50 bg-white/40' : 'border-white/6 bg-black/10')}>
-                    <div className="flex items-center gap-3">
-                        <div className={cn('flex h-8 w-8 items-center justify-center rounded-lg', isWhiteMode ? 'bg-indigo-100 text-indigo-600' : 'bg-cyan-500/20 text-cyan-400')}>
-                            <Sparkles className="h-4 w-4" />
-                        </div>
-                        <div>
-                            <p className={cn('text-xs font-semibold tracking-wide', textPrimary)}>Aura Assistant</p>
-                            <p className={cn('text-[10px] uppercase tracking-wider', textMuted)}>{`${routeLabel} • ${modeLabel}`}</p>
-                            {subtitle ? (
-                                <p className={cn('mt-1 text-[11px] normal-case tracking-normal', textMuted)}>{subtitle}</p>
-                            ) : null}
-                        </div>
-                    </div>
-
-                    <div className="flex items-center gap-1.5">
-                        <button
-                            type="button"
-                            onClick={() => onSetWorkspaceVariant?.(isLargeWorkspace ? 'small' : 'large')}
-                            className={cn('rounded-lg p-2 transition-all', btnClass)}
-                            aria-label={isLargeWorkspace ? 'Use small workspace' : 'Use large workspace'}
-                        >
-                            {isLargeWorkspace ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-                        </button>
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            className={cn('rounded-lg p-2 transition-all', btnClass)}
-                            aria-label="Close chat"
-                        >
-                            <X className="h-4.5 w-4.5" />
-                        </button>
-                    </div>
-                </header>
-
-                <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.08),transparent_32%),radial-gradient(circle_at_bottom,rgba(14,165,233,0.06),transparent_28%)]">
-                    {hasConversation ? (
-                        <div className="relative z-10 flex-1 overflow-y-auto">
-                            <MessageList
-                                messages={messages}
-                                isLoading={isLoading}
-                                isWhiteMode={isWhiteMode}
-                                onSelectProduct={onSelectProduct}
-                                onAddToCart={onAddToCart}
-                                onViewDetails={onViewDetails}
-                                onOpenSupport={onOpenSupport}
-                                onConfirmPending={onConfirmPending}
-                                onCancelPending={onCancelPending}
-                                onModifyPending={onModifyPending}
-                            />
-                        </div>
-                    ) : (
-                        <div className="relative z-10 flex min-h-0 flex-1 flex-col items-center justify-center px-6 pb-12 pt-4">
-                            <div className="w-full max-w-3xl space-y-6 text-center duration-700 ease-out animate-in slide-in-from-bottom-6 fade-in">
-                                <div className={cn('mx-auto inline-flex h-16 w-16 items-center justify-center rounded-2xl shadow-xl', isWhiteMode ? 'bg-gradient-to-br from-indigo-500 to-violet-500' : 'bg-gradient-to-br from-cyan-400 to-blue-600')}>
-                                    <Sparkles className="h-8 w-8 text-white" />
-                                </div>
-                                <div>
-                                    <h1 className={cn('text-3xl font-bold tracking-tight sm:text-4xl', textPrimary)}>
-                                        Hello, {displayName}!
-                                    </h1>
-                                    <p className={cn('mt-3 text-lg', textMuted)}>
-                                        I&apos;m your Aura shopping copilot. Drop a request below to get started.
-                                    </p>
-                                </div>
-                                <div className="flex flex-wrap justify-center gap-3 pt-8">
-                                    {STARTER_PROMPTS.map((entry, idx) => (
+                            {recentPrompts.length > 0 ? (
+                                <div className="mt-8 flex flex-wrap justify-center gap-3">
+                                    {recentPrompts.map((prompt) => (
                                         <button
-                                            key={entry.label}
-                                            onClick={() => onStarterPrompt?.(entry.prompt)}
-                                            style={{ animationDelay: `${idx * 50}ms` }}
-                                            className={cn('duration-500 animate-in fade-in zoom-in-95', pillBtn)}
+                                            key={prompt}
+                                            type="button"
+                                            onClick={() => onInputChange?.(prompt)}
+                                            className={cn('rounded-full border px-4 py-2 text-sm transition-colors', chipClass)}
                                         >
-                                            {entry.label}
+                                            {prompt}
                                         </button>
                                     ))}
                                 </div>
-                            </div>
+                            ) : null}
                         </div>
-                    )}
-                </div>
+                    </div>
+                )}
 
-                <div className="relative z-20 bg-gradient-to-t from-background/80 to-transparent px-4 pb-4 pt-2 sm:px-5">
-                    <div className="mx-auto w-full max-w-3xl">
-                        <ActionBar
-                            primaryAction={primaryAction}
-                            secondaryActions={secondaryActions}
-                            isWhiteMode={isWhiteMode}
-                            isDisabled={isLoading}
-                            onAction={onAction}
-                        />
+                <div className="px-4 pb-4 pt-2 sm:px-6 sm:pb-6">
+                    {(primaryAction || (Array.isArray(secondaryActions) && secondaryActions.length > 0)) ? (
+                        <div className="mx-auto mb-3 w-full max-w-4xl">
+                            <ActionBar
+                                primaryAction={primaryAction}
+                                secondaryActions={secondaryActions}
+                                isWhiteMode={isWhiteMode}
+                                isDisabled={isLoading}
+                                onAction={onAction}
+                            />
+                        </div>
+                    ) : null}
 
+                    <div className="mx-auto w-full max-w-4xl">
                         <form
                             onSubmit={handleFormSubmit}
-                            className={cn('mt-3 rounded-[24px] p-2 ring-cyan-500/35 transition-all duration-300 focus-within:ring-2', composerBg)}
+                            className={cn('rounded-[28px] border px-4 py-3 sm:px-5 sm:py-4', composerClass)}
                         >
-                            <div className="relative flex items-end gap-2 p-1">
+                            <div className="flex items-end gap-3">
+                                <button
+                                    type="button"
+                                    className={cn('inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border transition-colors', controlButton)}
+                                    aria-label="Attach context"
+                                >
+                                    <Paperclip className="h-4.5 w-4.5" />
+                                </button>
+
                                 <div className="min-w-0 flex-1">
                                     <textarea
                                         ref={inputRef}
                                         value={inputValue}
-                                        onChange={(e) => onInputChange?.(e.target.value)}
+                                        onChange={(event) => onInputChange?.(event.target.value)}
                                         onKeyDown={handleKeyDown}
                                         rows={Math.min(Math.max(String(inputValue || '').split('\n').length, 1), 6)}
-                                        placeholder={isListening ? 'Listening...' : 'Ask Aura about products, compare items, or track an order...'}
+                                        placeholder={isListening ? 'Listening...' : 'Ask anything'}
                                         disabled={isLoading}
                                         className={cn(
-                                            'w-full resize-none bg-transparent px-3 py-2 text-[15px] outline-none placeholder:transition-opacity focus:placeholder:opacity-50',
-                                            textPrimary,
-                                            isWhiteMode ? 'placeholder:text-slate-400' : 'placeholder:text-slate-500',
+                                            'max-h-40 w-full resize-none bg-transparent py-2 text-base outline-none sm:text-lg',
+                                            isWhiteMode ? 'text-slate-950' : 'text-white',
+                                            inputPlaceholderClass,
                                         )}
-                                        style={{ minHeight: '44px' }}
                                     />
                                 </div>
 
-                                <div className="mb-1 flex shrink-0 items-center gap-2 pr-1">
-                                    {supportsDictation && (
+                                <div className="flex shrink-0 items-center gap-2 pb-1">
+                                    {supportsDictation ? (
                                         <button
                                             type="button"
                                             onClick={onToggleDictation}
-                                            className={cn('rounded-full p-2.5 transition-all', isListening ? primaryBtn : btnClass)}
+                                            className={cn('inline-flex h-11 w-11 items-center justify-center rounded-full border transition-colors', controlButton)}
                                             aria-label={isListening ? 'Stop dictation' : 'Start dictation'}
                                         >
                                             {isListening ? <MicOff className="h-4.5 w-4.5" /> : <Mic className="h-4.5 w-4.5" />}
                                         </button>
-                                    )}
+                                    ) : null}
                                     <button
                                         type="submit"
                                         disabled={!safeString(inputValue) || isLoading}
-                                        className={primaryBtn}
+                                        className={cn(
+                                            'inline-flex h-12 w-12 items-center justify-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-35',
+                                            sendButtonClass,
+                                        )}
                                         aria-label="Send message"
                                     >
-                                        <Send className="ml-0.5 h-4.5 w-4.5" />
+                                        <ArrowUp className="h-5 w-5" />
                                     </button>
                                 </div>
                             </div>
-
-                            <div className={cn('mt-1 flex flex-wrap items-center gap-2 border-t px-3 pb-2 pt-1', isWhiteMode ? 'border-slate-100' : 'border-white/5')}>
-                                <button type="button" className={cn('inline-flex items-center gap-1.5 text-xs font-medium transition-opacity hover:opacity-80', textMuted)}>
-                                    <Plus className="h-3.5 w-3.5" /> Context
-                                </button>
-                                <button type="button" className={cn('inline-flex items-center gap-1.5 text-xs font-medium transition-opacity hover:opacity-80', textMuted)}>
-                                    <Wand2 className="h-3.5 w-3.5" /> Tools
-                                </button>
-                            </div>
                         </form>
+
+                        {!hasConversation ? (
+                            <div className="mt-4 flex flex-wrap justify-center gap-3">
+                                {STARTER_PROMPTS.map((entry) => (
+                                    <button
+                                        key={entry.label}
+                                        type="button"
+                                        onClick={() => onStarterPrompt?.(entry.prompt)}
+                                        className={cn('rounded-full border px-4 py-2 text-sm transition-colors', chipClass)}
+                                    >
+                                        {entry.label}
+                                    </button>
+                                ))}
+                            </div>
+                        ) : null}
+
+                        <div className={cn('mt-4 flex flex-wrap items-center justify-between gap-3 px-1 text-[11px]', subtextClass)}>
+                            <span>{safeString(routeLabel) || 'Store'} / {safeString(modeLabel) || 'Explore'}</span>
+                            <span>{supportsDictation ? 'Voice ready' : 'Chat mode'}</span>
+                        </div>
                     </div>
                 </div>
-            </section>
+            </div>
         </div>
     );
 };
