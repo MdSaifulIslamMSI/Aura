@@ -103,6 +103,8 @@ const REMOVE_PATTERN = /\b(remove|delete|take out|drop)\b/i;
 const NAVIGATE_PATTERN = /\b(open|go to|navigate|take me to|browse)\b/i;
 const SUPPORT_PATTERN = /\b(refund|return|replace|replacement|cancel order|track|tracking|late delivery|delivery issue|damaged|defect|warranty|complaint|support|help with|issue with|problem with)\b/i;
 const GENERAL_KNOWLEDGE_PATTERN = /^(?:who|what|when|where|why|how|which)\b|(?:\bmeaning of\b|\bexplain\b|\btell me about\b|\bdefine\b)/i;
+const SMALL_TALK_PATTERN = /^(?:hi|hello|hey|hey there|yo|good morning|good afternoon|good evening|thanks|thank you|thx|bye|goodbye|see you|take care|how are you)\b/i;
+const BARE_TOPIC_PATTERN = /^[a-z][a-z\s'.-]{2,80}$/i;
 const CONFIRM_PATTERN = /^(yes|yeah|yep|ok|okay|confirm|go ahead|proceed|continue|do it)$/i;
 const REJECT_PATTERN = /^(no|nope|cancel|stop|not now)$/i;
 const SHOW_MORE_PATTERN = /\b(show more|more results|more options|next page|next results)\b/i;
@@ -382,10 +384,28 @@ const compileIntentCommand = ({
         });
     }
 
+    if (SMALL_TALK_PATTERN.test(normalized) && !hasCommerceCue(message)) {
+        return buildCommand({
+            intent: 'GENERAL_KNOWLEDGE',
+            confidence: 0.96,
+        });
+    }
+
     if (GENERAL_KNOWLEDGE_PATTERN.test(message) && !hasCommerceCue(message)) {
         return buildCommand({
             intent: 'GENERAL_KNOWLEDGE',
             confidence: 0.88,
+        });
+    }
+
+    if (
+        !hasCommerceCue(message)
+        && BARE_TOPIC_PATTERN.test(normalized)
+        && tokenize(normalized).length <= 4
+    ) {
+        return buildCommand({
+            intent: 'GENERAL_KNOWLEDGE',
+            confidence: 0.44,
         });
     }
 

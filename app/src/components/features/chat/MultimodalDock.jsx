@@ -59,15 +59,15 @@ const MultimodalDock = ({ isWhiteMode = false, variant = 'full' }) => {
 
     if (variant === 'compact') {
         return (
-            <section className={cn('rounded-[1.6rem] border p-4', shellClassName)}>
+            <section className={cn('rounded-[1.35rem] border p-3.5', shellClassName)}>
                 <div className="flex items-center justify-between gap-3">
                     <div>
                         <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.22em] text-cyan-300">
                             <Sparkles className="h-3.5 w-3.5" />
-                            Assistant Tools
+                            Assistant lanes
                         </div>
-                        <p className={cn('mt-2 text-sm font-semibold', isWhiteMode ? 'text-slate-900' : 'text-white')}>
-                            Voice and live inspection lanes
+                        <p className={cn('mt-1.5 text-sm font-semibold', isWhiteMode ? 'text-slate-900' : 'text-white')}>
+                            Voice and live help
                         </p>
                     </div>
 
@@ -76,18 +76,18 @@ const MultimodalDock = ({ isWhiteMode = false, variant = 'full' }) => {
                     </span>
                 </div>
 
-                <p className={cn('mt-3 text-xs leading-6', mutedTextClass)}>
-                    {continuityContext?.lastQuery || 'Keep one brief across chat, voice, and live assistance.'}
+                <p className={cn('mt-2 text-[11px] leading-5', mutedTextClass)}>
+                    {activeCallSummary?.active ? 'A live lane is active.' : 'Open voice or inspection without leaving the current shopping brief.'}
                 </p>
 
-                <div className="mt-4 grid gap-2">
+                <div className="mt-3 grid gap-2">
                     <button
                         type="button"
                         onClick={() => openVoiceAssistant?.({
                             initialCommand: activeDraft,
                             origin: 'chat_sidebar_lane',
                         })}
-                        className={cn('flex items-center justify-between rounded-2xl border px-3 py-3 text-left text-sm font-medium transition-colors', primaryLaneClass)}
+                        className={cn('flex items-center justify-between rounded-2xl border px-3 py-2.5 text-left text-sm font-medium transition-colors', primaryLaneClass)}
                     >
                         <span className="inline-flex items-center gap-2">
                             <Mic className="h-4 w-4" />
@@ -100,7 +100,7 @@ const MultimodalDock = ({ isWhiteMode = false, variant = 'full' }) => {
                         type="button"
                         onClick={() => void startContextualCall?.({ mediaMode: 'voice', source: 'chat_sidebar_lane' })}
                         disabled={!routeContext?.canLaunchInspection || activeCallSummary?.active}
-                        className={cn('flex items-center justify-between rounded-2xl border px-3 py-3 text-left text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-55', secondaryLaneClass)}
+                        className={cn('flex items-center justify-between rounded-2xl border px-3 py-2.5 text-left text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-55', secondaryLaneClass)}
                     >
                         <span className="inline-flex items-center gap-2">
                             <PhoneCall className="h-4 w-4" />
@@ -115,7 +115,7 @@ const MultimodalDock = ({ isWhiteMode = false, variant = 'full' }) => {
                         type="button"
                         onClick={() => void startContextualCall?.({ mediaMode: 'video', source: 'chat_sidebar_lane' })}
                         disabled={!routeContext?.canLaunchInspection || activeCallSummary?.active}
-                        className={cn('flex items-center justify-between rounded-2xl border px-3 py-3 text-left text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-55', secondaryLaneClass)}
+                        className={cn('flex items-center justify-between rounded-2xl border px-3 py-2.5 text-left text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-55', secondaryLaneClass)}
                     >
                         <span className="inline-flex items-center gap-2">
                             <Video className="h-4 w-4" />

@@ -10,12 +10,23 @@ jest.mock('../services/catalogService', () => ({
     queryProducts: jest.fn(),
 }));
 
+jest.mock('../services/intelligence/intelligenceGatewayService', () => ({
+    requestCentralIntelligenceTurn: jest.fn(),
+    shouldUseCentralIntelligence: jest.fn(() => false),
+    streamCentralIntelligenceTurn: jest.fn(),
+}));
+
 const { getProductByIdentifier } = require('../services/catalogService');
+const {
+    requestCentralIntelligenceTurn,
+    shouldUseCentralIntelligence,
+} = require('../services/intelligence/intelligenceGatewayService');
 const { processAssistantTurn } = require('../services/ai/assistantOrchestratorService');
 
 describe('assistantOrchestratorService', () => {
     beforeEach(() => {
         jest.clearAllMocks();
+        shouldUseCentralIntelligence.mockReturnValue(false);
     });
 
     test('backend confirmation round-trip keeps session authority for risky actions', async () => {
@@ -127,5 +138,87 @@ describe('assistantOrchestratorService', () => {
                 actionType: 'CHECKOUT',
             }),
         });
+    });
+
+    test('falls back to local recovery when central intelligence is unavailable for normal chat', async () => {
+        shouldUseCentralIntelligence.mockReturnValue(true);
+        requestCentralIntelligenceTurn.mockResolvedValue({
+            answer: 'The system-aware intelligence layer is unavailable right now, so I cannot verify repo-grounded details.',
+            assistantTurn: {
+                intent: 'general_knowledge',
+                decision: 'respond',
+                response: 'The system-aware intelligence layer is unavailable right now, so I cannot verify repo-grounded details.',
+                ui: {
+                    surface: 'plain_answer',
+                },
+                followUps: [],
+            },
+            grounding: {
+                status: 'cannot_verify',
+                reason: 'service_unavailable',
+                traceId: 'trace_test',
+            },
+        });
+
+        const result = await processAssistantTurn({
+            message: 'hello',
+            assistantMode: 'chat',
+            context: {
+                sessionMemory: {
+                    lastQuery: 'iphone',
+                    lastResults: [{
+                        id: 'iphone-15',
+                        title: 'Apple iPhone 15',
+                        brand: 'Apple',
+                        category: 'Mobiles',
+                    }],
+                    activeProduct: null,
+                    currentIntent: 'product_search',
+                },
+            },
+        });
+
+        expect(requestCentralIntelligenceTurn).toHaveBeenCalled();
+        expect(result.assistantTurn).toMatchObject({
+            intent: 'general_knowledge',
+            decision: 'respond',
+            ui: {
+                surface: 'plain_answer',
+            },
+        });
+        expect(result.answer).toBe('Hi. I can help with shopping, navigation, and live app questions.');
+    });
+
+    test('preserves cannot-verify response for system-aware questions when central intelligence is unavailable', async () => {
+        shouldUseCentralIntelligence.mockReturnValue(true);
+        requestCentralIntelligenceTurn.mockResolvedValue({
+            answer: 'The system-aware intelligence layer is unavailable right now, so I cannot verify repo-grounded details.',
+            assistantTurn: {
+                intent: 'general_knowledge',
+                decision: 'respond',
+                response: 'The system-aware intelligence layer is unavailable right now, so I cannot verify repo-grounded details.',
+                ui: {
+                    surface: 'plain_answer',
+                },
+                followUps: [],
+            },
+            grounding: {
+                status: 'cannot_verify',
+                reason: 'service_unavailable',
+                traceId: 'trace_test',
+            },
+        });
+
+        const result = await processAssistantTurn({
+            message: 'why is cart failing',
+            assistantMode: 'chat',
+            context: {},
+        });
+
+        expect(result.grounding).toMatchObject({
+            status: 'cannot_verify',
+            reason: 'service_unavailable',
+        });
+        expect(result.answer).toBe('The system-aware intelligence layer is unavailable right now, so I cannot verify repo-grounded details.');
     });
 });

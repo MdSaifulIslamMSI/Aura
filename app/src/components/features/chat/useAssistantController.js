@@ -603,16 +603,16 @@ export const useAssistantController = () => {
             }
             discardAssistantStream(streamMessageId);
             appendAssistantTurn({
-                text: 'The assistant is temporarily unavailable. Try again, or refine the request with a simpler product cue.',
+                text: 'I hit a live service issue before I could finish that. Please try again in a moment.',
                 mode: 'explore',
                 assistantTurn: {
                     intent: 'general_knowledge',
                     decision: 'respond',
-                    response: 'The assistant is temporarily unavailable. Try again, or refine the request with a simpler product cue.',
+                    response: 'I hit a live service issue before I could finish that. Please try again in a moment.',
                     ui: {
                         surface: 'plain_answer',
                     },
-                    followUps: ['Best deals today', 'Search premium phones', 'Build a smart bundle'],
+                    followUps: ['Try again', 'Show my cart', 'Search premium phones'],
                 },
             });
         } finally {
