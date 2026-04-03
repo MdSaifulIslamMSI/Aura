@@ -595,6 +595,9 @@ class AssistantOrchestrator:
             "stream_response": callable(event_callback),
             "routing_model": self._resolve_routing_model(request),
             "reasoning_model": self._resolve_reasoning_model(request),
+            "guard_reason": "",
+            "stale_bundle": False,
+            "missing_evidence": False,
         }
 
         if self._graph is not None:
@@ -627,6 +630,11 @@ class AssistantOrchestrator:
             verification=verification,
             grounding={
                 "mode": answer_mode,
+                "status": "cannot_verify" if verification.label == "cannot_verify" else "verified",
+                "reason": _normalize_text(state.get("guard_reason", "")),
+                "staleBundle": bool(state.get("stale_bundle", False)),
+                "missingEvidence": bool(state.get("missing_evidence", False)),
+                "evidenceCount": verification.evidenceCount,
                 "bundleVersion": request.bundleVersion,
                 "traceId": request.traceId,
                 "sources": [
@@ -771,6 +779,9 @@ class AssistantOrchestrator:
         tool_results = state["tool_results"]
 
         if request.expectedBundleVersion and request.bundleVersion and request.expectedBundleVersion != request.bundleVersion:
+            state["guard_reason"] = "stale_bundle"
+            state["stale_bundle"] = True
+            state["missing_evidence"] = False
             state["verification"] = {
                 "label": "cannot_verify",
                 "confidence": 0.0,
@@ -784,6 +795,9 @@ class AssistantOrchestrator:
             return state
 
         if answer_mode == "app_grounded" and not citations:
+            state["guard_reason"] = "missing_repo_evidence"
+            state["stale_bundle"] = False
+            state["missing_evidence"] = True
             state["verification"] = {
                 "label": "cannot_verify",
                 "confidence": 0.0,
@@ -794,6 +808,9 @@ class AssistantOrchestrator:
             return state
 
         if answer_mode == "runtime_grounded" and not citations and not tool_results:
+            state["guard_reason"] = "missing_runtime_evidence"
+            state["stale_bundle"] = False
+            state["missing_evidence"] = True
             state["verification"] = {
                 "label": "cannot_verify",
                 "confidence": 0.0,
@@ -804,6 +821,9 @@ class AssistantOrchestrator:
             return state
 
         evidence_count = len(citations) if citations else len(tool_results)
+        state["guard_reason"] = ""
+        state["stale_bundle"] = False
+        state["missing_evidence"] = False
         state["verification"] = {
             "label": answer_mode if answer_mode in {"app_grounded", "runtime_grounded", "model_knowledge"} else "cannot_verify",
             "confidence": 0.92 if citations else 0.78 if tool_results else 0.6,
