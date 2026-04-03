@@ -23,6 +23,8 @@ const {
 } = require('./assistantSessionService');
 
 const safeString = (value, fallback = '') => String(value === undefined || value === null ? fallback : value).trim();
+const SYSTEM_AWARENESS_PATTERN = /\b(app|architecture|backend|bug|client|code|component|controller|db|debug|diagnostic|endpoint|error|explain|file|flow|frontend|function|graph|health|how does|implementation|index|issue|line by line|model|orchestrat|path|repo|route|schema|service|socket|support video|system|trace|where is|why .*fail(?:ing|ed|s|ure)?)\b/i;
+const CENTRAL_FAILURE_RECOVERY_REASONS = new Set(['service_unavailable']);
 
 const normalizeHistory = (conversationHistory = []) => (
     Array.isArray(conversationHistory)
@@ -57,6 +59,34 @@ const buildAuthoritativeContext = ({ context = {}, session = {} } = {}) => ({
         lastActionAt: Math.max(0, Number(context?.sessionMemory?.lastActionAt || 0)),
     },
 });
+
+const shouldFallbackToRecoveredTurn = ({
+    result = {},
+    message = '',
+    images = [],
+    streamedEventCount = 0,
+} = {}) => {
+    const status = safeString(result?.grounding?.status || '');
+    const reason = safeString(result?.grounding?.reason || '');
+
+    if (status !== 'cannot_verify') {
+        return false;
+    }
+
+    if (!CENTRAL_FAILURE_RECOVERY_REASONS.has(reason)) {
+        return false;
+    }
+
+    if (Array.isArray(images) && images.length > 0) {
+        return false;
+    }
+
+    if (Number(streamedEventCount || 0) > 0) {
+        return false;
+    }
+
+    return !SYSTEM_AWARENESS_PATTERN.test(safeString(message));
+};
 
 const finalizeAssistantTurnSession = ({
     result = {},
@@ -260,6 +290,27 @@ const processAssistantTurn = async ({
             images,
             session: resolvedSession,
         });
+
+        if (shouldFallbackToRecoveredTurn({
+            result: recovered,
+            message,
+            images,
+        })) {
+            recovered = await processRecoveredAssistantTurn({
+                user,
+                message,
+                conversationHistory: normalizeHistory(conversationHistory),
+                assistantMode,
+                context: {
+                    ...authoritativeContext,
+                    centralIntelligenceFallback: {
+                        reason: safeString(recovered?.grounding?.reason || ''),
+                        traceId: safeString(recovered?.grounding?.traceId || ''),
+                    },
+                },
+                images,
+            });
+        }
     } else if (actionRequest?.type) {
         recovered = await processExplicitAssistantAction({
             actionRequest,
@@ -323,7 +374,15 @@ const streamAssistantTurn = async ({
         assistantMode,
         context: authoritativeContext,
     })) {
-        const recovered = await streamCentralIntelligenceTurn({
+        let streamedEventCount = 0;
+        const trackedWriteEvent = (eventName, payload) => {
+            if (eventName !== 'final_turn') {
+                streamedEventCount += 1;
+            }
+            writeEvent(eventName, payload);
+        };
+
+        let recovered = await streamCentralIntelligenceTurn({
             user,
             message,
             conversationHistory: normalizeHistory(conversationHistory),
@@ -331,8 +390,30 @@ const streamAssistantTurn = async ({
             context: authoritativeContext,
             images,
             session: resolvedSession,
-            writeEvent,
+            writeEvent: trackedWriteEvent,
         });
+
+        if (shouldFallbackToRecoveredTurn({
+            result: recovered,
+            message,
+            images,
+            streamedEventCount,
+        })) {
+            recovered = await processRecoveredAssistantTurn({
+                user,
+                message,
+                conversationHistory: normalizeHistory(conversationHistory),
+                assistantMode,
+                context: {
+                    ...authoritativeContext,
+                    centralIntelligenceFallback: {
+                        reason: safeString(recovered?.grounding?.reason || ''),
+                        traceId: safeString(recovered?.grounding?.traceId || ''),
+                    },
+                },
+                images,
+            });
+        }
 
         const finalized = finalizeAssistantTurnSession({
             result: recovered,
