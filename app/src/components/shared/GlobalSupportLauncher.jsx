@@ -3,6 +3,10 @@ import { LifeBuoy, ShieldAlert } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { AuthContext } from '@/context/AuthContext';
 import { cn } from '@/lib/utils';
+import {
+    isAdminPath,
+    isAssistantWorkspacePath,
+} from '@/services/assistantUiConfig';
 import { buildSupportHandoffPath } from '@/utils/assistantCommands';
 
 const SUPPORT_HANDOFF_PATH = buildSupportHandoffPath();
@@ -19,7 +23,11 @@ const toLocationState = (path = '/') => {
 const shouldHideSupportLauncher = (pathname = '/', search = '') => {
     const params = new URLSearchParams(search);
 
-    if (pathname.startsWith('/admin')) {
+    if (isAdminPath(pathname)) {
+        return true;
+    }
+
+    if (isAssistantWorkspacePath(pathname)) {
         return true;
     }
 

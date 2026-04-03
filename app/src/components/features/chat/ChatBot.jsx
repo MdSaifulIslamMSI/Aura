@@ -1,7 +1,8 @@
-import { useEffect } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import { MessageCircle } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { useLocation } from 'react-router-dom';
+import { AuthContext } from '@/context/AuthContext';
 import { useColorMode } from '@/context/ColorModeContext';
 import { cn } from '@/lib/utils';
 import { useSpeechInput } from '@/hooks/useSpeechInput';
@@ -36,6 +37,8 @@ const MODE_COPY = {
 const ChatBot = () => {
     const location = useLocation();
     const { colorMode } = useColorMode();
+    const { currentUser } = useContext(AuthContext);
+    const [workspaceVariant, setWorkspaceVariant] = useState('large');
 
     const isOpen = useChatStore((state) => state.isOpen);
     const mode = useChatStore((state) => state.mode);
@@ -47,6 +50,7 @@ const ChatBot = () => {
     const open = useChatStore((state) => state.open);
     const close = useChatStore((state) => state.close);
     const setInputValue = useChatStore((state) => state.setInputValue);
+    const resetConversation = useChatStore((state) => state.resetConversation);
 
     const {
         inputRef,
@@ -63,9 +67,12 @@ const ChatBot = () => {
     const isWhiteMode = colorMode === 'white';
     const routeLabel = getAssistantRouteLabel(location.pathname);
     const modeCopy = MODE_COPY[mode] || MODE_COPY.explore;
+    const currentUserLabel = currentUser?.displayName
+        || currentUser?.email?.split('@')?.[0]
+        || 'there';
     const launcherClassName = isWhiteMode
-        ? 'border-slate-200/90 bg-white/95 text-slate-950 shadow-[0_18px_48px_rgba(15,23,42,0.14)]'
-        : 'border-white/10 bg-[linear-gradient(135deg,rgba(6,10,24,0.96),rgba(10,18,34,0.96))] text-slate-50 shadow-[0_22px_60px_rgba(2,6,23,0.56)]';
+        ? 'border-white/60 bg-white/90 text-slate-900 shadow-[0_16px_40px_rgba(30,41,59,0.15)] ring-1 ring-slate-200/30 hover:bg-white hover:scale-105'
+        : 'border-white/10 bg-[#0F131EFF] hover:bg-[#131722FF] text-slate-100 shadow-[0_20px_48px_rgba(0,0,0,0.8)] ring-1 ring-white/5 hover:scale-105';
     const {
         isListening,
         supportsSpeechInput: supportsDictation,
@@ -103,60 +110,87 @@ const ChatBot = () => {
     if (!portalTarget) return null;
 
     return createPortal(
-        <div className="pointer-events-none fixed inset-0 z-[2147483600] flex items-end justify-end p-4 sm:p-6">
+        <div
+            className={cn(
+                'pointer-events-none fixed inset-0 z-[2147483600] flex',
+                isOpen
+                    ? (workspaceVariant === 'large'
+                        ? 'items-stretch justify-stretch p-2 sm:p-4 lg:p-6'
+                        : 'items-end justify-end p-3 sm:p-5 lg:p-6')
+                    : 'items-end justify-end p-4 sm:p-6'
+            )}
+        >
             {isOpen ? (
-                <ChatContainer
-                    isWhiteMode={isWhiteMode}
-                    modeLabel={modeCopy.label}
-                    subtitle={modeCopy.subtitle}
-                    routeLabel={routeLabel}
-                    messages={messages}
-                    isLoading={isLoading}
-                    inputValue={inputValue}
-                    isListening={isListening}
-                    supportsDictation={supportsDictation}
-                    primaryAction={primaryAction}
-                    secondaryActions={secondaryActions}
-                    inputRef={inputRef}
-                    onClose={() => {
-                        stopListening();
-                        close();
-                    }}
-                    onInputChange={setInputValue}
-                    onSubmit={(event) => {
-                        event?.preventDefault?.();
-                        if (isListening) {
-                            stopListening();
-                        }
-                        void handleUserInput(inputValue);
-                    }}
-                    onToggleDictation={toggleListening}
-                    onAction={handleAction}
-                    onSelectProduct={(productId) => void selectProduct(productId)}
-                    onAddToCart={(productId) => void addProductToCart(productId)}
-                    onViewDetails={(productId) => void selectProduct(productId)}
-                    onOpenSupport={(prefill, orderId) => void openSupport(prefill, orderId)}
-                    onConfirmPending={(token) => void confirmPendingAction(token)}
-                    onCancelPending={cancelPendingAction}
-                    onModifyPending={modifyPendingAction}
-                />
+                <>
+                    <div
+                        aria-hidden="true"
+                        className="pointer-events-none absolute inset-0 bg-slate-950/42 backdrop-blur-[2px]"
+                    />
+                    <div className="pointer-events-none relative flex w-full items-stretch justify-end">
+                        <ChatContainer
+                            isWhiteMode={isWhiteMode}
+                            modeLabel={modeCopy.label}
+                            subtitle={modeCopy.subtitle}
+                            routeLabel={routeLabel}
+                            messages={messages}
+                            isLoading={isLoading}
+                            inputValue={inputValue}
+                            isListening={isListening}
+                            supportsDictation={supportsDictation}
+                            primaryAction={primaryAction}
+                            secondaryActions={secondaryActions}
+                            inputRef={inputRef}
+                            currentUserLabel={currentUserLabel}
+                            workspaceVariant={workspaceVariant}
+                            onClose={() => {
+                                stopListening();
+                                close();
+                            }}
+                            onSetWorkspaceVariant={setWorkspaceVariant}
+                            onStartFresh={() => {
+                                stopListening();
+                                resetConversation();
+                                setInputValue('');
+                                window.requestAnimationFrame(() => inputRef.current?.focus());
+                            }}
+                            onInputChange={setInputValue}
+                            onSubmit={(event) => {
+                                event?.preventDefault?.();
+                                if (isListening) {
+                                    stopListening();
+                                }
+                                void handleUserInput(inputValue);
+                            }}
+                            onToggleDictation={toggleListening}
+                            onAction={handleAction}
+                            onSelectProduct={(productId) => void selectProduct(productId)}
+                            onAddToCart={(productId) => void addProductToCart(productId)}
+                            onViewDetails={(productId) => void selectProduct(productId)}
+                            onOpenSupport={(prefill, orderId) => void openSupport(prefill, orderId)}
+                            onConfirmPending={(token) => void confirmPendingAction(token)}
+                            onCancelPending={cancelPendingAction}
+                            onModifyPending={modifyPendingAction}
+                            onStarterPrompt={(prompt) => void handleUserInput(prompt)}
+                        />
+                    </div>
+                </>
             ) : (
                 <button
                     type="button"
                     onClick={open}
-                    className={cn('pointer-events-auto flex items-center gap-3 rounded-full border px-4 py-3 backdrop-blur-xl transition-transform duration-300 hover:-translate-y-0.5', launcherClassName)}
+                    className={cn('group pointer-events-auto flex items-center gap-4 rounded-full border px-5 py-3.5 backdrop-blur-3xl transition-all duration-300', launcherClassName)}
                 >
                     <div className={cn(
-                        'flex h-11 w-11 items-center justify-center rounded-full border',
+                        'flex h-12 w-12 items-center justify-center rounded-full border shadow-inner transition-transform duration-300 group-hover:scale-110 group-hover:rotate-6',
                         isWhiteMode
-                            ? 'border-cyan-200 bg-cyan-500/10 text-cyan-700'
-                            : 'border-cyan-400/20 bg-cyan-400/10 text-cyan-100'
+                            ? 'border-indigo-100 bg-gradient-to-br from-indigo-500 to-violet-500 text-white'
+                            : 'border-cyan-500/20 bg-gradient-to-br from-cyan-400 to-blue-600 text-white'
                     )}>
                         <MessageCircle className="h-5 w-5" />
                     </div>
                     <div className="hidden text-left sm:block">
-                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-300">Multimodal Assistant</p>
-                        <p className="text-sm font-semibold">Chat, voice, live inspect</p>
+                        <p className={cn("text-[11px] font-bold uppercase tracking-widest", isWhiteMode ? "text-indigo-600" : "text-cyan-400")}>Get Assistance</p>
+                        <p className={cn("text-sm font-semibold tracking-wide mt-0.5", isWhiteMode ? "text-slate-700" : "text-slate-200")}>Chat, voice & inspect</p>
                     </div>
                 </button>
             )}

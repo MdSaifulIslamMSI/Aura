@@ -8,6 +8,7 @@ jest.mock('../middleware/authMiddleware', () => ({
         }
         return res.status(401).json({ message: 'Not authorized' });
     },
+    protectPhoneFactorProof: (req, res, next) => next(),
     protectOptional: (req, res, next) => next(),
     admin: (req, res, next) => {
         if (!req.user?.isAdmin) {
