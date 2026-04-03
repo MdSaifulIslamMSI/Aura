@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
-const CHAT_STORAGE_KEY = 'aura-shopper-chat-v2';
+const CHAT_STORAGE_KEY = 'aura-shopper-chat-v3';
 const MAX_PERSISTED_MESSAGES = 24;
 const MAX_VISIBLE_ACTIONS = 3;
 

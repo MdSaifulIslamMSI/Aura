@@ -40,11 +40,11 @@ const renderContainer = (props = {}) => render(
 );
 
 describe('ChatContainer', () => {
-    it('renders the Gemini-style landing state with the user greeting', () => {
+    it('renders the Grok-style landing state with the centered welcome', () => {
         renderContainer();
 
-        expect(screen.getByText('Hello, Md!')).toBeInTheDocument();
-        expect(screen.getByText("I'm your Aura shopping copilot. Drop a request below to get started.")).toBeInTheDocument();
+        expect(screen.getByText('How can I help you today?')).toBeInTheDocument();
+        expect(screen.getByText(/Ask about products, cart actions, support handoffs, or app flows/i)).toBeInTheDocument();
         expect(screen.getByRole('button', { name: 'Find products' })).toBeInTheDocument();
         expect(screen.getByRole('button', { name: /new conversation/i })).toBeInTheDocument();
         expect(screen.getByRole('button', { name: /close chat/i })).toBeInTheDocument();
