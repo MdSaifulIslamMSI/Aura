@@ -107,6 +107,7 @@ const renderGroundingMeta = (message, isWhiteMode) => {
     const toolRuns = Array.isArray(message?.assistantTurn?.toolRuns) ? message.assistantTurn.toolRuns.slice(0, 6) : [];
     const grounding = message?.grounding || null;
     const providerInfo = message?.providerInfo || null;
+    const guardReason = String(grounding?.reason || '').trim();
 
     if (!verification && citations.length === 0 && toolRuns.length === 0 && !grounding && !providerInfo) {
         return null;
@@ -173,6 +174,10 @@ const renderGroundingMeta = (message, isWhiteMode) => {
                         Trace details
                     </summary>
                     <div className={cn('mt-2 space-y-1 text-[11px]', subtleTextClass)}>
+                        {grounding?.status ? <p>Status: {grounding.status}</p> : null}
+                        {guardReason ? <p>Guard: {guardReason.replace(/_/g, ' ')}</p> : null}
+                        {grounding?.staleBundle ? <p>Bundle state: stale</p> : null}
+                        {grounding?.missingEvidence ? <p>Evidence state: missing</p> : null}
                         {grounding?.bundleVersion ? <p>Index version: {grounding.bundleVersion}</p> : null}
                         {grounding?.traceId ? <p>Trace id: {grounding.traceId}</p> : null}
                         {providerInfo?.model ? <p>Model: {providerInfo.model}</p> : null}
