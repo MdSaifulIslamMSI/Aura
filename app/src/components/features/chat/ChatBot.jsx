@@ -1,5 +1,5 @@
 import { useContext, useEffect, useState } from 'react';
-import { MessageCircle } from 'lucide-react';
+import { MessageCircle, Sparkles } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { useLocation } from 'react-router-dom';
 import { AuthContext } from '@/context/AuthContext';
@@ -38,7 +38,7 @@ const ChatBot = () => {
     const location = useLocation();
     const { colorMode } = useColorMode();
     const { currentUser } = useContext(AuthContext);
-    const [workspaceVariant, setWorkspaceVariant] = useState('small');
+    const [workspaceVariant, setWorkspaceVariant] = useState('large');
 
     const isOpen = useChatStore((state) => state.isOpen);
     const mode = useChatStore((state) => state.mode);
@@ -71,8 +71,8 @@ const ChatBot = () => {
         || currentUser?.email?.split('@')?.[0]
         || 'there';
     const launcherClassName = isWhiteMode
-        ? 'border-white/60 bg-white/90 text-slate-900 shadow-[0_16px_40px_rgba(30,41,59,0.15)] ring-1 ring-slate-200/30 hover:bg-white hover:scale-105'
-        : 'border-white/10 bg-[#0F131EFF] hover:bg-[#131722FF] text-slate-100 shadow-[0_20px_48px_rgba(0,0,0,0.8)] ring-1 ring-white/5 hover:scale-105';
+        ? 'border-slate-200 bg-white text-slate-900 shadow-[0_0_0_1px_rgba(255,255,255,0.65),0_18px_50px_rgba(15,23,42,0.16)] hover:scale-[1.03]'
+        : 'border-white/10 bg-[#031019] text-white shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_0_42px_rgba(255,255,255,0.14),0_24px_80px_rgba(0,0,0,0.62)] hover:scale-[1.03]';
     const {
         isListening,
         supportsSpeechInput: supportsDictation,
@@ -114,9 +114,7 @@ const ChatBot = () => {
             className={cn(
                 'pointer-events-none fixed inset-0 z-[2147483600] flex',
                 isOpen
-                    ? (workspaceVariant === 'large'
-                        ? 'items-center justify-center p-2 sm:p-4 lg:p-6'
-                        : 'items-end justify-end p-3 sm:p-5 lg:p-6')
+                    ? 'items-center justify-center p-3 sm:p-5 lg:p-6'
                     : 'items-end justify-end p-4 sm:p-6'
             )}
         >
@@ -129,7 +127,7 @@ const ChatBot = () => {
                     <div
                         className={cn(
                             'pointer-events-none relative flex w-full items-stretch',
-                            workspaceVariant === 'large' ? 'justify-center' : 'justify-end',
+                            'justify-center',
                         )}
                     >
                         <ChatContainer
@@ -183,19 +181,17 @@ const ChatBot = () => {
                 <button
                     type="button"
                     onClick={open}
-                    className={cn('group pointer-events-auto flex items-center gap-4 rounded-full border px-5 py-3.5 backdrop-blur-3xl transition-all duration-300', launcherClassName)}
+                    className={cn('group pointer-events-auto flex h-24 w-24 items-center justify-center rounded-[30px] border backdrop-blur-3xl transition-all duration-300', launcherClassName)}
+                    aria-label="Open chat"
                 >
                     <div className={cn(
-                        'flex h-12 w-12 items-center justify-center rounded-full border shadow-inner transition-transform duration-300 group-hover:scale-110 group-hover:rotate-6',
+                        'relative flex h-[72px] w-[72px] items-center justify-center rounded-[24px] border transition-transform duration-300 group-hover:scale-105',
                         isWhiteMode
-                            ? 'border-indigo-100 bg-gradient-to-br from-indigo-500 to-violet-500 text-white'
-                            : 'border-cyan-500/20 bg-gradient-to-br from-cyan-400 to-blue-600 text-white'
+                            ? 'border-slate-200 bg-slate-950 text-white'
+                            : 'border-white/10 bg-[#04131d] text-white'
                     )}>
-                        <MessageCircle className="h-5 w-5" />
-                    </div>
-                    <div className="hidden text-left sm:block">
-                        <p className={cn("text-[11px] font-bold uppercase tracking-widest", isWhiteMode ? "text-indigo-600" : "text-cyan-400")}>Get Assistance</p>
-                        <p className={cn("text-sm font-semibold tracking-wide mt-0.5", isWhiteMode ? "text-slate-700" : "text-slate-200")}>Chat, voice & inspect</p>
+                        <Sparkles className="absolute h-5 w-5 translate-x-2 -translate-y-2 opacity-80" />
+                        <MessageCircle className="h-8 w-8" />
                     </div>
                 </button>
             )}

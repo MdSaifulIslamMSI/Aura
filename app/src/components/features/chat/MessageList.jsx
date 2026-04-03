@@ -28,11 +28,11 @@ const MessageList = ({
 
     const loadingBubbleClass = isWhiteMode
         ? 'border-slate-200 bg-white'
-        : 'border-white/10 bg-white/[0.04]';
+        : 'border-white/10 bg-white/[0.03]';
 
     return (
-        <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
-            <div className="mx-auto w-full max-w-3xl space-y-4">
+        <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-8 sm:py-8">
+            <div className="mx-auto w-full max-w-4xl space-y-8">
                 {messages.map((message) => (
                     <MessageItem
                         key={message.id}
@@ -51,7 +51,7 @@ const MessageList = ({
 
                 {isLoading && !hasStreamingAssistantMessage ? (
                     <div className="flex items-start">
-                        <div className={cn('rounded-[1.4rem] border px-4 py-3 shadow-sm', loadingBubbleClass)}>
+                        <div className={cn('rounded-full border px-4 py-3 shadow-sm', loadingBubbleClass)}>
                             <div className="flex items-center gap-2">
                                 <span className="h-2 w-2 animate-bounce rounded-full bg-cyan-400" />
                                 <span className="h-2 w-2 animate-bounce rounded-full bg-emerald-400 [animation-delay:100ms]" />
