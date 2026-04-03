@@ -1,0 +1,96 @@
+name: Sync Azure Runtime
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '15 2 * * *'
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID || '03748f55-bdf3-4f48-8f88-303b118193b2' }}
+  AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID || '7f9460de-1fc8-477a-b8ba-80609bc24a31' }}
+  AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID || 'f7bef511-7ed6-4896-a010-45e5ecd699ef' }}
+  RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP || 'rg-aura-prod' }}
+  KEY_VAULT_NAME: ${{ vars.KEY_VAULT_NAME || 'aura-msi-20260318-kv' }}
+  CONTAINER_ENV_NAME: ${{ vars.CONTAINER_ENV_NAME || 'aura-msi-ca-env' }}
+  BACKEND_IDENTITY_NAME: ${{ vars.BACKEND_IDENTITY_NAME || 'aura-msi-backend-id' }}
+  API_APP_NAME: ${{ vars.API_APP_NAME || 'aura-msi-api-ca' }}
+  WORKER_APP_NAME: ${{ vars.WORKER_APP_NAME || 'aura-msi-worker-ca' }}
+  INTELLIGENCE_APP_NAME: ${{ vars.INTELLIGENCE_APP_NAME || 'aura-msi-intelligence-ca' }}
+
+jobs:
+  sync-runtime:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ env.AZURE_CLIENT_ID }}
+          tenant-id: ${{ env.AZURE_TENANT_ID }}
+          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Materialize Azure runtime env file
+        id: runtime_env
+        shell: bash
+        env:
+          AZURE_RUNTIME_ENV_FILE: ${{ secrets.AZURE_RUNTIME_ENV_FILE }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${AZURE_RUNTIME_ENV_FILE:-}" ]]; then
+            echo "AZURE_RUNTIME_ENV_FILE GitHub secret is required for runtime sync." >&2
+            exit 1
+          fi
+          env_file="${RUNNER_TEMP}/azure-runtime.env"
+          printf '%s' "${AZURE_RUNTIME_ENV_FILE}" > "${env_file}"
+          echo "path=${env_file}" >> "${GITHUB_OUTPUT}"
+
+      - name: Sync Azure runtime
+        shell: pwsh
+        env:
+          APP_BUILD_SHA: ${{ github.sha }}
+          FRONTEND_ORIGIN: ${{ vars.FRONTEND_ORIGIN || '' }}
+          API_PUBLIC_URL: ${{ vars.API_PUBLIC_URL || '' }}
+        run: |
+          & ".\\infra\\azure\\sync-containerapps-runtime.ps1" `
+            -ResourceGroup "${{ env.RESOURCE_GROUP }}" `
+            -KeyVaultName "${{ env.KEY_VAULT_NAME }}" `
+            -ContainerEnvName "${{ env.CONTAINER_ENV_NAME }}" `
+            -IdentityName "${{ env.BACKEND_IDENTITY_NAME }}" `
+            -ApiAppName "${{ env.API_APP_NAME }}" `
+            -WorkerAppName "${{ env.WORKER_APP_NAME }}" `
+            -IntelligenceAppName "${{ env.INTELLIGENCE_APP_NAME }}" `
+            -SourceEnvFile "${{ steps.runtime_env.outputs.path }}" `
+            -SyncKeyVaultSecrets `
+            -FrontendOrigin "${env:FRONTEND_ORIGIN}" `
+            -ApiPublicUrl "${env:API_PUBLIC_URL}"
+
+      - name: Verify Azure runtime drift
+        shell: pwsh
+        env:
+          FRONTEND_ORIGIN: ${{ vars.FRONTEND_ORIGIN || '' }}
+          API_PUBLIC_URL: ${{ vars.API_PUBLIC_URL || '' }}
+        run: |
+          & ".\\infra\\azure\\verify-containerapps-runtime.ps1" `
+            -ResourceGroup "${{ env.RESOURCE_GROUP }}" `
+            -KeyVaultName "${{ env.KEY_VAULT_NAME }}" `
+            -ApiAppName "${{ env.API_APP_NAME }}" `
+            -WorkerAppName "${{ env.WORKER_APP_NAME }}" `
+            -IntelligenceAppName "${{ env.INTELLIGENCE_APP_NAME }}" `
+            -SourceEnvFile "${{ steps.runtime_env.outputs.path }}" `
+            -FrontendOrigin "${env:FRONTEND_ORIGIN}" `
+            -ApiPublicUrl "${env:API_PUBLIC_URL}" `
+            -ReportOutputPath "${{ runner.temp }}/azure-runtime-verify.json"
+
+      - name: Upload verification report
+        uses: actions/upload-artifact@v4
+        with:
+          name: azure-runtime-verify
+          path: ${{ runner.temp }}/azure-runtime-verify.json
+          retention-days: 7
