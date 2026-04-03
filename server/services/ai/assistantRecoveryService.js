@@ -41,6 +41,9 @@ const SHOW_MORE_PATTERN = /\b(show more|more options|more results|next results|n
 const CATEGORY_BROWSE_PATTERN = /\b(open|browse|go to|take me to)\b/i;
 const FILTER_REFINEMENT_PATTERN = /^(?:then|now|also|only|just)?\s*(?:under|below|less than|max|within|around|about)?\s*(?:rs\.?|inr)?\s*[\d,]+\s*k?\s*(?:price|budget)?$/i;
 const PRODUCT_SEARCH_CUE_PATTERN = /\b(iphone|samsung|pixel|oppo|vivo|realme|phone|phones|laptop|laptops|headphone|headphones|earbuds|watch|tv|book|books|shoes?)\b/i;
+const SMALL_TALK_PATTERN = /^(?:hi|hello|hey|hey there|yo|good morning|good afternoon|good evening)(?:\b|[!. ]|$)/i;
+const THANKS_PATTERN = /^(?:thanks|thank you|thx)(?:\b|[!. ]|$)/i;
+const FAREWELL_PATTERN = /^(?:bye|goodbye|see you|take care)(?:\b|[!. ]|$)/i;
 
 const CATEGORY_SLUG_LOOKUP = new Map([
     ['Mobiles', 'mobiles'],
@@ -692,7 +695,30 @@ const mergeInterpretations = (deterministic = {}, model = {}) => {
 };
 
 const buildKnowledgeFallback = (message = '') => ({
-    response: `I need the language model provider to answer "${safeString(message)}" accurately, and that provider is unavailable right now.`,
+    response: (() => {
+        const normalized = safeLower(message)
+            .replace(/[^\w\s'-]/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        if (!normalized) {
+            return 'I can help with shopping, navigation, and app questions.';
+        }
+
+        if (SMALL_TALK_PATTERN.test(normalized)) {
+            return 'Hi. I can help with shopping, navigation, and live app questions.';
+        }
+
+        if (THANKS_PATTERN.test(normalized)) {
+            return 'Anytime. I can still help with shopping actions, navigation, and app flows.';
+        }
+
+        if (FAREWELL_PATTERN.test(normalized)) {
+            return 'See you soon.';
+        }
+
+        return `The live knowledge service is unavailable right now, so I cannot answer "${safeString(message)}" reliably. I can still help with shopping actions and app flows.`;
+    })(),
     provider: 'local',
 });
 
@@ -726,6 +752,33 @@ const answerGeneralKnowledge = async (message = '') => {
         response: safeString(response.payload?.answer || ''),
         provider: response.provider,
     };
+};
+
+const shouldOfferStructuredClarification = ({
+    message = '',
+    interpretation = {},
+} = {}) => {
+    const normalizedMessage = safeString(message);
+    if (!normalizedMessage) return false;
+
+    if (['product_search', 'cart_action', 'navigation', 'support'].includes(safeString(interpretation?.intent || ''))) {
+        return true;
+    }
+
+    return (
+        SEARCH_PATTERN.test(normalizedMessage)
+        || CART_ADD_PATTERN.test(normalizedMessage)
+        || CART_REMOVE_PATTERN.test(normalizedMessage)
+        || NAVIGATION_PATTERN.test(normalizedMessage)
+        || SUPPORT_PATTERN.test(normalizedMessage)
+        || SHOW_MORE_PATTERN.test(normalizedMessage)
+        || FILTER_REFINEMENT_PATTERN.test(normalizedMessage)
+        || CATEGORY_BROWSE_PATTERN.test(normalizedMessage)
+        || PRODUCT_REFERENCE_PATTERN.test(normalizedMessage)
+        || PRODUCT_SEARCH_CUE_PATTERN.test(normalizedMessage)
+        || GENERAL_KNOWLEDGE_PATTERN.test(normalizedMessage)
+        || Boolean(safeString(interpretation?.entities?.category || interpretation?.meta?.categoryLabel || ''))
+    );
 };
 
 const getDecisionBand = (confidence = 0) => {
@@ -1112,7 +1165,7 @@ const buildClarificationPayload = ({
 const escalateClarificationPayload = (clarification = {}) => ({
     ...clarification,
     response: clarification?.ui?.surface === 'product_results'
-        ? 'Choose one of these options so I can continue.'
+        ? 'Pick the matching product so I can continue.'
         : Array.isArray(clarification?.followUps) && clarification.followUps.length > 0
             ? 'Pick one of these options so I can continue.'
             : safeString(clarification?.response || ''),
@@ -1324,9 +1377,14 @@ const executeDecision = async ({
         const structuredOptions = strongClarification
             ? uniqueProducts(sessionMemory?.lastResults || []).slice(0, 4)
             : [];
-        const effectiveClarification = strongClarification && structuredOptions.length > 0
+        const effectiveClarification = strongClarification
+            && structuredOptions.length > 0
+            && shouldOfferStructuredClarification({
+                message,
+                interpretation: workingInterpretation,
+            })
             ? {
-                response: 'Choose one of these options so I can continue.',
+                response: 'Pick the matching product so I can continue.',
                 followUps: clarification.followUps,
                 ui: {
                     surface: 'product_results',

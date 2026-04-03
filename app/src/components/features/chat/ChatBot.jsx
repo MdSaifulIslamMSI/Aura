@@ -38,7 +38,7 @@ const ChatBot = () => {
     const location = useLocation();
     const { colorMode } = useColorMode();
     const { currentUser } = useContext(AuthContext);
-    const [workspaceVariant, setWorkspaceVariant] = useState('large');
+    const [workspaceVariant, setWorkspaceVariant] = useState('small');
 
     const isOpen = useChatStore((state) => state.isOpen);
     const mode = useChatStore((state) => state.mode);
@@ -115,7 +115,7 @@ const ChatBot = () => {
                 'pointer-events-none fixed inset-0 z-[2147483600] flex',
                 isOpen
                     ? (workspaceVariant === 'large'
-                        ? 'items-stretch justify-stretch p-2 sm:p-4 lg:p-6'
+                        ? 'items-center justify-center p-2 sm:p-4 lg:p-6'
                         : 'items-end justify-end p-3 sm:p-5 lg:p-6')
                     : 'items-end justify-end p-4 sm:p-6'
             )}
@@ -126,7 +126,12 @@ const ChatBot = () => {
                         aria-hidden="true"
                         className="pointer-events-none absolute inset-0 bg-slate-950/42 backdrop-blur-[2px]"
                     />
-                    <div className="pointer-events-none relative flex w-full items-stretch justify-end">
+                    <div
+                        className={cn(
+                            'pointer-events-none relative flex w-full items-stretch',
+                            workspaceVariant === 'large' ? 'justify-center' : 'justify-end',
+                        )}
+                    >
                         <ChatContainer
                             isWhiteMode={isWhiteMode}
                             modeLabel={modeCopy.label}
