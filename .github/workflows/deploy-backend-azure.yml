@@ -41,6 +41,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Use Node.js 24.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.x
+
       - name: Set release metadata
         id: meta
         shell: bash
@@ -78,6 +83,14 @@ jobs:
         run: |
           set -euo pipefail
           az acr login --name "${ACR_NAME}"
+
+      - name: Build Code Intelligence Bundle
+        shell: bash
+        env:
+          APP_BUILD_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          node server/scripts/build_code_intelligence_bundle.js
 
       - name: Build and push backend image
         shell: bash

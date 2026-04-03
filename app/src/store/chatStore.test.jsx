@@ -176,4 +176,47 @@ describe('chatStore', () => {
             decision: 'clarify',
         });
     });
+
+    it('tracks streaming assistant tokens and stream metadata before finalization', () => {
+        const streamId = useChatStore.getState().beginAssistantStream();
+
+        useChatStore.getState().mergeAssistantStreamEvent(streamId, 'tool_start', {
+            toolName: 'search_code_chunks',
+            status: 'running',
+            input: {
+                query: 'checkout flow',
+            },
+        });
+        useChatStore.getState().appendAssistantStreamToken(streamId, 'Hello');
+        useChatStore.getState().appendAssistantStreamToken(streamId, ' world');
+        useChatStore.getState().mergeAssistantStreamEvent(streamId, 'citation', {
+            id: 'server/app.js:10',
+            label: 'server/app.js:10',
+            path: 'server/app.js',
+            startLine: 10,
+            endLine: 20,
+        });
+        useChatStore.getState().mergeAssistantStreamEvent(streamId, 'verification', {
+            label: 'app_grounded',
+            summary: 'Verified against indexed app evidence.',
+            evidenceCount: 1,
+        });
+
+        const streamingMessage = useChatStore.getState().messages.find((message) => message.id === streamId);
+        expect(streamingMessage).toMatchObject({
+            isStreaming: true,
+            text: 'Hello world',
+            assistantTurn: {
+                response: 'Hello world',
+                verification: {
+                    label: 'app_grounded',
+                },
+            },
+        });
+        expect(streamingMessage.assistantTurn.toolRuns).toHaveLength(1);
+        expect(streamingMessage.assistantTurn.citations).toHaveLength(1);
+
+        useChatStore.getState().discardAssistantStream(streamId);
+        expect(useChatStore.getState().messages.find((message) => message.id === streamId)).toBeUndefined();
+    });
 });
