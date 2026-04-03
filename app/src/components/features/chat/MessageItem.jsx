@@ -202,16 +202,13 @@ const MessageItem = ({
 }) => {
     const { t } = useMarket();
     const isUser = message?.role === 'user';
-    const messageColumnClass = isUser
-        ? 'w-full max-w-[78%] sm:max-w-[72%]'
-        : 'w-full max-w-[88%] sm:max-w-[82%]';
-    const bubbleClassName = isUser
-        ? (isWhiteMode
-            ? 'border-slate-950 bg-slate-950 text-white'
-            : 'border-cyan-400/25 bg-[linear-gradient(135deg,rgba(6,182,212,0.18),rgba(14,165,233,0.1))] text-slate-50 shadow-[0_12px_32px_rgba(8,145,178,0.08)]')
-        : (isWhiteMode
-            ? 'border-slate-200 bg-white text-slate-950'
-            : 'border-white/8 bg-[#151922]/92 text-slate-100 shadow-[0_10px_30px_rgba(2,6,23,0.45)]');
+    const laneClass = 'w-full max-w-4xl';
+    const userBubbleClassName = isWhiteMode
+        ? 'border-slate-200 bg-slate-950 text-white'
+        : 'border-white/10 bg-white/[0.06] text-white shadow-[0_12px_40px_rgba(0,0,0,0.28)]';
+    const assistantTextClassName = isWhiteMode
+        ? 'text-slate-950'
+        : 'text-white';
 
     const messageMode = message?.mode || (Array.isArray(message?.products) && message.products.length === 1 ? 'product' : 'explore');
     const shouldRenderProducts = !isUser
@@ -225,31 +222,42 @@ const MessageItem = ({
         : message?.text;
 
     return (
-        <div className={cn('flex w-full flex-col gap-2.5', isUser ? 'items-end' : 'items-start')}>
-            <div className={cn(messageColumnClass, 'rounded-[1.45rem] border px-4 py-3 text-sm leading-6', bubbleClassName)}>
-                <div className="space-y-3">
-                    {renderParagraphs(displayText)}
+        <div className={cn('flex w-full flex-col gap-3.5', isUser ? 'items-end' : 'items-start')}>
+            <div className={laneClass}>
+                <div className={cn('flex w-full', isUser ? 'justify-end' : 'justify-start')}>
+                    <div
+                        className={cn(
+                            isUser
+                                ? 'max-w-[70%] rounded-full border px-5 py-3 text-[15px] leading-7 sm:max-w-[58%]'
+                                : 'max-w-[88%] px-0 py-1 text-[16px] leading-8 sm:max-w-[78%] sm:text-[17px]',
+                            isUser ? userBubbleClassName : assistantTextClassName,
+                        )}
+                    >
+                        <div className={cn('space-y-3', !isUser && 'text-balance')}>
+                            {renderParagraphs(displayText)}
+                        </div>
+                    </div>
                 </div>
             </div>
 
             {!isUser && message?.cartSummary ? (
-                <div className={messageColumnClass}>
+                <div className={cn(laneClass, 'max-w-[88%] sm:max-w-[78%]')}>
                     {renderCartSummary(message.cartSummary, isWhiteMode, t)}
                 </div>
             ) : null}
             {!isUser ? (
-                <div className={messageColumnClass}>
+                <div className={cn(laneClass, 'max-w-[88%] sm:max-w-[78%]')}>
                     {renderSearchSignal(searchMeta, isWhiteMode, t)}
                 </div>
             ) : null}
             {!isUser ? (
-                <div className={messageColumnClass}>
+                <div className={cn(laneClass, 'max-w-[88%] sm:max-w-[78%]')}>
                     {renderGroundingMeta(message, isWhiteMode)}
                 </div>
             ) : null}
 
             {shouldRenderProducts ? (
-                <div className="grid w-full gap-3">
+                <div className="grid w-full max-w-[88%] gap-3 sm:max-w-[78%]">
                     {message.products.map((product) => (
                         <ProductCardInline
                             key={product.id}
@@ -265,7 +273,7 @@ const MessageItem = ({
             ) : null}
 
             {!isUser && message?.confirmation ? (
-                <div className={messageColumnClass}>
+                <div className={cn(laneClass, 'max-w-[88%] sm:max-w-[78%]')}>
                     <ConfirmationCard
                         confirmation={message.confirmation}
                         isWhiteMode={isWhiteMode}
@@ -277,7 +285,7 @@ const MessageItem = ({
             ) : null}
 
             {!isUser && (message?.supportPrefill || message?.assistantTurn?.ui?.support?.orderId) ? (
-                <div className={messageColumnClass}>
+                <div className={cn(laneClass, 'max-w-[88%] sm:max-w-[78%]')}>
                     <SupportHandoffCard
                         prefill={message.supportPrefill}
                         orderId={message?.assistantTurn?.ui?.support?.orderId || ''}
