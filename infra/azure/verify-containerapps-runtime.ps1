@@ -140,10 +140,20 @@ function Get-ServiceAppName {
 
 function Get-PlanFromSyncScript {
     $syncScript = Join-Path $PSScriptRoot "sync-containerapps-runtime.ps1"
-    $powershellExe = (Get-Command powershell -ErrorAction Stop).Source
+    $shellCommand = Get-Command pwsh -ErrorAction SilentlyContinue
+    $shellMode = "pwsh"
+    if (-not $shellCommand) {
+        $shellCommand = Get-Command powershell -ErrorAction Stop
+        $shellMode = "powershell"
+    }
+    $powershellExe = $shellCommand.Source
     $tempPlan = Join-Path $env:TEMP ("aura-runtime-plan-" + [guid]::NewGuid().ToString("N") + ".json")
     try {
-        $args = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $syncScript, "-DryRun", "-DiscoverAzureUrlsInDryRun", "-PlanOutputPath", $tempPlan)
+        $args = @("-NoProfile")
+        if ($shellMode -eq "powershell") {
+            $args += @("-ExecutionPolicy", "Bypass")
+        }
+        $args += @("-File", $syncScript, "-DryRun", "-DiscoverAzureUrlsInDryRun", "-PlanOutputPath", $tempPlan)
         if (-not [string]::IsNullOrWhiteSpace($SourceEnvFile)) {
             $args += @("-SourceEnvFile", $SourceEnvFile)
         }
