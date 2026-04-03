@@ -31,8 +31,8 @@ const MessageList = ({
         : 'border-white/10 bg-white/[0.04]';
 
     return (
-        <div className="flex-1 overflow-y-auto px-5 py-4 sm:px-8 sm:py-6">
-            <div className="mx-auto w-full max-w-4xl space-y-6">
+        <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
+            <div className="mx-auto w-full max-w-3xl space-y-4">
                 {messages.map((message) => (
                     <MessageItem
                         key={message.id}

@@ -232,6 +232,19 @@ const buildAssistantMessage = ({
     });
 };
 
+const shouldCoalesceAssistantMessage = (lastMessage = null, nextMessage = null) => {
+    if (!lastMessage || !nextMessage) return false;
+    if (lastMessage.role !== 'assistant' || nextMessage.role !== 'assistant') return false;
+    if (lastMessage.isStreaming || nextMessage.isStreaming) return false;
+
+    const lastText = String(lastMessage.text || '').trim();
+    const nextText = String(nextMessage.text || '').trim();
+    const lastSurface = String(lastMessage.uiSurface || lastMessage.assistantTurn?.ui?.surface || '').trim();
+    const nextSurface = String(nextMessage.uiSurface || nextMessage.assistantTurn?.ui?.surface || '').trim();
+
+    return Boolean(lastText && nextText && lastText === nextText && lastSurface === nextSurface);
+};
+
 const updateToolRunsForStream = (toolRuns = [], event = {}) => {
     const currentRuns = Array.isArray(toolRuns) ? [...toolRuns] : [];
     const toolName = String(event?.toolName || '').trim();
@@ -577,26 +590,36 @@ export const useChatStore = create(
                             ?? state.context.sessionMemory.lastActionAt,
                     };
 
+                    const nextMessage = buildAssistantMessage({
+                        text,
+                        mode: resolvedMode,
+                        products: safeProducts,
+                        product: resolvedProduct,
+                        cartSummary,
+                        supportPrefill,
+                        confirmation,
+                        navigation,
+                        assistantTurn,
+                        grounding,
+                        providerInfo,
+                    });
+                    const lastMessage = state.messages[state.messages.length - 1] || null;
+                    const nextMessages = shouldCoalesceAssistantMessage(lastMessage, nextMessage)
+                        ? [
+                            ...state.messages.slice(0, -1),
+                            {
+                                ...nextMessage,
+                                id: lastMessage.id,
+                                createdAt: lastMessage.createdAt,
+                            },
+                        ]
+                        : [...state.messages, nextMessage];
+
                     return {
                         mode: resolvedMode,
                         status: 'idle',
                         isLoading: false,
-                        messages: trimMessages([
-                            ...state.messages,
-                            buildAssistantMessage({
-                                text,
-                                mode: resolvedMode,
-                                products: safeProducts,
-                                product: resolvedProduct,
-                                cartSummary,
-                                supportPrefill,
-                                confirmation,
-                                navigation,
-                                assistantTurn,
-                                grounding,
-                                providerInfo,
-                            }),
-                        ]),
+                        messages: trimMessages(nextMessages),
                         visibleProducts: safeProducts,
                         primaryAction,
                         secondaryActions: normalizeActionList(secondaryActions, primaryAction),
