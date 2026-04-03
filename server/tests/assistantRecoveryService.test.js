@@ -251,6 +251,57 @@ describe('assistantRecoveryService', () => {
         expect(result.products).toHaveLength(30);
     });
 
+    test('treats "find any laptops" as a category search instead of querying for "any"', async () => {
+        queryProducts.mockResolvedValue({
+            products: [
+                {
+                    id: 'dell-inspiron',
+                    title: 'Dell Inspiron 15 Laptop',
+                    brand: 'Dell',
+                    category: 'Laptops',
+                    price: 54999,
+                    stock: 8,
+                    rating: 4.5,
+                    ratingCount: 3100,
+                },
+                {
+                    id: 'lenovo-ideapad',
+                    title: 'Lenovo IdeaPad Slim 5',
+                    brand: 'Lenovo',
+                    category: 'Laptops',
+                    price: 62999,
+                    stock: 11,
+                    rating: 4.4,
+                    ratingCount: 2600,
+                },
+            ],
+        });
+
+        const result = await processRecoveredAssistantTurn({
+            message: 'find any laptops',
+            context: {
+                sessionMemory: {
+                    lastQuery: '',
+                    lastResults: [],
+                    activeProduct: null,
+                    currentIntent: '',
+                },
+            },
+        });
+
+        expect(result.assistantTurn).toMatchObject({
+            intent: 'product_search',
+            decision: 'respond',
+            entities: {
+                query: '',
+                category: 'Laptops',
+            },
+        });
+        expect(result.products.map((product) => product.id)).toEqual(['dell-inspiron', 'lenovo-ideapad']);
+        expect(result.answer).toContain('Laptops');
+        expect(result.answer).not.toContain('for any');
+    });
+
     test('answers general knowledge without product ui payload', async () => {
         generateStructuredResponse
             .mockResolvedValueOnce({

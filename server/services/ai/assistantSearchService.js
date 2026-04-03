@@ -18,6 +18,7 @@ const SEARCH_NOISE = new Set([
     'a',
     'amazing',
     'an',
+    'any',
     'around',
     'beautiful',
     'best',

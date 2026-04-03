@@ -16,6 +16,7 @@ const DEFAULT_REASONING_MODEL = 'google/gemma-4-31B-it:novita';
 const DEFAULT_ROUTER_MODEL = 'google/gemma-4-31B-it:novita';
 const INTELLIGENCE_MODES = new Set(['off', 'hybrid', 'always']);
 const SYSTEM_AWARENESS_PATTERN = /\b(app|architecture|backend|bug|client|code|component|controller|db|debug|diagnostic|endpoint|error|explain|file|flow|frontend|function|graph|health|how does|implementation|index|issue|line by line|model|orchestrat|path|repo|route|schema|service|socket|support video|system|trace|where is|why .*fail)\b/i;
+const COMMERCE_ASSIST_PATTERN = /\b(add to cart|bag|brand|browse|buy|cart|catalog|category|checkout|compare|deal|discount|find|laptop|listing|order|payment|price|product|recommend|sale|search|shop|show me|sku|track order|wishlist)\b/i;
 
 const resolveGatewayMode = () => {
     const raw = safeString(process.env.CENTRAL_INTELLIGENCE_MODE || 'hybrid').toLowerCase();
@@ -179,10 +180,18 @@ const shouldUseCentralIntelligence = ({
         return false;
     }
     if (context?.forceCentralIntelligence === true) return true;
-    if (mode === 'always') return true;
-
     const normalizedMessage = safeString(message);
     if (!normalizedMessage) return false;
+
+    if (mode === 'always') {
+        if (SYSTEM_AWARENESS_PATTERN.test(normalizedMessage)) {
+            return true;
+        }
+        if (COMMERCE_ASSIST_PATTERN.test(normalizedMessage)) {
+            return false;
+        }
+        return true;
+    }
 
     return SYSTEM_AWARENESS_PATTERN.test(normalizedMessage);
 };
