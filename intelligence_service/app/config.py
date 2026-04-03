@@ -76,7 +76,7 @@ def load_settings() -> Settings:
         ).strip(),
         node_tool_gateway_token=os.getenv(
             "NODE_TOOL_GATEWAY_TOKEN",
-            os.getenv("AI_INTERNAL_TOOL_SECRET", ""),
+            os.getenv("AI_INTERNAL_TOOL_SECRET", os.getenv("CRON_SECRET", "")),
         ).strip(),
         reasoning_model=os.getenv("INTELLIGENCE_REASONING_MODEL", "google/gemma-4-31B-it:novita").strip(),
         routing_model=os.getenv("INTELLIGENCE_ROUTING_MODEL", "google/gemma-4-31B-it:novita").strip(),
