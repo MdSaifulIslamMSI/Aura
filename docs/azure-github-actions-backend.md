@@ -11,12 +11,15 @@ This repo supports backend deployment from GitHub Actions to Azure Container App
 Release flow:
 
 1. Build an immutable backend image with `docker buildx`
-2. Push the image and cache to Azure Container Registry
-3. Create a new API revision in Azure Container Apps
-4. Wait for that revision to become provisioned and healthy
-5. Health-check the candidate revision FQDN directly
-6. Re-check the production app FQDN after API and worker promotion
-7. Roll back to the previous image automatically if any stage fails
+2. Build the intelligence-service image with the same git SHA tag
+3. Reconcile Azure Key Vault + Container Apps runtime config from the canonical env templates
+4. Push the images and cache to Azure Container Registry
+5. Create or update the API, worker, and intelligence runtime shells as needed
+6. Promote the new API revision in Azure Container Apps
+7. Wait for candidate revisions to become provisioned and healthy
+8. Health-check the candidate revision FQDN directly
+9. Re-check the production app FQDN after API, worker, and intelligence promotion
+10. Roll back to the previous image automatically if any stage fails
 
 Important: the workflow keeps the API app in single-revision mode, so this is fast rollback with health gates, not full pre-traffic blue/green.
 
@@ -49,10 +52,72 @@ The workflows now accept GitHub repository variables for the Azure IDs and app n
 - `ACR_IMAGE_NAME`
 - `API_APP_NAME`
 - `WORKER_APP_NAME`
+- `INTELLIGENCE_APP_NAME`
+- `KEY_VAULT_NAME`
+- `CONTAINER_ENV_NAME`
+- `BACKEND_IDENTITY_NAME`
 
 If those variables are missing, the committed defaults are still used as fallbacks.
 
 The workflows do not depend on a GitHub Environment, so a push to `main` stays fully automatic.
+
+## Local `.env` to Azure Key Vault
+
+Local machine secret promotion is now handled by:
+
+- [`sync-containerapps-runtime.ps1`](C:/Users/mdsai/Downloads/Kimi_Agent_Flipkart-Style%20Frontend/infra/azure/sync-containerapps-runtime.ps1)
+- [`verify-containerapps-runtime.ps1`](C:/Users/mdsai/Downloads/Kimi_Agent_Flipkart-Style%20Frontend/infra/azure/verify-containerapps-runtime.ps1)
+- [`publish-azure-runtime-env.ps1`](C:/Users/mdsai/Downloads/Kimi_Agent_Flipkart-Style%20Frontend/infra/github/publish-azure-runtime-env.ps1)
+
+Use it locally when you change `server/.env` or `server/.env.azure-secrets` and want Azure to mirror the new values:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File infra\azure\sync-containerapps-runtime.ps1 -SourceEnvFile server\.env -SyncKeyVaultSecrets
+```
+
+That script will:
+
+1. Read local env values
+2. Push secret keys into Azure Key Vault
+3. Reconcile API, worker, and intelligence Container Apps from the checked-in env templates
+4. Preserve Key Vault-backed secret refs instead of writing raw secrets into Container Apps
+
+You can also verify drift directly:
+
+```powershell
+cd server
+npm run azure:runtime:verify
+```
+
+And push the local env into GitHub so future syncs stay automated:
+
+```powershell
+npm run azure:runtime:publish
+```
+
+For future env additions:
+
+- If a new key belongs in an existing service template, add it to that template and the sync step will pick it up automatically.
+- If you want to inject a new runtime key without editing templates first, use these env prefixes in the source env file:
+  - `SHARED__FOO=bar`
+  - `API__FOO=bar`
+  - `WORKER__FOO=bar`
+  - `INTELLIGENCE__FOO=bar`
+- New secret-like keys are auto-detected by name and pushed to Key Vault during sync, so you do not need to update a hardcoded secret map for every future addition.
+
+For CI, the workflow supports an optional multiline secret named `AZURE_RUNTIME_ENV_FILE`. When present, GitHub Actions materializes it as a temp env file and runs the same sync step with `-SyncKeyVaultSecrets`.
+
+## Dedicated runtime workflow
+
+There is now a standalone workflow:
+
+- [`sync-azure-runtime.yml`](C:/Users/mdsai/Downloads/Kimi_Agent_Flipkart-Style%20Frontend/.github/workflows/sync-azure-runtime.yml)
+
+It supports:
+
+- manual dispatch for on-demand env promotion
+- scheduled drift correction
+- post-sync drift verification against Azure Container Apps and Key Vault
 
 ## Frontend routing follow-up
 

@@ -37,6 +37,25 @@ Core capabilities:
   - [`docs/azure-github-actions-backend.md`](docs/azure-github-actions-backend.md)
   - [`docs/performance-budgets.json`](docs/performance-budgets.json)
 
+## Azure Runtime Automation
+- Canonical Azure runtime manifests now live in:
+  - [`infra/azure/containerapps.runtime.manifest.json`](infra/azure/containerapps.runtime.manifest.json)
+  - [`infra/azure/server-api.appsettings.example.env`](infra/azure/server-api.appsettings.example.env)
+  - [`infra/azure/server-worker.appsettings.example.env`](infra/azure/server-worker.appsettings.example.env)
+  - [`infra/azure/intelligence-service.appsettings.example.env`](infra/azure/intelligence-service.appsettings.example.env)
+- Local env to Azure sync:
+  - `powershell -ExecutionPolicy Bypass -File infra/azure/sync-containerapps-runtime.ps1 -SourceEnvFile server/.env -SyncKeyVaultSecrets`
+- Dry-run the runtime plan without touching Azure:
+  - `powershell -ExecutionPolicy Bypass -File infra/azure/sync-containerapps-runtime.ps1 -SourceEnvFile server/.env -DryRun -PlanOutputPath .run-logs/azure-runtime-plan.json`
+- Verify Azure is still aligned with the local source model:
+  - `cd server && npm run azure:runtime:verify`
+- Publish the local runtime env into GitHub and trigger the Azure sync workflow:
+  - `npm run azure:runtime:publish`
+- CI/CD now reuses the same sync layer before promoting images, so Key Vault references and Container Apps config stay aligned with the checked-in templates.
+- Future env additions are handled in two ways:
+  - add the new key to the relevant Azure template and it will sync automatically
+  - or use `SHARED__`, `API__`, `WORKER__`, or `INTELLIGENCE__` prefixes in the env file to inject new runtime keys without changing the script
+
 ## Production Catalog + Search Gates
 - Snapshot imports now require both `sourceRef` and `manifestRef`.
 - Validate a licensed provider snapshot before import:
