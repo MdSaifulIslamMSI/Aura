@@ -164,10 +164,12 @@ describe('marketApi', () => {
         expect(revalidated.rates.EUR).toBe(0.00925728307589);
         expect(apiFetchMock).toHaveBeenCalledTimes(2);
         expect(apiFetchMock).toHaveBeenLastCalledWith('/markets/fx-rates', expect.objectContaining({
+            method: 'GET',
             params: expect.objectContaining({
                 baseCurrency: 'INR',
-                refresh: undefined,
             }),
+            retries: 1,
+            timeoutMs: 12000,
         }));
     });
 });
