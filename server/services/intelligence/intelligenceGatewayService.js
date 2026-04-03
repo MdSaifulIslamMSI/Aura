@@ -34,6 +34,9 @@ const createSafeResponse = ({
     verificationSummary = '',
     traceId = createTraceId(),
     bundleInfo = {},
+    reason = '',
+    staleBundle = false,
+    missingEvidence = false,
 } = {}) => {
     const responseText = safeString(message) || 'I could not verify that from the current system state.';
     const assistantTurn = buildAssistantTurn({
@@ -65,6 +68,11 @@ const createSafeResponse = ({
         assistantTurn,
         grounding: {
             mode: answerMode,
+            status: 'cannot_verify',
+            reason: safeString(reason || ''),
+            staleBundle: Boolean(staleBundle),
+            missingEvidence: Boolean(missingEvidence),
+            evidenceCount: 0,
             sources: [],
             bundleVersion: safeString(bundleInfo.bundleVersion || ''),
             traceId,
@@ -264,6 +272,11 @@ const normalizeCentralIntelligenceReply = async ({
         assistantTurn,
         grounding: {
             mode: answerMode,
+            status: safeString(reply?.grounding?.status || (verification.label === 'cannot_verify' ? 'cannot_verify' : 'verified')) || 'verified',
+            reason: safeString(reply?.grounding?.reason || ''),
+            staleBundle: Boolean(reply?.grounding?.staleBundle),
+            missingEvidence: Boolean(reply?.grounding?.missingEvidence),
+            evidenceCount: Math.max(0, Number(reply?.grounding?.evidenceCount || verification?.evidenceCount || 0)),
             sources,
             bundleVersion: safeString(reply?.grounding?.bundleVersion || bundleInfo.bundleVersion || ''),
             traceId: safeString(reply?.grounding?.traceId || traceId) || traceId,
@@ -301,6 +314,8 @@ const requestCentralIntelligenceTurn = async ({
             verificationSummary: 'Bundle version mismatch. Regenerate and publish the active knowledge bundle before trusting app-grounded answers.',
             traceId,
             bundleInfo,
+            reason: 'stale_bundle',
+            staleBundle: true,
         });
     }
 
@@ -336,6 +351,7 @@ const requestCentralIntelligenceTurn = async ({
             verificationSummary: `Intelligence service request failed with status ${status}.`,
             traceId,
             bundleInfo,
+            reason: 'service_unavailable',
         });
     }
 
@@ -383,6 +399,8 @@ const streamCentralIntelligenceTurn = async ({
             verificationSummary: 'Bundle version mismatch. Regenerate and publish the active knowledge bundle before trusting app-grounded answers.',
             traceId,
             bundleInfo,
+            reason: 'stale_bundle',
+            staleBundle: true,
         });
     }
 
@@ -419,6 +437,7 @@ const streamCentralIntelligenceTurn = async ({
                 verificationSummary: `Intelligence streaming request failed with status ${response.status}.`,
                 traceId,
                 bundleInfo,
+                reason: 'service_unavailable',
             });
         }
 
@@ -438,6 +457,7 @@ const streamCentralIntelligenceTurn = async ({
                 verificationSummary: 'The intelligence stream closed before emitting a final turn.',
                 traceId,
                 bundleInfo,
+                reason: 'stream_incomplete',
             });
         }
 

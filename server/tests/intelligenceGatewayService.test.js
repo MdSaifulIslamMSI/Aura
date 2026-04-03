@@ -67,6 +67,12 @@ describe('intelligenceGatewayService', () => {
             label: 'cannot_verify',
         });
         expect(result.answer).toMatch(/cannot verify app-specific details/i);
+        expect(result.grounding).toMatchObject({
+            status: 'cannot_verify',
+            reason: 'stale_bundle',
+            staleBundle: true,
+            missingEvidence: false,
+        });
         expect(global.fetch).toBeUndefined();
     });
 
