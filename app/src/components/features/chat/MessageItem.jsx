@@ -202,13 +202,16 @@ const MessageItem = ({
 }) => {
     const { t } = useMarket();
     const isUser = message?.role === 'user';
+    const messageColumnClass = isUser
+        ? 'w-full max-w-[78%] sm:max-w-[72%]'
+        : 'w-full max-w-[88%] sm:max-w-[82%]';
     const bubbleClassName = isUser
         ? (isWhiteMode
             ? 'border-slate-950 bg-slate-950 text-white'
-            : 'border-cyan-400/20 bg-cyan-400/10 text-slate-50')
+            : 'border-cyan-400/25 bg-[linear-gradient(135deg,rgba(6,182,212,0.18),rgba(14,165,233,0.1))] text-slate-50 shadow-[0_12px_32px_rgba(8,145,178,0.08)]')
         : (isWhiteMode
             ? 'border-slate-200 bg-white text-slate-950'
-            : 'border-white/8 bg-white/[0.045] text-slate-100');
+            : 'border-white/8 bg-[#151922]/92 text-slate-100 shadow-[0_10px_30px_rgba(2,6,23,0.45)]');
 
     const messageMode = message?.mode || (Array.isArray(message?.products) && message.products.length === 1 ? 'product' : 'explore');
     const shouldRenderProducts = !isUser
@@ -222,16 +225,28 @@ const MessageItem = ({
         : message?.text;
 
     return (
-        <div className={cn('flex flex-col gap-3', isUser ? 'items-end' : 'items-start')}>
-            <div className={cn('max-w-[92%] rounded-[1.55rem] border px-4 py-3 text-sm leading-6 shadow-sm sm:max-w-[82%]', bubbleClassName)}>
+        <div className={cn('flex w-full flex-col gap-2.5', isUser ? 'items-end' : 'items-start')}>
+            <div className={cn(messageColumnClass, 'rounded-[1.45rem] border px-4 py-3 text-sm leading-6', bubbleClassName)}>
                 <div className="space-y-3">
                     {renderParagraphs(displayText)}
                 </div>
             </div>
 
-            {!isUser && message?.cartSummary ? renderCartSummary(message.cartSummary, isWhiteMode, t) : null}
-            {!isUser ? renderSearchSignal(searchMeta, isWhiteMode, t) : null}
-            {!isUser ? renderGroundingMeta(message, isWhiteMode) : null}
+            {!isUser && message?.cartSummary ? (
+                <div className={messageColumnClass}>
+                    {renderCartSummary(message.cartSummary, isWhiteMode, t)}
+                </div>
+            ) : null}
+            {!isUser ? (
+                <div className={messageColumnClass}>
+                    {renderSearchSignal(searchMeta, isWhiteMode, t)}
+                </div>
+            ) : null}
+            {!isUser ? (
+                <div className={messageColumnClass}>
+                    {renderGroundingMeta(message, isWhiteMode)}
+                </div>
+            ) : null}
 
             {shouldRenderProducts ? (
                 <div className="grid w-full gap-3">
@@ -250,22 +265,26 @@ const MessageItem = ({
             ) : null}
 
             {!isUser && message?.confirmation ? (
-                <ConfirmationCard
-                    confirmation={message.confirmation}
-                    isWhiteMode={isWhiteMode}
-                    onConfirm={onConfirmPending}
-                    onCancel={onCancelPending}
-                    onModify={onModifyPending}
-                />
+                <div className={messageColumnClass}>
+                    <ConfirmationCard
+                        confirmation={message.confirmation}
+                        isWhiteMode={isWhiteMode}
+                        onConfirm={onConfirmPending}
+                        onCancel={onCancelPending}
+                        onModify={onModifyPending}
+                    />
+                </div>
             ) : null}
 
             {!isUser && (message?.supportPrefill || message?.assistantTurn?.ui?.support?.orderId) ? (
-                <SupportHandoffCard
-                    prefill={message.supportPrefill}
-                    orderId={message?.assistantTurn?.ui?.support?.orderId || ''}
-                    isWhiteMode={isWhiteMode}
-                    onOpenSupport={onOpenSupport}
-                />
+                <div className={messageColumnClass}>
+                    <SupportHandoffCard
+                        prefill={message.supportPrefill}
+                        orderId={message?.assistantTurn?.ui?.support?.orderId || ''}
+                        isWhiteMode={isWhiteMode}
+                        onOpenSupport={onOpenSupport}
+                    />
+                </div>
             ) : null}
         </div>
     );
