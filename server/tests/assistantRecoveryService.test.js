@@ -283,6 +283,74 @@ describe('assistantRecoveryService', () => {
         expect(result.answer).toContain('Prime Minister of India');
     });
 
+    test('responds to greetings locally instead of resurfacing product choices', async () => {
+        const result = await processRecoveredAssistantTurn({
+            message: 'hello',
+            context: {
+                sessionMemory: {
+                    lastQuery: 'iphone',
+                    lastResults: [
+                        {
+                            id: 'iphone-15',
+                            title: 'Apple iPhone 15',
+                            brand: 'Apple',
+                            category: 'Mobiles',
+                        },
+                        {
+                            id: 'iphone-15-plus',
+                            title: 'Apple iPhone 15 Plus',
+                            brand: 'Apple',
+                            category: 'Mobiles',
+                        },
+                    ],
+                    activeProduct: null,
+                    currentIntent: 'product_search',
+                },
+            },
+        });
+
+        expect(result.assistantTurn).toMatchObject({
+            intent: 'general_knowledge',
+            decision: 'respond',
+            ui: {
+                surface: 'plain_answer',
+            },
+        });
+        expect(result.products).toEqual([]);
+        expect(result.answer).toBe('Hi. I can help with shopping, navigation, and live app questions.');
+    });
+
+    test('treats bare non-commerce topics as knowledge requests instead of product clarification', async () => {
+        const result = await processRecoveredAssistantTurn({
+            message: 'trump',
+            context: {
+                sessionMemory: {
+                    lastQuery: 'iphone',
+                    lastResults: [
+                        {
+                            id: 'iphone-15',
+                            title: 'Apple iPhone 15',
+                            brand: 'Apple',
+                            category: 'Mobiles',
+                        },
+                    ],
+                    activeProduct: null,
+                    currentIntent: 'product_search',
+                },
+            },
+        });
+
+        expect(result.assistantTurn).toMatchObject({
+            intent: 'general_knowledge',
+            decision: 'respond',
+            ui: {
+                surface: 'plain_answer',
+            },
+        });
+        expect(result.answer).toContain('The live knowledge service is unavailable right now');
+        expect(result.answer).not.toContain('Choose one of these options');
+    });
+
     test('requires confirmation before executing add this to cart', async () => {
         getProductByIdentifier.mockResolvedValue({
             id: 'iphone-15',
@@ -377,7 +445,7 @@ describe('assistantRecoveryService', () => {
         expect(first.assistantTurn.decision).toBe('clarify');
         expect(first.assistantTurn.ui.surface).toBe('product_results');
         expect(second.assistantTurn.decision).toBe('clarify');
-        expect(second.answer).toBe('Choose one of these options so I can continue.');
+        expect(second.answer).toBe('Pick the matching product so I can continue.');
         expect(second.answer).not.toBe(first.answer);
         expect(second.products.map((product) => product.id)).toEqual(['iphone-15', 'iphone-15-plus']);
     });

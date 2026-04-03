@@ -221,7 +221,9 @@ const buildAssistantRequest = ({
         sessionMemory: context?.sessionMemory && typeof context.sessionMemory === 'object' ? context.sessionMemory : {},
     },
     providerConfig: {
-        routingModel: safeString(process.env.INTELLIGENCE_ROUTER_MODEL || DEFAULT_ROUTER_MODEL),
+        routingModel: safeString(
+            process.env.INTELLIGENCE_ROUTING_MODEL || process.env.INTELLIGENCE_ROUTER_MODEL || DEFAULT_ROUTER_MODEL,
+        ),
         reasoningModel: safeString(process.env.INTELLIGENCE_REASONING_MODEL || DEFAULT_REASONING_MODEL),
         endpointProvider: safeString(process.env.INTELLIGENCE_PROVIDER || 'huggingface_inference_endpoints'),
     },
