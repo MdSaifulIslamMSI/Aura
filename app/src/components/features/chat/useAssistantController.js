@@ -166,6 +166,10 @@ export const useAssistantController = () => {
     const lastAssistantTurn = useChatStore((state) => state.lastAssistantTurn);
     const appendUserMessage = useChatStore((state) => state.appendUserMessage);
     const appendAssistantTurn = useChatStore((state) => state.appendAssistantTurn);
+    const beginAssistantStream = useChatStore((state) => state.beginAssistantStream);
+    const appendAssistantStreamToken = useChatStore((state) => state.appendAssistantStreamToken);
+    const mergeAssistantStreamEvent = useChatStore((state) => state.mergeAssistantStreamEvent);
+    const discardAssistantStream = useChatStore((state) => state.discardAssistantStream);
     const hydrateContext = useChatStore((state) => state.hydrateContext);
     const setInputValue = useChatStore((state) => state.setInputValue);
     const setStatus = useChatStore((state) => state.setStatus);
@@ -291,6 +295,11 @@ export const useAssistantController = () => {
             supportPrefill: derivedSupportPrefill,
             confirmation: assistantTurn?.ui?.confirmation || null,
             navigation: execution?.navigation || assistantTurn?.ui?.navigation || null,
+            grounding: response?.grounding || null,
+            providerInfo: response?.providerInfo || {
+                name: safeString(response?.provider || ''),
+                model: safeString(response?.providerModel || ''),
+            },
             activeProductId: safeString(execution?.activeProductId || product?.id || ''),
             assistantTurn,
             assistantSession: response?.assistantSession || assistantTurn?.assistantSession || null,
@@ -495,9 +504,10 @@ export const useAssistantController = () => {
             wishlistItems,
             activeProductId: context.activeProductId || routeProductId,
         });
+        const streamMessageId = beginAssistantStream();
 
         try {
-            const response = await chatApi.sendMessage({
+            const response = await chatApi.streamMessage({
                 message: cleanedText,
                 conversationHistory: [
                     ...conversationHistory,
@@ -513,6 +523,19 @@ export const useAssistantController = () => {
                     currentProduct: productCandidates.find((product) => product.id === (context.activeProductId || routeProductId)) || null,
                     assistantSession,
                 },
+            }, (eventName, data) => {
+                if (requestId !== requestSequenceRef.current) {
+                    return;
+                }
+
+                if (eventName === 'token') {
+                    appendAssistantStreamToken(streamMessageId, String(data?.text ?? data?.delta ?? data?.raw ?? ''));
+                    return;
+                }
+
+                if (['tool_start', 'tool_end', 'citation', 'verification'].includes(eventName)) {
+                    mergeAssistantStreamEvent(streamMessageId, eventName, data || {});
+                }
             });
 
             const assistantTurn = response?.assistantTurn;
@@ -520,8 +543,11 @@ export const useAssistantController = () => {
                 throw new Error('Assistant response is missing a structured turn');
             }
             if (requestId !== requestSequenceRef.current) {
+                discardAssistantStream(streamMessageId);
                 return;
             }
+
+            discardAssistantStream(streamMessageId);
 
             const plannedActions = assistantTurn?.actionRequest
                 ? [assistantTurn.actionRequest]
@@ -572,8 +598,10 @@ export const useAssistantController = () => {
             }
         } catch {
             if (requestId !== requestSequenceRef.current) {
+                discardAssistantStream(streamMessageId);
                 return;
             }
+            discardAssistantStream(streamMessageId);
             appendAssistantTurn({
                 text: 'The assistant is temporarily unavailable. Try again, or refine the request with a simpler product cue.',
                 mode: 'explore',
@@ -596,7 +624,9 @@ export const useAssistantController = () => {
     }, [
         assistantSession,
         appendAssistantTurn,
+        appendAssistantStreamToken,
         appendUserMessage,
+        beginAssistantStream,
         cartItems,
         cartSummary,
         close,
@@ -604,8 +634,10 @@ export const useAssistantController = () => {
         context.activeProductId,
         context.candidateProductIds,
         conversationHistory,
+        discardAssistantStream,
         executePlannedActions,
         location.pathname,
+        mergeAssistantStreamEvent,
         pendingConfirmation,
         presentAssistantTurn,
         productCandidates,

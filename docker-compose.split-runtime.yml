@@ -46,11 +46,15 @@ services:
   backend:
     build:
       context: ./server
+    env_file:
+      - ./server/.env
     depends_on:
       mongo-init:
         condition: service_completed_successfully
       redis:
         condition: service_healthy
+      intelligence-service:
+        condition: service_started
     environment:
       NODE_ENV: development
       PORT: 5000
@@ -70,8 +74,90 @@ services:
       CATALOG_IMPORT_ALLOW_SYNTHETIC: "true"
       TEST_USE_IN_MEMORY_MONGO: "false"
       TEST_FALLBACK_TO_IN_MEMORY_MONGO: "false"
+      CENTRAL_INTELLIGENCE_MODE: always
+      INTELLIGENCE_SERVICE_URL: http://intelligence-service:8100
+      AI_INTERNAL_TOOL_SECRET: local-intelligence-secret
+      INTELLIGENCE_SERVICE_TOKEN: local-intelligence-secret
+      APP_BUILD_SHA: local-compose
+      INTELLIGENCE_REPO_ROOT: /workspace
+      INTELLIGENCE_PROVIDER: huggingface_inference_client
+      INTELLIGENCE_ROUTER_MODEL: "${INTELLIGENCE_ROUTER_MODEL:-google/gemma-4-31B-it:novita}"
+      INTELLIGENCE_REASONING_MODEL: "${INTELLIGENCE_REASONING_MODEL:-google/gemma-4-31B-it:novita}"
     ports:
       - "5000:5000"
+    volumes:
+      - ./:/workspace:ro
+    restart: unless-stopped
+
+  intelligence-service:
+    image: python:3.12-slim
+    working_dir: /workspace/intelligence_service
+    env_file:
+      - ./server/.env
+    command: >
+      sh -lc "pip install --no-cache-dir -r requirements.txt &&
+      uvicorn app.main:app --host 0.0.0.0 --port 8100"
+    environment:
+      INTELLIGENCE_SERVICE_TOKEN: local-intelligence-secret
+      NODE_TOOL_GATEWAY_URL: http://backend:5000/api/internal/ai-tools/run
+      NODE_TOOL_GATEWAY_TOKEN: local-intelligence-secret
+      INTELLIGENCE_ACTIVE_INDEX_PATH: /workspace/intelligence_service/runtime/active_index.json
+      INTELLIGENCE_BUNDLE_SOURCE_PATH: /workspace/server/generated/intelligence/current/bundle.json
+      INTELLIGENCE_PROVIDER: huggingface_inference_client
+      INTELLIGENCE_ROUTER_MODEL: "${INTELLIGENCE_ROUTER_MODEL:-google/gemma-4-31B-it:novita}"
+      INTELLIGENCE_REASONING_MODEL: "${INTELLIGENCE_REASONING_MODEL:-google/gemma-4-31B-it:novita}"
+      INTELLIGENCE_ROUTING_ENDPOINT_URL: ${INTELLIGENCE_ROUTING_ENDPOINT_URL:-}
+      INTELLIGENCE_REASONING_ENDPOINT_URL: ${INTELLIGENCE_REASONING_ENDPOINT_URL:-}
+      INTELLIGENCE_ENDPOINT_API_KEY: ${INTELLIGENCE_ENDPOINT_API_KEY:-}
+      HF_TOKEN: ${HF_TOKEN:-}
+      HUGGINGFACEHUB_API_TOKEN: ${HUGGINGFACEHUB_API_TOKEN:-}
+      INTELLIGENCE_EMBEDDING_ENDPOINT_URL: ${INTELLIGENCE_EMBEDDING_ENDPOINT_URL:-}
+      INTELLIGENCE_EMBEDDING_ENDPOINT_FORMAT: ${INTELLIGENCE_EMBEDDING_ENDPOINT_FORMAT:-deterministic}
+      INTELLIGENCE_EMBEDDING_API_KEY: ${INTELLIGENCE_EMBEDDING_API_KEY:-}
+      INTELLIGENCE_EMBEDDING_MODEL: ${INTELLIGENCE_EMBEDDING_MODEL:-intfloat/multilingual-e5-large}
+      QDRANT_URL: ${QDRANT_URL:-}
+      QDRANT_API_KEY: ${QDRANT_API_KEY:-}
+      NEO4J_URL: ${NEO4J_URL:-}
+      NEO4J_USERNAME: ${NEO4J_USERNAME:-}
+      NEO4J_PASSWORD: ${NEO4J_PASSWORD:-}
+      NEO4J_DATABASE: ${NEO4J_DATABASE:-neo4j}
+    volumes:
+      - ./:/workspace:ro
+      - ./intelligence_service:/workspace/intelligence_service
+    ports:
+      - "8100:8100"
+    restart: unless-stopped
+
+  intelligence-worker:
+    image: python:3.12-slim
+    working_dir: /workspace/intelligence_service
+    env_file:
+      - ./server/.env
+    command: >
+      sh -lc "pip install --no-cache-dir -r requirements.txt &&
+      uvicorn app.worker:app --host 0.0.0.0 --port 8101"
+    environment:
+      INTELLIGENCE_SERVICE_TOKEN: local-intelligence-secret
+      INTELLIGENCE_ACTIVE_INDEX_PATH: /workspace/intelligence_service/runtime/active_index.json
+      INTELLIGENCE_BUNDLE_SOURCE_PATH: /workspace/server/generated/intelligence/current/bundle.json
+      INTELLIGENCE_EMBEDDING_ENDPOINT_URL: ${INTELLIGENCE_EMBEDDING_ENDPOINT_URL:-}
+      INTELLIGENCE_EMBEDDING_ENDPOINT_FORMAT: ${INTELLIGENCE_EMBEDDING_ENDPOINT_FORMAT:-deterministic}
+      INTELLIGENCE_EMBEDDING_API_KEY: ${INTELLIGENCE_EMBEDDING_API_KEY:-}
+      INTELLIGENCE_ENDPOINT_API_KEY: ${INTELLIGENCE_ENDPOINT_API_KEY:-}
+      HF_TOKEN: ${HF_TOKEN:-}
+      HUGGINGFACEHUB_API_TOKEN: ${HUGGINGFACEHUB_API_TOKEN:-}
+      INTELLIGENCE_EMBEDDING_MODEL: ${INTELLIGENCE_EMBEDDING_MODEL:-intfloat/multilingual-e5-large}
+      QDRANT_URL: ${QDRANT_URL:-}
+      QDRANT_API_KEY: ${QDRANT_API_KEY:-}
+      NEO4J_URL: ${NEO4J_URL:-}
+      NEO4J_USERNAME: ${NEO4J_USERNAME:-}
+      NEO4J_PASSWORD: ${NEO4J_PASSWORD:-}
+      NEO4J_DATABASE: ${NEO4J_DATABASE:-neo4j}
+    volumes:
+      - ./:/workspace:ro
+      - ./intelligence_service:/workspace/intelligence_service
+    ports:
+      - "8101:8101"
     restart: unless-stopped
 
 volumes:
