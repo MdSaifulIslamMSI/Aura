@@ -45,6 +45,15 @@ The bundle contains:
 
 The compose stack now starts both the intelligence service and the worker so the Node API can call them over the same contracts used in production.
 
+## Azure production
+
+The Azure Container Apps release now requires a separate intelligence-service image in addition to the Node API image.
+
+- Node API stays on `aura-backend`
+- Python reasoning service ships as `aura-intelligence`
+- `CENTRAL_INTELLIGENCE_MODE=always` should only be used in Azure once `INTELLIGENCE_SERVICE_URL` points at the deployed intelligence service
+- the release health gate should fail if the API reports `ai.intelligence.mode=always` but the intelligence service is disabled, unhealthy, or stale
+
 ## Worker ingestion
 
 The Python worker now owns the retrieval-store publish flow:
