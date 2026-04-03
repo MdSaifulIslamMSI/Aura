@@ -1,0 +1,16 @@
+.git
+.gitignore
+.venv
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+*.log
+node_modules
+app/node_modules
+server/node_modules
+intelligence_service/.pytest_cache
+intelligence_service/runtime
+app/dist
+server/coverage
+app/coverage
