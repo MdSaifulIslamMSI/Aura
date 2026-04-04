@@ -1,15 +1,15 @@
 {
   "status": "ready",
-  "bundleVersion": "fda92575f9d4318f7d30c0b8050a5c5a882e4910",
+  "bundleVersion": "0cb1533b23c3e7002cc7478ec04ef6b1c3f53b17",
   "bundlePath": "/app/server/generated/intelligence/current/bundle.json",
-  "publishedAt": "2026-04-04T05:10:00.596575+00:00",
+  "publishedAt": "2026-04-04T06:25:10.865178+00:00",
   "stores": {
     "qdrant": {
       "status": "ready",
       "configured": true,
-      "bundleVersion": "fda92575f9d4318f7d30c0b8050a5c5a882e4910",
-      "collection": "aura_code_chunks_fda92575f9d4318f7d30c0b8050a5c5a882e4910",
-      "embeddingFormat": "deterministic",
+      "bundleVersion": "0cb1533b23c3e7002cc7478ec04ef6b1c3f53b17",
+      "collection": "aura_code_chunks_0cb1533b23c3e7002cc7478ec04ef6b1c3f53b17",
+      "embeddingFormat": "huggingface_hub",
       "embeddingModel": "intfloat/multilingual-e5-large",
       "vectorSize": 256,
       "indexedChunks": 3786,
@@ -18,7 +18,7 @@
     "neo4j": {
       "status": "ready",
       "configured": true,
-      "bundleVersion": "fda92575f9d4318f7d30c0b8050a5c5a882e4910",
+      "bundleVersion": "0cb1533b23c3e7002cc7478ec04ef6b1c3f53b17",
       "indexedNodes": 948,
       "expectedNodes": 948,
       "indexedEdges": 3533,
@@ -26,5 +26,5 @@
       "database": "5b3f83bc"
     }
   },
-  "notes": "production publish via Codex using deterministic embeddings"
+  "notes": "production publish for live app sha 0cb1533b23c3e7002cc7478ec04ef6b1c3f53b17"
 }
