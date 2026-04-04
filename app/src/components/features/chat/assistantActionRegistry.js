@@ -8,11 +8,13 @@ const ACTION_DEDUPE_WINDOW_MS = 2000;
 
 const DEFAULT_PAGE_PATHS = {
     home: '/',
+    assistant: '/assistant',
+    login: '/login',
     cart: '/cart',
     checkout: '/checkout',
     orders: '/orders',
     profile: '/profile',
-    support: '/contact',
+    support: '/profile?tab=support',
     wishlist: '/wishlist',
     marketplace: '/marketplace',
     deals: '/deals',
@@ -21,6 +23,12 @@ const DEFAULT_PAGE_PATHS = {
     compare: '/compare',
     bundles: '/bundles',
     visual_search: '/visual-search',
+    mission_control: '/mission-control',
+    sell: '/sell',
+    become_seller: '/become-seller',
+    my_listings: '/my-listings',
+    price_alerts: '/price-alerts',
+    trade_in: '/trade-in',
 };
 
 const titleCase = (value = '') => safeString(value)

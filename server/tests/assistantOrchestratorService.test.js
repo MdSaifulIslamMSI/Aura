@@ -104,6 +104,53 @@ describe('assistantOrchestratorService', () => {
         expect(confirmed.assistantSession.executedActionIds).toContain(first.assistantTurn.ui.confirmation.token);
     });
 
+    test('plain yes can approve a pending action without structured confirmation payload', async () => {
+        getProductByIdentifier.mockResolvedValue({
+            id: 'iphone-15',
+            title: 'Apple iPhone 15',
+            brand: 'Apple',
+            category: 'Mobiles',
+            price: 69999,
+        });
+
+        const first = await processAssistantTurn({
+            message: 'add this to cart',
+            assistantMode: 'chat',
+            context: {
+                currentProductId: 'iphone-15',
+                currentProduct: {
+                    id: 'iphone-15',
+                    title: 'Apple iPhone 15',
+                    brand: 'Apple',
+                    category: 'Mobiles',
+                },
+            },
+        });
+
+        const confirmed = await processAssistantTurn({
+            message: 'yes',
+            assistantMode: 'chat',
+            sessionId: first.assistantSession.sessionId,
+            context: {},
+        });
+
+        expect(confirmed.assistantTurn).toMatchObject({
+            intent: 'cart_action',
+            decision: 'act',
+            actions: [
+                {
+                    type: 'add_to_cart',
+                    productId: 'iphone-15',
+                },
+            ],
+            policy: {
+                decision: 'EXECUTE',
+                reason: 'confirmed_by_user',
+            },
+        });
+        expect(confirmed.assistantSession.pendingAction).toBeNull();
+    });
+
     test('explicit checkout action request is confirmed by the backend session policy', async () => {
         const result = await processAssistantTurn({
             message: '',
@@ -220,5 +267,38 @@ describe('assistantOrchestratorService', () => {
             reason: 'service_unavailable',
         });
         expect(result.answer).toBe('The system-aware intelligence layer is unavailable right now, so I cannot verify repo-grounded details.');
+    });
+
+    test('falls back locally for route-style system questions that can be answered without central intelligence', async () => {
+        shouldUseCentralIntelligence.mockReturnValue(true);
+        requestCentralIntelligenceTurn.mockResolvedValue({
+            answer: 'The system-aware intelligence layer is unavailable right now, so I cannot verify repo-grounded details.',
+            assistantTurn: {
+                intent: 'general_knowledge',
+                decision: 'respond',
+                response: 'The system-aware intelligence layer is unavailable right now, so I cannot verify repo-grounded details.',
+                ui: {
+                    surface: 'plain_answer',
+                },
+                followUps: [],
+            },
+            grounding: {
+                status: 'cannot_verify',
+                reason: 'service_unavailable',
+                traceId: 'trace_test',
+            },
+        });
+
+        const result = await processAssistantTurn({
+            message: 'what route opens visual search',
+            assistantMode: 'chat',
+            context: {},
+        });
+
+        expect(result.answer).toBe('The route for Visual Search is /visual-search.');
+        expect(result.assistantTurn).toMatchObject({
+            intent: 'general_knowledge',
+            decision: 'respond',
+        });
     });
 });
