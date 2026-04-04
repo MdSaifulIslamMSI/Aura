@@ -12,11 +12,13 @@ const {
     listGroundingSources,
 } = require('./knowledgeBundleService');
 
-const DEFAULT_REASONING_MODEL = 'google/gemma-4-31B-it:novita';
-const DEFAULT_ROUTER_MODEL = 'google/gemma-4-31B-it:novita';
+const DEFAULT_REASONING_MODEL = 'gemma-4-31b-it';
+const DEFAULT_ROUTER_MODEL = 'gemma-4-31b-it';
 const INTELLIGENCE_MODES = new Set(['off', 'hybrid', 'always']);
 const SYSTEM_AWARENESS_PATTERN = /\b(app|architecture|backend|bug|client|code|component|controller|db|debug|diagnostic|endpoint|error|explain|file|flow|frontend|function|graph|health|how does|implementation|index|issue|line by line|model|orchestrat|path|repo|route|schema|service|socket|support video|system|trace|where is|why .*fail)\b/i;
 const COMMERCE_ASSIST_PATTERN = /\b(add to cart|bag|brand|browse|buy|cart|catalog|category|checkout|compare|deal|discount|find|laptop|listing|order|payment|price|product|recommend|sale|search|shop|show me|sku|track order|wishlist)\b/i;
+const REPO_FILE_HINT_PATTERN = /\b(?:(?:app|server|docs|infra)\/[^\s"'`]+|[A-Za-z0-9_.-]+)\.(?:js|jsx|ts|tsx|py|md|json|ya?ml|toml|ps1|sh)\b/i;
+const API_ENDPOINT_HINT_PATTERN = /\/api\/[A-Za-z0-9_:/.-]+/i;
 
 const resolveGatewayMode = () => {
     const raw = safeString(process.env.CENTRAL_INTELLIGENCE_MODE || 'hybrid').toLowerCase();
@@ -31,6 +33,8 @@ const resolveGatewayStreamTimeoutMs = () => Math.max(
 );
 
 const createTraceId = () => `trace_${crypto.randomUUID()}`;
+const hasRepoHint = (message = '') => REPO_FILE_HINT_PATTERN.test(safeString(message)) || API_ENDPOINT_HINT_PATTERN.test(safeString(message));
+const canAttemptLiveRepoFallback = ({ message = '' } = {}) => hasRepoHint(message);
 
 const createSafeResponse = ({
     message = '',
@@ -88,6 +92,13 @@ const createSafeResponse = ({
             model: DEFAULT_REASONING_MODEL,
         },
         latencyMs: 0,
+        toolProposal: null,
+        evidenceEnvelope: {
+            confidence: 0,
+            verified: false,
+            conflicts: safeString(reason || '') ? [safeString(reason)] : [],
+            sources: [],
+        },
     };
 };
 
@@ -187,7 +198,7 @@ const shouldUseCentralIntelligence = ({
     if (!normalizedMessage) return false;
 
     if (mode === 'always') {
-        if (SYSTEM_AWARENESS_PATTERN.test(normalizedMessage)) {
+        if (SYSTEM_AWARENESS_PATTERN.test(normalizedMessage) || hasRepoHint(normalizedMessage)) {
             return true;
         }
         if (COMMERCE_ASSIST_PATTERN.test(normalizedMessage)) {
@@ -196,7 +207,7 @@ const shouldUseCentralIntelligence = ({
         return true;
     }
 
-    return SYSTEM_AWARENESS_PATTERN.test(normalizedMessage);
+    return SYSTEM_AWARENESS_PATTERN.test(normalizedMessage) || hasRepoHint(normalizedMessage);
 };
 
 const buildAssistantRequest = ({
@@ -208,8 +219,12 @@ const buildAssistantRequest = ({
     images = [],
     session = {},
     bundleInfo = {},
+    traceId = '',
+    decisionId = '',
+    governanceContext = {},
 } = {}) => ({
-    traceId: createTraceId(),
+    traceId: safeString(traceId || createTraceId()),
+    decisionId: safeString(decisionId || ''),
     bundleVersion: safeString(bundleInfo.bundleVersion || ''),
     expectedBundleVersion: safeString(bundleInfo.expectedCommitSha || bundleInfo.bundleVersion || ''),
     request: {
@@ -237,8 +252,23 @@ const buildAssistantRequest = ({
             process.env.INTELLIGENCE_ROUTING_MODEL || process.env.INTELLIGENCE_ROUTER_MODEL || DEFAULT_ROUTER_MODEL,
         ),
         reasoningModel: safeString(process.env.INTELLIGENCE_REASONING_MODEL || DEFAULT_REASONING_MODEL),
-        endpointProvider: safeString(process.env.INTELLIGENCE_PROVIDER || 'huggingface_inference_endpoints'),
+        endpointProvider: safeString(process.env.INTELLIGENCE_PROVIDER || 'google_gemini'),
     },
+    governanceContext: governanceContext && typeof governanceContext === 'object'
+        ? {
+            route: safeString(governanceContext.route || ''),
+            latencyBudgetMs: Math.max(0, Number(governanceContext.latencyBudgetMs || 0)),
+            maxCost: Math.max(0, Number(governanceContext.maxCost || 0)),
+            disabledTools: Array.isArray(governanceContext.disabledTools)
+                ? governanceContext.disabledTools.map((entry) => safeString(entry)).filter(Boolean).slice(0, 16)
+                : [],
+        }
+        : {
+            route: '',
+            latencyBudgetMs: 0,
+            maxCost: 0,
+            disabledTools: [],
+        },
 });
 
 const normalizeCentralIntelligenceReply = async ({
@@ -302,6 +332,27 @@ const normalizeCentralIntelligenceReply = async ({
             model: providerModel,
         },
         latencyMs: Math.max(0, Number(reply?.latencyMs || 0)),
+        toolProposal: reply?.toolProposal && typeof reply.toolProposal === 'object'
+            ? {
+                tools_needed: Array.isArray(reply.toolProposal.tools_needed)
+                    ? reply.toolProposal.tools_needed.map((entry) => safeString(entry)).filter(Boolean).slice(0, 16)
+                    : [],
+                reason: safeString(reply.toolProposal.reason || ''),
+                max_tool_hops: Math.max(0, Number(reply.toolProposal.max_tool_hops || 0)),
+            }
+            : null,
+        evidenceEnvelope: {
+            confidence: Math.min(Math.max(Number(reply?.evidenceEnvelope?.confidence ?? verification?.confidence ?? 0), 0), 1),
+            verified: reply?.evidenceEnvelope && typeof reply.evidenceEnvelope === 'object'
+                ? Boolean(reply.evidenceEnvelope.verified)
+                : verification.label !== 'cannot_verify',
+            conflicts: reply?.evidenceEnvelope && typeof reply.evidenceEnvelope === 'object' && Array.isArray(reply.evidenceEnvelope.conflicts)
+                ? reply.evidenceEnvelope.conflicts.map((entry) => safeString(entry)).filter(Boolean).slice(0, 8)
+                : [safeString(reply?.grounding?.reason || '')].filter(Boolean),
+            sources: reply?.evidenceEnvelope && typeof reply.evidenceEnvelope === 'object' && Array.isArray(reply.evidenceEnvelope.sources)
+                ? reply.evidenceEnvelope.sources.slice(0, 12)
+                : sources.slice(0, 12),
+        },
     };
 };
 
@@ -313,6 +364,9 @@ const requestCentralIntelligenceTurn = async ({
     context = {},
     images = [],
     session = {},
+    traceId = '',
+    decisionId = '',
+    governanceContext = {},
 } = {}) => {
     const serviceUrl = resolveIntelligenceServiceUrl();
     if (!serviceUrl) {
@@ -320,13 +374,13 @@ const requestCentralIntelligenceTurn = async ({
     }
 
     const bundleInfo = await getBundleVersionInfo();
-    const traceId = createTraceId();
+    const resolvedTraceId = safeString(traceId || createTraceId());
 
-    if (bundleInfo.stale) {
+    if (bundleInfo.stale && !canAttemptLiveRepoFallback({ message })) {
         return createSafeResponse({
             message: 'I cannot verify app-specific details because the active knowledge bundle does not match the deployed app version.',
             verificationSummary: 'Bundle version mismatch. Regenerate and publish the active knowledge bundle before trusting app-grounded answers.',
-            traceId,
+            traceId: resolvedTraceId,
             bundleInfo,
             reason: 'stale_bundle',
             staleBundle: true,
@@ -342,28 +396,34 @@ const requestCentralIntelligenceTurn = async ({
         images,
         session,
         bundleInfo,
+        traceId: resolvedTraceId,
+        decisionId,
+        governanceContext,
     });
-    payload.traceId = traceId;
+    payload.providerConfig = {
+        ...(payload.providerConfig || {}),
+        allowStaleWorkspaceFallback: Boolean(bundleInfo.stale && canAttemptLiveRepoFallback({ message })),
+    };
 
     const { ok, status, json } = await fetchJson(`${serviceUrl}/v1/assistant/reply`, {
         method: 'POST',
         body: JSON.stringify(payload),
         headers: {
             Authorization: `Bearer ${safeString(process.env.INTELLIGENCE_SERVICE_TOKEN || process.env.AI_INTERNAL_TOOL_SECRET || '')}`,
-            'X-Intelligence-Trace-Id': traceId,
+            'X-Intelligence-Trace-Id': resolvedTraceId,
         },
     });
 
     if (!ok) {
         logger.warn('intelligence.gateway_request_failed', {
             status,
-            traceId,
+            traceId: resolvedTraceId,
             messagePreview: safeString(message).slice(0, 120),
         });
         return createSafeResponse({
             message: 'The system-aware intelligence layer is unavailable right now, so I cannot verify repo-grounded details.',
             verificationSummary: `Intelligence service request failed with status ${status}.`,
-            traceId,
+            traceId: resolvedTraceId,
             bundleInfo,
             reason: 'service_unavailable',
         });
@@ -372,11 +432,11 @@ const requestCentralIntelligenceTurn = async ({
     const normalizedReply = await normalizeCentralIntelligenceReply({
         reply: json,
         bundleInfo,
-        traceId,
+        traceId: resolvedTraceId,
     });
 
     logger.info('intelligence.gateway_reply', {
-        traceId: normalizedReply.grounding?.traceId || traceId,
+        traceId: normalizedReply.grounding?.traceId || resolvedTraceId,
         bundleVersion: normalizedReply.grounding?.bundleVersion || bundleInfo.bundleVersion,
         mode: normalizedReply.grounding?.mode || 'app_grounded',
         citationCount: Array.isArray(normalizedReply.assistantTurn?.citations)
@@ -405,13 +465,13 @@ const streamCentralIntelligenceTurn = async ({
     }
 
     const bundleInfo = await getBundleVersionInfo();
-    const traceId = createTraceId();
+    const resolvedTraceId = safeString(params.traceId || createTraceId());
 
-    if (bundleInfo.stale) {
+    if (bundleInfo.stale && !canAttemptLiveRepoFallback({ message: params.message })) {
         return createSafeResponse({
             message: 'I cannot verify app-specific details because the active knowledge bundle does not match the deployed app version.',
             verificationSummary: 'Bundle version mismatch. Regenerate and publish the active knowledge bundle before trusting app-grounded answers.',
-            traceId,
+            traceId: resolvedTraceId,
             bundleInfo,
             reason: 'stale_bundle',
             staleBundle: true,
@@ -422,7 +482,10 @@ const streamCentralIntelligenceTurn = async ({
         ...params,
         bundleInfo,
     });
-    payload.traceId = traceId;
+    payload.providerConfig = {
+        ...(payload.providerConfig || {}),
+        allowStaleWorkspaceFallback: Boolean(bundleInfo.stale && canAttemptLiveRepoFallback({ message: params.message })),
+    };
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), resolveGatewayStreamTimeoutMs());
@@ -436,20 +499,20 @@ const streamCentralIntelligenceTurn = async ({
                 Accept: 'text/event-stream',
                 'Content-Type': 'application/json',
                 Authorization: `Bearer ${safeString(process.env.INTELLIGENCE_SERVICE_TOKEN || process.env.AI_INTERNAL_TOOL_SECRET || '')}`,
-                'X-Intelligence-Trace-Id': traceId,
+                'X-Intelligence-Trace-Id': resolvedTraceId,
             },
         });
 
         if (!response.ok) {
             logger.warn('intelligence.gateway_stream_failed', {
                 status: response.status,
-                traceId,
+                traceId: resolvedTraceId,
                 messagePreview: safeString(params.message).slice(0, 120),
             });
             return createSafeResponse({
                 message: 'The system-aware intelligence layer is unavailable right now, so I cannot verify repo-grounded details.',
                 verificationSummary: `Intelligence streaming request failed with status ${response.status}.`,
-                traceId,
+                traceId: resolvedTraceId,
                 bundleInfo,
                 reason: 'service_unavailable',
             });
@@ -469,7 +532,7 @@ const streamCentralIntelligenceTurn = async ({
             return createSafeResponse({
                 message: 'The system-aware intelligence layer ended without a final verified answer.',
                 verificationSummary: 'The intelligence stream closed before emitting a final turn.',
-                traceId,
+                traceId: resolvedTraceId,
                 bundleInfo,
                 reason: 'stream_incomplete',
             });
@@ -478,11 +541,11 @@ const streamCentralIntelligenceTurn = async ({
         const normalizedReply = await normalizeCentralIntelligenceReply({
             reply: finalReply,
             bundleInfo,
-            traceId,
+            traceId: resolvedTraceId,
         });
 
         logger.info('intelligence.gateway_stream_reply', {
-            traceId: normalizedReply.grounding?.traceId || traceId,
+            traceId: normalizedReply.grounding?.traceId || resolvedTraceId,
             bundleVersion: normalizedReply.grounding?.bundleVersion || bundleInfo.bundleVersion,
             mode: normalizedReply.grounding?.mode || 'app_grounded',
             citationCount: Array.isArray(normalizedReply.assistantTurn?.citations)

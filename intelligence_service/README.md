@@ -8,7 +8,7 @@ This service hosts the Gemma 4 central intelligence layer for Aura Marketplace.
 - call read-only Node tools instead of guessing
 - compose app-grounded, runtime-grounded, or model-knowledge answers
 - expose health for the reasoning service and active index state
-- use `huggingface_hub.InferenceClient` for Gemma chat completion calls
+- use Google-hosted Gemma 4 through the native Gemini API by default, with Hugging Face-compatible endpoints only as an explicit fallback backend
 
 ## Local run
 
@@ -33,10 +33,30 @@ uvicorn app.worker:app --reload --port 8101
 - sync the system graph into Neo4j
 - publish `runtime/active_index.json` only after both stores validate successfully
 
-## Hugging Face configuration
+## Primary Gemma Configuration
 
-For Hugging Face-hosted Gemma inference, set:
+For the default Google-hosted Gemma 4 path, set:
 
+- `GEMINI_API_KEY` or `GOOGLE_API_KEY`
+- `INTELLIGENCE_GEMMA_PROVIDER_BACKEND=google_gemini`
+- `INTELLIGENCE_REASONING_MODEL=gemma-4-31b-it`
+- `INTELLIGENCE_ROUTING_MODEL=gemma-4-31b-it`
+
+Optional:
+
+- `GEMINI_API_BASE_URL`
+- `INTELLIGENCE_GEMMA_THINKING_LEVEL=high`
+- `INTELLIGENCE_GEMMA_INCLUDE_THOUGHTS=false`
+
+If `INTELLIGENCE_GEMMA_PROVIDER_BACKEND=auto`, the service will still prefer the native Gemini API for Gemma models when a Gemini API key is present and no non-Google endpoint URL is forced.
+
+## Hugging Face Fallback Configuration
+
+Use this only when you intentionally want a Hugging Face-compatible backend instead of the default Google-hosted Gemma path.
+
+Set:
+
+- `INTELLIGENCE_GEMMA_PROVIDER_BACKEND=huggingface`
 - `INTELLIGENCE_ENDPOINT_API_KEY`
 - `INTELLIGENCE_REASONING_MODEL`
 - `INTELLIGENCE_ROUTING_MODEL`
@@ -47,11 +67,6 @@ Optional:
 - `INTELLIGENCE_ROUTING_ENDPOINT_URL`
 
 If endpoint URLs are omitted, the service can still call `InferenceClient` directly against the configured model IDs.
-
-Recommended defaults for this repo:
-
-- `INTELLIGENCE_REASONING_MODEL=google/gemma-4-31B-it:novita`
-- `INTELLIGENCE_ROUTING_MODEL=google/gemma-4-31B-it:novita`
 
 You can also provide `HF_TOKEN` or `HUGGINGFACEHUB_API_TOKEN` instead of `INTELLIGENCE_ENDPOINT_API_KEY`.
 

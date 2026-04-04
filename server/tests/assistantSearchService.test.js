@@ -80,7 +80,7 @@ describe('assistantSearchService', () => {
             lastQuery: '',
             category: '',
         })).toMatchObject({
-            query: 'phone',
+            query: 'phones',
             category: 'Mobiles',
             maxPrice: 4000,
         });
@@ -93,6 +93,19 @@ describe('assistantSearchService', () => {
             query: 'oppo phones',
             category: 'Mobiles',
             maxPrice: 10000,
+        });
+    });
+
+    test('starts a fresh search when the user switches product category', () => {
+        expect(mergeSearchContext({
+            message: 'show laptops under 70000',
+            lastQuery: 'samsung phones',
+            category: 'Mobiles',
+        })).toMatchObject({
+            query: 'laptops',
+            category: 'Laptops',
+            maxPrice: 70000,
+            refinementOnly: false,
         });
     });
 
@@ -131,5 +144,86 @@ describe('assistantSearchService', () => {
 
         expect(result.usedClosestMatch).toBe(true);
         expect(result.products.map((product) => product.id)).toEqual(['oppo-a79']);
+    });
+
+    test('falls back to category browsing when a brand-like broad query has no catalog matches', async () => {
+        const fallbackProducts = [
+            {
+                id: 'mobile-1',
+                title: 'Galaxy S10',
+                brand: 'Samsung',
+                category: 'Mobiles',
+                price: 24999,
+                stock: 12,
+                rating: 4.5,
+                ratingCount: 4200,
+            },
+            {
+                id: 'mobile-2',
+                title: 'Pixel 8',
+                brand: 'Google',
+                category: 'Mobiles',
+                price: 39999,
+                stock: 8,
+                rating: 4.6,
+                ratingCount: 3100,
+            },
+        ];
+
+        queryProducts.mockImplementation(async ({ keyword, category }) => {
+            if (category === 'Mobiles' && /oneplus/i.test(String(keyword || ''))) {
+                return { products: [] };
+            }
+            if (category === 'Mobiles') {
+                return { products: fallbackProducts };
+            }
+            return { products: [] };
+        });
+
+        const result = await searchProducts({
+            query: 'oneplus',
+            category: 'Mobiles',
+            limit: 2,
+        });
+
+        expect(result.usedClosestMatch).toBe(true);
+        expect(result.products.map((product) => product.id)).toEqual(expect.arrayContaining(['mobile-1', 'mobile-2']));
+        expect(result.products).toHaveLength(2);
+    });
+
+    test('supports generic budget browsing even when there is no explicit category or query', async () => {
+        queryProducts.mockResolvedValue({
+            products: [
+                {
+                    id: 'book-1',
+                    title: 'Budget Book',
+                    brand: 'Aura',
+                    category: 'Books',
+                    price: 799,
+                    stock: 12,
+                    rating: 4.4,
+                    ratingCount: 1200,
+                },
+                {
+                    id: 'book-2',
+                    title: 'Another Budget Book',
+                    brand: 'Aura',
+                    category: 'Books',
+                    price: 899,
+                    stock: 9,
+                    rating: 4.3,
+                    ratingCount: 950,
+                },
+            ],
+        });
+
+        const result = await searchProducts({
+            query: 'premium',
+            maxPrice: 1000,
+            limit: 2,
+        });
+
+        expect(result.usedClosestMatch).toBe(false);
+        expect(result.products.map((product) => product.id)).toEqual(['book-1', 'book-2']);
     });
 });
