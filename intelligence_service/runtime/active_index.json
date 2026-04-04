@@ -1,30 +1,30 @@
 {
   "status": "ready",
-  "bundleVersion": "dev-local",
-  "bundlePath": "C:\\Users\\mdsai\\Downloads\\Kimi_Agent_Flipkart-Style Frontend\\server\\generated\\intelligence\\current\\bundle.json",
-  "publishedAt": "2026-04-03T16:15:11.831285+00:00",
+  "bundleVersion": "6c1216c034f5a241cec082e659681c5c7c96d7d6",
+  "bundlePath": "/app/server/generated/intelligence/current/bundle.json",
+  "publishedAt": "2026-04-04T04:50:26.245032+00:00",
   "stores": {
     "qdrant": {
       "status": "ready",
       "configured": true,
-      "bundleVersion": "dev-local",
-      "collection": "aura_code_chunks_dev_local",
+      "bundleVersion": "6c1216c034f5a241cec082e659681c5c7c96d7d6",
+      "collection": "aura_code_chunks_6c1216c034f5a241cec082e659681c5c7c96d7d6",
       "embeddingFormat": "deterministic",
       "embeddingModel": "intfloat/multilingual-e5-large",
       "vectorSize": 256,
-      "indexedChunks": 3666,
-      "expectedChunks": 3666
+      "indexedChunks": 3786,
+      "expectedChunks": 3786
     },
     "neo4j": {
       "status": "ready",
       "configured": true,
-      "bundleVersion": "dev-local",
-      "indexedNodes": 906,
-      "expectedNodes": 906,
-      "indexedEdges": 3480,
-      "expectedEdges": 3480,
+      "bundleVersion": "6c1216c034f5a241cec082e659681c5c7c96d7d6",
+      "indexedNodes": 948,
+      "expectedNodes": 948,
+      "indexedEdges": 3533,
+      "expectedEdges": 3533,
       "database": "5b3f83bc"
     }
   },
-  "notes": "manual index publish via Codex using deterministic embeddings"
+  "notes": "production publish via Codex using deterministic embeddings"
 }
