@@ -3,6 +3,7 @@ module.exports = {
     verbose: true,
     setupFilesAfterEnv: ['./tests/setup.js'],
     testMatch: ['**/*.test.js'],
+    coverageProvider: 'v8',
     collectCoverageFrom: [
         'controllers/**/*.js',
         'services/**/*.js',
