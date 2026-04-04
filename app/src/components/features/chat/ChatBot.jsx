@@ -39,6 +39,7 @@ const ChatBot = () => {
     const { colorMode } = useColorMode();
     const { currentUser } = useContext(AuthContext);
     const [workspaceVariant, setWorkspaceVariant] = useState('large');
+    const hasMobileStickyCommerceBar = location.pathname.startsWith('/product/');
 
     const isOpen = useChatStore((state) => state.isOpen);
     const mode = useChatStore((state) => state.mode);
@@ -115,7 +116,10 @@ const ChatBot = () => {
                 'pointer-events-none fixed inset-0 z-[2147483600] flex',
                 isOpen
                     ? 'items-center justify-center p-3 sm:p-5 lg:p-6'
-                    : 'items-end justify-end p-4 sm:p-6'
+                    : 'items-end justify-end p-4 sm:p-6',
+                !isOpen && hasMobileStickyCommerceBar
+                    ? 'pb-[calc(7.25rem+env(safe-area-inset-bottom))] sm:pb-6'
+                    : null
             )}
         >
             {isOpen ? (
