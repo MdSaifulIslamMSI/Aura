@@ -7,6 +7,7 @@ import {
 } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { AuthContext } from '@/context/AuthContext';
+import { useSocket } from '@/context/SocketContext';
 import { WishlistContext } from '@/context/WishlistContext';
 import { chatApi } from '@/services/chatApi';
 import { useChatStore } from '@/store/chatStore';
@@ -25,6 +26,16 @@ const MAX_HISTORY_ENTRIES = 12;
 const extractProductIdFromPath = (pathname = '') => {
     const match = String(pathname || '').match(/^\/product\/([^/?#]+)/i);
     return match?.[1] ? String(match[1]).trim() : null;
+};
+
+const resolveAssistantContextPath = (location = {}) => {
+    const pathname = safeString(location?.pathname || '/', '/');
+    if (!pathname.startsWith('/assistant')) {
+        return pathname;
+    }
+
+    const from = safeString(new URLSearchParams(location?.search || '').get('from') || '/', '/');
+    return from.startsWith('/') ? from : `/${from}`;
 };
 
 const trimConversationHistory = (messages = []) => messages
@@ -152,12 +163,14 @@ export const useAssistantController = () => {
     const location = useLocation();
     const { isAuthenticated } = useContext(AuthContext);
     const { wishlistItems = [] } = useContext(WishlistContext);
+    const { socket } = useSocket() || {};
 
     const inputRef = useRef(null);
     const requestSequenceRef = useRef(0);
 
     const messages = useChatStore((state) => state.messages);
     const visibleProducts = useChatStore((state) => state.visibleProducts);
+    const activeSessionId = useChatStore((state) => state.activeSessionId);
     const context = useChatStore((state) => state.context);
     const assistantSession = useChatStore((state) => state.context.assistantSession);
     const sessionMemory = useChatStore((state) => state.context.sessionMemory);
@@ -167,9 +180,13 @@ export const useAssistantController = () => {
     const appendUserMessage = useChatStore((state) => state.appendUserMessage);
     const appendAssistantTurn = useChatStore((state) => state.appendAssistantTurn);
     const beginAssistantStream = useChatStore((state) => state.beginAssistantStream);
+    const setAssistantStreamMeta = useChatStore((state) => state.setAssistantStreamMeta);
     const appendAssistantStreamToken = useChatStore((state) => state.appendAssistantStreamToken);
     const mergeAssistantStreamEvent = useChatStore((state) => state.mergeAssistantStreamEvent);
+    const finalizeAssistantStream = useChatStore((state) => state.finalizeAssistantStream);
     const discardAssistantStream = useChatStore((state) => state.discardAssistantStream);
+    const failAssistantStream = useChatStore((state) => state.failAssistantStream);
+    const mergeAssistantUpgrade = useChatStore((state) => state.mergeAssistantUpgrade);
     const hydrateContext = useChatStore((state) => state.hydrateContext);
     const setInputValue = useChatStore((state) => state.setInputValue);
     const setStatus = useChatStore((state) => state.setStatus);
@@ -182,7 +199,11 @@ export const useAssistantController = () => {
     const cartItems = useMemo(() => selectCartItems({ cart: cartState }), [cartState]);
     const cartSummary = useMemo(() => selectCartSummary({ cart: cartState }), [cartState]);
 
-    const routeProductId = useMemo(() => extractProductIdFromPath(location.pathname), [location.pathname]);
+    const assistantContextPath = useMemo(
+        () => resolveAssistantContextPath(location),
+        [location.pathname, location.search],
+    );
+    const routeProductId = useMemo(() => extractProductIdFromPath(assistantContextPath), [assistantContextPath]);
     const conversationHistory = useMemo(() => trimConversationHistory(messages), [messages]);
 
     const productCandidates = useMemo(() => {
@@ -217,7 +238,7 @@ export const useAssistantController = () => {
             && nextCandidateProductIds.every((id, index) => id === context.candidateProductIds[index]);
 
         if (
-            context.route === location.pathname
+            context.route === assistantContextPath
             && context.cartCount === cartSummary.totalItems
             && context.isAuthenticated === isAuthenticated
             && context.activeProductId === nextActiveProductId
@@ -227,7 +248,7 @@ export const useAssistantController = () => {
         }
 
         hydrateContext({
-            route: location.pathname,
+            route: assistantContextPath,
             cartCount: cartSummary.totalItems,
             isAuthenticated,
             activeProductId: nextActiveProductId,
@@ -240,10 +261,36 @@ export const useAssistantController = () => {
         context.isAuthenticated,
         context.route,
         hydrateContext,
+        assistantContextPath,
         isAuthenticated,
-        location.pathname,
         routeProductId,
     ]);
+
+    useEffect(() => {
+        if (!socket || !isAuthenticated) {
+            return undefined;
+        }
+
+        const handleAssistantUpgrade = (payload = {}) => {
+            mergeAssistantUpgrade({
+                sessionId: payload?.sessionId || '',
+                messageId: payload?.messageId || '',
+                content: payload?.content || '',
+                citations: payload?.citations || [],
+                verification: payload?.verification || null,
+                providerInfo: payload?.providerInfo || null,
+                decision: payload?.decision || '',
+                traceId: payload?.traceId || '',
+                grounding: payload?.grounding || null,
+                assistantTurn: payload?.assistantTurn || null,
+            });
+        };
+
+        socket.on('assistant.upgrade', handleAssistantUpgrade);
+        return () => {
+            socket.off('assistant.upgrade', handleAssistantUpgrade);
+        };
+    }, [isAuthenticated, mergeAssistantUpgrade, socket]);
 
     const executePlannedActions = useCallback(async (assistantTurn) => {
         const uiProducts = normalizeUiProducts(assistantTurn, {});
@@ -264,8 +311,11 @@ export const useAssistantController = () => {
         return mergeExecutionResults(results);
     }, [registry, setPendingAction]);
 
-    const presentAssistantTurn = useCallback((assistantTurn, response = {}, execution = null) => {
+    const presentAssistantTurn = useCallback((assistantTurn, response = {}, execution = null, options = {}) => {
         if (execution?.suppressedDuplicate) {
+            if (options?.replaceMessageId) {
+                discardAssistantStream(options.replaceMessageId, options.sessionId || activeSessionId);
+            }
             return;
         }
 
@@ -283,8 +333,7 @@ export const useAssistantController = () => {
             products,
             supportPrefill: derivedSupportPrefill,
         });
-
-        appendAssistantTurn({
+        const messagePayload = {
             text: safeString(execution?.message || assistantTurn?.response || response?.text || response?.answer || 'I can help with that.'),
             mode: surfaceToMode(assistantTurn?.ui?.surface || 'plain_answer'),
             products,
@@ -301,11 +350,32 @@ export const useAssistantController = () => {
                 model: safeString(response?.providerModel || ''),
             },
             activeProductId: safeString(execution?.activeProductId || product?.id || ''),
+            provisional: Boolean(response?.provisional),
+            upgradeEligible: Boolean(response?.upgradeEligible),
+            traceId: safeString(response?.traceId || response?.grounding?.traceId || ''),
+            decision: safeString(response?.decision || assistantTurn?.decision || ''),
             assistantTurn,
             assistantSession: response?.assistantSession || assistantTurn?.assistantSession || null,
             pendingAction: null,
+        };
+
+        if (options?.replaceMessageId) {
+            finalizeAssistantStream(options.replaceMessageId, messagePayload, options.sessionId || activeSessionId);
+            return;
+        }
+
+        appendAssistantTurn({
+            ...messagePayload,
+            sessionId: options.sessionId || activeSessionId,
         });
-    }, [appendAssistantTurn, cartSummary, context.lastQuery]);
+    }, [
+        activeSessionId,
+        appendAssistantTurn,
+        cartSummary,
+        context.lastQuery,
+        discardAssistantStream,
+        finalizeAssistantStream,
+    ]);
 
     const confirmPendingAction = useCallback(async (confirmationToken = '') => {
         if (!pendingConfirmation?.action || (confirmationToken && pendingConfirmation.token !== confirmationToken)) {
@@ -320,14 +390,15 @@ export const useAssistantController = () => {
                 message: '',
                 conversationHistory: conversationHistory.slice(-MAX_HISTORY_ENTRIES),
                 assistantMode: 'chat',
-                sessionId: assistantSession?.sessionId || '',
+                sessionId: assistantSession?.sessionId || activeSessionId || '',
                 confirmation: {
                     actionId: pendingConfirmation.token,
                     approved: true,
                     contextVersion: pendingConfirmation.action?.contextVersion || assistantSession?.contextVersion || 0,
                 },
                 context: {
-                    route: location.pathname,
+                    clientSessionId: activeSessionId,
+                    route: assistantContextPath,
                     routeLabel: context.routeLabel,
                     cartItems,
                     cartSummary,
@@ -386,7 +457,9 @@ export const useAssistantController = () => {
         setPendingAction(null);
         }
     }, [
+        activeSessionId,
         assistantSession,
+        assistantContextPath,
         appendAssistantTurn,
         cartItems,
         cartSummary,
@@ -396,8 +469,6 @@ export const useAssistantController = () => {
         context.routeLabel,
         conversationHistory,
         executePlannedActions,
-        lastAssistantTurn,
-        location.pathname,
         pendingConfirmation,
         presentAssistantTurn,
         productCandidates,
@@ -417,14 +488,15 @@ export const useAssistantController = () => {
                 message: '',
                 conversationHistory: conversationHistory.slice(-MAX_HISTORY_ENTRIES),
                 assistantMode: 'chat',
-                sessionId: assistantSession?.sessionId || '',
+                sessionId: assistantSession?.sessionId || activeSessionId || '',
                 confirmation: {
                     actionId: pendingConfirmation.token,
                     approved: false,
                     contextVersion: pendingConfirmation.action?.contextVersion || assistantSession?.contextVersion || 0,
                 },
                 context: {
-                    route: location.pathname,
+                    clientSessionId: activeSessionId,
+                    route: assistantContextPath,
                     routeLabel: context.routeLabel,
                     cartItems,
                     cartSummary,
@@ -455,7 +527,9 @@ export const useAssistantController = () => {
             });
         }
     }, [
+        activeSessionId,
         assistantSession,
+        assistantContextPath,
         appendAssistantTurn,
         cartItems,
         cartSummary,
@@ -463,7 +537,6 @@ export const useAssistantController = () => {
         context.activeProductId,
         context.routeLabel,
         conversationHistory,
-        location.pathname,
         pendingConfirmation,
         presentAssistantTurn,
         productCandidates,
@@ -497,14 +570,16 @@ export const useAssistantController = () => {
 
         const requestConfig = buildAssistantRequestPayload({
             message: cleanedText,
-            pathname: location.pathname,
+            pathname: assistantContextPath,
             candidateProductIds: context.candidateProductIds,
             latestProducts: productCandidates,
             cartItems,
             wishlistItems,
             activeProductId: context.activeProductId || routeProductId,
         });
-        const streamMessageId = beginAssistantStream();
+        const streamMessageId = beginAssistantStream({
+            sessionId: activeSessionId,
+        });
 
         try {
             const response = await chatApi.streamMessage({
@@ -514,9 +589,11 @@ export const useAssistantController = () => {
                     { role: 'user', content: cleanedText },
                 ].slice(-MAX_HISTORY_ENTRIES),
                 assistantMode: requestConfig.assistantMode,
-                sessionId: assistantSession?.sessionId || '',
+                sessionId: assistantSession?.sessionId || activeSessionId || '',
                 context: {
                     ...requestConfig.context,
+                    clientSessionId: activeSessionId,
+                    clientMessageId: streamMessageId,
                     cartItems,
                     cartSummary,
                     currentProductId: context.activeProductId || routeProductId,
@@ -528,13 +605,31 @@ export const useAssistantController = () => {
                     return;
                 }
 
+                if (eventName === 'message_meta') {
+                    setAssistantStreamMeta(
+                        safeString(data?.messageId || streamMessageId),
+                        data || {},
+                        safeString(data?.sessionId || activeSessionId),
+                    );
+                    return;
+                }
+
                 if (eventName === 'token') {
-                    appendAssistantStreamToken(streamMessageId, String(data?.text ?? data?.delta ?? data?.raw ?? ''));
+                    appendAssistantStreamToken(
+                        safeString(data?.messageId || streamMessageId),
+                        String(data?.text ?? data?.delta ?? data?.raw ?? ''),
+                        safeString(data?.sessionId || activeSessionId),
+                    );
                     return;
                 }
 
                 if (['tool_start', 'tool_end', 'citation', 'verification'].includes(eventName)) {
-                    mergeAssistantStreamEvent(streamMessageId, eventName, data || {});
+                    mergeAssistantStreamEvent(
+                        safeString(data?.messageId || streamMessageId),
+                        eventName,
+                        data || {},
+                        safeString(data?.sessionId || activeSessionId),
+                    );
                 }
             });
 
@@ -543,11 +638,9 @@ export const useAssistantController = () => {
                 throw new Error('Assistant response is missing a structured turn');
             }
             if (requestId !== requestSequenceRef.current) {
-                discardAssistantStream(streamMessageId);
+                discardAssistantStream(streamMessageId, activeSessionId);
                 return;
             }
-
-            discardAssistantStream(streamMessageId);
 
             const plannedActions = assistantTurn?.actionRequest
                 ? [assistantTurn.actionRequest]
@@ -558,16 +651,21 @@ export const useAssistantController = () => {
                 try {
                     const execution = await executePlannedActions(assistantTurn);
                     if (requestId !== requestSequenceRef.current) {
+                        discardAssistantStream(streamMessageId, activeSessionId);
                         return;
                     }
                     if (execution?.suppressedDuplicate) {
+                        discardAssistantStream(streamMessageId, activeSessionId);
                         return;
                     }
                     const responseTurn = {
                         ...assistantTurn,
                         response: safeString(execution.message || assistantTurn.response),
                     };
-                    presentAssistantTurn(responseTurn, response, execution);
+                    presentAssistantTurn(responseTurn, response, execution, {
+                        replaceMessageId: streamMessageId,
+                        sessionId: activeSessionId,
+                    });
 
                     const leadingActionType = plannedActions[0]?.type;
                     const leadingPage = plannedActions[0]?.page;
@@ -579,42 +677,30 @@ export const useAssistantController = () => {
                         close();
                     }
                 } catch (error) {
-                    appendAssistantTurn({
-                        text: error?.message || 'I could not complete that action right now.',
-                        mode: 'explore',
-                        assistantTurn: {
-                            intent: assistantTurn.intent,
-                            decision: 'respond',
-                            response: error?.message || 'I could not complete that action right now.',
-                            ui: {
-                                surface: 'plain_answer',
-                            },
-                            followUps: assistantTurn.followUps || [],
-                        },
-                    });
+                    failAssistantStream(
+                        streamMessageId,
+                        error?.message || 'I could not complete that action right now.',
+                        {},
+                        activeSessionId,
+                    );
                 }
             } else {
-                presentAssistantTurn(assistantTurn, response, null);
+                presentAssistantTurn(assistantTurn, response, null, {
+                    replaceMessageId: streamMessageId,
+                    sessionId: activeSessionId,
+                });
             }
         } catch {
             if (requestId !== requestSequenceRef.current) {
-                discardAssistantStream(streamMessageId);
+                discardAssistantStream(streamMessageId, activeSessionId);
                 return;
             }
-            discardAssistantStream(streamMessageId);
-            appendAssistantTurn({
-                text: 'I hit a live service issue before I could finish that. Please try again in a moment.',
-                mode: 'explore',
-                assistantTurn: {
-                    intent: 'general_knowledge',
-                    decision: 'respond',
-                    response: 'I hit a live service issue before I could finish that. Please try again in a moment.',
-                    ui: {
-                        surface: 'plain_answer',
-                    },
-                    followUps: ['Try again', 'Show my cart', 'Search premium phones'],
-                },
-            });
+            failAssistantStream(
+                streamMessageId,
+                'I hit a live service issue before I could finish that. Please try again in a moment.',
+                {},
+                activeSessionId,
+            );
         } finally {
             if (requestId === requestSequenceRef.current) {
                 setStatus('idle');
@@ -622,8 +708,9 @@ export const useAssistantController = () => {
             }
         }
     }, [
+        activeSessionId,
+        assistantContextPath,
         assistantSession,
-        appendAssistantTurn,
         appendAssistantStreamToken,
         appendUserMessage,
         beginAssistantStream,
@@ -636,12 +723,13 @@ export const useAssistantController = () => {
         conversationHistory,
         discardAssistantStream,
         executePlannedActions,
-        location.pathname,
+        failAssistantStream,
         mergeAssistantStreamEvent,
         pendingConfirmation,
         presentAssistantTurn,
         productCandidates,
         routeProductId,
+        setAssistantStreamMeta,
         setInputValue,
         setPendingAction,
         setStatus,
@@ -722,13 +810,14 @@ export const useAssistantController = () => {
                 message: '',
                 conversationHistory,
                 assistantMode: 'chat',
-                sessionId: assistantSession?.sessionId || '',
+                sessionId: assistantSession?.sessionId || activeSessionId || '',
                 actionRequest: {
                     type: 'checkout',
                 },
                 context: {
                     cartItems,
                     cartSummary,
+                    clientSessionId: activeSessionId,
                     currentProductId: context.activeProductId || routeProductId,
                     currentProduct: productCandidates.find((product) => product.id === (context.activeProductId || routeProductId)) || null,
                     assistantSession,
@@ -775,6 +864,7 @@ export const useAssistantController = () => {
             });
         }
     }, [
+        activeSessionId,
         close,
         assistantSession,
         cartItems,
@@ -785,7 +875,6 @@ export const useAssistantController = () => {
         context.activeProductId,
         handleUserInput,
         lastAssistantTurn,
-        location.pathname,
         pendingConfirmation?.token,
         presentAssistantTurn,
         productCandidates,

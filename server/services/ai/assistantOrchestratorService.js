@@ -21,6 +21,7 @@ const {
     updateAssistantSession,
     validatePendingAction,
 } = require('./assistantSessionService');
+const { sendMessageToUser } = require('../socketService');
 
 const safeString = (value, fallback = '') => String(value === undefined || value === null ? fallback : value).trim();
 const SYSTEM_AWARENESS_PATTERN = /\b(app|architecture|backend|bug|client|code|component|controller|db|debug|diagnostic|endpoint|error|explain|file|flow|frontend|function|graph|health|how does|implementation|index|issue|line by line|model|orchestrat|path|repo|route|schema|service|socket|support video|system|trace|where is|why .*fail(?:ing|ed|s|ure)?)\b/i;
@@ -86,6 +87,127 @@ const shouldFallbackToRecoveredTurn = ({
     }
 
     return !SYSTEM_AWARENESS_PATTERN.test(safeString(message));
+};
+
+const isPureRespondTurn = (assistantTurn = {}) => {
+    if (safeString(assistantTurn?.decision || '') !== 'respond') {
+        return false;
+    }
+
+    if (assistantTurn?.actionRequest?.type) {
+        return false;
+    }
+
+    if (assistantTurn?.ui?.confirmation) {
+        return false;
+    }
+
+    return !Array.isArray(assistantTurn?.actions) || assistantTurn.actions.length === 0;
+};
+
+const resolveRealtimeSessionId = ({ context = {}, session = {} } = {}) => (
+    safeString(context?.clientSessionId || context?.assistantSession?.sessionId || session?.sessionId || '')
+);
+
+const resolveRealtimeMessageId = (context = {}) => safeString(context?.clientMessageId || '');
+
+const buildRealtimeEnvelope = ({
+    context = {},
+    session = {},
+    traceId = '',
+    decision = 'LOCAL',
+    provisional = false,
+    upgradeEligible = false,
+} = {}) => ({
+    sessionId: resolveRealtimeSessionId({ context, session }),
+    messageId: resolveRealtimeMessageId(context),
+    decision,
+    provisional: Boolean(provisional),
+    upgradeEligible: Boolean(upgradeEligible),
+    traceId: safeString(traceId || ''),
+});
+
+const decorateAssistantResult = (result = {}, meta = {}) => {
+    const traceId = safeString(result?.grounding?.traceId || result?.traceId || meta?.traceId || '');
+
+    return {
+        ...result,
+        sessionId: safeString(meta?.sessionId || ''),
+        messageId: safeString(meta?.messageId || ''),
+        decision: safeString(meta?.decision || 'LOCAL') || 'LOCAL',
+        provisional: Boolean(meta?.provisional),
+        upgradeEligible: Boolean(meta?.upgradeEligible),
+        traceId,
+    };
+};
+
+const streamPlainTextReply = ({
+    writeEvent = () => {},
+    messageId = '',
+    sessionId = '',
+    text = '',
+} = {}) => {
+    const chunks = String(text || '').split(/(\s+)/).filter((entry) => entry.length > 0);
+    chunks.forEach((chunk) => {
+        writeEvent('token', {
+            sessionId,
+            messageId,
+            text: chunk,
+        });
+    });
+};
+
+const scheduleRefinedAssistantUpgrade = ({
+    user = null,
+    message = '',
+    conversationHistory = [],
+    assistantMode = 'chat',
+    context = {},
+    images = [],
+    session = {},
+} = {}) => {
+    const userId = safeString(user?._id || '');
+    const messageId = resolveRealtimeMessageId(context);
+    const sessionId = resolveRealtimeSessionId({ context, session });
+    if (!userId || !messageId || !sessionId) {
+        return;
+    }
+
+    setTimeout(async () => {
+        try {
+            const refined = await requestCentralIntelligenceTurn({
+                user,
+                message,
+                conversationHistory,
+                assistantMode,
+                context,
+                images,
+                session,
+            });
+
+            if (!refined?.assistantTurn || !isPureRespondTurn(refined.assistantTurn)) {
+                return;
+            }
+
+            sendMessageToUser(userId, 'assistant.upgrade', {
+                sessionId,
+                messageId,
+                content: safeString(refined?.assistantTurn?.response || refined?.answer || ''),
+                citations: Array.isArray(refined?.assistantTurn?.citations) ? refined.assistantTurn.citations : [],
+                verification: refined?.assistantTurn?.verification || null,
+                providerInfo: refined?.providerInfo || {
+                    name: safeString(refined?.provider || ''),
+                    model: safeString(refined?.providerModel || ''),
+                },
+                decision: 'HYBRID',
+                traceId: safeString(refined?.grounding?.traceId || ''),
+                grounding: refined?.grounding || null,
+                assistantTurn: refined?.assistantTurn || null,
+            });
+        } catch (_) {
+            // Refined upgrades are best-effort and should not affect the primary turn.
+        }
+    }, 0);
 };
 
 const finalizeAssistantTurnSession = ({
@@ -241,6 +363,7 @@ const processAssistantTurn = async ({
         context,
         session: resolvedSession,
     });
+    let responseDecision = 'LOCAL';
 
     let recovered;
     if (confirmation?.actionId) {
@@ -281,6 +404,7 @@ const processAssistantTurn = async ({
         assistantMode,
         context: authoritativeContext,
     })) {
+        responseDecision = 'CENTRAL';
         recovered = await requestCentralIntelligenceTurn({
             user,
             message,
@@ -296,6 +420,7 @@ const processAssistantTurn = async ({
             message,
             images,
         })) {
+            responseDecision = 'LOCAL';
             recovered = await processRecoveredAssistantTurn({
                 user,
                 message,
@@ -342,6 +467,12 @@ const processAssistantTurn = async ({
         safetyFlags: Array.isArray(finalized?.assistantTurn?.safetyFlags)
             ? finalized.assistantTurn.safetyFlags
             : [],
+        sessionId: resolveRealtimeSessionId({ context: authoritativeContext, session: resolvedSession }),
+        messageId: resolveRealtimeMessageId(authoritativeContext),
+        decision: responseDecision,
+        provisional: false,
+        upgradeEligible: false,
+        traceId: safeString(finalized?.grounding?.traceId || ''),
     };
 };
 
@@ -366,26 +497,113 @@ const streamAssistantTurn = async ({
         context,
         session: resolvedSession,
     });
-
-    if (shouldUseCentralIntelligence({
+    const normalizedConversationHistory = normalizeHistory(conversationHistory);
+    const baseRealtimeMeta = {
+        context: authoritativeContext,
+        session: resolvedSession,
+    };
+    const canUseCentral = shouldUseCentralIntelligence({
         message,
         confirmation,
         actionRequest,
         assistantMode,
         context: authoritativeContext,
-    })) {
+    });
+    const canScheduleRefinedUpgrade = Boolean(
+        safeString(user?._id || '')
+        && resolveRealtimeSessionId(baseRealtimeMeta)
+        && resolveRealtimeMessageId(authoritativeContext)
+        && !confirmation?.actionId
+        && !actionRequest?.type
+        && assistantMode !== 'voice'
+        && canUseCentral
+    );
+
+    if (canScheduleRefinedUpgrade) {
+        const recovered = await processRecoveredAssistantTurn({
+            user,
+            message,
+            conversationHistory: normalizedConversationHistory,
+            assistantMode,
+            context: authoritativeContext,
+            images,
+        });
+        const finalized = finalizeAssistantTurnSession({
+            result: recovered,
+            session: resolvedSession,
+            context: authoritativeContext,
+            confirmation,
+        });
+        const upgradeEligible = isPureRespondTurn(finalized?.assistantTurn || {});
+        const response = decorateAssistantResult({
+            ...finalized,
+            providerCapabilities: getCapabilitySnapshot(),
+            latencyMs: Date.now() - startedAt,
+            safetyFlags: Array.isArray(finalized?.assistantTurn?.safetyFlags)
+                ? finalized.assistantTurn.safetyFlags
+                : [],
+        }, buildRealtimeEnvelope({
+            ...baseRealtimeMeta,
+            decision: upgradeEligible ? 'HYBRID' : 'LOCAL',
+            provisional: upgradeEligible,
+            upgradeEligible,
+            traceId: safeString(finalized?.grounding?.traceId || ''),
+        }));
+
+        writeEvent('message_meta', buildRealtimeEnvelope({
+            ...baseRealtimeMeta,
+            decision: response.decision,
+            provisional: response.provisional,
+            upgradeEligible: response.upgradeEligible,
+            traceId: response.traceId,
+        }));
+        streamPlainTextReply({
+            writeEvent,
+            sessionId: response.sessionId,
+            messageId: response.messageId,
+            text: response?.assistantTurn?.response || response?.answer || '',
+        });
+        writeEvent('final_turn', response);
+
+        if (upgradeEligible) {
+            scheduleRefinedAssistantUpgrade({
+                user,
+                message,
+                conversationHistory: normalizedConversationHistory,
+                assistantMode,
+                context: authoritativeContext,
+                images,
+                session: resolvedSession,
+            });
+        }
+
+        return response;
+    }
+
+    if (canUseCentral) {
         let streamedEventCount = 0;
+        let usedFallbackRecovery = false;
+        writeEvent('message_meta', buildRealtimeEnvelope({
+            ...baseRealtimeMeta,
+            decision: 'CENTRAL',
+            provisional: false,
+            upgradeEligible: false,
+        }));
         const trackedWriteEvent = (eventName, payload) => {
             if (eventName !== 'final_turn') {
                 streamedEventCount += 1;
             }
-            writeEvent(eventName, payload);
+            writeEvent(eventName, {
+                ...(payload || {}),
+                sessionId: safeString(payload?.sessionId || resolveRealtimeSessionId(baseRealtimeMeta)),
+                messageId: safeString(payload?.messageId || resolveRealtimeMessageId(authoritativeContext)),
+            });
         };
 
         let recovered = await streamCentralIntelligenceTurn({
             user,
             message,
-            conversationHistory: normalizeHistory(conversationHistory),
+            conversationHistory: normalizedConversationHistory,
             assistantMode,
             context: authoritativeContext,
             images,
@@ -399,6 +617,7 @@ const streamAssistantTurn = async ({
             images,
             streamedEventCount,
         })) {
+            usedFallbackRecovery = true;
             recovered = await processRecoveredAssistantTurn({
                 user,
                 message,
@@ -430,9 +649,32 @@ const streamAssistantTurn = async ({
                 ? finalized.assistantTurn.safetyFlags
                 : [],
         };
+        const decoratedResponse = decorateAssistantResult(response, buildRealtimeEnvelope({
+            ...baseRealtimeMeta,
+            decision: usedFallbackRecovery ? 'LOCAL' : 'CENTRAL',
+            provisional: false,
+            upgradeEligible: false,
+            traceId: safeString(response?.grounding?.traceId || ''),
+        }));
 
-        writeEvent('final_turn', response);
-        return response;
+        if (usedFallbackRecovery) {
+            writeEvent('message_meta', buildRealtimeEnvelope({
+                ...baseRealtimeMeta,
+                decision: 'LOCAL',
+                provisional: false,
+                upgradeEligible: false,
+                traceId: decoratedResponse.traceId,
+            }));
+            streamPlainTextReply({
+                writeEvent,
+                sessionId: decoratedResponse.sessionId,
+                messageId: decoratedResponse.messageId,
+                text: decoratedResponse?.assistantTurn?.response || decoratedResponse?.answer || '',
+            });
+        }
+
+        writeEvent('final_turn', decoratedResponse);
+        return decoratedResponse;
     }
 
     const result = await processAssistantTurn({
@@ -446,9 +688,29 @@ const streamAssistantTurn = async ({
         context,
         images,
     });
+    const decoratedResult = decorateAssistantResult(result, buildRealtimeEnvelope({
+        ...baseRealtimeMeta,
+        decision: safeString(result?.decision || 'LOCAL') || 'LOCAL',
+        provisional: false,
+        upgradeEligible: false,
+        traceId: safeString(result?.traceId || result?.grounding?.traceId || ''),
+    }));
 
-    writeEvent('final_turn', result);
-    return result;
+    writeEvent('message_meta', buildRealtimeEnvelope({
+        ...baseRealtimeMeta,
+        decision: decoratedResult.decision,
+        provisional: false,
+        upgradeEligible: false,
+        traceId: decoratedResult.traceId,
+    }));
+    streamPlainTextReply({
+        writeEvent,
+        sessionId: decoratedResult.sessionId,
+        messageId: decoratedResult.messageId,
+        text: decoratedResult?.assistantTurn?.response || decoratedResult?.answer || '',
+    });
+    writeEvent('final_turn', decoratedResult);
+    return decoratedResult;
 };
 
 module.exports = {
