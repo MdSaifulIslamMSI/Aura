@@ -78,4 +78,28 @@ describe('assistantActionRegistry', () => {
         expect(second.suppressedDuplicate).toBe(true);
         expect(selectCartSummary(useCommerceStore.getState()).totalItems).toBe(1);
     });
+
+    it('builds query-param navigation paths for profile subroutes', async () => {
+        const navigate = vi.fn();
+        const registry = createAssistantActionRegistry({
+            navigate,
+            isAuthenticated: true,
+            candidates: [],
+        });
+
+        const result = await registry.executeAssistantAction({
+            type: 'navigate_to',
+            page: 'profile',
+            params: {
+                tab: 'settings',
+            },
+        });
+
+        expect(result.success).toBe(true);
+        expect(navigate).toHaveBeenCalledWith('/profile?tab=settings');
+        expect(result.navigation).toMatchObject({
+            page: 'profile',
+            path: '/profile?tab=settings',
+        });
+    });
 });

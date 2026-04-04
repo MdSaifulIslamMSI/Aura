@@ -19,6 +19,8 @@ const MAX_COMPILED_RESULTS = 30;
 
 const PAGE_TARGETS = [
     { page: 'home', path: '/', aliases: ['home', 'homepage'] },
+    { page: 'assistant', path: '/assistant', aliases: ['assistant workspace', 'assistant'] },
+    { page: 'login', path: '/login', aliases: ['log in', 'login', 'sign in', 'signin'] },
     { page: 'cart', path: '/cart', aliases: ['cart', 'bag', 'basket'] },
     { page: 'checkout', path: '/checkout', aliases: ['checkout', 'payment', 'pay now', 'place order'] },
     { page: 'orders', path: '/orders', aliases: ['orders', 'my orders', 'order history'] },
@@ -27,6 +29,15 @@ const PAGE_TARGETS = [
     { page: 'marketplace', path: '/marketplace', aliases: ['marketplace', 'market place'] },
     { page: 'support', path: '/profile?tab=support', aliases: ['support', 'help desk', 'customer care', 'help center'] },
     { page: 'deals', path: '/deals', aliases: ['deals', 'offers', 'discounts'] },
+    { page: 'compare', path: '/compare', aliases: ['compare page', 'ai compare', 'compare'] },
+    { page: 'visual_search', path: '/visual-search', aliases: ['visual search', 'camera search'] },
+    { page: 'bundles', path: '/bundles', aliases: ['smart bundles', 'bundle builder', 'bundles'] },
+    { page: 'mission_control', path: '/mission-control', aliases: ['mission control', 'mission os'] },
+    { page: 'sell', path: '/sell', aliases: ['sell item', 'create listing', 'new listing', 'sell'] },
+    { page: 'become_seller', path: '/become-seller', aliases: ['become a seller', 'become seller', 'seller onboarding'] },
+    { page: 'my_listings', path: '/my-listings', aliases: ['my listings', 'seller desk', 'seller tools'] },
+    { page: 'price_alerts', path: '/price-alerts', aliases: ['price alerts', 'price alert'] },
+    { page: 'trade_in', path: '/trade-in', aliases: ['trade in', 'trade-in'] },
     { page: 'product', path: '/product', aliases: ['product', 'details', 'detail page'] },
 ];
 
@@ -80,6 +91,39 @@ const normalizeClarificationState = (value = {}) => ({
     lastQuestion: safeString(value?.lastQuestion || ''),
 });
 
+const NAVIGATION_TARGET_OVERRIDES = {
+    profile_addresses: {
+        page: 'profile',
+        params: {
+            tab: 'addresses',
+        },
+    },
+    profile_notifications: {
+        page: 'profile',
+        params: {
+            tab: 'notifications',
+        },
+    },
+    profile_payments: {
+        page: 'profile',
+        params: {
+            tab: 'settings',
+        },
+    },
+    profile_settings: {
+        page: 'profile',
+        params: {
+            tab: 'settings',
+        },
+    },
+    profile_support: {
+        page: 'profile',
+        params: {
+            tab: 'support',
+        },
+    },
+};
+
 const stripCategoryBrowseQuery = (message = '', categoryLabel = '') => cleanSearchQuery(
     safeString(message).replace(/\b(open|browse|go to|take me to)\b/gi, ' '),
     categoryLabel
@@ -89,6 +133,408 @@ const resolveCategoryBrowseQuery = (message = '', categoryLabel = '') => {
     const cleaned = safeString(stripCategoryBrowseQuery(message, categoryLabel));
     const normalizedCategory = safeLower(categoryLabel);
     return safeLower(cleaned) === normalizedCategory ? '' : cleaned;
+};
+
+const formatCurrency = (value = 0) => {
+    const amount = Number(value || 0);
+    return amount > 0 ? `Rs ${amount.toLocaleString('en-IN')}` : '';
+};
+
+const buildNavigationDescriptor = (page = '', params = {}) => {
+    const definition = PAGE_TARGETS.find((entry) => entry.page === safeString(page)) || null;
+    const basePath = safeString(definition?.path || '/');
+    const mergedParams = {
+        ...(definition?.params && typeof definition.params === 'object' ? definition.params : {}),
+        ...(params && typeof params === 'object' ? params : {}),
+    };
+
+    if (safeString(page) === 'category' && safeString(mergedParams.category)) {
+        return {
+            page: 'category',
+            path: `/category/${safeString(mergedParams.category)}`,
+            params: mergedParams,
+        };
+    }
+
+    if (safeString(page) === 'product' && safeString(mergedParams.productId)) {
+        return {
+            page: 'product',
+            path: `/product/${safeString(mergedParams.productId)}`,
+            params: mergedParams,
+        };
+    }
+
+    const searchParams = new URLSearchParams();
+    Object.entries(mergedParams).forEach(([key, value]) => {
+        if (value === undefined || value === null || value === '') return;
+        searchParams.set(key, String(value));
+    });
+
+    const query = searchParams.toString();
+
+    return {
+        page: safeString(page),
+        path: query ? `${basePath}${basePath.includes('?') ? '&' : '?'}${query}` : basePath,
+        params: mergedParams,
+    };
+};
+
+const buildNavigationResponse = (page = '', params = {}) => {
+    const normalizedPage = safeString(page);
+    const tab = safeString(params?.tab || '');
+
+    if (normalizedPage === 'category' && safeString(params?.category || '')) {
+        return `Opening ${safeString(params.category).replace(/-/g, ' ')}.`;
+    }
+
+    if (normalizedPage === 'product') {
+        return 'Opening that product.';
+    }
+
+    if (normalizedPage === 'profile' && tab === 'addresses') {
+        return 'Opening your saved addresses.';
+    }
+
+    if (normalizedPage === 'profile' && tab === 'settings') {
+        return 'Opening profile settings.';
+    }
+
+    if (normalizedPage === 'profile' && tab === 'notifications') {
+        return 'Opening your notifications.';
+    }
+
+    if (normalizedPage === 'profile' && tab === 'support') {
+        return 'Opening support in your profile.';
+    }
+
+    return `Opening ${titleCase(normalizedPage || 'that page')}.`;
+};
+
+const buildLocalKnowledgeInterpretation = (response = '', confidence = 0.96) => ({
+    intent: 'general_knowledge',
+    entities: {
+        query: '',
+        productId: '',
+        quantity: 0,
+        category: '',
+        priceMin: 0,
+        maxPrice: 0,
+        limit: 0,
+    },
+    confidence,
+    decision: 'respond',
+    response: safeString(response),
+    meta: {
+        operation: '',
+        page: '',
+        orderId: '',
+        showMore: false,
+        categorySlug: '',
+        categoryLabel: '',
+        refinementFollowUp: false,
+        localAnswer: true,
+    },
+});
+
+const hasMeaningfulProductTitle = (product = null) => {
+    const title = safeString(product?.title || product?.displayTitle || product?.name || '');
+    return Boolean(title) && safeLower(title) !== 'untitled product';
+};
+
+const isProductRouteContext = (context = {}) => {
+    const route = safeLower(context?.route || '');
+    const routeLabel = safeLower(context?.routeLabel || '');
+    return route.startsWith('/product') || routeLabel.includes('product detail');
+};
+
+const resolveActiveProductContext = ({ context = {}, sessionMemory = {} } = {}) => (
+    (() => {
+        const directProduct = context?.currentProduct
+            || context?.product
+            || context?.focusProduct
+            || null;
+        if (directProduct && hasMeaningfulProductTitle(directProduct)) {
+            return directProduct;
+        }
+
+        const memoryProduct = sessionMemory?.activeProduct || null;
+        if (memoryProduct && hasMeaningfulProductTitle(memoryProduct)) {
+            return memoryProduct;
+        }
+
+        return null;
+    })()
+);
+
+const buildProductContextAnswer = ({ message = '', product = null, context = {} } = {}) => {
+    if (!product || typeof product !== 'object') return '';
+
+    const normalized = safeLower(message);
+    if (!normalized || /\bcompare\b/i.test(normalized)) return '';
+
+    const title = safeString(product?.title || product?.displayTitle || product?.name || '');
+    if (!title || !hasMeaningfulProductTitle(product)) return '';
+
+    const directProductReference = /\b(this|that|it|selected|current|product)\b/i.test(normalized);
+    if (!directProductReference && !isProductRouteContext(context)) {
+        return '';
+    }
+
+    const brand = safeString(product?.brand || '');
+    const category = safeString(product?.category || '');
+    const price = formatCurrency(product?.price || 0);
+    const originalPrice = formatCurrency(product?.originalPrice || 0);
+    const rating = Number(product?.rating || 0);
+    const ratingCount = Math.max(0, Number(product?.ratingCount || 0));
+    const stock = Math.max(0, Number(product?.stock || 0));
+    const warranty = safeString(product?.warranty || '');
+    const deliveryTime = safeString(product?.deliveryTime || '');
+
+    if (/\b(?:price|cost|how much)\b/i.test(normalized)) {
+        if (!price) return `I do not have the current price for ${title} in this context.`;
+        return originalPrice && originalPrice !== price
+            ? `${title} is priced at ${price}, down from ${originalPrice}.`
+            : `${title} is priced at ${price}.`;
+    }
+
+    if (/\b(?:in stock|available|availability)\b/i.test(normalized)) {
+        return stock > 0
+            ? `${title} is in stock with ${stock} unit${stock === 1 ? '' : 's'} available right now.`
+            : `${title} is currently out of stock.`;
+    }
+
+    if (/\bwarranty\b/i.test(normalized)) {
+        return warranty
+            ? `${title} includes ${warranty}.`
+            : `I do not see a warranty note for ${title} in the current product context.`;
+    }
+
+    if (/\b(?:delivery|shipping|ship|arrive|eta)\b/i.test(normalized)) {
+        return deliveryTime
+            ? `${title} is showing delivery in ${deliveryTime}.`
+            : `I do not have delivery timing for ${title} in the current product context.`;
+    }
+
+    if (/\b(?:tell me about|describe|about this product|product details|details of this product|this product)\b/i.test(normalized)) {
+        const parts = [];
+        if (brand) parts.push(`${title} is from ${brand}`);
+        else parts.push(`${title} is available now`);
+        if (category) parts.push(`in ${category}`);
+        if (price) parts.push(`at ${price}`);
+        if (rating > 0) {
+            const ratingLabel = ratingCount > 0
+                ? `${rating.toFixed(1)} stars from ${ratingCount.toLocaleString('en-IN')} ratings`
+                : `${rating.toFixed(1)} stars`;
+            parts.push(`with ${ratingLabel}`);
+        }
+        if (stock > 0) parts.push(`and ${stock} unit${stock === 1 ? '' : 's'} in stock`);
+        return `${parts.join(' ')}.`;
+    }
+
+    return '';
+};
+
+const buildCartContextAnswer = ({ message = '', context = {} } = {}) => {
+    const normalized = safeLower(message);
+    if (!normalized) return '';
+
+    const cartSummary = context?.cartSummary && typeof context.cartSummary === 'object'
+        ? context.cartSummary
+        : {};
+    const subtotal = Number(
+        cartSummary?.subtotal
+        || cartSummary?.subtotalAmount
+        || cartSummary?.total
+        || 0
+    );
+    const itemCount = Math.max(0, Number(cartSummary?.itemCount || cartSummary?.totalItems || 0));
+
+    if (/\b(subtotal|cart total|cart subtotal|order total)\b/i.test(normalized)) {
+        if (!subtotal) return 'Your cart subtotal is not available in this context right now.';
+        return itemCount > 0
+            ? `Your current cart subtotal is ${formatCurrency(subtotal)} across ${itemCount} item${itemCount === 1 ? '' : 's'}.`
+            : `Your current cart subtotal is ${formatCurrency(subtotal)}.`;
+    }
+
+    if (/\bcoupon|promo code|discount code\b/i.test(normalized)) {
+        return 'Use the coupon field in cart or checkout. Configured coupon codes in this repo include AURA10, FREESHIP, and UPI50.';
+    }
+
+    if (/\bupi\b/i.test(normalized)) {
+        return 'UPI is supported in checkout, alongside other digital payment rails.';
+    }
+
+    if (/\b(?:cash on delivery|cod)\b/i.test(normalized)) {
+        return 'Cash on delivery is available as a checkout payment option.';
+    }
+
+    if (/\bpayment methods?\b/i.test(normalized)) {
+        if (/^(?:where do i|where can i|how do i|open|show)\b/i.test(normalized)) {
+            return '';
+        }
+        return 'Saved payment methods are managed from your profile, and checkout supports card, UPI, wallet, and netbanking flows.';
+    }
+
+    return '';
+};
+
+const buildRouteGuidanceInterpretation = (message = '') => {
+    const normalized = safeLower(message);
+    if (!/\b(?:what|which)\s+(?:route|path|url)\b/i.test(normalized) && !/\bwhere is\b.*\bworkspace\b/i.test(normalized)) {
+        return null;
+    }
+
+    const pageTarget = findPageTarget(message);
+    if (!pageTarget) return null;
+
+    const descriptor = buildNavigationDescriptor(pageTarget.page, pageTarget.params || {});
+    const label = titleCase(pageTarget.page || 'page');
+    return buildLocalKnowledgeInterpretation(`The route for ${label} is ${descriptor.path}.`, 0.93);
+};
+
+const buildComparisonInterpretation = ({ message = '', sessionMemory = {} } = {}) => {
+    if (!/\bcompare\b/i.test(message) || !/\b(first two|first 2|these two|the first two)\b/i.test(message)) {
+        return null;
+    }
+
+    const products = uniqueProducts(sessionMemory?.lastResults || []).slice(0, 2);
+    if (products.length < 2) return null;
+
+    return {
+        intent: 'product_search',
+        entities: {
+            query: '',
+            productId: '',
+            quantity: 0,
+            category: '',
+            priceMin: 0,
+            maxPrice: 0,
+            limit: 2,
+        },
+        confidence: 0.9,
+        decision: 'respond',
+        response: '',
+        meta: {
+            operation: '',
+            page: 'compare',
+            orderId: '',
+            showMore: false,
+            categorySlug: '',
+            categoryLabel: '',
+            refinementFollowUp: false,
+            compareSelection: true,
+            compareProducts: products,
+            navigationParams: {
+                ids: products.map((product) => safeString(product.id)).filter(Boolean).join(','),
+            },
+        },
+    };
+};
+
+const buildFirstResultNavigationInterpretation = ({ message = '', sessionMemory = {} } = {}) => {
+    if (!/\b(first one|first result|top result|best match)\b/i.test(message)) {
+        return null;
+    }
+
+    if (!/\b(open|go to|view|show)\b/i.test(message)) {
+        return null;
+    }
+
+    const firstProduct = uniqueProducts(sessionMemory?.lastResults || []).slice(0, 1)[0] || null;
+    if (!firstProduct?.id) return null;
+
+    return {
+        intent: 'navigation',
+        entities: {
+            query: '',
+            productId: safeString(firstProduct.id),
+            quantity: 0,
+            category: '',
+            priceMin: 0,
+            maxPrice: 0,
+            limit: 0,
+        },
+        confidence: 0.9,
+        decision: 'act',
+        response: '',
+        meta: {
+            operation: '',
+            page: 'product',
+            orderId: '',
+            showMore: false,
+            categorySlug: '',
+            categoryLabel: '',
+            refinementFollowUp: false,
+            navigationParams: {},
+        },
+    };
+};
+
+const buildLocalCommerceInterpretation = ({ message = '', context = {}, sessionMemory = {} } = {}) => {
+    const comparison = buildComparisonInterpretation({
+        message,
+        sessionMemory,
+    });
+    if (comparison) return comparison;
+
+    if (/\bcheaper\b/i.test(message) && safeString(sessionMemory?.lastQuery || '')) {
+        const activeCategory = safeString(
+            sessionMemory?.activeProduct?.category
+            || sessionMemory?.lastResults?.[0]?.category
+            || ''
+        );
+        return {
+            intent: 'product_search',
+            entities: {
+                query: safeString(sessionMemory.lastQuery),
+                productId: '',
+                quantity: 0,
+                category: activeCategory,
+                priceMin: 0,
+                maxPrice: 0,
+                limit: 6,
+            },
+            confidence: 0.82,
+            decision: 'act',
+            response: '',
+            meta: {
+                operation: '',
+                page: '',
+                orderId: '',
+                showMore: false,
+                categorySlug: toCategorySlug(activeCategory),
+                categoryLabel: activeCategory,
+                refinementFollowUp: true,
+            },
+        };
+    }
+
+    const firstResultNavigation = buildFirstResultNavigationInterpretation({
+        message,
+        sessionMemory,
+    });
+    if (firstResultNavigation) return firstResultNavigation;
+
+    const routeGuidance = buildRouteGuidanceInterpretation(message);
+    if (routeGuidance) return routeGuidance;
+
+    const productAnswer = buildProductContextAnswer({
+        message,
+        context,
+        product: resolveActiveProductContext({
+            context,
+            sessionMemory,
+        }),
+    });
+    if (productAnswer) return buildLocalKnowledgeInterpretation(productAnswer, 0.97);
+
+    const cartAnswer = buildCartContextAnswer({
+        message,
+        context,
+    });
+    if (cartAnswer) return buildLocalKnowledgeInterpretation(cartAnswer, 0.95);
+
+    return null;
 };
 
 const normalizeProductSummary = (product = {}) => {
@@ -139,7 +585,15 @@ const extractOrderId = (message = '', context = {}) => safeString(
 
 const findPageTarget = (message = '') => {
     const normalized = safeLower(message);
-    return PAGE_TARGETS.find((entry) => entry.aliases.some((alias) => normalized.includes(alias))) || null;
+    return PAGE_TARGETS
+        .slice()
+        .sort((left, right) => {
+            const leftLongest = Math.max(...left.aliases.map((alias) => alias.length));
+            const rightLongest = Math.max(...right.aliases.map((alias) => alias.length));
+            return rightLongest - leftLongest;
+        })
+        .find((entry) => entry.aliases.some((alias) => normalized.includes(alias)))
+        || null;
 };
 
 const resolveSessionMemory = (context = {}) => {
@@ -334,6 +788,16 @@ const buildDeterministicInterpretation = ({ message = '', context = {}, sessionM
     });
     const orderId = extractOrderId(safeMessage, context);
     const lastQuery = safeString(sessionMemory.lastQuery || '');
+    const localCommerceInterpretation = buildLocalCommerceInterpretation({
+        message: safeMessage,
+        context,
+        sessionMemory,
+    });
+
+    if (localCommerceInterpretation) {
+        return localCommerceInterpretation;
+    }
+
     const compiledCommand = compileIntentCommand({
         input: safeMessage,
         context,
@@ -418,10 +882,13 @@ const buildDeterministicInterpretation = ({ message = '', context = {}, sessionM
     }
 
     if (compiledCommand.intent === 'NAVIGATE') {
+        const compiledTarget = safeString(compiledCommand.target || '');
+        const targetOverride = NAVIGATION_TARGET_OVERRIDES[compiledTarget] || null;
         const resolvedPage = compiledCategoryLabel
             ? 'category'
-            : pageTarget?.page
-                || (resolvedProductId ? 'product' : safeString(compiledCommand.target || ''));
+            : targetOverride?.page
+                || pageTarget?.page
+                || (resolvedProductId ? 'product' : compiledTarget);
 
         return {
             intent: 'navigation',
@@ -445,6 +912,7 @@ const buildDeterministicInterpretation = ({ message = '', context = {}, sessionM
                 categorySlug: resolvedPage === 'category' ? compiledCategorySlug : '',
                 categoryLabel: resolvedPage === 'category' ? compiledCategoryLabel : '',
                 refinementFollowUp: false,
+                navigationParams: targetOverride?.params || {},
                 compiledCommand,
             },
         };
@@ -567,9 +1035,10 @@ const buildInterpreterSystemPrompt = () => [
     'You are an AI assistant for an e-commerce app.',
     'You MUST return ONLY valid JSON.',
     'Format:',
-    '{"intent":"general_knowledge | product_search | navigation | cart_action | unclear","entities":{"query":"","productId":"","category":"","maxPrice":0},"confidence":0.0,"response":""}',
+    '{"intent":"general_knowledge | product_search | navigation | cart_action | support | unclear","entities":{"query":"","productId":"","category":"","maxPrice":0,"quantity":0,"limit":0},"confidence":0.0,"response":"","meta":{"operation":"","page":"","orderId":"","showMore":false,"categoryLabel":"","categorySlug":"","refinementFollowUp":false,"navigationParams":{}}}',
     'Rules:',
     '- NEVER return plain text.',
+    '- You are the primary planner for this turn. Use the deterministic hint only as fallback grounding, not as the decision source.',
     '- Extract intent and entities clearly.',
     '- If unsure, set intent = "unclear".',
     '- Confidence must be between 0 and 1.',
@@ -577,6 +1046,11 @@ const buildInterpreterSystemPrompt = () => [
     '- product_search is only for shopping discovery, recommendations, comparisons, budgets, or more results.',
     '- navigation is for opening app pages or browsing a product category.',
     '- cart_action is only for adding or removing a product from cart.',
+    '- support is for refunds, returns, tracking, damaged orders, warranty help, or customer-care handoff.',
+    '- Use meta.operation = "add" or "remove" for cart_action.',
+    '- Use meta.page for navigation targets like home, assistant, cart, checkout, profile, wishlist, marketplace, deals, compare, bundles, visual_search, mission_control, sell, become_seller, my_listings, price_alerts, trade_in, category, product, support, or orders.',
+    '- Use meta.navigationParams only when a route needs params, such as {"productId":"..."} or {"category":"laptops"} or {"ids":"p1,p2"}.',
+    '- Use response for the direct user-facing reply, especially for general_knowledge answers.',
     '- Never invent productId. Only use it when the user explicitly names it or session memory makes it unambiguous.',
 ].join('\n');
 
@@ -584,6 +1058,8 @@ const buildInterpreterUserPrompt = ({
     message = '',
     deterministic = {},
     sessionMemory = {},
+    context = {},
+    conversationHistory = [],
 }) => {
     const summary = {
         lastQuery: safeString(sessionMemory?.lastQuery || ''),
@@ -601,21 +1077,82 @@ const buildInterpreterUserPrompt = ({
             : [],
         lastIntent: safeString(sessionMemory?.lastIntent || sessionMemory?.currentIntent || ''),
     };
+    const contextSummary = {
+        route: safeString(context?.route || ''),
+        routeLabel: safeString(context?.routeLabel || ''),
+        currentProductId: safeString(context?.currentProduct?.id || context?.currentProductId || ''),
+        currentProductTitle: safeString(context?.currentProduct?.title || ''),
+        cartItems: Math.max(0, Number(context?.cartSummary?.itemCount || context?.cartSummary?.totalItems || 0)),
+    };
+    const history = (Array.isArray(conversationHistory) ? conversationHistory : [])
+        .slice(-4)
+        .map((entry) => ({
+            role: safeString(entry?.role || ''),
+            content: safeString(entry?.content || ''),
+        }))
+        .filter((entry) => entry.role && entry.content);
 
     return [
         `User message: ${safeString(message)}`,
         `Session memory: ${JSON.stringify(summary)}`,
-        `Deterministic hint: ${JSON.stringify({
+        `Runtime context: ${JSON.stringify(contextSummary)}`,
+        `Recent conversation: ${JSON.stringify(history)}`,
+        `Fallback grounding hint: ${JSON.stringify({
             intent: deterministic.intent,
             entities: deterministic.entities,
             confidence: deterministic.confidence,
+            meta: deterministic.meta,
         })}`,
         'Return JSON only.',
     ].join('\n\n');
 };
 
+const normalizeNavigationParams = (value = {}, fallback = {}) => {
+    const source = value && typeof value === 'object' ? value : fallback;
+    if (!source || typeof source !== 'object') return {};
+
+    return Object.entries(source).reduce((accumulator, [key, entry]) => {
+        const normalizedKey = safeString(key);
+        if (!normalizedKey) return accumulator;
+        if (entry === undefined || entry === null || entry === '') return accumulator;
+        accumulator[normalizedKey] = typeof entry === 'string' ? safeString(entry) : entry;
+        return accumulator;
+    }, {});
+};
+
+const normalizeInterpretationMeta = (meta = {}, fallback = {}) => ({
+    operation: safeString(meta?.operation || fallback?.operation || ''),
+    page: safeString(meta?.page || fallback?.page || ''),
+    orderId: safeString(meta?.orderId || fallback?.orderId || ''),
+    showMore: meta?.showMore !== undefined
+        ? Boolean(meta.showMore)
+        : Boolean(fallback?.showMore),
+    categoryLabel: safeString(meta?.categoryLabel || fallback?.categoryLabel || ''),
+    categorySlug: safeString(meta?.categorySlug || fallback?.categorySlug || ''),
+    refinementFollowUp: meta?.refinementFollowUp !== undefined
+        ? Boolean(meta.refinementFollowUp)
+        : Boolean(fallback?.refinementFollowUp),
+    localAnswer: meta?.localAnswer !== undefined
+        ? Boolean(meta.localAnswer)
+        : Boolean(fallback?.localAnswer),
+    compareSelection: meta?.compareSelection !== undefined
+        ? Boolean(meta.compareSelection)
+        : Boolean(fallback?.compareSelection),
+    compareProducts: Array.isArray(meta?.compareProducts)
+        ? meta.compareProducts
+        : Array.isArray(fallback?.compareProducts)
+            ? fallback.compareProducts
+            : [],
+    compiledCommand: meta?.compiledCommand && typeof meta.compiledCommand === 'object'
+        ? meta.compiledCommand
+        : fallback?.compiledCommand && typeof fallback.compiledCommand === 'object'
+            ? fallback.compiledCommand
+            : null,
+    navigationParams: normalizeNavigationParams(meta?.navigationParams, fallback?.navigationParams),
+});
+
 const normalizeModelInterpretation = (payload = {}, fallback = {}) => ({
-    intent: ['product_search', 'general_knowledge', 'cart_action', 'navigation', 'unclear'].includes(safeString(payload?.intent))
+    intent: ['product_search', 'general_knowledge', 'cart_action', 'navigation', 'support', 'unclear'].includes(safeString(payload?.intent))
         ? safeString(payload.intent)
         : safeString(fallback.intent || 'unclear'),
     entities: {
@@ -624,74 +1161,146 @@ const normalizeModelInterpretation = (payload = {}, fallback = {}) => ({
         category: safeString(payload?.entities?.category || fallback?.entities?.category || ''),
         maxPrice: Math.max(0, Number(payload?.entities?.maxPrice ?? fallback?.entities?.maxPrice ?? 0) || 0),
         quantity: Math.max(0, Number(payload?.entities?.quantity ?? fallback?.entities?.quantity ?? 0) || 0),
+        limit: Math.max(0, Number(payload?.entities?.limit ?? fallback?.entities?.limit ?? 0) || 0),
     },
     confidence: clamp(payload?.confidence ?? fallback?.confidence ?? 0, 0, 1),
     response: safeString(payload?.response || fallback?.response || ''),
+    meta: normalizeInterpretationMeta(payload?.meta, fallback?.meta),
 });
 
-const shouldUseModel = () => false;
+const shouldUseModel = (deterministic = {}, message = '') => {
+    return Boolean(safeString(message));
+};
 
-const interpretWithModel = async ({ message = '', sessionMemory = {}, deterministic = {} }) => {
-    const response = await generateStructuredResponse({
-        systemPrompt: buildInterpreterSystemPrompt(),
-        userPrompt: buildInterpreterUserPrompt({
-            message,
-            deterministic,
-            sessionMemory,
-        }),
-        temperature: 0.08,
-        maxTokens: 320,
-    });
+const interpretWithModel = async ({
+    message = '',
+    sessionMemory = {},
+    deterministic = {},
+    context = {},
+    conversationHistory = [],
+}) => {
+    let response = null;
+
+    try {
+        response = await generateStructuredResponse({
+            systemPrompt: buildInterpreterSystemPrompt(),
+            userPrompt: buildInterpreterUserPrompt({
+                message,
+                deterministic,
+                sessionMemory,
+                context,
+                conversationHistory,
+            }),
+            temperature: 0.08,
+            maxTokens: 320,
+        });
+    } catch (error) {
+        logger.warn('assistant.model_planner_failed', {
+            messagePreview: safeString(message).slice(0, 120),
+            error: safeString(error?.message || error),
+        });
+    }
 
     if (!response?.payload || response.provider === 'local') {
         return {
-            interpretation: normalizeModelInterpretation({}, deterministic),
+            interpretation: normalizeModelInterpretation({}),
             provider: 'local',
         };
     }
 
     return {
-        interpretation: normalizeModelInterpretation(response.payload, deterministic),
+        interpretation: normalizeModelInterpretation(response.payload),
         provider: response.provider,
     };
 };
 
+const mergeInterpretationMeta = (deterministicMeta = {}, modelMeta = {}) => normalizeInterpretationMeta(
+    {
+        ...deterministicMeta,
+        ...modelMeta,
+        navigationParams: normalizeNavigationParams(
+            modelMeta?.navigationParams,
+            deterministicMeta?.navigationParams
+        ),
+    },
+    deterministicMeta
+);
+
 const mergeInterpretations = (deterministic = {}, model = {}) => {
-    const deterministicConfidence = Number(deterministic.confidence || 0);
     const modelConfidence = Number(model.confidence || 0);
+    const deterministicConfidence = Number(deterministic.confidence || 0);
 
-    if (deterministic.intent === 'support') {
+    if (!model.intent || model.intent === 'unclear' || modelConfidence < 0.35) {
         return deterministic;
     }
 
-    if (deterministicConfidence >= 0.88 && deterministic.intent !== 'general_knowledge') {
+    if (
+        deterministic?.meta?.localAnswer
+        && safeString(deterministic?.response || '')
+    ) {
         return deterministic;
     }
 
-    if (!model.intent || model.intent === 'unclear') {
+    if (
+        deterministic.intent === 'support'
+        && model.intent !== 'support'
+        && deterministicConfidence >= 0.72
+    ) {
         return deterministic;
     }
 
-    if (deterministic.intent === model.intent) {
-        return {
-            ...model,
-            entities: {
-                query: safeString(model.entities?.query || deterministic.entities?.query || ''),
-                productId: safeString(model.entities?.productId || deterministic.entities?.productId || ''),
-                category: safeString(model.entities?.category || deterministic.entities?.category || ''),
-                maxPrice: Math.max(0, Number(model.entities?.maxPrice || deterministic.entities?.maxPrice || 0)),
-                quantity: Math.max(0, Number(model.entities?.quantity || deterministic.entities?.quantity || 0)),
-            },
-            confidence: Math.max(modelConfidence, deterministicConfidence),
-            response: safeString(model.response || deterministic.response || ''),
-        };
+    if (
+        ['cart_action', 'navigation'].includes(safeString(deterministic.intent || ''))
+        && deterministicConfidence >= 0.75
+        && ['general_knowledge', 'unclear'].includes(safeString(model.intent || ''))
+    ) {
+        return deterministic;
     }
 
-    if (modelConfidence >= deterministicConfidence + 0.12) {
-        return model;
+    const merged = {
+        ...deterministic,
+        ...model,
+        entities: {
+            query: safeString(model.entities?.query || deterministic.entities?.query || ''),
+            productId: safeString(model.entities?.productId || deterministic.entities?.productId || ''),
+            category: safeString(model.entities?.category || deterministic.entities?.category || ''),
+            maxPrice: Math.max(0, Number(model.entities?.maxPrice || deterministic.entities?.maxPrice || 0)),
+            quantity: Math.max(0, Number(model.entities?.quantity || deterministic.entities?.quantity || 0)),
+            limit: Math.max(0, Number(model.entities?.limit || deterministic.entities?.limit || 0)),
+        },
+        meta: mergeInterpretationMeta(deterministic.meta, model.meta),
+        confidence: Math.max(modelConfidence, deterministicConfidence),
+        response: safeString(model.response || deterministic.response || ''),
+    };
+
+    if (
+        merged.intent === 'cart_action'
+        && !safeString(merged.meta?.operation || '')
+    ) {
+        return deterministic;
     }
 
-    return deterministic;
+    if (
+        merged.intent === 'navigation'
+        && !safeString(merged.meta?.page || '')
+    ) {
+        return deterministic;
+    }
+
+    if (merged.intent === 'product_search') {
+        const hasSearchTarget = Boolean(
+            safeString(merged.entities?.query || '')
+            || safeString(merged.entities?.category || '')
+            || Number(merged.entities?.maxPrice || 0) > 0
+            || Number(merged.entities?.limit || 0) > 0
+            || Boolean(merged.meta?.showMore)
+        );
+        if (!hasSearchTarget) {
+            return deterministic;
+        }
+    }
+
+    return merged;
 };
 
 const buildKnowledgeFallback = (message = '') => ({
@@ -1009,6 +1618,9 @@ const buildConfirmationAction = ({
     const page = safeString(interpretation?.meta?.page || '');
     const categorySlug = safeString(interpretation?.meta?.categorySlug || toCategorySlug(interpretation?.entities?.category || ''));
     const productId = safeString(interpretation?.entities?.productId || '');
+    const navigationParams = interpretation?.meta?.navigationParams && typeof interpretation.meta.navigationParams === 'object'
+        ? { ...interpretation.meta.navigationParams }
+        : {};
 
     if (actionType === 'SEARCH') {
         return {
@@ -1059,6 +1671,7 @@ const buildConfirmationAction = ({
                 page: 'category',
                 params: {
                     category: categorySlug,
+                    ...navigationParams,
                 },
                 reason: policy.reason,
             };
@@ -1078,7 +1691,7 @@ const buildConfirmationAction = ({
         return {
             type: 'navigate_to',
             page,
-            params: {},
+            params: navigationParams,
             reason: policy.reason,
         };
     }
@@ -1533,7 +2146,26 @@ const executeDecision = async ({
     }
 
     if (workingInterpretation.intent === 'general_knowledge') {
-        const knowledge = await answerGeneralKnowledge(message);
+        const useLocalKnowledge = Boolean(
+            workingInterpretation?.meta?.localAnswer
+            && safeString(workingInterpretation.response || '')
+        );
+        const usePlannerKnowledge = Boolean(
+            !useLocalKnowledge
+            && provider !== 'local'
+            && safeString(workingInterpretation.response || '')
+        );
+        const knowledge = useLocalKnowledge
+            ? {
+                response: safeString(workingInterpretation.response || ''),
+                provider: 'local',
+            }
+            : usePlannerKnowledge
+                ? {
+                    response: safeString(workingInterpretation.response || ''),
+                    provider,
+                }
+            : await answerGeneralKnowledge(message);
         const assistantTurn = applyDecisionMetadata(createAssistantTurn({
             intent: 'general_knowledge',
             entities: workingInterpretation.entities,
@@ -1563,6 +2195,78 @@ const executeDecision = async ({
     }
 
     if (workingInterpretation.intent === 'product_search') {
+        if (workingInterpretation?.meta?.compareSelection) {
+            const selectedProducts = uniqueProducts(
+                workingInterpretation?.meta?.compareProducts
+                || sessionMemory?.lastResults
+                || []
+            ).slice(0, 2);
+            const compareIds = selectedProducts.map((product) => safeString(product.id)).filter(Boolean).join(',');
+
+            if (selectedProducts.length >= 2 && compareIds) {
+                const navigation = buildNavigationDescriptor('compare', {
+                    ids: compareIds,
+                });
+
+                const assistantTurn = applyDecisionMetadata(createAssistantTurn({
+                    intent: 'product_search',
+                    entities: {
+                        ...workingInterpretation.entities,
+                        limit: 2,
+                    },
+                    confidence: workingInterpretation.confidence,
+                    decision: 'act',
+                    response: 'Comparing the first two results.',
+                    actions: [
+                        {
+                            type: 'navigate_to',
+                            page: 'compare',
+                            params: {
+                                ids: compareIds,
+                            },
+                            reason: 'compare_selected_results',
+                        },
+                    ],
+                    ui: {
+                        surface: 'product_results',
+                        products: selectedProducts,
+                        navigation,
+                        search: {
+                            query: 'comparison',
+                            matchType: 'exact',
+                            confidence: clamp(workingInterpretation.confidence ?? 0.9, 0, 0.99),
+                        },
+                    },
+                    followUps: [
+                        'Open the first one',
+                        'Show cheaper options',
+                    ],
+                    sessionMemory: buildSessionMemory({
+                        current: sessionMemory,
+                        assistantTurn: {
+                            ...workingInterpretation,
+                            entities: {
+                                ...workingInterpretation.entities,
+                                limit: 2,
+                            },
+                        },
+                        products: selectedProducts,
+                        clarificationState: {},
+                    }),
+                    policy,
+                    decisionTrace,
+                }), policy, decisionTrace);
+
+                return {
+                    answer: assistantTurn.response,
+                    assistantTurn,
+                    products: selectedProducts,
+                    followUps: assistantTurn.followUps,
+                    provider,
+                };
+            }
+        }
+
         const categoryLabel = safeString(workingInterpretation.entities?.category || workingInterpretation.meta?.categoryLabel || '');
         const excludeIds = workingInterpretation.meta?.showMore
             ? (sessionMemory?.lastResults || []).map((product) => safeString(product?.id)).filter(Boolean)
@@ -1876,8 +2580,9 @@ const executeDecision = async ({
 
     if (workingInterpretation.intent === 'navigation') {
         const page = safeString(workingInterpretation.meta?.page || '');
-        const path = PAGE_TARGETS.find((entry) => entry.page === page)?.path || '/';
-        const params = {};
+        const params = workingInterpretation?.meta?.navigationParams && typeof workingInterpretation.meta.navigationParams === 'object'
+            ? { ...workingInterpretation.meta.navigationParams }
+            : {};
         const inferred = band === 'infer';
         const categoryLabel = safeString(workingInterpretation.entities?.category || workingInterpretation.meta?.categoryLabel || '');
 
@@ -1991,30 +2696,29 @@ const executeDecision = async ({
 
         if (page === 'category') {
             const categorySlug = safeString(workingInterpretation.meta?.categorySlug || toCategorySlug(categoryLabel));
-            const categoryPath = categorySlug ? `/category/${categorySlug}` : '/products';
+            const navigation = buildNavigationDescriptor('category', {
+                ...params,
+                category: categorySlug,
+            });
             const action = {
                 type: 'navigate_to',
                 page: 'category',
-                params: {
-                    category: categorySlug,
-                },
+                params: navigation.params,
                 reason: 'validated_category_navigation',
             };
-            const assistantTurn = applyDecisionMetadata(createAssistantTurn({
-                intent: 'navigation',
-                entities: workingInterpretation.entities,
-                confidence: workingInterpretation.confidence,
-                decision: 'act',
-                response: '',
-                actions: [action],
-                ui: {
-                    surface: 'navigation_notice',
-                    navigation: {
-                        page: 'category',
-                        path: categoryPath,
-                        params: {
-                            category: categorySlug,
-                        },
+        const assistantTurn = applyDecisionMetadata(createAssistantTurn({
+            intent: 'navigation',
+            entities: workingInterpretation.entities,
+            confidence: workingInterpretation.confidence,
+            decision: 'act',
+            response: buildNavigationResponse('category', navigation.params),
+            actions: [action],
+            ui: {
+                surface: 'navigation_notice',
+                navigation: {
+                    page: 'category',
+                        path: navigation.path,
+                        params: navigation.params,
                     },
                 },
                 followUps: buildFollowUps({
@@ -2085,10 +2789,11 @@ const executeDecision = async ({
             };
         }
 
+        const navigation = buildNavigationDescriptor(page, params);
         const action = {
             type: 'navigate_to',
             page,
-            params,
+            params: navigation.params,
             reason: 'validated_navigation',
         };
         const assistantTurn = applyDecisionMetadata(createAssistantTurn({
@@ -2096,14 +2801,14 @@ const executeDecision = async ({
             entities: workingInterpretation.entities,
             confidence: workingInterpretation.confidence,
             decision: 'act',
-            response: '',
+            response: buildNavigationResponse(page, navigation.params),
             actions: [action],
             ui: {
                 surface: page === 'cart' ? 'cart_summary' : 'navigation_notice',
                 navigation: {
                     page,
-                    path: page === 'product' && params.productId ? `/product/${params.productId}` : path,
-                    params,
+                    path: navigation.path,
+                    params: navigation.params,
                 },
                 cartSummary: page === 'cart' ? context?.cartSummary || null : null,
             },
@@ -2569,21 +3274,27 @@ const processRecoveredAssistantTurn = async ({
     });
 
     let interpretation = deterministic;
-    let provider = 'local';
+    let provider = safeString(deterministic.provider || 'local');
 
-    if (shouldUseModel(deterministic)) {
+    if (shouldUseModel(deterministic, message)) {
         const model = await interpretWithModel({
             message,
             sessionMemory,
             deterministic,
+            context,
+            conversationHistory,
         });
         interpretation = mergeInterpretations(deterministic, model.interpretation);
-        provider = safeString(model.provider || 'local');
+        provider = safeString(
+            interpretation === deterministic
+                ? deterministic.provider || 'local'
+                : model.provider || deterministic.provider || 'local'
+        );
     }
 
     interpretation = {
         ...interpretation,
-        meta: deterministic.meta,
+        meta: mergeInterpretationMeta(deterministic.meta, interpretation.meta),
         provider: provider === 'local' ? safeString(deterministic.provider || 'local') : provider,
     };
 

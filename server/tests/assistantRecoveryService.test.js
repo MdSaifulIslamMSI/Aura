@@ -306,7 +306,13 @@ describe('assistantRecoveryService', () => {
         generateStructuredResponse
             .mockResolvedValueOnce({
                 payload: {
-                    answer: 'Narendra Modi is the Prime Minister of India.',
+                    intent: 'general_knowledge',
+                    confidence: 0.95,
+                    response: 'Narendra Modi is the Prime Minister of India.',
+                    entities: {
+                        query: 'Narendra Modi',
+                    },
+                    meta: {},
                 },
                 provider: 'groq',
             });
@@ -332,6 +338,60 @@ describe('assistantRecoveryService', () => {
         });
         expect(result.products).toEqual([]);
         expect(result.answer).toContain('Prime Minister of India');
+    });
+
+    test('uses planner metadata to recover navigation targets the rules did not name cleanly', async () => {
+        generateStructuredResponse.mockResolvedValueOnce({
+            payload: {
+                intent: 'navigation',
+                confidence: 0.91,
+                response: 'Opening visual search.',
+                entities: {
+                    query: '',
+                    productId: '',
+                    category: '',
+                    maxPrice: 0,
+                    quantity: 0,
+                },
+                meta: {
+                    page: 'visual_search',
+                    navigationParams: {},
+                },
+            },
+            provider: 'groq',
+        });
+
+        const result = await processRecoveredAssistantTurn({
+            message: 'take me to the camera lookup tool',
+            context: {
+                route: '/',
+                routeLabel: 'Home feed',
+                sessionMemory: {
+                    lastQuery: '',
+                    lastResults: [],
+                    activeProduct: null,
+                    currentIntent: '',
+                },
+            },
+        });
+
+        expect(generateStructuredResponse).toHaveBeenCalled();
+        expect(result.assistantTurn).toMatchObject({
+            intent: 'navigation',
+            decision: 'act',
+            actions: [
+                {
+                    type: 'navigate_to',
+                    page: 'visual_search',
+                },
+            ],
+            ui: {
+                navigation: {
+                    path: '/visual-search',
+                },
+            },
+        });
+        expect(result.answer).toBe('Opening Visual Search.');
     });
 
     test('responds to greetings locally instead of resurfacing product choices', async () => {
@@ -400,6 +460,286 @@ describe('assistantRecoveryService', () => {
         });
         expect(result.answer).toContain('The live knowledge service is unavailable right now');
         expect(result.answer).not.toContain('Choose one of these options');
+    });
+
+    test('opens the first visible product from a plain-language follow-up', async () => {
+        const result = await processRecoveredAssistantTurn({
+            message: 'open the first one',
+            context: {
+                sessionMemory: {
+                    lastQuery: 'iphone',
+                    lastResults: [
+                        {
+                            id: 'iphone-15',
+                            title: 'Apple iPhone 15',
+                            brand: 'Apple',
+                            category: 'Mobiles',
+                        },
+                        {
+                            id: 'iphone-15-plus',
+                            title: 'Apple iPhone 15 Plus',
+                            brand: 'Apple',
+                            category: 'Mobiles',
+                        },
+                    ],
+                    activeProduct: null,
+                    currentIntent: 'product_search',
+                    lastIntent: 'product_search',
+                },
+            },
+        });
+
+        expect(generateStructuredResponse).toHaveBeenCalledTimes(1);
+        expect(result.assistantTurn).toMatchObject({
+            intent: 'navigation',
+            decision: 'act',
+            actions: [
+                {
+                    type: 'navigate_to',
+                    page: 'product',
+                    params: {
+                        productId: 'iphone-15',
+                    },
+                },
+            ],
+            ui: {
+                navigation: {
+                    path: '/product/iphone-15',
+                },
+            },
+        });
+    });
+
+    test('can open compare with the first two visible products', async () => {
+        const result = await processRecoveredAssistantTurn({
+            message: 'compare the first two',
+            context: {
+                sessionMemory: {
+                    lastQuery: 'iphone',
+                    lastResults: [
+                        {
+                            id: 'iphone-15',
+                            title: 'Apple iPhone 15',
+                            brand: 'Apple',
+                            category: 'Mobiles',
+                        },
+                        {
+                            id: 'iphone-15-plus',
+                            title: 'Apple iPhone 15 Plus',
+                            brand: 'Apple',
+                            category: 'Mobiles',
+                        },
+                    ],
+                    activeProduct: null,
+                    currentIntent: 'product_search',
+                    lastIntent: 'product_search',
+                },
+            },
+        });
+
+        expect(result.assistantTurn).toMatchObject({
+            intent: 'product_search',
+            decision: 'act',
+            actions: [
+                {
+                    type: 'navigate_to',
+                    page: 'compare',
+                    params: {
+                        ids: 'iphone-15,iphone-15-plus',
+                    },
+                },
+            ],
+            ui: {
+                surface: 'product_results',
+                products: [
+                    {
+                        id: 'iphone-15',
+                    },
+                    {
+                        id: 'iphone-15-plus',
+                    },
+                ],
+                navigation: {
+                    path: '/compare?ids=iphone-15%2Ciphone-15-plus',
+                },
+            },
+        });
+        expect(result.answer).toBe('Comparing the first two results.');
+    });
+
+    test('answers product-detail questions from the current product context', async () => {
+        const result = await processRecoveredAssistantTurn({
+            message: 'what warranty does this have',
+            context: {
+                currentProduct: {
+                    id: 'laptop-1',
+                    title: 'AuraBook Pro 14',
+                    brand: 'Aura',
+                    category: 'Laptops',
+                    price: 89999,
+                    stock: 7,
+                    warranty: '2 year warranty',
+                    deliveryTime: '2-3 days',
+                },
+                sessionMemory: {
+                    lastQuery: '',
+                    lastResults: [],
+                    activeProduct: {
+                        id: 'laptop-1',
+                        title: 'AuraBook Pro 14',
+                        brand: 'Aura',
+                        category: 'Laptops',
+                    },
+                    currentIntent: 'product_search',
+                },
+            },
+        });
+
+        expect(result.assistantTurn).toMatchObject({
+            intent: 'general_knowledge',
+            decision: 'respond',
+            ui: {
+                surface: 'plain_answer',
+            },
+        });
+        expect(result.answer).toContain('2 year warranty');
+        expect(result.products).toEqual([]);
+    });
+
+    test('falls back to grounded product detail answers when the planner is off-target', async () => {
+        generateStructuredResponse.mockResolvedValueOnce({
+            payload: {
+                intent: 'general_knowledge',
+                confidence: 0.96,
+                response: 'Warranty depends on the seller and region.',
+                entities: {
+                    query: 'warranty',
+                },
+                meta: {},
+            },
+            provider: 'groq',
+        });
+
+        const result = await processRecoveredAssistantTurn({
+            message: 'what warranty does this have',
+            context: {
+                currentProduct: {
+                    id: 'laptop-1',
+                    title: 'AuraBook Pro 14',
+                    brand: 'Aura',
+                    category: 'Laptops',
+                    price: 89999,
+                    stock: 7,
+                    warranty: '2 year warranty',
+                    deliveryTime: '2-3 days',
+                },
+                sessionMemory: {
+                    lastQuery: '',
+                    lastResults: [],
+                    activeProduct: {
+                        id: 'laptop-1',
+                        title: 'AuraBook Pro 14',
+                        brand: 'Aura',
+                        category: 'Laptops',
+                    },
+                    currentIntent: 'product_search',
+                },
+            },
+        });
+
+        expect(generateStructuredResponse).toHaveBeenCalledTimes(1);
+        expect(result.answer).toContain('2 year warranty');
+        expect(result.answer).not.toBe('Warranty depends on the seller and region.');
+        expect(result.products).toEqual([]);
+    });
+
+    test('does not hijack support warranty requests with stale product detail answers', async () => {
+        const result = await processRecoveredAssistantTurn({
+            message: 'i need warranty help',
+            context: {
+                route: '/orders',
+                routeLabel: 'Orders',
+                activeOrderId: 'ORD-12345',
+                orderId: 'ORD-12345',
+                sessionMemory: {
+                    lastQuery: '',
+                    lastResults: [],
+                    activeProduct: {
+                        id: 'iphone-15',
+                        title: 'Apple iPhone 15',
+                        brand: 'Apple',
+                        category: 'Mobiles',
+                        warranty: '1 year warranty',
+                    },
+                    currentIntent: 'support',
+                },
+            },
+        });
+
+        expect(result.assistantTurn).toMatchObject({
+            intent: 'support',
+            decision: 'act',
+            ui: {
+                surface: 'support_handoff',
+            },
+        });
+        expect(result.answer).not.toContain('Apple iPhone 15 includes');
+    });
+
+    test('answers payment capability questions locally', async () => {
+        const result = await processRecoveredAssistantTurn({
+            message: 'can i pay with upi',
+            context: {
+                sessionMemory: {
+                    lastQuery: '',
+                    lastResults: [],
+                    activeProduct: null,
+                    currentIntent: '',
+                },
+            },
+        });
+
+        expect(result.assistantTurn).toMatchObject({
+            intent: 'general_knowledge',
+            decision: 'respond',
+            ui: {
+                surface: 'plain_answer',
+            },
+        });
+        expect(result.answer).toContain('UPI is supported');
+    });
+
+    test('navigates to saved payment settings when asked where to manage payment methods', async () => {
+        const result = await processRecoveredAssistantTurn({
+            message: 'where do i manage payment methods',
+            context: {
+                sessionMemory: {
+                    lastQuery: '',
+                    lastResults: [],
+                    activeProduct: null,
+                    currentIntent: '',
+                },
+            },
+        });
+
+        expect(result.assistantTurn).toMatchObject({
+            intent: 'navigation',
+            decision: 'act',
+            actions: [
+                {
+                    type: 'navigate_to',
+                    page: 'profile',
+                    params: {
+                        tab: 'settings',
+                    },
+                },
+            ],
+            ui: {
+                navigation: {
+                    path: '/profile?tab=settings',
+                },
+            },
+        });
     });
 
     test('requires confirmation before executing add this to cart', async () => {

@@ -25,6 +25,10 @@ const {
 const safeString = (value, fallback = '') => String(value === undefined || value === null ? fallback : value).trim();
 const SYSTEM_AWARENESS_PATTERN = /\b(app|architecture|backend|bug|client|code|component|controller|db|debug|diagnostic|endpoint|error|explain|file|flow|frontend|function|graph|health|how does|implementation|index|issue|line by line|model|orchestrat|path|repo|route|schema|service|socket|support video|system|trace|where is|why .*fail(?:ing|ed|s|ure)?)\b/i;
 const CENTRAL_FAILURE_RECOVERY_REASONS = new Set(['service_unavailable']);
+const INLINE_CONFIRM_PATTERN = /^(yes|yeah|yep|ok|okay|confirm|go ahead|proceed|continue|do it)$/i;
+const INLINE_REJECT_PATTERN = /^(no|nope|cancel|stop|not now)$/i;
+const LOCAL_ROUTE_QUERY_PATTERN = /\b(?:what|which)\s+(?:route|path|url)\b|where is\b.*\bworkspace\b/i;
+const LOCAL_ROUTE_TARGET_PATTERN = /\b(assistant workspace|assistant|visual search|marketplace|wishlist|orders|checkout|compare|bundles|mission control|price alerts|sell|become seller|login)\b/i;
 
 const normalizeHistory = (conversationHistory = []) => (
     Array.isArray(conversationHistory)
@@ -85,7 +89,44 @@ const shouldFallbackToRecoveredTurn = ({
         return false;
     }
 
-    return !SYSTEM_AWARENESS_PATTERN.test(safeString(message));
+    if (SYSTEM_AWARENESS_PATTERN.test(safeString(message))) {
+        return LOCAL_ROUTE_QUERY_PATTERN.test(safeString(message))
+            && LOCAL_ROUTE_TARGET_PATTERN.test(safeString(message));
+    }
+
+    return true;
+};
+
+const deriveImplicitConfirmation = ({
+    message = '',
+    session = {},
+} = {}) => {
+    const pendingAction = session?.pendingAction && typeof session.pendingAction === 'object'
+        ? session.pendingAction
+        : null;
+    const normalized = safeString(message);
+
+    if (!pendingAction?.actionId || !normalized) {
+        return null;
+    }
+
+    if (INLINE_CONFIRM_PATTERN.test(normalized)) {
+        return {
+            actionId: pendingAction.actionId,
+            approved: true,
+            contextVersion: pendingAction.contextVersion || session?.contextVersion || 0,
+        };
+    }
+
+    if (INLINE_REJECT_PATTERN.test(normalized)) {
+        return {
+            actionId: pendingAction.actionId,
+            approved: false,
+            contextVersion: pendingAction.contextVersion || session?.contextVersion || 0,
+        };
+    }
+
+    return null;
 };
 
 const finalizeAssistantTurnSession = ({
@@ -237,23 +278,29 @@ const processAssistantTurn = async ({
         sessionId,
         context,
     });
+    const effectiveConfirmation = confirmation?.actionId
+        ? confirmation
+        : deriveImplicitConfirmation({
+            message,
+            session: resolvedSession,
+        });
     const authoritativeContext = buildAuthoritativeContext({
         context,
         session: resolvedSession,
     });
 
     let recovered;
-    if (confirmation?.actionId) {
+    if (effectiveConfirmation?.actionId) {
         const validation = validatePendingAction({
             session: resolvedSession,
-            actionId: confirmation.actionId,
-            contextVersion: confirmation.contextVersion || resolvedSession.pendingAction?.contextVersion || 0,
+            actionId: effectiveConfirmation.actionId,
+            contextVersion: effectiveConfirmation.contextVersion || resolvedSession.pendingAction?.contextVersion || 0,
         });
 
         if (!validation.ok) {
             recovered = await processPendingAssistantConfirmation({
                 confirmation: {
-                    ...confirmation,
+                    ...effectiveConfirmation,
                     approved: false,
                 },
                 context: {
@@ -265,7 +312,7 @@ const processAssistantTurn = async ({
             });
         } else {
             recovered = await processPendingAssistantConfirmation({
-                confirmation,
+                confirmation: effectiveConfirmation,
                 context: {
                     ...authoritativeContext,
                     confirmationInput: message,
@@ -276,7 +323,7 @@ const processAssistantTurn = async ({
         }
     } else if (shouldUseCentralIntelligence({
         message,
-        confirmation,
+        confirmation: effectiveConfirmation,
         actionRequest,
         assistantMode,
         context: authoritativeContext,
@@ -332,7 +379,7 @@ const processAssistantTurn = async ({
         result: recovered,
         session: resolvedSession,
         context: authoritativeContext,
-        confirmation,
+        confirmation: effectiveConfirmation,
     });
 
     return {
@@ -362,6 +409,12 @@ const streamAssistantTurn = async ({
         sessionId,
         context,
     });
+    const effectiveConfirmation = confirmation?.actionId
+        ? confirmation
+        : deriveImplicitConfirmation({
+            message,
+            session: resolvedSession,
+        });
     const authoritativeContext = buildAuthoritativeContext({
         context,
         session: resolvedSession,
@@ -369,7 +422,7 @@ const streamAssistantTurn = async ({
 
     if (shouldUseCentralIntelligence({
         message,
-        confirmation,
+        confirmation: effectiveConfirmation,
         actionRequest,
         assistantMode,
         context: authoritativeContext,
@@ -419,7 +472,7 @@ const streamAssistantTurn = async ({
             result: recovered,
             session: resolvedSession,
             context: authoritativeContext,
-            confirmation,
+            confirmation: effectiveConfirmation,
         });
 
         const response = {
@@ -441,7 +494,7 @@ const streamAssistantTurn = async ({
         conversationHistory,
         assistantMode,
         sessionId,
-        confirmation,
+        confirmation: effectiveConfirmation,
         actionRequest,
         context,
         images,

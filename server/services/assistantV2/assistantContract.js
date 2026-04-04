@@ -5,6 +5,12 @@ const ACTION_TYPES = Object.freeze([
     'add_to_cart',
     'open_checkout',
     'open_support',
+    'search_products',
+    'select_product',
+    'remove_from_cart',
+    'go_to_checkout',
+    'track_order',
+    'navigate_to',
 ]);
 
 const CARD_TYPES = Object.freeze([
@@ -22,6 +28,11 @@ const INTENTS = Object.freeze([
     'checkout',
     'support_handoff',
     'product_focus',
+    'general_knowledge',
+    'product_selection',
+    'cart_action',
+    'navigation',
+    'support',
 ]);
 
 const safeString = (value, fallback = '') => String(value === undefined || value === null ? fallback : value).trim();
@@ -49,6 +60,20 @@ const normalizeAction = (action = {}) => {
         category: safeString(action?.category || ''),
         path: safeString(action?.path || ''),
         quantity: Math.max(1, Number(action?.quantity || 1)),
+        query: safeString(action?.query || ''),
+        filters: action?.filters && typeof action.filters === 'object'
+            ? {
+                category: safeString(action.filters.category || ''),
+                priceMin: Math.max(0, Number(action.filters.priceMin || 0)),
+                priceMax: Math.max(0, Number(action.filters.priceMax || 0)),
+            }
+            : {},
+        page: safeString(action?.page || ''),
+        params: action?.params && typeof action.params === 'object' ? action.params : {},
+        orderId: safeString(action?.orderId || ''),
+        prefill: action?.prefill && typeof action.prefill === 'object' ? action.prefill : null,
+        requiresConfirmation: Boolean(action?.requiresConfirmation),
+        reason: safeString(action?.reason || ''),
     };
 };
 

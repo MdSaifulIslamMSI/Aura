@@ -8,11 +8,36 @@ const MAX_CANDIDATES = 60;
 const CATEGORY_HINTS = [
     { aliases: ['iphone', 'phone', 'smartphone', 'mobile', 'mobiles', 'android', 'pixel', 'oneplus', 'samsung', 'oppo', 'vivo', 'realme'], category: 'Mobiles' },
     { aliases: ['laptop', 'macbook', 'notebook', 'ultrabook'], category: 'Laptops' },
-    { aliases: ['headphone', 'headphones', 'earbud', 'earbuds', 'speaker', 'monitor', 'tv', 'electronics'], category: 'Electronics' },
+    { aliases: ['headphone', 'headphones', 'earbud', 'earbuds', 'earphone', 'earphones', 'speaker', 'monitor', 'tv', 'electronics', 'smartwatch', 'smartwatches', 'watch', 'watches', 'wearable', 'wearables'], category: 'Electronics' },
     { aliases: ['gaming', 'console', 'controller', 'mouse', 'keyboard'], category: 'Gaming & Accessories' },
+    { aliases: ['kitchen', 'home', 'appliance', 'appliances', 'cookware', 'blender', 'mixer', 'utensil', 'utensils'], category: 'Home & Kitchen' },
     { aliases: ['book', 'books', 'novel', 'paperback', 'hardcover'], category: 'Books' },
     { aliases: ['shoe', 'shoes', 'sneaker', 'sneakers', 'footwear', 'boot', 'boots'], category: 'Footwear' },
 ];
+
+const CATEGORY_KEYWORDS = {
+    mobiles: ['phone', 'phones', 'smartphone', 'smartphones', 'mobile', 'mobiles'],
+    laptops: ['laptop', 'laptops', 'macbook', 'macbooks', 'notebook', 'notebooks', 'ultrabook', 'ultrabooks'],
+    electronics: ['headphone', 'headphones', 'earbud', 'earbuds', 'earphone', 'earphones', 'speaker', 'speakers', 'monitor', 'monitors', 'tv', 'tvs', 'electronics', 'smartwatch', 'smartwatches', 'watch', 'watches', 'wearable', 'wearables'],
+    "home & kitchen": ['kitchen', 'home', 'appliance', 'appliances', 'cookware', 'utensil', 'utensils'],
+    books: ['book', 'books', 'novel', 'novels', 'paperback', 'paperbacks', 'hardcover', 'hardcovers'],
+    footwear: ['shoe', 'shoes', 'sneaker', 'sneakers', 'footwear', 'boot', 'boots'],
+    "men's fashion": ['fashion', 'clothing', 'clothes', 'apparel', 'wear', 'outfit', 'outfits'],
+    "women's fashion": ['fashion', 'clothing', 'clothes', 'apparel', 'wear', 'outfit', 'outfits'],
+    'gaming & accessories': ['gaming', 'console', 'consoles', 'controller', 'controllers', 'mouse', 'keyboard'],
+};
+
+const CATEGORY_QUERY_LABELS = {
+    Mobiles: 'phones',
+    Laptops: 'laptops',
+    Electronics: 'electronics',
+    'Home & Kitchen': 'kitchen',
+    Books: 'books',
+    Footwear: 'shoes',
+    "Men's Fashion": 'fashion',
+    "Women's Fashion": 'fashion',
+    'Gaming & Accessories': 'gaming',
+};
 
 const SEARCH_NOISE = new Set([
     'a',
@@ -30,6 +55,7 @@ const SEARCH_NOISE = new Set([
     'compare',
     'deals',
     'details',
+    'deal',
     'find',
     'for',
     'get',
@@ -44,8 +70,11 @@ const SEARCH_NOISE = new Set([
     'looking',
     'me',
     'need',
+    'new',
     'now',
     'of',
+    'one',
+    'ones',
     'on',
     'only',
     'please',
@@ -54,17 +83,31 @@ const SEARCH_NOISE = new Set([
     'price',
     'product',
     'products',
+    'premium',
     'recommend',
+    'recommended',
+    'rating',
+    'ratings',
+    'rated',
+    'sale',
     'search',
     'show',
     'some',
     'something',
+    'star',
+    'stars',
     'the',
     'then',
+    'trend',
+    'trending',
     'top',
     'under',
     'want',
+    'what',
     'with',
+    'arrival',
+    'arrivals',
+    'are',
 ]);
 
 const safeString = (value, fallback = '') => String(value === undefined || value === null ? fallback : value).trim();
@@ -77,6 +120,7 @@ const normalizeText = (value = '') => safeLower(value)
     .trim();
 
 const normalizeToken = (value = '') => normalizeText(value).replace(/\./g, '');
+const singularizeToken = (value = '') => normalizeToken(value).replace(/s$/, '');
 
 const tokenize = (value = '') => normalizeText(value)
     .split(/\s+/)
@@ -120,6 +164,15 @@ const extractBudget = (value = '') => {
     return 0;
 };
 
+const detectGenderedFashionHint = (value = '') => {
+    const normalized = normalizeText(value);
+    const fashionCue = /\b(fashion|clothing|clothes|apparel|wear|outfit|outfits)\b/.test(normalized);
+    if (!fashionCue) return '';
+    if (/\b(men|mens|men s|male|gents)\b/.test(normalized)) return "Men's Fashion";
+    if (/\b(women|womens|women s|female|ladies)\b/.test(normalized)) return "Women's Fashion";
+    return '';
+};
+
 const detectCategoryHint = (value = '') => {
     const normalized = normalizeText(value);
     if (!normalized) return '';
@@ -127,8 +180,34 @@ const detectCategoryHint = (value = '') => {
     const resolved = resolveCategory(normalized);
     if (resolved) return resolved;
 
+    const fashionCategory = detectGenderedFashionHint(normalized);
+    if (fashionCategory) return fashionCategory;
+
     const hint = CATEGORY_HINTS.find((entry) => entry.aliases.some((alias) => normalized.includes(alias)));
     return hint?.category || '';
+};
+
+const getCategoryKeywords = (category = '') => {
+    const resolved = safeLower(resolveCategory(category) || category);
+    return CATEGORY_KEYWORDS[resolved] || [];
+};
+
+const getCategoryQueryLabel = (category = '') => {
+    const resolved = resolveCategory(category) || safeString(category);
+    return safeString(CATEGORY_QUERY_LABELS[resolved] || normalizeText(resolved));
+};
+
+const isCategoryOnlyQuery = (query = '', category = '') => {
+    const tokens = tokenize(query).map((token) => singularizeToken(token)).filter(Boolean);
+    if (!tokens.length || !category) return false;
+
+    const allowedTokens = new Set(
+        getCategoryKeywords(category)
+            .map((token) => singularizeToken(token))
+            .filter(Boolean)
+    );
+
+    return tokens.every((token) => allowedTokens.has(token));
 };
 
 const cleanSearchQuery = (value = '', fallback = '') => {
@@ -143,12 +222,22 @@ const cleanSearchQuery = (value = '', fallback = '') => {
 
     if (!normalized) return '';
 
-    const filtered = tokenize(normalized)
-        .filter((token) => !SEARCH_NOISE.has(token))
-        .join(' ')
-        .trim();
+    const filteredTokens = tokenize(normalized)
+        .filter((token) => !SEARCH_NOISE.has(token));
+    const filtered = filteredTokens.join(' ').trim();
 
-    return filtered || normalized;
+    const resolvedCategory = detectCategoryHint(fallback) || resolveCategory(fallback) || safeString(fallback);
+    if (filteredTokens.length === 0) {
+        return '';
+    }
+
+    const candidate = filtered;
+
+    if (resolvedCategory && candidate && isCategoryOnlyQuery(candidate, resolvedCategory)) {
+        return '';
+    }
+
+    return candidate;
 };
 
 const mergeQueryTokens = (baseQuery = '', nextQuery = '') => {
@@ -167,25 +256,31 @@ const mergeSearchContext = ({
     lastQuery = '',
     category = '',
 } = {}) => {
-    const resolvedCategory = resolveCategory(category) || detectCategoryHint(message) || detectCategoryHint(lastQuery);
+    const currentCategory = detectCategoryHint(message) || resolveCategory(category);
+    const previousCategory = detectCategoryHint(lastQuery);
+    const resolvedCategory = currentCategory || previousCategory;
     const normalizedMessage = normalizeText(message);
     const budget = extractBudget(message);
     const cleanedCurrent = cleanSearchQuery(message, resolvedCategory);
     const cleanedLast = safeString(lastQuery) ? cleanSearchQuery(lastQuery, resolvedCategory) : '';
-    const refinementOnly = Boolean(cleanedLast) && (
-        /^(?:then|now|also|only|just)\b/.test(normalizedMessage)
-        || /\b(price|budget|under|below|less than|max|within|around|about|cheap|cheaper)\b/.test(normalizedMessage)
-        || budget > 0
-        || !cleanedCurrent
+    const fallbackCurrentQuery = !cleanedCurrent && currentCategory ? getCategoryQueryLabel(currentCategory) : '';
+    const explicitFollowUpCue = /^(?:then|now|also|only|just|cheaper|cheapest)\b/.test(normalizedMessage);
+    const priceOnlyCue = /\b(price|budget|under|below|less than|max|within|around|about|cheap|cheaper)\b/.test(normalizedMessage);
+    const categorySwitch = Boolean(currentCategory && previousCategory && currentCategory !== previousCategory);
+    const hasFreshQuery = Boolean(cleanedCurrent || fallbackCurrentQuery);
+    const refinementOnly = Boolean(cleanedLast) && !categorySwitch && (
+        explicitFollowUpCue
+        || (!hasFreshQuery)
+        || ((priceOnlyCue || budget > 0) && !hasFreshQuery)
     );
 
-    let query = cleanedCurrent;
+    let query = cleanedCurrent || fallbackCurrentQuery;
     if (refinementOnly && cleanedLast) {
         query = cleanedCurrent ? mergeQueryTokens(cleanedLast, cleanedCurrent) : cleanedLast;
     }
 
     return {
-        query: safeString(query || cleanedLast || cleanedCurrent || message),
+        query: safeString(query || cleanedLast || fallbackCurrentQuery || cleanedCurrent || ''),
         category: safeString(resolvedCategory),
         maxPrice: budget,
         refinementOnly,
@@ -341,8 +436,10 @@ const buildQueryCandidates = (query = '', category = '') => {
     const candidates = [
         cleanedQuery,
         safeString(query),
-        category && safeLower(cleanedQuery) !== safeLower(category) ? `${category} ${cleanedQuery}` : '',
-    ].filter(Boolean);
+        category && cleanedQuery && safeLower(cleanedQuery) !== safeLower(category) ? `${category} ${cleanedQuery}` : '',
+    ]
+        .map((entry) => safeString(entry))
+        .filter(Boolean);
 
     return [...new Set(candidates)];
 };
@@ -418,10 +515,10 @@ const searchProducts = async ({
 } = {}) => {
     const detectedCategory = resolveCategory(category) || detectCategoryHint(query);
     const cleanedQuery = cleanSearchQuery(query, detectedCategory);
-    const searchQuery = cleanedQuery || safeString(query) || safeString(detectedCategory || category);
+    const searchQuery = cleanedQuery;
     const normalizedExcludeIds = [...new Set((Array.isArray(excludeIds) ? excludeIds : []).map((entry) => safeString(entry)).filter(Boolean))];
 
-    if (!searchQuery && !detectedCategory) {
+    if (!searchQuery && !detectedCategory && !Number(minPrice || 0) && !Number(maxPrice || 0)) {
         return {
             products: [],
             query: '',
@@ -442,7 +539,11 @@ const searchProducts = async ({
         candidateLimit: Math.max(MAX_CANDIDATES, clamp(limit, 1, MAX_RETURN_LIMIT) * 3),
     });
 
-    const strictThreshold = tokenize(searchQuery).filter((token) => !SEARCH_NOISE.has(token)).length <= 1 && detectedCategory ? 8 : 14;
+    const strictThreshold = !searchQuery && !detectedCategory
+        ? 0
+        : tokenize(searchQuery).filter((token) => !SEARCH_NOISE.has(token)).length <= 1 && detectedCategory
+            ? 8
+            : 14;
     const strictResults = rankCandidates({
         candidates,
         query: searchQuery,
@@ -484,13 +585,58 @@ const searchProducts = async ({
         threshold: Math.max(6, strictThreshold - 6),
     });
 
+    if (relaxedResults.length > 0) {
+        return {
+            products: relaxedResults,
+            query: searchQuery,
+            category: detectedCategory,
+            totalCandidates: relaxedCandidates.length,
+            usedClosestMatch: true,
+            matchConfidence: 0.58,
+            minPrice: Number(minPrice || 0),
+            maxPrice: Number(maxPrice || 0),
+        };
+    }
+
+    if (detectedCategory) {
+        const categoryFallbackCandidates = await collectCandidateProducts({
+            query: '',
+            category: detectedCategory,
+            minPrice,
+            maxPrice,
+            candidateLimit: Math.max(MAX_CANDIDATES, clamp(limit, 1, MAX_RETURN_LIMIT) * 3),
+        });
+
+        const categoryFallbackResults = rankCandidates({
+            candidates: categoryFallbackCandidates,
+            query: '',
+            category: detectedCategory,
+            excludeIds: normalizedExcludeIds,
+            limit,
+            threshold: 8,
+        });
+
+        if (categoryFallbackResults.length > 0) {
+            return {
+                products: categoryFallbackResults,
+                query: searchQuery,
+                category: detectedCategory,
+                totalCandidates: categoryFallbackCandidates.length,
+                usedClosestMatch: true,
+                matchConfidence: 0.54,
+                minPrice: Number(minPrice || 0),
+                maxPrice: Number(maxPrice || 0),
+            };
+        }
+    }
+
     return {
-        products: relaxedResults,
+        products: [],
         query: searchQuery,
         category: detectedCategory,
         totalCandidates: relaxedCandidates.length,
-        usedClosestMatch: relaxedResults.length > 0,
-        matchConfidence: relaxedResults.length > 0 ? 0.58 : 0,
+        usedClosestMatch: false,
+        matchConfidence: 0,
         minPrice: Number(minPrice || 0),
         maxPrice: Number(maxPrice || 0),
     };
