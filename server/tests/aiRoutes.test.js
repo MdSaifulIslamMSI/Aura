@@ -38,6 +38,37 @@ jest.mock('../services/ai/assistantOrchestratorService', () => ({
         provider: 'local',
         latencyMs: 12,
     }),
+    streamAssistantTurn: jest.fn().mockImplementation(async ({ writeEvent }) => {
+        writeEvent('message_meta', {
+            sessionId: 'client-session-1',
+            messageId: 'client-message-1',
+            decision: 'HYBRID',
+            provisional: true,
+            upgradeEligible: true,
+            traceId: 'trace_stream',
+        });
+        writeEvent('token', {
+            sessionId: 'client-session-1',
+            messageId: 'client-message-1',
+            text: 'Top ',
+        });
+        writeEvent('final_turn', {
+            answer: 'Top grounded answer',
+            assistantTurn: {
+                intent: 'general_knowledge',
+                decision: 'respond',
+                response: 'Top grounded answer',
+                ui: { surface: 'plain_answer' },
+                followUps: ['Compare products'],
+            },
+            decision: 'HYBRID',
+            provisional: true,
+            upgradeEligible: true,
+            sessionId: 'client-session-1',
+            messageId: 'client-message-1',
+            traceId: 'trace_stream',
+        });
+    }),
     createVoiceSessionConfig: jest.fn().mockReturnValue({
         sessionId: 'voice_test_123',
         expiresAt: '2026-03-09T12:00:00.000Z',
@@ -67,7 +98,7 @@ jest.mock('../services/ai/assistantOrchestratorService', () => ({
 }));
 
 const app = require('../index');
-const { processAssistantTurn } = require('../services/ai/assistantOrchestratorService');
+const { processAssistantTurn, streamAssistantTurn } = require('../services/ai/assistantOrchestratorService');
 
 describe('AI Routes', () => {
     beforeEach(() => {
@@ -112,6 +143,28 @@ describe('AI Routes', () => {
             actionRequest: {
                 type: 'checkout',
             },
+        }));
+    });
+
+    test('POST /api/ai/chat/stream emits message metadata and final turn events', async () => {
+        const res = await request(app)
+            .post('/api/ai/chat/stream')
+            .send({
+                message: 'hello',
+                assistantMode: 'chat',
+                context: {
+                    clientSessionId: 'client-session-1',
+                    clientMessageId: 'client-message-1',
+                },
+            });
+
+        expect(res.statusCode).toBe(200);
+        expect(res.headers['content-type']).toContain('text/event-stream');
+        expect(res.text).toContain('event: message_meta');
+        expect(res.text).toContain('"decision":"HYBRID"');
+        expect(res.text).toContain('event: final_turn');
+        expect(streamAssistantTurn).toHaveBeenCalledWith(expect.objectContaining({
+            message: 'hello',
         }));
     });
 

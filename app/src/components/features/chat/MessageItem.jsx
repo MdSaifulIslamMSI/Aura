@@ -1,4 +1,6 @@
 import { ShoppingCart } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { useMarket } from '@/context/MarketContext';
 import { cn } from '@/lib/utils';
 import { formatPrice } from '@/utils/format';
@@ -7,6 +9,28 @@ import ProductCardInline from './ProductCardInline';
 import SupportHandoffCard from './SupportHandoffCard';
 
 const PRODUCT_SURFACES = new Set(['product_results', 'product_focus']);
+const STATUS_BADGES = {
+    thinking: {
+        label: 'Analyzing',
+        darkClassName: 'border-cyan-400/20 bg-cyan-500/10 text-cyan-100',
+        lightClassName: 'border-cyan-200 bg-cyan-50 text-cyan-800',
+    },
+    provisional: {
+        label: 'Fast',
+        darkClassName: 'border-amber-400/20 bg-amber-500/10 text-amber-100',
+        lightClassName: 'border-amber-200 bg-amber-50 text-amber-900',
+    },
+    upgraded: {
+        label: 'Refined',
+        darkClassName: 'border-emerald-400/20 bg-emerald-500/10 text-emerald-100',
+        lightClassName: 'border-emerald-200 bg-emerald-50 text-emerald-800',
+    },
+    error: {
+        label: 'Error',
+        darkClassName: 'border-rose-400/20 bg-rose-500/10 text-rose-100',
+        lightClassName: 'border-rose-200 bg-rose-50 text-rose-800',
+    },
+};
 const VERIFICATION_LABELS = {
     app_grounded: 'App-grounded',
     runtime_grounded: 'Runtime-grounded',
@@ -14,17 +38,41 @@ const VERIFICATION_LABELS = {
     cannot_verify: 'Cannot verify',
 };
 
-const renderParagraphs = (text = '') => {
-    const paragraphs = String(text || '')
-        .split(/\n{2,}/)
-        .map((paragraph) => paragraph.trim())
-        .filter(Boolean);
+const renderMarkdown = (text = '', isWhiteMode = false) => {
+    if (!String(text || '').trim()) {
+        return null;
+    }
 
-    return (paragraphs.length > 0 ? paragraphs : [String(text || '')]).map((paragraph, index) => (
-        <p key={`${paragraph}-${index}`} className="whitespace-pre-wrap break-words">
-            {paragraph}
-        </p>
-    ));
+    return (
+        <div className={cn(
+            'prose max-w-none text-[15px] leading-7',
+            'prose-p:my-0 prose-pre:my-0 prose-pre:overflow-x-auto prose-pre:rounded-[1.2rem] prose-pre:border prose-pre:px-4 prose-pre:py-3',
+            'prose-code:rounded prose-code:px-1 prose-code:py-0.5 prose-code:before:content-none prose-code:after:content-none',
+            'prose-ul:my-2 prose-ol:my-2 prose-li:my-1 prose-strong:font-semibold',
+            isWhiteMode
+                ? 'prose-slate prose-code:bg-slate-100 prose-pre:border-slate-200 prose-pre:bg-slate-950 prose-pre:text-slate-100'
+                : 'prose-invert prose-code:bg-white/10 prose-pre:border-white/10 prose-pre:bg-[#02060a]',
+        )}>
+            <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{
+                    a: ({ node: _node, ...props }) => (
+                        <a {...props} target="_blank" rel="noreferrer" />
+                    ),
+                }}
+            >
+                {String(text || '')}
+            </ReactMarkdown>
+        </div>
+    );
+};
+
+const getMessageBadge = (message = {}) => {
+    if (message?.status === 'error') return STATUS_BADGES.error;
+    if (message?.upgraded) return STATUS_BADGES.upgraded;
+    if (message?.provisional) return STATUS_BADGES.provisional;
+    if (message?.status === 'thinking' || message?.isStreaming) return STATUS_BADGES.thinking;
+    return null;
 };
 
 const renderCartSummary = (cartSummary, isWhiteMode, t) => {
@@ -209,6 +257,9 @@ const MessageItem = ({
     const assistantTextClassName = isWhiteMode
         ? 'text-slate-950'
         : 'text-white';
+    const assistantBubbleClassName = isWhiteMode
+        ? 'border-slate-200/80 bg-white/90 text-slate-950 shadow-[0_10px_40px_rgba(15,23,42,0.08)]'
+        : 'border-white/10 bg-white/[0.03] text-white shadow-[0_12px_40px_rgba(0,0,0,0.22)]';
 
     const messageMode = message?.mode || (Array.isArray(message?.products) && message.products.length === 1 ? 'product' : 'explore');
     const shouldRenderProducts = !isUser
@@ -218,8 +269,9 @@ const MessageItem = ({
         && message.products.length > 0;
     const searchMeta = message?.assistantTurn?.ui?.search || null;
     const displayText = !isUser && message?.isStreaming && !String(message?.text || '').trim()
-        ? 'Working through live evidence...'
+        ? ''
         : message?.text;
+    const messageBadge = getMessageBadge(message);
 
     return (
         <div className={cn('flex w-full flex-col gap-3.5', isUser ? 'items-end' : 'items-start')}>
@@ -229,13 +281,35 @@ const MessageItem = ({
                         className={cn(
                             isUser
                                 ? 'max-w-[70%] rounded-full border px-5 py-3 text-[15px] leading-7 sm:max-w-[58%]'
-                                : 'max-w-[88%] px-0 py-1 text-[16px] leading-8 sm:max-w-[78%] sm:text-[17px]',
-                            isUser ? userBubbleClassName : assistantTextClassName,
+                                : 'max-w-[88%] rounded-[1.5rem] border px-4 py-3 transition-all duration-200 sm:max-w-[78%] sm:px-5',
+                            isUser ? userBubbleClassName : assistantBubbleClassName,
                         )}
                     >
-                        <div className={cn('space-y-3', !isUser && 'text-balance')}>
-                            {renderParagraphs(displayText)}
-                        </div>
+                        {isUser ? (
+                            <div className="space-y-3 whitespace-pre-wrap break-words">
+                                {displayText}
+                            </div>
+                        ) : (
+                            <div className={cn('space-y-3', assistantTextClassName)}>
+                                {messageBadge ? (
+                                    <span className={cn(
+                                        'inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em]',
+                                        isWhiteMode ? messageBadge.lightClassName : messageBadge.darkClassName,
+                                    )}>
+                                        {messageBadge.label}
+                                    </span>
+                                ) : null}
+
+                                {displayText ? (
+                                    renderMarkdown(displayText, isWhiteMode)
+                                ) : (
+                                    <div className="flex items-center gap-2 text-sm text-slate-400">
+                                        <span className="h-2 w-2 animate-pulse rounded-full bg-cyan-400" />
+                                        <span>Working through live evidence...</span>
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>

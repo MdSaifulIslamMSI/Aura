@@ -18,6 +18,11 @@ const normalizeChatResponse = (response = {}, payload = {}) => {
         assistantTurn,
         answer: safeString(response?.answer || assistantTurn?.response || ''),
         text: safeString(response?.answer || assistantTurn?.response || ''),
+        provisional: Boolean(response?.provisional),
+        upgradeEligible: Boolean(response?.upgradeEligible),
+        decision: safeString(response?.decision || assistantTurn?.decision || ''),
+        traceId: safeString(response?.traceId || response?.grounding?.traceId || ''),
+        sessionId: safeString(response?.sessionId || payload?.context?.clientSessionId || ''),
         products,
         followUps: Array.isArray(response?.followUps)
             ? response.followUps
