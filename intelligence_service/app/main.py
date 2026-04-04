@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 from typing import Any, AsyncIterator
 
@@ -52,23 +53,42 @@ async def assistant_reply(payload: AssistantRequest) -> dict[str, Any]:
 async def assistant_reply_stream(payload: AssistantRequest) -> StreamingResponse:
     async def event_stream() -> AsyncIterator[str]:
         queue: asyncio.Queue[tuple[str, dict[str, Any]]] = asyncio.Queue()
+        terminal_event = "__final__"
+        error_event = "__error__"
 
         async def emit(event_name: str, data: dict[str, Any]) -> None:
             await queue.put((event_name, data))
 
-        task = asyncio.create_task(orchestrator.invoke(payload, event_callback=emit))
+        async def run_orchestrator() -> None:
+            try:
+                reply = await orchestrator.invoke(payload, event_callback=emit)
+                await queue.put((terminal_event, reply.model_dump()))
+            except Exception as exc:  # pragma: no cover - exercised in integration
+                await queue.put((error_event, {"message": str(exc)}))
 
-        while True:
-            if task.done() and queue.empty():
-                reply = await task
-                yield _to_sse("verification", reply.verification.model_dump())
-                for citation in reply.citations:
-                    yield _to_sse("citation", citation.model_dump())
-                yield _to_sse("final_turn", reply.model_dump())
-                break
+        task = asyncio.create_task(run_orchestrator())
 
-            event_name, data = await queue.get()
-            yield _to_sse(event_name, data)
+        try:
+            while True:
+                event_name, data = await queue.get()
+                if event_name == terminal_event:
+                    verification = data.get("verification", {}) if isinstance(data, dict) else {}
+                    citations = data.get("citations", []) if isinstance(data, dict) else []
+                    yield _to_sse("verification", verification)
+                    for citation in citations:
+                        if isinstance(citation, dict):
+                            yield _to_sse("citation", citation)
+                    yield _to_sse("final_turn", data if isinstance(data, dict) else {})
+                    break
+                if event_name == error_event:
+                    yield _to_sse("error", data if isinstance(data, dict) else {"message": "Streaming failed"})
+                    break
+                yield _to_sse(event_name, data)
+        finally:
+            if not task.done():
+                task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await task
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
 

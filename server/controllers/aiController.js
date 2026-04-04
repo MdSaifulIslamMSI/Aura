@@ -20,6 +20,7 @@ const resolveAssistantPayload = (req = {}) => ({
 });
 
 const handleAiChat = asyncHandler(async (req, res, next) => {
+    req.clearTimeout?.();
     const payload = resolveAssistantPayload(req);
     const { message, confirmation, actionRequest } = payload;
     if (!message && !confirmation && !actionRequest) {
@@ -32,6 +33,7 @@ const handleAiChat = asyncHandler(async (req, res, next) => {
 });
 
 const handleAiChatStream = asyncHandler(async (req, res, next) => {
+    req.clearTimeout?.();
     const payload = resolveAssistantPayload(req);
     const { message, confirmation, actionRequest } = payload;
     if (!message && !confirmation && !actionRequest) {
