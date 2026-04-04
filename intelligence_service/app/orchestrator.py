@@ -67,6 +67,16 @@ APP_PATTERN = (
     "support video",
     "where is",
 )
+GREETING_PREFIXES = (
+    "hi",
+    "hello",
+    "hey",
+    "good morning",
+    "good afternoon",
+    "good evening",
+)
+THANKS_PREFIXES = ("thanks", "thank you", "thx")
+FAREWELL_PREFIXES = ("bye", "goodbye", "see you", "take care")
 
 
 def _normalize_text(value: str) -> str:
@@ -128,6 +138,11 @@ def _contains_any(message: str, patterns: tuple[str, ...]) -> bool:
     return any(pattern in normalized for pattern in patterns)
 
 
+def _starts_with_any(message: str, prefixes: tuple[str, ...]) -> bool:
+    normalized = _normalize_text(message).lower()
+    return any(normalized.startswith(prefix) for prefix in prefixes)
+
+
 def _make_follow_ups(mode: str) -> List[str]:
     if mode == "runtime_grounded":
         return [
@@ -143,6 +158,42 @@ def _make_follow_ups(mode: str) -> List[str]:
         "Ask a repo-grounded question",
         "Ask for a system trace with citations",
     ]
+
+
+def _compose_local_small_talk(message: str) -> str:
+    normalized = _normalize_text(message).lower()
+    if _starts_with_any(normalized, GREETING_PREFIXES):
+        return "Hello! How can I help you today? Please note that this answer is not repo-grounded."
+    if _starts_with_any(normalized, THANKS_PREFIXES):
+        return "You're welcome. If you want, I can also help with repo-grounded traces or app behavior."
+    if _starts_with_any(normalized, FAREWELL_PREFIXES):
+        return "Goodbye. If you come back with a repo or runtime question, I'll be here."
+    return ""
+
+
+def _fallback_model_knowledge_answer(message: str) -> str:
+    small_talk = _compose_local_small_talk(message)
+    if small_talk:
+        return small_talk
+    return (
+        "The live Gemma endpoint is temporarily unavailable, so I cannot answer that beyond the indexed "
+        "app scope right now."
+    )
+
+
+def _fallback_grounded_answer(answer_mode: str, citations: List[Dict[str, Any]], tool_results: List[Dict[str, Any]]) -> str:
+    first_citation = citations[0] if citations else {}
+    first_label = first_citation.get("label") or first_citation.get("path") or "the indexed codebase"
+    if answer_mode == "runtime_grounded":
+        return (
+            "I verified this against runtime evidence and the indexed app graph. "
+            f"The strongest evidence currently points to {first_label}."
+        )
+    if answer_mode == "app_grounded":
+        return f"I verified this against the indexed app bundle. The strongest evidence currently points to {first_label}."
+    if tool_results:
+        return "I could not complete the live model composition step, but the tool layer did return evidence for this request."
+    return "I could not complete the live model composition step, and I cannot verify more than the raw evidence returned."
 
 
 def _coerce_citation(
@@ -877,6 +928,10 @@ class AssistantOrchestrator:
         event_callback: EventCallback | None = None,
         reasoning_model: str,
     ) -> str:
+        local_small_talk = _compose_local_small_talk(message)
+        if local_small_talk and not images:
+            return local_small_talk
+
         system_prompt = (
             "You are Aura's Gemma 4 model-knowledge mode. "
             "Answer the user's question clearly, and explicitly state that the answer is not repo-grounded. "
@@ -900,10 +955,7 @@ class AssistantOrchestrator:
         )
         if generated:
             return generated
-        return (
-            "This question is outside the indexed app scope, and no connected Gemma endpoint is configured in "
-            "this environment, so I cannot provide a trustworthy beyond-scope answer yet."
-        )
+        return _fallback_model_knowledge_answer(message)
 
     async def _compose_grounded_answer(
         self,
@@ -946,12 +998,7 @@ class AssistantOrchestrator:
         )
         if generated:
             return generated
-
-        first_citation = citations[0] if citations else {}
-        first_label = first_citation.get("label") or first_citation.get("path") or "the indexed codebase"
-        if answer_mode == "runtime_grounded":
-            return f"I verified this against runtime evidence and the indexed app graph. The strongest evidence currently points to {first_label}."
-        return f"I verified this against the indexed app bundle. The strongest evidence currently points to {first_label}."
+        return _fallback_grounded_answer(answer_mode, citations, tool_results)
 
     def _resolve_reasoning_model(self, request: AssistantRequest) -> str:
         model = _normalize_text(request.providerConfig.get("reasoningModel", ""))

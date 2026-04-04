@@ -44,6 +44,7 @@ class Settings:
     embedding_model: str
     embedding_vector_size: int
     embedding_batch_size: int
+    provider_timeout_ms: int
     qdrant_api_key: str
     qdrant_url: str
     qdrant_collection_prefix: str
@@ -105,6 +106,7 @@ def load_settings() -> Settings:
         embedding_model=os.getenv("INTELLIGENCE_EMBEDDING_MODEL", "intfloat/multilingual-e5-large").strip(),
         embedding_vector_size=_env_int("INTELLIGENCE_EMBEDDING_VECTOR_SIZE", 256),
         embedding_batch_size=_env_int("INTELLIGENCE_EMBEDDING_BATCH_SIZE", 32),
+        provider_timeout_ms=_env_int("INTELLIGENCE_PROVIDER_TIMEOUT_MS", 25000),
         qdrant_api_key=os.getenv("QDRANT_API_KEY", "").strip(),
         qdrant_url=os.getenv("QDRANT_URL", "").strip(),
         qdrant_collection_prefix=os.getenv("QDRANT_COLLECTION_PREFIX", "aura_code_chunks").strip(),
