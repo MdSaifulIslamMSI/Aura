@@ -89,13 +89,13 @@ test.describe('Mobile Commerce Parity', () => {
         await expect(addToBag).toBeVisible();
         await expect(buyNow).toBeVisible();
 
-        await addToBag.click({ force: true });
+        await addToBag.click();
 
         await expect(page.getByRole('button', {
             name: new RegExp(`increase quantity for ${product.title}`, 'i'),
         }).first()).toBeVisible();
 
-        await buyNow.click({ force: true });
+        await buyNow.click();
         await page.waitForURL(/\/login/, { timeout: 10_000 });
         await expect(page.url()).toContain('/login');
     });
