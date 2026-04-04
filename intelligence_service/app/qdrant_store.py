@@ -114,6 +114,79 @@ class QdrantStore:
             "expectedChunks": len(chunks),
         }
 
+    async def search_chunks(
+        self,
+        *,
+        bundle_version: str,
+        query: str,
+        limit: int = 6,
+        subsystem: str = "",
+    ) -> list[dict[str, Any]]:
+        normalized_bundle_version = str(bundle_version or "").strip() or "dev-local"
+        normalized_query = str(query or "").strip()
+        normalized_subsystem = str(subsystem or "").strip()
+        normalized_limit = max(1, min(int(limit or 6), 12))
+
+        if not self.configured or not normalized_query:
+            return []
+
+        collection_name = self.build_collection_name(normalized_bundle_version)
+        if not await self._collection_exists(collection_name):
+            return []
+
+        query_vectors = await self.embedding_client.embed([normalized_query])
+        query_vector = query_vectors[0] if query_vectors else []
+        if not query_vector:
+            return []
+
+        query_filter = None
+        if normalized_subsystem:
+            query_filter = models.Filter(
+                must=[
+                    models.FieldCondition(
+                        key="subsystem",
+                        match=models.MatchValue(value=normalized_subsystem),
+                    )
+                ]
+            )
+
+        try:
+            search_result = await asyncio.to_thread(
+                self._get_client().search,
+                collection_name=collection_name,
+                query_vector=query_vector,
+                limit=normalized_limit,
+                query_filter=query_filter,
+                with_payload=True,
+            )
+        except Exception:
+            return []
+
+        results: list[dict[str, Any]] = []
+        for point in search_result or []:
+            payload = getattr(point, "payload", {}) or {}
+            path = str(payload.get("path") or "").strip()
+            start_line = int(payload.get("startLine") or 0)
+            label = f"{path}:{start_line}" if path and start_line > 0 else path
+            results.append(
+                {
+                    "id": str(payload.get("chunkId") or getattr(point, "id", "")),
+                    "label": label,
+                    "type": "doc" if str(payload.get("subsystem") or "") == "docs" else "code",
+                    "path": path,
+                    "excerpt": str(payload.get("text") or "").strip(),
+                    "startLine": start_line,
+                    "endLine": int(payload.get("endLine") or 0),
+                    "score": float(getattr(point, "score", 0.0) or 0.0),
+                    "metadata": {
+                        "subsystem": str(payload.get("subsystem") or "").strip(),
+                        "bundleVersion": str(payload.get("bundleVersion") or normalized_bundle_version).strip(),
+                        "keywords": payload.get("keywords", []),
+                    },
+                }
+            )
+        return results
+
     async def _ensure_collection(self, collection_name: str, vector_size: int) -> None:
         if await self._collection_exists(collection_name):
             return

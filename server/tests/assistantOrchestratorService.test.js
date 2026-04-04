@@ -27,10 +27,7 @@ const {
     streamCentralIntelligenceTurn,
 } = require('../services/intelligence/intelligenceGatewayService');
 const { sendMessageToUser } = require('../services/socketService');
-const {
-    processAssistantTurn,
-    streamAssistantTurn,
-} = require('../services/ai/assistantOrchestratorService');
+const { processAssistantTurn, streamAssistantTurn } = require('../services/ai/assistantOrchestratorService');
 
 describe('assistantOrchestratorService', () => {
     beforeEach(() => {
@@ -111,6 +108,53 @@ describe('assistantOrchestratorService', () => {
         });
         expect(confirmed.assistantSession.pendingAction).toBeNull();
         expect(confirmed.assistantSession.executedActionIds).toContain(first.assistantTurn.ui.confirmation.token);
+    });
+
+    test('plain yes can approve a pending action without structured confirmation payload', async () => {
+        getProductByIdentifier.mockResolvedValue({
+            id: 'iphone-15',
+            title: 'Apple iPhone 15',
+            brand: 'Apple',
+            category: 'Mobiles',
+            price: 69999,
+        });
+
+        const first = await processAssistantTurn({
+            message: 'add this to cart',
+            assistantMode: 'chat',
+            context: {
+                currentProductId: 'iphone-15',
+                currentProduct: {
+                    id: 'iphone-15',
+                    title: 'Apple iPhone 15',
+                    brand: 'Apple',
+                    category: 'Mobiles',
+                },
+            },
+        });
+
+        const confirmed = await processAssistantTurn({
+            message: 'yes',
+            assistantMode: 'chat',
+            sessionId: first.assistantSession.sessionId,
+            context: {},
+        });
+
+        expect(confirmed.assistantTurn).toMatchObject({
+            intent: 'cart_action',
+            decision: 'act',
+            actions: [
+                {
+                    type: 'add_to_cart',
+                    productId: 'iphone-15',
+                },
+            ],
+            policy: {
+                decision: 'EXECUTE',
+                reason: 'confirmed_by_user',
+            },
+        });
+        expect(confirmed.assistantSession.pendingAction).toBeNull();
     });
 
     test('explicit checkout action request is confirmed by the backend session policy', async () => {
@@ -231,6 +275,39 @@ describe('assistantOrchestratorService', () => {
         expect(result.answer).toBe('The system-aware intelligence layer is unavailable right now, so I cannot verify repo-grounded details.');
     });
 
+    test('falls back locally for route-style system questions that can be answered without central intelligence', async () => {
+        shouldUseCentralIntelligence.mockReturnValue(true);
+        requestCentralIntelligenceTurn.mockResolvedValue({
+            answer: 'The system-aware intelligence layer is unavailable right now, so I cannot verify repo-grounded details.',
+            assistantTurn: {
+                intent: 'general_knowledge',
+                decision: 'respond',
+                response: 'The system-aware intelligence layer is unavailable right now, so I cannot verify repo-grounded details.',
+                ui: {
+                    surface: 'plain_answer',
+                },
+                followUps: [],
+            },
+            grounding: {
+                status: 'cannot_verify',
+                reason: 'service_unavailable',
+                traceId: 'trace_test',
+            },
+        });
+
+        const result = await processAssistantTurn({
+            message: 'what route opens visual search',
+            assistantMode: 'chat',
+            context: {},
+        });
+
+        expect(result.answer).toBe('The route for Visual Search is /visual-search.');
+        expect(result.assistantTurn).toMatchObject({
+            intent: 'general_knowledge',
+            decision: 'respond',
+        });
+    });
+
     test('streams early message metadata and schedules a refined socket upgrade for authenticated hybrid replies', async () => {
         shouldUseCentralIntelligence.mockReturnValue(true);
         requestCentralIntelligenceTurn.mockResolvedValue({
@@ -250,16 +327,17 @@ describe('assistantOrchestratorService', () => {
                 ],
                 verification: {
                     label: 'app_grounded',
-                    summary: 'Verified.',
+                    summary: 'Verified against the product graph.',
                 },
-            },
-            grounding: {
-                status: 'verified',
-                traceId: 'trace_refined',
+                toolRuns: [],
             },
             providerInfo: {
-                name: 'central-intelligence',
-                model: 'gemma',
+                name: 'central',
+                model: 'gemma-4-refined',
+            },
+            grounding: {
+                status: 'grounded',
+                traceId: 'trace_hybrid_upgrade',
             },
         });
 
@@ -277,8 +355,8 @@ describe('assistantOrchestratorService', () => {
             },
         });
 
-        expect(events[0]).toMatchObject({
-            eventName: 'message_meta',
+        const messageMetaEvent = events.find((entry) => entry.eventName === 'message_meta');
+        expect(messageMetaEvent).toMatchObject({
             payload: {
                 sessionId: 'client-session-1',
                 messageId: 'client-message-1',
@@ -324,8 +402,8 @@ describe('assistantOrchestratorService', () => {
             },
         });
 
-        expect(events[0]).toMatchObject({
-            eventName: 'message_meta',
+        const messageMetaEvent = events.find((entry) => entry.eventName === 'message_meta');
+        expect(messageMetaEvent).toMatchObject({
             payload: {
                 sessionId: 'client-session-2',
                 messageId: 'client-message-2',
@@ -340,5 +418,6 @@ describe('assistantOrchestratorService', () => {
             upgradeEligible: false,
         });
         expect(sendMessageToUser).not.toHaveBeenCalled();
+        expect(streamCentralIntelligenceTurn).not.toHaveBeenCalled();
     });
 });
