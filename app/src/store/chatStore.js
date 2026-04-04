@@ -1,15 +1,118 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
-const CHAT_STORAGE_KEY = 'aura-shopper-chat-v3';
-const MAX_PERSISTED_MESSAGES = 24;
+const CHAT_STORAGE_KEY = 'aura-shopper-chat-v4';
+const LEGACY_CHAT_STORAGE_KEY = 'aura-shopper-chat-v3';
+const MAX_PERSISTED_MESSAGES = 36;
 const MAX_VISIBLE_ACTIONS = 3;
+const DEFAULT_SESSION_TITLE = 'New chat';
+const DEFAULT_SESSION_PREVIEW = 'Start a new assistant thread.';
+const SESSION_GROUPS = ['today', 'yesterday', 'last7Days', 'older'];
 
 const createMessageId = () => `chat-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+const createSessionId = () => `session-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+const safeString = (value = '', fallback = '') => String(value ?? fallback).trim();
+const trimMessages = (messages = []) => (Array.isArray(messages) ? messages.slice(-MAX_PERSISTED_MESSAGES) : []);
+const truncateText = (value = '', max = 80) => {
+    const normalized = safeString(value);
+    if (!normalized) return '';
+    return normalized.length > max ? `${normalized.slice(0, Math.max(max - 3, 1)).trim()}...` : normalized;
+};
 
-const trimMessages = (messages = []) => messages.slice(-MAX_PERSISTED_MESSAGES);
+const normalizeProductId = (product = {}) => safeString(product?.id || product?._id || '');
 
-const normalizeProductId = (product = {}) => String(product?.id || product?._id || '').trim();
+const sortSessions = (sessions = []) => (
+    [...sessions].sort((left, right) => {
+        if (Boolean(left?.pinned) !== Boolean(right?.pinned)) {
+            return left?.pinned ? -1 : 1;
+        }
+
+        return Number(right?.updatedAt || 0) - Number(left?.updatedAt || 0);
+    })
+);
+
+const normalizeTimestamp = (value, fallback = Date.now()) => {
+    const numeric = Number(value || 0);
+    return Number.isFinite(numeric) && numeric > 0 ? numeric : fallback;
+};
+
+const startOfDay = (value = Date.now()) => {
+    const date = new Date(value);
+    date.setHours(0, 0, 0, 0);
+    return date.getTime();
+};
+
+const differenceInDays = (left = Date.now(), right = Date.now()) => (
+    Math.floor((startOfDay(left) - startOfDay(right)) / (24 * 60 * 60 * 1000))
+);
+
+const getSessionGroupKey = (updatedAt = Date.now(), now = Date.now()) => {
+    const daysAgo = differenceInDays(now, updatedAt);
+
+    if (daysAgo <= 0) return 'today';
+    if (daysAgo === 1) return 'yesterday';
+    if (daysAgo <= 7) return 'last7Days';
+    return 'older';
+};
+
+export const generateSessionTitle = (firstUserMessage = '') => {
+    const normalized = safeString(firstUserMessage);
+    if (!normalized) {
+        return DEFAULT_SESSION_TITLE;
+    }
+
+    return truncateText(normalized.replace(/\s+/g, ' '), 34);
+};
+
+export const buildSessionPreview = (messages = []) => {
+    const latestVisibleMessage = [...(Array.isArray(messages) ? messages : [])]
+        .reverse()
+        .find((message) => safeString(message?.text || message?.content || ''));
+
+    if (!latestVisibleMessage) {
+        return DEFAULT_SESSION_PREVIEW;
+    }
+
+    const prefix = latestVisibleMessage.role === 'user' ? 'You: ' : '';
+    return truncateText(`${prefix}${safeString(latestVisibleMessage.text || latestVisibleMessage.content || '')}`, 96);
+};
+
+export const filterChatSessions = (sessions = [], query = '') => {
+    const normalizedQuery = safeString(query).toLowerCase();
+    if (!normalizedQuery) {
+        return [...sessions];
+    }
+
+    return sessions.filter((session) => (
+        `${safeString(session?.title)} ${safeString(session?.preview)} ${safeString(session?.originPath)}`
+            .toLowerCase()
+            .includes(normalizedQuery)
+    ));
+};
+
+export const groupChatSessionsByRecency = (sessions = [], now = Date.now()) => {
+    const grouped = new Map(SESSION_GROUPS.map((key) => [key, []]));
+
+    sortSessions(sessions).forEach((session) => {
+        const bucket = getSessionGroupKey(session?.updatedAt, now);
+        const currentBucket = grouped.get(bucket) || [];
+        currentBucket.push(session);
+        grouped.set(bucket, currentBucket);
+    });
+
+    return [
+        { key: 'today', label: 'Today', sessions: grouped.get('today') || [] },
+        { key: 'yesterday', label: 'Yesterday', sessions: grouped.get('yesterday') || [] },
+        { key: 'last7Days', label: 'Last 7 days', sessions: grouped.get('last7Days') || [] },
+        { key: 'older', label: 'Older', sessions: grouped.get('older') || [] },
+    ].filter((group) => group.sessions.length > 0);
+};
+
+const uniqueStrings = (values = []) => [...new Set(
+    (Array.isArray(values) ? values : [])
+        .map((entry) => safeString(entry))
+        .filter(Boolean)
+)];
 
 const surfaceToMode = (surface = 'plain_answer') => {
     switch (surface) {
@@ -27,11 +130,17 @@ const surfaceToMode = (surface = 'plain_answer') => {
 };
 
 export const createAssistantMessage = (payload = {}) => ({
-    id: createMessageId(),
+    id: safeString(payload?.id || createMessageId()),
     role: 'assistant',
     text: '',
     createdAt: Date.now(),
     isStreaming: false,
+    status: 'complete',
+    provisional: false,
+    upgraded: false,
+    upgradeEligible: false,
+    traceId: '',
+    decision: '',
     mode: 'explore',
     uiSurface: 'plain_answer',
     assistantTurn: null,
@@ -46,15 +155,17 @@ export const createAssistantMessage = (payload = {}) => ({
     ...payload,
 });
 
-export const createUserMessage = (text = '') => ({
-    id: createMessageId(),
+export const createUserMessage = (text = '', payload = {}) => ({
+    id: safeString(payload?.id || createMessageId()),
     role: 'user',
-    text: String(text || '').trim(),
-    createdAt: Date.now(),
+    text: safeString(text || payload?.text || payload?.content || ''),
+    createdAt: normalizeTimestamp(payload?.createdAt, Date.now()),
+    status: safeString(payload?.status || 'complete') || 'complete',
+    ...payload,
 });
 
 export const createWelcomeMessage = () => createAssistantMessage({
-    text: 'Tell me what you want to buy. I will keep the next step focused.',
+    text: 'Ask about products, a cart review, support handoff, or a live app flow. I will keep the next step controlled.',
     mode: 'explore',
     uiSurface: 'plain_answer',
 });
@@ -120,35 +231,56 @@ const createInitialContext = () => ({
     sessionMemory: createInitialSessionMemory(),
 });
 
-const createInitialState = () => ({
-    mode: 'explore',
-    status: 'idle',
-    isOpen: false,
-    isLoading: false,
-    inputValue: '',
-    messages: [createWelcomeMessage()],
-    visibleProducts: [],
-    context: createInitialContext(),
-    primaryAction: null,
-    secondaryActions: [],
-    supportPrefill: null,
-    currentIntent: null,
-    pendingAction: null,
-    pendingConfirmation: null,
-    lastAssistantTurn: null,
+const buildPreservedContext = (context = {}) => ({
+    route: safeString(context?.route || '/', '/'),
+    cartCount: Math.max(0, Number(context?.cartCount || 0)),
+    isAuthenticated: Boolean(context?.isAuthenticated),
+    lastOrderId: safeString(context?.lastOrderId || ''),
 });
 
-const createSafeStorage = () => createJSONStorage(() => {
-    if (typeof window !== 'undefined' && window.localStorage) {
-        return window.localStorage;
+const mergeContexts = (currentContext = {}, partial = {}, fallbackSessionId = '') => ({
+    ...currentContext,
+    ...(partial || {}),
+    assistantSession: {
+        ...(currentContext?.assistantSession || createInitialAssistantSession()),
+        ...(partial?.assistantSession || {}),
+        sessionId: safeString(
+            partial?.assistantSession?.sessionId
+            || currentContext?.assistantSession?.sessionId
+            || fallbackSessionId
+            || ''
+        ),
+    },
+    sessionMemory: {
+        ...(currentContext?.sessionMemory || createInitialSessionMemory()),
+        ...(partial?.sessionMemory || {}),
+    },
+});
+
+const normalizeMessage = (message = {}) => {
+    const role = safeString(message?.role || 'assistant').toLowerCase();
+    if (role === 'user') {
+        return createUserMessage(message?.text || message?.content || '', {
+            ...message,
+            id: safeString(message?.id || createMessageId()),
+            createdAt: normalizeTimestamp(message?.createdAt, Date.now()),
+        });
     }
 
-    return {
-        getItem: () => null,
-        setItem: () => undefined,
-        removeItem: () => undefined,
-    };
-});
+    return createAssistantMessage({
+        ...message,
+        id: safeString(message?.id || createMessageId()),
+        text: safeString(message?.text || message?.content || ''),
+        createdAt: normalizeTimestamp(message?.createdAt, Date.now()),
+        status: safeString(message?.status || 'complete') || 'complete',
+        provisional: Boolean(message?.provisional),
+        upgraded: Boolean(message?.upgraded),
+        upgradeEligible: Boolean(message?.upgradeEligible),
+        decision: safeString(message?.decision || ''),
+        traceId: safeString(message?.traceId || ''),
+        isStreaming: Boolean(message?.isStreaming),
+    });
+};
 
 const normalizeActionList = (actions = [], primaryAction = null) => {
     const limit = primaryAction ? MAX_VISIBLE_ACTIONS - 1 : MAX_VISIBLE_ACTIONS;
@@ -161,30 +293,98 @@ const buildCandidateProductIds = (products = []) => (
         .filter(Boolean)
 );
 
-const mergeState = (persistedState, currentState) => {
-    const nextState = persistedState?.state || persistedState || {};
-    const mergedMessages = Array.isArray(nextState.messages) && nextState.messages.length > 0
-        ? trimMessages(nextState.messages)
-        : currentState.messages;
+const createSessionConversationState = ({
+    sessionId = '',
+    preservedContext = {},
+    messages = [createWelcomeMessage()],
+    ...overrides
+} = {}) => {
+    const initialContext = {
+        ...createInitialContext(),
+        ...buildPreservedContext(preservedContext),
+    };
+    initialContext.assistantSession = {
+        ...initialContext.assistantSession,
+        sessionId: safeString(sessionId || initialContext.assistantSession?.sessionId || ''),
+    };
 
     return {
-        ...currentState,
-        ...nextState,
-        messages: mergedMessages,
-        visibleProducts: Array.isArray(nextState.visibleProducts) ? nextState.visibleProducts : currentState.visibleProducts,
-        context: {
-            ...currentState.context,
-            ...(nextState.context || {}),
-            assistantSession: {
-                ...currentState.context.assistantSession,
-                ...(nextState.context?.assistantSession || {}),
-            },
-            sessionMemory: {
-                ...currentState.context.sessionMemory,
-                ...(nextState.context?.sessionMemory || {}),
-            },
-        },
-        secondaryActions: Array.isArray(nextState.secondaryActions) ? nextState.secondaryActions : currentState.secondaryActions,
+        mode: 'explore',
+        status: 'idle',
+        isLoading: false,
+        inputValue: '',
+        messages: trimMessages(messages.map((message) => normalizeMessage(message))),
+        visibleProducts: [],
+        context: initialContext,
+        primaryAction: null,
+        secondaryActions: [],
+        supportPrefill: null,
+        currentIntent: null,
+        pendingAction: null,
+        pendingConfirmation: null,
+        lastAssistantTurn: null,
+        pendingUpgradeMessageIds: [],
+        ...overrides,
+    };
+};
+
+const createSessionMeta = ({
+    id = createSessionId(),
+    title = DEFAULT_SESSION_TITLE,
+    preview = DEFAULT_SESSION_PREVIEW,
+    createdAt = Date.now(),
+    updatedAt = createdAt,
+    pinned = false,
+    originPath = '/',
+} = {}) => ({
+    id,
+    title: safeString(title || DEFAULT_SESSION_TITLE, DEFAULT_SESSION_TITLE),
+    preview: safeString(preview || DEFAULT_SESSION_PREVIEW, DEFAULT_SESSION_PREVIEW),
+    createdAt: normalizeTimestamp(createdAt, Date.now()),
+    updatedAt: normalizeTimestamp(updatedAt, createdAt),
+    pinned: Boolean(pinned),
+    originPath: safeString(originPath || '/', '/'),
+});
+
+const createSessionBundle = ({ originPath = '/', preservedContext = {} } = {}) => {
+    const now = Date.now();
+    const meta = createSessionMeta({
+        id: createSessionId(),
+        originPath,
+        createdAt: now,
+        updatedAt: now,
+    });
+
+    const state = createSessionConversationState({
+        sessionId: meta.id,
+        preservedContext,
+    });
+
+    return {
+        meta,
+        state,
+    };
+};
+
+const coerceSessionConversationState = (value = {}, preservedContext = {}, fallbackSessionId = '') => {
+    const base = createSessionConversationState({
+        sessionId: fallbackSessionId,
+        preservedContext,
+    });
+
+    return {
+        ...base,
+        ...value,
+        status: safeString(value?.status || base.status) || base.status,
+        isLoading: Boolean(value?.isLoading || ['thinking', 'executing'].includes(value?.status)),
+        inputValue: String(value?.inputValue || ''),
+        messages: Array.isArray(value?.messages) && value.messages.length > 0
+            ? trimMessages(value.messages.map((message) => normalizeMessage(message)))
+            : base.messages,
+        visibleProducts: Array.isArray(value?.visibleProducts) ? value.visibleProducts.slice(0, 4) : base.visibleProducts,
+        context: mergeContexts(base.context, value?.context || {}, fallbackSessionId),
+        secondaryActions: Array.isArray(value?.secondaryActions) ? value.secondaryActions : base.secondaryActions,
+        pendingUpgradeMessageIds: uniqueStrings(value?.pendingUpgradeMessageIds || base.pendingUpgradeMessageIds),
     };
 };
 
@@ -194,7 +394,25 @@ const deriveMessageMode = ({ mode, assistantTurn, products = [] } = {}) => {
     return Array.isArray(products) && products.length === 1 ? 'product' : 'explore';
 };
 
+const buildAssistantTurnMeta = (nextAssistantTurn = {}, existingAssistantTurn = {}) => {
+    const nextCitations = Array.isArray(nextAssistantTurn?.citations) ? nextAssistantTurn.citations : [];
+    const nextToolRuns = Array.isArray(nextAssistantTurn?.toolRuns) ? nextAssistantTurn.toolRuns : [];
+    const nextVerification = nextAssistantTurn?.verification && typeof nextAssistantTurn.verification === 'object'
+        ? nextAssistantTurn.verification
+        : null;
+
+    return {
+        ...(existingAssistantTurn || {}),
+        ...(nextAssistantTurn || {}),
+        citations: nextCitations.length > 0 ? nextCitations : (existingAssistantTurn?.citations || []),
+        toolRuns: nextToolRuns.length > 0 ? nextToolRuns : (existingAssistantTurn?.toolRuns || []),
+        verification: nextVerification || existingAssistantTurn?.verification || null,
+    };
+};
+
 const buildAssistantMessage = ({
+    id,
+    createdAt,
     text = '',
     mode,
     products = [],
@@ -206,21 +424,37 @@ const buildAssistantMessage = ({
     assistantTurn = null,
     grounding = null,
     providerInfo = null,
-}) => {
+    provisional = false,
+    upgraded = false,
+    upgradeEligible = false,
+    status = 'complete',
+    traceId = '',
+    decision = '',
+} = {}) => {
     const safeProducts = Array.isArray(products) ? products.slice(0, 4) : [];
     const resolvedProduct = product || safeProducts[0] || null;
     const resolvedMode = deriveMessageMode({
         mode,
         assistantTurn,
-        products: resolvedProduct ? [resolvedProduct, ...safeProducts.filter((item) => normalizeProductId(item) !== normalizeProductId(resolvedProduct))] : safeProducts,
+        products: resolvedProduct
+            ? [resolvedProduct, ...safeProducts.filter((item) => normalizeProductId(item) !== normalizeProductId(resolvedProduct))]
+            : safeProducts,
     });
 
     return createAssistantMessage({
-        text,
+        id: safeString(id || createMessageId()),
+        createdAt: normalizeTimestamp(createdAt, Date.now()),
+        text: safeString(text || assistantTurn?.response || ''),
         isStreaming: false,
+        status: safeString(status || 'complete') || 'complete',
+        provisional: Boolean(provisional),
+        upgraded: Boolean(upgraded),
+        upgradeEligible: Boolean(upgradeEligible),
+        traceId: safeString(traceId || grounding?.traceId || ''),
+        decision: safeString(decision || assistantTurn?.decision || ''),
         mode: resolvedMode,
         uiSurface: assistantTurn?.ui?.surface || 'plain_answer',
-        assistantTurn,
+        assistantTurn: assistantTurn ? buildAssistantTurnMeta(assistantTurn) : null,
         product: resolvedProduct,
         products: safeProducts,
         cartSummary,
@@ -236,18 +470,19 @@ const shouldCoalesceAssistantMessage = (lastMessage = null, nextMessage = null) 
     if (!lastMessage || !nextMessage) return false;
     if (lastMessage.role !== 'assistant' || nextMessage.role !== 'assistant') return false;
     if (lastMessage.isStreaming || nextMessage.isStreaming) return false;
+    if (lastMessage.upgraded || nextMessage.upgraded) return false;
 
-    const lastText = String(lastMessage.text || '').trim();
-    const nextText = String(nextMessage.text || '').trim();
-    const lastSurface = String(lastMessage.uiSurface || lastMessage.assistantTurn?.ui?.surface || '').trim();
-    const nextSurface = String(nextMessage.uiSurface || nextMessage.assistantTurn?.ui?.surface || '').trim();
+    const lastText = safeString(lastMessage.text || '');
+    const nextText = safeString(nextMessage.text || '');
+    const lastSurface = safeString(lastMessage.uiSurface || lastMessage.assistantTurn?.ui?.surface || '');
+    const nextSurface = safeString(nextMessage.uiSurface || nextMessage.assistantTurn?.ui?.surface || '');
 
     return Boolean(lastText && nextText && lastText === nextText && lastSurface === nextSurface);
 };
 
 const updateToolRunsForStream = (toolRuns = [], event = {}) => {
     const currentRuns = Array.isArray(toolRuns) ? [...toolRuns] : [];
-    const toolName = String(event?.toolName || '').trim();
+    const toolName = safeString(event?.toolName || '');
     if (!toolName) {
         return currentRuns;
     }
@@ -259,7 +494,7 @@ const updateToolRunsForStream = (toolRuns = [], event = {}) => {
             toolName,
             status: 'running',
             latencyMs: 0,
-            summary: String(event?.summary || '').trim(),
+            summary: safeString(event?.summary || ''),
             inputPreview: event?.input || event?.inputPreview || {},
             outputPreview: {},
         };
@@ -278,7 +513,7 @@ const updateToolRunsForStream = (toolRuns = [], event = {}) => {
             ...currentRuns[runningIndex],
             ...event,
             toolName,
-            status: String(event?.status || 'completed').trim() || 'completed',
+            status: safeString(event?.status || 'completed') || 'completed',
         };
         return currentRuns;
     }
@@ -288,19 +523,19 @@ const updateToolRunsForStream = (toolRuns = [], event = {}) => {
         {
             ...event,
             toolName,
-            status: String(event?.status || 'completed').trim() || 'completed',
+            status: safeString(event?.status || 'completed') || 'completed',
         },
     ];
 };
 
 const appendStreamCitation = (citations = [], citation = {}) => {
     const currentCitations = Array.isArray(citations) ? [...citations] : [];
-    const nextCitationId = String(citation?.id || `${citation?.path || ''}:${citation?.startLine || 0}`).trim();
+    const nextCitationId = safeString(citation?.id || `${citation?.path || ''}:${citation?.startLine || 0}`);
     if (!nextCitationId) {
         return currentCitations;
     }
 
-    const existingIndex = currentCitations.findIndex((entry) => String(entry?.id || '').trim() === nextCitationId);
+    const existingIndex = currentCitations.findIndex((entry) => safeString(entry?.id || '') === nextCitationId);
     if (existingIndex >= 0) {
         currentCitations[existingIndex] = {
             ...currentCitations[existingIndex],
@@ -312,179 +547,951 @@ const appendStreamCitation = (citations = [], citation = {}) => {
     return [...currentCitations, citation];
 };
 
+const createSafeStorage = () => createJSONStorage(() => {
+    if (typeof window !== 'undefined' && window.localStorage) {
+        return window.localStorage;
+    }
+
+    return {
+        getItem: () => null,
+        setItem: () => undefined,
+        removeItem: () => undefined,
+    };
+});
+
+const getSessionMetaById = (sessions = [], sessionId = '') => (
+    sortSessions(sessions).find((session) => session.id === safeString(sessionId)) || null
+);
+
+const refreshSessionMeta = (meta = {}, sessionState = {}, overrides = {}) => ({
+    ...meta,
+    ...overrides,
+    id: safeString(meta?.id || overrides?.id || createSessionId()),
+    title: safeString(
+        overrides?.title !== undefined ? overrides.title : (meta?.title || DEFAULT_SESSION_TITLE),
+        DEFAULT_SESSION_TITLE,
+    ),
+    preview: safeString(
+        overrides?.preview !== undefined ? overrides.preview : buildSessionPreview(sessionState?.messages),
+        DEFAULT_SESSION_PREVIEW,
+    ) || DEFAULT_SESSION_PREVIEW,
+    createdAt: normalizeTimestamp(overrides?.createdAt, meta?.createdAt || Date.now()),
+    updatedAt: normalizeTimestamp(overrides?.updatedAt, Date.now()),
+    pinned: overrides?.pinned !== undefined ? Boolean(overrides.pinned) : Boolean(meta?.pinned),
+    originPath: safeString(
+        overrides?.originPath !== undefined
+            ? overrides.originPath
+            : (sessionState?.context?.route || meta?.originPath || '/'),
+        '/',
+    ),
+});
+
+const ensureSessionCollections = (state = {}) => {
+    const nextSessionStateById = {};
+    const rawSessionStateById = state?.sessionStateById && typeof state.sessionStateById === 'object'
+        ? state.sessionStateById
+        : {};
+    let sessions = Array.isArray(state?.sessions) ? state.sessions.map((session) => createSessionMeta(session)) : [];
+
+    sessions.forEach((meta) => {
+        nextSessionStateById[meta.id] = coerceSessionConversationState(
+            rawSessionStateById[meta.id] || {},
+            buildPreservedContext(rawSessionStateById[meta.id]?.context || { route: meta.originPath || '/' }),
+            meta.id,
+        );
+    });
+
+    Object.keys(rawSessionStateById).forEach((sessionId) => {
+        if (sessions.some((session) => session.id === sessionId)) {
+            return;
+        }
+
+        const sessionState = coerceSessionConversationState(
+            rawSessionStateById[sessionId] || {},
+            buildPreservedContext(rawSessionStateById[sessionId]?.context || {}),
+            sessionId,
+        );
+        nextSessionStateById[sessionId] = sessionState;
+        sessions.push(createSessionMeta({
+            id: sessionId,
+            title: generateSessionTitle(sessionState.messages.find((message) => message.role === 'user')?.text || ''),
+            preview: buildSessionPreview(sessionState.messages),
+            originPath: sessionState.context?.route || '/',
+            createdAt: normalizeTimestamp(sessionState.messages[0]?.createdAt, Date.now()),
+            updatedAt: normalizeTimestamp(
+                sessionState.messages[sessionState.messages.length - 1]?.createdAt,
+                Date.now(),
+            ),
+        }));
+    });
+
+    if (sessions.length === 0) {
+        const bundle = createSessionBundle();
+        sessions = [bundle.meta];
+        nextSessionStateById[bundle.meta.id] = bundle.state;
+    }
+
+    sessions = sortSessions(sessions.map((meta) => refreshSessionMeta(
+        meta,
+        nextSessionStateById[meta.id] || createSessionConversationState({
+            sessionId: meta.id,
+            preservedContext: {
+                route: meta.originPath || '/',
+            },
+        }),
+        {
+            title: safeString(meta?.title || DEFAULT_SESSION_TITLE, DEFAULT_SESSION_TITLE),
+            preview: safeString(meta?.preview || DEFAULT_SESSION_PREVIEW, DEFAULT_SESSION_PREVIEW),
+            createdAt: normalizeTimestamp(meta?.createdAt, Date.now()),
+            updatedAt: normalizeTimestamp(meta?.updatedAt, Date.now()),
+        },
+    )));
+
+    return {
+        sessions,
+        sessionStateById: nextSessionStateById,
+    };
+};
+
+const syncDerivedSessionState = (state = {}) => {
+    const { sessions, sessionStateById } = ensureSessionCollections(state);
+    const activeSessionId = safeString(state?.activeSessionId || sessions[0]?.id);
+    const activeSession = getSessionMetaById(sessions, activeSessionId) || sessions[0];
+    const activeConversationState = coerceSessionConversationState(
+        sessionStateById[activeSession.id] || {},
+        buildPreservedContext(sessionStateById[activeSession.id]?.context || { route: activeSession.originPath || '/' }),
+        activeSession.id,
+    );
+    const sessionSearchQuery = safeString(state?.sessionSearchQuery || '');
+    const visibleSessions = sortSessions(filterChatSessions(sessions, sessionSearchQuery));
+    const groupedSessions = groupChatSessionsByRecency(visibleSessions);
+    const isTyping = Boolean(
+        activeConversationState.isLoading
+        || activeConversationState.messages.some((message) => (
+            message?.role === 'assistant' && (message?.isStreaming || message?.status === 'thinking')
+        ))
+    );
+
+    return {
+        ...state,
+        activeSessionId: activeSession.id,
+        activeSession,
+        sessions,
+        sessionStateById: {
+            ...sessionStateById,
+            [activeSession.id]: activeConversationState,
+        },
+        sessionSearchQuery,
+        visibleSessions,
+        groupedSessions,
+        mode: activeConversationState.mode,
+        status: activeConversationState.status,
+        isLoading: activeConversationState.isLoading,
+        isTyping,
+        inputValue: activeConversationState.inputValue,
+        messages: activeConversationState.messages,
+        visibleProducts: activeConversationState.visibleProducts,
+        context: activeConversationState.context,
+        primaryAction: activeConversationState.primaryAction,
+        secondaryActions: activeConversationState.secondaryActions,
+        supportPrefill: activeConversationState.supportPrefill,
+        currentIntent: activeConversationState.currentIntent,
+        pendingAction: activeConversationState.pendingAction,
+        pendingConfirmation: activeConversationState.pendingConfirmation,
+        lastAssistantTurn: activeConversationState.lastAssistantTurn,
+    };
+};
+
+const replaceSessionConversationState = (state = {}, sessionId = '', nextConversationState = {}, metaOverrides = {}) => {
+    const targetSessionId = safeString(sessionId || state?.activeSessionId);
+    const currentMeta = getSessionMetaById(state?.sessions, targetSessionId);
+    if (!currentMeta) {
+        return syncDerivedSessionState(state);
+    }
+
+    const normalizedConversationState = coerceSessionConversationState(
+        nextConversationState,
+        buildPreservedContext(nextConversationState?.context || { route: currentMeta.originPath || '/' }),
+        targetSessionId,
+    );
+    const nextMeta = refreshSessionMeta(currentMeta, normalizedConversationState, metaOverrides);
+
+    return syncDerivedSessionState({
+        ...state,
+        sessions: sortSessions(state.sessions.map((session) => (
+            session.id === targetSessionId ? nextMeta : session
+        ))),
+        sessionStateById: {
+            ...state.sessionStateById,
+            [targetSessionId]: normalizedConversationState,
+        },
+    });
+};
+
+const updateSessionConversationState = (state = {}, sessionId = '', updater = (value) => value, metaOverrides = {}) => {
+    const targetSessionId = safeString(sessionId || state?.activeSessionId);
+    const currentMeta = getSessionMetaById(state?.sessions, targetSessionId);
+    if (!currentMeta) {
+        return syncDerivedSessionState(state);
+    }
+
+    const currentConversationState = coerceSessionConversationState(
+        state.sessionStateById?.[targetSessionId] || {},
+        buildPreservedContext(state.sessionStateById?.[targetSessionId]?.context || { route: currentMeta.originPath || '/' }),
+        targetSessionId,
+    );
+    const updatedConversationState = typeof updater === 'function'
+        ? updater(currentConversationState, currentMeta, state)
+        : currentConversationState;
+
+    return replaceSessionConversationState(
+        state,
+        targetSessionId,
+        updatedConversationState || currentConversationState,
+        metaOverrides,
+    );
+};
+
+const applyAssistantTurnToConversationState = (sessionState = {}, payload = {}, { replaceMessageId = '' } = {}) => {
+    const safeProducts = Array.isArray(payload?.products) ? payload.products.slice(0, 4) : [];
+    const resolvedProduct = payload?.product || safeProducts[0] || null;
+    const resolvedMode = deriveMessageMode({
+        mode: payload?.mode,
+        assistantTurn: payload?.assistantTurn,
+        products: safeProducts,
+    });
+    const candidateProductIds = buildCandidateProductIds(
+        resolvedProduct ? [resolvedProduct, ...safeProducts] : safeProducts,
+    );
+    const resolvedActiveProductId = payload?.activeProductId !== undefined
+        ? payload.activeProductId
+        : resolvedMode === 'product'
+            ? normalizeProductId(resolvedProduct) || candidateProductIds[0] || null
+            : resolvedMode === 'explore'
+                ? null
+                : sessionState?.context?.activeProductId;
+    const nextPendingConfirmation = payload?.assistantTurn?.ui?.confirmation
+        ? payload.assistantTurn.ui.confirmation
+        : (payload?.confirmation || null);
+    const assistantSessionMemory = payload?.assistantTurn?.sessionMemory && typeof payload.assistantTurn.sessionMemory === 'object'
+        ? payload.assistantTurn.sessionMemory
+        : null;
+    const resolvedAssistantSession = payload?.assistantSession && typeof payload.assistantSession === 'object'
+        ? payload.assistantSession
+        : payload?.assistantTurn?.assistantSession && typeof payload.assistantTurn.assistantSession === 'object'
+            ? payload.assistantTurn.assistantSession
+            : null;
+    const nextSessionMemory = {
+        ...sessionState.context.sessionMemory,
+        ...(assistantSessionMemory || {}),
+        lastQuery: assistantSessionMemory?.lastQuery ?? sessionState.context.sessionMemory.lastQuery,
+        lastResults: Array.isArray(assistantSessionMemory?.lastResults)
+            ? assistantSessionMemory.lastResults
+            : sessionState.context.sessionMemory.lastResults,
+        activeProduct: assistantSessionMemory?.activeProduct ?? sessionState.context.sessionMemory.activeProduct,
+        lastIntent: assistantSessionMemory?.lastIntent
+            || assistantSessionMemory?.currentIntent
+            || payload?.assistantTurn?.intent
+            || sessionState.context.sessionMemory.lastIntent
+            || sessionState.context.sessionMemory.currentIntent,
+        currentIntent: assistantSessionMemory?.lastIntent
+            || assistantSessionMemory?.currentIntent
+            || payload?.assistantTurn?.intent
+            || sessionState.context.sessionMemory.lastIntent
+            || sessionState.context.sessionMemory.currentIntent,
+        clarificationState: assistantSessionMemory?.clarificationState
+            || sessionState.context.sessionMemory.clarificationState,
+        lastActionFingerprint: assistantSessionMemory?.lastActionFingerprint
+            ?? sessionState.context.sessionMemory.lastActionFingerprint,
+        lastActionAt: assistantSessionMemory?.lastActionAt
+            ?? sessionState.context.sessionMemory.lastActionAt,
+    };
+
+    const nextMessage = buildAssistantMessage({
+        id: payload?.id,
+        text: safeString(payload?.text || payload?.assistantTurn?.response || ''),
+        mode: resolvedMode,
+        products: safeProducts,
+        product: resolvedProduct,
+        cartSummary: payload?.cartSummary || null,
+        supportPrefill: payload?.supportPrefill || null,
+        confirmation: payload?.confirmation || null,
+        navigation: payload?.navigation || null,
+        assistantTurn: payload?.assistantTurn || null,
+        grounding: payload?.grounding || null,
+        providerInfo: payload?.providerInfo || null,
+        provisional: Boolean(payload?.provisional),
+        upgraded: Boolean(payload?.upgraded),
+        upgradeEligible: Boolean(payload?.upgradeEligible),
+        status: safeString(payload?.status || 'complete') || 'complete',
+        traceId: safeString(payload?.traceId || ''),
+        decision: safeString(payload?.decision || ''),
+    });
+
+    let nextMessages = trimMessages(sessionState.messages);
+    let targetMessageId = nextMessage.id;
+
+    if (replaceMessageId) {
+        const existingMessage = nextMessages.find((message) => message.id === replaceMessageId) || null;
+        const replacement = existingMessage
+            ? {
+                ...nextMessage,
+                id: replaceMessageId,
+                createdAt: existingMessage.createdAt,
+            }
+            : nextMessage;
+        targetMessageId = replacement.id;
+        nextMessages = existingMessage
+            ? nextMessages.map((message) => (message.id === replaceMessageId ? replacement : message))
+            : [...nextMessages, replacement];
+    } else {
+        const lastMessage = nextMessages[nextMessages.length - 1] || null;
+        nextMessages = shouldCoalesceAssistantMessage(lastMessage, nextMessage)
+            ? [
+                ...nextMessages.slice(0, -1),
+                {
+                    ...nextMessage,
+                    id: lastMessage.id,
+                    createdAt: lastMessage.createdAt,
+                },
+            ]
+            : [...nextMessages, nextMessage];
+        targetMessageId = nextMessages[nextMessages.length - 1]?.id || nextMessage.id;
+    }
+
+    const nextPendingUpgradeMessageIds = payload?.upgradeEligible
+        ? uniqueStrings([
+            ...sessionState.pendingUpgradeMessageIds.filter((entry) => entry !== targetMessageId),
+            targetMessageId,
+        ])
+        : sessionState.pendingUpgradeMessageIds.filter((entry) => entry !== targetMessageId);
+
+    return {
+        ...sessionState,
+        mode: resolvedMode,
+        status: 'idle',
+        isLoading: false,
+        messages: trimMessages(nextMessages),
+        visibleProducts: safeProducts,
+        primaryAction: payload?.primaryAction || null,
+        secondaryActions: normalizeActionList(payload?.secondaryActions, payload?.primaryAction || null),
+        supportPrefill: payload?.supportPrefill || null,
+        currentIntent: payload?.assistantTurn?.intent || sessionState.currentIntent,
+        pendingAction: payload?.pendingAction ?? null,
+        pendingConfirmation: nextPendingConfirmation,
+        lastAssistantTurn: payload?.assistantTurn || sessionState.lastAssistantTurn,
+        pendingUpgradeMessageIds: nextPendingUpgradeMessageIds,
+        context: {
+            ...sessionState.context,
+            candidateProductIds,
+            activeProductId: resolvedActiveProductId,
+            lastOrderId: payload?.assistantTurn?.ui?.support?.orderId || sessionState.context.lastOrderId,
+            assistantSession: resolvedAssistantSession
+                ? {
+                    ...sessionState.context.assistantSession,
+                    ...resolvedAssistantSession,
+                }
+                : sessionState.context.assistantSession,
+            sessionMemory: nextSessionMemory,
+        },
+    };
+};
+
+const createInitialState = () => {
+    const bundle = createSessionBundle();
+    return syncDerivedSessionState({
+        isOpen: false,
+        activeSessionId: bundle.meta.id,
+        sessions: [bundle.meta],
+        sessionStateById: {
+            [bundle.meta.id]: bundle.state,
+        },
+        sessionSearchQuery: '',
+    });
+};
+
+const parsePersistedSnapshot = (storageKey = '') => {
+    if (typeof window === 'undefined' || !window.localStorage) {
+        return null;
+    }
+
+    try {
+        const rawValue = window.localStorage.getItem(storageKey);
+        if (!rawValue) {
+            return null;
+        }
+
+        const parsed = JSON.parse(rawValue);
+        return parsed?.state || parsed || null;
+    } catch {
+        return null;
+    }
+};
+
+const buildSessionBundleFromLegacyState = (legacyState = {}) => {
+    const sessionId = safeString(
+        legacyState?.context?.assistantSession?.sessionId
+        || legacyState?.sessionId
+        || createSessionId(),
+    );
+    const preservedContext = buildPreservedContext(legacyState?.context || {});
+    const baseConversation = createSessionConversationState({
+        sessionId,
+        preservedContext,
+    });
+    const state = coerceSessionConversationState({
+        mode: safeString(legacyState?.mode || baseConversation.mode) || baseConversation.mode,
+        status: safeString(legacyState?.status || baseConversation.status) || baseConversation.status,
+        isLoading: Boolean(legacyState?.isLoading),
+        inputValue: safeString(legacyState?.inputValue || ''),
+        messages: Array.isArray(legacyState?.messages) && legacyState.messages.length > 0
+            ? legacyState.messages
+            : baseConversation.messages,
+        visibleProducts: Array.isArray(legacyState?.visibleProducts) ? legacyState.visibleProducts : [],
+        context: mergeContexts(baseConversation.context, legacyState?.context || {}, sessionId),
+        primaryAction: legacyState?.primaryAction || null,
+        secondaryActions: Array.isArray(legacyState?.secondaryActions) ? legacyState.secondaryActions : [],
+        supportPrefill: legacyState?.supportPrefill || null,
+        currentIntent: legacyState?.currentIntent || null,
+        pendingAction: legacyState?.pendingAction || null,
+        pendingConfirmation: legacyState?.pendingConfirmation || null,
+        lastAssistantTurn: legacyState?.lastAssistantTurn || null,
+    }, preservedContext, sessionId);
+    const firstUserMessage = state.messages.find((message) => message.role === 'user')?.text || '';
+    const meta = createSessionMeta({
+        id: sessionId,
+        title: generateSessionTitle(firstUserMessage),
+        preview: buildSessionPreview(state.messages),
+        originPath: state.context?.route || '/',
+        createdAt: normalizeTimestamp(state.messages[0]?.createdAt, Date.now()),
+        updatedAt: normalizeTimestamp(state.messages[state.messages.length - 1]?.createdAt, Date.now()),
+    });
+
+    return {
+        meta,
+        state,
+    };
+};
+
+const mergeState = (persistedState, currentState) => {
+    const nextState = persistedState?.state || persistedState || {};
+    const baseState = {
+        ...currentState,
+        isOpen: false,
+        sessionSearchQuery: safeString(nextState?.sessionSearchQuery || ''),
+    };
+
+    if ((Array.isArray(nextState?.sessions) && nextState.sessions.length > 0) || nextState?.sessionStateById) {
+        return syncDerivedSessionState({
+            ...baseState,
+            sessions: nextState.sessions,
+            sessionStateById: nextState.sessionStateById,
+            activeSessionId: safeString(nextState?.activeSessionId || baseState.activeSessionId),
+        });
+    }
+
+    if (Array.isArray(nextState?.messages) || nextState?.context) {
+        const migratedBundle = buildSessionBundleFromLegacyState(nextState);
+        return syncDerivedSessionState({
+            ...baseState,
+            activeSessionId: migratedBundle.meta.id,
+            sessions: [migratedBundle.meta],
+            sessionStateById: {
+                [migratedBundle.meta.id]: migratedBundle.state,
+            },
+        });
+    }
+
+    const legacyState = parsePersistedSnapshot(LEGACY_CHAT_STORAGE_KEY);
+    if (legacyState) {
+        const migratedBundle = buildSessionBundleFromLegacyState(legacyState);
+        return syncDerivedSessionState({
+            ...baseState,
+            activeSessionId: migratedBundle.meta.id,
+            sessions: [migratedBundle.meta],
+            sessionStateById: {
+                [migratedBundle.meta.id]: migratedBundle.state,
+            },
+        });
+    }
+
+    return syncDerivedSessionState(baseState);
+};
+
 export const useChatStore = create(
     persist(
         (set, get) => ({
             ...createInitialState(),
             open: () => set({ isOpen: true }),
-            close: () => set({ isOpen: false, inputValue: '' }),
-            setInputValue: (inputValue = '') => set({ inputValue }),
-            setLoading: (isLoading) => set((state) => ({
-                isLoading: Boolean(isLoading),
-                status: isLoading ? (state.status === 'executing' ? 'executing' : 'thinking') : 'idle',
-            })),
-            setStatus: (status = 'idle') => set({
-                status,
-                isLoading: status === 'thinking' || status === 'executing',
-            }),
-            setPendingAction: (pendingAction = null) => set({ pendingAction }),
-            setPendingConfirmation: (pendingConfirmation = null) => set({ pendingConfirmation }),
-            clearPendingConfirmation: () => set({ pendingConfirmation: null }),
-            rememberExecutedAction: (fingerprint = '', executedAt = Date.now()) => set((state) => ({
-                context: {
-                    ...state.context,
-                    sessionMemory: {
-                        ...state.context.sessionMemory,
-                        lastActionFingerprint: String(fingerprint || '').trim(),
-                        lastActionAt: Number(executedAt || 0),
-                    },
+            close: () => set((state) => updateSessionConversationState(
+                {
+                    ...state,
+                    isOpen: false,
                 },
+                state.activeSessionId,
+                (sessionState) => ({
+                    ...sessionState,
+                    inputValue: '',
+                }),
+            )),
+            setSessionSearchQuery: (query = '') => set((state) => syncDerivedSessionState({
+                ...state,
+                sessionSearchQuery: safeString(query || ''),
             })),
-            hydrateContext: (partial = {}) => set((state) => ({
-                context: {
-                    ...state.context,
-                    ...partial,
-                    assistantSession: {
-                        ...state.context.assistantSession,
-                        ...(partial.assistantSession || {}),
+            createSession: ({ originPath = '', preservedContext = null } = {}) => set((state) => {
+                const nextOriginPath = safeString(originPath || state.context?.route || '/', '/');
+                const bundle = createSessionBundle({
+                    originPath: nextOriginPath,
+                    preservedContext: {
+                        ...buildPreservedContext(state.context || {}),
+                        ...(preservedContext && typeof preservedContext === 'object' ? buildPreservedContext(preservedContext) : {}),
+                        route: nextOriginPath,
                     },
-                    sessionMemory: {
-                        ...state.context.sessionMemory,
-                        ...(partial.sessionMemory || {}),
-                    },
-                },
-            })),
-            appendUserMessage: (text = '') => {
-                const safeText = String(text || '').trim();
-                if (!safeText) return;
+                });
 
-                set((state) => ({
-                    messages: trimMessages([...state.messages, createUserMessage(safeText)]),
+                return syncDerivedSessionState({
+                    ...state,
+                    activeSessionId: bundle.meta.id,
+                    sessions: sortSessions([bundle.meta, ...state.sessions]),
+                    sessionStateById: {
+                        ...state.sessionStateById,
+                        [bundle.meta.id]: bundle.state,
+                    },
+                    sessionSearchQuery: '',
+                });
+            }),
+            setActiveSession: (sessionId = '') => set((state) => {
+                const targetSessionId = safeString(sessionId || '');
+                if (!targetSessionId || !getSessionMetaById(state.sessions, targetSessionId)) {
+                    return state;
+                }
+
+                return syncDerivedSessionState({
+                    ...state,
+                    activeSessionId: targetSessionId,
+                });
+            }),
+            togglePinnedSession: (sessionId = '') => set((state) => {
+                const targetSessionId = safeString(sessionId || '');
+                if (!targetSessionId) {
+                    return state;
+                }
+
+                return syncDerivedSessionState({
+                    ...state,
+                    sessions: sortSessions(state.sessions.map((session) => (
+                        session.id === targetSessionId
+                            ? {
+                                ...session,
+                                pinned: !session.pinned,
+                                updatedAt: Date.now(),
+                            }
+                            : session
+                    ))),
+                });
+            }),
+            updateSessionOrigin: (originPath = '', sessionId = '') => set((state) => updateSessionConversationState(
+                state,
+                sessionId || state.activeSessionId,
+                (sessionState) => ({
+                    ...sessionState,
                     context: {
-                        ...state.context,
-                        lastQuery: safeText,
+                        ...sessionState.context,
+                        route: safeString(originPath || sessionState.context?.route || '/', '/'),
+                    },
+                }),
+                {
+                    originPath: safeString(originPath || state.context?.route || '/', '/'),
+                    updatedAt: Date.now(),
+                },
+            )),
+            setInputValue: (inputValue = '') => set((state) => updateSessionConversationState(
+                state,
+                state.activeSessionId,
+                (sessionState) => ({
+                    ...sessionState,
+                    inputValue: String(inputValue || ''),
+                }),
+            )),
+            setLoading: (isLoading) => set((state) => updateSessionConversationState(
+                state,
+                state.activeSessionId,
+                (sessionState) => ({
+                    ...sessionState,
+                    isLoading: Boolean(isLoading),
+                    status: isLoading ? (sessionState.status === 'executing' ? 'executing' : 'thinking') : 'idle',
+                }),
+            )),
+            setStatus: (status = 'idle') => set((state) => updateSessionConversationState(
+                state,
+                state.activeSessionId,
+                (sessionState) => ({
+                    ...sessionState,
+                    status,
+                    isLoading: status === 'thinking' || status === 'executing',
+                }),
+            )),
+            setPendingAction: (pendingAction = null) => set((state) => updateSessionConversationState(
+                state,
+                state.activeSessionId,
+                (sessionState) => ({
+                    ...sessionState,
+                    pendingAction,
+                }),
+            )),
+            setPendingConfirmation: (pendingConfirmation = null) => set((state) => updateSessionConversationState(
+                state,
+                state.activeSessionId,
+                (sessionState) => ({
+                    ...sessionState,
+                    pendingConfirmation,
+                }),
+            )),
+            clearPendingConfirmation: () => set((state) => updateSessionConversationState(
+                state,
+                state.activeSessionId,
+                (sessionState) => ({
+                    ...sessionState,
+                    pendingConfirmation: null,
+                }),
+            )),
+            rememberExecutedAction: (fingerprint = '', executedAt = Date.now()) => set((state) => updateSessionConversationState(
+                state,
+                state.activeSessionId,
+                (sessionState) => ({
+                    ...sessionState,
+                    context: {
+                        ...sessionState.context,
                         sessionMemory: {
-                            ...state.context.sessionMemory,
-                            lastQuery: safeText,
+                            ...sessionState.context.sessionMemory,
+                            lastActionFingerprint: safeString(fingerprint || ''),
+                            lastActionAt: Number(executedAt || 0),
                         },
                     },
-                }));
+                }),
+            )),
+            hydrateContext: (partial = {}) => set((state) => updateSessionConversationState(
+                state,
+                state.activeSessionId,
+                (sessionState) => ({
+                    ...sessionState,
+                    context: mergeContexts(sessionState.context, partial || {}, state.activeSessionId),
+                }),
+                {
+                    originPath: partial?.route !== undefined
+                        ? safeString(partial.route || '/', '/')
+                        : state.activeSession?.originPath,
+                },
+            )),
+            appendUserMessage: (text = '', payload = {}) => {
+                const safeText = safeString(text || payload?.text || payload?.content || '');
+                if (!safeText) return;
+
+                set((state) => {
+                    const targetSessionId = safeString(payload?.sessionId || state.activeSessionId);
+                    const currentMeta = getSessionMetaById(state.sessions, targetSessionId);
+                    if (!currentMeta) {
+                        return state;
+                    }
+
+                    const currentConversationState = coerceSessionConversationState(
+                        state.sessionStateById[targetSessionId] || {},
+                        buildPreservedContext(state.sessionStateById[targetSessionId]?.context || { route: currentMeta.originPath || '/' }),
+                        targetSessionId,
+                    );
+                    const hasUserMessage = currentConversationState.messages.some((message) => message.role === 'user');
+                    const nextMessage = createUserMessage(safeText, payload);
+                    const nextConversationState = {
+                        ...currentConversationState,
+                        status: 'idle',
+                        isLoading: false,
+                        messages: trimMessages([...currentConversationState.messages, nextMessage]),
+                        context: {
+                            ...currentConversationState.context,
+                            lastQuery: safeText,
+                            sessionMemory: {
+                                ...currentConversationState.context.sessionMemory,
+                                lastQuery: safeText,
+                            },
+                        },
+                    };
+
+                    return replaceSessionConversationState(state, targetSessionId, nextConversationState, {
+                        title: hasUserMessage ? currentMeta.title : generateSessionTitle(safeText),
+                        preview: buildSessionPreview(nextConversationState.messages),
+                        updatedAt: Date.now(),
+                    });
+                });
             },
-            appendAssistantMessage: (payload = {}) => {
-                set((state) => ({
-                    messages: trimMessages([...state.messages, createAssistantMessage(payload)]),
-                }));
-            },
+            appendAssistantMessage: (payload = {}) => set((state) => updateSessionConversationState(
+                state,
+                payload?.sessionId || state.activeSessionId,
+                (sessionState) => ({
+                    ...sessionState,
+                    messages: trimMessages([...sessionState.messages, createAssistantMessage(payload)]),
+                }),
+                {
+                    updatedAt: Date.now(),
+                },
+            )),
             beginAssistantStream: ({
                 text = '',
                 providerInfo = null,
                 grounding = null,
+                sessionId = '',
+                messageId = '',
+                provisional = false,
+                upgradeEligible = false,
+                traceId = '',
+                decision = '',
             } = {}) => {
-                const streamingMessage = createAssistantMessage({
-                    text: String(text || ''),
-                    isStreaming: true,
-                    providerInfo,
-                    grounding,
-                    assistantTurn: createStreamingAssistantTurn(text),
-                });
+                const streamingMessageId = safeString(messageId || createMessageId());
 
-                set((state) => ({
-                    messages: trimMessages([...state.messages, streamingMessage]),
-                }));
+                set((state) => updateSessionConversationState(
+                    state,
+                    sessionId || state.activeSessionId,
+                    (sessionState) => {
+                        const streamingMessage = createAssistantMessage({
+                            id: streamingMessageId,
+                            text: safeString(text || ''),
+                            isStreaming: true,
+                            status: 'thinking',
+                            provisional: Boolean(provisional),
+                            upgradeEligible: Boolean(upgradeEligible),
+                            traceId: safeString(traceId || ''),
+                            decision: safeString(decision || ''),
+                            providerInfo,
+                            grounding,
+                            assistantTurn: createStreamingAssistantTurn(text),
+                        });
 
-                return streamingMessage.id;
+                        return {
+                            ...sessionState,
+                            status: 'thinking',
+                            isLoading: true,
+                            messages: trimMessages([...sessionState.messages, streamingMessage]),
+                            pendingUpgradeMessageIds: upgradeEligible
+                                ? uniqueStrings([...sessionState.pendingUpgradeMessageIds, streamingMessageId])
+                                : sessionState.pendingUpgradeMessageIds,
+                        };
+                    },
+                    {
+                        updatedAt: Date.now(),
+                    },
+                ));
+
+                return streamingMessageId;
             },
-            appendAssistantStreamToken: (messageId = '', token = '') => {
-                const safeMessageId = String(messageId || '').trim();
+            setAssistantStreamMeta: (messageId = '', payload = {}, sessionId = '') => set((state) => updateSessionConversationState(
+                state,
+                sessionId || state.activeSessionId,
+                (sessionState) => {
+                    const targetMessageId = safeString(messageId || payload?.messageId || '');
+                    if (!targetMessageId) {
+                        return sessionState;
+                    }
+
+                    return {
+                        ...sessionState,
+                        pendingUpgradeMessageIds: payload?.upgradeEligible
+                            ? uniqueStrings([...sessionState.pendingUpgradeMessageIds, targetMessageId])
+                            : sessionState.pendingUpgradeMessageIds.filter((entry) => entry !== targetMessageId),
+                        messages: trimMessages(sessionState.messages.map((message) => (
+                            message.id !== targetMessageId
+                                ? message
+                                : {
+                                    ...message,
+                                    provisional: Boolean(payload?.provisional),
+                                    upgradeEligible: Boolean(payload?.upgradeEligible),
+                                    traceId: safeString(payload?.traceId || message.traceId || ''),
+                                    decision: safeString(payload?.decision || message.decision || ''),
+                                    status: message.status === 'error' ? 'error' : 'thinking',
+                                }
+                        ))),
+                    };
+                },
+                {
+                    updatedAt: Date.now(),
+                },
+            )),
+            appendAssistantStreamToken: (messageId = '', token = '', sessionId = '') => {
+                const safeMessageId = safeString(messageId || '');
                 const nextToken = String(token || '');
                 if (!safeMessageId || !nextToken) {
                     return;
                 }
 
-                set((state) => ({
-                    messages: trimMessages(state.messages.map((message) => {
-                        if (message.id !== safeMessageId) {
-                            return message;
-                        }
+                set((state) => updateSessionConversationState(
+                    state,
+                    sessionId || state.activeSessionId,
+                    (sessionState) => ({
+                        ...sessionState,
+                        messages: trimMessages(sessionState.messages.map((message) => {
+                            if (message.id !== safeMessageId || message.upgraded) {
+                                return message;
+                            }
 
-                        const nextText = `${String(message.text || '')}${nextToken}`;
-                        return {
-                            ...message,
-                            text: nextText,
-                            assistantTurn: {
-                                ...(message.assistantTurn || createStreamingAssistantTurn()),
-                                response: nextText,
-                            },
-                        };
-                    })),
-                }));
+                            const nextText = `${safeString(message.text || '', '')}${nextToken}`;
+                            return {
+                                ...message,
+                                text: nextText,
+                                isStreaming: true,
+                                status: 'thinking',
+                                assistantTurn: {
+                                    ...(message.assistantTurn || createStreamingAssistantTurn()),
+                                    response: nextText,
+                                },
+                            };
+                        })),
+                    }),
+                    {
+                        updatedAt: Date.now(),
+                    },
+                ));
             },
-            mergeAssistantStreamEvent: (messageId = '', eventName = '', payload = {}) => {
-                const safeMessageId = String(messageId || '').trim();
-                const safeEventName = String(eventName || '').trim();
+            mergeAssistantStreamEvent: (messageId = '', eventName = '', payload = {}, sessionId = '') => {
+                const safeMessageId = safeString(messageId || '');
+                const safeEventName = safeString(eventName || '');
                 if (!safeMessageId || !safeEventName) {
                     return;
                 }
 
-                set((state) => ({
-                    messages: trimMessages(state.messages.map((message) => {
-                        if (message.id !== safeMessageId) {
-                            return message;
-                        }
-
-                        const assistantTurn = {
-                            ...(message.assistantTurn || createStreamingAssistantTurn(message.text || '')),
-                        };
-
-                        if (safeEventName === 'tool_start' || safeEventName === 'tool_end') {
-                            assistantTurn.toolRuns = updateToolRunsForStream(assistantTurn.toolRuns, payload);
-                        }
-
-                        if (safeEventName === 'citation') {
-                            assistantTurn.citations = appendStreamCitation(assistantTurn.citations, payload);
-                        }
-
-                        if (safeEventName === 'verification') {
-                            assistantTurn.verification = payload;
-                        }
-
-                        return {
-                            ...message,
-                            assistantTurn,
-                        };
-                    })),
-                }));
-            },
-            finalizeAssistantStream: (messageId = '', payload = {}) => {
-                const safeMessageId = String(messageId || '').trim();
-                if (!safeMessageId) {
-                    return;
-                }
-
-                const builtMessage = buildAssistantMessage(payload);
-
-                set((state) => ({
-                    messages: trimMessages(state.messages.map((message) => (
-                        message.id === safeMessageId
-                            ? {
-                                ...builtMessage,
-                                id: safeMessageId,
-                                createdAt: message.createdAt,
+                set((state) => updateSessionConversationState(
+                    state,
+                    sessionId || state.activeSessionId,
+                    (sessionState) => ({
+                        ...sessionState,
+                        messages: trimMessages(sessionState.messages.map((message) => {
+                            if (message.id !== safeMessageId || message.upgraded) {
+                                return message;
                             }
-                            : message
-                    ))),
-                }));
+
+                            const assistantTurn = {
+                                ...(message.assistantTurn || createStreamingAssistantTurn(message.text || '')),
+                            };
+
+                            if (safeEventName === 'tool_start' || safeEventName === 'tool_end') {
+                                assistantTurn.toolRuns = updateToolRunsForStream(assistantTurn.toolRuns, payload);
+                            }
+
+                            if (safeEventName === 'citation') {
+                                assistantTurn.citations = appendStreamCitation(assistantTurn.citations, payload);
+                            }
+
+                            if (safeEventName === 'verification') {
+                                assistantTurn.verification = payload;
+                            }
+
+                            return {
+                                ...message,
+                                assistantTurn,
+                            };
+                        })),
+                    }),
+                    {
+                        updatedAt: Date.now(),
+                    },
+                ));
             },
-            discardAssistantStream: (messageId = '') => {
-                const safeMessageId = String(messageId || '').trim();
+            finalizeAssistantStream: (messageId = '', payload = {}, sessionId = '') => {
+                const safeMessageId = safeString(messageId || payload?.messageId || '');
                 if (!safeMessageId) {
                     return;
                 }
 
-                set((state) => ({
-                    messages: trimMessages(state.messages.filter((message) => message.id !== safeMessageId)),
-                }));
+                set((state) => updateSessionConversationState(
+                    state,
+                    sessionId || state.activeSessionId,
+                    (sessionState) => applyAssistantTurnToConversationState(sessionState, {
+                        ...payload,
+                        id: safeMessageId,
+                    }, {
+                        replaceMessageId: safeMessageId,
+                    }),
+                    {
+                        updatedAt: Date.now(),
+                    },
+                ));
             },
+            discardAssistantStream: (messageId = '', sessionId = '') => {
+                const safeMessageId = safeString(messageId || '');
+                if (!safeMessageId) {
+                    return;
+                }
+
+                set((state) => updateSessionConversationState(
+                    state,
+                    sessionId || state.activeSessionId,
+                    (sessionState) => ({
+                        ...sessionState,
+                        status: 'idle',
+                        isLoading: false,
+                        pendingUpgradeMessageIds: sessionState.pendingUpgradeMessageIds.filter((entry) => entry !== safeMessageId),
+                        messages: trimMessages(sessionState.messages.filter((message) => message.id !== safeMessageId)),
+                    }),
+                    {
+                        updatedAt: Date.now(),
+                    },
+                ));
+            },
+            failAssistantStream: (messageId = '', text = '', payload = {}, sessionId = '') => set((state) => {
+                const targetSessionId = safeString(sessionId || state.activeSessionId);
+                const safeMessageId = safeString(messageId || payload?.messageId || '');
+                const fallbackText = safeString(text || payload?.text || 'I hit a live service issue before I could finish that. Please try again in a moment.');
+                if (!safeMessageId) {
+                    return updateSessionConversationState(
+                        state,
+                        targetSessionId,
+                        (sessionState) => applyAssistantTurnToConversationState(sessionState, {
+                            text: fallbackText,
+                            mode: 'explore',
+                            status: 'error',
+                            assistantTurn: {
+                                intent: 'general_knowledge',
+                                decision: 'respond',
+                                response: fallbackText,
+                                ui: {
+                                    surface: 'plain_answer',
+                                },
+                                followUps: ['Try again'],
+                            },
+                        }),
+                        {
+                            updatedAt: Date.now(),
+                        },
+                    );
+                }
+
+                return updateSessionConversationState(
+                    state,
+                    targetSessionId,
+                    (sessionState) => ({
+                        ...sessionState,
+                        status: 'idle',
+                        isLoading: false,
+                        pendingUpgradeMessageIds: sessionState.pendingUpgradeMessageIds.filter((entry) => entry !== safeMessageId),
+                        messages: trimMessages(sessionState.messages.map((message) => (
+                            message.id !== safeMessageId
+                                ? message
+                                : {
+                                    ...message,
+                                    text: fallbackText,
+                                    isStreaming: false,
+                                    status: 'error',
+                                    upgradeEligible: false,
+                                    provisional: false,
+                                    assistantTurn: {
+                                        ...(message.assistantTurn || createStreamingAssistantTurn()),
+                                        response: fallbackText,
+                                    },
+                                }
+                        ))),
+                    }),
+                    {
+                        updatedAt: Date.now(),
+                    },
+                );
+            }),
             setSurface: ({
                 mode = 'explore',
                 visibleProducts = [],
@@ -492,195 +1499,142 @@ export const useChatStore = create(
                 secondaryActions = [],
                 supportPrefill = null,
                 activeProductId,
-            } = {}) => {
-                const candidateProductIds = buildCandidateProductIds(visibleProducts);
-                const resolvedActiveProductId = activeProductId !== undefined
-                    ? activeProductId
-                    : mode === 'product'
-                        ? candidateProductIds[0] || null
-                        : mode === 'explore'
-                            ? null
-                            : get().context.activeProductId;
-
-                set((state) => ({
-                    mode,
-                    visibleProducts: Array.isArray(visibleProducts) ? visibleProducts.slice(0, 4) : [],
-                    primaryAction,
-                    secondaryActions: normalizeActionList(secondaryActions, primaryAction),
-                    supportPrefill,
-                    context: {
-                        ...state.context,
-                        candidateProductIds,
-                        activeProductId: resolvedActiveProductId,
-                    },
-                }));
-            },
-            appendAssistantTurn: ({
-                text = '',
-                mode,
-                products = [],
-                product = null,
-                primaryAction = null,
-                secondaryActions = [],
-                supportPrefill = null,
-                cartSummary = null,
-                confirmation = null,
-                navigation = null,
-                grounding = null,
-                providerInfo = null,
-                activeProductId,
-                assistantTurn = null,
-                assistantSession = null,
-                pendingAction = null,
-            } = {}) => {
-                const safeProducts = Array.isArray(products) ? products.slice(0, 4) : [];
-                const resolvedMode = deriveMessageMode({
-                    mode,
-                    assistantTurn,
-                    products: safeProducts,
-                });
-                const resolvedProduct = product || safeProducts[0] || null;
-                const candidateProductIds = buildCandidateProductIds(resolvedProduct ? [resolvedProduct, ...safeProducts] : safeProducts);
-                const resolvedActiveProductId = activeProductId !== undefined
-                    ? activeProductId
-                    : resolvedMode === 'product'
-                        ? normalizeProductId(resolvedProduct) || candidateProductIds[0] || null
-                        : resolvedMode === 'explore'
-                            ? null
-                            : get().context.activeProductId;
-
-                const nextPendingConfirmation = assistantTurn?.ui?.confirmation
-                    ? assistantTurn.ui.confirmation
-                    : confirmation
-                        ? confirmation
-                        : null;
-
-                set((state) => {
-                    const assistantSessionMemory = assistantTurn?.sessionMemory && typeof assistantTurn.sessionMemory === 'object'
-                        ? assistantTurn.sessionMemory
-                        : null;
-                    const resolvedAssistantSession = assistantSession && typeof assistantSession === 'object'
-                        ? assistantSession
-                        : assistantTurn?.assistantSession && typeof assistantTurn.assistantSession === 'object'
-                            ? assistantTurn.assistantSession
-                            : null;
-                    const nextSessionMemory = {
-                        ...state.context.sessionMemory,
-                        ...(assistantSessionMemory || {}),
-                        lastQuery: assistantSessionMemory?.lastQuery ?? state.context.sessionMemory.lastQuery,
-                        lastResults: Array.isArray(assistantSessionMemory?.lastResults)
-                            ? assistantSessionMemory.lastResults
-                            : state.context.sessionMemory.lastResults,
-                        activeProduct: assistantSessionMemory?.activeProduct ?? state.context.sessionMemory.activeProduct,
-                        lastIntent: assistantSessionMemory?.lastIntent
-                            || assistantSessionMemory?.currentIntent
-                            || assistantTurn?.intent
-                            || state.context.sessionMemory.lastIntent
-                            || state.context.sessionMemory.currentIntent,
-                        currentIntent: assistantSessionMemory?.lastIntent
-                            || assistantSessionMemory?.currentIntent
-                            || assistantTurn?.intent
-                            || state.context.sessionMemory.lastIntent
-                            || state.context.sessionMemory.currentIntent,
-                        clarificationState: assistantSessionMemory?.clarificationState
-                            || state.context.sessionMemory.clarificationState,
-                        lastActionFingerprint: assistantSessionMemory?.lastActionFingerprint
-                            ?? state.context.sessionMemory.lastActionFingerprint,
-                        lastActionAt: assistantSessionMemory?.lastActionAt
-                            ?? state.context.sessionMemory.lastActionAt,
-                    };
-
-                    const nextMessage = buildAssistantMessage({
-                        text,
-                        mode: resolvedMode,
-                        products: safeProducts,
-                        product: resolvedProduct,
-                        cartSummary,
-                        supportPrefill,
-                        confirmation,
-                        navigation,
-                        assistantTurn,
-                        grounding,
-                        providerInfo,
-                    });
-                    const lastMessage = state.messages[state.messages.length - 1] || null;
-                    const nextMessages = shouldCoalesceAssistantMessage(lastMessage, nextMessage)
-                        ? [
-                            ...state.messages.slice(0, -1),
-                            {
-                                ...nextMessage,
-                                id: lastMessage.id,
-                                createdAt: lastMessage.createdAt,
-                            },
-                        ]
-                        : [...state.messages, nextMessage];
+            } = {}) => set((state) => updateSessionConversationState(
+                state,
+                state.activeSessionId,
+                (sessionState) => {
+                    const candidateProductIds = buildCandidateProductIds(visibleProducts);
+                    const resolvedActiveProductId = activeProductId !== undefined
+                        ? activeProductId
+                        : mode === 'product'
+                            ? candidateProductIds[0] || null
+                            : mode === 'explore'
+                                ? null
+                                : sessionState.context.activeProductId;
 
                     return {
-                        mode: resolvedMode,
-                        status: 'idle',
-                        isLoading: false,
-                        messages: trimMessages(nextMessages),
-                        visibleProducts: safeProducts,
+                        ...sessionState,
+                        mode,
+                        visibleProducts: Array.isArray(visibleProducts) ? visibleProducts.slice(0, 4) : [],
                         primaryAction,
                         secondaryActions: normalizeActionList(secondaryActions, primaryAction),
                         supportPrefill,
-                        currentIntent: assistantTurn?.intent || state.currentIntent,
-                        pendingAction,
-                        pendingConfirmation: nextPendingConfirmation,
-                        lastAssistantTurn: assistantTurn || state.lastAssistantTurn,
                         context: {
-                            ...state.context,
+                            ...sessionState.context,
                             candidateProductIds,
                             activeProductId: resolvedActiveProductId,
-                            lastOrderId: assistantTurn?.ui?.support?.orderId || state.context.lastOrderId,
-                            assistantSession: resolvedAssistantSession
-                                ? {
-                                    ...state.context.assistantSession,
-                                    ...resolvedAssistantSession,
-                                }
-                                : state.context.assistantSession,
-                            sessionMemory: nextSessionMemory,
                         },
                     };
-                });
-            },
-            resetConversation: () => set((state) => {
-                const initialState = createInitialState();
-                return {
-                    ...initialState,
-                    isOpen: state.isOpen,
-                    context: {
-                        ...initialState.context,
-                        route: state.context.route,
-                        cartCount: state.context.cartCount,
-                        isAuthenticated: state.context.isAuthenticated,
+                },
+            )),
+            appendAssistantTurn: (payload = {}) => set((state) => updateSessionConversationState(
+                state,
+                payload?.sessionId || state.activeSessionId,
+                (sessionState) => applyAssistantTurnToConversationState(sessionState, payload),
+                {
+                    updatedAt: Date.now(),
+                },
+            )),
+            mergeAssistantUpgrade: (payload = {}) => set((state) => {
+                const sessionId = safeString(payload?.sessionId || state.activeSessionId);
+                const messageId = safeString(payload?.messageId || '');
+                if (!messageId) {
+                    return state;
+                }
+
+                return updateSessionConversationState(
+                    state,
+                    sessionId,
+                    (sessionState) => {
+                        let didMerge = false;
+                        const nextMessages = sessionState.messages.map((message) => {
+                            if (message.id !== messageId || message.role !== 'assistant') {
+                                return message;
+                            }
+
+                            didMerge = true;
+                            const nextText = safeString(payload?.content || payload?.text || message.text || '');
+                            const nextAssistantTurn = buildAssistantTurnMeta({
+                                ...(payload?.assistantTurn || {}),
+                                response: nextText,
+                                citations: Array.isArray(payload?.citations)
+                                    ? payload.citations
+                                    : message?.assistantTurn?.citations || [],
+                                verification: payload?.verification || message?.assistantTurn?.verification || null,
+                            }, message.assistantTurn || {});
+
+                            return {
+                                ...message,
+                                text: nextText || message.text,
+                                provisional: false,
+                                upgraded: true,
+                                upgradeEligible: false,
+                                isStreaming: false,
+                                status: 'complete',
+                                traceId: safeString(payload?.traceId || message.traceId || ''),
+                                decision: safeString(payload?.decision || message.decision || ''),
+                                assistantTurn: nextAssistantTurn,
+                                providerInfo: payload?.providerInfo || message.providerInfo || null,
+                                grounding: payload?.grounding || message.grounding || null,
+                            };
+                        });
+
+                        if (!didMerge) {
+                            return sessionState;
+                        }
+
+                        return {
+                            ...sessionState,
+                            pendingUpgradeMessageIds: sessionState.pendingUpgradeMessageIds.filter((entry) => entry !== messageId),
+                            messages: trimMessages(nextMessages),
+                        };
                     },
-                };
+                    {
+                        updatedAt: Date.now(),
+                    },
+                );
             }),
+            resetConversation: () => set((state) => {
+                const nextOriginPath = safeString(state.context?.route || '/', '/');
+                const bundle = createSessionBundle({
+                    originPath: nextOriginPath,
+                    preservedContext: buildPreservedContext(state.context || {}),
+                });
+
+                return syncDerivedSessionState({
+                    ...state,
+                    activeSessionId: bundle.meta.id,
+                    sessions: sortSessions([bundle.meta, ...state.sessions]),
+                    sessionStateById: {
+                        ...state.sessionStateById,
+                        [bundle.meta.id]: bundle.state,
+                    },
+                    sessionSearchQuery: '',
+                });
+            }),
+            getVisibleSessions: () => filterChatSessions(get().sessions, get().sessionSearchQuery),
+            getGroupedSessionHistory: () => groupChatSessionsByRecency(
+                filterChatSessions(get().sessions, get().sessionSearchQuery),
+            ),
         }),
         {
             name: CHAT_STORAGE_KEY,
             storage: createSafeStorage(),
             partialize: (state) => ({
-                mode: state.mode,
-                messages: state.messages,
-                visibleProducts: state.visibleProducts,
-                context: state.context,
-                primaryAction: state.primaryAction,
-                secondaryActions: state.secondaryActions,
-                supportPrefill: state.supportPrefill,
-                currentIntent: state.currentIntent,
-                pendingConfirmation: state.pendingConfirmation,
-                lastAssistantTurn: state.lastAssistantTurn,
+                activeSessionId: state.activeSessionId,
+                sessionSearchQuery: state.sessionSearchQuery,
+                sessions: state.sessions,
+                sessionStateById: state.sessionStateById,
             }),
             merge: mergeState,
-        }
-    )
+        },
+    ),
 );
 
 export const resetChatStoreForTests = () => {
     useChatStore.setState(createInitialState());
     if (typeof window !== 'undefined' && window.localStorage) {
         window.localStorage.removeItem(CHAT_STORAGE_KEY);
+        window.localStorage.removeItem(LEGACY_CHAT_STORAGE_KEY);
     }
 };
