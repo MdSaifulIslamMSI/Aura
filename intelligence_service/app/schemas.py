@@ -33,14 +33,23 @@ class RuntimeContext(BaseModel):
     sessionMemory: Dict[str, Any] = Field(default_factory=dict)
 
 
+class GovernanceContext(BaseModel):
+    route: str = ""
+    latencyBudgetMs: int = 0
+    maxCost: float = 0
+    disabledTools: List[str] = Field(default_factory=list)
+
+
 class AssistantRequest(BaseModel):
     traceId: str
+    decisionId: str = ""
     bundleVersion: str = ""
     expectedBundleVersion: str = ""
     request: AssistantRequestBody
     userContext: UserContext = Field(default_factory=UserContext)
     runtimeContext: RuntimeContext = Field(default_factory=RuntimeContext)
     providerConfig: Dict[str, Any] = Field(default_factory=dict)
+    governanceContext: GovernanceContext = Field(default_factory=GovernanceContext)
 
 
 class ToolRun(BaseModel):
@@ -74,6 +83,19 @@ class Verification(BaseModel):
     evidenceCount: int = 0
 
 
+class ToolProposal(BaseModel):
+    tools_needed: List[str] = Field(default_factory=list)
+    reason: str = ""
+    max_tool_hops: int = 0
+
+
+class EvidenceEnvelope(BaseModel):
+    confidence: float = 0
+    verified: bool = False
+    conflicts: List[str] = Field(default_factory=list)
+    sources: List[Citation] = Field(default_factory=list)
+
+
 class AssistantReply(BaseModel):
     answer: str
     citations: List[Citation] = Field(default_factory=list)
@@ -84,3 +106,5 @@ class AssistantReply(BaseModel):
     assistantTurn: Dict[str, Any] = Field(default_factory=dict)
     provider: Dict[str, str] = Field(default_factory=dict)
     latencyMs: int = 0
+    toolProposal: ToolProposal | None = None
+    evidenceEnvelope: EvidenceEnvelope | None = None

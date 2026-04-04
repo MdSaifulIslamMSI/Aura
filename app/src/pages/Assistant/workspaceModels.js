@@ -40,6 +40,11 @@ export const createAssistantMessage = ({
     supportDraft = null,
     telemetry = null,
     role = 'assistant',
+    decision = null,
+    provisional = false,
+    traceId = '',
+    decisionId = '',
+    upgradeEligible = false,
 } = {}) => ({
     id: createMessageId(role),
     role,
@@ -48,6 +53,11 @@ export const createAssistantMessage = ({
     actions,
     supportDraft,
     telemetry,
+    decision,
+    provisional,
+    traceId,
+    decisionId,
+    upgradeEligible,
     createdAt: Date.now(),
 });
 
