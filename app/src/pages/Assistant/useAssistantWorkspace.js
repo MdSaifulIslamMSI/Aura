@@ -147,6 +147,11 @@ export const useAssistantWorkspace = () => {
                 actions: response.actions,
                 supportDraft: response.supportDraft,
                 telemetry: response.telemetry,
+                decision: response.decision,
+                provisional: response.provisional,
+                traceId: response.traceId,
+                decisionId: response.decisionId,
+                upgradeEligible: response.upgradeEligible,
             });
             pushClientDiagnostic('assistant_v2.turn_completed', {
                 context: {
@@ -154,6 +159,9 @@ export const useAssistantWorkspace = () => {
                     intent: response.reply.intent,
                     retrievalHits: response.telemetry.retrievalHits,
                     latencyMs: response.telemetry.latencyMs,
+                    route: response?.decision?.route || '',
+                    traceId: response.traceId,
+                    decisionId: response.decisionId,
                 },
             });
         } catch (error) {

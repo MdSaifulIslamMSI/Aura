@@ -86,7 +86,33 @@ const normalizeAssistantTurnResponse = (response = {}) => ({
         latencyMs: Math.max(0, Number(response?.telemetry?.latencyMs || 0)),
         source: String(response?.telemetry?.source || 'rules').trim(),
         retrievalHits: Math.max(0, Number(response?.telemetry?.retrievalHits || 0)),
+        route: String(response?.telemetry?.route || '').trim(),
+        traceId: String(response?.telemetry?.traceId || '').trim(),
+        decisionId: String(response?.telemetry?.decisionId || '').trim(),
+        provisional: Boolean(response?.telemetry?.provisional),
+        upgradeEligible: Boolean(response?.telemetry?.upgradeEligible),
     },
+    decision: response?.decision && typeof response.decision === 'object'
+        ? {
+            route: String(response.decision.route || '').trim(),
+            confidence: Math.min(Math.max(Number(response.decision.confidence || 0), 0), 1),
+            costEstimate: Math.max(0, Number(response.decision.costEstimate || 0)),
+            latencyBudgetMs: Math.max(0, Number(response.decision.latencyBudgetMs || 0)),
+            requiresConfirmation: Boolean(response.decision.requiresConfirmation),
+            reasonSummary: String(response.decision.reasonSummary || '').trim(),
+        }
+        : null,
+    provisional: Boolean(response?.provisional),
+    traceId: String(response?.traceId || '').trim(),
+    decisionId: String(response?.decisionId || '').trim(),
+    upgradeEligible: Boolean(response?.upgradeEligible),
+    provisionalReply: response?.provisionalReply && typeof response.provisionalReply === 'object'
+        ? {
+            text: String(response.provisionalReply.text || '').trim(),
+            intent: String(response.provisionalReply.intent || 'general_help').trim(),
+            confidence: Math.min(Math.max(Number(response.provisionalReply.confidence || 0), 0), 1),
+        }
+        : null,
 });
 
 export const assistantApi = {

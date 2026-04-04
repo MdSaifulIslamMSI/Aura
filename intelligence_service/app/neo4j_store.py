@@ -79,6 +79,31 @@ class Neo4jStore:
             recreate,
         )
 
+    async def trace_paths(
+        self,
+        *,
+        bundle_version: str,
+        query: str,
+        limit: int = 4,
+    ) -> list[dict[str, Any]]:
+        normalized_bundle_version = str(bundle_version or "").strip() or "dev-local"
+        terms = [
+            term.strip().lower()
+            for term in str(query or "").split()
+            if term and len(term.strip()) >= 2
+        ]
+        normalized_limit = max(1, min(int(limit or 4), 8))
+
+        if not self.configured or not terms:
+            return []
+
+        return await asyncio.to_thread(
+            self._trace_paths_sync,
+            normalized_bundle_version,
+            terms,
+            normalized_limit,
+        )
+
     def _ingest_bundle_sync(
         self,
         bundle_version: str,
@@ -165,6 +190,71 @@ class Neo4jStore:
             "expectedEdges": len(edge_rows),
             "database": settings.neo4j_database,
         }
+
+    def _trace_paths_sync(
+        self,
+        bundle_version: str,
+        terms: list[str],
+        limit: int,
+    ) -> list[dict[str, Any]]:
+        driver = self._get_driver()
+        query = """
+        MATCH (focus:CodeEntity {bundleVersion: $bundle_version})
+        WITH focus,
+             reduce(score = 0, term IN $terms |
+                score +
+                CASE
+                    WHEN toLower(coalesce(focus.label, '')) CONTAINS term
+                      OR toLower(coalesce(focus.path, '')) CONTAINS term
+                    THEN 1 ELSE 0
+                END
+             ) AS score
+        WHERE score > 0
+        ORDER BY score DESC, focus.label ASC
+        LIMIT $limit
+        OPTIONAL MATCH (focus)-[rel:RELATES_TO {bundleVersion: $bundle_version}]-(neighbor:CodeEntity {bundleVersion: $bundle_version})
+        WITH focus, score, collect({
+            type: rel.type,
+            from: {
+                id: focus.id,
+                type: focus.type,
+                label: focus.label,
+                path: focus.path,
+                subsystem: focus.subsystem
+            },
+            to: CASE
+                WHEN neighbor IS NULL THEN null
+                ELSE {
+                    id: neighbor.id,
+                    type: neighbor.type,
+                    label: neighbor.label,
+                    path: neighbor.path,
+                    subsystem: neighbor.subsystem
+                }
+            END
+        })[0..8] AS steps
+        RETURN {
+            focus: {
+                id: focus.id,
+                type: focus.type,
+                label: focus.label,
+                path: focus.path,
+                subsystem: focus.subsystem
+            },
+            summary: 'Matched graph entity ' + coalesce(focus.label, focus.path, focus.id),
+            steps: [step IN steps WHERE step.type IS NOT NULL AND step.to IS NOT NULL],
+            score: score
+        } AS trace
+        ORDER BY trace.score DESC
+        """
+        records, _, _ = driver.execute_query(
+            query,
+            bundle_version=bundle_version,
+            terms=terms,
+            limit=limit,
+            database_=settings.neo4j_database,
+        )
+        return [record["trace"] for record in records if record.get("trace")]
 
     def _verify_connectivity(self) -> None:
         self._get_driver().verify_connectivity()
