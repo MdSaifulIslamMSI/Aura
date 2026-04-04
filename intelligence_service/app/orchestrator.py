@@ -1,13 +1,20 @@
 from __future__ import annotations
 
 import json
+import re
 import time
+import uuid
 from typing import Any, Awaitable, Callable, Dict, List, Optional
 
+from .bundle_store import BundleStore
 from .config import settings
+from .index_state import read_active_index
+from .neo4j_store import Neo4jStore
 from .providers import GemmaProvider
+from .qdrant_store import QdrantStore
 from .schemas import AssistantReply, AssistantRequest, Citation, ToolRun, Verification
 from .tool_gateway import NodeToolGateway
+from .workspace_store import WorkspaceStore
 
 try:
     from langgraph.graph import END, START, StateGraph
@@ -23,6 +30,8 @@ except Exception:  # pragma: no cover - fallback for minimal environments
 EventCallback = Callable[[str, Dict[str, Any]], Awaitable[None] | None]
 MAX_MULTIMODAL_IMAGES = 3
 MAX_TOOL_PLAN_LENGTH = 8
+MAX_AUTO_GROUNDING_TOOLS = 4
+AUTO_FILE_SECTION_RADIUS = 18
 RUNTIME_TOOLS = {
     "get_health_snapshot",
     "get_socket_health",
@@ -77,6 +86,25 @@ GREETING_PREFIXES = (
 )
 THANKS_PREFIXES = ("thanks", "thank you", "thx")
 FAREWELL_PREFIXES = ("bye", "goodbye", "see you", "take care")
+SOURCE_FILE_PATTERN = re.compile(
+    r"(?P<path>(?:(?:app|server|docs|infra)/[A-Za-z0-9_./-]+|[A-Za-z0-9_.-]+)\.(?:js|jsx|ts|tsx|py|md|json|ya?ml|toml|ps1|sh))",
+    re.IGNORECASE,
+)
+API_ENDPOINT_PATTERN = re.compile(r"/api/[A-Za-z0-9_:/.-]+", re.IGNORECASE)
+SOURCE_FILE_EXTENSIONS = (
+    ".js",
+    ".jsx",
+    ".ts",
+    ".tsx",
+    ".py",
+    ".md",
+    ".json",
+    ".yml",
+    ".yaml",
+    ".toml",
+    ".ps1",
+    ".sh",
+)
 
 
 def _normalize_text(value: str) -> str:
@@ -141,6 +169,78 @@ def _contains_any(message: str, patterns: tuple[str, ...]) -> bool:
 def _starts_with_any(message: str, prefixes: tuple[str, ...]) -> bool:
     normalized = _normalize_text(message).lower()
     return any(normalized.startswith(prefix) for prefix in prefixes)
+
+
+def _strip_trailing_punctuation(value: str) -> str:
+    return _normalize_text(value).rstrip(".,:;!?)]}\"'")
+
+
+def _extract_source_file_hints(message: str, *, limit: int = 3) -> List[str]:
+    hints: List[str] = []
+    for match in SOURCE_FILE_PATTERN.finditer(_normalize_text(message)):
+        hint = _strip_trailing_punctuation(match.group("path"))
+        if not hint or hint in hints:
+            continue
+        hints.append(hint)
+        if len(hints) >= limit:
+            break
+    return hints
+
+
+def _extract_endpoint_hint(message: str) -> str:
+    match = API_ENDPOINT_PATTERN.search(_normalize_text(message))
+    if not match:
+        return ""
+    return _strip_trailing_punctuation(match.group(0))
+
+
+def _has_repo_hint(message: str) -> bool:
+    return bool(_extract_source_file_hints(message, limit=1) or _extract_endpoint_hint(message))
+
+
+def _looks_like_source_path(value: str) -> bool:
+    normalized = _normalize_text(value).lower()
+    return bool(normalized and normalized.endswith(SOURCE_FILE_EXTENSIONS))
+
+
+def _build_file_section_plan(
+    *,
+    path: str,
+    around_line: int = 0,
+    radius: int = AUTO_FILE_SECTION_RADIUS,
+) -> Optional[Dict[str, Any]]:
+    normalized_path = _strip_trailing_punctuation(path)
+    if not normalized_path or not _looks_like_source_path(normalized_path):
+        return None
+    return {
+        "toolName": "get_file_section",
+        "input": {
+            "path": normalized_path,
+            "aroundLine": _normalize_int(around_line, 0, 0, 100000),
+            "radius": _normalize_int(radius, AUTO_FILE_SECTION_RADIUS, 1, 60),
+        },
+    }
+
+
+def _bundle_is_stale(request: AssistantRequest) -> bool:
+    return bool(
+        request.expectedBundleVersion
+        and request.bundleVersion
+        and request.expectedBundleVersion != request.bundleVersion
+    )
+
+
+def _has_workspace_evidence(tool_results: List[Dict[str, Any]]) -> bool:
+    for tool_result in tool_results or []:
+        if not isinstance(tool_result, dict):
+            continue
+        result = tool_result.get("result", {})
+        tool_run = tool_result.get("toolRun", {})
+        if _normalize_text((result or {}).get("store", "")) == "workspace":
+            return True
+        if _normalize_text(((tool_run or {}).get("outputPreview", {}) or {}).get("store", "")) == "workspace":
+            return True
+    return False
 
 
 def _make_follow_ups(mode: str) -> List[str]:
@@ -601,6 +701,10 @@ class AssistantOrchestrator:
     def __init__(self) -> None:
         self.gateway = NodeToolGateway()
         self.provider = GemmaProvider()
+        self.bundle_store = BundleStore()
+        self.workspace_store = WorkspaceStore()
+        self.qdrant_store = QdrantStore()
+        self.neo4j_store = Neo4jStore()
         self._graph = self._build_graph() if LANGGRAPH_AVAILABLE else None
 
     def _build_graph(self):
@@ -673,6 +777,11 @@ class AssistantOrchestrator:
         answer = _normalize_text(state["answer"]) or "I could not compose a verified answer."
         answer_mode = state["answer_mode"]
         reasoning_model = _normalize_text(state.get("reasoning_model", "")) or settings.reasoning_model
+        grounding_bundle_version = (
+            "workspace-live"
+            if any(_normalize_text((tool_run.outputPreview or {}).get("store", "")) == "workspace" for tool_run in tool_runs)
+            else request.bundleVersion
+        )
 
         return AssistantReply(
             answer=answer,
@@ -686,7 +795,7 @@ class AssistantOrchestrator:
                 "staleBundle": bool(state.get("stale_bundle", False)),
                 "missingEvidence": bool(state.get("missing_evidence", False)),
                 "evidenceCount": verification.evidenceCount,
-                "bundleVersion": request.bundleVersion,
+                "bundleVersion": grounding_bundle_version,
                 "traceId": request.traceId,
                 "sources": [
                     {
@@ -731,7 +840,7 @@ class AssistantOrchestrator:
 
         if _contains_any(message, RUNTIME_PATTERN):
             state["answer_mode"] = "runtime_grounded"
-        elif _contains_any(message, APP_PATTERN) or request.runtimeContext.route:
+        elif _contains_any(message, APP_PATTERN) or _has_repo_hint(message) or request.runtimeContext.route:
             state["answer_mode"] = "app_grounded"
         else:
             state["answer_mode"] = "model_knowledge"
@@ -790,12 +899,22 @@ class AssistantOrchestrator:
         citations: List[Dict[str, Any]] = []
         tool_runs: List[Dict[str, Any]] = []
         callback = state.get("event_callback")
+        pending_tools = list(state.get("tool_plan", []))
+        seen_tools = {
+            _tool_plan_key(plan)
+            for plan in pending_tools
+            if _normalize_text(plan.get("toolName", ""))
+        }
+        max_pending_tools = MAX_TOOL_PLAN_LENGTH + MAX_AUTO_GROUNDING_TOOLS
         auth_context = {
             "actorUserId": request.userContext.id,
             "isAdmin": request.userContext.isAdmin,
         }
 
-        for planned_tool in state["tool_plan"]:
+        tool_index = 0
+        while tool_index < len(pending_tools):
+            planned_tool = pending_tools[tool_index]
+            tool_index += 1
             tool_name = planned_tool["toolName"]
             await self._emit_event(
                 callback,
@@ -807,9 +926,10 @@ class AssistantOrchestrator:
                 },
             )
 
-            result = await self.gateway.run_tool(
-                tool_name,
+            result = await self._run_tool(
+                tool_name=tool_name,
                 input_payload=planned_tool.get("input", {}),
+                request=request,
                 auth_context=auth_context,
             )
             tool_results.append(result)
@@ -818,9 +938,22 @@ class AssistantOrchestrator:
 
             await self._emit_event(callback, "tool_end", result.get("toolRun", {}))
 
+            for follow_up_tool in self._derive_follow_up_tools(
+                tool_name=tool_name,
+                result=result,
+            ):
+                if len(pending_tools) >= max_pending_tools:
+                    break
+                plan_key = _tool_plan_key(follow_up_tool)
+                if plan_key in seen_tools:
+                    continue
+                seen_tools.add(plan_key)
+                pending_tools.append(follow_up_tool)
+
         state["tool_results"] = tool_results
         state["tool_runs"] = tool_runs
         state["citations"] = citations
+        state["tool_plan"] = pending_tools
         return state
 
     async def evidence_validator(self, state: Dict[str, Any]) -> Dict[str, Any]:
@@ -828,8 +961,10 @@ class AssistantOrchestrator:
         answer_mode = state["answer_mode"]
         citations = state["citations"]
         tool_results = state["tool_results"]
+        live_repo_evidence = _has_workspace_evidence(tool_results)
+        stale_bundle = _bundle_is_stale(request)
 
-        if request.expectedBundleVersion and request.bundleVersion and request.expectedBundleVersion != request.bundleVersion:
+        if stale_bundle and not live_repo_evidence:
             state["guard_reason"] = "stale_bundle"
             state["stale_bundle"] = True
             state["missing_evidence"] = False
@@ -847,7 +982,7 @@ class AssistantOrchestrator:
 
         if answer_mode == "app_grounded" and not citations:
             state["guard_reason"] = "missing_repo_evidence"
-            state["stale_bundle"] = False
+            state["stale_bundle"] = stale_bundle
             state["missing_evidence"] = True
             state["verification"] = {
                 "label": "cannot_verify",
@@ -860,7 +995,7 @@ class AssistantOrchestrator:
 
         if answer_mode == "runtime_grounded" and not citations and not tool_results:
             state["guard_reason"] = "missing_runtime_evidence"
-            state["stale_bundle"] = False
+            state["stale_bundle"] = stale_bundle
             state["missing_evidence"] = True
             state["verification"] = {
                 "label": "cannot_verify",
@@ -872,13 +1007,18 @@ class AssistantOrchestrator:
             return state
 
         evidence_count = len(citations) if citations else len(tool_results)
-        state["guard_reason"] = ""
-        state["stale_bundle"] = False
+        state["guard_reason"] = "stale_bundle_live_repo_fallback" if stale_bundle and live_repo_evidence else ""
+        state["stale_bundle"] = stale_bundle
         state["missing_evidence"] = False
         state["verification"] = {
             "label": answer_mode if answer_mode in {"app_grounded", "runtime_grounded", "model_knowledge"} else "cannot_verify",
             "confidence": 0.92 if citations else 0.78 if tool_results else 0.6,
             "summary": (
+                "Verified against live repo source files because the indexed bundle is stale."
+                if answer_mode == "app_grounded" and stale_bundle and live_repo_evidence
+                else "Verified against runtime evidence and live repo source files because the indexed bundle is stale."
+                if answer_mode == "runtime_grounded" and stale_bundle and live_repo_evidence
+                else
                 "Verified against indexed app evidence."
                 if answer_mode == "app_grounded"
                 else "Verified against runtime and app evidence."
@@ -1022,6 +1162,8 @@ class AssistantOrchestrator:
         answer_mode: str,
     ) -> List[Dict[str, Any]]:
         tool_plan: List[Dict[str, Any]] = []
+        source_file_hints = _extract_source_file_hints(message)
+        endpoint_hint = _extract_endpoint_hint(message)
 
         if answer_mode in {"app_grounded", "runtime_grounded"}:
             tool_plan.append(
@@ -1030,7 +1172,18 @@ class AssistantOrchestrator:
                     "input": {"query": message, "limit": 6},
                 }
             )
-            if "/" in message or "route" in message.lower() or "api" in message.lower():
+            for file_hint in source_file_hints[:2]:
+                file_tool = _build_file_section_plan(path=file_hint)
+                if file_tool:
+                    tool_plan.append(file_tool)
+            if endpoint_hint:
+                tool_plan.append(
+                    {
+                        "toolName": "get_route_contract",
+                        "input": {"endpoint": endpoint_hint},
+                    }
+                )
+            elif "/" in message or "route" in message.lower() or "api" in message.lower():
                 tool_plan.append(
                     {
                         "toolName": "get_route_contract",
@@ -1173,5 +1326,662 @@ class AssistantOrchestrator:
         return emit_token
 
     async def close(self) -> None:
+        await self.bundle_store.close()
+        await self.workspace_store.close()
+        await self.qdrant_store.close()
+        await self.neo4j_store.close()
         await self.gateway.close()
         await self.provider.close()
+
+    def _resolve_bundle_version(self, request: AssistantRequest) -> str:
+        direct_bundle_version = _normalize_text(request.bundleVersion)
+        if direct_bundle_version:
+            return direct_bundle_version
+
+        active_index = read_active_index()
+        return _normalize_text(active_index.get("bundleVersion", "")) or "dev-local"
+
+    async def _run_tool(
+        self,
+        *,
+        tool_name: str,
+        input_payload: Dict[str, Any] | None,
+        request: AssistantRequest,
+        auth_context: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        normalized_tool_name = _normalize_text(tool_name)
+        normalized_input = input_payload if isinstance(input_payload, dict) else {}
+        bundle_version = self._resolve_bundle_version(request)
+        bundle_is_stale = _bundle_is_stale(request)
+
+        if normalized_tool_name == "search_code_chunks":
+            if not bundle_is_stale:
+                local_result = await self._run_qdrant_search(
+                    bundle_version=bundle_version,
+                    tool_name=normalized_tool_name,
+                    input_payload=normalized_input,
+                )
+                if local_result is not None:
+                    return local_result
+                local_result = await self._run_bundle_search(
+                    tool_name=normalized_tool_name,
+                    input_payload=normalized_input,
+                )
+                if local_result is not None:
+                    return local_result
+            local_result = await self._run_workspace_search(
+                tool_name=normalized_tool_name,
+                input_payload=normalized_input,
+            )
+            if local_result is not None:
+                return local_result
+
+        if normalized_tool_name == "trace_system_path":
+            if bundle_is_stale:
+                local_result = await self._run_workspace_trace(
+                    tool_name=normalized_tool_name,
+                    input_payload=normalized_input,
+                )
+                if local_result is not None:
+                    return local_result
+            else:
+                local_result = await self._run_neo4j_trace(
+                    bundle_version=bundle_version,
+                    tool_name=normalized_tool_name,
+                    input_payload=normalized_input,
+                )
+                if local_result is not None:
+                    return local_result
+                local_result = await self._run_bundle_trace(
+                    tool_name=normalized_tool_name,
+                    input_payload=normalized_input,
+                )
+                if local_result is not None:
+                    return local_result
+
+        if normalized_tool_name == "get_file_section":
+            if bundle_is_stale:
+                local_result = await self._run_workspace_file_section(
+                    tool_name=normalized_tool_name,
+                    input_payload=normalized_input,
+                )
+                if local_result is not None:
+                    return local_result
+            local_result = await self._run_bundle_file_section(
+                tool_name=normalized_tool_name,
+                input_payload=normalized_input,
+            )
+            if local_result is not None:
+                return local_result
+            local_result = await self._run_workspace_file_section(
+                tool_name=normalized_tool_name,
+                input_payload=normalized_input,
+            )
+            if local_result is not None:
+                return local_result
+
+        if normalized_tool_name == "get_route_contract":
+            if bundle_is_stale:
+                local_result = await self._run_workspace_route_contract(
+                    tool_name=normalized_tool_name,
+                    input_payload=normalized_input,
+                )
+                if local_result is not None:
+                    return local_result
+            local_result = await self._run_bundle_route_contract(
+                tool_name=normalized_tool_name,
+                input_payload=normalized_input,
+            )
+            if local_result is not None:
+                return local_result
+            local_result = await self._run_workspace_route_contract(
+                tool_name=normalized_tool_name,
+                input_payload=normalized_input,
+            )
+            if local_result is not None:
+                return local_result
+
+        if normalized_tool_name == "get_model_schema":
+            if bundle_is_stale:
+                local_result = await self._run_workspace_model_schema(
+                    tool_name=normalized_tool_name,
+                    input_payload=normalized_input,
+                )
+                if local_result is not None:
+                    return local_result
+            local_result = await self._run_bundle_model_schema(
+                tool_name=normalized_tool_name,
+                input_payload=normalized_input,
+            )
+            if local_result is not None:
+                return local_result
+            local_result = await self._run_workspace_model_schema(
+                tool_name=normalized_tool_name,
+                input_payload=normalized_input,
+            )
+            if local_result is not None:
+                return local_result
+
+        return await self.gateway.run_tool(
+            normalized_tool_name,
+            input_payload=normalized_input,
+            auth_context=auth_context,
+        )
+
+    async def _run_qdrant_search(
+        self,
+        *,
+        bundle_version: str,
+        tool_name: str,
+        input_payload: Dict[str, Any],
+    ) -> Optional[Dict[str, Any]]:
+        try:
+            results = await self.qdrant_store.search_chunks(
+                bundle_version=bundle_version,
+                query=_normalize_text(input_payload.get("query", "")),
+                limit=_normalize_int(input_payload.get("limit", 6), 6, 1, 12),
+                subsystem=_normalize_text(input_payload.get("subsystem", "")),
+            )
+        except Exception:
+            return None
+
+        if not results:
+            return None
+
+        return {
+            "toolRun": self._build_local_tool_run(
+                tool_name=tool_name,
+                input_payload=input_payload,
+                output_preview={
+                    "resultCount": len(results),
+                    "store": "qdrant",
+                    "bundleVersion": bundle_version,
+                },
+                summary=f"Found {len(results)} code evidence match{'es' if len(results) != 1 else ''} from Qdrant.",
+            ),
+            "result": {
+                "bundleVersion": bundle_version,
+                "results": results,
+                "store": "qdrant",
+            },
+        }
+
+    async def _run_bundle_search(
+        self,
+        *,
+        tool_name: str,
+        input_payload: Dict[str, Any],
+    ) -> Optional[Dict[str, Any]]:
+        try:
+            results = await self.bundle_store.search_code_chunks(
+                query=_normalize_text(input_payload.get("query", "")),
+                limit=_normalize_int(input_payload.get("limit", 6), 6, 1, 12),
+                subsystem=_normalize_text(input_payload.get("subsystem", "")),
+            )
+            bundle_version = await self.bundle_store.get_bundle_version()
+        except Exception:
+            return None
+
+        if not results:
+            return None
+
+        return {
+            "toolRun": self._build_local_tool_run(
+                tool_name=tool_name,
+                input_payload=input_payload,
+                output_preview={
+                    "resultCount": len(results),
+                    "store": "bundle",
+                    "bundleVersion": bundle_version,
+                },
+                summary=f"Found {len(results)} code evidence match{'es' if len(results) != 1 else ''} from the local bundle.",
+            ),
+            "result": {
+                "bundleVersion": bundle_version,
+                "results": results,
+                "store": "bundle",
+            },
+        }
+
+    async def _run_workspace_search(
+        self,
+        *,
+        tool_name: str,
+        input_payload: Dict[str, Any],
+    ) -> Optional[Dict[str, Any]]:
+        try:
+            results = await self.workspace_store.search_code_chunks(
+                query=_normalize_text(input_payload.get("query", "")),
+                limit=_normalize_int(input_payload.get("limit", 6), 6, 1, 12),
+                subsystem=_normalize_text(input_payload.get("subsystem", "")),
+            )
+        except Exception:
+            return None
+
+        if not results:
+            return None
+
+        return {
+            "toolRun": self._build_local_tool_run(
+                tool_name=tool_name,
+                input_payload=input_payload,
+                output_preview={
+                    "resultCount": len(results),
+                    "store": "workspace",
+                    "bundleVersion": "workspace-live",
+                },
+                summary=f"Found {len(results)} code evidence match{'es' if len(results) != 1 else ''} from the live workspace.",
+            ),
+            "result": {
+                "bundleVersion": "workspace-live",
+                "results": results,
+                "store": "workspace",
+            },
+        }
+
+    async def _run_neo4j_trace(
+        self,
+        *,
+        bundle_version: str,
+        tool_name: str,
+        input_payload: Dict[str, Any],
+    ) -> Optional[Dict[str, Any]]:
+        try:
+            traces = await self.neo4j_store.trace_paths(
+                bundle_version=bundle_version,
+                query=_normalize_text(input_payload.get("query", "")),
+                limit=_normalize_int(input_payload.get("limit", 4), 4, 1, 8),
+            )
+        except Exception:
+            return None
+
+        if not traces:
+            return None
+
+        return {
+            "toolRun": self._build_local_tool_run(
+                tool_name=tool_name,
+                input_payload=input_payload,
+                output_preview={
+                    "traceCount": len(traces),
+                    "store": "neo4j",
+                    "bundleVersion": bundle_version,
+                },
+                summary=f"Traced {len(traces)} connected system path{'s' if len(traces) != 1 else ''} from Neo4j.",
+            ),
+            "result": {
+                "bundleVersion": bundle_version,
+                "traces": traces,
+                "store": "neo4j",
+            },
+        }
+
+    async def _run_bundle_trace(
+        self,
+        *,
+        tool_name: str,
+        input_payload: Dict[str, Any],
+    ) -> Optional[Dict[str, Any]]:
+        try:
+            traces = await self.bundle_store.trace_system_path(
+                query=_normalize_text(input_payload.get("query", "")),
+                limit=_normalize_int(input_payload.get("limit", 4), 4, 1, 8),
+            )
+            bundle_version = await self.bundle_store.get_bundle_version()
+        except Exception:
+            return None
+
+        if not traces:
+            return None
+
+        return {
+            "toolRun": self._build_local_tool_run(
+                tool_name=tool_name,
+                input_payload=input_payload,
+                output_preview={
+                    "traceCount": len(traces),
+                    "store": "bundle",
+                    "bundleVersion": bundle_version,
+                },
+                summary=f"Traced {len(traces)} connected system path{'s' if len(traces) != 1 else ''} from the local bundle.",
+            ),
+            "result": {
+                "bundleVersion": bundle_version,
+                "traces": traces,
+                "store": "bundle",
+            },
+        }
+
+    async def _run_workspace_trace(
+        self,
+        *,
+        tool_name: str,
+        input_payload: Dict[str, Any],
+    ) -> Optional[Dict[str, Any]]:
+        try:
+            traces = await self.workspace_store.trace_system_path(
+                query=_normalize_text(input_payload.get("query", "")),
+                limit=_normalize_int(input_payload.get("limit", 4), 4, 1, 8),
+            )
+        except Exception:
+            return None
+
+        if not traces:
+            return None
+
+        return {
+            "toolRun": self._build_local_tool_run(
+                tool_name=tool_name,
+                input_payload=input_payload,
+                output_preview={
+                    "traceCount": len(traces),
+                    "store": "workspace",
+                    "bundleVersion": "workspace-live",
+                },
+                summary=f"Traced {len(traces)} connected system path{'s' if len(traces) != 1 else ''} from the live workspace.",
+            ),
+            "result": {
+                "bundleVersion": "workspace-live",
+                "traces": traces,
+                "store": "workspace",
+            },
+        }
+
+    async def _run_bundle_file_section(
+        self,
+        *,
+        tool_name: str,
+        input_payload: Dict[str, Any],
+    ) -> Optional[Dict[str, Any]]:
+        try:
+            section = await self.bundle_store.get_file_section(
+                target_path=_normalize_text(input_payload.get("path", "") or input_payload.get("targetPath", "")),
+                start_line=_normalize_int(input_payload.get("startLine", 0), 0, 0, 1_000_000),
+                end_line=_normalize_int(input_payload.get("endLine", 0), 0, 0, 1_000_000),
+                around_line=_normalize_int(input_payload.get("aroundLine", 0), 0, 0, 1_000_000),
+                radius=_normalize_int(input_payload.get("radius", 12), 12, 1, 120),
+            )
+            bundle_version = await self.bundle_store.get_bundle_version()
+        except Exception:
+            return None
+
+        if not section:
+            return None
+
+        return {
+            "toolRun": self._build_local_tool_run(
+                tool_name=tool_name,
+                input_payload=input_payload,
+                output_preview={
+                    "path": _normalize_text(section.get("path", "")),
+                    "store": "bundle",
+                    "bundleVersion": bundle_version,
+                },
+                summary=(
+                    f"Loaded {section.get('path', '')}:{section.get('startLine', 0)}-{section.get('endLine', 0)} "
+                    "from the local bundle."
+                ),
+            ),
+            "result": {
+                "bundleVersion": bundle_version,
+                "section": section,
+                "store": "bundle",
+            },
+        }
+
+    async def _run_workspace_file_section(
+        self,
+        *,
+        tool_name: str,
+        input_payload: Dict[str, Any],
+    ) -> Optional[Dict[str, Any]]:
+        try:
+            section = await self.workspace_store.get_file_section(
+                target_path=_normalize_text(input_payload.get("path", "") or input_payload.get("targetPath", "")),
+                start_line=_normalize_int(input_payload.get("startLine", 0), 0, 0, 1_000_000),
+                end_line=_normalize_int(input_payload.get("endLine", 0), 0, 0, 1_000_000),
+                around_line=_normalize_int(input_payload.get("aroundLine", 0), 0, 0, 1_000_000),
+                radius=_normalize_int(input_payload.get("radius", 12), 12, 1, 120),
+            )
+        except Exception:
+            return None
+
+        if not section:
+            return None
+
+        return {
+            "toolRun": self._build_local_tool_run(
+                tool_name=tool_name,
+                input_payload=input_payload,
+                output_preview={
+                    "path": _normalize_text(section.get("path", "")),
+                    "store": "workspace",
+                    "bundleVersion": "workspace-live",
+                },
+                summary=(
+                    f"Loaded {section.get('path', '')}:{section.get('startLine', 0)}-{section.get('endLine', 0)} "
+                    "from the live workspace."
+                ),
+            ),
+            "result": {
+                "bundleVersion": "workspace-live",
+                "section": section,
+                "store": "workspace",
+            },
+        }
+
+    async def _run_bundle_route_contract(
+        self,
+        *,
+        tool_name: str,
+        input_payload: Dict[str, Any],
+    ) -> Optional[Dict[str, Any]]:
+        try:
+            matches = await self.bundle_store.get_route_contract(
+                endpoint=_normalize_text(input_payload.get("endpoint", "")),
+            )
+            bundle_version = await self.bundle_store.get_bundle_version()
+        except Exception:
+            return None
+
+        if not matches:
+            return None
+
+        return {
+            "toolRun": self._build_local_tool_run(
+                tool_name=tool_name,
+                input_payload=input_payload,
+                output_preview={
+                    "matchCount": len(matches),
+                    "store": "bundle",
+                    "bundleVersion": bundle_version,
+                },
+                summary=f"Resolved {len(matches)} route contract match{'es' if len(matches) != 1 else ''} from the local bundle.",
+            ),
+            "result": {
+                "bundleVersion": bundle_version,
+                "matches": matches,
+                "store": "bundle",
+            },
+        }
+
+    async def _run_bundle_model_schema(
+        self,
+        *,
+        tool_name: str,
+        input_payload: Dict[str, Any],
+    ) -> Optional[Dict[str, Any]]:
+        try:
+            matches = await self.bundle_store.get_model_schema(
+                model_name=_normalize_text(input_payload.get("modelName", "")),
+            )
+            bundle_version = await self.bundle_store.get_bundle_version()
+        except Exception:
+            return None
+
+        if not matches:
+            return None
+
+        return {
+            "toolRun": self._build_local_tool_run(
+                tool_name=tool_name,
+                input_payload=input_payload,
+                output_preview={
+                    "matchCount": len(matches),
+                    "store": "bundle",
+                    "bundleVersion": bundle_version,
+                },
+                summary=f"Resolved {len(matches)} model schema match{'es' if len(matches) != 1 else ''} from the local bundle.",
+            ),
+            "result": {
+                "bundleVersion": bundle_version,
+                "matches": matches,
+                "store": "bundle",
+            },
+        }
+
+    async def _run_workspace_route_contract(
+        self,
+        *,
+        tool_name: str,
+        input_payload: Dict[str, Any],
+    ) -> Optional[Dict[str, Any]]:
+        try:
+            matches = await self.workspace_store.get_route_contract(
+                endpoint=_normalize_text(input_payload.get("endpoint", "")),
+            )
+        except Exception:
+            return None
+
+        if not matches:
+            return None
+
+        return {
+            "toolRun": self._build_local_tool_run(
+                tool_name=tool_name,
+                input_payload=input_payload,
+                output_preview={
+                    "matchCount": len(matches),
+                    "store": "workspace",
+                    "bundleVersion": "workspace-live",
+                },
+                summary=f"Resolved {len(matches)} route contract match{'es' if len(matches) != 1 else ''} from the live workspace.",
+            ),
+            "result": {
+                "bundleVersion": "workspace-live",
+                "matches": matches,
+                "store": "workspace",
+            },
+        }
+
+    async def _run_workspace_model_schema(
+        self,
+        *,
+        tool_name: str,
+        input_payload: Dict[str, Any],
+    ) -> Optional[Dict[str, Any]]:
+        try:
+            matches = await self.workspace_store.get_model_schema(
+                model_name=_normalize_text(input_payload.get("modelName", "")),
+            )
+        except Exception:
+            return None
+
+        if not matches:
+            return None
+
+        return {
+            "toolRun": self._build_local_tool_run(
+                tool_name=tool_name,
+                input_payload=input_payload,
+                output_preview={
+                    "matchCount": len(matches),
+                    "store": "workspace",
+                    "bundleVersion": "workspace-live",
+                },
+                summary=f"Resolved {len(matches)} model schema match{'es' if len(matches) != 1 else ''} from the live workspace.",
+            ),
+            "result": {
+                "bundleVersion": "workspace-live",
+                "matches": matches,
+                "store": "workspace",
+            },
+        }
+
+    def _build_local_tool_run(
+        self,
+        *,
+        tool_name: str,
+        input_payload: Dict[str, Any],
+        output_preview: Dict[str, Any],
+        summary: str,
+    ) -> Dict[str, Any]:
+        now_ms = int(time.time() * 1000)
+        now_iso = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(now_ms / 1000)) + f".{now_ms % 1000:03d}Z"
+        return {
+            "id": f"{tool_name}-{uuid.uuid4()}",
+            "toolName": tool_name,
+            "status": "completed",
+            "startedAt": now_iso,
+            "endedAt": now_iso,
+            "latencyMs": 0,
+            "summary": summary,
+            "inputPreview": input_payload,
+            "outputPreview": output_preview,
+        }
+
+    def _derive_follow_up_tools(
+        self,
+        *,
+        tool_name: str,
+        result: Dict[str, Any],
+    ) -> List[Dict[str, Any]]:
+        normalized_tool_name = _normalize_text(tool_name)
+        normalized_result = result.get("result", {}) if isinstance(result, dict) else {}
+        follow_up_tools: List[Dict[str, Any]] = []
+        seen_paths: set[str] = set()
+
+        def append_file_tool(path: str, around_line: int = 0) -> None:
+            if len(follow_up_tools) >= MAX_AUTO_GROUNDING_TOOLS:
+                return
+            normalized_path = _strip_trailing_punctuation(path)
+            if not normalized_path or normalized_path in seen_paths:
+                return
+            file_tool = _build_file_section_plan(path=normalized_path, around_line=around_line)
+            if not file_tool:
+                return
+            seen_paths.add(normalized_path)
+            follow_up_tools.append(file_tool)
+
+        if normalized_tool_name == "search_code_chunks":
+            for match in normalized_result.get("results", [])[:2]:
+                append_file_tool(
+                    _normalize_text(match.get("path", "")),
+                    _normalize_int(match.get("startLine", 0), 0, 0, 100000),
+                )
+
+        if normalized_tool_name == "trace_system_path":
+            for trace in normalized_result.get("traces", [])[:2]:
+                focus = trace.get("focus", {}) if isinstance(trace, dict) else {}
+                append_file_tool(_normalize_text(focus.get("path", "")))
+                for step in trace.get("steps", [])[:4]:
+                    append_file_tool(_normalize_text((step.get("from", {}) or {}).get("path", "")))
+                    append_file_tool(_normalize_text((step.get("to", {}) or {}).get("path", "")))
+                    if len(follow_up_tools) >= MAX_AUTO_GROUNDING_TOOLS:
+                        break
+
+        if normalized_tool_name == "get_route_contract":
+            for match in normalized_result.get("matches", [])[:2]:
+                append_file_tool(_normalize_text(match.get("file", "")))
+                for controller_ref in (match.get("controllerRefs", []) or [])[:1]:
+                    append_file_tool(_normalize_text(controller_ref))
+                for service_ref in (match.get("serviceRefs", []) or [])[:1]:
+                    append_file_tool(_normalize_text(service_ref))
+                if len(follow_up_tools) >= MAX_AUTO_GROUNDING_TOOLS:
+                    break
+
+        if normalized_tool_name == "get_model_schema":
+            for match in normalized_result.get("matches", [])[:2]:
+                append_file_tool(_normalize_text(match.get("file", "")))
+
+        return follow_up_tools[:MAX_AUTO_GROUNDING_TOOLS]

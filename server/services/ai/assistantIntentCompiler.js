@@ -24,23 +24,35 @@ const QUERY_NOISE = new Set([
     'add',
     'all',
     'and',
+    'are',
     'bag',
     'basket',
     'below',
     'browse',
     'budget',
     'buy',
+    'can',
     'cancel',
     'cart',
     'compare',
     'confirm',
+    'deal',
+    'deals',
+    'do',
+    'does',
     'details',
     'find',
     'go',
+    'how',
+    'i',
     'item',
     'items',
+    'latest',
     'look',
     'looking',
+    'men',
+    'mens',
+    'my',
     'navigate',
     'now',
     'ok',
@@ -48,22 +60,36 @@ const QUERY_NOISE = new Set([
     'open',
     'over',
     'price',
+    'premium',
     'products',
     'put',
+    'rating',
+    'ratings',
+    'rated',
     'remove',
     'search',
+    'star',
+    'stars',
     'than',
     'this',
     'to',
+    'trend',
+    'trending',
     'under',
     'view',
+    'what',
+    'women',
+    'womens',
+    'new',
+    'arrival',
+    'arrivals',
 ]);
 
 const CATEGORY_DEFINITIONS = [
     {
         canonical: 'electronics',
         catalog: 'Electronics',
-        aliases: ['electronics', 'electronic', 'gadget', 'gadgets'],
+        aliases: ['electronics', 'electronic', 'gadget', 'gadgets', 'headphone', 'headphones', 'earbud', 'earbuds', 'smartwatch', 'smartwatches', 'watch', 'watches'],
     },
     {
         canonical: 'phones',
@@ -85,15 +111,57 @@ const CATEGORY_DEFINITIONS = [
         catalog: 'fashion',
         aliases: ['fashion', 'clothes', 'clothing', 'apparel', 'outfit', 'outfits', 'wear'],
     },
+    {
+        canonical: 'mens-fashion',
+        catalog: "Men's Fashion",
+        aliases: ["men's fashion", 'mens fashion', "men's clothing", 'mens clothing', 'fashion for men'],
+    },
+    {
+        canonical: 'womens-fashion',
+        catalog: "Women's Fashion",
+        aliases: ["women's fashion", 'womens fashion', "women's clothing", 'womens clothing', 'fashion for women'],
+    },
+    {
+        canonical: 'books',
+        catalog: 'Books',
+        aliases: ['book', 'books', 'novel', 'novels'],
+    },
+    {
+        canonical: 'footwear',
+        catalog: 'Footwear',
+        aliases: ['shoe', 'shoes', 'sneaker', 'sneakers', 'footwear', 'boot', 'boots'],
+    },
+    {
+        canonical: 'gaming',
+        catalog: 'Gaming & Accessories',
+        aliases: ['gaming', 'gaming accessories', 'console', 'controller'],
+    },
 ];
 
 const PAGE_TARGETS = [
     { target: 'home', aliases: ['home', 'homepage'] },
+    { target: 'assistant', aliases: ['assistant workspace', 'assistant'] },
+    { target: 'login', aliases: ['log in', 'login', 'sign in', 'signin'] },
     { target: 'cart', aliases: ['cart', 'bag', 'basket'] },
     { target: 'checkout', aliases: ['checkout', 'payment', 'pay now', 'place order'] },
     { target: 'orders', aliases: ['orders', 'my orders', 'order history'] },
+    { target: 'profile_addresses', aliases: ['saved addresses', 'my addresses', 'addresses'] },
+    { target: 'profile_notifications', aliases: ['notifications', 'alerts inbox'] },
+    { target: 'profile_payments', aliases: ['payment methods', 'saved payment methods', 'saved cards'] },
+    { target: 'profile_settings', aliases: ['profile settings', 'account settings', 'settings'] },
     { target: 'profile', aliases: ['profile', 'account'] },
     { target: 'wishlist', aliases: ['wishlist', 'favorites', 'favourites'] },
+    { target: 'marketplace', aliases: ['marketplace', 'market place'] },
+    { target: 'deals', aliases: ['deals', 'offers', 'discounts'] },
+    { target: 'compare', aliases: ['compare page', 'ai compare', 'compare'] },
+    { target: 'visual_search', aliases: ['visual search', 'camera search'] },
+    { target: 'bundles', aliases: ['smart bundles', 'bundles', 'bundle builder'] },
+    { target: 'mission_control', aliases: ['mission control', 'mission os'] },
+    { target: 'price_alerts', aliases: ['price alerts', 'price alert'] },
+    { target: 'my_listings', aliases: ['my listings', 'seller desk'] },
+    { target: 'become_seller', aliases: ['become a seller', 'become seller', 'seller onboarding'] },
+    { target: 'sell', aliases: ['create a new listing', 'create listing', 'new listing', 'sell item', 'sell'] },
+    { target: 'trade_in', aliases: ['trade in', 'trade-in'] },
     { target: 'support', aliases: ['support', 'help center', 'help desk', 'customer care'] },
 ];
 
@@ -102,15 +170,21 @@ const FILTER_CUE_PATTERN = /\b(under|below|less than|max|within|around|about|ove
 const ADD_PATTERN = /\b(add|put|place|buy)\b/i;
 const REMOVE_PATTERN = /\b(remove|delete|take out|drop)\b/i;
 const NAVIGATE_PATTERN = /\b(open|go to|navigate|take me to|browse)\b/i;
-const SUPPORT_PATTERN = /\b(refund|return|replace|replacement|cancel order|track|tracking|late delivery|delivery issue|damaged|defect|warranty|complaint|support|help with|issue with|problem with)\b/i;
+const PAGE_REQUEST_PATTERN = /^(?:show|open|go to|take me to|browse|view|how do i|where do i|where can i)\b/i;
+const ROUTE_QUERY_PATTERN = /\b(?:what|which)\s+(?:route|path|url)\b/i;
+const SUPPORT_PATTERN = /\b(refund|return|returns|replace|replacement|cancel(?:\s+my)? order|track|tracking|late(?:\s+delivery)?|delivery issue|damaged|defect|warranty help|warranty claim|claim warranty|complaint|support|customer care|help with|issue with|problem with|charged twice|double charged|payment succeeded|order failed|escalate)\b/i;
 const GENERAL_KNOWLEDGE_PATTERN = /^(?:who|what|when|where|why|how|which)\b|(?:\bmeaning of\b|\bexplain\b|\btell me about\b|\bdefine\b)/i;
 const SMALL_TALK_PATTERN = /^(?:hi|hello|hey|hey there|yo|good morning|good afternoon|good evening|thanks|thank you|thx|bye|goodbye|see you|take care|how are you)\b/i;
 const BARE_TOPIC_PATTERN = /^[a-z][a-z\s'.-]{2,80}$/i;
 const CONFIRM_PATTERN = /^(yes|yeah|yep|ok|okay|confirm|go ahead|proceed|continue|do it)$/i;
 const REJECT_PATTERN = /^(no|nope|cancel|stop|not now)$/i;
 const SHOW_MORE_PATTERN = /\b(show more|more results|more options|next page|next results)\b/i;
-const PRODUCT_REFERENCE_PATTERN = /\b(this|that|it|selected|current)\b/i;
-const PRODUCT_HINT_PATTERN = /\b(iphone|samsung|pixel|oppo|vivo|realme|oneplus|phone|phones|laptop|laptops|tv|headphone|headphones|watch|earbuds|shoe|shoes)\b/i;
+const PRODUCT_REFERENCE_PATTERN = /\b(this|that|it|selected|current|first one|first result|top result|best match)\b/i;
+const PRODUCT_HINT_PATTERN = /\b(iphone|samsung|pixel|oppo|vivo|realme|oneplus|phone|phones|laptop|laptops|tv|headphone|headphones|watch|watches|smartwatch|smartwatches|earbuds|book|books|shoe|shoes|fashion|appliance|appliances|kitchen)\b/i;
+const CART_INFO_PATTERN = /\b(subtotal|cart total|cart subtotal|order total)\b/i;
+const PAYMENT_INFO_PATTERN = /\b(upi|cash on delivery|cod|payment methods?|saved payment methods?|saved cards?|netbanking|wallet)\b/i;
+const COUPON_INFO_PATTERN = /\b(coupon|promo code|discount code)\b/i;
+const RATING_REFINEMENT_PATTERN = /\b(?:\d(?:\.\d)?\s*star(?:s)?(?:\s+and\s+above|\+)?|good ratings?|top rated)\b/i;
 
 const safeString = (value, fallback = '') => String(value === undefined || value === null ? fallback : value).trim();
 const safeLower = (value, fallback = '') => safeString(value, fallback).toLowerCase();
@@ -222,9 +296,23 @@ const dedupeTokens = (tokens = []) => {
     return ordered;
 };
 
+const detectGenderedFashionCategory = (value = '') => {
+    const normalized = normalizeText(value);
+    const fashionCue = /\b(fashion|clothing|clothes|apparel|wear|outfit|outfits)\b/.test(normalized);
+    if (!fashionCue) return null;
+    if (/\b(men|mens|men s|male|gents)\b/.test(normalized)) return 'mens-fashion';
+    if (/\b(women|womens|women s|female|ladies)\b/.test(normalized)) return 'womens-fashion';
+    return null;
+};
+
 const findCategoryDefinition = (value = '') => {
     const normalized = normalizeText(value);
     if (!normalized) return null;
+
+    const genderedFashionCategory = detectGenderedFashionCategory(normalized);
+    if (genderedFashionCategory) {
+        return CATEGORY_DEFINITIONS.find((entry) => entry.canonical === genderedFashionCategory) || null;
+    }
 
     return CATEGORY_DEFINITIONS
         .slice()
@@ -248,7 +336,12 @@ const catalogCategoryToCompilerCategory = (value = '') => {
     if (normalized === 'electronics') return 'electronics';
     if (normalized === 'laptops') return 'laptops';
     if (normalized === 'home & kitchen') return 'kitchen';
-    if (["men's fashion", "women's fashion", 'footwear', 'fashion'].includes(normalized)) return 'fashion';
+    if (normalized === "men's fashion") return 'mens-fashion';
+    if (normalized === "women's fashion") return 'womens-fashion';
+    if (normalized === 'footwear') return 'footwear';
+    if (normalized === 'books') return 'books';
+    if (normalized === 'gaming & accessories') return 'gaming';
+    if (normalized === 'fashion') return 'fashion';
 
     return detectCategory(resolved);
 };
@@ -275,7 +368,14 @@ const buildKeywordQuery = ({
     const withoutPrice = stripPricePhrases(input);
     const withoutLimit = stripLimitPhrases(withoutPrice);
     const withoutCategory = removeCategoryAliases(withoutLimit, category);
-    const tokens = dedupeTokens(tokenize(withoutCategory).filter((token) => !QUERY_NOISE.has(token)));
+    const normalizedCategory = safeLower(category || '');
+    const tokens = dedupeTokens(tokenize(withoutCategory).filter((token) => {
+        if (QUERY_NOISE.has(token)) return false;
+        if (['fashion', 'mens-fashion', 'womens-fashion'].includes(normalizedCategory) && token === 'fashion') {
+            return false;
+        }
+        return true;
+    }));
 
     if (tokens.length === 0) return null;
     return tokens.join(' ');
@@ -283,7 +383,15 @@ const buildKeywordQuery = ({
 
 const extractPageTarget = (value = '') => {
     const normalized = normalizeText(value);
-    return PAGE_TARGETS.find((entry) => entry.aliases.some((alias) => normalized.includes(alias)))?.target || null;
+    return PAGE_TARGETS
+        .slice()
+        .sort((left, right) => {
+            const leftLongest = Math.max(...left.aliases.map((alias) => alias.length));
+            const rightLongest = Math.max(...right.aliases.map((alias) => alias.length));
+            return rightLongest - leftLongest;
+        })
+        .find((entry) => entry.aliases.some((alias) => normalized.includes(alias)))
+        ?.target || null;
 };
 
 const resolvePendingActionId = ({ context = {}, assistantSession = {} } = {}) => safeString(
@@ -355,11 +463,18 @@ const compileIntentCommand = ({
         category,
     });
     const referencesCurrentItem = PRODUCT_REFERENCE_PATTERN.test(message);
+    const explicitFollowUpCue = /^(?:then|now|also|only|just|cheaper|similar)\b/i.test(normalized);
+    const genericSearchReset = SEARCH_CUE_PATTERN.test(message) && /\b(products?|items?|results?)\b/i.test(message);
     const filterOnlyFollowUp = hasPriceFilter(filters) && (
-        /^(?:then|now|also|only|just)\b/i.test(normalized)
-        || !keywordQuery
+        explicitFollowUpCue
+        || (!keywordQuery && !category && !genericSearchReset && !SEARCH_CUE_PATTERN.test(message))
     );
     const showMore = SHOW_MORE_PATTERN.test(message);
+    const prefersSearchOverNavigation = Boolean(
+        category
+        || (!pageTarget && FILTER_CUE_PATTERN.test(message))
+        || PRODUCT_HINT_PATTERN.test(message)
+    );
 
     if (CONFIRM_PATTERN.test(normalized)) {
         return buildCommand({
@@ -377,11 +492,31 @@ const compileIntentCommand = ({
         });
     }
 
+    if (
+        pageTarget
+        && !ROUTE_QUERY_PATTERN.test(message)
+        && (NAVIGATE_PATTERN.test(message) || PAGE_REQUEST_PATTERN.test(normalized))
+        && !prefersSearchOverNavigation
+    ) {
+        return buildCommand({
+            intent: 'NAVIGATE',
+            target: pageTarget,
+            confidence: 0.93,
+        });
+    }
+
     if (SUPPORT_PATTERN.test(message)) {
         return buildCommand({
             intent: 'SUPPORT',
             target: safeString(context?.activeOrderId || context?.orderId || ''),
             confidence: safeString(context?.activeOrderId || context?.orderId || '') ? 0.94 : 0.86,
+        });
+    }
+
+    if (CART_INFO_PATTERN.test(message) || PAYMENT_INFO_PATTERN.test(message) || COUPON_INFO_PATTERN.test(message)) {
+        return buildCommand({
+            intent: 'GENERAL_KNOWLEDGE',
+            confidence: 0.84,
         });
     }
 
@@ -447,6 +582,16 @@ const compileIntentCommand = ({
         });
     }
 
+    if (RATING_REFINEMENT_PATTERN.test(message) && (contextSearch.category || contextSearch.query)) {
+        return buildCommand({
+            intent: 'SEARCH_PRODUCTS',
+            category: contextSearch.category,
+            query: contextSearch.query,
+            filters: contextSearch.filters,
+            confidence: 0.89,
+        });
+    }
+
     if (NAVIGATE_PATTERN.test(message)) {
         if (category) {
             return buildCommand({
@@ -479,10 +624,14 @@ const compileIntentCommand = ({
     }
 
     if (hasPriceFilter(filters)) {
-        const resolvedCategory = category || contextSearch.category;
-        const resolvedQuery = keywordQuery || contextSearch.query;
+        const shouldReuseContextSearch = explicitFollowUpCue
+            || (!keywordQuery && !category && !genericSearchReset && !SEARCH_CUE_PATTERN.test(message));
+        const resolvedCategory = category || (shouldReuseContextSearch ? contextSearch.category : null);
+        const categorySwitch = Boolean(category && contextSearch.category && category !== contextSearch.category);
+        const resolvedQuery = keywordQuery || (!categorySwitch && shouldReuseContextSearch ? contextSearch.query : null);
+        const canRunGenericBudgetSearch = !resolvedCategory && !resolvedQuery && genericSearchReset;
 
-        if (!resolvedCategory && !resolvedQuery) {
+        if (!resolvedCategory && !resolvedQuery && !canRunGenericBudgetSearch) {
             return buildCommand({
                 intent: 'CLARIFY',
                 confidence: 0.24,
@@ -498,7 +647,9 @@ const compileIntentCommand = ({
                 priceMin: filters.priceMin,
             },
             limit,
-            confidence: filterOnlyFollowUp ? 0.9 : 0.94,
+            confidence: canRunGenericBudgetSearch
+                ? 0.84
+                : (filterOnlyFollowUp && !categorySwitch) ? 0.9 : 0.94,
         });
     }
 

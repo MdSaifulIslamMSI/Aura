@@ -19,6 +19,9 @@ describe('intelligenceGatewayService', () => {
             ...originalEnv,
             INTELLIGENCE_SERVICE_URL: 'http://localhost:8100',
             CENTRAL_INTELLIGENCE_MODE: 'hybrid',
+            INTELLIGENCE_PROVIDER: 'google_gemini',
+            INTELLIGENCE_REASONING_MODEL: 'gemma-4-31b-it',
+            INTELLIGENCE_ROUTING_MODEL: 'gemma-4-31b-it',
         };
         getBundleVersionInfo.mockResolvedValue({
             bundleVersion: 'bundle-1',
@@ -44,6 +47,24 @@ describe('intelligenceGatewayService', () => {
             assistantMode: 'chat',
             context: {},
         })).toBe(false);
+    });
+
+    test('routes explicit repo file and endpoint questions in hybrid mode', () => {
+        expect(shouldUseCentralIntelligence({
+            message: 'Explain qdrant_store.py',
+            assistantMode: 'chat',
+            context: {},
+        })).toBe(true);
+        expect(shouldUseCentralIntelligence({
+            message: 'Open server/services/intelligence/intelligenceGatewayService.js',
+            assistantMode: 'chat',
+            context: {},
+        })).toBe(true);
+        expect(shouldUseCentralIntelligence({
+            message: 'What handles /api/ai/chat?',
+            assistantMode: 'chat',
+            context: {},
+        })).toBe(true);
     });
 
     test('returns a safe refusal when the knowledge bundle is stale', async () => {
@@ -74,6 +95,105 @@ describe('intelligenceGatewayService', () => {
             missingEvidence: false,
         });
         expect(global.fetch).toBeUndefined();
+    });
+
+    test('allows stale repo-hint requests to reach central intelligence', async () => {
+        getBundleVersionInfo.mockResolvedValue({
+            bundleVersion: 'bundle-old',
+            expectedCommitSha: 'bundle-new',
+            stale: true,
+        });
+
+        global.fetch = jest.fn().mockResolvedValue({
+            ok: true,
+            status: 200,
+            text: jest.fn().mockResolvedValue(JSON.stringify({
+                answer: 'The live workspace shows repo-hint routing in intelligenceGatewayService.js.',
+                assistantTurn: {
+                    response: 'The live workspace shows repo-hint routing in intelligenceGatewayService.js.',
+                    citations: [
+                        {
+                            id: 'workspace:server/services/intelligence/intelligenceGatewayService.js:20',
+                            label: 'server/services/intelligence/intelligenceGatewayService.js:20',
+                            path: 'server/services/intelligence/intelligenceGatewayService.js',
+                            type: 'code',
+                            startLine: 20,
+                            endLine: 40,
+                            score: 0.94,
+                            metadata: {},
+                        },
+                    ],
+                    toolRuns: [
+                        {
+                            id: 'search-live',
+                            toolName: 'search_code_chunks',
+                            status: 'completed',
+                            startedAt: '',
+                            endedAt: '',
+                            latencyMs: 1,
+                            summary: 'Found workspace evidence.',
+                            inputPreview: {},
+                            outputPreview: {
+                                store: 'workspace',
+                            },
+                        },
+                    ],
+                    verification: {
+                        label: 'app_grounded',
+                        confidence: 0.91,
+                        summary: 'Verified against live repo source files because the indexed bundle is stale.',
+                        evidenceCount: 1,
+                    },
+                    answerMode: 'app_grounded',
+                },
+                grounding: {
+                    mode: 'app_grounded',
+                    status: 'verified',
+                    reason: 'stale_bundle_live_repo_fallback',
+                    staleBundle: true,
+                    missingEvidence: false,
+                    evidenceCount: 1,
+                    bundleVersion: 'workspace-live',
+                    traceId: 'trace-live-repo',
+                    sources: [
+                        {
+                            label: 'server/services/intelligence/intelligenceGatewayService.js:20',
+                            path: 'server/services/intelligence/intelligenceGatewayService.js',
+                            type: 'code',
+                        },
+                    ],
+                },
+                provider: {
+                    name: 'gemma-central-intelligence',
+                    model: 'google/gemma-4-31B-it:novita',
+                },
+                latencyMs: 32,
+            })),
+        });
+
+        const result = await requestCentralIntelligenceTurn({
+            user: null,
+            message: 'Explain intelligenceGatewayService.js',
+            conversationHistory: [],
+            assistantMode: 'chat',
+            context: {},
+            images: [],
+            session: {},
+        });
+
+        expect(global.fetch).toHaveBeenCalledTimes(1);
+        const [, options] = global.fetch.mock.calls[0];
+        const payload = JSON.parse(options.body);
+        expect(payload.providerConfig.allowStaleWorkspaceFallback).toBe(true);
+        expect(payload.providerConfig.endpointProvider).toBe('google_gemini');
+        expect(payload.providerConfig.reasoningModel).toBe('gemma-4-31b-it');
+        expect(payload.providerConfig.routingModel).toBe('gemma-4-31b-it');
+        expect(result.answer).toMatch(/live workspace/i);
+        expect(result.grounding).toMatchObject({
+            status: 'verified',
+            staleBundle: true,
+            bundleVersion: 'workspace-live',
+        });
     });
 
     test('streams token events and normalizes the final streamed reply', async () => {

@@ -10,47 +10,17 @@ jest.mock('../middleware/authMiddleware', () => ({
     },
 }));
 
-jest.mock('../services/assistantCommerceService', () => ({
-    buildGroundedCatalogContext: jest.fn().mockResolvedValue({
-        actionType: 'search',
-        category: 'Mobiles',
-        maxPrice: 0,
-        products: [{
-            id: 101,
-            title: 'Phone Pro',
-            brand: 'Aura',
-            category: 'Mobiles',
-            price: 49999,
-            originalPrice: 54999,
-            discountPercentage: 9,
-            image: 'https://example.com/phone.png',
-            rating: 4.6,
-            ratingCount: 1400,
-            deliveryTime: '2 days',
-            stock: 7,
-        }],
-    }),
-    compareProducts: jest.fn().mockResolvedValue([]),
+jest.mock('../services/catalogService', () => ({
+    getProductByIdentifier: jest.fn(),
 }));
 
-jest.mock('../services/catalogService', () => ({
-    getProductByIdentifier: jest.fn().mockResolvedValue({
-        id: 101,
-        title: 'Phone Pro',
-        brand: 'Aura',
-        category: 'Mobiles',
-        price: 49999,
-        originalPrice: 54999,
-        discountPercentage: 9,
-        image: 'https://example.com/phone.png',
-        rating: 4.6,
-        ratingCount: 1400,
-        deliveryTime: '2 days',
-        stock: 7,
-    }),
+jest.mock('../services/ai/assistantOrchestratorService', () => ({
+    processAssistantTurn: jest.fn(),
 }));
 
 const { flags: assistantFlags } = require('../config/assistantFlags');
+const { getProductByIdentifier } = require('../services/catalogService');
+const { processAssistantTurn } = require('../services/ai/assistantOrchestratorService');
 const assistantRoutes = require('../routes/assistantRoutes');
 
 describe('assistantRoutes v2', () => {
@@ -65,9 +35,106 @@ describe('assistantRoutes v2', () => {
 
     beforeEach(() => {
         assistantFlags.assistantV2Enabled = true;
+        jest.clearAllMocks();
+        getProductByIdentifier.mockImplementation(async (productId) => ({
+            id: productId,
+            title: productId === 'phone-pro' ? 'Phone Pro' : 'Phone Lite',
+            brand: 'Aura',
+            category: 'Mobiles',
+            price: productId === 'phone-pro' ? 49999 : 31999,
+            originalPrice: productId === 'phone-pro' ? 54999 : 35999,
+            image: `https://example.com/${productId}.png`,
+            rating: 4.5,
+            ratingCount: 1200,
+            stock: 7,
+        }));
     });
 
-    test('returns grounded commerce results for guests', async () => {
+    test('returns orchestrator-grounded product results for guests', async () => {
+        processAssistantTurn.mockResolvedValue({
+            answer: 'I found 2 grounded product options for that brief.',
+            provider: 'groq',
+            latencyMs: 42,
+            products: [
+                {
+                    id: 'phone-pro',
+                    title: 'Phone Pro',
+                    brand: 'Aura',
+                    category: 'Mobiles',
+                    price: 49999,
+                    originalPrice: 54999,
+                    image: 'https://example.com/phone-pro.png',
+                    rating: 4.6,
+                    ratingCount: 1800,
+                    stock: 9,
+                },
+                {
+                    id: 'phone-lite',
+                    title: 'Phone Lite',
+                    brand: 'Aura',
+                    category: 'Mobiles',
+                    price: 31999,
+                    originalPrice: 35999,
+                    image: 'https://example.com/phone-lite.png',
+                    rating: 4.3,
+                    ratingCount: 900,
+                    stock: 12,
+                },
+            ],
+            actions: [
+                {
+                    type: 'navigate_to',
+                    page: 'product',
+                    params: {
+                        productId: 'phone-pro',
+                    },
+                },
+                {
+                    type: 'add_to_cart',
+                    productId: 'phone-pro',
+                    quantity: 1,
+                },
+            ],
+            assistantSession: {
+                sessionId: 'session-1',
+            },
+            assistantTurn: {
+                intent: 'product_search',
+                confidence: 0.93,
+                response: 'I found 2 grounded product options for that brief.',
+                answerMode: 'runtime_grounded',
+                ui: {
+                    surface: 'product_results',
+                    products: [
+                        {
+                            id: 'phone-pro',
+                            title: 'Phone Pro',
+                            brand: 'Aura',
+                            category: 'Mobiles',
+                            price: 49999,
+                            originalPrice: 54999,
+                            image: 'https://example.com/phone-pro.png',
+                            rating: 4.6,
+                            ratingCount: 1800,
+                            stock: 9,
+                        },
+                        {
+                            id: 'phone-lite',
+                            title: 'Phone Lite',
+                            brand: 'Aura',
+                            category: 'Mobiles',
+                            price: 31999,
+                            originalPrice: 35999,
+                            image: 'https://example.com/phone-lite.png',
+                            rating: 4.3,
+                            ratingCount: 900,
+                            stock: 12,
+                        },
+                    ],
+                },
+            },
+        });
+
         const res = await request(app)
             .post('/api/assistant/turns')
             .send({
@@ -76,7 +143,7 @@ describe('assistantRoutes v2', () => {
                     path: '/',
                 },
                 commerceContext: {
-                    candidateProductIds: [],
+                    candidateProductIds: ['phone-pro', 'phone-lite'],
                     cartSummary: {
                         totalItems: 0,
                         itemCount: 0,
@@ -90,12 +157,62 @@ describe('assistantRoutes v2', () => {
             });
 
         expect(res.statusCode).toBe(200);
-        expect(res.body.reply.intent).toBe('product_search');
-        expect(res.body.cards[0].type).toBe('product');
-        expect(res.body.actions[0].type).toBe('open_product');
+        expect(res.body.reply).toMatchObject({
+            intent: 'product_search',
+            text: 'I found 2 grounded product options for that brief.',
+        });
+        expect(res.body.cards[0]).toMatchObject({
+            type: 'product',
+            product: {
+                id: 'phone-pro',
+            },
+        });
+        expect(res.body.actions).toEqual(expect.arrayContaining([
+            expect.objectContaining({
+                type: 'navigate_to',
+                page: 'product',
+                params: {
+                    productId: 'phone-pro',
+                },
+            }),
+            expect.objectContaining({
+                type: 'add_to_cart',
+                productId: 'phone-pro',
+            }),
+        ]));
+        expect(res.body.telemetry.source).toBe('planner:groq');
     });
 
-    test('supports authenticated cart checkout prompts', async () => {
+    test('surfaces checkout confirmation instead of bypassing the backend policy', async () => {
+        processAssistantTurn.mockResolvedValue({
+            answer: 'Checkout affects payment and order placement. Should I open checkout?',
+            provider: 'local',
+            latencyMs: 18,
+            products: [],
+            actions: [],
+            assistantSession: {
+                sessionId: 'session-2',
+            },
+            assistantTurn: {
+                intent: 'navigation',
+                confidence: 0.88,
+                response: 'Checkout affects payment and order placement. Should I open checkout?',
+                answerMode: 'commerce',
+                ui: {
+                    surface: 'confirmation_card',
+                    confirmation: {
+                        message: 'Checkout affects payment and order placement. Confirm before continuing.',
+                        action: {
+                            type: 'navigate_to',
+                            page: 'checkout',
+                            params: {},
+                            requiresConfirmation: true,
+                        },
+                    },
+                },
+            },
+        });
+
         const res = await request(app)
             .post('/api/assistant/turns')
             .set('Authorization', 'Bearer fake')
@@ -120,9 +237,86 @@ describe('assistantRoutes v2', () => {
             });
 
         expect(res.statusCode).toBe(200);
-        expect(res.body.reply.intent).toBe('checkout');
-        expect(res.body.cards[0].type).toBe('cart_summary');
-        expect(res.body.actions[0].type).toBe('open_checkout');
+        expect(res.body.reply.intent).toBe('navigation');
+        expect(res.body.cards[0]).toMatchObject({
+            type: 'empty_state',
+            title: 'Confirmation needed',
+        });
+        expect(res.body.actions).toEqual([]);
+        expect(res.body.reply.text).toContain('Should I open checkout');
+    });
+
+    test('maps support handoff into the workspace response contract', async () => {
+        processAssistantTurn.mockResolvedValue({
+            answer: 'I prepared a support handoff for this order issue.',
+            provider: 'local',
+            latencyMs: 21,
+            products: [],
+            actions: [
+                {
+                    type: 'open_support',
+                    orderId: 'ORD-123',
+                    prefill: {
+                        category: 'returns',
+                        subject: 'Refund request',
+                        body: 'Customer needs help with a refund.',
+                    },
+                },
+            ],
+            assistantSession: {
+                sessionId: 'session-3',
+            },
+            assistantTurn: {
+                intent: 'support',
+                confidence: 0.94,
+                response: 'I prepared a support handoff for this order issue.',
+                answerMode: 'commerce',
+                ui: {
+                    surface: 'support_handoff',
+                    support: {
+                        orderId: 'ORD-123',
+                        prefill: {
+                            category: 'returns',
+                            subject: 'Refund request',
+                            body: 'Customer needs help with a refund.',
+                        },
+                    },
+                },
+            },
+        });
+
+        const res = await request(app)
+            .post('/api/assistant/turns')
+            .send({
+                message: 'i need refund help',
+                routeContext: {
+                    path: '/orders',
+                },
+                commerceContext: {
+                    cartSummary: {
+                        totalItems: 0,
+                        itemCount: 0,
+                        totalPrice: 0,
+                        currency: 'INR',
+                    },
+                },
+                userContext: {
+                    authenticated: true,
+                },
+            });
+
+        expect(res.statusCode).toBe(200);
+        expect(res.body.reply.intent).toBe('support');
+        expect(res.body.supportDraft).toMatchObject({
+            category: 'returns',
+            subject: 'Refund request',
+            body: 'Customer needs help with a refund.',
+            relatedOrderId: 'ORD-123',
+        });
+        expect(res.body.actions[0]).toMatchObject({
+            type: 'open_support',
+            orderId: 'ORD-123',
+        });
     });
 
     test('respects the feature flag when disabled', async () => {
@@ -135,6 +329,8 @@ describe('assistantRoutes v2', () => {
                 routeContext: {
                     path: '/',
                 },
+                commerceContext: {},
+                userContext: {},
             });
 
         expect(res.statusCode).toBe(404);
