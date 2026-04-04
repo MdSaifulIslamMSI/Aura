@@ -53,8 +53,8 @@ export default defineConfig({
     // Automatically build and serve before running tests in CI.
     webServer: [
         {
-            command: isCI ? 'npm ci && npm start' : 'npm start',
-            cwd: '../server',
+            command: 'node scripts/start_e2e_server.mjs',
+            cwd: appDir,
             url: 'http://localhost:5000/health',
             reuseExistingServer: !isCI,
             timeout: 180_000,
