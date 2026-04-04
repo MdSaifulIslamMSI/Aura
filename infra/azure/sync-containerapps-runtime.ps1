@@ -28,6 +28,15 @@ $script:AzCliMode = "cmd"
 $script:KeyVaultSecretExists = @{}
 $script:IdentityResourceId = ""
 $script:ContainerEnvId = ""
+$script:DefaultFrontendUrl = "https://aurapilot.vercel.app"
+$script:DefaultCorsOrigins = @(
+    "https://aurapilot.vercel.app",
+    "https://aura-cart-fix-preview.vercel.app",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:4173",
+    "http://127.0.0.1:4173"
+)
 $script:GeneratedSecretKeys = @(
     "AUTH_VAULT_SECRET",
     "UPLOAD_SIGNING_SECRET",
@@ -289,6 +298,27 @@ function Get-PrimaryOrigin {
     }
 
     return ($trimmed -split ",")[0].Trim()
+}
+
+function Join-Origins {
+    param([string[]]$Origins)
+
+    $seen = New-Object System.Collections.Generic.HashSet[string] ([System.StringComparer]::OrdinalIgnoreCase)
+    $ordered = New-Object System.Collections.Generic.List[string]
+
+    foreach ($originList in @($Origins)) {
+        foreach ($origin in [string]$originList -split ",") {
+            $trimmed = Trim-OrDefault $origin
+            if ([string]::IsNullOrWhiteSpace($trimmed)) {
+                continue
+            }
+            if ($seen.Add($trimmed)) {
+                [void]$ordered.Add($trimmed)
+            }
+        }
+    }
+
+    return ($ordered.ToArray() -join ",")
 }
 
 function Convert-ToServiceBaseUrl {
@@ -650,7 +680,7 @@ function Resolve-FrontendUrl {
         }
     }
 
-    return "https://app.example.com"
+    return $script:DefaultFrontendUrl
 }
 
 function Load-Manifest {
@@ -705,7 +735,11 @@ function Apply-ServiceOverrides {
         $Settings["INTELLIGENCE_SERVICE_URL"] = $ResolvedIntelligenceServiceUrl
     }
     if ($Settings.Contains("CORS_ORIGIN")) {
-        $Settings["CORS_ORIGIN"] = Trim-OrDefault $SourceValues["CORS_ORIGIN"] $ResolvedFrontendUrl
+        $Settings["CORS_ORIGIN"] = Join-Origins @(
+            (Trim-OrDefault $SourceValues["CORS_ORIGIN"]),
+            $ResolvedFrontendUrl,
+            ($script:DefaultCorsOrigins -join ",")
+        )
     }
     if ($Settings.Contains("FIREBASE_PROJECT_ID")) {
         $Settings["FIREBASE_PROJECT_ID"] = Trim-OrDefault $SourceValues["FIREBASE_PROJECT_ID"] $Settings["FIREBASE_PROJECT_ID"]
