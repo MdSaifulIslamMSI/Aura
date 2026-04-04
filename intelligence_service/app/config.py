@@ -33,6 +33,11 @@ class Settings:
     node_tool_gateway_token: str
     reasoning_model: str
     routing_model: str
+    gemma_provider_backend: str
+    gemini_api_key: str
+    gemini_api_base_url: str
+    gemma_thinking_level: str
+    gemma_include_thoughts: bool
     reasoning_endpoint_url: str
     routing_endpoint_url: str
     endpoint_api_key: str
@@ -65,6 +70,13 @@ def _env_int(name: str, default: int) -> int:
         return default
 
 
+def _env_bool(name: str, default: bool = False) -> bool:
+    raw = os.getenv(name, "").strip().lower()
+    if not raw:
+        return default
+    return raw in {"1", "true", "yes", "on"}
+
+
 def load_settings() -> Settings:
     runtime_dir = Path(__file__).resolve().parents[1] / "runtime"
     runtime_dir.mkdir(parents=True, exist_ok=True)
@@ -79,8 +91,16 @@ def load_settings() -> Settings:
             "NODE_TOOL_GATEWAY_TOKEN",
             os.getenv("AI_INTERNAL_TOOL_SECRET", os.getenv("CRON_SECRET", "")),
         ).strip(),
-        reasoning_model=os.getenv("INTELLIGENCE_REASONING_MODEL", "google/gemma-4-31B-it:novita").strip(),
-        routing_model=os.getenv("INTELLIGENCE_ROUTING_MODEL", "google/gemma-4-31B-it:novita").strip(),
+        reasoning_model=os.getenv("INTELLIGENCE_REASONING_MODEL", "gemma-4-31b-it").strip(),
+        routing_model=os.getenv("INTELLIGENCE_ROUTING_MODEL", "gemma-4-31b-it").strip(),
+        gemma_provider_backend=os.getenv("INTELLIGENCE_GEMMA_PROVIDER_BACKEND", "google_gemini").strip().lower(),
+        gemini_api_key=os.getenv("GEMINI_API_KEY", os.getenv("GOOGLE_API_KEY", "")).strip(),
+        gemini_api_base_url=os.getenv(
+            "GEMINI_API_BASE_URL",
+            "https://generativelanguage.googleapis.com/v1beta",
+        ).strip(),
+        gemma_thinking_level=os.getenv("INTELLIGENCE_GEMMA_THINKING_LEVEL", "high").strip().lower(),
+        gemma_include_thoughts=_env_bool("INTELLIGENCE_GEMMA_INCLUDE_THOUGHTS", False),
         reasoning_endpoint_url=os.getenv("INTELLIGENCE_REASONING_ENDPOINT_URL", "").strip(),
         routing_endpoint_url=os.getenv("INTELLIGENCE_ROUTING_ENDPOINT_URL", "").strip(),
         endpoint_api_key=os.getenv(
