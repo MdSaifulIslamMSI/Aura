@@ -24,8 +24,11 @@ const resolveGatewayMode = () => {
 };
 
 const resolveIntelligenceServiceUrl = () => safeString(process.env.INTELLIGENCE_SERVICE_URL || '');
-const resolveGatewayTimeoutMs = () => Math.max(1000, Number(process.env.INTELLIGENCE_SERVICE_TIMEOUT_MS || 12000));
-const resolveGatewayStreamTimeoutMs = () => Math.max(15000, Number(process.env.INTELLIGENCE_SERVICE_STREAM_TIMEOUT_MS || resolveGatewayTimeoutMs() * 4));
+const resolveGatewayTimeoutMs = () => Math.max(1000, Number(process.env.INTELLIGENCE_SERVICE_TIMEOUT_MS || 180000));
+const resolveGatewayStreamTimeoutMs = () => Math.max(
+    60000,
+    Number(process.env.INTELLIGENCE_SERVICE_STREAM_TIMEOUT_MS || Math.max(resolveGatewayTimeoutMs() * 2, 600000)),
+);
 
 const createTraceId = () => `trace_${crypto.randomUUID()}`;
 

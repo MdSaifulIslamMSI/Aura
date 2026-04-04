@@ -18,7 +18,7 @@ const DEFAULT_TIMEOUT_MS = Number(process.env.REQUEST_TIMEOUT_MS) || 30000;
 
 // Routes exempted from the global timeout (streaming / long-running uploads).
 const EXEMPT_PATH_PREFIXES = [
-    '/api/ai/stream',
+    '/api/ai/chat/stream',
     '/api/uploads',
     '/api/observability',
     '/metrics',
