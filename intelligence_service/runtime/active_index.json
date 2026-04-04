@@ -1,14 +1,14 @@
 {
   "status": "ready",
-  "bundleVersion": "6c1216c034f5a241cec082e659681c5c7c96d7d6",
+  "bundleVersion": "fda92575f9d4318f7d30c0b8050a5c5a882e4910",
   "bundlePath": "/app/server/generated/intelligence/current/bundle.json",
-  "publishedAt": "2026-04-04T04:50:26.245032+00:00",
+  "publishedAt": "2026-04-04T05:10:00.596575+00:00",
   "stores": {
     "qdrant": {
       "status": "ready",
       "configured": true,
-      "bundleVersion": "6c1216c034f5a241cec082e659681c5c7c96d7d6",
-      "collection": "aura_code_chunks_6c1216c034f5a241cec082e659681c5c7c96d7d6",
+      "bundleVersion": "fda92575f9d4318f7d30c0b8050a5c5a882e4910",
+      "collection": "aura_code_chunks_fda92575f9d4318f7d30c0b8050a5c5a882e4910",
       "embeddingFormat": "deterministic",
       "embeddingModel": "intfloat/multilingual-e5-large",
       "vectorSize": 256,
@@ -18,7 +18,7 @@
     "neo4j": {
       "status": "ready",
       "configured": true,
-      "bundleVersion": "6c1216c034f5a241cec082e659681c5c7c96d7d6",
+      "bundleVersion": "fda92575f9d4318f7d30c0b8050a5c5a882e4910",
       "indexedNodes": 948,
       "expectedNodes": 948,
       "indexedEdges": 3533,
