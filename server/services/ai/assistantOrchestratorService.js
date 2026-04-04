@@ -33,6 +33,7 @@ const {
     recordRouteDecisionMetric,
     recordToolValidationMetric,
 } = require('./assistantObservabilityService');
+const { sendMessageToUser } = require('../socketService');
 
 const safeString = (value, fallback = '') => String(value === undefined || value === null ? fallback : value).trim();
 const SYSTEM_AWARENESS_PATTERN = /\b(app|architecture|backend|bug|client|code|component|controller|db|debug|diagnostic|endpoint|error|explain|file|flow|frontend|function|graph|health|how does|implementation|index|issue|line by line|model|orchestrat|path|repo|route|schema|service|socket|support video|system|trace|where is|why .*fail(?:ing|ed|s|ure)?)\b/i;
@@ -90,6 +91,142 @@ const deriveImplicitConfirmation = ({ message = '', session = {} } = {}) => {
         return { actionId: pendingAction.actionId, approved: false, contextVersion: pendingAction.contextVersion || session?.contextVersion || 0 };
     }
     return null;
+};
+
+const isPureRespondTurn = (assistantTurn = {}) => {
+    if (safeString(assistantTurn?.decision || '') !== 'respond') {
+        return false;
+    }
+
+    if (assistantTurn?.actionRequest?.type) {
+        return false;
+    }
+
+    if (assistantTurn?.ui?.confirmation) {
+        return false;
+    }
+
+    return !Array.isArray(assistantTurn?.actions) || assistantTurn.actions.length === 0;
+};
+
+const resolveRealtimeSessionId = ({ context = {}, session = {} } = {}) => (
+    safeString(context?.clientSessionId || context?.assistantSession?.sessionId || session?.sessionId || '')
+);
+
+const resolveRealtimeMessageId = (context = {}) => safeString(context?.clientMessageId || '');
+
+const buildRealtimeEnvelope = ({
+    context = {},
+    session = {},
+    traceId = '',
+    decision = 'LOCAL',
+    provisional = false,
+    upgradeEligible = false,
+} = {}) => ({
+    sessionId: resolveRealtimeSessionId({ context, session }),
+    messageId: resolveRealtimeMessageId(context),
+    decision: safeString(decision || 'LOCAL') || 'LOCAL',
+    provisional: Boolean(provisional),
+    upgradeEligible: Boolean(upgradeEligible),
+    traceId: safeString(traceId || ''),
+});
+
+const decorateAssistantResult = (result = {}, meta = {}) => {
+    const traceId = safeString(result?.grounding?.traceId || result?.traceId || meta?.traceId || '');
+
+    return {
+        ...result,
+        sessionId: safeString(meta?.sessionId || result?.sessionId || ''),
+        messageId: safeString(meta?.messageId || result?.messageId || ''),
+        decision: safeString(meta?.decision || result?.decision || 'LOCAL') || 'LOCAL',
+        provisional: meta?.provisional !== undefined ? Boolean(meta.provisional) : Boolean(result?.provisional),
+        upgradeEligible: meta?.upgradeEligible !== undefined ? Boolean(meta.upgradeEligible) : Boolean(result?.upgradeEligible),
+        traceId,
+    };
+};
+
+const streamPlainTextReply = ({
+    writeEvent = () => {},
+    messageId = '',
+    sessionId = '',
+    text = '',
+} = {}) => {
+    const chunks = String(text || '').split(/(\s+)/).filter((entry) => entry.length > 0);
+    chunks.forEach((chunk) => {
+        writeEvent('token', {
+            sessionId,
+            messageId,
+            token: chunk,
+            text: chunk,
+        });
+    });
+};
+
+const scheduleRefinedAssistantUpgrade = ({
+    user = null,
+    message = '',
+    conversationHistory = [],
+    assistantMode = 'chat',
+    context = {},
+    images = [],
+    session = {},
+    traceId = '',
+    decisionId = '',
+    disabledTools = [],
+} = {}) => {
+    const userId = safeString(user?._id || '');
+    const messageId = resolveRealtimeMessageId(context);
+    const sessionId = resolveRealtimeSessionId({ context, session });
+    if (!userId || !messageId || !sessionId) {
+        return;
+    }
+
+    setTimeout(async () => {
+        try {
+            const refined = await requestCentralIntelligenceTurn({
+                user,
+                message,
+                conversationHistory: normalizeHistory(conversationHistory),
+                assistantMode,
+                context,
+                images,
+                session,
+                traceId,
+                decisionId,
+                governanceContext: {
+                    disabledTools,
+                    route: 'CENTRAL',
+                },
+            });
+
+            if (shouldFallbackToRecoveredTurn({ result: refined, message, images })) {
+                return;
+            }
+
+            const validated = sanitizeResultTools(refined, disabledTools);
+            if (!validated?.assistantTurn || !isPureRespondTurn(validated.assistantTurn)) {
+                return;
+            }
+
+            sendMessageToUser(userId, 'assistant.upgrade', {
+                sessionId,
+                messageId,
+                content: safeString(validated?.assistantTurn?.response || validated?.answer || ''),
+                citations: Array.isArray(validated?.assistantTurn?.citations) ? validated.assistantTurn.citations : [],
+                verification: validated?.assistantTurn?.verification || null,
+                providerInfo: validated?.providerInfo || {
+                    name: safeString(validated?.provider || ''),
+                    model: safeString(validated?.providerModel || ''),
+                },
+                decision: 'HYBRID',
+                traceId: safeString(validated?.grounding?.traceId || ''),
+                grounding: validated?.grounding || null,
+                assistantTurn: validated?.assistantTurn || null,
+            });
+        } catch (_) {
+            // Refined upgrades are best-effort and must not affect the primary turn.
+        }
+    }, 0);
 };
 
 const sanitizeResultTools = (result = {}, disabledTools = []) => {
@@ -168,15 +305,20 @@ const finalizeAssistantTurnSession = async ({ result = {}, session = {}, context
     return { ...result, assistantTurn, assistantSession: nextSession, sessionMemory: assistantTurn.sessionMemory, grounding: { ...(result?.grounding || {}), sessionId: nextSession.sessionId, contextVersion: nextSession.contextVersion } };
 };
 
-const buildEnvelope = ({ result = {}, decision = {}, decisionId = '', traceId = '', provisional = false, upgradeEligible = false, provisionalTurn = null } = {}) => ({
-    ...result,
-    decision: buildOrchestratorDecision(decision),
-    provisional: Boolean(provisional),
-    provisionalTurn: provisionalTurn || null,
-    traceId: safeString(traceId || result?.grounding?.traceId || ''),
-    decisionId: safeString(decisionId || ''),
-    upgradeEligible: Boolean(upgradeEligible),
-});
+const buildEnvelope = ({ result = {}, decision = {}, decisionId = '', traceId = '', provisional = false, upgradeEligible = false, provisionalTurn = null } = {}) => {
+    const routeDecision = buildOrchestratorDecision(decision);
+
+    return {
+        ...result,
+        decision: safeString(routeDecision?.route || 'LOCAL') || 'LOCAL',
+        decisionMeta: routeDecision,
+        provisional: Boolean(provisional),
+        provisionalTurn: provisionalTurn || null,
+        traceId: safeString(traceId || result?.grounding?.traceId || ''),
+        decisionId: safeString(decisionId || ''),
+        upgradeEligible: Boolean(upgradeEligible),
+    };
+};
 
 const runLocalTurn = async ({ user = null, message = '', conversationHistory = [], assistantMode = 'chat', actionRequest = null, context = {} } = {}) => (
     actionRequest?.type
@@ -309,9 +451,13 @@ const processAssistantTurn = async ({
         }
     }
 
+    const effectiveDecision = fallbackReason && safeString(decision?.route || 'LOCAL') !== 'LOCAL'
+        ? { ...decision, route: 'LOCAL' }
+        : decision;
+
     const response = await finalizeGovernedResult({
         result: recovered,
-        decision,
+        decision: effectiveDecision,
         decisionId,
         traceId,
         session,
@@ -319,10 +465,10 @@ const processAssistantTurn = async ({
         confirmation: effectiveConfirmation,
         disabledTools,
         provisional: false,
-        upgradeEligible: decision.route === 'HYBRID',
-        provisionalTurn,
+        upgradeEligible: effectiveDecision.route === 'HYBRID',
+        provisionalTurn: effectiveDecision.route === 'HYBRID' ? provisionalTurn : null,
     });
-    const latencyMs = await persistGovernanceSideEffects({ response, decision, decisionId, traceId, startedAt, message, user, fallbackReason });
+    const latencyMs = await persistGovernanceSideEffects({ response, decision: effectiveDecision, decisionId, traceId, startedAt, message, user, fallbackReason });
     return { ...response, providerCapabilities: getCapabilitySnapshot(), latencyMs, safetyFlags: Array.isArray(response?.assistantTurn?.safetyFlags) ? response.assistantTurn.safetyFlags : [] };
 };
 
@@ -351,18 +497,130 @@ const streamAssistantTurn = async ({
     const authoritativeContext = buildAuthoritativeContext({ context, session, orchestration: { decisionId, traceId, decision } });
     const disabledTools = Array.isArray(decision?.overrides?.disabledTools) ? decision.overrides.disabledTools : [];
     const emit = (eventName, data = {}) => writeEvent(eventName, data);
+    const baseRealtimeMeta = {
+        context: authoritativeContext,
+        session,
+    };
+    const hasRealtimeTarget = Boolean(resolveRealtimeSessionId(baseRealtimeMeta) && resolveRealtimeMessageId(authoritativeContext));
+    const canSocketUpgrade = Boolean(
+        safeString(user?._id || '')
+        && hasRealtimeTarget
+        && !effectiveConfirmation?.actionId
+        && !actionRequest?.type
+        && assistantMode !== 'voice'
+    );
 
     emit('decision', {
         decision: buildOrchestratorDecision(decision),
         traceId,
         decisionId,
-        upgradeEligible: decision.route === 'HYBRID',
+        upgradeEligible: decision.route === 'HYBRID' && canSocketUpgrade,
     });
 
+    if (decision.route === 'HYBRID' && canSocketUpgrade) {
+        const provisionalResult = await runLocalTurn({
+            user,
+            message,
+            conversationHistory,
+            assistantMode,
+            actionRequest,
+            context: {
+                ...authoritativeContext,
+                forceLocalProvisional: true,
+            },
+        });
+
+        const provisionalResponse = await finalizeGovernedResult({
+            result: provisionalResult,
+            decision,
+            decisionId,
+            traceId,
+            session,
+            context: authoritativeContext,
+            confirmation: effectiveConfirmation,
+            disabledTools,
+            provisional: true,
+            upgradeEligible: true,
+        });
+
+        const upgradeEligible = isPureRespondTurn(provisionalResponse?.assistantTurn || {});
+        const effectiveDecision = upgradeEligible ? decision : { ...decision, route: 'LOCAL' };
+        const decoratedResponse = decorateAssistantResult(
+            provisionalResponse,
+            buildRealtimeEnvelope({
+                ...baseRealtimeMeta,
+                decision: safeString(effectiveDecision?.route || 'LOCAL'),
+                provisional: upgradeEligible,
+                upgradeEligible,
+                traceId: safeString(provisionalResponse?.traceId || provisionalResponse?.grounding?.traceId || traceId),
+            }),
+        );
+        const latencyMs = await persistGovernanceSideEffects({
+            response: decoratedResponse,
+            decision: effectiveDecision,
+            decisionId,
+            traceId,
+            startedAt,
+            message,
+            user,
+            fallbackReason: '',
+        });
+        const finalResponse = {
+            ...decoratedResponse,
+            providerCapabilities: getCapabilitySnapshot(),
+            latencyMs,
+            safetyFlags: Array.isArray(decoratedResponse?.assistantTurn?.safetyFlags)
+                ? decoratedResponse.assistantTurn.safetyFlags
+                : [],
+        };
+
+        emit('message_meta', buildRealtimeEnvelope({
+            ...baseRealtimeMeta,
+            decision: finalResponse.decision,
+            provisional: finalResponse.provisional,
+            upgradeEligible: finalResponse.upgradeEligible,
+            traceId: finalResponse.traceId,
+        }));
+        streamPlainTextReply({
+            writeEvent: emit,
+            sessionId: finalResponse.sessionId,
+            messageId: finalResponse.messageId,
+            text: finalResponse?.assistantTurn?.response || finalResponse?.answer || '',
+        });
+        emit('final_turn', finalResponse);
+
+        if (upgradeEligible) {
+            scheduleRefinedAssistantUpgrade({
+                user,
+                message,
+                conversationHistory,
+                assistantMode,
+                context: authoritativeContext,
+                images,
+                session,
+                traceId,
+                decisionId,
+                disabledTools,
+            });
+        }
+
+        return finalResponse;
+    }
+
     let recovered;
-    let provisionalTurn = null;
     let fallbackReason = '';
     let streamedEventCount = 0;
+    let effectiveDecision = decision.route === 'HYBRID'
+        ? { ...decision, route: 'CENTRAL' }
+        : decision;
+
+    emit('message_meta', buildRealtimeEnvelope({
+        ...baseRealtimeMeta,
+        decision: safeString(effectiveDecision?.route || 'LOCAL'),
+        provisional: false,
+        upgradeEligible: false,
+        traceId,
+    }));
 
     if (effectiveConfirmation?.actionId) {
         const validation = await validatePendingAction({
@@ -376,44 +634,17 @@ const streamAssistantTurn = async ({
             sessionMemory: authoritativeContext.sessionMemory,
             pendingAction: validation.pendingAction,
         });
-    } else if (decision.route === 'LOCAL') {
-        recovered = await runLocalTurn({ user, message, conversationHistory, assistantMode, actionRequest, context: authoritativeContext });
-    } else if (decision.route === 'CENTRAL') {
-        recovered = await streamCentralIntelligenceTurn({
+        effectiveDecision = { ...effectiveDecision, route: 'LOCAL' };
+    } else if (safeString(effectiveDecision?.route || 'LOCAL') === 'LOCAL') {
+        recovered = await runLocalTurn({
             user,
             message,
-            conversationHistory: normalizeHistory(conversationHistory),
+            conversationHistory,
             assistantMode,
+            actionRequest,
             context: authoritativeContext,
-            images,
-            session,
-            traceId,
-            decisionId,
-            governanceContext: { disabledTools, latencyBudgetMs: decision.latency_budget_ms, maxCost: decision.cost_estimate, route: decision.route },
-            writeEvent: (eventName, data) => {
-                streamedEventCount += 1;
-                emit(eventName, data);
-            },
         });
-        if (shouldFallbackToRecoveredTurn({ result: recovered, message, images, streamedEventCount })) {
-            fallbackReason = safeString(recovered?.grounding?.reason || 'service_unavailable');
-            recovered = await runLocalTurn({ user, message, conversationHistory, assistantMode, actionRequest, context: { ...authoritativeContext, centralIntelligenceFallback: { reason: fallbackReason, traceId } } });
-        }
     } else {
-        const provisionalResult = await runLocalTurn({ user, message, conversationHistory, assistantMode, actionRequest, context: { ...authoritativeContext, forceLocalProvisional: true } });
-        provisionalTurn = await finalizeGovernedResult({
-            result: provisionalResult,
-            decision,
-            decisionId,
-            traceId,
-            session,
-            context: authoritativeContext,
-            confirmation: effectiveConfirmation,
-            disabledTools,
-            provisional: true,
-            upgradeEligible: true,
-        });
-        emit('provisional_turn', provisionalTurn);
         recovered = await streamCentralIntelligenceTurn({
             user,
             message,
@@ -424,21 +655,47 @@ const streamAssistantTurn = async ({
             session,
             traceId,
             decisionId,
-            governanceContext: { disabledTools, latencyBudgetMs: decision.latency_budget_ms, maxCost: decision.cost_estimate, route: decision.route },
+            governanceContext: {
+                disabledTools,
+                latencyBudgetMs: effectiveDecision.latency_budget_ms,
+                maxCost: effectiveDecision.cost_estimate,
+                route: effectiveDecision.route,
+            },
             writeEvent: (eventName, data) => {
-                streamedEventCount += 1;
-                emit(eventName, data);
+                if (eventName !== 'final_turn') {
+                    streamedEventCount += 1;
+                }
+                emit(eventName, {
+                    ...(data || {}),
+                    sessionId: safeString(data?.sessionId || resolveRealtimeSessionId(baseRealtimeMeta)),
+                    messageId: safeString(data?.messageId || resolveRealtimeMessageId(authoritativeContext)),
+                });
             },
         });
+
         if (shouldFallbackToRecoveredTurn({ result: recovered, message, images, streamedEventCount })) {
             fallbackReason = safeString(recovered?.grounding?.reason || 'service_unavailable');
-            recovered = provisionalResult;
+            effectiveDecision = { ...effectiveDecision, route: 'LOCAL' };
+            recovered = await runLocalTurn({
+                user,
+                message,
+                conversationHistory,
+                assistantMode,
+                actionRequest,
+                context: {
+                    ...authoritativeContext,
+                    centralIntelligenceFallback: {
+                        reason: fallbackReason,
+                        traceId,
+                    },
+                },
+            });
         }
     }
 
     const response = await finalizeGovernedResult({
         result: recovered,
-        decision,
+        decision: effectiveDecision,
         decisionId,
         traceId,
         session,
@@ -446,16 +703,46 @@ const streamAssistantTurn = async ({
         confirmation: effectiveConfirmation,
         disabledTools,
         provisional: false,
-        upgradeEligible: decision.route === 'HYBRID',
-        provisionalTurn,
+        upgradeEligible: false,
     });
-    const latencyMs = await persistGovernanceSideEffects({ response, decision, decisionId, traceId, startedAt, message, user, fallbackReason });
+    const decoratedResponse = decorateAssistantResult(
+        response,
+        buildRealtimeEnvelope({
+            ...baseRealtimeMeta,
+            decision: safeString(effectiveDecision?.route || 'LOCAL'),
+            provisional: false,
+            upgradeEligible: false,
+            traceId: safeString(response?.traceId || response?.grounding?.traceId || traceId),
+        }),
+    );
+    const latencyMs = await persistGovernanceSideEffects({
+        response: decoratedResponse,
+        decision: effectiveDecision,
+        decisionId,
+        traceId,
+        startedAt,
+        message,
+        user,
+        fallbackReason,
+    });
     const finalResponse = {
-        ...response,
+        ...decoratedResponse,
         providerCapabilities: getCapabilitySnapshot(),
         latencyMs,
-        safetyFlags: Array.isArray(response?.assistantTurn?.safetyFlags) ? response.assistantTurn.safetyFlags : [],
+        safetyFlags: Array.isArray(decoratedResponse?.assistantTurn?.safetyFlags)
+            ? decoratedResponse.assistantTurn.safetyFlags
+            : [],
     };
+
+    if (safeString(effectiveDecision?.route || 'LOCAL') === 'LOCAL' || streamedEventCount === 0) {
+        streamPlainTextReply({
+            writeEvent: emit,
+            sessionId: finalResponse.sessionId,
+            messageId: finalResponse.messageId,
+            text: finalResponse?.assistantTurn?.response || finalResponse?.answer || '',
+        });
+    }
+
     emit('final_turn', finalResponse);
     return finalResponse;
 };

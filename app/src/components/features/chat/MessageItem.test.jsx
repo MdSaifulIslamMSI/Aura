@@ -142,4 +142,24 @@ describe('MessageItem', () => {
         expect(screen.getByText('search_code_chunks')).toBeInTheDocument();
         expect(screen.getByText('Trace details')).toBeInTheDocument();
     });
+
+    it('renders markdown and fast/refined status signals without duplicating the bubble', () => {
+        renderWithMarket(
+            <MessageItem
+                message={{
+                    id: 'assistant-fast',
+                    role: 'assistant',
+                    text: 'Here is **bold** text.\n\n```js\nconsole.log("hi");\n```',
+                    uiSurface: 'plain_answer',
+                    provisional: true,
+                    upgraded: false,
+                }}
+                {...noopProps}
+            />
+        );
+
+        expect(screen.getByText('Fast')).toBeInTheDocument();
+        expect(screen.getByText('bold')).toBeInTheDocument();
+        expect(screen.getByText('console.log("hi");')).toBeInTheDocument();
+    });
 });

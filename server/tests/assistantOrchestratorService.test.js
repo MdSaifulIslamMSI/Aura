@@ -16,12 +16,18 @@ jest.mock('../services/intelligence/intelligenceGatewayService', () => ({
     streamCentralIntelligenceTurn: jest.fn(),
 }));
 
+jest.mock('../services/socketService', () => ({
+    sendMessageToUser: jest.fn(),
+}));
+
 const { getProductByIdentifier } = require('../services/catalogService');
 const {
     requestCentralIntelligenceTurn,
     shouldUseCentralIntelligence,
+    streamCentralIntelligenceTurn,
 } = require('../services/intelligence/intelligenceGatewayService');
-const { processAssistantTurn } = require('../services/ai/assistantOrchestratorService');
+const { sendMessageToUser } = require('../services/socketService');
+const { processAssistantTurn, streamAssistantTurn } = require('../services/ai/assistantOrchestratorService');
 
 describe('assistantOrchestratorService', () => {
     beforeEach(() => {
@@ -300,5 +306,118 @@ describe('assistantOrchestratorService', () => {
             intent: 'general_knowledge',
             decision: 'respond',
         });
+    });
+
+    test('streams early message metadata and schedules a refined socket upgrade for authenticated hybrid replies', async () => {
+        shouldUseCentralIntelligence.mockReturnValue(true);
+        requestCentralIntelligenceTurn.mockResolvedValue({
+            answer: 'Refined answer with evidence.',
+            assistantTurn: {
+                intent: 'general_knowledge',
+                decision: 'respond',
+                response: 'Refined answer with evidence.',
+                ui: {
+                    surface: 'plain_answer',
+                },
+                citations: [
+                    {
+                        id: 'c1',
+                        label: 'Product DB',
+                    },
+                ],
+                verification: {
+                    label: 'app_grounded',
+                    summary: 'Verified against the product graph.',
+                },
+                toolRuns: [],
+            },
+            providerInfo: {
+                name: 'central',
+                model: 'gemma-4-refined',
+            },
+            grounding: {
+                status: 'grounded',
+                traceId: 'trace_hybrid_upgrade',
+            },
+        });
+
+        const events = [];
+        const response = await streamAssistantTurn({
+            user: { _id: 'user-1' },
+            message: 'why is checkout failing',
+            assistantMode: 'chat',
+            context: {
+                clientSessionId: 'client-session-1',
+                clientMessageId: 'client-message-1',
+            },
+            writeEvent: (eventName, payload) => {
+                events.push({ eventName, payload });
+            },
+        });
+
+        const messageMetaEvent = events.find((entry) => entry.eventName === 'message_meta');
+        expect(messageMetaEvent).toMatchObject({
+            payload: {
+                sessionId: 'client-session-1',
+                messageId: 'client-message-1',
+                decision: 'HYBRID',
+                provisional: true,
+                upgradeEligible: true,
+            },
+        });
+        expect(events.some((entry) => entry.eventName === 'token')).toBe(true);
+        expect(response).toMatchObject({
+            sessionId: 'client-session-1',
+            messageId: 'client-message-1',
+            decision: 'HYBRID',
+            provisional: true,
+            upgradeEligible: true,
+        });
+
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        expect(sendMessageToUser).toHaveBeenCalledWith('user-1', 'assistant.upgrade', expect.objectContaining({
+            sessionId: 'client-session-1',
+            messageId: 'client-message-1',
+            content: 'Refined answer with evidence.',
+            decision: 'HYBRID',
+        }));
+    });
+
+    test('keeps confirmation and action flows single-phase during streaming', async () => {
+        const events = [];
+
+        const response = await streamAssistantTurn({
+            message: '',
+            assistantMode: 'chat',
+            actionRequest: {
+                type: 'checkout',
+            },
+            context: {
+                clientSessionId: 'client-session-2',
+                clientMessageId: 'client-message-2',
+            },
+            writeEvent: (eventName, payload) => {
+                events.push({ eventName, payload });
+            },
+        });
+
+        const messageMetaEvent = events.find((entry) => entry.eventName === 'message_meta');
+        expect(messageMetaEvent).toMatchObject({
+            payload: {
+                sessionId: 'client-session-2',
+                messageId: 'client-message-2',
+                decision: 'LOCAL',
+                provisional: false,
+                upgradeEligible: false,
+            },
+        });
+        expect(response).toMatchObject({
+            decision: 'LOCAL',
+            provisional: false,
+            upgradeEligible: false,
+        });
+        expect(sendMessageToUser).not.toHaveBeenCalled();
+        expect(streamCentralIntelligenceTurn).not.toHaveBeenCalled();
     });
 });

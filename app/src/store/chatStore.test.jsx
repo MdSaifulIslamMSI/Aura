@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { resetChatStoreForTests, useChatStore } from './chatStore';
+import {
+    filterChatSessions,
+    groupChatSessionsByRecency,
+    resetChatStoreForTests,
+    useChatStore,
+} from './chatStore';
 
 describe('chatStore', () => {
     beforeEach(() => {
@@ -7,10 +12,15 @@ describe('chatStore', () => {
         resetChatStoreForTests();
     });
 
-    it('starts with a focused welcome message', () => {
+    it('starts with a welcome thread and session metadata', () => {
         const state = useChatStore.getState();
 
-        expect(state.mode).toBe('explore');
+        expect(state.activeSessionId).toEqual(expect.any(String));
+        expect(state.sessions).toHaveLength(1);
+        expect(state.activeSession).toMatchObject({
+            id: state.activeSessionId,
+            title: 'New chat',
+        });
         expect(state.messages).toHaveLength(1);
         expect(state.messages[0]).toMatchObject({
             role: 'assistant',
@@ -18,205 +28,188 @@ describe('chatStore', () => {
         });
     });
 
-    it('hydrates context without losing existing state', () => {
+    it('creates and switches between independent sessions', () => {
+        const firstSessionId = useChatStore.getState().activeSessionId;
+        useChatStore.getState().appendUserMessage('show me camera phones');
+        useChatStore.getState().createSession({ originPath: '/cart' });
+
+        const secondSessionId = useChatStore.getState().activeSessionId;
+        expect(secondSessionId).not.toBe(firstSessionId);
+        expect(useChatStore.getState().context.route).toBe('/cart');
+
+        useChatStore.getState().appendUserMessage('review my cart');
+        expect(useChatStore.getState().activeSession.title).toBe('review my cart');
+
+        useChatStore.getState().setActiveSession(firstSessionId);
+        expect(useChatStore.getState().messages.some((message) => message.text === 'show me camera phones')).toBe(true);
+        expect(useChatStore.getState().messages.some((message) => message.text === 'review my cart')).toBe(false);
+    });
+
+    it('resets into a fresh session while preserving route and cart context', () => {
         useChatStore.getState().hydrateContext({
-            route: '/products',
-            cartCount: 2,
+            route: '/product/101',
+            cartCount: 3,
             isAuthenticated: true,
         });
+        const previousSessionId = useChatStore.getState().activeSessionId;
 
-        expect(useChatStore.getState().context).toMatchObject({
-            route: '/products',
-            cartCount: 2,
-            isAuthenticated: true,
-        });
-    });
-
-    it('tracks recovery session memory fields and executed actions', () => {
-        useChatStore.getState().appendAssistantTurn({
-            text: 'Showing filtered results.',
-            assistantTurn: {
-                intent: 'product_search',
-                decision: 'respond',
-                response: 'Showing filtered results.',
-                ui: {
-                    surface: 'product_results',
-                    products: [{ id: '101', title: 'Aura Phone', price: 9999 }],
-                },
-                sessionMemory: {
-                    lastQuery: 'oppo phones',
-                    lastResults: [{ id: '101', title: 'Aura Phone', price: 9999 }],
-                    activeProduct: { id: '101', title: 'Aura Phone', price: 9999 },
-                    lastIntent: 'product_search',
-                    clarificationState: {
-                        fingerprint: 'clarify:budget',
-                        count: 1,
-                        lastQuestion: 'Pick a budget',
-                    },
-                    lastActionFingerprint: 'navigate_to:category:{\"category\":\"electronics\"}',
-                    lastActionAt: 1234,
-                },
-                followUps: ['Show more'],
-            },
-            assistantSession: {
-                sessionId: 'session-1',
-                contextVersion: 3,
-                lastIntent: 'product_search',
-                lastEntities: {
-                    query: 'oppo phones',
-                    productId: '',
-                    category: 'Mobiles',
-                    maxPrice: 10000,
-                    quantity: 0,
-                },
-                contextPath: '/category/mobiles',
-                pendingAction: null,
-                clarificationState: {
-                    fingerprint: 'clarify:budget',
-                    count: 1,
-                    lastQuestion: 'Pick a budget',
-                },
-                lastResolvedEntityId: '101',
-            },
-        });
-
-        useChatStore.getState().rememberExecutedAction('add_to_cart:101:1', 4321);
-
-        expect(useChatStore.getState().context.sessionMemory).toMatchObject({
-            lastQuery: 'oppo phones',
-            lastIntent: 'product_search',
-            currentIntent: 'product_search',
-            clarificationState: {
-                fingerprint: 'clarify:budget',
-                count: 1,
-                lastQuestion: 'Pick a budget',
-            },
-            lastActionFingerprint: 'add_to_cart:101:1',
-            lastActionAt: 4321,
-        });
-        expect(useChatStore.getState().context.assistantSession).toMatchObject({
-            sessionId: 'session-1',
-            contextVersion: 3,
-            lastIntent: 'product_search',
-            contextPath: '/category/mobiles',
-            lastResolvedEntityId: '101',
-        });
-    });
-
-    it('applies assistant turns as the single active surface', () => {
-        useChatStore.getState().appendAssistantTurn({
-            text: 'One product is in focus.',
-            mode: 'product',
-            products: [{ id: '101', title: 'Aura Phone', price: 54999 }],
-            primaryAction: { id: 'add', kind: 'add-to-cart' },
-            secondaryActions: [
-                { id: 'details', kind: 'view-details' },
-                { id: 'cart', kind: 'view-cart' },
-                { id: 'extra', kind: 'search' },
-            ],
-        });
-
-        const state = useChatStore.getState();
-        expect(state.mode).toBe('product');
-        expect(state.visibleProducts).toEqual([
-            expect.objectContaining({ id: '101' }),
-        ]);
-        expect(state.context.activeProductId).toBe('101');
-        expect(state.secondaryActions).toHaveLength(2);
-    });
-
-    it('resets the conversation while keeping live route context', () => {
-        useChatStore.getState().hydrateContext({
-            route: '/cart',
-            cartCount: 1,
-        });
-        useChatStore.getState().appendUserMessage('show me something');
-        useChatStore.getState().appendAssistantTurn({
-            text: 'Done',
-            mode: 'cart',
-        });
-
+        useChatStore.getState().appendUserMessage('compare this with other options');
         useChatStore.getState().resetConversation();
 
         const state = useChatStore.getState();
+        expect(state.activeSessionId).not.toBe(previousSessionId);
         expect(state.messages).toHaveLength(1);
-        expect(state.context.route).toBe('/cart');
-        expect(state.context.cartCount).toBe(1);
-        expect(state.mode).toBe('explore');
+        expect(state.context).toMatchObject({
+            route: '/product/101',
+            cartCount: 3,
+            isAuthenticated: true,
+        });
     });
 
-    it('stores confirmation-gated assistant turns for checkout actions', () => {
-        useChatStore.getState().appendAssistantTurn({
-            text: 'Checkout affects payment and order placement. Confirm before continuing.',
-            assistantTurn: {
-                intent: 'checkout',
-                decision: 'clarify',
-                response: 'Checkout affects payment and order placement. Confirm before continuing.',
-                ui: {
-                    surface: 'confirmation_card',
-                    confirmation: {
-                        token: 'confirm-123',
-                        message: 'Confirm checkout',
-                        action: {
-                            type: 'go_to_checkout',
-                        },
-                    },
-                },
-                followUps: [],
+    it('supports session search, pinning, and recency grouping helpers', () => {
+        const now = Date.now();
+        const sessions = [
+            {
+                id: 'today-pinned',
+                title: 'Pinned checkout',
+                preview: 'You: go to checkout',
+                originPath: '/checkout',
+                pinned: true,
+                createdAt: now,
+                updatedAt: now,
             },
+            {
+                id: 'yesterday',
+                title: 'Support handoff',
+                preview: 'Opening support',
+                originPath: '/orders',
+                pinned: false,
+                createdAt: now - (24 * 60 * 60 * 1000),
+                updatedAt: now - (24 * 60 * 60 * 1000),
+            },
+            {
+                id: 'older',
+                title: 'Camera search',
+                preview: 'You: best camera phones',
+                originPath: '/search',
+                pinned: false,
+                createdAt: now - (9 * 24 * 60 * 60 * 1000),
+                updatedAt: now - (9 * 24 * 60 * 60 * 1000),
+            },
+        ];
+
+        expect(filterChatSessions(sessions, 'support')).toEqual([
+            expect.objectContaining({ id: 'yesterday' }),
+        ]);
+        expect(groupChatSessionsByRecency(sessions, now)).toEqual([
+            expect.objectContaining({
+                key: 'today',
+                sessions: [expect.objectContaining({ id: 'today-pinned' })],
+            }),
+            expect.objectContaining({
+                key: 'yesterday',
+                sessions: [expect.objectContaining({ id: 'yesterday' })],
+            }),
+            expect.objectContaining({
+                key: 'older',
+                sessions: [expect.objectContaining({ id: 'older' })],
+            }),
+        ]);
+    });
+
+    it('tracks streaming metadata and finalizes a fast reply in place', () => {
+        const sessionId = useChatStore.getState().activeSessionId;
+        const streamId = useChatStore.getState().beginAssistantStream({
+            sessionId,
         });
+
+        useChatStore.getState().setAssistantStreamMeta(streamId, {
+            sessionId,
+            messageId: streamId,
+            decision: 'HYBRID',
+            provisional: true,
+            upgradeEligible: true,
+            traceId: 'trace_fast',
+        }, sessionId);
+        useChatStore.getState().appendAssistantStreamToken(streamId, 'Quick ', sessionId);
+        useChatStore.getState().appendAssistantStreamToken(streamId, 'answer', sessionId);
+        useChatStore.getState().finalizeAssistantStream(streamId, {
+            text: 'Quick answer',
+            provisional: true,
+            upgradeEligible: true,
+            decision: 'HYBRID',
+            traceId: 'trace_fast',
+            assistantTurn: {
+                intent: 'general_knowledge',
+                decision: 'respond',
+                response: 'Quick answer',
+                ui: {
+                    surface: 'plain_answer',
+                },
+                followUps: ['Tell me more'],
+            },
+        }, sessionId);
 
         const state = useChatStore.getState();
-        expect(state.mode).toBe('checkout');
-        expect(state.pendingConfirmation).toMatchObject({
-            token: 'confirm-123',
+        const finalizedMessage = state.messages.find((message) => message.id === streamId);
+        expect(finalizedMessage).toMatchObject({
+            id: streamId,
+            text: 'Quick answer',
+            provisional: true,
+            upgradeEligible: true,
+            decision: 'HYBRID',
+            traceId: 'trace_fast',
+            isStreaming: false,
+            status: 'complete',
         });
-        expect(state.lastAssistantTurn).toMatchObject({
-            intent: 'checkout',
-            decision: 'clarify',
-        });
+        expect(state.sessionStateById[sessionId].pendingUpgradeMessageIds).toContain(streamId);
     });
 
-    it('tracks streaming assistant tokens and stream metadata before finalization', () => {
-        const streamId = useChatStore.getState().beginAssistantStream();
-
-        useChatStore.getState().mergeAssistantStreamEvent(streamId, 'tool_start', {
-            toolName: 'search_code_chunks',
-            status: 'running',
-            input: {
-                query: 'checkout flow',
-            },
-        });
-        useChatStore.getState().appendAssistantStreamToken(streamId, 'Hello');
-        useChatStore.getState().appendAssistantStreamToken(streamId, ' world');
-        useChatStore.getState().mergeAssistantStreamEvent(streamId, 'citation', {
-            id: 'server/app.js:10',
-            label: 'server/app.js:10',
-            path: 'server/app.js',
-            startLine: 10,
-            endLine: 20,
-        });
-        useChatStore.getState().mergeAssistantStreamEvent(streamId, 'verification', {
-            label: 'app_grounded',
-            summary: 'Verified against indexed app evidence.',
-            evidenceCount: 1,
-        });
-
-        const streamingMessage = useChatStore.getState().messages.find((message) => message.id === streamId);
-        expect(streamingMessage).toMatchObject({
-            isStreaming: true,
-            text: 'Hello world',
+    it('merges a refined socket upgrade into the same assistant message', () => {
+        const sessionId = useChatStore.getState().activeSessionId;
+        useChatStore.getState().appendAssistantTurn({
+            sessionId,
+            id: 'message-1',
+            text: 'Quick answer',
+            provisional: true,
+            upgradeEligible: true,
+            decision: 'HYBRID',
             assistantTurn: {
-                response: 'Hello world',
-                verification: {
-                    label: 'app_grounded',
+                intent: 'general_knowledge',
+                decision: 'respond',
+                response: 'Quick answer',
+                ui: {
+                    surface: 'plain_answer',
                 },
             },
         });
-        expect(streamingMessage.assistantTurn.toolRuns).toHaveLength(1);
-        expect(streamingMessage.assistantTurn.citations).toHaveLength(1);
 
-        useChatStore.getState().discardAssistantStream(streamId);
-        expect(useChatStore.getState().messages.find((message) => message.id === streamId)).toBeUndefined();
+        useChatStore.getState().mergeAssistantUpgrade({
+            sessionId,
+            messageId: 'message-1',
+            content: 'Updated with deeper analysis.',
+            citations: [{ id: 'c1', label: 'Source 1' }],
+            verification: { label: 'app_grounded', summary: 'Checked against app state.' },
+            providerInfo: { name: 'central-intelligence', model: 'gemma' },
+            decision: 'HYBRID',
+            traceId: 'trace_refined',
+        });
+
+        const upgradedMessage = useChatStore.getState().messages.find((message) => message.id === 'message-1');
+        expect(upgradedMessage).toMatchObject({
+            id: 'message-1',
+            text: 'Updated with deeper analysis.',
+            upgraded: true,
+            provisional: false,
+            upgradeEligible: false,
+            traceId: 'trace_refined',
+        });
+        expect(upgradedMessage.assistantTurn).toMatchObject({
+            response: 'Updated with deeper analysis.',
+            verification: {
+                label: 'app_grounded',
+            },
+        });
+        expect(upgradedMessage.assistantTurn.citations).toHaveLength(1);
     });
 });
