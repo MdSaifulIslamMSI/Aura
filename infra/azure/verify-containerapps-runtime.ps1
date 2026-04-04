@@ -81,6 +81,16 @@ function Trim-OrDefault {
     return [string]$Value.Trim()
 }
 
+function Get-TemporaryDirectory {
+    foreach ($candidate in @($env:RUNNER_TEMP, $env:TEMP, $env:TMPDIR, [System.IO.Path]::GetTempPath())) {
+        if (-not [string]::IsNullOrWhiteSpace($candidate) -and (Test-Path $candidate)) {
+            return $candidate
+        }
+    }
+
+    throw "A writable temporary directory could not be resolved."
+}
+
 function Read-EnvFile {
     param([string]$Path)
 
@@ -147,7 +157,8 @@ function Get-PlanFromSyncScript {
         $shellMode = "powershell"
     }
     $powershellExe = $shellCommand.Source
-    $tempPlan = Join-Path $env:TEMP ("aura-runtime-plan-" + [guid]::NewGuid().ToString("N") + ".json")
+    $tempRoot = Get-TemporaryDirectory
+    $tempPlan = Join-Path $tempRoot ("aura-runtime-plan-" + [guid]::NewGuid().ToString("N") + ".json")
     try {
         $args = @("-NoProfile")
         if ($shellMode -eq "powershell") {
