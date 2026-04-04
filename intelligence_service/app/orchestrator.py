@@ -12,7 +12,15 @@ from .index_state import read_active_index
 from .neo4j_store import Neo4jStore
 from .providers import GemmaProvider
 from .qdrant_store import QdrantStore
-from .schemas import AssistantReply, AssistantRequest, Citation, ToolRun, Verification
+from .schemas import (
+    AssistantReply,
+    AssistantRequest,
+    Citation,
+    EvidenceEnvelope,
+    ToolProposal,
+    ToolRun,
+    Verification,
+)
 from .tool_gateway import NodeToolGateway
 from .workspace_store import WorkspaceStore
 
@@ -241,6 +249,78 @@ def _has_workspace_evidence(tool_results: List[Dict[str, Any]]) -> bool:
         if _normalize_text(((tool_run or {}).get("outputPreview", {}) or {}).get("store", "")) == "workspace":
             return True
     return False
+
+
+def _get_disabled_tools(request: AssistantRequest) -> set[str]:
+    return {
+        _normalize_text(tool_name)
+        for tool_name in request.governanceContext.disabledTools
+        if _normalize_text(tool_name)
+    }
+
+
+def _apply_governance_to_tool_plan(
+    tool_plan: List[Dict[str, Any]],
+    *,
+    request: AssistantRequest,
+) -> List[Dict[str, Any]]:
+    disabled_tools = _get_disabled_tools(request)
+    if not disabled_tools:
+        filtered_plan = list(tool_plan or [])
+    else:
+        filtered_plan = [
+            plan
+            for plan in (tool_plan or [])
+            if _normalize_text(plan.get("toolName", "")) not in disabled_tools
+        ]
+
+    latency_budget_ms = max(0, int(request.governanceContext.latencyBudgetMs or 0))
+    if latency_budget_ms and latency_budget_ms <= 3000:
+        return filtered_plan[:2]
+    if latency_budget_ms and latency_budget_ms <= 7000:
+        return filtered_plan[:4]
+    return filtered_plan
+
+
+def _build_tool_proposal(
+    *,
+    tool_plan: List[Dict[str, Any]],
+    disabled_tools: set[str],
+    answer_mode: str,
+) -> Dict[str, Any]:
+    tools_needed = [
+        _normalize_text(plan.get("toolName", ""))
+        for plan in (tool_plan or [])
+        if _normalize_text(plan.get("toolName", ""))
+    ]
+    reason = (
+        "Need semantic and relational evidence to ground the answer."
+        if any(tool_name in {"search_code_chunks", "trace_system_path"} for tool_name in tools_needed)
+        else "Need lightweight structured evidence before composing the answer."
+        if tools_needed
+        else f"No external tools are required for {answer_mode}."
+    )
+    if disabled_tools:
+        reason = f"{reason} Governance disabled: {', '.join(sorted(disabled_tools))}."
+    return {
+        "tools_needed": tools_needed,
+        "reason": reason,
+        "max_tool_hops": len(tools_needed),
+    }
+
+
+def _build_evidence_envelope(
+    *,
+    verification: Dict[str, Any],
+    citations: List[Dict[str, Any]],
+    conflicts: List[str],
+) -> Dict[str, Any]:
+    return {
+        "confidence": max(0.0, min(1.0, float(verification.get("confidence", 0) or 0))),
+        "verified": _normalize_text(verification.get("label", "")) != "cannot_verify",
+        "conflicts": [_normalize_text(conflict) for conflict in conflicts if _normalize_text(conflict)],
+        "sources": citations[:10],
+    }
 
 
 def _make_follow_ups(mode: str) -> List[str]:
@@ -730,6 +810,7 @@ class AssistantOrchestrator:
     async def invoke(self, request: AssistantRequest, event_callback: EventCallback | None = None) -> AssistantReply:
         initial_state: Dict[str, Any] = {
             "request": request,
+            "decision_id": request.decisionId,
             "trace_id": request.traceId,
             "started_at": time.perf_counter(),
             "message": "",
@@ -753,6 +834,17 @@ class AssistantOrchestrator:
             "guard_reason": "",
             "stale_bundle": False,
             "missing_evidence": False,
+            "tool_proposal": {
+                "tools_needed": [],
+                "reason": "",
+                "max_tool_hops": 0,
+            },
+            "evidence_envelope": {
+                "confidence": 0.0,
+                "verified": False,
+                "conflicts": [],
+                "sources": [],
+            },
         }
 
         if self._graph is not None:
@@ -777,6 +869,8 @@ class AssistantOrchestrator:
         answer = _normalize_text(state["answer"]) or "I could not compose a verified answer."
         answer_mode = state["answer_mode"]
         reasoning_model = _normalize_text(state.get("reasoning_model", "")) or settings.reasoning_model
+        tool_proposal = ToolProposal(**(state.get("tool_proposal", {}) or {}))
+        evidence_envelope = EvidenceEnvelope(**(state.get("evidence_envelope", {}) or {}))
         grounding_bundle_version = (
             "workspace-live"
             if any(_normalize_text((tool_run.outputPreview or {}).get("store", "")) == "workspace" for tool_run in tool_runs)
@@ -826,6 +920,8 @@ class AssistantOrchestrator:
                 "model": reasoning_model,
             },
             latencyMs=latency_ms,
+            toolProposal=tool_proposal,
+            evidenceEnvelope=evidence_envelope,
         )
 
     async def request_normalizer(self, state: Dict[str, Any]) -> Dict[str, Any]:
@@ -852,6 +948,7 @@ class AssistantOrchestrator:
         request: AssistantRequest = state["request"]
         initial_mode = state["answer_mode"]
         message = state["message"]
+        disabled_tools = _get_disabled_tools(request)
 
         gemma_plan = await self._plan_tools_with_gemma(
             request=request,
@@ -864,7 +961,16 @@ class AssistantOrchestrator:
             answer_mode=initial_mode,
         )
 
-        merged_plan = self._merge_tool_plans(gemma_plan, fallback_plan)
+        merged_plan = _apply_governance_to_tool_plan(
+            self._merge_tool_plans(gemma_plan, fallback_plan),
+            request=request,
+        )
+        state["tool_proposal"] = _build_tool_proposal(
+            tool_plan=merged_plan,
+            disabled_tools=disabled_tools,
+            answer_mode=initial_mode,
+        )
+        await self._emit_event(state.get("event_callback"), "tool_proposal", state["tool_proposal"])
         if merged_plan:
             state["tool_plan"] = merged_plan
             if any(entry["toolName"] in RUNTIME_TOOLS for entry in merged_plan):
@@ -878,18 +984,27 @@ class AssistantOrchestrator:
         return state
 
     async def graph_trace_resolver(self, state: Dict[str, Any]) -> Dict[str, Any]:
-        if state["answer_mode"] in {"app_grounded", "runtime_grounded"}:
-            state["tool_plan"] = self._merge_tool_plans(
-                state.get("tool_plan", []),
-                [
-                    {
-                        "toolName": "trace_system_path",
-                        "input": {
-                            "query": state["message"],
-                            "limit": 4,
-                        },
-                    }
-                ],
+        disabled_tools = _get_disabled_tools(state["request"])
+        if state["answer_mode"] in {"app_grounded", "runtime_grounded"} and "trace_system_path" not in disabled_tools:
+            state["tool_plan"] = _apply_governance_to_tool_plan(
+                self._merge_tool_plans(
+                    state.get("tool_plan", []),
+                    [
+                        {
+                            "toolName": "trace_system_path",
+                            "input": {
+                                "query": state["message"],
+                                "limit": 4,
+                            },
+                        }
+                    ],
+                ),
+                request=state["request"],
+            )
+            state["tool_proposal"] = _build_tool_proposal(
+                tool_plan=state["tool_plan"],
+                disabled_tools=disabled_tools,
+                answer_mode=state["answer_mode"],
             )
         return state
 
@@ -963,6 +1078,7 @@ class AssistantOrchestrator:
         tool_results = state["tool_results"]
         live_repo_evidence = _has_workspace_evidence(tool_results)
         stale_bundle = _bundle_is_stale(request)
+        conflicts: List[str] = []
 
         if stale_bundle and not live_repo_evidence:
             state["guard_reason"] = "stale_bundle"
@@ -978,6 +1094,12 @@ class AssistantOrchestrator:
                 "I cannot verify app-specific details because the active knowledge bundle does not "
                 "match the deployed app version."
             )
+            conflicts.append("stale_bundle")
+            state["evidence_envelope"] = _build_evidence_envelope(
+                verification=state["verification"],
+                citations=[],
+                conflicts=conflicts,
+            )
             return state
 
         if answer_mode == "app_grounded" and not citations:
@@ -991,6 +1113,12 @@ class AssistantOrchestrator:
                 "evidenceCount": 0,
             }
             state["answer"] = "I cannot verify that from the current system state."
+            conflicts.append("missing_repo_evidence")
+            state["evidence_envelope"] = _build_evidence_envelope(
+                verification=state["verification"],
+                citations=[],
+                conflicts=conflicts,
+            )
             return state
 
         if answer_mode == "runtime_grounded" and not citations and not tool_results:
@@ -1004,6 +1132,12 @@ class AssistantOrchestrator:
                 "evidenceCount": 0,
             }
             state["answer"] = "I cannot verify that from the current runtime state."
+            conflicts.append("missing_runtime_evidence")
+            state["evidence_envelope"] = _build_evidence_envelope(
+                verification=state["verification"],
+                citations=[],
+                conflicts=conflicts,
+            )
             return state
 
         evidence_count = len(citations) if citations else len(tool_results)
@@ -1027,6 +1161,13 @@ class AssistantOrchestrator:
             ),
             "evidenceCount": evidence_count,
         }
+        if stale_bundle and live_repo_evidence:
+            conflicts.append("stale_bundle_live_repo_fallback")
+        state["evidence_envelope"] = _build_evidence_envelope(
+            verification=state["verification"],
+            citations=citations,
+            conflicts=conflicts,
+        )
         return state
 
     async def final_response_composer(self, state: Dict[str, Any]) -> Dict[str, Any]:

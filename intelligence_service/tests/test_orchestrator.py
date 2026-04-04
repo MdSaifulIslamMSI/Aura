@@ -123,6 +123,8 @@ class EvidenceGuardTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(updated["missing_evidence"])
         self.assertEqual(updated["verification"]["label"], "app_grounded")
         self.assertIn("live repo source files", updated["verification"]["summary"])
+        self.assertTrue(updated["evidence_envelope"]["verified"])
+        self.assertIn("stale_bundle_live_repo_fallback", updated["evidence_envelope"]["conflicts"])
 
 
 class CompositionFallbackTests(unittest.IsolatedAsyncioTestCase):
@@ -249,6 +251,117 @@ class StoreBackedToolRunnerTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("search_code_chunks", [tool_run["toolName"] for tool_run in updated["tool_runs"]])
         self.assertIn("get_file_section", [tool_run["toolName"] for tool_run in updated["tool_runs"]])
         self.assertTrue(any(citation["path"] == "server/routes/aiRoutes.js" for citation in updated["citations"]))
+
+
+class GovernanceContractTests(unittest.IsolatedAsyncioTestCase):
+    async def test_retrieval_planner_filters_disabled_tools(self):
+        orchestrator = AssistantOrchestrator()
+
+        async def stub_planner(**kwargs):
+            return [
+                {
+                    "function": {
+                        "name": "search_code_chunks",
+                        "arguments": {
+                            "query": "checkout flow",
+                            "limit": 4,
+                        },
+                    }
+                },
+                {
+                    "function": {
+                        "name": "trace_system_path",
+                        "arguments": {
+                            "query": "checkout flow",
+                            "limit": 2,
+                        },
+                    }
+                },
+            ]
+
+        orchestrator.provider.plan_tool_calls = stub_planner
+        state = {
+            "request": build_request(
+                governanceContext={
+                    "disabledTools": ["trace_system_path"],
+                    "latencyBudgetMs": 5000,
+                }
+            ),
+            "message": "Explain checkout flow",
+            "answer_mode": "app_grounded",
+            "event_callback": None,
+        }
+
+        updated = await orchestrator.retrieval_planner(state)
+
+        self.assertTrue(all(entry["toolName"] != "trace_system_path" for entry in updated["tool_plan"]))
+        self.assertTrue(all(tool_name != "trace_system_path" for tool_name in updated["tool_proposal"]["tools_needed"]))
+        self.assertIn("search_code_chunks", updated["tool_proposal"]["tools_needed"])
+        self.assertIn("trace_system_path", updated["tool_proposal"]["reason"])
+
+    async def test_invoke_returns_tool_and_evidence_contracts(self):
+        orchestrator = AssistantOrchestrator()
+
+        class StubBundleStore:
+            async def get_bundle_version(self):
+                return "bundle-1"
+
+            async def get_file_section(self, **kwargs):
+                return {
+                    "path": "server/routes/aiRoutes.js",
+                    "subsystem": "backend",
+                    "startLine": 12,
+                    "endLine": 28,
+                    "content": "router.post('/chat', ...)",
+                }
+
+            async def close(self):
+                return None
+
+        class StubQdrantStore:
+            async def search_chunks(self, **kwargs):
+                return [
+                    {
+                        "id": "chunk-1",
+                        "label": "server/routes/aiRoutes.js:12",
+                        "type": "code",
+                        "path": "server/routes/aiRoutes.js",
+                        "excerpt": "router.post('/chat', ...)",
+                        "startLine": 12,
+                        "endLine": 28,
+                        "score": 0.91,
+                        "metadata": {},
+                    }
+                ]
+
+            async def close(self):
+                return None
+
+        class StubProvider:
+            async def plan_tool_calls(self, **kwargs):
+                return []
+
+            async def generate_text(self, **kwargs):
+                return "Grounded answer from evidence."
+
+            async def close(self):
+                return None
+
+        orchestrator.bundle_store = StubBundleStore()
+        orchestrator.qdrant_store = StubQdrantStore()
+        orchestrator.provider = StubProvider()
+        request = build_request(
+            governanceContext={
+                "disabledTools": ["trace_system_path"],
+            }
+        )
+
+        reply = await orchestrator.invoke(request)
+
+        self.assertEqual(reply.toolProposal.max_tool_hops, len(reply.toolProposal.tools_needed))
+        self.assertTrue(reply.evidenceEnvelope.verified)
+        self.assertGreaterEqual(reply.evidenceEnvelope.confidence, 0.7)
+        self.assertTrue(any(source.path == "server/routes/aiRoutes.js" for source in reply.evidenceEnvelope.sources))
 
     async def test_prefers_workspace_search_when_bundle_is_stale(self):
         orchestrator = AssistantOrchestrator()

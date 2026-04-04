@@ -179,11 +179,27 @@ describe('intelligenceGatewayService', () => {
             context: {},
             images: [],
             session: {},
+            traceId: 'trace-governed',
+            decisionId: 'decision-governed',
+            governanceContext: {
+                route: 'HYBRID',
+                latencyBudgetMs: 4500,
+                maxCost: 0.15,
+                disabledTools: ['get_socket_health'],
+            },
         });
 
         expect(global.fetch).toHaveBeenCalledTimes(1);
         const [, options] = global.fetch.mock.calls[0];
         const payload = JSON.parse(options.body);
+        expect(payload.traceId).toBe('trace-governed');
+        expect(payload.decisionId).toBe('decision-governed');
+        expect(payload.governanceContext).toMatchObject({
+            route: 'HYBRID',
+            latencyBudgetMs: 4500,
+            maxCost: 0.15,
+            disabledTools: ['get_socket_health'],
+        });
         expect(payload.providerConfig.allowStaleWorkspaceFallback).toBe(true);
         expect(payload.providerConfig.endpointProvider).toBe('google_gemini');
         expect(payload.providerConfig.reasoningModel).toBe('gemma-4-31b-it');
@@ -193,6 +209,9 @@ describe('intelligenceGatewayService', () => {
             status: 'verified',
             staleBundle: true,
             bundleVersion: 'workspace-live',
+        });
+        expect(result.evidenceEnvelope).toMatchObject({
+            verified: true,
         });
     });
 

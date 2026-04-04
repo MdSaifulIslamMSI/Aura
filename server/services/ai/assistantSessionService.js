@@ -1,8 +1,10 @@
 const crypto = require('crypto');
+const { flags: redisFlags, getRedisClient } = require('../../config/redis');
 
-const SESSION_TTL_MS = 30 * 60 * 1000;
+const SESSION_TTL_SECONDS = 30 * 60;
+const SESSION_TTL_MS = SESSION_TTL_SECONDS * 1000;
 const MAX_EXECUTED_ACTION_IDS = 24;
-const sessions = new Map();
+const memorySessions = new Map();
 
 const safeString = (value, fallback = '') => String(value === undefined || value === null ? fallback : value).trim();
 const clamp = (value, min, max) => Math.min(Math.max(Number(value) || 0, min), max);
@@ -139,27 +141,78 @@ const cloneSession = (session = {}) => ({
     updatedAt: Math.max(0, Number(session?.updatedAt || Date.now())),
 });
 
-const persistSession = (session = {}) => {
-    const normalized = cloneSession(session);
-    sessions.set(normalized.sessionId, normalized);
-    return cloneSession(normalized);
-};
+const getSessionKey = (sessionId = '') => `${redisFlags.redisPrefix}:assistant:session:${safeString(sessionId)}`;
 
-const cleanupExpiredSessions = () => {
+const pruneExpiredMemorySessions = () => {
     const cutoff = Date.now() - SESSION_TTL_MS;
-    [...sessions.entries()].forEach(([sessionId, snapshot]) => {
-        if (Number(snapshot?.updatedAt || 0) < cutoff) {
-            sessions.delete(sessionId);
+    memorySessions.forEach((entry, key) => {
+        if (Number(entry?.updatedAt || 0) < cutoff) {
+            memorySessions.delete(key);
         }
     });
 };
 
-const resolveAssistantSession = ({ sessionId = '', context = {} } = {}) => {
-    cleanupExpiredSessions();
+const readMemorySession = (sessionId = '') => {
+    pruneExpiredMemorySessions();
+    const session = memorySessions.get(safeString(sessionId));
+    return session ? cloneSession(session) : null;
+};
 
+const writeMemorySession = (session = {}) => {
+    const normalized = cloneSession(session);
+    memorySessions.set(normalized.sessionId, normalized);
+    return cloneSession(normalized);
+};
+
+const readRedisSession = async (sessionId = '') => {
+    const client = getRedisClient();
+    if (!client) return null;
+
+    try {
+        const raw = await client.get(getSessionKey(sessionId));
+        if (!raw) return null;
+        return cloneSession(JSON.parse(raw));
+    } catch {
+        return null;
+    }
+};
+
+const writeRedisSession = async (session = {}) => {
+    const client = getRedisClient();
+    if (!client) return null;
+
+    const normalized = cloneSession(session);
+    await client.setEx(
+        getSessionKey(normalized.sessionId),
+        SESSION_TTL_SECONDS,
+        JSON.stringify(normalized)
+    );
+    return cloneSession(normalized);
+};
+
+const persistSession = async (session = {}) => {
+    const normalized = cloneSession(session);
+    try {
+        const written = await writeRedisSession(normalized);
+        if (written) {
+            return cloneSession(written);
+        }
+    } catch {
+        // Fall back to memory storage below.
+    }
+    return writeMemorySession(normalized);
+};
+
+const resolveAssistantSession = async ({ sessionId = '', context = {} } = {}) => {
     const normalizedSessionId = safeString(sessionId);
-    if (normalizedSessionId && sessions.has(normalizedSessionId)) {
-        return cloneSession(sessions.get(normalizedSessionId));
+    const fromRedis = normalizedSessionId ? await readRedisSession(normalizedSessionId) : null;
+    if (fromRedis) {
+        return cloneSession(fromRedis);
+    }
+
+    const fromMemory = normalizedSessionId ? readMemorySession(normalizedSessionId) : null;
+    if (fromMemory) {
+        return cloneSession(fromMemory);
     }
 
     const bootstrap = buildBootstrapSnapshot(context);
@@ -172,10 +225,10 @@ const resolveAssistantSession = ({ sessionId = '', context = {} } = {}) => {
     });
 };
 
-const updateAssistantSession = ({ sessionId = '', baseSession = null, patch = {} } = {}) => {
+const updateAssistantSession = async ({ sessionId = '', baseSession = null, patch = {} } = {}) => {
     const current = baseSession?.sessionId
         ? cloneSession(baseSession)
-        : resolveAssistantSession({ sessionId });
+        : await resolveAssistantSession({ sessionId });
     const nextContextVersion = patch?.contextVersion !== undefined
         ? Math.max(1, Number(patch.contextVersion || current.contextVersion))
         : patch?.incrementContextVersion
@@ -229,7 +282,7 @@ const createActionId = ({
     .digest('hex')
     .slice(0, 24);
 
-const validatePendingAction = ({
+const validatePendingAction = async ({
     session = {},
     actionId = '',
     contextVersion = 0,
@@ -271,10 +324,10 @@ const validatePendingAction = ({
     };
 };
 
-const markActionExecuted = ({ sessionId = '', baseSession = null, actionId = '' } = {}) => {
+const markActionExecuted = async ({ sessionId = '', baseSession = null, actionId = '' } = {}) => {
     const current = baseSession?.sessionId
         ? cloneSession(baseSession)
-        : resolveAssistantSession({ sessionId });
+        : await resolveAssistantSession({ sessionId });
     const normalizedActionId = safeString(actionId);
     if (!normalizedActionId) {
         return current;
@@ -299,9 +352,19 @@ const toSessionMemory = (session = {}) => ({
     lastIntent: safeString(session?.lastIntent || ''),
     currentIntent: safeString(session?.lastIntent || ''),
     clarificationState: normalizeClarificationState(session?.clarificationState || {}),
+    lastResolvedEntityId: safeString(session?.lastResolvedEntityId || ''),
+    pendingAction: normalizePendingAction(session?.pendingAction || null),
+    executedActionIds: Array.isArray(session?.executedActionIds)
+        ? session.executedActionIds.map((entry) => safeString(entry)).filter(Boolean).slice(-MAX_EXECUTED_ACTION_IDS)
+        : [],
 });
 
+const __resetAssistantSessionsForTests = () => {
+    memorySessions.clear();
+};
+
 module.exports = {
+    __resetAssistantSessionsForTests,
     createActionId,
     markActionExecuted,
     resolveAssistantSession,
