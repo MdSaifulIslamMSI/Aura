@@ -62,6 +62,7 @@ export default defineConfig({
                 ...process.env,
                 MONGO_URI: isCI ? 'mongodb://127.0.0.1:27017/aura_e2e' : process.env.MONGO_URI,
                 NODE_ENV: 'test',
+                ASSISTANT_V2_ENABLED: process.env.ASSISTANT_V2_ENABLED || 'true',
                 CORS_ORIGIN: process.env.CORS_ORIGIN || e2eCorsOrigins,
                 SIMULATED_WEBHOOK_SECRET: process.env.SIMULATED_WEBHOOK_SECRET || 'playwright-simulated-webhook-secret',
                 OTP_CHALLENGE_SECRET: process.env.OTP_CHALLENGE_SECRET || 'playwright-otp-challenge-secret',
@@ -78,6 +79,7 @@ export default defineConfig({
             env: {
                 ...process.env,
                 VITE_API_URL: process.env.VITE_API_URL || localApiBaseUrl,
+                VITE_ASSISTANT_V2_ENABLED: process.env.VITE_ASSISTANT_V2_ENABLED || 'true',
                 VITE_ENABLE_BACKEND_STATUS_BANNER: 'false',
                 VITE_FIREBASE_MEASUREMENT_ID: '',
             },

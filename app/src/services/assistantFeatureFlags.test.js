@@ -13,8 +13,15 @@ describe('assistantFeatureFlags', () => {
         expect(isAssistantV2Enabled()).toBe(true);
     });
 
-    it('falls back to disabled when the env flag is invalid', async () => {
+    it('falls back to enabled when the env flag is missing or invalid', async () => {
         vi.stubEnv('VITE_ASSISTANT_V2_ENABLED', 'maybe');
+        const { isAssistantV2Enabled } = await import('./assistantFeatureFlags');
+
+        expect(isAssistantV2Enabled()).toBe(true);
+    });
+
+    it('allows explicitly disabling the assistant surface', async () => {
+        vi.stubEnv('VITE_ASSISTANT_V2_ENABLED', 'false');
         const { isAssistantV2Enabled } = await import('./assistantFeatureFlags');
 
         expect(isAssistantV2Enabled()).toBe(false);

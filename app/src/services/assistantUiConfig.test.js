@@ -26,7 +26,7 @@ describe('assistantUiConfig', () => {
         expect(shouldShowLegacyChatBot({
             pathname: '/cart',
             assistantV2Enabled: false,
-        })).toBe(true);
+        })).toBe(false);
         expect(shouldShowLegacyChatBot({
             pathname: '/cart',
             assistantV2Enabled: true,

@@ -9,7 +9,7 @@ export const parseBooleanFlag = (value, fallback = false) => {
 };
 
 export const assistantFeatureFlags = Object.freeze({
-    assistantV2Enabled: parseBooleanFlag(getSafeEnv('VITE_ASSISTANT_V2_ENABLED', 'false'), false),
+    assistantV2Enabled: parseBooleanFlag(getSafeEnv('VITE_ASSISTANT_V2_ENABLED', 'true'), true),
 });
 
 export const isAssistantV2Enabled = () => assistantFeatureFlags.assistantV2Enabled;
