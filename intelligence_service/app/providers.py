@@ -115,6 +115,10 @@ class GemmaProvider:
     def __init__(self) -> None:
         pass
 
+    def _timeout_seconds(self) -> float:
+        timeout_ms = max(5000, int(settings.provider_timeout_ms or 25000))
+        return timeout_ms / 1000.0
+
     async def close(self) -> None:
         return None
 
@@ -131,21 +135,33 @@ class GemmaProvider:
             return None
 
         if on_token is None:
-            return await asyncio.to_thread(
-                self._generate_text_sync,
-                messages,
-                model,
-                endpoint_url,
-                temperature,
-            )
+            try:
+                return await asyncio.wait_for(
+                    asyncio.to_thread(
+                        self._generate_text_sync,
+                        messages,
+                        model,
+                        endpoint_url,
+                        temperature,
+                    ),
+                    timeout=self._timeout_seconds(),
+                )
+            except Exception:
+                return None
 
-        return await self._stream_text_async(
-            messages=messages,
-            model=model,
-            endpoint_url=endpoint_url,
-            temperature=temperature,
-            on_token=on_token,
-        )
+        try:
+            return await asyncio.wait_for(
+                self._stream_text_async(
+                    messages=messages,
+                    model=model,
+                    endpoint_url=endpoint_url,
+                    temperature=temperature,
+                    on_token=on_token,
+                ),
+                timeout=self._timeout_seconds(),
+            )
+        except Exception:
+            return None
 
     async def plan_tool_calls(
         self,
@@ -160,15 +176,21 @@ class GemmaProvider:
         if not model or not tools:
             return []
 
-        return await asyncio.to_thread(
-            self._plan_tool_calls_sync,
-            messages,
-            model,
-            endpoint_url,
-            tools,
-            tool_choice,
-            temperature,
-        )
+        try:
+            return await asyncio.wait_for(
+                asyncio.to_thread(
+                    self._plan_tool_calls_sync,
+                    messages,
+                    model,
+                    endpoint_url,
+                    tools,
+                    tool_choice,
+                    temperature,
+                ),
+                timeout=self._timeout_seconds(),
+            )
+        except Exception:
+            return []
 
     def _create_client(self, endpoint_url: str) -> InferenceClient:
         client_kwargs: Dict[str, str] = {}

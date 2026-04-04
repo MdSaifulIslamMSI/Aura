@@ -81,5 +81,53 @@ class EvidenceGuardTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("cannot verify", updated["answer"].lower())
 
 
+class CompositionFallbackTests(unittest.IsolatedAsyncioTestCase):
+    async def test_model_knowledge_hello_skips_provider(self):
+        orchestrator = AssistantOrchestrator()
+
+        class ExplodingProvider:
+            async def generate_text(self, **kwargs):
+                raise AssertionError("provider should not be called for hello")
+
+        orchestrator.provider = ExplodingProvider()
+
+        answer = await orchestrator._compose_model_knowledge(
+            "hello",
+            images=[],
+            event_callback=None,
+            reasoning_model="gemma-test",
+        )
+
+        self.assertIn("Hello!", answer)
+        self.assertIn("not repo-grounded", answer)
+
+    async def test_grounded_answer_falls_back_when_provider_returns_none(self):
+        orchestrator = AssistantOrchestrator()
+
+        class NoneProvider:
+            async def generate_text(self, **kwargs):
+                return None
+
+        orchestrator.provider = NoneProvider()
+
+        answer = await orchestrator._compose_grounded_answer(
+            message="Where is support video handled?",
+            answer_mode="app_grounded",
+            citations=[
+                {
+                    "label": "server/controllers/supportController.js",
+                    "path": "server/controllers/supportController.js",
+                }
+            ],
+            tool_results=[],
+            images=[],
+            event_callback=None,
+            reasoning_model="gemma-test",
+        )
+
+        self.assertIn("indexed app bundle", answer)
+        self.assertIn("supportController", answer)
+
+
 if __name__ == "__main__":
     unittest.main()
