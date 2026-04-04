@@ -338,6 +338,11 @@ const buildTelemetry = ({ result = {} } = {}) => {
             ? `orchestrator:${answerMode}`
             : `planner:${provider}`,
         retrievalHits: hits,
+        route: safeString(result?.decision?.route || ''),
+        traceId: safeString(result?.traceId || ''),
+        decisionId: safeString(result?.decisionId || ''),
+        provisional: Boolean(result?.provisional),
+        upgradeEligible: Boolean(result?.upgradeEligible),
     };
 };
 
@@ -387,6 +392,18 @@ const createAssistantTurn = async ({
         actions: buildActions({ result }),
         supportDraft: buildSupportDraft({ result }),
         telemetry: buildTelemetry({ result }),
+        decision: result?.decision || null,
+        provisional: Boolean(result?.provisional),
+        traceId: safeString(result?.traceId || ''),
+        decisionId: safeString(result?.decisionId || ''),
+        upgradeEligible: Boolean(result?.upgradeEligible),
+        provisionalReply: result?.provisionalTurn
+            ? {
+                text: safeString(result?.provisionalTurn?.answer || result?.provisionalTurn?.assistantTurn?.response || ''),
+                intent: safeString(result?.provisionalTurn?.assistantTurn?.intent || 'general_help'),
+                confidence: Math.max(0, Number(result?.provisionalTurn?.assistantTurn?.confidence || 0)),
+            }
+            : null,
     });
 
     recordAssistantTurn({
