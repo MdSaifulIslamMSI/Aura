@@ -2,10 +2,18 @@ import { useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
 import MessageItem from './MessageItem';
 
+const SCROLL_LOCK_THRESHOLD = 120;
+
+const isNearBottom = (element) => {
+    if (!element) return true;
+    return (element.scrollHeight - element.scrollTop - element.clientHeight) < SCROLL_LOCK_THRESHOLD;
+};
+
 const MessageList = ({
     messages = [],
     isLoading = false,
     isWhiteMode = false,
+    className = '',
     onSelectProduct,
     onAddToCart,
     onViewDetails,
@@ -15,6 +23,8 @@ const MessageList = ({
     onModifyPending,
 }) => {
     const endRef = useRef(null);
+    const containerRef = useRef(null);
+    const shouldStickToBottomRef = useRef(true);
     const latestAssistantMessageId = [...messages]
         .reverse()
         .find((message) => message?.role === 'assistant')
@@ -23,7 +33,22 @@ const MessageList = ({
         && messages.some((message) => message?.role === 'assistant' && message?.isStreaming);
 
     useEffect(() => {
-        endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        if (!shouldStickToBottomRef.current) {
+            return;
+        }
+
+        endRef.current?.scrollIntoView({
+            behavior: hasStreamingAssistantMessage ? 'auto' : 'smooth',
+            block: 'end',
+        });
+    }, [hasStreamingAssistantMessage, isLoading, messages]);
+
+    const handleScroll = () => {
+        shouldStickToBottomRef.current = isNearBottom(containerRef.current);
+    };
+
+    useEffect(() => {
+        shouldStickToBottomRef.current = isNearBottom(containerRef.current);
     }, [isLoading, messages]);
 
     const loadingBubbleClass = isWhiteMode
@@ -31,7 +56,11 @@ const MessageList = ({
         : 'border-white/10 bg-white/[0.03]';
 
     return (
-        <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-8 sm:py-8">
+        <div
+            ref={containerRef}
+            onScroll={handleScroll}
+            className={cn('flex-1 overflow-y-auto px-4 py-6 sm:px-8 sm:py-8', className)}
+        >
             <div className="mx-auto w-full max-w-4xl space-y-8">
                 {messages.map((message) => (
                     <MessageItem
