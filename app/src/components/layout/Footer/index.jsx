@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import { trustApi } from '@/services/api';
 import { useMarket } from '@/context/MarketContext';
-import { buildSupportHandoffPath } from '@/utils/assistantCommands';
+import { buildSupportHandoffPath } from '@/utils/supportRouting';
 
 const STATUS_CLASSES = {
   healthy: 'bg-emerald-500/15 border-emerald-400/40 text-emerald-300 shadow-emerald-500/0 hover:shadow-emerald-500/20',

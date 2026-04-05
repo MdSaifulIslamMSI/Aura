@@ -6,7 +6,6 @@ const { getPaymentOutboxStats } = require('./payments/paymentService');
 const { getOrderEmailQueueStats } = require('./email/orderEmailQueueService');
 const { getCommerceReconciliationStatus } = require('./commerceReconciliationService');
 const { getSocketHealth } = require('./socketService');
-const { getChatQuotaHealth } = require('./chatQuotaService');
 const { getFxRefreshStatus } = require('./payments/fxRateService');
 const { getCentralIntelligenceHealth } = require('./intelligence/intelligenceGatewayService');
 const logger = require('../utils/logger');
@@ -58,7 +57,6 @@ const checkServiceReadiness = async () => {
             reconciliation,
             fx,
             ai: {
-                chatQuota: getChatQuotaHealth(),
                 intelligence,
             },
             realtime: {
@@ -83,7 +81,6 @@ const checkServiceReadiness = async () => {
                 stale: true,
             },
             ai: {
-                chatQuota: getChatQuotaHealth(),
                 intelligence: {
                     healthy: false,
                     reason: error.message,
