@@ -34,11 +34,6 @@ const INTERNAL_CHUNK_MATCHERS = [
   { pattern: /\/src\/config\/localePolishMessages\.js$/, chunk: 'market-messages-polish' },
 ]
 
-const matchesNodeModule = (id, packageNames = []) => packageNames.some((packageName) => (
-  id.includes(`/node_modules/${packageName}`)
-  || id.includes(`\\node_modules\\${packageName}`)
-))
-
 // https://vite.dev/config/
 export default defineConfig({
   base: '/',
@@ -51,73 +46,6 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
-          if (id.includes('node_modules')) {
-            if (matchesNodeModule(id, ['react', 'react-dom', 'scheduler'])) return 'react-core'
-            if (matchesNodeModule(id, ['react-router', 'react-router-dom'])) return 'react-router'
-            if (id.includes('firebase')) return 'firebase';
-            if (id.includes('lucide-react')) return 'icons';
-            if (id.includes('recharts')) return 'charts';
-            if (id.includes('@radix-ui') || id.includes('cmdk') || id.includes('vaul')) return 'ui-kit';
-            if (
-              matchesNodeModule(id, [
-                'framer-motion',
-                'motion-dom',
-                'motion-utils',
-                'lenis',
-              ])
-            ) return 'motion'
-            if (
-              matchesNodeModule(id, [
-                'socket.io-client',
-                'socket.io-parser',
-                'engine.io-client',
-                'engine.io-parser',
-                '@socket.io',
-                'livekit-client',
-              ])
-            ) return 'realtime'
-            if (
-              matchesNodeModule(id, [
-                'react-markdown',
-                'remark-gfm',
-                'remark-parse',
-                'remark-rehype',
-                'rehype-raw',
-                'rehype-stringify',
-                'unified',
-                'bail',
-                'trough',
-                'vfile',
-                'vfile-message',
-                'mdast-util-from-markdown',
-                'mdast-util-gfm',
-                'mdast-util-gfm-autolink-literal',
-                'mdast-util-gfm-footnote',
-                'mdast-util-gfm-strikethrough',
-                'mdast-util-gfm-table',
-                'mdast-util-gfm-task-list-item',
-                'mdast-util-to-hast',
-                'micromark',
-                'micromark-core-commonmark',
-                'micromark-extension-gfm',
-                'micromark-extension-gfm-autolink-literal',
-                'micromark-extension-gfm-footnote',
-                'micromark-extension-gfm-strikethrough',
-                'micromark-extension-gfm-table',
-                'micromark-extension-gfm-tagfilter',
-                'micromark-extension-gfm-task-list-item',
-                'hast-util-',
-                'unist-util-',
-                'decode-named-character-reference',
-                'property-information',
-                'space-separated-tokens',
-                'comma-separated-tokens',
-              ])
-            ) return 'markdown'
-            
-            return 'vendor';
-          }
-
           const matchedInternalChunk = INTERNAL_CHUNK_MATCHERS.find(({ pattern }) => pattern.test(id));
           if (matchedInternalChunk) return matchedInternalChunk.chunk;
 
