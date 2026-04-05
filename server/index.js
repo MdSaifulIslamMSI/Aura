@@ -29,9 +29,7 @@ const userRoutes = require('./routes/userRoutes');
 const cartRoutes = require('./routes/cartRoutes');
 const orderRoutes = require('./routes/orderRoutes');
 const checkoutRoutes = require('./routes/checkoutRoutes');
-const chatRoutes = require('./routes/chatRoutes');
 const aiRoutes = require('./routes/aiRoutes');
-const assistantRoutes = require('./routes/assistantRoutes');
 const otpRoutes = require('./routes/otpRoutes');
 const listingRoutes = require('./routes/listingRoutes');
 const tradeInRoutes = require('./routes/tradeInRoutes');
@@ -102,7 +100,6 @@ const {
     checkCoreDependencies,
     checkServiceReadiness,
 } = require('./services/healthService');
-const { getChatQuotaHealth } = require('./services/chatQuotaService');
 const { getCentralIntelligenceHealth } = require('./services/intelligence/intelligenceGatewayService');
 const { getTrustedRequestIp } = require('./utils/requestIdentity');
 const { createDistributedRateLimit } = require('./middleware/distributedRateLimit');
@@ -242,9 +239,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/cart', cartRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/checkout', checkoutRoutes);
-app.use('/api/chat', chatRoutes);
 app.use('/api/ai', aiRoutes);
-app.use('/api/assistant', assistantRoutes);
 app.use('/api/otp', otpRoutes);
 app.use('/api/listings', listingRoutes);
 app.use('/api/trade-in', tradeInRoutes);
@@ -326,9 +321,9 @@ app.get('/health', async (req, res) => {
             orderEmail: services.emailQueue || { status: 'unknown' },
         },
         ai: services.ai || {
-            chatQuota: {
-                mode: 'local',
-                distributed: false,
+            intelligence: {
+                healthy: false,
+                reason: 'unavailable',
             },
         },
         catalog: services.catalog || { status: 'unknown' },
@@ -481,7 +476,6 @@ app.get('/health/ready', async (req, res) => {
             asyncStartupFailedAt: runtimeStartupState.asyncStartupFailedAt,
         },
         ai: {
-            chatQuota: getChatQuotaHealth(),
             intelligence: intelligenceHealth,
         },
         topology: {

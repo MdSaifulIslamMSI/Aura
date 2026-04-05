@@ -64,10 +64,10 @@ describe('GlobalSupportLauncher', () => {
         expect(screen.queryByRole('button', { name: /talk to admin support/i })).not.toBeInTheDocument();
     });
 
-    it('hides itself inside the dedicated assistant workspace', () => {
+    it('hides itself on admin routes', () => {
         renderLauncher({
             currentUser: { uid: 'user-1', email: 'member@example.com' },
-            initialEntry: '/assistant?from=%2Fproduct%2F101',
+            initialEntry: '/admin/dashboard',
         });
 
         expect(screen.queryByRole('button', { name: /talk to admin support/i })).not.toBeInTheDocument();
