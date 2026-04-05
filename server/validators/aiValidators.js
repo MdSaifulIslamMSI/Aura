@@ -25,7 +25,7 @@ const assistantActionRequestSchema = z.object({
 const aiChatSchema = z.object({
     body: z.object({
         message: z.string().trim().max(1200).optional(),
-        assistantMode: z.enum(['chat', 'voice', 'compare', 'bundle']).optional(),
+        assistantMode: z.enum(['chat', 'compare', 'bundle']).optional(),
         sessionId: z.string().trim().max(120).optional(),
         confirmation: z.object({
             actionId: z.string().trim().min(1).max(120),
@@ -43,22 +43,6 @@ const aiChatSchema = z.object({
     }),
 });
 
-const aiVoiceSessionSchema = z.object({
-    body: z.object({
-        locale: z.string().trim().max(32).optional(),
-        channel: z.enum(['voice', 'voice-assistant']).optional(),
-    }).strict().optional(),
-});
-
-const aiVoiceSpeakSchema = z.object({
-    body: z.object({
-        text: z.string().trim().min(1).max(600),
-        locale: z.string().trim().max(32).optional(),
-    }).strict(),
-});
-
 module.exports = {
     aiChatSchema,
-    aiVoiceSpeakSchema,
-    aiVoiceSessionSchema,
 };
