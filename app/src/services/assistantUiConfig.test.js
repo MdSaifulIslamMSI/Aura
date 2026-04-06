@@ -3,33 +3,18 @@ import {
     isAssistantWorkspacePath,
     shouldShowAmbientChrome,
     shouldShowAssistantLauncher,
-    shouldShowLegacyChatBot,
 } from './assistantUiConfig';
 
 describe('assistantUiConfig', () => {
-    it('shows the assistant launcher only on supported shopping routes when v2 is enabled', () => {
+    it('shows the assistant launcher only on supported shopping routes', () => {
         expect(shouldShowAssistantLauncher({
             pathname: '/product/101',
-            assistantV2Enabled: true,
         })).toBe(true);
         expect(shouldShowAssistantLauncher({
             pathname: '/assistant',
-            assistantV2Enabled: true,
         })).toBe(false);
         expect(shouldShowAssistantLauncher({
             pathname: '/admin/dashboard',
-            assistantV2Enabled: true,
-        })).toBe(false);
-    });
-
-    it('keeps legacy chatbot routing gated behind the v2 flag', () => {
-        expect(shouldShowLegacyChatBot({
-            pathname: '/cart',
-            assistantV2Enabled: false,
-        })).toBe(true);
-        expect(shouldShowLegacyChatBot({
-            pathname: '/cart',
-            assistantV2Enabled: true,
         })).toBe(false);
     });
 

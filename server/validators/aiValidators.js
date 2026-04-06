@@ -9,6 +9,15 @@ const assistantImageSchema = z.object({
     message: 'Each image must include a url or dataUrl',
 });
 
+const assistantAudioSchema = z.object({
+    url: z.string().trim().url().optional(),
+    dataUrl: z.string().trim().max(16_000_000).optional(),
+    fileName: z.string().trim().max(240).optional(),
+    mimeType: z.string().trim().max(120).optional(),
+}).refine((value) => Boolean(value.url || value.dataUrl), {
+    message: 'Each audio item must include a url or dataUrl',
+});
+
 const conversationEntrySchema = z.object({
     role: z.enum(['user', 'assistant', 'system']).optional(),
     content: z.string().trim().min(1).max(2400),
@@ -36,9 +45,16 @@ const aiChatSchema = z.object({
         locale: z.string().trim().max(32).optional(),
         conversationHistory: z.array(conversationEntrySchema).max(12).optional(),
         images: z.array(assistantImageSchema).max(3).optional(),
+        audio: z.array(assistantAudioSchema).max(2).optional(),
         context: z.object({}).passthrough().optional(),
-    }).strict().refine((value) => Boolean(String(value.message || '').trim() || value.confirmation || value.actionRequest), {
-        message: 'Message, confirmation, or actionRequest is required',
+    }).strict().refine((value) => Boolean(
+        String(value.message || '').trim()
+        || value.confirmation
+        || value.actionRequest
+        || (Array.isArray(value.images) && value.images.length > 0)
+        || (Array.isArray(value.audio) && value.audio.length > 0)
+    ), {
+        message: 'Message, media, confirmation, or actionRequest is required',
         path: ['message'],
     }),
 });
@@ -57,8 +73,28 @@ const aiVoiceSpeakSchema = z.object({
     }).strict(),
 });
 
+const aiSessionBodySchema = z.object({
+    sessionId: z.string().trim().max(120).optional(),
+    assistantMode: z.enum(['chat', 'voice', 'compare', 'bundle']).optional(),
+    originPath: z.string().trim().max(240).optional(),
+}).strict();
+
+const aiSessionParamsSchema = z.object({
+    sessionId: z.string().trim().min(1).max(120),
+}).strict();
+
+const aiSessionCreateSchema = z.object({
+    body: aiSessionBodySchema,
+});
+
+const aiSessionParamsOnlySchema = z.object({
+    params: aiSessionParamsSchema,
+});
+
 module.exports = {
     aiChatSchema,
+    aiSessionCreateSchema,
+    aiSessionParamsOnlySchema,
     aiVoiceSpeakSchema,
     aiVoiceSessionSchema,
 };

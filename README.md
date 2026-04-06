@@ -42,7 +42,6 @@ Core capabilities:
   - [`infra/azure/containerapps.runtime.manifest.json`](infra/azure/containerapps.runtime.manifest.json)
   - [`infra/azure/server-api.appsettings.example.env`](infra/azure/server-api.appsettings.example.env)
   - [`infra/azure/server-worker.appsettings.example.env`](infra/azure/server-worker.appsettings.example.env)
-  - [`infra/azure/intelligence-service.appsettings.example.env`](infra/azure/intelligence-service.appsettings.example.env)
 - Local env to Azure sync:
   - `powershell -ExecutionPolicy Bypass -File infra/azure/sync-containerapps-runtime.ps1 -SourceEnvFile server/.env -SyncKeyVaultSecrets`
 - Dry-run the runtime plan without touching Azure:
@@ -54,7 +53,7 @@ Core capabilities:
 - CI/CD now reuses the same sync layer before promoting images, so Key Vault references and Container Apps config stay aligned with the checked-in templates.
 - Future env additions are handled in two ways:
   - add the new key to the relevant Azure template and it will sync automatically
-  - or use `SHARED__`, `API__`, `WORKER__`, or `INTELLIGENCE__` prefixes in the env file to inject new runtime keys without changing the script
+  - or use `SHARED__`, `API__`, or `WORKER__` prefixes in the env file to inject new runtime keys without changing the script
 
 ## Production Catalog + Search Gates
 - Snapshot imports now require both `sourceRef` and `manifestRef`.

@@ -53,8 +53,6 @@ services:
         condition: service_completed_successfully
       redis:
         condition: service_healthy
-      intelligence-service:
-        condition: service_started
     environment:
       NODE_ENV: development
       PORT: 5000
@@ -74,80 +72,43 @@ services:
       CATALOG_IMPORT_ALLOW_SYNTHETIC: "true"
       TEST_USE_IN_MEMORY_MONGO: "false"
       TEST_FALLBACK_TO_IN_MEMORY_MONGO: "false"
-      CENTRAL_INTELLIGENCE_MODE: always
-      INTELLIGENCE_SERVICE_URL: http://intelligence-service:8100
-      AI_INTERNAL_TOOL_SECRET: local-intelligence-secret
-      INTELLIGENCE_SERVICE_TOKEN: local-intelligence-secret
       APP_BUILD_SHA: local-compose
-      INTELLIGENCE_REPO_ROOT: /workspace
-      INTELLIGENCE_PROVIDER: huggingface_inference_client
-      INTELLIGENCE_ROUTING_MODEL: "${INTELLIGENCE_ROUTING_MODEL:-google/gemma-4-31B-it:novita}"
-      INTELLIGENCE_REASONING_MODEL: "${INTELLIGENCE_REASONING_MODEL:-google/gemma-4-31B-it:novita}"
     ports:
       - "5000:5000"
     volumes:
-      - ./:/workspace:ro
+      - ./server:/app
     restart: unless-stopped
 
-  intelligence-service:
-    image: python:3.12-slim
-    working_dir: /workspace/intelligence_service
+  worker:
+    build:
+      context: ./server
     env_file:
       - ./server/.env
-    command: >
-      sh -lc "pip install --no-cache-dir -r requirements.txt &&
-      uvicorn app.main:app --host 0.0.0.0 --port 8100"
+    depends_on:
+      mongo-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    command: ["node", "scripts/start_worker_runtime.js"]
     environment:
-      INTELLIGENCE_SERVICE_TOKEN: local-intelligence-secret
-      NODE_TOOL_GATEWAY_URL: http://backend:5000/api/internal/ai-tools/run
-      NODE_TOOL_GATEWAY_TOKEN: local-intelligence-secret
-      INTELLIGENCE_ACTIVE_INDEX_PATH: /workspace/intelligence_service/runtime/active_index.json
-      INTELLIGENCE_BUNDLE_SOURCE_PATH: /workspace/server/generated/intelligence/current/bundle.json
-      INTELLIGENCE_PROVIDER: huggingface_inference_client
-      INTELLIGENCE_ROUTING_MODEL: "${INTELLIGENCE_ROUTING_MODEL:-google/gemma-4-31B-it:novita}"
-      INTELLIGENCE_REASONING_MODEL: "${INTELLIGENCE_REASONING_MODEL:-google/gemma-4-31B-it:novita}"
-      INTELLIGENCE_ENDPOINT_API_KEY: ${INTELLIGENCE_ENDPOINT_API_KEY:-}
-      INTELLIGENCE_EMBEDDING_ENDPOINT_FORMAT: ${INTELLIGENCE_EMBEDDING_ENDPOINT_FORMAT:-deterministic}
-      INTELLIGENCE_EMBEDDING_MODEL: ${INTELLIGENCE_EMBEDDING_MODEL:-intfloat/multilingual-e5-large}
-      QDRANT_URL: ${QDRANT_URL:-}
-      QDRANT_API_KEY: ${QDRANT_API_KEY:-}
-      NEO4J_URL: ${NEO4J_URL:-}
-      NEO4J_USERNAME: ${NEO4J_USERNAME:-}
-      NEO4J_PASSWORD: ${NEO4J_PASSWORD:-}
-      NEO4J_DATABASE: ${NEO4J_DATABASE:-neo4j}
+      NODE_ENV: development
+      MONGO_URI: mongodb://mongo:27017/aura?replicaSet=rs0
+      REDIS_ENABLED: "true"
+      REDIS_REQUIRED: "true"
+      SPLIT_RUNTIME_ENABLED: "true"
+      REDIS_URL: redis://redis:6379
+      PAYMENT_PROVIDER: simulated
+      ORDER_EMAILS_ENABLED: "false"
+      ACTIVITY_EMAILS_ENABLED: "false"
+      OTP_SMS_ENABLED: "false"
+      CATALOG_DEFAULT_SYNC_PROVIDER: file
+      CATALOG_PROVIDER_SOURCE_REF: data/catalog_1m.jsonl
+      CATALOG_IMPORT_ALLOW_SYNTHETIC: "true"
+      TEST_USE_IN_MEMORY_MONGO: "false"
+      TEST_FALLBACK_TO_IN_MEMORY_MONGO: "false"
+      APP_BUILD_SHA: local-compose
     volumes:
-      - ./:/workspace:ro
-      - ./intelligence_service:/workspace/intelligence_service
-    ports:
-      - "8100:8100"
-    restart: unless-stopped
-
-  intelligence-worker:
-    image: python:3.12-slim
-    working_dir: /workspace/intelligence_service
-    env_file:
-      - ./server/.env
-    command: >
-      sh -lc "pip install --no-cache-dir -r requirements.txt &&
-      uvicorn app.worker:app --host 0.0.0.0 --port 8101"
-    environment:
-      INTELLIGENCE_SERVICE_TOKEN: local-intelligence-secret
-      INTELLIGENCE_ACTIVE_INDEX_PATH: /workspace/intelligence_service/runtime/active_index.json
-      INTELLIGENCE_BUNDLE_SOURCE_PATH: /workspace/server/generated/intelligence/current/bundle.json
-      INTELLIGENCE_EMBEDDING_ENDPOINT_FORMAT: ${INTELLIGENCE_EMBEDDING_ENDPOINT_FORMAT:-deterministic}
-      INTELLIGENCE_ENDPOINT_API_KEY: ${INTELLIGENCE_ENDPOINT_API_KEY:-}
-      INTELLIGENCE_EMBEDDING_MODEL: ${INTELLIGENCE_EMBEDDING_MODEL:-intfloat/multilingual-e5-large}
-      QDRANT_URL: ${QDRANT_URL:-}
-      QDRANT_API_KEY: ${QDRANT_API_KEY:-}
-      NEO4J_URL: ${NEO4J_URL:-}
-      NEO4J_USERNAME: ${NEO4J_USERNAME:-}
-      NEO4J_PASSWORD: ${NEO4J_PASSWORD:-}
-      NEO4J_DATABASE: ${NEO4J_DATABASE:-neo4j}
-    volumes:
-      - ./:/workspace:ro
-      - ./intelligence_service:/workspace/intelligence_service
-    ports:
-      - "8101:8101"
+      - ./server:/app
     restart: unless-stopped
 
 volumes:

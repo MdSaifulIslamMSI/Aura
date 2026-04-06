@@ -1,11 +1,13 @@
 const asyncHandler = require('express-async-handler');
 const AppError = require('../utils/AppError');
 const {
-    createVoiceSessionConfig,
     processAssistantTurn,
     streamAssistantTurn,
-    synthesizeVoiceReply,
-} = require('../services/ai/assistantOrchestratorService');
+} = require('../services/ai/commerceAssistantService');
+const {
+    createVoiceSessionConfig,
+    synthesizeSpeech,
+} = require('../services/ai/providerRegistry');
 
 const resolveAssistantPayload = (req = {}) => ({
     user: req.user || null,
@@ -17,14 +19,15 @@ const resolveAssistantPayload = (req = {}) => ({
     actionRequest: req.body?.actionRequest || null,
     context: req.body?.context || {},
     images: req.body?.images || [],
+    audio: req.body?.audio || [],
 });
 
 const handleAiChat = asyncHandler(async (req, res, next) => {
     req.clearTimeout?.();
     const payload = resolveAssistantPayload(req);
     const { message, confirmation, actionRequest } = payload;
-    if (!message && !confirmation && !actionRequest) {
-        return next(new AppError('Message, confirmation, or actionRequest is required', 400));
+    if (!message && !confirmation && !actionRequest && payload.images.length === 0 && payload.audio.length === 0) {
+        return next(new AppError('Message, media, confirmation, or actionRequest is required', 400));
     }
 
     const result = await processAssistantTurn(payload);
@@ -36,8 +39,8 @@ const handleAiChatStream = asyncHandler(async (req, res, next) => {
     req.clearTimeout?.();
     const payload = resolveAssistantPayload(req);
     const { message, confirmation, actionRequest } = payload;
-    if (!message && !confirmation && !actionRequest) {
-        return next(new AppError('Message, confirmation, or actionRequest is required', 400));
+    if (!message && !confirmation && !actionRequest && payload.images.length === 0 && payload.audio.length === 0) {
+        return next(new AppError('Message, media, confirmation, or actionRequest is required', 400));
     }
 
     res.setHeader('Content-Type', 'text/event-stream');
@@ -79,7 +82,7 @@ const synthesizeAiVoiceReply = asyncHandler(async (req, res, next) => {
         return next(new AppError('Text is required', 400));
     }
 
-    const audio = await synthesizeVoiceReply({
+    const audio = await synthesizeSpeech({
         text,
         locale: req.body?.locale || '',
     });

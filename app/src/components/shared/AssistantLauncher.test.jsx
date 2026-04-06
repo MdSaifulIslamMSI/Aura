@@ -37,7 +37,7 @@ describe('AssistantLauncher', () => {
 
         fireEvent.click(screen.getByRole('button', { name: /open the focused commerce copilot/i }));
 
-        expect(mocks.pushClientDiagnostic).toHaveBeenCalledWith('assistant_v2.launcher_opened', {
+        expect(mocks.pushClientDiagnostic).toHaveBeenCalledWith('assistant_workspace.launcher_opened', {
             context: {
                 originPath: '/product/101?ref=home',
             },

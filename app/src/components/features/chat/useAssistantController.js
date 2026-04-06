@@ -49,6 +49,18 @@ const trimConversationHistory = (messages = []) => messages
 const safeString = (value = '') => String(value ?? '').trim();
 
 const isConfirmationMessage = (value = '') => /^(yes|confirm|go ahead|proceed|do it|continue|okay|ok)$/i.test(safeString(value));
+const buildMediaSummary = ({ images = [], audio = [] } = {}) => {
+    const imageCount = Array.isArray(images) ? images.length : 0;
+    const audioCount = Array.isArray(audio) ? audio.length : 0;
+    const parts = [];
+    if (imageCount > 0) {
+        parts.push(`${imageCount} image${imageCount === 1 ? '' : 's'}`);
+    }
+    if (audioCount > 0) {
+        parts.push(`${audioCount} audio clip${audioCount === 1 ? '' : 's'}`);
+    }
+    return parts.length > 0 ? `Attached ${parts.join(' and ')}` : '';
+};
 
 const surfaceToMode = (surface = 'plain_answer') => {
     switch (surface) {
@@ -349,6 +361,7 @@ export const useAssistantController = () => {
                 name: safeString(response?.provider || ''),
                 model: safeString(response?.providerModel || ''),
             },
+            providerCapabilities: response?.providerCapabilities || null,
             activeProductId: safeString(execution?.activeProductId || product?.id || ''),
             provisional: Boolean(response?.provisional),
             upgradeEligible: Boolean(response?.upgradeEligible),
@@ -549,9 +562,12 @@ export const useAssistantController = () => {
         });
     }, [cancelPendingAction]);
 
-    const handleUserInput = useCallback(async (rawText, { confirmationToken } = {}) => {
+    const handleUserInput = useCallback(async (rawText, { confirmationToken, images = [], audio = [] } = {}) => {
         const cleanedText = safeString(rawText);
-        if (!cleanedText && !confirmationToken) return;
+        const safeImages = Array.isArray(images) ? images : [];
+        const safeAudio = Array.isArray(audio) ? audio : [];
+        const userVisibleText = cleanedText || buildMediaSummary({ images: safeImages, audio: safeAudio });
+        if (!cleanedText && !confirmationToken && safeImages.length === 0 && safeAudio.length === 0) return;
 
         if (confirmationToken || (pendingConfirmation && isConfirmationMessage(cleanedText))) {
             if (cleanedText) {
@@ -562,7 +578,10 @@ export const useAssistantController = () => {
             return;
         }
 
-        appendUserMessage(cleanedText);
+        appendUserMessage(userVisibleText, {
+            images: safeImages,
+            audio: safeAudio,
+        });
         setInputValue('');
         setStatus('thinking');
         const requestId = requestSequenceRef.current + 1;
@@ -600,6 +619,8 @@ export const useAssistantController = () => {
                     currentProduct: productCandidates.find((product) => product.id === (context.activeProductId || routeProductId)) || null,
                     assistantSession,
                 },
+                images: safeImages,
+                audio: safeAudio,
             }, (eventName, data) => {
                 if (requestId !== requestSequenceRef.current) {
                     return;

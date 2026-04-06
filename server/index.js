@@ -6,8 +6,8 @@ const http = require('http');
 const path = require('path');
 const compression = require('compression');
 const helmet = require('helmet');
-const dotenv = require('dotenv');
 const cors = require('cors');
+const { loadLocalEnvFiles } = require('./config/runtimeConfig');
 const logger = require('./utils/logger');
 const mongoSanitize = require('./middleware/securityMiddleware');
 const xssSanitizer = require('./middleware/xssSanitizer');
@@ -19,7 +19,7 @@ require('colors');
 
 const { notFound, errorHandler } = require('./middleware/errorMiddleware');
 
-dotenv.config();
+loadLocalEnvFiles();
 
 const connectDB = require('./config/db');
 const { getMongoDeploymentHealth } = require('./config/db');
@@ -29,9 +29,7 @@ const userRoutes = require('./routes/userRoutes');
 const cartRoutes = require('./routes/cartRoutes');
 const orderRoutes = require('./routes/orderRoutes');
 const checkoutRoutes = require('./routes/checkoutRoutes');
-const chatRoutes = require('./routes/chatRoutes');
 const aiRoutes = require('./routes/aiRoutes');
-const assistantRoutes = require('./routes/assistantRoutes');
 const otpRoutes = require('./routes/otpRoutes');
 const listingRoutes = require('./routes/listingRoutes');
 const tradeInRoutes = require('./routes/tradeInRoutes');
@@ -49,7 +47,6 @@ const adminUserRoutes = require('./routes/adminUserRoutes');
 const adminProductRoutes = require('./routes/adminProductRoutes');
 const adminOpsRoutes = require('./routes/adminOpsRoutes');
 const internalOpsRoutes = require('./routes/internalOpsRoutes');
-const internalAiToolRoutes = require('./routes/internalAiToolRoutes');
 const observabilityRoutes = require('./routes/observabilityRoutes');
 const emailWebhookRoutes = require('./routes/emailWebhookRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
@@ -102,8 +99,8 @@ const {
     checkCoreDependencies,
     checkServiceReadiness,
 } = require('./services/healthService');
+const { warmChatModel } = require('./services/ai/modelGatewayService');
 const { getChatQuotaHealth } = require('./services/chatQuotaService');
-const { getCentralIntelligenceHealth } = require('./services/intelligence/intelligenceGatewayService');
 const { getTrustedRequestIp } = require('./utils/requestIdentity');
 const { createDistributedRateLimit } = require('./middleware/distributedRateLimit');
 const { metricsMiddleware } = require('./middleware/metrics');
@@ -242,9 +239,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/cart', cartRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/checkout', checkoutRoutes);
-app.use('/api/chat', chatRoutes);
 app.use('/api/ai', aiRoutes);
-app.use('/api/assistant', assistantRoutes);
 app.use('/api/otp', otpRoutes);
 app.use('/api/listings', listingRoutes);
 app.use('/api/trade-in', tradeInRoutes);
@@ -261,7 +256,6 @@ app.use('/api/admin/catalog', adminCatalogRoutes);
 app.use('/api/admin/users', adminUserRoutes);
 app.use('/api/admin/products', adminProductRoutes);
 app.use('/api/admin/ops', adminOpsRoutes);
-app.use('/api/internal/ai-tools', internalAiToolRoutes);
 app.use('/api/internal', internalOpsRoutes);
 app.use('/api/observability', observabilityRoutes);
 app.use('/api/email-webhooks', emailWebhookRoutes);
@@ -279,6 +273,10 @@ app.get('/health/live', (req, res) => {
         timestamp: new Date().toISOString(),
         topology: {
             splitRuntimeEnabled,
+        },
+        runtimeSecrets: {
+            source: String(process.env.RUNTIME_SECRET_SOURCE || 'local_env_only'),
+            loadedKeyCount: Math.max(0, Number(process.env.RUNTIME_SECRET_LOADED_KEY_COUNT || 0)),
         },
         startup: {
             asyncStartupComplete: runtimeStartupState.asyncStartupComplete,
@@ -314,6 +312,10 @@ app.get('/health', async (req, res) => {
             splitRuntimeReady: splitRuntimeEnabled ? workerGaps.length === 0 : true,
             workerGaps,
             mongo: mongoDeployment,
+        },
+        runtimeSecrets: {
+            source: String(process.env.RUNTIME_SECRET_SOURCE || 'local_env_only'),
+            loadedKeyCount: Math.max(0, Number(process.env.RUNTIME_SECRET_LOADED_KEY_COUNT || 0)),
         },
         startup: {
             asyncStartupComplete: runtimeStartupState.asyncStartupComplete,
@@ -464,11 +466,6 @@ app.get('/health/ready', async (req, res) => {
         }
     }
 
-    const intelligenceHealth = await getCentralIntelligenceHealth().catch((error) => ({
-        healthy: false,
-        reason: error.message,
-    }));
-
     return res.json({
         ready: true,
         uptime,
@@ -482,7 +479,10 @@ app.get('/health/ready', async (req, res) => {
         },
         ai: {
             chatQuota: getChatQuotaHealth(),
-            intelligence: intelligenceHealth,
+        },
+        runtimeSecrets: {
+            source: String(process.env.RUNTIME_SECRET_SOURCE || 'local_env_only'),
+            loadedKeyCount: Math.max(0, Number(process.env.RUNTIME_SECRET_LOADED_KEY_COUNT || 0)),
         },
         topology: {
             splitRuntimeEnabled,
@@ -535,6 +535,11 @@ assertTrustedDeviceConfig();
                 .then(() => ensureSystemState())
                 .then(() => enforceCatalogStartupCheck())
                 .then(() => {
+                    Promise.resolve()
+                        .then(() => warmChatModel({ reason: 'server_async_startup' }))
+                        .catch((error) => {
+                            logger.warn('server.model_gateway_warmup_failed', { error: error.message });
+                        });
                     startPaymentOutboxWorker();
                     startOrderEmailWorker();
                     startCommerceReconciliationWorker();
