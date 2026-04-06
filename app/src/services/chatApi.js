@@ -70,6 +70,7 @@ export const chatApi = {
                 actionRequest: input?.actionRequest || undefined,
                 context: input?.context || {},
                 images: Array.isArray(input?.images) ? input.images : [],
+                audio: Array.isArray(input?.audio) ? input.audio : [],
             };
 
         const response = await aiApi.chat(payload);
@@ -90,6 +91,7 @@ export const chatApi = {
                 actionRequest: input?.actionRequest || undefined,
                 context: input?.context || {},
                 images: Array.isArray(input?.images) ? input.images : [],
+                audio: Array.isArray(input?.audio) ? input.audio : [],
             };
 
         let finalResponse = null;

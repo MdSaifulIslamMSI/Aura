@@ -62,18 +62,9 @@ export const shouldShowChatbotSurface = (pathname = '/') => (
 
 export const shouldShowAssistantLauncher = ({
     pathname = '/',
-    assistantV2Enabled = false,
 } = {}) => (
-    assistantV2Enabled
-    && shouldShowChatbotSurface(pathname)
+    shouldShowChatbotSurface(pathname)
     && !isAssistantWorkspacePath(pathname)
-);
-
-export const shouldShowLegacyChatBot = ({
-    pathname = '/',
-    assistantV2Enabled = false,
-} = {}) => (
-    !assistantV2Enabled && shouldShowChatbotSurface(pathname)
 );
 
 export const buildAssistantWorkspacePath = (location = {}) => {

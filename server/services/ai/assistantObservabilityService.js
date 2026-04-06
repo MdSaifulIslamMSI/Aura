@@ -73,6 +73,12 @@ const assistantConfirmationCounter = ensureMetric(client.Counter, {
     labelNames: ['outcome'],
 });
 
+const assistantRetrievalCounter = ensureMetric(client.Counter, {
+    name: 'aura_assistant_retrieval_total',
+    help: 'Assistant retrieval attempts by provider and fallback path',
+    labelNames: ['route', 'provider', 'fallback_used', 'reason', 'has_hits'],
+});
+
 const tracer = trace.getTracer('aura-assistant-governance');
 
 const startAssistantSpan = ({ name = 'assistant.turn', attributes = {} } = {}) => (
@@ -128,11 +134,28 @@ const recordConfirmationMetric = (outcome = '') => {
     });
 };
 
+const recordRetrievalMetric = ({
+    route = 'ECOMMERCE_SEARCH',
+    provider = 'vector_store',
+    fallbackUsed = false,
+    reason = '',
+    hitCount = 0,
+} = {}) => {
+    assistantRetrievalCounter.inc({
+        route: String(route || 'ECOMMERCE_SEARCH'),
+        provider: String(provider || 'vector_store'),
+        fallback_used: fallbackUsed ? 'true' : 'false',
+        reason: String(reason || 'none'),
+        has_hits: Number(hitCount || 0) > 0 ? 'true' : 'false',
+    });
+};
+
 module.exports = {
     recordConfirmationMetric,
     recordCostMetric,
     recordFallbackMetric,
     recordLatencyMetric,
+    recordRetrievalMetric,
     recordRouteDecisionMetric,
     recordToolValidationMetric,
     startAssistantSpan,

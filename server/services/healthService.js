@@ -8,7 +8,7 @@ const { getCommerceReconciliationStatus } = require('./commerceReconciliationSer
 const { getSocketHealth } = require('./socketService');
 const { getChatQuotaHealth } = require('./chatQuotaService');
 const { getFxRefreshStatus } = require('./payments/fxRateService');
-const { getCentralIntelligenceHealth } = require('./intelligence/intelligenceGatewayService');
+const { getCommerceAssistantHealth } = require('./ai/commerceAssistantService');
 const logger = require('../utils/logger');
 
 /**
@@ -32,7 +32,7 @@ const checkCoreDependencies = async () => {
  */
 const checkServiceReadiness = async () => {
     try {
-        const [catalog, paymentQueue, emailQueue, reconciliation, fx, intelligence] = await Promise.all([
+        const [catalog, paymentQueue, emailQueue, reconciliation, fx, commerceAssistant] = await Promise.all([
             getCatalogHealth(),
             getPaymentOutboxStats(),
             getOrderEmailQueueStats(),
@@ -44,7 +44,8 @@ const checkServiceReadiness = async () => {
                 snapshotAvailable: false,
                 stale: true,
             })),
-            getCentralIntelligenceHealth().catch((error) => ({
+            getCommerceAssistantHealth().catch((error) => ({
+                route: 'controlled_gemma_commerce',
                 healthy: false,
                 reason: error.message,
             })),
@@ -59,7 +60,7 @@ const checkServiceReadiness = async () => {
             fx,
             ai: {
                 chatQuota: getChatQuotaHealth(),
-                intelligence,
+                commerceAssistant,
             },
             realtime: {
                 socket: socketHealth,
@@ -84,7 +85,8 @@ const checkServiceReadiness = async () => {
             },
             ai: {
                 chatQuota: getChatQuotaHealth(),
-                intelligence: {
+                commerceAssistant: {
+                    route: 'controlled_gemma_commerce',
                     healthy: false,
                     reason: error.message,
                 },

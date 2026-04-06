@@ -55,11 +55,6 @@ $script:SecretAliases = [ordered]@{
     "LIVEKIT_API_KEY" = "livekitkey"
     "LIVEKIT_API_SECRET" = "livekitsec"
     "AZURE_STORAGE_CONNECTION_STRING" = "storagecs"
-    "INTELLIGENCE_SERVICE_TOKEN" = "intelsvctok"
-    "AI_INTERNAL_TOOL_SECRET" = "aitool"
-    "INTELLIGENCE_ENDPOINT_API_KEY" = "intelapikey"
-    "QDRANT_API_KEY" = "qdrant"
-    "NEO4J_PASSWORD" = "neo4jpass"
 }
 
 $script:GeneratedSecretKeys = @(
@@ -68,9 +63,7 @@ $script:GeneratedSecretKeys = @(
     "OTP_FLOW_SECRET",
     "OTP_CHALLENGE_SECRET",
     "CRON_SECRET",
-    "METRICS_SECRET",
-    "INTELLIGENCE_SERVICE_TOKEN",
-    "AI_INTERNAL_TOOL_SECRET"
+    "METRICS_SECRET"
 )
 
 function Get-AppInsightsConnectionString {
@@ -537,25 +530,6 @@ function Apply-RuntimeOverrides {
         "ACTIVITY_EMAIL_MAX_HIGHLIGHTS",
         "ACTIVITY_EMAIL_EXCLUDED_PATHS",
         "ACTIVITY_EMAIL_CTA_URL",
-        "CENTRAL_INTELLIGENCE_MODE",
-        "INTELLIGENCE_SERVICE_URL",
-        "INTELLIGENCE_SERVICE_TIMEOUT_MS",
-        "INTELLIGENCE_SERVICE_STREAM_TIMEOUT_MS",
-        "INTELLIGENCE_PROVIDER",
-        "INTELLIGENCE_ROUTING_MODEL",
-        "INTELLIGENCE_REASONING_MODEL",
-        "INTELLIGENCE_EMBEDDING_ENDPOINT_FORMAT",
-        "INTELLIGENCE_EMBEDDING_MODEL",
-        "INTELLIGENCE_EMBEDDING_VECTOR_SIZE",
-        "INTELLIGENCE_EMBEDDING_BATCH_SIZE",
-        "QDRANT_URL",
-        "QDRANT_COLLECTION_PREFIX",
-        "QDRANT_DISTANCE",
-        "QDRANT_UPSERT_BATCH_SIZE",
-        "NEO4J_URL",
-        "NEO4J_USERNAME",
-        "NEO4J_DATABASE",
-        "NEO4J_BATCH_SIZE",
         "APP_BUILD_SHA"
     )
 

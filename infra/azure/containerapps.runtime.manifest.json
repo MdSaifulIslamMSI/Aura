@@ -22,20 +22,7 @@
       "minReplicas": 1,
       "maxReplicas": 1,
       "revisionsMode": "single",
-      "command": ["node", "workerProcess.js"]
-    },
-    {
-      "key": "intelligence",
-      "templatePath": "infra/azure/intelligence-service.appsettings.example.env",
-      "imageRefParameter": "IntelligenceImageRef",
-      "ingress": "external",
-      "targetPort": 8100,
-      "transport": "auto",
-      "cpu": "1.0",
-      "memory": "2.0Gi",
-      "minReplicas": 1,
-      "maxReplicas": 2,
-      "revisionsMode": "single"
+      "command": ["node", "scripts/start_worker_runtime.js"]
     }
   ]
 }
