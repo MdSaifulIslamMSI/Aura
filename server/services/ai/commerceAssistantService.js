@@ -11,6 +11,7 @@ const {
     recordToolValidationMetric,
 } = require('./assistantObservabilityService');
 const logger = require('../../utils/logger');
+const { CATEGORY_MAP, resolveCategory } = require('../../config/categories');
 const { canonicalizeProductImageUrl } = require('../productImageResolver');
 const {
     archiveAssistantThread,
@@ -31,7 +32,9 @@ const HOSTED_GEMMA_MODEL_TOKEN = 'gemma';
 const ACTION_ROUTE_PATTERN = /\b(add .* cart|remove .* cart|checkout|track (my )?order|order status|support|open cart|show (my )?cart|go to cart|go to checkout|open checkout|open support|go to support|open orders|go to orders)\b/i;
 const COMMERCE_CONTEXT_INTENTS = new Set(['product_search', 'product_selection']);
 const FOLLOW_UP_REFINEMENT_PATTERN = /^(?:no\b|not\b|only\b|instead\b|more\b|another\b|else\b|different\b|similar\b|cheaper\b|budget\b|premium\b|show\b|in\b|for\b|under\b|above\b|around\b|within\b|prefer\b|want\b)/i;
+const COMMERCE_COMPARISON_PATTERN = /\b(which|best|better|compare|comparison|difference|different|rating|rated|review|reviews|why|worth|spec|specs|feature|features|camera|battery|display|ram|storage|faster|slower|cheapest|highest|lowest|top)\b/i;
 const GENERAL_QUESTION_PATTERN = /^(?:who|what|when|where|why|how|are|is|am|can|could|would|will|did|do)\b/i;
+const RETRIEVAL_SORT_VALUES = new Set(['relevance', 'rating_desc', 'price_asc', 'price_desc']);
 const COMMERCE_CATEGORY_HINTS = [
     'fashion',
     'clothing',
@@ -86,11 +89,13 @@ const createTraceId = () => (typeof crypto.randomUUID === 'function'
     : crypto.createHash('sha256').update(`${Date.now()}-${Math.random().toString(36).slice(2)}`).digest('hex').slice(0, 24));
 const createSessionId = () => `session-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 const createMessageId = () => `assistant-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-const PRODUCT_CARD_SELECT = 'id title displayTitle brand category price originalPrice discountPercentage image images stock rating ratingCount titleKey';
+const PRODUCT_CARD_SELECT = 'id title displayTitle brand category price originalPrice discountPercentage image images stock rating ratingCount titleKey description highlights specifications';
 const MEDIA_LOOKUP_QUERY_KEYS = new Set(['q', 'query', 'product', 'productname', 'product_name', 'title', 'slug', 'name']);
 const MEDIA_PRODUCT_ID_QUERY_KEYS = new Set(['pid', 'productid', 'product_id', 'product-id', 'itemid', 'item_id']);
 const URL_PATTERN = /\bhttps?:\/\/[^\s<>"')]+/gi;
 const GENERIC_MEDIA_QUERY_VALUES = new Set(['image', 'images', 'photo', 'photos', 'picture', 'product', 'products', 'item', 'items', 'upload', 'uploads']);
+const COMMERCE_COLOR_TERMS = ['black', 'white', 'blue', 'red', 'green', 'pink', 'brown', 'grey', 'gray', 'silver', 'gold', 'beige', 'purple', 'yellow', 'orange', 'navy'];
+const COMMERCE_MATERIAL_TERMS = ['cotton', 'leather', 'denim', 'silk', 'wool', 'linen', 'mesh', 'wood', 'wooden', 'metal', 'plastic', 'steel'];
 
 const normalizeProductCard = (product = {}) => ({
     id: Number(product?.id || 0),
@@ -104,7 +109,246 @@ const normalizeProductCard = (product = {}) => ({
     stock: Math.max(0, Number(product?.stock || 0)),
     rating: Number(product?.rating || 0),
     ratingCount: Math.max(0, Number(product?.ratingCount || 0)),
+    description: safeString(product?.description || ''),
+    highlights: Array.isArray(product?.highlights) ? product.highlights.map((entry) => safeString(entry)).filter(Boolean).slice(0, 8) : [],
+    specifications: Array.isArray(product?.specifications)
+        ? product.specifications.map((entry) => ({
+            key: safeString(entry?.key || ''),
+            value: safeString(entry?.value || ''),
+        })).filter((entry) => entry.key && entry.value).slice(0, 12)
+        : [],
 });
+const normalizeRetrievalSortBy = (value = '') => {
+    const normalized = safeString(value).toLowerCase();
+    return RETRIEVAL_SORT_VALUES.has(normalized) ? normalized : '';
+};
+const parsePositiveCurrency = (value = '') => {
+    const normalized = safeString(value).replace(/,/g, '');
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+};
+const inferCanonicalCategory = (value = '') => {
+    const normalized = safeString(value).toLowerCase();
+    if (!normalized) return '';
+
+    const synonymMap = new Map([
+        ['shoe', 'Footwear'],
+        ['shoes', 'Footwear'],
+        ['heel', 'Footwear'],
+        ['heels', 'Footwear'],
+        ['slipper', 'Footwear'],
+        ['slippers', 'Footwear'],
+        ['sandals', 'Footwear'],
+        ['phone', 'Mobiles'],
+        ['phones', 'Mobiles'],
+        ['mobile', 'Mobiles'],
+        ['mobiles', 'Mobiles'],
+        ['laptop', 'Laptops'],
+        ['laptops', 'Laptops'],
+        ['book', 'Books'],
+        ['books', 'Books'],
+    ]);
+    const candidates = uniq([
+        ...Object.keys(CATEGORY_MAP),
+        ...Object.values(CATEGORY_MAP),
+        ...synonymMap.keys(),
+    ]).sort((left, right) => right.length - left.length);
+
+    for (const candidate of candidates) {
+        if (!candidate) continue;
+        if (normalized.includes(candidate.toLowerCase())) {
+            if (synonymMap.has(candidate.toLowerCase())) {
+                return synonymMap.get(candidate.toLowerCase()) || '';
+            }
+            return safeString(resolveCategory(candidate) || candidate);
+        }
+    }
+    return '';
+};
+const extractRequiredTerms = ({ payload = {}, message = '' } = {}) => {
+    const normalizedMessage = safeString(message).toLowerCase();
+    const payloadTerms = Array.isArray(payload?.requiredTerms)
+        ? payload.requiredTerms
+        : (Array.isArray(payload?.attributes) ? payload.attributes : []);
+    const terms = new Set(payloadTerms.map((entry) => safeString(entry).toLowerCase()).filter(Boolean));
+
+    COMMERCE_COLOR_TERMS.forEach((color) => {
+        if (new RegExp(`\\b${color}\\b`, 'i').test(normalizedMessage)) {
+            terms.add(color);
+        }
+    });
+
+    COMMERCE_MATERIAL_TERMS.forEach((material) => {
+        if (new RegExp(`\\b${material}\\b`, 'i').test(normalizedMessage)) {
+            terms.add(material);
+        }
+    });
+
+    const sizeMatch = normalizedMessage.match(/\bsize\s*([0-9]{1,2}|xxl|xl|xs|s|m|l)\b/i);
+    if (sizeMatch?.[1]) {
+        terms.add(`size ${safeString(sizeMatch[1]).toLowerCase()}`);
+    }
+
+    const storageMatches = normalizedMessage.match(/\b\d+\s*(?:gb|tb)\b/gi) || [];
+    storageMatches.forEach((entry) => {
+        const match = safeString(entry).toLowerCase().match(/^(\d+)\s*(gb|tb)$/);
+        if (match) {
+            terms.add(`${match[1]} ${match[2]}`);
+        }
+    });
+
+    if (/\bram\b/i.test(normalizedMessage)) {
+        terms.add('ram');
+    }
+    if (/\bstorage\b/i.test(normalizedMessage)) {
+        terms.add('storage');
+    }
+
+    return uniq([...terms]).slice(0, 8);
+};
+const inferStructuredRetrievalFilters = ({ payload = {}, message = '', assistantSession = {} } = {}) => {
+    const safeMessage = safeString(message);
+    const normalizedMessage = safeMessage.toLowerCase();
+    const lastEntities = assistantSession?.lastEntities || {};
+    const inferred = {
+        category: safeString(payload?.category || ''),
+        brand: safeString(payload?.brand || ''),
+        minPrice: parsePositiveCurrency(payload?.minPrice || 0),
+        maxPrice: parsePositiveCurrency(payload?.maxPrice || 0),
+        minRating: 0,
+        inStock: typeof payload?.inStock === 'boolean' ? payload.inStock : null,
+        sortBy: normalizeRetrievalSortBy(payload?.sortBy || ''),
+        requiredTerms: extractRequiredTerms({ payload, message: safeMessage }),
+    };
+
+    const rawMinRating = Number(payload?.minRating || 0);
+    if (Number.isFinite(rawMinRating) && rawMinRating > 0) {
+        inferred.minRating = Math.min(5, Math.max(0, rawMinRating));
+    }
+
+    if (!inferred.category) {
+        inferred.category = inferCanonicalCategory(safeMessage) || safeString(lastEntities?.category || '');
+    } else {
+        inferred.category = safeString(resolveCategory(inferred.category) || inferred.category);
+    }
+
+    if (!inferred.maxPrice) {
+        const maxPriceMatch = normalizedMessage.match(/\b(?:under|below|within|less than|up to)\s*(?:rs\.?\s*)?(\d[\d,]*(?:\.\d+)?)\b/i);
+        inferred.maxPrice = parsePositiveCurrency(maxPriceMatch?.[1] || lastEntities?.maxPrice || 0);
+    }
+
+    if (!inferred.minPrice) {
+        const minPriceMatch = normalizedMessage.match(/\b(?:above|over|more than)\s*(?:rs\.?\s*)?(\d[\d,]*(?:\.\d+)?)\b/i);
+        inferred.minPrice = parsePositiveCurrency(minPriceMatch?.[1] || 0);
+    }
+
+    if (!inferred.minRating) {
+        const ratingMatch = normalizedMessage.match(/\b([1-5](?:\.\d)?)\s*(?:star|stars|rating)\b/i);
+        if (ratingMatch?.[1]) {
+            inferred.minRating = Math.min(5, Math.max(0, Number(ratingMatch[1])));
+        }
+    }
+
+    if (inferred.inStock === null) {
+        if (/\b(?:in stock|available now|ready to ship)\b/i.test(normalizedMessage)) {
+            inferred.inStock = true;
+        } else if (/\b(?:out of stock|unavailable|sold out)\b/i.test(normalizedMessage)) {
+            inferred.inStock = false;
+        }
+    }
+
+    if (!inferred.sortBy) {
+        if (/\b(?:top rated|best rated|highest rated)\b/i.test(normalizedMessage)) {
+            inferred.sortBy = 'rating_desc';
+        } else if (/\b(?:cheaper|cheapest|lowest price|budget)\b/i.test(normalizedMessage)) {
+            inferred.sortBy = 'price_asc';
+        } else if (/\b(?:premium|expensive|high end|luxury)\b/i.test(normalizedMessage)) {
+            inferred.sortBy = 'price_desc';
+        }
+    }
+
+    if (inferred.maxPrice > 0 && inferred.minPrice > inferred.maxPrice) {
+        [inferred.minPrice, inferred.maxPrice] = [inferred.maxPrice, inferred.minPrice];
+    }
+
+    return {
+        category: safeString(inferred.category || ''),
+        brand: safeString(inferred.brand || ''),
+        minPrice: Number(inferred.minPrice || 0),
+        maxPrice: Number(inferred.maxPrice || 0),
+        minRating: Number(inferred.minRating || 0),
+        inStock: typeof inferred.inStock === 'boolean' ? inferred.inStock : null,
+        sortBy: normalizeRetrievalSortBy(inferred.sortBy || ''),
+        requiredTerms: Array.isArray(inferred.requiredTerms) ? inferred.requiredTerms : [],
+    };
+};
+const hasActiveRetrievalFilters = (filters = {}) => Boolean(
+    safeString(filters?.category || '')
+    || safeString(filters?.brand || '')
+    || Number(filters?.minPrice || 0) > 0
+    || Number(filters?.maxPrice || 0) > 0
+    || Number(filters?.minRating || 0) > 0
+    || typeof filters?.inStock === 'boolean'
+    || normalizeRetrievalSortBy(filters?.sortBy || '')
+    || Array.isArray(filters?.requiredTerms) && filters.requiredTerms.length > 0
+);
+const matchesRetrievalFilters = (product = {}, filters = {}) => {
+    const normalizedCategory = safeString(filters?.category || '').toLowerCase();
+    const normalizedBrand = safeString(filters?.brand || '').toLowerCase();
+    const price = Number(product?.price || 0);
+    const stock = Math.max(0, Number(product?.stock || 0));
+    const rating = Number(product?.rating || 0);
+    const searchable = [
+        product?.title,
+        product?.displayTitle,
+        product?.brand,
+        product?.category,
+        product?.description,
+        ...(Array.isArray(product?.highlights) ? product.highlights : []),
+        ...(Array.isArray(product?.specifications) ? product.specifications.map((entry) => `${entry?.key || ''} ${entry?.value || ''}`) : []),
+    ].map((entry) => safeString(entry).toLowerCase()).join(' ');
+
+    if (normalizedCategory) {
+        const productCategory = safeString(product?.category || '').toLowerCase();
+        if (!(productCategory === normalizedCategory || productCategory.includes(normalizedCategory))) {
+            return false;
+        }
+    }
+    if (normalizedBrand) {
+        const productBrand = safeString(product?.brand || '').toLowerCase();
+        if (!(productBrand === normalizedBrand || productBrand.includes(normalizedBrand))) {
+            return false;
+        }
+    }
+    if (Number(filters?.minPrice || 0) > 0 && price < Number(filters.minPrice || 0)) {
+        return false;
+    }
+    if (Number(filters?.maxPrice || 0) > 0 && price > Number(filters.maxPrice || 0)) {
+        return false;
+    }
+    if (Number(filters?.minRating || 0) > 0 && rating < Number(filters.minRating || 0)) {
+        return false;
+    }
+    if (filters?.inStock === true && stock <= 0) {
+        return false;
+    }
+    if (filters?.inStock === false && stock > 0) {
+        return false;
+    }
+    if (Array.isArray(filters?.requiredTerms) && filters.requiredTerms.length > 0) {
+        const missingTerm = filters.requiredTerms.find((term) => {
+            const normalizedTerm = safeString(term).toLowerCase();
+            if (!normalizedTerm) return false;
+            if (searchable.includes(normalizedTerm)) return false;
+            const termTokens = normalizedTerm.split(/\s+/).filter(Boolean);
+            return !termTokens.every((token) => searchable.includes(token));
+        });
+        if (missingTerm) {
+            return false;
+        }
+    }
+    return true;
+};
 const normalizeLookupText = (value = '') => safeString(value)
     .normalize('NFKC')
     .replace(/%20/gi, ' ')
@@ -148,6 +392,14 @@ const createProductLookupResults = (products = [], {
     fallbackUsed: false,
     fallbackReason: safeString(reason || 'direct_catalog_lookup'),
 });
+const shouldReuseSessionResultsForCommerce = ({ message = '', assistantSession = {} } = {}) => {
+    const normalized = safeString(message).toLowerCase();
+    if (!normalized || !Array.isArray(assistantSession?.lastResults) || assistantSession.lastResults.length === 0) {
+        return false;
+    }
+    if (COMMERCE_COMPARISON_PATTERN.test(normalized)) return true;
+    return /\b(which one|this one|that one|first one|second one|third one|among these|among them)\b/i.test(normalized);
+};
 const extractMediaLookupHints = ({
     message = '',
     images = [],
@@ -344,6 +596,7 @@ const extractCommerceCategoryHint = (message = '') => {
 const shouldRouteAsCommerceFollowUp = ({ message = '', assistantSession = {} } = {}) => {
     const normalized = safeString(message).toLowerCase();
     if (!normalized || !hasRecentCommerceContext(assistantSession)) return false;
+    if (COMMERCE_COMPARISON_PATTERN.test(normalized)) return true;
     if (GENERAL_QUESTION_PATTERN.test(normalized)) return false;
     if (extractCommerceCategoryHint(normalized)) return true;
     if (FOLLOW_UP_REFINEMENT_PATTERN.test(normalized)) return true;
@@ -358,6 +611,7 @@ const shouldUseContextualCommercePlanner = ({
 } = {}) => {
     const normalized = safeString(message).toLowerCase();
     if (!normalized || !hasRecentCommerceContext(assistantSession)) return false;
+    if (COMMERCE_COMPARISON_PATTERN.test(normalized)) return true;
     if (GENERAL_QUESTION_PATTERN.test(normalized)) return false;
     if (extractCommerceCategoryHint(normalized)) return true;
     if (FOLLOW_UP_REFINEMENT_PATTERN.test(normalized)) return true;
@@ -400,6 +654,17 @@ const RETRIEVAL_QUERY_RESPONSE_SCHEMA = {
     type: 'object',
     properties: {
         query: { type: 'string' },
+        category: { type: 'string' },
+        brand: { type: 'string' },
+        minPrice: { type: 'number' },
+        maxPrice: { type: 'number' },
+        minRating: { type: 'number' },
+        inStock: { type: 'boolean' },
+        sortBy: { type: 'string', enum: [...RETRIEVAL_SORT_VALUES] },
+        requiredTerms: {
+            type: 'array',
+            items: { type: 'string' },
+        },
         followUps: {
             type: 'array',
             items: { type: 'string' },
@@ -577,7 +842,8 @@ const buildHostedGemmaUnavailableEnvelope = ({
                 ...assistantSession.lastEntities,
                 query: safeString(retrievalQuery?.query || message),
                 productId: safeString(focusProduct?.id || ''),
-                category: safeString(focusProduct?.category || ''),
+                category: safeString(retrievalQuery?.filters?.category || focusProduct?.category || ''),
+                maxPrice: Number(retrievalQuery?.filters?.maxPrice || assistantSession?.lastEntities?.maxPrice || 0),
             },
             lastResolvedEntityId: safeString(focusProduct?.id || ''),
             lastResults: normalizedProducts,
@@ -739,10 +1005,12 @@ const validateCommercePayload = (payload = {}, allowedIds = []) => {
 
 const validateRetrievalQueryPayload = (payload = {}) => {
     const query = safeString(payload?.query || payload?.searchQuery || payload?.search || '');
+    const filters = inferStructuredRetrievalFilters({ payload, message: query });
     return {
         ok: Boolean(query) && !isSchemaPlaceholder(query),
         data: {
             query,
+            filters,
             followUps: filterPlaceholderStrings(payload?.followUps || []),
         },
     };
@@ -770,6 +1038,10 @@ const deriveRetrievalQuery = async ({
     const safeMessage = safeString(message);
     const hintedQuery = buildMediaHintQuery(mediaHints, safeMessage);
     const categoryHint = extractCommerceCategoryHint(safeMessage);
+    const heuristicFilters = inferStructuredRetrievalFilters({
+        message: safeMessage,
+        assistantSession,
+    });
     const shouldPlanFromContext = shouldUseContextualCommercePlanner({
         message: safeMessage,
         assistantSession,
@@ -781,16 +1053,18 @@ const deriveRetrievalQuery = async ({
                 query: `${categoryHint} products`,
                 provider: '',
                 providerModel: '',
+                filters: heuristicFilters,
                 validator: { ok: true, reason: 'category_hint_query' },
             };
         }
         if (!shouldPlanFromContext) {
-        return {
-            query: safeMessage,
-            provider: '',
-            providerModel: '',
-            validator: { ok: true, reason: 'text_query' },
-        };
+            return {
+                query: safeMessage,
+                provider: '',
+                providerModel: '',
+                filters: heuristicFilters,
+                validator: { ok: true, reason: 'text_query' },
+            };
         }
     }
 
@@ -799,6 +1073,7 @@ const deriveRetrievalQuery = async ({
             query: hintedQuery,
             provider: '',
             providerModel: '',
+            filters: heuristicFilters,
             validator: { ok: true, reason: 'media_hint_query' },
         };
     }
@@ -810,9 +1085,10 @@ const deriveRetrievalQuery = async ({
                     'You are a retrieval planner for a controlled ecommerce assistant.',
                     'Inspect the text and any uploaded images or audio.',
                     'Return JSON only.',
-                    'Schema: {"query":"string","followUps":["string"]}.',
+                    'Schema: {"query":"string","category":"string","brand":"string","minPrice":0,"maxPrice":0,"minRating":0,"inStock":true,"sortBy":"relevance","requiredTerms":["string"],"followUps":["string"]}.',
                     'Do not echo placeholder values like "string". Fill the fields with real content.',
                     'Generate a compact ecommerce search query using brand, category, color, material, device family, or relevant specs when clear.',
+                    'Extract hard filters like max price, minimum rating, in-stock requirements, and must-have attributes like color, material, RAM, or storage when the user states them.',
                     'Do not mention uncertainty inside the query text.',
                 ].join('\n'),
                 prompt: [
@@ -830,7 +1106,7 @@ const deriveRetrievalQuery = async ({
                 systemPrompt: [
                     'You are a retrieval planner for a controlled ecommerce assistant.',
                     'Return JSON only and use real values, never placeholders.',
-                    'Example valid JSON: {"query":"dell xps 13 laptop","followUps":["Compare similar laptops","Set a budget"]}.',
+                    'Example valid JSON: {"query":"dell xps 13 laptop","category":"Laptops","maxPrice":50000,"inStock":true,"requiredTerms":["16gb ram"],"followUps":["Compare similar laptops","Set a budget"]}.',
                     'When the user is refining a previous shopping request, rewrite it into the next explicit catalog query.',
                     'Describe the uploaded product as a concise shopping search query.',
                 ].join('\n'),
@@ -868,6 +1144,11 @@ const deriveRetrievalQuery = async ({
             query: parsed.data.query,
             provider: response.provider,
             providerModel: response.providerModel,
+            filters: inferStructuredRetrievalFilters({
+                payload: parsed.data.filters,
+                message: `${safeMessage}\n${parsed.data.query}`,
+                assistantSession,
+            }),
             validator: { ok: true, reason: 'model_query_valid' },
         };
     } catch (error) {
@@ -881,6 +1162,7 @@ const deriveRetrievalQuery = async ({
                 : (hintedQuery || safeMessage || safeString(assistantSession?.lastEntities?.query || '') || 'product'),
             provider: '',
             providerModel: '',
+            filters: heuristicFilters,
             validator: { ok: false, reason: safeString(error?.message || 'retrieval_query_fallback') },
         };
     }
@@ -1140,22 +1422,46 @@ const performCommerceTurn = async ({
         images,
         context,
     });
-    let retrieval = await loadDirectProductsFromMediaHints({
-        mediaHints,
-        limit: 5,
-    });
-    const retrievalQuery = await deriveRetrievalQuery({
-        message,
-        conversationHistory,
-        assistantSession,
-        images,
-        audio,
-        route: ROUTE_ECOMMERCE,
-        mediaHints,
-        requireHostedGemma,
-    });
+    const reuseSessionResults = shouldReuseSessionResultsForCommerce({ message, assistantSession });
+    const retrievalQuery = reuseSessionResults
+        ? {
+            query: safeString(assistantSession?.lastEntities?.query || message),
+            provider: '',
+            providerModel: '',
+            filters: {},
+            validator: { ok: true, reason: 'session_result_context' },
+        }
+        : await deriveRetrievalQuery({
+            message,
+            conversationHistory,
+            assistantSession,
+            images,
+            audio,
+            route: ROUTE_ECOMMERCE,
+            mediaHints,
+            requireHostedGemma,
+        });
+    let retrieval = reuseSessionResults
+        ? createProductLookupResults(
+            assistantSession.lastResults.map((product) => normalizeProductCard(product)),
+            { reason: 'assistant_session_context', provider: 'assistant_session' }
+        )
+        : await loadDirectProductsFromMediaHints({
+            mediaHints,
+            limit: 5,
+        });
     if (!retrieval?.retrievalHitCount) {
-        retrieval = await searchProductVectorIndex(retrievalQuery.query || buildMediaHintQuery(mediaHints, message), { limit: 5 });
+        retrieval = await searchProductVectorIndex(retrievalQuery.query || buildMediaHintQuery(mediaHints, message), {
+            limit: 5,
+            filters: retrievalQuery.filters,
+        });
+    }
+    if (hasActiveRetrievalFilters(retrievalQuery.filters)) {
+        retrieval = {
+            ...retrieval,
+            results: (Array.isArray(retrieval?.results) ? retrieval.results : []).filter((entry) => matchesRetrievalFilters(entry?.product || {}, retrievalQuery.filters)),
+            retrievalHitCount: (Array.isArray(retrieval?.results) ? retrieval.results : []).filter((entry) => matchesRetrievalFilters(entry?.product || {}, retrievalQuery.filters)).length,
+        };
     }
     const vectorStoreHealth = await vectorStoreHealthPromise;
     recordRetrievalMetric({
@@ -1190,7 +1496,12 @@ const performCommerceTurn = async ({
             assistantSession: {
                 ...assistantSession,
                 lastIntent: 'product_search',
-                lastEntities: { ...assistantSession.lastEntities, query: safeString(retrievalQuery.query || message) },
+                lastEntities: {
+                    ...assistantSession.lastEntities,
+                    query: safeString(retrievalQuery.query || message),
+                    maxPrice: Number(retrievalQuery?.filters?.maxPrice || assistantSession?.lastEntities?.maxPrice || 0),
+                    category: safeString(retrievalQuery?.filters?.category || assistantSession?.lastEntities?.category || ''),
+                },
                 lastResults: [],
                 activeProduct: null,
                 pendingAction: null,
@@ -1221,22 +1532,29 @@ const performCommerceTurn = async ({
 
     try {
         const history = trimConversationHistory(conversationHistory).map((entry) => `${entry.role.toUpperCase()}: ${entry.content}`).join('\n');
-        const databaseJson = JSON.stringify(normalizedProducts.map((product) => ({
+        const groundingProducts = normalizedProducts.map((product) => ({
             id: product.id,
             title: product.title,
             brand: product.brand,
             category: product.category,
             price: product.price,
             originalPrice: product.originalPrice,
+            discountPercentage: product.discountPercentage,
             stock: product.stock,
-        })));
+            rating: product.rating,
+            ratingCount: product.ratingCount,
+            description: safeString(product.description || ''),
+            highlights: Array.isArray(product.highlights) ? product.highlights : [],
+            specifications: Array.isArray(product.specifications) ? product.specifications : [],
+        }));
+        const databaseJson = JSON.stringify(groundingProducts);
         const attempts = [
             {
                 systemPrompt: [
                     'You are Aura, a controlled ecommerce assistant.',
                     'Return valid JSON only.',
                     'Use ONLY the provided product JSON.',
-                    'Never invent products, prices, stock, or specs.',
+                    'Never invent products, prices, stock, ratings, or specs.',
                     'If data is missing, say "Not available".',
                     'Schema: {"answer":"string","productIds":["string"],"focusProductId":"string","followUps":["string"]}.',
                     'Do not echo placeholder values like "string". Fill the fields with real content.',
@@ -1246,6 +1564,7 @@ const performCommerceTurn = async ({
                     history ? `Conversation:\n${history}` : '',
                     `User query: ${message || 'Analyze the provided input.'}`,
                     retrievalQuery.query ? `Retrieval query: ${retrievalQuery.query}` : '',
+                    hasActiveRetrievalFilters(retrievalQuery.filters) ? `Applied filters: ${JSON.stringify(retrievalQuery.filters)}` : '',
                     'Return JSON only.',
                 ].filter(Boolean).join('\n\n'),
             },
@@ -1254,11 +1573,14 @@ const performCommerceTurn = async ({
                     'You are Aura, a controlled ecommerce assistant.',
                     'Return valid JSON only.',
                     'Use ONLY the provided product JSON.',
-                    'Never invent products, prices, stock, or specs.',
+                    'Never invent products, prices, stock, ratings, or specs.',
                     `Example valid JSON: {"answer":"${safeString(normalizedProducts[0]?.title || 'Top match')} is a strong match at Rs. ${Number(normalizedProducts[0]?.price || 0)}.","productIds":["${safeString(allowedIds[0] || '')}"],"focusProductId":"${safeString(allowedIds[0] || '')}","followUps":["Compare the top results","Set a price limit"]}.`,
                     `DATABASE:\n${databaseJson}`,
                 ].join('\n'),
-                prompt: `User query: ${message || retrievalQuery.query || 'Analyze the provided input.'}`,
+                prompt: [
+                    `User query: ${message || retrievalQuery.query || 'Analyze the provided input.'}`,
+                    hasActiveRetrievalFilters(retrievalQuery.filters) ? `Applied filters: ${JSON.stringify(retrievalQuery.filters)}` : '',
+                ].filter(Boolean).join('\n\n'),
             },
         ];
 
@@ -1383,8 +1705,9 @@ const performCommerceTurn = async ({
             lastEntities: {
                 ...assistantSession.lastEntities,
                 query: safeString(retrievalQuery.query || message),
+                maxPrice: Number(retrievalQuery?.filters?.maxPrice || assistantSession?.lastEntities?.maxPrice || 0),
                 productId: safeString(focusProduct?.id || ''),
-                category: safeString(selectedProducts[0]?.category || context?.category || ''),
+                category: safeString(retrievalQuery?.filters?.category || selectedProducts[0]?.category || context?.category || ''),
             },
             lastResolvedEntityId: safeString(focusProduct?.id || ''),
             lastResults: selectedProducts.map((product) => normalizeProductCard(product)),
@@ -2157,13 +2480,17 @@ module.exports = {
         deriveRetrievalQuery,
         extractCommerceCategoryHint,
         extractMediaLookupHints,
+        inferStructuredRetrievalFilters,
         inferConfirmationFromMessage,
         isHostedGemmaCommerceRequired,
         isHostedGemmaGatewayHealthy,
         isHostedGemmaAudioUnsupported,
+        matchesRetrievalFilters,
         resolveActionPlan,
+        shouldReuseSessionResultsForCommerce,
         shouldRouteAsCommerceFollowUp,
         validateCommercePayload,
         validateGeneralPayload,
+        validateRetrievalQueryPayload,
     },
 };
