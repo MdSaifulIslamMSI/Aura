@@ -22,7 +22,15 @@ try {
                 logger.info('firebase.cert_init', { source: 'FIREBASE_SERVICE_ACCOUNT' });
             } catch (err) {
                 logger.error('firebase.sa_parse_failed', { error: err.message });
-                throw new Error('Failed to parse FIREBASE_SERVICE_ACCOUNT JSON env var');
+                if (projectId && typeof projectId === 'string' && projectId.trim() !== '') {
+                    logger.warn('firebase.cert_init_degraded', {
+                        source: 'FIREBASE_SERVICE_ACCOUNT',
+                        projectId: projectId.trim(),
+                        reason: 'sa_parse_failed',
+                    });
+                } else {
+                    throw new Error('Failed to parse FIREBASE_SERVICE_ACCOUNT JSON env var');
+                }
             }
         } 
         // Option 2: Discrete fields
@@ -74,6 +82,11 @@ try {
 
     if (credential) {
         appOptions.credential = credential;
+    } else if (isProduction) {
+        logger.warn('firebase.initialized_without_admin_credential', {
+            projectId: projectId.trim(),
+            reason: 'credential_unavailable',
+        });
     }
 
     admin.initializeApp(appOptions);
