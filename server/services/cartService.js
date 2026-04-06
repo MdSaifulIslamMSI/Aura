@@ -1,5 +1,4 @@
 const Cart = require('../models/Cart');
-const User = require('../models/User');
 const Product = require('../models/Product');
 const AppError = require('../utils/AppError');
 const { buildProductImageDeliveryUrl } = require('./productImageResolver');
@@ -62,13 +61,6 @@ const normalizeStoredCartItems = (items = []) => {
 
     return orderedIds.map((productId) => merged.get(productId));
 };
-
-const normalizeLegacyCartItems = (items = []) => normalizeStoredCartItems(
-    (Array.isArray(items) ? items : []).map((item) => ({
-        productId: item?.productId ?? item?.id,
-        quantity: item?.quantity ?? item?.qty ?? 1,
-    }))
-);
 
 const cloneStoredCartItems = (items = []) => normalizeStoredCartItems(items).map((item) => ({
     productId: item.productId,
@@ -256,42 +248,6 @@ const buildCartSnapshotFromDoc = async (cartDoc = {}, { market = null, session =
     };
 };
 
-const loadLegacyUser = async ({ userId, user = null, session = null } = {}) => {
-    if (user && user._id) {
-        return user;
-    }
-    if (!userId) return null;
-    const query = User.findById(userId).select('_id cart cartRevision cartSyncedAt');
-    return applySession(query, session).lean();
-};
-
-const createCartFromLegacyUser = async ({ userId, user = null, session = null } = {}) => {
-    const legacyUser = await loadLegacyUser({ userId, user, session });
-    const normalizedItems = normalizeLegacyCartItems(legacyUser?.cart || []);
-    const nowIso = legacyUser?.cartSyncedAt
-        ? new Date(legacyUser.cartSyncedAt).toISOString()
-        : new Date().toISOString();
-    const payload = {
-        user: userId,
-        version: Math.max(0, Number(legacyUser?.cartRevision || 0)),
-        items: normalizedItems,
-        recentMutations: [],
-        updatedAtIso: nowIso,
-    };
-
-    try {
-        const created = await Cart.create([payload], session ? { session } : undefined);
-        const cartDoc = created?.[0];
-        return cartDoc?.toObject ? cartDoc.toObject() : cartDoc;
-    } catch (error) {
-        if (error?.code === 11000) {
-            const query = Cart.findOne({ user: userId });
-            return applySession(query, session).lean();
-        }
-        throw error;
-    }
-};
-
 const ensureCartDocument = async ({ userId, user = null, session = null } = {}) => {
     if (!userId) {
         throw new AppError('User id is required for cart access', 401);
@@ -301,7 +257,25 @@ const ensureCartDocument = async ({ userId, user = null, session = null } = {}) 
     let cartDoc = await applySession(query, session).lean();
     if (cartDoc) return cartDoc;
 
-    return createCartFromLegacyUser({ userId, user, session });
+    const payload = {
+        user: userId,
+        version: 0,
+        items: [],
+        recentMutations: [],
+        updatedAtIso: new Date().toISOString(),
+    };
+
+    try {
+        const created = await Cart.create([payload], session ? { session } : undefined);
+        const createdCart = created?.[0];
+        return createdCart?.toObject ? createdCart.toObject() : createdCart;
+    } catch (error) {
+        if (error?.code === 11000) {
+            const retryQuery = Cart.findOne({ user: userId });
+            return applySession(retryQuery, session).lean();
+        }
+        throw error;
+    }
 };
 
 const validateTouchedItems = async (nextItems = [], touchedProductIds = [], { session = null } = {}) => {
@@ -540,80 +514,6 @@ const applyCartCommands = async ({
     });
 };
 
-const replaceCartItems = async ({
-    userId,
-    user = null,
-    expectedVersion = null,
-    cartItems = [],
-    market = null,
-    session = null,
-} = {}) => {
-    if (!Array.isArray(cartItems)) {
-        throw new AppError('cartItems must be an array', 400);
-    }
-
-    const desiredItems = normalizeLegacyCartItems(cartItems);
-
-    return withCartMutation({
-        userId,
-        user,
-        expectedVersion,
-        market,
-        session,
-        buildNextItems: async () => ({
-            nextItems: desiredItems,
-            touchedProductIds: desiredItems.map((item) => item.productId),
-        }),
-    });
-};
-
-const mergeCartItemsIntoCart = async ({
-    userId,
-    user = null,
-    expectedVersion = null,
-    items = [],
-    market = null,
-    session = null,
-} = {}) => {
-    if (!Array.isArray(items)) {
-        throw new AppError('items must be an array', 400);
-    }
-
-    return withCartMutation({
-        userId,
-        user,
-        expectedVersion,
-        market,
-        session,
-        buildNextItems: async (baseItems) => {
-            const nextItems = cloneStoredCartItems(baseItems);
-            const touchedProductIds = new Set();
-
-            normalizeLegacyCartItems(items).forEach((incoming) => {
-                touchedProductIds.add(incoming.productId);
-                const existingIndex = nextItems.findIndex((item) => Number(item.productId) === Number(incoming.productId));
-                if (existingIndex >= 0) {
-                    nextItems[existingIndex] = {
-                        productId: incoming.productId,
-                        quantity: nextItems[existingIndex].quantity + incoming.quantity,
-                    };
-                    return;
-                }
-
-                nextItems.push({
-                    productId: incoming.productId,
-                    quantity: incoming.quantity,
-                });
-            });
-
-            return {
-                nextItems,
-                touchedProductIds: Array.from(touchedProductIds),
-            };
-        },
-    });
-};
-
 const getCartCheckoutSnapshot = async ({
     userId,
     user = null,
@@ -754,8 +654,6 @@ module.exports = {
     parseExpectedVersion,
     getCartSnapshot,
     applyCartCommands,
-    replaceCartItems,
-    mergeCartItemsIntoCart,
     getCartCheckoutSnapshot,
     clearCartAfterCheckout,
     buildLegacyCartResponse,

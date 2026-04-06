@@ -24,6 +24,9 @@ describe('geminiGatewayService helpers', () => {
         mockBreakerCall.mockClear();
         mockBreakerStats.mockClear();
         process.env.GEMINI_API_KEY = 'test-gemini-key';
+        process.env.GEMINI_CHAT_MODEL = 'models/gemma-4-31b-it';
+        process.env.GEMINI_CHAT_MODEL_FALLBACKS = 'models/gemma-4-26b-a4b-it';
+        process.env.GEMINI_CHAT_MODEL_DEGRADE_MS = '180000';
         delete process.env.GEMINI_AUDIO_MODEL;
         delete process.env.GEMINI_AUDIO_MODEL_FALLBACKS;
     });
@@ -102,6 +105,20 @@ describe('geminiGatewayService helpers', () => {
             imageInput: true,
             audioInput: true,
         });
+    });
+
+    test('buildChatModelCandidates demotes a temporarily degraded primary model behind its fallback', () => {
+        const { __testables } = require('../services/ai/geminiGatewayService');
+
+        __testables.markModelTemporarilyDegraded('models/gemma-4-31b-it', new Error('network timeout at: model'));
+
+        expect(__testables.buildChatModelCandidates({
+            model: 'models/gemma-4-31b-it',
+            fallbacks: ['models/gemma-4-26b-a4b-it'],
+        }, ['models/gemma-4-31b-it', 'models/gemma-4-26b-a4b-it'])).toEqual([
+            'models/gemma-4-26b-a4b-it',
+            'models/gemma-4-31b-it',
+        ]);
     });
 
     test('generateStructuredJson forwards responseJsonSchema to Gemini', async () => {
@@ -193,5 +210,69 @@ describe('geminiGatewayService helpers', () => {
             provider: 'gemini',
             providerModel: 'models/gemma-4-31b-it',
         });
+    });
+
+    test('generateStructuredJson temporarily demotes the primary chat model after a timeout and uses the fallback first on the next turn', async () => {
+        mockFetch
+            .mockResolvedValueOnce({
+                ok: true,
+                text: async () => JSON.stringify({
+                    models: [
+                        { name: 'models/gemma-4-31b-it' },
+                        { name: 'models/gemma-4-26b-a4b-it' },
+                    ],
+                }),
+            })
+            .mockRejectedValueOnce(new Error('network timeout at: https://generativelanguage.googleapis.com/v1beta/models/gemma-4-31b-it:generateContent'))
+            .mockResolvedValueOnce({
+                ok: true,
+                text: async () => JSON.stringify({
+                    candidates: [{
+                        content: {
+                            parts: [{ text: '{"answer":"Fallback worked"}' }],
+                        },
+                    }],
+                }),
+            })
+            .mockResolvedValueOnce({
+                ok: true,
+                text: async () => JSON.stringify({
+                    candidates: [{
+                        content: {
+                            parts: [{ text: '{"answer":"Stayed stable"}' }],
+                        },
+                    }],
+                }),
+            });
+
+        const { generateStructuredJson, getGeminiHealth } = require('../services/ai/geminiGatewayService');
+
+        const first = await generateStructuredJson({
+            systemPrompt: 'Return JSON only.',
+            prompt: 'First turn',
+        });
+        const second = await generateStructuredJson({
+            systemPrompt: 'Return JSON only.',
+            prompt: 'Second turn',
+        });
+
+        expect(first).toMatchObject({
+            data: { answer: 'Fallback worked' },
+            providerModel: 'models/gemma-4-26b-a4b-it',
+        });
+        expect(second).toMatchObject({
+            data: { answer: 'Stayed stable' },
+            providerModel: 'models/gemma-4-26b-a4b-it',
+        });
+
+        const modelCallUrls = mockFetch.mock.calls
+            .map((call) => call[0])
+            .filter((url) => String(url).includes(':generateContent'));
+        expect(modelCallUrls).toEqual([
+            'https://generativelanguage.googleapis.com/v1beta/models/gemma-4-31b-it:generateContent',
+            'https://generativelanguage.googleapis.com/v1beta/models/gemma-4-26b-a4b-it:generateContent',
+            'https://generativelanguage.googleapis.com/v1beta/models/gemma-4-26b-a4b-it:generateContent',
+        ]);
+        expect(getGeminiHealth().degradedModels).toContain('models/gemma-4-31b-it');
     });
 });

@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const Product = require('../models/Product');
 const User = require('../models/User');
+const Cart = require('../models/Cart');
 const { queryProducts, getActiveCatalogVersion } = require('./catalogService');
 
 const MAX_RECENTLY_VIEWED = 8;
@@ -113,9 +114,18 @@ const loadUserSignals = async (userId) => {
         return { cart: [], wishlist: [] };
     }
 
-    const user = await User.findById(userId).select('cart wishlist').lean();
+    const [user, cart] = await Promise.all([
+        User.findById(userId).select('wishlist').lean(),
+        Cart.findOne({ user: userId }).select('items').lean(),
+    ]);
+
     return {
-        cart: Array.isArray(user?.cart) ? user.cart : [],
+        cart: Array.isArray(cart?.items)
+            ? cart.items.map((item) => ({
+                id: Number(item?.productId || 0),
+                quantity: Math.max(1, Number(item?.quantity || 1)),
+            })).filter((item) => Number.isFinite(item.id) && item.id > 0)
+            : [],
         wishlist: Array.isArray(user?.wishlist) ? user.wishlist : [],
     };
 };

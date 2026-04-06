@@ -142,6 +142,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Use Node.js 24.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.x
+
+      - name: Audit Key Vault secret coverage
+        run: node server/scripts/audit_keyvault_secret_contract.js
+
       - name: Validate Azure runtime templates with the current env contract
         shell: pwsh
         run: |

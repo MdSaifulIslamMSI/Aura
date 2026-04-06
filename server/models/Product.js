@@ -279,11 +279,35 @@ productSchema.post('save', function productAssistantVectorPostSave(doc) {
     if (doc?._id) {
         scheduleAssistantVectorRefresh(doc._id);
     }
+    if (doc?.id) {
+        scheduleAssistantVectorRefresh(doc.id);
+    }
 });
 
 productSchema.post('findOneAndUpdate', function productAssistantVectorPostUpdate(doc) {
     if (doc?._id) {
         scheduleAssistantVectorRefresh(doc._id);
+    }
+    if (doc?.id) {
+        scheduleAssistantVectorRefresh(doc.id);
+    }
+});
+
+productSchema.post('findOneAndDelete', function productAssistantVectorPostDelete(doc) {
+    if (doc?._id) {
+        scheduleAssistantVectorRefresh(doc._id);
+    }
+    if (doc?.id) {
+        scheduleAssistantVectorRefresh(doc.id);
+    }
+});
+
+productSchema.post('deleteOne', { document: true, query: false }, function productAssistantVectorPostDocumentDelete() {
+    if (this?._id) {
+        scheduleAssistantVectorRefresh(this._id);
+    }
+    if (this?.id) {
+        scheduleAssistantVectorRefresh(this.id);
     }
 });
 

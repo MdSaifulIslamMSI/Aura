@@ -10,6 +10,10 @@ jest.mock('../models/Order', () => ({
     updateMany: jest.fn(),
 }));
 
+jest.mock('../models/Cart', () => ({
+    updateOne: jest.fn(),
+}));
+
 jest.mock('../models/Listing', () => ({
     countDocuments: jest.fn(),
     updateMany: jest.fn(),
@@ -46,6 +50,7 @@ jest.mock('../utils/logger', () => ({
 
 const User = require('../models/User');
 const Order = require('../models/Order');
+const Cart = require('../models/Cart');
 const Listing = require('../models/Listing');
 const PaymentIntent = require('../models/PaymentIntent');
 const UserGovernanceLog = require('../models/UserGovernanceLog');
@@ -70,7 +75,6 @@ const makeUserDoc = (overrides = {}) => ({
     avatar: 'https://example.com/avatar.png',
     bio: 'hello',
     addresses: [{ city: 'Kolkata' }],
-    cart: [{ product: '1' }],
     wishlist: [{ product: '2' }],
     isAdmin: false,
     isVerified: true,
@@ -89,7 +93,6 @@ const makeUserDoc = (overrides = {}) => ({
             avatar: this.avatar,
             bio: this.bio,
             addresses: this.addresses,
-            cart: this.cart,
             wishlist: this.wishlist,
             isAdmin: this.isAdmin,
             isVerified: this.isVerified,
@@ -155,6 +158,7 @@ describe('Admin user controller resilience', () => {
         UserGovernanceLog.create.mockResolvedValue({ actionId: 'ugl_1' });
         createGovernanceAppealTicket.mockResolvedValue(null);
         resolveLatestGovernanceAppealTicket.mockResolvedValue(null);
+        Cart.updateOne.mockResolvedValue({ modifiedCount: 1 });
         Listing.updateMany.mockResolvedValue({ modifiedCount: 2 });
         Order.updateMany.mockResolvedValue({ modifiedCount: 3 });
     });
@@ -284,8 +288,17 @@ describe('Admin user controller resilience', () => {
         expect(targetUser.avatar).toBe('');
         expect(targetUser.bio).toBe('');
         expect(targetUser.addresses).toEqual([]);
-        expect(targetUser.cart).toEqual([]);
         expect(targetUser.wishlist).toEqual([]);
+        expect(Cart.updateOne).toHaveBeenCalledWith(
+            { user: targetUser._id },
+            expect.objectContaining({
+                $set: expect.objectContaining({
+                    items: [],
+                    recentMutations: [],
+                }),
+                $inc: { version: 1 },
+            })
+        );
         expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
             success: true,
             message: 'User soft-deleted successfully',
