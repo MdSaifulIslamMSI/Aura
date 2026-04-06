@@ -263,6 +263,30 @@ productSchema.pre(['findOneAndUpdate', 'updateOne', 'updateMany'], function prod
     }
 });
 
+const scheduleAssistantVectorRefresh = (identifier) => {
+    try {
+        const { scheduleProductIndexRefreshById } = require('../services/ai/localProductVectorIndexService');
+        scheduleProductIndexRefreshById(identifier);
+    } catch (error) {
+        logger.warn('product_model.assistant_vector_refresh_schedule_failed', {
+            identifier: String(identifier || ''),
+            error: error.message,
+        });
+    }
+};
+
+productSchema.post('save', function productAssistantVectorPostSave(doc) {
+    if (doc?._id) {
+        scheduleAssistantVectorRefresh(doc._id);
+    }
+});
+
+productSchema.post('findOneAndUpdate', function productAssistantVectorPostUpdate(doc) {
+    if (doc?._id) {
+        scheduleAssistantVectorRefresh(doc._id);
+    }
+});
+
 productSchema.index(
     { externalId: 1, source: 1, catalogVersion: 1 },
     {

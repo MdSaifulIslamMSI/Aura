@@ -6,14 +6,12 @@ param(
     [string]$IdentityName = "aura-msi-backend-id",
     [string]$ApiAppName = "aura-msi-api-ca",
     [string]$WorkerAppName = "aura-msi-worker-ca",
-    [string]$IntelligenceAppName = "aura-msi-intelligence-ca",
     [string]$SourceEnvFile = "",
     [string]$ManifestPath = "",
     [string]$FrontendOrigin = "",
     [string]$ApiPublicUrl = "",
     [string]$ApiImageRef = "",
     [string]$WorkerImageRef = "",
-    [string]$IntelligenceImageRef = "",
     [switch]$SyncKeyVaultSecrets,
     [switch]$SkipSecretExistenceCheck,
     [switch]$DryRun,
@@ -43,9 +41,7 @@ $script:GeneratedSecretKeys = @(
     "OTP_FLOW_SECRET",
     "OTP_CHALLENGE_SECRET",
     "CRON_SECRET",
-    "METRICS_SECRET",
-    "INTELLIGENCE_SERVICE_TOKEN",
-    "AI_INTERNAL_TOOL_SECRET"
+    "METRICS_SECRET"
 )
 $script:AlwaysSecretEnvNames = @(
     "MONGO_URI",
@@ -74,12 +70,7 @@ $script:AlwaysSecretEnvNames = @(
     "ELEVENLABS_API_KEY",
     "LIVEKIT_API_KEY",
     "LIVEKIT_API_SECRET",
-    "AZURE_STORAGE_CONNECTION_STRING",
-    "INTELLIGENCE_SERVICE_TOKEN",
-    "AI_INTERNAL_TOOL_SECRET",
-    "INTELLIGENCE_ENDPOINT_API_KEY",
-    "QDRANT_API_KEY",
-    "NEO4J_PASSWORD"
+    "AZURE_STORAGE_CONNECTION_STRING"
 )
 $script:NeverSecretEnvNames = @(
     "NODE_ENV",
@@ -148,6 +139,7 @@ $script:NeverSecretEnvNames = @(
     "OTP_SMS_DEFAULT_COUNTRY_CODE",
     "OTP_SMS_BRAND",
     "TWILIO_STATUS_CALLBACK_URL",
+    "ASSISTANT_COMMERCE_REQUIRE_HOSTED_GEMMA",
     "GROQ_CHAT_MODEL",
     "GROQ_VISION_MODEL",
     "GROQ_AUDIO_MODEL",
@@ -169,30 +161,6 @@ $script:NeverSecretEnvNames = @(
     "AI_DEFAULT_LOCALE",
     "CHAT_USER_WINDOW_MS",
     "CHAT_USER_MAX_REQUESTS",
-    "CENTRAL_INTELLIGENCE_MODE",
-    "INTELLIGENCE_SERVICE_URL",
-    "INTELLIGENCE_SERVICE_TIMEOUT_MS",
-    "INTELLIGENCE_SERVICE_STREAM_TIMEOUT_MS",
-    "INTELLIGENCE_PROVIDER",
-    "INTELLIGENCE_ROUTING_MODEL",
-    "INTELLIGENCE_REASONING_MODEL",
-    "INTELLIGENCE_REASONING_ENDPOINT_URL",
-    "INTELLIGENCE_ROUTING_ENDPOINT_URL",
-    "INTELLIGENCE_ACTIVE_INDEX_PATH",
-    "INTELLIGENCE_BUNDLE_SOURCE_PATH",
-    "INTELLIGENCE_EMBEDDING_ENDPOINT_URL",
-    "INTELLIGENCE_EMBEDDING_ENDPOINT_FORMAT",
-    "INTELLIGENCE_EMBEDDING_MODEL",
-    "INTELLIGENCE_EMBEDDING_VECTOR_SIZE",
-    "INTELLIGENCE_EMBEDDING_BATCH_SIZE",
-    "QDRANT_URL",
-    "QDRANT_COLLECTION_PREFIX",
-    "QDRANT_DISTANCE",
-    "QDRANT_UPSERT_BATCH_SIZE",
-    "NEO4J_URL",
-    "NEO4J_USERNAME",
-    "NEO4J_DATABASE",
-    "NEO4J_BATCH_SIZE",
     "APP_BUILD_SHA"
 )
 
@@ -497,7 +465,6 @@ function Get-ServiceScopedPrefixes {
     switch ($ServiceKey) {
         "api" { return $prefixes + @("API__") }
         "worker" { return $prefixes + @("WORKER__") }
-        "intelligence" { return $prefixes + @("INTELLIGENCE__") }
         default { return $prefixes }
     }
 }
@@ -594,7 +561,6 @@ function Get-ServiceAppName {
     switch ($ServiceKey) {
         "api" { return $ApiAppName }
         "worker" { return $WorkerAppName }
-        "intelligence" { return $IntelligenceAppName }
         default { throw "Unknown service key $ServiceKey" }
     }
 }
@@ -605,7 +571,6 @@ function Get-ServiceImageRef {
     switch ($ServiceKey) {
         "api" { return $ApiImageRef }
         "worker" { return $(if ($WorkerImageRef) { $WorkerImageRef } else { $ApiImageRef }) }
-        "intelligence" { return $IntelligenceImageRef }
         default { return "" }
     }
 }
@@ -637,30 +602,6 @@ function Resolve-ApiUrl {
     }
 
     return "https://api.example.com"
-}
-
-function Resolve-IntelligenceServiceUrl {
-    param(
-        [hashtable]$SourceValues,
-        [bool]$CanUseAzure
-    )
-
-    $fromEnv = Convert-ToServiceBaseUrl $SourceValues["INTELLIGENCE_SERVICE_URL"]
-    if (-not [string]::IsNullOrWhiteSpace($fromEnv)) {
-        return $fromEnv
-    }
-
-    if ($CanUseAzure) {
-        try {
-            $fqdn = Invoke-AzCli containerapp show --name $IntelligenceAppName --resource-group $ResourceGroup --query properties.configuration.ingress.fqdn --output tsv
-            if (-not [string]::IsNullOrWhiteSpace($fqdn)) {
-                return "https://$fqdn"
-            }
-        } catch {
-        }
-    }
-
-    return "https://intelligence.example.com"
 }
 
 function Resolve-FrontendUrl {
@@ -705,8 +646,6 @@ function Apply-ServiceOverrides {
         [hashtable]$SourceValues,
         [string]$ResolvedApiUrl,
         [string]$ResolvedFrontendUrl,
-        [string]$ResolvedIntelligenceServiceUrl,
-        [string]$ResolvedApiToolGatewayUrl,
         [bool]$SourceIsAuthoritative
     )
 
@@ -718,7 +657,6 @@ function Apply-ServiceOverrides {
 
         $value = $value `
             -replace [regex]::Escape("<keyvault-name>"), $KeyVaultName `
-            -replace [regex]::Escape("https://api.example.com/api/internal/ai-tools/run"), $ResolvedApiToolGatewayUrl `
             -replace [regex]::Escape("https://api.example.com"), $ResolvedApiUrl `
             -replace [regex]::Escape("https://app.example.com"), $ResolvedFrontendUrl
 
@@ -730,9 +668,6 @@ function Apply-ServiceOverrides {
     }
     if ($Settings.Contains("FRONTEND_URL")) {
         $Settings["FRONTEND_URL"] = $ResolvedFrontendUrl
-    }
-    if ($Settings.Contains("INTELLIGENCE_SERVICE_URL")) {
-        $Settings["INTELLIGENCE_SERVICE_URL"] = $ResolvedIntelligenceServiceUrl
     }
     if ($Settings.Contains("CORS_ORIGIN")) {
         $Settings["CORS_ORIGIN"] = Join-Origins @(
@@ -752,10 +687,6 @@ function Apply-ServiceOverrides {
     }
     if ($Settings.Contains("ORDER_EMAIL_ALERT_TO")) {
         $Settings["ORDER_EMAIL_ALERT_TO"] = Trim-OrDefault $SourceValues["ORDER_EMAIL_ALERT_TO"] $Settings["ORDER_EMAIL_ALERT_TO"]
-    }
-
-    if ($ServiceKey -eq "intelligence" -and $Settings.Contains("NODE_TOOL_GATEWAY_URL")) {
-        $Settings["NODE_TOOL_GATEWAY_URL"] = Trim-OrDefault $SourceValues["NODE_TOOL_GATEWAY_URL"] $ResolvedApiToolGatewayUrl
     }
 
     $Settings = Apply-ServiceScopedSourceOverrides -ServiceKey $ServiceKey -Settings $Settings -SourceValues $SourceValues
@@ -819,15 +750,13 @@ function New-ServiceRuntimePlan {
         [hashtable]$SourceValues,
         [string]$ResolvedApiUrl,
         [string]$ResolvedFrontendUrl,
-        [string]$ResolvedIntelligenceServiceUrl,
-        [string]$ResolvedApiToolGatewayUrl,
         [string]$RepositoryRoot,
         [bool]$SourceIsAuthoritative
     )
 
     $templatePath = Join-Path $RepositoryRoot $Service.templatePath
     $settings = Read-EnvFile -Path $templatePath
-    $settings = Apply-ServiceOverrides -ServiceKey $Service.key -Settings $settings -SourceValues $SourceValues -ResolvedApiUrl $ResolvedApiUrl -ResolvedFrontendUrl $ResolvedFrontendUrl -ResolvedIntelligenceServiceUrl $ResolvedIntelligenceServiceUrl -ResolvedApiToolGatewayUrl $ResolvedApiToolGatewayUrl -SourceIsAuthoritative $SourceIsAuthoritative
+    $settings = Apply-ServiceOverrides -ServiceKey $Service.key -Settings $settings -SourceValues $SourceValues -ResolvedApiUrl $ResolvedApiUrl -ResolvedFrontendUrl $ResolvedFrontendUrl -SourceIsAuthoritative $SourceIsAuthoritative
 
     $boundSecrets = @()
     $missingSecrets = @()
@@ -941,6 +870,9 @@ function Update-ContainerAppRuntime {
         }
 
         $updateArgs = @("containerapp", "update", "--name", $Plan.appName, "--resource-group", $ResourceGroup)
+        if (-not [string]::IsNullOrWhiteSpace($imageRef)) {
+            $updateArgs += @("--image", $imageRef)
+        }
         if ($service.cpu) {
             $updateArgs += @("--cpu", [string]$service.cpu)
         }
@@ -1046,11 +978,6 @@ if (-not $DryRun) {
 $resolvedFrontendUrl = Resolve-FrontendUrl -SourceValues $sourceValues
 $canUseAzureDiscovery = (-not $DryRun) -or $DiscoverAzureUrlsInDryRun
 $resolvedApiUrl = Resolve-ApiUrl -SourceValues $sourceValues -CanUseAzure $canUseAzureDiscovery
-$resolvedIntelligenceServiceUrl = Resolve-IntelligenceServiceUrl -SourceValues $sourceValues -CanUseAzure $canUseAzureDiscovery
-$resolvedApiToolGatewayUrl = Trim-OrDefault $sourceValues["NODE_TOOL_GATEWAY_URL"]
-if ([string]::IsNullOrWhiteSpace($resolvedApiToolGatewayUrl)) {
-    $resolvedApiToolGatewayUrl = "$($resolvedApiUrl.TrimEnd('/'))/api/internal/ai-tools/run"
-}
 
 if ($SyncKeyVaultSecrets) {
     if ($DryRun) {
@@ -1063,7 +990,7 @@ if ($SyncKeyVaultSecrets) {
 
 $plans = @()
 foreach ($service in $manifest.services) {
-    $plans += New-ServiceRuntimePlan -Service $service -SourceValues $sourceValues -ResolvedApiUrl $resolvedApiUrl -ResolvedFrontendUrl $resolvedFrontendUrl -ResolvedIntelligenceServiceUrl $resolvedIntelligenceServiceUrl -ResolvedApiToolGatewayUrl $resolvedApiToolGatewayUrl -RepositoryRoot $RepoRoot -SourceIsAuthoritative ([bool]$sourceInfo.IsAuthoritative)
+    $plans += New-ServiceRuntimePlan -Service $service -SourceValues $sourceValues -ResolvedApiUrl $resolvedApiUrl -ResolvedFrontendUrl $resolvedFrontendUrl -RepositoryRoot $RepoRoot -SourceIsAuthoritative ([bool]$sourceInfo.IsAuthoritative)
 }
 
 $missingSecretBindings = @(
@@ -1086,8 +1013,6 @@ $planSummary = [ordered]@{
     resourceGroup = $ResourceGroup
     frontendUrl = $resolvedFrontendUrl
     apiUrl = $resolvedApiUrl
-    intelligenceServiceUrl = $resolvedIntelligenceServiceUrl
-    apiToolGatewayUrl = $resolvedApiToolGatewayUrl
     syncKeyVaultSecrets = [bool]$SyncKeyVaultSecrets
     missingSecretBindings = @(
         $missingSecretBindings | ForEach-Object {

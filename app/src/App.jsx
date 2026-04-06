@@ -7,7 +7,6 @@ import { ColorModeProvider } from './context/ColorModeContext';
 import { MarketProvider } from './context/MarketContext';
 import { MotionModeProvider, useMotionMode } from './context/MotionModeContext';
 import { SocketProvider } from './context/SocketContext';
-import { VideoCallProvider } from './context/VideoCallContext';
 import { AdminRoute, ProtectedRoute, SellerRoute } from './components/shared/ProtectedRoute';
 import { NotificationProvider } from './context/NotificationContext';
 
@@ -25,6 +24,11 @@ import AuraTrustedDeviceChallenge from './components/features/auth/AuraTrustedDe
 import { trustRoutes } from './config/trustContent';
 import { assertRouteA11yContracts } from './utils/a11yContracts';
 import { lazyWithRetry } from './utils/lazyWithRetry';
+import { MultimodalAssistantProvider } from './context/MultimodalAssistantContext';
+import {
+  shouldShowAmbientChrome,
+  shouldShowAssistantLauncher,
+} from './services/assistantUiConfig';
 
 // Pages (Lazy Loaded for Performance)
 const Home = lazyWithRetry(() => import('./pages/Home'), 'home');
@@ -63,39 +67,8 @@ const AICompare = lazyWithRetry(() => import('./pages/AICompare'), 'ai-compare')
 const VisualSearch = lazyWithRetry(() => import('./pages/VisualSearch'), 'visual-search');
 const Bundles = lazyWithRetry(() => import('./pages/Bundles'), 'bundles');
 const MissionControl = lazyWithRetry(() => import('./pages/MissionControl'), 'mission-control');
-
-const AMBIENT_CHROME_PREFIXES = [
-  '/',
-  '/products',
-  '/category/',
-  '/search',
-  '/deals',
-  '/trending',
-  '/new-arrivals',
-  '/marketplace',
-  '/product/',
-  '/listing/',
-  '/seller/',
-  '/compare',
-  '/visual-search',
-  '/bundles',
-  '/mission-control',
-  '/trust',
-];
-
-const routeMatches = (pathname = '/', prefixes = []) => {
-  const normalizedPathname = String(pathname || '/').trim() || '/';
-
-  if (normalizedPathname === '/') {
-    return prefixes.includes('/');
-  }
-
-  return prefixes.some((prefix) => prefix !== '/' && normalizedPathname.startsWith(prefix));
-};
-
-const shouldShowAmbientChrome = (pathname = '/') => (
-  !String(pathname || '/').startsWith('/admin') && routeMatches(pathname, AMBIENT_CHROME_PREFIXES)
-);
+const AssistantPage = lazyWithRetry(() => import('./pages/Assistant'), 'assistant-workspace');
+const AssistantLauncher = lazyWithRetry(() => import('./components/shared/AssistantLauncher'), 'assistant-launcher');
 
 function renderRoute(element) {
   return <AppErrorBoundary>{element}</AppErrorBoundary>;
@@ -116,6 +89,11 @@ function AppContent() {
     [pathname]
   );
   const showAnchorRail = showAmbientChrome && effectiveMotionMode === 'cinematic';
+  const showAssistantLauncher = useMemo(
+    () => shouldShowAssistantLauncher({ pathname }),
+    [pathname]
+  );
+
 
   useEffect(() => {
     if (!import.meta.env.DEV || typeof window === 'undefined') {
@@ -176,6 +154,7 @@ function AppContent() {
               <Route path="/visual-search" element={renderRoute(<VisualSearch />)} />
               <Route path="/bundles" element={renderRoute(<Bundles />)} />
               <Route path="/mission-control" element={renderRoute(<MissionControl />)} />
+              <Route path="/assistant" element={renderRoute(<AssistantPage />)} />
               <Route path="/contact" element={renderRoute(<ContactPage />)} />
               {trustRoutes.filter((path) => path !== '/contact').map((path) => (
                 <Route key={path} path={path} element={renderRoute(<TrustPage />)} />
@@ -213,6 +192,13 @@ function AppContent() {
           </RouteTransitionShell>
         </Suspense>
       </main>
+      {showAssistantLauncher ? (
+        <Suspense fallback={null}>
+          <AppErrorBoundary>
+            <AssistantLauncher />
+          </AppErrorBoundary>
+        </Suspense>
+      ) : null}
       <AppErrorBoundary>
         <GlobalSupportLauncher />
       </AppErrorBoundary>
@@ -233,6 +219,8 @@ function AppContent() {
   );
 }
 
+import { VideoCallProvider } from './context/VideoCallContext';
+
 function App() {
   return (
     <ColorModeProvider>
@@ -246,7 +234,9 @@ function App() {
                     {/* React Router v7 defaults BrowserRouter navigations to startTransition,
                         which can leave the previous lazy route visible after URL changes. */}
                     <Router unstable_useTransitions={false}>
-                      <AppContent />
+                      <MultimodalAssistantProvider>
+                        <AppContent />
+                      </MultimodalAssistantProvider>
                     </Router>
                   </CommerceProvider>
                 </VideoCallProvider>
