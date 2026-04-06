@@ -42,9 +42,6 @@ jobs:
         with:
           mongodb-version: '6.0'
 
-      - name: Build Code Intelligence Bundle
-        run: node scripts/build_code_intelligence_bundle.js
-
       - name: Install Dependencies
         run: npm ci
 
@@ -68,6 +65,13 @@ jobs:
           tests/adminPaymentRoutes.integration.test.js
           tests/adminAnalyticsRoutes.integration.test.js
           tests/adminNotificationRoutes.integration.test.js
+          tests/aiRoutes.test.js
+          tests/healthRoutes.test.js
+          tests/commerceAssistantService.test.js
+          tests/geminiGatewayService.test.js
+          tests/modelGatewayService.test.js
+          tests/ollamaGatewayService.test.js
+          tests/runtimeConfig.test.js
         env:
           TEST_MONGO_URI: mongodb://127.0.0.1:27017/aura_ci
           TEST_USE_IN_MEMORY_MONGO: 'false'
@@ -96,9 +100,6 @@ jobs:
         with:
           mongodb-version: '6.0'
 
-      - name: Build Code Intelligence Bundle
-        run: node scripts/build_code_intelligence_bundle.js
-
       - name: Install Dependencies
         run: npm ci
 
@@ -122,11 +123,59 @@ jobs:
           tests/adminPaymentRoutes.integration.test.js
           tests/adminAnalyticsRoutes.integration.test.js
           tests/adminNotificationRoutes.integration.test.js
+          tests/aiRoutes.test.js
+          tests/healthRoutes.test.js
+          tests/commerceAssistantService.test.js
+          tests/geminiGatewayService.test.js
+          tests/modelGatewayService.test.js
+          tests/ollamaGatewayService.test.js
+          tests/runtimeConfig.test.js
         env:
           TEST_MONGO_URI: mongodb://127.0.0.1:27017/aura_ci
           TEST_USE_IN_MEMORY_MONGO: 'false'
           TEST_FALLBACK_TO_IN_MEMORY_MONGO: 'false'
           NODE_ENV: test
+
+  azure-runtime-contract:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate Azure runtime templates with the current env contract
+        shell: pwsh
+        run: |
+          & ".\\infra\\azure\\sync-containerapps-runtime.ps1" `
+            -SourceEnvFile ".\\server\\.env.azure-secrets.example" `
+            -DryRun `
+            -PlanOutputPath "${{ runner.temp }}\\azure-runtime-plan.json"
+
+      - name: Upload Azure runtime plan
+        uses: actions/upload-artifact@v4
+        with:
+          name: azure-runtime-plan
+          path: ${{ runner.temp }}/azure-runtime-plan.json
+          retention-days: 7
+
+  backend-container-smoke:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js 24.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.x
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: ./server
+        run: npm ci
+
+      - name: Build backend container image
+        run: docker build --file server/Dockerfile --tag aura-backend-ci ./server
 
   frontend-quality:
     runs-on: ubuntu-latest
