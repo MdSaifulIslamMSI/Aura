@@ -477,7 +477,7 @@ const AssistantPage = () => {
     }, [handleUserInput, inputRef, setInputValue]);
 
     return (
-        <div className="relative min-h-screen overflow-hidden bg-[#050811] text-slate-100">
+        <div className="relative h-[100dvh] overflow-hidden bg-[#050811] text-slate-100">
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.18),transparent_32%),radial-gradient(circle_at_85%_15%,rgba(16,185,129,0.12),transparent_28%),linear-gradient(180deg,rgba(5,8,17,0.98),rgba(7,10,20,1))]" />
             <div className="pointer-events-none absolute inset-y-0 left-[19%] w-px bg-gradient-to-b from-transparent via-cyan-400/15 to-transparent" />
             <button
@@ -489,9 +489,9 @@ const AssistantPage = () => {
                     isSidebarOpen ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0',
                 )}
             />
-            <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-[1650px]">
+            <div className="relative z-10 mx-auto flex h-[100dvh] w-full max-w-[1650px] overflow-hidden">
                 <aside className={cn(
-                    'fixed inset-y-0 left-0 z-30 flex w-[88vw] max-w-[320px] flex-col border-r border-white/10 bg-[linear-gradient(180deg,rgba(9,14,25,0.98),rgba(7,11,21,0.96))] px-4 py-5 backdrop-blur-xl transition-transform duration-300 lg:static lg:z-auto lg:w-full lg:max-w-[320px] lg:translate-x-0',
+                    'fixed inset-y-0 left-0 z-30 flex h-[100dvh] w-[88vw] max-w-[320px] flex-col overflow-hidden border-r border-white/10 bg-[linear-gradient(180deg,rgba(9,14,25,0.98),rgba(7,11,21,0.96))] px-4 py-5 backdrop-blur-xl transition-transform duration-300 lg:static lg:z-auto lg:w-full lg:max-w-[320px] lg:translate-x-0',
                     isSidebarOpen ? 'translate-x-0' : '-translate-x-full',
                 )}>
                     <div className="rounded-[1.6rem] border border-white/10 bg-white/[0.03] p-4 shadow-[0_18px_60px_rgba(0,0,0,0.22)]">
@@ -541,7 +541,7 @@ const AssistantPage = () => {
                         />
                     </label>
 
-                    <div className="mt-5 flex-1 space-y-5 overflow-y-auto pr-1">
+                    <div className="mt-5 flex-1 space-y-5 overflow-y-auto overscroll-contain pr-1">
                         {groupedSessions.map((group) => (
                             <section key={group.key}>
                                 <p className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
@@ -639,7 +639,7 @@ const AssistantPage = () => {
                     </div>
                 </aside>
 
-                <main className="flex min-h-screen min-w-0 flex-1 flex-col lg:pl-0">
+                <main className="flex h-[100dvh] min-h-0 min-w-0 flex-1 flex-col overflow-hidden lg:pl-0">
                     <header className="border-b border-white/10 bg-[linear-gradient(180deg,rgba(5,8,17,0.88),rgba(5,8,17,0.78))] px-6 py-5 backdrop-blur-xl">
                         <div className="rounded-[1.8rem] border border-white/10 bg-white/[0.03] px-5 py-5 shadow-[0_25px_90px_rgba(0,0,0,0.22)]">
                             <div className="flex flex-wrap items-start justify-between gap-4">
