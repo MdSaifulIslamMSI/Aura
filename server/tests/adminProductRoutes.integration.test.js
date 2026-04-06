@@ -25,6 +25,10 @@ jest.mock('../models/User', () => ({
     updateMany: jest.fn(),
 }));
 
+jest.mock('../models/Cart', () => ({
+    updateMany: jest.fn(),
+}));
+
 jest.mock('../models/ProductGovernanceLog', () => ({
     create: jest.fn(),
     find: jest.fn(),
@@ -52,6 +56,7 @@ const request = require('supertest');
 const adminProductRoutes = require('../routes/adminProductRoutes');
 const { errorHandler, notFound } = require('../middleware/errorMiddleware');
 const Product = require('../models/Product');
+const Cart = require('../models/Cart');
 const User = require('../models/User');
 const ProductGovernanceLog = require('../models/ProductGovernanceLog');
 const {
@@ -163,6 +168,7 @@ describe('Admin product routes integration', () => {
 
         ProductGovernanceLog.create.mockResolvedValue({ actionId: 'pgl_1' });
         ProductGovernanceLog.find.mockReturnValue(makeLogChain([]));
+        Cart.updateMany.mockResolvedValue({ modifiedCount: 1 });
         User.updateMany.mockResolvedValue({ modifiedCount: 1 });
 
         createManualProduct.mockResolvedValue({ _id: '69bb00000000000000000001' });
@@ -344,6 +350,7 @@ describe('Admin product routes integration', () => {
         expect(res.statusCode).toBe(200);
         expect(res.body.message).toBe('Product removed');
         expect(deleteManualProduct).toHaveBeenCalledWith('69bb00000000000000000001');
-        expect(User.updateMany).toHaveBeenCalledTimes(2);
+        expect(Cart.updateMany).toHaveBeenCalledTimes(1);
+        expect(User.updateMany).toHaveBeenCalledTimes(1);
     });
 });
