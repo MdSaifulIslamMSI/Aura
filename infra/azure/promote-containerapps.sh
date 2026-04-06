@@ -10,6 +10,7 @@ set -euo pipefail
 HEALTH_PATH="${HEALTH_PATH:-/health}"
 HEALTH_TIMEOUT_SECONDS="${HEALTH_TIMEOUT_SECONDS:-240}"
 HEALTH_POLL_INTERVAL_SECONDS="${HEALTH_POLL_INTERVAL_SECONDS:-10}"
+CANDIDATE_HEALTH_TIMEOUT_SECONDS="${CANDIDATE_HEALTH_TIMEOUT_SECONDS:-30}"
 REVISION_SUFFIX="${REVISION_SUFFIX:-r${GITHUB_RUN_NUMBER:-0}-${GITHUB_SHA:-manual}}"
 REVISION_SUFFIX="${REVISION_SUFFIX:0:30}"
 
@@ -94,9 +95,13 @@ wait_for_revision_ready() {
 
     log "${role} revision ${revision_name}: provisioning=${provisioning_state} running=${running_state} health=${health_state:-n/a}"
 
-    if [[ "${provisioning_state}" == "Provisioned" && "${running_state}" == Running* ]]; then
+    if [[ "${provisioning_state}" == "Provisioned" ]]; then
       if [[ -z "${health_state}" || "${health_state}" == "Healthy" ]]; then
-        return 0
+        case "${running_state}" in
+          Running*|Activating|Active|"")
+            return 0
+            ;;
+        esac
       fi
     fi
 
@@ -124,7 +129,11 @@ wait_for_http_health() {
   local base_url="$1"
   local label="$2"
   local path="${3:-${HEALTH_PATH}}"
-  local attempts=$((HEALTH_TIMEOUT_SECONDS / HEALTH_POLL_INTERVAL_SECONDS))
+  local timeout_seconds="${4:-${HEALTH_TIMEOUT_SECONDS}}"
+  local attempts=$((timeout_seconds / HEALTH_POLL_INTERVAL_SECONDS))
+  if (( attempts < 1 )); then
+    attempts=1
+  fi
 
   for (( attempt=1; attempt<=attempts; attempt++ )); do
     local response
@@ -145,6 +154,28 @@ wait_for_http_health() {
 
   echo "Timed out waiting for ${label} health check at ${base_url}${path}." >&2
   return 1
+}
+
+probe_candidate_or_production_health() {
+  local candidate_url="$1"
+  local production_url="$2"
+  local candidate_revision="$3"
+  local live_revision
+
+  if [[ -n "${candidate_url}" ]]; then
+    if wait_for_http_health "${candidate_url}" "candidate" "${HEALTH_PATH}" "${CANDIDATE_HEALTH_TIMEOUT_SECONDS}"; then
+      return 0
+    fi
+    log "Candidate revision URL ${candidate_url} did not pass health checks. Falling back to production ingress."
+  fi
+
+  live_revision="$(current_api_revision)"
+  if [[ -n "${candidate_revision}" && "${live_revision}" != "${candidate_revision}" ]]; then
+    echo "Production ingress is not pointing at candidate revision ${candidate_revision}; refusing fallback health acceptance." >&2
+    return 1
+  fi
+
+  wait_for_http_health "${production_url}" "production"
 }
 
 rollback_release() {
@@ -238,13 +269,18 @@ write_output "candidate_api_revision" "${candidate_api_revision}"
 write_output "candidate_api_fqdn" "${candidate_api_fqdn}"
 
 wait_for_revision_ready "${API_APP_NAME}" "${candidate_api_revision}" "API candidate"
-if [[ -z "${candidate_api_fqdn}" ]]; then
-  echo "Could not resolve a direct FQDN for API revision ${candidate_api_revision}." >&2
+production_fqdn="$(az containerapp show --name "${API_APP_NAME}" --resource-group "${RESOURCE_GROUP}" --query "properties.configuration.ingress.fqdn" --output tsv)"
+if [[ -z "${production_fqdn}" ]]; then
+  echo "Could not resolve the production ingress FQDN for ${API_APP_NAME}." >&2
   exit 1
 fi
-wait_for_http_health "https://${candidate_api_fqdn}" "candidate"
-production_fqdn="$(az containerapp show --name "${API_APP_NAME}" --resource-group "${RESOURCE_GROUP}" --query "properties.configuration.ingress.fqdn" --output tsv)"
-wait_for_http_health "https://${production_fqdn}" "production"
+
+candidate_api_url=""
+if [[ -n "${candidate_api_fqdn}" ]]; then
+  candidate_api_url="https://${candidate_api_fqdn}"
+fi
+
+probe_candidate_or_production_health "${candidate_api_url}" "https://${production_fqdn}" "${candidate_api_revision}"
 
 az containerapp revision label add \
   --name "${API_APP_NAME}" \
