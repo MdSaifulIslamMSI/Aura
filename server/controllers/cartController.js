@@ -5,6 +5,7 @@ const {
     getCartSnapshot,
     applyCartCommands,
 } = require('../services/cartService');
+const { emitCartRealtimeUpdate } = require('../services/cartRealtimeService');
 
 const getCanonicalCart = asyncHandler(async (req, res, next) => {
     const userId = req.user?._id;
@@ -51,6 +52,15 @@ const applyCanonicalCartCommands = asyncHandler(async (req, res, next) => {
             cart: result.cart,
         });
     }
+
+    emitCartRealtimeUpdate({
+        socketUserId: req.user?._id,
+        authUid: req.authUid,
+        cart: result.cart,
+        reason: 'cart_commands_applied',
+        requestId: req.requestId,
+        source: 'cart_controller',
+    });
 
     return res.json({
         cart: result.cart,

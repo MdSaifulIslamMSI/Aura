@@ -11,8 +11,13 @@ jest.mock('../models/User', () => ({
     findById: jest.fn(),
 }));
 
+jest.mock('../models/Cart', () => ({
+    findOne: jest.fn(),
+}));
+
 const Product = require('../models/Product');
 const User = require('../models/User');
+const Cart = require('../models/Cart');
 const { queryProducts, getActiveCatalogVersion } = require('../services/catalogService');
 const { buildProductRecommendations } = require('../services/productRecommendationService');
 
@@ -20,6 +25,12 @@ const mockUserLookup = (payload) => {
     const lean = jest.fn().mockResolvedValue(payload);
     const select = jest.fn().mockReturnValue({ lean });
     User.findById.mockReturnValue({ select });
+};
+
+const mockCartLookup = (payload) => {
+    const lean = jest.fn().mockResolvedValue(payload);
+    const select = jest.fn().mockReturnValue({ lean });
+    Cart.findOne.mockReturnValue({ select });
 };
 
 const mockProductLookup = (products) => {
@@ -36,8 +47,10 @@ describe('productRecommendationService', () => {
 
     test('builds persistent recommendations from stored cart signals and excludes seed products', async () => {
         mockUserLookup({
-            cart: [{ id: 101 }],
             wishlist: [],
+        });
+        mockCartLookup({
+            items: [{ productId: 101, quantity: 1 }],
         });
         mockProductLookup([
             {
@@ -86,6 +99,7 @@ describe('productRecommendationService', () => {
     });
 
     test('falls back to cold-start picks when no durable or local signal exists', async () => {
+        mockCartLookup(null);
         mockProductLookup([]);
         queryProducts.mockResolvedValueOnce({
             products: [{ id: 301, title: 'Cold Start Pick' }],
@@ -97,6 +111,7 @@ describe('productRecommendationService', () => {
         });
 
         expect(User.findById).not.toHaveBeenCalled();
+        expect(Cart.findOne).not.toHaveBeenCalled();
         expect(result.eyebrow).toBe('Account-Backed Picks');
         expect(result.products.map((product) => product.id)).toEqual([301]);
         expect(queryProducts).toHaveBeenCalledWith({ sort: 'rating', limit: 8 });

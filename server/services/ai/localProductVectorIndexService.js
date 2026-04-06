@@ -16,9 +16,11 @@ const queryEmbeddingCache = new Map();
 let indexCache = null;
 let loadPromise = null;
 let writePromise = Promise.resolve();
+let rebuildPromise = null;
 const scheduledRefreshes = new Set();
 
 const safeString = (value, fallback = '') => String(value === undefined || value === null ? fallback : value).trim();
+const uniq = (values = []) => [...new Set((Array.isArray(values) ? values : []).map((entry) => safeString(entry)).filter(Boolean))];
 const toPositiveNumber = (value, fallback) => {
     const parsed = Number(value);
     return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
@@ -121,6 +123,7 @@ const ensureIndex = async () => {
 
 const productProjection = {
     id: 1,
+    _id: 1,
     title: 1,
     displayTitle: 1,
     brand: 1,
@@ -142,6 +145,7 @@ const productProjection = {
 
 const toProductSummary = (product = {}) => ({
     id: Number(product?.id || 0),
+    mongoId: safeString(product?._id || ''),
     title: safeString(product?.displayTitle || product?.title || ''),
     brand: safeString(product?.brand || ''),
     category: safeString(product?.category || ''),
@@ -153,6 +157,212 @@ const toProductSummary = (product = {}) => ({
     rating: Number(product?.rating || 0),
     ratingCount: Math.max(0, Number(product?.ratingCount || 0)),
 });
+
+const normalizeSortBy = (value = '') => {
+    const normalized = safeString(value).toLowerCase();
+    if (['price_asc', 'price_desc', 'rating_desc', 'relevance'].includes(normalized)) {
+        return normalized;
+    }
+    return '';
+};
+
+const normalizeRetrievalFilters = (filters = {}) => {
+    const normalized = {
+        category: safeString(filters?.category || ''),
+        brand: safeString(filters?.brand || ''),
+        minPrice: toPositiveNumber(filters?.minPrice, 0),
+        maxPrice: toPositiveNumber(filters?.maxPrice, 0),
+        minRating: 0,
+        inStock: null,
+        sortBy: normalizeSortBy(filters?.sortBy || ''),
+        requiredTerms: uniq((Array.isArray(filters?.requiredTerms) ? filters.requiredTerms : [])
+            .map((entry) => safeString(entry).toLowerCase())
+            .filter(Boolean)).slice(0, 8),
+    };
+
+    const rawRating = Number(filters?.minRating || 0);
+    if (Number.isFinite(rawRating) && rawRating > 0) {
+        normalized.minRating = Math.min(5, Math.max(0, rawRating));
+    }
+
+    if (typeof filters?.inStock === 'boolean') {
+        normalized.inStock = filters.inStock;
+    }
+
+    if (normalized.maxPrice > 0 && normalized.minPrice > normalized.maxPrice) {
+        [normalized.minPrice, normalized.maxPrice] = [normalized.maxPrice, normalized.minPrice];
+    }
+
+    return normalized;
+};
+
+const hasActiveRetrievalFilters = (filters = {}) => {
+    const normalized = normalizeRetrievalFilters(filters);
+    return Boolean(
+        normalized.category
+        || normalized.brand
+        || normalized.minPrice > 0
+        || normalized.maxPrice > 0
+        || normalized.minRating > 0
+        || normalized.inStock !== null
+        || normalized.sortBy
+        || normalized.requiredTerms.length > 0
+    );
+};
+
+const buildSearchableText = (product = {}) => [
+    product?.title,
+    product?.displayTitle,
+    product?.brand,
+    product?.category,
+    product?.description,
+    ...(Array.isArray(product?.highlights) ? product.highlights : []),
+    ...(Array.isArray(product?.specifications) ? product.specifications.map((entry) => `${entry?.key || ''} ${entry?.value || ''}`) : []),
+].map((entry) => safeString(entry).toLowerCase()).join(' ');
+
+const matchesFilterText = (needle = '', haystack = '') => {
+    const normalizedNeedle = safeString(needle).toLowerCase();
+    const normalizedHaystack = safeString(haystack).toLowerCase();
+    if (!normalizedNeedle) return true;
+    if (!normalizedHaystack) return false;
+    return normalizedHaystack === normalizedNeedle || normalizedHaystack.includes(normalizedNeedle);
+};
+
+const matchesProductFilters = (product = {}, filters = {}) => {
+    const normalized = normalizeRetrievalFilters(filters);
+    const price = Number(product?.price || 0);
+    const stock = Math.max(0, Number(product?.stock || 0));
+    const rating = Number(product?.rating || 0);
+    const searchable = buildSearchableText(product);
+
+    if (normalized.category && !matchesFilterText(normalized.category, product?.category)) {
+        return false;
+    }
+    if (normalized.brand && !matchesFilterText(normalized.brand, product?.brand)) {
+        return false;
+    }
+    if (normalized.minPrice > 0 && (!Number.isFinite(price) || price < normalized.minPrice)) {
+        return false;
+    }
+    if (normalized.maxPrice > 0 && (!Number.isFinite(price) || price > normalized.maxPrice)) {
+        return false;
+    }
+    if (normalized.minRating > 0 && rating < normalized.minRating) {
+        return false;
+    }
+    if (normalized.inStock === true && stock <= 0) {
+        return false;
+    }
+    if (normalized.inStock === false && stock > 0) {
+        return false;
+    }
+    if (normalized.requiredTerms.length > 0) {
+        const missingTerm = normalized.requiredTerms.find((term) => {
+            if (searchable.includes(term)) return false;
+            const termTokens = tokenize(term);
+            return termTokens.some((token) => !searchable.includes(token));
+        });
+        if (missingTerm) {
+            return false;
+        }
+    }
+    return true;
+};
+
+const buildProductPreferenceBoost = (product = {}, filters = {}) => {
+    const normalized = normalizeRetrievalFilters(filters);
+    const price = Math.max(0, Number(product?.price || 0));
+    const stock = Math.max(0, Number(product?.stock || 0));
+    const rating = Math.max(0, Number(product?.rating || 0));
+    let boost = 0;
+
+    if (normalized.inStock === true && stock > 0) {
+        boost += 0.08;
+    }
+    if (normalized.sortBy === 'rating_desc') {
+        boost += Math.min(0.18, (rating / 5) * 0.18);
+    }
+    if (normalized.sortBy === 'price_asc') {
+        if (normalized.maxPrice > 0 && price > 0) {
+            boost += Math.max(0, 0.16 * (1 - Math.min(price / normalized.maxPrice, 1)));
+        } else if (price > 0) {
+            boost += Math.max(0, 0.12 - Math.min(0.12, price / 100000));
+        }
+    }
+    if (normalized.sortBy === 'price_desc' && price > 0) {
+        boost += Math.min(0.12, price / 100000);
+    }
+    return boost;
+};
+
+const sortRetrievedResults = (results = [], filters = {}) => {
+    const normalized = normalizeRetrievalFilters(filters);
+    const cloned = [...(Array.isArray(results) ? results : [])];
+
+    if (normalized.sortBy === 'rating_desc') {
+        return cloned.sort((left, right) => (
+            Number(right?.product?.rating || 0) - Number(left?.product?.rating || 0)
+            || Number(right?.product?.ratingCount || 0) - Number(left?.product?.ratingCount || 0)
+            || Number(right?.score || 0) - Number(left?.score || 0)
+        ));
+    }
+
+    if (normalized.sortBy === 'price_asc') {
+        return cloned.sort((left, right) => (
+            Number(left?.product?.price || Number.MAX_SAFE_INTEGER) - Number(right?.product?.price || Number.MAX_SAFE_INTEGER)
+            || Number(right?.score || 0) - Number(left?.score || 0)
+        ));
+    }
+
+    if (normalized.sortBy === 'price_desc') {
+        return cloned.sort((left, right) => (
+            Number(right?.product?.price || 0) - Number(left?.product?.price || 0)
+            || Number(right?.score || 0) - Number(left?.score || 0)
+        ));
+    }
+
+    return cloned.sort((left, right) => Number(right?.score || 0) - Number(left?.score || 0));
+};
+
+const buildMongoFilterQuery = (filters = {}) => {
+    const normalized = normalizeRetrievalFilters(filters);
+    const andClauses = [{ isPublished: true }];
+
+    if (normalized.category) {
+        andClauses.push({ category: new RegExp(normalized.category.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') });
+    }
+    if (normalized.brand) {
+        andClauses.push({ brand: new RegExp(normalized.brand.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') });
+    }
+    if (normalized.minPrice > 0 || normalized.maxPrice > 0) {
+        const priceClause = {};
+        if (normalized.minPrice > 0) priceClause.$gte = normalized.minPrice;
+        if (normalized.maxPrice > 0) priceClause.$lte = normalized.maxPrice;
+        andClauses.push({ price: priceClause });
+    }
+    if (normalized.minRating > 0) {
+        andClauses.push({ rating: { $gte: normalized.minRating } });
+    }
+    if (normalized.inStock === true) {
+        andClauses.push({ stock: { $gt: 0 } });
+    }
+    if (normalized.inStock === false) {
+        andClauses.push({ stock: { $lte: 0 } });
+    }
+    normalized.requiredTerms.forEach((term) => {
+        const regex = new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+'), 'i');
+        andClauses.push({
+            $or: [
+                { title: regex },
+                { brand: regex },
+                { category: regex },
+                { description: regex },
+            ],
+        });
+    });
+
+    return andClauses.length === 1 ? andClauses[0] : { $and: andClauses };
+};
 
 const cosineSimilarity = (left = [], right = []) => {
     if (!Array.isArray(left) || !Array.isArray(right) || left.length === 0 || right.length === 0 || left.length !== right.length) {
@@ -184,7 +394,7 @@ const tokenize = (value = '') => safeString(value)
     .filter(Boolean);
 
 const keywordScore = (query = '', product = {}) => {
-    const haystack = [
+    const haystackTokens = new Set(tokenize([
         product?.title,
         product?.displayTitle,
         product?.brand,
@@ -192,14 +402,14 @@ const keywordScore = (query = '', product = {}) => {
         product?.description,
         ...(Array.isArray(product?.highlights) ? product.highlights : []),
         ...(Array.isArray(product?.specifications) ? product.specifications.map((entry) => `${entry?.key || ''} ${entry?.value || ''}`) : []),
-    ].join(' ').toLowerCase();
+    ].join(' ')));
 
     const queryTokens = tokenize(query);
     if (queryTokens.length === 0) return 0;
 
     let score = 0;
     queryTokens.forEach((token) => {
-        if (haystack.includes(token)) {
+        if (haystackTokens.has(token)) {
             score += 1;
         }
     });
@@ -254,6 +464,20 @@ const shouldSkipQueryEmbedding = () => {
     return errorMessage.includes('quota exceeded') || errorMessage.includes('embed_content');
 };
 
+const scheduleForcedIndexRebuild = () => {
+    if (rebuildPromise) return rebuildPromise;
+    rebuildPromise = backfillProductVectorIndex({ force: true })
+        .catch((error) => {
+            logger.warn('assistant.vector_index.rebuild_failed', {
+                error: error.message,
+            });
+        })
+        .finally(() => {
+            rebuildPromise = null;
+        });
+    return rebuildPromise;
+};
+
 const upsertProductVectorEntry = async (product = {}, { force = false } = {}) => {
     const safeProductId = Number(product?.id || 0);
     if (!Number.isInteger(safeProductId) || safeProductId <= 0) return null;
@@ -285,6 +509,7 @@ const upsertProductVectorEntry = async (product = {}, { force = false } = {}) =>
 
     index.entries[entryKey] = {
         productId: safeProductId,
+        mongoId: safeString(product?._id || ''),
         hash,
         indexedAt: new Date().toISOString(),
         embedding,
@@ -292,6 +517,34 @@ const upsertProductVectorEntry = async (product = {}, { force = false } = {}) =>
     };
     await persistIndex(index);
     return index.entries[entryKey];
+};
+
+const removeProductVectorEntryById = async (identifier) => {
+    const normalizedIdentifier = safeString(identifier);
+    if (!normalizedIdentifier) return false;
+
+    const index = await ensureIndex();
+    let removed = false;
+    const numericId = Number(normalizedIdentifier);
+
+    if (Number.isInteger(numericId) && numericId > 0 && index.entries[String(numericId)]) {
+        delete index.entries[String(numericId)];
+        removed = true;
+    }
+
+    Object.entries(index.entries || {}).forEach(([entryKey, entry]) => {
+        const entryProductId = safeString(entry?.productId || '');
+        const entryMongoId = safeString(entry?.mongoId || entry?.summary?.mongoId || '');
+        if (entryKey === normalizedIdentifier || entryProductId === normalizedIdentifier || entryMongoId === normalizedIdentifier) {
+            delete index.entries[entryKey];
+            removed = true;
+        }
+    });
+
+    if (removed) {
+        await persistIndex(index);
+    }
+    return removed;
 };
 
 const fetchProductForSync = async (identifier) => {
@@ -311,7 +564,10 @@ const fetchProductForSync = async (identifier) => {
 
 const refreshProductVectorEntryById = async (identifier) => {
     const product = await fetchProductForSync(identifier);
-    if (!product) return null;
+    if (!product) {
+        await removeProductVectorEntryById(identifier);
+        return null;
+    }
     return upsertProductVectorEntry(product, { force: true });
 };
 
@@ -340,8 +596,10 @@ const backfillProductVectorIndex = async ({ limit = 0, force = false } = {}) => 
     let processed = 0;
     let updated = 0;
     let skipped = 0;
+    let removed = 0;
     let offset = 0;
     let exhausted = false;
+    const seenPublishedIds = new Set();
 
     while (!exhausted) {
         const remaining = safeLimit > 0 ? Math.max(safeLimit - processed, 0) : batchSize;
@@ -363,6 +621,7 @@ const backfillProductVectorIndex = async ({ limit = 0, force = false } = {}) => 
 
         for (const product of products) {
             processed += 1;
+            seenPublishedIds.add(String(product.id));
             try {
                 const previousHash = indexCache?.entries?.[String(product.id)]?.hash || '';
                 const nextHash = computeProductHash(product);
@@ -383,28 +642,49 @@ const backfillProductVectorIndex = async ({ limit = 0, force = false } = {}) => 
         offset += products.length;
     }
 
+    if (safeLimit === 0) {
+        const index = await ensureIndex();
+        Object.keys(index.entries || {}).forEach((entryKey) => {
+            if (!seenPublishedIds.has(entryKey)) {
+                delete index.entries[entryKey];
+                removed += 1;
+            }
+        });
+        if (removed > 0) {
+            await persistIndex(index);
+        }
+    }
+
     return {
         processed,
         updated,
         skipped,
+        removed,
         indexPath: INDEX_FILE,
     };
 };
 
-const hydrateLexicalCandidates = async (query = '', { limit = 10 } = {}) => {
+const hydrateLexicalCandidates = async (query = '', { limit = 10, filters = {} } = {}) => {
     const tokens = tokenize(query);
-    if (tokens.length === 0) return [];
+    const normalizedFilters = normalizeRetrievalFilters(filters);
+    const hasFilters = hasActiveRetrievalFilters(normalizedFilters);
+    if (tokens.length === 0 && !hasFilters) return [];
 
     const regexes = tokens.slice(0, 6).map((token) => new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'));
-    const candidates = await Product.find({
-        isPublished: true,
-        $or: [
-            { title: { $in: regexes } },
-            { brand: { $in: regexes } },
-            { category: { $in: regexes } },
-            { description: { $in: regexes } },
-        ],
-    })
+    const mongoQuery = buildMongoFilterQuery(normalizedFilters);
+    const queryObject = regexes.length > 0
+        ? {
+            ...mongoQuery,
+            $or: regexes.flatMap((regex) => ([
+                { title: regex },
+                { brand: regex },
+                { category: regex },
+                { description: regex },
+            ])),
+        }
+        : mongoQuery;
+
+    const candidates = await Product.find(queryObject)
         .limit(Math.max(5, limit * 2))
         .select(productProjection)
         .lean();
@@ -422,25 +702,39 @@ const hydrateLexicalCandidates = async (query = '', { limit = 10 } = {}) => {
 
 const searchProductVectorIndex = async (query = '', {
     limit = 5,
+    filters = {},
 } = {}) => {
     const normalizedQuery = safeString(query);
-    if (!normalizedQuery) {
+    const normalizedFilters = normalizeRetrievalFilters(filters);
+    if (!normalizedQuery && !hasActiveRetrievalFilters(normalizedFilters)) {
         return {
             results: [],
             retrievalHitCount: 0,
             provider: 'vector_store',
             fallbackUsed: false,
+            appliedFilters: normalizedFilters,
         };
     }
 
     const index = await ensureIndex();
-    const lexicalCandidates = await hydrateLexicalCandidates(normalizedQuery, { limit });
+    const configuredEmbedModel = safeString(getGatewayConfig().embedModel);
+    const indexEmbeddingModel = safeString(index.embeddingModel || '');
+    const embeddingModelMismatch = Boolean(indexEmbeddingModel && configuredEmbedModel && indexEmbeddingModel !== configuredEmbedModel);
+    if (embeddingModelMismatch) {
+        scheduleForcedIndexRebuild();
+    }
+
+    const lexicalCandidates = await hydrateLexicalCandidates(normalizedQuery, { limit, filters: normalizedFilters });
     const lexicalById = new Map(lexicalCandidates.map((product) => [String(product.id), product]));
 
-    let queryEmbedding = getCachedQueryEmbedding(normalizedQuery);
+    let queryEmbedding = normalizedQuery ? getCachedQueryEmbedding(normalizedQuery) : [];
     let fallbackUsed = false;
     let fallbackReason = '';
-    if (queryEmbedding.length === 0 && !shouldSkipQueryEmbedding()) {
+    if (embeddingModelMismatch) {
+        fallbackUsed = true;
+        fallbackReason = 'embedding_model_mismatch';
+        queryEmbedding = [];
+    } else if (normalizedQuery && queryEmbedding.length === 0 && !shouldSkipQueryEmbedding()) {
         try {
             queryEmbedding = await embedText(normalizedQuery, { taskType: 'RETRIEVAL_QUERY' });
             cacheQueryEmbedding(normalizedQuery, queryEmbedding);
@@ -451,33 +745,45 @@ const searchProductVectorIndex = async (query = '', {
                 error: error.message,
             });
         }
-    } else if (queryEmbedding.length === 0) {
+    } else if (normalizedQuery && queryEmbedding.length === 0) {
         fallbackUsed = true;
         fallbackReason = 'query_embedding_skipped';
     }
 
     const allEntries = Object.values(index.entries || {});
-    const ranked = allEntries.map((entry) => {
+    const ranked = allEntries
+        .filter((entry) => matchesProductFilters(entry.summary || {}, normalizedFilters))
+        .map((entry) => {
         const product = lexicalById.get(String(entry.productId)) || entry.summary || {};
         const lexical = keywordScore(normalizedQuery, product);
         const exact = exactMatchBoost(normalizedQuery, product);
         const semantic = Array.isArray(queryEmbedding) && queryEmbedding.length > 0
             ? cosineSimilarity(queryEmbedding, entry.embedding || [])
             : 0;
+        const score = (
+            queryEmbedding.length > 0
+                ? (semantic * 0.7) + (lexical * 0.2) + exact
+                : (lexical * 0.85) + exact
+        ) + buildProductPreferenceBoost(product, normalizedFilters);
         return {
             productId: Number(entry.productId || 0),
-            score: queryEmbedding.length > 0
-                ? (semantic * 0.7) + (lexical * 0.2) + exact
-                : (lexical * 0.85) + exact,
+            score,
         };
-    });
+        });
 
     lexicalCandidates.forEach((product) => {
+        if (!matchesProductFilters(product, normalizedFilters)) {
+            return;
+        }
         const existing = ranked.find((entry) => entry.productId === Number(product.id));
         if (!existing) {
             ranked.push({
                 productId: Number(product.id),
-                score: (keywordScore(normalizedQuery, product) * (queryEmbedding.length > 0 ? 0.45 : 1)) + exactMatchBoost(normalizedQuery, product),
+                score: (
+                    (keywordScore(normalizedQuery, product) * (queryEmbedding.length > 0 ? 0.45 : 1))
+                    + exactMatchBoost(normalizedQuery, product)
+                    + buildProductPreferenceBoost(product, normalizedFilters)
+                ),
             });
         }
     });
@@ -498,27 +804,35 @@ const searchProductVectorIndex = async (query = '', {
 
     const productMap = new Map(products.map((product) => [Number(product.id), product]));
 
+    const results = sortRetrievedResults(topIds
+        .map((entry) => ({
+            product: productMap.get(Number(entry.productId)) || null,
+            score: Number(entry.score || 0),
+        }))
+        .filter((entry) => entry.product), normalizedFilters);
+
     return {
-        results: topIds
-            .map((entry) => ({
-                product: productMap.get(Number(entry.productId)) || null,
-                score: Number(entry.score || 0),
-            }))
-            .filter((entry) => entry.product),
-        retrievalHitCount: topIds.length,
+        results,
+        retrievalHitCount: results.length,
         provider: 'vector_store',
         fallbackUsed,
         fallbackReason,
+        appliedFilters: normalizedFilters,
     };
 };
 
 const getLocalVectorIndexHealth = async () => {
     const index = await ensureIndex();
+    const configuredEmbedModel = safeString(getGatewayConfig().embedModel);
+    const indexEmbeddingModel = safeString(index.embeddingModel || configuredEmbedModel);
+    const embeddingModelMismatch = Boolean(indexEmbeddingModel && configuredEmbedModel && indexEmbeddingModel !== configuredEmbedModel);
     return {
-        healthy: true,
+        healthy: !embeddingModelMismatch,
         indexPath: INDEX_FILE,
         indexVersion: index.version || INDEX_VERSION,
-        embeddingModel: index.embeddingModel || getGatewayConfig().embedModel,
+        embeddingModel: indexEmbeddingModel,
+        configuredEmbeddingModel: configuredEmbedModel,
+        embeddingModelMismatch,
         entryCount: Object.keys(index.entries || {}).length,
         updatedAt: safeString(index.updatedAt || ''),
         gateway: getModelGatewayHealth(),
@@ -533,4 +847,14 @@ module.exports = {
     scheduleProductIndexRefreshById,
     searchProductVectorIndex,
     upsertProductVectorEntry,
+    __testables: {
+        buildMongoFilterQuery,
+        buildProductPreferenceBoost,
+        hasActiveRetrievalFilters,
+        keywordScore,
+        matchesProductFilters,
+        normalizeRetrievalFilters,
+        removeProductVectorEntryById,
+        sortRetrievedResults,
+    },
 };

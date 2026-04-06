@@ -16,6 +16,7 @@ const AUTO_AUDIO_MODEL_CANDIDATES = [
 const DEFAULT_EMBED_MODEL = 'models/gemini-embedding-001';
 const DEFAULT_TIMEOUT_MS = 45_000;
 const HEALTH_CACHE_MS = 20_000;
+const DEFAULT_MODEL_DEGRADE_MS = 180_000;
 const MAX_INLINE_MEDIA_BYTES = 20 * 1024 * 1024;
 const GEMINI_MODEL_CAPABILITIES = {
     'models/gemma-4-31b-it': { textInput: true, imageInput: true, audioInput: false },
@@ -50,6 +51,7 @@ const healthState = {
     apiConfigured: false,
     capabilities: { textInput: true, imageInput: true, audioInput: false },
 };
+const modelAvailabilityState = new Map();
 
 const safeString = (value, fallback = '') => String(value === undefined || value === null ? fallback : value).trim();
 const toPositiveNumber = (value, fallback) => {
@@ -66,6 +68,113 @@ const parseModelList = (value, fallback = []) => {
     const source = safeString(value);
     if (!source) return uniq(fallback.map((entry) => normalizeModelName(entry)));
     return uniq(source.split(',').map((entry) => normalizeModelName(entry)));
+};
+const getModelDegradeMs = () => toPositiveNumber(process.env.GEMINI_CHAT_MODEL_DEGRADE_MS, DEFAULT_MODEL_DEGRADE_MS);
+const getModelAvailabilitySnapshot = (modelName = '') => {
+    const normalized = normalizeModelName(modelName);
+    if (!normalized) {
+        return {
+            model: '',
+            degraded: false,
+            degradedUntil: 0,
+            lastError: '',
+            lastFailureAt: 0,
+            lastSuccessAt: 0,
+        };
+    }
+
+    const state = modelAvailabilityState.get(normalized);
+    const now = Date.now();
+    if (!state) {
+        return {
+            model: normalized,
+            degraded: false,
+            degradedUntil: 0,
+            lastError: '',
+            lastFailureAt: 0,
+            lastSuccessAt: 0,
+        };
+    }
+
+    const degradedUntil = Number(state.degradedUntil || 0);
+    if (degradedUntil && degradedUntil <= now) {
+        modelAvailabilityState.delete(normalized);
+        return {
+            model: normalized,
+            degraded: false,
+            degradedUntil: 0,
+            lastError: safeString(state.lastError || ''),
+            lastFailureAt: Number(state.lastFailureAt || 0),
+            lastSuccessAt: Number(state.lastSuccessAt || 0),
+        };
+    }
+
+    return {
+        model: normalized,
+        degraded: degradedUntil > now,
+        degradedUntil,
+        lastError: safeString(state.lastError || ''),
+        lastFailureAt: Number(state.lastFailureAt || 0),
+        lastSuccessAt: Number(state.lastSuccessAt || 0),
+    };
+};
+const getDegradedModelAvailability = () => uniq(
+    [...modelAvailabilityState.keys()]
+        .map((modelName) => getModelAvailabilitySnapshot(modelName))
+        .filter((entry) => entry.degraded)
+        .map((entry) => entry.model),
+);
+const markModelAvailable = (modelName = '') => {
+    const normalized = normalizeModelName(modelName);
+    if (!normalized) return;
+    modelAvailabilityState.delete(normalized);
+};
+const isAvailabilityGeminiError = (error) => {
+    const message = safeString(error?.message || '').toLowerCase();
+    const statusCode = Number(error?.statusCode || 0);
+    if ([404, 429, 500, 502, 503, 504].includes(statusCode)) {
+        return true;
+    }
+
+    return (
+        message.includes('resource exhausted')
+        || message.includes('temporarily unavailable')
+        || message.includes('deadline exceeded')
+        || message.includes('internal error')
+        || message.includes('service unavailable')
+        || message.includes('socket hang up')
+        || message.includes('connection reset')
+        || message.includes('timeout')
+    );
+};
+const markModelTemporarilyDegraded = (modelName = '', error = null, cooldownMs = getModelDegradeMs()) => {
+    const normalized = normalizeModelName(modelName);
+    if (!normalized) return null;
+
+    const now = Date.now();
+    const nextState = {
+        degradedUntil: now + toPositiveNumber(cooldownMs, DEFAULT_MODEL_DEGRADE_MS),
+        lastFailureAt: now,
+        lastSuccessAt: Number(modelAvailabilityState.get(normalized)?.lastSuccessAt || 0),
+        lastError: safeString(error?.message || 'gemini_model_temporarily_degraded'),
+    };
+    modelAvailabilityState.set(normalized, nextState);
+    return getModelAvailabilitySnapshot(normalized);
+};
+const prioritizeStableModels = (candidates = []) => {
+    const ready = [];
+    const degraded = [];
+
+    for (const modelName of uniq((Array.isArray(candidates) ? candidates : []).map((entry) => normalizeModelName(entry)))) {
+        const snapshot = getModelAvailabilitySnapshot(modelName);
+        if (snapshot.degraded) {
+            degraded.push(modelName);
+        } else {
+            ready.push(modelName);
+        }
+    }
+
+    return [...ready, ...degraded];
 };
 const resolveConfiguredAudioCandidates = (config = getGatewayConfig()) => uniq([
     normalizeModelName(config.audioModel),
@@ -559,7 +668,7 @@ const buildChatModelCandidates = ({ model = '', fallbacks = [] } = {}, available
 
     const availableSet = new Set(available);
     const installedCandidates = configuredCandidates.filter((model) => availableSet.has(model));
-    return installedCandidates.length ? installedCandidates : configuredCandidates;
+    return prioritizeStableModels(installedCandidates.length ? installedCandidates : configuredCandidates);
 };
 
 const supportsRequestedMedia = (modelName = '', { images = [], audio = [] } = {}) => {
@@ -684,6 +793,7 @@ const generateStructuredJson = async ({
                         : safeString(availableAudioModel.model || healthState.resolvedAudioModel || ''),
                 }),
             });
+            markModelAvailable(model);
             return {
                 data,
                 provider: 'gemini',
@@ -692,6 +802,15 @@ const generateStructuredJson = async ({
             };
         } catch (error) {
             lastError = error;
+            if (isAvailabilityGeminiError(error)) {
+                const degraded = markModelTemporarilyDegraded(model, error);
+                logger.warn('assistant.gemini.chat_model_degraded', {
+                    failedModel: normalizeModelName(model),
+                    degradedUntil: degraded?.degradedUntil || 0,
+                    error: safeString(error?.message || 'gemini_chat_model_degraded'),
+                    route,
+                });
+            }
             const hasNextCandidate = index < (candidates.length - 1);
             if (!hasNextCandidate || !isRetryableGeminiError(error)) {
                 throw error;
@@ -804,6 +923,7 @@ const getGeminiHealth = () => ({
         resolvedChatModel: healthState.resolvedChatModel,
         resolvedAudioModel: healthState.resolvedAudioModel,
     }),
+    degradedModels: getDegradedModelAvailability(),
     breaker: breaker.stats(),
 });
 
@@ -821,6 +941,12 @@ module.exports = {
         resolveGatewayCapabilities,
         resolveModelProfile,
         resolveModelCapabilities,
+        buildChatModelCandidates,
+        getModelAvailabilitySnapshot,
+        getDegradedModelAvailability,
+        markModelAvailable,
+        markModelTemporarilyDegraded,
+        prioritizeStableModels,
         supportsRequestedMedia,
     },
 };
