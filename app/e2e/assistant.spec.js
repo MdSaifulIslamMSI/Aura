@@ -18,12 +18,12 @@ test.describe('Assistant Terminal', () => {
         await expect(page.getByRole('button', { name: 'New chat', exact: true })).toBeVisible();
         await expect(page.getByPlaceholder('Search conversations')).toBeVisible();
         await expect(page.getByText('Controlled Terminal')).toBeVisible();
-        await expect(page.getByText('Fast answers stay responsive, refined answers upgrade in place, and conversation state stays stable.')).toBeVisible();
-        await expect(page.getByPlaceholder('Ask anything. I will keep the state controlled.')).toBeVisible();
+        await expect(page.getByText('Fast answers stay responsive, refined answers upgrade in place, and every commerce turn stays bounded by grounded data and explicit control paths.')).toBeVisible();
+        await expect(page.getByPlaceholder('Ask for products, order help, support, or attach media for a grounded match.')).toBeVisible();
         await expect(page.getByText('Today')).toBeVisible();
         await expect(page.getByText('Enter to send')).toBeVisible();
         await expect(page.getByText('Shift+Enter for newline')).toBeVisible();
-        await expect(page.getByText('Attachments soon')).toBeVisible();
+        await expect(page.getByRole('button', { name: 'Upload attachments' })).toBeVisible();
     });
 
     test('streams a fast response while preserving multiline composer behavior', async ({ page }) => {

@@ -47,8 +47,12 @@ $script:AlwaysSecretEnvNames = @(
     "MONGO_URI",
     "REDIS_URL",
     "FIREBASE_SERVICE_ACCOUNT",
+    "FIREBASE_CLIENT_EMAIL",
+    "FIREBASE_PRIVATE_KEY",
     "AUTH_VAULT_SECRET",
     "AUTH_VAULT_PREVIOUS_SECRETS",
+    "AUTH_DEVICE_CHALLENGE_SECRET",
+    "AUTH_DEVICE_CHALLENGE_PREVIOUS_SECRETS",
     "UPLOAD_SIGNING_SECRET",
     "OTP_FLOW_SECRET",
     "OTP_CHALLENGE_SECRET",
@@ -70,7 +74,8 @@ $script:AlwaysSecretEnvNames = @(
     "ELEVENLABS_API_KEY",
     "LIVEKIT_API_KEY",
     "LIVEKIT_API_SECRET",
-    "AZURE_STORAGE_CONNECTION_STRING"
+    "AZURE_STORAGE_CONNECTION_STRING",
+    "AI_INTERNAL_TOOL_SECRET"
 )
 $script:NeverSecretEnvNames = @(
     "NODE_ENV",
@@ -90,6 +95,15 @@ $script:NeverSecretEnvNames = @(
     "DISTRIBUTED_SECURITY_CONTROLS_ENABLED",
     "FIREBASE_PROJECT_ID",
     "AUTH_VAULT_SECRET_VERSION",
+    "AUTH_DEVICE_CHALLENGE_MODE",
+    "AUTH_DEVICE_CHALLENGE_SECRET_VERSION",
+    "AUTH_DEVICE_CHALLENGE_ALLOW_VAULT_FALLBACK",
+    "AUTH_TRUSTED_DEVICE_PREFER_WEBAUTHN",
+    "AUTH_WEBAUTHN_RP_NAME",
+    "AUTH_WEBAUTHN_RP_ID",
+    "AUTH_WEBAUTHN_ORIGIN",
+    "AUTH_WEBAUTHN_USER_VERIFICATION",
+    "AUTH_WEBAUTHN_TIMEOUT_MS",
     "AUTH_LATTICE_CHALLENGE_MODE",
     "AUTH_REQUIRE_OTP_FOR_ALL_PROTECTED",
     "CSRF_STRICT_CLIENT_SIGNALS",
@@ -454,6 +468,7 @@ function Test-IsSecretEnvName {
     if ($upper -match '_WEBHOOK_SECRET$') { return $true }
     if ($upper -match '_SERVICE_ACCOUNT$') { return $true }
     if ($upper -match '_KEY_SECRET$') { return $true }
+    if ($upper -match '_PREVIOUS_SECRETS$') { return $true }
 
     return $false
 }
@@ -527,6 +542,41 @@ function Import-SecretsToKeyVault {
 
         $script:KeyVaultSecretExists[$secretName] = $true
     }
+}
+
+function Get-SecretValuesForRuntimeSync {
+    param(
+        [object[]]$Services,
+        [hashtable]$SourceValues,
+        [string]$ResolvedApiUrl,
+        [string]$ResolvedFrontendUrl,
+        [string]$RepositoryRoot,
+        [bool]$SourceIsAuthoritative
+    )
+
+    $secretValues = [ordered]@{}
+
+    foreach ($service in $Services) {
+        $templatePath = Join-Path $RepositoryRoot $service.templatePath
+        $settings = Read-EnvFile -Path $templatePath
+        $settings = Apply-ServiceOverrides -ServiceKey $service.key -Settings $settings -SourceValues $SourceValues -ResolvedApiUrl $ResolvedApiUrl -ResolvedFrontendUrl $ResolvedFrontendUrl -SourceIsAuthoritative $SourceIsAuthoritative
+
+        foreach ($entry in $settings.GetEnumerator()) {
+            $envName = [string]$entry.Key
+            if (-not (Test-IsSecretEnvName -EnvName $envName)) {
+                continue
+            }
+
+            $value = Trim-OrDefault $entry.Value
+            if ([string]::IsNullOrWhiteSpace($value)) {
+                continue
+            }
+
+            $secretValues[$envName] = $value
+        }
+    }
+
+    return $secretValues
 }
 
 function Test-KeyVaultSecretExists {
@@ -979,12 +1029,14 @@ $resolvedFrontendUrl = Resolve-FrontendUrl -SourceValues $sourceValues
 $canUseAzureDiscovery = (-not $DryRun) -or $DiscoverAzureUrlsInDryRun
 $resolvedApiUrl = Resolve-ApiUrl -SourceValues $sourceValues -CanUseAzure $canUseAzureDiscovery
 
+$secretsToSync = Get-SecretValuesForRuntimeSync -Services $manifest.services -SourceValues $sourceValues -ResolvedApiUrl $resolvedApiUrl -ResolvedFrontendUrl $resolvedFrontendUrl -RepositoryRoot $RepoRoot -SourceIsAuthoritative ([bool]$sourceInfo.IsAuthoritative)
+
 if ($SyncKeyVaultSecrets) {
     if ($DryRun) {
         Write-Host "Dry run: skipping Key Vault writes." -ForegroundColor Yellow
     } else {
-        Write-Host "Syncing secrets into Key Vault $KeyVaultName..." -ForegroundColor Cyan
-        Import-SecretsToKeyVault -VaultName $KeyVaultName -Values $sourceValues
+        Write-Host "Syncing runtime-scoped secrets into Key Vault $KeyVaultName..." -ForegroundColor Cyan
+        Import-SecretsToKeyVault -VaultName $KeyVaultName -Values $secretsToSync
     }
 }
 

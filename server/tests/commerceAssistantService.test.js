@@ -56,6 +56,18 @@ describe('commerceAssistantService helpers', () => {
         expect(result.route).toBe(ROUTE_ECOMMERCE);
     });
 
+    test('detectRoute keeps comparison follow-ups in commerce when there are recent results', () => {
+        const result = __testables.detectRoute({
+            message: 'which one has the best rating and why',
+            assistantSession: {
+                lastIntent: 'product_search',
+                lastResults: [{ id: 101, title: 'Phone A', rating: 4.9 }],
+            },
+        });
+
+        expect(result.route).toBe(ROUTE_ECOMMERCE);
+    });
+
     test('detectRoute chooses ACTION for direct navigation flows like go to cart', () => {
         const result = __testables.detectRoute({
             message: 'go to cart',
@@ -204,6 +216,64 @@ describe('commerceAssistantService helpers', () => {
         expect(result.rejectedProductIds).toEqual(['999']);
     });
 
+    test('inferStructuredRetrievalFilters pulls hard commerce constraints from the user message', () => {
+        expect(__testables.inferStructuredRetrievalFilters({
+            message: 'show me top rated phones under 15000 in stock',
+        })).toEqual({
+            category: 'Mobiles',
+            brand: '',
+            minPrice: 0,
+            maxPrice: 15000,
+            minRating: 0,
+            inStock: true,
+            sortBy: 'rating_desc',
+            requiredTerms: [],
+        });
+    });
+
+    test('inferStructuredRetrievalFilters captures color and spec terms as must-have attributes', () => {
+        expect(__testables.inferStructuredRetrievalFilters({
+            message: 'show me blue shoes with 16gb ram under 2000',
+        })).toEqual({
+            category: 'Footwear',
+            brand: '',
+            minPrice: 0,
+            maxPrice: 2000,
+            minRating: 0,
+            inStock: null,
+            sortBy: '',
+            requiredTerms: ['blue', '16 gb', 'ram'],
+        });
+    });
+
+    test('validateRetrievalQueryPayload keeps structured filters for the retriever', () => {
+        const result = __testables.validateRetrievalQueryPayload({
+            query: 'mens fashion shirt',
+            category: "Men's Fashion",
+            maxPrice: 2000,
+            inStock: true,
+            sortBy: 'price_asc',
+        });
+
+        expect(result).toEqual({
+            ok: true,
+            data: {
+                query: 'mens fashion shirt',
+                filters: {
+                    category: "Men's Fashion",
+                    brand: '',
+                    minPrice: 0,
+                    maxPrice: 2000,
+                    minRating: 0,
+                    inStock: true,
+                    sortBy: 'price_asc',
+                    requiredTerms: [],
+                },
+                followUps: [],
+            },
+        });
+    });
+
     test('deriveRetrievalQuery turns a category-only refinement into a direct commerce query', async () => {
         const result = await __testables.deriveRetrievalQuery({
             message: 'no in fashion section',
@@ -219,8 +289,27 @@ describe('commerceAssistantService helpers', () => {
             query: 'fashion products',
             provider: '',
             providerModel: '',
+            filters: {
+                category: '',
+                brand: '',
+                minPrice: 0,
+                maxPrice: 0,
+                minRating: 0,
+                inStock: null,
+                sortBy: '',
+                requiredTerms: [],
+            },
             validator: { ok: true, reason: 'category_hint_query' },
         });
+    });
+
+    test('shouldReuseSessionResultsForCommerce stays true for comparison-style follow-ups', () => {
+        expect(__testables.shouldReuseSessionResultsForCommerce({
+            message: 'which one is better for battery and rating',
+            assistantSession: {
+                lastResults: [{ id: 101, title: 'Phone A' }, { id: 102, title: 'Phone B' }],
+            },
+        })).toBe(true);
     });
 
     test('resolveActionPlan keeps generic support requests detached from a latest order by default', async () => {

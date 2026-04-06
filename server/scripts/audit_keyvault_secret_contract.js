@@ -1,0 +1,205 @@
+const fs = require('fs');
+const path = require('path');
+
+const serverRoot = path.resolve(__dirname, '..');
+const repoRoot = path.resolve(serverRoot, '..');
+
+const RUNTIME_DIRECTORIES = [
+    path.join(serverRoot, 'config'),
+    path.join(serverRoot, 'controllers'),
+    path.join(serverRoot, 'middleware'),
+    path.join(serverRoot, 'models'),
+    path.join(serverRoot, 'routes'),
+    path.join(serverRoot, 'services'),
+    path.join(serverRoot, 'utils'),
+];
+
+const RUNTIME_FILES = [
+    path.join(serverRoot, 'index.js'),
+    path.join(serverRoot, 'workerProcess.js'),
+];
+
+const DEFAULT_AZURE_SECRET_KEYS = [
+    'MONGO_URI',
+    'REDIS_URL',
+    'FIREBASE_SERVICE_ACCOUNT',
+    'FIREBASE_CLIENT_EMAIL',
+    'FIREBASE_PRIVATE_KEY',
+    'AUTH_VAULT_SECRET',
+    'AUTH_VAULT_PREVIOUS_SECRETS',
+    'AUTH_DEVICE_CHALLENGE_SECRET',
+    'AUTH_DEVICE_CHALLENGE_PREVIOUS_SECRETS',
+    'UPLOAD_SIGNING_SECRET',
+    'OTP_FLOW_SECRET',
+    'OTP_CHALLENGE_SECRET',
+    'CRON_SECRET',
+    'METRICS_SECRET',
+    'RAZORPAY_KEY_ID',
+    'RAZORPAY_KEY_SECRET',
+    'RAZORPAY_WEBHOOK_SECRET',
+    'RESEND_API_KEY',
+    'RESEND_WEBHOOK_SECRET',
+    'GMAIL_APP_PASSWORD',
+    'TWILIO_ACCOUNT_SID',
+    'TWILIO_AUTH_TOKEN',
+    'TWILIO_FROM_NUMBER',
+    'TWILIO_WHATSAPP_FROM',
+    'GEMINI_API_KEY',
+    'GROQ_API_KEY',
+    'VOYAGE_API_KEY',
+    'ELEVENLABS_API_KEY',
+    'LIVEKIT_API_KEY',
+    'LIVEKIT_API_SECRET',
+    'AZURE_STORAGE_CONNECTION_STRING',
+    'AI_INTERNAL_TOOL_SECRET',
+];
+
+const EXPLICIT_SECRET_NAMES = new Set([
+    ...DEFAULT_AZURE_SECRET_KEYS,
+]);
+
+const EXCLUDED_PATH_FRAGMENTS = [
+    `${path.sep}node_modules${path.sep}`,
+    `${path.sep}coverage${path.sep}`,
+    `${path.sep}.cache${path.sep}`,
+    `${path.sep}dist${path.sep}`,
+    `${path.sep}build${path.sep}`,
+    `${path.sep}generated${path.sep}`,
+    `${path.sep}tests${path.sep}`,
+];
+
+const ENV_VAR_PATTERN = /process\.env\.([A-Z0-9_]+)/g;
+
+const isExcludedPath = (filePath) => EXCLUDED_PATH_FRAGMENTS.some((fragment) => filePath.includes(fragment));
+
+const walkFiles = (targetPath, results = []) => {
+    if (!fs.existsSync(targetPath)) {
+        return results;
+    }
+
+    const stat = fs.statSync(targetPath);
+    if (stat.isDirectory()) {
+        for (const entry of fs.readdirSync(targetPath, { withFileTypes: true })) {
+            walkFiles(path.join(targetPath, entry.name), results);
+        }
+        return results;
+    }
+
+    if (!isExcludedPath(targetPath)) {
+        results.push(targetPath);
+    }
+    return results;
+};
+
+const extractRuntimeEnvNames = () => {
+    const names = new Set();
+    const files = [
+        ...RUNTIME_DIRECTORIES.flatMap((directory) => walkFiles(directory)),
+        ...RUNTIME_FILES.filter((filePath) => fs.existsSync(filePath)),
+    ];
+
+    for (const filePath of files) {
+        const content = fs.readFileSync(filePath, 'utf8');
+        for (const match of content.matchAll(ENV_VAR_PATTERN)) {
+            names.add(match[1]);
+        }
+    }
+
+    return [...names].sort();
+};
+
+const isSecretLikeEnvName = (name) => {
+    if (EXPLICIT_SECRET_NAMES.has(name)) {
+        return true;
+    }
+
+    return (
+        /(^|_)(SECRET|TOKEN|PASSWORD)$/.test(name)
+        || /(^|_)API_KEY$/.test(name)
+        || /(^|_)PRIVATE_KEY$/.test(name)
+        || /(^|_)CONNECTION_STRING$/.test(name)
+        || /_URI$/.test(name)
+        || /_WEBHOOK_SECRET$/.test(name)
+        || /_SERVICE_ACCOUNT$/.test(name)
+        || /_KEY_SECRET$/.test(name)
+        || /_PREVIOUS_SECRETS$/.test(name)
+    );
+};
+
+const parseEnvFile = (filePath) => {
+    const entries = new Map();
+    const raw = fs.readFileSync(filePath, 'utf8');
+    for (const line of raw.split(/\r?\n/)) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#') || !trimmed.includes('=')) {
+            continue;
+        }
+        const separatorIndex = trimmed.indexOf('=');
+        const key = trimmed.slice(0, separatorIndex).trim();
+        const value = trimmed.slice(separatorIndex + 1);
+        entries.set(key, value);
+    }
+    return entries;
+};
+
+const parseAzureKeyListFromEnvExample = (envEntries) => {
+    const secretKeys = envEntries.get('AZURE_KEY_VAULT_SECRET_KEYS') || '';
+    return new Set(
+        String(secretKeys)
+            .split(',')
+            .map((entry) => entry.trim())
+            .filter(Boolean),
+    );
+};
+
+const parseKeyVaultMapEnvVars = (filePath) => {
+    const json = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    const envVars = new Set();
+
+    for (const section of Object.values(json)) {
+        for (const secret of Object.values(section || {})) {
+            for (const envVar of secret.envVars || []) {
+                envVars.add(String(envVar));
+            }
+        }
+    }
+
+    return envVars;
+};
+
+const toSortedArray = (values) => [...values].sort();
+
+const runtimeEnvNames = extractRuntimeEnvNames();
+const runtimeSecretEnvNames = runtimeEnvNames.filter(isSecretLikeEnvName);
+
+const envExampleEntries = parseEnvFile(path.join(serverRoot, '.env.example'));
+const azureSecretsExampleEntries = parseEnvFile(path.join(serverRoot, '.env.azure-secrets.example'));
+const apiTemplateEntries = parseEnvFile(path.join(repoRoot, 'infra', 'azure', 'server-api.appsettings.example.env'));
+const workerTemplateEntries = parseEnvFile(path.join(repoRoot, 'infra', 'azure', 'server-worker.appsettings.example.env'));
+const mappedKeyVaultEnvVars = parseKeyVaultMapEnvVars(path.join(repoRoot, 'infra', 'azure', 'keyvault-secret-map.example.json'));
+const azureKeyList = parseAzureKeyListFromEnvExample(envExampleEntries);
+
+const templateEnvVars = new Set([
+    ...apiTemplateEntries.keys(),
+    ...workerTemplateEntries.keys(),
+]);
+
+const report = {
+    runtimeSecretEnvVars: runtimeSecretEnvNames,
+    missingFromEnvExample: runtimeSecretEnvNames.filter((name) => !envExampleEntries.has(name)),
+    missingFromAzureSecretsExample: runtimeSecretEnvNames.filter((name) => !azureSecretsExampleEntries.has(name)),
+    missingFromAzureKeyVaultSecretKeys: runtimeSecretEnvNames.filter((name) => !azureKeyList.has(name)),
+    missingFromKeyVaultMap: runtimeSecretEnvNames.filter((name) => !mappedKeyVaultEnvVars.has(name)),
+    missingFromAzureTemplates: runtimeSecretEnvNames.filter((name) => !templateEnvVars.has(name)),
+    missingFromRuntimeBootstrapDefaults: runtimeSecretEnvNames.filter((name) => !DEFAULT_AZURE_SECRET_KEYS.includes(name)),
+};
+
+const failureCount = Object.entries(report)
+    .filter(([key]) => key !== 'runtimeSecretEnvVars')
+    .reduce((total, [, values]) => total + values.length, 0);
+
+console.log(JSON.stringify(report, null, 2));
+
+if (failureCount > 0) {
+    process.exitCode = 1;
+}
