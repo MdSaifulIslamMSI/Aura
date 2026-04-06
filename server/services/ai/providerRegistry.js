@@ -684,67 +684,8 @@ const getCapabilitySnapshot = () => {
     };
 };
 
-const createVoiceSessionConfig = ({ userId = '', locale = AI_DEFAULT_LOCALE } = {}) => {
-    const capabilities = getCapabilitySnapshot();
-    const effectiveLocale = safeString(locale || capabilities.locale || AI_DEFAULT_LOCALE);
-    const livekitSession = createLiveKitToken({
-        identity: safeString(userId || `guest-${Math.random().toString(36).slice(2, 10)}`),
-        roomName: LIVEKIT_ROOM_NAME,
-        locale: effectiveLocale,
-    });
-
-    return {
-        sessionId: `voice_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-        expiresAt: new Date(Date.now() + (10 * 60 * 1000)).toISOString(),
-        locale: effectiveLocale,
-        userId: safeString(userId || ''),
-        realtimeEnabled: Boolean(livekitSession.enabled),
-        supportsAudioUpload: Boolean(getGroqApiKey()),
-        supportsServerInterpretation: true,
-        turnEndpoint: '/api/ai/chat',
-        synthesisEndpoint: '/api/ai/voice/speak',
-        capabilities: {
-            reasoning: {
-                provider: capabilities.reasoning,
-                model: GROQ_CHAT_MODEL,
-            },
-            speechToText: {
-                provider: getGroqApiKey() ? 'groq' : 'browser_fallback',
-                mode: getGroqApiKey() ? 'server_ready' : 'browser_fallback',
-                languageHints: ['en-IN', 'hi-IN'],
-                model: GROQ_AUDIO_MODEL,
-            },
-            textToSpeech: {
-                provider: getElevenLabsApiKey() ? 'elevenlabs' : 'browser_fallback',
-                mode: getElevenLabsApiKey() ? 'server_ready' : 'browser_fallback',
-                voiceId: safeString(process.env.ELEVENLABS_VOICE_ID || cachedElevenVoiceId || 'auto'),
-                model: ELEVENLABS_MODEL,
-            },
-            realtime: {
-                provider: livekitSession.enabled ? 'livekit' : 'disabled',
-                enabled: Boolean(livekitSession.enabled),
-                serverUrl: safeString(livekitSession.serverUrl || ''),
-                roomName: safeString(livekitSession.roomName || ''),
-                participantIdentity: safeString(livekitSession.identity || ''),
-                expiresAt: safeString(livekitSession.expiresAt || ''),
-                reason: safeString(livekitSession.reason || ''),
-            },
-        },
-        livekit: livekitSession.enabled
-            ? {
-                serverUrl: livekitSession.serverUrl,
-                roomName: livekitSession.roomName,
-                participantIdentity: livekitSession.identity,
-                token: livekitSession.token,
-                expiresAt: livekitSession.expiresAt,
-            }
-            : null,
-    };
-};
-
 module.exports = {
     cosineSimilarity,
-    createVoiceSessionConfig,
     describeVisualInput,
     embedTexts,
     generateStructuredResponse,

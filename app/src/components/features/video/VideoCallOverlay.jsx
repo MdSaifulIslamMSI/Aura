@@ -92,7 +92,6 @@ const VideoCallOverlay = ({
     const canScreenShare = Boolean(callMeta?.canScreenShare && typeof onToggleScreenShare === 'function');
     const isScreenSharing = Boolean(callMeta?.isScreenSharing);
     const switchingCamera = Boolean(callMeta?.switchingCamera);
-    const assistantContinuity = callMeta?.assistantContinuity || null;
     const hasRemoteVideo = Boolean(remoteStream && remoteStream.getTracks?.().length);
     const hasLocalVideo = Boolean(localStream && localStream.getVideoTracks?.().length);
     const showAnswerControls = callStatus === 'incoming';
@@ -346,29 +345,6 @@ const VideoCallOverlay = ({
                                         </>
                                     ) : null}
                                 </div>
-                                {assistantContinuity?.lastQuery || assistantContinuity?.intent ? (
-                                    <div className="mt-3 rounded-[1.35rem] border border-white/10 bg-white/5 px-3 py-3">
-                                        <div className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-200">AI continuity</div>
-                                        <div className="mt-2 text-sm leading-5 text-white/85">
-                                            {assistantContinuity.lastQuery || 'The assistant is keeping your live call context synchronized.'}
-                                        </div>
-                                        <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-white/65">
-                                            <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1">
-                                                Mode {assistantContinuity.mode || 'explore'}
-                                            </span>
-                                            {assistantContinuity.intent ? (
-                                                <span className="rounded-full border border-cyan-300/20 bg-cyan-500/12 px-2.5 py-1 text-cyan-100">
-                                                    Intent {assistantContinuity.intent}
-                                                </span>
-                                            ) : null}
-                                            {assistantContinuity.visibleProductCount > 0 ? (
-                                                <span className="rounded-full border border-emerald-300/20 bg-emerald-500/12 px-2.5 py-1 text-emerald-100">
-                                                    {assistantContinuity.visibleProductCount} products in focus
-                                                </span>
-                                            ) : null}
-                                        </div>
-                                    </div>
-                                ) : null}
                             </div>
 
                             <div className="flex items-center gap-2">
