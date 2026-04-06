@@ -2,7 +2,7 @@ import { useContext } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { AuthContext } from '@/context/AuthContext';
 import { useMarket } from '@/context/MarketContext';
-import { buildSupportHandoffPath } from '@/utils/assistantCommands';
+import { buildSupportHandoffPath } from '@/utils/supportRouting';
 
 const AUTH_BOOTSTRAP_STATES = new Set(['bootstrap', 'loading']);
 

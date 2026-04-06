@@ -4,7 +4,6 @@ import { useAuth } from './AuthContext';
 import { useSocketDemand } from './SocketContext';
 import VideoCallOverlay from '../components/features/video/VideoCallOverlay';
 import { listingApi, supportApi } from '../services/api';
-import { useChatStore } from '@/store/chatStore';
 import {
     getIncomingCallDisposition,
     getUnexpectedLiveKitDisconnectReason,
@@ -283,10 +282,6 @@ export const VideoCallProvider = ({ children }) => {
     const { currentUser, profile, roles } = useAuth();
     const socketContext = useSocketDemand('video-calls-global', Boolean(currentUser));
     const { socket } = socketContext || {};
-    const chatMode = useChatStore((state) => state.mode);
-    const lastQuery = useChatStore((state) => state.context.lastQuery);
-    const currentIntent = useChatStore((state) => state.currentIntent || state.context.sessionMemory?.currentIntent || '');
-    const visibleProductCount = useChatStore((state) => state.visibleProducts.length);
 
     const [activeCallContext, setActiveCallContext] = useState(null);
     const [localStream, setLocalStream] = useState(null);
@@ -313,12 +308,6 @@ export const VideoCallProvider = ({ children }) => {
     const remoteParticipantCountRef = useRef(0);
 
     const isSupportAdmin = Boolean(roles?.isAdmin || profile?.isAdmin);
-    const assistantContinuity = useMemo(() => ({
-        lastQuery: String(lastQuery || '').trim(),
-        mode: String(chatMode || 'explore').trim() || 'explore',
-        intent: String(currentIntent || '').trim(),
-        visibleProductCount: Number(visibleProductCount || 0),
-    }), [chatMode, currentIntent, lastQuery, visibleProductCount]);
 
     const getLiveKitApi = (channelType) => (
         channelType === 'support_ticket'
@@ -1143,11 +1132,9 @@ export const VideoCallProvider = ({ children }) => {
         availableCameraCount: videoInputDevices.length,
         activeVideoInputId,
         switchingCamera,
-        assistantContinuity,
     }), [
         activeCallContext?.mediaMode,
         activeVideoInputId,
-        assistantContinuity,
         isScreenSharing,
         remoteParticipantCount,
         roomConnectionState,

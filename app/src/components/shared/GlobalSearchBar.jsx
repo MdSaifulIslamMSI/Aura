@@ -7,7 +7,6 @@ import {
   Clock3,
   Command,
   Loader2,
-  Mic,
   PackageSearch,
   Search,
   SlidersHorizontal,
@@ -29,7 +28,6 @@ import { cn } from '@/lib/utils';
 import { parseSemanticSearchIntent } from '@/utils/assistantIntent';
 import { formatPrice } from '@/utils/format';
 import { formatEntityPrice } from '@/utils/pricing';
-import VoiceSearch from '@/components/shared/VoiceSearch';
 import { useDismissableLayer } from '@/hooks/useDismissableLayer';
 
 const SEARCH_HISTORY_KEY = 'aura_global_search_history';
@@ -140,7 +138,6 @@ const GlobalSearchBar = ({
   className,
   mobile = false,
   placeholder = '',
-  onVoiceSearch,
   onNavigate,
   enableGlobalShortcuts = true,
 }) => {
@@ -156,7 +153,6 @@ const GlobalSearchBar = ({
   const [categoryScope, setCategoryScope] = useState('all');
   const [sortMode, setSortMode] = useState('relevance');
   const [maxPrice, setMaxPrice] = useState(DEFAULT_MAX_PRICE);
-  const [showInlineVoiceAssistant, setShowInlineVoiceAssistant] = useState(false);
 
   const rootRef = useRef(null);
   const inputRef = useRef(null);
@@ -249,11 +245,11 @@ const GlobalSearchBar = ({
 
   const buildSearchUrl = useCallback(
     (searchText, options = {}) => {
-    const params = new URLSearchParams();
-    const cleaned = searchText.trim();
-    const resolvedCategory = normalizeCategorySlug(options.category ?? categoryScope) || 'all';
-    const resolvedSort = options.sort ?? sortMode;
-    const resolvedMaxPrice = parsePositiveNumber(options.maxPrice, maxPrice);
+      const params = new URLSearchParams();
+      const cleaned = searchText.trim();
+      const resolvedCategory = normalizeCategorySlug(options.category ?? categoryScope) || 'all';
+      const resolvedSort = options.sort ?? sortMode;
+      const resolvedMaxPrice = parsePositiveNumber(options.maxPrice, maxPrice);
 
       if (cleaned) params.set('q', cleaned);
       if (resolvedSort !== 'relevance') params.set('sort', resolvedSort);
@@ -313,25 +309,6 @@ const GlobalSearchBar = ({
       navigateTo(buildSearchUrl(intent?.query || cleaned, intent || {}));
     },
     [buildSearchUrl, navigateTo, pushRecentSearch, query]
-  );
-
-  const openVoiceAssistant = useCallback(() => {
-    if (typeof onVoiceSearch === 'function') {
-      onVoiceSearch();
-      return;
-    }
-    setShowInlineVoiceAssistant(true);
-  }, [onVoiceSearch]);
-
-  const handleInlineVoiceResult = useCallback(
-    (voiceQuery) => {
-      const cleaned = String(voiceQuery || '').trim();
-      if (!cleaned) return;
-      setQuery(cleaned);
-      executeSearch(cleaned);
-      setShowInlineVoiceAssistant(false);
-    },
-    [executeSearch]
   );
 
   const selectSuggestion = useCallback(
@@ -457,19 +434,6 @@ const GlobalSearchBar = ({
     document.addEventListener('keydown', handleShortcut);
     return () => document.removeEventListener('keydown', handleShortcut);
   }, [enableGlobalShortcuts, isOpen, navigateTo, quickActions, saveCurrentIntent]);
-
-  useEffect(() => {
-    if (!enableGlobalShortcuts) return undefined;
-    const handleVoiceShortcut = (event) => {
-      const isVoiceShortcut = (event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === 'v';
-      if (!isVoiceShortcut || isEditableTarget(event.target)) return;
-      event.preventDefault();
-      openVoiceAssistant();
-    };
-
-    document.addEventListener('keydown', handleVoiceShortcut);
-    return () => document.removeEventListener('keydown', handleVoiceShortcut);
-  }, [enableGlobalShortcuts, openVoiceAssistant]);
 
   useEffect(() => {
     if (!isOpen || query.trim().length < 2) {
@@ -611,16 +575,6 @@ const GlobalSearchBar = ({
               <span>K</span>
             </div>
           )}
-
-          <button
-            type="button"
-            onClick={openVoiceAssistant}
-            className="search-control-icon text-slate-300 hover:text-neo-emerald border-l border-white/10"
-            aria-label={t('search.voice', {}, 'Voice search')}
-            title={`${t('search.voice', {}, 'Voice search')} (Ctrl/Cmd + Shift + V)`}
-          >
-            <Mic className="w-4 h-4" />
-          </button>
 
           {hasSearchText && (
             <button
@@ -929,13 +883,6 @@ const GlobalSearchBar = ({
             </div>
           </section>
         </div>
-      )}
-
-      {showInlineVoiceAssistant && (
-        <VoiceSearch
-          onClose={() => setShowInlineVoiceAssistant(false)}
-          onResult={handleInlineVoiceResult}
-        />
       )}
     </div>
   );

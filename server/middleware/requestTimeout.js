@@ -16,9 +16,8 @@ const logger = require('../utils/logger');
 
 const DEFAULT_TIMEOUT_MS = Number(process.env.REQUEST_TIMEOUT_MS) || 30000;
 
-// Routes exempted from the global timeout (streaming / long-running uploads).
+// Routes exempted from the global timeout (long-running uploads / ops endpoints).
 const EXEMPT_PATH_PREFIXES = [
-    '/api/ai/chat/stream',
     '/api/uploads',
     '/api/observability',
     '/metrics',

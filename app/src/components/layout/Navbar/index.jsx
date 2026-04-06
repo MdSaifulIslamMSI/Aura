@@ -30,7 +30,6 @@ import AppErrorBoundary from '@/components/shared/AppErrorBoundary';
 import GlobalSearchBar from '@/components/shared/GlobalSearchBar';
 import { useDismissableLayer } from '@/hooks/useDismissableLayer';
 import { getLocalizedCategoryLabel } from '@/config/catalogTaxonomy';
-import { useMultimodalAssistant } from '@/context/MultimodalAssistantContext';
 import NotificationDropdown from './NotificationDropdown';
 
 const NavbarSearchFallback = ({
@@ -311,7 +310,6 @@ const Navbar = () => {
   const marketPanelRef = useRef(null);
   const location = useLocation();
   const navigate = useNavigate();
-  const { openVoiceAssistant = () => {} } = useMultimodalAssistant() || {};
   const { currentUser, dbUser, logout } = useContext(AuthContext);
   const { cartItems } = useContext(CartContext);
   const { colorMode, setColorMode, colorModeOptions } = useColorMode();
@@ -651,7 +649,6 @@ const Navbar = () => {
               <GlobalSearchBar
                 className="hidden lg:flex flex-[1.2] min-w-[18rem] xl:min-w-[24rem] max-w-[32rem] xl:max-w-[40rem] 2xl:max-w-[46rem]"
                 placeholder={t('nav.searchDesktop', {}, 'Search products, brands, and live deals')}
-                onVoiceSearch={() => openVoiceAssistant({ origin: 'navbar_search_desktop' })}
               />
             </AppErrorBoundary>
 
@@ -1170,10 +1167,6 @@ const Navbar = () => {
                 <GlobalSearchBar
                   mobile
                   placeholder={t('nav.searchMobile', {}, 'Search products, categories, and actions...')}
-                  onVoiceSearch={() => {
-                    setIsMobileMenuOpen(false);
-                    openVoiceAssistant({ origin: 'navbar_search_mobile' });
-                  }}
                   onNavigate={() => setIsMobileMenuOpen(false)}
                   enableGlobalShortcuts={false}
                 />
