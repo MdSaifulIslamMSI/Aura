@@ -44,6 +44,26 @@ describe('commerceAssistantService helpers', () => {
         expect(result.route).toBe(ROUTE_ECOMMERCE);
     });
 
+    test('detectRoute keeps short refinement follow-ups in commerce when there is recent shopping context', () => {
+        const result = __testables.detectRoute({
+            message: 'no in fashion section',
+            assistantSession: {
+                lastIntent: 'product_search',
+                lastResults: [{ id: 101 }],
+            },
+        });
+
+        expect(result.route).toBe(ROUTE_ECOMMERCE);
+    });
+
+    test('detectRoute chooses ACTION for direct navigation flows like go to cart', () => {
+        const result = __testables.detectRoute({
+            message: 'go to cart',
+        });
+
+        expect(result.route).toBe(ROUTE_ACTION);
+    });
+
     test('inferConfirmationFromMessage turns yes into a pending action approval', () => {
         const result = __testables.inferConfirmationFromMessage({
             message: 'yes, continue',
@@ -182,5 +202,43 @@ describe('commerceAssistantService helpers', () => {
             followUps: ['Compare them'],
         });
         expect(result.rejectedProductIds).toEqual(['999']);
+    });
+
+    test('deriveRetrievalQuery turns a category-only refinement into a direct commerce query', async () => {
+        const result = await __testables.deriveRetrievalQuery({
+            message: 'no in fashion section',
+            assistantSession: {
+                lastIntent: 'product_search',
+                lastEntities: { query: 'good products' },
+                lastResults: [{ id: 101, title: 'Laptop', category: 'Electronics' }],
+            },
+            conversationHistory: [{ role: 'assistant', content: 'I found some laptops.' }],
+        });
+
+        expect(result).toEqual({
+            query: 'fashion products',
+            provider: '',
+            providerModel: '',
+            validator: { ok: true, reason: 'category_hint_query' },
+        });
+    });
+
+    test('resolveActionPlan keeps generic support requests detached from a latest order by default', async () => {
+        const result = await __testables.resolveActionPlan({
+            message: 'any support',
+            user: null,
+            context: {},
+        });
+
+        expect(result).toEqual({
+            type: 'open_support',
+            orderId: '',
+            prefill: {
+                subject: 'Customer support request',
+                category: 'general_help',
+                body: 'any support',
+            },
+            requiresConfirmation: false,
+        });
     });
 });
