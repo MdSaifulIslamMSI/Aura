@@ -6,18 +6,6 @@ const normalizeOptionalPhone = (value) => {
     return normalized ? normalized : undefined;
 };
 
-const cartItemSchema = mongoose.Schema({
-    id: { type: Number, required: true },
-    title: { type: String, required: true },
-    price: { type: Number, required: true },
-    image: { type: String, required: true },
-    quantity: { type: Number, required: true, default: 1 },
-    stock: { type: Number, required: true },
-    brand: { type: String },
-    discountPercentage: { type: Number },
-    originalPrice: { type: Number }
-}, { _id: false });
-
 const wishlistItemSchema = mongoose.Schema({
     id: { type: Number, required: true },
     title: { type: String, required: true },
@@ -149,9 +137,6 @@ const userSchema = mongoose.Schema({
         pincode: { type: String, required: true },
         isDefault: { type: Boolean, default: false }
     }],
-    cart: [cartItemSchema],
-    cartRevision: { type: Number, default: 0, min: 0 },
-    cartSyncedAt: { type: Date, default: null },
     wishlist: [wishlistItemSchema],
     wishlistRevision: { type: Number, default: 0, min: 0 },
     wishlistSyncedAt: { type: Date, default: null },

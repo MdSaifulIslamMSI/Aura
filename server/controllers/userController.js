@@ -12,14 +12,10 @@ const { buildProductImageDeliveryUrl } = require('../services/productImageResolv
 const { buildDisplayPair } = require('../services/markets/marketPricing');
 const {
     getCartSnapshot: getDedicatedCartSnapshot,
-    applyCartCommands: applyDedicatedCartCommands,
-    replaceCartItems: replaceDedicatedCartItems,
-    mergeCartItemsIntoCart: mergeDedicatedCartItemsIntoCart,
     buildLegacyCartResponse: buildDedicatedLegacyCartResponse,
-    toLegacyCartItem: toDedicatedLegacyCartItem,
 } = require('../services/cartService');
 
-const PROFILE_PROJECTION = 'name email phone avatar gender dob bio isAdmin isVerified isSeller sellerActivatedAt accountState moderation addresses cart cartRevision cartSyncedAt wishlist wishlistRevision wishlistSyncedAt loyalty createdAt';
+const PROFILE_PROJECTION = 'name email phone avatar gender dob bio isAdmin isVerified isSeller sellerActivatedAt accountState moderation addresses wishlist wishlistRevision wishlistSyncedAt loyalty createdAt';
 const AUTH_ONLY_PROJECTION = 'name email phone isAdmin isVerified isSeller sellerActivatedAt accountState moderation loyalty';
 
 const PHONE_REGEX = /^\+?\d{10,15}$/;
@@ -35,62 +31,6 @@ const normalizeText = (value) => (
 const normalizeEmail = (value) => (
     typeof value === 'string' ? value.trim().toLowerCase() : ''
 );
-
-const normalizeCartItemPayload = (item = {}) => {
-    const normalizedId = Number(item.id);
-    const normalizedPrice = Number(item.price || 0);
-    const normalizedOriginalPrice = Number(item.originalPrice || item.price || 0);
-    return {
-        id: Number.isFinite(normalizedId) ? normalizedId : 0,
-        title: normalizeText(item.title) || '',
-        price: Number.isFinite(normalizedPrice) ? normalizedPrice : 0,
-        image: normalizeText(item.image) || '',
-        quantity: Math.max(1, Number(item.quantity || 1)),
-        stock: Math.max(0, Number(item.stock || 0)),
-        brand: normalizeText(item.brand) || '',
-        discountPercentage: Number(item.discountPercentage || 0),
-        originalPrice: Number.isFinite(normalizedOriginalPrice) ? normalizedOriginalPrice : 0,
-    };
-};
-
-const hydrateCartWithLiveProducts = async (cartItems = []) => {
-    if (!Array.isArray(cartItems) || cartItems.length === 0) return [];
-
-    const normalizedItems = cartItems
-        .map((item) => normalizeCartItemPayload(item))
-        .filter((item) => Number.isFinite(item.id) && item.id > 0);
-
-    if (normalizedItems.length === 0) return [];
-
-    const itemIds = [...new Set(normalizedItems.map((item) => Number(item.id)))];
-    const liveProducts = await Product.find({ id: { $in: itemIds } })
-        .select('id title price image stock brand discountPercentage originalPrice')
-        .lean();
-
-    const productById = new Map(
-        (liveProducts || []).map((product) => [Number(product.id), product])
-    );
-
-    return normalizedItems.map((item) => {
-        const live = productById.get(Number(item.id));
-        if (!live) return item;
-
-        const liveStock = Math.max(0, Number(live.stock || 0));
-        const requestedQty = Math.max(1, Number(item.quantity || 1));
-
-        return {
-            ...item,
-            title: normalizeText(live.title) || item.title,
-            price: Number(live.price ?? item.price ?? 0),
-            image: buildProductImageDeliveryUrl(normalizeText(live.image) || item.image),
-            stock: liveStock,
-            brand: normalizeText(live.brand) || item.brand,
-            discountPercentage: Number(live.discountPercentage ?? item.discountPercentage ?? 0),
-            originalPrice: Number(live.originalPrice ?? item.originalPrice ?? live.price ?? item.price ?? 0),
-            quantity: liveStock > 0 ? Math.min(requestedQty, liveStock) : requestedQty,
-        };
-    });
-};
 
 const hydrateWishlistWithLiveProducts = async (wishlistItems = []) => {
     if (!Array.isArray(wishlistItems) || wishlistItems.length === 0) return [];
@@ -131,7 +71,6 @@ const hydrateWishlistWithLiveProducts = async (wishlistItems = []) => {
     });
 };
 
-const cartSnapshotsEqual = (left = [], right = []) => JSON.stringify(left || []) === JSON.stringify(right || []);
 const wishlistSnapshotsEqual = (left = [], right = []) => JSON.stringify(left || []) === JSON.stringify(right || []);
 
 const attachMarketPricingToLine = async (item = {}, market = null) => {
@@ -159,17 +98,6 @@ const mapItemsWithMarketPricing = async (items = [], market = null) => Promise.a
     (Array.isArray(items) ? items : []).map((item) => attachMarketPricingToLine(item, market))
 );
 
-const buildCartResponse = async (userLike = {}, market = null) => ({
-    items: await mapItemsWithMarketPricing(userLike?.cart || [], market),
-    revision: Number(userLike?.cartRevision || 0),
-    syncedAt: userLike?.cartSyncedAt || null,
-    market: market ? {
-        countryCode: market.countryCode,
-        currency: market.currency,
-        language: market.language,
-    } : null,
-});
-
 const buildWishlistResponse = async (userLike = {}, market = null) => ({
     items: await mapItemsWithMarketPricing(userLike?.wishlist || [], market),
     revision: Number(userLike?.wishlistRevision || 0),
@@ -188,14 +116,6 @@ const parseExpectedRevision = (value) => {
     return parsed;
 };
 
-const sendCartConflict = async (res, userLike, market = null) => (
-    res.status(409).json({
-        code: 'cart_revision_conflict',
-        message: 'Cart revision conflict',
-        ...(await buildCartResponse(userLike, market)),
-    })
-);
-
 const sendWishlistConflict = async (res, userLike, market = null) => (
     res.status(409).json({
         code: 'wishlist_revision_conflict',
@@ -204,27 +124,12 @@ const sendWishlistConflict = async (res, userLike, market = null) => (
     })
 );
 
-const buildCartMutationPayload = (hydratedCart = []) => ({
-    cart: hydratedCart,
-    cartSyncedAt: new Date(),
-});
-
 const buildWishlistMutationPayload = (hydratedWishlist = []) => ({
     wishlist: hydratedWishlist,
     wishlistSyncedAt: new Date(),
 });
 
-const getEntityMutationConfig = (entityKey) => {
-    if (entityKey === 'cart') {
-        return {
-            field: 'cart',
-            revisionField: 'cartRevision',
-            hydrateItems: hydrateCartWithLiveProducts,
-            buildMutationPayload: buildCartMutationPayload,
-            snapshotsEqual: cartSnapshotsEqual,
-        };
-    }
-
+const getEntityMutationConfig = () => {
     return {
         field: 'wishlist',
         revisionField: 'wishlistRevision',
@@ -239,8 +144,8 @@ const loadFreshUserDocument = async (userId) => {
     return User.findById(userId);
 };
 
-const commitEntityMutationByRevision = async (user, entityKey, hydratedItems = [], baseRevision = null) => {
-    const config = getEntityMutationConfig(entityKey);
+const commitEntityMutationByRevision = async (user, hydratedItems = [], baseRevision = null) => {
+    const config = getEntityMutationConfig();
     const expectedRevision = Number(baseRevision ?? user?.[config.revisionField] ?? 0);
     const persistedUser = await User.findOneAndUpdate(
         {
@@ -262,8 +167,8 @@ const commitEntityMutationByRevision = async (user, entityKey, hydratedItems = [
     };
 };
 
-const ensureHydratedUserEntityDocument = async (user, entityKey) => {
-    const config = getEntityMutationConfig(entityKey);
+const ensureHydratedUserEntityDocument = async (user) => {
+    const config = getEntityMutationConfig();
     let currentUser = user;
     let attempts = 0;
 
@@ -275,12 +180,7 @@ const ensureHydratedUserEntityDocument = async (user, entityKey) => {
             return currentUser;
         }
 
-        const { user: persistedUser } = await commitEntityMutationByRevision(
-            currentUser,
-            entityKey,
-            hydratedItems,
-            Number(currentUser?.[config.revisionField] ?? 0)
-        );
+        const { user: persistedUser } = await commitEntityMutationByRevision(currentUser, hydratedItems, Number(currentUser?.[config.revisionField] ?? 0));
 
         if (persistedUser) {
             return persistedUser;
@@ -293,15 +193,10 @@ const ensureHydratedUserEntityDocument = async (user, entityKey) => {
     return currentUser;
 };
 
-const persistEntityMutation = async (user, entityKey, nextItems = []) => {
-    const config = getEntityMutationConfig(entityKey);
+const persistEntityMutation = async (user, nextItems = []) => {
+    const config = getEntityMutationConfig();
     const hydratedItems = await config.hydrateItems(nextItems);
-    const { user: persistedUser } = await commitEntityMutationByRevision(
-        user,
-        entityKey,
-        hydratedItems,
-        Number(user?.[config.revisionField] ?? 0)
-    );
+    const { user: persistedUser } = await commitEntityMutationByRevision(user, hydratedItems, Number(user?.[config.revisionField] ?? 0));
 
     if (persistedUser) {
         return {
@@ -312,23 +207,11 @@ const persistEntityMutation = async (user, entityKey, nextItems = []) => {
     }
 
     return {
-        user: await ensureHydratedUserEntityDocument(await loadFreshUserDocument(user?._id), entityKey),
+        user: await ensureHydratedUserEntityDocument(await loadFreshUserDocument(user?._id)),
         hydratedItems,
         conflict: true,
     };
 };
-
-const buildCartLineFromProduct = (productDoc, quantity = 1) => ({
-    id: Number(productDoc?.id || 0),
-    title: normalizeText(productDoc?.title) || '',
-    price: Number(productDoc?.price || 0),
-    image: buildProductImageDeliveryUrl(normalizeText(productDoc?.image) || ''),
-    quantity: Math.max(1, Number(quantity || 1)),
-    stock: Math.max(0, Number(productDoc?.stock || 0)),
-    brand: normalizeText(productDoc?.brand) || '',
-    discountPercentage: Number(productDoc?.discountPercentage || 0),
-    originalPrice: Number(productDoc?.originalPrice || productDoc?.price || 0),
-});
 
 const buildWishlistLineFromProduct = (productDoc, addedAt = new Date()) => ({
     id: Number(productDoc?.id || 0),
@@ -345,31 +228,6 @@ const buildWishlistLineFromProduct = (productDoc, addedAt = new Date()) => ({
     category: normalizeText(productDoc?.category) || '',
     addedAt,
 });
-
-const mergeCartItems = (primaryItems = [], secondaryItems = []) => {
-    const mergedById = new Map();
-    const orderedIds = [];
-
-    [...primaryItems, ...secondaryItems].forEach((item) => {
-        const normalized = normalizeCartItemPayload(item);
-        const key = Number(normalized.id);
-        if (!Number.isFinite(key) || key <= 0) return;
-
-        if (!mergedById.has(key)) {
-            orderedIds.push(key);
-            mergedById.set(key, normalized);
-            return;
-        }
-
-        const existing = mergedById.get(key);
-        mergedById.set(key, {
-            ...existing,
-            quantity: Math.max(1, Number(existing.quantity || 1)) + Math.max(1, Number(normalized.quantity || 1)),
-        });
-    });
-
-    return orderedIds.map((id) => mergedById.get(id));
-};
 
 const mergeWishlistItems = (primaryItems = [], secondaryItems = []) => {
     const mergedById = new Map();
@@ -397,25 +255,12 @@ const mergeWishlistItems = (primaryItems = [], secondaryItems = []) => {
     return orderedIds.map((id) => mergedById.get(id));
 };
 
-const ensureHydratedUserCartDocument = async (user) => {
-    return ensureHydratedUserEntityDocument(user, 'cart');
-};
-
 const ensureHydratedUserWishlistDocument = async (user) => {
-    return ensureHydratedUserEntityDocument(user, 'wishlist');
-};
-
-const persistCartMutation = async (user, nextCart = []) => {
-    const result = await persistEntityMutation(user, 'cart', nextCart);
-    return {
-        user: result.user,
-        hydratedCart: result.hydratedItems,
-        conflict: result.conflict,
-    };
+    return ensureHydratedUserEntityDocument(user);
 };
 
 const persistWishlistMutation = async (user, nextWishlist = []) => {
-    const result = await persistEntityMutation(user, 'wishlist', nextWishlist);
+    const result = await persistEntityMutation(user, nextWishlist);
     return {
         user: result.user,
         hydratedWishlist: result.hydratedItems,
@@ -807,7 +652,7 @@ const getProfileDashboard = asyncHandler(async (req, res, next) => {
     const user = await ensureUserLean({
         email,
         authUser: req.user,
-        projection: '_id loyalty cart wishlist',
+        projection: '_id loyalty wishlist',
     });
     if (!user) return next(new AppError('Unable to recover user profile', 500));
 
@@ -976,272 +821,6 @@ const deleteAddress = asyncHandler(async (req, res, next) => {
 
     await user.save();
     res.json({ success: true, addresses: user.addresses });
-});
-
-// @desc    Sync Cart
-// @route   PUT /api/users/cart
-// @access  Private
-const getCart = asyncHandler(async (req, res, next) => {
-    const safeEmail = requireAuthorizedEmail(req, next);
-    if (!safeEmail) return;
-
-    let user = await ensureUserDocument({
-        email: safeEmail,
-        authUser: req.user,
-    });
-    if (!user) {
-        return next(new AppError('Unable to recover user profile', 500));
-    }
-
-    const cartSnapshot = await getDedicatedCartSnapshot({
-        userId: user._id,
-        user,
-        market: req.market,
-    });
-    return res.json(buildDedicatedLegacyCartResponse(cartSnapshot, req.market));
-});
-
-const syncCart = asyncHandler(async (req, res, next) => {
-    const { cartItems } = req.body;
-
-    if (!Array.isArray(cartItems)) {
-        return next(new AppError('cartItems must be an array', 400));
-    }
-
-    const expectedRevision = parseExpectedRevision(req.body?.expectedRevision);
-    if (Number.isNaN(expectedRevision)) {
-        return next(new AppError('expectedRevision must be a non-negative number', 400));
-    }
-
-    const safeEmail = requireAuthorizedEmail(req, next);
-    if (!safeEmail) return;
-
-    let user = await ensureUserDocument({
-        email: safeEmail,
-        authUser: req.user,
-    });
-    if (!user) {
-        return next(new AppError('Unable to recover user profile', 500));
-    }
-
-    const result = await replaceDedicatedCartItems({
-        userId: user._id,
-        user,
-        expectedVersion: expectedRevision,
-        cartItems,
-        market: req.market,
-    });
-
-    if (result.conflict) {
-        return res.status(409).json({
-            code: 'cart_revision_conflict',
-            message: 'Cart revision conflict',
-            ...buildDedicatedLegacyCartResponse(result.cart, req.market),
-        });
-    }
-
-    res.json(buildDedicatedLegacyCartResponse(result.cart, req.market));
-});
-
-const addCartItem = asyncHandler(async (req, res, next) => {
-    const productId = Number(req.body?.productId);
-    const quantity = Math.max(1, Number(req.body?.quantity || 1));
-    const expectedRevision = parseExpectedRevision(req.body?.expectedRevision);
-
-    if (!Number.isFinite(productId) || productId <= 0) {
-        return next(new AppError('productId must be a valid product identifier', 400));
-    }
-    if (!Number.isFinite(quantity) || quantity <= 0) {
-        return next(new AppError('quantity must be greater than 0', 400));
-    }
-    if (Number.isNaN(expectedRevision)) {
-        return next(new AppError('expectedRevision must be a non-negative number', 400));
-    }
-
-    const safeEmail = requireAuthorizedEmail(req, next);
-    if (!safeEmail) return;
-
-    let user = await ensureUserDocument({
-        email: safeEmail,
-        authUser: req.user,
-    });
-    if (!user) {
-        return next(new AppError('Unable to recover user profile', 500));
-    }
-
-    const currentSnapshot = await getDedicatedCartSnapshot({
-        userId: user._id,
-        user,
-        market: req.market,
-    });
-    const result = await applyDedicatedCartCommands({
-        userId: user._id,
-        user,
-        expectedVersion: expectedRevision,
-        commands: [{
-            type: 'add_item',
-            productId,
-            quantity,
-        }],
-        market: req.market,
-    });
-
-    if (result.conflict) {
-        return res.status(409).json({
-            code: 'cart_revision_conflict',
-            message: 'Cart revision conflict',
-            ...buildDedicatedLegacyCartResponse(result.cart, req.market),
-        });
-    }
-
-    const changedItem = result.cart.items.find((item) => Number(item.productId) === productId) || null;
-    res.status(currentSnapshot.items.some((item) => Number(item.productId) === productId) ? 200 : 201).json({
-        item: changedItem ? toDedicatedLegacyCartItem(changedItem) : null,
-        revision: Number(result.cart.version || 0),
-        syncedAt: result.cart.updatedAt || null,
-    });
-});
-
-const setCartItemQuantity = asyncHandler(async (req, res, next) => {
-    const productId = Number(req.params.productId);
-    const quantity = Number(req.body?.quantity);
-    const expectedRevision = parseExpectedRevision(req.body?.expectedRevision);
-
-    if (!Number.isFinite(productId) || productId <= 0) {
-        return next(new AppError('productId must be a valid product identifier', 400));
-    }
-    if (!Number.isFinite(quantity) || quantity < 0) {
-        return next(new AppError('quantity must be a non-negative number', 400));
-    }
-    if (Number.isNaN(expectedRevision)) {
-        return next(new AppError('expectedRevision must be a non-negative number', 400));
-    }
-
-    const safeEmail = requireAuthorizedEmail(req, next);
-    if (!safeEmail) return;
-
-    let user = await ensureUserDocument({
-        email: safeEmail,
-        authUser: req.user,
-    });
-    if (!user) {
-        return next(new AppError('Unable to recover user profile', 500));
-    }
-
-    const result = await applyDedicatedCartCommands({
-        userId: user._id,
-        user,
-        expectedVersion: expectedRevision,
-        commands: [{
-            type: 'set_quantity',
-            productId,
-            quantity,
-        }],
-        market: req.market,
-    });
-
-    if (result.conflict) {
-        return res.status(409).json({
-            code: 'cart_revision_conflict',
-            message: 'Cart revision conflict',
-            ...buildDedicatedLegacyCartResponse(result.cart, req.market),
-        });
-    }
-
-    const changedItem = result.cart.items.find((item) => Number(item.productId) === productId) || null;
-    return res.json({
-        item: changedItem ? toDedicatedLegacyCartItem(changedItem) : null,
-        revision: Number(result.cart.version || 0),
-        syncedAt: result.cart.updatedAt || null,
-    });
-});
-
-const removeCartItem = asyncHandler(async (req, res, next) => {
-    const productId = Number(req.params.productId);
-    const expectedRevision = parseExpectedRevision(req.body?.expectedRevision);
-
-    if (!Number.isFinite(productId) || productId <= 0) {
-        return next(new AppError('productId must be a valid product identifier', 400));
-    }
-    if (Number.isNaN(expectedRevision)) {
-        return next(new AppError('expectedRevision must be a non-negative number', 400));
-    }
-
-    const safeEmail = requireAuthorizedEmail(req, next);
-    if (!safeEmail) return;
-
-    let user = await ensureUserDocument({
-        email: safeEmail,
-        authUser: req.user,
-    });
-    if (!user) {
-        return next(new AppError('Unable to recover user profile', 500));
-    }
-
-    const result = await applyDedicatedCartCommands({
-        userId: user._id,
-        user,
-        expectedVersion: expectedRevision,
-        commands: [{
-            type: 'remove_item',
-            productId,
-        }],
-        market: req.market,
-    });
-
-    if (result.conflict) {
-        return res.status(409).json({
-            code: 'cart_revision_conflict',
-            message: 'Cart revision conflict',
-            ...buildDedicatedLegacyCartResponse(result.cart, req.market),
-        });
-    }
-
-    return res.json({
-        revision: Number(result.cart.version || 0),
-        syncedAt: result.cart.updatedAt || null,
-    });
-});
-
-const mergeCart = asyncHandler(async (req, res, next) => {
-    const incomingItems = req.body?.items;
-    const expectedRevision = parseExpectedRevision(req.body?.expectedRevision);
-
-    if (!Array.isArray(incomingItems)) {
-        return next(new AppError('items must be an array', 400));
-    }
-    if (Number.isNaN(expectedRevision)) {
-        return next(new AppError('expectedRevision must be a non-negative number', 400));
-    }
-
-    const safeEmail = requireAuthorizedEmail(req, next);
-    if (!safeEmail) return;
-
-    let user = await ensureUserDocument({
-        email: safeEmail,
-        authUser: req.user,
-    });
-    if (!user) {
-        return next(new AppError('Unable to recover user profile', 500));
-    }
-
-    const result = await mergeDedicatedCartItemsIntoCart({
-        userId: user._id,
-        user,
-        expectedVersion: expectedRevision,
-        items: incomingItems,
-        market: req.market,
-    });
-
-    if (result.conflict) {
-        return res.status(409).json({
-            code: 'cart_revision_conflict',
-            message: 'Cart revision conflict',
-            ...buildDedicatedLegacyCartResponse(result.cart, req.market),
-        });
-    }
-
-    return res.json(buildDedicatedLegacyCartResponse(result.cart, req.market));
 });
 
 // @desc    Get wishlist snapshot
@@ -1597,12 +1176,6 @@ const deactivateSellerAccount = asyncHandler(async (req, res, next) => {
 module.exports = {
     loginUser,
     getUserProfile,
-    getCart,
-    syncCart,
-    addCartItem,
-    setCartItemQuantity,
-    removeCartItem,
-    mergeCart,
     getWishlist,
     syncWishlist,
     addWishlistItem,
