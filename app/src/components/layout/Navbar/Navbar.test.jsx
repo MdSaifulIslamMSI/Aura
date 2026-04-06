@@ -36,10 +36,6 @@ vi.mock('@/components/shared/GlobalSearchBar', () => ({
     default: ({ className = '' }) => <div data-testid="global-search-bar" className={className}>Search</div>,
 }));
 
-vi.mock('@/components/shared/VoiceSearch', () => ({
-    default: () => <div data-testid="voice-search">Voice Search</div>,
-}));
-
 beforeEach(() => {
     window.scrollTo = vi.fn();
 });

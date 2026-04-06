@@ -18,12 +18,12 @@ test.describe('Product Listing Page', () => {
 
     test('product cards, skeletons, or no-results message appear', async ({ page }) => {
         // Either real product cards, skeletons, 'No matching products' message, or 'Catalog fetch failed' error
-        const hasContent = await Promise.race([
-            page.locator('[data-testid="product-card"]').first().waitFor({ state: 'visible', timeout: 10_000 }).then(() => true).catch(() => false),
-            page.locator('.animate-pulse').first().waitFor({ state: 'visible', timeout: 5_000 }).then(() => true).catch(() => false),
-            page.getByText('No matching products').waitFor({ state: 'visible', timeout: 10_000 }).then(() => true).catch(() => false),
-            page.getByText('Catalog fetch failed').waitFor({ state: 'visible', timeout: 10_000 }).then(() => true).catch(() => false),
-        ]);
+        const hasContent = await Promise.any([
+            page.locator('[data-testid="product-card"]').first().waitFor({ state: 'visible', timeout: 10_000 }),
+            page.locator('.animate-pulse').first().waitFor({ state: 'visible', timeout: 5_000 }),
+            page.getByText('No matching products').waitFor({ state: 'visible', timeout: 10_000 }),
+            page.getByText('Catalog fetch failed').waitFor({ state: 'visible', timeout: 10_000 }),
+        ]).then(() => true).catch(() => false);
         expect(hasContent).toBe(true);
     });
 });
