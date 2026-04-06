@@ -4,6 +4,7 @@ jest.mock('../middleware/authMiddleware', () => ({
             _id: 'user-1',
             email: 'shopper@example.com',
         };
+        req.authUid = 'firebase-user-1';
         return next();
     },
 }));
@@ -34,12 +35,17 @@ jest.mock('../services/markets/marketPricing', () => ({
     })),
 }));
 
+jest.mock('../services/socketService', () => ({
+    sendMessageToUser: jest.fn(),
+}));
+
 const express = require('express');
 const request = require('supertest');
 const cartRoutes = require('../routes/cartRoutes');
 const { errorHandler, notFound } = require('../middleware/errorMiddleware');
 const Cart = require('../models/Cart');
 const Product = require('../models/Product');
+const { sendMessageToUser } = require('../services/socketService');
 
 const makeLeanChain = (result) => ({
     lean: jest.fn().mockResolvedValue(result),
@@ -162,5 +168,60 @@ describe('Canonical cart routes', () => {
                 quantity: 1,
             }),
         ]);
+        expect(sendMessageToUser).not.toHaveBeenCalled();
+    });
+
+    test('POST /api/cart/commands emits a realtime cart update after a successful mutation', async () => {
+        Cart.findOne.mockImplementation(() => makeLeanChain({
+            _id: 'cart-1',
+            user: 'user-1',
+            version: 2,
+            items: [{ productId: 7, quantity: 1 }],
+            recentMutations: [],
+            updatedAtIso: '2026-04-02T00:03:00.000Z',
+        }));
+        Cart.findOneAndUpdate.mockResolvedValue({
+            _id: 'cart-1',
+            user: 'user-1',
+            version: 3,
+            items: [{ productId: 7, quantity: 2 }],
+            recentMutations: [{ id: 'cart-mutation-2' }],
+            updatedAtIso: '2026-04-02T00:03:10.000Z',
+        });
+        Product.find.mockImplementation(() => makeSelectLeanChain([{
+            id: 7,
+            title: 'Aura Phone',
+            price: 15999,
+            originalPrice: 17999,
+            discountPercentage: 11,
+            image: '/phone.png',
+            stock: 4,
+            brand: 'Aura',
+        }]));
+
+        const res = await request(app)
+            .post('/api/cart/commands')
+            .send({
+                expectedVersion: 2,
+                clientMutationId: 'cart-mutation-2',
+                commands: [{
+                    type: 'add_item',
+                    productId: 7,
+                    quantity: 1,
+                }],
+            });
+
+        expect(res.statusCode).toBe(200);
+        expect(sendMessageToUser).toHaveBeenCalledWith(
+            'user-1',
+            'cart.updated',
+            expect.objectContaining({
+                entity: 'cart',
+                source: 'user',
+                userId: 'firebase-user-1',
+                revision: 3,
+                reason: 'cart_commands_applied',
+            }),
+        );
     });
 });

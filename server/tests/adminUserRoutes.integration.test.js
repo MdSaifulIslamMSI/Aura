@@ -27,6 +27,10 @@ jest.mock('../models/Order', () => ({
     updateMany: jest.fn(),
 }));
 
+jest.mock('../models/Cart', () => ({
+    updateOne: jest.fn(),
+}));
+
 jest.mock('../models/Listing', () => ({
     countDocuments: jest.fn(),
     updateMany: jest.fn(),
@@ -67,6 +71,7 @@ const adminUserRoutes = require('../routes/adminUserRoutes');
 const { errorHandler, notFound } = require('../middleware/errorMiddleware');
 const User = require('../models/User');
 const Order = require('../models/Order');
+const Cart = require('../models/Cart');
 const Listing = require('../models/Listing');
 const PaymentIntent = require('../models/PaymentIntent');
 const UserGovernanceLog = require('../models/UserGovernanceLog');
@@ -83,7 +88,6 @@ const makeUserDoc = (overrides = {}) => ({
     avatar: '',
     bio: '',
     addresses: [],
-    cart: [],
     wishlist: [],
     isAdmin: false,
     isVerified: true,
@@ -102,7 +106,6 @@ const makeUserDoc = (overrides = {}) => ({
             avatar: this.avatar,
             bio: this.bio,
             addresses: this.addresses,
-            cart: this.cart,
             wishlist: this.wishlist,
             isAdmin: this.isAdmin,
             isVerified: this.isVerified,
@@ -154,6 +157,7 @@ describe('Admin user routes integration', () => {
         UserGovernanceLog.find.mockReturnValue(makeGovernanceLogChain([]));
         createGovernanceAppealTicket.mockResolvedValue(null);
         resolveLatestGovernanceAppealTicket.mockResolvedValue(null);
+        Cart.updateOne.mockResolvedValue({ modifiedCount: 1 });
         Listing.updateMany.mockResolvedValue({ modifiedCount: 2 });
         Order.updateMany.mockResolvedValue({ modifiedCount: 1 });
         Order.countDocuments.mockResolvedValue(0);
@@ -307,7 +311,6 @@ describe('Admin user routes integration', () => {
             avatar: 'https://example.com/avatar.png',
             bio: 'Seller bio',
             addresses: [{ city: 'Kolkata' }],
-            cart: [{ product: '1' }],
             wishlist: [{ product: '2' }],
         });
         User.findById.mockResolvedValue(user);
@@ -326,5 +329,15 @@ describe('Admin user routes integration', () => {
         expect(user.phone).toBe('');
         expect(user.avatar).toBe('');
         expect(user.addresses).toEqual([]);
+        expect(Cart.updateOne).toHaveBeenCalledWith(
+            { user: user._id },
+            expect.objectContaining({
+                $set: expect.objectContaining({
+                    items: [],
+                    recentMutations: [],
+                }),
+                $inc: { version: 1 },
+            })
+        );
     });
 });

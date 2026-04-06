@@ -1,6 +1,7 @@
 const asyncHandler = require('express-async-handler');
 const mongoose = require('mongoose');
 const Product = require('../models/Product');
+const Cart = require('../models/Cart');
 const User = require('../models/User');
 const ProductGovernanceLog = require('../models/ProductGovernanceLog');
 const AppError = require('../utils/AppError');
@@ -98,48 +99,21 @@ const loadPersistedProductById = async (id) => {
     return Product.findById(id).select(ADMIN_PRODUCT_FIELDS);
 };
 
-const propagateProductSnapshotToUserCollections = async (productDoc) => {
+const refreshProductSnapshotsInActiveCollections = async (productDoc) => {
     const productId = Number(productDoc?.id);
     if (!Number.isFinite(productId) || productId <= 0) return;
 
-    const cartSnapshot = {
+    const wishlistSnapshot = {
         title: String(productDoc.title || ''),
         price: Number(productDoc.price || 0),
         image: String(productDoc.image || ''),
         stock: Number(productDoc.stock || 0),
         brand: String(productDoc.brand || ''),
-        discountPercentage: Number(productDoc.discountPercentage || 0),
-        originalPrice: Number(productDoc.originalPrice || productDoc.price || 0),
-    };
-    const wishlistSnapshot = {
-        title: cartSnapshot.title,
-        price: cartSnapshot.price,
-        image: cartSnapshot.image,
-        stock: cartSnapshot.stock,
-        brand: cartSnapshot.brand,
         rating: Number(productDoc.rating || 0),
         ratingCount: Number(productDoc.ratingCount || 0),
     };
 
-    const [cartResult, wishlistResult] = await Promise.all([
-        User.updateMany(
-            { 'cart.id': productId },
-            {
-                $set: {
-                    'cart.$[item].title': cartSnapshot.title,
-                    'cart.$[item].price': cartSnapshot.price,
-                    'cart.$[item].image': cartSnapshot.image,
-                    'cart.$[item].stock': cartSnapshot.stock,
-                    'cart.$[item].brand': cartSnapshot.brand,
-                    'cart.$[item].discountPercentage': cartSnapshot.discountPercentage,
-                    'cart.$[item].originalPrice': cartSnapshot.originalPrice,
-                    cartSyncedAt: new Date(),
-                },
-                $inc: { cartRevision: 1 },
-            },
-            { arrayFilters: [{ 'item.id': productId }] }
-        ),
-        User.updateMany(
+    const wishlistResult = await User.updateMany(
             { 'wishlist.id': productId },
             {
                 $set: {
@@ -153,27 +127,25 @@ const propagateProductSnapshotToUserCollections = async (productDoc) => {
                 },
             },
             { arrayFilters: [{ 'item.id': productId }] }
-        ),
-    ]);
+        );
 
-    logger.info('admin_product.user_collections_refreshed', {
+    logger.info('admin_product.commerce_snapshots_refreshed', {
         productId,
-        cartUsersModified: Number(cartResult?.modifiedCount || cartResult?.nModified || 0),
         wishlistUsersModified: Number(wishlistResult?.modifiedCount || wishlistResult?.nModified || 0),
     });
 };
 
-const removeProductFromUserCollections = async (productDoc) => {
+const removeProductFromActiveCollections = async (productDoc) => {
     const productId = Number(productDoc?.id);
     if (!Number.isFinite(productId) || productId <= 0) return;
 
     const [cartResult, wishlistResult] = await Promise.all([
-        User.updateMany(
-            { 'cart.id': productId },
+        Cart.updateMany(
+            { 'items.productId': productId },
             {
-                $pull: { cart: { id: productId } },
-                $set: { cartSyncedAt: new Date() },
-                $inc: { cartRevision: 1 },
+                $pull: { items: { productId } },
+                $set: { updatedAtIso: new Date().toISOString() },
+                $inc: { version: 1 },
             }
         ),
         User.updateMany(
@@ -182,9 +154,9 @@ const removeProductFromUserCollections = async (productDoc) => {
         ),
     ]);
 
-    logger.info('admin_product.user_collections_removed', {
+    logger.info('admin_product.commerce_snapshots_removed', {
         productId,
-        cartUsersModified: Number(cartResult?.modifiedCount || cartResult?.nModified || 0),
+        cartDocumentsModified: Number(cartResult?.modifiedCount || cartResult?.nModified || 0),
         wishlistUsersModified: Number(wishlistResult?.modifiedCount || wishlistResult?.nModified || 0),
     });
 };
@@ -449,7 +421,7 @@ const updateAdminProductCore = asyncHandler(async (req, res, next) => {
     });
 
     try {
-        await propagateProductSnapshotToUserCollections(persisted);
+        await refreshProductSnapshotsInActiveCollections(persisted);
     } catch (error) {
         logger.warn('admin_product.cart_projection_refresh_failed', {
             productId: Number(persisted?.id || 0),
@@ -516,7 +488,7 @@ const updateAdminProductPricing = asyncHandler(async (req, res, next) => {
     });
 
     try {
-        await propagateProductSnapshotToUserCollections(persisted);
+        await refreshProductSnapshotsInActiveCollections(persisted);
     } catch (error) {
         logger.warn('admin_product.cart_projection_refresh_failed', {
             productId: Number(persisted?.id || 0),
@@ -555,7 +527,7 @@ const deleteAdminProduct = asyncHandler(async (req, res, next) => {
     });
 
     try {
-        await removeProductFromUserCollections(existing);
+        await removeProductFromActiveCollections(existing);
     } catch (error) {
         logger.warn('admin_product.user_collections_cleanup_failed', {
             productId: Number(existing?.id || 0),

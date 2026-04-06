@@ -54,7 +54,7 @@ const ACTION_RULES = [
     },
     {
         key: 'cart.updated',
-        match: (method, path) => method === 'PUT' && path === '/api/users/cart',
+        match: (method, path) => method === 'POST' && path === '/api/cart/commands',
         title: 'Cart Updated',
         summary: 'Your shopping cart was updated.',
         policy: EMAIL_NOTIFICATION_POLICIES.DIGEST_ONLY,
@@ -240,10 +240,28 @@ const buildHighlights = ({ req, path, durationMs }) => {
     const body = req.body || {};
     const method = req.method;
 
-    if (path === '/api/users/cart' && Array.isArray(body.cartItems)) {
-        const itemCount = body.cartItems.reduce((sum, item) => sum + Number(item?.quantity || 0), 0);
-        highlights.push(`Cart items synced: ${formatNumber(body.cartItems.length)} product rows`);
-        highlights.push(`Total units in cart: ${formatNumber(itemCount)}`);
+    if (path === '/api/cart/commands' && Array.isArray(body.commands)) {
+        const affectedProducts = new Set();
+        let quantityDelta = 0;
+
+        body.commands.forEach((command = {}) => {
+            const productId = Number(command?.productId);
+            if (Number.isInteger(productId) && productId > 0) {
+                affectedProducts.add(productId);
+            }
+
+            if (command?.type === 'add_item' || command?.type === 'set_quantity') {
+                quantityDelta += Math.max(0, Number(command?.quantity || 0));
+            }
+        });
+
+        highlights.push(`Cart commands applied: ${formatNumber(body.commands.length)}`);
+        if (affectedProducts.size > 0) {
+            highlights.push(`Products touched: ${formatNumber(affectedProducts.size)}`);
+        }
+        if (quantityDelta > 0) {
+            highlights.push(`Requested units: ${formatNumber(quantityDelta)}`);
+        }
     } else if (path === '/api/users/wishlist' && Array.isArray(body.wishlistItems)) {
         highlights.push(`Wishlist items synced: ${formatNumber(body.wishlistItems.length)}`);
     } else if (path === '/api/users/profile' && method === 'PUT') {

@@ -24,6 +24,7 @@ const {
 } = require('./payments/idempotencyService');
 const { scanForMarketplaceAnomalies } = require('./marketplaceIntegrityService');
 const { clearCartAfterCheckout } = require('./cartService');
+const { emitCartRealtimeUpdate } = require('./cartRealtimeService');
 
 const transactionFallbackEnabled = paymentFlags.nodeEnv !== 'production';
 
@@ -301,6 +302,7 @@ const placeOrderWithIdempotency = async ({
     body,
     user,
     userId,
+    authUid = '',
     requestId,
     idempotencyKey,
     userKey,
@@ -351,6 +353,16 @@ const placeOrderWithIdempotency = async ({
                 session,
             });
             await session.commitTransaction();
+            if (cartSnapshot) {
+                emitCartRealtimeUpdate({
+                    socketUserId: userId,
+                    authUid,
+                    cart: cartSnapshot,
+                    reason: 'checkout_cart_cleared',
+                    requestId,
+                    source: 'order_placement_service',
+                });
+            }
             return {
                 statusCode: 201,
                 response: {
@@ -387,6 +399,16 @@ const placeOrderWithIdempotency = async ({
                         market,
                         session: null,
                     });
+                    if (cartSnapshot) {
+                        emitCartRealtimeUpdate({
+                            socketUserId: userId,
+                            authUid,
+                            cart: cartSnapshot,
+                            reason: 'checkout_cart_cleared',
+                            requestId,
+                            source: 'order_placement_service',
+                        });
+                    }
                     return {
                         statusCode: 201,
                         response: {

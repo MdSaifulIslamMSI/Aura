@@ -66,9 +66,11 @@ describe('activityEmailService', () => {
     test('suppresses cart activity emails into digest-only policy', async () => {
         const result = await notifyActivityFromRequest({
             req: buildRequest({
-                method: 'PUT',
-                originalUrl: '/api/users/cart',
-                body: { cartItems: [{ sku: 'sku-1', quantity: 1 }] },
+                method: 'POST',
+                originalUrl: '/api/cart/commands',
+                body: {
+                    commands: [{ type: 'add_item', productId: 1, quantity: 1 }],
+                },
             }),
             res: buildResponse(200),
             durationMs: 120,
