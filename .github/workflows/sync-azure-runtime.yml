@@ -19,7 +19,6 @@ env:
   BACKEND_IDENTITY_NAME: ${{ vars.BACKEND_IDENTITY_NAME || 'aura-msi-backend-id' }}
   API_APP_NAME: ${{ vars.API_APP_NAME || 'aura-msi-api-ca' }}
   WORKER_APP_NAME: ${{ vars.WORKER_APP_NAME || 'aura-msi-worker-ca' }}
-  INTELLIGENCE_APP_NAME: ${{ vars.INTELLIGENCE_APP_NAME || 'aura-msi-intelligence-ca' }}
 
 jobs:
   sync-runtime:
@@ -65,7 +64,6 @@ jobs:
             -IdentityName "${{ env.BACKEND_IDENTITY_NAME }}" `
             -ApiAppName "${{ env.API_APP_NAME }}" `
             -WorkerAppName "${{ env.WORKER_APP_NAME }}" `
-            -IntelligenceAppName "${{ env.INTELLIGENCE_APP_NAME }}" `
             -SourceEnvFile "${{ steps.runtime_env.outputs.path }}" `
             -SyncKeyVaultSecrets `
             -FrontendOrigin "${env:FRONTEND_ORIGIN}" `
@@ -82,7 +80,6 @@ jobs:
             -KeyVaultName "${{ env.KEY_VAULT_NAME }}" `
             -ApiAppName "${{ env.API_APP_NAME }}" `
             -WorkerAppName "${{ env.WORKER_APP_NAME }}" `
-            -IntelligenceAppName "${{ env.INTELLIGENCE_APP_NAME }}" `
             -SourceEnvFile "${{ steps.runtime_env.outputs.path }}" `
             -FrontendOrigin "${env:FRONTEND_ORIGIN}" `
             -ApiPublicUrl "${env:API_PUBLIC_URL}" `

@@ -138,6 +138,23 @@ export const aiApi = {
     createVoiceSession: async (payload = {}) => requestAiJson('/ai/voice/session', payload, {
         fallbackMessage: 'Voice session could not be created',
     }),
+    listSessions: async () => requestAiJson('/ai/sessions', {}, {
+        method: 'GET',
+        fallbackMessage: 'Assistant history is unavailable right now',
+    }),
+    getSession: async (sessionId = '') => requestAiJson(`/ai/sessions/${encodeURIComponent(String(sessionId || '').trim())}`, {}, {
+        method: 'GET',
+        fallbackMessage: 'Assistant session is unavailable right now',
+    }),
+    createSession: async (payload = {}) => requestAiJson('/ai/sessions', payload, {
+        fallbackMessage: 'Assistant session could not be created',
+    }),
+    resetSession: async (sessionId = '') => requestAiJson(`/ai/sessions/${encodeURIComponent(String(sessionId || '').trim())}/reset`, {}, {
+        fallbackMessage: 'Assistant session could not be reset',
+    }),
+    archiveSession: async (sessionId = '') => requestAiJson(`/ai/sessions/${encodeURIComponent(String(sessionId || '').trim())}/archive`, {}, {
+        fallbackMessage: 'Assistant session could not be archived',
+    }),
     speakText: async (payload = {}) => {
         const { headers, usedAuth } = await getAiRequestConfig();
         const url = buildApiUrl('/ai/voice/speak');

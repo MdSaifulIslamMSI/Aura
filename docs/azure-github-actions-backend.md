@@ -11,15 +11,14 @@ This repo supports backend deployment from GitHub Actions to Azure Container App
 Release flow:
 
 1. Build an immutable backend image with `docker buildx`
-2. Build the intelligence-service image with the same git SHA tag
-3. Reconcile Azure Key Vault + Container Apps runtime config from the canonical env templates
-4. Push the images and cache to Azure Container Registry
-5. Create or update the API, worker, and intelligence runtime shells as needed
-6. Promote the new API revision in Azure Container Apps
-7. Wait for candidate revisions to become provisioned and healthy
-8. Health-check the candidate revision FQDN directly
-9. Re-check the production app FQDN after API, worker, and intelligence promotion
-10. Roll back to the previous image automatically if any stage fails
+2. Reconcile Azure Key Vault + Container Apps runtime config from the canonical env templates
+3. Push the image and cache to Azure Container Registry
+4. Create or update the API and worker runtime shells as needed
+5. Promote the new API revision in Azure Container Apps
+6. Wait for candidate revisions to become provisioned and healthy
+7. Health-check the candidate revision FQDN directly
+8. Re-check the production app FQDN after API and worker promotion
+9. Roll back to the previous image automatically if any stage fails
 
 Important: the workflow keeps the API app in single-revision mode, so this is fast rollback with health gates, not full pre-traffic blue/green.
 
@@ -52,7 +51,6 @@ The workflows now accept GitHub repository variables for the Azure IDs and app n
 - `ACR_IMAGE_NAME`
 - `API_APP_NAME`
 - `WORKER_APP_NAME`
-- `INTELLIGENCE_APP_NAME`
 - `KEY_VAULT_NAME`
 - `CONTAINER_ENV_NAME`
 - `BACKEND_IDENTITY_NAME`
@@ -79,7 +77,7 @@ That script will:
 
 1. Read local env values
 2. Push secret keys into Azure Key Vault
-3. Reconcile API, worker, and intelligence Container Apps from the checked-in env templates
+3. Reconcile API and worker Container Apps from the checked-in env templates
 4. Preserve Key Vault-backed secret refs instead of writing raw secrets into Container Apps
 
 You can also verify drift directly:
@@ -102,7 +100,6 @@ For future env additions:
   - `SHARED__FOO=bar`
   - `API__FOO=bar`
   - `WORKER__FOO=bar`
-  - `INTELLIGENCE__FOO=bar`
 - New secret-like keys are auto-detected by name and pushed to Key Vault during sync, so you do not need to update a hardcoded secret map for every future addition.
 
 For CI, the workflow supports an optional multiline secret named `AZURE_RUNTIME_ENV_FILE`. When present, GitHub Actions materializes it as a temp env file and runs the same sync step with `-SyncKeyVaultSecrets`.

@@ -1,6 +1,6 @@
 const express = require('express');
 const validate = require('../middleware/validate');
-const { protectOptional } = require('../middleware/authMiddleware');
+const { protect, protectOptional } = require('../middleware/authMiddleware');
 const { createDistributedRateLimit } = require('../middleware/distributedRateLimit');
 const {
     createAiVoiceSession,
@@ -8,7 +8,20 @@ const {
     handleAiChatStream,
     synthesizeAiVoiceReply,
 } = require('../controllers/aiController');
-const { aiChatSchema, aiVoiceSessionSchema, aiVoiceSpeakSchema } = require('../validators/aiValidators');
+const {
+    listAiSessions,
+    getAiSession,
+    createAiSession,
+    resetAiSession,
+    archiveAiSession,
+} = require('../controllers/aiSessionController');
+const {
+    aiChatSchema,
+    aiSessionCreateSchema,
+    aiSessionParamsOnlySchema,
+    aiVoiceSessionSchema,
+    aiVoiceSpeakSchema,
+} = require('../validators/aiValidators');
 
 const router = express.Router();
 
@@ -39,8 +52,22 @@ const aiVoiceSpeechLimiter = createDistributedRateLimit({
     message: 'Too many voice synthesis requests. Please slow down.',
 });
 
+const aiSessionLimiter = createDistributedRateLimit({
+    allowInMemoryFallback: true,
+    name: 'ai_sessions',
+    windowMs: 60 * 1000,
+    max: 60,
+    keyGenerator: (req) => req.user?._id?.toString() || req.ip,
+    message: 'Too many assistant session requests. Please slow down.',
+});
+
 router.post('/chat', protectOptional, aiChatLimiter, validate(aiChatSchema), handleAiChat);
 router.post('/chat/stream', protectOptional, aiChatLimiter, validate(aiChatSchema), handleAiChatStream);
+router.get('/sessions', protect, aiSessionLimiter, listAiSessions);
+router.post('/sessions', protect, aiSessionLimiter, validate(aiSessionCreateSchema), createAiSession);
+router.get('/sessions/:sessionId', protect, aiSessionLimiter, validate(aiSessionParamsOnlySchema), getAiSession);
+router.post('/sessions/:sessionId/reset', protect, aiSessionLimiter, validate(aiSessionParamsOnlySchema), resetAiSession);
+router.post('/sessions/:sessionId/archive', protect, aiSessionLimiter, validate(aiSessionParamsOnlySchema), archiveAiSession);
 router.post('/voice/session', protectOptional, aiVoiceLimiter, validate(aiVoiceSessionSchema), createAiVoiceSession);
 router.post('/voice/speak', protectOptional, aiVoiceSpeechLimiter, validate(aiVoiceSpeakSchema), synthesizeAiVoiceReply);
 

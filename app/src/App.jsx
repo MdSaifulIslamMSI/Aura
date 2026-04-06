@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo } from 'react';
 import { BrowserRouter as Router, Route, Routes, useLocation } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { AuthProvider } from './context/AuthContext';
@@ -25,11 +25,9 @@ import { trustRoutes } from './config/trustContent';
 import { assertRouteA11yContracts } from './utils/a11yContracts';
 import { lazyWithRetry } from './utils/lazyWithRetry';
 import { MultimodalAssistantProvider } from './context/MultimodalAssistantContext';
-import { isAssistantV2Enabled } from './services/assistantFeatureFlags';
 import {
   shouldShowAmbientChrome,
   shouldShowAssistantLauncher,
-  shouldShowLegacyChatBot,
 } from './services/assistantUiConfig';
 
 // Pages (Lazy Loaded for Performance)
@@ -70,7 +68,6 @@ const VisualSearch = lazyWithRetry(() => import('./pages/VisualSearch'), 'visual
 const Bundles = lazyWithRetry(() => import('./pages/Bundles'), 'bundles');
 const MissionControl = lazyWithRetry(() => import('./pages/MissionControl'), 'mission-control');
 const AssistantPage = lazyWithRetry(() => import('./pages/Assistant'), 'assistant-workspace');
-const ChatBot = lazyWithRetry(() => import('./components/features/chat/ChatBot'), 'chat-bot');
 const AssistantLauncher = lazyWithRetry(() => import('./components/shared/AssistantLauncher'), 'assistant-launcher');
 
 function renderRoute(element) {
@@ -86,21 +83,15 @@ function AppContent() {
   const { effectiveMotionMode } = useMotionMode();
   const pathname = location.pathname;
   const routeRenderKey = `${location.pathname}${location.search}${location.hash}`;
-  const [chatBotReady, setChatBotReady] = useState(false);
-  const assistantV2Enabled = isAssistantV2Enabled();
 
   const showAmbientChrome = useMemo(
     () => shouldShowAmbientChrome(pathname),
     [pathname]
   );
   const showAnchorRail = showAmbientChrome && effectiveMotionMode === 'cinematic';
-  const showLegacyChatBot = useMemo(
-    () => shouldShowLegacyChatBot({ pathname, assistantV2Enabled }),
-    [assistantV2Enabled, pathname]
-  );
   const showAssistantLauncher = useMemo(
-    () => shouldShowAssistantLauncher({ pathname, assistantV2Enabled }),
-    [assistantV2Enabled, pathname]
+    () => shouldShowAssistantLauncher({ pathname }),
+    [pathname]
   );
 
 
@@ -117,38 +108,6 @@ function AppContent() {
       window.cancelAnimationFrame(rafId);
     };
   }, [pathname]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined' || !showLegacyChatBot || chatBotReady) return undefined;
-
-    let cancelled = false;
-    let timeoutId = 0;
-    let idleId = 0;
-
-    const activate = () => {
-      if (!cancelled) {
-        setChatBotReady(true);
-      }
-    };
-
-    void import('./components/features/chat/ChatBot').catch(() => {});
-
-    timeoutId = window.setTimeout(activate, 420);
-
-    if (typeof window.requestIdleCallback === 'function') {
-      idleId = window.requestIdleCallback(activate, { timeout: 650 });
-    }
-
-    return () => {
-      cancelled = true;
-      if (timeoutId) {
-        window.clearTimeout(timeoutId);
-      }
-      if (idleId && typeof window.cancelIdleCallback === 'function') {
-        window.cancelIdleCallback(idleId);
-      }
-    };
-  }, [chatBotReady, pathname, showLegacyChatBot]);
 
   return (
     <div className="aura-app-shell flex min-h-screen min-w-0 flex-col overflow-x-hidden">
@@ -233,13 +192,6 @@ function AppContent() {
           </RouteTransitionShell>
         </Suspense>
       </main>
-      {showLegacyChatBot && chatBotReady ? (
-        <Suspense fallback={null}>
-          <AppErrorBoundary>
-            <ChatBot />
-          </AppErrorBoundary>
-        </Suspense>
-      ) : null}
       {showAssistantLauncher ? (
         <Suspense fallback={null}>
           <AppErrorBoundary>

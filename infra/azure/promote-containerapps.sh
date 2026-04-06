@@ -7,8 +7,6 @@ set -euo pipefail
 : "${WORKER_APP_NAME:?WORKER_APP_NAME is required}"
 : "${IMAGE_REF:?IMAGE_REF is required}"
 
-INTELLIGENCE_APP_NAME="${INTELLIGENCE_APP_NAME:-}"
-INTELLIGENCE_IMAGE_REF="${INTELLIGENCE_IMAGE_REF:-}"
 HEALTH_PATH="${HEALTH_PATH:-/health}"
 HEALTH_TIMEOUT_SECONDS="${HEALTH_TIMEOUT_SECONDS:-240}"
 HEALTH_POLL_INTERVAL_SECONDS="${HEALTH_POLL_INTERVAL_SECONDS:-10}"
@@ -19,11 +17,8 @@ previous_api_revision=""
 previous_api_image=""
 previous_worker_revision=""
 previous_worker_image=""
-previous_intelligence_revision=""
-previous_intelligence_image=""
 candidate_api_revision=""
 candidate_worker_revision=""
-candidate_intelligence_revision=""
 
 log() {
   echo "[azure-release] $*"
@@ -56,14 +51,6 @@ current_worker_image() {
 current_api_image() {
   az containerapp show \
     --name "${API_APP_NAME}" \
-    --resource-group "${RESOURCE_GROUP}" \
-    --query "properties.template.containers[0].image" \
-    --output tsv
-}
-
-current_intelligence_image() {
-  az containerapp show \
-    --name "${INTELLIGENCE_APP_NAME}" \
     --resource-group "${RESOURCE_GROUP}" \
     --query "properties.template.containers[0].image" \
     --output tsv
@@ -127,12 +114,7 @@ status_ok = payload.get("status") == "ok"
 split_runtime_ready = payload.get("topology", {}).get("splitRuntimeReady", True)
 redis_ok = payload.get("redis", {}).get("connected", True)
 mongo_ok = payload.get("topology", {}).get("mongo", {}).get("connected", True)
-intelligence = payload.get("ai", {}).get("intelligence", {})
-intelligence_mode = intelligence.get("mode", "")
-intelligence_ok = True
-if intelligence_mode == "always":
-    intelligence_ok = bool(intelligence.get("enabled")) and bool(intelligence.get("healthy")) and not bool(intelligence.get("staleBundle"))
-if status_ok and split_runtime_ready and redis_ok and mongo_ok and intelligence_ok:
+if status_ok and split_runtime_ready and redis_ok and mongo_ok:
     sys.exit(0)
 print(json.dumps(payload, indent=2), file=sys.stderr)
 sys.exit(1)'
@@ -187,13 +169,6 @@ rollback_release() {
       --image "${previous_worker_image}" >/dev/null || true
   fi
 
-  if [[ -n "${INTELLIGENCE_APP_NAME}" && -n "${previous_intelligence_image}" ]]; then
-    az containerapp update \
-      --name "${INTELLIGENCE_APP_NAME}" \
-      --resource-group "${RESOURCE_GROUP}" \
-      --image "${previous_intelligence_image}" >/dev/null || true
-  fi
-
   exit "${exit_code}"
 }
 
@@ -231,44 +206,11 @@ fi
 previous_api_image="$(current_api_image)"
 previous_worker_revision="$(latest_revision_name "${WORKER_APP_NAME}")"
 previous_worker_image="$(current_worker_image)"
-if [[ -n "${INTELLIGENCE_APP_NAME}" ]]; then
-  previous_intelligence_revision="$(latest_revision_name "${INTELLIGENCE_APP_NAME}")"
-  previous_intelligence_image="$(current_intelligence_image)"
-fi
 
 write_output "previous_api_revision" "${previous_api_revision}"
 write_output "previous_worker_revision" "${previous_worker_revision}"
 write_output "previous_worker_image" "${previous_worker_image}"
 write_output "previous_api_image" "${previous_api_image}"
-write_output "previous_intelligence_revision" "${previous_intelligence_revision}"
-write_output "previous_intelligence_image" "${previous_intelligence_image}"
-
-if [[ -n "${INTELLIGENCE_APP_NAME}" && -n "${INTELLIGENCE_IMAGE_REF}" ]]; then
-  if [[ "${previous_intelligence_image}" == "${INTELLIGENCE_IMAGE_REF}" ]]; then
-    log "Intelligence service is already on ${INTELLIGENCE_IMAGE_REF}; skipping image update."
-    candidate_intelligence_revision="${previous_intelligence_revision}"
-  else
-    log "Updating intelligence service to image ${INTELLIGENCE_IMAGE_REF}."
-    az containerapp update \
-      --name "${INTELLIGENCE_APP_NAME}" \
-      --resource-group "${RESOURCE_GROUP}" \
-      --image "${INTELLIGENCE_IMAGE_REF}" \
-      --revision-suffix "${REVISION_SUFFIX}" >/dev/null
-
-    candidate_intelligence_revision="$(wait_for_new_revision "${INTELLIGENCE_APP_NAME}" "${previous_intelligence_revision}" "intelligence service")"
-  fi
-
-  intelligence_fqdn="$(revision_field "${INTELLIGENCE_APP_NAME}" "${candidate_intelligence_revision}" "properties.fqdn")"
-  write_output "candidate_intelligence_revision" "${candidate_intelligence_revision}"
-  write_output "intelligence_fqdn" "${intelligence_fqdn}"
-
-  wait_for_revision_ready "${INTELLIGENCE_APP_NAME}" "${candidate_intelligence_revision}" "intelligence candidate"
-  if [[ -z "${intelligence_fqdn}" ]]; then
-    echo "Could not resolve a direct FQDN for intelligence revision ${candidate_intelligence_revision}." >&2
-    exit 1
-  fi
-  wait_for_http_health "https://${intelligence_fqdn}" "intelligence candidate" "/health"
-fi
 
 log "Enforcing single-revision mode on the API app."
 az containerapp revision set-mode \

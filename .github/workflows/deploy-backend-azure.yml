@@ -6,7 +6,6 @@ on:
       - main
     paths:
       - 'server/**'
-      - 'intelligence_service/**'
       - 'infra/azure/**'
       - '.dockerignore'
       - '.github/workflows/deploy-backend-azure.yml'
@@ -29,10 +28,8 @@ env:
   ACR_NAME: ${{ vars.ACR_NAME || 'auramsi20260318acr' }}
   ACR_LOGIN_SERVER: ${{ vars.ACR_LOGIN_SERVER || 'auramsi20260318acr.azurecr.io' }}
   IMAGE_NAME: ${{ vars.ACR_IMAGE_NAME || 'aura-backend' }}
-  INTELLIGENCE_IMAGE_NAME: ${{ vars.ACR_INTELLIGENCE_IMAGE_NAME || 'aura-intelligence' }}
   API_APP_NAME: ${{ vars.API_APP_NAME || 'aura-msi-api-ca' }}
   WORKER_APP_NAME: ${{ vars.WORKER_APP_NAME || 'aura-msi-worker-ca' }}
-  INTELLIGENCE_APP_NAME: ${{ vars.INTELLIGENCE_APP_NAME || 'aura-msi-intelligence-ca' }}
   KEY_VAULT_NAME: ${{ vars.KEY_VAULT_NAME || 'aura-msi-20260318-kv' }}
   CONTAINER_ENV_NAME: ${{ vars.CONTAINER_ENV_NAME || 'aura-msi-ca-env' }}
   BACKEND_IDENTITY_NAME: ${{ vars.BACKEND_IDENTITY_NAME || 'aura-msi-backend-id' }}
@@ -53,6 +50,32 @@ jobs:
         with:
           node-version: 24.x
 
+      - name: Install backend dependencies
+        working-directory: ./server
+        run: npm ci
+
+      - name: Run controlled assistant backend regressions
+        working-directory: ./server
+        env:
+          NODE_ENV: test
+        run: >
+          npx jest --runInBand --runTestsByPath
+          tests/aiRoutes.test.js
+          tests/healthRoutes.test.js
+          tests/commerceAssistantService.test.js
+          tests/geminiGatewayService.test.js
+          tests/modelGatewayService.test.js
+          tests/ollamaGatewayService.test.js
+          tests/runtimeConfig.test.js
+
+      - name: Validate Azure runtime templates in dry-run mode
+        shell: pwsh
+        run: |
+          & ".\\infra\\azure\\sync-containerapps-runtime.ps1" `
+            -SourceEnvFile ".\\server\\.env.azure-secrets.example" `
+            -DryRun `
+            -PlanOutputPath "${{ runner.temp }}\\azure-runtime-plan.json"
+
       - name: Set release metadata
         id: meta
         shell: bash
@@ -67,7 +90,6 @@ jobs:
           echo "image_tag=${image_tag}" >> "${GITHUB_OUTPUT}"
           echo "revision_suffix=${revision_suffix}" >> "${GITHUB_OUTPUT}"
           echo "image_ref=${ACR_LOGIN_SERVER}/${IMAGE_NAME}:${image_tag}" >> "${GITHUB_OUTPUT}"
-          echo "intelligence_image_ref=${ACR_LOGIN_SERVER}/${INTELLIGENCE_IMAGE_NAME}:${image_tag}" >> "${GITHUB_OUTPUT}"
 
       - name: Azure login
         uses: azure/login@v2
@@ -92,14 +114,6 @@ jobs:
           set -euo pipefail
           az acr login --name "${ACR_NAME}"
 
-      - name: Build Code Intelligence Bundle
-        shell: bash
-        env:
-          APP_BUILD_SHA: ${{ github.sha }}
-        run: |
-          set -euo pipefail
-          node server/scripts/build_code_intelligence_bundle.js
-
       - name: Build and push backend image
         shell: bash
         run: |
@@ -113,20 +127,6 @@ jobs:
             --cache-to "type=registry,ref=${ACR_LOGIN_SERVER}/${IMAGE_NAME}:buildcache,mode=max,compression=zstd" \
             --output "type=image,push=true,compression=zstd,compression-level=3,force-compression=true" \
             server
-
-      - name: Build and push intelligence image
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          docker buildx build \
-            --platform linux/amd64 \
-            --file intelligence_service/Dockerfile \
-            --tag "${{ steps.meta.outputs.intelligence_image_ref }}" \
-            --cache-from "type=registry,ref=${ACR_LOGIN_SERVER}/${INTELLIGENCE_IMAGE_NAME}:buildcache" \
-            --cache-to "type=registry,ref=${ACR_LOGIN_SERVER}/${INTELLIGENCE_IMAGE_NAME}:buildcache,mode=max,compression=zstd" \
-            --output "type=image,push=true,compression=zstd,compression-level=3,force-compression=true" \
-            .
 
       - name: Materialize optional Azure runtime env file
         id: runtime_env
@@ -162,10 +162,8 @@ jobs:
               -IdentityName "${{ env.BACKEND_IDENTITY_NAME }}" `
               -ApiAppName "${{ env.API_APP_NAME }}" `
               -WorkerAppName "${{ env.WORKER_APP_NAME }}" `
-              -IntelligenceAppName "${{ env.INTELLIGENCE_APP_NAME }}" `
               -ApiImageRef "${{ steps.meta.outputs.image_ref }}" `
               -WorkerImageRef "${{ steps.meta.outputs.image_ref }}" `
-              -IntelligenceImageRef "${{ steps.meta.outputs.intelligence_image_ref }}" `
               -SourceEnvFile "${env:SOURCE_ENV_FILE}" `
               -SyncKeyVaultSecrets `
               -FrontendOrigin "${env:FRONTEND_ORIGIN}" `
@@ -178,10 +176,8 @@ jobs:
               -IdentityName "${{ env.BACKEND_IDENTITY_NAME }}" `
               -ApiAppName "${{ env.API_APP_NAME }}" `
               -WorkerAppName "${{ env.WORKER_APP_NAME }}" `
-              -IntelligenceAppName "${{ env.INTELLIGENCE_APP_NAME }}" `
               -ApiImageRef "${{ steps.meta.outputs.image_ref }}" `
               -WorkerImageRef "${{ steps.meta.outputs.image_ref }}" `
-              -IntelligenceImageRef "${{ steps.meta.outputs.intelligence_image_ref }}" `
               -FrontendOrigin "${env:FRONTEND_ORIGIN}" `
               -ApiPublicUrl "${env:API_PUBLIC_URL}"
           }
@@ -199,7 +195,6 @@ jobs:
             -KeyVaultName "${{ env.KEY_VAULT_NAME }}" `
             -ApiAppName "${{ env.API_APP_NAME }}" `
             -WorkerAppName "${{ env.WORKER_APP_NAME }}" `
-            -IntelligenceAppName "${{ env.INTELLIGENCE_APP_NAME }}" `
             -SourceEnvFile "${env:SOURCE_ENV_FILE}" `
             -FrontendOrigin "${env:FRONTEND_ORIGIN}" `
             -ApiPublicUrl "${env:API_PUBLIC_URL}" `
@@ -210,7 +205,6 @@ jobs:
         shell: bash
         env:
           IMAGE_REF: ${{ steps.meta.outputs.image_ref }}
-          INTELLIGENCE_IMAGE_REF: ${{ steps.meta.outputs.intelligence_image_ref }}
           REVISION_SUFFIX: ${{ steps.meta.outputs.revision_suffix }}
         run: |
           set -euo pipefail
@@ -223,13 +217,10 @@ jobs:
             echo "## Azure Backend Deployment"
             echo ""
             echo "- Image: \`${{ steps.meta.outputs.image_ref }}\`"
-            echo "- Intelligence image: \`${{ steps.meta.outputs.intelligence_image_ref }}\`"
             echo "- API revision: \`${{ steps.release.outputs.candidate_api_revision }}\`"
             echo "- Worker revision: \`${{ steps.release.outputs.candidate_worker_revision }}\`"
-            echo "- Intelligence revision: \`${{ steps.release.outputs.candidate_intelligence_revision }}\`"
             echo "- Key Vault: \`${{ env.KEY_VAULT_NAME }}\`"
             echo "- API URL: [https://${{ steps.release.outputs.production_fqdn }}](https://${{ steps.release.outputs.production_fqdn }})"
-            echo "- Intelligence URL: [https://${{ steps.release.outputs.intelligence_fqdn }}](https://${{ steps.release.outputs.intelligence_fqdn }})"
             echo "- Previous API revision: \`${{ steps.release.outputs.previous_api_revision }}\`"
             echo "- Previous worker image: \`${{ steps.release.outputs.previous_worker_image }}\`"
             echo "- Frontend routing sync: \`powershell -ExecutionPolicy Bypass -File infra/azure/sync-frontend-routing.ps1 -BackendUrl https://${{ steps.release.outputs.production_fqdn }}\`"

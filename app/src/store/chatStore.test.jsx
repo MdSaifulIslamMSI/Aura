@@ -117,6 +117,111 @@ describe('chatStore', () => {
         ]);
     });
 
+    it('isolates guest sessions from signed-in user scopes', () => {
+        useChatStore.getState().appendUserMessage('guest-only question');
+
+        useChatStore.getState().switchViewerScope({
+            viewerScope: 'user:user-a',
+            preservedContext: {
+                route: '/assistant',
+                isAuthenticated: true,
+            },
+        });
+
+        let state = useChatStore.getState();
+        expect(state.context.isAuthenticated).toBe(true);
+        expect(state.messages.some((message) => message.text === 'guest-only question')).toBe(false);
+
+        useChatStore.getState().appendUserMessage('user-a question');
+        useChatStore.getState().switchViewerScope({
+            viewerScope: 'guest',
+            preservedContext: {
+                route: '/assistant',
+                isAuthenticated: false,
+            },
+        });
+
+        state = useChatStore.getState();
+        expect(state.context.isAuthenticated).toBe(false);
+        expect(state.messages.some((message) => message.text === 'guest-only question')).toBe(true);
+        expect(state.messages.some((message) => message.text === 'user-a question')).toBe(false);
+
+        useChatStore.getState().switchViewerScope({
+            viewerScope: 'user:user-a',
+            preservedContext: {
+                route: '/assistant',
+                isAuthenticated: true,
+            },
+        });
+
+        state = useChatStore.getState();
+        expect(state.messages.some((message) => message.text === 'user-a question')).toBe(true);
+        expect(state.messages.some((message) => message.text === 'guest-only question')).toBe(false);
+    });
+
+    it('keeps assistant sessions distinct for different signed-in users on the same device', () => {
+        useChatStore.getState().switchViewerScope({
+            viewerScope: 'user:user-a',
+            preservedContext: {
+                route: '/assistant',
+                isAuthenticated: true,
+            },
+        });
+        useChatStore.getState().appendUserMessage('history for user a');
+
+        useChatStore.getState().switchViewerScope({
+            viewerScope: 'user:user-b',
+            preservedContext: {
+                route: '/assistant',
+                isAuthenticated: true,
+            },
+        });
+
+        let state = useChatStore.getState();
+        expect(state.messages.some((message) => message.text === 'history for user a')).toBe(false);
+
+        useChatStore.getState().appendUserMessage('history for user b');
+        useChatStore.getState().switchViewerScope({
+            viewerScope: 'user:user-a',
+            preservedContext: {
+                route: '/assistant',
+                isAuthenticated: true,
+            },
+        });
+
+        state = useChatStore.getState();
+        expect(state.messages.some((message) => message.text === 'history for user a')).toBe(true);
+        expect(state.messages.some((message) => message.text === 'history for user b')).toBe(false);
+    });
+
+    it('treats signed-in session history from the server as authoritative', () => {
+        useChatStore.getState().switchViewerScope({
+            viewerScope: 'user:user-a',
+            preservedContext: {
+                route: '/assistant',
+                isAuthenticated: true,
+            },
+        });
+        useChatStore.getState().appendUserMessage('stale local thread');
+
+        const staleLocalSessionId = useChatStore.getState().activeSessionId;
+
+        useChatStore.getState().replaceSessionsFromServer([
+            {
+                id: 'server-session-1',
+                title: 'Saved server thread',
+                preview: 'Synced from backend',
+                originPath: '/assistant',
+                createdAt: Date.now() - 5000,
+                updatedAt: Date.now(),
+            },
+        ], { authoritative: true });
+
+        const state = useChatStore.getState();
+        expect(state.sessions.map((session) => session.id)).toEqual(['server-session-1']);
+        expect(state.sessions.some((session) => session.id === staleLocalSessionId)).toBe(false);
+    });
+
     it('tracks streaming metadata and finalizes a fast reply in place', () => {
         const sessionId = useChatStore.getState().activeSessionId;
         const streamId = useChatStore.getState().beginAssistantStream({

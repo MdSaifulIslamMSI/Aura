@@ -8,6 +8,7 @@ const MAX_VISIBLE_ACTIONS = 3;
 const DEFAULT_SESSION_TITLE = 'New chat';
 const DEFAULT_SESSION_PREVIEW = 'Start a new assistant thread.';
 const SESSION_GROUPS = ['today', 'yesterday', 'last7Days', 'older'];
+const DEFAULT_VIEWER_SCOPE = 'guest';
 
 const createMessageId = () => `chat-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 const createSessionId = () => `session-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -20,6 +21,8 @@ const truncateText = (value = '', max = 80) => {
 };
 
 const normalizeProductId = (product = {}) => safeString(product?.id || product?._id || '');
+const normalizeViewerScope = (value = '') => safeString(value || DEFAULT_VIEWER_SCOPE, DEFAULT_VIEWER_SCOPE).toLowerCase();
+const isGuestViewerScope = (value = '') => normalizeViewerScope(value) === DEFAULT_VIEWER_SCOPE;
 
 const sortSessions = (sessions = []) => (
     [...sessions].sort((left, right) => {
@@ -152,6 +155,7 @@ export const createAssistantMessage = (payload = {}) => ({
     navigation: null,
     grounding: null,
     providerInfo: null,
+    providerCapabilities: null,
     ...payload,
 });
 
@@ -366,6 +370,30 @@ const createSessionBundle = ({ originPath = '/', preservedContext = {} } = {}) =
     };
 };
 
+const createScopeSnapshot = ({
+    activeSessionId = '',
+    sessionSearchQuery = '',
+    sessions = [],
+    sessionStateById = {},
+} = {}) => ({
+    activeSessionId: safeString(activeSessionId || ''),
+    sessionSearchQuery: safeString(sessionSearchQuery || ''),
+    sessions: Array.isArray(sessions) ? sessions.map((session) => createSessionMeta(session)) : [],
+    sessionStateById: sessionStateById && typeof sessionStateById === 'object' ? sessionStateById : {},
+});
+
+const createScopeSnapshotBundle = ({ originPath = '/', preservedContext = {} } = {}) => {
+    const bundle = createSessionBundle({ originPath, preservedContext });
+    return createScopeSnapshot({
+        activeSessionId: bundle.meta.id,
+        sessionSearchQuery: '',
+        sessions: [bundle.meta],
+        sessionStateById: {
+            [bundle.meta.id]: bundle.state,
+        },
+    });
+};
+
 const coerceSessionConversationState = (value = {}, preservedContext = {}, fallbackSessionId = '') => {
     const base = createSessionConversationState({
         sessionId: fallbackSessionId,
@@ -424,6 +452,7 @@ const buildAssistantMessage = ({
     assistantTurn = null,
     grounding = null,
     providerInfo = null,
+    providerCapabilities = null,
     provisional = false,
     upgraded = false,
     upgradeEligible = false,
@@ -463,6 +492,7 @@ const buildAssistantMessage = ({
         navigation,
         grounding,
         providerInfo,
+        providerCapabilities,
     });
 };
 
@@ -653,6 +683,13 @@ const ensureSessionCollections = (state = {}) => {
     };
 };
 
+const extractScopeSnapshotFromState = (state = {}) => createScopeSnapshot({
+    activeSessionId: state.activeSessionId,
+    sessionSearchQuery: state.sessionSearchQuery,
+    sessions: state.sessions,
+    sessionStateById: state.sessionStateById,
+});
+
 const syncDerivedSessionState = (state = {}) => {
     const { sessions, sessionStateById } = ensureSessionCollections(state);
     const activeSessionId = safeString(state?.activeSessionId || sessions[0]?.id);
@@ -671,16 +708,21 @@ const syncDerivedSessionState = (state = {}) => {
             message?.role === 'assistant' && (message?.isStreaming || message?.status === 'thinking')
         ))
     );
-
-    return {
+    const nextSessionStateById = {
+        ...sessionStateById,
+        [activeSession.id]: activeConversationState,
+    };
+    const viewerScope = normalizeViewerScope(state?.viewerScope || DEFAULT_VIEWER_SCOPE);
+    const scopeSnapshotsById = {
+        ...(state?.scopeSnapshotsById && typeof state.scopeSnapshotsById === 'object' ? state.scopeSnapshotsById : {}),
+    };
+    const nextState = {
         ...state,
+        viewerScope,
         activeSessionId: activeSession.id,
         activeSession,
         sessions,
-        sessionStateById: {
-            ...sessionStateById,
-            [activeSession.id]: activeConversationState,
-        },
+        sessionStateById: nextSessionStateById,
         sessionSearchQuery,
         visibleSessions,
         groupedSessions,
@@ -699,6 +741,12 @@ const syncDerivedSessionState = (state = {}) => {
         pendingAction: activeConversationState.pendingAction,
         pendingConfirmation: activeConversationState.pendingConfirmation,
         lastAssistantTurn: activeConversationState.lastAssistantTurn,
+    };
+    scopeSnapshotsById[viewerScope] = extractScopeSnapshotFromState(nextState);
+
+    return {
+        ...nextState,
+        scopeSnapshotsById,
     };
 };
 
@@ -750,6 +798,151 @@ const updateSessionConversationState = (state = {}, sessionId = '', updater = (v
         updatedConversationState || currentConversationState,
         metaOverrides,
     );
+};
+
+const mergeServerSessionsIntoState = (state = {}, serverSessions = [], { authoritative = true } = {}) => {
+    const { sessions, sessionStateById } = ensureSessionCollections(state);
+    const mergedStateById = authoritative ? {} : {
+        ...sessionStateById,
+    };
+    const mergedSessions = authoritative ? [] : [...sessions];
+    const normalizedServerSessions = Array.isArray(serverSessions) ? serverSessions : [];
+
+    normalizedServerSessions.forEach((serverSession) => {
+        const sessionId = safeString(serverSession?.id || '');
+        if (!sessionId) {
+            return;
+        }
+
+        if (!mergedStateById[sessionId]) {
+            mergedStateById[sessionId] = createSessionConversationState({
+                sessionId,
+                preservedContext: {
+                    route: safeString(serverSession?.originPath || '/', '/'),
+                },
+            });
+        }
+
+        const nextMeta = refreshSessionMeta(
+            getSessionMetaById(mergedSessions, sessionId) || createSessionMeta({ id: sessionId }),
+            mergedStateById[sessionId],
+            {
+                id: sessionId,
+                title: safeString(serverSession?.title || DEFAULT_SESSION_TITLE, DEFAULT_SESSION_TITLE),
+                preview: safeString(serverSession?.preview || DEFAULT_SESSION_PREVIEW, DEFAULT_SESSION_PREVIEW),
+                createdAt: normalizeTimestamp(serverSession?.createdAt, Date.now()),
+                updatedAt: normalizeTimestamp(serverSession?.updatedAt, Date.now()),
+                originPath: safeString(serverSession?.originPath || '/', '/'),
+                pinned: getSessionMetaById(mergedSessions, sessionId)?.pinned || false,
+            },
+        );
+        const existingIndex = mergedSessions.findIndex((entry) => entry.id === sessionId);
+        if (existingIndex >= 0) {
+            mergedSessions[existingIndex] = nextMeta;
+        } else {
+            mergedSessions.push(nextMeta);
+        }
+    });
+
+    if (authoritative && mergedSessions.length === 0) {
+        const fallbackOriginPath = safeString(state?.context?.route || '/', '/');
+        const snapshot = createScopeSnapshotBundle({
+            originPath: fallbackOriginPath,
+            preservedContext: {
+                ...buildPreservedContext(state?.context || {}),
+                route: fallbackOriginPath,
+                isAuthenticated: true,
+            },
+        });
+
+        return syncDerivedSessionState({
+            ...state,
+            activeSessionId: snapshot.activeSessionId,
+            sessions: snapshot.sessions,
+            sessionStateById: snapshot.sessionStateById,
+            sessionSearchQuery: '',
+        });
+    }
+
+    return syncDerivedSessionState({
+        ...state,
+        sessions: sortSessions(mergedSessions),
+        sessionStateById: mergedStateById,
+    });
+};
+
+const buildConversationStateFromServerPayload = (payload = {}, existingState = {}) => {
+    const session = payload?.session || {};
+    const sessionId = safeString(session?.id || existingState?.context?.assistantSession?.sessionId || '');
+    const preservedContext = buildPreservedContext({
+        ...(existingState?.context || {}),
+        route: safeString(session?.originPath || existingState?.context?.route || '/', '/'),
+        isAuthenticated: true,
+    });
+    const messages = Array.isArray(payload?.messages) && payload.messages.length > 0
+        ? payload.messages
+        : [createWelcomeMessage()];
+
+    return coerceSessionConversationState({
+        ...existingState,
+        status: 'idle',
+        isLoading: false,
+        messages,
+        context: mergeContexts(existingState?.context || createInitialContext(), {
+            route: safeString(session?.originPath || existingState?.context?.route || '/', '/'),
+            isAuthenticated: true,
+            assistantSession: payload?.assistantSession || {},
+            sessionMemory: {
+                ...(existingState?.context?.sessionMemory || createInitialSessionMemory()),
+                lastQuery: safeString(payload?.assistantSession?.lastEntities?.query || ''),
+                lastResults: Array.isArray(payload?.assistantSession?.lastResults) ? payload.assistantSession.lastResults : [],
+                activeProduct: payload?.assistantSession?.activeProduct || null,
+                lastIntent: safeString(payload?.assistantSession?.lastIntent || ''),
+                currentIntent: safeString(payload?.assistantSession?.lastIntent || ''),
+                clarificationState: payload?.assistantSession?.clarificationState || createInitialClarificationState(),
+            },
+        }, sessionId),
+        pendingConfirmation: null,
+    }, preservedContext, sessionId);
+};
+
+const switchViewerScopeState = (state = {}, {
+    viewerScope = DEFAULT_VIEWER_SCOPE,
+    preservedContext = null,
+    resetSearch = true,
+} = {}) => {
+    const nextViewerScope = normalizeViewerScope(viewerScope);
+    const currentViewerScope = normalizeViewerScope(state?.viewerScope || DEFAULT_VIEWER_SCOPE);
+    const currentSnapshots = state?.scopeSnapshotsById && typeof state.scopeSnapshotsById === 'object'
+        ? state.scopeSnapshotsById
+        : {};
+    const nextScopeSnapshotsById = {
+        ...currentSnapshots,
+        [currentViewerScope]: extractScopeSnapshotFromState(syncDerivedSessionState(state)),
+    };
+    const nextPreservedContext = {
+        ...buildPreservedContext(state?.context || {}),
+        ...(preservedContext && typeof preservedContext === 'object' ? buildPreservedContext(preservedContext) : {}),
+        isAuthenticated: !isGuestViewerScope(nextViewerScope),
+    };
+    const nextOriginPath = safeString(nextPreservedContext.route || state?.context?.route || '/', '/');
+    const nextScopeSnapshot = nextScopeSnapshotsById[nextViewerScope] || createScopeSnapshotBundle({
+        originPath: nextOriginPath,
+        preservedContext: {
+            ...nextPreservedContext,
+            route: nextOriginPath,
+        },
+    });
+
+    return syncDerivedSessionState({
+        ...state,
+        viewerScope: nextViewerScope,
+        scopeSnapshotsById: nextScopeSnapshotsById,
+        activeSessionId: nextScopeSnapshot.activeSessionId,
+        sessionSearchQuery: resetSearch ? '' : nextScopeSnapshot.sessionSearchQuery,
+        sessions: nextScopeSnapshot.sessions,
+        sessionStateById: nextScopeSnapshot.sessionStateById,
+    });
 };
 
 const applyAssistantTurnToConversationState = (sessionState = {}, payload = {}, { replaceMessageId = '' } = {}) => {
@@ -820,6 +1013,7 @@ const applyAssistantTurnToConversationState = (sessionState = {}, payload = {}, 
         assistantTurn: payload?.assistantTurn || null,
         grounding: payload?.grounding || null,
         providerInfo: payload?.providerInfo || null,
+        providerCapabilities: payload?.providerCapabilities || null,
         provisional: Boolean(payload?.provisional),
         upgraded: Boolean(payload?.upgraded),
         upgradeEligible: Boolean(payload?.upgradeEligible),
@@ -901,6 +1095,17 @@ const createInitialState = () => {
     const bundle = createSessionBundle();
     return syncDerivedSessionState({
         isOpen: false,
+        viewerScope: DEFAULT_VIEWER_SCOPE,
+        scopeSnapshotsById: {
+            [DEFAULT_VIEWER_SCOPE]: createScopeSnapshot({
+                activeSessionId: bundle.meta.id,
+                sessionSearchQuery: '',
+                sessions: [bundle.meta],
+                sessionStateById: {
+                    [bundle.meta.id]: bundle.state,
+                },
+            }),
+        },
         activeSessionId: bundle.meta.id,
         sessions: [bundle.meta],
         sessionStateById: {
@@ -980,10 +1185,51 @@ const mergeState = (persistedState, currentState) => {
         isOpen: false,
         sessionSearchQuery: safeString(nextState?.sessionSearchQuery || ''),
     };
+    const nextViewerScope = normalizeViewerScope(nextState?.viewerScope || DEFAULT_VIEWER_SCOPE);
+    const persistedScopeSnapshots = nextState?.scopeSnapshotsById && typeof nextState.scopeSnapshotsById === 'object'
+        ? nextState.scopeSnapshotsById
+        : null;
+
+    if (persistedScopeSnapshots) {
+        const fallbackSnapshot = createScopeSnapshot({
+            activeSessionId: nextState?.activeSessionId,
+            sessionSearchQuery: nextState?.sessionSearchQuery,
+            sessions: nextState?.sessions,
+            sessionStateById: nextState?.sessionStateById,
+        });
+        const scopeSnapshotsById = {
+            ...persistedScopeSnapshots,
+        };
+        if (!scopeSnapshotsById[nextViewerScope]) {
+            scopeSnapshotsById[nextViewerScope] = fallbackSnapshot.sessions.length > 0
+                ? fallbackSnapshot
+                : createScopeSnapshotBundle();
+        }
+        const activeSnapshot = scopeSnapshotsById[nextViewerScope];
+
+        return syncDerivedSessionState({
+            ...baseState,
+            viewerScope: nextViewerScope,
+            scopeSnapshotsById,
+            activeSessionId: activeSnapshot.activeSessionId,
+            sessionSearchQuery: activeSnapshot.sessionSearchQuery,
+            sessions: activeSnapshot.sessions,
+            sessionStateById: activeSnapshot.sessionStateById,
+        });
+    }
 
     if ((Array.isArray(nextState?.sessions) && nextState.sessions.length > 0) || nextState?.sessionStateById) {
         return syncDerivedSessionState({
             ...baseState,
+            viewerScope: DEFAULT_VIEWER_SCOPE,
+            scopeSnapshotsById: {
+                [DEFAULT_VIEWER_SCOPE]: createScopeSnapshot({
+                    activeSessionId: safeString(nextState?.activeSessionId || baseState.activeSessionId),
+                    sessionSearchQuery: safeString(nextState?.sessionSearchQuery || ''),
+                    sessions: nextState.sessions,
+                    sessionStateById: nextState.sessionStateById,
+                }),
+            },
             sessions: nextState.sessions,
             sessionStateById: nextState.sessionStateById,
             activeSessionId: safeString(nextState?.activeSessionId || baseState.activeSessionId),
@@ -994,6 +1240,17 @@ const mergeState = (persistedState, currentState) => {
         const migratedBundle = buildSessionBundleFromLegacyState(nextState);
         return syncDerivedSessionState({
             ...baseState,
+            viewerScope: DEFAULT_VIEWER_SCOPE,
+            scopeSnapshotsById: {
+                [DEFAULT_VIEWER_SCOPE]: createScopeSnapshot({
+                    activeSessionId: migratedBundle.meta.id,
+                    sessionSearchQuery: '',
+                    sessions: [migratedBundle.meta],
+                    sessionStateById: {
+                        [migratedBundle.meta.id]: migratedBundle.state,
+                    },
+                }),
+            },
             activeSessionId: migratedBundle.meta.id,
             sessions: [migratedBundle.meta],
             sessionStateById: {
@@ -1007,6 +1264,17 @@ const mergeState = (persistedState, currentState) => {
         const migratedBundle = buildSessionBundleFromLegacyState(legacyState);
         return syncDerivedSessionState({
             ...baseState,
+            viewerScope: DEFAULT_VIEWER_SCOPE,
+            scopeSnapshotsById: {
+                [DEFAULT_VIEWER_SCOPE]: createScopeSnapshot({
+                    activeSessionId: migratedBundle.meta.id,
+                    sessionSearchQuery: '',
+                    sessions: [migratedBundle.meta],
+                    sessionStateById: {
+                        [migratedBundle.meta.id]: migratedBundle.state,
+                    },
+                }),
+            },
             activeSessionId: migratedBundle.meta.id,
             sessions: [migratedBundle.meta],
             sessionStateById: {
@@ -1069,6 +1337,52 @@ export const useChatStore = create(
                 return syncDerivedSessionState({
                     ...state,
                     activeSessionId: targetSessionId,
+                });
+            }),
+            switchViewerScope: ({ viewerScope = DEFAULT_VIEWER_SCOPE, preservedContext = null, resetSearch = true } = {}) => set((state) => switchViewerScopeState(state, {
+                viewerScope,
+                preservedContext,
+                resetSearch,
+            })),
+            replaceSessionsFromServer: (serverSessions = [], options = {}) => set((state) => mergeServerSessionsIntoState(state, serverSessions, options)),
+            hydrateSessionFromServer: (payload = {}) => set((state) => {
+                const session = payload?.session || {};
+                const sessionId = safeString(session?.id || state.activeSessionId || '');
+                if (!sessionId) {
+                    return state;
+                }
+
+                const currentMeta = getSessionMetaById(state.sessions, sessionId) || createSessionMeta({
+                    id: sessionId,
+                    originPath: safeString(session?.originPath || '/', '/'),
+                });
+                const currentConversationState = coerceSessionConversationState(
+                    state.sessionStateById?.[sessionId] || {},
+                    buildPreservedContext(state.sessionStateById?.[sessionId]?.context || { route: currentMeta.originPath || '/' }),
+                    sessionId,
+                );
+                const nextConversationState = buildConversationStateFromServerPayload(payload, currentConversationState);
+                const nextMeta = refreshSessionMeta(currentMeta, nextConversationState, {
+                    id: sessionId,
+                    title: safeString(session?.title || currentMeta.title || DEFAULT_SESSION_TITLE, DEFAULT_SESSION_TITLE),
+                    preview: safeString(session?.preview || buildSessionPreview(nextConversationState.messages), DEFAULT_SESSION_PREVIEW),
+                    createdAt: normalizeTimestamp(session?.createdAt, currentMeta.createdAt || Date.now()),
+                    updatedAt: normalizeTimestamp(session?.updatedAt, Date.now()),
+                    originPath: safeString(session?.originPath || currentMeta.originPath || '/', '/'),
+                    pinned: currentMeta.pinned,
+                });
+
+                const sessionExists = state.sessions.some((entry) => entry.id === sessionId);
+                return syncDerivedSessionState({
+                    ...state,
+                    activeSessionId: sessionId,
+                    sessions: sortSessions(sessionExists
+                        ? state.sessions.map((entry) => (entry.id === sessionId ? nextMeta : entry))
+                        : [nextMeta, ...state.sessions]),
+                    sessionStateById: {
+                        ...state.sessionStateById,
+                        [sessionId]: nextConversationState,
+                    },
                 });
             }),
             togglePinnedSession: (sessionId = '') => set((state) => {
@@ -1612,6 +1926,18 @@ export const useChatStore = create(
                     sessionSearchQuery: '',
                 });
             }),
+            clearActiveSessionConversation: () => set((state) => updateSessionConversationState(
+                state,
+                state.activeSessionId,
+                (sessionState, currentMeta) => createSessionConversationState({
+                    sessionId: currentMeta?.id || state.activeSessionId,
+                    preservedContext: buildPreservedContext(sessionState.context || { route: currentMeta?.originPath || '/' }),
+                }),
+                {
+                    preview: DEFAULT_SESSION_PREVIEW,
+                    updatedAt: Date.now(),
+                },
+            )),
             getVisibleSessions: () => filterChatSessions(get().sessions, get().sessionSearchQuery),
             getGroupedSessionHistory: () => groupChatSessionsByRecency(
                 filterChatSessions(get().sessions, get().sessionSearchQuery),
@@ -1621,6 +1947,8 @@ export const useChatStore = create(
             name: CHAT_STORAGE_KEY,
             storage: createSafeStorage(),
             partialize: (state) => ({
+                viewerScope: state.viewerScope,
+                scopeSnapshotsById: state.scopeSnapshotsById,
                 activeSessionId: state.activeSessionId,
                 sessionSearchQuery: state.sessionSearchQuery,
                 sessions: state.sessions,

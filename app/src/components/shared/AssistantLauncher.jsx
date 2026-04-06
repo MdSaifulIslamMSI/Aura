@@ -26,7 +26,7 @@ const AssistantLauncher = () => {
             <button
                 type="button"
                 onClick={() => {
-                    pushClientDiagnostic('assistant_v2.launcher_opened', {
+                    pushClientDiagnostic('assistant_workspace.launcher_opened', {
                         context: {
                             originPath: `${location.pathname || '/'}${location.search || ''}`,
                         },

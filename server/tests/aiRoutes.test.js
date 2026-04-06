@@ -1,6 +1,6 @@
 const request = require('supertest');
 
-jest.mock('../services/ai/assistantOrchestratorService', () => ({
+jest.mock('../services/ai/commerceAssistantService', () => ({
     processAssistantTurn: jest.fn().mockResolvedValue({
         answer: 'Top grounded answer',
         products: [],
@@ -69,6 +69,9 @@ jest.mock('../services/ai/assistantOrchestratorService', () => ({
             traceId: 'trace_stream',
         });
     }),
+}));
+
+jest.mock('../services/ai/providerRegistry', () => ({
     createVoiceSessionConfig: jest.fn().mockReturnValue({
         sessionId: 'voice_test_123',
         expiresAt: '2026-03-09T12:00:00.000Z',
@@ -88,7 +91,7 @@ jest.mock('../services/ai/assistantOrchestratorService', () => ({
             },
         },
     }),
-    synthesizeVoiceReply: jest.fn().mockResolvedValue({
+    synthesizeSpeech: jest.fn().mockResolvedValue({
         provider: 'elevenlabs',
         model: 'eleven_flash_v2_5',
         voiceId: 'voice_test',
@@ -98,7 +101,7 @@ jest.mock('../services/ai/assistantOrchestratorService', () => ({
 }));
 
 const app = require('../index');
-const { processAssistantTurn, streamAssistantTurn } = require('../services/ai/assistantOrchestratorService');
+const { processAssistantTurn, streamAssistantTurn } = require('../services/ai/commerceAssistantService');
 
 describe('AI Routes', () => {
     beforeEach(() => {

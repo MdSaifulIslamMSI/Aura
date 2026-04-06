@@ -4,7 +4,6 @@ param(
     [string]$KeyVaultName = "aura-msi-20260318-kv",
     [string]$ApiAppName = "aura-msi-api-ca",
     [string]$WorkerAppName = "aura-msi-worker-ca",
-    [string]$IntelligenceAppName = "aura-msi-intelligence-ca",
     [string]$SourceEnvFile = "",
     [string]$ManifestPath = "",
     [string]$FrontendOrigin = "",
@@ -119,6 +118,16 @@ function Convert-EnvNameToSecretName {
     return $EnvName.Trim().ToLowerInvariant().Replace("_", "-")
 }
 
+function Test-IsKeyVaultPlaceholderValue {
+    param([string]$Value)
+
+    $trimmed = Trim-OrDefault $Value
+    if ([string]::IsNullOrWhiteSpace($trimmed)) { return $false }
+
+    return $trimmed.StartsWith("kv:", [System.StringComparison]::OrdinalIgnoreCase) `
+        -or $trimmed.StartsWith("@Microsoft.KeyVault(", [System.StringComparison]::OrdinalIgnoreCase)
+}
+
 function Test-IsSecretEnvName {
     param([string]$EnvName)
 
@@ -143,7 +152,6 @@ function Get-ServiceAppName {
     switch ($ServiceKey) {
         "api" { return $ApiAppName }
         "worker" { return $WorkerAppName }
-        "intelligence" { return $IntelligenceAppName }
         default { throw "Unknown service key $ServiceKey" }
     }
 }
@@ -289,6 +297,7 @@ function Get-KeyVaultValueDrift {
         $expected = Trim-OrDefault $entry.Value
         if (-not (Test-IsSecretEnvName -EnvName $envName)) { continue }
         if ([string]::IsNullOrWhiteSpace($expected)) { continue }
+        if (Test-IsKeyVaultPlaceholderValue -Value $expected) { continue }
 
         $secretName = Convert-EnvNameToSecretName -EnvName $envName
         try {

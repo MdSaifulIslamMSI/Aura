@@ -162,4 +162,61 @@ describe('MessageItem', () => {
         expect(screen.getByText('bold')).toBeInTheDocument();
         expect(screen.getByText('console.log("hi");')).toBeInTheDocument();
     });
+
+    it('renders user media previews and capability metadata for multimodal turns', () => {
+        renderWithMarket(
+            <MessageItem
+                message={{
+                    id: 'assistant-multimodal',
+                    role: 'assistant',
+                    text: 'Image search is ready, but direct audio reasoning is still gated.',
+                    uiSurface: 'plain_answer',
+                    providerCapabilities: {
+                        textInput: true,
+                        imageInput: true,
+                        audioInput: false,
+                    },
+                    grounding: {
+                        route: 'ECOMMERCE_SEARCH',
+                        retrievalHitCount: 3,
+                    },
+                    providerInfo: {
+                        name: 'gemini',
+                        model: 'models/gemma-4-31b-it',
+                    },
+                }}
+                {...noopProps}
+            />
+        );
+
+        expect(screen.getByText('Image ready')).toBeInTheDocument();
+        expect(screen.getByText('Audio gated')).toBeInTheDocument();
+        expect(screen.getByText(/gemini/i)).toBeInTheDocument();
+
+        renderWithMarket(
+            <MessageItem
+                message={{
+                    id: 'user-media',
+                    role: 'user',
+                    text: 'Find this exact match.',
+                    images: [
+                        {
+                            fileName: 'sample.jpg',
+                            dataUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9WlTH0kAAAAASUVORK5CYII=',
+                        },
+                    ],
+                    audio: [
+                        {
+                            fileName: 'note.webm',
+                            mimeType: 'audio/webm',
+                        },
+                    ],
+                }}
+                {...noopProps}
+            />
+        );
+
+        expect(screen.getByAltText('sample.jpg')).toBeInTheDocument();
+        expect(screen.getByText('note.webm')).toBeInTheDocument();
+    });
 });

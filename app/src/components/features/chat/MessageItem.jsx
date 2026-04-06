@@ -1,4 +1,4 @@
-import { ShoppingCart } from 'lucide-react';
+import { AudioLines, Image as ImageIcon, ShoppingCart } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useMarket } from '@/context/MarketContext';
@@ -36,6 +36,30 @@ const VERIFICATION_LABELS = {
     runtime_grounded: 'Runtime-grounded',
     model_knowledge: 'Model knowledge',
     cannot_verify: 'Cannot verify',
+};
+
+const buildCapabilityEntries = (capabilities = null) => {
+    if (!capabilities || typeof capabilities !== 'object') {
+        return [];
+    }
+
+    return [
+        {
+            key: 'text',
+            label: 'Text',
+            enabled: capabilities.textInput !== false,
+        },
+        {
+            key: 'image',
+            label: 'Image',
+            enabled: Boolean(capabilities.imageInput),
+        },
+        {
+            key: 'audio',
+            label: 'Audio',
+            enabled: Boolean(capabilities.audioInput),
+        },
+    ];
 };
 
 const renderMarkdown = (text = '', isWhiteMode = false) => {
@@ -155,9 +179,10 @@ const renderGroundingMeta = (message, isWhiteMode) => {
     const toolRuns = Array.isArray(message?.assistantTurn?.toolRuns) ? message.assistantTurn.toolRuns.slice(0, 6) : [];
     const grounding = message?.grounding || null;
     const providerInfo = message?.providerInfo || null;
+    const capabilityEntries = buildCapabilityEntries(message?.providerCapabilities || null);
     const guardReason = String(grounding?.reason || '').trim();
 
-    if (!verification && citations.length === 0 && toolRuns.length === 0 && !grounding && !providerInfo) {
+    if (!verification && citations.length === 0 && toolRuns.length === 0 && !grounding && !providerInfo && capabilityEntries.length === 0) {
         return null;
     }
 
@@ -168,6 +193,10 @@ const renderGroundingMeta = (message, isWhiteMode) => {
     const chipClassName = isWhiteMode
         ? 'border-slate-200 bg-white text-slate-700'
         : 'border-white/10 bg-white/[0.05] text-slate-200';
+    const route = String(grounding?.route || '').trim();
+    const retrievalHitCount = Math.max(0, Number(grounding?.retrievalHitCount || 0));
+    const providerName = String(grounding?.provider || providerInfo?.name || '').trim();
+    const providerModel = String(grounding?.providerModel || providerInfo?.model || '').trim();
 
     return (
         <div className={cn('w-full rounded-[1.1rem] border px-3 py-3 text-xs', panelClassName)}>
@@ -179,6 +208,49 @@ const renderGroundingMeta = (message, isWhiteMode) => {
                     {verification.summary ? (
                         <p className={cn('text-[11px]', subtleTextClass)}>{verification.summary}</p>
                     ) : null}
+                </div>
+            ) : null}
+
+            {(route || providerName || retrievalHitCount > 0) ? (
+                <div className="mt-3 flex flex-wrap gap-2">
+                    {route ? (
+                        <span className={cn('rounded-full border px-2.5 py-1', chipClassName)}>
+                            Route: {route.replace(/_/g, ' ')}
+                        </span>
+                    ) : null}
+                    {retrievalHitCount > 0 ? (
+                        <span className={cn('rounded-full border px-2.5 py-1', chipClassName)}>
+                            Hits: {retrievalHitCount}
+                        </span>
+                    ) : null}
+                    {providerName ? (
+                        <span className={cn('rounded-full border px-2.5 py-1', chipClassName)}>
+                            {providerModel ? `${providerName} \u00b7 ${providerModel}` : providerName}
+                        </span>
+                    ) : null}
+                </div>
+            ) : null}
+
+            {capabilityEntries.length > 0 ? (
+                <div className="mt-3">
+                    <p className={cn('mb-2 text-[10px] font-black uppercase tracking-[0.18em]', subtleTextClass)}>Input surface</p>
+                    <div className="flex flex-wrap gap-2">
+                        {capabilityEntries.map((entry) => (
+                            <span
+                                key={entry.key}
+                                className={cn(
+                                    'rounded-full border px-2.5 py-1 font-semibold',
+                                    entry.enabled
+                                        ? chipClassName
+                                        : (isWhiteMode
+                                            ? 'border-amber-200 bg-amber-50 text-amber-900'
+                                            : 'border-amber-300/20 bg-amber-500/10 text-amber-100')
+                                )}
+                            >
+                                {entry.enabled ? `${entry.label} ready` : `${entry.label} gated`}
+                            </span>
+                        ))}
+                    </div>
                 </div>
             ) : null}
 
@@ -236,6 +308,61 @@ const renderGroundingMeta = (message, isWhiteMode) => {
     );
 };
 
+const renderUserMediaAttachments = (message = {}, isWhiteMode = false) => {
+    const images = Array.isArray(message?.images) ? message.images.filter((entry) => String(entry?.dataUrl || entry?.url || '').trim()) : [];
+    const audio = Array.isArray(message?.audio) ? message.audio.filter((entry) => String(entry?.fileName || entry?.mimeType || '').trim()) : [];
+
+    if (images.length === 0 && audio.length === 0) {
+        return null;
+    }
+
+    const surfaceClassName = isWhiteMode
+        ? 'border-slate-200/90 bg-slate-100/80'
+        : 'border-white/10 bg-white/[0.08]';
+    const subtleTextClass = isWhiteMode ? 'text-slate-500' : 'text-white/65';
+
+    return (
+        <div className="space-y-3">
+            {images.length > 0 ? (
+                <div className={cn('grid gap-2', images.length > 1 ? 'grid-cols-2' : 'grid-cols-1')}>
+                    {images.slice(0, 3).map((image, index) => (
+                        <div key={image.id || image.fileName || index} className={cn('overflow-hidden rounded-[1.15rem] border', surfaceClassName)}>
+                            <div className="flex items-center gap-2 border-b border-black/5 px-3 py-2 text-[11px] font-semibold">
+                                <ImageIcon className="h-3.5 w-3.5" />
+                                <span className="truncate">{image.fileName || `Image ${index + 1}`}</span>
+                            </div>
+                            <img
+                                src={image.dataUrl || image.url}
+                                alt={image.fileName || `Attachment ${index + 1}`}
+                                className="h-28 w-full object-cover"
+                            />
+                        </div>
+                    ))}
+                </div>
+            ) : null}
+
+            {audio.length > 0 ? (
+                <div className="flex flex-col gap-2">
+                    {audio.slice(0, 3).map((entry, index) => (
+                        <div
+                            key={entry.id || entry.fileName || index}
+                            className={cn('flex items-center gap-3 rounded-[1rem] border px-3 py-2.5', surfaceClassName)}
+                        >
+                            <span className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-current/15 bg-white/10">
+                                <AudioLines className="h-4 w-4" />
+                            </span>
+                            <div className="min-w-0 flex-1">
+                                <p className="truncate text-sm font-semibold">{entry.fileName || 'Audio note'}</p>
+                                <p className={cn('text-[11px]', subtleTextClass)}>{entry.mimeType || 'audio upload'}</p>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            ) : null}
+        </div>
+    );
+};
+
 const MessageItem = ({
     message,
     isWhiteMode = false,
@@ -272,6 +399,7 @@ const MessageItem = ({
         ? ''
         : message?.text;
     const messageBadge = getMessageBadge(message);
+    const userMedia = renderUserMediaAttachments(message, isWhiteMode);
 
     return (
         <div className={cn('flex w-full flex-col gap-3.5', isUser ? 'items-end' : 'items-start')}>
@@ -280,14 +408,18 @@ const MessageItem = ({
                     <div
                         className={cn(
                             isUser
-                                ? 'max-w-[70%] rounded-full border px-5 py-3 text-[15px] leading-7 sm:max-w-[58%]'
+                                ? cn(
+                                    'max-w-[70%] border px-5 py-3 text-[15px] leading-7 sm:max-w-[58%]',
+                                    userMedia ? 'rounded-[1.5rem]' : 'rounded-full'
+                                )
                                 : 'max-w-[88%] rounded-[1.5rem] border px-4 py-3 transition-all duration-200 sm:max-w-[78%] sm:px-5',
                             isUser ? userBubbleClassName : assistantBubbleClassName,
                         )}
                     >
                         {isUser ? (
                             <div className="space-y-3 whitespace-pre-wrap break-words">
-                                {displayText}
+                                {displayText ? <div>{displayText}</div> : null}
+                                {userMedia}
                             </div>
                         ) : (
                             <div className={cn('space-y-3', assistantTextClassName)}>
