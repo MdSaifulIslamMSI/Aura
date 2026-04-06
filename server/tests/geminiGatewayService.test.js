@@ -150,4 +150,48 @@ describe('geminiGatewayService helpers', () => {
             providerModel: 'models/gemma-4-31b-it',
         });
     });
+
+    test('generateStructuredJson retries a stale unhealthy health check with a forced refresh', async () => {
+        mockFetch
+            .mockResolvedValueOnce({
+                ok: false,
+                status: 503,
+                text: async () => JSON.stringify({
+                    error: {
+                        message: 'Service temporarily unavailable',
+                    },
+                }),
+            })
+            .mockResolvedValueOnce({
+                ok: true,
+                text: async () => JSON.stringify({
+                    models: [{ name: 'models/gemma-4-31b-it' }],
+                }),
+            })
+            .mockResolvedValueOnce({
+                ok: true,
+                text: async () => JSON.stringify({
+                    candidates: [{
+                        content: {
+                            parts: [{ text: '{"answer":"Recovered"}' }],
+                        },
+                    }],
+                }),
+            });
+
+        const { generateStructuredJson } = require('../services/ai/geminiGatewayService');
+        const result = await generateStructuredJson({
+            systemPrompt: 'Return JSON only.',
+            prompt: 'Recover after the stale health cache.',
+        });
+
+        expect(mockFetch).toHaveBeenCalledTimes(3);
+        expect(result).toMatchObject({
+            data: {
+                answer: 'Recovered',
+            },
+            provider: 'gemini',
+            providerModel: 'models/gemma-4-31b-it',
+        });
+    });
 });
