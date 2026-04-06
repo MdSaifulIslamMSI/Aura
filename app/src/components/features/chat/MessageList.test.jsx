@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { MarketProvider } from '@/context/MarketContext';
 import MessageList from './MessageList';
 
-window.HTMLElement.prototype.scrollIntoView = vi.fn();
+window.HTMLElement.prototype.scrollTo = vi.fn();
 
 const noopProps = {
     onSelectProduct: vi.fn(),
@@ -83,5 +83,24 @@ describe('MessageList', () => {
 
         expect(screen.queryByText('Old Trending Laptop')).not.toBeInTheDocument();
         expect(screen.getByText('Opening Marketplace.')).toBeInTheDocument();
+    });
+
+    it('keeps auto-scroll scoped to the message container', () => {
+        renderWithMarket(
+            <MessageList
+                messages={[
+                    {
+                        id: 'assistant-latest',
+                        role: 'assistant',
+                        text: 'Scoped scroll check.',
+                        uiSurface: 'plain_answer',
+                        products: [],
+                    },
+                ]}
+                {...noopProps}
+            />
+        );
+
+        expect(window.HTMLElement.prototype.scrollTo).toHaveBeenCalled();
     });
 });

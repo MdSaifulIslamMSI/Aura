@@ -28,6 +28,27 @@ const ROUTE_ECOMMERCE = 'ECOMMERCE_SEARCH';
 const ROUTE_ACTION = 'ACTION';
 const HOSTED_GEMMA_PROVIDER = 'gemini';
 const HOSTED_GEMMA_MODEL_TOKEN = 'gemma';
+const ACTION_ROUTE_PATTERN = /\b(add .* cart|remove .* cart|checkout|track (my )?order|order status|support|open cart|show (my )?cart|go to cart|go to checkout|open checkout|open support|go to support|open orders|go to orders)\b/i;
+const COMMERCE_CONTEXT_INTENTS = new Set(['product_search', 'product_selection']);
+const FOLLOW_UP_REFINEMENT_PATTERN = /^(?:no\b|not\b|only\b|instead\b|more\b|another\b|else\b|different\b|similar\b|cheaper\b|budget\b|premium\b|show\b|in\b|for\b|under\b|above\b|around\b|within\b|prefer\b|want\b)/i;
+const GENERAL_QUESTION_PATTERN = /^(?:who|what|when|where|why|how|are|is|am|can|could|would|will|did|do)\b/i;
+const COMMERCE_CATEGORY_HINTS = [
+    'fashion',
+    'clothing',
+    'apparel',
+    'men',
+    'women',
+    'kids',
+    'beauty',
+    'grocery',
+    'electronics',
+    'mobile',
+    'laptop',
+    'home',
+    'furniture',
+    'footwear',
+    'shoes',
+];
 
 const safeString = (value, fallback = '') => contractSafeString(value, fallback);
 const uniq = (values = []) => [...new Set((Array.isArray(values) ? values : []).map((entry) => safeString(entry)).filter(Boolean))];
@@ -307,6 +328,43 @@ const buildMediaHintQuery = (mediaHints = {}, fallback = '') => (
     safeString(mediaHints?.queryCandidates?.[0] || fallback || '')
 );
 
+const hasRecentCommerceContext = (assistantSession = {}) => (
+    COMMERCE_CONTEXT_INTENTS.has(safeString(assistantSession?.lastIntent || ''))
+    || Array.isArray(assistantSession?.lastResults) && assistantSession.lastResults.length > 0
+    || Boolean(assistantSession?.activeProduct?.id)
+    || Boolean(safeString(assistantSession?.lastEntities?.query || ''))
+);
+
+const extractCommerceCategoryHint = (message = '') => {
+    const normalized = safeString(message).toLowerCase();
+    if (!normalized) return '';
+    return COMMERCE_CATEGORY_HINTS.find((hint) => normalized.includes(hint)) || '';
+};
+
+const shouldRouteAsCommerceFollowUp = ({ message = '', assistantSession = {} } = {}) => {
+    const normalized = safeString(message).toLowerCase();
+    if (!normalized || !hasRecentCommerceContext(assistantSession)) return false;
+    if (GENERAL_QUESTION_PATTERN.test(normalized)) return false;
+    if (extractCommerceCategoryHint(normalized)) return true;
+    if (FOLLOW_UP_REFINEMENT_PATTERN.test(normalized)) return true;
+    const wordCount = normalized.split(/\s+/).filter(Boolean).length;
+    return wordCount <= 6 && /\b(section|category|options?|results?|products?|items?)\b/i.test(normalized);
+};
+
+const shouldUseContextualCommercePlanner = ({
+    message = '',
+    assistantSession = {},
+    conversationHistory = [],
+} = {}) => {
+    const normalized = safeString(message).toLowerCase();
+    if (!normalized || !hasRecentCommerceContext(assistantSession)) return false;
+    if (GENERAL_QUESTION_PATTERN.test(normalized)) return false;
+    if (extractCommerceCategoryHint(normalized)) return true;
+    if (FOLLOW_UP_REFINEMENT_PATTERN.test(normalized)) return true;
+    const wordCount = normalized.split(/\s+/).filter(Boolean).length;
+    return wordCount <= 8 && Array.isArray(conversationHistory) && conversationHistory.length > 0;
+};
+
 const normalizeAssistantSession = (session = {}, sessionId = '') => ({
     sessionId: safeString(session?.sessionId || sessionId),
     contextVersion: Math.max(0, Number(session?.contextVersion || 0)),
@@ -544,14 +602,22 @@ const buildHostedGemmaUnavailableEnvelope = ({
     });
 };
 
-const detectRoute = ({ message = '', actionRequest = null, confirmation = null, context = {}, images = [], audio = [] } = {}) => {
+const detectRoute = ({
+    message = '',
+    actionRequest = null,
+    confirmation = null,
+    context = {},
+    assistantSession = {},
+    images = [],
+    audio = [],
+} = {}) => {
     if (confirmation?.actionId || actionRequest?.type) return { route: ROUTE_ACTION, reason: 'action' };
     if ((Array.isArray(images) && images.length > 0) || (Array.isArray(audio) && audio.length > 0)) {
         return { route: ROUTE_ECOMMERCE, reason: 'multimodal_input' };
     }
     const normalized = safeString(message).toLowerCase();
     if (!normalized) return { route: ROUTE_GENERAL, reason: 'empty' };
-    if (/\b(add .* cart|remove .* cart|checkout|track (my )?order|order status|support|open cart)\b/i.test(normalized)) {
+    if (ACTION_ROUTE_PATTERN.test(normalized)) {
         return { route: ROUTE_ACTION, reason: 'keyword_action' };
     }
     if (
@@ -561,6 +627,7 @@ const detectRoute = ({ message = '', actionRequest = null, confirmation = null, 
         || (Array.isArray(context?.candidateProductIds) && context.candidateProductIds.length > 0)
         || /\b(price|prices|cost|costs|product|products|phone|phones|laptop|laptops|shoe|shoes|compare|comparison|available|availability|stock|delivery|brand|brands|rupees|rs)\b/i.test(normalized)
         || /\bunder\s+\d+\b/i.test(normalized)
+        || shouldRouteAsCommerceFollowUp({ message: normalized, assistantSession })
     ) {
         return { route: ROUTE_ECOMMERCE, reason: 'commerce_context_or_keyword' };
     }
@@ -692,6 +759,8 @@ const trimConversationHistory = (history = []) => (
 
 const deriveRetrievalQuery = async ({
     message = '',
+    conversationHistory = [],
+    assistantSession = {},
     images = [],
     audio = [],
     route = ROUTE_ECOMMERCE,
@@ -700,13 +769,29 @@ const deriveRetrievalQuery = async ({
 } = {}) => {
     const safeMessage = safeString(message);
     const hintedQuery = buildMediaHintQuery(mediaHints, safeMessage);
+    const categoryHint = extractCommerceCategoryHint(safeMessage);
+    const shouldPlanFromContext = shouldUseContextualCommercePlanner({
+        message: safeMessage,
+        assistantSession,
+        conversationHistory,
+    });
     if ((!Array.isArray(images) || images.length === 0) && (!Array.isArray(audio) || audio.length === 0)) {
+        if (categoryHint && hasRecentCommerceContext(assistantSession)) {
+            return {
+                query: `${categoryHint} products`,
+                provider: '',
+                providerModel: '',
+                validator: { ok: true, reason: 'category_hint_query' },
+            };
+        }
+        if (!shouldPlanFromContext) {
         return {
             query: safeMessage,
             provider: '',
             providerModel: '',
             validator: { ok: true, reason: 'text_query' },
         };
+        }
     }
 
     if (!safeMessage && hintedQuery) {
@@ -730,16 +815,29 @@ const deriveRetrievalQuery = async ({
                     'Generate a compact ecommerce search query using brand, category, color, material, device family, or relevant specs when clear.',
                     'Do not mention uncertainty inside the query text.',
                 ].join('\n'),
-                prompt: safeMessage || 'Describe the uploaded item as an ecommerce search query.',
+                prompt: [
+                    hasRecentCommerceContext(assistantSession) ? `Previous ecommerce query: ${safeString(assistantSession?.lastEntities?.query || '')}` : '',
+                    Array.isArray(assistantSession?.lastResults) && assistantSession.lastResults.length > 0
+                        ? `Recent results: ${assistantSession.lastResults.slice(0, 4).map((product) => `${safeString(product?.title || '')} (${safeString(product?.category || '')})`).join('; ')}`
+                        : '',
+                    Array.isArray(conversationHistory) && conversationHistory.length > 0
+                        ? `Conversation:\n${trimConversationHistory(conversationHistory).map((entry) => `${entry.role.toUpperCase()}: ${entry.content}`).join('\n')}`
+                        : '',
+                    safeMessage || 'Describe the uploaded item as an ecommerce search query.',
+                ].filter(Boolean).join('\n\n'),
             },
             {
                 systemPrompt: [
                     'You are a retrieval planner for a controlled ecommerce assistant.',
                     'Return JSON only and use real values, never placeholders.',
                     'Example valid JSON: {"query":"dell xps 13 laptop","followUps":["Compare similar laptops","Set a budget"]}.',
+                    'When the user is refining a previous shopping request, rewrite it into the next explicit catalog query.',
                     'Describe the uploaded product as a concise shopping search query.',
                 ].join('\n'),
-                prompt: safeMessage || 'Identify the item in the uploaded media and convert it into an ecommerce search query.',
+                prompt: [
+                    hasRecentCommerceContext(assistantSession) ? `Previous ecommerce query: ${safeString(assistantSession?.lastEntities?.query || '')}` : '',
+                    safeMessage || 'Identify the item in the uploaded media and convert it into an ecommerce search query.',
+                ].filter(Boolean).join('\n\n'),
             },
         ];
 
@@ -778,7 +876,9 @@ const deriveRetrievalQuery = async ({
             route,
         });
         return {
-            query: hintedQuery || safeMessage || 'product',
+            query: categoryHint
+                ? `${categoryHint} products`
+                : (hintedQuery || safeMessage || safeString(assistantSession?.lastEntities?.query || '') || 'product'),
             provider: '',
             providerModel: '',
             validator: { ok: false, reason: safeString(error?.message || 'retrieval_query_fallback') },
@@ -799,7 +899,7 @@ const performGeneralTurn = async ({
     let provider = 'rule';
     let providerModel = '';
     let validator = { ok: true, reason: 'fallback' };
-    const gatewayHealth = await checkModelGatewayHealth().catch(() => getModelGatewayHealth());
+    let gatewayHealth = await checkModelGatewayHealth().catch(() => getModelGatewayHealth());
 
     if (isHostedGemmaAudioUnsupported(gatewayHealth, audio)) {
         const assistantTurn = buildAssistantTurn({
@@ -847,7 +947,6 @@ const performGeneralTurn = async ({
     };
 
     try {
-        if (!gatewayHealth.healthy) throw new Error(gatewayHealth.error || 'model_gateway_unavailable');
         const history = trimConversationHistory(conversationHistory).map((entry) => `${entry.role.toUpperCase()}: ${entry.content}`).join('\n');
         const attempts = [
             {
@@ -892,6 +991,7 @@ const performGeneralTurn = async ({
         if (!parsed?.ok || !response) throw new Error('invalid_general_payload');
         provider = response.provider;
         providerModel = response.providerModel;
+        gatewayHealth = await checkModelGatewayHealth({ provider, force: true }).catch(() => getModelGatewayHealth());
         validator = { ok: true, reason: 'model_json_valid' };
         payload = parsed.data;
     } catch (error) {
@@ -958,11 +1058,18 @@ const performCommerceTurn = async ({
     audio = [],
     } = {}) => {
     const requireHostedGemma = isHostedGemmaCommerceRequired();
-    const gatewayHealth = await checkModelGatewayHealth({
+    let gatewayHealth = await checkModelGatewayHealth({
         provider: requireHostedGemma ? HOSTED_GEMMA_PROVIDER : '',
         disableProviderFallback: requireHostedGemma,
     }).catch(() => getModelGatewayHealth());
     const vectorStoreHealthPromise = getLocalVectorIndexHealth().catch(() => null);
+    if (requireHostedGemma && !isHostedGemmaGatewayHealthy(gatewayHealth) && gatewayHealth?.apiConfigured !== false) {
+        gatewayHealth = await checkModelGatewayHealth({
+            provider: HOSTED_GEMMA_PROVIDER,
+            disableProviderFallback: true,
+            force: true,
+        }).catch(() => getModelGatewayHealth());
+    }
     if (isHostedGemmaAudioUnsupported(gatewayHealth, audio)) {
         const assistantTurn = buildAssistantTurn({
             intent: 'product_search',
@@ -1024,7 +1131,7 @@ const performCommerceTurn = async ({
             assistantSession,
             gatewayHealth,
             vectorStoreHealth: await vectorStoreHealthPromise,
-            reason: gatewayHealth?.healthy ? 'hosted_gemma_provider_mismatch' : 'hosted_gemma_gateway_unavailable',
+            reason: 'hosted_gemma_gateway_unavailable',
         });
     }
 
@@ -1039,6 +1146,8 @@ const performCommerceTurn = async ({
     });
     const retrievalQuery = await deriveRetrievalQuery({
         message,
+        conversationHistory,
+        assistantSession,
         images,
         audio,
         route: ROUTE_ECOMMERCE,
@@ -1182,6 +1291,11 @@ const performCommerceTurn = async ({
         }
         provider = response.provider;
         providerModel = response.providerModel;
+        gatewayHealth = await checkModelGatewayHealth({
+            provider: HOSTED_GEMMA_PROVIDER,
+            disableProviderFallback: requireHostedGemma,
+            force: true,
+        }).catch(() => getModelGatewayHealth());
         validator = parsed.rejectedProductIds.length > 0
             ? { ok: false, reason: 'unknown_product_ids_stripped', rejectedProductIds: parsed.rejectedProductIds }
             : { ok: true, reason: 'model_json_valid' };
@@ -1579,11 +1693,21 @@ const resolveActionPlan = async ({ message = '', actionRequest = null, user = nu
         return { type: 'track_order', orderId: safeString(latestOrder?._id || requestedId || ''), order: latestOrder || null, requiresConfirmation: false };
     }
     if (/\bsupport\b/i.test(normalized) || /\bhelp with order\b/i.test(normalized)) {
-        const latestOrder = await loadLatestOrder(user?._id);
+        const requestedId = parseOrderId(normalized);
+        const orderScoped = requestedId || /\border\b/i.test(normalized);
+        const latestOrder = orderScoped
+            ? (requestedId
+                ? await Order.findOne({ _id: requestedId, user: user?._id }).select('orderStatus totalPrice createdAt').lean()
+                : await loadLatestOrder(user?._id))
+            : null;
         return {
             type: 'open_support',
-            orderId: safeString(latestOrder?._id || ''),
-            prefill: { subject: 'Customer support request', category: latestOrder ? 'order_help' : 'general_help', body: safeString(message) },
+            orderId: safeString(latestOrder?._id || requestedId || ''),
+            prefill: {
+                subject: orderScoped ? 'Order support request' : 'Customer support request',
+                category: latestOrder || requestedId ? 'order_help' : 'general_help',
+                body: safeString(message),
+            },
             requiresConfirmation: false,
         };
     }
@@ -1711,14 +1835,21 @@ const performActionTurn = async ({
     }
 
     if (action.type === 'open_support') {
+        const orderScopedSupport = Boolean(safeString(action.orderId || ''));
         const assistantTurn = buildAssistantTurn({
             intent: 'support',
             confidence: 0.99,
             decision: 'act',
-            response: action.orderId ? `Opening support for order ${String(action.orderId).slice(-6)}.` : 'Opening the support desk.',
+            response: orderScopedSupport ? `Opening support for order ${String(action.orderId).slice(-6)}.` : 'Opening the support desk.',
             actions: [action],
             ui: { surface: 'support_handoff', support: { orderId: safeString(action.orderId || ''), prefill: action.prefill || {} } },
-            verification: { label: 'app_grounded', confidence: 1, summary: 'Support handoff prepared from validated order context.' },
+            verification: {
+                label: 'app_grounded',
+                confidence: 1,
+                summary: orderScopedSupport
+                    ? 'Support handoff prepared from validated order context.'
+                    : 'Support handoff prepared without binding to an order.',
+            },
             answerMode: 'commerce',
         });
         return buildResponseEnvelope({
@@ -1851,7 +1982,15 @@ const processAssistantTurn = async ({
     const resolvedSessionId = safeString(sessionId || context?.clientSessionId || '') || createSessionId();
     const assistantSession = await resolveStoredAssistantSession({ user, sessionId: resolvedSessionId, context });
     const resolvedConfirmation = inferConfirmationFromMessage({ message, confirmation, assistantSession });
-    const routeDecision = detectRoute({ message, actionRequest, confirmation: resolvedConfirmation, context, images, audio });
+    const routeDecision = detectRoute({
+        message,
+        actionRequest,
+        confirmation: resolvedConfirmation,
+        context,
+        assistantSession,
+        images,
+        audio,
+    });
     recordRouteDecisionMetric({ route: routeDecision.route, assistantMode });
 
     let response;
@@ -2015,11 +2154,15 @@ module.exports = {
         buildActionContext,
         buildHostedGemmaUnavailableEnvelope,
         detectRoute,
+        deriveRetrievalQuery,
+        extractCommerceCategoryHint,
         extractMediaLookupHints,
         inferConfirmationFromMessage,
         isHostedGemmaCommerceRequired,
         isHostedGemmaGatewayHealthy,
         isHostedGemmaAudioUnsupported,
+        resolveActionPlan,
+        shouldRouteAsCommerceFollowUp,
         validateCommercePayload,
         validateGeneralPayload,
     },

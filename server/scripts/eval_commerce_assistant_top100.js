@@ -18,6 +18,17 @@ const { processAssistantTurn } = require('../services/ai/commerceAssistantServic
 
 const safeString = (value, fallback = '') => String(value === undefined || value === null ? fallback : value).trim();
 const deepClone = (value) => JSON.parse(JSON.stringify(value));
+const trimHistory = (history = []) => (
+    Array.isArray(history)
+        ? history
+            .filter((entry) => ['user', 'assistant', 'system'].includes(safeString(entry?.role || '')))
+            .map((entry) => ({
+                role: safeString(entry.role),
+                content: safeString(entry.content || '').slice(0, 1000),
+            }))
+            .slice(-6)
+        : []
+);
 
 const toContextProduct = (product = {}) => ({
     id: safeString(product.id || product._id || product.externalId || ''),
@@ -501,6 +512,9 @@ const createPromptRuntimeContext = ({ prompt, sessionState, samples }) => {
 
 const updateSessionStateFromResult = ({ sessionState, result }) => {
     sessionState.sessionId = safeString(result?.assistantSession?.sessionId || sessionState.sessionId || '');
+    sessionState.assistantSession = result?.assistantSession && typeof result.assistantSession === 'object'
+        ? deepClone(result.assistantSession)
+        : deepClone(sessionState.assistantSession || {});
 
     if (result?.sessionMemory && typeof result.sessionMemory === 'object') {
         sessionState.context.sessionMemory = deepClone(result.sessionMemory);
@@ -532,6 +546,12 @@ const updateSessionStateFromResult = ({ sessionState, result }) => {
         const resolvedRoute = routeForPage(navigationAction.page);
         if (resolvedRoute) sessionState.context.route = resolvedRoute;
     }
+
+    sessionState.history = trimHistory([
+        ...(Array.isArray(sessionState.history) ? sessionState.history : []),
+        { role: 'user', content: safeString(result?.request?.message || '') },
+        { role: 'assistant', content: safeString(result?.answer || result?.assistantTurn?.response || '') },
+    ]);
 };
 
 const evaluatePrompts = async (prompts, samples) => {
@@ -540,8 +560,13 @@ const evaluatePrompts = async (prompts, samples) => {
 
     for (const prompt of prompts) {
         const sessionKey = safeString(prompt.sessionKey || 'default');
-        const existing = sessionMap.get(sessionKey) || { sessionId: '', context: {} };
-        const sessionState = { sessionId: existing.sessionId, context: deepClone(existing.context || {}) };
+        const existing = sessionMap.get(sessionKey) || { sessionId: '', context: {}, assistantSession: {}, history: [] };
+        const sessionState = {
+            sessionId: existing.sessionId,
+            context: deepClone(existing.context || {}),
+            assistantSession: deepClone(existing.assistantSession || {}),
+            history: Array.isArray(existing.history) ? deepClone(existing.history) : [],
+        };
         const context = createPromptRuntimeContext({ prompt, sessionState, samples });
 
         let result = null;
@@ -551,10 +576,18 @@ const evaluatePrompts = async (prompts, samples) => {
             result = await processAssistantTurn({
                 user: null,
                 message: prompt.question,
+                conversationHistory: trimHistory([
+                    ...sessionState.history,
+                    { role: 'user', content: prompt.question },
+                ]),
                 assistantMode: prompt.assistantMode || 'chat',
                 sessionId: sessionState.sessionId,
-                context,
+                context: {
+                    ...context,
+                    assistantSession: deepClone(sessionState.assistantSession || {}),
+                },
             });
+            result.request = { message: prompt.question };
             updateSessionStateFromResult({ sessionState, result });
         } catch (caught) {
             error = caught;
