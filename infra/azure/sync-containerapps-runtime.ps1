@@ -424,6 +424,25 @@ function Convert-EnvNameToSecretName {
     return $EnvName.Trim().ToLowerInvariant().Replace("_", "-")
 }
 
+function Test-IsKeyVaultPlaceholderValue {
+    param([string]$Value)
+
+    $trimmed = Trim-OrDefault $Value
+    if ([string]::IsNullOrWhiteSpace($trimmed)) {
+        return $false
+    }
+
+    if ($trimmed -match '^(?i)kv:[a-z0-9-]+$') {
+        return $true
+    }
+
+    if ($trimmed -match '^(?i)@Microsoft\.KeyVault\(') {
+        return $true
+    }
+
+    return $false
+}
+
 function Get-SecretAlias {
     param([string]$EnvName)
 
@@ -523,6 +542,9 @@ function Import-SecretsToKeyVault {
 
         $value = Trim-OrDefault $entry.Value
         if ([string]::IsNullOrWhiteSpace($value)) {
+            continue
+        }
+        if (Test-IsKeyVaultPlaceholderValue -Value $value) {
             continue
         }
 
