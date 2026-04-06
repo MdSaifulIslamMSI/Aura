@@ -117,6 +117,7 @@ const addOrderItems = asyncHandler(async (req, res, next) => {
             body: req.body,
             user: req.user,
             userId,
+            authUid: req.authUid || '',
             requestId: req.requestId,
             idempotencyKey,
             userKey,

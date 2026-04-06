@@ -8,7 +8,7 @@ const buildBasicApp = () => {
     
     // Mock routes protected by authMiddleware
     app.get('/api/users/profile', protect, (req, res) => res.status(200).json({ ok: true }));
-    app.put('/api/users/cart', protect, (req, res) => res.status(200).json({ ok: true }));
+    app.post('/api/cart/commands', protect, (req, res) => res.status(200).json({ ok: true }));
     app.put('/api/users/wishlist', protect, (req, res) => res.status(200).json({ ok: true }));
     app.post('/api/orders', protect, (req, res) => res.status(200).json({ ok: true }));
     app.get('/api/orders/myorders', protect, (req, res) => res.status(200).json({ ok: true }));
@@ -41,10 +41,10 @@ describe('Auth Middleware Tests', () => {
             expect(res.statusCode).toBe(401);
         });
 
-        test('PUT /api/users/cart should return 401 without token', async () => {
+        test('POST /api/cart/commands should return 401 without token', async () => {
             const res = await request(app)
-                .put('/api/users/cart')
-                .send({ cartItems: [] });
+                .post('/api/cart/commands')
+                .send({ commands: [] });
             expect(res.statusCode).toBe(401);
         });
 

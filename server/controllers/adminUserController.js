@@ -1,5 +1,6 @@
 const asyncHandler = require('express-async-handler');
 const User = require('../models/User');
+const Cart = require('../models/Cart');
 const Order = require('../models/Order');
 const Listing = require('../models/Listing');
 const PaymentIntent = require('../models/PaymentIntent');
@@ -819,11 +820,24 @@ const deleteAdminUser = asyncHandler(async (req, res, next) => {
         targetUser.avatar = '';
         targetUser.bio = '';
         targetUser.addresses = [];
-        targetUser.cart = [];
         targetUser.wishlist = [];
     }
 
     await targetUser.save();
+
+    if (scrubPII) {
+        await Cart.updateOne(
+            { user: targetUser._id },
+            {
+                $set: {
+                    items: [],
+                    updatedAtIso: new Date().toISOString(),
+                    recentMutations: [],
+                },
+                $inc: { version: 1 },
+            }
+        ).catch(() => null);
+    }
 
     const listingUpdate = await Listing.updateMany(
         { seller: targetUser._id, status: 'active' },
