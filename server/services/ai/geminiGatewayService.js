@@ -356,6 +356,14 @@ const checkGeminiHealth = async ({ force = false } = {}) => {
     return { ...healthState };
 };
 
+const getHealthyGeminiState = async ({ force = false } = {}) => {
+    let health = await checkGeminiHealth({ force });
+    if (!health.healthy && health.apiConfigured !== false) {
+        health = await checkGeminiHealth({ force: true });
+    }
+    return health;
+};
+
 const extractResponseText = (payload = {}) => {
     const candidate = Array.isArray(payload?.candidates) ? payload.candidates[0] : null;
     const parts = Array.isArray(candidate?.content?.parts) ? candidate.content.parts : [];
@@ -593,7 +601,7 @@ const generateStructuredJson = async ({
     responseJsonSchema = null,
 } = {}) => {
     const config = getGatewayConfig();
-    const health = await checkGeminiHealth();
+    const health = await getHealthyGeminiState();
     if (!health.healthy) {
         throw new Error(health.error || 'gemini_unavailable');
     }
@@ -705,7 +713,7 @@ const embedText = async (text = '', { taskType = 'RETRIEVAL_DOCUMENT' } = {}) =>
     if (!input) return [];
 
     const config = getGatewayConfig();
-    const health = await checkGeminiHealth();
+    const health = await getHealthyGeminiState();
     if (!health.healthy) {
         throw new Error(health.error || 'gemini_unavailable');
     }
@@ -805,6 +813,7 @@ module.exports = {
     generateStructuredJson,
     getGatewayConfig,
     getGeminiHealth,
+    getHealthyGeminiState,
     warmChatModel,
     __testables: {
         extractJsonCandidate,

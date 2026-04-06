@@ -9,6 +9,22 @@ const isNearBottom = (element) => {
     return (element.scrollHeight - element.scrollTop - element.clientHeight) < SCROLL_LOCK_THRESHOLD;
 };
 
+const scrollContainerToBottom = (element, behavior = 'smooth') => {
+    if (!element) {
+        return;
+    }
+
+    if (typeof element.scrollTo === 'function') {
+        element.scrollTo({
+            top: element.scrollHeight,
+            behavior,
+        });
+        return;
+    }
+
+    element.scrollTop = element.scrollHeight;
+};
+
 const MessageList = ({
     messages = [],
     isLoading = false,
@@ -22,7 +38,6 @@ const MessageList = ({
     onCancelPending,
     onModifyPending,
 }) => {
-    const endRef = useRef(null);
     const containerRef = useRef(null);
     const shouldStickToBottomRef = useRef(true);
     const latestAssistantMessageId = [...messages]
@@ -37,10 +52,7 @@ const MessageList = ({
             return;
         }
 
-        endRef.current?.scrollIntoView({
-            behavior: hasStreamingAssistantMessage ? 'auto' : 'smooth',
-            block: 'end',
-        });
+        scrollContainerToBottom(containerRef.current, hasStreamingAssistantMessage ? 'auto' : 'smooth');
     }, [hasStreamingAssistantMessage, isLoading, messages]);
 
     const handleScroll = () => {
@@ -59,7 +71,7 @@ const MessageList = ({
         <div
             ref={containerRef}
             onScroll={handleScroll}
-            className={cn('flex-1 overflow-y-auto px-4 py-6 sm:px-8 sm:py-8', className)}
+            className={cn('flex-1 overflow-y-auto overscroll-contain px-4 py-6 sm:px-8 sm:py-8', className)}
         >
             <div className="mx-auto w-full max-w-4xl space-y-8">
                 {messages.map((message) => (
@@ -89,8 +101,6 @@ const MessageList = ({
                         </div>
                     </div>
                 ) : null}
-
-                <div ref={endRef} />
             </div>
         </div>
     );
