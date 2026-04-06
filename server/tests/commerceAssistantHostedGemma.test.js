@@ -194,4 +194,76 @@ describe('commerceAssistantService hosted Gemma enforcement', () => {
             retrievalProvider: 'local_vector',
         });
     });
+
+    test('reuses session results for comparison follow-ups instead of re-searching', async () => {
+        const modelGateway = require('../services/ai/modelGatewayService');
+        const vectorIndex = require('../services/ai/localProductVectorIndexService');
+
+        modelGateway.checkModelGatewayHealth.mockResolvedValue({
+            provider: 'gemini',
+            activeProvider: 'gemini',
+            healthy: true,
+            apiConfigured: true,
+            chatModel: 'models/gemma-4-31b-it',
+            resolvedChatModel: 'models/gemma-4-31b-it',
+            capabilities: {
+                textInput: true,
+                imageInput: true,
+                audioInput: false,
+            },
+        });
+        modelGateway.getModelGatewayHealth.mockReturnValue({
+            provider: 'gemini',
+            activeProvider: 'gemini',
+            healthy: true,
+            apiConfigured: true,
+            chatModel: 'models/gemma-4-31b-it',
+            resolvedChatModel: 'models/gemma-4-31b-it',
+        });
+        modelGateway.generateStructuredJson.mockResolvedValue({
+            data: {
+                answer: 'Vivo V9 has the best rating among these options.',
+                productIds: ['400047506'],
+                focusProductId: '400047506',
+                followUps: ['Compare battery life'],
+            },
+            provider: 'gemini',
+            providerModel: 'models/gemma-4-31b-it',
+        });
+
+        const { processAssistantTurn } = require('../services/ai/commerceAssistantService');
+        const result = await processAssistantTurn({
+            message: 'which one has the best rating and why',
+            context: {
+                assistantSession: {
+                    lastIntent: 'product_search',
+                    lastEntities: { query: 'top rated phones under 15000' },
+                    lastResults: [product],
+                },
+            },
+            conversationHistory: [
+                { role: 'user', content: 'show me top rated in stock phone under 15000' },
+                { role: 'assistant', content: 'Here are your validated options.' },
+            ],
+        });
+
+        expect(vectorIndex.searchProductVectorIndex).not.toHaveBeenCalled();
+        expect(result.route).toBe('ECOMMERCE_SEARCH');
+        expect(result.provider).toBe('gemini');
+        expect(result.products).toEqual([
+            expect.objectContaining({
+                id: 400047506,
+                title: 'Dell Inspiron 14',
+            }),
+        ]);
+        expect(result.grounding.validator).toMatchObject({
+            ok: true,
+            reason: 'model_json_valid',
+            retrievalQuery: {
+                ok: true,
+                reason: 'session_result_context',
+            },
+            retrievalProvider: 'assistant_session',
+        });
+    });
 });

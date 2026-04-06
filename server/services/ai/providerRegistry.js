@@ -583,6 +583,74 @@ const createLiveKitToken = ({ identity, roomName, locale }) => {
     };
 };
 
+const buildLanguageHints = (preferredLocale = AI_DEFAULT_LOCALE) => {
+    const hints = [
+        safeString(preferredLocale || AI_DEFAULT_LOCALE),
+        AI_DEFAULT_LOCALE,
+        'hi-IN',
+    ].filter(Boolean);
+
+    return [...new Set(hints)];
+};
+
+const createVoiceSessionConfig = ({
+    userId = '',
+    locale = AI_DEFAULT_LOCALE,
+} = {}) => {
+    const resolvedLocale = safeString(locale || AI_DEFAULT_LOCALE) || AI_DEFAULT_LOCALE;
+    const sanitizedUserId = safeString(userId)
+        .replace(/[^a-z0-9_-]+/gi, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 48);
+    const sessionId = `voice_${crypto.randomUUID()}`;
+    const identity = sanitizedUserId
+        ? `aura-${sanitizedUserId}-${sessionId.slice(-8)}`
+        : `aura-${sessionId.slice(-12)}`;
+    const realtime = createLiveKitToken({
+        identity,
+        roomName: LIVEKIT_ROOM_NAME,
+        locale: resolvedLocale,
+    });
+    const capabilities = getCapabilitySnapshot();
+    const speechProvider = capabilities.speechToText === 'groq_ready' ? 'groq' : 'browser_fallback';
+    const textToSpeechProvider = capabilities.textToSpeech === 'elevenlabs_ready' ? 'elevenlabs' : 'browser_fallback';
+
+    return {
+        sessionId,
+        locale: resolvedLocale,
+        supportsServerInterpretation: true,
+        supportsAudioUpload: speechProvider === 'groq',
+        turnEndpoint: '/api/ai/chat',
+        speakEndpoint: '/api/ai/voice/speak',
+        realtimeEnabled: Boolean(realtime?.enabled),
+        serverUrl: safeString(realtime?.serverUrl || ''),
+        roomName: safeString(realtime?.roomName || LIVEKIT_ROOM_NAME),
+        identity: safeString(realtime?.identity || identity),
+        token: safeString(realtime?.token || ''),
+        expiresAt: safeString(
+            realtime?.expiresAt
+            || new Date(Date.now() + (LIVEKIT_TTL_SECONDS * 1000)).toISOString()
+        ),
+        capabilities: {
+            speechToText: {
+                provider: speechProvider,
+                mode: speechProvider === 'groq' ? 'server_ready' : 'browser_fallback',
+                languageHints: buildLanguageHints(resolvedLocale),
+            },
+            textToSpeech: {
+                provider: textToSpeechProvider,
+                mode: textToSpeechProvider === 'elevenlabs' ? 'server_ready' : 'browser_fallback',
+                voiceId: safeString(process.env.ELEVENLABS_VOICE_ID || '') || 'browser-default',
+            },
+            realtime: {
+                provider: realtime?.enabled ? 'livekit' : 'turn_based',
+                mode: realtime?.enabled ? 'server_ready' : 'turn_based',
+                reason: safeString(realtime?.reason || ''),
+            },
+        },
+    };
+};
+
 const resolveElevenLabsVoiceId = async () => {
     if (cachedElevenVoiceId) return cachedElevenVoiceId;
 
@@ -686,6 +754,7 @@ const getCapabilitySnapshot = () => {
 
 module.exports = {
     cosineSimilarity,
+    createVoiceSessionConfig,
     describeVisualInput,
     embedTexts,
     generateStructuredResponse,

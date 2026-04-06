@@ -134,6 +134,10 @@ function Test-IsSecretEnvName {
     $upper = $EnvName.Trim().ToUpperInvariant()
     if ([string]::IsNullOrWhiteSpace($upper)) { return $false }
 
+    if ($upper -in @(
+        "FIREBASE_CLIENT_EMAIL"
+    )) { return $true }
+
     if ($upper -match '(^|_)(SECRET|TOKEN|PASSWORD)$') { return $true }
     if ($upper -match '(^|_)API_KEY$') { return $true }
     if ($upper -match '(^|_)PRIVATE_KEY$') { return $true }
@@ -142,6 +146,7 @@ function Test-IsSecretEnvName {
     if ($upper -match '_WEBHOOK_SECRET$') { return $true }
     if ($upper -match '_SERVICE_ACCOUNT$') { return $true }
     if ($upper -match '_KEY_SECRET$') { return $true }
+    if ($upper -match '_PREVIOUS_SECRETS$') { return $true }
 
     return $false
 }

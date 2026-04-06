@@ -12,6 +12,7 @@
     "azure:runtime:dryrun:example": "powershell -ExecutionPolicy Bypass -File ../infra/azure/sync-containerapps-runtime.ps1 -SourceEnvFile .env.azure-secrets.example -DryRun -PlanOutputPath ../.run-logs/azure-runtime-plan.example.json",
     "azure:runtime:sync": "powershell -ExecutionPolicy Bypass -File ../infra/azure/sync-containerapps-runtime.ps1 -SourceEnvFile .env -SyncKeyVaultSecrets",
     "azure:runtime:verify": "powershell -ExecutionPolicy Bypass -File ../infra/azure/verify-containerapps-runtime.ps1 -SourceEnvFile .env -ReportOutputPath ../.run-logs/azure-runtime-verify.json",
+    "azure:keyvault:audit": "node scripts/audit_keyvault_secret_contract.js",
     "smoke:bootstrap-accounts": "node scripts/bootstrap_staging_smoke_accounts.js",
     "smoke:staging": "node scripts/staging_smoke.js",
     "load:validate": "node scripts/load_validate.js",
@@ -41,6 +42,7 @@
     "migrate:drop-user-otp-ttl": "node scripts/drop_user_otp_ttl_index.js",
     "migrate:user-phone-sparse": "node scripts/migrate_user_phone_sparse_index.js",
     "migrate:catalog-backfill": "node scripts/backfill_catalog_version.js",
+    "migrate:purge-legacy-cart": "node scripts/purge_legacy_user_cart.js",
     "wipe:firebase-auth": "node scripts/wipe_firebase_auth_users.js",
     "migrate:otp-session-identity": "node scripts/migrate_otp_session_identity_key.js"
   },
