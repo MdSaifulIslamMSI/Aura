@@ -444,6 +444,20 @@ export const AUTH_ERRORS = {
         action: 'signin',
         actionLabel: 'Sign in again'
     },
+    'csrf token fetch failed for /auth/sync: http 401': {
+        title: 'Session Expired',
+        detail: 'This browser was holding an old sign-in token, so the secure session sync was rejected.',
+        hint: 'Your stale session has been cleared. Sign in again to continue.',
+        action: 'signin',
+        actionLabel: 'Sign in again'
+    },
+    'not authorized, token failed': {
+        title: 'Session Expired',
+        detail: 'Your sign-in token is no longer valid for secure account access.',
+        hint: 'Sign in again to refresh your secure session.',
+        action: 'signin',
+        actionLabel: 'Sign in again'
+    },
     'default': {
         title: 'Something Went Wrong',
         detail: 'An unexpected error occurred during sign-in.',
