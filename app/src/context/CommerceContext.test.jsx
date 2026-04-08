@@ -1,8 +1,11 @@
 import { act, render, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { AuthContext } from './AuthContext';
-import { CommerceProvider } from './CommerceContext';
-import { resetCommerceStoreForTests, useCommerceStore } from '../store/commerceStore';
+
+let CommerceProvider;
+let AuthContext;
+let resetCommerceStoreForTests;
+let useCommerceStore;
+let userApi;
 
 const socketHandlers = new Map();
 const socketMock = {
@@ -16,26 +19,29 @@ const socketMock = {
   }),
 };
 
-vi.mock('../services/api', async () => {
-  const actual = await vi.importActual('../services/api');
-  return actual;
-});
+const loadCommerceModules = async () => {
+  vi.resetModules();
 
-vi.mock('./SocketContext', () => ({
-  useSocket: () => ({ socket: socketMock }),
-}));
+  vi.doMock('./SocketContext', () => ({
+    useSocket: () => ({ socket: socketMock }),
+  }));
 
-import { userApi } from '../services/api';
+  ({ CommerceProvider } = await import('./CommerceContext'));
+  ({ AuthContext } = await import('./AuthContext'));
+  ({ resetCommerceStoreForTests, useCommerceStore } = await import('../store/commerceStore'));
+  ({ userApi } = await import('../services/api'));
+};
 
 describe('CommerceProvider', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     localStorage.clear();
     sessionStorage.clear();
     vi.restoreAllMocks();
-    resetCommerceStoreForTests();
     socketHandlers.clear();
     socketMock.on.mockClear();
     socketMock.off.mockClear();
+    await loadCommerceModules();
+    resetCommerceStoreForTests();
   });
 
   it('binds auth-backed commerce state once for the shared cart and wishlist tree', async () => {
