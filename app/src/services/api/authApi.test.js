@@ -1,42 +1,44 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const hoisted = vi.hoisted(() => {
-  const getAuthHeaderMock = vi.fn();
-  const ensureCsrfTokenMock = vi.fn();
-  const addCsrfTokenToHeadersMock = vi.fn();
-  const cacheTokenMock = vi.fn();
-  const clearCsrfTokenCacheMock = vi.fn();
+let authApi;
+let mocks;
 
-  return {
-    getAuthHeaderMock,
-    ensureCsrfTokenMock,
-    addCsrfTokenToHeadersMock,
-    cacheTokenMock,
-    clearCsrfTokenCacheMock,
+const loadAuthApi = async () => {
+  vi.resetModules();
+
+  mocks = {
+    getAuthHeaderMock: vi.fn(),
+    ensureCsrfTokenMock: vi.fn(),
+    addCsrfTokenToHeadersMock: vi.fn(),
+    cacheTokenMock: vi.fn(),
+    clearCsrfTokenCacheMock: vi.fn(),
   };
-});
 
-vi.mock('./apiUtils', () => ({
-  getAuthHeader: hoisted.getAuthHeaderMock,
-}));
+  vi.doMock('./apiUtils', () => ({
+    getAuthHeader: mocks.getAuthHeaderMock,
+  }));
 
-vi.mock('../csrfTokenManager', () => ({
-  ensureCsrfToken: hoisted.ensureCsrfTokenMock,
-  addCsrfTokenToHeaders: hoisted.addCsrfTokenToHeadersMock,
-  cacheToken: hoisted.cacheTokenMock,
-  clearCsrfTokenCache: hoisted.clearCsrfTokenCacheMock,
-}));
+  vi.doMock('../csrfTokenManager', () => ({
+    ensureCsrfToken: mocks.ensureCsrfTokenMock,
+    addCsrfTokenToHeaders: mocks.addCsrfTokenToHeadersMock,
+    cacheToken: mocks.cacheTokenMock,
+    clearCsrfTokenCache: mocks.clearCsrfTokenCacheMock,
+  }));
 
-import { authApi } from './authApi';
+  ({ authApi } = await import('./authApi'));
+};
 
 describe('authApi', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
+  beforeEach(async () => {
+    vi.restoreAllMocks();
     vi.stubGlobal('fetch', vi.fn());
+    await loadAuthApi();
   });
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.doUnmock('./apiUtils');
+    vi.doUnmock('../csrfTokenManager');
   });
 
   it('force-refreshes the firebase token when /auth/session initially returns 401', async () => {
@@ -45,7 +47,7 @@ describe('authApi', () => {
     };
     const csrfToken = 'a'.repeat(64);
 
-    hoisted.getAuthHeaderMock
+    mocks.getAuthHeaderMock
       .mockResolvedValueOnce({ Authorization: 'Bearer stale-token' })
       .mockResolvedValueOnce({ Authorization: 'Bearer fresh-token' });
 
@@ -68,10 +70,11 @@ describe('authApi', () => {
 
     await expect(authApi.getSession({ firebaseUser })).resolves.toEqual({ status: 'authenticated' });
 
-    expect(hoisted.getAuthHeaderMock).toHaveBeenNthCalledWith(1, firebaseUser, { forceRefresh: false });
-    expect(hoisted.getAuthHeaderMock).toHaveBeenNthCalledWith(2, firebaseUser, { forceRefresh: true });
-    expect(hoisted.clearCsrfTokenCacheMock).toHaveBeenCalledTimes(1);
-    expect(hoisted.cacheTokenMock).toHaveBeenCalledWith(csrfToken, 'fresh-token');
+    expect(mocks.getAuthHeaderMock).toHaveBeenCalledTimes(2);
+    expect(mocks.getAuthHeaderMock).toHaveBeenNthCalledWith(1, firebaseUser, { forceRefresh: false });
+    expect(mocks.getAuthHeaderMock).toHaveBeenNthCalledWith(2, firebaseUser, { forceRefresh: true });
+    expect(mocks.clearCsrfTokenCacheMock).toHaveBeenCalledTimes(1);
+    expect(mocks.cacheTokenMock).toHaveBeenCalledWith(csrfToken, 'fresh-token');
   });
 
   it('retries auth sync after forcing a fresh token when CSRF bootstrap is rejected with 401', async () => {
@@ -81,15 +84,15 @@ describe('authApi', () => {
         .mockResolvedValueOnce('fresh-token'),
     };
 
-    hoisted.getAuthHeaderMock
+    mocks.getAuthHeaderMock
       .mockResolvedValueOnce({ Authorization: 'Bearer stale-token' })
       .mockResolvedValueOnce({ Authorization: 'Bearer fresh-token' });
 
-    hoisted.ensureCsrfTokenMock
+    mocks.ensureCsrfTokenMock
       .mockRejectedValueOnce(Object.assign(new Error('HTTP 401: Unauthorized'), { status: 401 }))
       .mockResolvedValueOnce('b'.repeat(64));
 
-    hoisted.addCsrfTokenToHeadersMock.mockImplementation((headers, _method, csrfToken) => ({
+    mocks.addCsrfTokenToHeadersMock.mockImplementation((headers, _method, csrfToken) => ({
       ...headers,
       'X-CSRF-Token': csrfToken,
     }));
@@ -105,9 +108,11 @@ describe('authApi', () => {
       .resolves
       .toEqual({ ok: true });
 
-    expect(hoisted.getAuthHeaderMock).toHaveBeenNthCalledWith(1, firebaseUser, { forceRefresh: false });
-    expect(hoisted.getAuthHeaderMock).toHaveBeenNthCalledWith(2, firebaseUser, { forceRefresh: true });
-    expect(hoisted.clearCsrfTokenCacheMock).toHaveBeenCalledTimes(1);
+    expect(mocks.getAuthHeaderMock).toHaveBeenCalledTimes(2);
+    expect(mocks.getAuthHeaderMock).toHaveBeenNthCalledWith(1, firebaseUser, { forceRefresh: false });
+    expect(mocks.getAuthHeaderMock).toHaveBeenNthCalledWith(2, firebaseUser, { forceRefresh: true });
+    expect(mocks.ensureCsrfTokenMock).toHaveBeenCalledTimes(2);
+    expect(mocks.clearCsrfTokenCacheMock).toHaveBeenCalledTimes(1);
     expect(global.fetch).toHaveBeenCalledTimes(1);
   });
 });
