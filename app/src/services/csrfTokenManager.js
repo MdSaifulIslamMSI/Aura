@@ -129,7 +129,9 @@ export const fetchCsrfToken = async (authToken) => {
         });
 
         if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            const error = new Error(`HTTP ${response.status}: ${response.statusText}`);
+            error.status = response.status;
+            throw error;
         }
 
         const token = response.headers.get('X-CSRF-Token');

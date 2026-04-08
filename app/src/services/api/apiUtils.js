@@ -8,7 +8,7 @@ export const PRODUCT_DETAIL_CACHE_TTL_MS = 30 * 1000;
 /**
  * Retrieves the Firebase ID token and returns an Authorization header.
  */
-export const getAuthHeader = async (firebaseUser = null) => {
+export const getAuthHeader = async (firebaseUser = null, options = {}) => {
     const trustedDeviceHeaders = getTrustedDeviceHeaders();
 
     if (!isFirebaseReady || !auth) {
@@ -16,7 +16,7 @@ export const getAuthHeader = async (firebaseUser = null) => {
     }
     const user = firebaseUser || auth.currentUser;
     if (user) {
-        const token = await user.getIdToken();
+        const token = await user.getIdToken(options?.forceRefresh === true);
         return {
             'Authorization': `Bearer ${token}`,
             ...trustedDeviceHeaders,
