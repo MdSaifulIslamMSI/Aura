@@ -237,6 +237,48 @@ export const AuthProvider = ({ children }) => {
       && (Date.now() - syncStateRef.current.lastSyncedAt) < AUTH_SYNC_DEDUPE_MS;
   };
 
+  const isUnauthorizedSessionError = (error) => {
+    const status = Number(error?.status || error?.data?.statusCode || 0);
+    if (status === 401) return true;
+
+    const code = normalizeText(error?.code || error?.data?.code || '');
+    const message = String(error?.message || '').toLowerCase();
+
+    return code === 'auth_token_invalid'
+      || message.includes('not authorized, token failed')
+      || message.includes('authenticated account is missing email')
+      || (message.includes('csrf token fetch failed') && message.includes('http 401'));
+  };
+
+  const invalidateStaleAuthSession = async (error, activeUser = null) => {
+    clearCsrfTokenCache();
+    clearTrustedDeviceSessionToken();
+    resetSyncTracking();
+    clearControlledAuthFlow();
+    setCurrentUser(null);
+    setSessionState({
+      status: SESSION_STATUS.SIGNED_OUT,
+      deviceChallenge: null,
+      session: null,
+      intelligence: null,
+      profile: null,
+      roles: EMPTY_ROLES,
+      error: {
+        message: error?.message || 'Your sign-in expired. Please sign in again.',
+      },
+    });
+
+    if (!isFirebaseReady || !auth || !(activeUser || auth.currentUser)) {
+      return;
+    }
+
+    try {
+      await signOut(auth);
+    } catch {
+      // The local auth state is already reset above; swallow provider cleanup errors.
+    }
+  };
+
   const runSessionRequest = async ({
     mode = 'session',
     firebaseUser = null,
@@ -296,7 +338,12 @@ export const AuthProvider = ({ children }) => {
         : await authApi.getSession({ firebaseUser: activeUser });
       return applyResolvedSession(payload, activeUser, identity);
     })()
-      .catch((error) => {
+      .catch(async (error) => {
+        if (isUnauthorizedSessionError(error)) {
+          await invalidateStaleAuthSession(error, activeUser);
+          throw error;
+        }
+
         applyRecoverableSessionError(error, activeUser, identity);
         throw error;
       })

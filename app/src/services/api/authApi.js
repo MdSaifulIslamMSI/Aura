@@ -23,19 +23,26 @@ const isInvalidCsrfError = (error) => {
     );
 };
 
-const postWithFreshCsrf = async (path, body, options = {}) => {
-    const headers = await getAuthHeader(options.firebaseUser);
-    const firebaseUser = options.firebaseUser || {};
-    const authToken = options.authToken || extractAuthTokenFromHeaders(headers) || (firebaseUser.getIdToken ? await firebaseUser.getIdToken() : '');
+const isUnauthorizedAuthError = (error) => Number(error?.status || 0) === 401;
 
-    const execute = async (forceFresh = false) => {
+const postWithFreshCsrf = async (path, body, options = {}) => {
+    const firebaseUser = options.firebaseUser || {};
+
+    const execute = async ({ forceFreshCsrf = false, forceRefreshAuth = false } = {}) => {
+        const headers = await getAuthHeader(firebaseUser, { forceRefresh: forceRefreshAuth });
+        const authToken = options.authToken
+            || extractAuthTokenFromHeaders(headers)
+            || (firebaseUser.getIdToken ? await firebaseUser.getIdToken(forceRefreshAuth) : '');
         let csrfToken = null;
         try {
             if (authToken) {
-                csrfToken = await ensureCsrfToken(authToken, { forceFresh });
+                csrfToken = await ensureCsrfToken(authToken, { forceFresh: forceFreshCsrf });
             }
         } catch (error) {
-            throw new Error(`CSRF token fetch failed for ${path}: ${error.message}. Please refresh and try again.`);
+            const wrappedError = new Error(`CSRF token fetch failed for ${path}: ${error.message}. Please refresh and try again.`);
+            wrappedError.status = Number(error?.status || 0);
+            wrappedError.data = error?.data || null;
+            throw wrappedError;
         }
 
         const headersWithCsrf = addCsrfTokenToHeaders(headers, 'POST', csrfToken);
@@ -48,14 +55,26 @@ const postWithFreshCsrf = async (path, body, options = {}) => {
     };
 
     try {
-        return await execute(false);
+        return await execute();
     } catch (error) {
-        if (!authToken || !isInvalidCsrfError(error)) {
+        if (firebaseUser.getIdToken && isUnauthorizedAuthError(error)) {
+            clearCsrfTokenCache();
+            return execute({
+                forceFreshCsrf: true,
+                forceRefreshAuth: true,
+            });
+        }
+
+        if (!options.authToken && !firebaseUser.getIdToken) {
+            throw error;
+        }
+
+        if (!isInvalidCsrfError(error)) {
             throw error;
         }
 
         clearCsrfTokenCache();
-        return execute(true);
+        return execute({ forceFreshCsrf: true });
     }
 };
 
@@ -71,21 +90,33 @@ const postWithFirebaseBearer = async (path, body, options = {}) => {
 
 export const authApi = {
     getSession: async (options = {}) => {
-        const headers = await getAuthHeader(options.firebaseUser);
-        const authToken = extractAuthTokenFromHeaders(headers);
-        const response = await apiFetch('/auth/session', { headers });
-        
-        // Extract and cache CSRF token from response
-        const csrfToken = response.response?.headers?.get('X-CSRF-Token');
-        if (csrfToken && typeof cacheToken === 'function') {
-            try {
-                cacheToken(csrfToken, authToken);
-            } catch (e) {
-                console.warn('Failed to cache CSRF token:', e.message);
+        const execute = async (forceRefreshAuth = false) => {
+            const headers = await getAuthHeader(options.firebaseUser, { forceRefresh: forceRefreshAuth });
+            const authToken = extractAuthTokenFromHeaders(headers);
+            const response = await apiFetch('/auth/session', { headers });
+
+            // Extract and cache CSRF token from response
+            const csrfToken = response.response?.headers?.get('X-CSRF-Token');
+            if (csrfToken && typeof cacheToken === 'function') {
+                try {
+                    cacheToken(csrfToken, authToken);
+                } catch (e) {
+                    console.warn('Failed to cache CSRF token:', e.message);
+                }
             }
+
+            return response.data;
+        };
+
+        try {
+            return await execute(false);
+        } catch (error) {
+            if (options.firebaseUser?.getIdToken && isUnauthorizedAuthError(error)) {
+                clearCsrfTokenCache();
+                return execute(true);
+            }
+            throw error;
         }
-        
-        return response.data;
     },
     syncSession: async (email, name, phone, options = {}) => {
         return postWithFreshCsrf('/auth/sync', {
