@@ -6,6 +6,7 @@ import {
   Globe2,
   Heart,
   Menu,
+  Palette,
   Plus,
   Search,
   Shield,
@@ -18,6 +19,7 @@ import {
 import PremiumSelect from '@/components/ui/premium-select';
 import { AuthContext } from '@/context/AuthContext';
 import { CartContext } from '@/context/CartContext';
+import { useColorMode } from '@/context/ColorModeContext';
 import { useMarket } from '@/context/MarketContext';
 import { createTranslator } from '@/config/marketConfig';
 import { cn } from '@/lib/utils';
@@ -259,6 +261,7 @@ const Navbar = () => {
   const navigate = useNavigate();
   const { currentUser, dbUser, logout } = useContext(AuthContext);
   const { cartItems } = useContext(CartContext);
+  const { colorMode, setColorMode, colorModeOptions } = useColorMode();
   const {
     countryCode,
     currency,
@@ -433,6 +436,38 @@ const Navbar = () => {
     isCompactViewport
       ? 'fixed inset-x-3 top-[5.5rem] max-h-[min(32rem,calc(100vh-6rem))] rounded-[1.7rem] py-3'
       : 'absolute right-0 mt-3 w-[16.5rem] max-w-[calc(100vw-1.5rem)] max-h-[min(31rem,calc(100vh-6.5rem))] rounded-2xl py-2'
+  );
+  const colorModeSection = (
+    <div className="px-4 py-3">
+      <div className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
+        <Palette className="h-3.5 w-3.5 text-neo-cyan" />
+        {t('nav.colorMode', {}, 'Color mode')}
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        {colorModeOptions.map((mode) => (
+          <button
+            key={mode.value}
+            type="button"
+            onClick={() => setColorMode(mode.value)}
+            className={cn(
+              'rounded-xl border px-3 py-2.5 text-left transition-colors',
+              colorMode === mode.value
+                ? 'border-neo-cyan/60 bg-neo-cyan/15 text-white'
+                : 'border-white/10 bg-white/[0.03] text-slate-300 hover:bg-white/[0.08] hover:text-white'
+            )}
+            aria-label={mode.label}
+          >
+            <div className="flex items-center gap-2">
+              <span
+                className="h-3.5 w-3.5 rounded-full border border-white/20"
+                style={{ background: `linear-gradient(135deg, ${mode.primary}, ${mode.secondary})` }}
+              />
+              <span className="text-xs font-semibold leading-tight">{mode.label}</span>
+            </div>
+          </button>
+        ))}
+      </div>
+    </div>
   );
 
   return (
@@ -694,6 +729,8 @@ const Navbar = () => {
                             </>
                           )}
                           <div className="my-1 border-t border-white/10" />
+                          {colorModeSection}
+                          <div className="my-1 border-t border-white/10" />
                           <button
                             onClick={() => {
                               logout();
@@ -903,6 +940,37 @@ const Navbar = () => {
                   isEstimatedPricing={currency !== 'INR'}
                   compact
                 />
+              </section>
+
+              <section className="mt-4 rounded-2xl border border-white/10 bg-white/[0.04] p-4 animate-fade-up" style={{ animationDelay: '200ms', animationFillMode: 'both' }}>
+                <div className="mb-3 flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.24em] text-slate-400">
+                  <Palette className="h-4 w-4 text-neo-cyan" />
+                  {t('nav.colorMode', {}, 'Color mode')}
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {colorModeOptions.map((mode) => (
+                    <button
+                      key={mode.value}
+                      type="button"
+                      onClick={() => setColorMode(mode.value)}
+                      className={cn(
+                        'rounded-xl border px-3 py-3 text-left transition-colors',
+                        colorMode === mode.value
+                          ? 'border-neo-cyan/60 bg-neo-cyan/15 text-white'
+                          : 'border-white/10 bg-white/[0.03] text-slate-300 hover:bg-white/[0.08] hover:text-white'
+                      )}
+                      aria-label={mode.label}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="h-3.5 w-3.5 rounded-full border border-white/20"
+                          style={{ background: `linear-gradient(135deg, ${mode.primary}, ${mode.secondary})` }}
+                        />
+                        <span className="text-xs font-semibold leading-tight">{mode.label}</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
               </section>
 
               {!activeUser && (
