@@ -28,6 +28,7 @@ import { MultimodalAssistantProvider } from './context/MultimodalAssistantContex
 import {
   shouldShowAmbientChrome,
   shouldShowAssistantLauncher,
+  shouldShowBackendStatusBanner,
 } from './services/assistantUiConfig';
 
 // Pages (Lazy Loaded for Performance)
@@ -93,6 +94,10 @@ function AppContent() {
     () => shouldShowAssistantLauncher({ pathname }),
     [pathname]
   );
+  const showBackendStatusBanner = useMemo(
+    () => shouldShowBackendStatusBanner(pathname),
+    [pathname]
+  );
 
 
   useEffect(() => {
@@ -126,9 +131,11 @@ function AppContent() {
       <AppErrorBoundary fallback={<NavbarFailureFallback />}>
         <Navbar />
       </AppErrorBoundary>
-      <AppErrorBoundary>
-        <BackendStatusBanner />
-      </AppErrorBoundary>
+      {showBackendStatusBanner ? (
+        <AppErrorBoundary>
+          <BackendStatusBanner />
+        </AppErrorBoundary>
+      ) : null}
       <main id="main-content" className="relative z-10 flex-1 min-w-0 overflow-x-hidden" role="main" aria-label="Main content">
         <Suspense
           key={routeRenderKey}

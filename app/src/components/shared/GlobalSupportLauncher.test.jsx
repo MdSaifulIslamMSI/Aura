@@ -72,4 +72,13 @@ describe('GlobalSupportLauncher', () => {
 
         expect(screen.queryByRole('button', { name: /talk to admin support/i })).not.toBeInTheDocument();
     });
+
+    it('stays off the homepage to keep the landing surface clean', () => {
+        renderLauncher({
+            currentUser: { uid: 'user-1', email: 'member@example.com' },
+            initialEntry: '/',
+        });
+
+        expect(screen.queryByRole('button', { name: /talk to admin support/i })).not.toBeInTheDocument();
+    });
 });
