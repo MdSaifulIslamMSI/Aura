@@ -21,7 +21,6 @@ const AMBIENT_CHROME_PREFIXES = [
 ];
 
 const CHATBOT_ROUTE_PREFIXES = [
-    '/',
     '/products',
     '/category/',
     '/search',
@@ -32,6 +31,16 @@ const CHATBOT_ROUTE_PREFIXES = [
     '/product/',
     '/listing/',
     '/cart',
+];
+
+const BACKEND_STATUS_ROUTE_PREFIXES = [
+    '/login',
+    '/cart',
+    '/checkout',
+    '/orders',
+    '/profile',
+    '/contact',
+    '/trust',
 ];
 
 const normalizePathname = (pathname = '/') => String(pathname || '/').trim() || '/';
@@ -65,6 +74,10 @@ export const shouldShowAssistantLauncher = ({
 } = {}) => (
     shouldShowChatbotSurface(pathname)
     && !isAssistantWorkspacePath(pathname)
+);
+
+export const shouldShowBackendStatusBanner = (pathname = '/') => (
+    isAdminPath(pathname) || routeMatches(pathname, BACKEND_STATUS_ROUTE_PREFIXES)
 );
 
 export const buildAssistantWorkspacePath = (location = {}) => {
