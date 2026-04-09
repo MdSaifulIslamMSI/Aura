@@ -37,9 +37,10 @@ describe('BackendStatusBanner', () => {
 
     renderBanner();
 
-    expect(await screen.findByText('Backend health degraded')).toBeInTheDocument();
-    expect(screen.getByText(/Debug Ref srv-health-1/i)).toBeInTheDocument();
-    expect(screen.getByText(/database_disconnected/i)).toBeInTheDocument();
+    expect(await screen.findByText('Some secure actions may be slower right now')).toBeInTheDocument();
+    expect(screen.getByText(/Browsing should continue normally/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Debug Ref srv-health-1/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/database_disconnected/i)).not.toBeInTheDocument();
   });
 
   it('softens a single proxy failure diagnostic into a warming state and clears after a healthy retry', async () => {
@@ -71,14 +72,15 @@ describe('BackendStatusBanner', () => {
       }, 'error');
     });
 
-    expect(await screen.findByText('Backend waking up')).toBeInTheDocument();
-    expect(screen.getByText(/Debug Ref req-proxy-1/i)).toBeInTheDocument();
-    expect(screen.getByText(/HTTP 500/i)).toBeInTheDocument();
+    expect(await screen.findByText('Secure services are reconnecting')).toBeInTheDocument();
+    expect(screen.getByText(/Please wait a few seconds/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Debug Ref req-proxy-1/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/HTTP 500/i)).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: /retry check/i }));
+    fireEvent.click(screen.getByRole('button', { name: /check again/i }));
 
     await waitFor(() => {
-      expect(screen.queryByText('Backend waking up')).not.toBeInTheDocument();
+      expect(screen.queryByText('Secure services are reconnecting')).not.toBeInTheDocument();
     });
   });
 
@@ -122,15 +124,15 @@ describe('BackendStatusBanner', () => {
     // Let async operations settle
     await act(async () => {});
 
-    expect(await screen.findByText('Backend waking up')).toBeInTheDocument();
+    expect(await screen.findByText('Secure services are reconnecting')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: /retry check/i }));
+    fireEvent.click(screen.getByRole('button', { name: /check again/i }));
 
     // Let async operations settle
     await act(async () => {});
 
     await waitFor(() => {
-      expect(screen.queryByText('Backend waking up')).not.toBeInTheDocument();
+      expect(screen.queryByText('Secure services are reconnecting')).not.toBeInTheDocument();
     });
 
     // Should only have 1 call from the retry button click
@@ -168,7 +170,7 @@ describe('BackendStatusBanner', () => {
       pushClientDiagnostic('api.network_error', eventPayload, 'error');
     });
 
-    expect(await screen.findByText('Backend waking up')).toBeInTheDocument();
+    expect(await screen.findByText('Secure services are reconnecting')).toBeInTheDocument();
 
     await act(async () => {
       pushClientDiagnostic('api.network_error', {
@@ -178,7 +180,7 @@ describe('BackendStatusBanner', () => {
       }, 'error');
     });
 
-    expect(await screen.findByText('Backend waking up')).toBeInTheDocument();
+    expect(await screen.findByText('Secure services are reconnecting')).toBeInTheDocument();
 
     await act(async () => {
       pushClientDiagnostic('api.network_error', {
@@ -188,6 +190,7 @@ describe('BackendStatusBanner', () => {
       }, 'error');
     });
 
-    expect(await screen.findByText('Backend unavailable')).toBeInTheDocument();
+    expect(await screen.findByText("We're reconnecting secure services")).toBeInTheDocument();
+    expect(screen.getAllByText(/temporarily unavailable/i).length).toBeGreaterThan(0);
   });
 });

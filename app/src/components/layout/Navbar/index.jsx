@@ -3,12 +3,9 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   Bell,
   ChevronDown,
-  Gauge,
   Globe2,
   Heart,
-  LayoutGrid,
   Menu,
-  Palette,
   Plus,
   Search,
   Shield,
@@ -21,10 +18,8 @@ import {
 import PremiumSelect from '@/components/ui/premium-select';
 import { AuthContext } from '@/context/AuthContext';
 import { CartContext } from '@/context/CartContext';
-import { useColorMode } from '@/context/ColorModeContext';
 import { useMarket } from '@/context/MarketContext';
 import { createTranslator } from '@/config/marketConfig';
-import { useMotionMode } from '@/context/MotionModeContext';
 import { cn } from '@/lib/utils';
 import AppErrorBoundary from '@/components/shared/AppErrorBoundary';
 import GlobalSearchBar from '@/components/shared/GlobalSearchBar';
@@ -186,50 +181,6 @@ const MarketPreferenceCard = ({
   );
 };
 
-const MarketSnapshotCard = ({
-  t,
-  countryLabel,
-  currency,
-  languageLabel,
-  regionLabel,
-  browseCurrencyNote,
-  onOpenStudio,
-}) => (
-  <div className="rounded-[1.35rem] border border-white/10 bg-white/[0.03] px-4 py-3">
-    <div className="flex items-start justify-between gap-3">
-      <div>
-        <div className="text-[10px] font-black uppercase tracking-[0.22em] text-cyan-300/80">
-          {t('market.title', {}, 'Market Studio')}
-        </div>
-        <div className="mt-1 text-sm font-bold text-white">
-          {t('nav.marketSnapshotTitle', {}, 'Browse tuned to your market.')}
-        </div>
-      </div>
-      <button
-        type="button"
-        onClick={onOpenStudio}
-        className="rounded-full border border-white/12 bg-white/[0.05] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.14em] text-slate-200 transition-colors hover:bg-white/[0.09] hover:text-white"
-      >
-        {t('nav.tuneMarket', {}, 'Tune market')}
-      </button>
-    </div>
-
-    <div className="mt-3 flex flex-wrap gap-2 text-[11px] font-semibold text-slate-300">
-      <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1.5">{countryLabel}</span>
-      <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1.5">{languageLabel}</span>
-      <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1.5">{currency}</span>
-    </div>
-
-    <p className="mt-3 text-[11px] leading-5 text-slate-400">
-      {t(
-        'nav.marketSnapshotBody',
-        { region: regionLabel || t('market.regionFallback', {}, 'your region'), browseCurrencyNote },
-        `Region: ${regionLabel || t('market.regionFallback', {}, 'your region')}. ${browseCurrencyNote}`
-      )}
-    </p>
-  </div>
-);
-
 export const NavbarFailureFallback = () => {
   const t = createTranslator('en');
 
@@ -300,20 +251,14 @@ const Navbar = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
-  const [isQuickPanelOpen, setIsQuickPanelOpen] = useState(false);
   const [isMarketPanelOpen, setIsMarketPanelOpen] = useState(false);
-  const [isPreferencesOpen, setIsPreferencesOpen] = useState(false);
-  const [isAdminToolsOpen, setIsAdminToolsOpen] = useState(false);
   const lastScrollYRef = useRef(0);
   const userMenuRef = useRef(null);
-  const quickPanelRef = useRef(null);
   const marketPanelRef = useRef(null);
   const location = useLocation();
   const navigate = useNavigate();
   const { currentUser, dbUser, logout } = useContext(AuthContext);
   const { cartItems } = useContext(CartContext);
-  const { colorMode, setColorMode, colorModeOptions } = useColorMode();
-  const { motionMode, setMotionMode, motionModeOptions, autoDowngraded, effectiveMotionMode } = useMotionMode();
   const {
     countryCode,
     currency,
@@ -381,32 +326,23 @@ const Navbar = () => {
     setIsMobileMenuOpen(false);
     setIsUserMenuOpen(false);
     setIsNotificationsOpen(false);
-    setIsQuickPanelOpen(false);
     setIsMarketPanelOpen(false);
-    setIsPreferencesOpen(false);
-    setIsAdminToolsOpen(false);
   }, [location.pathname, location.search]);
 
   const handleNavigationShellDismiss = useCallback(() => {
     setIsUserMenuOpen(false);
-    setIsQuickPanelOpen(false);
     setIsMarketPanelOpen(false);
-    setIsPreferencesOpen(false);
-    setIsAdminToolsOpen(false);
   }, []);
 
   const handleNavigationShellEscape = useCallback(() => {
     setIsMobileMenuOpen(false);
     setIsUserMenuOpen(false);
     setIsNotificationsOpen(false);
-    setIsQuickPanelOpen(false);
     setIsMarketPanelOpen(false);
-    setIsPreferencesOpen(false);
-    setIsAdminToolsOpen(false);
   }, []);
 
   useDismissableLayer({
-    refs: [userMenuRef, quickPanelRef, marketPanelRef],
+    refs: [userMenuRef, marketPanelRef],
     onDismiss: handleNavigationShellDismiss,
     onEscape: handleNavigationShellEscape,
     ignoreSelectors: ['.premium-select-menu'],
@@ -415,13 +351,13 @@ const Navbar = () => {
   useEffect(() => {
     if (typeof document === 'undefined') return undefined;
 
-    const hasOverlayOpen = isQuickPanelOpen || isMarketPanelOpen || isUserMenuOpen || isNotificationsOpen;
+    const hasOverlayOpen = isMarketPanelOpen || isUserMenuOpen || isNotificationsOpen;
     document.body.classList.toggle('aura-nav-overlay-open', hasOverlayOpen);
 
     return () => {
       document.body.classList.remove('aura-nav-overlay-open');
     };
-  }, [isMarketPanelOpen, isNotificationsOpen, isQuickPanelOpen, isUserMenuOpen]);
+  }, [isMarketPanelOpen, isNotificationsOpen, isUserMenuOpen]);
 
   const categories = useMemo(
     () => [
@@ -442,92 +378,19 @@ const Navbar = () => {
   );
 
   const cartItemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
-  const currentColorMode = colorModeOptions.find((mode) => mode.value === colorMode) || colorModeOptions[0];
-  const currentColorLabel = currentColorMode?.label || 'Neo Cyan';
-  const currentMotionMode = motionModeOptions.find((mode) => mode.value === motionMode) || motionModeOptions[0];
-  const effectiveMotionLabel = motionModeOptions.find((mode) => mode.value === effectiveMotionMode)?.label || effectiveMotionMode;
-  const motionOptionDescriptions = {
-    cinematic: t('nav.motionCinematic', {}, 'Full transitions and richer movement.'),
-    balanced: t('nav.motionBalanced', {}, 'Default motion with lighter overhead.'),
-    minimal: t('nav.motionMinimal', {}, 'Reduced motion for clarity and speed.'),
-  };
   const loyaltyPoints = Number(dbUser?.loyalty?.pointsBalance || 0);
   const isSeller = Boolean(dbUser?.isSeller);
   const sellerCtaTarget = isSeller ? '/sell' : '/become-seller';
   const sellerCtaLabel = isSeller
     ? t('nav.sell', {}, 'Sell')
     : t('nav.becomeSeller', {}, 'Become seller');
-  const navActionClasses =
-    'hidden xl:inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.045] px-4 py-2.5 text-sm font-semibold text-slate-200 transition-all duration-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] hover:-translate-y-0.5 hover:border-white/18 hover:bg-white/[0.075] hover:text-white';
-  const quickActionLinks = [
-    {
-      label: t('nav.marketplace', {}, 'Marketplace'),
-      path: '/marketplace',
-      icon: Store,
-      tone: 'border-sky-300/20 bg-sky-500/10 text-sky-100 hover:bg-sky-500/15',
-    },
-    {
-      label: t('nav.missionOs', {}, 'Mission OS'),
-      path: '/mission-control',
-      icon: Sparkles,
-      tone: 'border-cyan-300/25 bg-cyan-500/10 text-cyan-100 hover:bg-cyan-500/15',
-    },
-    {
-      label: t('nav.aiCompare', {}, 'AI Compare'),
-      path: '/compare',
-      icon: Gauge,
-      tone: 'border-cyan-300/25 bg-cyan-500/10 text-cyan-100 hover:bg-cyan-500/15',
-    },
-    {
-      label: t('nav.visualSearch', {}, 'Visual Search'),
-      path: '/visual-search',
-      icon: Sparkles,
-      tone: 'border-emerald-300/20 bg-emerald-500/10 text-emerald-100 hover:bg-emerald-500/15',
-    },
-    {
-      label: t('nav.smartBundles', {}, 'Smart Bundles'),
-      path: '/bundles',
-      icon: Plus,
-      tone: 'border-violet-300/20 bg-violet-500/10 text-violet-100 hover:bg-violet-500/15',
-    },
-    {
-      label: t('nav.wishlist', {}, 'Wishlist'),
-      path: '/wishlist',
-      icon: Heart,
-      tone: 'border-white/10 bg-white/[0.03] text-slate-200 hover:bg-white/[0.08]',
-    },
-  ];
-  const workspaceLinks = [
-    {
-      label: isSeller ? t('nav.sellerDesk', {}, 'Seller Desk') : t('nav.becomeSeller', {}, 'Become seller'),
-      path: isSeller ? '/my-listings' : '/become-seller',
-      icon: Store,
-      tone: 'border-white/10 bg-white/[0.03] text-slate-200 hover:bg-white/[0.08]',
-    },
-    {
-      label: t('nav.priceAlerts', {}, 'Price Alerts'),
-      path: '/price-alerts',
-      icon: Sparkles,
-      tone: 'border-white/10 bg-white/[0.03] text-slate-200 hover:bg-white/[0.08]',
-    },
-    ...(dbUser?.isAdmin ? [{
-      label: t('nav.adminPortal', {}, 'Admin portal'),
-      path: '/admin/dashboard',
-      icon: Shield,
-      tone: 'border-amber-300/25 bg-amber-400/12 text-amber-100 hover:bg-amber-400/18',
-    }] : []),
-  ];
   const closeUserPanel = () => {
     setIsUserMenuOpen(false);
-    setIsPreferencesOpen(false);
-    setIsAdminToolsOpen(false);
   };
-  const closeQuickPanel = () => setIsQuickPanelOpen(false);
   const closeMarketPanel = () => setIsMarketPanelOpen(false);
   const closeNotifications = () => setIsNotificationsOpen(false);
   const closeAllNavigationPanels = () => {
     setIsMobileMenuOpen(false);
-    closeQuickPanel();
     closeMarketPanel();
     closeNotifications();
     closeUserPanel();
@@ -543,22 +406,13 @@ const Navbar = () => {
     });
   };
   const handleProfileMenuToggle = () => {
-    closeQuickPanel();
     closeMarketPanel();
     closeNotifications();
     setIsMobileMenuOpen(false);
-    setIsUserMenuOpen((open) => {
-      const nextOpen = !open;
-      if (!nextOpen) {
-        setIsPreferencesOpen(false);
-        setIsAdminToolsOpen(false);
-      }
-      return nextOpen;
-    });
+    setIsUserMenuOpen((open) => !open);
   };
   const handleNotificationsOpenChange = (nextOpen) => {
     if (nextOpen) {
-      closeQuickPanel();
       closeMarketPanel();
       closeUserPanel();
       setIsMobileMenuOpen(false);
@@ -568,25 +422,11 @@ const Navbar = () => {
   const handleCloseUserMenu = () => {
     closeUserPanel();
   };
-  const handleQuickPanelToggle = () => {
-    closeNotifications();
-    closeMarketPanel();
-    closeUserPanel();
-    setIsMobileMenuOpen(false);
-    setIsQuickPanelOpen((open) => !open);
-  };
   const handleMarketPanelToggle = () => {
     closeNotifications();
-    closeQuickPanel();
     closeUserPanel();
     setIsMobileMenuOpen(false);
     setIsMarketPanelOpen((open) => !open);
-  };
-  const handleOpenMarketStudio = () => {
-    closeQuickPanel();
-    closeNotifications();
-    setIsMobileMenuOpen(false);
-    setIsMarketPanelOpen(true);
   };
   const userMenuPanelClasses = cn(
     'z-[60] overflow-x-hidden overflow-y-auto border border-white/12 bg-[#061018] shadow-[0_28px_90px_rgba(2,8,23,0.8)] ring-1 ring-white/8 animate-fade-in',
@@ -654,6 +494,13 @@ const Navbar = () => {
 
             {/* Primary commerce actions */}
             <div className="hidden xl:flex items-center gap-2 flex-shrink-0">
+              <Link
+                to="/marketplace"
+                className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.045] px-4 py-2.5 text-sm font-semibold text-slate-200 transition-all duration-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] hover:-translate-y-0.5 hover:border-white/18 hover:bg-white/[0.075] hover:text-white"
+              >
+                <Store className="w-4 h-4 text-neo-cyan" />
+                {t('nav.marketplace', {}, 'Marketplace')}
+              </Link>
               <Link
                 to={sellerCtaTarget}
                 className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-neo-cyan to-neo-emerald px-4 py-2.5 text-sm font-black text-white shadow-[0_16px_32px_rgba(6,182,212,0.2)] transition-all duration-200 hover:-translate-y-0.5 hover:from-sky-500 hover:to-emerald-500"
@@ -737,105 +584,6 @@ const Navbar = () => {
                   </>
                 )}
               </div>
-              <div className="relative hidden lg:block" ref={quickPanelRef}>
-                <button
-                  type="button"
-                  onClick={handleQuickPanelToggle}
-                  className={cn(
-                    'inline-flex items-center gap-2 rounded-full border px-3.5 py-2.5 text-sm font-semibold transition-all duration-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]',
-                    isQuickPanelOpen
-                      ? 'border-cyan-300/35 bg-cyan-400/12 text-white shadow-[0_0_18px_rgba(34,211,238,0.18)]'
-                      : 'border-white/10 bg-white/[0.045] text-slate-200 hover:border-white/18 hover:bg-white/[0.08] hover:text-white'
-                  )}
-                  aria-label={t('nav.openQuickPanel', {}, 'Open quick access panel')}
-                  aria-expanded={isQuickPanelOpen}
-                >
-                  <LayoutGrid className="h-4 w-4 text-neo-cyan" />
-                      <span className="hidden 2xl:inline">{t('nav.explore', {}, 'Explore')}</span>
-                  <ChevronDown className={cn('h-4 w-4 opacity-60 transition-transform', isQuickPanelOpen && 'rotate-180')} />
-                </button>
-
-                {isQuickPanelOpen && (
-                  <>
-                    <button
-                      type="button"
-                      aria-label={t('nav.closeExploreBackdrop', {}, 'Close explore panel backdrop')}
-                      className="fixed inset-0 z-40 bg-zinc-950/34"
-                      onClick={closeQuickPanel}
-                    />
-                    <div className="absolute right-0 z-[60] mt-3 w-[23rem] max-w-[calc(100vw-2rem)] rounded-[1.7rem] border border-white/10 bg-[linear-gradient(180deg,rgba(7,12,24,0.98),rgba(5,9,20,0.98))] p-3.5 shadow-[0_26px_80px_rgba(2,8,23,0.7)] ring-1 ring-cyan-400/10">
-                      <div className="rounded-[1.35rem] border border-white/10 bg-white/[0.03] px-4 py-3">
-                        <div className="text-[10px] font-black uppercase tracking-[0.24em] text-cyan-300/80">{t('nav.explore', {}, 'Explore')}</div>
-                        <div className="mt-1 text-base font-black text-white">{t('nav.exploreTitle', {}, 'Curated routes for higher-intent shopping.')}</div>
-                        <p className="mt-1 text-sm text-slate-400">
-                          {t('nav.exploreBody', {}, 'Jump into discovery, comparison, and workspace routes without opening a full control surface.')}
-                        </p>
-                      </div>
-
-                      <div className="mt-3">
-                        <MarketSnapshotCard
-                          t={t}
-                          countryLabel={countryLabel}
-                          currency={currency}
-                          languageLabel={currentLanguage?.nativeLabel || language.toUpperCase()}
-                          regionLabel={regionLabel}
-                          browseCurrencyNote={browseCurrencyNote}
-                          onOpenStudio={handleOpenMarketStudio}
-                        />
-                      </div>
-
-                      <div className="mt-3">
-                        <div className="mb-2 px-1 text-[10px] font-black uppercase tracking-[0.22em] text-slate-500">{t('nav.tools', {}, 'Tools')}</div>
-                        <div className="grid grid-cols-2 gap-2">
-                          {quickActionLinks.map((item) => {
-                            const ItemIcon = item.icon;
-                            return (
-                              <Link
-                                key={item.path}
-                                to={item.path}
-                                onClick={handlePanelNavigate(item.path)}
-                                className={cn(
-                                  'flex min-h-[3.35rem] items-center gap-2 rounded-2xl border px-3 py-3 text-sm font-semibold transition-colors',
-                                  item.tone
-                                )}
-                              >
-                                <ItemIcon className="h-4 w-4 shrink-0" />
-                                <span className="leading-tight">{item.label}</span>
-                              </Link>
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      <div className="mt-3">
-                        <div className="mb-2 px-1 text-[10px] font-black uppercase tracking-[0.22em] text-slate-500">{t('nav.workspace', {}, 'Workspace')}</div>
-                        <div className="space-y-2">
-                          {workspaceLinks.map((item) => {
-                            const ItemIcon = item.icon;
-                            return (
-                              <Link
-                                key={item.path}
-                                to={item.path}
-                                onClick={handlePanelNavigate(item.path)}
-                                className={cn(
-                                  'flex items-center justify-between rounded-2xl border px-3 py-3 text-sm font-semibold transition-colors',
-                                  item.tone
-                                )}
-                              >
-                                <span className="flex items-center gap-2">
-                                  <ItemIcon className="h-4 w-4 shrink-0" />
-                                  {item.label}
-                                </span>
-                                <ChevronDown className="-rotate-90 h-4 w-4 opacity-50" />
-                              </Link>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
 
               {activeUser ? (
                 <div className="flex items-center gap-2 sm:gap-2.5">
@@ -874,7 +622,7 @@ const Navbar = () => {
                                       {t('nav.account', {}, 'Account')}
                                     </div>
                                     <div className="mt-1 text-sm text-slate-400">
-                                      {t('nav.accountSummary', {}, 'Profile, preferences, and control links.')}
+                                      {t('nav.accountSummary', {}, 'Profile, orders, and saved shopping links.')}
                                     </div>
                                 </div>
                                 <button
@@ -901,6 +649,20 @@ const Navbar = () => {
                           >
                             {t('nav.profile', {}, 'My profile')}
                           </Link>
+                          <Link
+                            to="/orders"
+                            className="block px-4 py-2.5 text-sm text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
+                            onClick={handlePanelNavigate('/orders')}
+                          >
+                            {t('nav.orders', {}, 'Orders')}
+                          </Link>
+                          <Link
+                            to="/wishlist"
+                            className="block px-4 py-2.5 text-sm text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
+                            onClick={handlePanelNavigate('/wishlist')}
+                          >
+                            {t('nav.wishlist', {}, 'Wishlist')}
+                          </Link>
                           {isSeller ? (
                             <Link
                               to="/my-listings"
@@ -918,166 +680,18 @@ const Navbar = () => {
                               {t('nav.becomeSeller', {}, 'Become seller')}
                             </Link>
                           )}
-                          <Link
-                            to="/wishlist"
-                            className="block px-4 py-2.5 text-sm text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
-                            onClick={handlePanelNavigate('/wishlist')}
-                          >
-                            {t('nav.wishlist', {}, 'Wishlist')}
-                          </Link>
-                          <Link
-                            to="/orders"
-                            className="block px-4 py-2.5 text-sm text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
-                            onClick={handlePanelNavigate('/orders')}
-                          >
-                            {t('nav.orders', {}, 'Orders')}
-                          </Link>
                           {dbUser?.isAdmin && (
                             <>
                               <div className="my-1 border-t border-white/10" />
-                              <button
-                                type="button"
-                                onClick={() => setIsAdminToolsOpen((open) => !open)}
-                                className="flex w-full items-center justify-between px-4 py-2.5 text-left text-sm font-semibold text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
+                              <Link
+                                to="/admin/dashboard"
+                                className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-amber-100 transition-colors hover:bg-amber-400/10 hover:text-white"
+                                onClick={handlePanelNavigate('/admin/dashboard')}
                               >
-                                <span className="flex items-center gap-2">
-                                  <Shield className="h-4 w-4 text-amber-200" />
-                                  {t('nav.adminTools', {}, 'Admin Tools')}
-                                </span>
-                                <ChevronDown className={cn('h-4 w-4 opacity-50 transition-transform', isAdminToolsOpen && 'rotate-180')} />
-                              </button>
-                              {isAdminToolsOpen && (
-                                <div className="px-3 pb-2">
-                                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-1.5">
-                                    <Link
-                                      to="/admin/dashboard"
-                                      className="block rounded-xl px-3 py-2 text-sm text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
-                                      onClick={handlePanelNavigate('/admin/dashboard')}
-                                    >
-                                      {t('nav.adminDashboard', {}, 'Admin Dashboard')}
-                                    </Link>
-                                    <Link
-                                      to="/admin/payments"
-                                      className="block rounded-xl px-3 py-2 text-sm text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
-                                      onClick={handlePanelNavigate('/admin/payments')}
-                                    >
-                                      {t('nav.paymentOps', {}, 'Payment Ops')}
-                                    </Link>
-                                    <Link
-                                      to="/admin/users"
-                                      className="block rounded-xl px-3 py-2 text-sm text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
-                                      onClick={handlePanelNavigate('/admin/users')}
-                                    >
-                                      {t('nav.userGovernance', {}, 'User governance')}
-                                    </Link>
-                                    <Link
-                                      to="/admin/support"
-                                      className="block rounded-xl px-3 py-2 text-sm text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
-                                      onClick={handlePanelNavigate('/admin/support')}
-                                    >
-                                      {t('nav.customerSupport', {}, 'Customer support')}
-                                    </Link>
-                                  </div>
-                                </div>
-                              )}
+                                <Shield className="h-4 w-4 text-amber-200" />
+                                {t('nav.adminPortal', {}, 'Admin portal')}
+                              </Link>
                             </>
-                          )}
-                          <div className="my-1 border-t border-white/10" />
-                          <button
-                            type="button"
-                            onClick={() => setIsPreferencesOpen((open) => !open)}
-                            className="flex w-full items-center justify-between px-4 py-2.5 text-left text-sm font-semibold text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
-                          >
-                            <span className="flex items-center gap-2">
-                              <Palette className="h-4 w-4 text-neo-cyan" />
-                              {t('nav.preferences', {}, 'Preferences')}
-                            </span>
-                            <ChevronDown className={cn('h-4 w-4 opacity-50 transition-transform', isPreferencesOpen && 'rotate-180')} />
-                          </button>
-                          {isPreferencesOpen && (
-                            <div className="px-3 pb-3">
-                              <MarketPreferenceCard
-                                t={t}
-                                countryCode={countryCode}
-                                language={language}
-                                currency={currency}
-                                regionLabel={regionLabel}
-                                countryOptions={countryOptions}
-                                currencyOptions={currencyOptions}
-                                languageOptions={languageOptions}
-                                setCountryCode={setCountryCode}
-                                setLanguage={setLanguage}
-                                setCurrency={setCurrency}
-                                resetToDetected={resetToDetected}
-                                detectedCountryLabel={detectedCountryLabel}
-                                detectedRegionLabel={detectedRegionLabel}
-                                browseCurrencyNote={browseCurrencyNote}
-                                isEstimatedPricing={currency !== 'INR'}
-                                compact
-                              />
-                              <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3">
-                                <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">{t('nav.colorMode', {}, 'Color mode')}</div>
-                                <PremiumSelect
-                                  value={colorMode}
-                                  onChange={(e) => setColorMode(e.target.value)}
-                                  className="mt-2 w-full rounded-xl border border-white/10 bg-zinc-950/80 px-3 py-2 text-sm font-semibold text-slate-100 outline-none transition-colors hover:border-white/20"
-                                >
-                                  {colorModeOptions.map((mode) => (
-                                    <option key={mode.value} value={mode.value} className="bg-zinc-950 text-slate-100">
-                                      {mode.label}
-                                    </option>
-                                  ))}
-                                </PremiumSelect>
-                                <div className="mt-2 flex items-center gap-2 text-xs text-slate-400">
-                                  <span
-                                    className="h-3 w-3 rounded-full border border-white/20"
-                                    style={{
-                                      background: `linear-gradient(135deg, ${currentColorMode?.primary || '#06b6d4'}, ${currentColorMode?.secondary || '#10b981'})`,
-                                    }}
-                                  />
-                                  {currentColorLabel}
-                                </div>
-
-                                <div className="mt-4 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">{t('nav.motion', {}, 'Motion')}</div>
-                                <div className="mt-2 grid grid-cols-1 gap-2">
-                                  {motionModeOptions.map((mode) => (
-                                    <button
-                                      key={mode.value}
-                                      type="button"
-                                      onClick={() => setMotionMode(mode.value)}
-                                      className={cn(
-                                        'rounded-xl border px-3 py-2.5 text-left transition-colors',
-                                        motionMode === mode.value
-                                          ? 'border-cyan-300/60 bg-cyan-400/18 text-cyan-100'
-                                          : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white'
-                                      )}
-                                    >
-                                      <div className="flex items-center justify-between gap-3">
-                                        <span className="text-[11px] font-black uppercase tracking-[0.16em]">{mode.label}</span>
-                                        {motionMode === mode.value && (
-                                          <span className="rounded-full border border-cyan-300/30 bg-cyan-500/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.14em] text-cyan-100">
-                                            {t('nav.selected', {}, 'Selected')}
-                                          </span>
-                                        )}
-                                      </div>
-                                      <div className="mt-1 text-[11px] font-medium normal-case tracking-normal text-slate-400">
-                                        {motionOptionDescriptions[mode.value] || t('nav.motionProfile', {}, 'Motion profile')}
-                                      </div>
-                                    </button>
-                                  ))}
-                                </div>
-                                <div className="mt-3 text-[11px] text-slate-400">
-                                  {t('nav.selected', {}, 'Selected')}: <span className="font-semibold text-slate-200">{currentMotionMode?.label || 'Balanced'}</span>
-                                  {' | '}
-                                  {t('nav.effective', {}, 'Effective')}: <span className="font-semibold text-slate-200">{effectiveMotionLabel}</span>
-                                </div>
-                                {autoDowngraded && (
-                                  <p className="mt-2 text-[11px] leading-5 text-amber-200">
-                                    {t('nav.autoMotionNotice', {}, 'Auto performance mode is overriding the selected motion profile to keep interactions stable.')}
-                                  </p>
-                                )}
-                              </div>
-                            </div>
                           )}
                           <div className="my-1 border-t border-white/10" />
                           <button
@@ -1189,16 +803,8 @@ const Navbar = () => {
           <div className="absolute left-0 top-full z-50 w-full border-t border-white/10 bg-zinc-950/95 animate-fade-in md:hidden">
             <nav className="max-h-[calc(100vh-5.5rem)] overflow-y-auto px-4 py-4">
               <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 animate-fade-up" style={{ animationDelay: '50ms' }}>
-                <div className="mb-3 text-[11px] font-black uppercase tracking-[0.24em] text-slate-400">{t('nav.quickAccess', {}, 'Quick access')}</div>
+                <div className="mb-3 text-[11px] font-black uppercase tracking-[0.24em] text-slate-400">{t('nav.shop', {}, 'Shop')}</div>
                 <div className="grid grid-cols-2 gap-2">
-                  <Link
-                    to="/mission-control"
-                    onClick={handlePanelNavigate('/mission-control')}
-                    className="flex items-center gap-2 rounded-xl border border-cyan-300/25 bg-cyan-500/10 px-3 py-3 text-sm font-semibold text-cyan-100 transition-colors hover:bg-cyan-500/15"
-                  >
-                    <Sparkles className="h-4 w-4" />
-                    {t('nav.missionOs', {}, 'Mission OS')}
-                  </Link>
                   <Link
                     to="/marketplace"
                     onClick={handlePanelNavigate('/marketplace')}
@@ -1262,29 +868,16 @@ const Navbar = () => {
                         <Link to="/orders" onClick={handlePanelNavigate('/orders')} className="block rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-sm font-medium text-slate-200 transition-colors hover:bg-white/[0.08]">
                           {t('nav.orders', {}, 'Orders')}
                         </Link>
-                        {isSeller && (
-                          <Link to="/my-listings" onClick={handlePanelNavigate('/my-listings')} className="block rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-sm font-medium text-slate-200 transition-colors hover:bg-white/[0.08]">
-                            {t('nav.myListings', {}, 'My listings')}
-                          </Link>
-                        )}
+                        <Link to={isSeller ? '/my-listings' : '/become-seller'} onClick={handlePanelNavigate(isSeller ? '/my-listings' : '/become-seller')} className="block rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-sm font-medium text-slate-200 transition-colors hover:bg-white/[0.08]">
+                          {isSeller ? t('nav.myListings', {}, 'My listings') : t('nav.becomeSeller', {}, 'Become seller')}
+                        </Link>
                       </>
                     )}
                     {dbUser?.isAdmin && (
-                      <>
-                        <Link to="/admin/dashboard" onClick={handlePanelNavigate('/admin/dashboard')} className="flex items-center gap-2 rounded-xl border border-violet-400/25 bg-violet-500/10 px-3 py-3 text-sm font-semibold text-violet-100 transition-colors hover:bg-violet-500/15">
-                          <Shield className="h-4 w-4" />
-                          {t('nav.adminPortal', {}, 'Admin portal')}
-                        </Link>
-                        <Link to="/admin/products" onClick={handlePanelNavigate('/admin/products')} className="block rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-sm font-medium text-slate-200 transition-colors hover:bg-white/[0.08]">
-                          {t('nav.productControl', {}, 'Product control')}
-                        </Link>
-                        <Link to="/admin/users" onClick={handlePanelNavigate('/admin/users')} className="block rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-sm font-medium text-slate-200 transition-colors hover:bg-white/[0.08]">
-                          {t('nav.userGovernance', {}, 'User governance')}
-                        </Link>
-                        <Link to="/admin/support" onClick={handlePanelNavigate('/admin/support')} className="block rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-sm font-medium text-slate-200 transition-colors hover:bg-white/[0.08]">
-                          {t('nav.customerSupport', {}, 'Customer support')}
-                        </Link>
-                      </>
+                      <Link to="/admin/dashboard" onClick={handlePanelNavigate('/admin/dashboard')} className="flex items-center gap-2 rounded-xl border border-violet-400/25 bg-violet-500/10 px-3 py-3 text-sm font-semibold text-violet-100 transition-colors hover:bg-violet-500/15">
+                        <Shield className="h-4 w-4" />
+                        {t('nav.adminPortal', {}, 'Admin portal')}
+                      </Link>
                     )}
                   </div>
                 </section>
@@ -1310,83 +903,6 @@ const Navbar = () => {
                   isEstimatedPricing={currency !== 'INR'}
                   compact
                 />
-              </section>
-
-              <section className="mt-4 rounded-2xl border border-white/10 bg-white/[0.04] p-4 animate-fade-up" style={{ animationDelay: '200ms', animationFillMode: 'both' }}>
-                <div className="mb-3 text-[11px] font-black uppercase tracking-[0.24em] text-slate-400">{t('nav.experience', {}, 'Experience')}</div>
-                <div className="mb-4">
-                  <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-200">
-                    <Palette className="h-4 w-4 text-neo-cyan" />
-                    {t('nav.colorMode', {}, 'Color mode')}
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    {colorModeOptions.map((mode) => (
-                      <button
-                        key={mode.value}
-                        onClick={() => {
-                          setColorMode(mode.value);
-                          setIsMobileMenuOpen(false);
-                        }}
-                        className={cn(
-                          'inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-bold transition-colors',
-                          colorMode === mode.value
-                            ? 'border-neo-cyan bg-neo-cyan/20 text-neo-cyan'
-                            : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white'
-                        )}
-                      >
-                        <span
-                          className="h-3.5 w-3.5 rounded-full border border-white/30"
-                          style={{
-                            background: `linear-gradient(135deg, ${mode.primary || '#06b6d4'}, ${mode.secondary || '#10b981'})`,
-                          }}
-                        />
-                        <span className="truncate">{mode.label}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-200">
-                    <Gauge className="h-4 w-4 text-cyan-300" />
-                    {t('nav.motion', {}, 'Motion')}
-                  </div>
-                  <div className="grid grid-cols-1 gap-2">
-                    {motionModeOptions.map((mode) => (
-                      <button
-                        key={mode.value}
-                        onClick={() => setMotionMode(mode.value)}
-                        className={cn(
-                          'rounded-xl border px-3 py-2.5 text-left transition-colors',
-                          motionMode === mode.value
-                            ? 'border-cyan-300/60 bg-cyan-400/20 text-cyan-100'
-                            : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white'
-                        )}
-                      >
-                        <div className="flex items-center justify-between gap-3">
-                          <span className="text-[11px] font-black uppercase tracking-wider">{mode.label}</span>
-                          {motionMode === mode.value && (
-                            <span className="rounded-full border border-cyan-300/30 bg-cyan-500/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.14em] text-cyan-100">
-                              {t('nav.selected', {}, 'Selected')}
-                            </span>
-                          )}
-                        </div>
-                        <div className="mt-1 text-[11px] font-medium normal-case tracking-normal text-slate-400">
-                          {motionOptionDescriptions[mode.value] || t('nav.motionProfile', {}, 'Motion profile')}
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                  <p className="mt-3 text-[11px] text-slate-400">
-                    {t('nav.selected', {}, 'Selected')}: <span className="font-semibold text-slate-200">{currentMotionMode?.label || 'Balanced'}</span>
-                    {' | '}
-                    {t('nav.effective', {}, 'Effective')}: <span className="font-semibold text-slate-200">{effectiveMotionLabel}</span>
-                  </p>
-                  {autoDowngraded && (
-                    <p className="mt-2 text-[11px] leading-5 text-amber-200">
-                      {t('nav.autoMotionNotice', {}, 'Auto performance mode is overriding the selected motion profile to keep interactions stable.')}
-                    </p>
-                  )}
-                </div>
               </section>
 
               {!activeUser && (
