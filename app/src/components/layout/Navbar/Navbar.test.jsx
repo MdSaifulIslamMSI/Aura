@@ -107,8 +107,19 @@ describe('Navbar Component', () => {
         expect(screen.getByText('Orders')).toBeInTheDocument();
         expect(screen.getByText('Wishlist')).toBeInTheDocument();
         expect(screen.getAllByText('Become seller').length).toBeGreaterThan(0);
+        expect(screen.getByText('Color mode')).toBeInTheDocument();
+        expect(screen.getByText('Stylish White')).toBeInTheDocument();
         expect(screen.queryByRole('button', { name: /Preferences/i })).not.toBeInTheDocument();
         expect(screen.queryByRole('button', { name: /Admin Tools/i })).not.toBeInTheDocument();
+    });
+
+    it('lets the user switch color modes directly from the profile menu', () => {
+        renderNavbar({ currentUser: { displayName: 'John Doe', email: 'john@example.com' } });
+
+        fireEvent.click(screen.getByText('John Doe'));
+        fireEvent.click(screen.getAllByRole('button', { name: 'Stylish White' })[0]);
+
+        expect(document.documentElement).toHaveAttribute('data-color-mode', 'white');
     });
 
     it('displays cart count badge', () => {
