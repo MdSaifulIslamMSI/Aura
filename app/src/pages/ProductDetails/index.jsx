@@ -14,9 +14,8 @@ import SectionErrorBoundary from '@/components/shared/SectionErrorBoundary';
 import PremiumSelect from '@/components/ui/premium-select';
 import { useDynamicTranslations } from '@/hooks/useDynamicTranslations';
 import { cn } from '@/lib/utils';
-import { buildLifecycleIntelligence, buildProductTrustGraph } from '@/utils/commerceIntelligence';
+import { buildProductTrustGraph } from '@/utils/commerceIntelligence';
 import { pushRecentlyViewed } from '@/utils/recentlyViewed';
-import { convertAmount } from '@/utils/format';
 import { getBaseAmount, getBaseCurrency, getOriginalBaseAmount } from '@/utils/pricing';
 import { useColorMode } from '@/context/ColorModeContext';
 
@@ -36,7 +35,7 @@ const ProductDetails = () => {
   const cartContext = useContext(CartContext);
   const wishlistContext = useContext(WishlistContext);
   const authContext = useContext(AuthContext);
-  const { t, formatDateTime, formatPrice, currency: marketCurrency } = useMarket();
+  const { t, formatDateTime, formatPrice } = useMarket();
   const { colorMode } = useColorMode();
 
   const addToCart = cartContext?.addToCart || (() => console.warn('addToCart missing'));
@@ -274,10 +273,6 @@ const ProductDetails = () => {
     formatPrice(amount, undefined, undefined, { baseCurrency })
   ), [formatPrice, product]);
 
-  const convertToMarketAmount = useCallback((amount, baseCurrency = getBaseCurrency(product)) => (
-    convertAmount(amount, baseCurrency, marketCurrency)
-  ), [marketCurrency, product]);
-
   // Handlers
   const handleAddToCart = () => {
     if (product && !cartItem) addToCart(product, quantity);
@@ -319,31 +314,6 @@ const ProductDetails = () => {
       params.set('hints', hints);
     }
     navigate(`/visual-search${params.toString() ? `?${params.toString()}` : ''}`);
-  };
-
-  const handleOpenBundleBuilder = () => {
-    const theme = `${product?.category || product?.brand || 'smart essentials'}`.toLowerCase();
-    const budget = Math.max(
-      5000,
-      Math.min(
-        200000,
-        Math.round(convertToMarketAmount(getBaseAmount(product) || 15000, getBaseCurrency(product)) * 2.5)
-      )
-    );
-    navigate(`/bundles?theme=${encodeURIComponent(theme)}&budget=${budget}`);
-  };
-
-  const handleOpenMissionControl = () => {
-    const params = new URLSearchParams();
-    params.set('goal', `${product?.brand || ''} ${product?.title || product?.category || 'upgrade'}`.trim());
-    params.set(
-      'budget',
-      String(Math.max(5000, Math.round(convertToMarketAmount(getBaseAmount(product) || 15000, getBaseCurrency(product)) * 2)))
-    );
-    if (product?.category) {
-      params.set('category', String(product.category));
-    }
-    navigate(`/mission-control?${params.toString()}`);
   };
 
   const handleSetPriceAlert = async () => {
@@ -563,10 +533,6 @@ const ProductDetails = () => {
     () => buildProductTrustGraph({ product: resolvedProduct, reviewsSummary, priceHistory }),
     [priceHistory, resolvedProduct, reviewsSummary]
   );
-  const lifecycleIntelligence = useMemo(
-    () => buildLifecycleIntelligence({ product: resolvedProduct, priceHistory }),
-    [priceHistory, resolvedProduct]
-  );
   const tabLabels = {
     description: t('productPage.tab.description', {}, 'Description'),
     specifications: t('productPage.tab.specifications', {}, 'Specifications'),
@@ -620,17 +586,12 @@ const ProductDetails = () => {
       : []),
     ...(Array.isArray(trustGraph?.watchouts) ? trustGraph.watchouts : []),
     ...(Array.isArray(trustGraph?.strengths) ? trustGraph.strengths : []),
-    lifecycleIntelligence?.upgradeWindow,
-    lifecycleIntelligence?.nextBestAction?.label,
-    lifecycleIntelligence?.nextBestAction?.reason,
-    ...(Array.isArray(lifecycleIntelligence?.milestones) ? lifecycleIntelligence.milestones : []),
   ]), [
     compatibilityError,
     compatibilityGraph,
     description,
     highlights,
     lifecycleError,
-    lifecycleIntelligence,
     lifecycleNotice,
     relatedProducts,
     reviewSubmitError,
@@ -708,20 +669,6 @@ const ProductDetails = () => {
       ? trustGraph.watchouts.map((item) => translateProductText(item) || item)
       : [],
   }), [translateProductText, trustGraph]);
-  const translatedLifecycleIntelligence = useMemo(() => ({
-    ...lifecycleIntelligence,
-    upgradeWindow: translateProductText(lifecycleIntelligence?.upgradeWindow) || lifecycleIntelligence?.upgradeWindow,
-    nextBestAction: lifecycleIntelligence?.nextBestAction
-      ? {
-        ...lifecycleIntelligence.nextBestAction,
-        label: translateProductText(lifecycleIntelligence.nextBestAction.label) || lifecycleIntelligence.nextBestAction.label,
-        reason: translateProductText(lifecycleIntelligence.nextBestAction.reason) || lifecycleIntelligence.nextBestAction.reason,
-      }
-      : lifecycleIntelligence?.nextBestAction,
-    milestones: Array.isArray(lifecycleIntelligence?.milestones)
-      ? lifecycleIntelligence.milestones.map((item) => translateProductText(item) || item)
-      : [],
-  }), [lifecycleIntelligence, translateProductText]);
 
   const dealDna = resolvedProduct?.dealDna || null;
   const isDemoCatalog = resolvedProduct?.publishGate?.status === 'dev_only' || resolvedProduct?.provenance?.sourceType === 'dev_seed';
@@ -737,6 +684,13 @@ const ProductDetails = () => {
       : dealDna?.verdict === 'wait'
         ? t('product.wait', {}, 'Wait')
         : t('product.review', {}, 'Review');
+  const trustToneClass = translatedTrustGraph.tone === 'emerald'
+    ? 'border-emerald-400/35 bg-emerald-500/10 text-emerald-100'
+    : translatedTrustGraph.tone === 'amber'
+      ? 'border-amber-400/35 bg-amber-500/10 text-amber-100'
+      : translatedTrustGraph.tone === 'rose'
+        ? 'border-rose-400/35 bg-rose-500/10 text-rose-100'
+        : 'border-neo-cyan/35 bg-neo-cyan/10 text-neo-cyan';
   const isStylishWhite = colorMode === 'white';
   const strongTextClass = isStylishWhite ? 'text-slate-950' : 'text-white';
   const bodyTextClass = isStylishWhite ? 'text-slate-700' : 'text-slate-300';
@@ -751,9 +705,6 @@ const ProductDetails = () => {
   const floatingActionClass = isStylishWhite
     ? 'border-slate-200/80 bg-white/90 shadow-[0_12px_28px_rgba(148,163,184,0.22)]'
     : 'border-white/10 bg-zinc-950/65 shadow-[0_0_15px_rgba(0,0,0,0.5)]';
-  const statCardClass = isStylishWhite
-    ? 'border-slate-200/80 bg-white/84 shadow-[0_18px_40px_rgba(148,163,184,0.16)]'
-    : 'border-white/10 bg-white/[0.045]';
   const heroCardClass = isStylishWhite
     ? 'border-slate-200/80 bg-[linear-gradient(140deg,rgba(255,255,255,0.96),rgba(241,245,249,0.9)_46%,rgba(226,232,240,0.84)_100%)] shadow-[0_28px_90px_rgba(148,163,184,0.2)] ring-slate-200/60'
     : 'border-white/10 bg-[linear-gradient(140deg,rgba(255,255,255,0.06),rgba(17,24,39,0.18)_46%,rgba(9,9,11,0.26)_100%)] shadow-[0_28px_90px_rgba(15,23,42,0.28)] ring-white/5';
@@ -763,9 +714,9 @@ const ProductDetails = () => {
   const softPanelClass = isStylishWhite
     ? 'border-slate-200/80 bg-slate-50/90 shadow-[0_14px_32px_rgba(148,163,184,0.14)]'
     : 'border-white/10 bg-white/5';
-  const chipClass = isStylishWhite
-    ? 'border-slate-200/80 bg-white/88 text-slate-700'
-    : 'border-white/10 bg-black/20 text-slate-300';
+  const statCardClass = isStylishWhite
+    ? 'border-slate-200/80 bg-white/84 shadow-[0_18px_40px_rgba(148,163,184,0.16)]'
+    : 'border-white/10 bg-white/[0.045]';
   const reviewChipClass = isStylishWhite
     ? 'border-slate-200/80 bg-white/88 text-slate-600'
     : 'border-white/5 bg-white/5 text-slate-400';
@@ -833,24 +784,8 @@ const ProductDetails = () => {
                   mediaCardClass
                 )}>
                   <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_18%,rgba(217,70,239,0.16),transparent_32%),radial-gradient(circle_at_82%_14%,rgba(6,182,212,0.18),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.03),transparent_52%)] pointer-events-none" />
-                  <div className="absolute inset-x-8 top-5 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent pointer-events-none" />
-
-                  <div className="relative z-10 flex flex-wrap items-center justify-between gap-3">
-                    <div className={cn(
-                      'inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.2em]',
-                      chipClass
-                    )}>
-                      <BadgeCheck className="h-3.5 w-3.5 text-neo-cyan" />
-                      {t('productPage.curatedHardware', {}, 'Curated hardware')}
-                    </div>
-                    <div className="inline-flex items-center gap-2 rounded-full border border-neo-cyan/20 bg-neo-cyan/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-neo-cyan">
-                      <Zap className="h-3.5 w-3.5" />
-                      {t('productPage.liveMarketFx', {}, 'Live market FX')}
-                    </div>
-                  </div>
-
                   <div className={cn(
-                    'relative mt-4 flex min-w-0 aspect-square items-center justify-center overflow-hidden rounded-[1.6rem] border p-2 sm:mt-5 sm:rounded-[1.9rem] sm:p-4',
+                    'relative flex min-w-0 aspect-square items-center justify-center overflow-hidden rounded-[1.6rem] border p-2 sm:rounded-[1.9rem] sm:p-4',
                     mediaFrameClass
                   )}>
                     <div className="absolute inset-x-[16%] bottom-10 h-16 rounded-full bg-neo-cyan/15 blur-3xl transition-all duration-700 group-hover:bg-neo-cyan/25" />
@@ -887,31 +822,12 @@ const ProductDetails = () => {
                       <Share2 className={cn('w-5 h-5 group-hover/btn:text-neo-cyan transition-colors', mutedTextClass)} />
                     </button>
 
-                    <div className={cn(
-                      'absolute bottom-4 left-4 right-4 z-20 hidden rounded-2xl border p-3 lg:block',
-                      softPanelClass
-                    )}>
-                      <div className="flex items-center justify-between gap-3">
-                        <div>
-                          <p className={cn('text-[10px] font-black uppercase tracking-[0.18em]', mutedTextClass)}>
-                            {t('productPage.marketSnapshot', {}, 'Market snapshot')}
-                          </p>
-                          <p className={cn('mt-1 text-lg font-black', strongTextClass)}>{formatMarketPrice(priceValue, priceCurrency)}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className={cn('text-[10px] font-black uppercase tracking-[0.18em]', mutedTextClass)}>
-                            {t('productPage.trustScore', {}, 'Trust score')}
-                          </p>
-                          <p className="mt-1 text-lg font-black text-neo-cyan">
-                            {t('productPage.trustScoreValue', { score: translatedTrustGraph.overallScore }, `${translatedTrustGraph.overallScore}/100`)}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
                   </div>
                 </div>
 
-                <div className="hidden grid-cols-2 gap-3 lg:grid">
+                {false && (
+                  <>
+                  <div className="hidden grid-cols-2 gap-3 lg:grid">
                   <div className={cn('rounded-[1.4rem] border p-4 shadow-[0_18px_40px_rgba(6,182,212,0.05)]', statCardClass)}>
                     <p className={cn('text-[10px] font-black uppercase tracking-[0.18em]', mutedTextClass)}>
                       {t('productPage.marketPrice', {}, 'Market price')}
@@ -988,7 +904,9 @@ const ProductDetails = () => {
                       {t('nav.visualSearch', {}, 'Visual Search')}
                     </button>
                   </div>
-                </div>
+                  </div>
+                  </>
+                )}
               </div>
             </div>
 
@@ -1061,10 +979,6 @@ const ProductDetails = () => {
               <div className="relative z-10 min-w-0">
                 <div className="mb-4 flex flex-wrap items-center gap-3">
                   <p className={cn('rounded-full border px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.28em] text-neo-cyan', isStylishWhite ? 'border-slate-200/80 bg-white/88' : 'border-white/10 bg-white/5')}>{brand}</p>
-                  <span className={cn('inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em]', chipClass)}>
-                    <BadgeCheck className="h-3.5 w-3.5 text-amber-300" />
-                    {t('productPage.premiumSelection', {}, 'Premium selection')}
-                  </span>
                 </div>
                 {translatedHeroSubtitle && (
                   <p className={cn('mb-3 text-xs font-semibold uppercase tracking-[0.22em]', mutedTextClass)}>
@@ -1100,36 +1014,26 @@ const ProductDetails = () => {
                   )}
                 </div>
 
-                <div className="mb-6 grid gap-4 xl:grid-cols-[minmax(0,1fr)_220px]">
-                  <div className="relative flex flex-wrap items-end gap-3 overflow-hidden rounded-[1.7rem] border border-white/10 bg-[linear-gradient(135deg,rgba(9,9,11,0.92),rgba(24,24,27,0.72))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_20px_45px_rgba(0,0,0,0.28)] sm:gap-4 sm:p-6">
-                    <div className="absolute inset-y-0 left-0 w-1.5 bg-gradient-to-b from-neo-cyan via-violet-400 to-amber-300" />
-                    <div className="pl-3">
-                      <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500">
-                        {t('productPage.livePrice', {}, 'Live price')}
-                      </p>
-                      <span className="mt-2 block text-4xl font-black tracking-tighter text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.2)] sm:text-5xl">
+                <div className="mb-6">
+                  <div className={cn('rounded-[1.7rem] border p-5 sm:p-6', surfaceCardClass)}>
+                    <p className={cn('text-[10px] font-black uppercase tracking-[0.22em]', mutedTextClass)}>
+                      {t('productPage.livePrice', {}, 'Price')}
+                    </p>
+                    <div className="mt-3 flex flex-wrap items-end gap-3 sm:gap-4">
+                      <span className={cn('text-4xl font-black tracking-tighter sm:text-5xl', strongTextClass)}>
                         {formatMarketPrice(priceValue, priceCurrency)}
                       </span>
-                    </div>
-                    <div className="flex flex-col pb-1">
-                      <span className="text-slate-500 line-through text-lg font-medium tracking-wide">
-                        {formatMarketPrice(originalPriceValue, priceCurrency)}
-                      </span>
-                      <span className="text-neo-cyan font-black uppercase tracking-wider text-sm flex items-center gap-1">
-                        <Zap className="w-3 h-3 fill-neo-cyan" /> {t('product.off', {}, '% off').replace('%', String(discountPercentage))}
-                      </span>
-                    </div>
-                  </div>
-                  <div className={cn('rounded-[1.7rem] border p-4 shadow-[0_18px_40px_rgba(217,70,239,0.08)]', statCardClass)}>
-                    <p className={cn('text-[10px] font-black uppercase tracking-[0.18em]', mutedTextClass)}>
-                      {t('productPage.curatorNote', {}, 'Curator note')}
-                    </p>
-                    <p className={cn('mt-3 text-sm font-semibold leading-relaxed', bodyTextClass)}>
-                      {t('productPage.curatorBody', {}, 'A crisp, high-utility kitchen essential with strong deal DNA and a clean resale profile for everyday use.')}
-                    </p>
-                    <div className={cn('mt-4 flex flex-wrap gap-2 text-[10px] font-black uppercase tracking-[0.16em]', mutedTextClass)}>
-                      <span className={cn('rounded-full border px-3 py-1.5', chipClass)}>{translatedCategory}</span>
-                      <span className={cn('rounded-full border px-3 py-1.5', chipClass)}>{marketCurrency}</span>
+                      {originalPriceValue > priceValue && (
+                        <span className={cn('pb-1 text-lg font-medium line-through', mutedTextClass)}>
+                          {formatMarketPrice(originalPriceValue, priceCurrency)}
+                        </span>
+                      )}
+                      {discountPercentage > 0 && (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-neo-cyan/20 bg-neo-cyan/10 px-3 py-1 text-xs font-black uppercase tracking-[0.16em] text-neo-cyan">
+                          <Zap className="h-3 w-3 fill-neo-cyan" />
+                          {t('product.off', {}, '% off').replace('%', String(discountPercentage))}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1189,7 +1093,7 @@ const ProductDetails = () => {
                   </button>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-12">
+                <div className="mb-8 grid grid-cols-1 gap-3 sm:grid-cols-3">
                   <button
                     onClick={handleOpenCompare}
                     className={cn('rounded-xl border px-4 py-3 text-sm font-black uppercase tracking-widest hover:border-neo-cyan/45 hover:text-neo-cyan transition-colors inline-flex items-center justify-center gap-2', actionButtonClass)}
@@ -1205,135 +1109,74 @@ const ProductDetails = () => {
                     {t('nav.visualSearch', {}, 'Visual Search')}
                   </button>
                   <button
-                    onClick={handleOpenBundleBuilder}
+                    type="button"
+                    onClick={handleSetPriceAlert}
                     className={cn('rounded-xl border px-4 py-3 text-sm font-black uppercase tracking-widest hover:border-violet-400/45 hover:text-violet-300 transition-colors inline-flex items-center justify-center gap-2', actionButtonClass)}
                   >
                     <Zap className="w-4 h-4" />
-                    {t('productPage.smartBundle', {}, 'Smart Bundle')}
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('compatibility')}
-                    className={cn('rounded-xl border px-4 py-3 text-sm font-black uppercase tracking-widest hover:border-emerald-400/45 hover:text-emerald-300 transition-colors inline-flex items-center justify-center gap-2', actionButtonClass)}
-                  >
-                    <BadgeCheck className="w-4 h-4" />
-                    {t('productPage.tab.compatibility', {}, 'Compatibility')}
+                    {t('productPage.setPriceAlert', {}, 'Set price alert')}
                   </button>
                 </div>
 
-                <div className="mb-8 grid gap-4 lg:mb-12 lg:grid-cols-2">
-                  <section className={cn('rounded-2xl border p-4 sm:p-5', surfaceCardClass)}>
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <p className="text-xs font-black uppercase tracking-[0.16em] text-neo-cyan">
-                          {t('productPage.trustGraph', {}, 'Trust Graph')}
-                        </p>
-                        <h2 className={cn('mt-2 text-xl font-black', strongTextClass)}>{translatedTrustGraph.headline}</h2>
-                      </div>
-                      <div className={cn(
-                        'rounded-full border px-3 py-1 text-xs font-black uppercase tracking-[0.14em]',
-                        translatedTrustGraph.tone === 'emerald'
-                          ? 'border-emerald-400/35 bg-emerald-500/10 text-emerald-100'
-                          : translatedTrustGraph.tone === 'amber'
-                            ? 'border-amber-400/35 bg-amber-500/10 text-amber-100'
-                            : translatedTrustGraph.tone === 'rose'
-                              ? 'border-rose-400/35 bg-rose-500/10 text-rose-100'
-                              : 'border-neo-cyan/35 bg-neo-cyan/10 text-neo-cyan'
-                      )}>
-                        {t('productPage.trustScoreLabel', { score: translatedTrustGraph.overallScore }, `Trust ${translatedTrustGraph.overallScore}`)}
-                      </div>
-                    </div>
-                    <p className={cn('mt-3 text-sm', mutedTextClass)}>{translatedTrustGraph.summary}</p>
-                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                      {translatedTrustGraph.metrics.slice(0, 4).map((metric) => (
-                        <div key={metric.key} className={cn('rounded-xl border px-3 py-2', softPanelClass)}>
-                          <div className="flex items-center justify-between gap-2">
-                            <span className={cn('text-[11px] font-black uppercase tracking-[0.14em]', mutedTextClass)}>{metric.label}</span>
-                            <span className={cn('text-sm font-black', strongTextClass)}>{metric.score}</span>
-                          </div>
-                          <p className={cn('mt-1 text-xs', mutedTextClass)}>{metric.insight}</p>
-                        </div>
-                      ))}
-                    </div>
-                    {translatedTrustGraph.watchouts.length > 0 && (
-                      <div className="mt-4 rounded-xl border border-amber-400/25 bg-amber-500/10 p-3">
-                        <p className="text-[11px] font-black uppercase tracking-[0.14em] text-amber-200">
-                          {t('productPage.watchouts', {}, 'Watchouts')}
-                        </p>
-                        <ul className="mt-2 space-y-1 text-sm text-amber-100/90">
-                          {translatedTrustGraph.watchouts.map((item) => (
-                            <li key={item}>- {item}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </section>
-
-                  <section className={cn('rounded-2xl border p-4 sm:p-5', surfaceCardClass)}>
-                    <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-200">
-                      {t('productPage.resaleUpgradeIntelligence', {}, 'Resale + Upgrade Intelligence')}
-                    </p>
-                    <h2 className={cn('mt-2 text-xl font-black', strongTextClass)}>{translatedLifecycleIntelligence.upgradeWindow}</h2>
-                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                      <div className={cn('rounded-xl border px-3 py-3', softPanelClass)}>
-                        <p className={cn('text-[11px] font-black uppercase tracking-[0.14em]', mutedTextClass)}>
-                          {t('productPage.tradeInEstimate', {}, 'Trade-in estimate')}
-                        </p>
-                        <p className={cn('mt-2 text-2xl font-black', strongTextClass)}>{formatMarketPrice(translatedLifecycleIntelligence.tradeInEstimate, priceCurrency)}</p>
-                      </div>
-                      <div className={cn('rounded-xl border px-3 py-3', softPanelClass)}>
-                        <p className={cn('text-[11px] font-black uppercase tracking-[0.14em]', mutedTextClass)}>
-                          {t('productPage.expectedNinetyDaySlide', {}, 'Expected 90-day slide')}
-                        </p>
-                        <p className={cn('mt-2 text-2xl font-black', strongTextClass)}>{formatMarketPrice(translatedLifecycleIntelligence.ninetyDayDepreciation, priceCurrency)}</p>
-                      </div>
-                    </div>
-                    <div className="mt-4 rounded-xl border border-emerald-400/20 bg-emerald-500/10 p-3">
-                      <p className={cn('text-sm', bodyTextClass)}>{translatedLifecycleIntelligence.nextBestAction.reason}</p>
-                      <p className={cn('mt-2 text-xs', mutedTextClass)}>
-                        {t(
-                          'productPage.resaleBand',
-                          {
-                            low: formatMarketPrice(translatedLifecycleIntelligence.resaleLow, priceCurrency),
-                            high: formatMarketPrice(translatedLifecycleIntelligence.resaleHigh, priceCurrency),
-                          },
-                          `Resale band ${formatMarketPrice(translatedLifecycleIntelligence.resaleLow, priceCurrency)} - ${formatMarketPrice(translatedLifecycleIntelligence.resaleHigh, priceCurrency)}`
-                        )}
+                <section className={cn('mb-8 rounded-2xl border p-4 sm:p-5 lg:mb-12', surfaceCardClass)}>
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-black uppercase tracking-[0.16em] text-neo-cyan">
+                        {t('productPage.trustGraph', {}, 'Trust Graph')}
                       </p>
+                      <h2 className={cn('mt-2 text-xl font-black', strongTextClass)}>{translatedTrustGraph.headline}</h2>
+                      <p className={cn('mt-3 text-sm leading-relaxed', bodyTextClass)}>{translatedTrustGraph.summary}</p>
                     </div>
-                    {(lifecycleNotice || lifecycleError) && (
-                      <div className={cn(
-                        'mt-4 rounded-xl border px-3 py-2 text-sm',
-                        lifecycleError
-                          ? 'border-rose-400/30 bg-rose-500/10 text-rose-100'
-                          : 'border-emerald-400/30 bg-emerald-500/10 text-emerald-100'
-                      )}>
-                        {translateProductText(lifecycleError || lifecycleNotice)}
-                      </div>
-                    )}
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        onClick={handleSetPriceAlert}
-                        className={cn('rounded-full border px-4 py-2 text-sm font-bold hover:border-neo-cyan/45 hover:text-neo-cyan transition-colors', pillButtonClass)}
-                      >
-                        {t('productPage.setPriceAlert', {}, 'Set price alert')}
-                      </button>
-                      <Link
-                        to="/trade-in"
-                        className={cn('rounded-full border px-4 py-2 text-sm font-bold hover:border-emerald-400/45 hover:text-emerald-300 transition-colors', pillButtonClass)}
-                      >
-                        {t('productPage.tradeInPath', {}, 'Trade-in path')}
-                      </Link>
-                      <button
-                        type="button"
-                        onClick={handleOpenMissionControl}
-                        className={cn('rounded-full border px-4 py-2 text-sm font-bold hover:border-violet-400/45 hover:text-violet-300 transition-colors', pillButtonClass)}
-                      >
-                        {t('productPage.openMissionOs', {}, 'Open Mission OS')}
-                      </button>
+                    <div className={cn('rounded-full border px-3 py-1.5 text-xs font-black uppercase tracking-[0.14em]', trustToneClass)}>
+                      {t('productPage.trustScoreLabel', { score: translatedTrustGraph.overallScore }, `Trust ${translatedTrustGraph.overallScore}`)}
                     </div>
-                  </section>
-                </div>
+                  </div>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                    <div className={cn('rounded-xl border px-4 py-3', softPanelClass)}>
+                      <p className={cn('text-[11px] font-black uppercase tracking-[0.14em]', mutedTextClass)}>
+                        {t('productPage.dealVerdict', {}, 'Deal verdict')}
+                      </p>
+                      <p className={cn('mt-2 text-base font-black', strongTextClass)}>{dealLabel}</p>
+                    </div>
+                    <div className={cn('rounded-xl border px-4 py-3', softPanelClass)}>
+                      <p className={cn('text-[11px] font-black uppercase tracking-[0.14em]', mutedTextClass)}>
+                        {t('productPage.deliveryTime', {}, 'Delivery time')}
+                      </p>
+                      <p className={cn('mt-2 text-base font-black', strongTextClass)}>{translatedDeliveryTime}</p>
+                    </div>
+                    <div className={cn('rounded-xl border px-4 py-3', softPanelClass)}>
+                      <p className={cn('text-[11px] font-black uppercase tracking-[0.14em]', mutedTextClass)}>
+                        {t('productPage.warranty', {}, 'Warranty')}
+                      </p>
+                      <p className={cn('mt-2 text-base font-black', strongTextClass)}>{warranty}</p>
+                    </div>
+                  </div>
+                  {(lifecycleNotice || lifecycleError) && (
+                    <div className={cn(
+                      'mt-4 rounded-xl border px-3 py-2 text-sm',
+                      lifecycleError
+                        ? 'border-rose-400/30 bg-rose-500/10 text-rose-100'
+                        : 'border-emerald-400/30 bg-emerald-500/10 text-emerald-100'
+                    )}>
+                      {translateProductText(lifecycleError || lifecycleNotice)}
+                    </div>
+                  )}
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('compatibility')}
+                      className={cn('rounded-full border px-4 py-2 text-sm font-bold hover:border-neo-cyan/45 hover:text-neo-cyan transition-colors', pillButtonClass)}
+                    >
+                      {t('productPage.tab.compatibility', {}, 'Compatibility')}
+                    </button>
+                    <Link
+                      to="/trade-in"
+                      className={cn('rounded-full border px-4 py-2 text-sm font-bold hover:border-emerald-400/45 hover:text-emerald-300 transition-colors', pillButtonClass)}
+                    >
+                      {t('productPage.tradeInPath', {}, 'Trade-in path')}
+                    </Link>
+                  </div>
+                </section>
 
                 {/* Tabs */}
                 <div className="border-t border-white/10 pt-6 sm:pt-8">
