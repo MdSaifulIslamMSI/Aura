@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo, useContext } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, ChevronRight, Smartphone, Laptop, Headphones, Shirt, Home as HomeIcon, Gamepad2, BookOpen, Watch, Sparkles } from 'lucide-react';
-import Carousel from '@/components/features/home/Carousel';
+import { ArrowRight, ChevronRight, Search, ShieldCheck, Smartphone, Laptop, Headphones, Shirt, Home as HomeIcon, Gamepad2, BookOpen, Watch, Store } from 'lucide-react';
 import ProductCard from '@/components/features/product/ProductCard';
 import SkeletonLoader from '@/components/shared/SkeletonLoader';
 import SectionErrorBoundary from '@/components/shared/SectionErrorBoundary';
@@ -363,55 +362,6 @@ const Home = () => {
     };
   }, [currentUser?.uid, recommendationSignals, localizedRecommendationCopy, cartLoading, wishlistLoading]);
 
-  // Hero carousel slides
-  const heroSlides = useMemo(() => [
-    {
-      image: '/assets/nano_banana_hero.png',
-      alt: t('home.slide.quantum.alt', {}, 'Nano Banana Pro'),
-      link: '/category/mobiles',
-      title: 'QUANTUM 9 X',
-      subtitle: t('home.slide.quantum.subtitle', {}, 'Next Generation'),
-      description: t('home.slide.quantum.description', {}, 'Experience the revolution with the all-new Quantum 9 X. Design that changes everything.'),
-      cta: t('home.action.explore', {}, 'Explore')
-    },
-    {
-      image: '/assets/nano_banana_camera.png',
-      alt: t('home.slide.optics.alt', {}, 'Pro Camera System'),
-      link: '/category/electronics',
-      title: t('home.slide.optics.title', {}, 'Pro Optics'),
-      subtitle: t('home.slide.optics.subtitle', {}, 'Capture Everything'),
-      description: t('home.slide.optics.description', {}, 'Triple lens system with 200MP main sensor. Photography redefined.'),
-      cta: t('home.action.explore', {}, 'Explore')
-    },
-    {
-      image: '/assets/banner_feature_electronics.png',
-      alt: t('home.slide.audio.alt', {}, 'Electronics Sale'),
-      link: '/category/electronics',
-      title: t('home.slide.audio.title', {}, 'Premium Audio'),
-      subtitle: t('home.slide.audio.subtitle', {}, 'New Arrivals'),
-      description: t('home.slide.audio.description', {}, 'Laptops, headphones, and more starting at Rs 999.'),
-      cta: t('home.slide.audio.cta', {}, 'Shop Now')
-    },
-    {
-      image: '/assets/banner_fashion_men.png',
-      alt: t('home.slide.style.alt', {}, 'Fashion Sale'),
-      link: "/category/men's-fashion",
-      title: t('home.slide.style.title', {}, 'Streetwear 2026'),
-      subtitle: t('home.slide.style.subtitle', {}, 'Neon Threads'),
-      description: t('home.slide.style.description', {}, 'Upgrade your aesthetic with the latest collection.'),
-      cta: t('home.slide.style.cta', {}, 'View Style')
-    },
-    {
-      image: '/assets/banner_home_kitchen.png',
-      alt: t('home.slide.home.alt', {}, 'Home & Kitchen Sale'),
-      link: '/category/home-kitchen',
-      title: t('home.slide.home.title', {}, 'Smart Home'),
-      subtitle: t('home.slide.home.subtitle', {}, 'Automation'),
-      description: t('home.slide.home.description', {}, 'Everything you need for a modern residence.'),
-      cta: t('home.slide.home.cta', {}, 'Upgrade Home')
-    }
-  ], [t]);
-
   // Category icons - updated with modern styling
   const categories = useMemo(() => [
     { name: t('category.mobiles', {}, 'Mobiles'), icon: Smartphone, path: '/category/mobiles', color: 'from-cyan-500/20 to-blue-500/20 text-cyan-400' },
@@ -424,28 +374,25 @@ const Home = () => {
     { name: t('category.books', {}, 'Books'), icon: BookOpen, path: '/category/books', color: 'from-indigo-500/20 to-blue-500/20 text-indigo-400' },
   ], [t]);
 
-  const commandMetrics = useMemo(() => [
+  const heroQuickActions = useMemo(() => [
     {
-      label: t('home.metrics.deals.label', {}, 'Live price-drop picks'),
-      value: `${dealsOfTheDay.length || 0}`,
-      detail: t('home.metrics.deals.detail', {}, 'Discount-ranked products refreshed from catalog inventory'),
+      title: t('home.hero.quickSearchTitle', {}, 'Start with search'),
+      detail: t('home.hero.quickSearchBody', {}, 'Jump straight into products, brands, and categories without wading through filler blocks first.'),
+      path: '/search',
+      icon: Search,
     },
     {
-      label: t('home.metrics.trending.label', {}, 'High-conviction trends'),
-      value: `${trendingProducts.length || 0}`,
-      detail: t('home.metrics.trending.detail', {}, 'Rating-led picks that are easiest to trust quickly'),
+      title: t('home.hero.quickDealsTitle', {}, 'Shop trusted deals'),
+      detail: t('home.hero.quickDealsBody', {}, 'Go directly to high-signal discounts and top-rated picks when you already know what you want.'),
+      path: '/deals',
+      icon: ShieldCheck,
     },
     {
-      label: t('home.metrics.arrivals.label', {}, 'Fresh arrivals'),
-      value: `${newArrivals.length || 0}`,
-      detail: t('home.metrics.arrivals.detail', {}, 'Newly indexed products surfaced without clutter'),
+      title: t('home.hero.quickMarketplaceTitle', {}, 'Browse local marketplace'),
+      detail: t('home.hero.quickMarketplaceBody', {}, 'Switch into nearby listings and resale inventory when you want seller-aware browsing.'),
+      path: '/marketplace',
+      icon: Store,
     },
-  ], [dealsOfTheDay.length, newArrivals.length, trendingProducts.length, t]);
-
-  const heroSignals = useMemo(() => [
-    t('home.hero.signal.search', {}, 'Search-led product discovery'),
-    t('home.hero.signal.trust', {}, 'Trust cues visible before checkout'),
-    t('home.hero.signal.marketplace', {}, 'Marketplace and catalog in one premium shell'),
   ], [t]);
 
   const ProductSection = ({ eyebrow, title, description, link, actionLabel = t('home.action.explore', {}, 'Explore'), products, isLoading, onAction }) => (
@@ -496,8 +443,11 @@ const Home = () => {
             <SkeletonLoader type="card" count={6} />
           </div>
         ) : products.length === 0 ? (
-          <div className="rounded-xl border border-white/10 bg-white/5 p-6 text-center">
-            <p className="text-sm text-slate-300">
+          <div className={cn(
+            'rounded-xl border p-6 text-center',
+            isWhiteMode ? 'border-slate-200 bg-white/75' : 'border-white/10 bg-white/5'
+          )}>
+            <p className={cn('text-sm', mutedTextClass)}>
               {t('home.section.empty', {}, 'No products are available in this section right now. Please check back shortly.')}
             </p>
           </div>
@@ -511,6 +461,12 @@ const Home = () => {
       </div>
     </section>
   );
+
+  const shouldShowResumeSection = resumeLoading || resumeProducts.length > 0;
+  const shouldShowRecommendationSection = recommendationsLoading || recommendedProducts.length > 0;
+  const shouldShowDealsSection = loading || dealsOfTheDay.length > 0;
+  const shouldShowTrendingSection = loading || trendingProducts.length > 0;
+  const shouldShowNewArrivalsSection = loading || newArrivals.length > 0;
 
   return (
     <div className={cn('premium-page-shell min-h-screen pb-16 pt-3 sm:pt-4', pageShellClass)}>
@@ -528,70 +484,49 @@ const Home = () => {
       <div className="premium-page-frame space-y-8 md:space-y-10">
         <RevealOnScroll anchorId="home-command-deck" anchorLabel={t('home.anchor.commandDeck', {}, 'Command Deck')} className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
           <section className="premium-hero-panel premium-grid-backdrop group/hero p-6 lg:p-8" style={heroStyle}>
-            <div className="absolute top-10 right-10 animate-pulse-glow opacity-30 group-hover/hero:opacity-60 transition-opacity"><Sparkles className="w-8 h-8" style={{ color: accentPrimary }} /></div>
-            <div className="absolute bottom-10 left-1/4 animate-pulse-glow opacity-20 group-hover/hero:opacity-50 transition-opacity" style={{ animationDelay: '1s', color: accentSecondary }}><Sparkles className="w-5 h-5" /></div>
             <div className="premium-eyebrow mb-3">
-              {t('home.hero.eyebrow', {}, 'Retail Command Deck')}
+              {t('home.hero.cleanEyebrow', {}, 'Search With Confidence')}
             </div>
             <h1 className={cn('max-w-3xl pb-2 text-4xl font-black leading-[0.95] tracking-tight md:text-5xl xl:text-6xl', titleClass)}>
-              {t('home.hero.title', {}, 'Search first. Trust faster. Move to checkout without noise.')}
+              {t('home.hero.cleanTitle', {}, 'Find what you need faster and move to checkout with less noise.')}
             </h1>
             <p className={cn('mt-4 max-w-2xl text-sm md:text-base', mutedTextClass)}>
-              {t('home.hero.body', {}, 'The homepage is now a tighter decision surface for live search, trusted deals, and the next best purchase action.')}
+              {t('home.hero.cleanBody', {}, 'Start with search, jump into trusted deals, or browse local marketplace listings from a storefront that stays focused on shopping.')}
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
-              <Link to="/mission-control?goal=gaming%20setup%20under%20Rs%2080000&category=gaming&budget=80000" className="btn-secondary inline-flex items-center gap-2">
-                {t('home.hero.openMission', {}, 'Open Mission OS')}
-              </Link>
-              <Link to="/search?q=iphone" className="btn-primary inline-flex items-center gap-2" style={accentFillStyle}>
-                {t('home.hero.liveSearch', {}, 'Start with live search')}
+              <Link to="/search" className="btn-primary inline-flex items-center gap-2" style={accentFillStyle}>
+                {t('home.hero.cleanSearchAction', {}, 'Search products')}
                 <ArrowRight className="h-4 w-4" />
               </Link>
-              <Link to="/marketplace" className="btn-secondary inline-flex items-center gap-2">
-                {t('home.hero.openMarketplace', {}, 'Open marketplace')}
+              <Link to="/deals" className="btn-secondary inline-flex items-center gap-2">
+                {t('home.hero.cleanDealsAction', {}, "Shop today's deals")}
               </Link>
-            </div>
-            <div className="mt-6 flex flex-wrap gap-2.5">
-              {heroSignals.map((signal) => (
-                <span key={signal} className="premium-chip-muted text-xs font-semibold uppercase tracking-[0.18em]">
-                  {signal}
-                </span>
-              ))}
+              <Link to="/marketplace" className="btn-secondary inline-flex items-center gap-2">
+                {t('home.hero.cleanMarketplaceAction', {}, 'Explore marketplace')}
+              </Link>
             </div>
           </section>
 
           <section className="grid gap-4 sm:grid-cols-3 xl:grid-cols-1">
-            {commandMetrics.map((metric) => (
-              <article key={metric.label} className="premium-stat-card">
-                <div className={cn('text-[11px] font-black uppercase tracking-[0.22em]', subtleTextClass)}>{metric.label}</div>
-                <div className={cn('mt-3 text-3xl font-black', titleClass)}>{metric.value}</div>
-                <p className={cn('mt-2 text-sm leading-6', mutedTextClass)}>{metric.detail}</p>
-              </article>
-            ))}
-          </section>
-        </RevealOnScroll>
-
-        <RevealOnScroll anchorId="home-mission-os" anchorLabel={t('home.anchor.mission', {}, 'Mission OS')} delay={20}>
-          <section className="premium-panel premium-grid-backdrop relative overflow-hidden p-6 lg:p-7 transition-shadow duration-500">
-            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-400 to-transparent animate-gradient-x opacity-60" style={{ backgroundSize: '200% auto' }} />
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div className="max-w-3xl">
-                <div className="premium-kicker">{t('home.mission.eyebrow', {}, 'New Command Layer')}</div>
-                <h2 className={cn('mt-2 text-2xl font-black md:text-3xl', titleClass)}>{t('home.mission.title', {}, 'Shopping Mission OS now links goal, trust, lifecycle, and local commerce in one run.')}</h2>
-                <p className={cn('mt-3 text-sm md:text-base', mutedTextClass)}>
-                  {t('home.mission.body', {}, 'Start from a mission brief, screenshot hint, or trade-in intent instead of bouncing between separate pages.')}
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-3">
-                <Link to="/mission-control" className="btn-primary inline-flex items-center gap-2" style={accentFillStyle}>
-                  {t('home.mission.launch', {}, 'Launch Mission OS')}
-                  <ArrowRight className="h-4 w-4" />
+            {heroQuickActions.map((item) => {
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  className="premium-stat-card transition-transform duration-300 hover:-translate-y-1"
+                >
+                  <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.05] text-neo-cyan">
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <div className={cn('mt-4 text-lg font-black tracking-tight', titleClass)}>{item.title}</div>
+                  <p className={cn('mt-2 text-sm leading-6', mutedTextClass)}>{item.detail}</p>
+                  <div className={cn('mt-4 text-xs font-black uppercase tracking-[0.2em]', subtleTextClass)}>
+                    {t('home.categories.openLane', {}, 'Open lane')}
+                  </div>
                 </Link>
-                <Link to="/visual-search" className="btn-secondary inline-flex items-center gap-2">
-                  {t('home.mission.visualSearch', {}, 'Zero-query search')}
-                </Link>
-              </div>
-            </div>
+              );
+            })}
           </section>
         </RevealOnScroll>
 
@@ -600,11 +535,11 @@ const Home = () => {
           <section className="premium-panel premium-grid-backdrop p-5 lg:p-6" style={heroStyle}>
             <div className="mb-5 flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
               <div>
-                <div className="premium-kicker">{t('home.categories.eyebrow', {}, 'Category Access')}</div>
+                <div className="premium-kicker">{t('home.categories.cleanEyebrow', {}, 'Shop by category')}</div>
                 <h2 className={cn('mt-2 text-2xl font-black md:text-3xl', titleClass)}>{t('home.categories.title', {}, 'Move through the catalog without friction.')}</h2>
               </div>
               <p className={cn('max-w-xl text-sm', mutedTextClass)}>
-                {t('home.categories.body', {}, 'Each lane routes directly into a focused catalog surface. No filler rows, no fake categories, no dead navigation.')}
+                {t('home.categories.cleanBody', {}, 'Use categories as the fastest way into focused product lists when you already know the lane you want.')}
               </p>
             </div>
             <nav className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-8">
@@ -625,108 +560,82 @@ const Home = () => {
           </section>
         </RevealOnScroll>
 
-        {/* Hero Carousel Container */}
-        <RevealOnScroll
-          anchorId="home-hero"
-          anchorLabel={t('home.anchor.hero', {}, 'Hero')}
-          className="premium-panel premium-grid-backdrop rounded-3xl overflow-hidden relative group"
-        >
-          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-neo-cyan/60 to-transparent z-20" />
-          <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/60 z-10 pointer-events-none" />
-          <Carousel
-            slides={heroSlides}
-            autoPlay={true}
-            autoPlayInterval={6000}
-            showIndicators={true}
-            showArrows={true}
-            className="z-0"
-          />
-        </RevealOnScroll>
+        {shouldShowResumeSection ? (
+          <RevealOnScroll anchorId="home-resume" anchorLabel={t('home.anchor.resume', {}, 'Resume Shopping')} delay={40}>
+            <SectionErrorBoundary label={t('home.resume.title', {}, 'Resume Shopping')}>
+              <ProductSection
+                eyebrow={t('home.resume.cleanEyebrow', {}, 'Continue shopping')}
+                title={t('home.resume.title', {}, 'Resume Shopping')}
+                description={t('home.resume.cleanBody', {}, 'Pick up recent product research without restarting the session from scratch.')}
+                link="/search"
+                actionLabel={resumeProducts.length > 0 ? t('home.resume.reset', {}, 'Reset history') : t('home.action.explore', {}, 'Explore')}
+                onAction={resumeProducts.length > 0 ? () => {
+                  clearRecentlyViewed();
+                  setResumeProducts([]);
+                } : undefined}
+                products={resumeProducts}
+                isLoading={resumeLoading}
+              />
+            </SectionErrorBoundary>
+          </RevealOnScroll>
+        ) : null}
 
-        <RevealOnScroll anchorId="home-resume" anchorLabel={t('home.anchor.resume', {}, 'Resume Shopping')} delay={40}>
-          <SectionErrorBoundary label={t('home.resume.title', {}, 'Resume Shopping')}>
-            <ProductSection
-              eyebrow={t('home.resume.eyebrow', {}, 'Personalized Continuity')}
-              title={t('home.resume.title', {}, 'Resume Shopping')}
-              description={t('home.resume.body', {}, 'Top-tier commerce does not forget what you just evaluated. This shelf persists your recent product views and lets you re-enter high-intent decisions immediately.')}
-              link="/search"
-              actionLabel={resumeProducts.length > 0 ? t('home.resume.reset', {}, 'Reset history') : t('home.action.explore', {}, 'Explore')}
-              onAction={resumeProducts.length > 0 ? () => {
-                clearRecentlyViewed();
-                setResumeProducts([]);
-              } : undefined}
-              products={resumeProducts}
-              isLoading={resumeLoading}
-            />
-          </SectionErrorBoundary>
-        </RevealOnScroll>
-
-        <RevealOnScroll anchorId="home-recommendations" anchorLabel={t('home.anchor.recommendations', {}, 'Recommendations')} delay={50}>
-          <SectionErrorBoundary label={t('home.recommendations.label', {}, 'AI Recommendations')}>
-            <ProductSection
-              eyebrow={recommendationCopy?.eyebrow || localizedRecommendationCopy.eyebrow}
-              title={recommendationCopy?.title || localizedRecommendationCopy.title}
-              description={recommendationCopy?.description || localizedRecommendationCopy.description}
-              link={(recommendationCopy?.primaryCategory || localizedRecommendationCopy.primaryCategory) ? `/category/${recommendationCopy?.primaryCategory || localizedRecommendationCopy.primaryCategory}` : '/search'}
-              actionLabel={(recommendationCopy?.primaryCategory || localizedRecommendationCopy.primaryCategory) ? t('home.categories.openLane', {}, 'Open lane') : t('home.action.explore', {}, 'Explore')}
-              products={recommendedProducts}
-              isLoading={recommendationsLoading}
-            />
-          </SectionErrorBoundary>
-        </RevealOnScroll>
+        {shouldShowRecommendationSection ? (
+          <RevealOnScroll anchorId="home-recommendations" anchorLabel={t('home.anchor.recommendations', {}, 'Recommendations')} delay={50}>
+            <SectionErrorBoundary label={t('home.recommendations.label', {}, 'AI Recommendations')}>
+              <ProductSection
+                eyebrow={recommendationCopy?.eyebrow || localizedRecommendationCopy.eyebrow}
+                title={recommendationCopy?.title || localizedRecommendationCopy.title}
+                description={recommendationCopy?.description || localizedRecommendationCopy.description}
+                link={(recommendationCopy?.primaryCategory || localizedRecommendationCopy.primaryCategory) ? `/category/${recommendationCopy?.primaryCategory || localizedRecommendationCopy.primaryCategory}` : '/search'}
+                actionLabel={(recommendationCopy?.primaryCategory || localizedRecommendationCopy.primaryCategory) ? t('home.categories.openLane', {}, 'Open lane') : t('home.action.explore', {}, 'Explore')}
+                products={recommendedProducts}
+                isLoading={recommendationsLoading}
+              />
+            </SectionErrorBoundary>
+          </RevealOnScroll>
+        ) : null}
 
         {/* Deals of the Day */}
-        <RevealOnScroll anchorId="home-flash-sales" anchorLabel={t('home.anchor.flashSales', {}, 'Flash Sales')} delay={60}>
-          <ProductSection
-            eyebrow={t('home.flashSales.eyebrow', {}, 'Fastest Conversion Lane')}
-            title={t('home.flashSales.title', {}, 'Flash Sales')}
-            description={t('home.flashSales.body', {}, 'Price-drop inventory ranked for speed. These are the most decisive purchase candidates on the surface.')}
-            link="/deals"
-            products={dealsOfTheDay}
-            isLoading={loading}
-          />
-        </RevealOnScroll>
+        {shouldShowDealsSection ? (
+          <RevealOnScroll anchorId="home-flash-sales" anchorLabel={t('home.anchor.flashSales', {}, 'Flash Sales')} delay={60}>
+            <ProductSection
+              eyebrow={t('home.flashSales.cleanEyebrow', {}, 'Deals worth opening')}
+              title={t('home.flashSales.title', {}, 'Flash Sales')}
+              description={t('home.flashSales.cleanBody', {}, 'Current price-drop picks with less surrounding noise and faster paths into the product list.')}
+              link="/deals"
+              products={dealsOfTheDay}
+              isLoading={loading}
+            />
+          </RevealOnScroll>
+        ) : null}
 
         {/* Trending Products */}
-        <RevealOnScroll anchorId="home-trending" anchorLabel={t('home.anchor.trending', {}, 'Trending Items')} delay={110}>
-          <ProductSection
-            eyebrow={t('home.trending.eyebrow', {}, 'Trust-Led Picks')}
-            title={t('home.trending.title', {}, 'Trending Items')}
-            description={t('home.trending.body', {}, 'High-rating products surfaced with less noise so strong signals stand out immediately.')}
-            link="/trending"
-            products={trendingProducts}
-            isLoading={loading}
-          />
-        </RevealOnScroll>
+        {shouldShowTrendingSection ? (
+          <RevealOnScroll anchorId="home-trending" anchorLabel={t('home.anchor.trending', {}, 'Trending Items')} delay={110}>
+            <ProductSection
+              eyebrow={t('home.trending.cleanEyebrow', {}, 'Popular right now')}
+              title={t('home.trending.title', {}, 'Trending Items')}
+              description={t('home.trending.cleanBody', {}, 'High-rating products surfaced in a cleaner shelf so the strongest signals stand out immediately.')}
+              link="/trending"
+              products={trendingProducts}
+              isLoading={loading}
+            />
+          </RevealOnScroll>
+        ) : null}
 
-        {/* Marketplace CTA Banner */}
-        <RevealOnScroll anchorId="home-marketplace" anchorLabel={t('home.anchor.marketplace', {}, 'Marketplace')} delay={180}>
-          <section className="premium-hero-panel premium-grid-backdrop rounded-3xl p-8 md:p-12 relative overflow-hidden" style={heroStyle}>
-            <div className="absolute top-0 right-0 w-80 h-80 rounded-full blur-[100px] -z-10" style={{ background: toRgba(accentSecondary, 0.12) }} />
-            <div className="absolute bottom-0 left-0 w-60 h-60 rounded-full blur-[80px] -z-10" style={{ background: toRgba(accentPrimary, 0.12) }} />
-            <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-              <div>
-                <span className="premium-eyebrow mb-3 inline-flex">
-                  {t('home.marketplace.eyebrow', {}, 'Marketplace')}
-                </span>
-                <h2 className={cn('mb-2 text-3xl font-black md:text-4xl', titleClass)}>
-                  {t('home.marketplace.titlePrefix', {}, 'Buy and Sell')} <span className="text-transparent bg-clip-text" style={{ backgroundImage: `linear-gradient(120deg, ${accentPrimary}, ${accentSecondary})` }}>{t('home.marketplace.titleHighlight', {}, 'Near You')}</span>
-                </h2>
-                <p className={cn('max-w-md', mutedTextClass)}>
-                  {t('home.marketplace.body', {}, 'List pre-owned items or browse local offers with a cleaner, seller-aware marketplace entry point.')}
-                </p>
-              </div>
-              <div className="flex gap-3 flex-shrink-0">
-                <Link to="/marketplace" className="btn-secondary inline-flex items-center justify-center px-6 py-3">
-                  {t('home.marketplace.browse', {}, 'Browse')}
-                </Link>
-                <Link to="/sell" className="btn-primary inline-flex items-center justify-center px-6 py-3" style={accentFillStyle}>
-                  {t('home.marketplace.startSelling', {}, '+ Start Selling')}
-                </Link>
-              </div>
-            </div>
-          </section>
-        </RevealOnScroll>
+        {shouldShowNewArrivalsSection ? (
+          <RevealOnScroll anchorId="home-new-arrivals" anchorLabel={t('home.anchor.newArrivals', {}, 'New Arrivals')} delay={150}>
+            <ProductSection
+              eyebrow={t('home.arrivals.cleanEyebrow', {}, 'Just added')}
+              title={t('home.arrivals.cleanTitle', {}, 'New Arrivals')}
+              description={t('home.arrivals.cleanBody', {}, 'Freshly indexed products gathered into one shelf instead of being buried under another marketing panel.')}
+              link="/new-arrivals"
+              products={newArrivals}
+              isLoading={loading}
+            />
+          </RevealOnScroll>
+        ) : null}
 
       </div>
     </div>

@@ -5,6 +5,7 @@ import {
     buildAssistantWorkspacePath,
     isAdminPath,
     isAssistantWorkspacePath,
+    shouldShowAssistantLauncher,
 } from '@/services/assistantUiConfig';
 
 const AssistantLauncher = () => {
@@ -12,7 +13,11 @@ const AssistantLauncher = () => {
     const navigate = useNavigate();
     const hasMobileStickyCommerceBar = location.pathname.startsWith('/product/');
 
-    if (isAssistantWorkspacePath(location.pathname) || isAdminPath(location.pathname)) {
+    if (
+        isAssistantWorkspacePath(location.pathname)
+        || isAdminPath(location.pathname)
+        || !shouldShowAssistantLauncher({ pathname: location.pathname })
+    ) {
         return null;
     }
 

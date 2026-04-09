@@ -9,14 +9,10 @@ import {
   Instagram,
   Youtube,
   CreditCard,
-  Truck,
   ShieldCheck,
-  RotateCcw,
   Activity,
-  AlertTriangle,
   Server,
   Lock,
-  Sparkles,
 } from 'lucide-react';
 import { trustApi } from '@/services/api';
 import { useMarket } from '@/context/MarketContext';
@@ -27,24 +23,6 @@ const STATUS_CLASSES = {
   degraded: 'bg-amber-500/15 border-amber-400/40 text-amber-200 shadow-amber-500/0 hover:shadow-amber-500/20',
   checking: 'bg-slate-500/15 border-slate-400/30 text-slate-200 shadow-slate-500/0 hover:shadow-slate-500/20',
 };
-
-const FOOTER_PILLARS = [
-  {
-    icon: ShieldCheck,
-    title: 'Trust Layer',
-    detail: 'Escrow, verified sellers, and product integrity cues stay visible from browse to checkout.',
-  },
-  {
-    icon: Truck,
-    title: 'Operations',
-    detail: 'Delivery, returns, and payment pathways are framed to feel dependable before they feel fast.',
-  },
-  {
-    icon: Lock,
-    title: 'Security',
-    detail: 'Client context, backend health, and secure payment posture are surfaced as part of the product experience.',
-  },
-];
 
 const Footer = () => {
   const location = useLocation();
@@ -174,7 +152,7 @@ const Footer = () => {
             <div className="flex items-center gap-2">
               <Activity className="w-4 h-4 text-neo-cyan" />
               <h3 className="text-xs font-bold tracking-[0.2em] uppercase text-slate-100">
-                {t('footer.securityOps', {}, 'Security Operations')}
+                {t('footer.statusOverview', {}, 'Support and Trust')}
               </h3>
             </div>
 
@@ -210,121 +188,54 @@ const Footer = () => {
 
             <Link
               to={supportDeskPath}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-amber-400/30 bg-amber-500/10 text-amber-200 text-xs font-bold uppercase tracking-wider hover:bg-amber-500/20 transition-colors"
+              className="inline-flex items-center gap-2 rounded-lg border border-cyan-400/30 bg-cyan-500/10 px-4 py-2 text-xs font-bold uppercase tracking-wider text-cyan-100 transition-colors hover:bg-cyan-500/20"
             >
-              <AlertTriangle className="w-3.5 h-3.5" />
-              {t('footer.incidentSupport', {}, 'Incident Support')}
+              <ShieldCheck className="w-3.5 h-3.5" />
+              {t('footer.contactSupport', {}, 'Contact Support')}
             </Link>
           </div>
         </div>
       </div>
 
-      <div className="relative z-10 border-b border-transparent">
-        <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent animate-gradient-x opacity-70" style={{ backgroundSize: '200% auto' }} />
-        <div className="container-custom max-w-7xl mx-auto px-4 py-8">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
-            <div className="footer-card flex flex-col items-center text-center gap-3 p-4 border-white/5 hover:border-neo-cyan/30 hover:shadow-[0_0_15px_rgba(6,182,212,0.1)] transition-all duration-300 group">
-              <div className="w-12 h-12 rounded-full bg-neo-cyan/10 flex items-center justify-center group-hover:bg-neo-cyan/20 group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
-                <Truck className="w-6 h-6 text-neo-cyan" />
-              </div>
-              <div>
-                <p className="font-bold text-slate-100 mb-1">{t('footer.expressDelivery', {}, 'Express Delivery')}</p>
-                <p className="text-xs text-slate-400">{t('footer.expressDeliveryBody', {}, 'Fast shipping on all orders')}</p>
-              </div>
-            </div>
-
-              <div className="footer-card flex flex-col items-center text-center gap-3 p-4 border-white/5 hover:border-neo-emerald/30 hover:shadow-[0_0_15px_rgba(16,185,129,0.14)] transition-all duration-300 group">
-              <div className="w-12 h-12 rounded-full bg-neo-emerald/10 flex items-center justify-center group-hover:bg-neo-emerald/20 group-hover:scale-110 group-hover:-rotate-3 transition-all duration-300">
-                <RotateCcw className="w-6 h-6 text-neo-emerald" />
-              </div>
-              <div>
-                <p className="font-bold text-slate-100 mb-1">{t('footer.easyReturns', {}, 'Easy Returns')}</p>
-                <p className="text-xs text-slate-400">{t('footer.easyReturnsBody', {}, '30 days hassle-free return policy')}</p>
-              </div>
-            </div>
-
-            <div className="footer-card flex flex-col items-center text-center gap-3 p-4 border-white/5 hover:border-neo-cyan/30 hover:shadow-[0_0_15px_rgba(6,182,212,0.1)] transition-all duration-300 group">
-              <div className="w-12 h-12 rounded-full bg-neo-cyan/10 flex items-center justify-center group-hover:bg-neo-cyan/20 group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
-                <ShieldCheck className="w-6 h-6 text-neo-cyan" />
-              </div>
-              <div>
-                <p className="font-bold text-slate-100 mb-1">{t('footer.secureCheckout', {}, 'Secure Checkout')}</p>
-                <p className="text-xs text-slate-400">{t('footer.secureCheckoutBody', {}, 'Server-authoritative transaction checks')}</p>
-              </div>
-            </div>
-
-            <div className="footer-card flex flex-col items-center text-center gap-3 p-4 border-white/5 hover:border-neo-emerald/30 hover:shadow-[0_0_15px_rgba(16,185,129,0.14)] transition-all duration-300 group">
-              <div className="w-12 h-12 rounded-full bg-neo-emerald/10 flex items-center justify-center group-hover:bg-neo-emerald/20 group-hover:scale-110 group-hover:-rotate-3 transition-all duration-300">
-                <CreditCard className="w-6 h-6 text-neo-emerald" />
-              </div>
-              <div>
-                <p className="font-bold text-slate-100 mb-1">{t('footer.flexiblePayments', {}, 'Flexible Payments')}</p>
-                <p className="text-xs text-slate-400">{t('footer.flexiblePaymentsBody', {}, 'Tokenized methods with protected fallback paths')}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="container-custom max-w-7xl mx-auto px-4 py-8 relative z-10">
-        <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-          <section className="premium-hero-panel premium-grid-backdrop p-6 sm:p-7">
-            <div className="premium-eyebrow">
-              <Sparkles className="h-4 w-4" />
+      <div className="container-custom max-w-7xl mx-auto px-4 py-12 relative z-10">
+        <div className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr_0.8fr_0.8fr_1fr]">
+          <section className="footer-card rounded-[1.75rem] p-6">
+            <div className="text-[11px] font-black uppercase tracking-[0.24em] text-neo-cyan">
               {t('footer.network', {}, 'Aura Network')}
             </div>
-            <h2 className="mt-5 max-w-3xl text-3xl font-black leading-[0.96] tracking-tight text-white sm:text-4xl">
-              {t('footer.headline', {}, 'Commerce should feel assured before it feels fast.')}
+            <h2 className="mt-4 max-w-lg text-3xl font-black leading-[0.98] tracking-tight text-white">
+              {t('footer.cleanHeadline', {}, 'Shopping support, trust, and discovery stay in one place.')}
             </h2>
-            <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-300 sm:text-base">
-              {t('footer.body', {}, 'Aura is built to feel like a premium retail operating system: trusted product discovery, clear transaction signals, and a marketplace layer that still looks composed under pressure.')}
+            <p className="mt-4 max-w-xl text-sm leading-7 text-slate-300">
+              {t('footer.cleanBody', {}, 'Search, deals, marketplace browsing, and support should feel connected without the footer turning into another landing page.')}
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
-              <Link to="/trust" className="btn-secondary inline-flex items-center gap-2">
-                {t('footer.trustCenter', {}, 'Open Trust Center')}
+              <Link to={supportDeskPath} className="btn-secondary inline-flex items-center gap-2">
+                {t('footer.contactSupport', {}, 'Contact Support')}
               </Link>
-              <Link to="/marketplace" className="btn-primary inline-flex items-center gap-2">
-                {t('footer.exploreMarketplace', {}, 'Explore Marketplace')}
+              <Link to="/trust" className="btn-primary inline-flex items-center gap-2">
+                {t('footer.trustCenter', {}, 'Open Trust Center')}
               </Link>
             </div>
           </section>
 
-          <div className="grid gap-4 sm:grid-cols-3 xl:grid-cols-1">
-            {FOOTER_PILLARS.map((pillar) => {
-              const Icon = pillar.icon;
-              return (
-                <article key={pillar.title} className="footer-card rounded-[1.5rem] p-5">
-                  <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06]">
-                    <Icon className="h-5 w-5 text-neo-cyan" />
-                  </div>
-                  <h3 className="mt-4 text-lg font-black text-white">{pillar.title}</h3>
-                  <p className="mt-2 text-sm leading-6 text-slate-400">{pillar.detail}</p>
-                </article>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
-      <div className="container-custom max-w-7xl mx-auto px-4 py-12 relative z-10">
-        <div className="grid grid-cols-2 md:grid-cols-6 gap-8 md:gap-12">
-          <div className="col-span-2 md:col-span-1">
+          <div>
             <h3 className="footer-section-title text-neo-cyan">{t('footer.about', {}, 'About')}</h3>
             <ul className="space-y-3">{footerLinks.about.map((link) => <li key={link.path}>{renderNavLink(link)}</li>)}</ul>
           </div>
 
-          <div className="col-span-2 md:col-span-1">
+          <div>
             <h3 className="footer-section-title text-neo-emerald">{t('footer.support', {}, 'Support')}</h3>
             <ul className="space-y-3">{footerLinks.help.map((link) => <li key={link.path}>{renderNavLink(link)}</li>)}</ul>
           </div>
 
-          <div className="col-span-2 md:col-span-1">
+          <div>
             <h3 className="footer-section-title text-neo-cyan">{t('footer.legal', {}, 'Legal')}</h3>
             <ul className="space-y-3">{footerLinks.policy.map((link) => <li key={link.path}>{renderNavLink(link)}</li>)}</ul>
           </div>
 
-          <div className="col-span-2 md:col-span-1">
-            <h3 className="footer-section-title text-neo-emerald">{t('footer.networkLinks', {}, 'Network')}</h3>
+          <div>
+            <h3 className="footer-section-title text-neo-emerald">{t('footer.connect', {}, 'Connect')}</h3>
             <ul className="space-y-3">
               {footerLinks.social.map((link) => (
                 <li key={link.path}>
@@ -342,10 +253,7 @@ const Footer = () => {
                 </li>
               ))}
             </ul>
-          </div>
-
-          <div className="col-span-2 md:col-span-2">
-            <h3 className="footer-section-title text-slate-100">{t('footer.headquarters', {}, 'Headquarters')}</h3>
+            <h3 className="footer-section-title mt-8 text-slate-100">{t('footer.headquarters', {}, 'Headquarters')}</h3>
             <div className="space-y-4">
               <div className="footer-contact-card">
                 <MapPin className="w-5 h-5 text-neo-cyan flex-shrink-0 mt-1" />

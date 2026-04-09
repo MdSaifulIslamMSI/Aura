@@ -51,4 +51,10 @@ describe('AssistantLauncher', () => {
 
         expect(screen.queryByRole('button', { name: /open the focused commerce copilot/i })).not.toBeInTheDocument();
     });
+
+    it('does not render on the homepage', () => {
+        renderLauncher('/');
+
+        expect(screen.queryByRole('button', { name: /open the focused commerce copilot/i })).not.toBeInTheDocument();
+    });
 });

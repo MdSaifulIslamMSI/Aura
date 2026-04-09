@@ -3,10 +3,14 @@ import {
     isAssistantWorkspacePath,
     shouldShowAmbientChrome,
     shouldShowAssistantLauncher,
+    shouldShowBackendStatusBanner,
 } from './assistantUiConfig';
 
 describe('assistantUiConfig', () => {
     it('shows the assistant launcher only on supported shopping routes', () => {
+        expect(shouldShowAssistantLauncher({
+            pathname: '/',
+        })).toBe(false);
         expect(shouldShowAssistantLauncher({
             pathname: '/product/101',
         })).toBe(true);
@@ -28,5 +32,12 @@ describe('assistantUiConfig', () => {
     it('treats the workspace as part of ambient chrome but not the launcher surface', () => {
         expect(shouldShowAmbientChrome('/assistant')).toBe(true);
         expect(isAssistantWorkspacePath('/assistant?from=%2F')).toBe(true);
+    });
+
+    it('limits the backend status banner to high-stakes surfaces', () => {
+        expect(shouldShowBackendStatusBanner('/')).toBe(false);
+        expect(shouldShowBackendStatusBanner('/products')).toBe(false);
+        expect(shouldShowBackendStatusBanner('/checkout')).toBe(true);
+        expect(shouldShowBackendStatusBanner('/admin/dashboard')).toBe(true);
     });
 });

@@ -56,8 +56,8 @@ const resolveRecentDiagnosticReference = () => {
 
 const createUnavailableStatus = ({ reference = '', checkedAt = '', detail = '' } = {}) => ({
   level: 'unavailable',
-  titleKey: 'status.unavailableTitle',
-  messageKey: 'status.unavailableMessage',
+  titleKey: 'status.banner.unavailableTitle',
+  messageKey: 'status.banner.unavailableMessage',
   detail,
   reference,
   checkedAt: checkedAt || new Date().toISOString(),
@@ -65,8 +65,8 @@ const createUnavailableStatus = ({ reference = '', checkedAt = '', detail = '' }
 
 const createWarmingStatus = ({ reference = '', checkedAt = '', detail = '' } = {}) => ({
   level: 'warming',
-  titleKey: 'status.warmingTitle',
-  messageKey: 'status.warmingMessage',
+  titleKey: 'status.banner.warmingTitle',
+  messageKey: 'status.banner.warmingMessage',
   detail,
   reference,
   checkedAt: checkedAt || new Date().toISOString(),
@@ -74,8 +74,8 @@ const createWarmingStatus = ({ reference = '', checkedAt = '', detail = '' } = {
 
 const createDegradedStatus = ({ reference = '', checkedAt = '', detail = '' } = {}) => ({
   level: 'degraded',
-  titleKey: 'status.degradedTitle',
-  messageKey: 'status.degradedMessage',
+  titleKey: 'status.banner.degradedTitle',
+  messageKey: 'status.banner.degradedMessage',
   detail,
   reference,
   checkedAt: checkedAt || new Date().toISOString(),
@@ -269,10 +269,22 @@ const BackendStatusBanner = () => {
     : status.level === 'warming'
       ? RefreshCw
       : WifiOff;
+  const impactKey = status.level === 'degraded'
+    ? 'status.banner.degradedImpact'
+    : status.level === 'warming'
+      ? 'status.banner.warmingImpact'
+      : 'status.banner.unavailableImpact';
+  const impactFallback = status.level === 'degraded'
+    ? 'Browsing should still work while secure actions catch up.'
+    : status.level === 'warming'
+      ? 'Please wait a few seconds, then try again.'
+      : 'Checkout, account, or support actions may be temporarily unavailable.';
 
   return (
     <div className="fixed inset-x-3 top-[5.25rem] z-40 sm:inset-x-6">
       <div
+        role="status"
+        aria-live="polite"
         className={cn(
           'mx-auto max-w-5xl rounded-2xl border px-4 py-3 shadow-[0_16px_50px_rgba(2,8,23,0.45)]',
           status.level === 'degraded'
@@ -299,32 +311,41 @@ const BackendStatusBanner = () => {
               </span>
               <div className="min-w-0">
                 <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-300">
-                  {t('status.runtime', {}, 'Runtime Status')}
+                  {t('status.bannerEyebrow', {}, 'Service Update')}
                 </p>
                 <h2 className="truncate text-sm font-black text-white sm:text-base">
-                  {t(status.titleKey, {}, 'Runtime status')}
+                  {t(
+                    status.titleKey,
+                    {},
+                    status.level === 'degraded'
+                      ? 'Some secure actions may be slower right now'
+                      : status.level === 'warming'
+                        ? 'Secure services are reconnecting'
+                        : "We're reconnecting secure services"
+                  )}
                 </h2>
               </div>
             </div>
 
             <p className="mt-3 text-sm leading-relaxed text-slate-200">
-              {t(status.messageKey, {}, 'The backend is responding with degraded status.')}
+              {t(
+                status.messageKey,
+                {},
+                status.level === 'degraded'
+                  ? 'Browsing should continue normally, but checkout, account, or support actions may take longer than usual for a moment.'
+                  : status.level === 'warming'
+                    ? 'A few account and checkout actions may take an extra moment while everything reconnects.'
+                    : 'Account, checkout, or support actions are temporarily unavailable. Please try again in a moment.'
+              )}
             </p>
 
             <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-              {status.reference ? (
-                <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1.5">
-                  {t('status.debugRef', { reference: status.reference }, `Debug Ref ${status.reference}`)}
-                </span>
-              ) : null}
-              {status.detail ? (
-                <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1.5">
-                  {status.detail}
-                </span>
-              ) : null}
+              <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1.5">
+                {t(impactKey, {}, impactFallback)}
+              </span>
               {checkedAtLabel ? (
                 <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1.5">
-                  {t('status.checkedAt', { time: checkedAtLabel }, `Checked ${checkedAtLabel}`)}
+                  {t('status.bannerCheckedAt', { time: checkedAtLabel }, `Last checked ${checkedAtLabel}`)}
                 </span>
               ) : null}
             </div>
@@ -337,14 +358,14 @@ const BackendStatusBanner = () => {
               className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/[0.06] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/[0.12]"
             >
               <RefreshCw className={cn('h-4 w-4', isChecking && 'animate-spin')} />
-              {t('status.retry', {}, 'Retry Check')}
+              {t('status.bannerRetry', {}, 'Check Again')}
             </button>
             <button
               type="button"
               onClick={() => window.location.reload()}
               className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-black/20 px-4 py-2 text-sm font-semibold text-slate-200 transition-colors hover:bg-black/30 hover:text-white"
             >
-              {t('status.reload', {}, 'Reload App')}
+              {t('status.bannerReload', {}, 'Refresh Page')}
             </button>
           </div>
         </div>
