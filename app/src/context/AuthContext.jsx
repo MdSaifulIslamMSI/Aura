@@ -279,6 +279,35 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const rollbackProviderAuthSession = async (error, activeUser = null) => {
+    clearCsrfTokenCache();
+    clearTrustedDeviceSessionToken();
+    resetSyncTracking();
+    clearControlledAuthFlow();
+    setCurrentUser(null);
+    setSessionState({
+      status: SESSION_STATUS.SIGNED_OUT,
+      deviceChallenge: null,
+      session: null,
+      intelligence: null,
+      profile: null,
+      roles: EMPTY_ROLES,
+      error: {
+        message: error?.message || 'Provider sign-in could not be completed.',
+      },
+    });
+
+    if (!isFirebaseReady || !auth || !(activeUser || auth.currentUser)) {
+      return;
+    }
+
+    try {
+      await signOut(auth);
+    } catch {
+      // Local auth state has already been reset above.
+    }
+  };
+
   const runSessionRequest = async ({
     mode = 'session',
     firebaseUser = null,
@@ -386,28 +415,37 @@ export const AuthProvider = ({ children }) => {
   const resolveOAuthUser = async (user, options = {}) => {
     if (!user) return null;
 
-    const email = user.email || user.providerData?.find((entry) => entry?.email)?.email || '';
+    try {
+      const email = user.email || user.providerData?.find((entry) => entry?.email)?.email || '';
 
-    if (!email) {
-      throw new Error('Social account did not provide an email. Please use an account with email access or use another login method.');
+      if (!email) {
+        const missingEmailError = new Error('Social account did not provide an email. Please use an account with email access or use another login method.');
+        missingEmailError.code = 'auth/social-email-missing';
+        throw missingEmailError;
+      }
+
+      const resolvedProfile = await syncUserWithBackend(
+        email,
+        user.displayName || email.split('@')[0],
+        user.phoneNumber || '',
+        user,
+        { force: true, silent: options?.silent === true }
+      );
+
+      clearFirebaseSocialAuthRuntimeBlock();
+
+      return {
+        firebaseUser: user,
+        dbUser: resolvedProfile,
+        isNewUser: Boolean(options?.isNewUser),
+        needsPhone: !resolvedProfile?.phone,
+      };
+    } catch (error) {
+      if (!isUnauthorizedSessionError(error)) {
+        await rollbackProviderAuthSession(error, user);
+      }
+      throw error;
     }
-
-    const resolvedProfile = await syncUserWithBackend(
-      email,
-      user.displayName || email.split('@')[0],
-      user.phoneNumber || '',
-      user,
-      { force: true, silent: options?.silent === true }
-    );
-
-    clearFirebaseSocialAuthRuntimeBlock();
-
-    return {
-      firebaseUser: user,
-      dbUser: resolvedProfile,
-      isNewUser: Boolean(options?.isNewUser),
-      needsPhone: !resolvedProfile?.phone,
-    };
   };
 
   const completeControlledAuthFlow = async ({ email = '', execute, finalize }) => {

@@ -582,7 +582,11 @@ export const resolveAuthError = (rawError) => {
         return buildAccountExistsWithDifferentCredentialError(rawError);
     }
 
-    if (rawError?.code === 'auth/social-email-missing' || errorStr.includes('did not provide an email')) {
+    if (
+        rawError?.code === 'auth/social-email-missing'
+        || errorStr.includes('did not provide an email')
+        || errorStr.includes('authenticated account is missing email')
+    ) {
         return buildSocialMissingEmailError(rawError);
     }
 

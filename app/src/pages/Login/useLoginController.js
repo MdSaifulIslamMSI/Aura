@@ -43,10 +43,14 @@ import {
 const normalizeSocialAuthError = (error, providerLabel = 'Social') => {
   const errorCode = String(error?.code || '').trim();
   const errorMessage = String(error?.message || '').trim();
+  const normalizedError = {
+    ...error,
+    provider: error?.provider || providerLabel,
+  };
 
   if (errorCode === 'auth/invalid-credential') {
     return {
-      ...error,
+      ...normalizedError,
       code: 'auth/social-invalid-credential',
       provider: providerLabel,
       originalCode: errorCode,
@@ -56,15 +60,18 @@ const normalizeSocialAuthError = (error, providerLabel = 'Social') => {
 
   if (errorCode === 'auth/account-exists-with-different-credential') {
     return {
-      ...error,
+      ...normalizedError,
       provider: providerLabel,
       email: error?.email || error?.customData?.email || '',
     };
   }
 
-  if (errorMessage.toLowerCase().includes('did not provide an email')) {
+  if (
+    errorMessage.toLowerCase().includes('did not provide an email')
+    || errorMessage.toLowerCase().includes('authenticated account is missing email')
+  ) {
     return {
-      ...error,
+      ...normalizedError,
       code: 'auth/social-email-missing',
       provider: providerLabel,
     };
@@ -72,13 +79,13 @@ const normalizeSocialAuthError = (error, providerLabel = 'Social') => {
 
   if (errorCode === 'auth/popup-closed-by-user') {
     return {
-      ...error,
+      ...normalizedError,
       provider: providerLabel,
       message: errorMessage || `${providerLabel} sign-in was cancelled before completion.`,
     };
   }
 
-  return error;
+  return normalizedError;
 };
 
 export const useLoginController = () => {
