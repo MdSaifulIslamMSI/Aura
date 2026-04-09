@@ -31,6 +31,31 @@ const decodeBase64UrlJson = (value = '') => {
     }
 };
 
+const parseResponseBodySafely = async (response) => {
+    const text = await response.text();
+    if (!text) return null;
+
+    try {
+        return JSON.parse(text);
+    } catch {
+        return text;
+    }
+};
+
+const resolveResponseErrorMessage = async (response) => {
+    const payload = await parseResponseBodySafely(response.clone());
+
+    if (payload && typeof payload === 'object' && typeof payload.message === 'string' && payload.message.trim()) {
+        return payload.message.trim();
+    }
+
+    if (typeof payload === 'string' && payload.trim()) {
+        return payload.trim();
+    }
+
+    return response.statusText || 'Request failed';
+};
+
 const getAuthTokenOwner = (authToken = '') => {
     const [, payload = ''] = String(authToken || '').split('.');
     const decoded = decodeBase64UrlJson(payload);
@@ -129,8 +154,10 @@ export const fetchCsrfToken = async (authToken) => {
         });
 
         if (!response.ok) {
-            const error = new Error(`HTTP ${response.status}: ${response.statusText}`);
+            const serverMessage = await resolveResponseErrorMessage(response);
+            const error = new Error(`HTTP ${response.status}: ${serverMessage}`);
             error.status = response.status;
+            error.data = { message: serverMessage };
             throw error;
         }
 

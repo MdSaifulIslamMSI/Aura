@@ -43,4 +43,14 @@ describe('resolveAuthError', () => {
     expect(resolved.title).toBe('X Email Access Required');
     expect(resolved.detail).toContain('did not return an email address');
   });
+
+  it('recognizes backend email-missing failures during social session bootstrap', () => {
+    const resolved = resolveAuthError({
+      provider: 'twitter.com',
+      message: 'CSRF token fetch failed for /auth/sync: HTTP 401: Authenticated account is missing email. Please refresh and try again.',
+    });
+
+    expect(resolved.title).toBe('X Email Access Required');
+    expect(resolved.detail).toContain('did not return an email address');
+  });
 });
