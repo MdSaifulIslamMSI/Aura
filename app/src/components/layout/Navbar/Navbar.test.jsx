@@ -98,17 +98,17 @@ describe('Navbar Component', () => {
         expect(screen.getByText('John Doe')).toBeInTheDocument();
     });
 
-    it('renders readable motion controls inside preferences', () => {
+    it('shows direct account links without extra preference controls', () => {
         renderNavbar({ currentUser: { displayName: 'John Doe', email: 'john@example.com' } });
 
         fireEvent.click(screen.getByText('John Doe'));
-        fireEvent.click(screen.getByRole('button', { name: /Preferences/i }));
 
-        expect(screen.getAllByText('Cinematic').length).toBeGreaterThan(0);
-        expect(screen.getAllByText('Balanced').length).toBeGreaterThan(0);
-        expect(screen.getAllByText('Minimal').length).toBeGreaterThan(0);
-        expect(screen.getByText(/Selected:/i)).toBeInTheDocument();
-        expect(screen.getByText(/Effective:/i)).toBeInTheDocument();
+        expect(screen.getByText('My profile')).toBeInTheDocument();
+        expect(screen.getByText('Orders')).toBeInTheDocument();
+        expect(screen.getByText('Wishlist')).toBeInTheDocument();
+        expect(screen.getAllByText('Become seller').length).toBeGreaterThan(0);
+        expect(screen.queryByRole('button', { name: /Preferences/i })).not.toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: /Admin Tools/i })).not.toBeInTheDocument();
     });
 
     it('displays cart count badge', () => {
@@ -145,18 +145,27 @@ describe('Navbar Component', () => {
         });
     });
 
-    it('keeps explore navigation separate from market controls', () => {
+    it('keeps market settings in a dedicated control without an explore panel', () => {
         renderNavbar();
 
-        fireEvent.click(screen.getByRole('button', { name: /Open quick access panel/i }));
-
-        expect(screen.getByText(/Tune market/i)).toBeInTheDocument();
-        expect(screen.queryByText('Country')).not.toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: /Open quick access panel/i })).not.toBeInTheDocument();
 
         fireEvent.click(screen.getByRole('button', { name: /Open market settings/i }));
 
         expect(screen.getByText('Country')).toBeInTheDocument();
         expect(screen.getByText('Language')).toBeInTheDocument();
         expect(screen.getByText('Currency')).toBeInTheDocument();
+    });
+
+    it('shows a direct admin portal link in the profile menu', () => {
+        renderNavbar({
+            currentUser: { displayName: 'John Doe', email: 'john@example.com' },
+            dbUser: { isAdmin: true, name: 'John Doe' }
+        });
+
+        fireEvent.click(screen.getByText('John Doe'));
+
+        expect(screen.getByText('Admin portal')).toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: /Admin Tools/i })).not.toBeInTheDocument();
     });
 });
