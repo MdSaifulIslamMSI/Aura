@@ -40,6 +40,47 @@ import {
   validatePhone,
 } from './loginFlowHelpers';
 
+const normalizeSocialAuthError = (error, providerLabel = 'Social') => {
+  const errorCode = String(error?.code || '').trim();
+  const errorMessage = String(error?.message || '').trim();
+
+  if (errorCode === 'auth/invalid-credential') {
+    return {
+      ...error,
+      code: 'auth/social-invalid-credential',
+      provider: providerLabel,
+      originalCode: errorCode,
+      message: errorMessage || `${providerLabel} authentication could not be completed.`,
+    };
+  }
+
+  if (errorCode === 'auth/account-exists-with-different-credential') {
+    return {
+      ...error,
+      provider: providerLabel,
+      email: error?.email || error?.customData?.email || '',
+    };
+  }
+
+  if (errorMessage.toLowerCase().includes('did not provide an email')) {
+    return {
+      ...error,
+      code: 'auth/social-email-missing',
+      provider: providerLabel,
+    };
+  }
+
+  if (errorCode === 'auth/popup-closed-by-user') {
+    return {
+      ...error,
+      provider: providerLabel,
+      message: errorMessage || `${providerLabel} sign-in was cancelled before completion.`,
+    };
+  }
+
+  return error;
+};
+
 export const useLoginController = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -1130,7 +1171,7 @@ export const useLoginController = () => {
     switchMode(authError.action);
   };
 
-  const handleSocialSignIn = async (providerSignIn) => {
+  const handleSocialSignIn = async (providerSignIn, providerLabel = 'Social') => {
     setIsLoading(true);
     setAuthError(null);
     setAuthSuccess(null);
@@ -1145,7 +1186,8 @@ export const useLoginController = () => {
         navigate(from, { replace: true });
       }
     } catch (error) {
-      setErr(error);
+      console.error(`${providerLabel} sign-in failed`, error);
+      setErr(normalizeSocialAuthError(error, providerLabel));
     } finally {
       setIsLoading(false);
     }

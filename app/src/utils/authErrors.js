@@ -5,6 +5,75 @@
  */
 
 // ── Error Definitions ──────────────────────────────────────────────────────
+const formatAuthProviderLabel = (provider = '') => {
+    const normalized = String(provider || '').trim().toLowerCase();
+
+    switch (normalized) {
+        case 'twitter':
+        case 'twitter.com':
+        case 'x':
+        case 'x.com':
+            return 'X';
+        case 'google':
+        case 'google.com':
+            return 'Google';
+        case 'facebook':
+        case 'facebook.com':
+            return 'Facebook';
+        case 'github':
+        case 'github.com':
+            return 'GitHub';
+        default:
+            return provider || 'Social';
+    }
+};
+
+const resolveErrorProvider = (rawError) => formatAuthProviderLabel(
+    rawError?.provider
+    || rawError?.providerId
+    || rawError?.customData?.providerId
+    || ''
+);
+
+const buildSocialInvalidCredentialError = (rawError) => {
+    const provider = resolveErrorProvider(rawError);
+
+    return {
+        title: `${provider} Sign-In Failed`,
+        detail: `We couldn't complete ${provider} authentication for this app.`,
+        hint: `Re-save the ${provider} provider keys in Firebase, confirm the callback URL uses your Firebase auth handler, and make sure ${provider} can return an email address for this account.`,
+        action: null,
+        actionLabel: null
+    };
+};
+
+const buildAccountExistsWithDifferentCredentialError = (rawError) => {
+    const provider = resolveErrorProvider(rawError);
+    const email = String(rawError?.email || rawError?.customData?.email || '').trim();
+
+    return {
+        title: `${provider} Account Already Exists`,
+        detail: email
+            ? `The email ${email} is already linked to a different sign-in method.`
+            : 'This email is already linked to a different sign-in method.',
+        hint: `Sign in using the existing provider for this account first, then link ${provider} after login.`,
+        action: 'signin',
+        actionLabel: 'Sign in with existing method'
+    };
+};
+
+const buildSocialMissingEmailError = (rawError) => {
+    const provider = resolveErrorProvider(rawError);
+
+    return {
+        title: `${provider} Email Access Required`,
+        detail: `${provider} did not return an email address for this account.`,
+        hint: `This app needs an email from ${provider} to attach your profile. Use an account with email access enabled, or continue with email and OTP sign-in.`,
+        action: null,
+        actionLabel: null
+    };
+};
+
 export const AUTH_ERRORS = {
     // ── Firebase / Password errors
     'auth/wrong-password': {
@@ -51,8 +120,29 @@ export const AUTH_ERRORS = {
     },
     'auth/popup-closed-by-user': {
         title: 'Sign-In Cancelled',
-        detail: 'The Google sign-in window was closed before completing.',
-        hint: 'Click "Continue with Google" again to try.',
+        detail: 'The social sign-in window was closed before completing.',
+        hint: 'Open the provider window again and complete the sign-in flow.',
+        action: null,
+        actionLabel: null
+    },
+    'auth/account-exists-with-different-credential': {
+        title: 'Account Already Exists',
+        detail: 'This email is already linked to a different sign-in method.',
+        hint: 'Sign in with the existing method for this email, then link the new provider later.',
+        action: 'signin',
+        actionLabel: 'Sign in with existing method'
+    },
+    'auth/social-invalid-credential': {
+        title: 'Social Sign-In Failed',
+        detail: 'We could not complete social authentication for this app.',
+        hint: 'Check the OAuth provider configuration in Firebase and try again.',
+        action: null,
+        actionLabel: null
+    },
+    'auth/social-email-missing': {
+        title: 'Social Email Access Required',
+        detail: 'The social provider did not return an email address for this account.',
+        hint: 'Use a provider account that exposes an email address, or continue with email and OTP sign-in.',
         action: null,
         actionLabel: null
     },
@@ -476,6 +566,25 @@ export const resolveAuthError = (rawError) => {
     if (!rawError) return AUTH_ERRORS['default'];
 
     const errorStr = (rawError.code || rawError.message || rawError || '').toLowerCase();
+
+    if (rawError?.code === 'auth/social-invalid-credential') {
+        return buildSocialInvalidCredentialError(rawError);
+    }
+
+    if (
+        rawError?.code === 'auth/invalid-credential'
+        && (rawError?.provider || rawError?.providerId || rawError?.customData?.providerId)
+    ) {
+        return buildSocialInvalidCredentialError(rawError);
+    }
+
+    if (rawError?.code === 'auth/account-exists-with-different-credential') {
+        return buildAccountExistsWithDifferentCredentialError(rawError);
+    }
+
+    if (rawError?.code === 'auth/social-email-missing' || errorStr.includes('did not provide an email')) {
+        return buildSocialMissingEmailError(rawError);
+    }
 
     // Try exact Firebase code match first
     if (rawError.code && AUTH_ERRORS[rawError.code]) {
