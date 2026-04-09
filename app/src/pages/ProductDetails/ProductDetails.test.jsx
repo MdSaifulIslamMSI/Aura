@@ -81,6 +81,24 @@ vi.mock('@/components/features/product/ProductCard', () => ({
     default: () => <div data-testid="related-product-card" />,
 }));
 
+const renderProductDetails = () => render(
+    <ColorModeProvider>
+        <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+            <AuthContext.Provider value={{ currentUser: null }}>
+                <CartContext.Provider value={{ cartItems: [], addToCart: vi.fn(), updateQuantity: vi.fn() }}>
+                    <WishlistContext.Provider value={{ toggleWishlist: vi.fn(), isInWishlist: vi.fn(() => false) }}>
+                        <MemoryRouter initialEntries={['/product/400046371']}>
+                            <Routes>
+                                <Route path="/product/:id" element={<ProductDetails />} />
+                            </Routes>
+                        </MemoryRouter>
+                    </WishlistContext.Provider>
+                </CartContext.Provider>
+            </AuthContext.Provider>
+        </MarketProvider>
+    </ColorModeProvider>
+);
+
 describe('ProductDetails', () => {
     beforeEach(() => {
         vi.clearAllMocks();
@@ -88,23 +106,7 @@ describe('ProductDetails', () => {
     });
 
     it('renders hero pricing in the active market currency even when backend display pricing is stale', async () => {
-        render(
-            <ColorModeProvider>
-                <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
-                    <AuthContext.Provider value={{ currentUser: null }}>
-                        <CartContext.Provider value={{ cartItems: [], addToCart: vi.fn(), updateQuantity: vi.fn() }}>
-                            <WishlistContext.Provider value={{ toggleWishlist: vi.fn(), isInWishlist: vi.fn(() => false) }}>
-                                <MemoryRouter initialEntries={['/product/400046371']}>
-                                    <Routes>
-                                        <Route path="/product/:id" element={<ProductDetails />} />
-                                    </Routes>
-                                </MemoryRouter>
-                            </WishlistContext.Provider>
-                        </CartContext.Provider>
-                    </AuthContext.Provider>
-                </MarketProvider>
-            </ColorModeProvider>
-        );
+        renderProductDetails();
 
         await waitFor(() => {
             expect(screen.getByRole('heading', { name: /eco plus speaker 09275-1/i })).toBeInTheDocument();
@@ -117,7 +119,29 @@ describe('ProductDetails', () => {
 
         expect(screen.getAllByText((_, node) => {
             const text = node?.textContent?.replace(/\u00a0/g, ' ') || '';
-            return /₹/.test(text) && /54,999(?:\.00)?/.test(text);
+            return /\u20b9/.test(text) && /54,999(?:\.00)?/.test(text);
         }).length).toBeGreaterThan(0);
+    });
+
+    it('keeps the product hero focused instead of showing legacy promo panels', async () => {
+        renderProductDetails();
+
+        await waitFor(() => {
+            expect(screen.getByRole('heading', { name: /eco plus speaker 09275-1/i })).toBeInTheDocument();
+        });
+
+        expect(screen.queryByText(/curated hardware/i)).not.toBeInTheDocument();
+        expect(screen.queryByText(/live market fx/i)).not.toBeInTheDocument();
+        expect(screen.queryByText(/need help now\?/i)).not.toBeInTheDocument();
+        expect(screen.queryByText(/curator note/i)).not.toBeInTheDocument();
+        expect(screen.queryByText(/premium selection/i)).not.toBeInTheDocument();
+        expect(screen.queryByText(/smart bundle/i)).not.toBeInTheDocument();
+        expect(screen.queryByText(/open mission os/i)).not.toBeInTheDocument();
+
+        expect(screen.getByRole('button', { name: /ai compare/i })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /visual search/i })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /set price alert/i })).toBeInTheDocument();
+        expect(screen.getByText(/trust graph/i)).toBeInTheDocument();
+        expect(screen.getByRole('link', { name: /trade-in path/i })).toBeInTheDocument();
     });
 });
