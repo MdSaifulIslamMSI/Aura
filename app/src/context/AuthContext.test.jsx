@@ -1,5 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import * as React from 'react';
 
 let AuthProvider;
 let useAuth;
@@ -12,6 +13,7 @@ const loadAuthContext = async () => {
     signOutMock: vi.fn().mockResolvedValue(undefined),
     onAuthStateChangedMock: vi.fn(),
     getRedirectResultMock: vi.fn().mockResolvedValue(null),
+    signInWithPopupMock: vi.fn(),
     clearCsrfTokenCacheMock: vi.fn(),
     clearTrustedDeviceSessionTokenMock: vi.fn(),
     authApiMock: {
@@ -38,7 +40,7 @@ const loadAuthContext = async () => {
     signOut: mocks.signOutMock,
     onAuthStateChanged: mocks.onAuthStateChangedMock,
     updateProfile: vi.fn(),
-    signInWithPopup: vi.fn(),
+    signInWithPopup: mocks.signInWithPopupMock,
   }));
 
   vi.doMock('../config/firebase', () => ({
@@ -120,5 +122,49 @@ describe('AuthProvider', () => {
     expect(screen.getByTestId('auth-user')).toHaveTextContent('none');
     expect(mocks.clearCsrfTokenCacheMock).toHaveBeenCalled();
     expect(mocks.clearTrustedDeviceSessionTokenMock).toHaveBeenCalled();
+  });
+
+  it('rolls back partial social auth sessions when the provider sign-in cannot supply email access', async () => {
+    mocks.onAuthStateChangedMock.mockImplementation(() => () => {});
+    mocks.signInWithPopupMock.mockResolvedValue({
+      user: {
+        uid: 'oauth-user-1',
+        email: '',
+        displayName: 'X User',
+        phoneNumber: '',
+        providerData: [],
+      },
+    });
+
+    const Probe = () => {
+      const { signInWithX, currentUser, status } = useAuth();
+      const [error, setError] = React.useState('');
+
+      React.useEffect(() => {
+        signInWithX().catch((err) => setError(err.message));
+      }, [signInWithX]);
+
+      return (
+        <>
+          <div data-testid="oauth-status">{status}</div>
+          <div data-testid="oauth-user">{currentUser?.email || 'none'}</div>
+          <div data-testid="oauth-error">{error || 'none'}</div>
+        </>
+      );
+    };
+
+    render(
+      <AuthProvider>
+        <Probe />
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('oauth-status')).toHaveTextContent('signed_out');
+      expect(screen.getByTestId('oauth-error')).toHaveTextContent('Social account did not provide an email');
+    });
+
+    expect(screen.getByTestId('oauth-user')).toHaveTextContent('none');
+    expect(mocks.signOutMock).toHaveBeenCalled();
   });
 });

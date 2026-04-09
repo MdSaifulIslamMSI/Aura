@@ -99,11 +99,11 @@ const resolveDeviceChallengeState = async ({
 
 const buildRequestAuthUser = (req) => ({
     ...req.user,
-    uid: req.authUid || '',
-    email: req.authToken?.email || req.user?.email || '',
-    displayName: req.authToken?.name || req.user?.name || '',
-    phoneNumber: req.authToken?.phone_number || req.user?.phone || '',
-    emailVerified: Boolean(req.authToken?.email_verified ?? req.user?.isVerified),
+    uid: req.authUid || req.authIdentity?.uid || '',
+    email: req.authIdentity?.email || req.authToken?.email || req.user?.email || '',
+    displayName: req.authIdentity?.displayName || req.authToken?.name || req.user?.name || '',
+    phoneNumber: req.authIdentity?.phoneNumber || req.authToken?.phone_number || req.user?.phone || '',
+    emailVerified: Boolean(req.authIdentity?.emailVerified ?? req.authToken?.email_verified ?? req.user?.isVerified),
 });
 
 const getSession = asyncHandler(async (req, res) => {

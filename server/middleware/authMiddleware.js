@@ -90,11 +90,74 @@ const normalizePhone = (value) => (
         ? value.trim().replace(/[\s\-()]/g, '')
         : ''
 );
+const normalizeText = (value) => (
+    typeof value === 'string'
+        ? value.trim()
+        : ''
+);
 const normalizeName = (value, fallbackEmail = '') => {
     const raw = typeof value === 'string' ? value.trim() : '';
     if (raw) return raw;
     const emailPrefix = (fallbackEmail || '').split('@')[0] || '';
     return emailPrefix || 'Aura User';
+};
+const resolveFirebaseUserRecordEmail = (userRecord = null) => {
+    const directEmail = normalizeEmail(userRecord?.email || '');
+    if (directEmail) return directEmail;
+
+    if (!Array.isArray(userRecord?.providerData)) {
+        return '';
+    }
+
+    for (const providerEntry of userRecord.providerData) {
+        const providerEmail = normalizeEmail(providerEntry?.email || '');
+        if (providerEmail) {
+            return providerEmail;
+        }
+    }
+
+    return '';
+};
+const resolveFirebaseUserRecordPhone = (userRecord = null) => {
+    const rawPhone = normalizePhone(userRecord?.phoneNumber || '');
+    return PHONE_REGEX.test(rawPhone) ? rawPhone : '';
+};
+const resolveDecodedTokenIdentity = async (decodedToken = null) => {
+    const uid = normalizeText(decodedToken?.uid || '');
+    const identity = {
+        uid,
+        email: normalizeEmail(decodedToken?.email || ''),
+        phone: normalizePhone(decodedToken?.phone_number || ''),
+        name: normalizeText(decodedToken?.name || ''),
+        emailVerified: Boolean(decodedToken?.email_verified),
+    };
+
+    if (identity.phone && !PHONE_REGEX.test(identity.phone)) {
+        identity.phone = '';
+    }
+
+    if (identity.email || !uid) {
+        return identity;
+    }
+
+    try {
+        const firebaseUserRecord = await firebaseAdmin.auth().getUser(uid);
+        const fallbackEmail = resolveFirebaseUserRecordEmail(firebaseUserRecord);
+
+        return {
+            ...identity,
+            email: fallbackEmail,
+            phone: resolveFirebaseUserRecordPhone(firebaseUserRecord) || identity.phone,
+            name: normalizeName(firebaseUserRecord?.displayName || identity.name, fallbackEmail),
+            emailVerified: Boolean(firebaseUserRecord?.emailVerified ?? identity.emailVerified),
+        };
+    } catch (error) {
+        logger.warn('auth.user_record_lookup_failed', {
+            uid,
+            error: error?.message || 'unknown',
+        });
+        return identity;
+    }
 };
 
 const AUTH_REQUIRE_OTP_FOR_ALL_PROTECTED = parseBooleanEnv(process.env.AUTH_REQUIRE_OTP_FOR_ALL_PROTECTED, false);
@@ -247,10 +310,24 @@ const protect = asyncHandler(async (req, res, next) => {
 
             // ── Step 1: Verify Firebase token ──────────────────────
             const decodedToken = await firebaseAdmin.auth().verifyIdToken(token, true);
-            const { uid, email, exp } = decodedToken;
+            const { uid, exp } = decodedToken;
+            const resolvedIdentity = await resolveDecodedTokenIdentity(decodedToken);
             req.authUid = uid;
-            req.authToken = decodedToken;
-            const normalizedEmail = normalizeEmail(email);
+            req.authToken = {
+                ...decodedToken,
+                email: resolvedIdentity.email,
+                name: resolvedIdentity.name,
+                phone_number: resolvedIdentity.phone,
+                email_verified: resolvedIdentity.emailVerified,
+            };
+            req.authIdentity = {
+                uid,
+                email: resolvedIdentity.email,
+                displayName: resolvedIdentity.name,
+                phoneNumber: resolvedIdentity.phone,
+                emailVerified: resolvedIdentity.emailVerified,
+            };
+            const normalizedEmail = normalizeEmail(resolvedIdentity.email);
             if (!normalizedEmail) {
                 throw new AppError('Authenticated account is missing email', 401);
             }
@@ -278,7 +355,7 @@ const protect = asyncHandler(async (req, res, next) => {
 
             if (!user) {
                 const bootstrappedUser = await bootstrapUserRecord({
-                    decodedToken,
+                    decodedToken: req.authToken,
                     email: normalizedEmail,
                 });
                 enforceUserAccountAccess(bootstrappedUser);

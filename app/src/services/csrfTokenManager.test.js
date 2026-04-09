@@ -48,4 +48,27 @@ describe('csrfTokenManager', () => {
 
         expect(fetchMock).toHaveBeenCalledTimes(1);
     });
+
+    it('preserves backend auth failure details when CSRF bootstrap is rejected', async () => {
+        vi.resetModules();
+        const manager = await import('./csrfTokenManager');
+        manager.clearCsrfTokenCache();
+
+        vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response(JSON.stringify({
+            message: 'Authenticated account is missing email',
+        }), {
+            status: 401,
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        }));
+
+        await expect(manager.ensureCsrfToken(makeJwt('user-3'))).rejects.toMatchObject({
+            status: 401,
+            message: 'HTTP 401: Authenticated account is missing email',
+            data: {
+                message: 'Authenticated account is missing email',
+            },
+        });
+    });
 });
