@@ -416,7 +416,7 @@ const LoginView = ({
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <button
                       type="button"
-                      onClick={() => handleSocialSignIn(signInWithGoogle)}
+                      onClick={() => handleSocialSignIn(signInWithGoogle, 'Google')}
                       disabled={isLoading}
                       className="py-3 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 text-white font-bold text-xs tracking-[0.08em] uppercase transition-all duration-300 flex items-center justify-center gap-2 hover:border-white/20 hover:shadow-[0_0_20px_rgba(255,255,255,0.05)]"
                     >
@@ -431,7 +431,7 @@ const LoginView = ({
 
                     <button
                       type="button"
-                      onClick={() => handleSocialSignIn(signInWithFacebook)}
+                      onClick={() => handleSocialSignIn(signInWithFacebook, 'Facebook')}
                       disabled={isLoading}
                       className="py-3 rounded-2xl border border-white/10 bg-white/5 hover:bg-[#1877F2]/15 text-white font-bold text-xs tracking-[0.08em] uppercase transition-all duration-300 flex items-center justify-center gap-2 hover:border-[#1877F2]/40"
                     >
@@ -443,7 +443,7 @@ const LoginView = ({
 
                     <button
                       type="button"
-                      onClick={() => handleSocialSignIn(signInWithX)}
+                      onClick={() => handleSocialSignIn(signInWithX, 'X')}
                       disabled={isLoading}
                       className="py-3 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 text-white font-bold text-xs tracking-[0.08em] uppercase transition-all duration-300 flex items-center justify-center gap-2 hover:border-white/30"
                     >
