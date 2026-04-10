@@ -23,10 +23,15 @@ param(
     [string]$RedisSku = "Basic",
     [ValidateSet("c0", "c1")]
     [string]$RedisVmSize = "c0",
+    [switch]$EnableBudgetHeavyObservability,
     [switch]$MigrateRedis
 )
 
 $ErrorActionPreference = "Stop"
+
+if (-not $EnableBudgetHeavyObservability) {
+    throw "This script provisions extra billable Azure monitoring and alerting. Re-run with -EnableBudgetHeavyObservability only when you explicitly want that spend."
+}
 
 function Invoke-AzJson {
     param(
