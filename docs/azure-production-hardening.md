@@ -2,6 +2,8 @@
 
 This runbook provisions the managed Azure edge and observability layer used by the live Aura backend.
 
+Warning: this runbook creates extra billable monitoring resources. It is not part of the low-cost default deployment path and should only be used when you explicitly want the additional spend for alerts and deep observability.
+
 Note: Azure for Students blocks Azure Front Door. The script detects that limitation automatically and still applies the telemetry, alerting, replica, and optional Redis hardening against the live Container Apps runtime. Because the Container Apps App Insights telemetry command is still preview, the script also injects the Application Insights connection string directly into the API and worker apps so telemetry does not depend on the preview binding alone.
 
 ## What it adds
@@ -27,13 +29,13 @@ The WAF is provisioned in `Detection` mode by default so the edge can be observe
 ## Command
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File infra\azure\harden-edge-observability.ps1
+powershell -ExecutionPolicy Bypass -File infra\azure\harden-edge-observability.ps1 -EnableBudgetHeavyObservability
 ```
 
 ## Optional Azure Redis migration
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File infra\azure\harden-edge-observability.ps1 -MigrateRedis
+powershell -ExecutionPolicy Bypass -File infra\azure\harden-edge-observability.ps1 -EnableBudgetHeavyObservability -MigrateRedis
 ```
 
 ## Post-run cutover

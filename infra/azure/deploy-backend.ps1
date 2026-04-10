@@ -10,6 +10,7 @@ param(
     [string]$RedisSku = "Basic",
     [string]$RedisVmSize = "c0",
     [string]$RedisName = "",
+    [switch]$EnableAppInsights,
     [switch]$SkipDeploy,
     [switch]$ValidateOnly
 )
@@ -713,7 +714,7 @@ if ($storageAccountName.Length -gt 24) {
     $storageAccountName = $storageAccountName.Substring(0, 24)
 }
 $redisCacheName = if ($RedisName) { $RedisName } else { "$Prefix-redis" }
-$appInsightsName = "$Prefix-appi"
+$appInsightsName = if ($EnableAppInsights) { "$Prefix-appi" } else { "" }
 $apiUrl = if ($ApiPublicUrl) { $ApiPublicUrl } else { "https://$apiAppName.azurewebsites.net" }
 
 $defaultSecretsEnvFile = Join-Path $RepoRoot "server\.env.azure-secrets"
@@ -774,19 +775,24 @@ if ([string]::IsNullOrWhiteSpace($existingPlan)) {
     Write-Host "Using existing App Service plan $appServicePlan." -ForegroundColor Cyan
 }
 
-Write-Host "Creating Application Insights..." -ForegroundColor Cyan
-$existingAppInsights = ""
-try {
-    $existingAppInsights = Invoke-AzCli monitor app-insights component show --app $appInsightsName --resource-group $ResourceGroup --query appId --output tsv
-} catch {
+$appInsightsConnectionString = ""
+if ($EnableAppInsights) {
+    Write-Host "Creating Application Insights..." -ForegroundColor Cyan
     $existingAppInsights = ""
-}
-if ([string]::IsNullOrWhiteSpace($existingAppInsights)) {
-    Invoke-AzCli monitor app-insights component create --app $appInsightsName --location $Location --resource-group $ResourceGroup --kind web --application-type web | Out-Null
+    try {
+        $existingAppInsights = Invoke-AzCli monitor app-insights component show --app $appInsightsName --resource-group $ResourceGroup --query appId --output tsv
+    } catch {
+        $existingAppInsights = ""
+    }
+    if ([string]::IsNullOrWhiteSpace($existingAppInsights)) {
+        Invoke-AzCli monitor app-insights component create --app $appInsightsName --location $Location --resource-group $ResourceGroup --kind web --application-type web | Out-Null
+    } else {
+        Write-Host "Using existing Application Insights $appInsightsName." -ForegroundColor Cyan
+    }
+    $appInsightsConnectionString = Invoke-AzCli monitor app-insights component show --app $appInsightsName --resource-group $ResourceGroup --query connectionString --output tsv
 } else {
-    Write-Host "Using existing Application Insights $appInsightsName." -ForegroundColor Cyan
+    Write-Host "Skipping Application Insights creation. Pass -EnableAppInsights to opt into the extra monitoring spend." -ForegroundColor Yellow
 }
-$appInsightsConnectionString = Invoke-AzCli monitor app-insights component show --app $appInsightsName --resource-group $ResourceGroup --query connectionString --output tsv
 
 Write-Host "Creating Key Vault..." -ForegroundColor Cyan
 $existingKeyVault = ""
@@ -856,8 +862,10 @@ foreach ($appName in @($apiAppName, $workerAppName)) {
 $apiSettings = Read-EnvFile -Path $ApiSettingsPath
 $workerSettings = Read-EnvFile -Path $WorkerSettingsPath
 
-$apiSettings["APPLICATIONINSIGHTS_CONNECTION_STRING"] = $appInsightsConnectionString
-$workerSettings["APPLICATIONINSIGHTS_CONNECTION_STRING"] = $appInsightsConnectionString
+if (-not [string]::IsNullOrWhiteSpace($appInsightsConnectionString)) {
+    $apiSettings["APPLICATIONINSIGHTS_CONNECTION_STRING"] = $appInsightsConnectionString
+    $workerSettings["APPLICATIONINSIGHTS_CONNECTION_STRING"] = $appInsightsConnectionString
+}
 $apiSettings["SCM_DO_BUILD_DURING_DEPLOYMENT"] = "false"
 $workerSettings["SCM_DO_BUILD_DURING_DEPLOYMENT"] = "false"
 $apiSettings["WEBSITES_PORT"] = "8080"

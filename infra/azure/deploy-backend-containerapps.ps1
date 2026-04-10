@@ -6,15 +6,15 @@ param(
     [string]$ApiPublicUrl = "",
     [string]$SecretsEnvFile = "",
     [string]$KeyVaultName = "aura-msi-20260318-kv",
-    [string]$AppInsightsName = "aura-msi-20260318-appi",
+    [string]$AppInsightsName = "",
     [string]$StorageAccountName = "auramsi20260318media",
     [string]$ContainerEnvName = "aura-msi-ca-env",
     [string]$RegistryName = "auramsi20260318acr",
-    [string]$RegistrySku = "Standard",
+    [string]$RegistrySku = "Basic",
     [string]$IdentityName = "aura-msi-backend-id",
     [string]$ApiAppName = "aura-msi-api-ca",
     [string]$WorkerAppName = "aura-msi-worker-ca",
-    [int]$ApiMinReplicas = 1,
+    [int]$ApiMinReplicas = 0,
     [int]$ApiMaxReplicas = 3,
     [int]$WorkerMinReplicas = 1,
     [int]$WorkerMaxReplicas = 1,
@@ -782,8 +782,8 @@ if (-not $apiExists) {
         "--ingress", "external",
         "--target-port", "8080",
         "--transport", "auto",
-        "--cpu", "1.0",
-        "--memory", "2.0Gi",
+        "--cpu", "0.5",
+        "--memory", "1.0Gi",
         "--min-replicas", "$ApiMinReplicas",
         "--max-replicas", "$ApiMaxReplicas",
         "--revisions-mode", "single",
@@ -791,7 +791,7 @@ if (-not $apiExists) {
     ) + $apiSecretArgs + @("--env-vars") + $apiEnvArgs
     Invoke-AzCli @createApiArgs | Out-Null
 } else {
-    Invoke-AzCli containerapp update --name $ApiAppName --resource-group $ResourceGroup --image $imageRef --cpu 1.0 --memory 2.0Gi --min-replicas $ApiMinReplicas --max-replicas $ApiMaxReplicas --replace-env-vars @apiEnvArgs | Out-Null
+    Invoke-AzCli containerapp update --name $ApiAppName --resource-group $ResourceGroup --image $imageRef --cpu 0.5 --memory 1.0Gi --min-replicas $ApiMinReplicas --max-replicas $ApiMaxReplicas --replace-env-vars @apiEnvArgs | Out-Null
     if ($apiSecretArgs.Count -gt 0) {
         $setApiSecretsArgs = @("containerapp", "secret", "set", "--name", $ApiAppName, "--resource-group", $ResourceGroup, "--secrets") + $apiSecretArgs
         Invoke-AzCli @setApiSecretsArgs | Out-Null
@@ -820,8 +820,8 @@ if (-not $workerExists) {
         "--registry-identity", $identityId,
         "--user-assigned", $identityId,
         "--command", "node", "workerProcess.js",
-        "--cpu", "1.0",
-        "--memory", "2.0Gi",
+        "--cpu", "0.5",
+        "--memory", "1.0Gi",
         "--min-replicas", "$WorkerMinReplicas",
         "--max-replicas", "$WorkerMaxReplicas",
         "--revisions-mode", "single",
@@ -829,7 +829,7 @@ if (-not $workerExists) {
     ) + $workerSecretArgs + @("--env-vars") + $workerEnvArgs
     Invoke-AzCli @createWorkerArgs | Out-Null
 } else {
-    Invoke-AzCli containerapp update --name $WorkerAppName --resource-group $ResourceGroup --image $imageRef --command "node" "workerProcess.js" --cpu 1.0 --memory 2.0Gi --min-replicas $WorkerMinReplicas --max-replicas $WorkerMaxReplicas --replace-env-vars @workerEnvArgs | Out-Null
+    Invoke-AzCli containerapp update --name $WorkerAppName --resource-group $ResourceGroup --image $imageRef --command "node" "workerProcess.js" --cpu 0.5 --memory 1.0Gi --min-replicas $WorkerMinReplicas --max-replicas $WorkerMaxReplicas --replace-env-vars @workerEnvArgs | Out-Null
     if ($workerSecretArgs.Count -gt 0) {
         $setWorkerSecretsArgs = @("containerapp", "secret", "set", "--name", $WorkerAppName, "--resource-group", $ResourceGroup, "--secrets") + $workerSecretArgs
         Invoke-AzCli @setWorkerSecretsArgs | Out-Null
