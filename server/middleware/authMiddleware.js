@@ -287,29 +287,43 @@ const isTrustedDeviceBypassPath = (req = {}) => {
         || path.startsWith('/api/auth/verify-quantum');
 };
 
-const enforceTrustedDevice = (req) => {
-    if (!shouldRequireTrustedDevice({ user: req.user }) || isTrustedDeviceBypassPath(req)) {
-        return;
-    }
+const getTrustedDeviceSessionToken = (req = {}) => String(
+    req.get?.(TRUSTED_DEVICE_SESSION_HEADER)
+    || req.headers?.[TRUSTED_DEVICE_SESSION_HEADER]
+    || ''
+).trim();
 
+const getTrustedDeviceSessionVerification = (req = {}) => {
     const { deviceId } = extractTrustedDeviceContext(req);
-    const deviceSessionToken = String(
-        req.get?.(TRUSTED_DEVICE_SESSION_HEADER)
-        || req.headers?.[TRUSTED_DEVICE_SESSION_HEADER]
-        || ''
-    ).trim();
+    const deviceSessionToken = getTrustedDeviceSessionToken(req);
 
     if (!deviceId || !deviceSessionToken) {
-        throw new AppError('Trusted device verification required for this account', 403);
+        return { success: false, reason: 'Trusted device verification missing' };
     }
 
-    const verification = verifyTrustedDeviceSession({
+    return verifyTrustedDeviceSession({
         user: req.user,
         authUid: req.authUid || '',
         authToken: req.authToken || null,
         deviceId,
         deviceSessionToken,
     });
+};
+
+const hasTrustedDeviceSecondFactor = (req = {}) => {
+    if (!shouldRequireTrustedDevice({ user: req.user })) {
+        return false;
+    }
+
+    return getTrustedDeviceSessionVerification(req).success;
+};
+
+const enforceTrustedDevice = (req) => {
+    if (!shouldRequireTrustedDevice({ user: req.user }) || isTrustedDeviceBypassPath(req)) {
+        return;
+    }
+
+    const verification = getTrustedDeviceSessionVerification(req);
 
     if (!verification.success) {
         throw new AppError('Trusted device verification required for this account', 403);
@@ -549,7 +563,7 @@ const admin = asyncHandler(async (req, res, next) => {
     const authTime = Number(req.authToken?.auth_time || 0);
     const nowSeconds = Math.floor(Date.now() / 1000);
     const sessionAgeSeconds = authTime > 0 ? (nowSeconds - authTime) : Number.POSITIVE_INFINITY;
-    const hasSecondFactor = Boolean(req.authToken?.firebase?.sign_in_second_factor);
+    const hasSecondFactor = Boolean(req.authToken?.firebase?.sign_in_second_factor) || hasTrustedDeviceSecondFactor(req);
 
     if (ADMIN_REQUIRE_EMAIL_VERIFIED && !emailVerified) {
         logger.warn('admin_access.blocked_unverified_email', {
@@ -602,7 +616,7 @@ const admin = asyncHandler(async (req, res, next) => {
             email: actorEmail,
             path: req.originalUrl,
         });
-        throw new AppError('Admin access requires multi-factor authentication', 403);
+        throw new AppError('Admin access requires a verified second factor', 403);
     }
 
     enforceTrustedDevice(req);
