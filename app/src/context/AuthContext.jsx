@@ -56,6 +56,50 @@ export const useAuth = () => {
 
 const AUTH_SYNC_DEDUPE_MS = 5 * 1000;  // Reduced from 30s for faster security updates
 const BOOTSTRAP_TIMEOUT_MS = 6000;
+const REDIRECT_AUTH_PENDING_KEY = 'aura-social-auth-redirect-pending';
+const REDIRECT_AUTH_PENDING_TTL_MS = 5 * 60 * 1000;
+
+const readRedirectAuthPending = () => {
+  if (typeof window === 'undefined') return false;
+
+  try {
+    const rawValue = window.sessionStorage.getItem(REDIRECT_AUTH_PENDING_KEY);
+    if (!rawValue) return false;
+
+    const parsed = JSON.parse(rawValue);
+    const startedAt = Number(parsed?.startedAt || 0);
+    if (!startedAt || (Date.now() - startedAt) > REDIRECT_AUTH_PENDING_TTL_MS) {
+      window.sessionStorage.removeItem(REDIRECT_AUTH_PENDING_KEY);
+      return false;
+    }
+
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const markRedirectAuthPending = () => {
+  if (typeof window === 'undefined') return;
+
+  try {
+    window.sessionStorage.setItem(REDIRECT_AUTH_PENDING_KEY, JSON.stringify({
+      startedAt: Date.now(),
+    }));
+  } catch {
+    // best-effort only
+  }
+};
+
+const clearRedirectAuthPending = () => {
+  if (typeof window === 'undefined') return;
+
+  try {
+    window.sessionStorage.removeItem(REDIRECT_AUTH_PENDING_KEY);
+  } catch {
+    // best-effort only
+  }
+};
 
 export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
@@ -83,6 +127,7 @@ export const AuthProvider = ({ children }) => {
   const controlledAuthFlowRef = useRef({
     uid: '',
     email: '',
+    pending: false,
   });
   const sessionStateRef = useRef(EMPTY_SESSION_STATE);
   const redirectResolutionRef = useRef(false);
@@ -117,10 +162,11 @@ export const AuthProvider = ({ children }) => {
     };
   };
 
-  const setControlledAuthFlow = ({ uid = '', email = '' } = {}) => {
+  const setControlledAuthFlow = ({ uid = '', email = '', pending = false } = {}) => {
     controlledAuthFlowRef.current = {
       uid: normalizeText(uid),
       email: normalizeEmail(email),
+      pending: Boolean(pending),
     };
   };
 
@@ -129,7 +175,9 @@ export const AuthProvider = ({ children }) => {
   };
 
   const hasActiveControlledAuthFlow = () => Boolean(
-    controlledAuthFlowRef.current.uid || controlledAuthFlowRef.current.email
+    controlledAuthFlowRef.current.pending
+    || controlledAuthFlowRef.current.uid
+    || controlledAuthFlowRef.current.email
   );
 
   const isControlledAuthFlow = (firebaseUser = null) => {
@@ -138,6 +186,10 @@ export const AuthProvider = ({ children }) => {
     const pending = controlledAuthFlowRef.current;
     const uid = normalizeText(firebaseUser.uid);
     const email = normalizeEmail(firebaseUser.email);
+
+    if (pending.pending) {
+      return true;
+    }
 
     return Boolean(
       (pending.uid && pending.uid === uid)
@@ -150,6 +202,7 @@ export const AuthProvider = ({ children }) => {
     clearTrustedDeviceSessionToken();
     resetSyncTracking();
     clearControlledAuthFlow();
+    clearRedirectAuthPending();
     setSessionState({
       status: SESSION_STATUS.SIGNED_OUT,
       deviceChallenge: null,
@@ -260,6 +313,7 @@ export const AuthProvider = ({ children }) => {
     clearTrustedDeviceSessionToken();
     resetSyncTracking();
     clearControlledAuthFlow();
+    clearRedirectAuthPending();
     setCurrentUser(null);
     setSessionState({
       status: SESSION_STATUS.SIGNED_OUT,
@@ -289,6 +343,7 @@ export const AuthProvider = ({ children }) => {
     clearTrustedDeviceSessionToken();
     resetSyncTracking();
     clearControlledAuthFlow();
+    clearRedirectAuthPending();
     setCurrentUser(null);
     setSessionState({
       status: SESSION_STATUS.SIGNED_OUT,
@@ -450,7 +505,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const completeControlledAuthFlow = async ({ email = '', execute, finalize }) => {
-    setControlledAuthFlow({ email });
+    setControlledAuthFlow({ email, pending: true });
     let shouldHoldGuardForAuthEvent = false;
 
     try {
@@ -461,16 +516,29 @@ export const AuthProvider = ({ children }) => {
         setControlledAuthFlow({
           uid: firebaseUser.uid,
           email: firebaseUser.email || email,
+          pending: false,
         });
         shouldHoldGuardForAuthEvent = true;
       }
 
-      await finalize(result, firebaseUser);
-      return result;
+      const finalizedResult = await finalize(result, firebaseUser);
+      return finalizedResult ?? result;
     } finally {
       if (!shouldHoldGuardForAuthEvent) {
         clearControlledAuthFlow();
       }
+    }
+  };
+
+  const beginRedirectOAuthFlow = async (provider) => {
+    markRedirectAuthPending();
+
+    try {
+      await signInWithRedirect(auth, provider);
+      return { redirecting: true };
+    } catch (error) {
+      clearRedirectAuthPending();
+      throw error;
     }
   };
 
@@ -554,12 +622,13 @@ export const AuthProvider = ({ children }) => {
     try {
       assertFirebaseSocialAuthReady(`${providerLabel} sign-in`);
       if (shouldPreferFirebaseRedirectAuth()) {
-        await signInWithRedirect(auth, provider);
-        return { redirecting: true };
+        return beginRedirectOAuthFlow(provider);
       }
-      const result = await signInWithPopup(auth, provider);
-      return resolveOAuthUser(result.user, {
-        isNewUser: result._tokenResponse?.isNewUser || false,
+      return completeControlledAuthFlow({
+        execute: async () => signInWithPopup(auth, provider),
+        finalize: async (result, firebaseUser) => resolveOAuthUser(firebaseUser, {
+          isNewUser: result?._tokenResponse?.isNewUser || false,
+        }),
       });
     } catch (error) {
       const errorCode = String(error?.code || '');
@@ -570,8 +639,7 @@ export const AuthProvider = ({ children }) => {
       ].includes(errorCode);
 
       if (canFallbackToRedirect) {
-        await signInWithRedirect(auth, provider);
-        return { redirecting: true };
+        return beginRedirectOAuthFlow(provider);
       }
 
       markFirebaseSocialAuthRejectedForRuntime(error);
@@ -588,25 +656,42 @@ export const AuthProvider = ({ children }) => {
 
     redirectResolutionRef.current = true;
 
+    let isMounted = true;
+
     getRedirectResult(auth)
       .then((result) => {
-        if (!result?.user) return null;
+        if (!isMounted) return null;
+
+        if (!result?.user) {
+          clearRedirectAuthPending();
+          if (auth.currentUser && !hasActiveControlledAuthFlow()) {
+            return refreshSession(auth.currentUser, { force: true, silent: true }).catch(() => {});
+          }
+          return null;
+        }
+
         return resolveOAuthUser(result.user, {
           isNewUser: result._tokenResponse?.isNewUser || false,
           silent: true,
+        }).finally(() => {
+          clearRedirectAuthPending();
         });
       })
       .catch((error) => {
+        clearRedirectAuthPending();
         if (!error) return;
         markFirebaseSocialAuthRejectedForRuntime(error);
       });
 
-    return undefined;
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const logout = async () => {
     clearCsrfTokenCache();
     clearAuthJourneyDraft();
+    clearRedirectAuthPending();
     setCurrentUser(null);
     applySignedOutState();
 
@@ -706,6 +791,10 @@ export const AuthProvider = ({ children }) => {
 
       clearCsrfTokenCache();
       applySessionLoadingState(user);
+
+      if (readRedirectAuthPending() && !isControlledAuthFlow(user)) {
+        return;
+      }
 
       if (isControlledAuthFlow(user)) {
         clearControlledAuthFlow();
