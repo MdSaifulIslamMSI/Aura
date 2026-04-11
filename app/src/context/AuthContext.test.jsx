@@ -219,4 +219,114 @@ describe('AuthProvider', () => {
     expect(mocks.authApiMock.syncSession).toHaveBeenCalled();
     expect(mocks.signOutMock).not.toHaveBeenCalled();
   });
+
+  it('prevents popup X sign-in from being cancelled by an auth-state refresh race', async () => {
+    let authStateCallback = null;
+
+    mocks.onAuthStateChangedMock.mockImplementation((_auth, callback) => {
+      authStateCallback = callback;
+      return () => {};
+    });
+
+    const oauthUser = {
+      uid: 'oauth-race-user-1',
+      email: '',
+      emailVerified: false,
+      displayName: 'Race Safe User',
+      phoneNumber: '',
+      providerData: [{ providerId: 'twitter.com' }],
+      getIdToken: vi.fn().mockResolvedValue('oauth-race-token'),
+    };
+
+    mocks.authApiMock.syncSession.mockResolvedValue({
+      status: 'authenticated',
+      session: {
+        uid: oauthUser.uid,
+        email: '',
+        emailVerified: false,
+        displayName: oauthUser.displayName,
+        phone: '',
+        providerIds: ['twitter.com'],
+      },
+      profile: {
+        _id: 'db-user-race-1',
+        name: oauthUser.displayName,
+        email: '',
+        phone: '',
+        isAdmin: false,
+        isVerified: true,
+        isSeller: false,
+        sellerActivatedAt: null,
+        accountState: 'active',
+        moderation: {},
+        loyalty: {},
+        createdAt: null,
+      },
+      roles: {
+        isAdmin: false,
+        isSeller: false,
+        isVerified: true,
+      },
+      intelligence: {
+        assurance: {
+          level: 'password',
+          label: 'Verified session',
+          verifiedAt: null,
+          expiresAt: null,
+          isRecent: false,
+        },
+        readiness: {
+          hasVerifiedEmail: false,
+          hasPhone: false,
+          accountState: 'active',
+          isPrivileged: false,
+        },
+        acceleration: {
+          suggestedRoute: 'social',
+          rememberedIdentifier: 'email',
+          suggestedProvider: 'twitter.com',
+          providerIds: ['twitter.com'],
+        },
+      },
+    });
+
+    mocks.signInWithPopupMock.mockImplementation(async () => {
+      authStateCallback?.(oauthUser);
+      return {
+        user: oauthUser,
+        _tokenResponse: { isNewUser: false },
+      };
+    });
+
+    const Probe = () => {
+      const { signInWithX, currentUser, status } = useAuth();
+      const [error, setError] = React.useState('');
+
+      React.useEffect(() => {
+        signInWithX().catch((err) => setError(err.message));
+      }, [signInWithX]);
+
+      return (
+        <>
+          <div data-testid="oauth-status">{status}</div>
+          <div data-testid="oauth-error">{error || 'none'}</div>
+        </>
+      );
+    };
+
+    render(
+      <AuthProvider>
+        <Probe />
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('oauth-status')).toHaveTextContent('authenticated');
+      expect(screen.getByTestId('oauth-error')).toHaveTextContent('none');
+    });
+
+    expect(mocks.authApiMock.getSession).not.toHaveBeenCalled();
+    expect(mocks.authApiMock.syncSession).toHaveBeenCalled();
+    expect(mocks.signOutMock).not.toHaveBeenCalled();
+  });
 });
