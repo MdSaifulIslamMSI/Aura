@@ -75,6 +75,7 @@ const trustedDeviceSchema = mongoose.Schema({
 const userSchema = mongoose.Schema({
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true },
+    authUid: { type: String, trim: true },
     phone: { type: String, required: false, set: normalizeOptionalPhone },
     avatar: { type: String, default: '' },           // URL or data URI
     gender: { type: String, enum: ['male', 'female', 'other', 'prefer-not-to-say', ''], default: '' },
@@ -159,6 +160,22 @@ userSchema.index(
                 { phone: { $exists: true } },
                 { phone: { $type: 'string' } },
                 { phone: { $gt: '' } },
+            ],
+        },
+    }
+);
+
+// Stable Firebase identity for providers that don't expose an email address.
+userSchema.index(
+    { authUid: 1 },
+    {
+        unique: true,
+        name: 'auth_uid_1_partial_unique_nonempty',
+        partialFilterExpression: {
+            $and: [
+                { authUid: { $exists: true } },
+                { authUid: { $type: 'string' } },
+                { authUid: { $gt: '' } },
             ],
         },
     }

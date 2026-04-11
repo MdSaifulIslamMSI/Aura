@@ -199,7 +199,10 @@ export default function ListingDetail() {
 
     const images = listing.images || [];
     const seller = listing.seller || {};
-    const isOwner = currentUser?.email && seller?.email && currentUser.email === seller.email;
+    const isOwner = (
+        (dbUser?._id && seller?._id && String(dbUser._id) === String(seller._id))
+        || (currentUser?.email && seller?.email && currentUser.email === seller.email)
+    );
     const memberSince = seller.createdAt
         ? new Date(seller.createdAt).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })
         : '';

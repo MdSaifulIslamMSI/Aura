@@ -8,6 +8,7 @@ require('../index');
 const User = require('../models/User');
 const {
     buildSessionPayload,
+    resolveAuthenticatedSession,
     syncAuthenticatedUser,
     applyLoginAssuranceToSession,
 } = require('../services/authSessionService');
@@ -157,6 +158,46 @@ describe('authSessionService session intelligence payload', () => {
                 rememberedIdentifier: 'email+phone',
                 providerIds: ['password', 'google.com'],
             },
+    });
+  });
+});
+
+describe('authSessionService social identity fallback', () => {
+    test('creates and resolves uid-backed social accounts when the provider omits email', async () => {
+        const resolvedUser = await syncAuthenticatedUser({
+            authUser: {
+                uid: 'uid-x-no-email',
+                email: '',
+                emailVerified: false,
+                displayName: 'X User',
+            },
+            email: '',
+            name: 'X User',
+            phone: '',
+            awardLoginPoints: false,
         });
+
+        expect(resolvedUser.email).toMatch(/@auth\.aura\.invalid$/);
+        expect(resolvedUser.isVerified).toBe(true);
+
+        const persistedUser = await User.findById(resolvedUser._id).lean();
+        expect(persistedUser.authUid).toBe('uid-x-no-email');
+
+        const session = await resolveAuthenticatedSession({
+            authUser: {
+                uid: 'uid-x-no-email',
+                email: '',
+                displayName: 'X User',
+            },
+            authUid: 'uid-x-no-email',
+            authToken: {
+                uid: 'uid-x-no-email',
+                firebase: { sign_in_provider: 'twitter.com' },
+            },
+        });
+
+        expect(session.user._id.toString()).toBe(resolvedUser._id.toString());
+        expect(session.payload.profile.email).toBe('');
+        expect(session.payload.session.email).toBe('');
     });
 });
