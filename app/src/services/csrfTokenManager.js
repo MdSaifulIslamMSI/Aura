@@ -1,5 +1,6 @@
 import { buildApiUrl } from './apiBase';
 import { getActiveMarketHeaders } from './marketRuntime';
+import { getTrustedDeviceHeaders } from './deviceTrustClient';
 
 /**
  * CSRF Token Manager
@@ -149,6 +150,7 @@ export const fetchCsrfToken = async (authToken) => {
                 'Authorization': `Bearer ${authToken}`,
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
+                ...getTrustedDeviceHeaders(),
                 ...getActiveMarketHeaders(),
             },
         });
