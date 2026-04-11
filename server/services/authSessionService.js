@@ -5,6 +5,14 @@ const { saveAuthProfileSnapshot } = require('./authProfileVault');
 const { awardLoyaltyPoints, getRewardSnapshotFromUser } = require('./loyaltyService');
 const { normalizePhoneE164 } = require('./sms');
 const { verifyOtpFlowToken } = require('../utils/otpFlowToken');
+const {
+    normalizeEmail,
+    normalizeUid,
+    buildInternalAuthEmail,
+    isInternalAuthEmail,
+    buildIdentityQuery,
+    resolvePublicEmail,
+} = require('../utils/authIdentity');
 
 const PROFILE_PROJECTION = 'name email phone avatar gender dob bio isAdmin isVerified isSeller sellerActivatedAt accountState moderation authAssurance authAssuranceAt trustedDevices +loginOtpAssuranceExpiresAt addresses cart wishlist loyalty createdAt';
 const AUTH_ONLY_PROJECTION = 'name email phone isAdmin isVerified isSeller sellerActivatedAt accountState moderation authAssurance authAssuranceAt trustedDevices +loginOtpAssuranceExpiresAt loyalty createdAt';
@@ -61,38 +69,50 @@ const normalizeText = (value) => (
     typeof value === 'string' ? value.trim() : ''
 );
 
-const normalizeEmail = (value) => (
-    typeof value === 'string' ? value.trim().toLowerCase() : ''
-);
-
 const getDuplicateField = (error) => {
     if (!error || error.code !== 11000) return null;
+    if (error.keyPattern?.authUid) return 'authUid';
     if (error.keyPattern?.email) return 'email';
     if (error.keyPattern?.phone) return 'phone';
     return null;
 };
 
-const buildUserBootstrapPayload = ({ email, authUser = {} }) => {
-    const safeEmail = normalizeEmail(email || authUser.email);
+const resolveAccountEmail = ({ email = '', authUid = '' } = {}) => (
+    normalizeEmail(email) || buildInternalAuthEmail(authUid)
+);
+
+const buildUserBootstrapPayload = ({ email, authUid = '', authUser = {} }) => {
+    const safeUid = normalizeUid(authUid || authUser.uid || authUser.authUid);
+    const safeEmail = resolveAccountEmail({
+        email: email || authUser.email,
+        authUid: safeUid,
+    });
     const safeName = normalizeText(authUser.name || authUser.displayName) || safeEmail.split('@')[0] || 'Aura User';
     const safePhone = canonicalizePhone(authUser.phone || authUser.phoneNumber || authUser.phone_number || '');
 
     const setOnInsert = {
         email: safeEmail,
         name: safeName,
-        isVerified: Boolean(authUser.isVerified ?? authUser.emailVerified),
+        isVerified: safeUid
+            ? Boolean(authUser.isVerified ?? authUser.emailVerified ?? true)
+            : Boolean(authUser.isVerified ?? authUser.emailVerified),
     };
+
+    if (safeUid) {
+        setOnInsert.authUid = safeUid;
+    }
 
     if (safePhone) {
         setOnInsert.phone = safePhone;
     }
 
-    return { safeEmail, setOnInsert };
+    return { safeEmail, safeUid, setOnInsert };
 };
 
-const bootstrapUserRecord = async ({ email, authUser = {}, projection = PROFILE_PROJECTION, lean = true }) => {
-    const { safeEmail, setOnInsert } = buildUserBootstrapPayload({ email, authUser });
-    if (!safeEmail) return null;
+const bootstrapUserRecord = async ({ email, authUid = '', authUser = {}, projection = PROFILE_PROJECTION, lean = true }) => {
+    const { safeEmail, safeUid, setOnInsert } = buildUserBootstrapPayload({ email, authUid, authUser });
+    const identityQuery = buildIdentityQuery({ email: safeEmail, authUid: safeUid });
+    if (!identityQuery) return null;
 
     const queryOptions = {
         returnDocument: 'after',
@@ -104,7 +124,7 @@ const bootstrapUserRecord = async ({ email, authUser = {}, projection = PROFILE_
 
     try {
         return await User.findOneAndUpdate(
-            { email: safeEmail },
+            identityQuery,
             { $setOnInsert: setOnInsert },
             queryOptions
         );
@@ -114,51 +134,64 @@ const bootstrapUserRecord = async ({ email, authUser = {}, projection = PROFILE_
         }
         const { phone, ...withoutPhone } = setOnInsert;
         return User.findOneAndUpdate(
-            { email: safeEmail },
+            identityQuery,
             { $setOnInsert: withoutPhone },
             queryOptions
         );
     }
 };
 
-const ensureUserLean = async ({ email, authUser = {}, projection = PROFILE_PROJECTION }) => {
-    const safeEmail = normalizeEmail(email || authUser.email);
-    if (!safeEmail) return null;
+const ensureUserLean = async ({ email, authUid = '', authUser = {}, projection = PROFILE_PROJECTION }) => {
+    const safeUid = normalizeUid(authUid || authUser.uid || authUser.authUid);
+    const safeEmail = resolveAccountEmail({
+        email: email || authUser.email,
+        authUid: safeUid,
+    });
+    const identityQuery = buildIdentityQuery({ email: safeEmail, authUid: safeUid });
+    if (!identityQuery) return null;
 
-    const existing = await User.findOne({ email: safeEmail }, projection).lean();
+    const existing = await User.findOne(identityQuery, projection).lean();
     if (existing) return existing;
 
     return bootstrapUserRecord({
         email: safeEmail,
+        authUid: safeUid,
         authUser,
         projection,
         lean: true,
     });
 };
 
-const ensureUserDocument = async ({ email, authUser = {} }) => {
-    const safeEmail = normalizeEmail(email || authUser.email);
-    if (!safeEmail) return null;
+const ensureUserDocument = async ({ email, authUid = '', authUser = {} }) => {
+    const safeUid = normalizeUid(authUid || authUser.uid || authUser.authUid);
+    const safeEmail = resolveAccountEmail({
+        email: email || authUser.email,
+        authUid: safeUid,
+    });
+    const identityQuery = buildIdentityQuery({ email: safeEmail, authUid: safeUid });
+    if (!identityQuery) return null;
 
-    let user = await User.findOne({ email: safeEmail });
+    let user = await User.findOne(identityQuery);
     if (user) return user;
 
     await bootstrapUserRecord({
         email: safeEmail,
+        authUid: safeUid,
         authUser,
         projection: '_id',
         lean: true,
     });
 
-    user = await User.findOne({ email: safeEmail });
+    user = await User.findOne(identityQuery);
     return user;
 };
 
 const persistAuthSnapshot = async (user) => {
-    if (!user?.email) return;
+    const publicEmail = resolvePublicEmail(user?.email);
+    if (!publicEmail) return;
     await saveAuthProfileSnapshot({
         name: user.name,
-        email: user.email,
+        email: publicEmail,
         phone: user.phone,
         avatar: user.avatar || '',
         gender: user.gender || '',
@@ -189,7 +222,7 @@ const toProfilePayload = (user = null, options = {}) => {
     const payload = {
         _id: user._id,
         name: user.name,
-        email: user.email,
+        email: resolvePublicEmail(user.email),
         phone: user.phone,
         avatar: user.avatar || '',
         gender: user.gender || '',
@@ -226,7 +259,7 @@ const toProfilePayload = (user = null, options = {}) => {
 };
 
 const buildSessionIdentity = ({ authUser = {}, authToken = null, authUid = '' } = {}) => {
-    const email = normalizeEmail(authToken?.email || authUser.email);
+    const email = resolvePublicEmail(authToken?.email || authUser.email);
     const phone = canonicalizePhone(authToken?.phone_number || authUser.phoneNumber || authUser.phone || '');
     const providerIds = Array.isArray(authUser?.providerData)
         ? authUser.providerData.map((entry) => normalizeText(entry?.providerId)).filter(Boolean)
@@ -388,16 +421,22 @@ const syncAuthenticatedUser = async ({
     phone,
     awardLoginPoints = true,
 }) => {
+    const authUid = normalizeUid(authUser?.uid || authUser?.authUid);
     const tokenEmail = normalizeEmail(authUser?.email);
+    const providerEmail = isInternalAuthEmail(tokenEmail) ? '' : tokenEmail;
     const requestEmail = normalizeEmail(bodyEmail);
     const normalizedName = normalizeText(name);
     const hasPhoneInput = phone !== undefined && phone !== null && String(phone).trim() !== '';
-    const emailVerified = Boolean(authUser?.emailVerified ?? authUser?.isVerified);
+    const hasProviderEmail = Boolean(providerEmail);
+    const accountEmail = resolveAccountEmail({ email: providerEmail, authUid });
+    const emailVerified = hasProviderEmail
+        ? Boolean(authUser?.emailVerified ?? authUser?.isVerified)
+        : Boolean(authUid);
 
-    if (!tokenEmail) {
-        throw new AppError('Email is required', 400);
+    if (!accountEmail) {
+        throw new AppError('Authenticated account is missing identity', 400);
     }
-    if (requestEmail && requestEmail !== tokenEmail) {
+    if (requestEmail && hasProviderEmail && requestEmail !== providerEmail) {
         throw new AppError('Email in request does not match authenticated account', 400);
     }
     if (!emailVerified) {
@@ -429,7 +468,7 @@ const syncAuthenticatedUser = async ({
 
     let user;
     try {
-        const fallbackName = normalizedName || normalizeText(authUser?.name || authUser?.displayName) || tokenEmail.split('@')[0] || 'Aura User';
+        const fallbackName = normalizedName || normalizeText(authUser?.name || authUser?.displayName) || accountEmail.split('@')[0] || 'Aura User';
         const setPayload = {
             name: fallbackName,
             isVerified: emailVerified,
@@ -440,8 +479,8 @@ const syncAuthenticatedUser = async ({
         }
 
         user = await User.findOneAndUpdate(
-            { email: tokenEmail },
-            { $set: setPayload, $setOnInsert: { email: tokenEmail } },
+            buildIdentityQuery({ email: accountEmail, authUid }),
+            { $set: setPayload, $setOnInsert: { email: accountEmail, ...(authUid ? { authUid } : {}) } },
             {
                 returnDocument: 'after',
                 upsert: true,
@@ -454,7 +493,48 @@ const syncAuthenticatedUser = async ({
         if (getDuplicateField(error) === 'phone') {
             throw new AppError('Phone number is already linked to another account', 409);
         }
+        if (getDuplicateField(error) === 'authUid' || getDuplicateField(error) === 'email') {
+            throw new AppError('This social account is already linked to another profile', 409);
+        }
         throw error;
+    }
+
+    if (user && authUid && user.authUid !== authUid) {
+        try {
+            user = await User.findOneAndUpdate(
+                { _id: user._id },
+                { $set: { authUid } },
+                {
+                    returnDocument: 'after',
+                    projection: AUTH_ONLY_PROJECTION,
+                    lean: true,
+                }
+            );
+        } catch (error) {
+            if (getDuplicateField(error) === 'authUid') {
+                throw new AppError('This social account is already linked to another profile', 409);
+            }
+            throw error;
+        }
+    }
+
+    if (user && hasProviderEmail && user.email !== accountEmail) {
+        try {
+            user = await User.findOneAndUpdate(
+                { _id: user._id },
+                { $set: { email: accountEmail } },
+                {
+                    returnDocument: 'after',
+                    projection: AUTH_ONLY_PROJECTION,
+                    lean: true,
+                }
+            );
+        } catch (error) {
+            if (getDuplicateField(error) === 'email') {
+                throw new AppError('This social account is already linked to another profile', 409);
+            }
+            throw error;
+        }
     }
 
     if (!user) {
@@ -470,7 +550,7 @@ const syncAuthenticatedUser = async ({
             user = await User.findById(user._id, AUTH_ONLY_PROJECTION).lean();
         } catch (rewardError) {
             logger.warn('loyalty.daily_login_award_failed', {
-                email: tokenEmail,
+                email: accountEmail,
                 userId: String(user._id || ''),
                 error: rewardError.message,
             });
@@ -486,13 +566,18 @@ const resolveAuthenticatedSession = async ({
     authToken = null,
     authUid = '',
 }) => {
-    const email = normalizeEmail(authToken?.email || authUser?.email);
-    if (!email) {
-        throw new AppError('Authenticated account is missing email', 401);
+    const resolvedAuthUid = normalizeUid(authUid || authUser?.uid);
+    const email = resolveAccountEmail({
+        email: authToken?.email || authUser?.email,
+        authUid: resolvedAuthUid,
+    });
+    if (!email && !resolvedAuthUid) {
+        throw new AppError('Authenticated account is missing identity', 401);
     }
 
     const user = await ensureUserLean({
         email,
+        authUid: resolvedAuthUid,
         authUser,
         projection: SESSION_PROFILE_PROJECTION,
     });
@@ -508,10 +593,10 @@ const resolveAuthenticatedSession = async ({
         payload: buildSessionPayload({
             authUser: {
                 ...authUser,
-                email,
+                email: resolvePublicEmail(email),
             },
             authToken,
-            authUid,
+            authUid: resolvedAuthUid,
             user,
         }),
     };

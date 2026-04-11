@@ -26,6 +26,7 @@ import { authApi, userApi } from '../services/api';
 import { clearCsrfTokenCache } from '../services/csrfTokenManager';
 import { cacheTrustedDeviceSessionToken, clearTrustedDeviceSessionToken } from '../services/deviceTrustClient';
 import { clearAuthJourneyDraft, writeAuthIdentityMemory } from '../utils/authAcceleration';
+import { getUserVisibleEmail } from '../utils/authIdentity';
 import {
   buildFirebaseSessionFallback,
   isAuthenticatedSessionStatus,
@@ -91,12 +92,15 @@ export const AuthProvider = ({ children }) => {
   }, [sessionState]);
 
   useEffect(() => {
-    if (!sessionState.profile?.email) return;
     if (![SESSION_STATUS.AUTHENTICATED, SESSION_STATUS.DEVICE_CHALLENGE].includes(sessionState.status)) return;
 
+    const visibleEmail = getUserVisibleEmail(sessionState.session?.email || sessionState.profile?.email || '');
+    const visiblePhone = sessionState.profile?.phone || sessionState.session?.phone || '';
+    if (!visibleEmail && !visiblePhone) return;
+
     writeAuthIdentityMemory({
-      email: sessionState.session?.email || sessionState.profile.email,
-      phone: sessionState.profile?.phone || sessionState.session?.phone || '',
+      email: visibleEmail,
+      phone: visiblePhone,
       displayName: sessionState.profile?.name || sessionState.session?.displayName || '',
       assuranceLevel: sessionState.intelligence?.assurance?.level || '',
       assuranceLabel: sessionState.intelligence?.assurance?.label || '',
@@ -247,6 +251,7 @@ export const AuthProvider = ({ children }) => {
     return code === 'auth_token_invalid'
       || message.includes('not authorized, token failed')
       || message.includes('authenticated account is missing email')
+      || message.includes('authenticated account is missing identity')
       || (message.includes('csrf token fetch failed') && message.includes('http 401'));
   };
 
@@ -320,8 +325,9 @@ export const AuthProvider = ({ children }) => {
   } = {}) => {
     const activeUser = firebaseUser || auth?.currentUser || null;
     const safeEmail = normalizeEmail(email || activeUser?.email);
+    const safeUid = normalizeText(activeUser?.uid);
 
-    if (!activeUser || !safeEmail) {
+    if (!activeUser || (!safeEmail && !safeUid)) {
       applySignedOutState();
       return null;
     }
@@ -417,16 +423,11 @@ export const AuthProvider = ({ children }) => {
 
     try {
       const email = user.email || user.providerData?.find((entry) => entry?.email)?.email || '';
-
-      if (!email) {
-        const missingEmailError = new Error('Social account did not provide an email. Please use an account with email access or use another login method.');
-        missingEmailError.code = 'auth/social-email-missing';
-        throw missingEmailError;
-      }
+      const resolvedDisplayName = user.displayName || (email ? email.split('@')[0] : 'Aura User');
 
       const resolvedProfile = await syncUserWithBackend(
         email,
-        user.displayName || email.split('@')[0],
+        resolvedDisplayName,
         user.phoneNumber || '',
         user,
         { force: true, silent: options?.silent === true }
@@ -617,10 +618,12 @@ export const AuthProvider = ({ children }) => {
   };
 
   const updatePhone = async (phone) => {
-    if (!currentUser?.email) return null;
+    if (!currentUser) return null;
+    const resolvedEmail = normalizeEmail(currentUser.email || sessionStateRef.current.profile?.email || '');
+    const resolvedName = currentUser.displayName || sessionStateRef.current.profile?.name || resolvedEmail.split('@')[0] || 'Aura User';
     return syncUserWithBackend(
-      currentUser.email,
-      currentUser.displayName || currentUser.email.split('@')[0],
+      resolvedEmail,
+      resolvedName,
       phone,
       currentUser,
       { force: true }
