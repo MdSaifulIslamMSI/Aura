@@ -38,6 +38,45 @@ function RootRenderFallback({ error, resetErrorBoundary }) {
   );
 }
 
+const runServiceWorkerCleanup = () => {
+  if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
+    return
+  }
+
+  window.addEventListener('load', () => {
+    const cleanupKey = 'aura-sw-cleanup-v3'
+
+    const cleanupLegacyRegistrations = async () => {
+      let hadRegistration = false
+      let hadOriginCache = false
+
+      try {
+        const registrations = await navigator.serviceWorker.getRegistrations()
+        hadRegistration = registrations.length > 0
+        await Promise.all(registrations.map((registration) => registration.unregister()))
+      } catch {}
+
+      try {
+        if ('caches' in window) {
+          const cacheKeys = await caches.keys()
+          hadOriginCache = cacheKeys.length > 0
+          await Promise.all(cacheKeys.map((key) => caches.delete(key)))
+        }
+      } catch {}
+
+      if ((hadRegistration || hadOriginCache || navigator.serviceWorker.controller) && !sessionStorage.getItem(cleanupKey)) {
+        sessionStorage.setItem(cleanupKey, '1')
+        window.location.reload()
+        return
+      }
+
+      sessionStorage.removeItem(cleanupKey)
+    }
+
+    void cleanupLegacyRegistrations()
+  }, { once: true })
+}
+
 // Firebase OAuth domain safety:
 // If app is opened via 127.0.0.1, force localhost to match common authorized-domain setup.
 if (typeof window !== 'undefined' && window.location.hostname === '127.0.0.1') {
@@ -46,6 +85,7 @@ if (typeof window !== 'undefined' && window.location.hostname === '127.0.0.1') {
   window.location.replace(normalized.toString())
 }
 
+runServiceWorkerCleanup()
 initClientObservability()
 
 createRoot(document.getElementById('root')).render(
