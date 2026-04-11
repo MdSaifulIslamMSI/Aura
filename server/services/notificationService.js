@@ -2,6 +2,7 @@
 const UserNotification = require('../models/UserNotification');
 const { sendMessageToUser } = require('./socketService');
 const logger = require('../utils/logger');
+const { sanitizeNotificationActionUrl } = require('../utils/notificationActionUrl');
 
 /**
  * Creates a persistent notification in the database and broadcasts it in real-time.
@@ -24,6 +25,14 @@ exports.sendPersistentNotification = async (userId, title, message, options = {}
             actionLabel = '',
             metadata = {},
         } = options;
+        const sanitizedActionUrl = sanitizeNotificationActionUrl(actionUrl);
+
+        if (actionUrl && !sanitizedActionUrl) {
+            logger.warn('notification.action_url_rejected', {
+                userId: String(userId || ''),
+                type,
+            });
+        }
 
         const notification = await UserNotification.create({
             user: userId,
@@ -32,8 +41,8 @@ exports.sendPersistentNotification = async (userId, title, message, options = {}
             type,
             priority,
             relatedEntity,
-            actionUrl,
-            actionLabel,
+            actionUrl: sanitizedActionUrl || undefined,
+            actionLabel: sanitizedActionUrl ? actionLabel : '',
             metadata,
         });
 

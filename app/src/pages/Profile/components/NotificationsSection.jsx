@@ -4,6 +4,7 @@ import { useNotifications } from '@/context/NotificationContext';
 import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
 import { useMarket } from '@/context/MarketContext';
+import { resolveNotificationActionTarget } from '@/utils/navigation';
 
 export default function NotificationsSection() {
     const { notifications, unreadCount, markAsRead, markAllAsRead, isLoading, fetchNotifications } = useNotifications();
@@ -25,8 +26,13 @@ export default function NotificationsSection() {
         if (!notification.isRead) {
             await markAsRead(notification._id);
         }
-        if (notification.actionUrl) {
-            navigate(notification.actionUrl);
+        const actionTarget = resolveNotificationActionTarget(notification.actionUrl);
+        if (actionTarget?.kind === 'external') {
+            window.location.assign(actionTarget.href);
+            return;
+        }
+        if (actionTarget?.kind === 'internal') {
+            navigate(actionTarget.href);
         }
     };
 

@@ -656,6 +656,7 @@ module.exports = {
     getTrustedDeviceRegistration,
     isTrustedDeviceRegisteredForUser,
     issueTrustedDeviceChallenge,
+    issueTrustedDeviceSession,
     verifyTrustedDeviceSession,
     normalizeDeviceId,
     verifyTrustedDeviceChallenge,

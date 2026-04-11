@@ -4,6 +4,7 @@ import { useNotifications } from '../../../context/NotificationContext';
 import { cn } from '@/lib/utils';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useDismissableLayer } from '@/hooks/useDismissableLayer';
+import { resolveNotificationActionTarget } from '@/utils/navigation';
 
 const NotificationDropdown = ({ isCompact = false, isOpen: controlledIsOpen, onOpenChange }) => {
     const { notifications, unreadCount, markAsRead, markAllAsRead, isLoading, fetchNotifications } = useNotifications();
@@ -41,13 +42,14 @@ const NotificationDropdown = ({ isCompact = false, isOpen: controlledIsOpen, onO
         if (!notification.isRead) {
             Promise.resolve(markAsRead(notification._id)).catch(() => {});
         }
-        if (notification.actionUrl) {
+        const actionTarget = resolveNotificationActionTarget(notification.actionUrl);
+        if (actionTarget) {
             requestAnimationFrame(() => {
-                if (/^https?:\/\//i.test(notification.actionUrl)) {
-                    window.location.assign(notification.actionUrl);
+                if (actionTarget.kind === 'external') {
+                    window.location.assign(actionTarget.href);
                     return;
                 }
-                navigate(notification.actionUrl);
+                navigate(actionTarget.href);
             });
         }
     };
