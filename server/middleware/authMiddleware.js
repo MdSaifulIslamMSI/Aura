@@ -5,6 +5,12 @@ const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
 const { getRedisClient, flags: redisFlags } = require('../config/redis');
 const {
+    normalizeEmail,
+    normalizeUid,
+    buildInternalAuthEmail,
+    buildIdentityQuery,
+} = require('../utils/authIdentity');
+const {
     TRUSTED_DEVICE_SESSION_HEADER,
     extractTrustedDeviceContext,
     verifyTrustedDeviceSession,
@@ -55,6 +61,7 @@ const setCachedUser = async (uid, user, tokenExp) => {
 const AUTH_PROJECTION = {
     name: 1,
     email: 1,
+    authUid: 1,
     phone: 1,
     isAdmin: 1,
     isVerified: 1,
@@ -84,7 +91,6 @@ const parsePositiveIntEnv = (value, fallback) => {
     return Math.trunc(parsed);
 };
 
-const normalizeEmail = (value) => (typeof value === 'string' ? value.trim().toLowerCase() : '');
 const normalizePhone = (value) => (
     typeof value === 'string'
         ? value.trim().replace(/[\s\-()]/g, '')
@@ -198,17 +204,26 @@ const enforceUserAccountAccess = (user) => {
     // using the new requireActiveAccount middleware below.
 };
 
-const bootstrapUserRecord = async ({ decodedToken, email }) => {
-    const safeEmail = normalizeEmail(email);
+const bootstrapUserRecord = async ({ decodedToken, email, authUid = '' }) => {
+    const safeUid = normalizeUid(authUid || decodedToken?.uid || '');
+    const safeEmail = normalizeEmail(email) || buildInternalAuthEmail(safeUid);
     const safeName = normalizeName(decodedToken?.name, safeEmail);
     const tokenPhone = normalizePhone(decodedToken?.phone_number || '');
     const safePhone = PHONE_REGEX.test(tokenPhone) ? tokenPhone : '';
+    const identityQuery = buildIdentityQuery({ email: safeEmail, authUid: safeUid });
+
+    if (!identityQuery) {
+        throw new AppError('Authenticated account is missing identity', 401);
+    }
 
     const buildUpdate = (includePhone) => ({
         $setOnInsert: {
             email: safeEmail,
+            ...(safeUid ? { authUid: safeUid } : {}),
             name: safeName,
-            isVerified: Boolean(decodedToken?.email_verified),
+            isVerified: safeUid
+                ? Boolean(decodedToken?.email_verified ?? true)
+                : Boolean(decodedToken?.email_verified),
             authAssurance: 'none',
             ...(includePhone ? { phone: safePhone } : {}),
         },
@@ -216,14 +231,14 @@ const bootstrapUserRecord = async ({ decodedToken, email }) => {
 
     try {
         return await User.findOneAndUpdate(
-            { email: safeEmail },
+            identityQuery,
             buildUpdate(true),
             { returnDocument: 'after', upsert: true, setDefaultsOnInsert: true, projection: AUTH_PROJECTION, lean: true }
         );
     } catch (error) {
         if (!isDuplicatePhoneError(error)) throw error;
         return User.findOneAndUpdate(
-            { email: safeEmail },
+            identityQuery,
             buildUpdate(false),
             { returnDocument: 'after', upsert: true, setDefaultsOnInsert: true, projection: AUTH_PROJECTION, lean: true }
         );
@@ -328,8 +343,9 @@ const protect = asyncHandler(async (req, res, next) => {
                 emailVerified: resolvedIdentity.emailVerified,
             };
             const normalizedEmail = normalizeEmail(resolvedIdentity.email);
-            if (!normalizedEmail) {
-                throw new AppError('Authenticated account is missing email', 401);
+            const accountEmail = normalizedEmail || buildInternalAuthEmail(uid);
+            if (!accountEmail && !uid) {
+                throw new AppError('Authenticated account is missing identity', 401);
             }
 
                         // ── Step 2: Check Redis cache first ─────────────────────────────────────
@@ -350,13 +366,14 @@ const protect = asyncHandler(async (req, res, next) => {
             // .lean() returns plain JS object (no Mongoose overhead)
             // AUTH_PROJECTION excludes cart/wishlist (reduces wire transfer)
             const user = await User
-                .findOne({ email: normalizedEmail }, AUTH_PROJECTION)
+                .findOne(buildIdentityQuery({ email: accountEmail, authUid: uid }), AUTH_PROJECTION)
                 .lean();
 
             if (!user) {
                 const bootstrappedUser = await bootstrapUserRecord({
                     decodedToken: req.authToken,
-                    email: normalizedEmail,
+                    email: accountEmail,
+                    authUid: uid,
                 });
                 enforceUserAccountAccess(bootstrappedUser);
                 await setCachedUser(uid, bootstrappedUser, exp);

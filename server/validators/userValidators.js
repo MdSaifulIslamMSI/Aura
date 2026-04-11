@@ -3,7 +3,10 @@ const PHONE_REGEX = /^\+?\d{10,15}$/;
 
 const loginSchema = z.object({
     body: z.object({
-        email: z.string().email('Invalid email address'),
+        email: z.string()
+            .trim()
+            .optional()
+            .refine((value) => !value || z.string().email().safeParse(value).success, 'Invalid email address'),
         name: z.string().trim().max(100, 'Name is too long').optional(),
         phone: z.string()
             .trim()

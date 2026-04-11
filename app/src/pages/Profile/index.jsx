@@ -25,6 +25,7 @@ import { useMarket } from '@/context/MarketContext';
 import { WishlistContext } from '@/context/WishlistContext';
 import { paymentApi, trustApi, userApi, intelligenceApi } from '@/services/api';
 import { cn } from '@/lib/utils';
+import { getUserVisibleEmail } from '@/utils/authIdentity';
 
 import OverviewSection from './components/OverviewSection';
 import PersonalInfoSection from './components/PersonalInfoSection';
@@ -184,7 +185,7 @@ export default function Profile() {
     }, []);
 
     useEffect(() => {
-        if (!currentUser?.email) {
+        if (!currentUser?.uid) {
             setLoading(false);
             return;
         }
@@ -204,7 +205,7 @@ export default function Profile() {
                 setEditForm(createEditForm(profileData));
             } catch (error) {
                 console.error('Profile fetch failed:', error);
-                if (!cancelled && dbUser?.email) {
+                if (!cancelled && dbUser) {
                     setProfile((previous) => ({ ...(previous || {}), ...dbUser }));
                     setEditForm(createEditForm(dbUser));
                 }
@@ -491,7 +492,7 @@ export default function Profile() {
     const auraTier = rewardSnapshot.tier || t('profile.rewardTier.rookie', {}, 'Rookie');
     const nextMilestone = rewardSnapshot.nextMilestone === null ? null : Number(rewardSnapshot.nextMilestone || 0);
     const profileName = profile?.name || dbUser?.name || currentUser?.displayName || t('profile.memberFallback', {}, 'Aura Member');
-    const profileEmail = profile?.email || dbUser?.email || currentUser?.email || '';
+    const profileEmail = getUserVisibleEmail(profile?.email || dbUser?.email || currentUser?.email || '');
     const profilePhone = profile?.phone || dbUser?.phone || '';
     const initials = (profileName || 'U')
         .split(' ')

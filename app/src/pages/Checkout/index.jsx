@@ -7,6 +7,7 @@ import { useMarket } from '@/context/MarketContext';
 import { useCommerceStore } from '@/store/commerceStore';
 import { orderApi, otpApi, paymentApi, userApi } from '@/services/api';
 import { cn } from '@/lib/utils';
+import { getUserVisibleEmail } from '@/utils/authIdentity';
 import { ArrowLeft, CheckCircle2, Layers, Loader2 } from 'lucide-react';
 import { loadRazorpayScript } from '@/utils/razorpay';
 import { detectLocationFromGps } from '@/utils/geolocation';
@@ -322,7 +323,7 @@ const Checkout = () => {
     }, []);
 
     useEffect(() => {
-        if (!currentUser?.email) {
+        if (!currentUser?.uid) {
             setIsLoadingProfile(false);
             return;
         }
@@ -336,13 +337,13 @@ const Checkout = () => {
 
             setDraft((prev) => {
                 const next = {
-                    ...prev,
-                    contact: {
-                        ...prev.contact,
-                        email: profile.email || currentUser.email || '',
-                        name: prev.contact.name || profile.name || '',
-                        phone: prev.contact.phone || profile.phone || '',
-                    },
+                        ...prev,
+                        contact: {
+                            ...prev.contact,
+                            email: getUserVisibleEmail(profile.email || currentUser.email || ''),
+                            name: prev.contact.name || profile.name || '',
+                            phone: prev.contact.phone || profile.phone || '',
+                        },
                 };
 
                 if (!prev.shippingAddress.address && addresses.length > 0) {
@@ -376,8 +377,8 @@ const Checkout = () => {
                 }
 
                 await syncUserWithBackend(
-                    currentUser.email || '',
-                    currentUser.displayName || currentUser.email?.split('@')[0] || '',
+                    getUserVisibleEmail(currentUser.email || ''),
+                    currentUser.displayName || getUserVisibleEmail(currentUser.email || '')?.split('@')[0] || '',
                     currentUser.phoneNumber || ''
                 );
 

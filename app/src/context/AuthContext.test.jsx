@@ -124,8 +124,59 @@ describe('AuthProvider', () => {
     expect(mocks.clearTrustedDeviceSessionTokenMock).toHaveBeenCalled();
   });
 
-  it('rolls back partial social auth sessions when the provider sign-in cannot supply email access', async () => {
+  it('syncs X sign-in even when the provider does not return an email', async () => {
     mocks.onAuthStateChangedMock.mockImplementation(() => () => {});
+    mocks.authApiMock.syncSession.mockResolvedValue({
+      status: 'authenticated',
+      session: {
+        uid: 'oauth-user-1',
+        email: '',
+        emailVerified: false,
+        displayName: 'X User',
+        phone: '',
+        providerIds: ['twitter.com'],
+      },
+      profile: {
+        _id: 'db-user-1',
+        name: 'X User',
+        email: '',
+        phone: '',
+        isAdmin: false,
+        isVerified: true,
+        isSeller: false,
+        sellerActivatedAt: null,
+        accountState: 'active',
+        moderation: {},
+        loyalty: {},
+        createdAt: null,
+      },
+      roles: {
+        isAdmin: false,
+        isSeller: false,
+        isVerified: true,
+      },
+      intelligence: {
+        assurance: {
+          level: 'password',
+          label: 'Verified session',
+          verifiedAt: null,
+          expiresAt: null,
+          isRecent: false,
+        },
+        readiness: {
+          hasVerifiedEmail: false,
+          hasPhone: false,
+          accountState: 'active',
+          isPrivileged: false,
+        },
+        acceleration: {
+          suggestedRoute: 'social',
+          rememberedIdentifier: 'email',
+          suggestedProvider: 'twitter.com',
+          providerIds: ['twitter.com'],
+        },
+      },
+    });
     mocks.signInWithPopupMock.mockResolvedValue({
       user: {
         uid: 'oauth-user-1',
@@ -160,11 +211,12 @@ describe('AuthProvider', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByTestId('oauth-status')).toHaveTextContent('signed_out');
-      expect(screen.getByTestId('oauth-error')).toHaveTextContent('Social account did not provide an email');
+      expect(screen.getByTestId('oauth-status')).toHaveTextContent('authenticated');
+      expect(screen.getByTestId('oauth-error')).toHaveTextContent('none');
     });
 
     expect(screen.getByTestId('oauth-user')).toHaveTextContent('none');
-    expect(mocks.signOutMock).toHaveBeenCalled();
+    expect(mocks.authApiMock.syncSession).toHaveBeenCalled();
+    expect(mocks.signOutMock).not.toHaveBeenCalled();
   });
 });
