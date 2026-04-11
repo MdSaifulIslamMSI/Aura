@@ -19,6 +19,12 @@ describe('csrfTokenManager', () => {
 
     it('fetches a fresh API-scoped CSRF token for each reserved write', async () => {
         vi.resetModules();
+        vi.doMock('./deviceTrustClient', () => ({
+            getTrustedDeviceHeaders: () => ({
+                'X-Aura-Device-Id': 'device-123',
+                'X-Aura-Device-Label': 'Trusted browser',
+            }),
+        }));
         const manager = await import('./csrfTokenManager');
         manager.clearCsrfTokenCache();
 
@@ -33,10 +39,20 @@ describe('csrfTokenManager', () => {
 
         expect(fetchMock).toHaveBeenCalledTimes(2);
         expect(fetchMock.mock.calls[0][0]).toBe('/api/auth/session');
+        expect(fetchMock.mock.calls[0][1]?.headers).toMatchObject({
+            'X-Aura-Device-Id': 'device-123',
+            'X-Aura-Device-Label': 'Trusted browser',
+        });
     });
 
     it('drops cached tokens when the auth owner changes', async () => {
         vi.resetModules();
+        vi.doMock('./deviceTrustClient', () => ({
+            getTrustedDeviceHeaders: () => ({
+                'X-Aura-Device-Id': 'device-123',
+                'X-Aura-Device-Label': 'Trusted browser',
+            }),
+        }));
         const manager = await import('./csrfTokenManager');
         manager.clearCsrfTokenCache();
         manager.cacheToken('c'.repeat(64), 'user-1');
@@ -51,6 +67,12 @@ describe('csrfTokenManager', () => {
 
     it('preserves backend auth failure details when CSRF bootstrap is rejected', async () => {
         vi.resetModules();
+        vi.doMock('./deviceTrustClient', () => ({
+            getTrustedDeviceHeaders: () => ({
+                'X-Aura-Device-Id': 'device-123',
+                'X-Aura-Device-Label': 'Trusted browser',
+            }),
+        }));
         const manager = await import('./csrfTokenManager');
         manager.clearCsrfTokenCache();
 
