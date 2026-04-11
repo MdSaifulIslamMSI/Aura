@@ -104,6 +104,8 @@ const buildRequestAuthUser = (req) => ({
     displayName: req.authIdentity?.displayName || req.authToken?.name || req.user?.name || '',
     phoneNumber: req.authIdentity?.phoneNumber || req.authToken?.phone_number || req.user?.phone || '',
     emailVerified: Boolean(req.authIdentity?.emailVerified ?? req.authToken?.email_verified ?? req.user?.isVerified),
+    signInProvider: req.authToken?.firebase?.sign_in_provider || '',
+    providerIds: req.authToken?.firebase?.sign_in_provider ? [req.authToken.firebase.sign_in_provider] : [],
 });
 
 const getSession = asyncHandler(async (req, res) => {

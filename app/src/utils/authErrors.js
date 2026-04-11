@@ -565,7 +565,14 @@ export const AUTH_ERRORS = {
 export const resolveAuthError = (rawError) => {
     if (!rawError) return AUTH_ERRORS['default'];
 
-    const errorStr = (rawError.code || rawError.message || rawError || '').toLowerCase();
+    const primaryErrorValue = (
+        rawError?.code
+        ?? rawError?.message
+        ?? rawError?.data?.message
+        ?? rawError
+        ?? ''
+    );
+    const errorStr = String(primaryErrorValue).toLowerCase();
 
     if (rawError?.code === 'auth/social-invalid-credential') {
         return buildSocialInvalidCredentialError(rawError);

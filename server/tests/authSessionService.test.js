@@ -200,4 +200,30 @@ describe('authSessionService social identity fallback', () => {
         expect(session.payload.profile.email).toBe('');
         expect(session.payload.session.email).toBe('');
     });
+
+    test('allows trusted social providers to sync even when Firebase emailVerified is false', async () => {
+        const providerEmail = uniqueEmail('x_unverified_email');
+
+        const resolvedUser = await syncAuthenticatedUser({
+            authUser: {
+                uid: 'uid-x-with-email',
+                email: providerEmail,
+                emailVerified: false,
+                displayName: 'X Verified By Provider',
+                signInProvider: 'twitter.com',
+                providerIds: ['twitter.com'],
+            },
+            email: providerEmail,
+            name: 'X Verified By Provider',
+            phone: '',
+            awardLoginPoints: false,
+        });
+
+        expect(resolvedUser.email).toBe(providerEmail);
+        expect(resolvedUser.isVerified).toBe(true);
+
+        const persistedUser = await User.findById(resolvedUser._id).lean();
+        expect(persistedUser.authUid).toBe('uid-x-with-email');
+        expect(persistedUser.isVerified).toBe(true);
+    });
 });

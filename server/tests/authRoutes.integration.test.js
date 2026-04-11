@@ -92,6 +92,121 @@ describe('Auth sync verified-email gating', () => {
         expect(res.statusCode).toBe(403);
         expect(res.body.message).toContain('Email verification is required before session sync');
     });
+
+    test('POST /api/auth/sync forwards trusted social provider identity for unverified OAuth emails', async () => {
+        let isolatedApp;
+        let syncAuthenticatedUserMock;
+
+        jest.isolateModules(() => {
+            jest.doMock('../services/authSessionService', () => ({
+                buildSessionPayload: jest.fn().mockReturnValue({
+                    status: 'authenticated',
+                    deviceChallenge: null,
+                    session: {
+                        uid: 'uid-x-social',
+                        email: 'x-social@example.com',
+                        emailVerified: false,
+                        displayName: 'X Social User',
+                        phone: '',
+                        providerIds: ['twitter.com'],
+                    },
+                    intelligence: null,
+                    profile: {
+                        _id: 'user-1',
+                        name: 'X Social User',
+                        email: 'x-social@example.com',
+                        phone: '',
+                        isAdmin: false,
+                        isVerified: true,
+                        isSeller: false,
+                        sellerActivatedAt: null,
+                        accountState: 'active',
+                        moderation: {},
+                        loyalty: {},
+                        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+                    },
+                    roles: {
+                        isAdmin: false,
+                        isSeller: false,
+                        isVerified: true,
+                    },
+                    error: null,
+                }),
+                persistAuthSnapshot: jest.fn().mockResolvedValue(undefined),
+                resolveAuthenticatedSession: jest.fn(),
+                applyLoginAssuranceToSession: jest.fn(async ({ user }) => user),
+                syncAuthenticatedUser: (syncAuthenticatedUserMock = jest.fn().mockResolvedValue({
+                    _id: 'user-1',
+                    name: 'X Social User',
+                    email: 'x-social@example.com',
+                    phone: '',
+                    isAdmin: false,
+                    isVerified: true,
+                    isSeller: false,
+                    sellerActivatedAt: null,
+                    accountState: 'active',
+                    moderation: {},
+                    loyalty: {},
+                    createdAt: new Date('2026-01-01T00:00:00.000Z'),
+                })),
+            }));
+            jest.doMock('../middleware/authMiddleware', () => ({
+                invalidateUserCache: jest.fn().mockResolvedValue(undefined),
+                invalidateUserCacheByEmail: jest.fn().mockResolvedValue(undefined),
+            }));
+            jest.doMock('../services/trustedDeviceChallengeService', () => ({
+                TRUSTED_DEVICE_SESSION_HEADER: 'x-aura-device-session',
+                extractTrustedDeviceContext: jest.fn().mockReturnValue({ deviceId: '', deviceLabel: '' }),
+                issueTrustedDeviceChallenge: jest.fn().mockResolvedValue({ token: 'stub' }),
+                verifyTrustedDeviceChallenge: jest.fn(),
+                verifyTrustedDeviceSession: jest.fn().mockReturnValue({ success: false }),
+            }));
+
+            const express = require('express');
+            const { syncSession } = require('../controllers/authController');
+            const { errorHandler } = require('../middleware/errorMiddleware');
+
+            isolatedApp = express();
+            isolatedApp.use(express.json());
+            isolatedApp.post('/api/auth/sync', (req, _res, next) => {
+                req.user = {
+                    email: 'x-social@example.com',
+                    name: 'X Social User',
+                    isVerified: false,
+                };
+                req.authUid = 'uid-x-social';
+                req.authToken = {
+                    email: 'x-social@example.com',
+                    email_verified: false,
+                    firebase: { sign_in_provider: 'twitter.com' },
+                };
+                req.authIdentity = {
+                    uid: 'uid-x-social',
+                    email: 'x-social@example.com',
+                    displayName: 'X Social User',
+                    phoneNumber: '',
+                    emailVerified: false,
+                };
+                next();
+            }, syncSession);
+            isolatedApp.use(errorHandler);
+        });
+
+        const res = await request(isolatedApp)
+            .post('/api/auth/sync')
+            .send({ email: 'x-social@example.com', name: 'X Social User' });
+
+        expect(res.statusCode).toBe(200);
+        expect(syncAuthenticatedUserMock).toHaveBeenCalledWith(expect.objectContaining({
+            authUser: expect.objectContaining({
+                uid: 'uid-x-social',
+                email: 'x-social@example.com',
+                emailVerified: false,
+                signInProvider: 'twitter.com',
+                providerIds: ['twitter.com'],
+            }),
+        }));
+    });
 });
 
 describe('Auth sync lattice challenge policy', () => {

@@ -53,4 +53,15 @@ describe('resolveAuthError', () => {
     expect(resolved.title).toBe('X Email Access Required');
     expect(resolved.detail).toContain('did not return an email address');
   });
+
+  it('does not crash when the raw auth error message is an object', () => {
+    const resolved = resolveAuthError({
+      code: null,
+      message: { reason: 'Email verification is required before session sync' },
+    });
+
+    expect(resolved).toBeTruthy();
+    expect(resolved.title).toBeDefined();
+    expect(typeof resolved.title).toBe('string');
+  });
 });

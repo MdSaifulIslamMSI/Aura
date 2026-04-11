@@ -69,6 +69,37 @@ const normalizeText = (value) => (
     typeof value === 'string' ? value.trim() : ''
 );
 
+const SOCIAL_PROVIDER_REGEX = /google|facebook|twitter|x\.com|github|apple/i;
+
+const resolveProviderIds = ({ authUser = {}, authToken = null } = {}) => {
+    const providerIds = Array.isArray(authUser?.providerIds)
+        ? authUser.providerIds.map((providerId) => normalizeText(providerId)).filter(Boolean)
+        : Array.isArray(authUser?.providerData)
+        ? authUser.providerData.map((entry) => normalizeText(entry?.providerId)).filter(Boolean)
+        : [];
+
+    const fallbackProvider = normalizeText(
+        authUser?.signInProvider || authToken?.firebase?.sign_in_provider
+    );
+    if (providerIds.length === 0 && fallbackProvider) {
+        providerIds.push(fallbackProvider);
+    }
+
+    return providerIds;
+};
+
+const isTrustedSocialProvider = (providerId = '') => (
+    SOCIAL_PROVIDER_REGEX.test(normalizeText(providerId))
+);
+
+const shouldTrustProviderVerification = ({ authUser = {}, authToken = null, authUid = '' } = {}) => {
+    if (!normalizeUid(authUid || authUser?.uid || authUser?.authUid)) {
+        return false;
+    }
+
+    return resolveProviderIds({ authUser, authToken }).some(isTrustedSocialProvider);
+};
+
 const getDuplicateField = (error) => {
     if (!error || error.code !== 11000) return null;
     if (error.keyPattern?.authUid) return 'authUid';
@@ -261,14 +292,7 @@ const toProfilePayload = (user = null, options = {}) => {
 const buildSessionIdentity = ({ authUser = {}, authToken = null, authUid = '' } = {}) => {
     const email = resolvePublicEmail(authToken?.email || authUser.email);
     const phone = canonicalizePhone(authToken?.phone_number || authUser.phoneNumber || authUser.phone || '');
-    const providerIds = Array.isArray(authUser?.providerData)
-        ? authUser.providerData.map((entry) => normalizeText(entry?.providerId)).filter(Boolean)
-        : [];
-
-    const fallbackProvider = normalizeText(authToken?.firebase?.sign_in_provider);
-    if (providerIds.length === 0 && fallbackProvider) {
-        providerIds.push(fallbackProvider);
-    }
+    const providerIds = resolveProviderIds({ authUser, authToken });
 
     const toIso = (epochSeconds) => {
         const numeric = Number(epochSeconds || 0);
@@ -429,7 +453,10 @@ const syncAuthenticatedUser = async ({
     const hasPhoneInput = phone !== undefined && phone !== null && String(phone).trim() !== '';
     const hasProviderEmail = Boolean(providerEmail);
     const accountEmail = resolveAccountEmail({ email: providerEmail, authUid });
-    const emailVerified = hasProviderEmail
+    const trustProviderVerification = shouldTrustProviderVerification({ authUser, authUid });
+    const emailVerified = trustProviderVerification
+        ? true
+        : hasProviderEmail
         ? Boolean(authUser?.emailVerified ?? authUser?.isVerified)
         : Boolean(authUid);
 
