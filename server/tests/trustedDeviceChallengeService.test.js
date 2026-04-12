@@ -184,6 +184,29 @@ describe('trustedDeviceChallengeService', () => {
         ).toString('base64');
     };
 
+    const loadServiceWithDbState = ({ dbState, userId }) => {
+        let service;
+
+        jest.isolateModules(() => {
+            jest.doMock('../models/User', () => ({
+                findById: jest.fn().mockReturnValue({
+                    lean: jest.fn().mockResolvedValue({
+                        _id: userId,
+                        trustedDevices: dbState.trustedDevices,
+                    }),
+                }),
+                updateOne: jest.fn().mockImplementation(async (_filter, update) => {
+                    dbState.trustedDevices = update.$set.trustedDevices;
+                    return { acknowledged: true, modifiedCount: 1 };
+                }),
+            }));
+
+            service = require('../services/trustedDeviceChallengeService');
+        });
+
+        return service;
+    };
+
     test('enrolls a new trusted device and then verifies future assertions for the same Firebase session', async () => {
         let service;
         const dbState = { trustedDevices: [] };
@@ -380,6 +403,109 @@ describe('trustedDeviceChallengeService', () => {
         });
 
         expect(rotatedChallenge.token.startsWith('td-v2.')).toBe(true);
+    });
+
+    test('keeps localhost enrollment passkey-capable when WebAuthn is preferred', async () => {
+        const dbState = { trustedDevices: [] };
+        const userId = '507f1f77bcf86cd799439011';
+        const deviceId = 'device_localhost_123456';
+
+        process.env.NODE_ENV = 'test';
+        process.env.AUTH_TRUSTED_DEVICE_PREFER_WEBAUTHN = 'true';
+        delete process.env.AUTH_WEBAUTHN_RP_ID;
+        delete process.env.AUTH_WEBAUTHN_ORIGIN;
+
+        const service = loadServiceWithDbState({ dbState, userId });
+        const challenge = await service.issueTrustedDeviceChallenge({
+            user: {
+                _id: userId,
+                email: 'admin@example.com',
+                name: 'Admin User',
+                trustedDevices: [],
+            },
+            deviceId,
+            deviceLabel: 'Localhost laptop',
+            req: {
+                headers: {
+                    origin: 'http://localhost:4173',
+                },
+            },
+        });
+
+        expect(challenge.mode).toBe('enroll');
+        expect(challenge.preferredMethod).toBe('webauthn');
+        expect(challenge.availableMethods).toEqual(['webauthn', 'browser_key']);
+        expect(challenge.webauthn?.registrationOptions?.rp).toEqual({
+            id: 'localhost',
+            name: 'Aura Trusted Device',
+        });
+    });
+
+    test('suppresses WebAuthn enrollment on 127.0.0.1 and keeps browser-key enrollment available', async () => {
+        const dbState = { trustedDevices: [] };
+        const userId = '507f1f77bcf86cd799439011';
+        const deviceId = 'device_loopback_123456';
+
+        process.env.NODE_ENV = 'test';
+        process.env.AUTH_TRUSTED_DEVICE_PREFER_WEBAUTHN = 'true';
+        delete process.env.AUTH_WEBAUTHN_RP_ID;
+        delete process.env.AUTH_WEBAUTHN_ORIGIN;
+
+        const service = loadServiceWithDbState({ dbState, userId });
+        const challenge = await service.issueTrustedDeviceChallenge({
+            user: {
+                _id: userId,
+                email: 'admin@example.com',
+                name: 'Admin User',
+                trustedDevices: [],
+            },
+            deviceId,
+            deviceLabel: 'Loopback laptop',
+            req: {
+                headers: {
+                    origin: 'http://127.0.0.1:4173',
+                },
+            },
+        });
+
+        expect(challenge.mode).toBe('enroll');
+        expect(challenge.preferredMethod).toBe('browser_key');
+        expect(challenge.availableMethods).toEqual(['browser_key']);
+        expect(challenge.algorithm).toBe('RSA-PSS-SHA256');
+        expect(challenge.webauthn).toBeNull();
+    });
+
+    test('suppresses WebAuthn enrollment when the configured RP settings do not match the current host', async () => {
+        const dbState = { trustedDevices: [] };
+        const userId = '507f1f77bcf86cd799439011';
+        const deviceId = 'device_rp_mismatch_123456';
+
+        process.env.NODE_ENV = 'test';
+        process.env.AUTH_TRUSTED_DEVICE_PREFER_WEBAUTHN = 'true';
+        process.env.AUTH_WEBAUTHN_RP_ID = 'app.example.com';
+        process.env.AUTH_WEBAUTHN_ORIGIN = 'https://app.example.com';
+
+        const service = loadServiceWithDbState({ dbState, userId });
+        const challenge = await service.issueTrustedDeviceChallenge({
+            user: {
+                _id: userId,
+                email: 'admin@example.com',
+                name: 'Admin User',
+                trustedDevices: [],
+            },
+            deviceId,
+            deviceLabel: 'Mismatch laptop',
+            req: {
+                headers: {
+                    origin: 'http://localhost:4173',
+                },
+            },
+        });
+
+        expect(challenge.mode).toBe('enroll');
+        expect(challenge.preferredMethod).toBe('browser_key');
+        expect(challenge.availableMethods).toEqual(['browser_key']);
+        expect(challenge.webauthn).toBeNull();
     });
 
     test('enrolls and verifies a WebAuthn trusted device when passkeys are preferred', async () => {

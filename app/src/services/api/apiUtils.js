@@ -6,12 +6,14 @@ export const PROFILE_CACHE_TTL_MS = 15 * 1000;
 export const PRODUCT_DETAIL_CACHE_TTL_MS = 30 * 1000;
 
 /**
- * Retrieves the Firebase ID token and returns an Authorization header.
+ * Returns trusted-device headers for steady-state API traffic.
+ * Firebase bearer proof is attached only for explicit bootstrap or proof routes.
  */
 export const getAuthHeader = async (firebaseUser = null, options = {}) => {
     const trustedDeviceHeaders = getTrustedDeviceHeaders();
+    const shouldUseFirebaseBearer = options?.useFirebaseBearer === true;
 
-    if (!isFirebaseReady || !auth) {
+    if (!shouldUseFirebaseBearer || !isFirebaseReady || !auth) {
         return trustedDeviceHeaders;
     }
     const user = firebaseUser || auth.currentUser;

@@ -106,36 +106,12 @@ export const SocketProvider = ({ children }) => {
             };
         }
 
-        const getSocketAuth = async (forceRefresh = false) => {
-            const token = await currentUser.getIdToken(forceRefresh);
-            return token ? { token } : null;
-        };
-
-        const syncSocketAuth = async (forceRefresh = false) => {
-            if (!activeSocket) {
-                return null;
-            }
-
-            const auth = await getSocketAuth(forceRefresh);
-            if (!auth || !isActive) {
-                return null;
-            }
-
-            activeSocket.auth = auth;
-            if (activeSocket.io?.opts) {
-                activeSocket.io.opts.auth = auth;
-            }
-
-            return auth;
-        };
-
         const reconnectSocket = async (forceRefresh = false) => {
             if (!activeSocket || activeSocket.connected) {
                 return;
             }
 
             try {
-                await syncSocketAuth(forceRefresh);
                 activeSocket.connect();
             } catch (error) {
                 if (import.meta.env.DEV) {
@@ -146,8 +122,7 @@ export const SocketProvider = ({ children }) => {
 
         const connectSocket = async () => {
             try {
-                const auth = await getSocketAuth();
-                if (!isActive || !auth) {
+                if (!isActive) {
                     resetConnection('disconnected');
                     return;
                 }
@@ -156,7 +131,6 @@ export const SocketProvider = ({ children }) => {
 
                 activeSocket = io(socketOrigin, {
                     autoConnect: false,
-                    auth,
                     reconnection: true,
                     reconnectionAttempts: Number.POSITIVE_INFINITY,
                     reconnectionDelay: SOCKET_RECONNECTION_DELAY_MS,
@@ -166,6 +140,7 @@ export const SocketProvider = ({ children }) => {
                     transports: ['websocket', 'polling'],
                     upgrade: true,
                     rememberUpgrade: true,
+                    withCredentials: true,
                 });
 
                 activeSocketRef.current = activeSocket;
@@ -198,10 +173,6 @@ export const SocketProvider = ({ children }) => {
                     if (!isActive) return;
 
                     const errorMessage = String(error?.message || '').toLowerCase();
-                    if (errorMessage.includes('auth') || errorMessage.includes('token')) {
-                        void syncSocketAuth(true);
-                    }
-
                     if (!hasConnectedOnceRef.current) {
                         setIsConnected(false);
                         setConnectionState('disconnected');
@@ -213,7 +184,6 @@ export const SocketProvider = ({ children }) => {
 
                 handleReconnectAttempt = () => {
                     if (!isActive) return;
-                    void syncSocketAuth();
                     enterReconnectGrace();
                 };
 

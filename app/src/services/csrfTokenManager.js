@@ -63,6 +63,29 @@ const getAuthTokenOwner = (authToken = '') => {
     return String(decoded?.user_id || decoded?.sub || decoded?.uid || '').trim();
 };
 
+const normalizeCsrfRequestOptions = (input = '', options = {}) => {
+    if (input && typeof input === 'object' && !Array.isArray(input)) {
+        return {
+            authToken: String(input.authToken || '').trim(),
+            owner: String(input.owner || '').trim(),
+            forceFresh: Boolean(input.forceFresh),
+        };
+    }
+
+    return {
+        authToken: String(input || '').trim(),
+        owner: String(options.owner || '').trim(),
+        forceFresh: Boolean(options.forceFresh),
+    };
+};
+
+const resolveCsrfOwner = ({ authToken = '', owner = '' } = {}) => {
+    if (authToken) {
+        return getAuthTokenOwner(authToken);
+    }
+    return String(owner || 'cookie_session').trim();
+};
+
 /**
  * Clear cached CSRF token
  */
@@ -76,7 +99,7 @@ export const clearCsrfTokenCache = () => {
 /**
  * Check if cached token is still valid
  */
-const isCsrfTokenCacheValid = (authToken = '') => {
+const isCsrfTokenCacheValid = (context = '') => {
     if (!cachedToken) return false;
 
     if (Date.now() >= cachedTokenExpiry) {
@@ -85,7 +108,8 @@ const isCsrfTokenCacheValid = (authToken = '') => {
         return false;
     }
 
-    const owner = getAuthTokenOwner(authToken);
+    const normalizedContext = normalizeCsrfRequestOptions(context);
+    const owner = resolveCsrfOwner(normalizedContext);
     if (cachedTokenOwner && owner && cachedTokenOwner !== owner) {
         console.debug('[CSRF] Token owner changed, clearing cache');
         clearCsrfTokenCache();
@@ -133,13 +157,12 @@ const consumeCachedCsrfToken = (authToken = '') => {
  * Requires active auth token
  * Uses request deduplication to prevent concurrent requests
  * 
- * @param {string} authToken - Firebase ID token
+ * @param {string|object} input - Optional Firebase ID token or request options
  * @returns {Promise<string>} CSRF token
  */
-export const fetchCsrfToken = async (authToken) => {
-    if (!authToken) {
-        throw new Error('Auth token required to fetch CSRF token');
-    }
+export const fetchCsrfToken = async (input = {}) => {
+    const requestOptions = normalizeCsrfRequestOptions(input);
+    const { authToken } = requestOptions;
 
     try {
         console.debug('[CSRF] Fetching token from server...');
@@ -147,12 +170,12 @@ export const fetchCsrfToken = async (authToken) => {
         const response = await fetch(buildApiUrl('/auth/session'), {
             method: 'GET',
             headers: {
-                'Authorization': `Bearer ${authToken}`,
-                'Content-Type': 'application/json',
                 'Accept': 'application/json',
+                ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}),
                 ...getTrustedDeviceHeaders(),
                 ...getActiveMarketHeaders(),
             },
+            credentials: 'include',
         });
 
         if (!response.ok) {
@@ -169,7 +192,7 @@ export const fetchCsrfToken = async (authToken) => {
         }
 
         console.debug('[CSRF] Token received, validating format...');
-        cacheToken(token, getAuthTokenOwner(authToken));
+        cacheToken(token, resolveCsrfOwner(requestOptions));
 
         return token;
     } catch (error) {
@@ -193,18 +216,19 @@ export const getCachedCsrfToken = () => {
  * @param {string} authToken - Firebase ID token  
  * @returns {Promise<string>} CSRF token
  */
-export const ensureCsrfToken = async (authToken, options = {}) => {
-    const { forceFresh = false } = options;
+export const ensureCsrfToken = async (input = '', options = {}) => {
+    const requestOptions = normalizeCsrfRequestOptions(input, options);
+    const { forceFresh = false } = requestOptions;
 
     if (!forceFresh) {
-        const cached = consumeCachedCsrfToken(authToken);
+        const cached = consumeCachedCsrfToken(requestOptions);
         if (cached) {
             return cached;
         }
     }
 
-    await fetchCsrfToken(authToken);
-    const reserved = consumeCachedCsrfToken(authToken);
+    await fetchCsrfToken(requestOptions);
+    const reserved = consumeCachedCsrfToken(requestOptions);
     if (!reserved) {
         throw new Error('Unable to reserve a fresh CSRF token');
     }

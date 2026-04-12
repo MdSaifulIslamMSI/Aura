@@ -1,9 +1,18 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import * as React from 'react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { AuthContext } from '@/context/AuthContext';
 import { MarketProvider } from '@/context/MarketContext';
 import { useLoginController } from './useLoginController';
+
+const { getFirebaseSocialAuthStatusMock } = vi.hoisted(() => ({
+  getFirebaseSocialAuthStatusMock: vi.fn(),
+}));
+
+vi.mock('@/config/firebase', () => ({
+  getFirebaseSocialAuthStatus: getFirebaseSocialAuthStatusMock,
+}));
 
 const LocationProbe = () => {
   const location = useLocation();
@@ -22,6 +31,26 @@ const LocationProbe = () => {
 const LoginControllerProbe = () => {
   useLoginController();
   return <div>Login Screen</div>;
+};
+
+const SocialSignInProbe = () => {
+  const { authError, handleSocialSignIn, signInWithGoogle } = useLoginController();
+  const [result, setResult] = React.useState('idle');
+
+  React.useEffect(() => {
+    handleSocialSignIn(signInWithGoogle, 'Google')
+      .then(() => setResult('completed'))
+      .catch((error) => setResult(error?.message || 'failed'));
+  }, [handleSocialSignIn, signInWithGoogle]);
+
+  return (
+    <>
+      <div data-testid="social-result">{result}</div>
+      <div data-testid="social-error-title">{authError?.title || 'none'}</div>
+      <div data-testid="social-error-detail">{authError?.detail || 'none'}</div>
+      <div data-testid="social-error-hint">{authError?.hint || 'none'}</div>
+    </>
+  );
 };
 
 const buildAuthValue = (overrides = {}) => ({
@@ -60,6 +89,17 @@ describe('useLoginController', () => {
   beforeEach(() => {
     localStorage.clear();
     sessionStorage.clear();
+    getFirebaseSocialAuthStatusMock.mockReturnValue({
+      ready: true,
+      supported: true,
+      runtimeHost: 'localhost',
+      runtimeBlocked: false,
+      redirectPreferred: false,
+      runtimeIpHost: false,
+      disabledByConfig: false,
+      initErrorCode: '',
+      initErrorMessage: '',
+    });
   });
 
   it('redirects already-authenticated visitors only after bootstrap settles', async () => {
@@ -177,5 +217,66 @@ describe('useLoginController', () => {
       expect(screen.queryByText('Profile Screen')).not.toBeInTheDocument();
       expect(screen.getByTestId('location-probe')).toHaveTextContent('"pathname":"/login"');
     });
+  });
+
+  it('keeps popup-close as a cancellation message on safe hosts', async () => {
+    const signInWithGoogle = vi.fn().mockRejectedValue(Object.assign(
+      new Error('Google sign-in was cancelled before completion.'),
+      { code: 'auth/popup-closed-by-user' },
+    ));
+
+    render(
+      <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+        <AuthContext.Provider value={buildAuthValue({ signInWithGoogle })}>
+          <MemoryRouter initialEntries={['/login']}>
+            <Routes>
+              <Route path="/login" element={<SocialSignInProbe />} />
+            </Routes>
+          </MemoryRouter>
+        </AuthContext.Provider>
+      </MarketProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('social-error-title')).toHaveTextContent('Sign-In Cancelled');
+      expect(screen.getByTestId('social-error-detail')).toHaveTextContent('The social sign-in window was closed before completing.');
+    });
+
+    expect(signInWithGoogle).toHaveBeenCalled();
+  });
+
+  it('lets risky hosts complete the redirect handoff without surfacing a popup cancellation', async () => {
+    getFirebaseSocialAuthStatusMock.mockReturnValue({
+      ready: true,
+      supported: true,
+      runtimeHost: '127.0.0.1',
+      runtimeBlocked: false,
+      redirectPreferred: true,
+      runtimeIpHost: true,
+      disabledByConfig: false,
+      initErrorCode: '',
+      initErrorMessage: '',
+    });
+
+    const signInWithGoogle = vi.fn().mockResolvedValue({ redirecting: true });
+
+    render(
+      <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+        <AuthContext.Provider value={buildAuthValue({ signInWithGoogle })}>
+          <MemoryRouter initialEntries={['/login']}>
+            <Routes>
+              <Route path="/login" element={<SocialSignInProbe />} />
+            </Routes>
+          </MemoryRouter>
+        </AuthContext.Provider>
+      </MarketProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('social-result')).toHaveTextContent('completed');
+      expect(screen.getByTestId('social-error-title')).toHaveTextContent('none');
+    });
+
+    expect(signInWithGoogle).toHaveBeenCalled();
   });
 });

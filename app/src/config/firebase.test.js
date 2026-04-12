@@ -1,0 +1,124 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const firebaseMocks = vi.hoisted(() => ({
+  initializeAppMock: vi.fn(() => ({ name: 'firebase-app' })),
+  getAnalyticsMock: vi.fn(() => ({ name: 'firebase-analytics' })),
+  getAuthMock: vi.fn(() => ({ name: 'firebase-auth' })),
+}));
+
+vi.mock('firebase/app', () => ({
+  initializeApp: firebaseMocks.initializeAppMock,
+}));
+
+vi.mock('firebase/auth', () => ({
+  getAuth: firebaseMocks.getAuthMock,
+  GoogleAuthProvider: class GoogleAuthProvider {},
+  FacebookAuthProvider: class FacebookAuthProvider {
+    setCustomParameters() {}
+  },
+  TwitterAuthProvider: class TwitterAuthProvider {},
+}));
+
+vi.mock('firebase/analytics', () => ({
+  getAnalytics: firebaseMocks.getAnalyticsMock,
+}));
+
+const originalLocation = window.location;
+
+const setRuntimeHost = ({ hostname, host = hostname }) => {
+  Object.defineProperty(window, 'location', {
+    configurable: true,
+    value: {
+      hostname,
+      host,
+    },
+  });
+};
+
+const setFirebaseEnv = () => {
+  vi.stubEnv('VITE_FIREBASE_API_KEY', 'firebase-api-key');
+  vi.stubEnv('VITE_FIREBASE_AUTH_DOMAIN', 'billy-b674c.firebaseapp.com');
+  vi.stubEnv('VITE_FIREBASE_PROJECT_ID', 'billy-b674c');
+  vi.stubEnv('VITE_FIREBASE_STORAGE_BUCKET', 'billy-b674c.firebasestorage.app');
+  vi.stubEnv('VITE_FIREBASE_MESSAGING_SENDER_ID', '32774635133');
+  vi.stubEnv('VITE_FIREBASE_APP_ID', '1:32774635133:web:e9b7a433e45debcee07b14');
+  vi.stubEnv('VITE_FIREBASE_MEASUREMENT_ID', 'G-W600CSNCFN');
+  vi.stubEnv('VITE_FIREBASE_DISABLE_SOCIAL_AUTH', 'false');
+  vi.stubEnv('VITE_FIREBASE_FORCE_REDIRECT_SOCIAL_AUTH', 'false');
+};
+
+const loadFirebaseModule = async ({ hostname, host = hostname }) => {
+  vi.resetModules();
+  setFirebaseEnv();
+  window.sessionStorage.clear();
+  setRuntimeHost({ hostname, host });
+  return import('./firebase');
+};
+
+describe('firebase social auth host policy', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    window.sessionStorage.clear();
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: originalLocation,
+    });
+  });
+
+  it('prefers redirect-first social auth on 127.0.0.1 while keeping social auth available', async () => {
+    const firebase = await loadFirebaseModule({
+      hostname: '127.0.0.1',
+      host: '127.0.0.1:4173',
+    });
+
+    expect(firebase.shouldPreferFirebaseRedirectAuth()).toBe(true);
+    expect(firebase.isFirebaseSocialAuthAvailable()).toBe(true);
+    expect(firebase.getFirebaseSocialAuthStatus()).toMatchObject({
+      runtimeHost: '127.0.0.1',
+      runtimeIpHost: true,
+      redirectPreferred: true,
+      supported: true,
+    });
+  });
+
+  it('keeps popup-first social auth on localhost when no runtime block is present', async () => {
+    const firebase = await loadFirebaseModule({
+      hostname: 'localhost',
+      host: 'localhost:4173',
+    });
+
+    expect(firebase.shouldPreferFirebaseRedirectAuth()).toBe(false);
+    expect(firebase.getFirebaseSocialAuthStatus()).toMatchObject({
+      runtimeHost: 'localhost',
+      runtimeIpHost: false,
+      redirectPreferred: false,
+      supported: true,
+    });
+  });
+
+  it('switches to redirect-first mode after a runtime host rejection without disabling social auth', async () => {
+    const firebase = await loadFirebaseModule({
+      hostname: 'localhost',
+      host: 'localhost:4173',
+    });
+
+    expect(firebase.shouldPreferFirebaseRedirectAuth()).toBe(false);
+
+    firebase.markFirebaseSocialAuthRejectedForRuntime({
+      code: 'auth/unauthorized-domain',
+      message: 'This domain is not authorized.',
+    });
+
+    expect(firebase.shouldPreferFirebaseRedirectAuth()).toBe(true);
+    expect(firebase.isFirebaseSocialAuthAvailable()).toBe(true);
+    expect(firebase.getFirebaseSocialAuthStatus()).toMatchObject({
+      runtimeBlocked: true,
+      redirectPreferred: true,
+      supported: true,
+    });
+  });
+});

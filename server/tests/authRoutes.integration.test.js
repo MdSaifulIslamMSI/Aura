@@ -4,6 +4,11 @@ const app = require('../index');
 jest.setTimeout(30000);
 
 describe('Auth API surface', () => {
+    test('POST /api/auth/exchange should fail without token', async () => {
+        const res = await request(app).post('/api/auth/exchange');
+        expect(res.statusCode).toBe(401);
+    });
+
     test('GET /api/auth/session should fail without token', async () => {
         const res = await request(app).get('/api/auth/session');
         expect(res.statusCode).toBe(401);
@@ -41,6 +46,12 @@ describe('Auth API surface', () => {
             .post('/api/auth/complete-phone-factor-verification')
             .send({ purpose: 'signup', email: 'test@example.com', phone: '+919876543210' });
         expect(res.statusCode).toBe(401);
+    });
+
+    test('POST /api/auth/logout should succeed even without an active session', async () => {
+        const res = await request(app).post('/api/auth/logout');
+        expect(res.statusCode).toBe(200);
+        expect(res.body.success).toBe(true);
     });
 });
 

@@ -74,6 +74,49 @@ const buildSocialMissingEmailError = (rawError) => {
     };
 };
 
+const normalizeErrorHost = (value = '') => String(value || '').trim().toLowerCase();
+
+const isIpv4Host = (host = '') => /^(?:\d{1,3}\.){3}\d{1,3}$/.test(host);
+
+const isIpv6Host = (host = '') => {
+    const normalized = normalizeErrorHost(host);
+    return Boolean(
+        normalized
+        && !normalized.includes('.')
+        && (normalized.includes(':') || normalized.startsWith('[') || normalized.endsWith(']'))
+    );
+};
+
+const isIpLiteralHost = (host = '') => isIpv4Host(host) || isIpv6Host(host);
+
+const buildUnauthorizedDomainError = (rawError) => {
+    const host = normalizeErrorHost(rawError?.host || '');
+
+    return {
+        title: 'Domain Not Authorized',
+        detail: 'This app URL is not allowed in Firebase Authentication.',
+        hint: isIpLiteralHost(host)
+            ? `Authorize ${host} in Firebase Authentication > Settings > Authorized domains, then retry social sign-in. Redirect flow can work on that host only after Firebase authorizes it.`
+            : 'Add the active site domain in Firebase Authentication > Settings > Authorized domains, then retry social sign-in. Email and OTP sign-in remain available immediately.',
+        action: null,
+        actionLabel: null
+    };
+};
+
+const buildIllegalIframeError = (rawError) => {
+    const host = normalizeErrorHost(rawError?.host || '');
+
+    return {
+        title: 'Domain Not Authorized',
+        detail: 'Firebase rejected the current site host for popup-based sign-in.',
+        hint: isIpLiteralHost(host)
+            ? `Authorize ${host} in Firebase Authentication settings, or switch to localhost for local popup testing. Email and OTP sign-in remain available immediately.`
+            : 'Authorize the exact live domain in Firebase Authentication settings, or continue with email and OTP sign-in.',
+        action: null,
+        actionLabel: null
+    };
+};
+
 export const AUTH_ERRORS = {
     // ── Firebase / Password errors
     'auth/wrong-password': {
@@ -595,6 +638,14 @@ export const resolveAuthError = (rawError) => {
         || errorStr.includes('authenticated account is missing email')
     ) {
         return buildSocialMissingEmailError(rawError);
+    }
+
+    if (rawError?.code === 'auth/unauthorized-domain') {
+        return buildUnauthorizedDomainError(rawError);
+    }
+
+    if (errorStr.includes('illegal url for new iframe')) {
+        return buildIllegalIframeError(rawError);
     }
 
     // Try exact Firebase code match first

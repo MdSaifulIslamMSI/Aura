@@ -4,9 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const { authState, ioMock, socketInstances } = vi.hoisted(() => {
     const sharedSocketInstances = [];
     const sharedAuthState = {
-        currentUser: {
-            getIdToken: vi.fn(),
-        },
+        currentUser: { uid: 'socket-user-1' },
         loading: false,
     };
     const sharedIoMock = vi.fn((origin, options) => {
@@ -58,9 +56,7 @@ const { authState, ioMock, socketInstances } = vi.hoisted(() => {
 });
 
 authState.loading = false;
-authState.currentUser = {
-    getIdToken: vi.fn(),
-};
+authState.currentUser = { uid: 'socket-user-1' };
 
 vi.mock('socket.io-client', () => ({
     io: ioMock,
@@ -89,9 +85,7 @@ describe('SocketProvider', () => {
         ioMock.mockClear();
         socketInstances.length = 0;
         authState.loading = false;
-        authState.currentUser = {
-            getIdToken: vi.fn().mockResolvedValue('socket-token'),
-        };
+        authState.currentUser = { uid: 'socket-user-1' };
     });
 
     it('keeps the same socket connection while realtime demand keys change', async () => {
@@ -146,7 +140,8 @@ describe('SocketProvider', () => {
             expect(ioMock).toHaveBeenCalledTimes(1);
         });
 
-        expect(authState.currentUser.getIdToken).toHaveBeenCalled();
+        expect(socketInstances[0]?.options?.withCredentials).toBe(true);
+        expect(socketInstances[0]?.options?.auth ?? null).toBeNull();
         expect(socketInstances[0]?.socket.connect).toHaveBeenCalledTimes(1);
     });
 });
