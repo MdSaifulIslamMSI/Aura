@@ -183,7 +183,9 @@ app.use((req, res, next) => {
     next();
 });
 
-app.use(helmet());
+app.use(helmet({
+    crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" }
+}));
 app.use(compression());
 app.use(cors({
     origin: (origin, callback) => {
