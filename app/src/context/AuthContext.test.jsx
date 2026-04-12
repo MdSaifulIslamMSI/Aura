@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as React from 'react';
 
@@ -23,6 +23,7 @@ const loadAuthContext = async () => {
       getSession: vi.fn(),
       logoutSession: vi.fn(),
       syncSession: vi.fn(),
+      verifyDeviceChallenge: vi.fn(),
     },
     mockUser: {
       uid: 'firebase-user-1',
@@ -152,6 +153,60 @@ describe('AuthProvider', () => {
       },
     });
     mocks.authApiMock.logoutSession.mockResolvedValue({ success: true });
+    mocks.authApiMock.verifyDeviceChallenge.mockResolvedValue({
+      success: true,
+      status: 'authenticated',
+      deviceChallenge: null,
+      session: {
+        sessionId: 'server-session-1',
+        uid: 'firebase-user-1',
+        email: 'stale@example.com',
+        emailVerified: true,
+        displayName: 'Stale Session',
+        phone: '+919999999999',
+        providerIds: [],
+      },
+      profile: {
+        _id: 'db-user-1',
+        name: 'Stale Session',
+        email: 'stale@example.com',
+        phone: '+919999999999',
+        isAdmin: false,
+        isVerified: true,
+        isSeller: false,
+        sellerActivatedAt: null,
+        accountState: 'active',
+        moderation: {},
+        loyalty: {},
+        createdAt: null,
+      },
+      roles: {
+        isAdmin: false,
+        isSeller: false,
+        isVerified: true,
+      },
+      intelligence: {
+        assurance: {
+          level: 'password',
+          label: 'Verified session',
+          verifiedAt: null,
+          expiresAt: null,
+          isRecent: false,
+        },
+        readiness: {
+          hasVerifiedEmail: true,
+          hasPhone: true,
+          accountState: 'active',
+          isPrivileged: false,
+        },
+        acceleration: {
+          suggestedRoute: 'password',
+          rememberedIdentifier: 'email+phone',
+          suggestedProvider: '',
+          providerIds: [],
+        },
+      },
+    });
   });
 
   it('clears stale firebase sessions when the backend rejects the auth token', async () => {
@@ -517,5 +572,102 @@ describe('AuthProvider', () => {
 
     expect(mocks.signInWithPopupMock).toHaveBeenCalled();
     expect(mocks.signInWithRedirectMock).not.toHaveBeenCalled();
+  });
+
+  it('adopts the verified session payload directly after trusted-device verification', async () => {
+    let capturedContext = null;
+
+    mocks.authApiMock.getSession.mockResolvedValueOnce({
+      status: 'device_challenge_required',
+      deviceChallenge: {
+        token: 'challenge-token',
+        mode: 'assert',
+        availableMethods: ['browser_key'],
+        challenge: 'challenge-value',
+      },
+      session: {
+        sessionId: 'server-session-1',
+        uid: 'firebase-user-1',
+        email: 'stale@example.com',
+        emailVerified: true,
+        displayName: 'Stale Session',
+        phone: '+919999999999',
+        providerIds: [],
+      },
+      profile: {
+        _id: 'db-user-1',
+        name: 'Stale Session',
+        email: 'stale@example.com',
+        phone: '+919999999999',
+        isAdmin: false,
+        isVerified: true,
+        isSeller: false,
+        sellerActivatedAt: null,
+        accountState: 'active',
+        moderation: {},
+        loyalty: {},
+        createdAt: null,
+      },
+      roles: {
+        isAdmin: false,
+        isSeller: false,
+        isVerified: true,
+      },
+      intelligence: {
+        assurance: {
+          level: 'password',
+          label: 'Verified session',
+          verifiedAt: null,
+          expiresAt: null,
+          isRecent: false,
+        },
+        readiness: {
+          hasVerifiedEmail: true,
+          hasPhone: true,
+          accountState: 'active',
+          isPrivileged: false,
+        },
+        acceleration: {
+          suggestedRoute: 'password',
+          rememberedIdentifier: 'email+phone',
+          suggestedProvider: '',
+          providerIds: [],
+        },
+      },
+    });
+
+    const Probe = () => {
+      const authContext = useAuth();
+      React.useEffect(() => {
+        capturedContext = authContext;
+      }, [authContext]);
+      return <div data-testid="verify-status">{authContext.status}</div>;
+    };
+
+    render(
+      <AuthProvider>
+        <Probe />
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('verify-status')).toHaveTextContent('device_challenge_required');
+    });
+
+    await act(async () => {
+      await capturedContext.verifyDeviceChallenge('challenge-token', {
+        method: 'browser_key',
+        proofBase64: 'proof',
+        publicKeySpkiBase64: '',
+      });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('verify-status')).toHaveTextContent('authenticated');
+    });
+
+    expect(mocks.authApiMock.verifyDeviceChallenge).toHaveBeenCalledTimes(1);
+    expect(mocks.authApiMock.getSession).toHaveBeenCalledTimes(1);
+    expect(mocks.authApiMock.exchangeSession).toHaveBeenCalledTimes(1);
   });
 });
