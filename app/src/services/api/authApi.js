@@ -56,13 +56,14 @@ const exchangeSessionWithFirebase = async (firebaseUser, options = {}) => {
 
 const postWithFreshCsrf = async (path, body, options = {}) => {
     const firebaseUser = options.firebaseUser || {};
+    const shouldUseFirebaseBearer = options.useFirebaseBearer === true;
 
     const execute = async ({ forceFreshCsrf = false, forceRefreshAuth = false } = {}) => {
         const headers = await getAuthHeader(firebaseUser, {
-            useFirebaseBearer: options.useFirebaseBearer === true,
+            useFirebaseBearer: shouldUseFirebaseBearer,
             forceRefresh: forceRefreshAuth,
         });
-        const authToken = options.useFirebaseBearer === true
+        const authToken = shouldUseFirebaseBearer
             ? (
                 options.authToken
                 || extractAuthTokenFromHeaders(headers)
@@ -100,7 +101,10 @@ const postWithFreshCsrf = async (path, body, options = {}) => {
             await exchangeSessionWithFirebase(firebaseUser, {
                 forceRefreshAuth: true,
             });
-            return execute({ forceFreshCsrf: true });
+            return execute({
+                forceFreshCsrf: true,
+                forceRefreshAuth: shouldUseFirebaseBearer,
+            });
         }
 
         if (isUnauthorizedAuthError(error)) {
@@ -154,7 +158,10 @@ export const authApi = {
             name,
             phone,
             ...(options.flowToken ? { flowToken: options.flowToken } : {}),
-        }, options);
+        }, {
+            ...options,
+            useFirebaseBearer: Boolean(options.firebaseUser?.getIdToken),
+        });
     },
     completePhoneFactorLogin: async (email, phone, options = {}) => {
         return postWithFirebaseBearer('/auth/complete-phone-factor-login', { email, phone }, options);

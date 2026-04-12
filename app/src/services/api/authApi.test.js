@@ -124,7 +124,7 @@ describe('authApi', () => {
 
     expect(mocks.getAuthHeaderMock).toHaveBeenCalledTimes(3);
     expect(mocks.getAuthHeaderMock).toHaveBeenNthCalledWith(1, firebaseUser, {
-      useFirebaseBearer: false,
+      useFirebaseBearer: true,
       forceRefresh: false,
     });
     expect(mocks.getAuthHeaderMock).toHaveBeenNthCalledWith(2, firebaseUser, {
@@ -132,8 +132,8 @@ describe('authApi', () => {
       forceRefresh: true,
     });
     expect(mocks.getAuthHeaderMock).toHaveBeenNthCalledWith(3, firebaseUser, {
-      useFirebaseBearer: false,
-      forceRefresh: false,
+      useFirebaseBearer: true,
+      forceRefresh: true,
     });
     expect(mocks.ensureCsrfTokenMock).toHaveBeenCalledTimes(2);
     expect(mocks.clearCsrfTokenCacheMock).toHaveBeenCalledTimes(1);
