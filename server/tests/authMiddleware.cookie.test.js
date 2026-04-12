@@ -98,6 +98,96 @@ describe('authMiddleware cookie session authentication', () => {
         expect(next).toHaveBeenCalledWith();
     });
 
+    test('protect accepts a stepped-up browser session for the same device when trusted device mode is always', async () => {
+        let protect;
+        const nowSeconds = Math.floor(Date.now() / 1000);
+        const touchedSession = {
+            sessionId: 'session-cookie-2',
+            userId: '507f1f77bcf86cd799439013',
+            firebaseUid: 'firebase-cookie-uid-2',
+            email: 'cookie-device@example.com',
+            emailVerified: true,
+            displayName: 'Cookie Device User',
+            phoneNumber: '+919876543210',
+            providerIds: ['password'],
+            authTimeSeconds: nowSeconds - 30,
+            issuedAtSeconds: nowSeconds - 30,
+            firebaseExpiresAtSeconds: nowSeconds + 3600,
+            amr: ['trusted_device'],
+            deviceId: 'device-cookie-2',
+            deviceMethod: 'browser_key',
+        };
+
+        jest.isolateModules(() => {
+            jest.doMock('../config/firebase', () => ({
+                auth: () => ({
+                    verifyIdToken: jest.fn(),
+                    getUser: jest.fn(),
+                }),
+            }));
+            jest.doMock('../models/User', () => ({
+                findById: jest.fn(() => ({
+                    lean: jest.fn().mockResolvedValue({
+                        _id: '507f1f77bcf86cd799439013',
+                        email: 'cookie-device@example.com',
+                        name: 'Cookie Device User',
+                        phone: '+919876543210',
+                        isAdmin: false,
+                        isVerified: true,
+                        authAssurance: 'none',
+                        authAssuranceAt: null,
+                        authAssuranceAuthTime: null,
+                        loginOtpAssuranceExpiresAt: null,
+                        isSeller: false,
+                        accountState: 'active',
+                        softDeleted: false,
+                        moderation: {},
+                    }),
+                })),
+                findOne: jest.fn(),
+                findOneAndUpdate: jest.fn(),
+            }));
+            jest.doMock('../config/redis', () => ({
+                getRedisClient: () => null,
+                flags: { redisPrefix: 'test' },
+            }));
+            jest.doMock('../services/browserSessionService', () => ({
+                getBrowserSessionFromRequest: jest.fn().mockResolvedValue(touchedSession),
+                resolveSessionIdFromRequest: jest.fn().mockReturnValue('session-cookie-2'),
+                revokeBrowserSession: jest.fn().mockResolvedValue(undefined),
+                touchBrowserSession: jest.fn().mockResolvedValue(touchedSession),
+            }));
+            jest.doMock('../services/trustedDeviceChallengeService', () => ({
+                TRUSTED_DEVICE_SESSION_HEADER: 'x-aura-device-session',
+                extractTrustedDeviceContext: jest.fn().mockReturnValue({ deviceId: 'device-cookie-2', deviceLabel: 'Cookie Browser' }),
+                verifyTrustedDeviceSession: jest.fn().mockReturnValue({ success: false }),
+            }));
+            jest.doMock('../config/authTrustedDeviceFlags', () => ({
+                flags: { authDeviceChallengeMode: 'always' },
+                shouldRequireTrustedDevice: jest.fn().mockReturnValue(true),
+            }));
+
+            protect = require('../middleware/authMiddleware').protect;
+        });
+
+        const req = {
+            headers: {
+                cookie: 'aura_sid=session-cookie-2',
+            },
+            get: () => '',
+        };
+        const next = jest.fn();
+
+        await protect(req, {}, next);
+
+        expect(req.authSession).toMatchObject({
+            sessionId: 'session-cookie-2',
+            deviceId: 'device-cookie-2',
+            deviceMethod: 'browser_key',
+        });
+        expect(next).toHaveBeenCalledWith();
+    });
+
     test('protect prefers a fresh bearer token over a stale browser session cookie', async () => {
         let protect;
         let verifyIdToken;
