@@ -41,7 +41,8 @@ $script:GeneratedSecretKeys = @(
     "OTP_FLOW_SECRET",
     "OTP_CHALLENGE_SECRET",
     "CRON_SECRET",
-    "METRICS_SECRET"
+    "METRICS_SECRET",
+    "AI_INTERNAL_AUTH_SECRET"
 )
 $script:AlwaysSecretEnvNames = @(
     "MONGO_URI",
@@ -106,6 +107,7 @@ $script:NeverSecretEnvNames = @(
     "AUTH_WEBAUTHN_TIMEOUT_MS",
     "AUTH_LATTICE_CHALLENGE_MODE",
     "AUTH_REQUIRE_OTP_FOR_ALL_PROTECTED",
+    "AI_INTERNAL_AUTH_ALLOW_LEGACY_SECRET",
     "CSRF_STRICT_CLIENT_SIGNALS",
     "ADMIN_STRICT_ACCESS_ENABLED",
     "ADMIN_REQUIRE_EMAIL_VERIFIED",
@@ -839,7 +841,7 @@ function New-ServiceRuntimePlan {
         $value = [string]$entry.Value
 
         if (Test-IsSecretEnvName -EnvName $key) {
-            if ([string]::IsNullOrWhiteSpace($value) -and -not $SourceValues.Contains($key)) {
+            if ([string]::IsNullOrWhiteSpace($value)) {
                 continue
             }
             $secretName = Convert-EnvNameToSecretName -EnvName $key
