@@ -72,6 +72,25 @@ describe('csrf middleware', () => {
         expect(mockRedisData.size).toBe(0);
     });
 
+    test('accepts equivalent principal ids when the request uid is object-like', async () => {
+        const token = generateCsrfToken();
+        await storeCsrfToken(token, {
+            uid: '507f1f77bcf86cd799439011',
+            strictOrigin: 'https://app.example.com',
+        });
+
+        const valid = await verifyCsrfToken(token, {
+            uid: {
+                toString: () => '507f1f77bcf86cd799439011',
+                toJSON: () => '507f1f77bcf86cd799439011',
+            },
+            strictOrigin: 'https://app.example.com',
+        });
+
+        expect(valid).toBe(true);
+        expect(mockRedisData.size).toBe(0);
+    });
+
     test('rejects context mismatch on strict origin', async () => {
         const token = generateCsrfToken();
         await storeCsrfToken(token, {
