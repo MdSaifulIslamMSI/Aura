@@ -273,13 +273,21 @@ const resolveRequestProtocol = (req = {}) => {
     return 'http';
 };
 
-const shouldUseCrossSiteCookieForLoopbackOrigin = (req = {}) => {
+const shouldUseCrossSiteCookieForOrigin = (req = {}) => {
     const { protocol: originProtocol, host: originHost } = parseOriginContext(req.headers?.origin || '');
     const requestHost = normalizeHost(req.headers?.host || req.hostname || '');
     const requestProtocol = resolveRequestProtocol(req);
 
-    if (!originHost || !requestHost || !LOOPBACK_HOSTS.has(originHost)) {
+    if (!originHost || !requestHost) {
         return false;
+    }
+
+    if (originHost === requestHost && (!originProtocol || originProtocol === requestProtocol)) {
+        return false;
+    }
+
+    if (LOOPBACK_HOSTS.has(originHost)) {
+        return true;
     }
 
     return originHost !== requestHost || (originProtocol && originProtocol !== requestProtocol);
@@ -290,7 +298,7 @@ const resolveSameSite = (req = {}) => {
     if (host && SESSION_ADMIN_HOSTS.has(host)) {
         return 'strict';
     }
-    if (shouldUseCrossSiteCookieForLoopbackOrigin(req) && isSecureRequest(req)) {
+    if (shouldUseCrossSiteCookieForOrigin(req) && isSecureRequest(req)) {
         return 'none';
     }
     if (SESSION_DEFAULT_SAME_SITE === 'strict' || SESSION_DEFAULT_SAME_SITE === 'none') {
