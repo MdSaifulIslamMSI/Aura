@@ -60,6 +60,25 @@ const resolveTrustedDeviceSessionToken = (req = {}) => String(
     || ''
 ).trim();
 
+const hasSessionTrustedDeviceState = (req = {}, deviceId = '') => {
+    const normalizedDeviceId = String(deviceId || '').trim();
+    const sessionDeviceId = String(req.authSession?.deviceId || '').trim();
+    const sessionDeviceMethod = String(req.authSession?.deviceMethod || '').trim().toLowerCase();
+    const sessionAmr = Array.isArray(req.authSession?.amr)
+        ? req.authSession.amr.map((entry) => String(entry || '').trim().toLowerCase())
+        : [];
+
+    if (!normalizedDeviceId || !sessionDeviceId || normalizedDeviceId !== sessionDeviceId) {
+        return false;
+    }
+
+    if (sessionDeviceMethod === 'webauthn' || sessionDeviceMethod === 'browser_key') {
+        return true;
+    }
+
+    return sessionAmr.includes('webauthn') || sessionAmr.includes('trusted_device');
+};
+
 const persistBrowserSessionForUser = async ({
     req,
     res,
@@ -130,6 +149,10 @@ const resolveDeviceChallengeState = async ({
     });
 
     if (trustedDeviceSession.success) {
+        return { status: 'authenticated', deviceChallenge: null };
+    }
+
+    if (hasSessionTrustedDeviceState(req, deviceId)) {
         return { status: 'authenticated', deviceChallenge: null };
     }
 

@@ -233,7 +233,7 @@ describe('Auth sync lattice challenge policy', () => {
         jest.dontMock('../services/trustedDeviceChallengeService');
     });
 
-    const buildIsolatedSyncApp = ({ challengeMode = '', isAdmin = false } = {}) => {
+    const buildIsolatedSyncApp = ({ challengeMode = '', isAdmin = false, authSession = null } = {}) => {
         let isolatedApp;
         const issueTrustedDeviceChallenge = jest.fn().mockResolvedValue({
             token: 'stub-challenge',
@@ -297,6 +297,7 @@ describe('Auth sync lattice challenge policy', () => {
                     email: 'verified@example.com',
                     email_verified: true,
                 };
+                req.authSession = authSession;
                 next();
             }, syncSession);
             isolatedApp.use(errorHandler);
@@ -335,6 +336,28 @@ describe('Auth sync lattice challenge policy', () => {
             deviceId: 'device-test-1234',
         });
         expect(issueTrustedDeviceChallenge).toHaveBeenCalledTimes(1);
+    });
+
+    test('POST /api/auth/sync accepts an existing stepped-up browser session for the same device', async () => {
+        const { isolatedApp, issueTrustedDeviceChallenge } = buildIsolatedSyncApp({
+            challengeMode: 'always',
+            authSession: {
+                sessionId: 'session-1',
+                deviceId: 'device-test-1234',
+                deviceMethod: 'browser_key',
+                amr: ['password', 'trusted_device'],
+            },
+        });
+
+        const res = await request(isolatedApp)
+            .post('/api/auth/sync')
+            .set('x-aura-device-id', 'device-test-1234')
+            .send({ email: 'verified@example.com', name: 'Verified User' });
+
+        expect(res.statusCode).toBe(200);
+        expect(res.body.status).toBe('authenticated');
+        expect(res.body.deviceChallenge).toBeNull();
+        expect(issueTrustedDeviceChallenge).not.toHaveBeenCalled();
     });
 });
 
