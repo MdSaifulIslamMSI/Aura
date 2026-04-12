@@ -97,4 +97,93 @@ describe('authMiddleware cookie session authentication', () => {
         });
         expect(next).toHaveBeenCalledWith();
     });
+
+    test('protect prefers a fresh bearer token over a stale browser session cookie', async () => {
+        let protect;
+        let verifyIdToken;
+        let resolveSessionIdFromRequest;
+        let getBrowserSessionFromRequest;
+
+        jest.isolateModules(() => {
+            verifyIdToken = jest.fn().mockResolvedValue({
+                uid: 'firebase-bearer-uid',
+                email: 'bearer-user@example.com',
+                email_verified: true,
+                exp: Math.floor(Date.now() / 1000) + 3600,
+            });
+            resolveSessionIdFromRequest = jest.fn().mockReturnValue('session-cookie-stale');
+            getBrowserSessionFromRequest = jest.fn();
+
+            jest.doMock('../config/firebase', () => ({
+                auth: () => ({
+                    verifyIdToken,
+                    getUser: jest.fn(),
+                }),
+            }));
+            jest.doMock('../models/User', () => ({
+                findById: jest.fn(),
+                findOne: jest.fn(() => ({
+                    lean: jest.fn().mockResolvedValue({
+                        _id: '507f1f77bcf86cd799439012',
+                        email: 'bearer-user@example.com',
+                        name: 'Bearer User',
+                        phone: '+919811112222',
+                        isAdmin: false,
+                        isVerified: true,
+                        authAssurance: 'none',
+                        authAssuranceAt: null,
+                        authAssuranceAuthTime: null,
+                        loginOtpAssuranceExpiresAt: null,
+                        isSeller: false,
+                        accountState: 'active',
+                        softDeleted: false,
+                        moderation: {},
+                    }),
+                })),
+                findOneAndUpdate: jest.fn(),
+            }));
+            jest.doMock('../config/redis', () => ({
+                getRedisClient: () => null,
+                flags: { redisPrefix: 'test' },
+            }));
+            jest.doMock('../services/browserSessionService', () => ({
+                getBrowserSessionFromRequest,
+                resolveSessionIdFromRequest,
+                revokeBrowserSession: jest.fn().mockResolvedValue(undefined),
+                touchBrowserSession: jest.fn(),
+            }));
+            jest.doMock('../services/trustedDeviceChallengeService', () => ({
+                TRUSTED_DEVICE_SESSION_HEADER: 'x-aura-device-session',
+                extractTrustedDeviceContext: jest.fn().mockReturnValue({ deviceId: '', deviceLabel: '' }),
+                verifyTrustedDeviceSession: jest.fn().mockReturnValue({ success: false }),
+            }));
+            jest.doMock('../config/authTrustedDeviceFlags', () => ({
+                flags: { authDeviceChallengeMode: 'off' },
+                shouldRequireTrustedDevice: jest.fn().mockReturnValue(false),
+            }));
+
+            protect = require('../middleware/authMiddleware').protect;
+        });
+
+        const req = {
+            headers: {
+                cookie: 'aura_sid=session-cookie-stale',
+                authorization: 'Bearer fresh-token-123',
+            },
+            get: () => '',
+        };
+        const next = jest.fn();
+
+        await protect(req, {}, next);
+
+        expect(verifyIdToken).toHaveBeenCalledWith('fresh-token-123', true);
+        expect(resolveSessionIdFromRequest).not.toHaveBeenCalled();
+        expect(getBrowserSessionFromRequest).not.toHaveBeenCalled();
+        expect(req.authUid).toBe('firebase-bearer-uid');
+        expect(req.user).toMatchObject({
+            email: 'bearer-user@example.com',
+            name: 'Bearer User',
+        });
+        expect(next).toHaveBeenCalledWith();
+    });
 });

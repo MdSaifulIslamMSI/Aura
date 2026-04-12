@@ -10,6 +10,7 @@ const FALLBACK_CODES = new Set([
   'auth/operation-not-allowed',
   'auth/quota-exceeded',
   'auth/too-many-requests',
+  'auth/unauthorized-domain',
 ]);
 
 const SESSION_DISABLE_CODES = new Set([
@@ -34,17 +35,35 @@ export const resolveFirebasePhoneFallback = (error) => {
   const message = extractErrorMessage(error);
 
   const mentionsRecaptcha = message.includes('recaptcha');
+  const mentionsContentSecurityPolicy = message.includes('content security policy')
+    || message.includes('frame-src')
+    || message.includes('refused to frame')
+    || message.includes('violates the following content security policy directive');
+  const mentionsFirebaseAuthIframe = message.includes('firebaseapp.com')
+    || message.includes('web.app')
+    || message.includes('illegal url for new iframe');
   const mentionsBilling = message.includes('billing-not-enabled')
     || message.includes('billing not enabled')
     || message.includes('blaze plan');
   const mentionsDisabledProvider = message.includes('operation-not-allowed')
     || message.includes('provider is disabled')
     || message.includes('phone auth is not enabled');
+  const mentionsUnauthorizedDomain = message.includes('unauthorized-domain')
+    || message.includes('domain not authorized')
+    || message.includes('app url is not allowed in firebase authentication')
+    || message.includes('app-not-authorized');
+  const mentionsRecaptchaBootstrapFailure = message.includes('failed to initialize recaptcha enterprise config')
+    || message.includes('recaptcha enterprise');
+  const mentionsRecaptchaUnauthorized = mentionsRecaptcha && message.includes('unauthorized');
+  const mentionsIframeBootstrapBlock = mentionsContentSecurityPolicy && mentionsFirebaseAuthIframe;
 
   const shouldFallback = FALLBACK_CODES.has(code)
     || mentionsRecaptcha
     || mentionsBilling
-    || mentionsDisabledProvider;
+    || mentionsDisabledProvider
+    || mentionsUnauthorizedDomain
+    || mentionsRecaptchaBootstrapFailure
+    || mentionsIframeBootstrapBlock;
 
   if (!shouldFallback) {
     return null;
@@ -52,7 +71,12 @@ export const resolveFirebasePhoneFallback = (error) => {
 
   const disableFirebasePhoneOtp = SESSION_DISABLE_CODES.has(code)
     || mentionsBilling
-    || mentionsDisabledProvider;
+    || mentionsDisabledProvider
+    || mentionsContentSecurityPolicy
+    || mentionsUnauthorizedDomain
+    || mentionsRecaptchaBootstrapFailure
+    || mentionsRecaptchaUnauthorized
+    || mentionsIframeBootstrapBlock;
 
   return {
     code,
