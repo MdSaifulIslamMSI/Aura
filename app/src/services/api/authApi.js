@@ -130,6 +130,13 @@ const postWithFirebaseBearer = async (path, body, options = {}) => {
     return data;
 };
 
+const postAuthBootstrap = async (path, body, options = {}) => {
+    if (options.firebaseUser?.getIdToken) {
+        return postWithFirebaseBearer(path, body, options);
+    }
+    return postWithFreshCsrf(path, body, options);
+};
+
 export const authApi = {
     exchangeSession: async (options = {}) => exchangeSessionWithFirebase(options.firebaseUser, options),
     getSession: async (options = {}) => {
@@ -153,7 +160,7 @@ export const authApi = {
         }
     },
     syncSession: async (email, name, phone, options = {}) => {
-        return postWithFreshCsrf('/auth/sync', {
+        return postAuthBootstrap('/auth/sync', {
             email,
             name,
             phone,
@@ -193,7 +200,7 @@ export const authApi = {
                 credential: null,
             };
 
-        return postWithFreshCsrf('/auth/verify-device', {
+        return postAuthBootstrap('/auth/verify-device', {
             token,
             method: normalizedPayload.method,
             proof: normalizedPayload.proof,

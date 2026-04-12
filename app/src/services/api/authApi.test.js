@@ -80,39 +80,16 @@ describe('authApi', () => {
     expect(mocks.cacheTokenMock).toHaveBeenCalledWith(csrfToken, 'cookie_session');
   });
 
-  it('retries auth sync after exchanging a fresh server session when CSRF bootstrap is rejected with 401', async () => {
+  it('sends auth sync with Firebase bearer only when a Firebase user is present', async () => {
     const firebaseUser = {
-      getIdToken: vi.fn()
-        .mockResolvedValueOnce('stale-token')
-        .mockResolvedValueOnce('fresh-token'),
+      getIdToken: vi.fn().mockResolvedValue('fresh-token'),
     };
 
-    mocks.getAuthHeaderMock
-      .mockResolvedValueOnce({})
-      .mockResolvedValueOnce({ Authorization: 'Bearer fresh-token' })
-      .mockResolvedValueOnce({});
-
-    mocks.ensureCsrfTokenMock
-      .mockRejectedValueOnce(Object.assign(new Error('HTTP 401: Unauthorized'), { status: 401 }))
-      .mockResolvedValueOnce('b'.repeat(64));
-
-    mocks.addCsrfTokenToHeadersMock.mockImplementation((headers, _method, csrfToken) => ({
-      ...headers,
-      'X-CSRF-Token': csrfToken,
-    }));
+    mocks.getAuthHeaderMock.mockResolvedValueOnce({ Authorization: 'Bearer fresh-token' });
 
     global.fetch
       .mockResolvedValueOnce(
         new Response(JSON.stringify({ status: 'authenticated' }), {
-          status: 200,
-          headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-Token': 'c'.repeat(64),
-          },
-        })
-      )
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ ok: true }), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
         })
@@ -120,23 +97,48 @@ describe('authApi', () => {
 
     await expect(authApi.syncSession('user@example.com', 'Aura User', '+919999999999', { firebaseUser }))
       .resolves
-      .toEqual({ ok: true });
+      .toEqual({ status: 'authenticated' });
 
-    expect(mocks.getAuthHeaderMock).toHaveBeenCalledTimes(3);
+    expect(mocks.getAuthHeaderMock).toHaveBeenCalledTimes(1);
     expect(mocks.getAuthHeaderMock).toHaveBeenNthCalledWith(1, firebaseUser, {
       useFirebaseBearer: true,
-      forceRefresh: false,
     });
-    expect(mocks.getAuthHeaderMock).toHaveBeenNthCalledWith(2, firebaseUser, {
+    expect(mocks.ensureCsrfTokenMock).not.toHaveBeenCalled();
+    expect(mocks.addCsrfTokenToHeadersMock).not.toHaveBeenCalled();
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('sends trusted-device verification with Firebase bearer only when a Firebase user is present', async () => {
+    const firebaseUser = {
+      getIdToken: vi.fn().mockResolvedValue('fresh-token'),
+    };
+
+    mocks.getAuthHeaderMock.mockResolvedValueOnce({ Authorization: 'Bearer fresh-token' });
+
+    global.fetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ success: true, deviceSessionToken: 'device-token' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+
+    await expect(authApi.verifyDeviceChallenge(
+      'challenge-token',
+      {
+        method: 'browser_key',
+        proofBase64: 'proof-data',
+        publicKeySpkiBase64: 'public-key',
+      },
+      '',
+      { firebaseUser }
+    )).resolves.toEqual({ success: true, deviceSessionToken: 'device-token' });
+
+    expect(mocks.getAuthHeaderMock).toHaveBeenCalledTimes(1);
+    expect(mocks.getAuthHeaderMock).toHaveBeenCalledWith(firebaseUser, {
       useFirebaseBearer: true,
-      forceRefresh: true,
     });
-    expect(mocks.getAuthHeaderMock).toHaveBeenNthCalledWith(3, firebaseUser, {
-      useFirebaseBearer: true,
-      forceRefresh: true,
-    });
-    expect(mocks.ensureCsrfTokenMock).toHaveBeenCalledTimes(2);
-    expect(mocks.clearCsrfTokenCacheMock).toHaveBeenCalledTimes(1);
-    expect(global.fetch).toHaveBeenCalledTimes(2);
+    expect(mocks.ensureCsrfTokenMock).not.toHaveBeenCalled();
+    expect(mocks.addCsrfTokenToHeadersMock).not.toHaveBeenCalled();
+    expect(global.fetch).toHaveBeenCalledTimes(1);
   });
 });
