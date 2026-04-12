@@ -60,6 +60,10 @@ const EXPLICIT_SECRET_NAMES = new Set([
     ...DEFAULT_AZURE_SECRET_KEYS,
 ]);
 
+const NON_SECRET_RUNTIME_ENV_NAMES = new Set([
+    'AI_INTERNAL_AUTH_ALLOW_LEGACY_SECRET',
+]);
+
 const EXCLUDED_PATH_FRAGMENTS = [
     `${path.sep}node_modules${path.sep}`,
     `${path.sep}coverage${path.sep}`,
@@ -111,6 +115,10 @@ const extractRuntimeEnvNames = () => {
 };
 
 const isSecretLikeEnvName = (name) => {
+    if (NON_SECRET_RUNTIME_ENV_NAMES.has(name)) {
+        return false;
+    }
+
     if (EXPLICIT_SECRET_NAMES.has(name)) {
         return true;
     }
