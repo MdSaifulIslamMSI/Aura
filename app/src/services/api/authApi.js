@@ -25,19 +25,57 @@ const isInvalidCsrfError = (error) => {
 
 const isUnauthorizedAuthError = (error) => Number(error?.status || 0) === 401;
 
+const cacheCsrfTokenFromResponse = (response, owner = 'cookie_session') => {
+    const csrfToken = response.response?.headers?.get('X-CSRF-Token');
+    if (csrfToken && typeof cacheToken === 'function') {
+        try {
+            cacheToken(csrfToken, owner);
+        } catch (error) {
+            console.warn('Failed to cache CSRF token:', error.message);
+        }
+    }
+};
+
+const exchangeSessionWithFirebase = async (firebaseUser, options = {}) => {
+    if (!firebaseUser?.getIdToken) {
+        throw new Error('A Firebase-authenticated user is required to exchange a server session.');
+    }
+
+    const headers = await getAuthHeader(firebaseUser, {
+        useFirebaseBearer: true,
+        forceRefresh: options.forceRefreshAuth === true,
+    });
+    const response = await apiFetch('/auth/exchange', {
+        method: 'POST',
+        headers,
+    });
+
+    cacheCsrfTokenFromResponse(response, 'cookie_session');
+    return response.data;
+};
+
 const postWithFreshCsrf = async (path, body, options = {}) => {
     const firebaseUser = options.firebaseUser || {};
 
     const execute = async ({ forceFreshCsrf = false, forceRefreshAuth = false } = {}) => {
-        const headers = await getAuthHeader(firebaseUser, { forceRefresh: forceRefreshAuth });
-        const authToken = options.authToken
-            || extractAuthTokenFromHeaders(headers)
-            || (firebaseUser.getIdToken ? await firebaseUser.getIdToken(forceRefreshAuth) : '');
+        const headers = await getAuthHeader(firebaseUser, {
+            useFirebaseBearer: options.useFirebaseBearer === true,
+            forceRefresh: forceRefreshAuth,
+        });
+        const authToken = options.useFirebaseBearer === true
+            ? (
+                options.authToken
+                || extractAuthTokenFromHeaders(headers)
+                || (firebaseUser.getIdToken ? await firebaseUser.getIdToken(forceRefreshAuth) : '')
+            )
+            : '';
         let csrfToken = null;
         try {
-            if (authToken) {
-                csrfToken = await ensureCsrfToken(authToken, { forceFresh: forceFreshCsrf });
-            }
+            csrfToken = await ensureCsrfToken({
+                authToken,
+                owner: options.csrfOwner || 'cookie_session',
+                forceFresh: forceFreshCsrf,
+            });
         } catch (error) {
             const wrappedError = new Error(`CSRF token fetch failed for ${path}: ${error.message}. Please refresh and try again.`);
             wrappedError.status = Number(error?.status || 0);
@@ -59,13 +97,13 @@ const postWithFreshCsrf = async (path, body, options = {}) => {
     } catch (error) {
         if (firebaseUser.getIdToken && isUnauthorizedAuthError(error)) {
             clearCsrfTokenCache();
-            return execute({
-                forceFreshCsrf: true,
+            await exchangeSessionWithFirebase(firebaseUser, {
                 forceRefreshAuth: true,
             });
+            return execute({ forceFreshCsrf: true });
         }
 
-        if (!options.authToken && !firebaseUser.getIdToken) {
+        if (isUnauthorizedAuthError(error)) {
             throw error;
         }
 
@@ -79,7 +117,7 @@ const postWithFreshCsrf = async (path, body, options = {}) => {
 };
 
 const postWithFirebaseBearer = async (path, body, options = {}) => {
-    const headers = await getAuthHeader(options.firebaseUser);
+    const headers = await getAuthHeader(options.firebaseUser, { useFirebaseBearer: true });
     const { data } = await apiFetch(path, {
         method: 'POST',
         headers,
@@ -89,31 +127,23 @@ const postWithFirebaseBearer = async (path, body, options = {}) => {
 };
 
 export const authApi = {
+    exchangeSession: async (options = {}) => exchangeSessionWithFirebase(options.firebaseUser, options),
     getSession: async (options = {}) => {
-        const execute = async (forceRefreshAuth = false) => {
-            const headers = await getAuthHeader(options.firebaseUser, { forceRefresh: forceRefreshAuth });
-            const authToken = extractAuthTokenFromHeaders(headers);
+        const execute = async () => {
+            const headers = await getAuthHeader(options.firebaseUser);
             const response = await apiFetch('/auth/session', { headers });
-
-            // Extract and cache CSRF token from response
-            const csrfToken = response.response?.headers?.get('X-CSRF-Token');
-            if (csrfToken && typeof cacheToken === 'function') {
-                try {
-                    cacheToken(csrfToken, authToken);
-                } catch (e) {
-                    console.warn('Failed to cache CSRF token:', e.message);
-                }
-            }
-
+            cacheCsrfTokenFromResponse(response, 'cookie_session');
             return response.data;
         };
 
         try {
-            return await execute(false);
+            return await execute();
         } catch (error) {
             if (options.firebaseUser?.getIdToken && isUnauthorizedAuthError(error)) {
                 clearCsrfTokenCache();
-                return execute(true);
+                return exchangeSessionWithFirebase(options.firebaseUser, {
+                    forceRefreshAuth: true,
+                });
             }
             throw error;
         }
@@ -131,6 +161,15 @@ export const authApi = {
     },
     completePhoneFactorVerification: async (purpose, email, phone, options = {}) => {
         return postWithFirebaseBearer('/auth/complete-phone-factor-verification', { purpose, email, phone }, options);
+    },
+    logoutSession: async (options = {}) => {
+        const headers = await getAuthHeader(options.firebaseUser);
+        const { data } = await apiFetch('/auth/logout', {
+            method: 'POST',
+            headers,
+        });
+        clearCsrfTokenCache();
+        return data;
     },
     verifyDeviceChallenge: async (token, proofOrPayload, publicKeySpkiBase64 = '', options = {}) => {
         const normalizedPayload = proofOrPayload && typeof proofOrPayload === 'object' && !Array.isArray(proofOrPayload)
@@ -155,12 +194,6 @@ export const authApi = {
             credential: normalizedPayload.credential,
         }, options);
     },
-    verifyLatticeChallenge: async (token, proof, _deviceId, options = {}) => {
-        return authApi.verifyDeviceChallenge(token, proof, '', options);
-    },
-    verifyQuantumChallenge: async (token, proof, _deviceId, options = {}) => {
-        return authApi.verifyDeviceChallenge(token, proof, '', options);
-    }
 };
 
 

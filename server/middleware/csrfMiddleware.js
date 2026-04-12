@@ -38,8 +38,8 @@ const getStrictOrigin = (req) => {
 };
 
 const getRequestContext = (req) => ({
-    uid: req.user?.id || req.authUid || 'anonymous',
-    sessionId: req.sessionID || req.headers?.['x-session-id'] || null,
+    uid: req.user?.id || req.user?._id || req.authUid || 'anonymous',
+    sessionId: req.authSession?.sessionId || req.sessionID || req.headers?.['x-session-id'] || null,
     deviceFingerprint: req.headers?.['x-device-fingerprint'] || null,
     strictOrigin: getStrictOrigin(req),
     ip: req.ip,

@@ -22,6 +22,19 @@ const sanitizeHostValue = (value) => {
     }
 };
 
+const isIpv4Host = (host = '') => /^(?:\d{1,3}\.){3}\d{1,3}$/.test(host);
+
+const isIpv6Host = (host = '') => {
+    const normalized = sanitizeHostValue(host);
+    return Boolean(
+        normalized
+        && !normalized.includes('.')
+        && (normalized.includes(':') || normalized.startsWith('[') || normalized.endsWith(']'))
+    );
+};
+
+const isIpLiteralHost = (host = '') => isIpv4Host(host) || isIpv6Host(host);
+
 const parseBooleanEnv = (value, fallback = false) => {
     if (typeof value !== 'string') return fallback;
     const normalized = value.trim().toLowerCase();
@@ -75,11 +88,12 @@ const disableSocialAuth = parseBooleanEnv(import.meta.env.VITE_FIREBASE_DISABLE_
 const enableFirebaseAnalytics = parseBooleanEnv(import.meta.env.VITE_FIREBASE_ANALYTICS_ENABLED, false);
 const forceRedirectSocialAuth = parseBooleanEnv(import.meta.env.VITE_FIREBASE_FORCE_REDIRECT_SOCIAL_AUTH, false);
 const isDeploymentHost = typeof runtimeHost === 'string' && runtimeHost.endsWith('.vercel.app');
+const isRuntimeIpHost = isIpLiteralHost(runtimeHost);
 const runtimeSocialAuthBlockKey = runtimeHost
     ? `aura-social-auth-block:${runtimeHost}`
     : 'aura-social-auth-block';
 const runtimeSocialAuthBlockTtlMs = 2 * 60 * 1000;
-const prefersRedirectSocialAuth = Boolean(forceRedirectSocialAuth);
+const prefersRedirectSocialAuth = Boolean(forceRedirectSocialAuth || isRuntimeIpHost);
 
 const isSocialAuthHostRejection = (error) => {
     const raw = `${error?.code || ''} ${error?.message || error || ''}`.toLowerCase();
@@ -154,19 +168,22 @@ export const isFirebaseReady = Boolean(app && auth);
 export const isFirebaseSocialAuthAvailable = () => Boolean(
     isFirebaseReady
     && (!disableSocialAuth || isDeploymentHost)
-    && !readRuntimeSocialAuthBlock()
 );
 export const getFirebaseSocialAuthStatus = () => ({
     ready: isFirebaseReady,
     supported: isFirebaseSocialAuthAvailable(),
     runtimeHost,
     runtimeBlocked: readRuntimeSocialAuthBlock(),
+    redirectPreferred: prefersRedirectSocialAuth || readRuntimeSocialAuthBlock(),
+    runtimeIpHost: isRuntimeIpHost,
     disabledByConfig: disableSocialAuth && !isDeploymentHost,
     initErrorCode: firebaseInitError?.code || '',
     initErrorMessage: firebaseInitError?.message || '',
 });
 export const getFirebaseInitError = () => firebaseInitError;
-export const shouldPreferFirebaseRedirectAuth = () => prefersRedirectSocialAuth;
+export const shouldPreferFirebaseRedirectAuth = () => Boolean(
+    prefersRedirectSocialAuth || readRuntimeSocialAuthBlock()
+);
 export const assertFirebaseReady = (feature = 'Firebase authentication') => {
     if (isFirebaseReady) return;
 

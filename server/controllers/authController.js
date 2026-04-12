@@ -18,6 +18,12 @@ const {
     verifyTrustedDeviceChallenge,
     verifyTrustedDeviceSession,
 } = require('../services/trustedDeviceChallengeService');
+const {
+    clearBrowserSessionCookie,
+    getBrowserSessionFromRequest,
+    refreshBrowserSession,
+    revokeBrowserSession,
+} = require('../services/browserSessionService');
 const { shouldRequireTrustedDevice } = require('../config/authTrustedDeviceFlags');
 const LOGIN_ASSURANCE_TTL_MS = 10 * 60 * 1000;
 const PHONE_FACTOR_ASSURANCE_TTL_MS = 10 * 60 * 1000;
@@ -53,6 +59,51 @@ const resolveTrustedDeviceSessionToken = (req = {}) => String(
     || req.headers?.[TRUSTED_DEVICE_SESSION_HEADER]
     || ''
 ).trim();
+
+const persistBrowserSessionForUser = async ({
+    req,
+    res,
+    user,
+    rotate = false,
+    deviceMethod = '',
+    stepUpUntil = null,
+    additionalAmr = [],
+} = {}) => {
+    if (!user?._id) {
+        return null;
+    }
+
+    const nextSession = await refreshBrowserSession({
+        req,
+        res,
+        currentSession: req.authSession || null,
+        user,
+        authUid: req.authUid || '',
+        authToken: req.authToken || null,
+        deviceMethod,
+        stepUpUntil,
+        additionalAmr,
+        rotate,
+    });
+
+    req.authSession = nextSession;
+    return nextSession;
+};
+
+const establishSessionCookie = asyncHandler(async (req, res, next) => {
+    if (req.authSession?.sessionId || !req.user?._id || !req.authToken) {
+        return next();
+    }
+
+    await persistBrowserSessionForUser({
+        req,
+        res,
+        user: req.user,
+        rotate: false,
+    });
+
+    return next();
+});
 
 const resolveDeviceChallengeState = async ({
     req,
@@ -113,6 +164,7 @@ const getSession = asyncHandler(async (req, res) => {
         authUser: buildRequestAuthUser(req),
         authToken: req.authToken || null,
         authUid: req.authUid || '',
+        authSession: req.authSession || null,
     });
 
     const { status, deviceChallenge } = await resolveDeviceChallengeState({
@@ -164,10 +216,20 @@ const syncSession = asyncHandler(async (req, res) => {
         user,
     });
 
+    await persistBrowserSessionForUser({
+        req,
+        res,
+        user,
+        rotate: Boolean(req.authSession?.sessionId),
+        stepUpUntil: user?.loginOtpAssuranceExpiresAt || null,
+        additionalAmr: String(user?.authAssurance || '').trim() === 'password+otp' ? ['otp'] : [],
+    });
+
     res.json(buildSessionPayload({
         authUser,
         authToken: req.authToken || null,
         authUid: req.authUid || '',
+        authSession: req.authSession || null,
         user,
         status,
         deviceChallenge,
@@ -260,6 +322,15 @@ const completePhoneFactorLogin = asyncHandler(async (req, res) => {
     await invalidateUserCache(req.authUid || '');
     await invalidateUserCacheByEmail(tokenEmail);
 
+    await persistBrowserSessionForUser({
+        req,
+        res,
+        user: updatedUser,
+        rotate: Boolean(req.authSession?.sessionId),
+        stepUpUntil: updatedUser?.loginOtpAssuranceExpiresAt || null,
+        additionalAmr: ['otp'],
+    });
+
     res.json(buildSessionPayload({
         authUser: {
             ...authUser,
@@ -269,6 +340,7 @@ const completePhoneFactorLogin = asyncHandler(async (req, res) => {
         },
         authToken: req.authToken || null,
         authUid: req.authUid || '',
+        authSession: req.authSession || null,
         user: updatedUser,
     }));
 });
@@ -473,6 +545,16 @@ const verifyDeviceChallenge = asyncHandler(async (req, res) => {
     await invalidateUserCache(req.authUid || '');
     await invalidateUserCacheByEmail(req.user?.email || '');
 
+    await persistBrowserSessionForUser({
+        req,
+        res,
+        user: req.user,
+        rotate: Boolean(req.authSession?.sessionId),
+        deviceMethod: verification.method === 'webauthn' ? 'webauthn' : 'browser_key',
+        stepUpUntil: verification.expiresAt || null,
+        additionalAmr: [verification.method === 'webauthn' ? 'webauthn' : 'trusted_device'],
+    });
+
     res.json({
         success: true,
         message: verification.mode === 'enroll'
@@ -482,15 +564,27 @@ const verifyDeviceChallenge = asyncHandler(async (req, res) => {
     });
 });
 
-const verifyLatticeChallenge = verifyDeviceChallenge;
-const verifyQuantumChallenge = verifyDeviceChallenge;
+const logoutSession = asyncHandler(async (req, res) => {
+    const existingSession = req.authSession?.sessionId
+        ? req.authSession
+        : await getBrowserSessionFromRequest(req);
+
+    if (existingSession?.sessionId) {
+        await revokeBrowserSession(existingSession.sessionId);
+    }
+    clearBrowserSessionCookie(res, req);
+    res.json({
+        success: true,
+        status: 'signed_out',
+    });
+});
 
 module.exports = {
+    establishSessionCookie,
     getSession,
     syncSession,
+    logoutSession,
     completePhoneFactorLogin,
     completePhoneFactorVerification,
     verifyDeviceChallenge,
-    verifyLatticeChallenge,
-    verifyQuantumChallenge,
 };

@@ -40,12 +40,13 @@ import {
   validatePhone,
 } from './loginFlowHelpers';
 
-const normalizeSocialAuthError = (error, providerLabel = 'Social') => {
+const normalizeSocialAuthError = (error, providerLabel = 'Social', socialAuthStatus = null) => {
   const errorCode = String(error?.code || '').trim();
   const errorMessage = String(error?.message || '').trim();
   const normalizedError = {
     ...error,
     provider: error?.provider || providerLabel,
+    host: error?.host || socialAuthStatus?.runtimeHost || '',
   };
 
   if (errorCode === 'auth/invalid-credential') {
@@ -1194,7 +1195,7 @@ export const useLoginController = () => {
       }
     } catch (error) {
       console.error(`${providerLabel} sign-in failed`, error);
-      setErr(normalizeSocialAuthError(error, providerLabel));
+      setErr(normalizeSocialAuthError(error, providerLabel, socialAuthStatus));
     } finally {
       setIsLoading(false);
     }

@@ -9,6 +9,34 @@ import {
   signTrustedDeviceChallenge,
 } from '../../../services/deviceTrustClient';
 
+const isWebAuthnHostMismatchError = (error) => {
+  const errorName = String(error?.name || '');
+  const errorMessage = String(error?.message || '').toLowerCase();
+  return errorName === 'SecurityError'
+    || errorMessage.includes('securityerror')
+    || errorMessage.includes('relying party id')
+    || errorMessage.includes('registrable domain suffix')
+    || errorMessage.includes('.well-known/webauthn')
+    || errorMessage.includes('claimed rp id')
+    || errorMessage.includes('webauthn resource');
+};
+
+const buildTrustedDeviceErrorMessage = ({
+  error,
+  browserKeyOffered,
+  passkeyOffered,
+  supportProfile,
+}) => {
+  const fallbackHost = supportProfile.runtimeHost || 'this host';
+  if (passkeyOffered && browserKeyOffered && isWebAuthnHostMismatchError(error)) {
+    return supportProfile.webauthnHostEligible
+      ? 'Passkey verification could not be completed here. Aura can fall back to this browser\'s trusted-device key on the next retry.'
+      : `Passkeys are not available on ${fallbackHost}, so Aura uses a browser-held trusted-device key on this host instead.`;
+  }
+
+  return String(error?.message || 'Trusted device verification failed.');
+};
+
 const AuraTrustedDeviceChallenge = () => {
   const { currentUser, deviceChallenge, refreshSession, status, verifyDeviceChallenge } = useAuth();
   const [isWorking, setIsWorking] = useState(false);
@@ -31,6 +59,8 @@ const AuraTrustedDeviceChallenge = () => {
   const canUsePasskey = supportProfile.webauthn && passkeyOffered;
   const canUseBrowserKey = supportProfile.browserKeyFallback && browserKeyOffered;
   const supported = canUsePasskey || canUseBrowserKey;
+  const hostUsesBrowserKeyOnly = !passkeyOffered && browserKeyOffered && !supportProfile.webauthnHostEligible;
+  const fallbackHost = supportProfile.runtimeHost || 'this host';
   const primaryMethodLabel = passkeyOffered ? 'Passkey / WebAuthn' : 'RSA-PSS browser key';
   const actionLabel = passkeyOffered
     ? (challengeMode === 'enroll' ? 'Register Passkey' : 'Verify Passkey')
@@ -45,7 +75,11 @@ const AuraTrustedDeviceChallenge = () => {
       setErrorMessage(
         passkeyOffered
           ? 'This browser cannot complete passkey verification here. Use a secure browser with WebAuthn support or a device that already has this passkey.'
-          : 'This browser cannot complete trusted device verification. Use HTTPS or localhost with WebCrypto and IndexedDB enabled.'
+          : (
+            hostUsesBrowserKeyOnly
+              ? `This host uses browser-key verification because passkeys need localhost or a verified domain. Retry on ${fallbackHost} only after enabling WebCrypto and IndexedDB support.`
+              : 'This browser cannot complete trusted device verification. Use HTTPS or localhost with WebCrypto and IndexedDB enabled.'
+          )
       );
       return;
     }
@@ -67,7 +101,12 @@ const AuraTrustedDeviceChallenge = () => {
           : (challengeMode === 'enroll' ? 'Trusted browser registered.' : 'Trusted browser verified.')
       );
     } catch (error) {
-      const nextMessage = String(error?.message || 'Trusted device verification failed.');
+      const nextMessage = buildTrustedDeviceErrorMessage({
+        error,
+        browserKeyOffered,
+        passkeyOffered,
+        supportProfile,
+      });
       setErrorMessage(nextMessage);
       toast.error(nextMessage);
     } finally {
@@ -126,7 +165,11 @@ const AuraTrustedDeviceChallenge = () => {
                 {challengeMode === 'enroll'
                   ? (passkeyOffered
                     ? 'This checkpoint now prefers a real passkey. Your authenticator creates a WebAuthn credential tied to this account, with browser-key fallback only when needed.'
-                    : 'This flow creates a real browser-held signing key and binds it to your account for privileged access.')
+                    : (
+                      hostUsesBrowserKeyOnly
+                        ? `This host is using the browser-held trusted-device key path. Passkeys stay reserved for localhost or verified domains that match the relying-party configuration.`
+                        : 'This flow creates a real browser-held signing key and binds it to your account for privileged access.'
+                    ))
                   : (passkeyOffered
                     ? 'Privileged access now requires a fresh passkey assertion from the authenticator already registered to this account.'
                     : 'Privileged access now requires a fresh signature from the trusted browser key already registered to this account.')}
@@ -160,7 +203,11 @@ const AuraTrustedDeviceChallenge = () => {
               <p>
                 {passkeyOffered
                   ? 'Your authenticator completes a short-lived WebAuthn challenge locally. The server verifies that passkey assertion and then issues a session-bound trusted-device token for this Firebase session.'
-                  : 'The browser signs a short-lived challenge locally. The server verifies that proof against your registered public key and then issues a session-bound device token for this Firebase session.'}
+                  : (
+                    hostUsesBrowserKeyOnly
+                      ? `On ${fallbackHost}, the browser signs a short-lived challenge locally with its trusted-device key. The server verifies that proof and then issues a session-bound device token for this Firebase session.`
+                      : 'The browser signs a short-lived challenge locally. The server verifies that proof against your registered public key and then issues a session-bound device token for this Firebase session.'
+                  )}
               </p>
             </div>
 
@@ -168,7 +215,11 @@ const AuraTrustedDeviceChallenge = () => {
               <div className="rounded-2xl border border-amber-300/20 bg-amber-300/10 p-4 text-sm leading-6 text-amber-100">
                 {passkeyOffered
                   ? 'This device does not expose the passkey APIs needed for this challenge here. Use a secure browser with passkey support, or switch to a device that already has the registered passkey.'
-                  : 'This browser cannot complete trusted device verification here. Use HTTPS or localhost with WebCrypto and IndexedDB enabled.'}
+                  : (
+                    hostUsesBrowserKeyOnly
+                      ? `This host stays on browser-key verification because passkeys are only offered on localhost or verified domains.`
+                      : 'This browser cannot complete trusted device verification here. Use HTTPS or localhost with WebCrypto and IndexedDB enabled.'
+                  )}
               </div>
             ) : null}
 

@@ -5,6 +5,7 @@ const { allowedOrigins } = require('../config/corsFlags');
 const { getRedisClient } = require('../config/redis');
 const User = require('../models/User');
 const logger = require('../utils/logger');
+const { getBrowserSession, resolveSessionIdFromCookieHeader, touchBrowserSession } = require('./browserSessionService');
 const {
     loadAdminTicketView,
     loadUserTicketView,
@@ -57,7 +58,47 @@ const getConnectedVideoSessionDisconnectGraceMs = () => parsePositiveInteger(
     DEFAULT_CONNECTED_VIDEO_SESSION_DISCONNECT_GRACE_MS,
 );
 
-const resolveSocketUser = async (token) => {
+const toSocketUserPayload = (user = {}, identity = {}) => ({
+    id: String(user._id),
+    uid: String(identity.uid || user.authUid || ''),
+    email: normalizeEmail(identity.email || user.email || ''),
+    name: String(user.name || identity.displayName || ''),
+    isAdmin: Boolean(user.isAdmin),
+    isSeller: Boolean(user.isSeller),
+    isVerified: Boolean(user.isVerified),
+    sessionId: String(identity.sessionId || ''),
+});
+
+const resolveSocketUserFromSessionCookie = async (cookieHeader = '') => {
+    const sessionId = resolveSessionIdFromCookieHeader(cookieHeader);
+    if (!sessionId) {
+        return null;
+    }
+
+    const session = await getBrowserSession(sessionId);
+    if (!session?.sessionId || !session.userId) {
+        throw new Error('Authenticated socket session expired');
+    }
+
+    const user = await User.findById(session.userId)
+        .select('_id authUid email name isAdmin isSeller isVerified')
+        .lean();
+
+    if (!user?._id) {
+        throw new Error('Authenticated socket user profile was not found');
+    }
+
+    await touchBrowserSession(session);
+
+    return toSocketUserPayload(user, {
+        uid: session.firebaseUid,
+        email: session.email,
+        displayName: session.displayName,
+        sessionId: session.sessionId,
+    });
+};
+
+const resolveSocketUserFromFirebaseToken = async (token = '') => {
     const decoded = await firebaseAdmin.auth().verifyIdToken(token);
     const email = normalizeEmail(decoded?.email);
 
@@ -66,22 +107,31 @@ const resolveSocketUser = async (token) => {
     }
 
     const user = await User.findOne({ email })
-        .select('_id email name isAdmin isSeller isVerified')
+        .select('_id authUid email name isAdmin isSeller isVerified')
         .lean();
 
     if (!user?._id) {
         throw new Error('Authenticated socket user profile was not found');
     }
 
-    return {
-        id: String(user._id),
-        uid: String(decoded.uid || ''),
+    return toSocketUserPayload(user, {
+        uid: decoded.uid,
         email,
-        name: String(user.name || ''),
-        isAdmin: Boolean(user.isAdmin),
-        isSeller: Boolean(user.isSeller),
-        isVerified: Boolean(user.isVerified),
-    };
+    });
+};
+
+const resolveSocketUser = async ({ token = '', cookieHeader = '' } = {}) => {
+    const sessionUser = await resolveSocketUserFromSessionCookie(cookieHeader);
+    if (sessionUser) {
+        return sessionUser;
+    }
+
+    const normalizedToken = String(token || '').trim();
+    if (!normalizedToken) {
+        throw new Error('Authentication session missing');
+    }
+
+    return resolveSocketUserFromFirebaseToken(normalizedToken);
 };
 
 const registerSupportVideoSession = ({
@@ -651,10 +701,10 @@ const initializeSocket = (httpServer) => {
     // Mirror the HTTP auth path by verifying Firebase bearer tokens.
     io.use(async (socket, next) => {
         const token = String(socket.handshake.auth?.token || '').trim();
-        if (!token) return next(new Error('Authentication error: Token missing'));
+        const cookieHeader = String(socket.handshake.headers?.cookie || '').trim();
 
         try {
-            socket.user = await resolveSocketUser(token);
+            socket.user = await resolveSocketUser({ token, cookieHeader });
             next();
         } catch (error) {
             next(new Error(`Authentication error: ${error.message}`));

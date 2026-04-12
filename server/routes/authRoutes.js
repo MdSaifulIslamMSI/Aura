@@ -1,12 +1,12 @@
 const express = require('express');
 const {
+    establishSessionCookie,
     getSession,
+    logoutSession,
     syncSession,
     completePhoneFactorLogin,
     completePhoneFactorVerification,
     verifyDeviceChallenge,
-    verifyLatticeChallenge,
-    verifyQuantumChallenge,
 } = require('../controllers/authController');
 const { protect, protectPhoneFactorProof } = require('../middleware/authMiddleware');
 const validate = require('../middleware/validate');
@@ -31,13 +31,13 @@ const authSyncLimiter = createDistributedRateLimit({
     },
 });
 
-router.get('/session', protect, csrfTokenGenerator, getSession);
-router.post('/sync', protect, csrfTokenValidator, authSyncLimiter, validate(loginSchema), syncSession);
+router.post('/exchange', protect, establishSessionCookie, csrfTokenGenerator, getSession);
+router.get('/session', protect, establishSessionCookie, csrfTokenGenerator, getSession);
+router.post('/sync', protect, establishSessionCookie, csrfTokenValidator, authSyncLimiter, validate(loginSchema), syncSession);
+router.post('/logout', logoutSession);
 router.post('/complete-phone-factor-login', protect, completePhoneFactorLogin);
 router.post('/complete-phone-factor-verification', protectPhoneFactorProof, completePhoneFactorVerification);
-router.post('/verify-device', protect, csrfTokenValidator, verifyDeviceChallenge);
-router.post('/verify-lattice', protect, csrfTokenValidator, verifyLatticeChallenge);
-router.post('/verify-quantum', protect, csrfTokenValidator, verifyQuantumChallenge);
+router.post('/verify-device', protect, establishSessionCookie, csrfTokenValidator, verifyDeviceChallenge);
 router.use('/otp', otpRoutes);
 
 module.exports = router;

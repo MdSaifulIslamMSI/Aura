@@ -8,6 +8,39 @@ let inMemoryDeviceId = '';
 
 const hasWindow = () => typeof window !== 'undefined';
 
+const normalizeHost = (value = '') => String(value || '').trim().toLowerCase();
+
+const getRuntimeHost = () => {
+  if (!hasWindow()) return '';
+  return normalizeHost(window.location?.hostname || window.location?.host || '');
+};
+
+const isIpv4Host = (host = '') => /^(?:\d{1,3}\.){3}\d{1,3}$/.test(host);
+
+const isIpv6Host = (host = '') => {
+  const normalized = normalizeHost(host);
+  return Boolean(
+    normalized
+    && !normalized.includes('.')
+    && (normalized.includes(':') || normalized.startsWith('[') || normalized.endsWith(']'))
+  );
+};
+
+const isIpLiteralHost = (host = '') => isIpv4Host(host) || isIpv6Host(host);
+
+const isRegistrableHost = (host = '') => {
+  const normalized = normalizeHost(host);
+  if (!normalized || normalized === 'localhost' || isIpLiteralHost(normalized)) {
+    return false;
+  }
+
+  const labels = normalized.split('.').filter(Boolean);
+  if (labels.length < 2) return false;
+
+  return labels.every((label) => /^[a-z0-9-]+$/i.test(label) && !label.startsWith('-') && !label.endsWith('-'))
+    && /[a-z]/i.test(labels[labels.length - 1] || '');
+};
+
 const readStorage = (kind = 'localStorage') => {
   if (!hasWindow()) return null;
   try {
@@ -187,10 +220,16 @@ const canUseBrowserKeyFallback = () => Boolean(
   && window.indexedDB
 );
 
-export const getTrustedDeviceSupportProfile = () => ({
-  webauthn: isWebAuthnSupported(),
-  browserKeyFallback: canUseBrowserKeyFallback(),
-});
+export const getTrustedDeviceSupportProfile = () => {
+  const runtimeHost = getRuntimeHost();
+  return {
+    webauthn: isWebAuthnSupported(),
+    browserKeyFallback: canUseBrowserKeyFallback(),
+    runtimeHost,
+    webauthnHostEligible: runtimeHost === 'localhost' || isRegistrableHost(runtimeHost),
+    localIpHost: isIpLiteralHost(runtimeHost),
+  };
+};
 
 const exportPublicKey = async (publicKey) => {
   const spki = await window.crypto.subtle.exportKey('spki', publicKey);
@@ -304,8 +343,16 @@ const shouldFallbackFromWebAuthn = (error) => {
   const errorName = String(error?.name || '');
   const errorMessage = String(error?.message || '').toLowerCase();
   return errorName === 'NotSupportedError'
+    || errorName === 'SecurityError'
+    || errorMessage.includes('securityerror')
     || errorMessage.includes('publickeycredential is not defined')
-    || errorMessage.includes('not supported');
+    || errorMessage.includes('not supported')
+    || errorMessage.includes('relying party id')
+    || errorMessage.includes('registrable domain suffix')
+    || errorMessage.includes('.well-known/webauthn')
+    || errorMessage.includes('claimed rp id')
+    || errorMessage.includes('webauthn resource')
+    || errorMessage.includes('origin mismatch');
 };
 
 const runWebAuthnEnrollment = async (challenge = {}) => {

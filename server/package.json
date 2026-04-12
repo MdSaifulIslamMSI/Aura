@@ -25,6 +25,7 @@
     "catalog:kaggle:import": "node scripts/import_kaggle_catalog.js",
     "assistant:vectors:backfill": "node scripts/backfill_assistant_product_vectors.js",
     "assistant:eval:top100": "node scripts/eval_commerce_assistant_top100.js",
+    "assistant:issue-internal-token": "node scripts/issue_internal_ai_service_token.js",
     "fx:refresh": "node scripts/refresh_fx_rates.js",
     "test": "cross-env NODE_ENV=test jest --runInBand",
     "test:coverage": "cross-env NODE_ENV=test jest --runInBand --coverage",

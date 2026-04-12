@@ -1,4 +1,7 @@
 const request = require('supertest');
+const {
+    issueInternalAiServiceToken,
+} = require('../services/internalAiTokenService');
 
 jest.mock('../services/ai/commerceAssistantService', () => ({
     processAssistantTurn: jest.fn().mockResolvedValue({
@@ -102,10 +105,15 @@ jest.mock('../services/ai/providerRegistry', () => ({
 
 const app = require('../index');
 const { processAssistantTurn, streamAssistantTurn } = require('../services/ai/commerceAssistantService');
+const originalEnv = { ...process.env };
 
 describe('AI Routes', () => {
     beforeEach(() => {
         jest.clearAllMocks();
+    });
+
+    afterEach(() => {
+        process.env = { ...originalEnv };
     });
 
     test('POST /api/ai/chat works without auth', async () => {
@@ -195,5 +203,77 @@ describe('AI Routes', () => {
         expect(res.statusCode).toBe(200);
         expect(res.body.provider).toBe('elevenlabs');
         expect(res.body.audioBase64).toBe('ZmFrZQ==');
+    });
+
+    test('POST /api/internal/ai/chat rejects requests without internal AI auth', async () => {
+        process.env.AI_INTERNAL_AUTH_ACTIVE_KID = 'ai-2026-04';
+        process.env.AI_INTERNAL_AUTH_SECRET = 'internal-ai-secret-current-0123456789abcdefghijklmnopqrstuvwxyz';
+        process.env.AI_INTERNAL_AUTH_ISSUER = 'aura-internal-ai';
+        process.env.AI_INTERNAL_AUTH_AUDIENCE = 'aura-api';
+        process.env.AI_INTERNAL_AUTH_ALLOW_LEGACY_SECRET = 'false';
+
+        const res = await request(app)
+            .post('/api/internal/ai/chat')
+            .send({
+                message: 'compare phones under 50000',
+                assistantMode: 'chat',
+            });
+
+        expect(res.statusCode).toBe(401);
+    });
+
+    test('POST /api/internal/ai/chat accepts signed internal AI service tokens', async () => {
+        process.env.AI_INTERNAL_AUTH_ACTIVE_KID = 'ai-2026-04';
+        process.env.AI_INTERNAL_AUTH_SECRET = 'internal-ai-secret-current-0123456789abcdefghijklmnopqrstuvwxyz';
+        process.env.AI_INTERNAL_AUTH_ISSUER = 'aura-internal-ai';
+        process.env.AI_INTERNAL_AUTH_AUDIENCE = 'aura-api';
+        process.env.AI_INTERNAL_AUTH_ALLOW_LEGACY_SECRET = 'false';
+
+        const { token } = issueInternalAiServiceToken({
+            subject: 'assistant-worker',
+            audience: 'aura-api',
+        });
+
+        const res = await request(app)
+            .post('/api/internal/ai/chat')
+            .set('Authorization', `Bearer ${token}`)
+            .send({
+                message: 'compare phones under 50000',
+                assistantMode: 'chat',
+            });
+
+        expect(res.statusCode).toBe(200);
+        expect(res.body.answer).toBe('Top grounded answer');
+        expect(processAssistantTurn).toHaveBeenCalledWith(expect.objectContaining({
+            message: 'compare phones under 50000',
+        }));
+    });
+
+    test('POST /api/internal/ai/chat/stream accepts signed internal AI service tokens', async () => {
+        process.env.AI_INTERNAL_AUTH_ACTIVE_KID = 'ai-2026-04';
+        process.env.AI_INTERNAL_AUTH_SECRET = 'internal-ai-secret-current-0123456789abcdefghijklmnopqrstuvwxyz';
+        process.env.AI_INTERNAL_AUTH_ISSUER = 'aura-internal-ai';
+        process.env.AI_INTERNAL_AUTH_AUDIENCE = 'aura-api';
+        process.env.AI_INTERNAL_AUTH_ALLOW_LEGACY_SECRET = 'false';
+
+        const { token } = issueInternalAiServiceToken({
+            subject: 'assistant-worker',
+            audience: 'aura-api',
+        });
+
+        const res = await request(app)
+            .post('/api/internal/ai/chat/stream')
+            .set('Authorization', `Bearer ${token}`)
+            .send({
+                message: 'hello',
+                assistantMode: 'chat',
+            });
+
+        expect(res.statusCode).toBe(200);
+        expect(res.headers['content-type']).toContain('text/event-stream');
+        expect(res.text).toContain('event: final_turn');
+        expect(streamAssistantTurn).toHaveBeenCalledWith(expect.objectContaining({
+            message: 'hello',
+        }));
     });
 });

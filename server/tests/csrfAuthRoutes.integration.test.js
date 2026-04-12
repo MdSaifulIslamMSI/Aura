@@ -67,13 +67,13 @@ jest.mock('../routes/otpRoutes', () => {
 });
 
 jest.mock('../controllers/authController', () => ({
+    establishSessionCookie: (_req, _res, next) => next(),
     getSession: (_req, res) => res.json({ ok: true }),
     syncSession: (_req, res) => res.json({ synced: true }),
+    logoutSession: (_req, res) => res.json({ success: true }),
     completePhoneFactorLogin: (_req, res) => res.json({ completed: true }),
     completePhoneFactorVerification: (_req, res) => res.json({ completed: true }),
     verifyDeviceChallenge: (_req, res) => res.json({ ok: true }),
-    verifyLatticeChallenge: (_req, res) => res.json({ ok: true }),
-    verifyQuantumChallenge: (_req, res) => res.json({ ok: true }),
 }));
 
 const authRoutes = require('../routes/authRoutes');

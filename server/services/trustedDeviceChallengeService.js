@@ -360,13 +360,22 @@ const issueTrustedDeviceChallenge = async ({
     const mode = existingDevice ? 'assert' : 'enroll';
     const registeredMethod = existingDevice ? getTrustedDeviceMethod(existingDevice) : '';
     const webauthnContext = resolveWebAuthnRequestContext(req);
+    const canOfferWebAuthnEnrollment = mode !== 'enroll' || webauthnContext.isEnrollmentEligible;
     const preferredMethod = mode === 'enroll'
-        ? (trustedDeviceFlags.authTrustedDevicePreferWebAuthn ? PASSKEY_METHOD : BROWSER_KEY_METHOD)
+        ? (
+            trustedDeviceFlags.authTrustedDevicePreferWebAuthn && canOfferWebAuthnEnrollment
+                ? PASSKEY_METHOD
+                : BROWSER_KEY_METHOD
+        )
         : registeredMethod || BROWSER_KEY_METHOD;
     const availableMethods = mode === 'enroll'
-        ? (trustedDeviceFlags.authTrustedDevicePreferWebAuthn
-            ? [PASSKEY_METHOD, BROWSER_KEY_METHOD]
-            : [BROWSER_KEY_METHOD, PASSKEY_METHOD])
+        ? (
+            canOfferWebAuthnEnrollment
+                ? (trustedDeviceFlags.authTrustedDevicePreferWebAuthn
+                    ? [PASSKEY_METHOD, BROWSER_KEY_METHOD]
+                    : [BROWSER_KEY_METHOD, PASSKEY_METHOD])
+                : [BROWSER_KEY_METHOD]
+        )
         : [preferredMethod];
 
     const token = sealToken({

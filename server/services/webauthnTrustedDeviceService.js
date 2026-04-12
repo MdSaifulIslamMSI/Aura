@@ -10,6 +10,55 @@ const FLAG_ATTESTED_CREDENTIAL_DATA = 0x40;
 
 const normalizeText = (value) => (typeof value === 'string' ? value.trim() : '');
 
+const normalizeHost = (value = '') => {
+    const normalized = normalizeText(value).toLowerCase();
+    if (!normalized) return '';
+
+    try {
+        const url = new URL(normalized.includes('://') ? normalized : `https://${normalized}`);
+        return normalizeText(url.hostname).toLowerCase();
+    } catch {
+        return normalized
+            .replace(/^https?:\/\//i, '')
+            .replace(/\/.*$/, '')
+            .replace(/:\d+$/, '')
+            .trim();
+    }
+};
+
+const isIpv4Host = (host = '') => /^(?:\d{1,3}\.){3}\d{1,3}$/.test(host);
+
+const isIpv6Host = (host = '') => {
+    const normalized = String(host || '').trim();
+    return Boolean(
+        normalized
+        && !normalized.includes('.')
+        && (normalized.includes(':') || normalized.startsWith('[') || normalized.endsWith(']'))
+    );
+};
+
+const isIpLiteralHost = (host = '') => isIpv4Host(host) || isIpv6Host(host);
+
+const isRegistrableHost = (host = '') => {
+    const normalized = normalizeHost(host);
+    if (!normalized || normalized === 'localhost' || isIpLiteralHost(normalized)) {
+        return false;
+    }
+
+    const labels = normalized.split('.').filter(Boolean);
+    if (labels.length < 2) return false;
+
+    return labels.every((label) => /^[a-z0-9-]+$/i.test(label) && !label.startsWith('-') && !label.endsWith('-'))
+        && /[a-z]/i.test(labels[labels.length - 1] || '');
+};
+
+const isRpIdCompatibleWithHost = ({ host = '', rpId = '' } = {}) => {
+    const normalizedHost = normalizeHost(host);
+    const normalizedRpId = normalizeHost(rpId);
+    if (!normalizedHost || !normalizedRpId) return false;
+    return normalizedHost === normalizedRpId || normalizedHost.endsWith(`.${normalizedRpId}`);
+};
+
 const normalizeUserVerification = (value) => {
     const normalized = normalizeText(value).toLowerCase();
     if (['required', 'preferred', 'discouraged'].includes(normalized)) {
@@ -58,8 +107,24 @@ const resolveWebAuthnRequestContext = (req = {}) => {
         throw new Error('Unable to resolve WebAuthn origin for trusted device verification');
     }
 
-    const rpId = normalizeText(trustedDeviceFlags.authWebAuthnRpId)
-        || new URL(requestOrigin).hostname;
+    const requestHost = normalizeHost(requestOrigin);
+    const configuredOrigin = normalizeText(trustedDeviceFlags.authWebAuthnOrigin || '');
+    const configuredOriginHost = normalizeHost(configuredOrigin);
+    const configuredRpId = normalizeHost(trustedDeviceFlags.authWebAuthnRpId || '');
+    const rpId = configuredRpId || requestHost;
+
+    let enrollmentIneligibilityReason = '';
+    if (!requestHost) {
+        enrollmentIneligibilityReason = 'Passkeys need a host-bound origin for trusted device enrollment.';
+    } else if (isIpLiteralHost(requestHost)) {
+        enrollmentIneligibilityReason = 'Passkeys are not offered on IP-address hosts. Use localhost or a verified domain instead.';
+    } else if (!(requestHost === 'localhost' || isRegistrableHost(requestHost))) {
+        enrollmentIneligibilityReason = 'Passkeys are only offered on localhost or verified domains that can own a relying-party ID.';
+    } else if (configuredOriginHost && configuredOriginHost !== requestHost) {
+        enrollmentIneligibilityReason = 'The configured WebAuthn origin does not match this host.';
+    } else if (!isRpIdCompatibleWithHost({ host: requestHost, rpId })) {
+        enrollmentIneligibilityReason = 'The configured WebAuthn relying party ID does not match this host.';
+    }
 
     return {
         origin: requestOrigin,
@@ -67,6 +132,12 @@ const resolveWebAuthnRequestContext = (req = {}) => {
         rpName: normalizeText(trustedDeviceFlags.authWebAuthnRpName) || DEFAULT_RP_NAME,
         userVerification: normalizeUserVerification(trustedDeviceFlags.authWebAuthnUserVerification),
         timeoutMs: Math.max(Number(trustedDeviceFlags.authWebAuthnTimeoutMs || 60_000), 15_000),
+        requestHost,
+        configuredOrigin,
+        configuredOriginHost,
+        configuredRpId,
+        isEnrollmentEligible: !enrollmentIneligibilityReason,
+        enrollmentIneligibilityReason,
     };
 };
 

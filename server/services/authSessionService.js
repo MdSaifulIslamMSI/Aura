@@ -289,7 +289,7 @@ const toProfilePayload = (user = null, options = {}) => {
     return payload;
 };
 
-const buildSessionIdentity = ({ authUser = {}, authToken = null, authUid = '' } = {}) => {
+const buildSessionIdentity = ({ authUser = {}, authToken = null, authUid = '', authSession = null } = {}) => {
     const email = resolvePublicEmail(authToken?.email || authUser.email);
     const phone = canonicalizePhone(authToken?.phone_number || authUser.phoneNumber || authUser.phone || '');
     const providerIds = resolveProviderIds({ authUser, authToken });
@@ -299,6 +299,29 @@ const buildSessionIdentity = ({ authUser = {}, authToken = null, authUid = '' } 
         if (!Number.isFinite(numeric) || numeric <= 0) return null;
         return new Date(numeric * 1000).toISOString();
     };
+
+    if (authSession?.sessionId) {
+        return {
+            sessionId: normalizeText(authSession.sessionId),
+            uid: normalizeText(authSession.firebaseUid || authUid || authUser.uid),
+            email: resolvePublicEmail(authSession.email || authToken?.email || authUser.email),
+            emailVerified: Boolean(authSession.emailVerified ?? authToken?.email_verified ?? authUser.emailVerified),
+            displayName: normalizeText(authSession.displayName || authToken?.name || authUser.displayName || authUser.name),
+            phone: canonicalizePhone(authSession.phoneNumber || authToken?.phone_number || authUser.phoneNumber || authUser.phone || ''),
+            providerIds: Array.isArray(authSession.providerIds) && authSession.providerIds.length > 0
+                ? authSession.providerIds
+                : providerIds,
+            authTime: toIsoOrNull(authSession.authTime) || toIso(authToken?.auth_time),
+            issuedAt: toIsoOrNull(authSession.issuedAt) || toIso(authToken?.iat),
+            expiresAt: toIsoOrNull(authSession.firebaseExpiresAt) || toIso(authToken?.exp),
+            aal: normalizeText(authSession.aal) || 'aal1',
+            amr: Array.isArray(authSession.amr) ? authSession.amr : [],
+            deviceId: normalizeText(authSession.deviceId),
+            deviceMethod: normalizeText(authSession.deviceMethod),
+            riskState: normalizeText(authSession.riskState) || 'standard',
+            stepUpUntil: toIsoOrNull(authSession.stepUpUntil),
+        };
+    }
 
     return {
         uid: normalizeText(authUid || authUser.uid),
@@ -359,12 +382,13 @@ const buildSessionPayload = ({
     authUser = {},
     authToken = null,
     authUid = '',
+    authSession = null,
     user = null,
     status = 'authenticated',
     deviceChallenge = null,
     error = null,
 } = {}) => {
-    const session = buildSessionIdentity({ authUser, authToken, authUid });
+    const session = buildSessionIdentity({ authUser, authToken, authUid, authSession });
     return {
         status,
         deviceChallenge: deviceChallenge || null,
@@ -592,6 +616,7 @@ const resolveAuthenticatedSession = async ({
     authUser = {},
     authToken = null,
     authUid = '',
+    authSession = null,
 }) => {
     const resolvedAuthUid = normalizeUid(authUid || authUser?.uid);
     const email = resolveAccountEmail({
@@ -624,6 +649,7 @@ const resolveAuthenticatedSession = async ({
             },
             authToken,
             authUid: resolvedAuthUid,
+            authSession,
             user,
         }),
     };

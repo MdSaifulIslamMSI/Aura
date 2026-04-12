@@ -13,11 +13,15 @@ const loadAuthContext = async () => {
     signOutMock: vi.fn().mockResolvedValue(undefined),
     onAuthStateChangedMock: vi.fn(),
     getRedirectResultMock: vi.fn().mockResolvedValue(null),
+    signInWithRedirectMock: vi.fn().mockResolvedValue(undefined),
     signInWithPopupMock: vi.fn(),
+    shouldPreferFirebaseRedirectAuthMock: vi.fn().mockReturnValue(false),
     clearCsrfTokenCacheMock: vi.fn(),
     clearTrustedDeviceSessionTokenMock: vi.fn(),
     authApiMock: {
+      exchangeSession: vi.fn(),
       getSession: vi.fn(),
+      logoutSession: vi.fn(),
       syncSession: vi.fn(),
     },
     mockUser: {
@@ -36,7 +40,7 @@ const loadAuthContext = async () => {
     getRedirectResult: mocks.getRedirectResultMock,
     signInWithEmailAndPassword: vi.fn(),
     signInWithCredential: vi.fn(),
-    signInWithRedirect: vi.fn(),
+    signInWithRedirect: mocks.signInWithRedirectMock,
     signOut: mocks.signOutMock,
     onAuthStateChanged: mocks.onAuthStateChangedMock,
     updateProfile: vi.fn(),
@@ -53,7 +57,7 @@ const loadAuthContext = async () => {
     clearFirebaseSocialAuthRuntimeBlock: vi.fn(),
     isFirebaseReady: true,
     markFirebaseSocialAuthRejectedForRuntime: vi.fn(),
-    shouldPreferFirebaseRedirectAuth: vi.fn().mockReturnValue(false),
+    shouldPreferFirebaseRedirectAuth: mocks.shouldPreferFirebaseRedirectAuthMock,
   }));
 
   vi.doMock('../services/api', () => ({
@@ -91,14 +95,72 @@ describe('AuthProvider', () => {
       callback(mocks.mockUser);
       return () => {};
     });
-    mocks.authApiMock.getSession.mockRejectedValue(
-      Object.assign(new Error('CSRF token fetch failed for /auth/sync: HTTP 401: Unauthorized'), {
-        status: 401,
-      })
-    );
+    mocks.authApiMock.exchangeSession.mockResolvedValue({
+      status: 'authenticated',
+      session: { sessionId: 'server-session-1' },
+    });
+    mocks.authApiMock.getSession.mockResolvedValue({
+      status: 'authenticated',
+      session: {
+        sessionId: 'server-session-1',
+        uid: 'firebase-user-1',
+        email: 'stale@example.com',
+        emailVerified: true,
+        displayName: 'Stale Session',
+        phone: '+919999999999',
+        providerIds: [],
+      },
+      profile: {
+        _id: 'db-user-1',
+        name: 'Stale Session',
+        email: 'stale@example.com',
+        phone: '+919999999999',
+        isAdmin: false,
+        isVerified: true,
+        isSeller: false,
+        sellerActivatedAt: null,
+        accountState: 'active',
+        moderation: {},
+        loyalty: {},
+        createdAt: null,
+      },
+      roles: {
+        isAdmin: false,
+        isSeller: false,
+        isVerified: true,
+      },
+      intelligence: {
+        assurance: {
+          level: 'password',
+          label: 'Verified session',
+          verifiedAt: null,
+          expiresAt: null,
+          isRecent: false,
+        },
+        readiness: {
+          hasVerifiedEmail: true,
+          hasPhone: true,
+          accountState: 'active',
+          isPrivileged: false,
+        },
+        acceleration: {
+          suggestedRoute: 'password',
+          rememberedIdentifier: 'email+phone',
+          suggestedProvider: '',
+          providerIds: [],
+        },
+      },
+    });
+    mocks.authApiMock.logoutSession.mockResolvedValue({ success: true });
   });
 
   it('clears stale firebase sessions when the backend rejects the auth token', async () => {
+    mocks.authApiMock.exchangeSession.mockRejectedValue(
+      Object.assign(new Error('Not authorized, token failed'), {
+        status: 401,
+      })
+    );
+
     const AuthProbe = () => {
       const { currentUser, status } = useAuth();
       return (
@@ -122,6 +184,7 @@ describe('AuthProvider', () => {
     expect(screen.getByTestId('auth-user')).toHaveTextContent('none');
     expect(mocks.clearCsrfTokenCacheMock).toHaveBeenCalled();
     expect(mocks.clearTrustedDeviceSessionTokenMock).toHaveBeenCalled();
+    expect(mocks.authApiMock.logoutSession).toHaveBeenCalled();
   });
 
   it('syncs X sign-in even when the provider does not return an email', async () => {
@@ -184,6 +247,7 @@ describe('AuthProvider', () => {
         displayName: 'X User',
         phoneNumber: '',
         providerData: [],
+        getIdToken: vi.fn().mockResolvedValue('oauth-user-token'),
       },
     });
 
@@ -216,6 +280,7 @@ describe('AuthProvider', () => {
     });
 
     expect(screen.getByTestId('oauth-user')).toHaveTextContent('none');
+    expect(mocks.authApiMock.exchangeSession).toHaveBeenCalled();
     expect(mocks.authApiMock.syncSession).toHaveBeenCalled();
     expect(mocks.signOutMock).not.toHaveBeenCalled();
   });
@@ -325,8 +390,132 @@ describe('AuthProvider', () => {
       expect(screen.getByTestId('oauth-error')).toHaveTextContent('none');
     });
 
+    expect(mocks.authApiMock.exchangeSession).toHaveBeenCalled();
     expect(mocks.authApiMock.getSession).not.toHaveBeenCalled();
     expect(mocks.authApiMock.syncSession).toHaveBeenCalled();
     expect(mocks.signOutMock).not.toHaveBeenCalled();
+  });
+
+  it('uses redirect social auth when the host policy prefers redirect-first', async () => {
+    mocks.onAuthStateChangedMock.mockImplementation(() => () => {});
+    mocks.shouldPreferFirebaseRedirectAuthMock.mockReturnValue(true);
+
+    const Probe = () => {
+      const { signInWithGoogle } = useAuth();
+      const [result, setResult] = React.useState('idle');
+
+      React.useEffect(() => {
+        signInWithGoogle()
+          .then((value) => setResult(value?.redirecting ? 'redirecting' : 'done'))
+          .catch((error) => setResult(error.message));
+      }, [signInWithGoogle]);
+
+      return <div data-testid="oauth-route">{result}</div>;
+    };
+
+    render(
+      <AuthProvider>
+        <Probe />
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('oauth-route')).toHaveTextContent('redirecting');
+    });
+
+    expect(mocks.signInWithRedirectMock).toHaveBeenCalledTimes(1);
+    expect(mocks.signInWithPopupMock).not.toHaveBeenCalled();
+  });
+
+  it('keeps popup social auth on safe hosts when redirect is not preferred', async () => {
+    mocks.onAuthStateChangedMock.mockImplementation(() => () => {});
+    mocks.shouldPreferFirebaseRedirectAuthMock.mockReturnValue(false);
+    mocks.authApiMock.syncSession.mockResolvedValue({
+      status: 'authenticated',
+      session: {
+        uid: 'popup-user-1',
+        email: 'popup@example.com',
+        emailVerified: true,
+        displayName: 'Popup User',
+        phone: '',
+        providerIds: ['google.com'],
+      },
+      profile: {
+        _id: 'db-popup-user-1',
+        name: 'Popup User',
+        email: 'popup@example.com',
+        phone: '',
+        isAdmin: false,
+        isVerified: true,
+        isSeller: false,
+        sellerActivatedAt: null,
+        accountState: 'active',
+        moderation: {},
+        loyalty: {},
+        createdAt: null,
+      },
+      roles: {
+        isAdmin: false,
+        isSeller: false,
+        isVerified: true,
+      },
+      intelligence: {
+        assurance: {
+          level: 'password',
+          label: 'Verified session',
+          verifiedAt: null,
+          expiresAt: null,
+          isRecent: false,
+        },
+        readiness: {
+          hasVerifiedEmail: true,
+          hasPhone: false,
+          accountState: 'active',
+          isPrivileged: false,
+        },
+        acceleration: {
+          suggestedRoute: 'social',
+          rememberedIdentifier: 'email',
+          suggestedProvider: 'google.com',
+          providerIds: ['google.com'],
+        },
+      },
+    });
+    mocks.signInWithPopupMock.mockResolvedValue({
+      user: {
+        uid: 'popup-user-1',
+        email: 'popup@example.com',
+        displayName: 'Popup User',
+        phoneNumber: '',
+        providerData: [{ providerId: 'google.com' }],
+      },
+      _tokenResponse: { isNewUser: false },
+    });
+
+    const Probe = () => {
+      const { signInWithGoogle } = useAuth();
+      const [result, setResult] = React.useState('idle');
+
+      React.useEffect(() => {
+        signInWithGoogle()
+          .then(() => setResult('popup'))
+          .catch((error) => setResult(error.message));
+      }, [signInWithGoogle]);
+
+      return <div data-testid="oauth-route">{result}</div>;
+    };
+
+    render(
+      <AuthProvider>
+        <Probe />
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('oauth-route')).toHaveTextContent('popup');
+    });
+
+    expect(mocks.signInWithPopupMock).toHaveBeenCalled();
+    expect(mocks.signInWithRedirectMock).not.toHaveBeenCalled();
   });
 });
