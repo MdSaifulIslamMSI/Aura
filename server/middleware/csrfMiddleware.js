@@ -37,9 +37,16 @@ const getStrictOrigin = (req) => {
     return `${protocol}://${host}`;
 };
 
+const hasBearerAuthorization = (req) => String(req?.headers?.authorization || '').startsWith('Bearer ');
+
 const getRequestContext = (req) => ({
     uid: req.user?.id || req.user?._id || req.authUid || 'anonymous',
-    sessionId: req.authSession?.sessionId || req.sessionID || req.headers?.['x-session-id'] || null,
+    // Firebase bearer-authenticated bootstrap requests can rotate the browser
+    // session between CSRF issuance and the follow-up write, so binding those
+    // tokens to a sessionId causes false-invalid CSRF failures during OAuth sync.
+    sessionId: hasBearerAuthorization(req)
+        ? null
+        : (req.authSession?.sessionId || req.sessionID || req.headers?.['x-session-id'] || null),
     deviceFingerprint: req.headers?.['x-device-fingerprint'] || null,
     strictOrigin: getStrictOrigin(req),
     ip: req.ip,
