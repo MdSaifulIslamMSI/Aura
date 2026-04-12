@@ -128,6 +128,14 @@ describe('authMiddleware cookie session authentication', () => {
                         email: 'bearer-user@example.com',
                         name: 'Bearer User',
                         phone: '+919811112222',
+                        trustedDevices: [
+                            {
+                                deviceId: 'device-bearer-1',
+                                label: 'Bearer Browser',
+                                method: 'browser_key',
+                                publicKeySpkiBase64: 'public-key',
+                            },
+                        ],
                         isAdmin: false,
                         isVerified: true,
                         authAssurance: 'none',
@@ -184,6 +192,12 @@ describe('authMiddleware cookie session authentication', () => {
             email: 'bearer-user@example.com',
             name: 'Bearer User',
         });
+        expect(req.user.trustedDevices).toEqual([
+            expect.objectContaining({
+                deviceId: 'device-bearer-1',
+                method: 'browser_key',
+            }),
+        ]);
         expect(next).toHaveBeenCalledWith();
     });
 });
