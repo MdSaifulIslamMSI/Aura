@@ -859,14 +859,24 @@ export const AuthProvider = ({ children }) => {
       cacheTrustedDeviceSessionToken(response.deviceSessionToken);
     }
     if (response.success) {
-      setSessionState((prev) => ({
-        ...prev,
-        status: SESSION_STATUS.AUTHENTICATED,
-        deviceChallenge: null,
-        error: null,
-      }));
-      if (currentUser) {
-        refreshSession(currentUser, { force: true, silent: true }).catch(() => {});
+      if (currentUser && response?.session && response?.profile && response?.roles) {
+        const identity = getIdentityKey(
+          currentUser,
+          response?.session?.email || response?.profile?.email || currentUser?.email || ''
+        );
+        applyResolvedSession({
+          ...response,
+          status: SESSION_STATUS.AUTHENTICATED,
+          deviceChallenge: null,
+          error: null,
+        }, currentUser, identity);
+      } else {
+        setSessionState((prev) => ({
+          ...prev,
+          status: SESSION_STATUS.AUTHENTICATED,
+          deviceChallenge: null,
+          error: null,
+        }));
       }
     }
     return response;

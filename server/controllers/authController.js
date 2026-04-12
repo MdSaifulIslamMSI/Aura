@@ -578,12 +578,25 @@ const verifyDeviceChallenge = asyncHandler(async (req, res) => {
         additionalAmr: [verification.method === 'webauthn' ? 'webauthn' : 'trusted_device'],
     });
 
+    const sessionPayload = buildSessionPayload({
+        authUser: buildRequestAuthUser(req),
+        authToken: req.authToken || null,
+        authUid: req.authUid || '',
+        authSession: req.authSession || null,
+        user: req.user,
+        status: 'authenticated',
+        deviceChallenge: null,
+    });
+
     res.json({
         success: true,
         message: verification.mode === 'enroll'
             ? 'Trusted device registered and verified'
             : 'Trusted device verified',
-        ...verification
+        ...sessionPayload,
+        ...verification,
+        status: 'authenticated',
+        deviceChallenge: null,
     });
 });
 
