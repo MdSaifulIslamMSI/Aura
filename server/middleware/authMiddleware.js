@@ -337,6 +337,22 @@ const hasSessionSecondFactor = (req = {}) => {
     ));
 };
 
+const hasSessionTrustedDeviceBinding = (req = {}) => {
+    const requestDeviceId = String(extractTrustedDeviceContext(req)?.deviceId || '').trim();
+    const sessionDeviceId = String(req.authSession?.deviceId || '').trim();
+    const sessionDeviceMethod = String(req.authSession?.deviceMethod || '').trim().toLowerCase();
+
+    if (!requestDeviceId || !sessionDeviceId || requestDeviceId !== sessionDeviceId) {
+        return false;
+    }
+
+    if (sessionDeviceMethod === 'webauthn' || sessionDeviceMethod === 'browser_key') {
+        return true;
+    }
+
+    return hasSessionSecondFactor(req);
+};
+
 const enforceTrustedDevice = (req) => {
     if (!shouldRequireTrustedDevice({ user: req.user }) || isTrustedDeviceBypassPath(req)) {
         return;
@@ -344,7 +360,7 @@ const enforceTrustedDevice = (req) => {
 
     const verification = getTrustedDeviceSessionVerification(req);
 
-    if (!verification.success) {
+    if (!verification.success && !hasSessionTrustedDeviceBinding(req)) {
         throw new AppError('Trusted device verification required for this account', 403);
     }
 };
