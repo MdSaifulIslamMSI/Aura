@@ -411,27 +411,31 @@ const authenticateWithBrowserSession = async (req) => {
 
 const protect = asyncHandler(async (req, res, next) => {
     let token;
+    const hasBearerAuthorization = Boolean(req.headers.authorization?.startsWith('Bearer '));
 
-    try {
-        const authenticatedWithSession = await authenticateWithBrowserSession(req);
-        if (authenticatedWithSession) {
-            if (AUTH_REQUIRE_OTP_FOR_ALL_PROTECTED) {
-                enforceOtpAssurance(req);
+    if (!hasBearerAuthorization) {
+        try {
+            const authenticatedWithSession = await authenticateWithBrowserSession(req);
+            if (authenticatedWithSession) {
+                if (AUTH_REQUIRE_OTP_FOR_ALL_PROTECTED) {
+                    enforceOtpAssurance(req);
+                }
+                if (trustedDeviceFlags.authDeviceChallengeMode === 'always') {
+                    enforceTrustedDevice(req);
+                }
+                return next();
             }
-            if (trustedDeviceFlags.authDeviceChallengeMode === 'always') {
-                enforceTrustedDevice(req);
+        } catch (error) {
+            if (error instanceof AppError) {
+                throw error;
             }
-            return next();
-        }
-    } catch (error) {
-        if (req.headers.authorization?.startsWith('Bearer')) {
-            req.authSession = null;
-        } else if (error instanceof AppError) {
-            throw error;
-        } else {
             logger.error('auth.session_verify_failed', { error: error?.message || 'unknown' });
             throw new AppError('Not authorized, session failed', 401);
         }
+    } else {
+        // Fresh Firebase proof must win over any stale browser cookie during
+        // auth bootstrap, session exchange, and phone-factor completion.
+        req.authSession = null;
     }
 
     if (req.headers.authorization?.startsWith('Bearer')) {
