@@ -225,4 +225,22 @@ describe('deviceTrustClient', () => {
       proofBase64: expect.any(String),
     });
   });
+
+  it('stores the trusted-device session token in shared localStorage and mirrors it to sessionStorage', async () => {
+    const deviceTrustClient = await loadDeviceTrustModule();
+
+    deviceTrustClient.cacheTrustedDeviceSessionToken('shared-device-token');
+
+    expect(localStorage.getItem('aura_trusted_device_session_v1')).toBe('shared-device-token');
+    expect(sessionStorage.getItem('aura_trusted_device_session_v1')).toBe('shared-device-token');
+    expect(deviceTrustClient.getTrustedDeviceSessionToken()).toBe('shared-device-token');
+  });
+
+  it('migrates an existing tab-scoped trusted-device token into shared localStorage', async () => {
+    sessionStorage.setItem('aura_trusted_device_session_v1', 'legacy-tab-token');
+    const deviceTrustClient = await loadDeviceTrustModule();
+
+    expect(deviceTrustClient.getTrustedDeviceSessionToken()).toBe('legacy-tab-token');
+    expect(localStorage.getItem('aura_trusted_device_session_v1')).toBe('legacy-tab-token');
+  });
 });
