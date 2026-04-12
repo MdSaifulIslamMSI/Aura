@@ -199,7 +199,10 @@ export const authApi = {
             proof: normalizedPayload.proof,
             publicKeySpkiBase64: normalizedPayload.publicKeySpkiBase64,
             credential: normalizedPayload.credential,
-        }, options);
+        }, {
+            ...options,
+            useFirebaseBearer: Boolean(options.firebaseUser?.getIdToken),
+        });
     },
 };
 
