@@ -12,7 +12,11 @@ const { protect, protectPhoneFactorProof } = require('../middleware/authMiddlewa
 const validate = require('../middleware/validate');
 const { loginSchema } = require('../validators/userValidators');
 const { createDistributedRateLimit } = require('../middleware/distributedRateLimit');
-const { csrfTokenGenerator, csrfTokenValidator } = require('../middleware/csrfMiddleware');
+const {
+    csrfTokenGenerator,
+    csrfTokenValidator,
+    csrfTokenValidatorUnlessBearerAuth,
+} = require('../middleware/csrfMiddleware');
 const otpRoutes = require('./otpRoutes');
 
 const router = express.Router();
@@ -33,11 +37,11 @@ const authSyncLimiter = createDistributedRateLimit({
 
 router.post('/exchange', protect, establishSessionCookie, csrfTokenGenerator, getSession);
 router.get('/session', protect, establishSessionCookie, csrfTokenGenerator, getSession);
-router.post('/sync', protect, establishSessionCookie, csrfTokenValidator, authSyncLimiter, validate(loginSchema), syncSession);
+router.post('/sync', protect, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, authSyncLimiter, validate(loginSchema), syncSession);
 router.post('/logout', logoutSession);
 router.post('/complete-phone-factor-login', protect, completePhoneFactorLogin);
 router.post('/complete-phone-factor-verification', protectPhoneFactorProof, completePhoneFactorVerification);
-router.post('/verify-device', protect, establishSessionCookie, csrfTokenValidator, verifyDeviceChallenge);
+router.post('/verify-device', protect, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, verifyDeviceChallenge);
 router.use('/otp', otpRoutes);
 
 module.exports = router;

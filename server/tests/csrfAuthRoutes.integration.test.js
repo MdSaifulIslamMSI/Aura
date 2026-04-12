@@ -101,7 +101,7 @@ describe('CSRF auth route integration', () => {
         mockCsrfRedisStore.clear();
     });
 
-    test('rejects csrf token reuse across users between /session and /sync', async () => {
+    test('issues a csrf token on /session for session-auth flows', async () => {
         const sessionRes = await request(app)
             .get('/api/auth/session')
             .set('Authorization', 'Bearer token-user-a')
@@ -111,28 +111,13 @@ describe('CSRF auth route integration', () => {
         expect(sessionRes.statusCode).toBe(200);
         const csrfToken = sessionRes.headers['x-csrf-token'];
         expect(csrfToken).toBeDefined();
-
-        const crossUserRes = await request(app)
-            .post('/api/auth/sync')
-            .set('Authorization', 'Bearer token-user-b')
-            .set('X-CSRF-Token', csrfToken)
-            .set('User-Agent', 'test-agent-b')
-            .set('Host', 'localhost:3000')
-            .send({
-                email: 'user-b@example.com',
-                name: 'User B',
-                phone: '+919876543210',
-            });
-
-        expect(crossUserRes.statusCode).toBe(403);
-        expect(crossUserRes.body.code).toBe('CSRF_TOKEN_INVALID');
     });
 
-    test('allows same user token on /sync once and consumes it', async () => {
+    test('allows bearer-auth /sync even when a stale csrf token from another user is present', async () => {
         const sessionRes = await request(app)
             .get('/api/auth/session')
-            .set('Authorization', 'Bearer token-user-a')
-            .set('User-Agent', 'test-agent-a')
+            .set('Authorization', 'Bearer token-user-b')
+            .set('User-Agent', 'test-agent-b')
             .set('Host', 'localhost:3000');
 
         const csrfToken = sessionRes.headers['x-csrf-token'];
@@ -151,11 +136,12 @@ describe('CSRF auth route integration', () => {
 
         expect(validRes.statusCode).toBe(200);
         expect(validRes.body.synced).toBe(true);
+    }, 15000);
 
-        const reusedRes = await request(app)
+    test('allows bearer-auth /sync without csrf because it is not cookie-session CSRF traffic', async () => {
+        const validRes = await request(app)
             .post('/api/auth/sync')
             .set('Authorization', 'Bearer token-user-a')
-            .set('X-CSRF-Token', csrfToken)
             .set('User-Agent', 'test-agent-a')
             .set('Host', 'localhost:3000')
             .send({
@@ -164,9 +150,9 @@ describe('CSRF auth route integration', () => {
                 phone: '+919876543210',
             });
 
-        expect(reusedRes.statusCode).toBe(403);
-        expect(reusedRes.body.code).toBe('CSRF_TOKEN_INVALID');
-    }, 15000);
+        expect(validRes.statusCode).toBe(200);
+        expect(validRes.body.synced).toBe(true);
+    });
 
     test('allows bearer-auth csrf token across auth bootstrap session rotation', async () => {
         const sessionRes = await request(app)
@@ -191,6 +177,23 @@ describe('CSRF auth route integration', () => {
 
         expect(validRes.statusCode).toBe(200);
         expect(validRes.body.synced).toBe(true);
+    });
+
+    test('allows bearer-auth /verify-device without csrf because it is bearer bootstrap traffic', async () => {
+        const validRes = await request(app)
+            .post('/api/auth/verify-device')
+            .set('Authorization', 'Bearer token-user-a')
+            .set('User-Agent', 'test-agent-a')
+            .set('Host', 'localhost:3000')
+            .send({
+                token: 'challenge-token',
+                method: 'browser_key',
+                proof: 'signed-proof',
+                publicKeySpkiBase64: 'public-key',
+            });
+
+        expect(validRes.statusCode).toBe(200);
+        expect(validRes.body.ok).toBe(true);
     });
 
     test('allows bearer-auth csrf token across trusted-device verification session rotation', async () => {

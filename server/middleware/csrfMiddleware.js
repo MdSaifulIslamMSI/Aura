@@ -293,6 +293,14 @@ const csrfTokenValidator = async (req, res, next) => {
     next();
 };
 
+const csrfTokenValidatorUnlessBearerAuth = async (req, res, next) => {
+    const hasBearerAuth = String(req?.headers?.authorization || '').startsWith('Bearer ');
+    if (hasBearerAuth) {
+        return next();
+    }
+    return csrfTokenValidator(req, res, next);
+};
+
 /**
  * Middleware to apply CSRF protection to specific routes
  * Returns both generator and validator for flexibility
@@ -310,6 +318,7 @@ module.exports = {
     csrf,
     csrfTokenGenerator,
     csrfTokenValidator,
+    csrfTokenValidatorUnlessBearerAuth,
     generateCsrfToken,
     storeCsrfToken,
     verifyCsrfToken,
