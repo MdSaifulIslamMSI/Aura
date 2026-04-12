@@ -36,6 +36,9 @@ export const AuthFeedback = ({
     compact = false,
 }) => {
     const isError = type === 'error';
+    const safeTitle = (title && typeof title === 'object') ? String(title.message || title) : (title || '');
+    const safeDetail = (detail && typeof detail === 'object') ? String(detail.message || detail) : (detail || '');
+    const safeHint = (hint && typeof hint === 'object') ? String(hint.message || hint) : (hint || '');
 
     return (
         <div
@@ -50,7 +53,7 @@ export const AuthFeedback = ({
             {/* Top row: icon + title */}
             <div className="flex items-start gap-3">
                 <span className={isError ? 'text-rose-400 mt-0.5' : 'text-emerald-400 mt-0.5'}>
-                    {isError ? getErrorIcon(title) : <CheckCircle2 className="w-5 h-5 flex-shrink-0" />}
+                    {isError ? getErrorIcon(safeTitle) : <CheckCircle2 className="w-5 h-5 flex-shrink-0" />}
                 </span>
                 <div className="flex-1 min-w-0">
                     <p className={cn(
@@ -58,28 +61,28 @@ export const AuthFeedback = ({
                         compact ? 'text-sm' : 'text-sm',
                         isError ? 'text-rose-300' : 'text-emerald-300'
                     )}>
-                        {title}
+                        {safeTitle}
                     </p>
 
                     {/* Detail line */}
-                    {detail && (
+                    {safeDetail && (
                         <p className={cn(
                             'mt-1 leading-snug',
                             compact ? 'text-xs' : 'text-xs',
                             'text-slate-400'
                         )}>
-                            {detail}
+                            {safeDetail}
                         </p>
                     )}
 
                     {/* Hint line — what to do next */}
-                    {hint && isError && (
+                    {safeHint && isError && (
                         <p className={cn(
                             'mt-2 leading-snug font-medium',
                             compact ? 'text-xs' : 'text-xs',
                             'text-slate-300'
                         )}>
-                            💡 {hint}
+                            💡 {safeHint}
                         </p>
                     )}
                 </div>
