@@ -28,6 +28,30 @@ describe('resolveFirebasePhoneFallback', () => {
     });
   });
 
+  it('disables Firebase phone OTP when the Firebase auth iframe is blocked by CSP', () => {
+    expect(resolveFirebasePhoneFallback({
+      code: 'auth/internal-error',
+      message: "Framing 'https://billy-b674c.firebaseapp.com/' violates the following Content Security Policy directive: \"frame-src 'self' https://checkout.razorpay.com\".",
+    })).toMatchObject({
+      disableFirebasePhoneOtp: true,
+      success: {
+        title: 'Backup OTP Route Active',
+      },
+    });
+  });
+
+  it('disables Firebase phone OTP when reCAPTCHA enterprise bootstrap is unauthorized', () => {
+    expect(resolveFirebasePhoneFallback({
+      code: 'auth/internal-error',
+      message: 'Failed to initialize reCAPTCHA Enterprise config. POST https://www.google.com/recaptcha/api2/pat?k=test 401 (Unauthorized).',
+    })).toMatchObject({
+      disableFirebasePhoneOtp: true,
+      success: {
+        title: 'Backup OTP Route Active',
+      },
+    });
+  });
+
   it('returns null for verification code mistakes that should stay on Firebase flow', () => {
     expect(resolveFirebasePhoneFallback({
       code: 'auth/invalid-verification-code',
