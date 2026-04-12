@@ -67,7 +67,14 @@ jest.mock('../routes/otpRoutes', () => {
 });
 
 jest.mock('../controllers/authController', () => ({
-    establishSessionCookie: (_req, _res, next) => next(),
+    establishSessionCookie: (req, _res, next) => {
+        if ((req.headers.authorization || '').startsWith('Bearer ')) {
+            req.authSession = {
+                sessionId: `${req.authUid || 'anonymous'}-${req.method.toLowerCase()}-${req.path.replace(/\W+/g, '-')}`,
+            };
+        }
+        next();
+    },
     getSession: (_req, res) => res.json({ ok: true }),
     syncSession: (_req, res) => res.json({ synced: true }),
     logoutSession: (_req, res) => res.json({ success: true }),
@@ -160,4 +167,29 @@ describe('CSRF auth route integration', () => {
         expect(reusedRes.statusCode).toBe(403);
         expect(reusedRes.body.code).toBe('CSRF_TOKEN_INVALID');
     }, 15000);
+
+    test('allows bearer-auth csrf token across auth bootstrap session rotation', async () => {
+        const sessionRes = await request(app)
+            .get('/api/auth/session')
+            .set('Authorization', 'Bearer token-user-a')
+            .set('User-Agent', 'test-agent-a')
+            .set('Host', 'localhost:3000');
+
+        const csrfToken = sessionRes.headers['x-csrf-token'];
+
+        const validRes = await request(app)
+            .post('/api/auth/sync')
+            .set('Authorization', 'Bearer token-user-a')
+            .set('X-CSRF-Token', csrfToken)
+            .set('User-Agent', 'test-agent-a')
+            .set('Host', 'localhost:3000')
+            .send({
+                email: 'user-a@example.com',
+                name: 'User A',
+                phone: '+919876543210',
+            });
+
+        expect(validRes.statusCode).toBe(200);
+        expect(validRes.body.synced).toBe(true);
+    });
 });
