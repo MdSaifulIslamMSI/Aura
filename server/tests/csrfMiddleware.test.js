@@ -55,6 +55,23 @@ describe('csrf middleware', () => {
         expect(mockRedisData.size).toBe(1);
     });
 
+    test('allows bearer-auth bootstrap token when session id changes', async () => {
+        const token = generateCsrfToken();
+        await storeCsrfToken(token, {
+            uid: 'user-a',
+            strictOrigin: 'https://app.example.com',
+        });
+
+        const valid = await verifyCsrfToken(token, {
+            uid: 'user-a',
+            strictOrigin: 'https://app.example.com',
+            sessionId: 'rotated-session-b',
+        });
+
+        expect(valid).toBe(true);
+        expect(mockRedisData.size).toBe(0);
+    });
+
     test('rejects context mismatch on strict origin', async () => {
         const token = generateCsrfToken();
         await storeCsrfToken(token, {
