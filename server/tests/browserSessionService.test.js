@@ -262,4 +262,72 @@ describe('browserSessionService', () => {
         expect(setCookieHeader[0]).toContain('Secure');
         expect(setCookieHeader[0]).toContain('SameSite=None');
     });
+
+    test('uses SameSite=None for secure hosted frontends talking to a different API origin', async () => {
+        process.env.AUTH_SESSION_COOKIE_SECURE = 'true';
+
+        let browserSessionService;
+
+        jest.isolateModules(() => {
+            jest.doMock('../config/redis', () => ({
+                getRedisClient: () => null,
+                flags: { redisPrefix: 'test' },
+            }));
+            jest.doMock('../services/trustedDeviceChallengeService', () => ({
+                extractTrustedDeviceContext: jest.fn().mockReturnValue({
+                    deviceId: 'device-hosted-1',
+                    deviceLabel: 'Hosted Browser',
+                }),
+            }));
+
+            browserSessionService = require('../services/browserSessionService');
+        });
+
+        const nowSeconds = Math.floor(Date.now() / 1000);
+        const req = {
+            headers: {
+                host: 'aura-msi-api-ca.wittycliff-f743de69.southeastasia.azurecontainerapps.io',
+                origin: 'https://aurapilot.vercel.app',
+                'x-forwarded-proto': 'https',
+            },
+            secure: true,
+        };
+        const res = createResponseStub();
+
+        await browserSessionService.createBrowserSession({
+            req,
+            res,
+            user: {
+                _id: '507f1f77bcf86cd799439014',
+                email: 'hosted@example.com',
+                name: 'Hosted User',
+                phone: '+919876543213',
+                isAdmin: false,
+                isSeller: false,
+                isVerified: true,
+                authAssurance: 'none',
+            },
+            authUid: 'firebase-hosted-1',
+            authToken: {
+                email: 'hosted@example.com',
+                email_verified: true,
+                name: 'Hosted User',
+                phone_number: '+919876543213',
+                auth_time: nowSeconds - 15,
+                iat: nowSeconds - 15,
+                exp: nowSeconds + 3600,
+                firebase: {
+                    sign_in_provider: 'google.com',
+                },
+            },
+        });
+
+        const setCookieHeader = res.getHeader('Set-Cookie');
+
+        expect(setCookieHeader).toEqual(expect.arrayContaining([
+            expect.stringContaining('aura_sid='),
+        ]));
+        expect(setCookieHeader[0]).toContain('Secure');
+        expect(setCookieHeader[0]).toContain('SameSite=None');
+    });
 });
