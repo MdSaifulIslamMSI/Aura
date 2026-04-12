@@ -18,6 +18,20 @@ const CSRF_STRICT_CLIENT_SIGNALS = ['1', 'true', 'yes', 'on']
     .includes(String(process.env.CSRF_STRICT_CLIENT_SIGNALS || '').trim().toLowerCase());
 const buildTokenKey = (token) => `${CSRF_TOKEN_PREFIX}${token}`;
 
+const normalizePrincipalId = (value) => {
+    if (value === undefined || value === null) return '';
+    if (typeof value === 'string') return value.trim();
+    if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+    if (typeof value?.toHexString === 'function') return String(value.toHexString()).trim();
+    if (typeof value?.toString === 'function') {
+        const normalized = String(value.toString()).trim();
+        if (normalized && normalized !== '[object Object]') {
+            return normalized;
+        }
+    }
+    return '';
+};
+
 const getStrictOrigin = (req) => {
     const explicitOrigin = req.headers?.origin;
     if (explicitOrigin) return explicitOrigin;
@@ -71,7 +85,7 @@ const storeCsrfToken = async (token, metadata = {}) => {
         expiresAt,
         metadata: {
             ...metadata,
-            uid: metadata.uid || 'anonymous',
+            uid: normalizePrincipalId(metadata.uid) || 'anonymous',
         },
     };
 
@@ -118,8 +132,8 @@ const verifyCsrfToken = async (token, requestContext = {}) => {
     const metadata = stored.metadata || {};
     const context = requestContext || {};
 
-    const expectedUid = metadata.uid || 'anonymous';
-    const currentUid = context.uid || 'anonymous';
+    const expectedUid = normalizePrincipalId(metadata.uid) || 'anonymous';
+    const currentUid = normalizePrincipalId(context.uid) || 'anonymous';
 
     if (currentUid !== expectedUid) {
         logger.warn('csrf.principal_mismatch', {
