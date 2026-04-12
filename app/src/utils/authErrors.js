@@ -659,7 +659,8 @@ export const resolveAuthError = (rawError) => {
         if (errorStr.includes(key)) return value;
     }
 
-    return { ...AUTH_ERRORS['default'], detail: rawError.message || rawError };
+    const fallbackDetail = String(rawError?.message || rawError?.detail || rawError || '').trim();
+    return { ...AUTH_ERRORS['default'], ...(fallbackDetail ? { detail: fallbackDetail } : {}) };
 };
 
 /**
