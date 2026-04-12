@@ -642,3 +642,131 @@ describe('Firebase phone factor completion for signup and recovery', () => {
         expect(res.body.message).toContain('Signup email verification is required');
     });
 });
+
+describe('Trusted device verification response payload', () => {
+    afterEach(() => {
+        jest.resetModules();
+        jest.clearAllMocks();
+    });
+
+    test('POST /api/auth/verify-device returns an authenticated session payload after successful verification', async () => {
+        let isolatedApp;
+
+        jest.isolateModules(() => {
+            jest.doMock('../services/authSessionService', () => ({
+                buildSessionPayload: jest.fn().mockReturnValue({
+                    status: 'authenticated',
+                    deviceChallenge: null,
+                    session: {
+                        sessionId: 'verified-session-1',
+                        uid: 'uid-verified',
+                        email: 'verified@example.com',
+                        emailVerified: true,
+                        displayName: 'Verified User',
+                        phone: '+919876543210',
+                        providerIds: ['password'],
+                    },
+                    profile: {
+                        _id: 'user-1',
+                        name: 'Verified User',
+                        email: 'verified@example.com',
+                        phone: '+919876543210',
+                        isAdmin: false,
+                        isVerified: true,
+                        isSeller: false,
+                        sellerActivatedAt: null,
+                        accountState: 'active',
+                        moderation: {},
+                        loyalty: {},
+                        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+                    },
+                    roles: {
+                        isAdmin: false,
+                        isSeller: false,
+                        isVerified: true,
+                    },
+                    intelligence: null,
+                }),
+                persistAuthSnapshot: jest.fn().mockResolvedValue(undefined),
+                resolveAuthenticatedSession: jest.fn(),
+                syncAuthenticatedUser: jest.fn(),
+                applyLoginAssuranceToSession: jest.fn(),
+            }));
+            jest.doMock('../middleware/authMiddleware', () => ({
+                invalidateUserCache: jest.fn().mockResolvedValue(undefined),
+                invalidateUserCacheByEmail: jest.fn().mockResolvedValue(undefined),
+            }));
+            jest.doMock('../services/browserSessionService', () => ({
+                clearBrowserSessionCookie: jest.fn(),
+                getBrowserSessionFromRequest: jest.fn(),
+                refreshBrowserSession: jest.fn().mockResolvedValue({
+                    sessionId: 'verified-session-1',
+                    firebaseUid: 'uid-verified',
+                    deviceId: 'device-test-1234',
+                    deviceMethod: 'browser_key',
+                    amr: ['password', 'trusted_device'],
+                }),
+                revokeBrowserSession: jest.fn(),
+            }));
+            jest.doMock('../services/trustedDeviceChallengeService', () => ({
+                TRUSTED_DEVICE_SESSION_HEADER: 'x-aura-device-session',
+                extractTrustedDeviceContext: jest.fn().mockReturnValue({
+                    deviceId: 'device-test-1234',
+                    deviceLabel: 'Verified Browser',
+                }),
+                issueTrustedDeviceChallenge: jest.fn(),
+                verifyTrustedDeviceSession: jest.fn().mockReturnValue({ success: false }),
+                verifyTrustedDeviceChallenge: jest.fn().mockResolvedValue({
+                    success: true,
+                    mode: 'assert',
+                    method: 'browser_key',
+                    deviceSessionToken: 'verified-device-token',
+                    expiresAt: new Date('2026-04-12T14:00:00.000Z').toISOString(),
+                }),
+            }));
+
+            const express = require('express');
+            const { verifyDeviceChallenge } = require('../controllers/authController');
+            const { errorHandler } = require('../middleware/errorMiddleware');
+
+            isolatedApp = express();
+            isolatedApp.use(express.json());
+            isolatedApp.post('/api/auth/verify-device', (req, _res, next) => {
+                req.user = {
+                    _id: 'user-1',
+                    email: 'verified@example.com',
+                    name: 'Verified User',
+                    phone: '+919876543210',
+                    isVerified: true,
+                };
+                req.authUid = 'uid-verified';
+                req.authToken = {
+                    email: 'verified@example.com',
+                    email_verified: true,
+                };
+                req.authSession = {
+                    sessionId: 'bootstrap-session-1',
+                };
+                next();
+            }, verifyDeviceChallenge);
+            isolatedApp.use(errorHandler);
+        });
+
+        const res = await request(isolatedApp)
+            .post('/api/auth/verify-device')
+            .send({
+                token: 'challenge-token',
+                method: 'browser_key',
+                proof: 'proof',
+            });
+
+        expect(res.statusCode).toBe(200);
+        expect(res.body.success).toBe(true);
+        expect(res.body.status).toBe('authenticated');
+        expect(res.body.deviceChallenge).toBeNull();
+        expect(res.body.session).toMatchObject({
+            sessionId: 'verified-session-1',
+            email: 'verified@example.com',
+        });
+    });
+});
