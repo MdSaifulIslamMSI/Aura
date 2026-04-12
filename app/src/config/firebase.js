@@ -43,6 +43,33 @@ const parseBooleanEnv = (value, fallback = false) => {
     return fallback;
 };
 
+const matchesDisplayMode = (mode = '') => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+        return false;
+    }
+
+    try {
+        return Boolean(window.matchMedia(`(display-mode: ${mode})`)?.matches);
+    } catch {
+        return false;
+    }
+};
+
+const isStandaloneSocialAuthRuntime = () => {
+    if (typeof window === 'undefined') return false;
+
+    const referrer = typeof document !== 'undefined' ? String(document.referrer || '').trim().toLowerCase() : '';
+
+    return Boolean(
+        matchesDisplayMode('standalone')
+        || matchesDisplayMode('minimal-ui')
+        || matchesDisplayMode('fullscreen')
+        || matchesDisplayMode('window-controls-overlay')
+        || window.navigator?.standalone === true
+        || referrer.startsWith('android-app://')
+    );
+};
+
 export const firebaseConfig = {
     apiKey: sanitizeFirebaseValue(import.meta.env.VITE_FIREBASE_API_KEY),
     authDomain: sanitizeHostValue(import.meta.env.VITE_FIREBASE_AUTH_DOMAIN),
@@ -89,11 +116,16 @@ const enableFirebaseAnalytics = parseBooleanEnv(import.meta.env.VITE_FIREBASE_AN
 const forceRedirectSocialAuth = parseBooleanEnv(import.meta.env.VITE_FIREBASE_FORCE_REDIRECT_SOCIAL_AUTH, false);
 const isDeploymentHost = typeof runtimeHost === 'string' && runtimeHost.endsWith('.vercel.app');
 const isRuntimeIpHost = isIpLiteralHost(runtimeHost);
+const isRuntimeStandaloneApp = isStandaloneSocialAuthRuntime();
 const runtimeSocialAuthBlockKey = runtimeHost
     ? `aura-social-auth-block:${runtimeHost}`
     : 'aura-social-auth-block';
 const runtimeSocialAuthBlockTtlMs = 2 * 60 * 1000;
-const prefersRedirectSocialAuth = Boolean(forceRedirectSocialAuth || isRuntimeIpHost);
+const prefersRedirectSocialAuth = Boolean(
+    forceRedirectSocialAuth
+    || isRuntimeIpHost
+    || isRuntimeStandaloneApp
+);
 
 const isSocialAuthHostRejection = (error) => {
     const raw = `${error?.code || ''} ${error?.message || error || ''}`.toLowerCase();
@@ -176,6 +208,7 @@ export const getFirebaseSocialAuthStatus = () => ({
     runtimeBlocked: readRuntimeSocialAuthBlock(),
     redirectPreferred: prefersRedirectSocialAuth || readRuntimeSocialAuthBlock(),
     runtimeIpHost: isRuntimeIpHost,
+    runtimeStandaloneApp: isRuntimeStandaloneApp,
     disabledByConfig: disableSocialAuth && !isDeploymentHost,
     initErrorCode: firebaseInitError?.code || '',
     initErrorMessage: firebaseInitError?.message || '',
