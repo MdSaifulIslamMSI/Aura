@@ -309,6 +309,12 @@ export const AuthProvider = ({ children }) => {
   };
 
   const invalidateStaleAuthSession = async (error, activeUser = null) => {
+    try {
+      await authApi.logoutSession({ firebaseUser: activeUser || auth?.currentUser || null });
+    } catch {
+      // best-effort cleanup only
+    }
+
     clearCsrfTokenCache();
     clearTrustedDeviceSessionToken();
     resetSyncTracking();
@@ -339,6 +345,12 @@ export const AuthProvider = ({ children }) => {
   };
 
   const rollbackProviderAuthSession = async (error, activeUser = null) => {
+    try {
+      await authApi.logoutSession({ firebaseUser: activeUser || auth?.currentUser || null });
+    } catch {
+      // best-effort cleanup only
+    }
+
     clearCsrfTokenCache();
     clearTrustedDeviceSessionToken();
     resetSyncTracking();
@@ -388,6 +400,14 @@ export const AuthProvider = ({ children }) => {
     }
 
     const identity = getIdentityKey(activeUser, safeEmail);
+    const shouldBootstrapServerSession = Boolean(
+      activeUser?.getIdToken
+      && (
+        force
+        || syncStateRef.current.identity !== identity
+        || !sessionStateRef.current.session?.sessionId
+      )
+    );
 
     if (syncStateRef.current.identity && syncStateRef.current.identity !== identity) {
       clearCsrfTokenCache();
@@ -420,6 +440,13 @@ export const AuthProvider = ({ children }) => {
     }
 
     const requestPromise = (async () => {
+      if (shouldBootstrapServerSession) {
+        await authApi.exchangeSession({
+          firebaseUser: activeUser,
+          forceRefreshAuth: force === true,
+        });
+      }
+
       const payload = mode === 'sync'
         ? await authApi.syncSession(safeEmail, name, phone, {
           firebaseUser: activeUser,
@@ -689,6 +716,12 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const logout = async () => {
+    try {
+      await authApi.logoutSession({ firebaseUser: currentUser });
+    } catch {
+      // best-effort cleanup only
+    }
+
     clearCsrfTokenCache();
     clearAuthJourneyDraft();
     clearRedirectAuthPending();
@@ -839,10 +872,6 @@ export const AuthProvider = ({ children }) => {
     return response;
   };
 
-  const verifyLatticeChallenge = async (token, proof, _deviceId) => (
-    verifyDeviceChallenge(token, proof, '')
-  );
-
   const isAuthenticated = isAuthenticatedSessionStatus(sessionState.status);
 
   const value = {
@@ -871,7 +900,6 @@ export const AuthProvider = ({ children }) => {
     activateSeller,
     deactivateSeller,
     verifyDeviceChallenge,
-    verifyLatticeChallenge,
   };
 
   return (

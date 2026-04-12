@@ -16,6 +16,12 @@ const {
     verifyTrustedDeviceSession,
 } = require('../services/trustedDeviceChallengeService');
 const {
+    getBrowserSessionFromRequest,
+    resolveSessionIdFromRequest,
+    revokeBrowserSession,
+    touchBrowserSession,
+} = require('../services/browserSessionService');
+const {
     flags: trustedDeviceFlags,
     shouldRequireTrustedDevice,
 } = require('../config/authTrustedDeviceFlags');
@@ -281,10 +287,10 @@ const enforceOtpAssurance = (req) => {
 const isTrustedDeviceBypassPath = (req = {}) => {
     const path = String(req.originalUrl || '').toLowerCase();
     return path.startsWith('/api/auth/session')
+        || path.startsWith('/api/auth/exchange')
         || path.startsWith('/api/auth/sync')
         || path.startsWith('/api/auth/verify-device')
-        || path.startsWith('/api/auth/verify-lattice')
-        || path.startsWith('/api/auth/verify-quantum');
+        || path.startsWith('/api/auth/logout');
 };
 
 const getTrustedDeviceSessionToken = (req = {}) => String(
@@ -318,6 +324,18 @@ const hasTrustedDeviceSecondFactor = (req = {}) => {
     return getTrustedDeviceSessionVerification(req).success;
 };
 
+const hasSessionSecondFactor = (req = {}) => {
+    const sessionAmr = Array.isArray(req.authSession?.amr)
+        ? req.authSession.amr.map((entry) => String(entry || '').trim().toLowerCase())
+        : [];
+
+    return sessionAmr.some((entry) => (
+        entry === 'firebase_mfa'
+        || entry === 'webauthn'
+        || entry === 'trusted_device'
+    ));
+};
+
 const enforceTrustedDevice = (req) => {
     if (!shouldRequireTrustedDevice({ user: req.user }) || isTrustedDeviceBypassPath(req)) {
         return;
@@ -330,8 +348,91 @@ const enforceTrustedDevice = (req) => {
     }
 };
 
+const buildSyntheticAuthTokenFromSession = (session = {}) => {
+    const providerIds = Array.isArray(session?.providerIds)
+        ? session.providerIds.map((providerId) => String(providerId || '').trim()).filter(Boolean)
+        : [];
+    const primaryProviderId = providerIds[0] || '';
+    const signInSecondFactor = hasSessionSecondFactor({ authSession: session })
+        ? (String(session?.deviceMethod || '').trim() || 'trusted_device')
+        : '';
+
+    return {
+        uid: String(session?.firebaseUid || '').trim(),
+        email: String(session?.email || '').trim(),
+        email_verified: Boolean(session?.emailVerified),
+        name: String(session?.displayName || '').trim(),
+        phone_number: String(session?.phoneNumber || '').trim(),
+        auth_time: Number(session?.authTimeSeconds || 0) || 0,
+        iat: Number(session?.issuedAtSeconds || 0) || 0,
+        exp: Number(session?.firebaseExpiresAtSeconds || 0) || 0,
+        firebase: {
+            sign_in_provider: primaryProviderId,
+            ...(signInSecondFactor ? { sign_in_second_factor: signInSecondFactor } : {}),
+        },
+    };
+};
+
+const buildSyntheticAuthIdentityFromSession = (session = {}) => ({
+    uid: String(session?.firebaseUid || '').trim(),
+    email: String(session?.email || '').trim(),
+    displayName: String(session?.displayName || '').trim(),
+    phoneNumber: String(session?.phoneNumber || '').trim(),
+    emailVerified: Boolean(session?.emailVerified),
+});
+
+const authenticateWithBrowserSession = async (req) => {
+    const sessionId = resolveSessionIdFromRequest(req);
+    if (!sessionId) {
+        return false;
+    }
+
+    const session = await getBrowserSessionFromRequest(req);
+    if (!session?.sessionId) {
+        throw new AppError('Not authorized, session expired', 401);
+    }
+
+    const user = await User.findById(session.userId, AUTH_PROJECTION).lean();
+    if (!user) {
+        await revokeBrowserSession(session.sessionId);
+        throw new AppError('Not authorized, session expired', 401);
+    }
+
+    enforceUserAccountAccess(user);
+
+    req.authSession = await touchBrowserSession(session);
+    req.authUid = String(req.authSession?.firebaseUid || '').trim();
+    req.authToken = buildSyntheticAuthTokenFromSession(req.authSession);
+    req.authIdentity = buildSyntheticAuthIdentityFromSession(req.authSession);
+    req.user = user;
+
+    return true;
+};
+
 const protect = asyncHandler(async (req, res, next) => {
     let token;
+
+    try {
+        const authenticatedWithSession = await authenticateWithBrowserSession(req);
+        if (authenticatedWithSession) {
+            if (AUTH_REQUIRE_OTP_FOR_ALL_PROTECTED) {
+                enforceOtpAssurance(req);
+            }
+            if (trustedDeviceFlags.authDeviceChallengeMode === 'always') {
+                enforceTrustedDevice(req);
+            }
+            return next();
+        }
+    } catch (error) {
+        if (req.headers.authorization?.startsWith('Bearer')) {
+            req.authSession = null;
+        } else if (error instanceof AppError) {
+            throw error;
+        } else {
+            logger.error('auth.session_verify_failed', { error: error?.message || 'unknown' });
+            throw new AppError('Not authorized, session failed', 401);
+        }
+    }
 
     if (req.headers.authorization?.startsWith('Bearer')) {
         try {
@@ -419,7 +520,7 @@ const protect = asyncHandler(async (req, res, next) => {
             throw new AppError('Not authorized, token failed', 401);
         }
     } else {
-        throw new AppError('Not authorized, no token', 401);
+        throw new AppError('Not authorized, no session', 401);
     }
 });
 
@@ -473,7 +574,7 @@ const requireActiveAccount = asyncHandler(async (req, res, next) => {
 });
 
 const protectOptional = asyncHandler(async (req, res, next) => {
-    if (!req.headers.authorization?.startsWith('Bearer')) {
+    if (!req.headers.authorization?.startsWith('Bearer') && !resolveSessionIdFromRequest(req)) {
         return next();
     }
 
@@ -559,11 +660,13 @@ const admin = asyncHandler(async (req, res, next) => {
     }
 
     const actorEmail = normalizeEmail(req.user?.email || req.authToken?.email || '');
-    const emailVerified = Boolean(req.authToken?.email_verified);
+    const emailVerified = Boolean(req.authToken?.email_verified ?? req.authSession?.emailVerified);
     const authTime = Number(req.authToken?.auth_time || 0);
     const nowSeconds = Math.floor(Date.now() / 1000);
     const sessionAgeSeconds = authTime > 0 ? (nowSeconds - authTime) : Number.POSITIVE_INFINITY;
-    const hasSecondFactor = Boolean(req.authToken?.firebase?.sign_in_second_factor) || hasTrustedDeviceSecondFactor(req);
+    const hasSecondFactor = Boolean(req.authToken?.firebase?.sign_in_second_factor)
+        || hasTrustedDeviceSecondFactor(req)
+        || hasSessionSecondFactor(req);
 
     if (ADMIN_REQUIRE_EMAIL_VERIFIED && !emailVerified) {
         logger.warn('admin_access.blocked_unverified_email', {

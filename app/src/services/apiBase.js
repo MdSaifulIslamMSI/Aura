@@ -310,6 +310,7 @@ export const requestWithTrace = async (input, options = {}) => {
 
 export const apiFetch = async (path, options = {}) => {
     const response = await requestWithTrace(path, {
+        credentials: options.credentials ?? 'include',
         ...options,
         resolveWithApiBase: true,
     });

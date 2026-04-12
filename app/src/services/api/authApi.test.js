@@ -41,14 +41,14 @@ describe('authApi', () => {
     vi.doUnmock('../csrfTokenManager');
   });
 
-  it('force-refreshes the firebase token when /auth/session initially returns 401', async () => {
+  it('bootstraps a cookie session through /auth/exchange when /auth/session initially returns 401', async () => {
     const firebaseUser = {
       getIdToken: vi.fn(),
     };
     const csrfToken = 'a'.repeat(64);
 
     mocks.getAuthHeaderMock
-      .mockResolvedValueOnce({ Authorization: 'Bearer stale-token' })
+      .mockResolvedValueOnce({})
       .mockResolvedValueOnce({ Authorization: 'Bearer fresh-token' });
 
     global.fetch
@@ -71,13 +71,16 @@ describe('authApi', () => {
     await expect(authApi.getSession({ firebaseUser })).resolves.toEqual({ status: 'authenticated' });
 
     expect(mocks.getAuthHeaderMock).toHaveBeenCalledTimes(2);
-    expect(mocks.getAuthHeaderMock).toHaveBeenNthCalledWith(1, firebaseUser, { forceRefresh: false });
-    expect(mocks.getAuthHeaderMock).toHaveBeenNthCalledWith(2, firebaseUser, { forceRefresh: true });
+    expect(mocks.getAuthHeaderMock).toHaveBeenNthCalledWith(1, firebaseUser);
+    expect(mocks.getAuthHeaderMock).toHaveBeenNthCalledWith(2, firebaseUser, {
+      useFirebaseBearer: true,
+      forceRefresh: true,
+    });
     expect(mocks.clearCsrfTokenCacheMock).toHaveBeenCalledTimes(1);
-    expect(mocks.cacheTokenMock).toHaveBeenCalledWith(csrfToken, 'fresh-token');
+    expect(mocks.cacheTokenMock).toHaveBeenCalledWith(csrfToken, 'cookie_session');
   });
 
-  it('retries auth sync after forcing a fresh token when CSRF bootstrap is rejected with 401', async () => {
+  it('retries auth sync after exchanging a fresh server session when CSRF bootstrap is rejected with 401', async () => {
     const firebaseUser = {
       getIdToken: vi.fn()
         .mockResolvedValueOnce('stale-token')
@@ -85,8 +88,9 @@ describe('authApi', () => {
     };
 
     mocks.getAuthHeaderMock
-      .mockResolvedValueOnce({ Authorization: 'Bearer stale-token' })
-      .mockResolvedValueOnce({ Authorization: 'Bearer fresh-token' });
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({ Authorization: 'Bearer fresh-token' })
+      .mockResolvedValueOnce({});
 
     mocks.ensureCsrfTokenMock
       .mockRejectedValueOnce(Object.assign(new Error('HTTP 401: Unauthorized'), { status: 401 }))
@@ -97,22 +101,42 @@ describe('authApi', () => {
       'X-CSRF-Token': csrfToken,
     }));
 
-    global.fetch.mockResolvedValue(
-      new Response(JSON.stringify({ ok: true }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      })
-    );
+    global.fetch
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ status: 'authenticated' }), {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': 'c'.repeat(64),
+          },
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ ok: true }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      );
 
     await expect(authApi.syncSession('user@example.com', 'Aura User', '+919999999999', { firebaseUser }))
       .resolves
       .toEqual({ ok: true });
 
-    expect(mocks.getAuthHeaderMock).toHaveBeenCalledTimes(2);
-    expect(mocks.getAuthHeaderMock).toHaveBeenNthCalledWith(1, firebaseUser, { forceRefresh: false });
-    expect(mocks.getAuthHeaderMock).toHaveBeenNthCalledWith(2, firebaseUser, { forceRefresh: true });
+    expect(mocks.getAuthHeaderMock).toHaveBeenCalledTimes(3);
+    expect(mocks.getAuthHeaderMock).toHaveBeenNthCalledWith(1, firebaseUser, {
+      useFirebaseBearer: false,
+      forceRefresh: false,
+    });
+    expect(mocks.getAuthHeaderMock).toHaveBeenNthCalledWith(2, firebaseUser, {
+      useFirebaseBearer: true,
+      forceRefresh: true,
+    });
+    expect(mocks.getAuthHeaderMock).toHaveBeenNthCalledWith(3, firebaseUser, {
+      useFirebaseBearer: false,
+      forceRefresh: false,
+    });
     expect(mocks.ensureCsrfTokenMock).toHaveBeenCalledTimes(2);
     expect(mocks.clearCsrfTokenCacheMock).toHaveBeenCalledTimes(1);
-    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(global.fetch).toHaveBeenCalledTimes(2);
   });
 });
