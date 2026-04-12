@@ -24,6 +24,7 @@ vi.mock('firebase/analytics', () => ({
 }));
 
 const originalLocation = window.location;
+const originalMatchMedia = window.matchMedia;
 
 const setRuntimeHost = ({ hostname, host = hostname }) => {
   Object.defineProperty(window, 'location', {
@@ -32,6 +33,23 @@ const setRuntimeHost = ({ hostname, host = hostname }) => {
       hostname,
       host,
     },
+  });
+};
+
+const setDisplayModes = (activeModes = []) => {
+  Object.defineProperty(window, 'matchMedia', {
+    configurable: true,
+    writable: true,
+    value: vi.fn().mockImplementation((query) => ({
+      matches: activeModes.some((mode) => query.includes(`display-mode: ${mode}`)),
+      media: query,
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
   });
 };
 
@@ -52,6 +70,7 @@ const loadFirebaseModule = async ({ hostname, host = hostname }) => {
   setFirebaseEnv();
   window.sessionStorage.clear();
   setRuntimeHost({ hostname, host });
+  setDisplayModes([]);
   return import('./firebase');
 };
 
@@ -66,6 +85,11 @@ describe('firebase social auth host policy', () => {
     Object.defineProperty(window, 'location', {
       configurable: true,
       value: originalLocation,
+    });
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      writable: true,
+      value: originalMatchMedia,
     });
   });
 
@@ -96,6 +120,28 @@ describe('firebase social auth host policy', () => {
       runtimeHost: 'localhost',
       runtimeIpHost: false,
       redirectPreferred: false,
+      supported: true,
+    });
+  });
+
+  it('prefers redirect-first social auth in standalone app mode even on localhost', async () => {
+    vi.resetModules();
+    setFirebaseEnv();
+    window.sessionStorage.clear();
+    setRuntimeHost({
+      hostname: 'localhost',
+      host: 'localhost:4173',
+    });
+    setDisplayModes(['standalone']);
+
+    const firebase = await import('./firebase');
+
+    expect(firebase.shouldPreferFirebaseRedirectAuth()).toBe(true);
+    expect(firebase.getFirebaseSocialAuthStatus()).toMatchObject({
+      runtimeHost: 'localhost',
+      runtimeIpHost: false,
+      runtimeStandaloneApp: true,
+      redirectPreferred: true,
       supported: true,
     });
   });

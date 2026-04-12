@@ -38,6 +38,36 @@ const normalizeHost = (value = '') => String(value || '')
     .toLowerCase()
     .replace(/:\d+$/, '');
 
+const LOOPBACK_HOSTS = new Set([
+    'localhost',
+    '127.0.0.1',
+    '::1',
+    '[::1]',
+]);
+
+const parseOriginContext = (value = '') => {
+    const normalized = String(value || '').trim();
+    if (!normalized) {
+        return {
+            protocol: '',
+            host: '',
+        };
+    }
+
+    try {
+        const url = new URL(normalized);
+        return {
+            protocol: String(url.protocol || '').replace(/:$/, '').trim().toLowerCase(),
+            host: normalizeHost(url.host || url.hostname || ''),
+        };
+    } catch {
+        return {
+            protocol: '',
+            host: normalizeHost(normalized),
+        };
+    }
+};
+
 const toIsoOrNull = (value) => {
     if (!value) return null;
     const date = new Date(value);
@@ -236,10 +266,32 @@ const isSecureRequest = (req = {}) => {
     return false;
 };
 
+const resolveRequestProtocol = (req = {}) => {
+    if (isSecureRequest(req)) {
+        return 'https';
+    }
+    return 'http';
+};
+
+const shouldUseCrossSiteCookieForLoopbackOrigin = (req = {}) => {
+    const { protocol: originProtocol, host: originHost } = parseOriginContext(req.headers?.origin || '');
+    const requestHost = normalizeHost(req.headers?.host || req.hostname || '');
+    const requestProtocol = resolveRequestProtocol(req);
+
+    if (!originHost || !requestHost || !LOOPBACK_HOSTS.has(originHost)) {
+        return false;
+    }
+
+    return originHost !== requestHost || (originProtocol && originProtocol !== requestProtocol);
+};
+
 const resolveSameSite = (req = {}) => {
     const host = normalizeHost(req.headers?.host || req.hostname || '');
     if (host && SESSION_ADMIN_HOSTS.has(host)) {
         return 'strict';
+    }
+    if (shouldUseCrossSiteCookieForLoopbackOrigin(req) && isSecureRequest(req)) {
+        return 'none';
     }
     if (SESSION_DEFAULT_SAME_SITE === 'strict' || SESSION_DEFAULT_SAME_SITE === 'none') {
         return SESSION_DEFAULT_SAME_SITE;

@@ -194,4 +194,72 @@ describe('browserSessionService', () => {
         await browserSessionService.revokeBrowserSession(rotatedSession.sessionId);
         await expect(browserSessionService.getBrowserSession(rotatedSession.sessionId)).resolves.toBeNull();
     });
+
+    test('uses SameSite=None for secure loopback frontends talking to a remote API origin', async () => {
+        process.env.AUTH_SESSION_COOKIE_SECURE = 'true';
+
+        let browserSessionService;
+
+        jest.isolateModules(() => {
+            jest.doMock('../config/redis', () => ({
+                getRedisClient: () => null,
+                flags: { redisPrefix: 'test' },
+            }));
+            jest.doMock('../services/trustedDeviceChallengeService', () => ({
+                extractTrustedDeviceContext: jest.fn().mockReturnValue({
+                    deviceId: 'device-loopback-1',
+                    deviceLabel: 'Loopback Browser',
+                }),
+            }));
+
+            browserSessionService = require('../services/browserSessionService');
+        });
+
+        const nowSeconds = Math.floor(Date.now() / 1000);
+        const req = {
+            headers: {
+                host: 'aura-msi-api-ca.wittycliff-f743de69.southeastasia.azurecontainerapps.io',
+                origin: 'http://localhost:4173',
+                'x-forwarded-proto': 'https',
+            },
+            secure: true,
+        };
+        const res = createResponseStub();
+
+        await browserSessionService.createBrowserSession({
+            req,
+            res,
+            user: {
+                _id: '507f1f77bcf86cd799439013',
+                email: 'loopback@example.com',
+                name: 'Loopback User',
+                phone: '+919876543212',
+                isAdmin: false,
+                isSeller: false,
+                isVerified: true,
+                authAssurance: 'none',
+            },
+            authUid: 'firebase-loopback-1',
+            authToken: {
+                email: 'loopback@example.com',
+                email_verified: true,
+                name: 'Loopback User',
+                phone_number: '+919876543212',
+                auth_time: nowSeconds - 15,
+                iat: nowSeconds - 15,
+                exp: nowSeconds + 3600,
+                firebase: {
+                    sign_in_provider: 'password',
+                },
+            },
+        });
+
+        const setCookieHeader = res.getHeader('Set-Cookie');
+
+        expect(setCookieHeader).toEqual(expect.arrayContaining([
+            expect.stringContaining('aura_sid='),
+        ]));
+        expect(setCookieHeader[0]).toContain('Secure');
+        expect(setCookieHeader[0]).toContain('SameSite=None');
+    });
 });
