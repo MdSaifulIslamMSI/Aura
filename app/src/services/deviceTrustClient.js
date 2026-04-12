@@ -177,20 +177,36 @@ export const getTrustedDeviceLabel = () => {
 };
 
 export const getTrustedDeviceSessionToken = () => {
-  const storage = readStorage('sessionStorage');
-  return storage?.getItem(DEVICE_SESSION_STORAGE_KEY) || '';
+  const sharedStorage = readStorage('localStorage');
+  const tabStorage = readStorage('sessionStorage');
+  const sharedToken = sharedStorage?.getItem(DEVICE_SESSION_STORAGE_KEY) || '';
+
+  if (sharedToken) {
+    if (tabStorage && tabStorage.getItem(DEVICE_SESSION_STORAGE_KEY) !== sharedToken) {
+      tabStorage.setItem(DEVICE_SESSION_STORAGE_KEY, sharedToken);
+    }
+    return sharedToken;
+  }
+
+  const tabToken = tabStorage?.getItem(DEVICE_SESSION_STORAGE_KEY) || '';
+  if (tabToken && sharedStorage) {
+    sharedStorage.setItem(DEVICE_SESSION_STORAGE_KEY, tabToken);
+  }
+  return tabToken;
 };
 
 export const cacheTrustedDeviceSessionToken = (token = '') => {
-  const storage = readStorage('sessionStorage');
-  if (!storage) return;
+  const sharedStorage = readStorage('localStorage');
+  const tabStorage = readStorage('sessionStorage');
 
   if (token) {
-    storage.setItem(DEVICE_SESSION_STORAGE_KEY, token);
+    sharedStorage?.setItem(DEVICE_SESSION_STORAGE_KEY, token);
+    tabStorage?.setItem(DEVICE_SESSION_STORAGE_KEY, token);
     return;
   }
 
-  storage.removeItem(DEVICE_SESSION_STORAGE_KEY);
+  sharedStorage?.removeItem(DEVICE_SESSION_STORAGE_KEY);
+  tabStorage?.removeItem(DEVICE_SESSION_STORAGE_KEY);
 };
 
 export const clearTrustedDeviceSessionToken = () => {
