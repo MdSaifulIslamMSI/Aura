@@ -192,4 +192,30 @@ describe('CSRF auth route integration', () => {
         expect(validRes.statusCode).toBe(200);
         expect(validRes.body.synced).toBe(true);
     });
+
+    test('allows bearer-auth csrf token across trusted-device verification session rotation', async () => {
+        const sessionRes = await request(app)
+            .get('/api/auth/session')
+            .set('Authorization', 'Bearer token-user-a')
+            .set('User-Agent', 'test-agent-a')
+            .set('Host', 'localhost:3000');
+
+        const csrfToken = sessionRes.headers['x-csrf-token'];
+
+        const validRes = await request(app)
+            .post('/api/auth/verify-device')
+            .set('Authorization', 'Bearer token-user-a')
+            .set('X-CSRF-Token', csrfToken)
+            .set('User-Agent', 'test-agent-a')
+            .set('Host', 'localhost:3000')
+            .send({
+                token: 'challenge-token',
+                method: 'browser_key',
+                proof: 'signed-proof',
+                publicKeySpkiBase64: 'public-key',
+            });
+
+        expect(validRes.statusCode).toBe(200);
+        expect(validRes.body.ok).toBe(true);
+    });
 });
