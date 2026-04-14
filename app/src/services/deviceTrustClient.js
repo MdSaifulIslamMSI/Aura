@@ -2,6 +2,9 @@ const DEVICE_ID_STORAGE_KEY = 'aura_trusted_device_id_v1';
 const DEVICE_SESSION_STORAGE_KEY = 'aura_trusted_device_session_v1';
 const DEVICE_DB_NAME = 'aura_trusted_device_keys';
 const DEVICE_STORE_NAME = 'keys';
+const PERSIST_TRUSTED_DEVICE_SESSION = String(
+  import.meta.env.VITE_PERSIST_TRUSTED_DEVICE_SESSION || 'false'
+).trim().toLowerCase() === 'true';
 
 let keyDbPromise = null;
 let inMemoryDeviceId = '';
@@ -177,36 +180,25 @@ export const getTrustedDeviceLabel = () => {
 };
 
 export const getTrustedDeviceSessionToken = () => {
-  const sharedStorage = readStorage('localStorage');
   const tabStorage = readStorage('sessionStorage');
-  const sharedToken = sharedStorage?.getItem(DEVICE_SESSION_STORAGE_KEY) || '';
-
-  if (sharedToken) {
-    if (tabStorage && tabStorage.getItem(DEVICE_SESSION_STORAGE_KEY) !== sharedToken) {
-      tabStorage.setItem(DEVICE_SESSION_STORAGE_KEY, sharedToken);
-    }
-    return sharedToken;
-  }
-
+  const sharedStorage = PERSIST_TRUSTED_DEVICE_SESSION ? readStorage('localStorage') : null;
   const tabToken = tabStorage?.getItem(DEVICE_SESSION_STORAGE_KEY) || '';
-  if (tabToken && sharedStorage) {
-    sharedStorage.setItem(DEVICE_SESSION_STORAGE_KEY, tabToken);
-  }
-  return tabToken;
+  if (tabToken) return tabToken;
+  return sharedStorage?.getItem(DEVICE_SESSION_STORAGE_KEY) || '';
 };
 
 export const cacheTrustedDeviceSessionToken = (token = '') => {
-  const sharedStorage = readStorage('localStorage');
   const tabStorage = readStorage('sessionStorage');
+  const sharedStorage = PERSIST_TRUSTED_DEVICE_SESSION ? readStorage('localStorage') : null;
 
   if (token) {
-    sharedStorage?.setItem(DEVICE_SESSION_STORAGE_KEY, token);
     tabStorage?.setItem(DEVICE_SESSION_STORAGE_KEY, token);
+    sharedStorage?.setItem(DEVICE_SESSION_STORAGE_KEY, token);
     return;
   }
 
-  sharedStorage?.removeItem(DEVICE_SESSION_STORAGE_KEY);
   tabStorage?.removeItem(DEVICE_SESSION_STORAGE_KEY);
+  sharedStorage?.removeItem(DEVICE_SESSION_STORAGE_KEY);
 };
 
 export const clearTrustedDeviceSessionToken = () => {

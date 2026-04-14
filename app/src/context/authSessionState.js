@@ -12,7 +12,7 @@ const LEGACY_SESSION_STATUS = {
 };
 
 export const VALID_TRANSITIONS = {
-    [SESSION_STATUS.BOOTSTRAP]: [SESSION_STATUS.LOADING, SESSION_STATUS.SIGNED_OUT, SESSION_STATUS.RECOVERABLE_ERROR],
+    [SESSION_STATUS.BOOTSTRAP]: [SESSION_STATUS.LOADING, SESSION_STATUS.SIGNED_OUT, SESSION_STATUS.RECOVERABLE_ERROR, SESSION_STATUS.AUTHENTICATED, SESSION_STATUS.DEVICE_CHALLENGE],
     [SESSION_STATUS.LOADING]: [SESSION_STATUS.AUTHENTICATED, SESSION_STATUS.SIGNED_OUT, SESSION_STATUS.RECOVERABLE_ERROR, SESSION_STATUS.DEVICE_CHALLENGE],
     [SESSION_STATUS.AUTHENTICATED]: [SESSION_STATUS.SIGNED_OUT, SESSION_STATUS.LOADING, SESSION_STATUS.DEVICE_CHALLENGE],
     [SESSION_STATUS.DEVICE_CHALLENGE]: [SESSION_STATUS.AUTHENTICATED, SESSION_STATUS.SIGNED_OUT, SESSION_STATUS.LOADING],
@@ -86,6 +86,9 @@ export const buildFirebaseSessionFallback = (firebaseUser = null) => {
 export const buildSessionIntelligenceFallback = (session = null, profile = null, roles = EMPTY_ROLES) => {
     const providerIds = Array.isArray(session?.providerIds) ? session.providerIds : [];
     const assuranceLevel = roles?.isVerified ? 'password' : 'none';
+    const authAgeSeconds = session?.authTime
+        ? Math.max(Math.floor((Date.now() - new Date(session.authTime).getTime()) / 1000), 0)
+        : null;
 
     return {
         assurance: {
@@ -108,6 +111,27 @@ export const buildSessionIntelligenceFallback = (session = null, profile = null,
             rememberedIdentifier: Boolean(profile?.phone || session?.phone) ? 'email+phone' : 'email',
             suggestedProvider: providerIds[0] || '',
             providerIds,
+        },
+        posture: {
+            continuousAccess: Boolean(session?.sessionId || session?.uid),
+            trustedDeviceBound: ['browser_key', 'webauthn'].includes(normalizeText(session?.deviceMethod)),
+            device: {
+                id: normalizeText(session?.deviceId),
+                method: normalizeText(session?.deviceMethod) || 'none',
+            },
+            session: {
+                cookieBound: Boolean(session?.sessionId),
+                riskState: normalizeText(session?.riskState) || 'standard',
+                aal: normalizeText(session?.aal) || 'aal1',
+                authAgeSeconds,
+                stepUpActive: Boolean(session?.stepUpUntil),
+                stepUpUntil: session?.stepUpUntil || null,
+            },
+            policy: {
+                privilegedAccount: Boolean(roles?.isAdmin || roles?.isSeller),
+                elevatedAssurance: assuranceLevel === 'password+otp' || normalizeText(session?.aal) === 'aal2',
+                reauthRecommended: false,
+            },
         },
     };
 };
