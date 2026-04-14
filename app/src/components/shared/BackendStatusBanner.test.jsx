@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import BackendStatusBanner from './BackendStatusBanner';
 import { MarketProvider } from '@/context/MarketContext';
 import { pushClientDiagnostic } from '@/services/clientObservability';
-import * as apiBase from '@/services/apiBase';
+import * as backendHealth from '@/services/backendHealth';
 
 const renderBanner = () => render(
   <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
@@ -22,18 +22,12 @@ describe('BackendStatusBanner', () => {
   });
 
   it('displays degraded status when backend reports database disconnection', async () => {
-    const requestMock = vi.spyOn(apiBase, 'requestWithTrace').mockImplementation(() => Promise.resolve(
-      new Response(JSON.stringify({
-        status: 'degraded',
-        reason: 'database_disconnected',
-      }), {
-        status: 200,
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Request-Id': 'srv-health-1',
-        },
-      })
-    ));
+    vi.spyOn(backendHealth, 'getBackendHealthSnapshot').mockResolvedValue({
+      status: 'degraded',
+      startupHealthy: false,
+      timestamp: new Date().toISOString(),
+      uptime: 12,
+    });
 
     renderBanner();
 
@@ -44,15 +38,12 @@ describe('BackendStatusBanner', () => {
   });
 
   it('softens a single proxy failure diagnostic into a warming state and clears after a healthy retry', async () => {
-    vi.spyOn(globalThis, 'fetch').mockImplementation(() => Promise.resolve(
-      new Response(JSON.stringify({ status: 'ok' }), {
-        status: 200,
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Request-Id': 'srv-health-ok',
-        },
-      })
-    ));
+    vi.spyOn(backendHealth, 'getBackendHealthSnapshot').mockResolvedValue({
+      status: 'ok',
+      startupHealthy: true,
+      timestamp: new Date().toISOString(),
+      uptime: 12,
+    });
 
     renderBanner();
 
@@ -85,15 +76,12 @@ describe('BackendStatusBanner', () => {
   });
 
   it('showns recovery status when connectivity is restored', async () => {
-    const requestMock = vi.spyOn(apiBase, 'requestWithTrace').mockImplementation(() => Promise.resolve(
-      new Response(JSON.stringify({ status: 'ok' }), {
-        status: 200,
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Request-Id': 'srv-health-ok',
-        },
-      })
-    ));
+    const requestMock = vi.spyOn(backendHealth, 'getBackendHealthSnapshot').mockResolvedValue({
+      status: 'ok',
+      startupHealthy: true,
+      timestamp: new Date().toISOString(),
+      uptime: 12,
+    });
 
     renderBanner();
 
@@ -140,15 +128,12 @@ describe('BackendStatusBanner', () => {
   });
 
   it('escalates repeated transient wake-up failures into an unavailable banner', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify({ status: 'ok' }), {
-        status: 200,
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Request-Id': 'srv-health-ok',
-        },
-      })
-    );
+    vi.spyOn(backendHealth, 'getBackendHealthSnapshot').mockResolvedValue({
+      status: 'ok',
+      startupHealthy: true,
+      timestamp: new Date().toISOString(),
+      uptime: 12,
+    });
 
     renderBanner();
 

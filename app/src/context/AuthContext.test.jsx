@@ -210,7 +210,7 @@ describe('AuthProvider', () => {
   });
 
   it('clears stale firebase sessions when the backend rejects the auth token', async () => {
-    mocks.authApiMock.exchangeSession.mockRejectedValue(
+    mocks.authApiMock.getSession.mockRejectedValue(
       Object.assign(new Error('Not authorized, token failed'), {
         status: 401,
       })
@@ -240,6 +240,7 @@ describe('AuthProvider', () => {
     expect(mocks.clearCsrfTokenCacheMock).toHaveBeenCalled();
     expect(mocks.clearTrustedDeviceSessionTokenMock).toHaveBeenCalled();
     expect(mocks.authApiMock.logoutSession).toHaveBeenCalled();
+    expect(mocks.authApiMock.exchangeSession).not.toHaveBeenCalled();
   });
 
   it('syncs X sign-in even when the provider does not return an email', async () => {
@@ -335,7 +336,7 @@ describe('AuthProvider', () => {
     });
 
     expect(screen.getByTestId('oauth-user')).toHaveTextContent('none');
-    expect(mocks.authApiMock.exchangeSession).toHaveBeenCalled();
+    expect(mocks.authApiMock.exchangeSession).not.toHaveBeenCalled();
     expect(mocks.authApiMock.syncSession).toHaveBeenCalled();
     expect(mocks.signOutMock).not.toHaveBeenCalled();
   });
@@ -445,7 +446,7 @@ describe('AuthProvider', () => {
       expect(screen.getByTestId('oauth-error')).toHaveTextContent('none');
     });
 
-    expect(mocks.authApiMock.exchangeSession).toHaveBeenCalled();
+    expect(mocks.authApiMock.exchangeSession).not.toHaveBeenCalled();
     expect(mocks.authApiMock.getSession).not.toHaveBeenCalled();
     expect(mocks.authApiMock.syncSession).toHaveBeenCalled();
     expect(mocks.signOutMock).not.toHaveBeenCalled();
@@ -668,6 +669,6 @@ describe('AuthProvider', () => {
 
     expect(mocks.authApiMock.verifyDeviceChallenge).toHaveBeenCalledTimes(1);
     expect(mocks.authApiMock.getSession).toHaveBeenCalledTimes(1);
-    expect(mocks.authApiMock.exchangeSession).toHaveBeenCalledTimes(1);
+    expect(mocks.authApiMock.exchangeSession).not.toHaveBeenCalled();
   });
 });

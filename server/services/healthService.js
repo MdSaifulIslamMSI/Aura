@@ -11,6 +11,13 @@ const { getFxRefreshStatus } = require('./payments/fxRateService');
 const { getCommerceAssistantHealth } = require('./ai/commerceAssistantService');
 const logger = require('../utils/logger');
 
+const HEALTH_SNAPSHOT_TTL_MS = Math.max(Number(process.env.HEALTH_SNAPSHOT_TTL_MS || 5000), 500);
+const healthSnapshotCache = {
+    value: null,
+    expiresAt: 0,
+    inFlight: null,
+};
+
 /**
  * Checks if the core dependencies (DB, Redis) are healthy
  */
@@ -103,7 +110,83 @@ const checkServiceReadiness = async () => {
     }
 };
 
+const resolveCachedHealthSnapshot = async (builder) => {
+    const now = Date.now();
+    if (healthSnapshotCache.value && healthSnapshotCache.expiresAt > now) {
+        return { ...healthSnapshotCache.value, cacheState: 'hit' };
+    }
+
+    if (healthSnapshotCache.inFlight) {
+        const value = await healthSnapshotCache.inFlight;
+        return { ...value, cacheState: 'shared' };
+    }
+
+    healthSnapshotCache.inFlight = Promise.resolve()
+        .then(builder)
+        .then((value) => {
+            healthSnapshotCache.value = value;
+            healthSnapshotCache.expiresAt = Date.now() + HEALTH_SNAPSHOT_TTL_MS;
+            return value;
+        })
+        .finally(() => {
+            healthSnapshotCache.inFlight = null;
+        });
+
+    const value = await healthSnapshotCache.inFlight;
+    return { ...value, cacheState: 'miss' };
+};
+
+const isTruthyWorkerFailure = (value) => value === false;
+
+const summarizeAdaptiveSecuritySignal = ({ core = {}, services = {} } = {}) => {
+    const degradedSignals = [];
+
+    if (!core.dbConnected) degradedSignals.push('database');
+    if (!core.redisConnected) degradedSignals.push('redis');
+    if (isTruthyWorkerFailure(services?.paymentQueue?.workerRunning)) degradedSignals.push('payment_outbox_worker');
+    if (isTruthyWorkerFailure(services?.emailQueue?.workerRunning)) degradedSignals.push('order_email_worker');
+    if (isTruthyWorkerFailure(services?.reconciliation?.workerRunning)) degradedSignals.push('commerce_reconciliation_worker');
+    if (services?.catalog?.staleData) degradedSignals.push('catalog');
+    if (String(services?.fx?.status || '').trim().toLowerCase() === 'degraded' || services?.fx?.stale) {
+        degradedSignals.push('fx');
+    }
+    if (services?.ai?.commerceAssistant?.healthy === false) degradedSignals.push('commerce_ai');
+
+    const mode = !core.dbConnected || !core.redisConnected
+        ? 'restrictive'
+        : degradedSignals.length > 0
+            ? 'elevated'
+            : 'standard';
+
+    return {
+        status: mode === 'standard' ? 'ok' : 'degraded',
+        mode,
+        degradedSignals,
+        restrictSensitiveActions: mode === 'restrictive',
+        requireStepUpForSensitiveActions: mode !== 'standard',
+    };
+};
+
+const getCachedHealthSnapshot = async () => resolveCachedHealthSnapshot(async () => ({
+    core: await checkCoreDependencies(),
+    services: await checkServiceReadiness(),
+    evaluatedAt: new Date().toISOString(),
+}));
+
+const getCachedAdaptiveSecuritySignal = async () => {
+    const snapshot = await getCachedHealthSnapshot();
+
+    return {
+        ...summarizeAdaptiveSecuritySignal(snapshot),
+        cacheState: snapshot.cacheState,
+        evaluatedAt: snapshot.evaluatedAt,
+    };
+};
+
 module.exports = {
     checkCoreDependencies,
     checkServiceReadiness,
+    getCachedHealthSnapshot,
+    getCachedAdaptiveSecuritySignal,
+    summarizeAdaptiveSecuritySignal,
 };

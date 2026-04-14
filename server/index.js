@@ -96,8 +96,7 @@ const {
     assertProductionRedisConfig,
 } = require('./config/redis');
 const {
-    checkCoreDependencies,
-    checkServiceReadiness,
+    getCachedHealthSnapshot,
 } = require('./services/healthService');
 const { warmChatModel } = require('./services/ai/modelGatewayService');
 const { getChatQuotaHealth } = require('./services/chatQuotaService');
@@ -112,6 +111,26 @@ const { attachSocketBackplane, getSocketHealth, initializeSocket } = require('./
 const app = express();
 const JSON_BODY_LIMIT = process.env.JSON_BODY_LIMIT || '12mb';
 const runtimeNodeEnv = process.env.NODE_ENV || 'production';
+const contentSecurityPolicyDirectives = {
+    defaultSrc: ["'self'"],
+    baseUri: ["'self'"],
+    objectSrc: ["'none'"],
+    frameAncestors: ["'none'"],
+    formAction: ["'self'"],
+    scriptSrc: ["'self'", 'https://checkout.razorpay.com'],
+    styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+    fontSrc: ["'self'", 'https://fonts.gstatic.com', 'data:'],
+    imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
+    connectSrc: ["'self'", 'https:', 'wss:'],
+    frameSrc: [
+        "'self'",
+        'https://checkout.razorpay.com',
+        'https://*.firebaseapp.com',
+        'https://app.powerbi.com',
+    ],
+    workerSrc: ["'self'", 'blob:'],
+    manifestSrc: ["'self'"],
+};
 const splitRuntimeEnabled = String(process.env.SPLIT_RUNTIME_ENABLED || 'false').trim().toLowerCase() === 'true';
 logger.info('config.split_runtime_env_check', { 
     raw: process.env.SPLIT_RUNTIME_ENABLED, 
@@ -145,7 +164,31 @@ const getSplitRuntimeWorkerGaps = ({
     return gaps;
 };
 
+app.disable('x-powered-by');
 app.set('trust proxy', 1);
+
+const buildLiveHealthPayload = () => ({
+    alive: true,
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString(),
+    topology: {
+        splitRuntimeEnabled,
+    },
+    startup: {
+        asyncStartupComplete: runtimeStartupState.asyncStartupComplete,
+        asyncStartupHealthy: !runtimeStartupState.asyncStartupError,
+        asyncStartupCompletedAt: runtimeStartupState.asyncStartupCompletedAt,
+        asyncStartupFailedAt: runtimeStartupState.asyncStartupFailedAt,
+    },
+});
+
+// Fast-path liveness route for the frontend banner. Register it before the
+// heavy middleware stack so health polling stays cheap.
+app.get('/health/live', (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    res.set('Content-Security-Policy', "default-src 'self'");
+    res.json(buildLiveHealthPayload());
+});
 
 // Request ID for tracing
 app.use(requestId);
@@ -184,7 +227,13 @@ app.use((req, res, next) => {
 });
 
 app.use(helmet({
-    crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" }
+    contentSecurityPolicy: {
+        useDefaults: false,
+        directives: contentSecurityPolicyDirectives,
+    },
+    crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' },
+    crossOriginResourcePolicy: { policy: 'same-site' },
+    referrerPolicy: { policy: 'no-referrer' },
 }));
 app.use(compression());
 app.use(cors({
@@ -202,6 +251,11 @@ app.use(express.json({
     verify: (req, res, buf) => {
         req.rawBody = buf.toString('utf8');
     }
+}));
+app.use(express.urlencoded({
+    extended: false,
+    limit: JSON_BODY_LIMIT,
+    parameterLimit: 100,
 }));
 app.use(resolveMarketContextMiddleware);
 
@@ -268,60 +322,36 @@ app.use('/api/notifications', userNotificationRoutes);
 app.use('/metrics', metricsRoute);
 
 // Health Check
-app.get('/health/live', (req, res) => {
-    res.json({
-        alive: true,
-        uptime: process.uptime(),
-        timestamp: new Date().toISOString(),
-        topology: {
-            splitRuntimeEnabled,
-        },
-        runtimeSecrets: {
-            source: String(process.env.RUNTIME_SECRET_SOURCE || 'local_env_only'),
-            loadedKeyCount: Math.max(0, Number(process.env.RUNTIME_SECRET_LOADED_KEY_COUNT || 0)),
-        },
-        startup: {
-            asyncStartupComplete: runtimeStartupState.asyncStartupComplete,
-            asyncStartupError: runtimeStartupState.asyncStartupError || null,
-            asyncStartupCompletedAt: runtimeStartupState.asyncStartupCompletedAt,
-            asyncStartupFailedAt: runtimeStartupState.asyncStartupFailedAt,
-        },
-    });
-});
-
 app.get('/health', async (req, res) => {
-    const { dbConnected, redisConnected, mongoDeployment } = await checkCoreDependencies();
-    const services = await checkServiceReadiness();
-
-    const status = dbConnected && redisConnected ? 'ok' : 'degraded';
+    const snapshot = await getCachedHealthSnapshot();
+    const { core, services } = snapshot;
+    const status = core.dbConnected && core.redisConnected ? 'ok' : 'degraded';
     const workerGaps = getSplitRuntimeWorkerGaps({
         paymentQueue: services.paymentQueue,
         emailQueue: services.emailQueue,
         catalog: services.catalog,
         reconciliation: services.reconciliation,
     });
-    
+
+    res.set('Cache-Control', 'no-store');
+    res.set('X-Health-Cache', snapshot.cacheState);
     res.status(status === 'ok' ? 200 : 503).json({
         status,
-        db: dbConnected ? 'connected' : 'disconnected',
+        db: core.dbConnected ? 'connected' : 'disconnected',
         uptime: process.uptime(),
         timestamp: new Date().toISOString(),
         redis: {
-            connected: redisConnected
+            connected: core.redisConnected,
         },
         topology: {
             splitRuntimeEnabled,
             splitRuntimeReady: splitRuntimeEnabled ? workerGaps.length === 0 : true,
             workerGaps,
-            mongo: mongoDeployment,
-        },
-        runtimeSecrets: {
-            source: String(process.env.RUNTIME_SECRET_SOURCE || 'local_env_only'),
-            loadedKeyCount: Math.max(0, Number(process.env.RUNTIME_SECRET_LOADED_KEY_COUNT || 0)),
+            mongo: core.mongoDeployment,
         },
         startup: {
             asyncStartupComplete: runtimeStartupState.asyncStartupComplete,
-            asyncStartupError: runtimeStartupState.asyncStartupError || null,
+            asyncStartupHealthy: !runtimeStartupState.asyncStartupError,
             asyncStartupCompletedAt: runtimeStartupState.asyncStartupCompletedAt,
             asyncStartupFailedAt: runtimeStartupState.asyncStartupFailedAt,
         },
@@ -475,16 +505,12 @@ app.get('/health/ready', async (req, res) => {
         timestamp: new Date().toISOString(),
         startup: {
             asyncStartupComplete: runtimeStartupState.asyncStartupComplete,
-            asyncStartupError: runtimeStartupState.asyncStartupError || null,
+            asyncStartupHealthy: !runtimeStartupState.asyncStartupError,
             asyncStartupCompletedAt: runtimeStartupState.asyncStartupCompletedAt,
             asyncStartupFailedAt: runtimeStartupState.asyncStartupFailedAt,
         },
         ai: {
             chatQuota: getChatQuotaHealth(),
-        },
-        runtimeSecrets: {
-            source: String(process.env.RUNTIME_SECRET_SOURCE || 'local_env_only'),
-            loadedKeyCount: Math.max(0, Number(process.env.RUNTIME_SECRET_LOADED_KEY_COUNT || 0)),
         },
         topology: {
             splitRuntimeEnabled,
