@@ -98,9 +98,6 @@ jobs:
           tenant-id: ${{ env.AZURE_TENANT_ID }}
           subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
       - name: Prepare Azure Container Apps CLI
         shell: bash
         run: |
@@ -108,24 +105,14 @@ jobs:
           az config set extension.use_dynamic_install=yes_without_prompt
           az extension add --name containerapp --upgrade
 
-      - name: Login to Azure Container Registry
+      - name: Build and push backend image via Azure Container Registry
         shell: bash
         run: |
           set -euo pipefail
-          az acr login --name "${ACR_NAME}"
-
-      - name: Build and push backend image
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          docker buildx build \
-            --platform linux/amd64 \
+          az acr build \
+            --registry "${ACR_NAME}" \
+            --image "${IMAGE_NAME}:${{ steps.meta.outputs.image_tag }}" \
             --file server/Dockerfile \
-            --tag "${{ steps.meta.outputs.image_ref }}" \
-            --cache-from "type=registry,ref=${ACR_LOGIN_SERVER}/${IMAGE_NAME}:buildcache" \
-            --cache-to "type=registry,ref=${ACR_LOGIN_SERVER}/${IMAGE_NAME}:buildcache,mode=max,compression=zstd" \
-            --output "type=image,push=true,compression=zstd,compression-level=3,force-compression=true" \
             server
 
       - name: Materialize optional Azure runtime env file
