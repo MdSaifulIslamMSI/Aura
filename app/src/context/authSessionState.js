@@ -115,6 +115,7 @@ export const buildSessionIntelligenceFallback = (session = null, profile = null,
         posture: {
             continuousAccess: Boolean(session?.sessionId || session?.uid),
             trustedDeviceBound: ['browser_key', 'webauthn'].includes(normalizeText(session?.deviceMethod)),
+            cryptoDeviceBound: ['browser_key', 'webauthn'].includes(normalizeText(session?.deviceMethod)),
             device: {
                 id: normalizeText(session?.deviceId),
                 method: normalizeText(session?.deviceMethod) || 'none',
@@ -124,12 +125,18 @@ export const buildSessionIntelligenceFallback = (session = null, profile = null,
                 riskState: normalizeText(session?.riskState) || 'standard',
                 aal: normalizeText(session?.aal) || 'aal1',
                 authAgeSeconds,
+                freshForSensitiveActions: authAgeSeconds !== null && authAgeSeconds <= (15 * 60),
                 stepUpActive: Boolean(session?.stepUpUntil),
                 stepUpUntil: session?.stepUpUntil || null,
             },
             policy: {
                 privilegedAccount: Boolean(roles?.isAdmin || roles?.isSeller),
                 elevatedAssurance: assuranceLevel === 'password+otp' || normalizeText(session?.aal) === 'aal2',
+                sensitiveActionsAllowed: Boolean(
+                    (authAgeSeconds !== null && authAgeSeconds <= (15 * 60))
+                    && ['browser_key', 'webauthn'].includes(normalizeText(session?.deviceMethod))
+                    && (!(roles?.isAdmin || roles?.isSeller) || assuranceLevel === 'password+otp' || normalizeText(session?.aal) === 'aal2')
+                ),
                 reauthRecommended: false,
             },
         },

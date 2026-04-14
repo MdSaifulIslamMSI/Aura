@@ -20,6 +20,10 @@ const SESSION_PROFILE_PROJECTION = 'name email phone avatar gender dob bio isAdm
 
 const PHONE_REGEX = /^\+?\d{10,15}$/;
 const LOGIN_ASSURANCE_TTL_MS = 10 * 60 * 1000;
+const SENSITIVE_ACTION_FRESH_LOGIN_SECONDS = Math.max(
+    Number(process.env.AUTH_SENSITIVE_FRESH_LOGIN_MINUTES || 15) * 60,
+    60
+);
 
 const normalizePhone = (value) => (
     typeof value === 'string' ? value.trim().replace(/[\s\-()]/g, '') : ''
@@ -357,9 +361,11 @@ const toSessionIntelligence = (user = null, session = null) => {
     const strongDeviceBinding = deviceBound && ['browser_key', 'webauthn'].includes(normalizeText(session?.deviceMethod));
     const privilegedAccount = Boolean(user?.isAdmin || user?.isSeller);
     const elevatedAssurance = assuranceLevel === 'password+otp' || normalizeText(session?.aal) === 'aal2' || stepUpActive;
+    const freshForSensitiveActions = authAgeSeconds !== null && authAgeSeconds <= SENSITIVE_ACTION_FRESH_LOGIN_SECONDS;
     const continuousAccess = Boolean(
         session?.sessionId
-        && (!privilegedAccount || (elevatedAssurance && (strongDeviceBinding || normalizeText(session?.riskState) === 'standard')))
+        && freshForSensitiveActions
+        && (!privilegedAccount || (elevatedAssurance && strongDeviceBinding))
     );
 
     return {
@@ -399,6 +405,7 @@ const toSessionIntelligence = (user = null, session = null) => {
         posture: {
             continuousAccess,
             trustedDeviceBound: strongDeviceBinding,
+            cryptoDeviceBound: strongDeviceBinding,
             device: {
                 id: normalizeText(session?.deviceId),
                 method: normalizeText(session?.deviceMethod) || 'none',
@@ -408,13 +415,15 @@ const toSessionIntelligence = (user = null, session = null) => {
                 riskState: normalizeText(session?.riskState) || 'standard',
                 aal: normalizeText(session?.aal) || 'aal1',
                 authAgeSeconds,
+                freshForSensitiveActions,
                 stepUpActive,
                 stepUpUntil: session?.stepUpUntil || null,
             },
             policy: {
                 privilegedAccount,
                 elevatedAssurance,
-                reauthRecommended: privilegedAccount && !elevatedAssurance,
+                sensitiveActionsAllowed: Boolean(freshForSensitiveActions && strongDeviceBinding && (!privilegedAccount || elevatedAssurance)),
+                reauthRecommended: privilegedAccount && (!elevatedAssurance || !freshForSensitiveActions),
             },
         },
     };
