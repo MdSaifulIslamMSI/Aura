@@ -112,6 +112,26 @@ const { attachSocketBackplane, getSocketHealth, initializeSocket } = require('./
 const app = express();
 const JSON_BODY_LIMIT = process.env.JSON_BODY_LIMIT || '12mb';
 const runtimeNodeEnv = process.env.NODE_ENV || 'production';
+const contentSecurityPolicyDirectives = {
+    defaultSrc: ["'self'"],
+    baseUri: ["'self'"],
+    objectSrc: ["'none'"],
+    frameAncestors: ["'none'"],
+    formAction: ["'self'"],
+    scriptSrc: ["'self'", 'https://checkout.razorpay.com'],
+    styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+    fontSrc: ["'self'", 'https://fonts.gstatic.com', 'data:'],
+    imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
+    connectSrc: ["'self'", 'https:', 'wss:'],
+    frameSrc: [
+        "'self'",
+        'https://checkout.razorpay.com',
+        'https://*.firebaseapp.com',
+        'https://app.powerbi.com',
+    ],
+    workerSrc: ["'self'", 'blob:'],
+    manifestSrc: ["'self'"],
+};
 const splitRuntimeEnabled = String(process.env.SPLIT_RUNTIME_ENABLED || 'false').trim().toLowerCase() === 'true';
 logger.info('config.split_runtime_env_check', { 
     raw: process.env.SPLIT_RUNTIME_ENABLED, 
@@ -125,6 +145,38 @@ const runtimeStartupState = {
     asyncStartupError: '',
     asyncStartupCompletedAt: null,
     asyncStartupFailedAt: null,
+};
+const HEALTH_SNAPSHOT_TTL_MS = Math.max(Number(process.env.HEALTH_SNAPSHOT_TTL_MS || 5000), 500);
+const readinessSnapshotCache = {
+    value: null,
+    expiresAt: 0,
+    inFlight: null,
+};
+
+const resolveCachedHealthSnapshot = async (builder) => {
+    const now = Date.now();
+    if (readinessSnapshotCache.value && readinessSnapshotCache.expiresAt > now) {
+        return { ...readinessSnapshotCache.value, cacheState: 'hit' };
+    }
+
+    if (readinessSnapshotCache.inFlight) {
+        const value = await readinessSnapshotCache.inFlight;
+        return { ...value, cacheState: 'shared' };
+    }
+
+    readinessSnapshotCache.inFlight = Promise.resolve()
+        .then(builder)
+        .then((value) => {
+            readinessSnapshotCache.value = value;
+            readinessSnapshotCache.expiresAt = Date.now() + HEALTH_SNAPSHOT_TTL_MS;
+            return value;
+        })
+        .finally(() => {
+            readinessSnapshotCache.inFlight = null;
+        });
+
+    const value = await readinessSnapshotCache.inFlight;
+    return { ...value, cacheState: 'miss' };
 };
 
 const getSplitRuntimeWorkerGaps = ({
@@ -145,6 +197,7 @@ const getSplitRuntimeWorkerGaps = ({
     return gaps;
 };
 
+app.disable('x-powered-by');
 app.set('trust proxy', 1);
 
 // Request ID for tracing
@@ -184,7 +237,13 @@ app.use((req, res, next) => {
 });
 
 app.use(helmet({
-    crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" }
+    contentSecurityPolicy: {
+        useDefaults: false,
+        directives: contentSecurityPolicyDirectives,
+    },
+    crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' },
+    crossOriginResourcePolicy: { policy: 'same-site' },
+    referrerPolicy: { policy: 'no-referrer' },
 }));
 app.use(compression());
 app.use(cors({
@@ -202,6 +261,11 @@ app.use(express.json({
     verify: (req, res, buf) => {
         req.rawBody = buf.toString('utf8');
     }
+}));
+app.use(express.urlencoded({
+    extended: false,
+    limit: JSON_BODY_LIMIT,
+    parameterLimit: 100,
 }));
 app.use(resolveMarketContextMiddleware);
 
@@ -276,13 +340,9 @@ app.get('/health/live', (req, res) => {
         topology: {
             splitRuntimeEnabled,
         },
-        runtimeSecrets: {
-            source: String(process.env.RUNTIME_SECRET_SOURCE || 'local_env_only'),
-            loadedKeyCount: Math.max(0, Number(process.env.RUNTIME_SECRET_LOADED_KEY_COUNT || 0)),
-        },
         startup: {
             asyncStartupComplete: runtimeStartupState.asyncStartupComplete,
-            asyncStartupError: runtimeStartupState.asyncStartupError || null,
+            asyncStartupHealthy: !runtimeStartupState.asyncStartupError,
             asyncStartupCompletedAt: runtimeStartupState.asyncStartupCompletedAt,
             asyncStartupFailedAt: runtimeStartupState.asyncStartupFailedAt,
         },
@@ -290,59 +350,63 @@ app.get('/health/live', (req, res) => {
 });
 
 app.get('/health', async (req, res) => {
-    const { dbConnected, redisConnected, mongoDeployment } = await checkCoreDependencies();
-    const services = await checkServiceReadiness();
+    const snapshot = await resolveCachedHealthSnapshot(async () => {
+        const { dbConnected, redisConnected, mongoDeployment } = await checkCoreDependencies();
+        const services = await checkServiceReadiness();
+        const status = dbConnected && redisConnected ? 'ok' : 'degraded';
+        const workerGaps = getSplitRuntimeWorkerGaps({
+            paymentQueue: services.paymentQueue,
+            emailQueue: services.emailQueue,
+            catalog: services.catalog,
+            reconciliation: services.reconciliation,
+        });
 
-    const status = dbConnected && redisConnected ? 'ok' : 'degraded';
-    const workerGaps = getSplitRuntimeWorkerGaps({
-        paymentQueue: services.paymentQueue,
-        emailQueue: services.emailQueue,
-        catalog: services.catalog,
-        reconciliation: services.reconciliation,
-    });
-    
-    res.status(status === 'ok' ? 200 : 503).json({
-        status,
-        db: dbConnected ? 'connected' : 'disconnected',
-        uptime: process.uptime(),
-        timestamp: new Date().toISOString(),
-        redis: {
-            connected: redisConnected
-        },
-        topology: {
-            splitRuntimeEnabled,
-            splitRuntimeReady: splitRuntimeEnabled ? workerGaps.length === 0 : true,
-            workerGaps,
-            mongo: mongoDeployment,
-        },
-        runtimeSecrets: {
-            source: String(process.env.RUNTIME_SECRET_SOURCE || 'local_env_only'),
-            loadedKeyCount: Math.max(0, Number(process.env.RUNTIME_SECRET_LOADED_KEY_COUNT || 0)),
-        },
-        startup: {
-            asyncStartupComplete: runtimeStartupState.asyncStartupComplete,
-            asyncStartupError: runtimeStartupState.asyncStartupError || null,
-            asyncStartupCompletedAt: runtimeStartupState.asyncStartupCompletedAt,
-            asyncStartupFailedAt: runtimeStartupState.asyncStartupFailedAt,
-        },
-        queues: {
-            paymentOutbox: services.paymentQueue || { status: 'unknown' },
-            orderEmail: services.emailQueue || { status: 'unknown' },
-        },
-        ai: services.ai || {
-            chatQuota: {
-                mode: 'local',
-                distributed: false,
+        return {
+            statusCode: status === 'ok' ? 200 : 503,
+            body: {
+                status,
+                db: dbConnected ? 'connected' : 'disconnected',
+                uptime: process.uptime(),
+                timestamp: new Date().toISOString(),
+                redis: {
+                    connected: redisConnected
+                },
+                topology: {
+                    splitRuntimeEnabled,
+                    splitRuntimeReady: splitRuntimeEnabled ? workerGaps.length === 0 : true,
+                    workerGaps,
+                    mongo: mongoDeployment,
+                },
+                startup: {
+                    asyncStartupComplete: runtimeStartupState.asyncStartupComplete,
+                    asyncStartupHealthy: !runtimeStartupState.asyncStartupError,
+                    asyncStartupCompletedAt: runtimeStartupState.asyncStartupCompletedAt,
+                    asyncStartupFailedAt: runtimeStartupState.asyncStartupFailedAt,
+                },
+                queues: {
+                    paymentOutbox: services.paymentQueue || { status: 'unknown' },
+                    orderEmail: services.emailQueue || { status: 'unknown' },
+                },
+                ai: services.ai || {
+                    chatQuota: {
+                        mode: 'local',
+                        distributed: false,
+                    },
+                },
+                catalog: services.catalog || { status: 'unknown' },
+                reconciliation: services.reconciliation || { status: 'unknown' },
+                fx: services.fx || { status: 'unknown' },
+                realtime: services.realtime || {
+                    socket: getSocketHealth(),
+                    videoCalls: { activeRinging: 0, activeConnected: 0, endedRecently: 0 },
+                },
             },
-        },
-        catalog: services.catalog || { status: 'unknown' },
-        reconciliation: services.reconciliation || { status: 'unknown' },
-        fx: services.fx || { status: 'unknown' },
-        realtime: services.realtime || {
-            socket: getSocketHealth(),
-            videoCalls: { activeRinging: 0, activeConnected: 0, endedRecently: 0 },
-        },
+        };
     });
+
+    res.set('Cache-Control', 'no-store');
+    res.set('X-Health-Cache', snapshot.cacheState);
+    res.status(snapshot.statusCode).json(snapshot.body);
 });
 
 app.get('/health/ready', async (req, res) => {
@@ -475,16 +539,12 @@ app.get('/health/ready', async (req, res) => {
         timestamp: new Date().toISOString(),
         startup: {
             asyncStartupComplete: runtimeStartupState.asyncStartupComplete,
-            asyncStartupError: runtimeStartupState.asyncStartupError || null,
+            asyncStartupHealthy: !runtimeStartupState.asyncStartupError,
             asyncStartupCompletedAt: runtimeStartupState.asyncStartupCompletedAt,
             asyncStartupFailedAt: runtimeStartupState.asyncStartupFailedAt,
         },
         ai: {
             chatQuota: getChatQuotaHealth(),
-        },
-        runtimeSecrets: {
-            source: String(process.env.RUNTIME_SECRET_SOURCE || 'local_env_only'),
-            loadedKeyCount: Math.max(0, Number(process.env.RUNTIME_SECRET_LOADED_KEY_COUNT || 0)),
         },
         topology: {
             splitRuntimeEnabled,

@@ -246,6 +246,12 @@ const toIsoOrNull = (value) => {
     return Number.isNaN(date.getTime()) ? null : date.toISOString();
 };
 
+const parseIsoToMillis = (value) => {
+    if (!value) return 0;
+    const parsed = new Date(value).getTime();
+    return Number.isFinite(parsed) ? parsed : 0;
+};
+
 const toProfilePayload = (user = null, options = {}) => {
     if (!user) return null;
 
@@ -340,6 +346,21 @@ const toSessionIntelligence = (user = null, session = null) => {
     const assuranceLevel = normalizeText(user?.authAssurance) || 'none';
     const providerIds = Array.isArray(session?.providerIds) ? session.providerIds : [];
     const assuranceExpiresAt = toIsoOrNull(user?.loginOtpAssuranceExpiresAt);
+    const authTimeMillis = parseIsoToMillis(session?.authTime);
+    const stepUpUntilMillis = parseIsoToMillis(session?.stepUpUntil);
+    const now = Date.now();
+    const authAgeSeconds = authTimeMillis > 0
+        ? Math.max(Math.floor((now - authTimeMillis) / 1000), 0)
+        : null;
+    const stepUpActive = stepUpUntilMillis > now;
+    const deviceBound = Boolean(normalizeText(session?.deviceId));
+    const strongDeviceBinding = deviceBound && ['browser_key', 'webauthn'].includes(normalizeText(session?.deviceMethod));
+    const privilegedAccount = Boolean(user?.isAdmin || user?.isSeller);
+    const elevatedAssurance = assuranceLevel === 'password+otp' || normalizeText(session?.aal) === 'aal2' || stepUpActive;
+    const continuousAccess = Boolean(
+        session?.sessionId
+        && (!privilegedAccount || (elevatedAssurance && (strongDeviceBinding || normalizeText(session?.riskState) === 'standard')))
+    );
 
     return {
         assurance: {
@@ -374,6 +395,27 @@ const toSessionIntelligence = (user = null, session = null) => {
             rememberedIdentifier: Boolean(user?.phone || session?.phone) ? 'email+phone' : 'email',
             suggestedProvider: normalizeText(providerIds[0] || ''),
             providerIds,
+        },
+        posture: {
+            continuousAccess,
+            trustedDeviceBound: strongDeviceBinding,
+            device: {
+                id: normalizeText(session?.deviceId),
+                method: normalizeText(session?.deviceMethod) || 'none',
+            },
+            session: {
+                cookieBound: Boolean(session?.sessionId),
+                riskState: normalizeText(session?.riskState) || 'standard',
+                aal: normalizeText(session?.aal) || 'aal1',
+                authAgeSeconds,
+                stepUpActive,
+                stepUpUntil: session?.stepUpUntil || null,
+            },
+            policy: {
+                privilegedAccount,
+                elevatedAssurance,
+                reauthRecommended: privilegedAccount && !elevatedAssurance,
+            },
         },
     };
 };

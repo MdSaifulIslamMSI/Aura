@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { RefreshCw, ServerCrash, WifiOff } from 'lucide-react';
 import { useMarket } from '@/context/MarketContext';
-import { buildServiceUrl, requestWithTrace } from '@/services/apiBase';
+import { getBackendHealthSnapshot } from '@/services/backendHealth';
 import {
   getBufferedClientDiagnostics,
   getErrorReference,
@@ -11,8 +11,7 @@ import { summarizeBackendFailureDetail } from '@/utils/backendFailurePresentatio
 import { cn } from '@/lib/utils';
 
 const HEALTH_POLL_INTERVAL_MS = 30000;
-const HEALTH_TIMEOUT_MS = 20000;
-const HEALTH_RETRIES = 2;
+const HEALTH_TIMEOUT_MS = 4000;
 const SOFT_FAILURE_MAX_ATTEMPTS = 2;
 const FAILURE_RECOVERY_RECHECK_MS = 5000;
 const DEGRADED_STATUS_THRESHOLD = import.meta.env.MODE === 'test' ? 1 : 3;
@@ -27,19 +26,7 @@ const TRANSIENT_NETWORK_PATTERNS = [
   /fetch failed/i,
 ];
 
-const HEALTH_URL = buildServiceUrl('/health');
 const BACKEND_STATUS_BANNER_ENABLED = import.meta.env.VITE_ENABLE_BACKEND_STATUS_BANNER !== 'false';
-
-const parseJsonSafely = async (response) => {
-  const text = await response.text();
-  if (!text) return null;
-
-  try {
-    return JSON.parse(text);
-  } catch {
-    return text;
-  }
-};
 
 const isBackendHealthDiagnostic = (event) => {
   const url = String(event?.url || '');
@@ -141,28 +128,17 @@ const BackendStatusBanner = () => {
     setIsChecking(true);
 
     try {
-      const response = await requestWithTrace(HEALTH_URL, {
-        method: 'GET',
-        headers: {
-          Accept: 'application/json',
-        },
-        cache: 'no-store',
+      const data = await getBackendHealthSnapshot({
+        force: true,
         timeoutMs: HEALTH_TIMEOUT_MS,
-        retries: HEALTH_RETRIES,
-        throwOnHttpError: false,
       });
-      const data = await parseJsonSafely(response);
-      const serverRequestId = response.headers.get('x-request-id')
-        || (data && typeof data === 'object' ? String(data.requestId || '') : '');
-      const fallbackReference = serverRequestId || resolveRecentDiagnosticReference();
+      const fallbackReference = resolveRecentDiagnosticReference();
       const detail = summarizeBackendFailureDetail({
-        status: response.status,
-        detail: typeof data === 'object' && data
-          ? String(data.reason || data.status || '')
-          : String(data || '').trim(),
+        status: data?.status === 'ok' ? 200 : 503,
+        detail: data?.startupHealthy === false ? 'startup_unhealthy' : String(data?.status || '').trim(),
       });
 
-      if (data && typeof data === 'object' && data.status && data.status !== 'ok') {
+      if (data?.status && data.status !== 'ok') {
         degradedCountRef.current += 1;
         failureCountRef.current = 0;
 
@@ -174,14 +150,6 @@ const BackendStatusBanner = () => {
           reference: fallbackReference,
           detail,
         }));
-        return;
-      }
-
-      if (!response.ok) {
-        registerFailure({
-          reference: fallbackReference,
-          detail,
-        });
         return;
       }
 

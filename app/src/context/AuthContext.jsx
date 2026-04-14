@@ -400,15 +400,6 @@ export const AuthProvider = ({ children }) => {
     }
 
     const identity = getIdentityKey(activeUser, safeEmail);
-    const shouldBootstrapServerSession = Boolean(
-      activeUser?.getIdToken
-      && (
-        force
-        || syncStateRef.current.identity !== identity
-        || !sessionStateRef.current.session?.sessionId
-      )
-    );
-
     if (syncStateRef.current.identity && syncStateRef.current.identity !== identity) {
       clearCsrfTokenCache();
       clearTrustedDeviceSessionToken();
@@ -440,13 +431,6 @@ export const AuthProvider = ({ children }) => {
     }
 
     const requestPromise = (async () => {
-      if (shouldBootstrapServerSession) {
-        await authApi.exchangeSession({
-          firebaseUser: activeUser,
-          forceRefreshAuth: force === true,
-        });
-      }
-
       const payload = mode === 'sync'
         ? await authApi.syncSession(safeEmail, name, phone, {
           firebaseUser: activeUser,
@@ -834,7 +818,7 @@ export const AuthProvider = ({ children }) => {
         return;
       }
 
-      refreshSession(user, { force: true }).catch(() => {});
+      refreshSession(user).catch(() => {});
     });
 
     return () => {

@@ -17,5 +17,30 @@ describe('Health routes', () => {
         });
         expect(typeof res.body.uptime).toBe('number');
         expect(typeof res.body.timestamp).toBe('string');
+        expect(res.headers).not.toHaveProperty('x-powered-by');
+        expect(res.headers['content-security-policy']).toContain("default-src 'self'");
+        expect(res.body).not.toHaveProperty('runtimeSecrets');
+        expect(res.body.startup).not.toHaveProperty('asyncStartupError');
+    });
+
+    test('GET /health/ready does not expose runtime secret metadata or raw startup errors', async () => {
+        const res = await request(app).get('/health/ready');
+
+        expect([200, 503]).toContain(res.statusCode);
+        expect(res.headers).not.toHaveProperty('x-powered-by');
+        expect(res.headers['content-security-policy']).toContain("frame-src 'self' https://checkout.razorpay.com https://*.firebaseapp.com https://app.powerbi.com");
+        expect(res.body).not.toHaveProperty('runtimeSecrets');
+        expect(res.body.startup).not.toHaveProperty('asyncStartupError');
+        expect(res.body.startup).toHaveProperty('asyncStartupHealthy');
+    });
+
+    test('GET /health reuses a cached readiness snapshot for consecutive requests', async () => {
+        const first = await request(app).get('/health');
+        const second = await request(app).get('/health');
+
+        expect([200, 503]).toContain(first.statusCode);
+        expect([200, 503]).toContain(second.statusCode);
+        expect(['miss', 'shared']).toContain(first.headers['x-health-cache']);
+        expect(['hit', 'shared']).toContain(second.headers['x-health-cache']);
     });
 });
