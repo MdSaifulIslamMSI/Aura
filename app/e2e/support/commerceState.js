@@ -108,7 +108,13 @@ export const mockProductDetailApis = async (page, {
         ratingBreakdown: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 },
     };
 
-    await page.route(`**/api/products/${productId}`, async (route) => {
+    await page.route('**/api/products/**', async (route) => {
+        const url = new URL(route.request().url());
+        if (!url.pathname.endsWith(`/api/products/${productId}`)) {
+            await route.fallback();
+            return;
+        }
+
         await route.fulfill({
             status: 200,
             contentType: 'application/json',
