@@ -96,8 +96,7 @@ const {
     assertProductionRedisConfig,
 } = require('./config/redis');
 const {
-    checkCoreDependencies,
-    checkServiceReadiness,
+    getCachedHealthSnapshot,
 } = require('./services/healthService');
 const { warmChatModel } = require('./services/ai/modelGatewayService');
 const { getChatQuotaHealth } = require('./services/chatQuotaService');
@@ -146,38 +145,6 @@ const runtimeStartupState = {
     asyncStartupCompletedAt: null,
     asyncStartupFailedAt: null,
 };
-const HEALTH_SNAPSHOT_TTL_MS = Math.max(Number(process.env.HEALTH_SNAPSHOT_TTL_MS || 5000), 500);
-const readinessSnapshotCache = {
-    value: null,
-    expiresAt: 0,
-    inFlight: null,
-};
-
-const resolveCachedHealthSnapshot = async (builder) => {
-    const now = Date.now();
-    if (readinessSnapshotCache.value && readinessSnapshotCache.expiresAt > now) {
-        return { ...readinessSnapshotCache.value, cacheState: 'hit' };
-    }
-
-    if (readinessSnapshotCache.inFlight) {
-        const value = await readinessSnapshotCache.inFlight;
-        return { ...value, cacheState: 'shared' };
-    }
-
-    readinessSnapshotCache.inFlight = Promise.resolve()
-        .then(builder)
-        .then((value) => {
-            readinessSnapshotCache.value = value;
-            readinessSnapshotCache.expiresAt = Date.now() + HEALTH_SNAPSHOT_TTL_MS;
-            return value;
-        })
-        .finally(() => {
-            readinessSnapshotCache.inFlight = null;
-        });
-
-    const value = await readinessSnapshotCache.inFlight;
-    return { ...value, cacheState: 'miss' };
-};
 
 const getSplitRuntimeWorkerGaps = ({
     paymentQueue = {},
@@ -199,6 +166,29 @@ const getSplitRuntimeWorkerGaps = ({
 
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
+
+const buildLiveHealthPayload = () => ({
+    alive: true,
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString(),
+    topology: {
+        splitRuntimeEnabled,
+    },
+    startup: {
+        asyncStartupComplete: runtimeStartupState.asyncStartupComplete,
+        asyncStartupHealthy: !runtimeStartupState.asyncStartupError,
+        asyncStartupCompletedAt: runtimeStartupState.asyncStartupCompletedAt,
+        asyncStartupFailedAt: runtimeStartupState.asyncStartupFailedAt,
+    },
+});
+
+// Fast-path liveness route for the frontend banner. Register it before the
+// heavy middleware stack so health polling stays cheap.
+app.get('/health/live', (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    res.set('Content-Security-Policy', "default-src 'self'");
+    res.json(buildLiveHealthPayload());
+});
 
 // Request ID for tracing
 app.use(requestId);
@@ -332,13 +322,32 @@ app.use('/api/notifications', userNotificationRoutes);
 app.use('/metrics', metricsRoute);
 
 // Health Check
-app.get('/health/live', (req, res) => {
-    res.json({
-        alive: true,
+app.get('/health', async (req, res) => {
+    const snapshot = await getCachedHealthSnapshot();
+    const { core, services } = snapshot;
+    const status = core.dbConnected && core.redisConnected ? 'ok' : 'degraded';
+    const workerGaps = getSplitRuntimeWorkerGaps({
+        paymentQueue: services.paymentQueue,
+        emailQueue: services.emailQueue,
+        catalog: services.catalog,
+        reconciliation: services.reconciliation,
+    });
+
+    res.set('Cache-Control', 'no-store');
+    res.set('X-Health-Cache', snapshot.cacheState);
+    res.status(status === 'ok' ? 200 : 503).json({
+        status,
+        db: core.dbConnected ? 'connected' : 'disconnected',
         uptime: process.uptime(),
         timestamp: new Date().toISOString(),
+        redis: {
+            connected: core.redisConnected,
+        },
         topology: {
             splitRuntimeEnabled,
+            splitRuntimeReady: splitRuntimeEnabled ? workerGaps.length === 0 : true,
+            workerGaps,
+            mongo: core.mongoDeployment,
         },
         startup: {
             asyncStartupComplete: runtimeStartupState.asyncStartupComplete,
@@ -346,67 +355,24 @@ app.get('/health/live', (req, res) => {
             asyncStartupCompletedAt: runtimeStartupState.asyncStartupCompletedAt,
             asyncStartupFailedAt: runtimeStartupState.asyncStartupFailedAt,
         },
-    });
-});
-
-app.get('/health', async (req, res) => {
-    const snapshot = await resolveCachedHealthSnapshot(async () => {
-        const { dbConnected, redisConnected, mongoDeployment } = await checkCoreDependencies();
-        const services = await checkServiceReadiness();
-        const status = dbConnected && redisConnected ? 'ok' : 'degraded';
-        const workerGaps = getSplitRuntimeWorkerGaps({
-            paymentQueue: services.paymentQueue,
-            emailQueue: services.emailQueue,
-            catalog: services.catalog,
-            reconciliation: services.reconciliation,
-        });
-
-        return {
-            statusCode: status === 'ok' ? 200 : 503,
-            body: {
-                status,
-                db: dbConnected ? 'connected' : 'disconnected',
-                uptime: process.uptime(),
-                timestamp: new Date().toISOString(),
-                redis: {
-                    connected: redisConnected
-                },
-                topology: {
-                    splitRuntimeEnabled,
-                    splitRuntimeReady: splitRuntimeEnabled ? workerGaps.length === 0 : true,
-                    workerGaps,
-                    mongo: mongoDeployment,
-                },
-                startup: {
-                    asyncStartupComplete: runtimeStartupState.asyncStartupComplete,
-                    asyncStartupHealthy: !runtimeStartupState.asyncStartupError,
-                    asyncStartupCompletedAt: runtimeStartupState.asyncStartupCompletedAt,
-                    asyncStartupFailedAt: runtimeStartupState.asyncStartupFailedAt,
-                },
-                queues: {
-                    paymentOutbox: services.paymentQueue || { status: 'unknown' },
-                    orderEmail: services.emailQueue || { status: 'unknown' },
-                },
-                ai: services.ai || {
-                    chatQuota: {
-                        mode: 'local',
-                        distributed: false,
-                    },
-                },
-                catalog: services.catalog || { status: 'unknown' },
-                reconciliation: services.reconciliation || { status: 'unknown' },
-                fx: services.fx || { status: 'unknown' },
-                realtime: services.realtime || {
-                    socket: getSocketHealth(),
-                    videoCalls: { activeRinging: 0, activeConnected: 0, endedRecently: 0 },
-                },
+        queues: {
+            paymentOutbox: services.paymentQueue || { status: 'unknown' },
+            orderEmail: services.emailQueue || { status: 'unknown' },
+        },
+        ai: services.ai || {
+            chatQuota: {
+                mode: 'local',
+                distributed: false,
             },
-        };
+        },
+        catalog: services.catalog || { status: 'unknown' },
+        reconciliation: services.reconciliation || { status: 'unknown' },
+        fx: services.fx || { status: 'unknown' },
+        realtime: services.realtime || {
+            socket: getSocketHealth(),
+            videoCalls: { activeRinging: 0, activeConnected: 0, endedRecently: 0 },
+        },
     });
-
-    res.set('Cache-Control', 'no-store');
-    res.set('X-Health-Cache', snapshot.cacheState);
-    res.status(snapshot.statusCode).json(snapshot.body);
 });
 
 app.get('/health/ready', async (req, res) => {

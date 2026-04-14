@@ -18,6 +18,7 @@ describe('Health routes', () => {
         expect(typeof res.body.uptime).toBe('number');
         expect(typeof res.body.timestamp).toBe('string');
         expect(res.headers).not.toHaveProperty('x-powered-by');
+        expect(res.headers['cache-control']).toBe('no-store');
         expect(res.headers['content-security-policy']).toContain("default-src 'self'");
         expect(res.body).not.toHaveProperty('runtimeSecrets');
         expect(res.body.startup).not.toHaveProperty('asyncStartupError');
