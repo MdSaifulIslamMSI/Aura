@@ -25,6 +25,7 @@ const {
     flags: trustedDeviceFlags,
     shouldRequireTrustedDevice,
 } = require('../config/authTrustedDeviceFlags');
+const { getCachedAdaptiveSecuritySignal } = require('../services/healthService');
 
 // Redis-backed token cache.
 // Replaces the in-process Map which broke horizontal scaling:
@@ -179,6 +180,10 @@ const ADMIN_REQUIRE_EMAIL_VERIFIED = parseBooleanEnv(process.env.ADMIN_REQUIRE_E
 const ADMIN_REQUIRE_2FA = parseBooleanEnv(process.env.ADMIN_REQUIRE_2FA, false);
 const ADMIN_REQUIRE_ALLOWLIST = parseBooleanEnv(process.env.ADMIN_REQUIRE_ALLOWLIST, false);
 const ADMIN_REQUIRE_FRESH_LOGIN_MINUTES = parsePositiveIntEnv(process.env.ADMIN_REQUIRE_FRESH_LOGIN_MINUTES, 30);
+const SENSITIVE_ACTION_FRESH_LOGIN_MINUTES = parsePositiveIntEnv(process.env.AUTH_SENSITIVE_FRESH_LOGIN_MINUTES, 15);
+const DEGRADED_ACTION_FRESH_LOGIN_MINUTES = parsePositiveIntEnv(process.env.AUTH_DEGRADED_FRESH_LOGIN_MINUTES, 5);
+const REQUIRE_CRYPTO_DEVICE_FOR_SENSITIVE_ACTIONS = parseBooleanEnv(process.env.AUTH_REQUIRE_CRYPTO_DEVICE_FOR_SENSITIVE_ACTIONS, true);
+const AUTH_ADAPTIVE_SECURITY_ENABLED = parseBooleanEnv(process.env.AUTH_ADAPTIVE_SECURITY_ENABLED, true);
 const ADMIN_ALLOWLIST_EMAILS = new Set(
     String(process.env.ADMIN_ALLOWLIST_EMAILS || '')
         .split(',')
@@ -365,6 +370,179 @@ const enforceTrustedDevice = (req) => {
     }
 };
 
+const normalizePath = (value) => String(value || '').trim().toLowerCase();
+
+const resolveRequestSensitivity = (req = {}) => {
+    const method = String(req.method || 'GET').trim().toUpperCase();
+    const path = normalizePath(req.originalUrl || req.path || '');
+
+    if (!path || path.startsWith('/health')) return 'bypass';
+    if (path.startsWith('/api/auth/')) return 'bypass';
+    if (path.startsWith('/api/admin/')) return 'privileged';
+    if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) return 'standard';
+    if (path.startsWith('/api/payments/')) return 'sensitive';
+    if (path.startsWith('/api/orders/')) return 'sensitive';
+    if (path.startsWith('/api/listings/')) return 'sensitive';
+    if (path.startsWith('/api/support/') && path.includes('/video/')) return 'sensitive';
+    return 'standard';
+};
+
+const resolveTrustedDeviceMethod = (req = {}) => {
+    const sessionMethod = String(req.authSession?.deviceMethod || '').trim().toLowerCase();
+    if (sessionMethod === 'webauthn' || sessionMethod === 'browser_key') {
+        return sessionMethod;
+    }
+
+    const candidateDeviceId = String(
+        extractTrustedDeviceContext(req)?.deviceId
+        || req.authSession?.deviceId
+        || ''
+    ).trim();
+
+    if (!candidateDeviceId || !Array.isArray(req.user?.trustedDevices)) {
+        return '';
+    }
+
+    const registration = req.user.trustedDevices.find((entry) => String(entry?.deviceId || '').trim() === candidateDeviceId);
+    const registrationMethod = String(
+        registration?.method
+        || (registration?.webauthnCredentialIdBase64Url ? 'webauthn' : '')
+    ).trim().toLowerCase();
+
+    if (registrationMethod === 'webauthn' || registrationMethod === 'browser_key') {
+        return registrationMethod;
+    }
+
+    return '';
+};
+
+const hasCryptographicTrustedDeviceBinding = (req = {}) => {
+    const method = resolveTrustedDeviceMethod(req);
+    if (method !== 'webauthn' && method !== 'browser_key') {
+        return false;
+    }
+
+    return hasSessionTrustedDeviceBinding(req) || getTrustedDeviceSessionVerification(req).success;
+};
+
+const resolveAuthAgeSeconds = (req = {}) => {
+    const sessionAuthTime = Number(req.authSession?.authTimeSeconds || 0);
+    if (Number.isFinite(sessionAuthTime) && sessionAuthTime > 0) {
+        return Math.max(Math.floor(Date.now() / 1000) - sessionAuthTime, 0);
+    }
+
+    const tokenAuthTime = resolveAuthTimeSeconds(req.authToken);
+    return tokenAuthTime > 0
+        ? Math.max(Math.floor(Date.now() / 1000) - tokenAuthTime, 0)
+        : Number.POSITIVE_INFINITY;
+};
+
+const buildRequestPosture = (req = {}, options = {}) => {
+    const freshnessMinutes = parsePositiveIntEnv(
+        options?.freshnessMinutes,
+        SENSITIVE_ACTION_FRESH_LOGIN_MINUTES
+    );
+    const authAgeSeconds = resolveAuthAgeSeconds(req);
+    const deviceBound = hasSessionTrustedDeviceBinding(req) || getTrustedDeviceSessionVerification(req).success;
+    const cryptoBound = hasCryptographicTrustedDeviceBinding(req);
+    const riskState = String(
+        req.authSession?.riskState
+        || (req.user?.isAdmin ? 'privileged' : req.user?.isSeller ? 'heightened' : 'standard')
+    ).trim().toLowerCase() || 'standard';
+    const elevatedAssurance = Boolean(
+        hasOtpAssurance(req)
+        || hasSessionSecondFactor(req)
+        || req.authToken?.firebase?.sign_in_second_factor
+        || (String(req.authSession?.aal || '').trim().toLowerCase() === 'aal2')
+    );
+
+    return {
+        sensitivity: options?.sensitivity || resolveRequestSensitivity(req),
+        fresh: Number.isFinite(authAgeSeconds) && authAgeSeconds <= (freshnessMinutes * 60),
+        authAgeSeconds,
+        authFreshnessWindowSeconds: freshnessMinutes * 60,
+        deviceBound,
+        cryptoBound,
+        riskState,
+        riskHigh: riskState !== 'standard',
+        elevatedAssurance,
+        continuousAccess: Boolean(
+            Number.isFinite(authAgeSeconds)
+            && authAgeSeconds <= (freshnessMinutes * 60)
+            && deviceBound
+            && (riskState === 'standard' || elevatedAssurance)
+        ),
+    };
+};
+
+const getAdaptiveSecuritySignalForRequest = async (req = {}) => {
+    if (req._adaptiveSecuritySignal) {
+        return req._adaptiveSecuritySignal;
+    }
+
+    req._adaptiveSecuritySignal = AUTH_ADAPTIVE_SECURITY_ENABLED
+        ? await getCachedAdaptiveSecuritySignal()
+        : {
+            status: 'ok',
+            mode: 'standard',
+            degradedSignals: [],
+            restrictSensitiveActions: false,
+            requireStepUpForSensitiveActions: false,
+            evaluatedAt: new Date().toISOString(),
+            cacheState: 'disabled',
+        };
+
+    return req._adaptiveSecuritySignal;
+};
+
+const enforceContinuousAccessPosture = async (req) => {
+    const sensitivity = resolveRequestSensitivity(req);
+    if (sensitivity === 'bypass' || sensitivity === 'standard') {
+        req.authzPosture = buildRequestPosture(req, { sensitivity });
+        return;
+    }
+
+    const adaptiveSignal = await getAdaptiveSecuritySignalForRequest(req);
+    const freshnessMinutes = adaptiveSignal.requireStepUpForSensitiveActions
+        ? DEGRADED_ACTION_FRESH_LOGIN_MINUTES
+        : SENSITIVE_ACTION_FRESH_LOGIN_MINUTES;
+    const posture = buildRequestPosture(req, { sensitivity, freshnessMinutes });
+    req.authzPosture = {
+        ...posture,
+        adaptiveSecurity: adaptiveSignal,
+    };
+
+    if (adaptiveSignal.restrictSensitiveActions) {
+        logger.warn('auth.posture.blocked_system_restricted', {
+            requestId: req.requestId || '',
+            path: req.originalUrl,
+            sensitivity,
+            degradedSignals: adaptiveSignal.degradedSignals,
+        });
+        throw new AppError('Sensitive actions are temporarily restricted while platform dependencies recover.', 503);
+    }
+
+    if (!posture.fresh) {
+        throw new AppError(`Recent re-authentication required within ${freshnessMinutes} minutes for this action.`, 401);
+    }
+
+    if (!posture.deviceBound) {
+        throw new AppError('Trusted device verification required for this action.', 403);
+    }
+
+    if (REQUIRE_CRYPTO_DEVICE_FOR_SENSITIVE_ACTIONS && !posture.cryptoBound) {
+        throw new AppError('A cryptographically verified trusted device is required for this action.', 403);
+    }
+
+    if (posture.riskHigh && !posture.elevatedAssurance) {
+        throw new AppError('A stronger verified session is required for this action.', 403);
+    }
+
+    if (adaptiveSignal.requireStepUpForSensitiveActions && !posture.elevatedAssurance) {
+        throw new AppError('Sensitive actions require step-up verification while the system is degraded.', 403);
+    }
+};
+
 const buildSyntheticAuthTokenFromSession = (session = {}) => {
     const providerIds = Array.isArray(session?.providerIds)
         ? session.providerIds.map((providerId) => String(providerId || '').trim()).filter(Boolean)
@@ -426,6 +604,17 @@ const authenticateWithBrowserSession = async (req) => {
     return true;
 };
 
+const finalizeProtectedRequest = async (req, next) => {
+    if (AUTH_REQUIRE_OTP_FOR_ALL_PROTECTED) {
+        enforceOtpAssurance(req);
+    }
+    if (trustedDeviceFlags.authDeviceChallengeMode === 'always') {
+        enforceTrustedDevice(req);
+    }
+    await enforceContinuousAccessPosture(req);
+    return next();
+};
+
 const protect = asyncHandler(async (req, res, next) => {
     let token;
     const hasBearerAuthorization = Boolean(req.headers.authorization?.startsWith('Bearer '));
@@ -434,13 +623,7 @@ const protect = asyncHandler(async (req, res, next) => {
         try {
             const authenticatedWithSession = await authenticateWithBrowserSession(req);
             if (authenticatedWithSession) {
-                if (AUTH_REQUIRE_OTP_FOR_ALL_PROTECTED) {
-                    enforceOtpAssurance(req);
-                }
-                if (trustedDeviceFlags.authDeviceChallengeMode === 'always') {
-                    enforceTrustedDevice(req);
-                }
-                return next();
+                return finalizeProtectedRequest(req, next);
             }
         } catch (error) {
             if (error instanceof AppError) {
@@ -489,13 +672,7 @@ const protect = asyncHandler(async (req, res, next) => {
             if (cachedUser) {
                 enforceUserAccountAccess(cachedUser);
                 req.user = cachedUser;
-                if (AUTH_REQUIRE_OTP_FOR_ALL_PROTECTED) {
-                    enforceOtpAssurance(req);
-                }
-                if (trustedDeviceFlags.authDeviceChallengeMode === 'always') {
-                    enforceTrustedDevice(req);
-                }
-                return next();
+                return finalizeProtectedRequest(req, next);
             }
 
             // ── Step 3: Lean MongoDB query with projection ──────────
@@ -514,13 +691,7 @@ const protect = asyncHandler(async (req, res, next) => {
                 enforceUserAccountAccess(bootstrappedUser);
                 await setCachedUser(uid, bootstrappedUser, exp);
                 req.user = bootstrappedUser;
-                if (AUTH_REQUIRE_OTP_FOR_ALL_PROTECTED) {
-                    enforceOtpAssurance(req);
-                }
-                if (trustedDeviceFlags.authDeviceChallengeMode === 'always') {
-                    enforceTrustedDevice(req);
-                }
-                return next();
+                return finalizeProtectedRequest(req, next);
             }
 
             // ── Step 4: Write to Redis cache for subsequent requests ──────
@@ -528,13 +699,7 @@ const protect = asyncHandler(async (req, res, next) => {
             await setCachedUser(uid, user, exp);
 
             req.user = user;
-            if (AUTH_REQUIRE_OTP_FOR_ALL_PROTECTED) {
-                enforceOtpAssurance(req);
-            }
-            if (trustedDeviceFlags.authDeviceChallengeMode === 'always') {
-                enforceTrustedDevice(req);
-            }
-            next();
+            return finalizeProtectedRequest(req, next);
         } catch (error) {
             if (error instanceof AppError) throw error;
             logger.error('auth.verify_failed', { error: error.message });
