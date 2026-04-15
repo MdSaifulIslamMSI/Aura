@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const dotenv = require('dotenv');
 
-const DEFAULT_AZURE_SECRET_KEYS = [
+const DEFAULT_AWS_PARAMETER_KEYS = [
     'MONGO_URI',
     'REDIS_URL',
     'FIREBASE_SERVICE_ACCOUNT',
@@ -33,21 +33,20 @@ const DEFAULT_AZURE_SECRET_KEYS = [
     'ELEVENLABS_API_KEY',
     'LIVEKIT_API_KEY',
     'LIVEKIT_API_SECRET',
-    'AZURE_STORAGE_CONNECTION_STRING',
     'AI_INTERNAL_AUTH_SECRET',
     'AI_INTERNAL_AUTH_PREVIOUS_SECRETS',
     'AI_INTERNAL_TOOL_SECRET',
 ];
 
 let localEnvLoaded = false;
-let azureSecretsPrimed = false;
-let azurePrimeResult = {
+let runtimeSecretsPrimed = false;
+let runtimePrimeResult = {
     enabled: false,
     source: 'local_env_only',
     loadedKeys: [],
     skippedKeys: [],
-    keyVaultUrl: '',
-    keyVaultName: '',
+    region: '',
+    pathPrefix: '',
 };
 
 const safeString = (value, fallback = '') => String(value === undefined || value === null ? fallback : value).trim();
@@ -82,7 +81,7 @@ const loadLocalEnvFiles = () => {
     const serverRoot = getServerRoot();
     const envCandidates = [
         path.join(serverRoot, '.env.local'),
-        path.join(serverRoot, '.env.azure-secrets'),
+        path.join(serverRoot, '.env.aws-secrets'),
         path.join(serverRoot, '.env'),
     ];
 
@@ -94,119 +93,115 @@ const loadLocalEnvFiles = () => {
     };
 };
 
-const resolveKeyVaultUrl = () => {
-    const explicitUrl = safeString(process.env.AZURE_KEY_VAULT_URL || '');
-    if (explicitUrl) return explicitUrl.replace(/\/+$/, '');
+const resolveParameterStoreRegion = () => safeString(process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || '');
 
-    const vaultName = safeString(process.env.AZURE_KEY_VAULT_NAME || '');
-    if (!vaultName) return '';
-    return `https://${vaultName}.vault.azure.net`;
-};
+const resolveParameterStorePathPrefix = () => safeString(process.env.AWS_PARAMETER_STORE_PATH_PREFIX || '')
+    .replace(/^\/+/, '')
+    .replace(/\/+$/, '');
 
-const resolveSecretMap = () => {
-    const raw = safeString(process.env.AZURE_KEY_VAULT_SECRET_MAP || '');
+const resolveParameterStoreSecretMap = () => {
+    const raw = safeString(process.env.AWS_PARAMETER_STORE_SECRET_MAP || '');
     if (!raw) return {};
 
     try {
         const parsed = JSON.parse(raw);
         return parsed && typeof parsed === 'object' ? parsed : {};
     } catch (error) {
-        throw new Error(`azure_key_vault_secret_map_invalid:${error.message}`);
+        throw new Error(`aws_parameter_store_secret_map_invalid:${error.message}`);
     }
 };
 
-const resolveSecretKeys = () => uniq([
-    ...DEFAULT_AZURE_SECRET_KEYS,
-    ...safeString(process.env.AZURE_KEY_VAULT_SECRET_KEYS || '').split(','),
+const resolveParameterStoreSecretKeys = () => uniq([
+    ...DEFAULT_AWS_PARAMETER_KEYS,
+    ...safeString(process.env.AWS_PARAMETER_STORE_SECRET_KEYS || '').split(','),
 ]);
 
-const resolveSecretNameForEnv = (envName = '', secretMap = {}) => {
+const resolveParameterNameForEnv = (envName = '', secretMap = {}) => {
     const normalizedEnvName = safeString(envName);
     if (!normalizedEnvName) return '';
     if (safeString(secretMap[normalizedEnvName])) {
         return safeString(secretMap[normalizedEnvName]);
     }
-    return normalizedEnvName.toLowerCase().replace(/_/g, '-');
+    return normalizedEnvName;
 };
 
-const isKeyVaultReferencePlaceholder = (value = '') => {
+const isParameterStoreReferencePlaceholder = (value = '') => {
     const normalized = safeString(value);
     if (!normalized) return false;
-    return normalized.startsWith('@Microsoft.KeyVault(') || normalized.startsWith('kv:');
+    return normalized.toLowerCase().startsWith('ssm:');
 };
 
 const shouldResolveSecretValue = (value = '') => {
     const normalized = safeString(value);
     if (!normalized) return true;
-    return isKeyVaultReferencePlaceholder(normalized);
+    return isParameterStoreReferencePlaceholder(normalized);
 };
 
-const parseExplicitSecretReference = (value = '', fallbackSecretName = '') => {
+const parseExplicitParameterReference = (value = '', fallbackParameterName = '') => {
     const normalized = safeString(value);
-    if (!normalized) return fallbackSecretName;
+    if (!normalized) return fallbackParameterName;
 
-    if (normalized.startsWith('kv:')) {
-        return safeString(normalized.slice(3), fallbackSecretName);
+    if (normalized.toLowerCase().startsWith('ssm:')) {
+        return safeString(normalized.slice(4), fallbackParameterName);
     }
 
-    const keyVaultMatch = normalized.match(/SecretName=([^;)]+)/i);
-    if (keyVaultMatch?.[1]) {
-        return safeString(keyVaultMatch[1], fallbackSecretName);
-    }
-
-    return fallbackSecretName;
+    return fallbackParameterName;
 };
 
-const primeAzureKeyVaultEnv = async ({ logger = console } = {}) => {
+const resolveParameterPath = (parameterName = '', pathPrefix = '') => {
+    const normalizedParameterName = safeString(parameterName);
+    if (!normalizedParameterName) return '';
+    if (normalizedParameterName.startsWith('/')) {
+        return normalizedParameterName;
+    }
+
+    const normalizedPrefix = safeString(pathPrefix)
+        .replace(/^\/+/, '')
+        .replace(/\/+$/, '');
+    if (!normalizedPrefix) {
+        return `/${normalizedParameterName}`;
+    }
+
+    return `/${normalizedPrefix}/${normalizedParameterName}`;
+};
+
+const primeAwsParameterStoreEnv = async ({ logger = console } = {}) => {
     loadLocalEnvFiles();
 
-    if (azureSecretsPrimed) {
-        return azurePrimeResult;
+    if (runtimeSecretsPrimed) {
+        return runtimePrimeResult;
     }
 
-    const explicitKeyVaultFlag = safeString(process.env.AZURE_KEY_VAULT_ENABLED || '');
-    const keyVaultEnabled = explicitKeyVaultFlag
-        ? parseBoolean(explicitKeyVaultFlag, false)
-        : Boolean(resolveKeyVaultUrl());
+    const pathPrefix = resolveParameterStorePathPrefix();
+    const region = resolveParameterStoreRegion();
+    const explicitParameterStoreFlag = safeString(process.env.AWS_PARAMETER_STORE_ENABLED || '');
+    const parameterStoreEnabled = explicitParameterStoreFlag
+        ? parseBoolean(explicitParameterStoreFlag, false)
+        : Boolean(pathPrefix);
 
-    if (!keyVaultEnabled) {
-        azureSecretsPrimed = true;
-        azurePrimeResult = {
+    if (!parameterStoreEnabled) {
+        runtimeSecretsPrimed = true;
+        runtimePrimeResult = {
             enabled: false,
             source: 'local_env_only',
             loadedKeys: [],
             skippedKeys: [],
-            keyVaultUrl: '',
-            keyVaultName: safeString(process.env.AZURE_KEY_VAULT_NAME || ''),
+            region,
+            pathPrefix,
         };
-        return azurePrimeResult;
+        return runtimePrimeResult;
     }
 
-    const keyVaultUrl = resolveKeyVaultUrl();
-    if (!keyVaultUrl) {
-        throw new Error('azure_key_vault_url_missing');
+    if (!region) {
+        throw new Error('aws_parameter_store_region_missing');
     }
 
-    const { DefaultAzureCredential } = require('@azure/identity');
-    const { SecretClient } = require('@azure/keyvault-secrets');
+    const { SSMClient, GetParametersCommand } = require('@aws-sdk/client-ssm');
 
-    const secretMap = resolveSecretMap();
-    const credentialOptions = {};
-    const managedIdentityClientId = safeString(
-        process.env.AZURE_KEY_VAULT_CLIENT_ID
-        || process.env.AZURE_MANAGED_IDENTITY_CLIENT_ID
-        || process.env.AZURE_CLIENT_ID
-        || ''
-    );
-    if (managedIdentityClientId) {
-        credentialOptions.managedIdentityClientId = managedIdentityClientId;
-    }
-
-    const credential = new DefaultAzureCredential(credentialOptions);
-    const client = new SecretClient(keyVaultUrl, credential);
-    const loadedKeys = [];
+    const secretMap = resolveParameterStoreSecretMap();
+    const secretKeys = resolveParameterStoreSecretKeys();
+    const envToParameterPath = new Map();
     const skippedKeys = [];
-    const secretKeys = resolveSecretKeys();
 
     for (const envName of secretKeys) {
         const currentValue = safeString(process.env[envName] || '');
@@ -215,61 +210,99 @@ const primeAzureKeyVaultEnv = async ({ logger = console } = {}) => {
             continue;
         }
 
-        const inferredSecretName = resolveSecretNameForEnv(envName, secretMap);
-        const secretName = parseExplicitSecretReference(currentValue, inferredSecretName);
-        if (!secretName) {
+        const inferredParameterName = resolveParameterNameForEnv(envName, secretMap);
+        const parameterName = parseExplicitParameterReference(currentValue, inferredParameterName);
+        const parameterPath = resolveParameterPath(parameterName, pathPrefix);
+        if (!parameterPath) {
             skippedKeys.push(envName);
             continue;
         }
 
-        const secret = await client.getSecret(secretName);
-        const secretValue = safeString(secret?.value || '');
-        if (!secretValue) {
+        envToParameterPath.set(envName, parameterPath);
+    }
+
+    const client = new SSMClient({ region });
+    const parameterValueByName = new Map();
+    const invalidParameters = new Set();
+    const parameterPaths = [...new Set(envToParameterPath.values())];
+
+    for (let index = 0; index < parameterPaths.length; index += 10) {
+        const batch = parameterPaths.slice(index, index + 10);
+        if (batch.length === 0) {
+            continue;
+        }
+
+        const response = await client.send(new GetParametersCommand({
+            Names: batch,
+            WithDecryption: true,
+        }));
+
+        for (const parameter of response.Parameters || []) {
+            parameterValueByName.set(String(parameter.Name || ''), safeString(parameter.Value || ''));
+        }
+
+        for (const invalidName of response.InvalidParameters || []) {
+            invalidParameters.add(String(invalidName || ''));
+        }
+    }
+
+    const loadedKeys = [];
+    for (const [envName, parameterPath] of envToParameterPath.entries()) {
+        if (invalidParameters.has(parameterPath)) {
             skippedKeys.push(envName);
             continue;
         }
 
-        process.env[envName] = secretValue;
+        const parameterValue = safeString(parameterValueByName.get(parameterPath) || '');
+        if (!parameterValue) {
+            skippedKeys.push(envName);
+            continue;
+        }
+
+        process.env[envName] = parameterValue;
         loadedKeys.push(envName);
     }
 
-    azureSecretsPrimed = true;
-    azurePrimeResult = {
+    runtimeSecretsPrimed = true;
+    runtimePrimeResult = {
         enabled: true,
-        source: 'azure_key_vault',
+        source: 'aws_parameter_store',
         loadedKeys,
-        skippedKeys,
-        keyVaultUrl,
-        keyVaultName: safeString(process.env.AZURE_KEY_VAULT_NAME || ''),
+        skippedKeys: uniq(skippedKeys),
+        region,
+        pathPrefix,
     };
 
-    logger?.info?.('runtime.azure_key_vault_primed', {
-        source: azurePrimeResult.source,
-        keyVaultUrl,
+    logger?.info?.('runtime.aws_parameter_store_primed', {
+        source: runtimePrimeResult.source,
+        region,
+        pathPrefix,
         loadedKeyCount: loadedKeys.length,
-        skippedKeyCount: skippedKeys.length,
+        skippedKeyCount: runtimePrimeResult.skippedKeys.length,
     });
 
-    return azurePrimeResult;
+    return runtimePrimeResult;
 };
 
-const getAzureKeyVaultBootstrapState = () => ({
-    ...azurePrimeResult,
-    enabled: Boolean(azurePrimeResult.enabled),
+const getRuntimeSecretBootstrapState = () => ({
+    ...runtimePrimeResult,
+    enabled: Boolean(runtimePrimeResult.enabled),
 });
 
 module.exports = {
-    DEFAULT_AZURE_SECRET_KEYS,
-    getAzureKeyVaultBootstrapState,
+    DEFAULT_AWS_PARAMETER_KEYS,
+    getRuntimeSecretBootstrapState,
     loadLocalEnvFiles,
-    primeAzureKeyVaultEnv,
+    primeAwsParameterStoreEnv,
     __testables: {
-        isKeyVaultReferencePlaceholder,
-        parseExplicitSecretReference,
-        resolveKeyVaultUrl,
-        resolveSecretKeys,
-        resolveSecretMap,
-        resolveSecretNameForEnv,
+        isParameterStoreReferencePlaceholder,
+        parseExplicitParameterReference,
+        resolveParameterNameForEnv,
+        resolveParameterPath,
+        resolveParameterStorePathPrefix,
+        resolveParameterStoreSecretKeys,
+        resolveParameterStoreSecretMap,
+        resolveParameterStoreRegion,
         shouldResolveSecretValue,
     },
 };

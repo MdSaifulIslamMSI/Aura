@@ -1,8 +1,41 @@
-jest.mock('@azure/storage-blob', () => ({
-    BlobServiceClient: {
-        fromConnectionString: jest.fn(),
-    },
-}));
+const mockSend = jest.fn();
+
+jest.mock('@aws-sdk/client-s3', () => {
+    class HeadBucketCommand {
+        constructor(input) {
+            this.input = input;
+        }
+    }
+
+    class PutObjectCommand {
+        constructor(input) {
+            this.input = input;
+        }
+    }
+
+    class GetObjectCommand {
+        constructor(input) {
+            this.input = input;
+        }
+    }
+
+    class S3Client {
+        constructor(config) {
+            this.config = config;
+        }
+
+        send(command) {
+            return mockSend(command);
+        }
+    }
+
+    return {
+        GetObjectCommand,
+        HeadBucketCommand,
+        PutObjectCommand,
+        S3Client,
+    };
+});
 
 describe('reviewMediaStorageService', () => {
     const ORIGINAL_ENV = { ...process.env };
@@ -10,6 +43,7 @@ describe('reviewMediaStorageService', () => {
     beforeEach(() => {
         jest.resetModules();
         jest.clearAllMocks();
+        mockSend.mockReset();
         process.env = { ...ORIGINAL_ENV };
     });
 
@@ -24,21 +58,20 @@ describe('reviewMediaStorageService', () => {
         expect(service.getStorageDriver()).toBe('local');
     });
 
-    test('stores media in Azure Blob when azure-blob driver is enabled', async () => {
-        process.env.UPLOAD_STORAGE_DRIVER = 'azure-blob';
-        process.env.AZURE_STORAGE_CONNECTION_STRING = 'UseDevelopmentStorage=true';
-        process.env.AZURE_STORAGE_CONTAINER_NAME = 'review-media';
-        const { BlobServiceClient } = require('@azure/storage-blob');
+    test('stores media in S3 when s3 driver is enabled', async () => {
+        process.env.UPLOAD_STORAGE_DRIVER = 's3';
+        process.env.AWS_REGION = 'ap-south-1';
+        process.env.AWS_S3_REVIEW_BUCKET = 'aura-review-media';
 
-        const uploadData = jest.fn().mockResolvedValue(undefined);
-        const createIfNotExists = jest.fn().mockResolvedValue(undefined);
-        const getBlockBlobClient = jest.fn().mockReturnValue({ uploadData });
-        const getContainerClient = jest.fn().mockReturnValue({
-            createIfNotExists,
-            getBlockBlobClient,
-        });
-        BlobServiceClient.fromConnectionString.mockReturnValue({
-            getContainerClient,
+        const { HeadBucketCommand, PutObjectCommand } = require('@aws-sdk/client-s3');
+        mockSend.mockImplementation((command) => {
+            if (command instanceof HeadBucketCommand) {
+                return Promise.resolve({});
+            }
+            if (command instanceof PutObjectCommand) {
+                return Promise.resolve({});
+            }
+            return Promise.reject(new Error(`Unexpected command: ${command?.constructor?.name || 'unknown'}`));
         });
 
         const service = require('../services/reviewMediaStorageService');
@@ -48,12 +81,18 @@ describe('reviewMediaStorageService', () => {
             mimeType: 'image/png',
         });
 
-        expect(service.getStorageDriver()).toBe('azure-blob');
-        expect(BlobServiceClient.fromConnectionString).toHaveBeenCalledWith('UseDevelopmentStorage=true');
-        expect(getContainerClient).toHaveBeenCalledWith('review-media');
-        expect(createIfNotExists).toHaveBeenCalled();
-        expect(uploadData).toHaveBeenCalled();
-        expect(result.storageDriver).toBe('azure-blob');
+        expect(service.getStorageDriver()).toBe('s3');
+        expect(mockSend).toHaveBeenCalledTimes(2);
+        expect(mockSend.mock.calls[0][0].input).toEqual({
+            Bucket: 'aura-review-media',
+        });
+        expect(mockSend.mock.calls[1][0].input).toMatchObject({
+            Bucket: 'aura-review-media',
+            Key: expect.stringMatching(/^review-media\//),
+            ContentType: 'image/png',
+            CacheControl: 'public, max-age=31536000, immutable',
+        });
+        expect(result.storageDriver).toBe('s3');
         expect(result.url).toMatch(/^\/uploads\/reviews\//);
     });
 });

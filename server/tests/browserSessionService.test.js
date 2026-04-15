@@ -218,7 +218,7 @@ describe('browserSessionService', () => {
         const nowSeconds = Math.floor(Date.now() / 1000);
         const req = {
             headers: {
-                host: 'aura-msi-api-ca.wittycliff-f743de69.southeastasia.azurecontainerapps.io',
+                host: 'api.aura-aws.internal',
                 origin: 'http://localhost:4173',
                 'x-forwarded-proto': 'https',
             },
@@ -286,7 +286,7 @@ describe('browserSessionService', () => {
         const nowSeconds = Math.floor(Date.now() / 1000);
         const req = {
             headers: {
-                host: 'aura-msi-api-ca.wittycliff-f743de69.southeastasia.azurecontainerapps.io',
+                host: 'api.aura-aws.internal',
                 origin: 'https://aurapilot.vercel.app',
                 'x-forwarded-proto': 'https',
             },

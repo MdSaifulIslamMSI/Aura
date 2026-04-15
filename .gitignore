@@ -9,17 +9,16 @@ node_modules/
 **/.env.local
 **/.env.production
 **/.env.*.local
-server/.env.azure-secrets
-server/.env.azure-secrets.*
-!server/.env.azure-secrets.example
-infra/azure/github-oidc.env
+server/.env.aws-secrets
+server/.env.aws-secrets.*
+!server/.env.aws-secrets.example
+infra/aws/github-oidc.env
 app/.env.vercel.preview
 
 # Build outputs
 dist/
 build/
 .vite/
-.azure-image-tag
 
 # IDE
 .vscode/

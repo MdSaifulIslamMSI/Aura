@@ -1,20 +1,25 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { BlobServiceClient } = require('@azure/storage-blob');
+const {
+    GetObjectCommand,
+    HeadBucketCommand,
+    PutObjectCommand,
+    S3Client,
+} = require('@aws-sdk/client-s3');
 
 const REVIEW_UPLOAD_DIR = path.resolve(
     process.env.REVIEW_UPLOAD_DIR
     || path.join(__dirname, '..', 'uploads', 'reviews')
 );
-const AZURE_STORAGE_CONTAINER_NAME = String(
-    process.env.AZURE_STORAGE_CONTAINER_NAME
-    || 'review-media'
-).trim();
-const AZURE_STORAGE_CONNECTION_STRING = String(
-    process.env.AZURE_STORAGE_CONNECTION_STRING
+const AWS_S3_REVIEW_BUCKET = String(
+    process.env.AWS_S3_REVIEW_BUCKET
     || ''
 ).trim();
+const AWS_S3_REVIEW_PREFIX = String(
+    process.env.AWS_S3_REVIEW_PREFIX
+    || 'review-media'
+).trim().replace(/^\/+|\/+$/g, '');
 
 const MIME_EXTENSION_MAP = {
     'image/jpeg': '.jpg',
@@ -29,35 +34,45 @@ const EXTENSION_MIME_MAP = Object.fromEntries(
     Object.entries(MIME_EXTENSION_MAP).map(([mimeType, extension]) => [extension, mimeType])
 );
 
-let blobContainerClientPromise = null;
+let s3Client = null;
+let s3BucketReadyPromise = null;
 
 const getStorageDriver = () => {
     const normalized = String(process.env.UPLOAD_STORAGE_DRIVER || 'local').trim().toLowerCase();
-    return normalized === 'azure-blob' ? 'azure-blob' : 'local';
+    return normalized === 's3' ? 's3' : 'local';
+};
+
+const getAwsRegion = () => String(process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || '').trim();
+
+const getS3Client = () => {
+    if (s3Client) {
+        return s3Client;
+    }
+
+    const region = getAwsRegion();
+    if (!region) {
+        throw new Error('AWS_REGION is required when UPLOAD_STORAGE_DRIVER=s3');
+    }
+
+    const endpoint = String(process.env.AWS_S3_ENDPOINT || '').trim();
+    const forcePathStyle = ['1', 'true', 'yes', 'on'].includes(
+        String(process.env.AWS_S3_FORCE_PATH_STYLE || '').trim().toLowerCase()
+    );
+
+    const clientOptions = { region };
+    if (endpoint) {
+        clientOptions.endpoint = endpoint;
+    }
+    if (forcePathStyle) {
+        clientOptions.forcePathStyle = true;
+    }
+
+    s3Client = new S3Client(clientOptions);
+    return s3Client;
 };
 
 const ensureLocalStorageReady = async () => {
     await fs.promises.mkdir(REVIEW_UPLOAD_DIR, { recursive: true });
-};
-
-const getAzureBlobContainerClient = async () => {
-    if (blobContainerClientPromise) {
-        return blobContainerClientPromise;
-    }
-
-    if (!AZURE_STORAGE_CONNECTION_STRING) {
-        throw new Error('AZURE_STORAGE_CONNECTION_STRING is required when UPLOAD_STORAGE_DRIVER=azure-blob');
-    }
-
-    blobContainerClientPromise = Promise.resolve().then(async () => {
-        const blobServiceClient = BlobServiceClient.fromConnectionString(AZURE_STORAGE_CONNECTION_STRING);
-        return blobServiceClient.getContainerClient(AZURE_STORAGE_CONTAINER_NAME);
-    }).catch((error) => {
-        blobContainerClientPromise = null;
-        throw error;
-    });
-
-    return blobContainerClientPromise;
 };
 
 const sanitizeObjectKeySegment = (value) => String(value || '')
@@ -84,8 +99,19 @@ const encodeUrlPath = (value) => String(value || '')
 
 const buildReviewMediaStorageKey = (relativePath = '') => String(relativePath || '').replace(/^\/+|\/+$/g, '');
 
+const buildS3ObjectKey = (fileName = '') => {
+    const safeFileName = path.basename(String(fileName || '').trim());
+    if (!safeFileName) {
+        return '';
+    }
+    if (!AWS_S3_REVIEW_PREFIX) {
+        return safeFileName;
+    }
+    return `${AWS_S3_REVIEW_PREFIX}/${safeFileName}`;
+};
+
 const buildPublicUrl = (storageDriver, storageKey) => {
-    if (!['local', 'azure-blob'].includes(storageDriver)) {
+    if (!['local', 's3'].includes(storageDriver)) {
         throw new Error(`Unsupported storage driver: ${storageDriver}`);
     }
     return `/uploads/reviews/${encodeUrlPath(path.basename(storageKey))}`;
@@ -103,34 +129,49 @@ const storeReviewMediaLocally = async ({ fileBuffer, fileName }) => {
     };
 };
 
-const ensureAzureBlobStorageReady = async () => {
-    const containerClient = await getAzureBlobContainerClient();
-    await containerClient.createIfNotExists({
-        access: undefined,
+const ensureS3StorageReady = async () => {
+    if (s3BucketReadyPromise) {
+        return s3BucketReadyPromise;
+    }
+
+    if (!AWS_S3_REVIEW_BUCKET) {
+        throw new Error('AWS_S3_REVIEW_BUCKET is required when UPLOAD_STORAGE_DRIVER=s3');
+    }
+
+    s3BucketReadyPromise = Promise.resolve().then(async () => {
+        const client = getS3Client();
+        await client.send(new HeadBucketCommand({
+            Bucket: AWS_S3_REVIEW_BUCKET,
+        }));
+    }).catch((error) => {
+        s3BucketReadyPromise = null;
+        throw error;
     });
+
+    return s3BucketReadyPromise;
 };
 
-const storeReviewMediaInAzureBlob = async ({ fileBuffer, fileName, mimeType }) => {
-    await ensureAzureBlobStorageReady();
-    const containerClient = await getAzureBlobContainerClient();
-    const blobClient = containerClient.getBlockBlobClient(fileName);
-    await blobClient.uploadData(fileBuffer, {
-        blobHTTPHeaders: {
-            blobContentType: mimeType || undefined,
-            blobCacheControl: 'public, max-age=31536000, immutable',
-        },
-    });
+const storeReviewMediaInS3 = async ({ fileBuffer, fileName, mimeType }) => {
+    await ensureS3StorageReady();
+    const client = getS3Client();
+    await client.send(new PutObjectCommand({
+        Bucket: AWS_S3_REVIEW_BUCKET,
+        Key: buildS3ObjectKey(fileName),
+        Body: fileBuffer,
+        ContentType: mimeType || undefined,
+        CacheControl: 'public, max-age=31536000, immutable',
+    }));
 
     return {
-        storageDriver: 'azure-blob',
+        storageDriver: 's3',
         storageKey: fileName,
-        url: buildPublicUrl('azure-blob', fileName),
+        url: buildPublicUrl('s3', fileName),
     };
 };
 
 const ensureReviewUploadStorageReady = async () => {
-    if (getStorageDriver() === 'azure-blob') {
-        await ensureAzureBlobStorageReady();
+    if (getStorageDriver() === 's3') {
+        await ensureS3StorageReady();
         return;
     }
     await ensureLocalStorageReady();
@@ -141,8 +182,8 @@ const storeReviewMedia = async ({ fileBuffer, fileName, mimeType }) => {
     const normalizedFileName = sanitizeObjectKeySegment(fileName || 'review-media');
     const storedFileName = buildStoredFileName(normalizedFileName, normalizedMimeType);
 
-    if (getStorageDriver() === 'azure-blob') {
-        return storeReviewMediaInAzureBlob({
+    if (getStorageDriver() === 's3') {
+        return storeReviewMediaInS3({
             fileBuffer,
             fileName: storedFileName,
             mimeType: normalizedMimeType,
@@ -163,21 +204,27 @@ const getReviewMediaObject = async ({ storageKey }) => {
         throw missingError;
     }
 
-    if (getStorageDriver() === 'azure-blob') {
-        const containerClient = await getAzureBlobContainerClient();
-        const blobClient = containerClient.getBlobClient(path.basename(safeStorageKey));
+    if (getStorageDriver() === 's3') {
+        const client = getS3Client();
         try {
-            const downloadResponse = await blobClient.download();
+            const downloadResponse = await client.send(new GetObjectCommand({
+                Bucket: AWS_S3_REVIEW_BUCKET,
+                Key: buildS3ObjectKey(path.basename(safeStorageKey)),
+            }));
             return {
-                body: downloadResponse.readableStreamBody,
-                contentType: downloadResponse.contentType || '',
-                cacheControl: downloadResponse.cacheControl || 'public, max-age=31536000, immutable',
-                contentLength: Number(downloadResponse.contentLength || 0),
-                etag: String(downloadResponse.etag || ''),
-                lastModified: downloadResponse.lastModified || null,
+                body: downloadResponse.Body,
+                contentType: downloadResponse.ContentType || '',
+                cacheControl: downloadResponse.CacheControl || 'public, max-age=31536000, immutable',
+                contentLength: Number(downloadResponse.ContentLength || 0),
+                etag: String(downloadResponse.ETag || ''),
+                lastModified: downloadResponse.LastModified || null,
             };
         } catch (error) {
-            if (Number(error?.statusCode || 0) === 404) {
+            if (
+                Number(error?.$metadata?.httpStatusCode || 0) === 404
+                || error?.name === 'NotFound'
+                || error?.name === 'NoSuchKey'
+            ) {
                 error.code = 404;
             }
             throw error;

@@ -136,7 +136,7 @@ jobs:
           TEST_FALLBACK_TO_IN_MEMORY_MONGO: 'false'
           NODE_ENV: test
 
-  azure-runtime-contract:
+  aws-runtime-contract:
     runs-on: ubuntu-latest
 
     steps:
@@ -147,23 +147,8 @@ jobs:
         with:
           node-version: 24.x
 
-      - name: Audit Key Vault secret coverage
-        run: node server/scripts/audit_keyvault_secret_contract.js
-
-      - name: Validate Azure runtime templates with the current env contract
-        shell: pwsh
-        run: |
-          & ".\\infra\\azure\\sync-containerapps-runtime.ps1" `
-            -SourceEnvFile ".\\server\\.env.azure-secrets.example" `
-            -DryRun `
-            -PlanOutputPath "${{ runner.temp }}\\azure-runtime-plan.json"
-
-      - name: Upload Azure runtime plan
-        uses: actions/upload-artifact@v4
-        with:
-          name: azure-runtime-plan
-          path: ${{ runner.temp }}/azure-runtime-plan.json
-          retention-days: 7
+      - name: Audit AWS Parameter Store secret coverage
+        run: node server/scripts/audit_parameter_store_secret_contract.js
 
   backend-container-smoke:
     runs-on: ubuntu-latest
