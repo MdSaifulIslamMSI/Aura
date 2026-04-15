@@ -2,7 +2,6 @@ const fs = require('fs');
 const path = require('path');
 
 const serverRoot = path.resolve(__dirname, '..');
-const repoRoot = path.resolve(serverRoot, '..');
 
 const RUNTIME_DIRECTORIES = [
     path.join(serverRoot, 'config'),
@@ -19,7 +18,7 @@ const RUNTIME_FILES = [
     path.join(serverRoot, 'workerProcess.js'),
 ];
 
-const DEFAULT_AZURE_SECRET_KEYS = [
+const DEFAULT_AWS_PARAMETER_KEYS = [
     'MONGO_URI',
     'REDIS_URL',
     'FIREBASE_SERVICE_ACCOUNT',
@@ -50,14 +49,13 @@ const DEFAULT_AZURE_SECRET_KEYS = [
     'ELEVENLABS_API_KEY',
     'LIVEKIT_API_KEY',
     'LIVEKIT_API_SECRET',
-    'AZURE_STORAGE_CONNECTION_STRING',
     'AI_INTERNAL_AUTH_SECRET',
     'AI_INTERNAL_AUTH_PREVIOUS_SECRETS',
     'AI_INTERNAL_TOOL_SECRET',
 ];
 
 const EXPLICIT_SECRET_NAMES = new Set([
-    ...DEFAULT_AZURE_SECRET_KEYS,
+    ...DEFAULT_AWS_PARAMETER_KEYS,
 ]);
 
 const NON_SECRET_RUNTIME_ENV_NAMES = new Set([
@@ -152,8 +150,8 @@ const parseEnvFile = (filePath) => {
     return entries;
 };
 
-const parseAzureKeyListFromEnvExample = (envEntries) => {
-    const secretKeys = envEntries.get('AZURE_KEY_VAULT_SECRET_KEYS') || '';
+const parseAwsKeyListFromEnvExample = (envEntries) => {
+    const secretKeys = envEntries.get('AWS_PARAMETER_STORE_SECRET_KEYS') || '';
     return new Set(
         String(secretKeys)
             .split(',')
@@ -162,46 +160,19 @@ const parseAzureKeyListFromEnvExample = (envEntries) => {
     );
 };
 
-const parseKeyVaultMapEnvVars = (filePath) => {
-    const json = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-    const envVars = new Set();
-
-    for (const section of Object.values(json)) {
-        for (const secret of Object.values(section || {})) {
-            for (const envVar of secret.envVars || []) {
-                envVars.add(String(envVar));
-            }
-        }
-    }
-
-    return envVars;
-};
-
-const toSortedArray = (values) => [...values].sort();
-
 const runtimeEnvNames = extractRuntimeEnvNames();
 const runtimeSecretEnvNames = runtimeEnvNames.filter(isSecretLikeEnvName);
 
 const envExampleEntries = parseEnvFile(path.join(serverRoot, '.env.example'));
-const azureSecretsExampleEntries = parseEnvFile(path.join(serverRoot, '.env.azure-secrets.example'));
-const apiTemplateEntries = parseEnvFile(path.join(repoRoot, 'infra', 'azure', 'server-api.appsettings.example.env'));
-const workerTemplateEntries = parseEnvFile(path.join(repoRoot, 'infra', 'azure', 'server-worker.appsettings.example.env'));
-const mappedKeyVaultEnvVars = parseKeyVaultMapEnvVars(path.join(repoRoot, 'infra', 'azure', 'keyvault-secret-map.example.json'));
-const azureKeyList = parseAzureKeyListFromEnvExample(envExampleEntries);
-
-const templateEnvVars = new Set([
-    ...apiTemplateEntries.keys(),
-    ...workerTemplateEntries.keys(),
-]);
+const awsSecretsExampleEntries = parseEnvFile(path.join(serverRoot, '.env.aws-secrets.example'));
+const awsKeyList = parseAwsKeyListFromEnvExample(envExampleEntries);
 
 const report = {
     runtimeSecretEnvVars: runtimeSecretEnvNames,
     missingFromEnvExample: runtimeSecretEnvNames.filter((name) => !envExampleEntries.has(name)),
-    missingFromAzureSecretsExample: runtimeSecretEnvNames.filter((name) => !azureSecretsExampleEntries.has(name)),
-    missingFromAzureKeyVaultSecretKeys: runtimeSecretEnvNames.filter((name) => !azureKeyList.has(name)),
-    missingFromKeyVaultMap: runtimeSecretEnvNames.filter((name) => !mappedKeyVaultEnvVars.has(name)),
-    missingFromAzureTemplates: runtimeSecretEnvNames.filter((name) => !templateEnvVars.has(name)),
-    missingFromRuntimeBootstrapDefaults: runtimeSecretEnvNames.filter((name) => !DEFAULT_AZURE_SECRET_KEYS.includes(name)),
+    missingFromAwsSecretsExample: runtimeSecretEnvNames.filter((name) => !awsSecretsExampleEntries.has(name)),
+    missingFromAwsParameterStoreSecretKeys: runtimeSecretEnvNames.filter((name) => !awsKeyList.has(name)),
+    missingFromRuntimeBootstrapDefaults: runtimeSecretEnvNames.filter((name) => !DEFAULT_AWS_PARAMETER_KEYS.includes(name)),
 };
 
 const failureCount = Object.entries(report)

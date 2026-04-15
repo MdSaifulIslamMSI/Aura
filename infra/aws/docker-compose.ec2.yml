@@ -1,0 +1,47 @@
+services:
+  api:
+    image: ${AURA_BACKEND_IMAGE:?AURA_BACKEND_IMAGE is required}
+    restart: unless-stopped
+    command: ["node", "scripts/start_api_runtime.js"]
+    env_file:
+      - /opt/aura/shared/base.env
+      - /opt/aura/shared/runtime-secrets.env
+      - /opt/aura/shared/release.env
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      SPLIT_RUNTIME_ENABLED: "true"
+    depends_on:
+      - redis
+    ports:
+      - "5000:5000"
+    volumes:
+      - aura-uploads:/app/uploads
+
+  worker:
+    image: ${AURA_BACKEND_IMAGE:?AURA_BACKEND_IMAGE is required}
+    restart: unless-stopped
+    command: ["node", "scripts/start_worker_runtime.js"]
+    env_file:
+      - /opt/aura/shared/base.env
+      - /opt/aura/shared/runtime-secrets.env
+      - /opt/aura/shared/release.env
+    environment:
+      NODE_ENV: production
+      SPLIT_RUNTIME_ENABLED: "true"
+      WORKER_HEALTH_PORT: 8080
+    depends_on:
+      - redis
+    volumes:
+      - aura-uploads:/app/uploads
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--save", "60", "1000"]
+    volumes:
+      - aura-redis:/data
+
+volumes:
+  aura-redis:
+  aura-uploads:
