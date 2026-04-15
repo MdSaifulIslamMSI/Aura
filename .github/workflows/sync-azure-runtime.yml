@@ -10,18 +10,19 @@ permissions:
   id-token: write
 
 env:
-  AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID || '03748f55-bdf3-4f48-8f88-303b118193b2' }}
-  AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID || '7f9460de-1fc8-477a-b8ba-80609bc24a31' }}
-  AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID || 'f7bef511-7ed6-4896-a010-45e5ecd699ef' }}
-  RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP || 'rg-aura-prod' }}
-  KEY_VAULT_NAME: ${{ vars.KEY_VAULT_NAME || 'aura-msi-20260318-kv' }}
-  CONTAINER_ENV_NAME: ${{ vars.CONTAINER_ENV_NAME || 'aura-msi-ca-env' }}
-  BACKEND_IDENTITY_NAME: ${{ vars.BACKEND_IDENTITY_NAME || 'aura-msi-backend-id' }}
-  API_APP_NAME: ${{ vars.API_APP_NAME || 'aura-msi-api-ca' }}
-  WORKER_APP_NAME: ${{ vars.WORKER_APP_NAME || 'aura-msi-worker-ca' }}
+  AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+  AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+  AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+  RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+  KEY_VAULT_NAME: ${{ vars.KEY_VAULT_NAME }}
+  CONTAINER_ENV_NAME: ${{ vars.CONTAINER_ENV_NAME }}
+  BACKEND_IDENTITY_NAME: ${{ vars.BACKEND_IDENTITY_NAME }}
+  API_APP_NAME: ${{ vars.API_APP_NAME }}
+  WORKER_APP_NAME: ${{ vars.WORKER_APP_NAME }}
 
 jobs:
   sync-runtime:
+    if: vars.AZURE_DEPLOY_ENABLED == 'true'
     runs-on: ubuntu-latest
 
     steps:

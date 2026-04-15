@@ -21,24 +21,40 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID || '03748f55-bdf3-4f48-8f88-303b118193b2' }}
-  AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID || '7f9460de-1fc8-477a-b8ba-80609bc24a31' }}
-  AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID || 'f7bef511-7ed6-4896-a010-45e5ecd699ef' }}
-  RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP || 'rg-aura-prod' }}
-  ACR_NAME: ${{ vars.ACR_NAME || 'auramsi20260318acr' }}
-  ACR_LOGIN_SERVER: ${{ vars.ACR_LOGIN_SERVER || 'auramsi20260318acr.azurecr.io' }}
+  AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+  AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+  AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+  RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+  ACR_NAME: ${{ vars.ACR_NAME }}
+  ACR_LOGIN_SERVER: ${{ vars.ACR_LOGIN_SERVER }}
   IMAGE_NAME: ${{ vars.ACR_IMAGE_NAME || 'aura-backend' }}
-  API_APP_NAME: ${{ vars.API_APP_NAME || 'aura-msi-api-ca' }}
-  WORKER_APP_NAME: ${{ vars.WORKER_APP_NAME || 'aura-msi-worker-ca' }}
-  KEY_VAULT_NAME: ${{ vars.KEY_VAULT_NAME || 'aura-msi-20260318-kv' }}
-  CONTAINER_ENV_NAME: ${{ vars.CONTAINER_ENV_NAME || 'aura-msi-ca-env' }}
-  BACKEND_IDENTITY_NAME: ${{ vars.BACKEND_IDENTITY_NAME || 'aura-msi-backend-id' }}
+  API_APP_NAME: ${{ vars.API_APP_NAME }}
+  WORKER_APP_NAME: ${{ vars.WORKER_APP_NAME }}
+  KEY_VAULT_NAME: ${{ vars.KEY_VAULT_NAME }}
+  CONTAINER_ENV_NAME: ${{ vars.CONTAINER_ENV_NAME }}
+  BACKEND_IDENTITY_NAME: ${{ vars.BACKEND_IDENTITY_NAME }}
   HEALTH_PATH: ${{ vars.AZURE_HEALTH_PATH || '/health' }}
   HEALTH_TIMEOUT_SECONDS: ${{ vars.AZURE_HEALTH_TIMEOUT_SECONDS || '240' }}
   HEALTH_POLL_INTERVAL_SECONDS: ${{ vars.AZURE_HEALTH_POLL_INTERVAL_SECONDS || '10' }}
 
 jobs:
+  deploy-disabled:
+    if: vars.AZURE_DEPLOY_ENABLED != 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Skip unmanaged Azure deploy
+        shell: bash
+        run: |
+          {
+            echo "## Azure Backend Deployment"
+            echo ""
+            echo "Skipped because \`AZURE_DEPLOY_ENABLED\` is not set to \`true\`."
+            echo "Set the Azure repo variables, then enable deploys explicitly."
+          } >> "${GITHUB_STEP_SUMMARY}"
+
   build-push-deploy:
+    if: vars.AZURE_DEPLOY_ENABLED == 'true'
     runs-on: ubuntu-latest
 
     steps:
