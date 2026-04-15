@@ -911,6 +911,58 @@ function Test-ContainerAppExists {
     }
 }
 
+function Get-ContainerAppState {
+    param([string]$AppName)
+
+    try {
+        $raw = Invoke-AzCli containerapp show --name $AppName --resource-group $ResourceGroup --output json
+    } catch {
+        return [pscustomobject]@{
+            Exists = $false
+            RequiresRecreation = $false
+            ProvisioningState = ""
+            LatestRevisionName = ""
+            ContainerCount = 0
+        }
+    }
+
+    $resource = $raw | ConvertFrom-Json -Depth 20
+    $containers = @()
+    if ($null -ne $resource.properties -and $null -ne $resource.properties.template -and $null -ne $resource.properties.template.containers) {
+        $containers = @($resource.properties.template.containers)
+    }
+
+    $provisioningState = Trim-OrDefault $resource.properties.provisioningState
+    $latestRevisionName = Trim-OrDefault $resource.properties.latestRevisionName
+    $requiresRecreation = ($containers.Count -eq 0) -or [string]::IsNullOrWhiteSpace($latestRevisionName) -or ($provisioningState -eq "Failed")
+
+    return [pscustomobject]@{
+        Exists = $true
+        RequiresRecreation = $requiresRecreation
+        ProvisioningState = $provisioningState
+        LatestRevisionName = $latestRevisionName
+        ContainerCount = $containers.Count
+    }
+}
+
+function Wait-ContainerAppDeletion {
+    param(
+        [string]$AppName,
+        [int]$TimeoutSeconds = 180
+    )
+
+    $attempts = [Math]::Max([int][Math]::Ceiling($TimeoutSeconds / 5), 1)
+    for ($attempt = 1; $attempt -le $attempts; $attempt++) {
+        if (-not (Test-ContainerAppExists -AppName $AppName)) {
+            return
+        }
+
+        Start-Sleep -Seconds 5
+    }
+
+    throw "Timed out waiting for Container App $AppName to delete."
+}
+
 function Restart-ActiveContainerAppRevisions {
     param([string]$AppName)
 
@@ -927,10 +979,22 @@ function Restart-ActiveContainerAppRevisions {
 function Update-ContainerAppRuntime {
     param([pscustomobject]$Plan)
 
-    $appExists = Test-ContainerAppExists -AppName $Plan.appName
+    $appState = Get-ContainerAppState -AppName $Plan.appName
+    $appExists = [bool]$appState.Exists
     $service = $Plan.service
     $imageRef = Trim-OrDefault $Plan.imageRef
     $shouldRestart = $false
+
+    if ($appExists -and $appState.RequiresRecreation) {
+        if ([string]::IsNullOrWhiteSpace($imageRef)) {
+            throw "Container App $($Plan.appName) is broken and cannot be recreated because no image ref was supplied for service $($Plan.key)."
+        }
+
+        Write-Host "Container App $($Plan.appName) is malformed (provisioningState=$($appState.ProvisioningState), latestRevision=$($appState.LatestRevisionName), containers=$($appState.ContainerCount)). Recreating it..." -ForegroundColor Yellow
+        Invoke-AzCli containerapp delete --name $Plan.appName --resource-group $ResourceGroup --yes | Out-Null
+        Wait-ContainerAppDeletion -AppName $Plan.appName
+        $appExists = $false
+    }
 
     if (-not $appExists -and [string]::IsNullOrWhiteSpace($imageRef)) {
         throw "Container App $($Plan.appName) does not exist and no image ref was supplied for service $($Plan.key)."
