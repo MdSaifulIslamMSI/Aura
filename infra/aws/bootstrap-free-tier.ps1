@@ -64,14 +64,10 @@ function Ensure-InstanceRole {
         )
     } | ConvertTo-Json -Depth 6
     $trustPolicyFile = Join-Path $env:TEMP "$RoleName-trust.json"
-    $trustPolicy | Set-Content -LiteralPath $trustPolicyFile -Encoding utf8
+    $trustPolicy | Set-Content -LiteralPath $trustPolicyFile -Encoding ascii
 
-    $roleExists = $true
-    try {
-        aws iam get-role --role-name $RoleName | Out-Null
-    } catch {
-        $roleExists = $false
-    }
+    $null = aws iam get-role --role-name $RoleName 2>$null
+    $roleExists = ($LASTEXITCODE -eq 0)
 
     if (-not $roleExists) {
         aws iam create-role `
@@ -94,7 +90,7 @@ function Ensure-InstanceRole {
                     "ssm:GetParameters",
                     "ssm:GetParametersByPath"
                 )
-                Resource = "arn:aws:ssm:$Region:*:parameter$($ParameterPrefix.TrimEnd('/'))*"
+                Resource = "arn:aws:ssm:${Region}:*:parameter$($ParameterPrefix.TrimEnd('/'))*"
             },
             @{
                 Sid = "DeployArtifacts"
@@ -125,19 +121,15 @@ function Ensure-InstanceRole {
         )
     } | ConvertTo-Json -Depth 8
     $policyFile = Join-Path $env:TEMP "$RoleName-inline.json"
-    $policyDocument | Set-Content -LiteralPath $policyFile -Encoding utf8
+    $policyDocument | Set-Content -LiteralPath $policyFile -Encoding ascii
 
     aws iam put-role-policy `
         --role-name $RoleName `
         --policy-name "$RoleName-inline" `
         --policy-document "file://$policyFile" | Out-Null
 
-    $profileExists = $true
-    try {
-        aws iam get-instance-profile --instance-profile-name $ProfileName | Out-Null
-    } catch {
-        $profileExists = $false
-    }
+    $null = aws iam get-instance-profile --instance-profile-name $ProfileName 2>$null
+    $profileExists = ($LASTEXITCODE -eq 0)
 
     if (-not $profileExists) {
         aws iam create-instance-profile --instance-profile-name $ProfileName | Out-Null
@@ -228,7 +220,7 @@ $userData = $userData.Replace("AWS_REGION=ap-south-1", "AWS_REGION=$AwsRegion")
 $userData = $userData.Replace("AWS_PARAMETER_STORE_PATH_PREFIX=/aura/prod", "AWS_PARAMETER_STORE_PATH_PREFIX=$ParameterStorePathPrefix")
 $userData = $userData.Replace("AWS_S3_REVIEW_BUCKET=replace-with-your-media-bucket", "AWS_S3_REVIEW_BUCKET=$MediaBucketName")
 $userDataFile = Join-Path $env:TEMP "$StackPrefix-backend-user-data.sh"
-$userData | Set-Content -LiteralPath $userDataFile -Encoding utf8
+$userData | Set-Content -LiteralPath $userDataFile -Encoding ascii
 
 $instanceId = aws ec2 run-instances `
     --region $AwsRegion `

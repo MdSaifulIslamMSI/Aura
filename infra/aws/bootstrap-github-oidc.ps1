@@ -80,14 +80,10 @@ $trustPolicy = @{
 
 $trustPolicyFile = Join-Path $env:TEMP "aura-github-oidc-trust.json"
 $inlinePolicyFile = Join-Path $env:TEMP "aura-github-oidc-inline.json"
-$trustPolicy | Set-Content -LiteralPath $trustPolicyFile -Encoding utf8
+$trustPolicy | Set-Content -LiteralPath $trustPolicyFile -Encoding ascii
 
-$roleExists = $true
-try {
-    aws iam get-role --role-name $RoleName | Out-Null
-} catch {
-    $roleExists = $false
-}
+    $null = aws iam get-role --role-name $RoleName 2>$null
+    $roleExists = ($LASTEXITCODE -eq 0)
 
 if (-not $roleExists) {
     aws iam create-role `
@@ -131,7 +127,7 @@ $inlinePolicy = @{
         }
     )
 } | ConvertTo-Json -Depth 8
-$inlinePolicy | Set-Content -LiteralPath $inlinePolicyFile -Encoding utf8
+$inlinePolicy | Set-Content -LiteralPath $inlinePolicyFile -Encoding ascii
 
 aws iam put-role-policy `
     --role-name $RoleName `
