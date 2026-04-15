@@ -35,10 +35,15 @@ This creates or refreshes:
 - the GitHub Actions Azure app registration
 - the service principal
 - the GitHub OIDC federated credential for `main`
+- `Reader` on the backend resource group
 - `Container Apps Contributor` on the backend resource group
 - `AcrPush` on the Azure Container Registry
+- `Key Vault Secrets Officer` on the Azure Key Vault
+- `Managed Identity Operator` on the backend user-assigned identity
 
 It also writes `infra/azure/github-oidc.env` with the Azure OIDC IDs for reference.
+
+The deploy, rollback, and runtime-sync workflows now run `infra/azure/validate-github-deploy-access.ps1` immediately after Azure login so missing RBAC fails fast with a specific fix instead of surfacing later as a generic `AuthorizationFailed` error.
 
 The workflows now accept GitHub repository variables for the Azure IDs and app names:
 

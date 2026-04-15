@@ -2,6 +2,8 @@ param(
     [string]$SubscriptionId = "",
     [string]$ResourceGroup = "rg-aura-prod",
     [string]$RegistryName = "auramsi20260318acr",
+    [string]$KeyVaultName = "aura-msi-20260318-kv",
+    [string]$IdentityName = "aura-msi-backend-id",
     [string]$AppRegistrationName = "aura-github-actions-prod",
     [string]$RepoOwner = "MdSaifulIslamMSI",
     [string]$RepoName = "Aura",
@@ -89,6 +91,16 @@ $subscriptionId = $account.id
 
 $resourceGroupId = Invoke-AzText -Arguments @("group", "show", "--name", $ResourceGroup, "--query", "id", "--output", "tsv")
 $registryId = Invoke-AzText -Arguments @("acr", "show", "--name", $RegistryName, "--resource-group", $ResourceGroup, "--query", "id", "--output", "tsv")
+try {
+    $keyVaultId = Invoke-AzText -Arguments @("keyvault", "show", "--name", $KeyVaultName, "--resource-group", $ResourceGroup, "--query", "id", "--output", "tsv")
+} catch {
+    throw "Azure Key Vault $KeyVaultName was not found in resource group $ResourceGroup. Create it or pass -KeyVaultName before bootstrapping GitHub OIDC."
+}
+try {
+    $identityId = Invoke-AzText -Arguments @("identity", "show", "--name", $IdentityName, "--resource-group", $ResourceGroup, "--query", "id", "--output", "tsv")
+} catch {
+    throw "Azure user-assigned managed identity $IdentityName was not found in resource group $ResourceGroup. Create it or pass -IdentityName before bootstrapping GitHub OIDC."
+}
 
 $existingApp = Invoke-AzJson -Arguments @("ad", "app", "list", "--display-name", $AppRegistrationName, "--query", "[0]", "--output", "json")
 if (-not $existingApp) {
@@ -138,8 +150,11 @@ if ($LASTEXITCODE -ne 0) {
     throw "Failed to create federated credential $FederatedCredentialName."
 }
 
+Ensure-RoleAssignment -PrincipalObjectId $principalObjectId -RoleName "Reader" -Scope $resourceGroupId
 Ensure-RoleAssignment -PrincipalObjectId $principalObjectId -RoleName "Container Apps Contributor" -Scope $resourceGroupId
 Ensure-RoleAssignment -PrincipalObjectId $principalObjectId -RoleName "AcrPush" -Scope $registryId
+Ensure-RoleAssignment -PrincipalObjectId $principalObjectId -RoleName "Key Vault Secrets Officer" -Scope $keyVaultId
+Ensure-RoleAssignment -PrincipalObjectId $principalObjectId -RoleName "Managed Identity Operator" -Scope $identityId
 
 $outputContent = @"
 AZURE_CLIENT_ID=$clientId

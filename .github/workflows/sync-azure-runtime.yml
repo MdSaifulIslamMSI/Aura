@@ -35,6 +35,17 @@ jobs:
           tenant-id: ${{ env.AZURE_TENANT_ID }}
           subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
 
+      - name: Validate Azure runtime sync access
+        shell: pwsh
+        run: |
+          & ".\\infra\\azure\\validate-github-deploy-access.ps1" `
+            -Mode runtime-sync `
+            -SubscriptionId "${{ env.AZURE_SUBSCRIPTION_ID }}" `
+            -ClientId "${{ env.AZURE_CLIENT_ID }}" `
+            -ResourceGroup "${{ env.RESOURCE_GROUP }}" `
+            -KeyVaultName "${{ env.KEY_VAULT_NAME }}" `
+            -IdentityName "${{ env.BACKEND_IDENTITY_NAME }}"
+
       - name: Materialize Azure runtime env file
         id: runtime_env
         shell: bash

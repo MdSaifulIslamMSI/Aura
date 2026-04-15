@@ -45,6 +45,15 @@ jobs:
           tenant-id: ${{ env.AZURE_TENANT_ID }}
           subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
 
+      - name: Validate Azure rollback access
+        shell: pwsh
+        run: |
+          & ".\\infra\\azure\\validate-github-deploy-access.ps1" `
+            -Mode rollback `
+            -SubscriptionId "${{ env.AZURE_SUBSCRIPTION_ID }}" `
+            -ClientId "${{ env.AZURE_CLIENT_ID }}" `
+            -ResourceGroup "${{ env.RESOURCE_GROUP }}"
+
       - name: Prepare Azure Container Apps CLI
         shell: bash
         run: |

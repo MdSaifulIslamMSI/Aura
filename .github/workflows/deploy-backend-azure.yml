@@ -98,6 +98,18 @@ jobs:
           tenant-id: ${{ env.AZURE_TENANT_ID }}
           subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
 
+      - name: Validate Azure deploy access
+        shell: pwsh
+        run: |
+          & ".\\infra\\azure\\validate-github-deploy-access.ps1" `
+            -Mode deploy `
+            -SubscriptionId "${{ env.AZURE_SUBSCRIPTION_ID }}" `
+            -ClientId "${{ env.AZURE_CLIENT_ID }}" `
+            -ResourceGroup "${{ env.RESOURCE_GROUP }}" `
+            -RegistryName "${{ env.ACR_NAME }}" `
+            -KeyVaultName "${{ env.KEY_VAULT_NAME }}" `
+            -IdentityName "${{ env.BACKEND_IDENTITY_NAME }}"
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
