@@ -7,8 +7,6 @@ on:
       - "server/**"
       - "infra/aws/**"
       - ".github/workflows/deploy-backend-aws.yml"
-      - "vercel.mjs"
-      - "app/vercel.mjs"
   workflow_dispatch:
     inputs:
       git_ref:
