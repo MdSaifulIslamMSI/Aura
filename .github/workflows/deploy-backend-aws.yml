@@ -1,0 +1,199 @@
+name: Deploy Backend To AWS
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "server/**"
+      - "infra/aws/**"
+      - ".github/workflows/deploy-backend-aws.yml"
+      - "vercel.mjs"
+      - "app/vercel.mjs"
+  workflow_dispatch:
+    inputs:
+      git_ref:
+        description: Git ref to deploy
+        required: false
+        default: main
+      skip_healthcheck:
+        description: Skip the final readiness probe
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: aws-backend-production
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION || 'ap-south-1' }}
+  AWS_DEPLOY_BUCKET: ${{ vars.AWS_DEPLOY_BUCKET || '' }}
+  AWS_INSTANCE_TAG_KEY: ${{ vars.AWS_INSTANCE_TAG_KEY || 'Name' }}
+  AWS_INSTANCE_TAG_VALUE: ${{ vars.AWS_INSTANCE_TAG_VALUE || 'aura-backend' }}
+  AWS_PARAMETER_STORE_PATH_PREFIX: ${{ vars.AWS_PARAMETER_STORE_PATH_PREFIX || '/aura/prod' }}
+  AWS_BACKEND_BASE_URL: ${{ vars.AWS_BACKEND_BASE_URL || '' }}
+  AWS_DOCKER_PLATFORM: ${{ vars.AWS_DOCKER_PLATFORM || 'linux/arm64' }}
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.git_ref || github.sha }}
+
+      - name: Use Node.js 24.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.x
+
+      - name: Validate deploy configuration
+        env:
+          AWS_DEPLOY_ROLE_ARN: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+        run: |
+          set -euo pipefail
+          test -n "${AWS_DEPLOY_ROLE_ARN}" || { echo "Missing secret AWS_DEPLOY_ROLE_ARN"; exit 1; }
+          test -n "${AWS_DEPLOY_BUCKET}" || { echo "Missing variable AWS_DEPLOY_BUCKET"; exit 1; }
+          test -n "${AWS_INSTANCE_TAG_KEY}" || { echo "Missing variable AWS_INSTANCE_TAG_KEY"; exit 1; }
+          test -n "${AWS_INSTANCE_TAG_VALUE}" || { echo "Missing variable AWS_INSTANCE_TAG_VALUE"; exit 1; }
+          test -n "${AWS_PARAMETER_STORE_PATH_PREFIX}" || { echo "Missing variable AWS_PARAMETER_STORE_PATH_PREFIX"; exit 1; }
+          test -n "${AWS_BACKEND_BASE_URL}" || { echo "Missing variable AWS_BACKEND_BASE_URL"; exit 1; }
+
+      - name: Audit AWS Parameter Store secret coverage
+        run: node server/scripts/audit_parameter_store_secret_contract.js
+
+  deploy:
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    environment:
+      name: production
+      url: ${{ vars.AWS_BACKEND_BASE_URL }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.git_ref || github.sha }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: aura-github-deploy
+          mask-aws-account-id: true
+          unset-current-credentials: true
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build backend container image
+        run: |
+          docker buildx build \
+            --platform "${AWS_DOCKER_PLATFORM}" \
+            --file server/Dockerfile \
+            --tag aura-backend:${GITHUB_SHA} \
+            --load \
+            ./server
+
+      - name: Package deployment artifacts
+        run: |
+          set -euo pipefail
+          git archive --format=tar.gz --output "${RUNNER_TEMP}/aura-infra-${GITHUB_SHA}.tar.gz" HEAD infra/aws
+          docker save aura-backend:${GITHUB_SHA} | gzip > "${RUNNER_TEMP}/aura-image-${GITHUB_SHA}.tar.gz"
+
+      - name: Upload deployment artifacts to S3
+        id: upload
+        run: |
+          set -euo pipefail
+          INFRA_KEY="releases/${GITHUB_SHA}/infra.tar.gz"
+          IMAGE_KEY="releases/${GITHUB_SHA}/image.tar.gz"
+          aws s3 cp "${RUNNER_TEMP}/aura-infra-${GITHUB_SHA}.tar.gz" "s3://${AWS_DEPLOY_BUCKET}/${INFRA_KEY}"
+          aws s3 cp "${RUNNER_TEMP}/aura-image-${GITHUB_SHA}.tar.gz" "s3://${AWS_DEPLOY_BUCKET}/${IMAGE_KEY}"
+          echo "infra_key=${INFRA_KEY}" >> "$GITHUB_OUTPUT"
+          echo "image_key=${IMAGE_KEY}" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve backend instance
+        id: resolve_instance
+        run: |
+          set -euo pipefail
+          INSTANCE_ID="$(aws ec2 describe-instances \
+            --filters "Name=tag:${AWS_INSTANCE_TAG_KEY},Values=${AWS_INSTANCE_TAG_VALUE}" "Name=instance-state-name,Values=running" \
+            --query "Reservations[0].Instances[0].InstanceId" \
+            --output text)"
+          test -n "${INSTANCE_ID}" && test "${INSTANCE_ID}" != "None" || { echo "No running EC2 instance matched ${AWS_INSTANCE_TAG_KEY}=${AWS_INSTANCE_TAG_VALUE}"; exit 1; }
+          echo "instance_id=${INSTANCE_ID}" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy release through SSM
+        id: ssm
+        run: |
+          set -euo pipefail
+          cat > "${RUNNER_TEMP}/ssm-commands.json" <<EOF
+          {
+            "commands": [
+              "set -euo pipefail",
+              "rm -rf /opt/aura/bootstrap/current",
+              "mkdir -p /opt/aura/bootstrap/current",
+              "aws s3 cp s3://${AWS_DEPLOY_BUCKET}/${{ steps.upload.outputs.infra_key }} /opt/aura/bootstrap/infra.tar.gz",
+              "tar -xzf /opt/aura/bootstrap/infra.tar.gz -C /opt/aura/bootstrap/current",
+              "export AWS_REGION='${AWS_REGION}'",
+              "export AWS_PARAMETER_STORE_PATH_PREFIX='${AWS_PARAMETER_STORE_PATH_PREFIX}'",
+              "export AURA_DEPLOY_BUCKET='${AWS_DEPLOY_BUCKET}'",
+              "export AURA_RELEASE_SHA='${GITHUB_SHA}'",
+              "export AURA_INFRA_BUNDLE_KEY='${{ steps.upload.outputs.infra_key }}'",
+              "export AURA_IMAGE_BUNDLE_KEY='${{ steps.upload.outputs.image_key }}'",
+              "bash /opt/aura/bootstrap/current/infra/aws/deploy-release.sh"
+            ]
+          }
+          EOF
+
+          COMMAND_ID="$(aws ssm send-command \
+            --instance-ids "${{ steps.resolve_instance.outputs.instance_id }}" \
+            --document-name "AWS-RunShellScript" \
+            --comment "Deploy Aura backend ${GITHUB_SHA}" \
+            --parameters "file://${RUNNER_TEMP}/ssm-commands.json" \
+            --query "Command.CommandId" \
+            --output text)"
+          echo "command_id=${COMMAND_ID}" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for SSM completion
+        run: |
+          set -euo pipefail
+          for _ in $(seq 1 60); do
+            STATUS="$(aws ssm get-command-invocation \
+              --command-id "${{ steps.ssm.outputs.command_id }}" \
+              --instance-id "${{ steps.resolve_instance.outputs.instance_id }}" \
+              --query "Status" \
+              --output text)"
+            case "${STATUS}" in
+              Success)
+                exit 0
+                ;;
+              Failed|Cancelled|TimedOut|Cancelling)
+                aws ssm get-command-invocation \
+                  --command-id "${{ steps.ssm.outputs.command_id }}" \
+                  --instance-id "${{ steps.resolve_instance.outputs.instance_id }}" \
+                  --query "{Status:Status,StdOut:StandardOutputContent,StdErr:StandardErrorContent}" \
+                  --output json
+                exit 1
+                ;;
+            esac
+            sleep 10
+          done
+          echo "Timed out waiting for SSM deployment command."
+          exit 1
+
+      - name: Verify backend health
+        if: github.event_name != 'workflow_dispatch' || inputs.skip_healthcheck != true
+        run: |
+          set -euo pipefail
+          curl --fail --show-error --silent "${AWS_BACKEND_BASE_URL%/}/health/ready" > /dev/null

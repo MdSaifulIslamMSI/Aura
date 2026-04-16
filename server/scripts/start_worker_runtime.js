@@ -2,7 +2,7 @@
 
 const { spawn } = require('child_process');
 const path = require('path');
-const { loadLocalEnvFiles, primeAzureKeyVaultEnv, getAzureKeyVaultBootstrapState } = require('../config/runtimeConfig');
+const { loadLocalEnvFiles, primeAwsParameterStoreEnv, getRuntimeSecretBootstrapState } = require('../config/runtimeConfig');
 
 const targetScript = path.resolve(__dirname, '..', 'workerProcess.js');
 
@@ -14,8 +14,8 @@ const forwardSignal = (child, signal) => {
 
 const bootstrap = async () => {
     loadLocalEnvFiles();
-    await primeAzureKeyVaultEnv({ logger: console });
-    const bootstrapState = getAzureKeyVaultBootstrapState();
+    await primeAwsParameterStoreEnv({ logger: console });
+    const bootstrapState = getRuntimeSecretBootstrapState();
     process.env.RUNTIME_SECRET_SOURCE = bootstrapState.source;
     process.env.RUNTIME_SECRET_LOADED_KEY_COUNT = String(Array.isArray(bootstrapState.loadedKeys) ? bootstrapState.loadedKeys.length : 0);
 
