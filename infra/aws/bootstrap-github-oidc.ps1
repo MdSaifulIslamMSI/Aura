@@ -3,7 +3,8 @@ param(
     [string]$Repository = "",
     [string]$Branch = "main",
     [string]$AwsRegion = "ap-south-1",
-    [string]$DeployBucketName = "aura-backend-deployments",
+    [string]$AwsProfile = "",
+    [string]$DeployBucketName = "",
     [string]$InstanceTagKey = "Name",
     [string]$InstanceTagValue = "aura-backend"
 )
@@ -37,6 +38,24 @@ function Resolve-RepositorySlug {
     throw "Could not infer repository slug from remote origin '$originUrl'."
 }
 
+function Resolve-DeployBucketName {
+    param(
+        [string]$ExplicitBucketName,
+        [string]$Region
+    )
+
+    if (-not [string]::IsNullOrWhiteSpace($ExplicitBucketName)) {
+        return $ExplicitBucketName.Trim()
+    }
+
+    $accountId = aws sts get-caller-identity --query "Account" --output text
+    if ([string]::IsNullOrWhiteSpace($accountId) -or $accountId -eq "None") {
+        throw "Could not resolve AWS account id for deploy bucket naming."
+    }
+
+    return "aura-backend-deployments-$accountId-$Region"
+}
+
 function Get-OrCreateOidcProviderArn {
     $providers = aws iam list-open-id-connect-providers | ConvertFrom-Json
     foreach ($provider in ($providers.OpenIDConnectProviderList | ForEach-Object { $_.Arn })) {
@@ -55,9 +74,18 @@ function Get-OrCreateOidcProviderArn {
 Require-Command -Name "aws"
 Require-Command -Name "git"
 
+if (-not [string]::IsNullOrWhiteSpace($AwsProfile)) {
+    $env:AWS_PROFILE = $AwsProfile.Trim()
+}
+
 $repoSlug = Resolve-RepositorySlug -ExplicitRepository $Repository
+$resolvedDeployBucketName = Resolve-DeployBucketName -ExplicitBucketName $DeployBucketName -Region $AwsRegion
 $oidcProviderArn = Get-OrCreateOidcProviderArn
-$subject = "repo:$repoSlug:ref:refs/heads/$Branch"
+$subject = 'repo:{0}:ref:refs/heads/{1}' -f $repoSlug, $Branch
+
+if ($subject -notmatch '^repo:[^/]+/[^:]+:ref:refs/heads/.+$') {
+    throw "Resolved GitHub subject '$subject' is invalid."
+}
 
 $trustPolicy = @{
     Version = "2012-10-17"
@@ -95,7 +123,7 @@ if (-not $roleExists) {
         --policy-document "file://$trustPolicyFile" | Out-Null
 }
 
-$deployBucketArn = "arn:aws:s3:::$DeployBucketName"
+$deployBucketArn = "arn:aws:s3:::$resolvedDeployBucketName"
 $deployBucketObjectsArn = "$deployBucketArn/*"
 $inlinePolicy = @{
     Version = "2012-10-17"
@@ -139,9 +167,10 @@ $roleArn = (aws iam get-role --role-name $RoleName | ConvertFrom-Json).Role.Arn
 Write-Host "GitHub OIDC deploy role ready."
 Write-Host "Role ARN: $roleArn"
 Write-Host "Repository: $repoSlug"
+Write-Host "Subject: $subject"
 Write-Host "Suggested GitHub repository variables:"
 Write-Host "  AWS_REGION=$AwsRegion"
-Write-Host "  AWS_DEPLOY_BUCKET=$DeployBucketName"
+Write-Host "  AWS_DEPLOY_BUCKET=$resolvedDeployBucketName"
 Write-Host "  AWS_INSTANCE_TAG_KEY=$InstanceTagKey"
 Write-Host "  AWS_INSTANCE_TAG_VALUE=$InstanceTagValue"
 Write-Host "Suggested GitHub repository secret:"
