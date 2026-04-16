@@ -2,7 +2,7 @@ const backendOrigin = String(
     process.env.AURA_BACKEND_ORIGIN
     || process.env.AWS_BACKEND_BASE_URL
     || 'http://127.0.0.1:5000'
-).replace(/\/+$/, '');
+).trim().replace(/\/+$/, '');
 
 export const config = {
     headers: [
