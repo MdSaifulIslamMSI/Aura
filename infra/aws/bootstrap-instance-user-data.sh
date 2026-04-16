@@ -2,7 +2,15 @@
 set -euo pipefail
 
 dnf update -y
-dnf install -y docker docker-compose-plugin jq awscli curl git tar gzip
+dnf install -y docker jq awscli git tar gzip
+
+mkdir -p /usr/local/lib/docker/cli-plugins
+compose_arch="x86_64"
+if [[ "$(uname -m)" == "aarch64" ]]; then
+  compose_arch="aarch64"
+fi
+curl -SL "https://github.com/docker/compose/releases/latest/download/docker-compose-linux-${compose_arch}" -o /usr/local/lib/docker/cli-plugins/docker-compose
+chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
 
 systemctl enable --now docker
 usermod -aG docker ec2-user || true
@@ -39,6 +47,16 @@ CORS_ORIGIN=https://your-vercel-project.vercel.app
 APP_PUBLIC_URL=https://your-vercel-project.vercel.app
 AUTH_SESSION_COOKIE_SECURE=true
 AUTH_SESSION_SAME_SITE=none
+PAYMENTS_ENABLED=false
+PAYMENT_WEBHOOKS_ENABLED=false
+PAYMENT_SAVED_METHODS_ENABLED=false
+PAYMENT_REFUNDS_ENABLED=false
+PAYMENT_DYNAMIC_ROUTING_ENABLED=false
+PAYMENT_CHALLENGE_ENABLED=false
+OTP_SMS_ENABLED=false
+OTP_WHATSAPP_ENABLED=false
+ORDER_EMAILS_ENABLED=false
+ORDER_EMAIL_PROVIDER=disabled
 EOF
 
 touch /opt/aura/shared/runtime-secrets.env

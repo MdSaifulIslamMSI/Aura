@@ -9,6 +9,8 @@
 - Secrets live in AWS Systems Manager Parameter Store using the `AWS_PARAMETER_STORE_PATH_PREFIX` path.
 - Review uploads live in S3 via `UPLOAD_STORAGE_DRIVER=s3`.
 - GitHub Actions builds the image once, uploads the release bundle to S3, and deploys through SSM Run Command.
+- The default free-plan target is `t4g.small` with an arm64 image build, 16 GiB `gp3` root volume, and automatic cost guardrails.
+- Amazon Linux 2023 installs Docker from `dnf`, while the Compose plugin is installed from Docker's official `latest` release URL for the detected host architecture.
 
 ## Why This Shape
 - It is cheaper than ECS, App Runner, or managed Redis for a small production footprint.
@@ -17,17 +19,13 @@
 
 ## Bootstrap
 1. Provision the free-tier stack:
-   - `powershell -ExecutionPolicy Bypass -File infra\aws\bootstrap-free-tier.ps1`
-2. Create the GitHub deploy role:
+   - `powershell -ExecutionPolicy Bypass -File infra\aws\bootstrap-free-tier.ps1 -FrontendOrigin https://aurapilot.vercel.app`
+2. Install monthly budget and free-plan expiration guardrails:
+   - `powershell -ExecutionPolicy Bypass -File infra\aws\bootstrap-cost-guardrails.ps1 -AwsProfile aura-bootstrap`
+3. Create the GitHub deploy role:
    - `powershell -ExecutionPolicy Bypass -File infra\aws\bootstrap-github-oidc.ps1`
-3. Edit `/opt/aura/shared/base.env` on the EC2 instance and set:
-   - `CORS_ORIGIN`
-   - `APP_PUBLIC_URL`
-   - `AWS_S3_REVIEW_BUCKET`
-   - `AWS_PARAMETER_STORE_PATH_PREFIX`
 4. Publish secrets into Parameter Store:
-   - `cd server`
-   - `npm run aws:ssm:sync`
+   - `powershell -ExecutionPolicy Bypass -File infra\aws\sync-parameter-store-env.ps1 -SourceEnvFile .\server\.env.aws-secrets -PathPrefix /aura/prod -AwsRegion ap-south-1 -AwsProfile aura-bootstrap`
 
 ## GitHub Variables
 - `AWS_REGION`
@@ -36,6 +34,7 @@
 - `AWS_INSTANCE_TAG_VALUE`
 - `AWS_PARAMETER_STORE_PATH_PREFIX`
 - `AWS_BACKEND_BASE_URL`
+- `AWS_DOCKER_PLATFORM`
 
 ## GitHub Secret
 - `AWS_DEPLOY_ROLE_ARN`
@@ -43,6 +42,8 @@
 ## Frontend Routing
 - Vercel now reads the backend origin from `AURA_BACKEND_ORIGIN` or `AWS_BACKEND_BASE_URL`.
 - Set that value to your EC2 public URL or custom domain, for example `http://12.34.56.78:5000` or `https://api.example.com`.
+- For the default `t4g.small` target, set `AWS_DOCKER_PLATFORM=linux/arm64`.
+- The bootstrap defaults already disable paid integrations that would otherwise fail closed on a bare free-plan stack: payments, OTP SMS, and order email sending.
 
 ## Runtime Secret Files
 - Checked-in non-secret defaults live in [server/.env.example](/c:/Users/mdsai/Downloads/Kimi_Agent_Flipkart-Style%20Frontend/server/.env.example).

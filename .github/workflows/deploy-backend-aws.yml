@@ -24,6 +24,7 @@ jobs:
       AWS_INSTANCE_TAG_VALUE: ${{ vars.AWS_INSTANCE_TAG_VALUE || 'aura-backend' }}
       AWS_PARAMETER_STORE_PATH_PREFIX: ${{ vars.AWS_PARAMETER_STORE_PATH_PREFIX || '/aura/prod' }}
       AWS_BACKEND_BASE_URL: ${{ vars.AWS_BACKEND_BASE_URL || '' }}
+      AWS_DOCKER_PLATFORM: ${{ vars.AWS_DOCKER_PLATFORM || 'linux/amd64' }}
 
     steps:
       - uses: actions/checkout@v4
@@ -49,8 +50,20 @@ jobs:
           mask-aws-account-id: true
           unset-current-credentials: true
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Build backend container image
-        run: docker build --file server/Dockerfile --tag aura-backend:${GITHUB_SHA} ./server
+        run: |
+          docker buildx build \
+            --platform "${AWS_DOCKER_PLATFORM}" \
+            --file server/Dockerfile \
+            --tag aura-backend:${GITHUB_SHA} \
+            --load \
+            ./server
 
       - name: Package deployment artifacts
         run: |

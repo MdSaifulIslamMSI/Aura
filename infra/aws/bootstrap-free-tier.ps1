@@ -1,14 +1,16 @@
 param(
     [string]$StackPrefix = "aura",
     [string]$AwsRegion = "ap-south-1",
-    [string]$InstanceType = "t3.micro",
+    [string]$InstanceType = "t4g.small",
     [string]$ParameterStorePathPrefix = "/aura/prod",
+    [string]$FrontendOrigin = "https://aurapilot.vercel.app",
     [string]$DeployBucketName = "aura-backend-deployments",
     [string]$MediaBucketName = "aura-review-media",
     [string]$InstanceTagName = "aura-backend",
     [string]$AllowedIpv4Cidr = "0.0.0.0/0",
     [string]$SubnetId = "",
-    [string]$VpcId = ""
+    [string]$VpcId = "",
+    [int]$RootVolumeSizeGiB = 16
 )
 
 $ErrorActionPreference = "Stop"
@@ -39,6 +41,98 @@ function Ensure-Bucket {
         --bucket $BucketName `
         --region $Region `
         --create-bucket-configuration "LocationConstraint=$Region" | Out-Null
+}
+
+function Configure-BucketDefaults {
+    param(
+        [string]$BucketName,
+        [string]$StackName,
+        [string]$Purpose,
+        [string]$LifecycleConfigurationJson = ""
+    )
+
+    $encryptionConfiguration = @{
+        Rules = @(
+            @{
+                ApplyServerSideEncryptionByDefault = @{
+                    SSEAlgorithm = "AES256"
+                }
+            }
+        )
+    } | ConvertTo-Json -Depth 6 -Compress
+    $encryptionFile = Join-Path $env:TEMP "$BucketName-encryption.json"
+    $encryptionConfiguration | Set-Content -LiteralPath $encryptionFile -Encoding ascii
+
+    $taggingConfiguration = @{
+        TagSet = @(
+            @{
+                Key = "App"
+                Value = "Aura"
+            },
+            @{
+                Key = "Stack"
+                Value = $StackName
+            },
+            @{
+                Key = "Purpose"
+                Value = $Purpose
+            }
+        )
+    } | ConvertTo-Json -Depth 6 -Compress
+    $taggingFile = Join-Path $env:TEMP "$BucketName-tagging.json"
+    $taggingConfiguration | Set-Content -LiteralPath $taggingFile -Encoding ascii
+
+    aws s3api put-public-access-block `
+        --bucket $BucketName `
+        --public-access-block-configuration "BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true" | Out-Null
+
+    aws s3api put-bucket-encryption `
+        --bucket $BucketName `
+        --server-side-encryption-configuration "file://$encryptionFile" | Out-Null
+
+    aws s3api put-bucket-tagging `
+        --bucket $BucketName `
+        --tagging "file://$taggingFile" | Out-Null
+
+    if (-not [string]::IsNullOrWhiteSpace($LifecycleConfigurationJson)) {
+        $lifecycleFile = Join-Path $env:TEMP "$BucketName-lifecycle.json"
+        $LifecycleConfigurationJson | Set-Content -LiteralPath $lifecycleFile -Encoding ascii
+        aws s3api put-bucket-lifecycle-configuration `
+            --bucket $BucketName `
+            --lifecycle-configuration "file://$lifecycleFile" | Out-Null
+    }
+}
+
+function Resolve-InstanceArchitecture {
+    param([string]$Region, [string]$ResolvedInstanceType)
+
+    $architecture = aws ec2 describe-instance-types `
+        --region $Region `
+        --instance-types $ResolvedInstanceType `
+        --query "InstanceTypes[0].ProcessorInfo.SupportedArchitectures[0]" `
+        --output text
+
+    if ([string]::IsNullOrWhiteSpace($architecture) -or $architecture -eq "None") {
+        throw "Could not resolve architecture for instance type '$ResolvedInstanceType'."
+    }
+
+    return $architecture
+}
+
+function Resolve-AmiId {
+    param([string]$Architecture)
+
+    switch ($Architecture) {
+        "arm64" {
+            return "resolve:ssm:/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-arm64"
+        }
+        "x86_64" {
+            return "resolve:ssm:/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64"
+        }
+        default {
+            throw "Unsupported architecture '$Architecture'."
+        }
+    }
 }
 
 function Ensure-InstanceRole {
@@ -136,11 +230,15 @@ function Ensure-InstanceRole {
         Start-Sleep -Seconds 5
     }
 
-    try {
+    $existingProfileRole = aws iam get-instance-profile `
+        --instance-profile-name $ProfileName `
+        --query "InstanceProfile.Roles[?RoleName=='$RoleName'] | [0].RoleName" `
+        --output text
+
+    if ([string]::IsNullOrWhiteSpace($existingProfileRole) -or $existingProfileRole -eq "None") {
         aws iam add-role-to-instance-profile `
             --instance-profile-name $ProfileName `
-            --role-name $RoleName | Out-Null
-    } catch {
+            --role-name $RoleName 2>$null | Out-Null
     }
 }
 
@@ -194,15 +292,52 @@ $securityGroupId = if ([string]::IsNullOrWhiteSpace($existingSecurityGroupId) -o
 }
 
 try {
+    $ingressPermissions = "[{""IpProtocol"":""tcp"",""FromPort"":5000,""ToPort"":5000,""IpRanges"":[{""CidrIp"":""$AllowedIpv4Cidr""}]}]"
+    $ingressFile = Join-Path $env:TEMP "$securityGroupName-ingress.json"
+    $ingressPermissions | Set-Content -LiteralPath $ingressFile -Encoding ascii
     aws ec2 authorize-security-group-ingress `
         --region $AwsRegion `
         --group-id $securityGroupId `
-        --ip-permissions "[{`"IpProtocol`":`"tcp`",`"FromPort`":5000,`"ToPort`":5000,`"IpRanges`":[{`"CidrIp`":`"$AllowedIpv4Cidr`"}]}]" | Out-Null
+        --ip-permissions "file://$ingressFile" | Out-Null
 } catch {
 }
 
 Ensure-Bucket -BucketName $DeployBucketName -Region $AwsRegion
 Ensure-Bucket -BucketName $MediaBucketName -Region $AwsRegion
+
+$deployLifecycle = @{
+    Rules = @(
+        @{
+            ID = "ExpireDeployArtifacts"
+            Status = "Enabled"
+            Filter = @{
+                Prefix = "releases/"
+            }
+            Expiration = @{
+                Days = 14
+            }
+            AbortIncompleteMultipartUpload = @{
+                DaysAfterInitiation = 1
+            }
+        }
+    )
+} | ConvertTo-Json -Depth 8 -Compress
+$mediaLifecycle = @{
+    Rules = @(
+        @{
+            ID = "AbortIncompleteUploads"
+            Status = "Enabled"
+            Filter = @{
+                Prefix = ""
+            }
+            AbortIncompleteMultipartUpload = @{
+                DaysAfterInitiation = 1
+            }
+        }
+    )
+} | ConvertTo-Json -Depth 8 -Compress
+Configure-BucketDefaults -BucketName $DeployBucketName -StackName $StackPrefix -Purpose "deploy-artifacts" -LifecycleConfigurationJson $deployLifecycle
+Configure-BucketDefaults -BucketName $MediaBucketName -StackName $StackPrefix -Purpose "review-media" -LifecycleConfigurationJson $mediaLifecycle
 
 $roleName = "$StackPrefix-backend-ec2-role"
 $profileName = "$StackPrefix-backend-ec2-profile"
@@ -219,23 +354,65 @@ $userData = Get-Content -LiteralPath $userDataTemplatePath -Raw
 $userData = $userData.Replace("AWS_REGION=ap-south-1", "AWS_REGION=$AwsRegion")
 $userData = $userData.Replace("AWS_PARAMETER_STORE_PATH_PREFIX=/aura/prod", "AWS_PARAMETER_STORE_PATH_PREFIX=$ParameterStorePathPrefix")
 $userData = $userData.Replace("AWS_S3_REVIEW_BUCKET=replace-with-your-media-bucket", "AWS_S3_REVIEW_BUCKET=$MediaBucketName")
+$userData = $userData.Replace("CORS_ORIGIN=https://your-vercel-project.vercel.app", "CORS_ORIGIN=$FrontendOrigin")
+$userData = $userData.Replace("APP_PUBLIC_URL=https://your-vercel-project.vercel.app", "APP_PUBLIC_URL=$FrontendOrigin")
 $userDataFile = Join-Path $env:TEMP "$StackPrefix-backend-user-data.sh"
 $userData | Set-Content -LiteralPath $userDataFile -Encoding ascii
 
+$existingInstanceId = aws ec2 describe-instances `
+    --region $AwsRegion `
+    --filters Name=tag:Name,Values=$InstanceTagName Name=instance-state-name,Values=pending,running,stopping,stopped `
+    --query "Reservations | sort_by(@,&Instances[0].LaunchTime)[-1].Instances[0].InstanceId" `
+    --output text
+
+if (-not [string]::IsNullOrWhiteSpace($existingInstanceId) -and $existingInstanceId -ne "None") {
+    $existingState = aws ec2 describe-instances `
+        --region $AwsRegion `
+        --instance-ids $existingInstanceId `
+        --query "Reservations[0].Instances[0].State.Name" `
+        --output text
+
+    if ($existingState -eq "stopped") {
+        aws ec2 start-instances `
+            --region $AwsRegion `
+            --instance-ids $existingInstanceId | Out-Null
+    }
+
+    Write-Host "Reusing existing backend instance."
+    Write-Host "InstanceId: $existingInstanceId"
+    Write-Host "Deploy bucket: $DeployBucketName"
+    Write-Host "Media bucket: $MediaBucketName"
+    Write-Host "Security group: $securityGroupId"
+    exit 0
+}
+
+$instanceArchitecture = Resolve-InstanceArchitecture -Region $AwsRegion -ResolvedInstanceType $InstanceType
+$amiId = Resolve-AmiId -Architecture $instanceArchitecture
+$rootBlockDeviceMappings = "[{""DeviceName"":""/dev/xvda"",""Ebs"":{""VolumeSize"":$RootVolumeSizeGiB,""VolumeType"":""gp3"",""DeleteOnTermination"":true}}]"
+$rootBlockDeviceFile = Join-Path $env:TEMP "$StackPrefix-root-volume.json"
+$rootBlockDeviceMappings | Set-Content -LiteralPath $rootBlockDeviceFile -Encoding ascii
+
 $instanceId = aws ec2 run-instances `
     --region $AwsRegion `
-    --image-id "resolve:ssm:/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64" `
+    --image-id $amiId `
     --instance-type $InstanceType `
     --iam-instance-profile "Name=$profileName" `
     --security-group-ids $securityGroupId `
     --subnet-id $resolvedSubnetId `
-    --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=$InstanceTagName},{Key=App,Value=Aura},{Key=Role,Value=backend}]" `
+    --block-device-mappings "file://$rootBlockDeviceFile" `
+    --metadata-options "HttpTokens=required,HttpEndpoint=enabled" `
+    --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=$InstanceTagName},{Key=App,Value=Aura},{Key=Role,Value=backend},{Key=Architecture,Value=$instanceArchitecture},{Key=CostProfile,Value=free-plan}]" `
     --user-data "file://$userDataFile" `
     --query "Instances[0].InstanceId" `
     --output text
 
+if ([string]::IsNullOrWhiteSpace($instanceId) -or $instanceId -eq "None") {
+    throw "EC2 instance launch did not return an instance ID."
+}
+
 Write-Host "EC2 backend bootstrap launched."
 Write-Host "InstanceId: $instanceId"
+Write-Host "Architecture: $instanceArchitecture"
 Write-Host "Deploy bucket: $DeployBucketName"
 Write-Host "Media bucket: $MediaBucketName"
 Write-Host "Security group: $securityGroupId"
