@@ -1,18 +1,3 @@
-const DEFAULT_HOSTED_BACKEND_ORIGIN = 'http://3.109.181.238:5000';
-
-const normalizeOrigin = (value = '') => String(value || '').trim().replace(/\/+$/, '');
-
-const requestedBackendOrigin = normalizeOrigin(
-    process.env.AURA_BACKEND_ORIGIN
-    || process.env.AWS_BACKEND_BASE_URL
-    || DEFAULT_HOSTED_BACKEND_ORIGIN
-);
-
-const backendOrigin = (
-    process.env.VERCEL === '1'
-    && /^https?:\/\/(?:127\.0\.0\.1|localhost)(?::\d+)?$/i.test(requestedBackendOrigin)
-) ? DEFAULT_HOSTED_BACKEND_ORIGIN : requestedBackendOrigin;
-
 export const config = {
     headers: [
         {
@@ -83,23 +68,23 @@ export const config = {
     ],
     rewrites: [
         {
-            source: '/api/(.*)',
-            destination: `${backendOrigin}/api/$1`,
+            source: '/api/:path*',
+            destination: 'http://3.109.181.238:5000/api/:path*',
         },
         {
             source: '/health',
-            destination: `${backendOrigin}/health`,
+            destination: 'http://3.109.181.238:5000/health',
         },
         {
             source: '/health/ready',
-            destination: `${backendOrigin}/health/ready`,
+            destination: 'http://3.109.181.238:5000/health/ready',
         },
         {
-            source: '/uploads/(.*)',
-            destination: `${backendOrigin}/uploads/$1`,
+            source: '/uploads/:path*',
+            destination: 'http://3.109.181.238:5000/uploads/:path*',
         },
         {
-            source: '/((?!api/|uploads/|assets/|manifest\\.json$|sw\\.js$|favicon\\.ico$|robots\\.txt$|.*\\.[^/]+$).*)',
+            source: '/:path((?!api/|uploads/|assets/|manifest\\.json$|sw\\.js$|favicon\\.ico$|robots\\.txt$|.*\\.[^/]+$).*)',
             destination: '/index.html',
         },
     ],
