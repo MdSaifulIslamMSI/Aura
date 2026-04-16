@@ -74,3 +74,4 @@ server/.assistant/
 **/playwright-report/
 **/coverage/
 .vercel
+.env*.local

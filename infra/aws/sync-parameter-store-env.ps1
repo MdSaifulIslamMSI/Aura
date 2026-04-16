@@ -2,6 +2,7 @@ param(
     [string]$SourceEnvFile = ".\server\.env.aws-secrets",
     [string]$PathPrefix = "",
     [string]$AwsRegion = "",
+    [string]$AwsProfile = "",
     [switch]$DryRun
 )
 
@@ -66,6 +67,31 @@ function Parse-EnvFile {
     return $entries
 }
 
+function Test-PlaceholderValue {
+    param([string]$Value)
+
+    if ([string]::IsNullOrWhiteSpace($Value)) {
+        return $true
+    }
+
+    $trimmed = $Value.Trim()
+    return $trimmed -match '^(?i)(kv|ssm):' -or $trimmed -match '^<[^>]+>$'
+}
+
+function Invoke-AwsCli {
+    param(
+        [string[]]$Arguments
+    )
+
+    $output = & aws @Arguments 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        $message = if ($output) { ($output | Out-String).Trim() } else { "aws exited with code $LASTEXITCODE" }
+        throw "AWS CLI command failed: $message"
+    }
+
+    return $output
+}
+
 Require-Command -Name "aws"
 
 $resolvedSourceEnvFile = (Resolve-Path -LiteralPath $SourceEnvFile).Path
@@ -90,13 +116,25 @@ if ([string]::IsNullOrWhiteSpace($resolvedPathPrefix)) {
 
 $entries = Parse-EnvFile -FilePath $resolvedSourceEnvFile
 $plan = New-Object System.Collections.Generic.List[object]
+$publishableEntries = New-Object System.Collections.Generic.List[object]
 
 foreach ($entry in $entries.GetEnumerator()) {
+    if (Test-PlaceholderValue -Value $entry.Value) {
+        Write-Warning "Skipping placeholder value for $($entry.Key)"
+        continue
+    }
+
     $parameterName = "$resolvedPathPrefix/$($entry.Key)"
-    $plan.Add([pscustomobject]@{
+    $planEntry = [pscustomobject]@{
         key = $entry.Key
         parameterName = $parameterName
         length = $entry.Value.Length
+    }
+    $plan.Add($planEntry) | Out-Null
+    $publishableEntries.Add([pscustomobject]@{
+        key = $entry.Key
+        parameterName = $parameterName
+        value = $entry.Value
     }) | Out-Null
 }
 
@@ -105,16 +143,24 @@ if ($DryRun) {
     exit 0
 }
 
-foreach ($entry in $entries.GetEnumerator()) {
-    $parameterName = "$resolvedPathPrefix/$($entry.Key)"
-    Write-Host "Publishing $parameterName"
-    aws ssm put-parameter `
-        --region $resolvedAwsRegion `
-        --name $parameterName `
-        --type SecureString `
-        --tier Standard `
-        --overwrite `
-        --value $entry.Value | Out-Null
+foreach ($entry in $publishableEntries) {
+    Write-Host "Publishing $($entry.parameterName)"
+    $awsArgs = @(
+        "ssm",
+        "put-parameter",
+        "--region", $resolvedAwsRegion,
+        "--name", $entry.parameterName,
+        "--type", "SecureString",
+        "--tier", "Standard",
+        "--overwrite",
+        "--value", $entry.value
+    )
+
+    if (-not [string]::IsNullOrWhiteSpace($AwsProfile)) {
+        $awsArgs += @("--profile", $AwsProfile)
+    }
+
+    Invoke-AwsCli -Arguments $awsArgs | Out-Null
 }
 
-Write-Host "Published $($plan.Count) parameters to $resolvedPathPrefix in $resolvedAwsRegion."
+Write-Host "Published $($publishableEntries.Count) parameters to $resolvedPathPrefix in $resolvedAwsRegion."
