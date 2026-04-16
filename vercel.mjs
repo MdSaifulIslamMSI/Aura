@@ -81,6 +81,10 @@ export const config = {
             destination: 'http://3.109.181.238:5000/health/ready',
         },
         {
+            source: '/health/live',
+            destination: 'http://3.109.181.238:5000/health/live',
+        },
+        {
             source: '/uploads/:path*',
             destination: 'http://3.109.181.238:5000/uploads/:path*',
         },

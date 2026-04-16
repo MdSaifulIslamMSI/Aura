@@ -2,6 +2,7 @@ param(
     [string]$RoleName = "aura-github-actions-deploy",
     [string]$Repository = "",
     [string]$Branch = "main",
+    [string]$GitHubEnvironment = "",
     [string]$AwsRegion = "ap-south-1",
     [string]$AwsProfile = "",
     [string]$DeployBucketName = "",
@@ -82,6 +83,12 @@ $repoSlug = Resolve-RepositorySlug -ExplicitRepository $Repository
 $resolvedDeployBucketName = Resolve-DeployBucketName -ExplicitBucketName $DeployBucketName -Region $AwsRegion
 $oidcProviderArn = Get-OrCreateOidcProviderArn
 $subject = 'repo:{0}:ref:refs/heads/{1}' -f $repoSlug, $Branch
+$allowedSubjects = @($subject)
+
+if (-not [string]::IsNullOrWhiteSpace($GitHubEnvironment)) {
+    $environmentSubject = 'repo:{0}:environment:{1}' -f $repoSlug, $GitHubEnvironment.Trim()
+    $allowedSubjects += $environmentSubject
+}
 
 if ($subject -notmatch '^repo:[^/]+/[^:]+:ref:refs/heads/.+$') {
     throw "Resolved GitHub subject '$subject' is invalid."
@@ -99,7 +106,9 @@ $trustPolicy = @{
             Condition = @{
                 StringEquals = @{
                     "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
-                    "token.actions.githubusercontent.com:sub" = $subject
+                }
+                StringLike = @{
+                    "token.actions.githubusercontent.com:sub" = $allowedSubjects
                 }
             }
         }
@@ -167,7 +176,10 @@ $roleArn = (aws iam get-role --role-name $RoleName | ConvertFrom-Json).Role.Arn
 Write-Host "GitHub OIDC deploy role ready."
 Write-Host "Role ARN: $roleArn"
 Write-Host "Repository: $repoSlug"
-Write-Host "Subject: $subject"
+Write-Host "Subjects:"
+foreach ($allowedSubject in $allowedSubjects) {
+    Write-Host "  $allowedSubject"
+}
 Write-Host "Suggested GitHub repository variables:"
 Write-Host "  AWS_REGION=$AwsRegion"
 Write-Host "  AWS_DEPLOY_BUCKET=$resolvedDeployBucketName"

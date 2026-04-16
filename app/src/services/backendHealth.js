@@ -1,6 +1,7 @@
-import { buildServiceUrl, requestWithTrace } from './apiBase';
+import { buildServiceUrl, parseJsonSafely, requestWithTrace } from './apiBase';
 
 export const HEALTH_LIVE_URL = buildServiceUrl('/health/live');
+export const HEALTH_READY_URL = buildServiceUrl('/health/ready');
 const HEALTH_SNAPSHOT_TTL_MS = 10 * 1000;
 const DEFAULT_HEALTH_TIMEOUT_MS = 4000;
 
@@ -8,20 +9,43 @@ let cachedSnapshot = null;
 let cachedAt = 0;
 let inFlightSnapshot = null;
 
+const isPlainObject = (value) => Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+
 const normalizeLiveHealthPayload = (payload = {}) => {
-  const alive = Boolean(payload?.alive);
-  const startupHealthy = Boolean(payload?.startup?.asyncStartupHealthy ?? true);
-  const status = alive && startupHealthy ? 'ok' : 'degraded';
+  if (!isPlainObject(payload)) {
+    return null;
+  }
+
+  const startup = isPlainObject(payload?.startup) ? payload.startup : {};
+  const alive = payload?.alive;
+  const ready = payload?.ready;
+  const startupHealthy = Boolean(startup?.asyncStartupHealthy ?? true);
+  const resolvedAlive = Boolean(alive ?? ready ?? false);
+  const status = resolvedAlive && startupHealthy ? 'ok' : 'degraded';
 
   return {
     status,
-    alive,
+    alive: resolvedAlive,
+    ready: Boolean(ready ?? resolvedAlive),
     startupHealthy,
     uptime: Number(payload?.uptime || 0),
     timestamp: payload?.timestamp || null,
-    topology: payload?.topology || {},
-    startup: payload?.startup || {},
+    topology: isPlainObject(payload?.topology) ? payload.topology : {},
+    startup,
   };
+};
+
+const fetchHealthSnapshot = async (url, timeoutMs) => {
+  const response = await requestWithTrace(url, {
+    method: 'GET',
+    headers: { Accept: 'application/json' },
+    cache: 'no-store',
+    timeoutMs,
+    retries: 0,
+    throwOnHttpError: false,
+  });
+  const payload = await parseJsonSafely(response);
+  return normalizeLiveHealthPayload(payload);
 };
 
 const shouldReuseSnapshot = (force = false) => (
@@ -48,17 +72,26 @@ export const getBackendHealthSnapshot = async (options = {}) => {
     return inFlightSnapshot;
   }
 
-  const request = requestWithTrace(HEALTH_LIVE_URL, {
-    method: 'GET',
-    headers: { Accept: 'application/json' },
-    cache: 'no-store',
-    timeoutMs,
-    retries: 0,
-    throwOnHttpError: false,
-  })
-    .then(async (response) => {
-      const payload = await response.json();
-      const snapshot = normalizeLiveHealthPayload(payload);
+  const request = (async () => {
+    let liveFailure = null;
+
+    try {
+      const liveSnapshot = await fetchHealthSnapshot(HEALTH_LIVE_URL, timeoutMs);
+      if (liveSnapshot) {
+        return liveSnapshot;
+      }
+    } catch (error) {
+      liveFailure = error;
+    }
+
+    const readySnapshot = await fetchHealthSnapshot(HEALTH_READY_URL, timeoutMs);
+    if (readySnapshot) {
+      return readySnapshot;
+    }
+
+    throw liveFailure || new Error('Health endpoint returned an invalid payload');
+  })()
+    .then((snapshot) => {
       cachedSnapshot = snapshot;
       cachedAt = Date.now();
       return snapshot;
