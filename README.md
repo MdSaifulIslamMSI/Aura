@@ -25,35 +25,36 @@ Core capabilities:
    - `npm install`
    - `npm run dev`
 
+## Local Dev Toggle
+- Start the local database stack: `npm run dev:on`
+- Stop it and leave it on Manual startup: `npm run dev:off`
+- If MySQL hangs during shutdown, use `npm run dev:off:force`
+- These scripts manage `MongoDB`, `MySQL80`, and `MySQL84`, and they self-elevate when Windows needs admin rights.
+
 ## Split Runtime
 - Production backend is now intended to run as a long-lived Node service, not Vercel serverless.
 - Frontend can remain static/Vercel; backend should run with Mongo replica set support and Redis enabled.
-- The default hosted split-runtime target in this repo is now `Vercel frontend + Azure Container Apps backend`.
+- The default hosted split-runtime target in this repo is now `Vercel frontend + AWS EC2 backend`.
 - Local split-runtime bootstrap:
   - `cd server`
   - `npm run runtime:split:up`
 - Deployment details and validation commands:
   - [`docs/split-runtime-deployment.md`](docs/split-runtime-deployment.md)
-  - [`docs/azure-github-actions-backend.md`](docs/azure-github-actions-backend.md)
+  - [`docs/aws-backend-deployment.md`](docs/aws-backend-deployment.md)
   - [`docs/performance-budgets.json`](docs/performance-budgets.json)
 
-## Azure Runtime Automation
-- Canonical Azure runtime manifests now live in:
-  - [`infra/azure/containerapps.runtime.manifest.json`](infra/azure/containerapps.runtime.manifest.json)
-  - [`infra/azure/server-api.appsettings.example.env`](infra/azure/server-api.appsettings.example.env)
-  - [`infra/azure/server-worker.appsettings.example.env`](infra/azure/server-worker.appsettings.example.env)
-- Local env to Azure sync:
-  - `powershell -ExecutionPolicy Bypass -File infra/azure/sync-containerapps-runtime.ps1 -SourceEnvFile server/.env -SyncKeyVaultSecrets`
-- Dry-run the runtime plan without touching Azure:
-  - `powershell -ExecutionPolicy Bypass -File infra/azure/sync-containerapps-runtime.ps1 -SourceEnvFile server/.env -DryRun -PlanOutputPath .run-logs/azure-runtime-plan.json`
-- Verify Azure is still aligned with the local source model:
-  - `cd server && npm run azure:runtime:verify`
-- Publish the local runtime env into GitHub and trigger the Azure sync workflow:
-  - `npm run azure:runtime:publish`
-- CI/CD now reuses the same sync layer before promoting images, so Key Vault references and Container Apps config stay aligned with the checked-in templates.
-- Future env additions are handled in two ways:
-  - add the new key to the relevant Azure template and it will sync automatically
-  - or use `SHARED__`, `API__`, or `WORKER__` prefixes in the env file to inject new runtime keys without changing the script
+## AWS Runtime Automation
+- Canonical AWS deploy scripts now live in:
+  - [`infra/aws/bootstrap-free-tier.ps1`](infra/aws/bootstrap-free-tier.ps1)
+  - [`infra/aws/bootstrap-github-oidc.ps1`](infra/aws/bootstrap-github-oidc.ps1)
+  - [`infra/aws/sync-parameter-store-env.ps1`](infra/aws/sync-parameter-store-env.ps1)
+  - [`infra/aws/docker-compose.ec2.yml`](infra/aws/docker-compose.ec2.yml)
+- Local env to AWS Parameter Store sync:
+  - `cd server && npm run aws:ssm:sync`
+- Repo-level shortcut for the same sync:
+  - `npm run aws:ssm:sync`
+- CI/CD now builds the backend image once, uploads the release bundle to S3, and rolls EC2 forward through SSM Run Command.
+- Frontend routing no longer hardcodes one cloud hostname in git. Set `AURA_BACKEND_ORIGIN` or `AWS_BACKEND_BASE_URL` in Vercel to point at the live backend origin.
 
 ## Production Catalog + Search Gates
 - Snapshot imports now require both `sourceRef` and `manifestRef`.

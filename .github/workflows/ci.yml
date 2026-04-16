@@ -1,28 +1,95 @@
 name: CI
 
 on:
-  push:
-    branches: ["main"]
   pull_request:
     branches: ["main"]
+    paths:
+      - "app/**"
+      - "server/**"
+      - "infra/aws/**"
+      - ".github/workflows/**"
+      - "vercel.mjs"
+      - "app/vercel.mjs"
+      - ".vercelignore"
+  push:
+    branches: ["main"]
+    paths:
+      - "app/**"
+      - "server/**"
+      - "infra/aws/**"
+      - ".github/workflows/**"
+      - "vercel.mjs"
+      - "app/vercel.mjs"
+      - ".vercelignore"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: 24.x
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ github.event_name == 'workflow_dispatch' && steps.manual.outputs.backend || steps.filter.outputs.backend }}
+      frontend: ${{ github.event_name == 'workflow_dispatch' && steps.manual.outputs.frontend || steps.filter.outputs.frontend }}
+
+    steps:
+      - uses: actions/checkout@v4
+        if: github.event_name != 'workflow_dispatch'
+        with:
+          fetch-depth: 0
+
+      - name: Mark all surfaces changed for manual runs
+        if: github.event_name == 'workflow_dispatch'
+        id: manual
+        run: |
+          echo "backend=true" >> "$GITHUB_OUTPUT"
+          echo "frontend=true" >> "$GITHUB_OUTPUT"
+
+      - name: Detect changed surfaces
+        if: github.event_name != 'workflow_dispatch'
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            backend:
+              - 'server/**'
+              - 'infra/aws/**'
+              - '.github/workflows/**'
+            frontend:
+              - 'app/**'
+              - 'vercel.mjs'
+              - 'app/vercel.mjs'
+              - '.vercelignore'
+              - '.github/workflows/**'
+
   artifact-guard:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Use Node.js 24.x
+      - name: Use Node.js ${{ env.NODE_VERSION }}
         uses: actions/setup-node@v4
         with:
-          node-version: 24.x
+          node-version: ${{ env.NODE_VERSION }}
 
       - name: Guard committed runtime/test artifacts
         run: node server/scripts/ci-guard-artifacts.js
 
   backend-regression:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     defaults:
       run:
         working-directory: ./server
@@ -30,22 +97,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Use Node.js 24.x
+      - name: Use Node.js ${{ env.NODE_VERSION }}
         uses: actions/setup-node@v4
         with:
-          node-version: 24.x
+          node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: server/package-lock.json
 
       - name: Start MongoDB
         uses: supercharge/mongodb-github-action@1.12.0
         with:
-          mongodb-version: '6.0'
+          mongodb-version: "6.0"
 
-      - name: Install Dependencies
+      - name: Install dependencies
         run: npm ci
 
-      - name: Run Backend Regression Suite
+      - name: Run backend regression suite
         run: >
           npx jest --runInBand --runTestsByPath
           tests/authMiddleware.test.js
@@ -74,107 +141,40 @@ jobs:
           tests/runtimeConfig.test.js
         env:
           TEST_MONGO_URI: mongodb://127.0.0.1:27017/aura_ci
-          TEST_USE_IN_MEMORY_MONGO: 'false'
-          TEST_FALLBACK_TO_IN_MEMORY_MONGO: 'false'
+          TEST_USE_IN_MEMORY_MONGO: "false"
+          TEST_FALLBACK_TO_IN_MEMORY_MONGO: "false"
           NODE_ENV: test
 
-  backend-coverage:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+  aws-runtime-contract:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./server
+    timeout-minutes: 5
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Use Node.js 24.x
+      - name: Use Node.js ${{ env.NODE_VERSION }}
         uses: actions/setup-node@v4
         with:
-          node-version: 24.x
-          cache: npm
-          cache-dependency-path: server/package-lock.json
+          node-version: ${{ env.NODE_VERSION }}
 
-      - name: Start MongoDB
-        uses: supercharge/mongodb-github-action@1.12.0
-        with:
-          mongodb-version: '6.0'
-
-      - name: Install Dependencies
-        run: npm ci
-
-      - name: Run Backend Coverage Regression Suite
-        run: >
-          npx jest --runInBand --coverage --runTestsByPath
-          tests/authMiddleware.test.js
-          tests/profileSecurity.test.js
-          tests/otpSystem.test.js
-          tests/otpEmailFailClosed.test.js
-          tests/paymentOrderIntegrity.test.js
-          tests/userPhoneIndex.test.js
-          tests/orderControllerCreate.test.js
-          tests/communicationUtilities.test.js
-          tests/communicationServices.test.js
-          tests/adminUserControllerResilience.test.js
-          tests/adminUserRoutes.integration.test.js
-          tests/paymentSecurityGuards.test.js
-          tests/adminProductRoutes.integration.test.js
-          tests/paymentRefundState.test.js
-          tests/adminPaymentRoutes.integration.test.js
-          tests/adminAnalyticsRoutes.integration.test.js
-          tests/adminNotificationRoutes.integration.test.js
-          tests/aiRoutes.test.js
-          tests/healthRoutes.test.js
-          tests/commerceAssistantService.test.js
-          tests/geminiGatewayService.test.js
-          tests/modelGatewayService.test.js
-          tests/ollamaGatewayService.test.js
-          tests/runtimeConfig.test.js
-        env:
-          TEST_MONGO_URI: mongodb://127.0.0.1:27017/aura_ci
-          TEST_USE_IN_MEMORY_MONGO: 'false'
-          TEST_FALLBACK_TO_IN_MEMORY_MONGO: 'false'
-          NODE_ENV: test
-
-  azure-runtime-contract:
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Use Node.js 24.x
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24.x
-
-      - name: Audit Key Vault secret coverage
-        run: node server/scripts/audit_keyvault_secret_contract.js
-
-      - name: Validate Azure runtime templates with the current env contract
-        shell: pwsh
-        run: |
-          & ".\\infra\\azure\\sync-containerapps-runtime.ps1" `
-            -SourceEnvFile ".\\server\\.env.azure-secrets.example" `
-            -DryRun `
-            -PlanOutputPath "${{ runner.temp }}\\azure-runtime-plan.json"
-
-      - name: Upload Azure runtime plan
-        uses: actions/upload-artifact@v4
-        with:
-          name: azure-runtime-plan
-          path: ${{ runner.temp }}/azure-runtime-plan.json
-          retention-days: 7
+      - name: Audit AWS Parameter Store secret coverage
+        run: node server/scripts/audit_parameter_store_secret_contract.js
 
   backend-container-smoke:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Use Node.js 24.x
+      - name: Use Node.js ${{ env.NODE_VERSION }}
         uses: actions/setup-node@v4
         with:
-          node-version: 24.x
+          node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: server/package-lock.json
 
@@ -186,7 +186,10 @@ jobs:
         run: docker build --file server/Dockerfile --tag aura-backend-ci ./server
 
   frontend-quality:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: ./app
@@ -194,32 +197,35 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Use Node.js 24.x
+      - name: Use Node.js ${{ env.NODE_VERSION }}
         uses: actions/setup-node@v4
         with:
-          node-version: 24.x
+          node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: app/package-lock.json
 
-      - name: Install Dependencies
+      - name: Install dependencies
         run: npm ci
 
-      - name: Lint Code
+      - name: Lint code
         run: npm run lint
 
-      - name: Run Component Tests
+      - name: Run component tests
         run: npm test
 
-      - name: Verify Build
+      - name: Verify build
         run: npm run build
 
-      - name: Enforce Bundle Budgets
+      - name: Enforce bundle budgets
         run: npm run bundle:budget
 
   frontend-e2e:
-    # Run E2E only on direct pushes to main to conserve CI minutes.
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs:
+      - changes
+      - frontend-quality
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: ./app
@@ -227,37 +233,36 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Use Node.js 24.x
+      - name: Use Node.js ${{ env.NODE_VERSION }}
         uses: actions/setup-node@v4
         with:
-          node-version: 24.x
+          node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: app/package-lock.json
 
-      - name: Install Dependencies
+      - name: Install dependencies
         run: npm ci
 
       - name: Start MongoDB
         uses: supercharge/mongodb-github-action@1.12.0
         with:
-          mongodb-version: '6.0'
+          mongodb-version: "6.0"
 
       - name: Install Playwright Chromium
         run: npx playwright install chromium --with-deps
 
-      - name: Run E2E Tests
+      - name: Run E2E tests
         run: npm run test:e2e
         env:
-          CI: 'true'
-          PAYMENTS_ENABLED: 'false'
-          PAYMENT_WEBHOOKS_ENABLED: 'false'
-          PAYMENT_PROVIDER: 'disabled'
+          CI: "true"
+          PAYMENTS_ENABLED: "false"
+          PAYMENT_WEBHOOKS_ENABLED: "false"
+          PAYMENT_PROVIDER: "disabled"
 
-      - name: Upload Playwright Report
+      - name: Upload Playwright report
         uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: playwright-report
           path: app/playwright-report/
           retention-days: 7
-
