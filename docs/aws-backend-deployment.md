@@ -9,6 +9,7 @@
 - Secrets live in AWS Systems Manager Parameter Store using the `AWS_PARAMETER_STORE_PATH_PREFIX` path.
 - Review uploads live in S3 via `UPLOAD_STORAGE_DRIVER=s3`.
 - GitHub Actions builds the image once, uploads the release bundle to S3, and deploys through SSM Run Command.
+- GitHub Actions CI is path-aware and now skips docs-only churn while still validating backend, frontend, and deploy changes.
 - The default free-plan target is `t4g.small` with an arm64 image build, 16 GiB `gp3` root volume, and automatic cost guardrails.
 - Amazon Linux 2023 installs Docker from `dnf`, while the Compose plugin is installed from Docker's official `latest` release URL for the detected host architecture.
 
@@ -51,7 +52,15 @@
 - Local secrets should live in `server/.env.aws-secrets`, which is ignored by git.
 
 ## Deploy Workflow
-- GitHub Actions workflow: [deploy-backend-aws.yml](/c:/Users/mdsai/Downloads/Kimi_Agent_Flipkart-Style%20Frontend/.github/workflows/deploy-backend-aws.yml)
+- Validation workflow: [ci.yml](/c:/Users/mdsai/Downloads/Kimi_Agent_Flipkart-Style%20Frontend/.github/workflows/ci.yml)
+- Production backend deploy workflow: [deploy-backend-aws.yml](/c:/Users/mdsai/Downloads/Kimi_Agent_Flipkart-Style%20Frontend/.github/workflows/deploy-backend-aws.yml)
 - EC2 compose file: [docker-compose.ec2.yml](/c:/Users/mdsai/Downloads/Kimi_Agent_Flipkart-Style%20Frontend/infra/aws/docker-compose.ec2.yml)
 - EC2 rollout script: [deploy-release.sh](/c:/Users/mdsai/Downloads/Kimi_Agent_Flipkart-Style%20Frontend/infra/aws/deploy-release.sh)
 - Parameter Store sync: [sync-parameter-store-env.ps1](/c:/Users/mdsai/Downloads/Kimi_Agent_Flipkart-Style%20Frontend/infra/aws/sync-parameter-store-env.ps1)
+
+## CI/CD Shape
+- GitHub Actions now keeps only two first-party workflows: `CI` for validation and `Deploy Backend To AWS` for production rollout.
+- The old duplicated coverage pass has been removed. Backend regressions now run once per relevant change set.
+- Frontend preview and production deploys continue to come from the Vercel GitHub integration, not an extra GitHub Actions deploy workflow.
+- Backend, frontend, and deploy checks are gated by file-path detection so docs-only and unrelated edits do not burn CI minutes.
+- Production deploys are serialized with workflow concurrency, and manual dispatch can target a specific git ref when rollback or re-release is needed.
