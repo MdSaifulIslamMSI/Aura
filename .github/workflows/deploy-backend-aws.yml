@@ -31,12 +31,13 @@ concurrency:
 
 env:
   AWS_REGION: ${{ vars.AWS_REGION || 'ap-south-1' }}
-  AWS_DEPLOY_BUCKET: ${{ vars.AWS_DEPLOY_BUCKET || '' }}
+  AWS_DEPLOY_BUCKET: ${{ vars.AWS_DEPLOY_BUCKET || 'aura-backend-deployments-942679464475-ap-south-1' }}
   AWS_INSTANCE_TAG_KEY: ${{ vars.AWS_INSTANCE_TAG_KEY || 'Name' }}
   AWS_INSTANCE_TAG_VALUE: ${{ vars.AWS_INSTANCE_TAG_VALUE || 'aura-backend' }}
   AWS_PARAMETER_STORE_PATH_PREFIX: ${{ vars.AWS_PARAMETER_STORE_PATH_PREFIX || '/aura/prod' }}
-  AWS_BACKEND_BASE_URL: ${{ vars.AWS_BACKEND_BASE_URL || '' }}
+  AWS_BACKEND_BASE_URL: ${{ vars.AWS_BACKEND_BASE_URL || 'http://3.109.181.238:5000' }}
   AWS_DOCKER_PLATFORM: ${{ vars.AWS_DOCKER_PLATFORM || 'linux/arm64' }}
+  AWS_DEPLOY_ROLE_ARN: ${{ vars.AWS_DEPLOY_ROLE_ARN || 'arn:aws:iam::942679464475:role/aura-github-actions-deploy' }}
 
 jobs:
   preflight:
@@ -54,8 +55,6 @@ jobs:
           node-version: 24.x
 
       - name: Validate deploy configuration
-        env:
-          AWS_DEPLOY_ROLE_ARN: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
         run: |
           set -euo pipefail
           test -n "${AWS_DEPLOY_ROLE_ARN}" || { echo "Missing secret AWS_DEPLOY_ROLE_ARN"; exit 1; }
@@ -64,9 +63,34 @@ jobs:
           test -n "${AWS_INSTANCE_TAG_VALUE}" || { echo "Missing variable AWS_INSTANCE_TAG_VALUE"; exit 1; }
           test -n "${AWS_PARAMETER_STORE_PATH_PREFIX}" || { echo "Missing variable AWS_PARAMETER_STORE_PATH_PREFIX"; exit 1; }
           test -n "${AWS_BACKEND_BASE_URL}" || { echo "Missing variable AWS_BACKEND_BASE_URL"; exit 1; }
+          echo "Deploy role: ${AWS_DEPLOY_ROLE_ARN}"
+          echo "Deploy bucket: ${AWS_DEPLOY_BUCKET}"
+          echo "Instance selector: ${AWS_INSTANCE_TAG_KEY}=${AWS_INSTANCE_TAG_VALUE}"
+          echo "Backend URL: ${AWS_BACKEND_BASE_URL}"
 
       - name: Audit AWS Parameter Store secret coverage
         run: node server/scripts/audit_parameter_store_secret_contract.js
+
+      - name: Configure AWS credentials for preflight
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ env.AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: aura-github-preflight
+          mask-aws-account-id: true
+          unset-current-credentials: true
+
+      - name: Validate AWS deploy access
+        run: |
+          set -euo pipefail
+          aws sts get-caller-identity
+          aws s3api head-bucket --bucket "${AWS_DEPLOY_BUCKET}"
+          INSTANCE_ID="$(aws ec2 describe-instances \
+            --filters "Name=tag:${AWS_INSTANCE_TAG_KEY},Values=${AWS_INSTANCE_TAG_VALUE}" "Name=instance-state-name,Values=running" \
+            --query "Reservations[0].Instances[0].InstanceId" \
+            --output text)"
+          test -n "${INSTANCE_ID}" && test "${INSTANCE_ID}" != "None" || { echo "No running EC2 instance matched ${AWS_INSTANCE_TAG_KEY}=${AWS_INSTANCE_TAG_VALUE}"; exit 1; }
+          echo "Resolved backend instance ${INSTANCE_ID}"
 
   deploy:
     needs: preflight
@@ -85,7 +109,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-region: ${{ env.AWS_REGION }}
-          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          role-to-assume: ${{ env.AWS_DEPLOY_ROLE_ARN }}
           role-session-name: aura-github-deploy
           mask-aws-account-id: true
           unset-current-credentials: true

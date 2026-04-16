@@ -1,8 +1,17 @@
-const backendOrigin = String(
+const DEFAULT_HOSTED_BACKEND_ORIGIN = 'http://3.109.181.238:5000';
+
+const normalizeOrigin = (value = '') => String(value || '').trim().replace(/\/+$/, '');
+
+const requestedBackendOrigin = normalizeOrigin(
     process.env.AURA_BACKEND_ORIGIN
     || process.env.AWS_BACKEND_BASE_URL
-    || 'http://127.0.0.1:5000'
-).trim().replace(/\/+$/, '');
+    || DEFAULT_HOSTED_BACKEND_ORIGIN
+);
+
+const backendOrigin = (
+    process.env.VERCEL === '1'
+    && /^https?:\/\/(?:127\.0\.0\.1|localhost)(?::\d+)?$/i.test(requestedBackendOrigin)
+) ? DEFAULT_HOSTED_BACKEND_ORIGIN : requestedBackendOrigin;
 
 export const config = {
     headers: [

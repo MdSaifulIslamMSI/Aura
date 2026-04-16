@@ -23,8 +23,8 @@
    - `powershell -ExecutionPolicy Bypass -File infra\aws\bootstrap-free-tier.ps1 -FrontendOrigin https://aurapilot.vercel.app`
 2. Install monthly budget and free-plan expiration guardrails:
    - `powershell -ExecutionPolicy Bypass -File infra\aws\bootstrap-cost-guardrails.ps1 -AwsProfile aura-bootstrap`
-3. Create the GitHub deploy role:
-   - `powershell -ExecutionPolicy Bypass -File infra\aws\bootstrap-github-oidc.ps1`
+3. Create or refresh the GitHub deploy role:
+   - `powershell -ExecutionPolicy Bypass -File infra\aws\bootstrap-github-oidc.ps1 -Repository MdSaifulIslamMSI/Aura -AwsProfile aura-bootstrap`
 4. Publish secrets into Parameter Store:
    - `powershell -ExecutionPolicy Bypass -File infra\aws\sync-parameter-store-env.ps1 -SourceEnvFile .\server\.env.aws-secrets -PathPrefix /aura/prod -AwsRegion ap-south-1 -AwsProfile aura-bootstrap`
 
@@ -36,6 +36,7 @@
 - `AWS_PARAMETER_STORE_PATH_PREFIX`
 - `AWS_BACKEND_BASE_URL`
 - `AWS_DOCKER_PLATFORM`
+ - `AWS_DEPLOY_ROLE_ARN`
 
 ## GitHub Secret
 - `AWS_DEPLOY_ROLE_ARN`
@@ -43,6 +44,7 @@
 ## Frontend Routing
 - Vercel now reads the backend origin from `AURA_BACKEND_ORIGIN` or `AWS_BACKEND_BASE_URL`.
 - Set that value to your EC2 public URL or custom domain, for example `http://12.34.56.78:5000` or `https://api.example.com`.
+- If those variables are blank on a hosted Vercel deployment, the checked-in config now falls back to the live AWS backend origin instead of `127.0.0.1`.
 - For the default `t4g.small` target, set `AWS_DOCKER_PLATFORM=linux/arm64`.
 - The bootstrap defaults already disable paid integrations that would otherwise fail closed on a bare free-plan stack: payments, OTP SMS, and order email sending.
 
@@ -64,3 +66,4 @@
 - Frontend preview and production deploys continue to come from the Vercel GitHub integration, not an extra GitHub Actions deploy workflow.
 - Backend, frontend, and deploy checks are gated by file-path detection so docs-only and unrelated edits do not burn CI minutes.
 - Production deploys are serialized with workflow concurrency, and manual dispatch can target a specific git ref when rollback or re-release is needed.
+- The AWS deploy workflow now ships with live repo defaults for the current production stack and validates real AWS access during preflight, so missing GitHub repo variables no longer hard-fail the pipeline.
