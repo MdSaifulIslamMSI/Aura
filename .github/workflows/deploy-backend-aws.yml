@@ -94,9 +94,6 @@ jobs:
     needs: preflight
     runs-on: ubuntu-latest
     timeout-minutes: 40
-    environment:
-      name: production
-      url: ${{ env.AWS_BACKEND_BASE_URL }}
 
     steps:
       - uses: actions/checkout@v4
