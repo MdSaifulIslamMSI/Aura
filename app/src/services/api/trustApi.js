@@ -1,4 +1,4 @@
-import { buildServiceUrl } from '../apiBase';
+import { getBackendHealthSnapshot } from '../backendHealth';
 
 export const trustApi = {
     getClientSignals: async () => {
@@ -37,18 +37,13 @@ export const trustApi = {
         };
 
         try {
-            const response = await fetch(buildServiceUrl('/health'), {
-                headers: { Accept: 'application/json' },
-            });
-            if (response.ok) {
-                const data = await response.json();
-                backend = {
-                    status: data?.status || 'degraded',
-                    db: data?.db || 'unknown',
-                    uptime: Number(data?.uptime || 0),
-                    timestamp: data?.timestamp || null,
-                };
-            }
+            const data = await getBackendHealthSnapshot();
+            backend = {
+                status: data?.status || 'degraded',
+                db: data?.status === 'ok' ? 'connected' : 'unknown',
+                uptime: Number(data?.uptime || 0),
+                timestamp: data?.timestamp || null,
+            };
         } catch {
             // graceful fallback to degraded
         }

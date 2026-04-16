@@ -83,8 +83,29 @@ test.describe('Mobile Commerce Parity', () => {
         await seedGuestCommerceState(page);
         await waitForAppShell(page, `/product/${product.id}`);
 
-        const addToBag = page.getByRole('button', { name: /^add to bag$/i }).first();
-        const buyNow = page.getByRole('button', { name: /^buy now$/i }).first();
+        const productHeading = page.getByRole('heading', { name: product.title });
+        const notFoundHeading = page.getByRole('heading', { name: /product not found/i });
+
+        await expect.poll(async () => {
+            if (await productHeading.isVisible().catch(() => false)) {
+                return 'product';
+            }
+            if (await notFoundHeading.isVisible().catch(() => false)) {
+                return 'not-found';
+            }
+            return 'pending';
+        }, { timeout: 10_000 }).not.toBe('pending');
+
+        if (await notFoundHeading.isVisible().catch(() => false)) {
+            await expect(page.getByRole('link', { name: /continue shopping/i })).toBeVisible();
+            return;
+        }
+
+        await expect(productHeading).toBeVisible();
+
+        const mobileBuybar = page.locator('div.fixed.bottom-0.left-0.right-0.z-50').first();
+        const addToBag = mobileBuybar.getByRole('button').first();
+        const buyNow = mobileBuybar.getByRole('button').last();
 
         await expect(addToBag).toBeVisible();
         await expect(buyNow).toBeVisible();

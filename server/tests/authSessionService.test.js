@@ -158,6 +158,18 @@ describe('authSessionService session intelligence payload', () => {
                 rememberedIdentifier: 'email+phone',
                 providerIds: ['password', 'google.com'],
             },
+            posture: {
+                trustedDeviceBound: false,
+                cryptoDeviceBound: false,
+                session: {
+                    freshForSensitiveActions: false,
+                },
+                policy: {
+                    privilegedAccount: true,
+                    elevatedAssurance: true,
+                    sensitiveActionsAllowed: false,
+                },
+            },
     });
   });
 });
