@@ -239,7 +239,7 @@ function Ensure-ExpirationSchedule {
         InstanceIds = @($ResolvedInstanceId)
     } | ConvertTo-Json -Compress
     $target = @{
-        Arn = "arn:aws:scheduler:::aws-sdk:ec2:stopInstances"
+        Arn = "arn:aws:scheduler:::aws-sdk:ec2:terminateInstances"
         RoleArn = $ResolvedRoleArn
         Input = $scheduleInput
     } | ConvertTo-Json -Depth 6 -Compress
@@ -377,6 +377,7 @@ $schedulerInlinePolicy = @{
             Effect = "Allow"
             Action = @(
                 "ec2:StopInstances"
+                "ec2:TerminateInstances"
             )
             Resource = "arn:aws:ec2:${AwsRegion}:${resolvedAccountId}:instance/${resolvedInstanceId}"
         }
