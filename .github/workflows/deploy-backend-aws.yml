@@ -10,24 +10,48 @@ on:
       - "vercel.mjs"
       - "app/vercel.mjs"
   workflow_dispatch:
+    inputs:
+      git_ref:
+        description: Git ref to deploy
+        required: false
+        default: main
+      skip_healthcheck:
+        description: Skip the final readiness probe
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: aws-backend-production
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION || 'ap-south-1' }}
+  AWS_DEPLOY_BUCKET: ${{ vars.AWS_DEPLOY_BUCKET || '' }}
+  AWS_INSTANCE_TAG_KEY: ${{ vars.AWS_INSTANCE_TAG_KEY || 'Name' }}
+  AWS_INSTANCE_TAG_VALUE: ${{ vars.AWS_INSTANCE_TAG_VALUE || 'aura-backend' }}
+  AWS_PARAMETER_STORE_PATH_PREFIX: ${{ vars.AWS_PARAMETER_STORE_PATH_PREFIX || '/aura/prod' }}
+  AWS_BACKEND_BASE_URL: ${{ vars.AWS_BACKEND_BASE_URL || '' }}
+  AWS_DOCKER_PLATFORM: ${{ vars.AWS_DOCKER_PLATFORM || 'linux/arm64' }}
 
 jobs:
-  deploy:
+  preflight:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
-    env:
-      AWS_REGION: ${{ vars.AWS_REGION || 'ap-south-1' }}
-      AWS_DEPLOY_BUCKET: ${{ vars.AWS_DEPLOY_BUCKET || '' }}
-      AWS_INSTANCE_TAG_KEY: ${{ vars.AWS_INSTANCE_TAG_KEY || 'Name' }}
-      AWS_INSTANCE_TAG_VALUE: ${{ vars.AWS_INSTANCE_TAG_VALUE || 'aura-backend' }}
-      AWS_PARAMETER_STORE_PATH_PREFIX: ${{ vars.AWS_PARAMETER_STORE_PATH_PREFIX || '/aura/prod' }}
-      AWS_BACKEND_BASE_URL: ${{ vars.AWS_BACKEND_BASE_URL || '' }}
-      AWS_DOCKER_PLATFORM: ${{ vars.AWS_DOCKER_PLATFORM || 'linux/amd64' }}
+    timeout-minutes: 10
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.git_ref || github.sha }}
+
+      - name: Use Node.js 24.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.x
 
       - name: Validate deploy configuration
         env:
@@ -40,6 +64,22 @@ jobs:
           test -n "${AWS_INSTANCE_TAG_VALUE}" || { echo "Missing variable AWS_INSTANCE_TAG_VALUE"; exit 1; }
           test -n "${AWS_PARAMETER_STORE_PATH_PREFIX}" || { echo "Missing variable AWS_PARAMETER_STORE_PATH_PREFIX"; exit 1; }
           test -n "${AWS_BACKEND_BASE_URL}" || { echo "Missing variable AWS_BACKEND_BASE_URL"; exit 1; }
+
+      - name: Audit AWS Parameter Store secret coverage
+        run: node server/scripts/audit_parameter_store_secret_contract.js
+
+  deploy:
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    environment:
+      name: production
+      url: ${{ vars.AWS_BACKEND_BASE_URL }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.git_ref || github.sha }}
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -153,6 +193,7 @@ jobs:
           exit 1
 
       - name: Verify backend health
+        if: github.event_name != 'workflow_dispatch' || inputs.skip_healthcheck != true
         run: |
           set -euo pipefail
           curl --fail --show-error --silent "${AWS_BACKEND_BASE_URL%/}/health/ready" > /dev/null
