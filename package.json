@@ -2,6 +2,11 @@
   "private": true,
   "scripts": {
     "build": "cd app && npm install && npm run build",
-    "azure:runtime:publish": "powershell -ExecutionPolicy Bypass -File infra/github/publish-azure-runtime-env.ps1 -TriggerWorkflow"
+    "aws:ssm:sync": "powershell -ExecutionPolicy Bypass -File .\\infra\\aws\\sync-parameter-store-env.ps1 -SourceEnvFile .\\server\\.env.aws-secrets",
+    "dev:on": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\dev-on.ps1",
+    "dev:off": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\dev-off.ps1",
+    "dev:off:force": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\dev-off.ps1 -ForceKill",
+    "codex:restart": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\codex-restart.ps1",
+    "codex:open": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\codex-open.ps1"
   }
 }

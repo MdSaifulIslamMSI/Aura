@@ -8,7 +8,7 @@
 - The shared backend runtime requires:
   - MongoDB replica set connectivity
   - Redis enabled and required
-- The repo includes an Azure Container Apps deployment path under [`docs/azure-github-actions-backend.md`](./azure-github-actions-backend.md) and the scripts in [`infra/azure`](../infra/azure).
+- The repo includes an AWS EC2 + S3 + Parameter Store deployment path under [`docs/aws-backend-deployment.md`](./aws-backend-deployment.md) and the scripts in [`infra/aws`](../infra/aws).
 
 ## Local Bootstrap
 1. `cd server`
