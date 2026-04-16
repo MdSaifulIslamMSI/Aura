@@ -28,14 +28,14 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  AWS_REGION: ${{ vars.AWS_REGION || 'ap-south-1' }}
-  AWS_DEPLOY_BUCKET: ${{ vars.AWS_DEPLOY_BUCKET || 'aura-backend-deployments-942679464475-ap-south-1' }}
-  AWS_INSTANCE_TAG_KEY: ${{ vars.AWS_INSTANCE_TAG_KEY || 'Name' }}
-  AWS_INSTANCE_TAG_VALUE: ${{ vars.AWS_INSTANCE_TAG_VALUE || 'aura-backend' }}
-  AWS_PARAMETER_STORE_PATH_PREFIX: ${{ vars.AWS_PARAMETER_STORE_PATH_PREFIX || '/aura/prod' }}
-  AWS_BACKEND_BASE_URL: ${{ vars.AWS_BACKEND_BASE_URL || 'http://3.109.181.238:5000' }}
-  AWS_DOCKER_PLATFORM: ${{ vars.AWS_DOCKER_PLATFORM || 'linux/arm64' }}
-  AWS_DEPLOY_ROLE_ARN: ${{ vars.AWS_DEPLOY_ROLE_ARN || 'arn:aws:iam::942679464475:role/aura-github-actions-deploy' }}
+  AWS_REGION: ap-south-1
+  AWS_DEPLOY_BUCKET: aura-backend-deployments-942679464475-ap-south-1
+  AWS_INSTANCE_TAG_KEY: Name
+  AWS_INSTANCE_TAG_VALUE: aura-backend
+  AWS_PARAMETER_STORE_PATH_PREFIX: /aura/prod
+  AWS_BACKEND_BASE_URL: http://3.109.181.238:5000
+  AWS_DOCKER_PLATFORM: linux/arm64
+  AWS_DEPLOY_ROLE_ARN: arn:aws:iam::942679464475:role/aura-github-actions-deploy
 
 jobs:
   preflight:
@@ -96,7 +96,7 @@ jobs:
     timeout-minutes: 40
     environment:
       name: production
-      url: ${{ vars.AWS_BACKEND_BASE_URL }}
+      url: ${{ env.AWS_BACKEND_BASE_URL }}
 
     steps:
       - uses: actions/checkout@v4
