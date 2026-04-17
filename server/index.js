@@ -532,8 +532,13 @@ app.get('/health/ready', async (req, res) => {
     });
 });
 
-app.get('/', (req, res) => {
-    res.send('API is running...');
+// Serve Frontend
+app.use(express.static(path.join(__dirname, 'public')));
+app.get('*', (req, res, next) => {
+    if (req.originalUrl.startsWith('/api/') || req.originalUrl.startsWith('/health') || req.originalUrl.startsWith('/metrics')) {
+        return next();
+    }
+    res.sendFile(path.resolve(__dirname, 'public', 'index.html'));
 });
 
 // Error Handling
