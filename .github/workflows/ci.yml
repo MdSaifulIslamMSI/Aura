@@ -31,7 +31,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  NODE_VERSION: 24.x
+  NODE_VERSION: 22.x
 
 jobs:
   changes:
@@ -90,6 +90,16 @@ jobs:
     if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     defaults:
       run:
         working-directory: ./server
@@ -144,6 +154,8 @@ jobs:
           TEST_USE_IN_MEMORY_MONGO: "false"
           TEST_FALLBACK_TO_IN_MEMORY_MONGO: "false"
           NODE_ENV: test
+          REDIS_ENABLED: "true"
+          REDIS_URL: redis://127.0.0.1:6379
 
   aws-runtime-contract:
     needs: changes
@@ -226,6 +238,16 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     defaults:
       run:
         working-directory: ./app
@@ -258,6 +280,8 @@ jobs:
           PAYMENTS_ENABLED: "false"
           PAYMENT_WEBHOOKS_ENABLED: "false"
           PAYMENT_PROVIDER: "disabled"
+          REDIS_ENABLED: "true"
+          REDIS_URL: redis://127.0.0.1:6379
 
       - name: Upload Playwright report
         uses: actions/upload-artifact@v4
