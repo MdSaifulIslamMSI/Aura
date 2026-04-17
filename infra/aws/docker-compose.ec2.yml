@@ -45,6 +45,16 @@ services:
     volumes:
       - aura-redis:/data
 
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    command: caddy reverse-proxy --from 3-109-181-238.nip.io --to http://api:5000
+    depends_on:
+      - api
+
 volumes:
   aura-redis:
   aura-uploads:
