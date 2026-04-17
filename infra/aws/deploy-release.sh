@@ -53,4 +53,10 @@ for _ in $(seq 1 30); do
 done
 
 echo "Aura backend release ${release_sha} failed readiness checks." >&2
+docker compose \
+  --env-file "${shared_dir}/base.env" \
+  --env-file "${shared_dir}/runtime-secrets.env" \
+  --env-file "${shared_dir}/release.env" \
+  -f "${current_dir}/infra/aws/docker-compose.ec2.yml" \
+  logs --tail 100 >&2
 exit 1
