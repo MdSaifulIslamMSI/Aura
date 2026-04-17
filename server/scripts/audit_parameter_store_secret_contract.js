@@ -164,13 +164,11 @@ const runtimeEnvNames = extractRuntimeEnvNames();
 const runtimeSecretEnvNames = runtimeEnvNames.filter(isSecretLikeEnvName);
 
 const envExampleEntries = parseEnvFile(path.join(serverRoot, '.env.example'));
-const awsSecretsExampleEntries = parseEnvFile(path.join(serverRoot, '.env.aws-secrets.example'));
 const awsKeyList = parseAwsKeyListFromEnvExample(envExampleEntries);
 
 const report = {
     runtimeSecretEnvVars: runtimeSecretEnvNames,
     missingFromEnvExample: runtimeSecretEnvNames.filter((name) => !envExampleEntries.has(name)),
-    missingFromAwsSecretsExample: runtimeSecretEnvNames.filter((name) => !awsSecretsExampleEntries.has(name)),
     missingFromAwsParameterStoreSecretKeys: runtimeSecretEnvNames.filter((name) => !awsKeyList.has(name)),
     missingFromRuntimeBootstrapDefaults: runtimeSecretEnvNames.filter((name) => !DEFAULT_AWS_PARAMETER_KEYS.includes(name)),
 };
