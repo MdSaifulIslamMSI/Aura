@@ -534,8 +534,7 @@ app.get('/health/ready', async (req, res) => {
 
 // Serve Frontend
 app.use(express.static(path.join(__dirname, 'public')));
-app.use((req, res, next) => {
-    if (req.method !== 'GET') return next();
+app.get('*', (req, res, next) => {
     if (req.originalUrl.startsWith('/api/') || req.originalUrl.startsWith('/health') || req.originalUrl.startsWith('/metrics')) {
         return next();
     }
