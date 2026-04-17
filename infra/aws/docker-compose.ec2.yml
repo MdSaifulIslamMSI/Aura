@@ -11,6 +11,10 @@ services:
       NODE_ENV: production
       PORT: 5000
       SPLIT_RUNTIME_ENABLED: "true"
+      ORDER_EMAIL_PROVIDER: gmail
+      GMAIL_USER: mdsaifulislam38msi@gmail.com
+      GMAIL_APP_PASSWORD: dfvrfhpdggcunhgw
+      AUTH_DEVICE_CHALLENGE_MODE: admin
     depends_on:
       - redis
     ports:
@@ -30,6 +34,9 @@ services:
       NODE_ENV: production
       SPLIT_RUNTIME_ENABLED: "true"
       WORKER_HEALTH_PORT: 8080
+      ORDER_EMAIL_PROVIDER: gmail
+      GMAIL_USER: mdsaifulislam38msi@gmail.com
+      GMAIL_APP_PASSWORD: dfvrfhpdggcunhgw
     depends_on:
       - redis
     volumes:
