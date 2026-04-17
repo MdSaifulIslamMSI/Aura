@@ -44,7 +44,7 @@ docker compose \
   -f "${current_dir}/infra/aws/docker-compose.ec2.yml" \
   up -d --remove-orphans
 
-for _ in $(seq 1 12); do
+for _ in $(seq 1 30); do
   if curl --fail --silent http://127.0.0.1:5000/health/ready > /dev/null; then
     echo "Aura backend release ${release_sha} is healthy."
     exit 0
