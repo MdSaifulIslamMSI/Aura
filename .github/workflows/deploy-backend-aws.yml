@@ -154,6 +154,13 @@ jobs:
             --output text)"
           test -n "${INSTANCE_ID}" && test "${INSTANCE_ID}" != "None" || { echo "No running EC2 instance matched ${AWS_INSTANCE_TAG_KEY}=${AWS_INSTANCE_TAG_VALUE}"; exit 1; }
           echo "instance_id=${INSTANCE_ID}" >> "$GITHUB_OUTPUT"
+          
+          SG_ID="$(aws ec2 describe-instances --instance-ids "${INSTANCE_ID}" --query "Reservations[0].Instances[0].SecurityGroups[0].GroupId" --output text)"
+          echo "sg_id=${SG_ID}" >> "$GITHUB_OUTPUT"
+          
+          echo "Opening ports 80 and 443 on SG: ${SG_ID}"
+          aws ec2 authorize-security-group-ingress --group-id "${SG_ID}" --protocol tcp --port 80 --cidr 0.0.0.0/0 || true
+          aws ec2 authorize-security-group-ingress --group-id "${SG_ID}" --protocol tcp --port 443 --cidr 0.0.0.0/0 || true
 
       - name: Deploy release through SSM
         id: ssm
