@@ -81,7 +81,6 @@ const loadLocalEnvFiles = () => {
     const serverRoot = getServerRoot();
     const envCandidates = [
         path.join(serverRoot, '.env.local'),
-        path.join(serverRoot, '.env.aws-secrets'),
         path.join(serverRoot, '.env'),
     ];
 
