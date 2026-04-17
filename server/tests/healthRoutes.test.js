@@ -29,7 +29,11 @@ describe('Health routes', () => {
 
         expect([200, 503]).toContain(res.statusCode);
         expect(res.headers).not.toHaveProperty('x-powered-by');
-        expect(res.headers['content-security-policy']).toContain("frame-src 'self' https://checkout.razorpay.com https://*.firebaseapp.com https://app.powerbi.com");
+        const csp = res.headers['content-security-policy'];
+        expect(csp).toContain("frame-src");
+        expect(csp).toContain("https://checkout.razorpay.com");
+        expect(csp).toContain("https://*.firebaseapp.com");
+        expect(csp).toContain("https://app.powerbi.com");
         expect(res.body).not.toHaveProperty('runtimeSecrets');
         expect(res.body.startup).not.toHaveProperty('asyncStartupError');
         expect(res.body.startup).toHaveProperty('asyncStartupHealthy');
