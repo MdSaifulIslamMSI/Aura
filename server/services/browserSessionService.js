@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
 const { getRedisClient, flags: redisFlags } = require('../config/redis');
 const {
@@ -17,6 +18,7 @@ const SESSION_ABSOLUTE_TTL_MS = Math.max(Number(process.env.AUTH_SESSION_ABSOLUT
 const SESSION_TOUCH_INTERVAL_MS = Math.max(Number(process.env.AUTH_SESSION_TOUCH_INTERVAL_MS || (5 * 60 * 1000)), 30 * 1000);
 const SESSION_STEP_UP_TTL_MS = Math.max(Number(process.env.AUTH_SESSION_STEP_UP_TTL_MS || (10 * 60 * 1000)), 60 * 1000);
 const SESSION_DEFAULT_SAME_SITE = String(process.env.AUTH_SESSION_SAME_SITE || 'lax').trim().toLowerCase();
+const BROWSER_SESSION_STORAGE_UNAVAILABLE_MESSAGE = 'Secure browser session storage is temporarily unavailable. Retry shortly.';
 const SESSION_ADMIN_HOSTS = new Set(
     String(process.env.AUTH_SESSION_ADMIN_HOSTS || '')
         .split(',')
@@ -34,6 +36,11 @@ const parseBooleanEnv = (value, fallback = false) => {
     if (['0', 'false', 'no', 'off'].includes(normalized)) return false;
     return fallback;
 };
+
+const ALLOW_MEMORY_SESSION_FALLBACK = parseBooleanEnv(
+    process.env.AUTH_SESSION_ALLOW_MEMORY_FALLBACK,
+    !IS_PRODUCTION
+);
 
 const normalizeText = (value) => (typeof value === 'string' ? value.trim() : '');
 
@@ -332,7 +339,31 @@ const deleteMemorySessionRecord = (sessionId = '') => {
     inMemorySessionStore.delete(String(sessionId || ''));
 };
 
-const getStorageMode = () => (getRedisClient() ? 'redis' : 'memory');
+const getStorageMode = () => {
+    if (getRedisClient()) {
+        return 'redis';
+    }
+
+    if (ALLOW_MEMORY_SESSION_FALLBACK) {
+        return 'memory';
+    }
+
+    return 'unavailable';
+};
+
+const requireStorageMode = (operation = 'use') => {
+    const storageMode = getStorageMode();
+    if (storageMode !== 'unavailable') {
+        return storageMode;
+    }
+
+    logger.error('browser_session.storage_unavailable', {
+        operation,
+        nodeEnv: NODE_ENV,
+        allowMemoryFallback: ALLOW_MEMORY_SESSION_FALLBACK,
+    });
+    throw new AppError(BROWSER_SESSION_STORAGE_UNAVAILABLE_MESSAGE, 503);
+};
 
 const calculateTtlSeconds = (record = {}) => {
     const now = Date.now();
@@ -346,7 +377,7 @@ const calculateTtlSeconds = (record = {}) => {
 };
 
 const persistSessionRecord = async (record = {}) => {
-    const storageMode = getStorageMode();
+    const storageMode = requireStorageMode('persist');
     if (storageMode === 'memory') {
         writeMemorySessionRecord(record);
         return record;
@@ -361,7 +392,7 @@ const loadSessionRecord = async (sessionId = '') => {
     const normalizedSessionId = String(sessionId || '').trim();
     if (!normalizedSessionId) return null;
 
-    const storageMode = getStorageMode();
+    const storageMode = requireStorageMode('read');
     let record = null;
 
     if (storageMode === 'memory') {
@@ -523,8 +554,17 @@ async function revokeBrowserSession(sessionId = '') {
     const normalizedSessionId = String(sessionId || '').trim();
     if (!normalizedSessionId) return;
 
-    if (getStorageMode() === 'memory') {
+    const storageMode = getStorageMode();
+    if (storageMode === 'memory') {
         deleteMemorySessionRecord(normalizedSessionId);
+        return;
+    }
+
+    if (storageMode === 'unavailable') {
+        logger.warn('browser_session.revoke_skipped_storage_unavailable', {
+            sessionId: normalizedSessionId,
+            nodeEnv: NODE_ENV,
+        });
         return;
     }
 
@@ -682,6 +722,7 @@ const refreshBrowserSession = async ({
 };
 
 module.exports = {
+    BROWSER_SESSION_STORAGE_UNAVAILABLE_MESSAGE,
     SESSION_COOKIE_NAME,
     SESSION_STEP_UP_TTL_MS,
     clearBrowserSessionCookie,
