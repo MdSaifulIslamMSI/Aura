@@ -9,6 +9,14 @@ import { ColorModeProvider } from '@/context/ColorModeContext';
 import { MarketProvider } from '@/context/MarketContext';
 import { MotionModeProvider } from '@/context/MotionModeContext';
 
+const { getRewardsMock } = vi.hoisted(() => ({
+    getRewardsMock: vi.fn().mockResolvedValue({
+        rewards: {
+            pointsBalance: 1808,
+        },
+    }),
+}));
+
 vi.mock('@/services/api/marketApi', () => ({
     marketApi: {
         getBrowseFxRates: vi.fn().mockResolvedValue({
@@ -18,6 +26,12 @@ vi.mock('@/services/api/marketApi', () => ({
         }),
     },
     readCachedBrowseFxRates: vi.fn(() => null),
+}));
+
+vi.mock('@/services/api/userApi', () => ({
+    userApi: {
+        getRewards: getRewardsMock,
+    },
 }));
 
 vi.mock('@/context/NotificationContext', () => ({
@@ -38,6 +52,12 @@ vi.mock('@/components/shared/GlobalSearchBar', () => ({
 
 beforeEach(() => {
     window.scrollTo = vi.fn();
+    getRewardsMock.mockClear();
+    getRewardsMock.mockResolvedValue({
+        rewards: {
+            pointsBalance: 1808,
+        },
+    });
 });
 
 describe('Navbar Component', () => {
@@ -111,6 +131,19 @@ describe('Navbar Component', () => {
         expect(screen.getByText('Stylish White')).toBeInTheDocument();
         expect(screen.queryByRole('button', { name: /Preferences/i })).not.toBeInTheDocument();
         expect(screen.queryByRole('button', { name: /Admin Tools/i })).not.toBeInTheDocument();
+    });
+
+    it('hydrates aura points from the rewards endpoint for authenticated users', async () => {
+        renderNavbar({
+            currentUser: { uid: 'user-1', displayName: 'John Doe', email: 'john@example.com' },
+            dbUser: { name: 'John Doe', loyalty: {} },
+        });
+
+        fireEvent.click(screen.getByText('John Doe'));
+
+        await waitFor(() => {
+            expect(screen.getByText('1,808 AP')).toBeInTheDocument();
+        });
     });
 
     it('lets the user switch color modes directly from the profile menu', () => {

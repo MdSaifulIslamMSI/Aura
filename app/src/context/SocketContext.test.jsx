@@ -1,11 +1,14 @@
 import { act, render, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { authState, ioMock, socketInstances } = vi.hoisted(() => {
+const { authState, ioMock, socketInstances, runtimeApiConfig } = vi.hoisted(() => {
     const sharedSocketInstances = [];
     const sharedAuthState = {
         currentUser: { uid: 'socket-user-1' },
         loading: false,
+    };
+    const sharedRuntimeApiConfig = {
+        resolveServiceOrigin: vi.fn(() => 'https://api.example.test'),
     };
     const sharedIoMock = vi.fn((origin, options) => {
         const socketHandlers = new Map();
@@ -52,6 +55,7 @@ const { authState, ioMock, socketInstances } = vi.hoisted(() => {
         authState: sharedAuthState,
         ioMock: sharedIoMock,
         socketInstances: sharedSocketInstances,
+        runtimeApiConfig: sharedRuntimeApiConfig,
     };
 });
 
@@ -67,7 +71,7 @@ vi.mock('./AuthContext', () => ({
 }));
 
 vi.mock('../services/runtimeApiConfig', () => ({
-    resolveServiceOrigin: vi.fn(() => 'https://api.example.test'),
+    resolveServiceOrigin: runtimeApiConfig.resolveServiceOrigin,
 }));
 
 vi.stubEnv('VITE_ENABLE_REALTIME_SOCKET', 'true');
@@ -81,11 +85,19 @@ const DemandProbe = ({ extraDemand = false }) => {
 };
 
 describe('SocketProvider', () => {
+    const originalLocation = window.location;
+
     beforeEach(() => {
         ioMock.mockClear();
         socketInstances.length = 0;
         authState.loading = false;
         authState.currentUser = { uid: 'socket-user-1' };
+        runtimeApiConfig.resolveServiceOrigin.mockReset();
+        runtimeApiConfig.resolveServiceOrigin.mockReturnValue('https://api.example.test');
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: originalLocation,
+        });
     });
 
     it('keeps the same socket connection while realtime demand keys change', async () => {
@@ -143,5 +155,32 @@ describe('SocketProvider', () => {
         expect(socketInstances[0]?.options?.withCredentials).toBe(true);
         expect(socketInstances[0]?.options?.auth ?? null).toBeNull();
         expect(socketInstances[0]?.socket.connect).toHaveBeenCalledTimes(1);
+    });
+
+    it('forces polling when a hosted Vercel frontend proxies realtime through its own origin', async () => {
+        runtimeApiConfig.resolveServiceOrigin.mockReturnValue('https://aurapilot.vercel.app');
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: {
+                ...originalLocation,
+                origin: 'https://aurapilot.vercel.app',
+                host: 'aurapilot.vercel.app',
+                hostname: 'aurapilot.vercel.app',
+            },
+        });
+
+        render(
+            <SocketProvider>
+                <div>child</div>
+            </SocketProvider>
+        );
+
+        await waitFor(() => {
+            expect(ioMock).toHaveBeenCalledTimes(1);
+        });
+
+        expect(socketInstances[0]?.options?.transports).toEqual(['polling']);
+        expect(socketInstances[0]?.options?.upgrade).toBe(false);
+        expect(socketInstances[0]?.options?.rememberUpgrade).toBe(false);
     });
 });
