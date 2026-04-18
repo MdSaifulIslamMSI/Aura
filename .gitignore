@@ -69,6 +69,7 @@ server/test_output.txt
 **/test-output*.log
 **/runtime-*.log
 server/.assistant/
+server/public/
 
 # Playwright/coverage output
 **/playwright-report/
