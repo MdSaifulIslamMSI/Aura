@@ -11,6 +11,7 @@ const SOCKET_CONNECT_TIMEOUT_MS = 20000;
 const SOCKET_RECONNECTION_DELAY_MS = 1000;
 const SOCKET_RECONNECTION_DELAY_MAX_MS = 15000;
 const trimTrailingSlash = (value = '') => String(value || '').replace(/\/+$/, '');
+const isSocketAuthError = (error) => String(error?.message || '').toLowerCase().includes('authentication error');
 
 const shouldUseHostedProxyPolling = (socketOrigin = '') => {
     if (typeof window === 'undefined') return false;
@@ -119,12 +120,35 @@ export const SocketProvider = ({ children }) => {
             };
         }
 
+        const resolveSocketAuthPayload = async (forceRefresh = false) => {
+            if (!currentUser || typeof currentUser.getIdToken !== 'function') {
+                return {};
+            }
+
+            const token = String(await currentUser.getIdToken(forceRefresh) || '').trim();
+            return token ? { token } : {};
+        };
+
+        const syncSocketAuth = async (forceRefresh = false) => {
+            const authPayload = await resolveSocketAuthPayload(forceRefresh);
+            if (activeSocket) {
+                activeSocket.auth = authPayload;
+                if (activeSocket.io?.opts) {
+                    activeSocket.io.opts.auth = authPayload;
+                }
+            }
+            return authPayload;
+        };
+
+        let hasRetriedAuthBootstrap = false;
+
         const reconnectSocket = async (forceRefresh = false) => {
             if (!activeSocket || activeSocket.connected) {
                 return;
             }
 
             try {
+                await syncSocketAuth(forceRefresh);
                 activeSocket.connect();
             } catch (error) {
                 if (import.meta.env.DEV) {
@@ -143,9 +167,11 @@ export const SocketProvider = ({ children }) => {
                 const socketOrigin = resolveServiceOrigin('');
 
                 const useHostedProxyPolling = shouldUseHostedProxyPolling(socketOrigin);
+                const authPayload = await resolveSocketAuthPayload();
 
                 activeSocket = io(socketOrigin, {
                     autoConnect: false,
+                    auth: authPayload,
                     reconnection: true,
                     reconnectionAttempts: Number.POSITIVE_INFINITY,
                     reconnectionDelay: SOCKET_RECONNECTION_DELAY_MS,
@@ -164,6 +190,7 @@ export const SocketProvider = ({ children }) => {
 
                 handleConnect = () => {
                     if (!isActive) return;
+                    hasRetriedAuthBootstrap = false;
                     hasConnectedOnceRef.current = true;
                     clearReconnectGraceTimer();
                     setIsConnected(true);
@@ -187,7 +214,12 @@ export const SocketProvider = ({ children }) => {
                     }
                     if (!isActive) return;
 
-                    const errorMessage = String(error?.message || '').toLowerCase();
+                    if (isSocketAuthError(error) && !hasRetriedAuthBootstrap) {
+                        hasRetriedAuthBootstrap = true;
+                        void reconnectSocket(true);
+                        return;
+                    }
+
                     if (!hasConnectedOnceRef.current) {
                         setIsConnected(false);
                         setConnectionState('disconnected');
@@ -199,6 +231,7 @@ export const SocketProvider = ({ children }) => {
 
                 handleReconnectAttempt = () => {
                     if (!isActive) return;
+                    void syncSocketAuth();
                     enterReconnectGrace();
                 };
 

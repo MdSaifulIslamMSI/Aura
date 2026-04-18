@@ -4,7 +4,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const { authState, ioMock, socketInstances, runtimeApiConfig } = vi.hoisted(() => {
     const sharedSocketInstances = [];
     const sharedAuthState = {
-        currentUser: { uid: 'socket-user-1' },
+        currentUser: {
+            uid: 'socket-user-1',
+            getIdToken: vi.fn(async () => 'socket-token-1'),
+        },
         loading: false,
     };
     const sharedRuntimeApiConfig = {
@@ -60,7 +63,10 @@ const { authState, ioMock, socketInstances, runtimeApiConfig } = vi.hoisted(() =
 });
 
 authState.loading = false;
-authState.currentUser = { uid: 'socket-user-1' };
+authState.currentUser = {
+    uid: 'socket-user-1',
+    getIdToken: vi.fn(async () => 'socket-token-1'),
+};
 
 vi.mock('socket.io-client', () => ({
     io: ioMock,
@@ -92,7 +98,10 @@ describe('SocketProvider', () => {
         ioMock.mockClear();
         socketInstances.length = 0;
         authState.loading = false;
-        authState.currentUser = { uid: 'socket-user-1' };
+        authState.currentUser = {
+            uid: 'socket-user-1',
+            getIdToken: vi.fn(async () => 'socket-token-1'),
+        };
         runtimeApiConfig.resolveServiceOrigin.mockReset();
         runtimeApiConfig.resolveServiceOrigin.mockReturnValue('https://api.example.test');
         Object.defineProperty(window, 'location', {
@@ -162,7 +171,7 @@ describe('SocketProvider', () => {
         });
 
         expect(socketInstances[0]?.options?.withCredentials).toBe(true);
-        expect(socketInstances[0]?.options?.auth ?? null).toBeNull();
+        expect(socketInstances[0]?.options?.auth).toEqual({ token: 'socket-token-1' });
         expect(socketInstances[0]?.socket.connect).toHaveBeenCalledTimes(1);
     });
 
@@ -193,5 +202,29 @@ describe('SocketProvider', () => {
         expect(socketInstances[0]?.options?.transports).toEqual(['polling']);
         expect(socketInstances[0]?.options?.upgrade).toBe(false);
         expect(socketInstances[0]?.options?.rememberUpgrade).toBe(false);
+        expect(socketInstances[0]?.options?.auth).toEqual({ token: 'socket-token-1' });
+    });
+
+    it('refreshes socket auth before reconnect attempts', async () => {
+        render(
+            <AuthContext.Provider value={authState}>
+                <SocketProvider>
+                    <div>child</div>
+                </SocketProvider>
+            </AuthContext.Provider>
+        );
+
+        await waitFor(() => {
+            expect(ioMock).toHaveBeenCalledTimes(1);
+        });
+
+        const [instance] = socketInstances;
+        await act(async () => {
+            await instance.managerHandlers.get('reconnect_attempt')?.();
+        });
+
+        expect(authState.currentUser.getIdToken).toHaveBeenCalledTimes(2);
+        expect(instance.socket.auth).toEqual({ token: 'socket-token-1' });
+        expect(instance.socket.io.opts.auth).toEqual({ token: 'socket-token-1' });
     });
 });
