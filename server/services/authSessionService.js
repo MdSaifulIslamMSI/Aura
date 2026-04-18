@@ -16,6 +16,10 @@ const {
     shouldTrustProviderVerification,
     resolveEmailVerifiedState,
 } = require('../utils/authIdentity');
+const {
+    findPreferredIdentityUserLean,
+    findPreferredIdentityUserDocument,
+} = require('./authIdentityResolutionService');
 
 const PROFILE_PROJECTION = 'name email phone avatar gender dob bio isAdmin isVerified isSeller sellerActivatedAt accountState moderation authAssurance authAssuranceAt trustedDevices +loginOtpAssuranceExpiresAt addresses cart wishlist loyalty createdAt';
 const AUTH_ONLY_PROJECTION = 'name email phone isAdmin isVerified isSeller sellerActivatedAt accountState moderation authAssurance authAssuranceAt trustedDevices +loginOtpAssuranceExpiresAt loyalty createdAt';
@@ -154,10 +158,11 @@ const ensureUserLean = async ({ email, authUid = '', authUser = {}, projection =
         email: email || authUser.email,
         authUid: safeUid,
     });
-    const identityQuery = buildIdentityQuery({ email: safeEmail, authUid: safeUid });
-    if (!identityQuery) return null;
-
-    const existing = await User.findOne(identityQuery, projection).lean();
+    const existing = await findPreferredIdentityUserLean({
+        email: safeEmail,
+        authUid: safeUid,
+        projection,
+    });
     if (existing) return existing;
 
     return bootstrapUserRecord({
@@ -175,10 +180,10 @@ const ensureUserDocument = async ({ email, authUid = '', authUser = {} }) => {
         email: email || authUser.email,
         authUid: safeUid,
     });
-    const identityQuery = buildIdentityQuery({ email: safeEmail, authUid: safeUid });
-    if (!identityQuery) return null;
-
-    let user = await User.findOne(identityQuery);
+    let user = await findPreferredIdentityUserDocument({
+        email: safeEmail,
+        authUid: safeUid,
+    });
     if (user) return user;
 
     await bootstrapUserRecord({
@@ -189,7 +194,10 @@ const ensureUserDocument = async ({ email, authUid = '', authUser = {} }) => {
         lean: true,
     });
 
-    user = await User.findOne(identityQuery);
+    user = await findPreferredIdentityUserDocument({
+        email: safeEmail,
+        authUid: safeUid,
+    });
     return user;
 };
 
@@ -560,22 +568,39 @@ const syncAuthenticatedUser = async ({
             name: fallbackName,
             isVerified: emailVerified,
         };
+        const preferredUser = await findPreferredIdentityUserLean({
+            email: accountEmail,
+            authUid,
+            projection: AUTH_ONLY_PROJECTION,
+        });
 
         if (hasPhoneInput) {
             setPayload.phone = normalizedPhone;
         }
 
-        user = await User.findOneAndUpdate(
-            buildIdentityQuery({ email: accountEmail, authUid }),
-            { $set: setPayload, $setOnInsert: { email: accountEmail, ...(authUid ? { authUid } : {}) } },
-            {
-                returnDocument: 'after',
-                upsert: true,
-                setDefaultsOnInsert: true,
-                projection: AUTH_ONLY_PROJECTION,
-                lean: true,
-            }
-        );
+        if (preferredUser?._id) {
+            user = await User.findOneAndUpdate(
+                { _id: preferredUser._id },
+                { $set: setPayload },
+                {
+                    returnDocument: 'after',
+                    projection: AUTH_ONLY_PROJECTION,
+                    lean: true,
+                }
+            );
+        } else {
+            user = await User.findOneAndUpdate(
+                buildIdentityQuery({ email: accountEmail, authUid }),
+                { $set: setPayload, $setOnInsert: { email: accountEmail, ...(authUid ? { authUid } : {}) } },
+                {
+                    returnDocument: 'after',
+                    upsert: true,
+                    setDefaultsOnInsert: true,
+                    projection: AUTH_ONLY_PROJECTION,
+                    lean: true,
+                }
+            );
+        }
     } catch (error) {
         if (getDuplicateField(error) === 'phone') {
             throw new AppError('Phone number is already linked to another account', 409);
@@ -588,6 +613,26 @@ const syncAuthenticatedUser = async ({
 
     if (user && authUid && user.authUid !== authUid) {
         try {
+            const conflictingAuthUidOwner = await User.findOne(
+                { authUid },
+                '_id email authUid isAdmin isSeller isVerified loyalty createdAt'
+            ).lean();
+
+            if (conflictingAuthUidOwner && String(conflictingAuthUidOwner._id) !== String(user._id)) {
+                const canTransferAuthUid = hasProviderEmail
+                    && normalizeEmail(user.email) === accountEmail
+                    && isInternalAuthEmail(conflictingAuthUidOwner.email);
+
+                if (!canTransferAuthUid) {
+                    throw new AppError('This social account is already linked to another profile', 409);
+                }
+
+                await User.updateOne(
+                    { _id: conflictingAuthUidOwner._id },
+                    { $unset: { authUid: 1 } }
+                );
+            }
+
             user = await User.findOneAndUpdate(
                 { _id: user._id },
                 { $set: { authUid } },

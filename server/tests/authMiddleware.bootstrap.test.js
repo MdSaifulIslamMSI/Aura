@@ -9,7 +9,7 @@ describe('Auth Middleware claim-driven verification bootstrap', () => {
 
         let protect;
         let verifyIdToken;
-        let findOne;
+        let find;
         let findOneAndUpdate;
 
         jest.isolateModules(() => {
@@ -18,7 +18,7 @@ describe('Auth Middleware claim-driven verification bootstrap', () => {
                 email: 'new-user@example.com',
                 exp: Math.floor(Date.now() / 1000) + 3600,
             });
-            findOne = jest.fn(() => ({ lean: jest.fn().mockResolvedValue(null) }));
+            find = jest.fn(() => ({ lean: jest.fn().mockResolvedValue([]) }));
             findOneAndUpdate = jest.fn().mockResolvedValue({
                 _id: '507f1f77bcf86cd799439011',
                 email: 'new-user@example.com',
@@ -30,7 +30,7 @@ describe('Auth Middleware claim-driven verification bootstrap', () => {
                 auth: () => ({ verifyIdToken }),
             }));
             jest.doMock('../models/User', () => ({
-                findOne,
+                find,
                 findOneAndUpdate,
             }));
             jest.doMock('../config/redis', () => ({
@@ -74,7 +74,7 @@ describe('Auth Middleware claim-driven verification bootstrap', () => {
         let protect;
         let verifyIdToken;
         let getUser;
-        let findOne;
+        let find;
         let findOneAndUpdate;
 
         jest.isolateModules(() => {
@@ -87,7 +87,7 @@ describe('Auth Middleware claim-driven verification bootstrap', () => {
                 displayName: 'Social Fallback',
                 emailVerified: true,
             });
-            findOne = jest.fn(() => ({ lean: jest.fn().mockResolvedValue(null) }));
+            find = jest.fn(() => ({ lean: jest.fn().mockResolvedValue([]) }));
             findOneAndUpdate = jest.fn().mockResolvedValue({
                 _id: '507f191e810c19729de860ea',
                 email: 'social-fallback@example.com',
@@ -99,7 +99,7 @@ describe('Auth Middleware claim-driven verification bootstrap', () => {
                 auth: () => ({ verifyIdToken, getUser }),
             }));
             jest.doMock('../models/User', () => ({
-                findOne,
+                find,
                 findOneAndUpdate,
             }));
             jest.doMock('../config/redis', () => ({
@@ -146,7 +146,7 @@ describe('Auth Middleware claim-driven verification bootstrap', () => {
         let protect;
         let verifyIdToken;
         let getUser;
-        let findOne;
+        let find;
         let findOneAndUpdate;
 
         jest.isolateModules(() => {
@@ -160,7 +160,7 @@ describe('Auth Middleware claim-driven verification bootstrap', () => {
                 emailVerified: false,
                 providerData: [],
             });
-            findOne = jest.fn(() => ({ lean: jest.fn().mockResolvedValue(null) }));
+            find = jest.fn(() => ({ lean: jest.fn().mockResolvedValue([]) }));
             findOneAndUpdate = jest.fn().mockResolvedValue({
                 _id: '507f191e810c19729de860eb',
                 authUid: 'uid-x-no-email',
@@ -173,7 +173,7 @@ describe('Auth Middleware claim-driven verification bootstrap', () => {
                 auth: () => ({ verifyIdToken, getUser }),
             }));
             jest.doMock('../models/User', () => ({
-                findOne,
+                find,
                 findOneAndUpdate,
             }));
             jest.doMock('../config/redis', () => ({
@@ -211,6 +211,77 @@ describe('Auth Middleware claim-driven verification bootstrap', () => {
             expect.any(Object)
         );
         expect(req.authToken.email).toBe('');
+        expect(next).toHaveBeenCalledWith();
+    });
+
+    test('protect prefers the canonical public-email profile over a stale uid placeholder', async () => {
+        jest.resetModules();
+
+        let protect;
+        let verifyIdToken;
+        let find;
+        let findOneAndUpdate;
+
+        jest.isolateModules(() => {
+            verifyIdToken = jest.fn().mockResolvedValue({
+                uid: 'uid-split-social',
+                email: 'admin@example.com',
+                exp: Math.floor(Date.now() / 1000) + 3600,
+            });
+            find = jest.fn(() => ({
+                lean: jest.fn().mockResolvedValue([
+                    {
+                        _id: 'placeholder-user',
+                        authUid: 'uid-split-social',
+                        email: 'dWlkLXNwbGl0LXNvY2lhbA@auth.aura.invalid',
+                        name: 'Placeholder User',
+                        isAdmin: false,
+                        isVerified: true,
+                        loyalty: { pointsBalance: 0 },
+                        createdAt: new Date('2026-03-01T00:00:00.000Z'),
+                    },
+                    {
+                        _id: 'canonical-user',
+                        authUid: '',
+                        email: 'admin@example.com',
+                        name: 'Canonical Admin',
+                        isAdmin: true,
+                        isVerified: true,
+                        loyalty: { pointsBalance: 1808 },
+                        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+                    },
+                ]),
+            }));
+            findOneAndUpdate = jest.fn();
+
+            jest.doMock('../config/firebase', () => ({
+                auth: () => ({ verifyIdToken }),
+            }));
+            jest.doMock('../models/User', () => ({
+                find,
+                findOneAndUpdate,
+            }));
+            jest.doMock('../config/redis', () => ({
+                getRedisClient: () => null,
+                flags: { redisPrefix: 'test' },
+            }));
+
+            protect = require('../middleware/authMiddleware').protect;
+        });
+
+        const req = {
+            headers: { authorization: 'Bearer token-split-123' },
+        };
+        const res = {};
+        const next = jest.fn();
+
+        await protect(req, res, next);
+
+        expect(verifyIdToken).toHaveBeenCalledWith('token-split-123', true);
+        expect(req.user._id).toBe('canonical-user');
+        expect(req.user.isAdmin).toBe(true);
+        expect(req.user.loyalty.pointsBalance).toBe(1808);
+        expect(findOneAndUpdate).not.toHaveBeenCalled();
         expect(next).toHaveBeenCalledWith();
     });
 });

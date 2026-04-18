@@ -273,4 +273,91 @@ describe('authSessionService social identity fallback', () => {
         expect(payload.roles.isVerified).toBe(true);
         expect(payload.intelligence.readiness.hasVerifiedEmail).toBe(true);
     });
+
+    test('prefers the canonical public-email profile over a stale authUid placeholder during social sync', async () => {
+        const publicEmail = uniqueEmail('social_split');
+
+        const placeholderUser = await User.create({
+            name: 'Placeholder User',
+            authUid: 'uid-social-split',
+            email: 'dWlkLXNvY2lhbC1zcGxpdA@auth.aura.invalid',
+            isVerified: true,
+            loyalty: { pointsBalance: 0 },
+        });
+
+        const canonicalUser = await User.create({
+            name: 'Canonical Admin',
+            email: publicEmail,
+            isAdmin: true,
+            isVerified: true,
+            loyalty: { pointsBalance: 1808, lifetimeEarned: 1808 },
+        });
+
+        const resolvedUser = await syncAuthenticatedUser({
+            authUser: {
+                uid: 'uid-social-split',
+                email: publicEmail,
+                emailVerified: false,
+                displayName: 'Canonical Admin',
+                signInProvider: 'twitter.com',
+                providerIds: ['twitter.com'],
+            },
+            email: publicEmail,
+            name: 'Canonical Admin',
+            phone: '',
+            awardLoginPoints: false,
+        });
+
+        const refreshedCanonicalUser = await User.findById(canonicalUser._id).lean();
+        const refreshedPlaceholderUser = await User.findById(placeholderUser._id).lean();
+
+        expect(resolvedUser._id.toString()).toBe(canonicalUser._id.toString());
+        expect(refreshedCanonicalUser.authUid).toBe('uid-social-split');
+        expect(refreshedCanonicalUser.isAdmin).toBe(true);
+        expect(refreshedCanonicalUser.loyalty.pointsBalance).toBe(1808);
+        expect(refreshedPlaceholderUser.authUid).toBeUndefined();
+    });
+
+    test('resolves authenticated sessions against the canonical public-email profile when a placeholder also exists', async () => {
+        const publicEmail = uniqueEmail('session_split');
+
+        await User.create({
+            name: 'Placeholder User',
+            authUid: 'uid-session-split',
+            email: 'dWlkLXNlc3Npb24tc3BsaXQ@auth.aura.invalid',
+            isVerified: true,
+            loyalty: { pointsBalance: 0 },
+        });
+
+        const canonicalUser = await User.create({
+            name: 'Canonical Admin',
+            email: publicEmail,
+            isAdmin: true,
+            isVerified: true,
+            loyalty: { pointsBalance: 1808, lifetimeEarned: 1808 },
+        });
+
+        const session = await resolveAuthenticatedSession({
+            authUser: {
+                uid: 'uid-session-split',
+                email: publicEmail,
+                emailVerified: false,
+                displayName: 'Canonical Admin',
+                signInProvider: 'twitter.com',
+                providerIds: ['twitter.com'],
+            },
+            authUid: 'uid-session-split',
+            authToken: {
+                uid: 'uid-session-split',
+                email: publicEmail,
+                email_verified: false,
+                firebase: { sign_in_provider: 'twitter.com' },
+            },
+        });
+
+        expect(session.user._id.toString()).toBe(canonicalUser._id.toString());
+        expect(session.user.isAdmin).toBe(true);
+        expect(session.payload.profile.email).toBe(publicEmail);
+        expect(session.payload.roles.isAdmin).toBe(true);
+    });
 });
