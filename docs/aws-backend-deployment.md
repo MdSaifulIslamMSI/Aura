@@ -6,6 +6,7 @@
   - API: `node scripts/start_api_runtime.js`
   - Worker: `node scripts/start_worker_runtime.js`
 - Redis runs as a sidecar container on the same EC2 host.
+- The EC2 host now exposes only the API port (`5000`) because Vercel talks directly to the backend origin; there is no longer a separate Caddy/ACME layer burning resources on the instance.
 - Secrets live in AWS Systems Manager Parameter Store using the `AWS_PARAMETER_STORE_PATH_PREFIX` path.
 - Review uploads live in S3 via `UPLOAD_STORAGE_DRIVER=s3`.
 - GitHub Actions builds the image once, uploads the release bundle to S3, and deploys through SSM Run Command.
@@ -65,5 +66,6 @@
 - The old duplicated coverage pass has been removed. Backend regressions now run once per relevant change set.
 - Frontend preview and production deploys continue to come from the Vercel GitHub integration, not an extra GitHub Actions deploy workflow.
 - Backend, frontend, and deploy checks are gated by file-path detection so docs-only and unrelated edits do not burn CI minutes.
+- Production deploys now trigger only for backend runtime changes, not for every AWS bootstrap script edit.
 - Production deploys are serialized with workflow concurrency, and manual dispatch can target a specific git ref when rollback or re-release is needed.
 - The AWS deploy workflow now ships with live repo defaults for the current production stack and validates real AWS access during preflight, so missing GitHub repo variables no longer hard-fail the pipeline.

@@ -4,23 +4,23 @@
     "rewrites": [
         {
             "source": "/api/:path*",
-            "destination": "https://3-109-181-238.nip.io/api/:path*"
+            "destination": "http://3.109.181.238:5000/api/:path*"
         },
         {
             "source": "/health",
-            "destination": "https://3-109-181-238.nip.io/health"
+            "destination": "http://3.109.181.238:5000/health"
         },
         {
             "source": "/health/ready",
-            "destination": "https://3-109-181-238.nip.io/health/ready"
+            "destination": "http://3.109.181.238:5000/health/ready"
         },
         {
             "source": "/health/live",
-            "destination": "https://3-109-181-238.nip.io/health/live"
+            "destination": "http://3.109.181.238:5000/health/live"
         },
         {
             "source": "/uploads/:path*",
-            "destination": "https://3-109-181-238.nip.io/uploads/:path*"
+            "destination": "http://3.109.181.238:5000/uploads/:path*"
         },
         {
             "source": "/:path((?!api/|uploads/|assets/|manifest\\.json$|sw\\.js$|favicon\\.ico$|robots\\.txt$|.*\\.[^/]+$).*)",

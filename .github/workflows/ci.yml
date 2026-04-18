@@ -6,20 +6,26 @@ on:
     paths:
       - "app/**"
       - "server/**"
-      - "infra/aws/**"
+      - "infra/aws/bootstrap-instance-user-data.sh"
+      - "infra/aws/deploy-release.sh"
+      - "infra/aws/docker-compose.ec2.yml"
+      - "infra/aws/render-runtime-secrets.sh"
       - ".github/workflows/**"
-      - "vercel.mjs"
-      - "app/vercel.mjs"
+      - "vercel.json"
+      - "app/vercel.json"
       - ".vercelignore"
   push:
     branches: ["main"]
     paths:
       - "app/**"
       - "server/**"
-      - "infra/aws/**"
+      - "infra/aws/bootstrap-instance-user-data.sh"
+      - "infra/aws/deploy-release.sh"
+      - "infra/aws/docker-compose.ec2.yml"
+      - "infra/aws/render-runtime-secrets.sh"
       - ".github/workflows/**"
-      - "vercel.mjs"
-      - "app/vercel.mjs"
+      - "vercel.json"
+      - "app/vercel.json"
       - ".vercelignore"
   workflow_dispatch:
 
@@ -61,12 +67,15 @@ jobs:
           filters: |
             backend:
               - 'server/**'
-              - 'infra/aws/**'
+              - 'infra/aws/bootstrap-instance-user-data.sh'
+              - 'infra/aws/deploy-release.sh'
+              - 'infra/aws/docker-compose.ec2.yml'
+              - 'infra/aws/render-runtime-secrets.sh'
               - '.github/workflows/**'
             frontend:
               - 'app/**'
-              - 'vercel.mjs'
-              - 'app/vercel.mjs'
+              - 'vercel.json'
+              - 'app/vercel.json'
               - '.vercelignore'
               - '.github/workflows/**'
 
@@ -263,6 +272,10 @@ jobs:
           cache-dependency-path: app/package-lock.json
 
       - name: Install dependencies
+        run: npm ci
+
+      - name: Install backend dependencies for E2E server
+        working-directory: ./server
         run: npm ci
 
       - name: Start MongoDB

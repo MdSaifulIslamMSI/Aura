@@ -13,6 +13,7 @@ services:
       SPLIT_RUNTIME_ENABLED: "true"
       ORDER_EMAIL_PROVIDER: gmail
       AUTH_DEVICE_CHALLENGE_MODE: admin
+      AUTH_DEVICE_CHALLENGE_ALLOW_VAULT_FALLBACK: "true"
     depends_on:
       - redis
     ports:
@@ -44,16 +45,6 @@ services:
     command: ["redis-server", "--appendonly", "yes", "--save", "60", "1000"]
     volumes:
       - aura-redis:/data
-
-  caddy:
-    image: caddy:2-alpine
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    command: caddy reverse-proxy --from 3-109-181-238.nip.io --to http://api:5000
-    depends_on:
-      - api
 
 volumes:
   aura-redis:
