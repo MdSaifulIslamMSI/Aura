@@ -3,6 +3,14 @@
     "outputDirectory": "app/dist",
     "rewrites": [
         {
+            "source": "/socket.io",
+            "destination": "http://3.109.181.238:5000/socket.io"
+        },
+        {
+            "source": "/socket.io/:path*",
+            "destination": "http://3.109.181.238:5000/socket.io/:path*"
+        },
+        {
             "source": "/api/:path*",
             "destination": "http://3.109.181.238:5000/api/:path*"
         },
@@ -23,7 +31,7 @@
             "destination": "http://3.109.181.238:5000/uploads/:path*"
         },
         {
-            "source": "/:path((?!api/|uploads/|assets/|manifest\\.json$|sw\\.js$|favicon\\.ico$|robots\\.txt$|.*\\.[^/]+$).*)",
+            "source": "/:path((?!api/|socket\\.io(?:/|$)|uploads/|assets/|manifest\\.json$|sw\\.js$|favicon\\.ico$|robots\\.txt$|.*\\.[^/]+$).*)",
             "destination": "/index.html"
         }
     ]

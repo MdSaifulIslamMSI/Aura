@@ -10,6 +10,19 @@ const SOCKET_RECONNECT_GRACE_MS = 20000;
 const SOCKET_CONNECT_TIMEOUT_MS = 20000;
 const SOCKET_RECONNECTION_DELAY_MS = 1000;
 const SOCKET_RECONNECTION_DELAY_MAX_MS = 15000;
+const trimTrailingSlash = (value = '') => String(value || '').replace(/\/+$/, '');
+
+const shouldUseHostedProxyPolling = (socketOrigin = '') => {
+    if (typeof window === 'undefined') return false;
+
+    const runtimeOrigin = trimTrailingSlash(window.location?.origin || '');
+    const runtimeHost = String(window.location?.hostname || '').trim().toLowerCase();
+    const normalizedSocketOrigin = trimTrailingSlash(socketOrigin);
+
+    return Boolean(runtimeOrigin)
+        && runtimeHost.endsWith('.vercel.app')
+        && normalizedSocketOrigin === runtimeOrigin;
+};
 
 export const useSocket = () => useContext(SocketContext);
 export const useSocketDemand = (key, enabled = true) => {
@@ -129,6 +142,8 @@ export const SocketProvider = ({ children }) => {
 
                 const socketOrigin = resolveServiceOrigin('');
 
+                const useHostedProxyPolling = shouldUseHostedProxyPolling(socketOrigin);
+
                 activeSocket = io(socketOrigin, {
                     autoConnect: false,
                     reconnection: true,
@@ -137,9 +152,9 @@ export const SocketProvider = ({ children }) => {
                     reconnectionDelayMax: SOCKET_RECONNECTION_DELAY_MAX_MS,
                     randomizationFactor: 0.5,
                     timeout: SOCKET_CONNECT_TIMEOUT_MS,
-                    transports: ['websocket', 'polling'],
-                    upgrade: true,
-                    rememberUpgrade: true,
+                    transports: useHostedProxyPolling ? ['polling'] : ['websocket', 'polling'],
+                    upgrade: !useHostedProxyPolling,
+                    rememberUpgrade: !useHostedProxyPolling,
                     withCredentials: true,
                 });
 

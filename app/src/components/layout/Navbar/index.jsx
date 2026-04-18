@@ -27,6 +27,7 @@ import AppErrorBoundary from '@/components/shared/AppErrorBoundary';
 import GlobalSearchBar from '@/components/shared/GlobalSearchBar';
 import { useDismissableLayer } from '@/hooks/useDismissableLayer';
 import { getLocalizedCategoryLabel } from '@/config/catalogTaxonomy';
+import { userApi } from '@/services/api/userApi';
 import NotificationDropdown from './NotificationDropdown';
 
 const NavbarSearchFallback = ({
@@ -282,6 +283,7 @@ const Navbar = () => {
     t,
   } = useMarket();
   const currentLanguage = languageOptions.find((option) => option.value === language) || languageOptions[0];
+  const [rewardSnapshot, setRewardSnapshot] = useState(null);
   const goToLoginPage = () => {
     if (typeof window !== 'undefined') {
       window.location.assign('/login');
@@ -362,6 +364,31 @@ const Navbar = () => {
     };
   }, [isMarketPanelOpen, isNotificationsOpen, isUserMenuOpen]);
 
+  useEffect(() => {
+    let isActive = true;
+
+    if (!currentUser) {
+      setRewardSnapshot(null);
+      return () => {
+        isActive = false;
+      };
+    }
+
+    userApi.getRewards()
+      .then((result) => {
+        if (!isActive) return;
+        setRewardSnapshot(result?.rewards || result || null);
+      })
+      .catch(() => {
+        if (!isActive) return;
+        setRewardSnapshot(null);
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [currentUser?.uid, currentUser?.email]);
+
   const categories = useMemo(
     () => [
       { slug: 'mobiles', path: '/category/mobiles' },
@@ -381,7 +408,7 @@ const Navbar = () => {
   );
 
   const cartItemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
-  const loyaltyPoints = Number(dbUser?.loyalty?.pointsBalance || 0);
+  const loyaltyPoints = Number(rewardSnapshot?.pointsBalance ?? dbUser?.loyalty?.pointsBalance ?? 0);
   const isSeller = Boolean(dbUser?.isSeller);
   const sellerCtaTarget = isSeller ? '/sell' : '/become-seller';
   const sellerCtaLabel = isSeller
