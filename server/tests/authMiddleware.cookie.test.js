@@ -188,6 +188,64 @@ describe('authMiddleware cookie session authentication', () => {
         expect(next).toHaveBeenCalledWith();
     });
 
+    test('protect fails closed when browser-session storage is unavailable', async () => {
+        let protect;
+
+        jest.isolateModules(() => {
+            const AppError = require('../utils/AppError');
+
+            jest.doMock('../config/firebase', () => ({
+                auth: () => ({
+                    verifyIdToken: jest.fn(),
+                    getUser: jest.fn(),
+                }),
+            }));
+            jest.doMock('../models/User', () => ({
+                findById: jest.fn(),
+                findOne: jest.fn(),
+                findOneAndUpdate: jest.fn(),
+            }));
+            jest.doMock('../config/redis', () => ({
+                getRedisClient: () => null,
+                flags: { redisPrefix: 'test' },
+            }));
+            jest.doMock('../services/browserSessionService', () => ({
+                getBrowserSessionFromRequest: jest.fn().mockRejectedValue(
+                    new AppError('Secure browser session storage is temporarily unavailable. Retry shortly.', 503)
+                ),
+                resolveSessionIdFromRequest: jest.fn().mockReturnValue('session-cookie-unavailable'),
+                revokeBrowserSession: jest.fn().mockResolvedValue(undefined),
+                touchBrowserSession: jest.fn(),
+            }));
+            jest.doMock('../services/trustedDeviceChallengeService', () => ({
+                TRUSTED_DEVICE_SESSION_HEADER: 'x-aura-device-session',
+                extractTrustedDeviceContext: jest.fn().mockReturnValue({ deviceId: '', deviceLabel: '' }),
+                verifyTrustedDeviceSession: jest.fn().mockReturnValue({ success: false }),
+            }));
+            jest.doMock('../config/authTrustedDeviceFlags', () => ({
+                flags: { authDeviceChallengeMode: 'off' },
+                shouldRequireTrustedDevice: jest.fn().mockReturnValue(false),
+            }));
+
+            protect = require('../middleware/authMiddleware').protect;
+        });
+
+        const req = {
+            headers: {
+                cookie: 'aura_sid=session-cookie-unavailable',
+            },
+            get: () => '',
+        };
+        const next = jest.fn();
+
+        await protect(req, {}, next);
+
+        expect(next).toHaveBeenCalledWith(expect.objectContaining({
+            statusCode: 503,
+            message: 'Secure browser session storage is temporarily unavailable. Retry shortly.',
+        }));
+    });
+
     test('protect prefers a fresh bearer token over a stale browser session cookie', async () => {
         let protect;
         let verifyIdToken;
@@ -212,8 +270,8 @@ describe('authMiddleware cookie session authentication', () => {
             }));
             jest.doMock('../models/User', () => ({
                 findById: jest.fn(),
-                findOne: jest.fn(() => ({
-                    lean: jest.fn().mockResolvedValue({
+                find: jest.fn(() => ({
+                    lean: jest.fn().mockResolvedValue([{
                         _id: '507f1f77bcf86cd799439012',
                         email: 'bearer-user@example.com',
                         name: 'Bearer User',
@@ -236,8 +294,9 @@ describe('authMiddleware cookie session authentication', () => {
                         accountState: 'active',
                         softDeleted: false,
                         moderation: {},
-                    }),
+                    }]),
                 })),
+                findOne: jest.fn(),
                 findOneAndUpdate: jest.fn(),
             }));
             jest.doMock('../config/redis', () => ({

@@ -615,9 +615,19 @@ const verifyDeviceChallenge = asyncHandler(async (req, res) => {
 });
 
 const logoutSession = asyncHandler(async (req, res) => {
-    const existingSession = req.authSession?.sessionId
+    let existingSession = req.authSession?.sessionId
         ? req.authSession
-        : await getBrowserSessionFromRequest(req);
+        : null;
+
+    if (!existingSession) {
+        try {
+            existingSession = await getBrowserSessionFromRequest(req);
+        } catch (error) {
+            if (!(error instanceof AppError) || error.statusCode !== 503) {
+                throw error;
+            }
+        }
+    }
 
     if (existingSession?.sessionId) {
         await revokeBrowserSession(existingSession.sessionId);

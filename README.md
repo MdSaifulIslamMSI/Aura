@@ -126,6 +126,7 @@ All 10 identified login architecture vulnerabilities have been fixed and are pro
 ## Security Model (High Level)
 - All private/admin APIs require Firebase bearer token (`Authorization: Bearer ...`)
 - Admin routes require backend `admin` middleware check
+- Browser session cookies fail closed in production if shared session storage is unavailable, unless `AUTH_SESSION_ALLOW_MEMORY_FALLBACK=true` is explicitly set.
 - Checkout totals are server-authoritative
 - OTP routes are fail-closed when email delivery fails
 - Login OTP requires fresh password credential proof token (`OTP_LOGIN_REQUIRE_CREDENTIAL_PROOF=true`)

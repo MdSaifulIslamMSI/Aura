@@ -390,4 +390,125 @@ describe('browserSessionService', () => {
         const storedSession = await browserSessionService.getBrowserSession(session.sessionId);
         expect(storedSession.emailVerified).toBe(true);
     });
+
+    test('fails closed in production when shared browser-session storage is unavailable', async () => {
+        process.env.NODE_ENV = 'production';
+        delete process.env.AUTH_SESSION_ALLOW_MEMORY_FALLBACK;
+
+        let browserSessionService;
+
+        jest.isolateModules(() => {
+            jest.doMock('../config/redis', () => ({
+                getRedisClient: () => null,
+                flags: { redisPrefix: 'test' },
+            }));
+            jest.doMock('../services/trustedDeviceChallengeService', () => ({
+                extractTrustedDeviceContext: jest.fn().mockReturnValue({
+                    deviceId: 'device-prod-1',
+                    deviceLabel: 'Production Browser',
+                }),
+            }));
+
+            browserSessionService = require('../services/browserSessionService');
+        });
+
+        const nowSeconds = Math.floor(Date.now() / 1000);
+
+        await expect(browserSessionService.createBrowserSession({
+            req: {
+                headers: {
+                    host: 'api.aura-aws.internal',
+                    'x-forwarded-proto': 'https',
+                },
+                secure: true,
+            },
+            user: {
+                _id: '507f1f77bcf86cd799439016',
+                email: 'prod-user@example.com',
+                name: 'Prod User',
+                phone: '+919876543215',
+                isAdmin: false,
+                isSeller: false,
+                isVerified: true,
+                authAssurance: 'none',
+            },
+            authUid: 'firebase-prod-user',
+            authToken: {
+                email: 'prod-user@example.com',
+                email_verified: true,
+                name: 'Prod User',
+                phone_number: '+919876543215',
+                auth_time: nowSeconds - 15,
+                iat: nowSeconds - 15,
+                exp: nowSeconds + 3600,
+                firebase: {
+                    sign_in_provider: 'password',
+                },
+            },
+        })).rejects.toMatchObject({
+            statusCode: 503,
+            message: browserSessionService.BROWSER_SESSION_STORAGE_UNAVAILABLE_MESSAGE,
+        });
+    });
+
+    test('allows an explicit production override for browser-session memory fallback', async () => {
+        process.env.NODE_ENV = 'production';
+        process.env.AUTH_SESSION_ALLOW_MEMORY_FALLBACK = 'true';
+
+        let browserSessionService;
+
+        jest.isolateModules(() => {
+            jest.doMock('../config/redis', () => ({
+                getRedisClient: () => null,
+                flags: { redisPrefix: 'test' },
+            }));
+            jest.doMock('../services/trustedDeviceChallengeService', () => ({
+                extractTrustedDeviceContext: jest.fn().mockReturnValue({
+                    deviceId: 'device-prod-override-1',
+                    deviceLabel: 'Production Override Browser',
+                }),
+            }));
+
+            browserSessionService = require('../services/browserSessionService');
+        });
+
+        const nowSeconds = Math.floor(Date.now() / 1000);
+        const session = await browserSessionService.createBrowserSession({
+            req: {
+                headers: {
+                    host: 'api.aura-aws.internal',
+                    'x-forwarded-proto': 'https',
+                },
+                secure: true,
+            },
+            user: {
+                _id: '507f1f77bcf86cd799439017',
+                email: 'prod-override@example.com',
+                name: 'Prod Override User',
+                phone: '+919876543216',
+                isAdmin: false,
+                isSeller: false,
+                isVerified: true,
+                authAssurance: 'none',
+            },
+            authUid: 'firebase-prod-override',
+            authToken: {
+                email: 'prod-override@example.com',
+                email_verified: true,
+                name: 'Prod Override User',
+                phone_number: '+919876543216',
+                auth_time: nowSeconds - 15,
+                iat: nowSeconds - 15,
+                exp: nowSeconds + 3600,
+                firebase: {
+                    sign_in_provider: 'password',
+                },
+            },
+        });
+
+        await expect(browserSessionService.getBrowserSession(session.sessionId)).resolves.toMatchObject({
+            sessionId: session.sessionId,
+            email: 'prod-override@example.com',
+        });
+    });
 });
