@@ -22,8 +22,34 @@ class NullEmailProvider extends BaseEmailProvider {
     }
 }
 
+const resolveAutoProvider = () => {
+    if (process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) {
+        return 'gmail';
+    }
+
+    if (process.env.RESEND_API_KEY) {
+        return 'resend';
+    }
+
+    return null;
+};
+
 const createProvider = () => {
-    switch (flags.orderEmailProvider) {
+    const configuredProvider = flags.orderEmailProvider;
+    const autoProvider = ['null', 'none', 'disabled'].includes(configuredProvider)
+        ? resolveAutoProvider()
+        : null;
+    const effectiveProvider = autoProvider || configuredProvider;
+
+    if (autoProvider) {
+        const logger = require('../../utils/logger');
+        logger.info('email_provider.auto_selected', {
+            requestedProvider: configuredProvider,
+            effectiveProvider: autoProvider,
+        });
+    }
+
+    switch (effectiveProvider) {
         case 'gmail':
             return new GmailProvider({
                 user: process.env.GMAIL_USER,
@@ -44,7 +70,7 @@ const createProvider = () => {
         case 'disabled':
             return new NullEmailProvider();
         default:
-            throw new AppError(`Unsupported email provider: ${flags.orderEmailProvider}`, 500);
+            throw new AppError(`Unsupported email provider: ${effectiveProvider}`, 500);
     }
 };
 

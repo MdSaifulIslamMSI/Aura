@@ -219,6 +219,40 @@ describe('Email gateway coverage', () => {
         expect(() => factory.getEmailProvider()).toThrow('Unsupported email provider: unsupported');
     });
 
+    test('email provider factory auto-selects Gmail when delivery creds exist but provider is disabled', () => {
+        process.env.ORDER_EMAIL_PROVIDER = 'disabled';
+        process.env.GMAIL_USER = 'sender@example.com';
+        process.env.GMAIL_APP_PASSWORD = 'secret';
+
+        const logger = {
+            warn: jest.fn(),
+            info: jest.fn(),
+            error: jest.fn(),
+            debug: jest.fn(),
+        };
+        const GmailProviderMock = jest.fn().mockImplementation(function GmailProvider(opts) {
+            this.opts = opts;
+            this.marker = Symbol('gmail-provider');
+        });
+
+        jest.doMock('../utils/logger', () => logger);
+        jest.doMock('../services/email/providers/gmailProvider', () => GmailProviderMock);
+
+        let factory;
+        jest.isolateModules(() => {
+            factory = require('../services/email/emailProviderFactory');
+        });
+
+        const provider = factory.getEmailProvider();
+
+        expect(provider).toBeTruthy();
+        expect(GmailProviderMock).toHaveBeenCalledTimes(1);
+        expect(logger.info).toHaveBeenCalledWith('email_provider.auto_selected', expect.objectContaining({
+            requestedProvider: 'disabled',
+            effectiveProvider: 'gmail',
+        }));
+    });
+
     test('sendTransactionalEmail validates payloads, skips disabled order mail, and sanitizes headers/meta', async () => {
         process.env.ORDER_EMAILS_ENABLED = 'false';
 
