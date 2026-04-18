@@ -85,14 +85,14 @@ export const resolveFirebasePhoneFallback = (error) => {
     success: {
       title: disableFirebasePhoneOtp ? 'Backup OTP Route Active' : 'Backup OTP Ready',
       detail: disableFirebasePhoneOtp
-        ? 'Firebase phone verification is unavailable on this deployment, so secure backup OTP delivery is active for email and mobile.'
-        : 'Secure backup OTP delivery is active. If the account details are valid, a 6-digit code has been sent to your email and mobile.',
+        ? 'Firebase phone verification is unavailable on this deployment, so secure backup OTP delivery is active through the available verification channel.'
+        : 'Secure backup OTP delivery is active. If the account details are valid, a 6-digit code has been sent through the available verification channel.',
     },
     resendSuccess: {
       title: disableFirebasePhoneOtp ? 'Backup Codes Re-Sent' : 'Backup OTP Re-Sent',
       detail: disableFirebasePhoneOtp
-        ? 'Firebase phone verification is still unavailable here, so fresh backup OTP codes were sent to your email and mobile.'
-        : 'Fresh backup OTP codes were sent. Enter the latest 6-digit code from your email or mobile channel.',
+        ? 'Firebase phone verification is still unavailable here, so fresh backup OTP codes were sent through the available verification channel.'
+        : 'Fresh backup OTP codes were sent. Enter the latest 6-digit code from the verification channel you received.',
     },
   };
 };

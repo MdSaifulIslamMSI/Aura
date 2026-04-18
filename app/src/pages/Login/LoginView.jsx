@@ -184,7 +184,7 @@ const LoginView = ({
                     </div>
                     <p className="text-[10px] text-slate-600 mt-1.5 uppercase tracking-widest font-bold pl-1">
                       {firebasePhoneFallback?.disableFirebasePhoneOtp
-                        ? t('login.phoneHint.fallback', {}, 'Firebase SMS is unavailable here. Secure backup OTP will be sent to your email and mobile instead.')
+                        ? t('login.phoneHint.fallback', {}, 'Firebase SMS is unavailable here. Secure backup OTP will be sent through the available secure verification channel instead.')
                         : canUseFirebasePhoneOtp
                           ? mode === 'signup'
                             ? t('login.phoneHint.signup', {}, 'Signup sends one code to email and one Firebase SMS code to your phone.')

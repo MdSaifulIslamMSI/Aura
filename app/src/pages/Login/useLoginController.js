@@ -933,7 +933,7 @@ export const useLoginController = () => {
         return {
           title: t('login.info.signup.title', {}, 'CREATE ACCOUNT'),
           desc: firebasePhoneFallback?.disableFirebasePhoneOtp
-            ? t('login.info.signup.fallback', {}, 'Firebase phone delivery is unavailable on this deployment, so secure backup OTP codes will be sent to your email and mobile before account creation.')
+            ? t('login.info.signup.fallback', {}, 'Firebase phone delivery is unavailable on this deployment, so secure backup OTP codes will be sent through the available secure verification channel before account creation.')
             : canUseFirebasePhoneOtp
               ? t('login.info.signup.dual', {}, 'Sign up with your details, then verify the account with one code to email and one Firebase SMS code to your phone.')
               : t('login.info.signup.single', {}, 'Sign up with your phone number. We\'ll verify it with an OTP sent to your email and phone.'),
@@ -942,7 +942,7 @@ export const useLoginController = () => {
         return {
           title: t('login.info.forgot.title', {}, 'RESET PASSWORD'),
           desc: firebasePhoneFallback?.disableFirebasePhoneOtp
-            ? t('login.info.forgot.fallback', {}, 'Firebase phone delivery is unavailable on this deployment, so secure backup OTP codes will be sent to your registered email and mobile before password reset.')
+            ? t('login.info.forgot.fallback', {}, 'Firebase phone delivery is unavailable on this deployment, so secure backup OTP codes will be sent through the available secure verification channel before password reset.')
             : canUseFirebasePhoneOtp
               ? t('login.info.forgot.dual', {}, 'Enter your registered email and phone number, then verify recovery with one code to email and one Firebase SMS code to your phone.')
               : t('login.info.forgot.single', {}, 'Enter your registered email and phone number. We\'ll verify both before allowing a new password.'),
@@ -951,7 +951,7 @@ export const useLoginController = () => {
         return {
           title: t('login.info.signin.title', {}, 'WELCOME BACK'),
           desc: firebasePhoneFallback?.disableFirebasePhoneOtp
-            ? t('login.info.signin.fallback', {}, 'Firebase phone delivery is unavailable on this deployment, so secure backup OTP codes will be sent to your email and mobile after your password is checked.')
+            ? t('login.info.signin.fallback', {}, 'Firebase phone delivery is unavailable on this deployment, so secure backup OTP codes will be sent through the available secure verification channel after your password is checked.')
             : canUseFirebasePhoneOtp
               ? t('login.info.signin.dual', {}, 'Sign in with your password, then verify the login with one code to email and one Firebase SMS code to your phone.')
               : t('login.info.signin.single', {}, 'Sign in with your credentials. We\'ll verify your identity with an OTP.'),
@@ -1003,7 +1003,7 @@ export const useLoginController = () => {
     if (mode === 'signup') {
       return [
         firebasePhoneFallback?.disableFirebasePhoneOtp
-          ? t('login.trust.signup.1fallback', {}, 'Firebase phone delivery is unavailable here, so Aura is using secure backup delivery to email and mobile before account creation.')
+          ? t('login.trust.signup.1fallback', {}, 'Firebase phone delivery is unavailable here, so Aura is using secure backup delivery through the available verification channel before account creation.')
           : canUseFirebasePhoneOtp
             ? t('login.trust.signup.1dual', {}, 'Email is checked first, then Firebase phone verification finishes the new account securely.')
             : t('login.trust.signup.1single', {}, 'Email and phone are verified before a new account becomes active.'),
@@ -1015,7 +1015,7 @@ export const useLoginController = () => {
     if (mode === 'forgot-password') {
       return [
         firebasePhoneFallback?.disableFirebasePhoneOtp
-          ? t('login.trust.forgot.1fallback', {}, 'Firebase phone delivery is unavailable here, so Aura is using secure backup delivery to email and mobile before recovery continues.')
+          ? t('login.trust.forgot.1fallback', {}, 'Firebase phone delivery is unavailable here, so Aura is using secure backup delivery through the available verification channel before recovery continues.')
           : canUseFirebasePhoneOtp
             ? t('login.trust.forgot.1dual', {}, 'Recovery checks your email first, then requires Firebase phone verification before password reset.')
             : t('login.trust.forgot.1single', {}, 'Reset requests stay tied to your registered email and phone.'),
@@ -1026,7 +1026,7 @@ export const useLoginController = () => {
 
     return [
       firebasePhoneFallback?.disableFirebasePhoneOtp
-        ? t('login.trust.signin.1fallback', {}, 'Firebase phone verification is unavailable here, so Aura is using secure backup delivery to email and mobile.')
+        ? t('login.trust.signin.1fallback', {}, 'Firebase phone verification is unavailable here, so Aura is using secure backup delivery through the available verification channel.')
         : canUseFirebasePhoneOtp
           ? t('login.trust.signin.1dual', {}, 'Password is verified first, then login codes are sent to both your email and Firebase phone channel.')
           : t('login.trust.signin.1single', {}, 'Password validity is checked before an OTP is issued.'),
@@ -1051,7 +1051,7 @@ export const useLoginController = () => {
         : isPhoneOtpStage
           ? t('login.signal.deliveryPhone', {}, 'Email verified, Firebase SMS active')
           : firebasePhoneFallback?.disableFirebasePhoneOtp
-            ? t('login.signal.deliveryFallback', {}, 'Email + mobile backup OTP')
+            ? t('login.signal.deliveryFallback', {}, 'Backup OTP fallback active')
             : canUseFirebasePhoneOtp
               ? t('login.signal.deliveryDual', {}, 'Email + Firebase SMS')
               : formData.phone ? t('login.signal.deliveryActive', {}, 'Email + phone active') : t('login.signal.deliveryRequired', {}, 'Email first, phone required'),
