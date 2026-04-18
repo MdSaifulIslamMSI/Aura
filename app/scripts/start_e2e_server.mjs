@@ -44,6 +44,9 @@ const hasServerDependencies = () => {
 };
 
 if (!hasServerDependencies()) {
+    if (process.env.CI === 'true') {
+        throw new Error('Server dependencies are missing for E2E. Install them in ./server before starting the app test server.');
+    }
     await run(npmCommand, ['ci']);
 }
 

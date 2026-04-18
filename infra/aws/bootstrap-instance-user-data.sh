@@ -47,6 +47,7 @@ CORS_ORIGIN=https://aurapilot.vercel.app,https://aura-mdsaifulislammsiss-project
 APP_PUBLIC_URL=https://aurapilot.vercel.app
 AUTH_SESSION_COOKIE_SECURE=true
 AUTH_SESSION_SAME_SITE=none
+AUTH_DEVICE_CHALLENGE_ALLOW_VAULT_FALLBACK=true
 PAYMENTS_ENABLED=false
 PAYMENT_WEBHOOKS_ENABLED=false
 PAYMENT_SAVED_METHODS_ENABLED=false
