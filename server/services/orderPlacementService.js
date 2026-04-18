@@ -13,6 +13,7 @@ const {
     releaseIntentOrderClaim,
     scheduleCaptureTask,
 } = require('./payments/paymentService');
+const { DIGITAL_METHODS } = require('./payments/constants');
 const {
     enqueueOrderPlacedEmail,
 } = require('./email/orderEmailQueueService');
@@ -27,6 +28,7 @@ const { clearCartAfterCheckout } = require('./cartService');
 const { emitCartRealtimeUpdate } = require('./cartRealtimeService');
 
 const transactionFallbackEnabled = paymentFlags.nodeEnv !== 'production';
+const DIGITAL_PAYMENT_METHODS = new Set(DIGITAL_METHODS);
 
 const isUnsupportedTransactionError = (error) => {
     const message = String(error?.message || '').toLowerCase();
@@ -35,6 +37,19 @@ const isUnsupportedTransactionError = (error) => {
         || message.includes('transactions are not supported')
     );
 };
+
+const requiresTransactionalOrderCommit = (body = {}) => {
+    const paymentMethod = String(body?.paymentMethod || '').trim().toUpperCase();
+    return (
+        DIGITAL_PAYMENT_METHODS.has(paymentMethod)
+        || Boolean(String(body?.paymentIntentId || '').trim())
+    );
+};
+
+const shouldFailClosedOnMissingTransactions = () => (
+    paymentFlags.nodeEnv !== 'test'
+    || String(process.env.TEST_REQUIRE_TRANSACTION_MONGO || '').trim().toLowerCase() === 'true'
+);
 
 const assertQuoteSnapshot = (quoteSnapshot, pricing, cart = null) => {
     if (!quoteSnapshot || quoteSnapshot.totalPrice === undefined || quoteSnapshot.totalPrice === null) {
@@ -225,12 +240,15 @@ const executeOrderCreation = async ({
 
     const createdOrder = session ? await order.save({ session }) : await order.save();
     if (paymentIntent?.intentId) {
-        await linkIntentToOrder({
+        const linkedIntent = await linkIntentToOrder({
             intentId: paymentIntent.intentId,
             orderId: createdOrder._id,
             session,
             claimKey: paymentValidation.claimKey || idempotencyKey,
         });
+        if (!linkedIntent) {
+            throw new AppError('Failed to bind the payment intent to the order. Please retry checkout.', 409);
+        }
     }
 
     try {
@@ -384,6 +402,20 @@ const placeOrderWithIdempotency = async ({
             }
 
             if (transactionFallbackEnabled && isUnsupportedTransactionError(innerError)) {
+                if (requiresTransactionalOrderCommit(body) && shouldFailClosedOnMissingTransactions()) {
+                    await releaseClaimLock();
+                    logger.error('order.create_transaction_required', {
+                        requestId,
+                        userId: String(userId),
+                        paymentMethod: String(body?.paymentMethod || '').trim().toUpperCase() || 'UNKNOWN',
+                        error: innerError.message,
+                    });
+                    throw new AppError(
+                        'Digital checkout requires MongoDB transaction support. Enable replica-set transactions before accepting live payments.',
+                        503
+                    );
+                }
+
                 logger.warn('order.create_transaction_fallback', {
                     requestId,
                     userId: String(userId),
