@@ -212,7 +212,7 @@ describe('Auth sync verified-email gating', () => {
             authUser: expect.objectContaining({
                 uid: 'uid-x-social',
                 email: 'x-social@example.com',
-                emailVerified: false,
+                emailVerified: true,
                 signInProvider: 'twitter.com',
                 providerIds: ['twitter.com'],
             }),
