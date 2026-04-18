@@ -14,6 +14,14 @@ describe('runtimeApiConfig', () => {
 
   it('prefers the configured API origin even on hosted frontend domains', () => {
     vi.stubEnv('VITE_API_URL', 'https://backend.example.com/api');
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: {
+        origin: 'http://localhost:5173',
+        host: 'localhost:5173',
+        hostname: 'localhost',
+      },
+    });
 
     expect(resolveApiBaseUrl('/api')).toBe('https://backend.example.com/api');
   });

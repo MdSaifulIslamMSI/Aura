@@ -66,17 +66,18 @@ vi.mock('socket.io-client', () => ({
     io: ioMock,
 }));
 
-vi.mock('./AuthContext', () => ({
-    useAuth: () => authState,
-}));
-
-vi.mock('../services/runtimeApiConfig', () => ({
-    resolveServiceOrigin: runtimeApiConfig.resolveServiceOrigin,
-}));
+vi.mock('../services/runtimeApiConfig', async (importOriginal) => {
+    const actual = await importOriginal();
+    return {
+        ...actual,
+        resolveServiceOrigin: runtimeApiConfig.resolveServiceOrigin,
+    };
+});
 
 vi.stubEnv('VITE_ENABLE_REALTIME_SOCKET', 'true');
 
 const { SocketProvider, useSocketDemand } = await import('./SocketContext');
+const { AuthContext } = await import('./AuthContext');
 
 const DemandProbe = ({ extraDemand = false }) => {
     useSocketDemand('video-calls-global', true);
@@ -102,9 +103,11 @@ describe('SocketProvider', () => {
 
     it('keeps the same socket connection while realtime demand keys change', async () => {
         const view = render(
-            <SocketProvider>
-                <DemandProbe extraDemand={false} />
-            </SocketProvider>
+            <AuthContext.Provider value={authState}>
+                <SocketProvider>
+                    <DemandProbe extraDemand={false} />
+                </SocketProvider>
+            </AuthContext.Provider>
         );
 
         await waitFor(() => {
@@ -115,9 +118,11 @@ describe('SocketProvider', () => {
         expect(firstSocket).toBeTruthy();
 
         view.rerender(
-            <SocketProvider>
-                <DemandProbe extraDemand />
-            </SocketProvider>
+            <AuthContext.Provider value={authState}>
+                <SocketProvider>
+                    <DemandProbe extraDemand />
+                </SocketProvider>
+            </AuthContext.Provider>
         );
 
         await act(async () => {
@@ -128,9 +133,11 @@ describe('SocketProvider', () => {
         expect(firstSocket.disconnect).not.toHaveBeenCalled();
 
         view.rerender(
-            <SocketProvider>
-                <DemandProbe extraDemand={false} />
-            </SocketProvider>
+            <AuthContext.Provider value={authState}>
+                <SocketProvider>
+                    <DemandProbe extraDemand={false} />
+                </SocketProvider>
+            </AuthContext.Provider>
         );
 
         await act(async () => {
@@ -143,9 +150,11 @@ describe('SocketProvider', () => {
 
     it('maintains a socket for authenticated users even without explicit demand hooks', async () => {
         render(
-            <SocketProvider>
-                <div>child</div>
-            </SocketProvider>
+            <AuthContext.Provider value={authState}>
+                <SocketProvider>
+                    <div>child</div>
+                </SocketProvider>
+            </AuthContext.Provider>
         );
 
         await waitFor(() => {
@@ -170,9 +179,11 @@ describe('SocketProvider', () => {
         });
 
         render(
-            <SocketProvider>
-                <div>child</div>
-            </SocketProvider>
+            <AuthContext.Provider value={authState}>
+                <SocketProvider>
+                    <div>child</div>
+                </SocketProvider>
+            </AuthContext.Provider>
         );
 
         await waitFor(() => {
