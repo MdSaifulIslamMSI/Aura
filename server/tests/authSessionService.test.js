@@ -238,4 +238,39 @@ describe('authSessionService social identity fallback', () => {
         expect(persistedUser.authUid).toBe('uid-x-with-email');
         expect(persistedUser.isVerified).toBe(true);
     });
+
+    test('builds authenticated session payloads with verified email for trusted social providers', () => {
+        const payload = buildSessionPayload({
+            authUser: {
+                uid: 'uid-x-admin',
+                email: 'x-admin@example.com',
+                emailVerified: false,
+                displayName: 'X Admin',
+                signInProvider: 'twitter.com',
+                providerIds: ['twitter.com'],
+            },
+            authUid: 'uid-x-admin',
+            authToken: {
+                email: 'x-admin@example.com',
+                email_verified: false,
+                firebase: { sign_in_provider: 'twitter.com' },
+            },
+            user: {
+                _id: 'user-x-admin',
+                email: 'x-admin@example.com',
+                phone: '',
+                isVerified: true,
+                isAdmin: true,
+                isSeller: false,
+                accountState: 'active',
+                moderation: {},
+                loyalty: {},
+                createdAt: new Date('2026-01-01T00:00:00.000Z'),
+            },
+        });
+
+        expect(payload.session.emailVerified).toBe(true);
+        expect(payload.roles.isVerified).toBe(true);
+        expect(payload.intelligence.readiness.hasVerifiedEmail).toBe(true);
+    });
 });

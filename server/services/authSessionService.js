@@ -12,6 +12,9 @@ const {
     isInternalAuthEmail,
     buildIdentityQuery,
     resolvePublicEmail,
+    resolveProviderIds,
+    shouldTrustProviderVerification,
+    resolveEmailVerifiedState,
 } = require('../utils/authIdentity');
 
 const PROFILE_PROJECTION = 'name email phone avatar gender dob bio isAdmin isVerified isSeller sellerActivatedAt accountState moderation authAssurance authAssuranceAt trustedDevices +loginOtpAssuranceExpiresAt addresses cart wishlist loyalty createdAt';
@@ -72,37 +75,6 @@ const buildPhoneLookupCandidates = (value) => {
 const normalizeText = (value) => (
     typeof value === 'string' ? value.trim() : ''
 );
-
-const SOCIAL_PROVIDER_REGEX = /google|facebook|twitter|x\.com|github|apple/i;
-
-const resolveProviderIds = ({ authUser = {}, authToken = null } = {}) => {
-    const providerIds = Array.isArray(authUser?.providerIds)
-        ? authUser.providerIds.map((providerId) => normalizeText(providerId)).filter(Boolean)
-        : Array.isArray(authUser?.providerData)
-        ? authUser.providerData.map((entry) => normalizeText(entry?.providerId)).filter(Boolean)
-        : [];
-
-    const fallbackProvider = normalizeText(
-        authUser?.signInProvider || authToken?.firebase?.sign_in_provider
-    );
-    if (providerIds.length === 0 && fallbackProvider) {
-        providerIds.push(fallbackProvider);
-    }
-
-    return providerIds;
-};
-
-const isTrustedSocialProvider = (providerId = '') => (
-    SOCIAL_PROVIDER_REGEX.test(normalizeText(providerId))
-);
-
-const shouldTrustProviderVerification = ({ authUser = {}, authToken = null, authUid = '' } = {}) => {
-    if (!normalizeUid(authUid || authUser?.uid || authUser?.authUid)) {
-        return false;
-    }
-
-    return resolveProviderIds({ authUser, authToken }).some(isTrustedSocialProvider);
-};
 
 const getDuplicateField = (error) => {
     if (!error || error.code !== 11000) return null;
@@ -299,10 +271,23 @@ const toProfilePayload = (user = null, options = {}) => {
     return payload;
 };
 
-const buildSessionIdentity = ({ authUser = {}, authToken = null, authUid = '', authSession = null } = {}) => {
+const buildSessionIdentity = ({
+    authUser = {},
+    authToken = null,
+    authUid = '',
+    authSession = null,
+    user = null,
+} = {}) => {
     const email = resolvePublicEmail(authToken?.email || authUser.email);
     const phone = canonicalizePhone(authToken?.phone_number || authUser.phoneNumber || authUser.phone || '');
-    const providerIds = resolveProviderIds({ authUser, authToken });
+    const providerIds = resolveProviderIds({ authUser, authToken, authSession });
+    const emailVerified = resolveEmailVerifiedState({
+        authUser,
+        authToken,
+        authSession,
+        authUid,
+        user,
+    });
 
     const toIso = (epochSeconds) => {
         const numeric = Number(epochSeconds || 0);
@@ -315,7 +300,7 @@ const buildSessionIdentity = ({ authUser = {}, authToken = null, authUid = '', a
             sessionId: normalizeText(authSession.sessionId),
             uid: normalizeText(authSession.firebaseUid || authUid || authUser.uid),
             email: resolvePublicEmail(authSession.email || authToken?.email || authUser.email),
-            emailVerified: Boolean(authSession.emailVerified ?? authToken?.email_verified ?? authUser.emailVerified),
+            emailVerified,
             displayName: normalizeText(authSession.displayName || authToken?.name || authUser.displayName || authUser.name),
             phone: canonicalizePhone(authSession.phoneNumber || authToken?.phone_number || authUser.phoneNumber || authUser.phone || ''),
             providerIds: Array.isArray(authSession.providerIds) && authSession.providerIds.length > 0
@@ -336,7 +321,7 @@ const buildSessionIdentity = ({ authUser = {}, authToken = null, authUid = '', a
     return {
         uid: normalizeText(authUid || authUser.uid),
         email,
-        emailVerified: Boolean(authToken?.email_verified ?? authUser.emailVerified),
+        emailVerified,
         displayName: normalizeText(authToken?.name || authUser.displayName || authUser.name),
         phone: phone || '',
         providerIds,
@@ -439,7 +424,7 @@ const buildSessionPayload = ({
     deviceChallenge = null,
     error = null,
 } = {}) => {
-    const session = buildSessionIdentity({ authUser, authToken, authUid, authSession });
+    const session = buildSessionIdentity({ authUser, authToken, authUid, authSession, user });
     return {
         status,
         deviceChallenge: deviceChallenge || null,

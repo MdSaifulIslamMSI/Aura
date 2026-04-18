@@ -7,8 +7,10 @@ const { getRedisClient, flags: redisFlags } = require('../config/redis');
 const {
     normalizeEmail,
     normalizeUid,
+    normalizeText: normalizeIdentityText,
     buildInternalAuthEmail,
     buildIdentityQuery,
+    resolveEmailVerifiedState,
 } = require('../utils/authIdentity');
 const {
     TRUSTED_DEVICE_SESSION_HEADER,
@@ -846,7 +848,22 @@ const admin = asyncHandler(async (req, res, next) => {
     }
 
     const actorEmail = normalizeEmail(req.user?.email || req.authToken?.email || '');
-    const emailVerified = Boolean(req.authToken?.email_verified ?? req.authSession?.emailVerified);
+    const emailVerified = resolveEmailVerifiedState({
+        authUser: {
+            uid: normalizeIdentityText(req.authIdentity?.uid || req.authUid || ''),
+            email: normalizeEmail(req.authIdentity?.email || req.authToken?.email || req.user?.email || ''),
+            emailVerified: req.authIdentity?.emailVerified,
+            isVerified: req.user?.isVerified,
+            providerIds: Array.isArray(req.authSession?.providerIds)
+                ? req.authSession.providerIds
+                : [],
+            signInProvider: normalizeIdentityText(req.authToken?.firebase?.sign_in_provider || ''),
+        },
+        authToken: req.authToken || null,
+        authSession: req.authSession || null,
+        authUid: req.authUid || '',
+        user: req.user || null,
+    });
     const authTime = Number(req.authToken?.auth_time || 0);
     const nowSeconds = Math.floor(Date.now() / 1000);
     const sessionAgeSeconds = authTime > 0 ? (nowSeconds - authTime) : Number.POSITIVE_INFINITY;

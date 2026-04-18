@@ -330,4 +330,64 @@ describe('browserSessionService', () => {
         expect(setCookieHeader[0]).toContain('Secure');
         expect(setCookieHeader[0]).toContain('SameSite=None');
     });
+
+    test('stores trusted social sessions as email-verified when the persisted profile is verified', async () => {
+        let browserSessionService;
+
+        jest.isolateModules(() => {
+            jest.doMock('../config/redis', () => ({
+                getRedisClient: () => null,
+                flags: { redisPrefix: 'test' },
+            }));
+            jest.doMock('../services/trustedDeviceChallengeService', () => ({
+                extractTrustedDeviceContext: jest.fn().mockReturnValue({
+                    deviceId: 'device-social-1',
+                    deviceLabel: 'Social Browser',
+                }),
+            }));
+
+            browserSessionService = require('../services/browserSessionService');
+        });
+
+        const nowSeconds = Math.floor(Date.now() / 1000);
+        const req = {
+            headers: {
+                host: 'localhost:5173',
+            },
+            secure: false,
+        };
+
+        const session = await browserSessionService.createBrowserSession({
+            req,
+            user: {
+                _id: '507f1f77bcf86cd799439015',
+                email: 'social-admin@example.com',
+                name: 'Social Admin',
+                phone: '+919876543214',
+                isAdmin: true,
+                isSeller: false,
+                isVerified: true,
+                authAssurance: 'none',
+            },
+            authUid: 'firebase-social-admin',
+            authToken: {
+                email: 'social-admin@example.com',
+                email_verified: false,
+                name: 'Social Admin',
+                phone_number: '+919876543214',
+                auth_time: nowSeconds - 30,
+                iat: nowSeconds - 30,
+                exp: nowSeconds + 3600,
+                firebase: {
+                    sign_in_provider: 'twitter.com',
+                },
+            },
+        });
+
+        expect(session.emailVerified).toBe(true);
+        expect(session.amr).toEqual(expect.arrayContaining(['social_x']));
+
+        const storedSession = await browserSessionService.getBrowserSession(session.sessionId);
+        expect(storedSession.emailVerified).toBe(true);
+    });
 });

@@ -134,4 +134,49 @@ describe('authMiddleware admin second-factor enforcement', () => {
             statusCode: 403,
         }));
     });
+
+    test('accepts trusted social providers when the stored admin profile is verified', async () => {
+        process.env.NODE_ENV = 'test';
+        process.env.ADMIN_STRICT_ACCESS_ENABLED = 'true';
+        process.env.ADMIN_REQUIRE_EMAIL_VERIFIED = 'true';
+        process.env.ADMIN_REQUIRE_2FA = 'false';
+        process.env.ADMIN_REQUIRE_ALLOWLIST = 'false';
+        process.env.ADMIN_REQUIRE_FRESH_LOGIN_MINUTES = '30';
+        process.env.ADMIN_ALLOWLIST_EMAILS = 'admin@example.com';
+
+        const nowSeconds = Math.floor(Date.now() / 1000);
+        const admin = loadAdminMiddleware();
+        const req = {
+            user: {
+                _id: 'user-1',
+                isAdmin: true,
+                isVerified: true,
+                email: 'admin@example.com',
+            },
+            authUid: 'firebase-admin-x',
+            authToken: {
+                email: 'admin@example.com',
+                email_verified: false,
+                auth_time: nowSeconds - 60,
+                iat: nowSeconds - 60,
+                firebase: {
+                    sign_in_provider: 'twitter.com',
+                },
+            },
+            authIdentity: {
+                uid: 'firebase-admin-x',
+                email: 'admin@example.com',
+                emailVerified: false,
+            },
+            headers: {},
+            originalUrl: '/api/admin/dashboard',
+            get: () => '',
+        };
+        const next = jest.fn();
+
+        await admin(req, {}, next);
+
+        expect(next).toHaveBeenCalledTimes(1);
+        expect(next).toHaveBeenCalledWith();
+    });
 });
