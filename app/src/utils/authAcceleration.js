@@ -319,7 +319,7 @@ export const describeAccelerationLane = ({
     if (fallbackToBackupOtp) {
         return {
             title: 'Backup OTP lane',
-            detail: 'Firebase phone delivery is paused on this host, so Aura will keep the flow moving with email and mobile backup OTP.',
+            detail: 'Firebase phone delivery is paused on this host, so Aura will keep the flow moving with backup OTP on the available secure verification channel.',
         };
     }
 
