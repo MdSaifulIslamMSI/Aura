@@ -28,6 +28,7 @@ const {
     shouldRequireTrustedDevice,
 } = require('../config/authTrustedDeviceFlags');
 const { getCachedAdaptiveSecuritySignal } = require('../services/healthService');
+const { findPreferredIdentityUserLean } = require('../services/authIdentityResolutionService');
 
 // Redis-backed token cache.
 // Replaces the in-process Map which broke horizontal scaling:
@@ -672,17 +673,26 @@ const protect = asyncHandler(async (req, res, next) => {
                         // ── Step 2: Check Redis cache first ─────────────────────────────────────
              const cachedUser = await getCachedUser(uid);
             if (cachedUser) {
-                enforceUserAccountAccess(cachedUser);
-                req.user = cachedUser;
-                return finalizeProtectedRequest(req, next);
+                const cachedEmail = normalizeEmail(cachedUser.email || '');
+                const cacheMatchesResolvedIdentity = !normalizedEmail || cachedEmail === normalizedEmail;
+
+                if (cacheMatchesResolvedIdentity) {
+                    enforceUserAccountAccess(cachedUser);
+                    req.user = cachedUser;
+                    return finalizeProtectedRequest(req, next);
+                }
+
+                await invalidateUserCache(uid);
             }
 
             // ── Step 3: Lean MongoDB query with projection ──────────
             // .lean() returns plain JS object (no Mongoose overhead)
             // AUTH_PROJECTION excludes cart/wishlist (reduces wire transfer)
-            const user = await User
-                .findOne(buildIdentityQuery({ email: accountEmail, authUid: uid }), AUTH_PROJECTION)
-                .lean();
+            const user = await findPreferredIdentityUserLean({
+                email: accountEmail,
+                authUid: uid,
+                projection: AUTH_PROJECTION,
+            });
 
             if (!user) {
                 const bootstrappedUser = await bootstrapUserRecord({
