@@ -1,7 +1,11 @@
 const crypto = require('crypto');
 const logger = require('../utils/logger');
 const { getRedisClient, flags: redisFlags } = require('../config/redis');
-const { normalizeEmail } = require('../utils/authIdentity');
+const {
+    normalizeEmail,
+    resolveProviderIds,
+    resolveEmailVerifiedState,
+} = require('../utils/authIdentity');
 const { extractTrustedDeviceContext } = require('./trustedDeviceChallengeService');
 
 const SESSION_COOKIE_NAME = String(process.env.AUTH_SESSION_COOKIE_NAME || 'aura_sid').trim() || 'aura_sid';
@@ -104,22 +108,6 @@ const normalizeAmr = (value = []) => {
         ? value.map((entry) => String(entry || '').trim().toLowerCase()).filter(Boolean)
         : [];
     return Array.from(new Set(normalized));
-};
-
-const resolveProviderIds = ({
-    previousSession = null,
-    authToken = null,
-} = {}) => {
-    if (Array.isArray(previousSession?.providerIds) && previousSession.providerIds.length > 0) {
-        return previousSession.providerIds;
-    }
-
-    const signInProvider = String(authToken?.firebase?.sign_in_provider || '').trim();
-    if (signInProvider) {
-        return [signInProvider];
-    }
-
-    return [];
 };
 
 const buildProviderAmr = (providerIds = []) => {
@@ -430,7 +418,10 @@ const buildSessionIdentitySnapshot = ({
     authToken = null,
     previousSession = null,
 } = {}) => {
-    const providerIds = resolveProviderIds({ previousSession, authToken });
+    const providerIds = resolveProviderIds({
+        authSession: previousSession,
+        authToken,
+    });
     const email = normalizeEmail(previousSession?.email || authToken?.email || user?.email || '');
     const displayName = normalizeText(previousSession?.displayName || authToken?.name || user?.name || '');
     const phoneNumber = normalizeText(previousSession?.phoneNumber || authToken?.phone_number || user?.phone || '');
@@ -438,7 +429,12 @@ const buildSessionIdentitySnapshot = ({
     return {
         firebaseUid: normalizeText(authUid || previousSession?.firebaseUid || ''),
         email,
-        emailVerified: Boolean(previousSession?.emailVerified ?? authToken?.email_verified ?? user?.isVerified),
+        emailVerified: resolveEmailVerifiedState({
+            authToken,
+            authSession: previousSession,
+            authUid,
+            user,
+        }),
         displayName,
         phoneNumber,
         providerIds,

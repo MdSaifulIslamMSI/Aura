@@ -24,6 +24,10 @@ const {
     refreshBrowserSession,
     revokeBrowserSession,
 } = require('../services/browserSessionService');
+const {
+    resolveProviderIds,
+    resolveEmailVerifiedState,
+} = require('../utils/authIdentity');
 const { shouldRequireTrustedDevice } = require('../config/authTrustedDeviceFlags');
 const LOGIN_ASSURANCE_TTL_MS = 10 * 60 * 1000;
 const PHONE_FACTOR_ASSURANCE_TTL_MS = 10 * 60 * 1000;
@@ -177,9 +181,19 @@ const buildRequestAuthUser = (req) => ({
     email: req.authIdentity?.email || req.authToken?.email || req.user?.email || '',
     displayName: req.authIdentity?.displayName || req.authToken?.name || req.user?.name || '',
     phoneNumber: req.authIdentity?.phoneNumber || req.authToken?.phone_number || req.user?.phone || '',
-    emailVerified: Boolean(req.authIdentity?.emailVerified ?? req.authToken?.email_verified ?? req.user?.isVerified),
+    emailVerified: resolveEmailVerifiedState({
+        authUser: req.authIdentity || {},
+        authToken: req.authToken || null,
+        authSession: req.authSession || null,
+        authUid: req.authUid || '',
+        user: req.user || null,
+    }),
     signInProvider: req.authToken?.firebase?.sign_in_provider || '',
-    providerIds: req.authToken?.firebase?.sign_in_provider ? [req.authToken.firebase.sign_in_provider] : [],
+    providerIds: resolveProviderIds({
+        authUser: req.authIdentity || {},
+        authToken: req.authToken || null,
+        authSession: req.authSession || null,
+    }),
 });
 
 const getSession = asyncHandler(async (req, res) => {
