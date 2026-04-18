@@ -4,7 +4,11 @@
     "rewrites": [
         {
             "source": "/socket.io",
-            "destination": "http://3.109.181.238:5000/socket.io"
+            "destination": "http://3.109.181.238:5000/socket.io/"
+        },
+        {
+            "source": "/socket.io/",
+            "destination": "http://3.109.181.238:5000/socket.io/"
         },
         {
             "source": "/socket.io/:path*",
