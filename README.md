@@ -13,6 +13,12 @@ Core capabilities:
 - Split-runtime backend support with Redis-backed workers and reconciliation
 - Market-aware browse FX with real-time provider support plus ECB fallback
 
+## Live Links
+- General launch hub: [https://aurapilot.vercel.app/launch](https://aurapilot.vercel.app/launch)
+- Vercel frontend: [https://aurapilot.vercel.app](https://aurapilot.vercel.app)
+- Netlify frontend: [https://flipcart1-clone.netlify.app](https://flipcart1-clone.netlify.app)
+- Netlify note: backend-dependent flows are unavailable there right now, so treat it as a frontend-only preview.
+
 ## Run Locally
 1. Backend:
    - `cd server`
