@@ -16,8 +16,8 @@ Core capabilities:
 ## Live Links
 - General launch hub: [https://aurapilot.vercel.app/launch](https://aurapilot.vercel.app/launch)
 - Vercel frontend: [https://aurapilot.vercel.app](https://aurapilot.vercel.app)
-- Netlify frontend: [https://flipcart1-clone.netlify.app](https://flipcart1-clone.netlify.app)
-- Netlify note: backend-dependent flows are unavailable there right now, so treat it as a frontend-only preview.
+- Netlify frontend: [https://aurapilot.netlify.app](https://aurapilot.netlify.app)
+- Netlify note: production builds now target the same proxied backend routes through `/api`, `/health`, `/socket.io`, and `/uploads`.
 
 ## Run Locally
 1. Backend:

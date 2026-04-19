@@ -6,6 +6,7 @@ import { useSocket } from './SocketContext';
 import { useAuth } from './AuthContext';
 import { useNotificationStore } from '../store/notificationStore';
 import { normalizeRuntimeTranslationText, requestRuntimeTranslations } from '../services/runtimeTranslation';
+import { useActiveWindowRefresh } from '../hooks/useActiveWindowRefresh';
 
 const DEFAULT_NOTIFICATION_CONTEXT = {
     notifications: [],
@@ -48,6 +49,11 @@ export function NotificationProvider({ children }) {
             }
         });
     }, [fetchNotifications, isAuthenticated, setAuthenticated]);
+
+    useActiveWindowRefresh(
+        () => fetchNotifications({ force: true, silent: true }),
+        { enabled: isAuthenticated }
+    );
 
     useEffect(() => {
         if (!socket || !isAuthenticated) return undefined;

@@ -9,12 +9,17 @@ const parseBooleanEnv = (value, fallback = false) => {
     return fallback;
 };
 
-const normalizeHost = (value = '') => String(value || '')
+export const normalizeHost = (value = '') => String(value || '')
     .trim()
     .toLowerCase()
     .replace(/:\d+$/, '');
 
 const isAbsoluteHttpUrl = (value = '') => /^https?:\/\//i.test(String(value || '').trim());
+
+export const isHostedFrontendRuntimeHost = (host = '') => {
+    const normalizedHost = normalizeHost(host);
+    return normalizedHost.endsWith('.vercel.app') || normalizedHost.endsWith('.netlify.app');
+};
 
 const shouldPreferHostedProxyApi = (configured = '', fallback = '/api') => {
     if (typeof window === 'undefined') return false;
@@ -30,7 +35,7 @@ const shouldPreferHostedProxyApi = (configured = '', fallback = '/api') => {
     }
 
     const runtimeHost = normalizeHost(window.location.host || window.location.hostname || '');
-    if (!runtimeHost.endsWith('.vercel.app')) {
+    if (!isHostedFrontendRuntimeHost(runtimeHost)) {
         return false;
     }
 

@@ -76,6 +76,7 @@ vi.mock('../services/runtimeApiConfig', async (importOriginal) => {
     const actual = await importOriginal();
     return {
         ...actual,
+        isHostedFrontendRuntimeHost: actual.isHostedFrontendRuntimeHost,
         resolveServiceOrigin: runtimeApiConfig.resolveServiceOrigin,
     };
 });
@@ -203,6 +204,35 @@ describe('SocketProvider', () => {
         expect(socketInstances[0]?.options?.upgrade).toBe(false);
         expect(socketInstances[0]?.options?.rememberUpgrade).toBe(false);
         expect(socketInstances[0]?.options?.auth).toEqual({ token: 'socket-token-1' });
+    });
+
+    it('forces polling when a hosted Netlify frontend proxies realtime through its own origin', async () => {
+        runtimeApiConfig.resolveServiceOrigin.mockReturnValue('https://aurapilot.netlify.app');
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: {
+                ...originalLocation,
+                origin: 'https://aurapilot.netlify.app',
+                host: 'aurapilot.netlify.app',
+                hostname: 'aurapilot.netlify.app',
+            },
+        });
+
+        render(
+            <AuthContext.Provider value={authState}>
+                <SocketProvider>
+                    <div>child</div>
+                </SocketProvider>
+            </AuthContext.Provider>
+        );
+
+        await waitFor(() => {
+            expect(ioMock).toHaveBeenCalledTimes(1);
+        });
+
+        expect(socketInstances[0]?.options?.transports).toEqual(['polling']);
+        expect(socketInstances[0]?.options?.upgrade).toBe(false);
+        expect(socketInstances[0]?.options?.rememberUpgrade).toBe(false);
     });
 
     it('refreshes socket auth before reconnect attempts', async () => {

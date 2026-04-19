@@ -27,6 +27,7 @@ import { clearCsrfTokenCache } from '../services/csrfTokenManager';
 import { cacheTrustedDeviceSessionToken, clearTrustedDeviceSessionToken } from '../services/deviceTrustClient';
 import { clearAuthJourneyDraft, writeAuthIdentityMemory } from '../utils/authAcceleration';
 import { getUserVisibleEmail } from '../utils/authIdentity';
+import { useActiveWindowRefresh } from '../hooks/useActiveWindowRefresh';
 import {
   buildFirebaseSessionFallback,
   isAuthenticatedSessionStatus,
@@ -472,6 +473,11 @@ export const AuthProvider = ({ children }) => {
     force: options?.force === true,
     silent: options?.silent === true,
   });
+
+  useActiveWindowRefresh(
+    () => refreshSession(currentUser, { force: true, silent: true }),
+    { enabled: Boolean(currentUser?.uid) }
+  );
 
   const syncUserWithBackend = async (email, name, phone, firebaseUser = null, options = {}) => runSessionRequest({
     mode: 'sync',

@@ -243,6 +243,32 @@ describe('AuthProvider', () => {
     expect(mocks.authApiMock.exchangeSession).not.toHaveBeenCalled();
   });
 
+  it('refreshes the shared backend session when the window regains focus', async () => {
+    const Probe = () => {
+      const { status } = useAuth();
+      return <div data-testid="focus-status">{status}</div>;
+    };
+
+    render(
+      <AuthProvider>
+        <Probe />
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('focus-status')).toHaveTextContent('authenticated');
+      expect(mocks.authApiMock.getSession).toHaveBeenCalledTimes(1);
+    });
+
+    await act(async () => {
+      window.dispatchEvent(new Event('focus'));
+    });
+
+    await waitFor(() => {
+      expect(mocks.authApiMock.getSession).toHaveBeenCalledTimes(2);
+    });
+  });
+
   it('syncs X sign-in even when the provider does not return an email', async () => {
     mocks.onAuthStateChangedMock.mockImplementation(() => () => {});
     mocks.authApiMock.syncSession.mockResolvedValue({

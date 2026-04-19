@@ -1,10 +1,11 @@
-import { useState, useEffect, useContext, useMemo, useRef } from 'react';
+import { useState, useEffect, useContext, useMemo, useRef, useCallback } from 'react';
 import { orderApi } from '@/services/api';
 import { AuthContext } from '@/context/AuthContext';
 import { useMarket } from '@/context/MarketContext';
 import { Package, Clock, CheckCircle, ChevronDown, ChevronUp, Zap, Server, ShieldCheck, AlertTriangle, Loader2, MessageSquare, RefreshCw, ShieldAlert, Wallet, XCircle } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { cn } from '@/lib/utils';
+import { useActiveWindowRefresh } from '@/hooks/useActiveWindowRefresh';
 
 const getOrderStatusLabel = (orderMeta, t) => {
     if (orderMeta.orderStatus === 'cancelled') {
@@ -41,6 +42,38 @@ const Orders = () => {
     const [searchParams] = useSearchParams();
     const focusOrderId = String(searchParams.get('focus') || '').trim();
     const shouldExpandFocus = searchParams.get('expand') === '1' || searchParams.get('support') === '1';
+
+    const refreshOrders = useCallback(async ({ silent = false } = {}) => {
+        if (!currentUser?.uid) {
+            setOrders([]);
+            setLoading(false);
+            return [];
+        }
+
+        if (!silent) {
+            setLoading(true);
+        }
+
+        try {
+            const data = await orderApi.getMyOrders();
+            const nextOrders = Array.isArray(data) ? [...data] : [];
+            const sortedOrders = nextOrders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+            setOrders(sortedOrders);
+            return sortedOrders;
+        } catch (error) {
+            if (!silent || import.meta.env.DEV) {
+                console.error('Failed to fetch orders:', error);
+            }
+            if (!silent) {
+                setOrders([]);
+            }
+            return [];
+        } finally {
+            if (!silent) {
+                setLoading(false);
+            }
+        }
+    }, [currentUser?.uid]);
 
     const orderSummary = useMemo(() => {
         const activeOrders = orders.filter((order) => {
@@ -89,19 +122,19 @@ const Orders = () => {
     }, [formatPrice, orders, t]);
 
     useEffect(() => {
-        if (currentUser) {
-            orderApi.getMyOrders()
-                .then(data => {
-                    // Sort orders by latest first
-                    const sortedOrders = data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-                    setOrders(sortedOrders);
-                })
-                .catch(err => console.error("Failed to fetch orders:", err))
-                .finally(() => setLoading(false));
-        } else {
+        if (!currentUser?.uid) {
+            setOrders([]);
             setLoading(false);
+            return;
         }
-    }, [currentUser]);
+
+        void refreshOrders();
+    }, [currentUser?.uid, refreshOrders]);
+
+    useActiveWindowRefresh(
+        () => refreshOrders({ silent: true }),
+        { enabled: Boolean(currentUser?.uid) }
+    );
 
     if (!currentUser) {
         return (
@@ -246,6 +279,41 @@ export const OrderCard = ({ order, autoExpand = false }) => {
     });
     const cardRef = useRef(null);
 
+    const refreshTimeline = useCallback(async ({ silent = false } = {}) => {
+        if (!silent) {
+            setTimelineLoading(true);
+        }
+        setTimelineError('');
+
+        try {
+            const response = await orderApi.getOrderTimeline(order._id);
+            setTimeline(Array.isArray(response?.timeline) ? response.timeline : []);
+        } catch (error) {
+            setTimelineError(error.message || t('orders.timeline.error.load', {}, 'Unable to load trust timeline'));
+        } finally {
+            if (!silent) {
+                setTimelineLoading(false);
+            }
+        }
+    }, [order._id, t]);
+
+    const refreshCommandCenter = useCallback(async ({ silent = false } = {}) => {
+        if (!silent) {
+            setCommandLoading(true);
+        }
+        setCommandError('');
+        try {
+            const response = await orderApi.getCommandCenter(order._id);
+            setCommandCenter(response?.commandCenter || null);
+        } catch (error) {
+            setCommandError(error.message || t('orders.command.error.refresh', {}, 'Unable to refresh command center'));
+        } finally {
+            if (!silent) {
+                setCommandLoading(false);
+            }
+        }
+    }, [order._id, t]);
+
     // Format Date
     const date = String(formatDateTime(order.createdAt, undefined, {
         year: 'numeric',
@@ -267,62 +335,28 @@ export const OrderCard = ({ order, autoExpand = false }) => {
     }, [autoExpand]);
 
     useEffect(() => {
+        setOrderMeta({
+            orderStatus: order.orderStatus || (order.isDelivered ? 'delivered' : 'placed'),
+            isDelivered: Boolean(order.isDelivered),
+            isPaid: Boolean(order.isPaid),
+        });
+    }, [order._id, order.isDelivered, order.isPaid, order.orderStatus]);
+
+    useEffect(() => {
         if (!expanded || timelineLoading || timeline.length > 0 || timelineError) {
             return undefined;
         }
-
-        let active = true;
-        setTimelineLoading(true);
-        setTimelineError('');
-
-        orderApi.getOrderTimeline(order._id)
-            .then((response) => {
-                if (!active) return;
-                setTimeline(Array.isArray(response?.timeline) ? response.timeline : []);
-            })
-            .catch((error) => {
-                if (!active) return;
-                setTimelineError(error.message || t('orders.timeline.error.load', {}, 'Unable to load trust timeline'));
-            })
-            .finally(() => {
-                if (active) {
-                    setTimelineLoading(false);
-                }
-            });
-
-        return () => {
-            active = false;
-        };
-    }, [expanded, order._id, t, timeline.length, timelineError]);
+        void refreshTimeline();
+        return undefined;
+    }, [expanded, refreshTimeline, timeline.length, timelineError, timelineLoading]);
 
     useEffect(() => {
         if (!expanded || commandLoading || commandCenter || commandError) {
             return undefined;
         }
-
-        let active = true;
-        setCommandLoading(true);
-        setCommandError('');
-
-        orderApi.getCommandCenter(order._id)
-            .then((response) => {
-                if (!active) return;
-                setCommandCenter(response?.commandCenter || null);
-            })
-            .catch((error) => {
-                if (!active) return;
-                setCommandError(error.message || t('orders.command.error.load', {}, 'Unable to load command center'));
-            })
-            .finally(() => {
-                if (active) {
-                    setCommandLoading(false);
-                }
-            });
-
-        return () => {
-            active = false;
-        };
-    }, [commandCenter, commandError, expanded, order._id, t]);
+        void refreshCommandCenter();
+        return undefined;
+    }, [commandCenter, commandError, commandLoading, expanded, refreshCommandCenter]);
 
     const formatTimelineDate = (value) => {
         const dateValue = new Date(value);
@@ -359,18 +393,13 @@ export const OrderCard = ({ order, autoExpand = false }) => {
         }
     };
 
-    const refreshCommandCenter = async () => {
-        setCommandLoading(true);
-        setCommandError('');
-        try {
-            const response = await orderApi.getCommandCenter(order._id);
-            setCommandCenter(response?.commandCenter || null);
-        } catch (error) {
-            setCommandError(error.message || t('orders.command.error.refresh', {}, 'Unable to refresh command center'));
-        } finally {
-            setCommandLoading(false);
-        }
-    };
+    useActiveWindowRefresh(
+        () => Promise.all([
+            refreshTimeline({ silent: true }),
+            refreshCommandCenter({ silent: true }),
+        ]),
+        { enabled: expanded }
+    );
 
     const submitCommand = async (type) => {
         setCommandSubmitting(type);

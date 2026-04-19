@@ -14,6 +14,7 @@ import { detectLocationFromGps } from '@/utils/geolocation';
 import { convertAmount, formatPrice } from '@/utils/format';
 import { BROWSE_BASE_CURRENCY } from '@/config/marketConfig';
 import { getBaseCurrency, getLineBaseTotal } from '@/utils/pricing';
+import { useActiveWindowRefresh } from '@/hooks/useActiveWindowRefresh';
 import StepAddress from './components/StepAddress';
 import StepDelivery from './components/StepDelivery';
 import StepPayment from './components/StepPayment';
@@ -322,124 +323,139 @@ const Checkout = () => {
         setOtpModal((prev) => ({ ...prev, loading: false, error: errorMessage }));
     }, []);
 
-    useEffect(() => {
+    const applyProfile = useCallback((profile) => {
+        const addresses = profile.addresses || [];
+        setSavedAddresses(addresses);
+
+        setDraft((prev) => {
+            const next = {
+                ...prev,
+                contact: {
+                    ...prev.contact,
+                    email: getUserVisibleEmail(profile.email || currentUser?.email || ''),
+                    name: prev.contact.name || profile.name || '',
+                    phone: prev.contact.phone || profile.phone || '',
+                },
+            };
+
+            if (!prev.shippingAddress.address && addresses.length > 0) {
+                const preferred = addresses.find((address) => address.isDefault) || addresses[0];
+                next.selectedAddressId = preferred._id;
+                next.shippingAddress = {
+                    address: preferred.address,
+                    city: preferred.city,
+                    postalCode: preferred.pincode,
+                    country: preferred.state || 'India',
+                };
+                next.addressType = preferred.type || 'home';
+            }
+
+            return next;
+        });
+    }, [currentUser?.email, setDraft]);
+
+    const refreshCheckoutProfile = useCallback(async ({ silent = false } = {}) => {
         if (!currentUser?.uid) {
+            setSavedAddresses([]);
             setIsLoadingProfile(false);
-            return;
+            return null;
         }
 
-        let isMounted = true;
-        setIsLoadingProfile(true);
+        if (!silent) {
+            setIsLoadingProfile(true);
+        }
 
-        const applyProfile = (profile) => {
-            const addresses = profile.addresses || [];
-            setSavedAddresses(addresses);
-
-            setDraft((prev) => {
-                const next = {
-                        ...prev,
-                        contact: {
-                            ...prev.contact,
-                            email: getUserVisibleEmail(profile.email || currentUser.email || ''),
-                            name: prev.contact.name || profile.name || '',
-                            phone: prev.contact.phone || profile.phone || '',
-                        },
-                };
-
-                if (!prev.shippingAddress.address && addresses.length > 0) {
-                    const preferred = addresses.find((address) => address.isDefault) || addresses[0];
-                    next.selectedAddressId = preferred._id;
-                    next.shippingAddress = {
-                        address: preferred.address,
-                        city: preferred.city,
-                        postalCode: preferred.pincode,
-                        country: preferred.state || 'India',
-                    };
-                    next.addressType = preferred.type || 'home';
-                }
-
-                return next;
-            });
-        };
-
-        const hydrateProfile = async () => {
-            try {
-                const profile = await userApi.getProfile({ firebaseUser: currentUser });
-                if (!isMounted) return;
-                applyProfile(profile);
-                return;
-            } catch (error) {
-                if (!shouldAttemptProfileRecovery(error)) {
-                    throw error;
-                }
-                if (typeof syncUserWithBackend !== 'function') {
-                    throw error;
-                }
-
-                await syncUserWithBackend(
-                    getUserVisibleEmail(currentUser.email || ''),
-                    currentUser.displayName || getUserVisibleEmail(currentUser.email || '')?.split('@')[0] || '',
-                    currentUser.phoneNumber || ''
-                );
-
-                const recoveredProfile = await userApi.getProfile({ firebaseUser: currentUser });
-                if (!isMounted) return;
-                applyProfile(recoveredProfile);
-            }
-        };
-
-        hydrateProfile()
-            .catch((error) => {
-                if (isMounted) {
+        try {
+            const profile = await userApi.getProfile({ firebaseUser: currentUser });
+            applyProfile(profile);
+            return profile;
+        } catch (error) {
+            if (!shouldAttemptProfileRecovery(error) || typeof syncUserWithBackend !== 'function') {
+                if (!silent) {
                     toast.error(error.message || t('checkout.error.loadProfile', {}, 'Failed to load profile for checkout'));
                 }
-            })
-            .finally(() => {
-                if (isMounted) setIsLoadingProfile(false);
-            });
+                return null;
+            }
 
-        return () => {
-            isMounted = false;
-        };
-    }, [currentUser, setDraft, syncUserWithBackend]);
+            await syncUserWithBackend(
+                getUserVisibleEmail(currentUser.email || ''),
+                currentUser.displayName || getUserVisibleEmail(currentUser.email || '')?.split('@')[0] || '',
+                currentUser.phoneNumber || ''
+            );
+
+            const recoveredProfile = await userApi.getProfile({ firebaseUser: currentUser });
+            applyProfile(recoveredProfile);
+            return recoveredProfile;
+        } finally {
+            if (!silent) {
+                setIsLoadingProfile(false);
+            }
+        }
+    }, [applyProfile, currentUser, syncUserWithBackend, t]);
 
     useEffect(() => {
-        if (!currentUser?.uid) return;
-        Promise.allSettled([
+        void refreshCheckoutProfile();
+    }, [currentUser?.uid, refreshCheckoutProfile]);
+
+    const refreshCheckoutPaymentSurfaces = useCallback(async () => {
+        if (!currentUser?.uid) {
+            setSavedPaymentMethods([]);
+            setPaymentCapabilities(null);
+            setCheckoutConfig(null);
+            return null;
+        }
+
+        const [methodsResult, capabilitiesResult, checkoutConfigResult] = await Promise.allSettled([
             paymentApi.getMethods(),
             paymentApi.getCapabilities(),
             orderApi.getCheckoutConfig(),
-        ])
-            .then(([methodsResult, capabilitiesResult, checkoutConfigResult]) => {
-                if (methodsResult.status === 'fulfilled') {
-                    const methods = methodsResult.value || [];
-                    setSavedPaymentMethods(methods);
-                    setDraft((prev) => {
-                        if (prev.selectedSavedMethodId) return prev;
-                        const defaultMethod = (methods || []).find((method) => method.isDefault) || (methods || [])[0];
-                        return {
-                            ...prev,
-                            selectedSavedMethodId: defaultMethod?._id || '',
-                        };
-                    });
-                } else {
-                    setSavedPaymentMethods([]);
-                }
+        ]);
 
-                if (capabilitiesResult.status === 'fulfilled') {
-                    const capabilities = capabilitiesResult.value || null;
-                    setPaymentCapabilities(capabilities);
-                } else {
-                    setPaymentCapabilities(null);
-                }
-
-                if (checkoutConfigResult.status === 'fulfilled') {
-                    setCheckoutConfig(checkoutConfigResult.value || null);
-                } else {
-                    setCheckoutConfig(null);
-                }
+        if (methodsResult.status === 'fulfilled') {
+            const methods = methodsResult.value || [];
+            setSavedPaymentMethods(methods);
+            setDraft((prev) => {
+                if (prev.selectedSavedMethodId) return prev;
+                const defaultMethod = (methods || []).find((method) => method.isDefault) || (methods || [])[0];
+                return {
+                    ...prev,
+                    selectedSavedMethodId: defaultMethod?._id || '',
+                };
             });
-    }, [currentUser?.uid, globalCountryCode, globalCurrency, globalLanguage, setDraft]);
+        } else {
+            setSavedPaymentMethods([]);
+        }
+
+        if (capabilitiesResult.status === 'fulfilled') {
+            setPaymentCapabilities(capabilitiesResult.value || null);
+        } else {
+            setPaymentCapabilities(null);
+        }
+
+        if (checkoutConfigResult.status === 'fulfilled') {
+            setCheckoutConfig(checkoutConfigResult.value || null);
+        } else {
+            setCheckoutConfig(null);
+        }
+
+        return {
+            methods: methodsResult.status === 'fulfilled' ? methodsResult.value || [] : [],
+            capabilities: capabilitiesResult.status === 'fulfilled' ? capabilitiesResult.value || null : null,
+            checkoutConfig: checkoutConfigResult.status === 'fulfilled' ? checkoutConfigResult.value || null : null,
+        };
+    }, [currentUser?.uid, setDraft]);
+
+    useEffect(() => {
+        void refreshCheckoutPaymentSurfaces();
+    }, [currentUser?.uid, globalCountryCode, globalCurrency, globalLanguage, refreshCheckoutPaymentSurfaces]);
+
+    useActiveWindowRefresh(
+        () => Promise.all([
+            refreshCheckoutProfile({ silent: true }),
+            refreshCheckoutPaymentSurfaces(),
+        ]),
+        { enabled: Boolean(currentUser?.uid) }
+    );
 
     const checkoutItems = useMemo(() => {
         if (directBuyItem) {

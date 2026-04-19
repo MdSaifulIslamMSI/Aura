@@ -26,6 +26,7 @@ import { WishlistContext } from '@/context/WishlistContext';
 import { paymentApi, trustApi, userApi, intelligenceApi } from '@/services/api';
 import { cn } from '@/lib/utils';
 import { getUserVisibleEmail } from '@/utils/authIdentity';
+import { useActiveWindowRefresh } from '@/hooks/useActiveWindowRefresh';
 
 import OverviewSection from './components/OverviewSection';
 import PersonalInfoSection from './components/PersonalInfoSection';
@@ -112,23 +113,30 @@ export default function Profile() {
     });
 
     const fileInputRef = useRef(null);
+    const editModeRef = useRef(false);
     const tabs = useMemo(() => buildTabs(t), [t]);
 
-    const createEditForm = (source = {}) => ({
+    const createEditForm = useCallback((source = {}) => ({
         name: source.name || '',
         phone: source.phone || '',
         gender: source.gender || '',
         dob: source.dob ? new Date(source.dob).toISOString().split('T')[0] : '',
         bio: source.bio || '',
-    });
+    }), []);
+
+    useEffect(() => {
+        editModeRef.current = editMode;
+    }, [editMode]);
 
     const showMsg = useCallback((type, text) => {
         setMessage({ type, text });
         window.setTimeout(() => setMessage({ type: '', text: '' }), 4000);
     }, []);
 
-    const refreshPaymentMethods = useCallback(async () => {
-        setPaymentMethodsLoading(true);
+    const refreshPaymentMethods = useCallback(async ({ silent = false } = {}) => {
+        if (!silent) {
+            setPaymentMethodsLoading(true);
+        }
         try {
             const methodsResult = await paymentApi.getMethods();
             const nextMethods = Array.isArray(methodsResult)
@@ -137,14 +145,25 @@ export default function Profile() {
                     ? methodsResult.paymentMethods
                     : [];
             setPaymentMethods(nextMethods);
+            return nextMethods;
         } catch (error) {
             console.error('Failed to load payment methods', error);
+            setPaymentMethods([]);
+            return [];
         } finally {
-            setPaymentMethodsLoading(false);
+            if (!silent) {
+                setPaymentMethodsLoading(false);
+            }
         }
     }, []);
 
     const refreshTrustStatus = useCallback(async ({ silent = false } = {}) => {
+        if (!currentUser?.uid) {
+            setTrustStatus(DEFAULT_TRUST_STATUS);
+            setTrustLoading(false);
+            return DEFAULT_TRUST_STATUS;
+        }
+
         if (!silent) {
             setTrustLoading(true);
         }
@@ -163,9 +182,15 @@ export default function Profile() {
                 setTrustLoading(false);
             }
         }
-    }, []);
+    }, [currentUser?.uid]);
 
     const refreshIntelligence = useCallback(async ({ silent = false } = {}) => {
+        if (!currentUser?.uid) {
+            setIntelligenceData(null);
+            setIntelligenceLoading(false);
+            return null;
+        }
+
         if (!silent) {
             setIntelligenceLoading(true);
         }
@@ -182,44 +207,78 @@ export default function Profile() {
                 setIntelligenceLoading(false);
             }
         }
-    }, []);
+    }, [currentUser?.uid]);
 
-    useEffect(() => {
+    const refreshRewards = useCallback(async ({ silent = false } = {}) => {
         if (!currentUser?.uid) {
-            setLoading(false);
-            return;
+            setRewards(null);
+            setRewardsLoading(false);
+            return null;
         }
 
-        let cancelled = false;
-        (async () => {
-            setLoading(true);
-            try {
-                const [profileData, dashData] = await Promise.all([
-                    userApi.getProfile({ firebaseUser: currentUser }),
-                    userApi.getDashboard(),
-                ]);
+        if (!silent) {
+            setRewardsLoading(true);
+        }
 
-                if (cancelled) return;
-                setProfile(profileData);
-                setDashboard(dashData);
+        try {
+            const result = await userApi.getRewards();
+            setRewards(result?.rewards || result || null);
+            return result?.rewards || result || null;
+        } catch (error) {
+            console.error('Rewards fetch failed:', error);
+            setRewards(null);
+            return null;
+        } finally {
+            if (!silent) {
+                setRewardsLoading(false);
+            }
+        }
+    }, [currentUser?.uid]);
+
+    const refreshProfileDeck = useCallback(async ({ silent = false } = {}) => {
+        if (!currentUser?.uid) {
+            setProfile(dbUser || null);
+            setDashboard(null);
+            setLoading(false);
+            return null;
+        }
+
+        if (!silent) {
+            setLoading(true);
+        }
+
+        try {
+            const [profileData, dashData] = await Promise.all([
+                userApi.getProfile({ firebaseUser: currentUser }),
+                userApi.getDashboard(),
+            ]);
+
+            setProfile(profileData);
+            setDashboard(dashData);
+            if (!editModeRef.current) {
                 setEditForm(createEditForm(profileData));
-            } catch (error) {
-                console.error('Profile fetch failed:', error);
-                if (!cancelled && dbUser) {
-                    setProfile((previous) => ({ ...(previous || {}), ...dbUser }));
+            }
+
+            return { profileData, dashData };
+        } catch (error) {
+            console.error('Profile fetch failed:', error);
+            if (dbUser) {
+                setProfile((previous) => ({ ...(previous || {}), ...dbUser }));
+                if (!editModeRef.current) {
                     setEditForm(createEditForm(dbUser));
                 }
-            } finally {
-                if (!cancelled) {
-                    setLoading(false);
-                }
             }
-        })();
+            return null;
+        } finally {
+            if (!silent) {
+                setLoading(false);
+            }
+        }
+    }, [createEditForm, currentUser, dbUser]);
 
-        return () => {
-            cancelled = true;
-        };
-    }, [currentUser, dbUser]); // eslint-disable-line react-hooks/exhaustive-deps
+    useEffect(() => {
+        void refreshProfileDeck();
+    }, [currentUser?.uid, refreshProfileDeck]);
 
     useEffect(() => {
         if (!dbUser) return;
@@ -232,53 +291,34 @@ export default function Profile() {
     }, [dbUser]);
 
     useEffect(() => {
-        if (!currentUser?.uid) return;
         void refreshPaymentMethods();
     }, [currentUser?.uid, refreshPaymentMethods]);
 
     useEffect(() => {
-        if (!currentUser?.uid) return;
-        let cancelled = false;
-
-        (async () => {
-            setRewardsLoading(true);
-            try {
-                const result = await userApi.getRewards();
-                if (!cancelled) {
-                    setRewards(result?.rewards || result || null);
-                }
-            } catch (error) {
-                console.error('Rewards fetch failed:', error);
-                if (!cancelled) {
-                    setRewards(null);
-                }
-            } finally {
-                if (!cancelled) {
-                    setRewardsLoading(false);
-                }
-            }
-        })();
-
-        return () => {
-            cancelled = true;
-        };
-    }, [currentUser?.uid]);
+        void refreshRewards();
+    }, [currentUser?.uid, refreshRewards]);
 
     useEffect(() => {
-        if (!currentUser?.uid) return undefined;
-
         void refreshTrustStatus();
-        const timer = window.setInterval(() => {
-            void refreshTrustStatus({ silent: true });
-        }, 60000);
-
-        return () => window.clearInterval(timer);
     }, [currentUser?.uid, refreshTrustStatus]);
 
     useEffect(() => {
-        if (!currentUser?.uid) return;
         void refreshIntelligence();
     }, [currentUser?.uid, refreshIntelligence]);
+
+    useActiveWindowRefresh(
+        () => Promise.all([
+            refreshProfileDeck({ silent: true }),
+            refreshPaymentMethods({ silent: true }),
+            refreshRewards({ silent: true }),
+            refreshTrustStatus({ silent: true }),
+            refreshIntelligence({ silent: true }),
+        ]),
+        {
+            enabled: Boolean(currentUser?.uid),
+            intervalMs: 45 * 1000,
+        }
+    );
 
     useEffect(() => {
         const requestedTab = String(searchParams.get('tab') || '').trim();
