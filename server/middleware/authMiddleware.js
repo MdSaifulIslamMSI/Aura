@@ -452,6 +452,7 @@ const buildRequestPosture = (req = {}, options = {}) => {
         req.authSession?.riskState
         || (req.user?.isAdmin ? 'privileged' : req.user?.isSeller ? 'heightened' : 'standard')
     ).trim().toLowerCase() || 'standard';
+    const trustedDeviceRequired = shouldRequireTrustedDevice({ user: req.user });
     const elevatedAssurance = Boolean(
         hasOtpAssurance(req)
         || hasSessionSecondFactor(req)
@@ -466,13 +467,15 @@ const buildRequestPosture = (req = {}, options = {}) => {
         authFreshnessWindowSeconds: freshnessMinutes * 60,
         deviceBound,
         cryptoBound,
+        trustedDeviceRequired,
+        cryptoTrustedDeviceRequired: Boolean(trustedDeviceRequired && REQUIRE_CRYPTO_DEVICE_FOR_SENSITIVE_ACTIONS),
         riskState,
         riskHigh: riskState !== 'standard',
         elevatedAssurance,
         continuousAccess: Boolean(
             Number.isFinite(authAgeSeconds)
             && authAgeSeconds <= (freshnessMinutes * 60)
-            && deviceBound
+            && (!trustedDeviceRequired || deviceBound)
             && (riskState === 'standard' || elevatedAssurance)
         ),
     };
@@ -529,11 +532,11 @@ const enforceContinuousAccessPosture = async (req) => {
         throw new AppError(`Recent re-authentication required within ${freshnessMinutes} minutes for this action.`, 401);
     }
 
-    if (!posture.deviceBound) {
+    if (posture.trustedDeviceRequired && !posture.deviceBound) {
         throw new AppError('Trusted device verification required for this action.', 403);
     }
 
-    if (REQUIRE_CRYPTO_DEVICE_FOR_SENSITIVE_ACTIONS && !posture.cryptoBound) {
+    if (posture.cryptoTrustedDeviceRequired && !posture.cryptoBound) {
         throw new AppError('A cryptographically verified trusted device is required for this action.', 403);
     }
 
