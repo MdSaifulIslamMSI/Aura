@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Aura Gateway</title>
+    <meta
+      name="description"
+      content="A dedicated production gateway for the Aura storefront stack across Vercel and Netlify."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="gateway-shell">
+      <div class="background-grid" aria-hidden="true"></div>
+      <div class="background-orb background-orb-left" aria-hidden="true"></div>
+      <div class="background-orb background-orb-right" aria-hidden="true"></div>
+      <div class="background-orb background-orb-bottom" aria-hidden="true"></div>
+
+      <main class="page">
+        <section class="hero-panel">
+          <div class="hero-copy">
+            <div class="eyebrow">
+              <span class="eyebrow-dot"></span>
+              Aura Gateway
+            </div>
+            <h1>A sharper front door for Aura&apos;s live frontend stack.</h1>
+            <p class="hero-lede">
+              This dedicated gateway sits above both production storefronts. Choose the runtime you want and enter
+              the same live commerce system with shared identity, cart, wishlist, checkout, profile, and order state.
+            </p>
+
+            <div class="pillars">
+              <article class="pillar-card">
+                <h2>One commerce core</h2>
+                <p>Both storefronts resolve against the same production backend and the same operational state.</p>
+              </article>
+              <article class="pillar-card">
+                <h2>Two public runtimes</h2>
+                <p>Vercel and Netlify stay independent at the hosting layer without drifting in user behavior.</p>
+              </article>
+              <article class="pillar-card">
+                <h2>Cleaner gateway surface</h2>
+                <p>This is a deliberate access layer, not an improvised switchboard attached to the storefront shell.</p>
+              </article>
+            </div>
+          </div>
+
+          <aside class="hero-aside">
+            <p class="section-kicker">General link direction</p>
+            <h2>Purpose-built to sit above both live links.</h2>
+            <p>
+              The gateway gives Aura a calmer, stronger first impression before the user drops into either storefront.
+              It also keeps the deployment story legible: two hosts, one production experience.
+            </p>
+
+            <div class="signal-list" aria-label="gateway principles">
+              <div class="signal-item">Serious language instead of demo copy</div>
+              <div class="signal-item">Clear distinction between gateway and storefront</div>
+              <div class="signal-item">Fast handoff into the live product</div>
+              <div class="signal-item">Visible proof of shared production state</div>
+            </div>
+
+            <div class="contract-panel">
+              <div class="contract-card">
+                <span class="contract-label">Hosts</span>
+                <strong>Vercel + Netlify</strong>
+              </div>
+              <div class="contract-card">
+                <span class="contract-label">State</span>
+                <strong>Shared production data</strong>
+              </div>
+            </div>
+          </aside>
+        </section>
+
+        <section class="deployment-board" aria-labelledby="deployment-board-title">
+          <div class="board-copy">
+            <p class="section-kicker">Deployment board</p>
+            <h2 id="deployment-board-title">Enter the storefront from the runtime you want.</h2>
+            <p>
+              Different domains are acceptable. Different behavior is not. Both links below point into the same Aura
+              product system and should feel ideologically identical everywhere that matters.
+            </p>
+          </div>
+
+          <div class="target-grid">
+            <article class="target-card target-card-vercel">
+              <div class="target-topline">
+                <span class="target-badge">Vercel</span>
+                <span class="target-state">Primary runtime</span>
+              </div>
+              <h3>aurapilot.vercel.app</h3>
+              <p>
+                The flagship Aura storefront on Vercel. Best when you want the main public runtime with the fastest
+                route into the shared production app.
+              </p>
+              <div class="target-facts">
+                <span>Primary Aura domain</span>
+                <span>Shared backend</span>
+              </div>
+              <a class="target-link" href="https://aurapilot.vercel.app" rel="noreferrer">
+                <span>Open Vercel storefront</span>
+                <span aria-hidden="true">→</span>
+              </a>
+            </article>
+
+            <article class="target-card target-card-netlify">
+              <div class="target-topline">
+                <span class="target-badge">Netlify</span>
+                <span class="target-state">Mirrored runtime</span>
+              </div>
+              <h3>aurapilot.netlify.app</h3>
+              <p>
+                The independent Netlify host for Aura. Best when you want to validate the mirrored production runtime
+                without losing any shared account or commerce state.
+              </p>
+              <div class="target-facts">
+                <span>Independent host</span>
+                <span>State stays in sync</span>
+              </div>
+              <a class="target-link" href="https://aurapilot.netlify.app" rel="noreferrer">
+                <span>Open Netlify storefront</span>
+                <span aria-hidden="true">→</span>
+              </a>
+            </article>
+          </div>
+        </section>
+
+        <section class="assurance-strip" aria-label="shared assurance">
+          <div class="assurance-item">Authentication continuity</div>
+          <div class="assurance-item">Cart and wishlist reflection</div>
+          <div class="assurance-item">Checkout and order parity</div>
+          <div class="assurance-item">Consistent profile and trust posture</div>
+        </section>
+      </main>
+    </div>
+  </body>
+</html>
