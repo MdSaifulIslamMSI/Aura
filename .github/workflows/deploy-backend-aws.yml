@@ -8,6 +8,8 @@ on:
       - "infra/aws/deploy-release.sh"
       - "infra/aws/docker-compose.ec2.yml"
       - "infra/aws/render-runtime-secrets.sh"
+      # Keep the workflow file itself in the trigger set so deploy fixes can
+      # be retriggered through a normal push when API dispatch is unavailable.
       - ".github/workflows/deploy-backend-aws.yml"
   workflow_dispatch:
     inputs:
