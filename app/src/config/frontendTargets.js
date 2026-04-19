@@ -53,6 +53,30 @@ const getHostname = (url = '') => {
   }
 };
 
+const createTarget = ({
+  id = '',
+  label = '',
+  platform = '',
+  description = '',
+  href = '',
+  currentOrigin = '',
+}) => {
+  const hostname = getHostname(href);
+  const normalizedCurrentOrigin = normalizeFrontendUrl(currentOrigin);
+
+  return {
+    id,
+    label,
+    platform,
+    description,
+    href,
+    hostname,
+    originLabel: hostname || 'Deployment URL pending',
+    isCurrent: Boolean(href) && href === normalizedCurrentOrigin,
+    isLive: Boolean(href),
+  };
+};
+
 export const resolveFrontendTargets = ({
   vercelUrl = '',
   netlifyUrl = '',
@@ -67,21 +91,21 @@ export const resolveFrontendTargets = ({
   };
 
   return [
-    {
+    createTarget({
       id: 'vercel',
       label: 'Vercel frontend',
       platform: 'Vercel',
-      description: 'Open the Vercel deployment for the Aura storefront.',
+      description: 'Open the Vercel-hosted Aura storefront running on the shared production backend.',
       href: resolvedTargets.vercel,
-      isLive: Boolean(resolvedTargets.vercel),
-    },
-    {
+      currentOrigin: normalizedCurrentOrigin,
+    }),
+    createTarget({
       id: 'netlify',
       label: 'Netlify frontend',
       platform: 'Netlify',
-      description: 'Open the Netlify deployment for the same Aura storefront.',
+      description: 'Open the Netlify-hosted Aura storefront mirroring the same production commerce state.',
       href: resolvedTargets.netlify,
-      isLive: Boolean(resolvedTargets.netlify),
-    },
+      currentOrigin: normalizedCurrentOrigin,
+    }),
   ];
 };
