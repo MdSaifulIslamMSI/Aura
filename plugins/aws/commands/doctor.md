@@ -18,8 +18,8 @@ The user invoked this command with: $ARGUMENTS
 When this command is invoked:
 
 1. Read `skills/aws-mcp-setup/SKILL.md`
-2. Run `scripts/doctor-aws-plugin.ps1`
-3. If needed, use `scripts/bootstrap-aws-mcp.ps1` to fix missing packages
+2. Run `powershell -NoProfile -ExecutionPolicy Bypass -File .\plugins\aws\scripts\doctor-aws-plugin.ps1`
+3. If needed, use `powershell -NoProfile -ExecutionPolicy Bypass -File .\plugins\aws\scripts\bootstrap-aws-mcp.ps1` to fix missing packages
 4. If the AWS API MCP path is blocked by missing credentials, explain the
    smallest next step clearly
 

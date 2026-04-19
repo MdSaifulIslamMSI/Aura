@@ -5,7 +5,39 @@ param(
 $ErrorActionPreference = "Stop"
 
 $pluginRoot = Split-Path -Parent $PSScriptRoot
-$repoRoot = Split-Path -Parent (Split-Path -Parent $pluginRoot)
+$defaultRepoRoot = Split-Path -Parent (Split-Path -Parent $pluginRoot)
+$mcpConfigPath = Join-Path $pluginRoot ".mcp.json"
+
+function Resolve-RepoRoot {
+  param(
+    [string]$DefaultRepoRoot,
+    [string]$ConfiguredWorkingDir
+  )
+
+  $candidates = @()
+  if (-not [string]::IsNullOrWhiteSpace($ConfiguredWorkingDir)) {
+    $candidates += $ConfiguredWorkingDir
+  }
+  $candidates += $DefaultRepoRoot
+
+  foreach ($candidate in $candidates) {
+    if ([string]::IsNullOrWhiteSpace($candidate)) {
+      continue
+    }
+
+    if (-not (Test-Path -LiteralPath $candidate)) {
+      continue
+    }
+
+    try {
+      return (Resolve-Path -LiteralPath $candidate).Path
+    } catch {
+      return $candidate
+    }
+  }
+
+  return $DefaultRepoRoot
+}
 
 function Get-CommandInfo {
   param([string]$Name)
@@ -111,30 +143,24 @@ $apiModule = if ($pythonInfo.found) {
   [pscustomobject]@{ installed = $false; version = $null }
 }
 
-$repoFiles = @(
-  "docs\aws-backend-deployment.md",
-  "infra\aws\bootstrap-free-tier.ps1",
-  "infra\aws\bootstrap-github-oidc.ps1",
-  "infra\aws\sync-parameter-store-env.ps1",
-  "infra\aws\deploy-release.sh",
-  "server\.env.aws-secrets.example",
-  "plugins\aws\.mcp.json"
-) | ForEach-Object { Test-RepoFile -RelativePath $_ }
-
 $mcpConfigStatus = [pscustomobject]@{
   valid = $false
   servers = @()
 }
 $configuredAwsProfile = $null
+$configuredWorkingDir = $null
 
 try {
-  $mcpConfig = Get-Content -Raw (Join-Path $pluginRoot ".mcp.json") | ConvertFrom-Json
+  $mcpConfig = Get-Content -Raw $mcpConfigPath | ConvertFrom-Json
   $serverNames = @()
   if ($mcpConfig.mcpServers) {
     $serverNames = $mcpConfig.mcpServers.PSObject.Properties.Name
   }
   if ($mcpConfig.mcpServers.'aws-api-mcp-server'.env.AWS_API_MCP_PROFILE_NAME) {
     $configuredAwsProfile = $mcpConfig.mcpServers.'aws-api-mcp-server'.env.AWS_API_MCP_PROFILE_NAME
+  }
+  if ($mcpConfig.mcpServers.'aws-api-mcp-server'.env.AWS_API_MCP_WORKING_DIR) {
+    $configuredWorkingDir = $mcpConfig.mcpServers.'aws-api-mcp-server'.env.AWS_API_MCP_WORKING_DIR
   }
   $mcpConfigStatus = [pscustomobject]@{
     valid = $true
@@ -147,6 +173,23 @@ try {
     error = $_.Exception.Message
   }
 }
+
+$repoRoot = Resolve-RepoRoot -DefaultRepoRoot $defaultRepoRoot -ConfiguredWorkingDir $configuredWorkingDir
+$repoRootSource = if (-not [string]::IsNullOrWhiteSpace($configuredWorkingDir) -and (Test-Path -LiteralPath $configuredWorkingDir)) {
+  "mcpWorkingDir"
+} else {
+  "pluginRelative"
+}
+
+$repoFiles = @(
+  "docs\aws-backend-deployment.md",
+  "infra\aws\bootstrap-free-tier.ps1",
+  "infra\aws\bootstrap-github-oidc.ps1",
+  "infra\aws\sync-parameter-store-env.ps1",
+  "infra\aws\deploy-release.sh",
+  "server\.env.aws-secrets.example",
+  "plugins\aws\.mcp.json"
+) | ForEach-Object { Test-RepoFile -RelativePath $_ }
 
 $stsArgs = @("sts", "get-caller-identity", "--output", "json")
 if (-not [string]::IsNullOrWhiteSpace($configuredAwsProfile)) {
@@ -180,6 +223,8 @@ $liveAwsReady = $pluginReady -and $sts.success
 
 $report = [pscustomobject]@{
   pluginRoot = $pluginRoot
+  repoRoot = $repoRoot
+  repoRootSource = $repoRootSource
   python = [pscustomobject]@{
     found = $pythonInfo.found
     source = $pythonInfo.source
@@ -220,6 +265,7 @@ if ($Json) {
 
 Write-Host "AWS Plugin Doctor"
 Write-Host "Plugin root: $($report.pluginRoot)"
+Write-Host "Repo root: $($report.repoRoot) [$($report.repoRootSource)]"
 Write-Host ""
 Write-Host "Toolchain"
 Write-Host "  Python found: $($report.python.found) [$($report.python.version)]"

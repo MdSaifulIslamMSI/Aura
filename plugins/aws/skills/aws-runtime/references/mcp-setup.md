@@ -1,13 +1,10 @@
 # MCP Setup
 
-This plugin exposes three AWS-focused MCP servers:
+This plugin currently enables two AWS-focused MCP servers:
 
-- `aws-knowledge-mcp-server`
-  - Remote AWS-managed endpoint
-  - Best for current AWS guidance, agent SOPs, code samples, and best practices
 - `aws-documentation-mcp-server`
   - Local Python package
-  - Best for direct AWS documentation lookups and exact doc sections
+  - Best for current AWS documentation lookups and exact doc sections
 - `aws-api-mcp-server`
   - Local Python package
   - Best for live AWS inspection and, if explicitly enabled later, guarded AWS changes
@@ -28,9 +25,6 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\plugins\aws\scripts\doctor
 
 ## Authentication
 
-The Knowledge server can still be useful without local AWS credentials because
-it is a remote managed endpoint.
-
 The AWS API MCP server needs local AWS credentials. If `aws sts get-caller-identity`
 fails, authenticate first with one of:
 
@@ -40,6 +34,10 @@ fails, authenticate first with one of:
 
 This plugin currently targets the `aura-bootstrap` AWS profile for the AWS API
 MCP server.
+
+The AWS Knowledge MCP server is not enabled in `.mcp.json` right now because
+its remote endpoint has not been consistently handshaking in this environment.
+If that endpoint becomes reliable again, revalidate it before re-enabling it.
 
 ## Safety Defaults
 
@@ -59,6 +57,6 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\plugins\aws\scripts\write-
 
 AWS now offers a unified AWS MCP Server (Preview). AWS documentation recommends
 avoiding overlapping old and new server setups because tool conflicts can
-confuse agents. This plugin keeps the classic Knowledge + Documentation + API
-combination active because it works well on this machine without adding `uv`
-and proxy setup as a hard requirement.
+confuse agents. This plugin keeps the Documentation + API combination active
+because it works well on this machine without adding `uv` and proxy setup as a
+hard requirement.
