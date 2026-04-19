@@ -139,10 +139,14 @@ describe('Navbar Component', () => {
             dbUser: { name: 'John Doe', loyalty: {} },
         });
 
+        await waitFor(() => {
+            expect(screen.getAllByText('1,808 AP').length).toBeGreaterThan(0);
+        });
+
         fireEvent.click(screen.getByText('John Doe'));
 
         await waitFor(() => {
-            expect(screen.getByText('1,808 AP')).toBeInTheDocument();
+            expect(screen.getAllByText('1,808 AP').length).toBeGreaterThan(1);
         });
     });
 
