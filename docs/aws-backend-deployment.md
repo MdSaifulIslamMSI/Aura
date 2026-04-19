@@ -21,7 +21,7 @@
 
 ## Bootstrap
 1. Provision the free-tier stack:
-   - `powershell -ExecutionPolicy Bypass -File infra\aws\bootstrap-free-tier.ps1 -FrontendOrigin https://aurapilot.vercel.app`
+   - `powershell -ExecutionPolicy Bypass -File infra\aws\bootstrap-free-tier.ps1 -FrontendOrigin https://aurapilot.vercel.app -SecondaryFrontendOrigin https://aurapilot.netlify.app`
 2. Install monthly budget and free-plan expiration guardrails:
    - `powershell -ExecutionPolicy Bypass -File infra\aws\bootstrap-cost-guardrails.ps1 -AwsProfile aura-bootstrap`
 3. Create or refresh the GitHub deploy role:
@@ -48,6 +48,7 @@
 - If those variables are blank on a hosted Vercel deployment, the checked-in config now falls back to the tracked hosted backend origin instead of `127.0.0.1`.
 - For the default `t4g.small` target, set `AWS_DOCKER_PLATFORM=linux/arm64`.
 - The bootstrap defaults already disable paid integrations that would otherwise fail closed on a bare free-plan stack: payments, OTP SMS, and order email sending.
+- The checked-in AWS bootstrap now seeds `CORS_ORIGIN` with both production frontends, `https://aurapilot.vercel.app` and `https://aurapilot.netlify.app`, so hosted auth POST flows do not fail when the second domain is added later.
 
 ## Runtime Secret Files
 - Checked-in non-secret defaults live in [server/.env.example](/c:/Users/mdsai/Downloads/Kimi_Agent_Flipkart-Style%20Frontend/server/.env.example).
