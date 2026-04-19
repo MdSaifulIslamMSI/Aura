@@ -4,6 +4,7 @@
 This repository contains:
 - `app/`: React + Vite frontend
 - `server/`: Express + MongoDB backend
+- Architecture diagrams: [`docs/system-architecture.md`](docs/system-architecture.md)
 
 Core capabilities:
 - Firebase-authenticated user flows
