@@ -25,7 +25,10 @@ describe('frontendTargets', () => {
 
     expect(vercelTarget.href).toBe('https://aura-gateway.vercel.app');
     expect(vercelTarget.isLive).toBe(true);
+    expect(vercelTarget.isCurrent).toBe(true);
+    expect(vercelTarget.hostname).toBe('aura-gateway.vercel.app');
     expect(netlifyTarget.href).toBe('https://aura-gateway.netlify.app');
+    expect(netlifyTarget.isCurrent).toBe(false);
   });
 
   it('keeps targets pending when no deployment url is available', () => {
@@ -35,5 +38,6 @@ describe('frontendTargets', () => {
 
     expect(netlifyTarget.href).toBe('');
     expect(netlifyTarget.isLive).toBe(false);
+    expect(netlifyTarget.originLabel).toBe('Deployment URL pending');
   });
 });
