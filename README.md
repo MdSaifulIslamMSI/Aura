@@ -62,15 +62,21 @@ Core capabilities:
 - CI/CD now builds the backend image once, uploads the release bundle to S3, and rolls EC2 forward through SSM Run Command.
 - Frontend routing now prefers `AURA_BACKEND_ORIGIN` or `AWS_BACKEND_BASE_URL` in Vercel, and falls back to the tracked hosted backend origin instead of localhost so hosted deploys do not fail closed.
 
-## Netlify CI/CD
-- GitHub Actions now supports Netlify frontend preview and production deploys through [`deploy-netlify.yml`](.github/workflows/deploy-netlify.yml).
+## Frontend CI/CD
+- GitHub Actions now deploys the frontend to both Netlify and Vercel through [`deploy-netlify.yml`](.github/workflows/deploy-netlify.yml).
+- The workflow builds `app/dist` once, uploads that artifact to Netlify, and prepares a Vercel-compatible artifact bundle from the same built files so both domains publish the same frontend release inputs.
 - Required GitHub setup:
   - Repository secret: `NETLIFY_AUTH_TOKEN`
   - Repository variable or secret: `NETLIFY_SITE_ID`
   - Optional repository variable: `NETLIFY_SITE_NAME`
-- Pull requests targeting `main` publish a preview deploy from the built `app/dist` artifact.
-- Pushes to `main` publish a production deploy to the linked Netlify site.
+  - Repository secret: `VERCEL_TOKEN`
+  - Repository variable or secret: `VERCEL_ORG_ID`
+  - Repository variable or secret: `VERCEL_PROJECT_ID`
+  - Optional repository variable: `VERCEL_PROJECT_NAME`
+- Pull requests targeting `main` publish preview deploys to both Netlify and Vercel.
+- Pushes to `main` publish production deploys to both Netlify and Vercel from the same frontend release flow.
 - If Netlify Git auto-publishing is still enabled for the same site, disable it in the Netlify UI to avoid duplicate deploys from both Netlify and GitHub Actions.
+- If Vercel Git auto-deploy is still enabled for the same project, disconnect or disable it once the GitHub Actions path is verified so the shared-artifact workflow remains the single production release source.
 
 ## Production Catalog + Search Gates
 - Snapshot imports now require both `sourceRef` and `manifestRef`.
