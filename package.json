@@ -3,6 +3,8 @@
   "scripts": {
     "build": "cd app && npm install && npm run build",
     "aws:ssm:sync": "powershell -ExecutionPolicy Bypass -File .\\infra\\aws\\sync-parameter-store-env.ps1 -SourceEnvFile .\\server\\.env.aws-secrets",
+    "backend:origin": "node .\\app\\scripts\\print_hosted_backend_origin.mjs",
+    "vercel:routing:sync": "node .\\app\\scripts\\sync_vercel_configs.mjs",
     "dev:on": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\dev-on.ps1",
     "dev:off": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\dev-off.ps1",
     "dev:off:force": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\dev-off.ps1 -ForceKill",
