@@ -1,0 +1,4 @@
+interface:
+  display_name: "AWS DynamoDB"
+  short_description: "Model tables, indexes, access patterns, and hot-partition risk"
+  default_prompt: "Use AWS DynamoDB to review access patterns, key design, index choices, streams, and performance risks without forcing relational assumptions onto DynamoDB."

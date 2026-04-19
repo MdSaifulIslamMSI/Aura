@@ -1,0 +1,4 @@
+interface:
+  display_name: "AWS ElastiCache"
+  short_description: "Review Redis or Memcached topology, auth, failover, and cache behavior"
+  default_prompt: "Use AWS ElastiCache to inspect cache topology, subnet and auth settings, failover behavior, eviction policy, and app-cache integration issues in AWS."

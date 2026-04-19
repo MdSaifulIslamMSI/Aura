@@ -1,0 +1,95 @@
+<svg width="1200" height="760" viewBox="0 0 1200 760" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">AWS Plugin Skill Map</title>
+  <desc id="desc">A visual map of the AWS Codex plugin showing setup, architecture, security, data, operations, and modernization coverage.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="760" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#16191F"/>
+      <stop offset="1" stop-color="#0D1117"/>
+    </linearGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#1D232A"/>
+      <stop offset="1" stop-color="#11161D"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="14" stdDeviation="14" flood-color="#000000" flood-opacity="0.28"/>
+    </filter>
+  </defs>
+
+  <rect width="1200" height="760" rx="36" fill="url(#bg)"/>
+  <circle cx="170" cy="125" r="120" fill="#FF9900" fill-opacity="0.06"/>
+  <circle cx="1070" cy="650" r="160" fill="#FF9900" fill-opacity="0.05"/>
+
+  <text x="72" y="84" fill="#FF9900" font-family="Segoe UI, Arial, sans-serif" font-size="18" font-weight="700">AWS Plugin</text>
+  <text x="72" y="124" fill="#FFFFFF" font-family="Segoe UI, Arial, sans-serif" font-size="38" font-weight="700">32 focused skills with guided entry points</text>
+  <text x="72" y="154" fill="#C7D1DB" font-family="Segoe UI, Arial, sans-serif" font-size="18">Designed for platform, security, delivery, data, and migration work across AWS.</text>
+
+  <g filter="url(#shadow)">
+    <rect x="428" y="248" width="344" height="180" rx="28" fill="#FF9900"/>
+    <text x="600" y="306" text-anchor="middle" fill="#16191F" font-family="Segoe UI, Arial, sans-serif" font-size="18" font-weight="700">Core Entry Points</text>
+    <text x="600" y="346" text-anchor="middle" fill="#16191F" font-family="Segoe UI, Arial, sans-serif" font-size="34" font-weight="800">AWS</text>
+    <text x="600" y="378" text-anchor="middle" fill="#16191F" font-family="Segoe UI, Arial, sans-serif" font-size="16">/aws:setup-mcp</text>
+    <text x="600" y="404" text-anchor="middle" fill="#16191F" font-family="Segoe UI, Arial, sans-serif" font-size="16">/aws:doctor</text>
+    <text x="600" y="430" text-anchor="middle" fill="#16191F" font-family="Segoe UI, Arial, sans-serif" font-size="16">/aws:solution-map</text>
+  </g>
+
+  <path d="M428 338H286" stroke="#FF9900" stroke-width="3" stroke-linecap="round" stroke-dasharray="8 10"/>
+  <path d="M772 338H914" stroke="#FF9900" stroke-width="3" stroke-linecap="round" stroke-dasharray="8 10"/>
+  <path d="M600 248V140" stroke="#FF9900" stroke-width="3" stroke-linecap="round" stroke-dasharray="8 10"/>
+  <path d="M600 428V548" stroke="#FF9900" stroke-width="3" stroke-linecap="round" stroke-dasharray="8 10"/>
+  <path d="M468 262L354 170" stroke="#FF9900" stroke-width="3" stroke-linecap="round" stroke-dasharray="8 10"/>
+  <path d="M732 262L846 170" stroke="#FF9900" stroke-width="3" stroke-linecap="round" stroke-dasharray="8 10"/>
+
+  <g filter="url(#shadow)">
+    <rect x="74" y="246" width="212" height="184" rx="24" fill="url(#card)" stroke="#2B3440"/>
+    <text x="98" y="284" fill="#FF9900" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="700">Foundation</text>
+    <text x="98" y="316" fill="#FFFFFF" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700">Setup and control plane</text>
+    <text x="98" y="350" fill="#C7D1DB" font-family="Segoe UI, Arial, sans-serif" font-size="15">aws-runtime</text>
+    <text x="98" y="374" fill="#C7D1DB" font-family="Segoe UI, Arial, sans-serif" font-size="15">aws-mcp-setup</text>
+    <text x="98" y="398" fill="#C7D1DB" font-family="Segoe UI, Arial, sans-serif" font-size="15">aws-infrastructure-as-code</text>
+    <text x="98" y="422" fill="#C7D1DB" font-family="Segoe UI, Arial, sans-serif" font-size="15">aws-cost-guardrails</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="914" y="246" width="212" height="184" rx="24" fill="url(#card)" stroke="#2B3440"/>
+    <text x="938" y="284" fill="#FF9900" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="700">Delivery</text>
+    <text x="938" y="316" fill="#FFFFFF" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700">Compute and edge</text>
+    <text x="938" y="350" fill="#C7D1DB" font-family="Segoe UI, Arial, sans-serif" font-size="15">aws-lambda-serverless</text>
+    <text x="938" y="374" fill="#C7D1DB" font-family="Segoe UI, Arial, sans-serif" font-size="15">aws-ecs-containers</text>
+    <text x="938" y="398" fill="#C7D1DB" font-family="Segoe UI, Arial, sans-serif" font-size="15">aws-cloudfront-edge</text>
+    <text x="938" y="422" fill="#C7D1DB" font-family="Segoe UI, Arial, sans-serif" font-size="15">aws-route53-dns</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="482" y="70" width="236" height="152" rx="24" fill="url(#card)" stroke="#2B3440"/>
+    <text x="506" y="108" fill="#FF9900" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="700">Security</text>
+    <text x="506" y="140" fill="#FFFFFF" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700">Identity and secrets</text>
+    <text x="506" y="174" fill="#C7D1DB" font-family="Segoe UI, Arial, sans-serif" font-size="15">aws-iam-auth</text>
+    <text x="506" y="198" fill="#C7D1DB" font-family="Segoe UI, Arial, sans-serif" font-size="15">aws-secrets-manager</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="480" y="548" width="240" height="154" rx="24" fill="url(#card)" stroke="#2B3440"/>
+    <text x="504" y="586" fill="#FF9900" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="700">Operations</text>
+    <text x="504" y="618" fill="#FFFFFF" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700">Observe and respond</text>
+    <text x="504" y="652" fill="#C7D1DB" font-family="Segoe UI, Arial, sans-serif" font-size="15">aws-observability</text>
+    <text x="504" y="676" fill="#C7D1DB" font-family="Segoe UI, Arial, sans-serif" font-size="15">aws-release-rollout</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="214" y="86" width="220" height="148" rx="24" fill="url(#card)" stroke="#2B3440"/>
+    <text x="238" y="124" fill="#FF9900" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="700">Data</text>
+    <text x="238" y="156" fill="#FFFFFF" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700">State and search</text>
+    <text x="238" y="190" fill="#C7D1DB" font-family="Segoe UI, Arial, sans-serif" font-size="15">aws-rds-databases</text>
+    <text x="238" y="214" fill="#C7D1DB" font-family="Segoe UI, Arial, sans-serif" font-size="15">aws-dynamodb and aws-opensearch</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="768" y="86" width="254" height="148" rx="24" fill="url(#card)" stroke="#2B3440"/>
+    <text x="792" y="124" fill="#FF9900" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="700">Modernization</text>
+    <text x="792" y="156" fill="#FFFFFF" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700">Migration and AI</text>
+    <text x="792" y="190" fill="#C7D1DB" font-family="Segoe UI, Arial, sans-serif" font-size="15">aws-migration-modernization</text>
+    <text x="792" y="214" fill="#C7D1DB" font-family="Segoe UI, Arial, sans-serif" font-size="15">aws-bedrock-ai and aws-analytics</text>
+  </g>
+
+  <text x="72" y="714" fill="#C7D1DB" font-family="Segoe UI, Arial, sans-serif" font-size="16">Starter docs live in examples/. Runtime readiness lives in doctor-aws-plugin.ps1. Package readiness lives in validate-aws-plugin.ps1.</text>
+</svg>

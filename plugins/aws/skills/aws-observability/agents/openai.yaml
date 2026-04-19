@@ -1,0 +1,4 @@
+interface:
+  display_name: "AWS Observability"
+  short_description: "Work with CloudWatch logs, metrics, alarms, and runtime visibility"
+  default_prompt: "Use AWS Observability to inspect logs, metrics, alarms, and health signals across AWS services and to tighten noisy or missing production visibility."

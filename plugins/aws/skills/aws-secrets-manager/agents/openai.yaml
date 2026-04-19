@@ -1,0 +1,4 @@
+interface:
+  display_name: "AWS Secrets Manager"
+  short_description: "Review secret storage, rotation, retrieval, and access policy"
+  default_prompt: "Use AWS Secrets Manager to review secret lifecycle, rotation, retrieval, app integration, and least-privilege access without exposing secret values."

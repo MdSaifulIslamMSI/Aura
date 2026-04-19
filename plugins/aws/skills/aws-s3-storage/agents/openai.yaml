@@ -1,0 +1,4 @@
+interface:
+  display_name: "AWS S3 Storage"
+  short_description: "Work with buckets, uploads, lifecycle rules, and access posture"
+  default_prompt: "Use AWS S3 Storage to review bucket architecture, uploads, signed URLs, lifecycle configuration, and public-access safety without guessing policy behavior."

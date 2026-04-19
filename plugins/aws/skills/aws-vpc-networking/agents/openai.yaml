@@ -1,0 +1,4 @@
+interface:
+  display_name: "AWS VPC Networking"
+  short_description: "Design and debug subnets, routes, security groups, and reachability"
+  default_prompt: "Use AWS VPC Networking to reason about reachability, subnet design, route tables, security groups, and private or public connectivity issues."
