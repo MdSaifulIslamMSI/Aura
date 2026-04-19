@@ -1,0 +1,4 @@
+interface:
+  display_name: "AWS Parameter Store"
+  short_description: "Audit, dry-run, and safely sync this repo's SSM secret contract"
+  default_prompt: "Use AWS Parameter Store to audit this repo's secret contract, preview sync behavior, and plan or run a safe Parameter Store update without exposing secrets."

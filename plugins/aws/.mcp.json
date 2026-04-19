@@ -1,0 +1,37 @@
+{
+  "mcpServers": {
+    "aws-documentation-mcp-server": {
+      "type": "stdio",
+      "command": "python",
+      "timeout": 120,
+      "args": [
+        "-m",
+        "awslabs.aws_documentation_mcp_server.server"
+      ],
+      "env": {
+        "FASTMCP_LOG_LEVEL": "ERROR",
+        "AWS_DOCUMENTATION_PARTITION": "aws"
+      }
+    },
+    "aws-api-mcp-server": {
+      "type": "stdio",
+      "command": "python",
+      "timeout": 120,
+      "args": [
+        "-m",
+        "awslabs.aws_api_mcp_server.server"
+      ],
+      "env": {
+        "FASTMCP_LOG_LEVEL": "ERROR",
+        "AWS_REGION": "ap-south-1",
+        "AWS_DEFAULT_REGION": "ap-south-1",
+        "AWS_API_MCP_PROFILE_NAME": "aura-bootstrap",
+        "AWS_API_MCP_ALLOW_UNRESTRICTED_LOCAL_FILE_ACCESS": "workdir",
+        "AWS_API_MCP_WORKING_DIR": "c:\\Users\\mdsai\\Downloads\\Kimi_Agent_Flipkart-Style Frontend",
+        "READ_OPERATIONS_ONLY": "true",
+        "REQUIRE_MUTATION_CONSENT": "true"
+      },
+      "note": "Configured read-only by default for this repo. Pair with scripts\\write-aws-api-mcp-security-policy.ps1 before enabling mutations."
+    }
+  }
+}

@@ -1,0 +1,4 @@
+interface:
+  display_name: "AWS Runtime Secrets"
+  short_description: "Render and reason about deployed runtime env files safely"
+  default_prompt: "Use AWS Runtime Secrets to inspect how this repo renders runtime env files from Parameter Store and to review the deployed secret-loading flow without exposing values."

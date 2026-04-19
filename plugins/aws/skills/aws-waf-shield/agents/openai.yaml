@@ -1,0 +1,4 @@
+interface:
+  display_name: "AWS WAF Shield"
+  short_description: "Review WAF rules, rate limits, abuse controls, and edge protection"
+  default_prompt: "Use AWS WAF Shield to inspect web ACLs, managed rules, rate limiting, false positives, and CloudFront or ALB protection posture without weakening security casually."
