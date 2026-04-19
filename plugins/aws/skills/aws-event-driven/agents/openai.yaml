@@ -1,0 +1,4 @@
+interface:
+  display_name: "AWS Event Driven"
+  short_description: "Design and debug queues, buses, retries, DLQs, and workflows"
+  default_prompt: "Use AWS Event Driven to review async architecture, SQS or SNS flow, EventBridge routing, Step Functions behavior, and retry or DLQ strategy."

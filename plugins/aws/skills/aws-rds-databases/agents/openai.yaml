@@ -1,0 +1,4 @@
+interface:
+  display_name: "AWS RDS Databases"
+  short_description: "Review RDS and Aurora design, connectivity, backups, and operations"
+  default_prompt: "Use AWS RDS Databases to inspect connectivity, backups, maintenance posture, parameter groups, and operational safety for RDS or Aurora."

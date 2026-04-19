@@ -1,0 +1,4 @@
+interface:
+  display_name: "AWS Route 53 DNS"
+  short_description: "Review hosted zones, records, health checks, and DNS cutovers"
+  default_prompt: "Use AWS Route 53 DNS to inspect hosted zones, aliases, certificate validation, health checks, failover, and DNS debugging without hand-waving propagation behavior."

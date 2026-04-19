@@ -1,0 +1,4 @@
+interface:
+  display_name: "AWS Infrastructure as Code"
+  short_description: "Review CloudFormation, CDK, Terraform, and drift-reduction workflows"
+  default_prompt: "Use AWS Infrastructure as Code to review AWS resource modeling, choose between CloudFormation, CDK, or Terraform patterns, and reduce manual drift safely."

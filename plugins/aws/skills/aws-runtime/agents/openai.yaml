@@ -1,0 +1,4 @@
+interface:
+  display_name: "AWS Runtime"
+  short_description: "Reason about this repo's AWS architecture, docs, APIs, and deployment state"
+  default_prompt: "Use AWS Runtime to inspect this repo's AWS deployment shape, combine current AWS guidance with repo context, and debug the backend runtime without guessing."

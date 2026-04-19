@@ -1,0 +1,4 @@
+interface:
+  display_name: "AWS IAM Auth"
+  short_description: "Review IAM, trust policies, STS, and access failures"
+  default_prompt: "Use AWS IAM Auth to review or debug identities, trust policies, cross-account access, and permission errors without widening access blindly."

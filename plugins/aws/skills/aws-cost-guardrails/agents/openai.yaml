@@ -1,0 +1,4 @@
+interface:
+  display_name: "AWS Cost Guardrails"
+  short_description: "Protect the backend stack with budget and expiration guardrails"
+  default_prompt: "Use AWS Cost Guardrails to review or update the repo's budget alarms, shutdown actions, and free-plan expiration controls without weakening cost protection."

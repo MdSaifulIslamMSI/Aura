@@ -1,0 +1,4 @@
+interface:
+  display_name: "AWS OpenSearch"
+  short_description: "Review search domains, indexing flow, access policy, and query behavior"
+  default_prompt: "Use AWS OpenSearch to inspect cluster design, indexing, access policy, ingestion flow, and search or dashboard issues without treating all search failures the same."

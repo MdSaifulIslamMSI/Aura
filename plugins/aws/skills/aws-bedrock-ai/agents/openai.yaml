@@ -1,0 +1,4 @@
+interface:
+  display_name: "AWS Bedrock AI"
+  short_description: "Review models, retrieval, guardrails, and AI app integration on Bedrock"
+  default_prompt: "Use AWS Bedrock AI to inspect model integration, retrieval or knowledge-base architecture, guardrails, latency and cost tradeoffs, and Bedrock-powered AI application design."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "AWS CloudFront Edge"
+  short_description: "Review CloudFront delivery, DNS, certs, and cache behavior"
+  default_prompt: "Use AWS CloudFront Edge to review CDN behavior, origin protection, DNS and certificate setup, and caching or invalidation issues."

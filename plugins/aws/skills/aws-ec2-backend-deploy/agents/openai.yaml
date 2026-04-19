@@ -1,0 +1,4 @@
+interface:
+  display_name: "AWS EC2 Backend Deploy"
+  short_description: "Work through this repo's EC2 backend bootstrap and rollout path"
+  default_prompt: "Use AWS EC2 Backend Deploy to review this repo's free-tier bootstrap, GitHub OIDC, deployment workflow, and rollout guardrails before changing the backend release path."

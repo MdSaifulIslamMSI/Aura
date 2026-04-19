@@ -1,0 +1,69 @@
+{
+  "name": "aws",
+  "version": "0.6.0",
+  "description": "AWS plugin with official AWS Knowledge, Documentation, and API MCP servers, setup diagnostics, publish-ready playbooks, broadly useful AWS skills, and repo-specific EC2, SSM, and deployment workflows.",
+  "author": {
+    "name": "mdsai",
+    "url": "https://github.com/MdSaifulIslamMSI"
+  },
+  "homepage": "https://docs.aws.amazon.com/aws-mcp/latest/userguide/what-is-mcp-server.html",
+  "repository": "https://github.com/MdSaifulIslamMSI/Aura",
+  "license": "Apache-2.0",
+  "keywords": [
+    "aws",
+    "ec2",
+    "mcp",
+    "ssm",
+    "oidc",
+    "parameter-store",
+    "knowledge",
+    "cloud",
+    "deployment",
+    "lambda",
+    "api-gateway",
+    "s3",
+    "iam",
+    "ecs",
+    "cloudfront",
+    "vpc",
+    "rds",
+    "dynamodb",
+    "cognito",
+    "eks",
+    "bedrock",
+    "secrets-manager",
+    "kms",
+    "route53",
+    "waf",
+    "analytics",
+    "migration",
+    "security"
+  ],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "AWS",
+    "shortDescription": "AWS MCP access, setup diagnostics, 32 focused AWS skills, guided playbooks, and repo-aware deployment workflows.",
+    "longDescription": "Adds official AWS Knowledge, AWS Documentation, and AWS API MCP servers to Codex, then layers in plugin setup diagnostics, safer AWS API MCP guardrails, a visual skill map, curated example playbooks, release validation helpers, and a broad AWS skill library for common platform work such as IAM, Lambda, API Gateway, S3, ECS, networking, databases, observability, security, infrastructure as code, authentication, Kubernetes, event-driven systems, Bedrock, caching, search, secrets, encryption, DNS, edge security, analytics, and migration, plus repo-specific Parameter Store and EC2 backend deployment workflows.",
+    "developerName": "mdsai",
+    "category": "Infrastructure",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://awslabs.github.io/mcp/",
+    "privacyPolicyURL": "https://aws.amazon.com/privacy/",
+    "termsOfServiceURL": "https://aws.amazon.com/service-terms/",
+    "defaultPrompt": [
+      "Use AWS docs and APIs to inspect my account, architecture, or service setup.",
+      "Diagnose whether this AWS plugin is fully ready to use.",
+      "Map my workload to the right AWS services, plugin skills, and next steps.",
+      "Review an AWS design, deployment, security, data, or migration workflow safely."
+    ],
+    "brandColor": "#FF9900",
+    "composerIcon": "./assets/aws-small.svg",
+    "logo": "./assets/aws-logo.svg",
+    "screenshots": []
+  }
+}

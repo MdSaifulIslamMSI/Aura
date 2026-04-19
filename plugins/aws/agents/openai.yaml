@@ -1,0 +1,6 @@
+interface:
+  display_name: "AWS"
+  short_description: "Inspect AWS docs and APIs, validate plugin readiness, and use guided AWS playbooks across a very broad set of platform workflows"
+  icon_small: "./assets/aws-small.svg"
+  icon_large: "./assets/aws-logo.svg"
+  default_prompt: "Use AWS to inspect docs and APIs, diagnose plugin readiness, map workloads to the right AWS services and plugin skills, review common AWS service designs across compute, data, auth, networking, security, analytics, AI, and migration, and safely operate this repo's deployment workflows."
