@@ -40,6 +40,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   NODE_VERSION: 24.x
   NETLIFY_SITE_ID: ${{ vars.NETLIFY_SITE_ID || secrets.NETLIFY_SITE_ID }}
   NETLIFY_SITE_NAME: ${{ vars.NETLIFY_SITE_NAME || 'aurapilot' }}
