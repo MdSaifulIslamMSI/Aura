@@ -76,34 +76,6 @@ const buildFrontendNavigationTargets = (currentOrigin = '') => resolveFrontendNa
   currentOrigin,
 });
 
-const RuntimeSwitchCluster = ({ targets = [], className }) => {
-  if (!targets.length) {
-    return null;
-  }
-
-  return (
-    <div
-      className={cn(
-        'hidden lg:flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.045] p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]',
-        className
-      )}
-    >
-      {targets.map((target) => (
-        <a
-          key={target.id}
-          href={target.href}
-          aria-label={`Open ${target.label}`}
-          title={target.originLabel}
-          className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-black/20 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-slate-200 transition-all duration-200 hover:-translate-y-0.5 hover:border-white/18 hover:bg-white/[0.08] hover:text-white"
-        >
-          <span>{target.platform}</span>
-          <ArrowUpRight className="h-3.5 w-3.5 text-neo-cyan" />
-        </a>
-      ))}
-    </div>
-  );
-};
-
 const RuntimeSwitchPanel = ({ targets = [], onNavigate, className }) => {
   if (!targets.length) {
     return null;
@@ -142,6 +114,42 @@ const RuntimeSwitchPanel = ({ targets = [], onNavigate, className }) => {
         ))}
       </div>
     </section>
+  );
+};
+
+const RuntimeSwitchMenuSection = ({ targets = [] }) => {
+  if (!targets.length) {
+    return null;
+  }
+
+  return (
+    <div className="px-4 py-3">
+      <div className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
+        <Globe2 className="h-3.5 w-3.5 text-neo-cyan" />
+        Live runtimes
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        {targets.slice(0, 2).map((target) => (
+          <a
+            key={target.id}
+            href={target.href}
+            aria-label={`Open ${target.label} from account menu`}
+            title={target.originLabel}
+            className="flex items-center justify-between gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-left transition-colors hover:bg-white/[0.08] hover:text-white"
+          >
+            <span className="min-w-0">
+              <span className="block text-[10px] font-black uppercase tracking-[0.18em] text-cyan-200">
+                {target.platform}
+              </span>
+              <span className="mt-1 block truncate text-xs font-semibold text-slate-300">
+                {target.id === 'gateway' ? 'Gateway' : 'Switch'}
+              </span>
+            </span>
+            <ArrowUpRight className="h-4 w-4 shrink-0 text-neo-cyan" />
+          </a>
+        ))}
+      </div>
+    </div>
   );
 };
 
@@ -264,9 +272,6 @@ const MarketPreferenceCard = ({
 
 export const NavbarFailureFallback = () => {
   const t = createTranslator('en');
-  const runtimeSwitchTargets = buildFrontendNavigationTargets(
-    typeof window !== 'undefined' ? window.location.origin : ''
-  ).filter((target) => target.isLive && !target.isCurrent);
 
   return (
     <>
@@ -298,7 +303,6 @@ export const NavbarFailureFallback = () => {
             />
 
             <div className="flex items-center gap-2 flex-shrink-0">
-              <RuntimeSwitchCluster targets={runtimeSwitchTargets} />
               <Link
                 to="/marketplace"
                 className="hidden xl:inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.045] px-4 py-2.5 text-sm font-semibold text-slate-200 transition-all duration-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] hover:border-white/18 hover:bg-white/[0.075] hover:text-white"
@@ -662,7 +666,6 @@ const Navbar = () => {
 
             {/* Right Actions */}
             <div className="flex items-center gap-1 sm:gap-1.5 lg:gap-2 flex-shrink-0">
-              <RuntimeSwitchCluster targets={runtimeSwitchTargets} />
               <div className="relative hidden lg:block" ref={marketPanelRef}>
                 <button
                   type="button"
@@ -852,6 +855,8 @@ const Navbar = () => {
                               </Link>
                             </>
                           )}
+                          <div className="my-1 border-t border-white/10" />
+                          <RuntimeSwitchMenuSection targets={runtimeSwitchTargets} />
                           <div className="my-1 border-t border-white/10" />
                           {colorModeSection}
                           <div className="my-1 border-t border-white/10" />
