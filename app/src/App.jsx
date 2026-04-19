@@ -22,10 +22,12 @@ import BackendStatusBanner from './components/shared/BackendStatusBanner';
 import GlobalSupportLauncher from './components/shared/GlobalSupportLauncher';
 import AuraTrustedDeviceChallenge from './components/features/auth/AuraTrustedDeviceChallenge';
 import { trustRoutes } from './config/trustContent';
+import { FRONTEND_LAUNCH_HUB_PATH } from './config/frontendTargets';
 import { assertRouteA11yContracts } from './utils/a11yContracts';
 import { lazyWithRetry } from './utils/lazyWithRetry';
 import { MultimodalAssistantProvider } from './context/MultimodalAssistantContext';
 import {
+  shouldShowSiteChrome,
   shouldShowAmbientChrome,
   shouldShowAssistantLauncher,
   shouldShowBackendStatusBanner,
@@ -70,6 +72,7 @@ const Bundles = lazyWithRetry(() => import('./pages/Bundles'), 'bundles');
 const MissionControl = lazyWithRetry(() => import('./pages/MissionControl'), 'mission-control');
 const AssistantPage = lazyWithRetry(() => import('./pages/Assistant'), 'assistant-workspace');
 const AssistantLauncher = lazyWithRetry(() => import('./components/shared/AssistantLauncher'), 'assistant-launcher');
+const LaunchHub = lazyWithRetry(() => import('./pages/Launch'), 'frontend-launch-hub');
 
 function renderRoute(element) {
   return <AppErrorBoundary>{element}</AppErrorBoundary>;
@@ -84,6 +87,10 @@ function AppContent() {
   const { effectiveMotionMode } = useMotionMode();
   const pathname = location.pathname;
   const routeRenderKey = `${location.pathname}${location.search}${location.hash}`;
+  const showSiteChrome = useMemo(
+    () => shouldShowSiteChrome(pathname),
+    [pathname]
+  );
 
   const showAmbientChrome = useMemo(
     () => shouldShowAmbientChrome(pathname),
@@ -128,10 +135,12 @@ function AppContent() {
       <ScrollToTop />
       {showAmbientChrome ? <ScrollProgressBar /> : null}
       {showAnchorRail ? <SectionAnchorRail /> : null}
-      <AppErrorBoundary fallback={<NavbarFailureFallback />}>
-        <Navbar />
-      </AppErrorBoundary>
-      {showBackendStatusBanner ? (
+      {showSiteChrome ? (
+        <AppErrorBoundary fallback={<NavbarFailureFallback />}>
+          <Navbar />
+        </AppErrorBoundary>
+      ) : null}
+      {showSiteChrome && showBackendStatusBanner ? (
         <AppErrorBoundary>
           <BackendStatusBanner />
         </AppErrorBoundary>
@@ -149,6 +158,7 @@ function AppContent() {
             <Routes>
               {/* Public Routes */}
               <Route path="/" element={renderRoute(<Home />)} />
+              <Route path={FRONTEND_LAUNCH_HUB_PATH} element={renderCriticalRoute(<LaunchHub />)} />
               <Route path="/login" element={renderCriticalRoute(<Login />)} />
               <Route path="/products" element={renderRoute(<ProductListing />)} />
               <Route path="/category/:category" element={renderRoute(<ProductListing />)} />
@@ -199,22 +209,26 @@ function AppContent() {
           </RouteTransitionShell>
         </Suspense>
       </main>
-      {showAssistantLauncher ? (
+      {showSiteChrome && showAssistantLauncher ? (
         <Suspense fallback={null}>
           <AppErrorBoundary>
             <AssistantLauncher />
           </AppErrorBoundary>
         </Suspense>
       ) : null}
-      <AppErrorBoundary>
-        <GlobalSupportLauncher />
-      </AppErrorBoundary>
-      <AppErrorBoundary>
-        <AuraTrustedDeviceChallenge />
-      </AppErrorBoundary>
-      <AppErrorBoundary>
-        <Footer />
-      </AppErrorBoundary>
+      {showSiteChrome ? (
+        <>
+          <AppErrorBoundary>
+            <GlobalSupportLauncher />
+          </AppErrorBoundary>
+          <AppErrorBoundary>
+            <AuraTrustedDeviceChallenge />
+          </AppErrorBoundary>
+          <AppErrorBoundary>
+            <Footer />
+          </AppErrorBoundary>
+        </>
+      ) : null}
       <Toaster
         richColors
         position="top-right"

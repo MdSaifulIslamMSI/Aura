@@ -1,0 +1,15 @@
+.git
+.github
+.run-logs
+.vercel
+node_modules
+generated
+app/node_modules
+app/dist
+app/.run-logs
+app/playwright-report
+app/*.log
+app/.env.local
+app/.env.test
+app/.env.vercel.preview
+server/node_modules

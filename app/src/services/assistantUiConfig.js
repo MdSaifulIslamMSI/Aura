@@ -1,4 +1,5 @@
 export const ASSISTANT_WORKSPACE_PATH = '/assistant';
+export const FRONTEND_LAUNCH_HUB_PATH = '/launch';
 
 const AMBIENT_CHROME_PREFIXES = [
     '/',
@@ -59,6 +60,14 @@ export const isAdminPath = (pathname = '/') => normalizePathname(pathname).start
 
 export const isAssistantWorkspacePath = (pathname = '/') => (
     normalizePathname(pathname).startsWith(ASSISTANT_WORKSPACE_PATH)
+);
+
+export const isFrontendLaunchHubPath = (pathname = '/') => (
+    normalizePathname(pathname).startsWith(FRONTEND_LAUNCH_HUB_PATH)
+);
+
+export const shouldShowSiteChrome = (pathname = '/') => (
+    !isFrontendLaunchHubPath(pathname)
 );
 
 export const shouldShowAmbientChrome = (pathname = '/') => (
