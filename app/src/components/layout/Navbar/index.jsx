@@ -652,15 +652,23 @@ const Navbar = () => {
                   <div className="relative" ref={userMenuRef}>
                     <button
                       onClick={handleProfileMenuToggle}
-                      className="flex max-w-[8.2rem] items-center gap-2 rounded-full border border-white/10 bg-white/[0.045] px-2.5 py-2 text-slate-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition-all hover:border-white/18 hover:bg-white/[0.08] hover:text-white xl:max-w-[9.5rem] 2xl:max-w-[11rem]"
+                      className="flex max-w-[8.6rem] items-center gap-2 rounded-full border border-white/10 bg-white/[0.045] px-2.5 py-2 text-slate-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition-all hover:border-white/18 hover:bg-white/[0.08] hover:text-white xl:max-w-[12.5rem] 2xl:max-w-[13.5rem]"
                       aria-label={t('nav.openProfileMenu', {}, 'Open profile menu')}
                       aria-expanded={isUserMenuOpen}
                     >
                       <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-neo-cyan/25 to-neo-emerald/25 border border-white/10">
                         <User className="w-4 h-4 text-neo-cyan" />
                       </span>
-                      <span className="hidden xl:inline text-sm font-semibold tracking-wide truncate">
-                        {displayName}
+                      <span className="hidden min-w-0 xl:flex flex-col items-start leading-tight">
+                        <span className="max-w-full truncate text-sm font-semibold tracking-wide">
+                          {displayName}
+                        </span>
+                        <span className="flex max-w-full items-center gap-1 truncate text-[10px] font-black uppercase tracking-[0.18em] text-amber-200/90">
+                          <Sparkles className="h-3 w-3 shrink-0" />
+                          <span className="truncate">
+                            {t('nav.auraPoints', { count: formatNumber(loyaltyPoints) }, `${formatNumber(loyaltyPoints)} AP`)}
+                          </span>
+                        </span>
                       </span>
                       <ChevronDown className="hidden h-4 w-4 opacity-50 2xl:block" />
                     </button>
