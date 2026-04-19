@@ -1,7 +1,9 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { MemoryRouter } from 'react-router-dom';
 import { MarketProvider } from '@/context/MarketContext';
-import { OrderCard } from './index';
+import { AuthContext } from '@/context/AuthContext';
+import Orders, { OrderCard } from './index';
 
 vi.mock('@/services/api', async (importOriginal) => {
     const actual = await importOriginal();
@@ -9,6 +11,7 @@ vi.mock('@/services/api', async (importOriginal) => {
         ...actual,
         orderApi: {
             ...actual.orderApi,
+            getMyOrders: vi.fn(),
             getOrderTimeline: vi.fn(),
             getCommandCenter: vi.fn(),
             cancelOrder: vi.fn(),
@@ -100,5 +103,39 @@ describe('OrderCard', () => {
         expect(screen.getByText('Payment Confirmed')).toBeInTheDocument();
         expect(screen.getByText('Refund Requests')).toBeInTheDocument();
         expect(screen.getAllByText('0').length).toBeGreaterThan(0);
+    });
+});
+
+describe('Orders page', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+
+    it('refreshes the order list when the app regains focus', async () => {
+        orderApi.getMyOrders.mockResolvedValue([baseOrder]);
+
+        render(
+            <MemoryRouter>
+                <AuthContext.Provider value={{ currentUser: { uid: 'user-1', email: 'user@example.com' } }}>
+                    <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+                        <Orders />
+                    </MarketProvider>
+                </AuthContext.Provider>
+            </MemoryRouter>
+        );
+
+        await waitFor(() => {
+            expect(orderApi.getMyOrders).toHaveBeenCalledTimes(1);
+            expect(screen.getByText(/Order History/i)).toBeInTheDocument();
+        });
+
+        fireEvent(
+            window,
+            new Event('focus')
+        );
+
+        await waitFor(() => {
+            expect(orderApi.getMyOrders).toHaveBeenCalledTimes(2);
+        });
     });
 });

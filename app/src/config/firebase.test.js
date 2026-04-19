@@ -167,4 +167,25 @@ describe('firebase social auth host policy', () => {
       supported: true,
     });
   });
+
+  it('treats Netlify production hosts as deployment hosts for social auth policy', async () => {
+    vi.resetModules();
+    setFirebaseEnv();
+    vi.stubEnv('VITE_FIREBASE_DISABLE_SOCIAL_AUTH', 'true');
+    window.sessionStorage.clear();
+    setRuntimeHost({
+      hostname: 'aurapilot.netlify.app',
+      host: 'aurapilot.netlify.app',
+    });
+    setDisplayModes([]);
+
+    const firebase = await import('./firebase');
+
+    expect(firebase.isFirebaseSocialAuthAvailable()).toBe(true);
+    expect(firebase.getFirebaseSocialAuthStatus()).toMatchObject({
+      runtimeHost: 'aurapilot.netlify.app',
+      supported: true,
+      disabledByConfig: false,
+    });
+  });
 });

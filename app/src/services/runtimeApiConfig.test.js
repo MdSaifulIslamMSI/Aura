@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { resolveApiBaseUrl, resolveServiceOrigin } from './runtimeApiConfig';
+import { isHostedFrontendRuntimeHost, resolveApiBaseUrl, resolveServiceOrigin } from './runtimeApiConfig';
 
 describe('runtimeApiConfig', () => {
   const originalLocation = window.location;
@@ -39,6 +39,27 @@ describe('runtimeApiConfig', () => {
 
     expect(resolveApiBaseUrl('/api')).toBe('/api');
     expect(resolveServiceOrigin('/api')).toBe('https://aurapilot.vercel.app');
+  });
+
+  it('prefers the hosted proxy path on Netlify when a different direct API origin is configured', () => {
+    vi.stubEnv('VITE_API_URL', 'http://localhost:5000/api');
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: {
+        origin: 'https://aurapilot.netlify.app',
+        host: 'aurapilot.netlify.app',
+        hostname: 'aurapilot.netlify.app',
+      },
+    });
+
+    expect(resolveApiBaseUrl('/api')).toBe('/api');
+    expect(resolveServiceOrigin('/api')).toBe('https://aurapilot.netlify.app');
+  });
+
+  it('detects both Vercel and Netlify production hosts as hosted frontends', () => {
+    expect(isHostedFrontendRuntimeHost('aurapilot.vercel.app')).toBe(true);
+    expect(isHostedFrontendRuntimeHost('aurapilot.netlify.app')).toBe(true);
+    expect(isHostedFrontendRuntimeHost('localhost')).toBe(false);
   });
 
   it('allows hosted frontends to keep the direct API origin when explicitly enabled', () => {

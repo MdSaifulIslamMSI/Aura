@@ -7,6 +7,11 @@ const sanitizeFirebaseValue = (value) => {
     return value.replace(/[\r\n\t]+/g, '').trim();
 };
 
+const isHostedDeploymentHost = (host = '') => {
+    const normalizedHost = String(host || '').trim().toLowerCase();
+    return normalizedHost.endsWith('.vercel.app') || normalizedHost.endsWith('.netlify.app');
+};
+
 const sanitizeHostValue = (value) => {
     const normalized = sanitizeFirebaseValue(value);
     if (!normalized) return normalized;
@@ -114,7 +119,7 @@ const runtimeHost = typeof window !== 'undefined'
 const disableSocialAuth = parseBooleanEnv(import.meta.env.VITE_FIREBASE_DISABLE_SOCIAL_AUTH, false);
 const enableFirebaseAnalytics = parseBooleanEnv(import.meta.env.VITE_FIREBASE_ANALYTICS_ENABLED, false);
 const forceRedirectSocialAuth = parseBooleanEnv(import.meta.env.VITE_FIREBASE_FORCE_REDIRECT_SOCIAL_AUTH, false);
-const isDeploymentHost = typeof runtimeHost === 'string' && runtimeHost.endsWith('.vercel.app');
+const isDeploymentHost = typeof runtimeHost === 'string' && isHostedDeploymentHost(runtimeHost);
 const isRuntimeIpHost = isIpLiteralHost(runtimeHost);
 const isRuntimeStandaloneApp = isStandaloneSocialAuthRuntime();
 const runtimeSocialAuthBlockKey = runtimeHost

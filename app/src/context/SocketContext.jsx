@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
 import { useAuth } from './AuthContext';
-import { resolveServiceOrigin } from '../services/runtimeApiConfig';
+import { isHostedFrontendRuntimeHost, resolveServiceOrigin } from '../services/runtimeApiConfig';
 
 const SocketContext = createContext(null);
 const SOCKET_RUNTIME_FLAG = String(import.meta.env.VITE_ENABLE_REALTIME_SOCKET || '').trim().toLowerCase();
@@ -21,7 +21,7 @@ const shouldUseHostedProxyPolling = (socketOrigin = '') => {
     const normalizedSocketOrigin = trimTrailingSlash(socketOrigin);
 
     return Boolean(runtimeOrigin)
-        && runtimeHost.endsWith('.vercel.app')
+        && isHostedFrontendRuntimeHost(runtimeHost)
         && normalizedSocketOrigin === runtimeOrigin;
 };
 
