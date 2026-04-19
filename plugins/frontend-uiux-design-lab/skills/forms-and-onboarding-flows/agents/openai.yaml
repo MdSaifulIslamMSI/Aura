@@ -1,0 +1,5 @@
+interface:
+  display_name: "Forms And Onboarding Flows"
+  short_description: "Improve forms, onboarding, and task flows"
+  brand_color: "#E85D3F"
+  default_prompt: "Use $forms-and-onboarding-flows to simplify this form or onboarding sequence."
