@@ -1,0 +1,5 @@
+interface:
+  display_name: "Landing Page Storycraft"
+  short_description: "Plan and build high-conviction landing pages"
+  brand_color: "#E85D3F"
+  default_prompt: "Use $landing-page-storycraft to improve the hierarchy and story arc of this landing page."

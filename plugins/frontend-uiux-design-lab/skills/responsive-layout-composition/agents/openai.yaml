@@ -1,0 +1,5 @@
+interface:
+  display_name: "Responsive Layout Composition"
+  short_description: "Strengthen layouts across desktop, tablet, and mobile"
+  brand_color: "#E85D3F"
+  default_prompt: "Use $responsive-layout-composition to make this UI feel intentional across breakpoints."
