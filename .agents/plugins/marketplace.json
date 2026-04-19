@@ -1,0 +1,20 @@
+{
+  "name": "aura-local",
+  "interface": {
+    "displayName": "Aura Local Plugins"
+  },
+  "plugins": [
+    {
+      "name": "frontend-uiux-design-lab",
+      "source": {
+        "source": "local",
+        "path": "./plugins/frontend-uiux-design-lab"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Design"
+    }
+  ]
+}

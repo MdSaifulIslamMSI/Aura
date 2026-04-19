@@ -1,0 +1,5 @@
+interface:
+  display_name: "Accessibility UI Review"
+  short_description: "Review UI accessibility, focus, and contrast"
+  brand_color: "#E85D3F"
+  default_prompt: "Use $accessibility-ui-review to audit this interface for semantics, focus, and contrast issues."
