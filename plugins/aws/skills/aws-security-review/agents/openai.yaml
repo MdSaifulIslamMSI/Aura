@@ -1,0 +1,4 @@
+interface:
+  display_name: "AWS Security Review"
+  short_description: "Review public exposure, encryption, secrets, and least privilege in AWS"
+  default_prompt: "Use AWS Security Review to identify AWS posture risks around public access, secrets, encryption, trust boundaries, and least privilege without hand-wavy advice."

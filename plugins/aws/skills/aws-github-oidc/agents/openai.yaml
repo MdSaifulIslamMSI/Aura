@@ -1,0 +1,4 @@
+interface:
+  display_name: "AWS GitHub OIDC"
+  short_description: "Review and maintain the GitHub Actions trust path into AWS"
+  default_prompt: "Use AWS GitHub OIDC to review this repo's deploy role, trust policy subjects, and workflow assumptions before changing the GitHub-to-AWS deployment path."

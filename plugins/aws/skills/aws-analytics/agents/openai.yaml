@@ -1,0 +1,4 @@
+interface:
+  display_name: "AWS Analytics"
+  short_description: "Review Athena, Glue, Redshift, Kinesis, and data-pipeline design"
+  default_prompt: "Use AWS Analytics to inspect data-pipeline architecture, query engines, streaming or batch tradeoffs, partitioning, schema evolution, and analytics cost drivers in AWS."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "AWS ECS Containers"
+  short_description: "Review ECS, Fargate, ECR, and service rollout behavior"
+  default_prompt: "Use AWS ECS Containers to inspect or debug container deployment, task definition changes, service health, and load-balancer integration in AWS."

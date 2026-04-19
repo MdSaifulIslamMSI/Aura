@@ -1,0 +1,4 @@
+interface:
+  display_name: "AWS Cognito"
+  short_description: "Review user pools, identity pools, tokens, hosted UI, and auth flow"
+  default_prompt: "Use AWS Cognito to inspect user or identity pool configuration, login flows, callback URLs, token handling, and integration issues in an AWS-backed app."
