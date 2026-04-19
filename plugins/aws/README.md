@@ -21,7 +21,7 @@ ways:
 - guided solution starter playbooks under `examples/`
 - a copy-paste prompt library for fast onboarding
 - plugin command entry points under `commands/`
-- an `.mcp.json` file wiring official AWS Knowledge, Documentation, and API MCP servers
+- an `.mcp.json` file wiring AWS Documentation and AWS API MCP servers for this workspace
 - reusable PowerShell scripts under `scripts/` for bootstrap, diagnostics, validation, and safety policy generation
 - a visual skill map and release changelog for package polish
 
@@ -160,10 +160,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\plugins\aws\scripts\write-
 
 ## Notes
 
-- The AWS Knowledge MCP server uses the official AWS-managed remote endpoint at `https://knowledge-mcp.global.api.aws`.
+- The AWS Knowledge MCP endpoint is intentionally not enabled in `.mcp.json` right now because its remote handshake has not been reliable in this environment. Re-enable it only after validating the endpoint again.
 - The AWS API MCP server is configured in read-only mode by default for safety.
 - The repo's default AWS region is set to `ap-south-1` in `.mcp.json` because that matches the current deployment docs in this workspace.
 - The AWS API MCP server is configured to use the `aura-bootstrap` profile on this machine.
 - The plugin keeps the AWS MCP Server (Preview) as a documented upgrade path, not the default, because AWS recommends avoiding overlapping old and new server setups that can create tool conflicts.
-- The newer globally useful skills deliberately push service-specific detail lookup back through the AWS Knowledge and Documentation MCP servers so the plugin stays current without hardcoding stale service guidance.
+- The newer globally useful skills deliberately push service-specific detail lookup back through the AWS Documentation MCP server so the plugin stays current without hardcoding stale service guidance.
 - The examples and commands are intentionally opinionated starting points, not rigid architecture templates. They should accelerate good decisions, not hide tradeoffs.

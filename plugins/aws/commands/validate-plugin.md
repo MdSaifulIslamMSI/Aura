@@ -17,7 +17,7 @@ The user invoked this command with: $ARGUMENTS
 
 When this command is invoked:
 
-1. Run `scripts/validate-aws-plugin.ps1`
+1. Run `powershell -NoProfile -ExecutionPolicy Bypass -File .\plugins\aws\scripts\validate-aws-plugin.ps1`
 2. Report missing package files, skill count, command count, and example count
 3. Call out release-facing blockers first
 4. Suggest `/aws:doctor` separately if the package looks fine but runtime readiness is still in doubt

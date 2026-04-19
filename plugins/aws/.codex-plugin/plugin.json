@@ -1,7 +1,7 @@
 {
   "name": "aws",
-  "version": "0.6.0",
-  "description": "AWS plugin with official AWS Knowledge, Documentation, and API MCP servers, setup diagnostics, publish-ready playbooks, broadly useful AWS skills, and repo-specific EC2, SSM, and deployment workflows.",
+  "version": "0.6.1",
+  "description": "AWS plugin with AWS Documentation and AWS API MCP servers, setup diagnostics, publish-ready playbooks, broadly useful AWS skills, and repo-specific EC2, SSM, and deployment workflows.",
   "author": {
     "name": "mdsai",
     "url": "https://github.com/MdSaifulIslamMSI"
@@ -16,7 +16,6 @@
     "ssm",
     "oidc",
     "parameter-store",
-    "knowledge",
     "cloud",
     "deployment",
     "lambda",
@@ -44,7 +43,7 @@
   "interface": {
     "displayName": "AWS",
     "shortDescription": "AWS MCP access, setup diagnostics, 32 focused AWS skills, guided playbooks, and repo-aware deployment workflows.",
-    "longDescription": "Adds official AWS Knowledge, AWS Documentation, and AWS API MCP servers to Codex, then layers in plugin setup diagnostics, safer AWS API MCP guardrails, a visual skill map, curated example playbooks, release validation helpers, and a broad AWS skill library for common platform work such as IAM, Lambda, API Gateway, S3, ECS, networking, databases, observability, security, infrastructure as code, authentication, Kubernetes, event-driven systems, Bedrock, caching, search, secrets, encryption, DNS, edge security, analytics, and migration, plus repo-specific Parameter Store and EC2 backend deployment workflows.",
+    "longDescription": "Adds AWS Documentation and AWS API MCP servers to Codex, then layers in plugin setup diagnostics, safer AWS API MCP guardrails, a visual skill map, curated example playbooks, release validation helpers, and a broad AWS skill library for common platform work such as IAM, Lambda, API Gateway, S3, ECS, networking, databases, observability, security, infrastructure as code, authentication, Kubernetes, event-driven systems, Bedrock, caching, search, secrets, encryption, DNS, edge security, analytics, and migration, plus repo-specific Parameter Store and EC2 backend deployment workflows.",
     "developerName": "mdsai",
     "category": "Infrastructure",
     "capabilities": [

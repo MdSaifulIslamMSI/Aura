@@ -11,8 +11,8 @@ AWS infrastructure.
 ## Do First
 
 1. Read `references/install.md`
-2. Run `../../scripts/doctor-aws-plugin.ps1` if setup state is unclear
-3. Run `../../scripts/bootstrap-aws-mcp.ps1` when packages are missing
+2. Run `powershell -NoProfile -ExecutionPolicy Bypass -File .\plugins\aws\scripts\doctor-aws-plugin.ps1` if setup state is unclear
+3. Run `powershell -NoProfile -ExecutionPolicy Bypass -File .\plugins\aws\scripts\bootstrap-aws-mcp.ps1` when packages are missing
 
 ## Rules
 

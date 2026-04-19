@@ -1,6 +1,6 @@
 ---
 name: "aws-runtime"
-description: "General AWS guidance for this repo's EC2-backed split runtime, using AWS Knowledge, Documentation, and API MCP servers. Use when work involves repo-wide AWS architecture choices, AWS debugging, deployment validation, or when no narrower AWS skill fits."
+description: "General AWS guidance for this repo's EC2-backed split runtime, using AWS Documentation and API MCP servers. Use when work involves repo-wide AWS architecture choices, AWS debugging, deployment validation, or when no narrower AWS skill fits."
 ---
 
 # AWS Runtime
@@ -17,10 +17,10 @@ Parameter Store, or the EC2 deployment flow.
 
 ## Working Style
 
-- Use `aws-knowledge-mcp-server` for current AWS guidance and best practices.
-- Use `aws-documentation-mcp-server` for direct AWS documentation lookups.
+- Use `aws-documentation-mcp-server` for current AWS guidance and direct AWS documentation lookups.
 - Use `aws-api-mcp-server` for live AWS inspection only after credentials are
   configured and the action is appropriate.
+- Treat `aws-knowledge-mcp-server` as optional only if it is re-enabled and revalidated later.
 - Keep secrets out of logs, patches, screenshots, and user-facing responses.
 - Prefer dry-runs, audits, and read-only inspection before write actions.
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.1 - 2026-04-20
+
+- fixed `doctor-aws-plugin.ps1` so cached plugin installs resolve the real workspace from `.mcp.json`
+- updated command and skill instructions to use `powershell -NoProfile -ExecutionPolicy Bypass -File ...`
+- disabled the AWS Knowledge MCP server in `.mcp.json` until the remote endpoint is reliably usable again
+
 ## 0.6.0 - 2026-04-20
 
 - expanded the AWS plugin into a more publishable package shape

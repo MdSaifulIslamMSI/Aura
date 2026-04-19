@@ -1,10 +1,5 @@
 {
   "mcpServers": {
-    "aws-knowledge-mcp-server": {
-      "type": "http",
-      "url": "https://knowledge-mcp.global.api.aws",
-      "note": "Official AWS-managed remote MCP server for current AWS documentation, code samples, best practices, and agent SOPs."
-    },
     "aws-documentation-mcp-server": {
       "type": "stdio",
       "command": "python",
