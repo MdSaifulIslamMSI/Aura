@@ -2,6 +2,9 @@ const fs = require('fs');
 const path = require('path');
 
 const serverRoot = path.resolve(__dirname, '..');
+const repoRoot = path.resolve(serverRoot, '..');
+const awsComposePath = path.join(repoRoot, 'infra', 'aws', 'docker-compose.ec2.yml');
+const awsSecretsExamplePath = path.join(serverRoot, '.env.aws-secrets.example');
 
 const RUNTIME_DIRECTORIES = [
     path.join(serverRoot, 'config'),
@@ -73,6 +76,12 @@ const EXCLUDED_PATH_FRAGMENTS = [
 ];
 
 const ENV_VAR_PATTERN = /process\.env\.([A-Z0-9_]+)/g;
+const ENABLED_TRUSTED_DEVICE_MODES = new Set([
+    'always',
+    'admin',
+    'seller',
+    'privileged',
+]);
 
 const isExcludedPath = (filePath) => EXCLUDED_PATH_FRAGMENTS.some((fragment) => filePath.includes(fragment));
 
@@ -160,22 +169,87 @@ const parseAwsKeyListFromEnvExample = (envEntries) => {
     );
 };
 
+const stripInlineComment = (value = '') => String(value || '').replace(/\s+#.*$/, '').trim();
+
+const unquote = (value = '') => {
+    const normalized = stripInlineComment(value);
+    if (
+        (normalized.startsWith('"') && normalized.endsWith('"'))
+        || (normalized.startsWith('\'') && normalized.endsWith('\''))
+    ) {
+        return normalized.slice(1, -1).trim();
+    }
+    return normalized;
+};
+
+const escapeRegExp = (value = '') => String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const extractDockerComposeEnvironmentValue = (filePath, envName) => {
+    if (!fs.existsSync(filePath)) {
+        return '';
+    }
+
+    const raw = fs.readFileSync(filePath, 'utf8');
+    const match = raw.match(new RegExp(`^\\s+${escapeRegExp(envName)}:\\s*(.+)$`, 'm'));
+    return match ? unquote(match[1]) : '';
+};
+
 const runtimeEnvNames = extractRuntimeEnvNames();
 const runtimeSecretEnvNames = runtimeEnvNames.filter(isSecretLikeEnvName);
 
 const envExampleEntries = parseEnvFile(path.join(serverRoot, '.env.example'));
 const awsKeyList = parseAwsKeyListFromEnvExample(envExampleEntries);
+const awsSecretsExampleExists = fs.existsSync(awsSecretsExamplePath);
+const awsSecretsExampleEntries = awsSecretsExampleExists
+    ? parseEnvFile(awsSecretsExamplePath)
+    : new Map();
+const envExampleTrustedDeviceMode = String(envExampleEntries.get('AUTH_DEVICE_CHALLENGE_MODE') || '').trim().toLowerCase();
+const awsComposeTrustedDeviceMode = String(
+    extractDockerComposeEnvironmentValue(awsComposePath, 'AUTH_DEVICE_CHALLENGE_MODE')
+).trim().toLowerCase();
+const awsTrustedDeviceModeIssues = [];
+
+if (!ENABLED_TRUSTED_DEVICE_MODES.has(envExampleTrustedDeviceMode)) {
+    awsTrustedDeviceModeIssues.push(
+        `server/.env.example must keep AUTH_DEVICE_CHALLENGE_MODE enabled; found "${envExampleTrustedDeviceMode || '(missing)'}"`
+    );
+}
+
+if (!ENABLED_TRUSTED_DEVICE_MODES.has(awsComposeTrustedDeviceMode)) {
+    awsTrustedDeviceModeIssues.push(
+        `infra/aws/docker-compose.ec2.yml must keep AUTH_DEVICE_CHALLENGE_MODE enabled; found "${awsComposeTrustedDeviceMode || '(missing)'}"`
+    );
+}
+
+if (
+    ENABLED_TRUSTED_DEVICE_MODES.has(envExampleTrustedDeviceMode)
+    && ENABLED_TRUSTED_DEVICE_MODES.has(awsComposeTrustedDeviceMode)
+    && envExampleTrustedDeviceMode !== awsComposeTrustedDeviceMode
+) {
+    awsTrustedDeviceModeIssues.push(
+        `AUTH_DEVICE_CHALLENGE_MODE must match between server/.env.example (${envExampleTrustedDeviceMode}) and infra/aws/docker-compose.ec2.yml (${awsComposeTrustedDeviceMode})`
+    );
+}
 
 const report = {
     runtimeSecretEnvVars: runtimeSecretEnvNames,
     missingFromEnvExample: runtimeSecretEnvNames.filter((name) => !envExampleEntries.has(name)),
     missingFromAwsParameterStoreSecretKeys: runtimeSecretEnvNames.filter((name) => !awsKeyList.has(name)),
     missingFromRuntimeBootstrapDefaults: runtimeSecretEnvNames.filter((name) => !DEFAULT_AWS_PARAMETER_KEYS.includes(name)),
+    missingAwsSecretsExampleFile: awsSecretsExampleExists ? [] : ['server/.env.aws-secrets.example'],
+    missingFromAwsSecretsExample: awsSecretsExampleExists
+        ? [...awsKeyList].filter((name) => !awsSecretsExampleEntries.has(name))
+        : [...awsKeyList],
+    awsTrustedDeviceModeValues: {
+        envExample: envExampleTrustedDeviceMode || null,
+        awsCompose: awsComposeTrustedDeviceMode || null,
+    },
+    awsTrustedDeviceModeIssues,
 };
 
 const failureCount = Object.entries(report)
-    .filter(([key]) => key !== 'runtimeSecretEnvVars')
-    .reduce((total, [, values]) => total + values.length, 0);
+    .filter(([key]) => !['runtimeSecretEnvVars', 'awsTrustedDeviceModeValues'].includes(key))
+    .reduce((total, [, values]) => total + (Array.isArray(values) ? values.length : 0), 0);
 
 console.log(JSON.stringify(report, null, 2));
 

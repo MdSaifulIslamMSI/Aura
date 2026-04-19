@@ -180,7 +180,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
-      - name: Audit AWS Parameter Store secret coverage
+      - name: Audit AWS runtime + secret contract
         run: node server/scripts/audit_parameter_store_secret_contract.js
 
   backend-container-smoke:
