@@ -1,0 +1,57 @@
+:root {
+  --color-ink-950: #121418;
+  --color-ink-800: #232733;
+  --color-sand-50: #f8f4ee;
+  --color-sand-100: #efe7dc;
+  --color-clay-400: #d38a67;
+  --color-coral-500: #e85d3f;
+  --color-coral-600: #c94c32;
+  --color-sage-500: #5f8b78;
+  --color-sky-500: #4c8ed9;
+
+  --space-2: 0.125rem;
+  --space-4: 0.25rem;
+  --space-8: 0.5rem;
+  --space-12: 0.75rem;
+  --space-16: 1rem;
+  --space-24: 1.5rem;
+  --space-32: 2rem;
+  --space-48: 3rem;
+  --space-64: 4rem;
+
+  --radius-sm: 0.5rem;
+  --radius-md: 0.875rem;
+  --radius-lg: 1.25rem;
+  --radius-pill: 999px;
+
+  --shadow-soft: 0 12px 32px rgba(18, 20, 24, 0.08);
+  --shadow-card: 0 18px 40px rgba(18, 20, 24, 0.12);
+  --shadow-overlay: 0 28px 64px rgba(18, 20, 24, 0.2);
+
+  --duration-fast: 140ms;
+  --duration-base: 220ms;
+  --duration-slow: 320ms;
+  --ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  --surface-page: var(--color-sand-50);
+  --surface-card: #ffffff;
+  --surface-accent: #fff3ee;
+  --border-subtle: rgba(18, 20, 24, 0.08);
+  --text-primary: var(--color-ink-950);
+  --text-secondary: rgba(18, 20, 24, 0.72);
+  --text-inverse: #f8f4ee;
+  --action-primary: var(--color-coral-500);
+  --action-primary-hover: var(--color-coral-600);
+  --focus-ring: color-mix(in srgb, var(--action-primary) 56%, white);
+}
+
+[data-theme="dark"] {
+  --surface-page: #0f1217;
+  --surface-card: #171b22;
+  --surface-accent: #231815;
+  --border-subtle: rgba(248, 244, 238, 0.1);
+  --text-primary: #f8f4ee;
+  --text-secondary: rgba(248, 244, 238, 0.72);
+  --text-inverse: #121418;
+  --focus-ring: color-mix(in srgb, var(--action-primary) 72%, white);
+}

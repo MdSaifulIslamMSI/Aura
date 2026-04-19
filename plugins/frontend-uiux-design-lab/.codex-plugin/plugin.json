@@ -1,0 +1,51 @@
+{
+  "name": "frontend-uiux-design-lab",
+  "version": "1.1.0",
+  "description": "Reusable frontend and UI/UX design plugin with broad skills for art direction, design systems, landing pages, dashboards, forms, commerce, copy, motion, accessibility, and polish.",
+  "author": {
+    "name": "MdSaifulIslamMSI",
+    "email": "mdsaifulislam38msi@gmail.com",
+    "url": "https://github.com/MdSaifulIslamMSI"
+  },
+  "homepage": "https://github.com/MdSaifulIslamMSI/Aura",
+  "repository": "https://github.com/MdSaifulIslamMSI/Aura",
+  "license": "MIT",
+  "keywords": [
+    "frontend",
+    "ui",
+    "ux",
+    "design-system",
+    "landing-page",
+    "dashboard",
+    "forms",
+    "ecommerce",
+    "responsive-design",
+    "accessibility",
+    "motion"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Frontend UI/UX Design Lab",
+    "shortDescription": "A public-ready frontend design plugin for stronger, more intentional interfaces.",
+    "longDescription": "Adds a reusable multi-skill frontend and UI/UX toolkit for websites, apps, dashboards, onboarding, commerce, accessibility, motion, and final polish. Includes practical scripts and starter assets for token audits, surface briefs, and broader product interface work.",
+    "developerName": "MdSaifulIslamMSI",
+    "category": "Design",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/MdSaifulIslamMSI/Aura",
+    "privacyPolicyURL": "https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement",
+    "termsOfServiceURL": "https://docs.github.com/en/site-policy/github-terms/github-terms-of-service",
+    "defaultPrompt": [
+      "Turn this generic frontend into a stronger, more intentional UI.",
+      "Build a design-system token plan for this product.",
+      "Polish this interface for hierarchy, trust, clarity, and conversion."
+    ],
+    "brandColor": "#E85D3F",
+    "composerIcon": "./assets/design-lab-icon.svg",
+    "logo": "./assets/design-lab-logo.svg",
+    "screenshots": []
+  }
+}

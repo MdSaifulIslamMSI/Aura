@@ -1,0 +1,5 @@
+interface:
+  display_name: "Motion Feedback Patterns"
+  short_description: "Add purposeful motion and response patterns"
+  brand_color: "#E85D3F"
+  default_prompt: "Use $motion-feedback-patterns to add cleaner feedback and motion to this UI."

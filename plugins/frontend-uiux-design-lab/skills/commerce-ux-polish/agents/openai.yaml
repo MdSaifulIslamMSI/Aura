@@ -1,0 +1,5 @@
+interface:
+  display_name: "Commerce UX Polish"
+  short_description: "Polish product grids, PDPs, carts, and checkout"
+  brand_color: "#E85D3F"
+  default_prompt: "Use $commerce-ux-polish to improve hierarchy, trust, and conversion on this shopping flow."
