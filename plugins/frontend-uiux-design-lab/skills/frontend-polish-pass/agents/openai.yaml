@@ -1,0 +1,5 @@
+interface:
+  display_name: "Frontend Polish Pass"
+  short_description: "Run a late-stage polish pass on a frontend"
+  brand_color: "#E85D3F"
+  default_prompt: "Use $frontend-polish-pass to do a final quality pass on this implemented UI."

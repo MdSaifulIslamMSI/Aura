@@ -1,0 +1,5 @@
+interface:
+  display_name: "Art Direction Blueprints"
+  short_description: "Choose a stronger visual direction for a UI"
+  brand_color: "#E85D3F"
+  default_prompt: "Use $art-direction-blueprints to define a bold visual direction for this page."

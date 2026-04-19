@@ -1,0 +1,5 @@
+interface:
+  display_name: "UX Copy IA Tuning"
+  short_description: "Tighten IA, labels, CTAs, and microcopy"
+  brand_color: "#E85D3F"
+  default_prompt: "Use $ux-copy-ia-tuning to simplify the labels, hierarchy, and microcopy in this flow."

@@ -1,0 +1,5 @@
+interface:
+  display_name: "Dashboard Information Design"
+  short_description: "Design clearer dashboards and analytics surfaces"
+  brand_color: "#E85D3F"
+  default_prompt: "Use $dashboard-information-design to improve the hierarchy and readability of this dashboard."

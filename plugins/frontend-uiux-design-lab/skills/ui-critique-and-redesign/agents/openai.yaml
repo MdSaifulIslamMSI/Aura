@@ -1,0 +1,5 @@
+interface:
+  display_name: "UI Critique And Redesign"
+  short_description: "Critique a UI and turn it into a redesign plan"
+  brand_color: "#E85D3F"
+  default_prompt: "Use $ui-critique-and-redesign to review this interface and define a redesign direction."
