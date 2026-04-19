@@ -6,7 +6,9 @@ const assertAbsoluteHttpUrl = (value) => {
     }
 };
 
-export const HOSTED_BACKEND_ORIGIN = 'https://aura-msi-api-ca.wittycliff-f743de69.southeastasia.azurecontainerapps.io';
+// Current live hosted backend origin. Update this contract first so the
+// workflow and both Vercel configs stay in sync.
+export const HOSTED_BACKEND_ORIGIN = 'http://3.109.181.238:5000';
 
 const HOSTED_PROXY_ROUTE_SUFFIXES = [
     {

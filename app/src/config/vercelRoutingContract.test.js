@@ -25,12 +25,12 @@ describe('vercel routing contract', () => {
         expect(appConfig.rewrites).toEqual(expectedRewrites);
     });
 
-    it('does not allow the legacy EC2 socket or API origin back into committed rewrites', async () => {
+    it('does not allow the stale Azure socket or API origin back into committed rewrites', async () => {
         const [rootConfig, appConfig] = await Promise.all([
             readJson(path.join(repoRoot, 'vercel.json')),
             readJson(path.join(appRoot, 'vercel.json')),
         ]);
-        const legacyOriginPattern = /3\.109\.181\.238:5000/;
+        const staleOriginPattern = /aura-msi-api-ca\.wittycliff-f743de69\.southeastasia\.azurecontainerapps\.io/;
         const configs = [rootConfig, appConfig];
 
         for (const config of configs) {
@@ -42,7 +42,7 @@ describe('vercel routing contract', () => {
 
             for (const destination of proxyDestinations) {
                 expect(destination.startsWith(HOSTED_BACKEND_ORIGIN)).toBe(true);
-                expect(destination).not.toMatch(legacyOriginPattern);
+                expect(destination).not.toMatch(staleOriginPattern);
             }
         }
     });
@@ -51,7 +51,7 @@ describe('vercel routing contract', () => {
         const workflow = await readFile(deployWorkflowPath, 'utf8');
 
         expect(workflow).toContain('node ./app/scripts/print_hosted_backend_origin.mjs');
-        expect(workflow).not.toMatch(/3\.109\.181\.238:5000/);
         expect(workflow).not.toContain('AWS_BACKEND_BASE_URL: http');
+        expect(workflow).not.toMatch(/aura-msi-api-ca\.wittycliff-f743de69\.southeastasia\.azurecontainerapps\.io/);
     });
 });
