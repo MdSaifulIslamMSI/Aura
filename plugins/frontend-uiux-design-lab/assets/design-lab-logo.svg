@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 220" fill="none">
+  <defs>
+    <linearGradient id="card" x1="20" y1="18" x2="220" y2="202" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1B1D22"/>
+      <stop offset="1" stop-color="#0E1014"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="58" y1="44" x2="190" y2="172" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FF8A5C"/>
+      <stop offset="1" stop-color="#E24329"/>
+    </linearGradient>
+  </defs>
+  <rect width="720" height="220" rx="32" fill="#0D0F13"/>
+  <rect x="22" y="22" width="196" height="176" rx="28" fill="url(#card)"/>
+  <path d="M52 74H188" stroke="#F8F5F0" stroke-width="12" stroke-linecap="round"/>
+  <path d="M52 106H150" stroke="#F8F5F0" stroke-opacity=".72" stroke-width="10" stroke-linecap="round"/>
+  <path d="M52 136H128" stroke="#F8F5F0" stroke-opacity=".5" stroke-width="10" stroke-linecap="round"/>
+  <rect x="148" y="98" width="40" height="40" rx="14" fill="url(#accent)"/>
+  <path d="M54 162L84 132L102 150L146 106" stroke="#FF8A5C" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="254" y="92" fill="#F8F5F0" font-family="Segoe UI, Arial, sans-serif" font-size="36" font-weight="700">Frontend UI/UX</text>
+  <text x="254" y="138" fill="#FF8A5C" font-family="Segoe UI, Arial, sans-serif" font-size="34" font-weight="700">Design Lab</text>
+  <text x="254" y="174" fill="#AFB7C4" font-family="Segoe UI, Arial, sans-serif" font-size="20">Art direction, systems, commerce, motion, copy, accessibility, polish.</text>
+</svg>
