@@ -1,6 +1,8 @@
 import {
+  DEFAULT_GATEWAY_FRONTEND_URL,
   detectFrontendPlatform,
   normalizeFrontendUrl,
+  resolveFrontendNavigationTargets,
   resolveFrontendTargets,
 } from './frontendTargets';
 
@@ -39,5 +41,27 @@ describe('frontendTargets', () => {
     expect(netlifyTarget.href).toBe('');
     expect(netlifyTarget.isLive).toBe(false);
     expect(netlifyTarget.originLabel).toBe('Deployment URL pending');
+  });
+
+  it('adds the gateway target ahead of the storefront runtimes for navigation', () => {
+    const [gatewayTarget, vercelTarget, netlifyTarget] = resolveFrontendNavigationTargets({
+      currentOrigin: 'https://aurapilot.vercel.app',
+      netlifyUrl: 'https://aurapilot.netlify.app',
+    });
+
+    expect(gatewayTarget.id).toBe('gateway');
+    expect(gatewayTarget.href).toBe(DEFAULT_GATEWAY_FRONTEND_URL);
+    expect(gatewayTarget.isCurrent).toBe(false);
+    expect(vercelTarget.isCurrent).toBe(true);
+    expect(netlifyTarget.href).toBe('https://aurapilot.netlify.app');
+  });
+
+  it('gives the gateway current-host priority when the app runs on the gateway domain', () => {
+    const [gatewayTarget, vercelTarget] = resolveFrontendNavigationTargets({
+      currentOrigin: DEFAULT_GATEWAY_FRONTEND_URL,
+    });
+
+    expect(gatewayTarget.isCurrent).toBe(true);
+    expect(vercelTarget.isCurrent).toBe(false);
   });
 });

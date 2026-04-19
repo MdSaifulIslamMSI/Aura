@@ -1,6 +1,7 @@
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
+  ArrowUpRight,
   Bell,
   ChevronDown,
   Globe2,
@@ -22,6 +23,7 @@ import { CartContext } from '@/context/CartContext';
 import { useColorMode } from '@/context/ColorModeContext';
 import { useMarket } from '@/context/MarketContext';
 import { createTranslator } from '@/config/marketConfig';
+import { resolveFrontendNavigationTargets } from '@/config/frontendTargets';
 import { cn } from '@/lib/utils';
 import AppErrorBoundary from '@/components/shared/AppErrorBoundary';
 import GlobalSearchBar from '@/components/shared/GlobalSearchBar';
@@ -66,6 +68,82 @@ const NavbarNotificationsFallback = ({
     <Bell className="h-[1.125rem] w-[1.125rem]" />
   </button>
 );
+
+const buildFrontendNavigationTargets = (currentOrigin = '') => resolveFrontendNavigationTargets({
+  gatewayUrl: import.meta.env.VITE_GATEWAY_FRONTEND_URL,
+  vercelUrl: import.meta.env.VITE_VERCEL_FRONTEND_URL,
+  netlifyUrl: import.meta.env.VITE_NETLIFY_FRONTEND_URL,
+  currentOrigin,
+});
+
+const RuntimeSwitchCluster = ({ targets = [], className }) => {
+  if (!targets.length) {
+    return null;
+  }
+
+  return (
+    <div
+      className={cn(
+        'hidden lg:flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.045] p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]',
+        className
+      )}
+    >
+      {targets.map((target) => (
+        <a
+          key={target.id}
+          href={target.href}
+          aria-label={`Open ${target.label}`}
+          title={target.originLabel}
+          className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-black/20 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-slate-200 transition-all duration-200 hover:-translate-y-0.5 hover:border-white/18 hover:bg-white/[0.08] hover:text-white"
+        >
+          <span>{target.platform}</span>
+          <ArrowUpRight className="h-3.5 w-3.5 text-neo-cyan" />
+        </a>
+      ))}
+    </div>
+  );
+};
+
+const RuntimeSwitchPanel = ({ targets = [], onNavigate, className }) => {
+  if (!targets.length) {
+    return null;
+  }
+
+  return (
+    <section
+      className={cn(
+        'rounded-2xl border border-white/10 bg-white/[0.04] p-4 animate-fade-up',
+        className
+      )}
+    >
+      <div className="mb-3 flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.24em] text-slate-400">
+        <Globe2 className="h-4 w-4 text-neo-cyan" />
+        Live runtimes
+      </div>
+      <div className="grid gap-2">
+        {targets.map((target) => (
+          <a
+            key={target.id}
+            href={target.href}
+            onClick={onNavigate}
+            aria-label={`Open ${target.label}`}
+            className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-sm font-semibold text-slate-100 transition-colors hover:bg-white/[0.08] hover:text-white"
+          >
+            <div>
+              <div className="font-black uppercase tracking-[0.16em] text-[11px] text-cyan-200">
+                {target.platform}
+              </div>
+              <div className="mt-1 text-xs font-medium text-slate-400">
+                {target.originLabel}
+              </div>
+            </div>
+            <ArrowUpRight className="h-4 w-4 shrink-0 text-neo-cyan" />
+          </a>
+        ))}
+      </div>
+    </section>
+  );
+};
 
 const MarketPreferenceCard = ({
   t,
@@ -186,6 +264,9 @@ const MarketPreferenceCard = ({
 
 export const NavbarFailureFallback = () => {
   const t = createTranslator('en');
+  const runtimeSwitchTargets = buildFrontendNavigationTargets(
+    typeof window !== 'undefined' ? window.location.origin : ''
+  ).filter((target) => target.isLive && !target.isCurrent);
 
   return (
     <>
@@ -217,6 +298,7 @@ export const NavbarFailureFallback = () => {
             />
 
             <div className="flex items-center gap-2 flex-shrink-0">
+              <RuntimeSwitchCluster targets={runtimeSwitchTargets} />
               <Link
                 to="/marketplace"
                 className="hidden xl:inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.045] px-4 py-2.5 text-sm font-semibold text-slate-200 transition-all duration-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] hover:border-white/18 hover:bg-white/[0.075] hover:text-white"
@@ -284,6 +366,12 @@ const Navbar = () => {
   } = useMarket();
   const currentLanguage = languageOptions.find((option) => option.value === language) || languageOptions[0];
   const [rewardSnapshot, setRewardSnapshot] = useState(null);
+  const runtimeSwitchTargets = useMemo(
+    () => buildFrontendNavigationTargets(typeof window !== 'undefined' ? window.location.origin : '').filter(
+      (target) => target.isLive && !target.isCurrent
+    ),
+    []
+  );
   const goToLoginPage = () => {
     if (typeof window !== 'undefined') {
       window.location.assign('/login');
@@ -574,6 +662,7 @@ const Navbar = () => {
 
             {/* Right Actions */}
             <div className="flex items-center gap-1 sm:gap-1.5 lg:gap-2 flex-shrink-0">
+              <RuntimeSwitchCluster targets={runtimeSwitchTargets} />
               <div className="relative hidden lg:block" ref={marketPanelRef}>
                 <button
                   type="button"
@@ -874,6 +963,12 @@ const Navbar = () => {
         {isMobileMenuOpen && (
           <div className="absolute left-0 top-full z-50 w-full border-t border-white/10 bg-zinc-950/95 animate-fade-in md:hidden">
             <nav className="max-h-[calc(100vh-5.5rem)] overflow-y-auto px-4 py-4">
+              <RuntimeSwitchPanel
+                targets={runtimeSwitchTargets}
+                onNavigate={() => setIsMobileMenuOpen(false)}
+                className="animate-fade-up"
+              />
+
               <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 animate-fade-up" style={{ animationDelay: '50ms' }}>
                 <div className="mb-3 text-[11px] font-black uppercase tracking-[0.24em] text-slate-400">{t('nav.shop', {}, 'Shop')}</div>
                 <div className="grid grid-cols-2 gap-2">

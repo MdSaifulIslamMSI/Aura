@@ -52,6 +52,9 @@ vi.mock('@/components/shared/GlobalSearchBar', () => ({
 
 beforeEach(() => {
     window.scrollTo = vi.fn();
+    vi.stubEnv('VITE_GATEWAY_FRONTEND_URL', 'https://aura-gateway.vercel.app');
+    vi.stubEnv('VITE_VERCEL_FRONTEND_URL', 'https://aurapilot.vercel.app');
+    vi.stubEnv('VITE_NETLIFY_FRONTEND_URL', 'https://aurapilot.netlify.app');
     getRewardsMock.mockClear();
     getRewardsMock.mockResolvedValue({
         rewards: {
@@ -179,7 +182,16 @@ describe('Navbar Component', () => {
 
         expect(screen.getByText(/AURA/i)).toBeInTheDocument();
         expect(screen.getByRole('link', { name: /Open search/i })).toBeInTheDocument();
+        expect(screen.getByRole('link', { name: /Open Gateway/i })).toBeInTheDocument();
         expect(screen.getByRole('link', { name: /Cart/i })).toBeInTheDocument();
+    });
+
+    it('offers direct links to the gateway and live runtimes from the storefront chrome', () => {
+        renderNavbar();
+
+        expect(screen.getByRole('link', { name: /Open Gateway/i })).toHaveAttribute('href', 'https://aura-gateway.vercel.app');
+        expect(screen.getByRole('link', { name: /Open Vercel frontend/i })).toHaveAttribute('href', 'https://aurapilot.vercel.app');
+        expect(screen.getByRole('link', { name: /Open Netlify frontend/i })).toHaveAttribute('href', 'https://aurapilot.netlify.app');
     });
 
     it('navigates from the profile panel to wishlist reliably', async () => {
