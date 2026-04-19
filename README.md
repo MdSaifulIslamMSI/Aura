@@ -14,7 +14,8 @@ Core capabilities:
 - Market-aware browse FX with real-time provider support plus ECB fallback
 
 ## Live Links
-- General launch hub: [https://aurapilot.vercel.app/launch](https://aurapilot.vercel.app/launch)
+- General gateway: [https://aura-gateway.vercel.app](https://aura-gateway.vercel.app)
+- Legacy launch route: [https://aurapilot.vercel.app/launch](https://aurapilot.vercel.app/launch)
 - Vercel frontend: [https://aurapilot.vercel.app](https://aurapilot.vercel.app)
 - Netlify frontend: [https://aurapilot.netlify.app](https://aurapilot.netlify.app)
 - Netlify note: production builds now target the same proxied backend routes through `/api`, `/health`, `/socket.io`, and `/uploads`.
