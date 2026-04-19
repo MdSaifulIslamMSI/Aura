@@ -20,6 +20,7 @@ const {
     findPreferredIdentityUserLean,
     findPreferredIdentityUserDocument,
 } = require('./authIdentityResolutionService');
+const { shouldRequireTrustedDevice } = require('../config/authTrustedDeviceFlags');
 
 const PROFILE_PROJECTION = 'name email phone avatar gender dob bio isAdmin isVerified isSeller sellerActivatedAt accountState moderation authAssurance authAssuranceAt trustedDevices +loginOtpAssuranceExpiresAt addresses cart wishlist loyalty createdAt';
 const AUTH_ONLY_PROJECTION = 'name email phone isAdmin isVerified isSeller sellerActivatedAt accountState moderation authAssurance authAssuranceAt trustedDevices +loginOtpAssuranceExpiresAt loyalty createdAt';
@@ -353,12 +354,13 @@ const toSessionIntelligence = (user = null, session = null) => {
     const deviceBound = Boolean(normalizeText(session?.deviceId));
     const strongDeviceBinding = deviceBound && ['browser_key', 'webauthn'].includes(normalizeText(session?.deviceMethod));
     const privilegedAccount = Boolean(user?.isAdmin || user?.isSeller);
+    const trustedDeviceRequired = shouldRequireTrustedDevice({ user });
     const elevatedAssurance = assuranceLevel === 'password+otp' || normalizeText(session?.aal) === 'aal2' || stepUpActive;
     const freshForSensitiveActions = authAgeSeconds !== null && authAgeSeconds <= SENSITIVE_ACTION_FRESH_LOGIN_SECONDS;
     const continuousAccess = Boolean(
         session?.sessionId
         && freshForSensitiveActions
-        && (!privilegedAccount || (elevatedAssurance && strongDeviceBinding))
+        && (!trustedDeviceRequired || (elevatedAssurance && strongDeviceBinding))
     );
 
     return {
@@ -415,8 +417,17 @@ const toSessionIntelligence = (user = null, session = null) => {
             policy: {
                 privilegedAccount,
                 elevatedAssurance,
-                sensitiveActionsAllowed: Boolean(freshForSensitiveActions && strongDeviceBinding && (!privilegedAccount || elevatedAssurance)),
-                reauthRecommended: privilegedAccount && (!elevatedAssurance || !freshForSensitiveActions),
+                trustedDeviceRequired,
+                sensitiveActionsAllowed: Boolean(
+                    freshForSensitiveActions
+                    && (!trustedDeviceRequired || strongDeviceBinding)
+                    && (!privilegedAccount || elevatedAssurance)
+                ),
+                reauthRecommended: Boolean(
+                    (!freshForSensitiveActions)
+                    || (trustedDeviceRequired && !strongDeviceBinding)
+                    || (privilegedAccount && !elevatedAssurance)
+                ),
             },
         },
     };

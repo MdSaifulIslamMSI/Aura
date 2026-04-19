@@ -600,6 +600,43 @@ export const AUTH_ERRORS = {
     }
 };
 
+const extractAuthErrorDetail = (value) => {
+    if (!value) return '';
+
+    if (typeof value === 'string') {
+        return value.trim();
+    }
+
+    if (Array.isArray(value)) {
+        return value
+            .map((entry) => extractAuthErrorDetail(entry))
+            .filter(Boolean)
+            .join(', ');
+    }
+
+    if (typeof value === 'object') {
+        if (typeof value.message === 'string' && value.message.trim()) {
+            return value.message.trim();
+        }
+
+        if (typeof value.detail === 'string' && value.detail.trim()) {
+            return value.detail.trim();
+        }
+
+        if (Array.isArray(value.errors) && value.errors.length > 0) {
+            const combined = value.errors
+                .map((issue) => extractAuthErrorDetail(issue))
+                .filter(Boolean)
+                .join(', ');
+            if (combined) {
+                return combined;
+            }
+        }
+    }
+
+    return '';
+};
+
 /**
  * Resolve a raw error (code or message string) into a structured AUTH_ERROR object.
  * @param {string} rawError — Firebase error code OR backend message string
@@ -659,7 +696,12 @@ export const resolveAuthError = (rawError) => {
         if (errorStr.includes(key)) return value;
     }
 
-    const fallbackDetail = String(rawError?.message || rawError?.detail || rawError || '').trim();
+    const fallbackDetail = (
+        extractAuthErrorDetail(rawError?.message)
+        || extractAuthErrorDetail(rawError?.detail)
+        || extractAuthErrorDetail(rawError?.data)
+        || (typeof rawError === 'string' ? rawError.trim() : '')
+    );
     return { ...AUTH_ERRORS['default'], ...(fallbackDetail ? { detail: fallbackDetail } : {}) };
 };
 

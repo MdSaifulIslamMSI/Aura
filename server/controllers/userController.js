@@ -32,6 +32,17 @@ const normalizeEmail = (value) => (
     typeof value === 'string' ? value.trim().toLowerCase() : ''
 );
 
+const toPlainObject = (value = {}) => {
+    if (!value || typeof value !== 'object') return {};
+    if (typeof value.toObject === 'function') {
+        return value.toObject();
+    }
+    if (value._doc && typeof value._doc === 'object') {
+        return value._doc;
+    }
+    return value;
+};
+
 const hydrateWishlistWithLiveProducts = async (wishlistItems = []) => {
     if (!Array.isArray(wishlistItems) || wishlistItems.length === 0) return [];
 
@@ -74,17 +85,18 @@ const hydrateWishlistWithLiveProducts = async (wishlistItems = []) => {
 const wishlistSnapshotsEqual = (left = [], right = []) => JSON.stringify(left || []) === JSON.stringify(right || []);
 
 const attachMarketPricingToLine = async (item = {}, market = null) => {
-    if (!market) return item;
+    const plainItem = toPlainObject(item);
+    if (!market) return plainItem;
 
     const pricing = await buildDisplayPair({
-        amount: Number(item?.price || 0),
-        originalAmount: Number(item?.originalPrice || item?.price || 0),
+        amount: Number(plainItem?.price || 0),
+        originalAmount: Number(plainItem?.originalPrice || plainItem?.price || 0),
         baseCurrency: market.baseCurrency,
         market,
     });
 
     return {
-        ...item,
+        ...plainItem,
         pricing,
         market: {
             countryCode: market.countryCode,
