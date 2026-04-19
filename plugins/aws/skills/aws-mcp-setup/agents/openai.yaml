@@ -1,0 +1,4 @@
+interface:
+  display_name: "AWS MCP Setup"
+  short_description: "Install, verify, and troubleshoot the AWS plugin environment"
+  default_prompt: "Use AWS MCP Setup to bootstrap the plugin, verify package and credential readiness, and explain the smallest next step when setup is incomplete."

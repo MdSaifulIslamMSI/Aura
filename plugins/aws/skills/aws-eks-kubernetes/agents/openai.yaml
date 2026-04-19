@@ -1,0 +1,4 @@
+interface:
+  display_name: "AWS EKS Kubernetes"
+  short_description: "Review EKS clusters, ingress, IRSA, add-ons, and node operations"
+  default_prompt: "Use AWS EKS Kubernetes to inspect cluster design, node groups, ingress and exposure, IRSA, and operational issues running Kubernetes on AWS."

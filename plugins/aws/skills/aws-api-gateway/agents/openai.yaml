@@ -1,0 +1,4 @@
+interface:
+  display_name: "AWS API Gateway"
+  short_description: "Design and debug routes, integrations, auth, stages, and CORS"
+  default_prompt: "Use AWS API Gateway to inspect API definitions, integrations, authorizers, CORS, stages, and request-flow failures without guessing where the break is."

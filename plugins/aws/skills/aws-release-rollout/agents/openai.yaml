@@ -1,0 +1,4 @@
+interface:
+  display_name: "AWS Release Rollout"
+  short_description: "Review and debug the EC2 backend release path end to end"
+  default_prompt: "Use AWS Release Rollout to inspect the repo's S3 plus SSM plus EC2 deployment path, validate trusted-device guardrails, and debug readiness failures after a backend release."
