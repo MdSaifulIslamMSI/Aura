@@ -3,7 +3,7 @@
     "interface":  {
                       "displayName":  "Aura Local Plugins"
                   },
-    "plugins":  [
+  "plugins":  [
                     {
                         "name":  "aws",
                         "source":  {
