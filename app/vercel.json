@@ -2,35 +2,35 @@
     "rewrites": [
         {
             "source": "/socket.io",
-            "destination": "https://aura-msi-api-ca.wittycliff-f743de69.southeastasia.azurecontainerapps.io/socket.io/"
+            "destination": "http://3.109.181.238:5000/socket.io/"
         },
         {
             "source": "/socket.io/",
-            "destination": "https://aura-msi-api-ca.wittycliff-f743de69.southeastasia.azurecontainerapps.io/socket.io/"
+            "destination": "http://3.109.181.238:5000/socket.io/"
         },
         {
             "source": "/socket.io/:path*",
-            "destination": "https://aura-msi-api-ca.wittycliff-f743de69.southeastasia.azurecontainerapps.io/socket.io/:path*"
+            "destination": "http://3.109.181.238:5000/socket.io/:path*"
         },
         {
             "source": "/api/:path*",
-            "destination": "https://aura-msi-api-ca.wittycliff-f743de69.southeastasia.azurecontainerapps.io/api/:path*"
+            "destination": "http://3.109.181.238:5000/api/:path*"
         },
         {
             "source": "/health",
-            "destination": "https://aura-msi-api-ca.wittycliff-f743de69.southeastasia.azurecontainerapps.io/health"
+            "destination": "http://3.109.181.238:5000/health"
         },
         {
             "source": "/health/ready",
-            "destination": "https://aura-msi-api-ca.wittycliff-f743de69.southeastasia.azurecontainerapps.io/health/ready"
+            "destination": "http://3.109.181.238:5000/health/ready"
         },
         {
             "source": "/health/live",
-            "destination": "https://aura-msi-api-ca.wittycliff-f743de69.southeastasia.azurecontainerapps.io/health/live"
+            "destination": "http://3.109.181.238:5000/health/live"
         },
         {
             "source": "/uploads/:path*",
-            "destination": "https://aura-msi-api-ca.wittycliff-f743de69.southeastasia.azurecontainerapps.io/uploads/:path*"
+            "destination": "http://3.109.181.238:5000/uploads/:path*"
         },
         {
             "source": "/:path((?!api/|socket\\.io(?:/|$)|uploads/|assets/|manifest\\.json$|sw\\.js$|favicon\\.ico$|robots\\.txt$|.*\\.[^/]+$).*)",
