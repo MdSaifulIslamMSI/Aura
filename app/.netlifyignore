@@ -1,0 +1,10 @@
+.run-logs
+.vercel
+node_modules
+dist
+playwright-report
+e2e
+*.log
+.env.local
+.env.test
+.env.vercel.preview
