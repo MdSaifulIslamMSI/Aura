@@ -182,16 +182,15 @@ describe('Navbar Component', () => {
 
         expect(screen.getByText(/AURA/i)).toBeInTheDocument();
         expect(screen.getByRole('link', { name: /Open search/i })).toBeInTheDocument();
-        expect(screen.getByRole('link', { name: /Open Gateway/i })).toBeInTheDocument();
         expect(screen.getByRole('link', { name: /Cart/i })).toBeInTheDocument();
     });
 
-    it('offers direct links to the gateway and live runtimes from the storefront chrome', () => {
+    it('keeps the top navbar free of runtime links', () => {
         renderNavbar();
 
-        expect(screen.getByRole('link', { name: /Open Gateway/i })).toHaveAttribute('href', 'https://aura-gateway.vercel.app');
-        expect(screen.getByRole('link', { name: /Open Vercel frontend/i })).toHaveAttribute('href', 'https://aurapilot.vercel.app');
-        expect(screen.getByRole('link', { name: /Open Netlify frontend/i })).toHaveAttribute('href', 'https://aurapilot.netlify.app');
+        expect(screen.queryByRole('link', { name: /^Open Gateway$/i })).not.toBeInTheDocument();
+        expect(screen.queryByRole('link', { name: /^Open Vercel frontend$/i })).not.toBeInTheDocument();
+        expect(screen.queryByRole('link', { name: /^Open Netlify frontend$/i })).not.toBeInTheDocument();
     });
 
     it('navigates from the profile panel to wishlist reliably', async () => {
@@ -227,5 +226,18 @@ describe('Navbar Component', () => {
 
         expect(screen.getByText('Admin portal')).toBeInTheDocument();
         expect(screen.queryByRole('button', { name: /Admin Tools/i })).not.toBeInTheDocument();
+    });
+
+    it('shows the two runtime jump buttons inside the account menu', () => {
+        renderNavbar({ currentUser: { displayName: 'John Doe', email: 'john@example.com' } });
+
+        fireEvent.click(screen.getByText('John Doe'));
+
+        expect(screen.getByText('Live runtimes')).toBeInTheDocument();
+        expect(screen.getByRole('link', { name: /Open Gateway from account menu/i })).toHaveAttribute('href', 'https://aura-gateway.vercel.app');
+
+        const runtimeMenuLinks = screen.getAllByRole('link', { name: /from account menu/i });
+        expect(runtimeMenuLinks).toHaveLength(2);
+        expect(runtimeMenuLinks[1].getAttribute('href')).toMatch(/^https:\/\/aurapilot\.(vercel|netlify)\.app$/);
     });
 });
