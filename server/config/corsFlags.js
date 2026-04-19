@@ -1,21 +1,51 @@
+const normalizeOrigin = (value) => {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+
+    try {
+        return new URL(raw.includes('://') ? raw : `https://${raw}`).origin;
+    } catch {
+        return raw.replace(/\/+$/, '');
+    }
+};
+
 const parseOrigins = (value) => {
     const raw = String(value || '').trim();
     if (!raw) return [];
-    return raw
-        .split(',')
-        .map((origin) => origin.trim())
-        .filter(Boolean);
+
+    return Array.from(new Set(
+        raw
+            .split(',')
+            .map((origin) => normalizeOrigin(origin))
+            .filter(Boolean)
+    ));
 };
 
 const nodeEnv = String(process.env.NODE_ENV || 'development').trim().toLowerCase();
 const isProduction = nodeEnv === 'production';
 const defaultDevOrigins = ['http://localhost:5173', 'http://127.0.0.1:5173'];
+const hostedProductionOrigins = [
+    'https://aurapilot.vercel.app',
+    'https://aurapilot.netlify.app',
+];
 
-const allowedOrigins = (() => {
-    const parsed = parseOrigins(process.env.CORS_ORIGIN);
-    if (parsed.length > 0) return parsed;
-    return isProduction ? [] : defaultDevOrigins;
-})();
+const collectConfiguredOrigins = () => {
+    const configuredOrigins = [
+        ...parseOrigins(process.env.CORS_ORIGIN),
+        normalizeOrigin(process.env.FRONTEND_URL),
+        normalizeOrigin(process.env.APP_PUBLIC_URL),
+        normalizeOrigin(process.env.VERCEL_FRONTEND_URL),
+        normalizeOrigin(process.env.NETLIFY_FRONTEND_URL),
+    ].filter(Boolean);
+
+    const fallbackOrigins = isProduction ? hostedProductionOrigins : defaultDevOrigins;
+    return Array.from(new Set([
+        ...configuredOrigins,
+        ...fallbackOrigins.map((origin) => normalizeOrigin(origin)).filter(Boolean),
+    ]));
+};
+
+const allowedOrigins = collectConfiguredOrigins();
 
 const assertProductionCorsConfig = () => {
     if (!isProduction) return;
@@ -29,7 +59,7 @@ const assertProductionCorsConfig = () => {
 
 const isOriginAllowed = (origin) => {
     if (!origin) return true;
-    return allowedOrigins.includes(origin);
+    return allowedOrigins.includes(normalizeOrigin(origin));
 };
 
 module.exports = {
