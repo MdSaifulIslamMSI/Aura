@@ -1,4 +1,5 @@
 export const FRONTEND_LAUNCH_HUB_PATH = '/launch';
+export const DEFAULT_GATEWAY_FRONTEND_URL = 'https://aura-gateway.vercel.app';
 
 const SUPPORTED_PROTOCOLS = new Set(['http:', 'https:']);
 
@@ -108,4 +109,32 @@ export const resolveFrontendTargets = ({
       currentOrigin: normalizedCurrentOrigin,
     }),
   ];
+};
+
+export const resolveFrontendNavigationTargets = ({
+  gatewayUrl = '',
+  vercelUrl = '',
+  netlifyUrl = '',
+  currentOrigin = '',
+} = {}) => {
+  const normalizedCurrentOrigin = normalizeFrontendUrl(currentOrigin);
+  const storefrontTargets = resolveFrontendTargets({
+    vercelUrl,
+    netlifyUrl,
+    currentOrigin: normalizedCurrentOrigin,
+  });
+  const gatewayTarget = createTarget({
+    id: 'gateway',
+    label: 'Gateway',
+    platform: 'Gateway',
+    description: 'Return to the Aura gateway and choose the frontend runtime you want from the dedicated entry layer.',
+    href: normalizeFrontendUrl(gatewayUrl) || DEFAULT_GATEWAY_FRONTEND_URL,
+    currentOrigin: normalizedCurrentOrigin,
+  });
+  const gatewayIsCurrent = gatewayTarget.isCurrent;
+
+  return [gatewayTarget, ...storefrontTargets].map((target) => ({
+    ...target,
+    isCurrent: gatewayIsCurrent ? target.id === 'gateway' : target.isCurrent,
+  }));
 };
