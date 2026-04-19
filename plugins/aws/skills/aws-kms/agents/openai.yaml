@@ -1,0 +1,4 @@
+interface:
+  display_name: "AWS KMS"
+  short_description: "Review key policies, grants, aliases, and encryption access"
+  default_prompt: "Use AWS KMS to inspect key policy, grants, service integration, envelope-encryption posture, and encryption failure paths without oversimplifying access control."

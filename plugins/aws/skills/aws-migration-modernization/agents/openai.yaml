@@ -1,0 +1,4 @@
+interface:
+  display_name: "AWS Migration Modernization"
+  short_description: "Plan migration, cutover, modernization, and rollback strategy"
+  default_prompt: "Use AWS Migration Modernization to review migration approach, workload decomposition, cutover and rollback planning, and modernization tradeoffs when moving systems into AWS."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "AWS Lambda Serverless"
+  short_description: "Build and debug Lambda functions, triggers, and packaging"
+  default_prompt: "Use AWS Lambda Serverless to review or debug Lambda packaging, event sources, env config, performance tradeoffs, and deployment issues."
