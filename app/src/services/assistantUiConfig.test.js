@@ -1,9 +1,11 @@
 import {
     buildAssistantWorkspacePath,
+    isFrontendLaunchHubPath,
     isAssistantWorkspacePath,
     shouldShowAmbientChrome,
     shouldShowAssistantLauncher,
     shouldShowBackendStatusBanner,
+    shouldShowSiteChrome,
 } from './assistantUiConfig';
 
 describe('assistantUiConfig', () => {
@@ -39,5 +41,11 @@ describe('assistantUiConfig', () => {
         expect(shouldShowBackendStatusBanner('/products')).toBe(false);
         expect(shouldShowBackendStatusBanner('/checkout')).toBe(true);
         expect(shouldShowBackendStatusBanner('/admin/dashboard')).toBe(true);
+    });
+
+    it('hides persistent chrome on the launch hub route', () => {
+        expect(isFrontendLaunchHubPath('/launch')).toBe(true);
+        expect(shouldShowSiteChrome('/launch')).toBe(false);
+        expect(shouldShowSiteChrome('/products')).toBe(true);
     });
 });
