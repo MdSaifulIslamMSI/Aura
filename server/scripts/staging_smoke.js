@@ -151,6 +151,85 @@ const fetchJson = async (pathname, {
     };
 };
 
+const buildSocketPollingUrl = ({ sid = '', nonce = '' } = {}) => {
+    const url = new URL('/socket.io/', `${baseUrl}/`);
+    url.searchParams.set('EIO', '4');
+    url.searchParams.set('transport', 'polling');
+    url.searchParams.set('t', nonce || `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`);
+    if (sid) {
+        url.searchParams.set('sid', sid);
+    }
+    return url;
+};
+
+const fetchText = async (url, {
+    method = 'GET',
+    headers = {},
+    body,
+    expectedStatus,
+} = {}) => {
+    const response = await fetch(url, {
+        method,
+        headers,
+        body,
+    });
+
+    const text = await response.text();
+    if (expectedStatus !== undefined && response.status !== expectedStatus) {
+        throw new Error(`${method} ${url} returned ${response.status}, expected ${expectedStatus}: ${text || response.statusText || 'unexpected response'}`);
+    }
+
+    return {
+        status: response.status,
+        text,
+        url: String(url),
+    };
+};
+
+const extractSocketSid = (payload = '') => {
+    const match = String(payload || '').match(/"sid":"([^"]+)"/);
+    return match ? String(match[1] || '').trim() : '';
+};
+
+const verifySocketRoute = async ({ token = '' } = {}) => {
+    const openResponse = await fetchText(buildSocketPollingUrl(), {
+        expectedStatus: 200,
+    });
+    const sid = extractSocketSid(openResponse.text);
+    assert(sid, `Socket polling handshake did not return a sid: ${openResponse.text}`);
+    printStep('ok', 'socket.open', sid);
+
+    if (!token) {
+        return {
+            sid,
+            authenticated: false,
+        };
+    }
+
+    await fetchText(buildSocketPollingUrl({ sid }), {
+        method: 'POST',
+        expectedStatus: 200,
+        headers: {
+            'Content-Type': 'text/plain;charset=UTF-8',
+        },
+        body: `40${JSON.stringify({ token })}`,
+    });
+
+    const connectResponse = await fetchText(buildSocketPollingUrl({ sid }), {
+        expectedStatus: 200,
+    });
+    assert(
+        String(connectResponse.text || '').startsWith('40'),
+        `Socket authenticated handshake failed: ${connectResponse.text || 'empty response'}`
+    );
+    printStep('ok', 'socket.auth', extractSocketSid(connectResponse.text) || sid);
+
+    return {
+        sid,
+        authenticated: true,
+    };
+};
+
 const getProductId = (product = {}) => String(product._id || product.id || '').trim();
 
 const buildDefaultOrderPayload = (productId, paymentMethod = process.env.SMOKE_PAYMENT_METHOD || 'COD') => ({
@@ -424,6 +503,10 @@ const run = async () => {
     const ready = await fetchJson('/health/ready', { expectedStatus: 200 });
     assert(ready.json?.ready === true, 'Readiness endpoint is not ready');
     printStep('ok', 'ready', 'ready');
+
+    await verifySocketRoute({
+        token: flowMode === 'public' ? '' : resolvedUserToken,
+    });
 
     const search = await discoverProducts({ adminAuthToken: resolvedAdminToken });
     const products = search.products;

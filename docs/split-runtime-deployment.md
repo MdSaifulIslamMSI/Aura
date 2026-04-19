@@ -39,6 +39,7 @@ Production auth/OTP/abuse limiters are fail-closed and require Redis. Do not dep
 - Public-only smoke:
   - `cd server`
   - `SMOKE_BASE_URL=https://your-backend.example.com SMOKE_FLOW_MODE=public npm run smoke:staging`
+  - Validates health, readiness, catalog browse, and the `/socket.io` polling route.
 - Full authenticated smoke:
   - `SMOKE_BASE_URL=https://your-backend.example.com`
   - `SMOKE_FLOW_MODE=full`
@@ -46,6 +47,7 @@ Production auth/OTP/abuse limiters are fail-closed and require Redis. Do not dep
   - `SMOKE_USER_EMAIL=...`
   - `SMOKE_ADMIN_BEARER_TOKEN=...`
   - `npm run smoke:staging`
+  - Adds authenticated socket-connect coverage before the write-path checks.
 - Load validation:
   - `LOAD_BASE_URL=https://your-backend.example.com`
   - `LOAD_MODE=public|customer|full`
