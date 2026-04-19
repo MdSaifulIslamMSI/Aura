@@ -45,7 +45,7 @@
 ## Frontend Routing
 - Vercel now reads the backend origin from `AURA_BACKEND_ORIGIN` or `AWS_BACKEND_BASE_URL`.
 - Set that value to your EC2 public URL or custom domain, for example `http://12.34.56.78:5000` or `https://api.example.com`.
-- If those variables are blank on a hosted Vercel deployment, the checked-in config now falls back to the live AWS backend origin instead of `127.0.0.1`.
+- If those variables are blank on a hosted Vercel deployment, the checked-in config now falls back to the tracked hosted backend origin instead of `127.0.0.1`.
 - For the default `t4g.small` target, set `AWS_DOCKER_PLATFORM=linux/arm64`.
 - The bootstrap defaults already disable paid integrations that would otherwise fail closed on a bare free-plan stack: payments, OTP SMS, and order email sending.
 

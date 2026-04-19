@@ -54,7 +54,7 @@ Core capabilities:
 - Repo-level shortcut for the same sync:
   - `npm run aws:ssm:sync`
 - CI/CD now builds the backend image once, uploads the release bundle to S3, and rolls EC2 forward through SSM Run Command.
-- Frontend routing now prefers `AURA_BACKEND_ORIGIN` or `AWS_BACKEND_BASE_URL` in Vercel, and falls back to the live AWS backend origin instead of localhost so hosted deploys do not fail closed.
+- Frontend routing now prefers `AURA_BACKEND_ORIGIN` or `AWS_BACKEND_BASE_URL` in Vercel, and falls back to the tracked hosted backend origin instead of localhost so hosted deploys do not fail closed.
 
 ## Production Catalog + Search Gates
 - Snapshot imports now require both `sourceRef` and `manifestRef`.
