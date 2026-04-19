@@ -75,4 +75,5 @@ server/public/
 **/playwright-report/
 **/coverage/
 .vercel
+.netlify/
 .env*.local

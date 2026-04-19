@@ -1,0 +1,245 @@
+name: Deploy Frontend To Netlify
+
+on:
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "app/**"
+      - "netlify.toml"
+      - ".netlifyignore"
+      - ".github/workflows/deploy-netlify.yml"
+  push:
+    branches: ["main"]
+    paths:
+      - "app/**"
+      - "netlify.toml"
+      - ".netlifyignore"
+      - ".github/workflows/deploy-netlify.yml"
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Deployment target
+        required: false
+        default: production
+        type: choice
+        options:
+          - preview
+          - production
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: netlify-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: 24.x
+  NETLIFY_SITE_ID: ${{ vars.NETLIFY_SITE_ID || secrets.NETLIFY_SITE_ID }}
+  NETLIFY_SITE_NAME: ${{ vars.NETLIFY_SITE_NAME || 'aurapilot' }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: ./app
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Validate Netlify deployment configuration
+        working-directory: .
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+        run: |
+          test -n "${NETLIFY_AUTH_TOKEN}" || { echo "Missing GitHub secret NETLIFY_AUTH_TOKEN"; exit 1; }
+          test -n "${NETLIFY_SITE_ID}" || { echo "Missing GitHub variable or secret NETLIFY_SITE_ID"; exit 1; }
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build frontend artifact
+        run: npm run build
+
+      - name: Upload static bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: netlify-dist
+          path: app/dist
+          retention-days: 7
+
+  deploy-preview:
+    needs: build
+    if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.target == 'preview')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      deploy_url: ${{ steps.deploy.outputs.deploy_url }}
+      site_url: ${{ steps.deploy.outputs.site_url }}
+
+    steps:
+      - name: Use Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Download built frontend
+        uses: actions/download-artifact@v4
+        with:
+          name: netlify-dist
+          path: app/dist
+
+      - name: Publish preview deploy
+        id: deploy
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+        run: |
+          set -euo pipefail
+          DEPLOY_JSON="${RUNNER_TEMP}/netlify-preview.json"
+          npx netlify-cli deploy \
+            --dir app/dist \
+            --site "${NETLIFY_SITE_ID}" \
+            --auth "${NETLIFY_AUTH_TOKEN}" \
+            --json \
+            --message "GitHub Actions preview for ${GITHUB_REF_NAME} @ ${GITHUB_SHA}" \
+            > "${DEPLOY_JSON}"
+          DEPLOY_JSON="${DEPLOY_JSON}" node <<'EOF'
+          const fs = require('fs');
+          const payload = JSON.parse(fs.readFileSync(process.env.DEPLOY_JSON, 'utf8'));
+          const deployUrl = payload.deploy_ssl_url || payload.deploy_url || '';
+          const siteUrl = payload.ssl_url || payload.url || '';
+          if (!deployUrl) {
+            throw new Error('Netlify CLI did not return a preview deploy URL.');
+          }
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `deploy_url=${deployUrl}\n`);
+          if (siteUrl) {
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, `site_url=${siteUrl}\n`);
+          }
+          EOF
+
+      - name: Add preview to job summary
+        run: |
+          {
+            echo "### Netlify Preview"
+            echo
+            echo "- Site: ${NETLIFY_SITE_NAME}"
+            echo "- Preview: ${{ steps.deploy.outputs.deploy_url }}"
+            if [ -n "${{ steps.deploy.outputs.site_url }}" ]; then
+              echo "- Site URL: ${{ steps.deploy.outputs.site_url }}"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Comment preview URL on pull request
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        env:
+          DEPLOY_URL: ${{ steps.deploy.outputs.deploy_url }}
+          SITE_URL: ${{ steps.deploy.outputs.site_url }}
+          SITE_NAME: ${{ env.NETLIFY_SITE_NAME }}
+        with:
+          script: |
+            const marker = '<!-- aura-netlify-preview -->';
+            const body = [
+              marker,
+              `Netlify preview for \`${process.env.SITE_NAME}\` is ready.`,
+              `Preview URL: ${process.env.DEPLOY_URL}`,
+              process.env.SITE_URL ? `Site URL: ${process.env.SITE_URL}` : '',
+            ].filter(Boolean).join('\n\n');
+
+            const { owner, repo } = context.repo;
+            const issue_number = context.payload.pull_request.number;
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner,
+              repo,
+              issue_number,
+            });
+            const existing = comments.find((comment) =>
+              comment.user?.type === 'Bot' && comment.body?.includes(marker)
+            );
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner,
+                repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number,
+                body,
+              });
+            }
+
+  deploy-production:
+    needs: build
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.target == 'production')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: netlify-production
+      url: ${{ steps.deploy.outputs.site_url }}
+    outputs:
+      deploy_url: ${{ steps.deploy.outputs.deploy_url }}
+      site_url: ${{ steps.deploy.outputs.site_url }}
+
+    steps:
+      - name: Use Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Download built frontend
+        uses: actions/download-artifact@v4
+        with:
+          name: netlify-dist
+          path: app/dist
+
+      - name: Publish production deploy
+        id: deploy
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+        run: |
+          set -euo pipefail
+          DEPLOY_JSON="${RUNNER_TEMP}/netlify-production.json"
+          npx netlify-cli deploy \
+            --dir app/dist \
+            --site "${NETLIFY_SITE_ID}" \
+            --auth "${NETLIFY_AUTH_TOKEN}" \
+            --prod \
+            --json \
+            --message "GitHub Actions production deploy @ ${GITHUB_SHA}" \
+            > "${DEPLOY_JSON}"
+          DEPLOY_JSON="${DEPLOY_JSON}" node <<'EOF'
+          const fs = require('fs');
+          const payload = JSON.parse(fs.readFileSync(process.env.DEPLOY_JSON, 'utf8'));
+          const deployUrl = payload.deploy_ssl_url || payload.deploy_url || payload.ssl_url || payload.url || '';
+          const siteUrl = payload.ssl_url || payload.url || deployUrl;
+          if (!deployUrl) {
+            throw new Error('Netlify CLI did not return a production deploy URL.');
+          }
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `deploy_url=${deployUrl}\n`);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `site_url=${siteUrl}\n`);
+          EOF
+
+      - name: Add production deploy to job summary
+        run: |
+          {
+            echo "### Netlify Production"
+            echo
+            echo "- Site: ${NETLIFY_SITE_NAME}"
+            echo "- Production URL: ${{ steps.deploy.outputs.site_url }}"
+            echo "- Deploy URL: ${{ steps.deploy.outputs.deploy_url }}"
+          } >> "$GITHUB_STEP_SUMMARY"
