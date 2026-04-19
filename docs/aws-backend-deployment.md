@@ -54,6 +54,11 @@
 - Checked-in secret placeholders live in [server/.env.aws-secrets.example](/c:/Users/mdsai/Downloads/Kimi_Agent_Flipkart-Style%20Frontend/server/.env.aws-secrets.example).
 - Local secrets should live in `server/.env.aws-secrets`, which is ignored by git.
 
+## Trusted Device Gate
+- The tracked AWS runtime keeps `AUTH_DEVICE_CHALLENGE_MODE=admin` in [server/.env.example](/c:/Users/mdsai/Downloads/Kimi_Agent_Flipkart-Style%20Frontend/server/.env.example) and [docker-compose.ec2.yml](/c:/Users/mdsai/Downloads/Kimi_Agent_Flipkart-Style%20Frontend/infra/aws/docker-compose.ec2.yml).
+- Do not set that mode to `off` for production.
+- The AWS contract audit in CI now checks the non-secret env example, the AWS secrets example, and the EC2 compose file together so trusted-device enforcement cannot drift silently.
+
 ## Deploy Workflow
 - Validation workflow: [ci.yml](/c:/Users/mdsai/Downloads/Kimi_Agent_Flipkart-Style%20Frontend/.github/workflows/ci.yml)
 - Production backend deploy workflow: [deploy-backend-aws.yml](/c:/Users/mdsai/Downloads/Kimi_Agent_Flipkart-Style%20Frontend/.github/workflows/deploy-backend-aws.yml)
