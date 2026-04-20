@@ -83,15 +83,19 @@ jobs:
       - name: Build frontend artifact
         run: npm run build
 
-      - name: Prepare Vercel artifact bundle
+      - name: Build Vercel prebuilt output
         working-directory: .
-        run: >
-          node app/scripts/prepare_vercel_artifact_bundle.mjs
-          --output generated/vercel-artifact
         env:
-          VERCEL_ORG_ID: ${{ env.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ env.VERCEL_PROJECT_ID }}
-          VERCEL_PROJECT_NAME: ${{ env.VERCEL_PROJECT_NAME }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ "${GITHUB_EVENT_NAME}" = "push" ] && [ "${GITHUB_REF}" = "refs/heads/main" ]; then
+            npx vercel build --prod --token "${VERCEL_TOKEN}" --yes
+          elif [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ] && [ "${{ inputs.target }}" = "production" ]; then
+            npx vercel build --prod --token "${VERCEL_TOKEN}" --yes
+          else
+            npx vercel build --token "${VERCEL_TOKEN}" --yes
+          fi
 
       - name: Upload frontend dist bundle
         uses: actions/upload-artifact@v4
@@ -100,11 +104,13 @@ jobs:
           path: app/dist
           retention-days: 7
 
-      - name: Upload Vercel artifact bundle
+      - name: Upload Vercel prebuilt output
         uses: actions/upload-artifact@v4
         with:
-          name: vercel-artifact-bundle
-          path: generated/vercel-artifact
+          name: vercel-prebuilt-output
+          path: |
+            .vercel/output
+            .vercel/project.json
           retention-days: 7
 
   deploy-preview:
@@ -286,19 +292,20 @@ jobs:
     timeout-minutes: 20
     outputs:
       deploy_url: ${{ steps.deploy.outputs.deploy_url }}
-      inspect_url: ${{ steps.deploy.outputs.inspect_url }}
 
     steps:
+      - uses: actions/checkout@v4
+
       - name: Use Node.js ${{ env.NODE_VERSION }}
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
 
-      - name: Download Vercel artifact bundle
+      - name: Download Vercel prebuilt output
         uses: actions/download-artifact@v4
         with:
-          name: vercel-artifact-bundle
-          path: generated/vercel-artifact
+          name: vercel-prebuilt-output
+          path: .
 
       - name: Publish Vercel preview deploy
         id: deploy
@@ -306,25 +313,13 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
           set -euo pipefail
-          DEPLOY_LOG="${RUNNER_TEMP}/vercel-preview.log"
-          npx vercel deploy \
-            --cwd generated/vercel-artifact \
-            --token "${VERCEL_TOKEN}" \
-            --yes \
-            > "${DEPLOY_LOG}" 2>&1
-          DEPLOY_LOG="${DEPLOY_LOG}" node <<'EOF'
-          const fs = require('fs');
-          const log = fs.readFileSync(process.env.DEPLOY_LOG, 'utf8');
-          const preview = log.match(/Preview:\s+(https:\/\/\S+)/);
-          const inspect = log.match(/Inspect:\s+(https:\/\/\S+)/);
-          if (!preview) {
-            throw new Error('Vercel CLI did not return a preview deployment URL.');
-          }
-          fs.appendFileSync(process.env.GITHUB_OUTPUT, `deploy_url=${preview[1]}\n`);
-          if (inspect) {
-            fs.appendFileSync(process.env.GITHUB_OUTPUT, `inspect_url=${inspect[1]}\n`);
-          }
-          EOF
+          DEPLOY_URL="$(npx vercel deploy --prebuilt --token "${VERCEL_TOKEN}" --yes)"
+          DEPLOY_URL="$(printf '%s\n' "${DEPLOY_URL}" | tail -n 1 | tr -d '\r')"
+          if [ -z "${DEPLOY_URL}" ]; then
+            echo "Vercel CLI did not return a preview deployment URL." >&2
+            exit 1
+          fi
+          printf 'deploy_url=%s\n' "${DEPLOY_URL}" >> "$GITHUB_OUTPUT"
 
       - name: Add Vercel preview to job summary
         run: |
@@ -333,9 +328,6 @@ jobs:
             echo
             echo "- Project: ${VERCEL_PROJECT_NAME}"
             echo "- Preview: ${{ steps.deploy.outputs.deploy_url }}"
-            if [ -n "${{ steps.deploy.outputs.inspect_url }}" ]; then
-              echo "- Inspect: ${{ steps.deploy.outputs.inspect_url }}"
-            fi
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Comment Vercel preview URL on pull request
@@ -343,7 +335,6 @@ jobs:
         uses: actions/github-script@v7
         env:
           DEPLOY_URL: ${{ steps.deploy.outputs.deploy_url }}
-          INSPECT_URL: ${{ steps.deploy.outputs.inspect_url }}
           PROJECT_NAME: ${{ env.VERCEL_PROJECT_NAME }}
         with:
           script: |
@@ -352,7 +343,6 @@ jobs:
               marker,
               `Vercel preview for \`${process.env.PROJECT_NAME}\` is ready.`,
               `Preview URL: ${process.env.DEPLOY_URL}`,
-              process.env.INSPECT_URL ? `Inspect URL: ${process.env.INSPECT_URL}` : '',
             ].filter(Boolean).join('\n\n');
 
             const { owner, repo } = context.repo;
@@ -393,19 +383,20 @@ jobs:
     outputs:
       deploy_url: ${{ steps.deploy.outputs.deploy_url }}
       site_url: ${{ steps.deploy.outputs.site_url }}
-      inspect_url: ${{ steps.deploy.outputs.inspect_url }}
 
     steps:
+      - uses: actions/checkout@v4
+
       - name: Use Node.js ${{ env.NODE_VERSION }}
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
 
-      - name: Download Vercel artifact bundle
+      - name: Download Vercel prebuilt output
         uses: actions/download-artifact@v4
         with:
-          name: vercel-artifact-bundle
-          path: generated/vercel-artifact
+          name: vercel-prebuilt-output
+          path: .
 
       - name: Publish Vercel production deploy
         id: deploy
@@ -413,30 +404,23 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
           set -euo pipefail
-          DEPLOY_LOG="${RUNNER_TEMP}/vercel-production.log"
-          npx vercel deploy \
-            --cwd generated/vercel-artifact \
-            --token "${VERCEL_TOKEN}" \
-            --prod \
-            --yes \
-            > "${DEPLOY_LOG}" 2>&1
-          DEPLOY_LOG="${DEPLOY_LOG}" node <<'EOF'
-          const fs = require('fs');
-          const log = fs.readFileSync(process.env.DEPLOY_LOG, 'utf8');
-          const inspect = log.match(/Inspect:\s+(https:\/\/\S+)/);
-          const production = log.match(/Production:\s+(https:\/\/\S+)/);
-          const aliased = log.match(/Aliased:\s+(https:\/\/\S+)/);
-          const deployUrl = production?.[1] || aliased?.[1];
-          const siteUrl = aliased?.[1] || deployUrl;
-          if (!deployUrl || !siteUrl) {
-            throw new Error('Vercel CLI did not return a production deployment URL.');
-          }
-          fs.appendFileSync(process.env.GITHUB_OUTPUT, `deploy_url=${deployUrl}\n`);
-          fs.appendFileSync(process.env.GITHUB_OUTPUT, `site_url=${siteUrl}\n`);
-          if (inspect) {
-            fs.appendFileSync(process.env.GITHUB_OUTPUT, `inspect_url=${inspect[1]}\n`);
-          }
+          DEPLOY_URL="$(npx vercel deploy --prebuilt --prod --token "${VERCEL_TOKEN}" --yes)"
+          DEPLOY_URL="$(printf '%s\n' "${DEPLOY_URL}" | tail -n 1 | tr -d '\r')"
+          if [ -z "${DEPLOY_URL}" ]; then
+            echo "Vercel CLI did not return a production deployment URL." >&2
+            exit 1
+          fi
+          INSPECT_TEXT="$(npx vercel inspect "${DEPLOY_URL}" --token "${VERCEL_TOKEN}" || true)"
+          SITE_URL="$(INSPECT_TEXT="${INSPECT_TEXT}" DEPLOY_URL="${DEPLOY_URL}" node <<'EOF'
+          const inspectText = process.env.INSPECT_TEXT ?? '';
+          const deployUrl = process.env.DEPLOY_URL ?? '';
+          const urls = [...inspectText.matchAll(/https:\/\/\S+/g)].map((match) => match[0]);
+          const aliasUrl = urls.find((url) => url !== deployUrl);
+          process.stdout.write((aliasUrl || deployUrl).trim());
           EOF
+          )"
+          printf 'deploy_url=%s\n' "${DEPLOY_URL}" >> "$GITHUB_OUTPUT"
+          printf 'site_url=%s\n' "${SITE_URL}" >> "$GITHUB_OUTPUT"
 
       - name: Add Vercel production deploy to job summary
         run: |
@@ -446,7 +430,4 @@ jobs:
             echo "- Project: ${VERCEL_PROJECT_NAME}"
             echo "- Production URL: ${{ steps.deploy.outputs.site_url }}"
             echo "- Deploy URL: ${{ steps.deploy.outputs.deploy_url }}"
-            if [ -n "${{ steps.deploy.outputs.inspect_url }}" ]; then
-              echo "- Inspect: ${{ steps.deploy.outputs.inspect_url }}"
-            fi
           } >> "$GITHUB_STEP_SUMMARY"
