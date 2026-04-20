@@ -10,7 +10,7 @@ const { saveAuthProfileSnapshot, getAuthProfileSnapshotByEmail } = require('../s
 const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
 const { issuePaymentChallengeToken } = require('../utils/paymentChallengeToken');
-const { issueOtpFlowToken } = require('../utils/otpFlowToken');
+const { issueOtpFlowToken, verifyOtpFlowToken } = require('../utils/otpFlowToken');
 const { flags: otpEmailFlags } = require('../config/otpEmailFlags');
 const { flags: otpSmsFlags } = require('../config/otpSmsFlags');
 const { validatePasswordPolicy, detectWeakPasswordPatterns } = require('../utils/passwordValidator');
@@ -1408,42 +1408,30 @@ const verifyOtp = asyncHandler(async (req, res, next) => {
  * @access  Public
  */
 const resetPasswordWithOtp = asyncHandler(async (req, res, next) => {
-    const rawEmail = req.body?.email;
-    const rawPhone = req.body?.phone;
+    const rawFlowToken = req.body?.flowToken;
     const rawPassword = req.body?.password;
     const clientIp = extractClientIp(req);
     const requestId = req.requestId || '-';
 
-    if (rawEmail === undefined || rawEmail === null || rawEmail === '') {
-        return next(new AppError('Email is required', 400));
-    }
-    if (rawPhone === undefined || rawPhone === null || rawPhone === '') {
-        return next(new AppError('Phone number is required', 400));
+    if (rawFlowToken === undefined || rawFlowToken === null || rawFlowToken === '') {
+        return next(new AppError('Recovery flow token is required', 400));
     }
     if (rawPassword === undefined || rawPassword === null || rawPassword === '') {
         return next(new AppError('Password is required', 400));
     }
 
-    if (typeof rawEmail !== 'string') {
-        return next(new AppError('Email must be a string', 400));
-    }
-    if (typeof rawPhone !== 'string') {
-        return next(new AppError('Phone number must be a string', 400));
+    if (typeof rawFlowToken !== 'string') {
+        return next(new AppError('Recovery flow token must be a string', 400));
     }
     if (typeof rawPassword !== 'string') {
         return next(new AppError('Password must be a string', 400));
     }
 
-    const email = normalizeEmail(rawEmail);
-    const phone = normalizePhone(rawPhone);
-    const canonicalPhone = canonicalizePhoneIdentity(phone);
+    const flowToken = rawFlowToken.trim();
     const password = rawPassword;
 
-    if (!EMAIL_REGEX.test(email)) {
-        return next(new AppError('Valid email address is required', 400));
-    }
-    if (!canonicalPhone) {
-        return next(new AppError('Valid phone number is required', 400));
+    if (!flowToken) {
+        return next(new AppError('Recovery flow token is required', 400));
     }
 
     const passwordValidation = validatePasswordPolicy(password);
@@ -1456,16 +1444,20 @@ const resetPasswordWithOtp = asyncHandler(async (req, res, next) => {
         return next(new AppError(weakPassword.reason || 'Password is too weak', 400));
     }
 
-    const phoneLookupCandidates = buildPhoneLookupCandidates(phone, canonicalPhone);
-    const user = await User.findOne({
-        email,
-        phone: { $in: phoneLookupCandidates },
-        isVerified: true,
-    })
+    const verifiedFlow = verifyOtpFlowToken({
+        token: flowToken,
+        expectedPurpose: 'forgot-password',
+        expectedFactor: 'otp',
+    });
+
+    const user = await User.findById(verifiedFlow.sub)
         .select('name email phone avatar gender dob bio isAdmin isVerified +resetOtpVerifiedAt')
         .lean();
 
-    if (!user) {
+    const email = normalizeEmail(user?.email || '');
+    const phone = normalizePhone(user?.phone || '');
+
+    if (!user || !user.isVerified || !EMAIL_REGEX.test(email)) {
         audit('RESET_PASSWORD_REJECTED', {
             phone,
             email,
