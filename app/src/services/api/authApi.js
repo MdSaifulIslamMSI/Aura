@@ -252,14 +252,17 @@ export const otpApi = {
         }
         throw lastError || new Error('Failed to verify OTP');
     },
-    resetPassword: async (email, phone, password) => {
+    resetPassword: async (payloadOrEmail, phone = '', password = '') => {
         const candidatePaths = ['/auth/otp/reset-password', '/otp/reset-password'];
+        const payload = payloadOrEmail && typeof payloadOrEmail === 'object' && !Array.isArray(payloadOrEmail)
+            ? { ...payloadOrEmail }
+            : { email: payloadOrEmail, phone, password };
         let lastError = null;
         for (const path of candidatePaths) {
             try {
                 const { data } = await apiFetch(path, {
                     method: 'POST',
-                    body: JSON.stringify({ email, phone, password }),
+                    body: JSON.stringify(payload),
                 });
                 return data;
             } catch (error) {

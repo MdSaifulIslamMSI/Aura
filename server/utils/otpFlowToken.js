@@ -55,7 +55,7 @@ const issueOtpFlowToken = ({ userId, purpose, factor = '' }) => {
     };
 };
 
-const verifyOtpFlowToken = ({ token, expectedPurpose = '', expectedSubject = '' }) => {
+const verifyOtpFlowToken = ({ token, expectedPurpose = '', expectedSubject = '', expectedFactor = '' }) => {
     const safeToken = String(token || '').trim();
     if (!safeToken || safeToken.length > 4096) {
         throw new AppError('Login assurance token is invalid', 401);
@@ -84,6 +84,9 @@ const verifyOtpFlowToken = ({ token, expectedPurpose = '', expectedSubject = '' 
     }
     if (expectedSubject && String(payload.sub) !== String(expectedSubject)) {
         throw new AppError('Login assurance token does not match this account', 403);
+    }
+    if (expectedFactor && String(payload.factor || '') !== String(expectedFactor)) {
+        throw new AppError('Login assurance token factor mismatch', 403);
     }
 
     return {

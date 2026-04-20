@@ -1,4 +1,5 @@
 const { issueOtpFlowToken, verifyOtpFlowToken } = require('../utils/otpFlowToken');
+const buildRuntimeSecret = (label = 'test') => `${label}-${Date.now()}-${Math.random().toString(36).slice(2)}-suite`;
 
 describe('otpFlowToken', () => {
     const originalNodeEnv = process.env.NODE_ENV;
@@ -13,7 +14,7 @@ describe('otpFlowToken', () => {
 
     test('issues a token when OTP_FLOW_SECRET is configured', () => {
         process.env.NODE_ENV = 'test';
-        process.env.OTP_FLOW_SECRET = 'otp-flow-test-secret';
+        process.env.OTP_FLOW_SECRET = buildRuntimeSecret('otp-flow');
 
         const { flowToken, flowTokenExpiresAt } = issueOtpFlowToken({
             userId: 'u123',
@@ -27,7 +28,7 @@ describe('otpFlowToken', () => {
 
     test('verifies a token and preserves the factor claim', () => {
         process.env.NODE_ENV = 'test';
-        process.env.OTP_FLOW_SECRET = 'otp-flow-test-secret';
+        process.env.OTP_FLOW_SECRET = buildRuntimeSecret('otp-flow');
 
         const { flowToken } = issueOtpFlowToken({
             userId: 'u123',
@@ -48,7 +49,7 @@ describe('otpFlowToken', () => {
 
     test('rejects a token when the expected subject does not match', () => {
         process.env.NODE_ENV = 'test';
-        process.env.OTP_FLOW_SECRET = 'otp-flow-test-secret';
+        process.env.OTP_FLOW_SECRET = buildRuntimeSecret('otp-flow');
 
         const { flowToken } = issueOtpFlowToken({
             userId: 'u123',
@@ -60,6 +61,23 @@ describe('otpFlowToken', () => {
             expectedPurpose: 'login',
             expectedSubject: 'u999',
         })).toThrow('Login assurance token does not match this account');
+    });
+
+    test('rejects a token when the expected factor does not match', () => {
+        process.env.NODE_ENV = 'test';
+        process.env.OTP_FLOW_SECRET = buildRuntimeSecret('otp-flow');
+
+        const { flowToken } = issueOtpFlowToken({
+            userId: 'u123',
+            purpose: 'forgot-password',
+            factor: 'email',
+        });
+
+        expect(() => verifyOtpFlowToken({
+            token: flowToken,
+            expectedPurpose: 'forgot-password',
+            expectedFactor: 'otp',
+        })).toThrow('Login assurance token factor mismatch');
     });
 
     test.each(['development', 'staging', 'production'])(
@@ -78,7 +96,7 @@ describe('otpFlowToken', () => {
     test('does not fallback to JWT_SECRET when OTP_FLOW_SECRET is missing', () => {
         process.env.NODE_ENV = 'development';
         delete process.env.OTP_FLOW_SECRET;
-        process.env.JWT_SECRET = 'legacy-jwt-secret';
+        process.env.JWT_SECRET = buildRuntimeSecret('legacy-jwt');
 
         expect(() => issueOtpFlowToken({
             userId: 'u123',

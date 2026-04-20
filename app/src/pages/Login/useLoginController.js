@@ -152,13 +152,15 @@ export const useLoginController = () => {
     setAuthSuccess(null);
   };
 
-  const resetOtpFlowState = ({ resetCountdown = true } = {}) => {
+  const resetOtpFlowState = ({ resetCountdown = true, preserveFlowToken = false } = {}) => {
     if (resetCountdown) {
       setCountdown(0);
     }
     setOtpValues(createEmptyOtpValues());
     setSignInProofToken('');
-    setLoginFlowToken('');
+    if (!preserveFlowToken) {
+      setLoginFlowToken('');
+    }
     setOtpStage(OTP_STAGE.SINGLE);
     setOtpTransport(OTP_TRANSPORT.BACKEND_OTP);
   };
@@ -188,7 +190,7 @@ export const useLoginController = () => {
 
   const openResetPasswordStep = (detail) => {
     setStep('reset-password');
-    resetOtpFlowState();
+    resetOtpFlowState({ preserveFlowToken: true });
     setFormData((prev) => ({
       ...prev,
       password: '',
@@ -704,9 +706,16 @@ export const useLoginController = () => {
 
         try {
           if (mode !== 'signin') {
-            await authApi.completePhoneFactorVerification(purpose, email, verifiedPhoneFactor.phoneE164, {
+            const completionResult = await authApi.completePhoneFactorVerification(purpose, email, verifiedPhoneFactor.phoneE164, {
               firebaseUser: verifiedPhoneFactor.user,
             });
+            if (mode === 'forgot-password') {
+              const nextFlowToken = String(completionResult?.flowToken || '').trim();
+              if (!nextFlowToken) {
+                throw new Error('Secure recovery token expired. Please request a fresh code.');
+              }
+              setLoginFlowToken(nextFlowToken);
+            }
           }
         } finally {
           await clearFirebaseChallenge();
@@ -749,6 +758,11 @@ export const useLoginController = () => {
         resetOtpFlowState();
         finishAuthAndNavigate(AUTH_SUCCESS.signin_success);
       } else if (mode === 'forgot-password') {
+        const flowToken = String(otpResult?.flowToken || '').trim();
+        if (!flowToken) {
+          throw new Error('Secure recovery token expired. Please request a fresh code.');
+        }
+        setLoginFlowToken(flowToken);
         openResetPasswordStep(
           t(
             'login.reset.verifiedSingle',
@@ -861,10 +875,15 @@ export const useLoginController = () => {
     setAuthSuccess(null);
 
     try {
-      const email = normalizeEmail(formData.email);
-      const phone = normalizePhone(formData.phone);
+      const resolvedFlowToken = typeof loginFlowToken === 'string' ? loginFlowToken.trim() : '';
+      if (!resolvedFlowToken) {
+        throw new Error('Secure recovery token expired. Please restart password recovery.');
+      }
 
-      await otpApi.resetPassword(email, phone, formData.password);
+      await otpApi.resetPassword({
+        flowToken: resolvedFlowToken,
+        password: formData.password,
+      });
 
       setAuthSuccess(AUTH_SUCCESS.password_reset_success);
       setTimeout(() => {
