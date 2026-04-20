@@ -23,10 +23,12 @@ describe('otpFlowToken', () => {
 
         expect(typeof flowToken).toBe('string');
         expect(flowToken.split('.')).toHaveLength(2);
+        expect(flowToken.split('.')[0]).toBe('v1');
+        expect(flowToken).not.toContain('u123');
         expect(typeof flowTokenExpiresAt).toBe('string');
     });
 
-    test('verifies a token and preserves the factor claim', () => {
+    test('verifies a token and preserves the factor claim and signal bond', () => {
         process.env.NODE_ENV = 'test';
         process.env.OTP_FLOW_SECRET = buildRuntimeSecret('otp-flow');
 
@@ -34,16 +36,28 @@ describe('otpFlowToken', () => {
             userId: 'u123',
             purpose: 'login',
             factor: 'email',
+            signalBond: {
+                deviceId: 'device-123',
+                authUid: 'uid-123',
+            },
         });
 
         expect(verifyOtpFlowToken({
             token: flowToken,
             expectedPurpose: 'login',
             expectedSubject: 'u123',
+            expectedSignalBond: {
+                deviceId: 'device-123',
+                authUid: 'uid-123',
+            },
         })).toMatchObject({
             sub: 'u123',
             purpose: 'login',
             factor: 'email',
+            signalBond: {
+                deviceId: 'device-123',
+                authUid: 'uid-123',
+            },
         });
     });
 
@@ -78,6 +92,29 @@ describe('otpFlowToken', () => {
             expectedPurpose: 'forgot-password',
             expectedFactor: 'otp',
         })).toThrow('Login assurance token factor mismatch');
+    });
+
+    test('rejects a token when the device bond does not match', () => {
+        process.env.NODE_ENV = 'test';
+        process.env.OTP_FLOW_SECRET = buildRuntimeSecret('otp-flow');
+
+        const { flowToken } = issueOtpFlowToken({
+            userId: 'u123',
+            purpose: 'forgot-password',
+            factor: 'otp',
+            signalBond: {
+                deviceId: 'device-123',
+            },
+        });
+
+        expect(() => verifyOtpFlowToken({
+            token: flowToken,
+            expectedPurpose: 'forgot-password',
+            expectedFactor: 'otp',
+            expectedSignalBond: {
+                deviceId: 'device-999',
+            },
+        })).toThrow('Login assurance token device bond mismatch');
     });
 
     test.each(['development', 'staging', 'production'])(
