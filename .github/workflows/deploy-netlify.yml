@@ -160,6 +160,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: vercel-prebuilt-output
+          include-hidden-files: true
           path: |
             .vercel/output
             .vercel/project.json
