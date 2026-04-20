@@ -49,7 +49,7 @@ env:
   VERCEL_PROJECT_NAME: ${{ vars.VERCEL_PROJECT_NAME || 'app' }}
 
 jobs:
-  build:
+  build-frontend:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     defaults:
@@ -73,20 +73,64 @@ jobs:
         run: |
           test -n "${NETLIFY_AUTH_TOKEN}" || { echo "Missing GitHub secret NETLIFY_AUTH_TOKEN"; exit 1; }
           test -n "${NETLIFY_SITE_ID}" || { echo "Missing GitHub variable or secret NETLIFY_SITE_ID"; exit 1; }
-          test -n "${{ secrets.VERCEL_TOKEN }}" || { echo "Missing GitHub secret VERCEL_TOKEN"; exit 1; }
-          test -n "${VERCEL_ORG_ID}" || { echo "Missing GitHub variable or secret VERCEL_ORG_ID"; exit 1; }
-          test -n "${VERCEL_PROJECT_ID}" || { echo "Missing GitHub variable or secret VERCEL_PROJECT_ID"; exit 1; }
 
       - name: Install frontend dependencies
         run: npm ci
 
+      - name: Capture Netlify release timestamp
+        id: netlify_release
+        run: echo "built_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
       - name: Build frontend artifact
+        env:
+          VITE_DEPLOY_TARGET: netlify
+          VITE_RELEASE_ID: ${{ github.sha }}
+          VITE_RELEASE_SHA: ${{ github.sha }}
+          VITE_RELEASE_CHANNEL: ${{ ((github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.target == 'production')) && 'production' || 'preview' }}
+          VITE_RELEASE_SOURCE: github-actions
+          VITE_RELEASE_TIME: ${{ steps.netlify_release.outputs.built_at }}
         run: npm run build
 
+      - name: Upload frontend dist bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: app/dist
+          retention-days: 7
+
+  build-vercel-prebuilt:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Validate Vercel deployment configuration
+        run: |
+          test -n "${{ secrets.VERCEL_TOKEN }}" || { echo "Missing GitHub secret VERCEL_TOKEN"; exit 1; }
+          test -n "${VERCEL_ORG_ID}" || { echo "Missing GitHub variable or secret VERCEL_ORG_ID"; exit 1; }
+          test -n "${VERCEL_PROJECT_ID}" || { echo "Missing GitHub variable or secret VERCEL_PROJECT_ID"; exit 1; }
+
+      - name: Capture Vercel release timestamp
+        id: vercel_release
+        run: echo "built_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
       - name: Build Vercel prebuilt output
-        working-directory: .
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VITE_DEPLOY_TARGET: vercel
+          VITE_RELEASE_ID: ${{ github.sha }}
+          VITE_RELEASE_SHA: ${{ github.sha }}
+          VITE_RELEASE_CHANNEL: ${{ ((github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.target == 'production')) && 'production' || 'preview' }}
+          VITE_RELEASE_SOURCE: github-actions
+          VITE_RELEASE_TIME: ${{ steps.vercel_release.outputs.built_at }}
         run: |
           set -euo pipefail
           SANITIZED_VERCEL_TOKEN="$(printf '%s' "${VERCEL_TOKEN}" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
@@ -112,24 +156,18 @@ jobs:
             fi
           fi
 
-      - name: Upload frontend dist bundle
-        uses: actions/upload-artifact@v4
-        with:
-          name: frontend-dist
-          path: app/dist
-          retention-days: 7
-
       - name: Upload Vercel prebuilt output
         uses: actions/upload-artifact@v4
         with:
           name: vercel-prebuilt-output
+          include-hidden-files: true
           path: |
             .vercel/output
             .vercel/project.json
           retention-days: 7
 
   deploy-preview:
-    needs: build
+    needs: build-frontend
     if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.target == 'preview')
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -237,7 +275,7 @@ jobs:
             }
 
   deploy-production:
-    needs: build
+    needs: build-frontend
     if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.target == 'production')
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -301,7 +339,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   deploy-vercel-preview:
-    needs: build
+    needs: build-vercel-prebuilt
     if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.target == 'preview')
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -320,7 +358,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: vercel-prebuilt-output
-          path: .
+          path: .vercel
 
       - name: Publish Vercel preview deploy
         id: deploy
@@ -394,7 +432,7 @@ jobs:
             }
 
   deploy-vercel-production:
-    needs: build
+    needs: build-vercel-prebuilt
     if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.target == 'production')
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -417,7 +455,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: vercel-prebuilt-output
-          path: .
+          path: .vercel
 
       - name: Publish Vercel production deploy
         id: deploy
