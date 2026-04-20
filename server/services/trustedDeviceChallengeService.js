@@ -39,6 +39,13 @@ const normalizeDeviceLabel = (value) => {
     return normalized.slice(0, 120);
 };
 
+const normalizeChallengeScope = (value = '') => {
+    const normalized = String(value || '').trim().toLowerCase();
+    if (!normalized) return '';
+    if (!/^[a-z0-9:_-]{1,64}$/.test(normalized)) return '';
+    return normalized;
+};
+
 const extractTrustedDeviceContext = (req = {}) => ({
     deviceId: normalizeDeviceId(
         req.get?.(TRUSTED_DEVICE_ID_HEADER)
@@ -53,6 +60,65 @@ const extractTrustedDeviceContext = (req = {}) => ({
         || ''
     ),
 });
+
+const getTrustedDeviceSessionToken = (req = {}) => String(
+    req.get?.(TRUSTED_DEVICE_SESSION_HEADER)
+    || req.headers?.[TRUSTED_DEVICE_SESSION_HEADER]
+    || ''
+).trim();
+
+const hashTrustedDeviceSessionToken = (deviceSessionToken = '') => {
+    const safeToken = String(deviceSessionToken || '').trim();
+    if (!safeToken) return '';
+    return crypto.createHash('sha256').update(safeToken).digest('hex');
+};
+
+const extractTrustedDeviceChallengePayload = (source = {}) => {
+    const nested = source?.trustedDeviceChallenge && typeof source.trustedDeviceChallenge === 'object'
+        ? source.trustedDeviceChallenge
+        : {};
+    const credential = nested.credential && typeof nested.credential === 'object'
+        ? nested.credential
+        : source?.credential && typeof source.credential === 'object'
+            ? source.credential
+        : source?.trustedDeviceChallengeCredential && typeof source.trustedDeviceChallengeCredential === 'object'
+            ? source.trustedDeviceChallengeCredential
+            : null;
+
+    return {
+        token: String(
+            nested.token
+            || nested.challengeToken
+            || source?.token
+            || source?.challengeToken
+            || source?.trustedDeviceChallengeToken
+            || ''
+        ).trim(),
+        method: String(
+            nested.method
+            || nested.challengeMethod
+            || source?.method
+            || source?.challengeMethod
+            || source?.trustedDeviceChallengeMethod
+            || ''
+        ).trim().toLowerCase(),
+        proof: String(
+            nested.proof
+            || nested.proofBase64
+            || source?.proof
+            || source?.proofBase64
+            || source?.trustedDeviceChallengeProof
+            || ''
+        ).trim(),
+        publicKeySpkiBase64: String(
+            nested.publicKeySpkiBase64
+            || source?.publicKeySpkiBase64
+            || source?.trustedDeviceChallengePublicKeySpkiBase64
+            || ''
+        ).trim(),
+        credential,
+    };
+};
 
 const buildSessionBinding = ({ authUid = '', authToken = null } = {}) => {
     const issuedAt = Number(authToken?.iat || 0);
@@ -205,6 +271,166 @@ const verifyTrustedDeviceSession = ({
     }
 };
 
+const verifyTrustedDeviceBootstrapSession = ({
+    user,
+    deviceId = '',
+    deviceSessionToken = '',
+} = {}) => {
+    try {
+        const { payload } = openToken(deviceSessionToken);
+        const normalizedDeviceId = normalizeDeviceId(deviceId);
+
+        if (payload?.typ !== 'trusted_device_session') {
+            return { success: false, reason: 'Trusted device session type mismatch' };
+        }
+        if (String(payload?.sub || '') !== String(user?._id || '')) {
+            return { success: false, reason: 'Trusted device session subject mismatch' };
+        }
+        if (payload?.deviceId !== normalizedDeviceId) {
+            return { success: false, reason: 'Trusted device session device mismatch' };
+        }
+        if (Date.now() > Number(payload?.exp || 0)) {
+            return { success: false, reason: 'Trusted device session expired' };
+        }
+
+        return {
+            success: true,
+            deviceSessionHash: hashTrustedDeviceSessionToken(deviceSessionToken),
+        };
+    } catch {
+        return { success: false, reason: 'Trusted device session invalid' };
+    }
+};
+
+const issueTrustedDeviceBootstrapChallenge = async ({
+    req = {},
+    user = null,
+    scope = '',
+} = {}) => {
+    const { deviceId, deviceLabel } = extractTrustedDeviceContext(req);
+    const deviceSessionToken = getTrustedDeviceSessionToken(req);
+    const existingDevice = getTrustedDeviceRegistration(user, deviceId);
+
+    if (!user?._id || !deviceId || !deviceSessionToken || !existingDevice) {
+        return null;
+    }
+
+    const verification = verifyTrustedDeviceBootstrapSession({
+        user,
+        deviceId,
+        deviceSessionToken,
+    });
+
+    if (!verification.success) {
+        return null;
+    }
+
+    return issueTrustedDeviceChallenge({
+        user,
+        deviceId,
+        deviceLabel,
+        req,
+        allowEnrollment: false,
+        expectedDeviceSessionHash: verification.deviceSessionHash,
+        challengeScope: scope,
+    });
+};
+
+const resolveTrustedDeviceBootstrapSignal = async ({
+    req = {},
+    user = null,
+    challengePayload = {},
+    expectedScope = '',
+    requireFreshProof = false,
+} = {}) => {
+    const { deviceId, deviceLabel } = extractTrustedDeviceContext(req);
+    const deviceSessionToken = getTrustedDeviceSessionToken(req);
+    const existingDevice = getTrustedDeviceRegistration(user, deviceId);
+
+    if (!user?._id || !deviceId || !deviceSessionToken || !existingDevice) {
+        return {
+            required: false,
+            verified: false,
+            deviceId: '',
+            deviceSessionHash: '',
+            reason: '',
+        };
+    }
+
+    const sessionVerification = verifyTrustedDeviceBootstrapSession({
+        user,
+        deviceId,
+        deviceSessionToken,
+    });
+
+    if (!sessionVerification.success) {
+        return {
+            required: false,
+            verified: false,
+            deviceId: '',
+            deviceSessionHash: '',
+            reason: '',
+        };
+    }
+
+    const normalizedChallenge = extractTrustedDeviceChallengePayload(challengePayload);
+    const hasFreshProof = Boolean(
+        normalizedChallenge.token
+        && (normalizedChallenge.proof || normalizedChallenge.credential)
+    );
+
+    if (!hasFreshProof) {
+        if (requireFreshProof) {
+            return {
+                required: true,
+                verified: false,
+                deviceId: '',
+                deviceSessionHash: '',
+                reason: 'Fresh trusted device verification is required.',
+            };
+        }
+
+        return {
+            required: false,
+            verified: true,
+            deviceId,
+            deviceSessionHash: sessionVerification.deviceSessionHash,
+            reason: '',
+        };
+    }
+
+    const challengeVerification = await verifyTrustedDeviceChallenge({
+        user,
+        token: normalizedChallenge.token,
+        method: normalizedChallenge.method,
+        proof: normalizedChallenge.proof,
+        publicKeySpkiBase64: normalizedChallenge.publicKeySpkiBase64,
+        credential: normalizedChallenge.credential,
+        deviceId,
+        deviceLabel,
+        deviceSessionToken,
+        expectedScope,
+    });
+
+    if (!challengeVerification.success) {
+        return {
+            required: true,
+            verified: false,
+            deviceId: '',
+            deviceSessionHash: '',
+            reason: `Fresh trusted device verification failed: ${challengeVerification.reason}`,
+        };
+    }
+
+    return {
+        required: true,
+        verified: true,
+        deviceId,
+        deviceSessionHash: sessionVerification.deviceSessionHash,
+        reason: '',
+    };
+};
+
 const verifyRsaPssSignature = ({ publicKeySpkiBase64 = '', signatureBase64 = '', message }) => {
     const publicKeyDer = Buffer.from(String(publicKeySpkiBase64 || ''), 'base64');
     const signature = Buffer.from(String(signatureBase64 || ''), 'base64');
@@ -348,6 +574,9 @@ const issueTrustedDeviceChallenge = async ({
     deviceId = '',
     deviceLabel = '',
     req = {},
+    allowEnrollment = true,
+    expectedDeviceSessionHash = '',
+    challengeScope = '',
 }) => {
     const normalizedDeviceId = normalizeDeviceId(deviceId);
     if (!user?._id || !normalizedDeviceId) {
@@ -355,6 +584,9 @@ const issueTrustedDeviceChallenge = async ({
     }
 
     const existingDevice = getTrustedDeviceRegistration(user, normalizedDeviceId);
+    if (!allowEnrollment && !existingDevice) {
+        throw new Error('Trusted device registration missing');
+    }
     const challenge = crypto.randomBytes(32).toString('base64url');
     const expiresAt = Date.now() + DEVICE_CHALLENGE_TTL_MS;
     const mode = existingDevice ? 'assert' : 'enroll';
@@ -388,6 +620,8 @@ const issueTrustedDeviceChallenge = async ({
         registeredMethod,
         webauthnContext,
         sessionBinding: buildSessionBinding({ authUid, authToken }),
+        expectedDeviceSessionHash: String(expectedDeviceSessionHash || '').trim(),
+        scope: normalizeChallengeScope(challengeScope),
         exp: expiresAt,
     });
 
@@ -441,6 +675,8 @@ const verifyTrustedDeviceChallenge = async ({
     deviceLabel = '',
     publicKeySpkiBase64 = '',
     credential = null,
+    deviceSessionToken = '',
+    expectedScope = '',
 }) => {
     let payload;
     try {
@@ -463,6 +699,15 @@ const verifyTrustedDeviceChallenge = async ({
     }
     if (payload.sessionBinding !== expectedSessionBinding) {
         return { success: false, reason: 'Device challenge session binding mismatch' };
+    }
+    const expectedDeviceSessionHash = String(payload?.expectedDeviceSessionHash || '').trim();
+    if (expectedDeviceSessionHash && expectedDeviceSessionHash !== hashTrustedDeviceSessionToken(deviceSessionToken)) {
+        return { success: false, reason: 'Device challenge trusted session mismatch' };
+    }
+    const challengeScope = normalizeChallengeScope(payload?.scope || '');
+    const requestedScope = normalizeChallengeScope(expectedScope);
+    if (challengeScope && challengeScope !== requestedScope) {
+        return { success: false, reason: 'Device challenge scope mismatch' };
     }
 
     const requestedMethod = normalizeChallengeMethod(
@@ -662,11 +907,17 @@ module.exports = {
     TRUSTED_DEVICE_LABEL_HEADER,
     TRUSTED_DEVICE_SESSION_HEADER,
     extractTrustedDeviceContext,
+    extractTrustedDeviceChallengePayload,
+    getTrustedDeviceSessionToken,
     getTrustedDeviceRegistration,
     isTrustedDeviceRegisteredForUser,
+    hashTrustedDeviceSessionToken,
     issueTrustedDeviceChallenge,
+    issueTrustedDeviceBootstrapChallenge,
     issueTrustedDeviceSession,
+    resolveTrustedDeviceBootstrapSignal,
     verifyTrustedDeviceSession,
+    verifyTrustedDeviceBootstrapSession,
     normalizeDeviceId,
     verifyTrustedDeviceChallenge,
 };

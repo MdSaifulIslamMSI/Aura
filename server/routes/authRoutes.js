@@ -3,6 +3,7 @@ const {
     establishSessionCookie,
     getSession,
     logoutSession,
+    requestBootstrapDeviceChallenge,
     syncSession,
     completePhoneFactorLogin,
     completePhoneFactorVerification,
@@ -39,6 +40,7 @@ router.post('/exchange', protect, establishSessionCookie, csrfTokenGenerator, ge
 router.get('/session', protect, establishSessionCookie, csrfTokenGenerator, getSession);
 router.post('/sync', protect, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, authSyncLimiter, validate(loginSchema), syncSession);
 router.post('/logout', logoutSession);
+router.post('/bootstrap-device-challenge', requestBootstrapDeviceChallenge);
 router.post('/complete-phone-factor-login', protect, completePhoneFactorLogin);
 router.post('/complete-phone-factor-verification', protectPhoneFactorProof, completePhoneFactorVerification);
 router.post('/verify-device', protect, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, verifyDeviceChallenge);

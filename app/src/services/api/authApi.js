@@ -1,6 +1,7 @@
 import { apiFetch } from '../apiBase';
 import { getAuthHeader } from './apiUtils';
 import { ensureCsrfToken, addCsrfTokenToHeaders, cacheToken, clearCsrfTokenCache } from '../csrfTokenManager';
+import { getTrustedDeviceSessionToken, signTrustedDeviceChallenge } from '../deviceTrustClient';
 
 /**
  * Auth API CSRF flow:
@@ -147,6 +148,35 @@ const postPublicOtpRequest = async (path, body) => {
     return data;
 };
 
+const requestBootstrapDeviceChallenge = async (payload, options = {}) => {
+    if (!getTrustedDeviceSessionToken()) {
+        return null;
+    }
+
+    const headers = await getAuthHeader(options.firebaseUser, {
+        useFirebaseBearer: Boolean(options.firebaseUser?.getIdToken),
+    });
+    const { data } = await apiFetch('/auth/bootstrap-device-challenge', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload),
+    });
+    const challenge = data?.deviceChallenge || null;
+
+    if (!challenge?.token || !challenge?.challenge) {
+        return null;
+    }
+
+    const proofPayload = await signTrustedDeviceChallenge(challenge);
+    return {
+        token: challenge.token,
+        method: proofPayload?.method || 'browser_key',
+        proof: proofPayload?.proofBase64 || '',
+        publicKeySpkiBase64: proofPayload?.publicKeySpkiBase64 || '',
+        credential: proofPayload?.credential || null,
+    };
+};
+
 export const authApi = {
     exchangeSession: async (options = {}) => exchangeSessionWithFirebase(options.firebaseUser, options),
     getSession: async (options = {}) => {
@@ -184,7 +214,20 @@ export const authApi = {
         return postWithFirebaseBearer('/auth/complete-phone-factor-login', { email, phone }, options);
     },
     completePhoneFactorVerification: async (purpose, email, phone, options = {}) => {
-        return postWithFirebaseBearer('/auth/complete-phone-factor-verification', { purpose, email, phone }, options);
+        const trustedDeviceChallenge = String(purpose || '').trim().toLowerCase() === 'forgot-password'
+            ? await requestBootstrapDeviceChallenge({
+              scope: `phone-factor:${purpose}`,
+              email,
+              phone,
+            }, options)
+            : null;
+
+        return postWithFirebaseBearer('/auth/complete-phone-factor-verification', {
+            purpose,
+            email,
+            phone,
+            ...(trustedDeviceChallenge ? { trustedDeviceChallenge } : {}),
+        }, options);
     },
     logoutSession: async (options = {}) => {
         const headers = await getAuthHeader(options.firebaseUser);
@@ -227,10 +270,23 @@ export const authApi = {
 export const otpApi = {
     sendOtp: async (email, phone, purpose, options = {}) => {
         const candidatePaths = ['/auth/otp/send', '/otp/send'];
+        const trustedDeviceChallenge = ['login', 'forgot-password'].includes(String(purpose || '').trim().toLowerCase())
+            ? await requestBootstrapDeviceChallenge({
+              scope: `otp-send:${purpose}`,
+              email,
+              phone,
+            }, options)
+            : null;
         let lastError = null;
         for (const path of candidatePaths) {
             try {
-                return await postPublicOtpRequest(path, { email, phone, purpose, ...options });
+                return await postPublicOtpRequest(path, {
+                    email,
+                    phone,
+                    purpose,
+                    ...options,
+                    ...(trustedDeviceChallenge ? { trustedDeviceChallenge } : {}),
+                });
             } catch (error) {
                 lastError = error;
                 if (error?.status !== 404) break;
@@ -259,10 +315,19 @@ export const otpApi = {
         const payload = payloadOrEmail && typeof payloadOrEmail === 'object' && !Array.isArray(payloadOrEmail)
             ? { ...payloadOrEmail }
             : { email: payloadOrEmail, phone, password };
+        const trustedDeviceChallenge = payload?.flowToken
+            ? await requestBootstrapDeviceChallenge({
+              scope: 'reset-password',
+              flowToken: payload.flowToken,
+            })
+            : null;
         let lastError = null;
         for (const path of candidatePaths) {
             try {
-                return await postPublicOtpRequest(path, payload);
+                return await postPublicOtpRequest(path, {
+                    ...payload,
+                    ...(trustedDeviceChallenge ? { trustedDeviceChallenge } : {}),
+                });
             } catch (error) {
                 lastError = error;
                 if (error?.status !== 404) break;

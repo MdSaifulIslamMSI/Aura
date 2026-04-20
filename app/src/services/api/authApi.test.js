@@ -4,6 +4,8 @@ let authApi;
 let otpApi;
 let mocks;
 
+const buildRuntimeValue = (label = 'value') => `${label}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
 const loadAuthApi = async () => {
   vi.resetModules();
 
@@ -13,6 +15,8 @@ const loadAuthApi = async () => {
     addCsrfTokenToHeadersMock: vi.fn(),
     cacheTokenMock: vi.fn(),
     clearCsrfTokenCacheMock: vi.fn(),
+    getTrustedDeviceSessionTokenMock: vi.fn(),
+    signTrustedDeviceChallengeMock: vi.fn(),
   };
 
   vi.doMock('./apiUtils', () => ({
@@ -26,6 +30,11 @@ const loadAuthApi = async () => {
     clearCsrfTokenCache: mocks.clearCsrfTokenCacheMock,
   }));
 
+  vi.doMock('../deviceTrustClient', () => ({
+    getTrustedDeviceSessionToken: mocks.getTrustedDeviceSessionTokenMock,
+    signTrustedDeviceChallenge: mocks.signTrustedDeviceChallengeMock,
+  }));
+
   ({ authApi, otpApi } = await import('./authApi'));
 };
 
@@ -34,12 +43,20 @@ describe('authApi', () => {
     vi.restoreAllMocks();
     vi.stubGlobal('fetch', vi.fn());
     await loadAuthApi();
+    mocks.getTrustedDeviceSessionTokenMock.mockReturnValue('');
+    mocks.signTrustedDeviceChallengeMock.mockResolvedValue({
+      method: 'browser_key',
+      proofBase64: buildRuntimeValue('sig'),
+      publicKeySpkiBase64: '',
+      credential: null,
+    });
   });
 
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.doUnmock('./apiUtils');
     vi.doUnmock('../csrfTokenManager');
+    vi.doUnmock('../deviceTrustClient');
   });
 
   it('bootstraps a cookie session through /auth/exchange when /auth/session initially returns 401', async () => {
@@ -118,6 +135,10 @@ describe('authApi', () => {
   });
 
   it('sends trusted-device verification with Firebase bearer only when a Firebase user is present', async () => {
+    const deviceSessionToken = buildRuntimeValue('session-ref');
+    const challengeToken = buildRuntimeValue('challenge-ref');
+    const proofBase64 = buildRuntimeValue('sig-ref');
+    const publicKeySpkiBase64 = buildRuntimeValue('key-ref');
     const firebaseUser = {
       getIdToken: vi.fn().mockResolvedValue('fresh-token'),
     };
@@ -125,22 +146,22 @@ describe('authApi', () => {
     mocks.getAuthHeaderMock.mockResolvedValueOnce({ Authorization: 'Bearer fresh-token' });
 
     global.fetch.mockResolvedValueOnce(
-      new Response(JSON.stringify({ success: true, deviceSessionToken: 'device-token' }), {
+      new Response(JSON.stringify({ success: true, deviceSessionToken }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
       })
     );
 
     await expect(authApi.verifyDeviceChallenge(
-      'challenge-token',
+      challengeToken,
       {
         method: 'browser_key',
-        proofBase64: 'proof-data',
-        publicKeySpkiBase64: 'public-key',
+        proofBase64,
+        publicKeySpkiBase64,
       },
       '',
       { firebaseUser }
-    )).resolves.toEqual({ success: true, deviceSessionToken: 'device-token' });
+    )).resolves.toEqual({ success: true, deviceSessionToken });
 
     expect(mocks.getAuthHeaderMock).toHaveBeenCalledTimes(1);
     expect(mocks.getAuthHeaderMock).toHaveBeenCalledWith(firebaseUser, {
@@ -151,7 +172,68 @@ describe('authApi', () => {
     expect(global.fetch).toHaveBeenCalledTimes(1);
   });
 
+  it('adds a fresh trusted-device bootstrap proof to sensitive OTP requests', async () => {
+    const deviceSessionToken = buildRuntimeValue('session-ref');
+    const bootstrapToken = buildRuntimeValue('bootstrap-ref');
+    const challengeValue = buildRuntimeValue('challenge-ref');
+    const bootstrapProof = buildRuntimeValue('sig-ref');
+    const publicKeySpkiBase64 = buildRuntimeValue('key-ref');
+
+    mocks.getTrustedDeviceSessionTokenMock.mockReturnValue(deviceSessionToken);
+    mocks.getAuthHeaderMock
+      .mockResolvedValueOnce({ 'X-Aura-Device-Id': 'device-123', 'X-Aura-Device-Session': deviceSessionToken })
+      .mockResolvedValueOnce({ 'X-Aura-Device-Id': 'device-123', 'X-Aura-Device-Session': deviceSessionToken });
+    mocks.signTrustedDeviceChallengeMock.mockResolvedValueOnce({
+      method: 'browser_key',
+      proofBase64: bootstrapProof,
+      publicKeySpkiBase64,
+      credential: null,
+    });
+
+    global.fetch
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({
+          success: true,
+          deviceChallenge: {
+            token: bootstrapToken,
+            challenge: challengeValue,
+            mode: 'assert',
+            deviceId: 'device-123',
+          },
+        }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ success: true }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      );
+
+    await expect(otpApi.sendOtp('user@example.com', '+919999999999', 'forgot-password'))
+      .resolves
+      .toEqual({ success: true });
+
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+    expect(mocks.signTrustedDeviceChallengeMock).toHaveBeenCalledWith(expect.objectContaining({
+      token: bootstrapToken,
+      challenge: challengeValue,
+    }));
+    const [_url, requestOptions] = global.fetch.mock.calls[1];
+    const requestBody = JSON.parse(requestOptions.body);
+    expect(requestBody.trustedDeviceChallenge).toEqual({
+      token: bootstrapToken,
+      method: 'browser_key',
+      proof: bootstrapProof,
+      publicKeySpkiBase64,
+      credential: null,
+    });
+  });
+
   it('sends reset-password requests with the server-issued recovery flow token', async () => {
+    const flowToken = buildRuntimeValue('flow-ref');
     mocks.getAuthHeaderMock.mockResolvedValueOnce({ 'X-Aura-Device-Id': 'device-123' });
 
     global.fetch.mockResolvedValueOnce(
@@ -162,7 +244,7 @@ describe('authApi', () => {
     );
 
     await expect(otpApi.resetPassword({
-      flowToken: 'otp-flow-token',
+      flowToken,
       password: 'Orbital!59Qa',
     }))
       .resolves
@@ -174,7 +256,7 @@ describe('authApi', () => {
     const requestBody = JSON.parse(requestOptions.body);
     expect(requestOptions.headers.get('X-Aura-Device-Id')).toBe('device-123');
     expect(requestBody).toEqual({
-      flowToken: 'otp-flow-token',
+      flowToken,
       password: 'Orbital!59Qa',
     });
   });
