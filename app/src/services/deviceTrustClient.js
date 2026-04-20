@@ -2,6 +2,7 @@ const DEVICE_ID_STORAGE_KEY = 'aura_trusted_device_id_v1';
 const DEVICE_SESSION_STORAGE_KEY = 'aura_trusted_device_session_v1';
 const DEVICE_DB_NAME = 'aura_trusted_device_keys';
 const DEVICE_STORE_NAME = 'keys';
+const CLIENT_ORIGIN_HEADER = 'X-Aura-Client-Origin';
 const PERSIST_TRUSTED_DEVICE_SESSION = String(
   import.meta.env.VITE_PERSIST_TRUSTED_DEVICE_SESSION || 'false'
 ).trim().toLowerCase() === 'true';
@@ -210,6 +211,19 @@ export const cacheTrustedDeviceSessionToken = (token = '') => {
 
 export const clearTrustedDeviceSessionToken = () => {
   cacheTrustedDeviceSessionToken('');
+};
+
+export const getTrustedDeviceClientOrigin = () => {
+  if (!hasWindow()) return '';
+
+  const explicitOrigin = String(window.location?.origin || '').trim();
+  if (explicitOrigin) return explicitOrigin;
+
+  const protocol = String(window.location?.protocol || '').trim();
+  const host = String(window.location?.host || '').trim();
+  if (!host) return '';
+
+  return `${protocol || 'https:'}//${host}`;
 };
 
 export const isTrustedDeviceSupported = () => Boolean(
@@ -509,10 +523,12 @@ export const resetTrustedDeviceIdentity = async () => {
 export const getTrustedDeviceHeaders = () => {
   const deviceId = getTrustedDeviceId();
   const deviceSessionToken = getTrustedDeviceSessionToken();
+  const clientOrigin = getTrustedDeviceClientOrigin();
 
   return {
     'X-Aura-Device-Id': deviceId,
     'X-Aura-Device-Label': getTrustedDeviceLabel(),
+    ...(clientOrigin ? { [CLIENT_ORIGIN_HEADER]: clientOrigin } : {}),
     ...(deviceSessionToken ? { 'X-Aura-Device-Session': deviceSessionToken } : {}),
   };
 };
