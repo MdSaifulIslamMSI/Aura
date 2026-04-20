@@ -13,6 +13,13 @@ const hasWindow = () => typeof window !== 'undefined';
 
 const normalizeHost = (value = '') => String(value || '').trim().toLowerCase();
 
+const normalizeTrustedDeviceMethod = (value = '') => {
+  const normalized = String(value || '').trim().toLowerCase();
+  return normalized === 'webauthn' || normalized === 'browser_key'
+    ? normalized
+    : '';
+};
+
 const getRuntimeHost = () => {
   if (!hasWindow()) return '';
   return normalizeHost(window.location?.hostname || window.location?.host || '');
@@ -405,7 +412,7 @@ const runWebAuthnAssertion = async (challenge = {}) => {
   return serializePasskeyAssertion(credential, getTrustedDeviceId());
 };
 
-export const signTrustedDeviceChallenge = async (challenge = {}) => {
+export const signTrustedDeviceChallenge = async (challenge = {}, options = {}) => {
   if (!isTrustedDeviceSupported()) {
     throw new Error('Trusted device verification requires a secure browser with WebCrypto and IndexedDB support.');
   }
@@ -413,7 +420,20 @@ export const signTrustedDeviceChallenge = async (challenge = {}) => {
   const availableMethods = Array.isArray(challenge?.availableMethods)
     ? challenge.availableMethods.map((method) => String(method || '').trim().toLowerCase()).filter(Boolean)
     : [];
-  const shouldTryWebAuthn = availableMethods.includes('webauthn') && isWebAuthnSupported();
+  const selectedMethod = normalizeTrustedDeviceMethod(options?.preferredMethod);
+  const challengeAllowsMethod = (method) => !availableMethods.length || availableMethods.includes(method);
+
+  if (selectedMethod === 'webauthn' && !challengeAllowsMethod('webauthn')) {
+    throw new Error('Passkey verification is not available for this challenge.');
+  }
+
+  if (selectedMethod === 'browser_key' && !challengeAllowsMethod('browser_key')) {
+    throw new Error('RSA-PSS browser-key verification is not available for this challenge.');
+  }
+
+  const shouldTryWebAuthn = selectedMethod
+    ? selectedMethod === 'webauthn'
+    : challengeAllowsMethod('webauthn') && isWebAuthnSupported();
 
   if (shouldTryWebAuthn) {
     try {
@@ -421,10 +441,18 @@ export const signTrustedDeviceChallenge = async (challenge = {}) => {
         ? await runWebAuthnEnrollment(challenge)
         : await runWebAuthnAssertion(challenge);
     } catch (error) {
-      if (!availableMethods.includes('browser_key') || !shouldFallbackFromWebAuthn(error)) {
+      if (selectedMethod === 'webauthn') {
+        throw error;
+      }
+
+      if (!challengeAllowsMethod('browser_key') || !shouldFallbackFromWebAuthn(error)) {
         throw error;
       }
     }
+  }
+
+  if (selectedMethod === 'webauthn') {
+    throw new Error('Passkey verification is not available for this challenge.');
   }
 
   if (!canUseBrowserKeyFallback()) {

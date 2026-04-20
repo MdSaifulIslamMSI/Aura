@@ -226,6 +226,117 @@ describe('deviceTrustClient', () => {
     });
   });
 
+  it('allows explicitly choosing the RSA-PSS browser-key path when both methods are offered', async () => {
+    const indexedDbMock = createIndexedDbMock();
+    const subtleMocks = {
+      generateKey: vi.fn().mockResolvedValue({
+        privateKey: { kind: 'private-key' },
+        publicKey: { kind: 'public-key' },
+      }),
+      exportKey: vi.fn().mockResolvedValue(Uint8Array.from([1, 2, 3, 4]).buffer),
+      sign: vi.fn().mockResolvedValue(Uint8Array.from([5, 6, 7, 8]).buffer),
+    };
+    const createCredentialMock = vi.fn();
+
+    setRuntimeHost({ hostname: 'localhost', host: 'localhost:4173' });
+    Object.defineProperty(window, 'isSecureContext', { configurable: true, value: true });
+    Object.defineProperty(window, 'PublicKeyCredential', { configurable: true, value: class PublicKeyCredential {} });
+    Object.defineProperty(window, 'indexedDB', { configurable: true, value: indexedDbMock.indexedDB });
+    Object.defineProperty(window, 'crypto', {
+      configurable: true,
+      value: {
+        randomUUID: () => 'uuid-explicit-browser-key',
+        subtle: subtleMocks,
+      },
+    });
+    Object.defineProperty(window.navigator, 'credentials', {
+      configurable: true,
+      value: {
+        create: createCredentialMock,
+        get: vi.fn(),
+      },
+    });
+
+    const deviceTrustClient = await loadDeviceTrustModule();
+    const result = await deviceTrustClient.signTrustedDeviceChallenge({
+      availableMethods: ['webauthn', 'browser_key'],
+      challenge: 'explicit-browser-key',
+      mode: 'enroll',
+    }, {
+      preferredMethod: 'browser_key',
+    });
+
+    expect(createCredentialMock).not.toHaveBeenCalled();
+    expect(subtleMocks.generateKey).toHaveBeenCalledTimes(1);
+    expect(subtleMocks.sign).toHaveBeenCalledTimes(1);
+    expect(result).toMatchObject({
+      method: 'browser_key',
+      deviceId: expect.stringContaining('aura_'),
+      publicKeySpkiBase64: expect.any(String),
+      proofBase64: expect.any(String),
+    });
+  });
+
+  it('does not silently fall back to the browser key when passkey was explicitly chosen', async () => {
+    const indexedDbMock = createIndexedDbMock();
+    const createCredentialMock = vi.fn().mockRejectedValue(Object.assign(
+      new Error('The relying party ID is not a registrable domain suffix of, nor equal to the current domain. Subsequently, an attempt to fetch the .well-known/webauthn resource of the claimed RP ID failed.'),
+      { name: 'SecurityError' },
+    ));
+    const subtleMocks = {
+      generateKey: vi.fn(),
+      exportKey: vi.fn(),
+      sign: vi.fn(),
+    };
+
+    setRuntimeHost({ hostname: 'localhost', host: 'localhost:4173' });
+    Object.defineProperty(window, 'isSecureContext', { configurable: true, value: true });
+    Object.defineProperty(window, 'PublicKeyCredential', { configurable: true, value: class PublicKeyCredential {} });
+    Object.defineProperty(window, 'indexedDB', { configurable: true, value: indexedDbMock.indexedDB });
+    Object.defineProperty(window, 'crypto', {
+      configurable: true,
+      value: {
+        randomUUID: () => 'uuid-explicit-passkey',
+        subtle: subtleMocks,
+      },
+    });
+    Object.defineProperty(window.navigator, 'credentials', {
+      configurable: true,
+      value: {
+        create: createCredentialMock,
+        get: vi.fn(),
+      },
+    });
+
+    const deviceTrustClient = await loadDeviceTrustModule();
+
+    await expect(deviceTrustClient.signTrustedDeviceChallenge({
+      availableMethods: ['webauthn', 'browser_key'],
+      challenge: 'explicit-passkey',
+      mode: 'enroll',
+      webauthn: {
+        registrationOptions: {
+          challenge: 'ZmFsbGJhY2staWQ',
+          user: {
+            id: 'dXNlci1pZA',
+            name: 'member@example.com',
+            displayName: 'Member',
+          },
+          rp: {
+            id: 'localhost',
+            name: 'Aura Trusted Device',
+          },
+        },
+      },
+    }, {
+      preferredMethod: 'webauthn',
+    })).rejects.toThrow('The relying party ID is not a registrable domain suffix');
+
+    expect(createCredentialMock).toHaveBeenCalledTimes(1);
+    expect(subtleMocks.generateKey).not.toHaveBeenCalled();
+    expect(subtleMocks.sign).not.toHaveBeenCalled();
+  });
+
   it('stores the trusted-device session token in sessionStorage by default', async () => {
     const deviceTrustClient = await loadDeviceTrustModule();
 
