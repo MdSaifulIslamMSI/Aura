@@ -4,6 +4,7 @@ const { flags: trustedDeviceFlags } = require('../config/authTrustedDeviceFlags'
 
 const PASSKEY_METHOD = 'webauthn';
 const DEFAULT_RP_NAME = 'Aura Trusted Device';
+const CLIENT_ORIGIN_HEADER = 'x-aura-client-origin';
 const FLAG_USER_PRESENT = 0x01;
 const FLAG_USER_VERIFIED = 0x04;
 const FLAG_ATTESTED_CREDENTIAL_DATA = 0x40;
@@ -79,6 +80,13 @@ const fromBase64Url = (value) => Buffer.from(String(value || ''), 'base64url');
 const sha256 = (input) => crypto.createHash('sha256').update(input).digest();
 
 const getRequestOrigin = (req = {}) => {
+    const explicitClientOrigin = normalizeText(
+        req.get?.(CLIENT_ORIGIN_HEADER)
+        || req.headers?.[CLIENT_ORIGIN_HEADER]
+        || ''
+    );
+    if (explicitClientOrigin) return explicitClientOrigin;
+
     const explicitOrigin = normalizeText(req.headers?.origin || '');
     if (explicitOrigin) return explicitOrigin;
 
@@ -92,13 +100,15 @@ const getRequestOrigin = (req = {}) => {
     }
 
     const host = normalizeText(req.get?.('host') || req.headers?.host || '');
-    if (!host) {
+    const forwardedHost = normalizeText(req.headers?.['x-forwarded-host'] || '');
+    const resolvedHost = forwardedHost.split(',')[0].trim() || host;
+    if (!resolvedHost) {
         return normalizeText(trustedDeviceFlags.authWebAuthnOrigin || '') || 'https://localhost';
     }
 
     const forwardedProto = normalizeText(req.headers?.['x-forwarded-proto'] || '');
     const protocol = forwardedProto.split(',')[0].trim() || req.protocol || 'https';
-    return `${protocol}://${host}`;
+    return `${protocol}://${resolvedHost}`;
 };
 
 const resolveWebAuthnRequestContext = (req = {}) => {
