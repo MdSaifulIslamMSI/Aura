@@ -225,6 +225,7 @@ const syncSession = asyncHandler(async (req, res) => {
     const flowToken = typeof req.body?.flowToken === 'string'
         ? req.body.flowToken.trim()
         : '';
+    const { deviceId } = extractTrustedDeviceContext(req);
 
     let user = await syncAuthenticatedUser({
         authUser,
@@ -239,6 +240,8 @@ const syncSession = asyncHandler(async (req, res) => {
             user,
             flowToken,
             authToken: req.authToken || null,
+            authUid: req.authUid || req.authToken?.uid || '',
+            deviceId,
             phone: req.body?.phone,
         });
     }
@@ -538,10 +541,12 @@ const completePhoneFactorVerification = asyncHandler(async (req, res) => {
 
     await persistAuthSnapshot(updatedUser);
     await invalidateUserCacheByEmail(requestEmail);
+    const { deviceId } = extractTrustedDeviceContext(req);
     const flowPayload = issueOtpFlowToken({
         userId: updatedUser._id,
         purpose,
         factor: 'otp',
+        signalBond: deviceId ? { deviceId } : {},
     });
 
     return res.json({

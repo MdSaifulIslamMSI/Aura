@@ -152,6 +152,8 @@ describe('authApi', () => {
   });
 
   it('sends reset-password requests with the server-issued recovery flow token', async () => {
+    mocks.getAuthHeaderMock.mockResolvedValueOnce({ 'X-Aura-Device-Id': 'device-123' });
+
     global.fetch.mockResolvedValueOnce(
       new Response(JSON.stringify({ success: true }), {
         status: 200,
@@ -167,9 +169,10 @@ describe('authApi', () => {
       .toEqual({ success: true });
 
     expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(mocks.getAuthHeaderMock).toHaveBeenCalledTimes(1);
     const [_url, requestOptions] = global.fetch.mock.calls[0];
     const requestBody = JSON.parse(requestOptions.body);
-    expect(requestOptions.headers.get('X-Aura-Invisible-Bits')).toBeNull();
+    expect(requestOptions.headers.get('X-Aura-Device-Id')).toBe('device-123');
     expect(requestBody).toEqual({
       flowToken: 'otp-flow-token',
       password: 'Orbital!59Qa',

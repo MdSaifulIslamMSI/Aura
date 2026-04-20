@@ -14,6 +14,7 @@ const { issueOtpFlowToken, verifyOtpFlowToken } = require('../utils/otpFlowToken
 const { flags: otpEmailFlags } = require('../config/otpEmailFlags');
 const { flags: otpSmsFlags } = require('../config/otpSmsFlags');
 const { validatePasswordPolicy, detectWeakPasswordPatterns } = require('../utils/passwordValidator');
+const { extractTrustedDeviceContext } = require('../services/trustedDeviceChallengeService');
 
 const OTP_LENGTH = 6;
 const OTP_EXPIRY_MS = otpEmailFlags.otpEmailTtlMinutes * 60 * 1000;
@@ -113,6 +114,22 @@ const normalizePurpose = (value) => (
 const normalizeOtpFactor = (value) => (
     typeof value === 'string' ? value.trim().toLowerCase() : ''
 );
+
+const buildOtpFlowSignalBond = ({ req = {}, session = null, purpose = '' } = {}) => {
+    const signalBond = {};
+    const requestDeviceId = String(extractTrustedDeviceContext(req)?.deviceId || '').trim();
+    const boundDeviceId = String(session?.requestMeta?.deviceId || requestDeviceId || '').trim();
+    const boundAuthUid = String(session?.requestMeta?.credentialUid || '').trim();
+
+    if (boundDeviceId) {
+        signalBond.deviceId = boundDeviceId;
+    }
+    if (purpose === 'login' && boundAuthUid) {
+        signalBond.authUid = boundAuthUid;
+    }
+
+    return signalBond;
+};
 
 const parseBooleanEnv = (value, fallback = false) => {
     if (value === undefined || value === null || value === '') return fallback;
@@ -526,6 +543,7 @@ const sendOtp = asyncHandler(async (req, res, next) => {
         ? rawCredentialProofToken.trim()
         : '';
     const useStrictLoginIdentity = purpose === 'login' && strictIdentity;
+    const { deviceId } = extractTrustedDeviceContext(req);
 
     if (!EMAIL_REGEX.test(email)) {
         return next(new AppError('Valid email address is required', 400));
@@ -823,6 +841,8 @@ const sendOtp = asyncHandler(async (req, res, next) => {
         userAgent: req.headers['user-agent'] || '',
         location: String(req.headers['x-client-location'] || '').trim(),
         requestId,
+        deviceId,
+        credentialUid: String(credentialProof?.uid || credentialProof?.sub || '').trim(),
     };
 
     // SECURITY: Delete other active OTP purposes for the same canonical identity.
@@ -1389,6 +1409,11 @@ const verifyOtp = asyncHandler(async (req, res, next) => {
         userId: user._id,
         purpose,
         factor: isEmailFactorOtp ? 'email' : 'otp',
+        signalBond: buildOtpFlowSignalBond({
+            req,
+            session,
+            purpose,
+        }),
     });
 
     res.json({
@@ -1412,6 +1437,7 @@ const resetPasswordWithOtp = asyncHandler(async (req, res, next) => {
     const rawPassword = req.body?.password;
     const clientIp = extractClientIp(req);
     const requestId = req.requestId || '-';
+    const { deviceId } = extractTrustedDeviceContext(req);
 
     if (rawFlowToken === undefined || rawFlowToken === null || rawFlowToken === '') {
         return next(new AppError('Recovery flow token is required', 400));
@@ -1448,6 +1474,7 @@ const resetPasswordWithOtp = asyncHandler(async (req, res, next) => {
         token: flowToken,
         expectedPurpose: 'forgot-password',
         expectedFactor: 'otp',
+        expectedSignalBond: deviceId ? { deviceId } : {},
     });
 
     const user = await User.findById(verifiedFlow.sub)
