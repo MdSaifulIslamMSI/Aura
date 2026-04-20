@@ -1,4 +1,5 @@
 const request = require('supertest');
+const crypto = require('crypto');
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const mockGetUserByEmail = jest.fn();
@@ -26,6 +27,9 @@ jest.mock('../config/firebase', () => ({
 const app = require('../index');
 const User = require('../models/User');
 const { issueOtpFlowToken } = require('../utils/otpFlowToken');
+const { registerOtpFlowGrant } = require('../services/otpFlowGrantService');
+const trustedDeviceChallengeService = require('../services/trustedDeviceChallengeService');
+const { hashTrustedDeviceSessionToken } = trustedDeviceChallengeService;
 
 const { sendOtpEmail } = require('../services/emailService');
 const { sendOtpSms } = require('../services/sms');
@@ -209,13 +213,22 @@ describe('OTP API Routes Integration', () => {
                 isVerified: true,
                 resetOtpVerifiedAt: new Date(),
             });
-            const { flowToken } = issueOtpFlowToken({
+            const { flowToken, flowTokenExpiresAt, tokenState } = issueOtpFlowToken({
                 userId: user._id,
                 purpose: 'forgot-password',
                 factor: 'otp',
                 signalBond: {
                     deviceId: 'device-reset-123',
                 },
+            });
+            await registerOtpFlowGrant({
+                tokenId: tokenState.tokenId,
+                userId: user._id,
+                purpose: 'forgot-password',
+                factor: 'otp',
+                currentStep: 'otp-verified',
+                nextStep: tokenState.nextStep,
+                expiresAt: flowTokenExpiresAt,
             });
 
             const res = await request(app).post('/api/otp/reset-password')
@@ -244,13 +257,22 @@ describe('OTP API Routes Integration', () => {
                 isVerified: true,
                 resetOtpVerifiedAt: new Date(),
             });
-            const { flowToken } = issueOtpFlowToken({
+            const { flowToken, flowTokenExpiresAt, tokenState } = issueOtpFlowToken({
                 userId: user._id,
                 purpose: 'forgot-password',
                 factor: 'otp',
                 signalBond: {
                     deviceId: 'device-reset-123',
                 },
+            });
+            await registerOtpFlowGrant({
+                tokenId: tokenState.tokenId,
+                userId: user._id,
+                purpose: 'forgot-password',
+                factor: 'otp',
+                currentStep: 'otp-verified',
+                nextStep: tokenState.nextStep,
+                expiresAt: flowTokenExpiresAt,
             });
 
             const res = await request(app).post('/api/otp/reset-password')
@@ -272,10 +294,19 @@ describe('OTP API Routes Integration', () => {
                 isVerified: true,
                 resetOtpVerifiedAt: null,
             });
-            const { flowToken } = issueOtpFlowToken({
+            const { flowToken, flowTokenExpiresAt, tokenState } = issueOtpFlowToken({
                 userId: user._id,
                 purpose: 'forgot-password',
                 factor: 'otp',
+            });
+            await registerOtpFlowGrant({
+                tokenId: tokenState.tokenId,
+                userId: user._id,
+                purpose: 'forgot-password',
+                factor: 'otp',
+                currentStep: 'otp-verified',
+                nextStep: tokenState.nextStep,
+                expiresAt: flowTokenExpiresAt,
             });
 
             const res = await request(app).post('/api/otp/reset-password')
@@ -291,15 +322,24 @@ describe('OTP API Routes Integration', () => {
 
         test('should reject password reset when the flow token only represents the email factor', async () => {
             const u = uniqueUser();
-            await User.create({
+            const user = await User.create({
                 ...u,
                 isVerified: true,
                 resetOtpVerifiedAt: new Date(),
             });
-            const { flowToken } = issueOtpFlowToken({
-                userId: 'user-email-factor',
+            const { flowToken, flowTokenExpiresAt, tokenState } = issueOtpFlowToken({
+                userId: user._id,
                 purpose: 'forgot-password',
                 factor: 'email',
+            });
+            await registerOtpFlowGrant({
+                tokenId: tokenState.tokenId,
+                userId: user._id,
+                purpose: 'forgot-password',
+                factor: 'email',
+                currentStep: 'email-verified',
+                nextStep: tokenState.nextStep,
+                expiresAt: flowTokenExpiresAt,
             });
 
             const res = await request(app).post('/api/otp/reset-password')
@@ -320,10 +360,19 @@ describe('OTP API Routes Integration', () => {
                 isVerified: true,
                 resetOtpVerifiedAt: new Date(),
             });
-            const { flowToken } = issueOtpFlowToken({
+            const { flowToken, flowTokenExpiresAt, tokenState } = issueOtpFlowToken({
                 userId: user._id,
                 purpose: 'forgot-password',
                 factor: 'otp',
+            });
+            await registerOtpFlowGrant({
+                tokenId: tokenState.tokenId,
+                userId: user._id,
+                purpose: 'forgot-password',
+                factor: 'otp',
+                currentStep: 'otp-verified',
+                nextStep: tokenState.nextStep,
+                expiresAt: flowTokenExpiresAt,
             });
 
             const res = await request(app).post('/api/otp/reset-password')
@@ -335,6 +384,152 @@ describe('OTP API Routes Integration', () => {
             expect(res.statusCode).toBe(400);
             expect(res.body.message).toContain('sequential characters');
             expect(mockUpdateUser).not.toHaveBeenCalled();
+        });
+
+        test('should reject a replayed recovery token even from the same device after one successful reset', async () => {
+            const u = uniqueUser();
+            const user = await User.create({
+                ...u,
+                isVerified: true,
+                resetOtpVerifiedAt: new Date(),
+            });
+            const { flowToken, flowTokenExpiresAt, tokenState } = issueOtpFlowToken({
+                userId: user._id,
+                purpose: 'forgot-password',
+                factor: 'otp',
+                signalBond: {
+                    deviceId: 'device-reset-123',
+                },
+            });
+            await registerOtpFlowGrant({
+                tokenId: tokenState.tokenId,
+                userId: user._id,
+                purpose: 'forgot-password',
+                factor: 'otp',
+                currentStep: 'otp-verified',
+                nextStep: tokenState.nextStep,
+                expiresAt: flowTokenExpiresAt,
+            });
+
+            const firstRes = await request(app).post('/api/otp/reset-password')
+                .set('X-Aura-Device-Id', 'device-reset-123')
+                .send({
+                    flowToken,
+                    password: 'Orbital!59Qa',
+                });
+
+            expect(firstRes.statusCode).toBe(200);
+
+            await User.updateOne(
+                { _id: user._id },
+                { $set: { resetOtpVerifiedAt: new Date() } }
+            );
+
+            const replayRes = await request(app).post('/api/otp/reset-password')
+                .set('X-Aura-Device-Id', 'device-reset-123')
+                .send({
+                    flowToken,
+                    password: 'Orbital!59Qa',
+                });
+
+            expect(replayRes.statusCode).toBe(409);
+            expect(replayRes.body.message).toContain('already used');
+            expect(mockUpdateUser).toHaveBeenCalledTimes(1);
+        });
+
+        test('should require the matching trusted device session token when recovery is strongly device-bound', async () => {
+            const u = uniqueUser();
+            const { publicKey, privateKey } = crypto.generateKeyPairSync('rsa', {
+                modulusLength: 2048,
+                publicKeyEncoding: { format: 'der', type: 'spki' },
+                privateKeyEncoding: { format: 'pem', type: 'pkcs8' },
+            });
+            const publicKeySpkiBase64 = Buffer.from(publicKey).toString('base64');
+            const user = await User.create({
+                ...u,
+                isVerified: true,
+                resetOtpVerifiedAt: new Date(),
+                trustedDevices: [{
+                    deviceId: 'device-reset-123',
+                    label: 'Trusted Browser',
+                    method: 'browser_key',
+                    algorithm: 'RSA-PSS-SHA256',
+                    publicKeySpkiBase64,
+                    createdAt: new Date(),
+                    lastSeenAt: new Date(),
+                    lastVerifiedAt: new Date(),
+                }],
+            });
+            const trustedDeviceSessionToken = trustedDeviceChallengeService.issueTrustedDeviceSession({
+                user,
+                deviceId: 'device-reset-123',
+            }).deviceSessionToken;
+            const { flowToken, flowTokenExpiresAt, tokenState } = issueOtpFlowToken({
+                userId: user._id,
+                purpose: 'forgot-password',
+                factor: 'otp',
+                signalBond: {
+                    deviceId: 'device-reset-123',
+                    deviceSessionHash: hashTrustedDeviceSessionToken(trustedDeviceSessionToken),
+                },
+            });
+            await registerOtpFlowGrant({
+                tokenId: tokenState.tokenId,
+                userId: user._id,
+                purpose: 'forgot-password',
+                factor: 'otp',
+                currentStep: 'otp-verified',
+                nextStep: tokenState.nextStep,
+                expiresAt: flowTokenExpiresAt,
+            });
+
+            const spoofedRes = await request(app).post('/api/otp/reset-password')
+                .set('X-Aura-Device-Id', 'device-reset-123')
+                .send({
+                    flowToken,
+                    password: 'Orbital!59Qa',
+                });
+
+            expect(spoofedRes.statusCode).toBe(403);
+            expect(spoofedRes.body.message).toContain('Fresh trusted device verification is required');
+            expect(mockUpdateUser).not.toHaveBeenCalled();
+
+            const bootstrapChallenge = await trustedDeviceChallengeService.issueTrustedDeviceBootstrapChallenge({
+                req: {
+                    headers: {
+                        'x-aura-device-id': 'device-reset-123',
+                        'x-aura-device-label': 'Trusted Browser',
+                        'x-aura-device-session': trustedDeviceSessionToken,
+                    },
+                },
+                user,
+                scope: 'reset-password',
+            });
+            const challengeProof = crypto.sign(
+                'sha256',
+                Buffer.from(`aura-device-proof|${bootstrapChallenge.mode}|device-reset-123|${bootstrapChallenge.challenge}`, 'utf8'),
+                {
+                    key: privateKey,
+                    padding: crypto.constants.RSA_PKCS1_PSS_PADDING,
+                    saltLength: 32,
+                }
+            ).toString('base64');
+
+            const validRes = await request(app).post('/api/otp/reset-password')
+                .set('X-Aura-Device-Id', 'device-reset-123')
+                .set('X-Aura-Device-Session', trustedDeviceSessionToken)
+                .send({
+                    flowToken,
+                    password: 'Orbital!59Qa',
+                    trustedDeviceChallenge: {
+                        token: bootstrapChallenge.token,
+                        method: 'browser_key',
+                        proof: challengeProof,
+                    },
+                });
+
+            expect(validRes.statusCode).toBe(200);
+            expect(mockUpdateUser).toHaveBeenCalledTimes(1);
         });
     });
 });

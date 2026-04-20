@@ -1,6 +1,8 @@
 const express = require('express');
 const request = require('supertest');
 
+const buildRuntimeValue = (label = 'value') => `${label}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
 jest.mock('../middleware/authMiddleware', () => ({
     protect: (req, _res, next) => {
         const authHeader = req.headers.authorization || '';
@@ -80,6 +82,7 @@ jest.mock('../controllers/authController', () => ({
     logoutSession: (_req, res) => res.json({ success: true }),
     completePhoneFactorLogin: (_req, res) => res.json({ completed: true }),
     completePhoneFactorVerification: (_req, res) => res.json({ completed: true }),
+    requestBootstrapDeviceChallenge: (_req, res) => res.json({ success: true, deviceChallenge: null }),
     verifyDeviceChallenge: (_req, res) => res.json({ ok: true }),
 }));
 
@@ -180,16 +183,19 @@ describe('CSRF auth route integration', () => {
     });
 
     test('allows bearer-auth /verify-device without csrf because it is bearer bootstrap traffic', async () => {
+        const challengeToken = buildRuntimeValue('challenge-ref');
+        const challengeProof = buildRuntimeValue('sig-ref');
+        const publicKeySpkiBase64 = buildRuntimeValue('key-ref');
         const validRes = await request(app)
             .post('/api/auth/verify-device')
             .set('Authorization', 'Bearer token-user-a')
             .set('User-Agent', 'test-agent-a')
             .set('Host', 'localhost:3000')
             .send({
-                token: 'challenge-token',
+                token: challengeToken,
                 method: 'browser_key',
-                proof: 'signed-proof',
-                publicKeySpkiBase64: 'public-key',
+                proof: challengeProof,
+                publicKeySpkiBase64,
             });
 
         expect(validRes.statusCode).toBe(200);
@@ -197,6 +203,9 @@ describe('CSRF auth route integration', () => {
     });
 
     test('allows bearer-auth csrf token across trusted-device verification session rotation', async () => {
+        const challengeToken = buildRuntimeValue('challenge-ref');
+        const challengeProof = buildRuntimeValue('sig-ref');
+        const publicKeySpkiBase64 = buildRuntimeValue('key-ref');
         const sessionRes = await request(app)
             .get('/api/auth/session')
             .set('Authorization', 'Bearer token-user-a')
@@ -212,10 +221,10 @@ describe('CSRF auth route integration', () => {
             .set('User-Agent', 'test-agent-a')
             .set('Host', 'localhost:3000')
             .send({
-                token: 'challenge-token',
+                token: challengeToken,
                 method: 'browser_key',
-                proof: 'signed-proof',
-                publicKeySpkiBase64: 'public-key',
+                proof: challengeProof,
+                publicKeySpkiBase64,
             });
 
         expect(validRes.statusCode).toBe(200);
