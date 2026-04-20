@@ -53,14 +53,14 @@ const setDisplayModes = (activeModes = []) => {
   });
 };
 
-const setFirebaseEnv = () => {
-  vi.stubEnv('VITE_FIREBASE_API_KEY', 'firebase-api-key');
-  vi.stubEnv('VITE_FIREBASE_AUTH_DOMAIN', 'billy-b674c.firebaseapp.com');
-  vi.stubEnv('VITE_FIREBASE_PROJECT_ID', 'billy-b674c');
-  vi.stubEnv('VITE_FIREBASE_STORAGE_BUCKET', 'billy-b674c.firebasestorage.app');
-  vi.stubEnv('VITE_FIREBASE_MESSAGING_SENDER_ID', '32774635133');
-  vi.stubEnv('VITE_FIREBASE_APP_ID', '1:32774635133:web:e9b7a433e45debcee07b14');
-  vi.stubEnv('VITE_FIREBASE_MEASUREMENT_ID', 'G-W600CSNCFN');
+const setFirebaseEnv = (suffix = '') => {
+  vi.stubEnv('VITE_FIREBASE_API_KEY', `firebase-api-key${suffix}`);
+  vi.stubEnv('VITE_FIREBASE_AUTH_DOMAIN', `billy-b674c.firebaseapp.com${suffix}`);
+  vi.stubEnv('VITE_FIREBASE_PROJECT_ID', `billy-b674c${suffix}`);
+  vi.stubEnv('VITE_FIREBASE_STORAGE_BUCKET', `billy-b674c.firebasestorage.app${suffix}`);
+  vi.stubEnv('VITE_FIREBASE_MESSAGING_SENDER_ID', `32774635133${suffix}`);
+  vi.stubEnv('VITE_FIREBASE_APP_ID', `1:32774635133:web:e9b7a433e45debcee07b14${suffix}`);
+  vi.stubEnv('VITE_FIREBASE_MEASUREMENT_ID', `G-W600CSNCFN${suffix}`);
   vi.stubEnv('VITE_FIREBASE_DISABLE_SOCIAL_AUTH', 'false');
   vi.stubEnv('VITE_FIREBASE_FORCE_REDIRECT_SOCIAL_AUTH', 'false');
 };
@@ -164,6 +164,34 @@ describe('firebase social auth host policy', () => {
     expect(firebase.getFirebaseSocialAuthStatus()).toMatchObject({
       runtimeBlocked: true,
       redirectPreferred: true,
+      supported: true,
+    });
+  });
+
+  it('sanitizes literal escaped control sequences from Firebase env values', async () => {
+    vi.resetModules();
+    setFirebaseEnv('\\r');
+    window.sessionStorage.clear();
+    setRuntimeHost({
+      hostname: 'aurapilot.vercel.app',
+      host: 'aurapilot.vercel.app',
+    });
+    setDisplayModes([]);
+
+    const firebase = await import('./firebase');
+
+    expect(firebase.firebaseConfig).toMatchObject({
+      apiKey: 'firebase-api-key',
+      authDomain: 'billy-b674c.firebaseapp.com',
+      projectId: 'billy-b674c',
+      storageBucket: 'billy-b674c.firebasestorage.app',
+      messagingSenderId: '32774635133',
+      appId: '1:32774635133:web:e9b7a433e45debcee07b14',
+      measurementId: 'G-W600CSNCFN',
+    });
+    expect(firebase.getFirebaseSocialAuthStatus()).toMatchObject({
+      ready: true,
+      runtimeHost: 'aurapilot.vercel.app',
       supported: true,
     });
   });
