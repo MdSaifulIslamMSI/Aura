@@ -24,6 +24,7 @@ const {
     refreshBrowserSession,
     revokeBrowserSession,
 } = require('../services/browserSessionService');
+const { issueOtpFlowToken } = require('../utils/otpFlowToken');
 const {
     resolveProviderIds,
     resolveEmailVerifiedState,
@@ -531,14 +532,24 @@ const completePhoneFactorVerification = asyncHandler(async (req, res) => {
         }
     );
 
+    if (!updatedUser) {
+        throw new AppError('Password recovery session expired. Please restart recovery.', 409);
+    }
+
     await persistAuthSnapshot(updatedUser);
     await invalidateUserCacheByEmail(requestEmail);
+    const flowPayload = issueOtpFlowToken({
+        userId: updatedUser._id,
+        purpose,
+        factor: 'otp',
+    });
 
     return res.json({
         success: true,
         message: 'Firebase phone verification completed for password recovery.',
         purpose,
         phone: updatedUser.phone,
+        ...flowPayload,
     });
 });
 

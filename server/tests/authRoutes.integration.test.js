@@ -1,5 +1,6 @@
 const request = require('supertest');
 const app = require('../index');
+const buildRuntimeSecret = (label = 'test') => `${label}-${Date.now()}-${Math.random().toString(36).slice(2)}-suite`;
 
 jest.setTimeout(30000);
 
@@ -503,7 +504,10 @@ describe('Firebase phone factor completion', () => {
 });
 
 describe('Firebase phone factor completion for signup and recovery', () => {
+    const originalOtpFlowSecret = process.env.OTP_FLOW_SECRET;
+
     afterEach(() => {
+        process.env.OTP_FLOW_SECRET = originalOtpFlowSecret;
         jest.resetModules();
         jest.clearAllMocks();
     });
@@ -612,6 +616,7 @@ describe('Firebase phone factor completion for signup and recovery', () => {
     });
 
     test('POST /api/auth/complete-phone-factor-verification completes recovery when Firebase phone matches', async () => {
+        process.env.OTP_FLOW_SECRET = buildRuntimeSecret('otp-flow');
         const isolatedApp = buildIsolatedPhoneFactorVerificationApp({ purpose: 'forgot-password', isVerified: true });
 
         const res = await request(isolatedApp)
@@ -625,6 +630,8 @@ describe('Firebase phone factor completion for signup and recovery', () => {
         expect(res.statusCode).toBe(200);
         expect(res.body.success).toBe(true);
         expect(res.body.purpose).toBe('forgot-password');
+        expect(res.body.flowToken).toEqual(expect.any(String));
+        expect(res.body.flowTokenExpiresAt).toEqual(expect.any(String));
     });
 
     test('POST /api/auth/complete-phone-factor-verification requires a recent signup email OTP first', async () => {

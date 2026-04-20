@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 let authApi;
+let otpApi;
 let mocks;
 
 const loadAuthApi = async () => {
@@ -25,7 +26,7 @@ const loadAuthApi = async () => {
     clearCsrfTokenCache: mocks.clearCsrfTokenCacheMock,
   }));
 
-  ({ authApi } = await import('./authApi'));
+  ({ authApi, otpApi } = await import('./authApi'));
 };
 
 describe('authApi', () => {
@@ -106,6 +107,14 @@ describe('authApi', () => {
     expect(mocks.ensureCsrfTokenMock).not.toHaveBeenCalled();
     expect(mocks.addCsrfTokenToHeadersMock).not.toHaveBeenCalled();
     expect(global.fetch).toHaveBeenCalledTimes(1);
+    const [_url, requestOptions] = global.fetch.mock.calls[0];
+    const requestBody = JSON.parse(requestOptions.body);
+    expect(requestOptions.headers.get('X-Aura-Invisible-Bits')).toBeNull();
+    expect(requestBody).toEqual({
+      email: 'user@example.com',
+      name: 'Aura User',
+      phone: '+919999999999',
+    });
   });
 
   it('sends trusted-device verification with Firebase bearer only when a Firebase user is present', async () => {
@@ -140,5 +149,30 @@ describe('authApi', () => {
     expect(mocks.ensureCsrfTokenMock).not.toHaveBeenCalled();
     expect(mocks.addCsrfTokenToHeadersMock).not.toHaveBeenCalled();
     expect(global.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('sends reset-password requests with the server-issued recovery flow token', async () => {
+    global.fetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ success: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+
+    await expect(otpApi.resetPassword({
+      flowToken: 'otp-flow-token',
+      password: 'Orbital!59Qa',
+    }))
+      .resolves
+      .toEqual({ success: true });
+
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    const [_url, requestOptions] = global.fetch.mock.calls[0];
+    const requestBody = JSON.parse(requestOptions.body);
+    expect(requestOptions.headers.get('X-Aura-Invisible-Bits')).toBeNull();
+    expect(requestBody).toEqual({
+      flowToken: 'otp-flow-token',
+      password: 'Orbital!59Qa',
+    });
   });
 });

@@ -25,20 +25,22 @@ jest.mock('../config/firebase', () => ({
 
 const app = require('../index');
 const User = require('../models/User');
+const { issueOtpFlowToken } = require('../utils/otpFlowToken');
 
 const { sendOtpEmail } = require('../services/emailService');
 const { sendOtpSms } = require('../services/sms');
 
 const GENERIC_ACCOUNT_DISCOVERY_MESSAGE = 'If an account exists, verification instructions have been sent.';
 const GENERIC_ACCOUNT_RESPONSE_MESSAGE = 'If the account details are valid, we will continue with verification steps.';
+const buildRuntimeSecret = (label = 'test') => `${label}-${Date.now()}-${Math.random().toString(36).slice(2)}-suite`;
 
 describe('OTP API Routes Integration', () => {
     let originalEnv;
 
     beforeAll(() => {
         originalEnv = { ...process.env };
-        process.env.OTP_FLOW_SECRET = 'test-secret';
-        process.env.OTP_CHALLENGE_SECRET = 'test-challenge-secret';
+        process.env.OTP_FLOW_SECRET = buildRuntimeSecret('otp-flow');
+        process.env.OTP_CHALLENGE_SECRET = buildRuntimeSecret('otp-challenge');
         process.env.OTP_EMAIL_SEND_IN_TEST = 'true';
         process.env.OTP_SMS_SEND_IN_TEST = 'true';
     });
@@ -207,11 +209,15 @@ describe('OTP API Routes Integration', () => {
                 isVerified: true,
                 resetOtpVerifiedAt: new Date(),
             });
+            const { flowToken } = issueOtpFlowToken({
+                userId: user._id,
+                purpose: 'forgot-password',
+                factor: 'otp',
+            });
 
             const res = await request(app).post('/api/otp/reset-password')
                 .send({
-                    email: u.email,
-                    phone: u.phone,
+                    flowToken,
                     password: 'Orbital!59Qa',
                 });
 
@@ -229,16 +235,20 @@ describe('OTP API Routes Integration', () => {
 
         test('should reject password reset when the verified recovery session is missing', async () => {
             const u = uniqueUser();
-            await User.create({
+            const user = await User.create({
                 ...u,
                 isVerified: true,
                 resetOtpVerifiedAt: null,
             });
+            const { flowToken } = issueOtpFlowToken({
+                userId: user._id,
+                purpose: 'forgot-password',
+                factor: 'otp',
+            });
 
             const res = await request(app).post('/api/otp/reset-password')
                 .send({
-                    email: u.email,
-                    phone: u.phone,
+                    flowToken,
                     password: 'Orbital!59Qa',
                 });
 
@@ -247,18 +257,46 @@ describe('OTP API Routes Integration', () => {
             expect(mockUpdateUser).not.toHaveBeenCalled();
         });
 
-        test('should reject predictable new passwords even after OTP verification', async () => {
+        test('should reject password reset when the flow token only represents the email factor', async () => {
             const u = uniqueUser();
             await User.create({
                 ...u,
                 isVerified: true,
                 resetOtpVerifiedAt: new Date(),
             });
+            const { flowToken } = issueOtpFlowToken({
+                userId: 'user-email-factor',
+                purpose: 'forgot-password',
+                factor: 'email',
+            });
 
             const res = await request(app).post('/api/otp/reset-password')
                 .send({
-                    email: u.email,
-                    phone: u.phone,
+                    flowToken,
+                    password: 'Orbital!59Qa',
+                });
+
+            expect(res.statusCode).toBe(403);
+            expect(res.body.message).toContain('factor mismatch');
+            expect(mockUpdateUser).not.toHaveBeenCalled();
+        });
+
+        test('should reject predictable new passwords even after OTP verification', async () => {
+            const u = uniqueUser();
+            const user = await User.create({
+                ...u,
+                isVerified: true,
+                resetOtpVerifiedAt: new Date(),
+            });
+            const { flowToken } = issueOtpFlowToken({
+                userId: user._id,
+                purpose: 'forgot-password',
+                factor: 'otp',
+            });
+
+            const res = await request(app).post('/api/otp/reset-password')
+                .send({
+                    flowToken,
                     password: 'Secure1234!Aa',
                 });
 
