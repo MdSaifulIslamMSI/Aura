@@ -13,8 +13,13 @@ const { validatePasswordPolicy, detectWeakPasswordPatterns } = require('../utils
 const AppError = require('../utils/AppError');
 const {
     TRUSTED_DEVICE_SESSION_HEADER,
+    extractTrustedDeviceChallengePayload,
     extractTrustedDeviceContext,
+    getTrustedDeviceSessionToken,
+    issueTrustedDeviceBootstrapChallenge,
+    hashTrustedDeviceSessionToken,
     issueTrustedDeviceChallenge,
+    resolveTrustedDeviceBootstrapSignal,
     verifyTrustedDeviceChallenge,
     verifyTrustedDeviceSession,
 } = require('../services/trustedDeviceChallengeService');
@@ -24,7 +29,8 @@ const {
     refreshBrowserSession,
     revokeBrowserSession,
 } = require('../services/browserSessionService');
-const { issueOtpFlowToken } = require('../utils/otpFlowToken');
+const { inspectOtpFlowToken, issueOtpFlowToken } = require('../utils/otpFlowToken');
+const { registerOtpFlowGrant } = require('../services/otpFlowGrantService');
 const {
     resolveProviderIds,
     resolveEmailVerifiedState,
@@ -53,11 +59,116 @@ const normalizePhoneFactorPurpose = (value) => {
     return '';
 };
 
+const BOOTSTRAP_CHALLENGE_SCOPE_OTP_SEND_LOGIN = 'otp-send:login';
+const BOOTSTRAP_CHALLENGE_SCOPE_OTP_SEND_FORGOT_PASSWORD = 'otp-send:forgot-password';
+const BOOTSTRAP_CHALLENGE_SCOPE_PHONE_FACTOR_FORGOT_PASSWORD = 'phone-factor:forgot-password';
+const BOOTSTRAP_CHALLENGE_SCOPE_RESET_PASSWORD = 'reset-password';
+const ALLOWED_BOOTSTRAP_CHALLENGE_SCOPES = new Set([
+    BOOTSTRAP_CHALLENGE_SCOPE_OTP_SEND_LOGIN,
+    BOOTSTRAP_CHALLENGE_SCOPE_OTP_SEND_FORGOT_PASSWORD,
+    BOOTSTRAP_CHALLENGE_SCOPE_PHONE_FACTOR_FORGOT_PASSWORD,
+    BOOTSTRAP_CHALLENGE_SCOPE_RESET_PASSWORD,
+]);
+
+const normalizeBootstrapChallengeScope = (value) => {
+    const normalized = String(value || '').trim().toLowerCase();
+    return ALLOWED_BOOTSTRAP_CHALLENGE_SCOPES.has(normalized) ? normalized : '';
+};
+
 const resolveVerifiedAtMillis = (value) => {
     if (!value) return 0;
     const resolved = new Date(value).getTime();
     return Number.isFinite(resolved) ? resolved : 0;
 };
+
+const buildTrustedDeviceBootstrapSignal = async ({
+    req,
+    user,
+    scope = '',
+}) => {
+    return resolveTrustedDeviceBootstrapSignal({
+        req,
+        user,
+        challengePayload: extractTrustedDeviceChallengePayload(req.body || {}),
+        expectedScope: scope,
+        requireFreshProof: true,
+    });
+};
+
+const resolveBootstrapChallengeUser = async ({
+    scope = '',
+    email = '',
+    phone = '',
+    flowToken = '',
+}) => {
+    if (scope === BOOTSTRAP_CHALLENGE_SCOPE_RESET_PASSWORD) {
+        try {
+            const inspectedFlow = inspectOtpFlowToken(flowToken);
+            if (inspectedFlow.purpose !== 'forgot-password') {
+                return null;
+            }
+
+            const user = await User.findById(inspectedFlow.sub, 'email phone isVerified trustedDevices').lean();
+            return user?.isVerified ? user : null;
+        } catch {
+            return null;
+        }
+    }
+
+    if (!email) {
+        return null;
+    }
+
+    const user = await User.findOne(
+        { email, isVerified: true },
+        'email phone isVerified trustedDevices'
+    ).lean();
+
+    if (!user?.isVerified) {
+        return null;
+    }
+
+    if (phone) {
+        const storedPhone = canonicalizePhone(user.phone || '');
+        if (storedPhone && storedPhone !== phone) {
+            return null;
+        }
+    }
+
+    return user;
+};
+
+const requestBootstrapDeviceChallenge = asyncHandler(async (req, res) => {
+    const scope = normalizeBootstrapChallengeScope(req.body?.scope);
+    if (!scope) {
+        throw new AppError('Invalid trusted device bootstrap scope.', 400);
+    }
+
+    const email = normalizeEmail(req.body?.email);
+    const phone = canonicalizePhone(req.body?.phone);
+    const flowToken = typeof req.body?.flowToken === 'string'
+        ? req.body.flowToken.trim()
+        : '';
+    const user = await resolveBootstrapChallengeUser({
+        scope,
+        email,
+        phone,
+        flowToken,
+    });
+
+    const deviceChallenge = user
+        ? await issueTrustedDeviceBootstrapChallenge({
+            req,
+            user,
+            scope,
+        })
+        : null;
+
+    res.json({
+        success: true,
+        deviceChallenge: deviceChallenge || null,
+    });
+});
 
 const resolveTrustedDeviceSessionToken = (req = {}) => String(
     req.get?.(TRUSTED_DEVICE_SESSION_HEADER)
@@ -226,6 +337,7 @@ const syncSession = asyncHandler(async (req, res) => {
         ? req.body.flowToken.trim()
         : '';
     const { deviceId } = extractTrustedDeviceContext(req);
+    const deviceSessionHash = hashTrustedDeviceSessionToken(getTrustedDeviceSessionToken(req));
 
     let user = await syncAuthenticatedUser({
         authUser,
@@ -242,6 +354,7 @@ const syncSession = asyncHandler(async (req, res) => {
             authToken: req.authToken || null,
             authUid: req.authUid || req.authToken?.uid || '',
             deviceId,
+            deviceSessionHash,
             phone: req.body?.phone,
         });
     }
@@ -483,7 +596,7 @@ const completePhoneFactorVerification = asyncHandler(async (req, res) => {
 
     const existingUser = await User.findOne(
         { email: requestEmail, isVerified: true },
-        'name email phone avatar gender dob bio isAdmin isVerified isSeller sellerActivatedAt accountState moderation loyalty createdAt'
+        'name email phone avatar gender dob bio isAdmin isVerified trustedDevices isSeller sellerActivatedAt accountState moderation loyalty createdAt'
     )
         .select('+resetEmailOtpVerifiedAt')
         .lean();
@@ -530,7 +643,7 @@ const completePhoneFactorVerification = asyncHandler(async (req, res) => {
         },
         {
             returnDocument: 'after',
-            projection: 'name email phone avatar gender dob bio isAdmin isVerified isSeller sellerActivatedAt accountState moderation loyalty createdAt',
+            projection: 'name email phone avatar gender dob bio isAdmin isVerified trustedDevices isSeller sellerActivatedAt accountState moderation loyalty createdAt',
             lean: true,
         }
     );
@@ -541,12 +654,33 @@ const completePhoneFactorVerification = asyncHandler(async (req, res) => {
 
     await persistAuthSnapshot(updatedUser);
     await invalidateUserCacheByEmail(requestEmail);
-    const { deviceId } = extractTrustedDeviceContext(req);
-    const flowPayload = issueOtpFlowToken({
+    const verifiedBootstrapDeviceSignal = await buildTrustedDeviceBootstrapSignal({
+        req,
+        user: updatedUser,
+        scope: BOOTSTRAP_CHALLENGE_SCOPE_PHONE_FACTOR_FORGOT_PASSWORD,
+    });
+    if (verifiedBootstrapDeviceSignal.required && !verifiedBootstrapDeviceSignal.verified) {
+        throw new AppError(verifiedBootstrapDeviceSignal.reason || 'Fresh trusted device verification is required.', 403);
+    }
+    const { tokenState, ...publicFlowPayload } = issueOtpFlowToken({
         userId: updatedUser._id,
         purpose,
         factor: 'otp',
-        signalBond: deviceId ? { deviceId } : {},
+        signalBond: {
+            ...(verifiedBootstrapDeviceSignal.deviceId ? { deviceId: verifiedBootstrapDeviceSignal.deviceId } : {}),
+            ...(verifiedBootstrapDeviceSignal.deviceSessionHash
+                ? { deviceSessionHash: verifiedBootstrapDeviceSignal.deviceSessionHash }
+                : {}),
+        },
+    });
+    await registerOtpFlowGrant({
+        tokenId: tokenState?.tokenId,
+        userId: updatedUser._id,
+        purpose,
+        factor: 'otp',
+        currentStep: 'phone-factor-verified',
+        nextStep: tokenState?.nextStep,
+        expiresAt: publicFlowPayload.flowTokenExpiresAt,
     });
 
     return res.json({
@@ -554,7 +688,7 @@ const completePhoneFactorVerification = asyncHandler(async (req, res) => {
         message: 'Firebase phone verification completed for password recovery.',
         purpose,
         phone: updatedUser.phone,
-        ...flowPayload,
+        ...publicFlowPayload,
     });
 });
 
@@ -648,6 +782,7 @@ const logoutSession = asyncHandler(async (req, res) => {
 module.exports = {
     establishSessionCookie,
     getSession,
+    requestBootstrapDeviceChallenge,
     syncSession,
     logoutSession,
     completePhoneFactorLogin,

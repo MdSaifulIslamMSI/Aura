@@ -70,7 +70,11 @@ describe('Auth sync verified-email gating', () => {
             jest.doMock('../services/trustedDeviceChallengeService', () => ({
                 TRUSTED_DEVICE_SESSION_HEADER: 'x-aura-device-session',
                 extractTrustedDeviceContext: jest.fn().mockReturnValue({ deviceId: '', deviceLabel: '' }),
+                getTrustedDeviceSessionToken: jest.fn().mockReturnValue(''),
+                hashTrustedDeviceSessionToken: jest.fn().mockReturnValue(''),
+                issueTrustedDeviceBootstrapChallenge: jest.fn().mockResolvedValue(null),
                 issueTrustedDeviceChallenge: jest.fn().mockResolvedValue({ token: 'stub' }),
+                resolveTrustedDeviceBootstrapSignal: jest.fn().mockReturnValue({ verified: false, deviceId: '', deviceSessionHash: '' }),
                 verifyTrustedDeviceChallenge: jest.fn(),
                 verifyTrustedDeviceSession: jest.fn().mockReturnValue({ success: false }),
             }));
@@ -169,7 +173,11 @@ describe('Auth sync verified-email gating', () => {
             jest.doMock('../services/trustedDeviceChallengeService', () => ({
                 TRUSTED_DEVICE_SESSION_HEADER: 'x-aura-device-session',
                 extractTrustedDeviceContext: jest.fn().mockReturnValue({ deviceId: '', deviceLabel: '' }),
+                getTrustedDeviceSessionToken: jest.fn().mockReturnValue(''),
+                hashTrustedDeviceSessionToken: jest.fn().mockReturnValue(''),
+                issueTrustedDeviceBootstrapChallenge: jest.fn().mockResolvedValue(null),
                 issueTrustedDeviceChallenge: jest.fn().mockResolvedValue({ token: 'stub' }),
+                resolveTrustedDeviceBootstrapSignal: jest.fn().mockReturnValue({ verified: false, deviceId: '', deviceSessionHash: '' }),
                 verifyTrustedDeviceChallenge: jest.fn(),
                 verifyTrustedDeviceSession: jest.fn().mockReturnValue({ success: false }),
             }));
@@ -221,6 +229,100 @@ describe('Auth sync verified-email gating', () => {
     });
 });
 
+describe('Trusted device bootstrap challenge', () => {
+    afterEach(() => {
+        jest.resetModules();
+        jest.clearAllMocks();
+    });
+
+    test('POST /api/auth/bootstrap-device-challenge returns a fresh trusted-device challenge for recovery flows', async () => {
+        let isolatedApp;
+        const bootstrapToken = buildRuntimeSecret('bootstrap-ref');
+        const challengeValue = buildRuntimeSecret('challenge-ref');
+        const publicKeySpkiBase64 = buildRuntimeSecret('key-ref');
+        const deviceSessionToken = buildRuntimeSecret('session-ref');
+        const issueTrustedDeviceBootstrapChallenge = jest.fn().mockResolvedValue({
+            token: bootstrapToken,
+            challenge: challengeValue,
+            mode: 'assert',
+            deviceId: 'device-test-1234',
+        });
+
+        jest.isolateModules(() => {
+            jest.doMock('../models/User', () => ({
+                findOne: jest.fn().mockReturnValue({
+                    lean: jest.fn().mockResolvedValue({
+                        _id: 'user-1',
+                        email: 'verified@example.com',
+                        phone: '+919876543210',
+                        isVerified: true,
+                        trustedDevices: [{
+                            deviceId: 'device-test-1234',
+                            label: 'Verified Browser',
+                            publicKeySpkiBase64,
+                        }],
+                    }),
+                }),
+                findById: jest.fn(),
+            }));
+            jest.doMock('../services/trustedDeviceChallengeService', () => ({
+                TRUSTED_DEVICE_SESSION_HEADER: 'x-aura-device-session',
+                extractTrustedDeviceChallengePayload: jest.fn().mockReturnValue({}),
+                extractTrustedDeviceContext: jest.fn().mockReturnValue({
+                    deviceId: 'device-test-1234',
+                    deviceLabel: 'Verified Browser',
+                }),
+                getTrustedDeviceSessionToken: jest.fn().mockReturnValue(deviceSessionToken),
+                hashTrustedDeviceSessionToken: jest.fn().mockReturnValue('device-session-hash'),
+                issueTrustedDeviceBootstrapChallenge,
+                issueTrustedDeviceChallenge: jest.fn(),
+                resolveTrustedDeviceBootstrapSignal: jest.fn().mockResolvedValue({
+                    required: false,
+                    verified: false,
+                    deviceId: '',
+                    deviceSessionHash: '',
+                    reason: '',
+                }),
+                verifyTrustedDeviceChallenge: jest.fn(),
+                verifyTrustedDeviceSession: jest.fn().mockReturnValue({ success: false }),
+            }));
+
+            const express = require('express');
+            const { requestBootstrapDeviceChallenge } = require('../controllers/authController');
+            const { errorHandler } = require('../middleware/errorMiddleware');
+
+            isolatedApp = express();
+            isolatedApp.use(express.json());
+            isolatedApp.post('/api/auth/bootstrap-device-challenge', requestBootstrapDeviceChallenge);
+            isolatedApp.use(errorHandler);
+        });
+
+        const res = await request(isolatedApp)
+            .post('/api/auth/bootstrap-device-challenge')
+            .set('x-aura-device-id', 'device-test-1234')
+            .set('x-aura-device-session', deviceSessionToken)
+            .send({
+                scope: 'otp-send:forgot-password',
+                email: 'verified@example.com',
+                phone: '+919876543210',
+            });
+
+        expect(res.statusCode).toBe(200);
+        expect(res.body).toEqual({
+            success: true,
+            deviceChallenge: {
+                token: bootstrapToken,
+                challenge: challengeValue,
+                mode: 'assert',
+                deviceId: 'device-test-1234',
+            },
+        });
+        expect(issueTrustedDeviceBootstrapChallenge).toHaveBeenCalledWith(expect.objectContaining({
+            scope: 'otp-send:forgot-password',
+        }));
+    });
+});
+
 describe('Auth sync lattice challenge policy', () => {
     const originalDeviceChallengeMode = process.env.AUTH_DEVICE_CHALLENGE_MODE;
     const originalChallengeMode = process.env.AUTH_LATTICE_CHALLENGE_MODE;
@@ -236,9 +338,11 @@ describe('Auth sync lattice challenge policy', () => {
 
     const buildIsolatedSyncApp = ({ challengeMode = '', isAdmin = false, authSession = null } = {}) => {
         let isolatedApp;
+        const challengeToken = buildRuntimeSecret('challenge-ref');
+        const challengeValue = buildRuntimeSecret('sig-ref');
         const issueTrustedDeviceChallenge = jest.fn().mockResolvedValue({
-            token: 'stub-challenge',
-            challenge: 'device-proof',
+            token: challengeToken,
+            challenge: challengeValue,
             mode: 'assert',
             deviceId: 'device-test-1234',
         });
@@ -273,7 +377,11 @@ describe('Auth sync lattice challenge policy', () => {
                     deviceId: req.headers['x-aura-device-id'] || '',
                     deviceLabel: req.headers['x-aura-device-label'] || '',
                 })),
+                getTrustedDeviceSessionToken: jest.fn().mockReturnValue(''),
+                hashTrustedDeviceSessionToken: jest.fn().mockReturnValue(''),
+                issueTrustedDeviceBootstrapChallenge: jest.fn().mockResolvedValue(null),
                 issueTrustedDeviceChallenge,
+                resolveTrustedDeviceBootstrapSignal: jest.fn().mockReturnValue({ verified: false, deviceId: '', deviceSessionHash: '' }),
                 verifyTrustedDeviceChallenge: jest.fn(),
                 verifyTrustedDeviceSession: jest.fn().mockReturnValue({ success: false }),
             }));
@@ -331,8 +439,8 @@ describe('Auth sync lattice challenge policy', () => {
         expect(res.statusCode).toBe(200);
         expect(res.body.status).toBe('device_challenge_required');
         expect(res.body.deviceChallenge).toEqual({
-            token: 'stub-challenge',
-            challenge: 'device-proof',
+            token: expect.any(String),
+            challenge: expect.any(String),
             mode: 'assert',
             deviceId: 'device-test-1234',
         });
@@ -579,6 +687,10 @@ describe('Firebase phone factor completion for signup and recovery', () => {
                 invalidateUserCache: jest.fn().mockResolvedValue(undefined),
                 invalidateUserCacheByEmail: jest.fn().mockResolvedValue(undefined),
             }));
+            jest.doMock('../services/otpFlowGrantService', () => ({
+                registerOtpFlowGrant: jest.fn().mockResolvedValue(null),
+                consumeOtpFlowGrant: jest.fn().mockResolvedValue(null),
+            }));
 
             const express = require('express');
             const { completePhoneFactorVerification } = require('../controllers/authController');
@@ -658,6 +770,9 @@ describe('Trusted device verification response payload', () => {
 
     test('POST /api/auth/verify-device returns an authenticated session payload after successful verification', async () => {
         let isolatedApp;
+        const verifiedDeviceSessionToken = buildRuntimeSecret('session-ref');
+        const challengeToken = buildRuntimeSecret('challenge-ref');
+        const challengeProof = buildRuntimeSecret('sig-ref');
 
         jest.isolateModules(() => {
             jest.doMock('../services/authSessionService', () => ({
@@ -721,13 +836,17 @@ describe('Trusted device verification response payload', () => {
                     deviceId: 'device-test-1234',
                     deviceLabel: 'Verified Browser',
                 }),
+                getTrustedDeviceSessionToken: jest.fn().mockReturnValue(''),
+                hashTrustedDeviceSessionToken: jest.fn().mockReturnValue(''),
+                issueTrustedDeviceBootstrapChallenge: jest.fn().mockResolvedValue(null),
                 issueTrustedDeviceChallenge: jest.fn(),
+                resolveTrustedDeviceBootstrapSignal: jest.fn().mockReturnValue({ verified: false, deviceId: '', deviceSessionHash: '' }),
                 verifyTrustedDeviceSession: jest.fn().mockReturnValue({ success: false }),
                 verifyTrustedDeviceChallenge: jest.fn().mockResolvedValue({
                     success: true,
                     mode: 'assert',
                     method: 'browser_key',
-                    deviceSessionToken: 'verified-device-token',
+                    deviceSessionToken: verifiedDeviceSessionToken,
                     expiresAt: new Date('2026-04-12T14:00:00.000Z').toISOString(),
                 }),
             }));
@@ -762,9 +881,9 @@ describe('Trusted device verification response payload', () => {
         const res = await request(isolatedApp)
             .post('/api/auth/verify-device')
             .send({
-                token: 'challenge-token',
+                token: challengeToken,
                 method: 'browser_key',
-                proof: 'proof',
+                proof: challengeProof,
             });
 
         expect(res.statusCode).toBe(200);

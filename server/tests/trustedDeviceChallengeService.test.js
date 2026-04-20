@@ -304,6 +304,17 @@ describe('trustedDeviceChallengeService', () => {
         });
 
         expect(trustedSession).toEqual({ success: true });
+
+        const bootstrapVerification = service.verifyTrustedDeviceBootstrapSession({
+            user: { _id: userId },
+            deviceId,
+            deviceSessionToken: assertResult.deviceSessionToken,
+        });
+
+        expect(bootstrapVerification).toMatchObject({
+            success: true,
+            deviceSessionHash: service.hashTrustedDeviceSessionToken(assertResult.deviceSessionToken),
+        });
     });
 
     test('accepts a previously issued trusted-device session after secret rotation when previous secrets are configured', async () => {
@@ -403,6 +414,85 @@ describe('trustedDeviceChallengeService', () => {
         });
 
         expect(rotatedChallenge.token.startsWith('td-v2.')).toBe(true);
+    });
+
+    test('rejects a bootstrap challenge when the trusted device session proof changes between issue and verify', async () => {
+        const dbState = { trustedDevices: [] };
+        const userId = '507f1f77bcf86cd799439012';
+        const deviceId = 'device_bootstrap_123456';
+        const authContext = {
+            authUid: 'firebase-uid-bootstrap',
+            authToken: { iat: 1710003456 },
+        };
+        const service = loadServiceWithDbState({ dbState, userId });
+
+        const { publicKey, privateKey } = crypto.generateKeyPairSync('rsa', {
+            modulusLength: 2048,
+            publicKeyEncoding: { format: 'der', type: 'spki' },
+            privateKeyEncoding: { format: 'pem', type: 'pkcs8' },
+        });
+        const publicKeySpkiBase64 = Buffer.from(publicKey).toString('base64');
+
+        const enrollChallenge = await service.issueTrustedDeviceChallenge({
+            user: { _id: userId, trustedDevices: [] },
+            deviceId,
+            deviceLabel: 'Bootstrap laptop',
+            ...authContext,
+        });
+
+        const enrollResult = await service.verifyTrustedDeviceChallenge({
+            user: { _id: userId, trustedDevices: [] },
+            token: enrollChallenge.token,
+            proof: createRsaProof({
+                challenge: enrollChallenge.challenge,
+                mode: enrollChallenge.mode,
+                deviceId,
+                privateKeyPem: privateKey,
+            }),
+            publicKeySpkiBase64,
+            deviceId,
+            deviceLabel: 'Bootstrap laptop',
+            ...authContext,
+        });
+
+        const bootstrapChallenge = await service.issueTrustedDeviceBootstrapChallenge({
+            req: {
+                headers: {
+                    'x-aura-device-id': deviceId,
+                    'x-aura-device-label': 'Bootstrap laptop',
+                    'x-aura-device-session': enrollResult.deviceSessionToken,
+                },
+            },
+            user: { _id: userId, trustedDevices: dbState.trustedDevices },
+            scope: 'otp-send:forgot-password',
+        });
+
+        const wrongSessionToken = service.issueTrustedDeviceSession({
+            user: { _id: userId },
+            deviceId,
+            authUid: 'firebase-uid-bootstrap-other',
+            authToken: { iat: 1710007890 },
+        }).deviceSessionToken;
+
+        const verification = await service.verifyTrustedDeviceChallenge({
+            user: { _id: userId, trustedDevices: dbState.trustedDevices },
+            token: bootstrapChallenge.token,
+            proof: createRsaProof({
+                challenge: bootstrapChallenge.challenge,
+                mode: bootstrapChallenge.mode,
+                deviceId,
+                privateKeyPem: privateKey,
+            }),
+            deviceId,
+            deviceLabel: 'Bootstrap laptop',
+            deviceSessionToken: wrongSessionToken,
+            expectedScope: 'otp-send:forgot-password',
+        });
+
+        expect(verification).toEqual({
+            success: false,
+            reason: 'Device challenge trusted session mismatch',
+        });
     });
 
     test('keeps localhost enrollment passkey-capable when WebAuthn is preferred', async () => {

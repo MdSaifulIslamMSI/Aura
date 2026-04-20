@@ -13,6 +13,7 @@ const {
     applyLoginAssuranceToSession,
 } = require('../services/authSessionService');
 const { issueOtpFlowToken } = require('../utils/otpFlowToken');
+const { registerOtpFlowGrant } = require('../services/otpFlowGrantService');
 
 let counter = 0;
 const stamp = Date.now();
@@ -21,6 +22,8 @@ const uniqueEmail = (label) => {
     counter += 1;
     return `auth_session_${label}_${stamp}_${counter}@test.com`;
 };
+
+const buildRuntimeSecret = (label = 'secret') => `${label}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 
 describe('authSessionService phone conflict guard', () => {
     test('blocks sync when the same real phone already exists under another account format', async () => {
@@ -54,7 +57,7 @@ describe('authSessionService login assurance binding', () => {
     const originalOtpFlowSecret = process.env.OTP_FLOW_SECRET;
 
     beforeEach(() => {
-        process.env.OTP_FLOW_SECRET = 'otp-flow-test-secret';
+        process.env.OTP_FLOW_SECRET = buildRuntimeSecret('otp-flow');
     });
 
     afterEach(() => {
@@ -69,10 +72,19 @@ describe('authSessionService login assurance binding', () => {
             isVerified: true,
         });
 
-        const { flowToken } = issueOtpFlowToken({
+        const { flowToken, flowTokenExpiresAt, tokenState } = issueOtpFlowToken({
             userId: user._id,
             purpose: 'login',
             factor: 'otp',
+        });
+        await registerOtpFlowGrant({
+            tokenId: tokenState.tokenId,
+            userId: user._id,
+            purpose: 'login',
+            factor: 'otp',
+            currentStep: 'otp-verified',
+            nextStep: tokenState.nextStep,
+            expiresAt: flowTokenExpiresAt,
         });
 
         await applyLoginAssuranceToSession({
@@ -99,10 +111,19 @@ describe('authSessionService login assurance binding', () => {
             isVerified: true,
         });
 
-        const { flowToken } = issueOtpFlowToken({
+        const { flowToken, flowTokenExpiresAt, tokenState } = issueOtpFlowToken({
             userId: user._id,
             purpose: 'login',
             factor: 'email',
+        });
+        await registerOtpFlowGrant({
+            tokenId: tokenState.tokenId,
+            userId: user._id,
+            purpose: 'login',
+            factor: 'email',
+            currentStep: 'email-verified',
+            nextStep: tokenState.nextStep,
+            expiresAt: flowTokenExpiresAt,
         });
 
         await expect(applyLoginAssuranceToSession({
@@ -112,6 +133,87 @@ describe('authSessionService login assurance binding', () => {
             phone: '+919876543210',
         })).rejects.toMatchObject({
             message: 'Firebase phone verification is required before completing secure sign-in.',
+            statusCode: 403,
+        });
+    });
+
+    test('rejects replay when the same login assurance token is consumed twice', async () => {
+        const user = await User.create({
+            name: 'Replay Guard',
+            email: uniqueEmail('replay_guard'),
+            phone: '+919812341234',
+            isVerified: true,
+        });
+
+        const { flowToken, flowTokenExpiresAt, tokenState } = issueOtpFlowToken({
+            userId: user._id,
+            purpose: 'login',
+            factor: 'otp',
+        });
+        await registerOtpFlowGrant({
+            tokenId: tokenState.tokenId,
+            userId: user._id,
+            purpose: 'login',
+            factor: 'otp',
+            currentStep: 'otp-verified',
+            nextStep: tokenState.nextStep,
+            expiresAt: flowTokenExpiresAt,
+        });
+
+        await applyLoginAssuranceToSession({
+            user,
+            flowToken,
+            authToken: { auth_time: 1712345678 },
+            phone: '+919812341234',
+        });
+
+        await expect(applyLoginAssuranceToSession({
+            user,
+            flowToken,
+            authToken: { auth_time: 1712345678 },
+            phone: '+919812341234',
+        })).rejects.toMatchObject({
+            message: 'Login assurance token already used. Please verify OTP again.',
+            statusCode: 409,
+        });
+    });
+
+    test('requires the same trusted device session proof when login assurance is device-session bonded', async () => {
+        const user = await User.create({
+            name: 'Session Bond User',
+            email: uniqueEmail('session_bond'),
+            phone: '+919834561234',
+            isVerified: true,
+        });
+
+        const { flowToken, flowTokenExpiresAt, tokenState } = issueOtpFlowToken({
+            userId: user._id,
+            purpose: 'login',
+            factor: 'otp',
+            signalBond: {
+                deviceId: 'device-123',
+                deviceSessionHash: 'session-hash-123',
+            },
+        });
+        await registerOtpFlowGrant({
+            tokenId: tokenState.tokenId,
+            userId: user._id,
+            purpose: 'login',
+            factor: 'otp',
+            currentStep: 'otp-verified',
+            nextStep: tokenState.nextStep,
+            expiresAt: flowTokenExpiresAt,
+        });
+
+        await expect(applyLoginAssuranceToSession({
+            user,
+            flowToken,
+            authToken: { auth_time: 1712345678 },
+            deviceId: 'device-123',
+            deviceSessionHash: 'session-hash-other',
+            phone: '+919834561234',
+        })).rejects.toMatchObject({
+            message: 'Login assurance token trusted device session mismatch',
             statusCode: 403,
         });
     });

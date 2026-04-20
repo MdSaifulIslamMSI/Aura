@@ -10,11 +10,18 @@ const { saveAuthProfileSnapshot, getAuthProfileSnapshotByEmail } = require('../s
 const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
 const { issuePaymentChallengeToken } = require('../utils/paymentChallengeToken');
-const { issueOtpFlowToken, verifyOtpFlowToken } = require('../utils/otpFlowToken');
+const { inspectOtpFlowToken, issueOtpFlowToken, verifyOtpFlowToken } = require('../utils/otpFlowToken');
 const { flags: otpEmailFlags } = require('../config/otpEmailFlags');
 const { flags: otpSmsFlags } = require('../config/otpSmsFlags');
 const { validatePasswordPolicy, detectWeakPasswordPatterns } = require('../utils/passwordValidator');
-const { extractTrustedDeviceContext } = require('../services/trustedDeviceChallengeService');
+const {
+    extractTrustedDeviceChallengePayload,
+    extractTrustedDeviceContext,
+    getTrustedDeviceSessionToken,
+    hashTrustedDeviceSessionToken,
+    resolveTrustedDeviceBootstrapSignal,
+} = require('../services/trustedDeviceChallengeService');
+const { registerOtpFlowGrant, consumeOtpFlowGrant } = require('../services/otpFlowGrantService');
 
 const OTP_LENGTH = 6;
 const OTP_EXPIRY_MS = otpEmailFlags.otpEmailTtlMinutes * 60 * 1000;
@@ -37,9 +44,13 @@ const OTP_REGEX = new RegExp(`^\\d{${OTP_LENGTH}}$`);
 const GENERIC_ACCOUNT_DISCOVERY_MESSAGE = 'If an account exists, verification instructions have been sent.';
 const GENERIC_ACCOUNT_RESPONSE_MESSAGE = 'If the account details are valid, we will continue with verification steps.';
 
-const OTP_FIELDS = 'name email phone isAdmin isVerified authAssurance authAssuranceAt +otp +otpExpiry +otpPurpose +otpAttempts +otpLockedUntil';
+const OTP_FIELDS = 'name email phone isAdmin isVerified authAssurance authAssuranceAt trustedDevices +otp +otpExpiry +otpPurpose +otpAttempts +otpLockedUntil';
 const signupIdentifierRateStore = new Map();
 const EMAIL_FACTOR_PURPOSES = new Set(['signup', 'login', 'forgot-password']);
+const BOOTSTRAP_CHALLENGE_SCOPE_BY_PURPOSE = {
+    login: 'otp-send:login',
+    'forgot-password': 'otp-send:forgot-password',
+};
 
 const maskEmail = (email) => (
     typeof email === 'string'
@@ -117,18 +128,31 @@ const normalizeOtpFactor = (value) => (
 
 const buildOtpFlowSignalBond = ({ req = {}, session = null, purpose = '' } = {}) => {
     const signalBond = {};
-    const requestDeviceId = String(extractTrustedDeviceContext(req)?.deviceId || '').trim();
-    const boundDeviceId = String(session?.requestMeta?.deviceId || requestDeviceId || '').trim();
+    const boundDeviceId = String(session?.requestMeta?.deviceId || '').trim();
+    const boundDeviceSessionHash = String(session?.requestMeta?.deviceSessionHash || '').trim();
     const boundAuthUid = String(session?.requestMeta?.credentialUid || '').trim();
 
     if (boundDeviceId) {
         signalBond.deviceId = boundDeviceId;
+    }
+    if (boundDeviceSessionHash) {
+        signalBond.deviceSessionHash = boundDeviceSessionHash;
     }
     if (purpose === 'login' && boundAuthUid) {
         signalBond.authUid = boundAuthUid;
     }
 
     return signalBond;
+};
+
+const resolveOtpFlowCurrentStep = ({ factor = '', currentStep = '' } = {}) => {
+    const explicitStep = String(currentStep || '').trim();
+    if (explicitStep) {
+        return explicitStep;
+    }
+    return String(factor || '').trim().toLowerCase() === 'email'
+        ? 'email-verified'
+        : 'otp-verified';
 };
 
 const parseBooleanEnv = (value, fallback = false) => {
@@ -543,7 +567,6 @@ const sendOtp = asyncHandler(async (req, res, next) => {
         ? rawCredentialProofToken.trim()
         : '';
     const useStrictLoginIdentity = purpose === 'login' && strictIdentity;
-    const { deviceId } = extractTrustedDeviceContext(req);
 
     if (!EMAIL_REGEX.test(email)) {
         return next(new AppError('Valid email address is required', 400));
@@ -836,12 +859,27 @@ const sendOtp = asyncHandler(async (req, res, next) => {
         isAdmin: Boolean(targetUser.isAdmin),
     });
 
+    const verifiedBootstrapDeviceSignal = await resolveTrustedDeviceBootstrapSignal({
+        req,
+        user: targetUser,
+        challengePayload: extractTrustedDeviceChallengePayload(req.body || {}),
+        expectedScope: BOOTSTRAP_CHALLENGE_SCOPE_BY_PURPOSE[purpose] || '',
+        requireFreshProof: Boolean(BOOTSTRAP_CHALLENGE_SCOPE_BY_PURPOSE[purpose]),
+    });
+    if (verifiedBootstrapDeviceSignal.required && !verifiedBootstrapDeviceSignal.verified) {
+        return next(new AppError(
+            verifiedBootstrapDeviceSignal.reason || 'Fresh trusted device verification is required.',
+            403
+        ));
+    }
+
     const requestMeta = {
         ip: clientIp,
         userAgent: req.headers['user-agent'] || '',
         location: String(req.headers['x-client-location'] || '').trim(),
         requestId,
-        deviceId,
+        deviceId: verifiedBootstrapDeviceSignal.deviceId || '',
+        deviceSessionHash: verifiedBootstrapDeviceSignal.deviceSessionHash || '',
         credentialUid: String(credentialProof?.uid || credentialProof?.sub || '').trim(),
     };
 
@@ -1405,7 +1443,7 @@ const verifyOtp = asyncHandler(async (req, res, next) => {
         })
         : null;
 
-    const flowPayload = issueOtpFlowToken({
+    const { tokenState, ...publicFlowPayload } = issueOtpFlowToken({
         userId: user._id,
         purpose,
         factor: isEmailFactorOtp ? 'email' : 'otp',
@@ -1415,6 +1453,17 @@ const verifyOtp = asyncHandler(async (req, res, next) => {
             purpose,
         }),
     });
+    await registerOtpFlowGrant({
+        tokenId: tokenState?.tokenId,
+        userId: user._id,
+        purpose,
+        factor: isEmailFactorOtp ? 'email' : 'otp',
+        currentStep: resolveOtpFlowCurrentStep({
+            factor: isEmailFactorOtp ? 'email' : 'otp',
+        }),
+        nextStep: tokenState?.nextStep,
+        expiresAt: publicFlowPayload.flowTokenExpiresAt,
+    });
 
     res.json({
         success: true,
@@ -1422,7 +1471,7 @@ const verifyOtp = asyncHandler(async (req, res, next) => {
         verified: true,
         maskedIdentifier: isEmailFactorOtp ? maskEmail(user.email) : maskPhoneSuffix(user.phone),
         ...(isEmailFactorOtp ? { nextFactor: 'phone' } : {}),
-        ...flowPayload,
+        ...publicFlowPayload,
         ...(challengePayload || {}),
     });
 });
@@ -1438,6 +1487,7 @@ const resetPasswordWithOtp = asyncHandler(async (req, res, next) => {
     const clientIp = extractClientIp(req);
     const requestId = req.requestId || '-';
     const { deviceId } = extractTrustedDeviceContext(req);
+    const deviceSessionHash = hashTrustedDeviceSessionToken(getTrustedDeviceSessionToken(req));
 
     if (rawFlowToken === undefined || rawFlowToken === null || rawFlowToken === '') {
         return next(new AppError('Recovery flow token is required', 400));
@@ -1470,15 +1520,10 @@ const resetPasswordWithOtp = asyncHandler(async (req, res, next) => {
         return next(new AppError(weakPassword.reason || 'Password is too weak', 400));
     }
 
-    const verifiedFlow = verifyOtpFlowToken({
-        token: flowToken,
-        expectedPurpose: 'forgot-password',
-        expectedFactor: 'otp',
-        expectedSignalBond: deviceId ? { deviceId } : {},
-    });
+    const inspectedFlow = inspectOtpFlowToken(flowToken);
 
-    const user = await User.findById(verifiedFlow.sub)
-        .select('name email phone avatar gender dob bio isAdmin isVerified +resetOtpVerifiedAt')
+    const user = await User.findById(inspectedFlow.sub)
+        .select('name email phone avatar gender dob bio isAdmin isVerified trustedDevices +resetOtpVerifiedAt')
         .lean();
 
     const email = normalizeEmail(user?.email || '');
@@ -1496,6 +1541,37 @@ const resetPasswordWithOtp = asyncHandler(async (req, res, next) => {
         });
         return next(new AppError('Password reset verification is required before setting a new password.', 403));
     }
+
+    const verifiedBootstrapDeviceSignal = await resolveTrustedDeviceBootstrapSignal({
+        req,
+        user,
+        challengePayload: extractTrustedDeviceChallengePayload(req.body || {}),
+        expectedScope: 'reset-password',
+        requireFreshProof: Boolean(inspectedFlow.signalBond.deviceSessionHash),
+    });
+    if ((verifiedBootstrapDeviceSignal.required || inspectedFlow.signalBond.deviceSessionHash)
+        && !verifiedBootstrapDeviceSignal.verified) {
+        return next(new AppError(
+            verifiedBootstrapDeviceSignal.reason || 'Fresh trusted device verification is required.',
+            403
+        ));
+    }
+
+    const verifiedFlow = verifyOtpFlowToken({
+        token: flowToken,
+        expectedPurpose: 'forgot-password',
+        expectedFactor: 'otp',
+        expectedSignalBond: {
+            ...(inspectedFlow.signalBond.deviceId
+                && (verifiedBootstrapDeviceSignal.deviceId || deviceId)
+                ? { deviceId: verifiedBootstrapDeviceSignal.deviceId || deviceId }
+                : {}),
+            ...(inspectedFlow.signalBond.deviceSessionHash && verifiedBootstrapDeviceSignal.deviceSessionHash
+                ? { deviceSessionHash: verifiedBootstrapDeviceSignal.deviceSessionHash }
+                : {}),
+        },
+        expectedNextStep: 'reset-password',
+    });
 
     const resetOtpVerifiedAt = user.resetOtpVerifiedAt
         ? new Date(user.resetOtpVerifiedAt).getTime()
@@ -1529,6 +1605,14 @@ const resetPasswordWithOtp = asyncHandler(async (req, res, next) => {
             403
         ));
     }
+
+    await consumeOtpFlowGrant({
+        tokenId: verifiedFlow.tokenId,
+        userId: verifiedFlow.sub,
+        purpose: verifiedFlow.purpose,
+        factor: verifiedFlow.factor,
+        nextStep: verifiedFlow.nextStep,
+    });
 
     try {
         const authUser = await firebaseAdmin.auth().getUserByEmail(email);
