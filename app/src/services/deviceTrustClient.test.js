@@ -74,12 +74,14 @@ const createIndexedDbMock = () => {
   };
 };
 
-const setRuntimeHost = ({ hostname, host = hostname }) => {
+const setRuntimeHost = ({ hostname, host = hostname, protocol = 'https:', origin = `${protocol}//${host}` }) => {
   Object.defineProperty(window, 'location', {
     configurable: true,
     value: {
       hostname,
       host,
+      protocol,
+      origin,
     },
   });
 };
@@ -353,5 +355,21 @@ describe('deviceTrustClient', () => {
 
     expect(deviceTrustClient.getTrustedDeviceSessionToken()).toBe('legacy-tab-token');
     expect(localStorage.getItem('aura_trusted_device_session_v1')).toBeNull();
+  });
+
+  it('includes the current browser origin in trusted-device headers for session bootstrap requests', async () => {
+    setRuntimeHost({
+      hostname: 'aurapilot.vercel.app',
+      host: 'aurapilot.vercel.app',
+      protocol: 'https:',
+      origin: 'https://aurapilot.vercel.app',
+    });
+    const deviceTrustClient = await loadDeviceTrustModule();
+
+    expect(deviceTrustClient.getTrustedDeviceHeaders()).toMatchObject({
+      'X-Aura-Client-Origin': 'https://aurapilot.vercel.app',
+      'X-Aura-Device-Id': expect.stringContaining('aura_'),
+      'X-Aura-Device-Label': expect.any(String),
+    });
   });
 });

@@ -441,6 +441,44 @@ describe('trustedDeviceChallengeService', () => {
         });
     });
 
+    test('keeps hosted enrollment passkey-capable when the storefront origin is sent explicitly behind a proxy host', async () => {
+        const dbState = { trustedDevices: [] };
+        const userId = '507f1f77bcf86cd799439011';
+        const deviceId = 'device_hosted_proxy_123456';
+
+        process.env.NODE_ENV = 'test';
+        process.env.AUTH_TRUSTED_DEVICE_PREFER_WEBAUTHN = 'true';
+        delete process.env.AUTH_WEBAUTHN_RP_ID;
+        delete process.env.AUTH_WEBAUTHN_ORIGIN;
+
+        const service = loadServiceWithDbState({ dbState, userId });
+        const challenge = await service.issueTrustedDeviceChallenge({
+            user: {
+                _id: userId,
+                email: 'admin@example.com',
+                name: 'Admin User',
+                trustedDevices: [],
+            },
+            deviceId,
+            deviceLabel: 'Hosted laptop',
+            req: {
+                headers: {
+                    host: '3.109.181.238:5000',
+                    'x-forwarded-proto': 'https',
+                    'x-aura-client-origin': 'https://aurapilot.vercel.app',
+                },
+            },
+        });
+
+        expect(challenge.mode).toBe('enroll');
+        expect(challenge.preferredMethod).toBe('webauthn');
+        expect(challenge.availableMethods).toEqual(['webauthn', 'browser_key']);
+        expect(challenge.webauthn?.registrationOptions?.rp).toEqual({
+            id: 'aurapilot.vercel.app',
+            name: 'Aura Trusted Device',
+        });
+    });
+
     test('suppresses WebAuthn enrollment on 127.0.0.1 and keeps browser-key enrollment available', async () => {
         const dbState = { trustedDevices: [] };
         const userId = '507f1f77bcf86cd799439011';
