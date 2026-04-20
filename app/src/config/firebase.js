@@ -4,7 +4,10 @@ import { getAnalytics } from "firebase/analytics";
 
 const sanitizeFirebaseValue = (value) => {
     if (typeof value !== 'string') return value;
-    return value.replace(/[\r\n\t]+/g, '').trim();
+    return value
+        .replace(/\\[rnt]/g, '')
+        .replace(/[\r\n\t]+/g, '')
+        .trim();
 };
 
 const isHostedDeploymentHost = (host = '') => {
