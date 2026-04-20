@@ -137,6 +137,16 @@ const postAuthBootstrap = async (path, body, options = {}) => {
     return postWithFreshCsrf(path, body, options);
 };
 
+const postPublicOtpRequest = async (path, body) => {
+    const headers = await getAuthHeader();
+    const { data } = await apiFetch(path, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(body),
+    });
+    return data;
+};
+
 export const authApi = {
     exchangeSession: async (options = {}) => exchangeSessionWithFirebase(options.firebaseUser, options),
     getSession: async (options = {}) => {
@@ -220,11 +230,7 @@ export const otpApi = {
         let lastError = null;
         for (const path of candidatePaths) {
             try {
-                const { data } = await apiFetch(path, {
-                    method: 'POST',
-                    body: JSON.stringify({ email, phone, purpose, ...options }),
-                });
-                return data;
+                return await postPublicOtpRequest(path, { email, phone, purpose, ...options });
             } catch (error) {
                 lastError = error;
                 if (error?.status !== 404) break;
@@ -240,11 +246,7 @@ export const otpApi = {
         let lastError = null;
         for (const path of candidatePaths) {
             try {
-                const { data } = await apiFetch(path, {
-                    method: 'POST',
-                    body: JSON.stringify({ phone, otp, purpose, ...options }),
-                });
-                return data;
+                return await postPublicOtpRequest(path, { phone, otp, purpose, ...options });
             } catch (error) {
                 lastError = error;
                 if (error?.status !== 404) break;
@@ -260,11 +262,7 @@ export const otpApi = {
         let lastError = null;
         for (const path of candidatePaths) {
             try {
-                const { data } = await apiFetch(path, {
-                    method: 'POST',
-                    body: JSON.stringify(payload),
-                });
-                return data;
+                return await postPublicOtpRequest(path, payload);
             } catch (error) {
                 lastError = error;
                 if (error?.status !== 404) break;
@@ -277,11 +275,7 @@ export const otpApi = {
         let lastError = null;
         for (const path of candidatePaths) {
             try {
-                const { data } = await apiFetch(path, {
-                    method: 'POST',
-                    body: JSON.stringify({ phone, email }),
-                });
-                return data;
+                return await postPublicOtpRequest(path, { phone, email });
             } catch (error) {
                 lastError = error;
                 if (error?.status !== 404) break;

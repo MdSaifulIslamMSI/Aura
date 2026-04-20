@@ -213,9 +213,13 @@ describe('OTP API Routes Integration', () => {
                 userId: user._id,
                 purpose: 'forgot-password',
                 factor: 'otp',
+                signalBond: {
+                    deviceId: 'device-reset-123',
+                },
             });
 
             const res = await request(app).post('/api/otp/reset-password')
+                .set('X-Aura-Device-Id', 'device-reset-123')
                 .send({
                     flowToken,
                     password: 'Orbital!59Qa',
@@ -231,6 +235,34 @@ describe('OTP API Routes Integration', () => {
 
             const updated = await User.findById(user._id).select('+resetOtpVerifiedAt');
             expect(updated.resetOtpVerifiedAt).toBeNull();
+        });
+
+        test('should reject password reset when the recovery token is replayed from a different device', async () => {
+            const u = uniqueUser();
+            const user = await User.create({
+                ...u,
+                isVerified: true,
+                resetOtpVerifiedAt: new Date(),
+            });
+            const { flowToken } = issueOtpFlowToken({
+                userId: user._id,
+                purpose: 'forgot-password',
+                factor: 'otp',
+                signalBond: {
+                    deviceId: 'device-reset-123',
+                },
+            });
+
+            const res = await request(app).post('/api/otp/reset-password')
+                .set('X-Aura-Device-Id', 'device-other-456')
+                .send({
+                    flowToken,
+                    password: 'Orbital!59Qa',
+                });
+
+            expect(res.statusCode).toBe(403);
+            expect(res.body.message).toContain('device bond mismatch');
+            expect(mockUpdateUser).not.toHaveBeenCalled();
         });
 
         test('should reject password reset when the verified recovery session is missing', async () => {
