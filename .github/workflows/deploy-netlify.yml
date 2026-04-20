@@ -358,7 +358,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: vercel-prebuilt-output
-          path: .
+          path: .vercel
 
       - name: Publish Vercel preview deploy
         id: deploy
@@ -455,7 +455,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: vercel-prebuilt-output
-          path: .
+          path: .vercel
 
       - name: Publish Vercel production deploy
         id: deploy
