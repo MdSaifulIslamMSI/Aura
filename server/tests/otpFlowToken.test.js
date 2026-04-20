@@ -16,7 +16,7 @@ describe('otpFlowToken', () => {
         process.env.NODE_ENV = 'test';
         process.env.OTP_FLOW_SECRET = buildRuntimeSecret('otp-flow');
 
-        const { flowToken, flowTokenExpiresAt } = issueOtpFlowToken({
+        const { flowToken, flowTokenExpiresAt, tokenState } = issueOtpFlowToken({
             userId: 'u123',
             purpose: 'login',
         });
@@ -26,6 +26,10 @@ describe('otpFlowToken', () => {
         expect(flowToken.split('.')[0]).toBe('v1');
         expect(flowToken).not.toContain('u123');
         expect(typeof flowTokenExpiresAt).toBe('string');
+        expect(tokenState).toMatchObject({
+            tokenId: expect.any(String),
+            nextStep: 'auth-sync',
+        });
     });
 
     test('verifies a token and preserves the factor claim and signal bond', () => {
@@ -38,6 +42,7 @@ describe('otpFlowToken', () => {
             factor: 'email',
             signalBond: {
                 deviceId: 'device-123',
+                deviceSessionHash: 'session-hash-123',
                 authUid: 'uid-123',
             },
         });
@@ -48,14 +53,19 @@ describe('otpFlowToken', () => {
             expectedSubject: 'u123',
             expectedSignalBond: {
                 deviceId: 'device-123',
+                deviceSessionHash: 'session-hash-123',
                 authUid: 'uid-123',
             },
+            expectedNextStep: 'auth-sync',
         })).toMatchObject({
+            tokenId: expect.any(String),
             sub: 'u123',
             purpose: 'login',
             factor: 'email',
+            nextStep: 'auth-sync',
             signalBond: {
                 deviceId: 'device-123',
+                deviceSessionHash: 'session-hash-123',
                 authUid: 'uid-123',
             },
         });
@@ -115,6 +125,48 @@ describe('otpFlowToken', () => {
                 deviceId: 'device-999',
             },
         })).toThrow('Login assurance token device bond mismatch');
+    });
+
+    test('rejects a token when the trusted device session proof does not match', () => {
+        process.env.NODE_ENV = 'test';
+        process.env.OTP_FLOW_SECRET = buildRuntimeSecret('otp-flow');
+
+        const { flowToken } = issueOtpFlowToken({
+            userId: 'u123',
+            purpose: 'forgot-password',
+            factor: 'otp',
+            signalBond: {
+                deviceId: 'device-123',
+                deviceSessionHash: 'session-hash-123',
+            },
+        });
+
+        expect(() => verifyOtpFlowToken({
+            token: flowToken,
+            expectedPurpose: 'forgot-password',
+            expectedFactor: 'otp',
+            expectedSignalBond: {
+                deviceId: 'device-123',
+                deviceSessionHash: 'session-hash-999',
+            },
+        })).toThrow('trusted device session mismatch');
+    });
+
+    test('rejects a token when the expected next step does not match', () => {
+        process.env.NODE_ENV = 'test';
+        process.env.OTP_FLOW_SECRET = buildRuntimeSecret('otp-flow');
+
+        const { flowToken } = issueOtpFlowToken({
+            userId: 'u123',
+            purpose: 'login',
+            factor: 'otp',
+        });
+
+        expect(() => verifyOtpFlowToken({
+            token: flowToken,
+            expectedPurpose: 'login',
+            expectedNextStep: 'reset-password',
+        })).toThrow('Login assurance token next step mismatch');
     });
 
     test.each(['development', 'staging', 'production'])(

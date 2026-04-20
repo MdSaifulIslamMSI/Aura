@@ -4,7 +4,7 @@ const logger = require('../utils/logger');
 const { saveAuthProfileSnapshot } = require('./authProfileVault');
 const { awardLoyaltyPoints, getRewardSnapshotFromUser } = require('./loyaltyService');
 const { normalizePhoneE164 } = require('./sms');
-const { verifyOtpFlowToken } = require('../utils/otpFlowToken');
+const { inspectOtpFlowToken, verifyOtpFlowToken } = require('../utils/otpFlowToken');
 const {
     normalizeEmail,
     normalizeUid,
@@ -21,6 +21,7 @@ const {
     findPreferredIdentityUserDocument,
 } = require('./authIdentityResolutionService');
 const { shouldRequireTrustedDevice } = require('../config/authTrustedDeviceFlags');
+const { consumeOtpFlowGrant } = require('./otpFlowGrantService');
 
 const PROFILE_PROJECTION = 'name email phone avatar gender dob bio isAdmin isVerified isSeller sellerActivatedAt accountState moderation authAssurance authAssuranceAt trustedDevices +loginOtpAssuranceExpiresAt addresses cart wishlist loyalty createdAt';
 const AUTH_ONLY_PROJECTION = 'name email phone isAdmin isVerified isSeller sellerActivatedAt accountState moderation authAssurance authAssuranceAt trustedDevices +loginOtpAssuranceExpiresAt loyalty createdAt';
@@ -466,20 +467,24 @@ const applyLoginAssuranceToSession = async ({
     authToken = null,
     authUid = '',
     deviceId = '',
+    deviceSessionHash = '',
     phone = '',
 }) => {
     if (!user?._id || !flowToken) {
         return user;
     }
 
+    const inspectedFlow = inspectOtpFlowToken(flowToken);
     const verifiedFlow = verifyOtpFlowToken({
         token: flowToken,
         expectedPurpose: 'login',
         expectedSubject: user._id,
         expectedSignalBond: {
-            ...(deviceId ? { deviceId } : {}),
-            ...(authUid ? { authUid } : {}),
+            ...(inspectedFlow.signalBond.deviceId && deviceId ? { deviceId } : {}),
+            ...(inspectedFlow.signalBond.deviceSessionHash && deviceSessionHash ? { deviceSessionHash } : {}),
+            ...(inspectedFlow.signalBond.authUid && authUid ? { authUid } : {}),
         },
+        expectedNextStep: 'auth-sync',
     });
 
     const authTimeSeconds = resolveAuthTimeSeconds(authToken);
@@ -501,6 +506,14 @@ const applyLoginAssuranceToSession = async ({
     }
 
     const now = new Date();
+
+    await consumeOtpFlowGrant({
+        tokenId: verifiedFlow.tokenId,
+        userId: user._id,
+        purpose: verifiedFlow.purpose,
+        factor: verifiedFlow.factor,
+        nextStep: verifiedFlow.nextStep,
+    });
 
     return User.findOneAndUpdate(
         { _id: user._id },

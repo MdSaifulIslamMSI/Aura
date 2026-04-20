@@ -5,6 +5,10 @@ const OTP_FLOW_TTL_SECONDS = 5 * 60;
 const OTP_FLOW_TOKEN_VERSION = 'v1';
 const OTP_FLOW_TOKEN_KEY_CONTEXT = 'aura-otp-flow-token';
 const OTP_FLOW_TOKEN_ALGORITHM = 'aes-256-gcm';
+const DEFAULT_NEXT_STEP_BY_PURPOSE = {
+    login: 'auth-sync',
+    'forgot-password': 'reset-password',
+};
 
 const getSecret = () => {
     const secret = String(process.env.OTP_FLOW_SECRET || '').trim();
@@ -16,6 +20,10 @@ const getSecret = () => {
 const encodeBase64Url = (value) => Buffer.from(value, 'utf8').toString('base64url');
 const normalizeOptionalText = (value, maxLength = 256) => String(value || '').trim().slice(0, maxLength);
 const createInvalidTokenError = () => new AppError('Login assurance token is invalid', 401);
+const normalizeNextStep = (value, purpose = '') => normalizeOptionalText(
+    value || DEFAULT_NEXT_STEP_BY_PURPOSE[String(purpose || '').trim()] || '',
+    64
+);
 
 const signPayload = (payloadB64) => crypto
     .createHmac('sha256', getSecret())
@@ -75,12 +83,14 @@ const decryptPayload = (encodedPayload) => {
 const normalizeSignalBond = (signalBond = {}) => {
     const normalized = {};
     const deviceId = normalizeOptionalText(signalBond.deviceId, 256);
+    const deviceSessionHash = normalizeOptionalText(signalBond.deviceSessionHash, 128);
     const authUid = normalizeOptionalText(signalBond.authUid, 256);
     const sessionId = normalizeOptionalText(signalBond.sessionId, 256);
     const deviceMethod = normalizeOptionalText(signalBond.deviceMethod, 64).toLowerCase();
     const riskState = normalizeOptionalText(signalBond.riskState, 64).toLowerCase();
 
     if (deviceId) normalized.deviceId = deviceId;
+    if (deviceSessionHash) normalized.deviceSessionHash = deviceSessionHash;
     if (authUid) normalized.authUid = authUid;
     if (sessionId) normalized.sessionId = sessionId;
     if (deviceMethod) normalized.deviceMethod = deviceMethod;
@@ -99,6 +109,8 @@ const assertSignalBond = (actualSignalBond = {}, expectedSignalBond = {}) => {
             throw new AppError(
                 key === 'deviceId'
                     ? 'Login assurance token device bond mismatch'
+                    : key === 'deviceSessionHash'
+                        ? 'Login assurance token trusted device session mismatch'
                     : key === 'authUid'
                         ? 'Login assurance token identity bond mismatch'
                         : 'Login assurance token signal bond mismatch',
@@ -115,6 +127,8 @@ const assertSignalBond = (actualSignalBond = {}, expectedSignalBond = {}) => {
             throw new AppError(
                 key === 'deviceId'
                     ? 'Login assurance token device bond is required'
+                    : key === 'deviceSessionHash'
+                        ? 'Login assurance token trusted device session is required'
                     : 'Login assurance token signal bond is required',
                 403
             );
@@ -124,6 +138,8 @@ const assertSignalBond = (actualSignalBond = {}, expectedSignalBond = {}) => {
             throw new AppError(
                 key === 'deviceId'
                     ? 'Login assurance token device bond mismatch'
+                    : key === 'deviceSessionHash'
+                        ? 'Login assurance token trusted device session mismatch'
                     : key === 'authUid'
                         ? 'Login assurance token identity bond mismatch'
                         : 'Login assurance token signal bond mismatch',
@@ -135,23 +151,31 @@ const assertSignalBond = (actualSignalBond = {}, expectedSignalBond = {}) => {
     return actual;
 };
 
-const issueOtpFlowToken = ({ userId, purpose, factor = '', signalBond = {} }) => {
+const issueOtpFlowToken = ({ userId, purpose, factor = '', signalBond = {}, nextStep = '' }) => {
     const nowSec = Math.floor(Date.now() / 1000);
     const expSec = nowSec + OTP_FLOW_TTL_SECONDS;
+    const tokenId = crypto.randomBytes(16).toString('hex');
     const normalizedSignalBond = normalizeSignalBond(signalBond);
+    const normalizedNextStep = normalizeNextStep(nextStep, purpose);
     const payload = {
         typ: 'otp_flow',
+        jti: tokenId,
         sub: String(userId || ''),
         purpose: String(purpose || ''),
         factor: String(factor || ''),
         iat: nowSec,
         exp: expSec,
+        ...(normalizedNextStep ? { nextStep: normalizedNextStep } : {}),
         ...(Object.keys(normalizedSignalBond).length > 0 ? { bond: normalizedSignalBond } : {}),
     };
 
     return {
         flowToken: `${OTP_FLOW_TOKEN_VERSION}.${encryptPayload(payload)}`,
         flowTokenExpiresAt: new Date(expSec * 1000).toISOString(),
+        tokenState: {
+            tokenId,
+            nextStep: normalizedNextStep,
+        },
     };
 };
 
@@ -170,13 +194,7 @@ const decodeTokenPayload = (safeToken) => {
     return decodePayload(first);
 };
 
-const verifyOtpFlowToken = ({
-    token,
-    expectedPurpose = '',
-    expectedSubject = '',
-    expectedFactor = '',
-    expectedSignalBond = {},
-}) => {
+const inspectOtpFlowToken = (token) => {
     const safeToken = String(token || '').trim();
     if (!safeToken || safeToken.length > 4096) {
         throw createInvalidTokenError();
@@ -194,32 +212,58 @@ const verifyOtpFlowToken = ({
     if (!payload?.sub || !payload?.purpose || !issuedAt || !expiresAt) {
         throw createInvalidTokenError();
     }
+    const tokenId = normalizeOptionalText(payload?.jti || '', 128);
+    const nextStep = normalizeNextStep(payload?.nextStep || '', payload?.purpose || '');
+    if (!tokenId) {
+        throw createInvalidTokenError();
+    }
     if (expiresAt <= nowSec) {
         throw new AppError('Login assurance token expired. Please verify OTP again.', 401);
     }
-    if (expectedPurpose && payload.purpose !== expectedPurpose) {
-        throw new AppError('Login assurance token purpose mismatch', 403);
-    }
-    if (expectedSubject && String(payload.sub) !== String(expectedSubject)) {
-        throw new AppError('Login assurance token does not match this account', 403);
-    }
-    if (expectedFactor && String(payload.factor || '') !== String(expectedFactor)) {
-        throw new AppError('Login assurance token factor mismatch', 403);
-    }
-
-    const signalBond = assertSignalBond(payload?.bond || {}, expectedSignalBond);
 
     return {
+        tokenId,
         sub: String(payload.sub),
         purpose: String(payload.purpose),
         factor: String(payload.factor || ''),
         iat: issuedAt,
         exp: expiresAt,
-        signalBond,
+        nextStep,
+        signalBond: normalizeSignalBond(payload?.bond || {}),
+    };
+};
+
+const verifyOtpFlowToken = ({
+    token,
+    expectedPurpose = '',
+    expectedSubject = '',
+    expectedFactor = '',
+    expectedSignalBond = {},
+    expectedNextStep = '',
+}) => {
+    const inspected = inspectOtpFlowToken(token);
+
+    if (expectedPurpose && inspected.purpose !== expectedPurpose) {
+        throw new AppError('Login assurance token purpose mismatch', 403);
+    }
+    if (expectedSubject && String(inspected.sub) !== String(expectedSubject)) {
+        throw new AppError('Login assurance token does not match this account', 403);
+    }
+    if (expectedFactor && String(inspected.factor || '') !== String(expectedFactor)) {
+        throw new AppError('Login assurance token factor mismatch', 403);
+    }
+    if (expectedNextStep && inspected.nextStep !== String(expectedNextStep)) {
+        throw new AppError('Login assurance token next step mismatch', 403);
+    }
+
+    return {
+        ...inspected,
+        signalBond: assertSignalBond(inspected.signalBond, expectedSignalBond),
     };
 };
 
 module.exports = {
+    inspectOtpFlowToken,
     issueOtpFlowToken,
     verifyOtpFlowToken,
     OTP_FLOW_TTL_SECONDS,
