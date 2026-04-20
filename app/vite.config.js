@@ -1,3 +1,4 @@
+import { execSync } from "node:child_process"
 import path from "path"
 import react from "@vitejs/plugin-react"
 import { defineConfig } from "vite"
@@ -34,9 +35,81 @@ const INTERNAL_CHUNK_MATCHERS = [
   { pattern: /\/src\/config\/localePolishMessages\.js$/, chunk: 'market-messages-polish' },
 ]
 
+const trimValue = (value = '') => (typeof value === 'string' ? value.trim() : '')
+
+const firstNonEmptyValue = (...values) => values.map(trimValue).find(Boolean) || ''
+
+const safeExec = (command) => {
+  try {
+    return execSync(command, { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim()
+  } catch {
+    return ''
+  }
+}
+
+const gitCommitSha = firstNonEmptyValue(
+  process.env.VITE_RELEASE_SHA,
+  process.env.GITHUB_SHA,
+  safeExec('git rev-parse HEAD')
+)
+
+const shortCommitSha = gitCommitSha ? gitCommitSha.slice(0, 8) : ''
+
+const releaseTarget = firstNonEmptyValue(
+  process.env.VITE_DEPLOY_TARGET,
+  process.env.DEPLOY_TARGET,
+  process.env.VERCEL === '1' ? 'vercel' : '',
+  process.env.NETLIFY === 'true' ? 'netlify' : '',
+  process.env.CI ? 'ci' : 'local'
+)
+
+const releaseChannel = firstNonEmptyValue(
+  process.env.VITE_RELEASE_CHANNEL,
+  process.env.GITHUB_REF_NAME,
+  process.env.NODE_ENV,
+  'local'
+)
+
+const releaseSource = firstNonEmptyValue(
+  process.env.VITE_RELEASE_SOURCE,
+  process.env.GITHUB_ACTIONS ? 'github-actions' : '',
+  process.env.CI ? 'ci' : '',
+  'local'
+)
+
+const releaseInfo = Object.freeze({
+  id: firstNonEmptyValue(
+    process.env.VITE_RELEASE_ID,
+    shortCommitSha ? `git-${shortCommitSha}` : '',
+    `${releaseTarget}-unversioned`
+  ),
+  commitSha: gitCommitSha || 'unknown',
+  shortCommitSha: shortCommitSha || 'unknown',
+  deployTarget: releaseTarget,
+  channel: releaseChannel,
+  source: releaseSource,
+  builtAt: firstNonEmptyValue(process.env.VITE_RELEASE_TIME, new Date().toISOString()),
+})
+
+const auraReleaseMetaPlugin = {
+  name: 'aura-release-meta',
+  transformIndexHtml() {
+    return [
+      { tag: 'meta', attrs: { name: 'aura-release-id', content: releaseInfo.id }, injectTo: 'head' },
+      { tag: 'meta', attrs: { name: 'aura-release-commit', content: releaseInfo.shortCommitSha }, injectTo: 'head' },
+      { tag: 'meta', attrs: { name: 'aura-release-target', content: releaseInfo.deployTarget }, injectTo: 'head' },
+      { tag: 'meta', attrs: { name: 'aura-release-channel', content: releaseInfo.channel }, injectTo: 'head' },
+      { tag: 'meta', attrs: { name: 'aura-release-built-at', content: releaseInfo.builtAt }, injectTo: 'head' },
+    ]
+  },
+}
+
 // https://vite.dev/config/
 export default defineConfig({
   base: '/',
+  define: {
+    __AURA_RELEASE__: JSON.stringify(releaseInfo),
+  },
   build: {
     modulePreload: {
       resolveDependencies(_filename, deps) {
@@ -83,7 +156,7 @@ export default defineConfig({
       },
     },
   },
-  plugins: [react()],
+  plugins: [react(), auraReleaseMetaPlugin],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
