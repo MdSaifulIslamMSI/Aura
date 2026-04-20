@@ -464,6 +464,8 @@ const applyLoginAssuranceToSession = async ({
     user = null,
     flowToken = '',
     authToken = null,
+    authUid = '',
+    deviceId = '',
     phone = '',
 }) => {
     if (!user?._id || !flowToken) {
@@ -474,6 +476,10 @@ const applyLoginAssuranceToSession = async ({
         token: flowToken,
         expectedPurpose: 'login',
         expectedSubject: user._id,
+        expectedSignalBond: {
+            ...(deviceId ? { deviceId } : {}),
+            ...(authUid ? { authUid } : {}),
+        },
     });
 
     const authTimeSeconds = resolveAuthTimeSeconds(authToken);
