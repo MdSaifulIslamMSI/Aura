@@ -17,6 +17,7 @@ import {
 import { trustApi } from '@/services/api';
 import { useMarket } from '@/context/MarketContext';
 import { buildSupportHandoffPath } from '@/utils/supportRouting';
+import { formatReleaseBuiltAt, releaseInfo, resolveRuntimeHost } from '@/config/releaseInfo';
 
 const STATUS_CLASSES = {
   healthy: 'bg-emerald-500/15 border-emerald-400/40 text-emerald-300 shadow-emerald-500/0 hover:shadow-emerald-500/20',
@@ -33,6 +34,17 @@ const Footer = () => {
     derivedStatus: 'checking',
   });
   const supportDeskPath = buildSupportHandoffPath();
+  const runtimeHost = useMemo(() => resolveRuntimeHost(), []);
+  const releaseBuiltAtLabel = useMemo(() => formatReleaseBuiltAt(releaseInfo.builtAt), []);
+  const hasRuntimeTargetMismatch = useMemo(
+    () => (
+      releaseInfo.deployTarget !== 'unknown'
+      && runtimeHost !== 'unknown'
+      && runtimeHost !== 'local'
+      && runtimeHost !== releaseInfo.deployTarget
+    ),
+    [runtimeHost]
+  );
 
   const footerLinks = {
     about: [
@@ -287,9 +299,29 @@ const Footer = () => {
               <span className="text-neo-cyan font-black tracking-widest uppercase text-xs">Aura</span>
               <span>Copyright {new Date().getFullYear()} {t('footer.rights', {}, 'All Rights Reserved.')}</span>
             </div>
-            <div className="flex items-center gap-3 opacity-60 hover:opacity-100 transition-opacity duration-300">
-              <div className="h-8 w-12 bg-white/10 rounded-md flex items-center justify-center">
-                <CreditCard className="w-5 h-5 text-slate-300" />
+            <div className="flex flex-col items-center gap-3 md:items-end">
+              <div className="flex flex-wrap items-center justify-center gap-2 md:justify-end">
+                <span className={`inline-flex items-center rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] ${
+                  hasRuntimeTargetMismatch
+                    ? 'border-amber-400/35 bg-amber-500/15 text-amber-100'
+                    : 'border-emerald-400/30 bg-emerald-500/12 text-emerald-100'
+                }`}>
+                  Runtime {runtimeHost}
+                </span>
+                <span className="inline-flex items-center rounded-full border border-cyan-400/25 bg-cyan-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-cyan-100">
+                  Target {releaseInfo.deployTarget}
+                </span>
+                <span className="inline-flex items-center rounded-full border border-white/12 bg-white/[0.06] px-3 py-1 font-mono text-[11px] font-semibold text-slate-200">
+                  {releaseInfo.id}
+                </span>
+              </div>
+              <p className="text-center text-[11px] text-slate-500 md:text-right">
+                Built {releaseBuiltAtLabel} · Commit {releaseInfo.shortCommitSha} · Source {releaseInfo.source}
+              </p>
+              <div className="flex items-center gap-3 opacity-60 hover:opacity-100 transition-opacity duration-300">
+                <div className="h-8 w-12 bg-white/10 rounded-md flex items-center justify-center">
+                  <CreditCard className="w-5 h-5 text-slate-300" />
+                </div>
               </div>
             </div>
           </div>

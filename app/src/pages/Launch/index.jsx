@@ -9,6 +9,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { resolveFrontendTargets } from '@/config/frontendTargets';
+import { formatReleaseBuiltAt, releaseInfo, resolveRuntimeHost } from '@/config/releaseInfo';
 import { cn } from '@/lib/utils';
 
 const PLATFORM_THEMES = {
@@ -69,6 +70,13 @@ const buildLaunchTargets = () => resolveFrontendTargets({
 
 const Launch = () => {
   const launchTargets = buildLaunchTargets();
+  const runtimeHost = resolveRuntimeHost();
+  const hasRuntimeTargetMismatch = (
+    releaseInfo.deployTarget !== 'unknown'
+    && runtimeHost !== 'unknown'
+    && runtimeHost !== 'local'
+    && runtimeHost !== releaseInfo.deployTarget
+  );
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#030712] text-slate-50">
@@ -165,6 +173,48 @@ const Launch = () => {
                     <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">State</p>
                     <p className="mt-2 text-lg font-bold text-white">Shared production data</p>
                   </div>
+                </div>
+
+                <div className="mt-4 rounded-[1.35rem] border border-white/8 bg-black/20 p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">
+                      Current release
+                    </p>
+                    <span
+                      className={cn(
+                        'inline-flex items-center rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em]',
+                        hasRuntimeTargetMismatch
+                          ? 'border-amber-400/35 bg-amber-500/15 text-amber-100'
+                          : 'border-emerald-400/30 bg-emerald-500/12 text-emerald-100'
+                      )}
+                    >
+                      {hasRuntimeTargetMismatch ? 'Host drift detected' : 'Host aligned'}
+                    </span>
+                  </div>
+
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
+                      <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Build ID</p>
+                      <p className="mt-2 break-all font-mono text-sm text-white">{releaseInfo.id}</p>
+                    </div>
+                    <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
+                      <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Runtime vs Target</p>
+                      <p className="mt-2 text-sm font-bold text-white">{runtimeHost} / {releaseInfo.deployTarget}</p>
+                    </div>
+                    <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
+                      <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Commit</p>
+                      <p className="mt-2 font-mono text-sm text-white">{releaseInfo.shortCommitSha}</p>
+                    </div>
+                    <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
+                      <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Built</p>
+                      <p className="mt-2 text-sm font-bold text-white">{formatReleaseBuiltAt(releaseInfo.builtAt)}</p>
+                    </div>
+                  </div>
+
+                  <p className="mt-4 text-xs leading-6 text-slate-400">
+                    If Netlify and Vercel ever show different build IDs, commits, or a runtime/target mismatch here,
+                    the public storefront runtimes are out of sync.
+                  </p>
                 </div>
               </div>
             </aside>

@@ -77,7 +77,18 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
+      - name: Capture Netlify release timestamp
+        id: netlify_release
+        run: echo "built_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
       - name: Build frontend artifact
+        env:
+          VITE_DEPLOY_TARGET: netlify
+          VITE_RELEASE_ID: ${{ github.sha }}
+          VITE_RELEASE_SHA: ${{ github.sha }}
+          VITE_RELEASE_CHANNEL: ${{ ((github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.target == 'production')) && 'production' || 'preview' }}
+          VITE_RELEASE_SOURCE: github-actions
+          VITE_RELEASE_TIME: ${{ steps.netlify_release.outputs.built_at }}
         run: npm run build
 
       - name: Upload frontend dist bundle
@@ -107,9 +118,19 @@ jobs:
           test -n "${VERCEL_ORG_ID}" || { echo "Missing GitHub variable or secret VERCEL_ORG_ID"; exit 1; }
           test -n "${VERCEL_PROJECT_ID}" || { echo "Missing GitHub variable or secret VERCEL_PROJECT_ID"; exit 1; }
 
+      - name: Capture Vercel release timestamp
+        id: vercel_release
+        run: echo "built_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
       - name: Build Vercel prebuilt output
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VITE_DEPLOY_TARGET: vercel
+          VITE_RELEASE_ID: ${{ github.sha }}
+          VITE_RELEASE_SHA: ${{ github.sha }}
+          VITE_RELEASE_CHANNEL: ${{ ((github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.target == 'production')) && 'production' || 'preview' }}
+          VITE_RELEASE_SOURCE: github-actions
+          VITE_RELEASE_TIME: ${{ steps.vercel_release.outputs.built_at }}
         run: |
           set -euo pipefail
           SANITIZED_VERCEL_TOKEN="$(printf '%s' "${VERCEL_TOKEN}" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"

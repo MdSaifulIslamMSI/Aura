@@ -5,6 +5,7 @@ import './index.css'
 import App from './App.jsx'
 import { ErrorBoundary } from 'react-error-boundary';
 import { initClientObservability } from './services/clientObservability'
+import { publishReleaseInfo } from './config/releaseInfo'
 
 function RootRenderFallback({ error, resetErrorBoundary }) {
   return (
@@ -87,6 +88,7 @@ if (typeof window !== 'undefined' && window.location.hostname === '127.0.0.1') {
 
 runServiceWorkerCleanup()
 initClientObservability()
+publishReleaseInfo()
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
