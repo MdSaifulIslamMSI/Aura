@@ -89,12 +89,27 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
           set -euo pipefail
+          SANITIZED_VERCEL_TOKEN="$(printf '%s' "${VERCEL_TOKEN}" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+          if [ -z "${SANITIZED_VERCEL_TOKEN}" ]; then
+            echo "GitHub secret VERCEL_TOKEN is empty after trimming whitespace." >&2
+            exit 1
+          fi
+          echo "::add-mask::${SANITIZED_VERCEL_TOKEN}"
           if [ "${GITHUB_EVENT_NAME}" = "push" ] && [ "${GITHUB_REF}" = "refs/heads/main" ]; then
-            npx vercel build --prod --token "${VERCEL_TOKEN}" --yes
+            if ! npx vercel build --prod --token "${SANITIZED_VERCEL_TOKEN}" --yes; then
+              echo "Vercel authentication failed during build. Re-save GitHub secret VERCEL_TOKEN without quotes or trailing spaces, or rotate it in Vercel if it has expired." >&2
+              exit 1
+            fi
           elif [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ] && [ "${{ inputs.target }}" = "production" ]; then
-            npx vercel build --prod --token "${VERCEL_TOKEN}" --yes
+            if ! npx vercel build --prod --token "${SANITIZED_VERCEL_TOKEN}" --yes; then
+              echo "Vercel authentication failed during build. Re-save GitHub secret VERCEL_TOKEN without quotes or trailing spaces, or rotate it in Vercel if it has expired." >&2
+              exit 1
+            fi
           else
-            npx vercel build --token "${VERCEL_TOKEN}" --yes
+            if ! npx vercel build --token "${SANITIZED_VERCEL_TOKEN}" --yes; then
+              echo "Vercel authentication failed during build. Re-save GitHub secret VERCEL_TOKEN without quotes or trailing spaces, or rotate it in Vercel if it has expired." >&2
+              exit 1
+            fi
           fi
 
       - name: Upload frontend dist bundle
@@ -313,7 +328,13 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
           set -euo pipefail
-          DEPLOY_URL="$(npx vercel deploy --prebuilt --token "${VERCEL_TOKEN}" --yes)"
+          SANITIZED_VERCEL_TOKEN="$(printf '%s' "${VERCEL_TOKEN}" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+          if [ -z "${SANITIZED_VERCEL_TOKEN}" ]; then
+            echo "GitHub secret VERCEL_TOKEN is empty after trimming whitespace." >&2
+            exit 1
+          fi
+          echo "::add-mask::${SANITIZED_VERCEL_TOKEN}"
+          DEPLOY_URL="$(npx vercel deploy --prebuilt --token "${SANITIZED_VERCEL_TOKEN}" --yes)"
           DEPLOY_URL="$(printf '%s\n' "${DEPLOY_URL}" | tail -n 1 | tr -d '\r')"
           if [ -z "${DEPLOY_URL}" ]; then
             echo "Vercel CLI did not return a preview deployment URL." >&2
@@ -404,13 +425,19 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
           set -euo pipefail
-          DEPLOY_URL="$(npx vercel deploy --prebuilt --prod --token "${VERCEL_TOKEN}" --yes)"
+          SANITIZED_VERCEL_TOKEN="$(printf '%s' "${VERCEL_TOKEN}" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+          if [ -z "${SANITIZED_VERCEL_TOKEN}" ]; then
+            echo "GitHub secret VERCEL_TOKEN is empty after trimming whitespace." >&2
+            exit 1
+          fi
+          echo "::add-mask::${SANITIZED_VERCEL_TOKEN}"
+          DEPLOY_URL="$(npx vercel deploy --prebuilt --prod --token "${SANITIZED_VERCEL_TOKEN}" --yes)"
           DEPLOY_URL="$(printf '%s\n' "${DEPLOY_URL}" | tail -n 1 | tr -d '\r')"
           if [ -z "${DEPLOY_URL}" ]; then
             echo "Vercel CLI did not return a production deployment URL." >&2
             exit 1
           fi
-          INSPECT_TEXT="$(npx vercel inspect "${DEPLOY_URL}" --token "${VERCEL_TOKEN}" || true)"
+          INSPECT_TEXT="$(npx vercel inspect "${DEPLOY_URL}" --token "${SANITIZED_VERCEL_TOKEN}" || true)"
           SITE_URL="$(INSPECT_TEXT="${INSPECT_TEXT}" DEPLOY_URL="${DEPLOY_URL}" node <<'EOF'
           const inspectText = process.env.INSPECT_TEXT ?? '';
           const deployUrl = process.env.DEPLOY_URL ?? '';
