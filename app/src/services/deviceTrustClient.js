@@ -1,11 +1,10 @@
+import { getSafeEnv, isHostedFrontendRuntimeHost } from './runtimeApiConfig';
+
 const DEVICE_ID_STORAGE_KEY = 'aura_trusted_device_id_v1';
 const DEVICE_SESSION_STORAGE_KEY = 'aura_trusted_device_session_v1';
 const DEVICE_DB_NAME = 'aura_trusted_device_keys';
 const DEVICE_STORE_NAME = 'keys';
 const CLIENT_ORIGIN_HEADER = 'X-Aura-Client-Origin';
-const PERSIST_TRUSTED_DEVICE_SESSION = String(
-  import.meta.env.VITE_PERSIST_TRUSTED_DEVICE_SESSION || 'false'
-).trim().toLowerCase() === 'true';
 
 let keyDbPromise = null;
 let inMemoryDeviceId = '';
@@ -21,9 +20,27 @@ const normalizeTrustedDeviceMethod = (value = '') => {
     : '';
 };
 
+const parseBooleanEnv = (value, fallback = false) => {
+  if (value === undefined || value === null || value === '') return fallback;
+  if (typeof value === 'boolean') return value;
+  const normalized = String(value).trim().toLowerCase();
+  if (['1', 'true', 'yes', 'on'].includes(normalized)) return true;
+  if (['0', 'false', 'no', 'off'].includes(normalized)) return false;
+  return fallback;
+};
+
 const getRuntimeHost = () => {
   if (!hasWindow()) return '';
   return normalizeHost(window.location?.hostname || window.location?.host || '');
+};
+
+const shouldPersistTrustedDeviceSession = () => {
+  const configuredValue = getSafeEnv('VITE_PERSIST_TRUSTED_DEVICE_SESSION', '');
+  if (String(configuredValue || '').trim() !== '') {
+    return parseBooleanEnv(configuredValue, false);
+  }
+
+  return isHostedFrontendRuntimeHost(getRuntimeHost());
 };
 
 const getPlatformPasskeyLabel = () => {
@@ -207,15 +224,20 @@ export const getTrustedDeviceLabel = () => {
 
 export const getTrustedDeviceSessionToken = () => {
   const tabStorage = readStorage('sessionStorage');
-  const sharedStorage = PERSIST_TRUSTED_DEVICE_SESSION ? readStorage('localStorage') : null;
+  const sharedStorage = shouldPersistTrustedDeviceSession() ? readStorage('localStorage') : null;
   const tabToken = tabStorage?.getItem(DEVICE_SESSION_STORAGE_KEY) || '';
-  if (tabToken) return tabToken;
+  if (tabToken) {
+    if (sharedStorage && sharedStorage.getItem(DEVICE_SESSION_STORAGE_KEY) !== tabToken) {
+      sharedStorage.setItem(DEVICE_SESSION_STORAGE_KEY, tabToken);
+    }
+    return tabToken;
+  }
   return sharedStorage?.getItem(DEVICE_SESSION_STORAGE_KEY) || '';
 };
 
 export const cacheTrustedDeviceSessionToken = (token = '') => {
   const tabStorage = readStorage('sessionStorage');
-  const sharedStorage = PERSIST_TRUSTED_DEVICE_SESSION ? readStorage('localStorage') : null;
+  const sharedStorage = shouldPersistTrustedDeviceSession() ? readStorage('localStorage') : null;
 
   if (token) {
     tabStorage?.setItem(DEVICE_SESSION_STORAGE_KEY, token);
