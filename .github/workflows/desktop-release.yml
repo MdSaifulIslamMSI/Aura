@@ -73,6 +73,13 @@ jobs:
         env:
           WINDOWS_CODE_SIGNING_CERTIFICATE_BASE64: ${{ secrets.WINDOWS_CODE_SIGNING_CERTIFICATE_BASE64 }}
           WINDOWS_CODE_SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CODE_SIGNING_CERTIFICATE_PASSWORD }}
+          WINDOWS_CODE_SIGNING_PUBLISHER_NAME: ${{ secrets.WINDOWS_CODE_SIGNING_PUBLISHER_NAME }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_TRUSTED_SIGNING_ACCOUNT_NAME: ${{ secrets.AZURE_TRUSTED_SIGNING_ACCOUNT_NAME }}
+          AZURE_TRUSTED_SIGNING_CERTIFICATE_PROFILE_NAME: ${{ secrets.AZURE_TRUSTED_SIGNING_CERTIFICATE_PROFILE_NAME }}
+          AZURE_TRUSTED_SIGNING_ENDPOINT: ${{ secrets.AZURE_TRUSTED_SIGNING_ENDPOINT }}
           REQUIRE_WINDOWS_SIGNING: ${{ inputs.require_windows_signing }}
         run: |
           set -euo pipefail
@@ -82,8 +89,25 @@ jobs:
             exit 0
           fi
 
-          if [ -z "${WINDOWS_CODE_SIGNING_CERTIFICATE_BASE64}" ] || [ -z "${WINDOWS_CODE_SIGNING_CERTIFICATE_PASSWORD}" ]; then
-            echo "::error::Windows code signing is required before publishing a production desktop release. Add WINDOWS_CODE_SIGNING_CERTIFICATE_BASE64 and WINDOWS_CODE_SIGNING_CERTIFICATE_PASSWORD repository secrets."
+          has_pfx_signing=false
+          has_trusted_signing=false
+
+          if [ -n "${WINDOWS_CODE_SIGNING_CERTIFICATE_BASE64}" ] && [ -n "${WINDOWS_CODE_SIGNING_CERTIFICATE_PASSWORD}" ]; then
+            has_pfx_signing=true
+          fi
+
+          if [ -n "${AZURE_CLIENT_ID}" ] \
+            && [ -n "${AZURE_CLIENT_SECRET}" ] \
+            && [ -n "${AZURE_TENANT_ID}" ] \
+            && [ -n "${AZURE_TRUSTED_SIGNING_ACCOUNT_NAME}" ] \
+            && [ -n "${AZURE_TRUSTED_SIGNING_CERTIFICATE_PROFILE_NAME}" ] \
+            && [ -n "${AZURE_TRUSTED_SIGNING_ENDPOINT}" ] \
+            && [ -n "${WINDOWS_CODE_SIGNING_PUBLISHER_NAME}" ]; then
+            has_trusted_signing=true
+          fi
+
+          if [ "${has_pfx_signing}" != "true" ] && [ "${has_trusted_signing}" != "true" ]; then
+            echo "::error::Windows code signing is required before publishing a production desktop release. Add either PFX signing secrets or Microsoft Trusted Signing secrets."
             exit 1
           fi
 
@@ -136,20 +160,46 @@ jobs:
         env:
           WINDOWS_CODE_SIGNING_CERTIFICATE_BASE64: ${{ secrets.WINDOWS_CODE_SIGNING_CERTIFICATE_BASE64 }}
           WINDOWS_CODE_SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CODE_SIGNING_CERTIFICATE_PASSWORD }}
+          WINDOWS_CODE_SIGNING_PUBLISHER_NAME: ${{ secrets.WINDOWS_CODE_SIGNING_PUBLISHER_NAME }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_TRUSTED_SIGNING_ACCOUNT_NAME: ${{ secrets.AZURE_TRUSTED_SIGNING_ACCOUNT_NAME }}
+          AZURE_TRUSTED_SIGNING_CERTIFICATE_PROFILE_NAME: ${{ secrets.AZURE_TRUSTED_SIGNING_CERTIFICATE_PROFILE_NAME }}
+          AZURE_TRUSTED_SIGNING_ENDPOINT: ${{ secrets.AZURE_TRUSTED_SIGNING_ENDPOINT }}
           REQUIRE_WINDOWS_SIGNING: ${{ inputs.require_windows_signing }}
         run: |
-          if ([string]::IsNullOrWhiteSpace($env:WINDOWS_CODE_SIGNING_CERTIFICATE_BASE64)) {
-            "AURA_WINDOWS_SIGNING_ENABLED=false" >> $env:GITHUB_ENV
-            if ($env:REQUIRE_WINDOWS_SIGNING -eq "true") {
-              throw "Windows code signing is required for release publishing. Add WINDOWS_CODE_SIGNING_CERTIFICATE_BASE64 and WINDOWS_CODE_SIGNING_CERTIFICATE_PASSWORD repository secrets, or disable require_windows_signing only for internal test releases."
-            }
+          $hasPfxSigning = -not [string]::IsNullOrWhiteSpace($env:WINDOWS_CODE_SIGNING_CERTIFICATE_BASE64) `
+            -and -not [string]::IsNullOrWhiteSpace($env:WINDOWS_CODE_SIGNING_CERTIFICATE_PASSWORD)
 
-            Write-Host "Windows code signing certificate secret is not configured; Windows installers will be unsigned because require_windows_signing is false."
+          $hasTrustedSigning = -not [string]::IsNullOrWhiteSpace($env:AZURE_CLIENT_ID) `
+            -and -not [string]::IsNullOrWhiteSpace($env:AZURE_CLIENT_SECRET) `
+            -and -not [string]::IsNullOrWhiteSpace($env:AZURE_TENANT_ID) `
+            -and -not [string]::IsNullOrWhiteSpace($env:AZURE_TRUSTED_SIGNING_ACCOUNT_NAME) `
+            -and -not [string]::IsNullOrWhiteSpace($env:AZURE_TRUSTED_SIGNING_CERTIFICATE_PROFILE_NAME) `
+            -and -not [string]::IsNullOrWhiteSpace($env:AZURE_TRUSTED_SIGNING_ENDPOINT) `
+            -and -not [string]::IsNullOrWhiteSpace($env:WINDOWS_CODE_SIGNING_PUBLISHER_NAME)
+
+          if ($hasTrustedSigning -and -not $hasPfxSigning) {
+            "AURA_WINDOWS_SIGNING_MODE=trusted-signing" >> $env:GITHUB_ENV
+            "AZURE_CLIENT_ID=$env:AZURE_CLIENT_ID" >> $env:GITHUB_ENV
+            "AZURE_CLIENT_SECRET=$env:AZURE_CLIENT_SECRET" >> $env:GITHUB_ENV
+            "AZURE_TENANT_ID=$env:AZURE_TENANT_ID" >> $env:GITHUB_ENV
+            "AZURE_TRUSTED_SIGNING_ACCOUNT_NAME=$env:AZURE_TRUSTED_SIGNING_ACCOUNT_NAME" >> $env:GITHUB_ENV
+            "AZURE_TRUSTED_SIGNING_CERTIFICATE_PROFILE_NAME=$env:AZURE_TRUSTED_SIGNING_CERTIFICATE_PROFILE_NAME" >> $env:GITHUB_ENV
+            "AZURE_TRUSTED_SIGNING_ENDPOINT=$env:AZURE_TRUSTED_SIGNING_ENDPOINT" >> $env:GITHUB_ENV
+            "WINDOWS_CODE_SIGNING_PUBLISHER_NAME=$env:WINDOWS_CODE_SIGNING_PUBLISHER_NAME" >> $env:GITHUB_ENV
             exit 0
           }
 
-          if ([string]::IsNullOrWhiteSpace($env:WINDOWS_CODE_SIGNING_CERTIFICATE_PASSWORD)) {
-            throw "WINDOWS_CODE_SIGNING_CERTIFICATE_PASSWORD is required when WINDOWS_CODE_SIGNING_CERTIFICATE_BASE64 is set."
+          if (-not $hasPfxSigning) {
+            "AURA_WINDOWS_SIGNING_MODE=unsigned" >> $env:GITHUB_ENV
+            if ($env:REQUIRE_WINDOWS_SIGNING -eq "true") {
+              throw "Windows code signing is required for release publishing. Add PFX signing secrets or Microsoft Trusted Signing secrets, or disable require_windows_signing only for internal test releases."
+            }
+
+            Write-Host "Windows code signing secrets are not configured; Windows installers will be unsigned because require_windows_signing is false."
+            exit 0
           }
 
           $certificatePath = Join-Path $env:RUNNER_TEMP "aura-windows-code-signing.pfx"
@@ -158,13 +208,20 @@ jobs:
           "CSC_KEY_PASSWORD=$env:WINDOWS_CODE_SIGNING_CERTIFICATE_PASSWORD" >> $env:GITHUB_ENV
           "WIN_CSC_LINK=$certificatePath" >> $env:GITHUB_ENV
           "WIN_CSC_KEY_PASSWORD=$env:WINDOWS_CODE_SIGNING_CERTIFICATE_PASSWORD" >> $env:GITHUB_ENV
-          "AURA_WINDOWS_SIGNING_ENABLED=true" >> $env:GITHUB_ENV
+          "AURA_WINDOWS_SIGNING_MODE=pfx" >> $env:GITHUB_ENV
 
       - name: Build desktop artifacts
         shell: bash
         run: |
-          if [ "${{ matrix.platform }}" = "windows" ] && [ "${AURA_WINDOWS_SIGNING_ENABLED:-false}" = "true" ]; then
+          if [ "${{ matrix.platform }}" = "windows" ] && [ "${AURA_WINDOWS_SIGNING_MODE:-}" = "pfx" ]; then
             npm run desktop:dist:win:all -- --publish never --config.win.signAndEditExecutable=true
+          elif [ "${{ matrix.platform }}" = "windows" ] && [ "${AURA_WINDOWS_SIGNING_MODE:-}" = "trusted-signing" ]; then
+            npm run desktop:dist:win:all -- --publish never \
+              --config.win.signAndEditExecutable=true \
+              --config.win.azureSignOptions.endpoint="${AZURE_TRUSTED_SIGNING_ENDPOINT}" \
+              --config.win.azureSignOptions.certificateProfileName="${AZURE_TRUSTED_SIGNING_CERTIFICATE_PROFILE_NAME}" \
+              --config.win.azureSignOptions.codeSigningAccountName="${AZURE_TRUSTED_SIGNING_ACCOUNT_NAME}" \
+              --config.win.azureSignOptions.publisherName="${WINDOWS_CODE_SIGNING_PUBLISHER_NAME}"
           else
             ${{ matrix.command }}
           fi
@@ -172,7 +229,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Verify Windows signatures
-        if: matrix.platform == 'windows' && env.AURA_WINDOWS_SIGNING_ENABLED == 'true'
+        if: matrix.platform == 'windows' && env.AURA_WINDOWS_SIGNING_MODE != 'unsigned'
         shell: pwsh
         run: |
           $signatures = Get-ChildItem -Path desktop-release -Filter *.exe | Get-AuthenticodeSignature
