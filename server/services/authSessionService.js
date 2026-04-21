@@ -363,7 +363,10 @@ const toSessionIntelligence = (user = null, session = null) => {
     const privilegedAccount = Boolean(user?.isAdmin || user?.isSeller);
     const trustedDeviceRequired = shouldRequireTrustedDevice({ user });
     const elevatedAssurance = assuranceLevel === 'password+otp' || normalizeText(session?.aal) === 'aal2' || stepUpActive;
-    const freshForSensitiveActions = authAgeSeconds !== null && authAgeSeconds <= SENSITIVE_ACTION_FRESH_LOGIN_SECONDS;
+    const freshForSensitiveActions = Boolean(
+        stepUpActive
+        || (authAgeSeconds !== null && authAgeSeconds <= SENSITIVE_ACTION_FRESH_LOGIN_SECONDS)
+    );
     const continuousAccess = Boolean(
         session?.sessionId
         && freshForSensitiveActions

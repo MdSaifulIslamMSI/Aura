@@ -310,20 +310,26 @@ const getTrustedDeviceSessionToken = (req = {}) => String(
 ).trim();
 
 const getTrustedDeviceSessionVerification = (req = {}) => {
+    if (req._trustedDeviceSessionVerification) {
+        return req._trustedDeviceSessionVerification;
+    }
+
     const { deviceId } = extractTrustedDeviceContext(req);
     const deviceSessionToken = getTrustedDeviceSessionToken(req);
 
     if (!deviceId || !deviceSessionToken) {
-        return { success: false, reason: 'Trusted device verification missing' };
+        req._trustedDeviceSessionVerification = { success: false, reason: 'Trusted device verification missing' };
+        return req._trustedDeviceSessionVerification;
     }
 
-    return verifyTrustedDeviceSession({
+    req._trustedDeviceSessionVerification = verifyTrustedDeviceSession({
         user: req.user,
         authUid: req.authUid || '',
         authToken: req.authToken || null,
         deviceId,
         deviceSessionToken,
     });
+    return req._trustedDeviceSessionVerification;
 };
 
 const hasTrustedDeviceSecondFactor = (req = {}) => {
@@ -360,6 +366,22 @@ const hasSessionTrustedDeviceBinding = (req = {}) => {
     }
 
     return hasSessionSecondFactor(req);
+};
+
+const hasActiveSessionStepUp = (req = {}) => {
+    const stepUpUntilMs = req.authSession?.stepUpUntil
+        ? new Date(req.authSession.stepUpUntil).getTime()
+        : 0;
+    if (!Number.isFinite(stepUpUntilMs) || stepUpUntilMs <= Date.now()) {
+        return false;
+    }
+
+    const sessionAal = String(req.authSession?.aal || '').trim().toLowerCase();
+    const sessionDeviceMethod = String(req.authSession?.deviceMethod || '').trim().toLowerCase();
+    return sessionAal === 'aal2'
+        || sessionDeviceMethod === 'webauthn'
+        || sessionDeviceMethod === 'browser_key'
+        || hasSessionSecondFactor(req);
 };
 
 const enforceTrustedDevice = (req) => {
@@ -447,8 +469,11 @@ const buildRequestPosture = (req = {}, options = {}) => {
         SENSITIVE_ACTION_FRESH_LOGIN_MINUTES
     );
     const authAgeSeconds = resolveAuthAgeSeconds(req);
-    const deviceBound = hasSessionTrustedDeviceBinding(req) || getTrustedDeviceSessionVerification(req).success;
+    const trustedDeviceSessionVerified = getTrustedDeviceSessionVerification(req).success;
+    const deviceBound = hasSessionTrustedDeviceBinding(req) || trustedDeviceSessionVerified;
     const cryptoBound = hasCryptographicTrustedDeviceBinding(req);
+    const freshByAuthAge = Number.isFinite(authAgeSeconds) && authAgeSeconds <= (freshnessMinutes * 60);
+    const freshByStepUp = hasActiveSessionStepUp(req);
     const riskState = String(
         req.authSession?.riskState
         || (req.user?.isAdmin ? 'privileged' : req.user?.isSeller ? 'heightened' : 'standard')
@@ -457,15 +482,17 @@ const buildRequestPosture = (req = {}, options = {}) => {
     const elevatedAssurance = Boolean(
         hasOtpAssurance(req)
         || hasSessionSecondFactor(req)
+        || trustedDeviceSessionVerified
         || req.authToken?.firebase?.sign_in_second_factor
         || (String(req.authSession?.aal || '').trim().toLowerCase() === 'aal2')
     );
 
     return {
         sensitivity: options?.sensitivity || resolveRequestSensitivity(req),
-        fresh: Number.isFinite(authAgeSeconds) && authAgeSeconds <= (freshnessMinutes * 60),
+        fresh: freshByAuthAge || freshByStepUp,
         authAgeSeconds,
         authFreshnessWindowSeconds: freshnessMinutes * 60,
+        stepUpFresh: freshByStepUp,
         deviceBound,
         cryptoBound,
         trustedDeviceRequired,
@@ -474,8 +501,7 @@ const buildRequestPosture = (req = {}, options = {}) => {
         riskHigh: riskState !== 'standard',
         elevatedAssurance,
         continuousAccess: Boolean(
-            Number.isFinite(authAgeSeconds)
-            && authAgeSeconds <= (freshnessMinutes * 60)
+            (freshByAuthAge || freshByStepUp)
             && (!trustedDeviceRequired || deviceBound)
             && (riskState === 'standard' || elevatedAssurance)
         ),
