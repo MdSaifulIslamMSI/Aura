@@ -30,6 +30,7 @@ On every push to `main`, GitHub Actions now runs:
    - Builds Windows, macOS, and Linux packages on native GitHub runners
    - Publishes a GitHub Release
    - Marks it as latest so desktop auto-update and gateway download buttons resolve automatically
+   - Runs only after CI and the selected production deploy jobs succeed
 
 The old deploy workflows are still available for manual runs and pull-request previews, but production push delivery is owned by `Production CI/CD`.
 
