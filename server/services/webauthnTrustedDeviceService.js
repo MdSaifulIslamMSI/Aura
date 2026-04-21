@@ -68,6 +68,14 @@ const normalizeUserVerification = (value) => {
     return 'required';
 };
 
+const normalizeAuthenticatorAttachment = (value) => {
+    const normalized = normalizeText(value).toLowerCase();
+    if (['platform', 'cross-platform'].includes(normalized)) {
+        return normalized;
+    }
+    return 'platform';
+};
+
 const toArray = (input) => {
     if (!input) return Buffer.alloc(0);
     return Buffer.isBuffer(input) ? input : Buffer.from(input);
@@ -141,6 +149,7 @@ const resolveWebAuthnRequestContext = (req = {}) => {
         rpId,
         rpName: normalizeText(trustedDeviceFlags.authWebAuthnRpName) || DEFAULT_RP_NAME,
         userVerification: normalizeUserVerification(trustedDeviceFlags.authWebAuthnUserVerification),
+        authenticatorAttachment: normalizeAuthenticatorAttachment(trustedDeviceFlags.authWebAuthnAuthenticatorAttachment),
         timeoutMs: Math.max(Number(trustedDeviceFlags.authWebAuthnTimeoutMs || 60_000), 15_000),
         requestHost,
         configuredOrigin,
@@ -185,6 +194,7 @@ const buildRegistrationOptions = ({
     timeout: context.timeoutMs,
     attestation: 'none',
     authenticatorSelection: {
+        authenticatorAttachment: context.authenticatorAttachment || 'platform',
         residentKey: 'preferred',
         userVerification: context.userVerification,
     },
@@ -460,6 +470,7 @@ const verifyWebAuthnAssertion = ({
 module.exports = {
     PASSKEY_METHOD,
     normalizeUserVerification,
+    normalizeAuthenticatorAttachment,
     normalizeTransports,
     resolveWebAuthnRequestContext,
     buildRegistrationOptions,

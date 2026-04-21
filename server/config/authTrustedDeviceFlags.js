@@ -57,6 +57,7 @@ const flags = {
     authWebAuthnRpId: trim(process.env.AUTH_WEBAUTHN_RP_ID, ''),
     authWebAuthnOrigin: trim(process.env.AUTH_WEBAUTHN_ORIGIN, ''),
     authWebAuthnUserVerification: trim(process.env.AUTH_WEBAUTHN_USER_VERIFICATION, 'required').toLowerCase() || 'required',
+    authWebAuthnAuthenticatorAttachment: trim(process.env.AUTH_WEBAUTHN_AUTHENTICATOR_ATTACHMENT, 'platform').toLowerCase() || 'platform',
     authWebAuthnTimeoutMs: Math.max(Number(process.env.AUTH_WEBAUTHN_TIMEOUT_MS || 60_000), 15_000),
 };
 
