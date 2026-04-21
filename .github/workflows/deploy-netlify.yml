@@ -166,7 +166,7 @@ jobs:
 
   deploy-preview:
     needs: build-frontend
-    if: github.event_name == 'pull_request' || ((github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call') && inputs.target == 'preview')
+    if: github.event_name == 'pull_request' || inputs.target == 'preview'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     outputs:
@@ -274,7 +274,7 @@ jobs:
 
   deploy-production:
     needs: build-frontend
-    if: (github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call') && inputs.target == 'production'
+    if: inputs.target == 'production'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment:
@@ -338,7 +338,7 @@ jobs:
 
   deploy-vercel-preview:
     needs: build-vercel-prebuilt
-    if: github.event_name == 'pull_request' || ((github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call') && inputs.target == 'preview')
+    if: github.event_name == 'pull_request' || inputs.target == 'preview'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     outputs:
@@ -443,7 +443,7 @@ jobs:
 
   deploy-vercel-production:
     needs: build-vercel-prebuilt
-    if: (github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call') && inputs.target == 'production'
+    if: inputs.target == 'production'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment:
