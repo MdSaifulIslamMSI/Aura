@@ -272,8 +272,60 @@ describe('authSessionService session intelligence payload', () => {
                     sensitiveActionsAllowed: false,
                 },
             },
+        });
     });
-  });
+
+    test('treats an active trusted-device step-up as fresh for sensitive-action intelligence', () => {
+        const payload = buildSessionPayload({
+            authUser: {
+                email: 'stepup@example.com',
+                displayName: 'Step Up Admin',
+                providerData: [{ providerId: 'password' }],
+                emailVerified: true,
+            },
+            authUid: 'uid-stepup',
+            authSession: {
+                sessionId: 'session-stepup',
+                firebaseUid: 'uid-stepup',
+                email: 'stepup@example.com',
+                emailVerified: true,
+                displayName: 'Step Up Admin',
+                providerIds: ['password'],
+                authTime: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+                issuedAt: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+                firebaseExpiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+                aal: 'aal2',
+                amr: ['password', 'trusted_device'],
+                deviceId: 'device-stepup-1',
+                deviceMethod: 'browser_key',
+                riskState: 'privileged',
+                stepUpUntil: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+            },
+            user: {
+                email: 'stepup@example.com',
+                phone: '',
+                isVerified: true,
+                isAdmin: true,
+                isSeller: false,
+                accountState: 'active',
+                authAssurance: 'none',
+            },
+        });
+
+        expect(payload.intelligence.posture).toMatchObject({
+            continuousAccess: true,
+            trustedDeviceBound: true,
+            session: {
+                freshForSensitiveActions: true,
+                stepUpActive: true,
+            },
+            policy: {
+                elevatedAssurance: true,
+                sensitiveActionsAllowed: true,
+                reauthRecommended: false,
+            },
+        });
+    });
 });
 
 describe('authSessionService social identity fallback', () => {
