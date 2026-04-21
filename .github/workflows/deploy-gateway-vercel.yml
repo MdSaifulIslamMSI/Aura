@@ -6,11 +6,6 @@ on:
     paths:
       - "gateway/**"
       - ".github/workflows/deploy-gateway-vercel.yml"
-  push:
-    branches: ["main"]
-    paths:
-      - "gateway/**"
-      - ".github/workflows/deploy-gateway-vercel.yml"
   workflow_dispatch:
     inputs:
       target:
@@ -21,6 +16,13 @@ on:
         options:
           - preview
           - production
+  workflow_call:
+    inputs:
+      target:
+        description: Deployment target
+        required: false
+        default: production
+        type: string
 
 permissions:
   contents: read
@@ -40,7 +42,7 @@ env:
 
 jobs:
   deploy-preview:
-    if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.target == 'preview')
+    if: github.event_name == 'pull_request' || ((github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call') && inputs.target == 'preview')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     outputs:
@@ -161,7 +163,7 @@ jobs:
             }
 
   deploy-production:
-    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.target == 'production')
+    if: (github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call') && inputs.target == 'production'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     outputs:

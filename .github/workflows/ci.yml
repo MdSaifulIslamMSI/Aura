@@ -5,33 +5,25 @@ on:
     branches: ["main"]
     paths:
       - "app/**"
+      - "desktop/**"
+      - "gateway/**"
       - "netlify.toml"
       - ".netlifyignore"
       - "server/**"
+      - "docs/desktop-app.md"
       - "infra/aws/bootstrap-instance-user-data.sh"
       - "infra/aws/deploy-release.sh"
       - "infra/aws/docker-compose.ec2.yml"
       - "infra/aws/render-runtime-secrets.sh"
       - ".github/workflows/**"
+      - "package.json"
+      - "package-lock.json"
       - "vercel.json"
       - "app/vercel.json"
-      - ".vercelignore"
-  push:
-    branches: ["main"]
-    paths:
-      - "app/**"
-      - "netlify.toml"
-      - ".netlifyignore"
-      - "server/**"
-      - "infra/aws/bootstrap-instance-user-data.sh"
-      - "infra/aws/deploy-release.sh"
-      - "infra/aws/docker-compose.ec2.yml"
-      - "infra/aws/render-runtime-secrets.sh"
-      - ".github/workflows/**"
-      - "vercel.json"
-      - "app/vercel.json"
+      - "gateway/vercel.json"
       - ".vercelignore"
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
@@ -47,24 +39,28 @@ jobs:
   changes:
     runs-on: ubuntu-latest
     outputs:
-      backend: ${{ github.event_name == 'workflow_dispatch' && steps.manual.outputs.backend || steps.filter.outputs.backend }}
-      frontend: ${{ github.event_name == 'workflow_dispatch' && steps.manual.outputs.frontend || steps.filter.outputs.frontend }}
+      backend: ${{ (github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call') && steps.manual.outputs.backend || steps.filter.outputs.backend }}
+      desktop: ${{ (github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call') && steps.manual.outputs.desktop || steps.filter.outputs.desktop }}
+      frontend: ${{ (github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call') && steps.manual.outputs.frontend || steps.filter.outputs.frontend }}
+      gateway: ${{ (github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call') && steps.manual.outputs.gateway || steps.filter.outputs.gateway }}
 
     steps:
       - uses: actions/checkout@v4
-        if: github.event_name != 'workflow_dispatch'
+        if: github.event_name != 'workflow_dispatch' && github.event_name != 'workflow_call'
         with:
           fetch-depth: 0
 
       - name: Mark all surfaces changed for manual runs
-        if: github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call'
         id: manual
         run: |
           echo "backend=true" >> "$GITHUB_OUTPUT"
+          echo "desktop=true" >> "$GITHUB_OUTPUT"
           echo "frontend=true" >> "$GITHUB_OUTPUT"
+          echo "gateway=true" >> "$GITHUB_OUTPUT"
 
       - name: Detect changed surfaces
-        if: github.event_name != 'workflow_dispatch'
+        if: github.event_name != 'workflow_dispatch' && github.event_name != 'workflow_call'
         id: filter
         uses: dorny/paths-filter@v3
         with:
@@ -76,6 +72,13 @@ jobs:
               - 'infra/aws/docker-compose.ec2.yml'
               - 'infra/aws/render-runtime-secrets.sh'
               - '.github/workflows/**'
+            desktop:
+              - 'app/**'
+              - 'desktop/**'
+              - 'docs/desktop-app.md'
+              - 'package.json'
+              - 'package-lock.json'
+              - '.github/workflows/**'
             frontend:
               - 'app/**'
               - 'netlify.toml'
@@ -83,6 +86,9 @@ jobs:
               - 'vercel.json'
               - 'app/vercel.json'
               - '.vercelignore'
+              - '.github/workflows/**'
+            gateway:
+              - 'gateway/**'
               - '.github/workflows/**'
 
   artifact-guard:
@@ -250,7 +256,7 @@ jobs:
     needs:
       - changes
       - frontend-quality
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.frontend == 'true'
+    if: github.ref == 'refs/heads/main' && needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     services:
@@ -309,3 +315,80 @@ jobs:
           name: playwright-report
           path: app/playwright-report/
           retention-days: 7
+
+  gateway-static:
+    needs: changes
+    if: needs.changes.outputs.gateway == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate gateway download links
+        run: |
+          set -euo pipefail
+          node <<'EOF'
+          const fs = require('fs');
+          const html = fs.readFileSync('gateway/index.html', 'utf8');
+          const config = JSON.parse(fs.readFileSync('gateway/vercel.json', 'utf8'));
+          const requiredAssets = [
+            'Aura-Marketplace-Windows-x64-Setup.exe',
+            'Aura-Marketplace-Windows-arm64-Setup.exe',
+            'Aura-Marketplace-Windows-ia32-Setup.exe',
+            'Aura-Marketplace-Windows-x64-Portable.exe',
+            'Aura-Marketplace-macOS-arm64.dmg',
+            'Aura-Marketplace-macOS-x64.dmg',
+            'Aura-Marketplace-macOS-arm64.zip',
+            'Aura-Marketplace-macOS-x64.zip',
+            'Aura-Marketplace-Linux-x64.AppImage',
+            'Aura-Marketplace-Linux-x64.deb',
+            'Aura-Marketplace-Linux-x64.rpm',
+            'Aura-Marketplace-Linux-x64.tar.gz',
+            'Aura-Marketplace-Linux-arm64.AppImage',
+            'Aura-Marketplace-Linux-arm64.deb',
+            'Aura-Marketplace-Linux-arm64.rpm',
+            'Aura-Marketplace-Linux-arm64.tar.gz',
+          ];
+          if (html.includes('/releases/latest/download/')) {
+            throw new Error('Gateway must not link directly to latest/download assets before release resolution.');
+          }
+          for (const asset of requiredAssets) {
+            if (!html.includes(`data-release-asset="${asset}"`)) {
+              throw new Error(`Missing gateway download resolver asset: ${asset}`);
+            }
+          }
+          if (config.outputDirectory !== '.') {
+            throw new Error('gateway/vercel.json must deploy the static gateway root as outputDirectory ".".');
+          }
+          EOF
+
+  desktop-package-smoke:
+    needs: changes
+    if: needs.changes.outputs.desktop == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            app/package-lock.json
+
+      - name: Install desktop dependencies
+        run: npm ci
+
+      - name: Install frontend dependencies
+        run: npm --prefix app ci
+
+      - name: Build frontend for desktop packaging
+        run: npm run desktop:frontend:build
+
+      - name: Package Linux desktop directory smoke test
+        run: npx electron-builder --linux dir --publish never

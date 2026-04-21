@@ -1,5 +1,10 @@
 {
+  "name": "aura-marketplace-desktop",
   "private": true,
+  "version": "1.0.0",
+  "description": "Desktop wrapper for Aura Marketplace",
+  "author": "Aura Marketplace",
+  "main": "desktop/main.cjs",
   "scripts": {
     "build": "cd app && npm install && npm run build",
     "aws:ssm:sync": "powershell -ExecutionPolicy Bypass -File .\\infra\\aws\\sync-parameter-store-env.ps1 -SourceEnvFile .\\server\\.env.aws-secrets",
@@ -9,6 +14,118 @@
     "dev:off": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\dev-off.ps1",
     "dev:off:force": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\dev-off.ps1 -ForceKill",
     "codex:restart": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\codex-restart.ps1",
-    "codex:open": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\codex-open.ps1"
+    "codex:open": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\codex-open.ps1",
+    "desktop:frontend:build": "npm --prefix app run build",
+    "desktop:start": "npm run desktop:frontend:build && electron .",
+    "desktop:pack": "npm run desktop:frontend:build && electron-builder --dir",
+    "desktop:dist": "npm run desktop:dist:win",
+    "desktop:dist:win": "npm run desktop:frontend:build && electron-builder --win nsis portable --x64",
+    "desktop:dist:win:all": "npm run desktop:frontend:build && electron-builder --win nsis portable --x64 --ia32 --arm64",
+    "desktop:dist:mac": "npm run desktop:frontend:build && electron-builder --mac dmg zip --x64 --arm64",
+    "desktop:dist:linux": "npm run desktop:frontend:build && electron-builder --linux AppImage deb rpm tar.gz --x64 --arm64",
+    "desktop:dist:portable": "npm run desktop:frontend:build && electron-builder --win portable --x64"
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.3",
+    "express": "^5.1.0",
+    "http-proxy-middleware": "^3.0.5"
+  },
+  "devDependencies": {
+    "electron": "^37.2.1",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.aura.marketplace.desktop",
+    "productName": "Aura Marketplace",
+    "asar": true,
+    "directories": {
+      "app": ".",
+      "output": "desktop-release"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "MdSaifulIslamMSI",
+        "repo": "Aura",
+        "releaseType": "release"
+      }
+    ],
+    "files": [
+      "desktop/**/*",
+      "package.json",
+      "!app/**/*",
+      "!docs/**/*",
+      "!gateway/**/*",
+      "!generated/**/*",
+      "!infra/**/*",
+      "!server/**/*",
+      "!.github/**/*",
+      "!**/*.log",
+      "!**/.env*"
+    ],
+    "extraResources": [
+      {
+        "from": "app/dist",
+        "to": "app-dist",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "app/public/assets/icon-512.png",
+        "to": "app-icon.png"
+      }
+    ],
+    "win": {
+      "icon": "app/public/assets/icon-512.png",
+      "signAndEditExecutable": false,
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "mac": {
+      "category": "public.app-category.shopping",
+      "icon": "app/public/assets/icon-512.png",
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "artifactName": "Aura-Marketplace-macOS-${arch}.${ext}"
+    },
+    "linux": {
+      "category": "Office",
+      "icon": "app/public/assets/icon-512.png",
+      "target": [
+        "AppImage",
+        "deb",
+        "rpm",
+        "tar.gz"
+      ],
+      "artifactName": "Aura-Marketplace-Linux-${arch}.${ext}"
+    },
+    "portable": {
+      "artifactName": "Aura-Marketplace-Windows-${arch}-Portable.${ext}"
+    },
+    "dmg": {
+      "artifactName": "Aura-Marketplace-macOS-${arch}.dmg"
+    },
+    "appImage": {
+      "artifactName": "Aura-Marketplace-Linux-${arch}.AppImage"
+    },
+    "deb": {
+      "artifactName": "Aura-Marketplace-Linux-${arch}.deb"
+    },
+    "rpm": {
+      "artifactName": "Aura-Marketplace-Linux-${arch}.rpm"
+    },
+    "nsis": {
+      "artifactName": "Aura-Marketplace-Windows-${arch}-Setup.${ext}",
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Aura Marketplace"
+    }
   }
 }

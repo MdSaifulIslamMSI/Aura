@@ -1,0 +1,104 @@
+name: Production CI/CD
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "app/**"
+      - "desktop/**"
+      - "gateway/**"
+      - "server/**"
+      - "infra/aws/**"
+      - "netlify.toml"
+      - ".netlifyignore"
+      - "vercel.json"
+      - "app/vercel.json"
+      - "gateway/vercel.json"
+      - ".vercelignore"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/**"
+  workflow_dispatch:
+    inputs:
+      deploy_backend:
+        description: Deploy backend to AWS
+        required: false
+        default: true
+        type: boolean
+      deploy_frontend:
+        description: Deploy storefront to Netlify and Vercel
+        required: false
+        default: true
+        type: boolean
+      deploy_gateway:
+        description: Deploy gateway to Vercel
+        required: false
+        default: true
+        type: boolean
+      release_desktop:
+        description: Build and publish desktop GitHub Release
+        required: false
+        default: true
+        type: boolean
+      desktop_version:
+        description: Optional desktop version, for example 1.2.0
+        required: false
+        default: ""
+        type: string
+      skip_backend_healthcheck:
+        description: Skip backend readiness check after AWS deploy
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+  id-token: write
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: production-cicd-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  ci:
+    name: Quality gates
+    uses: ./.github/workflows/ci.yml
+
+  deploy-backend:
+    name: Deploy backend to AWS
+    needs: ci
+    if: github.event_name == 'push' || inputs.deploy_backend == true
+    uses: ./.github/workflows/deploy-backend-aws.yml
+    with:
+      git_ref: ${{ github.sha }}
+      skip_healthcheck: ${{ github.event_name == 'workflow_dispatch' && inputs.skip_backend_healthcheck || false }}
+    secrets: inherit
+
+  deploy-frontend:
+    name: Deploy storefront
+    needs: ci
+    if: github.event_name == 'push' || inputs.deploy_frontend == true
+    uses: ./.github/workflows/deploy-netlify.yml
+    with:
+      target: production
+    secrets: inherit
+
+  deploy-gateway:
+    name: Deploy gateway
+    needs: ci
+    if: github.event_name == 'push' || inputs.deploy_gateway == true
+    uses: ./.github/workflows/deploy-gateway-vercel.yml
+    with:
+      target: production
+    secrets: inherit
+
+  release-desktop:
+    name: Publish desktop apps
+    needs: ci
+    if: github.event_name == 'push' || inputs.release_desktop == true
+    uses: ./.github/workflows/desktop-release.yml
+    with:
+      version: ${{ github.event_name == 'workflow_dispatch' && inputs.desktop_version || '' }}
+    secrets: inherit
