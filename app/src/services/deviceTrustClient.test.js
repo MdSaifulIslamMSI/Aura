@@ -279,6 +279,148 @@ describe('deviceTrustClient', () => {
     });
   });
 
+  it('forces platform user verification for biometric passkey registration', async () => {
+    const indexedDbMock = createIndexedDbMock();
+    const createCredentialMock = vi.fn().mockResolvedValue({
+      id: 'credential-id',
+      rawId: Uint8Array.from([1, 2, 3, 4]).buffer,
+      type: 'public-key',
+      authenticatorAttachment: 'platform',
+      response: {
+        clientDataJSON: Uint8Array.from([5, 6, 7, 8]).buffer,
+        attestationObject: Uint8Array.from([9, 10, 11, 12]).buffer,
+        getTransports: () => ['internal'],
+      },
+    });
+
+    setRuntimeHost({ hostname: 'localhost', host: 'localhost:4173' });
+    Object.defineProperty(window, 'isSecureContext', { configurable: true, value: true });
+    Object.defineProperty(window, 'PublicKeyCredential', { configurable: true, value: class PublicKeyCredential {} });
+    Object.defineProperty(window, 'indexedDB', { configurable: true, value: indexedDbMock.indexedDB });
+    Object.defineProperty(window, 'crypto', {
+      configurable: true,
+      value: {
+        randomUUID: () => 'uuid-platform-passkey',
+        subtle: {
+          generateKey: vi.fn(),
+          exportKey: vi.fn(),
+          sign: vi.fn(),
+        },
+      },
+    });
+    Object.defineProperty(window.navigator, 'credentials', {
+      configurable: true,
+      value: {
+        create: createCredentialMock,
+        get: vi.fn(),
+      },
+    });
+
+    const deviceTrustClient = await loadDeviceTrustModule();
+    const result = await deviceTrustClient.signTrustedDeviceChallenge({
+      availableMethods: ['webauthn'],
+      challenge: 'platform-passkey',
+      mode: 'enroll',
+      webauthn: {
+        registrationOptions: {
+          challenge: 'cGxhdGZvcm0tcGFzc2tleQ',
+          user: {
+            id: 'dXNlci1pZA',
+            name: 'member@example.com',
+            displayName: 'Member',
+          },
+          rp: {
+            id: 'localhost',
+            name: 'Aura Trusted Device',
+          },
+          authenticatorSelection: {
+            userVerification: 'preferred',
+          },
+        },
+      },
+    });
+
+    expect(createCredentialMock).toHaveBeenCalledWith({
+      publicKey: expect.objectContaining({
+        authenticatorSelection: expect.objectContaining({
+          authenticatorAttachment: 'platform',
+          userVerification: 'required',
+        }),
+      }),
+    });
+    expect(result).toMatchObject({
+      method: 'webauthn',
+      deviceId: expect.stringContaining('aura_'),
+      credential: expect.objectContaining({
+        authenticatorAttachment: 'platform',
+      }),
+    });
+  });
+
+  it('requires user verification for biometric passkey assertions', async () => {
+    const indexedDbMock = createIndexedDbMock();
+    const getCredentialMock = vi.fn().mockResolvedValue({
+      id: 'credential-id',
+      rawId: Uint8Array.from([1, 2, 3, 4]).buffer,
+      type: 'public-key',
+      authenticatorAttachment: 'platform',
+      response: {
+        clientDataJSON: Uint8Array.from([5, 6, 7, 8]).buffer,
+        authenticatorData: Uint8Array.from([9, 10, 11, 12]).buffer,
+        signature: Uint8Array.from([13, 14, 15, 16]).buffer,
+        userHandle: null,
+      },
+    });
+
+    setRuntimeHost({ hostname: 'localhost', host: 'localhost:4173' });
+    Object.defineProperty(window, 'isSecureContext', { configurable: true, value: true });
+    Object.defineProperty(window, 'PublicKeyCredential', { configurable: true, value: class PublicKeyCredential {} });
+    Object.defineProperty(window, 'indexedDB', { configurable: true, value: indexedDbMock.indexedDB });
+    Object.defineProperty(window, 'crypto', {
+      configurable: true,
+      value: {
+        randomUUID: () => 'uuid-platform-assertion',
+        subtle: {
+          generateKey: vi.fn(),
+          exportKey: vi.fn(),
+          sign: vi.fn(),
+        },
+      },
+    });
+    Object.defineProperty(window.navigator, 'credentials', {
+      configurable: true,
+      value: {
+        create: vi.fn(),
+        get: getCredentialMock,
+      },
+    });
+
+    const deviceTrustClient = await loadDeviceTrustModule();
+    await deviceTrustClient.signTrustedDeviceChallenge({
+      availableMethods: ['webauthn'],
+      challenge: 'platform-assertion',
+      mode: 'assert',
+      webauthn: {
+        assertionOptions: {
+          challenge: 'cGxhdGZvcm0tYXNzZXJ0aW9u',
+          rpId: 'localhost',
+          userVerification: 'preferred',
+          allowCredentials: [{
+            id: 'AQIDBA',
+            type: 'public-key',
+            transports: ['internal'],
+          }],
+        },
+      },
+    });
+
+    expect(getCredentialMock).toHaveBeenCalledWith({
+      publicKey: expect.objectContaining({
+        userVerification: 'required',
+      }),
+    });
+  });
+
   it('does not silently fall back to the browser key when passkey was explicitly chosen', async () => {
     const indexedDbMock = createIndexedDbMock();
     const createCredentialMock = vi.fn().mockRejectedValue(Object.assign(

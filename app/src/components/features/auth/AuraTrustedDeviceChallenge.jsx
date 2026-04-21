@@ -30,29 +30,33 @@ const isWebAuthnHostMismatchError = (error) => {
     || errorMessage.includes('webauthn resource');
 };
 
-const getTrustedDeviceMethodLabel = (method) => (
+const getBiometricPasskeyLabel = (supportProfile = {}) => (
+  supportProfile.biometricPasskeyLabel || 'Face ID / Windows Hello passkey'
+);
+
+const getTrustedDeviceMethodLabel = (method, supportProfile = {}) => (
   method === 'webauthn'
-    ? 'Passkey / WebAuthn'
+    ? getBiometricPasskeyLabel(supportProfile)
     : 'RSA-PSS browser key'
 );
 
-const getTrustedDeviceHeading = ({ method, challengeMode }) => {
+const getTrustedDeviceHeading = ({ method, challengeMode, supportProfile }) => {
   if (challengeMode === 'enroll') {
     return method === 'webauthn'
-      ? 'Register this device'
+      ? `Register ${getBiometricPasskeyLabel(supportProfile)}`
       : 'Register this browser';
   }
 
   return method === 'webauthn'
-    ? 'Verify this device'
+    ? `Verify with ${getBiometricPasskeyLabel(supportProfile)}`
     : 'Prove this browser';
 };
 
-const getTrustedDeviceActionLabel = ({ method, challengeMode }) => {
+const getTrustedDeviceActionLabel = ({ method, challengeMode, supportProfile }) => {
   if (method === 'webauthn') {
     return challengeMode === 'enroll'
-      ? 'Register Passkey'
-      : 'Verify Passkey';
+      ? 'Register Face / Device Auth'
+      : `Use ${getBiometricPasskeyLabel(supportProfile)}`;
   }
 
   return challengeMode === 'enroll'
@@ -70,14 +74,14 @@ const getTrustedDeviceIntro = ({
 }) => {
   if (passkeyOffered && browserKeyOffered) {
     return challengeMode === 'enroll'
-      ? 'Choose which trusted-device proof to register on this device. Aura can bind either a real passkey or this browser\'s RSA-PSS key so the checkpoint stays explicit.'
-      : 'Choose which trusted-device proof to present. Aura keeps the passkey and RSA-PSS browser-key paths separate so you can see exactly which proof is being used.';
+      ? 'Choose which trusted-device proof to register on this device. The biometric passkey path uses Face ID, Touch ID, Windows Hello, or the device unlock locally while Aura only receives a signed WebAuthn proof.'
+      : 'Choose which trusted-device proof to present. The biometric passkey path uses the device authenticator locally; Aura keeps it separate from the RSA-PSS browser-key fallback.';
   }
 
   if (activeMethod === 'webauthn') {
     return challengeMode === 'enroll'
-      ? 'This checkpoint now prefers a real passkey. Your authenticator creates a WebAuthn credential tied to this account.'
-      : 'Privileged access now requires a fresh passkey assertion from the authenticator already registered to this account.';
+      ? 'This checkpoint now prefers face or device-unlock authentication through a platform passkey. The authenticator creates a WebAuthn credential tied to this account.'
+      : 'Privileged access now requires a fresh face or device-unlock passkey assertion from the authenticator already registered to this account.';
   }
 
   if (hostUsesBrowserKeyOnly) {
@@ -103,8 +107,8 @@ const getTrustedDeviceMethodNote = ({
   if (supported) {
     if (method === 'webauthn') {
       return challengeMode === 'enroll'
-        ? 'Register an authenticator-backed passkey for this device.'
-        : 'Use the registered passkey already tied to this device.';
+        ? 'Register a platform passkey unlocked by Face ID, Touch ID, Windows Hello, biometrics, or device PIN. Aura never receives face data.'
+        : 'Use the registered platform passkey already tied to this device. Biometric/PIN verification stays inside the authenticator.';
     }
 
     return challengeMode === 'enroll'
@@ -154,7 +158,7 @@ const getTrustedDeviceMethodDetail = ({
   method,
 }) => {
   if (method === 'webauthn') {
-    return 'Your authenticator completes a short-lived WebAuthn challenge locally. The server verifies that passkey assertion and then issues a session-bound trusted-device token for this Firebase session.';
+    return 'Your platform authenticator completes a short-lived WebAuthn challenge locally after Face ID, Touch ID, Windows Hello, biometrics, or device PIN verification. The server verifies only the signed assertion and then issues a session-bound trusted-device token for this Firebase session.';
   }
 
   return hostUsesBrowserKeyOnly
@@ -250,14 +254,14 @@ const AuraTrustedDeviceChallenge = () => {
   const selectedMethodSupported = activeMethod === 'webauthn'
     ? canUsePasskey
     : canUseBrowserKey;
-  const heading = getTrustedDeviceHeading({ method: activeMethod, challengeMode });
-  const actionLabel = getTrustedDeviceActionLabel({ method: activeMethod, challengeMode });
+  const heading = getTrustedDeviceHeading({ method: activeMethod, challengeMode, supportProfile });
+  const actionLabel = getTrustedDeviceActionLabel({ method: activeMethod, challengeMode, supportProfile });
 
   const handleVerify = async () => {
     if (!selectedMethodSupported) {
       setErrorMessage(
         activeMethod === 'webauthn'
-          ? 'This browser cannot complete passkey verification here. Use a secure browser with WebAuthn support, or choose the RSA-PSS browser key option.'
+          ? 'This browser cannot complete face/device passkey verification here. Use a secure browser with WebAuthn platform authenticator support, or choose the RSA-PSS browser key option.'
           : (
             hostUsesBrowserKeyOnly
               ? `This host uses browser-key verification because passkeys need localhost or a verified domain. Retry on ${fallbackHost} only after enabling WebCrypto and IndexedDB support.`
@@ -282,7 +286,7 @@ const AuraTrustedDeviceChallenge = () => {
 
       toast.success(
         signedChallenge?.method === 'webauthn'
-          ? (challengeMode === 'enroll' ? 'Trusted passkey registered.' : 'Trusted passkey verified.')
+          ? (challengeMode === 'enroll' ? 'Face/device passkey registered.' : 'Face/device passkey verified.')
           : (challengeMode === 'enroll' ? 'Trusted browser registered.' : 'Trusted browser verified.')
       );
     } catch (error) {
@@ -391,7 +395,7 @@ const AuraTrustedDeviceChallenge = () => {
                       type="button"
                       role="radio"
                       aria-checked={selected}
-                      aria-label={getTrustedDeviceMethodLabel(method)}
+                      aria-label={getTrustedDeviceMethodLabel(method, supportProfile)}
                       disabled={!supported}
                       onClick={() => {
                         setSelectedMethod(method);
@@ -409,7 +413,7 @@ const AuraTrustedDeviceChallenge = () => {
                         <div className="flex items-center gap-3">
                           <MethodIcon className={selected ? 'h-4 w-4 text-cyan-200' : 'h-4 w-4 text-slate-300'} />
                           <div>
-                            <p className="text-sm font-semibold text-white">{getTrustedDeviceMethodLabel(method)}</p>
+                            <p className="text-sm font-semibold text-white">{getTrustedDeviceMethodLabel(method, supportProfile)}</p>
                             <p className={`mt-1 text-[11px] font-black uppercase tracking-[0.18em] ${selected ? 'text-cyan-100' : 'text-slate-400'}`}>
                               {badge}
                             </p>
@@ -458,7 +462,7 @@ const AuraTrustedDeviceChallenge = () => {
             {!selectedMethodSupported ? (
               <div className="rounded-2xl border border-amber-300/20 bg-amber-300/10 p-4 text-sm leading-6 text-amber-100">
                 {activeMethod === 'webauthn'
-                  ? 'This device does not expose the passkey APIs needed for this challenge here. Use a secure browser with passkey support, or switch to a device that already has the registered passkey.'
+                  ? 'This device does not expose the platform passkey APIs needed for face/device authentication here. Use a secure browser with passkey support, or switch to a device that already has the registered passkey.'
                   : (
                     hostUsesBrowserKeyOnly
                       ? `This host stays on browser-key verification because passkeys are only offered on localhost or verified domains.`
