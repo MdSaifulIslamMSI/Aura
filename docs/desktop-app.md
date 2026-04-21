@@ -99,7 +99,7 @@ The gateway buttons start with a safe fallback to the GitHub releases page, then
 
 For a production experience like major desktop apps, release artifacts need platform trust:
 
-- Windows: add an Authenticode code-signing certificate through `WINDOWS_CODE_SIGNING_CERTIFICATE_BASE64` and `WINDOWS_CODE_SIGNING_CERTIFICATE_PASSWORD`. CI requires these secrets for production desktop releases, signs Windows `.exe` files, and verifies their Authenticode signatures before upload.
+- Windows: add either an Authenticode PFX certificate through `WINDOWS_CODE_SIGNING_CERTIFICATE_BASE64` and `WINDOWS_CODE_SIGNING_CERTIFICATE_PASSWORD`, or Microsoft Trusted Signing secrets through the Azure signing variables documented in `docs/ci-cd.md`. CI requires one complete signing path for production desktop releases, signs Windows `.exe` files, and verifies Authenticode signatures before upload.
 - macOS: add Apple Developer ID signing and notarization credentials.
 - Linux: publish checksums and optionally sign release checksums with GPG.
 

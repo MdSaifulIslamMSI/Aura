@@ -49,10 +49,22 @@ Required repository secrets:
 
 Required for production Windows desktop releases:
 
+PFX/Authenticode option:
+
 - `WINDOWS_CODE_SIGNING_CERTIFICATE_BASE64`
 - `WINDOWS_CODE_SIGNING_CERTIFICATE_PASSWORD`
 
-The production pipeline requires Windows Authenticode signing before it publishes a new latest desktop release. If those secrets are missing, the desktop release job fails and no new release tag is marked latest. Manual `Desktop Release` test runs can disable the signing requirement, but production `main` delivery keeps it on.
+Microsoft Trusted Signing option:
+
+- `AZURE_CLIENT_ID`
+- `AZURE_CLIENT_SECRET`
+- `AZURE_TENANT_ID`
+- `AZURE_TRUSTED_SIGNING_ACCOUNT_NAME`
+- `AZURE_TRUSTED_SIGNING_CERTIFICATE_PROFILE_NAME`
+- `AZURE_TRUSTED_SIGNING_ENDPOINT`
+- `WINDOWS_CODE_SIGNING_PUBLISHER_NAME`
+
+The production pipeline requires one complete Windows signing option before it publishes a new latest desktop release. If signing secrets are missing, the desktop release job fails and no new release tag is marked latest. Manual `Desktop Release` test runs can disable the signing requirement, but production `main` delivery keeps it on.
 
 Required repository variables or secrets:
 
