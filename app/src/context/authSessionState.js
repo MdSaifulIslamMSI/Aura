@@ -89,6 +89,8 @@ export const buildSessionIntelligenceFallback = (session = null, profile = null,
     const authAgeSeconds = session?.authTime
         ? Math.max(Math.floor((Date.now() - new Date(session.authTime).getTime()) / 1000), 0)
         : null;
+    const recoveryCodesActiveCount = Number(profile?.recoveryCodeState?.activeCount || 0);
+    const hasPasskey = Boolean(profile?.passkeyState?.hasCredentials);
 
     return {
         assurance: {
@@ -103,6 +105,10 @@ export const buildSessionIntelligenceFallback = (session = null, profile = null,
             hasPhone: Boolean(profile?.phone || session?.phone),
             accountState: profile?.accountState || 'active',
             isPrivileged: Boolean(roles?.isAdmin || roles?.isSeller),
+            hasPasskey,
+            recoveryCodesActiveCount,
+            passkeyRecoveryReady: !hasPasskey || recoveryCodesActiveCount > 0,
+            shouldEnrollRecoveryCodes: hasPasskey && recoveryCodesActiveCount <= 0,
         },
         acceleration: {
             suggestedRoute: providerIds.some((providerId) => /google|facebook|twitter|x\.com/i.test(providerId))

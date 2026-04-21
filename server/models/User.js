@@ -72,6 +72,13 @@ const trustedDeviceSchema = mongoose.Schema({
     lastVerifiedAt: { type: Date, default: Date.now },
 }, { _id: false });
 
+const recoveryCodeSchema = mongoose.Schema({
+    codeHash: { type: String, required: true },
+    createdAt: { type: Date, default: Date.now },
+    usedAt: { type: Date, default: null },
+    usedFor: { type: String, default: '' },
+}, { _id: false });
+
 const userSchema = mongoose.Schema({
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true },
@@ -128,6 +135,12 @@ const userSchema = mongoose.Schema({
     resetEmailOtpVerifiedAt: { type: Date, default: null, select: false },
     resetOtpVerifiedAt: { type: Date, default: null, select: false },
     trustedDevices: { type: [trustedDeviceSchema], default: [] },
+    recoveryCodes: { type: [recoveryCodeSchema], default: [], select: false },
+    recoveryCodeState: {
+        generatedAt: { type: Date, default: null },
+        lastUsedAt: { type: Date, default: null },
+        activeCount: { type: Number, default: 0, min: 0 },
+    },
     addresses: [{
         type: { type: String, enum: ['home', 'work', 'other'], default: 'home' },
         name: { type: String, required: true },

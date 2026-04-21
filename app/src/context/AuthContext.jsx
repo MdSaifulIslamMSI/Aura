@@ -872,6 +872,18 @@ export const AuthProvider = ({ children }) => {
     return response;
   };
 
+  const generateRecoveryCodes = async () => {
+    if (!currentUser) {
+      throw new Error('Sign in before generating recovery codes.');
+    }
+
+    const response = await authApi.generateRecoveryCodes({ firebaseUser: currentUser });
+    if (response?.success) {
+      refreshSession(currentUser, { force: true, silent: true }).catch(() => {});
+    }
+    return response;
+  };
+
   const isAuthenticated = isAuthenticatedSessionStatus(sessionState.status);
 
   const value = {
@@ -900,6 +912,7 @@ export const AuthProvider = ({ children }) => {
     activateSeller,
     deactivateSeller,
     verifyDeviceChallenge,
+    generateRecoveryCodes,
   };
 
   return (

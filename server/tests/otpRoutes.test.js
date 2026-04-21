@@ -250,6 +250,42 @@ describe('OTP API Routes Integration', () => {
             expect(updated.resetOtpVerifiedAt).toBeNull();
         });
 
+        test('should accept a scoped recovery-code flow token for password reset', async () => {
+            const u = uniqueUser();
+            const user = await User.create({
+                ...u,
+                isVerified: true,
+                resetOtpVerifiedAt: new Date(),
+            });
+            const { flowToken, flowTokenExpiresAt, tokenState } = issueOtpFlowToken({
+                userId: user._id,
+                purpose: 'forgot-password',
+                factor: 'recovery-code',
+            });
+            await registerOtpFlowGrant({
+                tokenId: tokenState.tokenId,
+                userId: user._id,
+                purpose: 'forgot-password',
+                factor: 'recovery-code',
+                currentStep: 'recovery-code-verified',
+                nextStep: tokenState.nextStep,
+                expiresAt: flowTokenExpiresAt,
+            });
+
+            const res = await request(app).post('/api/otp/reset-password')
+                .send({
+                    flowToken,
+                    password: 'Orbital!59Qa',
+                });
+
+            expect(res.statusCode).toBe(200);
+            expect(res.body.message).toContain('Password reset successful');
+            expect(mockGetUserByEmail).toHaveBeenCalledWith(u.email);
+            expect(mockUpdateUser).toHaveBeenCalledWith('firebase-user-1', {
+                password: 'Orbital!59Qa',
+            });
+        });
+
         test('should reject password reset when the recovery token is replayed from a different device', async () => {
             const u = uniqueUser();
             const user = await User.create({
@@ -437,9 +473,9 @@ describe('OTP API Routes Integration', () => {
             expect(mockUpdateUser).toHaveBeenCalledTimes(1);
         });
 
-        test('should require the matching trusted device session token when recovery is strongly device-bound', async () => {
+        test('should keep recovery blocked when the trusted device is only browser-key registered', async () => {
             const u = uniqueUser();
-            const { publicKey, privateKey } = crypto.generateKeyPairSync('rsa', {
+            const { publicKey } = crypto.generateKeyPairSync('rsa', {
                 modulusLength: 2048,
                 publicKeyEncoding: { format: 'der', type: 'spki' },
                 privateKeyEncoding: { format: 'pem', type: 'pkcs8' },
@@ -505,31 +541,19 @@ describe('OTP API Routes Integration', () => {
                 user,
                 scope: 'reset-password',
             });
-            const challengeProof = crypto.sign(
-                'sha256',
-                Buffer.from(`aura-device-proof|${bootstrapChallenge.mode}|device-reset-123|${bootstrapChallenge.challenge}`, 'utf8'),
-                {
-                    key: privateKey,
-                    padding: crypto.constants.RSA_PKCS1_PSS_PADDING,
-                    saltLength: 32,
-                }
-            ).toString('base64');
+            expect(bootstrapChallenge).toBeNull();
 
-            const validRes = await request(app).post('/api/otp/reset-password')
+            const stillBlockedRes = await request(app).post('/api/otp/reset-password')
                 .set('X-Aura-Device-Id', 'device-reset-123')
                 .set('X-Aura-Device-Session', trustedDeviceSessionToken)
                 .send({
                     flowToken,
                     password: 'Orbital!59Qa',
-                    trustedDeviceChallenge: {
-                        token: bootstrapChallenge.token,
-                        method: 'browser_key',
-                        proof: challengeProof,
-                    },
                 });
 
-            expect(validRes.statusCode).toBe(200);
-            expect(mockUpdateUser).toHaveBeenCalledTimes(1);
+            expect(stillBlockedRes.statusCode).toBe(403);
+            expect(stillBlockedRes.body.message).toContain('Fresh trusted device verification is required');
+            expect(mockUpdateUser).not.toHaveBeenCalled();
         });
     });
 });

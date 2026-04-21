@@ -416,7 +416,63 @@ describe('trustedDeviceChallengeService', () => {
         expect(rotatedChallenge.token.startsWith('td-v2.')).toBe(true);
     });
 
-    test('rejects a bootstrap challenge when the trusted device session proof changes between issue and verify', async () => {
+    test('does not issue a public bootstrap challenge for browser-key trusted devices', async () => {
+        const userId = '507f1f77bcf86cd799439012';
+        const deviceId = 'device_browser_bootstrap_123456';
+        const { publicKey } = crypto.generateKeyPairSync('rsa', {
+            modulusLength: 2048,
+            publicKeyEncoding: { format: 'der', type: 'spki' },
+            privateKeyEncoding: { format: 'pem', type: 'pkcs8' },
+        });
+        const service = loadServiceWithDbState({
+            dbState: {
+                trustedDevices: [{
+                    deviceId,
+                    label: 'Browser laptop',
+                    method: 'browser_key',
+                    algorithm: 'RSA-PSS-SHA256',
+                    publicKeySpkiBase64: Buffer.from(publicKey).toString('base64'),
+                    createdAt: new Date(),
+                    lastSeenAt: new Date(),
+                    lastVerifiedAt: new Date(),
+                }],
+            },
+            userId,
+        });
+
+        const deviceSessionToken = service.issueTrustedDeviceSession({
+            user: { _id: userId },
+            deviceId,
+        }).deviceSessionToken;
+
+        const bootstrapChallenge = await service.issueTrustedDeviceBootstrapChallenge({
+            req: {
+                headers: {
+                    'x-aura-device-id': deviceId,
+                    'x-aura-device-label': 'Browser laptop',
+                    'x-aura-device-session': deviceSessionToken,
+                },
+            },
+            user: {
+                _id: userId,
+                trustedDevices: [{
+                    deviceId,
+                    label: 'Browser laptop',
+                    method: 'browser_key',
+                    algorithm: 'RSA-PSS-SHA256',
+                    publicKeySpkiBase64: Buffer.from(publicKey).toString('base64'),
+                    createdAt: new Date(),
+                    lastSeenAt: new Date(),
+                    lastVerifiedAt: new Date(),
+                }],
+            },
+            scope: 'otp-send:forgot-password',
+        });
+
+        expect(bootstrapChallenge).toBeNull();
+    });
+
+    test('rejects a bootstrap challenge when the passkey trusted device session proof changes between issue and verify', async () => {
         const dbState = { trustedDevices: [] };
         const userId = '507f1f77bcf86cd799439012';
         const deviceId = 'device_bootstrap_123456';
@@ -424,32 +480,45 @@ describe('trustedDeviceChallengeService', () => {
             authUid: 'firebase-uid-bootstrap',
             authToken: { iat: 1710003456 },
         };
-        const service = loadServiceWithDbState({ dbState, userId });
+        const origin = 'https://console.aura.test';
+        const rpId = 'console.aura.test';
+        const req = {
+            headers: {
+                origin,
+            },
+        };
 
-        const { publicKey, privateKey } = crypto.generateKeyPairSync('rsa', {
-            modulusLength: 2048,
-            publicKeyEncoding: { format: 'der', type: 'spki' },
-            privateKeyEncoding: { format: 'pem', type: 'pkcs8' },
-        });
-        const publicKeySpkiBase64 = Buffer.from(publicKey).toString('base64');
+        process.env.NODE_ENV = 'test';
+        process.env.AUTH_TRUSTED_DEVICE_PREFER_WEBAUTHN = 'true';
+        process.env.AUTH_WEBAUTHN_RP_ID = rpId;
+        process.env.AUTH_WEBAUTHN_ORIGIN = origin;
+        process.env.AUTH_WEBAUTHN_USER_VERIFICATION = 'required';
+
+        const service = loadServiceWithDbState({ dbState, userId });
+        const webauthnKeyPair = createWebAuthnKeyPair();
+        const credentialIdBuffer = crypto.randomBytes(32);
 
         const enrollChallenge = await service.issueTrustedDeviceChallenge({
             user: { _id: userId, trustedDevices: [] },
             deviceId,
             deviceLabel: 'Bootstrap laptop',
+            req,
             ...authContext,
+        });
+
+        const registrationCredential = buildWebAuthnRegistrationCredential({
+            challenge: enrollChallenge.challenge,
+            origin,
+            rpId,
+            credentialIdBuffer,
+            publicJwk: webauthnKeyPair.publicJwk,
         });
 
         const enrollResult = await service.verifyTrustedDeviceChallenge({
             user: { _id: userId, trustedDevices: [] },
             token: enrollChallenge.token,
-            proof: createRsaProof({
-                challenge: enrollChallenge.challenge,
-                mode: enrollChallenge.mode,
-                deviceId,
-                privateKeyPem: privateKey,
-            }),
-            publicKeySpkiBase64,
+            method: 'webauthn',
+            credential: registrationCredential,
             deviceId,
             deviceLabel: 'Bootstrap laptop',
             ...authContext,
@@ -458,6 +527,7 @@ describe('trustedDeviceChallengeService', () => {
         const bootstrapChallenge = await service.issueTrustedDeviceBootstrapChallenge({
             req: {
                 headers: {
+                    origin,
                     'x-aura-device-id': deviceId,
                     'x-aura-device-label': 'Bootstrap laptop',
                     'x-aura-device-session': enrollResult.deviceSessionToken,
@@ -466,6 +536,9 @@ describe('trustedDeviceChallengeService', () => {
             user: { _id: userId, trustedDevices: dbState.trustedDevices },
             scope: 'otp-send:forgot-password',
         });
+        expect(bootstrapChallenge).toBeTruthy();
+        expect(bootstrapChallenge.availableMethods).toEqual(['webauthn']);
+        expect(bootstrapChallenge.preferredMethod).toBe('webauthn');
 
         const wrongSessionToken = service.issueTrustedDeviceSession({
             user: { _id: userId },
@@ -473,16 +546,20 @@ describe('trustedDeviceChallengeService', () => {
             authUid: 'firebase-uid-bootstrap-other',
             authToken: { iat: 1710007890 },
         }).deviceSessionToken;
+        const assertionCredential = buildWebAuthnAssertionCredential({
+            challenge: bootstrapChallenge.challenge,
+            origin,
+            rpId,
+            credentialIdBuffer,
+            privateKey: webauthnKeyPair.privateKey,
+            signCount: 1,
+        });
 
         const verification = await service.verifyTrustedDeviceChallenge({
             user: { _id: userId, trustedDevices: dbState.trustedDevices },
             token: bootstrapChallenge.token,
-            proof: createRsaProof({
-                challenge: bootstrapChallenge.challenge,
-                mode: bootstrapChallenge.mode,
-                deviceId,
-                privateKeyPem: privateKey,
-            }),
+            method: 'webauthn',
+            credential: assertionCredential,
             deviceId,
             deviceLabel: 'Bootstrap laptop',
             deviceSessionToken: wrongSessionToken,
