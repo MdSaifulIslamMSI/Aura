@@ -1,0 +1,150 @@
+name: Desktop Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Optional desktop version, for example 1.0.42
+        required: false
+        type: string
+  workflow_call:
+    inputs:
+      version:
+        description: Optional desktop version, for example 1.0.42
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: desktop-release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: 24.x
+  CSC_IDENTITY_AUTO_DISCOVERY: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag_name: ${{ steps.version.outputs.tag_name }}
+
+    steps:
+      - name: Resolve desktop version
+        id: version
+        env:
+          VERSION_INPUT: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          if [ -n "${VERSION_INPUT}" ]; then
+            VERSION="${VERSION_INPUT}"
+          else
+            VERSION="1.0.${GITHUB_RUN_NUMBER}"
+          fi
+
+          if ! printf '%s' "${VERSION}" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$'; then
+            echo "Invalid desktop version: ${VERSION}" >&2
+            exit 1
+          fi
+
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag_name=desktop-v${VERSION}" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: prepare
+    name: Build ${{ matrix.platform }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows
+            os: windows-latest
+            command: npm run desktop:dist:win:all -- --publish never
+          - platform: macos
+            os: macos-latest
+            command: npm run desktop:dist:mac -- --publish never
+          - platform: linux
+            os: ubuntu-latest
+            command: npm run desktop:dist:linux -- --publish never
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            app/package-lock.json
+
+      - name: Install desktop dependencies
+        run: npm ci
+
+      - name: Install frontend dependencies
+        run: npm --prefix app ci
+
+      - name: Stamp desktop version
+        shell: bash
+        run: npm version "${{ needs.prepare.outputs.version }}" --no-git-tag-version --allow-same-version
+
+      - name: Build desktop artifacts
+        shell: bash
+        run: ${{ matrix.command }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload desktop artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.platform }}
+          path: |
+            desktop-release/*.AppImage
+            desktop-release/*.blockmap
+            desktop-release/*.deb
+            desktop-release/*.dmg
+            desktop-release/*.exe
+            desktop-release/*.rpm
+            desktop-release/*.tar.gz
+            desktop-release/*.yml
+            desktop-release/*.zip
+            !desktop-release/builder-debug.yml
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    needs:
+      - prepare
+      - build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Download release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: desktop-*
+          path: release-artifacts
+          merge-multiple: true
+
+      - name: Publish GitHub desktop release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.prepare.outputs.tag_name }}
+          name: Aura Marketplace Desktop ${{ needs.prepare.outputs.version }}
+          make_latest: true
+          draft: false
+          prerelease: false
+          fail_on_unmatched_files: true
+          body: |
+            Aura Marketplace desktop release generated from `${{ github.sha }}`.
+
+            Download the build that matches your device from the assets below. Installed apps check this latest release for automatic updates.
+          files: release-artifacts/*

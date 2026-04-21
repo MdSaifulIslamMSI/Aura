@@ -78,9 +78,14 @@ const runServiceWorkerCleanup = () => {
   }, { once: true })
 }
 
+const isElectronRuntime = () => (
+  typeof navigator !== 'undefined'
+  && /electron/i.test(String(navigator.userAgent || ''))
+)
+
 // Firebase OAuth domain safety:
 // If app is opened via 127.0.0.1, force localhost to match common authorized-domain setup.
-if (typeof window !== 'undefined' && window.location.hostname === '127.0.0.1') {
+if (typeof window !== 'undefined' && window.location.hostname === '127.0.0.1' && !isElectronRuntime()) {
   const normalized = new URL(window.location.href)
   normalized.hostname = 'localhost'
   window.location.replace(normalized.toString())
