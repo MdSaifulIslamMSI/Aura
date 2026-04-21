@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "description": "Desktop wrapper for Aura Marketplace",
-  "author": "Aura Marketplace",
+  "author": "MdSaifulIslamMSI <MdSaifulIslamMSI@users.noreply.github.com>",
   "main": "desktop/main.cjs",
   "scripts": {
     "build": "cd app && npm install && npm run build",
@@ -96,6 +96,7 @@
     "linux": {
       "category": "Office",
       "icon": "app/public/assets/icon-512.png",
+      "maintainer": "MdSaifulIslamMSI <MdSaifulIslamMSI@users.noreply.github.com>",
       "target": [
         "AppImage",
         "deb",
