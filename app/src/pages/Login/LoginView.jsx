@@ -44,7 +44,7 @@ const LoginView = ({
   t,
   trustNotes,
 }) => (
-  <div className="login-theme-shell min-h-screen py-8 sm:py-12 md:py-20 relative flex items-center justify-center overflow-hidden">
+  <div className="login-theme-shell min-h-[calc(100vh-var(--figma-nav-spacer-mobile))] pb-8 pt-4 sm:min-h-[calc(100vh-var(--figma-nav-spacer-sm))] sm:pb-12 sm:pt-6 md:min-h-[calc(100vh-var(--figma-nav-spacer-md))] md:pb-20 md:pt-8 relative flex items-center justify-center overflow-hidden">
     <div className="absolute inset-0 bg-zinc-950 z-0" />
     <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(6,182,212,0.1)_0%,transparent_50%)] pointer-events-none z-0" />
     <div className="absolute top-1/4 left-1/4 w-[min(70vw,500px)] h-[min(70vw,500px)] bg-neo-cyan/10 rounded-full blur-[120px] pointer-events-none z-0 mix-blend-screen" />
