@@ -73,7 +73,7 @@ The workflow at `.github/workflows/desktop-release.yml` builds all desktop targe
 - Installed apps use `electron-updater` and the GitHub Release metadata files (`latest.yml`, `latest-mac.yml`, and `latest-linux.yml`) to discover updates.
 - Packaged apps check for updates on startup and every four hours while running.
 - Updates download automatically; when ready, users can restart immediately or install on next quit.
-- Production release publishing requires Windows Authenticode signing. If signing secrets are missing, CI fails before publishing so the latest release channel does not move to an unsigned Windows build.
+- Production release publishing requires Windows Authenticode signing. If signing secrets are missing, CI fails in release preflight so the latest release channel does not move to an unsigned Windows build.
 
 Manual release with a specific version:
 

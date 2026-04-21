@@ -64,8 +64,33 @@ jobs:
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "tag_name=desktop-v${VERSION}" >> "$GITHUB_OUTPUT"
 
-  build:
+  release-preflight:
     needs: prepare
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check required release signing secrets
+        env:
+          WINDOWS_CODE_SIGNING_CERTIFICATE_BASE64: ${{ secrets.WINDOWS_CODE_SIGNING_CERTIFICATE_BASE64 }}
+          WINDOWS_CODE_SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CODE_SIGNING_CERTIFICATE_PASSWORD }}
+          REQUIRE_WINDOWS_SIGNING: ${{ inputs.require_windows_signing }}
+        run: |
+          set -euo pipefail
+
+          if [ "${REQUIRE_WINDOWS_SIGNING}" != "true" ]; then
+            echo "::warning::Windows signing is not required for this run. Use this only for internal test releases."
+            exit 0
+          fi
+
+          if [ -z "${WINDOWS_CODE_SIGNING_CERTIFICATE_BASE64}" ] || [ -z "${WINDOWS_CODE_SIGNING_CERTIFICATE_PASSWORD}" ]; then
+            echo "::error::Windows code signing is required before publishing a production desktop release. Add WINDOWS_CODE_SIGNING_CERTIFICATE_BASE64 and WINDOWS_CODE_SIGNING_CERTIFICATE_PASSWORD repository secrets."
+            exit 1
+          fi
+
+  build:
+    needs:
+      - prepare
+      - release-preflight
     name: Build ${{ matrix.platform }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
