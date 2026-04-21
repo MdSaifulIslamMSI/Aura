@@ -26,6 +26,24 @@ const getRuntimeHost = () => {
   return normalizeHost(window.location?.hostname || window.location?.host || '');
 };
 
+const getPlatformPasskeyLabel = () => {
+  if (!hasWindow()) return 'Face ID / Windows Hello passkey';
+
+  const platform = String(
+    window.navigator?.userAgentData?.platform
+    || window.navigator?.platform
+    || ''
+  ).toLowerCase();
+  const userAgent = String(window.navigator?.userAgent || '').toLowerCase();
+  const fingerprint = `${platform} ${userAgent}`;
+
+  if (/iphone|ipad|ipod/.test(fingerprint)) return 'Face ID / Touch ID passkey';
+  if (/mac/.test(fingerprint)) return 'Touch ID / passkey';
+  if (/win/.test(fingerprint)) return 'Windows Hello passkey';
+  if (/android/.test(fingerprint)) return 'Android biometric passkey';
+  return 'Face ID / Windows Hello passkey';
+};
+
 const isIpv4Host = (host = '') => /^(?:\d{1,3}\.){3}\d{1,3}$/.test(host);
 
 const isIpv6Host = (host = '') => {
@@ -254,6 +272,7 @@ export const getTrustedDeviceSupportProfile = () => {
   return {
     webauthn: isWebAuthnSupported(),
     browserKeyFallback: canUseBrowserKeyFallback(),
+    biometricPasskeyLabel: getPlatformPasskeyLabel(),
     runtimeHost,
     webauthnHostEligible: runtimeHost === 'localhost' || isRegistrableHost(runtimeHost),
     localIpHost: isIpLiteralHost(runtimeHost),
@@ -316,6 +335,11 @@ const toCreationOptions = (options = {}) => ({
     ...(options.user || {}),
     id: fromBase64Url(options.user?.id || ''),
   },
+  authenticatorSelection: {
+    ...(options.authenticatorSelection || {}),
+    authenticatorAttachment: options.authenticatorSelection?.authenticatorAttachment || 'platform',
+    userVerification: 'required',
+  },
   excludeCredentials: Array.isArray(options.excludeCredentials)
     ? options.excludeCredentials.map((credential) => normalizeWebAuthnCredentialDescriptor(credential))
     : [],
@@ -324,6 +348,7 @@ const toCreationOptions = (options = {}) => ({
 const toAssertionOptions = (options = {}) => ({
   ...options,
   challenge: fromBase64Url(options.challenge || ''),
+  userVerification: 'required',
   allowCredentials: Array.isArray(options.allowCredentials)
     ? options.allowCredentials.map((credential) => normalizeWebAuthnCredentialDescriptor(credential))
     : [],
