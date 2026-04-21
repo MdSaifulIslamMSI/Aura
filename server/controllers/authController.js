@@ -32,6 +32,11 @@ const {
 const { inspectOtpFlowToken, issueOtpFlowToken } = require('../utils/otpFlowToken');
 const { registerOtpFlowGrant } = require('../services/otpFlowGrantService');
 const {
+    consumeRecoveryCodeForPasswordReset,
+    generateRecoveryCodesForUser,
+    getPasskeyCount,
+} = require('../services/authRecoveryCodeService');
+const {
     resolveProviderIds,
     resolveEmailVerifiedState,
 } = require('../utils/authIdentity');
@@ -57,6 +62,20 @@ const normalizePhoneFactorPurpose = (value) => {
         return normalized;
     }
     return '';
+};
+
+const hasFreshPasskeySession = (req = {}) => {
+    const deviceMethod = String(req.authSession?.deviceMethod || '').trim().toLowerCase();
+    const amr = Array.isArray(req.authSession?.amr)
+        ? req.authSession.amr.map((entry) => String(entry || '').trim().toLowerCase())
+        : [];
+    const stepUpUntilMs = req.authSession?.stepUpUntil
+        ? new Date(req.authSession.stepUpUntil).getTime()
+        : 0;
+
+    return (deviceMethod === 'webauthn' || amr.includes('webauthn'))
+        && Number.isFinite(stepUpUntilMs)
+        && stepUpUntilMs > Date.now();
 };
 
 const BOOTSTRAP_CHALLENGE_SCOPE_OTP_SEND_LOGIN = 'otp-send:login';
@@ -692,6 +711,69 @@ const completePhoneFactorVerification = asyncHandler(async (req, res) => {
     });
 });
 
+const generateBackupRecoveryCodes = asyncHandler(async (req, res) => {
+    const user = await User.findById(req.user?._id, 'trustedDevices recoveryCodeState').lean();
+    if (!user?._id) {
+        throw new AppError('User not found', 404);
+    }
+    if (getPasskeyCount(user) <= 0) {
+        throw new AppError('Register a passkey before creating backup recovery codes.', 409);
+    }
+    if (!hasFreshPasskeySession(req)) {
+        throw new AppError('Fresh passkey verification is required before creating backup recovery codes.', 403);
+    }
+
+    const result = await generateRecoveryCodesForUser({ userId: user._id });
+    await invalidateUserCache(req.authUid || '');
+    await invalidateUserCacheByEmail(req.user?.email || '');
+
+    res.status(201).json({
+        success: true,
+        message: 'Backup recovery codes generated. Store them somewhere safe; they will not be shown again.',
+        recoveryCodes: result.codes,
+        recoveryCodeState: result.recoveryCodeState,
+        recoveryReadiness: result.readiness,
+    });
+});
+
+const verifyBackupRecoveryCode = asyncHandler(async (req, res) => {
+    const email = normalizeEmail(req.body?.email);
+    const code = String(req.body?.code || '').trim();
+
+    if (!email || !code) {
+        throw new AppError('Email and recovery code are required.', 400);
+    }
+
+    const { user, recoveryCodeState } = await consumeRecoveryCodeForPasswordReset({
+        email,
+        code,
+    });
+    const { tokenState, ...publicFlowPayload } = issueOtpFlowToken({
+        userId: user._id,
+        purpose: 'forgot-password',
+        factor: 'recovery-code',
+        nextStep: 'reset-password',
+    });
+    await registerOtpFlowGrant({
+        tokenId: tokenState?.tokenId,
+        userId: user._id,
+        purpose: 'forgot-password',
+        factor: 'recovery-code',
+        currentStep: 'recovery-code-verified',
+        nextStep: tokenState?.nextStep,
+        expiresAt: publicFlowPayload.flowTokenExpiresAt,
+    });
+
+    await invalidateUserCacheByEmail(user.email || email);
+
+    res.json({
+        success: true,
+        message: 'Recovery code verified. You can now set a new password.',
+        ...publicFlowPayload,
+        recoveryCodeState,
+    });
+});
+
 // @desc    Verify trusted device proof
 // @route   POST /api/auth/verify-device
 // @access  Private
@@ -781,8 +863,10 @@ const logoutSession = asyncHandler(async (req, res) => {
 
 module.exports = {
     establishSessionCookie,
+    generateBackupRecoveryCodes,
     getSession,
     requestBootstrapDeviceChallenge,
+    verifyBackupRecoveryCode,
     syncSession,
     logoutSession,
     completePhoneFactorLogin,

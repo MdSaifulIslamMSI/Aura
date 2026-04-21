@@ -1,5 +1,7 @@
 const request = require('supertest');
 const app = require('../index');
+const User = require('../models/User');
+const { generateRecoveryCodesForUser } = require('../services/authRecoveryCodeService');
 const buildRuntimeSecret = (label = 'test') => `${label}-${Date.now()}-${Math.random().toString(36).slice(2)}-suite`;
 
 jest.setTimeout(30000);
@@ -53,6 +55,62 @@ describe('Auth API surface', () => {
         const res = await request(app).post('/api/auth/logout');
         expect(res.statusCode).toBe(200);
         expect(res.body.success).toBe(true);
+    });
+});
+
+describe('Auth backup recovery codes', () => {
+    const originalRecoveryCodeSecret = process.env.AUTH_RECOVERY_CODE_SECRET;
+
+    beforeEach(() => {
+        process.env.AUTH_RECOVERY_CODE_SECRET = buildRuntimeSecret('auth-recovery-route');
+    });
+
+    afterEach(() => {
+        process.env.AUTH_RECOVERY_CODE_SECRET = originalRecoveryCodeSecret;
+    });
+
+    test('POST /api/auth/recovery-codes/verify consumes one code and returns a reset flow token', async () => {
+        const user = await User.create({
+            name: 'Recovery Route User',
+            email: `${buildRuntimeSecret('recovery-route')}@test.com`,
+            phone: '+919876543210',
+            isVerified: true,
+            trustedDevices: [{
+                deviceId: buildRuntimeSecret('passkey-device'),
+                label: 'Passkey',
+                method: 'webauthn',
+                publicKeySpkiBase64: Buffer.from(buildRuntimeSecret('spki')).toString('base64'),
+                webauthnCredentialIdBase64Url: buildRuntimeSecret('credential'),
+            }],
+        });
+        const { codes } = await generateRecoveryCodesForUser({ userId: user._id });
+
+        const res = await request(app)
+            .post('/api/auth/recovery-codes/verify')
+            .send({
+                email: user.email,
+                code: codes[0],
+            });
+
+        expect(res.statusCode).toBe(200);
+        expect(res.body).toMatchObject({
+            success: true,
+            flowToken: expect.any(String),
+            flowTokenExpiresAt: expect.any(String),
+            recoveryCodeState: {
+                activeCount: 9,
+            },
+        });
+
+        const replay = await request(app)
+            .post('/api/auth/recovery-codes/verify')
+            .send({
+                email: user.email,
+                code: codes[0],
+            });
+
+        expect(replay.statusCode).toBe(401);
+        expect(replay.body.message).toContain('invalid or already used');
     });
 });
 

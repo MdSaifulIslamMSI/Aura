@@ -1569,7 +1569,7 @@ const resetPasswordWithOtp = asyncHandler(async (req, res, next) => {
     const verifiedFlow = verifyOtpFlowToken({
         token: flowToken,
         expectedPurpose: 'forgot-password',
-        expectedFactor: 'otp',
+        expectedFactor: inspectedFlow.factor === 'recovery-code' ? 'recovery-code' : 'otp',
         expectedSignalBond: {
             ...(inspectedFlow.signalBond.deviceId
                 && (verifiedBootstrapDeviceSignal.deviceId || deviceId)

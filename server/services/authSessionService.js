@@ -26,10 +26,11 @@ const {
     AUTH_ASSURANCE_ACTIONS,
     requireAuthAssurance,
 } = require('./authAssurancePolicyService');
+const { getRecoveryReadiness } = require('./authRecoveryCodeService');
 
-const PROFILE_PROJECTION = 'name email phone avatar gender dob bio isAdmin isVerified isSeller sellerActivatedAt accountState moderation authAssurance authAssuranceAt trustedDevices +loginOtpAssuranceExpiresAt addresses cart wishlist loyalty createdAt';
-const AUTH_ONLY_PROJECTION = 'name email phone isAdmin isVerified isSeller sellerActivatedAt accountState moderation authAssurance authAssuranceAt trustedDevices +loginOtpAssuranceExpiresAt loyalty createdAt';
-const SESSION_PROFILE_PROJECTION = 'name email phone avatar gender dob bio isAdmin isVerified isSeller sellerActivatedAt accountState moderation authAssurance authAssuranceAt trustedDevices +loginOtpAssuranceExpiresAt loyalty createdAt';
+const PROFILE_PROJECTION = 'name email phone avatar gender dob bio isAdmin isVerified isSeller sellerActivatedAt accountState moderation authAssurance authAssuranceAt trustedDevices recoveryCodeState +loginOtpAssuranceExpiresAt addresses cart wishlist loyalty createdAt';
+const AUTH_ONLY_PROJECTION = 'name email phone isAdmin isVerified isSeller sellerActivatedAt accountState moderation authAssurance authAssuranceAt trustedDevices recoveryCodeState +loginOtpAssuranceExpiresAt loyalty createdAt';
+const SESSION_PROFILE_PROJECTION = 'name email phone avatar gender dob bio isAdmin isVerified isSeller sellerActivatedAt accountState moderation authAssurance authAssuranceAt trustedDevices recoveryCodeState +loginOtpAssuranceExpiresAt loyalty createdAt';
 
 const PHONE_REGEX = /^\+?\d{10,15}$/;
 const LOGIN_ASSURANCE_TTL_MS = 10 * 60 * 1000;
@@ -348,6 +349,7 @@ const buildSessionIdentity = ({
 const toSessionIntelligence = (user = null, session = null) => {
     const assuranceLevel = normalizeText(user?.authAssurance) || 'none';
     const providerIds = Array.isArray(session?.providerIds) ? session.providerIds : [];
+    const recoveryReadiness = getRecoveryReadiness(user);
     const assuranceExpiresAt = toIsoOrNull(user?.loginOtpAssuranceExpiresAt);
     const authTimeMillis = parseIsoToMillis(session?.authTime);
     const stepUpUntilMillis = parseIsoToMillis(session?.stepUpUntil);
@@ -391,6 +393,10 @@ const toSessionIntelligence = (user = null, session = null) => {
             hasPhone: Boolean(user?.phone || session?.phone),
             accountState: user?.accountState || 'active',
             isPrivileged: Boolean(user?.isAdmin || user?.isSeller),
+            hasPasskey: recoveryReadiness.hasPasskey,
+            recoveryCodesActiveCount: recoveryReadiness.recoveryCodesActiveCount,
+            passkeyRecoveryReady: recoveryReadiness.passkeyRecoveryReady,
+            shouldEnrollRecoveryCodes: recoveryReadiness.shouldEnrollRecoveryCodes,
         },
         acceleration: {
             suggestedRoute: providerIds.some((providerId) => /google|facebook|twitter|x\.com/i.test(providerId))
