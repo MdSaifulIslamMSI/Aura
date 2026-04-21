@@ -341,13 +341,13 @@ jobs:
             'Aura-Marketplace-macOS-x64.dmg',
             'Aura-Marketplace-macOS-arm64.zip',
             'Aura-Marketplace-macOS-x64.zip',
-            'Aura-Marketplace-Linux-x64.AppImage',
-            'Aura-Marketplace-Linux-x64.deb',
-            'Aura-Marketplace-Linux-x64.rpm',
+            'Aura-Marketplace-Linux-x86_64.AppImage',
+            'Aura-Marketplace-Linux-amd64.deb',
+            'Aura-Marketplace-Linux-x86_64.rpm',
             'Aura-Marketplace-Linux-x64.tar.gz',
             'Aura-Marketplace-Linux-arm64.AppImage',
             'Aura-Marketplace-Linux-arm64.deb',
-            'Aura-Marketplace-Linux-arm64.rpm',
+            'Aura-Marketplace-Linux-aarch64.rpm',
             'Aura-Marketplace-Linux-arm64.tar.gz',
           ];
           if (html.includes('/releases/latest/download/')) {
