@@ -314,6 +314,9 @@ const issueTrustedDeviceBootstrapChallenge = async ({
     if (!user?._id || !deviceId || !deviceSessionToken || !existingDevice) {
         return null;
     }
+    if (getTrustedDeviceMethod(existingDevice) !== PASSKEY_METHOD) {
+        return null;
+    }
 
     const verification = verifyTrustedDeviceBootstrapSession({
         user,
@@ -364,6 +367,15 @@ const resolveTrustedDeviceBootstrapSignal = async ({
     });
 
     if (!sessionVerification.success) {
+        return {
+            required: false,
+            verified: false,
+            deviceId: '',
+            deviceSessionHash: '',
+            reason: '',
+        };
+    }
+    if (getTrustedDeviceMethod(existingDevice) !== PASSKEY_METHOD) {
         return {
             required: false,
             verified: false,
