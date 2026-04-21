@@ -111,5 +111,5 @@ jobs:
     uses: ./.github/workflows/desktop-release.yml
     with:
       version: ${{ github.event_name == 'workflow_dispatch' && inputs.desktop_version || '' }}
-      require_windows_signing: true
+      require_windows_signing: false
     secrets: inherit

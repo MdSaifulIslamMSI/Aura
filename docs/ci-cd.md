@@ -47,7 +47,7 @@ Required repository secrets:
 - `VERCEL_TOKEN`
 - `NETLIFY_AUTH_TOKEN`
 
-Required for production Windows desktop releases:
+Optional for trusted Windows desktop releases:
 
 PFX/Authenticode option:
 
@@ -64,7 +64,7 @@ Microsoft Trusted Signing option:
 - `AZURE_TRUSTED_SIGNING_ENDPOINT`
 - `WINDOWS_CODE_SIGNING_PUBLISHER_NAME`
 
-The production pipeline requires one complete Windows signing option before it publishes a new latest desktop release. If signing secrets are missing, the desktop release job fails and no new release tag is marked latest. Manual `Desktop Release` test runs can disable the signing requirement, but production `main` delivery keeps it on.
+The free production pipeline publishes unsigned Windows builds if signing secrets are missing. CI, backend deploy, frontend deploy, and gateway deploy still have to pass first, so a red `Production CI/CD` gate still prevents a new latest desktop release. Unsigned Windows builds can show Microsoft Defender SmartScreen warnings.
 
 Required repository variables or secrets:
 
