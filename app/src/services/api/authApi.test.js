@@ -134,6 +134,66 @@ describe('authApi', () => {
     });
   });
 
+  it('generates backup recovery codes through a fresh CSRF-protected session write', async () => {
+    const csrfToken = 'b'.repeat(64);
+    mocks.getAuthHeaderMock.mockResolvedValueOnce({ 'X-Session-Mode': 'cookie' });
+    mocks.ensureCsrfTokenMock.mockResolvedValueOnce(csrfToken);
+    mocks.addCsrfTokenToHeadersMock.mockReturnValueOnce({
+      'X-Session-Mode': 'cookie',
+      'X-CSRF-Token': csrfToken,
+    });
+
+    global.fetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ success: true, recoveryCodes: ['ABCD-EFGH-IJKL-MNOP'] }), {
+        status: 201,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+
+    await expect(authApi.generateRecoveryCodes())
+      .resolves
+      .toEqual({ success: true, recoveryCodes: ['ABCD-EFGH-IJKL-MNOP'] });
+
+    expect(mocks.ensureCsrfTokenMock).toHaveBeenCalledWith({
+      authToken: '',
+      owner: 'cookie_session',
+      forceFresh: false,
+    });
+    expect(mocks.addCsrfTokenToHeadersMock).toHaveBeenCalledWith(
+      { 'X-Session-Mode': 'cookie' },
+      'POST',
+      csrfToken
+    );
+    const [url, requestOptions] = global.fetch.mock.calls[0];
+    expect(url).toContain('/auth/recovery-codes');
+    expect(requestOptions.headers.get('X-CSRF-Token')).toBe(csrfToken);
+    expect(JSON.parse(requestOptions.body)).toEqual({});
+  });
+
+  it('verifies backup recovery codes through the public recovery endpoint', async () => {
+    mocks.getAuthHeaderMock.mockResolvedValueOnce({});
+
+    global.fetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ success: true, flowToken: buildRuntimeValue('flow') }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+
+    await expect(authApi.verifyRecoveryCode('user@example.com', 'ABCD-EFGH-IJKL-MNOP'))
+      .resolves
+      .toMatchObject({ success: true, flowToken: expect.any(String) });
+
+    expect(mocks.ensureCsrfTokenMock).not.toHaveBeenCalled();
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    const [url, requestOptions] = global.fetch.mock.calls[0];
+    expect(url).toContain('/auth/recovery-codes/verify');
+    expect(JSON.parse(requestOptions.body)).toEqual({
+      email: 'user@example.com',
+      code: 'ABCD-EFGH-IJKL-MNOP',
+    });
+  });
+
   it('sends trusted-device verification with Firebase bearer only when a Firebase user is present', async () => {
     const deviceSessionToken = buildRuntimeValue('session-ref');
     const challengeToken = buildRuntimeValue('challenge-ref');

@@ -210,6 +210,15 @@ export const authApi = {
             useFirebaseBearer: Boolean(options.firebaseUser?.getIdToken),
         });
     },
+    generateRecoveryCodes: async (options = {}) => {
+        return postAuthBootstrap('/auth/recovery-codes', {}, {
+            ...options,
+            useFirebaseBearer: Boolean(options.firebaseUser?.getIdToken),
+        });
+    },
+    verifyRecoveryCode: async (email, code) => {
+        return postPublicOtpRequest('/auth/recovery-codes/verify', { email, code });
+    },
     completePhoneFactorLogin: async (email, phone, options = {}) => {
         return postWithFirebaseBearer('/auth/complete-phone-factor-login', { email, phone }, options);
     },

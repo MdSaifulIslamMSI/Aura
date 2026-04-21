@@ -250,6 +250,42 @@ describe('OTP API Routes Integration', () => {
             expect(updated.resetOtpVerifiedAt).toBeNull();
         });
 
+        test('should accept a scoped recovery-code flow token for password reset', async () => {
+            const u = uniqueUser();
+            const user = await User.create({
+                ...u,
+                isVerified: true,
+                resetOtpVerifiedAt: new Date(),
+            });
+            const { flowToken, flowTokenExpiresAt, tokenState } = issueOtpFlowToken({
+                userId: user._id,
+                purpose: 'forgot-password',
+                factor: 'recovery-code',
+            });
+            await registerOtpFlowGrant({
+                tokenId: tokenState.tokenId,
+                userId: user._id,
+                purpose: 'forgot-password',
+                factor: 'recovery-code',
+                currentStep: 'recovery-code-verified',
+                nextStep: tokenState.nextStep,
+                expiresAt: flowTokenExpiresAt,
+            });
+
+            const res = await request(app).post('/api/otp/reset-password')
+                .send({
+                    flowToken,
+                    password: 'Orbital!59Qa',
+                });
+
+            expect(res.statusCode).toBe(200);
+            expect(res.body.message).toContain('Password reset successful');
+            expect(mockGetUserByEmail).toHaveBeenCalledWith(u.email);
+            expect(mockUpdateUser).toHaveBeenCalledWith('firebase-user-1', {
+                password: 'Orbital!59Qa',
+            });
+        });
+
         test('should reject password reset when the recovery token is replayed from a different device', async () => {
             const u = uniqueUser();
             const user = await User.create({
