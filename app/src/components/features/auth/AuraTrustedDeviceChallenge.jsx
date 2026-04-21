@@ -1,6 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { AlertTriangle, KeyRound, Laptop, Loader2, Minimize2, RefreshCw, ShieldCheck } from 'lucide-react';
+import {
+  AlertTriangle,
+  ChevronDown,
+  ChevronUp,
+  KeyRound,
+  Laptop,
+  Loader2,
+  Minimize2,
+  RefreshCw,
+  ShieldCheck,
+} from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useAuth } from '../../../context/AuthContext';
@@ -193,6 +203,7 @@ const AuraTrustedDeviceChallenge = () => {
   const [errorMessage, setErrorMessage] = useState('');
   const [selectedMethod, setSelectedMethod] = useState('');
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [showMethodChooser, setShowMethodChooser] = useState(false);
 
   const challengeMode = String(deviceChallenge?.mode || '').trim() === 'enroll'
     ? 'enroll'
@@ -253,6 +264,7 @@ const AuraTrustedDeviceChallenge = () => {
 
   useEffect(() => {
     setIsCollapsed(!isBlockingRoute);
+    setShowMethodChooser(isBlockingRoute);
   }, [deviceChallenge?.token, isBlockingRoute]);
 
   if (status !== 'device_challenge_required' || !deviceChallenge || import.meta.env.MODE === 'test') {
@@ -267,6 +279,39 @@ const AuraTrustedDeviceChallenge = () => {
     ? getTrustedDeviceHeading({ method: activeMethod, challengeMode, supportProfile })
     : (challengeMode === 'enroll' ? 'Finish trusted device setup' : 'Privileged mode locked');
   const actionLabel = getTrustedDeviceActionLabel({ method: activeMethod, challengeMode, supportProfile });
+  const selectedMethodLabel = getTrustedDeviceMethodLabel(activeMethod, supportProfile);
+  const selectedMethodNote = getTrustedDeviceMethodNote({
+    challengeMode,
+    fallbackHost,
+    hostUsesBrowserKeyOnly,
+    method: activeMethod,
+    offered: availableMethods.includes(activeMethod),
+    registeredMethod,
+    supported: selectedMethodSupported,
+  });
+  const selectedMethodDetail = getTrustedDeviceMethodDetail({
+    fallbackHost,
+    hostUsesBrowserKeyOnly,
+    method: activeMethod,
+  });
+  const showProofOptions = isBlockingRoute || showMethodChooser;
+  const checkpointReason = challengeMode === 'enroll'
+    ? 'Set up this device once so admin-grade actions can trust a fresh proof tied to this session.'
+    : 'This session is valid, but elevated actions need a fresh device proof before Aura unlocks them.';
+  const privacyHighlights = activeMethod === 'webauthn'
+    ? [
+      'Face, fingerprint, or Windows Hello stays inside the authenticator.',
+      'Aura receives only a signed WebAuthn assertion for this challenge.',
+      'The elevated session token is short-lived and bound to this Firebase session.',
+    ]
+    : [
+      'The browser signs the challenge locally with its stored RSA-PSS key.',
+      'Aura verifies the signature against the registered public key only.',
+      'The elevated session token is short-lived and bound to this Firebase session.',
+    ];
+  const publicRouteHighlights = challengeMode === 'enroll'
+    ? 'Keep browsing normally while this device finishes its trust setup.'
+    : 'Keep browsing normally and unlock admin, payout, and trust-sensitive actions when you need them.';
   const introMessage = isBlockingRoute
     ? getTrustedDeviceIntro({
       activeMethod,
@@ -292,18 +337,24 @@ const AuraTrustedDeviceChallenge = () => {
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 18, scale: 0.96 }}
           onClick={() => setIsCollapsed(false)}
-          className="fixed bottom-4 right-4 z-[9999] flex max-w-[calc(100vw-2rem)] items-center gap-3 rounded-full border border-cyan-300/25 bg-slate-950/92 px-4 py-3 text-left shadow-[0_20px_80px_rgba(6,182,212,0.18)] backdrop-blur-xl"
+          className="fixed bottom-5 left-1/2 z-[9999] flex w-[min(32rem,calc(100vw-1.5rem))] -translate-x-1/2 items-center gap-3 rounded-[1.75rem] border border-cyan-300/20 bg-slate-950/94 px-4 py-3 text-left shadow-[0_20px_80px_rgba(6,182,212,0.18)] backdrop-blur-xl"
         >
-          <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-cyan-300 text-slate-950">
+          <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-cyan-300 text-slate-950 shadow-[0_16px_40px_rgba(103,232,249,0.25)]">
             <ShieldCheck className="h-4 w-4" />
           </span>
           <span className="min-w-0">
             <span className="block text-[11px] font-black uppercase tracking-[0.18em] text-cyan-100/80">
-              Privileged Mode Locked
+              Trust Checkpoint
             </span>
             <span className="block truncate text-sm font-semibold text-white">
               Verify once to unlock admin actions
             </span>
+            <span className="mt-0.5 block truncate text-xs text-slate-400">
+              {selectedMethodLabel}
+            </span>
+          </span>
+          <span className="ml-auto rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-[11px] font-black uppercase tracking-[0.16em] text-slate-200">
+            Open
           </span>
         </motion.button>
       </AnimatePresence>
@@ -382,192 +433,438 @@ const AuraTrustedDeviceChallenge = () => {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
+        role="dialog"
+        aria-modal={isBlockingRoute}
+        aria-labelledby="trusted-device-gate-heading"
         className={
           isBlockingRoute
-            ? 'fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/88 px-4 backdrop-blur-xl'
-            : 'fixed bottom-4 right-4 z-[9999] flex w-[min(30rem,calc(100vw-2rem))] items-end justify-end'
+            ? 'fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/88 px-4 py-6 backdrop-blur-xl'
+            : 'fixed inset-x-0 bottom-5 z-[9999] flex justify-center px-3'
         }
       >
         <motion.div
-          initial={{ scale: 0.96, y: 16 }}
+          initial={{ scale: 0.97, y: isBlockingRoute ? 16 : 22 }}
           animate={{ scale: 1, y: 0 }}
           className={
             isBlockingRoute
-              ? 'relative w-full max-w-xl overflow-hidden rounded-[2rem] border border-cyan-400/15 bg-zinc-950/95 p-8 shadow-[0_20px_120px_rgba(6,182,212,0.14)]'
-              : 'relative w-full overflow-hidden rounded-[1.75rem] border border-cyan-400/15 bg-zinc-950/95 p-6 shadow-[0_20px_120px_rgba(6,182,212,0.18)] backdrop-blur-xl'
+              ? 'relative w-full max-w-5xl overflow-hidden rounded-[2.25rem] border border-cyan-400/15 bg-zinc-950/95 shadow-[0_40px_160px_rgba(6,182,212,0.14)]'
+              : 'relative w-full max-w-[44rem] overflow-hidden rounded-[2rem] border border-cyan-400/15 bg-zinc-950/95 shadow-[0_28px_140px_rgba(6,182,212,0.18)] backdrop-blur-xl'
           }
         >
           <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/60 to-transparent" />
-          <div className="absolute -top-24 right-0 h-56 w-56 rounded-full bg-cyan-400/10 blur-3xl" />
+          <div className="absolute -top-24 right-[-3rem] h-64 w-64 rounded-full bg-cyan-400/12 blur-3xl" />
+          <div className="absolute -bottom-20 left-[-2rem] h-56 w-56 rounded-full bg-fuchsia-500/10 blur-3xl" />
 
-          <div className="relative space-y-6">
-            <div className="flex items-start justify-between gap-4">
-              <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/15 bg-cyan-400/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.22em] text-cyan-100">
-                <ShieldCheck className="h-3.5 w-3.5" />
-                Trusted Device Gate
+          {isBlockingRoute ? (
+            <div className="relative grid gap-0 lg:grid-cols-[0.94fr,1.06fr]">
+              <div className="border-b border-white/8 p-7 sm:p-9 lg:border-b-0 lg:border-r">
+                <div className="space-y-6">
+                  <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/15 bg-cyan-400/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.22em] text-cyan-100">
+                    <ShieldCheck className="h-3.5 w-3.5" />
+                    Trusted Device Checkpoint
+                  </div>
+
+                  <div className="space-y-4">
+                    <h2 id="trusted-device-gate-heading" className="max-w-lg text-4xl font-black tracking-tight text-white">
+                      {heading}
+                    </h2>
+                    <p className="max-w-xl text-base leading-7 text-slate-300">
+                      {introMessage}
+                    </p>
+                  </div>
+
+                  <div className="rounded-[1.75rem] border border-white/8 bg-white/[0.035] p-5">
+                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">Why Aura paused here</p>
+                    <p className="mt-3 text-sm leading-6 text-slate-200">
+                      {checkpointReason}
+                    </p>
+                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                      <div className="rounded-2xl border border-white/8 bg-slate-950/60 p-4">
+                        <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">Account</p>
+                        <p className="mt-2 text-sm font-semibold text-white">{currentUser?.email || 'Authenticated session'}</p>
+                      </div>
+                      <div className="rounded-2xl border border-white/8 bg-slate-950/60 p-4">
+                        <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">Device lane</p>
+                        <p className="mt-2 text-sm font-semibold text-white">{deviceChallenge?.registeredLabel || 'This browser session'}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-[1.75rem] border border-white/8 bg-slate-950/60 p-5">
+                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">What stays private</p>
+                    <div className="mt-4 space-y-3">
+                      {privacyHighlights.map((line) => (
+                        <div key={line} className="flex items-start gap-3">
+                          <span className="mt-1 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-cyan-400/12 text-cyan-200">
+                            <ShieldCheck className="h-3.5 w-3.5" />
+                          </span>
+                          <p className="text-sm leading-6 text-slate-300">{line}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
               </div>
-              {!isBlockingRoute ? (
-                <button
-                  type="button"
-                  onClick={() => setIsCollapsed(true)}
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-slate-200 transition-colors hover:bg-white/[0.08]"
-                  aria-label="Minimize trusted device panel"
-                >
-                  <Minimize2 className="h-4 w-4" />
-                </button>
-              ) : null}
-            </div>
 
-            <div className="space-y-3">
-              <h2 className="text-3xl font-black tracking-tight text-white">
-                {heading}
-              </h2>
-              <p className="max-w-2xl text-sm leading-6 text-slate-300">
-                {introMessage}
-              </p>
-            </div>
+              <div className="p-7 sm:p-9">
+                <div className="space-y-5">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">Choose your proof lane</p>
+                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">
+                      {passkeyOffered && browserKeyOffered ? 'Fresh assertion required' : 'Checkpoint state'}
+                    </p>
+                  </div>
 
-            <div className="space-y-3">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">Proof Method</p>
-                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">
-                  {passkeyOffered && browserKeyOffered ? 'Choose one' : 'Checkpoint state'}
-                </p>
-              </div>
+                  <div
+                    role="radiogroup"
+                    aria-label="Trusted device proof methods"
+                    className="grid gap-3 sm:grid-cols-2"
+                  >
+                    {TRUSTED_DEVICE_METHOD_ORDER.map((method) => {
+                      const offered = availableMethods.includes(method);
+                      const supported = method === 'webauthn'
+                        ? canUsePasskey
+                        : canUseBrowserKey;
+                      const selected = activeMethod === method;
+                      const preferred = preferredMethod === method;
+                      const MethodIcon = method === 'webauthn' ? ShieldCheck : KeyRound;
+                      const badge = getTrustedDeviceMethodBadge({
+                        offered,
+                        preferred,
+                        selected,
+                        supported,
+                      });
 
-              <div
-                role="radiogroup"
-                aria-label="Trusted device proof methods"
-                className="grid gap-3 sm:grid-cols-2"
-              >
-                {TRUSTED_DEVICE_METHOD_ORDER.map((method) => {
-                  const offered = availableMethods.includes(method);
-                  const supported = method === 'webauthn'
-                    ? canUsePasskey
-                    : canUseBrowserKey;
-                  const selected = activeMethod === method;
-                  const preferred = preferredMethod === method;
-                  const MethodIcon = method === 'webauthn' ? ShieldCheck : KeyRound;
-                  const badge = getTrustedDeviceMethodBadge({
-                    offered,
-                    preferred,
-                    selected,
-                    supported,
-                  });
+                      return (
+                        <button
+                          key={method}
+                          type="button"
+                          role="radio"
+                          aria-checked={selected}
+                          aria-label={getTrustedDeviceMethodLabel(method, supportProfile)}
+                          disabled={!supported}
+                          onClick={() => {
+                            setSelectedMethod(method);
+                            setErrorMessage('');
+                          }}
+                          className={[
+                            'rounded-[1.5rem] border p-4 text-left transition-colors',
+                            selected
+                              ? 'border-cyan-300/60 bg-cyan-400/10 shadow-[0_16px_60px_rgba(34,211,238,0.08)]'
+                              : 'border-white/8 bg-white/[0.03]',
+                            !supported ? 'cursor-not-allowed opacity-75' : 'hover:border-cyan-300/35 hover:bg-white/[0.05]',
+                          ].join(' ')}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-center gap-3">
+                              <span className={`inline-flex h-10 w-10 items-center justify-center rounded-2xl ${selected ? 'bg-cyan-300 text-slate-950' : 'bg-white/[0.06] text-slate-200'}`}>
+                                <MethodIcon className="h-4 w-4" />
+                              </span>
+                              <div>
+                                <p className="text-sm font-semibold text-white">{getTrustedDeviceMethodLabel(method, supportProfile)}</p>
+                                <p className={`mt-1 text-[11px] font-black uppercase tracking-[0.18em] ${selected ? 'text-cyan-100' : 'text-slate-400'}`}>
+                                  {badge}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                          <p className="mt-4 text-xs leading-5 text-slate-400">
+                            {getTrustedDeviceMethodNote({
+                              challengeMode,
+                              fallbackHost,
+                              hostUsesBrowserKeyOnly,
+                              method,
+                              offered,
+                              registeredMethod,
+                              supported,
+                            })}
+                          </p>
+                        </button>
+                      );
+                    })}
+                  </div>
 
-                  return (
+                  <div className="grid gap-4 lg:grid-cols-[0.82fr,1.18fr]">
+                    <div className="rounded-[1.5rem] border border-white/8 bg-white/[0.03] p-5">
+                      <div className="flex items-center gap-3">
+                        <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-white/[0.06] text-cyan-200">
+                          <Laptop className="h-4 w-4" />
+                        </span>
+                        <div>
+                          <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">Device</p>
+                          <p className="mt-1 text-sm font-semibold text-white">
+                            {deviceChallenge?.registeredLabel || 'This browser session'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="rounded-[1.5rem] border border-white/8 bg-white/[0.03] p-5">
+                      <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">Selected proof</p>
+                      <p className="mt-2 text-sm font-semibold text-white">{selectedMethodLabel}</p>
+                      <p className="mt-3 text-sm leading-6 text-slate-300">
+                        {selectedMethodDetail}
+                      </p>
+                    </div>
+                  </div>
+
+                  {!selectedMethodSupported ? (
+                    <div className="rounded-[1.5rem] border border-amber-300/20 bg-amber-300/10 p-4 text-sm leading-6 text-amber-100">
+                      {activeMethod === 'webauthn'
+                        ? 'This device does not expose the platform passkey APIs needed for face/device authentication here. Use a secure browser with passkey support, or switch to a device that already has the registered passkey.'
+                        : (
+                          hostUsesBrowserKeyOnly
+                            ? 'This host stays on browser-key verification because passkeys are only offered on localhost or verified domains.'
+                            : 'This browser cannot complete trusted device verification here. Use HTTPS or localhost with WebCrypto and IndexedDB enabled.'
+                        )}
+                    </div>
+                  ) : null}
+
+                  {errorMessage ? (
+                    <div className="rounded-[1.5rem] border border-rose-300/20 bg-rose-300/10 p-4 text-sm leading-6 text-rose-100">
+                      <div className="flex items-start gap-3">
+                        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                        <p>{errorMessage}</p>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  <div className="flex flex-col gap-3 sm:flex-row">
                     <button
-                      key={method}
                       type="button"
-                      role="radio"
-                      aria-checked={selected}
-                      aria-label={getTrustedDeviceMethodLabel(method, supportProfile)}
-                      disabled={!supported}
-                      onClick={() => {
-                        setSelectedMethod(method);
-                        setErrorMessage('');
-                      }}
-                      className={[
-                        'rounded-2xl border p-4 text-left transition-colors',
-                        selected
-                          ? 'border-cyan-300/60 bg-cyan-400/10'
-                          : 'border-white/8 bg-white/[0.03]',
-                        !supported ? 'cursor-not-allowed opacity-75' : 'hover:border-cyan-300/40 hover:bg-white/[0.05]',
-                      ].join(' ')}
+                      onClick={handleVerify}
+                      disabled={isWorking || isResetting || !selectedMethodSupported}
+                      className="inline-flex flex-1 items-center justify-center gap-3 rounded-[1.5rem] bg-cyan-300 px-5 py-4 text-sm font-black uppercase tracking-[0.18em] text-slate-950 transition-transform hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      <div className="flex items-start justify-between gap-3">
+                      {isWorking ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+                      {actionLabel}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleResetBrowserIdentity}
+                      disabled={isWorking || isResetting}
+                      className="inline-flex items-center justify-center gap-3 rounded-[1.5rem] border border-white/10 bg-white/[0.04] px-5 py-4 text-sm font-black uppercase tracking-[0.18em] text-slate-100 transition-colors hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isResetting ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                      Reset Local Identity
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="relative p-5 sm:p-6">
+              <div className="space-y-5">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/15 bg-cyan-400/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.22em] text-cyan-100">
+                    <ShieldCheck className="h-3.5 w-3.5" />
+                    Privileged Mode
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsCollapsed(true)}
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-slate-200 transition-colors hover:bg-white/[0.08]"
+                    aria-label="Minimize trusted device panel"
+                  >
+                    <Minimize2 className="h-4 w-4" />
+                  </button>
+                </div>
+
+                <div className="grid gap-4 lg:grid-cols-[1.12fr,0.88fr]">
+                  <div className="space-y-4">
+                    <div className="space-y-3">
+                      <h2 id="trusted-device-gate-heading" className="text-2xl font-black tracking-tight text-white sm:text-[2rem]">
+                        {heading}
+                      </h2>
+                      <p className="text-sm leading-6 text-slate-300">
+                        {introMessage}
+                      </p>
+                    </div>
+
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="rounded-[1.5rem] border border-white/8 bg-white/[0.03] p-4">
+                        <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">Selected proof</p>
+                        <p className="mt-2 text-sm font-semibold text-white">{selectedMethodLabel}</p>
+                        <p className="mt-3 text-xs leading-5 text-slate-400">{selectedMethodNote}</p>
+                      </div>
+
+                      <div className="rounded-[1.5rem] border border-white/8 bg-white/[0.03] p-4">
                         <div className="flex items-center gap-3">
-                          <MethodIcon className={selected ? 'h-4 w-4 text-cyan-200' : 'h-4 w-4 text-slate-300'} />
+                          <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-white/[0.06] text-cyan-200">
+                            <Laptop className="h-4 w-4" />
+                          </span>
                           <div>
-                            <p className="text-sm font-semibold text-white">{getTrustedDeviceMethodLabel(method, supportProfile)}</p>
-                            <p className={`mt-1 text-[11px] font-black uppercase tracking-[0.18em] ${selected ? 'text-cyan-100' : 'text-slate-400'}`}>
-                              {badge}
+                            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">Device</p>
+                            <p className="mt-1 text-sm font-semibold text-white">
+                              {deviceChallenge?.registeredLabel || 'This browser session'}
                             </p>
                           </div>
                         </div>
                       </div>
-                      <p className="mt-3 text-xs leading-5 text-slate-400">
-                        {getTrustedDeviceMethodNote({
-                          challengeMode,
-                          fallbackHost,
-                          hostUsesBrowserKeyOnly,
-                          method,
-                          offered,
-                          registeredMethod,
-                          supported,
-                        })}
+                    </div>
+
+                    <div className="rounded-[1.5rem] border border-white/8 bg-white/[0.03] p-4">
+                      <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">Why this appears</p>
+                      <p className="mt-3 text-sm leading-6 text-slate-300">
+                        {publicRouteHighlights}
                       </p>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+                    </div>
+                  </div>
 
-            <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
-              <div className="flex items-center gap-3">
-                <Laptop className="h-4 w-4 text-cyan-200" />
-                <div>
-                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">Device</p>
-                  <p className="mt-1 text-sm font-semibold text-white">
-                    {deviceChallenge?.registeredLabel || 'This browser session'}
-                  </p>
+                  <div className="rounded-[1.75rem] border border-white/8 bg-white/[0.04] p-5">
+                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-cyan-100/80">Quick unlock</p>
+                    <p className="mt-3 text-base font-semibold text-white">
+                      Unlock the stronger session only when you actually need it.
+                    </p>
+                    <p className="mt-3 text-sm leading-6 text-slate-300">
+                      {checkpointReason}
+                    </p>
+
+                    <div className="mt-5 flex flex-col gap-3">
+                      <button
+                        type="button"
+                        onClick={handleVerify}
+                        disabled={isWorking || isResetting || !selectedMethodSupported}
+                        className="inline-flex w-full items-center justify-center gap-3 rounded-[1.5rem] bg-cyan-300 px-5 py-4 text-sm font-black uppercase tracking-[0.18em] text-slate-950 transition-transform hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {isWorking ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+                        {actionLabel}
+                      </button>
+
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <button
+                          type="button"
+                          onClick={() => setShowMethodChooser((current) => !current)}
+                          className="inline-flex items-center justify-center gap-3 rounded-[1.5rem] border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black uppercase tracking-[0.16em] text-slate-100 transition-colors hover:bg-white/[0.08]"
+                        >
+                          {showProofOptions ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                          {showProofOptions ? 'Hide Proof Options' : 'Choose Proof Method'}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={handleResetBrowserIdentity}
+                          disabled={isWorking || isResetting}
+                          className="inline-flex items-center justify-center gap-3 rounded-[1.5rem] border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black uppercase tracking-[0.16em] text-slate-100 transition-colors hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {isResetting ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                          Reset Identity
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
+
+                {showProofOptions ? (
+                  <div className="space-y-4 rounded-[1.75rem] border border-white/8 bg-slate-950/70 p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">Proof methods</p>
+                      <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">
+                        {passkeyOffered && browserKeyOffered ? 'Pick the smoothest lane' : 'Current checkpoint'}
+                      </p>
+                    </div>
+
+                    <div
+                      role="radiogroup"
+                      aria-label="Trusted device proof methods"
+                      className="grid gap-3 sm:grid-cols-2"
+                    >
+                      {TRUSTED_DEVICE_METHOD_ORDER.map((method) => {
+                        const offered = availableMethods.includes(method);
+                        const supported = method === 'webauthn'
+                          ? canUsePasskey
+                          : canUseBrowserKey;
+                        const selected = activeMethod === method;
+                        const preferred = preferredMethod === method;
+                        const MethodIcon = method === 'webauthn' ? ShieldCheck : KeyRound;
+                        const badge = getTrustedDeviceMethodBadge({
+                          offered,
+                          preferred,
+                          selected,
+                          supported,
+                        });
+
+                        return (
+                          <button
+                            key={method}
+                            type="button"
+                            role="radio"
+                            aria-checked={selected}
+                            aria-label={getTrustedDeviceMethodLabel(method, supportProfile)}
+                            disabled={!supported}
+                            onClick={() => {
+                              setSelectedMethod(method);
+                              setErrorMessage('');
+                            }}
+                            className={[
+                              'rounded-[1.5rem] border p-4 text-left transition-colors',
+                              selected
+                                ? 'border-cyan-300/60 bg-cyan-400/10'
+                                : 'border-white/8 bg-white/[0.03]',
+                              !supported ? 'cursor-not-allowed opacity-75' : 'hover:border-cyan-300/35 hover:bg-white/[0.05]',
+                            ].join(' ')}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex items-center gap-3">
+                                <span className={`inline-flex h-10 w-10 items-center justify-center rounded-2xl ${selected ? 'bg-cyan-300 text-slate-950' : 'bg-white/[0.06] text-slate-200'}`}>
+                                  <MethodIcon className="h-4 w-4" />
+                                </span>
+                                <div>
+                                  <p className="text-sm font-semibold text-white">{getTrustedDeviceMethodLabel(method, supportProfile)}</p>
+                                  <p className={`mt-1 text-[11px] font-black uppercase tracking-[0.18em] ${selected ? 'text-cyan-100' : 'text-slate-400'}`}>
+                                    {badge}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                            <p className="mt-4 text-xs leading-5 text-slate-400">
+                              {getTrustedDeviceMethodNote({
+                                challengeMode,
+                                fallbackHost,
+                                hostUsesBrowserKeyOnly,
+                                method,
+                                offered,
+                                registeredMethod,
+                                supported,
+                              })}
+                            </p>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <div className="rounded-[1.5rem] border border-white/8 bg-white/[0.03] p-4 text-sm leading-6 text-slate-300">
+                      <p>
+                        {selectedMethodDetail}
+                      </p>
+                    </div>
+                  </div>
+                ) : null}
+
+                {!selectedMethodSupported ? (
+                  <div className="rounded-[1.5rem] border border-amber-300/20 bg-amber-300/10 p-4 text-sm leading-6 text-amber-100">
+                    {activeMethod === 'webauthn'
+                      ? 'This device does not expose the platform passkey APIs needed for face/device authentication here. Use a secure browser with passkey support, or switch to a device that already has the registered passkey.'
+                      : (
+                        hostUsesBrowserKeyOnly
+                          ? 'This host stays on browser-key verification because passkeys are only offered on localhost or verified domains.'
+                          : 'This browser cannot complete trusted device verification here. Use HTTPS or localhost with WebCrypto and IndexedDB enabled.'
+                      )}
+                  </div>
+                ) : null}
+
+                {errorMessage ? (
+                  <div className="rounded-[1.5rem] border border-rose-300/20 bg-rose-300/10 p-4 text-sm leading-6 text-rose-100">
+                    <div className="flex items-start gap-3">
+                      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                      <p>{errorMessage}</p>
+                    </div>
+                  </div>
+                ) : null}
               </div>
             </div>
-
-            <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4 text-sm leading-6 text-slate-300">
-              <p>
-                {getTrustedDeviceMethodDetail({
-                  fallbackHost,
-                  hostUsesBrowserKeyOnly,
-                  method: activeMethod,
-                })}
-              </p>
-            </div>
-
-            {!selectedMethodSupported ? (
-              <div className="rounded-2xl border border-amber-300/20 bg-amber-300/10 p-4 text-sm leading-6 text-amber-100">
-                {activeMethod === 'webauthn'
-                  ? 'This device does not expose the platform passkey APIs needed for face/device authentication here. Use a secure browser with passkey support, or switch to a device that already has the registered passkey.'
-                  : (
-                    hostUsesBrowserKeyOnly
-                      ? `This host stays on browser-key verification because passkeys are only offered on localhost or verified domains.`
-                      : 'This browser cannot complete trusted device verification here. Use HTTPS or localhost with WebCrypto and IndexedDB enabled.'
-                  )}
-              </div>
-            ) : null}
-
-            {errorMessage ? (
-              <div className="rounded-2xl border border-rose-300/20 bg-rose-300/10 p-4 text-sm leading-6 text-rose-100">
-                <div className="flex items-start gap-3">
-                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-                  <p>{errorMessage}</p>
-                </div>
-              </div>
-            ) : null}
-
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <button
-                type="button"
-                onClick={handleVerify}
-                disabled={isWorking || isResetting || !selectedMethodSupported}
-                className="inline-flex flex-1 items-center justify-center gap-3 rounded-2xl bg-cyan-300 px-5 py-4 text-sm font-black uppercase tracking-[0.18em] text-slate-950 transition-transform hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {isWorking ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
-                {actionLabel}
-              </button>
-
-              <button
-                type="button"
-                onClick={handleResetBrowserIdentity}
-                disabled={isWorking || isResetting}
-                className="inline-flex items-center justify-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-4 text-sm font-black uppercase tracking-[0.18em] text-slate-100 transition-colors hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {isResetting ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                Reset Local Identity
-              </button>
-            </div>
-          </div>
+          )}
         </motion.div>
       </motion.div>
     </AnimatePresence>
