@@ -47,6 +47,13 @@ Required repository secrets:
 - `VERCEL_TOKEN`
 - `NETLIFY_AUTH_TOKEN`
 
+Required for production Windows desktop releases:
+
+- `WINDOWS_CODE_SIGNING_CERTIFICATE_BASE64`
+- `WINDOWS_CODE_SIGNING_CERTIFICATE_PASSWORD`
+
+The production pipeline requires Windows Authenticode signing before it publishes a new latest desktop release. If those secrets are missing, the desktop release job fails and no new release tag is marked latest. Manual `Desktop Release` test runs can disable the signing requirement, but production `main` delivery keeps it on.
+
 Required repository variables or secrets:
 
 - `NETLIFY_SITE_ID`
