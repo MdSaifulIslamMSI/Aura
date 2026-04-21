@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { AlertTriangle, KeyRound, Laptop, Loader2, RefreshCw, ShieldCheck } from 'lucide-react';
+import { AlertTriangle, KeyRound, Laptop, Loader2, Minimize2, RefreshCw, ShieldCheck } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useAuth } from '../../../context/AuthContext';
 import {
@@ -8,6 +9,7 @@ import {
   resetTrustedDeviceIdentity,
   signTrustedDeviceChallenge,
 } from '../../../services/deviceTrustClient';
+import { isAdminPath } from '../../../services/assistantUiConfig';
 
 const TRUSTED_DEVICE_METHOD_ORDER = ['webauthn', 'browser_key'];
 
@@ -184,15 +186,18 @@ const buildTrustedDeviceErrorMessage = ({
 };
 
 const AuraTrustedDeviceChallenge = () => {
+  const location = useLocation();
   const { currentUser, deviceChallenge, refreshSession, status, verifyDeviceChallenge } = useAuth();
   const [isWorking, setIsWorking] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [selectedMethod, setSelectedMethod] = useState('');
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   const challengeMode = String(deviceChallenge?.mode || '').trim() === 'enroll'
     ? 'enroll'
     : 'assert';
+  const isBlockingRoute = isAdminPath(location?.pathname || '/');
   const supportProfile = useMemo(() => getTrustedDeviceSupportProfile(), []);
   const availableMethods = useMemo(() => (
     Array.isArray(deviceChallenge?.availableMethods)
@@ -246,6 +251,10 @@ const AuraTrustedDeviceChallenge = () => {
     setSelectedMethod(defaultSelectedMethod);
   }, [defaultSelectedMethod, deviceChallenge?.token]);
 
+  useEffect(() => {
+    setIsCollapsed(!isBlockingRoute);
+  }, [deviceChallenge?.token, isBlockingRoute]);
+
   if (status !== 'device_challenge_required' || !deviceChallenge || import.meta.env.MODE === 'test') {
     return null;
   }
@@ -254,8 +263,52 @@ const AuraTrustedDeviceChallenge = () => {
   const selectedMethodSupported = activeMethod === 'webauthn'
     ? canUsePasskey
     : canUseBrowserKey;
-  const heading = getTrustedDeviceHeading({ method: activeMethod, challengeMode, supportProfile });
+  const heading = isBlockingRoute
+    ? getTrustedDeviceHeading({ method: activeMethod, challengeMode, supportProfile })
+    : (challengeMode === 'enroll' ? 'Finish trusted device setup' : 'Privileged mode locked');
   const actionLabel = getTrustedDeviceActionLabel({ method: activeMethod, challengeMode, supportProfile });
+  const introMessage = isBlockingRoute
+    ? getTrustedDeviceIntro({
+      activeMethod,
+      browserKeyOffered,
+      challengeMode,
+      fallbackHost,
+      hostUsesBrowserKeyOnly,
+      passkeyOffered,
+    })
+    : (
+      challengeMode === 'enroll'
+        ? 'You can keep browsing, but admin-grade actions stay locked until this device finishes trusted verification.'
+        : 'You can keep browsing normally. Verify this device when you want to unlock admin and other privileged actions.'
+    );
+
+  if (!isBlockingRoute && isCollapsed) {
+    return (
+      <AnimatePresence>
+        <motion.button
+          key="trusted-device-minimized"
+          type="button"
+          initial={{ opacity: 0, y: 18, scale: 0.96 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 18, scale: 0.96 }}
+          onClick={() => setIsCollapsed(false)}
+          className="fixed bottom-4 right-4 z-[9999] flex max-w-[calc(100vw-2rem)] items-center gap-3 rounded-full border border-cyan-300/25 bg-slate-950/92 px-4 py-3 text-left shadow-[0_20px_80px_rgba(6,182,212,0.18)] backdrop-blur-xl"
+        >
+          <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-cyan-300 text-slate-950">
+            <ShieldCheck className="h-4 w-4" />
+          </span>
+          <span className="min-w-0">
+            <span className="block text-[11px] font-black uppercase tracking-[0.18em] text-cyan-100/80">
+              Privileged Mode Locked
+            </span>
+            <span className="block truncate text-sm font-semibold text-white">
+              Verify once to unlock admin actions
+            </span>
+          </span>
+        </motion.button>
+      </AnimatePresence>
+    );
+  }
 
   const handleVerify = async () => {
     if (!selectedMethodSupported) {
@@ -329,20 +382,40 @@ const AuraTrustedDeviceChallenge = () => {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/88 px-4 backdrop-blur-xl"
+        className={
+          isBlockingRoute
+            ? 'fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/88 px-4 backdrop-blur-xl'
+            : 'fixed bottom-4 right-4 z-[9999] flex w-[min(30rem,calc(100vw-2rem))] items-end justify-end'
+        }
       >
         <motion.div
           initial={{ scale: 0.96, y: 16 }}
           animate={{ scale: 1, y: 0 }}
-          className="relative w-full max-w-xl overflow-hidden rounded-[2rem] border border-cyan-400/15 bg-zinc-950/95 p-8 shadow-[0_20px_120px_rgba(6,182,212,0.14)]"
+          className={
+            isBlockingRoute
+              ? 'relative w-full max-w-xl overflow-hidden rounded-[2rem] border border-cyan-400/15 bg-zinc-950/95 p-8 shadow-[0_20px_120px_rgba(6,182,212,0.14)]'
+              : 'relative w-full overflow-hidden rounded-[1.75rem] border border-cyan-400/15 bg-zinc-950/95 p-6 shadow-[0_20px_120px_rgba(6,182,212,0.18)] backdrop-blur-xl'
+          }
         >
           <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/60 to-transparent" />
           <div className="absolute -top-24 right-0 h-56 w-56 rounded-full bg-cyan-400/10 blur-3xl" />
 
           <div className="relative space-y-6">
-            <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/15 bg-cyan-400/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.22em] text-cyan-100">
-              <ShieldCheck className="h-3.5 w-3.5" />
-              Trusted Device Gate
+            <div className="flex items-start justify-between gap-4">
+              <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/15 bg-cyan-400/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.22em] text-cyan-100">
+                <ShieldCheck className="h-3.5 w-3.5" />
+                Trusted Device Gate
+              </div>
+              {!isBlockingRoute ? (
+                <button
+                  type="button"
+                  onClick={() => setIsCollapsed(true)}
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-slate-200 transition-colors hover:bg-white/[0.08]"
+                  aria-label="Minimize trusted device panel"
+                >
+                  <Minimize2 className="h-4 w-4" />
+                </button>
+              ) : null}
             </div>
 
             <div className="space-y-3">
@@ -350,14 +423,7 @@ const AuraTrustedDeviceChallenge = () => {
                 {heading}
               </h2>
               <p className="max-w-2xl text-sm leading-6 text-slate-300">
-                {getTrustedDeviceIntro({
-                  activeMethod,
-                  browserKeyOffered,
-                  challengeMode,
-                  fallbackHost,
-                  hostUsesBrowserKeyOnly,
-                  passkeyOffered,
-                })}
+                {introMessage}
               </p>
             </div>
 

@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { MemoryRouter } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
 import {
   getTrustedDeviceSupportProfile,
@@ -55,6 +56,12 @@ const loadComponent = async () => {
   return import('./AuraTrustedDeviceChallenge.jsx');
 };
 
+const renderWithRoute = (ui, route = '/admin/dashboard') => render(
+  <MemoryRouter initialEntries={[route]}>
+    {ui}
+  </MemoryRouter>
+);
+
 describe('AuraTrustedDeviceChallenge', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -77,7 +84,7 @@ describe('AuraTrustedDeviceChallenge', () => {
     useAuth.mockReturnValue(buildAuthValue({ verifyDeviceChallenge }));
 
     const { default: AuraTrustedDeviceChallenge } = await loadComponent();
-    render(<AuraTrustedDeviceChallenge />);
+    renderWithRoute(<AuraTrustedDeviceChallenge />);
 
     expect(screen.getByRole('radio', { name: /windows hello passkey/i })).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: /rsa-pss browser key/i })).toBeInTheDocument();
@@ -113,10 +120,22 @@ describe('AuraTrustedDeviceChallenge', () => {
     }));
 
     const { default: AuraTrustedDeviceChallenge } = await loadComponent();
-    render(<AuraTrustedDeviceChallenge />);
+    renderWithRoute(<AuraTrustedDeviceChallenge />);
 
     expect(screen.getByRole('radio', { name: /windows hello passkey/i })).toBeDisabled();
     expect(screen.getByRole('radio', { name: /rsa-pss browser key/i })).not.toBeDisabled();
     expect(screen.getByText(/currently registered with an rsa-pss browser key, not a passkey/i)).toBeInTheDocument();
+  });
+
+  it('starts minimized on public routes and expands on demand', async () => {
+    const { default: AuraTrustedDeviceChallenge } = await loadComponent();
+    renderWithRoute(<AuraTrustedDeviceChallenge />, '/');
+
+    expect(screen.getByRole('button', { name: /verify once to unlock admin actions/i })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /verify once to unlock admin actions/i }));
+
+    expect(screen.getByRole('heading', { name: /privileged mode locked/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /minimize trusted device panel/i })).toBeInTheDocument();
   });
 });
