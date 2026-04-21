@@ -1,12 +1,14 @@
 const express = require('express');
 const {
     establishSessionCookie,
+    generateBackupRecoveryCodes,
     getSession,
     logoutSession,
     requestBootstrapDeviceChallenge,
     syncSession,
     completePhoneFactorLogin,
     completePhoneFactorVerification,
+    verifyBackupRecoveryCode,
     verifyDeviceChallenge,
 } = require('../controllers/authController');
 const { protect, protectPhoneFactorProof } = require('../middleware/authMiddleware');
@@ -36,11 +38,25 @@ const authSyncLimiter = createDistributedRateLimit({
     },
 });
 
+const recoveryCodeLimiter = createDistributedRateLimit({
+    securityCritical: true,
+    name: 'auth_recovery_code',
+    windowMs: 15 * 60 * 1000,
+    max: process.env.NODE_ENV === 'development' ? 120 : 20,
+    message: 'Too many recovery code attempts, please try again after 15 minutes',
+    keyGenerator: (req) => {
+        const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+        return email || req.ip;
+    },
+});
+
 router.post('/exchange', protect, establishSessionCookie, csrfTokenGenerator, getSession);
 router.get('/session', protect, establishSessionCookie, csrfTokenGenerator, getSession);
 router.post('/sync', protect, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, authSyncLimiter, validate(loginSchema), syncSession);
 router.post('/logout', logoutSession);
 router.post('/bootstrap-device-challenge', requestBootstrapDeviceChallenge);
+router.post('/recovery-codes', protect, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, generateBackupRecoveryCodes);
+router.post('/recovery-codes/verify', recoveryCodeLimiter, verifyBackupRecoveryCode);
 router.post('/complete-phone-factor-login', protect, completePhoneFactorLogin);
 router.post('/complete-phone-factor-verification', protectPhoneFactorProof, completePhoneFactorVerification);
 router.post('/verify-device', protect, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, verifyDeviceChallenge);

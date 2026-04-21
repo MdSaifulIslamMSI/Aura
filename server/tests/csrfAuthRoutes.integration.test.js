@@ -79,6 +79,8 @@ jest.mock('../controllers/authController', () => ({
     },
     getSession: (_req, res) => res.json({ ok: true }),
     syncSession: (_req, res) => res.json({ synced: true }),
+    generateBackupRecoveryCodes: (_req, res) => res.status(201).json({ success: true, recoveryCodes: [] }),
+    verifyBackupRecoveryCode: (_req, res) => res.json({ success: true }),
     logoutSession: (_req, res) => res.json({ success: true }),
     completePhoneFactorLogin: (_req, res) => res.json({ completed: true }),
     completePhoneFactorVerification: (_req, res) => res.json({ completed: true }),

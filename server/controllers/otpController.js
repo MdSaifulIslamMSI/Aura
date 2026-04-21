@@ -22,6 +22,10 @@ const {
     resolveTrustedDeviceBootstrapSignal,
 } = require('../services/trustedDeviceChallengeService');
 const { registerOtpFlowGrant, consumeOtpFlowGrant } = require('../services/otpFlowGrantService');
+const {
+    AUTH_ASSURANCE_ACTIONS,
+    requireAuthAssurance,
+} = require('../services/authAssurancePolicyService');
 
 const OTP_LENGTH = 6;
 const OTP_EXPIRY_MS = otpEmailFlags.otpEmailTtlMinutes * 60 * 1000;
@@ -130,6 +134,7 @@ const buildOtpFlowSignalBond = ({ req = {}, session = null, purpose = '' } = {})
     const signalBond = {};
     const boundDeviceId = String(session?.requestMeta?.deviceId || '').trim();
     const boundDeviceSessionHash = String(session?.requestMeta?.deviceSessionHash || '').trim();
+    const boundDeviceMethod = String(session?.requestMeta?.deviceMethod || '').trim().toLowerCase();
     const boundAuthUid = String(session?.requestMeta?.credentialUid || '').trim();
 
     if (boundDeviceId) {
@@ -137,6 +142,9 @@ const buildOtpFlowSignalBond = ({ req = {}, session = null, purpose = '' } = {})
     }
     if (boundDeviceSessionHash) {
         signalBond.deviceSessionHash = boundDeviceSessionHash;
+    }
+    if (boundDeviceMethod) {
+        signalBond.deviceMethod = boundDeviceMethod;
     }
     if (purpose === 'login' && boundAuthUid) {
         signalBond.authUid = boundAuthUid;
@@ -880,6 +888,7 @@ const sendOtp = asyncHandler(async (req, res, next) => {
         requestId,
         deviceId: verifiedBootstrapDeviceSignal.deviceId || '',
         deviceSessionHash: verifiedBootstrapDeviceSignal.deviceSessionHash || '',
+        deviceMethod: verifiedBootstrapDeviceSignal.method || '',
         credentialUid: String(credentialProof?.uid || credentialProof?.sub || '').trim(),
     };
 
@@ -1560,7 +1569,7 @@ const resetPasswordWithOtp = asyncHandler(async (req, res, next) => {
     const verifiedFlow = verifyOtpFlowToken({
         token: flowToken,
         expectedPurpose: 'forgot-password',
-        expectedFactor: 'otp',
+        expectedFactor: inspectedFlow.factor === 'recovery-code' ? 'recovery-code' : 'otp',
         expectedSignalBond: {
             ...(inspectedFlow.signalBond.deviceId
                 && (verifiedBootstrapDeviceSignal.deviceId || deviceId)
@@ -1605,6 +1614,15 @@ const resetPasswordWithOtp = asyncHandler(async (req, res, next) => {
             403
         ));
     }
+
+    requireAuthAssurance({
+        action: AUTH_ASSURANCE_ACTIONS.PASSWORD_RESET_FINALIZE,
+        user,
+        flow: verifiedFlow,
+        trustedDeviceSignal: verifiedBootstrapDeviceSignal,
+        deviceSessionHash,
+        resetSessionFresh: resetSessionStillFresh,
+    });
 
     await consumeOtpFlowGrant({
         tokenId: verifiedFlow.tokenId,

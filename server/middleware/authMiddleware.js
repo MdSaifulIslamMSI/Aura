@@ -74,6 +74,7 @@ const AUTH_PROJECTION = {
     authUid: 1,
     phone: 1,
     trustedDevices: 1,
+    recoveryCodeState: 1,
     isAdmin: 1,
     isVerified: 1,
     authAssurance: 1,

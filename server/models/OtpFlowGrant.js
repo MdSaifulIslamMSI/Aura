@@ -21,12 +21,12 @@ const otpFlowGrantSchema = new mongoose.Schema({
     },
     factor: {
         type: String,
-        enum: ['otp', 'email', ''],
+        enum: ['otp', 'email', 'recovery-code', ''],
         default: '',
     },
     currentStep: {
         type: String,
-        enum: ['otp-verified', 'email-verified', 'phone-factor-verified', 'issued'],
+        enum: ['otp-verified', 'email-verified', 'phone-factor-verified', 'recovery-code-verified', 'issued'],
         default: 'issued',
     },
     nextStep: {

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Activity, AlertTriangle, Bell, Clock3, Lock, LogOut } from 'lucide-react';
+import { Activity, AlertTriangle, Bell, CheckCircle2, Clock3, Copy, Download, KeyRound, Lock, LogOut, ShieldCheck } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useMarket } from '@/context/MarketContext';
 import { TogglePref } from './ProfileShared';
@@ -16,11 +16,23 @@ export default function SettingsSection({
     trustStatus,
     logout,
     memberSince,
+    hasPasskey = false,
+    shouldEnrollRecoveryCodes = false,
+    passkeyRecoveryReady = true,
+    recoveryCodesActiveCount = 0,
+    recoveryCodes = [],
+    recoveryCodesGenerating = false,
+    handleGenerateRecoveryCodes,
+    handleCopyRecoveryCodes,
+    handleDownloadRecoveryCodes,
+    handleClearVisibleRecoveryCodes,
 }) {
     const { t } = useMarket();
     const [orderUpdates, setOrderUpdates] = useState(true);
     const [marketplaceUpdates, setMarketplaceUpdates] = useState(true);
     const [supportUpdates, setSupportUpdates] = useState(true);
+    const hasVisibleRecoveryCodes = recoveryCodes.length > 0;
+    const recoveryReady = hasPasskey && passkeyRecoveryReady && !shouldEnrollRecoveryCodes;
 
     const lastCheckText = useMemo(() => {
         if (!trustStatus?.backend?.timestamp) return t('profile.settings.trust.noRecent', {}, 'No recent check timestamp');
@@ -56,6 +68,102 @@ export default function SettingsSection({
                                     : t('profile.settings.security.openRecovery', {}, 'Open Secure Recovery')}
                             </button>
                         </div>
+                    </div>
+
+                    <div className={`rounded-[1.6rem] border p-4 ${recoveryReady ? 'border-emerald-400/20 bg-emerald-500/12' : 'border-amber-400/20 bg-amber-500/12'}`}>
+                        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                            <div className="min-w-0">
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <span className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] ${recoveryReady ? 'border-emerald-300/25 bg-emerald-400/10 text-emerald-100' : 'border-amber-300/25 bg-amber-400/10 text-amber-100'}`}>
+                                        {recoveryReady ? <CheckCircle2 className="h-3.5 w-3.5" /> : <KeyRound className="h-3.5 w-3.5" />}
+                                        {recoveryReady
+                                            ? t('profile.settings.security.recoveryCodesReady', {}, 'Recovery ready')
+                                            : t('profile.settings.security.recoveryCodesAction', {}, 'Recovery action')}
+                                    </span>
+                                    <span className="text-xs font-semibold text-slate-300">
+                                        {t(
+                                            'profile.settings.security.recoveryCodesCount',
+                                            { count: recoveryCodesActiveCount },
+                                            `${recoveryCodesActiveCount} active backup codes`,
+                                        )}
+                                    </span>
+                                </div>
+                                <p className="mt-3 flex items-center gap-2 text-sm font-black text-white">
+                                    <ShieldCheck className="h-4 w-4 text-neo-cyan" />
+                                    {t('profile.settings.security.recoveryCodesTitle', {}, 'Passkey backup recovery codes')}
+                                </p>
+                                <p className="mt-2 max-w-2xl text-xs leading-5 text-slate-300">
+                                    {hasPasskey
+                                        ? t('profile.settings.security.recoveryCodesBody', {}, 'Generate one-time backup codes so a passkey account has a recovery path that still stays server-gated and single-use.')
+                                        : t('profile.settings.security.recoveryCodesPasskeyFirst', {}, 'Add a passkey first. Backup recovery codes are only available after the account has hardware-backed authentication.')}
+                                </p>
+                                {shouldEnrollRecoveryCodes ? (
+                                    <p className="mt-2 text-[11px] font-semibold text-amber-100">
+                                        {t('profile.settings.security.recoveryCodesEnrollHint', {}, 'This account has passkey protection but no backup codes yet. Generate them after a fresh passkey checkpoint.')}
+                                    </p>
+                                ) : null}
+                            </div>
+                            <button
+                                type="button"
+                                onClick={handleGenerateRecoveryCodes}
+                                disabled={recoveryCodesGenerating || !hasPasskey || !handleGenerateRecoveryCodes}
+                                className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-black text-white hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                <KeyRound className="h-4 w-4" />
+                                {recoveryCodesGenerating
+                                    ? t('profile.settings.security.recoveryCodesGenerating', {}, 'Generating...')
+                                    : recoveryCodesActiveCount > 0
+                                        ? t('profile.settings.security.recoveryCodesRegenerate', {}, 'Regenerate codes')
+                                        : t('profile.settings.security.recoveryCodesGenerate', {}, 'Generate codes')}
+                            </button>
+                        </div>
+
+                        {hasVisibleRecoveryCodes ? (
+                            <div className="mt-4 rounded-[1.4rem] border border-cyan-300/20 bg-slate-950/45 p-4">
+                                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                    <div>
+                                        <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-100">
+                                            {t('profile.settings.security.recoveryCodesShownOnce', {}, 'Shown once')}
+                                        </p>
+                                        <p className="mt-1 text-xs text-slate-400">
+                                            {t('profile.settings.security.recoveryCodesShownOnceBody', {}, 'These codes are not stored in readable form after this moment. Each one works only once.')}
+                                        </p>
+                                    </div>
+                                    <div className="flex flex-wrap gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={handleCopyRecoveryCodes}
+                                            className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-bold text-white hover:bg-white/10"
+                                        >
+                                            <Copy className="h-3.5 w-3.5" />
+                                            {t('profile.settings.security.recoveryCodesCopy', {}, 'Copy')}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={handleDownloadRecoveryCodes}
+                                            className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-bold text-white hover:bg-white/10"
+                                        >
+                                            <Download className="h-3.5 w-3.5" />
+                                            {t('profile.settings.security.recoveryCodesDownload', {}, 'Download .txt')}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={handleClearVisibleRecoveryCodes}
+                                            className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-bold text-slate-300 hover:bg-white/10"
+                                        >
+                                            {t('profile.settings.security.recoveryCodesHide', {}, 'Hide')}
+                                        </button>
+                                    </div>
+                                </div>
+                                <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                                    {recoveryCodes.map((code) => (
+                                        <code key={code} className="rounded-xl border border-white/10 bg-black/35 px-3 py-2 text-center text-sm font-black tracking-[0.18em] text-cyan-50">
+                                            {code}
+                                        </code>
+                                    ))}
+                                </div>
+                            </div>
+                        ) : null}
                     </div>
 
                     <div className="grid gap-3 md:grid-cols-2">

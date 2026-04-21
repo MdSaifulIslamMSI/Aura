@@ -314,6 +314,9 @@ const issueTrustedDeviceBootstrapChallenge = async ({
     if (!user?._id || !deviceId || !deviceSessionToken || !existingDevice) {
         return null;
     }
+    if (getTrustedDeviceMethod(existingDevice) !== PASSKEY_METHOD) {
+        return null;
+    }
 
     const verification = verifyTrustedDeviceBootstrapSession({
         user,
@@ -353,6 +356,7 @@ const resolveTrustedDeviceBootstrapSignal = async ({
             verified: false,
             deviceId: '',
             deviceSessionHash: '',
+            method: '',
             reason: '',
         };
     }
@@ -369,6 +373,17 @@ const resolveTrustedDeviceBootstrapSignal = async ({
             verified: false,
             deviceId: '',
             deviceSessionHash: '',
+            method: '',
+            reason: '',
+        };
+    }
+    if (getTrustedDeviceMethod(existingDevice) !== PASSKEY_METHOD) {
+        return {
+            required: false,
+            verified: false,
+            deviceId: '',
+            deviceSessionHash: '',
+            method: '',
             reason: '',
         };
     }
@@ -386,6 +401,7 @@ const resolveTrustedDeviceBootstrapSignal = async ({
                 verified: false,
                 deviceId: '',
                 deviceSessionHash: '',
+                method: '',
                 reason: 'Fresh trusted device verification is required.',
             };
         }
@@ -395,6 +411,7 @@ const resolveTrustedDeviceBootstrapSignal = async ({
             verified: true,
             deviceId,
             deviceSessionHash: sessionVerification.deviceSessionHash,
+            method: '',
             reason: '',
         };
     }
@@ -418,6 +435,7 @@ const resolveTrustedDeviceBootstrapSignal = async ({
             verified: false,
             deviceId: '',
             deviceSessionHash: '',
+            method: '',
             reason: `Fresh trusted device verification failed: ${challengeVerification.reason}`,
         };
     }
@@ -427,6 +445,7 @@ const resolveTrustedDeviceBootstrapSignal = async ({
         verified: true,
         deviceId,
         deviceSessionHash: sessionVerification.deviceSessionHash,
+        method: challengeVerification.method || '',
         reason: '',
     };
 };
