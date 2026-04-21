@@ -22,6 +22,10 @@ const {
 } = require('./authIdentityResolutionService');
 const { shouldRequireTrustedDevice } = require('../config/authTrustedDeviceFlags');
 const { consumeOtpFlowGrant } = require('./otpFlowGrantService');
+const {
+    AUTH_ASSURANCE_ACTIONS,
+    requireAuthAssurance,
+} = require('./authAssurancePolicyService');
 
 const PROFILE_PROJECTION = 'name email phone avatar gender dob bio isAdmin isVerified isSeller sellerActivatedAt accountState moderation authAssurance authAssuranceAt trustedDevices +loginOtpAssuranceExpiresAt addresses cart wishlist loyalty createdAt';
 const AUTH_ONLY_PROJECTION = 'name email phone isAdmin isVerified isSeller sellerActivatedAt accountState moderation authAssurance authAssuranceAt trustedDevices +loginOtpAssuranceExpiresAt loyalty createdAt';
@@ -504,6 +508,15 @@ const applyLoginAssuranceToSession = async ({
             throw new AppError('Verified phone number does not match the requested login phone.', 403);
         }
     }
+
+    requireAuthAssurance({
+        action: AUTH_ASSURANCE_ACTIONS.AUTH_SYNC_ELEVATED_LOGIN,
+        user,
+        flow: verifiedFlow,
+        authToken,
+        deviceSessionHash,
+        firebaseAuthFresh: Boolean(authTimeSeconds),
+    });
 
     const now = new Date();
 

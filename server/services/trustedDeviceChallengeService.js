@@ -356,6 +356,7 @@ const resolveTrustedDeviceBootstrapSignal = async ({
             verified: false,
             deviceId: '',
             deviceSessionHash: '',
+            method: '',
             reason: '',
         };
     }
@@ -372,6 +373,7 @@ const resolveTrustedDeviceBootstrapSignal = async ({
             verified: false,
             deviceId: '',
             deviceSessionHash: '',
+            method: '',
             reason: '',
         };
     }
@@ -381,6 +383,7 @@ const resolveTrustedDeviceBootstrapSignal = async ({
             verified: false,
             deviceId: '',
             deviceSessionHash: '',
+            method: '',
             reason: '',
         };
     }
@@ -398,6 +401,7 @@ const resolveTrustedDeviceBootstrapSignal = async ({
                 verified: false,
                 deviceId: '',
                 deviceSessionHash: '',
+                method: '',
                 reason: 'Fresh trusted device verification is required.',
             };
         }
@@ -407,6 +411,7 @@ const resolveTrustedDeviceBootstrapSignal = async ({
             verified: true,
             deviceId,
             deviceSessionHash: sessionVerification.deviceSessionHash,
+            method: '',
             reason: '',
         };
     }
@@ -430,6 +435,7 @@ const resolveTrustedDeviceBootstrapSignal = async ({
             verified: false,
             deviceId: '',
             deviceSessionHash: '',
+            method: '',
             reason: `Fresh trusted device verification failed: ${challengeVerification.reason}`,
         };
     }
@@ -439,6 +445,7 @@ const resolveTrustedDeviceBootstrapSignal = async ({
         verified: true,
         deviceId,
         deviceSessionHash: sessionVerification.deviceSessionHash,
+        method: challengeVerification.method || '',
         reason: '',
     };
 };
