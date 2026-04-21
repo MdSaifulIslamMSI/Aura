@@ -43,6 +43,8 @@ import {
 const normalizeSocialAuthError = (error, providerLabel = 'Social', socialAuthStatus = null) => {
   const errorCode = String(error?.code || '').trim();
   const errorMessage = String(error?.message || '').trim();
+  const errorStatus = Number(error?.status || error?.data?.statusCode || 0);
+  const normalizedMessage = errorMessage.toLowerCase();
   const normalizedError = {
     ...error,
     provider: error?.provider || providerLabel,
@@ -75,6 +77,23 @@ const normalizeSocialAuthError = (error, providerLabel = 'Social', socialAuthSta
       ...normalizedError,
       code: 'auth/social-email-missing',
       provider: providerLabel,
+    };
+  }
+
+  if (
+    errorStatus >= 500
+    && (
+      normalizedMessage.includes('something went wrong')
+      || normalizedMessage.includes('request failed with status 500')
+    )
+  ) {
+    return {
+      ...normalizedError,
+      code: 'auth/social-session-sync-failed',
+      provider: providerLabel,
+      originalStatus: errorStatus,
+      requestId: error?.serverRequestId || error?.requestId || error?.data?.requestId || '',
+      message: errorMessage || `${providerLabel} authenticated, but Aura could not finish opening your session.`,
     };
   }
 

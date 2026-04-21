@@ -54,6 +54,20 @@ describe('resolveAuthError', () => {
         expect(resolved.detail).toContain('did not return an email address');
     });
 
+    it('explains masked backend 500s during social session bootstrap', () => {
+        const resolved = resolveAuthError({
+            code: 'auth/social-session-sync-failed',
+            provider: 'Google',
+            status: 500,
+            message: 'Something went wrong!',
+            serverRequestId: 'req-social-sync-1',
+        });
+
+        expect(resolved.title).toBe('Google Sign-In Needs Retry');
+        expect(resolved.detail).toContain('could not finish opening your marketplace session');
+        expect(resolved.hint).toContain('req-social-sync-1');
+    });
+
     it('prefers nested message strings over object coercion', () => {
         const resolved = resolveAuthError({
             message: {

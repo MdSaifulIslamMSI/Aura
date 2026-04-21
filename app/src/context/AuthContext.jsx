@@ -102,6 +102,32 @@ const clearRedirectAuthPending = () => {
   }
 };
 
+const buildRecoverableSessionErrorMessage = (error, fallbackMessage) => {
+  const message = String(error?.message || '').trim();
+  const status = Number(error?.status || error?.data?.statusCode || 0);
+  const reference = String(
+    error?.serverRequestId
+    || error?.requestId
+    || error?.data?.requestId
+    || ''
+  ).trim();
+  const normalizedMessage = message.toLowerCase();
+
+  if (
+    status >= 500
+    && (
+      normalizedMessage.includes('something went wrong')
+      || normalizedMessage.includes('request failed with status 500')
+    )
+  ) {
+    return reference
+      ? `Aura authenticated you, but the server could not finish session sync. Retry once; reference ${reference}.`
+      : 'Aura authenticated you, but the server could not finish session sync. Retry once or reset sign-in.';
+  }
+
+  return message || fallbackMessage;
+};
+
 export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
   const [sessionState, setSessionStateInternal] = useState(EMPTY_SESSION_STATE);
@@ -250,7 +276,10 @@ export const AuthProvider = ({ children }) => {
         ...previousState,
         session: previousState.session || buildFirebaseSessionFallback(firebaseUser),
         error: {
-          message: error?.message || 'Session refresh failed. Using the last verified profile for now.',
+          message: buildRecoverableSessionErrorMessage(
+            error,
+            'Session refresh failed. Using the last verified profile for now.'
+          ),
         },
       });
       syncStateRef.current = {
@@ -269,7 +298,10 @@ export const AuthProvider = ({ children }) => {
       profile: null,
       roles: EMPTY_ROLES,
       error: {
-        message: error?.message || 'Unable to resolve account session right now.',
+        message: buildRecoverableSessionErrorMessage(
+          error,
+          'Unable to resolve account session right now.'
+        ),
       },
     });
     syncStateRef.current = {

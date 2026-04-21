@@ -74,6 +74,26 @@ const buildSocialMissingEmailError = (rawError) => {
     };
 };
 
+const buildSocialSessionSyncError = (rawError) => {
+    const provider = resolveErrorProvider(rawError);
+    const requestId = String(
+        rawError?.serverRequestId
+        || rawError?.requestId
+        || rawError?.data?.requestId
+        || ''
+    ).trim();
+
+    return {
+        title: `${provider} Sign-In Needs Retry`,
+        detail: `${provider} authenticated, but Aura could not finish opening your marketplace session.`,
+        hint: requestId
+            ? `Try again once. If it repeats, use email and OTP sign-in while support checks session sync reference ${requestId}.`
+            : 'Try again once. If it repeats, use email and OTP sign-in while support checks the session sync service.',
+        action: null,
+        actionLabel: null
+    };
+};
+
 const normalizeErrorHost = (value = '') => String(value || '').trim().toLowerCase();
 
 const isIpv4Host = (host = '') => /^(?:\d{1,3}\.){3}\d{1,3}$/.test(host);
@@ -186,6 +206,13 @@ export const AUTH_ERRORS = {
         title: 'Social Email Access Required',
         detail: 'The social provider did not return an email address for this account.',
         hint: 'Use a provider account that exposes an email address, or continue with email and OTP sign-in.',
+        action: null,
+        actionLabel: null
+    },
+    'auth/social-session-sync-failed': {
+        title: 'Social Sign-In Needs Retry',
+        detail: 'The social provider authenticated, but Aura could not finish opening your marketplace session.',
+        hint: 'Try again once. If it repeats, use email and OTP sign-in while support checks the session sync service.',
         action: null,
         actionLabel: null
     },
@@ -675,6 +702,20 @@ export const resolveAuthError = (rawError) => {
         || errorStr.includes('authenticated account is missing email')
     ) {
         return buildSocialMissingEmailError(rawError);
+    }
+
+    if (
+        rawError?.code === 'auth/social-session-sync-failed'
+        || (
+            (rawError?.provider || rawError?.providerId || rawError?.customData?.providerId)
+            && Number(rawError?.status || rawError?.data?.statusCode || 0) >= 500
+            && (
+                errorStr.includes('something went wrong')
+                || errorStr.includes('request failed with status 500')
+            )
+        )
+    ) {
+        return buildSocialSessionSyncError(rawError);
     }
 
     if (rawError?.code === 'auth/unauthorized-domain') {

@@ -244,6 +244,38 @@ describe('AuthProvider', () => {
     expect(mocks.authApiMock.exchangeSession).not.toHaveBeenCalled();
   });
 
+  it('softens masked backend 500s during session bootstrap into a recoverable sync message', async () => {
+    mocks.authApiMock.getSession.mockRejectedValue(
+      Object.assign(new Error('Something went wrong!'), {
+        status: 500,
+        serverRequestId: 'srv-session-sync-1',
+      })
+    );
+
+    const AuthProbe = () => {
+      const { status, sessionError } = useAuth();
+      return (
+        <>
+          <div data-testid="auth-status">{status}</div>
+          <div data-testid="auth-error">{sessionError?.message || 'none'}</div>
+        </>
+      );
+    };
+
+    render(
+      <AuthProvider>
+        <AuthProbe />
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('auth-status')).toHaveTextContent('recoverable_error');
+    });
+
+    expect(screen.getByTestId('auth-error')).toHaveTextContent('server could not finish session sync');
+    expect(screen.getByTestId('auth-error')).toHaveTextContent('srv-session-sync-1');
+  });
+
   it('refreshes the shared backend session when the window regains focus', async () => {
     const Probe = () => {
       const { status } = useAuth();
