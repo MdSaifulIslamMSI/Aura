@@ -46,6 +46,7 @@ const otpSessionSchema = new mongoose.Schema({
         requestId: { type: String, default: '' },
         deviceId: { type: String, default: '' },
         deviceSessionHash: { type: String, default: '' },
+        deviceMethod: { type: String, default: '' },
         credentialUid: { type: String, default: '' },
     },
 }, { timestamps: true });
