@@ -21,6 +21,7 @@ const loadAuthContext = async () => {
     authApiMock: {
       exchangeSession: vi.fn(),
       getSession: vi.fn(),
+      generateRecoveryCodes: vi.fn(),
       logoutSession: vi.fn(),
       syncSession: vi.fn(),
       verifyDeviceChallenge: vi.fn(),

@@ -71,7 +71,14 @@ const trimText = (value) => String(value || '').trim();
 const isNotFoundError = (error) => Number(error?.status) === 404 || /not found/i.test(String(error?.message || ''));
 
 export default function Profile() {
-    const { currentUser, dbUser, logout, updateProfile: updateProfileInContext } = useContext(AuthContext);
+    const {
+        currentUser,
+        dbUser,
+        logout,
+        sessionIntelligence,
+        updateProfile: updateProfileInContext,
+        generateRecoveryCodes,
+    } = useContext(AuthContext);
     const { cartItems } = useContext(CartContext);
     const { wishlistItems } = useContext(WishlistContext);
     const { t } = useMarket();
@@ -85,6 +92,8 @@ export default function Profile() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [recoveryLaunching, setRecoveryLaunching] = useState(false);
+    const [recoveryCodesGenerating, setRecoveryCodesGenerating] = useState(false);
+    const [visibleRecoveryCodes, setVisibleRecoveryCodes] = useState([]);
     const [message, setMessage] = useState({ type: '', text: '' });
     const [paymentMethods, setPaymentMethods] = useState([]);
     const [paymentMethodsLoading, setPaymentMethodsLoading] = useState(false);
@@ -473,6 +482,76 @@ export default function Profile() {
         setRecoveryLaunching(false);
     };
 
+    const handleGenerateBackupRecoveryCodes = async () => {
+        if (!hasPasskey) {
+            showMsg('error', t('profile.message.recoveryCodesNeedPasskey', {}, 'Add a passkey before generating backup recovery codes.'));
+            return;
+        }
+
+        if (!generateRecoveryCodes) {
+            showMsg('error', t('profile.message.recoveryCodesUnavailable', {}, 'Recovery-code setup is not available in this session yet.'));
+            return;
+        }
+
+        setRecoveryCodesGenerating(true);
+
+        try {
+            const result = await generateRecoveryCodes();
+            const nextCodes = Array.isArray(result?.recoveryCodes) ? result.recoveryCodes : [];
+            setVisibleRecoveryCodes(nextCodes);
+            showMsg(
+                'success',
+                t(
+                    'profile.message.recoveryCodesGenerated',
+                    { count: nextCodes.length },
+                    `${nextCodes.length} backup recovery codes generated. They are shown once.`,
+                ),
+            );
+        } catch (error) {
+            showMsg(
+                'error',
+                error.message || t('profile.message.recoveryCodesFailed', {}, 'Could not generate backup recovery codes. Complete the passkey checkpoint and try again.'),
+            );
+        } finally {
+            setRecoveryCodesGenerating(false);
+        }
+    };
+
+    const handleCopyRecoveryCodes = async () => {
+        if (!visibleRecoveryCodes.length) return;
+
+        try {
+            await navigator.clipboard.writeText(visibleRecoveryCodes.join('\n'));
+            showMsg('success', t('profile.message.recoveryCodesCopied', {}, 'Backup recovery codes copied.'));
+        } catch {
+            showMsg('error', t('profile.message.recoveryCodesCopyFailed', {}, 'Could not copy recovery codes from this browser.'));
+        }
+    };
+
+    const handleDownloadRecoveryCodes = () => {
+        if (!visibleRecoveryCodes.length || typeof window === 'undefined') return;
+
+        const generatedAt = new Date().toISOString();
+        const contents = [
+            'Aura backup recovery codes',
+            `Generated: ${generatedAt}`,
+            'Use each code once from the secure recovery flow.',
+            '',
+            ...visibleRecoveryCodes,
+            '',
+        ].join('\n');
+        const blob = new Blob([contents], { type: 'text/plain;charset=utf-8' });
+        const url = window.URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = `aura-recovery-codes-${generatedAt.slice(0, 10)}.txt`;
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        window.URL.revokeObjectURL?.(url);
+        showMsg('success', t('profile.message.recoveryCodesDownloaded', {}, 'Backup recovery codes downloaded.'));
+    };
+
     const handleSetDefaultMethod = async (methodId) => {
         try {
             await paymentApi.setDefaultMethod(methodId);
@@ -550,6 +629,11 @@ export default function Profile() {
     const trustHealthy = trustStatus.derivedStatus === 'healthy';
     const isAdminAccount = Boolean(profile?.isAdmin || dbUser?.isAdmin);
     const accountState = profile?.accountState || 'active';
+    const recoveryReadiness = sessionIntelligence?.readiness || {};
+    const recoveryCodesActiveCount = Number(recoveryReadiness.recoveryCodesActiveCount || 0);
+    const hasPasskey = Boolean(recoveryReadiness.hasPasskey);
+    const shouldEnrollRecoveryCodes = Boolean(recoveryReadiness.shouldEnrollRecoveryCodes);
+    const passkeyRecoveryReady = recoveryReadiness.passkeyRecoveryReady !== false;
     const profileCompletion = useMemo(() => {
         const checklist = [
             Boolean(profileName),
@@ -909,6 +993,16 @@ export default function Profile() {
                             trustStatus={trustStatus}
                             logout={logout}
                             memberSince={memberSince}
+                            hasPasskey={hasPasskey}
+                            shouldEnrollRecoveryCodes={shouldEnrollRecoveryCodes}
+                            passkeyRecoveryReady={passkeyRecoveryReady}
+                            recoveryCodesActiveCount={recoveryCodesActiveCount}
+                            recoveryCodes={visibleRecoveryCodes}
+                            recoveryCodesGenerating={recoveryCodesGenerating}
+                            handleGenerateRecoveryCodes={handleGenerateBackupRecoveryCodes}
+                            handleCopyRecoveryCodes={handleCopyRecoveryCodes}
+                            handleDownloadRecoveryCodes={handleDownloadRecoveryCodes}
+                            handleClearVisibleRecoveryCodes={() => setVisibleRecoveryCodes([])}
                         />
                     ) : null}
                 </div>
