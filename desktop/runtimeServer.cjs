@@ -5,6 +5,8 @@ const express = require('express');
 const { createProxyMiddleware } = require('http-proxy-middleware');
 
 const DEFAULT_BACKEND_ORIGIN = 'http://3.109.181.238:5000';
+const RUNTIME_LISTEN_HOST = '127.0.0.1';
+const RUNTIME_PUBLIC_HOST = 'localhost';
 
 const trimTrailingSlash = (value = '') => String(value || '').replace(/\/+$/, '');
 
@@ -38,7 +40,7 @@ const buildProxyOptions = (backendOrigin) => ({
     pathRewrite: (_path, request) => request.originalUrl || request.url,
 });
 
-const buildRuntimeUrl = (port) => `http://127.0.0.1:${port}`;
+const buildRuntimeUrl = (port) => `http://${RUNTIME_PUBLIC_HOST}:${port}`;
 
 const startRuntimeServer = async ({ distDir, port = 0 } = {}) => {
     const resolvedDistDir = path.resolve(distDir);
@@ -67,7 +69,7 @@ const startRuntimeServer = async ({ distDir, port = 0 } = {}) => {
 
     await new Promise((resolve, reject) => {
         server.once('error', reject);
-        server.listen(port, '127.0.0.1', resolve);
+        server.listen(port, RUNTIME_LISTEN_HOST, resolve);
     });
 
     const address = server.address();
@@ -95,6 +97,9 @@ const startRuntimeServer = async ({ distDir, port = 0 } = {}) => {
 
 module.exports = {
     DEFAULT_BACKEND_ORIGIN,
+    RUNTIME_LISTEN_HOST,
+    RUNTIME_PUBLIC_HOST,
+    buildRuntimeUrl,
     resolveBackendOrigin,
     startRuntimeServer,
 };

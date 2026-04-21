@@ -25,6 +25,7 @@ vi.mock('firebase/analytics', () => ({
 
 const originalLocation = window.location;
 const originalMatchMedia = window.matchMedia;
+const originalUserAgent = window.navigator.userAgent;
 
 const setRuntimeHost = ({ hostname, host = hostname }) => {
   Object.defineProperty(window, 'location', {
@@ -53,6 +54,13 @@ const setDisplayModes = (activeModes = []) => {
   });
 };
 
+const setUserAgent = (userAgent = originalUserAgent) => {
+  Object.defineProperty(window.navigator, 'userAgent', {
+    configurable: true,
+    value: userAgent,
+  });
+};
+
 const setFirebaseEnv = (suffix = '') => {
   vi.stubEnv('VITE_FIREBASE_API_KEY', `firebase-api-key${suffix}`);
   vi.stubEnv('VITE_FIREBASE_AUTH_DOMAIN', `billy-b674c.firebaseapp.com${suffix}`);
@@ -71,6 +79,7 @@ const loadFirebaseModule = async ({ hostname, host = hostname }) => {
   window.sessionStorage.clear();
   setRuntimeHost({ hostname, host });
   setDisplayModes([]);
+  setUserAgent();
   return import('./firebase');
 };
 
@@ -91,6 +100,7 @@ describe('firebase social auth host policy', () => {
       writable: true,
       value: originalMatchMedia,
     });
+    setUserAgent();
   });
 
   it('prefers redirect-first social auth on 127.0.0.1 while keeping social auth available', async () => {
@@ -119,6 +129,29 @@ describe('firebase social auth host policy', () => {
     expect(firebase.getFirebaseSocialAuthStatus()).toMatchObject({
       runtimeHost: 'localhost',
       runtimeIpHost: false,
+      redirectPreferred: false,
+      supported: true,
+    });
+  });
+
+  it('keeps Electron desktop social auth popup-first on loopback hosts', async () => {
+    vi.resetModules();
+    setFirebaseEnv();
+    window.sessionStorage.clear();
+    setRuntimeHost({
+      hostname: '127.0.0.1',
+      host: '127.0.0.1:4173',
+    });
+    setDisplayModes([]);
+    setUserAgent(`${originalUserAgent} Electron/37.2.1`);
+
+    const firebase = await import('./firebase');
+
+    expect(firebase.shouldPreferFirebaseRedirectAuth()).toBe(false);
+    expect(firebase.getFirebaseSocialAuthStatus()).toMatchObject({
+      runtimeHost: '127.0.0.1',
+      runtimeIpHost: true,
+      runtimeElectronDesktop: true,
       redirectPreferred: false,
       supported: true,
     });

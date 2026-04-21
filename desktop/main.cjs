@@ -34,6 +34,27 @@ const resolveIconPath = () => (
 );
 
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '[::1]', '::1']);
+const AUTH_WINDOW_HOSTS = new Set([
+    'accounts.google.com',
+    'apis.google.com',
+    'facebook.com',
+    'google.com',
+    'm.facebook.com',
+    'mobile.facebook.com',
+    'oauth.twitter.com',
+    'twitter.com',
+    'www.facebook.com',
+    'www.google.com',
+    'x.com',
+]);
+const AUTH_WINDOW_HOST_SUFFIXES = [
+    '.facebook.com',
+    '.firebaseapp.com',
+    '.google.com',
+    '.twitter.com',
+    '.web.app',
+    '.x.com',
+];
 
 const isInternalUrl = (candidate, runtimeUrl) => {
     try {
@@ -54,6 +75,38 @@ const isInternalUrl = (candidate, runtimeUrl) => {
         return false;
     }
 };
+
+const isAuthWindowUrl = (candidate) => {
+    try {
+        const target = new URL(candidate);
+        if (target.protocol !== 'https:') {
+            return false;
+        }
+
+        const hostname = target.hostname.toLowerCase();
+        return AUTH_WINDOW_HOSTS.has(hostname)
+            || AUTH_WINDOW_HOST_SUFFIXES.some((suffix) => hostname.endsWith(suffix));
+    } catch {
+        return false;
+    }
+};
+
+const buildAuthWindowOptions = (parentWindow) => ({
+    width: 520,
+    height: 720,
+    minWidth: 420,
+    minHeight: 560,
+    show: true,
+    autoHideMenuBar: true,
+    backgroundColor: '#0f172a',
+    parent: parentWindow,
+    modal: false,
+    webPreferences: {
+        contextIsolation: true,
+        nodeIntegration: false,
+        sandbox: true,
+    },
+});
 
 const createMainWindow = async () => {
     if (!runtime) {
@@ -87,12 +140,34 @@ const createMainWindow = async () => {
     });
 
     mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-        if (!isInternalUrl(url, runtime.url)) {
-            void shell.openExternal(url);
-            return { action: 'deny' };
+        if (isInternalUrl(url, runtime.url)) {
+            return { action: 'allow' };
         }
 
-        return { action: 'allow' };
+        if (isAuthWindowUrl(url)) {
+            return {
+                action: 'allow',
+                overrideBrowserWindowOptions: buildAuthWindowOptions(mainWindow),
+            };
+        }
+
+        void shell.openExternal(url);
+        return { action: 'deny' };
+    });
+
+    mainWindow.webContents.on('did-create-window', (childWindow) => {
+        childWindow.setMenuBarVisibility(false);
+        childWindow.webContents.setWindowOpenHandler(({ url }) => {
+            if (isAuthWindowUrl(url) || isInternalUrl(url, runtime.url)) {
+                return {
+                    action: 'allow',
+                    overrideBrowserWindowOptions: buildAuthWindowOptions(mainWindow),
+                };
+            }
+
+            void shell.openExternal(url);
+            return { action: 'deny' };
+        });
     });
 
     mainWindow.on('closed', () => {

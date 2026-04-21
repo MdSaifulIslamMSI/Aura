@@ -78,6 +78,12 @@ const isStandaloneSocialAuthRuntime = () => {
     );
 };
 
+const isElectronDesktopRuntime = () => {
+    if (typeof window === 'undefined') return false;
+    const userAgent = String(window.navigator?.userAgent || '');
+    return /\bElectron\//i.test(userAgent);
+};
+
 export const firebaseConfig = {
     apiKey: sanitizeFirebaseValue(import.meta.env.VITE_FIREBASE_API_KEY),
     authDomain: sanitizeHostValue(import.meta.env.VITE_FIREBASE_AUTH_DOMAIN),
@@ -125,14 +131,14 @@ const forceRedirectSocialAuth = parseBooleanEnv(import.meta.env.VITE_FIREBASE_FO
 const isDeploymentHost = typeof runtimeHost === 'string' && isHostedDeploymentHost(runtimeHost);
 const isRuntimeIpHost = isIpLiteralHost(runtimeHost);
 const isRuntimeStandaloneApp = isStandaloneSocialAuthRuntime();
+const isRuntimeElectronDesktop = isElectronDesktopRuntime();
 const runtimeSocialAuthBlockKey = runtimeHost
     ? `aura-social-auth-block:${runtimeHost}`
     : 'aura-social-auth-block';
 const runtimeSocialAuthBlockTtlMs = 2 * 60 * 1000;
 const prefersRedirectSocialAuth = Boolean(
     forceRedirectSocialAuth
-    || isRuntimeIpHost
-    || isRuntimeStandaloneApp
+    || (!isRuntimeElectronDesktop && (isRuntimeIpHost || isRuntimeStandaloneApp))
 );
 
 const isSocialAuthHostRejection = (error) => {
@@ -214,16 +220,17 @@ export const getFirebaseSocialAuthStatus = () => ({
     supported: isFirebaseSocialAuthAvailable(),
     runtimeHost,
     runtimeBlocked: readRuntimeSocialAuthBlock(),
-    redirectPreferred: prefersRedirectSocialAuth || readRuntimeSocialAuthBlock(),
+    redirectPreferred: prefersRedirectSocialAuth || (!isRuntimeElectronDesktop && readRuntimeSocialAuthBlock()),
     runtimeIpHost: isRuntimeIpHost,
     runtimeStandaloneApp: isRuntimeStandaloneApp,
+    runtimeElectronDesktop: isRuntimeElectronDesktop,
     disabledByConfig: disableSocialAuth && !isDeploymentHost,
     initErrorCode: firebaseInitError?.code || '',
     initErrorMessage: firebaseInitError?.message || '',
 });
 export const getFirebaseInitError = () => firebaseInitError;
 export const shouldPreferFirebaseRedirectAuth = () => Boolean(
-    prefersRedirectSocialAuth || readRuntimeSocialAuthBlock()
+    prefersRedirectSocialAuth || (!isRuntimeElectronDesktop && readRuntimeSocialAuthBlock())
 );
 export const assertFirebaseReady = (feature = 'Firebase authentication') => {
     if (isFirebaseReady) return;
