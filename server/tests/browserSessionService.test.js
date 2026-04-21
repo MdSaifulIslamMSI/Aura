@@ -390,4 +390,90 @@ describe('browserSessionService', () => {
         const storedSession = await browserSessionService.getBrowserSession(session.sessionId);
         expect(storedSession.emailVerified).toBe(true);
     });
+
+    test('falls back to in-memory session storage when Redis rejects a session write', async () => {
+        let browserSessionService;
+        let logger;
+        const redisClient = {
+            setEx: jest.fn().mockRejectedValue(new Error('redis write failed')),
+            get: jest.fn().mockResolvedValue(null),
+            del: jest.fn().mockResolvedValue(1),
+        };
+
+        jest.isolateModules(() => {
+            jest.doMock('../config/redis', () => ({
+                getRedisClient: () => redisClient,
+                flags: { redisPrefix: 'test' },
+            }));
+            jest.doMock('../utils/logger', () => ({
+                info: jest.fn(),
+                warn: jest.fn(),
+                error: jest.fn(),
+                debug: jest.fn(),
+            }));
+            jest.doMock('../services/trustedDeviceChallengeService', () => ({
+                extractTrustedDeviceContext: jest.fn().mockReturnValue({
+                    deviceId: 'device-redis-fallback-1',
+                    deviceLabel: 'Redis Fallback Browser',
+                }),
+            }));
+
+            browserSessionService = require('../services/browserSessionService');
+            logger = require('../utils/logger');
+        });
+
+        const nowSeconds = Math.floor(Date.now() / 1000);
+        const req = {
+            headers: {
+                host: 'localhost:4173',
+            },
+            secure: false,
+        };
+
+        const session = await browserSessionService.createBrowserSession({
+            req,
+            user: {
+                _id: '507f1f77bcf86cd799439016',
+                email: 'fallback@example.com',
+                name: 'Fallback User',
+                phone: '+919876543215',
+                isAdmin: false,
+                isSeller: false,
+                isVerified: true,
+                authAssurance: 'none',
+            },
+            authUid: 'firebase-redis-fallback',
+            authToken: {
+                email: 'fallback@example.com',
+                email_verified: true,
+                name: 'Fallback User',
+                phone_number: '+919876543215',
+                auth_time: nowSeconds - 15,
+                iat: nowSeconds - 15,
+                exp: nowSeconds + 3600,
+                firebase: {
+                    sign_in_provider: 'google.com',
+                },
+            },
+        });
+
+        const storedSession = await browserSessionService.getBrowserSession(session.sessionId);
+
+        expect(redisClient.setEx).toHaveBeenCalled();
+        expect(storedSession).toMatchObject({
+            sessionId: session.sessionId,
+            firebaseUid: 'firebase-redis-fallback',
+            email: 'fallback@example.com',
+        });
+        expect(logger.warn).toHaveBeenCalledWith(
+            'browser_session.persist_failed_memory_fallback',
+            expect.objectContaining({
+                sessionId: session.sessionId,
+                error: 'redis write failed',
+            })
+        );
+
+        await browserSessionService.revokeBrowserSession(session.sessionId);
+        await expect(browserSessionService.getBrowserSession(session.sessionId)).resolves.toBeNull();
+    });
 });

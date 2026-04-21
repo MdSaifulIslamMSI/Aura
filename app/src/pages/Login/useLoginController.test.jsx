@@ -245,6 +245,37 @@ describe('useLoginController', () => {
     expect(signInWithGoogle).toHaveBeenCalled();
   });
 
+  it('shows a recoverable session-sync message when social auth succeeds but backend sync returns a masked 500', async () => {
+    const signInWithGoogle = vi.fn().mockRejectedValue(Object.assign(
+      new Error('Something went wrong!'),
+      {
+        status: 500,
+        url: '/api/auth/sync',
+        serverRequestId: 'req-social-sync-2',
+      },
+    ));
+
+    render(
+      <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+        <AuthContext.Provider value={buildAuthValue({ signInWithGoogle })}>
+          <MemoryRouter initialEntries={['/login']}>
+            <Routes>
+              <Route path="/login" element={<SocialSignInProbe />} />
+            </Routes>
+          </MemoryRouter>
+        </AuthContext.Provider>
+      </MarketProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('social-error-title')).toHaveTextContent('Google Sign-In Needs Retry');
+      expect(screen.getByTestId('social-error-detail')).toHaveTextContent('could not finish opening your marketplace session');
+      expect(screen.getByTestId('social-error-hint')).toHaveTextContent('req-social-sync-2');
+    });
+
+    expect(signInWithGoogle).toHaveBeenCalled();
+  });
+
   it('lets risky hosts complete the redirect handoff without surfacing a popup cancellation', async () => {
     getFirebaseSocialAuthStatusMock.mockReturnValue({
       ready: true,

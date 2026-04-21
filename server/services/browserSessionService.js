@@ -353,8 +353,20 @@ const persistSessionRecord = async (record = {}) => {
     }
 
     const redisClient = getRedisClient();
-    await redisClient.setEx(getRedisKey(record.sessionId), calculateTtlSeconds(record), JSON.stringify(record));
-    return record;
+    const normalizedSessionId = String(record.sessionId || '').trim();
+
+    try {
+        await redisClient.setEx(getRedisKey(normalizedSessionId), calculateTtlSeconds(record), JSON.stringify(record));
+        deleteMemorySessionRecord(normalizedSessionId);
+        return record;
+    } catch (error) {
+        logger.warn('browser_session.persist_failed_memory_fallback', {
+            sessionId: normalizedSessionId,
+            error: error?.message || 'unknown',
+        });
+        writeMemorySessionRecord(record);
+        return record;
+    }
 };
 
 const loadSessionRecord = async (sessionId = '') => {
@@ -375,7 +387,10 @@ const loadSessionRecord = async (sessionId = '') => {
                 sessionId: normalizedSessionId,
                 error: error?.message || 'unknown',
             });
-            return null;
+        }
+
+        if (!record) {
+            record = readMemorySessionRecord(normalizedSessionId);
         }
     }
 
@@ -523,8 +538,9 @@ async function revokeBrowserSession(sessionId = '') {
     const normalizedSessionId = String(sessionId || '').trim();
     if (!normalizedSessionId) return;
 
+    deleteMemorySessionRecord(normalizedSessionId);
+
     if (getStorageMode() === 'memory') {
-        deleteMemorySessionRecord(normalizedSessionId);
         return;
     }
 
