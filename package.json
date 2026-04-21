@@ -78,6 +78,7 @@
     ],
     "win": {
       "icon": "app/public/assets/icon-512.png",
+      "publisherName": "MdSaifulIslamMSI",
       "signAndEditExecutable": false,
       "target": [
         "nsis",

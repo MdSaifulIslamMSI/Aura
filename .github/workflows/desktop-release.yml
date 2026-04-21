@@ -7,6 +7,11 @@ on:
         description: Optional desktop version, for example 1.0.42
         required: false
         type: string
+      require_windows_signing:
+        description: Require Windows Authenticode signing before publishing
+        required: false
+        default: true
+        type: boolean
   workflow_call:
     inputs:
       version:
@@ -14,6 +19,11 @@ on:
         required: false
         default: ""
         type: string
+      require_windows_signing:
+        description: Require Windows Authenticode signing before publishing
+        required: false
+        default: true
+        type: boolean
 
 permissions:
   contents: write
@@ -95,11 +105,57 @@ jobs:
         shell: bash
         run: npm version "${{ needs.prepare.outputs.version }}" --no-git-tag-version --allow-same-version
 
+      - name: Configure Windows code signing
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        env:
+          WINDOWS_CODE_SIGNING_CERTIFICATE_BASE64: ${{ secrets.WINDOWS_CODE_SIGNING_CERTIFICATE_BASE64 }}
+          WINDOWS_CODE_SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CODE_SIGNING_CERTIFICATE_PASSWORD }}
+          REQUIRE_WINDOWS_SIGNING: ${{ inputs.require_windows_signing }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:WINDOWS_CODE_SIGNING_CERTIFICATE_BASE64)) {
+            "AURA_WINDOWS_SIGNING_ENABLED=false" >> $env:GITHUB_ENV
+            if ($env:REQUIRE_WINDOWS_SIGNING -eq "true") {
+              throw "Windows code signing is required for release publishing. Add WINDOWS_CODE_SIGNING_CERTIFICATE_BASE64 and WINDOWS_CODE_SIGNING_CERTIFICATE_PASSWORD repository secrets, or disable require_windows_signing only for internal test releases."
+            }
+
+            Write-Host "Windows code signing certificate secret is not configured; Windows installers will be unsigned because require_windows_signing is false."
+            exit 0
+          }
+
+          if ([string]::IsNullOrWhiteSpace($env:WINDOWS_CODE_SIGNING_CERTIFICATE_PASSWORD)) {
+            throw "WINDOWS_CODE_SIGNING_CERTIFICATE_PASSWORD is required when WINDOWS_CODE_SIGNING_CERTIFICATE_BASE64 is set."
+          }
+
+          $certificatePath = Join-Path $env:RUNNER_TEMP "aura-windows-code-signing.pfx"
+          [IO.File]::WriteAllBytes($certificatePath, [Convert]::FromBase64String($env:WINDOWS_CODE_SIGNING_CERTIFICATE_BASE64))
+          "CSC_LINK=$certificatePath" >> $env:GITHUB_ENV
+          "CSC_KEY_PASSWORD=$env:WINDOWS_CODE_SIGNING_CERTIFICATE_PASSWORD" >> $env:GITHUB_ENV
+          "WIN_CSC_LINK=$certificatePath" >> $env:GITHUB_ENV
+          "WIN_CSC_KEY_PASSWORD=$env:WINDOWS_CODE_SIGNING_CERTIFICATE_PASSWORD" >> $env:GITHUB_ENV
+          "AURA_WINDOWS_SIGNING_ENABLED=true" >> $env:GITHUB_ENV
+
       - name: Build desktop artifacts
         shell: bash
-        run: ${{ matrix.command }}
+        run: |
+          if [ "${{ matrix.platform }}" = "windows" ] && [ "${AURA_WINDOWS_SIGNING_ENABLED:-false}" = "true" ]; then
+            npm run desktop:dist:win:all -- --publish never --config.win.signAndEditExecutable=true
+          else
+            ${{ matrix.command }}
+          fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify Windows signatures
+        if: matrix.platform == 'windows' && env.AURA_WINDOWS_SIGNING_ENABLED == 'true'
+        shell: pwsh
+        run: |
+          $signatures = Get-ChildItem -Path desktop-release -Filter *.exe | Get-AuthenticodeSignature
+          $signatures | Format-Table -AutoSize
+          $invalid = $signatures | Where-Object { $_.Status -ne "Valid" }
+          if ($invalid) {
+            throw "One or more Windows desktop executables are not signed with a valid Authenticode signature."
+          }
 
       - name: Upload desktop artifacts
         uses: actions/upload-artifact@v4
