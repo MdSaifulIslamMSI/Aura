@@ -58,9 +58,9 @@ Typical latest-download artifact names:
 - `Aura-Marketplace-Windows-x64-Portable.exe`
 - `Aura-Marketplace-macOS-arm64.dmg`
 - `Aura-Marketplace-macOS-x64.dmg`
-- `Aura-Marketplace-Linux-x64.AppImage`
-- `Aura-Marketplace-Linux-x64.deb`
-- `Aura-Marketplace-Linux-x64.rpm`
+- `Aura-Marketplace-Linux-x86_64.AppImage`
+- `Aura-Marketplace-Linux-amd64.deb`
+- `Aura-Marketplace-Linux-x86_64.rpm`
 - `Aura-Marketplace-Linux-x64.tar.gz`
 
 ## Automated Releases And Updates
