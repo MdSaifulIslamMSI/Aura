@@ -7,9 +7,13 @@ let mainWindow = null;
 let runtime = null;
 let isQuitting = false;
 let updateChecksStarted = false;
+let updateCheckTimer = null;
+let updateReadyPromptShown = false;
 
 const isMac = process.platform === 'darwin';
 const APP_ID = 'com.aura.marketplace.desktop';
+const UPDATE_CHECK_DELAY_MS = 8000;
+const UPDATE_CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000;
 
 const resolveAssetPath = (...segments) => {
     if (app.isPackaged) {
@@ -108,6 +112,13 @@ const startAutoUpdateChecks = () => {
     autoUpdater.autoInstallOnAppQuit = true;
     autoUpdater.allowPrerelease = false;
 
+    const checkForUpdates = (reason) => {
+        console.info(`[desktop:update] checking for updates (${reason})`);
+        autoUpdater.checkForUpdatesAndNotify().catch((error) => {
+            console.warn('[desktop:update] update check failed:', error?.message || error);
+        });
+    };
+
     autoUpdater.on('checking-for-update', () => {
         console.info('[desktop:update] checking for updates');
     });
@@ -122,20 +133,53 @@ const startAutoUpdateChecks = () => {
 
     autoUpdater.on('update-downloaded', (info) => {
         console.info('[desktop:update] update downloaded:', info?.version || 'unknown');
+
+        if (updateReadyPromptShown) {
+            return;
+        }
+
+        updateReadyPromptShown = true;
+        const targetWindow = mainWindow && !mainWindow.isDestroyed() ? mainWindow : null;
+        const updatePrompt = {
+            type: 'info',
+            buttons: ['Restart and update', 'Later'],
+            defaultId: 0,
+            cancelId: 1,
+            title: 'Aura Marketplace update ready',
+            message: 'A new Aura Marketplace version has been downloaded.',
+            detail: 'Restart the desktop app now to install the update, or choose Later to install it when you quit.',
+        };
+        const promptPromise = targetWindow
+            ? dialog.showMessageBox(targetWindow, updatePrompt)
+            : dialog.showMessageBox(updatePrompt);
+
+        promptPromise.then(({ response }) => {
+            if (response !== 0) {
+                return;
+            }
+
+            isQuitting = true;
+            autoUpdater.quitAndInstall(false, true);
+        }).catch((error) => {
+            console.warn('[desktop:update] update prompt failed:', error?.message || error);
+        });
     });
 
     autoUpdater.on('error', (error) => {
         console.warn('[desktop:update] update check failed:', error?.message || error);
     });
 
-    setTimeout(() => {
-        autoUpdater.checkForUpdatesAndNotify().catch((error) => {
-            console.warn('[desktop:update] update check failed:', error?.message || error);
-        });
-    }, 8000);
+    setTimeout(() => checkForUpdates('startup'), UPDATE_CHECK_DELAY_MS);
+    updateCheckTimer = setInterval(() => checkForUpdates('scheduled'), UPDATE_CHECK_INTERVAL_MS);
+    updateCheckTimer.unref?.();
 };
 
 const stopRuntime = async () => {
+    if (updateCheckTimer) {
+        clearInterval(updateCheckTimer);
+        updateCheckTimer = null;
+    }
+
     if (!runtime) return;
 
     const activeRuntime = runtime;
