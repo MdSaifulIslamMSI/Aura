@@ -154,6 +154,7 @@ describe('trustedDeviceChallengeService', () => {
         AUTH_DEVICE_CHALLENGE_SECRET_VERSION: process.env.AUTH_DEVICE_CHALLENGE_SECRET_VERSION,
         AUTH_DEVICE_CHALLENGE_PREVIOUS_SECRETS: process.env.AUTH_DEVICE_CHALLENGE_PREVIOUS_SECRETS,
         AUTH_TRUSTED_DEVICE_PREFER_WEBAUTHN: process.env.AUTH_TRUSTED_DEVICE_PREFER_WEBAUTHN,
+        AUTH_WEBAUTHN_AUTHENTICATOR_ATTACHMENT: process.env.AUTH_WEBAUTHN_AUTHENTICATOR_ATTACHMENT,
         AUTH_WEBAUTHN_RP_ID: process.env.AUTH_WEBAUTHN_RP_ID,
         AUTH_WEBAUTHN_ORIGIN: process.env.AUTH_WEBAUTHN_ORIGIN,
         AUTH_WEBAUTHN_USER_VERIFICATION: process.env.AUTH_WEBAUTHN_USER_VERIFICATION,
@@ -314,6 +315,49 @@ describe('trustedDeviceChallengeService', () => {
         expect(bootstrapVerification).toMatchObject({
             success: true,
             deviceSessionHash: service.hashTrustedDeviceSessionToken(assertResult.deviceSessionToken),
+        });
+    });
+
+    test('offers platform WebAuthn user verification for face or device-unlock enrollment', async () => {
+        const userId = '507f1f77bcf86cd799439015';
+        const deviceId = 'device_face_auth_123456';
+        const origin = 'https://console.aura.test';
+        const rpId = 'console.aura.test';
+
+        process.env.NODE_ENV = 'test';
+        process.env.AUTH_TRUSTED_DEVICE_PREFER_WEBAUTHN = 'true';
+        process.env.AUTH_WEBAUTHN_RP_ID = rpId;
+        process.env.AUTH_WEBAUTHN_ORIGIN = origin;
+        process.env.AUTH_WEBAUTHN_USER_VERIFICATION = 'required';
+        process.env.AUTH_WEBAUTHN_AUTHENTICATOR_ATTACHMENT = 'platform';
+
+        const service = loadServiceWithDbState({
+            dbState: { trustedDevices: [] },
+            userId,
+        });
+
+        const challenge = await service.issueTrustedDeviceChallenge({
+            user: {
+                _id: userId,
+                email: 'face-auth@example.com',
+                name: 'Face Auth Member',
+                trustedDevices: [],
+            },
+            deviceId,
+            deviceLabel: 'Face auth laptop',
+            req: {
+                headers: {
+                    origin,
+                },
+            },
+        });
+
+        expect(challenge.preferredMethod).toBe('webauthn');
+        expect(challenge.availableMethods[0]).toBe('webauthn');
+        expect(challenge.webauthn.registrationOptions.authenticatorSelection).toMatchObject({
+            authenticatorAttachment: 'platform',
+            residentKey: 'preferred',
+            userVerification: 'required',
         });
     });
 

@@ -27,6 +27,7 @@ vi.mock('sonner', () => ({
 const baseSupportProfile = {
   webauthn: true,
   browserKeyFallback: true,
+  biometricPasskeyLabel: 'Windows Hello passkey',
   runtimeHost: 'aurapilot.vercel.app',
   webauthnHostEligible: true,
   localIpHost: false,
@@ -78,7 +79,7 @@ describe('AuraTrustedDeviceChallenge', () => {
     const { default: AuraTrustedDeviceChallenge } = await loadComponent();
     render(<AuraTrustedDeviceChallenge />);
 
-    expect(screen.getByRole('radio', { name: /passkey \/ webauthn/i })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: /windows hello passkey/i })).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: /rsa-pss browser key/i })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('radio', { name: /rsa-pss browser key/i }));
@@ -114,7 +115,7 @@ describe('AuraTrustedDeviceChallenge', () => {
     const { default: AuraTrustedDeviceChallenge } = await loadComponent();
     render(<AuraTrustedDeviceChallenge />);
 
-    expect(screen.getByRole('radio', { name: /passkey \/ webauthn/i })).toBeDisabled();
+    expect(screen.getByRole('radio', { name: /windows hello passkey/i })).toBeDisabled();
     expect(screen.getByRole('radio', { name: /rsa-pss browser key/i })).not.toBeDisabled();
     expect(screen.getByText(/currently registered with an rsa-pss browser key, not a passkey/i)).toBeInTheDocument();
   });
