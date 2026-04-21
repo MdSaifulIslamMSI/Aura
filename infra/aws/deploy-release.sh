@@ -157,6 +157,35 @@ assert_trusted_device_runtime_contract() {
   exit 1
 }
 
+cleanup_old_release_dirs() {
+  local releases_dir="$1"
+  local keep_count="${2:-3}"
+
+  [[ -d "${releases_dir}" ]] || return 0
+
+  find "${releases_dir}" -mindepth 1 -maxdepth 1 -type d ! -name "${release_sha}" -printf '%T@ %p\n' \
+    | sort -rn \
+    | awk -v keep="${keep_count}" 'NR > keep { sub(/^[^ ]+ /, ""); print }' \
+    | while IFS= read -r old_release_dir; do
+        [[ -n "${old_release_dir}" ]] || continue
+        echo "Removing old release directory ${old_release_dir}"
+        rm -rf "${old_release_dir}"
+      done
+}
+
+prepare_docker_disk_space() {
+  echo "Docker disk usage before cleanup:"
+  docker system df || true
+
+  docker container prune --force || true
+  docker image prune --all --force || true
+  docker builder prune --all --force || true
+
+  echo "Docker disk usage after cleanup:"
+  docker system df || true
+  df -h "${deploy_root}" / || true
+}
+
 deploy_root="${AURA_DEPLOY_ROOT:-/opt/aura}"
 release_sha="${AURA_RELEASE_SHA:?AURA_RELEASE_SHA is required}"
 deploy_bucket="${AURA_DEPLOY_BUCKET:?AURA_DEPLOY_BUCKET is required}"
@@ -175,6 +204,8 @@ shared_dir="${deploy_root}/shared"
 compose_file="${current_dir}/infra/aws/docker-compose.ec2.yml"
 
 mkdir -p "${release_dir}" "${current_dir}" "${shared_dir}"
+cleanup_old_release_dirs "${deploy_root}/releases" 3
+prepare_docker_disk_space
 
 aws s3 cp --region "${aws_region}" "s3://${deploy_bucket}/${infra_bundle_key}" "${release_dir}/infra.tar.gz"
 aws s3 cp --region "${aws_region}" "s3://${deploy_bucket}/${image_bundle_key}" "${release_dir}/image.tar.gz"
@@ -209,6 +240,8 @@ docker compose \
 for _ in $(seq 1 30); do
   if curl --fail --silent http://127.0.0.1:5000/health/ready > /dev/null; then
     echo "Aura backend release ${release_sha} is healthy."
+    cleanup_old_release_dirs "${deploy_root}/releases" 3
+    docker image prune --all --force || true
     exit 0
   fi
   sleep 10
