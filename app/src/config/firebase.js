@@ -1,5 +1,12 @@
 import { initializeApp } from "firebase/app";
-import { getAuth, GoogleAuthProvider, FacebookAuthProvider, TwitterAuthProvider } from "firebase/auth";
+import {
+    browserLocalPersistence,
+    getAuth,
+    GoogleAuthProvider,
+    FacebookAuthProvider,
+    setPersistence,
+    TwitterAuthProvider,
+} from "firebase/auth";
 import { getAnalytics } from "firebase/analytics";
 
 const sanitizeFirebaseValue = (value) => {
@@ -132,12 +139,14 @@ const isDeploymentHost = typeof runtimeHost === 'string' && isHostedDeploymentHo
 const isRuntimeIpHost = isIpLiteralHost(runtimeHost);
 const isRuntimeStandaloneApp = isStandaloneSocialAuthRuntime();
 const isRuntimeElectronDesktop = isElectronDesktopRuntime();
+const desktopRedirectSocialAuth = parseBooleanEnv(import.meta.env.VITE_FIREBASE_DESKTOP_REDIRECT_SOCIAL_AUTH, true);
 const runtimeSocialAuthBlockKey = runtimeHost
     ? `aura-social-auth-block:${runtimeHost}`
     : 'aura-social-auth-block';
 const runtimeSocialAuthBlockTtlMs = 2 * 60 * 1000;
 const prefersRedirectSocialAuth = Boolean(
     forceRedirectSocialAuth
+    || (isRuntimeElectronDesktop && desktopRedirectSocialAuth)
     || (!isRuntimeElectronDesktop && (isRuntimeIpHost || isRuntimeStandaloneApp))
 );
 
@@ -183,13 +192,25 @@ if (!hasRequiredConfig) {
     try {
         app = initializeApp(firebaseConfig);
         auth = getAuth(app);
+        setPersistence(auth, browserLocalPersistence).catch((error) => {
+            console.warn('[firebase] unable to force local auth persistence:', error?.message || error);
+        });
 
         googleProvider = new GoogleAuthProvider();
         facebookProvider = new FacebookAuthProvider();
         xProvider = new TwitterAuthProvider();
 
+        googleProvider.setCustomParameters({
+            prompt: 'select_account',
+        });
+
         facebookProvider.setCustomParameters({
-            display: 'popup',
+            auth_type: 'rerequest',
+            display: prefersRedirectSocialAuth ? 'page' : 'popup',
+        });
+
+        xProvider.setCustomParameters({
+            force_login: 'true',
         });
 
         if (typeof window !== 'undefined' && enableFirebaseAnalytics) {
@@ -220,7 +241,7 @@ export const getFirebaseSocialAuthStatus = () => ({
     supported: isFirebaseSocialAuthAvailable(),
     runtimeHost,
     runtimeBlocked: readRuntimeSocialAuthBlock(),
-    redirectPreferred: prefersRedirectSocialAuth || (!isRuntimeElectronDesktop && readRuntimeSocialAuthBlock()),
+    redirectPreferred: prefersRedirectSocialAuth || readRuntimeSocialAuthBlock(),
     runtimeIpHost: isRuntimeIpHost,
     runtimeStandaloneApp: isRuntimeStandaloneApp,
     runtimeElectronDesktop: isRuntimeElectronDesktop,
@@ -230,7 +251,7 @@ export const getFirebaseSocialAuthStatus = () => ({
 });
 export const getFirebaseInitError = () => firebaseInitError;
 export const shouldPreferFirebaseRedirectAuth = () => Boolean(
-    prefersRedirectSocialAuth || (!isRuntimeElectronDesktop && readRuntimeSocialAuthBlock())
+    prefersRedirectSocialAuth || readRuntimeSocialAuthBlock()
 );
 export const assertFirebaseReady = (feature = 'Firebase authentication') => {
     if (isFirebaseReady) return;

@@ -1,5 +1,5 @@
 const path = require('path');
-const { app, BrowserWindow, dialog, shell } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, powerMonitor, screen, shell } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const { startRuntimeServer } = require('./runtimeServer.cjs');
 
@@ -14,6 +14,16 @@ const isMac = process.platform === 'darwin';
 const APP_ID = 'com.aura.marketplace.desktop';
 const UPDATE_CHECK_DELAY_MS = 8000;
 const UPDATE_CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000;
+const UPDATE_FOCUS_THROTTLE_MS = 30 * 60 * 1000;
+const DESKTOP_AUTH_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+
+let lastUpdateCheckAt = 0;
+
+ipcMain.handle('desktop:app-info', () => ({
+    platform: process.platform,
+    runtimeUrl: runtime?.url || '',
+    version: app.getVersion(),
+}));
 
 const resolveAssetPath = (...segments) => {
     if (app.isPackaged) {
@@ -32,6 +42,25 @@ const resolveIconPath = () => (
         ? resolveAssetPath('app-icon.png')
         : resolveAssetPath('app', 'public', 'assets', 'icon-512.png')
 );
+const resolvePreloadPath = () => path.join(app.getAppPath(), 'desktop', 'preload.cjs');
+
+const resolveRequestedRuntimePort = () => {
+    const rawValue = String(process.env.AURA_DESKTOP_PORT || '').trim();
+    if (!rawValue) return undefined;
+
+    const parsed = Number(rawValue);
+    return Number.isInteger(parsed) && parsed > 0 && parsed < 65536
+        ? parsed
+        : undefined;
+};
+
+const getInitialWindowBounds = () => {
+    const { width, height } = screen.getPrimaryDisplay().workAreaSize;
+    return {
+        width: Math.max(1180, Math.min(width, 1680)),
+        height: Math.max(760, Math.min(height, 1040)),
+    };
+};
 
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '[::1]', '::1']);
 const AUTH_WINDOW_HOSTS = new Set([
@@ -92,9 +121,9 @@ const isAuthWindowUrl = (candidate) => {
 };
 
 const buildAuthWindowOptions = (parentWindow) => ({
-    width: 520,
-    height: 720,
-    minWidth: 420,
+    width: 640,
+    height: 780,
+    minWidth: 520,
     minHeight: 560,
     show: true,
     autoHideMenuBar: true,
@@ -108,35 +137,57 @@ const buildAuthWindowOptions = (parentWindow) => ({
     },
 });
 
+const sendDesktopUpdateStatus = (type, payload = {}) => {
+    if (!mainWindow || mainWindow.isDestroyed()) {
+        return;
+    }
+
+    mainWindow.webContents.send('desktop:update:status', {
+        type,
+        ...payload,
+    });
+};
+
 const createMainWindow = async () => {
     if (!runtime) {
-        runtime = await startRuntimeServer({
-            distDir: resolveDistDir(),
-            port: Number(process.env.AURA_DESKTOP_PORT || 0),
-        });
+        const runtimeOptions = { distDir: resolveDistDir() };
+        const requestedPort = resolveRequestedRuntimePort();
+        if (requestedPort) {
+            runtimeOptions.port = requestedPort;
+        }
+        runtime = await startRuntimeServer(runtimeOptions);
     }
 
     const iconPath = resolveIconPath();
+    const initialBounds = getInitialWindowBounds();
     mainWindow = new BrowserWindow({
-        width: 1440,
-        height: 920,
+        ...initialBounds,
         minWidth: 1080,
         minHeight: 720,
         show: false,
-        backgroundColor: '#f3f4f6',
+        backgroundColor: '#020617',
         autoHideMenuBar: true,
         icon: iconPath,
         webPreferences: {
             contextIsolation: true,
             nodeIntegration: false,
+            preload: resolvePreloadPath(),
             sandbox: true,
         },
     });
 
     mainWindow.once('ready-to-show', () => {
         if (mainWindow) {
+            if (process.env.AURA_DESKTOP_START_MAXIMIZED !== 'false') {
+                mainWindow.maximize();
+            }
             mainWindow.show();
         }
+    });
+
+    mainWindow.webContents.on('did-finish-load', () => {
+        mainWindow?.webContents.setZoomFactor(1);
+        Promise.resolve(mainWindow?.webContents.setVisualZoomLevelLimits(1, 1)).catch(() => {});
     });
 
     mainWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -155,8 +206,12 @@ const createMainWindow = async () => {
         return { action: 'deny' };
     });
 
-    mainWindow.webContents.on('did-create-window', (childWindow) => {
+    mainWindow.webContents.on('did-create-window', (childWindow, details = {}) => {
         childWindow.setMenuBarVisibility(false);
+        if (isAuthWindowUrl(details.url || '')) {
+            childWindow.webContents.setUserAgent(DESKTOP_AUTH_USER_AGENT);
+            childWindow.center();
+        }
         childWindow.webContents.setWindowOpenHandler(({ url }) => {
             if (isAuthWindowUrl(url) || isInternalUrl(url, runtime.url)) {
                 return {
@@ -188,26 +243,47 @@ const startAutoUpdateChecks = () => {
     autoUpdater.allowPrerelease = false;
 
     const checkForUpdates = (reason) => {
+        lastUpdateCheckAt = Date.now();
         console.info(`[desktop:update] checking for updates (${reason})`);
+        sendDesktopUpdateStatus('checking', { reason });
         autoUpdater.checkForUpdatesAndNotify().catch((error) => {
             console.warn('[desktop:update] update check failed:', error?.message || error);
+            sendDesktopUpdateStatus('error', {
+                message: error?.message || 'Update check failed.',
+            });
         });
     };
 
     autoUpdater.on('checking-for-update', () => {
         console.info('[desktop:update] checking for updates');
+        sendDesktopUpdateStatus('checking');
     });
 
     autoUpdater.on('update-available', (info) => {
         console.info('[desktop:update] update available:', info?.version || 'unknown');
+        sendDesktopUpdateStatus('available', {
+            version: info?.version || '',
+        });
     });
 
     autoUpdater.on('update-not-available', (info) => {
         console.info('[desktop:update] already current:', info?.version || app.getVersion());
+        sendDesktopUpdateStatus('not-available', {
+            version: info?.version || app.getVersion(),
+        });
+    });
+
+    autoUpdater.on('download-progress', (progress = {}) => {
+        sendDesktopUpdateStatus('downloading', {
+            percent: Number(progress.percent || 0),
+        });
     });
 
     autoUpdater.on('update-downloaded', (info) => {
         console.info('[desktop:update] update downloaded:', info?.version || 'unknown');
+        sendDesktopUpdateStatus('downloaded', {
+            version: info?.version || '',
+        });
 
         if (updateReadyPromptShown) {
             return;
@@ -242,11 +318,35 @@ const startAutoUpdateChecks = () => {
 
     autoUpdater.on('error', (error) => {
         console.warn('[desktop:update] update check failed:', error?.message || error);
+        sendDesktopUpdateStatus('error', {
+            message: error?.message || 'Update check failed.',
+        });
     });
 
     setTimeout(() => checkForUpdates('startup'), UPDATE_CHECK_DELAY_MS);
     updateCheckTimer = setInterval(() => checkForUpdates('scheduled'), UPDATE_CHECK_INTERVAL_MS);
     updateCheckTimer.unref?.();
+
+    ipcMain.handle('desktop:update:check', () => {
+        checkForUpdates('manual');
+        return { ok: true };
+    });
+
+    ipcMain.handle('desktop:update:install-now', () => {
+        isQuitting = true;
+        autoUpdater.quitAndInstall(false, true);
+        return { ok: true };
+    });
+
+    powerMonitor.on('resume', () => {
+        checkForUpdates('resume');
+    });
+
+    app.on('browser-window-focus', () => {
+        if ((Date.now() - lastUpdateCheckAt) > UPDATE_FOCUS_THROTTLE_MS) {
+            checkForUpdates('focus');
+        }
+    });
 };
 
 const stopRuntime = async () => {

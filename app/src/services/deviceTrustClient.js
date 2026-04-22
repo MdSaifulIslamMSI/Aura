@@ -34,13 +34,18 @@ const getRuntimeHost = () => {
   return normalizeHost(window.location?.hostname || window.location?.host || '');
 };
 
+const isElectronDesktopRuntime = () => {
+  if (!hasWindow()) return false;
+  return /\bElectron\//i.test(String(window.navigator?.userAgent || ''));
+};
+
 const shouldPersistTrustedDeviceSession = () => {
   const configuredValue = getSafeEnv('VITE_PERSIST_TRUSTED_DEVICE_SESSION', '');
   if (String(configuredValue || '').trim() !== '') {
     return parseBooleanEnv(configuredValue, false);
   }
 
-  return isHostedFrontendRuntimeHost(getRuntimeHost());
+  return isElectronDesktopRuntime() || isHostedFrontendRuntimeHost(getRuntimeHost());
 };
 
 const getPlatformPasskeyLabel = () => {

@@ -5,6 +5,8 @@ const express = require('express');
 const { createProxyMiddleware } = require('http-proxy-middleware');
 
 const DEFAULT_BACKEND_ORIGIN = 'http://3.109.181.238:5000';
+const DEFAULT_RUNTIME_PORT = 47831;
+const STABLE_RUNTIME_FALLBACK_PORTS = 10;
 const RUNTIME_LISTEN_HOST = '127.0.0.1';
 const RUNTIME_PUBLIC_HOST = 'localhost';
 const BROWSER_ONLY_PROXY_HEADERS = ['origin', 'referer'];
@@ -54,7 +56,40 @@ const buildProxyOptions = (backendOrigin) => ({
 
 const buildRuntimeUrl = (port) => `http://${RUNTIME_PUBLIC_HOST}:${port}`;
 
-const startRuntimeServer = async ({ distDir, port = 0 } = {}) => {
+const buildRuntimePortCandidates = (port) => {
+    const requestedPort = Number(port);
+    if (!Number.isInteger(requestedPort) || requestedPort <= 0) {
+        return [0];
+    }
+
+    const candidates = [requestedPort];
+    for (let offset = 1; offset <= STABLE_RUNTIME_FALLBACK_PORTS; offset += 1) {
+        const fallbackPort = requestedPort + offset;
+        if (fallbackPort < 65536) {
+            candidates.push(fallbackPort);
+        }
+    }
+
+    candidates.push(0);
+    return candidates;
+};
+
+const listenOnPort = (server, port) => new Promise((resolve, reject) => {
+    const handleError = (error) => {
+        server.off('listening', handleListening);
+        reject(error);
+    };
+    const handleListening = () => {
+        server.off('error', handleError);
+        resolve();
+    };
+
+    server.once('error', handleError);
+    server.once('listening', handleListening);
+    server.listen(port, RUNTIME_LISTEN_HOST);
+});
+
+const startRuntimeServer = async ({ distDir, port = DEFAULT_RUNTIME_PORT } = {}) => {
     const resolvedDistDir = path.resolve(distDir);
     assertDistExists(resolvedDistDir);
 
@@ -79,10 +114,31 @@ const startRuntimeServer = async ({ distDir, port = 0 } = {}) => {
 
     server.on('upgrade', socketProxy.upgrade);
 
-    await new Promise((resolve, reject) => {
-        server.once('error', reject);
-        server.listen(port, RUNTIME_LISTEN_HOST, resolve);
-    });
+    const portCandidates = buildRuntimePortCandidates(port);
+    let lastListenError = null;
+
+    for (const candidatePort of portCandidates) {
+        try {
+            await listenOnPort(server, candidatePort);
+            if (candidatePort !== port && Number(candidatePort) !== 0) {
+                console.info(`[desktop] runtime server using fallback port ${candidatePort}.`);
+            } else if (Number(candidatePort) === 0 && Number(port) !== 0) {
+                console.warn('[desktop] stable runtime ports are busy; falling back to an ephemeral port.');
+            }
+            lastListenError = null;
+            break;
+        } catch (error) {
+            lastListenError = error;
+            if (error?.code !== 'EADDRINUSE') {
+                throw error;
+            }
+            console.warn(`[desktop] runtime port ${candidatePort} is busy; trying another local port.`);
+        }
+    }
+
+    if (lastListenError) {
+        throw lastListenError;
+    }
 
     const address = server.address();
     if (!address || typeof address === 'string') {
@@ -109,6 +165,7 @@ const startRuntimeServer = async ({ distDir, port = 0 } = {}) => {
 
 module.exports = {
     DEFAULT_BACKEND_ORIGIN,
+    DEFAULT_RUNTIME_PORT,
     RUNTIME_LISTEN_HOST,
     RUNTIME_PUBLIC_HOST,
     buildProxyOptions,

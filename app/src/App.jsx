@@ -19,6 +19,8 @@ import SectionAnchorRail from './components/shared/SectionAnchorRail';
 import RouteTransitionShell from './components/shared/RouteTransitionShell';
 import AppErrorBoundary from './components/shared/AppErrorBoundary';
 import BackendStatusBanner from './components/shared/BackendStatusBanner';
+import DesktopUpdateBanner from './components/shared/DesktopUpdateBanner';
+import DesktopWelcomePanel from './components/shared/DesktopWelcomePanel';
 import GlobalSupportLauncher from './components/shared/GlobalSupportLauncher';
 import AuraTrustedDeviceChallenge from './components/features/auth/AuraTrustedDeviceChallenge';
 import { trustRoutes } from './config/trustContent';
@@ -236,6 +238,8 @@ function AppContent() {
           className: 'border border-white/10 bg-zinc-900 text-slate-100',
         }}
       />
+      <DesktopWelcomePanel />
+      <DesktopUpdateBanner />
     </div>
   );
 }
