@@ -18,6 +18,7 @@ const { resolveMarketContextMiddleware } = require('./middleware/marketContext')
 require('colors');
 
 const { notFound, errorHandler } = require('./middleware/errorMiddleware');
+const AppError = require('./utils/AppError');
 
 loadLocalEnvFiles();
 
@@ -253,7 +254,7 @@ app.use(cors({
         if (isOriginAllowed(origin)) {
             return callback(null, true);
         }
-        return callback(new Error('Origin not allowed by CORS policy'));
+        return callback(new AppError('Origin not allowed by CORS policy', 403));
     },
     credentials: true,
     exposedHeaders: ['X-CSRF-Token', 'X-Request-Id'],
