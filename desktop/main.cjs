@@ -15,7 +15,19 @@ const APP_ID = 'com.aura.marketplace.desktop';
 const UPDATE_CHECK_DELAY_MS = 8000;
 const UPDATE_CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000;
 const UPDATE_FOCUS_THROTTLE_MS = 30 * 60 * 1000;
-const DESKTOP_AUTH_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+
+const buildDesktopAuthUserAgent = () => {
+    const chromeVersion = process.versions.chrome || '124.0.0.0';
+    const platformToken = process.platform === 'darwin'
+        ? 'Macintosh; Intel Mac OS X 10_15_7'
+        : process.platform === 'linux'
+            ? 'X11; Linux x86_64'
+            : 'Windows NT 10.0; Win64; x64';
+
+    return `Mozilla/5.0 (${platformToken}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${chromeVersion} Safari/537.36`;
+};
+
+const DESKTOP_AUTH_USER_AGENT = buildDesktopAuthUserAgent();
 
 let lastUpdateCheckAt = 0;
 
@@ -137,6 +149,7 @@ const buildAuthWindowOptions = (parentWindow) => ({
         contextIsolation: true,
         nodeIntegration: false,
         sandbox: true,
+        session: parentWindow?.webContents?.session,
     },
 });
 

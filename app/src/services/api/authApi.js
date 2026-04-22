@@ -132,7 +132,7 @@ const postWithFirebaseBearer = async (path, body, options = {}) => {
 };
 
 const postAuthBootstrap = async (path, body, options = {}) => {
-    if (options.firebaseUser?.getIdToken) {
+    if (options.preferCookieSession !== true && options.firebaseUser?.getIdToken) {
         return postWithFirebaseBearer(path, body, options);
     }
     return postWithFreshCsrf(path, body, options);
@@ -270,7 +270,8 @@ export const authApi = {
             credential: normalizedPayload.credential,
         }, {
             ...options,
-            useFirebaseBearer: Boolean(options.firebaseUser?.getIdToken),
+            preferCookieSession: options.preferCookieSession !== false,
+            useFirebaseBearer: options.preferCookieSession === false && Boolean(options.firebaseUser?.getIdToken),
         });
     },
 };
