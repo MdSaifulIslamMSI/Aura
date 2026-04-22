@@ -7,11 +7,17 @@ export const PRODUCT_DETAIL_CACHE_TTL_MS = 30 * 1000;
 
 /**
  * Returns trusted-device headers for steady-state API traffic.
- * Firebase bearer proof is attached only for explicit bootstrap or proof routes.
+ * Firebase bearer proof is attached for authenticated app traffic by default.
+ * Cookie-only CSRF routes can opt out with { useFirebaseBearer: false }.
  */
 export const getAuthHeader = async (firebaseUser = null, options = {}) => {
     const trustedDeviceHeaders = getTrustedDeviceHeaders();
-    const shouldUseFirebaseBearer = options?.useFirebaseBearer === true;
+    const hasExplicitBearerPreference = Object.prototype.hasOwnProperty.call(
+        options || {},
+        'useFirebaseBearer'
+    );
+    const shouldUseFirebaseBearer = options?.useFirebaseBearer === true
+        || (!hasExplicitBearerPreference && Boolean(firebaseUser || auth?.currentUser));
 
     if (!shouldUseFirebaseBearer || !isFirebaseReady || !auth) {
         return trustedDeviceHeaders;
