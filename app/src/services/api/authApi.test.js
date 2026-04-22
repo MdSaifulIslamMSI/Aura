@@ -247,6 +247,57 @@ describe('authApi', () => {
     expect(global.fetch).toHaveBeenCalledTimes(1);
   });
 
+  it('falls back to Firebase bearer auth when trusted-device cookie session is missing', async () => {
+    const deviceSessionToken = buildRuntimeValue('session-ref');
+    const challengeToken = buildRuntimeValue('challenge-ref');
+    const proofBase64 = buildRuntimeValue('sig-ref');
+    const publicKeySpkiBase64 = buildRuntimeValue('key-ref');
+    const firebaseUser = {
+      getIdToken: vi.fn().mockResolvedValue('fresh-token'),
+    };
+    const csrfError = Object.assign(new Error('HTTP 401: Not authorized, no session'), {
+      status: 401,
+      data: { message: 'Not authorized, no session' },
+    });
+
+    mocks.getAuthHeaderMock
+      .mockResolvedValueOnce({ 'X-Session-Mode': 'cookie' })
+      .mockResolvedValueOnce({ Authorization: 'Bearer fresh-token' });
+    mocks.ensureCsrfTokenMock.mockRejectedValueOnce(csrfError);
+
+    global.fetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ success: true, deviceSessionToken }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+
+    await expect(authApi.verifyDeviceChallenge(
+      challengeToken,
+      {
+        method: 'browser_key',
+        proofBase64,
+        publicKeySpkiBase64,
+      },
+      '',
+      { firebaseUser }
+    )).resolves.toEqual({ success: true, deviceSessionToken });
+
+    expect(mocks.getAuthHeaderMock).toHaveBeenNthCalledWith(1, firebaseUser, {
+      useFirebaseBearer: false,
+      forceRefresh: false,
+    });
+    expect(mocks.getAuthHeaderMock).toHaveBeenNthCalledWith(2, firebaseUser, {
+      useFirebaseBearer: true,
+    });
+    expect(mocks.ensureCsrfTokenMock).toHaveBeenCalledTimes(1);
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    const [url, requestOptions] = global.fetch.mock.calls[0];
+    expect(url).toContain('/auth/verify-device');
+    expect(requestOptions.headers.get('Authorization')).toBe('Bearer fresh-token');
+    expect(requestOptions.headers.get('X-CSRF-Token')).toBeNull();
+  });
+
   it('adds a fresh trusted-device bootstrap proof to sensitive OTP requests', async () => {
     const deviceSessionToken = buildRuntimeValue('session-ref');
     const bootstrapToken = buildRuntimeValue('bootstrap-ref');
