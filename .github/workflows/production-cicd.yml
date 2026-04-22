@@ -62,14 +62,67 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  changes:
+    name: Detect changed surfaces
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+      gateway: ${{ steps.filter.outputs.gateway }}
+      desktop: ${{ steps.filter.outputs.desktop }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Filter changed paths
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            backend:
+              - "server/**"
+              - "infra/aws/**"
+              - ".github/workflows/ci.yml"
+              - ".github/workflows/deploy-backend-aws.yml"
+              - ".github/workflows/production-cicd.yml"
+            frontend:
+              - "app/**"
+              - "netlify.toml"
+              - ".netlifyignore"
+              - "vercel.json"
+              - "app/vercel.json"
+              - ".vercelignore"
+              - ".github/workflows/ci.yml"
+              - ".github/workflows/deploy-netlify.yml"
+              - ".github/workflows/production-cicd.yml"
+            gateway:
+              - "gateway/**"
+              - "gateway/vercel.json"
+              - ".vercelignore"
+              - ".github/workflows/ci.yml"
+              - ".github/workflows/deploy-gateway-vercel.yml"
+              - ".github/workflows/production-cicd.yml"
+            desktop:
+              - "app/**"
+              - "desktop/**"
+              - "package.json"
+              - "package-lock.json"
+              - ".github/workflows/ci.yml"
+              - ".github/workflows/desktop-release.yml"
+              - ".github/workflows/production-cicd.yml"
+
   ci:
     name: Quality gates
     uses: ./.github/workflows/ci.yml
 
   deploy-backend:
     name: Deploy backend to AWS
-    needs: ci
-    if: github.event_name == 'push' || inputs.deploy_backend == true
+    needs:
+      - changes
+      - ci
+    if: |
+      (github.event_name == 'push' && needs.changes.outputs.backend == 'true') ||
+      (github.event_name == 'workflow_dispatch' && inputs.deploy_backend == true)
     uses: ./.github/workflows/deploy-backend-aws.yml
     with:
       git_ref: ${{ github.sha }}
@@ -78,8 +131,12 @@ jobs:
 
   deploy-frontend:
     name: Deploy storefront
-    needs: ci
-    if: github.event_name == 'push' || inputs.deploy_frontend == true
+    needs:
+      - changes
+      - ci
+    if: |
+      (github.event_name == 'push' && needs.changes.outputs.frontend == 'true') ||
+      (github.event_name == 'workflow_dispatch' && inputs.deploy_frontend == true)
     uses: ./.github/workflows/deploy-netlify.yml
     with:
       target: production
@@ -87,8 +144,12 @@ jobs:
 
   deploy-gateway:
     name: Deploy gateway
-    needs: ci
-    if: github.event_name == 'push' || inputs.deploy_gateway == true
+    needs:
+      - changes
+      - ci
+    if: |
+      (github.event_name == 'push' && needs.changes.outputs.gateway == 'true') ||
+      (github.event_name == 'workflow_dispatch' && inputs.deploy_gateway == true)
     uses: ./.github/workflows/deploy-gateway-vercel.yml
     with:
       target: production
@@ -97,13 +158,17 @@ jobs:
   release-desktop:
     name: Publish desktop apps
     needs:
+      - changes
       - ci
       - deploy-backend
       - deploy-frontend
       - deploy-gateway
     if: |
       always() &&
-      (github.event_name == 'push' || inputs.release_desktop == true) &&
+      (
+        (github.event_name == 'push' && needs.changes.outputs.desktop == 'true') ||
+        (github.event_name == 'workflow_dispatch' && inputs.release_desktop == true)
+      ) &&
       needs.ci.result == 'success' &&
       (needs.deploy-backend.result == 'success' || needs.deploy-backend.result == 'skipped') &&
       (needs.deploy-frontend.result == 'success' || needs.deploy-frontend.result == 'skipped') &&

@@ -26,6 +26,15 @@ const isInvalidCsrfError = (error) => {
 
 const isUnauthorizedAuthError = (error) => Number(error?.status || 0) === 401;
 
+const isMissingCookieSessionError = (error) => {
+    const message = `${error?.message || ''} ${error?.data?.message || ''}`.toLowerCase();
+    return isUnauthorizedAuthError(error) && (
+        message.includes('csrf token fetch failed')
+        || message.includes('not authorized, no session')
+        || message.includes('no session')
+    );
+};
+
 const cacheCsrfTokenFromResponse = (response, owner = 'cookie_session') => {
     const csrfToken = response.response?.headers?.get('X-CSRF-Token');
     if (csrfToken && typeof cacheToken === 'function') {
@@ -97,7 +106,11 @@ const postWithFreshCsrf = async (path, body, options = {}) => {
     try {
         return await execute();
     } catch (error) {
-        if (firebaseUser.getIdToken && isUnauthorizedAuthError(error)) {
+        if (
+            firebaseUser.getIdToken
+            && isUnauthorizedAuthError(error)
+            && options.disableSessionExchangeOnUnauthorized !== true
+        ) {
             clearCsrfTokenCache();
             await exchangeSessionWithFirebase(firebaseUser, {
                 forceRefreshAuth: true,
@@ -122,7 +135,12 @@ const postWithFreshCsrf = async (path, body, options = {}) => {
 };
 
 const postWithFirebaseBearer = async (path, body, options = {}) => {
-    const headers = await getAuthHeader(options.firebaseUser, { useFirebaseBearer: true });
+    const bearerOptions = { useFirebaseBearer: true };
+    if (options.forceRefreshAuth === true) {
+        bearerOptions.forceRefresh = true;
+    }
+
+    const headers = await getAuthHeader(options.firebaseUser, bearerOptions);
     const { data } = await apiFetch(path, {
         method: 'POST',
         headers,
@@ -262,16 +280,35 @@ export const authApi = {
                 credential: null,
             };
 
-        return postAuthBootstrap('/auth/verify-device', {
+        const body = {
             token,
             method: normalizedPayload.method,
             proof: normalizedPayload.proof,
             publicKeySpkiBase64: normalizedPayload.publicKeySpkiBase64,
             credential: normalizedPayload.credential,
-        }, {
+        };
+
+        const verifyWithBearer = () => postAuthBootstrap('/auth/verify-device', body, {
             ...options,
-            preferCookieSession: options.preferCookieSession !== false,
-            useFirebaseBearer: options.preferCookieSession === false && Boolean(options.firebaseUser?.getIdToken),
+            preferCookieSession: false,
+            useFirebaseBearer: Boolean(options.firebaseUser?.getIdToken),
+        });
+
+        if (options.preferCookieSession === false) {
+            return verifyWithBearer();
+        }
+
+        return postAuthBootstrap('/auth/verify-device', body, {
+            ...options,
+            // Desktop can have Firebase auth without a backend cookie. Do not
+            // rebuild a cookie session around an already-signed challenge.
+            disableSessionExchangeOnUnauthorized: true,
+            preferCookieSession: true,
+        }).catch((error) => {
+            if (options.firebaseUser?.getIdToken && isMissingCookieSessionError(error)) {
+                return verifyWithBearer();
+            }
+            throw error;
         });
     },
 };
