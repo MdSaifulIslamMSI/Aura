@@ -87,6 +87,7 @@ const isStandaloneSocialAuthRuntime = () => {
 
 const isElectronDesktopRuntime = () => {
     if (typeof window === 'undefined') return false;
+    if (window.auraDesktop?.isDesktop) return true;
     const userAgent = String(window.navigator?.userAgent || '');
     return /\bElectron\//i.test(userAgent);
 };
@@ -139,7 +140,7 @@ const isDeploymentHost = typeof runtimeHost === 'string' && isHostedDeploymentHo
 const isRuntimeIpHost = isIpLiteralHost(runtimeHost);
 const isRuntimeStandaloneApp = isStandaloneSocialAuthRuntime();
 const isRuntimeElectronDesktop = isElectronDesktopRuntime();
-const desktopRedirectSocialAuth = parseBooleanEnv(import.meta.env.VITE_FIREBASE_DESKTOP_REDIRECT_SOCIAL_AUTH, true);
+const desktopRedirectSocialAuth = parseBooleanEnv(import.meta.env.VITE_FIREBASE_DESKTOP_REDIRECT_SOCIAL_AUTH, false);
 const runtimeSocialAuthBlockKey = runtimeHost
     ? `aura-social-auth-block:${runtimeHost}`
     : 'aura-social-auth-block';
