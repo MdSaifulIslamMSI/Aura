@@ -79,7 +79,7 @@
     "win": {
       "icon": "app/public/assets/icon-512.png",
       "signAndEditExecutable": false,
-      "verifyUpdateCodeSignature": true,
+      "verifyUpdateCodeSignature": false,
       "target": [
         "nsis",
         "portable"
@@ -109,9 +109,6 @@
     "portable": {
       "artifactName": "Aura-Marketplace-Windows-${arch}-Portable.${ext}"
     },
-    "dmg": {
-      "artifactName": "Aura-Marketplace-macOS-${arch}.dmg"
-    },
     "appImage": {
       "artifactName": "Aura-Marketplace-Linux-${arch}.AppImage"
     },
@@ -127,7 +124,31 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
+      "installerSidebar": "desktop/assets/installer-sidebar.bmp",
+      "uninstallerSidebar": "desktop/assets/installer-sidebar.bmp",
+      "installerHeader": "desktop/assets/installer-header.bmp",
       "shortcutName": "Aura Marketplace"
+    },
+    "dmg": {
+      "artifactName": "Aura-Marketplace-macOS-${arch}.dmg",
+      "background": "desktop/assets/dmg-background.png",
+      "window": {
+        "width": 660,
+        "height": 420
+      },
+      "contents": [
+        {
+          "x": 185,
+          "y": 205,
+          "type": "file"
+        },
+        {
+          "x": 475,
+          "y": 205,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
     }
   }
 }

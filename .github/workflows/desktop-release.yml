@@ -265,12 +265,68 @@ jobs:
     timeout-minutes: 15
 
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Download release artifacts
         uses: actions/download-artifact@v4
         with:
           pattern: desktop-*
           path: release-artifacts
           merge-multiple: true
+
+      - name: Build release context
+        shell: bash
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          TAG_NAME: ${{ needs.prepare.outputs.tag_name }}
+          RELEASE_SHA: ${{ github.sha }}
+          WORKFLOW_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+
+          PREVIOUS_TAG="$(git tag --list 'desktop-v*' --sort=-version:refname | grep -v "^${TAG_NAME}$" | head -n 1 || true)"
+          if [ -n "${PREVIOUS_TAG}" ]; then
+            COMMIT_RANGE="${PREVIOUS_TAG}..${RELEASE_SHA}"
+            RANGE_LABEL="Changes since ${PREVIOUS_TAG}"
+          else
+            COMMIT_RANGE="${RELEASE_SHA}"
+            RANGE_LABEL="Recent release context"
+          fi
+
+          {
+            echo "## What shipped"
+            echo
+            echo "Aura Marketplace Desktop ${VERSION} was generated from commit \`${RELEASE_SHA}\` after the production CI/CD release gates completed."
+            echo
+            echo "This release includes the packaged desktop app, the bundled production web frontend, the local desktop runtime proxy, and updater metadata for installed apps."
+            echo
+            echo "## Why this release exists"
+            echo
+            echo "- Keep Windows, macOS, and Linux desktop builds aligned with the current Aura web app."
+            echo "- Give installed users the newest trusted-device, login, marketplace, and runtime fixes without requiring a manual reinstall."
+            echo "- Publish only from the automated release flow so failed CI/CD jobs do not move the latest desktop version forward."
+            echo
+            echo "## How updates work"
+            echo
+            echo "- Installed desktop apps check the GitHub latest release feed, download the matching update package, and install it on restart or app quit."
+            echo "- Windows, macOS, and Linux updater metadata is uploaded next to the installers so auto-update clients can resolve the correct build."
+            echo "- The production pipeline must succeed before this job publishes a latest release from the main CI/CD flow."
+            echo
+            echo "## Download guide"
+            echo
+            echo "- Windows users should choose the Setup installer for their CPU architecture, usually x64."
+            echo "- macOS users should choose arm64 for Apple Silicon or x64 for Intel Macs."
+            echo "- Linux users can choose AppImage for portable use, or deb/rpm/tar.gz for distro-specific installation."
+            echo
+            echo "## Build context"
+            echo
+            echo "- Workflow run: ${WORKFLOW_URL}"
+            echo "- Source commit: \`${RELEASE_SHA}\`"
+            echo "- ${RANGE_LABEL}:"
+            git log --no-merges --pretty='  - `%h` %s' -n 18 "${COMMIT_RANGE}" || true
+          } > release-notes.md
 
       - name: Publish GitHub desktop release
         uses: softprops/action-gh-release@v2
@@ -281,8 +337,5 @@ jobs:
           draft: false
           prerelease: false
           fail_on_unmatched_files: true
-          body: |
-            Aura Marketplace desktop release generated from `${{ github.sha }}`.
-
-            Download the build that matches your device from the assets below. Installed apps check this latest release for automatic updates.
+          body_path: release-notes.md
           files: release-artifacts/*

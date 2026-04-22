@@ -6,6 +6,7 @@ const originalIndexedDb = window.indexedDB;
 const originalPublicKeyCredential = window.PublicKeyCredential;
 const originalSecureContext = window.isSecureContext;
 const originalCredentials = window.navigator.credentials;
+const originalUserAgent = window.navigator.userAgent;
 
 const createAsyncRequest = (executor) => {
   const request = {
@@ -91,6 +92,13 @@ const loadDeviceTrustModule = async () => {
   return import('./deviceTrustClient');
 };
 
+const setUserAgent = (userAgent = originalUserAgent) => {
+  Object.defineProperty(window.navigator, 'userAgent', {
+    configurable: true,
+    value: userAgent,
+  });
+};
+
 describe('deviceTrustClient', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -123,6 +131,7 @@ describe('deviceTrustClient', () => {
       configurable: true,
       value: originalCredentials,
     });
+    setUserAgent();
   });
 
   it('marks 127.0.0.1 as a browser-key-only trusted-device host', async () => {
@@ -512,6 +521,22 @@ describe('deviceTrustClient', () => {
 
     expect(sessionStorage.getItem('aura_trusted_device_session_v1')).toBe('shared-device-token');
     expect(localStorage.getItem('aura_trusted_device_session_v1')).toBe('shared-device-token');
+  });
+
+  it('persists the trusted-device session token across desktop app restarts', async () => {
+    setRuntimeHost({
+      hostname: 'localhost',
+      host: 'localhost:47831',
+      protocol: 'http:',
+      origin: 'http://localhost:47831',
+    });
+    setUserAgent(`${originalUserAgent} Electron/37.2.1`);
+    const deviceTrustClient = await loadDeviceTrustModule();
+
+    deviceTrustClient.cacheTrustedDeviceSessionToken('desktop-device-token');
+
+    expect(sessionStorage.getItem('aura_trusted_device_session_v1')).toBe('desktop-device-token');
+    expect(localStorage.getItem('aura_trusted_device_session_v1')).toBe('desktop-device-token');
   });
 
   it('promotes an existing tab-scoped trusted-device token into shared storage on hosted frontends', async () => {

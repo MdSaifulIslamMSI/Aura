@@ -1,8 +1,14 @@
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const http = require('node:http');
+const os = require('node:os');
+const path = require('node:path');
 const test = require('node:test');
 
 const {
     buildProxyOptions,
+    DEFAULT_RUNTIME_PORT,
+    startRuntimeServer,
     stripBrowserOnlyProxyHeaders,
 } = require('./runtimeServer.cjs');
 
@@ -26,4 +32,25 @@ test('desktop proxy applies header stripping to HTTP and WebSocket proxy request
     assert.equal(options.target, 'http://backend.example.test');
     assert.equal(options.on.proxyReq, stripBrowserOnlyProxyHeaders);
     assert.equal(options.on.proxyReqWs, stripBrowserOnlyProxyHeaders);
+});
+
+test('desktop runtime has a stable default port but falls back if it is busy', async () => {
+    const distDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aura-desktop-runtime-'));
+    fs.writeFileSync(path.join(distDir, 'index.html'), '<!doctype html><title>Aura</title>');
+
+    const blocker = http.createServer((_request, response) => response.end('busy'));
+    await new Promise((resolve) => blocker.listen(0, '127.0.0.1', resolve));
+    const busyPort = blocker.address().port;
+
+    const runtime = await startRuntimeServer({ distDir, port: busyPort });
+
+    try {
+        assert.notEqual(runtime.port, busyPort);
+        assert.match(runtime.url, /^http:\/\/localhost:\d+$/);
+        assert.equal(DEFAULT_RUNTIME_PORT, 47831);
+    } finally {
+        await runtime.close();
+        await new Promise((resolve) => blocker.close(resolve));
+        fs.rmSync(distDir, { force: true, recursive: true });
+    }
 });

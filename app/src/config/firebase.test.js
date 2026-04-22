@@ -11,12 +11,18 @@ vi.mock('firebase/app', () => ({
 }));
 
 vi.mock('firebase/auth', () => ({
+  browserLocalPersistence: { type: 'LOCAL' },
   getAuth: firebaseMocks.getAuthMock,
-  GoogleAuthProvider: class GoogleAuthProvider {},
+  setPersistence: vi.fn(() => Promise.resolve()),
+  GoogleAuthProvider: class GoogleAuthProvider {
+    setCustomParameters() {}
+  },
   FacebookAuthProvider: class FacebookAuthProvider {
     setCustomParameters() {}
   },
-  TwitterAuthProvider: class TwitterAuthProvider {},
+  TwitterAuthProvider: class TwitterAuthProvider {
+    setCustomParameters() {}
+  },
 }));
 
 vi.mock('firebase/analytics', () => ({
@@ -70,6 +76,7 @@ const setFirebaseEnv = (suffix = '') => {
   vi.stubEnv('VITE_FIREBASE_APP_ID', `1:32774635133:web:e9b7a433e45debcee07b14${suffix}`);
   vi.stubEnv('VITE_FIREBASE_MEASUREMENT_ID', `G-W600CSNCFN${suffix}`);
   vi.stubEnv('VITE_FIREBASE_DISABLE_SOCIAL_AUTH', 'false');
+  vi.stubEnv('VITE_FIREBASE_DESKTOP_REDIRECT_SOCIAL_AUTH', '');
   vi.stubEnv('VITE_FIREBASE_FORCE_REDIRECT_SOCIAL_AUTH', 'false');
 };
 
@@ -134,7 +141,7 @@ describe('firebase social auth host policy', () => {
     });
   });
 
-  it('keeps Electron desktop social auth popup-first on loopback hosts', async () => {
+  it('prefers redirect-first social auth in Electron desktop so provider account pickers do not get trapped in popups', async () => {
     vi.resetModules();
     setFirebaseEnv();
     window.sessionStorage.clear();
@@ -147,10 +154,33 @@ describe('firebase social auth host policy', () => {
 
     const firebase = await import('./firebase');
 
-    expect(firebase.shouldPreferFirebaseRedirectAuth()).toBe(false);
+    expect(firebase.shouldPreferFirebaseRedirectAuth()).toBe(true);
     expect(firebase.getFirebaseSocialAuthStatus()).toMatchObject({
       runtimeHost: '127.0.0.1',
       runtimeIpHost: true,
+      runtimeElectronDesktop: true,
+      redirectPreferred: true,
+      supported: true,
+    });
+  });
+
+  it('allows desktop popup-first social auth only when explicitly opted out', async () => {
+    vi.resetModules();
+    setFirebaseEnv();
+    vi.stubEnv('VITE_FIREBASE_DESKTOP_REDIRECT_SOCIAL_AUTH', 'false');
+    window.sessionStorage.clear();
+    setRuntimeHost({
+      hostname: 'localhost',
+      host: 'localhost:4173',
+    });
+    setDisplayModes([]);
+    setUserAgent(`${originalUserAgent} Electron/37.2.1`);
+
+    const firebase = await import('./firebase');
+
+    expect(firebase.shouldPreferFirebaseRedirectAuth()).toBe(false);
+    expect(firebase.getFirebaseSocialAuthStatus()).toMatchObject({
+      runtimeHost: 'localhost',
       runtimeElectronDesktop: true,
       redirectPreferred: false,
       supported: true,
