@@ -170,6 +170,58 @@ describe('authApi', () => {
     expect(JSON.parse(requestOptions.body)).toEqual({});
   });
 
+  it('refreshes and retries CSRF-protected writes when the server reports an expired token', async () => {
+    const expiredToken = 'e'.repeat(64);
+    const freshToken = 'f'.repeat(64);
+
+    mocks.getAuthHeaderMock
+      .mockResolvedValueOnce({ 'X-Session-Mode': 'cookie' })
+      .mockResolvedValueOnce({ 'X-Session-Mode': 'cookie' });
+    mocks.ensureCsrfTokenMock
+      .mockResolvedValueOnce(expiredToken)
+      .mockResolvedValueOnce(freshToken);
+    mocks.addCsrfTokenToHeadersMock
+      .mockReturnValueOnce({
+        'X-Session-Mode': 'cookie',
+        'X-CSRF-Token': expiredToken,
+      })
+      .mockReturnValueOnce({
+        'X-Session-Mode': 'cookie',
+        'X-CSRF-Token': freshToken,
+      });
+
+    global.fetch
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({
+          code: 'CSRF_TOKEN_EXPIRED',
+          message: 'CSRF token expired',
+        }), {
+          status: 403,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ success: true, recoveryCodes: ['ABCD-EFGH-IJKL-MNOP'] }), {
+          status: 201,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      );
+
+    await expect(authApi.generateRecoveryCodes())
+      .resolves
+      .toEqual({ success: true, recoveryCodes: ['ABCD-EFGH-IJKL-MNOP'] });
+
+    expect(mocks.clearCsrfTokenCacheMock).toHaveBeenCalledTimes(1);
+    expect(mocks.ensureCsrfTokenMock).toHaveBeenNthCalledWith(2, {
+      authToken: '',
+      owner: 'cookie_session',
+      forceFresh: true,
+    });
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+    const [, retryOptions] = global.fetch.mock.calls[1];
+    expect(retryOptions.headers.get('X-CSRF-Token')).toBe(freshToken);
+  });
+
   it('verifies backup recovery codes through the public recovery endpoint', async () => {
     mocks.getAuthHeaderMock.mockResolvedValueOnce({});
 
