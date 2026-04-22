@@ -7,6 +7,7 @@ const { createProxyMiddleware } = require('http-proxy-middleware');
 const DEFAULT_BACKEND_ORIGIN = 'http://3.109.181.238:5000';
 const RUNTIME_LISTEN_HOST = '127.0.0.1';
 const RUNTIME_PUBLIC_HOST = 'localhost';
+const BROWSER_ONLY_PROXY_HEADERS = ['origin', 'referer'];
 
 const trimTrailingSlash = (value = '') => String(value || '').replace(/\/+$/, '');
 
@@ -29,6 +30,13 @@ const assertDistExists = (distDir) => {
     }
 };
 
+const stripBrowserOnlyProxyHeaders = (proxyReq) => {
+    for (const header of BROWSER_ONLY_PROXY_HEADERS) {
+        proxyReq.removeHeader?.(header);
+    }
+    proxyReq.setHeader?.('X-Aura-Desktop-Proxy', '1');
+};
+
 const buildProxyOptions = (backendOrigin) => ({
     target: backendOrigin,
     changeOrigin: true,
@@ -37,6 +45,10 @@ const buildProxyOptions = (backendOrigin) => ({
     secure: false,
     cookieDomainRewrite: '',
     logLevel: 'warn',
+    on: {
+        proxyReq: stripBrowserOnlyProxyHeaders,
+        proxyReqWs: stripBrowserOnlyProxyHeaders,
+    },
     pathRewrite: (_path, request) => request.originalUrl || request.url,
 });
 
@@ -99,7 +111,9 @@ module.exports = {
     DEFAULT_BACKEND_ORIGIN,
     RUNTIME_LISTEN_HOST,
     RUNTIME_PUBLIC_HOST,
+    buildProxyOptions,
     buildRuntimeUrl,
     resolveBackendOrigin,
     startRuntimeServer,
+    stripBrowserOnlyProxyHeaders,
 };
