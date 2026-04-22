@@ -20,7 +20,10 @@ const isInvalidCsrfError = (error) => {
     const message = String(error?.message || '').toLowerCase();
     return error?.status === 403 && (
         code === 'CSRF_TOKEN_INVALID'
+        || code === 'CSRF_TOKEN_EXPIRED'
         || message.includes('csrf token is invalid or expired')
+        || message.includes('csrf token expired')
+        || message.includes('csrf token has expired')
     );
 };
 
