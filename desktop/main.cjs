@@ -15,6 +15,12 @@ const APP_ID = 'com.aura.marketplace.desktop';
 const UPDATE_CHECK_DELAY_MS = 8000;
 const UPDATE_CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000;
 const UPDATE_FOCUS_THROTTLE_MS = 30 * 60 * 1000;
+const UPDATE_FEED = Object.freeze({
+    provider: 'github',
+    owner: 'MdSaifulIslamMSI',
+    repo: 'Aura',
+    releaseType: 'release',
+});
 
 const buildDesktopAuthUserAgent = () => {
     const chromeVersion = process.versions.chrome || '124.0.0.0';
@@ -164,6 +170,16 @@ const sendDesktopUpdateStatus = (type, payload = {}) => {
     });
 };
 
+const buildUpdateErrorMessage = (error) => {
+    const rawMessage = String(error?.message || error || 'Update check failed.').trim();
+
+    if (/ERR_NAME_NOT_RESOLVED|ENOTFOUND|getaddrinfo/i.test(rawMessage)) {
+        return 'Aura could not resolve the GitHub update channel. Check your internet or DNS, then try again.';
+    }
+
+    return rawMessage || 'Update check failed.';
+};
+
 const createMainWindow = async () => {
     if (!runtime) {
         const runtimeOptions = { distDir: resolveDistDir() };
@@ -255,6 +271,7 @@ const startAutoUpdateChecks = () => {
     }
 
     updateChecksStarted = true;
+    autoUpdater.setFeedURL(UPDATE_FEED);
     autoUpdater.autoDownload = true;
     autoUpdater.autoInstallOnAppQuit = true;
     autoUpdater.allowPrerelease = false;
@@ -264,9 +281,10 @@ const startAutoUpdateChecks = () => {
         console.info(`[desktop:update] checking for updates (${reason})`);
         sendDesktopUpdateStatus('checking', { reason });
         autoUpdater.checkForUpdatesAndNotify().catch((error) => {
-            console.warn('[desktop:update] update check failed:', error?.message || error);
+            const message = buildUpdateErrorMessage(error);
+            console.warn('[desktop:update] update check failed:', message);
             sendDesktopUpdateStatus('error', {
-                message: error?.message || 'Update check failed.',
+                message,
             });
         });
     };
@@ -334,9 +352,10 @@ const startAutoUpdateChecks = () => {
     });
 
     autoUpdater.on('error', (error) => {
-        console.warn('[desktop:update] update check failed:', error?.message || error);
+        const message = buildUpdateErrorMessage(error);
+        console.warn('[desktop:update] update check failed:', message);
         sendDesktopUpdateStatus('error', {
-            message: error?.message || 'Update check failed.',
+            message,
         });
     });
 
