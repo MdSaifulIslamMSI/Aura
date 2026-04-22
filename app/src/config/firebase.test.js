@@ -32,6 +32,7 @@ vi.mock('firebase/analytics', () => ({
 const originalLocation = window.location;
 const originalMatchMedia = window.matchMedia;
 const originalUserAgent = window.navigator.userAgent;
+const originalAuraDesktop = window.auraDesktop;
 
 const setRuntimeHost = ({ hostname, host = hostname }) => {
   Object.defineProperty(window, 'location', {
@@ -67,6 +68,13 @@ const setUserAgent = (userAgent = originalUserAgent) => {
   });
 };
 
+const setDesktopBridge = (value = undefined) => {
+  Object.defineProperty(window, 'auraDesktop', {
+    configurable: true,
+    value,
+  });
+};
+
 const setFirebaseEnv = (suffix = '') => {
   vi.stubEnv('VITE_FIREBASE_API_KEY', `firebase-api-key${suffix}`);
   vi.stubEnv('VITE_FIREBASE_AUTH_DOMAIN', `billy-b674c.firebaseapp.com${suffix}`);
@@ -87,6 +95,7 @@ const loadFirebaseModule = async ({ hostname, host = hostname }) => {
   setRuntimeHost({ hostname, host });
   setDisplayModes([]);
   setUserAgent();
+  setDesktopBridge(originalAuraDesktop);
   return import('./firebase');
 };
 
@@ -108,6 +117,7 @@ describe('firebase social auth host policy', () => {
       value: originalMatchMedia,
     });
     setUserAgent();
+    setDesktopBridge(originalAuraDesktop);
   });
 
   it('prefers redirect-first social auth on 127.0.0.1 while keeping social auth available', async () => {
@@ -141,7 +151,7 @@ describe('firebase social auth host policy', () => {
     });
   });
 
-  it('prefers redirect-first social auth in Electron desktop so provider account pickers do not get trapped in popups', async () => {
+  it('keeps Electron desktop social auth popup-first so Firebase can complete the handoff', async () => {
     vi.resetModules();
     setFirebaseEnv();
     window.sessionStorage.clear();
@@ -154,20 +164,43 @@ describe('firebase social auth host policy', () => {
 
     const firebase = await import('./firebase');
 
-    expect(firebase.shouldPreferFirebaseRedirectAuth()).toBe(true);
+    expect(firebase.shouldPreferFirebaseRedirectAuth()).toBe(false);
     expect(firebase.getFirebaseSocialAuthStatus()).toMatchObject({
       runtimeHost: '127.0.0.1',
       runtimeIpHost: true,
       runtimeElectronDesktop: true,
-      redirectPreferred: true,
+      redirectPreferred: false,
       supported: true,
     });
   });
 
-  it('allows desktop popup-first social auth only when explicitly opted out', async () => {
+  it('detects desktop through the preload bridge even with a Chrome-like user agent', async () => {
     vi.resetModules();
     setFirebaseEnv();
-    vi.stubEnv('VITE_FIREBASE_DESKTOP_REDIRECT_SOCIAL_AUTH', 'false');
+    window.sessionStorage.clear();
+    setRuntimeHost({
+      hostname: 'localhost',
+      host: 'localhost:47831',
+    });
+    setDisplayModes([]);
+    setUserAgent('Mozilla/5.0 Chrome/124.0.0.0 Safari/537.36');
+    setDesktopBridge({ isDesktop: true });
+
+    const firebase = await import('./firebase');
+
+    expect(firebase.shouldPreferFirebaseRedirectAuth()).toBe(false);
+    expect(firebase.getFirebaseSocialAuthStatus()).toMatchObject({
+      runtimeHost: 'localhost',
+      runtimeElectronDesktop: true,
+      redirectPreferred: false,
+      supported: true,
+    });
+  });
+
+  it('allows desktop redirect-first social auth only when explicitly opted in', async () => {
+    vi.resetModules();
+    setFirebaseEnv();
+    vi.stubEnv('VITE_FIREBASE_DESKTOP_REDIRECT_SOCIAL_AUTH', 'true');
     window.sessionStorage.clear();
     setRuntimeHost({
       hostname: 'localhost',
@@ -178,11 +211,11 @@ describe('firebase social auth host policy', () => {
 
     const firebase = await import('./firebase');
 
-    expect(firebase.shouldPreferFirebaseRedirectAuth()).toBe(false);
+    expect(firebase.shouldPreferFirebaseRedirectAuth()).toBe(true);
     expect(firebase.getFirebaseSocialAuthStatus()).toMatchObject({
       runtimeHost: 'localhost',
       runtimeElectronDesktop: true,
-      redirectPreferred: false,
+      redirectPreferred: true,
       supported: true,
     });
   });

@@ -7,6 +7,7 @@ const originalPublicKeyCredential = window.PublicKeyCredential;
 const originalSecureContext = window.isSecureContext;
 const originalCredentials = window.navigator.credentials;
 const originalUserAgent = window.navigator.userAgent;
+const originalAuraDesktop = window.auraDesktop;
 
 const createAsyncRequest = (executor) => {
   const request = {
@@ -99,6 +100,13 @@ const setUserAgent = (userAgent = originalUserAgent) => {
   });
 };
 
+const setDesktopBridge = (value = undefined) => {
+  Object.defineProperty(window, 'auraDesktop', {
+    configurable: true,
+    value,
+  });
+};
+
 describe('deviceTrustClient', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -132,6 +140,7 @@ describe('deviceTrustClient', () => {
       value: originalCredentials,
     });
     setUserAgent();
+    setDesktopBridge(originalAuraDesktop);
   });
 
   it('marks 127.0.0.1 as a browser-key-only trusted-device host', async () => {
@@ -537,6 +546,23 @@ describe('deviceTrustClient', () => {
 
     expect(sessionStorage.getItem('aura_trusted_device_session_v1')).toBe('desktop-device-token');
     expect(localStorage.getItem('aura_trusted_device_session_v1')).toBe('desktop-device-token');
+  });
+
+  it('persists desktop trusted-device tokens when Electron uses a Chrome-like user agent', async () => {
+    setRuntimeHost({
+      hostname: 'localhost',
+      host: 'localhost:47831',
+      protocol: 'http:',
+      origin: 'http://localhost:47831',
+    });
+    setUserAgent('Mozilla/5.0 Chrome/124.0.0.0 Safari/537.36');
+    setDesktopBridge({ isDesktop: true });
+    const deviceTrustClient = await loadDeviceTrustModule();
+
+    deviceTrustClient.cacheTrustedDeviceSessionToken('desktop-bridge-token');
+
+    expect(sessionStorage.getItem('aura_trusted_device_session_v1')).toBe('desktop-bridge-token');
+    expect(localStorage.getItem('aura_trusted_device_session_v1')).toBe('desktop-bridge-token');
   });
 
   it('promotes an existing tab-scoped trusted-device token into shared storage on hosted frontends', async () => {

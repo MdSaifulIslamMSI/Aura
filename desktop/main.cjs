@@ -19,6 +19,9 @@ const DESKTOP_AUTH_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Apple
 
 let lastUpdateCheckAt = 0;
 
+app.userAgentFallback = DESKTOP_AUTH_USER_AGENT;
+app.commandLine.appendSwitch('user-agent', DESKTOP_AUTH_USER_AGENT);
+
 ipcMain.handle('desktop:app-info', () => ({
     platform: process.platform,
     runtimeUrl: runtime?.url || '',
@@ -175,6 +178,7 @@ const createMainWindow = async () => {
             sandbox: true,
         },
     });
+    mainWindow.webContents.setUserAgent(DESKTOP_AUTH_USER_AGENT);
 
     mainWindow.once('ready-to-show', () => {
         if (mainWindow) {

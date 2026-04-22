@@ -36,6 +36,7 @@ const getRuntimeHost = () => {
 
 const isElectronDesktopRuntime = () => {
   if (!hasWindow()) return false;
+  if (window.auraDesktop?.isDesktop) return true;
   return /\bElectron\//i.test(String(window.navigator?.userAgent || ''));
 };
 
