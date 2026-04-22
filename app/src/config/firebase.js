@@ -210,10 +210,6 @@ if (!hasRequiredConfig) {
             display: prefersRedirectSocialAuth ? 'page' : 'popup',
         });
 
-        xProvider.setCustomParameters({
-            force_login: 'true',
-        });
-
         if (typeof window !== 'undefined' && enableFirebaseAnalytics) {
             try {
                 analytics = getAnalytics(app);
