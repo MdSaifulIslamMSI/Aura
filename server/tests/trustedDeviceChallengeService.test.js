@@ -318,6 +318,60 @@ describe('trustedDeviceChallengeService', () => {
         });
     });
 
+    test('keeps trusted-device challenge binding stable when bearer auth becomes a browser session', async () => {
+        const dbState = { trustedDevices: [] };
+        const userId = '507f1f77bcf86cd799439099';
+        const deviceId = 'device_session_bridge_123456';
+        const issuedWithBearerAuth = {
+            authUid: 'firebase-uid-bridge',
+            authToken: { auth_time: 1710001000, iat: 1710001100 },
+        };
+        const verifiedWithBrowserSession = {
+            authUid: 'firebase-uid-bridge',
+            authToken: { auth_time: 1710001000, iat: 1710001200 },
+        };
+        const service = loadServiceWithDbState({ dbState, userId });
+        const { publicKey, privateKey } = crypto.generateKeyPairSync('rsa', {
+            modulusLength: 2048,
+            publicKeyEncoding: { format: 'der', type: 'spki' },
+            privateKeyEncoding: { format: 'pem', type: 'pkcs8' },
+        });
+
+        const enrollChallenge = await service.issueTrustedDeviceChallenge({
+            user: { _id: userId, trustedDevices: [] },
+            deviceId,
+            deviceLabel: 'Bridge laptop',
+            ...issuedWithBearerAuth,
+        });
+
+        const enrollResult = await service.verifyTrustedDeviceChallenge({
+            user: { _id: userId, trustedDevices: [] },
+            token: enrollChallenge.token,
+            proof: createRsaProof({
+                challenge: enrollChallenge.challenge,
+                mode: enrollChallenge.mode,
+                deviceId,
+                privateKeyPem: privateKey,
+            }),
+            publicKeySpkiBase64: Buffer.from(publicKey).toString('base64'),
+            deviceId,
+            deviceLabel: 'Bridge laptop',
+            ...verifiedWithBrowserSession,
+        });
+
+        expect(enrollResult.success).toBe(true);
+        expect(enrollResult.mode).toBe('enroll');
+
+        const trustedSession = service.verifyTrustedDeviceSession({
+            user: { _id: userId },
+            deviceId,
+            deviceSessionToken: enrollResult.deviceSessionToken,
+            ...verifiedWithBrowserSession,
+        });
+
+        expect(trustedSession).toEqual({ success: true });
+    });
+
     test('offers platform WebAuthn user verification for face or device-unlock enrollment', async () => {
         const userId = '507f1f77bcf86cd799439015';
         const deviceId = 'device_face_auth_123456';

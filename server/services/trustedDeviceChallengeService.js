@@ -121,8 +121,27 @@ const extractTrustedDeviceChallengePayload = (source = {}) => {
 };
 
 const buildSessionBinding = ({ authUid = '', authToken = null } = {}) => {
-    const issuedAt = Number(authToken?.iat || 0);
-    return `${String(authUid || '').trim()}:${Number.isFinite(issuedAt) ? issuedAt : 0}`;
+    const sessionStartedAt = Number(authToken?.auth_time || authToken?.iat || 0);
+    return `${String(authUid || '').trim()}:${Number.isFinite(sessionStartedAt) ? sessionStartedAt : 0}`;
+};
+
+const buildAcceptedSessionBindings = ({ authUid = '', authToken = null } = {}) => {
+    const normalizedAuthUid = String(authUid || '').trim();
+    const candidates = [
+        Number(authToken?.auth_time || 0),
+        Number(authToken?.iat || 0),
+    ];
+
+    return [...new Set(candidates
+        .filter((timestamp) => Number.isFinite(timestamp) && timestamp > 0)
+        .map((timestamp) => `${normalizedAuthUid}:${timestamp}`))];
+};
+
+const sessionBindingMatches = (payloadBinding = '', authContext = {}) => {
+    const normalizedPayloadBinding = String(payloadBinding || '').trim();
+    if (!normalizedPayloadBinding) return false;
+    return buildAcceptedSessionBindings(authContext).includes(normalizedPayloadBinding)
+        || normalizedPayloadBinding === buildSessionBinding(authContext);
 };
 
 const deriveTokenKey = (secret) => crypto.scryptSync(String(secret || ''), TOKEN_KEY_DERIVATION_SALT, 32);
@@ -261,7 +280,7 @@ const verifyTrustedDeviceSession = ({
         if (Date.now() > Number(payload?.exp || 0)) {
             return { success: false, reason: 'Trusted device session expired' };
         }
-        if (payload?.sessionBinding !== buildSessionBinding({ authUid, authToken })) {
+        if (!sessionBindingMatches(payload?.sessionBinding, { authUid, authToken })) {
             return { success: false, reason: 'Trusted device session binding mismatch' };
         }
 
@@ -705,8 +724,6 @@ const verifyTrustedDeviceChallenge = async ({
     }
 
     const normalizedDeviceId = normalizeDeviceId(deviceId);
-    const expectedSessionBinding = buildSessionBinding({ authUid, authToken });
-
     if (!payload?.sub || String(payload.sub) !== String(user?._id || '')) {
         return { success: false, reason: 'Device challenge subject mismatch' };
     }
@@ -716,7 +733,7 @@ const verifyTrustedDeviceChallenge = async ({
     if (!payload.challenge || Date.now() > Number(payload.exp || 0)) {
         return { success: false, reason: 'Device challenge expired' };
     }
-    if (payload.sessionBinding !== expectedSessionBinding) {
+    if (!sessionBindingMatches(payload.sessionBinding, { authUid, authToken })) {
         return { success: false, reason: 'Device challenge session binding mismatch' };
     }
     const expectedDeviceSessionHash = String(payload?.expectedDeviceSessionHash || '').trim();
