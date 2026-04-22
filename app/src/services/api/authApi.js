@@ -38,6 +38,12 @@ const isMissingCookieSessionError = (error) => {
     );
 };
 
+const isDeviceChallengeBindingMismatchError = (error) => {
+    const message = `${error?.message || ''} ${error?.data?.message || ''}`.toLowerCase();
+    return Number(error?.status || 0) === 403
+        && message.includes('device challenge session binding mismatch');
+};
+
 const cacheCsrfTokenFromResponse = (response, owner = 'cookie_session') => {
     const csrfToken = response.response?.headers?.get('X-CSRF-Token');
     if (csrfToken && typeof cacheToken === 'function') {
@@ -308,7 +314,10 @@ export const authApi = {
             disableSessionExchangeOnUnauthorized: true,
             preferCookieSession: true,
         }).catch((error) => {
-            if (options.firebaseUser?.getIdToken && isMissingCookieSessionError(error)) {
+            if (
+                options.firebaseUser?.getIdToken
+                && (isMissingCookieSessionError(error) || isDeviceChallengeBindingMismatchError(error))
+            ) {
                 return verifyWithBearer();
             }
             throw error;

@@ -350,6 +350,58 @@ describe('authApi', () => {
     expect(requestOptions.headers.get('X-CSRF-Token')).toBeNull();
   });
 
+  it('falls back to Firebase bearer auth when cookie verification hits a challenge binding mismatch', async () => {
+    const deviceSessionToken = buildRuntimeValue('session-ref');
+    const challengeToken = buildRuntimeValue('challenge-ref');
+    const proofBase64 = buildRuntimeValue('sig-ref');
+    const publicKeySpkiBase64 = buildRuntimeValue('key-ref');
+    const csrfToken = 'd'.repeat(64);
+    const firebaseUser = {
+      getIdToken: vi.fn().mockResolvedValue('fresh-token'),
+    };
+
+    mocks.getAuthHeaderMock
+      .mockResolvedValueOnce({ 'X-Session-Mode': 'cookie' })
+      .mockResolvedValueOnce({ Authorization: 'Bearer fresh-token' });
+    mocks.ensureCsrfTokenMock.mockResolvedValueOnce(csrfToken);
+    mocks.addCsrfTokenToHeadersMock.mockReturnValueOnce({
+      'X-Session-Mode': 'cookie',
+      'X-CSRF-Token': csrfToken,
+    });
+
+    global.fetch
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({
+          message: 'Trusted device verification failed: Device challenge session binding mismatch',
+        }), {
+          status: 403,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ success: true, deviceSessionToken }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      );
+
+    await expect(authApi.verifyDeviceChallenge(
+      challengeToken,
+      {
+        method: 'browser_key',
+        proofBase64,
+        publicKeySpkiBase64,
+      },
+      '',
+      { firebaseUser }
+    )).resolves.toEqual({ success: true, deviceSessionToken });
+
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+    const [, retryOptions] = global.fetch.mock.calls[1];
+    expect(retryOptions.headers.get('Authorization')).toBe('Bearer fresh-token');
+    expect(retryOptions.headers.get('X-CSRF-Token')).toBeNull();
+  });
+
   it('adds a fresh trusted-device bootstrap proof to sensitive OTP requests', async () => {
     const deviceSessionToken = buildRuntimeValue('session-ref');
     const bootstrapToken = buildRuntimeValue('bootstrap-ref');
