@@ -484,6 +484,18 @@ a {
   text-transform: uppercase;
 }
 
+.release-status-stack {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 0.2rem;
+}
+
+.release-callout .release-status-mobile {
+  border-color: rgba(72, 229, 174, 0.14);
+  background: rgba(72, 229, 174, 0.08);
+  color: #c8ffe8;
+}
+
 .release-link {
   position: relative;
   z-index: 2;
@@ -541,6 +553,18 @@ a {
   background:
     radial-gradient(circle at 90% 0%, rgba(72, 229, 174, 0.15), transparent 34%),
     linear-gradient(180deg, rgba(7, 25, 19, 0.74), rgba(4, 11, 15, 0));
+}
+
+.download-card-android::before {
+  background:
+    radial-gradient(circle at 90% 0%, rgba(240, 209, 138, 0.16), transparent 34%),
+    linear-gradient(180deg, rgba(33, 23, 6, 0.74), rgba(15, 11, 4, 0));
+}
+
+.download-card-ios::before {
+  background:
+    radial-gradient(circle at 90% 0%, rgba(146, 163, 255, 0.16), transparent 34%),
+    linear-gradient(180deg, rgba(16, 14, 42, 0.75), rgba(9, 8, 24, 0));
 }
 
 .download-card-header,

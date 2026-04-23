@@ -50,6 +50,16 @@ coverage/
 # Firebase
 .firebase/
 firebase-debug.log
+app/android/app/google-services.json
+app/ios/App/App/GoogleService-Info.plist
+app/android/app/src/main/assets/public/
+app/android/app/src/main/assets/capacitor.config.json
+app/ios/App/App/public/
+app/ios/App/App/capacitor.config.json
+*.jks
+*.keystore
+*.mobileprovision
+*.p12
 
 # Local auth recovery vault snapshots
 server/data/auth-vault.json

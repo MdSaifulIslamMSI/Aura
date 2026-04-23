@@ -1,4 +1,5 @@
 import { getSafeEnv, isHostedFrontendRuntimeHost } from './runtimeApiConfig';
+import { isCapacitorNativeRuntime } from '../utils/nativeRuntime';
 
 const DEVICE_ID_STORAGE_KEY = 'aura_trusted_device_id_v1';
 const DEVICE_SESSION_STORAGE_KEY = 'aura_trusted_device_session_v1';
@@ -46,7 +47,9 @@ const shouldPersistTrustedDeviceSession = () => {
     return parseBooleanEnv(configuredValue, false);
   }
 
-  return isElectronDesktopRuntime() || isHostedFrontendRuntimeHost(getRuntimeHost());
+  return isElectronDesktopRuntime()
+    || isCapacitorNativeRuntime()
+    || isHostedFrontendRuntimeHost(getRuntimeHost());
 };
 
 const getPlatformPasskeyLabel = () => {

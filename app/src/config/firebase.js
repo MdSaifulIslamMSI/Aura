@@ -8,6 +8,7 @@ import {
     TwitterAuthProvider,
 } from "firebase/auth";
 import { getAnalytics } from "firebase/analytics";
+import { isCapacitorNativeRuntime } from "../utils/nativeRuntime";
 
 const sanitizeFirebaseValue = (value) => {
     if (typeof value !== 'string') return value;
@@ -140,6 +141,7 @@ const isDeploymentHost = typeof runtimeHost === 'string' && isHostedDeploymentHo
 const isRuntimeIpHost = isIpLiteralHost(runtimeHost);
 const isRuntimeStandaloneApp = isStandaloneSocialAuthRuntime();
 const isRuntimeElectronDesktop = isElectronDesktopRuntime();
+const isRuntimeCapacitorMobile = isCapacitorNativeRuntime();
 const desktopRedirectSocialAuth = parseBooleanEnv(import.meta.env.VITE_FIREBASE_DESKTOP_REDIRECT_SOCIAL_AUTH, false);
 const runtimeSocialAuthBlockKey = runtimeHost
     ? `aura-social-auth-block:${runtimeHost}`
@@ -147,6 +149,7 @@ const runtimeSocialAuthBlockKey = runtimeHost
 const runtimeSocialAuthBlockTtlMs = 2 * 60 * 1000;
 const prefersRedirectSocialAuth = Boolean(
     forceRedirectSocialAuth
+    || isRuntimeCapacitorMobile
     || (isRuntimeElectronDesktop && desktopRedirectSocialAuth)
     || (!isRuntimeElectronDesktop && (isRuntimeIpHost || isRuntimeStandaloneApp))
 );
@@ -242,6 +245,7 @@ export const getFirebaseSocialAuthStatus = () => ({
     runtimeIpHost: isRuntimeIpHost,
     runtimeStandaloneApp: isRuntimeStandaloneApp,
     runtimeElectronDesktop: isRuntimeElectronDesktop,
+    runtimeCapacitorMobile: isRuntimeCapacitorMobile,
     disabledByConfig: disableSocialAuth && !isDeploymentHost,
     initErrorCode: firebaseInitError?.code || '',
     initErrorMessage: firebaseInitError?.message || '',

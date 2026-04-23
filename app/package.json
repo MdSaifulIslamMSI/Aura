@@ -14,6 +14,12 @@
     "bench:mobile": "node scripts/mobile_benchmark.mjs",
     "i18n:generate": "node scripts/generate_market_messages.mjs && node scripts/generate_market_message_packs.mjs",
     "lint": "eslint .",
+    "mobile:doctor": "npx cap doctor",
+    "mobile:sync": "npm run build && npx cap sync",
+    "mobile:sync:android": "npm run build && npx cap sync android",
+    "mobile:sync:ios": "npm run build && npx cap sync ios",
+    "mobile:open:android": "npx cap open android",
+    "mobile:open:ios": "npx cap open ios",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -22,6 +28,7 @@
     "test:e2e:ui": "playwright test --ui"
   },
   "dependencies": {
+    "@capacitor-firebase/authentication": "^8.2.0",
     "@radix-ui/react-slot": "^1.2.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -42,6 +49,9 @@
     "zustand": "^5.0.12"
   },
   "devDependencies": {
+    "@capacitor/android": "^8.3.1",
+    "@capacitor/cli": "^8.3.1",
+    "@capacitor/ios": "^8.3.1",
     "@eslint/js": "^9.39.1",
     "@playwright/test": "^1.52.0",
     "@testing-library/jest-dom": "^6.9.1",

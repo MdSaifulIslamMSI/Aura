@@ -34,7 +34,7 @@
           </div>
           <div class="masthead-signals" aria-label="gateway status">
             <span class="signal-pill">Two public runtimes</span>
-            <span class="signal-pill">Desktop downloads</span>
+            <span class="signal-pill">Desktop + mobile downloads</span>
             <span class="signal-pill">Auto-update channel</span>
             <span class="signal-pill">Single commerce core</span>
           </div>
@@ -170,31 +170,36 @@
         <section class="downloads-board" id="downloads" aria-labelledby="downloads-title">
           <div class="downloads-header">
             <div>
-              <p class="section-kicker">Desktop app downloads</p>
-              <h2 id="downloads-title">Install Aura on the machine you actually use.</h2>
+              <p class="section-kicker">Desktop + mobile downloads</p>
+              <h2 id="downloads-title">Install Aura on the device you actually use.</h2>
             </div>
             <p class="downloads-note">
-              These links always point to the latest published desktop release. Installed desktop apps check the same
-              release channel for automatic updates after new builds are published from the repo.
+              Desktop links follow the latest published desktop release. Android and iPhone links follow the latest
+              published mobile release, while most product updates still flow into installed mobile shells through the
+              hosted Aura storefront.
             </p>
           </div>
 
           <div class="release-callout">
             <span class="release-orbit" aria-hidden="true"></span>
             <div>
-              <strong>Latest channel</strong>
+              <strong>Release channels</strong>
               <p>
-                Production desktop builds are published from GitHub Releases, then surfaced here for every major
-                desktop platform.
+                Desktop and mobile binaries are published from GitHub Releases, then surfaced here by platform. Desktop
+                auto-update stays pinned to the desktop release lane, while Android and iPhone use the separate mobile
+                release lane.
               </p>
-              <p class="release-status" data-release-status>Checking latest desktop release...</p>
+              <div class="release-status-stack">
+                <p class="release-status" data-release-status="desktop">Checking latest desktop release...</p>
+                <p class="release-status release-status-mobile" data-release-status="mobile">Checking latest mobile release...</p>
+              </div>
             </div>
             <a
               class="release-link"
               href="https://github.com/MdSaifulIslamMSI/Aura/releases"
               rel="noreferrer"
             >
-              View releases
+              View all releases
             </a>
           </div>
 
@@ -256,6 +261,76 @@
                 </div>
               </div>
             </article>
+
+            <article class="download-card download-card-android">
+              <div class="download-card-header">
+                <span class="download-platform">Android</span>
+                <span class="download-chip">APK + AAB</span>
+              </div>
+              <h3>For Android phones and tablets</h3>
+              <p>Use the APK for direct installs on your own device. The AAB build is included for Play Console and managed distribution workflows.</p>
+              <p class="download-caution">
+                Android binaries come from the dedicated mobile release lane, so they do not interfere with the desktop
+                auto-update channel.
+              </p>
+              <div class="download-actions">
+                <a
+                  class="download-button primary"
+                  href="https://github.com/MdSaifulIslamMSI/Aura/releases"
+                  data-release-channel="mobile"
+                  data-release-asset-prefix="Aura-Marketplace-Android-"
+                  data-release-asset-suffix=".apk"
+                  rel="noreferrer"
+                >
+                  Android APK
+                </a>
+                <a
+                  class="download-button"
+                  href="https://github.com/MdSaifulIslamMSI/Aura/releases"
+                  data-release-channel="mobile"
+                  data-release-asset-prefix="Aura-Marketplace-Android-"
+                  data-release-asset-suffix=".aab"
+                  rel="noreferrer"
+                >
+                  Android AAB
+                </a>
+              </div>
+            </article>
+
+            <article class="download-card download-card-ios">
+              <div class="download-card-header">
+                <span class="download-platform">iPhone + iPad</span>
+                <span class="download-chip">IPA + simulator</span>
+              </div>
+              <h3>For iPhone users and Apple testers</h3>
+              <p>Use the signed IPA when a real-device build is published. The simulator ZIP is available for Mac-based QA and Xcode testing workflows.</p>
+              <p class="download-caution">
+                Apple device installs require Apple signing and provisioning. If the IPA is not published yet, this lane
+                falls back to the mobile release page instead of a dead link.
+              </p>
+              <div class="download-actions">
+                <a
+                  class="download-button primary"
+                  href="https://github.com/MdSaifulIslamMSI/Aura/releases"
+                  data-release-channel="mobile"
+                  data-release-asset-prefix="Aura-Marketplace-iOS-"
+                  data-release-asset-suffix=".ipa"
+                  rel="noreferrer"
+                >
+                  iPhone IPA
+                </a>
+                <a
+                  class="download-button muted"
+                  href="https://github.com/MdSaifulIslamMSI/Aura/releases"
+                  data-release-channel="mobile"
+                  data-release-asset-prefix="Aura-Marketplace-iOS-Simulator-"
+                  data-release-asset-suffix=".zip"
+                  rel="noreferrer"
+                >
+                  iOS simulator ZIP
+                </a>
+              </div>
+            </article>
           </div>
         </section>
 
@@ -269,10 +344,13 @@
     </div>
     <script>
       (() => {
-        const releaseApi = "https://api.github.com/repos/MdSaifulIslamMSI/Aura/releases/latest";
+        const latestDesktopReleaseApi = "https://api.github.com/repos/MdSaifulIslamMSI/Aura/releases/latest";
+        const releasesApi = "https://api.github.com/repos/MdSaifulIslamMSI/Aura/releases?per_page=24";
         const releasesPage = "https://github.com/MdSaifulIslamMSI/Aura/releases";
-        const status = document.querySelector("[data-release-status]");
-        const buttons = [...document.querySelectorAll("[data-release-asset]")];
+        const desktopStatus = document.querySelector('[data-release-status="desktop"]');
+        const mobileStatus = document.querySelector('[data-release-status="mobile"]');
+        const desktopButtons = [...document.querySelectorAll('[data-release-asset][data-release-channel="desktop"], [data-release-asset]:not([data-release-channel])')];
+        const mobileButtons = [...document.querySelectorAll('[data-release-channel="mobile"]')];
 
         const markPending = (button) => {
           button.href = releasesPage;
@@ -284,9 +362,35 @@
           );
         };
 
-        buttons.forEach(markPending);
+        const findDownloadUrl = (assets, button) => {
+          const exactName = button.dataset.releaseAsset;
 
-        fetch(releaseApi, { headers: { Accept: "application/vnd.github+json" } })
+          if (exactName) {
+            return assets.get(exactName) || null;
+          }
+
+          const prefix = button.dataset.releaseAssetPrefix || "";
+          const suffix = button.dataset.releaseAssetSuffix || "";
+
+          for (const [assetName, downloadUrl] of assets.entries()) {
+            if (assetName.startsWith(prefix) && assetName.endsWith(suffix)) {
+              return downloadUrl;
+            }
+          }
+
+          return null;
+        };
+
+        const markReady = (button, downloadUrl) => {
+          button.href = downloadUrl;
+          button.dataset.downloadState = "ready";
+          button.classList.remove("is-pending");
+          button.removeAttribute("aria-label");
+        };
+
+        [...desktopButtons, ...mobileButtons].forEach(markPending);
+
+        fetch(latestDesktopReleaseApi, { headers: { Accept: "application/vnd.github+json" } })
           .then((response) => {
             if (!response.ok) {
               throw new Error("Latest release is unavailable");
@@ -298,32 +402,79 @@
             const assets = new Map((release.assets || []).map((asset) => [asset.name, asset.browser_download_url]));
             let availableCount = 0;
 
-            buttons.forEach((button) => {
-              const downloadUrl = assets.get(button.dataset.releaseAsset);
+            desktopButtons.forEach((button) => {
+              const downloadUrl = findDownloadUrl(assets, button);
 
               if (!downloadUrl) {
                 return;
               }
 
               availableCount += 1;
-              button.href = downloadUrl;
-              button.dataset.downloadState = "ready";
-              button.classList.remove("is-pending");
-              button.removeAttribute("aria-label");
+              markReady(button, downloadUrl);
             });
 
-            if (!status) {
+            if (!desktopStatus) {
               return;
             }
 
-            status.textContent = availableCount
+            desktopStatus.textContent = availableCount
               ? `Latest desktop release: ${release.name || release.tag_name}. ${availableCount} package links are ready.`
               : "The release channel is configured, but package files are not published yet.";
           })
           .catch(() => {
-            if (status) {
-              status.textContent =
+            if (desktopStatus) {
+              desktopStatus.textContent =
                 "Desktop packages are being prepared. Open the release page for the latest availability.";
+            }
+          });
+
+        fetch(releasesApi, { headers: { Accept: "application/vnd.github+json" } })
+          .then((response) => {
+            if (!response.ok) {
+              throw new Error("Mobile releases are unavailable");
+            }
+
+            return response.json();
+          })
+          .then((releases) => {
+            const mobileRelease = (releases || []).find(
+              (release) =>
+                !release.draft &&
+                !release.prerelease &&
+                typeof release.tag_name === "string" &&
+                release.tag_name.startsWith("mobile-v")
+            );
+
+            if (!mobileRelease) {
+              throw new Error("No mobile release found");
+            }
+
+            const assets = new Map((mobileRelease.assets || []).map((asset) => [asset.name, asset.browser_download_url]));
+            let availableCount = 0;
+
+            mobileButtons.forEach((button) => {
+              const downloadUrl = findDownloadUrl(assets, button);
+
+              if (!downloadUrl) {
+                return;
+              }
+
+              availableCount += 1;
+              markReady(button, downloadUrl);
+            });
+
+            if (!mobileStatus) {
+              return;
+            }
+
+            mobileStatus.textContent = availableCount
+              ? `Latest mobile release: ${mobileRelease.name || mobileRelease.tag_name}. ${availableCount} mobile package links are ready.`
+              : "The mobile release lane is configured, but installable package files are not published yet.";
+          })
+          .catch(() => {
+            if (mobileStatus) {
+              mobileStatus.textContent =
+                "Mobile packages are being prepared. Open the release page for current Android and iPhone availability.";
             }
           });
       })();
