@@ -25,6 +25,11 @@ import {
 import { authApi, userApi } from '../services/api';
 import { clearCsrfTokenCache } from '../services/csrfTokenManager';
 import { cacheTrustedDeviceSessionToken, clearTrustedDeviceSessionToken } from '../services/deviceTrustClient';
+import {
+  shouldUseNativeSocialAuth,
+  signInWithNativeSocialProvider,
+  signOutNativeSocialAuth,
+} from '../services/nativeSocialAuth';
 import { clearAuthJourneyDraft, writeAuthIdentityMemory } from '../utils/authAcceleration';
 import { getUserVisibleEmail } from '../utils/authIdentity';
 import { useActiveWindowRefresh } from '../hooks/useActiveWindowRefresh';
@@ -667,16 +672,24 @@ export const AuthProvider = ({ children }) => {
     });
   };
 
-  const signInWithOAuthProvider = async (provider, providerLabel = 'OAuth') => {
+  const signInWithOAuthProvider = async (provider, providerLabel = 'OAuth', nativeProviderKey = '') => {
     try {
       assertFirebaseSocialAuthReady(`${providerLabel} sign-in`);
+      if (shouldUseNativeSocialAuth(nativeProviderKey)) {
+        return completeControlledAuthFlow({
+          execute: async () => signInWithNativeSocialProvider(nativeProviderKey, providerLabel),
+          finalize: async (result, firebaseUser) => resolveOAuthUser(firebaseUser, {
+            isNewUser: result?.additionalUserInfo?.isNewUser || result?._tokenResponse?.isNewUser || false,
+          }),
+        });
+      }
       if (shouldPreferFirebaseRedirectAuth()) {
         return beginRedirectOAuthFlow(provider);
       }
       return completeControlledAuthFlow({
         execute: async () => signInWithPopup(auth, provider),
         finalize: async (result, firebaseUser) => resolveOAuthUser(firebaseUser, {
-          isNewUser: result?._tokenResponse?.isNewUser || false,
+          isNewUser: result?.additionalUserInfo?.isNewUser || result?._tokenResponse?.isNewUser || false,
         }),
       });
     } catch (error) {
@@ -696,9 +709,9 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const signInWithGoogle = async () => signInWithOAuthProvider(googleProvider, 'Google');
-  const signInWithFacebook = async () => signInWithOAuthProvider(facebookProvider, 'Facebook');
-  const signInWithX = async () => signInWithOAuthProvider(xProvider, 'X');
+  const signInWithGoogle = async () => signInWithOAuthProvider(googleProvider, 'Google', 'google');
+  const signInWithFacebook = async () => signInWithOAuthProvider(facebookProvider, 'Facebook', 'facebook');
+  const signInWithX = async () => signInWithOAuthProvider(xProvider, 'X', 'x');
 
   useEffect(() => {
     if (!isFirebaseReady || !auth || redirectResolutionRef.current) return undefined;
@@ -751,10 +764,12 @@ export const AuthProvider = ({ children }) => {
     applySignedOutState();
 
     if (!isFirebaseReady || !auth) {
+      await signOutNativeSocialAuth();
       return;
     }
 
     await signOut(auth);
+    await signOutNativeSocialAuth();
   };
 
   const updatePhone = async (phone) => {

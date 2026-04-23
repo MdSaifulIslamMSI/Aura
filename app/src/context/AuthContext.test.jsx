@@ -15,6 +15,9 @@ const loadAuthContext = async () => {
     getRedirectResultMock: vi.fn().mockResolvedValue(null),
     signInWithRedirectMock: vi.fn().mockResolvedValue(undefined),
     signInWithPopupMock: vi.fn(),
+    shouldUseNativeSocialAuthMock: vi.fn().mockReturnValue(false),
+    signInWithNativeSocialProviderMock: vi.fn(),
+    signOutNativeSocialAuthMock: vi.fn().mockResolvedValue(undefined),
     shouldPreferFirebaseRedirectAuthMock: vi.fn().mockReturnValue(false),
     clearCsrfTokenCacheMock: vi.fn(),
     clearTrustedDeviceSessionTokenMock: vi.fn(),
@@ -78,6 +81,12 @@ const loadAuthContext = async () => {
   vi.doMock('../services/deviceTrustClient', () => ({
     cacheTrustedDeviceSessionToken: vi.fn(),
     clearTrustedDeviceSessionToken: mocks.clearTrustedDeviceSessionTokenMock,
+  }));
+
+  vi.doMock('../services/nativeSocialAuth', () => ({
+    shouldUseNativeSocialAuth: mocks.shouldUseNativeSocialAuthMock,
+    signInWithNativeSocialProvider: mocks.signInWithNativeSocialProviderMock,
+    signOutNativeSocialAuth: mocks.signOutNativeSocialAuthMock,
   }));
 
   vi.doMock('../utils/authAcceleration', () => ({
@@ -631,6 +640,99 @@ describe('AuthProvider', () => {
     });
 
     expect(mocks.signInWithPopupMock).toHaveBeenCalled();
+    expect(mocks.signInWithRedirectMock).not.toHaveBeenCalled();
+  });
+
+  it('uses native Capacitor social auth on mobile instead of popup or redirect OAuth', async () => {
+    mocks.onAuthStateChangedMock.mockImplementation(() => () => {});
+    mocks.shouldUseNativeSocialAuthMock.mockReturnValue(true);
+    mocks.authApiMock.syncSession.mockResolvedValue({
+      status: 'authenticated',
+      session: {
+        uid: 'native-google-user-1',
+        email: 'native@example.com',
+        emailVerified: true,
+        displayName: 'Native Google User',
+        phone: '',
+        providerIds: ['google.com'],
+      },
+      profile: {
+        _id: 'db-native-user-1',
+        name: 'Native Google User',
+        email: 'native@example.com',
+        phone: '',
+        isAdmin: false,
+        isVerified: true,
+        isSeller: false,
+        sellerActivatedAt: null,
+        accountState: 'active',
+        moderation: {},
+        loyalty: {},
+        createdAt: null,
+      },
+      roles: {
+        isAdmin: false,
+        isSeller: false,
+        isVerified: true,
+      },
+      intelligence: {
+        assurance: {
+          level: 'password',
+          label: 'Verified session',
+          verifiedAt: null,
+          expiresAt: null,
+          isRecent: false,
+        },
+        readiness: {
+          hasVerifiedEmail: true,
+          hasPhone: false,
+          accountState: 'active',
+          isPrivileged: false,
+        },
+        acceleration: {
+          suggestedRoute: 'social',
+          rememberedIdentifier: 'email',
+          suggestedProvider: 'google.com',
+          providerIds: ['google.com'],
+        },
+      },
+    });
+    mocks.signInWithNativeSocialProviderMock.mockResolvedValue({
+      user: {
+        uid: 'native-google-user-1',
+        email: 'native@example.com',
+        displayName: 'Native Google User',
+        phoneNumber: '',
+        providerData: [{ providerId: 'google.com' }],
+      },
+      additionalUserInfo: { isNewUser: false },
+    });
+
+    const Probe = () => {
+      const { signInWithGoogle } = useAuth();
+      const [result, setResult] = React.useState('idle');
+
+      React.useEffect(() => {
+        signInWithGoogle()
+          .then(() => setResult('native'))
+          .catch((error) => setResult(error.message));
+      }, [signInWithGoogle]);
+
+      return <div data-testid="oauth-route">{result}</div>;
+    };
+
+    render(
+      <AuthProvider>
+        <Probe />
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('oauth-route')).toHaveTextContent('native');
+    });
+
+    expect(mocks.signInWithNativeSocialProviderMock).toHaveBeenCalledWith('google', 'Google');
+    expect(mocks.signInWithPopupMock).not.toHaveBeenCalled();
     expect(mocks.signInWithRedirectMock).not.toHaveBeenCalled();
   });
 

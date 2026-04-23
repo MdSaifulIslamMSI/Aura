@@ -1,0 +1,90 @@
+apply plugin: 'com.android.application'
+
+def resolveStringEnv = { key, fallback = '' ->
+    def value = System.getenv(key)
+    return value != null && value.trim() ? value.trim() : fallback
+}
+
+def resolveIntEnv = { key, fallback ->
+    def value = System.getenv(key)
+    if (value == null || !value.trim()) {
+        return fallback
+    }
+    try {
+        return Integer.parseInt(value.trim())
+    } catch (Exception ignored) {
+        return fallback
+    }
+}
+
+def releaseKeystorePath = resolveStringEnv('AURA_ANDROID_RELEASE_KEYSTORE_PATH')
+def releaseKeystorePassword = resolveStringEnv('AURA_ANDROID_RELEASE_KEYSTORE_PASSWORD')
+def releaseKeyAlias = resolveStringEnv('AURA_ANDROID_RELEASE_KEY_ALIAS')
+def releaseKeyPassword = resolveStringEnv('AURA_ANDROID_RELEASE_KEY_PASSWORD')
+def hasReleaseKeystore = releaseKeystorePath && releaseKeystorePassword && releaseKeyAlias && releaseKeyPassword
+def releaseVersionCode = resolveIntEnv('AURA_ANDROID_VERSION_CODE', 1)
+def releaseVersionName = resolveStringEnv('AURA_ANDROID_VERSION_NAME', '1.0')
+
+android {
+    namespace = "com.aura.marketplace.mobile"
+    compileSdk = rootProject.ext.compileSdkVersion
+    signingConfigs {
+        release {
+            if (hasReleaseKeystore) {
+                storeFile file(releaseKeystorePath)
+                storePassword releaseKeystorePassword
+                keyAlias releaseKeyAlias
+                keyPassword releaseKeyPassword
+            }
+        }
+    }
+    defaultConfig {
+        applicationId "com.aura.marketplace.mobile"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode releaseVersionCode
+        versionName releaseVersionName
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        aaptOptions {
+             // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
+             // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
+            ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+        }
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            signingConfig hasReleaseKeystore ? signingConfigs.release : signingConfigs.debug
+        }
+    }
+}
+
+repositories {
+    flatDir{
+        dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
+    }
+}
+
+dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
+    implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
+    implementation project(':capacitor-android')
+    testImplementation "junit:junit:$junitVersion"
+    androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
+    androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
+    implementation project(':capacitor-cordova-android-plugins')
+}
+
+apply from: 'capacitor.build.gradle'
+
+try {
+    def servicesJSON = file('google-services.json')
+    if (servicesJSON.text) {
+        apply plugin: 'com.google.gms.google-services'
+    }
+} catch(Exception e) {
+    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+}

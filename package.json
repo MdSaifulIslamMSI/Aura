@@ -23,7 +23,11 @@
     "desktop:dist:win:all": "npm run desktop:frontend:build && electron-builder --win nsis portable --x64 --ia32 --arm64",
     "desktop:dist:mac": "npm run desktop:frontend:build && electron-builder --mac dmg zip --x64 --arm64",
     "desktop:dist:linux": "npm run desktop:frontend:build && electron-builder --linux AppImage deb rpm tar.gz --x64 --arm64",
-    "desktop:dist:portable": "npm run desktop:frontend:build && electron-builder --win portable --x64"
+    "desktop:dist:portable": "npm run desktop:frontend:build && electron-builder --win portable --x64",
+    "mobile:doctor": "npm --prefix app run mobile:doctor",
+    "mobile:sync": "npm --prefix app run mobile:sync",
+    "mobile:sync:android": "npm --prefix app run mobile:sync:android",
+    "mobile:sync:ios": "npm --prefix app run mobile:sync:ios"
   },
   "dependencies": {
     "electron-updater": "^6.8.3",

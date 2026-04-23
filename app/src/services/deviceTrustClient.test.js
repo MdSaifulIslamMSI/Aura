@@ -8,6 +8,7 @@ const originalSecureContext = window.isSecureContext;
 const originalCredentials = window.navigator.credentials;
 const originalUserAgent = window.navigator.userAgent;
 const originalAuraDesktop = window.auraDesktop;
+const originalCapacitor = window.Capacitor;
 
 const createAsyncRequest = (executor) => {
   const request = {
@@ -107,6 +108,13 @@ const setDesktopBridge = (value = undefined) => {
   });
 };
 
+const setCapacitorBridge = (value = undefined) => {
+  Object.defineProperty(window, 'Capacitor', {
+    configurable: true,
+    value,
+  });
+};
+
 describe('deviceTrustClient', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -141,6 +149,7 @@ describe('deviceTrustClient', () => {
     });
     setUserAgent();
     setDesktopBridge(originalAuraDesktop);
+    setCapacitorBridge(originalCapacitor);
   });
 
   it('marks 127.0.0.1 as a browser-key-only trusted-device host', async () => {
@@ -546,6 +555,25 @@ describe('deviceTrustClient', () => {
 
     expect(sessionStorage.getItem('aura_trusted_device_session_v1')).toBe('desktop-device-token');
     expect(localStorage.getItem('aura_trusted_device_session_v1')).toBe('desktop-device-token');
+  });
+
+  it('persists the trusted-device session token across native mobile app restarts', async () => {
+    setRuntimeHost({
+      hostname: 'aurapilot.vercel.app',
+      host: 'aurapilot.vercel.app',
+      protocol: 'https:',
+      origin: 'https://aurapilot.vercel.app',
+    });
+    setCapacitorBridge({
+      isNativePlatform: () => true,
+      getPlatform: () => 'ios',
+    });
+    const deviceTrustClient = await loadDeviceTrustModule();
+
+    deviceTrustClient.cacheTrustedDeviceSessionToken('native-device-token');
+
+    expect(sessionStorage.getItem('aura_trusted_device_session_v1')).toBe('native-device-token');
+    expect(localStorage.getItem('aura_trusted_device_session_v1')).toBe('native-device-token');
   });
 
   it('persists desktop trusted-device tokens when Electron uses a Chrome-like user agent', async () => {

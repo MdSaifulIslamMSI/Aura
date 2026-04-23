@@ -33,6 +33,7 @@ const originalLocation = window.location;
 const originalMatchMedia = window.matchMedia;
 const originalUserAgent = window.navigator.userAgent;
 const originalAuraDesktop = window.auraDesktop;
+const originalCapacitor = window.Capacitor;
 
 const setRuntimeHost = ({ hostname, host = hostname }) => {
   Object.defineProperty(window, 'location', {
@@ -75,6 +76,13 @@ const setDesktopBridge = (value = undefined) => {
   });
 };
 
+const setCapacitorBridge = (value = undefined) => {
+  Object.defineProperty(window, 'Capacitor', {
+    configurable: true,
+    value,
+  });
+};
+
 const setFirebaseEnv = (suffix = '') => {
   vi.stubEnv('VITE_FIREBASE_API_KEY', `firebase-api-key${suffix}`);
   vi.stubEnv('VITE_FIREBASE_AUTH_DOMAIN', `billy-b674c.firebaseapp.com${suffix}`);
@@ -96,6 +104,7 @@ const loadFirebaseModule = async ({ hostname, host = hostname }) => {
   setDisplayModes([]);
   setUserAgent();
   setDesktopBridge(originalAuraDesktop);
+  setCapacitorBridge(originalCapacitor);
   return import('./firebase');
 };
 
@@ -118,6 +127,7 @@ describe('firebase social auth host policy', () => {
     });
     setUserAgent();
     setDesktopBridge(originalAuraDesktop);
+    setCapacitorBridge(originalCapacitor);
   });
 
   it('prefers redirect-first social auth on 127.0.0.1 while keeping social auth available', async () => {
@@ -237,6 +247,31 @@ describe('firebase social auth host policy', () => {
       runtimeHost: 'localhost',
       runtimeIpHost: false,
       runtimeStandaloneApp: true,
+      redirectPreferred: true,
+      supported: true,
+    });
+  });
+
+  it('prefers redirect-first social auth inside a Capacitor native runtime', async () => {
+    vi.resetModules();
+    setFirebaseEnv();
+    window.sessionStorage.clear();
+    setRuntimeHost({
+      hostname: 'aurapilot.vercel.app',
+      host: 'aurapilot.vercel.app',
+    });
+    setDisplayModes([]);
+    setCapacitorBridge({
+      isNativePlatform: () => true,
+      getPlatform: () => 'android',
+    });
+
+    const firebase = await import('./firebase');
+
+    expect(firebase.shouldPreferFirebaseRedirectAuth()).toBe(true);
+    expect(firebase.getFirebaseSocialAuthStatus()).toMatchObject({
+      runtimeHost: 'aurapilot.vercel.app',
+      runtimeCapacitorMobile: true,
       redirectPreferred: true,
       supported: true,
     });

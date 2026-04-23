@@ -40,8 +40,18 @@ on:
         required: false
         default: true
         type: boolean
+      release_mobile:
+        description: Build and publish mobile GitHub Release
+        required: false
+        default: true
+        type: boolean
       desktop_version:
         description: Optional desktop version, for example 1.2.0
+        required: false
+        default: ""
+        type: string
+      mobile_version:
+        description: Optional mobile version, for example 1.2.0
         required: false
         default: ""
         type: string
@@ -70,6 +80,7 @@ jobs:
       frontend: ${{ steps.filter.outputs.frontend }}
       gateway: ${{ steps.filter.outputs.gateway }}
       desktop: ${{ steps.filter.outputs.desktop }}
+      mobile: ${{ steps.filter.outputs.mobile }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -109,6 +120,21 @@ jobs:
               - "package-lock.json"
               - ".github/workflows/ci.yml"
               - ".github/workflows/desktop-release.yml"
+              - ".github/workflows/production-cicd.yml"
+            mobile:
+              - "app/capacitor.config.ts"
+              - "app/android/**"
+              - "app/ios/**"
+              - "app/package.json"
+              - "app/package-lock.json"
+              - "app/src/config/firebase.js"
+              - "app/src/context/AuthContext.jsx"
+              - "app/src/services/deviceTrustClient.js"
+              - "app/src/services/nativeSocialAuth.js"
+              - "app/src/utils/nativeRuntime.js"
+              - "docs/mobile-app-delivery.md"
+              - "README.md"
+              - ".github/workflows/mobile-release.yml"
               - ".github/workflows/production-cicd.yml"
 
   ci:
@@ -177,4 +203,27 @@ jobs:
     with:
       version: ${{ github.event_name == 'workflow_dispatch' && inputs.desktop_version || '' }}
       require_windows_signing: false
+    secrets: inherit
+
+  release-mobile:
+    name: Publish mobile apps
+    needs:
+      - changes
+      - ci
+      - deploy-backend
+      - deploy-frontend
+      - deploy-gateway
+    if: |
+      always() &&
+      (
+        (github.event_name == 'push' && needs.changes.outputs.mobile == 'true') ||
+        (github.event_name == 'workflow_dispatch' && inputs.release_mobile == true)
+      ) &&
+      needs.ci.result == 'success' &&
+      (needs.deploy-backend.result == 'success' || needs.deploy-backend.result == 'skipped') &&
+      (needs.deploy-frontend.result == 'success' || needs.deploy-frontend.result == 'skipped') &&
+      (needs.deploy-gateway.result == 'success' || needs.deploy-gateway.result == 'skipped')
+    uses: ./.github/workflows/mobile-release.yml
+    with:
+      version: ${{ github.event_name == 'workflow_dispatch' && inputs.mobile_version || '' }}
     secrets: inherit

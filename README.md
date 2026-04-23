@@ -80,6 +80,11 @@ Core capabilities:
 - If Netlify Git auto-publishing is still enabled for the same site, disable it in the Netlify UI to avoid duplicate deploys from both Netlify and GitHub Actions.
 - If Vercel Git auto-deploy is still enabled for the same project, disconnect or disable it once the GitHub Actions path is verified so the shared-artifact workflow remains the single production release source.
 
+## Mobile Apps
+- Android and iOS delivery notes live in [`docs/mobile-app-delivery.md`](docs/mobile-app-delivery.md).
+- The mobile shells load the hosted production storefront from `https://aurapilot.vercel.app`, so normal frontend deploys flow into installed mobile apps without rebuilding native binaries for every web-only change.
+- GitHub Actions publishes Android artifacts and validates the iOS shell only after the main production CI/CD gates succeed.
+
 ## Production Catalog + Search Gates
 - Snapshot imports now require both `sourceRef` and `manifestRef`.
 - Validate a licensed provider snapshot before import:
