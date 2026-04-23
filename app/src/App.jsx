@@ -21,6 +21,7 @@ import AppErrorBoundary from './components/shared/AppErrorBoundary';
 import BackendStatusBanner from './components/shared/BackendStatusBanner';
 import DesktopUpdateBanner from './components/shared/DesktopUpdateBanner';
 import DesktopWelcomePanel from './components/shared/DesktopWelcomePanel';
+import MobileUpdateBanner from './components/shared/MobileUpdateBanner';
 import GlobalSupportLauncher from './components/shared/GlobalSupportLauncher';
 import AuraTrustedDeviceChallenge from './components/features/auth/AuraTrustedDeviceChallenge';
 import { trustRoutes } from './config/trustContent';
@@ -240,6 +241,7 @@ function AppContent() {
       />
       <DesktopWelcomePanel />
       <DesktopUpdateBanner />
+      <MobileUpdateBanner />
     </div>
   );
 }

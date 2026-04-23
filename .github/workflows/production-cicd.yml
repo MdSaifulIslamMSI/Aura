@@ -17,6 +17,9 @@ on:
       - ".vercelignore"
       - "package.json"
       - "package-lock.json"
+      - "Gemfile"
+      - "Gemfile.lock"
+      - "fastlane/**"
       - ".github/workflows/**"
   workflow_dispatch:
     inputs:
@@ -130,8 +133,13 @@ jobs:
               - "app/src/config/firebase.js"
               - "app/src/context/AuthContext.jsx"
               - "app/src/services/deviceTrustClient.js"
+              - "app/src/services/mobileReleaseChannel.js"
               - "app/src/services/nativeSocialAuth.js"
+              - "app/src/components/shared/MobileUpdateBanner.jsx"
               - "app/src/utils/nativeRuntime.js"
+              - "Gemfile"
+              - "Gemfile.lock"
+              - "fastlane/**"
               - "docs/mobile-app-delivery.md"
               - "README.md"
               - ".github/workflows/mobile-release.yml"

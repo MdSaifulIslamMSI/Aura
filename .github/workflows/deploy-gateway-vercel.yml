@@ -37,7 +37,7 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   NODE_VERSION: 24.x
   VERCEL_SCOPE: mdsaifulislammsis-projects
-  VERCEL_GATEWAY_PROJECT_NAME: general
+  VERCEL_GATEWAY_PROJECT_NAME: aura-gateway
   VERCEL_GATEWAY_ALIAS: aura-gateway.vercel.app
 
 jobs:
@@ -64,7 +64,6 @@ jobs:
           test -n "${VERCEL_TOKEN}" || { echo "Missing GitHub secret VERCEL_TOKEN"; exit 1; }
           test -n "${VERCEL_SCOPE}" || { echo "Missing gateway scope"; exit 1; }
           test -n "${VERCEL_GATEWAY_PROJECT_NAME}" || { echo "Missing gateway project name"; exit 1; }
-          test -n "${VERCEL_GATEWAY_ALIAS}" || { echo "Missing gateway production alias"; exit 1; }
           test -n "${VERCEL_GATEWAY_ALIAS}" || { echo "Missing gateway production alias"; exit 1; }
 
       - name: Link gateway project
@@ -228,16 +227,10 @@ jobs:
           }
           EOF
 
-      - name: Point production alias at latest deployment
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      - name: Verify public gateway domain
         run: |
           set -euo pipefail
-          npx vercel alias set \
-            "${{ steps.deploy.outputs.deploy_url }}" \
-            "${VERCEL_GATEWAY_ALIAS}" \
-            --scope "${VERCEL_SCOPE}" \
-            --token "${VERCEL_TOKEN}"
+          curl --fail --location --max-time 20 "https://${VERCEL_GATEWAY_ALIAS}" >/dev/null
 
       - name: Add production deploy to job summary
         run: |
@@ -246,7 +239,7 @@ jobs:
             echo
             echo "- Project: ${VERCEL_GATEWAY_PROJECT_NAME}"
             echo "- Deploy URL: ${{ steps.deploy.outputs.deploy_url }}"
-            echo "- Production Alias: https://${VERCEL_GATEWAY_ALIAS}"
+            echo "- Public Gateway: https://${VERCEL_GATEWAY_ALIAS}"
             if [ -n "${{ steps.deploy.outputs.inspect_url }}" ]; then
               echo "- Inspect: ${{ steps.deploy.outputs.inspect_url }}"
             fi

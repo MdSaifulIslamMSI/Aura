@@ -1,0 +1,38 @@
+default_platform(:android)
+
+platform :android do
+  desc "Upload the signed Aura Android App Bundle to Google Play"
+  lane :play_internal do
+    play_track = ENV["ANDROID_PLAY_TRACK"].to_s.strip
+    play_track = "internal" if play_track.empty?
+
+    supply(
+      package_name: ENV.fetch("ANDROID_PACKAGE_NAME", "com.aura.marketplace.mobile"),
+      aab: ENV.fetch("ANDROID_AAB_PATH"),
+      track: play_track,
+      json_key: ENV.fetch("GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_PATH"),
+      skip_upload_metadata: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true
+    )
+  end
+end
+
+platform :ios do
+  desc "Upload the signed Aura iOS IPA to TestFlight"
+  lane :testflight do
+    api_key = app_store_connect_api_key(
+      key_id: ENV.fetch("APP_STORE_CONNECT_KEY_ID"),
+      issuer_id: ENV.fetch("APP_STORE_CONNECT_ISSUER_ID"),
+      key_filepath: ENV.fetch("APP_STORE_CONNECT_API_KEY_PATH"),
+      duration: 1200,
+      in_house: false
+    )
+
+    upload_to_testflight(
+      ipa: ENV.fetch("IOS_IPA_PATH"),
+      api_key: api_key,
+      skip_waiting_for_build_processing: true
+    )
+  end
+end

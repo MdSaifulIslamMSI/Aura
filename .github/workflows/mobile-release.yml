@@ -64,6 +64,8 @@ jobs:
       can_sign_android: ${{ steps.flags.outputs.can_sign_android }}
       can_build_ios: ${{ steps.flags.outputs.can_build_ios }}
       can_sign_ios: ${{ steps.flags.outputs.can_sign_ios }}
+      can_publish_android_play: ${{ steps.flags.outputs.can_publish_android_play }}
+      can_publish_ios_testflight: ${{ steps.flags.outputs.can_publish_ios_testflight }}
 
     steps:
       - name: Evaluate mobile signing and Firebase config
@@ -80,6 +82,10 @@ jobs:
           IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
           IOS_TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
           IOS_PROVISIONING_PROFILE_SPECIFIER: ${{ secrets.IOS_PROVISIONING_PROFILE_SPECIFIER }}
+          GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64 }}
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY_P8_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_P8_BASE64 }}
         run: |
           set -euo pipefail
 
@@ -87,11 +93,13 @@ jobs:
           has_ios_config=false
           can_sign_android=false
           can_sign_ios=false
+          can_publish_android_play=false
+          can_publish_ios_testflight=false
 
           if [ -n "${FIREBASE_ANDROID_GOOGLE_SERVICES_JSON_BASE64}" ]; then
             has_android_config=true
           else
-            echo "::warning::FIREBASE_ANDROID_GOOGLE_SERVICES_JSON_BASE64 is missing, so Android release artifacts will be skipped."
+            echo "::warning::FIREBASE_ANDROID_GOOGLE_SERVICES_JSON_BASE64 is missing. Android artifacts will still build, but native Firebase social sign-in may be limited until this secret is configured."
           fi
 
           if [ -n "${ANDROID_RELEASE_KEYSTORE_BASE64}" ] \
@@ -106,23 +114,41 @@ jobs:
           if [ -n "${FIREBASE_IOS_GOOGLE_SERVICE_INFO_PLIST_BASE64}" ]; then
             has_ios_config=true
           else
-            echo "::warning::FIREBASE_IOS_GOOGLE_SERVICE_INFO_PLIST_BASE64 is missing, so iOS builds will be skipped."
+            echo "::warning::FIREBASE_IOS_GOOGLE_SERVICE_INFO_PLIST_BASE64 is missing. iOS simulator validation will still run, but native Firebase social sign-in may be limited until this secret is configured."
           fi
 
           if [ -n "${IOS_SIGNING_CERTIFICATE_P12_BASE64}" ] \
             && [ -n "${IOS_SIGNING_CERTIFICATE_PASSWORD}" ] \
             && [ -n "${IOS_PROVISIONING_PROFILE_BASE64}" ] \
             && [ -n "${IOS_TEAM_ID}" ] \
-            && [ -n "${IOS_PROVISIONING_PROFILE_SPECIFIER}" ]; then
+            && [ -n "${IOS_PROVISIONING_PROFILE_SPECIFIER}" ] \
+            && [ "${has_ios_config}" = "true" ]; then
             can_sign_ios=true
           else
             echo "::warning::iOS signing secrets are incomplete. CI will validate the iOS simulator build only."
           fi
 
-          echo "can_build_android=${has_android_config}" >> "$GITHUB_OUTPUT"
+          if [ "${can_sign_android}" = "true" ] && [ -n "${GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64}" ]; then
+            can_publish_android_play=true
+          else
+            echo "::notice::Google Play publication is skipped until GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64 and Android signing secrets are configured."
+          fi
+
+          if [ "${can_sign_ios}" = "true" ] \
+            && [ -n "${APP_STORE_CONNECT_KEY_ID}" ] \
+            && [ -n "${APP_STORE_CONNECT_ISSUER_ID}" ] \
+            && [ -n "${APP_STORE_CONNECT_API_KEY_P8_BASE64}" ]; then
+            can_publish_ios_testflight=true
+          else
+            echo "::notice::TestFlight publication is skipped until App Store Connect API key and iOS signing secrets are configured."
+          fi
+
+          echo "can_build_android=true" >> "$GITHUB_OUTPUT"
           echo "can_sign_android=${can_sign_android}" >> "$GITHUB_OUTPUT"
-          echo "can_build_ios=${has_ios_config}" >> "$GITHUB_OUTPUT"
+          echo "can_build_ios=true" >> "$GITHUB_OUTPUT"
           echo "can_sign_ios=${can_sign_ios}" >> "$GITHUB_OUTPUT"
+          echo "can_publish_android_play=${can_publish_android_play}" >> "$GITHUB_OUTPUT"
+          echo "can_publish_ios_testflight=${can_publish_ios_testflight}" >> "$GITHUB_OUTPUT"
 
   build-android:
     needs:
@@ -148,6 +174,9 @@ jobs:
           distribution: temurin
           java-version: '21'
 
+      - name: Use Gradle cache
+        uses: gradle/actions/setup-gradle@v4
+
       - name: Install frontend and mobile dependencies
         run: npm --prefix app ci
 
@@ -156,7 +185,11 @@ jobs:
           FIREBASE_ANDROID_GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.FIREBASE_ANDROID_GOOGLE_SERVICES_JSON_BASE64 }}
         run: |
           set -euo pipefail
-          printf '%s' "${FIREBASE_ANDROID_GOOGLE_SERVICES_JSON_BASE64}" | base64 --decode > app/android/app/google-services.json
+          if [ -n "${FIREBASE_ANDROID_GOOGLE_SERVICES_JSON_BASE64}" ]; then
+            printf '%s' "${FIREBASE_ANDROID_GOOGLE_SERVICES_JSON_BASE64}" | base64 --decode > app/android/app/google-services.json
+          else
+            echo "::warning::Building Android without google-services.json. Configure FIREBASE_ANDROID_GOOGLE_SERVICES_JSON_BASE64 before public store distribution."
+          fi
 
       - name: Materialize Android signing keystore
         if: needs.preflight.outputs.can_sign_android == 'true'
@@ -226,13 +259,22 @@ jobs:
           FIREBASE_IOS_GOOGLE_SERVICE_INFO_PLIST_BASE64: ${{ secrets.FIREBASE_IOS_GOOGLE_SERVICE_INFO_PLIST_BASE64 }}
         run: |
           set -euo pipefail
-          printf '%s' "${FIREBASE_IOS_GOOGLE_SERVICE_INFO_PLIST_BASE64}" | base64 --decode > app/ios/App/App/GoogleService-Info.plist
+          if [ -n "${FIREBASE_IOS_GOOGLE_SERVICE_INFO_PLIST_BASE64}" ]; then
+            printf '%s' "${FIREBASE_IOS_GOOGLE_SERVICE_INFO_PLIST_BASE64}" | base64 --decode > app/ios/App/App/GoogleService-Info.plist
+          else
+            echo "::warning::Building iOS simulator validation without GoogleService-Info.plist. Configure FIREBASE_IOS_GOOGLE_SERVICE_INFO_PLIST_BASE64 before public store distribution."
+          fi
 
       - name: Configure iOS URL schemes from Firebase
         run: |
           set -euo pipefail
           GOOGLE_PLIST="app/ios/App/App/GoogleService-Info.plist"
           IOS_INFO_PLIST="app/ios/App/App/Info.plist"
+          if [ ! -s "${GOOGLE_PLIST}" ]; then
+            echo "::warning::Skipping iOS Firebase URL scheme injection because GoogleService-Info.plist is unavailable."
+            exit 0
+          fi
+
           REVERSED_CLIENT_ID="$(/usr/libexec/PlistBuddy -c 'Print :REVERSED_CLIENT_ID' "${GOOGLE_PLIST}")"
 
           /usr/libexec/PlistBuddy -c 'Delete :CFBundleURLTypes' "${IOS_INFO_PLIST}" >/dev/null 2>&1 || true
@@ -314,8 +356,21 @@ jobs:
         env:
           IOS_TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
           IOS_PROVISIONING_PROFILE_SPECIFIER: ${{ secrets.IOS_PROVISIONING_PROFILE_SPECIFIER }}
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY_P8_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_P8_BASE64 }}
+          IOS_EXPORT_METHOD: ${{ vars.IOS_EXPORT_METHOD }}
         run: |
           set -euo pipefail
+          EXPORT_METHOD="${IOS_EXPORT_METHOD:-}"
+          if [ -z "${EXPORT_METHOD}" ]; then
+            if [ -n "${APP_STORE_CONNECT_KEY_ID}" ] && [ -n "${APP_STORE_CONNECT_ISSUER_ID}" ] && [ -n "${APP_STORE_CONNECT_API_KEY_P8_BASE64}" ]; then
+              EXPORT_METHOD="app-store-connect"
+            else
+              EXPORT_METHOD="ad-hoc"
+            fi
+          fi
+
           cat > "${RUNNER_TEMP}/ExportOptions.plist" <<EOF
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -324,7 +379,7 @@ jobs:
             <key>destination</key>
             <string>export</string>
             <key>method</key>
-            <string>ad-hoc</string>
+            <string>${EXPORT_METHOD}</string>
             <key>signingStyle</key>
             <string>manual</string>
             <key>teamID</key>
@@ -360,17 +415,103 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+  publish-android-play:
+    needs:
+      - prepare
+      - preflight
+      - build-android
+    if: needs.preflight.outputs.can_publish_android_play == 'true' && needs.build-android.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Ruby for Fastlane
+        uses: ruby/setup-ruby@v1
+        with:
+          bundler-cache: true
+
+      - name: Download Android release artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: mobile-android
+          path: release-artifacts/android
+
+      - name: Materialize Google Play service account
+        env:
+          GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64 }}
+        run: |
+          set -euo pipefail
+          printf '%s' "${GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64}" | base64 --decode > "${RUNNER_TEMP}/google-play-service-account.json"
+
+      - name: Publish Android bundle to Google Play
+        env:
+          ANDROID_PACKAGE_NAME: com.aura.marketplace.mobile
+          ANDROID_PLAY_TRACK: ${{ vars.ANDROID_PLAY_TRACK }}
+          GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_PATH: ${{ runner.temp }}/google-play-service-account.json
+        run: |
+          set -euo pipefail
+          AAB_PATH="$(find release-artifacts/android -name '*.aab' -print -quit)"
+          test -n "${AAB_PATH}" || { echo "No Android App Bundle found"; exit 1; }
+          ANDROID_AAB_PATH="${AAB_PATH}" bundle exec fastlane android play_internal
+
+  publish-ios-testflight:
+    needs:
+      - prepare
+      - preflight
+      - build-ios
+    if: needs.preflight.outputs.can_publish_ios_testflight == 'true' && needs.build-ios.result == 'success'
+    runs-on: macos-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Ruby for Fastlane
+        uses: ruby/setup-ruby@v1
+        with:
+          bundler-cache: true
+
+      - name: Download iOS release artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: mobile-ios
+          path: release-artifacts/ios
+
+      - name: Materialize App Store Connect API key
+        env:
+          APP_STORE_CONNECT_API_KEY_P8_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_P8_BASE64 }}
+        run: |
+          set -euo pipefail
+          printf '%s' "${APP_STORE_CONNECT_API_KEY_P8_BASE64}" | base64 --decode > "${RUNNER_TEMP}/app-store-connect-api-key.p8"
+
+      - name: Publish iOS IPA to TestFlight
+        env:
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY_PATH: ${{ runner.temp }}/app-store-connect-api-key.p8
+        run: |
+          set -euo pipefail
+          IPA_PATH="$(find release-artifacts/ios -name '*.ipa' -print -quit)"
+          test -n "${IPA_PATH}" || { echo "No signed iOS IPA found"; exit 1; }
+          IOS_IPA_PATH="${IPA_PATH}" bundle exec fastlane ios testflight
+
   publish:
     needs:
       - prepare
       - preflight
       - build-android
       - build-ios
+      - publish-android-play
+      - publish-ios-testflight
     if: |
       always() &&
       (needs.build-android.result == 'success' || needs.build-ios.result == 'success') &&
       (needs.build-android.result == 'success' || needs.build-android.result == 'skipped') &&
-      (needs.build-ios.result == 'success' || needs.build-ios.result == 'skipped')
+      (needs.build-ios.result == 'success' || needs.build-ios.result == 'skipped') &&
+      (needs.publish-android-play.result == 'success' || needs.publish-android-play.result == 'skipped') &&
+      (needs.publish-ios-testflight.result == 'success' || needs.publish-ios-testflight.result == 'skipped')
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -395,7 +536,11 @@ jobs:
           WORKFLOW_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
           CAN_SIGN_ANDROID: ${{ needs.preflight.outputs.can_sign_android }}
           CAN_SIGN_IOS: ${{ needs.preflight.outputs.can_sign_ios }}
+          CAN_PUBLISH_ANDROID_PLAY: ${{ needs.preflight.outputs.can_publish_android_play }}
+          CAN_PUBLISH_IOS_TESTFLIGHT: ${{ needs.preflight.outputs.can_publish_ios_testflight }}
           IOS_BUILD_RESULT: ${{ needs.build-ios.result }}
+          ANDROID_PLAY_RESULT: ${{ needs.publish-android-play.result }}
+          IOS_TESTFLIGHT_RESULT: ${{ needs.publish-ios-testflight.result }}
         run: |
           set -euo pipefail
 
@@ -424,6 +569,7 @@ jobs:
             echo "## How mobile updates work"
             echo
             echo "- The mobile shells load the hosted Aura storefront at \`https://aurapilot.vercel.app\`, so normal frontend deployments reach installed mobile apps without rebuilding the native binaries."
+            echo "- Installed Android and iPhone shells also check the Aura mobile release lane and surface a clear in-app update prompt when a newer native package is available."
             echo "- New APK, AAB, or IPA releases are only needed when the native shell, mobile auth bridge, or mobile delivery pipeline changes."
             echo "- This keeps the production pipeline faster than rebuilding mobile binaries for every single web-only change."
             echo
@@ -440,7 +586,19 @@ jobs:
             elif [ "${IOS_BUILD_RESULT}" = "success" ]; then
               echo "- The iOS simulator build is included. A real-device IPA requires Apple signing assets and provisioning."
             else
-              echo "- iOS artifacts were skipped because the Firebase iOS configuration secret was not available."
+              echo "- iOS artifacts were not published because the iOS build job did not complete successfully."
+            fi
+
+            if [ "${CAN_PUBLISH_ANDROID_PLAY}" = "true" ] && [ "${ANDROID_PLAY_RESULT}" = "success" ]; then
+              echo "- The Android App Bundle was uploaded to the configured Google Play track."
+            else
+              echo "- Google Play upload was skipped because Play Console credentials/signing are not configured for this run."
+            fi
+
+            if [ "${CAN_PUBLISH_IOS_TESTFLIGHT}" = "true" ] && [ "${IOS_TESTFLIGHT_RESULT}" = "success" ]; then
+              echo "- The signed iOS IPA was uploaded to TestFlight."
+            else
+              echo "- TestFlight upload was skipped because App Store Connect credentials/signing are not configured for this run."
             fi
 
             echo
@@ -451,6 +609,48 @@ jobs:
             echo "- ${RANGE_LABEL}:"
             git log --no-merges --pretty='  - `%h` %s' -n 18 "${COMMIT_RANGE}" || true
           } > release-notes.md
+
+          node <<'EOF'
+          const fs = require('fs');
+          const path = require('path');
+
+          const artifactsDir = 'release-artifacts';
+          const version = process.env.VERSION;
+          const tagName = process.env.TAG_NAME;
+          const releaseBaseUrl = `https://github.com/${process.env.GITHUB_REPOSITORY}/releases/download/${tagName}`;
+          const files = fs.readdirSync(artifactsDir)
+            .filter((fileName) => fs.statSync(path.join(artifactsDir, fileName)).isFile())
+            .sort();
+
+          const manifest = {
+            schemaVersion: 1,
+            app: 'Aura Marketplace Mobile',
+            version,
+            tagName,
+            sourceCommit: process.env.RELEASE_SHA,
+            workflowUrl: process.env.WORKFLOW_URL,
+            releaseNotesUrl: `https://github.com/${process.env.GITHUB_REPOSITORY}/releases/tag/${tagName}`,
+            generatedAt: new Date().toISOString(),
+            updateModel: {
+              hostedStorefront: 'https://aurapilot.vercel.app',
+              webContent: 'automatic through hosted Aura deployments',
+              nativeShell: 'GitHub mobile release lane, Google Play, or TestFlight when store credentials are configured',
+            },
+            stores: {
+              googlePlay: process.env.ANDROID_PLAY_RESULT || 'skipped',
+              testFlight: process.env.IOS_TESTFLIGHT_RESULT || 'skipped',
+            },
+            assets: files.map((fileName) => ({
+              name: fileName,
+              downloadUrl: `${releaseBaseUrl}/${encodeURIComponent(fileName)}`,
+            })),
+          };
+
+          fs.writeFileSync(
+            path.join(artifactsDir, `Aura-Mobile-Release-Manifest-${version}.json`),
+            `${JSON.stringify(manifest, null, 2)}\n`
+          );
+          EOF
 
       - name: Publish GitHub mobile release
         uses: softprops/action-gh-release@v2
