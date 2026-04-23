@@ -13,7 +13,7 @@ export default defineConfig({
         fileParallelism: false,
         pool: 'threads',
         maxWorkers: 1,
-        isolate: false,
+        isolate: process.env.CI === 'true',
         sequence: {
             concurrent: false,
         },

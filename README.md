@@ -83,7 +83,9 @@ Core capabilities:
 ## Mobile Apps
 - Android and iOS delivery notes live in [`docs/mobile-app-delivery.md`](docs/mobile-app-delivery.md).
 - The mobile shells load the hosted production storefront from `https://aurapilot.vercel.app`, so normal frontend deploys flow into installed mobile apps without rebuilding native binaries for every web-only change.
-- GitHub Actions publishes Android artifacts and validates the iOS shell only after the main production CI/CD gates succeed.
+- GitHub Actions publishes Android APK/AAB and iOS simulator/IPA artifacts only after the main production CI/CD gates succeed.
+- Google Play and TestFlight publication are wired through Fastlane and run automatically when the required store credentials are configured; otherwise the free GitHub Release lane remains active.
+- Installed mobile shells check the mobile release lane and show an in-app update prompt when a newer native package is available.
 
 ## Production Catalog + Search Gates
 - Snapshot imports now require both `sourceRef` and `manifestRef`.
