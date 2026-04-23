@@ -297,26 +297,41 @@ export const authApi = {
             credential: normalizedPayload.credential,
         };
 
+        const canUseFirebaseBearer = Boolean(options.firebaseUser?.getIdToken);
         const verifyWithBearer = () => postAuthBootstrap('/auth/verify-device', body, {
             ...options,
             preferCookieSession: false,
-            useFirebaseBearer: Boolean(options.firebaseUser?.getIdToken),
+            useFirebaseBearer: canUseFirebaseBearer,
+        });
+        const verifyWithCookieSession = () => postAuthBootstrap('/auth/verify-device', body, {
+            ...options,
+            // Desktop can have Firebase auth without a backend cookie. Do not
+            // rebuild a cookie session around an already-signed challenge.
+            disableSessionExchangeOnUnauthorized: true,
+            preferCookieSession: true,
         });
 
         if (options.preferCookieSession === false) {
             return verifyWithBearer();
         }
 
-        return postAuthBootstrap('/auth/verify-device', body, {
-            ...options,
-            // Desktop can have Firebase auth without a backend cookie. Do not
-            // rebuild a cookie session around an already-signed challenge.
-            disableSessionExchangeOnUnauthorized: true,
-            preferCookieSession: true,
-        }).catch((error) => {
+        if (canUseFirebaseBearer && options.preferCookieSession !== true) {
+            return verifyWithBearer().catch((error) => {
+                if (isDeviceChallengeBindingMismatchError(error)) {
+                    return verifyWithCookieSession();
+                }
+                throw error;
+            });
+        }
+
+        return verifyWithCookieSession().catch((error) => {
             if (
-                options.firebaseUser?.getIdToken
-                && (isMissingCookieSessionError(error) || isDeviceChallengeBindingMismatchError(error))
+                canUseFirebaseBearer
+                && (
+                    isMissingCookieSessionError(error)
+                    || isDeviceChallengeBindingMismatchError(error)
+                    || isInvalidCsrfError(error)
+                )
             ) {
                 return verifyWithBearer();
             }

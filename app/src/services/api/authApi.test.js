@@ -246,22 +246,16 @@ describe('authApi', () => {
     });
   });
 
-  it('verifies trusted-device challenges through the cookie session by default', async () => {
+  it('verifies trusted-device challenges through Firebase bearer auth by default when signed in', async () => {
     const deviceSessionToken = buildRuntimeValue('session-ref');
     const challengeToken = buildRuntimeValue('challenge-ref');
     const proofBase64 = buildRuntimeValue('sig-ref');
     const publicKeySpkiBase64 = buildRuntimeValue('key-ref');
-    const csrfToken = 'c'.repeat(64);
     const firebaseUser = {
       getIdToken: vi.fn().mockResolvedValue('fresh-token'),
     };
 
-    mocks.getAuthHeaderMock.mockResolvedValueOnce({ 'X-Session-Mode': 'cookie' });
-    mocks.ensureCsrfTokenMock.mockResolvedValueOnce(csrfToken);
-    mocks.addCsrfTokenToHeadersMock.mockReturnValueOnce({
-      'X-Session-Mode': 'cookie',
-      'X-CSRF-Token': csrfToken,
-    });
+    mocks.getAuthHeaderMock.mockResolvedValueOnce({ Authorization: 'Bearer fresh-token' });
 
     global.fetch.mockResolvedValueOnce(
       new Response(JSON.stringify({ success: true, deviceSessionToken }), {
@@ -283,6 +277,48 @@ describe('authApi', () => {
 
     expect(mocks.getAuthHeaderMock).toHaveBeenCalledTimes(1);
     expect(mocks.getAuthHeaderMock).toHaveBeenCalledWith(firebaseUser, {
+      useFirebaseBearer: true,
+    });
+    expect(mocks.ensureCsrfTokenMock).not.toHaveBeenCalled();
+    expect(mocks.addCsrfTokenToHeadersMock).not.toHaveBeenCalled();
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    const [url, requestOptions] = global.fetch.mock.calls[0];
+    expect(url).toContain('/auth/verify-device');
+    expect(requestOptions.headers.get('Authorization')).toBe('Bearer fresh-token');
+    expect(requestOptions.headers.get('X-CSRF-Token')).toBeNull();
+  });
+
+  it('keeps trusted-device cookie verification available when no Firebase user is present', async () => {
+    const deviceSessionToken = buildRuntimeValue('session-ref');
+    const challengeToken = buildRuntimeValue('challenge-ref');
+    const proofBase64 = buildRuntimeValue('sig-ref');
+    const publicKeySpkiBase64 = buildRuntimeValue('key-ref');
+    const csrfToken = 'c'.repeat(64);
+
+    mocks.getAuthHeaderMock.mockResolvedValueOnce({ 'X-Session-Mode': 'cookie' });
+    mocks.ensureCsrfTokenMock.mockResolvedValueOnce(csrfToken);
+    mocks.addCsrfTokenToHeadersMock.mockReturnValueOnce({
+      'X-Session-Mode': 'cookie',
+      'X-CSRF-Token': csrfToken,
+    });
+
+    global.fetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ success: true, deviceSessionToken }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+
+    await expect(authApi.verifyDeviceChallenge(
+      challengeToken,
+      {
+        method: 'browser_key',
+        proofBase64,
+        publicKeySpkiBase64,
+      }
+    )).resolves.toEqual({ success: true, deviceSessionToken });
+
+    expect(mocks.getAuthHeaderMock).toHaveBeenCalledWith({}, {
       useFirebaseBearer: false,
       forceRefresh: false,
     });
@@ -332,7 +368,7 @@ describe('authApi', () => {
         publicKeySpkiBase64,
       },
       '',
-      { firebaseUser }
+      { firebaseUser, preferCookieSession: true }
     )).resolves.toEqual({ success: true, deviceSessionToken });
 
     expect(mocks.getAuthHeaderMock).toHaveBeenNthCalledWith(1, firebaseUser, {
@@ -348,6 +384,83 @@ describe('authApi', () => {
     expect(url).toContain('/auth/verify-device');
     expect(requestOptions.headers.get('Authorization')).toBe('Bearer fresh-token');
     expect(requestOptions.headers.get('X-CSRF-Token')).toBeNull();
+  });
+
+  it('falls back to Firebase bearer auth when cookie verification keeps rejecting CSRF', async () => {
+    const deviceSessionToken = buildRuntimeValue('session-ref');
+    const challengeToken = buildRuntimeValue('challenge-ref');
+    const proofBase64 = buildRuntimeValue('sig-ref');
+    const publicKeySpkiBase64 = buildRuntimeValue('key-ref');
+    const staleToken = 'e'.repeat(64);
+    const freshToken = 'f'.repeat(64);
+    const firebaseUser = {
+      getIdToken: vi.fn().mockResolvedValue('fresh-token'),
+    };
+
+    mocks.getAuthHeaderMock
+      .mockResolvedValueOnce({ 'X-Session-Mode': 'cookie' })
+      .mockResolvedValueOnce({ 'X-Session-Mode': 'cookie' })
+      .mockResolvedValueOnce({ Authorization: 'Bearer fresh-token' });
+    mocks.ensureCsrfTokenMock
+      .mockResolvedValueOnce(staleToken)
+      .mockResolvedValueOnce(freshToken);
+    mocks.addCsrfTokenToHeadersMock
+      .mockReturnValueOnce({
+        'X-Session-Mode': 'cookie',
+        'X-CSRF-Token': staleToken,
+      })
+      .mockReturnValueOnce({
+        'X-Session-Mode': 'cookie',
+        'X-CSRF-Token': freshToken,
+      });
+
+    global.fetch
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({
+          code: 'CSRF_TOKEN_INVALID',
+          message: 'CSRF token is invalid or expired',
+        }), {
+          status: 403,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({
+          code: 'CSRF_TOKEN_INVALID',
+          message: 'CSRF token is invalid or expired',
+        }), {
+          status: 403,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ success: true, deviceSessionToken }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      );
+
+    await expect(authApi.verifyDeviceChallenge(
+      challengeToken,
+      {
+        method: 'browser_key',
+        proofBase64,
+        publicKeySpkiBase64,
+      },
+      '',
+      { firebaseUser, preferCookieSession: true }
+    )).resolves.toEqual({ success: true, deviceSessionToken });
+
+    expect(mocks.clearCsrfTokenCacheMock).toHaveBeenCalledTimes(1);
+    expect(mocks.ensureCsrfTokenMock).toHaveBeenNthCalledWith(2, {
+      authToken: '',
+      owner: 'cookie_session',
+      forceFresh: true,
+    });
+    expect(global.fetch).toHaveBeenCalledTimes(3);
+    const [, bearerOptions] = global.fetch.mock.calls[2];
+    expect(bearerOptions.headers.get('Authorization')).toBe('Bearer fresh-token');
+    expect(bearerOptions.headers.get('X-CSRF-Token')).toBeNull();
   });
 
   it('falls back to Firebase bearer auth when cookie verification hits a challenge binding mismatch', async () => {
@@ -393,7 +506,7 @@ describe('authApi', () => {
         publicKeySpkiBase64,
       },
       '',
-      { firebaseUser }
+      { firebaseUser, preferCookieSession: true }
     )).resolves.toEqual({ success: true, deviceSessionToken });
 
     expect(global.fetch).toHaveBeenCalledTimes(2);
