@@ -15,6 +15,34 @@ import {
 } from 'firebase/auth';
 
 const NATIVE_PROVIDER_KEYS = ['google', 'facebook', 'x'];
+const NATIVE_CONFIG_ERROR_PATTERNS = [
+  'default_web_client_id',
+  'will_be_overridden',
+  'google-services',
+  'google services',
+  'developer_error',
+  'api exception: 10',
+  'status{statuscode=developer_error',
+  'oauth client',
+  'client id',
+  'url scheme',
+  'facebook app id',
+  'twitter consumer',
+  'x consumer',
+];
+
+const parseBooleanEnv = (value, fallback = false) => {
+  if (typeof value !== 'string') return fallback;
+  const normalized = value.trim().toLowerCase();
+  if (['true', '1', 'yes', 'on'].includes(normalized)) return true;
+  if (['false', '0', 'no', 'off'].includes(normalized)) return false;
+  return fallback;
+};
+
+const nativeSocialAuthEnabled = parseBooleanEnv(
+  import.meta.env.VITE_MOBILE_NATIVE_SOCIAL_AUTH_ENABLED,
+  false
+);
 
 const normalizeProviderKey = (value = '') => {
   const normalized = String(value || '').trim().toLowerCase();
@@ -27,6 +55,18 @@ const buildProviderError = (message, code = 'auth/native-social-auth-unavailable
   return error;
 };
 
+const isNativeProviderConfigurationError = (error) => {
+  const raw = `${error?.code || ''} ${error?.message || error || ''}`.toLowerCase();
+  return NATIVE_CONFIG_ERROR_PATTERNS.some((pattern) => raw.includes(pattern));
+};
+
+const buildNativeProviderConfigurationError = (providerLabel = 'Social') => (
+  buildProviderError(
+    `${providerLabel} sign-in needs native mobile OAuth configuration before it can run in the installed app. Use email and OTP sign-in for now.`,
+    'auth/native-social-auth-configuration-missing'
+  )
+);
+
 const ensureNativeSocialAuthRuntime = (providerLabel = 'Social') => {
   assertFirebaseSocialAuthReady(`${providerLabel} sign-in`);
 
@@ -34,6 +74,10 @@ const ensureNativeSocialAuthRuntime = (providerLabel = 'Social') => {
     throw buildProviderError(
       `${providerLabel} sign-in is only available through the native mobile runtime here.`
     );
+  }
+
+  if (!nativeSocialAuthEnabled) {
+    throw buildNativeProviderConfigurationError(providerLabel);
   }
 
   if (!auth) {
@@ -135,13 +179,22 @@ const resolveFallbackProvider = (providerKey) => {
 };
 
 export const shouldUseNativeSocialAuth = (providerKey = '') => (
-  isCapacitorNativeRuntime() && Boolean(normalizeProviderKey(providerKey))
+  nativeSocialAuthEnabled && isCapacitorNativeRuntime() && Boolean(normalizeProviderKey(providerKey))
 );
 
 export const signInWithNativeSocialProvider = async (providerKey, providerLabel = 'Social') => {
   ensureNativeSocialAuthRuntime(providerLabel);
 
-  const nativeResult = await runNativeProviderSignIn(providerKey);
+  let nativeResult = null;
+  try {
+    nativeResult = await runNativeProviderSignIn(providerKey);
+  } catch (error) {
+    if (isNativeProviderConfigurationError(error)) {
+      throw buildNativeProviderConfigurationError(providerLabel);
+    }
+    throw error;
+  }
+
   const webCredential = buildWebCredential(providerKey, nativeResult?.credential || {});
   const webResult = await signInWithCredential(auth, webCredential);
 

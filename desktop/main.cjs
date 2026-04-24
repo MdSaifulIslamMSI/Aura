@@ -1,5 +1,5 @@
 const path = require('path');
-const { app, BrowserWindow, dialog, ipcMain, powerMonitor, screen, shell } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, powerMonitor, screen, session, shell } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const { startRuntimeServer } = require('./runtimeServer.cjs');
 
@@ -105,6 +105,20 @@ const AUTH_WINDOW_HOST_SUFFIXES = [
     '.web.app',
     '.x.com',
 ];
+const TRUSTED_PERMISSION_HOSTS = new Set([
+    'aura-gateway.vercel.app',
+    'aurapilot.netlify.app',
+    'aurapilot.vercel.app',
+    'localhost',
+    '127.0.0.1',
+    '::1',
+]);
+const DESKTOP_RUNTIME_PERMISSIONS = new Set([
+    'display-capture',
+    'fullscreen',
+    'media',
+    'notifications',
+]);
 
 const isInternalUrl = (candidate, runtimeUrl) => {
     try {
@@ -139,6 +153,61 @@ const isAuthWindowUrl = (candidate) => {
     } catch {
         return false;
     }
+};
+
+const isTrustedDesktopPermissionUrl = (candidate) => {
+    try {
+        const target = new URL(candidate);
+        const hostname = target.hostname.toLowerCase();
+
+        if (target.protocol === 'file:' || target.protocol === 'app:') {
+            return true;
+        }
+
+        if (LOOPBACK_HOSTS.has(hostname)) {
+            return true;
+        }
+
+        return target.protocol === 'https:' && TRUSTED_PERMISSION_HOSTS.has(hostname);
+    } catch {
+        return false;
+    }
+};
+
+const normalizeRuntimePermission = (permission) => {
+    const nextPermission = String(permission || '').trim();
+    if (nextPermission === 'audioCapture' || nextPermission === 'videoCapture') {
+        return 'media';
+    }
+    return nextPermission;
+};
+
+const canGrantDesktopRuntimePermission = (permission, requestUrl) => (
+    DESKTOP_RUNTIME_PERMISSIONS.has(normalizeRuntimePermission(permission))
+    && isTrustedDesktopPermissionUrl(requestUrl)
+);
+
+const installDesktopPermissionPolicy = () => {
+    const defaultSession = session.defaultSession;
+
+    defaultSession.setPermissionRequestHandler((webContents, permission, callback, details = {}) => {
+        const requestUrl = details.requestingUrl
+            || details.securityOrigin
+            || webContents?.getURL?.()
+            || runtime?.url
+            || '';
+        callback(canGrantDesktopRuntimePermission(permission, requestUrl));
+    });
+
+    defaultSession.setPermissionCheckHandler((webContents, permission, requestingOrigin, details = {}) => {
+        const requestUrl = requestingOrigin
+            || details.requestingUrl
+            || details.securityOrigin
+            || webContents?.getURL?.()
+            || runtime?.url
+            || '';
+        return canGrantDesktopRuntimePermission(permission, requestUrl);
+    });
 };
 
 const buildAuthWindowOptions = (parentWindow) => ({
@@ -201,6 +270,7 @@ const createMainWindow = async () => {
         autoHideMenuBar: true,
         icon: iconPath,
         webPreferences: {
+            backgroundThrottling: false,
             contextIsolation: true,
             nodeIntegration: false,
             preload: resolvePreloadPath(),
@@ -406,6 +476,7 @@ const stopRuntime = async () => {
 const bootstrap = async () => {
     app.setAppUserModelId(APP_ID);
     await app.whenReady();
+    installDesktopPermissionPolicy();
     await createMainWindow();
     startAutoUpdateChecks();
 

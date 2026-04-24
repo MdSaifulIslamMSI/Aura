@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { io } from 'socket.io-client';
 import { useAuth } from './AuthContext';
 import { isHostedFrontendRuntimeHost, resolveServiceOrigin } from '../services/runtimeApiConfig';
+import { addNativeAppResumeListener } from '../services/nativeAppExperience';
 
 const SocketContext = createContext(null);
 const SOCKET_RUNTIME_FLAG = String(import.meta.env.VITE_ENABLE_REALTIME_SOCKET || '').trim().toLowerCase();
@@ -111,6 +112,7 @@ export const SocketProvider = ({ children }) => {
         let handleReconnectFailed = () => {};
         let handleOnline = () => {};
         let handleVisibilityChange = () => {};
+        let removeNativeResumeListener = () => {};
 
         const shouldMaintainSocket = SOCKET_RUNTIME_ENABLED && !loading && Boolean(currentUser);
         if (!shouldMaintainSocket) {
@@ -261,7 +263,7 @@ export const SocketProvider = ({ children }) => {
 
                 handleVisibilityChange = () => {
                     if (document.visibilityState === 'visible') {
-                        void reconnectSocket();
+                        void reconnectSocket(true);
                     }
                 };
 
@@ -274,6 +276,9 @@ export const SocketProvider = ({ children }) => {
                 activeSocket.io?.on?.('reconnect_failed', handleReconnectFailed);
                 window.addEventListener('online', handleOnline);
                 document.addEventListener('visibilitychange', handleVisibilityChange);
+                removeNativeResumeListener = addNativeAppResumeListener(() => {
+                    void reconnectSocket(true);
+                });
 
                 activeSocket.connect();
 
@@ -295,6 +300,7 @@ export const SocketProvider = ({ children }) => {
             clearReconnectGraceTimer();
             window.removeEventListener('online', handleOnline);
             document.removeEventListener('visibilitychange', handleVisibilityChange);
+            removeNativeResumeListener();
 
             if (activeSocket) {
                 activeSocket.off('connect', handleConnect);

@@ -458,6 +458,8 @@ const LoginView = ({
                     <p className="text-[11px] uppercase tracking-[0.18em] font-bold text-amber-300">
                       {socialAuthStatus.runtimeBlocked
                         ? t('login.social.paused', {}, 'Social sign-in paused on this tab')
+                        : socialAuthStatus.disabledByMobileNativeConfig
+                          ? t('login.social.mobileConfigTitle', {}, 'Mobile social sign-in needs native config')
                         : t('login.social.disabledHost', {}, 'Social sign-in is disabled on this host')}
                     </p>
                     <p className="mt-1 text-xs text-slate-400">
@@ -466,6 +468,10 @@ const LoginView = ({
                           {t('login.social.runtimeBlockedPrefix', {}, 'Firebase rejected popup sign-in for')}{' '}
                           <span className="font-semibold text-slate-200">{socialAuthStatus.runtimeHost || t('login.social.thisDomain', {}, 'this domain')}</span>{' '}
                           {t('login.social.runtimeBlockedSuffix', {}, 'in this tab. Refresh after confirming the domain is authorized, or continue with email and OTP now.')}
+                        </>
+                      ) : socialAuthStatus.disabledByMobileNativeConfig ? (
+                        <>
+                          {t('login.social.mobileConfigBody', {}, 'The installed app is using the stable email and OTP lane until Android/iOS OAuth credentials are attached to the native build.')}
                         </>
                       ) : (
                         <>

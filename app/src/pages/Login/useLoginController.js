@@ -158,9 +158,12 @@ export const useLoginController = () => {
   );
   const hasLaunchDirective = Boolean(location.state?.authMode || launchPrefill.email || launchPrefill.phone);
   const socialAuthStatus = getFirebaseSocialAuthStatus();
+  const canUseMobileFirebasePhoneOtp = !socialAuthStatus.runtimeCapacitorMobile
+    || socialAuthStatus.mobileFirebasePhoneOtpEnabled;
   const canUseFirebasePhoneOtp = step !== 'reset-password'
     && socialAuthStatus.ready
-    && !firebasePhoneFallback?.disableFirebasePhoneOtp;
+    && !firebasePhoneFallback?.disableFirebasePhoneOtp
+    && canUseMobileFirebasePhoneOtp;
   const isEmailOtpStage = otpStage === OTP_STAGE.EMAIL;
   const isPhoneOtpStage = otpStage === OTP_STAGE.PHONE;
 
@@ -1108,6 +1111,8 @@ export const useLoginController = () => {
       label: t('login.signal.social', {}, 'Social access'),
       value: socialAuthStatus.supported
         ? t('login.signal.socialAvailable', {}, 'Google, Facebook, and X available')
+        : socialAuthStatus.disabledByMobileNativeConfig
+          ? t('login.signal.socialMobileConfig', {}, 'Email OTP active in app')
         : socialAuthStatus.runtimeBlocked
           ? t('login.signal.socialBlocked', {}, 'OTP-only until this tab is refreshed')
           : t('login.signal.socialHost', { host: socialAuthStatus.runtimeHost || t('login.signal.thisHost', {}, 'this host') }, 'OTP-only on {{host}}'),
@@ -1119,6 +1124,7 @@ export const useLoginController = () => {
     isEmailOtpStage,
     isPhoneOtpStage,
     mode,
+    socialAuthStatus.disabledByMobileNativeConfig,
     socialAuthStatus.runtimeBlocked,
     socialAuthStatus.runtimeHost,
     socialAuthStatus.supported,

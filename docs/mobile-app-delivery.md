@@ -10,10 +10,18 @@ Aura Marketplace now ships as Capacitor-based Android and iOS shells on top of t
 
 ## Native auth lane
 - Web and desktop continue to use the existing Firebase web auth flow.
-- Android and iPhone use the Capacitor Firebase Authentication bridge for native social sign-in.
+- Android and iPhone use the stable email/password plus backend OTP lane by default.
+- Native Google, Facebook, X, and Firebase phone-SMS OTP are opt-in for installed mobile builds through `VITE_MOBILE_NATIVE_SOCIAL_AUTH_ENABLED=true` and `VITE_MOBILE_FIREBASE_PHONE_OTP_ENABLED=true`.
 - Android includes Google and Facebook native provider dependencies whenever those providers are enabled, so the app does not crash while registering the native auth bridge.
 - Free GitHub-release Android builds include a public Firebase resource fallback from the existing web Firebase config. A real `google-services.json` still takes priority when the GitHub secret is configured.
+- The free fallback keeps the APK launch-safe, but it intentionally does not turn on native mobile social sign-in. Configure the real Firebase Android/iOS app files, OAuth client IDs, and provider credentials before enabling the native mobile social lane.
 - Trusted-device session tokens are persisted across native app restarts so privileged flows remain stable after relaunch.
+
+## Realtime, Calls, And Notifications
+- Android and iOS shells declare camera, microphone, audio-routing, vibration, and Android 13+ notification permissions so chat, support calls, marketplace calls, and foreground alerts have the native access they need.
+- The app warms microphone/camera permission from the user action that starts or answers a live call, then LiveKit publishes the actual call tracks. If the camera is unavailable, Aura keeps the audio lane alive where possible instead of crashing the call.
+- Socket realtime reconnects after native app resume, visibility changes, and network recovery so chats, incoming calls, and notifications recover after the phone is locked or the app is backgrounded.
+- Free GitHub APK/IPA distribution can surface in-app/foreground notifications. True background push to sleeping phones still requires FCM/APNs credentials and backend device-token endpoints; the CI/CD lane is ready to carry those secrets when configured.
 
 ## CI/CD rules
 - The production CI/CD workflow only triggers a mobile release after the main quality gates and production deploy jobs succeed.
@@ -37,7 +45,7 @@ Aura Marketplace now ships as Capacitor-based Android and iOS shells on top of t
   - `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64`
   - optional GitHub variable `ANDROID_PLAY_TRACK` defaults to `internal`
 - If the keystore secrets are missing, CI still produces a release build signed with the debug keystore for internal testing only.
-- If `FIREBASE_ANDROID_GOOGLE_SERVICES_JSON_BASE64` is missing, CI still builds a launch-safe APK using the public Firebase fallback values. Configure the secret plus `AURA_ANDROID_DEFAULT_WEB_CLIENT_ID` for production-grade native Google sign-in.
+- If `FIREBASE_ANDROID_GOOGLE_SERVICES_JSON_BASE64` is missing, CI still builds a launch-safe APK using the public Firebase fallback values. Configure the secret plus `AURA_ANDROID_DEFAULT_WEB_CLIENT_ID`, then set `VITE_MOBILE_NATIVE_SOCIAL_AUTH_ENABLED=true` only after the Firebase Android app package/SHA fingerprints and OAuth providers are ready.
 
 ## iOS artifacts
 - CI always targets a simulator build.
