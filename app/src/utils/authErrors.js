@@ -237,6 +237,13 @@ export const AUTH_ERRORS = {
         action: null,
         actionLabel: null
     },
+    'auth/native-social-auth-configuration-missing': {
+        title: 'Mobile Social Sign-In Not Ready',
+        detail: 'The installed app needs native Android/iOS OAuth credentials before Google, Facebook, or X can complete sign-in.',
+        hint: 'Use email and OTP sign-in in the app for now. Native social sign-in can be enabled after the Firebase mobile app config and provider credentials are attached to the release build.',
+        action: null,
+        actionLabel: null
+    },
     'auth/configuration-unavailable': {
         title: 'Authentication Not Configured',
         detail: 'Firebase authentication is not configured correctly for this deployment.',

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const nativeAuthMocks = vi.hoisted(() => ({
   signInWithGoogle: vi.fn(),
@@ -46,6 +46,22 @@ describe('nativeSocialAuth', () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
+    vi.stubEnv('VITE_MOBILE_NATIVE_SOCIAL_AUTH_ENABLED', 'true');
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('keeps native social auth disabled until the mobile OAuth lane is explicitly enabled', async () => {
+    vi.stubEnv('VITE_MOBILE_NATIVE_SOCIAL_AUTH_ENABLED', 'false');
+
+    const nativeRuntimeModule = await import('../utils/nativeRuntime');
+    vi.spyOn(nativeRuntimeModule, 'isCapacitorNativeRuntime').mockReturnValue(true);
+
+    const { shouldUseNativeSocialAuth } = await import('./nativeSocialAuth');
+
+    expect(shouldUseNativeSocialAuth('google')).toBe(false);
   });
 
   it('uses native Google sign-in inside Capacitor and exchanges the credential into Firebase JS auth', async () => {
@@ -90,6 +106,23 @@ describe('nativeSocialAuth', () => {
       additionalUserInfo: {
         isNewUser: false,
       },
+    });
+  });
+
+  it('maps missing native OAuth configuration to a clear mobile social auth error', async () => {
+    nativeAuthMocks.signInWithGoogle.mockRejectedValue(
+      new Error('ApiException: 10 default_web_client_id WILL_BE_OVERRIDDEN')
+    );
+
+    const nativeRuntimeModule = await import('../utils/nativeRuntime');
+    vi.spyOn(nativeRuntimeModule, 'isCapacitorNativeRuntime').mockReturnValue(true);
+    vi.spyOn(nativeRuntimeModule, 'getNativeMobilePlatform').mockReturnValue('android');
+
+    const { signInWithNativeSocialProvider } = await import('./nativeSocialAuth');
+
+    await expect(signInWithNativeSocialProvider('google', 'Google')).rejects.toMatchObject({
+      code: 'auth/native-social-auth-configuration-missing',
+      message: expect.stringContaining('native mobile OAuth configuration'),
     });
   });
 

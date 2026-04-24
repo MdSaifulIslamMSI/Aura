@@ -92,6 +92,10 @@
     "mac": {
       "category": "public.app-category.shopping",
       "icon": "app/public/assets/icon-512.png",
+      "extendInfo": {
+        "NSCameraUsageDescription": "Aura Marketplace uses the camera for live marketplace and support video calls.",
+        "NSMicrophoneUsageDescription": "Aura Marketplace uses the microphone for live marketplace and support voice or video calls."
+      },
       "target": [
         "dmg",
         "zip"

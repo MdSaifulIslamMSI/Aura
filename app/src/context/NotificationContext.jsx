@@ -6,6 +6,11 @@ import { useSocket } from './SocketContext';
 import { useAuth } from './AuthContext';
 import { useNotificationStore } from '../store/notificationStore';
 import { normalizeRuntimeTranslationText, requestRuntimeTranslations } from '../services/runtimeTranslation';
+import {
+    isInstalledAppRuntime,
+    requestUserNotificationPermission,
+    showSystemNotification,
+} from '../services/nativeAppExperience';
 import { useActiveWindowRefresh } from '../hooks/useActiveWindowRefresh';
 
 const DEFAULT_NOTIFICATION_CONTEXT = {
@@ -56,15 +61,35 @@ export function NotificationProvider({ children }) {
     );
 
     useEffect(() => {
+        if (!isAuthenticated || !isInstalledAppRuntime()) {
+            return;
+        }
+
+        void requestUserNotificationPermission();
+    }, [isAuthenticated]);
+
+    useEffect(() => {
         if (!socket || !isAuthenticated) return undefined;
 
         const handleNewNotification = (notification) => {
             prependNotification(notification);
             const title = notification?.title || t('notifications.new', {}, 'New notification');
             const description = notification?.message || '';
+            const tag = String(notification?._id || notification?.id || notification?.createdAt || 'aura-notification');
+
+            const surfaceNotification = (resolvedTitle, resolvedDescription) => {
+                toast(resolvedTitle, { description: resolvedDescription, duration: 5000 });
+                void showSystemNotification({
+                    title: resolvedTitle,
+                    body: resolvedDescription,
+                    tag: `aura-notification-${tag}`,
+                    data: notification,
+                    requireBackground: true,
+                });
+            };
 
             if (language === 'en') {
-                toast(title, { description, duration: 5000 });
+                surfaceNotification(title, description);
                 return;
             }
 
@@ -74,12 +99,9 @@ export function NotificationProvider({ children }) {
             }).then((translations) => {
                 const translatedTitle = translations[normalizeRuntimeTranslationText(title)] || title;
                 const translatedDescription = translations[normalizeRuntimeTranslationText(description)] || description;
-                toast(translatedTitle, {
-                    description: translatedDescription,
-                    duration: 5000,
-                });
+                surfaceNotification(translatedTitle, translatedDescription);
             }).catch(() => {
-                toast(title, { description, duration: 5000 });
+                surfaceNotification(title, description);
             });
         };
 

@@ -94,6 +94,8 @@ const setFirebaseEnv = (suffix = '') => {
   vi.stubEnv('VITE_FIREBASE_DISABLE_SOCIAL_AUTH', 'false');
   vi.stubEnv('VITE_FIREBASE_DESKTOP_REDIRECT_SOCIAL_AUTH', '');
   vi.stubEnv('VITE_FIREBASE_FORCE_REDIRECT_SOCIAL_AUTH', 'false');
+  vi.stubEnv('VITE_MOBILE_NATIVE_SOCIAL_AUTH_ENABLED', 'false');
+  vi.stubEnv('VITE_MOBILE_FIREBASE_PHONE_OTP_ENABLED', 'false');
 };
 
 const loadFirebaseModule = async ({ hostname, host = hostname }) => {
@@ -252,7 +254,7 @@ describe('firebase social auth host policy', () => {
     });
   });
 
-  it('prefers redirect-first social auth inside a Capacitor native runtime', async () => {
+  it('keeps installed mobile social auth gated until native OAuth config is enabled', async () => {
     vi.resetModules();
     setFirebaseEnv();
     window.sessionStorage.clear();
@@ -269,10 +271,45 @@ describe('firebase social auth host policy', () => {
     const firebase = await import('./firebase');
 
     expect(firebase.shouldPreferFirebaseRedirectAuth()).toBe(true);
+    expect(firebase.isFirebaseSocialAuthAvailable()).toBe(false);
+    expect(() => firebase.assertFirebaseSocialAuthReady('Google sign-in')).toThrow(
+      /native mobile OAuth configuration/
+    );
     expect(firebase.getFirebaseSocialAuthStatus()).toMatchObject({
       runtimeHost: 'aurapilot.vercel.app',
       runtimeCapacitorMobile: true,
       redirectPreferred: true,
+      supported: false,
+      disabledByMobileNativeConfig: true,
+      mobileFirebasePhoneOtpEnabled: false,
+    });
+  });
+
+  it('enables installed mobile social auth only when the native OAuth lane is explicitly configured', async () => {
+    vi.resetModules();
+    setFirebaseEnv();
+    vi.stubEnv('VITE_MOBILE_NATIVE_SOCIAL_AUTH_ENABLED', 'true');
+    vi.stubEnv('VITE_MOBILE_FIREBASE_PHONE_OTP_ENABLED', 'true');
+    window.sessionStorage.clear();
+    setRuntimeHost({
+      hostname: 'aurapilot.vercel.app',
+      host: 'aurapilot.vercel.app',
+    });
+    setDisplayModes([]);
+    setCapacitorBridge({
+      isNativePlatform: () => true,
+      getPlatform: () => 'android',
+    });
+
+    const firebase = await import('./firebase');
+
+    expect(firebase.shouldPreferFirebaseRedirectAuth()).toBe(true);
+    expect(firebase.isFirebaseSocialAuthAvailable()).toBe(true);
+    expect(firebase.getFirebaseSocialAuthStatus()).toMatchObject({
+      runtimeHost: 'aurapilot.vercel.app',
+      runtimeCapacitorMobile: true,
+      mobileNativeSocialAuthEnabled: true,
+      mobileFirebasePhoneOtpEnabled: true,
       supported: true,
     });
   });

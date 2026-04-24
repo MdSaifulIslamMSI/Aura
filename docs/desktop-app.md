@@ -75,6 +75,13 @@ The workflow at `.github/workflows/desktop-release.yml` builds all desktop targe
 - Updates download automatically; when ready, users can restart immediately or install on next quit.
 - Free production release publishing allows unsigned Windows builds. CI and deploy gates still have to pass before the latest release channel moves, but unsigned Windows installers can show Microsoft Defender SmartScreen warnings.
 
+## Realtime, Calls, And Notifications
+
+- The Electron shell grants camera, microphone, desktop notification, fullscreen, and screen-share permissions only to the trusted Aura runtime origins.
+- Desktop windows run with background throttling disabled so active calls and socket heartbeats are not aggressively paused when the app is behind another window.
+- macOS builds include camera and microphone usage descriptions for system privacy prompts.
+- Foreground chat/call/notification delivery uses the same socket and LiveKit lanes as the web app. Desktop system notifications are shown through the Electron runtime when the OS allows notifications.
+
 Manual release with a specific version:
 
 - Open the `Desktop Release` GitHub Actions workflow.

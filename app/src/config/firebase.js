@@ -137,6 +137,14 @@ const runtimeHost = typeof window !== 'undefined'
 const disableSocialAuth = parseBooleanEnv(import.meta.env.VITE_FIREBASE_DISABLE_SOCIAL_AUTH, false);
 const enableFirebaseAnalytics = parseBooleanEnv(import.meta.env.VITE_FIREBASE_ANALYTICS_ENABLED, false);
 const forceRedirectSocialAuth = parseBooleanEnv(import.meta.env.VITE_FIREBASE_FORCE_REDIRECT_SOCIAL_AUTH, false);
+const enableMobileNativeSocialAuth = parseBooleanEnv(
+    import.meta.env.VITE_MOBILE_NATIVE_SOCIAL_AUTH_ENABLED,
+    false
+);
+const enableMobileFirebasePhoneOtp = parseBooleanEnv(
+    import.meta.env.VITE_MOBILE_FIREBASE_PHONE_OTP_ENABLED,
+    false
+);
 const isDeploymentHost = typeof runtimeHost === 'string' && isHostedDeploymentHost(runtimeHost);
 const isRuntimeIpHost = isIpLiteralHost(runtimeHost);
 const isRuntimeStandaloneApp = isStandaloneSocialAuthRuntime();
@@ -235,6 +243,7 @@ export const isFirebaseReady = Boolean(app && auth);
 export const isFirebaseSocialAuthAvailable = () => Boolean(
     isFirebaseReady
     && (!disableSocialAuth || isDeploymentHost)
+    && (!isRuntimeCapacitorMobile || enableMobileNativeSocialAuth)
 );
 export const getFirebaseSocialAuthStatus = () => ({
     ready: isFirebaseReady,
@@ -246,6 +255,10 @@ export const getFirebaseSocialAuthStatus = () => ({
     runtimeStandaloneApp: isRuntimeStandaloneApp,
     runtimeElectronDesktop: isRuntimeElectronDesktop,
     runtimeCapacitorMobile: isRuntimeCapacitorMobile,
+    mobileNativeSocialAuthEnabled: enableMobileNativeSocialAuth,
+    mobileFirebasePhoneOtpEnabled: enableMobileFirebasePhoneOtp,
+    disabledByMobileNativeConfig: isRuntimeCapacitorMobile && !enableMobileNativeSocialAuth,
+    mobilePhoneOtpDisabled: isRuntimeCapacitorMobile && !enableMobileFirebasePhoneOtp,
     disabledByConfig: disableSocialAuth && !isDeploymentHost,
     initErrorCode: firebaseInitError?.code || '',
     initErrorMessage: firebaseInitError?.message || '',
@@ -266,6 +279,15 @@ export const assertFirebaseReady = (feature = 'Firebase authentication') => {
 
 export const assertFirebaseSocialAuthReady = (feature = 'Social sign-in') => {
     assertFirebaseReady(feature);
+
+    if (isRuntimeCapacitorMobile && !enableMobileNativeSocialAuth) {
+        const error = buildFirebaseConfigError(
+            `${feature} needs native mobile OAuth configuration before it can run in the installed app.`
+        );
+        error.code = 'auth/native-social-auth-configuration-missing';
+        error.host = runtimeHost;
+        throw error;
+    }
 
     if (isFirebaseSocialAuthAvailable()) return;
 

@@ -44,6 +44,16 @@ describe('resolveAuthError', () => {
         expect(resolved.detail).toContain('did not return an email address');
     });
 
+    it('explains native mobile OAuth configuration gaps without blaming the password', () => {
+        const resolved = resolveAuthError({
+            code: 'auth/native-social-auth-configuration-missing',
+            provider: 'Google',
+        });
+
+        expect(resolved.title).toBe('Mobile Social Sign-In Not Ready');
+        expect(resolved.hint).toContain('Use email and OTP sign-in');
+    });
+
     it('recognizes backend email-missing failures during social session bootstrap', () => {
         const resolved = resolveAuthError({
             provider: 'twitter.com',

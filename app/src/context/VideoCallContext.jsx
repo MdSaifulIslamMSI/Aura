@@ -5,6 +5,11 @@ import { useSocketDemand } from './SocketContext';
 import VideoCallOverlay from '../components/features/video/VideoCallOverlay';
 import { listingApi, supportApi } from '../services/api';
 import {
+    addNativeAppResumeListener,
+    requestCallMediaReadiness,
+    showSystemNotification,
+} from '../services/nativeAppExperience';
+import {
     getIncomingCallDisposition,
     getUnexpectedLiveKitDisconnectReason,
     normalizeLiveCallMediaMode,
@@ -405,6 +410,23 @@ export const VideoCallProvider = ({ children }) => {
         return () => navigator.mediaDevices.removeEventListener('devicechange', handleDeviceChange);
     }, [callStatus, refreshVideoInputDevices]);
 
+    useEffect(() => {
+        if (callStatus === 'idle') {
+            return undefined;
+        }
+
+        return addNativeAppResumeListener(() => {
+            const room = supportRoomRef.current;
+            if (!room) {
+                return;
+            }
+
+            void loadLiveKitModule()
+                .then(({ Track }) => syncSupportRoomState(room, Track))
+                .catch(() => refreshVideoInputDevices());
+        });
+    }, [callStatus, refreshVideoInputDevices]);
+
     const reportCallError = (message) => {
         const nextMessage = formatLiveCallErrorMessage(message, 'Live call failed');
         setCallError(nextMessage);
@@ -642,8 +664,16 @@ export const VideoCallProvider = ({ children }) => {
     const connectSupportRoom = async ({ session, nextContext, status = 'calling' }) => {
         const liveKitApi = await loadLiveKitModule();
         const { Room, RoomEvent, Track } = liveKitApi;
-        const room = new Room();
         const mediaMode = normalizeLiveCallMediaMode(session?.mediaMode || nextContext?.mediaMode);
+        const mediaReadiness = await requestCallMediaReadiness({ video: mediaMode === 'video' });
+        if (!mediaReadiness.ok) {
+            throw new Error(mediaReadiness.message);
+        }
+        if (mediaReadiness.warning) {
+            toast.warning(mediaReadiness.warning);
+        }
+
+        const room = new Room();
         supportRoomRef.current = room;
         supportSessionRef.current = session;
         supportMarkedConnectedRef.current = false;
@@ -1083,6 +1113,16 @@ export const VideoCallProvider = ({ children }) => {
             callContextRef.current = nextContext;
             setCallStatus('incoming');
             setCallError('');
+            void showSystemNotification({
+                title: payload.fromName
+                    ? `${payload.fromName} is calling on Aura`
+                    : 'Incoming Aura live call',
+                body: nextContext.contextLabel
+                    ? `Live ${nextContext.mediaMode} call for ${nextContext.contextLabel}`
+                    : `Live ${nextContext.mediaMode} call waiting`,
+                tag: `aura-live-call-${nextContext.channelType}-${nextContext.contextId}`,
+                data: nextContext,
+            });
         };
 
         const handleSupportTerminated = (payload = {}) => {

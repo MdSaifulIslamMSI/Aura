@@ -24,6 +24,10 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Aura Marketplace uses the camera for live marketplace and support video calls.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Aura Marketplace uses the microphone for live marketplace and support voice or video calls.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
