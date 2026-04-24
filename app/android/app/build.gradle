@@ -24,6 +24,13 @@ def releaseKeyPassword = resolveStringEnv('AURA_ANDROID_RELEASE_KEY_PASSWORD')
 def hasReleaseKeystore = releaseKeystorePath && releaseKeystorePassword && releaseKeyAlias && releaseKeyPassword
 def releaseVersionCode = resolveIntEnv('AURA_ANDROID_VERSION_CODE', 1)
 def releaseVersionName = resolveStringEnv('AURA_ANDROID_VERSION_NAME', '1.0')
+def hasGoogleServicesJson = file('google-services.json').exists()
+def firebaseGoogleAppId = resolveStringEnv('AURA_ANDROID_GOOGLE_APP_ID', '1:32774635133:web:e9b7a433e45debcee07b14')
+def firebaseApiKey = resolveStringEnv('AURA_ANDROID_FIREBASE_API_KEY', 'AIzaSyAh5b7UdYSUiQO_4BUSOB0XAarAg82w8CM')
+def firebaseProjectId = resolveStringEnv('AURA_ANDROID_FIREBASE_PROJECT_ID', 'billy-b674c')
+def firebaseStorageBucket = resolveStringEnv('AURA_ANDROID_FIREBASE_STORAGE_BUCKET', 'billy-b674c.firebasestorage.app')
+def firebaseSenderId = resolveStringEnv('AURA_ANDROID_FIREBASE_MESSAGING_SENDER_ID', '32774635133')
+def androidDefaultWebClientId = resolveStringEnv('AURA_ANDROID_DEFAULT_WEB_CLIENT_ID')
 
 android {
     namespace = "com.aura.marketplace.mobile"
@@ -45,6 +52,18 @@ android {
         versionCode releaseVersionCode
         versionName releaseVersionName
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        if (!hasGoogleServicesJson) {
+            // Keep native FirebaseAuth from crashing in free GitHub-release builds
+            // where google-services.json is not present yet.
+            resValue "string", "google_app_id", firebaseGoogleAppId
+            resValue "string", "google_api_key", firebaseApiKey
+            resValue "string", "project_id", firebaseProjectId
+            resValue "string", "google_storage_bucket", firebaseStorageBucket
+            resValue "string", "gcm_defaultSenderId", firebaseSenderId
+            if (androidDefaultWebClientId) {
+                resValue "string", "default_web_client_id", androidDefaultWebClientId
+            }
+        }
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
              // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
@@ -82,7 +101,7 @@ apply from: 'capacitor.build.gradle'
 
 try {
     def servicesJSON = file('google-services.json')
-    if (servicesJSON.text) {
+    if (servicesJSON.exists() && servicesJSON.text) {
         apply plugin: 'com.google.gms.google-services'
     }
 } catch(Exception e) {

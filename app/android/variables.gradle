@@ -3,6 +3,7 @@ ext {
     compileSdkVersion = 36
     targetSdkVersion = 36
     rgcfaIncludeGoogle = true
+    rgcfaIncludeFacebook = true
     androidxActivityVersion = '1.11.0'
     androidxAppCompatVersion = '1.7.1'
     androidxCoordinatorLayoutVersion = '1.3.0'
