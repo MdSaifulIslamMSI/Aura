@@ -11,6 +11,8 @@ Aura Marketplace now ships as Capacitor-based Android and iOS shells on top of t
 ## Native auth lane
 - Web and desktop continue to use the existing Firebase web auth flow.
 - Android and iPhone use the Capacitor Firebase Authentication bridge for native social sign-in.
+- Android includes Google and Facebook native provider dependencies whenever those providers are enabled, so the app does not crash while registering the native auth bridge.
+- Free GitHub-release Android builds include a public Firebase resource fallback from the existing web Firebase config. A real `google-services.json` still takes priority when the GitHub secret is configured.
 - Trusted-device session tokens are persisted across native app restarts so privileged flows remain stable after relaunch.
 
 ## CI/CD rules
@@ -35,6 +37,7 @@ Aura Marketplace now ships as Capacitor-based Android and iOS shells on top of t
   - `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64`
   - optional GitHub variable `ANDROID_PLAY_TRACK` defaults to `internal`
 - If the keystore secrets are missing, CI still produces a release build signed with the debug keystore for internal testing only.
+- If `FIREBASE_ANDROID_GOOGLE_SERVICES_JSON_BASE64` is missing, CI still builds a launch-safe APK using the public Firebase fallback values. Configure the secret plus `AURA_ANDROID_DEFAULT_WEB_CLIENT_ID` for production-grade native Google sign-in.
 
 ## iOS artifacts
 - CI always targets a simulator build.

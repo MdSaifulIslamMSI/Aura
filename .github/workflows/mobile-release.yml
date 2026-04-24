@@ -72,6 +72,7 @@ jobs:
         id: flags
         env:
           FIREBASE_ANDROID_GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.FIREBASE_ANDROID_GOOGLE_SERVICES_JSON_BASE64 }}
+          AURA_ANDROID_DEFAULT_WEB_CLIENT_ID: ${{ secrets.AURA_ANDROID_DEFAULT_WEB_CLIENT_ID }}
           ANDROID_RELEASE_KEYSTORE_BASE64: ${{ secrets.ANDROID_RELEASE_KEYSTORE_BASE64 }}
           ANDROID_RELEASE_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_RELEASE_KEYSTORE_PASSWORD }}
           ANDROID_RELEASE_KEY_ALIAS: ${{ secrets.ANDROID_RELEASE_KEY_ALIAS }}
@@ -100,6 +101,10 @@ jobs:
             has_android_config=true
           else
             echo "::warning::FIREBASE_ANDROID_GOOGLE_SERVICES_JSON_BASE64 is missing. Android artifacts will still build, but native Firebase social sign-in may be limited until this secret is configured."
+          fi
+
+          if [ -z "${AURA_ANDROID_DEFAULT_WEB_CLIENT_ID}" ]; then
+            echo "::notice::AURA_ANDROID_DEFAULT_WEB_CLIENT_ID is missing. Android will launch safely, but native Google sign-in needs this or a full google-services.json."
           fi
 
           if [ -n "${ANDROID_RELEASE_KEYSTORE_BASE64}" ] \
@@ -207,6 +212,7 @@ jobs:
         env:
           AURA_ANDROID_VERSION_CODE: ${{ needs.prepare.outputs.build_number }}
           AURA_ANDROID_VERSION_NAME: ${{ needs.prepare.outputs.version }}
+          AURA_ANDROID_DEFAULT_WEB_CLIENT_ID: ${{ secrets.AURA_ANDROID_DEFAULT_WEB_CLIENT_ID }}
           AURA_ANDROID_RELEASE_KEYSTORE_PATH: ${{ runner.temp }}/aura-android-release.keystore
           AURA_ANDROID_RELEASE_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_RELEASE_KEYSTORE_PASSWORD }}
           AURA_ANDROID_RELEASE_KEY_ALIAS: ${{ secrets.ANDROID_RELEASE_KEY_ALIAS }}
