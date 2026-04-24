@@ -225,6 +225,7 @@ jobs:
       - deploy-backend
       - deploy-frontend
       - deploy-gateway
+      - release-desktop
     if: |
       always() &&
       (
@@ -234,7 +235,8 @@ jobs:
       needs.ci.result == 'success' &&
       (needs.deploy-backend.result == 'success' || needs.deploy-backend.result == 'skipped') &&
       (needs.deploy-frontend.result == 'success' || needs.deploy-frontend.result == 'skipped') &&
-      (needs.deploy-gateway.result == 'success' || needs.deploy-gateway.result == 'skipped')
+      (needs.deploy-gateway.result == 'success' || needs.deploy-gateway.result == 'skipped') &&
+      (needs.release-desktop.result == 'success' || needs.release-desktop.result == 'skipped')
     uses: ./.github/workflows/mobile-release.yml
     with:
       version: ${{ github.event_name == 'workflow_dispatch' && inputs.mobile_version || '' }}

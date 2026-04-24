@@ -113,7 +113,7 @@ jobs:
             && [ -n "${ANDROID_RELEASE_KEY_PASSWORD}" ]; then
             can_sign_android=true
           else
-            echo "::warning::Android signing secrets are incomplete. Android release builds will fall back to the debug keystore."
+            echo "::warning::Android signing secrets are incomplete. GitHub APKs will use the repo public internal update key for install continuity, not production store trust."
           fi
 
           if [ -n "${FIREBASE_IOS_GOOGLE_SERVICE_INFO_PLIST_BASE64}" ]; then
@@ -197,12 +197,30 @@ jobs:
           fi
 
       - name: Materialize Android signing keystore
-        if: needs.preflight.outputs.can_sign_android == 'true'
         env:
           ANDROID_RELEASE_KEYSTORE_BASE64: ${{ secrets.ANDROID_RELEASE_KEYSTORE_BASE64 }}
+          ANDROID_RELEASE_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_RELEASE_KEYSTORE_PASSWORD }}
+          ANDROID_RELEASE_KEY_ALIAS: ${{ secrets.ANDROID_RELEASE_KEY_ALIAS }}
+          ANDROID_RELEASE_KEY_PASSWORD: ${{ secrets.ANDROID_RELEASE_KEY_PASSWORD }}
+          CAN_SIGN_ANDROID: ${{ needs.preflight.outputs.can_sign_android }}
         run: |
           set -euo pipefail
-          printf '%s' "${ANDROID_RELEASE_KEYSTORE_BASE64}" | base64 --decode > "${RUNNER_TEMP}/aura-android-release.keystore"
+          KEYSTORE_PATH="${RUNNER_TEMP}/aura-android-release.keystore"
+
+          if [ "${CAN_SIGN_ANDROID}" = "true" ]; then
+            printf '%s' "${ANDROID_RELEASE_KEYSTORE_BASE64}" | base64 --decode > "${KEYSTORE_PATH}"
+            echo "AURA_ANDROID_RELEASE_KEYSTORE_PASSWORD=${ANDROID_RELEASE_KEYSTORE_PASSWORD}" >> "$GITHUB_ENV"
+            echo "AURA_ANDROID_RELEASE_KEY_ALIAS=${ANDROID_RELEASE_KEY_ALIAS}" >> "$GITHUB_ENV"
+            echo "AURA_ANDROID_RELEASE_KEY_PASSWORD=${ANDROID_RELEASE_KEY_PASSWORD}" >> "$GITHUB_ENV"
+          else
+            base64 --decode app/android/ci/aura-public-internal-update-keystore.base64 > "${KEYSTORE_PATH}"
+            echo "::notice::Using the repo public internal Android update key. This keeps free GitHub APK updates installable but is not production store signing."
+            echo "AURA_ANDROID_RELEASE_KEYSTORE_PASSWORD=aura-public-update" >> "$GITHUB_ENV"
+            echo "AURA_ANDROID_RELEASE_KEY_ALIAS=aura-public-update" >> "$GITHUB_ENV"
+            echo "AURA_ANDROID_RELEASE_KEY_PASSWORD=aura-public-update" >> "$GITHUB_ENV"
+          fi
+
+          echo "AURA_ANDROID_RELEASE_KEYSTORE_PATH=${KEYSTORE_PATH}" >> "$GITHUB_ENV"
 
       - name: Sync Capacitor Android shell
         run: npm --prefix app run mobile:sync:android
@@ -213,10 +231,6 @@ jobs:
           AURA_ANDROID_VERSION_CODE: ${{ needs.prepare.outputs.build_number }}
           AURA_ANDROID_VERSION_NAME: ${{ needs.prepare.outputs.version }}
           AURA_ANDROID_DEFAULT_WEB_CLIENT_ID: ${{ secrets.AURA_ANDROID_DEFAULT_WEB_CLIENT_ID }}
-          AURA_ANDROID_RELEASE_KEYSTORE_PATH: ${{ runner.temp }}/aura-android-release.keystore
-          AURA_ANDROID_RELEASE_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_RELEASE_KEYSTORE_PASSWORD }}
-          AURA_ANDROID_RELEASE_KEY_ALIAS: ${{ secrets.ANDROID_RELEASE_KEY_ALIAS }}
-          AURA_ANDROID_RELEASE_KEY_PASSWORD: ${{ secrets.ANDROID_RELEASE_KEY_PASSWORD }}
         run: |
           set -euo pipefail
           chmod +x ./gradlew
@@ -584,7 +598,7 @@ jobs:
             if [ "${CAN_SIGN_ANDROID}" = "true" ]; then
               echo "- Android artifacts were built with the configured release keystore."
             else
-              echo "- Android artifacts were built without the production keystore, so they are signed with the debug keystore for internal distribution only."
+              echo "- Android artifacts were signed with Aura's public internal GitHub update key. This keeps free APK updates installable across releases, but production store distribution still needs a private release keystore."
             fi
 
             if [ "${IOS_BUILD_RESULT}" = "success" ] && [ "${CAN_SIGN_IOS}" = "true" ]; then

@@ -329,13 +329,46 @@ jobs:
           } > release-notes.md
 
       - name: Publish GitHub desktop release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ needs.prepare.outputs.tag_name }}
-          name: Aura Marketplace Desktop ${{ needs.prepare.outputs.version }}
-          make_latest: true
-          draft: false
-          prerelease: false
-          fail_on_unmatched_files: true
-          body_path: release-notes.md
-          files: release-artifacts/*
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: ${{ needs.prepare.outputs.tag_name }}
+          RELEASE_NAME: Aura Marketplace Desktop ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+
+          artifacts=(release-artifacts/*)
+          if [ "${#artifacts[@]}" -eq 0 ]; then
+            echo "No desktop release artifacts found." >&2
+            exit 1
+          fi
+
+          publish_once() {
+            if gh release view "${TAG_NAME}" >/dev/null 2>&1; then
+              gh release edit "${TAG_NAME}" \
+                --title "${RELEASE_NAME}" \
+                --notes-file release-notes.md \
+                --latest
+              gh release upload "${TAG_NAME}" "${artifacts[@]}" --clobber
+              return
+            fi
+
+            gh release create "${TAG_NAME}" "${artifacts[@]}" \
+              --title "${RELEASE_NAME}" \
+              --notes-file release-notes.md \
+              --latest
+          }
+
+          for attempt in 1 2 3 4; do
+            if publish_once; then
+              exit 0
+            fi
+
+            sleep_seconds=$((attempt * 25))
+            echo "Desktop release upload failed on attempt ${attempt}; retrying in ${sleep_seconds}s..." >&2
+            sleep "${sleep_seconds}"
+          done
+
+          echo "Desktop release upload failed after all retry attempts." >&2
+          exit 1
