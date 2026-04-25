@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useMemo } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import { BrowserRouter as Router, Route, Routes, useLocation } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { AuthProvider } from './context/AuthContext';
@@ -22,11 +22,13 @@ import BackendStatusBanner from './components/shared/BackendStatusBanner';
 import DesktopUpdateBanner from './components/shared/DesktopUpdateBanner';
 import DesktopWelcomePanel from './components/shared/DesktopWelcomePanel';
 import MobileUpdateBanner from './components/shared/MobileUpdateBanner';
+import MobileNativeTabBar from './components/shared/MobileNativeTabBar';
 import GlobalSupportLauncher from './components/shared/GlobalSupportLauncher';
 import AuraTrustedDeviceChallenge from './components/features/auth/AuraTrustedDeviceChallenge';
 import { trustRoutes } from './config/trustContent';
 import { FRONTEND_LAUNCH_HUB_PATH } from './config/frontendTargets';
 import { assertRouteA11yContracts } from './utils/a11yContracts';
+import { getNativeMobilePlatform, isCapacitorNativeRuntime } from './utils/nativeRuntime';
 import { lazyWithRetry } from './utils/lazyWithRetry';
 import { MultimodalAssistantProvider } from './context/MultimodalAssistantContext';
 import {
@@ -88,6 +90,7 @@ function renderCriticalRoute(element) {
 function AppContent() {
   const location = useLocation();
   const { effectiveMotionMode } = useMotionMode();
+  const [isNativeMobile, setIsNativeMobile] = useState(() => isCapacitorNativeRuntime());
   const pathname = location.pathname;
   const routeRenderKey = `${location.pathname}${location.search}${location.hash}`;
   const showSiteChrome = useMemo(
@@ -111,6 +114,31 @@ function AppContent() {
 
 
   useEffect(() => {
+    if (typeof document === 'undefined') {
+      return undefined;
+    }
+
+    const nativeMobile = isCapacitorNativeRuntime();
+    const platform = getNativeMobilePlatform();
+    const root = document.documentElement;
+
+    setIsNativeMobile(nativeMobile);
+
+    if (nativeMobile) {
+      root.dataset.auraRuntime = 'mobile-native';
+      root.dataset.auraMobilePlatform = platform || 'mobile';
+    } else {
+      delete root.dataset.auraRuntime;
+      delete root.dataset.auraMobilePlatform;
+    }
+
+    return () => {
+      delete root.dataset.auraRuntime;
+      delete root.dataset.auraMobilePlatform;
+    };
+  }, []);
+
+  useEffect(() => {
     if (!import.meta.env.DEV || typeof window === 'undefined') {
       return undefined;
     }
@@ -125,7 +153,12 @@ function AppContent() {
   }, [pathname]);
 
   return (
-    <div className="aura-app-shell flex min-h-screen min-w-0 flex-col overflow-x-hidden">
+    <div
+      className={[
+        'aura-app-shell flex min-h-screen min-w-0 flex-col overflow-x-hidden',
+        isNativeMobile ? 'aura-native-mobile-shell' : '',
+      ].filter(Boolean).join(' ')}
+    >
       {/* Skip-to-main-content — first focusable element for keyboard/screen-reader users.
           Hidden by default, revealed on focus via sr-only + focus:not-sr-only pattern. */}
       <a
@@ -227,14 +260,21 @@ function AppContent() {
           <AppErrorBoundary>
             <AuraTrustedDeviceChallenge />
           </AppErrorBoundary>
-          <AppErrorBoundary>
-            <Footer />
-          </AppErrorBoundary>
+          {!isNativeMobile ? (
+            <AppErrorBoundary>
+              <Footer />
+            </AppErrorBoundary>
+          ) : null}
         </>
+      ) : null}
+      {showSiteChrome ? (
+        <AppErrorBoundary>
+          <MobileNativeTabBar />
+        </AppErrorBoundary>
       ) : null}
       <Toaster
         richColors
-        position="top-right"
+        position={isNativeMobile ? 'top-center' : 'top-right'}
         toastOptions={{
           className: 'border border-white/10 bg-zinc-900 text-slate-100',
         }}

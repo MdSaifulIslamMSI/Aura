@@ -83,7 +83,7 @@ const MobileUpdateBanner = () => {
 
   if (state.status === 'error') {
     return (
-      <div className="fixed bottom-5 left-5 z-[9998] w-[min(25rem,calc(100vw-1.5rem))] overflow-hidden rounded-[1.65rem] border border-amber-300/25 bg-slate-950/92 p-4 text-white shadow-[0_24px_90px_rgba(2,8,23,0.45)] backdrop-blur-2xl">
+      <div className="aura-mobile-update-banner fixed bottom-5 left-5 z-[9998] w-[min(25rem,calc(100vw-1.5rem))] overflow-hidden rounded-[1.65rem] border border-amber-300/25 bg-slate-950/92 p-4 text-white shadow-[0_24px_90px_rgba(2,8,23,0.45)] backdrop-blur-2xl">
         <div className="flex items-start gap-4">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-amber-300/25 bg-amber-300/10 text-amber-100">
             <RefreshCw className="h-5 w-5" />
@@ -124,7 +124,7 @@ const MobileUpdateBanner = () => {
     : `Download ${platformName} update`;
 
   return (
-    <div className="fixed bottom-5 left-5 z-[9998] w-[min(27rem,calc(100vw-1.5rem))] overflow-hidden rounded-[1.75rem] border border-emerald-300/20 bg-slate-950/92 p-4 text-white shadow-[0_24px_90px_rgba(2,8,23,0.45)] backdrop-blur-2xl">
+    <div className="aura-mobile-update-banner fixed bottom-5 left-5 z-[9998] w-[min(27rem,calc(100vw-1.5rem))] overflow-hidden rounded-[1.75rem] border border-emerald-300/20 bg-slate-950/92 p-4 text-white shadow-[0_24px_90px_rgba(2,8,23,0.45)] backdrop-blur-2xl">
       <div className="absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-emerald-200/80 to-transparent" />
       <div className="flex items-start gap-4">
         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-emerald-300/25 bg-emerald-300/10 text-emerald-100">
