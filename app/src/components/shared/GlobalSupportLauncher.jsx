@@ -84,7 +84,7 @@ const GlobalSupportLauncher = () => {
                 <button
                     type="button"
                     onClick={handleOpenSupport}
-                    className="fixed bottom-[calc(5.9rem+env(safe-area-inset-bottom))] right-4 z-[70] flex h-14 w-14 items-center justify-center rounded-full border border-amber-300/25 bg-[linear-gradient(140deg,rgba(7,12,24,0.96),rgba(15,23,42,0.94))] text-amber-100 shadow-[0_22px_58px_rgba(2,8,23,0.48)] backdrop-blur-xl transition-transform duration-200 hover:-translate-y-1 sm:hidden"
+                    className="aura-support-launcher fixed bottom-[calc(5.9rem+env(safe-area-inset-bottom))] right-4 z-[70] flex h-14 w-14 items-center justify-center rounded-full border border-amber-300/25 bg-[linear-gradient(140deg,rgba(7,12,24,0.96),rgba(15,23,42,0.94))] text-amber-100 shadow-[0_22px_58px_rgba(2,8,23,0.48)] backdrop-blur-xl transition-transform duration-200 hover:-translate-y-1 sm:hidden"
                     aria-label="Talk to admin support"
                     title={title}
                 >
@@ -94,7 +94,7 @@ const GlobalSupportLauncher = () => {
                 <button
                     type="button"
                     onClick={handleOpenSupport}
-                    className="fixed bottom-6 left-6 z-[70] hidden max-w-[min(92vw,24rem)] items-center gap-3 rounded-[1.5rem] border border-amber-300/25 bg-[linear-gradient(140deg,rgba(7,12,24,0.96),rgba(15,23,42,0.94))] px-4 py-3 text-left text-slate-50 shadow-[0_22px_58px_rgba(2,8,23,0.48)] backdrop-blur-xl transition-transform duration-200 hover:-translate-y-1 sm:flex"
+                    className="aura-support-launcher fixed bottom-6 left-6 z-[70] hidden max-w-[min(92vw,24rem)] items-center gap-3 rounded-[1.5rem] border border-amber-300/25 bg-[linear-gradient(140deg,rgba(7,12,24,0.96),rgba(15,23,42,0.94))] px-4 py-3 text-left text-slate-50 shadow-[0_22px_58px_rgba(2,8,23,0.48)] backdrop-blur-xl transition-transform duration-200 hover:-translate-y-1 sm:flex"
                     aria-label="Talk to admin support"
                 >
                     <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[1rem] border border-amber-300/25 bg-amber-400/12 text-amber-100">
@@ -116,7 +116,7 @@ const GlobalSupportLauncher = () => {
         <button
             type="button"
             onClick={handleOpenSupport}
-            className="fixed bottom-4 left-4 z-[70] flex max-w-[min(92vw,24rem)] items-center gap-3 rounded-[1.5rem] border border-amber-300/25 bg-[linear-gradient(140deg,rgba(7,12,24,0.96),rgba(15,23,42,0.94))] px-4 py-3 text-left text-slate-50 shadow-[0_22px_58px_rgba(2,8,23,0.48)] backdrop-blur-xl transition-transform duration-200 hover:-translate-y-1 sm:bottom-6 sm:left-6"
+            className="aura-support-launcher fixed bottom-4 left-4 z-[70] flex max-w-[min(92vw,24rem)] items-center gap-3 rounded-[1.5rem] border border-amber-300/25 bg-[linear-gradient(140deg,rgba(7,12,24,0.96),rgba(15,23,42,0.94))] px-4 py-3 text-left text-slate-50 shadow-[0_22px_58px_rgba(2,8,23,0.48)] backdrop-blur-xl transition-transform duration-200 hover:-translate-y-1 sm:bottom-6 sm:left-6"
             aria-label="Talk to admin support"
         >
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[1rem] border border-amber-300/25 bg-amber-400/12 text-amber-100">
