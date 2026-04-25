@@ -24,7 +24,7 @@ const AssistantLauncher = () => {
     return (
         <div
             className={[
-                'pointer-events-none fixed inset-0 z-[2147483600] flex items-end justify-end p-4 sm:p-6',
+                'aura-assistant-launcher pointer-events-none fixed inset-0 z-[2147483600] flex items-end justify-end p-4 sm:p-6',
                 hasMobileStickyCommerceBar ? 'pb-[calc(7.25rem+env(safe-area-inset-bottom))] sm:pb-6' : '',
             ].filter(Boolean).join(' ')}
         >

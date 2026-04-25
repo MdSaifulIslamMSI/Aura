@@ -276,18 +276,18 @@ export const NavbarFailureFallback = () => {
   return (
     <>
       <header className="fixed top-0 left-0 right-0 z-50 overflow-x-clip aura-nav-shell bg-[linear-gradient(180deg,rgba(2,6,23,0.92),rgba(2,6,23,0.58))]">
-      <div className="container-custom max-w-[90rem] mx-auto px-3 sm:px-5 lg:px-6">
-        <div className="relative min-w-0 rounded-[1.85rem] border border-white/12 bg-[linear-gradient(180deg,rgba(7,12,24,0.96),rgba(5,10,20,0.88))] px-2.5 py-2.5 shadow-[0_20px_58px_rgba(2,8,23,0.38)] sm:px-3.5 lg:px-4">
+      <div className="aura-nav-container container-custom max-w-[90rem] mx-auto px-3 sm:px-5 lg:px-6">
+        <div className="aura-nav-card relative min-w-0 rounded-[1.85rem] border border-white/12 bg-[linear-gradient(180deg,rgba(7,12,24,0.96),rgba(5,10,20,0.88))] px-2.5 py-2.5 shadow-[0_20px_58px_rgba(2,8,23,0.38)] sm:px-3.5 lg:px-4">
           <div className="pointer-events-none absolute inset-[1px] rounded-[calc(1.85rem-1px)] bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.01)_30%,transparent)]" />
-          <div className="relative min-w-0 flex items-center justify-between gap-3">
-            <Link to="/" className="flex items-center gap-2 flex-shrink-0 group">
-              <div className="w-11 h-11 rounded-[1rem] bg-gradient-to-br from-neo-cyan via-sky-400 to-neo-emerald p-[1px] shadow-[0_14px_28px_rgba(6,182,212,0.22)]">
+          <div className="aura-nav-row relative min-w-0 flex items-center justify-between gap-3">
+            <Link to="/" className="aura-nav-brand flex items-center gap-2 flex-shrink-0 group">
+              <div className="aura-nav-logo-mark w-11 h-11 rounded-[1rem] bg-gradient-to-br from-neo-cyan via-sky-400 to-neo-emerald p-[1px] shadow-[0_14px_28px_rgba(6,182,212,0.22)]">
                 <div className="w-full h-full bg-zinc-950 rounded-[15px] flex items-center justify-center">
                   <Sparkles className="w-5 h-5 text-neo-cyan" />
                 </div>
               </div>
               <div className="flex flex-col">
-                <span className="text-white text-lg sm:text-xl lg:text-2xl font-black tracking-[-0.06em] bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-200 to-slate-400">
+                <span className="aura-nav-logo-word text-white text-lg sm:text-xl lg:text-2xl font-black tracking-[-0.06em] bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-200 to-slate-400">
                   AURA
                 </span>
                 <span className="hidden sm:inline text-slate-500 text-[10px] font-bold tracking-[0.24em] uppercase -mt-1">
@@ -302,7 +302,7 @@ export const NavbarFailureFallback = () => {
               label={t('nav.searchDesktop', {}, 'Search products, brands, and live deals')}
             />
 
-            <div className="flex items-center gap-2 flex-shrink-0">
+            <div className="aura-nav-right-actions flex items-center gap-2 flex-shrink-0">
               <Link
                 to="/marketplace"
                 className="hidden xl:inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.045] px-4 py-2.5 text-sm font-semibold text-slate-200 transition-all duration-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] hover:border-white/18 hover:bg-white/[0.075] hover:text-white"
@@ -318,7 +318,7 @@ export const NavbarFailureFallback = () => {
               </Link>
               <Link
                 to="/cart"
-                className="group flex items-center gap-2 rounded-full border border-transparent p-2 text-slate-300 transition-all hover:border-white/10 hover:bg-white/[0.05] hover:text-neo-cyan"
+                className="aura-nav-cart-action group flex items-center gap-2 rounded-full border border-transparent p-2 text-slate-300 transition-all hover:border-white/10 hover:bg-white/[0.05] hover:text-neo-cyan"
                 aria-label={t('nav.cart', {}, 'Cart')}
               >
                 <ShoppingCart className="w-5 h-5 transition-all duration-300" />
@@ -603,26 +603,26 @@ const Navbar = () => {
       >
         <div className="pointer-events-none absolute inset-x-[14%] top-0 h-px bg-gradient-to-r from-transparent via-neo-cyan/60 to-transparent animate-gradient-x" style={{ backgroundSize: '200% auto' }} />
         <div className="pointer-events-none absolute inset-x-[20%] top-2 h-20 rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.12),transparent_68%)] blur-3xl" />
-        <div className="container-custom max-w-[90rem] mx-auto px-3 sm:px-5 lg:px-6">
+        <div className="aura-nav-container container-custom max-w-[90rem] mx-auto px-3 sm:px-5 lg:px-6">
           <div
             className={cn(
-              'relative min-w-0 rounded-[1.85rem] border px-2.5 py-2.5 sm:px-3.5 lg:px-4',
+              'aura-nav-card relative min-w-0 rounded-[1.85rem] border px-2.5 py-2.5 sm:px-3.5 lg:px-4',
               'bg-[linear-gradient(180deg,rgba(7,12,24,0.92),rgba(5,10,20,0.78))] shadow-[0_20px_58px_rgba(2,8,23,0.38)]',
               isScrolled ? 'border-white/15' : 'border-white/[0.08]'
             )}
           >
             <div className="pointer-events-none absolute inset-[1px] rounded-[calc(1.85rem-1px)] bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.01)_30%,transparent)]" />
-            <div className="relative min-w-0 flex items-center justify-between gap-2 sm:gap-3 lg:gap-4">
+            <div className="aura-nav-row relative min-w-0 flex items-center justify-between gap-2 sm:gap-3 lg:gap-4">
             {/* Logo */}
-            <Link to="/" className="flex items-center gap-2 flex-shrink-0 group">
-              <div className="w-11 h-11 rounded-[1rem] bg-gradient-to-br from-neo-cyan via-sky-400 to-neo-emerald p-[1px] shadow-[0_14px_28px_rgba(6,182,212,0.22)] transition-all duration-500 group-hover:shadow-[0_18px_38px_rgba(16,185,129,0.3)]">
+            <Link to="/" className="aura-nav-brand flex items-center gap-2 flex-shrink-0 group">
+              <div className="aura-nav-logo-mark w-11 h-11 rounded-[1rem] bg-gradient-to-br from-neo-cyan via-sky-400 to-neo-emerald p-[1px] shadow-[0_14px_28px_rgba(6,182,212,0.22)] transition-all duration-500 group-hover:shadow-[0_18px_38px_rgba(16,185,129,0.3)]">
                 <div className="w-full h-full bg-zinc-950 rounded-[15px] flex items-center justify-center relative overflow-hidden">
                   <Sparkles className="w-5 h-5 text-neo-cyan group-hover:text-neo-emerald transition-colors duration-500 relative z-10" />
                   <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                 </div>
               </div>
               <div className="flex flex-col">
-                <span className="text-white text-lg sm:text-xl lg:text-2xl font-black tracking-[-0.06em] bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-200 to-slate-400 group-hover:from-neo-cyan group-hover:to-neo-emerald transition-all duration-500">
+                <span className="aura-nav-logo-word text-white text-lg sm:text-xl lg:text-2xl font-black tracking-[-0.06em] bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-200 to-slate-400 group-hover:from-neo-cyan group-hover:to-neo-emerald transition-all duration-500">
                   AURA
                 </span>
                 <span className="hidden sm:inline text-slate-500 text-[10px] font-bold tracking-[0.24em] uppercase -mt-1 group-hover:text-neo-cyan transition-colors">
@@ -665,7 +665,7 @@ const Navbar = () => {
             </div>
 
             {/* Right Actions */}
-            <div className="flex items-center gap-1 sm:gap-1.5 lg:gap-2 flex-shrink-0">
+            <div className="aura-nav-right-actions flex items-center gap-1 sm:gap-1.5 lg:gap-2 flex-shrink-0">
               <div className="relative hidden lg:block" ref={marketPanelRef}>
                 <button
                   type="button"
@@ -901,7 +901,7 @@ const Navbar = () => {
               {/* Cart */}
               <Link
                 to="/cart"
-                className="group flex items-center gap-2 rounded-full border border-transparent p-2 text-slate-300 transition-all hover:border-white/10 hover:bg-white/[0.05] hover:text-neo-cyan"
+                className="aura-nav-cart-action group flex items-center gap-2 rounded-full border border-transparent p-2 text-slate-300 transition-all hover:border-white/10 hover:bg-white/[0.05] hover:text-neo-cyan"
                 aria-label={t('nav.cart', {}, 'Cart')}
               >
                 <div className="relative">
@@ -917,19 +917,38 @@ const Navbar = () => {
               {/* Mobile Menu Toggle */}
               <button
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                className="rounded-full p-2 text-slate-300 transition-colors hover:bg-white/[0.06] hover:text-white focus:outline-none md:hidden"
+                className="aura-nav-menu-trigger rounded-full p-2 text-slate-300 transition-colors hover:bg-white/[0.06] hover:text-white focus:outline-none md:hidden"
                 aria-label={t('nav.toggleMenu', {}, 'Toggle menu')}
               >
                 {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
               </button>
             </div>
             </div>
+            <div className="aura-nav-native-search mt-2 hidden md:hidden">
+              <AppErrorBoundary
+                fallback={(
+                  <NavbarSearchFallback
+                    mobile
+                    label={t('nav.searchMobile', {}, 'Search products, categories, and actions...')}
+                    openLabel={t('nav.searchFallbackOpen', {}, 'Open search')}
+                    onNavigate={() => setIsMobileMenuOpen(false)}
+                  />
+                )}
+              >
+                <GlobalSearchBar
+                  mobile
+                  placeholder={t('nav.searchMobile', {}, 'Search products, categories, and actions...')}
+                  onNavigate={() => setIsMobileMenuOpen(false)}
+                  enableGlobalShortcuts={false}
+                />
+              </AppErrorBoundary>
+            </div>
           </div>
 
           {/* Mobile Search - Slide down animation */}
           <div
             className={cn(
-              'md:hidden overflow-hidden transition-all duration-300 ease-in-out',
+              'aura-nav-menu-search md:hidden overflow-hidden transition-all duration-300 ease-in-out',
               isMobileMenuOpen ? 'max-h-[30rem] mt-4 pb-2' : 'max-h-0'
             )}
           >
@@ -966,8 +985,8 @@ const Navbar = () => {
 
         {/* Mobile Nav Menu */}
         {isMobileMenuOpen && (
-          <div className="absolute left-0 top-full z-50 w-full border-t border-white/10 bg-zinc-950/95 animate-fade-in md:hidden">
-            <nav className="max-h-[calc(100vh-5.5rem)] overflow-y-auto px-4 py-4">
+          <div className="aura-mobile-menu-sheet absolute left-0 top-full z-50 w-full border-t border-white/10 bg-zinc-950/95 animate-fade-in md:hidden">
+            <nav className="aura-mobile-menu-scroll max-h-[calc(100vh-5.5rem)] overflow-y-auto px-4 py-4">
               <RuntimeSwitchPanel
                 targets={runtimeSwitchTargets}
                 onNavigate={() => setIsMobileMenuOpen(false)}
