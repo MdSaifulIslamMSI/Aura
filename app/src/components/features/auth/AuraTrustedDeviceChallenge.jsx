@@ -337,23 +337,23 @@ const AuraTrustedDeviceChallenge = () => {
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 18, scale: 0.96 }}
           onClick={() => setIsCollapsed(false)}
-          className="fixed bottom-5 left-1/2 z-[9999] flex w-[min(32rem,calc(100vw-1.5rem))] -translate-x-1/2 items-center gap-3 rounded-[1.75rem] border border-cyan-300/20 bg-slate-950/94 px-4 py-3 text-left shadow-[0_20px_80px_rgba(6,182,212,0.18)] backdrop-blur-xl"
+          className="trusted-device-minimized aura-floating-utility aura-floating-utility--trust fixed bottom-5 left-1/2 z-[73] flex w-[min(32rem,calc(100vw-1.5rem))] -translate-x-1/2 items-center gap-3 rounded-full border px-3 py-3 text-left backdrop-blur-xl"
         >
-          <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-cyan-300 text-slate-950 shadow-[0_16px_40px_rgba(103,232,249,0.25)]">
+          <span className="aura-floating-utility__icon inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border">
             <ShieldCheck className="h-4 w-4" />
           </span>
-          <span className="min-w-0">
-            <span className="block text-[11px] font-black uppercase tracking-[0.18em] text-cyan-100/80">
+          <span className="aura-floating-utility__copy min-w-0">
+            <span className="aura-floating-utility__eyebrow block text-[11px] font-black uppercase tracking-[0.18em]">
               Trust Checkpoint
             </span>
-            <span className="block truncate text-sm font-semibold text-white">
+            <span className="aura-floating-utility__title block truncate text-sm font-semibold">
               Verify once to unlock admin actions
             </span>
-            <span className="mt-0.5 block truncate text-xs text-slate-400">
+            <span className="aura-floating-utility__detail mt-0.5 block truncate text-xs">
               {selectedMethodLabel}
             </span>
           </span>
-          <span className="ml-auto rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-[11px] font-black uppercase tracking-[0.16em] text-slate-200">
+          <span className="trusted-device-minimized__action ml-auto rounded-full border px-3 py-1 text-[11px] font-black uppercase tracking-[0.16em]">
             Open
           </span>
         </motion.button>
@@ -438,8 +438,8 @@ const AuraTrustedDeviceChallenge = () => {
         aria-labelledby="trusted-device-gate-heading"
         className={
           isBlockingRoute
-            ? 'fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/88 px-4 py-6 backdrop-blur-xl'
-            : 'fixed inset-x-0 bottom-5 z-[9999] flex justify-center px-3'
+            ? 'trusted-device-gate trusted-device-gate--blocking fixed inset-0 z-[95] flex items-center justify-center px-4 py-6 backdrop-blur-xl'
+            : 'trusted-device-gate trusted-device-gate--inline fixed inset-x-0 bottom-5 z-[73] flex justify-center px-3'
         }
       >
         <motion.div
@@ -447,8 +447,8 @@ const AuraTrustedDeviceChallenge = () => {
           animate={{ scale: 1, y: 0 }}
           className={
             isBlockingRoute
-              ? 'relative w-full max-w-5xl overflow-hidden rounded-[2.25rem] border border-cyan-400/15 bg-zinc-950/95 shadow-[0_40px_160px_rgba(6,182,212,0.14)]'
-              : 'relative w-full max-w-[44rem] overflow-hidden rounded-[2rem] border border-cyan-400/15 bg-zinc-950/95 shadow-[0_28px_140px_rgba(6,182,212,0.18)] backdrop-blur-xl'
+              ? 'trusted-device-panel relative w-full max-w-5xl overflow-hidden rounded-[2.25rem] border'
+              : 'trusted-device-panel trusted-device-panel--inline relative w-full max-w-[44rem] overflow-hidden rounded-[2rem] border backdrop-blur-xl'
           }
         >
           <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/60 to-transparent" />

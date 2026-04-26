@@ -533,20 +533,29 @@ const GlobalSearchBar = ({
   };
 
   return (
-    <div ref={rootRef} className={cn('relative w-full min-w-0', className)}>
+    <div
+      ref={rootRef}
+      className={cn(
+        'global-search-root relative w-full min-w-0',
+        mobile && 'global-search-root--mobile',
+        className
+      )}
+    >
       <div
         className={cn(
           'search-shell',
-          mobile && 'search-shell-mobile'
+          mobile && 'search-shell-mobile',
+          isOpen && 'search-shell--open',
+          hasSearchText && 'search-shell--has-query'
         )}
       >
         <div className="search-shell-overlay" />
 
-        <div className="relative flex items-stretch">
+        <div className="relative flex min-w-0 items-center">
           <button
             type="button"
             onClick={() => executeSearch()}
-            className="search-control-icon"
+            className="search-control-icon search-control-icon--primary"
             aria-label={t('search.searchNow', {}, 'Search now')}
           >
             <Search className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -563,14 +572,14 @@ const GlobalSearchBar = ({
             onKeyDown={handleKeyDown}
             placeholder={placeholder || t('nav.searchDesktop', {}, 'Search products, brands, and live deals')}
             className={cn(
-              'search-control-input pr-2',
+              'search-control-input',
               'text-sm sm:text-base'
             )}
             aria-label={t('search.globalLabel', {}, 'Global search')}
           />
 
           {!mobile && enableGlobalShortcuts && (
-            <div className="hidden xl:flex items-center gap-1 border-l border-white/10 px-3 text-[10px] font-black uppercase tracking-[0.22em] text-slate-500">
+            <div className="search-shortcut-badge hidden xl:flex">
               <Command className="h-3.5 w-3.5 text-slate-400" />
               <span>K</span>
             </div>
@@ -584,7 +593,7 @@ const GlobalSearchBar = ({
                 setSuggestions([]);
                 inputRef.current?.focus();
               }}
-              className="search-control-icon text-slate-400 hover:text-white border-l border-white/10"
+              className="search-control-icon search-control-icon--clear"
               aria-label={t('search.clearSearch', {}, 'Clear search')}
             >
               <X className="w-4 h-4" />
@@ -594,25 +603,25 @@ const GlobalSearchBar = ({
       </div>
 
       {isOpen && (
-        <div className="global-search-palette search-palette">
-          <div className="mb-4 flex flex-col gap-3 border-b border-white/8 pb-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className={cn('global-search-palette search-palette', mobile && 'search-palette--mobile')}>
+          <div className="search-palette-hero">
             <div>
-              <div className="text-[11px] font-black uppercase tracking-[0.24em] text-neo-cyan">
+              <div className="search-palette-eyebrow">
                 {t('search.title', {}, 'Search Intelligence')}
               </div>
-              <p className="mt-1 text-sm text-slate-400">
+              <p className="search-palette-copy">
                 {t('search.subtitle', {}, 'Run live search first. Open advanced controls only when you need tighter filtering.')}
               </p>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="search-palette-actions">
               <button
                 type="button"
                 onClick={() => setShowFilters((value) => !value)}
                 className={cn(
-                  'inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-black uppercase tracking-[0.18em] transition-colors',
+                  'search-palette-control-button',
                   showFilters
-                    ? 'border-neo-cyan/40 bg-neo-cyan/12 text-neo-cyan'
-                    : 'border-white/12 bg-white/[0.04] text-slate-300 hover:border-white/20 hover:text-white'
+                    ? 'search-palette-control-button--active'
+                    : 'search-palette-control-button--idle'
                 )}
                 aria-label={t('search.toggleControls', {}, 'Toggle advanced search controls')}
               >
@@ -622,7 +631,7 @@ const GlobalSearchBar = ({
               <button
                 type="button"
                 onClick={() => executeSearch()}
-                className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-neo-cyan to-neo-emerald px-3.5 py-2 text-xs font-black uppercase tracking-[0.18em] text-white transition-all hover:-translate-y-0.5"
+                className="search-palette-run-button"
               >
                 <Search className="h-3.5 w-3.5" />
                 {t('search.run', {}, 'Run Search')}
@@ -631,7 +640,7 @@ const GlobalSearchBar = ({
           </div>
 
           {showFilters && (
-            <div className="mb-4 rounded-xl border border-white/10 bg-white/5 p-3 sm:p-4">
+            <div className="search-controls-panel">
               <div className="mb-3 flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-neo-cyan">
                   <Sparkles className="w-3.5 h-3.5" />
@@ -697,7 +706,7 @@ const GlobalSearchBar = ({
           )}
 
           {isLoading ? (
-            <div className="rounded-xl border border-white/10 bg-white/5 p-4 flex items-center gap-3 text-slate-300">
+            <div className="search-status-card flex items-center gap-3">
               <Loader2 className="w-4 h-4 animate-spin text-neo-cyan" />
               {t('search.loading', {}, 'Scanning live catalog...')}
             </div>
@@ -705,7 +714,7 @@ const GlobalSearchBar = ({
 
           {!isLoading && suggestions.length > 0 && (
             <div className="mb-3">
-              <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400 px-1 mb-2">{t('search.liveSuggestions', {}, 'Live Suggestions')}</div>
+              <div className="search-palette-section-title px-1 mb-2">{t('search.liveSuggestions', {}, 'Live Suggestions')}</div>
               <div className="space-y-2">
                 {suggestions.map((product, index) => {
                   const productId = extractProductId(product);
@@ -721,9 +730,8 @@ const GlobalSearchBar = ({
                       type="button"
                       onClick={() => selectSuggestion(product)}
                       className={cn(
-                        'w-full text-left rounded-xl border px-3 py-2.5 transition-colors',
-                        'flex items-center gap-3 border-white/10 bg-white/[0.03] hover:bg-white/[0.08] hover:border-white/20',
-                        activeIndex === index && 'border-neo-cyan/40 bg-neo-cyan/10'
+                        'search-suggestion-row',
+                        activeIndex === index && 'search-suggestion-row--active'
                       )}
                     >
                       <div className="w-11 h-11 rounded-lg overflow-hidden bg-zinc-900/80 border border-white/10 flex-shrink-0">
@@ -760,21 +768,21 @@ const GlobalSearchBar = ({
           )}
 
           {!isLoading && hasSearchText && suggestions.length === 0 && (
-            <div className="mb-3 rounded-xl border border-amber-400/20 bg-amber-400/10 p-3 text-sm text-amber-100">
+            <div className="search-empty-card">
               {t('search.noMatches', {}, 'No direct matches yet. Press Enter to run a full catalog search.')}
             </div>
           )}
 
           {error && !isLoading && (
-            <div className="mb-3 rounded-xl border border-neo-rose/25 bg-neo-rose/10 p-3 text-sm text-neo-rose">
+            <div className="search-error-card">
               {error}
             </div>
           )}
 
-          <div className="grid grid-cols-1 xl:grid-cols-[1fr_1fr] gap-3">
-            <section className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-[0.86fr_1.14fr]">
+            <section className="search-palette-section">
               <div className="flex items-center justify-between mb-2">
-                <h4 className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400 flex items-center gap-1.5">
+                <h4 className="search-palette-section-title flex items-center gap-1.5">
                   <Clock3 className="w-3.5 h-3.5" />
                   {t('search.recent', {}, 'Recent')}
                 </h4>
@@ -801,7 +809,7 @@ const GlobalSearchBar = ({
                         setQuery(term);
                         executeSearch(term);
                       }}
-                      className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-semibold text-slate-200 hover:border-neo-cyan/50 hover:text-neo-cyan transition-colors"
+                      className="search-token search-token--cyan"
                     >
                       {term}
                     </button>
@@ -810,8 +818,8 @@ const GlobalSearchBar = ({
               )}
             </section>
 
-            <section className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
-              <h4 className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400 flex items-center gap-1.5 mb-2">
+            <section className="search-palette-section">
+              <h4 className="search-palette-section-title flex items-center gap-1.5 mb-2">
                 <TrendingUp className="w-3.5 h-3.5" />
                 {t('search.trending', {}, 'Trending')}
               </h4>
@@ -824,7 +832,7 @@ const GlobalSearchBar = ({
                       setQuery(term);
                       executeSearch(term);
                     }}
-                    className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-semibold text-slate-200 hover:border-neo-emerald/50 hover:text-neo-emerald transition-colors"
+                    className="search-token search-token--emerald"
                   >
                     {translateSearchText(term) || term}
                   </button>
@@ -834,9 +842,9 @@ const GlobalSearchBar = ({
           </div>
 
           {savedIntents.length > 0 && (
-            <section className="mt-3 rounded-xl border border-white/10 bg-white/[0.03] p-3">
+            <section className="search-palette-section mt-3">
               <div className="flex items-center justify-between mb-2">
-                <h4 className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400 flex items-center gap-1.5">
+                <h4 className="search-palette-section-title flex items-center gap-1.5">
                   <BookmarkPlus className="w-3.5 h-3.5" />
                   {t('search.savedIntents', {}, 'Saved Intents')}
                 </h4>
@@ -863,15 +871,15 @@ const GlobalSearchBar = ({
             </section>
           )}
 
-          <section className="mt-3 rounded-xl border border-white/10 bg-white/[0.03] p-3">
-            <h4 className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400 mb-2">{t('search.quickActions', {}, 'Quick Actions')}</h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
+          <section className="search-palette-section mt-3">
+            <h4 className="search-palette-section-title mb-2">{t('search.quickActions', {}, 'Quick Actions')}</h4>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {quickActions.map((action) => (
                 <button
                   key={action.to}
                   type="button"
                   onClick={() => navigateTo(action.to)}
-                  className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-left hover:border-white/25 hover:bg-white/10 transition-colors"
+                  className="search-quick-action-card"
                 >
                   <div className="text-sm font-bold text-slate-100 flex items-center justify-between gap-2">
                     {action.label}

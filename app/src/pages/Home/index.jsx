@@ -1,6 +1,26 @@
 import { useState, useEffect, useMemo, useContext } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, ChevronRight, Search, ShieldCheck, Smartphone, Laptop, Headphones, Shirt, Home as HomeIcon, Gamepad2, BookOpen, Watch, Store } from 'lucide-react';
+import {
+  ArrowRight,
+  BadgePercent,
+  BookOpen,
+  ChevronRight,
+  Headphones,
+  Home as HomeIcon,
+  Laptop,
+  PackageCheck,
+  Search,
+  ShieldCheck,
+  Shirt,
+  ShoppingBag,
+  Smartphone,
+  Sparkles,
+  Star,
+  Store,
+  Truck,
+  Watch,
+  Gamepad2,
+} from 'lucide-react';
 import ProductCard from '@/components/features/product/ProductCard';
 import SkeletonLoader from '@/components/shared/SkeletonLoader';
 import SectionErrorBoundary from '@/components/shared/SectionErrorBoundary';
@@ -15,6 +35,7 @@ import { useColorMode } from '@/context/ColorModeContext';
 import { useMarket } from '@/context/MarketContext';
 import { FIGMA_COLOR_MODE_OPTIONS } from '@/config/figmaTokens';
 import { cn } from '@/lib/utils';
+import { getBaseAmount, getBaseCurrency } from '@/utils/pricing';
 
 const HOME_SECTION_REQUEST = {
   limit: 8,
@@ -73,11 +94,12 @@ const Home = () => {
   const { cartItems = [], isLoading: cartLoading = false } = useContext(CartContext) || {};
   const { wishlistItems = [], isLoading: wishlistLoading = false } = useContext(WishlistContext) || {};
   const { colorMode } = useColorMode();
-  const { t } = useMarket();
+  const { t, formatPrice } = useMarket();
   const isWhiteMode = colorMode === 'white';
   const modePalette = FIGMA_COLOR_MODE_OPTIONS.find((mode) => mode.value === colorMode) || FIGMA_COLOR_MODE_OPTIONS[0];
   const accentPrimary = modePalette.primary;
   const accentSecondary = modePalette.secondary;
+  const accentTertiary = modePalette.tertiary || modePalette.primary;
   const mutedTextClass = isWhiteMode ? 'text-slate-600' : 'text-slate-300';
   const subtleTextClass = isWhiteMode ? 'text-slate-500' : 'text-slate-400';
   const titleClass = isWhiteMode ? 'text-slate-950' : 'text-white';
@@ -364,14 +386,14 @@ const Home = () => {
 
   // Category icons - updated with modern styling
   const categories = useMemo(() => [
-    { name: t('category.mobiles', {}, 'Mobiles'), icon: Smartphone, path: '/category/mobiles', color: 'from-cyan-500/20 to-blue-500/20 text-cyan-400' },
-    { name: t('category.laptops', {}, 'Laptops'), icon: Laptop, path: '/category/laptops', color: 'from-purple-500/20 to-fuchsia-500/20 text-fuchsia-400' },
-    { name: t('category.electronics', {}, 'Electronics'), icon: Headphones, path: '/category/electronics', color: 'from-emerald-500/20 to-teal-500/20 text-emerald-400' },
-    { name: t('category.mensFashion', {}, "Men's Fashion"), icon: Shirt, path: "/category/men's-fashion", color: 'from-orange-500/20 to-amber-500/20 text-orange-400' },
-    { name: t('category.womensFashion', {}, "Women's Fashion"), icon: Watch, path: "/category/women's-fashion", color: 'from-pink-500/20 to-rose-500/20 text-pink-400' },
-    { name: t('category.homeKitchen', {}, 'Home & Kitchen'), icon: HomeIcon, path: '/category/home-kitchen', color: 'from-yellow-500/20 to-orange-500/20 text-yellow-400' },
-    { name: t('category.gaming', {}, 'Gaming'), icon: Gamepad2, path: '/category/gaming', color: 'from-red-500/20 to-rose-500/20 text-red-500' },
-    { name: t('category.books', {}, 'Books'), icon: BookOpen, path: '/category/books', color: 'from-indigo-500/20 to-blue-500/20 text-indigo-400' },
+    { name: t('category.mobiles', {}, 'Mobiles'), icon: Smartphone, path: '/category/mobiles', color: 'border-cyan-300/25 bg-cyan-400/10 text-cyan-100' },
+    { name: t('category.laptops', {}, 'Laptops'), icon: Laptop, path: '/category/laptops', color: 'border-sky-300/25 bg-sky-400/10 text-sky-100' },
+    { name: t('category.electronics', {}, 'Electronics'), icon: Headphones, path: '/category/electronics', color: 'border-emerald-300/25 bg-emerald-400/10 text-emerald-100' },
+    { name: t('category.mensFashion', {}, "Men's Fashion"), icon: Shirt, path: "/category/men's-fashion", color: 'border-orange-300/25 bg-orange-400/10 text-orange-100' },
+    { name: t('category.womensFashion', {}, "Women's Fashion"), icon: Watch, path: "/category/women's-fashion", color: 'border-rose-300/25 bg-rose-400/10 text-rose-100' },
+    { name: t('category.homeKitchen', {}, 'Home & Kitchen'), icon: HomeIcon, path: '/category/home-kitchen', color: 'border-amber-300/25 bg-amber-400/10 text-amber-100' },
+    { name: t('category.gaming', {}, 'Gaming'), icon: Gamepad2, path: '/category/gaming', color: 'border-red-300/25 bg-red-400/10 text-red-100' },
+    { name: t('category.books', {}, 'Books'), icon: BookOpen, path: '/category/books', color: 'border-indigo-300/25 bg-indigo-400/10 text-indigo-100' },
   ], [t]);
 
   const heroQuickActions = useMemo(() => [
@@ -395,13 +417,57 @@ const Home = () => {
     },
   ], [t]);
 
-  const ProductSection = ({ eyebrow, title, description, link, actionLabel = t('home.action.explore', {}, 'Explore'), products, isLoading, onAction }) => (
-    <section className="premium-panel mb-8 overflow-hidden relative group premium-grid-backdrop" style={heroStyle}>
-      {/* Decorative gradient blur */}
-      <div className="absolute top-0 right-0 w-64 h-64 rounded-full blur-[80px] -z-10 transition-colors duration-700" style={{ background: toRgba(accentPrimary, 0.12) }} />
-      <div className="absolute -bottom-20 -left-10 w-64 h-64 rounded-full blur-[90px] -z-10 transition-colors duration-700" style={{ background: toRgba(accentSecondary, 0.1) }} />
+  const heroProducts = useMemo(() => {
+    const seen = new Set();
+    const liveProducts = [
+      ...recommendedProducts,
+      ...dealsOfTheDay,
+      ...trendingProducts,
+      ...newArrivals,
+    ].filter((product) => {
+      const productId = String(product?.id || product?._id || product?.title || '').trim();
+      if (!productId || seen.has(productId)) return false;
+      seen.add(productId);
+      return true;
+    });
 
-      <div className="flex flex-col gap-4 border-b border-white/5 p-6 lg:flex-row lg:items-end lg:justify-between">
+    return liveProducts.slice(0, 4);
+  }, [dealsOfTheDay, newArrivals, recommendedProducts, trendingProducts]);
+
+  const heroSpotlight = heroProducts[0] || null;
+  const heroSpotlightPrice = heroSpotlight
+    ? formatPrice(
+        getBaseAmount(heroSpotlight),
+        undefined,
+        undefined,
+        { baseCurrency: getBaseCurrency(heroSpotlight) }
+      )
+    : '';
+
+  const heroSignals = useMemo(() => [
+    {
+      label: t('home.hero.signalDeals', {}, 'Deal desk'),
+      value: loading ? t('home.hero.signalLive', {}, 'Live') : `${dealsOfTheDay.length}+`,
+      detail: t('home.hero.signalDealsBody', {}, 'price-drop picks'),
+      icon: BadgePercent,
+    },
+    {
+      label: t('home.hero.signalTrust', {}, 'Trust layer'),
+      value: t('home.hero.signalTrustValue', {}, 'Verified'),
+      detail: t('home.hero.signalTrustBody', {}, 'ratings, stock, delivery'),
+      icon: ShieldCheck,
+    },
+    {
+      label: t('home.hero.signalCart', {}, 'Your intent'),
+      value: `${cartItems.length + wishlistItems.length}`,
+      detail: t('home.hero.signalCartBody', {}, 'cart and saved signals'),
+      icon: ShoppingBag,
+    },
+  ], [cartItems.length, dealsOfTheDay.length, loading, t, wishlistItems.length]);
+
+  const ProductSection = ({ eyebrow, title, description, link, actionLabel = t('home.action.explore', {}, 'Explore'), products, isLoading, onAction }) => (
+    <section className="aura-product-shelf premium-grid-backdrop mb-8 overflow-hidden relative group" style={heroStyle}>
+      <div className="aura-product-shelf__header flex flex-col gap-4 border-b border-white/5 p-5 sm:p-6 lg:flex-row lg:items-end lg:justify-between">
         <div className="max-w-2xl">
           {eyebrow ? (
             <div className="premium-kicker mb-2">{eyebrow}</div>
@@ -437,14 +503,14 @@ const Home = () => {
         )}
       </div>
 
-      <div className="p-6">
+      <div className="p-4 sm:p-6">
         {isLoading ? (
-          <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5 2xl:grid-cols-6">
-            <SkeletonLoader type="card" count={6} />
-          </div>
+            <div className="aura-home-product-grid grid gap-4">
+              <SkeletonLoader type="card" count={6} />
+            </div>
         ) : products.length === 0 ? (
           <div className={cn(
-            'rounded-xl border p-6 text-center',
+            'rounded-2xl border p-6 text-center',
             isWhiteMode ? 'border-slate-200 bg-white/75' : 'border-white/10 bg-white/5'
           )}>
             <p className={cn('text-sm', mutedTextClass)}>
@@ -452,9 +518,13 @@ const Home = () => {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5 2xl:grid-cols-6">
-            {products.map((product) => (
-              <ProductCard key={product.id} product={product} />
+            <div className="aura-home-product-grid grid gap-4">
+              {products.map((product, index) => (
+              <ProductCard
+                key={product.id || product._id || product.title}
+                product={product}
+                harmonyIndex={index}
+              />
             ))}
           </div>
         )}
@@ -475,55 +545,132 @@ const Home = () => {
           className="absolute inset-0"
           style={{
             background: isWhiteMode
-              ? `radial-gradient(circle at top left, ${toRgba(accentPrimary, 0.12)}, transparent 26%), radial-gradient(circle at top right, ${toRgba(accentSecondary, 0.14)}, transparent 24%), linear-gradient(180deg, #f5f8ff 0%, #eef4ff 48%, #f8fbff 100%)`
-              : `radial-gradient(circle at top left, ${toRgba(accentPrimary, 0.18)}, transparent 26%), radial-gradient(circle at top right, ${toRgba(accentSecondary, 0.14)}, transparent 24%), linear-gradient(180deg, #040611 0%, #050816 42%, #070d1d 100%)`,
+              ? `linear-gradient(135deg, ${toRgba(accentPrimary, 0.1)} 0%, transparent 30%), linear-gradient(245deg, ${toRgba(accentSecondary, 0.09)} 0%, transparent 34%), linear-gradient(25deg, ${toRgba(accentTertiary, 0.08)} 0%, transparent 38%), linear-gradient(180deg, var(--theme-bg-base) 0%, rgb(var(--theme-surface-strong-rgb) / 0.92) 52%, rgb(var(--theme-surface-rgb) / 0.98) 100%)`
+              : `linear-gradient(135deg, ${toRgba(accentPrimary, 0.17)} 0%, transparent 32%), linear-gradient(245deg, ${toRgba(accentSecondary, 0.13)} 0%, transparent 34%), linear-gradient(25deg, ${toRgba(accentTertiary, 0.11)} 0%, transparent 40%), linear-gradient(180deg, var(--theme-bg-base) 0%, rgb(var(--theme-surface-strong-rgb) / 0.97) 52%, rgb(var(--theme-surface-rgb) / 0.94) 100%)`,
           }}
         />
-        <div className={cn('absolute inset-0 opacity-35 [background-size:60px_60px]', isWhiteMode ? 'bg-[linear-gradient(rgba(148,163,184,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(148,163,184,0.08)_1px,transparent_1px)]' : 'bg-[linear-gradient(rgba(148,163,184,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(148,163,184,0.05)_1px,transparent_1px)]')} />
+        <div
+          className="absolute inset-0 opacity-35 [background-size:72px_72px]"
+          style={{
+            backgroundImage: isWhiteMode
+              ? 'linear-gradient(rgb(var(--theme-grid-rgb) / 0.075) 1px, transparent 1px), linear-gradient(90deg, rgb(var(--theme-grid-rgb) / 0.06) 1px, transparent 1px)'
+              : 'linear-gradient(rgb(var(--theme-grid-rgb) / 0.055) 1px, transparent 1px), linear-gradient(90deg, rgb(var(--theme-grid-rgb) / 0.045) 1px, transparent 1px)',
+          }}
+        />
       </div>
       <div className="premium-page-frame space-y-8 md:space-y-10">
-        <RevealOnScroll anchorId="home-command-deck" anchorLabel={t('home.anchor.commandDeck', {}, 'Command Deck')} className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-          <section className="premium-hero-panel premium-grid-backdrop group/hero p-6 lg:p-8" style={heroStyle}>
-            <div className="premium-eyebrow mb-3">
-              {t('home.hero.cleanEyebrow', {}, 'Search With Confidence')}
-            </div>
-            <h1 className={cn('max-w-3xl pb-2 text-4xl font-black leading-[0.95] tracking-tight md:text-5xl xl:text-6xl', titleClass)}>
-              {t('home.hero.cleanTitle', {}, 'Find what you need faster and move to checkout with less noise.')}
-            </h1>
-            <p className={cn('mt-4 max-w-2xl text-sm md:text-base', mutedTextClass)}>
-              {t('home.hero.cleanBody', {}, 'Start with search, jump into trusted deals, or browse local marketplace listings from a storefront that stays focused on shopping.')}
-            </p>
-            <div className="mt-6 flex flex-wrap gap-3">
-              <Link to="/search" className="btn-primary inline-flex items-center gap-2" style={accentFillStyle}>
-                {t('home.hero.cleanSearchAction', {}, 'Search products')}
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-              <Link to="/deals" className="btn-secondary inline-flex items-center gap-2">
-                {t('home.hero.cleanDealsAction', {}, "Shop today's deals")}
-              </Link>
-              <Link to="/marketplace" className="btn-secondary inline-flex items-center gap-2">
-                {t('home.hero.cleanMarketplaceAction', {}, 'Explore marketplace')}
-              </Link>
-            </div>
-          </section>
+        <RevealOnScroll anchorId="home-command-deck" anchorLabel={t('home.anchor.commandDeck', {}, 'Command Deck')} className="aura-home-hero-shell">
+          <div className="aura-home-hero-grid">
+            <section className="aura-home-hero-copy">
+              <div className="premium-eyebrow mb-4">
+                <Sparkles className="h-3.5 w-3.5" />
+                {t('home.hero.cleanEyebrow', {}, 'Aura Market Dispatch')}
+              </div>
+              <h1 className={cn('max-w-4xl pb-2 text-4xl font-black leading-[0.96] tracking-tight md:text-5xl xl:text-6xl', titleClass)}>
+                {t('home.hero.cleanTitle', {}, 'A sharper storefront for product decisions that move.')}
+              </h1>
+              <p className={cn('mt-4 max-w-2xl text-sm leading-7 md:text-base', mutedTextClass)}>
+                {t('home.hero.cleanBody', {}, 'Browse a calmer commerce desk where deals, trusted inventory, and local marketplace lanes stay close to the products themselves.')}
+              </p>
+              <div className="mt-6 flex flex-wrap gap-3">
+                <Link to="/search" className="btn-primary inline-flex items-center gap-2" style={accentFillStyle}>
+                  {t('home.hero.cleanSearchAction', {}, 'Search products')}
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+                <Link to="/deals" className="btn-secondary inline-flex items-center gap-2">
+                  {t('home.hero.cleanDealsAction', {}, 'Shop deal desk')}
+                </Link>
+                <Link to="/marketplace" className="btn-secondary inline-flex items-center gap-2">
+                  {t('home.hero.cleanMarketplaceAction', {}, 'Local marketplace')}
+                </Link>
+              </div>
+              <div className="aura-home-signal-grid mt-7">
+                {heroSignals.map((signal) => {
+                  const Icon = signal.icon;
+                  return (
+                    <div key={signal.label} className="aura-home-signal">
+                      <Icon className="h-4 w-4" />
+                      <div>
+                        <div className={cn('text-lg font-black leading-none', titleClass)}>{signal.value}</div>
+                        <div className={cn('mt-1 text-[10px] font-black uppercase tracking-[0.18em]', subtleTextClass)}>{signal.label}</div>
+                        <p className={cn('mt-1 text-xs leading-5', mutedTextClass)}>{signal.detail}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
 
-          <section className="grid gap-4 sm:grid-cols-3 xl:grid-cols-1">
+            <aside className="aura-home-product-stage" aria-label={t('home.hero.stageLabel', {}, 'Featured products')}>
+              <div className="aura-home-stage-header">
+                <div>
+                  <div className="premium-kicker">{t('home.hero.stageEyebrow', {}, 'Live pick')}</div>
+                  <h2 className={cn('mt-2 text-2xl font-black tracking-tight', titleClass)}>
+                    {heroSpotlight?.displayTitle || heroSpotlight?.title || t('home.hero.stageTitle', {}, 'Catalog signal board')}
+                  </h2>
+                </div>
+                <span className="aura-home-stage-pill">
+                  <Star className="h-3.5 w-3.5 fill-current" />
+                  {heroSpotlight?.rating ? Number(heroSpotlight.rating).toFixed(1).replace(/\.0$/, '') : t('home.hero.stageRatingFallback', {}, 'Top')}
+                </span>
+              </div>
+
+              <Link
+                to={heroSpotlight?.id || heroSpotlight?._id ? `/product/${heroSpotlight.id || heroSpotlight._id}` : '/products'}
+                className="aura-home-spotlight"
+              >
+                <div className="aura-home-spotlight-media">
+                  {heroSpotlight?.image ? (
+                    <img src={heroSpotlight.image} alt={heroSpotlight.displayTitle || heroSpotlight.title || t('home.hero.stageTitle', {}, 'Catalog signal board')} />
+                  ) : (
+                    <div className="aura-home-spotlight-placeholder">
+                      <PackageCheck className="h-14 w-14" />
+                    </div>
+                  )}
+                </div>
+                <div className="aura-home-spotlight-copy">
+                  <span>{heroSpotlight?.brand || t('home.hero.stageBrandFallback', {}, 'Aura Select')}</span>
+                  <strong>{heroSpotlightPrice || t('home.hero.stagePriceFallback', {}, 'Fresh inventory')}</strong>
+                </div>
+              </Link>
+
+              <div className="aura-home-stage-stack">
+                {heroProducts.slice(1, 4).map((product) => {
+                  const productId = product?.id || product?._id;
+                  return (
+                    <Link key={productId || product.title} to={productId ? `/product/${productId}` : '/products'} className="aura-home-stage-row">
+                      <span className="aura-home-stage-row-thumb">
+                        {product?.image ? <img src={product.image} alt={product.displayTitle || product.title || ''} /> : <Truck className="h-5 w-5" />}
+                      </span>
+                      <span className="min-w-0">
+                        <span className={cn('block truncate text-sm font-black', titleClass)}>{product?.displayTitle || product?.title}</span>
+                        <span className={cn('mt-1 block truncate text-xs', subtleTextClass)}>{product?.deliveryTime || t('product.fastDispatch', {}, 'Fast dispatch')}</span>
+                      </span>
+                      <ChevronRight className="h-4 w-4 shrink-0" />
+                    </Link>
+                  );
+                })}
+              </div>
+            </aside>
+          </div>
+
+          <section className="aura-home-action-ribbon" aria-label={t('home.hero.quickActionsLabel', {}, 'Quick shopping lanes')}>
             {heroQuickActions.map((item) => {
               const Icon = item.icon;
               return (
                 <Link
                   key={item.path}
                   to={item.path}
-                  className="premium-stat-card transition-transform duration-300 hover:-translate-y-1"
+                  className="aura-home-action"
                 >
-                  <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.05] text-neo-cyan">
+                  <div className="aura-home-action-icon">
                     <Icon className="h-5 w-5" />
                   </div>
-                  <div className={cn('mt-4 text-lg font-black tracking-tight', titleClass)}>{item.title}</div>
-                  <p className={cn('mt-2 text-sm leading-6', mutedTextClass)}>{item.detail}</p>
-                  <div className={cn('mt-4 text-xs font-black uppercase tracking-[0.2em]', subtleTextClass)}>
-                    {t('home.categories.openLane', {}, 'Open lane')}
+                  <div>
+                    <div className={cn('text-sm font-black tracking-tight', titleClass)}>{item.title}</div>
+                    <p className={cn('mt-1 text-xs leading-5', mutedTextClass)}>{item.detail}</p>
                   </div>
+                  <ChevronRight className="h-4 w-4 shrink-0" />
                 </Link>
               );
             })}
@@ -532,7 +679,7 @@ const Home = () => {
 
         {/* Category Navigation - clearer hierarchy */}
         <RevealOnScroll anchorId="home-categories" anchorLabel={t('home.anchor.categories', {}, 'Categories')} className="mb-2">
-          <section className="premium-panel premium-grid-backdrop p-5 lg:p-6" style={heroStyle}>
+          <section className="aura-category-shelf premium-grid-backdrop p-5 lg:p-6" style={heroStyle}>
             <div className="mb-5 flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
               <div>
                 <div className="premium-kicker">{t('home.categories.cleanEyebrow', {}, 'Shop by category')}</div>
@@ -547,9 +694,9 @@ const Home = () => {
                 <Link
                   key={category.path}
                   to={category.path}
-                  className="group rounded-[1.35rem] border border-white/8 bg-white/[0.03] p-4 transition-all duration-500 hover:-translate-y-2 hover:scale-[1.03] hover:border-white/20 hover:bg-white/[0.08]"
+                  className="aura-category-tile group"
                 >
-                  <div className={`mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br ${category.color} border border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.08)] transition-transform duration-300 group-hover:scale-105`}>
+                  <div className={`mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border ${category.color} shadow-[inset_0_1px_1px_rgba(255,255,255,0.08)] transition-transform duration-300 group-hover:scale-105`}>
                     <category.icon className="h-6 w-6" />
                   </div>
                   <div className={cn('text-sm font-bold', titleClass)}>{category.name}</div>

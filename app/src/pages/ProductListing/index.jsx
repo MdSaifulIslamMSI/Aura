@@ -1,6 +1,16 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, useSearchParams, useLocation, useNavigate } from 'react-router-dom';
-import { Grid, List, SlidersHorizontal, ChevronLeft, ChevronRight } from 'lucide-react';
+import {
+  BadgePercent,
+  ChevronLeft,
+  ChevronRight,
+  Grid,
+  List,
+  PackageCheck,
+  ShieldCheck,
+  SlidersHorizontal,
+  Sparkles,
+} from 'lucide-react';
 import ProductCard from '@/components/features/product/ProductCard';
 import Filters from '@/components/features/product/Filters';
 import RevealOnScroll from '@/components/shared/RevealOnScroll';
@@ -235,6 +245,51 @@ const ProductListing = () => {
     return signals;
   }, [currency, effectiveCategorySlug, filters, localizedCategoryLabel, searchQuery, t]);
 
+  const listingHeader = useMemo(() => {
+    if (searchQuery) {
+      return {
+        eyebrow: t('listing.searchEyebrow', {}, 'Search desk'),
+        title: t('listing.resultsForQuery', { query: searchQuery }, `Results for "${searchQuery}"`),
+        description: t('listing.filteredLiveCatalog', {}, 'Filtered from live catalog inventory'),
+      };
+    }
+
+    if (effectiveCategorySlug) {
+      return {
+        eyebrow: t('listing.curatedCollection', {}, 'Curated Collection'),
+        title: localizedCategoryLabel,
+        description: t('listing.categoryDeskBody', { category: localizedCategoryLabel }, `${localizedCategoryLabel} picks sorted by live catalog signals, delivery, and price movement.`),
+      };
+    }
+
+    return {
+      eyebrow: t('listing.catalogEyebrow', {}, 'Full catalog'),
+      title: t('listing.catalogTitleFull', {}, 'Aura Catalog'),
+      description: t('listing.catalogSubtitle', {}, 'Explore our full selection of premium products'),
+    };
+  }, [effectiveCategorySlug, localizedCategoryLabel, searchQuery, t]);
+
+  const listingStats = useMemo(() => [
+    {
+      label: t('listing.statsShowing', {}, 'Showing'),
+      value: loading ? t('listing.statsLoading', {}, 'Sync') : `${products.length}`,
+      detail: t('listing.statsTotal', { count: totalProducts }, `of ${totalProducts} items`),
+      icon: PackageCheck,
+    },
+    {
+      label: t('listing.statsSort', {}, 'Sort'),
+      value: getSortLabel(sortBy, t),
+      detail: t('listing.statsSortBody', {}, 'current order'),
+      icon: BadgePercent,
+    },
+    {
+      label: t('listing.statsSignals', {}, 'Signals'),
+      value: activeScanSignals.length > 0 ? `${activeScanSignals.length}` : t('listing.statsClean', {}, 'Clean'),
+      detail: t('listing.statsSignalsBody', {}, 'active filters'),
+      icon: ShieldCheck,
+    },
+  ], [activeScanSignals.length, loading, products.length, sortBy, t, totalProducts]);
+
   const fetchProducts = useCallback(async (signal) => {
     const requestId = Date.now();
     activeRequestRef.current = requestId;
@@ -370,6 +425,23 @@ const ProductListing = () => {
   }, [category, searchQuery, queryCategory, location.search, navigate]);
 
   useEffect(() => {
+    if (typeof document === 'undefined') return undefined;
+    const body = document.body;
+    const root = document.documentElement;
+    if (showMobileFilters) {
+      body.classList.add('aura-filter-drawer-open');
+      root.classList.add('aura-filter-drawer-open');
+    } else {
+      body.classList.remove('aura-filter-drawer-open');
+      root.classList.remove('aura-filter-drawer-open');
+    }
+    return () => {
+      body.classList.remove('aura-filter-drawer-open');
+      root.classList.remove('aura-filter-drawer-open');
+    };
+  }, [showMobileFilters]);
+
+  useEffect(() => {
     const routeParams = new URLSearchParams(location.search);
     setFilters((prev) => createFiltersFromParams(routeParams, prev));
 
@@ -389,49 +461,46 @@ const ProductListing = () => {
 
   return (
     <div className="product-listing-theme-shell container-custom max-w-7xl mx-auto px-4 py-5 sm:py-6 lg:py-8 min-h-screen relative">
-      <div className="absolute top-20 left-6 h-72 w-72 bg-neo-cyan/8 rounded-full blur-[100px] pointer-events-none -z-10" />
-      <div className="absolute bottom-12 right-6 h-72 w-72 bg-neo-emerald/8 rounded-full blur-[100px] pointer-events-none -z-10" />
+      <div className="listing-page-texture pointer-events-none absolute inset-x-0 top-0 -z-10 h-[24rem]" />
 
-      {/* Header Area */}
-      {effectiveCategorySlug && (
-        <RevealOnScroll anchorId="listing-header" anchorLabel="Listing Header" className="mb-8">
-          <h1 className="text-3xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-slate-200 to-neo-cyan capitalize tracking-tight mb-2">
-            {localizedCategoryLabel}
+      <RevealOnScroll anchorId="listing-header" anchorLabel="Listing Header" className="listing-command-hero mb-6">
+        <div className="listing-command-copy">
+          <div className="premium-eyebrow mb-3">
+            <Sparkles className="h-3.5 w-3.5" />
+            {listingHeader.eyebrow}
+          </div>
+          <h1 className="text-3xl font-black leading-tight text-white md:text-5xl">
+            {listingHeader.title}
           </h1>
-          <p className="text-neo-cyan font-bold tracking-widest text-sm uppercase">
-            {t('listing.curatedCollection', {}, 'Curated Collection')}
+          <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-300 md:text-base">
+            {listingHeader.description}
           </p>
-        </RevealOnScroll>
-      )}
-      {searchQuery && (
-        <RevealOnScroll anchorId="listing-search" anchorLabel="Search Results" className="mb-8">
-          <h1 className="text-3xl md:text-5xl font-black text-white tracking-tight mb-2">
-            {t('listing.resultsFor', {}, 'Results for')} <span className="text-transparent bg-clip-text bg-gradient-to-r from-neo-cyan to-neo-emerald">"{searchQuery}"</span>
-          </h1>
-          <p className="text-slate-400 font-medium">{t('listing.filteredLiveCatalog', {}, 'Filtered from live catalog inventory')}</p>
-        </RevealOnScroll>
-      )}
-      {!effectiveCategorySlug && !searchQuery && (
-        <RevealOnScroll anchorId="listing-default" anchorLabel="Aura Catalog" className="mb-8">
-          <h1 className="text-3xl md:text-5xl font-black text-white tracking-tight mb-2">
-            Aura <span className="text-transparent bg-clip-text bg-gradient-to-r from-neo-cyan to-neo-emerald">{t('listing.catalogTitle', {}, 'Catalog')}</span>
-          </h1>
-          <p className="text-slate-400 font-medium">
-            {t('listing.catalogSubtitle', {}, 'Explore our full selection of premium products')}
-          </p>
-        </RevealOnScroll>
-      )}
+        </div>
+        <div className="listing-command-stats">
+          {listingStats.map((stat) => {
+            const Icon = stat.icon;
+            return (
+              <div key={stat.label} className="listing-command-stat">
+                <Icon className="h-4 w-4" />
+                <span className="text-lg font-black text-white">{stat.value}</span>
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">{stat.label}</span>
+                <span className="text-xs text-slate-400">{stat.detail}</span>
+              </div>
+            );
+          })}
+        </div>
+      </RevealOnScroll>
 
       {/* Mobile Filter Toggle */}
-      <div className="lg:hidden mb-4 flex justify-between items-center bg-white/[0.045] px-4 py-3 rounded-2xl border border-white/10">
+      <div className="listing-mobile-filter-bar lg:hidden mb-4">
         <button
           onClick={() => setShowMobileFilters(!showMobileFilters)}
-          className="flex items-center gap-2 bg-white/10 hover:bg-white/20 px-4 py-2 rounded-xl transition-colors font-medium text-white border border-white/10"
+          className="listing-filter-open-button"
         >
           <SlidersHorizontal className="w-4 h-4 text-neo-cyan" />
           {t('filters.open', {}, 'Filters')}
         </button>
-        <span className="text-sm text-slate-400 font-bold tracking-wider">
+        <span className="listing-mobile-filter-count">
           <span className="text-white">{totalProducts}</span> {t('listing.itemsLabel', {}, 'Items')}
         </span>
       </div>
@@ -452,13 +521,12 @@ const ProductListing = () => {
           data-scroll-anchor="true"
           data-scroll-anchor-label="Filters"
           className={cn(
-            'lg:w-72 flex-shrink-0 h-fit sticky top-24 transition-transform duration-300 z-40',
-            'fixed inset-y-0 left-0 w-[18rem] lg:relative lg:transform-none lg:translate-x-0',
+            'listing-filter-rail lg:w-[19rem] flex-shrink-0 h-fit sticky top-24 transition-transform duration-300 z-[90] lg:z-40',
+            'fixed inset-y-0 left-0 w-[min(22rem,calc(100vw-1.25rem))] lg:relative lg:transform-none lg:translate-x-0',
             showMobileFilters ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
           )}
         >
-          <div className="bg-white/5 p-6 rounded-2xl shadow-glass border border-white/10 overflow-hidden relative">
-            <div className="absolute inset-0 bg-gradient-to-br from-neo-cyan/5 to-transparent pointer-events-none" />
+          <div className="listing-filter-panel">
             <Filters
               filters={filters}
               onFilterChange={setFilters}
@@ -473,20 +541,20 @@ const ProductListing = () => {
           <RevealOnScroll
             anchorId="listing-sort-bar"
             anchorLabel="Sort & View"
-            className="bg-white/[0.045] p-4 rounded-2xl shadow-glass border border-white/10 mb-6 flex flex-col sm:flex-row justify-between items-center gap-4 relative overflow-hidden"
+            className="listing-results-toolbar mb-6"
             delay={30}
           >
-            <div className="absolute left-0 top-0 w-1 h-full bg-gradient-to-b from-neo-cyan to-neo-emerald" />
-            <div className="text-sm text-slate-400 font-medium pl-2">
+            <div className="listing-results-toolbar__accent" />
+            <div className="listing-results-count">
               {t('listing.displaying', {}, 'Displaying')} <span className="font-bold text-white tracking-wide">{products.length}</span> {t('listing.of', {}, 'of')} <span className="font-bold text-white tracking-wide">{totalProducts}</span> {t('listing.itemsLower', {}, 'items')}
             </div>
 
-            <div className="flex items-center gap-4 lg:gap-6 w-full sm:w-auto">
+            <div className="listing-results-controls">
               <div className="relative w-full sm:w-48">
                 <PremiumSelect
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value)}
-                  className="w-full appearance-none bg-zinc-950/50 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:ring-1 focus:ring-neo-cyan focus:border-neo-cyan cursor-pointer hover:bg-white/5 transition-colors outline-none font-medium"
+                  className="listing-sort-select w-full appearance-none cursor-pointer outline-none"
                 >
                   <option value="relevance">{getSortLabel('relevance', t)}</option>
                   <option value="price-asc">{getSortLabel('price-asc', t)}</option>
@@ -500,21 +568,25 @@ const ProductListing = () => {
                 </div>
               </div>
 
-              <div className="flex bg-zinc-950/50 rounded-lg p-1 border border-white/5">
+              <div className="listing-view-toggle">
                 <button
+                  type="button"
+                  aria-label={t('listing.gridView', {}, 'Grid view')}
                   onClick={() => setViewMode('grid')}
                   className={cn(
-                    'p-2 rounded-md transition-all duration-300',
-                    viewMode === 'grid' ? 'bg-white/10 text-neo-cyan shadow-[0_0_10px_rgba(6,182,212,0.2)]' : 'text-slate-500 hover:text-white hover:bg-white/5'
+                    'listing-view-toggle__button',
+                    viewMode === 'grid' ? 'listing-view-toggle__button--active text-neo-cyan' : 'text-slate-500'
                   )}
                 >
                   <Grid className="w-5 h-5" />
                 </button>
                 <button
+                  type="button"
+                  aria-label={t('listing.listView', {}, 'List view')}
                   onClick={() => setViewMode('list')}
                   className={cn(
-                    'p-2 rounded-md transition-all duration-300',
-                    viewMode === 'list' ? 'bg-white/10 text-neo-emerald shadow-[0_0_10px_rgba(16,185,129,0.2)]' : 'text-slate-500 hover:text-white hover:bg-white/5'
+                    'listing-view-toggle__button',
+                    viewMode === 'list' ? 'listing-view-toggle__button--active text-neo-emerald' : 'text-slate-500'
                   )}
                 >
                   <List className="w-5 h-5" />
@@ -636,9 +708,9 @@ const ProductListing = () => {
               data-scroll-anchor="true"
               data-scroll-anchor-label="Product Results"
               className={cn(
-                'grid gap-6',
+                'listing-results-grid grid',
                 viewMode === 'grid'
-                  ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
+                  ? 'listing-results-grid--cards grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
                   : 'grid-cols-1'
               )}
             >
@@ -662,27 +734,27 @@ const ProductListing = () => {
 
           {/* Pagination Controls */}
           {!loading && totalPages > 1 && (
-            <div className="flex justify-center items-center gap-6 mt-16 bg-white/[0.045] p-4 rounded-2xl shadow-glass border border-white/10 w-fit mx-auto relative overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-r from-neo-cyan/8 to-neo-emerald/8 pointer-events-none" />
+            <div className="listing-pagination">
+              <div className="listing-pagination__wash" />
               <button
                 disabled={page === 1}
                 onClick={() => handlePageChange(page - 1)}
-                className="flex items-center gap-2 text-slate-300 hover:text-white disabled:opacity-30 disabled:hover:text-slate-300 font-bold tracking-wider uppercase text-xs transition-colors p-2"
+                className="listing-pagination__button"
               >
                 <ChevronLeft className="w-5 h-5 text-neo-cyan" /> {t('listing.prev', {}, 'Prev')}
               </button>
 
-              <div className="flex items-center bg-zinc-950/50 rounded-lg px-4 py-2 border border-white/5">
-                <span className="text-sm font-bold text-slate-400 tracking-widest">
-                  {t('listing.page', {}, 'Page')} <span className="text-white mx-1 text-base">{page}</span>
-                  <span className="text-slate-600 mx-2">/</span> {totalPages}
+              <div className="listing-pagination__status">
+                <span>
+                  {t('listing.page', {}, 'Page')} <strong>{page}</strong>
+                  <em>/</em> {totalPages}
                 </span>
               </div>
 
               <button
                 disabled={page === totalPages}
                 onClick={() => handlePageChange(page + 1)}
-                className="flex items-center gap-2 text-slate-300 hover:text-white disabled:opacity-30 disabled:hover:text-slate-300 font-bold tracking-wider uppercase text-xs transition-colors p-2"
+                className="listing-pagination__button"
               >
                 {t('listing.next', {}, 'Next')} <ChevronRight className="w-5 h-5 text-neo-emerald" />
               </button>

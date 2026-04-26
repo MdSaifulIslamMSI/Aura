@@ -11,12 +11,12 @@ const ConfirmationCard = ({
     if (!confirmation?.action) return null;
 
     const cardClassName = isWhiteMode
-        ? 'border-cyan-200 bg-cyan-50 text-slate-950'
-        : 'border-cyan-300/20 bg-cyan-500/10 text-slate-100';
+        ? 'assistant-confirm-card border-slate-200 bg-white text-slate-950'
+        : 'assistant-confirm-card border-white/10 bg-white/[0.04] text-slate-100';
     const mutedTextClass = isWhiteMode ? 'text-slate-600' : 'text-slate-300';
     const confirmClassName = isWhiteMode
         ? 'border-slate-950 bg-slate-950 text-white hover:bg-slate-800'
-        : 'border-cyan-300/30 bg-cyan-400/15 text-cyan-100 hover:bg-cyan-400/20';
+        : 'assistant-confirm-card__primary border-white/10 bg-white/[0.04] text-slate-100 hover:bg-white/[0.08]';
     const cancelClassName = isWhiteMode
         ? 'border-slate-200 bg-white text-slate-950 hover:bg-slate-100'
         : 'border-white/10 bg-white/[0.04] text-slate-100 hover:bg-white/[0.08]';
