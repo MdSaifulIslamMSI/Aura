@@ -94,23 +94,23 @@ const DesktopUpdateBanner = () => {
   const isTransient = updateState.type === 'not-available';
 
   return (
-    <div className="fixed bottom-5 right-5 z-[9998] w-[min(26rem,calc(100vw-1.5rem))] overflow-hidden rounded-[1.75rem] border border-cyan-300/20 bg-slate-950/92 p-4 text-white shadow-[0_24px_90px_rgba(2,8,23,0.45)] backdrop-blur-2xl">
-      <div className="absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-cyan-200/70 to-transparent" />
+    <div className="aura-update-banner aura-floating-utility aura-floating-utility--update fixed bottom-5 right-5 z-[74] w-[min(26rem,calc(100vw-1.5rem))] overflow-hidden rounded-[1.45rem] border p-4 text-white backdrop-blur-2xl">
+      <div className="aura-update-banner__rule absolute inset-x-8 top-0 h-px" />
       <div className="flex items-start gap-4">
-        <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border ${toneClasses[copy.tone]}`}>
+        <div className={`aura-floating-utility__icon flex h-12 w-12 shrink-0 items-center justify-center rounded-full border ${toneClasses[copy.tone]}`}>
           <Icon className={`h-5 w-5 ${isChecking ? 'animate-spin' : ''}`} />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-black uppercase tracking-[0.22em] text-cyan-100/80">Desktop update channel</p>
-          <h2 className="mt-1 text-base font-black text-white">{copy.title}</h2>
-          <p className="mt-1 text-sm leading-5 text-slate-300">{copy.detail}</p>
+          <p className="aura-floating-utility__eyebrow text-[11px] font-black uppercase tracking-[0.22em]">Desktop update channel</p>
+          <h2 className="aura-floating-utility__title mt-1 text-base font-black">{copy.title}</h2>
+          <p className="aura-floating-utility__detail mt-1 text-sm leading-5">{copy.detail}</p>
 
           <div className="mt-4 flex flex-wrap gap-2">
             {isReady ? (
               <button
                 type="button"
                 onClick={() => desktopBridge.installUpdateNow?.()}
-                className="inline-flex items-center justify-center rounded-full bg-cyan-300 px-4 py-2 text-xs font-black uppercase tracking-[0.16em] text-slate-950 transition-transform hover:scale-[1.02]"
+                className="aura-update-banner__primary inline-flex items-center justify-center rounded-full px-4 py-2 text-xs font-black uppercase tracking-[0.16em] transition-transform hover:scale-[1.02]"
               >
                 Restart and update
               </button>
@@ -119,7 +119,7 @@ const DesktopUpdateBanner = () => {
               <button
                 type="button"
                 onClick={() => desktopBridge.checkForUpdates?.()}
-                className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/[0.06] px-4 py-2 text-xs font-black uppercase tracking-[0.16em] text-slate-100 transition-colors hover:bg-white/[0.1]"
+                className="aura-update-banner__secondary inline-flex items-center justify-center rounded-full border px-4 py-2 text-xs font-black uppercase tracking-[0.16em] transition-colors"
               >
                 Check again
               </button>
@@ -127,7 +127,7 @@ const DesktopUpdateBanner = () => {
             <button
               type="button"
               onClick={() => setDismissedType(updateState.type)}
-              className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-xs font-black uppercase tracking-[0.16em] text-slate-300 transition-colors hover:bg-white/[0.08] hover:text-white"
+              className="aura-update-banner__secondary inline-flex items-center justify-center rounded-full border px-4 py-2 text-xs font-black uppercase tracking-[0.16em] transition-colors"
             >
               Later
             </button>
@@ -137,7 +137,7 @@ const DesktopUpdateBanner = () => {
           type="button"
           aria-label="Dismiss desktop update notice"
           onClick={() => setDismissedType(updateState.type)}
-          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-slate-300 transition-colors hover:bg-white/[0.08] hover:text-white"
+          className="aura-update-banner__secondary inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border transition-colors"
         >
           <X className="h-4 w-4" />
         </button>

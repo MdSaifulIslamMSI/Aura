@@ -83,15 +83,15 @@ const MobileUpdateBanner = () => {
 
   if (state.status === 'error') {
     return (
-      <div className="aura-mobile-update-banner fixed bottom-5 left-5 z-[9998] w-[min(25rem,calc(100vw-1.5rem))] overflow-hidden rounded-[1.65rem] border border-amber-300/25 bg-slate-950/92 p-4 text-white shadow-[0_24px_90px_rgba(2,8,23,0.45)] backdrop-blur-2xl">
+      <div className="aura-mobile-update-banner aura-update-banner aura-floating-utility aura-floating-utility--update fixed bottom-5 left-5 z-[74] w-[min(25rem,calc(100vw-1.5rem))] overflow-hidden rounded-[1.45rem] border p-4 text-white backdrop-blur-2xl">
         <div className="flex items-start gap-4">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-amber-300/25 bg-amber-300/10 text-amber-100">
+          <div className="aura-floating-utility__icon flex h-11 w-11 shrink-0 items-center justify-center rounded-full border">
             <RefreshCw className="h-5 w-5" />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-black uppercase tracking-[0.22em] text-amber-100/80">Mobile update channel</p>
-            <h2 className="mt-1 text-base font-black text-white">Update check needs another try</h2>
-            <p className="mt-1 text-sm leading-5 text-slate-300">{state.error}</p>
+            <p className="aura-floating-utility__eyebrow text-[11px] font-black uppercase tracking-[0.22em]">Mobile update channel</p>
+            <h2 className="aura-floating-utility__title mt-1 text-base font-black">Update check needs another try</h2>
+            <p className="aura-floating-utility__detail mt-1 text-sm leading-5">{state.error}</p>
           </div>
         </div>
       </div>
@@ -124,21 +124,21 @@ const MobileUpdateBanner = () => {
     : `Download ${platformName} update`;
 
   return (
-    <div className="aura-mobile-update-banner fixed bottom-5 left-5 z-[9998] w-[min(27rem,calc(100vw-1.5rem))] overflow-hidden rounded-[1.75rem] border border-emerald-300/20 bg-slate-950/92 p-4 text-white shadow-[0_24px_90px_rgba(2,8,23,0.45)] backdrop-blur-2xl">
-      <div className="absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-emerald-200/80 to-transparent" />
+    <div className="aura-mobile-update-banner aura-update-banner aura-floating-utility aura-floating-utility--update fixed bottom-5 left-5 z-[74] w-[min(27rem,calc(100vw-1.5rem))] overflow-hidden rounded-[1.45rem] border p-4 text-white backdrop-blur-2xl">
+      <div className="aura-update-banner__rule absolute inset-x-8 top-0 h-px" />
       <div className="flex items-start gap-4">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-emerald-300/25 bg-emerald-300/10 text-emerald-100">
+        <div className="aura-floating-utility__icon flex h-12 w-12 shrink-0 items-center justify-center rounded-full border">
           <Smartphone className="h-5 w-5" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-black uppercase tracking-[0.22em] text-emerald-100/80">Mobile update channel</p>
-          <h2 className="mt-1 text-base font-black text-white">
+          <p className="aura-floating-utility__eyebrow text-[11px] font-black uppercase tracking-[0.22em]">Mobile update channel</p>
+          <h2 className="aura-floating-utility__title mt-1 text-base font-black">
             Aura Mobile {release.version} is ready
           </h2>
-          <p className="mt-1 text-sm leading-5 text-slate-300">
+          <p className="aura-floating-utility__detail mt-1 text-sm leading-5">
             Your hosted Aura experience keeps updating automatically. This notice is for the native {platformName} shell when a new install package is published.
           </p>
-          <p className="mt-2 text-xs font-semibold text-slate-500">
+          <p className="aura-floating-utility__detail mt-2 text-xs font-semibold">
             Installed: {state.installedVersion || 'unknown'} | Latest: {release.version}
           </p>
 
@@ -147,7 +147,7 @@ const MobileUpdateBanner = () => {
               href={release.downloadUrl}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-2 rounded-full bg-emerald-300 px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-slate-950 transition-transform hover:scale-[1.02]"
+              className="aura-update-banner__primary inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-black uppercase tracking-[0.14em] transition-transform hover:scale-[1.02]"
             >
               <DownloadCloud className="h-4 w-4" />
               {installLabel}
@@ -156,7 +156,7 @@ const MobileUpdateBanner = () => {
               href={release.notesUrl}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-slate-100 transition-colors hover:bg-white/[0.1]"
+              className="aura-update-banner__secondary inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-black uppercase tracking-[0.14em] transition-colors"
             >
               <ExternalLink className="h-4 w-4" />
               Release notes
@@ -164,7 +164,7 @@ const MobileUpdateBanner = () => {
             <button
               type="button"
               onClick={dismiss}
-              className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-slate-300 transition-colors hover:bg-white/[0.08] hover:text-white"
+              className="aura-update-banner__secondary inline-flex items-center justify-center rounded-full border px-4 py-2 text-xs font-black uppercase tracking-[0.14em] transition-colors"
             >
               Later
             </button>
@@ -174,7 +174,7 @@ const MobileUpdateBanner = () => {
           type="button"
           aria-label="Dismiss mobile update notice"
           onClick={dismiss}
-          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-slate-300 transition-colors hover:bg-white/[0.08] hover:text-white"
+          className="aura-update-banner__secondary inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border transition-colors"
         >
           <X className="h-4 w-4" />
         </button>

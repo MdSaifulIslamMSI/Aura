@@ -1,7 +1,7 @@
 import { execSync } from "node:child_process"
 import path from "path"
 import react from "@vitejs/plugin-react"
-import { defineConfig } from "vite"
+import { defineConfig, loadEnv } from "vite"
 
 const DEFERRED_ROUTE_PRELOAD_PATTERNS = [
   /^assets\/admin-/,
@@ -104,8 +104,38 @@ const auraReleaseMetaPlugin = {
   },
 }
 
+const resolveDevApiProxyTarget = (mode) => {
+  const env = loadEnv(mode, process.cwd(), '')
+  const rawTarget = firstNonEmptyValue(
+    env.VITE_DEV_API_PROXY_TARGET,
+    env.VITE_API_URL,
+    process.env.VITE_DEV_API_PROXY_TARGET,
+    process.env.VITE_API_URL,
+    'http://127.0.0.1:5000/api'
+  )
+
+  try {
+    const url = new URL(rawTarget)
+    url.pathname = trimValue(url.pathname).replace(/\/api\/?$/i, '') || '/'
+    url.search = ''
+    url.hash = ''
+    return trimValue(url.toString()).replace(/\/+$/, '')
+  } catch {
+    return 'http://127.0.0.1:5000'
+  }
+}
+
+const createProxyConfig = (target) => ({
+  target,
+  changeOrigin: true,
+  secure: false,
+})
+
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => {
+  const devApiProxyTarget = resolveDevApiProxyTarget(mode)
+
+  return {
   base: '/',
   define: {
     __AURA_RELEASE__: JSON.stringify(releaseInfo),
@@ -139,21 +169,9 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      '/api': {
-        target: 'http://127.0.0.1:5000',
-        changeOrigin: true,
-        secure: false,
-      },
-      '/health': {
-        target: 'http://127.0.0.1:5000',
-        changeOrigin: true,
-        secure: false,
-      },
-      '/uploads': {
-        target: 'http://127.0.0.1:5000',
-        changeOrigin: true,
-        secure: false,
-      },
+      '/api': createProxyConfig(devApiProxyTarget),
+      '/health': createProxyConfig(devApiProxyTarget),
+      '/uploads': createProxyConfig(devApiProxyTarget),
     },
   },
   plugins: [react(), auraReleaseMetaPlugin],
@@ -162,4 +180,5 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  }
 })

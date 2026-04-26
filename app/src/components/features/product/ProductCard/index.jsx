@@ -149,7 +149,6 @@ const ProductCard = ({ product, variant = 'default', gridLayout = null, harmonyI
   const categoryLabel = product?.category ? getLocalizedCategoryLabel(product.category, t) : '';
   const brandLabel = product?.brand || 'Aura';
   const searchTelemetry = product?.searchTelemetry || null;
-  const isDemoCatalog = product?.publishGate?.status === 'dev_only' || product?.provenance?.sourceType === 'dev_seed';
   const inWishlist = productId ? isInWishlist(productId) : false;
   const ratingValue = formatRating(product?.rating);
   const ratingCount = Number(product?.ratingCount || 0);
@@ -184,16 +183,16 @@ const ProductCard = ({ product, variant = 'default', gridLayout = null, harmonyI
     () => secondaryStory.map((story) => translateCardText(story) || story),
     [secondaryStory, translateCardText]
   );
-  const accentColors = [
-    modePalette.primary,
-    '#06b6d4', // Cyan
-    '#10b881', // Emerald
-    '#8b5cf6', // Violet
-    '#f43f5e', // Rose
-  ];
-  
-  const accentColor = harmonyIndex !== null ? accentColors[harmonyIndex % accentColors.length] : modePalette.primary;
-  const accentSecondary = harmonyIndex !== null ? accentColors[(harmonyIndex + 1) % accentColors.length] : modePalette.secondary;
+  const useSecondaryLead = harmonyIndex !== null && harmonyIndex % 2 === 1;
+  const accentColor = useSecondaryLead ? modePalette.secondary : modePalette.primary;
+  const accentSecondary = useSecondaryLead ? modePalette.primary : modePalette.secondary;
+  const accentTertiary = modePalette.tertiary || modePalette.secondary;
+  const isDramaticCard = !isWhiteMode && variant !== 'list' && harmonyIndex !== null && harmonyIndex % 5 === 2;
+  const wishlistButtonClass = cn(
+    'aura-commerce-card__wishlist-button',
+    inWishlist && 'aura-commerce-card__wishlist-button--active',
+    isDramaticCard && 'aura-commerce-card__wishlist-button--dramatic'
+  );
 
   const prefetchProduct = () => {
     if (!productId || hasPrefetchedRef.current) return;
@@ -296,46 +295,57 @@ const ProductCard = ({ product, variant = 'default', gridLayout = null, harmonyI
 
   const mutedTextClass = isWhiteMode ? 'text-slate-600' : 'text-slate-300';
   const subtleTextClass = isWhiteMode ? 'text-slate-500' : 'text-slate-400';
+  const cardTokenStyle = {
+    '--aura-card-primary': accentColor,
+    '--aura-card-secondary': accentSecondary,
+    '--aura-card-tertiary': accentTertiary,
+  };
   const cardSurfaceStyle = isWhiteMode
-    ? undefined
+    ? {
+        ...cardTokenStyle,
+        background: `linear-gradient(145deg, ${toRgba(accentColor, 0.12)} 0%, ${toRgba(accentSecondary, 0.08)} 42%, rgba(255,255,255,0.94) 100%), linear-gradient(180deg, rgba(255,255,255,0.98), rgba(241,245,249,0.96))`,
+        borderColor: toRgba(accentColor, 0.18),
+        boxShadow: `0 22px 52px rgba(15,23,42,0.1), 0 0 0 1px ${toRgba(accentColor, 0.08)}`,
+      }
     : {
-        background: `radial-gradient(circle at top left, ${toRgba(accentColor, 0.18)}, transparent 40%), radial-gradient(circle at bottom right, ${toRgba(accentSecondary, 0.16)}, transparent 42%), linear-gradient(180deg, rgba(4,8,18,0.98) 0%, rgba(8,12,24,0.97) 42%, rgba(10,15,28,0.94) 100%)`,
-        borderColor: toRgba(accentColor, 0.22),
-        boxShadow: `0 18px 40px rgba(2,8,23,0.34), 0 0 0 1px ${toRgba(accentColor, 0.05)}`,
+        ...cardTokenStyle,
+        background: `linear-gradient(145deg, ${toRgba(accentColor, 0.16)} 0%, ${toRgba(accentSecondary, 0.08)} 38%, ${toRgba(accentTertiary, 0.06)} 68%), linear-gradient(180deg, rgb(var(--theme-surface-rgb) / 0.96) 0%, rgb(var(--theme-surface-strong-rgb) / 0.98) 100%)`,
+        borderColor: toRgba(accentColor, 0.26),
+        boxShadow: `0 20px 46px rgb(var(--theme-surface-strong-rgb) / 0.36), 0 0 0 1px ${toRgba(accentColor, 0.08)}`,
       };
   const cardMediaStyle = isWhiteMode
-    ? undefined
-    : {
-        background: `radial-gradient(circle at top, ${toRgba(accentColor, 0.22)}, transparent 55%), linear-gradient(180deg, ${toRgba(accentSecondary, 0.12)}, rgba(255,255,255,0.02))`,
+    ? {
+        background: `linear-gradient(135deg, rgba(255,255,255,0.98), ${toRgba(accentColor, 0.1)} 48%, ${toRgba(accentSecondary, 0.12)} 100%)`,
         borderColor: toRgba(accentColor, 0.12),
-      };
-  const contentToneStyle = isWhiteMode
-    ? undefined
+      }
     : {
-        background: `linear-gradient(180deg, rgba(3,7,18,0.08) 0%, ${toRgba(accentColor, 0.06)} 62%, ${toRgba(accentSecondary, 0.05)} 100%)`,
-      };
-  const iconToolStyle = isWhiteMode
-    ? undefined
-    : {
+        background: `linear-gradient(135deg, rgba(250,246,235,0.98), ${toRgba(accentColor, 0.16)} 43%, ${toRgba(accentSecondary, 0.24)} 100%), linear-gradient(180deg, rgba(255,255,255,0.94), rgba(203,213,225,0.82))`,
         borderColor: toRgba(accentColor, 0.24),
-        background: `linear-gradient(180deg, ${toRgba(accentColor, 0.12)}, rgba(9,16,29,0.78))`,
-        color: '#f8fafc',
       };
-  const textToolStyle = isWhiteMode
-    ? undefined
-    : {
-        borderColor: toRgba(accentColor, 0.2),
-        background: toRgba(accentColor, 0.08),
-        color: '#e2e8f0',
-      };
+  const contentToneStyle = {
+    background: isWhiteMode
+      ? `linear-gradient(180deg, rgba(255,255,255,0.52) 0%, ${toRgba(accentColor, 0.05)} 68%, rgba(241,245,249,0.8) 100%)`
+      : `linear-gradient(180deg, rgba(255,255,255,0.026) 0%, ${toRgba(accentColor, 0.06)} 60%, ${toRgba(accentSecondary, 0.035)} 100%)`,
+  };
+  const iconToolStyle = {
+    borderColor: toRgba(accentColor, isWhiteMode ? 0.18 : 0.26),
+    background: isWhiteMode
+      ? `linear-gradient(180deg, rgba(255,255,255,0.94), ${toRgba(accentColor, 0.08)})`
+      : `linear-gradient(180deg, ${toRgba(accentColor, 0.14)}, rgb(var(--theme-surface-strong-rgb) / 0.84))`,
+    color: isWhiteMode ? '#0f172a' : '#f8fafc',
+  };
+  const textToolStyle = {
+    borderColor: toRgba(accentColor, isWhiteMode ? 0.16 : 0.22),
+    background: toRgba(accentColor, isWhiteMode ? 0.06 : 0.09),
+    color: isWhiteMode ? '#0f172a' : '#e2e8f0',
+  };
   const accentLabelStyle = isWhiteMode ? undefined : { color: accentColor };
-  const primaryCtaStyle = isWhiteMode
-    ? undefined
-    : {
-        backgroundImage: `linear-gradient(90deg, ${accentColor}, ${accentSecondary})`,
-        boxShadow: `0 16px 30px ${toRgba(accentColor, 0.26)}`,
-        color: '#020617',
-      };
+  const needsLightCtaText = ['white', 'violet', 'ruby', 'midnight'].includes(colorMode);
+  const primaryCtaStyle = {
+    backgroundImage: `linear-gradient(90deg, ${accentColor}, ${accentSecondary})`,
+    boxShadow: `0 16px 30px ${toRgba(accentColor, 0.26)}`,
+    color: needsLightCtaText ? '#ffffff' : '#020617',
+  };
 
   const mediaBadges = [
     isSponsored
@@ -348,16 +358,6 @@ const ProductCard = ({ product, variant = 'default', gridLayout = null, harmonyI
             : 'border-amber-400/40 bg-amber-500/15 text-amber-100',
         }
       : null,
-    isDemoCatalog
-      ? {
-          key: 'demo',
-          icon: BadgeCheck,
-          label: t('product.demoCatalog', {}, 'Demo Catalog'),
-          tone: isWhiteMode
-            ? 'border-sky-300 bg-sky-50 text-sky-700'
-            : 'border-sky-400/40 bg-sky-500/15 text-sky-100',
-        }
-      : null,
   ].filter(Boolean);
 
   if (variant === 'list') {
@@ -368,7 +368,7 @@ const ProductCard = ({ product, variant = 'default', gridLayout = null, harmonyI
         onMouseEnter={prefetchProduct}
         onFocus={prefetchProduct}
         className={cn(
-          'group relative flex h-full flex-col overflow-hidden rounded-[1.75rem] border transition-all duration-500 md:flex-row premium-card-hover',
+          'group aura-commerce-card relative flex h-full flex-col overflow-hidden rounded-[1.45rem] border transition-all duration-500 md:flex-row premium-card-hover',
           surfaceClass
         )}
         style={cardSurfaceStyle}
@@ -384,7 +384,7 @@ const ProductCard = ({ product, variant = 'default', gridLayout = null, harmonyI
         </div>
 
         <div className={cn(
-          'relative aspect-[4/3] overflow-hidden border-b p-6 md:w-[19rem] md:flex-shrink-0 md:border-b-0 md:border-r group-hover:glass-shimmer',
+          'aura-commerce-card__media relative aspect-[4/3] overflow-hidden border-b p-6 md:w-[19rem] md:flex-shrink-0 md:border-b-0 md:border-r group-hover:glass-shimmer',
           mediaClass
         )} style={cardMediaStyle}>
           <div className="absolute left-4 top-4 z-20 flex max-w-[75%] flex-wrap gap-2">
@@ -401,18 +401,13 @@ const ProductCard = ({ product, variant = 'default', gridLayout = null, harmonyI
           <button
             type="button"
             onClick={handleWishlistClick}
-            className={cn(
-              'absolute right-4 top-4 z-20 flex h-11 w-11 items-center justify-center rounded-full border transition-all duration-300',
-              isWhiteMode
-                ? 'border-slate-300 bg-white/95 text-slate-600 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-500'
-                : 'border-white/12 bg-zinc-950/72 text-slate-300 hover:border-neo-rose/55 hover:bg-neo-rose/12 hover:text-neo-rose'
-            )}
+            className={wishlistButtonClass}
             aria-label={wishlistToggleLabel}
           >
             <Heart className={cn('h-5 w-5', inWishlist && 'fill-current')} />
           </button>
 
-          <div className="absolute inset-x-4 bottom-4 z-20 hidden items-center gap-2 sm:flex">
+          <div className="aura-commerce-card__quick-tools absolute inset-x-4 bottom-4 z-20 hidden items-center gap-2 sm:flex">
             {quickTools.map((tool) => (
               <IconToolButton
                 key={tool.key}
@@ -451,7 +446,7 @@ const ProductCard = ({ product, variant = 'default', gridLayout = null, harmonyI
         </div>
 
         <div className={cn(
-          'relative flex flex-1 flex-col bg-gradient-to-b p-6 md:p-7',
+          'aura-commerce-card__content relative flex flex-1 flex-col bg-gradient-to-b p-6 md:p-7',
           contentClass
         )} style={contentToneStyle}>
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
@@ -619,8 +614,9 @@ const ProductCard = ({ product, variant = 'default', gridLayout = null, harmonyI
       onMouseEnter={prefetchProduct}
       onFocus={prefetchProduct}
       className={cn(
-        'group card-product premium-card-hover relative flex h-full flex-col overflow-hidden rounded-[1.6rem] border transition-all duration-500',
-        surfaceClass
+        'group card-product aura-commerce-card premium-card-hover relative flex h-full flex-col overflow-hidden rounded-[1.35rem] border transition-all duration-500',
+        surfaceClass,
+        isDramaticCard && 'aura-commerce-card--dramatic'
       )}
       style={{
         ...cardSurfaceStyle,
@@ -642,7 +638,7 @@ const ProductCard = ({ product, variant = 'default', gridLayout = null, harmonyI
       </div>
 
       <div className={cn(
-        'relative aspect-[4/3] overflow-hidden border-b p-4 sm:aspect-[4/3.05] group-hover:glass-shimmer',
+        'aura-commerce-card__media relative aspect-[4/3] overflow-hidden border-b p-4 sm:aspect-[4/3.05] group-hover:glass-shimmer',
         mediaClass
       )} style={cardMediaStyle}>
         <div className="absolute left-4 top-4 z-20 flex max-w-[70%] flex-wrap gap-2">
@@ -659,34 +655,26 @@ const ProductCard = ({ product, variant = 'default', gridLayout = null, harmonyI
         <button
           type="button"
           onClick={handleWishlistClick}
-          className={cn(
-            'absolute right-4 top-4 z-20 flex h-10 w-10 items-center justify-center rounded-full border transition-all duration-300',
-            isWhiteMode
-              ? 'border-slate-300 bg-white/95 text-slate-600 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-500'
-              : 'border-white/12 bg-zinc-950/72 text-slate-300 hover:border-neo-rose/55 hover:bg-neo-rose/12 hover:text-neo-rose'
-          )}
+          className={wishlistButtonClass}
           aria-label={wishlistToggleLabel}
         >
           <Heart className={cn('h-[18px] w-[18px]', inWishlist && 'fill-current')} />
         </button>
 
-        <img
-          src={imageError ? FALLBACK_IMAGE : product.image || FALLBACK_IMAGE}
-          alt={translatedDisplayTitle}
-          loading="lazy"
-          className={cn(
-            'h-full w-full object-contain transition-transform duration-700 group-hover:scale-[1.045]',
-            isWhiteMode
-              ? 'drop-shadow-[0_18px_30px_rgba(15,23,42,0.16)]'
-              : 'drop-shadow-[0_16px_26px_rgba(0,0,0,0.55)]'
-          )}
-          onError={(event) => {
-            event.target.onerror = null;
-            setImageError(true);
-          }}
-        />
+        <div className="aura-commerce-card__image-stage">
+          <img
+            src={imageError ? FALLBACK_IMAGE : product.image || FALLBACK_IMAGE}
+            alt={translatedDisplayTitle}
+            loading="lazy"
+            className="aura-commerce-card__image h-full w-full object-contain transition-transform duration-700"
+            onError={(event) => {
+              event.target.onerror = null;
+              setImageError(true);
+            }}
+          />
+        </div>
 
-        <div className="absolute inset-x-4 bottom-4 z-20 hidden items-center justify-center gap-2 transition-all duration-300 md:flex md:translate-y-3 md:opacity-0 md:group-hover:translate-y-0 md:group-hover:opacity-100">
+        <div className="aura-commerce-card__quick-tools absolute inset-x-4 bottom-4 z-20 hidden items-center justify-center gap-2 transition-all duration-300 md:flex md:translate-y-3 md:opacity-0 md:group-hover:translate-y-0 md:group-hover:opacity-100">
           {quickTools.map((tool) => (
               <IconToolButton
                 key={tool.key}
@@ -709,10 +697,10 @@ const ProductCard = ({ product, variant = 'default', gridLayout = null, harmonyI
       </div>
 
       <div className={cn(
-        'relative flex flex-1 flex-col bg-gradient-to-b p-4',
+        'aura-commerce-card__content relative flex flex-1 flex-col bg-gradient-to-b p-4',
         contentClass
       )} style={contentToneStyle}>
-        <div className="mb-2 flex flex-wrap items-center gap-2">
+        <div className="aura-commerce-card__meta mb-2 flex flex-wrap items-center gap-2">
           <span className={cn(
             'text-[10px] font-black uppercase tracking-[0.22em]',
             isWhiteMode ? 'text-blue-700' : ''
@@ -727,19 +715,19 @@ const ProductCard = ({ product, variant = 'default', gridLayout = null, harmonyI
         </div>
 
         <h3 className={cn(
-          'line-clamp-2 text-[0.9rem] font-black leading-[1.18] tracking-tight sm:text-[0.96rem]',
+          'aura-commerce-card__title line-clamp-2 text-[0.9rem] font-black leading-[1.18] tracking-tight sm:text-[0.96rem]',
           isWhiteMode ? 'text-slate-950' : 'text-white'
         )}>
           {translatedDisplayTitle}
         </h3>
 
         {(translatedSubtitle || translatedPrimaryStory) ? (
-          <p className={cn('mt-1.5 line-clamp-1 text-[12px] leading-5', mutedTextClass)}>
+          <p className={cn('aura-commerce-card__story mt-1.5 line-clamp-1 text-[12px] leading-5', mutedTextClass)}>
             {translatedPrimaryStory || translatedSubtitle}
           </p>
         ) : null}
 
-        <div className="mt-2.5 flex flex-wrap items-center gap-2">
+        <div className="aura-commerce-card__rating-row mt-2.5 flex flex-wrap items-center gap-2">
           <div className={cn(
             'inline-flex flex-shrink-0 items-center gap-1.5 rounded-full border px-2 py-1 text-[10px] font-semibold',
             isWhiteMode
@@ -754,24 +742,24 @@ const ProductCard = ({ product, variant = 'default', gridLayout = null, harmonyI
           </div>
         </div>
 
-        <div className="mt-2.5 flex flex-wrap items-end gap-x-3 gap-y-1">
+        <div className="aura-commerce-card__price-row mt-2.5 flex flex-wrap items-end gap-x-3 gap-y-1">
           <span className={cn(
-            'text-[1.48rem] font-black tracking-tight sm:text-[1.62rem]',
+            'aura-commerce-card__price text-[1.48rem] font-black tracking-tight sm:text-[1.62rem]',
             isWhiteMode ? 'text-slate-950' : 'text-white'
           )}>
             {formatPrice(priceValue, undefined, undefined, { baseCurrency: priceCurrency })}
           </span>
           {hasOriginalPrice ? (
-            <span className={cn('pb-1 text-xs line-through', subtleTextClass)}>
+            <span className={cn('aura-commerce-card__original-price pb-1 text-xs line-through', subtleTextClass)}>
               {formatPrice(originalPrice, undefined, undefined, { baseCurrency: priceCurrency })}
             </span>
           ) : null}
         </div>
 
-        <div className="mt-2 flex flex-wrap gap-2">
+        <div className="aura-commerce-card__chips mt-2 flex flex-wrap gap-2">
           {discountValue > 0 ? (
             <span className={cn(
-              'rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em]',
+              'aura-commerce-card__chip rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em]',
               isWhiteMode
                 ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
                 : 'border-neo-emerald/30 bg-neo-emerald/12 text-neo-emerald'
@@ -780,7 +768,7 @@ const ProductCard = ({ product, variant = 'default', gridLayout = null, harmonyI
             </span>
           ) : null}
           <span className={cn(
-            'rounded-full border px-2.5 py-1 text-[10px] font-medium',
+            'aura-commerce-card__chip rounded-full border px-2.5 py-1 text-[10px] font-medium',
             isWhiteMode ? 'border-slate-300 bg-slate-100 text-slate-700' : 'border-white/12 bg-white/5 text-slate-200'
           )}>
             {translatedDeliveryLabel}
@@ -788,7 +776,7 @@ const ProductCard = ({ product, variant = 'default', gridLayout = null, harmonyI
         </div>
 
         {dealDna ? (
-          <div className={cn('mt-3 rounded-[1rem] border px-3 py-2.5', dealTheme.surface)}>
+          <div className={cn('aura-commerce-card__deal mt-3 rounded-[1rem] border px-3 py-2.5', dealTheme.surface)}>
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
                 <p className="text-[9px] font-black uppercase tracking-[0.22em]">{t('product.dealDna', {}, 'Deal DNA')}</p>
@@ -807,7 +795,7 @@ const ProductCard = ({ product, variant = 'default', gridLayout = null, harmonyI
           onClick={handleAddToCart}
           disabled={isOutOfStock}
           className={cn(
-            'mt-3.5 inline-flex w-full items-center justify-center gap-2 rounded-full px-5 py-2.5 text-[11px] font-black uppercase tracking-[0.18em] transition-all duration-300 active:scale-95',
+            'aura-commerce-card__cta mt-3.5 inline-flex w-full items-center justify-center gap-2 rounded-full px-5 py-2.5 text-[11px] font-black uppercase tracking-[0.18em] transition-all duration-300 active:scale-95',
             isWhiteMode
               ? 'bg-slate-950 text-white shadow-[0_16px_26px_rgba(15,23,42,0.22)] hover:bg-blue-700 disabled:bg-slate-300'
               : 'hover:translate-y-[-1px] disabled:bg-slate-700 disabled:text-slate-300'

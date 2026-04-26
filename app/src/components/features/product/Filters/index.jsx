@@ -33,6 +33,14 @@ const DELIVERY_WINDOW_LABEL_KEYS = {
 
 const getDeliveryWindowLabel = (value, t) => t(DELIVERY_WINDOW_LABEL_KEYS[value], {}, value);
 
+const formatCompactCurrency = (amount, currency = 'USD') => {
+  const currencySymbol = formatPrice(0, currency).replace(/[0-9.,\s]/g, '') || '$';
+  if (amount >= 1000) {
+    return `${currencySymbol}${Math.round(amount / 1000)}k`;
+  }
+  return formatPrice(amount, currency);
+};
+
 const uniqueStrings = (items = []) => {
   if (!Array.isArray(items)) return [];
   return [...new Set(items.map((item) => `${item || ''}`.trim()).filter(Boolean))];
@@ -74,10 +82,10 @@ const Filters = ({ filters, onFilterChange, className, closeMobile }) => {
   const { currency, t } = useMarket();
   const [expandedSections, setExpandedSections] = useState({
     price: true,
-    category: true,
-    brand: true,
-    quality: true,
-    fulfillment: true,
+    category: false,
+    brand: false,
+    quality: false,
+    fulfillment: false,
   });
   const [brandQuery, setBrandQuery] = useState('');
   const [draft, setDraft] = useState(() => sanitizeFilters(filters));
@@ -237,13 +245,13 @@ const Filters = ({ filters, onFilterChange, className, closeMobile }) => {
   };
 
   const FilterSection = ({ id, title, icon: Icon, children }) => (
-    <section className="border-b border-white/10 pb-5 mb-5 last:border-b-0 last:pb-0 last:mb-0">
+    <section className="listing-filter-section">
       <button
         type="button"
         onClick={() => toggleSection(id)}
-        className="w-full flex items-center justify-between gap-3 mb-3 text-left"
+        className="listing-filter-section__trigger"
       >
-        <span className="flex items-center gap-2 text-xs uppercase tracking-[0.16em] font-black text-neo-cyan">
+        <span className="listing-filter-section__title">
           <Icon className="w-3.5 h-3.5" />
           {title}
         </span>
@@ -253,28 +261,37 @@ const Filters = ({ filters, onFilterChange, className, closeMobile }) => {
           <ChevronDown className="w-4 h-4 text-slate-400" />
         )}
       </button>
-      {expandedSections[id] && children}
+      {expandedSections[id] && (
+        <div className="listing-filter-section__body">
+          {children}
+        </div>
+      )}
     </section>
   );
 
   return (
-    <div className={cn('bg-transparent', className)}>
-      <div className="flex items-start justify-between gap-3 pb-5 border-b border-white/10 mb-5">
+    <div className={cn('listing-filter-engine bg-transparent', className)}>
+      <div className="listing-filter-engine__header">
         <div>
-          <h2 className="text-xl font-black text-white tracking-tight flex items-center gap-2">
+          <h2 className="listing-filter-engine__title">
             <ShieldCheck className="w-5 h-5 text-neo-cyan" />
             {t('filters.title', {}, 'Filter Engine')}
           </h2>
-          <p className="mt-1 text-xs uppercase tracking-[0.16em] text-slate-400">
+          <p className="listing-filter-engine__subtitle">
             {t('filters.subtitle', {}, 'Precision Controls For Product Intelligence')}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="listing-filter-engine__actions">
+          {activeChips.length > 0 && (
+            <span className="listing-filter-engine__count">
+              {activeChips.length}
+            </span>
+          )}
           {hasActiveFilters && (
             <button
               type="button"
               onClick={clearAll}
-              className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider rounded-md border border-neo-rose/35 bg-neo-rose/10 px-2.5 py-1 text-neo-rose hover:text-white hover:bg-neo-rose/20 transition-colors"
+              className="listing-filter-clear-button"
             >
               <X className="w-3 h-3" />
               {t('filters.clear', {}, 'Clear')}
@@ -284,7 +301,7 @@ const Filters = ({ filters, onFilterChange, className, closeMobile }) => {
             <button
               type="button"
               onClick={closeMobile}
-              className="lg:hidden inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider rounded-md border border-white/20 bg-white/5 px-2.5 py-1 text-slate-300 hover:text-white"
+              className="listing-filter-done-button"
             >
               {t('filters.done', {}, 'Done')}
             </button>
@@ -293,13 +310,13 @@ const Filters = ({ filters, onFilterChange, className, closeMobile }) => {
       </div>
 
       {activeChips.length > 0 && (
-        <div className="mb-5 flex flex-wrap gap-2">
+        <div className="listing-filter-chip-tray">
           {activeChips.map((chip) => (
             <button
               key={chip.key}
               type="button"
               onClick={() => removeChip(chip.key)}
-              className="inline-flex items-center gap-1 rounded-full border border-white/15 bg-white/5 px-2.5 py-1 text-[11px] font-semibold text-slate-200 hover:border-neo-cyan/45 hover:text-neo-cyan transition-colors"
+              className="listing-filter-chip"
             >
               {chip.label}
               <X className="w-3 h-3" />
@@ -308,12 +325,17 @@ const Filters = ({ filters, onFilterChange, className, closeMobile }) => {
         </div>
       )}
 
-      <div className="space-y-1">
+      <div className="listing-filter-stack">
         <FilterSection id="price" title={t('filters.section.price', {}, 'Price Range')} icon={Filter}>
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-              <label className="text-[11px] font-semibold text-slate-300">
-                {t('filters.min', {}, 'Min')}
+          <div className="listing-price-control">
+            <div className="listing-price-summary">
+              <span>{formatPrice(draft.priceRange[0], currency)}</span>
+              <span>{formatPrice(draft.priceRange[1], currency)}</span>
+            </div>
+
+            <div className="listing-price-fields">
+              <label className="listing-filter-field">
+                <span>{t('filters.min', {}, 'Min')}</span>
                 <input
                   type="number"
                   min="0"
@@ -325,11 +347,11 @@ const Filters = ({ filters, onFilterChange, className, closeMobile }) => {
                       priceRange: [minValue, Math.max(prev.priceRange[1], minValue)],
                     }));
                   }}
-                  className="mt-1.5 w-full rounded-lg border border-white/15 bg-zinc-950/70 px-3 py-2 text-sm text-white outline-none focus:border-neo-cyan"
+                  className="listing-filter-input"
                 />
               </label>
-              <label className="text-[11px] font-semibold text-slate-300">
-                {t('filters.max', {}, 'Max')}
+              <label className="listing-filter-field">
+                <span>{t('filters.max', {}, 'Max')}</span>
                 <input
                   type="number"
                   min={draft.priceRange[0]}
@@ -341,12 +363,12 @@ const Filters = ({ filters, onFilterChange, className, closeMobile }) => {
                       priceRange: [prev.priceRange[0], maxValue],
                     }));
                   }}
-                  className="mt-1.5 w-full rounded-lg border border-white/15 bg-zinc-950/70 px-3 py-2 text-sm text-white outline-none focus:border-neo-emerald"
+                  className="listing-filter-input"
                 />
               </label>
             </div>
 
-            <div className="grid grid-cols-1 gap-2">
+            <div className="listing-price-slider-stack">
               <input
                 type="range"
                 min="0"
@@ -360,7 +382,7 @@ const Filters = ({ filters, onFilterChange, className, closeMobile }) => {
                     priceRange: [minValue, prev.priceRange[1]],
                   }));
                 }}
-                className="w-full accent-cyan-400"
+                className="listing-price-range listing-price-range--min"
               />
               <input
                 type="range"
@@ -375,24 +397,30 @@ const Filters = ({ filters, onFilterChange, className, closeMobile }) => {
                     priceRange: [prev.priceRange[0], maxValue],
                   }));
                 }}
-                className="w-full accent-emerald-400"
+                className="listing-price-range listing-price-range--max"
               />
             </div>
 
-            <div className="flex flex-wrap gap-2">
+            <div className="listing-filter-presets">
               {PRICE_CEILING_OPTIONS.map((amount) => (
                 <button
                   key={amount}
                   type="button"
+                  aria-label={t('filters.upTo', { amount: formatPrice(amount, currency) }, `Up to ${formatPrice(amount, currency)}`)}
                   onClick={() => updateDraft((prev) => ({ ...prev, priceRange: [0, amount] }))}
                   className={cn(
-                    'rounded-full border px-2.5 py-1 text-[11px] font-bold transition-colors',
+                    'listing-filter-preset',
                     draft.priceRange[0] === 0 && draft.priceRange[1] === amount
-                      ? 'border-neo-cyan/60 bg-neo-cyan/15 text-neo-cyan'
-                      : 'border-white/15 bg-white/5 text-slate-300 hover:text-white hover:border-white/30'
+                      ? 'listing-filter-preset--active'
+                      : ''
                   )}
                 >
-                  {t('filters.upTo', { amount: formatPrice(amount, currency) }, `Up to ${formatPrice(amount, currency)}`)}
+                  <span className="listing-filter-preset__full">
+                    {t('filters.upTo', { amount: formatPrice(amount, currency) }, `Up to ${formatPrice(amount, currency)}`)}
+                  </span>
+                  <span className="listing-filter-preset__compact">
+                    {t('filters.upToCompact', { amount: formatCompactCurrency(amount, currency) }, `Max ${formatCompactCurrency(amount, currency)}`)}
+                  </span>
                 </button>
               ))}
             </div>
@@ -400,7 +428,7 @@ const Filters = ({ filters, onFilterChange, className, closeMobile }) => {
         </FilterSection>
 
         <FilterSection id="category" title={t('filters.section.category', {}, 'Category Matrix')} icon={ListFilter}>
-          <div className="flex flex-wrap gap-2">
+          <div className="listing-filter-option-grid">
             {draft.availableCategories.map((entry) => {
               const active = draft.categories.includes(entry);
               return (
@@ -409,10 +437,10 @@ const Filters = ({ filters, onFilterChange, className, closeMobile }) => {
                   type="button"
                   onClick={() => toggleArrayValue('categories', entry)}
                   className={cn(
-                    'rounded-lg border px-2.5 py-1.5 text-xs font-bold transition-colors',
+                    'listing-filter-option',
                     active
-                      ? 'border-neo-emerald/55 bg-neo-emerald/15 text-neo-emerald'
-                      : 'border-white/15 bg-white/5 text-slate-300 hover:text-white hover:border-white/30'
+                      ? 'listing-filter-option--active'
+                      : ''
                   )}
                 >
                   {getLocalizedCategoryLabel(entry, t)}
@@ -460,17 +488,17 @@ const Filters = ({ filters, onFilterChange, className, closeMobile }) => {
           <div className="space-y-4">
             <div>
               <p className="text-[11px] uppercase tracking-wider text-slate-500 font-semibold mb-2">{t('filters.minimumRating', {}, 'Minimum Rating')}</p>
-              <div className="flex flex-wrap gap-2">
+              <div className="listing-filter-option-grid listing-filter-option-grid--tight">
                 {RATING_OPTIONS.map((rating) => (
                   <button
                     key={rating}
                     type="button"
                     onClick={() => updateDraft((prev) => ({ ...prev, minRating: rating }))}
                     className={cn(
-                      'rounded-full border px-2.5 py-1 text-[11px] font-bold transition-colors',
+                      'listing-filter-option',
                       draft.minRating === rating
-                        ? 'border-fuchsia-400/60 bg-fuchsia-500/15 text-fuchsia-300'
-                        : 'border-white/15 bg-white/5 text-slate-300 hover:text-white hover:border-white/30'
+                        ? 'listing-filter-option--active'
+                        : ''
                     )}
                   >
                     {rating === 0 ? t('filters.any', {}, 'Any') : `${rating}+`}
@@ -488,19 +516,19 @@ const Filters = ({ filters, onFilterChange, className, closeMobile }) => {
                 step="5"
                 value={draft.minDiscount}
                 onChange={(event) => updateDraft((prev) => ({ ...prev, minDiscount: Number(event.target.value) || 0 }))}
-                className="w-full accent-cyan-400"
+                className="listing-price-range"
               />
-              <div className="mt-2 flex flex-wrap gap-2">
+              <div className="listing-filter-option-grid listing-filter-option-grid--tight mt-2">
                 {DISCOUNT_QUICK_OPTIONS.map((value) => (
                   <button
                     key={value}
                     type="button"
                     onClick={() => updateDraft((prev) => ({ ...prev, minDiscount: value }))}
                     className={cn(
-                      'rounded-full border px-2.5 py-1 text-[11px] font-bold transition-colors',
+                      'listing-filter-option',
                       draft.minDiscount === value
-                        ? 'border-cyan-400/60 bg-cyan-500/15 text-cyan-300'
-                        : 'border-white/15 bg-white/5 text-slate-300 hover:text-white hover:border-white/30'
+                        ? 'listing-filter-option--active'
+                        : ''
                     )}
                   >
                     {value === 0 ? t('filters.any', {}, 'Any') : `${value}%+`}
@@ -511,17 +539,17 @@ const Filters = ({ filters, onFilterChange, className, closeMobile }) => {
 
             <div>
               <p className="text-[11px] uppercase tracking-wider text-slate-500 font-semibold mb-2">{t('filters.minimumReviewVolume', {}, 'Minimum Review Volume')}</p>
-              <div className="flex flex-wrap gap-2">
+              <div className="listing-filter-option-grid listing-filter-option-grid--tight">
                 {REVIEW_OPTIONS.map((count) => (
                   <button
                     key={count}
                     type="button"
                     onClick={() => updateDraft((prev) => ({ ...prev, minReviews: count }))}
                     className={cn(
-                      'rounded-full border px-2.5 py-1 text-[11px] font-bold transition-colors',
+                      'listing-filter-option',
                       draft.minReviews === count
-                        ? 'border-amber-400/60 bg-amber-400/15 text-amber-300'
-                        : 'border-white/15 bg-white/5 text-slate-300 hover:text-white hover:border-white/30'
+                        ? 'listing-filter-option--active'
+                        : ''
                     )}
                   >
                     {count === 0 ? t('filters.any', {}, 'Any') : `${count}+`}

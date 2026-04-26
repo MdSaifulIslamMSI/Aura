@@ -5,12 +5,12 @@ const SupportHandoffCard = ({ prefill, orderId = '', isWhiteMode = false, onOpen
     if (!prefill && !orderId) return null;
 
     const cardClassName = isWhiteMode
-        ? 'border-amber-200 bg-amber-50 text-slate-950'
-        : 'border-amber-400/20 bg-amber-500/10 text-slate-100';
+        ? 'assistant-support-card border-slate-200 bg-white text-slate-950'
+        : 'assistant-support-card border-white/10 bg-white/[0.04] text-slate-100';
     const mutedTextClass = isWhiteMode ? 'text-slate-600' : 'text-slate-300';
     const buttonClassName = isWhiteMode
         ? 'border-slate-950 bg-slate-950 text-white hover:bg-slate-800'
-        : 'border-amber-300/25 bg-amber-400/12 text-amber-50 hover:bg-amber-400/18';
+        : 'assistant-support-card__button border-white/10 bg-white/[0.04] text-slate-100 hover:bg-white/[0.08]';
 
     return (
         <div className={cn('rounded-[1.35rem] border p-4 shadow-sm', cardClassName)}>

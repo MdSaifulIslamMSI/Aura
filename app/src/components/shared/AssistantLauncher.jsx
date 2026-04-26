@@ -24,12 +24,13 @@ const AssistantLauncher = () => {
     return (
         <div
             className={[
-                'aura-assistant-launcher pointer-events-none fixed inset-0 z-[2147483600] flex items-end justify-end p-4 sm:p-6',
-                hasMobileStickyCommerceBar ? 'pb-[calc(7.25rem+env(safe-area-inset-bottom))] sm:pb-6' : '',
+                'aura-assistant-launcher pointer-events-none fixed bottom-4 right-4 z-[72] flex items-end justify-end sm:bottom-6 sm:right-6',
+                hasMobileStickyCommerceBar ? 'bottom-[calc(7.25rem+env(safe-area-inset-bottom))] sm:bottom-6' : '',
             ].filter(Boolean).join(' ')}
         >
             <button
                 type="button"
+                aria-label="Open the focused commerce copilot"
                 onClick={() => {
                     pushClientDiagnostic('assistant_workspace.launcher_opened', {
                         context: {
@@ -38,16 +39,16 @@ const AssistantLauncher = () => {
                     });
                     navigate(buildAssistantWorkspacePath(location));
                 }}
-                className="pointer-events-auto flex items-center gap-3 rounded-full border border-cyan-300/20 bg-[linear-gradient(135deg,rgba(8,12,24,0.96),rgba(14,23,42,0.94))] px-4 py-3 text-left text-slate-50 shadow-[0_22px_60px_rgba(2,6,23,0.52)] backdrop-blur-xl transition-transform duration-300 hover:-translate-y-0.5"
+                className="aura-floating-utility aura-floating-utility--assistant pointer-events-auto flex items-center gap-3 rounded-full border px-3 py-3 text-left text-slate-50 transition-transform duration-300 hover:-translate-y-0.5"
             >
-                <div className="flex h-11 w-11 items-center justify-center rounded-full border border-cyan-300/20 bg-cyan-400/12 text-cyan-100">
+                <div className="aura-floating-utility__icon flex h-11 w-11 items-center justify-center rounded-full border">
                     <Brain className="h-5 w-5" />
                 </div>
-                <div className="hidden sm:block">
-                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-200">Assistant Workspace</p>
-                    <p className="text-sm font-semibold">Open the focused commerce copilot</p>
+                <div className="aura-floating-utility__copy hidden sm:block">
+                    <p className="aura-floating-utility__eyebrow text-[10px] font-black uppercase tracking-[0.18em]">Assistant Workspace</p>
+                    <p className="aura-floating-utility__title text-sm font-semibold">Open the focused commerce copilot</p>
                 </div>
-                <CornerDownLeft className="hidden h-4 w-4 text-cyan-100/70 sm:block" />
+                <CornerDownLeft className="aura-floating-utility__hint hidden h-4 w-4 sm:block" />
             </button>
         </div>
     );

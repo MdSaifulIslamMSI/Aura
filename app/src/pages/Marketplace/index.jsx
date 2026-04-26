@@ -672,7 +672,7 @@ export default function Marketplace() {
     const accentPrimary = modePalette.primary;
     const accentSecondary = modePalette.secondary;
 
-    const shellClass = isWhiteMode ? 'bg-[#eef4ff] text-slate-900' : 'bg-[#050816] text-slate-100';
+    const shellClass = isWhiteMode ? 'marketplace-theme-shell text-slate-900' : 'marketplace-theme-shell text-slate-100';
     const panelClass = isWhiteMode
         ? 'border-slate-200 bg-white/96 shadow-[0_24px_70px_rgba(15,23,42,0.08)]'
         : 'border-white/10 bg-[#07101f]/80 shadow-[0_24px_80px_rgba(2,8,23,0.45)]';
@@ -818,11 +818,16 @@ export default function Marketplace() {
                     className="absolute inset-0"
                     style={{
                         background: isWhiteMode
-                            ? `radial-gradient(circle at top left, ${toRgba(accentPrimary, 0.12)}, transparent 26%), radial-gradient(circle at top right, ${toRgba(accentSecondary, 0.14)}, transparent 24%), linear-gradient(180deg, #f5f8ff 0%, #eef4ff 48%, #f8fbff 100%)`
-                            : `radial-gradient(circle at top left, ${toRgba(accentPrimary, 0.16)}, transparent 24%), radial-gradient(circle at top right, ${toRgba(accentSecondary, 0.14)}, transparent 22%), linear-gradient(180deg, #040611 0%, #050816 42%, #070d1d 100%)`,
+                            ? `linear-gradient(125deg, ${toRgba(accentPrimary, 0.12)}, transparent 30%), linear-gradient(250deg, ${toRgba(accentSecondary, 0.12)}, transparent 28%), linear-gradient(180deg, var(--theme-bg-base) 0%, rgb(var(--theme-surface-strong-rgb) / 0.82) 54%, rgb(var(--theme-surface-rgb) / 0.72) 100%)`
+                            : `linear-gradient(125deg, ${toRgba(accentPrimary, 0.2)}, transparent 32%), linear-gradient(250deg, ${toRgba(accentSecondary, 0.18)}, transparent 30%), linear-gradient(25deg, rgb(var(--theme-tertiary-rgb) / 0.12), transparent 34%), linear-gradient(180deg, var(--theme-bg-base) 0%, rgb(var(--theme-surface-strong-rgb) / 0.96) 48%, rgb(var(--theme-surface-rgb) / 0.9) 100%)`,
                     }}
                 />
-                <div className={cn('absolute inset-0 opacity-40 [background-size:52px_52px]', isWhiteMode ? 'bg-[linear-gradient(rgba(148,163,184,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(148,163,184,0.08)_1px,transparent_1px)]' : 'bg-[linear-gradient(rgba(148,163,184,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(148,163,184,0.05)_1px,transparent_1px)]')} />
+                <div
+                    className="absolute inset-0 opacity-50 [background-size:52px_52px]"
+                    style={{
+                        backgroundImage: `linear-gradient(rgb(var(--theme-grid-rgb) / ${isWhiteMode ? 0.08 : 0.055}) 1px, transparent 1px), linear-gradient(90deg, rgb(var(--theme-grid-rgb) / ${isWhiteMode ? 0.08 : 0.045}) 1px, transparent 1px)`,
+                    }}
+                />
             </div>
 
             <div className="premium-page-frame pt-6">

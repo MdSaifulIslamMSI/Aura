@@ -16,9 +16,43 @@ export const normalizeHost = (value = '') => String(value || '')
 
 const isAbsoluteHttpUrl = (value = '') => /^https?:\/\//i.test(String(value || '').trim());
 
+const isViteDevelopmentRuntime = () => {
+    try {
+        return Boolean(import.meta.env?.DEV);
+    } catch {
+        return false;
+    }
+};
+
 export const isHostedFrontendRuntimeHost = (host = '') => {
     const normalizedHost = normalizeHost(host);
     return normalizedHost.endsWith('.vercel.app') || normalizedHost.endsWith('.netlify.app');
+};
+
+export const isLocalFrontendRuntimeHost = (host = '') => {
+    const normalizedHost = normalizeHost(host);
+    return normalizedHost === 'localhost'
+        || normalizedHost === '127.0.0.1'
+        || normalizedHost === '::1'
+        || normalizedHost.endsWith('.local');
+};
+
+const shouldPreferLocalProxyApi = (configured = '', fallback = '/api') => {
+    if (typeof window === 'undefined') return false;
+    if (!isViteDevelopmentRuntime()) return false;
+    if (!String(fallback || '').startsWith('/')) return false;
+    if (!isAbsoluteHttpUrl(configured)) return false;
+
+    const allowRemoteLocalApi = parseBooleanEnv(
+        getSafeEnv('VITE_API_URL_ALLOW_REMOTE_LOCAL', ''),
+        false
+    );
+    if (allowRemoteLocalApi) {
+        return false;
+    }
+
+    const runtimeHost = window.location.host || window.location.hostname || '';
+    return isLocalFrontendRuntimeHost(runtimeHost);
 };
 
 const shouldPreferHostedProxyApi = (configured = '', fallback = '/api') => {
@@ -64,6 +98,9 @@ export const getSafeEnv = (key, fallback = '') => {
 
 export const resolveApiBaseUrl = (fallback = '/api') => {
     const configured = trimTrailingSlash(getSafeEnv('VITE_API_URL', ''));
+    if (shouldPreferLocalProxyApi(configured, fallback)) {
+        return fallback;
+    }
     if (shouldPreferHostedProxyApi(configured, fallback)) {
         return fallback;
     }
@@ -72,6 +109,12 @@ export const resolveApiBaseUrl = (fallback = '/api') => {
 
 export const resolveServiceOrigin = (fallback = '') => {
     const raw = trimTrailingSlash(getSafeEnv('VITE_API_URL', fallback));
+
+    if (shouldPreferLocalProxyApi(raw, fallback)) {
+        return typeof window !== 'undefined'
+            ? trimTrailingSlash(window.location.origin)
+            : trimTrailingSlash(fallback);
+    }
 
     if (shouldPreferHostedProxyApi(raw, fallback)) {
         return typeof window !== 'undefined'

@@ -45,36 +45,36 @@ const LoginView = ({
   trustNotes,
 }) => (
   <div className="login-theme-shell min-h-[calc(100vh-var(--figma-nav-spacer-mobile))] pb-8 pt-4 sm:min-h-[calc(100vh-var(--figma-nav-spacer-sm))] sm:pb-12 sm:pt-6 md:min-h-[calc(100vh-var(--figma-nav-spacer-md))] md:pb-20 md:pt-8 relative flex items-center justify-center overflow-hidden">
-    <div className="absolute inset-0 bg-zinc-950 z-0" />
-    <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(6,182,212,0.1)_0%,transparent_50%)] pointer-events-none z-0" />
-    <div className="absolute top-1/4 left-1/4 w-[min(70vw,500px)] h-[min(70vw,500px)] bg-neo-cyan/10 rounded-full blur-[120px] pointer-events-none z-0 mix-blend-screen" />
-    <div className="absolute bottom-1/4 right-1/4 w-[min(70vw,500px)] h-[min(70vw,500px)] bg-neo-fuchsia/10 rounded-full blur-[120px] pointer-events-none z-0 mix-blend-screen" />
-    <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:50px_50px] pointer-events-none z-0 opacity-50" />
+    <div className="login-theme-shell__base absolute inset-0 bg-zinc-950 z-0" />
+    <div className="login-theme-shell__center-glow absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(6,182,212,0.1)_0%,transparent_50%)] pointer-events-none z-0" />
+    <div className="login-theme-shell__aura login-theme-shell__aura--primary absolute top-1/4 left-1/4 w-[min(70vw,500px)] h-[min(70vw,500px)] bg-neo-cyan/10 rounded-full blur-[120px] pointer-events-none z-0 mix-blend-screen" />
+    <div className="login-theme-shell__aura login-theme-shell__aura--secondary absolute bottom-1/4 right-1/4 w-[min(70vw,500px)] h-[min(70vw,500px)] bg-neo-fuchsia/10 rounded-full blur-[120px] pointer-events-none z-0 mix-blend-screen" />
+    <div className="login-theme-shell__grid absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:50px_50px] pointer-events-none z-0 opacity-50" />
 
     <div className="container-custom relative z-10">
       <div className="max-w-5xl mx-auto">
-        <div className="bg-white/5 rounded-[28px] sm:rounded-[40px] shadow-glass overflow-hidden border border-white/10 flex flex-col md:flex-row relative group hover:border-neo-cyan/30 hover:shadow-[0_0_40px_rgba(6,182,212,0.15)] transition-all duration-700">
-          <div className="absolute inset-0 bg-gradient-to-r from-neo-cyan/10 via-neo-fuchsia/10 to-neo-emerald/10 opacity-0 group-hover:opacity-100 animate-gradient-x transition-opacity duration-700 pointer-events-none" style={{ backgroundSize: '200% auto' }} />
-          <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent pointer-events-none z-0" />
+        <div className="login-card bg-white/5 rounded-[28px] sm:rounded-[40px] shadow-glass overflow-hidden border border-white/10 flex flex-col md:flex-row relative group hover:border-neo-cyan/30 hover:shadow-[0_0_40px_rgba(6,182,212,0.15)] transition-all duration-700">
+          <div className="login-card__chromatic absolute inset-0 bg-gradient-to-r from-neo-cyan/10 via-neo-fuchsia/10 to-neo-emerald/10 opacity-0 group-hover:opacity-100 animate-gradient-x transition-opacity duration-700 pointer-events-none" style={{ backgroundSize: '200% auto' }} />
+          <div className="login-card__shine absolute inset-0 bg-gradient-to-br from-white/5 to-transparent pointer-events-none z-0" />
 
-          <div className="md:w-[45%] bg-zinc-950/80 p-6 sm:p-8 lg:p-14 flex flex-col justify-between relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-full h-full bg-[radial-gradient(circle_at_top_right,rgba(217,70,239,0.1),transparent)] pointer-events-none" />
-            <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-20 mix-blend-overlay pointer-events-none" />
+          <div className="login-brand-panel md:w-[45%] bg-zinc-950/80 p-6 sm:p-8 lg:p-14 flex flex-col justify-between relative overflow-hidden">
+            <div className="login-brand-panel__glow absolute top-0 right-0 w-full h-full bg-[radial-gradient(circle_at_top_right,rgba(217,70,239,0.1),transparent)] pointer-events-none" />
+            <div className="login-brand-panel__texture absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-20 mix-blend-overlay pointer-events-none" />
 
             <div className="relative z-10">
-              <Link to="/" className="inline-flex items-center gap-2 mb-8 sm:mb-12 lg:mb-20 hover:opacity-80 transition-opacity">
-                <div className="w-10 h-10 bg-gradient-to-br from-neo-cyan to-neo-fuchsia rounded-xl p-[2px] shadow-[0_0_15px_rgba(6,182,212,0.5)]">
-                  <div className="w-full h-full bg-zinc-950 rounded-[10px] flex items-center justify-center">
+              <Link to="/" className="login-brand-lockup inline-flex items-center gap-2 mb-8 sm:mb-12 lg:mb-20 hover:opacity-80 transition-opacity">
+                <div className="login-brand-mark w-10 h-10 bg-gradient-to-br from-neo-cyan to-neo-fuchsia rounded-xl p-[2px] shadow-[0_0_15px_rgba(6,182,212,0.5)]">
+                  <div className="login-brand-mark__inner w-full h-full bg-zinc-950 rounded-[10px] flex items-center justify-center">
                     <span className="text-white font-black mix-blend-screen">Ar</span>
                   </div>
                 </div>
                 <span className="text-xl font-black uppercase tracking-widest text-white">Aura</span>
               </Link>
 
-              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black mb-6 text-transparent bg-clip-text bg-gradient-to-r from-neo-cyan to-white tracking-tighter leading-tight drop-shadow-[0_0_10px_rgba(6,182,212,0.3)]">
+              <h1 className="login-brand-title text-3xl sm:text-4xl lg:text-5xl font-black mb-6 text-transparent bg-clip-text bg-gradient-to-r from-neo-cyan to-white tracking-tighter leading-tight drop-shadow-[0_0_10px_rgba(6,182,212,0.3)]">
                 {info.title}
               </h1>
-              <p className="text-slate-400 font-medium text-base sm:text-lg leading-relaxed max-w-md border-l-2 border-neo-cyan pl-4">
+              <p className="login-brand-copy text-slate-400 font-medium text-base sm:text-lg leading-relaxed max-w-md border-l-2 border-neo-cyan pl-4">
                 {info.desc}
               </p>
 
@@ -82,7 +82,7 @@ const LoginView = ({
                 {trustNotes.map((note) => (
                   <div
                     key={note}
-                    className="rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-slate-300/95 shadow-[0_12px_30px_rgba(2,8,23,0.25)]"
+                    className="login-trust-note rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-slate-300/95 shadow-[0_12px_30px_rgba(2,8,23,0.25)]"
                   >
                     <span className="mr-2 text-neo-cyan">?</span>
                     {note}
@@ -100,10 +100,10 @@ const LoginView = ({
             </div>
           </div>
 
-          <div className="md:w-[55%] p-6 sm:p-8 lg:p-14 relative z-10 flex flex-col justify-center bg-transparent">
+          <div className="login-form-panel md:w-[55%] p-6 sm:p-8 lg:p-14 relative z-10 flex flex-col justify-center bg-transparent">
             <AuthAccelerationRail cards={accelerationCards} busy={isLoading} />
 
-            <div className="mb-6 rounded-[24px] border border-white/10 bg-white/[0.035] p-4 shadow-[0_18px_45px_rgba(2,8,23,0.28)]">
+            <div className="login-secure-panel mb-6 rounded-[24px] border border-white/10 bg-white/[0.035] p-4 shadow-[0_18px_45px_rgba(2,8,23,0.28)]">
               <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.24em] text-neo-cyan">
                 <Shield className="h-4 w-4" />
                 {t('login.secureEntry', {}, 'Secure Entry Layer')}
@@ -112,7 +112,7 @@ const LoginView = ({
                 {secureSignals.map((signal) => (
                   <div
                     key={signal.label}
-                    className="rounded-2xl border border-white/8 bg-zinc-950/45 px-3 py-3"
+                    className="login-signal-card rounded-2xl border border-white/8 bg-zinc-950/45 px-3 py-3"
                   >
                     <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
                       {signal.label}

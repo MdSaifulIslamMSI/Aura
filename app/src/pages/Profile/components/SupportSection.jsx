@@ -933,7 +933,7 @@ export default function SupportSection({
     ]), [connectionState, isSocketReconnecting, socketStatusLabel, supportsSpeechInput, t]);
 
     return (
-        <div className="space-y-6">
+        <div className="support-workspace space-y-4">
             <SupportArchitecturePanel
                 eyebrow={t('profile.support.arch.eyebrow', {}, 'Omnichannel support')}
                 title={t('profile.support.arch.title', {}, 'Chat, voice, and video stay in one support thread')}
@@ -948,8 +948,8 @@ export default function SupportSection({
                 badges={customerArchitectureBadges}
             />
 
-            <div className="grid gap-6 xl:grid-cols-[22rem_minmax(0,1fr)]">
-                <div className="premium-panel flex min-h-[42rem] flex-col overflow-hidden p-0">
+            <div className="support-workspace__grid grid gap-4 xl:grid-cols-[20rem_minmax(0,1fr)]">
+                <div className="support-workspace__inbox premium-panel flex min-h-[42rem] flex-col overflow-hidden p-0">
                 <div className="border-b border-white/10 px-5 py-5">
                     <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
@@ -1093,7 +1093,7 @@ export default function SupportSection({
                 </div>
                 </div>
 
-                <div className="premium-panel min-h-[42rem] overflow-hidden p-0">
+                <div className="support-workspace__thread premium-panel min-h-[42rem] overflow-hidden p-0">
                 {!creating && !activeTicket ? (
                     <div className="support-chat-thread flex h-full flex-col">
                         <div className="border-b border-white/10 px-6 py-6">
