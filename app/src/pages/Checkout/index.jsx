@@ -8,7 +8,7 @@ import { useCommerceStore } from '@/store/commerceStore';
 import { orderApi, otpApi, paymentApi, userApi } from '@/services/api';
 import { cn } from '@/lib/utils';
 import { getUserVisibleEmail } from '@/utils/authIdentity';
-import { ArrowLeft, CheckCircle2, Layers, Loader2 } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Layers, Loader2, PackageCheck, ShieldCheck, Truck } from 'lucide-react';
 import { loadRazorpayScript } from '@/utils/razorpay';
 import { detectLocationFromGps } from '@/utils/geolocation';
 import { convertAmount, formatPrice } from '@/utils/format';
@@ -463,6 +463,15 @@ const Checkout = () => {
         }
         return cartItems;
     }, [cartItems, directBuyItem]);
+    const checkoutUnitCount = useMemo(
+        () => checkoutItems.reduce((sum, item) => sum + Math.max(1, Number(item?.quantity || 1)), 0),
+        [checkoutItems]
+    );
+    const stockReviewCount = useMemo(
+        () => checkoutItems.filter((item) => Number.isFinite(Number(item?.stock)) && Number(item.stock) <= 0).length,
+        [checkoutItems]
+    );
+    const deliverySignal = checkoutItems.find((item) => item?.deliveryTime)?.deliveryTime || t('checkout.deliveryQueued', {}, 'Slot queued');
     const compatibleSavedMethods = useMemo(
         () => getCompatibleSavedMethods(savedPaymentMethods, draft.paymentMethod),
         [savedPaymentMethods, draft.paymentMethod]
@@ -1359,14 +1368,25 @@ const Checkout = () => {
                             </p>
                             <div className="mt-5 flex flex-wrap gap-3">
                                 <span className="premium-chip">{t('checkout.lineItems', { count: checkoutItems.length }, `${checkoutItems.length} line items`)}</span>
+                                <span className="premium-chip-muted">{t('checkout.unitCount', { count: checkoutUnitCount }, `${checkoutUnitCount} units`)}</span>
                                 <span className="premium-chip-muted">{t('checkout.stepProgress', { current: draft.step, total: 4 }, `Step ${draft.step} of 4`)}</span>
                                 <span className="premium-chip-muted">{t('checkout.paymentRail', { method: draft.paymentMethod }, `${draft.paymentMethod} payment rail`)}</span>
                             </div>
                         </div>
                         <div className="grid gap-3 self-start md:grid-cols-3 xl:grid-cols-2 xl:grid-rows-[auto_auto]">
-                            <div className="checkout-premium-surface border border-white/10 bg-white/[0.055] xl:col-span-2">
-                                <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">{t('checkout.currentTotal', {}, 'Current total')}</p>
-                                <p className="mt-3 text-3xl font-black tracking-tight text-white">{formatPrice(chargeQuote.amount, chargeQuote.currency)}</p>
+                            <div className="checkout-premium-surface checkout-live-quote border border-white/10 bg-white/[0.055] xl:col-span-2">
+                                <div className="flex items-start justify-between gap-4">
+                                    <div>
+                                        <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">{t('checkout.currentTotal', {}, 'Current total')}</p>
+                                        <p className="mt-3 text-3xl font-black tracking-tight text-white">{formatPrice(chargeQuote.amount, chargeQuote.currency)}</p>
+                                    </div>
+                                    <span className={cn(
+                                        'rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em]',
+                                        quote ? 'border-neo-emerald/25 bg-neo-emerald/10 text-neo-emerald' : 'border-amber-300/25 bg-amber-400/10 text-amber-200'
+                                    )}>
+                                        {quote ? t('checkout.quoteLocked', {}, 'Quote locked') : t('checkout.quotePending', {}, 'Quote pending')}
+                                    </span>
+                                </div>
                                 <p className="mt-2 text-xs text-slate-400">
                                     {chargeQuote.currency !== chargeQuote.settlementCurrency
                                         ? t('checkout.settlesNear', {
@@ -1376,13 +1396,25 @@ const Checkout = () => {
                                 </p>
                             </div>
                             <div className="checkout-premium-surface border border-white/10 bg-white/[0.04]">
-                                <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">{t('checkout.deliveryMode', {}, 'Delivery mode')}</p>
+                                <div className="flex items-center gap-2">
+                                    <Truck className="h-4 w-4 text-neo-cyan" />
+                                    <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">{t('checkout.deliveryMode', {}, 'Delivery mode')}</p>
+                                </div>
                                 <p className="mt-3 text-xl font-black text-white capitalize">{draft.deliveryOption}</p>
-                                <p className="mt-2 text-xs text-slate-400">{draft.deliverySlot.window || t('checkout.choosePreferredWindow', {}, 'Choose your preferred window.')}</p>
+                                <p className="mt-2 text-xs text-slate-400">{draft.deliverySlot.window || deliverySignal || t('checkout.choosePreferredWindow', {}, 'Choose your preferred window.')}</p>
                             </div>
                             <div className="checkout-premium-surface border border-white/10 bg-white/[0.04]">
-                                <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">{t('checkout.sessionTrust', {}, 'Session trust')}</p>
-                                <p className="mt-3 text-xl font-black text-white">{draft.paymentMethod === 'COD' ? t('checkout.protectedOrderHold', {}, 'Protected order hold') : t('checkout.challengeReadyPayment', {}, 'Challenge-ready payment')}</p>
+                                <div className="flex items-center gap-2">
+                                    {stockReviewCount > 0 ? <PackageCheck className="h-4 w-4 text-amber-200" /> : <ShieldCheck className="h-4 w-4 text-neo-emerald" />}
+                                    <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">{t('checkout.sessionTrust', {}, 'Session trust')}</p>
+                                </div>
+                                <p className="mt-3 text-xl font-black text-white">
+                                    {stockReviewCount > 0
+                                        ? t('checkout.stockNeedsReview', { count: stockReviewCount }, `${stockReviewCount} stock review`)
+                                        : draft.paymentMethod === 'COD'
+                                            ? t('checkout.protectedOrderHold', {}, 'Protected order hold')
+                                            : t('checkout.challengeReadyPayment', {}, 'Challenge-ready payment')}
+                                </p>
                                 <p className="mt-2 text-xs text-slate-400">{t('checkout.sessionTrustBody', {}, 'Fraud checks, quote locks, and OTP controls stay active.')}</p>
                             </div>
                         </div>

@@ -69,12 +69,12 @@ export default function ContactPage() {
     };
 
     return (
-        <div className="min-h-screen bg-zinc-950 text-slate-100">
-            <div className="relative overflow-hidden border-b border-white/10">
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(6,182,212,0.18),transparent_38%),radial-gradient(circle_at_bottom_right,rgba(245,158,11,0.15),transparent_34%)] pointer-events-none" />
+        <div className="contact-support-shell min-h-screen text-slate-100">
+            <div className="contact-support-hero relative overflow-hidden border-b border-white/10">
+                <div className="contact-support-hero__wash pointer-events-none absolute inset-0" />
                 <div className="relative z-10 mx-auto max-w-7xl px-4 py-14 sm:py-16">
                     <div className="flex flex-wrap items-center gap-3">
-                        <span className="inline-flex items-center gap-2 rounded-full border border-cyan-300/25 bg-cyan-400/12 px-3 py-1 text-[11px] font-black uppercase tracking-[0.22em] text-cyan-100">
+                        <span className="contact-support-chip inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-black uppercase tracking-[0.22em]">
                             <LifeBuoy className="h-3.5 w-3.5" />
                             Admin Support Access
                         </span>
@@ -98,7 +98,7 @@ export default function ContactPage() {
                     </p>
 
                     {blockedBySessionRecovery ? (
-                        <div className="mt-6 max-w-4xl rounded-[1.8rem] border border-amber-300/20 bg-amber-500/10 p-5">
+                        <div className="contact-support-alert mt-6 max-w-4xl rounded-[1.8rem] border p-5">
                             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                                 <div className="min-w-0">
                                     <div className="flex items-center gap-2 text-sm font-black text-amber-100">
@@ -136,9 +136,9 @@ export default function ContactPage() {
                                 <a
                                     key={channel.label}
                                     href={channel.href}
-                                    className="block rounded-[1.6rem] border border-white/10 bg-white/[0.03] p-5 transition-colors hover:bg-white/[0.05]"
+                                    className="contact-support-card block rounded-[1.25rem] border p-5 transition-colors"
                                 >
-                                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-cyan-100">
+                                    <div className="contact-support-card__icon flex h-11 w-11 items-center justify-center rounded-full border">
                                         <Icon className="h-5 w-5" />
                                     </div>
                                     <p className="mt-4 text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">{channel.label}</p>
@@ -148,7 +148,7 @@ export default function ContactPage() {
                             );
                         })}
 
-                        <div className="rounded-[1.6rem] border border-white/10 bg-white/[0.03] p-5">
+                        <div className="contact-support-card rounded-[1.25rem] border p-5">
                             <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">What happens next</p>
                             <div className="mt-4 space-y-3 text-sm leading-6 text-slate-300">
                                 <p>1. Open or continue a support thread.</p>
@@ -174,7 +174,7 @@ export default function ContactPage() {
                                 prefill={supportLaunch.prefill}
                             />
                         ) : (
-                            <div className="rounded-[2rem] border border-white/10 bg-white/[0.03] p-6 sm:p-8">
+                            <div className="contact-support-card rounded-[1.5rem] border p-6 sm:p-8">
                                 <div className="max-w-3xl">
                                     <p className="text-[11px] font-black uppercase tracking-[0.24em] text-slate-400">Sign-in required for tracked admin replies</p>
                                     <h2 className="mt-3 text-3xl font-black text-white">Use sign-in if you want a persistent support thread.</h2>
@@ -185,7 +185,7 @@ export default function ContactPage() {
                                         <Link
                                             to="/login"
                                             state={{ from: buildRouteState(location) }}
-                                            className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-400 to-emerald-400 px-5 py-3 text-sm font-black text-[#051018] shadow-[0_18px_40px_rgba(34,211,238,0.22)] transition-transform hover:scale-[1.01]"
+                                            className="contact-support-primary inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-black transition-transform hover:scale-[1.01]"
                                         >
                                             Sign in for support
                                         </Link>

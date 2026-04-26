@@ -175,33 +175,33 @@ const MarketPreferenceCard = ({
   const currentLanguage = languageOptions.find((option) => option.value === language) || languageOptions[0];
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+    <div className="market-studio-card rounded-2xl border border-white/10 bg-white/[0.03] p-3">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-cyan-300/80">
+          <div className="market-studio-card__eyebrow flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-cyan-300/80">
             <Globe2 className="h-3.5 w-3.5" />
             {t('market.title', {}, 'Market Studio')}
           </div>
-          <p className="mt-1 max-w-xl text-xs leading-5 text-slate-400">
+          <p className="market-studio-card__copy mt-1 max-w-xl text-xs leading-5 text-slate-400">
             {t('market.subtitle', {}, 'Tune country, language, and browse currency without losing your place.')}
           </p>
         </div>
         <button
           type="button"
           onClick={resetToDetected}
-          className="rounded-full border border-white/12 bg-white/[0.05] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.14em] text-slate-200 transition-colors hover:bg-white/[0.09] hover:text-white"
+          className="market-studio-card__reset rounded-full border border-white/12 bg-white/[0.05] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.14em] text-slate-200 transition-colors hover:bg-white/[0.09] hover:text-white"
         >
           {t('market.reset', {}, 'Reset to detected market')}
         </button>
       </div>
 
       <div className={cn('mt-3 grid gap-3', compact ? 'grid-cols-1' : 'grid-cols-1 xl:grid-cols-3')}>
-        <label className="text-xs font-semibold text-slate-300">
+        <label className="market-studio-card__field text-xs font-semibold text-slate-300">
           {t('market.country', {}, 'Country')}
           <PremiumSelect
             value={countryCode}
             onChange={(event) => setCountryCode(event.target.value)}
-            className="mt-1.5 w-full rounded-xl border border-white/10 bg-zinc-950/80 px-3 py-2 text-sm font-semibold text-slate-100 outline-none transition-colors hover:border-white/20"
+            className="market-studio-card__select mt-1.5 w-full rounded-xl border border-white/10 bg-zinc-950/80 px-3 py-2 text-sm font-semibold text-slate-100 outline-none transition-colors hover:border-white/20"
           >
             {countryOptions.map((option) => (
               <option key={option.value} value={option.value} className="bg-zinc-950 text-slate-100">
@@ -211,12 +211,12 @@ const MarketPreferenceCard = ({
           </PremiumSelect>
         </label>
 
-        <label className="text-xs font-semibold text-slate-300">
+        <label className="market-studio-card__field text-xs font-semibold text-slate-300">
           {t('market.language', {}, 'Language')}
           <PremiumSelect
             value={language}
             onChange={(event) => setLanguage(event.target.value)}
-            className="mt-1.5 w-full rounded-xl border border-white/10 bg-zinc-950/80 px-3 py-2 text-sm font-semibold text-slate-100 outline-none transition-colors hover:border-white/20"
+            className="market-studio-card__select mt-1.5 w-full rounded-xl border border-white/10 bg-zinc-950/80 px-3 py-2 text-sm font-semibold text-slate-100 outline-none transition-colors hover:border-white/20"
           >
             {languageOptions.map((option) => (
               <option key={option.value} value={option.value} className="bg-zinc-950 text-slate-100">
@@ -226,12 +226,12 @@ const MarketPreferenceCard = ({
           </PremiumSelect>
         </label>
 
-        <label className="text-xs font-semibold text-slate-300">
+        <label className="market-studio-card__field text-xs font-semibold text-slate-300">
           {t('market.currency', {}, 'Currency')}
           <PremiumSelect
             value={currency}
             onChange={(event) => setCurrency(event.target.value)}
-            className="mt-1.5 w-full rounded-xl border border-white/10 bg-zinc-950/80 px-3 py-2 text-sm font-semibold text-slate-100 outline-none transition-colors hover:border-white/20"
+            className="market-studio-card__select mt-1.5 w-full rounded-xl border border-white/10 bg-zinc-950/80 px-3 py-2 text-sm font-semibold text-slate-100 outline-none transition-colors hover:border-white/20"
           >
             {currencyOptions.map((option) => (
               <option key={option.value} value={option.value} className="bg-zinc-950 text-slate-100">
@@ -243,26 +243,26 @@ const MarketPreferenceCard = ({
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] font-semibold text-slate-300">
-        <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1.5">
+        <span className="market-studio-card__chip rounded-full border border-white/10 bg-black/20 px-3 py-1.5">
           {t('market.detected', {}, 'Detected')}: {detectedCountryLabel}
         </span>
-        <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1.5">
+        <span className="market-studio-card__chip rounded-full border border-white/10 bg-black/20 px-3 py-1.5">
           {t('market.region', {}, 'Region')}: {regionLabel || detectedRegionLabel}
         </span>
-        <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1.5">
+        <span className="market-studio-card__chip rounded-full border border-white/10 bg-black/20 px-3 py-1.5">
           {t('market.localPrices', {}, 'Local prices')}: {browseCurrencyNote}
         </span>
         {currentLanguage ? (
-          <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1.5">
+          <span className="market-studio-card__chip rounded-full border border-white/10 bg-black/20 px-3 py-1.5">
             {currentLanguage.nativeLabel}
           </span>
         ) : null}
       </div>
 
-      <p className="mt-3 text-[11px] leading-5 text-slate-400">
+      <p className="market-studio-card__hint mt-3 text-[11px] leading-5 text-slate-400">
         {t('market.priceHint', {}, 'Catalog prices convert from INR for browsing. Final payment quotes lock at checkout.')}
       </p>
-      <p className="mt-2 text-[11px] leading-5 text-slate-500">
+      <p className="market-studio-card__hint market-studio-card__hint--muted mt-2 text-[11px] leading-5 text-slate-500">
         {t('market.voiceHint', {}, 'Voice commands, dates, and UI copy follow the selected language and locale where translated.')}
         {isEstimatedPricing ? '' : ` ${t('market.exact', {}, 'Native catalog FX')}.`}
       </p>
@@ -574,6 +574,13 @@ const Navbar = () => {
                 ? 'border-neo-cyan/60 bg-neo-cyan/15 text-white'
                 : 'border-white/10 bg-white/[0.03] text-slate-300 hover:bg-white/[0.08] hover:text-white'
             )}
+            style={{
+              borderColor: colorMode === mode.value ? `${mode.primary}99` : `${mode.primary}2e`,
+              background: colorMode === mode.value
+                ? `linear-gradient(135deg, ${mode.primary}44, ${mode.secondary}30), rgba(255,255,255,0.08)`
+                : `linear-gradient(135deg, ${mode.primary}18, ${mode.secondary}12), rgba(255,255,255,0.035)`,
+              boxShadow: colorMode === mode.value ? `0 14px 28px ${mode.primary}22` : undefined,
+            }}
             aria-label={mode.label}
           >
             <div className="flex items-center gap-2">
@@ -671,9 +678,9 @@ const Navbar = () => {
                   type="button"
                   onClick={handleMarketPanelToggle}
                   className={cn(
-                    'inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-black uppercase tracking-[0.14em] text-slate-200 transition-all duration-200',
+                    'market-studio-trigger inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-black uppercase tracking-[0.14em] text-slate-200 transition-all duration-200',
                     isMarketPanelOpen
-                      ? 'border-cyan-300/35 bg-cyan-400/12 text-white shadow-[0_0_18px_rgba(34,211,238,0.18)]'
+                      ? 'market-studio-trigger--active border-cyan-300/35 bg-cyan-400/12 text-white shadow-[0_0_18px_rgba(34,211,238,0.18)]'
                       : 'border-white/10 bg-white/[0.045] hover:border-white/18 hover:bg-white/[0.08] hover:text-white'
                   )}
                   aria-label={t(
@@ -693,18 +700,18 @@ const Navbar = () => {
                     <button
                       type="button"
                       aria-label={t('nav.closeMarketBackdrop', {}, 'Close market panel backdrop')}
-                      className="fixed inset-0 z-40 bg-zinc-950/34"
+                      className="market-studio-backdrop fixed inset-0 z-40 bg-zinc-950/34"
                       onClick={closeMarketPanel}
                     />
-                    <div className="absolute right-0 z-[60] mt-3 w-[22rem] max-w-[calc(100vw-2rem)] rounded-[1.7rem] border border-white/10 bg-[linear-gradient(180deg,rgba(7,12,24,0.98),rgba(5,9,20,0.98))] p-3.5 shadow-[0_26px_80px_rgba(2,8,23,0.7)] ring-1 ring-cyan-400/10">
-                      <div className="rounded-[1.35rem] border border-white/10 bg-white/[0.03] px-4 py-3">
-                        <div className="text-[10px] font-black uppercase tracking-[0.24em] text-cyan-300/80">
+                    <div className="market-studio-popover absolute right-0 z-[60] mt-3 w-[22rem] max-w-[calc(100vw-2rem)] rounded-[1.7rem] border border-white/10 bg-[linear-gradient(180deg,rgba(7,12,24,0.98),rgba(5,9,20,0.98))] p-3.5 shadow-[0_26px_80px_rgba(2,8,23,0.7)] ring-1 ring-cyan-400/10">
+                      <div className="market-studio-popover__hero rounded-[1.35rem] border border-white/10 bg-white/[0.03] px-4 py-3">
+                        <div className="market-studio-card__eyebrow text-[10px] font-black uppercase tracking-[0.24em] text-cyan-300/80">
                           {t('market.title', {}, 'Market Studio')}
                         </div>
-                        <div className="mt-1 text-base font-black text-white">
+                        <div className="market-studio-popover__title mt-1 text-base font-black text-white">
                           {t('nav.marketPanelTitle', {}, 'Country, language, and currency controls.')}
                         </div>
-                        <p className="mt-1 text-sm text-slate-400">
+                        <p className="market-studio-card__copy mt-1 text-sm text-slate-400">
                           {t(
                             'nav.marketPanelBody',
                             {},
@@ -924,7 +931,7 @@ const Navbar = () => {
               </button>
             </div>
             </div>
-            <div className="aura-nav-native-search mt-2 hidden md:hidden">
+            <div className="aura-nav-native-search relative z-[55] mt-2 hidden md:hidden">
               <AppErrorBoundary
                 fallback={(
                   <NavbarSearchFallback
@@ -948,7 +955,7 @@ const Navbar = () => {
           {/* Mobile Search - Slide down animation */}
           <div
             className={cn(
-              'aura-nav-menu-search md:hidden overflow-hidden transition-all duration-300 ease-in-out',
+              'aura-nav-menu-search relative z-[55] md:hidden overflow-hidden transition-all duration-300 ease-in-out',
               isMobileMenuOpen ? 'max-h-[30rem] mt-4 pb-2' : 'max-h-0'
             )}
           >
@@ -1113,6 +1120,13 @@ const Navbar = () => {
                           ? 'border-neo-cyan/60 bg-neo-cyan/15 text-white'
                           : 'border-white/10 bg-white/[0.03] text-slate-300 hover:bg-white/[0.08] hover:text-white'
                       )}
+                      style={{
+                        borderColor: colorMode === mode.value ? `${mode.primary}99` : `${mode.primary}2e`,
+                        background: colorMode === mode.value
+                          ? `linear-gradient(135deg, ${mode.primary}44, ${mode.secondary}30), rgba(255,255,255,0.08)`
+                          : `linear-gradient(135deg, ${mode.primary}18, ${mode.secondary}12), rgba(255,255,255,0.035)`,
+                        boxShadow: colorMode === mode.value ? `0 14px 28px ${mode.primary}22` : undefined,
+                      }}
                       aria-label={mode.label}
                     >
                       <div className="flex items-center gap-2">

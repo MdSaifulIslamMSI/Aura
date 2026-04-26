@@ -7,6 +7,20 @@ import { buildSupportHandoffPath } from '@/utils/supportRouting';
 
 const SUPPORT_HANDOFF_PATH = buildSupportHandoffPath();
 const isAdminPath = (pathname = '/') => String(pathname || '/').startsWith('/admin');
+const SUPPORT_LAUNCHER_HIDDEN_PREFIXES = [
+    '/assistant',
+    '/search',
+    '/marketplace',
+    '/visual-search',
+    '/compare',
+    '/category/',
+    '/product/',
+    '/listing/',
+    '/deals',
+    '/trending',
+    '/new-arrivals',
+    '/login',
+];
 
 const toLocationState = (path = '/') => {
     const [pathname = '/', rawSearch = ''] = String(path || '/').split('?');
@@ -29,6 +43,10 @@ const shouldHideSupportLauncher = (pathname = '/', search = '') => {
     }
 
     if (pathname === '/') {
+        return true;
+    }
+
+    if (SUPPORT_LAUNCHER_HIDDEN_PREFIXES.some((prefix) => String(pathname || '').startsWith(prefix))) {
         return true;
     }
 
@@ -58,7 +76,7 @@ const GlobalSupportLauncher = () => {
 
     const isAuthenticated = Boolean(currentUser);
     const isLoginRoute = location.pathname === '/login';
-    const useCompactLauncher = shouldUseCompactLauncher(location.pathname);
+    const useCompactLauncher = shouldUseCompactLauncher(location.pathname) || isLoginRoute;
     const eyebrow = isAuthenticated ? 'Need help now?' : (isLoginRoute ? 'Blocked account?' : 'Need admin help?');
     const title = isAuthenticated ? 'Chat, voice, video support' : 'Sign in for support';
     const detail = isAuthenticated
@@ -84,7 +102,7 @@ const GlobalSupportLauncher = () => {
                 <button
                     type="button"
                     onClick={handleOpenSupport}
-                    className="aura-support-launcher fixed bottom-[calc(5.9rem+env(safe-area-inset-bottom))] right-4 z-[70] flex h-14 w-14 items-center justify-center rounded-full border border-amber-300/25 bg-[linear-gradient(140deg,rgba(7,12,24,0.96),rgba(15,23,42,0.94))] text-amber-100 shadow-[0_22px_58px_rgba(2,8,23,0.48)] backdrop-blur-xl transition-transform duration-200 hover:-translate-y-1 sm:hidden"
+                    className="aura-support-launcher aura-floating-utility aura-floating-utility--support fixed bottom-[calc(5.9rem+env(safe-area-inset-bottom))] left-4 z-[71] flex h-14 w-14 items-center justify-center rounded-full border text-slate-50 transition-transform duration-200 hover:-translate-y-1 sm:hidden"
                     aria-label="Talk to admin support"
                     title={title}
                 >
@@ -94,16 +112,16 @@ const GlobalSupportLauncher = () => {
                 <button
                     type="button"
                     onClick={handleOpenSupport}
-                    className="aura-support-launcher fixed bottom-6 left-6 z-[70] hidden max-w-[min(92vw,24rem)] items-center gap-3 rounded-[1.5rem] border border-amber-300/25 bg-[linear-gradient(140deg,rgba(7,12,24,0.96),rgba(15,23,42,0.94))] px-4 py-3 text-left text-slate-50 shadow-[0_22px_58px_rgba(2,8,23,0.48)] backdrop-blur-xl transition-transform duration-200 hover:-translate-y-1 sm:flex"
+                    className="aura-support-launcher aura-floating-utility aura-floating-utility--support fixed bottom-6 left-6 z-[71] hidden items-center gap-3 rounded-full border px-3 py-3 text-left text-slate-50 transition-transform duration-200 hover:-translate-y-1 sm:flex"
                     aria-label="Talk to admin support"
                 >
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[1rem] border border-amber-300/25 bg-amber-400/12 text-amber-100">
+                    <div className="aura-floating-utility__icon flex h-11 w-11 shrink-0 items-center justify-center rounded-full border">
                         {isAuthenticated ? <LifeBuoy className="h-5 w-5" /> : <ShieldAlert className="h-5 w-5" />}
                     </div>
-                    <div className="min-w-0">
-                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-200">{eyebrow}</p>
-                        <p className="mt-1 text-sm font-black text-white">{title}</p>
-                        <p className={cn('mt-1 text-xs leading-5 text-slate-300', isLoginRoute && !isAuthenticated ? 'max-w-[18rem]' : '')}>
+                    <div className="aura-floating-utility__copy min-w-0">
+                        <p className="aura-floating-utility__eyebrow text-[10px] font-black uppercase tracking-[0.2em]">{eyebrow}</p>
+                        <p className="aura-floating-utility__title mt-1 text-sm font-black">{title}</p>
+                        <p className={cn('aura-floating-utility__detail mt-1 text-xs leading-5', isLoginRoute && !isAuthenticated ? 'max-w-[18rem]' : '')}>
                             {detail}
                         </p>
                     </div>
@@ -116,16 +134,16 @@ const GlobalSupportLauncher = () => {
         <button
             type="button"
             onClick={handleOpenSupport}
-            className="aura-support-launcher fixed bottom-4 left-4 z-[70] flex max-w-[min(92vw,24rem)] items-center gap-3 rounded-[1.5rem] border border-amber-300/25 bg-[linear-gradient(140deg,rgba(7,12,24,0.96),rgba(15,23,42,0.94))] px-4 py-3 text-left text-slate-50 shadow-[0_22px_58px_rgba(2,8,23,0.48)] backdrop-blur-xl transition-transform duration-200 hover:-translate-y-1 sm:bottom-6 sm:left-6"
+            className="aura-support-launcher aura-floating-utility aura-floating-utility--support fixed bottom-4 left-4 z-[71] flex items-center gap-3 rounded-full border px-3 py-3 text-left text-slate-50 transition-transform duration-200 hover:-translate-y-1 sm:bottom-6 sm:left-6"
             aria-label="Talk to admin support"
         >
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[1rem] border border-amber-300/25 bg-amber-400/12 text-amber-100">
+            <div className="aura-floating-utility__icon flex h-11 w-11 shrink-0 items-center justify-center rounded-full border">
                 {isAuthenticated ? <LifeBuoy className="h-5 w-5" /> : <ShieldAlert className="h-5 w-5" />}
             </div>
-            <div className="min-w-0">
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-200">{eyebrow}</p>
-                <p className="mt-1 text-sm font-black text-white">{title}</p>
-                <p className={cn('mt-1 text-xs leading-5 text-slate-300', isLoginRoute && !isAuthenticated ? 'max-w-[18rem]' : '')}>
+            <div className="aura-floating-utility__copy min-w-0">
+                <p className="aura-floating-utility__eyebrow text-[10px] font-black uppercase tracking-[0.2em]">{eyebrow}</p>
+                <p className="aura-floating-utility__title mt-1 text-sm font-black">{title}</p>
+                <p className={cn('aura-floating-utility__detail mt-1 text-xs leading-5', isLoginRoute && !isAuthenticated ? 'max-w-[18rem]' : '')}>
                     {detail}
                 </p>
             </div>

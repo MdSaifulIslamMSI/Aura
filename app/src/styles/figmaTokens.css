@@ -51,6 +51,10 @@
 
   --figma-primary-rgb: 6 182 212;
   --figma-secondary-rgb: 16 185 129;
+  --figma-tertiary-rgb: 245 158 11;
+  --figma-surface-rgb: 8 13 26;
+  --figma-surface-strong-rgb: 3 7 18;
+  --figma-grid-rgb: 148 163 184;
   --figma-bg-base: #060d16;
   --figma-fg-base: #f8fafc;
   --figma-muted-base: #94a3b8;
@@ -62,6 +66,10 @@
 html[data-color-mode='neo'] {
   --figma-primary-rgb: 6 182 212;
   --figma-secondary-rgb: 16 185 129;
+  --figma-tertiary-rgb: 245 158 11;
+  --figma-surface-rgb: 8 13 26;
+  --figma-surface-strong-rgb: 3 7 18;
+  --figma-grid-rgb: 148 163 184;
   --figma-bg-base: #060d16;
   --figma-fg-base: #f8fafc;
   --figma-muted-base: #94a3b8;
@@ -73,6 +81,10 @@ html[data-color-mode='neo'] {
 html[data-color-mode='violet'] {
   --figma-primary-rgb: 232 121 249;
   --figma-secondary-rgb: 167 139 250;
+  --figma-tertiary-rgb: 236 72 153;
+  --figma-surface-rgb: 24 14 45;
+  --figma-surface-strong-rgb: 13 8 28;
+  --figma-grid-rgb: 196 181 253;
   --figma-bg-base: #090617;
   --figma-fg-base: #f5f3ff;
   --figma-muted-base: #c4b5fd;
@@ -84,6 +96,10 @@ html[data-color-mode='violet'] {
 html[data-color-mode='emerald'] {
   --figma-primary-rgb: 16 185 129;
   --figma-secondary-rgb: 14 165 233;
+  --figma-tertiary-rgb: 52 211 153;
+  --figma-surface-rgb: 5 38 35;
+  --figma-surface-strong-rgb: 2 24 24;
+  --figma-grid-rgb: 153 246 228;
   --figma-bg-base: #041414;
   --figma-fg-base: #ecfeff;
   --figma-muted-base: #99f6e4;
@@ -95,6 +111,10 @@ html[data-color-mode='emerald'] {
 html[data-color-mode='sunset'] {
   --figma-primary-rgb: 249 115 22;
   --figma-secondary-rgb: 236 72 153;
+  --figma-tertiary-rgb: 251 191 36;
+  --figma-surface-rgb: 46 18 8;
+  --figma-surface-strong-rgb: 22 7 3;
+  --figma-grid-rgb: 253 186 116;
   --figma-bg-base: #160703;
   --figma-fg-base: #fff7ed;
   --figma-muted-base: #fdba74;
@@ -106,6 +126,10 @@ html[data-color-mode='sunset'] {
 html[data-color-mode='white'] {
   --figma-primary-rgb: 37 99 235;
   --figma-secondary-rgb: 16 185 129;
+  --figma-tertiary-rgb: 14 165 233;
+  --figma-surface-rgb: 255 255 255;
+  --figma-surface-strong-rgb: 241 245 249;
+  --figma-grid-rgb: 100 116 139;
   --figma-bg-base: #f4f7fb;
   --figma-fg-base: #0f172a;
   --figma-muted-base: #64748b;
@@ -117,6 +141,10 @@ html[data-color-mode='white'] {
 html[data-color-mode='aqua'] {
   --figma-primary-rgb: 34 211 238;
   --figma-secondary-rgb: 99 102 241;
+  --figma-tertiary-rgb: 45 212 191;
+  --figma-surface-rgb: 6 32 56;
+  --figma-surface-strong-rgb: 3 19 34;
+  --figma-grid-rgb: 147 197 253;
   --figma-bg-base: #031322;
   --figma-fg-base: #f0f9ff;
   --figma-muted-base: #93c5fd;
@@ -128,6 +156,10 @@ html[data-color-mode='aqua'] {
 html[data-color-mode='ruby'] {
   --figma-primary-rgb: 244 63 94;
   --figma-secondary-rgb: 251 113 133;
+  --figma-tertiary-rgb: 217 70 239;
+  --figma-surface-rgb: 52 10 25;
+  --figma-surface-strong-rgb: 26 4 13;
+  --figma-grid-rgb: 253 164 175;
   --figma-bg-base: #1a040d;
   --figma-fg-base: #fff1f2;
   --figma-muted-base: #fda4af;
@@ -139,6 +171,10 @@ html[data-color-mode='ruby'] {
 html[data-color-mode='midnight'] {
   --figma-primary-rgb: 96 165 250;
   --figma-secondary-rgb: 129 140 248;
+  --figma-tertiary-rgb: 56 189 248;
+  --figma-surface-rgb: 9 20 43;
+  --figma-surface-strong-rgb: 3 7 18;
+  --figma-grid-rgb: 148 163 184;
   --figma-bg-base: #030712;
   --figma-fg-base: #f1f5f9;
   --figma-muted-base: #94a3b8;
@@ -150,6 +186,10 @@ html[data-color-mode='midnight'] {
 html[data-color-mode='gold'] {
   --figma-primary-rgb: 245 158 11;
   --figma-secondary-rgb: 249 115 22;
+  --figma-tertiary-rgb: 234 179 8;
+  --figma-surface-rgb: 47 29 8;
+  --figma-surface-strong-rgb: 23 13 2;
+  --figma-grid-rgb: 252 211 77;
   --figma-bg-base: #170d02;
   --figma-fg-base: #fffbeb;
   --figma-muted-base: #fcd34d;
@@ -161,6 +201,10 @@ html[data-color-mode='gold'] {
 html[data-color-mode='monochrome'] {
   --figma-primary-rgb: 203 213 225;
   --figma-secondary-rgb: 148 163 184;
+  --figma-tertiary-rgb: 226 232 240;
+  --figma-surface-rgb: 20 28 42;
+  --figma-surface-strong-rgb: 10 15 25;
+  --figma-grid-rgb: 148 163 184;
   --figma-bg-base: #0a0f19;
   --figma-fg-base: #e2e8f0;
   --figma-muted-base: #94a3b8;

@@ -45,7 +45,7 @@ describe('GlobalSupportLauncher', () => {
     it('stores the support deep link in login state for signed-out users', async () => {
         renderLauncher({
             currentUser: null,
-            initialEntry: '/login',
+            initialEntry: '/orders',
         });
 
         fireEvent.click(screen.getByRole('button', { name: /talk to admin support/i }));

@@ -477,9 +477,9 @@ const AssistantPage = () => {
     }, [handleUserInput, inputRef, setInputValue]);
 
     return (
-        <div className="relative h-[100dvh] overflow-hidden bg-[#050811] text-slate-100">
-            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.18),transparent_32%),radial-gradient(circle_at_85%_15%,rgba(16,185,129,0.12),transparent_28%),linear-gradient(180deg,rgba(5,8,17,0.98),rgba(7,10,20,1))]" />
-            <div className="pointer-events-none absolute inset-y-0 left-[19%] w-px bg-gradient-to-b from-transparent via-cyan-400/15 to-transparent" />
+        <div className="assistant-theme-shell relative h-[100dvh] overflow-hidden text-slate-100">
+            <div className="assistant-theme-shell__base pointer-events-none absolute inset-0" />
+            <div className="assistant-theme-shell__rail pointer-events-none absolute inset-y-0 left-[19%] w-px" />
             <button
                 type="button"
                 aria-label="Close assistant history"

@@ -1,6 +1,6 @@
-import { useState, useEffect, useContext, useCallback, useDeferredValue, useMemo, useRef } from 'react';
+﻿import { useState, useEffect, useContext, useCallback, useDeferredValue, useMemo, useRef } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
-import { BadgeCheck, Brain, Camera, Heart, ShoppingCart, Share2, Star, ChevronRight, Minus, Plus, Zap, MessageSquare, Send, Image as ImageIcon, Video, X, UploadCloud, Loader2 } from 'lucide-react';
+import { BadgeCheck, Brain, Camera, Heart, ShoppingCart, Share2, Star, ChevronRight, Minus, Plus, Zap, MessageSquare, Send, Image as ImageIcon, Video, X, UploadCloud, Loader2, PackageCheck, ShieldCheck, Truck } from 'lucide-react';
 import { CartContext } from '@/context/CartContext';
 import { WishlistContext } from '@/context/WishlistContext';
 import { AuthContext } from '@/context/AuthContext';
@@ -48,6 +48,7 @@ const ProductDetails = () => {
   const currentUser = authContext?.currentUser || null;
 
   const [product, setProduct] = useState(null);
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [relatedProducts, setRelatedProducts] = useState([]);
   const [activeTab, setActiveTab] = useState('description');
@@ -77,12 +78,14 @@ const ProductDetails = () => {
   const [lifecycleError, setLifecycleError] = useState('');
   const filePickerRef = useRef(null);
 
-  // Parse ID safely
-  const productId = id ? parseInt(id, 10) : 0;
+  // Preserve string identifiers so AWS/Mongo IDs and numeric catalog IDs both work.
+  const productId = id ? String(id) : '';
 
   // Derived state
   const isWishlisted = typeof isInWishlist === 'function' ? isInWishlist(productId) : false;
-  const cartItem = Array.isArray(cartItems) ? cartItems.find(item => item.id === productId) : undefined;
+  const cartItem = Array.isArray(cartItems)
+    ? cartItems.find((item) => String(item?.id || item?._id || '') === productId)
+    : undefined;
   const effectiveQuantity = cartItem ? cartItem.quantity : quantity;
 
   // Fetch Product Data
@@ -143,6 +146,7 @@ const ProductDetails = () => {
 
   useEffect(() => {
     setQuantity(1);
+    setActiveImageIndex(0);
   }, [productId]);
 
   // Fetch Related Products
@@ -527,6 +531,17 @@ const ProductDetails = () => {
   const priceCurrency = getBaseCurrency(resolvedProduct);
   const priceValue = getBaseAmount(resolvedProduct);
   const originalPriceValue = getOriginalBaseAmount(resolvedProduct);
+  const galleryImages = useMemo(() => {
+    const images = [
+      image,
+      ...(Array.isArray(resolvedProduct?.images) ? resolvedProduct.images : []),
+    ]
+      .map((entry) => String(entry || '').trim())
+      .filter(Boolean);
+
+    return [...new Set(images)];
+  }, [image, resolvedProduct?.images]);
+  const displayImage = galleryImages[activeImageIndex] || galleryImages[0] || image;
   const heroTitle = displayTitle || title;
   const heroSubtitle = subtitle || subCategory || category;
   const trustGraph = useMemo(
@@ -671,7 +686,6 @@ const ProductDetails = () => {
   }), [translateProductText, trustGraph]);
 
   const dealDna = resolvedProduct?.dealDna || null;
-  const isDemoCatalog = resolvedProduct?.publishGate?.status === 'dev_only' || resolvedProduct?.provenance?.sourceType === 'dev_seed';
   const dealTone = dealDna?.verdict === 'good_deal'
     ? 'border-emerald-400/40 bg-emerald-500/15 text-emerald-100'
     : dealDna?.verdict === 'avoid'
@@ -697,17 +711,17 @@ const ProductDetails = () => {
   const mutedTextClass = isStylishWhite ? 'text-slate-600' : 'text-slate-400';
   const subtleTextClass = isStylishWhite ? 'text-slate-500' : 'text-slate-500';
   const mediaCardClass = isStylishWhite
-    ? 'border-slate-200/80 bg-[linear-gradient(145deg,rgba(255,255,255,0.97),rgba(241,245,249,0.92))] shadow-[0_24px_70px_rgba(148,163,184,0.22)] ring-slate-200/70'
-    : 'border-white/10 bg-[linear-gradient(145deg,rgba(255,255,255,0.08),rgba(255,255,255,0.03))] shadow-[0_24px_70px_rgba(6,182,212,0.08)] ring-white/10';
+    ? 'border-slate-200/80 bg-[linear-gradient(145deg,rgba(255,255,255,0.97),rgba(241,245,249,0.92))] shadow-[0_24px_70px_rgba(148,163,184,0.18)] ring-slate-200/70'
+    : 'border-white/10 bg-[linear-gradient(145deg,rgba(35,29,24,0.95),rgba(9,22,23,0.88)_48%,rgba(8,12,18,0.92))] shadow-[0_24px_70px_rgba(2,8,12,0.34)] ring-white/10';
   const mediaFrameClass = isStylishWhite
-    ? 'border-slate-200/80 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.98),rgba(226,232,240,0.92)_58%,rgba(203,213,225,0.95)_100%)]'
-    : 'border-white/10 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.05),rgba(9,9,11,0.2)_58%,rgba(9,9,11,0.78)_100%)]';
+    ? 'border-slate-200/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(226,232,240,0.9)_58%,rgba(203,213,225,0.92)_100%)]'
+    : 'border-white/10 bg-[linear-gradient(135deg,rgba(250,246,235,0.94),rgba(226,232,240,0.74)_58%,rgba(148,163,184,0.58)_100%)]';
   const floatingActionClass = isStylishWhite
     ? 'border-slate-200/80 bg-white/90 shadow-[0_12px_28px_rgba(148,163,184,0.22)]'
     : 'border-white/10 bg-zinc-950/65 shadow-[0_0_15px_rgba(0,0,0,0.5)]';
   const heroCardClass = isStylishWhite
     ? 'border-slate-200/80 bg-[linear-gradient(140deg,rgba(255,255,255,0.96),rgba(241,245,249,0.9)_46%,rgba(226,232,240,0.84)_100%)] shadow-[0_28px_90px_rgba(148,163,184,0.2)] ring-slate-200/60'
-    : 'border-white/10 bg-[linear-gradient(140deg,rgba(255,255,255,0.06),rgba(17,24,39,0.18)_46%,rgba(9,9,11,0.26)_100%)] shadow-[0_28px_90px_rgba(15,23,42,0.28)] ring-white/5';
+    : 'border-white/10 bg-[linear-gradient(140deg,rgba(35,29,24,0.88),rgba(9,22,23,0.68)_46%,rgba(8,12,18,0.72)_100%)] shadow-[0_28px_90px_rgba(2,8,12,0.34)] ring-white/5';
   const surfaceCardClass = isStylishWhite
     ? 'border-slate-200/80 bg-white/82 shadow-[0_18px_40px_rgba(148,163,184,0.14)]'
     : 'border-white/10 bg-zinc-950/45';
@@ -727,14 +741,14 @@ const ProductDetails = () => {
     ? 'border-slate-200/80 bg-white/88 text-slate-800 shadow-[0_10px_24px_rgba(148,163,184,0.12)]'
     : 'border-white/15 bg-white/5 text-slate-100';
   const mobileBuybarClass = isStylishWhite
-    ? 'border-slate-200/80 bg-white/92 shadow-[0_-18px_48px_rgba(148,163,184,0.22)]'
-    : 'border-white/10 bg-zinc-950/92';
+    ? 'border-slate-200/80 bg-white/98 shadow-[0_-18px_48px_rgba(148,163,184,0.22)]'
+    : 'border-white/10 bg-zinc-950 shadow-[0_-18px_48px_rgba(0,0,0,0.42)]';
   const inputClass = isStylishWhite
     ? 'border-slate-200/80 bg-white text-slate-900 shadow-sm placeholder:text-slate-400'
     : 'border-white/15 bg-zinc-950/70 text-white';
   const productImageClass = isStylishWhite
     ? 'relative z-10 h-full w-full object-contain drop-shadow-[0_24px_60px_rgba(148,163,184,0.35)] transition-transform duration-700 group-hover:scale-[1.05]'
-    : 'relative z-10 h-full w-full object-contain drop-shadow-[0_24px_60px_rgba(15,23,42,0.55)] mix-blend-screen transition-transform duration-700 group-hover:scale-[1.08]';
+    : 'relative z-10 h-full w-full object-contain drop-shadow-[0_24px_60px_rgba(15,23,42,0.48)] transition-transform duration-700 group-hover:scale-[1.05]';
 
   if (isLoading) {
     return <ProductPageSkeleton />;
@@ -755,9 +769,7 @@ const ProductDetails = () => {
 
   return (
     <div className="product-details-shell relative min-h-screen min-w-0 overflow-x-hidden pb-32 pt-3 sm:pt-4 lg:pb-16">
-      {/* Background Decor */}
-      <div className="absolute top-0 right-0 w-[min(70vw,500px)] h-[min(70vw,500px)] bg-neo-cyan/10 rounded-full blur-[150px] pointer-events-none -z-10" />
-      <div className="absolute bottom-40 left-0 w-[min(70vw,500px)] h-[min(70vw,500px)] bg-neo-emerald/10 rounded-full blur-[150px] pointer-events-none -z-10" />
+      <div className="product-detail-page-texture pointer-events-none absolute inset-x-0 top-0 -z-10 h-[36rem]" />
 
       <div className={cn(
         'container-custom mx-auto max-w-7xl min-w-0 px-3 py-4 sm:px-4 md:px-6 md:py-6',
@@ -780,18 +792,25 @@ const ProductDetails = () => {
             <div className="lg:sticky lg:top-28 lg:max-h-[calc(100vh-8rem)] lg:overflow-y-auto lg:pr-2">
               <div className="flex min-w-0 flex-col gap-4 sm:gap-6 lg:pb-4">
                 <div className={cn(
-                  'group relative min-w-0 overflow-hidden rounded-[1.9rem] border p-4 ring-1 sm:rounded-[2.15rem] sm:p-6',
+                  'product-detail-media-panel group relative min-w-0 overflow-hidden rounded-[1.9rem] border p-4 ring-1 sm:rounded-[2.15rem] sm:p-6',
                   mediaCardClass
                 )}>
-                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_18%,rgba(217,70,239,0.16),transparent_32%),radial-gradient(circle_at_82%_14%,rgba(6,182,212,0.18),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.03),transparent_52%)] pointer-events-none" />
+                  <div className="product-detail-media-wash absolute inset-0 pointer-events-none" />
                   <div className={cn(
-                    'relative flex min-w-0 aspect-square items-center justify-center overflow-hidden rounded-[1.6rem] border p-2 sm:rounded-[1.9rem] sm:p-4',
+                    'product-detail-media-frame relative flex min-w-0 aspect-square items-center justify-center overflow-hidden rounded-[1.6rem] border p-2 sm:rounded-[1.9rem] sm:p-4',
                     mediaFrameClass
                   )}>
-                    <div className="absolute inset-x-[16%] bottom-10 h-16 rounded-full bg-neo-cyan/15 blur-3xl transition-all duration-700 group-hover:bg-neo-cyan/25" />
-                    <div className="absolute inset-y-[14%] right-[10%] w-20 rounded-full bg-fuchsia-500/10 blur-3xl transition-opacity duration-700 group-hover:opacity-90" />
+                    <div className="product-detail-media-rule absolute inset-x-8 bottom-8 h-px" />
+                    <div className={cn(
+                      'absolute left-16 top-4 z-20 rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em]',
+                      isStylishWhite
+                        ? 'border-slate-900/10 bg-white/75 text-slate-700'
+                        : 'border-white/10 bg-zinc-950/50 text-slate-200'
+                    )}>
+                      {t('productPage.mediaLive', {}, 'Live media')}
+                    </div>
                     <img
-                      src={image}
+                      src={displayImage}
                       alt={translatedHeroTitle}
                       className={productImageClass}
                     />
@@ -823,97 +842,87 @@ const ProductDetails = () => {
                     </button>
 
                   </div>
+
+                  {galleryImages.length > 1 && (
+                    <div className="mt-4 grid grid-cols-4 gap-2">
+                      {galleryImages.slice(0, 4).map((asset, index) => (
+                        <button
+                          key={`${asset}-${index}`}
+                          type="button"
+                          onClick={() => setActiveImageIndex(index)}
+                          aria-label={t('productPage.viewImage', { index: index + 1 }, `View product image ${index + 1}`)}
+                          className={cn(
+                            'product-detail-gallery-thumb aspect-square min-w-0 overflow-hidden rounded-2xl border p-1 transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-neo-cyan/70',
+                            activeImageIndex === index
+                              ? 'border-neo-cyan/70 bg-neo-cyan/10 shadow-[0_12px_28px_rgba(6,182,212,0.14)]'
+                              : isStylishWhite
+                                ? 'border-slate-200/80 bg-white/72 hover:border-slate-300'
+                                : 'border-white/10 bg-white/[0.04] hover:border-white/20'
+                          )}
+                        >
+                          <img src={asset} alt="" className="h-full w-full rounded-xl object-contain" />
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
-                {false && (
-                  <>
-                  <div className="hidden grid-cols-2 gap-3 lg:grid">
-                  <div className={cn('rounded-[1.4rem] border p-4 shadow-[0_18px_40px_rgba(6,182,212,0.05)]', statCardClass)}>
+                <section className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
+                  <div className={cn('product-detail-stat-card rounded-[1.35rem] border p-4', statCardClass)}>
                     <p className={cn('text-[10px] font-black uppercase tracking-[0.18em]', mutedTextClass)}>
-                      {t('productPage.marketPrice', {}, 'Market price')}
+                      {t('productPage.fulfillment', {}, 'Fulfillment')}
                     </p>
-                    <p className={cn('mt-2 text-2xl font-black', strongTextClass)}>{formatMarketPrice(priceValue, priceCurrency)}</p>
-                    <p className={cn('mt-2 text-xs', mutedTextClass)}>
-                      {t('productPage.fxPinned', {}, 'Refreshed from the active browse FX feed')}
-                    </p>
+                    <div className="mt-3 flex items-start gap-3">
+                      <Truck className="mt-0.5 h-5 w-5 shrink-0 text-neo-cyan" />
+                      <div className="min-w-0">
+                        <p className={cn('text-base font-black', strongTextClass)}>{translatedDeliveryTime}</p>
+                        <p className={cn('mt-1 text-xs leading-relaxed', mutedTextClass)}>
+                          {t('productPage.deliveryPromise', {}, 'Priority routing with live order tracking at checkout')}
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                  <div className={cn('rounded-[1.4rem] border p-4 shadow-[0_18px_40px_rgba(217,70,239,0.05)]', statCardClass)}>
+                  <div className={cn('product-detail-stat-card rounded-[1.35rem] border p-4', statCardClass)}>
                     <p className={cn('text-[10px] font-black uppercase tracking-[0.18em]', mutedTextClass)}>
-                      {t('productPage.dealVerdict', {}, 'Deal verdict')}
+                      {t('productPage.inventorySignal', {}, 'Inventory')}
                     </p>
-                    <p className={cn('mt-2 text-2xl font-black', strongTextClass)}>{dealLabel}</p>
-                    <p className={cn('mt-2 text-xs', mutedTextClass)}>
-                      {t('productPage.ratingSummary', { score: rating, count: ratingCount.toLocaleString() }, `${rating} stars • ${ratingCount.toLocaleString()} reviews`)}
-                    </p>
+                    <div className="mt-3 flex items-start gap-3">
+                      <PackageCheck className={cn('mt-0.5 h-5 w-5 shrink-0', stock > 0 ? 'text-neo-emerald' : 'text-neo-rose')} />
+                      <div className="min-w-0">
+                        <p className={cn('text-base font-black', stock > 0 ? 'text-neo-emerald' : 'text-neo-rose')}>
+                          {stock > 0
+                            ? t('productPage.inStockAvailable', { count: stock }, `In Stock (${stock} Available)`)
+                            : t('productPage.outOfStock', {}, 'Out of Stock')}
+                        </p>
+                        <p className={cn('mt-1 text-xs leading-relaxed', mutedTextClass)}>
+                          {t('productPage.stockChecked', {}, 'Checked against the live AWS catalog before checkout')}
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                  <div className={cn('rounded-[1.4rem] border p-4', statCardClass)}>
-                    <p className={cn('text-[10px] font-black uppercase tracking-[0.18em]', mutedTextClass)}>
-                      {t('productPage.deliveryTime', {}, 'Delivery time')}
-                    </p>
-                    <p className={cn('mt-2 text-lg font-black', strongTextClass)}>{translatedDeliveryTime}</p>
-                    <p className={cn('mt-2 text-xs', mutedTextClass)}>
-                      {t('productPage.deliveryPromise', {}, 'Priority routing with live order tracking at checkout')}
-                    </p>
-                  </div>
-                  <div className={cn('rounded-[1.4rem] border p-4', statCardClass)}>
+                  <div className={cn('product-detail-stat-card rounded-[1.35rem] border p-4', statCardClass)}>
                     <p className={cn('text-[10px] font-black uppercase tracking-[0.18em]', mutedTextClass)}>
                       {t('productPage.coverage', {}, 'Coverage')}
                     </p>
-                    <p className={cn('mt-2 text-lg font-black', strongTextClass)}>{warranty}</p>
-                    <p className={cn('mt-2 text-xs', mutedTextClass)}>
-                      {t('productPage.premiumProtection', {}, 'Protected by Aura verification and support flows')}
-                    </p>
+                    <div className="mt-3 flex items-start gap-3">
+                      <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-amber-200" />
+                      <div className="min-w-0">
+                        <p className={cn('text-base font-black', strongTextClass)}>{warranty}</p>
+                        <p className={cn('mt-1 text-xs leading-relaxed', mutedTextClass)}>
+                          {t('productPage.premiumProtection', {}, 'Protected by Aura verification and support flows')}
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                </div>
+                </section>
 
-                <div className={cn(
-                  'hidden overflow-hidden rounded-[1.75rem] border p-5 lg:block',
-                  isStylishWhite
-                    ? 'border-slate-200/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(241,245,249,0.9))] shadow-[0_24px_60px_rgba(148,163,184,0.18)]'
-                    : 'border-white/10 bg-[linear-gradient(180deg,rgba(9,9,11,0.82),rgba(17,24,39,0.62))] shadow-[0_24px_60px_rgba(0,0,0,0.28)]'
-                )}>
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-neo-emerald">
-                        {t('productPage.concierge', {}, 'Concierge')}
-                      </p>
-                      <h3 className={cn('mt-2 text-xl font-black', strongTextClass)}>
-                        {t('productPage.needHelpNow', {}, 'Need help now?')}
-                      </h3>
-                    </div>
-                    <div className={cn('rounded-full border p-3 text-neo-cyan', softPanelClass)}>
-                      <MessageSquare className="h-5 w-5" />
-                    </div>
-                  </div>
-                  <p className={cn('mt-3 text-sm leading-relaxed', bodyTextClass)}>
-                    {t('productPage.conciergeBody', {}, 'Chat, compare, and visually inspect this product without losing your place on the page. The media rail stays pinned while the buying details continue below.')}
-                  </p>
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <button
-                      onClick={handleOpenCompare}
-                      className="inline-flex items-center justify-center gap-2 rounded-full border border-neo-cyan/25 bg-neo-cyan/10 px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-neo-cyan transition-colors hover:border-neo-cyan/45 hover:bg-neo-cyan/15"
-                    >
-                      <Brain className="h-3.5 w-3.5" />
-                      {t('nav.aiCompare', {}, 'AI Compare')}
-                    </button>
-                    <button
-                      onClick={handleOpenVisualSearch}
-                      className="inline-flex items-center justify-center gap-2 rounded-full border border-emerald-400/25 bg-emerald-500/10 px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-emerald-200 transition-colors hover:border-emerald-400/45 hover:bg-emerald-500/15"
-                    >
-                      <Camera className="h-3.5 w-3.5" />
-                      {t('nav.visualSearch', {}, 'Visual Search')}
-                    </button>
-                  </div>
-                  </div>
-                  </>
-                )}
               </div>
             </div>
 
             {/* Mobile Actions - Sticky Bottom */}
             <div
               className={cn(
-                'fixed bottom-0 left-0 right-0 z-50 flex min-w-0 gap-3 border-t px-3 pb-[calc(0.85rem+env(safe-area-inset-bottom))] pt-3 sm:gap-4 sm:p-4 lg:hidden',
+                'product-detail-mobile-buybar fixed bottom-0 left-0 right-0 z-50 flex min-w-0 gap-3 border-t px-3 pb-[calc(0.85rem+env(safe-area-inset-bottom))] pt-3 sm:gap-4 sm:p-4 lg:hidden',
                 mobileBuybarClass
               )}
               style={{ width: '100dvw', maxWidth: '100dvw' }}
@@ -969,12 +978,12 @@ const ProductDetails = () => {
           {/* Right Column: Details */}
           <div className="min-w-0 lg:col-span-7">
             <div className={cn(
-              'relative min-w-0 overflow-hidden rounded-[1.9rem] border p-5 ring-1 sm:rounded-[2.2rem] sm:p-6 md:p-10',
+              'product-detail-hero-panel relative min-w-0 overflow-hidden rounded-[1.9rem] border p-5 ring-1 sm:rounded-[2.2rem] sm:p-6 md:p-10',
               heroCardClass
             )}>
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(6,182,212,0.12),transparent_28%),radial-gradient(circle_at_20%_18%,rgba(217,70,239,0.12),transparent_24%),linear-gradient(180deg,rgba(255,255,255,0.02),transparent_48%)] pointer-events-none" />
-              <div className="absolute inset-x-8 top-6 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent pointer-events-none" />
-              <div className="absolute bottom-0 right-0 h-[55%] w-[55%] bg-gradient-to-l from-neo-emerald/10 to-transparent pointer-events-none" />
+              <div className="product-detail-hero-panel__wash absolute inset-0 pointer-events-none" />
+              <div className="product-detail-hero-panel__rule absolute inset-x-8 top-6 h-px pointer-events-none" />
+              <div className="product-detail-hero-panel__glow absolute bottom-0 right-0 h-[55%] w-[55%] pointer-events-none" />
 
               <div className="relative z-10 min-w-0">
                 <div className="mb-4 flex flex-wrap items-center gap-3">
@@ -988,17 +997,6 @@ const ProductDetails = () => {
                 <h1 className={cn('mb-5 text-[1.9rem] font-black leading-tight tracking-tighter sm:text-3xl md:mb-6 md:text-5xl', strongTextClass)}>
                   {translatedHeroTitle}
                 </h1>
-                {isDemoCatalog && (
-                  <div className="mb-6 rounded-2xl border border-sky-400/30 bg-sky-500/10 px-4 py-3">
-                    <p className="text-xs font-black uppercase tracking-[0.16em] text-sky-200">
-                      {t('product.demoCatalog', {}, 'Demo Catalog')}
-                    </p>
-                    <p className="mt-2 text-sm leading-relaxed text-sky-50/90">
-                      {t('productPage.demoCatalogBody', {}, 'This item is being served from the demo catalog fallback because the active catalog currently has no published inventory.')}
-                    </p>
-                  </div>
-                )}
-
                 <div className="mb-6 flex flex-wrap items-center gap-2.5 sm:gap-4 md:mb-8">
                   <span className="rating-badge text-sm px-3 py-1 shadow-[0_0_10px_rgba(250,204,21,0.3)]">
                     {rating}<Star className="w-3 h-3 fill-zinc-950 ml-1" />
@@ -1009,88 +1007,99 @@ const ProductDetails = () => {
                   {dealDna && (
                     <span className={cn('text-[10px] px-3 py-1 rounded-full border font-black uppercase tracking-widest inline-flex items-center gap-1.5', dealTone)}>
                       <BadgeCheck className="w-3 h-3" />
-                      {t('productPage.dealDnaScore', { score: dealDna.score, label: dealLabel }, `Deal DNA ${dealDna.score} • ${dealLabel}`)}
+                      {t('productPage.dealDnaScore', { score: dealDna.score, label: dealLabel }, `Deal DNA ${dealDna.score} â€¢ ${dealLabel}`)}
                     </span>
                   )}
                 </div>
 
-                <div className="mb-6">
-                  <div className={cn('rounded-[1.7rem] border p-5 sm:p-6', surfaceCardClass)}>
-                    <p className={cn('text-[10px] font-black uppercase tracking-[0.22em]', mutedTextClass)}>
-                      {t('productPage.livePrice', {}, 'Price')}
-                    </p>
-                    <div className="mt-3 flex flex-wrap items-end gap-3 sm:gap-4">
-                      <span className={cn('text-4xl font-black tracking-tighter sm:text-5xl', strongTextClass)}>
-                        {formatMarketPrice(priceValue, priceCurrency)}
-                      </span>
-                      {originalPriceValue > priceValue && (
-                        <span className={cn('pb-1 text-lg font-medium line-through', mutedTextClass)}>
-                          {formatMarketPrice(originalPriceValue, priceCurrency)}
+                <div className="mb-8">
+                  <div className={cn('product-detail-buy-panel rounded-[1.7rem] border p-5 sm:p-6', surfaceCardClass)}>
+                    <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
+                      <div className="min-w-0">
+                        <p className={cn('text-[10px] font-black uppercase tracking-[0.22em]', mutedTextClass)}>
+                          {t('productPage.livePrice', {}, 'Price')}
+                        </p>
+                        <div className="mt-3 flex flex-wrap items-end gap-3 sm:gap-4">
+                          <span className={cn('text-4xl font-black tracking-tighter sm:text-5xl', strongTextClass)}>
+                            {formatMarketPrice(priceValue, priceCurrency)}
+                          </span>
+                          {originalPriceValue > priceValue && (
+                            <span className={cn('pb-1 text-lg font-medium line-through', mutedTextClass)}>
+                              {formatMarketPrice(originalPriceValue, priceCurrency)}
+                            </span>
+                          )}
+                          {discountPercentage > 0 && (
+                            <span className="inline-flex items-center gap-1 rounded-full border border-neo-cyan/20 bg-neo-cyan/10 px-3 py-1 text-xs font-black uppercase tracking-[0.16em] text-neo-cyan">
+                              <Zap className="h-3 w-3 fill-neo-cyan" />
+                              {t('product.off', {}, '% off').replace('%', String(discountPercentage))}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <span className={cn(
+                          'inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-black uppercase tracking-[0.14em]',
+                          stock > 0
+                            ? 'border-neo-emerald/25 bg-neo-emerald/10 text-neo-emerald'
+                            : 'border-neo-rose/25 bg-neo-rose/10 text-neo-rose'
+                        )}>
+                          <span className={cn('h-2 w-2 rounded-full', stock > 0 ? 'bg-neo-emerald' : 'bg-neo-rose')} />
+                          {stock > 0
+                            ? t('productPage.inStockAvailable', { count: stock }, `In Stock (${stock} Available)`)
+                            : t('productPage.outOfStock', {}, 'Out of Stock')}
                         </span>
-                      )}
-                      {discountPercentage > 0 && (
-                        <span className="inline-flex items-center gap-1 rounded-full border border-neo-cyan/20 bg-neo-cyan/10 px-3 py-1 text-xs font-black uppercase tracking-[0.16em] text-neo-cyan">
-                          <Zap className="h-3 w-3 fill-neo-cyan" />
-                          {t('product.off', {}, '% off').replace('%', String(discountPercentage))}
+                        <span className={cn('inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-black uppercase tracking-[0.14em]', actionButtonClass)}>
+                          <Truck className="h-3.5 w-3.5" />
+                          {translatedDeliveryTime}
                         </span>
+                      </div>
+                    </div>
+
+                    <div className="mt-5 hidden flex-col gap-3 lg:flex xl:flex-row xl:items-center">
+                      {cartItem ? (
+                        <div className="flex items-center justify-center gap-6 rounded-2xl border-2 border-neo-cyan/50 bg-neo-cyan/5 px-6 py-3 shadow-[0_0_15px_rgba(6,182,212,0.1)]">
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateQty(-1)}
+                            disabled={cartItem.quantity <= 1}
+                            aria-label={`Decrease quantity for ${translatedHeroTitle}`}
+                            className="text-neo-cyan transition-colors hover:text-white disabled:opacity-50"
+                          >
+                            <Minus className="w-6 h-6" />
+                          </button>
+                          <span className={cn('w-8 text-center text-2xl font-black', strongTextClass)}>{cartItem.quantity}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateQty(1)}
+                            disabled={cartItem.quantity >= stock}
+                            aria-label={`Increase quantity for ${translatedHeroTitle}`}
+                            className="text-neo-cyan transition-colors hover:text-white disabled:opacity-50"
+                          >
+                            <Plus className="w-6 h-6" />
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={handleAddToCart}
+                          disabled={stock === 0}
+                          className="btn-secondary inline-flex min-w-[13rem] items-center justify-center gap-3 border-white/20 px-8 py-4 text-sm tracking-widest group/add"
+                        >
+                          <ShoppingCart className="w-5 h-5 transition-transform group-hover/add:-translate-x-1" />
+                          <span className="relative z-10">{t('product.addToBag', {}, 'Add to Bag')}</span>
+                        </button>
                       )}
+                      <button
+                        type="button"
+                        onClick={handleBuyNow}
+                        disabled={stock === 0}
+                        className="btn-primary inline-flex min-w-[12rem] items-center justify-center gap-2 px-8 py-4 text-sm tracking-widest shadow-[0_0_20px_rgba(16,185,129,0.3)] group/buy"
+                      >
+                        <Zap className="w-4 h-4 fill-white group-hover/buy:animate-pulse" />
+                        <span className="relative z-10">{t('productPage.buyNow', {}, 'Buy Now')}</span>
+                      </button>
                     </div>
                   </div>
-                </div>
-
-                <div className="mb-8 flex flex-wrap items-center gap-3">
-                  <div className={cn('w-3 h-3 rounded-full animate-pulse', stock > 0 ? 'bg-neo-cyan shadow-[0_0_10px_rgba(6,182,212,0.8)]' : 'bg-neo-rose shadow-[0_0_10px_rgba(244,63,94,0.8)]')} />
-                  <p className={cn('text-sm font-bold uppercase tracking-widest', stock > 0 ? 'text-neo-cyan' : 'text-neo-rose')}>
-                    {stock > 0
-                      ? t('productPage.inStockAvailable', { count: stock }, `In Stock (${stock} Available)`)
-                      : t('productPage.outOfStock', {}, 'Out of Stock')}
-                  </p>
-                </div>
-
-                {/* Desktop Actions */}
-                <div className="hidden lg:flex gap-6 mb-12">
-                  {cartItem ? (
-                    <div className="flex items-center gap-6 border-2 border-neo-cyan/50 bg-neo-cyan/5 rounded-2xl px-6 py-3 shadow-[0_0_15px_rgba(6,182,212,0.1)]">
-                      <button
-                        type="button"
-                        onClick={() => handleUpdateQty(-1)}
-                        disabled={cartItem.quantity <= 1}
-                        aria-label={`Decrease quantity for ${translatedHeroTitle}`}
-                        className="text-neo-cyan hover:text-white disabled:opacity-50 transition-colors"
-                      >
-                        <Minus className="w-6 h-6" />
-                      </button>
-                      <span className={cn('font-black text-2xl w-8 text-center', strongTextClass)}>{cartItem.quantity}</span>
-                      <button
-                        type="button"
-                        onClick={() => handleUpdateQty(1)}
-                        disabled={cartItem.quantity >= stock}
-                        aria-label={`Increase quantity for ${translatedHeroTitle}`}
-                        className="text-neo-cyan hover:text-white disabled:opacity-50 transition-colors"
-                      >
-                        <Plus className="w-6 h-6" />
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={handleAddToCart}
-                      disabled={stock === 0}
-                      className="btn-secondary px-10 py-4 flex items-center gap-3 text-sm tracking-widest border-white/20 group/add"
-                    >
-                      <ShoppingCart className="w-5 h-5 group-hover/add:-translate-x-1 transition-transform" />
-                      <span className="relative z-10">{t('product.addToBag', {}, 'Add to Bag')}</span>
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={handleBuyNow}
-                    disabled={stock === 0}
-                    className="btn-primary px-10 py-4 text-sm tracking-widest flex items-center gap-2 group/buy shadow-[0_0_20px_rgba(16,185,129,0.3)]"
-                  >
-                    <Zap className="w-4 h-4 fill-white group-hover/buy:animate-pulse" />
-                    <span className="relative z-10">{t('productPage.buyNow', {}, 'Buy Now')}</span>
-                  </button>
                 </div>
 
                 <div className="mb-8 grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -1239,7 +1248,7 @@ const ProductDetails = () => {
                           <>
                             <div className={cn('rounded-2xl border p-5', dealTone)}>
                               <p className="text-xs font-black uppercase tracking-[0.16em]">{t('productPage.trustVerdict', {}, 'Trust Verdict')}</p>
-                              <p className="mt-2 text-2xl font-black">{dealLabel} • Score {dealDna.score}/100</p>
+                              <p className="mt-2 text-2xl font-black">{dealLabel} â€¢ Score {dealDna.score}/100</p>
                               <p className="mt-2 text-sm text-slate-100/90">{dealDna.message}</p>
                             </div>
                             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -1294,7 +1303,7 @@ const ProductDetails = () => {
                                         <img src={item.image} alt={item.translatedTitle} className="w-14 h-14 rounded-lg object-cover bg-zinc-900/70" />
                                         <div className="min-w-0">
                                           <p className={cn('text-sm font-bold truncate', strongTextClass)}>{item.translatedTitle}</p>
-                                          <p className={cn('text-xs truncate', mutedTextClass)}>{item.brand} • {item.category}</p>
+                                          <p className={cn('text-xs truncate', mutedTextClass)}>{item.brand} â€¢ {item.category}</p>
                                           <p className="text-xs text-neo-cyan font-bold mt-1">
                                             {t('productPage.compatibilityScore', { score: item.compatibilityScore }, `Compatibility ${item.compatibilityScore}/100`)}
                                           </p>

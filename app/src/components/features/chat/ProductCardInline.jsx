@@ -15,15 +15,15 @@ const ProductCardInline = ({
 }) => {
     const { t, formatPrice } = useMarket();
     const cardClassName = isWhiteMode
-        ? 'border-slate-200 bg-white text-slate-950'
-        : 'border-white/10 bg-white/[0.04] text-slate-100';
+        ? 'assistant-inline-product border-slate-200 bg-white text-slate-950'
+        : 'assistant-inline-product border-white/10 bg-white/[0.04] text-slate-100';
     const mutedTextClass = isWhiteMode ? 'text-slate-500' : 'text-slate-400';
     const outlineButtonClass = isWhiteMode
         ? 'border-slate-200 bg-white text-slate-950 hover:bg-slate-100'
         : 'border-white/10 bg-white/[0.04] text-slate-100 hover:bg-white/[0.08]';
     const primaryButtonClass = isWhiteMode
         ? 'border-slate-950 bg-slate-950 text-white hover:bg-slate-800'
-        : 'border-cyan-400/30 bg-cyan-400/10 text-cyan-100 hover:bg-cyan-400/15';
+        : 'assistant-inline-product__primary border-white/10 bg-white/[0.04] text-slate-100 hover:bg-white/[0.08]';
     const priceAmount = getBaseAmount(product);
     const priceCurrency = getBaseCurrency(product);
     const originalPriceAmount = getOriginalBaseAmount(product);
