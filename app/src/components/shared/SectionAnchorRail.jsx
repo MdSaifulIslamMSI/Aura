@@ -102,7 +102,7 @@ const SectionAnchorRail = () => {
       <div className="aura-anchor-rail-shell">
         <div className="aura-anchor-rail-title">
           <Navigation className="w-3.5 h-3.5" />
-          Jump
+          <span className="aura-anchor-rail-title__text">Jump</span>
         </div>
         <div className="aura-anchor-list">
           {visibleSections.map((section) => {
