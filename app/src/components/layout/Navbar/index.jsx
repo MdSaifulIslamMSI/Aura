@@ -457,6 +457,23 @@ const Navbar = () => {
   }, [isMarketPanelOpen, isNotificationsOpen, isUserMenuOpen]);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+
+    const handleSecurePathMarketOpen = () => {
+      setIsMobileMenuOpen(false);
+      setIsNotificationsOpen(false);
+      setIsUserMenuOpen(false);
+      setIsMarketPanelOpen(true);
+    };
+
+    window.addEventListener('aura:open-market-studio', handleSecurePathMarketOpen);
+
+    return () => {
+      window.removeEventListener('aura:open-market-studio', handleSecurePathMarketOpen);
+    };
+  }, []);
+
+  useEffect(() => {
     let isActive = true;
 
     if (!currentUser) {
@@ -696,14 +713,11 @@ const Navbar = () => {
                 </button>
 
                 {isMarketPanelOpen && (
-                  <>
-                    <button
-                      type="button"
-                      aria-label={t('nav.closeMarketBackdrop', {}, 'Close market panel backdrop')}
-                      className="market-studio-backdrop fixed inset-0 z-40 bg-zinc-950/34"
-                      onClick={closeMarketPanel}
-                    />
-                    <div className="market-studio-popover absolute right-0 z-[60] mt-3 w-[22rem] max-w-[calc(100vw-2rem)] rounded-[1.7rem] border border-white/10 bg-[linear-gradient(180deg,rgba(7,12,24,0.98),rgba(5,9,20,0.98))] p-3.5 shadow-[0_26px_80px_rgba(2,8,23,0.7)] ring-1 ring-cyan-400/10">
+                  <div
+                    role="dialog"
+                    aria-label={t('nav.marketPanelDialog', {}, 'Market preferences')}
+                    className="market-studio-popover absolute right-0 z-[60] mt-3 w-[22rem] max-w-[calc(100vw-2rem)] max-h-[min(34rem,calc(100dvh-7rem))] overflow-y-auto rounded-[1.7rem] border border-white/10 bg-[linear-gradient(180deg,rgba(7,12,24,0.98),rgba(5,9,20,0.98))] p-3.5 shadow-[0_26px_80px_rgba(2,8,23,0.7)] ring-1 ring-cyan-400/10"
+                  >
                       <div className="market-studio-popover__hero rounded-[1.35rem] border border-white/10 bg-white/[0.03] px-4 py-3">
                         <div className="market-studio-card__eyebrow text-[10px] font-black uppercase tracking-[0.24em] text-cyan-300/80">
                           {t('market.title', {}, 'Market Studio')}
@@ -741,8 +755,7 @@ const Navbar = () => {
                           compact
                         />
                       </div>
-                    </div>
-                  </>
+                  </div>
                 )}
               </div>
 

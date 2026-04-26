@@ -267,7 +267,21 @@ const AuraTrustedDeviceChallenge = () => {
     setShowMethodChooser(isBlockingRoute);
   }, [deviceChallenge?.token, isBlockingRoute]);
 
-  if (status !== 'device_challenge_required' || !deviceChallenge || import.meta.env.MODE === 'test') {
+  const shouldRenderTrustedGate = status === 'device_challenge_required'
+    && Boolean(deviceChallenge)
+    && import.meta.env.MODE !== 'test'
+    && isBlockingRoute;
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return undefined;
+
+    document.body.classList.toggle('aura-trusted-gate-open', shouldRenderTrustedGate);
+    return () => {
+      document.body.classList.remove('aura-trusted-gate-open');
+    };
+  }, [shouldRenderTrustedGate]);
+
+  if (!shouldRenderTrustedGate) {
     return null;
   }
 
@@ -393,6 +407,10 @@ const AuraTrustedDeviceChallenge = () => {
           ? (challengeMode === 'enroll' ? 'Face/device passkey registered.' : 'Face/device passkey verified.')
           : (challengeMode === 'enroll' ? 'Trusted browser registered.' : 'Trusted browser verified.')
       );
+
+      if (currentUser) {
+        await refreshSession(currentUser, { force: true, silent: true }).catch(() => null);
+      }
     } catch (error) {
       const nextMessage = buildTrustedDeviceErrorMessage({
         attemptedMethod: activeMethod,
