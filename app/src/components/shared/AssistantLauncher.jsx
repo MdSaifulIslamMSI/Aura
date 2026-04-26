@@ -25,7 +25,7 @@ const AssistantLauncher = () => {
         <div
             className={[
                 'aura-assistant-launcher pointer-events-none fixed bottom-4 right-4 z-[72] flex items-end justify-end sm:bottom-6 sm:right-6',
-                hasMobileStickyCommerceBar ? 'bottom-[calc(7.25rem+env(safe-area-inset-bottom))] sm:bottom-6' : '',
+                hasMobileStickyCommerceBar ? 'hidden sm:flex sm:bottom-6' : '',
             ].filter(Boolean).join(' ')}
         >
             <button

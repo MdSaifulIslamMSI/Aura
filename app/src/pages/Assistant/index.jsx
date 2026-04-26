@@ -640,26 +640,26 @@ const AssistantPage = () => {
                 </aside>
 
                 <main className="flex h-[100dvh] min-h-0 min-w-0 flex-1 flex-col overflow-hidden lg:pl-0">
-                    <header className="border-b border-white/10 bg-[linear-gradient(180deg,rgba(5,8,17,0.88),rgba(5,8,17,0.78))] px-6 py-5 backdrop-blur-xl">
-                        <div className="rounded-[1.8rem] border border-white/10 bg-white/[0.03] px-5 py-5 shadow-[0_25px_90px_rgba(0,0,0,0.22)]">
+                    <header className="assistant-command-header border-b border-white/10 bg-[linear-gradient(180deg,rgba(5,8,17,0.9),rgba(5,8,17,0.78))] px-4 py-4 backdrop-blur-xl sm:px-6">
+                        <div className="assistant-command-header__panel rounded-[1.2rem] border border-white/10 bg-white/[0.025] px-4 py-4 shadow-[0_18px_58px_rgba(0,0,0,0.2)] sm:px-5">
                             <div className="flex flex-wrap items-start justify-between gap-4">
                                 <div className="flex items-start gap-3">
                                     <button
                                         type="button"
                                         onClick={() => setIsSidebarOpen(true)}
-                                        className="inline-flex h-11 w-11 items-center justify-center rounded-[1rem] border border-white/10 bg-white/[0.04] text-slate-200 transition hover:bg-white/[0.08] lg:hidden"
+                                        className="inline-flex h-10 w-10 items-center justify-center rounded-[0.9rem] border border-white/10 bg-white/[0.04] text-slate-200 transition hover:bg-white/[0.08] lg:hidden"
                                         aria-label="Open assistant history"
                                     >
                                         <Menu className="h-4 w-4" />
                                     </button>
                                     <div>
-                                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300">
+                                    <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-300">
                                         Controlled Terminal
                                     </p>
-                                    <h1 className="mt-2 text-2xl font-semibold text-white">
+                                    <h1 className="mt-1.5 text-xl font-semibold text-white sm:text-2xl">
                                         {activeSession?.title || 'New chat'}
                                     </h1>
-                                    <p className="mt-2 max-w-3xl text-sm text-slate-400">
+                                    <p className="mt-1.5 max-w-3xl text-sm leading-6 text-slate-400">
                                         Fast answers stay responsive, refined answers upgrade in place, and every commerce turn stays bounded by grounded data and explicit control paths.
                                     </p>
                                     </div>
@@ -690,16 +690,16 @@ const AssistantPage = () => {
                                 </div>
                             </div>
 
-                            <div className="mt-4 flex flex-wrap gap-2">
+                            <div className="mt-3 flex flex-wrap gap-2">
                                 {contextChips.map((chip) => (
                                     <span
                                         key={chip.id}
-                                        className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-slate-300"
+                                        className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-xs text-slate-300"
                                     >
                                         {chip.label}
                                     </span>
                                 ))}
-                                <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-slate-300">
+                                <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-xs text-slate-300">
                                     {providerLabel}
                                 </span>
                             </div>
@@ -719,37 +719,37 @@ const AssistantPage = () => {
 
                     <div className="flex min-h-0 flex-1 flex-col">
                         {!hasUserMessages && !isLoading ? (
-                            <section className="px-6 pt-6">
-                                <div className="mx-auto max-w-5xl rounded-[1.8rem] border border-white/10 bg-[linear-gradient(135deg,rgba(10,15,30,0.95),rgba(6,10,21,0.92))] p-5 shadow-[0_24px_90px_rgba(0,0,0,0.2)]">
+                            <section className="assistant-starter-deck px-4 pt-4 sm:px-6">
+                                <div className="assistant-starter-panel mx-auto max-w-5xl rounded-[1.2rem] border border-white/10 bg-[linear-gradient(135deg,rgba(10,15,30,0.9),rgba(6,10,21,0.92))] p-4 shadow-[0_18px_58px_rgba(0,0,0,0.18)] sm:p-5">
                                     <div className="flex flex-wrap items-start justify-between gap-3">
                                         <div>
-                                            <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.2em] text-cyan-300">
+                                            <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.18em] text-cyan-300">
                                                 <WandSparkles className="h-3.5 w-3.5" />
                                                 Fast starts
                                             </div>
-                                            <p className="mt-2 text-lg font-semibold text-white">Start with a premium grounded workflow.</p>
-                                            <p className="mt-1 max-w-2xl text-sm text-slate-400">
+                                            <p className="mt-2 text-base font-semibold text-white sm:text-lg">Start with a premium grounded workflow.</p>
+                                            <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-400">
                                                 Pick a starter and the assistant will either launch the flow directly or stage the right brief for you to refine.
                                             </p>
                                         </div>
-                                        <span className="rounded-full border border-emerald-400/20 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-100">
+                                        <span className="rounded-full border border-emerald-400/20 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-100">
                                             Controlled by design
                                         </span>
                                     </div>
 
-                                    <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                                    <div className="mt-4 grid gap-2.5 md:grid-cols-2 xl:grid-cols-4">
                                         {STARTER_PROMPTS.map((starter) => (
                                             <button
                                                 key={starter.id}
                                                 type="button"
                                                 onClick={() => handleStarterPrompt(starter)}
-                                                className="group rounded-[1.35rem] border border-white/10 bg-white/[0.04] p-4 text-left transition hover:border-cyan-300/20 hover:bg-cyan-400/[0.08]"
+                                                className="group rounded-[1rem] border border-white/10 bg-white/[0.04] p-3.5 text-left transition hover:border-cyan-300/20 hover:bg-cyan-400/[0.08]"
                                             >
-                                                <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.18em] text-cyan-300">
+                                                <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.17em] text-cyan-300">
                                                     <CheckCircle2 className="h-3.5 w-3.5" />
                                                     {starter.intent === 'prefill' ? 'Stage' : 'Launch'}
                                                 </div>
-                                                <p className="mt-3 text-sm font-semibold text-white">{starter.title}</p>
+                                                <p className="mt-2.5 text-sm font-semibold text-white">{starter.title}</p>
                                                 <p className="mt-1 text-xs leading-5 text-slate-400">{starter.detail}</p>
                                             </button>
                                         ))}

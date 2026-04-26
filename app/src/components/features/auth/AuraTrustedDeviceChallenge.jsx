@@ -337,9 +337,9 @@ const AuraTrustedDeviceChallenge = () => {
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 18, scale: 0.96 }}
           onClick={() => setIsCollapsed(false)}
-          className="trusted-device-minimized aura-floating-utility aura-floating-utility--trust fixed bottom-5 left-1/2 z-[73] flex w-[min(32rem,calc(100vw-1.5rem))] -translate-x-1/2 items-center gap-3 rounded-full border px-3 py-3 text-left backdrop-blur-xl"
+          className="trusted-device-minimized aura-floating-utility aura-floating-utility--trust fixed bottom-4 right-4 z-[73] grid w-[min(21.5rem,calc(100vw-1.5rem))] grid-cols-[auto,1fr,auto] items-center gap-2.5 rounded-[1.15rem] border px-3 py-2.5 text-left backdrop-blur-xl sm:bottom-5 sm:right-5"
         >
-          <span className="aura-floating-utility__icon inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border">
+          <span className="aura-floating-utility__icon inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[0.9rem] border">
             <ShieldCheck className="h-4 w-4" />
           </span>
           <span className="aura-floating-utility__copy min-w-0">
@@ -353,7 +353,7 @@ const AuraTrustedDeviceChallenge = () => {
               {selectedMethodLabel}
             </span>
           </span>
-          <span className="trusted-device-minimized__action ml-auto rounded-full border px-3 py-1 text-[11px] font-black uppercase tracking-[0.16em]">
+          <span className="trusted-device-minimized__action rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em]">
             Open
           </span>
         </motion.button>
@@ -438,7 +438,7 @@ const AuraTrustedDeviceChallenge = () => {
         aria-labelledby="trusted-device-gate-heading"
         className={
           isBlockingRoute
-            ? 'trusted-device-gate trusted-device-gate--blocking fixed inset-0 z-[95] flex items-center justify-center px-4 py-6 backdrop-blur-xl'
+            ? 'trusted-device-gate trusted-device-gate--blocking fixed inset-0 z-[95] flex items-center justify-center px-3 py-3 backdrop-blur-xl sm:px-4 sm:py-5'
             : 'trusted-device-gate trusted-device-gate--inline fixed inset-x-0 bottom-5 z-[73] flex justify-center px-3'
         }
       >
@@ -447,7 +447,7 @@ const AuraTrustedDeviceChallenge = () => {
           animate={{ scale: 1, y: 0 }}
           className={
             isBlockingRoute
-              ? 'trusted-device-panel relative w-full max-w-5xl overflow-hidden rounded-[2.25rem] border'
+              ? 'trusted-device-panel trusted-device-panel--blocking relative w-full max-w-4xl overflow-hidden rounded-[1.45rem] border'
               : 'trusted-device-panel trusted-device-panel--inline relative w-full max-w-[44rem] overflow-hidden rounded-[2rem] border backdrop-blur-xl'
           }
         >
@@ -457,48 +457,48 @@ const AuraTrustedDeviceChallenge = () => {
 
           {isBlockingRoute ? (
             <div className="relative grid gap-0 lg:grid-cols-[0.94fr,1.06fr]">
-              <div className="border-b border-white/8 p-7 sm:p-9 lg:border-b-0 lg:border-r">
-                <div className="space-y-6">
-                  <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/15 bg-cyan-400/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.22em] text-cyan-100">
+              <div className="trusted-device-panel__summary border-b border-white/8 p-5 sm:p-6 lg:border-b-0 lg:border-r">
+                <div className="space-y-4">
+                  <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/15 bg-cyan-400/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-cyan-100">
                     <ShieldCheck className="h-3.5 w-3.5" />
                     Trusted Device Checkpoint
                   </div>
 
-                  <div className="space-y-4">
-                    <h2 id="trusted-device-gate-heading" className="max-w-lg text-4xl font-black tracking-tight text-white">
+                  <div className="space-y-3">
+                    <h2 id="trusted-device-gate-heading" className="max-w-lg text-2xl font-black tracking-tight text-white sm:text-3xl">
                       {heading}
                     </h2>
-                    <p className="max-w-xl text-base leading-7 text-slate-300">
+                    <p className="max-w-xl text-sm leading-6 text-slate-300">
                       {introMessage}
                     </p>
                   </div>
 
-                  <div className="rounded-[1.75rem] border border-white/8 bg-white/[0.035] p-5">
-                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">Why Aura paused here</p>
-                    <p className="mt-3 text-sm leading-6 text-slate-200">
+                  <div className="rounded-[1.15rem] border border-white/8 bg-white/[0.035] p-4">
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Why Aura paused here</p>
+                    <p className="mt-2 text-sm leading-6 text-slate-200">
                       {checkpointReason}
                     </p>
-                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                      <div className="rounded-2xl border border-white/8 bg-slate-950/60 p-4">
-                        <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">Account</p>
-                        <p className="mt-2 text-sm font-semibold text-white">{currentUser?.email || 'Authenticated session'}</p>
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                      <div className="rounded-[0.95rem] border border-white/8 bg-slate-950/60 px-3 py-2.5">
+                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Account</p>
+                        <p className="mt-1 truncate text-sm font-semibold text-white">{currentUser?.email || 'Authenticated session'}</p>
                       </div>
-                      <div className="rounded-2xl border border-white/8 bg-slate-950/60 p-4">
-                        <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">Device lane</p>
-                        <p className="mt-2 text-sm font-semibold text-white">{deviceChallenge?.registeredLabel || 'This browser session'}</p>
+                      <div className="rounded-[0.95rem] border border-white/8 bg-slate-950/60 px-3 py-2.5">
+                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Device lane</p>
+                        <p className="mt-1 truncate text-sm font-semibold text-white">{deviceChallenge?.registeredLabel || 'This browser session'}</p>
                       </div>
                     </div>
                   </div>
 
-                  <div className="rounded-[1.75rem] border border-white/8 bg-slate-950/60 p-5">
-                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">What stays private</p>
-                    <div className="mt-4 space-y-3">
+                  <div className="rounded-[1.15rem] border border-white/8 bg-slate-950/60 p-4">
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">What stays private</p>
+                    <div className="mt-3 grid gap-2">
                       {privacyHighlights.map((line) => (
-                        <div key={line} className="flex items-start gap-3">
-                          <span className="mt-1 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-cyan-400/12 text-cyan-200">
-                            <ShieldCheck className="h-3.5 w-3.5" />
+                        <div key={line} className="flex items-start gap-2.5">
+                          <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-cyan-400/12 text-cyan-200">
+                            <ShieldCheck className="h-3 w-3" />
                           </span>
-                          <p className="text-sm leading-6 text-slate-300">{line}</p>
+                          <p className="text-xs leading-5 text-slate-300">{line}</p>
                         </div>
                       ))}
                     </div>
@@ -506,8 +506,8 @@ const AuraTrustedDeviceChallenge = () => {
                 </div>
               </div>
 
-              <div className="p-7 sm:p-9">
-                <div className="space-y-5">
+              <div className="trusted-device-panel__actions p-5 sm:p-6">
+                <div className="space-y-4">
                   <div className="flex items-center justify-between gap-3">
                     <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">Choose your proof lane</p>
                     <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">
@@ -518,7 +518,7 @@ const AuraTrustedDeviceChallenge = () => {
                   <div
                     role="radiogroup"
                     aria-label="Trusted device proof methods"
-                    className="grid gap-3 sm:grid-cols-2"
+                    className="grid gap-2 sm:grid-cols-2"
                   >
                     {TRUSTED_DEVICE_METHOD_ORDER.map((method) => {
                       const offered = availableMethods.includes(method);
@@ -548,7 +548,7 @@ const AuraTrustedDeviceChallenge = () => {
                             setErrorMessage('');
                           }}
                           className={[
-                            'rounded-[1.5rem] border p-4 text-left transition-colors',
+                            'rounded-[1.1rem] border p-3 text-left transition-colors',
                             selected
                               ? 'border-cyan-300/60 bg-cyan-400/10 shadow-[0_16px_60px_rgba(34,211,238,0.08)]'
                               : 'border-white/8 bg-white/[0.03]',
@@ -557,18 +557,18 @@ const AuraTrustedDeviceChallenge = () => {
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div className="flex items-center gap-3">
-                              <span className={`inline-flex h-10 w-10 items-center justify-center rounded-2xl ${selected ? 'bg-cyan-300 text-slate-950' : 'bg-white/[0.06] text-slate-200'}`}>
+                              <span className={`inline-flex h-9 w-9 items-center justify-center rounded-[0.9rem] ${selected ? 'bg-cyan-300 text-slate-950' : 'bg-white/[0.06] text-slate-200'}`}>
                                 <MethodIcon className="h-4 w-4" />
                               </span>
                               <div>
                                 <p className="text-sm font-semibold text-white">{getTrustedDeviceMethodLabel(method, supportProfile)}</p>
-                                <p className={`mt-1 text-[11px] font-black uppercase tracking-[0.18em] ${selected ? 'text-cyan-100' : 'text-slate-400'}`}>
+                                <p className={`mt-1 text-[10px] font-black uppercase tracking-[0.18em] ${selected ? 'text-cyan-100' : 'text-slate-400'}`}>
                                   {badge}
                                 </p>
                               </div>
                             </div>
                           </div>
-                          <p className="mt-4 text-xs leading-5 text-slate-400">
+                          <p className="mt-3 text-xs leading-5 text-slate-400">
                             {getTrustedDeviceMethodNote({
                               challengeMode,
                               fallbackHost,
@@ -584,10 +584,10 @@ const AuraTrustedDeviceChallenge = () => {
                     })}
                   </div>
 
-                  <div className="grid gap-4 lg:grid-cols-[0.82fr,1.18fr]">
-                    <div className="rounded-[1.5rem] border border-white/8 bg-white/[0.03] p-5">
+                  <div className="grid gap-3 lg:grid-cols-[0.82fr,1.18fr]">
+                    <div className="rounded-[1.1rem] border border-white/8 bg-white/[0.03] p-4">
                       <div className="flex items-center gap-3">
-                        <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-white/[0.06] text-cyan-200">
+                        <span className="inline-flex h-9 w-9 items-center justify-center rounded-[0.9rem] bg-white/[0.06] text-cyan-200">
                           <Laptop className="h-4 w-4" />
                         </span>
                         <div>
@@ -599,17 +599,17 @@ const AuraTrustedDeviceChallenge = () => {
                       </div>
                     </div>
 
-                    <div className="rounded-[1.5rem] border border-white/8 bg-white/[0.03] p-5">
+                    <div className="rounded-[1.1rem] border border-white/8 bg-white/[0.03] p-4">
                       <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">Selected proof</p>
                       <p className="mt-2 text-sm font-semibold text-white">{selectedMethodLabel}</p>
-                      <p className="mt-3 text-sm leading-6 text-slate-300">
+                      <p className="mt-2 text-sm leading-6 text-slate-300">
                         {selectedMethodDetail}
                       </p>
                     </div>
                   </div>
 
                   {!selectedMethodSupported ? (
-                    <div className="rounded-[1.5rem] border border-amber-300/20 bg-amber-300/10 p-4 text-sm leading-6 text-amber-100">
+                    <div className="rounded-[1.1rem] border border-amber-300/20 bg-amber-300/10 p-3 text-sm leading-6 text-amber-100">
                       {activeMethod === 'webauthn'
                         ? 'This device does not expose the platform passkey APIs needed for face/device authentication here. Use a secure browser with passkey support, or switch to a device that already has the registered passkey.'
                         : (
@@ -621,7 +621,7 @@ const AuraTrustedDeviceChallenge = () => {
                   ) : null}
 
                   {errorMessage ? (
-                    <div className="rounded-[1.5rem] border border-rose-300/20 bg-rose-300/10 p-4 text-sm leading-6 text-rose-100">
+                    <div className="rounded-[1.1rem] border border-rose-300/20 bg-rose-300/10 p-3 text-sm leading-6 text-rose-100">
                       <div className="flex items-start gap-3">
                         <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                         <p>{errorMessage}</p>
@@ -634,7 +634,7 @@ const AuraTrustedDeviceChallenge = () => {
                       type="button"
                       onClick={handleVerify}
                       disabled={isWorking || isResetting || !selectedMethodSupported}
-                      className="inline-flex flex-1 items-center justify-center gap-3 rounded-[1.5rem] bg-cyan-300 px-5 py-4 text-sm font-black uppercase tracking-[0.18em] text-slate-950 transition-transform hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60"
+                      className="inline-flex flex-1 items-center justify-center gap-3 rounded-[1.1rem] bg-cyan-300 px-5 py-3.5 text-sm font-black uppercase tracking-[0.16em] text-slate-950 transition-transform hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {isWorking ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
                       {actionLabel}
@@ -644,7 +644,7 @@ const AuraTrustedDeviceChallenge = () => {
                       type="button"
                       onClick={handleResetBrowserIdentity}
                       disabled={isWorking || isResetting}
-                      className="inline-flex items-center justify-center gap-3 rounded-[1.5rem] border border-white/10 bg-white/[0.04] px-5 py-4 text-sm font-black uppercase tracking-[0.18em] text-slate-100 transition-colors hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-60"
+                      className="inline-flex items-center justify-center gap-3 rounded-[1.1rem] border border-white/10 bg-white/[0.04] px-5 py-3.5 text-sm font-black uppercase tracking-[0.16em] text-slate-100 transition-colors hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {isResetting ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
                       Reset Local Identity

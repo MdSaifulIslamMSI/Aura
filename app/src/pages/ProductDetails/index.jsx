@@ -867,48 +867,48 @@ const ProductDetails = () => {
                   )}
                 </div>
 
-                <section className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
-                  <div className={cn('product-detail-stat-card rounded-[1.35rem] border p-4', statCardClass)}>
-                    <p className={cn('text-[10px] font-black uppercase tracking-[0.18em]', mutedTextClass)}>
+                <section className="product-detail-assurance-grid grid gap-2 sm:grid-cols-3 lg:grid-cols-1">
+                  <div className={cn('product-detail-stat-card rounded-[1.1rem] border p-3 sm:p-4', statCardClass)}>
+                    <p className={cn('text-[10px] font-black uppercase tracking-[0.16em]', mutedTextClass)}>
                       {t('productPage.fulfillment', {}, 'Fulfillment')}
                     </p>
-                    <div className="mt-3 flex items-start gap-3">
-                      <Truck className="mt-0.5 h-5 w-5 shrink-0 text-neo-cyan" />
+                    <div className="mt-2 flex items-start gap-2.5 sm:mt-3 sm:gap-3">
+                      <Truck className="mt-0.5 h-4 w-4 shrink-0 text-neo-cyan sm:h-5 sm:w-5" />
                       <div className="min-w-0">
-                        <p className={cn('text-base font-black', strongTextClass)}>{translatedDeliveryTime}</p>
-                        <p className={cn('mt-1 text-xs leading-relaxed', mutedTextClass)}>
+                        <p className={cn('text-sm font-black sm:text-base', strongTextClass)}>{translatedDeliveryTime}</p>
+                        <p className={cn('product-detail-stat-card__body mt-1 text-xs leading-relaxed', mutedTextClass)}>
                           {t('productPage.deliveryPromise', {}, 'Priority routing with live order tracking at checkout')}
                         </p>
                       </div>
                     </div>
                   </div>
-                  <div className={cn('product-detail-stat-card rounded-[1.35rem] border p-4', statCardClass)}>
-                    <p className={cn('text-[10px] font-black uppercase tracking-[0.18em]', mutedTextClass)}>
+                  <div className={cn('product-detail-stat-card rounded-[1.1rem] border p-3 sm:p-4', statCardClass)}>
+                    <p className={cn('text-[10px] font-black uppercase tracking-[0.16em]', mutedTextClass)}>
                       {t('productPage.inventorySignal', {}, 'Inventory')}
                     </p>
-                    <div className="mt-3 flex items-start gap-3">
-                      <PackageCheck className={cn('mt-0.5 h-5 w-5 shrink-0', stock > 0 ? 'text-neo-emerald' : 'text-neo-rose')} />
+                    <div className="mt-2 flex items-start gap-2.5 sm:mt-3 sm:gap-3">
+                      <PackageCheck className={cn('mt-0.5 h-4 w-4 shrink-0 sm:h-5 sm:w-5', stock > 0 ? 'text-neo-emerald' : 'text-neo-rose')} />
                       <div className="min-w-0">
-                        <p className={cn('text-base font-black', stock > 0 ? 'text-neo-emerald' : 'text-neo-rose')}>
+                        <p className={cn('text-sm font-black sm:text-base', stock > 0 ? 'text-neo-emerald' : 'text-neo-rose')}>
                           {stock > 0
                             ? t('productPage.inStockAvailable', { count: stock }, `In Stock (${stock} Available)`)
                             : t('productPage.outOfStock', {}, 'Out of Stock')}
                         </p>
-                        <p className={cn('mt-1 text-xs leading-relaxed', mutedTextClass)}>
+                        <p className={cn('product-detail-stat-card__body mt-1 text-xs leading-relaxed', mutedTextClass)}>
                           {t('productPage.stockChecked', {}, 'Checked against the live AWS catalog before checkout')}
                         </p>
                       </div>
                     </div>
                   </div>
-                  <div className={cn('product-detail-stat-card rounded-[1.35rem] border p-4', statCardClass)}>
-                    <p className={cn('text-[10px] font-black uppercase tracking-[0.18em]', mutedTextClass)}>
+                  <div className={cn('product-detail-stat-card rounded-[1.1rem] border p-3 sm:p-4', statCardClass)}>
+                    <p className={cn('text-[10px] font-black uppercase tracking-[0.16em]', mutedTextClass)}>
                       {t('productPage.coverage', {}, 'Coverage')}
                     </p>
-                    <div className="mt-3 flex items-start gap-3">
-                      <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-amber-200" />
+                    <div className="mt-2 flex items-start gap-2.5 sm:mt-3 sm:gap-3">
+                      <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-amber-200 sm:h-5 sm:w-5" />
                       <div className="min-w-0">
-                        <p className={cn('text-base font-black', strongTextClass)}>{warranty}</p>
-                        <p className={cn('mt-1 text-xs leading-relaxed', mutedTextClass)}>
+                        <p className={cn('text-sm font-black sm:text-base', strongTextClass)}>{warranty}</p>
+                        <p className={cn('product-detail-stat-card__body mt-1 text-xs leading-relaxed', mutedTextClass)}>
                           {t('productPage.premiumProtection', {}, 'Protected by Aura verification and support flows')}
                         </p>
                       </div>

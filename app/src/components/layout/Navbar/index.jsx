@@ -751,13 +751,14 @@ const Navbar = () => {
                   <div className="relative" ref={userMenuRef}>
                     <button
                       onClick={handleProfileMenuToggle}
-                      className="flex max-w-[8.6rem] items-center gap-2 rounded-full border border-white/10 bg-white/[0.045] px-2.5 py-2 text-slate-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition-all hover:border-white/18 hover:bg-white/[0.08] hover:text-white xl:max-w-[12.5rem] 2xl:max-w-[13.5rem]"
+                      className="aura-profile-trigger group relative inline-flex h-12 w-12 items-center justify-center rounded-[1.05rem] border border-white/10 bg-white/[0.045] p-0 text-slate-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition-all hover:border-white/18 hover:bg-white/[0.08] hover:text-white xl:h-auto xl:w-auto xl:max-w-[12.5rem] xl:justify-start xl:gap-2 xl:px-2.5 xl:py-2 2xl:max-w-[13.5rem]"
                       aria-label={t('nav.openProfileMenu', {}, 'Open profile menu')}
                       aria-expanded={isUserMenuOpen}
                     >
-                      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-neo-cyan/25 to-neo-emerald/25 border border-white/10">
+                      <span className="aura-profile-trigger__avatar flex h-9 w-9 items-center justify-center rounded-[0.9rem] border border-white/10 bg-gradient-to-br from-neo-cyan/25 to-neo-emerald/25">
                         <User className="w-4 h-4 text-neo-cyan" />
                       </span>
+                      <span className="absolute -bottom-1 -right-1 h-3 w-3 rounded-full border border-slate-950 bg-neo-emerald shadow-[0_0_18px_rgba(16,185,129,0.5)] xl:hidden" aria-hidden="true" />
                       <span className="hidden min-w-0 xl:flex flex-col items-start leading-tight">
                         <span className="max-w-full truncate text-sm font-semibold tracking-wide">
                           {displayName}
