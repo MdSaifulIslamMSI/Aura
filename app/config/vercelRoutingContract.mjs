@@ -92,6 +92,37 @@ const HOSTED_PROXY_ROUTE_SUFFIXES = [
     },
 ];
 
+const NETLIFY_HOSTED_PROXY_ROUTE_SUFFIXES = [
+    {
+        from: '/socket.io',
+        to: '/socket.io/',
+    },
+    {
+        from: '/socket.io/*',
+        to: '/socket.io/:splat',
+    },
+    {
+        from: '/api/*',
+        to: '/api/:splat',
+    },
+    {
+        from: '/health',
+        to: '/health',
+    },
+    {
+        from: '/health/ready',
+        to: '/health/ready',
+    },
+    {
+        from: '/health/live',
+        to: '/health/live',
+    },
+    {
+        from: '/uploads/*',
+        to: '/uploads/:splat',
+    },
+];
+
 export const SPA_FALLBACK_REWRITE = {
     source: '/:path((?!api/|socket\\.io(?:/|$)|uploads/|assets/|manifest\\.json$|sw\\.js$|favicon\\.ico$|robots\\.txt$|.*\\.[^/]+$).*)',
     destination: '/index.html',
@@ -117,3 +148,16 @@ export const buildFrontendSecurityHeaders = () => [
         headers: FRONTEND_SECURITY_HEADERS,
     },
 ];
+
+export const buildNetlifyHostedBackendRedirects = (origin = HOSTED_BACKEND_ORIGIN) => {
+    assertAbsoluteHttpUrl(origin);
+
+    const normalizedOrigin = trimTrailingSlash(origin);
+
+    return NETLIFY_HOSTED_PROXY_ROUTE_SUFFIXES.map(({ from, to }) => ({
+        from,
+        to: `${normalizedOrigin}${to}`,
+        status: 200,
+        force: true,
+    }));
+};
