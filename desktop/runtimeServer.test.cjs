@@ -7,10 +7,18 @@ const test = require('node:test');
 
 const {
     buildProxyOptions,
+    DEFAULT_BACKEND_ORIGIN,
     DEFAULT_RUNTIME_PORT,
     startRuntimeServer,
     stripBrowserOnlyProxyHeaders,
 } = require('./runtimeServer.cjs');
+
+test('desktop default backend origin matches the hosted backend routing contract', async () => {
+    const { HOSTED_BACKEND_ORIGIN } = await import('../app/config/vercelRoutingContract.mjs');
+
+    assert.equal(DEFAULT_BACKEND_ORIGIN, HOSTED_BACKEND_ORIGIN);
+    assert.doesNotMatch(DEFAULT_BACKEND_ORIGIN, /3\.109\.181\.238/);
+});
 
 test('desktop proxy strips browser-only CORS headers before forwarding to AWS', () => {
     const removedHeaders = [];

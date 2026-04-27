@@ -4,7 +4,7 @@ const path = require('path');
 const express = require('express');
 const { createProxyMiddleware } = require('http-proxy-middleware');
 
-const DEFAULT_BACKEND_ORIGIN = 'http://3.109.181.238:5000';
+const DEFAULT_BACKEND_ORIGIN = 'https://13.206.172.186.sslip.io';
 const DEFAULT_RUNTIME_PORT = 47831;
 const STABLE_RUNTIME_FALLBACK_PORTS = 10;
 const RUNTIME_LISTEN_HOST = '127.0.0.1';
