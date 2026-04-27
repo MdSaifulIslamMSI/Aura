@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Eye, EyeOff, Loader2, Lock, Mail, Network, Phone, Shield, User, Zap } from 'lucide-react';
+import { ArrowLeft, ChevronDown, Eye, EyeOff, Loader2, Lock, Mail, Network, Phone, Shield, User, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import AuthAccelerationRail from '@/components/features/auth/AuthAccelerationRail';
 import { AuthFeedback } from '@/components/shared/AuthFeedback';
@@ -16,6 +16,8 @@ const LoginView = ({
   goBack,
   handleChange,
   handleFeedbackAction,
+  handlePhoneChange,
+  handlePhoneCountryChange,
   handleOtpChange,
   handleOtpKeyDown,
   handleOtpPaste,
@@ -30,8 +32,12 @@ const LoginView = ({
   otpRefs,
   otpTransport,
   otpValues,
+  phoneCountryCode,
+  phoneCountryOptions,
+  phoneLocalValue,
   recaptchaContainerRef,
   secureSignals,
+  selectedPhoneCountry,
   setShowPassword,
   showPassword,
   signInWithFacebook,
@@ -177,10 +183,38 @@ const LoginView = ({
 
                   <div className="animate-fade-in">
                     <label className="block text-xs uppercase tracking-widest font-bold text-slate-400 mb-2">{t('login.field.phone', {}, 'Phone Number')} *</label>
-                    <div className="relative group/input">
-                      <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 group-focus-within/input:text-neo-cyan transition-colors" />
-                      <input type="tel" name="phone" value={formData.phone} onChange={handleChange} placeholder={t('login.placeholder.phoneInternational', {}, '+1 202 555 0142')} autoComplete="tel"
-                        className="w-full pl-12 pr-4 py-4 bg-zinc-950/50 border border-white/10 rounded-2xl focus:outline-none focus:border-neo-cyan focus:ring-1 focus:ring-neo-cyan text-white placeholder:text-slate-600 font-medium transition-all shadow-inner" />
+                    <div className="relative group/input grid grid-cols-[minmax(7.75rem,8.5rem),minmax(0,1fr)] overflow-hidden rounded-2xl border border-white/10 bg-zinc-950/50 shadow-inner transition-all focus-within:border-neo-cyan focus-within:ring-1 focus-within:ring-neo-cyan">
+                      <Phone className="pointer-events-none absolute left-4 top-1/2 z-10 h-5 w-5 -translate-y-1/2 text-slate-500 transition-colors group-focus-within/input:text-neo-cyan" />
+                      <label htmlFor="login-phone-country" className="sr-only">
+                        {t('login.field.phoneCountry', {}, 'Country calling code')}
+                      </label>
+                      <select
+                        id="login-phone-country"
+                        name="phoneCountry"
+                        value={phoneCountryCode}
+                        onChange={handlePhoneCountryChange}
+                        autoComplete="tel-country-code"
+                        aria-label={t('login.field.phoneCountry', {}, 'Country calling code')}
+                        className="h-full min-h-[3.5rem] w-full appearance-none border-0 border-r border-white/10 bg-transparent py-4 pl-11 pr-7 text-sm font-black text-white outline-none transition-colors focus:bg-white/[0.03]"
+                      >
+                        {phoneCountryOptions.map((option) => (
+                          <option key={option.countryCode} value={option.countryCode} className="bg-zinc-950 text-white">
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown className="pointer-events-none absolute left-[6.85rem] top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+                      <input
+                        type="tel"
+                        name="phone"
+                        value={phoneLocalValue}
+                        onChange={handlePhoneChange}
+                        placeholder={t('login.placeholder.phoneLocal', {}, 'Phone number')}
+                        autoComplete="tel-national"
+                        inputMode="tel"
+                        aria-label={`${t('login.field.phone', {}, 'Phone Number')} ${selectedPhoneCountry?.dialCode || ''}`}
+                        className="min-w-0 border-0 bg-transparent px-4 py-4 font-medium text-white outline-none placeholder:text-slate-600"
+                      />
                     </div>
                     <p className="text-[10px] text-slate-600 mt-1.5 uppercase tracking-widest font-bold pl-1">
                       {firebasePhoneFallback?.disableFirebasePhoneOtp
