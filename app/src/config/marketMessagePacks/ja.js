@@ -1427,6 +1427,7 @@ export const MARKET_MESSAGE_PACK = {
   "login.phoneHint.signup": "sainatsupusuruto, 1 tsunoko-dogame-runiSong Xin sare, 1 tsuno Firebase SMS ko-dogaXi Dai Dian Hua niSong Xin saremasu.",
   "login.placeholder.email": "you@example.com",
   "login.placeholder.fullName": "ziyon*dou",
+  "login.placeholder.phoneInternational": "+1 202 555 0142",
   "login.processing": "Chu Li Zhong ...",
   "login.reset.bodyPrefix": "Hui Fu gaQue Ren saremashita",
   "login.reset.bodySuffix": "Guan Lian Fu kerareteiruakauntoniQiang Li naXin shiipasuwa-dowoShe Ding shimasu",
