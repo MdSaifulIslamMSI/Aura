@@ -2,35 +2,35 @@
     "rewrites": [
         {
             "source": "/socket.io",
-            "destination": "http://13.206.172.186:5000/socket.io/"
+            "destination": "https://13.206.172.186.sslip.io/socket.io/"
         },
         {
             "source": "/socket.io/",
-            "destination": "http://13.206.172.186:5000/socket.io/"
+            "destination": "https://13.206.172.186.sslip.io/socket.io/"
         },
         {
             "source": "/socket.io/:path*",
-            "destination": "http://13.206.172.186:5000/socket.io/:path*"
+            "destination": "https://13.206.172.186.sslip.io/socket.io/:path*"
         },
         {
             "source": "/api/:path*",
-            "destination": "http://13.206.172.186:5000/api/:path*"
+            "destination": "https://13.206.172.186.sslip.io/api/:path*"
         },
         {
             "source": "/health",
-            "destination": "http://13.206.172.186:5000/health"
+            "destination": "https://13.206.172.186.sslip.io/health"
         },
         {
             "source": "/health/ready",
-            "destination": "http://13.206.172.186:5000/health/ready"
+            "destination": "https://13.206.172.186.sslip.io/health/ready"
         },
         {
             "source": "/health/live",
-            "destination": "http://13.206.172.186:5000/health/live"
+            "destination": "https://13.206.172.186.sslip.io/health/live"
         },
         {
             "source": "/uploads/:path*",
-            "destination": "http://13.206.172.186:5000/uploads/:path*"
+            "destination": "https://13.206.172.186.sslip.io/uploads/:path*"
         },
         {
             "source": "/:path((?!api/|socket\\.io(?:/|$)|uploads/|assets/|manifest\\.json$|sw\\.js$|favicon\\.ico$|robots\\.txt$|.*\\.[^/]+$).*)",
