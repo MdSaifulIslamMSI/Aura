@@ -8,7 +8,54 @@ const assertAbsoluteHttpUrl = (value) => {
 
 // Current live hosted backend origin. Update this contract first so the
 // workflow and both Vercel configs stay in sync.
-export const HOSTED_BACKEND_ORIGIN = 'http://3.109.181.238:5000';
+export const HOSTED_BACKEND_ORIGIN = 'https://3.109.181.238.sslip.io';
+
+export const FRONTEND_CONTENT_SECURITY_POLICY = [
+    "default-src 'self'",
+    "base-uri 'self'",
+    "object-src 'none'",
+    "form-action 'self'",
+    "script-src 'self' https://apis.google.com https://accounts.google.com https://checkout.razorpay.com https://www.google.com https://www.gstatic.com https://www.recaptcha.net",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' https://fonts.gstatic.com data:",
+    "img-src 'self' data: blob: https:",
+    "connect-src 'self' https: wss:",
+    "frame-src 'self' https://accounts.google.com https://checkout.razorpay.com https://www.google.com https://www.recaptcha.net https://*.firebaseapp.com https://*.web.app https://app.powerbi.com",
+    "worker-src 'self' blob:",
+    "manifest-src 'self'",
+    "frame-ancestors 'none'",
+].join('; ');
+
+export const FRONTEND_SECURITY_HEADERS = [
+    {
+        key: 'Content-Security-Policy',
+        value: FRONTEND_CONTENT_SECURITY_POLICY,
+    },
+    {
+        key: 'X-Frame-Options',
+        value: 'DENY',
+    },
+    {
+        key: 'X-Content-Type-Options',
+        value: 'nosniff',
+    },
+    {
+        key: 'Referrer-Policy',
+        value: 'no-referrer',
+    },
+    {
+        key: 'Cross-Origin-Opener-Policy',
+        value: 'same-origin-allow-popups',
+    },
+    {
+        key: 'Cross-Origin-Resource-Policy',
+        value: 'same-site',
+    },
+    {
+        key: 'Permissions-Policy',
+        value: 'camera=(self), microphone=(self), geolocation=(), payment=(self), usb=(), serial=(), bluetooth=()',
+    },
+];
 
 const HOSTED_PROXY_ROUTE_SUFFIXES = [
     {
@@ -63,3 +110,10 @@ export const buildHostedBackendRewrites = (origin = HOSTED_BACKEND_ORIGIN) => {
         SPA_FALLBACK_REWRITE,
     ];
 };
+
+export const buildFrontendSecurityHeaders = () => [
+    {
+        source: '/(.*)',
+        headers: FRONTEND_SECURITY_HEADERS,
+    },
+];

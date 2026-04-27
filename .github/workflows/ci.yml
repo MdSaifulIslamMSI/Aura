@@ -195,6 +195,53 @@ jobs:
       - name: Audit AWS runtime + secret contract
         run: node server/scripts/audit_parameter_store_secret_contract.js
 
+  login-security-gates:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.frontend == 'true' || needs.changes.outputs.desktop == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            app/package-lock.json
+            server/package-lock.json
+
+      - name: Start MongoDB
+        uses: supercharge/mongodb-github-action@1.12.0
+        with:
+          mongodb-version: "6.0"
+
+      - name: Install backend dependencies
+        run: npm --prefix server ci
+
+      - name: Run login security gates
+        run: npm run security:login-gates
+        env:
+          NODE_ENV: test
+          TEST_MONGO_URI: mongodb://127.0.0.1:27017/aura_login_security_ci
+          TEST_USE_IN_MEMORY_MONGO: "false"
+          TEST_FALLBACK_TO_IN_MEMORY_MONGO: "false"
+          REDIS_ENABLED: "true"
+          REDIS_URL: redis://127.0.0.1:6379
+
   backend-container-smoke:
     needs: changes
     if: needs.changes.outputs.backend == 'true'

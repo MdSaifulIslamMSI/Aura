@@ -2,39 +2,74 @@
     "rewrites": [
         {
             "source": "/socket.io",
-            "destination": "http://3.109.181.238:5000/socket.io/"
+            "destination": "https://3.109.181.238.sslip.io/socket.io/"
         },
         {
             "source": "/socket.io/",
-            "destination": "http://3.109.181.238:5000/socket.io/"
+            "destination": "https://3.109.181.238.sslip.io/socket.io/"
         },
         {
             "source": "/socket.io/:path*",
-            "destination": "http://3.109.181.238:5000/socket.io/:path*"
+            "destination": "https://3.109.181.238.sslip.io/socket.io/:path*"
         },
         {
             "source": "/api/:path*",
-            "destination": "http://3.109.181.238:5000/api/:path*"
+            "destination": "https://3.109.181.238.sslip.io/api/:path*"
         },
         {
             "source": "/health",
-            "destination": "http://3.109.181.238:5000/health"
+            "destination": "https://3.109.181.238.sslip.io/health"
         },
         {
             "source": "/health/ready",
-            "destination": "http://3.109.181.238:5000/health/ready"
+            "destination": "https://3.109.181.238.sslip.io/health/ready"
         },
         {
             "source": "/health/live",
-            "destination": "http://3.109.181.238:5000/health/live"
+            "destination": "https://3.109.181.238.sslip.io/health/live"
         },
         {
             "source": "/uploads/:path*",
-            "destination": "http://3.109.181.238:5000/uploads/:path*"
+            "destination": "https://3.109.181.238.sslip.io/uploads/:path*"
         },
         {
             "source": "/:path((?!api/|socket\\.io(?:/|$)|uploads/|assets/|manifest\\.json$|sw\\.js$|favicon\\.ico$|robots\\.txt$|.*\\.[^/]+$).*)",
             "destination": "/index.html"
+        }
+    ],
+    "headers": [
+        {
+            "source": "/(.*)",
+            "headers": [
+                {
+                    "key": "Content-Security-Policy",
+                    "value": "default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; script-src 'self' https://apis.google.com https://accounts.google.com https://checkout.razorpay.com https://www.google.com https://www.gstatic.com https://www.recaptcha.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https: wss:; frame-src 'self' https://accounts.google.com https://checkout.razorpay.com https://www.google.com https://www.recaptcha.net https://*.firebaseapp.com https://*.web.app https://app.powerbi.com; worker-src 'self' blob:; manifest-src 'self'; frame-ancestors 'none'"
+                },
+                {
+                    "key": "X-Frame-Options",
+                    "value": "DENY"
+                },
+                {
+                    "key": "X-Content-Type-Options",
+                    "value": "nosniff"
+                },
+                {
+                    "key": "Referrer-Policy",
+                    "value": "no-referrer"
+                },
+                {
+                    "key": "Cross-Origin-Opener-Policy",
+                    "value": "same-origin-allow-popups"
+                },
+                {
+                    "key": "Cross-Origin-Resource-Policy",
+                    "value": "same-site"
+                },
+                {
+                    "key": "Permissions-Policy",
+                    "value": "camera=(self), microphone=(self), geolocation=(), payment=(self), usb=(), serial=(), bluetooth=()"
+                }
+            ]
         }
     ]
 }

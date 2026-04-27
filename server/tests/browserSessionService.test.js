@@ -195,6 +195,92 @@ describe('browserSessionService', () => {
         await expect(browserSessionService.getBrowserSession(rotatedSession.sessionId)).resolves.toBeNull();
     });
 
+    test('revokes all opaque browser sessions for a user after credential reset', async () => {
+        let browserSessionService;
+
+        jest.isolateModules(() => {
+            jest.doMock('../config/redis', () => ({
+                getRedisClient: () => null,
+                flags: { redisPrefix: 'test' },
+            }));
+            jest.doMock('../services/trustedDeviceChallengeService', () => ({
+                extractTrustedDeviceContext: jest.fn().mockReturnValue({
+                    deviceId: 'device-reset-session-1',
+                    deviceLabel: 'Reset Session Browser',
+                }),
+            }));
+
+            browserSessionService = require('../services/browserSessionService');
+        });
+
+        const nowSeconds = Math.floor(Date.now() / 1000);
+        const req = {
+            headers: {
+                host: 'localhost:5173',
+            },
+            secure: false,
+        };
+        const targetUser = {
+            _id: '507f1f77bcf86cd799439022',
+            email: 'reset-session@example.com',
+            name: 'Reset Session',
+            phone: '+919876543221',
+            isAdmin: false,
+            isSeller: false,
+            isVerified: true,
+            authAssurance: 'none',
+        };
+        const otherUser = {
+            ...targetUser,
+            _id: '507f1f77bcf86cd799439023',
+            email: 'other-session@example.com',
+        };
+        const authToken = {
+            email: targetUser.email,
+            email_verified: true,
+            name: targetUser.name,
+            phone_number: targetUser.phone,
+            auth_time: nowSeconds - 60,
+            iat: nowSeconds - 60,
+            exp: nowSeconds + 3600,
+            firebase: {
+                sign_in_provider: 'password',
+            },
+        };
+
+        const firstSession = await browserSessionService.createBrowserSession({
+            req,
+            user: targetUser,
+            authUid: 'firebase-reset-session',
+            authToken,
+        });
+        const secondSession = await browserSessionService.createBrowserSession({
+            req,
+            user: targetUser,
+            authUid: 'firebase-reset-session',
+            authToken,
+        });
+        const otherSession = await browserSessionService.createBrowserSession({
+            req,
+            user: otherUser,
+            authUid: 'firebase-other-session',
+            authToken: {
+                ...authToken,
+                email: otherUser.email,
+            },
+        });
+
+        const result = await browserSessionService.revokeBrowserSessionsForUser(targetUser._id);
+
+        expect(result.revoked).toBe(2);
+        await expect(browserSessionService.getBrowserSession(firstSession.sessionId)).resolves.toBeNull();
+        await expect(browserSessionService.getBrowserSession(secondSession.sessionId)).resolves.toBeNull();
+        await expect(browserSessionService.getBrowserSession(otherSession.sessionId)).resolves.toMatchObject({
+            sessionId: otherSession.sessionId,
+            userId: otherUser._id,
+        });
+    });
+
     test('uses SameSite=None for secure loopback frontends talking to a remote API origin', async () => {
         process.env.AUTH_SESSION_COOKIE_SECURE = 'true';
 
@@ -475,5 +561,141 @@ describe('browserSessionService', () => {
 
         await browserSessionService.revokeBrowserSession(session.sessionId);
         await expect(browserSessionService.getBrowserSession(session.sessionId)).resolves.toBeNull();
+    });
+
+    test('sets Secure on production cookies even when proxy headers are missing', async () => {
+        process.env.NODE_ENV = 'production';
+        process.env.AUTH_SESSION_ALLOW_MEMORY_FALLBACK = 'true';
+        delete process.env.AUTH_SESSION_COOKIE_SECURE;
+
+        let browserSessionService;
+
+        jest.isolateModules(() => {
+            jest.doMock('../config/redis', () => ({
+                getRedisClient: () => null,
+                flags: { redisPrefix: 'test' },
+            }));
+            jest.doMock('../services/trustedDeviceChallengeService', () => ({
+                extractTrustedDeviceContext: jest.fn().mockReturnValue({}),
+            }));
+
+            browserSessionService = require('../services/browserSessionService');
+        });
+
+        const nowSeconds = Math.floor(Date.now() / 1000);
+        const res = createResponseStub();
+
+        await browserSessionService.createBrowserSession({
+            req: {
+                headers: {
+                    host: 'api.example.com',
+                    origin: 'https://app.example.com',
+                },
+                secure: false,
+            },
+            res,
+            user: {
+                _id: '507f1f77bcf86cd799439017',
+                email: 'prod-cookie@example.com',
+                name: 'Prod Cookie',
+                phone: '+919876543216',
+                isAdmin: false,
+                isSeller: false,
+                isVerified: true,
+                authAssurance: 'none',
+            },
+            authUid: 'firebase-prod-cookie',
+            authToken: {
+                email: 'prod-cookie@example.com',
+                email_verified: true,
+                name: 'Prod Cookie',
+                phone_number: '+919876543216',
+                auth_time: nowSeconds - 15,
+                iat: nowSeconds - 15,
+                exp: nowSeconds + 3600,
+                firebase: {
+                    sign_in_provider: 'password',
+                },
+            },
+        });
+
+        const setCookieHeader = res.getHeader('Set-Cookie');
+
+        expect(setCookieHeader[0]).toContain('Secure');
+        expect(setCookieHeader[0]).toContain('SameSite=None');
+    });
+
+    test('fails closed in production when Redis rejects a session write', async () => {
+        process.env.NODE_ENV = 'production';
+        delete process.env.AUTH_SESSION_ALLOW_MEMORY_FALLBACK;
+
+        let browserSessionService;
+        let logger;
+        const redisClient = {
+            setEx: jest.fn().mockRejectedValue(new Error('redis write failed')),
+            get: jest.fn().mockResolvedValue(null),
+            del: jest.fn().mockResolvedValue(1),
+        };
+
+        jest.isolateModules(() => {
+            jest.doMock('../config/redis', () => ({
+                getRedisClient: () => redisClient,
+                flags: { redisPrefix: 'test' },
+            }));
+            jest.doMock('../utils/logger', () => ({
+                info: jest.fn(),
+                warn: jest.fn(),
+                error: jest.fn(),
+                debug: jest.fn(),
+            }));
+            jest.doMock('../services/trustedDeviceChallengeService', () => ({
+                extractTrustedDeviceContext: jest.fn().mockReturnValue({}),
+            }));
+
+            browserSessionService = require('../services/browserSessionService');
+            logger = require('../utils/logger');
+        });
+
+        const nowSeconds = Math.floor(Date.now() / 1000);
+
+        await expect(browserSessionService.createBrowserSession({
+            req: {
+                headers: {
+                    host: 'api.example.com',
+                    origin: 'https://app.example.com',
+                },
+                secure: false,
+            },
+            user: {
+                _id: '507f1f77bcf86cd799439018',
+                email: 'prod-failclosed@example.com',
+                name: 'Prod Fail Closed',
+                phone: '+919876543217',
+                isAdmin: false,
+                isSeller: false,
+                isVerified: true,
+                authAssurance: 'none',
+            },
+            authUid: 'firebase-prod-failclosed',
+            authToken: {
+                email: 'prod-failclosed@example.com',
+                email_verified: true,
+                name: 'Prod Fail Closed',
+                phone_number: '+919876543217',
+                auth_time: nowSeconds - 15,
+                iat: nowSeconds - 15,
+                exp: nowSeconds + 3600,
+                firebase: {
+                    sign_in_provider: 'password',
+                },
+            },
+        })).rejects.toThrow('redis write failed');
+
+        expect(logger.error).toHaveBeenCalledWith(
+            'browser_session.persist_failed_no_fallback',
+            expect.objectContaining({
+                error: 'redis write failed',
+            })
+        );
     });
 });

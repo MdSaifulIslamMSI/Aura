@@ -1,3 +1,5 @@
+const { EventEmitter } = require('events');
+
 describe('authMiddleware cookie session authentication', () => {
     afterEach(() => {
         jest.resetModules();
@@ -96,6 +98,123 @@ describe('authMiddleware cookie session authentication', () => {
             name: 'Cookie User',
         });
         expect(next).toHaveBeenCalledWith();
+    });
+
+    test('touches opaque browser sessions only after a successful response finishes', async () => {
+        let protect;
+        let touchBrowserSession;
+        const nowSeconds = Math.floor(Date.now() / 1000);
+        const sessionRecord = {
+            sessionId: 'session-cookie-touch',
+            userId: '507f1f77bcf86cd799439031',
+            firebaseUid: 'firebase-cookie-touch',
+            email: 'touch-user@example.com',
+            emailVerified: true,
+            displayName: 'Touch User',
+            phoneNumber: '+919876543210',
+            providerIds: ['password'],
+            authTimeSeconds: nowSeconds - 30,
+            issuedAtSeconds: nowSeconds - 30,
+            firebaseExpiresAtSeconds: nowSeconds + 3600,
+            amr: ['trusted_device'],
+            deviceMethod: 'browser_key',
+        };
+
+        jest.isolateModules(() => {
+            touchBrowserSession = jest.fn().mockResolvedValue({
+                ...sessionRecord,
+                lastSeenAt: new Date().toISOString(),
+            });
+
+            jest.doMock('../config/firebase', () => ({
+                auth: () => ({
+                    verifyIdToken: jest.fn(),
+                    getUser: jest.fn(),
+                }),
+            }));
+            jest.doMock('../models/User', () => ({
+                findById: jest.fn(() => ({
+                    lean: jest.fn().mockResolvedValue({
+                        _id: '507f1f77bcf86cd799439031',
+                        email: 'touch-user@example.com',
+                        name: 'Touch User',
+                        phone: '+919876543210',
+                        isAdmin: false,
+                        isVerified: true,
+                        authAssurance: 'none',
+                        authAssuranceAt: null,
+                        authAssuranceAuthTime: null,
+                        loginOtpAssuranceExpiresAt: null,
+                        isSeller: false,
+                        accountState: 'active',
+                        softDeleted: false,
+                        moderation: {},
+                    }),
+                })),
+                findOne: jest.fn(),
+                findOneAndUpdate: jest.fn(),
+            }));
+            jest.doMock('../config/redis', () => ({
+                getRedisClient: () => null,
+                flags: { redisPrefix: 'test' },
+            }));
+            jest.doMock('../services/browserSessionService', () => ({
+                getBrowserSessionFromRequest: jest.fn().mockResolvedValue(sessionRecord),
+                resolveSessionIdFromRequest: jest.fn().mockReturnValue('session-cookie-touch'),
+                revokeBrowserSession: jest.fn().mockResolvedValue(undefined),
+                touchBrowserSession,
+            }));
+            jest.doMock('../services/trustedDeviceChallengeService', () => ({
+                TRUSTED_DEVICE_SESSION_HEADER: 'x-aura-device-session',
+                extractTrustedDeviceContext: jest.fn().mockReturnValue({ deviceId: 'device-cookie-touch', deviceLabel: 'Touch Browser' }),
+                verifyTrustedDeviceSession: jest.fn().mockReturnValue({ success: true }),
+            }));
+            jest.doMock('../config/authTrustedDeviceFlags', () => ({
+                flags: { authDeviceChallengeMode: 'off' },
+                shouldRequireTrustedDevice: jest.fn().mockReturnValue(false),
+            }));
+
+            protect = require('../middleware/authMiddleware').protect;
+        });
+
+        const makeReq = () => ({
+            headers: {
+                cookie: 'aura_sid=session-cookie-touch',
+            },
+            get: () => '',
+        });
+
+        const failedRes = new EventEmitter();
+        failedRes.statusCode = 403;
+        await protect(makeReq(), failedRes, jest.fn());
+        expect(touchBrowserSession).not.toHaveBeenCalled();
+        failedRes.emit('finish');
+        await new Promise((resolve) => setImmediate(resolve));
+        expect(touchBrowserSession).not.toHaveBeenCalled();
+
+        const successRes = new EventEmitter();
+        successRes.statusCode = 200;
+        await protect(makeReq(), successRes, jest.fn());
+        expect(touchBrowserSession).not.toHaveBeenCalled();
+        successRes.emit('finish');
+        await new Promise((resolve) => setImmediate(resolve));
+
+        expect(touchBrowserSession).toHaveBeenCalledTimes(1);
+        expect(touchBrowserSession).toHaveBeenCalledWith(sessionRecord);
+
+        const crossSiteRes = new EventEmitter();
+        crossSiteRes.statusCode = 200;
+        await protect({
+            ...makeReq(),
+            headers: {
+                cookie: 'aura_sid=session-cookie-touch',
+                'sec-fetch-site': 'cross-site',
+            },
+        }, crossSiteRes, jest.fn());
+        crossSiteRes.emit('finish');
+        await new Promise((resolve) => setImmediate(resolve));
+
+        expect(touchBrowserSession).toHaveBeenCalledTimes(1);
     });
 
     test('protect accepts a stepped-up browser session for the same device when trusted device mode is always', async () => {
@@ -212,9 +331,10 @@ describe('authMiddleware cookie session authentication', () => {
             }));
             jest.doMock('../models/User', () => ({
                 findById: jest.fn(),
-                findOne: jest.fn(() => ({
-                    lean: jest.fn().mockResolvedValue({
+                find: jest.fn(() => ({
+                    lean: jest.fn().mockResolvedValue([{
                         _id: '507f1f77bcf86cd799439012',
+                        authUid: 'firebase-bearer-uid',
                         email: 'bearer-user@example.com',
                         name: 'Bearer User',
                         phone: '+919811112222',
@@ -236,7 +356,7 @@ describe('authMiddleware cookie session authentication', () => {
                         accountState: 'active',
                         softDeleted: false,
                         moderation: {},
-                    }),
+                    }]),
                 })),
                 findOneAndUpdate: jest.fn(),
             }));
@@ -275,8 +395,9 @@ describe('authMiddleware cookie session authentication', () => {
         await protect(req, {}, next);
 
         expect(verifyIdToken).toHaveBeenCalledWith('fresh-token-123', true);
-        expect(resolveSessionIdFromRequest).not.toHaveBeenCalled();
+        expect(resolveSessionIdFromRequest).toHaveBeenCalledWith(req);
         expect(getBrowserSessionFromRequest).not.toHaveBeenCalled();
+        expect(req.supersededAuthSessionId).toBe('session-cookie-stale');
         expect(req.authUid).toBe('firebase-bearer-uid');
         expect(req.user).toMatchObject({
             email: 'bearer-user@example.com',

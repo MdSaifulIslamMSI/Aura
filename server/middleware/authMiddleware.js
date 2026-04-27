@@ -609,7 +609,40 @@ const buildSyntheticAuthIdentityFromSession = (session = {}) => ({
     emailVerified: Boolean(session?.emailVerified),
 });
 
-const authenticateWithBrowserSession = async (req) => {
+const scheduleBrowserSessionTouch = (req, res, session) => {
+    if (!session?.sessionId || req._browserSessionTouchScheduled || typeof res?.once !== 'function') {
+        return;
+    }
+
+    if (String(req.headers?.['sec-fetch-site'] || '').trim().toLowerCase() === 'cross-site') {
+        return;
+    }
+
+    req._browserSessionTouchScheduled = true;
+    res.once('finish', () => {
+        if (Number(res.statusCode || 200) >= 400) {
+            return;
+        }
+
+        touchBrowserSession(session)
+            .then((touchedSession) => {
+                if (
+                    touchedSession?.sessionId
+                    && req.authSession?.sessionId === touchedSession.sessionId
+                ) {
+                    req.authSession = touchedSession;
+                }
+            })
+            .catch((error) => {
+                logger.warn('auth.session_touch_failed', {
+                    sessionId: session.sessionId,
+                    error: error?.message || 'unknown',
+                });
+            });
+    });
+};
+
+const authenticateWithBrowserSession = async (req, res) => {
     const sessionId = resolveSessionIdFromRequest(req);
     if (!sessionId) {
         return false;
@@ -628,11 +661,12 @@ const authenticateWithBrowserSession = async (req) => {
 
     enforceUserAccountAccess(user);
 
-    req.authSession = await touchBrowserSession(session);
+    req.authSession = session;
     req.authUid = String(req.authSession?.firebaseUid || '').trim();
     req.authToken = buildSyntheticAuthTokenFromSession(req.authSession);
     req.authIdentity = buildSyntheticAuthIdentityFromSession(req.authSession);
     req.user = user;
+    scheduleBrowserSessionTouch(req, res, session);
 
     return true;
 };
@@ -652,9 +686,16 @@ const protect = asyncHandler(async (req, res, next) => {
     let token;
     const hasBearerAuthorization = Boolean(req.headers.authorization?.startsWith('Bearer '));
 
+    if (hasBearerAuthorization) {
+        const supersededSessionId = resolveSessionIdFromRequest(req);
+        if (supersededSessionId) {
+            req.supersededAuthSessionId = supersededSessionId;
+        }
+    }
+
     if (!hasBearerAuthorization) {
         try {
-            const authenticatedWithSession = await authenticateWithBrowserSession(req);
+            const authenticatedWithSession = await authenticateWithBrowserSession(req, res);
             if (authenticatedWithSession) {
                 return finalizeProtectedRequest(req, next);
             }

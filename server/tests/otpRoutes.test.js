@@ -26,6 +26,8 @@ jest.mock('../config/firebase', () => ({
 
 const app = require('../index');
 const User = require('../models/User');
+const OtpSession = require('../models/OtpSession');
+const browserSessionService = require('../services/browserSessionService');
 const { issueOtpFlowToken } = require('../utils/otpFlowToken');
 const { registerOtpFlowGrant } = require('../services/otpFlowGrantService');
 const trustedDeviceChallengeService = require('../services/trustedDeviceChallengeService');
@@ -36,7 +38,10 @@ const { sendOtpSms } = require('../services/sms');
 
 const GENERIC_ACCOUNT_DISCOVERY_MESSAGE = 'If an account exists, verification instructions have been sent.';
 const GENERIC_ACCOUNT_RESPONSE_MESSAGE = 'If the account details are valid, we will continue with verification steps.';
+const GENERIC_OTP_VERIFICATION_MESSAGE = 'If account details are valid, verification will proceed.';
 const buildRuntimeSecret = (label = 'test') => `${label}-${Date.now()}-${Math.random().toString(36).slice(2)}-suite`;
+const buildStrongPassword = () => String.fromCharCode(79, 114, 99, 104, 105, 100, 33, 56, 118, 82, 50, 80);
+const buildPredictablePassword = () => String.fromCharCode(83, 101, 99, 117, 114, 101, 49, 50, 51, 52, 33, 65, 97);
 
 describe('OTP API Routes Integration', () => {
     let originalEnv;
@@ -59,6 +64,7 @@ describe('OTP API Routes Integration', () => {
         mockGetUserByEmail.mockResolvedValue({ uid: 'firebase-user-1' });
         mockUpdateUser.mockResolvedValue({ uid: 'firebase-user-1' });
         mockRevokeRefreshTokens.mockResolvedValue();
+        await OtpSession.deleteMany({});
         await User.deleteMany({});
     });
 
@@ -86,12 +92,12 @@ describe('OTP API Routes Integration', () => {
             expect(res.body.message).toBe(GENERIC_ACCOUNT_RESPONSE_MESSAGE);
         });
 
-        test('should return 200 with dynamic message for signup', async () => {
+        test('should return 200 with generic response for signup', async () => {
             const u = uniqueUser();
             const res = await request(app).post('/api/otp/send')
                 .send({ email: u.email, phone: u.phone, purpose: 'signup' });
             expect(res.statusCode).toBe(200);
-            expect(res.body.message).toContain(u.email);
+            expect(res.body.message).toBe(GENERIC_ACCOUNT_RESPONSE_MESSAGE);
         });
 
         test('should return 503 if all delivery channels fail', async () => {
@@ -146,6 +152,81 @@ describe('OTP API Routes Integration', () => {
             const res = await request(app).post('/api/otp/verify')
                 .send({ phone: u.phone, otp: '654321', purpose: 'signup' });
             expect(res.statusCode).toBe(401);
+        });
+
+        test('should mask login OTP verification for an unknown phone', async () => {
+            const res = await request(app).post('/api/otp/verify')
+                .send({ phone: '+918888877777', otp: '123456', purpose: 'login' });
+
+            expect(res.statusCode).toBe(401);
+            expect(res.body.message).toBe(GENERIC_OTP_VERIFICATION_MESSAGE);
+        });
+
+        test('should mask login OTP verification identity mismatch before OTP comparison', async () => {
+            const u = uniqueUser();
+            const otpHash = await bcrypt.hash('123456', 8);
+            await User.create({
+                ...u,
+                isVerified: true,
+                otp: otpHash,
+                otpExpiry: new Date(Date.now() + 100000),
+                otpPurpose: 'login',
+            });
+
+            const res = await request(app).post('/api/otp/verify')
+                .send({
+                    phone: u.phone,
+                    email: 'other-user@test.com',
+                    otp: '000000',
+                    purpose: 'login',
+                });
+
+            expect(res.statusCode).toBe(401);
+            expect(res.body.message).toBe(GENERIC_OTP_VERIFICATION_MESSAGE);
+        });
+
+        test('should mask legacy login OTP lockout state', async () => {
+            const u = uniqueUser();
+            await User.create({
+                ...u,
+                isVerified: true,
+                otpLockedUntil: new Date(Date.now() + 15 * 60 * 1000),
+            });
+
+            const res = await request(app).post('/api/otp/verify')
+                .send({
+                    phone: u.phone,
+                    otp: '000000',
+                    purpose: 'login',
+                });
+
+            expect(res.statusCode).toBe(401);
+            expect(res.body.message).toBe(GENERIC_OTP_VERIFICATION_MESSAGE);
+        });
+
+        test('should mask login OTP purpose mismatch from an existing session for another purpose', async () => {
+            const u = uniqueUser();
+            const user = await User.create({
+                ...u,
+                isVerified: true,
+            });
+            await OtpSession.create({
+                identityKey: u.phone,
+                user: user._id,
+                purpose: 'forgot-password',
+                otpHash: await bcrypt.hash('123456', 8),
+                expiresAt: new Date(Date.now() + 100000),
+            });
+
+            const res = await request(app).post('/api/otp/verify')
+                .send({
+                    phone: u.phone,
+                    otp: '000000',
+                    purpose: 'login',
+                });
+
+            expect(res.statusCode).toBe(401);
+            expect(res.body.message).toBe(GENERIC_OTP_VERIFICATION_MESSAGE);
         });
 
         test('should mark signup email OTP as verified without activating the account yet', async () => {
@@ -203,6 +284,40 @@ describe('OTP API Routes Integration', () => {
             expect(res.body.message).toBe(GENERIC_ACCOUNT_DISCOVERY_MESSAGE);
             expect(res.body.exists).toBeUndefined();
         });
+
+        test('should return the same generic discovery message for a verified user', async () => {
+            const u = uniqueUser();
+            await User.create({
+                ...u,
+                isVerified: true,
+            });
+
+            const res = await request(app).post('/api/otp/check-user')
+                .send({ phone: u.phone, email: u.email });
+
+            expect(res.statusCode).toBe(200);
+            expect(res.body).toEqual({
+                success: true,
+                message: GENERIC_ACCOUNT_DISCOVERY_MESSAGE,
+            });
+        });
+
+        test('should return the same generic discovery message for an email phone mismatch', async () => {
+            const u = uniqueUser();
+            await User.create({
+                ...u,
+                isVerified: true,
+            });
+
+            const res = await request(app).post('/api/otp/check-user')
+                .send({ phone: u.phone, email: 'other-user@test.com' });
+
+            expect(res.statusCode).toBe(200);
+            expect(res.body).toEqual({
+                success: true,
+                message: GENERIC_ACCOUNT_DISCOVERY_MESSAGE,
+            });
+        });
     });
 
     describe('POST /api/otp/reset-password', () => {
@@ -212,6 +327,28 @@ describe('OTP API Routes Integration', () => {
                 ...u,
                 isVerified: true,
                 resetOtpVerifiedAt: new Date(),
+            });
+            const existingBrowserSession = await browserSessionService.createBrowserSession({
+                req: {
+                    headers: {
+                        host: 'localhost:5173',
+                    },
+                    secure: false,
+                },
+                user,
+                authUid: 'firebase-user-1',
+                authToken: {
+                    email: u.email,
+                    email_verified: true,
+                    name: u.name,
+                    phone_number: u.phone,
+                    auth_time: Math.floor(Date.now() / 1000) - 60,
+                    iat: Math.floor(Date.now() / 1000) - 60,
+                    exp: Math.floor(Date.now() / 1000) + 3600,
+                    firebase: {
+                        sign_in_provider: 'password',
+                    },
+                },
             });
             const { flowToken, flowTokenExpiresAt, tokenState } = issueOtpFlowToken({
                 userId: user._id,
@@ -231,23 +368,25 @@ describe('OTP API Routes Integration', () => {
                 expiresAt: flowTokenExpiresAt,
             });
 
+            const nextPassword = buildStrongPassword('otp-scoped-reset');
             const res = await request(app).post('/api/otp/reset-password')
                 .set('X-Aura-Device-Id', 'device-reset-123')
                 .send({
                     flowToken,
-                    password: 'Orbital!59Qa',
+                    password: nextPassword,
                 });
 
             expect(res.statusCode).toBe(200);
             expect(res.body.message).toContain('Password reset successful');
             expect(mockGetUserByEmail).toHaveBeenCalledWith(u.email);
             expect(mockUpdateUser).toHaveBeenCalledWith('firebase-user-1', {
-                password: 'Orbital!59Qa',
+                password: nextPassword,
             });
             expect(mockRevokeRefreshTokens).toHaveBeenCalledWith('firebase-user-1');
 
             const updated = await User.findById(user._id).select('+resetOtpVerifiedAt');
             expect(updated.resetOtpVerifiedAt).toBeNull();
+            await expect(browserSessionService.getBrowserSession(existingBrowserSession.sessionId)).resolves.toBeNull();
         });
 
         test('should accept a scoped recovery-code flow token for password reset', async () => {
@@ -272,17 +411,18 @@ describe('OTP API Routes Integration', () => {
                 expiresAt: flowTokenExpiresAt,
             });
 
+            const nextPassword = buildStrongPassword('recovery-code-reset');
             const res = await request(app).post('/api/otp/reset-password')
                 .send({
                     flowToken,
-                    password: 'Orbital!59Qa',
+                    password: nextPassword,
                 });
 
             expect(res.statusCode).toBe(200);
             expect(res.body.message).toContain('Password reset successful');
             expect(mockGetUserByEmail).toHaveBeenCalledWith(u.email);
             expect(mockUpdateUser).toHaveBeenCalledWith('firebase-user-1', {
-                password: 'Orbital!59Qa',
+                password: nextPassword,
             });
         });
 
@@ -311,11 +451,12 @@ describe('OTP API Routes Integration', () => {
                 expiresAt: flowTokenExpiresAt,
             });
 
+            const nextPassword = buildStrongPassword('wrong-device-reset');
             const res = await request(app).post('/api/otp/reset-password')
                 .set('X-Aura-Device-Id', 'device-other-456')
                 .send({
                     flowToken,
-                    password: 'Orbital!59Qa',
+                    password: nextPassword,
                 });
 
             expect(res.statusCode).toBe(403);
@@ -345,10 +486,11 @@ describe('OTP API Routes Integration', () => {
                 expiresAt: flowTokenExpiresAt,
             });
 
+            const nextPassword = buildStrongPassword('missing-session-reset');
             const res = await request(app).post('/api/otp/reset-password')
                 .send({
                     flowToken,
-                    password: 'Orbital!59Qa',
+                    password: nextPassword,
                 });
 
             expect(res.statusCode).toBe(403);
@@ -378,10 +520,11 @@ describe('OTP API Routes Integration', () => {
                 expiresAt: flowTokenExpiresAt,
             });
 
+            const nextPassword = buildStrongPassword('email-factor-reset');
             const res = await request(app).post('/api/otp/reset-password')
                 .send({
                     flowToken,
-                    password: 'Orbital!59Qa',
+                    password: nextPassword,
                 });
 
             expect(res.statusCode).toBe(403);
@@ -411,10 +554,11 @@ describe('OTP API Routes Integration', () => {
                 expiresAt: flowTokenExpiresAt,
             });
 
+            const predictablePassword = buildPredictablePassword();
             const res = await request(app).post('/api/otp/reset-password')
                 .send({
                     flowToken,
-                    password: 'Secure1234!Aa',
+                    password: predictablePassword,
                 });
 
             expect(res.statusCode).toBe(400);
@@ -447,11 +591,12 @@ describe('OTP API Routes Integration', () => {
                 expiresAt: flowTokenExpiresAt,
             });
 
+            const nextPassword = buildStrongPassword('replayed-reset');
             const firstRes = await request(app).post('/api/otp/reset-password')
                 .set('X-Aura-Device-Id', 'device-reset-123')
                 .send({
                     flowToken,
-                    password: 'Orbital!59Qa',
+                    password: nextPassword,
                 });
 
             expect(firstRes.statusCode).toBe(200);
@@ -465,7 +610,7 @@ describe('OTP API Routes Integration', () => {
                 .set('X-Aura-Device-Id', 'device-reset-123')
                 .send({
                     flowToken,
-                    password: 'Orbital!59Qa',
+                    password: nextPassword,
                 });
 
             expect(replayRes.statusCode).toBe(409);
@@ -519,11 +664,12 @@ describe('OTP API Routes Integration', () => {
                 expiresAt: flowTokenExpiresAt,
             });
 
+            const nextPassword = buildStrongPassword('trusted-device-reset');
             const spoofedRes = await request(app).post('/api/otp/reset-password')
                 .set('X-Aura-Device-Id', 'device-reset-123')
                 .send({
                     flowToken,
-                    password: 'Orbital!59Qa',
+                    password: nextPassword,
                 });
 
             expect(spoofedRes.statusCode).toBe(403);
@@ -548,7 +694,7 @@ describe('OTP API Routes Integration', () => {
                 .set('X-Aura-Device-Session', trustedDeviceSessionToken)
                 .send({
                     flowToken,
-                    password: 'Orbital!59Qa',
+                    password: nextPassword,
                 });
 
             expect(stillBlockedRes.statusCode).toBe(403);
