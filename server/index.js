@@ -111,6 +111,7 @@ const { attachSocketBackplane, getSocketHealth, initializeSocket } = require('./
 
 const app = express();
 const JSON_BODY_LIMIT = process.env.JSON_BODY_LIMIT || '12mb';
+const AUTH_BODY_LIMIT = process.env.AUTH_BODY_LIMIT || '64kb';
 const runtimeNodeEnv = process.env.NODE_ENV || 'production';
 const contentSecurityPolicyDirectives = {
     defaultSrc: ["'self'"],
@@ -259,11 +260,21 @@ app.use(cors({
     credentials: true,
     exposedHeaders: ['X-CSRF-Token', 'X-Request-Id'],
 }));
+const captureRawBody = (req, res, buf) => {
+    req.rawBody = buf.toString('utf8');
+};
+app.use(['/api/auth', '/api/otp'], express.json({
+    limit: AUTH_BODY_LIMIT,
+    verify: captureRawBody,
+}));
+app.use(['/api/auth', '/api/otp'], express.urlencoded({
+    extended: false,
+    limit: AUTH_BODY_LIMIT,
+    parameterLimit: 25,
+}));
 app.use(express.json({
     limit: JSON_BODY_LIMIT,
-    verify: (req, res, buf) => {
-        req.rawBody = buf.toString('utf8');
-    }
+    verify: captureRawBody,
 }));
 app.use(express.urlencoded({
     extended: false,

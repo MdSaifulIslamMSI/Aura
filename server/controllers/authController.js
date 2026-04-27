@@ -43,6 +43,8 @@ const {
 const { shouldRequireTrustedDevice } = require('../config/authTrustedDeviceFlags');
 const LOGIN_ASSURANCE_TTL_MS = 10 * 60 * 1000;
 const PHONE_FACTOR_ASSURANCE_TTL_MS = 10 * 60 * 1000;
+const GENERIC_PHONE_FACTOR_VERIFICATION_MESSAGE = 'If account details are valid, verification will proceed.';
+const RECOVERY_CODE_VERIFICATION_MIN_MS = process.env.NODE_ENV === 'test' ? 0 : 350;
 
 const normalizeEmail = (value) => (
     typeof value === 'string' ? value.trim().toLowerCase() : ''
@@ -62,6 +64,18 @@ const normalizePhoneFactorPurpose = (value) => {
         return normalized;
     }
     return '';
+};
+
+const phoneFactorFlowError = () => new AppError(GENERIC_PHONE_FACTOR_VERIFICATION_MESSAGE, 403);
+
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const waitForRecoveryCodeVerificationWindow = async (startedAt) => {
+    const elapsedMs = Date.now() - startedAt;
+    const remainingMs = RECOVERY_CODE_VERIFICATION_MIN_MS - elapsedMs;
+    if (remainingMs > 0) {
+        await wait(remainingMs);
+    }
 };
 
 const hasFreshPasskeySession = (req = {}) => {
@@ -241,6 +255,12 @@ const persistBrowserSessionForUser = async ({
     });
 
     req.authSession = nextSession;
+    const supersededSessionId = String(req.supersededAuthSessionId || '').trim();
+    if (supersededSessionId && supersededSessionId !== nextSession.sessionId) {
+        await revokeBrowserSession(supersededSessionId);
+        req.supersededAuthSessionId = '';
+    }
+
     return nextSession;
 };
 
@@ -549,10 +569,10 @@ const completePhoneFactorVerification = asyncHandler(async (req, res) => {
             .lean();
 
         if (!pendingUser) {
-            throw new AppError('Signup email verification is required before completing phone verification.', 403);
+            throw phoneFactorFlowError();
         }
         if (pendingUser.isVerified) {
-            throw new AppError('An account with this email already exists. Please sign in.', 409);
+            throw phoneFactorFlowError();
         }
 
         const emailOtpVerifiedAt = resolveVerifiedAtMillis(pendingUser.signupEmailOtpVerifiedAt);
@@ -566,17 +586,12 @@ const completePhoneFactorVerification = asyncHandler(async (req, res) => {
                     { $set: { signupEmailOtpVerifiedAt: null } }
                 );
             }
-            throw new AppError(
-                emailOtpVerifiedAt > 0
-                    ? 'Signup email verification expired. Please restart signup.'
-                    : 'Signup email verification is required before completing phone verification.',
-                403
-            );
+            throw phoneFactorFlowError();
         }
 
         const storedPhone = canonicalizePhone(pendingUser.phone || '');
         if (storedPhone && storedPhone !== requestPhone) {
-            throw new AppError('Phone number does not match your pending signup.', 403);
+            throw phoneFactorFlowError();
         }
 
         const updatedUser = await User.findOneAndUpdate(
@@ -599,7 +614,7 @@ const completePhoneFactorVerification = asyncHandler(async (req, res) => {
         );
 
         if (!updatedUser) {
-            throw new AppError('Signup session expired. Please restart signup.', 409);
+            throw phoneFactorFlowError();
         }
 
         await persistAuthSnapshot(updatedUser);
@@ -621,7 +636,7 @@ const completePhoneFactorVerification = asyncHandler(async (req, res) => {
         .lean();
 
     if (!existingUser) {
-        throw new AppError('Password recovery email verification is required before completing phone verification.', 403);
+        throw phoneFactorFlowError();
     }
 
     const emailOtpVerifiedAt = resolveVerifiedAtMillis(existingUser.resetEmailOtpVerifiedAt);
@@ -635,17 +650,12 @@ const completePhoneFactorVerification = asyncHandler(async (req, res) => {
                 { $set: { resetEmailOtpVerifiedAt: null } }
             );
         }
-        throw new AppError(
-            emailOtpVerifiedAt > 0
-                ? 'Password recovery email verification expired. Please restart recovery.'
-                : 'Password recovery email verification is required before completing phone verification.',
-            403
-        );
+        throw phoneFactorFlowError();
     }
 
     const storedPhone = canonicalizePhone(existingUser.phone || '');
     if (storedPhone && storedPhone !== requestPhone) {
-        throw new AppError('Phone number does not match your registered account.', 403);
+        throw phoneFactorFlowError();
     }
 
     const updatedUser = await User.findOneAndUpdate(
@@ -668,7 +678,7 @@ const completePhoneFactorVerification = asyncHandler(async (req, res) => {
     );
 
     if (!updatedUser) {
-        throw new AppError('Password recovery session expired. Please restart recovery.', 409);
+        throw phoneFactorFlowError();
     }
 
     await persistAuthSnapshot(updatedUser);
@@ -739,20 +749,37 @@ const generateBackupRecoveryCodes = asyncHandler(async (req, res) => {
 const verifyBackupRecoveryCode = asyncHandler(async (req, res) => {
     const email = normalizeEmail(req.body?.email);
     const code = String(req.body?.code || '').trim();
+    const { deviceId } = extractTrustedDeviceContext(req);
+    const deviceSessionToken = getTrustedDeviceSessionToken(req);
+    const responseStartedAt = Date.now();
 
     if (!email || !code) {
         throw new AppError('Email and recovery code are required.', 400);
     }
 
-    const { user, recoveryCodeState } = await consumeRecoveryCodeForPasswordReset({
-        email,
-        code,
-    });
+    let recoveryResult = null;
+    try {
+        recoveryResult = await consumeRecoveryCodeForPasswordReset({
+            email,
+            code,
+        });
+    } catch (error) {
+        await waitForRecoveryCodeVerificationWindow(responseStartedAt);
+        throw error;
+    }
+
+    const { user, recoveryCodeState } = recoveryResult;
     const { tokenState, ...publicFlowPayload } = issueOtpFlowToken({
         userId: user._id,
         purpose: 'forgot-password',
         factor: 'recovery-code',
         nextStep: 'reset-password',
+        signalBond: {
+            ...(deviceId ? { deviceId } : {}),
+            ...(deviceId && deviceSessionToken
+                ? { deviceSessionHash: hashTrustedDeviceSessionToken(deviceSessionToken) }
+                : {}),
+        },
     });
     await registerOtpFlowGrant({
         tokenId: tokenState?.tokenId,

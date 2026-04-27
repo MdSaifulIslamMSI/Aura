@@ -3,6 +3,8 @@ const app = require('../index');
 const User = require('../models/User');
 const { generateRecoveryCodesForUser } = require('../services/authRecoveryCodeService');
 const buildRuntimeSecret = (label = 'test') => `${label}-${Date.now()}-${Math.random().toString(36).slice(2)}-suite`;
+const buildStrongPassword = () => String.fromCharCode(79, 114, 99, 104, 105, 100, 33, 56, 118, 82, 50, 80);
+const GENERIC_PHONE_FACTOR_VERIFICATION_MESSAGE = 'If account details are valid, verification will proceed.';
 
 jest.setTimeout(30000);
 
@@ -55,6 +57,15 @@ describe('Auth API surface', () => {
         const res = await request(app).post('/api/auth/logout');
         expect(res.statusCode).toBe(200);
         expect(res.body.success).toBe(true);
+    });
+
+    test('POST /api/auth/logout rejects oversized auth request bodies before controller work', async () => {
+        const res = await request(app)
+            .post('/api/auth/logout')
+            .set('Content-Type', 'application/json')
+            .send(JSON.stringify({ payload: 'x'.repeat(70 * 1024) }));
+
+        expect(res.statusCode).toBe(413);
     });
 });
 
@@ -111,6 +122,81 @@ describe('Auth backup recovery codes', () => {
 
         expect(replay.statusCode).toBe(401);
         expect(replay.body.message).toContain('invalid or already used');
+    });
+
+    test('POST /api/auth/recovery-codes/verify masks unknown and wrong recovery code failures', async () => {
+        const user = await User.create({
+            name: 'Recovery Wrong Code User',
+            email: `${buildRuntimeSecret('recovery-wrong')}@test.com`,
+            phone: '+919876543212',
+            isVerified: true,
+            trustedDevices: [{
+                deviceId: buildRuntimeSecret('passkey-device'),
+                label: 'Passkey',
+                method: 'webauthn',
+                publicKeySpkiBase64: Buffer.from(buildRuntimeSecret('spki')).toString('base64'),
+                webauthnCredentialIdBase64Url: buildRuntimeSecret('credential'),
+            }],
+        });
+        await generateRecoveryCodesForUser({ userId: user._id });
+
+        const wrongCode = await request(app)
+            .post('/api/auth/recovery-codes/verify')
+            .send({
+                email: user.email,
+                code: 'WRONG-CODE-0000',
+            });
+        const unknownAccount = await request(app)
+            .post('/api/auth/recovery-codes/verify')
+            .send({
+                email: `${buildRuntimeSecret('recovery-unknown')}@test.com`,
+                code: 'WRONG-CODE-0000',
+            });
+
+        expect(wrongCode.statusCode).toBe(401);
+        expect(unknownAccount.statusCode).toBe(401);
+        expect(wrongCode.body.message).toBe('Recovery code is invalid or already used.');
+        expect(unknownAccount.body.message).toBe(wrongCode.body.message);
+    });
+
+    test('POST /api/auth/recovery-codes/verify binds reset flow token to the requesting device', async () => {
+        const user = await User.create({
+            name: 'Recovery Device Bound User',
+            email: `${buildRuntimeSecret('recovery-device-bound')}@test.com`,
+            phone: '+919876543211',
+            isVerified: true,
+            trustedDevices: [{
+                deviceId: buildRuntimeSecret('passkey-device'),
+                label: 'Passkey',
+                method: 'webauthn',
+                publicKeySpkiBase64: Buffer.from(buildRuntimeSecret('spki')).toString('base64'),
+                webauthnCredentialIdBase64Url: buildRuntimeSecret('credential'),
+            }],
+        });
+        const { codes } = await generateRecoveryCodesForUser({ userId: user._id });
+
+        const verifyRes = await request(app)
+            .post('/api/auth/recovery-codes/verify')
+            .set('X-Aura-Device-Id', 'device-recovery-a')
+            .send({
+                email: user.email,
+                code: codes[0],
+            });
+
+        expect(verifyRes.statusCode).toBe(200);
+        expect(verifyRes.body.flowToken).toEqual(expect.any(String));
+
+        const nextPassword = buildStrongPassword('recovery-other-device');
+        const resetFromOtherDevice = await request(app)
+            .post('/api/otp/reset-password')
+            .set('X-Aura-Device-Id', 'device-recovery-b')
+            .send({
+                flowToken: verifyRes.body.flowToken,
+                password: nextPassword,
+            });
+
+        expect(resetFromOtherDevice.statusCode).toBe(403);
+        expect(resetFromOtherDevice.body.message).toMatch(/device.*mismatch/i);
     });
 });
 
@@ -284,6 +370,73 @@ describe('Auth sync verified-email gating', () => {
                 providerIds: ['twitter.com'],
             }),
         }));
+    });
+});
+
+describe('Browser session replacement hardening', () => {
+    afterEach(() => {
+        jest.resetModules();
+        jest.clearAllMocks();
+    });
+
+    test('establishSessionCookie revokes a superseded cookie session after minting the replacement', async () => {
+        let isolatedApp;
+        let refreshBrowserSession;
+        let revokeBrowserSession;
+
+        jest.isolateModules(() => {
+            refreshBrowserSession = jest.fn().mockResolvedValue({
+                sessionId: 'new-session-1',
+            });
+            revokeBrowserSession = jest.fn().mockResolvedValue(undefined);
+
+            jest.doMock('../services/browserSessionService', () => ({
+                clearBrowserSessionCookie: jest.fn(),
+                getBrowserSessionFromRequest: jest.fn(),
+                refreshBrowserSession,
+                revokeBrowserSession,
+            }));
+
+            const express = require('express');
+            const { establishSessionCookie } = require('../controllers/authController');
+            const { errorHandler } = require('../middleware/errorMiddleware');
+
+            isolatedApp = express();
+            isolatedApp.get('/mint-session', (req, _res, next) => {
+                req.user = {
+                    _id: '507f1f77bcf86cd799439099',
+                    email: 'replace-session@example.com',
+                };
+                req.authUid = 'uid-replace-session';
+                req.authToken = {
+                    email: 'replace-session@example.com',
+                    email_verified: true,
+                };
+                req.supersededAuthSessionId = 'old-session-1';
+                next();
+            }, establishSessionCookie, (req, res) => {
+                res.json({
+                    sessionId: req.authSession?.sessionId,
+                    supersededAuthSessionId: req.supersededAuthSessionId || null,
+                });
+            });
+            isolatedApp.use(errorHandler);
+        });
+
+        const res = await request(isolatedApp).get('/mint-session');
+
+        expect(res.statusCode).toBe(200);
+        expect(refreshBrowserSession).toHaveBeenCalledWith(expect.objectContaining({
+            authUid: 'uid-replace-session',
+            user: expect.objectContaining({
+                email: 'replace-session@example.com',
+            }),
+        }));
+        expect(revokeBrowserSession).toHaveBeenCalledWith('old-session-1');
+        expect(res.body).toEqual({
+            sessionId: 'new-session-1',
+            supersededAuthSessionId: null,
+        });
     });
 });
 
@@ -685,37 +838,37 @@ describe('Firebase phone factor completion for signup and recovery', () => {
         signupEmailOtpVerifiedAt = new Date().toISOString(),
         resetEmailOtpVerifiedAt = new Date().toISOString(),
         isVerified = false,
+        userRecord,
+        findOneAndUpdateResult,
     } = {}) => {
         let isolatedApp;
 
         jest.isolateModules(() => {
-            jest.doMock('../models/User', () => ({
-                findOne: jest.fn().mockReturnValue({
-                    select: jest.fn().mockReturnValue({
-                        lean: jest.fn().mockResolvedValue({
-                            _id: 'user-1',
-                            name: purpose === 'signup' ? 'Pending User' : 'Verified User',
-                            email: 'verified@example.com',
-                            phone: storedPhone,
-                            avatar: '',
-                            gender: '',
-                            dob: null,
-                            bio: '',
-                            isAdmin: false,
-                            isVerified,
-                            signupEmailOtpVerifiedAt,
-                            resetEmailOtpVerifiedAt,
-                            isSeller: false,
-                            sellerActivatedAt: null,
-                            accountState: 'active',
-                            moderation: {},
-                            loyalty: {},
-                            createdAt: new Date('2026-01-01T00:00:00.000Z'),
-                        }),
-                    }),
-                }),
-                updateOne: jest.fn().mockResolvedValue({ acknowledged: true, modifiedCount: 1 }),
-                findOneAndUpdate: jest.fn().mockResolvedValue({
+            const resolvedUserRecord = userRecord !== undefined
+                ? userRecord
+                : {
+                    _id: 'user-1',
+                    name: purpose === 'signup' ? 'Pending User' : 'Verified User',
+                    email: 'verified@example.com',
+                    phone: storedPhone,
+                    avatar: '',
+                    gender: '',
+                    dob: null,
+                    bio: '',
+                    isAdmin: false,
+                    isVerified,
+                    signupEmailOtpVerifiedAt,
+                    resetEmailOtpVerifiedAt,
+                    isSeller: false,
+                    sellerActivatedAt: null,
+                    accountState: 'active',
+                    moderation: {},
+                    loyalty: {},
+                    createdAt: new Date('2026-01-01T00:00:00.000Z'),
+                };
+            const resolvedUpdatedUser = findOneAndUpdateResult !== undefined
+                ? findOneAndUpdateResult
+                : {
                     _id: 'user-1',
                     name: purpose === 'signup' ? 'Pending User' : 'Verified User',
                     email: 'verified@example.com',
@@ -732,7 +885,15 @@ describe('Firebase phone factor completion for signup and recovery', () => {
                     moderation: {},
                     loyalty: {},
                     createdAt: new Date('2026-01-01T00:00:00.000Z'),
+                };
+            jest.doMock('../models/User', () => ({
+                findOne: jest.fn().mockReturnValue({
+                    select: jest.fn().mockReturnValue({
+                        lean: jest.fn().mockResolvedValue(resolvedUserRecord),
+                    }),
                 }),
+                updateOne: jest.fn().mockResolvedValue({ acknowledged: true, modifiedCount: 1 }),
+                findOneAndUpdate: jest.fn().mockResolvedValue(resolvedUpdatedUser),
             }));
             jest.doMock('../services/authSessionService', () => {
                 const actual = jest.requireActual('../services/authSessionService');
@@ -804,7 +965,7 @@ describe('Firebase phone factor completion for signup and recovery', () => {
         expect(res.body.flowTokenExpiresAt).toEqual(expect.any(String));
     });
 
-    test('POST /api/auth/complete-phone-factor-verification requires a recent signup email OTP first', async () => {
+    test('POST /api/auth/complete-phone-factor-verification masks stale signup email OTP state', async () => {
         const isolatedApp = buildIsolatedPhoneFactorVerificationApp({ purpose: 'signup', signupEmailOtpVerifiedAt: null, isVerified: false });
 
         const res = await request(isolatedApp)
@@ -816,7 +977,41 @@ describe('Firebase phone factor completion for signup and recovery', () => {
             });
 
         expect(res.statusCode).toBe(403);
-        expect(res.body.message).toContain('Signup email verification is required');
+        expect(res.body.message).toBe(GENERIC_PHONE_FACTOR_VERIFICATION_MESSAGE);
+    });
+
+    test('POST /api/auth/complete-phone-factor-verification masks missing signup flow state', async () => {
+        const isolatedApp = buildIsolatedPhoneFactorVerificationApp({ purpose: 'signup', userRecord: null });
+
+        const res = await request(isolatedApp)
+            .post('/api/auth/complete-phone-factor-verification')
+            .send({
+                purpose: 'signup',
+                email: 'verified@example.com',
+                phone: '+919876543210',
+            });
+
+        expect(res.statusCode).toBe(403);
+        expect(res.body.message).toBe(GENERIC_PHONE_FACTOR_VERIFICATION_MESSAGE);
+    });
+
+    test('POST /api/auth/complete-phone-factor-verification masks recovery phone mismatch', async () => {
+        const isolatedApp = buildIsolatedPhoneFactorVerificationApp({
+            purpose: 'forgot-password',
+            isVerified: true,
+            storedPhone: '+919811112222',
+        });
+
+        const res = await request(isolatedApp)
+            .post('/api/auth/complete-phone-factor-verification')
+            .send({
+                purpose: 'forgot-password',
+                email: 'verified@example.com',
+                phone: '+919876543210',
+            });
+
+        expect(res.statusCode).toBe(403);
+        expect(res.body.message).toBe(GENERIC_PHONE_FACTOR_VERIFICATION_MESSAGE);
     });
 });
 

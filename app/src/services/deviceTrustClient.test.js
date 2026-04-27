@@ -9,6 +9,7 @@ const originalCredentials = window.navigator.credentials;
 const originalUserAgent = window.navigator.userAgent;
 const originalAuraDesktop = window.auraDesktop;
 const originalCapacitor = window.Capacitor;
+const originalPersistTrustedDeviceSession = process.env.VITE_PERSIST_TRUSTED_DEVICE_SESSION;
 
 const createAsyncRequest = (executor) => {
   const request = {
@@ -120,6 +121,7 @@ describe('deviceTrustClient', () => {
     vi.restoreAllMocks();
     localStorage.clear();
     sessionStorage.clear();
+    delete process.env.VITE_PERSIST_TRUSTED_DEVICE_SESSION;
   });
 
   afterEach(() => {
@@ -150,6 +152,11 @@ describe('deviceTrustClient', () => {
     setUserAgent();
     setDesktopBridge(originalAuraDesktop);
     setCapacitorBridge(originalCapacitor);
+    if (originalPersistTrustedDeviceSession === undefined) {
+      delete process.env.VITE_PERSIST_TRUSTED_DEVICE_SESSION;
+    } else {
+      process.env.VITE_PERSIST_TRUSTED_DEVICE_SESSION = originalPersistTrustedDeviceSession;
+    }
   });
 
   it('marks 127.0.0.1 as a browser-key-only trusted-device host', async () => {
@@ -526,7 +533,7 @@ describe('deviceTrustClient', () => {
     expect(localStorage.getItem('aura_trusted_device_session_v1')).toBeNull();
   });
 
-  it('persists the trusted-device session token across tabs on hosted frontends', async () => {
+  it('keeps hosted web trusted-device session tokens tab-scoped by default', async () => {
     setRuntimeHost({
       hostname: 'aurapilot.vercel.app',
       host: 'aurapilot.vercel.app',
@@ -538,7 +545,23 @@ describe('deviceTrustClient', () => {
     deviceTrustClient.cacheTrustedDeviceSessionToken('shared-device-token');
 
     expect(sessionStorage.getItem('aura_trusted_device_session_v1')).toBe('shared-device-token');
-    expect(localStorage.getItem('aura_trusted_device_session_v1')).toBe('shared-device-token');
+    expect(localStorage.getItem('aura_trusted_device_session_v1')).toBeNull();
+  });
+
+  it('persists trusted-device session tokens when explicitly configured', async () => {
+    process.env.VITE_PERSIST_TRUSTED_DEVICE_SESSION = 'true';
+    setRuntimeHost({
+      hostname: 'aurapilot.vercel.app',
+      host: 'aurapilot.vercel.app',
+      protocol: 'https:',
+      origin: 'https://aurapilot.vercel.app',
+    });
+    const deviceTrustClient = await loadDeviceTrustModule();
+
+    deviceTrustClient.cacheTrustedDeviceSessionToken('configured-device-token');
+
+    expect(sessionStorage.getItem('aura_trusted_device_session_v1')).toBe('configured-device-token');
+    expect(localStorage.getItem('aura_trusted_device_session_v1')).toBe('configured-device-token');
   });
 
   it('persists the trusted-device session token across desktop app restarts', async () => {
@@ -593,7 +616,7 @@ describe('deviceTrustClient', () => {
     expect(localStorage.getItem('aura_trusted_device_session_v1')).toBe('desktop-bridge-token');
   });
 
-  it('promotes an existing tab-scoped trusted-device token into shared storage on hosted frontends', async () => {
+  it('does not promote an existing tab-scoped trusted-device token into shared storage on hosted web by default', async () => {
     setRuntimeHost({
       hostname: 'aurapilot.netlify.app',
       host: 'aurapilot.netlify.app',
@@ -604,7 +627,7 @@ describe('deviceTrustClient', () => {
     const deviceTrustClient = await loadDeviceTrustModule();
 
     expect(deviceTrustClient.getTrustedDeviceSessionToken()).toBe('legacy-tab-token');
-    expect(localStorage.getItem('aura_trusted_device_session_v1')).toBe('legacy-tab-token');
+    expect(localStorage.getItem('aura_trusted_device_session_v1')).toBeNull();
   });
 
   it('includes the current browser origin in trusted-device headers for session bootstrap requests', async () => {

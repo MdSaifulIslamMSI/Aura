@@ -17,9 +17,24 @@ services:
     depends_on:
       - redis
     ports:
-      - "5000:5000"
+      - "127.0.0.1:5000:5000"
     volumes:
       - aura-uploads:/app/uploads
+
+  edge:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - api
+    env_file:
+      - /opt/aura/shared/base.env
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - aura-caddy-data:/data
+      - aura-caddy-config:/config
 
   worker:
     image: ${AURA_BACKEND_IMAGE:?AURA_BACKEND_IMAGE is required}
@@ -49,3 +64,5 @@ services:
 volumes:
   aura-redis:
   aura-uploads:
+  aura-caddy-data:
+  aura-caddy-config:
