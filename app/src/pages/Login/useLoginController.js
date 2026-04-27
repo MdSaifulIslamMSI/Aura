@@ -2,6 +2,7 @@ import { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { AuthContext } from '@/context/AuthContext';
 import { useMarket } from '@/context/MarketContext';
+import { getPhoneCountryOption, getPhoneCountryOptionLabel, PHONE_COUNTRY_OPTIONS } from '@/config/phoneCountryOptions';
 import { authApi, otpApi } from '@/services/api';
 import {
   completeFirebasePhoneCodeChallenge,
@@ -24,8 +25,10 @@ import { verifyCredentialsWithoutSession } from '@/utils/precheckCredentials';
 import { getFirebaseSocialAuthStatus } from '@/config/firebase';
 import {
   buildGenericOtpFlowError,
+  buildInternationalPhoneNumber,
   createEmptyFormData,
   createEmptyOtpValues,
+  getPhoneNationalInputValue,
   getAuthPurpose,
   isEnumerationSensitiveOtpError,
   normalizeEmail,
@@ -33,6 +36,7 @@ import {
   OTP_LENGTH,
   OTP_STAGE,
   OTP_TRANSPORT,
+  resolvePhoneCountryCode,
   resolveLaunchMode,
   resolveLaunchPrefill,
   shouldKeepSpecificOtpError,
@@ -111,7 +115,7 @@ const normalizeSocialAuthError = (error, providerLabel = 'Social', socialAuthSta
 export const useLoginController = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { t } = useMarket();
+  const { countryCode: marketCountryCode, t } = useMarket();
   const launchMode = resolveLaunchMode(location.state?.authMode);
   const launchPrefill = resolveLaunchPrefill(location.state);
   const {
@@ -144,6 +148,9 @@ export const useLoginController = () => {
     email: launchPrefill.email,
     phone: launchPrefill.phone,
   }));
+  const [phoneCountryCode, setPhoneCountryCode] = useState(() => (
+    resolvePhoneCountryCode(launchPrefill.phone, marketCountryCode)
+  ));
   const [otpValues, setOtpValues] = useState(createEmptyOtpValues);
 
   const otpRefs = useRef([]);
@@ -166,6 +173,21 @@ export const useLoginController = () => {
     && canUseMobileFirebasePhoneOtp;
   const isEmailOtpStage = otpStage === OTP_STAGE.EMAIL;
   const isPhoneOtpStage = otpStage === OTP_STAGE.PHONE;
+  const selectedPhoneCountry = useMemo(
+    () => getPhoneCountryOption(phoneCountryCode),
+    [phoneCountryCode]
+  );
+  const phoneCountryOptions = useMemo(
+    () => PHONE_COUNTRY_OPTIONS.map((option) => ({
+      ...option,
+      label: getPhoneCountryOptionLabel(option),
+    })),
+    []
+  );
+  const phoneLocalValue = useMemo(
+    () => getPhoneNationalInputValue(formData.phone, phoneCountryCode),
+    [formData.phone, phoneCountryCode]
+  );
 
   const setErr = (rawErr) => setAuthError(resolveAuthError(rawErr));
 
@@ -245,6 +267,13 @@ export const useLoginController = () => {
       navigate(from, { replace: true });
     }
   }, [from, isAuthenticated, loading, navigate]);
+
+  useEffect(() => {
+    const inferredCountryCode = resolvePhoneCountryCode(formData.phone, phoneCountryCode || marketCountryCode);
+    if (inferredCountryCode && inferredCountryCode !== phoneCountryCode) {
+      setPhoneCountryCode(inferredCountryCode);
+    }
+  }, [formData.phone, marketCountryCode, phoneCountryCode]);
 
   useEffect(() => {
     if (authAccelerationHydratedRef.current) return;
@@ -335,6 +364,33 @@ export const useLoginController = () => {
     setFormData((prev) => ({
       ...prev,
       [event.target.name]: event.target.value,
+    }));
+    setAuthError(null);
+  };
+
+  const handlePhoneCountryChange = (event) => {
+    const nextCountryCode = resolvePhoneCountryCode('', event.target.value);
+    const nextPhone = buildInternationalPhoneNumber(phoneLocalValue, nextCountryCode);
+
+    setPhoneCountryCode(nextCountryCode);
+    setFormData((prev) => ({
+      ...prev,
+      phone: nextPhone,
+    }));
+    setAuthError(null);
+  };
+
+  const handlePhoneChange = (event) => {
+    const rawPhone = event.target.value;
+    const nextCountryCode = resolvePhoneCountryCode(rawPhone, phoneCountryCode);
+
+    if (nextCountryCode !== phoneCountryCode) {
+      setPhoneCountryCode(nextCountryCode);
+    }
+
+    setFormData((prev) => ({
+      ...prev,
+      phone: buildInternationalPhoneNumber(rawPhone, nextCountryCode),
     }));
     setAuthError(null);
   };
@@ -1276,6 +1332,8 @@ export const useLoginController = () => {
     goBack,
     handleChange,
     handleFeedbackAction,
+    handlePhoneChange,
+    handlePhoneCountryChange,
     handleOtpChange,
     handleOtpKeyDown,
     handleOtpPaste,
@@ -1290,8 +1348,12 @@ export const useLoginController = () => {
     otpRefs,
     otpTransport,
     otpValues,
+    phoneCountryCode,
+    phoneCountryOptions,
+    phoneLocalValue,
     recaptchaContainerRef,
     secureSignals,
+    selectedPhoneCountry,
     setShowPassword,
     showPassword,
     signInWithFacebook,

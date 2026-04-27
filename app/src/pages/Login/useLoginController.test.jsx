@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as React from 'react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
@@ -49,6 +49,30 @@ const SocialSignInProbe = () => {
       <div data-testid="social-error-title">{authError?.title || 'none'}</div>
       <div data-testid="social-error-detail">{authError?.detail || 'none'}</div>
       <div data-testid="social-error-hint">{authError?.hint || 'none'}</div>
+    </>
+  );
+};
+
+const PhoneCountryProbe = () => {
+  const {
+    formData,
+    handlePhoneChange,
+    handlePhoneCountryChange,
+    phoneCountryCode,
+    phoneLocalValue,
+  } = useLoginController();
+
+  return (
+    <>
+      <select aria-label="Country calling code" value={phoneCountryCode} onChange={handlePhoneCountryChange}>
+        <option value="IN">India</option>
+        <option value="GB">United Kingdom</option>
+        <option value="US">United States</option>
+      </select>
+      <input aria-label="Phone Number" value={phoneLocalValue} onChange={handlePhoneChange} />
+      <div data-testid="phone-country">{phoneCountryCode}</div>
+      <div data-testid="phone-local">{phoneLocalValue}</div>
+      <div data-testid="phone-full">{formData.phone}</div>
     </>
   );
 };
@@ -309,5 +333,36 @@ describe('useLoginController', () => {
     });
 
     expect(signInWithGoogle).toHaveBeenCalled();
+  });
+
+  it('keeps phone input international while letting users pick a country code', async () => {
+    render(
+      <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+        <AuthContext.Provider value={buildAuthValue()}>
+          <MemoryRouter initialEntries={['/login']}>
+            <Routes>
+              <Route path="/login" element={<PhoneCountryProbe />} />
+            </Routes>
+          </MemoryRouter>
+        </AuthContext.Provider>
+      </MarketProvider>
+    );
+
+    expect(screen.getByTestId('phone-country')).toHaveTextContent('IN');
+
+    fireEvent.change(screen.getByLabelText('Country calling code'), { target: { value: 'GB' } });
+    fireEvent.change(screen.getByLabelText('Phone Number'), { target: { value: '7911 123456' } });
+
+    expect(screen.getByTestId('phone-country')).toHaveTextContent('GB');
+    expect(screen.getByTestId('phone-local')).toHaveTextContent('7911123456');
+    expect(screen.getByTestId('phone-full')).toHaveTextContent('+447911123456');
+
+    fireEvent.change(screen.getByLabelText('Phone Number'), { target: { value: '+1 202 555 0142' } });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('phone-country')).toHaveTextContent('US');
+      expect(screen.getByTestId('phone-local')).toHaveTextContent('2025550142');
+      expect(screen.getByTestId('phone-full')).toHaveTextContent('+12025550142');
+    });
   });
 });
