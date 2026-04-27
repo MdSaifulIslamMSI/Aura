@@ -44,6 +44,7 @@ const ALLOWED_PURPOSES = ['signup', 'login', 'forgot-password', 'payment-challen
 const ALLOWED_GENDERS = new Set(['male', 'female', 'other', 'prefer-not-to-say', '']);
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_REGEX = /^\+?\d{10,15}$/;
+const PHONE_E164_INPUT_REGEX = /^\+[1-9]\d{7,14}$/;
 const OTP_REGEX = new RegExp(`^\\d{${OTP_LENGTH}}$`);
 const GENERIC_ACCOUNT_DISCOVERY_MESSAGE = 'If an account exists, verification instructions have been sent.';
 const GENERIC_ACCOUNT_RESPONSE_MESSAGE = 'If the account details are valid, we will continue with verification steps.';
@@ -190,6 +191,11 @@ const isLoginAutoRecoverEnabled = () => parseBooleanEnv(
         ? process.env.OTP_LOGIN_AUTO_RECOVER_PROFILE_IN_TEST
         : process.env.OTP_LOGIN_AUTO_RECOVER_PROFILE,
     false
+);
+
+const isInternationalPhoneFormatRequired = () => parseBooleanEnv(
+    process.env.AUTH_REQUIRE_INTERNATIONAL_PHONE_FORMAT,
+    isProductionEnvironment()
 );
 
 const extractClientIp = (req) => {
@@ -581,6 +587,9 @@ const sendOtp = asyncHandler(async (req, res, next) => {
     }
     if (!canonicalPhone) {
         return next(new AppError('Valid phone number is required', 400));
+    }
+    if (isInternationalPhoneFormatRequired() && !PHONE_E164_INPUT_REGEX.test(phone)) {
+        return next(new AppError('Use international phone format with country code, for example +12025550142', 400));
     }
 
     const purposeIsFormatted = rawPurpose === purpose;

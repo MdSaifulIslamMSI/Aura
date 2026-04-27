@@ -78,6 +78,25 @@ describe('OTP API Routes Integration', () => {
             expect(res.statusCode).toBe(400);
         });
 
+        test('should require international phone format when global login mode is enabled', async () => {
+            const originalRequireInternationalPhoneFormat = process.env.AUTH_REQUIRE_INTERNATIONAL_PHONE_FORMAT;
+            process.env.AUTH_REQUIRE_INTERNATIONAL_PHONE_FORMAT = 'true';
+
+            try {
+                const res = await request(app).post('/api/otp/send')
+                    .send({ email: 'global-user@test.com', phone: '9999911111', purpose: 'signup' });
+
+                expect(res.statusCode).toBe(400);
+                expect(res.body.message).toContain('international phone format');
+            } finally {
+                if (originalRequireInternationalPhoneFormat === undefined) {
+                    delete process.env.AUTH_REQUIRE_INTERNATIONAL_PHONE_FORMAT;
+                } else {
+                    process.env.AUTH_REQUIRE_INTERNATIONAL_PHONE_FORMAT = originalRequireInternationalPhoneFormat;
+                }
+            }
+        });
+
         test('should return 200 with generic response for login (indistinguishable)', async () => {
             const u = uniqueUser();
             const res = await request(app).post('/api/otp/send')

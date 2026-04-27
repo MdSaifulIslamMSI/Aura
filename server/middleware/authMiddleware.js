@@ -178,12 +178,29 @@ const resolveDecodedTokenIdentity = async (decodedToken = null) => {
     }
 };
 
+const isProductionEnv = (env = process.env) => String(env.NODE_ENV || '')
+    .trim()
+    .toLowerCase() === 'production';
+
+const resolveAdminAccessPolicy = (env = process.env) => {
+    const productionDefault = isProductionEnv(env);
+
+    return {
+        strictAccessEnabled: parseBooleanEnv(env.ADMIN_STRICT_ACCESS_ENABLED, true),
+        requireEmailVerified: parseBooleanEnv(env.ADMIN_REQUIRE_EMAIL_VERIFIED, true),
+        requireSecondFactor: parseBooleanEnv(env.ADMIN_REQUIRE_2FA, productionDefault),
+        requireAllowlist: parseBooleanEnv(env.ADMIN_REQUIRE_ALLOWLIST, productionDefault),
+        freshLoginMinutes: parsePositiveIntEnv(env.ADMIN_REQUIRE_FRESH_LOGIN_MINUTES, 30),
+    };
+};
+
+const adminAccessPolicy = resolveAdminAccessPolicy();
 const AUTH_REQUIRE_OTP_FOR_ALL_PROTECTED = parseBooleanEnv(process.env.AUTH_REQUIRE_OTP_FOR_ALL_PROTECTED, false);
-const ADMIN_STRICT_ACCESS_ENABLED = parseBooleanEnv(process.env.ADMIN_STRICT_ACCESS_ENABLED, true);
-const ADMIN_REQUIRE_EMAIL_VERIFIED = parseBooleanEnv(process.env.ADMIN_REQUIRE_EMAIL_VERIFIED, true);
-const ADMIN_REQUIRE_2FA = parseBooleanEnv(process.env.ADMIN_REQUIRE_2FA, false);
-const ADMIN_REQUIRE_ALLOWLIST = parseBooleanEnv(process.env.ADMIN_REQUIRE_ALLOWLIST, false);
-const ADMIN_REQUIRE_FRESH_LOGIN_MINUTES = parsePositiveIntEnv(process.env.ADMIN_REQUIRE_FRESH_LOGIN_MINUTES, 30);
+const ADMIN_STRICT_ACCESS_ENABLED = adminAccessPolicy.strictAccessEnabled;
+const ADMIN_REQUIRE_EMAIL_VERIFIED = adminAccessPolicy.requireEmailVerified;
+const ADMIN_REQUIRE_2FA = adminAccessPolicy.requireSecondFactor;
+const ADMIN_REQUIRE_ALLOWLIST = adminAccessPolicy.requireAllowlist;
+const ADMIN_REQUIRE_FRESH_LOGIN_MINUTES = adminAccessPolicy.freshLoginMinutes;
 const SENSITIVE_ACTION_FRESH_LOGIN_MINUTES = parsePositiveIntEnv(process.env.AUTH_SENSITIVE_FRESH_LOGIN_MINUTES, 15);
 const DEGRADED_ACTION_FRESH_LOGIN_MINUTES = parsePositiveIntEnv(process.env.AUTH_DEGRADED_FRESH_LOGIN_MINUTES, 5);
 const REQUIRE_CRYPTO_DEVICE_FOR_SENSITIVE_ACTIONS = parseBooleanEnv(process.env.AUTH_REQUIRE_CRYPTO_DEVICE_FOR_SENSITIVE_ACTIONS, true);
@@ -988,4 +1005,5 @@ module.exports = {
     seller,
     invalidateUserCache,
     invalidateUserCacheByEmail,
+    resolveAdminAccessPolicy,
 };

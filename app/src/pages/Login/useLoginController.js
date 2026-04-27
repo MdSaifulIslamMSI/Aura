@@ -590,7 +590,7 @@ export const useLoginController = () => {
       return false;
     }
     if (!validatePhone(formData.phone)) {
-      setErr({ message: t('login.error.phoneValid', {}, 'Valid phone number is required') });
+      setErr({ message: t('login.error.phoneValid', {}, 'Use international phone format with country code, for example +1 202 555 0142') });
       return false;
     }
     if (mode === 'signup') {
