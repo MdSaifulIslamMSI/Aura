@@ -1,5 +1,7 @@
 const crypto = require('crypto');
 const User = require('../models/User');
+const { getRedisClient, flags: redisFlags, isRedisRequired } = require('../config/redis');
+const logger = require('../utils/logger');
 const {
     flags: trustedDeviceFlags,
     getCurrentTrustedDeviceKeyEntry,
@@ -24,6 +26,25 @@ const DEVICE_SESSION_TTL_MS = Math.max(Number(process.env.AUTH_DEVICE_SESSION_TT
 
 const TOKEN_KEY_DERIVATION_SALT = 'aura-trusted-device-token';
 const BROWSER_KEY_METHOD = 'browser_key';
+const CHALLENGE_REPLAY_PREFIX = `${redisFlags.redisPrefix}:trusted-device:challenge-used:`;
+
+const consumedChallengeMemoryStore = new Map();
+let consumedChallengeCleanup = null;
+
+const scheduleConsumedChallengeCleanup = () => {
+    if (consumedChallengeCleanup) return;
+    consumedChallengeCleanup = setInterval(() => {
+        const now = Date.now();
+        for (const [challengeId, expiresAt] of consumedChallengeMemoryStore.entries()) {
+            if (expiresAt <= now) {
+                consumedChallengeMemoryStore.delete(challengeId);
+            }
+        }
+    }, 60 * 1000);
+    if (typeof consumedChallengeCleanup.unref === 'function') {
+        consumedChallengeCleanup.unref();
+    }
+};
 
 const normalizeDeviceId = (value) => {
     const normalized = String(value || '').trim();
@@ -44,6 +65,11 @@ const normalizeChallengeScope = (value = '') => {
     if (!normalized) return '';
     if (!/^[a-z0-9:_-]{1,64}$/.test(normalized)) return '';
     return normalized;
+};
+
+const normalizeChallengeId = (value = '') => {
+    const normalized = String(value || '').trim();
+    return /^[a-f0-9]{32}$/i.test(normalized) ? normalized.toLowerCase() : '';
 };
 
 const extractTrustedDeviceContext = (req = {}) => ({
@@ -188,6 +214,47 @@ const sealToken = (payload) => {
 
     const encodedToken = encryptPayload(payload, keyEntry.secret);
     return `${keyEntry.version}.${encodedToken}`;
+};
+
+const consumeChallengeOnce = async ({ challengeId = '', expiresAt = 0 } = {}) => {
+    const normalizedChallengeId = normalizeChallengeId(challengeId);
+    if (!normalizedChallengeId) {
+        return { success: false, reason: 'Device challenge replay protection missing' };
+    }
+
+    const expiresAtMs = Number(expiresAt || 0);
+    const ttlMs = Math.max(
+        Number.isFinite(expiresAtMs) && expiresAtMs > Date.now()
+            ? expiresAtMs - Date.now()
+            : DEVICE_CHALLENGE_TTL_MS,
+        1000
+    );
+    const client = getRedisClient();
+
+    if (client) {
+        const result = await client.set(
+            `${CHALLENGE_REPLAY_PREFIX}${normalizedChallengeId}`,
+            '1',
+            { NX: true, PX: ttlMs }
+        );
+        if (result !== 'OK') {
+            return { success: false, reason: 'Device challenge already used' };
+        }
+        return { success: true };
+    }
+
+    if (process.env.NODE_ENV === 'production' || isRedisRequired()) {
+        logger.error('trusted_device.challenge_replay_store_unavailable');
+        return { success: false, reason: 'Device challenge replay protection unavailable' };
+    }
+
+    scheduleConsumedChallengeCleanup();
+    const existingExpiry = consumedChallengeMemoryStore.get(normalizedChallengeId);
+    if (existingExpiry && existingExpiry > Date.now()) {
+        return { success: false, reason: 'Device challenge already used' };
+    }
+    consumedChallengeMemoryStore.set(normalizedChallengeId, Date.now() + ttlMs);
+    return { success: true };
 };
 
 const openToken = (token) => {
@@ -649,6 +716,7 @@ const issueTrustedDeviceChallenge = async ({
         : [preferredMethod];
 
     const token = sealToken({
+        jti: crypto.randomBytes(16).toString('hex'),
         sub: String(user._id),
         challenge,
         mode,
@@ -744,6 +812,14 @@ const verifyTrustedDeviceChallenge = async ({
     const requestedScope = normalizeChallengeScope(expectedScope);
     if (challengeScope && challengeScope !== requestedScope) {
         return { success: false, reason: 'Device challenge scope mismatch' };
+    }
+
+    const replayProtection = await consumeChallengeOnce({
+        challengeId: payload?.jti,
+        expiresAt: payload?.exp,
+    });
+    if (!replayProtection.success) {
+        return { success: false, reason: replayProtection.reason };
     }
 
     const requestedMethod = normalizeChallengeMethod(

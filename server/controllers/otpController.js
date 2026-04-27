@@ -26,6 +26,7 @@ const {
     AUTH_ASSURANCE_ACTIONS,
     requireAuthAssurance,
 } = require('../services/authAssurancePolicyService');
+const { revokeBrowserSessionsForUser } = require('../services/browserSessionService');
 
 const OTP_LENGTH = 6;
 const OTP_EXPIRY_MS = otpEmailFlags.otpEmailTtlMinutes * 60 * 1000;
@@ -47,6 +48,7 @@ const PHONE_REGEX = /^\+?\d{10,15}$/;
 const OTP_REGEX = new RegExp(`^\\d{${OTP_LENGTH}}$`);
 const GENERIC_ACCOUNT_DISCOVERY_MESSAGE = 'If an account exists, verification instructions have been sent.';
 const GENERIC_ACCOUNT_RESPONSE_MESSAGE = 'If the account details are valid, we will continue with verification steps.';
+const GENERIC_ACCOUNT_RESPONSE_MIN_MS = process.env.NODE_ENV === 'test' ? 0 : 350;
 
 const OTP_FIELDS = 'name email phone isAdmin isVerified authAssurance authAssuranceAt trustedDevices +otp +otpExpiry +otpPurpose +otpAttempts +otpLockedUntil';
 const signupIdentifierRateStore = new Map();
@@ -128,6 +130,16 @@ const normalizePurpose = (value) => (
 
 const normalizeOtpFactor = (value) => (
     typeof value === 'string' ? value.trim().toLowerCase() : ''
+);
+
+const shouldMaskOtpVerificationFailure = (purpose = '') => (
+    purpose === 'login' || purpose === 'forgot-password'
+);
+
+const otpVerificationError = (purpose, message, statusCode) => (
+    shouldMaskOtpVerificationFailure(purpose)
+        ? new AppError(GENERIC_OTP_VERIFICATION_MESSAGE, 401)
+        : new AppError(message, statusCode)
 );
 
 const buildOtpFlowSignalBond = ({ req = {}, session = null, purpose = '' } = {}) => {
@@ -239,10 +251,31 @@ const computeSignupIdentifierRateState = ({ email, phone }) => {
 
 const sendGenericOtpResponse = (res) => res.json({ success: true, message: GENERIC_ACCOUNT_DISCOVERY_MESSAGE });
 
-const sendGenericAccountFlowResponse = (res) => res.status(200).json({
-    success: true,
-    message: GENERIC_ACCOUNT_RESPONSE_MESSAGE,
-});
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const waitForGenericAccountResponseWindow = async (startedAt) => {
+    const elapsedMs = Date.now() - startedAt;
+    const remainingMs = GENERIC_ACCOUNT_RESPONSE_MIN_MS - elapsedMs;
+    if (remainingMs > 0) {
+        await wait(remainingMs);
+    }
+};
+
+const sendGenericAccountFlowResponse = async (res, startedAt = Date.now()) => {
+    await waitForGenericAccountResponseWindow(startedAt);
+    return res.status(200).json({
+        success: true,
+        message: GENERIC_ACCOUNT_RESPONSE_MESSAGE,
+    });
+};
+
+const sendGenericAccountDiscoveryResponse = async (res, startedAt = Date.now()) => {
+    await waitForGenericAccountResponseWindow(startedAt);
+    return res.status(200).json({
+        success: true,
+        message: GENERIC_ACCOUNT_DISCOVERY_MESSAGE,
+    });
+};
 
 const isOtpSessionStorageUnavailableError = (error) => (
     String(error?.message || '').toLowerCase().includes('cannot create a new collection')
@@ -535,6 +568,7 @@ const sendOtp = asyncHandler(async (req, res, next) => {
     const rawStrictIdentity = req.body?.strictIdentity;
     const clientIp = extractClientIp(req);
     const requestId = req.requestId || '-';
+    const responseStartedAt = Date.now();
 
     if (rawEmail === undefined || rawEmail === null || rawEmail === '') {
         return next(new AppError('Email is required', 400));
@@ -616,7 +650,7 @@ const sendOtp = asyncHandler(async (req, res, next) => {
             success: true,
             reason,
         });
-        return res.json({ success: true, message: GENERIC_ACCOUNT_RESPONSE_MESSAGE });
+        return sendGenericAccountFlowResponse(res, responseStartedAt);
     };
 
     if (purpose === 'signup') {
@@ -665,10 +699,10 @@ const sendOtp = asyncHandler(async (req, res, next) => {
                 purpose,
                 ip: clientIp,
                 requestId,
-                success: false,
+                success: true,
                 reason: `${field} already exists`,
             });
-            return next(new AppError(`An account with this ${field} already exists. Please sign in.`, 409));
+            return sendGenericAccountFlowResponse(res, responseStartedAt);
         }
 
         try {
@@ -695,7 +729,16 @@ const sendOtp = asyncHandler(async (req, res, next) => {
             );
         } catch (createError) {
             if (createError?.code === 11000) {
-                return next(new AppError('Account already exists. Please sign in.', 409));
+                audit('SEND_BLOCKED', {
+                    phone: canonicalPhone,
+                    email,
+                    purpose,
+                    ip: clientIp,
+                    requestId,
+                    success: true,
+                    reason: 'duplicate signup identifier',
+                });
+                return sendGenericAccountFlowResponse(res, responseStartedAt);
             }
             throw createError;
         }
@@ -929,7 +972,6 @@ const sendOtp = asyncHandler(async (req, res, next) => {
     const smsTarget = canonicalPhone;
     let emailDelivered = false;
     let smsDelivered = false;
-    let mobileChannel = 'sms';
     const shouldSendSms = !skipSms && shouldAttemptSmsSend();
 
     if (shouldAttemptEmailSend()) {
@@ -976,7 +1018,7 @@ const sendOtp = asyncHandler(async (req, res, next) => {
 
     if (shouldSendSms) {
         try {
-            const smsResult = await sendOtpSms({
+            await sendOtpSms({
                 toPhone: smsTarget,
                 otp: otpPlain,
                 purpose,
@@ -988,7 +1030,6 @@ const sendOtp = asyncHandler(async (req, res, next) => {
                     location: String(req.headers['x-client-location'] || '').trim(),
                 },
             });
-            mobileChannel = String(smsResult?.channel || 'sms').toLowerCase() === 'whatsapp' ? 'whatsapp' : 'sms';
             smsDelivered = true;
         } catch (smsError) {
             const failReason = smsError?.message || 'OTP SMS delivery failed';
@@ -1053,24 +1094,8 @@ const sendOtp = asyncHandler(async (req, res, next) => {
         });
     }
 
-    const mobileDestination = mobileChannel === 'whatsapp'
-        ? `${phone} on WhatsApp`
-        : phone;
-    const deliveryLabel = emailDelivered && smsDelivered
-        ? `${email} and ${mobileDestination}`
-        : emailDelivered
-            ? email
-            : smsDelivered
-                ? mobileDestination
-                : `${email} and ${phone}`;
-
     audit('SEND_OK', { phone, email, purpose, ip: clientIp, requestId, success: true });
-    res.json({
-        success: true,
-        message: purpose === 'login' || purpose === 'forgot-password'
-            ? GENERIC_ACCOUNT_RESPONSE_MESSAGE
-            : `If deliverable, the OTP has been sent to ${deliveryLabel}.`,
-    });
+    return sendGenericAccountFlowResponse(res, responseStartedAt);
 });
 
 /**
@@ -1166,7 +1191,7 @@ const verifyOtp = asyncHandler(async (req, res, next) => {
 
     if (!user) {
         audit('VERIFY_404', { phone, purpose, ip: clientIp, requestId, success: false, reason: 'user not found' });
-        return next(new AppError('No account found with this phone number', 404));
+        return next(otpVerificationError(purpose, 'No account found with this phone number', 404));
     }
 
     if (email && normalizeEmail(user.email) !== email) {
@@ -1178,7 +1203,7 @@ const verifyOtp = asyncHandler(async (req, res, next) => {
             success: false,
             reason: 'email mismatch',
         });
-        return next(new AppError('OTP identity mismatch for email.', 403));
+        return next(otpVerificationError(purpose, 'OTP identity mismatch for email.', 403));
     }
 
     if (userId && String(user._id) !== userId) {
@@ -1190,7 +1215,7 @@ const verifyOtp = asyncHandler(async (req, res, next) => {
             success: false,
             reason: 'userId mismatch',
         });
-        return next(new AppError('OTP identity mismatch for user.', 403));
+        return next(otpVerificationError(purpose, 'OTP identity mismatch for user.', 403));
     }
 
     let session = null;
@@ -1214,7 +1239,7 @@ const verifyOtp = asyncHandler(async (req, res, next) => {
                 success: false,
                 reason: `expected ${user.otpPurpose}`,
             });
-            return next(new AppError('OTP purpose mismatch. Please request a new OTP.', 400));
+            return next(otpVerificationError(purpose, 'OTP purpose mismatch. Please request a new OTP.', 400));
         }
 
         if (user.otpLockedUntil && new Date() < user.otpLockedUntil) {
@@ -1227,7 +1252,8 @@ const verifyOtp = asyncHandler(async (req, res, next) => {
                 success: false,
                 reason: `legacy lock ${minutesLeft}min`,
             });
-            return next(new AppError(
+            return next(otpVerificationError(
+                purpose,
                 `Too many failed attempts. Account locked for ${minutesLeft} more minute(s). Please try again later.`,
                 423
             ));
@@ -1285,12 +1311,12 @@ const verifyOtp = asyncHandler(async (req, res, next) => {
                 success: false,
                 reason: `expected ${anySession.purpose}`,
             });
-            return next(new AppError('OTP purpose mismatch. Please request a new OTP.', 400));
+            return next(otpVerificationError(purpose, 'OTP purpose mismatch. Please request a new OTP.', 400));
         }
 
         audit('VERIFY_EXPIRED', { phone, purpose, ip: clientIp, requestId, success: false, reason: 'OTP expired/missing' });
         await clearUserOtpStateByUserId(user._id);
-        return next(new AppError('OTP has expired. Please request a new one.', 410));
+        return next(otpVerificationError(purpose, 'OTP has expired. Please request a new one.', 410));
     }
 
     if (session.user && String(session.user) !== String(user._id)) {
@@ -1302,13 +1328,14 @@ const verifyOtp = asyncHandler(async (req, res, next) => {
             success: false,
             reason: 'otp session not linked to user',
         });
-        return next(new AppError('OTP session identity mismatch.', 403));
+        return next(otpVerificationError(purpose, 'OTP session identity mismatch.', 403));
     }
 
     if (session.lockedUntil && new Date() < session.lockedUntil) {
         const minutesLeft = Math.ceil((new Date(session.lockedUntil).getTime() - Date.now()) / 60000);
         audit('VERIFY_LOCKED', { phone, purpose, ip: clientIp, requestId, success: false, reason: `locked ${minutesLeft}min` });
-        return next(new AppError(
+        return next(otpVerificationError(
+            purpose,
             `Too many failed attempts. Account locked for ${minutesLeft} more minute(s). Please try again later.`,
             423
         ));
@@ -1318,7 +1345,7 @@ const verifyOtp = asyncHandler(async (req, res, next) => {
         await clearOtpSession({ identityKey: canonicalPhone, purpose });
         await clearUserOtpStateByUserId(user._id);
         audit('VERIFY_EXPIRED', { phone, purpose, ip: clientIp, requestId, success: false, reason: 'OTP expired' });
-        return next(new AppError('OTP has expired. Please request a new one.', 410));
+        return next(otpVerificationError(purpose, 'OTP has expired. Please request a new one.', 410));
     }
 
     const isMatch = session.otpHash ? await compareOtp(otp, session.otpHash) : false;
@@ -1352,7 +1379,8 @@ const verifyOtp = asyncHandler(async (req, res, next) => {
                 reason: `locked after ${newAttempts} attempts`,
             });
 
-            return next(new AppError(
+            return next(otpVerificationError(
+                purpose,
                 `Too many failed attempts (${newAttempts}/${MAX_OTP_ATTEMPTS}). Account locked for 15 minutes.`,
                 423
             ));
@@ -1381,7 +1409,8 @@ const verifyOtp = asyncHandler(async (req, res, next) => {
             success: false,
             reason: `attempt ${newAttempts}/${MAX_OTP_ATTEMPTS}`,
         });
-        return next(new AppError(
+        return next(otpVerificationError(
+            purpose,
             `Invalid OTP. Please check and try again. ${remaining} attempt(s) remaining.`,
             401
         ));
@@ -1632,10 +1661,9 @@ const resetPasswordWithOtp = asyncHandler(async (req, res, next) => {
         nextStep: verifiedFlow.nextStep,
     });
 
+    let authUser = null;
     try {
-        const authUser = await firebaseAdmin.auth().getUserByEmail(email);
-        await firebaseAdmin.auth().updateUser(authUser.uid, { password });
-        await firebaseAdmin.auth().revokeRefreshTokens(authUser.uid);
+        authUser = await firebaseAdmin.auth().getUserByEmail(email);
     } catch (error) {
         if (error?.code === 'auth/user-not-found') {
             audit('RESET_PASSWORD_REJECTED', {
@@ -1650,6 +1678,22 @@ const resetPasswordWithOtp = asyncHandler(async (req, res, next) => {
             return next(new AppError('Password reset account is not ready. Please contact support.', 404));
         }
 
+        logger.error('otp.reset_password_lookup_failed', {
+            email: maskEmail(email),
+            phone: maskPhoneSuffix(phone),
+            requestId,
+            error: error?.message || 'unknown',
+            code: error?.code || '',
+        });
+
+        return next(new AppError('Unable to update password right now. Please try again shortly.', 503));
+    }
+
+    try {
+        await revokeBrowserSessionsForUser(user._id);
+        await firebaseAdmin.auth().updateUser(authUser.uid, { password });
+        await firebaseAdmin.auth().revokeRefreshTokens(authUser.uid);
+    } catch (error) {
         logger.error('otp.reset_password_failed', {
             email: maskEmail(email),
             phone: maskPhoneSuffix(phone),
@@ -1710,6 +1754,7 @@ const checkUserExists = asyncHandler(async (req, res, next) => {
     const rawPhone = req.body?.phone;
     const clientIp = extractClientIp(req);
     const requestId = req.requestId || '-';
+    const responseStartedAt = Date.now();
 
     if (rawPhone === undefined || rawPhone === null || rawPhone === '') {
         return next(new AppError('Phone number is required', 400));
@@ -1769,7 +1814,7 @@ const checkUserExists = asyncHandler(async (req, res, next) => {
         reason: userExists ? 'verified user exists' : reason,
     });
 
-    return res.json({ success: true, message: GENERIC_ACCOUNT_DISCOVERY_MESSAGE });
+    return sendGenericAccountDiscoveryResponse(res, responseStartedAt);
 });
 
 module.exports = { sendOtp, verifyOtp, resetPasswordWithOtp, checkUserExists };

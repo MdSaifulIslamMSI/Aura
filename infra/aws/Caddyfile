@@ -1,0 +1,14 @@
+{$AURA_BACKEND_PUBLIC_HOST} {
+	encode gzip zstd
+
+	header {
+		-Server
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "no-referrer"
+		Cross-Origin-Opener-Policy "same-origin-allow-popups"
+		Cross-Origin-Resource-Policy "same-site"
+	}
+
+	reverse_proxy api:5000
+}

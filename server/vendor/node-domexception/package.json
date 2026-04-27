@@ -1,0 +1,7 @@
+{
+  "name": "node-domexception",
+  "version": "1.0.0",
+  "description": "Local native DOMException bridge for Node runtimes.",
+  "main": "index.js",
+  "license": "MIT"
+}

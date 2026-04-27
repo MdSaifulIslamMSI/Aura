@@ -2,45 +2,56 @@
   command = "npm run build --prefix app"
   publish = "app/dist"
 
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Content-Security-Policy = "default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; script-src 'self' https://apis.google.com https://accounts.google.com https://checkout.razorpay.com https://www.google.com https://www.gstatic.com https://www.recaptcha.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https: wss:; frame-src 'self' https://accounts.google.com https://checkout.razorpay.com https://www.google.com https://www.recaptcha.net https://*.firebaseapp.com https://*.web.app https://app.powerbi.com; worker-src 'self' blob:; manifest-src 'self'; frame-ancestors 'none'"
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "no-referrer"
+    Cross-Origin-Opener-Policy = "same-origin-allow-popups"
+    Cross-Origin-Resource-Policy = "same-site"
+    Permissions-Policy = "camera=(self), microphone=(self), geolocation=(), payment=(self), usb=(), serial=(), bluetooth=()"
+
 [[redirects]]
   from = "/socket.io"
-  to = "http://3.109.181.238:5000/socket.io/"
+  to = "https://3.109.181.238.sslip.io/socket.io/"
   status = 200
   force = true
 
 [[redirects]]
   from = "/socket.io/*"
-  to = "http://3.109.181.238:5000/socket.io/:splat"
+  to = "https://3.109.181.238.sslip.io/socket.io/:splat"
   status = 200
   force = true
 
 [[redirects]]
   from = "/api/*"
-  to = "http://3.109.181.238:5000/api/:splat"
+  to = "https://3.109.181.238.sslip.io/api/:splat"
   status = 200
   force = true
 
 [[redirects]]
   from = "/health"
-  to = "http://3.109.181.238:5000/health"
+  to = "https://3.109.181.238.sslip.io/health"
   status = 200
   force = true
 
 [[redirects]]
   from = "/health/ready"
-  to = "http://3.109.181.238:5000/health/ready"
+  to = "https://3.109.181.238.sslip.io/health/ready"
   status = 200
   force = true
 
 [[redirects]]
   from = "/health/live"
-  to = "http://3.109.181.238:5000/health/live"
+  to = "https://3.109.181.238.sslip.io/health/live"
   status = 200
   force = true
 
 [[redirects]]
   from = "/uploads/*"
-  to = "http://3.109.181.238:5000/uploads/:splat"
+  to = "https://3.109.181.238.sslip.io/uploads/:splat"
   status = 200
   force = true
 

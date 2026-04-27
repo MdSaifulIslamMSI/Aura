@@ -2,11 +2,16 @@ import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { buildHostedBackendRewrites, HOSTED_BACKEND_ORIGIN } from '../config/vercelRoutingContract.mjs';
+import {
+    buildFrontendSecurityHeaders,
+    buildHostedBackendRewrites,
+    HOSTED_BACKEND_ORIGIN,
+} from '../config/vercelRoutingContract.mjs';
 
 const currentDirectory = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(currentDirectory, '..', '..');
 const sharedRewrites = buildHostedBackendRewrites(HOSTED_BACKEND_ORIGIN);
+const sharedHeaders = buildFrontendSecurityHeaders();
 
 const targets = [
     path.join(repoRoot, 'vercel.json'),
@@ -17,6 +22,7 @@ for (const target of targets) {
     const currentConfig = JSON.parse(await readFile(target, 'utf8'));
     const nextConfig = {
         ...currentConfig,
+        headers: sharedHeaders,
         rewrites: sharedRewrites,
     };
 

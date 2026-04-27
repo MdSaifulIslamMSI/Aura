@@ -257,20 +257,28 @@ describe('POST /api/otp/send — Signup Flow', () => {
         expect(dbUser.otpAttempts).toBe(0);
     });
 
-    test('26. 409 when email already verified', async () => {
+    test('26. generic 200 when email already verified', async () => {
         const existing = await seedVerified();
         const u = uniqueUser();
         const res = await request(app).post('/api/otp/send')
             .send({ email: existing.email, phone: u.phone, purpose: 'signup' });
-        expect(res.statusCode).toBe(409);
+        expect(res.statusCode).toBe(200);
+        expect(res.body).toEqual({
+            success: true,
+            message: 'If the account details are valid, we will continue with verification steps.'
+        });
     });
 
-    test('27. 409 when phone already verified', async () => {
+    test('27. generic 200 when phone already verified', async () => {
         const existing = await seedVerified();
         const u = uniqueUser();
         const res = await request(app).post('/api/otp/send')
             .send({ email: u.email, phone: existing.phone, purpose: 'signup' });
-        expect(res.statusCode).toBe(409);
+        expect(res.statusCode).toBe(200);
+        expect(res.body).toEqual({
+            success: true,
+            message: 'If the account details are valid, we will continue with verification steps.'
+        });
     });
 
     test('28. re-signup reuses pending record without creating duplicates', async () => {
@@ -322,11 +330,11 @@ describe('POST /api/otp/send — Signup Flow', () => {
         expect(otherPending).not.toBeNull();
     });
 
-    test('29. response message contains email', async () => {
+    test('29. response message is generic', async () => {
         const u = uniqueUser();
         const res = await request(app).post('/api/otp/send')
             .send({ email: u.email, phone: u.phone, purpose: 'signup' });
-        expect(res.body.message).toContain(u.email);
+        expect(res.body.message).toBe('If the account details are valid, we will continue with verification steps.');
     });
 
     test('30. response has success:true', async () => {
@@ -374,12 +382,14 @@ describe('POST /api/otp/send — Signup Flow', () => {
         expect([r1.statusCode, r2.statusCode]).toContain(200);
     });
 
-    test('35. 409 message specifies "email"', async () => {
+    test('35. signup response does not disclose duplicate email state', async () => {
         const existing = await seedVerified();
         const u = uniqueUser();
         const res = await request(app).post('/api/otp/send')
             .send({ email: existing.email, phone: u.phone, purpose: 'signup' });
-        expect(res.body.message).toMatch(/email/i);
+        expect(res.statusCode).toBe(200);
+        expect(res.body.message).toBe('If the account details are valid, we will continue with verification steps.');
+        expect(res.body.message).not.toContain(existing.email);
     });
 });
 
@@ -545,15 +555,18 @@ describe('POST /api/otp/send — Login & Forgot Password', () => {
         expect(res.body.message).toContain('No verified account found');
     });
 
-    test('50d. signup rejects an existing verified phone even when stored in a different format', async () => {
+    test('50d. signup masks an existing verified phone even when stored in a different format', async () => {
         await seedVerified({ phone: '9876543210' });
         const duplicate = uniqueUser();
 
         const res = await request(app).post('/api/otp/send')
             .send({ email: duplicate.email, phone: '+919876543210', purpose: 'signup' });
 
-        expect(res.statusCode).toBe(409);
-        expect(res.body.message).toContain('phone number already exists');
+        expect(res.statusCode).toBe(200);
+        expect(res.body).toEqual({
+            success: true,
+            message: 'If the account details are valid, we will continue with verification steps.'
+        });
     });
 });
 
@@ -607,11 +620,11 @@ describe('POST /api/otp/verify', () => {
         expect(res.statusCode).toBe(410);
     });
 
-    test('58. 400 for purpose mismatch', async () => {
+    test('58. 401 for masked purpose mismatch during login verification', async () => {
         const { user } = await seedPending({ otp: '111111', otpPurpose: 'signup' });
         const res = await request(app).post('/api/otp/verify')
             .send({ phone: user.phone, otp: '111111', purpose: 'login' });
-        expect(res.statusCode).toBe(400);
+        expect(res.statusCode).toBe(401);
     });
 
     test('59. 200 with bcrypt-verified OTP', async () => {
@@ -867,24 +880,24 @@ describe('POST /api/otp/verify', () => {
         expect(updated.resetOtpVerifiedAt).toBeNull();
     });
 
-    test('75d. verification rejects email identity mismatch linkage', async () => {
+    test('75d. verification masks email identity mismatch linkage during login', async () => {
         const one = await seedVerified({ otp: '616161', otpPurpose: 'login' });
         const two = await seedVerified();
 
         const res = await request(app).post('/api/otp/verify')
             .send({ phone: one.phone, email: two.email, otp: '616161', purpose: 'login' });
 
-        expect(res.statusCode).toBe(403);
+        expect(res.statusCode).toBe(401);
     });
 
-    test('75e. verification rejects userId identity mismatch linkage', async () => {
+    test('75e. verification masks userId identity mismatch linkage during recovery', async () => {
         const one = await seedVerified({ otp: '717171', otpPurpose: 'forgot-password' });
         const two = await seedVerified();
 
         const res = await request(app).post('/api/otp/verify')
             .send({ phone: one.phone, userId: String(two._id), otp: '717171', purpose: 'forgot-password' });
 
-        expect(res.statusCode).toBe(403);
+        expect(res.statusCode).toBe(401);
     });
 
 

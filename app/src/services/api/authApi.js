@@ -267,6 +267,29 @@ export const authApi = {
     },
     logoutSession: async (options = {}) => {
         const headers = await getAuthHeader(options.firebaseUser);
+        const hasBearerAuth = Boolean(headers?.Authorization || headers?.authorization);
+        if (!hasBearerAuth) {
+            try {
+                const data = await postWithFreshCsrf('/auth/logout', {}, {
+                    csrfOwner: 'cookie_session',
+                    disableSessionExchangeOnUnauthorized: true,
+                    useFirebaseBearer: false,
+                });
+                clearCsrfTokenCache();
+                return data;
+            } catch (error) {
+                if (!isMissingCookieSessionError(error)) {
+                    throw error;
+                }
+                const { data } = await apiFetch('/auth/logout', {
+                    method: 'POST',
+                    headers,
+                });
+                clearCsrfTokenCache();
+                return data;
+            }
+        }
+
         const { data } = await apiFetch('/auth/logout', {
             method: 'POST',
             headers,

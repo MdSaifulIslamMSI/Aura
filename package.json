@@ -24,6 +24,16 @@
     "desktop:dist:mac": "npm run desktop:frontend:build && electron-builder --mac dmg zip --x64 --arm64",
     "desktop:dist:linux": "npm run desktop:frontend:build && electron-builder --linux AppImage deb rpm tar.gz --x64 --arm64",
     "desktop:dist:portable": "npm run desktop:frontend:build && electron-builder --win portable --x64",
+    "security:deprecated": "node scripts/check-lockfile-deprecations.js",
+    "security:audit:root": "npm audit --omit=dev --audit-level=low",
+    "security:audit:app": "npm --prefix app audit --omit=dev --audit-level=low",
+    "security:audit:server": "npm --prefix server audit --omit=dev --audit-level=low",
+    "security:audit": "npm run security:audit:root && npm run security:audit:app && npm run security:audit:server",
+    "security:prod-env-audit": "node server/scripts/audit_login_production_env_contract.js",
+    "security:prod-live-smoke": "node scripts/smoke-production-login.mjs",
+    "security:attack-smoke": "npm --prefix server test -- --runTestsByPath tests/loginAttackSmoke.test.js",
+    "security:auth-tests": "npm --prefix server test -- --runTestsByPath tests/authRoutes.integration.test.js tests/otpRoutes.test.js tests/authMiddleware.cookie.test.js tests/browserSessionService.test.js tests/trustedDeviceChallengeService.test.js tests/authSessionService.test.js tests/csrfMiddleware.test.js tests/distributedRateLimit.test.js tests/authRecoveryCodeService.test.js tests/authMiddleware.admin.test.js",
+    "security:login-gates": "npm run security:deprecated && npm run security:audit && npm run security:prod-env-audit && npm run security:attack-smoke && npm run security:auth-tests",
     "mobile:doctor": "npm --prefix app run mobile:doctor",
     "mobile:sync": "npm --prefix app run mobile:sync",
     "mobile:sync:android": "npm --prefix app run mobile:sync:android",
@@ -37,6 +47,17 @@
   "devDependencies": {
     "electron": "^37.2.1",
     "electron-builder": "^26.0.12"
+  },
+  "overrides": {
+    "@electron/asar": "^4.2.0",
+    "@electron/get": "^5.0.0",
+    "@electron/rebuild": "^4.0.4",
+    "cacache": "^20.0.4",
+    "glob": "^13.0.6",
+    "lodash.isequal": "npm:fast-deep-equal@^3.1.3",
+    "make-fetch-happen": "^15.0.5",
+    "node-gyp": "^12.3.0",
+    "rimraf": "^6.1.3"
   },
   "build": {
     "appId": "com.aura.marketplace.desktop",

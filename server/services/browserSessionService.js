@@ -35,7 +35,18 @@ const parseBooleanEnv = (value, fallback = false) => {
     return fallback;
 };
 
+const isMemorySessionFallbackAllowed = () => parseBooleanEnv(
+    process.env.AUTH_SESSION_ALLOW_MEMORY_FALLBACK,
+    !IS_PRODUCTION
+);
+
+const shouldSetSecureSessionCookie = () => parseBooleanEnv(
+    process.env.AUTH_SESSION_COOKIE_SECURE,
+    IS_PRODUCTION
+);
+
 const normalizeText = (value) => (typeof value === 'string' ? value.trim() : '');
+const normalizeUserId = (value) => String(value || '').trim();
 
 const normalizeHost = (value = '') => String(value || '')
     .trim()
@@ -206,7 +217,11 @@ const parseCookies = (cookieHeader = '') => String(cookieHeader || '')
         const key = pair.slice(0, separatorIndex).trim();
         const value = pair.slice(separatorIndex + 1).trim();
         if (!key) return accumulator;
-        accumulator[key] = decodeURIComponent(value);
+        try {
+            accumulator[key] = decodeURIComponent(value);
+        } catch {
+            accumulator[key] = value;
+        }
         return accumulator;
     }, {});
 
@@ -247,11 +262,16 @@ const serializeCookie = (name, value, options = {}) => {
 };
 
 const isSecureRequest = (req = {}) => {
-    if (parseBooleanEnv(process.env.AUTH_SESSION_COOKIE_SECURE, IS_PRODUCTION)) {
-        const forwardedProto = String(req.headers?.['x-forwarded-proto'] || '').trim().toLowerCase();
-        return Boolean(req.secure || forwardedProto === 'https');
+    if (!shouldSetSecureSessionCookie()) {
+        return false;
     }
-    return false;
+
+    if (IS_PRODUCTION) {
+        return true;
+    }
+
+    const forwardedProto = String(req.headers?.['x-forwarded-proto'] || '').trim().toLowerCase();
+    return Boolean(req.secure || forwardedProto === 'https');
 };
 
 const resolveRequestProtocol = (req = {}) => {
@@ -332,7 +352,24 @@ const deleteMemorySessionRecord = (sessionId = '') => {
     inMemorySessionStore.delete(String(sessionId || ''));
 };
 
-const getStorageMode = () => (getRedisClient() ? 'redis' : 'memory');
+const deleteMemorySessionRecordsForUser = (userId = '') => {
+    const normalizedUserId = normalizeUserId(userId);
+    if (!normalizedUserId) return 0;
+
+    let revoked = 0;
+    for (const [sessionId, entry] of inMemorySessionStore.entries()) {
+        if (normalizeUserId(entry?.record?.userId) === normalizedUserId) {
+            inMemorySessionStore.delete(sessionId);
+            revoked += 1;
+        }
+    }
+    return revoked;
+};
+
+const getStorageMode = () => {
+    if (getRedisClient()) return 'redis';
+    return isMemorySessionFallbackAllowed() ? 'memory' : 'unavailable';
+};
 
 const calculateTtlSeconds = (record = {}) => {
     const now = Date.now();
@@ -351,6 +388,14 @@ const persistSessionRecord = async (record = {}) => {
         writeMemorySessionRecord(record);
         return record;
     }
+    if (storageMode === 'unavailable') {
+        const error = new Error('Browser session store unavailable');
+        error.code = 'AUTH_SESSION_STORE_UNAVAILABLE';
+        logger.error('browser_session.store_unavailable', {
+            sessionId: String(record.sessionId || '').trim(),
+        });
+        throw error;
+    }
 
     const redisClient = getRedisClient();
     const normalizedSessionId = String(record.sessionId || '').trim();
@@ -360,6 +405,13 @@ const persistSessionRecord = async (record = {}) => {
         deleteMemorySessionRecord(normalizedSessionId);
         return record;
     } catch (error) {
+        if (!isMemorySessionFallbackAllowed()) {
+            logger.error('browser_session.persist_failed_no_fallback', {
+                sessionId: normalizedSessionId,
+                error: error?.message || 'unknown',
+            });
+            throw error;
+        }
         logger.warn('browser_session.persist_failed_memory_fallback', {
             sessionId: normalizedSessionId,
             error: error?.message || 'unknown',
@@ -378,18 +430,28 @@ const loadSessionRecord = async (sessionId = '') => {
 
     if (storageMode === 'memory') {
         record = readMemorySessionRecord(normalizedSessionId);
+    } else if (storageMode === 'unavailable') {
+        logger.error('browser_session.store_unavailable_read', {
+            sessionId: normalizedSessionId,
+        });
+        return null;
     } else {
         try {
             const raw = await getRedisClient().get(getRedisKey(normalizedSessionId));
             record = raw ? JSON.parse(raw) : null;
         } catch (error) {
-            logger.warn('browser_session.read_failed', {
+            const logPayload = {
                 sessionId: normalizedSessionId,
                 error: error?.message || 'unknown',
-            });
+            };
+            if (!isMemorySessionFallbackAllowed()) {
+                logger.error('browser_session.read_failed_no_fallback', logPayload);
+                return null;
+            }
+            logger.warn('browser_session.read_failed', logPayload);
         }
 
-        if (!record) {
+        if (!record && isMemorySessionFallbackAllowed()) {
             record = readMemorySessionRecord(normalizedSessionId);
         }
     }
@@ -540,17 +602,80 @@ async function revokeBrowserSession(sessionId = '') {
 
     deleteMemorySessionRecord(normalizedSessionId);
 
-    if (getStorageMode() === 'memory') {
+    const storageMode = getStorageMode();
+    if (storageMode === 'memory' || storageMode === 'unavailable') {
         return;
     }
 
     try {
         await getRedisClient().del(getRedisKey(normalizedSessionId));
     } catch (error) {
-        logger.warn('browser_session.revoke_failed', {
+        const logPayload = {
             sessionId: normalizedSessionId,
             error: error?.message || 'unknown',
-        });
+        };
+        if (!isMemorySessionFallbackAllowed()) {
+            logger.error('browser_session.revoke_failed_no_fallback', logPayload);
+            throw error;
+        }
+        logger.warn('browser_session.revoke_failed', logPayload);
+    }
+}
+
+async function revokeBrowserSessionsForUser(userId = '') {
+    const normalizedUserId = normalizeUserId(userId);
+    if (!normalizedUserId) return { revoked: 0 };
+
+    let revoked = deleteMemorySessionRecordsForUser(normalizedUserId);
+    const storageMode = getStorageMode();
+    if (storageMode === 'memory') {
+        return { revoked };
+    }
+    if (storageMode === 'unavailable') {
+        const error = new Error('Browser session store unavailable');
+        error.code = 'AUTH_SESSION_STORE_UNAVAILABLE';
+        logger.error('browser_session.revoke_user_unavailable', { userId: normalizedUserId });
+        throw error;
+    }
+
+    const redisClient = getRedisClient();
+    const keysToDelete = [];
+
+    try {
+        if (typeof redisClient.scanIterator !== 'function') {
+            throw new Error('Redis scanIterator is unavailable');
+        }
+
+        for await (const key of redisClient.scanIterator({ MATCH: `${SESSION_PREFIX}*`, COUNT: 100 })) {
+            const raw = await redisClient.get(key);
+            if (!raw) continue;
+            let record = null;
+            try {
+                record = JSON.parse(raw);
+            } catch {
+                continue;
+            }
+            if (normalizeUserId(record?.userId) === normalizedUserId) {
+                keysToDelete.push(key);
+            }
+        }
+
+        if (keysToDelete.length > 0) {
+            await redisClient.del(keysToDelete);
+            revoked += keysToDelete.length;
+        }
+        return { revoked };
+    } catch (error) {
+        const logPayload = {
+            userId: normalizedUserId,
+            error: error?.message || 'unknown',
+        };
+        if (!isMemorySessionFallbackAllowed()) {
+            logger.error('browser_session.revoke_user_failed_no_fallback', logPayload);
+            throw error;
+        }
+        logger.warn('browser_session.revoke_user_failed', logPayload);
+        return { revoked };
     }
 }
 
@@ -710,6 +835,7 @@ module.exports = {
     resolveSessionIdFromCookieHeader,
     resolveSessionIdFromRequest,
     revokeBrowserSession,
+    revokeBrowserSessionsForUser,
     rotateBrowserSession,
     setBrowserSessionCookie,
     touchBrowserSession,

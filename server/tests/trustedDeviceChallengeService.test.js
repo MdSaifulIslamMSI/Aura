@@ -318,6 +318,101 @@ describe('trustedDeviceChallengeService', () => {
         });
     });
 
+    test('rejects browser-key trusted-device challenge replay', async () => {
+        let service;
+        const dbState = { trustedDevices: [] };
+        const userId = '507f1f77bcf86cd799439111';
+        const deviceId = 'device_replay_123456';
+        const authContext = {
+            authUid: 'firebase-uid-replay',
+            authToken: { iat: 1710000001 },
+        };
+
+        jest.isolateModules(() => {
+            jest.doMock('../models/User', () => ({
+                findById: jest.fn().mockReturnValue({
+                    lean: jest.fn().mockResolvedValue({
+                        _id: userId,
+                        trustedDevices: dbState.trustedDevices,
+                    }),
+                }),
+                updateOne: jest.fn().mockImplementation(async (_filter, update) => {
+                    dbState.trustedDevices = update.$set.trustedDevices;
+                    return { acknowledged: true, modifiedCount: 1 };
+                }),
+            }));
+
+            service = require('../services/trustedDeviceChallengeService');
+        });
+
+        const { publicKey, privateKey } = crypto.generateKeyPairSync('rsa', {
+            modulusLength: 2048,
+            publicKeyEncoding: { format: 'der', type: 'spki' },
+            privateKeyEncoding: { format: 'pem', type: 'pkcs8' },
+        });
+        const publicKeySpkiBase64 = Buffer.from(publicKey).toString('base64');
+
+        const enrollChallenge = await service.issueTrustedDeviceChallenge({
+            user: { _id: userId, trustedDevices: [] },
+            deviceId,
+            deviceLabel: 'Replay laptop',
+            ...authContext,
+        });
+
+        const enrollResult = await service.verifyTrustedDeviceChallenge({
+            user: { _id: userId, trustedDevices: [] },
+            token: enrollChallenge.token,
+            proof: createRsaProof({
+                challenge: enrollChallenge.challenge,
+                mode: enrollChallenge.mode,
+                deviceId,
+                privateKeyPem: privateKey,
+            }),
+            publicKeySpkiBase64,
+            deviceId,
+            deviceLabel: 'Replay laptop',
+            ...authContext,
+        });
+
+        expect(enrollResult.success).toBe(true);
+
+        const assertChallenge = await service.issueTrustedDeviceChallenge({
+            user: { _id: userId, trustedDevices: dbState.trustedDevices },
+            deviceId,
+            deviceLabel: 'Replay laptop',
+            ...authContext,
+        });
+        const proof = createRsaProof({
+            challenge: assertChallenge.challenge,
+            mode: assertChallenge.mode,
+            deviceId,
+            privateKeyPem: privateKey,
+        });
+
+        const firstVerification = await service.verifyTrustedDeviceChallenge({
+            user: { _id: userId, trustedDevices: dbState.trustedDevices },
+            token: assertChallenge.token,
+            proof,
+            deviceId,
+            deviceLabel: 'Replay laptop',
+            ...authContext,
+        });
+        const replayVerification = await service.verifyTrustedDeviceChallenge({
+            user: { _id: userId, trustedDevices: dbState.trustedDevices },
+            token: assertChallenge.token,
+            proof,
+            deviceId,
+            deviceLabel: 'Replay laptop',
+            ...authContext,
+        });
+
+        expect(firstVerification.success).toBe(true);
+        expect(replayVerification).toEqual({
+            success: false,
+            reason: 'Device challenge already used',
+        });
+    });
+
     test('keeps trusted-device challenge binding stable when bearer auth becomes a browser session', async () => {
         const dbState = { trustedDevices: [] };
         const userId = '507f1f77bcf86cd799439099';
