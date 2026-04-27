@@ -1427,6 +1427,7 @@ export const MARKET_MESSAGE_PACK = {
   "login.phoneHint.signup": "El registro envia un codigo al correo electronico y un codigo de Firebase SMS a su telefono.",
   "login.placeholder.email": "tu@ejemplo.com",
   "login.placeholder.fullName": "Juan Perez",
+  "login.placeholder.phoneInternational": "+1 202 555 0142",
   "login.processing": "PROCESANDO...",
   "login.reset.bodyPrefix": "La recuperacion se verifica para",
   "login.reset.bodySuffix": "Establezca una nueva contrasena segura para la cuenta vinculada a",
