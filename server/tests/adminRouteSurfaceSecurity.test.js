@@ -16,6 +16,25 @@ describe('Admin Route Surface Security Matrix', () => {
         ['GET', '/api/admin/analytics/export'],
         ['GET', '/api/admin/analytics/bi-config'],
 
+        ['POST', '/api/admin/catalog/onboarding/validate'],
+        ['POST', '/api/admin/catalog/imports'],
+        ['GET', '/api/admin/catalog/imports/507f1f77bcf86cd799439011'],
+        ['POST', '/api/admin/catalog/imports/507f1f77bcf86cd799439011/publish'],
+        ['POST', '/api/admin/catalog/sync/run'],
+        ['GET', '/api/admin/catalog/health'],
+        ['GET', '/api/admin/catalog/search/relevance-report'],
+
+        ['GET', '/api/admin/email-ops/summary'],
+        ['GET', '/api/admin/email-ops/deliveries'],
+        ['GET', '/api/admin/email-ops/order-queue'],
+        ['GET', '/api/admin/email-ops/order-queue/507f1f77bcf86cd799439011'],
+        ['POST', '/api/admin/email-ops/order-queue/507f1f77bcf86cd799439011/retry'],
+        ['POST', '/api/admin/email-ops/test-send'],
+
+        ['GET', '/api/admin/order-emails'],
+        ['GET', '/api/admin/order-emails/507f1f77bcf86cd799439011'],
+        ['POST', '/api/admin/order-emails/507f1f77bcf86cd799439011/retry'],
+
         ['GET', '/api/admin/users'],
         ['GET', '/api/admin/users/507f1f77bcf86cd799439011'],
         ['POST', '/api/admin/users/507f1f77bcf86cd799439011/warn'],
@@ -42,7 +61,9 @@ describe('Admin Route Surface Security Matrix', () => {
         ['POST', '/api/admin/payments/pi_test/retry-capture'],
 
         ['GET', '/api/admin/ops/readiness'],
+        ['GET', '/api/admin/ops/client-diagnostics'],
         ['POST', '/api/admin/ops/smoke'],
+        ['POST', '/api/admin/ops/maintenance'],
     ];
 
     test.each(cases)('%s %s should return 401 without token', async (method, url) => {

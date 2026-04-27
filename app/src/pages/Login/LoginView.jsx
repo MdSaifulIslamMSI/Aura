@@ -179,7 +179,7 @@ const LoginView = ({
                     <label className="block text-xs uppercase tracking-widest font-bold text-slate-400 mb-2">{t('login.field.phone', {}, 'Phone Number')} *</label>
                     <div className="relative group/input">
                       <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 group-focus-within/input:text-neo-cyan transition-colors" />
-                      <input type="tel" name="phone" value={formData.phone} onChange={handleChange} placeholder="+91 98765 43210" autoComplete="tel"
+                      <input type="tel" name="phone" value={formData.phone} onChange={handleChange} placeholder={t('login.placeholder.phoneInternational', {}, '+1 202 555 0142')} autoComplete="tel"
                         className="w-full pl-12 pr-4 py-4 bg-zinc-950/50 border border-white/10 rounded-2xl focus:outline-none focus:border-neo-cyan focus:ring-1 focus:ring-neo-cyan text-white placeholder:text-slate-600 font-medium transition-all shadow-inner" />
                     </div>
                     <p className="text-[10px] text-slate-600 mt-1.5 uppercase tracking-widest font-bold pl-1">

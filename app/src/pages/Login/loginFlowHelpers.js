@@ -12,6 +12,7 @@ export const OTP_STAGE = {
 };
 
 const AUTH_MODES = new Set(['signin', 'signup', 'forgot-password']);
+const INTERNATIONAL_PHONE_REGEX = /^\+[1-9]\d{7,14}$/;
 
 export const createEmptyOtpValues = () => Array(OTP_LENGTH).fill('');
 
@@ -46,7 +47,7 @@ export const normalizePhone = (phone = '') => String(phone).replace(/[\s\-()]/g,
 
 export const normalizeEmail = (email = '') => String(email).trim().toLowerCase();
 
-export const validatePhone = (phone = '') => /^\+?\d{10,15}$/.test(normalizePhone(phone));
+export const validatePhone = (phone = '') => INTERNATIONAL_PHONE_REGEX.test(normalizePhone(phone));
 
 export const validateEmail = (email = '') => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizeEmail(email));
 

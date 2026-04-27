@@ -17,6 +17,11 @@ const loadAdminMiddleware = () => {
     return require('../middleware/authMiddleware').admin;
 };
 
+const loadAuthMiddleware = () => {
+    jest.resetModules();
+    return require('../middleware/authMiddleware');
+};
+
 const loadTrustedDeviceService = () => {
     jest.resetModules();
     return require('../services/trustedDeviceChallengeService');
@@ -90,6 +95,30 @@ describe('authMiddleware admin second-factor enforcement', () => {
 
         expect(next).toHaveBeenCalledTimes(1);
         expect(next).toHaveBeenCalledWith();
+    });
+
+    test('defaults production admin access to allowlist and second-factor enforcement', () => {
+        const { resolveAdminAccessPolicy } = loadAuthMiddleware();
+
+        expect(resolveAdminAccessPolicy({ NODE_ENV: 'production' })).toEqual({
+            strictAccessEnabled: true,
+            requireEmailVerified: true,
+            requireSecondFactor: true,
+            requireAllowlist: true,
+            freshLoginMinutes: 30,
+        });
+    });
+
+    test('keeps non-production admin defaults compatible with local smoke accounts', () => {
+        const { resolveAdminAccessPolicy } = loadAuthMiddleware();
+
+        expect(resolveAdminAccessPolicy({ NODE_ENV: 'development' })).toEqual({
+            strictAccessEnabled: true,
+            requireEmailVerified: true,
+            requireSecondFactor: false,
+            requireAllowlist: false,
+            freshLoginMinutes: 30,
+        });
     });
 
     test('blocks admin access when no second factor is present', async () => {

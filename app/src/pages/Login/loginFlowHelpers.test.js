@@ -41,7 +41,10 @@ describe('loginFlowHelpers', () => {
     expect(getAuthPurpose('forgot-password')).toBe('forgot-password');
     expect(getAuthPurpose('signin')).toBe('login');
 
+    expect(validatePhone('+15551234567')).toBe(true);
+    expect(validatePhone('+447911123456')).toBe(true);
     expect(validatePhone('+919999911111')).toBe(true);
+    expect(validatePhone('9876543210')).toBe(false);
     expect(validatePhone('12345')).toBe(false);
     expect(validateEmail('user@example.com')).toBe(true);
     expect(validateEmail('not-an-email')).toBe(false);
