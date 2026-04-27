@@ -1427,6 +1427,7 @@ export const MARKET_MESSAGE_PACK = {
   "login.phoneHint.signup": "Bei der Anmeldung wird ein Code per E-Mail und ein Firebase-SMS-Code an Ihr Telefon gesendet.",
   "login.placeholder.email": "you@example.com",
   "login.placeholder.fullName": "John Doe",
+  "login.placeholder.phoneInternational": "+1 202 555 0142",
   "login.processing": "VERARBEITUNG...",
   "login.reset.bodyPrefix": "Die Wiederherstellung wird uberpruft",
   "login.reset.bodySuffix": "Legen Sie ein sicheres neues Passwort fur das verknupfte Konto fest",

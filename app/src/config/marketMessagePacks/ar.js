@@ -1427,6 +1427,7 @@ export const MARKET_MESSAGE_PACK = {
   "login.phoneHint.signup": "yrsl lshtrk rmzan wHdan l~ lbryd llktrwny wrmz Firebase SMS wHdan l~ htfk.",
   "login.placeholder.email": "you@example.com",
   "login.placeholder.fullName": "jwn dw",
+  "login.placeholder.phoneInternational": "+1 202 555 0142",
   "login.processing": "y`lj...",
   "login.reset.bodyPrefix": "tm ltHqq mn lstrdd l",
   "login.reset.bodySuffix": "qm bt`yyn klm@ mrwr jdyd@ qwy@ llHsb lmrtbT bh",

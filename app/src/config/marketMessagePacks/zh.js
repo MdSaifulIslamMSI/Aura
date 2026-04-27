@@ -1427,6 +1427,7 @@ export const MARKET_MESSAGE_PACK = {
   "login.phoneHint.signup": "Zhu Ce Shi Hui Jiang Yi Ge Dai Ma Fa Song Dao Dian Zi You Jian ,Bing Jiang Yi Ge Firebase Duan Xin Dai Ma Fa Song Dao Nin De Shou Ji .",
   "login.placeholder.email": "Ni @example.com",
   "login.placeholder.fullName": "Yue Han *Duo Yi",
+  "login.placeholder.phoneInternational": "+1 202 555 0142",
   "login.processing": "Chu Li Zhong ...",
   "login.reset.bodyPrefix": "Hui Fu Qing Kuang Yi Yan Zheng",
   "login.reset.bodySuffix": "Wei Bang Ding De Zhang Hu She Zhi Yi Ge Qiang Xin Mi Ma",
