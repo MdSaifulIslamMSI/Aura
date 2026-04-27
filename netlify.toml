@@ -15,43 +15,43 @@
 
 [[redirects]]
   from = "/socket.io"
-  to = "https://3.109.181.238.sslip.io/socket.io/"
+  to = "https://13.206.172.186.sslip.io/socket.io/"
   status = 200
   force = true
 
 [[redirects]]
   from = "/socket.io/*"
-  to = "https://3.109.181.238.sslip.io/socket.io/:splat"
+  to = "https://13.206.172.186.sslip.io/socket.io/:splat"
   status = 200
   force = true
 
 [[redirects]]
   from = "/api/*"
-  to = "https://3.109.181.238.sslip.io/api/:splat"
+  to = "https://13.206.172.186.sslip.io/api/:splat"
   status = 200
   force = true
 
 [[redirects]]
   from = "/health"
-  to = "https://3.109.181.238.sslip.io/health"
+  to = "https://13.206.172.186.sslip.io/health"
   status = 200
   force = true
 
 [[redirects]]
   from = "/health/ready"
-  to = "https://3.109.181.238.sslip.io/health/ready"
+  to = "https://13.206.172.186.sslip.io/health/ready"
   status = 200
   force = true
 
 [[redirects]]
   from = "/health/live"
-  to = "https://3.109.181.238.sslip.io/health/live"
+  to = "https://13.206.172.186.sslip.io/health/live"
   status = 200
   force = true
 
 [[redirects]]
   from = "/uploads/*"
-  to = "https://3.109.181.238.sslip.io/uploads/:splat"
+  to = "https://13.206.172.186.sslip.io/uploads/:splat"
   status = 200
   force = true
 
