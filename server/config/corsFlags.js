@@ -27,6 +27,8 @@ const defaultDevOrigins = ['http://localhost:5173', 'http://127.0.0.1:5173'];
 const hostedProductionOrigins = [
     'https://aurapilot.vercel.app',
     'https://aurapilot.netlify.app',
+    'https://dbtrhsolhec1s.cloudfront.net',
+    'https://aurapilot.aws.app',
 ];
 
 const collectConfiguredOrigins = () => {
