@@ -16,6 +16,8 @@ export const normalizeHost = (value = '') => String(value || '')
 
 const isAbsoluteHttpUrl = (value = '') => /^https?:\/\//i.test(String(value || '').trim());
 
+const HOSTED_FRONTEND_EXACT_HOSTS = new Set(['aurapilot.aws.app']);
+
 const isViteDevelopmentRuntime = () => {
     try {
         return Boolean(import.meta.env?.DEV);
@@ -26,7 +28,10 @@ const isViteDevelopmentRuntime = () => {
 
 export const isHostedFrontendRuntimeHost = (host = '') => {
     const normalizedHost = normalizeHost(host);
-    return normalizedHost.endsWith('.vercel.app') || normalizedHost.endsWith('.netlify.app');
+    return HOSTED_FRONTEND_EXACT_HOSTS.has(normalizedHost)
+        || normalizedHost.endsWith('.vercel.app')
+        || normalizedHost.endsWith('.netlify.app')
+        || normalizedHost.endsWith('.cloudfront.net');
 };
 
 export const isLocalFrontendRuntimeHost = (host = '') => {

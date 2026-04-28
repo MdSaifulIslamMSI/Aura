@@ -20,7 +20,10 @@ const sanitizeFirebaseValue = (value) => {
 
 const isHostedDeploymentHost = (host = '') => {
     const normalizedHost = String(host || '').trim().toLowerCase();
-    return normalizedHost.endsWith('.vercel.app') || normalizedHost.endsWith('.netlify.app');
+    return normalizedHost === 'aurapilot.aws.app'
+        || normalizedHost.endsWith('.vercel.app')
+        || normalizedHost.endsWith('.netlify.app')
+        || normalizedHost.endsWith('.cloudfront.net');
 };
 
 const sanitizeHostValue = (value) => {

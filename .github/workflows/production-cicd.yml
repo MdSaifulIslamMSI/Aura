@@ -29,7 +29,7 @@ on:
         default: true
         type: boolean
       deploy_frontend:
-        description: Deploy storefront to Netlify and Vercel
+        description: Deploy storefront to Netlify, Vercel, and AWS S3
         required: false
         default: true
         type: boolean
@@ -108,7 +108,12 @@ jobs:
               - ".vercelignore"
               - ".github/workflows/ci.yml"
               - ".github/workflows/deploy-netlify.yml"
+              - ".github/workflows/deploy-frontend-aws.yml"
               - ".github/workflows/production-cicd.yml"
+              - "infra/aws/bootstrap-frontend-s3.ps1"
+              - "infra/aws/bootstrap-frontend-github-oidc.ps1"
+              - "infra/aws/deploy-frontend-s3.ps1"
+              - "docs/aws-frontend-deployment.md"
             gateway:
               - "gateway/**"
               - "gateway/vercel.json"

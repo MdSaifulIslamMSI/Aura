@@ -235,6 +235,35 @@ describe('SocketProvider', () => {
         expect(socketInstances[0]?.options?.rememberUpgrade).toBe(false);
     });
 
+    it('forces polling when a hosted CloudFront frontend proxies realtime through its own origin', async () => {
+        runtimeApiConfig.resolveServiceOrigin.mockReturnValue('https://dbtrhsolhec1s.cloudfront.net');
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: {
+                ...originalLocation,
+                origin: 'https://dbtrhsolhec1s.cloudfront.net',
+                host: 'dbtrhsolhec1s.cloudfront.net',
+                hostname: 'dbtrhsolhec1s.cloudfront.net',
+            },
+        });
+
+        render(
+            <AuthContext.Provider value={authState}>
+                <SocketProvider>
+                    <div>child</div>
+                </SocketProvider>
+            </AuthContext.Provider>
+        );
+
+        await waitFor(() => {
+            expect(ioMock).toHaveBeenCalledTimes(1);
+        });
+
+        expect(socketInstances[0]?.options?.transports).toEqual(['polling']);
+        expect(socketInstances[0]?.options?.upgrade).toBe(false);
+        expect(socketInstances[0]?.options?.rememberUpgrade).toBe(false);
+    });
+
     it('refreshes socket auth before reconnect attempts', async () => {
         render(
             <AuthContext.Provider value={authState}>

@@ -79,9 +79,26 @@ describe('runtimeApiConfig', () => {
     expect(resolveServiceOrigin('/api')).toBe('https://aurapilot.netlify.app');
   });
 
-  it('detects both Vercel and Netlify production hosts as hosted frontends', () => {
+  it('prefers the hosted proxy path on CloudFront when a different direct API origin is configured', () => {
+    vi.stubEnv('VITE_API_URL', 'https://13.206.172.186.sslip.io/api');
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: {
+        origin: 'https://dbtrhsolhec1s.cloudfront.net',
+        host: 'dbtrhsolhec1s.cloudfront.net',
+        hostname: 'dbtrhsolhec1s.cloudfront.net',
+      },
+    });
+
+    expect(resolveApiBaseUrl('/api')).toBe('/api');
+    expect(resolveServiceOrigin('/api')).toBe('https://dbtrhsolhec1s.cloudfront.net');
+  });
+
+  it('detects Vercel, Netlify, and CloudFront production hosts as hosted frontends', () => {
     expect(isHostedFrontendRuntimeHost('aurapilot.vercel.app')).toBe(true);
     expect(isHostedFrontendRuntimeHost('aurapilot.netlify.app')).toBe(true);
+    expect(isHostedFrontendRuntimeHost('dbtrhsolhec1s.cloudfront.net')).toBe(true);
+    expect(isHostedFrontendRuntimeHost('aurapilot.aws.app')).toBe(true);
     expect(isHostedFrontendRuntimeHost('localhost')).toBe(false);
   });
 
