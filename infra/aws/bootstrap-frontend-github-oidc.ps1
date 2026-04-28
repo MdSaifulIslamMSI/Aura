@@ -138,8 +138,23 @@ $inlinePolicyFile = Join-Path $env:TEMP "$RoleName-inline.json"
 $trustPolicy | Set-Content -LiteralPath $trustPolicyFile -Encoding ascii
 $inlinePolicy | Set-Content -LiteralPath $inlinePolicyFile -Encoding ascii
 
-$null = aws iam get-role --role-name $RoleName 2>$null
-$roleExists = ($LASTEXITCODE -eq 0)
+$nativeErrorPreferenceVariable = Get-Variable -Name PSNativeCommandUseErrorActionPreference -ErrorAction SilentlyContinue
+if ($nativeErrorPreferenceVariable) {
+    $previousNativeErrorPreference = $PSNativeCommandUseErrorActionPreference
+    $PSNativeCommandUseErrorActionPreference = $false
+}
+
+$previousErrorActionPreference = $ErrorActionPreference
+try {
+    $ErrorActionPreference = "Continue"
+    aws iam get-role --role-name $RoleName 1>$null 2>$null
+    $roleExists = ($LASTEXITCODE -eq 0)
+} finally {
+    $ErrorActionPreference = $previousErrorActionPreference
+    if ($nativeErrorPreferenceVariable) {
+        $PSNativeCommandUseErrorActionPreference = $previousNativeErrorPreference
+    }
+}
 
 if ($roleExists) {
     aws iam update-assume-role-policy `

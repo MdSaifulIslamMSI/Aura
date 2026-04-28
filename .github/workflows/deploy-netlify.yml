@@ -267,8 +267,48 @@ jobs:
               });
             }
 
-  deploy-production:
+  validate-aws-production-access:
     needs: build-frontend
+    if: inputs.target == 'production'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment:
+      name: aws-frontend-production
+
+    steps:
+      - name: Validate AWS frontend deployment configuration
+        run: |
+          set -euo pipefail
+          test -n "${AWS_REGION}" || { echo "Missing AWS_REGION"; exit 1; }
+          test -n "${AWS_FRONTEND_BUCKET}" || { echo "Missing AWS_FRONTEND_BUCKET"; exit 1; }
+          test -n "${AWS_FRONTEND_DEPLOY_ROLE_ARN}" || { echo "Missing AWS_FRONTEND_DEPLOY_ROLE_ARN"; exit 1; }
+          echo "Bucket: ${AWS_FRONTEND_BUCKET}"
+          echo "Region: ${AWS_REGION}"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ env.AWS_FRONTEND_DEPLOY_ROLE_ARN }}
+          role-session-name: aura-github-frontend-s3-preflight
+          mask-aws-account-id: true
+          unset-current-credentials: true
+
+      - name: Verify AWS frontend bucket access
+        run: |
+          set -euo pipefail
+          aws s3api head-bucket \
+            --bucket "${AWS_FRONTEND_BUCKET}" \
+            --region "${AWS_REGION}"
+          aws s3api get-bucket-website \
+            --bucket "${AWS_FRONTEND_BUCKET}" \
+            --region "${AWS_REGION}" \
+            > /dev/null
+
+  deploy-production:
+    needs:
+      - build-frontend
+      - validate-aws-production-access
     if: inputs.target == 'production'
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -437,7 +477,9 @@ jobs:
             }
 
   deploy-vercel-production:
-    needs: package-vercel-prebuilt
+    needs:
+      - package-vercel-prebuilt
+      - validate-aws-production-access
     if: inputs.target == 'production'
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -515,7 +557,9 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   deploy-aws-production:
-    needs: build-frontend
+    needs:
+      - build-frontend
+      - validate-aws-production-access
     if: inputs.target == 'production'
     runs-on: ubuntu-latest
     timeout-minutes: 15
