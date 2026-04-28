@@ -13,7 +13,7 @@ This repo includes an Electron wrapper that turns the frontend into downloadable
 
 The packaged app uses the current hosted backend by default:
 
-- `http://3.109.181.238:5000`
+- `https://13.206.172.186.sslip.io`
 
 Override that target at launch or build time with:
 

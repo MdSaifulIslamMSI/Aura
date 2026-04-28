@@ -8,7 +8,7 @@ const assertAbsoluteHttpUrl = (value) => {
 
 // Current live hosted backend origin. Update this contract first so the
 // workflow and both Vercel configs stay in sync.
-export const HOSTED_BACKEND_ORIGIN = 'http://3.109.181.238:5000';
+export const HOSTED_BACKEND_ORIGIN = 'https://13.206.172.186.sslip.io';
 
 const HOSTED_PROXY_ROUTE_SUFFIXES = [
     {

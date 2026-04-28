@@ -728,7 +728,7 @@ describe('trustedDeviceChallengeService', () => {
             deviceLabel: 'Hosted laptop',
             req: {
                 headers: {
-                    host: '3.109.181.238:5000',
+                    host: '13.206.172.186.sslip.io',
                     'x-forwarded-proto': 'https',
                     'x-aura-client-origin': 'https://aurapilot.vercel.app',
                 },

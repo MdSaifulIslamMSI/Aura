@@ -45,7 +45,7 @@ npm run aws:frontend:deploy
 Use `-BackendOrigin` to override the tracked hosted backend:
 
 ```powershell
-npm run aws:frontend:deploy -- -BackendOrigin http://3.109.181.238:5000
+npm run aws:frontend:deploy -- -BackendOrigin https://13.206.172.186.sslip.io
 ```
 
 ## GitHub Actions
