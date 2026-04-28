@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Aura Gateway">
+  <rect width="64" height="64" rx="12" fill="#070706"/>
+  <path d="M32 8 56 56H43.8l-4.1-8.6H24.2L20.1 56H8L32 8Zm0 18.4-4.9 10.3h9.8L32 26.4Z" fill="#f1c978"/>
+  <path d="M32 8 56 56H43.8l-4.1-8.6H24.2L20.1 56H8L32 8Z" fill="none" stroke="#8c6a35" stroke-width="1.2"/>
+</svg>
