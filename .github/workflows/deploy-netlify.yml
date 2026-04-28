@@ -377,7 +377,7 @@ jobs:
             echo "Retrying Vercel preview deploy (attempt $((attempt + 1))/3) after upload failure..." >&2
             sleep "$((attempt * 15))"
           done
-          DEPLOY_URL="$(printf '%s\n' "${DEPLOY_OUTPUT}" | grep -Eo 'https://[^[:space:]]+' | head -n 1 | tr -d '\r')"
+          DEPLOY_URL="$(printf '%s\n' "${DEPLOY_OUTPUT}" | grep -Eo 'https://[-A-Za-z0-9.]+\.vercel\.app' | head -n 1 | tr -d '\r')"
           if [ -z "${DEPLOY_URL}" ]; then
             echo "Vercel CLI did not return a preview deployment URL." >&2
             printf '%s\n' "${DEPLOY_OUTPUT}" >&2
@@ -486,7 +486,7 @@ jobs:
             echo "Retrying Vercel production deploy (attempt $((attempt + 1))/3) after upload failure..." >&2
             sleep "$((attempt * 15))"
           done
-          DEPLOY_URL="$(printf '%s\n' "${DEPLOY_OUTPUT}" | grep -Eo 'https://[^[:space:]]+' | head -n 1 | tr -d '\r')"
+          DEPLOY_URL="$(printf '%s\n' "${DEPLOY_OUTPUT}" | grep -Eo 'https://[-A-Za-z0-9.]+\.vercel\.app' | head -n 1 | tr -d '\r')"
           if [ -z "${DEPLOY_URL}" ]; then
             echo "Vercel CLI did not return a production deployment URL." >&2
             printf '%s\n' "${DEPLOY_OUTPUT}" >&2
