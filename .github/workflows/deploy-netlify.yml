@@ -565,9 +565,6 @@ jobs:
     timeout-minutes: 15
     environment:
       name: aws-frontend-production
-      url: ${{ steps.publish.outputs.site_url }}
-    outputs:
-      site_url: ${{ steps.publish.outputs.site_url }}
 
     steps:
       - uses: actions/checkout@v4
@@ -728,6 +725,6 @@ jobs:
             [
               {"name":"netlify-production","url":"${{ needs.deploy-production.outputs.site_url }}"},
               {"name":"vercel-production","url":"${{ needs.deploy-vercel-production.outputs.site_url }}","htmlPath":"${{ runner.temp }}/aura-release/vercel-production.html"},
-              {"name":"aws-s3-production","url":"${{ needs.deploy-aws-production.outputs.site_url }}"}
+              {"name":"aws-s3-production","url":"http://${{ env.AWS_FRONTEND_BUCKET }}.s3-website.${{ env.AWS_REGION }}.amazonaws.com"}
             ]
         run: node app/scripts/verify_deployed_release_coherence.mjs
