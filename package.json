@@ -7,6 +7,9 @@
   "main": "desktop/main.cjs",
   "scripts": {
     "build": "cd app && npm install && npm run build",
+    "aws:frontend:bootstrap": "powershell -ExecutionPolicy Bypass -File .\\infra\\aws\\bootstrap-frontend-s3.ps1",
+    "aws:frontend:deploy": "powershell -ExecutionPolicy Bypass -File .\\infra\\aws\\deploy-frontend-s3.ps1",
+    "aws:frontend:oidc": "powershell -ExecutionPolicy Bypass -File .\\infra\\aws\\bootstrap-frontend-github-oidc.ps1",
     "aws:ssm:sync": "powershell -ExecutionPolicy Bypass -File .\\infra\\aws\\sync-parameter-store-env.ps1 -SourceEnvFile .\\server\\.env.aws-secrets",
     "backend:origin": "node .\\app\\scripts\\print_hosted_backend_origin.mjs",
     "vercel:routing:sync": "node .\\app\\scripts\\sync_vercel_configs.mjs",

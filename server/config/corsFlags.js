@@ -27,6 +27,8 @@ const defaultDevOrigins = ['http://localhost:5173', 'http://127.0.0.1:5173'];
 const hostedProductionOrigins = [
     'https://aurapilot.vercel.app',
     'https://aurapilot.netlify.app',
+    'https://dbtrhsolhec1s.cloudfront.net',
+    'https://aurapilot.aws.app',
 ];
 
 const collectConfiguredOrigins = () => {
@@ -36,6 +38,8 @@ const collectConfiguredOrigins = () => {
         normalizeOrigin(process.env.APP_PUBLIC_URL),
         normalizeOrigin(process.env.VERCEL_FRONTEND_URL),
         normalizeOrigin(process.env.NETLIFY_FRONTEND_URL),
+        normalizeOrigin(process.env.AWS_FRONTEND_URL),
+        normalizeOrigin(process.env.S3_FRONTEND_URL),
     ].filter(Boolean);
 
     const fallbackOrigins = isProduction ? hostedProductionOrigins : defaultDevOrigins;

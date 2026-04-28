@@ -384,4 +384,25 @@ describe('firebase social auth host policy', () => {
       disabledByConfig: false,
     });
   });
+
+  it('treats CloudFront production hosts as deployment hosts for social auth policy', async () => {
+    vi.resetModules();
+    setFirebaseEnv();
+    vi.stubEnv('VITE_FIREBASE_DISABLE_SOCIAL_AUTH', 'true');
+    window.sessionStorage.clear();
+    setRuntimeHost({
+      hostname: 'dbtrhsolhec1s.cloudfront.net',
+      host: 'dbtrhsolhec1s.cloudfront.net',
+    });
+    setDisplayModes([]);
+
+    const firebase = await import('./firebase');
+
+    expect(firebase.isFirebaseSocialAuthAvailable()).toBe(true);
+    expect(firebase.getFirebaseSocialAuthStatus()).toMatchObject({
+      runtimeHost: 'dbtrhsolhec1s.cloudfront.net',
+      supported: true,
+      disabledByConfig: false,
+    });
+  });
 });
