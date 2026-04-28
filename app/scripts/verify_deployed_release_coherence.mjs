@@ -1,3 +1,5 @@
+import { readFile } from 'node:fs/promises';
+
 const parseArgs = () => {
     const args = new Map();
     for (const rawArg of process.argv.slice(2)) {
@@ -32,13 +34,9 @@ const withCacheBust = (url) => {
     return parsed.toString();
 };
 
-const results = [];
-
-for (const target of urls) {
-    const name = String(target?.name || '').trim();
-    const url = String(target?.url || '').trim();
-    if (!name || !url) {
-        throw new Error(`Invalid release URL target: ${JSON.stringify(target)}`);
+const readTargetHtml = async ({ name, url, htmlPath }) => {
+    if (htmlPath) {
+        return readFile(htmlPath, 'utf8');
     }
 
     const response = await fetch(withCacheBust(url), {
@@ -52,7 +50,20 @@ for (const target of urls) {
         throw new Error(`${name} returned HTTP ${response.status} for ${url}`);
     }
 
-    const html = await response.text();
+    return response.text();
+};
+
+const results = [];
+
+for (const target of urls) {
+    const name = String(target?.name || '').trim();
+    const url = String(target?.url || '').trim();
+    const htmlPath = String(target?.htmlPath || '').trim();
+    if (!name || !url) {
+        throw new Error(`Invalid release URL target: ${JSON.stringify(target)}`);
+    }
+
+    const html = await readTargetHtml({ name, url, htmlPath });
     const release = {
         name,
         url,

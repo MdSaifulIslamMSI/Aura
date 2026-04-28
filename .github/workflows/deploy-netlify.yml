@@ -607,6 +607,25 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
+      - name: Fetch protected Vercel preview HTML
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_DEPLOY_URL: ${{ needs.deploy-vercel-preview.outputs.deploy_url }}
+        run: |
+          set -euo pipefail
+          SANITIZED_VERCEL_TOKEN="$(printf '%s' "${VERCEL_TOKEN}" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+          if [ -z "${SANITIZED_VERCEL_TOKEN}" ]; then
+            echo "GitHub secret VERCEL_TOKEN is empty after trimming whitespace." >&2
+            exit 1
+          fi
+          echo "::add-mask::${SANITIZED_VERCEL_TOKEN}"
+          mkdir -p "${RUNNER_TEMP}/aura-release"
+          npx vercel curl / \
+            --deployment "${VERCEL_DEPLOY_URL}" \
+            --token "${SANITIZED_VERCEL_TOKEN}" \
+            -- --fail --silent --show-error --location \
+            > "${RUNNER_TEMP}/aura-release/vercel-preview.html"
+
       - name: Verify Netlify and Vercel preview release coherence
         env:
           AURA_EXPECTED_RELEASE_ID: ${{ github.sha }}
@@ -615,7 +634,7 @@ jobs:
           AURA_RELEASE_URLS: >-
             [
               {"name":"netlify-preview","url":"${{ needs.deploy-preview.outputs.deploy_url }}"},
-              {"name":"vercel-preview","url":"${{ needs.deploy-vercel-preview.outputs.deploy_url }}"}
+              {"name":"vercel-preview","url":"${{ needs.deploy-vercel-preview.outputs.deploy_url }}","htmlPath":"${{ runner.temp }}/aura-release/vercel-preview.html"}
             ]
         run: node app/scripts/verify_deployed_release_coherence.mjs
 
@@ -637,6 +656,25 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
+      - name: Fetch protected Vercel production HTML
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_DEPLOY_URL: ${{ needs.deploy-vercel-production.outputs.deploy_url }}
+        run: |
+          set -euo pipefail
+          SANITIZED_VERCEL_TOKEN="$(printf '%s' "${VERCEL_TOKEN}" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+          if [ -z "${SANITIZED_VERCEL_TOKEN}" ]; then
+            echo "GitHub secret VERCEL_TOKEN is empty after trimming whitespace." >&2
+            exit 1
+          fi
+          echo "::add-mask::${SANITIZED_VERCEL_TOKEN}"
+          mkdir -p "${RUNNER_TEMP}/aura-release"
+          npx vercel curl / \
+            --deployment "${VERCEL_DEPLOY_URL}" \
+            --token "${SANITIZED_VERCEL_TOKEN}" \
+            -- --fail --silent --show-error --location \
+            > "${RUNNER_TEMP}/aura-release/vercel-production.html"
+
       - name: Verify Netlify, Vercel, and AWS production release coherence
         env:
           AURA_EXPECTED_RELEASE_ID: ${{ github.sha }}
@@ -645,7 +683,7 @@ jobs:
           AURA_RELEASE_URLS: >-
             [
               {"name":"netlify-production","url":"${{ needs.deploy-production.outputs.site_url }}"},
-              {"name":"vercel-production","url":"${{ needs.deploy-vercel-production.outputs.site_url }}"},
+              {"name":"vercel-production","url":"${{ needs.deploy-vercel-production.outputs.site_url }}","htmlPath":"${{ runner.temp }}/aura-release/vercel-production.html"},
               {"name":"aws-s3-production","url":"${{ needs.deploy-aws-production.outputs.site_url }}"}
             ]
         run: node app/scripts/verify_deployed_release_coherence.mjs
