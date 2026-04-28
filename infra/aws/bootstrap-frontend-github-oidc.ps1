@@ -5,7 +5,8 @@ param(
     [string]$GitHubEnvironment = "aws-frontend-production",
     [string]$AwsRegion = "ap-south-1",
     [string]$AwsProfile = "",
-    [string]$BucketName = ""
+    [string]$BucketName = "",
+    [string]$DistributionId = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -79,6 +80,10 @@ if (-not [string]::IsNullOrWhiteSpace($AwsProfile)) {
 
 $repoSlug = Resolve-RepositorySlug -ExplicitRepository $Repository
 $resolvedBucketName = Resolve-BucketName -ExplicitBucketName $BucketName -Region $AwsRegion
+$accountId = aws sts get-caller-identity --query "Account" --output text
+if ([string]::IsNullOrWhiteSpace($accountId) -or $accountId -eq "None") {
+    throw "Could not resolve AWS account id."
+}
 $oidcProviderArn = Get-OrCreateOidcProviderArn
 $branchSubject = 'repo:{0}:ref:refs/heads/{1}' -f $repoSlug, $Branch
 $allowedSubjects = @($branchSubject)
@@ -108,30 +113,44 @@ $trustPolicy = @{
     )
 } | ConvertTo-Json -Depth 8
 
+$policyStatements = @(
+    @{
+        Sid = "ListFrontendBucket"
+        Effect = "Allow"
+        Action = @(
+            "s3:GetBucketWebsite",
+            "s3:GetBucketLocation",
+            "s3:ListBucket"
+        )
+        Resource = "arn:aws:s3:::$resolvedBucketName"
+    },
+    @{
+        Sid = "PublishFrontendObjects"
+        Effect = "Allow"
+        Action = @(
+            "s3:DeleteObject",
+            "s3:GetObject",
+            "s3:PutObject"
+        )
+        Resource = "arn:aws:s3:::$resolvedBucketName/*"
+    }
+)
+
+if (-not [string]::IsNullOrWhiteSpace($DistributionId)) {
+    $policyStatements += @{
+        Sid = "RefreshFrontendCloudFront"
+        Effect = "Allow"
+        Action = @(
+            "cloudfront:CreateInvalidation",
+            "cloudfront:GetDistribution"
+        )
+        Resource = "arn:aws:cloudfront::${accountId}:distribution/$($DistributionId.Trim())"
+    }
+}
+
 $inlinePolicy = @{
     Version = "2012-10-17"
-    Statement = @(
-        @{
-            Sid = "ListFrontendBucket"
-            Effect = "Allow"
-            Action = @(
-                "s3:GetBucketWebsite",
-                "s3:GetBucketLocation",
-                "s3:ListBucket"
-            )
-            Resource = "arn:aws:s3:::$resolvedBucketName"
-        },
-        @{
-            Sid = "PublishFrontendObjects"
-            Effect = "Allow"
-            Action = @(
-                "s3:DeleteObject",
-                "s3:GetObject",
-                "s3:PutObject"
-            )
-            Resource = "arn:aws:s3:::$resolvedBucketName/*"
-        }
-    )
+    Statement = $policyStatements
 } | ConvertTo-Json -Depth 8
 
 $trustPolicyFile = Join-Path $env:TEMP "$RoleName-trust.json"
@@ -186,3 +205,6 @@ Write-Host "Suggested GitHub repository variables:"
 Write-Host "  AWS_REGION=$AwsRegion"
 Write-Host "  AWS_FRONTEND_BUCKET=$resolvedBucketName"
 Write-Host "  AWS_FRONTEND_DEPLOY_ROLE_ARN=$roleArn"
+if (-not [string]::IsNullOrWhiteSpace($DistributionId)) {
+    Write-Host "  AWS_FRONTEND_DISTRIBUTION_ID=$($DistributionId.Trim())"
+}

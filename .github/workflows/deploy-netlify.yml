@@ -11,6 +11,7 @@ on:
       - ".vercelignore"
       - "infra/aws/bootstrap-frontend-s3.ps1"
       - "infra/aws/bootstrap-frontend-github-oidc.ps1"
+      - "infra/aws/bootstrap-frontend-cloudfront.ps1"
       - "infra/aws/deploy-frontend-s3.ps1"
       - ".github/workflows/deploy-netlify.yml"
       - ".github/workflows/deploy-frontend-aws.yml"
@@ -52,6 +53,8 @@ env:
   VERCEL_PROJECT_NAME: ${{ vars.VERCEL_PROJECT_NAME || 'app' }}
   AWS_REGION: ${{ vars.AWS_REGION || 'ap-south-1' }}
   AWS_FRONTEND_BUCKET: ${{ vars.AWS_FRONTEND_BUCKET || 'aura-frontend-942679464475-ap-south-1' }}
+  AWS_FRONTEND_DISTRIBUTION_ID: ${{ vars.AWS_FRONTEND_DISTRIBUTION_ID || 'E34Z9POGIQYOCS' }}
+  AWS_FRONTEND_PUBLIC_URL: ${{ vars.AWS_FRONTEND_PUBLIC_URL || 'https://dbtrhsolhec1s.cloudfront.net' }}
   AWS_FRONTEND_DEPLOY_ROLE_ARN: ${{ vars.AWS_FRONTEND_DEPLOY_ROLE_ARN || secrets.AWS_FRONTEND_DEPLOY_ROLE_ARN || 'arn:aws:iam::942679464475:role/aura-github-actions-frontend-deploy' }}
 
 jobs:
@@ -281,9 +284,13 @@ jobs:
           set -euo pipefail
           test -n "${AWS_REGION}" || { echo "Missing AWS_REGION"; exit 1; }
           test -n "${AWS_FRONTEND_BUCKET}" || { echo "Missing AWS_FRONTEND_BUCKET"; exit 1; }
+          test -n "${AWS_FRONTEND_DISTRIBUTION_ID}" || { echo "Missing AWS_FRONTEND_DISTRIBUTION_ID"; exit 1; }
+          test -n "${AWS_FRONTEND_PUBLIC_URL}" || { echo "Missing AWS_FRONTEND_PUBLIC_URL"; exit 1; }
           test -n "${AWS_FRONTEND_DEPLOY_ROLE_ARN}" || { echo "Missing AWS_FRONTEND_DEPLOY_ROLE_ARN"; exit 1; }
           echo "Bucket: ${AWS_FRONTEND_BUCKET}"
           echo "Region: ${AWS_REGION}"
+          echo "Distribution: ${AWS_FRONTEND_DISTRIBUTION_ID}"
+          echo "Public URL: ${AWS_FRONTEND_PUBLIC_URL}"
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -303,6 +310,9 @@ jobs:
           aws s3api get-bucket-website \
             --bucket "${AWS_FRONTEND_BUCKET}" \
             --region "${AWS_REGION}" \
+            > /dev/null
+          aws cloudfront get-distribution \
+            --id "${AWS_FRONTEND_DISTRIBUTION_ID}" \
             > /dev/null
 
   deploy-production:
@@ -565,6 +575,9 @@ jobs:
     timeout-minutes: 15
     environment:
       name: aws-frontend-production
+      url: ${{ steps.publish.outputs.site_url }}
+    outputs:
+      site_url: ${{ steps.publish.outputs.site_url }}
 
     steps:
       - uses: actions/checkout@v4
@@ -574,9 +587,13 @@ jobs:
           set -euo pipefail
           test -n "${AWS_REGION}" || { echo "Missing AWS_REGION"; exit 1; }
           test -n "${AWS_FRONTEND_BUCKET}" || { echo "Missing AWS_FRONTEND_BUCKET"; exit 1; }
+          test -n "${AWS_FRONTEND_DISTRIBUTION_ID}" || { echo "Missing AWS_FRONTEND_DISTRIBUTION_ID"; exit 1; }
+          test -n "${AWS_FRONTEND_PUBLIC_URL}" || { echo "Missing AWS_FRONTEND_PUBLIC_URL"; exit 1; }
           test -n "${AWS_FRONTEND_DEPLOY_ROLE_ARN}" || { echo "Missing AWS_FRONTEND_DEPLOY_ROLE_ARN"; exit 1; }
           echo "Bucket: ${AWS_FRONTEND_BUCKET}"
           echo "Region: ${AWS_REGION}"
+          echo "Distribution: ${AWS_FRONTEND_DISTRIBUTION_ID}"
+          echo "Public URL: ${AWS_FRONTEND_PUBLIC_URL}"
 
       - name: Download shared frontend
         uses: actions/download-artifact@v4
@@ -593,7 +610,7 @@ jobs:
           mask-aws-account-id: true
           unset-current-credentials: true
 
-      - name: Publish shared frontend to S3 website bucket
+      - name: Publish shared frontend to S3 origin bucket
         id: publish
         run: |
           set -euo pipefail
@@ -614,18 +631,24 @@ jobs:
             --cache-control "no-cache,no-store,must-revalidate" \
             --content-type "text/html"
 
-          SITE_URL="http://${AWS_FRONTEND_BUCKET}.s3-website.${AWS_REGION}.amazonaws.com"
+          aws cloudfront create-invalidation \
+            --distribution-id "${AWS_FRONTEND_DISTRIBUTION_ID}" \
+            --paths "/*" \
+            > /dev/null
+
+          SITE_URL="${AWS_FRONTEND_PUBLIC_URL}"
           echo "site_url=${SITE_URL}" >> "$GITHUB_OUTPUT"
 
-      - name: Verify S3 website serves the app shell
+      - name: Verify CloudFront serves the app shell
         run: curl --fail --show-error --silent "${{ steps.publish.outputs.site_url }}" > /dev/null
 
       - name: Add AWS production deploy to job summary
         run: |
           {
-            echo "### AWS S3 Production"
+            echo "### AWS CloudFront Production"
             echo
             echo "- Bucket: ${AWS_FRONTEND_BUCKET}"
+            echo "- Distribution: ${AWS_FRONTEND_DISTRIBUTION_ID}"
             echo "- Production URL: ${{ steps.publish.outputs.site_url }}"
             echo "- Backend origin: ${{ needs.build-frontend.outputs.backend_origin }}"
             echo "- Shared build time: ${{ needs.build-frontend.outputs.built_at }}"
@@ -725,6 +748,6 @@ jobs:
             [
               {"name":"netlify-production","url":"${{ needs.deploy-production.outputs.site_url }}"},
               {"name":"vercel-production","url":"${{ needs.deploy-vercel-production.outputs.site_url }}","htmlPath":"${{ runner.temp }}/aura-release/vercel-production.html"},
-              {"name":"aws-s3-production","url":"http://${{ env.AWS_FRONTEND_BUCKET }}.s3-website.${{ env.AWS_REGION }}.amazonaws.com"}
+              {"name":"aws-cloudfront-production","url":"${{ needs.deploy-aws-production.outputs.site_url }}"}
             ]
         run: node app/scripts/verify_deployed_release_coherence.mjs

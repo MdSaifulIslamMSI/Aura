@@ -3,6 +3,8 @@ param(
     [string]$AwsProfile = "",
     [string]$BucketName = "",
     [string]$BackendOrigin = "",
+    [string]$DistributionId = "",
+    [string]$PublicUrl = "",
     [string]$DistDir = "app/dist",
     [switch]$SkipBuild
 )
@@ -87,9 +89,31 @@ aws s3 cp "$indexPath" "s3://$resolvedBucketName/index.html" `
     --cache-control "no-cache,no-store,must-revalidate" `
     --content-type "text/html" | Out-Null
 
-$websiteUrl = "http://$resolvedBucketName.s3-website.$AwsRegion.amazonaws.com"
+$resolvedPublicUrl = Trim-TrailingSlash -Value $PublicUrl
+if (-not [string]::IsNullOrWhiteSpace($DistributionId)) {
+    aws cloudfront create-invalidation `
+        --distribution-id $DistributionId `
+        --paths "/*" | Out-Null
+
+    if ([string]::IsNullOrWhiteSpace($resolvedPublicUrl)) {
+        $distributionDomain = aws cloudfront get-distribution `
+            --id $DistributionId `
+            --query "Distribution.DomainName" `
+            --output text
+        $resolvedPublicUrl = "https://$distributionDomain"
+    }
+}
+
+$websiteUrl = if ([string]::IsNullOrWhiteSpace($resolvedPublicUrl)) {
+    "http://$resolvedBucketName.s3-website.$AwsRegion.amazonaws.com"
+} else {
+    $resolvedPublicUrl
+}
 
 Write-Host "AWS frontend deployed."
 Write-Host "Bucket: $resolvedBucketName"
-Write-Host "Website URL: $websiteUrl"
+if (-not [string]::IsNullOrWhiteSpace($DistributionId)) {
+    Write-Host "CloudFront distribution: $DistributionId"
+}
+Write-Host "Public URL: $websiteUrl"
 Write-Host "Backend origin baked into build: $resolvedBackendOrigin"

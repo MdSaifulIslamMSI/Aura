@@ -1,4 +1,4 @@
-name: Deploy Frontend To AWS S3
+name: Deploy Frontend To AWS CloudFront
 
 on:
   workflow_dispatch:
@@ -29,6 +29,8 @@ env:
   NODE_VERSION: 24.x
   AWS_REGION: ${{ vars.AWS_REGION || 'ap-south-1' }}
   AWS_FRONTEND_BUCKET: ${{ vars.AWS_FRONTEND_BUCKET || 'aura-frontend-942679464475-ap-south-1' }}
+  AWS_FRONTEND_DISTRIBUTION_ID: ${{ vars.AWS_FRONTEND_DISTRIBUTION_ID || 'E34Z9POGIQYOCS' }}
+  AWS_FRONTEND_PUBLIC_URL: ${{ vars.AWS_FRONTEND_PUBLIC_URL || 'https://dbtrhsolhec1s.cloudfront.net' }}
   AWS_FRONTEND_DEPLOY_ROLE_ARN: ${{ vars.AWS_FRONTEND_DEPLOY_ROLE_ARN || secrets.AWS_FRONTEND_DEPLOY_ROLE_ARN || 'arn:aws:iam::942679464475:role/aura-github-actions-frontend-deploy' }}
 
 jobs:
@@ -98,9 +100,13 @@ jobs:
           set -euo pipefail
           test -n "${AWS_REGION}" || { echo "Missing AWS_REGION"; exit 1; }
           test -n "${AWS_FRONTEND_BUCKET}" || { echo "Missing AWS_FRONTEND_BUCKET"; exit 1; }
+          test -n "${AWS_FRONTEND_DISTRIBUTION_ID}" || { echo "Missing AWS_FRONTEND_DISTRIBUTION_ID"; exit 1; }
+          test -n "${AWS_FRONTEND_PUBLIC_URL}" || { echo "Missing AWS_FRONTEND_PUBLIC_URL"; exit 1; }
           test -n "${AWS_FRONTEND_DEPLOY_ROLE_ARN}" || { echo "Missing AWS_FRONTEND_DEPLOY_ROLE_ARN"; exit 1; }
           echo "Bucket: ${AWS_FRONTEND_BUCKET}"
           echo "Region: ${AWS_REGION}"
+          echo "Distribution: ${AWS_FRONTEND_DISTRIBUTION_ID}"
+          echo "Public URL: ${AWS_FRONTEND_PUBLIC_URL}"
 
       - name: Download built frontend
         uses: actions/download-artifact@v4
@@ -117,7 +123,17 @@ jobs:
           mask-aws-account-id: true
           unset-current-credentials: true
 
-      - name: Publish frontend to S3 website bucket
+      - name: Verify AWS frontend origin and distribution access
+        run: |
+          set -euo pipefail
+          aws s3api head-bucket \
+            --bucket "${AWS_FRONTEND_BUCKET}" \
+            --region "${AWS_REGION}"
+          aws cloudfront get-distribution \
+            --id "${AWS_FRONTEND_DISTRIBUTION_ID}" \
+            > /dev/null
+
+      - name: Publish frontend to S3 origin bucket
         id: publish
         run: |
           set -euo pipefail
@@ -138,18 +154,24 @@ jobs:
             --cache-control "no-cache,no-store,must-revalidate" \
             --content-type "text/html"
 
-          SITE_URL="http://${AWS_FRONTEND_BUCKET}.s3-website.${AWS_REGION}.amazonaws.com"
+          aws cloudfront create-invalidation \
+            --distribution-id "${AWS_FRONTEND_DISTRIBUTION_ID}" \
+            --paths "/*" \
+            > /dev/null
+
+          SITE_URL="${AWS_FRONTEND_PUBLIC_URL}"
           echo "site_url=${SITE_URL}" >> "$GITHUB_OUTPUT"
 
-      - name: Verify S3 website serves the app shell
+      - name: Verify CloudFront serves the app shell
         run: curl --fail --show-error --silent "${{ steps.publish.outputs.site_url }}" > /dev/null
 
       - name: Add AWS frontend deploy to job summary
         run: |
           {
-            echo "### AWS S3 Frontend"
+            echo "### AWS CloudFront Frontend"
             echo
             echo "- Bucket: ${AWS_FRONTEND_BUCKET}"
+            echo "- Distribution: ${AWS_FRONTEND_DISTRIBUTION_ID}"
             echo "- Site URL: ${{ steps.publish.outputs.site_url }}"
             echo "- Backend origin: ${{ needs.build-frontend.outputs.backend_origin }}"
           } >> "$GITHUB_STEP_SUMMARY"
