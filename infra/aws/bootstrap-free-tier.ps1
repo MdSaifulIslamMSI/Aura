@@ -5,6 +5,7 @@ param(
     [string]$ParameterStorePathPrefix = "/aura/prod",
     [string]$FrontendOrigin = "https://aurapilot.vercel.app",
     [string]$SecondaryFrontendOrigin = "https://aurapilot.netlify.app",
+    [string]$AwsFrontendOrigin = "",
     [string]$DeployBucketName = "aura-backend-deployments",
     [string]$MediaBucketName = "aura-review-media",
     [string]$InstanceTagName = "aura-backend",
@@ -355,7 +356,7 @@ $userData = Get-Content -LiteralPath $userDataTemplatePath -Raw
 $userData = $userData.Replace("AWS_REGION=ap-south-1", "AWS_REGION=$AwsRegion")
 $userData = $userData.Replace("AWS_PARAMETER_STORE_PATH_PREFIX=/aura/prod", "AWS_PARAMETER_STORE_PATH_PREFIX=$ParameterStorePathPrefix")
 $userData = $userData.Replace("AWS_S3_REVIEW_BUCKET=replace-with-your-media-bucket", "AWS_S3_REVIEW_BUCKET=$MediaBucketName")
-$frontendOrigins = @($FrontendOrigin, $SecondaryFrontendOrigin) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -Unique
+$frontendOrigins = @($FrontendOrigin, $SecondaryFrontendOrigin, $AwsFrontendOrigin) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -Unique
 $frontendOriginList = [string]::Join(',', $frontendOrigins)
 $userData = $userData.Replace(
     "CORS_ORIGIN=https://aurapilot.vercel.app,https://aurapilot.netlify.app,https://aura-mdsaifulislammsiss-projects.vercel.app",

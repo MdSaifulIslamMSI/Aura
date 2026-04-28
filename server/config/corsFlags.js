@@ -36,6 +36,8 @@ const collectConfiguredOrigins = () => {
         normalizeOrigin(process.env.APP_PUBLIC_URL),
         normalizeOrigin(process.env.VERCEL_FRONTEND_URL),
         normalizeOrigin(process.env.NETLIFY_FRONTEND_URL),
+        normalizeOrigin(process.env.AWS_FRONTEND_URL),
+        normalizeOrigin(process.env.S3_FRONTEND_URL),
     ].filter(Boolean);
 
     const fallbackOrigins = isProduction ? hostedProductionOrigins : defaultDevOrigins;

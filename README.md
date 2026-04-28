@@ -19,6 +19,7 @@ Core capabilities:
 - Legacy launch route: [https://aurapilot.vercel.app/launch](https://aurapilot.vercel.app/launch)
 - Vercel frontend: [https://aurapilot.vercel.app](https://aurapilot.vercel.app)
 - Netlify frontend: [https://aurapilot.netlify.app](https://aurapilot.netlify.app)
+- AWS S3 frontend: provision with [`docs/aws-frontend-deployment.md`](docs/aws-frontend-deployment.md)
 - Netlify note: production builds now target the same proxied backend routes through `/api`, `/health`, `/socket.io`, and `/uploads`.
 
 ## Run Locally
@@ -65,8 +66,9 @@ Core capabilities:
 - Frontend routing now prefers `AURA_BACKEND_ORIGIN` or `AWS_BACKEND_BASE_URL` in Vercel, and falls back to the tracked hosted backend origin instead of localhost so hosted deploys do not fail closed.
 
 ## Frontend CI/CD
-- GitHub Actions now deploys the frontend to both Netlify and Vercel through [`deploy-netlify.yml`](.github/workflows/deploy-netlify.yml).
-- The workflow builds `app/dist` once, uploads that artifact to Netlify, and prepares a Vercel-compatible artifact bundle from the same built files so both domains publish the same frontend release inputs.
+- GitHub Actions deploys the same frontend artifact to Netlify, Vercel, and AWS S3 through [`deploy-netlify.yml`](.github/workflows/deploy-netlify.yml).
+- AWS S3 static hosting setup lives in [`deploy-frontend-aws.yml`](.github/workflows/deploy-frontend-aws.yml) and [`docs/aws-frontend-deployment.md`](docs/aws-frontend-deployment.md). The production path stays low-spend and publishes from the shared storefront release flow.
+- The workflow builds `app/dist` once, uploads that exact artifact to Netlify and AWS S3, and prepares Vercel Build Output from the same built files so all three hosts publish the same frontend release inputs.
 - Required GitHub setup:
   - Repository secret: `NETLIFY_AUTH_TOKEN`
   - Repository variable or secret: `NETLIFY_SITE_ID`
@@ -75,8 +77,11 @@ Core capabilities:
   - Repository variable or secret: `VERCEL_ORG_ID`
   - Repository variable or secret: `VERCEL_PROJECT_ID`
   - Optional repository variable: `VERCEL_PROJECT_NAME`
-- Pull requests targeting `main` publish preview deploys to both Netlify and Vercel.
-- Pushes to `main` publish production deploys to both Netlify and Vercel from the same frontend release flow.
+  - Repository variable: `AWS_FRONTEND_BUCKET`
+  - Repository variable or secret: `AWS_FRONTEND_DEPLOY_ROLE_ARN`
+  - Optional repository variable: `AWS_REGION`
+- Pull requests targeting `main` publish preview deploys to both Netlify and Vercel from the same artifact.
+- Pushes to `main` publish production deploys to Netlify, Vercel, and AWS S3 from the same frontend release flow.
 - If Netlify Git auto-publishing is still enabled for the same site, disable it in the Netlify UI to avoid duplicate deploys from both Netlify and GitHub Actions.
 - If Vercel Git auto-deploy is still enabled for the same project, disconnect or disable it once the GitHub Actions path is verified so the shared-artifact workflow remains the single production release source.
 

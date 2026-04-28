@@ -1,4 +1,4 @@
-name: Deploy Frontend To Netlify And Vercel
+name: Deploy Frontend To Netlify, Vercel, And AWS
 
 on:
   pull_request:
@@ -9,7 +9,11 @@ on:
       - ".netlifyignore"
       - "vercel.json"
       - ".vercelignore"
+      - "infra/aws/bootstrap-frontend-s3.ps1"
+      - "infra/aws/bootstrap-frontend-github-oidc.ps1"
+      - "infra/aws/deploy-frontend-s3.ps1"
       - ".github/workflows/deploy-netlify.yml"
+      - ".github/workflows/deploy-frontend-aws.yml"
   workflow_dispatch:
     inputs:
       target:
@@ -30,6 +34,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write
   issues: write
   pull-requests: write
 
@@ -45,11 +50,17 @@ env:
   VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID || secrets.VERCEL_ORG_ID }}
   VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID || secrets.VERCEL_PROJECT_ID }}
   VERCEL_PROJECT_NAME: ${{ vars.VERCEL_PROJECT_NAME || 'app' }}
+  AWS_REGION: ${{ vars.AWS_REGION || 'ap-south-1' }}
+  AWS_FRONTEND_BUCKET: ${{ vars.AWS_FRONTEND_BUCKET || 'aura-frontend-942679464475-ap-south-1' }}
+  AWS_FRONTEND_DEPLOY_ROLE_ARN: ${{ vars.AWS_FRONTEND_DEPLOY_ROLE_ARN || secrets.AWS_FRONTEND_DEPLOY_ROLE_ARN || 'arn:aws:iam::942679464475:role/aura-github-actions-frontend-deploy' }}
 
 jobs:
   build-frontend:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    outputs:
+      backend_origin: ${{ steps.backend.outputs.origin }}
+      built_at: ${{ steps.release.outputs.built_at }}
     defaults:
       run:
         working-directory: ./app
@@ -71,22 +82,31 @@ jobs:
         run: |
           test -n "${NETLIFY_AUTH_TOKEN}" || { echo "Missing GitHub secret NETLIFY_AUTH_TOKEN"; exit 1; }
           test -n "${NETLIFY_SITE_ID}" || { echo "Missing GitHub variable or secret NETLIFY_SITE_ID"; exit 1; }
+          test -n "${{ secrets.VERCEL_TOKEN }}" || { echo "Missing GitHub secret VERCEL_TOKEN"; exit 1; }
+          test -n "${VERCEL_ORG_ID}" || { echo "Missing GitHub variable or secret VERCEL_ORG_ID"; exit 1; }
+          test -n "${VERCEL_PROJECT_ID}" || { echo "Missing GitHub variable or secret VERCEL_PROJECT_ID"; exit 1; }
 
       - name: Install frontend dependencies
         run: npm ci
 
-      - name: Capture Netlify release timestamp
-        id: netlify_release
+      - name: Resolve hosted backend origin
+        working-directory: .
+        id: backend
+        run: echo "origin=$(node ./app/scripts/print_hosted_backend_origin.mjs)" >> "$GITHUB_OUTPUT"
+
+      - name: Capture shared release timestamp
+        id: release
         run: echo "built_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
 
-      - name: Build frontend artifact
+      - name: Build shared frontend artifact
         env:
-          VITE_DEPLOY_TARGET: netlify
+          VITE_DEPLOY_TARGET: multi-host
+          VITE_API_URL: ${{ steps.backend.outputs.origin }}/api
           VITE_RELEASE_ID: ${{ github.sha }}
           VITE_RELEASE_SHA: ${{ github.sha }}
-          VITE_RELEASE_CHANNEL: ${{ ((github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.target == 'production')) && 'production' || 'preview' }}
+          VITE_RELEASE_CHANNEL: ${{ inputs.target == 'production' && 'production' || 'preview' }}
           VITE_RELEASE_SOURCE: github-actions
-          VITE_RELEASE_TIME: ${{ steps.netlify_release.outputs.built_at }}
+          VITE_RELEASE_TIME: ${{ steps.release.outputs.built_at }}
         run: npm run build
 
       - name: Upload frontend dist bundle
@@ -96,7 +116,8 @@ jobs:
           path: app/dist
           retention-days: 7
 
-  build-vercel-prebuilt:
+  package-vercel-prebuilt:
+    needs: build-frontend
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -107,52 +128,26 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-          cache-dependency-path: app/package-lock.json
 
-      - name: Validate Vercel deployment configuration
-        run: |
-          test -n "${{ secrets.VERCEL_TOKEN }}" || { echo "Missing GitHub secret VERCEL_TOKEN"; exit 1; }
-          test -n "${VERCEL_ORG_ID}" || { echo "Missing GitHub variable or secret VERCEL_ORG_ID"; exit 1; }
-          test -n "${VERCEL_PROJECT_ID}" || { echo "Missing GitHub variable or secret VERCEL_PROJECT_ID"; exit 1; }
+      - name: Download shared frontend
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: app/dist
 
-      - name: Capture Vercel release timestamp
-        id: vercel_release
-        run: echo "built_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
-
-      - name: Build Vercel prebuilt output
+      - name: Create Vercel prebuilt output from shared artifact
         env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VITE_DEPLOY_TARGET: vercel
-          VITE_RELEASE_ID: ${{ github.sha }}
-          VITE_RELEASE_SHA: ${{ github.sha }}
-          VITE_RELEASE_CHANNEL: ${{ ((github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.target == 'production')) && 'production' || 'preview' }}
-          VITE_RELEASE_SOURCE: github-actions
-          VITE_RELEASE_TIME: ${{ steps.vercel_release.outputs.built_at }}
+          AURA_BACKEND_ORIGIN: ${{ needs.build-frontend.outputs.backend_origin }}
+        run: node app/scripts/create_vercel_static_output.mjs
+
+      - name: Verify Vercel output mirrors shared artifact
+        run: diff -qr app/dist .vercel/output/static
+
+      - name: Create Vercel project metadata
         run: |
           set -euo pipefail
-          SANITIZED_VERCEL_TOKEN="$(printf '%s' "${VERCEL_TOKEN}" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
-          if [ -z "${SANITIZED_VERCEL_TOKEN}" ]; then
-            echo "GitHub secret VERCEL_TOKEN is empty after trimming whitespace." >&2
-            exit 1
-          fi
-          echo "::add-mask::${SANITIZED_VERCEL_TOKEN}"
-          if [ "${GITHUB_EVENT_NAME}" = "push" ] && [ "${GITHUB_REF}" = "refs/heads/main" ]; then
-            if ! npx vercel build --prod --token "${SANITIZED_VERCEL_TOKEN}" --yes; then
-              echo "Vercel authentication failed during build. Re-save GitHub secret VERCEL_TOKEN without quotes or trailing spaces, or rotate it in Vercel if it has expired." >&2
-              exit 1
-            fi
-          elif [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ] && [ "${{ inputs.target }}" = "production" ]; then
-            if ! npx vercel build --prod --token "${SANITIZED_VERCEL_TOKEN}" --yes; then
-              echo "Vercel authentication failed during build. Re-save GitHub secret VERCEL_TOKEN without quotes or trailing spaces, or rotate it in Vercel if it has expired." >&2
-              exit 1
-            fi
-          else
-            if ! npx vercel build --token "${SANITIZED_VERCEL_TOKEN}" --yes; then
-              echo "Vercel authentication failed during build. Re-save GitHub secret VERCEL_TOKEN without quotes or trailing spaces, or rotate it in Vercel if it has expired." >&2
-              exit 1
-            fi
-          fi
+          mkdir -p .vercel
+          printf '{"orgId":"%s","projectId":"%s"}\n' "${VERCEL_ORG_ID}" "${VERCEL_PROJECT_ID}" > .vercel/project.json
 
       - name: Upload Vercel prebuilt output
         uses: actions/upload-artifact@v4
@@ -337,7 +332,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   deploy-vercel-preview:
-    needs: build-vercel-prebuilt
+    needs: package-vercel-prebuilt
     if: github.event_name == 'pull_request' || inputs.target == 'preview'
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -442,7 +437,7 @@ jobs:
             }
 
   deploy-vercel-production:
-    needs: build-vercel-prebuilt
+    needs: package-vercel-prebuilt
     if: inputs.target == 'production'
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -518,3 +513,139 @@ jobs:
             echo "- Production URL: ${{ steps.deploy.outputs.site_url }}"
             echo "- Deploy URL: ${{ steps.deploy.outputs.deploy_url }}"
           } >> "$GITHUB_STEP_SUMMARY"
+
+  deploy-aws-production:
+    needs: build-frontend
+    if: inputs.target == 'production'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: aws-frontend-production
+      url: ${{ steps.publish.outputs.site_url }}
+    outputs:
+      site_url: ${{ steps.publish.outputs.site_url }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate AWS frontend deployment configuration
+        run: |
+          set -euo pipefail
+          test -n "${AWS_REGION}" || { echo "Missing AWS_REGION"; exit 1; }
+          test -n "${AWS_FRONTEND_BUCKET}" || { echo "Missing AWS_FRONTEND_BUCKET"; exit 1; }
+          test -n "${AWS_FRONTEND_DEPLOY_ROLE_ARN}" || { echo "Missing AWS_FRONTEND_DEPLOY_ROLE_ARN"; exit 1; }
+          echo "Bucket: ${AWS_FRONTEND_BUCKET}"
+          echo "Region: ${AWS_REGION}"
+
+      - name: Download shared frontend
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: app/dist
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ env.AWS_FRONTEND_DEPLOY_ROLE_ARN }}
+          role-session-name: aura-github-frontend-s3
+          mask-aws-account-id: true
+          unset-current-credentials: true
+
+      - name: Publish shared frontend to S3 website bucket
+        id: publish
+        run: |
+          set -euo pipefail
+          aws s3 sync app/dist "s3://${AWS_FRONTEND_BUCKET}" \
+            --region "${AWS_REGION}" \
+            --delete \
+            --cache-control "public,max-age=300"
+
+          if [ -d app/dist/assets ]; then
+            aws s3 sync app/dist/assets "s3://${AWS_FRONTEND_BUCKET}/assets" \
+              --region "${AWS_REGION}" \
+              --delete \
+              --cache-control "public,max-age=31536000,immutable"
+          fi
+
+          aws s3 cp app/dist/index.html "s3://${AWS_FRONTEND_BUCKET}/index.html" \
+            --region "${AWS_REGION}" \
+            --cache-control "no-cache,no-store,must-revalidate" \
+            --content-type "text/html"
+
+          SITE_URL="http://${AWS_FRONTEND_BUCKET}.s3-website.${AWS_REGION}.amazonaws.com"
+          echo "site_url=${SITE_URL}" >> "$GITHUB_OUTPUT"
+
+      - name: Verify S3 website serves the app shell
+        run: curl --fail --show-error --silent "${{ steps.publish.outputs.site_url }}" > /dev/null
+
+      - name: Add AWS production deploy to job summary
+        run: |
+          {
+            echo "### AWS S3 Production"
+            echo
+            echo "- Bucket: ${AWS_FRONTEND_BUCKET}"
+            echo "- Production URL: ${{ steps.publish.outputs.site_url }}"
+            echo "- Backend origin: ${{ needs.build-frontend.outputs.backend_origin }}"
+            echo "- Shared build time: ${{ needs.build-frontend.outputs.built_at }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  verify-preview-coherence:
+    needs:
+      - build-frontend
+      - deploy-preview
+      - deploy-vercel-preview
+    if: github.event_name == 'pull_request' || inputs.target == 'preview'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Verify Netlify and Vercel preview release coherence
+        env:
+          AURA_EXPECTED_RELEASE_ID: ${{ github.sha }}
+          AURA_EXPECTED_COMMIT: ${{ github.sha }}
+          AURA_EXPECTED_TARGET: multi-host
+          AURA_RELEASE_URLS: >-
+            [
+              {"name":"netlify-preview","url":"${{ needs.deploy-preview.outputs.deploy_url }}"},
+              {"name":"vercel-preview","url":"${{ needs.deploy-vercel-preview.outputs.deploy_url }}"}
+            ]
+        run: node app/scripts/verify_deployed_release_coherence.mjs
+
+  verify-production-coherence:
+    needs:
+      - build-frontend
+      - deploy-production
+      - deploy-vercel-production
+      - deploy-aws-production
+    if: inputs.target == 'production'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Verify Netlify, Vercel, and AWS production release coherence
+        env:
+          AURA_EXPECTED_RELEASE_ID: ${{ github.sha }}
+          AURA_EXPECTED_COMMIT: ${{ github.sha }}
+          AURA_EXPECTED_TARGET: multi-host
+          AURA_RELEASE_URLS: >-
+            [
+              {"name":"netlify-production","url":"${{ needs.deploy-production.outputs.site_url }}"},
+              {"name":"vercel-production","url":"${{ needs.deploy-vercel-production.outputs.site_url }}"},
+              {"name":"aws-s3-production","url":"${{ needs.deploy-aws-production.outputs.site_url }}"}
+            ]
+        run: node app/scripts/verify_deployed_release_coherence.mjs

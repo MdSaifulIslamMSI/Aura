@@ -1,0 +1,155 @@
+name: Deploy Frontend To AWS S3
+
+on:
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: Publish to the AWS S3 production bucket
+        required: false
+        default: true
+        type: boolean
+  workflow_call:
+    inputs:
+      deploy:
+        description: Publish to the AWS S3 production bucket
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: aws-frontend-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  NODE_VERSION: 24.x
+  AWS_REGION: ${{ vars.AWS_REGION || 'ap-south-1' }}
+  AWS_FRONTEND_BUCKET: ${{ vars.AWS_FRONTEND_BUCKET || 'aura-frontend-942679464475-ap-south-1' }}
+  AWS_FRONTEND_DEPLOY_ROLE_ARN: ${{ vars.AWS_FRONTEND_DEPLOY_ROLE_ARN || secrets.AWS_FRONTEND_DEPLOY_ROLE_ARN || 'arn:aws:iam::942679464475:role/aura-github-actions-frontend-deploy' }}
+
+jobs:
+  build-frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      backend_origin: ${{ steps.backend.outputs.origin }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Resolve hosted backend origin
+        id: backend
+        run: echo "origin=$(node ./app/scripts/print_hosted_backend_origin.mjs)" >> "$GITHUB_OUTPUT"
+
+      - name: Install frontend dependencies
+        working-directory: app
+        run: npm ci
+
+      - name: Capture AWS release timestamp
+        id: release
+        run: echo "built_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
+      - name: Build AWS frontend artifact
+        working-directory: app
+        env:
+          VITE_DEPLOY_TARGET: multi-host
+          VITE_API_URL: ${{ steps.backend.outputs.origin }}/api
+          VITE_RELEASE_ID: ${{ github.sha }}
+          VITE_RELEASE_SHA: ${{ github.sha }}
+          VITE_RELEASE_CHANNEL: ${{ inputs.deploy == true && 'production' || 'preview' }}
+          VITE_RELEASE_SOURCE: github-actions
+          VITE_RELEASE_TIME: ${{ steps.release.outputs.built_at }}
+        run: npm run build
+
+      - name: Upload AWS frontend dist bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: aws-frontend-dist
+          path: app/dist
+          retention-days: 7
+
+  deploy-production:
+    needs: build-frontend
+    if: inputs.deploy == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: aws-frontend-production
+      url: ${{ steps.publish.outputs.site_url }}
+    outputs:
+      site_url: ${{ steps.publish.outputs.site_url }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate AWS frontend deployment configuration
+        run: |
+          set -euo pipefail
+          test -n "${AWS_REGION}" || { echo "Missing AWS_REGION"; exit 1; }
+          test -n "${AWS_FRONTEND_BUCKET}" || { echo "Missing AWS_FRONTEND_BUCKET"; exit 1; }
+          test -n "${AWS_FRONTEND_DEPLOY_ROLE_ARN}" || { echo "Missing AWS_FRONTEND_DEPLOY_ROLE_ARN"; exit 1; }
+          echo "Bucket: ${AWS_FRONTEND_BUCKET}"
+          echo "Region: ${AWS_REGION}"
+
+      - name: Download built frontend
+        uses: actions/download-artifact@v4
+        with:
+          name: aws-frontend-dist
+          path: app/dist
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ env.AWS_FRONTEND_DEPLOY_ROLE_ARN }}
+          role-session-name: aura-github-frontend-s3
+          mask-aws-account-id: true
+          unset-current-credentials: true
+
+      - name: Publish frontend to S3 website bucket
+        id: publish
+        run: |
+          set -euo pipefail
+          aws s3 sync app/dist "s3://${AWS_FRONTEND_BUCKET}" \
+            --region "${AWS_REGION}" \
+            --delete \
+            --cache-control "public,max-age=300"
+
+          if [ -d app/dist/assets ]; then
+            aws s3 sync app/dist/assets "s3://${AWS_FRONTEND_BUCKET}/assets" \
+              --region "${AWS_REGION}" \
+              --delete \
+              --cache-control "public,max-age=31536000,immutable"
+          fi
+
+          aws s3 cp app/dist/index.html "s3://${AWS_FRONTEND_BUCKET}/index.html" \
+            --region "${AWS_REGION}" \
+            --cache-control "no-cache,no-store,must-revalidate" \
+            --content-type "text/html"
+
+          SITE_URL="http://${AWS_FRONTEND_BUCKET}.s3-website.${AWS_REGION}.amazonaws.com"
+          echo "site_url=${SITE_URL}" >> "$GITHUB_OUTPUT"
+
+      - name: Verify S3 website serves the app shell
+        run: curl --fail --show-error --silent "${{ steps.publish.outputs.site_url }}" > /dev/null
+
+      - name: Add AWS frontend deploy to job summary
+        run: |
+          {
+            echo "### AWS S3 Frontend"
+            echo
+            echo "- Bucket: ${AWS_FRONTEND_BUCKET}"
+            echo "- Site URL: ${{ steps.publish.outputs.site_url }}"
+            echo "- Backend origin: ${{ needs.build-frontend.outputs.backend_origin }}"
+          } >> "$GITHUB_STEP_SUMMARY"
