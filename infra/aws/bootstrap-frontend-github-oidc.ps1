@@ -115,6 +115,7 @@ $inlinePolicy = @{
             Sid = "ListFrontendBucket"
             Effect = "Allow"
             Action = @(
+                "s3:GetBucketWebsite",
                 "s3:GetBucketLocation",
                 "s3:ListBucket"
             )
