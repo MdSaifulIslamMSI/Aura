@@ -23,7 +23,7 @@ import DesktopUpdateBanner from './components/shared/DesktopUpdateBanner';
 import DesktopWelcomePanel from './components/shared/DesktopWelcomePanel';
 import MobileUpdateBanner from './components/shared/MobileUpdateBanner';
 import MobileNativeTabBar from './components/shared/MobileNativeTabBar';
-import GlobalSupportLauncher from './components/shared/GlobalSupportLauncher';
+import SecurePathDock from './components/shared/SecurePathDock';
 import AuraTrustedDeviceChallenge from './components/features/auth/AuraTrustedDeviceChallenge';
 import { trustRoutes } from './config/trustContent';
 import { FRONTEND_LAUNCH_HUB_PATH } from './config/frontendTargets';
@@ -34,7 +34,6 @@ import { MultimodalAssistantProvider } from './context/MultimodalAssistantContex
 import {
   shouldShowSiteChrome,
   shouldShowAmbientChrome,
-  shouldShowAssistantLauncher,
   shouldShowBackendStatusBanner,
 } from './services/assistantUiConfig';
 
@@ -76,7 +75,6 @@ const VisualSearch = lazyWithRetry(() => import('./pages/VisualSearch'), 'visual
 const Bundles = lazyWithRetry(() => import('./pages/Bundles'), 'bundles');
 const MissionControl = lazyWithRetry(() => import('./pages/MissionControl'), 'mission-control');
 const AssistantPage = lazyWithRetry(() => import('./pages/Assistant'), 'assistant-workspace');
-const AssistantLauncher = lazyWithRetry(() => import('./components/shared/AssistantLauncher'), 'assistant-launcher');
 const LaunchHub = lazyWithRetry(() => import('./pages/Launch'), 'frontend-launch-hub');
 
 function renderRoute(element) {
@@ -103,10 +101,6 @@ function AppContent() {
     [pathname]
   );
   const showAnchorRail = showAmbientChrome && effectiveMotionMode === 'cinematic';
-  const showAssistantLauncher = useMemo(
-    () => shouldShowAssistantLauncher({ pathname }),
-    [pathname]
-  );
   const showBackendStatusBanner = useMemo(
     () => shouldShowBackendStatusBanner(pathname),
     [pathname]
@@ -245,17 +239,10 @@ function AppContent() {
           </RouteTransitionShell>
         </Suspense>
       </main>
-      {showSiteChrome && showAssistantLauncher ? (
-        <Suspense fallback={null}>
-          <AppErrorBoundary>
-            <AssistantLauncher />
-          </AppErrorBoundary>
-        </Suspense>
-      ) : null}
       {showSiteChrome ? (
         <>
           <AppErrorBoundary>
-            <GlobalSupportLauncher />
+            <SecurePathDock />
           </AppErrorBoundary>
           <AppErrorBoundary>
             <AuraTrustedDeviceChallenge />

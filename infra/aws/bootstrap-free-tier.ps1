@@ -294,13 +294,24 @@ $securityGroupId = if ([string]::IsNullOrWhiteSpace($existingSecurityGroupId) -o
 }
 
 try {
-    $ingressPermissions = "[{""IpProtocol"":""tcp"",""FromPort"":5000,""ToPort"":5000,""IpRanges"":[{""CidrIp"":""$AllowedIpv4Cidr""}]}]"
+    $ingressPermissions = "[{""IpProtocol"":""tcp"",""FromPort"":80,""ToPort"":80,""IpRanges"":[{""CidrIp"":""$AllowedIpv4Cidr""}]},{""IpProtocol"":""tcp"",""FromPort"":443,""ToPort"":443,""IpRanges"":[{""CidrIp"":""$AllowedIpv4Cidr""}]}]"
     $ingressFile = Join-Path $env:TEMP "$securityGroupName-ingress.json"
     $ingressPermissions | Set-Content -LiteralPath $ingressFile -Encoding ascii
     aws ec2 authorize-security-group-ingress `
         --region $AwsRegion `
         --group-id $securityGroupId `
         --ip-permissions "file://$ingressFile" | Out-Null
+} catch {
+}
+
+try {
+    $legacyIngressPermissions = "[{""IpProtocol"":""tcp"",""FromPort"":5000,""ToPort"":5000,""IpRanges"":[{""CidrIp"":""0.0.0.0/0""}]}]"
+    $legacyIngressFile = Join-Path $env:TEMP "$securityGroupName-legacy-ingress.json"
+    $legacyIngressPermissions | Set-Content -LiteralPath $legacyIngressFile -Encoding ascii
+    aws ec2 revoke-security-group-ingress `
+        --region $AwsRegion `
+        --group-id $securityGroupId `
+        --ip-permissions "file://$legacyIngressFile" | Out-Null
 } catch {
 }
 

@@ -81,7 +81,8 @@ describe('AuraTrustedDeviceChallenge', () => {
 
   it('renders both proof options and verifies with the selected RSA-PSS browser key', async () => {
     const verifyDeviceChallenge = vi.fn().mockResolvedValue({ success: true });
-    useAuth.mockReturnValue(buildAuthValue({ verifyDeviceChallenge }));
+    const refreshSession = vi.fn().mockResolvedValue(null);
+    useAuth.mockReturnValue(buildAuthValue({ refreshSession, verifyDeviceChallenge }));
 
     const { default: AuraTrustedDeviceChallenge } = await loadComponent();
     renderWithRoute(<AuraTrustedDeviceChallenge />);
@@ -104,6 +105,12 @@ describe('AuraTrustedDeviceChallenge', () => {
     expect(verifyDeviceChallenge).toHaveBeenCalledWith('challenge-token', expect.objectContaining({
       method: 'browser_key',
     }));
+    await waitFor(() => {
+      expect(refreshSession).toHaveBeenCalledWith(
+        expect.objectContaining({ email: 'user@example.com' }),
+        { force: true, silent: true },
+      );
+    });
   });
 
   it('keeps both proof cards visible even when only the browser-key method is currently offered', async () => {
@@ -127,15 +134,11 @@ describe('AuraTrustedDeviceChallenge', () => {
     expect(screen.getByText(/currently registered with an rsa-pss browser key, not a passkey/i)).toBeInTheDocument();
   });
 
-  it('starts minimized on public routes and expands on demand', async () => {
+  it('stays quiet on public routes so the storefront is not interrupted', async () => {
     const { default: AuraTrustedDeviceChallenge } = await loadComponent();
     renderWithRoute(<AuraTrustedDeviceChallenge />, '/');
 
-    expect(screen.getByRole('button', { name: /verify once to unlock admin actions/i })).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: /verify once to unlock admin actions/i }));
-
-    expect(screen.getByRole('heading', { name: /privileged mode locked/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /minimize trusted device panel/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /verify once to unlock admin actions/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: /privileged mode locked/i })).not.toBeInTheDocument();
   });
 });

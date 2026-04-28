@@ -237,17 +237,51 @@ docker compose \
   -f "${compose_file}" \
   up -d --remove-orphans
 
+api_ready=false
 for _ in $(seq 1 30); do
   if curl --fail --silent http://127.0.0.1:5000/health/ready > /dev/null; then
-    echo "Aura backend release ${release_sha} is healthy."
-    cleanup_old_release_dirs "${deploy_root}/releases" 3
-    docker image prune --all --force || true
-    exit 0
+    api_ready=true
+    break
   fi
   sleep 10
 done
 
-echo "Aura backend release ${release_sha} failed readiness checks." >&2
+if [[ "${api_ready}" != "true" ]]; then
+  echo "Aura backend release ${release_sha} failed local API readiness checks." >&2
+  docker compose \
+    --env-file "${shared_dir}/base.env" \
+    --env-file "${shared_dir}/runtime-secrets.env" \
+    --env-file "${shared_dir}/release.env" \
+    -f "${compose_file}" \
+    logs --tail 100 >&2
+  exit 1
+fi
+
+backend_public_host="$(resolve_env_value "AURA_BACKEND_PUBLIC_HOST" "${shared_dir}/base.env" "${shared_dir}/runtime-secrets.env" "${shared_dir}/release.env")"
+if [[ -z "${backend_public_host}" ]]; then
+  echo "Aura backend release ${release_sha} is missing AURA_BACKEND_PUBLIC_HOST for TLS edge validation." >&2
+  exit 1
+fi
+
+edge_ready=false
+for _ in $(seq 1 30); do
+  if curl --fail --silent --show-error \
+    --resolve "${backend_public_host}:443:127.0.0.1" \
+    "https://${backend_public_host}/health/live" > /dev/null; then
+    edge_ready=true
+    break
+  fi
+  sleep 10
+done
+
+if [[ "${edge_ready}" == "true" ]]; then
+  echo "Aura backend release ${release_sha} is healthy behind TLS edge ${backend_public_host}."
+  cleanup_old_release_dirs "${deploy_root}/releases" 3
+  docker image prune --all --force || true
+  exit 0
+fi
+
+echo "Aura backend release ${release_sha} failed TLS edge checks for ${backend_public_host}." >&2
 docker compose \
   --env-file "${shared_dir}/base.env" \
   --env-file "${shared_dir}/runtime-secrets.env" \
