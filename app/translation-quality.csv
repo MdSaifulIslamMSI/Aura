@@ -1,0 +1,9 @@
+language,total_keys,missing_keys,exact_english_matches,exact_english_percent,native_script_rule,native_script_key_hits,native_script_key_percent,native_letter_percent,status
+hi,579,0,209,36.10,Devanagari,16,2.76,2.69,fail
+es,579,0,18,3.11,,,,,pass
+fr,579,0,29,5.01,,,,,pass
+de,579,0,30,5.18,,,,,pass
+ar,579,0,21,3.63,Arabic,16,2.76,3.16,fail
+ja,579,0,146,25.22,Japanese,16,2.76,1.65,fail
+pt,579,0,15,2.59,,,,,pass
+zh,579,0,59,10.19,Han,16,2.76,1.08,fail
