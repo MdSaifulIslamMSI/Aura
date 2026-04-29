@@ -11,6 +11,7 @@
     "backend:origin": "node scripts/print_hosted_backend_origin.mjs",
     "vercel:routing:sync": "node scripts/sync_vercel_configs.mjs",
     "audit:locale": "node scripts/check_locale_coverage.mjs",
+    "audit:locale:quality": "node scripts/check_locale_quality.mjs",
     "bench:mobile": "node scripts/mobile_benchmark.mjs",
     "i18n:generate": "node scripts/generate_market_messages.mjs && node scripts/generate_market_message_packs.mjs",
     "lint": "eslint .",
