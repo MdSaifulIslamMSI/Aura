@@ -6,272 +6,292 @@
     <title>Aura Gateway</title>
     <meta
       name="description"
-      content="A dedicated production gateway for the Aura storefront stack across Vercel and Netlify."
+      content="A premium production gateway for the Aura storefront stack across Vercel, Netlify, AWS CloudFront, desktop, Android, and iPhone releases."
     />
+    <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml" />
+    <link rel="preload" as="image" href="./assets/aura-gateway-hero.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="./styles.css" />
+    <script src="./release-links.js" defer></script>
   </head>
   <body>
     <div class="gateway-shell">
-      <div class="background-grid" aria-hidden="true"></div>
-      <div class="background-orb background-orb-left" aria-hidden="true"></div>
-      <div class="background-orb background-orb-right" aria-hidden="true"></div>
-      <div class="background-orb background-orb-bottom" aria-hidden="true"></div>
+      <header class="masthead" aria-label="Aura Gateway">
+        <a class="brand-lockup" href="/" aria-label="Aura Gateway home">
+          <span class="brand-mark" aria-hidden="true">A</span>
+          <span class="brand-copy">
+            <strong>Aura Gateway</strong>
+            <span>Production entry surface</span>
+          </span>
+        </a>
+        <nav class="masthead-nav" aria-label="Gateway navigation">
+          <a href="#routes">Storefronts</a>
+          <a href="#downloads">Downloads</a>
+          <a href="https://github.com/MdSaifulIslamMSI/Aura/releases" rel="noreferrer">Releases</a>
+        </nav>
+      </header>
 
-      <main class="page">
-        <header class="masthead">
-          <div class="brand-lockup">
-            <div class="brand-mark" aria-hidden="true">A</div>
-            <div>
-              <p class="brand-name">Aura Gateway</p>
-              <p class="brand-caption">Dedicated production entry surface</p>
-            </div>
-          </div>
-          <div class="masthead-signals" aria-label="gateway status">
-            <span class="signal-pill">Two public runtimes</span>
-            <span class="signal-pill">Desktop + mobile downloads</span>
-            <span class="signal-pill">Auto-update channel</span>
-            <span class="signal-pill">Single commerce core</span>
-          </div>
-        </header>
-
-        <section class="hero-panel">
-          <div class="hero-copy">
-            <p class="section-kicker">Curated access layer</p>
-            <h1>Choose the host. Keep the same Aura reality.</h1>
-            <p class="hero-lede">
-              This gateway is designed as the calmer, more deliberate front door above Aura&apos;s live storefront
-              stack. Vercel and Netlify stay separate as public runtimes, but identity, cart, wishlist, checkout,
-              profile, and order state still resolve into the same production experience.
-            </p>
-
-            <div class="editorial-notes" aria-label="gateway principles">
-              <article class="note-card">
-                <span class="note-index">01</span>
-                <h2>Not a switchboard</h2>
-                <p>This feels like a product entrance, not an internal deployment chooser dressed up with gradients.</p>
-              </article>
-              <article class="note-card">
-                <span class="note-index">02</span>
-                <h2>Runtime clarity</h2>
-                <p>Users can pick the host they want without guessing whether one domain is missing capability.</p>
-              </article>
-              <article class="note-card">
-                <span class="note-index">03</span>
-                <h2>Shared behavior contract</h2>
-                <p>Different domains are acceptable. Behavioral drift is not part of the Aura promise.</p>
-              </article>
-            </div>
+      <main>
+        <section class="hero-section" aria-labelledby="gateway-title">
+          <div class="hero-art" aria-hidden="true">
+            <img src="./assets/aura-gateway-hero.png" alt="" />
           </div>
 
-          <aside class="route-atlas" aria-labelledby="route-atlas-title">
-            <p class="section-kicker">Route atlas</p>
-            <h2 id="route-atlas-title">One gateway, two storefront routes.</h2>
-            <p class="atlas-copy">
-              The launch story is simple: a single gateway introduces the stack, then hands the user into the chosen
-              runtime without changing the commerce system underneath.
-            </p>
-
-            <div class="atlas-map" aria-hidden="true">
-              <div class="atlas-node atlas-node-core">
-                <span class="node-label">Aura Gateway</span>
-                <strong class="node-value">Shared introduction layer</strong>
-              </div>
-              <div class="atlas-connector atlas-connector-left"></div>
-              <div class="atlas-connector atlas-connector-right"></div>
-              <div class="atlas-node atlas-node-vercel">
-                <span class="node-label">Vercel route</span>
-                <strong class="node-value">aurapilot.vercel.app</strong>
-              </div>
-              <div class="atlas-node atlas-node-netlify">
-                <span class="node-label">Netlify route</span>
-                <strong class="node-value">aurapilot.netlify.app</strong>
-              </div>
-            </div>
-
-            <div class="contract-panel">
-              <div class="contract-card">
-                <span class="contract-label">Hosts</span>
-                <strong>Vercel + Netlify</strong>
-              </div>
-              <div class="contract-card">
-                <span class="contract-label">State layer</span>
-                <strong>Shared production backend</strong>
-              </div>
-              <div class="contract-card">
-                <span class="contract-label">Design intent</span>
-                <strong>Sharper and more editorial</strong>
-              </div>
-            </div>
-          </aside>
-        </section>
-
-        <section class="deployment-board" aria-labelledby="deployment-board-title">
-          <div class="board-header">
-            <div class="board-copy">
-              <p class="section-kicker">Storefront selection</p>
-              <h2 id="deployment-board-title">Enter Aura from the runtime you actually want.</h2>
-            </div>
-            <p class="board-note">
-              Both destinations point at the same production system and are expected to behave with the same intent.
-            </p>
-          </div>
-
-          <div class="target-grid">
-            <article class="target-card target-card-vercel">
-              <div class="target-topline">
-                <span class="target-badge">Vercel</span>
-                <span class="target-state">Primary runtime</span>
-              </div>
-              <h3>aurapilot.vercel.app</h3>
-              <p>
-                The flagship Aura storefront on Vercel. Best when you want the main public runtime with the fastest
-                route into the shared production app.
+          <div class="hero-content">
+            <div class="hero-copy">
+              <h1 id="gateway-title">Aura Gateway</h1>
+              <p class="hero-statement">Choose the host. Keep the same Aura reality.</p>
+              <p class="hero-lede">
+                One gateway introduces Aura&apos;s production stack, then hands you to the runtime or install channel
+                that fits your device. Vercel, Netlify, and AWS CloudFront stay separate at the edge while account,
+                cart, wishlist, checkout, profile, and order behavior keep one shared contract.
               </p>
-              <div class="target-facts">
-                <span>Primary Aura domain</span>
-                <span>Shared backend</span>
-                <span>High-speed entry</span>
-              </div>
-              <a class="target-link" href="https://aurapilot.vercel.app" rel="noreferrer">
-                <span>Open Vercel storefront</span>
-                <span aria-hidden="true">&rarr;</span>
-              </a>
-            </article>
+            </div>
 
-            <article class="target-card target-card-netlify">
-              <div class="target-topline">
-                <span class="target-badge">Netlify</span>
-                <span class="target-state">Mirrored runtime</span>
+            <div class="route-selector" id="routes" aria-labelledby="routes-title">
+              <div class="selector-header">
+                <div>
+                  <p class="section-label">Choose your route</p>
+                  <h2 id="routes-title">Three storefronts. One commerce core.</h2>
+                </div>
+                <p>
+                  Pick the host you want to enter. The destination changes; Aura&apos;s production state and product
+                  posture do not.
+                </p>
               </div>
-              <h3>aurapilot.netlify.app</h3>
-              <p>
-                The independent Netlify host for Aura. Best when you want to validate the mirrored production runtime
-                without losing any shared account or commerce state.
-              </p>
-              <div class="target-facts">
-                <span>Independent host</span>
-                <span>State stays in sync</span>
-                <span>Same commerce behavior</span>
+
+              <div class="route-grid">
+                <a class="route-link route-link-vercel" href="https://aurapilot.vercel.app" rel="noreferrer">
+                  <span class="route-icon" aria-hidden="true"></span>
+                  <span>
+                    <strong>aurapilot.vercel.app</strong>
+                    <small>Vercel primary runtime</small>
+                  </span>
+                  <span class="route-arrow" aria-hidden="true"></span>
+                </a>
+
+                <a class="route-link route-link-netlify" href="https://aurapilot.netlify.app" rel="noreferrer">
+                  <span class="route-icon" aria-hidden="true"></span>
+                  <span>
+                    <strong>aurapilot.netlify.app</strong>
+                    <small>Netlify mirrored runtime</small>
+                  </span>
+                  <span class="route-arrow" aria-hidden="true"></span>
+                </a>
+
+                <a class="route-link route-link-aws" href="https://dbtrhsolhec1s.cloudfront.net" rel="noreferrer">
+                  <span class="route-icon" aria-hidden="true"></span>
+                  <span>
+                    <strong>dbtrhsolhec1s.cloudfront.net</strong>
+                    <small>AWS CloudFront secure runtime</small>
+                  </span>
+                  <span class="route-arrow" aria-hidden="true"></span>
+                </a>
               </div>
-              <a class="target-link" href="https://aurapilot.netlify.app" rel="noreferrer">
-                <span>Open Netlify storefront</span>
-                <span aria-hidden="true">&rarr;</span>
-              </a>
-            </article>
+
+              <div class="route-assurance" aria-label="runtime guarantees">
+                <span>Authentication continuity</span>
+                <span>Shared backend behavior</span>
+                <span>CloudFront edge parity</span>
+                <span>Checkout and order parity</span>
+              </div>
+            </div>
           </div>
         </section>
 
-        <section class="downloads-board" id="downloads" aria-labelledby="downloads-title">
-          <div class="downloads-header">
+        <section class="proof-section" aria-label="Aura runtime contract">
+          <article>
+            <span>01</span>
+            <h2>Not a switchboard.</h2>
+            <p>
+              The gateway behaves like a product entrance, not a deployment picker. It gives each runtime a clear
+              role while keeping the decision quick.
+            </p>
+          </article>
+          <article>
+            <span>02</span>
+            <h2>Shared behavior contract.</h2>
+            <p>
+              Different domains and clouds are allowed. Behavioral drift is not. The install and storefront lanes keep
+              the same core commerce expectations.
+            </p>
+          </article>
+          <article>
+            <span>03</span>
+            <h2>Install without guessing.</h2>
+            <p>
+              Desktop, Android, and iPhone packages resolve from release assets when they are available, with a safe
+              release-page fallback when a package has not shipped yet.
+            </p>
+          </article>
+        </section>
+
+        <section class="downloads-section" id="downloads" aria-labelledby="downloads-title">
+          <div class="downloads-heading">
             <div>
-              <p class="section-kicker">Desktop + mobile downloads</p>
+              <p class="section-label">Desktop + mobile downloads</p>
               <h2 id="downloads-title">Install Aura on the device you actually use.</h2>
             </div>
-            <p class="downloads-note">
+            <p>
               Desktop links follow the latest published desktop release. Android and iPhone links follow the latest
-              published mobile release, while most product updates still flow into installed mobile shells through the
-              hosted Aura storefront.
+              mobile release lane, while hosted storefront updates continue through the live Aura runtime.
             </p>
           </div>
 
-          <div class="release-callout">
-            <span class="release-orbit" aria-hidden="true"></span>
+          <div class="release-panel">
             <div>
-              <strong>Release channels</strong>
+              <strong>Release intelligence</strong>
               <p>
-                Desktop and mobile binaries are published from GitHub Releases, then surfaced here by platform. Desktop
-                auto-update stays pinned to the desktop release lane, while Android and iPhone use the separate mobile
-                release lane.
+                Links below hydrate from GitHub Releases. If a specific package is not published yet, the button keeps
+                you on the release page instead of sending you to a dead asset.
               </p>
-              <div class="release-status-stack">
-                <p class="release-status" data-release-status="desktop">Checking latest desktop release...</p>
-                <p class="release-status release-status-mobile" data-release-status="mobile">Checking latest mobile release...</p>
-              </div>
             </div>
-            <a
-              class="release-link"
-              href="https://github.com/MdSaifulIslamMSI/Aura/releases"
-              rel="noreferrer"
-            >
+            <div class="release-statuses" aria-live="polite">
+              <p data-release-status="desktop">Checking latest desktop release...</p>
+              <p data-release-status="mobile">Checking latest mobile release...</p>
+            </div>
+            <a class="release-link" href="https://github.com/MdSaifulIslamMSI/Aura/releases" rel="noreferrer">
               View all releases
             </a>
           </div>
 
           <div class="download-grid">
-            <article class="download-card download-card-windows">
-              <div class="download-card-header">
-                <span class="download-platform">Windows</span>
-                <span class="download-chip">Windows 10/11</span>
+            <article class="download-card platform-windows">
+              <div class="platform-heading">
+                <span class="platform-icon platform-icon-windows" aria-hidden="true"></span>
+                <div>
+                  <h3>Windows</h3>
+                  <p>For everyday PC users</p>
+                </div>
               </div>
-              <h3>For everyday PC users</h3>
-              <p>Choose the standard installer for most laptops and desktops. Portable builds are available when you do not want an installer.</p>
-              <p class="download-caution">
-                Free Windows builds are unsigned, so Microsoft Defender SmartScreen may show a warning on first launch.
+              <p class="platform-note">
+                Choose the standard installer for most laptops and desktops. Portable builds are available when you do
+                not want an installer.
+              </p>
+              <p class="platform-caution">
+                Free Windows builds are unsigned, so Microsoft Defender SmartScreen may warn on first launch.
               </p>
               <div class="download-actions">
-                <a class="download-button primary" href="https://github.com/MdSaifulIslamMSI/Aura/releases" data-release-asset="Aura-Marketplace-Windows-x64-Setup.exe" rel="noreferrer">Windows x64 installer</a>
-                <a class="download-button" href="https://github.com/MdSaifulIslamMSI/Aura/releases" data-release-asset="Aura-Marketplace-Windows-arm64-Setup.exe" rel="noreferrer">Windows ARM64 installer</a>
-                <a class="download-button" href="https://github.com/MdSaifulIslamMSI/Aura/releases" data-release-asset="Aura-Marketplace-Windows-ia32-Setup.exe" rel="noreferrer">Windows 32-bit installer</a>
-                <a class="download-button muted" href="https://github.com/MdSaifulIslamMSI/Aura/releases" data-release-asset="Aura-Marketplace-Windows-x64-Portable.exe" rel="noreferrer">Portable x64 app</a>
+                <a class="download-button primary" href="https://github.com/MdSaifulIslamMSI/Aura/releases" data-release-asset="Aura-Marketplace-Windows-x64-Setup.exe" rel="noreferrer">
+                  <span>Windows x64 installer</span>
+                  <small>Release page</small>
+                </a>
+                <a class="download-button" href="https://github.com/MdSaifulIslamMSI/Aura/releases" data-release-asset="Aura-Marketplace-Windows-arm64-Setup.exe" rel="noreferrer">
+                  <span>Windows ARM64 installer</span>
+                  <small>Release page</small>
+                </a>
+                <a class="download-button" href="https://github.com/MdSaifulIslamMSI/Aura/releases" data-release-asset="Aura-Marketplace-Windows-ia32-Setup.exe" rel="noreferrer">
+                  <span>Windows 32-bit installer</span>
+                  <small>Release page</small>
+                </a>
+                <a class="download-button muted" href="https://github.com/MdSaifulIslamMSI/Aura/releases" data-release-asset="Aura-Marketplace-Windows-x64-Portable.exe" rel="noreferrer">
+                  <span>Portable x64 app</span>
+                  <small>Release page</small>
+                </a>
               </div>
             </article>
 
-            <article class="download-card download-card-macos">
-              <div class="download-card-header">
-                <span class="download-platform">macOS</span>
-                <span class="download-chip">Apple Silicon + Intel</span>
+            <article class="download-card platform-macos">
+              <div class="platform-heading">
+                <span class="platform-icon platform-icon-macos" aria-hidden="true"></span>
+                <div>
+                  <h3>macOS</h3>
+                  <p>For MacBooks, iMacs, and Mac minis</p>
+                </div>
               </div>
-              <h3>For MacBooks, iMacs, and Mac minis</h3>
-              <p>Use Apple Silicon for M-series Macs. Use Intel for older Macs. ZIP builds are provided for advanced workflows.</p>
+              <p class="platform-note">
+                Use Apple Silicon for M-series Macs and Intel for older machines. ZIP builds stay available for
+                advanced workflows.
+              </p>
               <div class="download-actions">
-                <a class="download-button primary" href="https://github.com/MdSaifulIslamMSI/Aura/releases" data-release-asset="Aura-Marketplace-macOS-arm64.dmg" rel="noreferrer">Apple Silicon DMG</a>
-                <a class="download-button" href="https://github.com/MdSaifulIslamMSI/Aura/releases" data-release-asset="Aura-Marketplace-macOS-x64.dmg" rel="noreferrer">Intel Mac DMG</a>
-                <a class="download-button muted" href="https://github.com/MdSaifulIslamMSI/Aura/releases" data-release-asset="Aura-Marketplace-macOS-arm64.zip" rel="noreferrer">Apple Silicon ZIP</a>
-                <a class="download-button muted" href="https://github.com/MdSaifulIslamMSI/Aura/releases" data-release-asset="Aura-Marketplace-macOS-x64.zip" rel="noreferrer">Intel ZIP</a>
+                <a class="download-button primary" href="https://github.com/MdSaifulIslamMSI/Aura/releases" data-release-asset="Aura-Marketplace-macOS-arm64.dmg" rel="noreferrer">
+                  <span>Apple Silicon DMG</span>
+                  <small>Release page</small>
+                </a>
+                <a class="download-button" href="https://github.com/MdSaifulIslamMSI/Aura/releases" data-release-asset="Aura-Marketplace-macOS-x64.dmg" rel="noreferrer">
+                  <span>Intel Mac DMG</span>
+                  <small>Release page</small>
+                </a>
+                <a class="download-button muted" href="https://github.com/MdSaifulIslamMSI/Aura/releases" data-release-asset="Aura-Marketplace-macOS-arm64.zip" rel="noreferrer">
+                  <span>Apple Silicon ZIP</span>
+                  <small>Release page</small>
+                </a>
+                <a class="download-button muted" href="https://github.com/MdSaifulIslamMSI/Aura/releases" data-release-asset="Aura-Marketplace-macOS-x64.zip" rel="noreferrer">
+                  <span>Intel ZIP</span>
+                  <small>Release page</small>
+                </a>
               </div>
             </article>
 
-            <article class="download-card download-card-linux">
-              <div class="download-card-header">
-                <span class="download-platform">Linux</span>
-                <span class="download-chip">AppImage, Deb, RPM, tar.gz</span>
+            <article class="download-card platform-linux">
+              <div class="platform-heading">
+                <span class="platform-icon platform-icon-linux" aria-hidden="true"></span>
+                <div>
+                  <h3>Linux</h3>
+                  <p>For major desktop families</p>
+                </div>
               </div>
-              <h3>For the major Linux desktop families</h3>
-              <p>AppImage is the easiest universal option. Deb is for Debian/Ubuntu families, RPM is for Fedora/RHEL families, and tar.gz is for manual installs.</p>
-              <div class="linux-download-columns">
-                <div class="download-actions">
-                  <span class="download-subhead">x64</span>
-                  <a class="download-button primary" href="https://github.com/MdSaifulIslamMSI/Aura/releases" data-release-asset="Aura-Marketplace-Linux-x86_64.AppImage" rel="noreferrer">AppImage</a>
-                  <a class="download-button" href="https://github.com/MdSaifulIslamMSI/Aura/releases" data-release-asset="Aura-Marketplace-Linux-amd64.deb" rel="noreferrer">Deb package</a>
-                  <a class="download-button" href="https://github.com/MdSaifulIslamMSI/Aura/releases" data-release-asset="Aura-Marketplace-Linux-x86_64.rpm" rel="noreferrer">RPM package</a>
-                  <a class="download-button muted" href="https://github.com/MdSaifulIslamMSI/Aura/releases" data-release-asset="Aura-Marketplace-Linux-x64.tar.gz" rel="noreferrer">tar.gz archive</a>
-                </div>
-                <div class="download-actions">
-                  <span class="download-subhead">ARM64</span>
-                  <a class="download-button primary" href="https://github.com/MdSaifulIslamMSI/Aura/releases" data-release-asset="Aura-Marketplace-Linux-arm64.AppImage" rel="noreferrer">AppImage</a>
-                  <a class="download-button" href="https://github.com/MdSaifulIslamMSI/Aura/releases" data-release-asset="Aura-Marketplace-Linux-arm64.deb" rel="noreferrer">Deb package</a>
-                  <a class="download-button" href="https://github.com/MdSaifulIslamMSI/Aura/releases" data-release-asset="Aura-Marketplace-Linux-aarch64.rpm" rel="noreferrer">RPM package</a>
-                  <a class="download-button muted" href="https://github.com/MdSaifulIslamMSI/Aura/releases" data-release-asset="Aura-Marketplace-Linux-arm64.tar.gz" rel="noreferrer">tar.gz archive</a>
-                </div>
+              <p class="platform-note">
+                AppImage is the easiest universal option. Deb, RPM, and tar.gz builds serve distro-specific or manual
+                install workflows.
+              </p>
+              <div class="download-actions split">
+                <span class="download-subhead">x64</span>
+                <a class="download-button primary" href="https://github.com/MdSaifulIslamMSI/Aura/releases" data-release-asset="Aura-Marketplace-Linux-x86_64.AppImage" rel="noreferrer">
+                  <span>AppImage</span>
+                  <small>Release page</small>
+                </a>
+                <a class="download-button" href="https://github.com/MdSaifulIslamMSI/Aura/releases" data-release-asset="Aura-Marketplace-Linux-amd64.deb" rel="noreferrer">
+                  <span>Deb package</span>
+                  <small>Release page</small>
+                </a>
+                <a class="download-button" href="https://github.com/MdSaifulIslamMSI/Aura/releases" data-release-asset="Aura-Marketplace-Linux-x86_64.rpm" rel="noreferrer">
+                  <span>RPM package</span>
+                  <small>Release page</small>
+                </a>
+                <a class="download-button muted" href="https://github.com/MdSaifulIslamMSI/Aura/releases" data-release-asset="Aura-Marketplace-Linux-x64.tar.gz" rel="noreferrer">
+                  <span>tar.gz archive</span>
+                  <small>Release page</small>
+                </a>
+                <span class="download-subhead">ARM64</span>
+                <a class="download-button primary" href="https://github.com/MdSaifulIslamMSI/Aura/releases" data-release-asset="Aura-Marketplace-Linux-arm64.AppImage" rel="noreferrer">
+                  <span>AppImage</span>
+                  <small>Release page</small>
+                </a>
+                <a class="download-button" href="https://github.com/MdSaifulIslamMSI/Aura/releases" data-release-asset="Aura-Marketplace-Linux-arm64.deb" rel="noreferrer">
+                  <span>Deb package</span>
+                  <small>Release page</small>
+                </a>
+                <a class="download-button" href="https://github.com/MdSaifulIslamMSI/Aura/releases" data-release-asset="Aura-Marketplace-Linux-aarch64.rpm" rel="noreferrer">
+                  <span>RPM package</span>
+                  <small>Release page</small>
+                </a>
+                <a class="download-button muted" href="https://github.com/MdSaifulIslamMSI/Aura/releases" data-release-asset="Aura-Marketplace-Linux-arm64.tar.gz" rel="noreferrer">
+                  <span>tar.gz archive</span>
+                  <small>Release page</small>
+                </a>
               </div>
             </article>
 
-            <article class="download-card download-card-android">
-              <div class="download-card-header">
-                <span class="download-platform">Android</span>
-                <span class="download-chip">APK + AAB</span>
+            <article class="download-card platform-android">
+              <div class="platform-heading">
+                <span class="platform-icon platform-icon-android" aria-hidden="true"></span>
+                <div>
+                  <h3>Android</h3>
+                  <p>For phones and tablets</p>
+                </div>
               </div>
-              <h3>For Android phones and tablets</h3>
-              <p>Use the APK for direct installs on your own device. The AAB build is included for Play Console and managed distribution workflows.</p>
-              <p class="download-caution">
-                Android binaries come from the dedicated mobile release lane, so they do not interfere with the desktop
-                auto-update channel.
+              <p class="platform-note">
+                Use the APK for direct installs on your own device. The AAB is included for Play Console and managed
+                distribution workflows.
+              </p>
+              <p class="platform-caution">
+                Android binaries come from the dedicated mobile release lane.
               </p>
               <div class="download-actions">
                 <a
@@ -282,7 +302,8 @@
                   data-release-asset-suffix=".apk"
                   rel="noreferrer"
                 >
-                  Android APK
+                  <span>Android APK</span>
+                  <small>Release page</small>
                 </a>
                 <a
                   class="download-button"
@@ -292,21 +313,26 @@
                   data-release-asset-suffix=".aab"
                   rel="noreferrer"
                 >
-                  Android AAB
+                  <span>Android AAB</span>
+                  <small>Release page</small>
                 </a>
               </div>
             </article>
 
-            <article class="download-card download-card-ios">
-              <div class="download-card-header">
-                <span class="download-platform">iPhone + iPad</span>
-                <span class="download-chip">IPA + simulator</span>
+            <article class="download-card platform-ios">
+              <div class="platform-heading">
+                <span class="platform-icon platform-icon-ios" aria-hidden="true"></span>
+                <div>
+                  <h3>iPhone + iPad</h3>
+                  <p>For Apple testers</p>
+                </div>
               </div>
-              <h3>For iPhone users and Apple testers</h3>
-              <p>Use the signed IPA when a real-device build is published. The simulator ZIP is available for Mac-based QA and Xcode testing workflows.</p>
-              <p class="download-caution">
-                Apple device installs require Apple signing and provisioning. If the IPA is not published yet, this lane
-                falls back to the mobile release page instead of a dead link.
+              <p class="platform-note">
+                Use the signed IPA when a real-device build is published. The simulator ZIP supports Mac-based QA and
+                Xcode testing workflows.
+              </p>
+              <p class="platform-caution">
+                Apple device installs require signing and provisioning.
               </p>
               <div class="download-actions">
                 <a
@@ -317,7 +343,8 @@
                   data-release-asset-suffix=".ipa"
                   rel="noreferrer"
                 >
-                  iPhone IPA
+                  <span>iPhone IPA</span>
+                  <small>Release page</small>
                 </a>
                 <a
                   class="download-button muted"
@@ -327,7 +354,8 @@
                   data-release-asset-suffix=".zip"
                   rel="noreferrer"
                 >
-                  iOS simulator ZIP
+                  <span>iOS simulator ZIP</span>
+                  <small>Release page</small>
                 </a>
               </div>
             </article>
@@ -335,149 +363,20 @@
         </section>
 
         <section class="assurance-strip" aria-label="shared assurance">
-          <div class="assurance-item">Authentication continuity</div>
-          <div class="assurance-item">Cart and wishlist reflection</div>
-          <div class="assurance-item">Checkout and order parity</div>
-          <div class="assurance-item">Consistent profile and trust posture</div>
+          <div>
+            <strong>Same core.</strong>
+            <span>Sessions, data, and features stay consistent.</span>
+          </div>
+          <div>
+            <strong>Private by design.</strong>
+            <span>Security posture stays visible at the edge.</span>
+          </div>
+          <div>
+            <strong>Updates everywhere.</strong>
+            <span>Hosted and packaged releases stay easy to find.</span>
+          </div>
         </section>
       </main>
     </div>
-    <script>
-      (() => {
-        const latestDesktopReleaseApi = "https://api.github.com/repos/MdSaifulIslamMSI/Aura/releases/latest";
-        const releasesApi = "https://api.github.com/repos/MdSaifulIslamMSI/Aura/releases?per_page=24";
-        const releasesPage = "https://github.com/MdSaifulIslamMSI/Aura/releases";
-        const desktopStatus = document.querySelector('[data-release-status="desktop"]');
-        const mobileStatus = document.querySelector('[data-release-status="mobile"]');
-        const desktopButtons = [...document.querySelectorAll('[data-release-asset][data-release-channel="desktop"], [data-release-asset]:not([data-release-channel])')];
-        const mobileButtons = [...document.querySelectorAll('[data-release-channel="mobile"]')];
-
-        const markPending = (button) => {
-          button.href = releasesPage;
-          button.dataset.downloadState = "pending";
-          button.classList.add("is-pending");
-          button.setAttribute(
-            "aria-label",
-            `${button.textContent.trim()} is not published yet. Open the latest release page.`
-          );
-        };
-
-        const findDownloadUrl = (assets, button) => {
-          const exactName = button.dataset.releaseAsset;
-
-          if (exactName) {
-            return assets.get(exactName) || null;
-          }
-
-          const prefix = button.dataset.releaseAssetPrefix || "";
-          const suffix = button.dataset.releaseAssetSuffix || "";
-
-          for (const [assetName, downloadUrl] of assets.entries()) {
-            if (assetName.startsWith(prefix) && assetName.endsWith(suffix)) {
-              return downloadUrl;
-            }
-          }
-
-          return null;
-        };
-
-        const markReady = (button, downloadUrl) => {
-          button.href = downloadUrl;
-          button.dataset.downloadState = "ready";
-          button.classList.remove("is-pending");
-          button.removeAttribute("aria-label");
-        };
-
-        [...desktopButtons, ...mobileButtons].forEach(markPending);
-
-        fetch(latestDesktopReleaseApi, { headers: { Accept: "application/vnd.github+json" } })
-          .then((response) => {
-            if (!response.ok) {
-              throw new Error("Latest release is unavailable");
-            }
-
-            return response.json();
-          })
-          .then((release) => {
-            const assets = new Map((release.assets || []).map((asset) => [asset.name, asset.browser_download_url]));
-            let availableCount = 0;
-
-            desktopButtons.forEach((button) => {
-              const downloadUrl = findDownloadUrl(assets, button);
-
-              if (!downloadUrl) {
-                return;
-              }
-
-              availableCount += 1;
-              markReady(button, downloadUrl);
-            });
-
-            if (!desktopStatus) {
-              return;
-            }
-
-            desktopStatus.textContent = availableCount
-              ? `Latest desktop release: ${release.name || release.tag_name}. ${availableCount} package links are ready.`
-              : "The release channel is configured, but package files are not published yet.";
-          })
-          .catch(() => {
-            if (desktopStatus) {
-              desktopStatus.textContent =
-                "Desktop packages are being prepared. Open the release page for the latest availability.";
-            }
-          });
-
-        fetch(releasesApi, { headers: { Accept: "application/vnd.github+json" } })
-          .then((response) => {
-            if (!response.ok) {
-              throw new Error("Mobile releases are unavailable");
-            }
-
-            return response.json();
-          })
-          .then((releases) => {
-            const mobileRelease = (releases || []).find(
-              (release) =>
-                !release.draft &&
-                !release.prerelease &&
-                typeof release.tag_name === "string" &&
-                release.tag_name.startsWith("mobile-v")
-            );
-
-            if (!mobileRelease) {
-              throw new Error("No mobile release found");
-            }
-
-            const assets = new Map((mobileRelease.assets || []).map((asset) => [asset.name, asset.browser_download_url]));
-            let availableCount = 0;
-
-            mobileButtons.forEach((button) => {
-              const downloadUrl = findDownloadUrl(assets, button);
-
-              if (!downloadUrl) {
-                return;
-              }
-
-              availableCount += 1;
-              markReady(button, downloadUrl);
-            });
-
-            if (!mobileStatus) {
-              return;
-            }
-
-            mobileStatus.textContent = availableCount
-              ? `Latest mobile release: ${mobileRelease.name || mobileRelease.tag_name}. ${availableCount} mobile package links are ready.`
-              : "The mobile release lane is configured, but installable package files are not published yet.";
-          })
-          .catch(() => {
-            if (mobileStatus) {
-              mobileStatus.textContent =
-                "Mobile packages are being prepared. Open the release page for current Android and iPhone availability.";
-            }
-          });
-      })();
-    </script>
   </body>
 </html>
