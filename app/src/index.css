@@ -4882,6 +4882,198 @@ html[data-color-mode] .hover\:shadow-neon-cyan:hover {
     background: rgb(255 255 255 / 0.03);
   }
 
+  .checkout-payment-spotlight {
+    @apply grid gap-5 rounded-[1.65rem] border p-4 lg:grid-cols-[minmax(0,1fr)_20rem] lg:p-5;
+    border-color: rgb(var(--theme-primary-rgb) / 0.18);
+    background:
+      radial-gradient(circle at 14% 8%, rgb(var(--theme-primary-rgb) / 0.16), transparent 32%),
+      radial-gradient(circle at 90% 10%, rgb(var(--theme-secondary-rgb) / 0.14), transparent 30%),
+      linear-gradient(135deg, rgb(var(--theme-surface-rgb) / 0.94), rgb(var(--theme-surface-strong-rgb) / 0.97)),
+      repeating-linear-gradient(90deg, rgb(var(--theme-grid-rgb) / 0.08) 0 1px, transparent 1px 72px);
+    box-shadow:
+      0 24px 70px rgb(var(--theme-surface-strong-rgb) / 0.3),
+      inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  }
+
+  .checkout-payment-command {
+    @apply min-w-0 rounded-[1.35rem] border p-4 sm:p-5;
+    border-color: rgb(255 255 255 / 0.08);
+    background:
+      linear-gradient(180deg, rgb(var(--theme-grid-rgb) / 0.075), rgb(var(--theme-surface-strong-rgb) / 0.2));
+  }
+
+  .checkout-payment-method-pill {
+    @apply inline-flex w-fit items-center gap-3 rounded-full border px-4 py-3 text-left;
+    border-color: rgb(var(--theme-primary-rgb) / 0.2);
+    background: rgb(var(--theme-primary-rgb) / 0.1);
+  }
+
+  .checkout-payment-method-pill span {
+    @apply block text-[10px] font-black uppercase tracking-[0.22em];
+    color: rgb(var(--theme-grid-rgb) / 0.78);
+  }
+
+  .checkout-payment-method-pill strong {
+    @apply block text-sm font-black;
+    color: var(--figma-fg-base);
+  }
+
+  .checkout-payment-method-grid {
+    @apply grid grid-cols-1 gap-3 xl:grid-cols-2;
+  }
+
+  .checkout-payment-method-card {
+    min-height: 6.5rem;
+  }
+
+  .checkout-payment-method-card-active {
+    transform: translateY(-1px);
+  }
+
+  .checkout-payment-method-icon {
+    @apply flex h-11 w-11 shrink-0 items-center justify-center rounded-[1rem] border text-neo-cyan;
+    border-color: rgb(var(--theme-primary-rgb) / 0.18);
+    background:
+      linear-gradient(135deg, rgb(var(--theme-primary-rgb) / 0.16), rgb(var(--theme-secondary-rgb) / 0.08));
+  }
+
+  .checkout-payment-visual {
+    @apply relative overflow-hidden rounded-[1.5rem] border p-5 text-white;
+    min-height: 24rem;
+    border-color: rgb(var(--theme-primary-rgb) / 0.28);
+    background:
+      radial-gradient(circle at 18% 0%, rgb(var(--theme-primary-rgb) / 0.34), transparent 36%),
+      radial-gradient(circle at 92% 16%, rgb(var(--theme-secondary-rgb) / 0.24), transparent 34%),
+      linear-gradient(145deg, rgb(var(--theme-surface-strong-rgb) / 0.84), rgb(var(--theme-surface-rgb) / 0.74) 54%, rgb(var(--theme-surface-strong-rgb) / 0.9)),
+      url('/assets/payment-card-texture.png');
+    background-position: 18% 0%, 92% 16%, center, center;
+    background-size: auto, auto, auto, cover;
+    box-shadow:
+      0 30px 90px rgb(var(--theme-surface-strong-rgb) / 0.44),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  }
+
+  .checkout-payment-visual::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+      linear-gradient(115deg, transparent 0 34%, rgb(var(--theme-grid-rgb) / 0.14) 35%, transparent 42%),
+      linear-gradient(180deg, rgb(var(--theme-primary-rgb) / 0.12), transparent 38%);
+    opacity: 0.86;
+  }
+
+  .checkout-payment-visual > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  .checkout-payment-visual-top {
+    @apply flex items-start justify-between gap-4;
+  }
+
+  .checkout-payment-visual-top p {
+    @apply text-xs font-black uppercase tracking-[0.24em];
+    color: rgb(var(--theme-primary-rgb) / 0.8);
+  }
+
+  .checkout-payment-visual-top h4 {
+    @apply mt-2 text-2xl font-black tracking-tight text-white;
+  }
+
+  .checkout-payment-lock {
+    @apply flex h-10 w-10 items-center justify-center rounded-full border;
+    border-color: rgb(255 255 255 / 0.14);
+    background: rgb(255 255 255 / 0.08);
+  }
+
+  .checkout-payment-visual-amount {
+    @apply mt-10 text-4xl font-black tracking-tight text-white;
+  }
+
+  .checkout-payment-visual-number {
+    @apply mt-6 rounded-2xl border px-4 py-3 font-mono text-sm font-bold uppercase tracking-[0.18em];
+    border-color: rgb(255 255 255 / 0.12);
+    background: rgb(255 255 255 / 0.08);
+    color: rgb(var(--theme-grid-rgb) / 0.94);
+  }
+
+  .checkout-payment-badges {
+    @apply mt-5 flex flex-wrap gap-2;
+  }
+
+  .checkout-payment-badges span,
+  .checkout-card-network-row span {
+    @apply inline-flex min-h-7 items-center rounded-md px-2.5 text-[10px] font-black uppercase tracking-[0.12em];
+    color: #0f172a;
+    background:
+      linear-gradient(135deg, rgb(255 255 255 / 0.96), rgb(var(--theme-primary-rgb) / 0.3)),
+      rgb(var(--theme-secondary-rgb) / 0.16);
+  }
+
+  .checkout-payment-signal-list {
+    @apply mt-8 space-y-3 border-t pt-5 text-sm font-semibold;
+    border-color: rgb(255 255 255 / 0.12);
+    color: rgb(var(--theme-grid-rgb) / 0.9);
+  }
+
+  .checkout-payment-signal-list span {
+    @apply flex items-center gap-2;
+  }
+
+  .checkout-card-fields {
+    @apply grid grid-cols-1 gap-3 md:grid-cols-2;
+  }
+
+  .checkout-card-field {
+    @apply rounded-[1.15rem] border p-4;
+    border-color: rgb(255 255 255 / 0.08);
+    background: rgb(var(--theme-grid-rgb) / 0.045);
+  }
+
+  .checkout-card-field-wide {
+    @apply md:col-span-2;
+  }
+
+  .checkout-card-field span {
+    @apply block text-[11px] font-black uppercase tracking-[0.2em];
+    color: rgb(var(--theme-grid-rgb) / 0.78);
+  }
+
+  .checkout-card-field strong {
+    @apply mt-3 block text-sm font-black;
+    color: var(--figma-fg-base);
+  }
+
+  .checkout-card-network-row {
+    @apply mt-4 flex flex-wrap gap-2;
+  }
+
+  .checkout-payment-rail-panel {
+    background:
+      linear-gradient(135deg, rgb(var(--theme-primary-rgb) / 0.09), transparent 42%),
+      linear-gradient(180deg, rgb(var(--theme-surface-rgb) / 0.88), rgb(var(--theme-surface-strong-rgb) / 0.9));
+  }
+
+  .checkout-payment-provider-alert {
+    border-color: rgb(var(--theme-primary-rgb) / 0.22);
+    background:
+      linear-gradient(135deg, rgb(var(--theme-primary-rgb) / 0.13), rgb(var(--theme-secondary-rgb) / 0.08)),
+      rgb(var(--theme-surface-strong-rgb) / 0.38);
+    color: var(--figma-fg-base);
+  }
+
+  .checkout-payment-provider-alert-title {
+    @apply text-[11px] font-black uppercase tracking-[0.22em];
+    color: rgb(var(--theme-primary-rgb) / 0.92);
+  }
+
+  .checkout-payment-provider-alert-note {
+    @apply mt-2 text-xs;
+    color: rgb(var(--theme-grid-rgb) / 0.88);
+  }
+
   .checkout-premium-option {
     @apply rounded-[1.25rem] border p-4 text-left transition-all duration-300;
     border-color: rgb(255 255 255 / 0.08);
@@ -4911,10 +5103,72 @@ html[data-color-mode] .hover\:shadow-neon-cyan:hover {
     border-color: rgb(255 255 255 / 0.08);
     background:
       radial-gradient(circle at top right, rgb(var(--theme-primary-rgb) / 0.1), transparent 34%),
-      linear-gradient(180deg, rgba(9, 15, 31, 0.78), rgba(6, 10, 22, 0.84));
+      linear-gradient(180deg, rgb(var(--theme-surface-rgb) / 0.78), rgb(var(--theme-surface-strong-rgb) / 0.84));
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.04),
-      0 16px 48px rgba(2, 8, 23, 0.2);
+      0 16px 48px rgb(var(--theme-surface-strong-rgb) / 0.22);
+  }
+
+  .checkout-premium-summary {
+    border-color: rgb(var(--theme-primary-rgb) / 0.24);
+    background:
+      radial-gradient(circle at 14% 0%, rgb(var(--theme-primary-rgb) / 0.18), transparent 34%),
+      linear-gradient(145deg, rgb(var(--theme-surface-rgb) / 0.98), rgb(var(--theme-surface-strong-rgb) / 0.98) 54%, rgb(var(--theme-surface-rgb) / 0.94)),
+      repeating-linear-gradient(90deg, rgb(var(--theme-grid-rgb) / 0.07) 0 1px, transparent 1px 64px);
+    box-shadow:
+      0 34px 96px rgb(var(--theme-surface-strong-rgb) / 0.44),
+      inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  }
+
+  .checkout-summary-hero {
+    @apply relative overflow-hidden border-b p-6;
+    border-color: rgb(255 255 255 / 0.1);
+    background:
+      linear-gradient(135deg, rgba(255, 255, 255, 0.085), rgba(255, 255, 255, 0.02)),
+      linear-gradient(90deg, rgb(var(--theme-primary-rgb) / 0.1), transparent 48%, rgb(var(--theme-secondary-rgb) / 0.08));
+  }
+
+  .checkout-summary-emblem {
+    @apply flex h-11 w-11 shrink-0 items-center justify-center rounded-full border text-neo-cyan;
+    border-color: rgb(var(--theme-primary-rgb) / 0.22);
+    background: rgb(var(--theme-primary-rgb) / 0.12);
+  }
+
+  .checkout-summary-due-card {
+    @apply mt-6 rounded-[1.25rem] border p-4;
+    border-color: rgb(255 255 255 / 0.12);
+    background: rgb(var(--theme-grid-rgb) / 0.07);
+  }
+
+  .checkout-summary-due-card span {
+    @apply text-xs font-black uppercase tracking-[0.22em] text-slate-400;
+  }
+
+  .checkout-summary-due-card strong {
+    @apply mt-2 block text-3xl font-black tracking-tight text-white;
+  }
+
+  .checkout-summary-due-card p {
+    @apply mt-1 text-xs font-semibold text-slate-400;
+  }
+
+  .checkout-summary-trust-list {
+    @apply mt-5 grid grid-cols-1 gap-2;
+  }
+
+  .checkout-summary-trust-item {
+    @apply flex items-center gap-2 rounded-xl border px-3 py-2 text-xs;
+    border-color: rgb(255 255 255 / 0.08);
+    background: rgb(var(--theme-grid-rgb) / 0.045);
+    color: rgb(var(--theme-grid-rgb) / 0.94);
+  }
+
+  .checkout-summary-trust-item svg {
+    @apply text-neo-cyan;
+  }
+
+  .checkout-summary-trust-item strong {
+    @apply ml-auto font-black text-white;
   }
 
   .checkout-premium-note {
@@ -5133,6 +5387,11 @@ html[data-color-mode] .hover\:shadow-neon-cyan:hover {
   html[data-color-mode='white'] .checkout-premium-card,
   html[data-color-mode='white'] .checkout-premium-summary,
   html[data-color-mode='white'] .checkout-premium-surface,
+  html[data-color-mode='white'] .checkout-payment-spotlight,
+  html[data-color-mode='white'] .checkout-payment-command,
+  html[data-color-mode='white'] .checkout-card-field,
+  html[data-color-mode='white'] .checkout-summary-due-card,
+  html[data-color-mode='white'] .checkout-summary-trust-item,
   html[data-color-mode='white'] .profile-premium-content .bg-white,
   html[data-color-mode='white'] .profile-premium-panel,
   html[data-color-mode='white'] .profile-premium-subpanel,
@@ -5146,6 +5405,37 @@ html[data-color-mode] .hover\:shadow-neon-cyan:hover {
     box-shadow:
       0 22px 60px rgba(15, 23, 42, 0.08),
       inset 0 1px 0 rgba(255, 255, 255, 0.76);
+  }
+
+  html[data-color-mode='white'] .checkout-payment-visual {
+    color: #0f172a;
+    border-color: rgb(var(--theme-primary-rgb) / 0.2);
+    background:
+      radial-gradient(circle at 18% 0%, rgb(var(--theme-primary-rgb) / 0.18), transparent 36%),
+      radial-gradient(circle at 92% 16%, rgb(var(--theme-secondary-rgb) / 0.14), transparent 34%),
+      linear-gradient(145deg, rgba(255, 255, 255, 0.88), rgba(241, 245, 249, 0.78) 54%, rgba(255, 255, 255, 0.9)),
+      url('/assets/payment-card-texture.png');
+    background-position: 18% 0%, 92% 16%, center, center;
+    background-size: auto, auto, auto, cover;
+    box-shadow:
+      0 26px 70px rgba(15, 23, 42, 0.13),
+      inset 0 1px 0 rgba(255, 255, 255, 0.92);
+  }
+
+  html[data-color-mode='white'] .checkout-premium-shell :is(.text-white, .text-slate-100, .text-slate-200) {
+    color: #0f172a !important;
+  }
+
+  html[data-color-mode='white'] .checkout-premium-shell :is(.text-slate-300, .text-slate-400, .text-slate-500) {
+    color: #475569 !important;
+  }
+
+  html[data-color-mode='white'] .checkout-premium-shell [class*='border-white/'] {
+    border-color: rgba(15, 23, 42, 0.08) !important;
+  }
+
+  html[data-color-mode='white'] .checkout-premium-shell [class*='bg-white/'] {
+    background-color: rgba(255, 255, 255, 0.76) !important;
   }
 
   html[data-color-mode='white'] .profile-premium-tab-pill,

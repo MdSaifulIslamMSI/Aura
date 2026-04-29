@@ -1,4 +1,4 @@
-import { Box, Info, Loader2, RefreshCcw, TicketPercent, Zap } from 'lucide-react';
+import { BadgeCheck, Box, Info, Loader2, ReceiptText, RefreshCcw, ShieldCheck, TicketPercent, Zap } from 'lucide-react';
 import { formatPrice } from '@/utils/format';
 import { cn } from '@/lib/utils';
 import { getBaseCurrency, getLineBaseTotal } from '@/utils/pricing';
@@ -33,17 +33,57 @@ const OrderSummary = ({
     const settlementCurrency = chargeQuote?.settlementCurrency || quote?.settlementCurrency || marketCurrency || 'INR';
     const baseAmount = chargeQuote?.baseAmount ?? quote?.baseAmount ?? totalPrice;
     const baseCurrency = chargeQuote?.baseCurrency || quote?.baseCurrency || settlementCurrency;
+    const summaryTrustItems = [
+        {
+            icon: ShieldCheck,
+            label: t('checkout.summary.secureQuote', {}, 'Secure quote'),
+            value: isQuoteStale ? t('checkout.summary.refreshNeeded', {}, 'Refresh needed') : t('checkout.summary.locked', {}, 'Locked'),
+        },
+        {
+            icon: BadgeCheck,
+            label: t('checkout.summary.settlement', {}, 'Settlement'),
+            value: settlementCurrency,
+        },
+        {
+            icon: ReceiptText,
+            label: t('checkout.summary.receiptReady', {}, 'Receipt'),
+            value: t('checkout.summary.backendVerified', {}, 'Verified'),
+        },
+    ];
 
     return (
         <aside className="h-fit lg:sticky lg:top-32">
             <div className="checkout-premium-summary overflow-hidden">
-                <div className="border-b border-white/10 bg-white/5 p-6">
-                    <div className="flex items-center justify-between gap-3">
+                <div className="checkout-summary-hero">
+                    <div className="flex items-start justify-between gap-3">
                         <div>
-                            <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-400">{t('checkout.orderSummaryEyebrow', {}, 'Order Summary')}</p>
-                            <h3 className="mt-2 text-2xl font-black tracking-tight text-white">{t('checkout.orderSummaryTitle', {}, 'Final price intelligence')}</h3>
+                            <p className="text-xs font-black uppercase tracking-[0.22em] text-neo-cyan">{t('checkout.orderSummaryEyebrow', {}, 'Order Summary')}</p>
+                            <h3 className="mt-2 text-3xl font-black tracking-tight text-white">{t('checkout.orderSummaryTitle', {}, 'Final price intelligence')}</h3>
                         </div>
-                        {isQuoting ? <Loader2 className="h-4 w-4 animate-spin text-neo-cyan" /> : null}
+                        <div className="checkout-summary-emblem">
+                            {isQuoting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Zap className="h-5 w-5" />}
+                        </div>
+                    </div>
+                    <div className="checkout-summary-due-card">
+                        <span>{t('checkout.dueToday', {}, 'Due today')}</span>
+                        <strong>{formatPrice(chargeAmount, chargeCurrency)}</strong>
+                        {chargeCurrency !== settlementCurrency ? (
+                            <p>{t('checkout.summary.settlesAs', { amount: formatPrice(settlementAmount, settlementCurrency) }, `Settles as ${formatPrice(settlementAmount, settlementCurrency)}`)}</p>
+                        ) : (
+                            <p>{t('checkout.summary.backendCharge', {}, 'Backend validated charge')}</p>
+                        )}
+                    </div>
+                    <div className="checkout-summary-trust-list">
+                        {summaryTrustItems.map((item) => {
+                            const Icon = item.icon;
+                            return (
+                                <div key={item.label} className="checkout-summary-trust-item">
+                                    <Icon className="h-4 w-4" />
+                                    <span>{item.label}</span>
+                                    <strong>{item.value}</strong>
+                                </div>
+                            );
+                        })}
                     </div>
                 </div>
 

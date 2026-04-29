@@ -1,5 +1,17 @@
 import { useMemo, useState } from 'react';
-import { AlertCircle, Building2, CheckCircle2, CreditCard, Loader2, Search, ShieldCheck, Smartphone, Wallet } from 'lucide-react';
+import {
+    AlertCircle,
+    Building2,
+    CheckCircle2,
+    CreditCard,
+    Loader2,
+    LockKeyhole,
+    RadioTower,
+    Search,
+    ShieldCheck,
+    Smartphone,
+    Wallet,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatPrice } from '@/utils/format';
 import { useMarket } from '@/context/MarketContext';
@@ -11,6 +23,14 @@ const PAYMENT_OPTIONS = [
     { id: 'WALLET', titleKey: 'checkout.payment.walletTitle', titleFallback: 'Wallet', descriptionKey: 'checkout.payment.walletDescription', descriptionFallback: 'Wallet balance or linked wallet', icon: Wallet },
     { id: 'NETBANKING', titleKey: 'checkout.payment.netbankingTitle', titleFallback: 'NetBanking', descriptionKey: 'checkout.payment.netbankingDescription', descriptionFallback: 'Authorize directly from your bank portal', icon: Building2 },
 ];
+
+const PAYMENT_BADGES = {
+    COD: ['Cash', 'Verified', 'Doorstep'],
+    UPI: ['BHIM', 'GPay', 'PhonePe', 'Paytm'],
+    CARD: ['VISA', 'MC', 'AMEX', 'RuPay'],
+    WALLET: ['Wallet', 'Balance', 'Linked'],
+    NETBANKING: ['IMPS', 'NEFT', 'Bank'],
+};
 
 const MARKET_COUNTRY_PRESETS = [
     { code: 'IN', label: 'India' },
@@ -233,6 +253,16 @@ const StepPayment = ({
                     ? paymentCapabilities?.rails?.netbanking
                     : null;
     const selectedMarketSummary = getMarketRailSummary(paymentMethod, paymentCapabilities?.markets, t);
+    const selectedPaymentOption = visiblePaymentOptions.find((option) => option.id === paymentMethod) || PAYMENT_OPTIONS[0];
+    const SelectedPaymentIcon = selectedPaymentOption.icon || CreditCard;
+    const chargeLabel = chargeQuote
+        ? formatPrice(chargeQuote.amount || 0, chargeQuote.currency || 'INR')
+        : t('checkout.payment.amountPending', {}, 'Quote pending');
+    const settlementLabel = chargeQuote?.settlementAmount
+        ? formatPrice(chargeQuote.settlementAmount || 0, chargeQuote.settlementCurrency || 'INR')
+        : t('checkout.payment.serverQuote', {}, 'Server quote');
+    const paymentBadges = PAYMENT_BADGES[paymentMethod] || [];
+    const selectedPaymentTitle = t(selectedPaymentOption.titleKey, {}, selectedPaymentOption.titleFallback);
 
     return (
         <section
@@ -255,31 +285,96 @@ const StepPayment = ({
 
             {isActive ? (
                 <div className="space-y-6 p-6 md:p-8">
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                        {visiblePaymentOptions.map((option) => {
-                            const Icon = option.icon;
-                            const selected = paymentMethod === option.id;
-
-                            return (
-                                <button
-                                    key={option.id}
-                                    type="button"
-                                    onClick={() => onPaymentMethodChange(option.id)}
-                                    className={cn(
-                                        'checkout-premium-option',
-                                        selected && 'checkout-premium-option-active'
-                                    )}
-                                >
-                                    <div className="mb-2 flex items-center gap-3">
-                                        <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-neo-cyan">
-                                            <Icon className="w-5 h-5" />
-                                        </div>
-                                        <span className="text-sm font-black uppercase tracking-[0.2em] text-white">{t(option.titleKey, {}, option.titleFallback)}</span>
+                    <div className="checkout-payment-spotlight">
+                        <div className="checkout-payment-command">
+                            <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+                                <div>
+                                    <p className="text-xs font-black uppercase tracking-[0.24em] text-slate-400">
+                                        {t('checkout.payment.amountToPay', {}, 'Amount to pay')}
+                                    </p>
+                                    <h4 className="mt-3 text-3xl font-black tracking-tight text-white sm:text-4xl">{chargeLabel}</h4>
+                                    <p className="mt-2 text-sm leading-6 text-slate-400">
+                                        {chargeQuote?.currency !== chargeQuote?.settlementCurrency
+                                            ? t('checkout.payment.settlementPreview', { amount: settlementLabel }, `Settles as ${settlementLabel}`)
+                                            : t('checkout.payment.lockedBeforeCapture', {}, 'Final charge is locked before capture.')}
+                                    </p>
+                                </div>
+                                <div className="checkout-payment-method-pill">
+                                    <SelectedPaymentIcon className="h-5 w-5 text-neo-cyan" />
+                                    <div>
+                                        <span>{t('checkout.payment.selectedRail', {}, 'Selected rail')}</span>
+                                        <strong>{selectedPaymentTitle}</strong>
                                     </div>
-                                    <p className="text-sm text-slate-400">{t(option.descriptionKey, {}, option.descriptionFallback)}</p>
-                                </button>
-                            );
-                        })}
+                                </div>
+                            </div>
+
+                            <div className="checkout-payment-method-grid mt-6">
+                                {visiblePaymentOptions.map((option) => {
+                                    const Icon = option.icon;
+                                    const selected = paymentMethod === option.id;
+
+                                    return (
+                                        <button
+                                            key={option.id}
+                                            type="button"
+                                            onClick={() => onPaymentMethodChange(option.id)}
+                                            className={cn(
+                                                'checkout-premium-option checkout-payment-method-card',
+                                                selected && 'checkout-premium-option-active checkout-payment-method-card-active'
+                                            )}
+                                        >
+                                            <div className="flex items-start justify-between gap-3">
+                                                <div className="flex min-w-0 items-center gap-3">
+                                                    <div className="checkout-payment-method-icon">
+                                                        <Icon className="h-5 w-5" />
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <span className="block text-sm font-black uppercase tracking-[0.18em] text-white">{t(option.titleKey, {}, option.titleFallback)}</span>
+                                                        <p className="mt-1 text-xs leading-5 text-slate-400">{t(option.descriptionKey, {}, option.descriptionFallback)}</p>
+                                                    </div>
+                                                </div>
+                                                {selected ? <CheckCircle2 className="mt-1 h-4 w-4 shrink-0 text-neo-cyan" /> : null}
+                                            </div>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        <aside className="checkout-payment-visual" aria-label={t('checkout.payment.sessionPreview', {}, 'Payment session preview')}>
+                            <div className="checkout-payment-visual-top">
+                                <div>
+                                    <p>{t('checkout.payment.auraPay', {}, 'Aura Pay')}</p>
+                                    <h4>{selectedPaymentTitle}</h4>
+                                </div>
+                                <div className="checkout-payment-lock">
+                                    <LockKeyhole className="h-4 w-4" />
+                                </div>
+                            </div>
+                            <div className="checkout-payment-visual-amount">{chargeLabel}</div>
+                            <div className="checkout-payment-visual-number">
+                                {paymentMethod === 'CARD' ? '**** **** **** 2046' : t('checkout.payment.liveRailSession', {}, 'LIVE RAIL SESSION')}
+                            </div>
+                            <div className="checkout-payment-badges">
+                                {paymentBadges.map((badge) => (
+                                    <span key={badge}>{badge}</span>
+                                ))}
+                            </div>
+                            <div className="checkout-payment-signal-list">
+                                <span>
+                                    <ShieldCheck className="h-4 w-4" />
+                                    {challengeRequired && !challengeVerified
+                                        ? t('checkout.payment.challengeQueued', {}, 'OTP challenge queued')
+                                        : t('checkout.payment.riskChecked', {}, 'Risk checks active')}
+                                </span>
+                                <span>
+                                    <RadioTower className="h-4 w-4" />
+                                    {isDigital
+                                        ? t('checkout.payment.providerRailLive', {}, 'Provider rail live')
+                                        : t('checkout.payment.codHoldReady', {}, 'Order hold ready')}
+                                </span>
+                            </div>
+                        </aside>
                     </div>
 
                     {isDigital && savedMethods.length > 0 ? (
@@ -430,6 +525,26 @@ const StepPayment = ({
 
                     {paymentMethod === 'CARD' ? (
                         <div className="checkout-premium-surface space-y-4">
+                            <div className="checkout-card-fields" aria-label={t('checkout.payment.cardPreview', {}, 'Card checkout preview')}>
+                                <div className="checkout-card-field checkout-card-field-wide">
+                                    <span>{t('checkout.payment.cardNumber', {}, 'Card number')}</span>
+                                    <strong>{t('checkout.payment.secureProviderWindow', {}, 'Entered in secure provider window')}</strong>
+                                    <div className="checkout-card-network-row">
+                                        {PAYMENT_BADGES.CARD.map((badge) => (
+                                            <span key={badge}>{badge}</span>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div className="checkout-card-field">
+                                    <span>{t('checkout.payment.expirationDate', {}, 'Expiration date')}</span>
+                                    <strong>MM / YY</strong>
+                                </div>
+                                <div className="checkout-card-field">
+                                    <span>{t('checkout.payment.securityCode', {}, 'Security code')}</span>
+                                    <strong>CVV</strong>
+                                </div>
+                            </div>
+
                             <div>
                                 <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-400">{t('checkout.payment.cardMarket', {}, 'International Card Market')}</p>
                                 <p className="mt-2 text-sm text-slate-300">{t('checkout.payment.cardMarketBody', {}, 'Lock the card country and the charge currency before opening provider checkout.')}</p>
@@ -495,24 +610,24 @@ const StepPayment = ({
                     ) : null}
 
                     {isDigital ? (
-                        <div className="checkout-premium-surface space-y-4">
+                        <div className="checkout-premium-surface checkout-payment-rail-panel space-y-4">
                             <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-400">
                                 {t('checkout.payment.secureRail', {}, 'Razorpay Secure Payment')}
                             </p>
 
                             {selectedRailSummary ? (
-                                <div className="checkout-premium-alert border-cyan-500/20 bg-cyan-500/10 text-slate-100">
-                                    <p className="text-[11px] font-black uppercase tracking-[0.22em] text-cyan-200">{t(selectedRailSummary.titleKey, {}, selectedRailSummary.titleFallback)}</p>
+                                <div className="checkout-premium-alert checkout-payment-provider-alert">
+                                    <p className="checkout-payment-provider-alert-title">{t(selectedRailSummary.titleKey, {}, selectedRailSummary.titleFallback)}</p>
                                     <p className="mt-2 text-sm leading-6">
                                         {selectedRailCapability
                                             ? selectedRailSummary.format(selectedRailCapability, t)
                                             : t(selectedRailSummary.emptyKey, {}, selectedRailSummary.emptyFallback)}
                                     </p>
                                     {paymentCapabilities?.stale ? (
-                                        <p className="mt-2 text-xs text-cyan-100/80">{t('checkout.payment.capabilityStale', {}, 'Provider capability data is stale, so the checkout is using the last trusted catalog snapshot.')}</p>
+                                        <p className="checkout-payment-provider-alert-note">{t('checkout.payment.capabilityStale', {}, 'Provider capability data is stale, so the checkout is using the last trusted catalog snapshot.')}</p>
                                     ) : null}
                                     {selectedMarketSummary ? (
-                                        <p className="mt-2 text-xs text-cyan-100/80">{selectedMarketSummary}</p>
+                                        <p className="checkout-payment-provider-alert-note">{selectedMarketSummary}</p>
                                     ) : null}
                                 </div>
                             ) : null}
