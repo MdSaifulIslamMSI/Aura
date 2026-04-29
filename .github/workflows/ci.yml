@@ -246,6 +246,9 @@ jobs:
       - name: Run component tests
         run: npm test
 
+      - name: Audit locale coverage
+        run: npm run audit:locale
+
       - name: Verify build
         run: npm run build
 
