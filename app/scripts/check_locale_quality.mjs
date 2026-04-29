@@ -58,10 +58,13 @@ const countMatches = (value, pattern) => (String(value).match(pattern) || []).le
 
 const countLetters = (value) => countMatches(value, LETTER_PATTERN);
 
-const countNativeLetters = (value, patterns) => patterns.reduce(
-    (total, pattern) => total + countMatches(value, pattern),
-    0,
-);
+const countNativeLetters = (value, patterns) => {
+    const letters = String(value).match(LETTER_PATTERN) || [];
+    return letters.filter((letter) => patterns.some((pattern) => {
+        pattern.lastIndex = 0;
+        return pattern.test(letter);
+    })).length;
+};
 
 const formatPercent = (value) => (
     Number.isFinite(value) ? `${value.toFixed(1)}%` : 'n/a'

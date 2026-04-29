@@ -14,6 +14,7 @@
     "audit:locale:quality": "node scripts/check_locale_quality.mjs",
     "bench:mobile": "node scripts/mobile_benchmark.mjs",
     "i18n:generate": "node scripts/generate_market_messages.mjs && node scripts/generate_market_message_packs.mjs",
+    "i18n:repair-native": "node scripts/generate_market_message_packs.mjs --languages=hi,ar,ja,zh",
     "lint": "eslint .",
     "mobile:doctor": "npx cap doctor",
     "mobile:sync": "npm run build && npx cap sync",

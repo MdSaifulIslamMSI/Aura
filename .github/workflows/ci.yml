@@ -296,6 +296,9 @@ jobs:
       - name: Audit locale coverage
         run: npm run audit:locale
 
+      - name: Audit locale quality
+        run: npm run audit:locale:quality
+
       - name: Verify build
         run: npm run build
 
