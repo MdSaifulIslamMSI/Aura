@@ -45,7 +45,9 @@ export const parseApiError = async (response, fallbackMessage) => {
  * Creates an idempotency key for safe retries.
  */
 export const createIdempotencyKey = (prefix = 'idmp') =>
-    `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    `${prefix}-${typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`}`;
 
 /**
  * Runs a callback during browser idle time or after a short delay.

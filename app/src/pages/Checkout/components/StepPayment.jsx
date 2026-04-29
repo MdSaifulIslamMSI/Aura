@@ -4,10 +4,14 @@ import {
     Building2,
     CheckCircle2,
     CreditCard,
+    KeyRound,
     Loader2,
     LockKeyhole,
     RadioTower,
+    RefreshCw,
+    RotateCcw,
     Search,
+    Server,
     ShieldCheck,
     Smartphone,
     Wallet,
@@ -167,16 +171,35 @@ const humanizeSavedMethod = (method, t) => {
     return [typeLabel, brand, last4].filter(Boolean).join(' ');
 };
 
+const shortRef = (value = '') => {
+    const clean = String(value || '').trim();
+    if (!clean) return '';
+    if (clean.length <= 14) return clean;
+    return `${clean.slice(0, 6)}...${clean.slice(-4)}`;
+};
+
+const getLifecycleTone = (state) => {
+    if (state === 'ready') return 'border-emerald-500/25 bg-emerald-500/10 text-emerald-200';
+    if (state === 'active') return 'border-cyan-500/25 bg-cyan-500/10 text-cyan-100';
+    if (state === 'attention') return 'border-amber-500/30 bg-amber-500/10 text-amber-100';
+    if (state === 'failed') return 'border-rose-500/30 bg-rose-500/10 text-rose-100';
+    return 'border-white/10 bg-white/[0.035] text-slate-300';
+};
+
 const StepPayment = ({
     isActive,
     completed,
     paymentMethod,
     paymentIntent,
+    paymentSession = null,
     isProcessingPayment,
+    isRefreshingPayment = false,
     paymentError,
     onSetActive,
     onPaymentMethodChange,
     onExecutePayment,
+    onRefreshPayment,
+    onRestartPayment,
     onFallbackToCod,
     onBack,
     onContinue,
@@ -206,8 +229,13 @@ const StepPayment = ({
     const isDigital = paymentMethod !== 'COD';
     const isNetbanking = paymentMethod === 'NETBANKING';
     const paymentStatus = String(paymentIntent?.status || 'idle').trim().toLowerCase();
+    const hasIntent = Boolean(paymentIntent?.intentId);
     const paymentReady = paymentStatus === 'authorized' || paymentStatus === 'captured';
-    const actionLabel = paymentReady ? t('checkout.paymentAuthorized', {}, 'Payment Authorized') : t('checkout.paySecurely', {}, 'Pay Securely');
+    const actionLabel = paymentReady
+        ? t('checkout.paymentAuthorized', {}, 'Payment Authorized')
+        : hasIntent && paymentStatus === 'created'
+            ? t('checkout.resumeSecureCheckout', {}, 'Resume Secure Checkout')
+            : t('checkout.paySecurely', {}, 'Pay Securely');
     const selectedBankCode = String(selectedNetbankingBank?.code || '').trim().toUpperCase();
     const selectedMarketCountryCode = String(paymentMarket?.countryCode || 'IN').trim().toUpperCase();
     const selectedMarketCurrency = String(paymentMarket?.currency || 'INR').trim().toUpperCase();
@@ -225,7 +253,7 @@ const StepPayment = ({
         return selectedMarketCurrency
             ? [{ code: selectedMarketCurrency, name: '' }]
             : [{ code: 'INR', name: t('checkout.payment.inrName', {}, 'Indian Rupee') }];
-    }, [cardCurrencies, currencyOptions, selectedMarketCurrency]);
+    }, [cardCurrencies, currencyOptions, selectedMarketCurrency, t]);
     const filteredBanks = useMemo(() => {
         const banks = Array.isArray(netbankingCatalog?.banks) ? netbankingCatalog.banks : [];
         const query = String(bankSearch || '').trim().toLowerCase();
@@ -239,6 +267,7 @@ const StepPayment = ({
             .slice(0, 18);
     }, [bankSearch, netbankingCatalog?.banks]);
     const paymentDisabled = isProcessingPayment
+        || isRefreshingPayment
         || (challengeRequired && !challengeVerified)
         || paymentReady
         || (isNetbanking && !selectedBankCode);
@@ -263,6 +292,42 @@ const StepPayment = ({
         : t('checkout.payment.serverQuote', {}, 'Server quote');
     const paymentBadges = PAYMENT_BADGES[paymentMethod] || [];
     const selectedPaymentTitle = t(selectedPaymentOption.titleKey, {}, selectedPaymentOption.titleFallback);
+    const lifecycleItems = [
+        {
+            label: t('checkout.payment.lifecycle.quote', {}, 'Amount Locked'),
+            value: chargeQuote?.amount ? formatPrice(chargeQuote.amount, chargeQuote.currency || 'INR') : t('checkout.pending', {}, 'Pending'),
+            state: chargeQuote?.amount ? 'ready' : 'pending',
+        },
+        {
+            label: t('checkout.payment.lifecycle.intent', {}, 'Payment Request'),
+            value: hasIntent ? shortRef(paymentIntent.intentId) : t('checkout.pending', {}, 'Pending'),
+            state: hasIntent ? 'ready' : 'pending',
+        },
+        {
+            label: t('checkout.payment.lifecycle.challenge', {}, 'Challenge'),
+            value: challengeRequired
+                ? (challengeVerified ? t('checkout.verified', {}, 'Verified') : t('checkout.required', {}, 'Required'))
+                : t('checkout.notRequired', {}, 'Not required'),
+            state: challengeRequired ? (challengeVerified ? 'ready' : 'attention') : 'ready',
+        },
+        {
+            label: t('checkout.payment.lifecycle.provider', {}, 'Gateway'),
+            value: paymentReady
+                ? t('checkout.authorized', {}, 'Authorized')
+                : paymentStatus === 'failed' || paymentStatus === 'expired'
+                    ? paymentStatus.replace(/_/g, ' ')
+                    : hasIntent
+                        ? t('checkout.ready', {}, 'Ready')
+                        : t('checkout.pending', {}, 'Pending'),
+            state: paymentReady
+                ? 'ready'
+                : paymentStatus === 'failed' || paymentStatus === 'expired'
+                    ? 'failed'
+                    : hasIntent
+                        ? 'active'
+                        : 'pending',
+        },
+    ];
 
     return (
         <section
@@ -632,6 +697,33 @@ const StepPayment = ({
                                 </div>
                             ) : null}
 
+                            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                                {lifecycleItems.map((item) => (
+                                    <div
+                                        key={item.label}
+                                        className={cn('rounded-2xl border p-3', getLifecycleTone(item.state))}
+                                    >
+                                        <p className="text-[10px] font-black uppercase tracking-[0.16em] opacity-75">{item.label}</p>
+                                        <p className="mt-2 truncate text-sm font-bold">{item.value}</p>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <div className="checkout-premium-alert border-white/10 bg-white/[0.035] text-slate-200">
+                                <div className="space-y-2 text-xs">
+                                    <p className="flex items-center gap-2 font-black uppercase tracking-[0.16em] text-slate-400">
+                                        <Server className="h-3.5 w-3.5" />
+                                        {t('checkout.payment.serverState', {}, 'Payment State')}
+                                    </p>
+                                    <p>{t('checkout.payment.intentRef', {}, 'Request')}: {hasIntent ? shortRef(paymentIntent.intentId) : t('checkout.pending', {}, 'Pending')}</p>
+                                    <p>{t('checkout.payment.provider', {}, 'Gateway')}: {paymentIntent?.provider || 'Razorpay'}</p>
+                                    <p>{t('checkout.payment.risk', {}, 'Risk')}: {paymentIntent?.riskDecision || 'allow'}</p>
+                                    {paymentSession?.lastSyncedAt ? (
+                                        <p>{t('checkout.payment.synced', {}, 'Synced')}: {new Date(paymentSession.lastSyncedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                                    ) : null}
+                                </div>
+                            </div>
+
                             {challengeRequired ? (
                                 <div className="checkout-premium-alert border-amber-500/30 bg-amber-500/10 text-amber-200">
                                     <div className="flex items-center gap-2 font-semibold">
@@ -654,7 +746,8 @@ const StepPayment = ({
                                             disabled={isChallengeLoading}
                                             className="checkout-premium-secondary text-xs font-black uppercase tracking-[0.2em]"
                                         >
-                                            {t('checkout.payment.markVerified', {}, 'Mark Verified')}
+                                            <KeyRound className="h-4 w-4" />
+                                            {t('checkout.payment.verifyOtp', {}, 'Verify OTP')}
                                         </button>
                                     </div>
                                 </div>
@@ -675,19 +768,39 @@ const StepPayment = ({
                                 </div>
                             ) : null}
 
-                            <button
-                                type="button"
-                                onClick={onExecutePayment}
-                                disabled={paymentDisabled}
-                                className="checkout-premium-primary w-full px-5 py-3 text-xs font-black uppercase tracking-[0.24em] disabled:opacity-60 sm:w-auto"
-                            >
-                                {isProcessingPayment ? (
-                                    <span className="flex items-center gap-2">
-                                        <Loader2 className="w-4 h-4 animate-spin" />
-                                        {t('checkout.processing', {}, 'Processing...')}
-                                    </span>
-                                ) : actionLabel}
-                            </button>
+                            <div className="flex flex-col gap-3 border-t border-white/10 pt-5 sm:flex-row sm:items-center">
+                                <button
+                                    type="button"
+                                    onClick={onExecutePayment}
+                                    disabled={paymentDisabled}
+                                    className="checkout-premium-primary w-full px-5 py-3 text-xs font-black uppercase tracking-[0.2em] disabled:opacity-60 sm:w-auto"
+                                >
+                                    {isProcessingPayment ? (
+                                        <span className="flex items-center justify-center gap-2">
+                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                            {t('checkout.processing', {}, 'Processing...')}
+                                        </span>
+                                    ) : actionLabel}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={onRefreshPayment}
+                                    disabled={!hasIntent || isProcessingPayment || isRefreshingPayment}
+                                    className="checkout-premium-secondary w-full text-xs font-black uppercase tracking-[0.16em] disabled:opacity-50 sm:w-auto"
+                                >
+                                    {isRefreshingPayment ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                                    {t('checkout.payment.refreshStatus', {}, 'Refresh')}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={onRestartPayment}
+                                    disabled={isProcessingPayment || isRefreshingPayment}
+                                    className="checkout-premium-secondary w-full text-xs font-black uppercase tracking-[0.16em] disabled:opacity-50 sm:w-auto"
+                                >
+                                    <RotateCcw className="h-4 w-4" />
+                                    {t('checkout.payment.restart', {}, 'Restart')}
+                                </button>
+                            </div>
 
                             {isNetbanking && !selectedNetbankingBank ? (
                                 <p className="text-xs text-slate-400">{t('checkout.payment.selectBankUnlock', {}, 'Select a supported bank to unlock secure netbanking authorization.')}</p>
@@ -711,7 +824,7 @@ const StepPayment = ({
                                     onClick={onFallbackToCod}
                                     className="checkout-premium-secondary w-full text-xs font-black uppercase tracking-[0.2em] sm:w-auto"
                                 >
-                                    {t('checkout.payment.fallbackToCod', {}, 'Fallback to COD')}
+                                    {t('checkout.payment.fallbackToCod', {}, 'Use Cash on Delivery')}
                                 </button>
                             ) : null}
                         </div>
