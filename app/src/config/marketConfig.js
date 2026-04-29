@@ -3,7 +3,18 @@ import { MARKET_MESSAGE_PACK as EN_GENERATED_MARKET_MESSAGES } from './marketMes
 const DEFAULT_COUNTRY_CODE = 'IN';
 const DEFAULT_LANGUAGE_CODE = 'en';
 const DEFAULT_CURRENCY = 'INR';
-const MARKET_MESSAGE_PACK_LOADERS = import.meta.glob('./marketMessagePacks/*.js');
+const MARKET_MESSAGE_PACK_LOADERS = typeof import.meta.glob === 'function'
+  ? import.meta.glob('./marketMessagePacks/*.js')
+  : {
+      './marketMessagePacks/ar.js': () => import('./marketMessagePacks/ar.js'),
+      './marketMessagePacks/de.js': () => import('./marketMessagePacks/de.js'),
+      './marketMessagePacks/es.js': () => import('./marketMessagePacks/es.js'),
+      './marketMessagePacks/fr.js': () => import('./marketMessagePacks/fr.js'),
+      './marketMessagePacks/hi.js': () => import('./marketMessagePacks/hi.js'),
+      './marketMessagePacks/ja.js': () => import('./marketMessagePacks/ja.js'),
+      './marketMessagePacks/pt.js': () => import('./marketMessagePacks/pt.js'),
+      './marketMessagePacks/zh.js': () => import('./marketMessagePacks/zh.js'),
+    };
 
 export const MARKET_STORAGE_KEY = 'aura_market_preferences_v1';
 export const BROWSE_BASE_CURRENCY = 'INR';

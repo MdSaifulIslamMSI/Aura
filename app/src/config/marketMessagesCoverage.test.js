@@ -71,6 +71,7 @@ describe('MARKET_MESSAGES coverage', () => {
 
     const sourceKeys = collectLiteralSourceKeys(SRC_ROOT);
     DYNAMIC_SOURCE_KEYS.forEach((key) => sourceKeys.add(key));
+    Object.keys(MARKET_MESSAGES.en || {}).forEach((key) => sourceKeys.add(key));
 
     expect(sourceKeys.size).toBeGreaterThan(0);
 
