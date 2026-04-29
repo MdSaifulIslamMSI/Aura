@@ -6,6 +6,7 @@ import { AuthContext } from '@/context/AuthContext';
 import { useMarket } from '@/context/MarketContext';
 import { useCommerceStore } from '@/store/commerceStore';
 import { orderApi, otpApi, paymentApi, userApi } from '@/services/api';
+import { createIdempotencyKey } from '@/services/api/apiUtils';
 import { cn } from '@/lib/utils';
 import { getUserVisibleEmail } from '@/utils/authIdentity';
 import { ArrowLeft, CheckCircle2, Layers, Loader2, PackageCheck, ShieldCheck, Truck } from 'lucide-react';
@@ -52,6 +53,15 @@ const EMPTY_INTENT = {
     settlementCurrency: 'INR',
     paymentContext: null,
     checkoutPayload: null,
+};
+const EMPTY_PAYMENT_SESSION = {
+    signature: '',
+    createIntentKey: '',
+    confirmIntentKey: '',
+    orderKey: '',
+    createdAt: '',
+    lastSyncedAt: '',
+    recoveryCount: 0,
 };
 const PAID_INTENT_STATUSES = new Set(['authorized', 'captured']);
 const PAYMENT_METHOD_TO_SAVED_TYPE = {
@@ -163,6 +173,40 @@ const getCompatibleSavedMethods = (methods = [], paymentMethod = 'COD') => {
     return (methods || []).filter((method) => String(method?.type || '').trim().toLowerCase() === expectedType);
 };
 
+const createPaymentSession = (signature = '') => ({
+    signature,
+    createIntentKey: createIdempotencyKey('intent'),
+    confirmIntentKey: createIdempotencyKey('confirm'),
+    orderKey: createIdempotencyKey('order'),
+    createdAt: new Date().toISOString(),
+    lastSyncedAt: '',
+    recoveryCount: 0,
+});
+
+const mergePaymentIntentSnapshot = (currentIntent = EMPTY_INTENT, serverIntent = {}) => ({
+    ...currentIntent,
+    intentId: serverIntent.intentId || currentIntent.intentId || '',
+    provider: serverIntent.provider || currentIntent.provider || '',
+    providerOrderId: serverIntent.providerOrderId || currentIntent.providerOrderId || '',
+    providerPaymentId: serverIntent.providerPaymentId || currentIntent.providerPaymentId || '',
+    status: serverIntent.status || currentIntent.status || 'idle',
+    riskDecision: serverIntent.riskSnapshot?.decision || serverIntent.riskDecision || currentIntent.riskDecision || 'allow',
+    challengeRequired: Boolean(serverIntent.challenge?.required ?? serverIntent.challengeRequired ?? currentIntent.challengeRequired),
+    challengeVerified: Boolean(
+        serverIntent.challenge?.status === 'verified'
+        || serverIntent.challengeVerified
+        || currentIntent.challengeVerified
+    ),
+    baseAmount: serverIntent.baseAmount ?? currentIntent.baseAmount ?? 0,
+    baseCurrency: serverIntent.baseCurrency || currentIntent.baseCurrency || 'INR',
+    displayAmount: serverIntent.displayAmount ?? serverIntent.amount ?? currentIntent.displayAmount ?? 0,
+    displayCurrency: serverIntent.displayCurrency || serverIntent.currency || currentIntent.displayCurrency || 'INR',
+    settlementAmount: serverIntent.settlementAmount ?? currentIntent.settlementAmount ?? 0,
+    settlementCurrency: serverIntent.settlementCurrency || currentIntent.settlementCurrency || 'INR',
+    paymentContext: serverIntent.metadata?.paymentContext || currentIntent.paymentContext || null,
+    checkoutPayload: currentIntent.checkoutPayload || null,
+});
+
 const CHECKOUT_STEPS = [
     { id: 1, label: 'Address' },
     { id: 2, label: 'Delivery' },
@@ -220,6 +264,7 @@ const Checkout = () => {
             netbanking: { ...EMPTY_PAYMENT_CONTEXT.netbanking },
         },
         paymentIntent: EMPTY_INTENT,
+        paymentSession: EMPTY_PAYMENT_SESSION,
         couponCode: '',
         acceptedTerms: false,
     }), [globalCountryCode, globalCurrency, globalLanguage]);
@@ -257,6 +302,7 @@ const Checkout = () => {
             return {
                 ...prev,
                 paymentIntent: EMPTY_INTENT,
+                paymentSession: EMPTY_PAYMENT_SESSION,
                 paymentContext: {
                     ...prev.paymentContext,
                     market: {
@@ -297,6 +343,7 @@ const Checkout = () => {
     const [lastQuoteAt, setLastQuoteAt] = useState(0);
     const [isPlacingOrder, setIsPlacingOrder] = useState(false);
     const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+    const [isRefreshingPayment, setIsRefreshingPayment] = useState(false);
 
     /**
      * promptOtp — opens the secure OTP modal and returns a Promise that resolves
@@ -526,12 +573,41 @@ const Checkout = () => {
             checkoutSource,
             cartVersion: checkoutSource === 'cart' ? Number(cartRevision ?? 0) : null,
         }),
-        [cartItems, cartRevision, checkoutItems, checkoutSource, draft]
+        [
+            cartRevision,
+            checkoutItems,
+            checkoutSource,
+            draft.couponCode,
+            draft.deliveryOption,
+            draft.deliverySlot,
+            draft.paymentContext,
+            draft.paymentMethod,
+            draft.shippingAddress,
+        ]
     );
 
     const quoteSignature = useMemo(
         () => JSON.stringify(quotePayload),
         [quotePayload]
+    );
+
+    const paymentSessionSignature = useMemo(
+        () => JSON.stringify({
+            quoteSignature,
+            paymentMethod: draft.paymentMethod,
+            savedMethodId: draft.selectedSavedMethodId || '',
+            netbankingBankCode: selectedNetbankingBankCode,
+            countryCode: selectedMarketCountryCode,
+            currency: selectedMarketCurrency,
+        }),
+        [
+            draft.paymentMethod,
+            draft.selectedSavedMethodId,
+            quoteSignature,
+            selectedMarketCountryCode,
+            selectedMarketCurrency,
+            selectedNetbankingBankCode,
+        ]
     );
 
     const isQuoteStale = useMemo(() => {
@@ -593,6 +669,7 @@ const Checkout = () => {
             ...prev,
             paymentMethod: fallbackMethod,
             paymentIntent: EMPTY_INTENT,
+            paymentSession: EMPTY_PAYMENT_SESSION,
             paymentContext: {
                 ...prev.paymentContext,
                 netbanking: fallbackMethod === 'NETBANKING'
@@ -660,6 +737,7 @@ const Checkout = () => {
         setDraft((prev) => ({
             ...prev,
             paymentIntent: EMPTY_INTENT,
+            paymentSession: EMPTY_PAYMENT_SESSION,
             paymentContext: {
                 ...prev.paymentContext,
                 netbanking: { ...EMPTY_PAYMENT_CONTEXT.netbanking },
@@ -886,6 +964,7 @@ const Checkout = () => {
                     : { ...EMPTY_PAYMENT_CONTEXT.netbanking },
             },
             paymentIntent: EMPTY_INTENT,
+            paymentSession: EMPTY_PAYMENT_SESSION,
         }));
         setStepErrors((prev) => ({ ...prev, payment: '' }));
     };
@@ -914,6 +993,9 @@ const Checkout = () => {
             paymentIntent: PAID_INTENT_STATUSES.has(String(prev.paymentIntent.status || '').toLowerCase())
                 ? prev.paymentIntent
                 : EMPTY_INTENT,
+            paymentSession: PAID_INTENT_STATUSES.has(String(prev.paymentIntent.status || '').toLowerCase())
+                ? prev.paymentSession
+                : EMPTY_PAYMENT_SESSION,
             paymentContext: savedSelection
                 ? {
                     ...prev.paymentContext,
@@ -939,6 +1021,9 @@ const Checkout = () => {
             paymentIntent: PAID_INTENT_STATUSES.has(String(prev.paymentIntent.status || '').toLowerCase())
                 ? prev.paymentIntent
                 : EMPTY_INTENT,
+            paymentSession: PAID_INTENT_STATUSES.has(String(prev.paymentIntent.status || '').toLowerCase())
+                ? prev.paymentSession
+                : EMPTY_PAYMENT_SESSION,
             paymentContext: {
                 ...prev.paymentContext,
                 netbanking: {
@@ -951,7 +1036,27 @@ const Checkout = () => {
         setStepErrors((prev) => ({ ...prev, payment: '' }));
     };
 
-    const openRazorpayCheckout = async ({ intentId, checkoutPayload }) => {
+    const getActivePaymentSession = () => {
+        const current = draft.paymentSession || EMPTY_PAYMENT_SESSION;
+        if (
+            current.signature === paymentSessionSignature
+            && current.createIntentKey
+            && current.confirmIntentKey
+            && current.orderKey
+        ) {
+            return current;
+        }
+        return createPaymentSession(paymentSessionSignature);
+    };
+
+    const persistPaymentSession = (paymentSession) => {
+        setDraft((prev) => ({
+            ...prev,
+            paymentSession,
+        }));
+    };
+
+    const openRazorpayCheckout = async ({ intentId, checkoutPayload, paymentSession }) => {
         if (!intentId || !checkoutPayload?.orderId) {
             throw new Error(t('checkout.error.checkoutPayloadMissing', {}, 'Payment checkout payload is missing. Please retry.'));
         }
@@ -966,9 +1071,15 @@ const Checkout = () => {
                             providerPaymentId: paymentResponse.razorpay_payment_id,
                             providerOrderId: paymentResponse.razorpay_order_id,
                             providerSignature: paymentResponse.razorpay_signature,
+                            idempotencyKey: paymentSession?.confirmIntentKey || createIdempotencyKey('confirm'),
                         });
                         setDraft((prev) => ({
                             ...prev,
+                            paymentSession: {
+                                ...(prev.paymentSession || EMPTY_PAYMENT_SESSION),
+                                ...(paymentSession || {}),
+                                lastSyncedAt: new Date().toISOString(),
+                            },
                             paymentIntent: {
                                 ...prev.paymentIntent,
                                 intentId,
@@ -1001,13 +1112,26 @@ const Checkout = () => {
         try {
             setIsProcessingPayment(true);
             setStepErrors((prev) => ({ ...prev, payment: '' }));
+            const activePaymentSession = getActivePaymentSession();
+            const sessionChanged = (draft.paymentSession || EMPTY_PAYMENT_SESSION).signature !== activePaymentSession.signature;
+            if (sessionChanged) {
+                setDraft((prev) => ({
+                    ...prev,
+                    paymentSession: activePaymentSession,
+                    paymentIntent: EMPTY_INTENT,
+                }));
+            } else {
+                persistPaymentSession(activePaymentSession);
+            }
 
-            if (PAID_INTENT_STATUSES.has(String(draft.paymentIntent.status || '').toLowerCase())) {
+            if (!sessionChanged && PAID_INTENT_STATUSES.has(String(draft.paymentIntent.status || '').toLowerCase())) {
                 toast.success(t('checkout.success.paymentAlreadyAuthorized', {}, 'Payment is already authorized for this checkout session'));
                 return;
             }
 
             const hasReusableIntent = (
+                !sessionChanged
+                &&
                 draft.paymentIntent.intentId
                 && draft.paymentIntent.checkoutPayload
                 && String(draft.paymentIntent.status || '').toLowerCase() === 'created'
@@ -1023,6 +1147,7 @@ const Checkout = () => {
                 await openRazorpayCheckout({
                     intentId: draft.paymentIntent.intentId,
                     checkoutPayload: draft.paymentIntent.checkoutPayload,
+                    paymentSession: activePaymentSession,
                 });
                 return;
             }
@@ -1047,6 +1172,7 @@ const Checkout = () => {
                 paymentMethod: draft.paymentMethod,
                 savedMethodId: draft.selectedSavedMethodId || undefined,
                 paymentContext: draft.paymentContext,
+                idempotencyKey: activePaymentSession.createIntentKey,
                 deviceContext: {
                     userAgent: navigator.userAgent,
                     platform: navigator.platform,
@@ -1057,6 +1183,10 @@ const Checkout = () => {
 
             setDraft((prev) => ({
                 ...prev,
+                paymentSession: {
+                    ...activePaymentSession,
+                    lastSyncedAt: new Date().toISOString(),
+                },
                 paymentIntent: {
                     intentId: intent.intentId,
                     provider: intent.provider,
@@ -1085,6 +1215,7 @@ const Checkout = () => {
             await openRazorpayCheckout({
                 intentId: intent.intentId,
                 checkoutPayload: intent.checkoutPayload,
+                paymentSession: activePaymentSession,
             });
         } catch (error) {
             setStepErrors((prev) => ({ ...prev, payment: error.message || t('checkout.error.paymentAuthorizationFailed', {}, 'Payment authorization failed') }));
@@ -1128,6 +1259,8 @@ const Checkout = () => {
 
         try {
             setIsProcessingPayment(true);
+            const activePaymentSession = getActivePaymentSession();
+            persistPaymentSession(activePaymentSession);
             const otpResult = await otpApi.verifyOtp(
                 draft.contact.phone,
                 String(otp),
@@ -1147,6 +1280,11 @@ const Checkout = () => {
 
             setDraft((prev) => ({
                 ...prev,
+                paymentSession: {
+                    ...(prev.paymentSession || EMPTY_PAYMENT_SESSION),
+                    ...activePaymentSession,
+                    lastSyncedAt: new Date().toISOString(),
+                },
                 paymentIntent: {
                     ...prev.paymentIntent,
                     challengeVerified: true,
@@ -1158,6 +1296,7 @@ const Checkout = () => {
             await openRazorpayCheckout({
                 intentId: draft.paymentIntent.intentId,
                 checkoutPayload: draft.paymentIntent.checkoutPayload,
+                paymentSession: activePaymentSession,
             });
         } catch (error) {
             // Show error inside modal instead of closing
@@ -1166,6 +1305,53 @@ const Checkout = () => {
         } finally {
             setIsProcessingPayment(false);
         }
+    };
+
+    const refreshPaymentIntentStatus = async () => {
+        if (!draft.paymentIntent.intentId) {
+            setStepErrors((prev) => ({ ...prev, payment: t('checkout.error.paymentIntentMissing', {}, 'Payment intent is missing. Please retry payment.') }));
+            return;
+        }
+
+        try {
+            setIsRefreshingPayment(true);
+            setStepErrors((prev) => ({ ...prev, payment: '' }));
+            const serverIntent = await paymentApi.getIntent(draft.paymentIntent.intentId);
+            setDraft((prev) => ({
+                ...prev,
+                paymentSession: {
+                    ...(prev.paymentSession || EMPTY_PAYMENT_SESSION),
+                    lastSyncedAt: new Date().toISOString(),
+                    recoveryCount: Number(prev.paymentSession?.recoveryCount || 0) + 1,
+                },
+                paymentIntent: mergePaymentIntentSnapshot(prev.paymentIntent, serverIntent),
+            }));
+
+            const nextStatus = String(serverIntent?.status || '').trim().toLowerCase();
+            if (PAID_INTENT_STATUSES.has(nextStatus)) {
+                toast.success(t('checkout.success.paymentRecovered', {}, 'Payment authorization recovered from the server'));
+            } else {
+                toast.info(t('checkout.info.paymentStatusSynced', {}, 'Payment status refreshed'));
+            }
+        } catch (error) {
+            setStepErrors((prev) => ({
+                ...prev,
+                payment: error.message || t('checkout.error.paymentRefreshFailed', {}, 'Unable to refresh payment status'),
+            }));
+        } finally {
+            setIsRefreshingPayment(false);
+        }
+    };
+
+    const restartDigitalPayment = () => {
+        const nextSession = createPaymentSession(paymentSessionSignature);
+        setDraft((prev) => ({
+            ...prev,
+            paymentIntent: EMPTY_INTENT,
+            paymentSession: nextSession,
+        }));
+        setStepErrors((prev) => ({ ...prev, payment: '' }));
+        toast.info(t('checkout.info.paymentRestarted', {}, 'Started a fresh payment authorization'));
     };
 
     const fallbackToCod = () => {
@@ -1177,6 +1363,7 @@ const Checkout = () => {
                 netbanking: { ...EMPTY_PAYMENT_CONTEXT.netbanking },
             },
             paymentIntent: EMPTY_INTENT,
+            paymentSession: EMPTY_PAYMENT_SESSION,
         }));
         toast.info(t('checkout.info.switchedToCod', {}, 'Switched to Cash on Delivery'));
     };
@@ -1223,6 +1410,13 @@ const Checkout = () => {
         try {
             setIsPlacingOrder(true);
             setStepErrors((prev) => ({ ...prev, review: '' }));
+            const activePaymentSession = (
+                draft.paymentSession?.signature === paymentSessionSignature
+                && draft.paymentSession?.orderKey
+            )
+                ? draft.paymentSession
+                : createPaymentSession(paymentSessionSignature);
+            persistPaymentSession(activePaymentSession);
 
             const payload = {
                 ...(checkoutSource === 'cart'
@@ -1256,10 +1450,7 @@ const Checkout = () => {
                     cartVersion: quote?.cartVersion ?? (checkoutSource === 'cart' ? Number(cartRevision ?? 0) : undefined),
                     pricingVersion: quote.pricingVersion || 'v2',
                 },
-                // crypto.randomUUID() is collision-safe (RFC 4122 UUID v4).
-                // Math.random() was used previously but is not cryptographically
-                // secure and could produce duplicates under concurrent submissions.
-                idempotencyKey: crypto.randomUUID(),
+                idempotencyKey: activePaymentSession.orderKey,
             };
 
             const createdOrder = await orderApi.createOrder(payload);
@@ -1467,7 +1658,9 @@ const Checkout = () => {
                         completed={draft.step > 3}
                         paymentMethod={draft.paymentMethod}
                         paymentIntent={draft.paymentIntent}
+                        paymentSession={draft.paymentSession}
                         isProcessingPayment={isProcessingPayment}
+                        isRefreshingPayment={isRefreshingPayment}
                         paymentError={stepErrors.payment}
                         savedMethods={compatibleSavedMethods}
                         selectedSavedMethodId={draft.selectedSavedMethodId}
@@ -1498,6 +1691,8 @@ const Checkout = () => {
                         }))}
                         currencyOptions={paymentCapabilities?.markets?.railMatrix?.CARD?.currencies || []}
                         onExecutePayment={executeDigitalPayment}
+                        onRefreshPayment={refreshPaymentIntentStatus}
+                        onRestartPayment={restartDigitalPayment}
                         onFallbackToCod={fallbackToCod}
                         onBack={() => gotoStep(2)}
                         onContinue={handlePaymentContinue}
