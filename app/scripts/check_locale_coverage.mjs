@@ -1,19 +1,53 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { MARKET_MESSAGES, SUPPORTED_LANGUAGES } from '../src/config/marketConfig.js';
+import {
+    ensureAllMarketMessagesLoaded,
+    MARKET_MESSAGES,
+    SUPPORTED_LANGUAGES,
+} from '../src/config/marketConfig.js';
 
 const scriptPath = fileURLToPath(import.meta.url);
 const scriptDir = path.dirname(scriptPath);
+const appDir = path.resolve(scriptDir, '..');
 const srcDir = path.resolve(scriptDir, '../src');
+const coverageCsvPath = path.resolve(appDir, 'translation-coverage.csv');
 
 const SOURCE_EXTENSIONS = new Set(['.js', '.jsx', '.ts', '.tsx']);
 const IGNORE_FILE_PATTERN = /\.(test|spec)\.[jt]sx?$/i;
 const TRANSLATION_CALL_PATTERN = /\bt\(\s*(['"])([^'"`\r\n]+)\1/g;
+const DYNAMIC_SOURCE_KEYS = [
+    'checkout.addressType.home',
+    'checkout.addressType.other',
+    'checkout.addressType.work',
+    'checkout.payment.cardDescription',
+    'checkout.payment.cardTitle',
+    'checkout.payment.codDescription',
+    'checkout.payment.codTitle',
+    'checkout.payment.netbankingDescription',
+    'checkout.payment.netbankingTitle',
+    'checkout.payment.rail.cardEmpty',
+    'checkout.payment.rail.cardTitle',
+    'checkout.payment.rail.netbankingEmpty',
+    'checkout.payment.rail.netbankingTitle',
+    'checkout.payment.rail.upiEmpty',
+    'checkout.payment.rail.upiTitle',
+    'checkout.payment.rail.walletEmpty',
+    'checkout.payment.rail.walletTitle',
+    'checkout.payment.upiDescription',
+    'checkout.payment.upiTitle',
+    'checkout.payment.walletDescription',
+    'checkout.payment.walletTitle',
+    'status.degradedMessage',
+    'status.degradedTitle',
+    'status.unavailableMessage',
+    'status.unavailableTitle',
+    'status.warmingMessage',
+    'status.warmingTitle',
+];
 
-const localeCodes = SUPPORTED_LANGUAGES
-    .map((language) => language.code)
-    .filter((code) => code !== 'en');
+const SUPPORTED_LANGUAGE_CODES = SUPPORTED_LANGUAGES.map((language) => language.code);
+const localeCodes = SUPPORTED_LANGUAGE_CODES.filter((code) => code !== 'en');
 
 const getAreaName = (filePath = '') => {
     const normalizedPath = filePath.replace(/\\/g, '/');
@@ -54,6 +88,50 @@ const formatPercent = (resolved, total) => {
     return `${((resolved / total) * 100).toFixed(1)}%`;
 };
 
+const formatCsvPercent = (resolved, total) => {
+    if (total === 0) return '100';
+    const value = (resolved / total) * 100;
+    return Number.isInteger(value) ? String(value) : value.toFixed(2);
+};
+
+const getReferenceTextLength = (marketMessages, key) => String(
+    marketMessages.en?.[key] || key
+).length;
+
+const writeCoverageCsv = (marketMessages, requiredKeys) => {
+    const sortedRequiredKeys = [...requiredKeys].sort((left, right) => left.localeCompare(right));
+    const totalLetters = sortedRequiredKeys.reduce((total, key) => (
+        total + getReferenceTextLength(marketMessages, key)
+    ), 0);
+
+    const lines = [
+        'language,key_coverage_percent,letter_coverage_percent,covered_keys,total_keys,covered_letters,total_letters',
+        ...SUPPORTED_LANGUAGE_CODES.map((languageCode) => {
+            const messages = marketMessages[languageCode] || {};
+            const coveredKeys = languageCode === 'en'
+                ? sortedRequiredKeys
+                : sortedRequiredKeys.filter((key) => (
+                    typeof messages[key] === 'string' && messages[key].length > 0
+                ));
+            const coveredLetters = coveredKeys.reduce((total, key) => (
+                total + getReferenceTextLength(marketMessages, key)
+            ), 0);
+
+            return [
+                languageCode,
+                formatCsvPercent(coveredKeys.length, sortedRequiredKeys.length),
+                formatCsvPercent(coveredLetters, totalLetters),
+                coveredKeys.length,
+                sortedRequiredKeys.length,
+                coveredLetters,
+                totalLetters,
+            ].join(',');
+        }),
+    ];
+
+    fs.writeFileSync(coverageCsvPath, `${lines.join('\n')}\n`, 'utf8');
+};
+
 const walkSourceFiles = (directoryPath) => {
     const entries = fs.readdirSync(directoryPath, { withFileTypes: true });
     const files = [];
@@ -80,6 +158,8 @@ const staticKeys = new Set();
 const areaKeyMap = new Map();
 const keyFileMap = new Map();
 const filesWithKeys = new Set();
+
+await ensureAllMarketMessagesLoaded();
 
 walkSourceFiles(srcDir).forEach((filePath) => {
     const source = fs.readFileSync(filePath, 'utf8');
@@ -113,7 +193,12 @@ walkSourceFiles(srcDir).forEach((filePath) => {
     TRANSLATION_CALL_PATTERN.lastIndex = 0;
 });
 
-const sortedKeys = [...staticKeys].sort((left, right) => left.localeCompare(right));
+const requiredKeys = new Set([
+    ...staticKeys,
+    ...DYNAMIC_SOURCE_KEYS,
+    ...Object.keys(MARKET_MESSAGES.en || {}),
+]);
+const sortedKeys = [...requiredKeys].sort((left, right) => left.localeCompare(right));
 const missingByLocale = Object.fromEntries(localeCodes.map((locale) => [locale, []]));
 const resolvedCountByLocale = Object.fromEntries(localeCodes.map((locale) => [locale, 0]));
 
@@ -131,7 +216,8 @@ sortedKeys.forEach((key) => {
 console.log('Locale coverage audit');
 console.log(`Source files scanned: ${walkSourceFiles(srcDir).length}`);
 console.log(`Runtime files with static translation keys: ${filesWithKeys.size}`);
-console.log(`Static translation keys: ${sortedKeys.length}`);
+console.log(`Required translation keys: ${sortedKeys.length}`);
+console.log(`Required English pack keys: ${Object.keys(MARKET_MESSAGES.en || {}).length}`);
 console.log('');
 console.log('Overall locale coverage:');
 localeCodes.forEach((locale) => {
@@ -154,6 +240,10 @@ console.log('Area coverage:');
 
         console.log(`- ${areaName}: ${sortedAreaKeys.length} keys | ${coverageLabel}`);
     });
+
+writeCoverageCsv(MARKET_MESSAGES, requiredKeys);
+console.log('');
+console.log(`Coverage snapshot: ${path.relative(appDir, coverageCsvPath).replace(/\\/g, '/')}`);
 
 const missingEntries = sortedKeys
     .map((key) => ({
