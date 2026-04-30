@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import { getUserVisibleEmail } from '@/utils/authIdentity';
 import { ArrowLeft, CheckCircle2, Layers, Loader2, PackageCheck, ShieldCheck, Truck } from 'lucide-react';
 import { loadRazorpayScript } from '@/utils/razorpay';
+import { loadStripeScript } from '@/utils/stripe';
 import { detectLocationFromGps } from '@/utils/geolocation';
 import { convertAmount, formatPrice } from '@/utils/format';
 import { BROWSE_BASE_CURRENCY } from '@/config/marketConfig';
@@ -41,6 +42,7 @@ const EMPTY_INTENT = {
     provider: '',
     providerOrderId: '',
     providerPaymentId: '',
+    providerMethod: null,
     status: 'idle',
     riskDecision: 'allow',
     challengeRequired: false,
@@ -75,6 +77,13 @@ const isPhoneValid = (phone) => /^\+?\d[\d\s-]{8,15}$/.test(String(phone || '').
 const normalizeNetbankingBankCode = (value) => String(value || '').trim().toUpperCase();
 const normalizeMarketCountryCode = (value) => String(value || '').trim().toUpperCase().slice(0, 2);
 const normalizeMarketCurrencyCode = (value) => String(value || '').trim().toUpperCase().slice(0, 3);
+const escapeModalText = (value) => String(value || '').replace(/[&<>"']/g, (char) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+}[char]));
 const extractNetbankingSelectionFromMethod = (method) => {
     if (String(method?.type || '').trim().toLowerCase() !== 'bank') return null;
 
@@ -189,6 +198,7 @@ const mergePaymentIntentSnapshot = (currentIntent = EMPTY_INTENT, serverIntent =
     provider: serverIntent.provider || currentIntent.provider || '',
     providerOrderId: serverIntent.providerOrderId || currentIntent.providerOrderId || '',
     providerPaymentId: serverIntent.providerPaymentId || currentIntent.providerPaymentId || '',
+    providerMethod: serverIntent.providerMethod || serverIntent.metadata?.providerMethodSnapshot || currentIntent.providerMethod || null,
     status: serverIntent.status || currentIntent.status || 'idle',
     riskDecision: serverIntent.riskSnapshot?.decision || serverIntent.riskDecision || currentIntent.riskDecision || 'allow',
     challengeRequired: Boolean(serverIntent.challenge?.required ?? serverIntent.challengeRequired ?? currentIntent.challengeRequired),
@@ -1056,6 +1066,54 @@ const Checkout = () => {
         }));
     };
 
+    const applyPaymentConfirmation = async ({
+        intentId,
+        providerPaymentId,
+        confirmResult,
+        paymentSession,
+    }) => {
+        const providerMethod = confirmResult.providerMethod || null;
+        let matchingSavedMethod = null;
+        if (providerMethod?.providerMethodId) {
+            try {
+                const methods = await paymentApi.getMethods();
+                const refreshedMethods = Array.isArray(methods) ? methods : [];
+                matchingSavedMethod = refreshedMethods.find(
+                    (method) => String(method?.providerMethodId || '') === String(providerMethod.providerMethodId || '')
+                );
+                setSavedPaymentMethods(refreshedMethods);
+            } catch (methodError) {
+                console.warn('Failed to refresh saved payment methods after authorization', methodError);
+            }
+        }
+        setDraft((prev) => ({
+            ...prev,
+            selectedSavedMethodId: matchingSavedMethod?._id || prev.selectedSavedMethodId,
+            paymentSession: {
+                ...(prev.paymentSession || EMPTY_PAYMENT_SESSION),
+                ...(paymentSession || {}),
+                lastSyncedAt: new Date().toISOString(),
+            },
+            paymentIntent: {
+                ...prev.paymentIntent,
+                intentId,
+                providerPaymentId,
+                status: confirmResult.status,
+                baseAmount: confirmResult.baseAmount ?? prev.paymentIntent.baseAmount ?? 0,
+                baseCurrency: confirmResult.baseCurrency || prev.paymentIntent.baseCurrency || 'INR',
+                displayAmount: confirmResult.displayAmount ?? prev.paymentIntent.displayAmount ?? 0,
+                displayCurrency: confirmResult.displayCurrency || prev.paymentIntent.displayCurrency || 'INR',
+                settlementAmount: confirmResult.settlementAmount ?? prev.paymentIntent.settlementAmount ?? 0,
+                settlementCurrency: confirmResult.settlementCurrency || prev.paymentIntent.settlementCurrency || 'INR',
+                providerMethod,
+            },
+        }));
+        toast.success(t('checkout.success.paymentAuthorized', {}, 'Payment authorized successfully'));
+        if (providerMethod?.providerMethodId && matchingSavedMethod) {
+            toast.success(t('checkout.success.paymentMethodSaved', {}, 'Payment method saved for faster checkout'));
+        }
+    };
+
     const openRazorpayCheckout = async ({ intentId, checkoutPayload, paymentSession }) => {
         if (!intentId || !checkoutPayload?.orderId) {
             throw new Error(t('checkout.error.checkoutPayloadMissing', {}, 'Payment checkout payload is missing. Please retry.'));
@@ -1073,27 +1131,12 @@ const Checkout = () => {
                             providerSignature: paymentResponse.razorpay_signature,
                             idempotencyKey: paymentSession?.confirmIntentKey || createIdempotencyKey('confirm'),
                         });
-                        setDraft((prev) => ({
-                            ...prev,
-                            paymentSession: {
-                                ...(prev.paymentSession || EMPTY_PAYMENT_SESSION),
-                                ...(paymentSession || {}),
-                                lastSyncedAt: new Date().toISOString(),
-                            },
-                            paymentIntent: {
-                                ...prev.paymentIntent,
-                                intentId,
-                                providerPaymentId: paymentResponse.razorpay_payment_id,
-                                status: confirmResult.status,
-                                baseAmount: confirmResult.baseAmount ?? prev.paymentIntent.baseAmount ?? 0,
-                                baseCurrency: confirmResult.baseCurrency || prev.paymentIntent.baseCurrency || 'INR',
-                                displayAmount: confirmResult.displayAmount ?? prev.paymentIntent.displayAmount ?? 0,
-                                displayCurrency: confirmResult.displayCurrency || prev.paymentIntent.displayCurrency || 'INR',
-                                settlementAmount: confirmResult.settlementAmount ?? prev.paymentIntent.settlementAmount ?? 0,
-                                settlementCurrency: confirmResult.settlementCurrency || prev.paymentIntent.settlementCurrency || 'INR',
-                            },
-                        }));
-                        toast.success(t('checkout.success.paymentAuthorized', {}, 'Payment authorized successfully'));
+                        await applyPaymentConfirmation({
+                            intentId,
+                            providerPaymentId: paymentResponse.razorpay_payment_id,
+                            confirmResult,
+                            paymentSession,
+                        });
                         resolve();
                     } catch (confirmError) {
                         reject(confirmError);
@@ -1105,6 +1148,158 @@ const Checkout = () => {
             });
             rzp.open();
         });
+    };
+
+    const confirmStripeIntentWithBackend = async ({
+        intentId,
+        checkoutPayload,
+        paymentSession,
+        stripePaymentIntentId,
+    }) => {
+        const providerPaymentId = stripePaymentIntentId || checkoutPayload.paymentIntentId;
+        const confirmResult = await paymentApi.confirmIntent(intentId, {
+            providerPaymentId,
+            providerOrderId: checkoutPayload.paymentIntentId,
+            providerSignature: checkoutPayload.confirmationSignature,
+            idempotencyKey: paymentSession?.confirmIntentKey || createIdempotencyKey('confirm'),
+        });
+        await applyPaymentConfirmation({
+            intentId,
+            providerPaymentId,
+            confirmResult,
+            paymentSession,
+        });
+    };
+
+    const confirmSavedStripePayment = async ({ intentId, checkoutPayload, paymentSession }) => {
+        const failedSavedStatuses = new Set(['requires_payment_method', 'canceled']);
+        if (failedSavedStatuses.has(String(checkoutPayload?.status || '').trim().toLowerCase())) {
+            throw new Error(t('checkout.error.savedCardAuthorizationFailed', {}, 'Saved card authorization failed. Choose another card or retry with a new card.'));
+        }
+
+        let stripePaymentIntentId = checkoutPayload.paymentIntentId;
+        if (checkoutPayload.requiresAction || checkoutPayload.status === 'requires_action') {
+            const Stripe = await loadStripeScript();
+            const stripe = Stripe(checkoutPayload.publishableKey);
+            const result = await stripe.handleNextAction({
+                clientSecret: checkoutPayload.clientSecret,
+            });
+            if (result.error) {
+                throw new Error(result.error.message || t('checkout.error.paymentAuthorizationFailed', {}, 'Payment authorization failed'));
+            }
+            stripePaymentIntentId = result.paymentIntent?.id || stripePaymentIntentId;
+        }
+
+        await confirmStripeIntentWithBackend({
+            intentId,
+            checkoutPayload,
+            paymentSession,
+            stripePaymentIntentId,
+        });
+    };
+
+    const openStripeCheckout = async ({ intentId, checkoutPayload, paymentSession }) => {
+        if (!intentId || !checkoutPayload?.clientSecret || !checkoutPayload?.publishableKey || !checkoutPayload?.confirmationSignature) {
+            throw new Error(t('checkout.error.checkoutPayloadMissing', {}, 'Payment checkout payload is missing. Please retry.'));
+        }
+
+        if (checkoutPayload.savedPaymentMethodId) {
+            await confirmSavedStripePayment({ intentId, checkoutPayload, paymentSession });
+            return;
+        }
+
+        const Stripe = await loadStripeScript();
+        const stripe = Stripe(checkoutPayload.publishableKey);
+        const overlay = document.createElement('div');
+        overlay.setAttribute('role', 'dialog');
+        overlay.setAttribute('aria-modal', 'true');
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(2,6,23,0.78);padding:20px;';
+        const stripeTitle = escapeModalText(t('checkout.payment.stripeTitle', {}, 'Secure card payment'));
+        const cancelLabel = escapeModalText(t('checkout.cancel', {}, 'Cancel'));
+        const payLabel = escapeModalText(t('checkout.paySecurely', {}, 'Pay Securely'));
+        overlay.innerHTML = `
+            <form data-stripe-form style="width:min(100%,460px);border:1px solid rgba(148,163,184,0.24);border-radius:18px;background:#ffffff;padding:22px;box-shadow:0 24px 80px rgba(15,23,42,0.35);">
+                <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:18px;">
+                    <div>
+                        <p style="margin:0;color:#64748b;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.16em;">Stripe</p>
+                        <h2 style="margin:6px 0 0;color:#0f172a;font-size:20px;font-weight:800;">${stripeTitle}</h2>
+                    </div>
+                    <button type="button" data-stripe-cancel style="border:1px solid #e2e8f0;border-radius:10px;background:#fff;color:#334155;font-size:12px;font-weight:800;padding:8px 10px;">${cancelLabel}</button>
+                </div>
+                <div data-stripe-element></div>
+                <p data-stripe-error style="min-height:18px;margin:12px 0 0;color:#dc2626;font-size:12px;"></p>
+                <button type="submit" data-stripe-submit style="width:100%;margin-top:18px;border:0;border-radius:12px;background:#0f172a;color:#fff;font-size:13px;font-weight:900;letter-spacing:0.12em;text-transform:uppercase;padding:13px 16px;">${payLabel}</button>
+            </form>
+        `;
+        document.body.appendChild(overlay);
+
+        const elements = stripe.elements({
+            clientSecret: checkoutPayload.clientSecret,
+            appearance: {
+                theme: 'stripe',
+                variables: {
+                    borderRadius: '10px',
+                    colorPrimary: '#0f172a',
+                },
+            },
+        });
+        const paymentElement = elements.create('payment');
+        paymentElement.mount(overlay.querySelector('[data-stripe-element]'));
+
+        try {
+            await new Promise((resolve, reject) => {
+                const form = overlay.querySelector('[data-stripe-form]');
+                const cancelButton = overlay.querySelector('[data-stripe-cancel]');
+                const submitButton = overlay.querySelector('[data-stripe-submit]');
+                const errorNode = overlay.querySelector('[data-stripe-error]');
+
+                cancelButton.addEventListener('click', () => {
+                    reject(new Error(t('checkout.error.paymentClosed', {}, 'Payment window closed before completion')));
+                }, { once: true });
+
+                form.addEventListener('submit', async (event) => {
+                    event.preventDefault();
+                    submitButton.disabled = true;
+                    submitButton.textContent = t('checkout.processing', {}, 'Processing...');
+                    errorNode.textContent = '';
+                    try {
+                        const result = await stripe.confirmPayment({
+                            elements,
+                            redirect: 'if_required',
+                            confirmParams: {
+                                return_url: window.location.href,
+                            },
+                        });
+                        if (result.error) {
+                            throw new Error(result.error.message || t('checkout.error.paymentAuthorizationFailed', {}, 'Payment authorization failed'));
+                        }
+                        const stripePaymentIntentId = result.paymentIntent?.id || checkoutPayload.paymentIntentId;
+                        await confirmStripeIntentWithBackend({
+                            intentId,
+                            checkoutPayload,
+                            paymentSession,
+                            stripePaymentIntentId,
+                        });
+                        resolve();
+                    } catch (error) {
+                        errorNode.textContent = error.message || t('checkout.error.paymentAuthorizationFailed', {}, 'Payment authorization failed');
+                        submitButton.disabled = false;
+                        submitButton.textContent = t('checkout.paySecurely', {}, 'Pay Securely');
+                    }
+                });
+            });
+        } finally {
+            paymentElement.destroy();
+            overlay.remove();
+        }
+    };
+
+    const openProviderCheckout = async ({ intentId, checkoutPayload, paymentSession }) => {
+        if (checkoutPayload?.provider === 'stripe') {
+            await openStripeCheckout({ intentId, checkoutPayload, paymentSession });
+            return;
+        }
+        await openRazorpayCheckout({ intentId, checkoutPayload, paymentSession });
     };
 
     const executeDigitalPayment = async () => {
@@ -1144,7 +1339,7 @@ const Checkout = () => {
             );
 
             if (hasReusableIntent) {
-                await openRazorpayCheckout({
+                await openProviderCheckout({
                     intentId: draft.paymentIntent.intentId,
                     checkoutPayload: draft.paymentIntent.checkoutPayload,
                     paymentSession: activePaymentSession,
@@ -1212,7 +1407,7 @@ const Checkout = () => {
                 return;
             }
 
-            await openRazorpayCheckout({
+            await openProviderCheckout({
                 intentId: intent.intentId,
                 checkoutPayload: intent.checkoutPayload,
                 paymentSession: activePaymentSession,
@@ -1293,7 +1488,7 @@ const Checkout = () => {
                 },
             }));
             toast.success(t('checkout.success.challengeVerified', {}, 'Challenge verification complete. Opening secure checkout...'));
-            await openRazorpayCheckout({
+            await openProviderCheckout({
                 intentId: draft.paymentIntent.intentId,
                 checkoutPayload: draft.paymentIntent.checkoutPayload,
                 paymentSession: activePaymentSession,

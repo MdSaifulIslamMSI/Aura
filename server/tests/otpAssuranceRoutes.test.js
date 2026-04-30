@@ -26,9 +26,11 @@ jest.mock('../controllers/paymentController', () => ({
     getIntent: (_req, res) => res.status(200).json({ ok: true }),
     createRefund: (_req, res) => res.status(200).json({ ok: true }),
     handleRazorpayWebhook: (_req, res) => res.status(200).json({ ok: true }),
+    handleStripeWebhook: (_req, res) => res.status(200).json({ ok: true }),
     getPaymentMethods: (_req, res) => res.status(200).json({ ok: true }),
     getPaymentCapabilitiesCatalog: (_req, res) => res.status(200).json({ ok: true }),
     getNetbankingBanks: (_req, res) => res.status(200).json({ ok: true }),
+    createMethodSetupIntent: (_req, res) => res.status(201).json({ ok: true }),
     addPaymentMethod: (_req, res) => res.status(200).json({ ok: true }),
     makeDefaultPaymentMethod: (_req, res) => res.status(200).json({ ok: true }),
     removePaymentMethod: (_req, res) => res.status(200).json({ ok: true }),
@@ -65,5 +67,16 @@ describe('payment routes OTP assurance', () => {
         const res = await request(app).post('/api/payments/intents').send({});
         expect(res.statusCode).toBe(201);
         expect(res.body).toEqual({ ok: true });
+    });
+
+    test('protects manual setup intent enrollment behind OTP assurance', async () => {
+        const deniedApp = buildApp('none');
+        const denied = await request(deniedApp).post('/api/payments/methods/setup-intent').send({});
+        expect(denied.statusCode).toBe(403);
+
+        const allowedApp = buildApp('otp');
+        const allowed = await request(allowedApp).post('/api/payments/methods/setup-intent').send({});
+        expect(allowed.statusCode).toBe(201);
+        expect(allowed.body).toEqual({ ok: true });
     });
 });

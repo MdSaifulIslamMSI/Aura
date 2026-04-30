@@ -13,6 +13,14 @@
 const logger = require('../../utils/logger');
 const crypto = require('crypto');
 
+const parseBoolean = (value, fallback = false) => {
+    if (value === undefined || value === null || value === '') return fallback;
+    const normalized = String(value).trim().toLowerCase();
+    if (['1', 'true', 'yes', 'on'].includes(normalized)) return true;
+    if (['0', 'false', 'no', 'off'].includes(normalized)) return false;
+    return fallback;
+};
+
 const GATEWAYS = {
     razorpay: {
         id: 'razorpay',
@@ -20,10 +28,24 @@ const GATEWAYS = {
         baseFee: 0.02, // 2%
         fixedFee: 0,
         supportedCurrencies: ['INR'],
+        supportedMethods: ['UPI', 'CARD', 'WALLET', 'NETBANKING'],
         binAffinities: ['4', '5'], // Visa/Mastercard strong affinity
         healthScore: 0.98,
         latency: 120,
-    }
+        enabled: true,
+    },
+    stripe: {
+        id: 'stripe',
+        baseUrl: 'https://api.stripe.com/v1',
+        baseFee: 0.029,
+        fixedFee: 0.3,
+        supportedCurrencies: ['INR', 'USD', 'EUR', 'GBP', 'AUD', 'CAD', 'SGD'],
+        supportedMethods: ['CARD'],
+        binAffinities: ['3', '4', '5', '6'],
+        healthScore: 0.97,
+        latency: 180,
+        enabled: parseBoolean(process.env.PAYMENT_STRIPE_ROUTING_ENABLED, false),
+    },
 };
 
 /**
@@ -32,6 +54,7 @@ const GATEWAYS = {
  */
 const calculateOptimalRoute = async (transaction) => {
     const { amount, currency = 'INR', paymentMethod, bin } = transaction;
+    const normalizedMethod = String(paymentMethod || '').trim().toUpperCase();
     
     const candidates = [];
     const logs = [];
@@ -40,10 +63,14 @@ const calculateOptimalRoute = async (transaction) => {
 
     // Phase 1: Constraint Filtering
     for (const [id, gw] of Object.entries(GATEWAYS)) {
-        if (gw.supportedCurrencies.includes(currency)) {
-            candidates.push({ ...gw });
-        } else {
+        if (!gw.enabled) {
+            logs.push(`Filtered ${id}: Gateway disabled`);
+        } else if (!gw.supportedCurrencies.includes(currency)) {
             logs.push(`Filtered ${id}: Currency mismatch`);
+        } else if (normalizedMethod && !gw.supportedMethods.includes(normalizedMethod)) {
+            logs.push(`Filtered ${id}: Payment method mismatch`);
+        } else {
+            candidates.push({ ...gw });
         }
     }
 

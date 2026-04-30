@@ -1,10 +1,11 @@
 const RazorpayProvider = require('./providers/razorpayProvider');
+const StripeProvider = require('./providers/stripeProvider');
 const AppError = require('../../utils/AppError');
 const { flags } = require('../../config/paymentFlags');
 const { calculateOptimalRoute } = require('./paymentRouter');
 
 const providers = new Map();
-const SUPPORTED_GATEWAYS = new Set(['razorpay']);
+const SUPPORTED_GATEWAYS = new Set(['razorpay', 'stripe']);
 
 const getInternalProvider = (gatewayId) => {
     const normalizedGatewayId = String(gatewayId || '').trim().toLowerCase();
@@ -15,20 +16,35 @@ const getInternalProvider = (gatewayId) => {
     if (providers.has(normalizedGatewayId)) return providers.get(normalizedGatewayId);
 
     let provider;
-    if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
-        throw new AppError('Razorpay credentials are not configured on the server', 503);
+    if (normalizedGatewayId === 'razorpay') {
+        if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+            throw new AppError('Razorpay credentials are not configured on the server', 503);
+        }
+        provider = new RazorpayProvider({
+            keyId: process.env.RAZORPAY_KEY_ID,
+            keySecret: process.env.RAZORPAY_KEY_SECRET,
+            webhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET,
+        });
+    } else if (normalizedGatewayId === 'stripe') {
+        if (!process.env.STRIPE_SECRET_KEY || !process.env.STRIPE_PUBLISHABLE_KEY) {
+            throw new AppError('Stripe credentials are not configured on the server', 503);
+        }
+        provider = new StripeProvider({
+            secretKey: process.env.STRIPE_SECRET_KEY,
+            publishableKey: process.env.STRIPE_PUBLISHABLE_KEY,
+            webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
+        });
     }
-    provider = new RazorpayProvider({
-        keyId: process.env.RAZORPAY_KEY_ID,
-        keySecret: process.env.RAZORPAY_KEY_SECRET,
-        webhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET,
-    });
 
     providers.set(normalizedGatewayId, provider);
     return provider;
 };
 
 const getPaymentProvider = async (context = {}) => {
+    if (context.gatewayId) {
+        return getInternalProvider(context.gatewayId);
+    }
+
     // If explicit routing is disabled, follow the static flag
     if (!flags.paymentDynamicRoutingEnabled) {
         return getInternalProvider(flags.paymentProvider);
@@ -48,5 +64,6 @@ const getPaymentProvider = async (context = {}) => {
 
 module.exports = {
     getPaymentProvider,
+    getInternalProvider,
 };
 
