@@ -7,7 +7,8 @@ import { describe, expect, it } from 'vitest';
 import {
     buildHostedBackendRewrites,
     buildNetlifyHostedBackendRedirects,
-    HOSTED_BACKEND_ORIGIN,
+    DEFAULT_HOSTED_BACKEND_ORIGIN,
+    resolveHostedBackendOrigin,
 } from '../../config/vercelRoutingContract.mjs';
 
 const currentDirectory = path.dirname(fileURLToPath(import.meta.url));
@@ -35,7 +36,7 @@ const readNetlifyRedirects = async () => {
 
 describe('vercel routing contract', () => {
     it('keeps root and app rewrites aligned to the hosted backend origin', async () => {
-        const expectedRewrites = buildHostedBackendRewrites(HOSTED_BACKEND_ORIGIN);
+        const expectedRewrites = buildHostedBackendRewrites(DEFAULT_HOSTED_BACKEND_ORIGIN);
         const [rootConfig, appConfig] = await Promise.all([
             readJson(path.join(repoRoot, 'vercel.json')),
             readJson(path.join(appRoot, 'vercel.json')),
@@ -47,11 +48,25 @@ describe('vercel routing contract', () => {
 
     it('keeps Netlify proxy redirects aligned to the hosted backend origin', async () => {
         const redirects = await readNetlifyRedirects();
-        const expectedRedirects = buildNetlifyHostedBackendRedirects(HOSTED_BACKEND_ORIGIN);
+        const expectedRedirects = buildNetlifyHostedBackendRedirects(DEFAULT_HOSTED_BACKEND_ORIGIN);
 
         for (const expectedRedirect of expectedRedirects) {
             expect(redirects).toContainEqual(expectedRedirect);
         }
+    });
+
+    it('allows deploy scripts to override the hosted backend origin safely', () => {
+        expect(resolveHostedBackendOrigin({
+            AURA_BACKEND_ORIGIN: ' https://api.example.com/ ',
+            AWS_BACKEND_BASE_URL: 'http://12.34.56.78:5000',
+        })).toBe('https://api.example.com');
+
+        expect(resolveHostedBackendOrigin({
+            AWS_BACKEND_BASE_URL: 'http://12.34.56.78:5000/',
+        })).toBe('http://12.34.56.78:5000');
+
+        expect(resolveHostedBackendOrigin({})).toBe(DEFAULT_HOSTED_BACKEND_ORIGIN);
+        expect(() => resolveHostedBackendOrigin({ AURA_BACKEND_ORIGIN: '/' })).toThrow(/absolute http/);
     });
 
     it('does not allow stale backend origins back into committed proxy routes', async () => {
@@ -71,13 +86,13 @@ describe('vercel routing contract', () => {
             expect(proxyDestinations.length).toBeGreaterThan(0);
 
             for (const destination of proxyDestinations) {
-                expect(destination.startsWith(HOSTED_BACKEND_ORIGIN)).toBe(true);
+                expect(destination.startsWith(DEFAULT_HOSTED_BACKEND_ORIGIN)).toBe(true);
                 expect(destination).not.toMatch(staleOriginPattern);
             }
         }
 
         for (const { to } of netlifyRedirects.filter(({ from }) => from !== '/*')) {
-            expect(to.startsWith(HOSTED_BACKEND_ORIGIN)).toBe(true);
+            expect(to.startsWith(DEFAULT_HOSTED_BACKEND_ORIGIN)).toBe(true);
             expect(to).not.toMatch(staleOriginPattern);
         }
     });
