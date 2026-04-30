@@ -33,7 +33,6 @@ cat > /opt/aura/shared/base.env <<'EOF'
 NODE_ENV=production
 PORT=5000
 WORKER_HEALTH_PORT=8080
-AURA_BACKEND_PUBLIC_HOST=3.109.181.238.sslip.io
 SPLIT_RUNTIME_ENABLED=true
 REDIS_ENABLED=true
 REDIS_REQUIRED=true
@@ -60,6 +59,18 @@ OTP_WHATSAPP_ENABLED=false
 ORDER_EMAILS_ENABLED=false
 ORDER_EMAIL_PROVIDER=disabled
 EOF
+
+metadata_token="$(curl -fsS -X PUT http://169.254.169.254/latest/api/token -H 'X-aws-ec2-metadata-token-ttl-seconds: 21600' || true)"
+instance_public_ipv4=""
+if [[ -n "${metadata_token}" ]]; then
+  instance_public_ipv4="$(curl -fsS -H "X-aws-ec2-metadata-token: ${metadata_token}" http://169.254.169.254/latest/meta-data/public-ipv4 || true)"
+fi
+
+if [[ -n "${instance_public_ipv4}" ]]; then
+  echo "AURA_BACKEND_PUBLIC_HOST=${instance_public_ipv4}.sslip.io" >> /opt/aura/shared/base.env
+else
+  echo "# AURA_BACKEND_PUBLIC_HOST=api.example.com" >> /opt/aura/shared/base.env
+fi
 
 touch /opt/aura/shared/runtime-secrets.env
 touch /opt/aura/shared/release.env

@@ -9,6 +9,7 @@ const {
     buildProxyOptions,
     DEFAULT_BACKEND_ORIGIN,
     DEFAULT_RUNTIME_PORT,
+    resolveBackendOrigin,
     startRuntimeServer,
     stripBrowserOnlyProxyHeaders,
 } = require('./runtimeServer.cjs');
@@ -40,6 +41,30 @@ test('desktop proxy applies header stripping to HTTP and WebSocket proxy request
     assert.equal(options.target, 'http://backend.example.test');
     assert.equal(options.on.proxyReq, stripBrowserOnlyProxyHeaders);
     assert.equal(options.on.proxyReqWs, stripBrowserOnlyProxyHeaders);
+});
+
+test('desktop runtime defaults to the hosted HTTPS backend origin', () => {
+    const previousDesktopOrigin = process.env.AURA_DESKTOP_BACKEND_ORIGIN;
+    const previousBackendOrigin = process.env.AURA_BACKEND_ORIGIN;
+    delete process.env.AURA_DESKTOP_BACKEND_ORIGIN;
+    delete process.env.AURA_BACKEND_ORIGIN;
+
+    try {
+        assert.equal(DEFAULT_BACKEND_ORIGIN, 'https://13.206.172.186.sslip.io');
+        assert.equal(resolveBackendOrigin(), DEFAULT_BACKEND_ORIGIN);
+    } finally {
+        if (previousDesktopOrigin === undefined) {
+            delete process.env.AURA_DESKTOP_BACKEND_ORIGIN;
+        } else {
+            process.env.AURA_DESKTOP_BACKEND_ORIGIN = previousDesktopOrigin;
+        }
+
+        if (previousBackendOrigin === undefined) {
+            delete process.env.AURA_BACKEND_ORIGIN;
+        } else {
+            process.env.AURA_BACKEND_ORIGIN = previousBackendOrigin;
+        }
+    }
 });
 
 test('desktop runtime has a stable default port but falls back if it is busy', async () => {

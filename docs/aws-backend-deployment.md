@@ -6,7 +6,8 @@
   - API: `node scripts/start_api_runtime.js`
   - Worker: `node scripts/start_worker_runtime.js`
 - Redis runs as a sidecar container on the same EC2 host.
-- The EC2 host now exposes only the API port (`5000`) because Vercel talks directly to the backend origin; there is no longer a separate Caddy/ACME layer burning resources on the instance.
+- Caddy runs as the public HTTPS edge on ports `80` and `443`, terminates TLS for `AURA_BACKEND_PUBLIC_HOST`, and proxies to the API container on the private Docker network.
+- The API container binds port `5000` only to `127.0.0.1` for local health probes; public traffic should use the HTTPS edge.
 - Secrets live in AWS Systems Manager Parameter Store using the `AWS_PARAMETER_STORE_PATH_PREFIX` path.
 - Review uploads live in S3 via `UPLOAD_STORAGE_DRIVER=s3`.
 - GitHub Actions builds the image once, uploads the release bundle to S3, and deploys through SSM Run Command.
@@ -35,18 +36,20 @@
 - `AWS_INSTANCE_TAG_KEY`
 - `AWS_INSTANCE_TAG_VALUE`
 - `AWS_PARAMETER_STORE_PATH_PREFIX`
+- `AURA_BACKEND_ORIGIN`
 - `AWS_BACKEND_BASE_URL`
 - `AWS_DOCKER_PLATFORM`
- - `AWS_DEPLOY_ROLE_ARN`
+- `AWS_DEPLOY_ROLE_ARN`
 
 ## GitHub Secret
 - `AWS_DEPLOY_ROLE_ARN`
 
 ## Frontend Routing
 - Vercel now reads the backend origin from `AURA_BACKEND_ORIGIN` or `AWS_BACKEND_BASE_URL`.
-- Set that value to your EC2 public URL or custom domain, for example `http://12.34.56.78:5000` or `https://api.example.com`.
+- Set that value to your HTTPS EC2 edge URL or custom domain, for example `https://13.206.172.186.sslip.io` or `https://api.example.com`.
 - If those variables are blank on a hosted Vercel deployment, the checked-in config now falls back to the tracked hosted backend origin instead of `127.0.0.1`.
 - For the default `t4g.small` target, set `AWS_DOCKER_PLATFORM=linux/arm64`.
+- The EC2 `base.env` file must include `AURA_BACKEND_PUBLIC_HOST` for Caddy. Fresh bootstrap writes `<public-ip>.sslip.io`; replace it with your custom API hostname when DNS is ready.
 - The bootstrap defaults already disable paid integrations that would otherwise fail closed on a bare free-plan stack: payments, OTP SMS, and order email sending.
 - The checked-in AWS bootstrap now seeds `CORS_ORIGIN` with both production frontends, `https://aurapilot.vercel.app` and `https://aurapilot.netlify.app`, so hosted auth POST flows do not fail when the second domain is added later.
 

@@ -8,6 +8,7 @@
     "build": "vite build",
     "build:budget": "npm run build && node scripts/check_bundle_budget.mjs",
     "bundle:budget": "node scripts/check_bundle_budget.mjs",
+    "backend:doctor": "node scripts/check_backend_connectivity.mjs",
     "backend:origin": "node scripts/print_hosted_backend_origin.mjs",
     "vercel:routing:sync": "node scripts/sync_vercel_configs.mjs",
     "audit:locale": "node scripts/check_locale_coverage.mjs",

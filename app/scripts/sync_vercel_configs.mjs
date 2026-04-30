@@ -6,14 +6,15 @@ import {
     buildFrontendSecurityHeaders,
     buildHostedBackendRewrites,
     buildNetlifyHostedBackendRedirects,
-    HOSTED_BACKEND_ORIGIN,
+    resolveHostedBackendOrigin,
 } from '../config/vercelRoutingContract.mjs';
 
 const currentDirectory = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(currentDirectory, '..', '..');
-const sharedRewrites = buildHostedBackendRewrites(HOSTED_BACKEND_ORIGIN);
+const hostedBackendOrigin = resolveHostedBackendOrigin();
+const sharedRewrites = buildHostedBackendRewrites(hostedBackendOrigin);
 const sharedHeaders = buildFrontendSecurityHeaders();
-const netlifyRedirects = buildNetlifyHostedBackendRedirects(HOSTED_BACKEND_ORIGIN);
+const netlifyRedirects = buildNetlifyHostedBackendRedirects(hostedBackendOrigin);
 
 const targets = [
     path.join(repoRoot, 'vercel.json'),
