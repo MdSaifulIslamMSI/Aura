@@ -6,9 +6,23 @@ const assertAbsoluteHttpUrl = (value) => {
     }
 };
 
-// Current live hosted backend origin. Update this contract first so the
-// workflow and both Vercel configs stay in sync.
-export const HOSTED_BACKEND_ORIGIN = 'https://13.206.172.186.sslip.io';
+// Current tracked hosted backend origin. Keep this value as the committed
+// fallback; deployment scripts may override it with AURA_BACKEND_ORIGIN or
+// AWS_BACKEND_BASE_URL when the EC2 public address or custom domain changes.
+export const DEFAULT_HOSTED_BACKEND_ORIGIN = 'https://13.206.172.186.sslip.io';
+
+export const resolveHostedBackendOrigin = (env = process.env) => {
+    const rawOrigin = String(
+        env?.AURA_BACKEND_ORIGIN
+        || env?.AWS_BACKEND_BASE_URL
+        || DEFAULT_HOSTED_BACKEND_ORIGIN
+    ).trim();
+
+    assertAbsoluteHttpUrl(rawOrigin);
+    return trimTrailingSlash(rawOrigin);
+};
+
+export const HOSTED_BACKEND_ORIGIN = resolveHostedBackendOrigin();
 
 export const FRONTEND_CONTENT_SECURITY_POLICY = [
     "default-src 'self'",

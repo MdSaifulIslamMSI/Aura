@@ -41,6 +41,7 @@ env:
   AWS_PARAMETER_STORE_PATH_PREFIX: /aura/prod
   AWS_DOCKER_PLATFORM: linux/arm64
   AWS_DEPLOY_ROLE_ARN: arn:aws:iam::942679464475:role/aura-github-actions-deploy
+  AURA_BACKEND_ORIGIN: ${{ vars.AURA_BACKEND_ORIGIN || vars.AWS_BACKEND_BASE_URL || '' }}
 
 jobs:
   preflight:
