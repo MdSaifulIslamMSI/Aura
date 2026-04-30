@@ -63,6 +63,15 @@ export const paymentApi = {
         const { data } = await apiFetch('/payments/netbanking/banks', { headers });
         return data;
     },
+    createMethodSetupIntent: async (payload = {}) => {
+        const headers = await getAuthHeader();
+        const { data } = await apiFetch('/payments/methods/setup-intent', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(payload),
+        });
+        return data;
+    },
     saveMethod: async (payload) => {
         const headers = await getAuthHeader();
         const { data } = await apiFetch('/payments/methods', {

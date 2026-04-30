@@ -30,6 +30,10 @@ const baseOrder = {
     createdAt: '2026-03-20T10:00:00.000Z',
     totalPrice: 4752,
     paymentMethod: 'CARD',
+    paymentProvider: 'razorpay',
+    paymentIntentId: 'pi_order_test_123456',
+    paymentState: 'authorized',
+    paymentAuthorizedAt: '2026-03-20T10:04:00.000Z',
     orderStatus: 'processing',
     isDelivered: false,
     isPaid: true,
@@ -101,6 +105,10 @@ describe('OrderCard', () => {
         });
 
         expect(screen.getByText('Payment Confirmed')).toBeInTheDocument();
+        expect(screen.getByText('Payment Timeline')).toBeInTheDocument();
+        expect(screen.getByText('Authorization')).toBeInTheDocument();
+        expect(screen.getByText('Capture and Settlement')).toBeInTheDocument();
+        expect(screen.getByText(/Capture is pending in the backend queue/i)).toBeInTheDocument();
         expect(screen.getByText('Refund Requests')).toBeInTheDocument();
         expect(screen.getAllByText('0').length).toBeGreaterThan(0);
     });

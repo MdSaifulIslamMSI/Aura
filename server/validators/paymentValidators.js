@@ -131,14 +131,31 @@ const refundSchema = z.object({
 
 const paymentMethodSchema = z.object({
     body: z.object({
-        providerMethodId: z.string().trim().min(2).max(120).regex(/^[A-Za-z0-9@._:-]+$/),
+        providerMethodId: z.string().trim().min(2).max(120).regex(/^[A-Za-z0-9@._:-]+$/).optional(),
+        providerSetupIntentId: z.string().trim().min(6).max(120).regex(/^[A-Za-z0-9._-]+$/).optional(),
         paymentIntentId: z.string().trim().min(6).max(80).regex(/^[A-Za-z0-9._-]+$/).optional(),
         provider: z.string().trim().min(2).max(30).optional(),
         type: z.enum(['card', 'upi', 'wallet', 'bank', 'other']).optional(),
         brand: z.string().trim().max(40).optional(),
         last4: z.string().trim().max(8).optional(),
+        isDefault: z.boolean().optional(),
         metadata: paymentMethodMetadataSchema.optional(),
+    }).superRefine((body, context) => {
+        if (!body.providerMethodId && !body.providerSetupIntentId) {
+            context.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['providerMethodId'],
+                message: 'providerMethodId or providerSetupIntentId is required',
+            });
+        }
     }),
+});
+
+const paymentMethodSetupIntentSchema = z.object({
+    body: z.object({
+        provider: z.enum(['stripe']).optional(),
+        type: z.enum(['card']).optional(),
+    }).strict().optional(),
 });
 
 const methodIdParamSchema = z.object({
@@ -214,6 +231,7 @@ module.exports = {
     getIntentSchema,
     refundSchema,
     paymentMethodSchema,
+    paymentMethodSetupIntentSchema,
     methodIdParamSchema,
     adminPaymentListSchema,
     adminPaymentDetailSchema,

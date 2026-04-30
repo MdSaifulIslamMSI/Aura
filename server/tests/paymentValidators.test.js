@@ -1,4 +1,9 @@
-const { createIntentSchema, completeChallengeSchema, paymentMethodSchema } = require('../validators/paymentValidators');
+const {
+    createIntentSchema,
+    completeChallengeSchema,
+    paymentMethodSchema,
+    paymentMethodSetupIntentSchema,
+} = require('../validators/paymentValidators');
 
 describe('Payment Validators', () => {
     test('createIntentSchema accepts NETBANKING with explicit bank context', async () => {
@@ -86,6 +91,47 @@ describe('Payment Validators', () => {
         });
 
         expect(parsed.body.metadata.enrollmentSource).toBe('checkout');
+    });
+
+    test('paymentMethodSchema accepts setup intent enrollment without a raw provider method id', async () => {
+        const parsed = await paymentMethodSchema.parseAsync({
+            body: {
+                provider: 'stripe',
+                type: 'card',
+                providerSetupIntentId: 'seti_123456',
+                metadata: {
+                    enrollmentSource: 'settings',
+                },
+            },
+        });
+
+        expect(parsed.body.providerSetupIntentId).toBe('seti_123456');
+    });
+
+    test('paymentMethodSchema still requires provider proof', async () => {
+        await expect(paymentMethodSchema.parseAsync({
+            body: {
+                provider: 'stripe',
+                type: 'card',
+            },
+        })).rejects.toBeTruthy();
+    });
+
+    test('paymentMethodSetupIntentSchema only allows Stripe card setup', async () => {
+        const parsed = await paymentMethodSetupIntentSchema.parseAsync({
+            body: {
+                provider: 'stripe',
+                type: 'card',
+            },
+        });
+
+        expect(parsed.body.provider).toBe('stripe');
+        await expect(paymentMethodSetupIntentSchema.parseAsync({
+            body: {
+                provider: 'razorpay',
+                type: 'bank',
+            },
+        })).rejects.toBeTruthy();
     });
 
     test('createIntentSchema accepts ISO market context and blocks malformed codes', async () => {

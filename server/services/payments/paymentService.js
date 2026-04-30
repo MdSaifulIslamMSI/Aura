@@ -254,14 +254,131 @@ const registerConfirmFailure = async ({
     }
 };
 
+const normalizeRazorpayWalletCode = (value = '') => (
+    String(value || '').trim().toLowerCase().replace(/[^a-z0-9_-]/g, '')
+);
+
+const buildRazorpayDisplayConfig = ({ blockName, instruments = [], showDefaultBlocks = false }) => {
+    const filteredInstruments = instruments.filter((instrument) => instrument?.method);
+    if (filteredInstruments.length === 0) return null;
+
+    return {
+        display: {
+            blocks: {
+                saved_method: {
+                    name: blockName,
+                    instruments: filteredInstruments,
+                },
+            },
+            sequence: ['block.saved_method'],
+            preferences: {
+                show_default_blocks: Boolean(showDefaultBlocks),
+            },
+        },
+    };
+};
+
+const resolveRazorpaySavedMethodCheckout = ({ savedMethod = null, paymentMethod, paymentContext = {} }) => {
+    const type = String(savedMethod?.type || '').trim().toLowerCase();
+    const provider = String(savedMethod?.provider || '').trim().toLowerCase();
+    const normalizedMethod = normalizeMethod(paymentMethod);
+    const prefill = {};
+    let config = null;
+    let reuseMode = '';
+
+    if (provider && provider !== 'razorpay') {
+        return { prefill, config, reuseMode };
+    }
+
+    if (normalizedMethod === 'UPI' && type === 'upi') {
+        prefill.method = 'upi';
+        config = buildRazorpayDisplayConfig({
+            blockName: 'Continue with saved UPI',
+            instruments: [{ method: 'upi' }],
+        });
+        reuseMode = 'saved_upi_preferred';
+    } else if (normalizedMethod === 'WALLET' && type === 'wallet') {
+        const walletCode = normalizeRazorpayWalletCode(
+            savedMethod?.metadata?.walletCode || savedMethod?.providerMethodId || savedMethod?.brand
+        );
+        prefill.method = 'wallet';
+        config = buildRazorpayDisplayConfig({
+            blockName: walletCode ? `Continue with ${savedMethod?.brand || walletCode}` : 'Continue with saved wallet',
+            instruments: [{
+                method: 'wallet',
+                ...(walletCode ? { wallets: [walletCode] } : {}),
+            }],
+        });
+        reuseMode = walletCode ? 'saved_wallet_instrument' : 'saved_wallet_preferred';
+    } else if (normalizedMethod === 'CARD' && type === 'card') {
+        const customerId = String(
+            savedMethod?.metadata?.razorpayCustomerId || savedMethod?.metadata?.customerId || ''
+        ).trim();
+        prefill.method = 'card';
+        config = buildRazorpayDisplayConfig({
+            blockName: 'Continue with saved card',
+            instruments: [{ method: 'card' }],
+            showDefaultBlocks: true,
+        });
+        return {
+            prefill,
+            config,
+            reuseMode: customerId ? 'saved_card_customer' : 'saved_card_preferred',
+            customerId,
+            rememberCustomer: Boolean(customerId),
+        };
+    }
+
+    if (normalizedMethod === 'NETBANKING') {
+        const preferredBankCode = normalizeNetbankingBankCode(
+            paymentContext?.netbanking?.bankCode
+                || savedMethod?.metadata?.bankCode
+                || savedMethod?.providerMethodId
+        );
+        if (preferredBankCode) {
+            prefill.method = 'netbanking';
+            const preferredBankName = lookupNetbankingBankName(
+                preferredBankCode,
+                paymentContext?.netbanking?.bankName || savedMethod?.metadata?.bankName || savedMethod?.brand
+            );
+            config = buildRazorpayDisplayConfig({
+                blockName: `Continue with ${preferredBankName}`,
+                instruments: [{
+                    method: 'netbanking',
+                    banks: [preferredBankCode],
+                }],
+            });
+            reuseMode = savedMethod?._id ? 'saved_netbanking_bank' : 'selected_netbanking_bank';
+        }
+    }
+
+    return { prefill, config, reuseMode };
+};
+
 const buildCheckoutPayload = ({
+    provider,
+    providerOrder,
     providerOrderId,
     amount,
     currency,
     user,
     paymentMethod,
     paymentContext = {},
+    savedMethod = null,
 }) => {
+    if (provider && typeof provider.buildCheckoutPayload === 'function') {
+        return provider.buildCheckoutPayload({
+            providerOrder,
+            providerOrderId,
+            amount,
+            currency,
+            user,
+            paymentMethod,
+            paymentContext,
+            savedMethod,
+        });
+    }
+
     if (!process.env.RAZORPAY_KEY_ID) {
         throw new AppError('Razorpay checkout key is not configured on the server', 503);
     }
@@ -286,36 +403,32 @@ const buildCheckoutPayload = ({
         },
     };
 
-    const preferredBankCode = normalizeNetbankingBankCode(paymentContext?.netbanking?.bankCode);
-    if (paymentMethod === 'NETBANKING' && preferredBankCode) {
-        const preferredBankName = lookupNetbankingBankName(
-            preferredBankCode,
-            paymentContext?.netbanking?.bankName
-        );
-        checkoutPayload.config = {
-            display: {
-                blocks: {
-                    preferred_netbanking_bank: {
-                        name: `Continue with ${preferredBankName}`,
-                        instruments: [
-                            {
-                                method: 'netbanking',
-                                banks: [preferredBankCode],
-                            },
-                        ],
-                    },
-                },
-                hide: [
-                    { method: 'upi' },
-                    { method: 'card' },
-                    { method: 'wallet' },
-                ],
-                sequence: ['block.preferred_netbanking_bank', 'netbanking'],
-                preferences: {
-                    show_default_blocks: false,
-                },
-            },
+    const razorpaySavedCheckout = resolveRazorpaySavedMethodCheckout({
+        savedMethod,
+        paymentMethod,
+        paymentContext,
+    });
+    checkoutPayload.prefill = {
+        ...checkoutPayload.prefill,
+        ...razorpaySavedCheckout.prefill,
+    };
+    if (razorpaySavedCheckout.config) {
+        checkoutPayload.config = razorpaySavedCheckout.config;
+    }
+    if (razorpaySavedCheckout.customerId) {
+        checkoutPayload.customer_id = razorpaySavedCheckout.customerId;
+    }
+    if (razorpaySavedCheckout.rememberCustomer) {
+        checkoutPayload.remember_customer = true;
+    }
+    if (razorpaySavedCheckout.reuseMode) {
+        checkoutPayload.savedMethodReuse = {
+            mode: razorpaySavedCheckout.reuseMode,
+            methodId: String(savedMethod?._id || ''),
+            type: String(savedMethod?.type || ''),
+            providerMethodId: String(savedMethod?.providerMethodId || ''),
         };
+        checkoutPayload.notes.savedMethodReuse = razorpaySavedCheckout.reuseMode;
     }
 
     return checkoutPayload;
@@ -538,6 +651,7 @@ const createPaymentIntent = async ({
     const settlementCurrency = normalizeCurrencyCode(quote.pricing.settlementCurrency || 'INR');
 
     const provider = await getPaymentProvider({
+        gatewayId: savedMethod?.provider || '',
         amount: chargeAmount,
         currency: chargeCurrency,
         paymentMethod: normalizedMethod,
@@ -571,11 +685,14 @@ const createPaymentIntent = async ({
         amount: chargeAmount,
         currency: chargeCurrency,
         receipt: intentId,
+        paymentMethod: normalizedMethod,
+        savedMethod,
         notes: {
             intentId,
             userId: String(user._id),
             checkoutSource: quote.normalized.checkoutSource,
             paymentMethod: normalizedMethod,
+            savedMethodId: savedMethod?._id ? String(savedMethod._id) : '',
             netbankingBankCode: resolvedPaymentContext?.netbanking?.bankCode || '',
             marketCountryCode: resolvedMarketContext.market.countryCode,
             marketCurrency: resolvedMarketContext.market.currency,
@@ -695,12 +812,15 @@ const createPaymentIntent = async ({
         paymentContext: finalPaymentContext,
         marketContext: resolvedMarketContext.market,
         checkoutPayload: buildCheckoutPayload({
+            provider,
+            providerOrder,
             providerOrderId: intent.providerOrderId,
             amount: chargeAmount,
             currency: chargeCurrency,
             user,
             paymentMethod: normalizedMethod,
             paymentContext: finalPaymentContext,
+            savedMethod,
         }),
     };
 };
@@ -838,6 +958,7 @@ const confirmPaymentIntent = async ({
     }
 
     const provider = await getPaymentProvider({
+        gatewayId: intent.provider,
         amount: intent.amount,
         currency: intent.currency,
         paymentMethod: intent.method,
@@ -1292,6 +1413,7 @@ const captureIntentNow = async ({ intentId }) => {
     }
 
     const provider = await getPaymentProvider({
+        gatewayId: intent.provider,
         amount: intent.amount,
         currency: intent.currency,
         paymentMethod: intent.method,
@@ -1387,6 +1509,7 @@ const createRefundForIntent = async ({
     }
 
     const provider = await getPaymentProvider({
+        gatewayId: intent.provider,
         amount: refundAmounts.presentmentAmount,
         currency: intent.currency,
         paymentMethod: intent.method,
@@ -1516,12 +1639,8 @@ const mapWebhookEventToPaymentStatus = ({ eventType, currentStatus }) => {
     return null;
 };
 
-const processRazorpayWebhook = async ({ signature, rawBody }) => {
-    const provider = await getPaymentProvider();
-    if (provider.name !== 'razorpay') {
-        throw new AppError('Unsupported payment provider for webhook processing', 400);
-    }
-
+const processProviderWebhook = async ({ gatewayId, signature, rawBody }) => {
+    const provider = await getPaymentProvider({ gatewayId });
     const valid = provider.verifyWebhookSignature({ rawBody, signature });
     if (!valid) {
         throw new AppError('Invalid webhook signature', 400);
@@ -1650,6 +1769,18 @@ const processRazorpayWebhook = async ({ signature, rawBody }) => {
 
     return { received: true, deduped: false, intentId: intent.intentId };
 };
+
+const processRazorpayWebhook = async ({ signature, rawBody }) => processProviderWebhook({
+    gatewayId: 'razorpay',
+    signature,
+    rawBody,
+});
+
+const processStripeWebhook = async ({ signature, rawBody }) => processProviderWebhook({
+    gatewayId: 'stripe',
+    signature,
+    rawBody,
+});
 
 const processOutboxTask = async (task) => {
     task.status = 'processing';
@@ -1821,6 +1952,7 @@ const listNetbankingBanks = async ({ userId }) => {
     ensurePaymentsEnabled();
 
     const provider = await getPaymentProvider({
+        gatewayId: 'razorpay',
         currency: 'INR',
         paymentMethod: 'NETBANKING',
         userId,
@@ -1848,6 +1980,45 @@ const listNetbankingBanks = async ({ userId }) => {
     };
 };
 
+const createPaymentMethodSetupIntent = async ({ user, provider = 'stripe', type = 'card' }) => {
+    ensurePaymentsEnabled();
+    if (!flags.paymentSavedMethodsEnabled) {
+        throw new AppError('Saved payment methods are disabled', 403);
+    }
+
+    const normalizedProvider = String(provider || 'stripe').trim().toLowerCase();
+    const normalizedType = String(type || 'card').trim().toLowerCase();
+    if (normalizedProvider !== 'stripe' || normalizedType !== 'card') {
+        throw new AppError('Manual card enrollment is currently supported through Stripe only', 409);
+    }
+
+    const stripeProvider = await getPaymentProvider({
+        gatewayId: 'stripe',
+        paymentMethod: 'CARD',
+        userId: user?._id,
+    });
+    if (typeof stripeProvider.createSetupIntent !== 'function') {
+        throw new AppError('Stripe setup intents are unavailable from the configured provider', 503);
+    }
+
+    const setupIntent = await stripeProvider.createSetupIntent({
+        user,
+        metadata: {
+            userId: String(user?._id || ''),
+            userEmail: String(user?.email || ''),
+            setupSource: 'profile',
+        },
+    });
+
+    return {
+        provider: 'stripe',
+        type: 'card',
+        publishableKey: stripeProvider.publishableKey,
+        setupIntentId: setupIntent.id,
+        clientSecret: setupIntent.client_secret,
+    };
+};
+
 const PAYMENT_METHOD_ENROLLMENT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 const getRecentIntentBinding = async ({ userId, providerMethodId, paymentIntentId = '' }) => {
@@ -1866,9 +2037,160 @@ const getRecentIntentBinding = async ({ userId, providerMethodId, paymentIntentI
     return PaymentIntent.findOne(query).sort({ authorizedAt: -1 });
 };
 
+const upsertManuallyVerifiedPaymentMethod = async ({
+    userId,
+    providerMethodId,
+    payload,
+    requestedDefault = false,
+}) => {
+    const existingMethod = await PaymentMethod.findOne({ user: userId, providerMethodId }).lean();
+    const existingDefault = await PaymentMethod.findOne({ user: userId, status: 'active', isDefault: true }).lean();
+    const makeDefault = Boolean(requestedDefault) || !existingDefault;
+
+    if (makeDefault) {
+        await PaymentMethod.updateMany({ user: userId }, { $set: { isDefault: false } });
+    }
+
+    await PaymentMethod.updateOne(
+        { user: userId, providerMethodId },
+        {
+            $set: {
+                ...payload,
+                isDefault: makeDefault ? true : Boolean(existingMethod?.isDefault),
+            },
+        },
+        { upsert: true }
+    );
+
+    const storedMethod = await PaymentMethod.findOne({ user: userId, providerMethodId }).lean();
+    return decorateStoredPaymentMethod(storedMethod);
+};
+
+const saveSetupIntentPaymentMethod = async ({ userId, method, providerSetupIntentId }) => {
+    const normalizedProvider = String(method.provider || 'stripe').trim().toLowerCase();
+    if (normalizedProvider !== 'stripe') {
+        throw new AppError('Setup intent enrollment is currently supported for Stripe only', 409);
+    }
+
+    const stripeProvider = await getPaymentProvider({
+        gatewayId: 'stripe',
+        paymentMethod: 'CARD',
+        userId,
+    });
+    if (typeof stripeProvider.fetchSetupIntent !== 'function') {
+        throw new AppError('Stripe setup intent verification is unavailable from the configured provider', 503);
+    }
+
+    let setupIntent;
+    try {
+        setupIntent = await stripeProvider.fetchSetupIntent(providerSetupIntentId);
+    } catch (error) {
+        throw new AppError('Unable to verify setup intent with provider right now. Please retry.', 502);
+    }
+
+    if (String(setupIntent.status || '').trim().toLowerCase() !== 'succeeded') {
+        throw new AppError('Payment method setup is not complete yet', 409);
+    }
+
+    if (String(setupIntent.metadata?.userId || '') !== String(userId)) {
+        throw new AppError('Unable to establish payment method ownership for this user', 403);
+    }
+
+    const providerMethodSnapshot = normalizeProviderMethodSnapshot(
+        stripeProvider.parseSetupPaymentMethod(setupIntent || {})
+    );
+    const providerMethodId = String(providerMethodSnapshot.providerMethodId || '').trim();
+    if (!providerMethodId) {
+        throw new AppError('Provider setup intent did not return a reusable payment method', 409);
+    }
+    if (method.providerMethodId && String(method.providerMethodId).trim() !== providerMethodId) {
+        throw new AppError('Provider method does not match the verified setup intent', 403);
+    }
+    if (String(providerMethodSnapshot.type || '').trim().toLowerCase() !== 'card') {
+        throw new AppError('Only card payment methods can be enrolled through Stripe setup right now', 409);
+    }
+
+    return upsertManuallyVerifiedPaymentMethod({
+        userId,
+        providerMethodId,
+        requestedDefault: Boolean(method.isDefault),
+        payload: {
+            user: userId,
+            provider: 'stripe',
+            providerMethodId,
+            type: 'card',
+            brand: providerMethodSnapshot.brand || method.brand || 'Card',
+            last4: providerMethodSnapshot.last4 || method.last4 || '',
+            status: 'active',
+            fingerprintHash: hashPayload(`${providerMethodId}|card|${providerMethodSnapshot.last4 || method.last4 || ''}`),
+            metadata: {
+                ...(method.metadata || {}),
+                enrollmentSource: 'settings',
+                setupIntentId: providerSetupIntentId,
+            },
+        },
+    });
+};
+
+const saveNetbankingBankPreference = async ({ userId, method }) => {
+    const bankCode = normalizeNetbankingBankCode(method?.metadata?.bankCode || method.providerMethodId);
+    if (!bankCode) throw new AppError('bankCode is required for netbanking preferences', 400);
+
+    const provider = await getPaymentProvider({
+        gatewayId: 'razorpay',
+        currency: 'INR',
+        paymentMethod: 'NETBANKING',
+        userId,
+    });
+    const catalog = await getNetbankingBankCatalog({
+        provider,
+        allowFallback: false,
+    });
+    const providerBank = resolveNetbankingBank(catalog, bankCode);
+    if (!providerBank) {
+        throw new AppError('Selected bank is not available for netbanking right now', 409);
+    }
+
+    return upsertManuallyVerifiedPaymentMethod({
+        userId,
+        providerMethodId: providerBank.code,
+        requestedDefault: Boolean(method.isDefault),
+        payload: {
+            user: userId,
+            provider: provider.name || 'razorpay',
+            providerMethodId: providerBank.code,
+            type: 'bank',
+            brand: providerBank.name,
+            last4: '',
+            status: 'active',
+            fingerprintHash: hashPayload(`${providerBank.code}|bank|netbanking`),
+            metadata: {
+                ...(method.metadata || {}),
+                enrollmentSource: 'settings',
+                bankCode: providerBank.code,
+                bankName: providerBank.name,
+            },
+        },
+    });
+};
+
 const saveUserPaymentMethod = async ({ userId, method, paymentIntentId = '' }) => {
     if (!flags.paymentSavedMethodsEnabled) {
         throw new AppError('Saved payment methods are disabled', 403);
+    }
+
+    const providerSetupIntentId = String(method.providerSetupIntentId || '').trim();
+    if (providerSetupIntentId) {
+        return saveSetupIntentPaymentMethod({ userId, method, providerSetupIntentId });
+    }
+
+    const isManualNetbankingPreference = (
+        String(method.type || '').trim().toLowerCase() === 'bank'
+        && String(method.metadata?.enrollmentSource || '').trim().toLowerCase() === 'settings'
+        && !String(paymentIntentId || method.paymentIntentId || '').trim()
+    );
+    if (isManualNetbankingPreference) {
+        return saveNetbankingBankPreference({ userId, method });
     }
 
     const providerMethodId = String(method.providerMethodId || '').trim();
@@ -1884,6 +2206,7 @@ const saveUserPaymentMethod = async ({ userId, method, paymentIntentId = '' }) =
     }
 
     const provider = await getPaymentProvider({
+        gatewayId: bindingIntent.provider,
         amount: bindingIntent.amount,
         currency: bindingIntent.currency,
         paymentMethod: bindingIntent.method,
@@ -1979,6 +2302,7 @@ module.exports = {
     confirmPaymentIntent,
     getPaymentIntentForUser,
     processRazorpayWebhook,
+    processStripeWebhook,
     validatePaymentIntentForOrder,
     linkIntentToOrder,
     releaseIntentOrderClaim,
@@ -1993,6 +2317,7 @@ module.exports = {
     listUserPaymentMethods,
     listPaymentCapabilities,
     listNetbankingBanks,
+    createPaymentMethodSetupIntent,
     saveUserPaymentMethod,
     deleteUserPaymentMethod,
     setDefaultPaymentMethod,

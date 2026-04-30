@@ -171,11 +171,52 @@ const humanizeSavedMethod = (method, t) => {
     return [typeLabel, brand, last4].filter(Boolean).join(' ');
 };
 
+const humanizeProviderMethod = (method, t) => {
+    if (!method) return '';
+    const type = String(method.type || '').trim().toLowerCase();
+    const typeLabel = type === 'bank'
+        ? t('checkout.payment.netbankingTitle', {}, 'NetBanking')
+        : type === 'card'
+            ? t('checkout.payment.cardTitle', {}, 'Card')
+            : type === 'wallet'
+                ? t('checkout.payment.walletTitle', {}, 'Wallet')
+                : type === 'upi'
+                    ? t('checkout.payment.upiTitle', {}, 'UPI')
+                    : type
+                        ? type.toUpperCase()
+                        : t('checkout.savedMethod', {}, 'Saved method');
+    const brand = type === 'bank'
+        ? method.bankName || method.brand || method.bankCode || ''
+        : method.brand || '';
+    const last4 = method.last4 ? `**** ${method.last4}` : '';
+    return [typeLabel, brand, last4].filter(Boolean).join(' ');
+};
+
 const shortRef = (value = '') => {
     const clean = String(value || '').trim();
     if (!clean) return '';
     if (clean.length <= 14) return clean;
     return `${clean.slice(0, 6)}...${clean.slice(-4)}`;
+};
+
+const isStripeSavedCard = (method = {}) => (
+    String(method?.provider || '').trim().toLowerCase() === 'stripe'
+    && String(method?.type || '').trim().toLowerCase() === 'card'
+);
+
+const getSavedMethodReuseLabel = (method = {}, t) => {
+    const provider = String(method?.provider || '').trim().toLowerCase();
+    const type = String(method?.type || '').trim().toLowerCase();
+    if (provider === 'stripe' && type === 'card') {
+        return t('checkout.quickPay', {}, 'Quick Pay');
+    }
+    if (provider === 'razorpay' && ['upi', 'wallet', 'bank'].includes(type)) {
+        return t('checkout.preferred', {}, 'Preferred');
+    }
+    if (provider === 'razorpay' && type === 'card' && (method?.metadata?.razorpayCustomerId || method?.metadata?.customerId)) {
+        return t('checkout.savedCard', {}, 'Saved Card');
+    }
+    return '';
 };
 
 const getLifecycleTone = (state) => {
@@ -284,6 +325,10 @@ const StepPayment = ({
     const selectedMarketSummary = getMarketRailSummary(paymentMethod, paymentCapabilities?.markets, t);
     const selectedPaymentOption = visiblePaymentOptions.find((option) => option.id === paymentMethod) || PAYMENT_OPTIONS[0];
     const SelectedPaymentIcon = selectedPaymentOption.icon || CreditCard;
+    const activeProvider = String(paymentIntent?.provider || paymentCapabilities?.provider || 'razorpay').trim().toLowerCase();
+    const activeProviderLabel = activeProvider === 'stripe' ? 'Stripe' : 'Razorpay';
+    const providerMethod = paymentIntent?.providerMethod || null;
+    const providerMethodLabel = humanizeProviderMethod(providerMethod, t);
     const chargeLabel = chargeQuote
         ? formatPrice(chargeQuote.amount || 0, chargeQuote.currency || 'INR')
         : t('checkout.payment.amountPending', {}, 'Quote pending');
@@ -435,7 +480,7 @@ const StepPayment = ({
                                 <span>
                                     <RadioTower className="h-4 w-4" />
                                     {isDigital
-                                        ? t('checkout.payment.providerRailLive', {}, 'Provider rail live')
+                                        ? t('checkout.payment.providerRailLive', { provider: activeProviderLabel }, `${activeProviderLabel} rail live`)
                                         : t('checkout.payment.codHoldReady', {}, 'Order hold ready')}
                                 </span>
                             </div>
@@ -446,24 +491,45 @@ const StepPayment = ({
                         <div className="checkout-premium-surface space-y-4">
                             <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-400">{t('checkout.savedMethods', {}, 'Saved Methods')}</p>
                             <div className="space-y-3">
-                                {savedMethods.map((method) => (
-                                    <button
-                                        key={method._id}
-                                        type="button"
-                                        onClick={() => onSelectSavedMethod?.(method._id)}
-                                        className={cn(
-                                            'checkout-premium-option w-full',
-                                            selectedSavedMethodId === method._id && 'checkout-premium-option-active'
-                                        )}
-                                    >
-                                        <div className="flex items-center justify-between gap-2">
-                                            <span className="text-sm font-semibold text-white">{humanizeSavedMethod(method, t) || t('checkout.savedMethod', {}, 'Saved method')}</span>
-                                            {method.isDefault ? (
-                                                <span className="premium-chip-muted text-[10px] font-black uppercase tracking-[0.2em] text-emerald-200">{t('checkout.default', {}, 'Default')}</span>
-                                            ) : null}
-                                        </div>
-                                    </button>
-                                ))}
+                                {savedMethods.map((method) => {
+                                    const reuseLabel = getSavedMethodReuseLabel(method, t);
+                                    return (
+                                        <button
+                                            key={method._id}
+                                            type="button"
+                                            onClick={() => onSelectSavedMethod?.(method._id)}
+                                            className={cn(
+                                                'checkout-premium-option w-full',
+                                                selectedSavedMethodId === method._id && 'checkout-premium-option-active'
+                                            )}
+                                        >
+                                            <div className="flex items-center justify-between gap-2">
+                                                <span className="text-sm font-semibold text-white">{humanizeSavedMethod(method, t) || t('checkout.savedMethod', {}, 'Saved method')}</span>
+                                                <span className="flex flex-wrap justify-end gap-2">
+                                                    {reuseLabel ? (
+                                                        <span className={cn(
+                                                            'premium-chip-muted text-[10px] font-black uppercase tracking-[0.2em]',
+                                                            isStripeSavedCard(method) ? 'text-neo-cyan' : 'text-amber-200'
+                                                        )}>{reuseLabel}</span>
+                                                    ) : null}
+                                                    {method.isDefault ? (
+                                                        <span className="premium-chip-muted text-[10px] font-black uppercase tracking-[0.2em] text-emerald-200">{t('checkout.default', {}, 'Default')}</span>
+                                                    ) : null}
+                                                </span>
+                                            </div>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    ) : isDigital ? (
+                        <div className="checkout-premium-surface space-y-3">
+                            <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-400">{t('checkout.payment.methodVault', {}, 'Method Vault')}</p>
+                            <div className="checkout-premium-alert border-white/10 bg-white/[0.035] text-slate-200">
+                                <p className="text-sm font-semibold text-white">{t('checkout.payment.noSavedMethodsTitle', {}, 'Your next tokenized method will appear here')}</p>
+                                <p className="mt-2 text-xs leading-5 text-slate-400">
+                                    {t('checkout.payment.noSavedMethodsBody', { provider: activeProviderLabel }, `After a successful ${activeProviderLabel} authorization, checkout refreshes saved UPI, card, wallet, or bank methods for faster reuse.`)}
+                                </p>
                             </div>
                         </div>
                     ) : null}
@@ -677,7 +743,7 @@ const StepPayment = ({
                     {isDigital ? (
                         <div className="checkout-premium-surface checkout-payment-rail-panel space-y-4">
                             <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-400">
-                                {t('checkout.payment.secureRail', {}, 'Razorpay Secure Payment')}
+                                {t('checkout.payment.secureRail', { provider: activeProviderLabel }, `${activeProviderLabel} Secure Payment`)}
                             </p>
 
                             {selectedRailSummary ? (
@@ -694,6 +760,9 @@ const StepPayment = ({
                                     {selectedMarketSummary ? (
                                         <p className="checkout-payment-provider-alert-note">{selectedMarketSummary}</p>
                                     ) : null}
+                                    <p className="checkout-payment-provider-alert-note">
+                                        {t('checkout.payment.providerScope', { provider: activeProviderLabel }, `Current live provider: ${activeProviderLabel}. Additional gateways appear here only after their provider implementation and credentials are enabled.`)}
+                                    </p>
                                 </div>
                             ) : null}
 
@@ -716,7 +785,10 @@ const StepPayment = ({
                                         {t('checkout.payment.serverState', {}, 'Payment State')}
                                     </p>
                                     <p>{t('checkout.payment.intentRef', {}, 'Request')}: {hasIntent ? shortRef(paymentIntent.intentId) : t('checkout.pending', {}, 'Pending')}</p>
-                                    <p>{t('checkout.payment.provider', {}, 'Gateway')}: {paymentIntent?.provider || 'Razorpay'}</p>
+                                    <p>{t('checkout.payment.provider', {}, 'Gateway')}: {paymentIntent?.provider || activeProviderLabel}</p>
+                                    {providerMethodLabel ? (
+                                        <p>{t('checkout.payment.savedMethod', {}, 'Saved method')}: {providerMethodLabel}</p>
+                                    ) : null}
                                     <p>{t('checkout.payment.risk', {}, 'Risk')}: {paymentIntent?.riskDecision || 'allow'}</p>
                                     {paymentSession?.lastSyncedAt ? (
                                         <p>{t('checkout.payment.synced', {}, 'Synced')}: {new Date(paymentSession.lastSyncedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
@@ -763,7 +835,7 @@ const StepPayment = ({
                                 <div className="flex items-center gap-2 px-1 py-1">
                                     <div className="flex h-2 w-2 animate-pulse rounded-full bg-neo-cyan shadow-[0_0_8px_var(--neo-cyan)]" />
                                     <span className="text-[10px] font-black uppercase tracking-[0.2em] text-neo-cyan/80">
-                                        {t('checkout.payment.routingActive', {}, 'Multi-Commodity Routing Active')}
+                                        {t('checkout.payment.routingActive', { provider: activeProviderLabel }, `${activeProviderLabel} route active`)}
                                     </span>
                                 </div>
                             ) : null}

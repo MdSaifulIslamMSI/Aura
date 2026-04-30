@@ -6,18 +6,19 @@ const PaymentOutboxTask = require('../models/PaymentOutboxTask');
 const Order = require('../models/Order');
 const User = require('../models/User');
 const { notifyAdminActionToUser } = require('../services/email/adminActionEmailService');
-const { flags: paymentFlags } = require('../config/paymentFlags');
 const { DIGITAL_METHODS } = require('../services/payments/constants');
 const {
     createPaymentIntent,
     confirmPaymentIntent,
     getPaymentIntentForUser,
     processRazorpayWebhook,
+    processStripeWebhook,
     createRefundForIntent,
     markChallengeVerified,
     listUserPaymentMethods,
     listPaymentCapabilities,
     listNetbankingBanks,
+    createPaymentMethodSetupIntent,
     saveUserPaymentMethod,
     deleteUserPaymentMethod,
     setDefaultPaymentMethod,
@@ -663,10 +664,6 @@ const handleRazorpayWebhook = asyncHandler(async (req, res, next) => {
     try {
         const signature = req.headers['x-razorpay-signature'];
 
-        if (paymentFlags.paymentProvider !== 'razorpay') {
-            throw new AppError(`Unsupported PAYMENT_PROVIDER=${paymentFlags.paymentProvider} for Razorpay webhook route`, 409);
-        }
-
         if (!signature) {
             throw new AppError('Missing webhook signature', 403);
         }
@@ -693,6 +690,26 @@ const getPaymentMethods = asyncHandler(async (req, res, next) => {
     }
 });
 
+// @desc    Stripe webhook receiver
+// @route   POST /api/payments/webhooks/stripe
+// @access  Public
+const handleStripeWebhook = asyncHandler(async (req, res, next) => {
+    try {
+        const signature = req.headers['stripe-signature'];
+
+        if (!signature) {
+            throw new AppError('Missing webhook signature', 403);
+        }
+
+        const rawBody = req.rawBody || JSON.stringify(req.body || {});
+        const result = await processStripeWebhook({ signature, rawBody });
+        return res.status(200).json(result);
+    } catch (error) {
+        if (error instanceof AppError) return next(error);
+        return next(new AppError(error.message || 'Failed to process webhook', 500));
+    }
+});
+
 // @desc    List live payment rail capabilities for checkout
 // @route   GET /api/payments/capabilities
 // @access  Private
@@ -716,6 +733,23 @@ const getNetbankingBanks = asyncHandler(async (req, res, next) => {
     } catch (error) {
         if (error instanceof AppError) return next(error);
         return next(new AppError(error.message || 'Failed to fetch netbanking banks', 500));
+    }
+});
+
+// @desc    Create provider setup intent for manual payment method enrollment
+// @route   POST /api/payments/methods/setup-intent
+// @access  Private
+const createMethodSetupIntent = asyncHandler(async (req, res, next) => {
+    try {
+        const setupIntent = await createPaymentMethodSetupIntent({
+            user: req.user,
+            provider: req.body?.provider,
+            type: req.body?.type,
+        });
+        return res.status(201).json(setupIntent);
+    } catch (error) {
+        if (error instanceof AppError) return next(error);
+        return next(new AppError(error.message || 'Failed to start payment method setup', 500));
     }
 });
 
@@ -944,9 +978,11 @@ module.exports = {
     getIntent,
     createRefund,
     handleRazorpayWebhook,
+    handleStripeWebhook,
     getPaymentMethods,
     getPaymentCapabilitiesCatalog,
     getNetbankingBanks,
+    createMethodSetupIntent,
     addPaymentMethod,
     makeDefaultPaymentMethod,
     removePaymentMethod,

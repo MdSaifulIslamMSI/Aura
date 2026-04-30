@@ -45,6 +45,7 @@ AWS_S3_REVIEW_BUCKET=replace-with-your-media-bucket
 AWS_S3_REVIEW_PREFIX=review-media
 CORS_ORIGIN=https://aurapilot.vercel.app,https://aurapilot.netlify.app,https://aura-mdsaifulislammsiss-projects.vercel.app
 APP_PUBLIC_URL=https://aurapilot.vercel.app
+AURA_BACKEND_PUBLIC_HOST=api.aurapilot.example.com
 AUTH_SESSION_COOKIE_SECURE=true
 AUTH_SESSION_SAME_SITE=none
 AUTH_DEVICE_CHALLENGE_ALLOW_VAULT_FALLBACK=true
@@ -67,9 +68,9 @@ if [[ -n "${metadata_token}" ]]; then
 fi
 
 if [[ -n "${instance_public_ipv4}" ]]; then
-  echo "AURA_BACKEND_PUBLIC_HOST=${instance_public_ipv4}.sslip.io" >> /opt/aura/shared/base.env
+  sed -i "s/^AURA_BACKEND_PUBLIC_HOST=.*/AURA_BACKEND_PUBLIC_HOST=${instance_public_ipv4}.sslip.io/" /opt/aura/shared/base.env
 else
-  echo "# AURA_BACKEND_PUBLIC_HOST=api.example.com" >> /opt/aura/shared/base.env
+  echo "# AURA_BACKEND_PUBLIC_HOST remains the checked-in placeholder until DNS is assigned." >> /opt/aura/shared/base.env
 fi
 
 touch /opt/aura/shared/runtime-secrets.env

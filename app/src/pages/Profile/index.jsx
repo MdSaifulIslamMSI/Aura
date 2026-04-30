@@ -26,6 +26,7 @@ import { WishlistContext } from '@/context/WishlistContext';
 import { paymentApi, trustApi, userApi, intelligenceApi } from '@/services/api';
 import { cn } from '@/lib/utils';
 import { getUserVisibleEmail } from '@/utils/authIdentity';
+import { openStripeSetupModal } from '@/utils/stripe';
 import { useActiveWindowRefresh } from '@/hooks/useActiveWindowRefresh';
 
 import OverviewSection from './components/OverviewSection';
@@ -97,6 +98,8 @@ export default function Profile() {
     const [message, setMessage] = useState({ type: '', text: '' });
     const [paymentMethods, setPaymentMethods] = useState([]);
     const [paymentMethodsLoading, setPaymentMethodsLoading] = useState(false);
+    const [netbankingCatalog, setNetbankingCatalog] = useState(null);
+    const [netbankingCatalogLoading, setNetbankingCatalogLoading] = useState(false);
     const [rewards, setRewards] = useState(null);
     const [rewardsLoading, setRewardsLoading] = useState(false);
     const [trustStatus, setTrustStatus] = useState(DEFAULT_TRUST_STATUS);
@@ -165,6 +168,35 @@ export default function Profile() {
             }
         }
     }, []);
+
+    const refreshNetbankingCatalog = useCallback(async ({ silent = false } = {}) => {
+        if (!currentUser?.uid) {
+            setNetbankingCatalog(null);
+            setNetbankingCatalogLoading(false);
+            return null;
+        }
+
+        if (!silent) {
+            setNetbankingCatalogLoading(true);
+        }
+
+        try {
+            const catalog = await paymentApi.getNetbankingBanks();
+            setNetbankingCatalog(catalog || { banks: [], featuredBanks: [] });
+            return catalog;
+        } catch (error) {
+            console.error('Failed to load netbanking catalog', error);
+            if (!silent) {
+                showMsg('error', error.message || t('profile.message.netbankingCatalogFailed', {}, 'Failed to load netbanking banks.'));
+            }
+            setNetbankingCatalog({ banks: [], featuredBanks: [], stale: true, source: 'unavailable' });
+            return null;
+        } finally {
+            if (!silent) {
+                setNetbankingCatalogLoading(false);
+            }
+        }
+    }, [currentUser?.uid, showMsg, t]);
 
     const refreshTrustStatus = useCallback(async ({ silent = false } = {}) => {
         if (!currentUser?.uid) {
@@ -304,6 +336,11 @@ export default function Profile() {
     }, [currentUser?.uid, refreshPaymentMethods]);
 
     useEffect(() => {
+        if (activeTab !== 'payments' || !currentUser?.uid || netbankingCatalog) return;
+        void refreshNetbankingCatalog({ silent: true });
+    }, [activeTab, currentUser?.uid, netbankingCatalog, refreshNetbankingCatalog]);
+
+    useEffect(() => {
         void refreshRewards();
     }, [currentUser?.uid, refreshRewards]);
 
@@ -319,6 +356,7 @@ export default function Profile() {
         () => Promise.all([
             refreshProfileDeck({ silent: true }),
             refreshPaymentMethods({ silent: true }),
+            activeTab === 'payments' ? refreshNetbankingCatalog({ silent: true }) : Promise.resolve(null),
             refreshRewards({ silent: true }),
             refreshTrustStatus({ silent: true }),
             refreshIntelligence({ silent: true }),
@@ -570,6 +608,62 @@ export default function Profile() {
             showMsg('success', t('profile.message.paymentMethodDeleted', {}, 'Payment method deleted.'));
         } catch (error) {
             showMsg('error', error.message || t('profile.message.paymentMethodDeleteFailed', {}, 'Failed to delete payment method.'));
+        }
+    };
+
+    const handleAddStripeCard = async () => {
+        try {
+            const setup = await paymentApi.createMethodSetupIntent({ provider: 'stripe', type: 'card' });
+            const setupIntent = await openStripeSetupModal({
+                publishableKey: setup.publishableKey,
+                clientSecret: setup.clientSecret,
+                title: t('profile.payments.addCard.title', {}, 'Add card'),
+                submitLabel: t('profile.payments.addCard.submit', {}, 'Save card'),
+                cancelLabel: t('profile.payments.addCard.cancel', {}, 'Cancel'),
+            });
+
+            await paymentApi.saveMethod({
+                provider: 'stripe',
+                type: 'card',
+                providerSetupIntentId: setupIntent.id || setup.setupIntentId,
+                metadata: {
+                    enrollmentSource: 'settings',
+                },
+            });
+            await refreshPaymentMethods();
+            showMsg('success', t('profile.message.cardSaved', {}, 'Card saved successfully.'));
+        } catch (error) {
+            if (/cancelled/i.test(String(error?.message || ''))) return;
+            showMsg('error', error.message || t('profile.message.cardSaveFailed', {}, 'Failed to save card.'));
+        }
+    };
+
+    const handleSaveNetbankingBank = async (bank) => {
+        const bankCode = String(bank?.code || '').trim().toUpperCase();
+        if (!bankCode) {
+            showMsg('error', t('profile.message.bankRequired', {}, 'Choose a netbanking bank to save.'));
+            return;
+        }
+
+        try {
+            await paymentApi.saveMethod({
+                provider: 'razorpay',
+                type: 'bank',
+                providerMethodId: bankCode,
+                isDefault: paymentMethods.length === 0,
+                metadata: {
+                    enrollmentSource: 'settings',
+                    bankCode,
+                    bankName: bank?.name || bankCode,
+                },
+            });
+            await Promise.all([
+                refreshPaymentMethods(),
+                refreshNetbankingCatalog({ silent: true }),
+            ]);
+            showMsg('success', t('profile.message.bankPreferenceSaved', {}, 'NetBanking bank saved.'));
+        } catch (error) {
+            showMsg('error', error.message || t('profile.message.bankPreferenceFailed', {}, 'Failed to save netbanking bank.'));
         }
     };
 
@@ -964,6 +1058,12 @@ export default function Profile() {
                         <PaymentsSection
                             paymentMethodsLoading={paymentMethodsLoading}
                             paymentMethods={paymentMethods}
+                            recentOrders={recentOrders}
+                            netbankingCatalog={netbankingCatalog}
+                            netbankingCatalogLoading={netbankingCatalogLoading}
+                            handleAddStripeCard={handleAddStripeCard}
+                            handleSaveNetbankingBank={handleSaveNetbankingBank}
+                            refreshNetbankingCatalog={refreshNetbankingCatalog}
                             handleSetDefaultMethod={handleSetDefaultMethod}
                             handleDeletePaymentMethod={handleDeletePaymentMethod}
                         />

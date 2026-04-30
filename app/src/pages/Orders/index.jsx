@@ -33,6 +33,38 @@ const getCommandStatusLabel = (status, t) => {
     }
 };
 
+const normalizePaymentState = (order) => {
+    const explicit = String(order?.paymentState || '').trim().toLowerCase();
+    if (explicit) return explicit;
+    if (order?.isPaid) return 'paid';
+    return 'pending';
+};
+
+const formatPaymentState = (state, t) => {
+    const normalized = String(state || '').trim().toLowerCase();
+    if (!normalized) return t('orders.payment.state.pending', {}, 'pending');
+    return t(`orders.payment.state.${normalized}`, {}, normalized.replace(/_/g, ' '));
+};
+
+const getPaymentStepToneClass = (state) => {
+    switch (state) {
+        case 'complete':
+            return 'border-neo-cyan/35 bg-neo-cyan/10 text-neo-cyan';
+        case 'active':
+            return 'border-amber-300/35 bg-amber-400/10 text-amber-200';
+        case 'failed':
+            return 'border-neo-rose/40 bg-neo-rose/10 text-neo-rose';
+        default:
+            return 'border-white/10 bg-zinc-950/45 text-slate-300';
+    }
+};
+
+const getPaymentStepIcon = (state) => {
+    if (state === 'complete') return CheckCircle;
+    if (state === 'failed') return AlertTriangle;
+    return Clock;
+};
+
 const Orders = () => {
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -371,6 +403,101 @@ export const OrderCard = ({ order, autoExpand = false }) => {
         });
     };
 
+    const paymentTimelineItems = useMemo(() => {
+        const paymentState = normalizePaymentState({ ...order, isPaid: orderMeta.isPaid });
+        const failedState = ['failed', 'expired', 'cancelled'].includes(paymentState);
+        const capturedState = ['captured', 'paid', 'refunded', 'partially_refunded'].includes(paymentState);
+        const authorizedState = capturedState || paymentState === 'authorized';
+        const paymentEvents = timeline.filter((event) => ['payment', 'risk'].includes(String(event?.stage || '').toLowerCase()));
+        const challengeEvent = paymentEvents.find((event) => String(event?.type || '').includes('challenge'));
+        const refundEntries = [
+            ...(Array.isArray(order?.refundSummary?.refunds) ? order.refundSummary.refunds : []),
+            ...(Array.isArray(commandCenter?.refunds) ? commandCenter.refunds : []),
+        ];
+        const latestRefund = refundEntries
+            .filter(Boolean)
+            .sort((left, right) => new Date(right.processedAt || right.createdAt || 0) - new Date(left.processedAt || left.createdAt || 0))[0];
+
+        const items = [
+            {
+                key: 'method',
+                title: t('orders.payment.timeline.method', {}, 'Method Selected'),
+                detail: [
+                    order.paymentMethod || t('orders.payment.methodUnknown', {}, 'Unknown method'),
+                    order.paymentProvider || '',
+                ].filter(Boolean).join(' via '),
+                at: order.createdAt,
+                state: 'complete',
+            },
+            {
+                key: 'request',
+                title: t('orders.payment.timeline.request', {}, 'Payment Request'),
+                detail: order.paymentIntentId
+                    ? `${t('orders.payment.intent', {}, 'Intent')} ${String(order.paymentIntentId).slice(-10)}`
+                    : t('orders.payment.codRequest', {}, 'No digital intent required for COD'),
+                at: order.createdAt,
+                state: order.paymentMethod === 'COD' || order.paymentIntentId ? 'complete' : 'pending',
+            },
+        ];
+
+        if (challengeEvent) {
+            items.push({
+                key: 'challenge',
+                title: challengeEvent.title || t('orders.payment.timeline.challenge', {}, 'Security Challenge'),
+                detail: challengeEvent.detail || t('orders.payment.timeline.challengeBody', {}, 'Additional payment verification was requested.'),
+                at: challengeEvent.at,
+                state: String(challengeEvent.severity || '') === 'critical' ? 'failed' : 'complete',
+            });
+        }
+
+        items.push({
+            key: 'authorization',
+            title: t('orders.payment.timeline.authorization', {}, 'Authorization'),
+            detail: failedState
+                ? formatPaymentState(paymentState, t)
+                : authorizedState
+                    ? t('orders.payment.timeline.authorizedBody', {}, 'Provider authorization accepted')
+                    : t('orders.payment.timeline.awaitingAuthorization', {}, 'Awaiting provider authorization'),
+            at: order.paymentAuthorizedAt || order.paidAt || order.updatedAt || order.createdAt,
+            state: failedState ? 'failed' : authorizedState ? 'complete' : 'active',
+        });
+
+        items.push({
+            key: 'capture',
+            title: t('orders.payment.timeline.capture', {}, 'Capture and Settlement'),
+            detail: failedState
+                ? t('orders.payment.timeline.captureStopped', {}, 'Capture stopped because payment did not authorize')
+                : capturedState
+                    ? formatPaymentState(paymentState, t)
+                    : authorizedState
+                        ? t('orders.payment.timeline.capturePending', {}, 'Capture is pending in the backend queue')
+                        : t('orders.payment.timeline.captureWaiting', {}, 'Waiting for authorization first'),
+            at: order.paymentCapturedAt || order.paidAt || order.updatedAt || order.createdAt,
+            state: failedState ? 'failed' : capturedState ? 'complete' : authorizedState ? 'active' : 'pending',
+        });
+
+        if (latestRefund || ['refunded', 'partially_refunded'].includes(paymentState)) {
+            const refundStatus = latestRefund?.status || paymentState;
+            items.push({
+                key: 'refund',
+                title: t('orders.payment.timeline.refund', {}, 'Refund'),
+                detail: formatPaymentState(refundStatus, t),
+                at: latestRefund?.processedAt || latestRefund?.createdAt || order.updatedAt || order.createdAt,
+                state: ['processed', 'refunded', 'partially_refunded'].includes(String(refundStatus || '').toLowerCase())
+                    ? 'complete'
+                    : 'active',
+            });
+        }
+
+        return items;
+    }, [
+        commandCenter?.refunds,
+        order,
+        orderMeta.isPaid,
+        t,
+        timeline,
+    ]);
+
     const timelineToneClass = (severity) => {
         switch (severity) {
             case 'critical':
@@ -548,6 +675,46 @@ export const OrderCard = ({ order, autoExpand = false }) => {
                                     {orderMeta.isPaid ? t('orders.payment.paid', {}, 'Paid') : t('orders.payment.pending', {}, 'Pending')}
                                 </span>
                             </div>
+                        </div>
+                    </div>
+
+                    <div className="mt-8 bg-white/5 p-6 rounded-2xl border border-white/10">
+                        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                            <h4 className="font-black text-white text-xs uppercase tracking-widest flex items-center gap-2">
+                                <Wallet className="w-4 h-4 text-amber-300" />
+                                {t('orders.payment.timeline.title', {}, 'Payment Timeline')}
+                            </h4>
+                            <span className={cn(
+                                'w-fit rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em]',
+                                getPaymentStepToneClass(
+                                    ['failed', 'expired'].includes(normalizePaymentState(order)) ? 'failed' : orderMeta.isPaid ? 'complete' : 'active'
+                                )
+                            )}>
+                                {formatPaymentState(normalizePaymentState(order), t)}
+                            </span>
+                        </div>
+
+                        <div className="grid gap-3 md:grid-cols-2">
+                            {paymentTimelineItems.map((item) => {
+                                const StepIcon = getPaymentStepIcon(item.state);
+                                return (
+                                    <div
+                                        key={item.key}
+                                        className={cn('rounded-xl border p-4', getPaymentStepToneClass(item.state))}
+                                    >
+                                        <div className="flex items-start gap-3">
+                                            <div className="mt-0.5 rounded-lg border border-current/20 bg-current/10 p-2">
+                                                <StepIcon className="h-4 w-4" />
+                                            </div>
+                                            <div className="min-w-0">
+                                                <p className="text-[11px] font-black uppercase tracking-[0.18em]">{item.title}</p>
+                                                <p className="mt-1 text-xs leading-5 text-slate-100/90">{item.detail}</p>
+                                                <p className="mt-2 text-[10px] font-semibold tracking-wider opacity-70">{formatTimelineDate(item.at)}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
                         </div>
                     </div>
 
