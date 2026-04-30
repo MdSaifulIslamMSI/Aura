@@ -10,6 +10,7 @@ const asLower = (value, fallback) => String(value || fallback).trim().toLowerCas
 
 const nodeEnv = asLower(process.env.NODE_ENV, 'development');
 const isProduction = nodeEnv === 'production';
+const SUPPORTED_PAYMENT_PROVIDERS = new Set(['razorpay', 'stripe']);
 
 const flags = {
     nodeEnv,
@@ -27,13 +28,19 @@ const flags = {
 
 const assertWebhookConfig = () => {
     if (!flags.paymentsEnabled || !flags.paymentWebhooksEnabled) return;
+    const stripeRoutingEnabled = flags.paymentDynamicRoutingEnabled
+        && parseBoolean(process.env.PAYMENT_STRIPE_ROUTING_ENABLED, false);
 
-    if (flags.paymentProvider !== 'razorpay') {
-        throw new Error(`Unsupported PAYMENT_PROVIDER=${flags.paymentProvider}. Only razorpay is supported.`);
+    if (!SUPPORTED_PAYMENT_PROVIDERS.has(flags.paymentProvider)) {
+        throw new Error(`Unsupported PAYMENT_PROVIDER=${flags.paymentProvider}. Supported providers: razorpay, stripe.`);
     }
 
-    if (!process.env.RAZORPAY_WEBHOOK_SECRET) {
+    if (flags.paymentProvider === 'razorpay' && !process.env.RAZORPAY_WEBHOOK_SECRET) {
         throw new Error('Missing RAZORPAY_WEBHOOK_SECRET for Razorpay webhook mode');
+    }
+
+    if ((flags.paymentProvider === 'stripe' || stripeRoutingEnabled) && !process.env.STRIPE_WEBHOOK_SECRET) {
+        throw new Error('Missing STRIPE_WEBHOOK_SECRET for Stripe webhook mode');
     }
 };
 
@@ -43,13 +50,19 @@ const assertProductionPaymentConfig = () => {
     }
 
     if (!flags.isProduction || !flags.paymentsEnabled) return;
+    const stripeRoutingEnabled = flags.paymentDynamicRoutingEnabled
+        && parseBoolean(process.env.PAYMENT_STRIPE_ROUTING_ENABLED, false);
 
-    if (flags.paymentProvider !== 'razorpay') {
-        throw new Error('Production requires PAYMENT_PROVIDER=razorpay when payments are enabled');
+    if (!SUPPORTED_PAYMENT_PROVIDERS.has(flags.paymentProvider)) {
+        throw new Error(`Production requires a supported PAYMENT_PROVIDER when payments are enabled. Supported providers: razorpay, stripe.`);
     }
 
-    if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET || !process.env.RAZORPAY_WEBHOOK_SECRET) {
+    if (flags.paymentProvider === 'razorpay' && (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET || !process.env.RAZORPAY_WEBHOOK_SECRET)) {
         throw new Error('Missing Razorpay credentials for production payment mode');
+    }
+
+    if ((flags.paymentProvider === 'stripe' || stripeRoutingEnabled) && (!process.env.STRIPE_SECRET_KEY || !process.env.STRIPE_PUBLISHABLE_KEY || !process.env.STRIPE_WEBHOOK_SECRET)) {
+        throw new Error('Missing Stripe credentials for production payment mode');
     }
 };
 
