@@ -1,4 +1,4 @@
-import { useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { Suspense, lazy, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
@@ -26,7 +26,8 @@ import { useMarket } from '@/context/MarketContext';
 import { useDynamicTranslations } from '@/hooks/useDynamicTranslations';
 import { adminApi } from '@/services/api/adminApi';
 import { translateEnumLabel } from '@/utils/enumLocalization';
-import ClientDiagnosticsPanel from './ClientDiagnosticsPanel';
+
+const ClientDiagnosticsPanel = lazy(() => import('./ClientDiagnosticsPanel'));
 
 const SEVERITY_STYLES = {
     info: 'bg-cyan-100 text-cyan-700 border-cyan-200',
@@ -607,7 +608,18 @@ export default function AdminDashboard() {
                 </div>
             </div>
 
-            <ClientDiagnosticsPanel />
+            <Suspense
+                fallback={(
+                    <div className="admin-premium-panel">
+                        <div className="flex items-center gap-2 text-sm text-slate-500">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            {t('admin.diagnostics.loading', {}, 'Loading persisted client diagnostics...')}
+                        </div>
+                    </div>
+                )}
+            >
+                <ClientDiagnosticsPanel />
+            </Suspense>
 
             <div className="admin-premium-panel">
                 <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">

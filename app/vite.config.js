@@ -15,7 +15,7 @@ const DEFERRED_ROUTE_PRELOAD_PATTERNS = [
 
 const ADMIN_CHUNK_MATCHERS = [
   { pattern: /\/src\/pages\/Admin\/Dashboard\.jsx$/, chunk: 'admin-dashboard' },
-  { pattern: /\/src\/pages\/Admin\/ClientDiagnosticsPanel\.jsx$/, chunk: 'admin-dashboard' },
+  { pattern: /\/src\/pages\/Admin\/ClientDiagnosticsPanel\.jsx$/, chunk: 'admin-diagnostics' },
   { pattern: /\/src\/pages\/Admin\/Support\.jsx$/, chunk: 'admin-support' },
   { pattern: /\/src\/pages\/Admin\/ProductList\.jsx$/, chunk: 'admin-products' },
   { pattern: /\/src\/pages\/Admin\/ProductEdit\.jsx$/, chunk: 'admin-product-edit' },
@@ -149,6 +149,14 @@ export default defineConfig(({ mode }) => {
     rollupOptions: {
       output: {
         manualChunks(id) {
+          if (id.includes('/node_modules/react') || id.includes('/node_modules/react-dom') || id.includes('/node_modules/scheduler')) {
+            return 'vendor-react';
+          }
+          if (id.includes('/node_modules/react-router')) return 'vendor-router';
+          if (id.includes('/node_modules/lucide-react')) return 'vendor-icons';
+          if (id.includes('/node_modules/sonner')) return 'vendor-toasts';
+          if (id.includes('/node_modules/firebase')) return 'vendor-firebase';
+
           const matchedInternalChunk = INTERNAL_CHUNK_MATCHERS.find(({ pattern }) => pattern.test(id));
           if (matchedInternalChunk) return matchedInternalChunk.chunk;
 

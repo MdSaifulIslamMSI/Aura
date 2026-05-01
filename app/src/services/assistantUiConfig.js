@@ -18,7 +18,6 @@ const AMBIENT_CHROME_PREFIXES = [
     '/bundles',
     '/mission-control',
     '/trust',
-    ASSISTANT_WORKSPACE_PATH,
 ];
 
 const CHATBOT_ROUTE_PREFIXES = [
@@ -68,10 +67,13 @@ export const isFrontendLaunchHubPath = (pathname = '/') => (
 
 export const shouldShowSiteChrome = (pathname = '/') => (
     !isFrontendLaunchHubPath(pathname)
+    && !isAssistantWorkspacePath(pathname)
 );
 
 export const shouldShowAmbientChrome = (pathname = '/') => (
-    !isAdminPath(pathname) && routeMatches(pathname, AMBIENT_CHROME_PREFIXES)
+    !isAdminPath(pathname)
+    && !isAssistantWorkspacePath(pathname)
+    && routeMatches(pathname, AMBIENT_CHROME_PREFIXES)
 );
 
 export const shouldShowChatbotSurface = (pathname = '/') => (
