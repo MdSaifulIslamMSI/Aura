@@ -131,7 +131,60 @@ describe('AuraTrustedDeviceChallenge', () => {
 
     expect(screen.getByRole('radio', { name: /windows hello passkey/i })).toBeDisabled();
     expect(screen.getByRole('radio', { name: /rsa-pss browser key/i })).not.toBeDisabled();
-    expect(screen.getByText(/currently registered with an rsa-pss browser key, not a passkey/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/currently registered with an rsa-pss browser key, not a passkey/i).length).toBeGreaterThan(0);
+  });
+
+  it('moves focus into the blocking checkpoint and traps tab navigation', async () => {
+    const beforeGateButton = document.createElement('button');
+    beforeGateButton.type = 'button';
+    beforeGateButton.textContent = 'Before gate';
+    document.body.appendChild(beforeGateButton);
+    beforeGateButton.focus();
+
+    const { default: AuraTrustedDeviceChallenge } = await loadComponent();
+    const view = renderWithRoute(<AuraTrustedDeviceChallenge />);
+
+    const primaryAction = screen.getByRole('button', { name: /use windows hello passkey/i });
+    await waitFor(() => {
+      expect(primaryAction).toHaveFocus();
+    });
+
+    const selectedProofMethod = screen.getByRole('radio', { name: /windows hello passkey/i });
+    const resetAction = screen.getByRole('button', { name: /reset local identity/i });
+    resetAction.focus();
+
+    fireEvent.keyDown(document, { key: 'Tab' });
+    expect(selectedProofMethod).toHaveFocus();
+
+    fireEvent.keyDown(document, { key: 'Tab', shiftKey: true });
+    expect(resetAction).toHaveFocus();
+
+    view.unmount();
+    expect(beforeGateButton).toHaveFocus();
+    beforeGateButton.remove();
+  });
+
+  it('lets keyboard users move between supported proof methods with arrow keys', async () => {
+    const { default: AuraTrustedDeviceChallenge } = await loadComponent();
+    renderWithRoute(<AuraTrustedDeviceChallenge />);
+
+    const passkeyMethod = screen.getByRole('radio', { name: /windows hello passkey/i });
+    const browserKeyMethod = screen.getByRole('radio', { name: /rsa-pss browser key/i });
+
+    expect(passkeyMethod).toHaveAttribute('aria-describedby', expect.stringContaining('trusted-device-blocking-webauthn-description'));
+    expect(browserKeyMethod).toHaveAttribute('aria-describedby', expect.stringContaining('trusted-device-blocking-browser_key-description'));
+
+    passkeyMethod.focus();
+    fireEvent.keyDown(passkeyMethod, { key: 'ArrowRight' });
+
+    expect(browserKeyMethod).toHaveAttribute('aria-checked', 'true');
+    await waitFor(() => {
+      expect(browserKeyMethod).toHaveFocus();
+    });
+
+    const resetAction = screen.getByRole('button', { name: /reset local identity/i });
+    fireEvent.keyDown(browserKeyMethod, { key: 'Tab', shiftKey: true });
+    expect(resetAction).toHaveFocus();
   });
 
   it('stays quiet on public routes so the storefront is not interrupted', async () => {
@@ -139,6 +192,7 @@ describe('AuraTrustedDeviceChallenge', () => {
     renderWithRoute(<AuraTrustedDeviceChallenge />, '/');
 
     expect(screen.queryByRole('button', { name: /verify once to unlock admin actions/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /open trusted device checkpoint/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: /privileged mode locked/i })).not.toBeInTheDocument();
   });
 });
