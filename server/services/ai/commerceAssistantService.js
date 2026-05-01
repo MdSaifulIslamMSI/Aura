@@ -326,6 +326,13 @@ const hasActiveRetrievalFilters = (filters = {}) => Boolean(
     || normalizeRetrievalSortBy(filters?.sortBy || '')
     || Array.isArray(filters?.requiredTerms) && filters.requiredTerms.length > 0
 );
+const matchesCategoryFilter = (requestedCategory = '', productCategory = '') => {
+    const normalizedCategory = safeString(requestedCategory || '').toLowerCase();
+    const normalizedProductCategory = safeString(productCategory || '').toLowerCase();
+    if (!normalizedCategory) return true;
+    if (!normalizedProductCategory) return false;
+    return normalizedProductCategory === normalizedCategory || normalizedProductCategory.includes(normalizedCategory);
+};
 const matchesRetrievalFilters = (product = {}, filters = {}) => {
     const normalizedCategory = safeString(filters?.category || '').toLowerCase();
     const normalizedBrand = safeString(filters?.brand || '').toLowerCase();
@@ -343,8 +350,7 @@ const matchesRetrievalFilters = (product = {}, filters = {}) => {
     ].map((entry) => safeString(entry).toLowerCase()).join(' ');
 
     if (normalizedCategory) {
-        const productCategory = safeString(product?.category || '').toLowerCase();
-        if (!(productCategory === normalizedCategory || productCategory.includes(normalizedCategory))) {
+        if (!matchesCategoryFilter(normalizedCategory, product?.category)) {
             return false;
         }
     }
@@ -819,6 +825,7 @@ const buildHostedGemmaUnavailableEnvelope = ({
     products = [],
     retrieval = null,
     retrievalQuery = null,
+    retrievalRelaxation = null,
 } = {}) => {
     const normalizedProducts = decorateCommerceProducts(products, retrievalQuery?.filters || {})
         .filter((product) => product.id)
@@ -838,14 +845,16 @@ const buildHostedGemmaUnavailableEnvelope = ({
             answer: unavailableAnswer,
             products: normalizedProducts,
             filters: retrievalQuery?.filters || {},
+            relaxation: retrievalRelaxation,
         }),
         followUps,
-        ui: {
-            surface: normalizedProducts.length > 0 ? (normalizedProducts.length === 1 ? 'product_focus' : 'product_results') : 'plain_answer',
-            title: normalizedProducts.length > 0 ? 'Validated matches pending hosted Gemma' : 'Hosted Gemma temporarily unavailable',
-            products: normalizedProducts,
-            product: normalizedProducts.length === 1 ? focusProduct : null,
-        },
+            ui: {
+                surface: normalizedProducts.length > 0 ? (normalizedProducts.length === 1 ? 'product_focus' : 'product_results') : 'plain_answer',
+                title: normalizedProducts.length > 0 ? 'Validated matches pending hosted Gemma' : 'Hosted Gemma temporarily unavailable',
+                products: normalizedProducts,
+                product: normalizedProducts.length === 1 ? focusProduct : null,
+                insights: buildCommerceResultInsights(normalizedProducts, retrievalQuery?.filters || {}, retrievalRelaxation),
+            },
         verification: {
             label: 'provider_temporarily_unavailable',
             confidence: 1,
@@ -901,6 +910,10 @@ const buildHostedGemmaUnavailableEnvelope = ({
             retrievalQuery: retrievalQuery?.validator || null,
             retrievalProvider: safeString(retrieval?.provider || ''),
             retrievalReason: safeString(retrieval?.fallbackReason || ''),
+            retrievalRelaxation: retrievalRelaxation ? {
+                reason: retrievalRelaxation.reason,
+                label: retrievalRelaxation.label,
+            } : null,
         },
         messageId: createMessageId(),
     });
@@ -1366,6 +1379,198 @@ const summarizeProducts = (products = []) => (
 
 const formatCommercePrice = (value = 0) => `Rs ${Number(value || 0).toLocaleString('en-IN')}`;
 
+const buildCommerceFilterSummary = (filters = {}) => {
+    const parts = [];
+    const category = safeString(filters?.category || '');
+    const brand = safeString(filters?.brand || '');
+    const minPrice = Number(filters?.minPrice || 0);
+    const maxPrice = Number(filters?.maxPrice || 0);
+    const minRating = Number(filters?.minRating || 0);
+    const requiredTerms = Array.isArray(filters?.requiredTerms) ? filters.requiredTerms.map((entry) => safeString(entry)).filter(Boolean) : [];
+    const sortBy = normalizeRetrievalSortBy(filters?.sortBy || '');
+
+    if (category) parts.push(`category ${category}`);
+    if (brand) parts.push(`brand ${brand}`);
+    if (minPrice > 0 && maxPrice > 0) {
+        parts.push(`${formatCommercePrice(minPrice)} to ${formatCommercePrice(maxPrice)}`);
+    } else if (maxPrice > 0) {
+        parts.push(`under ${formatCommercePrice(maxPrice)}`);
+    } else if (minPrice > 0) {
+        parts.push(`above ${formatCommercePrice(minPrice)}`);
+    }
+    if (minRating > 0) parts.push(`${minRating.toFixed(1)}+ rating`);
+    if (filters?.inStock === true) parts.push('in stock only');
+    if (filters?.inStock === false) parts.push('out of stock only');
+    if (requiredTerms.length > 0) parts.push(`must include ${requiredTerms.slice(0, 4).join(', ')}`);
+    if (sortBy === 'rating_desc') parts.push('sorted by rating');
+    if (sortBy === 'price_asc') parts.push('sorted by lowest price');
+    if (sortBy === 'price_desc') parts.push('sorted by premium price');
+    return parts;
+};
+
+const buildCommerceResultInsights = (products = [], filters = {}, relaxation = null) => {
+    const normalizedProducts = (Array.isArray(products) ? products : []).map((product) => normalizeProductCard(product)).filter((product) => product.id);
+    const prices = normalizedProducts.map((product) => Number(product.price || 0)).filter((price) => price > 0);
+    const ratings = normalizedProducts.map((product) => Number(product.rating || 0)).filter((rating) => rating > 0);
+    const appliedFilters = buildCommerceFilterSummary(filters);
+    return {
+        appliedFilters,
+        resultCount: normalizedProducts.length,
+        priceMin: prices.length ? Math.min(...prices) : 0,
+        priceMax: prices.length ? Math.max(...prices) : 0,
+        topRating: ratings.length ? Math.max(...ratings) : 0,
+        inStockCount: normalizedProducts.filter((product) => Number(product.stock || 0) > 0).length,
+        brands: uniq(normalizedProducts.map((product) => product.brand)).slice(0, 4),
+        categories: uniq(normalizedProducts.map((product) => product.category)).slice(0, 4),
+        relaxed: Boolean(relaxation),
+        relaxationReason: safeString(relaxation?.reason || ''),
+        relaxationLabel: safeString(relaxation?.label || ''),
+    };
+};
+
+const formatCommerceInsightLines = (products = [], filters = {}, relaxation = null) => {
+    const insights = buildCommerceResultInsights(products, filters, relaxation);
+    const lines = [];
+    if (insights.appliedFilters.length > 0) {
+        lines.push(`- Applied: ${insights.appliedFilters.join('; ')}.`);
+    }
+    if (insights.resultCount > 0) {
+        const pricePart = insights.priceMin && insights.priceMax
+            ? `, ${formatCommercePrice(insights.priceMin)}-${formatCommercePrice(insights.priceMax)}`
+            : '';
+        lines.push(`- Shortlist: ${insights.resultCount} verified result${insights.resultCount === 1 ? '' : 's'}${pricePart}; ${insights.inStockCount}/${insights.resultCount} in stock.`);
+    }
+    if (insights.topRating > 0) {
+        lines.push(`- Quality: top rating ${insights.topRating.toFixed(1)}${insights.brands.length ? ` across ${insights.brands.join(', ')}` : ''}.`);
+    }
+    if (relaxation?.label) {
+        lines.push(`- Relaxed: ${safeString(relaxation.label)}; original constraints are still called out in each card.`);
+    }
+    return lines;
+};
+
+const buildNoResultFollowUps = (filters = {}) => {
+    const followUps = [];
+    if (Number(filters?.maxPrice || 0) > 0) followUps.push('Broaden the budget');
+    if (safeString(filters?.category || '')) followUps.push(`Show another ${safeString(filters.category)} option`);
+    if (Array.isArray(filters?.requiredTerms) && filters.requiredTerms.length > 0) followUps.push('Remove one must-have term');
+    if (filters?.inStock === true) followUps.push('Include out-of-stock items');
+    followUps.push('Try a different product name');
+    return uniq(followUps).slice(0, 4);
+};
+
+const buildNoResultResponseText = ({ query = '', filters = {} } = {}) => {
+    const appliedFilters = buildCommerceFilterSummary(filters);
+    const target = appliedFilters.length
+        ? appliedFilters.join('; ')
+        : safeString(query || 'that request');
+    return [
+        `I do not have a validated catalog match for ${target} right now.`,
+        'I will not fill the gap with unrelated products.',
+        'Try broadening the budget, removing one must-have attribute, or switching category.'
+    ].join('\n\n');
+};
+
+const scoreCommerceProduct = (product = {}, filters = {}, retrievalScore = 0) => {
+    const price = Number(product?.price || 0);
+    const stock = Math.max(0, Number(product?.stock || 0));
+    const rating = Math.max(0, Number(product?.rating || 0));
+    const ratingCount = Math.max(0, Number(product?.ratingCount || 0));
+    const discountPercentage = Math.max(0, Number(product?.discountPercentage || 0));
+    const minPrice = Number(filters?.minPrice || 0);
+    const maxPrice = Number(filters?.maxPrice || 0);
+    let score = Math.max(0, Number(retrievalScore || 0));
+
+    if (safeString(filters?.category || '') && matchesCategoryFilter(filters.category, product?.category)) score += 0.18;
+    if (safeString(filters?.brand || '') && safeString(product?.brand || '').toLowerCase().includes(safeString(filters.brand).toLowerCase())) score += 0.15;
+    if (stock > 0) score += 0.2;
+    if (filters?.inStock === true && stock <= 0) score -= 0.45;
+    if (rating > 0) score += Math.min(0.18, (rating / 5) * 0.18);
+    if (ratingCount >= 25) score += 0.04;
+    if (discountPercentage > 0) score += Math.min(0.08, discountPercentage / 100);
+    if (maxPrice > 0) score += price > 0 && price <= maxPrice ? 0.22 : -0.2;
+    if (minPrice > 0) score += price >= minPrice ? 0.08 : -0.08;
+    return score;
+};
+
+const sortCommerceEntries = (entries = [], filters = {}) => {
+    const normalizedEntries = (Array.isArray(entries) ? entries : []).filter((entry) => entry?.product);
+    const sortBy = normalizeRetrievalSortBy(filters?.sortBy || '');
+    const withScores = normalizedEntries.map((entry) => ({
+        ...entry,
+        assistantScore: scoreCommerceProduct(entry.product, filters, entry.score),
+    }));
+    if (sortBy === 'rating_desc') {
+        return withScores.sort((left, right) => (
+            Number(right?.product?.rating || 0) - Number(left?.product?.rating || 0)
+            || Number(right?.assistantScore || 0) - Number(left?.assistantScore || 0)
+        ));
+    }
+    if (sortBy === 'price_asc') {
+        return withScores.sort((left, right) => (
+            Number(left?.product?.price || Number.MAX_SAFE_INTEGER) - Number(right?.product?.price || Number.MAX_SAFE_INTEGER)
+            || Number(right?.assistantScore || 0) - Number(left?.assistantScore || 0)
+        ));
+    }
+    if (sortBy === 'price_desc') {
+        return withScores.sort((left, right) => (
+            Number(right?.product?.price || 0) - Number(left?.product?.price || 0)
+            || Number(right?.assistantScore || 0) - Number(left?.assistantScore || 0)
+        ));
+    }
+    return withScores.sort((left, right) => Number(right?.assistantScore || 0) - Number(left?.assistantScore || 0));
+};
+
+const buildRelaxedRetrievalPlans = ({ query = '', filters = {} } = {}) => {
+    const base = {
+        category: safeString(filters?.category || ''),
+        brand: safeString(filters?.brand || ''),
+        minPrice: Number(filters?.minPrice || 0),
+        maxPrice: Number(filters?.maxPrice || 0),
+        minRating: Number(filters?.minRating || 0),
+        inStock: typeof filters?.inStock === 'boolean' ? filters.inStock : null,
+        sortBy: normalizeRetrievalSortBy(filters?.sortBy || ''),
+        requiredTerms: Array.isArray(filters?.requiredTerms) ? filters.requiredTerms : [],
+    };
+    const plans = [];
+    const pushPlan = (reason, label, nextFilters) => {
+        const dedupeKey = JSON.stringify(nextFilters);
+        if (!plans.some((plan) => plan.dedupeKey === dedupeKey)) {
+            plans.push({
+                query: safeString(query || base.category || base.brand || 'product'),
+                filters: nextFilters,
+                reason,
+                label,
+                dedupeKey,
+            });
+        }
+    };
+
+    if (base.maxPrice > 0) {
+        pushPlan('relaxed_budget', `budget above ${formatCommercePrice(base.maxPrice)}`, { ...base, maxPrice: 0 });
+    }
+    if (base.minRating > 0) {
+        pushPlan('relaxed_rating', `rating below ${base.minRating.toFixed(1)} allowed`, { ...base, minRating: 0 });
+    }
+    if (base.inStock === true) {
+        pushPlan('relaxed_stock', 'including out-of-stock catalog items', { ...base, inStock: null });
+    }
+    if (base.requiredTerms.length > 0) {
+        pushPlan('relaxed_required_terms', 'without every must-have term', { ...base, requiredTerms: [] });
+    }
+    const fullyRelaxed = {
+        ...base,
+        maxPrice: base.maxPrice > 0 ? 0 : base.maxPrice,
+        minRating: base.minRating > 0 ? 0 : base.minRating,
+        inStock: base.inStock === true ? null : base.inStock,
+        requiredTerms: base.requiredTerms.length > 0 ? [] : base.requiredTerms,
+    };
+    if (JSON.stringify(fullyRelaxed) !== JSON.stringify(base)) {
+        pushPlan('relaxed_all_soft_constraints', 'soft constraints relaxed together', fullyRelaxed);
+    }
+    return plans.map(({ dedupeKey, ...plan }) => plan).slice(0, 5);
+};
+
 const buildProductFitSignals = (product = {}, filters = {}) => {
     const signals = [];
     const watchouts = [];
@@ -1377,7 +1582,7 @@ const buildProductFitSignals = (product = {}, filters = {}) => {
     const maxPrice = Number(filters?.maxPrice || 0);
     const category = safeString(filters?.category || '');
 
-    if (category && safeString(product?.category || '').toLowerCase() === category.toLowerCase()) {
+    if (category && matchesCategoryFilter(category, product?.category)) {
         signals.push(`matches ${category}`);
     }
 
@@ -1439,9 +1644,16 @@ const buildCommerceResponseText = ({
     answer = '',
     products = [],
     filters = {},
+    relaxation = null,
 } = {}) => {
     const normalizedProducts = decorateCommerceProducts(products, filters).slice(0, 3);
-    const lead = safeString(answer || summarizeProducts(normalizedProducts));
+    const baseLead = safeString(answer || summarizeProducts(normalizedProducts));
+    const lead = relaxation
+        ? [
+            `No exact catalog match for ${buildCommerceFilterSummary(filters).join('; ') || 'the original constraints'}. Showing nearest verified alternatives after relaxing ${safeString(relaxation.label || 'one constraint')}.`,
+            baseLead,
+        ].filter(Boolean).join(' ')
+        : baseLead;
     if (normalizedProducts.length === 0) {
         return lead;
     }
@@ -1461,6 +1673,8 @@ const buildCommerceResponseText = ({
 
     return [
         lead,
+        '**Decision signals**',
+        formatCommerceInsightLines(normalizedProducts, filters, relaxation).join('\n'),
         '**Grounded picks**',
         productLines.join('\n'),
         '**Next step**',
@@ -1635,13 +1849,48 @@ const performCommerceTurn = async ({
             filters: retrievalQuery.filters,
         });
     }
+    let retrievalRelaxation = null;
     if (hasActiveRetrievalFilters(retrievalQuery.filters)) {
+        const strictFilteredEntries = (Array.isArray(retrieval?.results) ? retrieval.results : [])
+            .filter((entry) => matchesRetrievalFilters(entry?.product || {}, retrievalQuery.filters));
         retrieval = {
             ...retrieval,
-            results: (Array.isArray(retrieval?.results) ? retrieval.results : []).filter((entry) => matchesRetrievalFilters(entry?.product || {}, retrievalQuery.filters)),
-            retrievalHitCount: (Array.isArray(retrieval?.results) ? retrieval.results : []).filter((entry) => matchesRetrievalFilters(entry?.product || {}, retrievalQuery.filters)).length,
+            results: strictFilteredEntries,
+            retrievalHitCount: strictFilteredEntries.length,
         };
     }
+    if (!Number(retrieval?.retrievalHitCount || 0)) {
+        for (const plan of buildRelaxedRetrievalPlans({ query: retrievalQuery.query, filters: retrievalQuery.filters })) {
+            const relaxedRetrieval = await searchProductVectorIndex(plan.query, {
+                limit: 5,
+                filters: plan.filters,
+            }).catch((error) => ({
+                results: [],
+                retrievalHitCount: 0,
+                provider: 'relaxed_catalog_fallback',
+                fallbackUsed: true,
+                fallbackReason: safeString(error?.message || plan.reason),
+            }));
+            const relaxedEntries = (Array.isArray(relaxedRetrieval?.results) ? relaxedRetrieval.results : [])
+                .filter((entry) => matchesRetrievalFilters(entry?.product || {}, plan.filters));
+            if (relaxedEntries.length > 0) {
+                retrieval = {
+                    ...relaxedRetrieval,
+                    results: relaxedEntries,
+                    retrievalHitCount: relaxedEntries.length,
+                    fallbackUsed: true,
+                    fallbackReason: plan.reason,
+                };
+                retrievalRelaxation = plan;
+                break;
+            }
+        }
+    }
+    retrieval = {
+        ...retrieval,
+        results: sortCommerceEntries(Array.isArray(retrieval?.results) ? retrieval.results : [], retrievalQuery.filters),
+    };
+    retrieval.retrievalHitCount = retrieval.results.length;
     const vectorStoreHealth = await vectorStoreHealthPromise;
     recordRetrievalMetric({
         route: ROUTE_ECOMMERCE,
@@ -1652,14 +1901,19 @@ const performCommerceTurn = async ({
     });
     const sourceProducts = retrieval.results.map((entry) => entry.product).filter(Boolean);
     if (!sourceProducts.length) {
+        const noResultResponse = buildNoResultResponseText({
+            query: retrievalQuery.query || message,
+            filters: retrievalQuery.filters,
+        });
+        const followUps = buildNoResultFollowUps(retrievalQuery.filters);
         const assistantTurn = buildAssistantTurn({
             intent: 'product_search',
             confidence: 0.96,
             decision: 'respond',
-            response: 'We do not have a validated product match for that request right now.',
-            followUps: ['Try a different product name', 'Set a broader budget', 'Ask for another category'],
+            response: noResultResponse,
+            followUps,
             ui: { surface: 'plain_answer', title: 'No verified match', products: [] },
-            verification: { label: 'app_grounded', confidence: 1, summary: 'No indexed product matched the request.' },
+            verification: { label: 'app_grounded', confidence: 1, summary: 'No indexed product matched the request, and no unrelated products were returned.' },
             answerMode: 'commerce',
         });
         return buildResponseEnvelope({
@@ -1744,6 +1998,7 @@ const performCommerceTurn = async ({
                     `User query: ${message || 'Analyze the provided input.'}`,
                     retrievalQuery.query ? `Retrieval query: ${retrievalQuery.query}` : '',
                     hasActiveRetrievalFilters(retrievalQuery.filters) ? `Applied filters: ${JSON.stringify(retrievalQuery.filters)}` : '',
+                    retrievalRelaxation ? `Exact filters had no catalog hits. These are relaxed alternatives after ${safeString(retrievalRelaxation.label)}; say that clearly.` : '',
                     'Return JSON only.',
                 ].filter(Boolean).join('\n\n'),
             },
@@ -1759,6 +2014,7 @@ const performCommerceTurn = async ({
                 prompt: [
                     `User query: ${message || retrievalQuery.query || 'Analyze the provided input.'}`,
                     hasActiveRetrievalFilters(retrievalQuery.filters) ? `Applied filters: ${JSON.stringify(retrievalQuery.filters)}` : '',
+                    retrievalRelaxation ? `Relaxed alternatives: ${safeString(retrievalRelaxation.label)}.` : '',
                 ].filter(Boolean).join('\n\n'),
             },
         ];
@@ -1817,6 +2073,7 @@ const performCommerceTurn = async ({
                 products: normalizedProducts,
                 retrieval,
                 retrievalQuery,
+                retrievalRelaxation,
             });
         }
     }
@@ -1842,6 +2099,7 @@ const performCommerceTurn = async ({
             answer: modelPayload?.answer || summarizeProducts(selectedProducts),
             products: selectedProducts,
             filters: retrievalQuery.filters,
+            relaxation: retrievalRelaxation,
         }),
         followUps,
         ui: {
@@ -1849,6 +2107,7 @@ const performCommerceTurn = async ({
             title: decoratedSelectedProducts.length === 1 ? safeString(decoratedFocusProduct?.title || '') : 'Validated results',
             products: decoratedSelectedProducts,
             product: decoratedSelectedProducts.length === 1 && decoratedFocusProduct ? decoratedFocusProduct : null,
+            insights: buildCommerceResultInsights(decoratedSelectedProducts, retrievalQuery.filters, retrievalRelaxation),
         },
         verification: {
             label: 'app_grounded',
@@ -1912,6 +2171,10 @@ const performCommerceTurn = async ({
             retrievalQuery: retrievalQuery.validator,
             retrievalProvider: safeString(retrieval?.provider || ''),
             retrievalReason: safeString(retrieval?.fallbackReason || ''),
+            retrievalRelaxation: retrievalRelaxation ? {
+                reason: retrievalRelaxation.reason,
+                label: retrievalRelaxation.label,
+            } : null,
         },
         messageId: createMessageId(),
     });
@@ -2662,8 +2925,12 @@ module.exports = {
     streamAssistantTurn,
     __testables: {
         buildActionContext,
+        buildCommerceFilterSummary,
+        buildCommerceResultInsights,
         buildCommerceResponseText,
         buildHostedGemmaUnavailableEnvelope,
+        buildNoResultResponseText,
+        buildRelaxedRetrievalPlans,
         decorateCommerceProducts,
         detectRoute,
         deriveRetrievalQuery,
@@ -2675,6 +2942,8 @@ module.exports = {
         isHostedGemmaGatewayHealthy,
         isHostedGemmaAudioUnsupported,
         matchesRetrievalFilters,
+        scoreCommerceProduct,
+        sortCommerceEntries,
         resolveActionPlan,
         shouldReuseSessionResultsForCommerce,
         shouldRouteAsCommerceFollowUp,
