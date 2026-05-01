@@ -848,13 +848,13 @@ const buildHostedGemmaUnavailableEnvelope = ({
             relaxation: retrievalRelaxation,
         }),
         followUps,
-            ui: {
-                surface: normalizedProducts.length > 0 ? (normalizedProducts.length === 1 ? 'product_focus' : 'product_results') : 'plain_answer',
-                title: normalizedProducts.length > 0 ? 'Validated matches pending hosted Gemma' : 'Hosted Gemma temporarily unavailable',
-                products: normalizedProducts,
-                product: normalizedProducts.length === 1 ? focusProduct : null,
-                insights: buildCommerceResultInsights(normalizedProducts, retrievalQuery?.filters || {}, retrievalRelaxation),
-            },
+        ui: {
+            surface: normalizedProducts.length > 0 ? (normalizedProducts.length === 1 ? 'product_focus' : 'product_results') : 'plain_answer',
+            title: normalizedProducts.length > 0 ? 'Validated matches pending hosted Gemma' : 'Hosted Gemma temporarily unavailable',
+            products: normalizedProducts,
+            product: normalizedProducts.length === 1 ? focusProduct : null,
+            insights: buildCommerceResultInsights(normalizedProducts, retrievalQuery?.filters || {}, retrievalRelaxation),
+        },
         verification: {
             label: 'provider_temporarily_unavailable',
             confidence: 1,
@@ -1692,7 +1692,7 @@ const performCommerceTurn = async ({
     context = {},
     images = [],
     audio = [],
-    } = {}) => {
+} = {}) => {
     const requireHostedGemma = isHostedGemmaCommerceRequired();
     let gatewayHealth = await checkModelGatewayHealth({
         provider: requireHostedGemma ? HOSTED_GEMMA_PROVIDER : '',
