@@ -36,7 +36,30 @@ const paymentCapabilities = {
                 currencies: [{ code: 'INR', name: 'Indian Rupee' }],
                 settlementCurrency: 'INR',
             },
+            UPI: {
+                available: true,
+                countryMode: 'allowlist',
+                countryCodes: ['IN'],
+                currencies: [{ code: 'INR', name: 'Indian Rupee' }],
+                settlementCurrency: 'INR',
+            },
+            WALLET: {
+                available: true,
+                countryMode: 'allowlist',
+                countryCodes: ['IN'],
+                currencies: [{ code: 'INR', name: 'Indian Rupee' }],
+                settlementCurrency: 'INR',
+            },
+            NETBANKING: {
+                available: true,
+                countryMode: 'allowlist',
+                countryCodes: ['IN'],
+                currencies: [{ code: 'INR', name: 'Indian Rupee' }],
+                settlementCurrency: 'INR',
+            },
         },
+        defaultCountryCode: 'IN',
+        defaultCurrency: 'INR',
     },
 };
 
@@ -139,5 +162,19 @@ describe('StepPayment', () => {
 
         expect(screen.getByText(/^payment details$/i)).toBeInTheDocument();
         expect(screen.getByText(/rails, request, risk/i)).toBeInTheDocument();
+    });
+
+    it('keeps unavailable market rails visible but disabled', () => {
+        renderStepPayment({
+            paymentMethods: ['CARD'],
+            paymentMarket: { countryCode: 'JP', currency: 'USD' },
+        });
+
+        expect(screen.getByRole('button', { name: /card.*debit/i })).toBeEnabled();
+        expect(screen.getByRole('button', { name: /upi.*fast payment/i })).toBeDisabled();
+        expect(screen.getByRole('button', { name: /wallet.*wallet balance/i })).toBeDisabled();
+        expect(screen.getByRole('button', { name: /netbanking.*authorize/i })).toBeDisabled();
+        expect(screen.getByRole('button', { name: /cash on delivery.*pay when/i })).toBeDisabled();
+        expect(screen.getAllByText(/switch to in\/inr/i).length).toBeGreaterThan(0);
     });
 });
