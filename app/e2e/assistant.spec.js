@@ -14,15 +14,13 @@ test.describe('Assistant Terminal', () => {
         await page.goto('/assistant');
 
         await expect(page.getByText('Assistant v2 is currently disabled.')).toHaveCount(0);
-        await expect(page.getByText('Aura Terminal')).toBeVisible();
-        await expect(page.getByRole('button', { name: 'New chat', exact: true })).toBeVisible();
-        await expect(page.getByPlaceholder('Search conversations')).toBeVisible();
-        await expect(page.getByText('Controlled Terminal')).toBeVisible();
-        await expect(page.getByText('Fast answers stay responsive, refined answers upgrade in place, and every commerce turn stays bounded by grounded data and explicit control paths.')).toBeVisible();
-        await expect(page.getByPlaceholder('Ask for products, order help, support, or attach media for a grounded match.')).toBeVisible();
-        await expect(page.getByText('Today')).toBeVisible();
-        await expect(page.getByText('Enter to send')).toBeVisible();
-        await expect(page.getByText('Shift+Enter for newline')).toBeVisible();
+        await expect(page.getByText('Commerce Copilot')).toBeVisible();
+        await expect(page.getByRole('heading', { name: 'New chat' })).toBeVisible();
+        await expect(page.getByText('Fast starts')).toBeVisible();
+        await expect(page.getByText('Start with a grounded shopping workflow.')).toBeVisible();
+        await expect(page.getByRole('button', { name: /Grounded comparison/ })).toBeVisible();
+        await expect(page.getByRole('button', { name: /Cart review/ })).toBeVisible();
+        await expect(page.getByPlaceholder('Compare products, review a cart, or find a match...')).toBeVisible();
         await expect(page.getByRole('button', { name: 'Upload attachments' })).toBeVisible();
     });
 
