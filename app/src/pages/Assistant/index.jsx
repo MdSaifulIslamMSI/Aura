@@ -494,22 +494,22 @@ const AssistantPage = () => {
     }, [isSidebarOpen]);
 
     return (
-        <div className="assistant-theme-shell relative h-[100dvh] overflow-hidden text-slate-100">
+        <div className="assistant-theme-shell relative h-screen overflow-hidden text-slate-100">
             <div className="assistant-theme-shell__base pointer-events-none absolute inset-0" />
-            <div className="assistant-theme-shell__rail pointer-events-none absolute inset-y-0 left-[19%] w-px" />
+            <div className="assistant-theme-shell__rail pointer-events-none absolute inset-y-0 left-1/4 w-px" />
             {isSidebarOpen ? (
                 <div
                     aria-hidden="true"
                     onClick={() => setIsSidebarOpen(false)}
-                    className="fixed inset-0 z-30 bg-[#02040a]/25 transition lg:hidden"
+                    className="fixed inset-0 z-30 bg-black/30 transition lg:hidden"
                 />
             ) : null}
-            <div className="relative mx-auto flex h-[100dvh] w-full max-w-[1650px] overflow-hidden">
+            <div className="relative mx-auto flex h-screen w-full overflow-hidden">
                 <aside className={cn(
-                    'assistant-history-panel fixed inset-y-0 left-0 z-40 flex h-[100dvh] w-[86vw] max-w-[336px] flex-col overflow-hidden border-r border-cyan-300/10 bg-[#07101d] px-3 py-4 shadow-[24px_0_80px_rgba(0,0,0,0.42)] transition-transform duration-300 lg:static lg:z-auto lg:w-full lg:max-w-[320px] lg:translate-x-0 lg:px-4 lg:py-5 lg:shadow-none',
+                    'assistant-history-panel fixed inset-y-0 left-0 z-40 flex h-screen w-72 max-w-full flex-col overflow-hidden border-r border-cyan-300/10 px-3 py-4 transition-transform duration-300 lg:static lg:z-auto lg:w-full lg:max-w-xs lg:translate-x-0 lg:px-4 lg:py-5 lg:shadow-none',
                     isSidebarOpen ? 'translate-x-0' : '-translate-x-full',
                 )}>
-                    <div className="rounded-[1.6rem] border border-white/10 bg-white/[0.03] p-4 shadow-[0_18px_60px_rgba(0,0,0,0.22)]">
+                    <div className="rounded-[1.6rem] border border-white/10 bg-white/[0.03] p-4 shadow-lg">
                         <div className="flex items-start justify-between gap-3">
                             <div className="flex items-center gap-3">
                                 <div className="flex h-12 w-12 items-center justify-center rounded-[1.35rem] border border-cyan-300/20 bg-cyan-400/10 text-cyan-200">
@@ -550,7 +550,7 @@ const AssistantPage = () => {
                     <button
                         type="button"
                         onClick={handleCreateNewChat}
-                        className="mt-4 inline-flex items-center justify-center gap-2 rounded-[1.2rem] border border-cyan-300/20 bg-[linear-gradient(135deg,rgba(34,211,238,0.16),rgba(16,185,129,0.12))] px-4 py-3 text-sm font-semibold text-cyan-50 transition hover:bg-[linear-gradient(135deg,rgba(34,211,238,0.22),rgba(16,185,129,0.16))]"
+                        className="mt-4 inline-flex items-center justify-center gap-2 rounded-[1.2rem] border border-cyan-300/20 bg-cyan-400/10 px-4 py-3 text-sm font-semibold text-cyan-50 transition hover:bg-cyan-400/20"
                     >
                         <Plus className="h-4 w-4" />
                         New chat
@@ -658,9 +658,9 @@ const AssistantPage = () => {
                     </div>
                 </aside>
 
-                <section aria-label="Assistant workspace" className="flex h-[100dvh] min-h-0 min-w-0 flex-1 flex-col overflow-hidden lg:pl-0">
+                <section aria-label="Assistant workspace" className="flex h-screen min-h-0 min-w-0 flex-1 flex-col overflow-hidden lg:pl-0">
                     <header className="assistant-command-header shrink-0 border-b border-white/10 bg-[linear-gradient(180deg,rgba(5,8,17,0.9),rgba(5,8,17,0.78))] px-3 py-3 backdrop-blur-xl sm:px-6 sm:py-4">
-                        <div className="assistant-command-header__panel rounded-[1rem] border border-white/10 bg-white/[0.025] px-3 py-3 shadow-[0_18px_58px_rgba(0,0,0,0.2)] sm:rounded-[1.2rem] sm:px-5 sm:py-4">
+                        <div className="assistant-command-header__panel rounded-[1rem] border border-white/10 bg-white/[0.03] px-3 py-3 shadow-lg sm:rounded-[1.2rem] sm:px-5 sm:py-4">
                             <div className="flex items-start justify-between gap-3 sm:flex-wrap sm:gap-4">
                                 <div className="flex items-start gap-3">
                                     <button
@@ -739,7 +739,7 @@ const AssistantPage = () => {
                     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
                         {!hasUserMessages && !isLoading ? (
                             <section className="assistant-starter-deck shrink-0 px-3 pt-2 sm:px-6 sm:pt-4">
-                                <div className="assistant-starter-panel mx-auto max-w-5xl rounded-[0.9rem] border border-white/10 bg-[linear-gradient(135deg,rgba(10,15,30,0.9),rgba(6,10,21,0.92))] p-2.5 shadow-[0_14px_46px_rgba(0,0,0,0.16)] sm:rounded-[1.2rem] sm:p-5">
+                                <div className="assistant-starter-panel mx-auto max-w-5xl rounded-[0.9rem] border border-white/10 p-2.5 shadow-lg sm:rounded-[1.2rem] sm:p-5">
                                     <div className="flex flex-wrap items-start justify-between gap-3">
                                         <div>
                                             <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-cyan-300 sm:text-[11px] sm:tracking-[0.18em]">
@@ -762,13 +762,13 @@ const AssistantPage = () => {
                                                 key={starter.id}
                                                 type="button"
                                                 onClick={() => handleStarterPrompt(starter)}
-                                                className="group min-h-[4.35rem] rounded-[0.8rem] border border-white/10 bg-white/[0.04] p-2.5 text-left transition hover:border-cyan-300/20 hover:bg-cyan-400/[0.08] sm:min-h-[7.4rem] sm:rounded-[1rem] sm:p-3.5"
+                                                className="group h-16 rounded-xl border border-white/10 bg-white/[0.04] p-2.5 text-left transition hover:border-cyan-300/20 hover:bg-cyan-400/10 sm:h-28 sm:rounded-[1rem] sm:p-3.5"
                                             >
                                                 <div className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-[0.14em] text-cyan-300 sm:gap-2 sm:text-[10px] sm:tracking-[0.17em]">
                                                     <CheckCircle2 className="h-3.5 w-3.5" />
                                                     {starter.intent === 'prefill' ? 'Stage' : 'Launch'}
                                                 </div>
-                                                <p className="mt-1.5 text-[13px] font-semibold leading-snug text-white sm:mt-2.5 sm:text-sm">{starter.title}</p>
+                                                <p className="mt-1.5 text-sm font-semibold leading-snug text-white sm:mt-2.5">{starter.title}</p>
                                                 <p className="mt-1 hidden text-xs leading-5 text-slate-400 sm:block">{starter.detail}</p>
                                             </button>
                                         ))}
@@ -790,7 +790,7 @@ const AssistantPage = () => {
                             onModifyPending={modifyPendingAction}
                         />
 
-                        <div className="shrink-0 border-t border-white/10 bg-[linear-gradient(180deg,rgba(5,8,17,0.94),rgba(5,8,17,1))] px-3 py-2 sm:px-5 sm:py-3">
+                        <div className="shrink-0 border-t border-white/10 bg-slate-950 px-3 py-2 sm:px-5 sm:py-3">
                             <div className="mx-auto w-full max-w-4xl">
                                 <input
                                     ref={fileInputRef}
@@ -864,7 +864,7 @@ const AssistantPage = () => {
                                         setAttachments([]);
                                         setAttachmentError('');
                                     }}
-                                    className="assistant-composer-form rounded-[1.35rem] border border-cyan-300/15 bg-[#07101d]/95 px-2.5 py-2 shadow-[0_16px_44px_rgba(0,0,0,0.34)] transition focus-within:border-cyan-300/35 sm:rounded-[1.6rem] sm:px-3"
+                                    className="rounded-[1.35rem] border border-cyan-300/20 px-2.5 py-2 transition sm:rounded-[1.6rem] sm:px-3"
                                 >
                                     <div className="flex items-center gap-2 sm:gap-3">
                                         <button
@@ -876,7 +876,7 @@ const AssistantPage = () => {
                                             <Paperclip className="h-4 w-4" />
                                         </button>
 
-                                        <div className="assistant-composer-field min-w-0 flex-1 rounded-full px-3">
+                                        <div className="min-w-0 flex-1 rounded-full px-3">
                                             <textarea
                                                 ref={inputRef}
                                                 value={inputValue}
@@ -906,7 +906,7 @@ const AssistantPage = () => {
                                                 rows={Math.min(Math.max(String(inputValue || '').split('\n').length, 1), 6)}
                                                 placeholder={isListening ? 'Listening...' : 'Compare products, review a cart, or find a match...'}
                                                 disabled={isLoading}
-                                                className="assistant-composer-textarea block max-h-28 min-h-[42px] w-full resize-none overflow-y-auto bg-transparent px-0 py-2 text-[15px] leading-6 text-white outline-none placeholder:text-slate-500 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:min-h-[48px]"
+                                                className="assistant-composer-textarea block max-h-28 min-h-10 w-full resize-none overflow-y-auto bg-transparent px-0 py-2 text-[15px] leading-6 text-white outline-none placeholder:text-slate-500 sm:min-h-12"
                                             />
                                         </div>
 
