@@ -7,6 +7,7 @@ import {
     buildSupportHandoffPath,
     capVisibleActions,
     deriveAssistantMode,
+    normalizeProductSummary,
     normalizeBackendActions,
     parseAssistantCommand,
 } from './assistantCommands';
@@ -64,6 +65,21 @@ describe('assistantCommands', () => {
         expect(payload.assistantMode).toBe('compare');
         expect(payload.context.productIds).toEqual(['501', '502']);
         expect(payload.context.routeLabel).toBe('Catalog');
+    });
+
+    it('preserves grounded assistant product fit metadata', () => {
+        expect(normalizeProductSummary({
+            id: 501,
+            title: 'Aura Laptop',
+            assistantRank: 1,
+            assistantReason: 'within Rs 60000',
+            assistantWatchout: 'low review depth',
+        })).toMatchObject({
+            id: '501',
+            assistantRank: 1,
+            assistantReason: 'within Rs 60000',
+            assistantWatchout: 'low review depth',
+        });
     });
 
     it('normalizes only supported backend actions', () => {
