@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   AlertTriangle,
@@ -22,6 +22,25 @@ import {
 import { isAdminPath } from '../../../services/assistantUiConfig';
 
 const TRUSTED_DEVICE_METHOD_ORDER = ['webauthn', 'browser_key'];
+const TRUSTED_DEVICE_FOCUSABLE_SELECTOR = [
+  'a[href]',
+  'button:not([disabled])',
+  'input:not([disabled])',
+  'select:not([disabled])',
+  'textarea:not([disabled])',
+  '[tabindex]:not([tabindex="-1"])',
+].join(',');
+
+const getTrustedDeviceFocusableElements = (container) => (
+  Array.from(container?.querySelectorAll(TRUSTED_DEVICE_FOCUSABLE_SELECTOR) || [])
+    .filter((element) => (
+      element
+      && !element.hasAttribute('hidden')
+      && element.getAttribute('aria-hidden') !== 'true'
+      && element.tabIndex >= 0
+      && typeof element.focus === 'function'
+    ))
+);
 
 const normalizeTrustedDeviceMethod = (value = '') => {
   const normalized = String(value || '').trim().toLowerCase();
@@ -204,6 +223,9 @@ const AuraTrustedDeviceChallenge = () => {
   const [selectedMethod, setSelectedMethod] = useState('');
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [showMethodChooser, setShowMethodChooser] = useState(false);
+  const dialogRef = useRef(null);
+  const primaryActionRef = useRef(null);
+  const methodOptionRefs = useRef({});
 
   const challengeMode = String(deviceChallenge?.mode || '').trim() === 'enroll'
     ? 'enroll'
@@ -281,10 +303,6 @@ const AuraTrustedDeviceChallenge = () => {
     };
   }, [shouldRenderTrustedGate]);
 
-  if (!shouldRenderTrustedGate) {
-    return null;
-  }
-
   const activeMethod = normalizeTrustedDeviceMethod(selectedMethod) || defaultSelectedMethod;
   const selectedMethodSupported = activeMethod === 'webauthn'
     ? canUsePasskey
@@ -341,12 +359,125 @@ const AuraTrustedDeviceChallenge = () => {
         : 'You can keep browsing normally. Verify this device when you want to unlock admin and other privileged actions.'
     );
 
+  const isTrustedDeviceMethodSupported = (method) => (
+    method === 'webauthn'
+      ? canUsePasskey
+      : canUseBrowserKey
+  );
+
+  const focusTrustedDeviceMethod = (method) => {
+    const target = methodOptionRefs.current[method];
+    if (!target || target.disabled) return;
+
+    if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+      window.requestAnimationFrame(() => target.focus({ preventScroll: true }));
+      return;
+    }
+
+    target.focus({ preventScroll: true });
+  };
+
+  const selectTrustedDeviceMethod = (method) => {
+    setSelectedMethod(method);
+    setErrorMessage('');
+    focusTrustedDeviceMethod(method);
+  };
+
+  const handleMethodOptionKeyDown = (event, method) => {
+    const supportedMethods = TRUSTED_DEVICE_METHOD_ORDER.filter(isTrustedDeviceMethodSupported);
+    if (!supportedMethods.length) return;
+
+    const currentIndex = Math.max(supportedMethods.indexOf(method), 0);
+    let nextMethod = '';
+
+    if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+      nextMethod = supportedMethods[(currentIndex + 1) % supportedMethods.length];
+    } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+      nextMethod = supportedMethods[(currentIndex - 1 + supportedMethods.length) % supportedMethods.length];
+    } else if (event.key === 'Home') {
+      nextMethod = supportedMethods[0];
+    } else if (event.key === 'End') {
+      nextMethod = supportedMethods[supportedMethods.length - 1];
+    }
+
+    if (!nextMethod) return;
+
+    event.preventDefault();
+    selectTrustedDeviceMethod(nextMethod);
+  };
+
+  useEffect(() => {
+    if (!shouldRenderTrustedGate || typeof document === 'undefined') {
+      return undefined;
+    }
+
+    const previouslyFocusedElement = document.activeElement;
+    const focusInitialElement = () => {
+      const target = primaryActionRef.current && !primaryActionRef.current.disabled
+        ? primaryActionRef.current
+        : getTrustedDeviceFocusableElements(dialogRef.current)[0];
+
+      target?.focus({ preventScroll: true });
+    };
+
+    const animationFrameId = typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function'
+      ? window.requestAnimationFrame(focusInitialElement)
+      : window.setTimeout(focusInitialElement, 0);
+
+    const handleFocusTrapKeyDown = (event) => {
+      if (event.key !== 'Tab') return;
+
+      const dialog = dialogRef.current;
+      const focusableElements = getTrustedDeviceFocusableElements(dialog);
+      if (!dialog || !focusableElements.length) {
+        event.preventDefault();
+        return;
+      }
+
+      const firstElement = focusableElements[0];
+      const lastElement = focusableElements[focusableElements.length - 1];
+      const activeElement = document.activeElement;
+      const focusIsInsideDialog = dialog.contains(activeElement);
+
+      if (event.shiftKey && (!focusIsInsideDialog || activeElement === firstElement)) {
+        event.preventDefault();
+        lastElement.focus({ preventScroll: true });
+        return;
+      }
+
+      if (!event.shiftKey && (!focusIsInsideDialog || activeElement === lastElement)) {
+        event.preventDefault();
+        firstElement.focus({ preventScroll: true });
+      }
+    };
+
+    document.addEventListener('keydown', handleFocusTrapKeyDown);
+
+    return () => {
+      if (typeof window !== 'undefined' && typeof window.cancelAnimationFrame === 'function') {
+        window.cancelAnimationFrame(animationFrameId);
+      } else if (typeof window !== 'undefined') {
+        window.clearTimeout(animationFrameId);
+      }
+
+      document.removeEventListener('keydown', handleFocusTrapKeyDown);
+      if (previouslyFocusedElement && document.contains(previouslyFocusedElement) && typeof previouslyFocusedElement.focus === 'function') {
+        previouslyFocusedElement.focus({ preventScroll: true });
+      }
+    };
+  }, [deviceChallenge?.token, shouldRenderTrustedGate]);
+
+  if (!shouldRenderTrustedGate) {
+    return null;
+  }
+
   if (!isBlockingRoute && isCollapsed) {
     return (
       <AnimatePresence>
         <motion.button
           key="trusted-device-minimized"
           type="button"
+          aria-label="Open trusted device checkpoint"
           initial={{ opacity: 0, y: 18, scale: 0.96 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 18, scale: 0.96 }}
@@ -454,6 +585,8 @@ const AuraTrustedDeviceChallenge = () => {
         role="dialog"
         aria-modal={isBlockingRoute}
         aria-labelledby="trusted-device-gate-heading"
+        aria-describedby="trusted-device-gate-description"
+        ref={dialogRef}
         className={
           isBlockingRoute
             ? 'trusted-device-gate trusted-device-gate--blocking fixed inset-0 z-[95] flex items-center justify-center px-3 py-3 backdrop-blur-xl sm:px-4 sm:py-5'
@@ -486,7 +619,7 @@ const AuraTrustedDeviceChallenge = () => {
                     <h2 id="trusted-device-gate-heading" className="max-w-lg text-2xl font-black tracking-tight text-white sm:text-3xl">
                       {heading}
                     </h2>
-                    <p className="max-w-xl text-sm leading-6 text-slate-300">
+                    <p id="trusted-device-gate-description" className="max-w-xl text-sm leading-6 text-slate-300">
                       {introMessage}
                     </p>
                   </div>
@@ -546,6 +679,16 @@ const AuraTrustedDeviceChallenge = () => {
                       const selected = activeMethod === method;
                       const preferred = preferredMethod === method;
                       const MethodIcon = method === 'webauthn' ? ShieldCheck : KeyRound;
+                      const methodLabel = getTrustedDeviceMethodLabel(method, supportProfile);
+                      const methodNote = getTrustedDeviceMethodNote({
+                        challengeMode,
+                        fallbackHost,
+                        hostUsesBrowserKeyOnly,
+                        method,
+                        offered,
+                        registeredMethod,
+                        supported,
+                      });
                       const badge = getTrustedDeviceMethodBadge({
                         offered,
                         preferred,
@@ -559,12 +702,17 @@ const AuraTrustedDeviceChallenge = () => {
                           type="button"
                           role="radio"
                           aria-checked={selected}
-                          aria-label={getTrustedDeviceMethodLabel(method, supportProfile)}
+                          aria-label={methodLabel}
+                          aria-describedby={`trusted-device-blocking-${method}-description`}
                           disabled={!supported}
-                          onClick={() => {
-                            setSelectedMethod(method);
-                            setErrorMessage('');
+                          ref={(node) => {
+                            if (node) methodOptionRefs.current[method] = node;
                           }}
+                          tabIndex={selected && supported ? 0 : -1}
+                          onClick={() => {
+                            selectTrustedDeviceMethod(method);
+                          }}
+                          onKeyDown={(event) => handleMethodOptionKeyDown(event, method)}
                           className={[
                             'rounded-[1.1rem] border p-3 text-left transition-colors',
                             selected
@@ -579,23 +727,18 @@ const AuraTrustedDeviceChallenge = () => {
                                 <MethodIcon className="h-4 w-4" />
                               </span>
                               <div>
-                                <p className="text-sm font-semibold text-white">{getTrustedDeviceMethodLabel(method, supportProfile)}</p>
+                                <p className="text-sm font-semibold text-white">{methodLabel}</p>
                                 <p className={`mt-1 text-[10px] font-black uppercase tracking-[0.18em] ${selected ? 'text-cyan-100' : 'text-slate-400'}`}>
                                   {badge}
                                 </p>
                               </div>
                             </div>
                           </div>
+                          <span id={`trusted-device-blocking-${method}-description`} className="sr-only">
+                            {badge}. {methodNote}
+                          </span>
                           <p className="mt-3 text-xs leading-5 text-slate-400">
-                            {getTrustedDeviceMethodNote({
-                              challengeMode,
-                              fallbackHost,
-                              hostUsesBrowserKeyOnly,
-                              method,
-                              offered,
-                              registeredMethod,
-                              supported,
-                            })}
+                            {methodNote}
                           </p>
                         </button>
                       );
@@ -639,7 +782,7 @@ const AuraTrustedDeviceChallenge = () => {
                   ) : null}
 
                   {errorMessage ? (
-                    <div className="rounded-[1.1rem] border border-rose-300/20 bg-rose-300/10 p-3 text-sm leading-6 text-rose-100">
+                    <div className="rounded-[1.1rem] border border-rose-300/20 bg-rose-300/10 p-3 text-sm leading-6 text-rose-100" role="alert">
                       <div className="flex items-start gap-3">
                         <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                         <p>{errorMessage}</p>
@@ -652,6 +795,7 @@ const AuraTrustedDeviceChallenge = () => {
                       type="button"
                       onClick={handleVerify}
                       disabled={isWorking || isResetting || !selectedMethodSupported}
+                      ref={primaryActionRef}
                       className="inline-flex flex-1 items-center justify-center gap-3 rounded-[1.1rem] bg-cyan-300 px-5 py-3.5 text-sm font-black uppercase tracking-[0.16em] text-slate-950 transition-transform hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {isWorking ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
@@ -695,7 +839,7 @@ const AuraTrustedDeviceChallenge = () => {
                       <h2 id="trusted-device-gate-heading" className="text-2xl font-black tracking-tight text-white sm:text-[2rem]">
                         {heading}
                       </h2>
-                      <p className="text-sm leading-6 text-slate-300">
+                      <p id="trusted-device-gate-description" className="text-sm leading-6 text-slate-300">
                         {introMessage}
                       </p>
                     </div>
@@ -744,6 +888,7 @@ const AuraTrustedDeviceChallenge = () => {
                         type="button"
                         onClick={handleVerify}
                         disabled={isWorking || isResetting || !selectedMethodSupported}
+                        ref={primaryActionRef}
                         className="inline-flex w-full items-center justify-center gap-3 rounded-[1.5rem] bg-cyan-300 px-5 py-4 text-sm font-black uppercase tracking-[0.18em] text-slate-950 transition-transform hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         {isWorking ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
@@ -796,6 +941,16 @@ const AuraTrustedDeviceChallenge = () => {
                         const selected = activeMethod === method;
                         const preferred = preferredMethod === method;
                         const MethodIcon = method === 'webauthn' ? ShieldCheck : KeyRound;
+                        const methodLabel = getTrustedDeviceMethodLabel(method, supportProfile);
+                        const methodNote = getTrustedDeviceMethodNote({
+                          challengeMode,
+                          fallbackHost,
+                          hostUsesBrowserKeyOnly,
+                          method,
+                          offered,
+                          registeredMethod,
+                          supported,
+                        });
                         const badge = getTrustedDeviceMethodBadge({
                           offered,
                           preferred,
@@ -809,12 +964,17 @@ const AuraTrustedDeviceChallenge = () => {
                             type="button"
                             role="radio"
                             aria-checked={selected}
-                            aria-label={getTrustedDeviceMethodLabel(method, supportProfile)}
+                            aria-label={methodLabel}
+                            aria-describedby={`trusted-device-inline-${method}-description`}
                             disabled={!supported}
-                            onClick={() => {
-                              setSelectedMethod(method);
-                              setErrorMessage('');
+                            ref={(node) => {
+                              if (node) methodOptionRefs.current[method] = node;
                             }}
+                            tabIndex={selected && supported ? 0 : -1}
+                            onClick={() => {
+                              selectTrustedDeviceMethod(method);
+                            }}
+                            onKeyDown={(event) => handleMethodOptionKeyDown(event, method)}
                             className={[
                               'rounded-[1.5rem] border p-4 text-left transition-colors',
                               selected
@@ -829,23 +989,18 @@ const AuraTrustedDeviceChallenge = () => {
                                   <MethodIcon className="h-4 w-4" />
                                 </span>
                                 <div>
-                                  <p className="text-sm font-semibold text-white">{getTrustedDeviceMethodLabel(method, supportProfile)}</p>
+                                  <p className="text-sm font-semibold text-white">{methodLabel}</p>
                                   <p className={`mt-1 text-[11px] font-black uppercase tracking-[0.18em] ${selected ? 'text-cyan-100' : 'text-slate-400'}`}>
                                     {badge}
                                   </p>
                                 </div>
                               </div>
                             </div>
+                            <span id={`trusted-device-inline-${method}-description`} className="sr-only">
+                              {badge}. {methodNote}
+                            </span>
                             <p className="mt-4 text-xs leading-5 text-slate-400">
-                              {getTrustedDeviceMethodNote({
-                                challengeMode,
-                                fallbackHost,
-                                hostUsesBrowserKeyOnly,
-                                method,
-                                offered,
-                                registeredMethod,
-                                supported,
-                              })}
+                              {methodNote}
                             </p>
                           </button>
                         );
@@ -873,7 +1028,7 @@ const AuraTrustedDeviceChallenge = () => {
                 ) : null}
 
                 {errorMessage ? (
-                  <div className="rounded-[1.5rem] border border-rose-300/20 bg-rose-300/10 p-4 text-sm leading-6 text-rose-100">
+                  <div className="rounded-[1.5rem] border border-rose-300/20 bg-rose-300/10 p-4 text-sm leading-6 text-rose-100" role="alert">
                     <div className="flex items-start gap-3">
                       <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                       <p>{errorMessage}</p>
