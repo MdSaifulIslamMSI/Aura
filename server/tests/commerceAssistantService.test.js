@@ -253,10 +253,40 @@ describe('commerceAssistantService helpers', () => {
         });
 
         expect(result).toContain('Dell Inspiron 14 is the strongest value pick.');
+        expect(result).toContain('**Decision signals**');
+        expect(result).toContain('Applied: category Laptops; under Rs 50,000.');
+        expect(result).toContain('Shortlist: 1 verified result, Rs 49,999-Rs 49,999; 1/1 in stock.');
         expect(result).toContain('**Grounded picks**');
         expect(result).toContain('Best fit: Dell Inspiron 14 by Dell - Rs 49,999');
         expect(result).toContain('within Rs 50,000');
         expect(result).toContain('**Next step**');
+    });
+
+    test('buildCommerceResponseText labels relaxed alternatives without hiding original filters', () => {
+        const result = __testables.buildCommerceResponseText({
+            answer: 'This is the nearest verified option.',
+            products: [{
+                id: 51,
+                title: 'Cotton Shirt',
+                brand: 'Aura Basics',
+                category: "Men's Fashion",
+                price: 1299,
+                stock: 4,
+                rating: 4.2,
+            }],
+            filters: {
+                category: 'Fashion',
+                maxPrice: 1000,
+            },
+            relaxation: {
+                reason: 'relaxed_budget',
+                label: 'budget above Rs 1,000',
+            },
+        });
+
+        expect(result).toContain('No exact catalog match for category Fashion; under Rs 1,000');
+        expect(result).toContain('Relaxed: budget above Rs 1,000');
+        expect(result).toContain('watch: above Rs 1,000');
     });
 
     test('inferStructuredRetrievalFilters pulls hard commerce constraints from the user message', () => {
@@ -320,6 +350,94 @@ describe('commerceAssistantService helpers', () => {
         }, {
             category: 'Fashion',
         })).toBe(false);
+    });
+
+    test('matchesRetrievalFilters lets generic fashion match gendered fashion categories', () => {
+        expect(__testables.matchesRetrievalFilters({
+            title: 'Printed cotton kurta',
+            brand: 'Aura',
+            category: "Women's Fashion",
+            price: 999,
+            stock: 3,
+            rating: 4.3,
+        }, {
+            category: 'Fashion',
+        })).toBe(true);
+    });
+
+    test('sortCommerceEntries promotes the best grounded fit over raw retrieval score', () => {
+        const result = __testables.sortCommerceEntries([{
+            score: 0.3,
+            product: {
+                id: 1,
+                title: 'Budget Cotton Shirt',
+                category: "Men's Fashion",
+                price: 899,
+                stock: 5,
+                rating: 4.6,
+                ratingCount: 80,
+            },
+        }, {
+            score: 0.8,
+            product: {
+                id: 2,
+                title: 'Out of Stock Designer Shirt',
+                category: "Men's Fashion",
+                price: 2400,
+                stock: 0,
+                rating: 3.2,
+                ratingCount: 4,
+            },
+        }], {
+            category: 'Fashion',
+            maxPrice: 1000,
+            inStock: true,
+        });
+
+        expect(result[0].product.id).toBe(1);
+    });
+
+    test('buildRelaxedRetrievalPlans relaxes tight constraints without dropping the category', () => {
+        const plans = __testables.buildRelaxedRetrievalPlans({
+            query: 'fashion products',
+            filters: {
+                category: 'Fashion',
+                maxPrice: 500,
+                inStock: true,
+                requiredTerms: ['cotton'],
+            },
+        });
+
+        expect(plans).toEqual(expect.arrayContaining([
+            expect.objectContaining({
+                reason: 'relaxed_budget',
+                filters: expect.objectContaining({
+                    category: 'Fashion',
+                    maxPrice: 0,
+                }),
+            }),
+            expect.objectContaining({
+                reason: 'relaxed_stock',
+                filters: expect.objectContaining({
+                    category: 'Fashion',
+                    inStock: null,
+                }),
+            }),
+        ]));
+        expect(plans.every((plan) => plan.filters.category === 'Fashion')).toBe(true);
+    });
+
+    test('buildNoResultResponseText refuses unrelated product filler', () => {
+        const result = __testables.buildNoResultResponseText({
+            query: 'fashion products',
+            filters: {
+                category: 'Fashion',
+                maxPrice: 500,
+            },
+        });
+
+        expect(result).toContain('category Fashion; under Rs 500');
+        expect(result).toContain('I will not fill the gap with unrelated products.');
     });
 
     test('validateRetrievalQueryPayload keeps structured filters for the retriever', () => {
