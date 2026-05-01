@@ -34,6 +34,8 @@ const COMMERCE_CONTEXT_INTENTS = new Set(['product_search', 'product_selection']
 const FOLLOW_UP_REFINEMENT_PATTERN = /^(?:no\b|not\b|only\b|instead\b|more\b|another\b|else\b|different\b|similar\b|cheaper\b|budget\b|premium\b|show\b|in\b|for\b|under\b|above\b|around\b|within\b|prefer\b|want\b)/i;
 const COMMERCE_COMPARISON_PATTERN = /\b(which|best|better|compare|comparison|difference|different|rating|rated|review|reviews|why|worth|spec|specs|feature|features|camera|battery|display|ram|storage|faster|slower|cheapest|highest|lowest|top)\b/i;
 const GENERAL_QUESTION_PATTERN = /^(?:who|what|when|where|why|how|are|is|am|can|could|would|will|did|do)\b/i;
+const SMALL_TALK_PATTERN = /^(?:hi|hello|hey|yo|thanks|thank you|ok|okay|cool|great|nice|good morning|good afternoon|good evening)(?:\s+(?:there|assistant|codex))?[!.?\s]*$/i;
+const COMMERCE_KEYWORD_PATTERN = /\b(price|prices|cost|costs|product|products|item|items|phone|phones|mobile|mobiles|laptop|laptops|shoe|shoes|shirt|shirts|dress|dresses|jeans|tshirt|t-shirt|kurta|saree|jacket|fashion|clothing|apparel|footwear|compare|comparison|available|availability|stock|delivery|seller|warranty|return|returns|brand|brands|rupees|rs)\b/i;
 const RETRIEVAL_SORT_VALUES = new Set(['relevance', 'rating_desc', 'price_asc', 'price_desc']);
 const COMMERCE_CATEGORY_HINTS = [
     'fashion',
@@ -135,6 +137,29 @@ const inferCanonicalCategory = (value = '') => {
     if (!normalized) return '';
 
     const synonymMap = new Map([
+        ['fashion', 'Fashion'],
+        ['clothing', 'Fashion'],
+        ['apparel', 'Fashion'],
+        ['shirt', 'Fashion'],
+        ['shirts', 'Fashion'],
+        ['dress', 'Fashion'],
+        ['dresses', 'Fashion'],
+        ['jeans', 'Fashion'],
+        ['tshirt', 'Fashion'],
+        ['t-shirt', 'Fashion'],
+        ['kurta', 'Fashion'],
+        ['saree', 'Fashion'],
+        ['jacket', 'Fashion'],
+        ['menswear', "Men's Fashion"],
+        ['men fashion', "Men's Fashion"],
+        ['mens fashion', "Men's Fashion"],
+        ["men's fashion", "Men's Fashion"],
+        ['men', "Men's Fashion"],
+        ['womenswear', "Women's Fashion"],
+        ['women fashion', "Women's Fashion"],
+        ['womens fashion', "Women's Fashion"],
+        ["women's fashion", "Women's Fashion"],
+        ['women', "Women's Fashion"],
         ['shoe', 'Footwear'],
         ['shoes', 'Footwear'],
         ['heel', 'Footwear'],
@@ -230,7 +255,13 @@ const inferStructuredRetrievalFilters = ({ payload = {}, message = '', assistant
     }
 
     if (!inferred.category) {
-        inferred.category = inferCanonicalCategory(safeMessage) || safeString(lastEntities?.category || '');
+        const explicitCategory = inferCanonicalCategory(safeMessage);
+        const hasExplicitCategoryHint = Boolean(extractCommerceCategoryHint(safeMessage));
+        const canReuseLastCategory = !hasExplicitCategoryHint && shouldRouteAsCommerceFollowUp({
+            message: safeMessage,
+            assistantSession,
+        });
+        inferred.category = explicitCategory || (canReuseLastCategory ? safeString(lastEntities?.category || '') : '');
     } else {
         inferred.category = safeString(resolveCategory(inferred.category) || inferred.category);
     }
@@ -593,7 +624,7 @@ const hasRecentCommerceContext = (assistantSession = {}) => (
 const extractCommerceCategoryHint = (message = '') => {
     const normalized = safeString(message).toLowerCase();
     if (!normalized) return '';
-    return COMMERCE_CATEGORY_HINTS.find((hint) => normalized.includes(hint)) || '';
+    return COMMERCE_CATEGORY_HINTS.find((hint) => new RegExp(`\\b${escapeRegExp(hint)}\\b`, 'i').test(normalized)) || '';
 };
 
 const shouldRouteAsCommerceFollowUp = ({ message = '', assistantSession = {} } = {}) => {
@@ -879,7 +910,6 @@ const detectRoute = ({
     message = '',
     actionRequest = null,
     confirmation = null,
-    context = {},
     assistantSession = {},
     images = [],
     audio = [],
@@ -893,12 +923,11 @@ const detectRoute = ({
     if (ACTION_ROUTE_PATTERN.test(normalized)) {
         return { route: ROUTE_ACTION, reason: 'keyword_action' };
     }
+    if (SMALL_TALK_PATTERN.test(normalized)) {
+        return { route: ROUTE_GENERAL, reason: 'small_talk' };
+    }
     if (
-        (Array.isArray(images) && images.length > 0)
-        || (Array.isArray(audio) && audio.length > 0)
-        || context?.currentProductId
-        || (Array.isArray(context?.candidateProductIds) && context.candidateProductIds.length > 0)
-        || /\b(price|prices|cost|costs|product|products|phone|phones|laptop|laptops|shoe|shoes|compare|comparison|available|availability|stock|delivery|brand|brands|rupees|rs)\b/i.test(normalized)
+        COMMERCE_KEYWORD_PATTERN.test(normalized)
         || /\bunder\s+\d+\b/i.test(normalized)
         || shouldRouteAsCommerceFollowUp({ message: normalized, assistantSession })
     ) {

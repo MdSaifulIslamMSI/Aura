@@ -35,6 +35,22 @@ describe('commerceAssistantService helpers', () => {
         expect(result.route).toBe(ROUTE_GENERAL);
     });
 
+    test('detectRoute keeps greetings GENERAL even when stale product context exists', () => {
+        const result = __testables.detectRoute({
+            message: 'hello',
+            context: {
+                currentProductId: '400047506',
+                candidateProductIds: ['400047506'],
+            },
+            assistantSession: {
+                lastIntent: 'product_search',
+                lastResults: [{ id: 400047506, title: 'Dell XPS 13', category: 'Electronics' }],
+            },
+        });
+
+        expect(result.route).toBe(ROUTE_GENERAL);
+    });
+
     test('detectRoute uses ECOMMERCE when media is attached', () => {
         const result = __testables.detectRoute({
             message: '',
@@ -273,6 +289,39 @@ describe('commerceAssistantService helpers', () => {
         });
     });
 
+    test('inferStructuredRetrievalFilters treats explicit fashion as a fresh category, not stale electronics', () => {
+        expect(__testables.inferStructuredRetrievalFilters({
+            message: 'show me fashion product',
+            assistantSession: {
+                lastEntities: {
+                    category: 'Electronics',
+                },
+            },
+        })).toEqual({
+            category: 'Fashion',
+            brand: '',
+            minPrice: 0,
+            maxPrice: 0,
+            minRating: 0,
+            inStock: null,
+            sortBy: '',
+            requiredTerms: [],
+        });
+    });
+
+    test('matchesRetrievalFilters blocks electronics when the user asked for fashion', () => {
+        expect(__testables.matchesRetrievalFilters({
+            title: 'Dell XPS 13 9300 Laptop',
+            brand: 'Dell',
+            category: 'Electronics',
+            price: 16563,
+            stock: 2,
+            rating: 4.7,
+        }, {
+            category: 'Fashion',
+        })).toBe(false);
+    });
+
     test('validateRetrievalQueryPayload keeps structured filters for the retriever', () => {
         const result = __testables.validateRetrievalQueryPayload({
             query: 'mens fashion shirt',
@@ -317,7 +366,7 @@ describe('commerceAssistantService helpers', () => {
             provider: '',
             providerModel: '',
             filters: {
-                category: '',
+                category: 'Fashion',
                 brand: '',
                 minPrice: 0,
                 maxPrice: 0,
