@@ -227,6 +227,41 @@ const getLifecycleTone = (state) => {
     return 'border-white/10 bg-white/[0.035] text-slate-300';
 };
 
+const getPaymentUnavailableReason = ({
+    methodId,
+    paymentCapabilities,
+    selectedMarketCountryCode,
+    selectedMarketCurrency,
+    t,
+}) => {
+    const market = `${selectedMarketCountryCode || 'IN'}/${selectedMarketCurrency || 'INR'}`;
+    const defaultCountry = paymentCapabilities?.markets?.defaultCountryCode || 'IN';
+    const defaultCurrency = paymentCapabilities?.markets?.defaultCurrency || paymentCapabilities?.markets?.settlementCurrency || 'INR';
+    const defaultMarket = `${defaultCountry}/${defaultCurrency}`;
+    const rail = paymentCapabilities?.markets?.railMatrix?.[methodId] || null;
+
+    if (rail?.available === false) {
+        return t('checkout.payment.providerRailUnavailable', {}, 'Provider rail unavailable right now.');
+    }
+
+    if (methodId === 'COD') {
+        return t('checkout.payment.codUnavailableForMarket', {
+            market,
+        }, `Cash on Delivery unavailable for ${market}.`);
+    }
+
+    if (rail?.countryMode === 'allowlist') {
+        return t('checkout.payment.domesticRailUnavailable', {
+            market,
+            defaultMarket,
+        }, `Unavailable for ${market}. Switch to ${defaultMarket} to use this rail.`);
+    }
+
+    return t('checkout.payment.marketRailUnavailable', {
+        market,
+    }, `Unavailable for ${market}.`);
+};
+
 const StepPayment = ({
     isActive,
     completed,
@@ -281,7 +316,7 @@ const StepPayment = ({
     const selectedMarketCountryCode = String(paymentMarket?.countryCode || 'IN').trim().toUpperCase();
     const selectedMarketCurrency = String(paymentMarket?.currency || 'INR').trim().toUpperCase();
     const enabledPaymentMethods = paymentMethods.length > 0 ? paymentMethods : PAYMENT_OPTIONS.map((option) => option.id);
-    const visiblePaymentOptions = PAYMENT_OPTIONS.filter((option) => enabledPaymentMethods.includes(option.id));
+    const enabledPaymentMethodSet = new Set(enabledPaymentMethods);
     const featuredBanks = Array.isArray(netbankingCatalog?.featuredBanks) ? netbankingCatalog.featuredBanks : [];
     const cardCurrencies = paymentCapabilities?.markets?.railMatrix?.CARD?.currencies || [];
     const cardCurrencyOptions = useMemo(() => {
@@ -324,7 +359,7 @@ const StepPayment = ({
                     ? paymentCapabilities?.rails?.netbanking
                     : null;
     const selectedMarketSummary = getMarketRailSummary(paymentMethod, paymentCapabilities?.markets, t);
-    const selectedPaymentOption = visiblePaymentOptions.find((option) => option.id === paymentMethod) || PAYMENT_OPTIONS[0];
+    const selectedPaymentOption = PAYMENT_OPTIONS.find((option) => option.id === paymentMethod) || PAYMENT_OPTIONS[0];
     const SelectedPaymentIcon = selectedPaymentOption.icon || CreditCard;
     const activeProvider = String(paymentIntent?.provider || paymentCapabilities?.provider || 'razorpay').trim().toLowerCase();
     const activeProviderLabel = activeProvider === 'stripe' ? 'Stripe' : 'Razorpay';
@@ -482,19 +517,33 @@ const StepPayment = ({
                                 role="group"
                                 aria-label={t('checkout.payment.methodGroup', {}, 'Payment method')}
                             >
-                                {visiblePaymentOptions.map((option) => {
+                                {PAYMENT_OPTIONS.map((option) => {
                                     const Icon = option.icon;
                                     const selected = paymentMethod === option.id;
+                                    const unavailable = !enabledPaymentMethodSet.has(option.id);
+                                    const unavailableReason = unavailable
+                                        ? getPaymentUnavailableReason({
+                                            methodId: option.id,
+                                            paymentCapabilities,
+                                            selectedMarketCountryCode,
+                                            selectedMarketCurrency,
+                                            t,
+                                        })
+                                        : '';
 
                                     return (
                                         <button
                                             key={option.id}
                                             type="button"
-                                            onClick={() => onPaymentMethodChange(option.id)}
+                                            onClick={() => {
+                                                if (!unavailable) onPaymentMethodChange(option.id);
+                                            }}
+                                            disabled={unavailable}
                                             aria-pressed={selected}
                                             className={cn(
                                                 'checkout-premium-option checkout-payment-method-card',
-                                                selected && 'checkout-premium-option-active checkout-payment-method-card-active'
+                                                selected && 'checkout-premium-option-active checkout-payment-method-card-active',
+                                                unavailable && 'cursor-not-allowed border-dashed opacity-60'
                                             )}
                                         >
                                             <div className="flex items-start justify-between gap-3">
@@ -509,6 +558,9 @@ const StepPayment = ({
                                                 </div>
                                                 {selected ? <CheckCircle2 className="mt-1 h-4 w-4 shrink-0 text-neo-cyan" /> : null}
                                             </div>
+                                            {unavailableReason ? (
+                                                <p className="mt-3 text-left text-xs font-semibold text-amber-200">{unavailableReason}</p>
+                                            ) : null}
                                         </button>
                                     );
                                 })}
