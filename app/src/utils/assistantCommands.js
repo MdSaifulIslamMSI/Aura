@@ -94,6 +94,9 @@ export const normalizeProductSummary = (product = {}) => ({
     rating: Number(product?.rating || 0),
     ratingCount: Number(product?.ratingCount || 0),
     category: safeString(product?.category || ''),
+    assistantRank: Math.max(0, Number(product?.assistantRank || 0)),
+    assistantReason: safeString(product?.assistantReason || product?.reason || ''),
+    assistantWatchout: safeString(product?.assistantWatchout || product?.watchout || ''),
 });
 
 export const getAssistantRouteLabel = (pathname = '/') => {

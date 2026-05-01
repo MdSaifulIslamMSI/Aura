@@ -117,6 +117,9 @@ const normalizeProductCard = (product = {}) => ({
             value: safeString(entry?.value || ''),
         })).filter((entry) => entry.key && entry.value).slice(0, 12)
         : [],
+    assistantRank: Math.max(0, Number(product?.assistantRank || 0)),
+    assistantReason: safeString(product?.assistantReason || product?.reason || ''),
+    assistantWatchout: safeString(product?.assistantWatchout || product?.watchout || ''),
 });
 const normalizeRetrievalSortBy = (value = '') => {
     const normalized = safeString(value).toLowerCase();
@@ -786,21 +789,25 @@ const buildHostedGemmaUnavailableEnvelope = ({
     retrieval = null,
     retrievalQuery = null,
 } = {}) => {
-    const normalizedProducts = (Array.isArray(products) ? products : [])
-        .map((product) => normalizeProductCard(product))
+    const normalizedProducts = decorateCommerceProducts(products, retrievalQuery?.filters || {})
         .filter((product) => product.id)
         .slice(0, 3);
     const focusProduct = normalizedProducts[0] || null;
     const followUps = normalizedProducts.length > 0
         ? ['Retry with hosted Gemma', 'Compare these matches later', 'Ask for another category']
         : ['Retry with hosted Gemma', 'Try another category', 'Check again shortly'];
+    const unavailableAnswer = normalizedProducts.length > 0
+        ? 'Hosted Gemma commerce reasoning is temporarily unavailable, so I am showing validated catalog matches without downgrading to a weaker shopping answer.'
+        : 'Hosted Gemma commerce reasoning is temporarily unavailable right now, so I am not downgrading this commerce answer to a weaker provider. Please retry shortly.';
     const assistantTurn = buildAssistantTurn({
         intent: 'product_search',
         confidence: 0.76,
         decision: 'respond',
-        response: normalizedProducts.length > 0
-            ? 'Hosted Gemma commerce reasoning is temporarily unavailable, so I am showing validated catalog matches without downgrading to a weaker shopping answer.'
-            : 'Hosted Gemma commerce reasoning is temporarily unavailable right now, so I am not downgrading this commerce answer to a weaker provider. Please retry shortly.',
+        response: buildCommerceResponseText({
+            answer: unavailableAnswer,
+            products: normalizedProducts,
+            filters: retrievalQuery?.filters || {},
+        }),
         followUps,
         ui: {
             surface: normalizedProducts.length > 0 ? (normalizedProducts.length === 1 ? 'product_focus' : 'product_results') : 'plain_answer',
@@ -1328,6 +1335,110 @@ const summarizeProducts = (products = []) => (
     )).join(' ')
 );
 
+const formatCommercePrice = (value = 0) => `Rs ${Number(value || 0).toLocaleString('en-IN')}`;
+
+const buildProductFitSignals = (product = {}, filters = {}) => {
+    const signals = [];
+    const watchouts = [];
+    const price = Number(product?.price || 0);
+    const rating = Number(product?.rating || 0);
+    const ratingCount = Math.max(0, Number(product?.ratingCount || 0));
+    const stock = Math.max(0, Number(product?.stock || 0));
+    const discountPercentage = Math.max(0, Number(product?.discountPercentage || 0));
+    const maxPrice = Number(filters?.maxPrice || 0);
+    const category = safeString(filters?.category || '');
+
+    if (category && safeString(product?.category || '').toLowerCase() === category.toLowerCase()) {
+        signals.push(`matches ${category}`);
+    }
+
+    if (maxPrice > 0) {
+        if (price > 0 && price <= maxPrice) {
+            signals.push(`within ${formatCommercePrice(maxPrice)}`);
+        } else if (price > maxPrice) {
+            watchouts.push(`above ${formatCommercePrice(maxPrice)}`);
+        }
+    }
+
+    if (stock > 0) {
+        signals.push(`${stock} in stock`);
+    } else {
+        watchouts.push('out of stock');
+    }
+
+    if (rating >= 4) {
+        signals.push(`${rating.toFixed(1)} rating`);
+    } else if (rating > 0) {
+        watchouts.push(`${rating.toFixed(1)} rating`);
+    }
+
+    if (ratingCount > 0 && ratingCount < 25) {
+        watchouts.push('low review depth');
+    }
+
+    if (discountPercentage > 0) {
+        signals.push(`${Math.round(discountPercentage)}% off`);
+    }
+
+    if (safeString(product?.brand || '')) {
+        signals.push(`${safeString(product.brand)} brand lane`);
+    }
+
+    return {
+        reason: signals.slice(0, 3).join(', '),
+        watchout: watchouts.slice(0, 2).join(', '),
+        signals,
+        watchouts,
+    };
+};
+
+const decorateCommerceProducts = (products = [], filters = {}) => (
+    (Array.isArray(products) ? products : [])
+        .map((product, index) => {
+            const normalized = normalizeProductCard(product);
+            const fit = buildProductFitSignals(normalized, filters);
+            return {
+                ...normalized,
+                assistantRank: index + 1,
+                assistantReason: fit.reason,
+                assistantWatchout: fit.watchout,
+            };
+        })
+);
+
+const buildCommerceResponseText = ({
+    answer = '',
+    products = [],
+    filters = {},
+} = {}) => {
+    const normalizedProducts = decorateCommerceProducts(products, filters).slice(0, 3);
+    const lead = safeString(answer || summarizeProducts(normalizedProducts));
+    if (normalizedProducts.length === 0) {
+        return lead;
+    }
+
+    const productLines = normalizedProducts.map((product, index) => {
+        const label = index === 0 ? 'Best fit' : `Option ${index + 1}`;
+        const facts = [
+            formatCommercePrice(product.price),
+            product.assistantReason,
+            product.assistantWatchout ? `watch: ${product.assistantWatchout}` : '',
+        ].filter(Boolean);
+        return `- ${label}: ${product.title}${product.brand ? ` by ${product.brand}` : ''} - ${facts.join('; ')}.`;
+    });
+    const nextStep = normalizedProducts.length === 1
+        ? 'Open details to verify delivery, seller, and warranty before adding it to cart.'
+        : 'Pick one option to inspect, then compare the short list or narrow the budget.';
+
+    return [
+        lead,
+        '**Grounded picks**',
+        productLines.join('\n'),
+        '**Next step**',
+        nextStep,
+    ].filter(Boolean).join('\n\n');
+};
+
 const performCommerceTurn = async ({
     message = '',
     conversationHistory = [],
@@ -1396,6 +1507,12 @@ const performCommerceTurn = async ({
         });
     }
 
+    const mediaHints = extractMediaLookupHints({
+        message,
+        images,
+        context,
+    });
+
     if (requireHostedGemma && !isHostedGemmaGatewayHealthy(gatewayHealth)) {
         recordFallbackMetric('hosted_gemma_gateway_unavailable');
         logger.warn('assistant.commerce.hosted_gemma_required', {
@@ -1405,6 +1522,41 @@ const performCommerceTurn = async ({
             gatewayModel: safeString(gatewayHealth?.resolvedChatModel || gatewayHealth?.chatModel || ''),
             gatewayError: safeString(gatewayHealth?.error || ''),
         });
+        const categoryHint = extractCommerceCategoryHint(message);
+        const retrievalQuery = {
+            query: categoryHint
+                ? `${categoryHint} products`
+                : (buildMediaHintQuery(mediaHints, message) || safeString(assistantSession?.lastEntities?.query || '') || 'product'),
+            provider: '',
+            providerModel: '',
+            filters: inferStructuredRetrievalFilters({
+                message,
+                assistantSession,
+            }),
+            validator: {
+                ok: false,
+                reason: 'hosted_gemma_gateway_unavailable_catalog_fallback',
+            },
+        };
+        let retrieval = await loadDirectProductsFromMediaHints({
+            mediaHints,
+            limit: 5,
+        });
+        if (!retrieval?.retrievalHitCount) {
+            retrieval = await searchProductVectorIndex(retrievalQuery.query, {
+                limit: 5,
+                filters: retrievalQuery.filters,
+            }).catch((error) => ({
+                results: [],
+                retrievalHitCount: 0,
+                provider: 'catalog_fallback',
+                fallbackUsed: true,
+                fallbackReason: safeString(error?.message || 'catalog_fallback_failed'),
+            }));
+        }
+        const products = (Array.isArray(retrieval?.results) ? retrieval.results : [])
+            .map((entry) => entry?.product)
+            .filter((product) => product && matchesRetrievalFilters(product, retrievalQuery.filters));
         return buildHostedGemmaUnavailableEnvelope({
             message,
             sessionId,
@@ -1414,14 +1566,12 @@ const performCommerceTurn = async ({
             gatewayHealth,
             vectorStoreHealth: await vectorStoreHealthPromise,
             reason: 'hosted_gemma_gateway_unavailable',
+            products,
+            retrieval,
+            retrievalQuery,
         });
     }
 
-    const mediaHints = extractMediaLookupHints({
-        message,
-        images,
-        context,
-    });
     const reuseSessionResults = shouldReuseSessionResultsForCommerce({ message, assistantSession });
     const retrievalQuery = reuseSessionResults
         ? {
@@ -1648,6 +1798,10 @@ const performCommerceTurn = async ({
     const focusProduct = modelPayload?.focusProductId
         ? normalizedProducts.find((product) => String(product.id) === String(modelPayload.focusProductId))
         : selectedProducts[0];
+    const decoratedSelectedProducts = decorateCommerceProducts(selectedProducts, retrievalQuery.filters);
+    const decoratedFocusProduct = focusProduct
+        ? decoratedSelectedProducts.find((product) => String(product.id) === String(focusProduct.id)) || normalizeProductCard(focusProduct)
+        : null;
     const followUps = modelPayload?.followUps?.length
         ? modelPayload.followUps
         : ['Compare the top results', 'Show another category', 'Set a price limit'];
@@ -1655,19 +1809,23 @@ const performCommerceTurn = async ({
         intent: selectedProducts.length === 1 ? 'product_selection' : 'product_search',
         confidence: provider !== 'rule' ? 0.92 : 0.74,
         decision: 'respond',
-        response: modelPayload?.answer || summarizeProducts(selectedProducts),
+        response: buildCommerceResponseText({
+            answer: modelPayload?.answer || summarizeProducts(selectedProducts),
+            products: selectedProducts,
+            filters: retrievalQuery.filters,
+        }),
         followUps,
         ui: {
-            surface: selectedProducts.length === 1 ? 'product_focus' : 'product_results',
-            title: selectedProducts.length === 1 ? safeString(focusProduct?.title || '') : 'Validated results',
-            products: selectedProducts.map((product) => normalizeProductCard(product)),
-            product: selectedProducts.length === 1 && focusProduct ? normalizeProductCard(focusProduct) : null,
+            surface: decoratedSelectedProducts.length === 1 ? 'product_focus' : 'product_results',
+            title: decoratedSelectedProducts.length === 1 ? safeString(decoratedFocusProduct?.title || '') : 'Validated results',
+            products: decoratedSelectedProducts,
+            product: decoratedSelectedProducts.length === 1 && decoratedFocusProduct ? decoratedFocusProduct : null,
         },
         verification: {
             label: 'app_grounded',
             confidence: 1,
-            summary: `Answer grounded in ${selectedProducts.length} retrieved catalog result${selectedProducts.length === 1 ? '' : 's'}.`,
-            evidenceCount: selectedProducts.length,
+            summary: `Answer grounded in ${decoratedSelectedProducts.length} retrieved catalog result${decoratedSelectedProducts.length === 1 ? '' : 's'}.`,
+            evidenceCount: decoratedSelectedProducts.length,
         },
         citations: selectedProducts.map((product) => ({
             id: String(product.id),
@@ -1694,7 +1852,7 @@ const performCommerceTurn = async ({
         route: ROUTE_ECOMMERCE,
         provider,
         providerModel,
-        products: selectedProducts.map((product) => normalizeProductCard(product)),
+        products: decoratedSelectedProducts,
         followUps,
         sessionId,
         traceId,
@@ -1706,12 +1864,12 @@ const performCommerceTurn = async ({
                 ...assistantSession.lastEntities,
                 query: safeString(retrievalQuery.query || message),
                 maxPrice: Number(retrievalQuery?.filters?.maxPrice || assistantSession?.lastEntities?.maxPrice || 0),
-                productId: safeString(focusProduct?.id || ''),
-                category: safeString(retrievalQuery?.filters?.category || selectedProducts[0]?.category || context?.category || ''),
+                productId: safeString(decoratedFocusProduct?.id || ''),
+                category: safeString(retrievalQuery?.filters?.category || decoratedSelectedProducts[0]?.category || context?.category || ''),
             },
-            lastResolvedEntityId: safeString(focusProduct?.id || ''),
-            lastResults: selectedProducts.map((product) => normalizeProductCard(product)),
-            activeProduct: focusProduct ? normalizeProductCard(focusProduct) : null,
+            lastResolvedEntityId: safeString(decoratedFocusProduct?.id || ''),
+            lastResults: decoratedSelectedProducts,
+            activeProduct: decoratedFocusProduct,
             pendingAction: null,
         },
         health: {
@@ -2475,7 +2633,9 @@ module.exports = {
     streamAssistantTurn,
     __testables: {
         buildActionContext,
+        buildCommerceResponseText,
         buildHostedGemmaUnavailableEnvelope,
+        decorateCommerceProducts,
         detectRoute,
         deriveRetrievalQuery,
         extractCommerceCategoryHint,

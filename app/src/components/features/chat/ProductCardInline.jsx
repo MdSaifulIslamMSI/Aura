@@ -33,6 +33,8 @@ const ProductCardInline = ({
     const translatedProductTitle = translateText(productTitle) || productTitle;
     const discountPercentage = Math.max(0, Number(product?.discountPercentage || 0));
     const inStock = Number(product?.stock || 0) > 0;
+    const assistantReason = String(product?.assistantReason || '').trim();
+    const assistantWatchout = String(product?.assistantWatchout || '').trim();
 
     const isDecisionMode = mode === 'product';
 
@@ -93,6 +95,13 @@ const ProductCardInline = ({
                             {inStock ? `${product?.stock || 0} in stock` : 'Out of stock'}
                         </span>
                     </div>
+
+                    {assistantReason || assistantWatchout ? (
+                        <div className={cn('mt-2 space-y-1 text-[11px] leading-5', mutedTextClass)}>
+                            {assistantReason ? <p>{assistantReason}</p> : null}
+                            {assistantWatchout ? <p>Watch: {assistantWatchout}</p> : null}
+                        </div>
+                    ) : null}
                 </div>
             </div>
 
