@@ -329,34 +329,39 @@ describe('authMiddleware cookie session authentication', () => {
                     getUser: jest.fn(),
                 }),
             }));
+            const bearerUser = {
+                _id: '507f1f77bcf86cd799439012',
+                authUid: 'firebase-bearer-uid',
+                email: 'bearer-user@example.com',
+                name: 'Bearer User',
+                phone: '+919811112222',
+                trustedDevices: [
+                    {
+                        deviceId: 'device-bearer-1',
+                        label: 'Bearer Browser',
+                        method: 'browser_key',
+                        publicKeySpkiBase64: 'public-key',
+                    },
+                ],
+                isAdmin: false,
+                isVerified: true,
+                authAssurance: 'none',
+                authAssuranceAt: null,
+                authAssuranceAuthTime: null,
+                loginOtpAssuranceExpiresAt: null,
+                isSeller: false,
+                accountState: 'active',
+                softDeleted: false,
+                moderation: {},
+            };
+
             jest.doMock('../models/User', () => ({
                 findById: jest.fn(),
                 find: jest.fn(() => ({
-                    lean: jest.fn().mockResolvedValue([{
-                        _id: '507f1f77bcf86cd799439012',
-                        authUid: 'firebase-bearer-uid',
-                        email: 'bearer-user@example.com',
-                        name: 'Bearer User',
-                        phone: '+919811112222',
-                        trustedDevices: [
-                            {
-                                deviceId: 'device-bearer-1',
-                                label: 'Bearer Browser',
-                                method: 'browser_key',
-                                publicKeySpkiBase64: 'public-key',
-                            },
-                        ],
-                        isAdmin: false,
-                        isVerified: true,
-                        authAssurance: 'none',
-                        authAssuranceAt: null,
-                        authAssuranceAuthTime: null,
-                        loginOtpAssuranceExpiresAt: null,
-                        isSeller: false,
-                        accountState: 'active',
-                        softDeleted: false,
-                        moderation: {},
-                    }]),
+                    lean: jest.fn().mockResolvedValue([bearerUser]),
+                })),
+                findOne: jest.fn(() => ({
+                    lean: jest.fn().mockResolvedValue(bearerUser),
                 })),
                 findOneAndUpdate: jest.fn(),
             }));

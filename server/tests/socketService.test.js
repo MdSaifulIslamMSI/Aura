@@ -19,6 +19,7 @@ jest.mock('../config/redis', () => ({
         redisPrefix: 'test',
     },
     getRedisClient: jest.fn(),
+    flags: { redisPrefix: 'test' },
 }));
 
 jest.mock('../models/User', () => ({
