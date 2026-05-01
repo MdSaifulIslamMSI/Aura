@@ -476,22 +476,37 @@ const AssistantPage = () => {
         void handleUserInput(starter.prompt);
     }, [handleUserInput, inputRef, setInputValue]);
 
+    useEffect(() => {
+        if (!isSidebarOpen || typeof window === 'undefined') {
+            return undefined;
+        }
+
+        const handleKeyDown = (event) => {
+            if (event.key === 'Escape') {
+                setIsSidebarOpen(false);
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [isSidebarOpen]);
+
     return (
         <div className="assistant-theme-shell relative h-[100dvh] overflow-hidden text-slate-100">
             <div className="assistant-theme-shell__base pointer-events-none absolute inset-0" />
             <div className="assistant-theme-shell__rail pointer-events-none absolute inset-y-0 left-[19%] w-px" />
-            <button
-                type="button"
-                aria-label="Close assistant history"
-                onClick={() => setIsSidebarOpen(false)}
-                className={cn(
-                    'fixed inset-0 z-20 bg-[#02040a]/72 backdrop-blur-sm transition lg:hidden',
-                    isSidebarOpen ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0',
-                )}
-            />
-            <div className="relative z-10 mx-auto flex h-[100dvh] w-full max-w-[1650px] overflow-hidden">
+            {isSidebarOpen ? (
+                <div
+                    aria-hidden="true"
+                    onClick={() => setIsSidebarOpen(false)}
+                    className="fixed inset-0 z-30 bg-[#02040a]/25 transition lg:hidden"
+                />
+            ) : null}
+            <div className="relative mx-auto flex h-[100dvh] w-full max-w-[1650px] overflow-hidden">
                 <aside className={cn(
-                    'fixed inset-y-0 left-0 z-30 flex h-[100dvh] w-[88vw] max-w-[320px] flex-col overflow-hidden border-r border-white/10 bg-[linear-gradient(180deg,rgba(9,14,25,0.98),rgba(7,11,21,0.96))] px-4 py-5 backdrop-blur-xl transition-transform duration-300 lg:static lg:z-auto lg:w-full lg:max-w-[320px] lg:translate-x-0',
+                    'assistant-history-panel fixed inset-y-0 left-0 z-40 flex h-[100dvh] w-[86vw] max-w-[336px] flex-col overflow-hidden border-r border-cyan-300/10 bg-[#07101d] px-3 py-4 shadow-[24px_0_80px_rgba(0,0,0,0.42)] transition-transform duration-300 lg:static lg:z-auto lg:w-full lg:max-w-[320px] lg:translate-x-0 lg:px-4 lg:py-5 lg:shadow-none',
                     isSidebarOpen ? 'translate-x-0' : '-translate-x-full',
                 )}>
                     <div className="rounded-[1.6rem] border border-white/10 bg-white/[0.03] p-4 shadow-[0_18px_60px_rgba(0,0,0,0.22)]">
@@ -505,9 +520,19 @@ const AssistantPage = () => {
                                     <p className="text-xs text-slate-400">Controlled commerce intelligence</p>
                                 </div>
                             </div>
-                            <span className="rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-1 text-[11px] font-semibold text-slate-300">
-                                {isAuthenticated ? 'Signed in' : 'Guest'}
-                            </span>
+                            <div className="flex shrink-0 items-center gap-2">
+                                <span className="rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-1 text-[11px] font-semibold text-slate-300">
+                                    {isAuthenticated ? 'Signed in' : 'Guest'}
+                                </span>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsSidebarOpen(false)}
+                                    className="inline-flex h-10 w-10 touch-manipulation items-center justify-center rounded-full border border-white/10 bg-white/[0.05] text-slate-300 transition hover:bg-white/[0.1] lg:hidden"
+                                    aria-label="Close assistant history"
+                                >
+                                    <X className="h-4 w-4" />
+                                </button>
+                            </div>
                         </div>
 
                         <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
@@ -551,10 +576,8 @@ const AssistantPage = () => {
                                     {group.sessions.map((session) => {
                                         const isActive = session.id === activeSessionId;
                                         return (
-                                            <button
+                                            <div
                                                 key={session.id}
-                                                type="button"
-                                                onClick={() => handleSelectSession(session.id)}
                                                 className={cn(
                                                     'flex w-full items-start gap-3 rounded-[1.2rem] border px-3 py-3 text-left transition-all duration-200',
                                                     isActive
@@ -562,7 +585,11 @@ const AssistantPage = () => {
                                                         : 'border-white/10 bg-white/[0.03] hover:bg-white/[0.06]',
                                                 )}
                                             >
-                                                <div className="min-w-0 flex-1">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleSelectSession(session.id)}
+                                                    className="min-w-0 flex-1 text-left outline-none"
+                                                >
                                                     <div className="flex items-center justify-between gap-3">
                                                         <p className="truncate text-sm font-medium text-white">
                                                             {session.title}
@@ -574,32 +601,24 @@ const AssistantPage = () => {
                                                     <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-400">
                                                         {session.preview}
                                                     </p>
-                                                </div>
-                                                <span
-                                                    role="button"
-                                                    tabIndex={0}
+                                                </button>
+                                                <button
+                                                    type="button"
                                                     onClick={(event) => {
-                                                        event.preventDefault();
                                                         event.stopPropagation();
                                                         togglePinnedSession(session.id);
                                                     }}
-                                                    onKeyDown={(event) => {
-                                                        if (event.key === 'Enter' || event.key === ' ') {
-                                                            event.preventDefault();
-                                                            event.stopPropagation();
-                                                            togglePinnedSession(session.id);
-                                                        }
-                                                    }}
+                                                    aria-label={`${session.pinned ? 'Unpin' : 'Pin'} ${session.title}`}
                                                     className={cn(
-                                                        'mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-full border transition',
+                                                        'mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border transition',
                                                         session.pinned
                                                             ? 'border-amber-300/30 bg-amber-400/10 text-amber-200'
                                                             : 'border-white/10 text-slate-500 hover:text-white',
                                                     )}
                                                 >
                                                     <Pin className="h-3.5 w-3.5" />
-                                                </span>
-                                            </button>
+                                                </button>
+                                            </div>
                                         );
                                     })}
                                 </div>
@@ -639,58 +658,58 @@ const AssistantPage = () => {
                     </div>
                 </aside>
 
-                <main className="flex h-[100dvh] min-h-0 min-w-0 flex-1 flex-col overflow-hidden lg:pl-0">
-                    <header className="assistant-command-header border-b border-white/10 bg-[linear-gradient(180deg,rgba(5,8,17,0.9),rgba(5,8,17,0.78))] px-4 py-4 backdrop-blur-xl sm:px-6">
-                        <div className="assistant-command-header__panel rounded-[1.2rem] border border-white/10 bg-white/[0.025] px-4 py-4 shadow-[0_18px_58px_rgba(0,0,0,0.2)] sm:px-5">
-                            <div className="flex flex-wrap items-start justify-between gap-4">
+                <section aria-label="Assistant workspace" className="flex h-[100dvh] min-h-0 min-w-0 flex-1 flex-col overflow-hidden lg:pl-0">
+                    <header className="assistant-command-header shrink-0 border-b border-white/10 bg-[linear-gradient(180deg,rgba(5,8,17,0.9),rgba(5,8,17,0.78))] px-3 py-3 backdrop-blur-xl sm:px-6 sm:py-4">
+                        <div className="assistant-command-header__panel rounded-[1rem] border border-white/10 bg-white/[0.025] px-3 py-3 shadow-[0_18px_58px_rgba(0,0,0,0.2)] sm:rounded-[1.2rem] sm:px-5 sm:py-4">
+                            <div className="flex items-start justify-between gap-3 sm:flex-wrap sm:gap-4">
                                 <div className="flex items-start gap-3">
                                     <button
                                         type="button"
                                         onClick={() => setIsSidebarOpen(true)}
-                                        className="inline-flex h-10 w-10 items-center justify-center rounded-[0.9rem] border border-white/10 bg-white/[0.04] text-slate-200 transition hover:bg-white/[0.08] lg:hidden"
+                                        className="inline-flex h-11 w-11 shrink-0 touch-manipulation items-center justify-center rounded-[1rem] border border-white/10 bg-white/[0.04] text-slate-200 transition hover:bg-white/[0.08] active:scale-95 lg:hidden"
                                         aria-label="Open assistant history"
                                     >
-                                        <Menu className="h-4 w-4" />
+                                        <Menu className="h-5 w-5" />
                                     </button>
                                     <div>
-                                    <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-300">
-                                        Controlled Terminal
-                                    </p>
-                                    <h1 className="mt-1.5 text-xl font-semibold text-white sm:text-2xl">
-                                        {activeSession?.title || 'New chat'}
-                                    </h1>
-                                    <p className="mt-1.5 max-w-3xl text-sm leading-6 text-slate-400">
-                                        Fast answers stay responsive, refined answers upgrade in place, and every commerce turn stays bounded by grounded data and explicit control paths.
-                                    </p>
+                                        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan-300 sm:text-[11px] sm:tracking-[0.2em]">
+                                            Commerce Copilot
+                                        </p>
+                                        <h1 className="mt-1 text-lg font-semibold text-white sm:mt-1.5 sm:text-2xl">
+                                            {activeSession?.title || 'New chat'}
+                                        </h1>
+                                        <p className="mt-1 hidden max-w-3xl text-sm leading-6 text-slate-400 sm:block">
+                                            Ask for product picks, cart review, order support, or grounded marketplace decisions.
+                                        </p>
                                     </div>
                                 </div>
 
-                                <div className="flex flex-wrap gap-2">
+                                <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:flex-wrap">
                                     <button
                                         type="button"
                                         onClick={handleRetry}
                                         disabled={!String(lastUserMessage || '').trim() || isLoading}
-                                        className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-slate-300 transition hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-40"
+                                        className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-xs text-slate-300 transition hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-40 sm:px-3"
                                     >
                                         <span className="inline-flex items-center gap-2">
                                             <RotateCcw className="h-3.5 w-3.5" />
-                                            Retry
+                                            <span className="hidden sm:inline">Retry</span>
                                         </span>
                                     </button>
                                     <button
                                         type="button"
                                         onClick={handleClearContext}
-                                        className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-slate-300 transition hover:bg-white/[0.08]"
+                                        className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-xs text-slate-300 transition hover:bg-white/[0.08] sm:px-3"
                                     >
                                         <span className="inline-flex items-center gap-2">
                                             <Trash2 className="h-3.5 w-3.5" />
-                                            Clear context
+                                            <span className="hidden sm:inline">Clear context</span>
                                         </span>
                                     </button>
                                 </div>
                             </div>
 
-                            <div className="mt-3 flex flex-wrap gap-2">
+                            <div className="mt-3 hidden flex-wrap gap-2 sm:flex">
                                 {contextChips.map((chip) => (
                                     <span
                                         key={chip.id}
@@ -717,40 +736,40 @@ const AssistantPage = () => {
                         </div>
                     </header>
 
-                    <div className="flex min-h-0 flex-1 flex-col">
+                    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
                         {!hasUserMessages && !isLoading ? (
-                            <section className="assistant-starter-deck px-4 pt-4 sm:px-6">
-                                <div className="assistant-starter-panel mx-auto max-w-5xl rounded-[1.2rem] border border-white/10 bg-[linear-gradient(135deg,rgba(10,15,30,0.9),rgba(6,10,21,0.92))] p-4 shadow-[0_18px_58px_rgba(0,0,0,0.18)] sm:p-5">
+                            <section className="assistant-starter-deck shrink-0 px-3 pt-2 sm:px-6 sm:pt-4">
+                                <div className="assistant-starter-panel mx-auto max-w-5xl rounded-[0.9rem] border border-white/10 bg-[linear-gradient(135deg,rgba(10,15,30,0.9),rgba(6,10,21,0.92))] p-2.5 shadow-[0_14px_46px_rgba(0,0,0,0.16)] sm:rounded-[1.2rem] sm:p-5">
                                     <div className="flex flex-wrap items-start justify-between gap-3">
                                         <div>
-                                            <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.18em] text-cyan-300">
+                                            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-cyan-300 sm:text-[11px] sm:tracking-[0.18em]">
                                                 <WandSparkles className="h-3.5 w-3.5" />
                                                 Fast starts
                                             </div>
-                                            <p className="mt-2 text-base font-semibold text-white sm:text-lg">Start with a premium grounded workflow.</p>
-                                            <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-400">
+                                            <p className="mt-1.5 text-sm font-semibold text-white sm:mt-2 sm:text-lg">Start with a grounded shopping workflow.</p>
+                                            <p className="mt-1 hidden max-w-2xl text-sm leading-6 text-slate-400 sm:block">
                                                 Pick a starter and the assistant will either launch the flow directly or stage the right brief for you to refine.
                                             </p>
                                         </div>
-                                        <span className="rounded-full border border-emerald-400/20 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-100">
+                                        <span className="hidden rounded-full border border-emerald-400/20 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-100 sm:inline-flex sm:px-3 sm:text-xs">
                                             Controlled by design
                                         </span>
                                     </div>
 
-                                    <div className="mt-4 grid gap-2.5 md:grid-cols-2 xl:grid-cols-4">
+                                    <div className="mt-2.5 grid grid-cols-2 gap-1.5 sm:mt-4 sm:gap-2.5 md:grid-cols-2 xl:grid-cols-4">
                                         {STARTER_PROMPTS.map((starter) => (
                                             <button
                                                 key={starter.id}
                                                 type="button"
                                                 onClick={() => handleStarterPrompt(starter)}
-                                                className="group rounded-[1rem] border border-white/10 bg-white/[0.04] p-3.5 text-left transition hover:border-cyan-300/20 hover:bg-cyan-400/[0.08]"
+                                                className="group min-h-[4.35rem] rounded-[0.8rem] border border-white/10 bg-white/[0.04] p-2.5 text-left transition hover:border-cyan-300/20 hover:bg-cyan-400/[0.08] sm:min-h-[7.4rem] sm:rounded-[1rem] sm:p-3.5"
                                             >
-                                                <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.17em] text-cyan-300">
+                                                <div className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-[0.14em] text-cyan-300 sm:gap-2 sm:text-[10px] sm:tracking-[0.17em]">
                                                     <CheckCircle2 className="h-3.5 w-3.5" />
                                                     {starter.intent === 'prefill' ? 'Stage' : 'Launch'}
                                                 </div>
-                                                <p className="mt-2.5 text-sm font-semibold text-white">{starter.title}</p>
-                                                <p className="mt-1 text-xs leading-5 text-slate-400">{starter.detail}</p>
+                                                <p className="mt-1.5 text-[13px] font-semibold leading-snug text-white sm:mt-2.5 sm:text-sm">{starter.title}</p>
+                                                <p className="mt-1 hidden text-xs leading-5 text-slate-400 sm:block">{starter.detail}</p>
                                             </button>
                                         ))}
                                     </div>
@@ -761,7 +780,7 @@ const AssistantPage = () => {
                         <MessageList
                             messages={messages}
                             isLoading={isLoading}
-                            className="px-6 py-6"
+                            className="px-3 py-3 sm:px-6 sm:py-5"
                             onSelectProduct={(productId) => void selectProduct(productId)}
                             onAddToCart={(productId) => void addProductToCart(productId)}
                             onViewDetails={(productId) => void selectProduct(productId)}
@@ -771,21 +790,8 @@ const AssistantPage = () => {
                             onModifyPending={modifyPendingAction}
                         />
 
-                        <div className="border-t border-white/10 bg-[linear-gradient(180deg,rgba(5,8,17,0.96),rgba(5,8,17,1))] px-6 py-5">
-                            <div className="mx-auto w-full max-w-5xl">
-                                <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                                    <span className="rounded-full border border-white/10 px-2.5 py-1">Enter to send</span>
-                                    <span className="rounded-full border border-white/10 px-2.5 py-1">Shift+Enter for newline</span>
-                                    {assistantCapabilities.slice(0, 4).map((capability) => (
-                                        <span
-                                            key={capability.id}
-                                            className={cn('rounded-full border px-2.5 py-1', capability.ready ? 'border-emerald-400/20 text-emerald-300' : 'border-amber-300/20 text-amber-300')}
-                                        >
-                                            {capability.label}
-                                        </span>
-                                    ))}
-                                </div>
-
+                        <div className="shrink-0 border-t border-white/10 bg-[linear-gradient(180deg,rgba(5,8,17,0.94),rgba(5,8,17,1))] px-3 py-2 sm:px-5 sm:py-3">
+                            <div className="mx-auto w-full max-w-4xl">
                                 <input
                                     ref={fileInputRef}
                                     type="file"
@@ -858,34 +864,19 @@ const AssistantPage = () => {
                                         setAttachments([]);
                                         setAttachmentError('');
                                     }}
-                                    className="rounded-[1.85rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.02))] p-3 shadow-[0_24px_90px_rgba(0,0,0,0.28)]"
+                                    className="assistant-composer-form rounded-[1.35rem] border border-cyan-300/15 bg-[#07101d]/95 px-2.5 py-2 shadow-[0_16px_44px_rgba(0,0,0,0.34)] transition focus-within:border-cyan-300/35 sm:rounded-[1.6rem] sm:px-3"
                                 >
-                                    <div className="mb-3 flex flex-wrap items-center justify-between gap-3 px-2">
-                                        <div>
-                                            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-cyan-300">Prompt surface</p>
-                                            <p className="mt-1 text-xs text-slate-400">{assistantReadinessCopy}</p>
-                                        </div>
-                                        <div className="flex flex-wrap items-center gap-2">
-                                            <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[11px] text-slate-300">
-                                                {routeLabel}
-                                            </span>
-                                            <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[11px] text-slate-300">
-                                                Cart {cartSummary.totalItems || 0}
-                                            </span>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex items-end gap-3">
+                                    <div className="flex items-center gap-2 sm:gap-3">
                                         <button
                                             type="button"
                                             onClick={() => fileInputRef.current?.click()}
-                                            className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-slate-300 transition hover:bg-white/[0.08]"
+                                            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-slate-300 transition hover:bg-white/[0.08]"
                                             aria-label="Upload attachments"
                                         >
-                                            <Paperclip className="h-4.5 w-4.5" />
+                                            <Paperclip className="h-4 w-4" />
                                         </button>
 
-                                        <div className="flex-1 rounded-[1.4rem] border border-white/10 bg-[#07101d]/80 px-3 py-1">
+                                        <div className="assistant-composer-field min-w-0 flex-1 rounded-full px-3">
                                             <textarea
                                                 ref={inputRef}
                                                 value={inputValue}
@@ -913,30 +904,30 @@ const AssistantPage = () => {
                                                     }
                                                 }}
                                                 rows={Math.min(Math.max(String(inputValue || '').split('\n').length, 1), 6)}
-                                                placeholder={isListening ? 'Listening...' : 'Ask for products, order help, support, or attach media for a grounded match.'}
+                                                placeholder={isListening ? 'Listening...' : 'Compare products, review a cart, or find a match...'}
                                                 disabled={isLoading}
-                                                className="max-h-44 min-h-[56px] w-full resize-none bg-transparent px-1 py-2 text-base text-white outline-none placeholder:text-slate-500"
+                                                className="assistant-composer-textarea block max-h-28 min-h-[42px] w-full resize-none overflow-y-auto bg-transparent px-0 py-2 text-[15px] leading-6 text-white outline-none placeholder:text-slate-500 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:min-h-[48px]"
                                             />
                                         </div>
 
-                                        <div className="flex items-center gap-2 pb-1">
+                                        <div className="flex shrink-0 items-center gap-2">
                                             {supportsSpeechInput ? (
                                                 <button
                                                     type="button"
                                                     onClick={toggleListening}
-                                                    className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-slate-300 transition hover:bg-white/[0.08]"
+                                                    className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-slate-300 transition hover:bg-white/[0.08]"
                                                     aria-label={isListening ? 'Stop dictation' : 'Start dictation'}
                                                 >
-                                                    {isListening ? <MicOff className="h-4.5 w-4.5" /> : <Mic className="h-4.5 w-4.5" />}
+                                                    {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
                                                 </button>
                                             ) : null}
                                             <button
                                                 type="submit"
                                                 disabled={(!String(inputValue || '').trim() && attachments.length === 0) || isLoading}
-                                                className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-cyan-400 text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-40"
+                                                className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-cyan-400 text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-40"
                                                 aria-label="Send message"
                                             >
-                                                <ArrowUp className="h-5 w-5" />
+                                                <ArrowUp className="h-4.5 w-4.5" />
                                             </button>
                                         </div>
                                     </div>
@@ -944,7 +935,7 @@ const AssistantPage = () => {
                             </div>
                         </div>
                     </div>
-                </main>
+                </section>
             </div>
         </div>
     );

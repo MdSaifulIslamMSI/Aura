@@ -279,9 +279,13 @@ function AppContent() {
           className: 'border border-white/10 bg-zinc-900 text-slate-100',
         }}
       />
-      <DesktopWelcomePanel />
-      <DesktopUpdateBanner />
-      <MobileUpdateBanner />
+      {showSiteChrome ? (
+        <>
+          <DesktopWelcomePanel />
+          <DesktopUpdateBanner />
+          <MobileUpdateBanner />
+        </>
+      ) : null}
     </div>
   );
 }

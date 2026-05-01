@@ -31,8 +31,8 @@ describe('assistantUiConfig', () => {
         })).toBe('/assistant?from=%2Fproduct%2F101%3Fref%3Dhome');
     });
 
-    it('treats the workspace as part of ambient chrome but not the launcher surface', () => {
-        expect(shouldShowAmbientChrome('/assistant')).toBe(true);
+    it('treats the workspace as dedicated chrome but not the launcher surface', () => {
+        expect(shouldShowAmbientChrome('/assistant')).toBe(false);
         expect(isAssistantWorkspacePath('/assistant?from=%2F')).toBe(true);
     });
 
@@ -46,6 +46,7 @@ describe('assistantUiConfig', () => {
     it('hides persistent chrome on the launch hub route', () => {
         expect(isFrontendLaunchHubPath('/launch')).toBe(true);
         expect(shouldShowSiteChrome('/launch')).toBe(false);
+        expect(shouldShowSiteChrome('/assistant')).toBe(false);
         expect(shouldShowSiteChrome('/products')).toBe(true);
     });
 });
