@@ -216,6 +216,33 @@ describe('commerceAssistantService helpers', () => {
         expect(result.rejectedProductIds).toEqual(['999']);
     });
 
+    test('buildCommerceResponseText adds deterministic grounded shopping structure', () => {
+        const result = __testables.buildCommerceResponseText({
+            answer: 'Dell Inspiron 14 is the strongest value pick.',
+            products: [{
+                id: 400047506,
+                title: 'Dell Inspiron 14',
+                brand: 'Dell',
+                category: 'Laptops',
+                price: 49999,
+                stock: 5,
+                rating: 4.4,
+                ratingCount: 127,
+                discountPercentage: 14,
+            }],
+            filters: {
+                category: 'Laptops',
+                maxPrice: 50000,
+            },
+        });
+
+        expect(result).toContain('Dell Inspiron 14 is the strongest value pick.');
+        expect(result).toContain('**Grounded picks**');
+        expect(result).toContain('Best fit: Dell Inspiron 14 by Dell - Rs 49,999');
+        expect(result).toContain('within Rs 50,000');
+        expect(result).toContain('**Next step**');
+    });
+
     test('inferStructuredRetrievalFilters pulls hard commerce constraints from the user message', () => {
         expect(__testables.inferStructuredRetrievalFilters({
             message: 'show me top rated phones under 15000 in stock',

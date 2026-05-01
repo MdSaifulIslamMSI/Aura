@@ -98,8 +98,9 @@ describe('commerceAssistantService hosted Gemma enforcement', () => {
         delete process.env.ASSISTANT_COMMERCE_REQUIRE_HOSTED_GEMMA;
     });
 
-    test('returns a strict hosted-Gemma unavailable response when the gateway is down', async () => {
+    test('still reads catalog data when hosted Gemma is down', async () => {
         const modelGateway = require('../services/ai/modelGatewayService');
+        const vectorIndex = require('../services/ai/localProductVectorIndexService');
         modelGateway.checkModelGatewayHealth.mockResolvedValue({
             provider: 'gemini',
             activeProvider: 'gemini',
@@ -122,10 +123,17 @@ describe('commerceAssistantService hosted Gemma enforcement', () => {
             chatModel: 'models/gemma-4-31b-it',
             resolvedChatModel: 'models/gemma-4-31b-it',
         });
+        vectorIndex.searchProductVectorIndex.mockResolvedValue({
+            results: [{ product, score: 0.97 }],
+            retrievalHitCount: 1,
+            provider: 'local_vector',
+            fallbackUsed: false,
+            fallbackReason: 'none',
+        });
 
         const { processAssistantTurn } = require('../services/ai/commerceAssistantService');
         const result = await processAssistantTurn({
-            message: 'show me phones under 30000',
+            message: 'show me a dell laptop under 50000',
         });
 
         expect(result.route).toBe('ECOMMERCE_SEARCH');
@@ -136,7 +144,15 @@ describe('commerceAssistantService hosted Gemma enforcement', () => {
             reason: 'hosted_gemma_gateway_unavailable',
             requiredProvider: 'gemini',
         });
-        expect(result.products).toEqual([]);
+        expect(result.answer).toContain('**Grounded picks**');
+        expect(result.products).toEqual([
+            expect.objectContaining({
+                id: 400047506,
+                title: 'Dell Inspiron 14',
+                assistantReason: expect.stringContaining('in stock'),
+            }),
+        ]);
+        expect(vectorIndex.searchProductVectorIndex).toHaveBeenCalled();
     });
 
     test('refuses to downgrade to a weaker summary when hosted Gemma generation fails after retrieval', async () => {

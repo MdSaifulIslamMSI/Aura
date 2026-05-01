@@ -87,4 +87,21 @@ describe('ProductCardInline', () => {
         expect(screen.queryByText(/\$749(?:\.00)?/)).not.toBeInTheDocument();
         expect(screen.getAllByText(/¥|JP¥/).length).toBeGreaterThan(0);
     });
+
+    it('shows assistant fit reasons from grounded catalog retrieval', () => {
+        renderWithMarket(
+            <ProductCardInline
+                product={{
+                    ...product,
+                    assistantReason: 'within Rs 60000, 4.5 rating, 8 in stock',
+                    assistantWatchout: 'low review depth',
+                }}
+                mode="explore"
+                onSelect={vi.fn()}
+            />
+        );
+
+        expect(screen.getByText('within Rs 60000, 4.5 rating, 8 in stock')).toBeInTheDocument();
+        expect(screen.getByText('Watch: low review depth')).toBeInTheDocument();
+    });
 });
