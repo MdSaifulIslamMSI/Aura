@@ -6397,6 +6397,34 @@ html[data-color-mode] .assistant-theme-shell :is(aside, header, form, .assistant
     rgb(var(--theme-surface-rgb) / 0.72) !important;
 }
 
+html[data-color-mode] .assistant-theme-shell .assistant-history-panel,
+.assistant-theme-shell .assistant-history-panel {
+  background: #07101d !important;
+  box-shadow: 24px 0 80px rgba(0, 0, 0, 0.42) !important;
+}
+
+html[data-color-mode] .assistant-theme-shell .assistant-composer-form,
+.assistant-theme-shell .assistant-composer-form {
+  background: rgb(7 16 29 / 0.96) !important;
+  box-shadow: 0 16px 44px rgba(0, 0, 0, 0.34) !important;
+}
+
+html[data-color-mode] .assistant-theme-shell .assistant-composer-field,
+.assistant-theme-shell .assistant-composer-field {
+  background: rgb(3 7 18 / 0.24) !important;
+}
+
+html[data-color-mode] .assistant-theme-shell .assistant-composer-textarea,
+.assistant-theme-shell .assistant-composer-textarea {
+  background: transparent !important;
+  scrollbar-width: none;
+}
+
+html[data-color-mode] .assistant-theme-shell .assistant-composer-textarea::-webkit-scrollbar,
+.assistant-theme-shell .assistant-composer-textarea::-webkit-scrollbar {
+  display: none;
+}
+
 html[data-color-mode] :is(.support-workspace, .assistant-theme-shell, .contact-support-shell) :is([class*='text-cyan-'], [class*='text-emerald-'], [class*='text-amber-']) {
   color: rgb(var(--theme-primary-rgb) / 0.96) !important;
 }
