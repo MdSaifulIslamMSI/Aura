@@ -588,18 +588,6 @@ html[data-color-mode] :is(.assistant-theme-shell, .support-workspace, .contact-s
 }
 
 @media (max-width: 1023px) {
-  body.aura-filter-drawer-open :is(
-    .aura-support-launcher,
-    .aura-assistant-launcher,
-    .aura-anchor-rail,
-    .aura-update-banner,
-    .market-studio-popover,
-    .market-studio-backdrop,
-    .trusted-device-minimized
-  ) {
-    display: none !important;
-  }
-
   .trusted-device-panel--inline {
     max-height: calc(100dvh - 7rem);
     overflow-y: auto !important;
@@ -1970,14 +1958,6 @@ html[data-color-mode] .hover\:shadow-neon-cyan:hover {
   }
 
   @media (max-width: 1023px) {
-    body.aura-filter-drawer-open {
-      overflow: hidden;
-    }
-
-    body.aura-filter-drawer-open :is(.aura-support-launcher, .aura-assistant-launcher, .aura-anchor-rail) {
-      display: none !important;
-    }
-
     .listing-filter-rail {
       top: calc(var(--aura-safe-top, 0px) + 5.65rem) !important;
       right: 0.7rem !important;
