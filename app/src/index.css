@@ -5074,6 +5074,35 @@ html[data-color-mode] .hover\:shadow-neon-cyan:hover {
     color: rgb(var(--theme-grid-rgb) / 0.88);
   }
 
+  .checkout-payment-details-disclosure {
+    @apply rounded-[1.15rem] border;
+    border-color: rgb(255 255 255 / 0.1);
+    background: rgb(255 255 255 / 0.035);
+  }
+
+  .checkout-payment-details-disclosure summary {
+    @apply flex cursor-pointer items-center justify-between gap-3 px-4 py-3 text-xs font-black uppercase tracking-[0.2em] text-slate-200;
+    list-style: none;
+  }
+
+  .checkout-payment-details-disclosure summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .checkout-payment-details-disclosure summary::after {
+    content: '+';
+    color: rgb(var(--theme-primary-rgb) / 0.9);
+  }
+
+  .checkout-payment-details-disclosure[open] summary::after {
+    content: '-';
+  }
+
+  .checkout-payment-details-disclosure-body {
+    @apply space-y-4 border-t px-4 py-4;
+    border-color: rgb(255 255 255 / 0.08);
+  }
+
   .checkout-premium-option {
     @apply rounded-[1.25rem] border p-4 text-left transition-all duration-300;
     border-color: rgb(255 255 255 / 0.08);
