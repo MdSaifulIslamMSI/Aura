@@ -1,4 +1,5 @@
 const {
+    DEFAULT_AWS_PARAMETER_KEYS,
     loadLocalEnvFiles,
     primeAwsParameterStoreEnv,
     __testables: {
@@ -11,6 +12,10 @@ const {
 } = require('../config/runtimeConfig');
 
 describe('runtimeConfig helpers', () => {
+    test('loads Open Exchange Rates app id from the default AWS secret contract', () => {
+        expect(DEFAULT_AWS_PARAMETER_KEYS).toContain('OPEN_EXCHANGE_RATES_APP_ID');
+    });
+
     test('detects AWS Parameter Store reference placeholders', () => {
         expect(isParameterStoreReferencePlaceholder('ssm:/aura/prod/GEMINI_API_KEY')).toBe(true);
         expect(isParameterStoreReferencePlaceholder('ssm:GEMINI_API_KEY')).toBe(true);
