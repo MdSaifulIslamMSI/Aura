@@ -100,6 +100,255 @@ describe('authMiddleware cookie session authentication', () => {
         expect(next).toHaveBeenCalledWith();
     });
 
+    test('protect requires CSRF for cookie-session writes outside auth routes', async () => {
+        let protect;
+        let csrfTokenValidator;
+        const nowSeconds = Math.floor(Date.now() / 1000);
+        const sessionRecord = {
+            sessionId: 'session-cookie-csrf',
+            userId: '507f1f77bcf86cd799439041',
+            firebaseUid: 'firebase-cookie-csrf',
+            email: 'csrf-user@example.com',
+            emailVerified: true,
+            displayName: 'CSRF User',
+            phoneNumber: '+919876543210',
+            providerIds: ['password'],
+            authTimeSeconds: nowSeconds - 30,
+            issuedAtSeconds: nowSeconds - 30,
+            firebaseExpiresAtSeconds: nowSeconds + 3600,
+            amr: ['trusted_device'],
+            deviceMethod: 'browser_key',
+        };
+
+        jest.isolateModules(() => {
+            csrfTokenValidator = jest.fn((_req, _res, next) => next({
+                statusCode: 403,
+                message: 'CSRF token is missing',
+                code: 'CSRF_TOKEN_MISSING',
+            }));
+
+            jest.doMock('../middleware/csrfMiddleware', () => ({
+                csrfTokenValidator,
+            }));
+            jest.doMock('../config/firebase', () => ({
+                auth: () => ({
+                    verifyIdToken: jest.fn(),
+                    getUser: jest.fn(),
+                }),
+            }));
+            jest.doMock('../models/User', () => ({
+                findById: jest.fn(() => ({
+                    lean: jest.fn().mockResolvedValue({
+                        _id: '507f1f77bcf86cd799439041',
+                        email: 'csrf-user@example.com',
+                        name: 'CSRF User',
+                        phone: '+919876543210',
+                        isAdmin: false,
+                        isVerified: true,
+                        authAssurance: 'none',
+                        authAssuranceAt: null,
+                        authAssuranceAuthTime: null,
+                        loginOtpAssuranceExpiresAt: null,
+                        isSeller: false,
+                        accountState: 'active',
+                        softDeleted: false,
+                        moderation: {},
+                    }),
+                })),
+                findOne: jest.fn(),
+                findOneAndUpdate: jest.fn(),
+            }));
+            jest.doMock('../config/redis', () => ({
+                getRedisClient: () => null,
+                flags: { redisPrefix: 'test' },
+            }));
+            jest.doMock('../services/browserSessionService', () => ({
+                getBrowserSessionFromRequest: jest.fn().mockResolvedValue(sessionRecord),
+                resolveSessionIdFromRequest: jest.fn().mockReturnValue('session-cookie-csrf'),
+                revokeBrowserSession: jest.fn().mockResolvedValue(undefined),
+                touchBrowserSession: jest.fn().mockResolvedValue(sessionRecord),
+            }));
+            jest.doMock('../services/trustedDeviceChallengeService', () => ({
+                TRUSTED_DEVICE_SESSION_HEADER: 'x-aura-device-session',
+                extractTrustedDeviceContext: jest.fn().mockReturnValue({ deviceId: 'device-cookie-csrf', deviceLabel: 'CSRF Browser' }),
+                verifyTrustedDeviceSession: jest.fn().mockReturnValue({ success: true }),
+            }));
+            jest.doMock('../config/authTrustedDeviceFlags', () => ({
+                flags: { authDeviceChallengeMode: 'off' },
+                shouldRequireTrustedDevice: jest.fn().mockReturnValue(false),
+            }));
+
+            protect = require('../middleware/authMiddleware').protect;
+        });
+
+        const blockedNext = jest.fn();
+        await protect({
+            method: 'POST',
+            originalUrl: '/api/cart/commands',
+            headers: {
+                cookie: 'aura_sid=session-cookie-csrf',
+            },
+            body: {},
+            query: {},
+            get: () => 'csrf-test-agent',
+        }, {}, blockedNext);
+
+        expect(csrfTokenValidator).toHaveBeenCalledTimes(1);
+        expect(blockedNext).toHaveBeenCalledWith(expect.objectContaining({
+            statusCode: 403,
+            code: 'CSRF_TOKEN_MISSING',
+        }));
+
+        csrfTokenValidator.mockImplementation((_req, _res, next) => next());
+        const allowedNext = jest.fn();
+        await protect({
+            method: 'POST',
+            originalUrl: '/api/cart/commands',
+            headers: {
+                cookie: 'aura_sid=session-cookie-csrf',
+                'x-csrf-token': 'a'.repeat(64),
+            },
+            body: {},
+            query: {},
+            get: () => 'csrf-test-agent',
+        }, {}, allowedNext);
+
+        expect(csrfTokenValidator).toHaveBeenCalledTimes(2);
+        expect(allowedNext).toHaveBeenCalledWith();
+    });
+
+    test('protect leaves bearer writes and auth-route CSRF to their dedicated flows', async () => {
+        let protect;
+        let verifyIdToken;
+        let csrfTokenValidator;
+        const bearerUser = {
+            _id: '507f1f77bcf86cd799439042',
+            authUid: 'firebase-bearer-csrf',
+            email: 'bearer-csrf@example.com',
+            name: 'Bearer CSRF User',
+            phone: '+919811112222',
+            trustedDevices: [],
+            isAdmin: false,
+            isVerified: true,
+            authAssurance: 'none',
+            authAssuranceAt: null,
+            authAssuranceAuthTime: null,
+            loginOtpAssuranceExpiresAt: null,
+            isSeller: false,
+            accountState: 'active',
+            softDeleted: false,
+            moderation: {},
+        };
+
+        jest.isolateModules(() => {
+            csrfTokenValidator = jest.fn((_req, _res, next) => next());
+            verifyIdToken = jest.fn().mockResolvedValue({
+                uid: 'firebase-bearer-csrf',
+                email: 'bearer-csrf@example.com',
+                email_verified: true,
+                exp: Math.floor(Date.now() / 1000) + 3600,
+            });
+
+            jest.doMock('../middleware/csrfMiddleware', () => ({
+                csrfTokenValidator,
+            }));
+            jest.doMock('../config/firebase', () => ({
+                auth: () => ({
+                    verifyIdToken,
+                    getUser: jest.fn(),
+                }),
+            }));
+            jest.doMock('../models/User', () => ({
+                findById: jest.fn(() => ({
+                    lean: jest.fn().mockResolvedValue({
+                        ...bearerUser,
+                        _id: '507f1f77bcf86cd799439043',
+                        authUid: 'firebase-cookie-auth-route',
+                        email: 'cookie-auth-route@example.com',
+                        name: 'Cookie Auth Route User',
+                    }),
+                })),
+                find: jest.fn(() => ({
+                    lean: jest.fn().mockResolvedValue([bearerUser]),
+                })),
+                findOne: jest.fn(() => ({
+                    lean: jest.fn().mockResolvedValue(bearerUser),
+                })),
+                findOneAndUpdate: jest.fn(),
+            }));
+            jest.doMock('../config/redis', () => ({
+                getRedisClient: () => null,
+                flags: { redisPrefix: 'test' },
+            }));
+            jest.doMock('../services/browserSessionService', () => ({
+                getBrowserSessionFromRequest: jest.fn().mockResolvedValue({
+                    sessionId: 'session-cookie-auth-route',
+                    userId: '507f1f77bcf86cd799439043',
+                    firebaseUid: 'firebase-cookie-auth-route',
+                    email: 'cookie-auth-route@example.com',
+                    emailVerified: true,
+                    displayName: 'Cookie Auth Route User',
+                    providerIds: ['password'],
+                    authTimeSeconds: Math.floor(Date.now() / 1000) - 30,
+                    issuedAtSeconds: Math.floor(Date.now() / 1000) - 30,
+                    firebaseExpiresAtSeconds: Math.floor(Date.now() / 1000) + 3600,
+                }),
+                resolveSessionIdFromRequest: jest.fn((req) => (
+                    String(req?.headers?.cookie || '').includes('session-cookie-auth-route')
+                        ? 'session-cookie-auth-route'
+                        : ''
+                )),
+                revokeBrowserSession: jest.fn().mockResolvedValue(undefined),
+                touchBrowserSession: jest.fn(),
+            }));
+            jest.doMock('../services/trustedDeviceChallengeService', () => ({
+                TRUSTED_DEVICE_SESSION_HEADER: 'x-aura-device-session',
+                extractTrustedDeviceContext: jest.fn().mockReturnValue({ deviceId: '', deviceLabel: '' }),
+                verifyTrustedDeviceSession: jest.fn().mockReturnValue({ success: false }),
+            }));
+            jest.doMock('../config/authTrustedDeviceFlags', () => ({
+                flags: { authDeviceChallengeMode: 'off' },
+                shouldRequireTrustedDevice: jest.fn().mockReturnValue(false),
+            }));
+
+            protect = require('../middleware/authMiddleware').protect;
+        });
+
+        const bearerNext = jest.fn();
+        const bearerReq = {
+            method: 'POST',
+            originalUrl: '/api/cart/commands',
+            headers: {
+                authorization: 'Bearer fresh-token-123',
+                cookie: 'aura_sid=session-cookie-auth-route',
+            },
+            body: {},
+            query: {},
+            get: () => '',
+        };
+        await protect(bearerReq, {}, bearerNext);
+
+        expect(verifyIdToken).toHaveBeenCalledWith('fresh-token-123', true);
+        expect(csrfTokenValidator).not.toHaveBeenCalled();
+        expect(bearerReq.supersededAuthSessionId).toBe('session-cookie-auth-route');
+        expect(bearerNext).toHaveBeenCalledWith();
+
+        const authRouteNext = jest.fn();
+        await protect({
+            method: 'POST',
+            originalUrl: '/api/auth/sync',
+            headers: {
+                cookie: 'aura_sid=session-cookie-auth-route',
+            },
+            body: {},
+            query: {},
+            get: () => '',
+        }, {}, authRouteNext);
+
+        expect(csrfTokenValidator).not.toHaveBeenCalled();
+        expect(authRouteNext).toHaveBeenCalledWith();
+    });
+
     test('touches opaque browser sessions only after a successful response finishes', async () => {
         let protect;
         let touchBrowserSession;
