@@ -1,6 +1,7 @@
 const dns = require('dns');
 dns.setDefaultResultOrder('ipv4first');
 
+const crypto = require('crypto');
 const express = require('express');
 const http = require('http');
 const path = require('path');
@@ -159,6 +160,32 @@ const runtimeStartupState = {
     asyncStartupCompletedAt: null,
     asyncStartupFailedAt: null,
 };
+const HEALTH_READY_TOKEN = String(process.env.HEALTH_READY_TOKEN || '').trim();
+
+const safeTimingEqual = (candidate = '', expected = '') => {
+    const candidateBuffer = Buffer.from(String(candidate));
+    const expectedBuffer = Buffer.from(String(expected));
+    return candidateBuffer.length === expectedBuffer.length
+        && crypto.timingSafeEqual(candidateBuffer, expectedBuffer);
+};
+
+const requireHealthReadyAccess = (req, res, next) => {
+    if (!HEALTH_READY_TOKEN) {
+        return next();
+    }
+
+    const providedToken = String(req.get('x-health-token') || '').trim();
+    if (!providedToken || !safeTimingEqual(providedToken, HEALTH_READY_TOKEN)) {
+        res.set('Cache-Control', 'no-store');
+        return res.status(401).json({
+            ready: false,
+            reason: 'health_ready_token_required',
+            timestamp: new Date().toISOString(),
+        });
+    }
+
+    return next();
+};
 
 const getSplitRuntimeWorkerGaps = ({
     paymentQueue = {},
@@ -180,6 +207,24 @@ const getSplitRuntimeWorkerGaps = ({
 
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
+
+const uploadAssetLimiter = createDistributedRateLimit({
+    allowInMemoryFallback: true,
+    name: 'upload_asset_read',
+    windowMs: 5 * 60 * 1000,
+    max: process.env.NODE_ENV === 'development' ? 600 : 240,
+    message: { status: 'error', message: 'Too many media requests, please try again later.' },
+    keyGenerator: (req) => getTrustedRequestIp(req),
+});
+
+const healthReadyLimiter = createDistributedRateLimit({
+    allowInMemoryFallback: true,
+    name: 'health_ready',
+    windowMs: 60 * 1000,
+    max: process.env.NODE_ENV === 'development' ? 120 : 30,
+    message: { status: 'error', message: 'Too many readiness checks, please try again later.' },
+    keyGenerator: (req) => getTrustedRequestIp(req),
+});
 
 const buildLiveHealthPayload = () => ({
     alive: true,
@@ -288,8 +333,8 @@ app.use(mongoSanitize());
 app.use(xssSanitizer);
 app.use(activityEmailMiddleware);
 app.use(adminNotificationMiddleware);
-app.get(/^\/uploads\/reviews\/(.+)$/, serveReviewMediaAsset);
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.get(/^\/uploads\/reviews\/(.+)$/, uploadAssetLimiter, serveReviewMediaAsset);
+app.use('/uploads', uploadAssetLimiter, express.static(path.join(__dirname, 'uploads')));
 
 // Rate Limiting â€” strict for production, disabled in test
 if (process.env.NODE_ENV !== 'test') {
@@ -302,7 +347,6 @@ if (process.env.NODE_ENV !== 'test') {
         skip: (req) => {
             const path = String(req.path || req.originalUrl || '').trim().toLowerCase();
             return path === '/health'
-                || path === '/health/ready'
                 || path === '/metrics'
                 || path.startsWith('/api/email-webhooks')
                 || path.startsWith('/api/observability');
@@ -399,7 +443,7 @@ app.get('/health', async (req, res) => {
     });
 });
 
-app.get('/health/ready', async (req, res) => {
+app.get('/health/ready', healthReadyLimiter, requireHealthReadyAccess, async (req, res) => {
     const mongoose = require('mongoose');
     const dbConnected = mongoose.connection.readyState === 1;
     const redis = getRedisHealth();

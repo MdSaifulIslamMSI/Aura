@@ -1,3 +1,5 @@
+const dns = require('dns').promises;
+const net = require('net');
 const fetch = require('node-fetch');
 const { getBreaker } = require('../../utils/circuitBreaker');
 const logger = require('../../utils/logger');
@@ -18,6 +20,11 @@ const DEFAULT_TIMEOUT_MS = 45_000;
 const HEALTH_CACHE_MS = 20_000;
 const DEFAULT_MODEL_DEGRADE_MS = 180_000;
 const MAX_INLINE_MEDIA_BYTES = 20 * 1024 * 1024;
+const BLOCKED_REMOTE_MEDIA_HOSTNAMES = new Set([
+    'localhost',
+    'metadata',
+    'metadata.google.internal',
+]);
 const GEMINI_MODEL_CAPABILITIES = {
     'models/gemma-4-31b-it': { textInput: true, imageInput: true, audioInput: false },
     'models/gemma-4-26b-a4b-it': { textInput: true, imageInput: true, audioInput: false },
@@ -602,16 +609,159 @@ const parseDataUrl = (dataUrl = '') => {
     };
 };
 
+const parseIpv4 = (ip = '') => {
+    const parts = safeString(ip).split('.');
+    if (parts.length !== 4) return null;
+    const octets = parts.map((part) => Number(part));
+    if (octets.some((octet) => !Number.isInteger(octet) || octet < 0 || octet > 255)) {
+        return null;
+    }
+    return octets;
+};
+
+const isBlockedIpv4 = (ip = '') => {
+    const octets = parseIpv4(ip);
+    if (!octets) return true;
+    const [a, b] = octets;
+    return a === 0
+        || a === 10
+        || a === 127
+        || (a === 100 && b >= 64 && b <= 127)
+        || (a === 169 && b === 254)
+        || (a === 172 && b >= 16 && b <= 31)
+        || (a === 192 && b === 168)
+        || (a === 198 && (b === 18 || b === 19))
+        || a >= 224;
+};
+
+const isBlockedIpv6 = (ip = '') => {
+    const normalized = safeString(ip).toLowerCase();
+    if (!normalized) return true;
+    if (normalized.startsWith('::ffff:')) {
+        return isBlockedIpv4(normalized.slice('::ffff:'.length));
+    }
+    return normalized === '::'
+        || normalized === '::1'
+        || normalized.startsWith('fc')
+        || normalized.startsWith('fd')
+        || normalized.startsWith('fe8')
+        || normalized.startsWith('fe9')
+        || normalized.startsWith('fea')
+        || normalized.startsWith('feb');
+};
+
+const isBlockedIp = (ip = '') => {
+    const version = net.isIP(safeString(ip));
+    if (version === 4) return isBlockedIpv4(ip);
+    if (version === 6) return isBlockedIpv6(ip);
+    return true;
+};
+
+const normalizeHostname = (hostname = '') => safeString(hostname)
+    .toLowerCase()
+    .replace(/^\[|\]$/g, '')
+    .replace(/\.$/, '');
+
+const isBlockedHostname = (hostname = '') => {
+    const normalized = normalizeHostname(hostname);
+    return !normalized
+        || BLOCKED_REMOTE_MEDIA_HOSTNAMES.has(normalized)
+        || normalized.endsWith('.localhost')
+        || normalized.endsWith('.local')
+        || normalized.endsWith('.internal');
+};
+
+const assertPublicRemoteMediaHost = async (hostname = '') => {
+    const normalized = normalizeHostname(hostname);
+    if (isBlockedHostname(normalized)) {
+        throw new Error('gemini_media_url_host_not_allowed');
+    }
+
+    if (net.isIP(normalized)) {
+        if (isBlockedIp(normalized)) {
+            throw new Error('gemini_media_url_private_network');
+        }
+        return;
+    }
+
+    let addresses;
+    try {
+        addresses = await dns.lookup(normalized, { all: true });
+    } catch {
+        throw new Error('gemini_media_url_dns_failed');
+    }
+
+    if (!Array.isArray(addresses) || addresses.length === 0) {
+        throw new Error('gemini_media_url_dns_failed');
+    }
+
+    if (addresses.some((entry) => isBlockedIp(entry?.address))) {
+        throw new Error('gemini_media_url_private_network');
+    }
+};
+
+const validateRemoteMediaUrl = async (value = '') => {
+    let parsed;
+    try {
+        parsed = new URL(safeString(value));
+    } catch {
+        throw new Error('gemini_invalid_media_url');
+    }
+
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+        throw new Error('gemini_media_url_protocol_not_allowed');
+    }
+
+    if (parsed.username || parsed.password) {
+        throw new Error('gemini_media_url_credentials_not_allowed');
+    }
+
+    await assertPublicRemoteMediaHost(parsed.hostname);
+    parsed.hash = '';
+    return parsed.href;
+};
+
+const readResponseBodyWithLimit = async (response, maxBytes = MAX_INLINE_MEDIA_BYTES) => {
+    const contentLength = Number(response.headers.get('content-length') || 0);
+    if (Number.isFinite(contentLength) && contentLength > maxBytes) {
+        throw new Error('gemini_inline_media_too_large');
+    }
+
+    if (!response.body || typeof response.body[Symbol.asyncIterator] !== 'function') {
+        const buffer = Buffer.from(await response.arrayBuffer());
+        if (buffer.byteLength > maxBytes) {
+            throw new Error('gemini_inline_media_too_large');
+        }
+        return buffer;
+    }
+
+    const chunks = [];
+    let totalBytes = 0;
+    for await (const chunk of response.body) {
+        const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+        totalBytes += buffer.byteLength;
+        if (totalBytes > maxBytes) {
+            throw new Error('gemini_inline_media_too_large');
+        }
+        chunks.push(buffer);
+    }
+
+    return Buffer.concat(chunks, totalBytes);
+};
+
 const fetchRemoteInlineData = async ({ url = '', mimeType = '', timeoutMs = DEFAULT_TIMEOUT_MS } = {}) => {
-    const response = await fetch(safeString(url), {
+    const validatedUrl = await validateRemoteMediaUrl(url);
+    const response = await fetch(validatedUrl, {
         method: 'GET',
         timeout: timeoutMs,
+        redirect: 'error',
+        size: MAX_INLINE_MEDIA_BYTES,
     });
     if (!response.ok) {
         throw new Error(`gemini_media_fetch_failed:${response.status}`);
     }
 
-    const buffer = Buffer.from(await response.arrayBuffer());
+    const buffer = await readResponseBodyWithLimit(response);
     return {
         mimeType: safeString(mimeType || response.headers.get('content-type') || 'application/octet-stream'),
         data: buffer.toString('base64'),
@@ -948,5 +1098,7 @@ module.exports = {
         markModelTemporarilyDegraded,
         prioritizeStableModels,
         supportsRequestedMedia,
+        isBlockedIp,
+        validateRemoteMediaUrl,
     },
 };

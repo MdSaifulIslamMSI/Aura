@@ -44,7 +44,7 @@ router.route('/recommendations')
     .post(protect, validate(productRecommendationSchema), getRecommendedProducts);
 
 router.route('/visual-search')
-    .post(validate(visualSearchSchema), visualSearchProducts);
+    .post(protect, requireActiveAccount, validate(visualSearchSchema), visualSearchProducts);
 
 router.route('/bundles/build')
     .post(validate(bundleBuildSchema), buildProductBundle);
