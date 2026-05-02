@@ -23,6 +23,7 @@ const {
     revokeBrowserSession,
     touchBrowserSession,
 } = require('../services/browserSessionService');
+const { csrfTokenValidator } = require('./csrfMiddleware');
 const {
     flags: trustedDeviceFlags,
     shouldRequireTrustedDevice,
@@ -211,6 +212,7 @@ const ADMIN_ALLOWLIST_EMAILS = new Set(
         .map((email) => normalizeEmail(email))
         .filter(Boolean)
 );
+const CSRF_STATE_CHANGING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
 const isDuplicatePhoneError = (error) => (
     Boolean(error?.code === 11000 && (error?.keyPattern?.phone || String(error?.message || '').includes('phone')))
@@ -414,6 +416,13 @@ const enforceTrustedDevice = (req) => {
 };
 
 const normalizePath = (value) => String(value || '').trim().toLowerCase();
+
+const hasBearerAuthorizationHeader = (req = {}) => String(req.headers?.authorization || '').startsWith('Bearer ');
+
+const shouldBypassCookieSessionCsrf = (req = {}) => {
+    const path = normalizePath(req.originalUrl || req.path || '');
+    return path.startsWith('/api/auth/');
+};
 
 const resolveRequestSensitivity = (req = {}) => {
     const method = String(req.method || 'GET').trim().toUpperCase();
@@ -688,7 +697,30 @@ const authenticateWithBrowserSession = async (req, res) => {
     return true;
 };
 
-const finalizeProtectedRequest = async (req, next) => {
+const enforceCookieSessionCsrf = async (req, res) => {
+    const method = String(req.method || 'GET').trim().toUpperCase();
+    if (!CSRF_STATE_CHANGING_METHODS.has(method)) {
+        return;
+    }
+    if (!req.authSession?.sessionId || hasBearerAuthorizationHeader(req)) {
+        return;
+    }
+    if (shouldBypassCookieSessionCsrf(req)) {
+        return;
+    }
+
+    await new Promise((resolve, reject) => {
+        csrfTokenValidator(req, res, (error) => {
+            if (error) {
+                reject(error);
+                return;
+            }
+            resolve();
+        });
+    });
+};
+
+const finalizeProtectedRequest = async (req, res, next) => {
     if (AUTH_REQUIRE_OTP_FOR_ALL_PROTECTED) {
         enforceOtpAssurance(req);
     }
@@ -696,6 +728,7 @@ const finalizeProtectedRequest = async (req, next) => {
         enforceTrustedDevice(req);
     }
     await enforceContinuousAccessPosture(req);
+    await enforceCookieSessionCsrf(req, res);
     return next();
 };
 
@@ -714,7 +747,7 @@ const protect = asyncHandler(async (req, res, next) => {
         try {
             const authenticatedWithSession = await authenticateWithBrowserSession(req, res);
             if (authenticatedWithSession) {
-                return finalizeProtectedRequest(req, next);
+                return finalizeProtectedRequest(req, res, next);
             }
         } catch (error) {
             if (error instanceof AppError) {
@@ -767,7 +800,7 @@ const protect = asyncHandler(async (req, res, next) => {
                 if (cacheMatchesResolvedIdentity) {
                     enforceUserAccountAccess(cachedUser);
                     req.user = cachedUser;
-                    return finalizeProtectedRequest(req, next);
+                    return finalizeProtectedRequest(req, res, next);
                 }
 
                 await invalidateUserCache(uid);
@@ -791,7 +824,7 @@ const protect = asyncHandler(async (req, res, next) => {
                 enforceUserAccountAccess(bootstrappedUser);
                 await setCachedUser(uid, bootstrappedUser, exp);
                 req.user = bootstrappedUser;
-                return finalizeProtectedRequest(req, next);
+                return finalizeProtectedRequest(req, res, next);
             }
 
             // ── Step 4: Write to Redis cache for subsequent requests ──────
@@ -799,7 +832,7 @@ const protect = asyncHandler(async (req, res, next) => {
             await setCachedUser(uid, user, exp);
 
             req.user = user;
-            return finalizeProtectedRequest(req, next);
+            return finalizeProtectedRequest(req, res, next);
         } catch (error) {
             if (error instanceof AppError) throw error;
             logger.error('auth.verify_failed', { error: error.message });
