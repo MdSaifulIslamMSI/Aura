@@ -190,6 +190,7 @@ const resolveAdminAccessPolicy = (env = process.env) => {
         strictAccessEnabled: parseBooleanEnv(env.ADMIN_STRICT_ACCESS_ENABLED, true),
         requireEmailVerified: parseBooleanEnv(env.ADMIN_REQUIRE_EMAIL_VERIFIED, true),
         requireSecondFactor: parseBooleanEnv(env.ADMIN_REQUIRE_2FA, productionDefault),
+        requirePasskey: parseBooleanEnv(env.ADMIN_REQUIRE_PASSKEY, productionDefault),
         requireAllowlist: parseBooleanEnv(env.ADMIN_REQUIRE_ALLOWLIST, productionDefault),
         freshLoginMinutes: parsePositiveIntEnv(env.ADMIN_REQUIRE_FRESH_LOGIN_MINUTES, 30),
     };
@@ -200,6 +201,7 @@ const AUTH_REQUIRE_OTP_FOR_ALL_PROTECTED = parseBooleanEnv(process.env.AUTH_REQU
 const ADMIN_STRICT_ACCESS_ENABLED = adminAccessPolicy.strictAccessEnabled;
 const ADMIN_REQUIRE_EMAIL_VERIFIED = adminAccessPolicy.requireEmailVerified;
 const ADMIN_REQUIRE_2FA = adminAccessPolicy.requireSecondFactor;
+const ADMIN_REQUIRE_PASSKEY = adminAccessPolicy.requirePasskey;
 const ADMIN_REQUIRE_ALLOWLIST = adminAccessPolicy.requireAllowlist;
 const ADMIN_REQUIRE_FRESH_LOGIN_MINUTES = adminAccessPolicy.freshLoginMinutes;
 const SENSITIVE_ACTION_FRESH_LOGIN_MINUTES = parsePositiveIntEnv(process.env.AUTH_SENSITIVE_FRESH_LOGIN_MINUTES, 15);
@@ -371,6 +373,14 @@ const hasSessionSecondFactor = (req = {}) => {
     ));
 };
 
+const hasSessionPasskeyAmr = (req = {}) => {
+    const sessionAmr = Array.isArray(req.authSession?.amr)
+        ? req.authSession.amr.map((entry) => String(entry || '').trim().toLowerCase())
+        : [];
+
+    return sessionAmr.some((entry) => entry === 'webauthn' || entry === 'passkey');
+};
+
 const hasSessionTrustedDeviceBinding = (req = {}) => {
     const requestDeviceId = String(extractTrustedDeviceContext(req)?.deviceId || '').trim();
     const sessionDeviceId = String(req.authSession?.deviceId || '').trim();
@@ -475,6 +485,35 @@ const hasCryptographicTrustedDeviceBinding = (req = {}) => {
     }
 
     return hasSessionTrustedDeviceBinding(req) || getTrustedDeviceSessionVerification(req).success;
+};
+
+const hasActivePasskeySessionStepUp = (req = {}) => {
+    if (!hasActiveSessionStepUp(req)) {
+        return false;
+    }
+
+    const sessionDeviceMethod = String(req.authSession?.deviceMethod || '').trim().toLowerCase();
+    if (sessionDeviceMethod === 'webauthn') {
+        return hasSessionTrustedDeviceBinding(req);
+    }
+
+    return hasSessionPasskeyAmr(req);
+};
+
+const hasPasskeySecondFactor = (req = {}) => {
+    const firebaseSecondFactor = String(req.authToken?.firebase?.sign_in_second_factor || '')
+        .trim()
+        .toLowerCase();
+    if (firebaseSecondFactor === 'webauthn' || firebaseSecondFactor === 'passkey') {
+        return true;
+    }
+
+    if (hasActivePasskeySessionStepUp(req)) {
+        return true;
+    }
+
+    return resolveTrustedDeviceMethod(req) === 'webauthn'
+        && getTrustedDeviceSessionVerification(req).success;
 };
 
 const resolveAuthAgeSeconds = (req = {}) => {
@@ -1054,6 +1093,15 @@ const admin = asyncHandler(async (req, res, next) => {
             path: req.originalUrl,
         });
         throw new AppError('Admin access requires a verified second factor', 403);
+    }
+
+    if (ADMIN_REQUIRE_PASSKEY && !hasPasskeySecondFactor(req)) {
+        logger.warn('admin_access.blocked_missing_passkey', {
+            requestId: req.requestId || '',
+            email: actorEmail,
+            path: req.originalUrl,
+        });
+        throw new AppError('Admin access requires passkey verification', 403);
     }
 
     enforceTrustedDevice(req);
