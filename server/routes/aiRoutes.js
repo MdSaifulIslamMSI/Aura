@@ -1,6 +1,6 @@
 const express = require('express');
 const validate = require('../middleware/validate');
-const { protect, protectOptional } = require('../middleware/authMiddleware');
+const { protect, protectOptional, requireActiveAccount } = require('../middleware/authMiddleware');
 const { createDistributedRateLimit } = require('../middleware/distributedRateLimit');
 const {
     createAiVoiceSession,
@@ -24,6 +24,22 @@ const {
 } = require('../validators/aiValidators');
 
 const router = express.Router();
+
+const parseBooleanEnv = (value, fallback = false) => {
+    if (value === undefined || value === null || value === '') return fallback;
+    const normalized = String(value).trim().toLowerCase();
+    if (['1', 'true', 'yes', 'on'].includes(normalized)) return true;
+    if (['0', 'false', 'no', 'off'].includes(normalized)) return false;
+    return fallback;
+};
+
+const publicAiAccessEnabled = parseBooleanEnv(
+    process.env.AI_PUBLIC_ACCESS_ENABLED,
+    process.env.NODE_ENV !== 'production'
+);
+const aiAccess = publicAiAccessEnabled
+    ? [protectOptional]
+    : [protect, requireActiveAccount];
 
 const aiChatLimiter = createDistributedRateLimit({
     allowInMemoryFallback: true,
@@ -61,14 +77,14 @@ const aiSessionLimiter = createDistributedRateLimit({
     message: 'Too many assistant session requests. Please slow down.',
 });
 
-router.post('/chat', protectOptional, aiChatLimiter, validate(aiChatSchema), handleAiChat);
-router.post('/chat/stream', protectOptional, aiChatLimiter, validate(aiChatSchema), handleAiChatStream);
+router.post('/chat', ...aiAccess, aiChatLimiter, validate(aiChatSchema), handleAiChat);
+router.post('/chat/stream', ...aiAccess, aiChatLimiter, validate(aiChatSchema), handleAiChatStream);
 router.get('/sessions', protect, aiSessionLimiter, listAiSessions);
 router.post('/sessions', protect, aiSessionLimiter, validate(aiSessionCreateSchema), createAiSession);
 router.get('/sessions/:sessionId', protect, aiSessionLimiter, validate(aiSessionParamsOnlySchema), getAiSession);
 router.post('/sessions/:sessionId/reset', protect, aiSessionLimiter, validate(aiSessionParamsOnlySchema), resetAiSession);
 router.post('/sessions/:sessionId/archive', protect, aiSessionLimiter, validate(aiSessionParamsOnlySchema), archiveAiSession);
-router.post('/voice/session', protectOptional, aiVoiceLimiter, validate(aiVoiceSessionSchema), createAiVoiceSession);
-router.post('/voice/speak', protectOptional, aiVoiceSpeechLimiter, validate(aiVoiceSpeakSchema), synthesizeAiVoiceReply);
+router.post('/voice/session', ...aiAccess, aiVoiceLimiter, validate(aiVoiceSessionSchema), createAiVoiceSession);
+router.post('/voice/speak', ...aiAccess, aiVoiceSpeechLimiter, validate(aiVoiceSpeakSchema), synthesizeAiVoiceReply);
 
 module.exports = router;
