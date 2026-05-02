@@ -233,6 +233,7 @@ requireRegex(awsCompose, /worker:[\s\S]*depends_on:[\s\S]*-\s+redis/, 'AWS worke
 requireIncludes(awsCompose, 'runtime-secrets.env', 'AWS Compose services must load runtime-secrets.env.');
 requireIncludes(awsCompose, 'redis-server", "--appendonly", "yes"', 'AWS Redis service must enable appendonly persistence.');
 requireIncludes(awsCompose, 'AUTH_DEVICE_CHALLENGE_MODE: admin', 'AWS API service must keep trusted-device mode enabled.');
+requireIncludes(awsCompose, 'ADMIN_REQUIRE_PASSKEY: "true"', 'AWS API service must require passkey-backed admin access.');
 requireIncludes(awsCompose, '"127.0.0.1:5000:5000"', 'AWS API port 5000 must bind to loopback only.');
 if (/["']?5000:5000["']?/.test(awsCompose) && !awsCompose.includes('"127.0.0.1:5000:5000"')) {
     addFailure('AWS Compose must not publish API port 5000 on all interfaces.');

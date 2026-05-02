@@ -14,6 +14,7 @@ services:
       ORDER_EMAIL_PROVIDER: gmail
       AUTH_DEVICE_CHALLENGE_MODE: admin
       AUTH_DEVICE_CHALLENGE_ALLOW_VAULT_FALLBACK: "true"
+      ADMIN_REQUIRE_PASSKEY: "true"
     depends_on:
       - redis
     ports:
