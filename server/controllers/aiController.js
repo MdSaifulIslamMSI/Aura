@@ -8,6 +8,7 @@ const {
     createVoiceSessionConfig,
     synthesizeSpeech,
 } = require('../services/ai/providerRegistry');
+const { assertPrivateChatQuota } = require('../services/chatQuotaService');
 
 const resolveAssistantPayload = (req = {}) => ({
     user: req.user || null,
@@ -30,6 +31,10 @@ const handleAiChat = asyncHandler(async (req, res, next) => {
         return next(new AppError('Message, media, confirmation, or actionRequest is required', 400));
     }
 
+    if (payload.user?._id) {
+        await assertPrivateChatQuota(payload.user._id);
+    }
+
     const result = await processAssistantTurn(payload);
 
     return res.json(result);
@@ -41,6 +46,10 @@ const handleAiChatStream = asyncHandler(async (req, res, next) => {
     const { message, confirmation, actionRequest } = payload;
     if (!message && !confirmation && !actionRequest && payload.images.length === 0 && payload.audio.length === 0) {
         return next(new AppError('Message, media, confirmation, or actionRequest is required', 400));
+    }
+
+    if (payload.user?._id) {
+        await assertPrivateChatQuota(payload.user._id);
     }
 
     res.setHeader('Content-Type', 'text/event-stream');

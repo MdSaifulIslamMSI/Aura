@@ -8,8 +8,14 @@ const mockBreakerStats = jest.fn(() => ({
     lastFailureAt: null,
     openedAt: null,
 }));
+const mockDnsLookup = jest.fn();
 
 jest.mock('node-fetch', () => (...args) => mockFetch(...args));
+jest.mock('dns', () => ({
+    promises: {
+        lookup: (...args) => mockDnsLookup(...args),
+    },
+}));
 jest.mock('../utils/circuitBreaker', () => ({
     getBreaker: jest.fn(() => ({
         call: mockBreakerCall,
@@ -21,6 +27,7 @@ describe('geminiGatewayService helpers', () => {
     beforeEach(() => {
         jest.resetModules();
         mockFetch.mockReset();
+        mockDnsLookup.mockReset();
         mockBreakerCall.mockClear();
         mockBreakerStats.mockClear();
         process.env.GEMINI_API_KEY = 'test-gemini-key';
@@ -59,6 +66,32 @@ describe('geminiGatewayService helpers', () => {
             images: [],
             audio: [{ dataUrl: 'data:audio/wav;base64,AAA' }],
         })).toBe(false);
+    });
+
+    test('validateRemoteMediaUrl rejects localhost and metadata URLs before fetch', async () => {
+        const { __testables } = require('../services/ai/geminiGatewayService');
+
+        await expect(__testables.validateRemoteMediaUrl('http://localhost/image.png'))
+            .rejects.toThrow('gemini_media_url_host_not_allowed');
+        await expect(__testables.validateRemoteMediaUrl('http://169.254.169.254/latest/meta-data'))
+            .rejects.toThrow('gemini_media_url_private_network');
+        expect(mockDnsLookup).not.toHaveBeenCalled();
+    });
+
+    test('validateRemoteMediaUrl rejects hostnames that resolve to private addresses', async () => {
+        mockDnsLookup.mockResolvedValueOnce([{ address: '10.0.0.5', family: 4 }]);
+        const { __testables } = require('../services/ai/geminiGatewayService');
+
+        await expect(__testables.validateRemoteMediaUrl('https://assets.example.com/photo.jpg'))
+            .rejects.toThrow('gemini_media_url_private_network');
+    });
+
+    test('validateRemoteMediaUrl allows public media URLs and drops fragments', async () => {
+        mockDnsLookup.mockResolvedValueOnce([{ address: '8.8.8.8', family: 4 }]);
+        const { __testables } = require('../services/ai/geminiGatewayService');
+
+        await expect(__testables.validateRemoteMediaUrl('https://assets.example.com/photo.jpg#secret'))
+            .resolves.toBe('https://assets.example.com/photo.jpg');
     });
 
     test('resolveModelProfile switches to the configured audio model for audio turns', () => {
