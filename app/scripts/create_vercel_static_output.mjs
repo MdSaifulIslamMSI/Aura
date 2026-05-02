@@ -10,9 +10,12 @@ const outputDirectory = path.join(repoRoot, '.vercel', 'output');
 const staticDirectory = path.join(outputDirectory, 'static');
 const routingContractPath = path.join(appRoot, 'config', 'vercelRoutingContract.mjs');
 
-const { HOSTED_BACKEND_ORIGIN } = await import(pathToFileURL(routingContractPath).href);
+const { FRONTEND_SECURITY_HEADERS, HOSTED_BACKEND_ORIGIN } = await import(pathToFileURL(routingContractPath).href);
 const trimTrailingSlash = (value = '') => String(value || '').replace(/\/+$/, '');
 const backendOrigin = trimTrailingSlash(process.env.AURA_BACKEND_ORIGIN || process.env.AWS_BACKEND_BASE_URL || HOSTED_BACKEND_ORIGIN);
+const frontendSecurityHeaders = Object.fromEntries(
+    FRONTEND_SECURITY_HEADERS.map(({ key, value }) => [key, value])
+);
 
 if (!/^https?:\/\//i.test(backendOrigin)) {
     throw new Error(`Expected an absolute backend origin, received "${backendOrigin}"`);
@@ -25,6 +28,11 @@ await cp(distDirectory, staticDirectory, { recursive: true });
 const config = {
     version: 3,
     routes: [
+        {
+            src: '/(.*)',
+            headers: frontendSecurityHeaders,
+            continue: true,
+        },
         {
             src: '/socket\\.io',
             dest: `${backendOrigin}/socket.io/`,
