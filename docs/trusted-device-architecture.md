@@ -43,6 +43,10 @@ The repo now uses a real trusted-device checkpoint for privileged access.
 - Session establishment routes (`/api/auth/session`, `/api/auth/sync`) can return `device_challenge_required`.
 - The frontend mounts a real checkpoint overlay through `AuraTrustedDeviceChallenge`.
 - Seller and admin access paths enforce the trusted-device session token on the server.
+- Admin access can require passkey-backed assurance with `ADMIN_REQUIRE_PASSKEY`.
+  In production this defaults on, and the AWS runtime contract pins it to `true`.
+  Browser-key trusted devices remain usable for lower-risk trusted-device checks,
+  but they are not enough for passkey-required admin access.
 - `AUTH_DEVICE_CHALLENGE_MODE` is the primary environment flag.
 - `AUTH_LATTICE_CHALLENGE_MODE` is still read as a legacy alias so existing deployments do not silently break.
 - When trusted-device challenge mode is enabled, startup now fails closed unless the deployment provides a dedicated device secret or explicitly opts into vault-secret fallback.
