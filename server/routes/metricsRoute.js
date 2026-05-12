@@ -2,8 +2,9 @@
  * metricsRoute.js — Prometheus scrape endpoint
  *
  * GET /metrics — returns Prometheus text format metrics for scraping.
- * Protected by CRON_SECRET (same token used for internal job auth) so
- * the endpoint is not publicly accessible in production.
+ * Protected by METRICS_SECRET or CRON_SECRET so the endpoint is not
+ * publicly accessible in production. Scrapers may use Authorization:
+ * Bearer <secret>, x-metrics-key, or x-metrics-token.
  *
  * In development (NODE_ENV !== 'production') the secret check is skipped
  * for convenience.

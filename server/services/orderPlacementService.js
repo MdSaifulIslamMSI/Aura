@@ -23,7 +23,6 @@ const { flags: emailFlags, EMAIL_REGEX } = require('../config/emailFlags');
 const {
     withIdempotency,
 } = require('./payments/idempotencyService');
-const { scanForMarketplaceAnomalies } = require('./marketplaceIntegrityService');
 const { clearCartAfterCheckout } = require('./cartService');
 const { emitCartRealtimeUpdate } = require('./cartRealtimeService');
 
@@ -160,16 +159,6 @@ const executeOrderCreation = async ({
     });
 
     await decrementStockAtomically(quote.resolvedItems, session);
-
-    // NP-Hard: Marketplace Integrity Sweep (Subgraph Isomorphism)
-    // In a production system, neighborhoodData would be populated from 
-    // real referral and transaction graphs.
-    const simulatedNeighborhood = [
-        [userId.toString(), 'u_neighbor_1'],
-        ['u_neighbor_1', 'u_neighbor_2'],
-        ['u_neighbor_2', userId.toString()] // Intentional Circular Referral Pattern
-    ];
-    const integrityResults = await scanForMarketplaceAnomalies(userId, simulatedNeighborhood);
     
     const paymentIntent = paymentValidation.paymentIntent;
     const order = new Order({
@@ -202,8 +191,7 @@ const executeOrderCreation = async ({
         priceBreakdown: {
             ...quote.pricing.priceBreakdown,
             market: quote.pricing.market || null,
-            charge: quote.pricing.charge || null,
-            integrityInsights: integrityResults
+            charge: quote.pricing.charge || null
         },
         paymentIntentId: paymentIntent?.intentId || body.paymentIntentId || '',
         paymentProvider: paymentIntent?.provider || '',

@@ -99,4 +99,29 @@ describe('SettingsSection recovery codes', () => {
 
         expect(handleGenerateRecoveryCodes).not.toHaveBeenCalled();
     });
+
+    it('offers Microsoft linking when the provider is enabled and not linked', () => {
+        const handleLinkMicrosoftProvider = vi.fn();
+
+        renderSettings({
+            linkedProviderIds: ['password'],
+            socialAuthStatus: { microsoftEnabled: true, appleEnabled: false },
+            handleLinkMicrosoftProvider,
+        });
+
+        fireEvent.click(screen.getByRole('button', { name: /link microsoft/i }));
+
+        expect(handleLinkMicrosoftProvider).toHaveBeenCalledTimes(1);
+        expect(screen.queryByRole('button', { name: /link apple/i })).not.toBeInTheDocument();
+    });
+
+    it('marks Microsoft as linked when Firebase already has the provider', () => {
+        renderSettings({
+            linkedProviderIds: ['password', 'microsoft.com'],
+            socialAuthStatus: { microsoftEnabled: true, appleEnabled: false },
+            handleLinkMicrosoftProvider: vi.fn(),
+        });
+
+        expect(screen.getByRole('button', { name: /microsoft linked/i })).toBeDisabled();
+    });
 });

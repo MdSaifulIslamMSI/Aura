@@ -1,0 +1,80 @@
+groups:
+  - name: aura-login-security
+    interval: 30s
+    rules:
+      - alert: AuraAuthLoginFailureSpike
+        expr: sum(increase(aura_auth_security_events_total{event="login_failure"}[5m])) > 25
+        for: 2m
+        labels:
+          severity: warning
+          domain: auth
+          runbook: login-security-observability
+        annotations:
+          summary: Aura login failures are spiking
+          description: More than 25 login failures were recorded in the last 5 minutes.
+
+      - alert: AuraAuthOtpVerifyFailureSpike
+        expr: sum(increase(aura_auth_security_events_total{event="otp_verify",outcome="failure"}[5m])) > 50
+        for: 2m
+        labels:
+          severity: warning
+          domain: auth
+          runbook: login-security-observability
+        annotations:
+          summary: Aura OTP verification failures are spiking
+          description: More than 50 OTP verification failures were recorded in the last 5 minutes.
+
+      - alert: AuraAuthRecoveryCodeAbuse
+        expr: sum(increase(aura_auth_security_events_total{event="recovery_code",outcome="failure"}[15m])) > 3
+        for: 1m
+        labels:
+          severity: critical
+          domain: auth
+          runbook: login-security-observability
+        annotations:
+          summary: Aura recovery-code failures need review
+          description: More than 3 recovery-code failures were recorded in the last 15 minutes.
+
+      - alert: AuraAuthAdminAccessBlocked
+        expr: sum(increase(aura_auth_security_events_total{event="admin_access_blocked"}[10m])) > 1
+        for: 1m
+        labels:
+          severity: critical
+          domain: auth
+          runbook: login-security-observability
+        annotations:
+          summary: Aura admin access blocks need review
+          description: More than 1 admin access block was recorded in the last 10 minutes.
+
+      - alert: AuraAuthCsrfRejectionBurst
+        expr: sum(increase(aura_auth_security_events_total{event="csrf_rejected"}[5m])) > 25
+        for: 2m
+        labels:
+          severity: warning
+          domain: auth
+          runbook: login-security-observability
+        annotations:
+          summary: Aura CSRF rejections are elevated
+          description: More than 25 CSRF rejections were recorded in the last 5 minutes.
+
+      - alert: AuraAuthTrustedDeviceVerifyFailureSpike
+        expr: sum(increase(aura_auth_security_events_total{event="trusted_device_verify",outcome="failure"}[10m])) > 10
+        for: 2m
+        labels:
+          severity: warning
+          domain: auth
+          runbook: login-security-observability
+        annotations:
+          summary: Aura trusted-device verification failures are elevated
+          description: More than 10 trusted-device verification failures were recorded in the last 10 minutes.
+
+      - alert: AuraAuthStepUpPressure
+        expr: sum(increase(aura_auth_security_events_total{event="step_up_required"}[10m])) > 25
+        for: 5m
+        labels:
+          severity: info
+          domain: auth
+          runbook: login-security-observability
+        annotations:
+          summary: Aura step-up requirements are elevated
+          description: More than 25 step-up requirements were recorded in the last 10 minutes.

@@ -77,6 +77,12 @@ const PhoneCountryProbe = () => {
   );
 };
 
+const SecureSignalsProbe = () => {
+  const { secureSignals } = useLoginController();
+  const socialSignal = secureSignals.find((signal) => signal.label === 'Social access');
+  return <div data-testid="social-access-signal">{socialSignal?.value || ''}</div>;
+};
+
 const buildAuthValue = (overrides = {}) => ({
   currentUser: null,
   isAuthenticated: false,
@@ -333,6 +339,37 @@ describe('useLoginController', () => {
     });
 
     expect(signInWithGoogle).toHaveBeenCalled();
+  });
+
+  it('summarizes only enabled expanded social providers', () => {
+    getFirebaseSocialAuthStatusMock.mockReturnValue({
+      ready: true,
+      supported: true,
+      runtimeHost: 'dbtrhsolhec1s.cloudfront.net',
+      runtimeBlocked: false,
+      redirectPreferred: false,
+      runtimeIpHost: false,
+      disabledByConfig: false,
+      microsoftEnabled: true,
+      appleEnabled: false,
+      initErrorCode: '',
+      initErrorMessage: '',
+    });
+
+    render(
+      <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+        <AuthContext.Provider value={buildAuthValue()}>
+          <MemoryRouter initialEntries={['/login']}>
+            <Routes>
+              <Route path="/login" element={<SecureSignalsProbe />} />
+            </Routes>
+          </MemoryRouter>
+        </AuthContext.Provider>
+      </MarketProvider>
+    );
+
+    expect(screen.getByTestId('social-access-signal')).toHaveTextContent('Google, Facebook, X, and Microsoft ready');
+    expect(screen.getByTestId('social-access-signal')).not.toHaveTextContent('Apple');
   });
 
   it('keeps phone input international while letting users pick a country code', async () => {

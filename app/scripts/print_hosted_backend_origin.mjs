@@ -1,3 +1,8 @@
-import { resolveHostedBackendOrigin } from '../config/vercelRoutingContract.mjs';
+import {
+    assertDeployableHostedBackendOrigin,
+    resolveHostedBackendOrigin,
+} from '../config/vercelRoutingContract.mjs';
 
-process.stdout.write(resolveHostedBackendOrigin());
+const origin = resolveHostedBackendOrigin();
+assertDeployableHostedBackendOrigin(origin);
+process.stdout.write(origin);

@@ -113,7 +113,7 @@ jobs:
             && [ -n "${ANDROID_RELEASE_KEY_PASSWORD}" ]; then
             can_sign_android=true
           else
-            echo "::warning::Android signing secrets are incomplete. GitHub APKs will use the repo public internal update key for install continuity, not production store trust."
+            echo "::warning::Android private release signing secrets are incomplete. GitHub APKs will use the repo public internal update key for install continuity, not production store trust."
           fi
 
           if [ -n "${FIREBASE_IOS_GOOGLE_SERVICE_INFO_PLIST_BASE64}" ]; then
@@ -214,7 +214,7 @@ jobs:
             echo "AURA_ANDROID_RELEASE_KEY_PASSWORD=${ANDROID_RELEASE_KEY_PASSWORD}" >> "$GITHUB_ENV"
           else
             base64 --decode app/android/ci/aura-public-internal-update-keystore.base64 > "${KEYSTORE_PATH}"
-            echo "::notice::Using the repo public internal Android update key. This keeps free GitHub APK updates installable but is not production store signing."
+            echo "::notice::Using the repo public internal Android update key. This keeps GitHub APK updates installable but is not production store signing."
             echo "AURA_ANDROID_RELEASE_KEYSTORE_PASSWORD=aura-public-update" >> "$GITHUB_ENV"
             echo "AURA_ANDROID_RELEASE_KEY_ALIAS=aura-public-update" >> "$GITHUB_ENV"
             echo "AURA_ANDROID_RELEASE_KEY_PASSWORD=aura-public-update" >> "$GITHUB_ENV"
@@ -598,7 +598,7 @@ jobs:
             if [ "${CAN_SIGN_ANDROID}" = "true" ]; then
               echo "- Android artifacts were built with the configured release keystore."
             else
-              echo "- Android artifacts were signed with Aura's public internal GitHub update key. This keeps free APK updates installable across releases, but production store distribution still needs a private release keystore."
+              echo "- Android artifacts were signed with Aura's public internal GitHub update key. This keeps GitHub APK updates installable across releases, but production store distribution still needs a private release keystore."
             fi
 
             if [ "${IOS_BUILD_RESULT}" = "success" ] && [ "${CAN_SIGN_IOS}" = "true" ]; then

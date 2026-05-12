@@ -30,6 +30,7 @@ const {
 } = require('../config/authTrustedDeviceFlags');
 const { getCachedAdaptiveSecuritySignal } = require('../services/healthService');
 const { findPreferredIdentityUserLean } = require('../services/authIdentityResolutionService');
+const { recordAuthSecurityEvent } = require('../services/authSecurityTelemetryService');
 
 // Redis-backed token cache.
 // Replaces the in-process Map which broke horizontal scaling:
@@ -214,6 +215,39 @@ const ADMIN_ALLOWLIST_EMAILS = new Set(
         .map((email) => normalizeEmail(email))
         .filter(Boolean)
 );
+
+const recordLoginFailure = (req, reason, statusCode = 401) => {
+    recordAuthSecurityEvent({
+        event: 'login_failure',
+        outcome: 'failure',
+        reason,
+        surface: 'auth',
+        req,
+        meta: { statusCode },
+    });
+};
+
+const recordStepUpRequired = (req, reason, statusCode = 403) => {
+    recordAuthSecurityEvent({
+        event: 'step_up_required',
+        outcome: 'required',
+        reason,
+        surface: 'auth',
+        req,
+        meta: { statusCode },
+    });
+};
+
+const recordAdminBlock = (req, reason, statusCode = 403) => {
+    recordAuthSecurityEvent({
+        event: 'admin_access_blocked',
+        outcome: 'blocked',
+        reason,
+        surface: 'admin',
+        req,
+        meta: { statusCode },
+    });
+};
 const CSRF_STATE_CHANGING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
 const isDuplicatePhoneError = (error) => (
@@ -421,6 +455,7 @@ const enforceTrustedDevice = (req) => {
     const verification = getTrustedDeviceSessionVerification(req);
 
     if (!verification.success && !hasSessionTrustedDeviceBinding(req)) {
+        recordStepUpRequired(req, verification.reason || 'trusted_device_required');
         throw new AppError('Trusted device verification required for this account', 403);
     }
 };
@@ -617,26 +652,32 @@ const enforceContinuousAccessPosture = async (req) => {
             sensitivity,
             degradedSignals: adaptiveSignal.degradedSignals,
         });
+        recordStepUpRequired(req, 'adaptive_security_unavailable', 503);
         throw new AppError('Sensitive actions are temporarily restricted while platform dependencies recover.', 503);
     }
 
     if (!posture.fresh) {
+        recordStepUpRequired(req, 'fresh_login_required', 401);
         throw new AppError(`Recent re-authentication required within ${freshnessMinutes} minutes for this action.`, 401);
     }
 
     if (posture.trustedDeviceRequired && !posture.deviceBound) {
+        recordStepUpRequired(req, 'trusted_device_required');
         throw new AppError('Trusted device verification required for this action.', 403);
     }
 
     if (posture.cryptoTrustedDeviceRequired && !posture.cryptoBound) {
+        recordStepUpRequired(req, 'crypto_trusted_device_required');
         throw new AppError('A cryptographically verified trusted device is required for this action.', 403);
     }
 
     if (posture.riskHigh && !posture.elevatedAssurance) {
+        recordStepUpRequired(req, 'stronger_session_required');
         throw new AppError('A stronger verified session is required for this action.', 403);
     }
 
     if (adaptiveSignal.requireStepUpForSensitiveActions && !posture.elevatedAssurance) {
+        recordStepUpRequired(req, 'degraded_step_up_required');
         throw new AppError('Sensitive actions require step-up verification while the system is degraded.', 403);
     }
 };
@@ -715,12 +756,14 @@ const authenticateWithBrowserSession = async (req, res) => {
 
     const session = await getBrowserSessionFromRequest(req);
     if (!session?.sessionId) {
+        recordLoginFailure(req, 'session_expired');
         throw new AppError('Not authorized, session expired', 401);
     }
 
     const user = await User.findById(session.userId, AUTH_PROJECTION).lean();
     if (!user) {
         await revokeBrowserSession(session.sessionId);
+        recordLoginFailure(req, 'session_user_not_found');
         throw new AppError('Not authorized, session expired', 401);
     }
 
@@ -793,6 +836,7 @@ const protect = asyncHandler(async (req, res, next) => {
                 throw error;
             }
             logger.error('auth.session_verify_failed', { error: error?.message || 'unknown' });
+            recordLoginFailure(req, 'session_failed');
             throw new AppError('Not authorized, session failed', 401);
         }
     } else {
@@ -875,9 +919,11 @@ const protect = asyncHandler(async (req, res, next) => {
         } catch (error) {
             if (error instanceof AppError) throw error;
             logger.error('auth.verify_failed', { error: error.message });
+            recordLoginFailure(req, 'token_failed');
             throw new AppError('Not authorized, token failed', 401);
         }
     } else {
+        recordLoginFailure(req, 'no_session');
         throw new AppError('Not authorized, no session', 401);
     }
 });
@@ -889,6 +935,7 @@ const requireOtpAssurance = (req, res, next) => {
 
 const protectPhoneFactorProof = asyncHandler(async (req, res, next) => {
     if (!req.headers.authorization?.startsWith('Bearer')) {
+        recordLoginFailure(req, 'no_token');
         throw new AppError('Not authorized, no token', 401);
     }
 
@@ -901,6 +948,7 @@ const protectPhoneFactorProof = asyncHandler(async (req, res, next) => {
         req.authToken = decodedToken;
 
         if (!verifiedPhone || !PHONE_REGEX.test(verifiedPhone)) {
+            recordStepUpRequired(req, 'phone_factor_required');
             throw new AppError('Firebase phone verification is required before continuing.', 403);
         }
 
@@ -908,6 +956,7 @@ const protectPhoneFactorProof = asyncHandler(async (req, res, next) => {
     } catch (error) {
         if (error instanceof AppError) throw error;
         logger.error('auth.phone_factor_verify_failed', { error: error?.message || 'unknown' });
+        recordLoginFailure(req, 'phone_factor_token_failed');
         throw new AppError('Not authorized, token failed', 401);
     }
 });
@@ -1010,6 +1059,7 @@ const admin = asyncHandler(async (req, res, next) => {
     }
 
     if (!effectiveUser?.isAdmin) {
+        recordAdminBlock(req, 'not_admin');
         throw new AppError('Not authorized as an admin', 403);
     }
 
@@ -1047,6 +1097,7 @@ const admin = asyncHandler(async (req, res, next) => {
             email: actorEmail,
             path: req.originalUrl,
         });
+        recordAdminBlock(req, 'unverified_email');
         throw new AppError('Admin access requires verified email identity', 403);
     }
 
@@ -1056,6 +1107,7 @@ const admin = asyncHandler(async (req, res, next) => {
                 requestId: req.requestId || '',
                 path: req.originalUrl,
             });
+            recordAdminBlock(req, 'allowlist_missing');
             throw new AppError('Admin access is locked: allowlist is not configured', 403);
         }
         if (!ADMIN_ALLOWLIST_EMAILS.has(actorEmail)) {
@@ -1064,6 +1116,7 @@ const admin = asyncHandler(async (req, res, next) => {
                 email: actorEmail,
                 path: req.originalUrl,
             });
+            recordAdminBlock(req, 'allowlist_denied');
             throw new AppError('Admin access denied for this account', 403);
         }
     } else if (ADMIN_ALLOWLIST_EMAILS.size > 0 && !ADMIN_ALLOWLIST_EMAILS.has(actorEmail)) {
@@ -1072,6 +1125,7 @@ const admin = asyncHandler(async (req, res, next) => {
             email: actorEmail,
             path: req.originalUrl,
         });
+        recordAdminBlock(req, 'allowlist_denied');
         throw new AppError('Admin access denied for this account', 403);
     }
 
@@ -1083,6 +1137,7 @@ const admin = asyncHandler(async (req, res, next) => {
             sessionAgeSeconds,
             allowedAgeSeconds: ADMIN_REQUIRE_FRESH_LOGIN_MINUTES * 60,
         });
+        recordAdminBlock(req, 'fresh_login_required', 401);
         throw new AppError(`Admin session expired. Re-authenticate within ${ADMIN_REQUIRE_FRESH_LOGIN_MINUTES} minutes.`, 401);
     }
 
@@ -1092,6 +1147,7 @@ const admin = asyncHandler(async (req, res, next) => {
             email: actorEmail,
             path: req.originalUrl,
         });
+        recordAdminBlock(req, 'second_factor_required');
         throw new AppError('Admin access requires a verified second factor', 403);
     }
 
@@ -1101,6 +1157,7 @@ const admin = asyncHandler(async (req, res, next) => {
             email: actorEmail,
             path: req.originalUrl,
         });
+        recordAdminBlock(req, 'passkey_required');
         throw new AppError('Admin access requires passkey verification', 403);
     }
 

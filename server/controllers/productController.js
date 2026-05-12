@@ -24,6 +24,7 @@ const {
 const { runMultimodalVisualSearch } = require('../services/ai/multimodalVisualSearchService');
 const { buildProductRecommendations } = require('../services/productRecommendationService');
 const { renderCatalogArtworkSvg } = require('../services/catalogArtworkService');
+const { assessFraudDecision } = require('../services/fraudDecisioningService');
 const {
     buildProductImageDeliveryUrl,
     buildProductImageFetchUrl,
@@ -39,6 +40,12 @@ const REVIEW_MEDIA_MAX = 8;
 const PRODUCT_IMAGE_PROXY_TIMEOUT_MS = 15000;
 
 const clamp = (value, min, max) => Math.min(Math.max(Number(value) || min, min), max);
+
+const buildFraudRequestMeta = (req) => ({
+    ip: req.ip || req.connection?.remoteAddress || '',
+    userAgent: req.headers['user-agent'] || '',
+    requestId: req.id || req.requestId || req.headers['x-request-id'] || '',
+});
 
 const toClientProduct = async (product, market = null) => {
     const plain = product?.toObject?.() ? product.toObject() : product;
@@ -409,6 +416,38 @@ const createProductReview = asyncHandler(async (req, res, next) => {
         isVerifiedPurchase: true,
         status: 'published',
     };
+    const fraudDecision = await assessFraudDecision({
+        action: 'product_review_submit',
+        user: req.user,
+        userId,
+        productId: product._id,
+        reviewInput: {
+            rating: nextReviewData.rating,
+            comment: nextReviewData.comment,
+            media,
+        },
+        requestMeta: buildFraudRequestMeta(req),
+        subject: { type: 'product', id: product._id },
+        metadata: {
+            orderId: String(purchasedOrder._id),
+            productId: String(product._id),
+        },
+    });
+
+    if (fraudDecision.blocked) {
+        return next(new AppError(fraudDecision.message || 'Review blocked by fraud policy.', 403));
+    }
+
+    if (fraudDecision.reviewRequired || fraudDecision.holdRequired) {
+        nextReviewData.status = 'hidden';
+    }
+    nextReviewData.riskSnapshot = {
+        decisionId: fraudDecision.auditId || fraudDecision.decisionId,
+        decision: fraudDecision.strictDecision,
+        score: fraudDecision.score,
+        factors: fraudDecision.factors,
+        mode: fraudDecision.mode,
+    };
 
     const existing = await ProductReview.findOne({
         product: product._id,
@@ -422,7 +461,8 @@ const createProductReview = asyncHandler(async (req, res, next) => {
         existing.media = nextReviewData.media;
         existing.order = nextReviewData.order;
         existing.isVerifiedPurchase = true;
-        existing.status = 'published';
+        existing.status = nextReviewData.status;
+        existing.riskSnapshot = nextReviewData.riskSnapshot;
         review = await existing.save();
     } else {
         review = await ProductReview.create({
@@ -445,12 +485,16 @@ const createProductReview = asyncHandler(async (req, res, next) => {
 
     return res.status(existing ? 200 : 201).json({
         success: true,
-        message: existing ? 'Review updated successfully' : 'Review posted successfully',
+        message: nextReviewData.status === 'hidden'
+            ? 'Review submitted for integrity review'
+            : (existing ? 'Review updated successfully' : 'Review posted successfully'),
         review: {
             id: String(review._id),
             rating: review.rating,
             comment: review.comment,
             media: review.media || [],
+            status: review.status,
+            riskDecision: review.riskSnapshot?.decision || 'allow',
             createdAt: review.createdAt,
             updatedAt: review.updatedAt,
         },

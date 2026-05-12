@@ -15,7 +15,7 @@
 2. `npm run runtime:split:up`
 3. Confirm:
    - `GET http://127.0.0.1:5000/health`
-   - `GET http://127.0.0.1:5000/health/ready`
+   - `GET http://127.0.0.1:5000/health/ready` with `x-health-token` when `NODE_ENV=production`
 
 The compose stack lives in [`docker-compose.split-runtime.yml`](../docker-compose.split-runtime.yml) and provisions:
 - a single-node Mongo replica set

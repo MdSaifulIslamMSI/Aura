@@ -80,7 +80,7 @@ describe('runtimeApiConfig', () => {
   });
 
   it('prefers the hosted proxy path on CloudFront when a different direct API origin is configured', () => {
-    vi.stubEnv('VITE_API_URL', 'https://13.206.172.186.sslip.io/api');
+    vi.stubEnv('VITE_API_URL', 'https://backend.example.com/api');
     Object.defineProperty(window, 'location', {
       configurable: true,
       value: {

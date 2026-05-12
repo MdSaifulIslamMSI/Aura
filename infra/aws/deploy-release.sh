@@ -230,6 +230,21 @@ assert_trusted_device_runtime_contract "${compose_file}" \
   "${shared_dir}/runtime-secrets.env" \
   "${shared_dir}/release.env"
 
+compose_profiles="$(resolve_env_value "COMPOSE_PROFILES" "${shared_dir}/base.env" "${shared_dir}/runtime-secrets.env" "${shared_dir}/release.env")"
+if [[ -n "${compose_profiles}" ]]; then
+  export COMPOSE_PROFILES="${compose_profiles}"
+  echo "Docker Compose profiles enabled: ${COMPOSE_PROFILES}"
+fi
+
+health_ready_token="$(resolve_runtime_contract_value "HEALTH_READY_TOKEN" "${compose_file}" \
+  "${shared_dir}/base.env" \
+  "${shared_dir}/runtime-secrets.env" \
+  "${shared_dir}/release.env")"
+if [[ -z "${health_ready_token}" ]]; then
+  echo "Refusing deploy: HEALTH_READY_TOKEN is required for production readiness checks." >&2
+  exit 1
+fi
+
 docker compose \
   --env-file "${shared_dir}/base.env" \
   --env-file "${shared_dir}/runtime-secrets.env" \
@@ -239,7 +254,7 @@ docker compose \
 
 api_ready=false
 for _ in $(seq 1 30); do
-  if curl --fail --silent http://127.0.0.1:5000/health/ready > /dev/null; then
+  if curl --fail --silent --header "x-health-token: ${health_ready_token}" http://127.0.0.1:5000/health/ready > /dev/null; then
     api_ready=true
     break
   fi

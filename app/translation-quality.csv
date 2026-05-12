@@ -1,9 +1,9 @@
 language,total_keys,missing_keys,exact_english_matches,exact_english_percent,native_script_rule,native_script_key_hits,native_script_key_percent,native_letter_percent,status
-hi,579,0,0,0,Devanagari,579,100,99.44,pass
-es,579,0,18,3.11,,,,,pass
-fr,579,0,29,5.01,,,,,pass
-de,579,0,30,5.18,,,,,pass
-ar,579,0,0,0,Arabic,579,100,98.29,pass
-ja,579,0,2,0.35,Japanese,577,99.65,94.07,pass
-pt,579,0,15,2.59,,,,,pass
-zh,579,0,1,0.17,Han,578,99.83,95.71,pass
+hi,590,0,0,0,Devanagari,590,100,99.45,pass
+es,590,0,18,3.05,,,,,pass
+fr,590,0,29,4.92,,,,,pass
+de,590,0,30,5.08,,,,,pass
+ar,590,0,0,0,Arabic,590,100,98.31,pass
+ja,590,0,2,0.34,Japanese,588,99.66,94.15,pass
+pt,590,0,15,2.54,,,,,pass
+zh,590,0,1,0.17,Han,589,99.83,95.80,pass

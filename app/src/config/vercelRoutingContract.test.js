@@ -65,7 +65,8 @@ describe('vercel routing contract', () => {
             AWS_BACKEND_BASE_URL: 'http://12.34.56.78:5000/',
         })).toBe('http://12.34.56.78:5000');
 
-        expect(resolveHostedBackendOrigin({})).toBe(DEFAULT_HOSTED_BACKEND_ORIGIN);
+        expect(() => resolveHostedBackendOrigin({})).toThrow(/AURA_BACKEND_ORIGIN|AWS_BACKEND_BASE_URL/);
+        expect(resolveHostedBackendOrigin({}, { allowCommittedFallback: true })).toBe(DEFAULT_HOSTED_BACKEND_ORIGIN);
         expect(() => resolveHostedBackendOrigin({ AURA_BACKEND_ORIGIN: '/' })).toThrow(/absolute http/);
     });
 
@@ -75,7 +76,7 @@ describe('vercel routing contract', () => {
             readJson(path.join(appRoot, 'vercel.json')),
         ]);
         const netlifyRedirects = await readNetlifyRedirects();
-        const staleOriginPattern = /(aura-msi-api-ca\.wittycliff-f743de69\.southeastasia\.azurecontainerapps\.io|3\.109\.181\.238)/;
+        const staleOriginPattern = /(aura-msi-api-ca\.wittycliff-f743de69\.southeastasia\.azurecontainerapps\.io|3\.109\.181\.238|13\.206\.172\.186|sslip\.io)/;
         const configs = [rootConfig, appConfig];
 
         for (const config of configs) {

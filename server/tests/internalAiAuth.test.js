@@ -112,6 +112,34 @@ describe('internal AI auth middleware', () => {
         });
     });
 
+    test('rejects legacy bearer secret by default in production when signed-token config is missing', () => {
+        process.env.NODE_ENV = 'production';
+        process.env.AI_INTERNAL_TOOL_SECRET = 'legacy-internal-ai-secret';
+        delete process.env.AI_INTERNAL_AUTH_SECRET;
+        delete process.env.AI_INTERNAL_AUTH_ALLOW_LEGACY_SECRET;
+
+        const { requireInternalAiAuth } = require('../middleware/internalAiAuth');
+
+        const req = {
+            headers: {
+                authorization: 'Bearer legacy-internal-ai-secret',
+                'x-intelligence-service': 'legacy-worker',
+                'user-agent': 'legacy-worker/1.0',
+            },
+            originalUrl: '/api/internal/ai/assistant-turn',
+            requestId: 'req_legacy_prod_default',
+        };
+        const next = jest.fn();
+
+        requireInternalAiAuth(req, {}, next);
+
+        expect(next).toHaveBeenCalledTimes(1);
+        const error = next.mock.calls[0][0];
+        expect(error).toBeTruthy();
+        expect(error.statusCode).toBe(401);
+        expect(req.internalAi).toBeUndefined();
+    });
+
     test('rejects legacy bearer secret after signed-token mode disables fallback', () => {
         process.env.AI_INTERNAL_AUTH_ACTIVE_KID = 'ai-2026-04';
         process.env.AI_INTERNAL_AUTH_SECRET = 'internal-ai-secret-current-0123456789abcdefghijklmnopqrstuvwxyz';

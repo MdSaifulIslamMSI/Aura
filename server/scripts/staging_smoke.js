@@ -500,7 +500,13 @@ const run = async () => {
     assert(health.json?.status === 'ok', 'Health endpoint is not healthy');
     printStep('ok', 'health', health.json?.status || 'ok');
 
-    const ready = await fetchJson('/health/ready', { expectedStatus: 200 });
+    const readinessHeaders = process.env.HEALTH_READY_TOKEN
+        ? { 'x-health-token': process.env.HEALTH_READY_TOKEN }
+        : {};
+    const ready = await fetchJson('/health/ready', {
+        expectedStatus: 200,
+        headers: readinessHeaders,
+    });
     assert(ready.json?.ready === true, 'Readiness endpoint is not ready');
     printStep('ok', 'ready', 'ready');
 
