@@ -705,7 +705,7 @@ jobs:
           fi
           echo "::add-mask::${SANITIZED_VERCEL_TOKEN}"
           mkdir -p "${RUNNER_TEMP}/aura-release"
-          npx vercel --token "${SANITIZED_VERCEL_TOKEN}" curl / \
+          VERCEL_TOKEN="${SANITIZED_VERCEL_TOKEN}" npx vercel curl / \
             --deployment "${VERCEL_DEPLOY_URL}" \
             -- --fail --silent --show-error --location \
             > "${RUNNER_TEMP}/aura-release/vercel-preview.html"
@@ -753,7 +753,7 @@ jobs:
           fi
           echo "::add-mask::${SANITIZED_VERCEL_TOKEN}"
           mkdir -p "${RUNNER_TEMP}/aura-release"
-          npx vercel --token "${SANITIZED_VERCEL_TOKEN}" curl / \
+          VERCEL_TOKEN="${SANITIZED_VERCEL_TOKEN}" npx vercel curl / \
             --deployment "${VERCEL_DEPLOY_URL}" \
             -- --fail --silent --show-error --location \
             > "${RUNNER_TEMP}/aura-release/vercel-production.html"
