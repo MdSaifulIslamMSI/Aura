@@ -22,6 +22,7 @@ const loadAuthContext = async () => {
     signOutNativeSocialAuthMock: vi.fn().mockResolvedValue(undefined),
     shouldPreferFirebaseRedirectAuthMock: vi.fn().mockReturnValue(false),
     clearCsrfTokenCacheMock: vi.fn(),
+    cacheTrustedDeviceSessionTokenMock: vi.fn(),
     clearTrustedDeviceSessionTokenMock: vi.fn(),
     authApiMock: {
       exchangeSession: vi.fn(),
@@ -85,7 +86,7 @@ const loadAuthContext = async () => {
   }));
 
   vi.doMock('../services/deviceTrustClient', () => ({
-    cacheTrustedDeviceSessionToken: vi.fn(),
+    cacheTrustedDeviceSessionToken: mocks.cacheTrustedDeviceSessionTokenMock,
     clearTrustedDeviceSessionToken: mocks.clearTrustedDeviceSessionTokenMock,
   }));
 
@@ -172,6 +173,8 @@ describe('AuthProvider', () => {
     mocks.authApiMock.verifyDeviceChallenge.mockResolvedValue({
       success: true,
       status: 'authenticated',
+      deviceSessionToken: 'trusted-device-session-token',
+      expiresAt: '2026-04-12T14:00:00.000Z',
       deviceChallenge: null,
       session: {
         sessionId: 'server-session-1',
@@ -883,6 +886,10 @@ describe('AuthProvider', () => {
     });
 
     expect(mocks.authApiMock.verifyDeviceChallenge).toHaveBeenCalledTimes(1);
+    expect(mocks.cacheTrustedDeviceSessionTokenMock).toHaveBeenCalledWith(
+      'trusted-device-session-token',
+      '2026-04-12T14:00:00.000Z'
+    );
     expect(mocks.authApiMock.getSession).toHaveBeenCalledTimes(1);
     expect(mocks.authApiMock.exchangeSession).not.toHaveBeenCalled();
   });

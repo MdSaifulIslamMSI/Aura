@@ -162,11 +162,13 @@ const validateNumericClaim = (value, label) => {
 
 const verifyInternalAiServiceToken = (token, options = {}) => {
     const rawToken = normalizeText(token);
-    const [encodedHeader, encodedPayload, providedSignature] = rawToken.split('.');
+    const tokenParts = rawToken.split('.');
 
-    if (!encodedHeader || !encodedPayload || !providedSignature) {
+    if (tokenParts.length !== 3 || !tokenParts[0] || !tokenParts[1] || !tokenParts[2]) {
         throw new AppError('Internal AI token format is invalid', 401);
     }
+
+    const [encodedHeader, encodedPayload, providedSignature] = tokenParts;
 
     let header;
     let payload;
