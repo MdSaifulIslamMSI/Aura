@@ -27,7 +27,15 @@ const assistantActionRequestSchema = z.object({
     type: z.string().trim().min(1).max(80),
     page: z.string().trim().max(80).optional(),
     productId: z.string().trim().max(120).optional(),
+    productIds: z.array(z.string().trim().min(1).max(120)).max(8).optional(),
+    orderId: z.string().trim().max(120).optional(),
+    couponCode: z.string().trim().max(30).optional(),
+    requestType: z.string().trim().max(40).optional(),
+    reason: z.string().trim().max(600).optional(),
+    amount: z.number().nonnegative().optional(),
+    query: z.string().trim().max(600).optional(),
     quantity: z.number().int().positive().max(20).optional(),
+    filters: z.object({}).passthrough().optional(),
     params: z.object({}).passthrough().optional(),
 }).strict();
 

@@ -10,9 +10,14 @@ const outputDirectory = path.join(repoRoot, '.vercel', 'output');
 const staticDirectory = path.join(outputDirectory, 'static');
 const routingContractPath = path.join(appRoot, 'config', 'vercelRoutingContract.mjs');
 
-const { FRONTEND_SECURITY_HEADERS, HOSTED_BACKEND_ORIGIN } = await import(pathToFileURL(routingContractPath).href);
+const {
+    FRONTEND_SECURITY_HEADERS,
+    assertDeployableHostedBackendOrigin,
+    resolveHostedBackendOrigin,
+} = await import(pathToFileURL(routingContractPath).href);
 const trimTrailingSlash = (value = '') => String(value || '').replace(/\/+$/, '');
-const backendOrigin = trimTrailingSlash(process.env.AURA_BACKEND_ORIGIN || process.env.AWS_BACKEND_BASE_URL || HOSTED_BACKEND_ORIGIN);
+const backendOrigin = trimTrailingSlash(resolveHostedBackendOrigin());
+assertDeployableHostedBackendOrigin(backendOrigin);
 const frontendSecurityHeaders = Object.fromEntries(
     FRONTEND_SECURITY_HEADERS.map(({ key, value }) => [key, value])
 );

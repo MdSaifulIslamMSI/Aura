@@ -189,6 +189,12 @@ const unquote = (value = '') => {
 
 const escapeRegExp = (value = '') => String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
+const resolveComposeDefault = (value = '') => {
+    const normalized = unquote(value);
+    const match = normalized.match(/^\$\{[^:}]+:-([^}]+)\}$/);
+    return match ? match[1].trim() : normalized;
+};
+
 const extractDockerComposeEnvironmentValue = (filePath, envName) => {
     if (!fs.existsSync(filePath)) {
         return '';
@@ -213,6 +219,16 @@ const awsComposeTrustedDeviceMode = String(
     extractDockerComposeEnvironmentValue(awsComposePath, 'AUTH_DEVICE_CHALLENGE_MODE')
 ).trim().toLowerCase();
 const awsTrustedDeviceModeIssues = [];
+const awsAssistantRuntimeIssues = [];
+const envExampleAiProvider = String(envExampleEntries.get('AI_MODEL_PROVIDER') || '').trim().toLowerCase();
+const awsComposeAiProvider = resolveComposeDefault(
+    extractDockerComposeEnvironmentValue(awsComposePath, 'AI_MODEL_PROVIDER')
+).trim().toLowerCase();
+const awsComposeOllamaBaseUrl = resolveComposeDefault(
+    extractDockerComposeEnvironmentValue(awsComposePath, 'OLLAMA_BASE_URL')
+).trim();
+const awsComposeContent = fs.existsSync(awsComposePath) ? fs.readFileSync(awsComposePath, 'utf8') : '';
+const awsBudgetProviderAllowed = new Set(['disabled', 'ollama']);
 
 if (!ENABLED_TRUSTED_DEVICE_MODES.has(envExampleTrustedDeviceMode)) {
     awsTrustedDeviceModeIssues.push(
@@ -236,6 +252,28 @@ if (
     );
 }
 
+if (envExampleAiProvider === 'ollama') {
+    if (!awsBudgetProviderAllowed.has(awsComposeAiProvider)) {
+        awsAssistantRuntimeIssues.push(
+            `infra/aws/docker-compose.ec2.yml must set AI_MODEL_PROVIDER to disabled or ollama when server/.env.example defaults to ollama; found "${awsComposeAiProvider || '(missing)'}"`
+        );
+    }
+
+    if (awsComposeAiProvider === 'ollama' && awsComposeOllamaBaseUrl !== 'http://ollama:11434') {
+        awsAssistantRuntimeIssues.push(
+            `infra/aws/docker-compose.ec2.yml must point OLLAMA_BASE_URL at the internal Ollama service; found "${awsComposeOllamaBaseUrl || '(missing)'}"`
+        );
+    }
+
+    if (awsComposeAiProvider === 'ollama' && !/\n\s{2}ollama:\s*\n/.test(awsComposeContent)) {
+        awsAssistantRuntimeIssues.push('infra/aws/docker-compose.ec2.yml must define an ollama service for the no-key assistant runtime.');
+    }
+
+    if (awsComposeAiProvider === 'ollama' && !/\n\s{2}aura-ollama:\s*\n/.test(awsComposeContent)) {
+        awsAssistantRuntimeIssues.push('infra/aws/docker-compose.ec2.yml must define an aura-ollama volume so model downloads survive releases.');
+    }
+}
+
 const report = {
     runtimeSecretEnvVars: runtimeSecretEnvNames,
     missingFromEnvExample: runtimeSecretEnvNames.filter((name) => !envExampleEntries.has(name)),
@@ -250,10 +288,16 @@ const report = {
         awsCompose: awsComposeTrustedDeviceMode || null,
     },
     awsTrustedDeviceModeIssues,
+    awsAssistantRuntimeValues: {
+        envExampleAiProvider: envExampleAiProvider || null,
+        awsComposeAiProvider: awsComposeAiProvider || null,
+        awsComposeOllamaBaseUrl: awsComposeOllamaBaseUrl || null,
+    },
+    awsAssistantRuntimeIssues,
 };
 
 const failureCount = Object.entries(report)
-    .filter(([key]) => !['runtimeSecretEnvVars', 'awsTrustedDeviceModeValues'].includes(key))
+    .filter(([key]) => !['runtimeSecretEnvVars', 'awsTrustedDeviceModeValues', 'awsAssistantRuntimeValues'].includes(key))
     .reduce((total, [, values]) => total + (Array.isArray(values) ? values.length : 0), 0);
 
 console.log(JSON.stringify(report, null, 2));

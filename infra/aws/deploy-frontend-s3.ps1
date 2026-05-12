@@ -54,8 +54,11 @@ $resolvedBackendOrigin = if ([string]::IsNullOrWhiteSpace($BackendOrigin)) {
 }
 $resolvedBackendOrigin = Trim-TrailingSlash -Value $resolvedBackendOrigin
 
-if (-not ($resolvedBackendOrigin -match '^https?://')) {
-    throw "Backend origin must be an absolute http(s) URL. Received '$resolvedBackendOrigin'."
+if (-not ($resolvedBackendOrigin -match '^https://')) {
+    throw "Backend origin must be an absolute HTTPS URL. Received '$resolvedBackendOrigin'."
+}
+if ($resolvedBackendOrigin -match '\.sslip\.io(?::\d+)?/?$') {
+    throw "Backend origin must be a durable production edge hostname, not a temporary sslip.io host. Received '$resolvedBackendOrigin'."
 }
 
 if (-not $SkipBuild) {

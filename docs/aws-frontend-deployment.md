@@ -32,7 +32,7 @@ AWS_FRONTEND_BUCKET=aura-frontend-<account-id>-ap-south-1
 AWS_FRONTEND_DEPLOY_ROLE_ARN=arn:aws:iam::<account-id>:role/aura-github-actions-frontend-deploy
 ```
 
-The workflow also has defaults for the current AWS account, but setting variables makes the deployment portable and explicit.
+Production workflows require these AWS variables explicitly; checked-in account, bucket, distribution, and role fallbacks are not used for release deploys.
 
 ## Deploy Locally
 
@@ -42,10 +42,10 @@ The deploy script builds the same multi-host frontend bundle used by CI. Netlify
 npm run aws:frontend:deploy
 ```
 
-Use `-BackendOrigin` to override the tracked hosted backend:
+Use `-BackendOrigin` to point the release at a durable HTTPS backend edge:
 
 ```powershell
-npm run aws:frontend:deploy -- -BackendOrigin https://13.206.172.186.sslip.io
+npm run aws:frontend:deploy -- -BackendOrigin https://api.example.com
 ```
 
 ## GitHub Actions

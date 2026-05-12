@@ -92,6 +92,44 @@ describe('commerceAssistantService helpers', () => {
         expect(result.route).toBe(ROUTE_ACTION);
     });
 
+    test('detectRoute chooses ACTION for live order workflows', () => {
+        expect(__testables.detectRoute({
+            message: 'cancel my order',
+        }).route).toBe(ROUTE_ACTION);
+        expect(__testables.detectRoute({
+            message: 'refund my order',
+        }).route).toBe(ROUTE_ACTION);
+    });
+
+    test('hosted Gemma commerce enforcement is opt-in', () => {
+        delete process.env.ASSISTANT_COMMERCE_REQUIRE_HOSTED_GEMMA;
+        expect(__testables.isHostedGemmaCommerceRequired()).toBe(false);
+        process.env.ASSISTANT_COMMERCE_REQUIRE_HOSTED_GEMMA = 'true';
+        expect(__testables.isHostedGemmaCommerceRequired()).toBe(true);
+        delete process.env.ASSISTANT_COMMERCE_REQUIRE_HOSTED_GEMMA;
+    });
+
+    test('commerce model summaries stay opt-in unless hosted Gemma is required', () => {
+        delete process.env.ASSISTANT_COMMERCE_MODEL_SUMMARY_ENABLED;
+        expect(__testables.isCommerceModelSummaryEnabled()).toBe(false);
+
+        process.env.ASSISTANT_COMMERCE_MODEL_SUMMARY_ENABLED = 'true';
+        expect(__testables.isCommerceModelSummaryEnabled()).toBe(true);
+
+        process.env.ASSISTANT_COMMERCE_MODEL_SUMMARY_ENABLED = 'false';
+        expect(__testables.isCommerceModelSummaryEnabled({ requireHostedGemma: true })).toBe(true);
+        delete process.env.ASSISTANT_COMMERCE_MODEL_SUMMARY_ENABLED;
+    });
+
+    test('policy questions can answer from knowledge before catalog retrieval', () => {
+        expect(__testables.shouldAnswerKnowledgeBeforeCatalog({
+            message: 'what is the return and refund policy',
+        })).toBe(true);
+        expect(__testables.shouldAnswerKnowledgeBeforeCatalog({
+            message: 'show me laptops under 60000',
+        })).toBe(false);
+    });
+
     test('inferConfirmationFromMessage turns yes into a pending action approval', () => {
         const result = __testables.inferConfirmationFromMessage({
             message: 'yes, continue',
@@ -304,6 +342,55 @@ describe('commerceAssistantService helpers', () => {
         });
     });
 
+    test('inferStructuredRetrievalFilters prefers concrete product type over use-case category words', () => {
+        expect(__testables.inferStructuredRetrievalFilters({
+            message: 'Suggest best laptop under 60000 for coding and gaming',
+        })).toMatchObject({
+            category: 'Laptops',
+            maxPrice: 60000,
+        });
+    });
+
+    test('deriveRetrievalQuery compacts vague laptop intent into a catalog query', async () => {
+        const result = await __testables.deriveRetrievalQuery({
+            message: 'Suggest best laptop under 60000 for coding and gaming',
+        });
+
+        expect(result).toMatchObject({
+            query: 'laptop',
+            filters: {
+                category: 'Laptops',
+                maxPrice: 60000,
+            },
+            validator: { ok: true, reason: 'text_query' },
+        });
+    });
+
+    test('deriveRetrievalQuery preserves brand words as hard filters', async () => {
+        const result = await __testables.deriveRetrievalQuery({
+            message: 'show me dell laptops under 50000 in stock',
+        });
+
+        expect(result).toMatchObject({
+            query: 'Dell laptop',
+            filters: {
+                category: 'Laptops',
+                brand: 'Dell',
+                maxPrice: 50000,
+                inStock: true,
+            },
+        });
+    });
+
+    test('inferStructuredRetrievalFilters still supports explicit gaming accessories', () => {
+        expect(__testables.inferStructuredRetrievalFilters({
+            message: 'show me gaming accessories under 5000',
+        })).toMatchObject({
+            category: 'Gaming & Accessories',
+            maxPrice: 5000,
+        });
+    });
+
     test('inferStructuredRetrievalFilters captures color and spec terms as must-have attributes', () => {
         expect(__testables.inferStructuredRetrievalFilters({
             message: 'show me blue shoes with 16gb ram under 2000',
@@ -480,7 +567,7 @@ describe('commerceAssistantService helpers', () => {
         });
 
         expect(result).toEqual({
-            query: 'fashion products',
+            query: 'fashion clothing',
             provider: '',
             providerModel: '',
             filters: {

@@ -29,10 +29,10 @@ describe('ollamaGatewayService', () => {
         mockFetch.mockReset();
         mockBreakerCall.mockClear();
         mockBreakerStats.mockClear();
-        process.env.OLLAMA_BASE_URL = 'http://127.0.0.1:11434';
-        process.env.OLLAMA_CHAT_MODEL = 'gemma4:e4b';
+        process.env.OLLAMA_BASE_URL = 'http://localhost:11434';
+        process.env.OLLAMA_CHAT_MODEL = 'llama3.2:3b';
         process.env.OLLAMA_CHAT_MODEL_FALLBACKS = 'phi3:mini';
-        process.env.OLLAMA_EMBED_MODEL = 'nomic-embed-text';
+        process.env.OLLAMA_EMBED_MODEL = 'all-minilm';
     });
 
     afterAll(() => {
@@ -42,12 +42,29 @@ describe('ollamaGatewayService', () => {
         delete process.env.OLLAMA_EMBED_MODEL;
     });
 
+    test('defaults to the local no-key Ollama models', () => {
+        delete process.env.OLLAMA_BASE_URL;
+        delete process.env.OLLAMA_CHAT_MODEL;
+        delete process.env.OLLAMA_CHAT_MODEL_FALLBACKS;
+        delete process.env.OLLAMA_EMBED_MODEL;
+        jest.resetModules();
+
+        const { getGatewayConfig } = require('../services/ai/ollamaGatewayService');
+
+        expect(getGatewayConfig()).toMatchObject({
+            baseUrl: 'http://localhost:11434',
+            chatModel: 'llama3.2:3b',
+            chatModelFallbacks: [],
+            embedModel: 'all-minilm',
+        });
+    });
+
     test('retries with a fallback chat model when the preferred model cannot fit in memory', async () => {
         mockFetch
             .mockResolvedValueOnce(makeJsonResponse({
                 body: {
                     models: [
-                        { name: 'gemma4:e4b' },
+                        { name: 'llama3.2:3b' },
                         { name: 'phi3:mini' },
                     ],
                 },
@@ -83,7 +100,7 @@ describe('ollamaGatewayService', () => {
         });
 
         expect(mockFetch).toHaveBeenCalledTimes(3);
-        expect(JSON.parse(mockFetch.mock.calls[1][1].body).model).toBe('gemma4:e4b');
+        expect(JSON.parse(mockFetch.mock.calls[1][1].body).model).toBe('llama3.2:3b');
         expect(JSON.parse(mockFetch.mock.calls[2][1].body).model).toBe('phi3:mini');
     });
 
@@ -122,7 +139,7 @@ describe('ollamaGatewayService', () => {
             .mockResolvedValueOnce(makeJsonResponse({
                 body: {
                     models: [
-                        { name: 'gemma4:e4b' },
+                        { name: 'llama3.2:3b' },
                         { name: 'phi3:mini' },
                     ],
                 },
@@ -151,7 +168,7 @@ describe('ollamaGatewayService', () => {
         });
         expect(mockBreakerCall).toHaveBeenCalledTimes(1);
         expect(mockFetch).toHaveBeenCalledTimes(3);
-        expect(JSON.parse(mockFetch.mock.calls[1][1].body).model).toBe('gemma4:e4b');
+        expect(JSON.parse(mockFetch.mock.calls[1][1].body).model).toBe('llama3.2:3b');
         expect(JSON.parse(mockFetch.mock.calls[2][1].body).model).toBe('phi3:mini');
     });
 
@@ -160,7 +177,7 @@ describe('ollamaGatewayService', () => {
             .mockResolvedValueOnce(makeJsonResponse({
                 body: {
                     models: [
-                        { name: 'gemma4:e4b' },
+                        { name: 'llama3.2:3b' },
                         { name: 'phi3:mini' },
                     ],
                 },

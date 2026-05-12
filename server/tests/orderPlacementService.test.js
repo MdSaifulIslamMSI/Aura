@@ -301,4 +301,41 @@ describe('orderPlacementService hardening', () => {
             claimKey: 'order-key-2',
         });
     });
+
+    test('does not run synthetic marketplace integrity analysis during order creation', async () => {
+        const {
+            placeOrderWithIdempotency,
+            scanForMarketplaceAnomalies,
+            commitTransaction,
+        } = loadPlaceOrderService();
+
+        const result = await placeOrderWithIdempotency({
+            body: {
+                paymentMethod: 'CARD',
+                paymentIntentId: 'pi_live_3',
+                shippingAddress: {
+                    address: '42 Main Road',
+                    city: 'Pune',
+                    postalCode: '411001',
+                    country: 'India',
+                },
+            },
+            user: {
+                _id: 'user_3',
+                email: 'checkout@example.com',
+                name: 'Checkout User',
+            },
+            userId: 'user_3',
+            authUid: 'auth_uid_3',
+            requestId: 'req_no_synthetic_integrity',
+            idempotencyKey: 'order-key-3',
+            userKey: 'user-key-3',
+            market: null,
+        });
+
+        expect(result.statusCode).toBe(201);
+        expect(scanForMarketplaceAnomalies).not.toHaveBeenCalled();
+        expect(result.response.priceBreakdown).not.toHaveProperty('integrityInsights');
+        expect(commitTransaction).toHaveBeenCalledTimes(1);
+    });
 });

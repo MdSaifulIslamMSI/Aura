@@ -12,11 +12,11 @@ const logger = require('../utils/logger');
 const { flags: paymentFlags } = require('../config/paymentFlags');
 const {
     normalizeListingInput,
-    getIntegrityIssue,
     buildRealListingsFilter,
     isRealListingDoc,
 } = require('../services/marketplaceIntegrityService');
 const { buildSellerTrustPassport } = require('../services/sellerTrustService');
+const { assessFraudDecision } = require('../services/fraudDecisioningService');
 const { awardLoyaltyPoints } = require('../services/loyaltyService');
 const {
     serializeThreadForUser,
@@ -28,7 +28,6 @@ const {
     SELLER_PRIVATE_THREAD,
 } = require('../services/listingService');
 const { getPaymentProvider } = require('../services/payments/providerFactory');
-const { evaluateRisk } = require('../services/payments/riskEngine');
 const { captureIntentNow } = require('../services/payments/paymentService');
 const {
     DIGITAL_METHODS,
@@ -59,6 +58,12 @@ const {
 
 const MAX_ACTIVE_LISTINGS = 10;
 const MAX_CHAT_MESSAGE_LENGTH = 1200;
+
+const buildFraudRequestMeta = (req) => ({
+    ip: req.ip || req.connection?.remoteAddress || '',
+    userAgent: req.headers['user-agent'] || '',
+    requestId: req.id || req.headers['x-request-id'] || '',
+});
 const MAX_CHAT_MESSAGES_PER_THREAD = 200;
 const MAX_CHAT_THREADS_PER_LISTING = 60;
 const HOTSPOT_LIMIT_DEFAULT = 8;
@@ -208,14 +213,13 @@ const createEscrowIntent = asyncHandler(async (req, res, next) => {
         return next(new AppError('Invalid listing price for escrow payment', 409));
     }
 
-    const risk = await evaluateRisk({
+    const risk = await assessFraudDecision({
+        action: 'escrow_payment_intent',
+        user: req.user,
         userId: req.user._id,
         amount,
         deviceContext: req.body?.deviceContext || {},
-        requestMeta: {
-            ip: req.ip || req.connection?.remoteAddress || '',
-            userAgent: req.headers['user-agent'] || '',
-        },
+        requestMeta: buildFraudRequestMeta(req),
         shippingAddress: {
             address: listing.location?.city || 'Unknown',
             city: listing.location?.city || 'Unknown',
@@ -223,6 +227,12 @@ const createEscrowIntent = asyncHandler(async (req, res, next) => {
             country: listing.location?.state || 'India',
         },
         mode: paymentFlags.paymentRiskMode,
+        subject: { type: 'listing', id: listing._id },
+        metadata: {
+            listingId: String(listing._id),
+            sellerId: String(listing.seller),
+            paymentMethod,
+        },
     });
 
     if (risk.blocked) {
@@ -454,9 +464,20 @@ const createListing = asyncHandler(async (req, res, next) => {
         return next(new AppError('Add a valid phone number in profile before creating a listing.', 400));
     }
 
-    const integrityIssue = getIntegrityIssue({ title, description, images });
-    if (integrityIssue) {
-        return next(new AppError(integrityIssue, 400));
+    const fraudDecision = await assessFraudDecision({
+        action: 'marketplace_listing_create',
+        user: req.user,
+        sellerId: req.user._id,
+        listingInput: { title, description, images },
+        requestMeta: buildFraudRequestMeta(req),
+        subject: { type: 'listing', id: 'new' },
+        metadata: { category, price },
+    });
+    if (fraudDecision.blocked) {
+        return next(new AppError(fraudDecision.message || 'Listing blocked by marketplace integrity policy.', 400));
+    }
+    if (fraudDecision.reviewRequired) {
+        return next(new AppError(fraudDecision.message || 'Listing requires marketplace review before publishing.', 403));
     }
 
     if (images.length > 5) {
@@ -802,13 +823,27 @@ const updateListing = asyncHandler(async (req, res, next) => {
         location: updates.location ?? listing.location,
     });
 
-    const integrityIssue = getIntegrityIssue({
-        title: normalized.title,
-        description: normalized.description,
-        images: normalized.images,
+    const fraudDecision = await assessFraudDecision({
+        action: 'marketplace_listing_update',
+        user: req.user,
+        sellerId: req.user._id,
+        listingInput: {
+            title: normalized.title,
+            description: normalized.description,
+            images: normalized.images,
+        },
+        requestMeta: buildFraudRequestMeta(req),
+        subject: { type: 'listing', id: listing._id },
+        metadata: {
+            category: normalized.category,
+            price: normalized.price,
+        },
     });
-    if (integrityIssue) {
-        return next(new AppError(integrityIssue, 400));
+    if (fraudDecision.blocked) {
+        return next(new AppError(fraudDecision.message || 'Listing blocked by marketplace integrity policy.', 400));
+    }
+    if (fraudDecision.reviewRequired) {
+        return next(new AppError(fraudDecision.message || 'Listing requires marketplace review before publishing.', 403));
     }
 
     if (updates.title !== undefined) updates.title = normalized.title;

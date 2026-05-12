@@ -3,7 +3,8 @@ param(
     [string]$AwsRegion = "ap-south-1",
     [string]$AwsProfile = "",
     [string]$BucketName = "",
-    [string]$BackendOrigin = "https://13.206.172.186.sslip.io",
+    [Parameter(Mandatory = $true)]
+    [string]$BackendOrigin,
     [string]$PriceClass = "PriceClass_100"
 )
 

@@ -65,6 +65,13 @@ const productReviewSchema = new mongoose.Schema({
         default: 'published',
         index: true,
     },
+    riskSnapshot: {
+        decisionId: { type: String, default: '', index: true },
+        decision: { type: String, default: 'allow' },
+        score: { type: Number, default: 0 },
+        factors: { type: [String], default: [] },
+        mode: { type: String, default: 'monitor' },
+    },
     helpfulCount: {
         type: Number,
         default: 0,

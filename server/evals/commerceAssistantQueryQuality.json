@@ -1,0 +1,356 @@
+{
+  "name": "commerce-assistant-query-quality",
+  "version": 1,
+  "description": "Fast local eval set for ecommerce assistant routing, filters, and deterministic retrieval query quality.",
+  "cases": [
+    {
+      "id": "laptop-coding-gaming-budget",
+      "message": "Suggest best laptop under 60000 for coding and gaming",
+      "expect": {
+        "route": "ECOMMERCE_SEARCH",
+        "category": "Laptops",
+        "maxPrice": 60000,
+        "query": "laptop"
+      }
+    },
+    {
+      "id": "dell-laptops-in-stock",
+      "message": "show me dell laptops under 50000 in stock",
+      "expect": {
+        "route": "ECOMMERCE_SEARCH",
+        "category": "Laptops",
+        "brand": "Dell",
+        "maxPrice": 50000,
+        "inStock": true,
+        "query": "Dell laptop"
+      }
+    },
+    {
+      "id": "samsung-phones-budget",
+      "message": "find samsung phones under 30000",
+      "expect": {
+        "route": "ECOMMERCE_SEARCH",
+        "category": "Mobiles",
+        "brand": "Samsung",
+        "maxPrice": 30000,
+        "query": "Samsung mobile phone"
+      }
+    },
+    {
+      "id": "top-rated-phones-in-stock",
+      "message": "show top rated phones under 15000 in stock",
+      "expect": {
+        "route": "ECOMMERCE_SEARCH",
+        "category": "Mobiles",
+        "maxPrice": 15000,
+        "inStock": true,
+        "sortBy": "rating_desc"
+      }
+    },
+    {
+      "id": "budget-phones-sort",
+      "message": "budget phones under 20000",
+      "expect": {
+        "route": "ECOMMERCE_SEARCH",
+        "category": "Mobiles",
+        "maxPrice": 20000,
+        "sortBy": "price_asc"
+      }
+    },
+    {
+      "id": "premium-laptops-sort",
+      "message": "show premium laptops under 120000",
+      "expect": {
+        "route": "ECOMMERCE_SEARCH",
+        "category": "Laptops",
+        "maxPrice": 120000,
+        "sortBy": "price_desc"
+      }
+    },
+    {
+      "id": "blue-shoes-color-filter",
+      "message": "show blue shoes under 2000",
+      "expect": {
+        "route": "ECOMMERCE_SEARCH",
+        "category": "Footwear",
+        "maxPrice": 2000,
+        "requiredTerms": ["blue"]
+      }
+    },
+    {
+      "id": "nike-shoes-brand",
+      "message": "show nike shoes under 6000",
+      "expect": {
+        "route": "ECOMMERCE_SEARCH",
+        "category": "Footwear",
+        "brand": "Nike",
+        "maxPrice": 6000,
+        "query": "Nike shoes"
+      }
+    },
+    {
+      "id": "cotton-shirts-material",
+      "message": "show cotton shirts under 1500",
+      "expect": {
+        "route": "ECOMMERCE_SEARCH",
+        "category": "Fashion",
+        "maxPrice": 1500,
+        "requiredTerms": ["cotton"]
+      }
+    },
+    {
+      "id": "mens-fashion-category",
+      "message": "show mens fashion shirts under 2000",
+      "expect": {
+        "route": "ECOMMERCE_SEARCH",
+        "category": "Fashion",
+        "maxPrice": 2000
+      }
+    },
+    {
+      "id": "books-budget",
+      "message": "find books under 1000",
+      "expect": {
+        "route": "ECOMMERCE_SEARCH",
+        "category": "Books",
+        "maxPrice": 1000,
+        "query": "books"
+      }
+    },
+    {
+      "id": "gaming-accessories",
+      "message": "show me gaming accessories under 5000",
+      "expect": {
+        "route": "ECOMMERCE_SEARCH",
+        "category": "Gaming & Accessories",
+        "maxPrice": 5000,
+        "query": "gaming accessories"
+      }
+    },
+    {
+      "id": "apple-phones-brand",
+      "message": "find apple phones under 80000",
+      "expect": {
+        "route": "ECOMMERCE_SEARCH",
+        "category": "Mobiles",
+        "brand": "Apple",
+        "maxPrice": 80000,
+        "query": "Apple mobile phone"
+      }
+    },
+    {
+      "id": "redmi-mobiles-brand",
+      "message": "show redmi mobiles under 25000",
+      "expect": {
+        "route": "ECOMMERCE_SEARCH",
+        "category": "Mobiles",
+        "brand": "Redmi",
+        "maxPrice": 25000
+      }
+    },
+    {
+      "id": "oneplus-mobiles-brand",
+      "message": "show oneplus mobiles under 40000",
+      "expect": {
+        "route": "ECOMMERCE_SEARCH",
+        "category": "Mobiles",
+        "brand": "OnePlus",
+        "maxPrice": 40000
+      }
+    },
+    {
+      "id": "black-laptop-color",
+      "message": "show black laptop under 70000",
+      "expect": {
+        "route": "ECOMMERCE_SEARCH",
+        "category": "Laptops",
+        "maxPrice": 70000,
+        "requiredTerms": ["black"]
+      }
+    },
+    {
+      "id": "phone-storage-query",
+      "message": "show phones with 128gb storage under 25000",
+      "expect": {
+        "route": "ECOMMERCE_SEARCH",
+        "category": "Mobiles",
+        "maxPrice": 25000,
+        "requiredTerms": ["128 gb", "storage"]
+      }
+    },
+    {
+      "id": "phone-ram-query",
+      "message": "show phones with 8gb ram under 30000",
+      "expect": {
+        "route": "ECOMMERCE_SEARCH",
+        "category": "Mobiles",
+        "maxPrice": 30000,
+        "requiredTerms": ["8 gb", "ram"]
+      }
+    },
+    {
+      "id": "return-refund-policy",
+      "message": "what is the return and refund policy",
+      "expect": {
+        "route": "ECOMMERCE_SEARCH"
+      }
+    },
+    {
+      "id": "warranty-knowledge",
+      "message": "how does warranty work",
+      "expect": {
+        "route": "ECOMMERCE_SEARCH"
+      }
+    },
+    {
+      "id": "payment-knowledge",
+      "message": "what payment methods are supported",
+      "expect": {
+        "route": "ECOMMERCE_SEARCH"
+      }
+    },
+    {
+      "id": "apply-coupon-action",
+      "message": "apply coupon SAVE10",
+      "expect": {
+        "route": "ACTION"
+      }
+    },
+    {
+      "id": "cart-navigation-action",
+      "message": "go to cart",
+      "expect": {
+        "route": "ACTION"
+      }
+    },
+    {
+      "id": "checkout-action",
+      "message": "open checkout",
+      "expect": {
+        "route": "ACTION"
+      }
+    },
+    {
+      "id": "cancel-order-action",
+      "message": "cancel my order",
+      "expect": {
+        "route": "ACTION"
+      }
+    },
+    {
+      "id": "refund-order-action",
+      "message": "refund my order",
+      "expect": {
+        "route": "ACTION"
+      }
+    },
+    {
+      "id": "track-order-action",
+      "message": "track my order",
+      "expect": {
+        "route": "ACTION"
+      }
+    },
+    {
+      "id": "small-talk-general",
+      "message": "hello",
+      "expect": {
+        "route": "GENERAL"
+      }
+    },
+    {
+      "id": "non-commerce-writing-general",
+      "message": "write a thank you note",
+      "expect": {
+        "route": "GENERAL"
+      }
+    },
+    {
+      "id": "non-commerce-facts-general",
+      "message": "what is the capital of France",
+      "expect": {
+        "route": "GENERAL"
+      }
+    },
+    {
+      "id": "follow-up-brand-reuse-category",
+      "message": "only samsung",
+      "assistantSession": {
+        "lastIntent": "product_search",
+        "lastEntities": {
+          "category": "Mobiles"
+        },
+        "lastResults": [
+          {
+            "id": 1001,
+            "category": "Mobiles",
+            "brand": "Apple"
+          },
+          {
+            "id": 1002,
+            "category": "Mobiles",
+            "brand": "Samsung"
+          }
+        ]
+      },
+      "skipRetrievalQuery": true,
+      "expect": {
+        "route": "ECOMMERCE_SEARCH",
+        "category": "Mobiles",
+        "brand": "Samsung"
+      }
+    },
+    {
+      "id": "follow-up-cheaper-reuse-category",
+      "message": "cheaper ones",
+      "assistantSession": {
+        "lastIntent": "product_search",
+        "lastEntities": {
+          "category": "Laptops",
+          "maxPrice": 60000
+        },
+        "lastResults": [
+          {
+            "id": 2001,
+            "category": "Laptops",
+            "brand": "Dell"
+          }
+        ]
+      },
+      "skipRetrievalQuery": true,
+      "expect": {
+        "route": "ECOMMERCE_SEARCH",
+        "category": "Laptops",
+        "maxPrice": 60000,
+        "sortBy": "price_asc"
+      }
+    },
+    {
+      "id": "follow-up-compare-reuse-category",
+      "message": "compare the top results",
+      "assistantSession": {
+        "lastIntent": "product_search",
+        "lastEntities": {
+          "category": "Laptops"
+        },
+        "lastResults": [
+          {
+            "id": 3001,
+            "category": "Laptops",
+            "brand": "HP"
+          },
+          {
+            "id": 3002,
+            "category": "Laptops",
+            "brand": "Lenovo"
+          }
+        ]
+      },
+      "skipRetrievalQuery": true,
+      "expect": {
+        "route": "ECOMMERCE_SEARCH",
+        "category": "Laptops"
+      }
+    }
+  ]
+}

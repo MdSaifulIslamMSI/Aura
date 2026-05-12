@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Activity, AlertTriangle, Bell, CheckCircle2, Clock3, Copy, Download, KeyRound, Lock, LogOut, ShieldCheck } from 'lucide-react';
+import { Activity, AlertTriangle, Bell, CheckCircle2, Clock3, Copy, Download, KeyRound, Link2, Lock, LogOut, ShieldCheck } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useMarket } from '@/context/MarketContext';
 import { TogglePref } from './ProfileShared';
@@ -26,6 +26,11 @@ export default function SettingsSection({
     handleCopyRecoveryCodes,
     handleDownloadRecoveryCodes,
     handleClearVisibleRecoveryCodes,
+    linkedProviderIds = [],
+    socialAuthStatus = {},
+    providerLinking = '',
+    handleLinkMicrosoftProvider,
+    handleLinkAppleProvider,
 }) {
     const { t } = useMarket();
     const [orderUpdates, setOrderUpdates] = useState(true);
@@ -33,6 +38,40 @@ export default function SettingsSection({
     const [supportUpdates, setSupportUpdates] = useState(true);
     const hasVisibleRecoveryCodes = recoveryCodes.length > 0;
     const recoveryReady = hasPasskey && passkeyRecoveryReady && !shouldEnrollRecoveryCodes;
+    const linkedProviderSet = useMemo(() => new Set(linkedProviderIds), [linkedProviderIds]);
+    const linkableProviders = useMemo(() => ([
+        {
+            id: 'microsoft.com',
+            key: 'microsoft',
+            label: 'Microsoft',
+            enabled: Boolean(socialAuthStatus?.microsoftEnabled),
+            linked: linkedProviderSet.has('microsoft.com'),
+            onLink: handleLinkMicrosoftProvider,
+            mark: (
+                <span className="grid h-4 w-4 grid-cols-2" style={{ gap: '1px' }} aria-hidden="true">
+                    <span style={{ backgroundColor: '#f25022' }} />
+                    <span style={{ backgroundColor: '#7fba00' }} />
+                    <span style={{ backgroundColor: '#00a4ef' }} />
+                    <span style={{ backgroundColor: '#ffb900' }} />
+                </span>
+            ),
+        },
+        {
+            id: 'apple.com',
+            key: 'apple',
+            label: 'Apple',
+            enabled: Boolean(socialAuthStatus?.appleEnabled),
+            linked: linkedProviderSet.has('apple.com'),
+            onLink: handleLinkAppleProvider,
+            mark: <span className="text-base leading-none" aria-hidden="true">A</span>,
+        },
+    ]).filter((provider) => provider.enabled || provider.linked), [
+        handleLinkAppleProvider,
+        handleLinkMicrosoftProvider,
+        linkedProviderSet,
+        socialAuthStatus?.appleEnabled,
+        socialAuthStatus?.microsoftEnabled,
+    ]);
 
     const lastCheckText = useMemo(() => {
         if (!trustStatus?.backend?.timestamp) return t('profile.settings.trust.noRecent', {}, 'No recent check timestamp');
@@ -69,6 +108,44 @@ export default function SettingsSection({
                             </button>
                         </div>
                     </div>
+
+                    {linkableProviders.length > 0 ? (
+                        <div className="rounded-[1.6rem] border border-white/10 bg-white/5 p-4">
+                            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                                <div>
+                                    <p className="flex items-center gap-2 text-sm font-semibold text-white">
+                                        <Link2 className="h-4 w-4 text-neo-cyan" />
+                                        {t('profile.settings.security.linkedProviders', {}, 'Linked sign-in providers')}
+                                    </p>
+                                    <p className="mt-1 text-xs text-slate-400">
+                                        {t('profile.settings.security.linkedProvidersBody', {}, 'Attach another provider after signing in with the method that already owns this email.')}
+                                    </p>
+                                </div>
+                                <div className="grid w-full gap-2 sm:w-auto sm:grid-cols-2">
+                                    {linkableProviders.map((provider) => {
+                                        const isLinking = providerLinking === provider.key;
+                                        const disabled = provider.linked || !provider.enabled || isLinking || !provider.onLink;
+                                        return (
+                                            <button
+                                                key={provider.id}
+                                                type="button"
+                                                onClick={provider.onLink}
+                                                disabled={disabled}
+                                                className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-black text-white hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                                            >
+                                                {provider.mark}
+                                                {provider.linked
+                                                    ? t('profile.settings.security.providerLinked', { provider: provider.label }, `${provider.label} linked`)
+                                                    : isLinking
+                                                        ? t('profile.settings.security.providerLinking', { provider: provider.label }, `Linking ${provider.label}...`)
+                                                        : t('profile.settings.security.providerLink', { provider: provider.label }, `Link ${provider.label}`)}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        </div>
+                    ) : null}
 
                     <div className={`rounded-[1.6rem] border p-4 ${recoveryReady ? 'border-emerald-400/20 bg-emerald-500/12' : 'border-amber-400/20 bg-amber-500/12'}`}>
                         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -295,7 +372,7 @@ export default function SettingsSection({
                     </Link>
                     <button
                         onClick={logout}
-                        className="inline-flex items-center justify-center gap-2 rounded-xl border border-rose-400/20 bg-rose-500/12 px-4 py-3 text-sm font-black text-rose-100 hover:bg-rose-500/18"
+                        className="inline-flex items-center justify-center gap-2 rounded-xl border border-rose-400/20 bg-rose-500/12 px-4 py-3 text-sm font-black text-rose-100 hover:bg-rose-500/20"
                     >
                         <LogOut className="h-4 w-4" />
                         {t('profile.settings.safety.logout', {}, 'Log Out')}

@@ -63,7 +63,7 @@ Core capabilities:
 - Repo-level shortcut for the same sync:
   - `npm run aws:ssm:sync`
 - CI/CD now builds the backend image once, uploads the release bundle to S3, and rolls EC2 forward through SSM Run Command.
-- Frontend routing now prefers `AURA_BACKEND_ORIGIN` or `AWS_BACKEND_BASE_URL` in Vercel, and falls back to the tracked hosted backend origin instead of localhost so hosted deploys do not fail closed.
+- Frontend routing requires `AURA_BACKEND_ORIGIN` or `AWS_BACKEND_BASE_URL` in hosted deploy workflows; blank or temporary `sslip.io` origins fail closed instead of becoming production defaults.
 
 ## Frontend CI/CD
 - GitHub Actions deploys the same frontend artifact to Netlify, Vercel, and AWS S3 through [`deploy-netlify.yml`](.github/workflows/deploy-netlify.yml).
@@ -78,6 +78,8 @@ Core capabilities:
   - Repository variable or secret: `VERCEL_PROJECT_ID`
   - Optional repository variable: `VERCEL_PROJECT_NAME`
   - Repository variable: `AWS_FRONTEND_BUCKET`
+  - Repository variable: `AWS_FRONTEND_DISTRIBUTION_ID`
+  - Repository variable: `AWS_FRONTEND_PUBLIC_URL`
   - Repository variable or secret: `AWS_FRONTEND_DEPLOY_ROLE_ARN`
   - Optional repository variable: `AWS_REGION`
 - Pull requests targeting `main` publish preview deploys to both Netlify and Vercel from the same artifact.
@@ -181,8 +183,8 @@ All 10 identified login architecture vulnerabilities have been fixed and are pro
 - Webhook and idempotent mutation paths are replay-safe
 
 ## Operational Endpoints
-- `GET /health`: app/db/queue status snapshot
-- `GET /health/ready`: readiness gate for orchestrators
+- `GET /health`: public production-safe app/db/cache status summary
+- `GET /health/ready`: detailed readiness gate for orchestrators; production requires `x-health-token`
 
 ## Maintenance Notes
 - Run `npm test` in `server/` and `app/` before merging

@@ -59,13 +59,13 @@ Usage:
   node app/scripts/check_backend_connectivity.mjs [--origin URL] [--timeout-ms 5000] [--json] [--skip-catalog]
 
 Environment origin fallback order:
-  AURA_BACKEND_ORIGIN, AWS_BACKEND_BASE_URL, checked-in hosted backend origin
+  --origin, AURA_BACKEND_ORIGIN, AWS_BACKEND_BASE_URL
 `;
 
 const buildEndpoints = ({ skipCatalog = false } = {}) => [
     { name: 'liveness', path: '/health/live', critical: true },
-    { name: 'readiness', path: '/health/ready', critical: true },
-    { name: 'deep health', path: '/health', critical: false },
+    { name: 'summary health', path: '/health', critical: true },
+    { name: 'readiness', path: '/health/ready', critical: false },
     ...(skipCatalog ? [] : [
         { name: 'catalog smoke', path: '/api/products?limit=1', critical: false },
     ]),

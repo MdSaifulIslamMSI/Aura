@@ -12,6 +12,16 @@ services:
       PORT: 5000
       SPLIT_RUNTIME_ENABLED: "true"
       ORDER_EMAIL_PROVIDER: gmail
+      AI_MODEL_PROVIDER: ${AI_MODEL_PROVIDER:-disabled}
+      AI_MODEL_PROVIDER_FALLBACKS: ""
+      ASSISTANT_COMMERCE_REQUIRE_HOSTED_GEMMA: "false"
+      ASSISTANT_COMMERCE_MODEL_SUMMARY_ENABLED: ${ASSISTANT_COMMERCE_MODEL_SUMMARY_ENABLED:-false}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
+      OLLAMA_CHAT_MODEL: ${OLLAMA_CHAT_MODEL:-llama3.2:3b}
+      OLLAMA_CHAT_MODEL_FALLBACKS: ""
+      OLLAMA_EMBED_MODEL: ${OLLAMA_EMBED_MODEL:-all-minilm}
+      OLLAMA_TIMEOUT_MS: ${OLLAMA_TIMEOUT_MS:-300000}
+      OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:-15m}
       AUTH_DEVICE_CHALLENGE_MODE: admin
       AUTH_DEVICE_CHALLENGE_ALLOW_VAULT_FALLBACK: "true"
       ADMIN_REQUIRE_PASSKEY: "true"
@@ -50,10 +60,48 @@ services:
       SPLIT_RUNTIME_ENABLED: "true"
       WORKER_HEALTH_PORT: 8080
       ORDER_EMAIL_PROVIDER: gmail
+      AI_MODEL_PROVIDER: ${AI_MODEL_PROVIDER:-disabled}
+      AI_MODEL_PROVIDER_FALLBACKS: ""
+      ASSISTANT_COMMERCE_REQUIRE_HOSTED_GEMMA: "false"
+      ASSISTANT_COMMERCE_MODEL_SUMMARY_ENABLED: ${ASSISTANT_COMMERCE_MODEL_SUMMARY_ENABLED:-false}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
+      OLLAMA_CHAT_MODEL: ${OLLAMA_CHAT_MODEL:-llama3.2:3b}
+      OLLAMA_CHAT_MODEL_FALLBACKS: ""
+      OLLAMA_EMBED_MODEL: ${OLLAMA_EMBED_MODEL:-all-minilm}
+      OLLAMA_TIMEOUT_MS: ${OLLAMA_TIMEOUT_MS:-300000}
+      OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:-15m}
     depends_on:
       - redis
     volumes:
       - aura-uploads:/app/uploads
+
+  ollama:
+    image: ollama/ollama:latest
+    profiles: ["ollama"]
+    restart: unless-stopped
+    environment:
+      OLLAMA_HOST: 0.0.0.0:11434
+      OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:-15m}
+      OLLAMA_CHAT_MODEL: ${OLLAMA_CHAT_MODEL:-llama3.2:3b}
+      OLLAMA_EMBED_MODEL: ${OLLAMA_EMBED_MODEL:-all-minilm}
+      OLLAMA_CONTEXT_LENGTH: ${OLLAMA_CONTEXT_LENGTH:-1024}
+      OLLAMA_NUM_PARALLEL: ${OLLAMA_NUM_PARALLEL:-1}
+      OLLAMA_MAX_LOADED_MODELS: ${OLLAMA_MAX_LOADED_MODELS:-2}
+      OLLAMA_KV_CACHE_TYPE: ${OLLAMA_KV_CACHE_TYPE:-q8_0}
+      OLLAMA_NO_CLOUD: ${OLLAMA_NO_CLOUD:-1}
+    entrypoint: ["/bin/sh", "-lc"]
+    command:
+      - |
+        ollama serve &
+        pid=$$!
+        until OLLAMA_HOST=http://127.0.0.1:11434 ollama list >/dev/null 2>&1; do
+          sleep 2
+        done
+        OLLAMA_HOST=http://127.0.0.1:11434 ollama pull "$${OLLAMA_CHAT_MODEL:-llama3.2:3b}" || true
+        OLLAMA_HOST=http://127.0.0.1:11434 ollama pull "$${OLLAMA_EMBED_MODEL:-all-minilm}" || true
+        wait "$$pid"
+    volumes:
+      - aura-ollama:/root/.ollama
 
   redis:
     image: redis:7-alpine
@@ -64,6 +112,7 @@ services:
 
 volumes:
   aura-redis:
+  aura-ollama:
   aura-uploads:
   aura-caddy-data:
   aura-caddy-config:

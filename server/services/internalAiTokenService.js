@@ -61,9 +61,13 @@ const getAllowedAudiences = () => {
 };
 const getDefaultTtlSeconds = () => Math.max(60, parseInteger(process.env.AI_INTERNAL_AUTH_TOKEN_TTL_SECONDS, DEFAULT_TTL_SECONDS));
 const getClockSkewSeconds = () => Math.max(0, parseInteger(process.env.AI_INTERNAL_AUTH_CLOCK_SKEW_SECONDS, DEFAULT_CLOCK_SKEW_SECONDS));
+const getRuntimeNodeEnv = () => normalizeText(process.env.NODE_ENV, 'production').toLowerCase() || 'production';
 const shouldAllowLegacySecret = () => {
     const hasSignedTokenConfig = Boolean(getCurrentSigningSecret());
-    return parseBoolean(process.env.AI_INTERNAL_AUTH_ALLOW_LEGACY_SECRET, !hasSignedTokenConfig);
+    const defaultAllowLegacySecret = getRuntimeNodeEnv() === 'production'
+        ? false
+        : !hasSignedTokenConfig;
+    return parseBoolean(process.env.AI_INTERNAL_AUTH_ALLOW_LEGACY_SECRET, defaultAllowLegacySecret);
 };
 
 const getInternalAiKeyEntries = () => {

@@ -1,0 +1,38 @@
+services:
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=15d
+    ports:
+      - "127.0.0.1:9090:9090"
+    volumes:
+      - ./infra/observability/prometheus/prometheus.ec2.yml:/etc/prometheus/prometheus.yml:ro
+      - ./infra/observability/prometheus/alerts:/etc/prometheus/alerts:ro
+      - /opt/aura/shared/metrics-secret:/run/secrets/aura_metrics_secret:ro
+      - aura-prometheus-data:/prometheus
+    depends_on:
+      - api
+
+  grafana:
+    image: grafana/grafana-oss:11.4.0
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD is required}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_SERVER_ROOT_URL: ${GRAFANA_ROOT_URL:-http://localhost:3001}
+    ports:
+      - "127.0.0.1:3001:3000"
+    volumes:
+      - ./infra/observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - aura-grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+
+volumes:
+  aura-prometheus-data:
+  aura-grafana-data:

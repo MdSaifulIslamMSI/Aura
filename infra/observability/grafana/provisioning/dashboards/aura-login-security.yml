@@ -1,0 +1,11 @@
+apiVersion: 1
+
+providers:
+  - name: Aura Login Security
+    orgId: 1
+    folder: Aura Security
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /var/lib/grafana/dashboards
