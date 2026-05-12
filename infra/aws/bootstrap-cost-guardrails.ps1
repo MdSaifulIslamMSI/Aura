@@ -5,7 +5,7 @@ param(
     [string]$AccountId = "",
     [string]$InstanceId = "",
     [string]$InstanceTagName = "aura-backend",
-    [decimal]$MonthlyBudgetUsd = 14,
+    [decimal]$MonthlyBudgetUsd = 90,
     [string]$PlanExpirationDate = "",
     [string]$BudgetName = "",
     [string]$TopicName = "",

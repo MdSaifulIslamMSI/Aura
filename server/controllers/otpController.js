@@ -27,6 +27,7 @@ const {
     requireAuthAssurance,
 } = require('../services/authAssurancePolicyService');
 const { revokeBrowserSessionsForUser } = require('../services/browserSessionService');
+const { recordAuthSecurityEvent } = require('../services/authSecurityTelemetryService');
 
 const OTP_LENGTH = 6;
 const OTP_EXPIRY_MS = otpEmailFlags.otpEmailTtlMinutes * 60 * 1000;
@@ -229,6 +230,60 @@ const audit = (event, data) => {
         reason: data.reason || null,
         ...(data.includeIp ? { ip: data.ip || '-' } : {}),
     });
+
+    if (event === 'SEND_OK') {
+        recordAuthSecurityEvent({
+            event: 'otp_challenge',
+            outcome: 'issued',
+            reason: 'none',
+            surface: 'otp',
+            meta: { requestId: data.requestId || '-', purpose: data.purpose || '-' },
+        });
+        return;
+    }
+
+    if (event === 'VERIFY_OK') {
+        recordAuthSecurityEvent({
+            event: 'otp_verify',
+            outcome: 'success',
+            reason: 'none',
+            surface: 'otp',
+            meta: { requestId: data.requestId || '-', purpose: data.purpose || '-' },
+        });
+        return;
+    }
+
+    if (event.startsWith('VERIFY_')) {
+        recordAuthSecurityEvent({
+            event: 'otp_verify',
+            outcome: 'failure',
+            reason: data.reason || event,
+            surface: 'otp',
+            meta: { requestId: data.requestId || '-', purpose: data.purpose || '-' },
+        });
+        return;
+    }
+
+    if (event === 'RESET_PASSWORD_OK') {
+        recordAuthSecurityEvent({
+            event: 'password_reset',
+            outcome: 'success',
+            reason: 'none',
+            surface: 'otp',
+            meta: { requestId: data.requestId || '-', purpose: data.purpose || '-' },
+        });
+        return;
+    }
+
+    if (event === 'RESET_PASSWORD_REJECTED') {
+        recordAuthSecurityEvent({
+            event: 'password_reset',
+            outcome: 'blocked',
+            reason: data.reason || 'reset_rejected',
+            surface: 'otp',
+            meta: { requestId: data.requestId || '-', purpose: data.purpose || '-' },
+        });
+    }
 };
 
 const computeSignupIdentifierRateState = ({ email, phone }) => {

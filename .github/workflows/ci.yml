@@ -106,6 +106,9 @@ jobs:
       - name: Guard committed runtime/test artifacts
         run: node server/scripts/ci-guard-artifacts.js
 
+      - name: Guard production hardening contract
+        run: node server/scripts/audit_production_hardening_contract.js
+
   backend-regression:
     needs: changes
     if: needs.changes.outputs.backend == 'true'
@@ -143,6 +146,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Run assistant query-quality eval
+        run: npm run assistant:eval:query-quality
+        env:
+          NODE_ENV: test
+
       - name: Run backend regression suite
         run: >
           npx jest --runInBand --runTestsByPath
@@ -165,6 +173,11 @@ jobs:
           tests/adminNotificationRoutes.integration.test.js
           tests/aiRoutes.test.js
           tests/healthRoutes.test.js
+          tests/healthReadinessService.test.js
+          tests/adminFraudRoutes.test.js
+          tests/fraudDecisioningService.test.js
+          tests/marketplaceIntegrityService.test.js
+          tests/orderPlacementService.test.js
           tests/commerceAssistantService.test.js
           tests/geminiGatewayService.test.js
           tests/modelGatewayService.test.js

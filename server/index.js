@@ -48,6 +48,7 @@ const adminCatalogRoutes = require('./routes/adminCatalogRoutes');
 const adminUserRoutes = require('./routes/adminUserRoutes');
 const adminProductRoutes = require('./routes/adminProductRoutes');
 const adminOpsRoutes = require('./routes/adminOpsRoutes');
+const adminFraudRoutes = require('./routes/adminFraudRoutes');
 const internalOpsRoutes = require('./routes/internalOpsRoutes');
 const observabilityRoutes = require('./routes/observabilityRoutes');
 const emailWebhookRoutes = require('./routes/emailWebhookRoutes');
@@ -100,6 +101,15 @@ const {
 const {
     getCachedHealthSnapshot,
 } = require('./services/healthService');
+const {
+    buildStartupReadinessFailure,
+    getReadinessGraceState,
+} = require('./services/healthReadinessService');
+const {
+    buildPublicHealthPayload,
+    shouldFailClosedMissingHealthReadyToken,
+    shouldExposeDetailedHealth,
+} = require('./services/healthDisclosureService');
 const { warmChatModel } = require('./services/ai/modelGatewayService');
 const { getChatQuotaHealth } = require('./services/chatQuotaService');
 const { getTrustedRequestIp } = require('./utils/requestIdentity');
@@ -171,6 +181,17 @@ const safeTimingEqual = (candidate = '', expected = '') => {
 
 const requireHealthReadyAccess = (req, res, next) => {
     if (!HEALTH_READY_TOKEN) {
+        if (shouldFailClosedMissingHealthReadyToken({
+            healthReadyToken: HEALTH_READY_TOKEN,
+            runtimeNodeEnv,
+        })) {
+            res.set('Cache-Control', 'no-store');
+            return res.status(503).json({
+                ready: false,
+                reason: 'health_ready_token_not_configured',
+                timestamp: new Date().toISOString(),
+            });
+        }
         return next();
     }
 
@@ -380,6 +401,7 @@ app.use('/api/admin/catalog', adminCatalogRoutes);
 app.use('/api/admin/users', adminUserRoutes);
 app.use('/api/admin/products', adminProductRoutes);
 app.use('/api/admin/ops', adminOpsRoutes);
+app.use('/api/admin/fraud', adminFraudRoutes);
 app.use('/api/internal', internalOpsRoutes);
 app.use('/api/observability', observabilityRoutes);
 app.use('/api/email-webhooks', emailWebhookRoutes);
@@ -394,20 +416,36 @@ app.get('/health', async (req, res) => {
     const snapshot = await getCachedHealthSnapshot();
     const { core, services } = snapshot;
     const status = core.dbConnected && core.redisConnected ? 'ok' : 'degraded';
+    const uptime = process.uptime();
+    const timestamp = new Date().toISOString();
+    const exposeDetailedHealth = shouldExposeDetailedHealth({
+        req,
+        healthReadyToken: HEALTH_READY_TOKEN,
+        runtimeNodeEnv,
+    });
+
+    res.set('Cache-Control', 'no-store');
+    res.set('X-Health-Cache', snapshot.cacheState);
+    if (!exposeDetailedHealth) {
+        return res.status(status === 'ok' ? 200 : 503).json(buildPublicHealthPayload({
+            status,
+            core,
+            uptime,
+            timestamp,
+        }));
+    }
+
     const workerGaps = getSplitRuntimeWorkerGaps({
         paymentQueue: services.paymentQueue,
         emailQueue: services.emailQueue,
         catalog: services.catalog,
         reconciliation: services.reconciliation,
     });
-
-    res.set('Cache-Control', 'no-store');
-    res.set('X-Health-Cache', snapshot.cacheState);
-    res.status(status === 'ok' ? 200 : 503).json({
+    const detailedHealthPayload = {
         status,
         db: core.dbConnected ? 'connected' : 'disconnected',
-        uptime: process.uptime(),
-        timestamp: new Date().toISOString(),
+        uptime,
+        timestamp,
         redis: {
             connected: core.redisConnected,
         },
@@ -440,7 +478,9 @@ app.get('/health', async (req, res) => {
             socket: getSocketHealth(),
             videoCalls: { activeRinging: 0, activeConnected: 0, endedRecently: 0 },
         },
-    });
+    };
+
+    return res.status(status === 'ok' ? 200 : 503).json(detailedHealthPayload);
 });
 
 app.get('/health/ready', healthReadyLimiter, requireHealthReadyAccess, async (req, res) => {
@@ -499,13 +539,21 @@ app.get('/health/ready', healthReadyLimiter, requireHealthReadyAccess, async (re
         catalog = { staleData: true };
     }
 
-    // --- Boot Grace Period Logic ---
-    // On fresh deployments (especially on Render), the catalog might be empty or 'legacy-v1'.
-    // We allow a grace period (default 15m) where we return 200 even if the catalog isn't fully ready,
-    // to prevent Render from killing the deploy due to health check timeouts.
-    const BOOT_GRACE_PERIOD_SEC = Number(process.env.BOOT_GRACE_PERIOD_SEC) || 900;
     const uptime = process.uptime();
-    const isWithinGracePeriod = uptime < BOOT_GRACE_PERIOD_SEC;
+    const { isWithinGracePeriod } = getReadinessGraceState({
+        env: process.env,
+        runtimeNodeEnv,
+        uptime,
+    });
+    const startupReadinessFailure = buildStartupReadinessFailure({
+        runtimeNodeEnv,
+        runtimeStartupState,
+        isWithinGracePeriod,
+        uptime,
+    });
+    if (startupReadinessFailure) {
+        return res.status(503).json(startupReadinessFailure);
+    }
 
     if (catalog?.staleData) {
         if (!isWithinGracePeriod) {

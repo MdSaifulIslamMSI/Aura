@@ -12,7 +12,7 @@ const {
     buildOrderQuote,
 } = require('../orderPricingService');
 const { getPaymentProvider } = require('./providerFactory');
-const { evaluateRisk } = require('./riskEngine');
+const { assessFraudDecision } = require('../fraudDecisioningService');
 const {
     DIGITAL_METHODS,
     INTENT_EXPIRY_MINUTES,
@@ -617,13 +617,22 @@ const createPaymentIntent = async ({
         }
     }
 
-    const risk = await evaluateRisk({
+    const risk = await assessFraudDecision({
+        action: 'payment_intent',
+        user,
         userId: user._id,
         amount: quote.pricing.totalPrice,
         deviceContext,
         requestMeta,
         shippingAddress: quote.normalized.shippingAddress,
         mode: flags.paymentRiskMode,
+        subject: { type: 'checkout', id: quote.normalized.cartVersion || quote.normalized.checkoutSource || '' },
+        metadata: {
+            checkoutSource: quote.normalized.checkoutSource,
+            paymentMethod: normalizedMethod,
+            couponCode: quote.normalized.couponCode,
+            savedMethod: Boolean(savedMethodId),
+        },
     });
 
     if (risk.blocked) {

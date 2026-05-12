@@ -50,7 +50,7 @@ test('desktop runtime defaults to the hosted HTTPS backend origin', () => {
     delete process.env.AURA_BACKEND_ORIGIN;
 
     try {
-        assert.equal(DEFAULT_BACKEND_ORIGIN, 'https://13.206.172.186.sslip.io');
+        assert.equal(DEFAULT_BACKEND_ORIGIN, 'https://api.aurapilot.example.com');
         assert.equal(resolveBackendOrigin(), DEFAULT_BACKEND_ORIGIN);
     } finally {
         if (previousDesktopOrigin === undefined) {

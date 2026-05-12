@@ -27,6 +27,13 @@ const asyncHandler = require('express-async-handler');
 const AppError = require('../utils/AppError');
 const Order = require('../models/Order');
 const Product = require('../models/Product');
+const { assessFraudDecision } = require('../services/fraudDecisioningService');
+
+const buildFraudRequestMeta = (req) => ({
+    ip: req.ip || req.connection?.remoteAddress || '',
+    userAgent: req.headers['user-agent'] || '',
+    requestId: req.id || req.requestId || req.headers['x-request-id'] || '',
+});
 
 const toTimelineDate = (value) => {
     const date = value ? new Date(value) : null;
@@ -457,6 +464,27 @@ const createOrderRefundRequest = asyncHandler(async (req, res, next) => {
     const amount = Number.isFinite(requestedAmount) && requestedAmount > 0
         ? Math.min(requestedAmount, orderTotal)
         : orderTotal;
+    const fraudDecision = await assessFraudDecision({
+        action: 'order_refund_request',
+        user: req.user,
+        userId: req.user._id,
+        order,
+        amount,
+        reason,
+        requestMeta: buildFraudRequestMeta(req),
+        subject: { type: 'order', id: order._id },
+        metadata: {
+            paymentMethod: order.paymentMethod,
+            paymentState: order.paymentState,
+            orderStatus: order.orderStatus,
+        },
+    });
+
+    if (fraudDecision.blocked) {
+        return next(new AppError(fraudDecision.message || 'Refund request blocked by fraud policy.', 403));
+    }
+
+    const requiresFraudReview = Boolean(fraudDecision.reviewRequired || fraudDecision.holdRequired);
 
     await Order.updateOne(
         { _id: order._id, user: req.user._id },
@@ -467,7 +495,13 @@ const createOrderRefundRequest = asyncHandler(async (req, res, next) => {
                     amount,
                     reason,
                     status: 'pending',
-                    message: 'Refund request received',
+                    message: requiresFraudReview
+                        ? 'Refund request received for fraud review'
+                        : 'Refund request received',
+                    fraudDecisionId: fraudDecision.auditId || fraudDecision.decisionId,
+                    riskDecision: fraudDecision.strictDecision,
+                    riskScore: fraudDecision.score,
+                    riskFactors: fraudDecision.factors,
                     createdAt: now,
                 },
             },
@@ -475,10 +509,12 @@ const createOrderRefundRequest = asyncHandler(async (req, res, next) => {
         }
     );
 
-    let message = 'Refund request submitted';
+    let message = requiresFraudReview
+        ? 'Refund request submitted for fraud review'
+        : 'Refund request submitted';
     const canProcessAutomatically = Boolean(order.paymentIntentId) && DIGITAL_PAYMENT_METHODS.has(String(order.paymentMethod || '').toUpperCase());
 
-    if (canProcessAutomatically) {
+    if (canProcessAutomatically && !requiresFraudReview) {
         try {
             const refundResult = await createRefundForIntent({
                 actorUserId: req.user._id,

@@ -1,8 +1,8 @@
 /**
  * Aura Marketplace Integrity Service
- * 
- * Implements an NP-Hard Subgraph Isomorphism heuristic to detect 
- * coordinated attack patterns in the marketplace social/transaction graph.
+ *
+ * Validates marketplace listing inputs and provides bounded graph heuristics
+ * for offline or worker-driven abuse analysis.
  */
 
 const logger = require('../utils/logger');
@@ -23,7 +23,7 @@ const ATTACK_TEMPLATES = {
     }
 };
 
-const MAX_NEIGHBORHOOD_SIZE = 60; // Guard against Complexity Attacks
+const MAX_NEIGHBORHOOD_SIZE = 60;
 
 const MARKETPLACE_SEED_MARKER = 'AURA_SEED_2024';
 const MARKETPLACE_SEED_REGEX = new RegExp(MARKETPLACE_SEED_MARKER, 'i');
@@ -169,22 +169,16 @@ const isRealListingDoc = (listingDoc = {}) => {
     return !MARKETPLACE_SEED_REGEX.test(String(listingDoc.description || ''));
 };
 
-/**
- * Heuristic for Subgraph Isomorphism
- * Uses a simplified backtracking approach to find if 'template' exists in 'mainGraph'
- */
 const findPatternMatch = (mainGraph, template) => {
     const { nodes: tNodes, edges: tEdges } = template;
     const { nodes: gNodes, neighbors: gNeighbors } = mainGraph;
 
     if (gNodes.length < tNodes.length) return null;
 
-    // Backtracking search for a valid mapping
     const mapping = new Map();
     const usedGNodes = new Set();
 
     const isCompatible = (tNode, gNode) => {
-        // Basic degree check (heuristic)
         const tDegree = tEdges.filter(e => e.includes(tNode)).length;
         const gDegree = (gNeighbors.get(gNode) || new Set()).size;
         return gDegree >= tDegree;
@@ -198,7 +192,6 @@ const findPatternMatch = (mainGraph, template) => {
             if (usedGNodes.has(gNode)) continue;
             if (!isCompatible(tNode, gNode)) continue;
 
-            // Check if all existing edges in template are preserved in mainGraph mapping
             let edgesValid = true;
             for (let i = 0; i < tIdx; i++) {
                 const prevTNode = tNodes[i];
@@ -231,20 +224,19 @@ const findPatternMatch = (mainGraph, template) => {
     return null;
 };
 
-/**
- * Sweeps a specific neighborhood for fraud patterns
- */
 const scanForMarketplaceAnomalies = async (seedUserId, neighborhoodData = []) => {
     const startTime = Date.now();
     
-    // Build main graph from neighborhoodData (edges: [from, to])
-    const limitedData = neighborhoodData.slice(0, MAX_NEIGHBORHOOD_SIZE);
+    const limitedData = Array.isArray(neighborhoodData)
+        ? neighborhoodData.slice(0, MAX_NEIGHBORHOOD_SIZE)
+        : [];
     const nodes = [...new Set(limitedData.flat())];
     const neighbors = new Map();
     nodes.forEach(n => neighbors.set(n, new Set()));
-    neighborhoodData.forEach(([from, to]) => {
+    limitedData.forEach(([from, to] = []) => {
+        if (!neighbors.has(from) || !neighbors.has(to)) return;
         neighbors.get(from).add(to);
-        neighbors.get(to).add(from); // Undirected for high-level connectivity
+        neighbors.get(to).add(from);
     });
 
     const graph = { nodes, neighbors };
@@ -274,7 +266,7 @@ const scanForMarketplaceAnomalies = async (seedUserId, neighborhoodData = []) =>
         anomalyCount: findings.length,
         findings,
         analysisTime: duration + 'ms',
-        protectionLevel: 'Graph-Isomorphism Active'
+        protectionLevel: 'bounded-graph-heuristic'
     };
 };
 

@@ -1,0 +1,135 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Aura login edge protection WebACL for CloudFront. Deploy in us-east-1 and attach the output ARN to the CloudFront distribution WebACLId.
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: production
+    AllowedPattern: '^[a-z0-9-]+$'
+  AuthRateLimitPerFiveMinutes:
+    Type: Number
+    Default: 500
+    MinValue: 100
+    MaxValue: 20000
+  ApiRateLimitPerFiveMinutes:
+    Type: Number
+    Default: 3000
+    MinValue: 500
+    MaxValue: 50000
+
+Resources:
+  AuraLoginSecurityWebAcl:
+    Type: AWS::WAFv2::WebACL
+    Properties:
+      Name: !Sub aura-login-security-${EnvironmentName}
+      Scope: CLOUDFRONT
+      Description: Managed edge protections, login-specific rate limits, and API abuse controls for Aura.
+      DefaultAction:
+        Allow: {}
+      VisibilityConfig:
+        CloudWatchMetricsEnabled: true
+        MetricName: AuraLoginSecurityWebAcl
+        SampledRequestsEnabled: true
+      Rules:
+        - Name: AWSManagedIpReputation
+          Priority: 0
+          OverrideAction:
+            None: {}
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: AWS
+              Name: AWSManagedRulesAmazonIpReputationList
+          VisibilityConfig:
+            CloudWatchMetricsEnabled: true
+            MetricName: AuraManagedIpReputation
+            SampledRequestsEnabled: true
+
+        - Name: AWSManagedCommonRules
+          Priority: 1
+          OverrideAction:
+            None: {}
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: AWS
+              Name: AWSManagedRulesCommonRuleSet
+              ExcludedRules:
+                - Name: SizeRestrictions_BODY
+          VisibilityConfig:
+            CloudWatchMetricsEnabled: true
+            MetricName: AuraManagedCommonRules
+            SampledRequestsEnabled: true
+
+        - Name: AWSManagedKnownBadInputs
+          Priority: 2
+          OverrideAction:
+            None: {}
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: AWS
+              Name: AWSManagedRulesKnownBadInputsRuleSet
+          VisibilityConfig:
+            CloudWatchMetricsEnabled: true
+            MetricName: AuraManagedKnownBadInputs
+            SampledRequestsEnabled: true
+
+        - Name: LoginAndOtpRateLimit
+          Priority: 10
+          Action:
+            Block: {}
+          Statement:
+            RateBasedStatement:
+              AggregateKeyType: IP
+              Limit: !Ref AuthRateLimitPerFiveMinutes
+              ScopeDownStatement:
+                OrStatement:
+                  Statements:
+                    - ByteMatchStatement:
+                        FieldToMatch:
+                          UriPath: {}
+                        PositionalConstraint: STARTS_WITH
+                        SearchString: /api/auth
+                        TextTransformations:
+                          - Priority: 0
+                            Type: NONE
+                    - ByteMatchStatement:
+                        FieldToMatch:
+                          UriPath: {}
+                        PositionalConstraint: STARTS_WITH
+                        SearchString: /api/otp
+                        TextTransformations:
+                          - Priority: 0
+                            Type: NONE
+          VisibilityConfig:
+            CloudWatchMetricsEnabled: true
+            MetricName: AuraLoginOtpRateLimit
+            SampledRequestsEnabled: true
+
+        - Name: ApiRateLimit
+          Priority: 11
+          Action:
+            Block: {}
+          Statement:
+            RateBasedStatement:
+              AggregateKeyType: IP
+              Limit: !Ref ApiRateLimitPerFiveMinutes
+              ScopeDownStatement:
+                ByteMatchStatement:
+                  FieldToMatch:
+                    UriPath: {}
+                  PositionalConstraint: STARTS_WITH
+                  SearchString: /api/
+                  TextTransformations:
+                    - Priority: 0
+                      Type: NONE
+          VisibilityConfig:
+            CloudWatchMetricsEnabled: true
+            MetricName: AuraApiRateLimit
+            SampledRequestsEnabled: true
+
+Outputs:
+  WebACLArn:
+    Description: Attach this ARN to the CloudFront distribution WebACLId.
+    Value: !GetAtt AuraLoginSecurityWebAcl.Arn
+  WebACLName:
+    Description: Created WebACL name.
+    Value: !Ref AuraLoginSecurityWebAcl

@@ -87,6 +87,56 @@ describe('metrics auth middleware', () => {
         expect(res.status).not.toHaveBeenCalled();
     });
 
+    test('accepts production requests with a matching bearer token', () => {
+        process.env.NODE_ENV = 'production';
+        process.env.METRICS_SECRET = 'metrics-secret';
+
+        const { metricsAuth } = require('../middleware/metrics');
+        const req = {
+            headers: {
+                authorization: 'Bearer metrics-secret',
+            },
+            query: {},
+        };
+        const res = {
+            status: jest.fn().mockReturnThis(),
+            json: jest.fn().mockReturnThis(),
+        };
+        const next = jest.fn();
+
+        metricsAuth(req, res, next);
+
+        expect(next).toHaveBeenCalledWith();
+        expect(res.status).not.toHaveBeenCalled();
+    });
+
+    test('rejects production requests with a non-bearer authorization header', () => {
+        process.env.NODE_ENV = 'production';
+        process.env.METRICS_SECRET = 'metrics-secret';
+
+        const { metricsAuth } = require('../middleware/metrics');
+        const req = {
+            headers: {
+                authorization: 'Basic metrics-secret',
+            },
+            query: {},
+        };
+        const res = {
+            status: jest.fn().mockReturnThis(),
+            json: jest.fn().mockReturnThis(),
+        };
+        const next = jest.fn();
+
+        metricsAuth(req, res, next);
+
+        expect(next).not.toHaveBeenCalled();
+        expect(res.status).toHaveBeenCalledWith(401);
+        expect(res.json).toHaveBeenCalledWith({
+            status: 'error',
+            message: 'Unauthorized',
+        });
+    });
+
     test('allows non-production requests without a metrics secret', () => {
         process.env.NODE_ENV = 'development';
         delete process.env.METRICS_SECRET;

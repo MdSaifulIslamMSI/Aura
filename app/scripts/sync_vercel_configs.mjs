@@ -6,12 +6,16 @@ import {
     buildFrontendSecurityHeaders,
     buildHostedBackendRewrites,
     buildNetlifyHostedBackendRedirects,
+    assertDeployableHostedBackendOrigin,
     resolveHostedBackendOrigin,
 } from '../config/vercelRoutingContract.mjs';
 
 const currentDirectory = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(currentDirectory, '..', '..');
-const hostedBackendOrigin = resolveHostedBackendOrigin();
+const hostedBackendOrigin = resolveHostedBackendOrigin(process.env, { allowCommittedFallback: true });
+if (hostedBackendOrigin !== 'https://api.aurapilot.example.com') {
+    assertDeployableHostedBackendOrigin(hostedBackendOrigin);
+}
 const sharedRewrites = buildHostedBackendRewrites(hostedBackendOrigin);
 const sharedHeaders = buildFrontendSecurityHeaders();
 const netlifyRedirects = buildNetlifyHostedBackendRedirects(hostedBackendOrigin);

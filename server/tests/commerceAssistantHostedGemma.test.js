@@ -282,4 +282,58 @@ describe('commerceAssistantService hosted Gemma enforcement', () => {
             retrievalProvider: 'assistant_session',
         });
     });
+
+    test('answers policy questions from local knowledge when no catalog product matches', async () => {
+        process.env.ASSISTANT_COMMERCE_REQUIRE_HOSTED_GEMMA = 'false';
+        const modelGateway = require('../services/ai/modelGatewayService');
+        const vectorIndex = require('../services/ai/localProductVectorIndexService');
+
+        modelGateway.checkModelGatewayHealth.mockResolvedValue({
+            provider: 'ollama',
+            activeProvider: 'ollama',
+            healthy: false,
+            apiConfigured: false,
+            chatModel: 'llama3.2:3b',
+            resolvedChatModel: '',
+            capabilities: {
+                textInput: true,
+                imageInput: false,
+                audioInput: false,
+            },
+        });
+        modelGateway.getModelGatewayHealth.mockReturnValue({
+            provider: 'ollama',
+            activeProvider: 'ollama',
+            healthy: false,
+            apiConfigured: false,
+            chatModel: 'llama3.2:3b',
+        });
+        vectorIndex.searchProductVectorIndex.mockResolvedValue({
+            results: [],
+            retrievalHitCount: 0,
+            provider: 'local_vector',
+            fallbackUsed: false,
+            fallbackReason: 'none',
+        });
+
+        const { processAssistantTurn } = require('../services/ai/commerceAssistantService');
+        const result = await processAssistantTurn({
+            message: 'what is the return and refund policy',
+        });
+
+        expect(result.route).toBe('ECOMMERCE_SEARCH');
+        expect(result.provider).toBe('local_knowledge');
+        expect(result.answer).toContain('Return and refund policy');
+        expect(result.assistantTurn.citations).toEqual(expect.arrayContaining([
+            expect.objectContaining({
+                id: 'policy:return-refund',
+                type: 'policy',
+            }),
+        ]));
+        expect(result.grounding.validator).toMatchObject({
+            ok: true,
+            reason: 'knowledge_first_grounding',
+            knowledgeHitCount: expect.any(Number),
+        });
+    });
 });

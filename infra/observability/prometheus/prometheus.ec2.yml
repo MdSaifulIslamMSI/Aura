@@ -1,0 +1,20 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 30s
+
+rule_files:
+  - /etc/prometheus/alerts/*.yml
+
+scrape_configs:
+  - job_name: aura-api
+    metrics_path: /metrics
+    http_headers:
+      x-metrics-key:
+        files:
+          - /run/secrets/aura_metrics_secret
+    static_configs:
+      - targets:
+          - api:5000
+        labels:
+          service: aura-api
+          environment: production

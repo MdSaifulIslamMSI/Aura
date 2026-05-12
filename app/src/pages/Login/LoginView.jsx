@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { ArrowLeft, ChevronDown, Eye, EyeOff, Loader2, Lock, Mail, Network, Phone, Shield, User, Zap } from 'lucide-react';
+import { Apple as AppleIcon, ArrowLeft, ChevronDown, Eye, EyeOff, Loader2, Lock, Mail, Network, Phone, Shield, User, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import AuthAccelerationRail from '@/components/features/auth/AuthAccelerationRail';
 import { AuthFeedback } from '@/components/shared/AuthFeedback';
@@ -42,6 +42,8 @@ const LoginView = ({
   showPassword,
   signInWithFacebook,
   signInWithGoogle,
+  signInWithMicrosoft,
+  signInWithApple,
   signInWithX,
   socialAuthStatus,
   step,
@@ -486,6 +488,35 @@ const LoginView = ({
                       </svg>
                       X
                     </button>
+
+                    {socialAuthStatus.microsoftEnabled && (
+                      <button
+                        type="button"
+                        onClick={() => handleSocialSignIn(signInWithMicrosoft, 'Microsoft')}
+                        disabled={isLoading}
+                        className="py-3 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 text-white font-bold text-xs tracking-[0.08em] uppercase transition-all duration-300 flex items-center justify-center gap-2 hover:border-white/30"
+                      >
+                        <span className="grid h-4 w-4 grid-cols-2" style={{ gap: '1px' }} aria-hidden="true">
+                          <span style={{ backgroundColor: '#f25022' }} />
+                          <span style={{ backgroundColor: '#7fba00' }} />
+                          <span style={{ backgroundColor: '#00a4ef' }} />
+                          <span style={{ backgroundColor: '#ffb900' }} />
+                        </span>
+                        Microsoft
+                      </button>
+                    )}
+
+                    {socialAuthStatus.appleEnabled && (
+                      <button
+                        type="button"
+                        onClick={() => handleSocialSignIn(signInWithApple, 'Apple')}
+                        disabled={isLoading}
+                        className="py-3 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 text-white font-bold text-xs tracking-[0.08em] uppercase transition-all duration-300 flex items-center justify-center gap-2 hover:border-white/30"
+                      >
+                        <AppleIcon className="h-4 w-4" aria-hidden="true" />
+                        Apple
+                      </button>
+                    )}
                   </div>
                 ) : socialAuthStatus.ready ? (
                   <div className="rounded-2xl border border-amber-400/20 bg-amber-500/5 px-4 py-3">

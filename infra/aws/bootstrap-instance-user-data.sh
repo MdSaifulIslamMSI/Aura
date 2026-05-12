@@ -59,6 +59,22 @@ OTP_SMS_ENABLED=false
 OTP_WHATSAPP_ENABLED=false
 ORDER_EMAILS_ENABLED=false
 ORDER_EMAIL_PROVIDER=disabled
+COMPOSE_PROFILES=ollama
+AI_MODEL_PROVIDER=ollama
+AI_MODEL_PROVIDER_FALLBACKS=
+ASSISTANT_COMMERCE_REQUIRE_HOSTED_GEMMA=false
+ASSISTANT_COMMERCE_MODEL_SUMMARY_ENABLED=false
+OLLAMA_BASE_URL=http://ollama:11434
+OLLAMA_CHAT_MODEL=llama3.2:1b
+OLLAMA_CHAT_MODEL_FALLBACKS=
+OLLAMA_EMBED_MODEL=all-minilm
+OLLAMA_TIMEOUT_MS=180000
+OLLAMA_KEEP_ALIVE=15m
+OLLAMA_CONTEXT_LENGTH=1024
+OLLAMA_NUM_PARALLEL=1
+OLLAMA_MAX_LOADED_MODELS=2
+OLLAMA_KV_CACHE_TYPE=q8_0
+OLLAMA_NO_CLOUD=1
 EOF
 
 metadata_token="$(curl -fsS -X PUT http://169.254.169.254/latest/api/token -H 'X-aws-ec2-metadata-token-ttl-seconds: 21600' || true)"
@@ -72,6 +88,9 @@ if [[ -n "${instance_public_ipv4}" ]]; then
 else
   echo "# AURA_BACKEND_PUBLIC_HOST remains the checked-in placeholder until DNS is assigned." >> /opt/aura/shared/base.env
 fi
+
+echo "# Ollama runtime: free-plan t4g.small uses llama3.2:1b; use t4g.large or larger for llama3.2:3b." >> /opt/aura/shared/base.env
+echo "# To fall back to deterministic RAG/tool mode, set AI_MODEL_PROVIDER=disabled and remove COMPOSE_PROFILES=ollama." >> /opt/aura/shared/base.env
 
 touch /opt/aura/shared/runtime-secrets.env
 touch /opt/aura/shared/release.env

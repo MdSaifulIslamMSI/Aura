@@ -6,23 +6,43 @@ const assertAbsoluteHttpUrl = (value) => {
     }
 };
 
-// Current tracked hosted backend origin. Keep this value as the committed
-// fallback; deployment scripts may override it with AURA_BACKEND_ORIGIN or
-// AWS_BACKEND_BASE_URL when the EC2 public address or custom domain changes.
-export const DEFAULT_HOSTED_BACKEND_ORIGIN = 'https://13.206.172.186.sslip.io';
+// Non-deployable committed placeholder. Production deploy scripts must provide
+// AURA_BACKEND_ORIGIN or AWS_BACKEND_BASE_URL and fail closed if they are blank.
+export const DEFAULT_HOSTED_BACKEND_ORIGIN = 'https://api.aurapilot.example.com';
 
-export const resolveHostedBackendOrigin = (env = process.env) => {
+export const assertDeployableHostedBackendOrigin = (origin) => {
+    const parsed = new URL(origin);
+    const hostname = parsed.hostname.toLowerCase();
+
+    if (parsed.protocol !== 'https:') {
+        throw new Error(`Hosted backend origin must use HTTPS, received "${origin}"`);
+    }
+    if (hostname === 'api.aurapilot.example.com' || hostname.endsWith('.sslip.io')) {
+        throw new Error(`Hosted backend origin must be a durable production edge hostname, received "${origin}"`);
+    }
+};
+
+export const resolveHostedBackendOrigin = (env = process.env, options = {}) => {
     const rawOrigin = String(
         env?.AURA_BACKEND_ORIGIN
         || env?.AWS_BACKEND_BASE_URL
-        || DEFAULT_HOSTED_BACKEND_ORIGIN
+        || ''
     ).trim();
+
+    if (!rawOrigin) {
+        if (options.allowCommittedFallback) {
+            return DEFAULT_HOSTED_BACKEND_ORIGIN;
+        }
+        throw new Error('Set AURA_BACKEND_ORIGIN or AWS_BACKEND_BASE_URL to the HTTPS backend edge origin.');
+    }
 
     assertAbsoluteHttpUrl(rawOrigin);
     return trimTrailingSlash(rawOrigin);
 };
 
-export const HOSTED_BACKEND_ORIGIN = resolveHostedBackendOrigin();
+export const HOSTED_BACKEND_ORIGIN = resolveHostedBackendOrigin(process.env, {
+    allowCommittedFallback: true,
+});
 
 export const FRONTEND_CONTENT_SECURITY_POLICY = [
     "default-src 'self'",

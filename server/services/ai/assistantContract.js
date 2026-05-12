@@ -14,11 +14,20 @@ const DECISIONS = Object.freeze(['respond', 'act', 'clarify']);
 
 const ASSISTANT_ACTION_TYPES = Object.freeze([
     'search_products',
+    'get_product_details',
+    'check_inventory',
+    'get_price',
+    'compare_products',
     'select_product',
     'add_to_cart',
     'remove_from_cart',
     'go_to_checkout',
+    'apply_coupon',
     'track_order',
+    'cancel_order',
+    'create_return_request',
+    'get_payment_status',
+    'recommend_products',
     'navigate_to',
     'open_support',
 ]);
@@ -110,6 +119,9 @@ const normalizeAction = (action = {}) => {
     return {
         type,
         productId: safeString(action?.productId || ''),
+        productIds: Array.isArray(action?.productIds)
+            ? action.productIds.map((entry) => safeString(entry)).filter(Boolean).slice(0, 8)
+            : [],
         quantity: Math.max(0, Number(action?.quantity) || 0),
         query: safeString(action?.query || ''),
         filters: action?.filters && typeof action.filters === 'object' ? {
@@ -120,9 +132,13 @@ const normalizeAction = (action = {}) => {
         page: safeString(action?.page || ''),
         params: action?.params && typeof action.params === 'object' ? action.params : {},
         orderId: safeString(action?.orderId || ''),
+        couponCode: safeString(action?.couponCode || ''),
+        requestType: safeString(action?.requestType || ''),
+        amount: Math.max(0, Number(action?.amount) || 0),
         prefill: action?.prefill && typeof action.prefill === 'object' ? action.prefill : null,
         requiresConfirmation: Boolean(action?.requiresConfirmation),
         reason: safeString(action?.reason || ''),
+        unresolved: Boolean(action?.unresolved),
     };
 };
 
@@ -196,9 +212,12 @@ const buildConfirmationToken = (action = {}) => crypto
     .update(JSON.stringify({
         type: safeString(action?.type || ''),
         productId: safeString(action?.productId || ''),
+        productIds: Array.isArray(action?.productIds) ? action.productIds.map((entry) => safeString(entry)).filter(Boolean) : [],
         query: safeString(action?.query || ''),
         page: safeString(action?.page || ''),
         orderId: safeString(action?.orderId || ''),
+        couponCode: safeString(action?.couponCode || ''),
+        requestType: safeString(action?.requestType || ''),
         quantity: Math.max(0, Number(action?.quantity) || 0),
     }))
     .digest('hex')

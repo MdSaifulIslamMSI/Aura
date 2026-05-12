@@ -42,4 +42,21 @@ describe('assistantToolRegistry', () => {
             reason: 'tool_disabled_by_override',
         });
     });
+
+    test('registers live commerce tools without making them hallucination fields', () => {
+        expect(getToolDefinition('check_inventory')).toMatchObject({
+            mutation: false,
+            input_schema: {
+                required: ['productId'],
+            },
+        });
+        expect(getToolDefinition('cancel_order')).toMatchObject({
+            mutation: true,
+            requires_confirmation: true,
+        });
+        expect(validateAssistantAction({
+            type: 'apply_coupon',
+            couponCode: 'AURA10',
+        })).toMatchObject({ ok: true });
+    });
 });

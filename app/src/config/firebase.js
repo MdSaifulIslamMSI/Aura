@@ -4,6 +4,7 @@ import {
     getAuth,
     GoogleAuthProvider,
     FacebookAuthProvider,
+    OAuthProvider,
     setPersistence,
     TwitterAuthProvider,
 } from "firebase/auth";
@@ -130,6 +131,8 @@ let app = null;
 let auth = null;
 let googleProvider = null;
 let facebookProvider = null;
+let microsoftProvider = null;
+let appleProvider = null;
 let xProvider = null;
 let analytics = null;
 let firebaseInitError = null;
@@ -140,6 +143,8 @@ const runtimeHost = typeof window !== 'undefined'
 const disableSocialAuth = parseBooleanEnv(import.meta.env.VITE_FIREBASE_DISABLE_SOCIAL_AUTH, false);
 const enableFirebaseAnalytics = parseBooleanEnv(import.meta.env.VITE_FIREBASE_ANALYTICS_ENABLED, false);
 const forceRedirectSocialAuth = parseBooleanEnv(import.meta.env.VITE_FIREBASE_FORCE_REDIRECT_SOCIAL_AUTH, false);
+const enableMicrosoftSocialAuth = parseBooleanEnv(import.meta.env.VITE_FIREBASE_ENABLE_MICROSOFT_AUTH, false);
+const enableAppleSocialAuth = parseBooleanEnv(import.meta.env.VITE_FIREBASE_ENABLE_APPLE_AUTH, false);
 const enableMobileNativeSocialAuth = parseBooleanEnv(
     import.meta.env.VITE_MOBILE_NATIVE_SOCIAL_AUTH_ENABLED,
     false
@@ -214,6 +219,8 @@ if (!hasRequiredConfig) {
         googleProvider = new GoogleAuthProvider();
         facebookProvider = new FacebookAuthProvider();
         xProvider = new TwitterAuthProvider();
+        microsoftProvider = enableMicrosoftSocialAuth ? new OAuthProvider('microsoft.com') : null;
+        appleProvider = enableAppleSocialAuth ? new OAuthProvider('apple.com') : null;
 
         googleProvider.setCustomParameters({
             prompt: 'select_account',
@@ -223,6 +230,17 @@ if (!hasRequiredConfig) {
             auth_type: 'rerequest',
             display: prefersRedirectSocialAuth ? 'page' : 'popup',
         });
+
+        if (microsoftProvider) {
+            microsoftProvider.setCustomParameters({
+                prompt: 'select_account',
+            });
+        }
+
+        if (appleProvider) {
+            appleProvider.addScope('email');
+            appleProvider.addScope('name');
+        }
 
         if (typeof window !== 'undefined' && enableFirebaseAnalytics) {
             try {
@@ -237,6 +255,8 @@ if (!hasRequiredConfig) {
         auth = null;
         googleProvider = null;
         facebookProvider = null;
+        microsoftProvider = null;
+        appleProvider = null;
         xProvider = null;
         analytics = null;
     }
@@ -260,6 +280,8 @@ export const getFirebaseSocialAuthStatus = () => ({
     runtimeCapacitorMobile: isRuntimeCapacitorMobile,
     mobileNativeSocialAuthEnabled: enableMobileNativeSocialAuth,
     mobileFirebasePhoneOtpEnabled: enableMobileFirebasePhoneOtp,
+    microsoftEnabled: enableMicrosoftSocialAuth,
+    appleEnabled: enableAppleSocialAuth,
     disabledByMobileNativeConfig: isRuntimeCapacitorMobile && !enableMobileNativeSocialAuth,
     mobilePhoneOtpDisabled: isRuntimeCapacitorMobile && !enableMobileFirebasePhoneOtp,
     disabledByConfig: disableSocialAuth && !isDeploymentHost,
@@ -325,6 +347,6 @@ export const clearFirebaseSocialAuthRuntimeBlock = () => {
     }
 };
 
-export { app, auth, googleProvider, facebookProvider, xProvider, analytics };
+export { app, auth, googleProvider, facebookProvider, microsoftProvider, appleProvider, xProvider, analytics };
 
 export default app;

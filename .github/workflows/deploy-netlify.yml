@@ -52,10 +52,11 @@ env:
   VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID || secrets.VERCEL_PROJECT_ID }}
   VERCEL_PROJECT_NAME: ${{ vars.VERCEL_PROJECT_NAME || 'app' }}
   AWS_REGION: ${{ vars.AWS_REGION || 'ap-south-1' }}
-  AWS_FRONTEND_BUCKET: ${{ vars.AWS_FRONTEND_BUCKET || 'aura-frontend-942679464475-ap-south-1' }}
-  AWS_FRONTEND_DISTRIBUTION_ID: ${{ vars.AWS_FRONTEND_DISTRIBUTION_ID || 'E34Z9POGIQYOCS' }}
-  AWS_FRONTEND_PUBLIC_URL: ${{ vars.AWS_FRONTEND_PUBLIC_URL || 'https://dbtrhsolhec1s.cloudfront.net' }}
-  AWS_FRONTEND_DEPLOY_ROLE_ARN: ${{ vars.AWS_FRONTEND_DEPLOY_ROLE_ARN || secrets.AWS_FRONTEND_DEPLOY_ROLE_ARN || 'arn:aws:iam::942679464475:role/aura-github-actions-frontend-deploy' }}
+  AWS_FRONTEND_BUCKET: ${{ vars.AWS_FRONTEND_BUCKET || '' }}
+  AWS_FRONTEND_DISTRIBUTION_ID: ${{ vars.AWS_FRONTEND_DISTRIBUTION_ID || '' }}
+  AWS_FRONTEND_PUBLIC_URL: ${{ vars.AWS_FRONTEND_PUBLIC_URL || '' }}
+  AWS_FRONTEND_DEPLOY_ROLE_ARN: ${{ vars.AWS_FRONTEND_DEPLOY_ROLE_ARN || secrets.AWS_FRONTEND_DEPLOY_ROLE_ARN || '' }}
+  AURA_BACKEND_ORIGIN: ${{ vars.AURA_BACKEND_ORIGIN || vars.AWS_BACKEND_BASE_URL || '' }}
 
 jobs:
   build-frontend:
@@ -95,7 +96,23 @@ jobs:
       - name: Resolve hosted backend origin
         working-directory: .
         id: backend
-        run: echo "origin=$(node ./app/scripts/print_hosted_backend_origin.mjs)" >> "$GITHUB_OUTPUT"
+        run: |
+          set -euo pipefail
+          ERROR_LOG="${RUNNER_TEMP}/hosted-backend-origin.err"
+          if ORIGIN="$(node ./app/scripts/print_hosted_backend_origin.mjs 2>"${ERROR_LOG}")"; then
+            echo "origin=${ORIGIN}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ "${{ github.event_name }}" = "pull_request" ] || [ "${{ inputs.target }}" = "preview" ]; then
+            echo "::warning::Hosted backend origin is not configured. The shared preview build will use same-origin /api, and the Vercel prebuilt proxy artifact will be skipped."
+            cat "${ERROR_LOG}" >&2 || true
+            echo "origin=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          cat "${ERROR_LOG}" >&2 || true
+          exit 1
 
       - name: Capture shared release timestamp
         id: release
@@ -121,6 +138,7 @@ jobs:
 
   package-vercel-prebuilt:
     needs: build-frontend
+    if: needs.build-frontend.outputs.backend_origin != ''
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -382,8 +400,10 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   deploy-vercel-preview:
-    needs: package-vercel-prebuilt
-    if: github.event_name == 'pull_request' || inputs.target == 'preview'
+    needs:
+      - build-frontend
+      - package-vercel-prebuilt
+    if: needs.build-frontend.outputs.backend_origin != '' && (github.event_name == 'pull_request' || inputs.target == 'preview')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     outputs:
@@ -488,9 +508,10 @@ jobs:
 
   deploy-vercel-production:
     needs:
+      - build-frontend
       - package-vercel-prebuilt
       - validate-aws-production-access
-    if: inputs.target == 'production'
+    if: needs.build-frontend.outputs.backend_origin != '' && inputs.target == 'production'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment:
@@ -659,7 +680,7 @@ jobs:
       - build-frontend
       - deploy-preview
       - deploy-vercel-preview
-    if: github.event_name == 'pull_request' || inputs.target == 'preview'
+    if: needs.build-frontend.outputs.backend_origin != '' && (github.event_name == 'pull_request' || inputs.target == 'preview')
     runs-on: ubuntu-latest
     timeout-minutes: 10
 

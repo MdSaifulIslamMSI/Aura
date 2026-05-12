@@ -1,7 +1,7 @@
 param(
     [string]$StackPrefix = "aura",
     [string]$AwsRegion = "ap-south-1",
-    [string]$InstanceType = "t4g.small",
+    [string]$InstanceType = "t4g.xlarge",
     [string]$ParameterStorePathPrefix = "/aura/prod",
     [string]$FrontendOrigin = "https://aurapilot.vercel.app",
     [string]$SecondaryFrontendOrigin = "https://aurapilot.netlify.app",
@@ -12,7 +12,7 @@ param(
     [string]$AllowedIpv4Cidr = "0.0.0.0/0",
     [string]$SubnetId = "",
     [string]$VpcId = "",
-    [int]$RootVolumeSizeGiB = 16
+    [int]$RootVolumeSizeGiB = 32
 )
 
 $ErrorActionPreference = "Stop"

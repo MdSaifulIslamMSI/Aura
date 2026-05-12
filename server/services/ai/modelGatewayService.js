@@ -3,7 +3,21 @@ const geminiGateway = require('./geminiGatewayService');
 
 const safeString = (value, fallback = '') => String(value === undefined || value === null ? fallback : value).trim().toLowerCase();
 const uniq = (values = []) => [...new Set((Array.isArray(values) ? values : []).map((entry) => safeString(entry)).filter(Boolean))];
-const SUPPORTED_PROVIDERS = new Set(['gemini', 'ollama']);
+const DISABLED_PROVIDER = 'disabled';
+const SUPPORTED_PROVIDERS = new Set(['gemini', 'ollama', DISABLED_PROVIDER]);
+
+const buildDisabledHealth = () => ({
+    provider: DISABLED_PROVIDER,
+    healthy: false,
+    error: 'model_gateway_disabled',
+    activeProvider: DISABLED_PROVIDER,
+    providerChain: [DISABLED_PROVIDER],
+    providerFallbackUsed: false,
+    capabilities: {
+        chat: 'disabled',
+        embeddings: 'disabled',
+    },
+});
 
 const resolveGatewayProvider = (options = {}) => {
     const preferred = safeString(options.provider || options.preferredProvider || '');
@@ -12,7 +26,7 @@ const resolveGatewayProvider = (options = {}) => {
     }
 
     const configured = safeString(process.env.AI_MODEL_PROVIDER || '');
-    if (configured === 'gemini' || configured === 'ollama') {
+    if (SUPPORTED_PROVIDERS.has(configured)) {
         return configured;
     }
 
@@ -21,6 +35,9 @@ const resolveGatewayProvider = (options = {}) => {
 
 const resolveGatewayProviders = (options = {}) => {
     const primary = resolveGatewayProvider(options);
+    if (primary === DISABLED_PROVIDER) {
+        return [DISABLED_PROVIDER];
+    }
     if (options.disableFallback || options.disableProviderFallback) {
         return [primary];
     }
@@ -30,7 +47,13 @@ const resolveGatewayProviders = (options = {}) => {
     return [primary, ...configuredFallbacks];
 };
 
-const getGatewayModuleByProvider = (provider = '') => (safeString(provider) === 'gemini' ? geminiGateway : ollamaGateway);
+const getGatewayModuleByProvider = (provider = '') => {
+    const normalized = safeString(provider);
+    if (normalized === DISABLED_PROVIDER) {
+        throw new Error('model_gateway_disabled');
+    }
+    return normalized === 'gemini' ? geminiGateway : ollamaGateway;
+};
 const getGatewayModule = () => getGatewayModuleByProvider(resolveGatewayProvider());
 
 const isRetryableProviderError = (error) => {
@@ -53,6 +76,9 @@ const callProviderChain = async (operation, args = [], options = {}) => {
 
     for (let index = 0; index < providers.length; index += 1) {
         const provider = providers[index];
+        if (provider === DISABLED_PROVIDER) {
+            throw new Error('model_gateway_disabled');
+        }
         const module = getGatewayModuleByProvider(provider);
         try {
             const result = await module[operation](...args);
@@ -82,6 +108,9 @@ const checkModelGatewayHealth = async (options = {}) => {
 
     for (let index = 0; index < providers.length; index += 1) {
         const provider = providers[index];
+        if (provider === DISABLED_PROVIDER) {
+            return buildDisabledHealth();
+        }
         const health = provider === 'gemini'
             ? await geminiGateway.checkGeminiHealth(options)
             : await ollamaGateway.checkOllamaHealth(options);
@@ -156,6 +185,9 @@ const warmChatModel = async (options = {}) => {
 
 const getGatewayConfig = () => {
     const provider = resolveGatewayProvider();
+    if (provider === DISABLED_PROVIDER) {
+        return buildDisabledHealth();
+    }
     const config = getGatewayModule().getGatewayConfig();
     return {
         provider,
@@ -167,6 +199,9 @@ const getGatewayConfig = () => {
 const getModelGatewayHealth = () => {
     const providers = resolveGatewayProviders();
     const provider = providers[0] || resolveGatewayProvider();
+    if (provider === DISABLED_PROVIDER) {
+        return buildDisabledHealth();
+    }
     const health = provider === 'gemini'
         ? geminiGateway.getGeminiHealth()
         : ollamaGateway.getOllamaHealth();
