@@ -23,19 +23,22 @@ const {
 } = require('./assistantThreadPersistenceService');
 const { checkModelGatewayHealth, generateStructuredJson, getModelGatewayHealth } = require('./modelGatewayService');
 const { getLocalVectorIndexHealth, searchProductVectorIndex } = require('./localProductVectorIndexService');
+const { buildKnowledgeAnswerText, retrieveCommerceKnowledge } = require('./commerceKnowledgeRagService');
 
 const ROUTE_GENERAL = 'GENERAL';
 const ROUTE_ECOMMERCE = 'ECOMMERCE_SEARCH';
 const ROUTE_ACTION = 'ACTION';
 const HOSTED_GEMMA_PROVIDER = 'gemini';
 const HOSTED_GEMMA_MODEL_TOKEN = 'gemma';
-const ACTION_ROUTE_PATTERN = /\b(add .* cart|remove .* cart|checkout|track (my )?order|order status|support|open cart|show (my )?cart|go to cart|go to checkout|open checkout|open support|go to support|open orders|go to orders)\b/i;
+const ACTION_ROUTE_PATTERN = /\b(add .* cart|remove .* cart|checkout|track (my )?order|order status|cancel (my )?order|return (my )?order|refund (my )?order|replace (my )?order|apply .*coupon|use .*coupon|support|open cart|show (my )?cart|go to cart|go to checkout|open checkout|open support|go to support|open orders|go to orders)\b/i;
 const COMMERCE_CONTEXT_INTENTS = new Set(['product_search', 'product_selection']);
 const FOLLOW_UP_REFINEMENT_PATTERN = /^(?:no\b|not\b|only\b|instead\b|more\b|another\b|else\b|different\b|similar\b|cheaper\b|budget\b|premium\b|show\b|in\b|for\b|under\b|above\b|around\b|within\b|prefer\b|want\b)/i;
 const COMMERCE_COMPARISON_PATTERN = /\b(which|best|better|compare|comparison|difference|different|rating|rated|review|reviews|why|worth|spec|specs|feature|features|camera|battery|display|ram|storage|faster|slower|cheapest|highest|lowest|top)\b/i;
 const GENERAL_QUESTION_PATTERN = /^(?:who|what|when|where|why|how|are|is|am|can|could|would|will|did|do)\b/i;
 const SMALL_TALK_PATTERN = /^(?:hi|hello|hey|yo|thanks|thank you|ok|okay|cool|great|nice|good morning|good afternoon|good evening)(?:\s+(?:there|assistant|codex))?[!.?\s]*$/i;
-const COMMERCE_KEYWORD_PATTERN = /\b(price|prices|cost|costs|product|products|item|items|phone|phones|mobile|mobiles|laptop|laptops|shoe|shoes|shirt|shirts|dress|dresses|jeans|tshirt|t-shirt|kurta|saree|jacket|fashion|clothing|apparel|footwear|compare|comparison|available|availability|stock|delivery|seller|warranty|return|returns|brand|brands|rupees|rs)\b/i;
+const COMMERCE_KEYWORD_PATTERN = /\b(price|prices|cost|costs|product|products|item|items|phone|phones|mobile|mobiles|laptop|laptops|shoe|shoes|shirt|shirts|dress|dresses|jeans|tshirt|t-shirt|kurta|saree|jacket|fashion|clothing|apparel|footwear|compare|comparison|available|availability|stock|inventory|delivery|shipping|seller|warranty|return|returns|refund|coupon|payment|brand|brands|rupees|rs)\b/i;
+const KNOWLEDGE_FIRST_COMMERCE_PATTERN = /\b(policy|policies|return|returns|refund|replacement|cancel(?:lation)? rules|warranty|support|delivery|shipping|coupon|promo|payment|size guide|manual|faq)\b/i;
+const PRODUCT_DISCOVERY_VERBS_PATTERN = /\b(show|find|suggest|recommend|best|top|compare|buy|add|under|above|around|within)\b/i;
 const RETRIEVAL_SORT_VALUES = new Set(['relevance', 'rating_desc', 'price_asc', 'price_desc']);
 const COMMERCE_CATEGORY_HINTS = [
     'fashion',
@@ -53,6 +56,46 @@ const COMMERCE_CATEGORY_HINTS = [
     'furniture',
     'footwear',
     'shoes',
+];
+const CONCRETE_PRODUCT_CATEGORY_HINTS = [
+    { category: 'Laptops', query: 'laptop', terms: ['laptop', 'laptops', 'notebook', 'notebooks'] },
+    { category: 'Mobiles', query: 'mobile phone', terms: ['phone', 'phones', 'mobile', 'mobiles', 'smartphone', 'smartphones'] },
+    { category: 'Footwear', query: 'shoes', terms: ['shoe', 'shoes', 'sneaker', 'sneakers', 'heel', 'heels', 'slipper', 'slippers', 'sandal', 'sandals'] },
+    { category: 'Fashion', query: 'fashion clothing', terms: ['shirt', 'shirts', 'dress', 'dresses', 'jeans', 'tshirt', 't-shirt', 'kurta', 'saree', 'jacket'] },
+    { category: 'Books', query: 'books', terms: ['book', 'books', 'novel', 'novels'] },
+];
+const CATEGORY_QUERY_TEXT = {
+    Laptops: 'laptop',
+    Mobiles: 'mobile phone',
+    Footwear: 'shoes',
+    Fashion: 'fashion clothing',
+    "Men's Fashion": 'men fashion clothing',
+    "Women's Fashion": 'women fashion clothing',
+    Books: 'books',
+    Electronics: 'electronics',
+    'Gaming & Accessories': 'gaming accessories',
+};
+const COMMERCE_BRAND_HINTS = [
+    'Apple',
+    'Samsung',
+    'Dell',
+    'HP',
+    'Asus',
+    'Lenovo',
+    'Acer',
+    'Sony',
+    'LG',
+    'OnePlus',
+    'Xiaomi',
+    'Redmi',
+    'Realme',
+    'Oppo',
+    'Vivo',
+    'Nike',
+    'Adidas',
+    'Puma',
+    'Boat',
+    'JBL',
 ];
 
 const safeString = (value, fallback = '') => contractSafeString(value, fallback);
@@ -77,7 +120,16 @@ const toBooleanFlag = (value, fallback = false) => {
     if (!normalized) return fallback;
     return !['false', '0', 'no', 'off'].includes(normalized);
 };
-const isHostedGemmaCommerceRequired = () => toBooleanFlag(process.env.ASSISTANT_COMMERCE_REQUIRE_HOSTED_GEMMA, true);
+const isHostedGemmaCommerceRequired = () => toBooleanFlag(process.env.ASSISTANT_COMMERCE_REQUIRE_HOSTED_GEMMA, false);
+const isCommerceModelSummaryEnabled = ({ requireHostedGemma = false } = {}) => (
+    Boolean(requireHostedGemma)
+    || toBooleanFlag(process.env.ASSISTANT_COMMERCE_MODEL_SUMMARY_ENABLED, false)
+);
+const buildCommerceModelProviderOptions = (requireHostedGemma = false) => (
+    requireHostedGemma
+        ? { provider: HOSTED_GEMMA_PROVIDER, disableProviderFallback: true }
+        : {}
+);
 const isGemmaModel = (modelName = '') => safeString(modelName).toLowerCase().includes(HOSTED_GEMMA_MODEL_TOKEN);
 const isHostedGemmaGatewayHealthy = (gatewayHealth = {}) => (
     safeString(gatewayHealth?.activeProvider || gatewayHealth?.provider || '').toLowerCase() === HOSTED_GEMMA_PROVIDER
@@ -132,9 +184,32 @@ const parsePositiveCurrency = (value = '') => {
     const parsed = Number(normalized);
     return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
 };
+const matchesWholeTerm = (normalizedValue = '', term = '') => (
+    new RegExp(`\\b${String(term || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(normalizedValue)
+);
+const findConcreteProductCategoryHint = (value = '') => {
+    const normalized = safeString(value).toLowerCase();
+    if (!normalized) return null;
+    return CONCRETE_PRODUCT_CATEGORY_HINTS.find((entry) => (
+        entry.terms.some((term) => matchesWholeTerm(normalized, term))
+    )) || null;
+};
+const inferBrandFromMessage = (value = '') => {
+    const normalized = safeString(value).toLowerCase();
+    if (!normalized) return '';
+    const matchedBrand = COMMERCE_BRAND_HINTS.find((brand) => matchesWholeTerm(normalized, brand));
+    return safeString(matchedBrand || '');
+};
+const resolveCategoryQueryText = (category = '') => {
+    const safeCategory = safeString(category);
+    return safeString(CATEGORY_QUERY_TEXT[safeCategory] || safeCategory.replace(/&/g, ' ').toLowerCase());
+};
 const inferCanonicalCategory = (value = '') => {
     const normalized = safeString(value).toLowerCase();
     if (!normalized) return '';
+
+    const concreteCategory = findConcreteProductCategoryHint(normalized);
+    if (concreteCategory?.category) return concreteCategory.category;
 
     const synonymMap = new Map([
         ['fashion', 'Fashion'],
@@ -192,6 +267,21 @@ const inferCanonicalCategory = (value = '') => {
         }
     }
     return '';
+};
+const buildHeuristicRetrievalQueryText = ({ message = '', filters = {} } = {}) => {
+    const brand = safeString(filters?.brand || '');
+    const category = safeString(filters?.category || '');
+    const concreteCategory = findConcreteProductCategoryHint(message);
+    const categoryQuery = concreteCategory?.query || resolveCategoryQueryText(category);
+    const requiredTerms = Array.isArray(filters?.requiredTerms)
+        ? filters.requiredTerms.map((entry) => safeString(entry).toLowerCase()).filter(Boolean).slice(0, 4)
+        : [];
+    const queryParts = uniq([
+        brand,
+        categoryQuery,
+        ...requiredTerms,
+    ]);
+    return safeString(queryParts.length > 0 ? queryParts.join(' ') : message);
 };
 const extractRequiredTerms = ({ payload = {}, message = '' } = {}) => {
     const normalizedMessage = safeString(message).toLowerCase();
@@ -264,6 +354,10 @@ const inferStructuredRetrievalFilters = ({ payload = {}, message = '', assistant
         inferred.category = explicitCategory || (canReuseLastCategory ? safeString(lastEntities?.category || '') : '');
     } else {
         inferred.category = safeString(resolveCategory(inferred.category) || inferred.category);
+    }
+
+    if (!inferred.brand) {
+        inferred.brand = inferBrandFromMessage(safeMessage);
     }
 
     if (!inferred.maxPrice) {
@@ -439,6 +533,19 @@ const shouldReuseSessionResultsForCommerce = ({ message = '', assistantSession =
     }
     if (COMMERCE_COMPARISON_PATTERN.test(normalized)) return true;
     return /\b(which one|this one|that one|first one|second one|third one|among these|among them)\b/i.test(normalized);
+};
+const shouldAnswerKnowledgeBeforeCatalog = ({
+    message = '',
+    images = [],
+    audio = [],
+    assistantSession = {},
+} = {}) => {
+    const normalized = safeString(message).toLowerCase();
+    if (!normalized) return false;
+    if ((Array.isArray(images) && images.length > 0) || (Array.isArray(audio) && audio.length > 0)) return false;
+    if (hasRecentCommerceContext(assistantSession) && PRODUCT_DISCOVERY_VERBS_PATTERN.test(normalized)) return false;
+    if (!KNOWLEDGE_FIRST_COMMERCE_PATTERN.test(normalized)) return false;
+    return !PRODUCT_DISCOVERY_VERBS_PATTERN.test(normalized) || /\b(policy|faq|rules|how|what|when|where|can i|do you)\b/i.test(normalized);
 };
 const extractMediaLookupHints = ({
     message = '',
@@ -1091,6 +1198,10 @@ const deriveRetrievalQuery = async ({
         message: safeMessage,
         assistantSession,
     });
+    const heuristicQuery = buildHeuristicRetrievalQueryText({
+        message: hintedQuery || safeMessage,
+        filters: heuristicFilters,
+    });
     const shouldPlanFromContext = shouldUseContextualCommercePlanner({
         message: safeMessage,
         assistantSession,
@@ -1099,7 +1210,7 @@ const deriveRetrievalQuery = async ({
     if ((!Array.isArray(images) || images.length === 0) && (!Array.isArray(audio) || audio.length === 0)) {
         if (categoryHint && hasRecentCommerceContext(assistantSession)) {
             return {
-                query: `${categoryHint} products`,
+                query: heuristicQuery || `${categoryHint} products`,
                 provider: '',
                 providerModel: '',
                 filters: heuristicFilters,
@@ -1108,7 +1219,7 @@ const deriveRetrievalQuery = async ({
         }
         if (!shouldPlanFromContext) {
             return {
-                query: safeMessage,
+                query: heuristicQuery || safeMessage,
                 provider: '',
                 providerModel: '',
                 filters: heuristicFilters,
@@ -1177,8 +1288,7 @@ const deriveRetrievalQuery = async ({
                 images,
                 audio,
                 responseJsonSchema: RETRIEVAL_QUERY_RESPONSE_SCHEMA,
-                provider: HOSTED_GEMMA_PROVIDER,
-                disableProviderFallback: requireHostedGemma,
+                ...buildCommerceModelProviderOptions(requireHostedGemma),
             });
             parsed = validateRetrievalQueryPayload(response.data);
             if (parsed.ok) {
@@ -1207,8 +1317,8 @@ const deriveRetrievalQuery = async ({
         });
         return {
             query: categoryHint
-                ? `${categoryHint} products`
-                : (hintedQuery || safeMessage || safeString(assistantSession?.lastEntities?.query || '') || 'product'),
+                ? (heuristicQuery || `${categoryHint} products`)
+                : (heuristicQuery || hintedQuery || safeMessage || safeString(assistantSession?.lastEntities?.query || '') || 'product'),
             provider: '',
             providerModel: '',
             filters: heuristicFilters,
@@ -1341,7 +1451,7 @@ const performGeneralTurn = async ({
             label: provider !== 'rule' ? 'model_knowledge' : 'cannot_verify',
             confidence: provider !== 'rule' ? 0.72 : 0.4,
             summary: provider !== 'rule'
-                ? 'Hosted Gemma answer with controlled JSON validation.'
+                ? 'Model gateway answer with controlled JSON validation.'
                 : 'Fell back to deterministic copy because the model gateway was unavailable.',
         },
         answerMode: provider !== 'rule' ? 'model_knowledge' : 'commerce',
@@ -1699,6 +1809,74 @@ const performCommerceTurn = async ({
         disableProviderFallback: requireHostedGemma,
     }).catch(() => getModelGatewayHealth());
     const vectorStoreHealthPromise = getLocalVectorIndexHealth().catch(() => null);
+    if (shouldAnswerKnowledgeBeforeCatalog({
+        message,
+        images,
+        audio,
+        assistantSession,
+    })) {
+        const knowledgeRetrieval = await retrieveCommerceKnowledge({
+            query: message,
+            products: [],
+            limit: 6,
+        }).catch((error) => {
+            logger.warn('assistant.knowledge_first.fallback', { error: error.message, traceId });
+            return { chunks: [], citations: [], hitCount: 0, toolRun: null };
+        });
+        if (knowledgeRetrieval.hitCount > 0) {
+            const assistantTurn = buildAssistantTurn({
+                intent: 'support',
+                confidence: 0.92,
+                decision: 'respond',
+                response: buildKnowledgeAnswerText(knowledgeRetrieval.chunks, { query: message }),
+                followUps: ['Track an order', 'Open support', 'Find a product'],
+                ui: { surface: 'plain_answer', title: 'Grounded store guidance', products: [] },
+                verification: {
+                    label: 'app_grounded',
+                    confidence: 1,
+                    summary: `Answer grounded in ${knowledgeRetrieval.hitCount} policy, FAQ, review, or product-knowledge chunk${knowledgeRetrieval.hitCount === 1 ? '' : 's'} before catalog retrieval.`,
+                    evidenceCount: knowledgeRetrieval.hitCount,
+                },
+                citations: knowledgeRetrieval.citations,
+                toolRuns: knowledgeRetrieval.toolRun ? [knowledgeRetrieval.toolRun] : [],
+                answerMode: 'commerce',
+            });
+            return buildResponseEnvelope({
+                assistantTurn,
+                route: ROUTE_ECOMMERCE,
+                provider: 'local_knowledge',
+                providerModel: '',
+                products: [],
+                followUps: assistantTurn.followUps,
+                sessionId,
+                traceId,
+                assistantMode,
+                assistantSession: {
+                    ...assistantSession,
+                    lastIntent: assistantTurn.intent,
+                    lastEntities: {
+                        ...assistantSession.lastEntities,
+                        query: safeString(message),
+                    },
+                    lastResults: [],
+                    activeProduct: null,
+                    pendingAction: null,
+                },
+                health: {
+                    gateway: gatewayHealth,
+                    vectorStore: await vectorStoreHealthPromise,
+                },
+                providerCapabilities: gatewayHealth?.capabilities || null,
+                retrievalHitCount: knowledgeRetrieval.hitCount,
+                validator: {
+                    ok: true,
+                    reason: 'knowledge_first_grounding',
+                    knowledgeHitCount: knowledgeRetrieval.hitCount,
+                },
+                messageId: createMessageId(),
+            });
+        }
+    }
     if (requireHostedGemma && !isHostedGemmaGatewayHealthy(gatewayHealth) && gatewayHealth?.apiConfigured !== false) {
         gatewayHealth = await checkModelGatewayHealth({
             provider: HOSTED_GEMMA_PROVIDER,
@@ -1900,7 +2078,71 @@ const performCommerceTurn = async ({
         hitCount: Number(retrieval?.retrievalHitCount || 0),
     });
     const sourceProducts = retrieval.results.map((entry) => entry.product).filter(Boolean);
+    const knowledgeRetrieval = await retrieveCommerceKnowledge({
+        query: retrievalQuery.query || message,
+        products: sourceProducts,
+        limit: 6,
+    }).catch((error) => {
+        logger.warn('assistant.knowledge_retrieval.fallback', { error: error.message, traceId });
+        return { chunks: [], citations: [], hitCount: 0, toolRun: null, contextText: '' };
+    });
     if (!sourceProducts.length) {
+        if (knowledgeRetrieval.hitCount > 0) {
+            const knowledgeFollowUps = ['Track an order', 'Open support', 'Find a product'];
+            const assistantTurn = buildAssistantTurn({
+                intent: /\b(return|refund|cancel|warranty|support|delivery|track|coupon|payment|order)\b/i.test(message) ? 'support' : 'general_knowledge',
+                confidence: 0.9,
+                decision: 'respond',
+                response: buildKnowledgeAnswerText(knowledgeRetrieval.chunks, { query: retrievalQuery.query || message }),
+                followUps: knowledgeFollowUps,
+                ui: { surface: 'plain_answer', title: 'Grounded store guidance', products: [] },
+                verification: {
+                    label: 'app_grounded',
+                    confidence: 1,
+                    summary: `Answer grounded in ${knowledgeRetrieval.hitCount} policy, FAQ, review, or product-knowledge chunk${knowledgeRetrieval.hitCount === 1 ? '' : 's'}.`,
+                    evidenceCount: knowledgeRetrieval.hitCount,
+                },
+                citations: knowledgeRetrieval.citations,
+                toolRuns: knowledgeRetrieval.toolRun ? [knowledgeRetrieval.toolRun] : [],
+                answerMode: 'commerce',
+            });
+            return buildResponseEnvelope({
+                assistantTurn,
+                route: ROUTE_ECOMMERCE,
+                provider: 'local_knowledge',
+                providerModel: '',
+                products: [],
+                followUps: assistantTurn.followUps,
+                sessionId,
+                traceId,
+                assistantMode,
+                assistantSession: {
+                    ...assistantSession,
+                    lastIntent: assistantTurn.intent,
+                    lastEntities: {
+                        ...assistantSession.lastEntities,
+                        query: safeString(retrievalQuery.query || message),
+                    },
+                    lastResults: [],
+                    activeProduct: null,
+                    pendingAction: null,
+                },
+                health: {
+                    gateway: gatewayHealth,
+                    vectorStore: vectorStoreHealth,
+                },
+                providerCapabilities: gatewayHealth?.capabilities || null,
+                retrievalHitCount: knowledgeRetrieval.hitCount,
+                validator: {
+                    ok: true,
+                    reason: 'knowledge_only_grounding',
+                    retrievalQuery: retrievalQuery.validator,
+                    retrievalProvider: safeString(retrieval?.provider || ''),
+                    knowledgeHitCount: knowledgeRetrieval.hitCount,
+                },
+                messageId: createMessageId(),
+            });
+        }
         const noResultResponse = buildNoResultResponseText({
             query: retrievalQuery.query || message,
             filters: retrievalQuery.filters,
@@ -1962,8 +2204,10 @@ const performCommerceTurn = async ({
     let providerModel = '';
     let validator = { ok: true, reason: 'deterministic_summary' };
     let modelPayload = null;
+    const useModelSummary = isCommerceModelSummaryEnabled({ requireHostedGemma });
 
-    try {
+    if (useModelSummary) {
+        try {
         const history = trimConversationHistory(conversationHistory).map((entry) => `${entry.role.toUpperCase()}: ${entry.content}`).join('\n');
         const groundingProducts = normalizedProducts.map((product) => ({
             id: product.id,
@@ -1981,17 +2225,29 @@ const performCommerceTurn = async ({
             specifications: Array.isArray(product.specifications) ? product.specifications : [],
         }));
         const databaseJson = JSON.stringify(groundingProducts);
+        const knowledgeJson = JSON.stringify((Array.isArray(knowledgeRetrieval.chunks) ? knowledgeRetrieval.chunks : [])
+            .map((chunk) => ({
+                id: chunk.id,
+                type: chunk.sourceType,
+                title: chunk.title,
+                text: chunk.text,
+                policyType: chunk.policyType,
+                metadata: chunk.metadata || {},
+            })));
         const attempts = [
             {
                 systemPrompt: [
                     'You are Aura, a controlled ecommerce assistant.',
                     'Return valid JSON only.',
-                    'Use ONLY the provided product JSON.',
-                    'Never invent products, prices, stock, ratings, or specs.',
+                    'Use ONLY the provided product JSON and knowledge JSON.',
+                    'Product JSON is authoritative for product, price, stock, rating, and spec facts in this turn.',
+                    'Knowledge JSON is authoritative for policies, FAQs, reviews, manuals, and support workflow guidance.',
+                    'Never invent products, prices, stock, ratings, specs, discounts, delivery dates, refund promises, or policy exceptions.',
                     'If data is missing, say "Not available".',
                     'Schema: {"answer":"string","productIds":["string"],"focusProductId":"string","followUps":["string"]}.',
                     'Do not echo placeholder values like "string". Fill the fields with real content.',
                     `DATABASE:\n${databaseJson}`,
+                    `KNOWLEDGE:\n${knowledgeJson}`,
                 ].join('\n'),
                 prompt: [
                     history ? `Conversation:\n${history}` : '',
@@ -2006,10 +2262,11 @@ const performCommerceTurn = async ({
                 systemPrompt: [
                     'You are Aura, a controlled ecommerce assistant.',
                     'Return valid JSON only.',
-                    'Use ONLY the provided product JSON.',
-                    'Never invent products, prices, stock, ratings, or specs.',
+                    'Use ONLY the provided product JSON and knowledge JSON.',
+                    'Never invent products, prices, stock, ratings, specs, discounts, delivery dates, or refund promises.',
                     `Example valid JSON: {"answer":"${safeString(normalizedProducts[0]?.title || 'Top match')} is a strong match at Rs. ${Number(normalizedProducts[0]?.price || 0)}.","productIds":["${safeString(allowedIds[0] || '')}"],"focusProductId":"${safeString(allowedIds[0] || '')}","followUps":["Compare the top results","Set a price limit"]}.`,
                     `DATABASE:\n${databaseJson}`,
+                    `KNOWLEDGE:\n${knowledgeJson}`,
                 ].join('\n'),
                 prompt: [
                     `User query: ${message || retrievalQuery.query || 'Analyze the provided input.'}`,
@@ -2030,8 +2287,7 @@ const performCommerceTurn = async ({
                 images,
                 audio,
                 responseJsonSchema: COMMERCE_RESPONSE_SCHEMA,
-                provider: HOSTED_GEMMA_PROVIDER,
-                disableProviderFallback: requireHostedGemma,
+                ...buildCommerceModelProviderOptions(requireHostedGemma),
             });
             parsed = validateCommercePayload(response.data, allowedIds);
             if (parsed.ok) {
@@ -2049,7 +2305,7 @@ const performCommerceTurn = async ({
         provider = response.provider;
         providerModel = response.providerModel;
         gatewayHealth = await checkModelGatewayHealth({
-            provider: HOSTED_GEMMA_PROVIDER,
+            provider: requireHostedGemma ? HOSTED_GEMMA_PROVIDER : provider,
             disableProviderFallback: requireHostedGemma,
             force: true,
         }).catch(() => getModelGatewayHealth());
@@ -2057,7 +2313,7 @@ const performCommerceTurn = async ({
             ? { ok: false, reason: 'unknown_product_ids_stripped', rejectedProductIds: parsed.rejectedProductIds }
             : { ok: true, reason: 'model_json_valid' };
         modelPayload = parsed.data;
-    } catch (error) {
+        } catch (error) {
         recordFallbackMetric(safeString(error?.message || 'commerce_fallback'));
         logger.warn('assistant.commerce.fallback', { error: error.message, traceId });
         if (requireHostedGemma) {
@@ -2076,6 +2332,10 @@ const performCommerceTurn = async ({
                 retrievalRelaxation,
             });
         }
+        }
+    }
+    if (!useModelSummary) {
+        validator = { ok: true, reason: 'deterministic_summary_fast_catalog' };
     }
 
     const selectedProducts = modelPayload?.productIds?.length
@@ -2091,6 +2351,27 @@ const performCommerceTurn = async ({
     const followUps = modelPayload?.followUps?.length
         ? modelPayload.followUps
         : ['Compare the top results', 'Show another category', 'Set a price limit'];
+    const productCitations = selectedProducts.map((product) => ({
+        id: String(product.id),
+        label: safeString(product.title || ''),
+        type: 'product',
+        title: safeString(product.title || ''),
+        excerpt: `Price Rs. ${Number(product.price || 0)} | Stock ${Math.max(0, Number(product.stock || 0))}`,
+        score: Math.min(1, Number(retrieval.results.find((entry) => Number(entry?.product?.id) === Number(product.id))?.score || 0)),
+    }));
+    const toolRuns = [{
+        id: `retrieval-${Date.now()}`,
+        toolName: 'search_products',
+        status: 'completed',
+        latencyMs: 0,
+        summary: `${retrieval.retrievalHitCount} catalog hits`,
+        inputPreview: { query: safeString(retrievalQuery.query || buildMediaHintQuery(mediaHints, message)) },
+        outputPreview: { productIds: selectedProducts.map((product) => String(product.id)) },
+    }];
+    if (knowledgeRetrieval.toolRun && knowledgeRetrieval.hitCount > 0) {
+        toolRuns.push(knowledgeRetrieval.toolRun);
+    }
+    const evidenceCount = decoratedSelectedProducts.length + Math.max(0, Number(knowledgeRetrieval.hitCount || 0));
     const assistantTurn = buildAssistantTurn({
         intent: selectedProducts.length === 1 ? 'product_selection' : 'product_search',
         confidence: provider !== 'rule' ? 0.92 : 0.74,
@@ -2112,26 +2393,11 @@ const performCommerceTurn = async ({
         verification: {
             label: 'app_grounded',
             confidence: 1,
-            summary: `Answer grounded in ${decoratedSelectedProducts.length} retrieved catalog result${decoratedSelectedProducts.length === 1 ? '' : 's'}.`,
-            evidenceCount: decoratedSelectedProducts.length,
+            summary: `Answer grounded in ${decoratedSelectedProducts.length} retrieved catalog result${decoratedSelectedProducts.length === 1 ? '' : 's'} and ${Math.max(0, Number(knowledgeRetrieval.hitCount || 0))} knowledge chunk${knowledgeRetrieval.hitCount === 1 ? '' : 's'}.`,
+            evidenceCount,
         },
-        citations: selectedProducts.map((product) => ({
-            id: String(product.id),
-            label: safeString(product.title || ''),
-            type: 'product',
-            title: safeString(product.title || ''),
-            excerpt: `Price Rs. ${Number(product.price || 0)} | Stock ${Math.max(0, Number(product.stock || 0))}`,
-            score: Math.min(1, Number(retrieval.results.find((entry) => Number(entry?.product?.id) === Number(product.id))?.score || 0)),
-        })),
-        toolRuns: [{
-            id: `retrieval-${Date.now()}`,
-            toolName: 'search_products',
-            status: 'completed',
-            latencyMs: 0,
-            summary: `${retrieval.retrievalHitCount} catalog hits`,
-            inputPreview: { query: safeString(retrievalQuery.query || buildMediaHintQuery(mediaHints, message)) },
-            outputPreview: { productIds: selectedProducts.map((product) => String(product.id)) },
-        }],
+        citations: [...productCitations, ...(Array.isArray(knowledgeRetrieval.citations) ? knowledgeRetrieval.citations : [])],
+        toolRuns,
         answerMode: 'commerce',
     });
 
@@ -2165,12 +2431,13 @@ const performCommerceTurn = async ({
             vectorStore: vectorStoreHealth,
         },
         providerCapabilities: gatewayHealth?.capabilities || null,
-        retrievalHitCount: retrieval.retrievalHitCount,
+        retrievalHitCount: retrieval.retrievalHitCount + Math.max(0, Number(knowledgeRetrieval.hitCount || 0)),
         validator: {
             ...validator,
             retrievalQuery: retrievalQuery.validator,
             retrievalProvider: safeString(retrieval?.provider || ''),
             retrievalReason: safeString(retrieval?.fallbackReason || ''),
+            knowledgeHitCount: Math.max(0, Number(knowledgeRetrieval.hitCount || 0)),
             retrievalRelaxation: retrievalRelaxation ? {
                 reason: retrievalRelaxation.reason,
                 label: retrievalRelaxation.label,
@@ -2185,8 +2452,16 @@ const parseOrderId = (message = '') => {
     return match?.[1] ? safeString(match[1]) : '';
 };
 
+const parseCouponCode = (message = '') => {
+    const normalized = safeString(message).toUpperCase();
+    const quoted = normalized.match(/\b(?:COUPON|CODE|PROMO)\s+([A-Z0-9_-]{3,30})\b/);
+    if (quoted?.[1]) return safeString(quoted[1]);
+    const afterApply = normalized.match(/\b(?:APPLY|USE)\s+([A-Z0-9_-]{3,30})(?:\s+(?:COUPON|CODE|PROMO))?\b/);
+    return afterApply?.[1] ? safeString(afterApply[1]) : '';
+};
+
 const loadLatestOrder = async (userId) => (userId
-    ? Order.findOne({ user: userId }).sort({ createdAt: -1 }).select('orderStatus totalPrice createdAt').lean()
+    ? Order.findOne({ user: userId }).sort({ createdAt: -1 }).select('orderStatus totalPrice createdAt paymentState paymentMethod isDelivered refundSummary commandCenter').lean()
     : null);
 
 const buildActionContext = ({ context = {}, assistantSession = {} } = {}) => ({
@@ -2211,7 +2486,7 @@ const resolveProductForAction = async ({ message = '', context = {} } = {}) => {
     if (explicitProductId) {
         const numericId = Number(explicitProductId);
         if (Number.isInteger(numericId) && numericId > 0) {
-            const direct = await Product.findOne({ id: numericId, isPublished: true }).select('id title displayTitle brand category price originalPrice discountPercentage image stock rating ratingCount').lean();
+            const direct = await Product.findOne({ id: numericId, isPublished: true }).select(PRODUCT_CARD_SELECT).lean();
             if (direct) return normalizeProductCard(direct);
         }
     }
@@ -2291,6 +2566,33 @@ const buildConfirmationEnvelope = ({
         validator: { ok: true, reason: 'confirmation_required' },
         messageId: createMessageId(),
     });
+};
+
+const getActionConfirmationText = (action = {}) => {
+    const type = safeString(action?.type || '');
+    if (type === 'go_to_checkout') return 'I can take you to checkout. Confirm and I will continue.';
+    if (type === 'remove_from_cart') return `Remove ${safeString(action.product?.title || 'this item')} from your cart?`;
+    if (type === 'add_to_cart') return `Add ${safeString(action.product?.title || 'this item')} to your cart?`;
+    if (type === 'cancel_order') return `Cancel order ${safeString(action.orderId || '').slice(-6) || 'selected'}? I will send this to the live order API after you confirm.`;
+    if (type === 'create_return_request') return `Create a ${safeString(action.requestType || 'return')} request for order ${safeString(action.orderId || '').slice(-6) || 'selected'}? I will send it to the live order API after you confirm.`;
+    return 'Confirm this action and I will continue.';
+};
+
+const getConfirmedActionResponseText = (action = {}) => {
+    const type = safeString(action?.type || '');
+    if (type === 'go_to_checkout') return 'Taking you to checkout.';
+    if (type === 'remove_from_cart') return 'Removing that item from your cart.';
+    if (type === 'add_to_cart') return 'Adding that item to your cart.';
+    if (type === 'cancel_order') return 'Cancelling that order through the live order API.';
+    if (type === 'create_return_request') return `Creating that ${safeString(action.requestType || 'return')} request through the live order API.`;
+    return 'Running that action.';
+};
+
+const getActionIntent = (action = {}) => {
+    const type = safeString(action?.type || '');
+    if (type === 'go_to_checkout') return 'checkout';
+    if (type === 'cancel_order' || type === 'create_return_request') return 'support';
+    return 'cart_action';
 };
 
 const respondToConfirmation = ({ confirmation = null, assistantSession = {}, sessionId = '', traceId = '', assistantMode = 'chat' } = {}) => {
@@ -2411,14 +2713,10 @@ const respondToConfirmation = ({ confirmation = null, assistantSession = {}, ses
         intent: safeString(pendingAction?.intent || 'navigation'),
         confidence: 1,
         decision: 'act',
-        response: action?.type === 'go_to_checkout'
-            ? 'Taking you to checkout.'
-            : action?.type === 'remove_from_cart'
-                ? 'Removing that item from your cart.'
-                : 'Adding that item to your cart.',
+        response: getConfirmedActionResponseText(action),
         actions: [action],
         ui: {
-            surface: action?.type === 'go_to_checkout' ? 'navigation_notice' : 'cart_summary',
+            surface: action?.type === 'go_to_checkout' ? 'navigation_notice' : 'plain_answer',
             navigation: action?.type === 'go_to_checkout' ? { page: 'checkout', path: '/checkout', params: {} } : null,
         },
         verification: { label: 'app_grounded', confidence: 1, summary: 'Action confirmed and validated.' },
@@ -2449,6 +2747,55 @@ const resolveActionPlan = async ({ message = '', actionRequest = null, user = nu
         if (type === 'support') return { type: 'open_support', orderId: safeString(actionRequest?.orderId || ''), prefill: actionRequest?.prefill || {}, requiresConfirmation: false };
         if (type === 'track_order') return { type: 'track_order', orderId: safeString(actionRequest?.orderId || ''), requiresConfirmation: false };
         if (type === 'navigate_to') return { type: 'navigate_to', page: safeString(actionRequest?.page || ''), params: actionRequest?.params || {}, requiresConfirmation: false };
+        if (type === 'get_product_details' || type === 'check_inventory' || type === 'get_price') {
+            return { type, productId: safeString(actionRequest?.productId || context?.currentProductId || ''), requiresConfirmation: false };
+        }
+        if (type === 'compare_products') {
+            return { type, productIds: Array.isArray(actionRequest?.productIds) ? actionRequest.productIds.map((entry) => safeString(entry)).filter(Boolean) : [], query: safeString(actionRequest?.query || message), requiresConfirmation: false };
+        }
+        if (type === 'recommend_products') {
+            return { type, query: safeString(actionRequest?.query || message || 'recommended products'), filters: actionRequest?.filters || {}, requiresConfirmation: false };
+        }
+        if (type === 'apply_coupon') {
+            return { type, couponCode: safeString(actionRequest?.couponCode || parseCouponCode(message)), requiresConfirmation: false };
+        }
+        if (type === 'cancel_order') {
+            const requestedId = safeString(actionRequest?.orderId || parseOrderId(message));
+            const latestOrder = requestedId
+                ? await Order.findOne({ _id: requestedId, user: user?._id }).select('orderStatus totalPrice createdAt paymentState paymentMethod isDelivered').lean()
+                : await loadLatestOrder(user?._id);
+            return {
+                type,
+                orderId: safeString(latestOrder?._id || requestedId || ''),
+                reason: safeString(actionRequest?.reason || 'Requested from assistant'),
+                order: latestOrder || null,
+                unresolved: !safeString(latestOrder?._id || requestedId || ''),
+                requiresConfirmation: true,
+            };
+        }
+        if (type === 'create_return_request') {
+            const requestedId = safeString(actionRequest?.orderId || parseOrderId(message));
+            const latestOrder = requestedId
+                ? await Order.findOne({ _id: requestedId, user: user?._id }).select('orderStatus totalPrice createdAt paymentState paymentMethod isDelivered refundSummary').lean()
+                : await loadLatestOrder(user?._id);
+            return {
+                type,
+                orderId: safeString(latestOrder?._id || requestedId || ''),
+                requestType: safeString(actionRequest?.requestType || 'refund'),
+                reason: safeString(actionRequest?.reason || message || 'Requested from assistant'),
+                amount: Math.max(0, Number(actionRequest?.amount || 0)),
+                order: latestOrder || null,
+                unresolved: !safeString(latestOrder?._id || requestedId || ''),
+                requiresConfirmation: true,
+            };
+        }
+        if (type === 'get_payment_status') {
+            const requestedId = safeString(actionRequest?.orderId || parseOrderId(message));
+            const latestOrder = requestedId
+                ? await Order.findOne({ _id: requestedId, user: user?._id }).select('orderStatus totalPrice createdAt paymentState paymentMethod isDelivered').lean()
+                : await loadLatestOrder(user?._id);
+            return { type, orderId: safeString(latestOrder?._id || requestedId || ''), order: latestOrder || null, unresolved: !safeString(latestOrder?._id || requestedId || ''), requiresConfirmation: false };
+        }
     }
 
     const normalized = safeString(message).toLowerCase();
@@ -2458,12 +2805,51 @@ const resolveActionPlan = async ({ message = '', actionRequest = null, user = nu
     if (/\bcheckout\b/i.test(normalized) || /\bbuy now\b/i.test(normalized)) {
         return { type: 'go_to_checkout', requiresConfirmation: true };
     }
+    if (/\b(apply|use)\b/i.test(normalized) && /\b(coupon|promo|code)\b/i.test(normalized)) {
+        return { type: 'apply_coupon', couponCode: parseCouponCode(normalized), requiresConfirmation: false };
+    }
     if (/\btrack (my )?order\b/i.test(normalized) || /\border status\b/i.test(normalized)) {
         const requestedId = parseOrderId(normalized);
         const latestOrder = requestedId
-            ? await Order.findOne({ _id: requestedId, user: user?._id }).select('orderStatus totalPrice createdAt').lean()
+            ? await Order.findOne({ _id: requestedId, user: user?._id }).select('orderStatus totalPrice createdAt paymentState paymentMethod isDelivered').lean()
             : await loadLatestOrder(user?._id);
         return { type: 'track_order', orderId: safeString(latestOrder?._id || requestedId || ''), order: latestOrder || null, requiresConfirmation: false };
+    }
+    if (/\bcancel\b/i.test(normalized) && /\border\b/i.test(normalized)) {
+        const requestedId = parseOrderId(normalized);
+        const latestOrder = requestedId
+            ? await Order.findOne({ _id: requestedId, user: user?._id }).select('orderStatus totalPrice createdAt paymentState paymentMethod isDelivered').lean()
+            : await loadLatestOrder(user?._id);
+        return {
+            type: 'cancel_order',
+            orderId: safeString(latestOrder?._id || requestedId || ''),
+            reason: safeString(message || 'Requested from assistant'),
+            order: latestOrder || null,
+            unresolved: !safeString(latestOrder?._id || requestedId || ''),
+            requiresConfirmation: true,
+        };
+    }
+    if (/\b(return|refund|replace|replacement)\b/i.test(normalized) && /\border\b/i.test(normalized)) {
+        const requestedId = parseOrderId(normalized);
+        const latestOrder = requestedId
+            ? await Order.findOne({ _id: requestedId, user: user?._id }).select('orderStatus totalPrice createdAt paymentState paymentMethod isDelivered refundSummary').lean()
+            : await loadLatestOrder(user?._id);
+        return {
+            type: 'create_return_request',
+            orderId: safeString(latestOrder?._id || requestedId || ''),
+            requestType: /\b(replace|replacement)\b/i.test(normalized) ? 'replacement' : 'refund',
+            reason: safeString(message || 'Requested from assistant'),
+            order: latestOrder || null,
+            unresolved: !safeString(latestOrder?._id || requestedId || ''),
+            requiresConfirmation: true,
+        };
+    }
+    if (/\b(payment|paid|charge|refund status)\b/i.test(normalized) && /\border\b/i.test(normalized)) {
+        const requestedId = parseOrderId(normalized);
+        const latestOrder = requestedId
+            ? await Order.findOne({ _id: requestedId, user: user?._id }).select('orderStatus totalPrice createdAt paymentState paymentMethod isDelivered').lean()
+            : await loadLatestOrder(user?._id);
+        return { type: 'get_payment_status', orderId: safeString(latestOrder?._id || requestedId || ''), order: latestOrder || null, unresolved: !safeString(latestOrder?._id || requestedId || ''), requiresConfirmation: false };
     }
     if (/\bsupport\b/i.test(normalized) || /\bhelp with order\b/i.test(normalized)) {
         const requestedId = parseOrderId(normalized);
@@ -2575,6 +2961,195 @@ const performActionTurn = async ({
         });
     }
 
+    if (['get_product_details', 'check_inventory', 'get_price'].includes(action.type)) {
+        const product = await resolveProductForAction({
+            message,
+            context: { ...actionContext, currentProductId: safeString(action.productId || actionContext.currentProductId || '') },
+        });
+        const assistantTurn = buildAssistantTurn({
+            intent: 'product_selection',
+            confidence: product?.id ? 0.96 : 0.7,
+            decision: 'respond',
+            response: product?.id
+                ? [
+                    `${safeString(product.title || 'That product')} is currently Rs. ${Number(product.price || 0)}.`,
+                    `Stock: ${Math.max(0, Number(product.stock || 0))}.`,
+                    product.rating ? `Rating: ${Number(product.rating || 0)} from ${Math.max(0, Number(product.ratingCount || 0))} rating${Number(product.ratingCount || 0) === 1 ? '' : 's'}.` : '',
+                ].filter(Boolean).join(' ')
+                : 'I could not resolve an authoritative product for that live lookup.',
+            actions: product?.id ? [{ type: 'select_product', productId: String(product.id) }] : [],
+            ui: {
+                surface: product?.id ? 'product_focus' : 'plain_answer',
+                title: safeString(product?.title || ''),
+                product: product?.id ? product : null,
+                products: product?.id ? [product] : [],
+            },
+            followUps: product?.id ? ['Add to cart', 'Compare similar products', 'Check return policy'] : ['Name the product', 'Show recent products'],
+            verification: {
+                label: 'app_grounded',
+                confidence: 1,
+                summary: product?.id ? 'Resolved live product price and stock from the product database.' : 'No product record matched the action request.',
+                evidenceCount: product?.id ? 1 : 0,
+            },
+            answerMode: 'commerce',
+        });
+        return buildResponseEnvelope({
+            assistantTurn,
+            route: ROUTE_ACTION,
+            provider: 'rule',
+            providerModel: '',
+            products: product?.id ? [product] : [],
+            followUps: assistantTurn.followUps,
+            sessionId,
+            traceId,
+            assistantMode,
+            assistantSession: {
+                ...assistantSession,
+                lastIntent: 'product_selection',
+                lastEntities: { ...assistantSession.lastEntities, productId: safeString(product?.id || action.productId || '') },
+                activeProduct: product?.id ? product : assistantSession.activeProduct,
+                pendingAction: null,
+            },
+            health: { gateway: getModelGatewayHealth() },
+            retrievalHitCount: product?.id ? 1 : 0,
+            validator: { ok: Boolean(product?.id), reason: product?.id ? action.type : 'product_not_resolved' },
+            messageId: createMessageId(),
+        });
+    }
+
+    if (action.type === 'apply_coupon') {
+        const assistantTurn = buildAssistantTurn({
+            intent: 'checkout',
+            confidence: 0.88,
+            decision: 'act',
+            response: safeString(action.couponCode)
+                ? `Opening checkout so the quote API can validate coupon ${safeString(action.couponCode)} against your live cart.`
+                : 'Opening checkout so the quote API can validate a coupon against your live cart.',
+            actions: [action],
+            ui: { surface: 'navigation_notice', navigation: { page: 'checkout', path: '/checkout', params: safeString(action.couponCode) ? { coupon: safeString(action.couponCode) } : {} } },
+            followUps: ['Review checkout total', 'Show my cart'],
+            verification: {
+                label: 'app_grounded',
+                confidence: 1,
+                summary: 'Coupon validation is delegated to the checkout quote API; no discount was invented by the assistant.',
+            },
+            answerMode: 'commerce',
+        });
+        return buildResponseEnvelope({
+            assistantTurn,
+            route: ROUTE_ACTION,
+            provider: 'rule',
+            providerModel: '',
+            products: [],
+            followUps: assistantTurn.followUps,
+            sessionId,
+            traceId,
+            assistantMode,
+            assistantSession: { ...assistantSession, pendingAction: null },
+            health: { gateway: getModelGatewayHealth() },
+            retrievalHitCount: 0,
+            validator: { ok: true, reason: 'coupon_checkout_handoff' },
+            messageId: createMessageId(),
+        });
+    }
+
+    if (action.type === 'compare_products') {
+        const productIds = Array.isArray(action.productIds) && action.productIds.length
+            ? action.productIds
+            : uniq(actionContext.candidateProductIds || []).slice(0, 4);
+        const assistantTurn = buildAssistantTurn({
+            intent: 'product_selection',
+            confidence: productIds.length > 1 ? 0.9 : 0.65,
+            decision: productIds.length > 1 ? 'act' : 'respond',
+            response: productIds.length > 1
+                ? 'Opening a side-by-side comparison for the selected products.'
+                : 'I need at least two products before I can open a comparison.',
+            actions: productIds.length > 1 ? [{ type: 'compare_products', productIds, query: safeString(action.query || message) }] : [],
+            ui: { surface: productIds.length > 1 ? 'navigation_notice' : 'plain_answer' },
+            followUps: productIds.length > 1 ? ['Refine by price', 'Check stock'] : ['Show products to compare'],
+            verification: { label: 'app_grounded', confidence: 1, summary: 'Comparison action uses only candidate product ids already present in assistant context.' },
+            answerMode: 'commerce',
+        });
+        return buildResponseEnvelope({
+            assistantTurn,
+            route: ROUTE_ACTION,
+            provider: 'rule',
+            providerModel: '',
+            products: [],
+            followUps: assistantTurn.followUps,
+            sessionId,
+            traceId,
+            assistantMode,
+            assistantSession: { ...assistantSession, pendingAction: null },
+            health: { gateway: getModelGatewayHealth() },
+            retrievalHitCount: productIds.length,
+            validator: { ok: productIds.length > 1, reason: productIds.length > 1 ? 'compare_products' : 'not_enough_products' },
+            messageId: createMessageId(),
+        });
+    }
+
+    if (action.type === 'recommend_products') {
+        const assistantTurn = buildAssistantTurn({
+            intent: 'product_search',
+            confidence: 0.86,
+            decision: 'act',
+            response: 'Searching recommended products with the current catalog filters.',
+            actions: [{ type: 'search_products', query: safeString(action.query || message || 'recommended products'), filters: action.filters || {} }],
+            ui: { surface: 'product_results' },
+            followUps: ['Set a price limit', 'Compare the top results'],
+            verification: { label: 'app_grounded', confidence: 1, summary: 'Recommendation request was converted into a controlled product search action.' },
+            answerMode: 'commerce',
+        });
+        return buildResponseEnvelope({
+            assistantTurn,
+            route: ROUTE_ACTION,
+            provider: 'rule',
+            providerModel: '',
+            products: [],
+            followUps: assistantTurn.followUps,
+            sessionId,
+            traceId,
+            assistantMode,
+            assistantSession: { ...assistantSession, pendingAction: null },
+            health: { gateway: getModelGatewayHealth() },
+            retrievalHitCount: 0,
+            validator: { ok: true, reason: 'recommendation_search_action' },
+            messageId: createMessageId(),
+        });
+    }
+
+    if (action.type === 'get_payment_status') {
+        const order = action.order || (action.orderId ? await Order.findOne({ _id: action.orderId, user: user?._id }).select('orderStatus totalPrice createdAt paymentState paymentMethod isDelivered').lean() : await loadLatestOrder(user?._id));
+        const assistantTurn = buildAssistantTurn({
+            intent: 'support',
+            confidence: order ? 0.96 : 0.7,
+            decision: 'respond',
+            response: order
+                ? `Order ${String(order._id).slice(-6)} payment is ${safeString(order.paymentState || 'pending')} via ${safeString(order.paymentMethod || 'the selected method')}. Order status is ${safeString(order.orderStatus || 'placed')}.`
+                : 'I could not find a recent order for this account to check payment status.',
+            ui: { surface: 'plain_answer' },
+            followUps: order ? ['Track this order', 'Open support'] : ['Open support'],
+            verification: { label: 'app_grounded', confidence: 1, summary: order ? 'Resolved from the order database.' : 'No recent order matched the payment-status request.' },
+            answerMode: 'commerce',
+        });
+        return buildResponseEnvelope({
+            assistantTurn,
+            route: ROUTE_ACTION,
+            provider: 'rule',
+            providerModel: '',
+            products: [],
+            followUps: assistantTurn.followUps,
+            sessionId,
+            traceId,
+            assistantMode,
+            assistantSession: { ...assistantSession, lastIntent: 'support', lastEntities: { ...assistantSession.lastEntities, orderId: safeString(order?._id || action.orderId || '') }, pendingAction: null },
+            health: { gateway: getModelGatewayHealth() },
+            retrievalHitCount: order ? 1 : 0,
+            validator: { ok: Boolean(order), reason: order ? 'payment_status_lookup' : 'order_not_found' },
+            messageId: createMessageId(),
+        });
+    }
+
     if (action.type === 'track_order') {
         const order = action.order || (action.orderId ? await Order.findOne({ _id: action.orderId, user: user?._id }).select('orderStatus totalPrice createdAt').lean() : await loadLatestOrder(user?._id));
         const assistantTurn = buildAssistantTurn({
@@ -2673,6 +3248,34 @@ const performActionTurn = async ({
     }
 
     if (action.unresolved) {
+        if (['cancel_order', 'create_return_request', 'get_payment_status'].includes(action.type)) {
+            const assistantTurn = buildAssistantTurn({
+                intent: 'support',
+                confidence: 0.76,
+                decision: 'respond',
+                response: 'I need a signed-in order or a specific order ID before I can run that order workflow.',
+                ui: { surface: 'plain_answer' },
+                followUps: ['Open orders', 'Open support'],
+                verification: { label: 'app_grounded', confidence: 1, summary: 'Order workflow blocked because no authoritative order was resolved.' },
+                policy: { actionType: safeString(action?.type || ''), risk: validation.definition?.mutation ? 'mutation' : 'low', decision: 'REJECT', reason: 'order_not_resolved' },
+            });
+            return buildResponseEnvelope({
+                assistantTurn,
+                route: ROUTE_ACTION,
+                provider: 'rule',
+                providerModel: '',
+                products: [],
+                followUps: assistantTurn.followUps,
+                sessionId,
+                traceId,
+                assistantMode,
+                assistantSession: { ...assistantSession, pendingAction: null },
+                health: { gateway: getModelGatewayHealth() },
+                retrievalHitCount: 0,
+                validator: { ok: false, reason: 'order_not_resolved' },
+                messageId: createMessageId(),
+            });
+        }
         const assistantTurn = buildAssistantTurn({
             intent: 'cart_action',
             confidence: 0.75,
@@ -2707,13 +3310,15 @@ const performActionTurn = async ({
         sessionId,
         traceId,
         assistantMode,
-        responseText: action.type === 'go_to_checkout'
-            ? 'I can take you to checkout. Confirm and I will continue.'
-            : action.type === 'remove_from_cart'
-                ? `Remove ${safeString(action.product?.title || 'this item')} from your cart?`
-                : `Add ${safeString(action.product?.title || 'this item')} to your cart?`,
-        intent: action.type === 'go_to_checkout' ? 'checkout' : 'cart_action',
-        entities: { query: safeString(message), productId: safeString(action.product?.id || action.productId || ''), quantity: Number(action.quantity || 1) },
+        responseText: getActionConfirmationText(action),
+        intent: getActionIntent(action),
+        entities: {
+            query: safeString(message),
+            productId: safeString(action.product?.id || action.productId || ''),
+            quantity: Number(action.quantity || 1),
+            orderId: safeString(action.orderId || ''),
+            operation: safeString(action.type || ''),
+        },
     });
 };
 
@@ -2905,7 +3510,7 @@ const createSession = async ({ user, sessionId = '', assistantMode = 'chat', ori
 const resetSession = async ({ user, sessionId }) => resetAssistantThread({ userId: user?._id, sessionId });
 const archiveSession = async ({ user, sessionId }) => archiveAssistantThread({ userId: user?._id, sessionId });
 const getCommerceAssistantHealth = async () => ({
-    route: 'controlled_gemma_commerce',
+    route: 'hybrid_rag_commerce',
     gateway: getModelGatewayHealth(),
     vectorStore: await getLocalVectorIndexHealth().catch((error) => ({ healthy: false, error: error.message })),
 });
@@ -2936,8 +3541,11 @@ module.exports = {
         deriveRetrievalQuery,
         extractCommerceCategoryHint,
         extractMediaLookupHints,
+        buildHeuristicRetrievalQueryText,
         inferStructuredRetrievalFilters,
         inferConfirmationFromMessage,
+        buildCommerceModelProviderOptions,
+        isCommerceModelSummaryEnabled,
         isHostedGemmaCommerceRequired,
         isHostedGemmaGatewayHealthy,
         isHostedGemmaAudioUnsupported,
@@ -2945,6 +3553,7 @@ module.exports = {
         scoreCommerceProduct,
         sortCommerceEntries,
         resolveActionPlan,
+        shouldAnswerKnowledgeBeforeCatalog,
         shouldReuseSessionResultsForCommerce,
         shouldRouteAsCommerceFollowUp,
         validateCommercePayload,

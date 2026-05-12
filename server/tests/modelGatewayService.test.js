@@ -68,4 +68,33 @@ describe('modelGatewayService', () => {
 
         expect(ollamaGateway.generateStructuredJson).not.toHaveBeenCalled();
     });
+
+    test('disabled provider fails fast for budget runtimes without calling hosted or local models', async () => {
+        process.env.AI_MODEL_PROVIDER = 'disabled';
+        process.env.AI_MODEL_PROVIDER_FALLBACKS = 'ollama,gemini';
+        jest.resetModules();
+        const geminiGateway = require('../services/ai/geminiGatewayService');
+        const ollamaGateway = require('../services/ai/ollamaGatewayService');
+        const {
+            checkModelGatewayHealth,
+            generateStructuredJson,
+            getGatewayConfig,
+            resolveGatewayProviders,
+        } = require('../services/ai/modelGatewayService');
+
+        expect(resolveGatewayProviders()).toEqual(['disabled']);
+        expect(getGatewayConfig()).toMatchObject({
+            provider: 'disabled',
+            healthy: false,
+            error: 'model_gateway_disabled',
+        });
+        await expect(generateStructuredJson({ prompt: 'hello' })).rejects.toThrow('model_gateway_disabled');
+        await expect(checkModelGatewayHealth()).resolves.toMatchObject({
+            provider: 'disabled',
+            healthy: false,
+            error: 'model_gateway_disabled',
+        });
+        expect(geminiGateway.generateStructuredJson).not.toHaveBeenCalled();
+        expect(ollamaGateway.generateStructuredJson).not.toHaveBeenCalled();
+    });
 });

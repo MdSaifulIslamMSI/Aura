@@ -44,6 +44,13 @@ import {
   validatePhone,
 } from './loginFlowHelpers';
 
+const formatProviderList = (providers = []) => {
+  const safeProviders = providers.filter(Boolean);
+  if (safeProviders.length <= 2) return safeProviders.join(' and ');
+
+  return `${safeProviders.slice(0, -1).join(', ')}, and ${safeProviders.at(-1)}`;
+};
+
 const normalizeSocialAuthError = (error, providerLabel = 'Social', socialAuthStatus = null) => {
   const errorCode = String(error?.code || '').trim();
   const errorMessage = String(error?.message || '').trim();
@@ -127,6 +134,8 @@ export const useLoginController = () => {
     signup,
     signInWithGoogle,
     signInWithFacebook,
+    signInWithMicrosoft,
+    signInWithApple,
     signInWithX,
   } = useContext(AuthContext);
 
@@ -1132,7 +1141,13 @@ export const useLoginController = () => {
     ];
   }, [canUseFirebasePhoneOtp, firebasePhoneFallback?.disableFirebasePhoneOtp, isEmailOtpStage, isPhoneOtpStage, mode, step, t]);
 
-  const secureSignals = useMemo(() => ([
+  const secureSignals = useMemo(() => {
+    const socialProviders = ['Google', 'Facebook', 'X'];
+    if (socialAuthStatus.microsoftEnabled) socialProviders.push('Microsoft');
+    if (socialAuthStatus.appleEnabled) socialProviders.push('Apple');
+    const socialProviderSummary = formatProviderList(socialProviders);
+
+    return [
     {
       label: step === 'otp' ? t('login.signal.windowOtp', {}, 'OTP window') : step === 'reset-password' ? t('login.signal.windowReset', {}, 'Reset window') : t('login.signal.identityGate', {}, 'Identity gate'),
       value: step === 'otp'
@@ -1166,21 +1181,26 @@ export const useLoginController = () => {
     {
       label: t('login.signal.social', {}, 'Social access'),
       value: socialAuthStatus.supported
-        ? t('login.signal.socialAvailable', {}, 'Google, Facebook, and X available')
+        ? (socialAuthStatus.microsoftEnabled || socialAuthStatus.appleEnabled
+          ? t('login.signal.socialExpanded', { providers: socialProviderSummary }, '{{providers}} ready')
+          : t('login.signal.socialAvailable', {}, 'Google, Facebook, and X available'))
         : socialAuthStatus.disabledByMobileNativeConfig
           ? t('login.signal.socialMobileConfig', {}, 'Email OTP active in app')
         : socialAuthStatus.runtimeBlocked
           ? t('login.signal.socialBlocked', {}, 'OTP-only until this tab is refreshed')
           : t('login.signal.socialHost', { host: socialAuthStatus.runtimeHost || t('login.signal.thisHost', {}, 'this host') }, 'OTP-only on {{host}}'),
     },
-  ]), [
+  ];
+  }, [
     canUseFirebasePhoneOtp,
     firebasePhoneFallback?.disableFirebasePhoneOtp,
     formData.phone,
     isEmailOtpStage,
     isPhoneOtpStage,
     mode,
+    socialAuthStatus.appleEnabled,
     socialAuthStatus.disabledByMobileNativeConfig,
+    socialAuthStatus.microsoftEnabled,
     socialAuthStatus.runtimeBlocked,
     socialAuthStatus.runtimeHost,
     socialAuthStatus.supported,
@@ -1358,6 +1378,8 @@ export const useLoginController = () => {
     showPassword,
     signInWithFacebook,
     signInWithGoogle,
+    signInWithMicrosoft,
+    signInWithApple,
     signInWithX,
     socialAuthStatus,
     step,

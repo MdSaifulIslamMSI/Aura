@@ -15,9 +15,12 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=5000
 
-COPY --from=deps /app/node_modules ./node_modules
-COPY . .
+COPY --from=deps --chown=node:node /app/node_modules ./node_modules
+COPY --chown=node:node . .
+RUN mkdir -p uploads && chown -R node:node /app
 
 EXPOSE 5000
+
+USER node
 
 CMD ["node", "scripts/start_api_runtime.js"]

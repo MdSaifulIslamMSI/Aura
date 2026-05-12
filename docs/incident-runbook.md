@@ -1,7 +1,8 @@
 # Incident Runbook
 
 ## 1) API Availability Incident
-- Check `GET /health` and `GET /health/ready`.
+- Check public `GET /health`.
+- Check detailed `GET /health/ready` with the `x-health-token` header from the production readiness secret.
 - Validate DB connectivity and queue status.
 - Inspect request-id correlated error logs.
 

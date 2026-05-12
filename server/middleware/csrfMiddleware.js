@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const logger = require('../utils/logger');
 const { getRedisClient, flags: redisFlags } = require('../config/redis');
+const { recordAuthSecurityEvent } = require('../services/authSecurityTelemetryService');
 
 /**
  * CSRF Protection Middleware
@@ -239,6 +240,14 @@ const csrfTokenValidator = async (req, res, next) => {
             uid: req.authUid || req.user?.id || 'anonymous',
             transport: bodyToken ? 'body' : 'query',
         });
+        recordAuthSecurityEvent({
+            event: 'csrf_rejected',
+            outcome: 'blocked',
+            reason: 'invalid_transport',
+            surface: 'csrf',
+            req,
+            meta: { statusCode: 403 },
+        });
         return next({
             statusCode: 403,
             message: 'CSRF token must be sent via X-CSRF-Token header',
@@ -257,6 +266,14 @@ const csrfTokenValidator = async (req, res, next) => {
             uid: req.authUid || 'anonymous',
             timestamp: new Date().toISOString(),
         });
+        recordAuthSecurityEvent({
+            event: 'csrf_rejected',
+            outcome: 'blocked',
+            reason: 'token_missing',
+            surface: 'csrf',
+            req,
+            meta: { statusCode: 403 },
+        });
         return next({
             statusCode: 403,
             message: 'CSRF token is missing',
@@ -273,6 +290,14 @@ const csrfTokenValidator = async (req, res, next) => {
             uid: context.uid,
             tokenLength: token.length,
             timestamp: new Date().toISOString(),
+        });
+        recordAuthSecurityEvent({
+            event: 'csrf_rejected',
+            outcome: 'blocked',
+            reason: 'token_invalid',
+            surface: 'csrf',
+            req,
+            meta: { statusCode: 403 },
         });
         return next({
             statusCode: 403,

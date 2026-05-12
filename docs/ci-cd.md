@@ -64,7 +64,7 @@ Microsoft Trusted Signing option:
 - `AZURE_TRUSTED_SIGNING_ENDPOINT`
 - `WINDOWS_CODE_SIGNING_PUBLISHER_NAME`
 
-The free production pipeline publishes unsigned Windows builds if signing secrets are missing. CI, backend deploy, frontend deploy, and gateway deploy still have to pass first, so a red `Production CI/CD` gate still prevents a new latest desktop release. Unsigned Windows builds can show Microsoft Defender SmartScreen warnings.
+The free GitHub release lane can publish unsigned Windows desktop artifacts without these secrets. Set `require_windows_signing=true` only when you want the workflow to fail unless a PFX or Microsoft Trusted Signing path is fully configured.
 
 Required repository variables or secrets:
 
@@ -79,11 +79,16 @@ Optional repository variables:
 
 AWS deployment is configured through OIDC in `.github/workflows/deploy-backend-aws.yml`:
 
-- AWS region: `ap-south-1`
-- Deploy role: `arn:aws:iam::942679464475:role/aura-github-actions-deploy`
-- Deploy bucket: `aura-backend-deployments-942679464475-ap-south-1`
-- Instance tag selector: `Name=aura-backend`
-- Parameter Store prefix: `/aura/prod`
+- `AWS_REGION`
+- `AWS_DEPLOY_ROLE_ARN`
+- `AWS_DEPLOY_BUCKET`
+- `AWS_INSTANCE_TAG_KEY`
+- `AWS_INSTANCE_TAG_VALUE`
+- `AWS_PARAMETER_STORE_PATH_PREFIX`
+- `AWS_DOCKER_PLATFORM`
+- `AURA_BACKEND_ORIGIN` or `AWS_BACKEND_BASE_URL`
+
+The workflows intentionally do not carry account-specific AWS resource defaults.
 
 ## Local GitHub Auth
 
@@ -99,7 +104,7 @@ Manual inputs let you:
 
 - Skip backend, frontend, gateway, or desktop release stages.
 - Set a specific desktop version like `1.2.0`.
-- Skip the backend health check when recovering from infrastructure issues.
+- Skip the backend health check only in explicitly reviewed recovery runs.
 
 ## Public Gateway Access
 

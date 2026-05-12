@@ -10,7 +10,7 @@ on:
       require_windows_signing:
         description: Require Windows Authenticode signing before publishing
         required: false
-        default: true
+        default: false
         type: boolean
   workflow_call:
     inputs:
@@ -22,7 +22,7 @@ on:
       require_windows_signing:
         description: Require Windows Authenticode signing before publishing
         required: false
-        default: true
+        default: false
         type: boolean
 
 permissions:
@@ -85,7 +85,7 @@ jobs:
           set -euo pipefail
 
           if [ "${REQUIRE_WINDOWS_SIGNING}" != "true" ]; then
-            echo "::warning::Windows signing is not required for this run. Use this only for internal test releases."
+            echo "::warning::Windows signing is not required for this run. Use unsigned artifacts for GitHub/internal distribution only."
             exit 0
           fi
 
@@ -195,10 +195,10 @@ jobs:
           if (-not $hasPfxSigning) {
             "AURA_WINDOWS_SIGNING_MODE=unsigned" >> $env:GITHUB_ENV
             if ($env:REQUIRE_WINDOWS_SIGNING -eq "true") {
-              throw "Windows code signing is required for release publishing. Add PFX signing secrets or Microsoft Trusted Signing secrets, or disable require_windows_signing only for internal test releases."
+              throw "Windows code signing is required for this run. Add PFX signing secrets or Microsoft Trusted Signing secrets, or run with require_windows_signing=false for unsigned GitHub/internal artifacts."
             }
 
-            Write-Host "Windows code signing secrets are not configured; Windows installers will be unsigned because require_windows_signing is false."
+            Write-Host "Windows code signing secrets are not configured; Windows installers will be unsigned."
             exit 0
           }
 
@@ -214,14 +214,19 @@ jobs:
         shell: bash
         run: |
           if [ "${{ matrix.platform }}" = "windows" ] && [ "${AURA_WINDOWS_SIGNING_MODE:-}" = "pfx" ]; then
-            npm run desktop:dist:win:all -- --publish never --config.win.signAndEditExecutable=true
+            npm run desktop:dist:win:all -- --publish never --config.win.signAndEditExecutable=true --config.win.verifyUpdateCodeSignature=true
           elif [ "${{ matrix.platform }}" = "windows" ] && [ "${AURA_WINDOWS_SIGNING_MODE:-}" = "trusted-signing" ]; then
             npm run desktop:dist:win:all -- --publish never \
               --config.win.signAndEditExecutable=true \
+              --config.win.verifyUpdateCodeSignature=true \
               --config.win.azureSignOptions.endpoint="${AZURE_TRUSTED_SIGNING_ENDPOINT}" \
               --config.win.azureSignOptions.certificateProfileName="${AZURE_TRUSTED_SIGNING_CERTIFICATE_PROFILE_NAME}" \
               --config.win.azureSignOptions.codeSigningAccountName="${AZURE_TRUSTED_SIGNING_ACCOUNT_NAME}" \
               --config.win.azureSignOptions.publisherName="${WINDOWS_CODE_SIGNING_PUBLISHER_NAME}"
+          elif [ "${{ matrix.platform }}" = "windows" ]; then
+            npm run desktop:dist:win:all -- --publish never \
+              --config.win.signAndEditExecutable=false \
+              --config.win.verifyUpdateCodeSignature=false
           else
             ${{ matrix.command }}
           fi

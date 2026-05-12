@@ -1,6 +1,10 @@
 #!/usr/bin/env node
 /* eslint-disable no-console */
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
+const fs = require('fs');
+const path = require('path');
+
+const repoRoot = path.resolve(__dirname, '..', '..');
 
 const MAX_FILE_BYTES = 1024 * 1024; // 1MB
 const BLOCKED_PATH_PATTERNS = [
@@ -11,14 +15,14 @@ const BLOCKED_PATH_PATTERNS = [
     /(^|\/)coverage\//i,
 ];
 
-const listTrackedFiles = () => execSync('git ls-files', { encoding: 'utf8' })
+const listTrackedFiles = () => execFileSync('git', ['ls-files'], { encoding: 'utf8' })
     .split('\n')
     .map((line) => line.trim())
     .filter(Boolean);
 
 const fileSize = (filePath) => {
     try {
-        return Number(execSync(`git cat-file -s HEAD:${filePath}`, { encoding: 'utf8' }).trim());
+        return fs.statSync(path.join(repoRoot, filePath)).size;
     } catch {
         return 0;
     }

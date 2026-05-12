@@ -23,6 +23,7 @@ import { AuthContext } from '@/context/AuthContext';
 import { CartContext } from '@/context/CartContext';
 import { useMarket } from '@/context/MarketContext';
 import { WishlistContext } from '@/context/WishlistContext';
+import { getFirebaseSocialAuthStatus } from '@/config/firebase';
 import { paymentApi, trustApi, userApi, intelligenceApi } from '@/services/api';
 import { cn } from '@/lib/utils';
 import { getUserVisibleEmail } from '@/utils/authIdentity';
@@ -77,6 +78,8 @@ export default function Profile() {
         dbUser,
         logout,
         sessionIntelligence,
+        linkMicrosoftProvider,
+        linkAppleProvider,
         updateProfile: updateProfileInContext,
         generateRecoveryCodes,
     } = useContext(AuthContext);
@@ -107,6 +110,7 @@ export default function Profile() {
     const [intelligenceData, setIntelligenceData] = useState(null);
     const [intelligenceLoading, setIntelligenceLoading] = useState(false);
     const [optimizing, setOptimizing] = useState(false);
+    const [providerLinking, setProviderLinking] = useState('');
 
     const [editMode, setEditMode] = useState(false);
     const [editForm, setEditForm] = useState({});
@@ -127,6 +131,12 @@ export default function Profile() {
     const fileInputRef = useRef(null);
     const editModeRef = useRef(false);
     const tabs = useMemo(() => buildTabs(t), [t]);
+    const socialAuthStatus = useMemo(() => getFirebaseSocialAuthStatus(), [currentUser?.uid]);
+    const linkedProviderIds = useMemo(() => (
+        Array.isArray(currentUser?.providerData)
+            ? currentUser.providerData.map((entry) => trimText(entry?.providerId)).filter(Boolean)
+            : []
+    ), [currentUser?.providerData]);
 
     const createEditForm = useCallback((source = {}) => ({
         name: source.name || '',
@@ -667,6 +677,38 @@ export default function Profile() {
         }
     };
 
+    const handleLinkProvider = useCallback(async (providerKey, providerLabel, linkProvider) => {
+        if (!linkProvider) {
+            showMsg('error', t('profile.message.providerLinkUnavailable', { provider: providerLabel }, `${providerLabel} linking is not available in this build.`));
+            return;
+        }
+
+        setProviderLinking(providerKey);
+        try {
+            const result = await linkProvider();
+            if (result?.redirecting) {
+                showMsg('success', t('profile.message.providerLinkRedirect', { provider: providerLabel }, `Complete ${providerLabel} linking in the provider window.`));
+                return;
+            }
+
+            showMsg('success', result?.alreadyLinked
+                ? t('profile.message.providerAlreadyLinked', { provider: providerLabel }, `${providerLabel} is already linked to this account.`)
+                : t('profile.message.providerLinked', { provider: providerLabel }, `${providerLabel} linked to this account.`));
+        } catch (error) {
+            showMsg('error', error.message || t('profile.message.providerLinkFailed', { provider: providerLabel }, `Could not link ${providerLabel}.`));
+        } finally {
+            setProviderLinking('');
+        }
+    }, [showMsg, t]);
+
+    const handleLinkMicrosoftProvider = useCallback(() => (
+        handleLinkProvider('microsoft', 'Microsoft', linkMicrosoftProvider)
+    ), [handleLinkProvider, linkMicrosoftProvider]);
+
+    const handleLinkAppleProvider = useCallback(() => (
+        handleLinkProvider('apple', 'Apple', linkAppleProvider)
+    ), [handleLinkProvider, linkAppleProvider]);
+
     const handleOptimizeRewards = async () => {
         setOptimizing(true);
         try {
@@ -1103,6 +1145,11 @@ export default function Profile() {
                             handleCopyRecoveryCodes={handleCopyRecoveryCodes}
                             handleDownloadRecoveryCodes={handleDownloadRecoveryCodes}
                             handleClearVisibleRecoveryCodes={() => setVisibleRecoveryCodes([])}
+                            linkedProviderIds={linkedProviderIds}
+                            socialAuthStatus={socialAuthStatus}
+                            providerLinking={providerLinking}
+                            handleLinkMicrosoftProvider={handleLinkMicrosoftProvider}
+                            handleLinkAppleProvider={handleLinkAppleProvider}
                         />
                     ) : null}
                 </div>

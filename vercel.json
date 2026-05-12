@@ -4,35 +4,35 @@
     "rewrites": [
         {
             "source": "/socket.io",
-            "destination": "https://13.206.172.186.sslip.io/socket.io/"
+            "destination": "https://api.aurapilot.example.com/socket.io/"
         },
         {
             "source": "/socket.io/",
-            "destination": "https://13.206.172.186.sslip.io/socket.io/"
+            "destination": "https://api.aurapilot.example.com/socket.io/"
         },
         {
             "source": "/socket.io/:path*",
-            "destination": "https://13.206.172.186.sslip.io/socket.io/:path*"
+            "destination": "https://api.aurapilot.example.com/socket.io/:path*"
         },
         {
             "source": "/api/:path*",
-            "destination": "https://13.206.172.186.sslip.io/api/:path*"
+            "destination": "https://api.aurapilot.example.com/api/:path*"
         },
         {
             "source": "/health",
-            "destination": "https://13.206.172.186.sslip.io/health"
+            "destination": "https://api.aurapilot.example.com/health"
         },
         {
             "source": "/health/ready",
-            "destination": "https://13.206.172.186.sslip.io/health/ready"
+            "destination": "https://api.aurapilot.example.com/health/ready"
         },
         {
             "source": "/health/live",
-            "destination": "https://13.206.172.186.sslip.io/health/live"
+            "destination": "https://api.aurapilot.example.com/health/live"
         },
         {
             "source": "/uploads/:path*",
-            "destination": "https://13.206.172.186.sslip.io/uploads/:path*"
+            "destination": "https://api.aurapilot.example.com/uploads/:path*"
         },
         {
             "source": "/:path((?!api/|socket\\.io(?:/|$)|uploads/|assets/|manifest\\.json$|sw\\.js$|favicon\\.ico$|robots\\.txt$|.*\\.[^/]+$).*)",

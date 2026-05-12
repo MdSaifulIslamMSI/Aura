@@ -1,4 +1,4 @@
-import { productApi } from '@/services/api';
+import { orderApi, productApi } from '@/services/api';
 import { useCommerceStore, selectCartItems, selectCartSummary } from '@/store/commerceStore';
 import { useChatStore } from '@/store/chatStore';
 import { buildSupportHandoffPath, normalizeProductSummary } from '@/utils/assistantCommands';
@@ -87,6 +87,22 @@ const buildActionFingerprint = (action = {}) => {
 
     if (type === 'track_order') {
         return `track_order:${safeString(action?.orderId)}`;
+    }
+
+    if (type === 'get_product_details' || type === 'check_inventory' || type === 'get_price') {
+        return `${type}:${safeString(action?.productId)}`;
+    }
+
+    if (type === 'cancel_order' || type === 'create_return_request' || type === 'get_payment_status') {
+        return `${type}:${safeString(action?.orderId)}:${safeString(action?.requestType)}:${safeString(action?.reason)}`;
+    }
+
+    if (type === 'apply_coupon') {
+        return `apply_coupon:${safeString(action?.couponCode)}`;
+    }
+
+    if (type === 'compare_products') {
+        return `compare_products:${(Array.isArray(action?.productIds) ? action.productIds : []).map((entry) => safeString(entry)).filter(Boolean).join(',')}`;
     }
 
     return '';
@@ -238,6 +254,150 @@ export const createAssistantActionRegistry = ({
         };
     };
 
+    const cancelOrder = async (orderId = '', reason = '') => {
+        const normalizedOrderId = safeString(orderId);
+        if (!normalizedOrderId) {
+            navigate('/orders');
+            return {
+                success: false,
+                message: 'Open your orders and choose the order to cancel.',
+                navigation: {
+                    page: 'orders',
+                    path: '/orders',
+                },
+            };
+        }
+
+        try {
+            const result = await orderApi.cancelOrder(normalizedOrderId, {
+                reason: safeString(reason) || 'Requested from assistant',
+            });
+            const path = buildOrderSupportPath(normalizedOrderId);
+            navigate(path);
+            return {
+                success: true,
+                message: result?.message || `Cancelled order ${normalizedOrderId}.`,
+                order: result?.order || null,
+                navigation: {
+                    page: 'orders',
+                    path,
+                },
+            };
+        } catch (error) {
+            return {
+                success: false,
+                message: safeString(error?.message || 'Unable to cancel that order right now.'),
+            };
+        }
+    };
+
+    const createReturnRequest = async ({
+        orderId = '',
+        requestType = 'refund',
+        reason = '',
+        amount = 0,
+    } = {}) => {
+        const normalizedOrderId = safeString(orderId);
+        if (!normalizedOrderId) {
+            navigate('/orders');
+            return {
+                success: false,
+                message: 'Open your orders and choose the order for the return or refund request.',
+                navigation: {
+                    page: 'orders',
+                    path: '/orders',
+                },
+            };
+        }
+
+        try {
+            const normalizedType = safeString(requestType || 'refund').toLowerCase();
+            const payload = {
+                reason: safeString(reason) || 'Requested from assistant',
+            };
+            if (Number(amount) > 0) payload.amount = Number(amount);
+            const result = normalizedType === 'replacement'
+                ? await orderApi.requestReplacement(normalizedOrderId, payload)
+                : await orderApi.requestRefund(normalizedOrderId, payload);
+            const path = buildOrderSupportPath(normalizedOrderId, {
+                category: normalizedType === 'replacement' ? 'replacement' : 'refund',
+                subject: normalizedType === 'replacement' ? 'Replacement request' : 'Refund request',
+                body: payload.reason,
+            });
+            navigate(path);
+            return {
+                success: true,
+                message: result?.message || `Created ${normalizedType} request for order ${normalizedOrderId}.`,
+                commandCenter: result?.commandCenter || null,
+                navigation: {
+                    page: 'orders',
+                    path,
+                },
+            };
+        } catch (error) {
+            return {
+                success: false,
+                message: safeString(error?.message || 'Unable to create that request right now.'),
+            };
+        }
+    };
+
+    const applyCoupon = async (couponCode = '') => {
+        const params = {};
+        if (safeString(couponCode)) params.coupon = safeString(couponCode).toUpperCase();
+        const path = buildPathFromNavigation('checkout', params);
+        navigate(path);
+
+        return {
+            success: true,
+            message: safeString(couponCode)
+                ? `Opening checkout to validate coupon ${safeString(couponCode).toUpperCase()}.`
+                : 'Opening checkout to validate your coupon.',
+            navigation: {
+                page: 'checkout',
+                path,
+                params,
+            },
+        };
+    };
+
+    const compareProducts = async (productIds = []) => {
+        const ids = (Array.isArray(productIds) ? productIds : []).map((entry) => safeString(entry)).filter(Boolean);
+        if (ids.length < 2) {
+            return {
+                success: false,
+                message: 'I need at least two products to compare.',
+            };
+        }
+
+        const path = buildPathFromNavigation('compare', { products: ids.join(',') });
+        navigate(path);
+        return {
+            success: true,
+            message: 'Opening product comparison.',
+            navigation: {
+                page: 'compare',
+                path,
+                params: { products: ids.join(',') },
+            },
+        };
+    };
+
+    const getPaymentStatus = async (orderId = '') => {
+        const path = buildOrderSupportPath(orderId);
+        navigate(path);
+        return {
+            success: Boolean(safeString(orderId)),
+            message: safeString(orderId)
+                ? `Opening payment details for order ${orderId}.`
+                : 'Opening your orders.',
+            navigation: {
+                page: 'orders',
+                path,
+            },
+        };
+    };
+
     const navigateTo = async (page = '', params = {}) => {
         const path = buildPathFromNavigation(page, params);
         navigate(path);
@@ -329,6 +489,10 @@ export const createAssistantActionRegistry = ({
             return finalize(await selectProduct(action.productId));
         }
 
+        if (type === 'get_product_details' || type === 'check_inventory' || type === 'get_price') {
+            return finalize(await selectProduct(action.productId));
+        }
+
         if (type === 'add_to_cart') {
             return finalize(await addToCart(action.productId, action.quantity));
         }
@@ -343,6 +507,35 @@ export const createAssistantActionRegistry = ({
 
         if (type === 'track_order') {
             return finalize(await trackOrder(action.orderId));
+        }
+
+        if (type === 'cancel_order') {
+            return finalize(await cancelOrder(action.orderId, action.reason));
+        }
+
+        if (type === 'create_return_request') {
+            return finalize(await createReturnRequest({
+                orderId: action.orderId,
+                requestType: action.requestType,
+                reason: action.reason,
+                amount: action.amount,
+            }));
+        }
+
+        if (type === 'apply_coupon') {
+            return finalize(await applyCoupon(action.couponCode));
+        }
+
+        if (type === 'compare_products') {
+            return finalize(await compareProducts(action.productIds));
+        }
+
+        if (type === 'recommend_products') {
+            return finalize(await searchProducts(action.query, action.filters, uiProducts));
+        }
+
+        if (type === 'get_payment_status') {
+            return finalize(await getPaymentStatus(action.orderId));
         }
 
         if (type === 'navigate_to') {
@@ -362,6 +555,11 @@ export const createAssistantActionRegistry = ({
     return {
         addToCart,
         executeAssistantAction,
+        applyCoupon,
+        cancelOrder,
+        compareProducts,
+        createReturnRequest,
+        getPaymentStatus,
         goToCheckout,
         navigateTo,
         openSupport,

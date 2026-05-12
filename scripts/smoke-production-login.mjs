@@ -1,9 +1,13 @@
 #!/usr/bin/env node
 
-import { HOSTED_BACKEND_ORIGIN } from '../app/config/vercelRoutingContract.mjs';
+import {
+    assertDeployableHostedBackendOrigin,
+    resolveHostedBackendOrigin,
+} from '../app/config/vercelRoutingContract.mjs';
 
 const frontendOrigin = String(process.env.PROD_FRONTEND_URL || 'https://aurapilot.vercel.app').replace(/\/+$/, '');
-const hostedBackendOrigin = String(process.env.PROD_BACKEND_ORIGIN || HOSTED_BACKEND_ORIGIN).replace(/\/+$/, '');
+const hostedBackendOrigin = String(process.env.PROD_BACKEND_ORIGIN || resolveHostedBackendOrigin()).replace(/\/+$/, '');
+assertDeployableHostedBackendOrigin(hostedBackendOrigin);
 const legacyHttpBackendOrigin = String(process.env.PROD_LEGACY_HTTP_BACKEND_ORIGIN || 'http://3.109.181.238:5000').replace(/\/+$/, '');
 
 const checks = [];
@@ -81,17 +85,18 @@ const proxiedBackendHealth = async () => {
         splitRuntimeEnabled: live.json?.topology?.splitRuntimeEnabled,
     });
 
-    const ready = await request(`${frontendOrigin}/health/ready`, {
+    const summary = await request(`${frontendOrigin}/health`, {
         headers: {
             Origin: frontendOrigin,
             Accept: 'application/json',
         },
     });
-    addCheck('proxied health/ready is ready', ready.ok && ready.status === 200 && ready.json?.ready === true, {
-        status: ready.status,
-        elapsedMs: ready.elapsedMs,
-        reason: ready.json?.reason || '',
-        splitRuntimeEnabled: ready.json?.topology?.splitRuntimeEnabled,
+    addCheck('proxied health summary is ok', summary.ok && summary.status === 200 && summary.json?.status === 'ok', {
+        status: summary.status,
+        elapsedMs: summary.elapsedMs,
+        reason: summary.json?.reason || '',
+        db: summary.json?.db || '',
+        redisConnected: summary.json?.redis?.connected,
     });
 };
 

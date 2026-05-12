@@ -41,6 +41,7 @@ const {
     resolveEmailVerifiedState,
 } = require('../utils/authIdentity');
 const { shouldRequireTrustedDevice } = require('../config/authTrustedDeviceFlags');
+const { recordAuthSecurityEvent } = require('../services/authSecurityTelemetryService');
 const LOGIN_ASSURANCE_TTL_MS = 10 * 60 * 1000;
 const PHONE_FACTOR_ASSURANCE_TTL_MS = 10 * 60 * 1000;
 const GENERIC_PHONE_FACTOR_VERIFICATION_MESSAGE = 'If account details are valid, verification will proceed.';
@@ -197,6 +198,17 @@ const requestBootstrapDeviceChallenge = asyncHandler(async (req, res) => {
         })
         : null;
 
+    if (deviceChallenge) {
+        recordAuthSecurityEvent({
+            event: 'trusted_device_challenge',
+            outcome: 'issued',
+            reason: 'none',
+            surface: 'trusted_device',
+            req,
+            meta: { scope },
+        });
+    }
+
     res.json({
         success: true,
         deviceChallenge: deviceChallenge || null,
@@ -292,6 +304,14 @@ const resolveDeviceChallengeState = async ({
 
     const { deviceId, deviceLabel } = extractTrustedDeviceContext(req);
     if (!deviceId) {
+        recordAuthSecurityEvent({
+            event: 'step_up_required',
+            outcome: 'blocked',
+            reason: 'trusted_device_missing',
+            surface: 'trusted_device',
+            req,
+            meta: { statusCode: 400 },
+        });
         throw new AppError('Trusted device identity is required for this account. Refresh and try again.', 400);
     }
 
@@ -318,6 +338,15 @@ const resolveDeviceChallengeState = async ({
         authToken,
         deviceId,
         deviceLabel,
+    });
+
+    recordAuthSecurityEvent({
+        event: 'trusted_device_challenge',
+        outcome: 'required',
+        reason: 'trusted_device_required',
+        surface: 'trusted_device',
+        req,
+        meta: { mode: deviceChallenge?.mode || '', method: deviceChallenge?.method || '' },
     });
 
     return {
@@ -361,6 +390,15 @@ const getSession = asyncHandler(async (req, res) => {
         authToken: req.authToken || null,
         authUid: req.authUid || '',
         user: resolved.user,
+    });
+
+    recordAuthSecurityEvent({
+        event: 'session_check',
+        outcome: status === 'authenticated' ? 'success' : 'required',
+        reason: status === 'authenticated' ? 'none' : status,
+        surface: 'auth',
+        req,
+        meta: { status },
     });
 
     res.json({
@@ -416,6 +454,15 @@ const syncSession = asyncHandler(async (req, res) => {
         rotate: Boolean(req.authSession?.sessionId),
         stepUpUntil: user?.loginOtpAssuranceExpiresAt || null,
         additionalAmr: String(user?.authAssurance || '').trim() === 'password+otp' ? ['otp'] : [],
+    });
+
+    recordAuthSecurityEvent({
+        event: 'login_session',
+        outcome: status === 'authenticated' ? 'success' : 'required',
+        reason: status === 'authenticated' ? 'none' : status,
+        surface: 'auth',
+        req,
+        meta: { status },
     });
 
     res.json(buildSessionPayload({
@@ -522,6 +569,15 @@ const completePhoneFactorLogin = asyncHandler(async (req, res) => {
         rotate: Boolean(req.authSession?.sessionId),
         stepUpUntil: updatedUser?.loginOtpAssuranceExpiresAt || null,
         additionalAmr: ['otp'],
+    });
+
+    recordAuthSecurityEvent({
+        event: 'login_session',
+        outcome: 'success',
+        reason: 'none',
+        surface: 'auth',
+        req,
+        meta: { factor: 'phone' },
     });
 
     res.json(buildSessionPayload({
@@ -737,6 +793,15 @@ const generateBackupRecoveryCodes = asyncHandler(async (req, res) => {
     await invalidateUserCache(req.authUid || '');
     await invalidateUserCacheByEmail(req.user?.email || '');
 
+    recordAuthSecurityEvent({
+        event: 'recovery_code',
+        outcome: 'issued',
+        reason: 'none',
+        surface: 'recovery',
+        req,
+        meta: { activeCount: result.recoveryCodeState?.activeCount || 0 },
+    });
+
     res.status(201).json({
         success: true,
         message: 'Backup recovery codes generated. Store them somewhere safe; they will not be shown again.',
@@ -765,6 +830,14 @@ const verifyBackupRecoveryCode = asyncHandler(async (req, res) => {
         });
     } catch (error) {
         await waitForRecoveryCodeVerificationWindow(responseStartedAt);
+        recordAuthSecurityEvent({
+            event: 'recovery_code',
+            outcome: 'failure',
+            reason: error?.message || 'invalid',
+            surface: 'recovery',
+            req,
+            meta: { statusCode: error?.statusCode || 401 },
+        });
         throw error;
     }
 
@@ -792,6 +865,15 @@ const verifyBackupRecoveryCode = asyncHandler(async (req, res) => {
     });
 
     await invalidateUserCacheByEmail(user.email || email);
+
+    recordAuthSecurityEvent({
+        event: 'recovery_code',
+        outcome: 'success',
+        reason: 'none',
+        surface: 'recovery',
+        req,
+        meta: { activeCount: recoveryCodeState?.activeCount || 0 },
+    });
 
     res.json({
         success: true,
@@ -835,6 +917,14 @@ const verifyDeviceChallenge = asyncHandler(async (req, res) => {
     });
 
     if (!verification.success) {
+        recordAuthSecurityEvent({
+            event: 'trusted_device_verify',
+            outcome: 'failure',
+            reason: verification.reason || 'invalid',
+            surface: 'trusted_device',
+            req,
+            meta: { statusCode: 403 },
+        });
         throw new AppError(`Trusted device verification failed: ${verification.reason}`, 403);
     }
 
@@ -859,6 +949,15 @@ const verifyDeviceChallenge = asyncHandler(async (req, res) => {
         user: req.user,
         status: 'authenticated',
         deviceChallenge: null,
+    });
+
+    recordAuthSecurityEvent({
+        event: 'trusted_device_verify',
+        outcome: 'success',
+        reason: 'none',
+        surface: 'trusted_device',
+        req,
+        meta: { mode: verification.mode || '', method: verification.method || '' },
     });
 
     res.json({

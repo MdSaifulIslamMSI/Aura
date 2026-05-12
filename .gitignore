@@ -58,6 +58,8 @@ app/ios/App/App/public/
 app/ios/App/App/capacitor.config.json
 *.jks
 *.keystore
+app/android/ci/*.base64
+!app/android/ci/aura-public-internal-update-keystore.base64
 *.mobileprovision
 *.p12
 

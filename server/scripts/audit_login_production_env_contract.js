@@ -316,12 +316,13 @@ if (/http-equiv=["']Content-Security-Policy["'][\s\S]*frame-ancestors/i.test(app
     addFailure('app/index.html must not put frame-ancestors in a meta CSP; browsers ignore it there. Use deployment headers instead.');
 }
 requireIncludes(vercelRoutingContract, 'FRONTEND_SECURITY_HEADERS', 'Vercel routing contract must define shared frontend security headers.');
-requireRegex(vercelRoutingContract, /HOSTED_BACKEND_ORIGIN\s*=\s*['"]https:\/\//, 'Hosted backend origin must be HTTPS.');
-if (/HOSTED_BACKEND_ORIGIN\s*=\s*['"]http:\/\//.test(vercelRoutingContract)) {
-    addFailure('Hosted backend origin must not be plain HTTP.');
+requireIncludes(vercelRoutingContract, 'assertDeployableHostedBackendOrigin', 'Hosted backend routing must reject non-deployable production origins.');
+requireRegex(vercelRoutingContract, /DEFAULT_HOSTED_BACKEND_ORIGIN\s*=\s*['"]https:\/\//, 'Committed backend placeholder must be HTTPS.');
+if (/DEFAULT_HOSTED_BACKEND_ORIGIN\s*=\s*['"]http:\/\//.test(vercelRoutingContract)) {
+    addFailure('Committed backend placeholder must not be plain HTTP.');
 }
-if (/http:\/\/3\.109\.181\.238:5000/.test(`${vercelRoutingContract}\n${netlifyConfig}\n${rootVercelConfig}\n${appVercelConfig}`)) {
-    addFailure('Frontend routing configs must not point production traffic at the legacy plain-HTTP backend origin.');
+if (/(http:\/\/3\.109\.181\.238:5000|13\.206\.172\.186\.sslip\.io)/.test(`${netlifyConfig}\n${rootVercelConfig}\n${appVercelConfig}`)) {
+    addFailure('Frontend routing configs must not point production traffic at legacy single-host backend origins.');
 }
 
 if (baseEnv.get('AUTH_DEVICE_CHALLENGE_ALLOW_VAULT_FALLBACK') !== 'true') {

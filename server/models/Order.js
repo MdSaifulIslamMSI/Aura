@@ -123,6 +123,10 @@ const orderSchema = mongoose.Schema({
             message: { type: String, default: '' },
             refundId: { type: String, default: '' },
             adminNote: { type: String, default: '' },
+            fraudDecisionId: { type: String, default: '', index: true },
+            riskDecision: { type: String, default: 'allow' },
+            riskScore: { type: Number, default: 0 },
+            riskFactors: { type: [String], default: [] },
             status: {
                 type: String,
                 enum: ['pending', 'approved', 'rejected', 'processed'],

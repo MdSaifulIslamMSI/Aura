@@ -13,6 +13,8 @@ const loadAuthContext = async () => {
     signOutMock: vi.fn().mockResolvedValue(undefined),
     onAuthStateChangedMock: vi.fn(),
     getRedirectResultMock: vi.fn().mockResolvedValue(null),
+    linkWithPopupMock: vi.fn(),
+    linkWithRedirectMock: vi.fn().mockResolvedValue(undefined),
     signInWithRedirectMock: vi.fn().mockResolvedValue(undefined),
     signInWithPopupMock: vi.fn(),
     shouldUseNativeSocialAuthMock: vi.fn().mockReturnValue(false),
@@ -43,6 +45,8 @@ const loadAuthContext = async () => {
   vi.doMock('firebase/auth', () => ({
     createUserWithEmailAndPassword: vi.fn(),
     getRedirectResult: mocks.getRedirectResultMock,
+    linkWithPopup: mocks.linkWithPopupMock,
+    linkWithRedirect: mocks.linkWithRedirectMock,
     signInWithEmailAndPassword: vi.fn(),
     signInWithCredential: vi.fn(),
     signInWithRedirect: mocks.signInWithRedirectMock,
@@ -56,6 +60,8 @@ const loadAuthContext = async () => {
     auth: {},
     googleProvider: {},
     facebookProvider: {},
+    microsoftProvider: { providerId: 'microsoft.com' },
+    appleProvider: null,
     xProvider: {},
     assertFirebaseReady: vi.fn(),
     assertFirebaseSocialAuthReady: vi.fn(),
@@ -641,6 +647,54 @@ describe('AuthProvider', () => {
 
     expect(mocks.signInWithPopupMock).toHaveBeenCalled();
     expect(mocks.signInWithRedirectMock).not.toHaveBeenCalled();
+  });
+
+  it('links Microsoft to the currently signed-in account with popup OAuth', async () => {
+    mocks.onAuthStateChangedMock.mockImplementation((_auth, callback) => {
+      callback({
+        ...mocks.mockUser,
+        providerData: [{ providerId: 'password' }],
+      });
+      return () => {};
+    });
+    mocks.linkWithPopupMock.mockResolvedValue({
+      user: {
+        ...mocks.mockUser,
+        providerData: [{ providerId: 'password' }, { providerId: 'microsoft.com' }],
+      },
+    });
+
+    const Probe = () => {
+      const { currentUser, linkMicrosoftProvider } = useAuth();
+      const [result, setResult] = React.useState('idle');
+      const startedRef = React.useRef(false);
+
+      React.useEffect(() => {
+        if (!currentUser?.uid || startedRef.current) return;
+        startedRef.current = true;
+        linkMicrosoftProvider()
+          .then(() => setResult('linked'))
+          .catch((error) => setResult(error.message));
+      }, [currentUser?.uid, linkMicrosoftProvider]);
+
+      return <div data-testid="provider-link-result">{result}</div>;
+    };
+
+    render(
+      <AuthProvider>
+        <Probe />
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('provider-link-result')).toHaveTextContent('linked');
+    });
+
+    expect(mocks.linkWithPopupMock).toHaveBeenCalledWith(
+      expect.objectContaining({ uid: 'firebase-user-1' }),
+      expect.objectContaining({ providerId: 'microsoft.com' }),
+    );
+    expect(mocks.authApiMock.getSession).toHaveBeenCalled();
   });
 
   it('uses native Capacitor social auth on mobile instead of popup or redirect OAuth', async () => {

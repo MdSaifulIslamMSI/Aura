@@ -2,6 +2,8 @@ import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import {
   createUserWithEmailAndPassword,
   getRedirectResult,
+  linkWithPopup,
+  linkWithRedirect,
   signInWithEmailAndPassword,
   signInWithCredential,
   signInWithRedirect,
@@ -14,6 +16,8 @@ import {
   auth,
   googleProvider,
   facebookProvider,
+  microsoftProvider,
+  appleProvider,
   xProvider,
   assertFirebaseReady,
   assertFirebaseSocialAuthReady,
@@ -64,6 +68,11 @@ const AUTH_SYNC_DEDUPE_MS = 5 * 1000;  // Reduced from 30s for faster security u
 const BOOTSTRAP_TIMEOUT_MS = 6000;
 const REDIRECT_AUTH_PENDING_KEY = 'aura-social-auth-redirect-pending';
 const REDIRECT_AUTH_PENDING_TTL_MS = 5 * 60 * 1000;
+
+const hasLinkedProvider = (firebaseUser, providerId) => (
+  Array.isArray(firebaseUser?.providerData)
+  && firebaseUser.providerData.some((entry) => entry?.providerId === providerId)
+);
 
 const readRedirectAuthPending = () => {
   if (typeof window === 'undefined') return false;
@@ -675,6 +684,12 @@ export const AuthProvider = ({ children }) => {
   const signInWithOAuthProvider = async (provider, providerLabel = 'OAuth', nativeProviderKey = '') => {
     try {
       assertFirebaseSocialAuthReady(`${providerLabel} sign-in`);
+      if (!provider) {
+        const error = new Error(`${providerLabel} sign-in is not enabled for this deployment.`);
+        error.code = 'auth/provider-disabled';
+        error.provider = providerLabel;
+        throw error;
+      }
       if (shouldUseNativeSocialAuth(nativeProviderKey)) {
         return completeControlledAuthFlow({
           execute: async () => signInWithNativeSocialProvider(nativeProviderKey, providerLabel),
@@ -709,9 +724,76 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const beginRedirectProviderLinkFlow = async (provider) => {
+    const activeUser = auth?.currentUser || currentUser;
+    if (!activeUser) {
+      throw new Error('Sign in before linking another provider.');
+    }
+
+    markRedirectAuthPending();
+
+    try {
+      await linkWithRedirect(activeUser, provider);
+      return { redirecting: true };
+    } catch (error) {
+      clearRedirectAuthPending();
+      throw error;
+    }
+  };
+
+  const linkOAuthProvider = async (provider, providerLabel = 'OAuth', providerId = '') => {
+    assertFirebaseReady(`${providerLabel} account linking`);
+    assertFirebaseSocialAuthReady(`${providerLabel} account linking`);
+
+    const activeUser = auth?.currentUser || currentUser;
+    if (!activeUser) {
+      throw new Error('Sign in before linking another provider.');
+    }
+    if (!provider) {
+      const error = new Error(`${providerLabel} account linking is not enabled for this deployment.`);
+      error.code = 'auth/provider-disabled';
+      error.provider = providerLabel;
+      throw error;
+    }
+    if (providerId && hasLinkedProvider(activeUser, providerId)) {
+      return { firebaseUser: activeUser, alreadyLinked: true };
+    }
+
+    try {
+      if (shouldPreferFirebaseRedirectAuth()) {
+        return beginRedirectProviderLinkFlow(provider);
+      }
+
+      const result = await linkWithPopup(activeUser, provider);
+      const linkedUser = result?.user || activeUser;
+      setCurrentUser(linkedUser);
+      await refreshSession(linkedUser, { force: true, silent: true });
+      clearFirebaseSocialAuthRuntimeBlock();
+      return { firebaseUser: linkedUser, alreadyLinked: false };
+    } catch (error) {
+      const errorCode = String(error?.code || '');
+      const canFallbackToRedirect = [
+        'auth/popup-blocked',
+        'auth/operation-not-supported-in-this-environment',
+        'auth/web-storage-unsupported',
+      ].includes(errorCode);
+
+      if (canFallbackToRedirect) {
+        return beginRedirectProviderLinkFlow(provider);
+      }
+
+      markFirebaseSocialAuthRejectedForRuntime(error);
+      throw error;
+    }
+  };
+
   const signInWithGoogle = async () => signInWithOAuthProvider(googleProvider, 'Google', 'google');
   const signInWithFacebook = async () => signInWithOAuthProvider(facebookProvider, 'Facebook', 'facebook');
+  const signInWithMicrosoft = async () => signInWithOAuthProvider(microsoftProvider, 'Microsoft', 'microsoft');
+  const signInWithApple = async () => signInWithOAuthProvider(appleProvider, 'Apple', 'apple');
   const signInWithX = async () => signInWithOAuthProvider(xProvider, 'X', 'x');
+  const linkMicrosoftProvider = async () => linkOAuthProvider(microsoftProvider, 'Microsoft', 'microsoft.com');
+  const linkAppleProvider = async () => linkOAuthProvider(appleProvider, 'Apple', 'apple.com');
 
   useEffect(() => {
     if (!isFirebaseReady || !auth || redirectResolutionRef.current) return undefined;
@@ -950,7 +1032,11 @@ export const AuthProvider = ({ children }) => {
     loginWithPhoneCredential,
     signInWithGoogle,
     signInWithFacebook,
+    signInWithMicrosoft,
+    signInWithApple,
     signInWithX,
+    linkMicrosoftProvider,
+    linkAppleProvider,
     logout,
     refreshSession,
     syncUserWithBackend,

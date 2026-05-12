@@ -3,7 +3,7 @@ const { PAYMENT_METHODS } = require('../services/payments/constants');
 
 const riskSnapshotSchema = new mongoose.Schema({
     score: { type: Number, default: 0 },
-    decision: { type: String, enum: ['allow', 'challenge', 'block'], default: 'allow' },
+    decision: { type: String, enum: ['allow', 'challenge', 'review', 'hold', 'block'], default: 'allow' },
     factors: [{ type: String }],
     mode: { type: String, default: 'shadow' },
 }, { _id: false });

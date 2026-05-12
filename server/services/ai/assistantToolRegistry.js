@@ -21,6 +21,86 @@ const TOOL_REGISTRY = Object.freeze({
             },
         },
     },
+    get_product_details: {
+        name: 'get_product_details',
+        timeout_ms: 2200,
+        idempotent: true,
+        mutation: false,
+        requires_confirmation: false,
+        input_schema: {
+            required: ['productId'],
+            properties: {
+                productId: 'string',
+            },
+        },
+        output_schema: {
+            required: ['productId'],
+            properties: {
+                productId: 'string',
+                product: 'object',
+            },
+        },
+    },
+    check_inventory: {
+        name: 'check_inventory',
+        timeout_ms: 1800,
+        idempotent: true,
+        mutation: false,
+        requires_confirmation: false,
+        input_schema: {
+            required: ['productId'],
+            properties: {
+                productId: 'string',
+            },
+        },
+        output_schema: {
+            required: ['productId'],
+            properties: {
+                productId: 'string',
+                stock: 'number',
+            },
+        },
+    },
+    get_price: {
+        name: 'get_price',
+        timeout_ms: 1800,
+        idempotent: true,
+        mutation: false,
+        requires_confirmation: false,
+        input_schema: {
+            required: ['productId'],
+            properties: {
+                productId: 'string',
+            },
+        },
+        output_schema: {
+            required: ['productId'],
+            properties: {
+                productId: 'string',
+                price: 'number',
+            },
+        },
+    },
+    compare_products: {
+        name: 'compare_products',
+        timeout_ms: 2500,
+        idempotent: true,
+        mutation: false,
+        requires_confirmation: false,
+        input_schema: {
+            required: ['productIds'],
+            properties: {
+                productIds: 'array',
+                query: 'string',
+            },
+        },
+        output_schema: {
+            required: ['productIds'],
+            properties: {
+                productIds: 'array',
+            },
+        },
+    },
     select_product: {
         name: 'select_product',
         timeout_ms: 2000,
@@ -96,6 +176,25 @@ const TOOL_REGISTRY = Object.freeze({
             },
         },
     },
+    apply_coupon: {
+        name: 'apply_coupon',
+        timeout_ms: 2200,
+        idempotent: true,
+        mutation: false,
+        requires_confirmation: false,
+        input_schema: {
+            required: [],
+            properties: {
+                couponCode: 'string',
+            },
+        },
+        output_schema: {
+            required: [],
+            properties: {
+                couponCode: 'string',
+            },
+        },
+    },
     navigate_to: {
         name: 'navigate_to',
         timeout_ms: 1800,
@@ -135,6 +234,89 @@ const TOOL_REGISTRY = Object.freeze({
             required: [],
             properties: {
                 orderId: 'string',
+            },
+        },
+    },
+    cancel_order: {
+        name: 'cancel_order',
+        timeout_ms: 3500,
+        idempotent: false,
+        mutation: true,
+        requires_confirmation: true,
+        input_schema: {
+            required: [],
+            properties: {
+                orderId: 'string',
+                reason: 'string',
+            },
+        },
+        output_schema: {
+            required: [],
+            properties: {
+                orderId: 'string',
+            },
+        },
+    },
+    create_return_request: {
+        name: 'create_return_request',
+        timeout_ms: 3500,
+        idempotent: false,
+        mutation: true,
+        requires_confirmation: true,
+        input_schema: {
+            required: [],
+            properties: {
+                orderId: 'string',
+                requestType: 'string',
+                reason: 'string',
+                amount: 'number',
+            },
+        },
+        output_schema: {
+            required: [],
+            properties: {
+                orderId: 'string',
+                requestType: 'string',
+            },
+        },
+    },
+    get_payment_status: {
+        name: 'get_payment_status',
+        timeout_ms: 2200,
+        idempotent: true,
+        mutation: false,
+        requires_confirmation: false,
+        input_schema: {
+            required: [],
+            properties: {
+                orderId: 'string',
+            },
+        },
+        output_schema: {
+            required: [],
+            properties: {
+                orderId: 'string',
+                paymentState: 'string',
+            },
+        },
+    },
+    recommend_products: {
+        name: 'recommend_products',
+        timeout_ms: 3500,
+        idempotent: true,
+        mutation: false,
+        requires_confirmation: false,
+        input_schema: {
+            required: ['query'],
+            properties: {
+                query: 'string',
+                filters: 'object',
+            },
+        },
+        output_schema: {
+            required: ['products'],
+            properties: {
+                products: 'array',
             },
         },
     },

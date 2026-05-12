@@ -823,7 +823,7 @@ describe('trustedDeviceChallengeService', () => {
             deviceLabel: 'Hosted laptop',
             req: {
                 headers: {
-                    host: '13.206.172.186.sslip.io',
+                    host: 'api.example.com',
                     'x-forwarded-proto': 'https',
                     'x-aura-client-origin': 'https://aurapilot.vercel.app',
                 },

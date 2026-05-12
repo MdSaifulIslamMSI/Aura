@@ -11,9 +11,9 @@ This repo includes an Electron wrapper that turns the frontend into downloadable
 - Publishes release artifacts through GitHub Releases
 - Checks the latest release channel for automatic desktop app updates
 
-The packaged app uses the current hosted backend by default:
+The packaged app uses the configured hosted backend origin:
 
-- `https://13.206.172.186.sslip.io`
+- `AURA_DESKTOP_BACKEND_ORIGIN`
 
 Override that target at launch or build time with:
 
@@ -106,7 +106,7 @@ The gateway buttons start with a safe fallback to the GitHub releases page, then
 
 The free release path publishes unsigned Windows builds and does not require paid signing. For a production experience like major desktop apps, release artifacts need platform trust:
 
-- Windows: add either an Authenticode PFX certificate through `WINDOWS_CODE_SIGNING_CERTIFICATE_BASE64` and `WINDOWS_CODE_SIGNING_CERTIFICATE_PASSWORD`, or Microsoft Trusted Signing secrets through the Azure signing variables documented in `docs/ci-cd.md`. CI requires one complete signing path for production desktop releases, signs Windows `.exe` files, and verifies Authenticode signatures before upload.
+- Windows: add either an Authenticode PFX certificate through `WINDOWS_CODE_SIGNING_CERTIFICATE_BASE64` and `WINDOWS_CODE_SIGNING_CERTIFICATE_PASSWORD`, or Microsoft Trusted Signing secrets through the Azure signing variables documented in `docs/ci-cd.md`. CI signs and verifies Windows `.exe` files only when `require_windows_signing=true` or a complete signing path is intentionally configured for the run.
 - macOS: add Apple Developer ID signing and notarization credentials.
 - Linux: publish checksums and optionally sign release checksums with GPG.
 
