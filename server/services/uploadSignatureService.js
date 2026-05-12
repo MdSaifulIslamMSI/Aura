@@ -56,11 +56,12 @@ const createUploadToken = ({
 };
 
 const verifyUploadToken = (token) => {
-    const [encodedPayload, signature] = String(token || '').split('.');
-    if (!encodedPayload || !signature) {
+    const parts = String(token || '').split('.');
+    if (parts.length !== 2 || !parts[0] || !parts[1]) {
         throw new Error('Invalid upload token format');
     }
 
+    const [encodedPayload, signature] = parts;
     const payloadJson = base64UrlDecode(encodedPayload);
     const expectedSignature = signPayload(payloadJson);
 

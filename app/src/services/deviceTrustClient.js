@@ -104,6 +104,52 @@ const readStorage = (kind = 'localStorage') => {
   }
 };
 
+const parseExpiryMillis = (value = '') => {
+  if (!value) return 0;
+  const parsed = new Date(value).getTime();
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const buildTrustedDeviceSessionStorageValue = (token = '', expiresAt = '') => {
+  const safeToken = String(token || '').trim();
+  if (!safeToken) return '';
+
+  const expiresAtMs = parseExpiryMillis(expiresAt);
+  if (!expiresAtMs) return safeToken;
+
+  return JSON.stringify({
+    token: safeToken,
+    expiresAt: new Date(expiresAtMs).toISOString(),
+  });
+};
+
+const readTrustedDeviceSessionRecord = (storage) => {
+  const rawValue = storage?.getItem(DEVICE_SESSION_STORAGE_KEY) || '';
+  if (!rawValue) {
+    return { token: '', rawValue: '', expired: false };
+  }
+
+  try {
+    const parsed = JSON.parse(rawValue);
+    if (parsed && typeof parsed === 'object') {
+      const token = String(parsed.token || '').trim();
+      const expiresAtMs = parseExpiryMillis(parsed.expiresAt);
+      if (expiresAtMs && expiresAtMs <= Date.now()) {
+        return { token: '', rawValue, expired: true };
+      }
+      return { token, rawValue, expired: false };
+    }
+  } catch {
+    // Legacy session tokens were stored as raw strings.
+  }
+
+  return { token: rawValue, rawValue, expired: false };
+};
+
+const clearTrustedDeviceSessionStorage = (storage) => {
+  storage?.removeItem(DEVICE_SESSION_STORAGE_KEY);
+};
+
 const toBase64 = (input) => {
   const bytes = input instanceof Uint8Array ? input : new Uint8Array(input);
   let binary = '';
@@ -233,28 +279,47 @@ export const getTrustedDeviceLabel = () => {
 export const getTrustedDeviceSessionToken = () => {
   const tabStorage = readStorage('sessionStorage');
   const sharedStorage = shouldPersistTrustedDeviceSession() ? readStorage('localStorage') : null;
-  const tabToken = tabStorage?.getItem(DEVICE_SESSION_STORAGE_KEY) || '';
-  if (tabToken) {
-    if (sharedStorage && sharedStorage.getItem(DEVICE_SESSION_STORAGE_KEY) !== tabToken) {
-      sharedStorage.setItem(DEVICE_SESSION_STORAGE_KEY, tabToken);
+
+  const tabRecord = readTrustedDeviceSessionRecord(tabStorage);
+  if (tabRecord.expired) {
+    clearTrustedDeviceSessionStorage(tabStorage);
+    clearTrustedDeviceSessionStorage(sharedStorage);
+  } else if (tabRecord.token) {
+    if (sharedStorage && sharedStorage.getItem(DEVICE_SESSION_STORAGE_KEY) !== tabRecord.rawValue) {
+      sharedStorage.setItem(DEVICE_SESSION_STORAGE_KEY, tabRecord.rawValue);
     }
-    return tabToken;
+    return tabRecord.token;
   }
-  return sharedStorage?.getItem(DEVICE_SESSION_STORAGE_KEY) || '';
+
+  const sharedRecord = readTrustedDeviceSessionRecord(sharedStorage);
+  if (sharedRecord.expired) {
+    clearTrustedDeviceSessionStorage(sharedStorage);
+    return '';
+  }
+  if (sharedRecord.token && tabStorage) {
+    tabStorage.setItem(DEVICE_SESSION_STORAGE_KEY, sharedRecord.rawValue);
+  }
+  return sharedRecord.token;
 };
 
-export const cacheTrustedDeviceSessionToken = (token = '') => {
+export const cacheTrustedDeviceSessionToken = (token = '', expiresAt = '') => {
   const tabStorage = readStorage('sessionStorage');
   const sharedStorage = shouldPersistTrustedDeviceSession() ? readStorage('localStorage') : null;
 
   if (token) {
-    tabStorage?.setItem(DEVICE_SESSION_STORAGE_KEY, token);
-    sharedStorage?.setItem(DEVICE_SESSION_STORAGE_KEY, token);
+    const storageValue = buildTrustedDeviceSessionStorageValue(token, expiresAt);
+    if (!storageValue) {
+      clearTrustedDeviceSessionStorage(tabStorage);
+      clearTrustedDeviceSessionStorage(sharedStorage);
+      return;
+    }
+    tabStorage?.setItem(DEVICE_SESSION_STORAGE_KEY, storageValue);
+    sharedStorage?.setItem(DEVICE_SESSION_STORAGE_KEY, storageValue);
     return;
   }
 
-  tabStorage?.removeItem(DEVICE_SESSION_STORAGE_KEY);
-  sharedStorage?.removeItem(DEVICE_SESSION_STORAGE_KEY);
+  clearTrustedDeviceSessionStorage(tabStorage);
+  clearTrustedDeviceSessionStorage(sharedStorage);
 };
 
 export const clearTrustedDeviceSessionToken = () => {

@@ -525,6 +525,36 @@ describe('deviceTrustClient', () => {
     expect(deviceTrustClient.getTrustedDeviceSessionToken()).toBe('shared-device-token');
   });
 
+  it('honors server expiry metadata for trusted-device session tokens', async () => {
+    const deviceTrustClient = await loadDeviceTrustModule();
+    const expiresAt = new Date(Date.now() + 60_000).toISOString();
+
+    deviceTrustClient.cacheTrustedDeviceSessionToken('expiring-device-token', expiresAt);
+
+    const stored = JSON.parse(sessionStorage.getItem('aura_trusted_device_session_v1'));
+    expect(stored).toEqual({
+      token: 'expiring-device-token',
+      expiresAt,
+    });
+    expect(deviceTrustClient.getTrustedDeviceSessionToken()).toBe('expiring-device-token');
+  });
+
+  it('clears expired trusted-device session tokens before adding headers', async () => {
+    process.env.VITE_PERSIST_TRUSTED_DEVICE_SESSION = 'true';
+    const expiredValue = JSON.stringify({
+      token: 'expired-device-token',
+      expiresAt: new Date(Date.now() - 60_000).toISOString(),
+    });
+    sessionStorage.setItem('aura_trusted_device_session_v1', expiredValue);
+    localStorage.setItem('aura_trusted_device_session_v1', expiredValue);
+    const deviceTrustClient = await loadDeviceTrustModule();
+
+    expect(deviceTrustClient.getTrustedDeviceSessionToken()).toBe('');
+    expect(sessionStorage.getItem('aura_trusted_device_session_v1')).toBeNull();
+    expect(localStorage.getItem('aura_trusted_device_session_v1')).toBeNull();
+    expect(deviceTrustClient.getTrustedDeviceHeaders()).not.toHaveProperty('X-Aura-Device-Session');
+  });
+
   it('reads an existing tab-scoped trusted-device token without persisting it', async () => {
     sessionStorage.setItem('aura_trusted_device_session_v1', 'legacy-tab-token');
     const deviceTrustClient = await loadDeviceTrustModule();

@@ -72,6 +72,26 @@ describe('uploadSignatureService', () => {
         expect(payload.maxBytes).toBe(1024);
     });
 
+    test('rejects upload tokens with extra segments', () => {
+        process.env.NODE_ENV = 'test';
+        process.env.UPLOAD_SIGNING_SECRET = 'test-upload-signing-secret';
+
+        const {
+            createUploadToken,
+            verifyUploadToken,
+        } = require('../services/uploadSignatureService');
+
+        const { token } = createUploadToken({
+            userId: 'u123',
+            purpose: 'review-media',
+            fileName: 'demo.jpg',
+            mimeType: 'image/jpeg',
+            maxBytes: 1024,
+        });
+
+        expect(() => verifyUploadToken(`${token}.extra`)).toThrow('Invalid upload token format');
+    });
+
     test.each(['development', 'staging', 'production'])(
         'throws when UPLOAD_SIGNING_SECRET is missing in %s',
         (nodeEnv) => {
