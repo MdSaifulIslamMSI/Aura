@@ -42,6 +42,12 @@ export const normalizePhone = (value) => (
     typeof value === 'string' ? value.trim().replace(/[\s\-()]/g, '') : ''
 );
 
+const parseTimeMillis = (value) => {
+    if (!value) return 0;
+    const parsed = new Date(value).getTime();
+    return Number.isFinite(parsed) ? parsed : 0;
+};
+
 export const normalizeSessionStatus = (value) => {
     const normalized = normalizeText(value);
     if (normalized === LEGACY_SESSION_STATUS.LATTICE_CHALLENGE) {
@@ -86,9 +92,16 @@ export const buildFirebaseSessionFallback = (firebaseUser = null) => {
 export const buildSessionIntelligenceFallback = (session = null, profile = null, roles = EMPTY_ROLES) => {
     const providerIds = Array.isArray(session?.providerIds) ? session.providerIds : [];
     const assuranceLevel = roles?.isVerified ? 'password' : 'none';
-    const authAgeSeconds = session?.authTime
-        ? Math.max(Math.floor((Date.now() - new Date(session.authTime).getTime()) / 1000), 0)
+    const authTimeMs = parseTimeMillis(session?.authTime);
+    const stepUpUntilMs = parseTimeMillis(session?.stepUpUntil);
+    const stepUpActive = stepUpUntilMs > Date.now();
+    const authAgeSeconds = authTimeMs > 0
+        ? Math.max(Math.floor((Date.now() - authTimeMs) / 1000), 0)
         : null;
+    const freshForSensitiveActions = Boolean(
+        stepUpActive
+        || (authAgeSeconds !== null && authAgeSeconds <= (15 * 60))
+    );
     const recoveryCodesActiveCount = Number(profile?.recoveryCodeState?.activeCount || 0);
     const hasPasskey = Boolean(profile?.passkeyState?.hasCredentials);
 
@@ -131,15 +144,15 @@ export const buildSessionIntelligenceFallback = (session = null, profile = null,
                 riskState: normalizeText(session?.riskState) || 'standard',
                 aal: normalizeText(session?.aal) || 'aal1',
                 authAgeSeconds,
-                freshForSensitiveActions: authAgeSeconds !== null && authAgeSeconds <= (15 * 60),
-                stepUpActive: Boolean(session?.stepUpUntil),
+                freshForSensitiveActions,
+                stepUpActive,
                 stepUpUntil: session?.stepUpUntil || null,
             },
             policy: {
                 privilegedAccount: Boolean(roles?.isAdmin || roles?.isSeller),
                 elevatedAssurance: assuranceLevel === 'password+otp' || normalizeText(session?.aal) === 'aal2',
                 sensitiveActionsAllowed: Boolean(
-                    (authAgeSeconds !== null && authAgeSeconds <= (15 * 60))
+                    freshForSensitiveActions
                     && ['browser_key', 'webauthn'].includes(normalizeText(session?.deviceMethod))
                     && (!(roles?.isAdmin || roles?.isSeller) || assuranceLevel === 'password+otp' || normalizeText(session?.aal) === 'aal2')
                 ),

@@ -975,7 +975,7 @@ export const AuthProvider = ({ children }) => {
       firebaseUser: currentUser,
     });
     if (response?.deviceSessionToken) {
-      cacheTrustedDeviceSessionToken(response.deviceSessionToken);
+      cacheTrustedDeviceSessionToken(response.deviceSessionToken, response.expiresAt);
     }
     if (response.success) {
       if (currentUser && response?.session && response?.profile && response?.roles) {

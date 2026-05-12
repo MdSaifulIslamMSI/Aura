@@ -84,6 +84,42 @@ describe('internal AI auth middleware', () => {
         expect(error.statusCode).toBe(401);
     });
 
+    test('rejects signed tokens with extra JWT segments', () => {
+        process.env.AI_INTERNAL_AUTH_ACTIVE_KID = 'ai-2026-04';
+        process.env.AI_INTERNAL_AUTH_SECRET = 'internal-ai-secret-current-0123456789abcdefghijklmnopqrstuvwxyz';
+        process.env.AI_INTERNAL_AUTH_ISSUER = 'aura-internal-ai';
+        process.env.AI_INTERNAL_AUTH_AUDIENCE = 'aura-api';
+        process.env.AI_INTERNAL_AUTH_ALLOW_LEGACY_SECRET = 'false';
+
+        const {
+            issueInternalAiServiceToken,
+        } = require('../services/internalAiTokenService');
+        const { requireInternalAiAuth } = require('../middleware/internalAiAuth');
+
+        const { token } = issueInternalAiServiceToken({
+            subject: 'assistant-worker',
+            audience: 'aura-api',
+        });
+
+        const req = {
+            headers: {
+                authorization: `Bearer ${token}.extra`,
+                'user-agent': 'assistant-worker/1.0',
+            },
+            originalUrl: '/api/internal/ai/assistant-turn',
+            requestId: 'req_signed_extra_segment',
+        };
+        const next = jest.fn();
+
+        requireInternalAiAuth(req, {}, next);
+
+        expect(next).toHaveBeenCalledTimes(1);
+        const error = next.mock.calls[0][0];
+        expect(error).toBeTruthy();
+        expect(error.statusCode).toBe(401);
+        expect(req.internalAi).toBeUndefined();
+    });
+
     test('allows legacy bearer secret only when migration fallback is enabled', () => {
         process.env.AI_INTERNAL_TOOL_SECRET = 'legacy-internal-ai-secret';
         process.env.AI_INTERNAL_AUTH_ALLOW_LEGACY_SECRET = 'true';
