@@ -96,7 +96,23 @@ jobs:
       - name: Resolve hosted backend origin
         working-directory: .
         id: backend
-        run: echo "origin=$(node ./app/scripts/print_hosted_backend_origin.mjs)" >> "$GITHUB_OUTPUT"
+        run: |
+          set -euo pipefail
+          ERROR_LOG="${RUNNER_TEMP}/hosted-backend-origin.err"
+          if ORIGIN="$(node ./app/scripts/print_hosted_backend_origin.mjs 2>"${ERROR_LOG}")"; then
+            echo "origin=${ORIGIN}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ "${{ github.event_name }}" = "pull_request" ] || [ "${{ inputs.target }}" = "preview" ]; then
+            echo "::warning::Hosted backend origin is not configured. The shared preview build will use same-origin /api, and the Vercel prebuilt proxy artifact will be skipped."
+            cat "${ERROR_LOG}" >&2 || true
+            echo "origin=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          cat "${ERROR_LOG}" >&2 || true
+          exit 1
 
       - name: Capture shared release timestamp
         id: release
@@ -122,6 +138,7 @@ jobs:
 
   package-vercel-prebuilt:
     needs: build-frontend
+    if: needs.build-frontend.outputs.backend_origin != ''
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -383,8 +400,10 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   deploy-vercel-preview:
-    needs: package-vercel-prebuilt
-    if: github.event_name == 'pull_request' || inputs.target == 'preview'
+    needs:
+      - build-frontend
+      - package-vercel-prebuilt
+    if: needs.build-frontend.outputs.backend_origin != '' && (github.event_name == 'pull_request' || inputs.target == 'preview')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     outputs:
@@ -489,9 +508,10 @@ jobs:
 
   deploy-vercel-production:
     needs:
+      - build-frontend
       - package-vercel-prebuilt
       - validate-aws-production-access
-    if: inputs.target == 'production'
+    if: needs.build-frontend.outputs.backend_origin != '' && inputs.target == 'production'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment:
@@ -660,7 +680,7 @@ jobs:
       - build-frontend
       - deploy-preview
       - deploy-vercel-preview
-    if: github.event_name == 'pull_request' || inputs.target == 'preview'
+    if: needs.build-frontend.outputs.backend_origin != '' && (github.event_name == 'pull_request' || inputs.target == 'preview')
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
