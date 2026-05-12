@@ -61,7 +61,10 @@ jobs:
           cache-dependency-path: server/package-lock.json
 
       - name: Resolve hosted backend origin
-        run: echo "AWS_BACKEND_BASE_URL=$(node ./app/scripts/print_hosted_backend_origin.mjs)" >> "$GITHUB_ENV"
+        run: |
+          set -euo pipefail
+          AWS_BACKEND_BASE_URL="$(node ./app/scripts/print_hosted_backend_origin.mjs)"
+          echo "AWS_BACKEND_BASE_URL=${AWS_BACKEND_BASE_URL}" >> "$GITHUB_ENV"
 
       - name: Install backend dependencies
         run: npm --prefix server ci
@@ -125,7 +128,10 @@ jobs:
           node-version: 24.x
 
       - name: Resolve hosted backend origin
-        run: echo "AWS_BACKEND_BASE_URL=$(node ./app/scripts/print_hosted_backend_origin.mjs)" >> "$GITHUB_ENV"
+        run: |
+          set -euo pipefail
+          AWS_BACKEND_BASE_URL="$(node ./app/scripts/print_hosted_backend_origin.mjs)"
+          echo "AWS_BACKEND_BASE_URL=${AWS_BACKEND_BASE_URL}" >> "$GITHUB_ENV"
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4

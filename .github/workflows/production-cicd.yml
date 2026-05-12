@@ -158,13 +158,85 @@ jobs:
     name: Quality gates
     uses: ./.github/workflows/ci.yml
 
+  production-deploy-config:
+    name: Detect production deploy configuration
+    runs-on: ubuntu-latest
+    outputs:
+      backend_ready: ${{ steps.detect.outputs.backend_ready }}
+      frontend_ready: ${{ steps.detect.outputs.frontend_ready }}
+      gateway_ready: ${{ steps.detect.outputs.gateway_ready }}
+    steps:
+      - name: Check deploy credentials and hosted origins
+        id: detect
+        env:
+          AWS_DEPLOY_ROLE_ARN: ${{ vars.AWS_DEPLOY_ROLE_ARN || secrets.AWS_DEPLOY_ROLE_ARN || '' }}
+          AWS_DEPLOY_BUCKET: ${{ vars.AWS_DEPLOY_BUCKET || '' }}
+          AWS_INSTANCE_TAG_VALUE: ${{ vars.AWS_INSTANCE_TAG_VALUE || '' }}
+          AWS_PARAMETER_STORE_PATH_PREFIX: ${{ vars.AWS_PARAMETER_STORE_PATH_PREFIX || '' }}
+          AURA_BACKEND_ORIGIN: ${{ vars.AURA_BACKEND_ORIGIN || vars.AWS_BACKEND_BASE_URL || '' }}
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN || '' }}
+          NETLIFY_SITE_ID: ${{ vars.NETLIFY_SITE_ID || secrets.NETLIFY_SITE_ID || '' }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN || '' }}
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID || secrets.VERCEL_ORG_ID || '' }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID || secrets.VERCEL_PROJECT_ID || '' }}
+          AWS_FRONTEND_BUCKET: ${{ vars.AWS_FRONTEND_BUCKET || '' }}
+          AWS_FRONTEND_DISTRIBUTION_ID: ${{ vars.AWS_FRONTEND_DISTRIBUTION_ID || '' }}
+          AWS_FRONTEND_PUBLIC_URL: ${{ vars.AWS_FRONTEND_PUBLIC_URL || '' }}
+          AWS_FRONTEND_DEPLOY_ROLE_ARN: ${{ vars.AWS_FRONTEND_DEPLOY_ROLE_ARN || secrets.AWS_FRONTEND_DEPLOY_ROLE_ARN || '' }}
+        run: |
+          set -euo pipefail
+
+          check_group() {
+            local group="$1"
+            shift
+            local ready="true"
+
+            for name in "$@"; do
+              local value
+              value="$(printenv "$name" || true)"
+              if [ -z "${value}" ]; then
+                echo "::warning::Missing ${name}; automatic ${group} production deploy will be skipped on push."
+                ready="false"
+              fi
+            done
+
+            echo "${group}_ready=${ready}" >> "$GITHUB_OUTPUT"
+            echo "${group} production deploy ready: ${ready}"
+          }
+
+          check_group backend \
+            AWS_DEPLOY_ROLE_ARN \
+            AWS_DEPLOY_BUCKET \
+            AWS_INSTANCE_TAG_VALUE \
+            AWS_PARAMETER_STORE_PATH_PREFIX \
+            AURA_BACKEND_ORIGIN
+
+          check_group frontend \
+            NETLIFY_AUTH_TOKEN \
+            NETLIFY_SITE_ID \
+            VERCEL_TOKEN \
+            VERCEL_ORG_ID \
+            VERCEL_PROJECT_ID \
+            AWS_FRONTEND_BUCKET \
+            AWS_FRONTEND_DISTRIBUTION_ID \
+            AWS_FRONTEND_PUBLIC_URL \
+            AWS_FRONTEND_DEPLOY_ROLE_ARN \
+            AURA_BACKEND_ORIGIN
+
+          check_group gateway VERCEL_TOKEN
+
   deploy-backend:
     name: Deploy backend to AWS
     needs:
       - changes
       - ci
+      - production-deploy-config
     if: |
-      (github.event_name == 'push' && needs.changes.outputs.backend == 'true') ||
+      (
+        github.event_name == 'push' &&
+        needs.changes.outputs.backend == 'true' &&
+        needs.production-deploy-config.outputs.backend_ready == 'true'
+      ) ||
       (github.event_name == 'workflow_dispatch' && inputs.deploy_backend == true)
     uses: ./.github/workflows/deploy-backend-aws.yml
     with:
@@ -177,8 +249,13 @@ jobs:
     needs:
       - changes
       - ci
+      - production-deploy-config
     if: |
-      (github.event_name == 'push' && needs.changes.outputs.frontend == 'true') ||
+      (
+        github.event_name == 'push' &&
+        needs.changes.outputs.frontend == 'true' &&
+        needs.production-deploy-config.outputs.frontend_ready == 'true'
+      ) ||
       (github.event_name == 'workflow_dispatch' && inputs.deploy_frontend == true)
     uses: ./.github/workflows/deploy-netlify.yml
     with:
@@ -190,8 +267,13 @@ jobs:
     needs:
       - changes
       - ci
+      - production-deploy-config
     if: |
-      (github.event_name == 'push' && needs.changes.outputs.gateway == 'true') ||
+      (
+        github.event_name == 'push' &&
+        needs.changes.outputs.gateway == 'true' &&
+        needs.production-deploy-config.outputs.gateway_ready == 'true'
+      ) ||
       (github.event_name == 'workflow_dispatch' && inputs.deploy_gateway == true)
     uses: ./.github/workflows/deploy-gateway-vercel.yml
     with:

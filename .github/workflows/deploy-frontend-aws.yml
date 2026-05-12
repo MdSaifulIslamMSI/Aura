@@ -53,7 +53,10 @@ jobs:
 
       - name: Resolve hosted backend origin
         id: backend
-        run: echo "origin=$(node ./app/scripts/print_hosted_backend_origin.mjs)" >> "$GITHUB_OUTPUT"
+        run: |
+          set -euo pipefail
+          ORIGIN="$(node ./app/scripts/print_hosted_backend_origin.mjs)"
+          echo "origin=${ORIGIN}" >> "$GITHUB_OUTPUT"
 
       - name: Install frontend dependencies
         working-directory: app
