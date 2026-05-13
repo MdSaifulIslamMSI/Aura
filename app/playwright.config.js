@@ -8,6 +8,7 @@ const previewBaseUrl = `http://localhost:${previewPort}`;
 const localApiBaseUrl = 'http://127.0.0.1:5000/api';
 const e2eCorsOrigins = 'http://localhost:4173,http://127.0.0.1:4173';
 const appDir = fileURLToPath(new URL('.', import.meta.url));
+const chromiumChannel = process.env.PLAYWRIGHT_CHROMIUM_CHANNEL || undefined;
 
 /**
  * playwright.config.js — E2E test configuration for the AURA frontend.
@@ -42,11 +43,11 @@ export default defineConfig({
         {
             name: 'chromium',
             testIgnore: /.*\.mobile\.spec\.js/,
-            use: { ...devices['Desktop Chrome'] },
+            use: { ...devices['Desktop Chrome'], channel: chromiumChannel },
         },
         {
             name: 'mobile-chrome',
-            use: { ...devices['Pixel 7'] },
+            use: { ...devices['Pixel 7'], channel: chromiumChannel },
         },
     ],
 
