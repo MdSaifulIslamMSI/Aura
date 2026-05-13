@@ -700,6 +700,45 @@ describe('AuthProvider', () => {
     expect(mocks.authApiMock.getSession).toHaveBeenCalled();
   });
 
+  it('short-circuits Microsoft linking when the provider is already attached', async () => {
+    mocks.onAuthStateChangedMock.mockImplementation((_auth, callback) => {
+      callback({
+        ...mocks.mockUser,
+        providerData: [{ providerId: 'password' }, { providerId: 'microsoft.com' }],
+      });
+      return () => {};
+    });
+
+    const Probe = () => {
+      const { currentUser, linkMicrosoftProvider } = useAuth();
+      const [result, setResult] = React.useState('idle');
+      const startedRef = React.useRef(false);
+
+      React.useEffect(() => {
+        if (!currentUser?.uid || startedRef.current) return;
+        startedRef.current = true;
+        linkMicrosoftProvider()
+          .then((value) => setResult(value?.alreadyLinked ? 'already-linked' : 'linked'))
+          .catch((error) => setResult(error.message));
+      }, [currentUser?.uid, linkMicrosoftProvider]);
+
+      return <div data-testid="provider-link-result">{result}</div>;
+    };
+
+    render(
+      <AuthProvider>
+        <Probe />
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('provider-link-result')).toHaveTextContent('already-linked');
+    });
+
+    expect(mocks.linkWithPopupMock).not.toHaveBeenCalled();
+    expect(mocks.linkWithRedirectMock).not.toHaveBeenCalled();
+  });
+
   it('uses native Capacitor social auth on mobile instead of popup or redirect OAuth', async () => {
     mocks.onAuthStateChangedMock.mockImplementation(() => () => {});
     mocks.shouldUseNativeSocialAuthMock.mockReturnValue(true);

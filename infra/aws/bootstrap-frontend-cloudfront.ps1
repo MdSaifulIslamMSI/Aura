@@ -291,8 +291,8 @@ if ($null -eq $distributionSummary) {
                             Quantity = 1
                             Items = @("TLSv1.2")
                         }
-                        OriginReadTimeout = 30
-                        OriginKeepaliveTimeout = 5
+                        OriginReadTimeout = 60
+                        OriginKeepaliveTimeout = 60
                     }
                     OriginShield = @{
                         Enabled = $false
@@ -404,8 +404,8 @@ $backendOriginConfig = @{
             Quantity = 1
             Items = @("TLSv1.2")
         }
-        OriginReadTimeout = 30
-        OriginKeepaliveTimeout = 5
+        OriginReadTimeout = 60
+        OriginKeepaliveTimeout = 60
     }
     OriginShield = @{
         Enabled = $false

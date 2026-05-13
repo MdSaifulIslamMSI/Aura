@@ -138,6 +138,31 @@ describe('AI Routes', () => {
         });
     });
 
+    test('POST /api/ai/chat returns a structured quick fallback when the assistant exceeds its guard', async () => {
+        process.env.AI_CHAT_TIMEOUT_MS = '5';
+        processAssistantTurn.mockImplementationOnce(() => new Promise(() => {}));
+
+        const res = await request(app)
+            .post('/api/ai/chat')
+            .send({
+                message: 'hello',
+                assistantMode: 'chat',
+                sessionId: 'timeout-session-1',
+            });
+
+        expect(res.statusCode).toBe(200);
+        expect(res.body.provider).toBe('timeout_fallback');
+        expect(res.body.answer).toContain('quick catalog mode');
+        expect(res.body.assistantTurn).toMatchObject({
+            decision: 'respond',
+            ui: { surface: 'plain_answer' },
+        });
+        expect(res.body.grounding).toMatchObject({
+            timeout: true,
+            reason: 'assistant_timeout',
+        });
+    });
+
     test('POST /api/ai/chat accepts backend-owned action requests without a message', async () => {
         const res = await request(app)
             .post('/api/ai/chat')
@@ -177,6 +202,29 @@ describe('AI Routes', () => {
         expect(streamAssistantTurn).toHaveBeenCalledWith(expect.objectContaining({
             message: 'hello',
         }));
+    });
+
+    test('POST /api/ai/chat/stream emits final fallback when the assistant stream times out', async () => {
+        process.env.AI_CHAT_TIMEOUT_MS = '5';
+        streamAssistantTurn.mockImplementationOnce(() => new Promise(() => {}));
+
+        const res = await request(app)
+            .post('/api/ai/chat/stream')
+            .send({
+                message: 'hello',
+                assistantMode: 'chat',
+                context: {
+                    clientSessionId: 'timeout-session-2',
+                    clientMessageId: 'timeout-message-2',
+                },
+            });
+
+        expect(res.statusCode).toBe(200);
+        expect(res.headers['content-type']).toContain('text/event-stream');
+        expect(res.text).toContain('event: message_meta');
+        expect(res.text).toContain('event: final_turn');
+        expect(res.text).toContain('"provider":"timeout_fallback"');
+        expect(res.text).toContain('"timeout":true');
     });
 
     test('POST /api/ai/voice/session returns voice session config', async () => {

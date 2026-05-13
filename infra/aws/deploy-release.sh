@@ -254,7 +254,9 @@ docker compose \
 
 api_ready=false
 for _ in $(seq 1 30); do
-  if curl --fail --silent --header "x-health-token: ${health_ready_token}" http://127.0.0.1:5000/health/ready > /dev/null; then
+  if curl --fail --silent --show-error --connect-timeout 5 --max-time 15 \
+    --header "x-health-token: ${health_ready_token}" \
+    http://127.0.0.1:5000/health/ready > /dev/null; then
     api_ready=true
     break
   fi
@@ -281,6 +283,8 @@ fi
 edge_ready=false
 for _ in $(seq 1 30); do
   if curl --fail --silent --show-error \
+    --connect-timeout 5 \
+    --max-time 15 \
     --resolve "${backend_public_host}:443:127.0.0.1" \
     "https://${backend_public_host}/health/live" > /dev/null; then
     edge_ready=true

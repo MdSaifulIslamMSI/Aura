@@ -74,7 +74,7 @@ const ProductCarousel = ({
       {products.map((product, index) => (
         <div key={getProductId(product)} className="relative h-full">
           {product.recommendationMeta?.reason ? (
-            <div className="pointer-events-none absolute left-3 top-3 z-30 max-w-[calc(100%-1.5rem)] rounded-full border border-neo-cyan/25 bg-zinc-950/82 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-neo-cyan shadow-lg">
+            <div className="pointer-events-none absolute left-3 right-3 top-3 z-30 rounded-full border border-neo-cyan/25 bg-zinc-950/80 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-neo-cyan shadow-lg">
               {product.recommendationMeta.reason}
             </div>
           ) : null}

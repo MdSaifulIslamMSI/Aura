@@ -3,6 +3,8 @@ const request = require('supertest');
 
 const originalEnv = { ...process.env };
 
+jest.setTimeout(15000);
+
 const buildApp = (router, mountPath) => {
     const app = express();
     app.use(express.json());
@@ -95,6 +97,37 @@ describe('production abuse gates', () => {
 
         expect(handlers.handleAiChat).not.toHaveBeenCalled();
         expect(handlers.handleAiChatStream).not.toHaveBeenCalled();
+        expect(handlers.createAiVoiceSession).not.toHaveBeenCalled();
+        expect(handlers.synthesizeAiVoiceReply).not.toHaveBeenCalled();
+    });
+
+    test('production can self-heal guest text assistant access without opening voice spend', async () => {
+        resetProductionGateModules();
+        process.env.AI_PUBLIC_CHAT_ACCESS_ENABLED = 'true';
+        process.env.AI_PUBLIC_VOICE_ACCESS_ENABLED = 'false';
+        const handlers = mockAiControllers();
+        const aiRoutes = require('../routes/aiRoutes');
+        const app = buildApp(aiRoutes, '/api/ai');
+
+        const chatRes = await request(app)
+            .post('/api/ai/chat')
+            .send({ message: 'hello' });
+        const streamRes = await request(app)
+            .post('/api/ai/chat/stream')
+            .send({ message: 'hello' });
+        const voiceSessionRes = await request(app)
+            .post('/api/ai/voice/session')
+            .send({ locale: 'en-IN' });
+        const voiceSpeakRes = await request(app)
+            .post('/api/ai/voice/speak')
+            .send({ text: 'hello' });
+
+        expect(chatRes.statusCode).toBe(200);
+        expect(streamRes.statusCode).toBe(200);
+        expect(voiceSessionRes.statusCode).toBe(401);
+        expect(voiceSpeakRes.statusCode).toBe(401);
+        expect(handlers.handleAiChat).toHaveBeenCalledTimes(1);
+        expect(handlers.handleAiChatStream).toHaveBeenCalledTimes(1);
         expect(handlers.createAiVoiceSession).not.toHaveBeenCalled();
         expect(handlers.synthesizeAiVoiceReply).not.toHaveBeenCalled();
     });
