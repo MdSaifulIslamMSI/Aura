@@ -50,6 +50,39 @@ const normalizeCategoryPathList = (value, primaryCategory = '') => {
     return ordered;
 };
 
+const normalizeToken = (value = '') => String(value || '')
+    .normalize('NFKC')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+
+const normalizeTagList = (value = [], source = {}) => {
+    const seen = new Set();
+    const output = [];
+    const push = (entry) => {
+        const token = normalizeToken(entry);
+        if (!token || token.length < 2 || seen.has(token)) return;
+        seen.add(token);
+        output.push(token);
+    };
+
+    (Array.isArray(value) ? value : []).forEach(push);
+    [
+        source.title,
+        source.displayTitle,
+        source.brand,
+        source.category,
+        source.subCategory,
+        ...(Array.isArray(source.categoryPaths) ? source.categoryPaths : []),
+        ...(Array.isArray(source.highlights) ? source.highlights : []),
+    ].forEach((entry) => {
+        normalizeToken(entry).split(/\s+/).forEach(push);
+    });
+
+    normalizeToken(source.description).split(/\s+/).slice(0, 20).forEach(push);
+    return output.slice(0, 40);
+};
+
 const productSchema = new mongoose.Schema({
     id: { type: Number, index: true },
     externalId: { type: String, trim: true },
@@ -58,6 +91,7 @@ const productSchema = new mongoose.Schema({
         enum: ['manual', 'batch', 'provider'],
         default: 'manual',
     },
+    isActive: { type: Boolean, default: true, index: true },
     catalogVersion: { type: String, default: 'legacy-v1' },
     isPublished: { type: Boolean, default: true },
     searchText: { type: String, default: '' },
@@ -140,6 +174,7 @@ const productSchema = new mongoose.Schema({
     category: { type: String, required: true },
     categoryPaths: [{ type: String, trim: true }],
     subCategory: { type: String },
+    tags: [{ type: String, trim: true, lowercase: true }],
     price: { type: Number, required: true },
     originalPrice: { type: Number },
     discountPercentage: { type: Number },
@@ -200,6 +235,19 @@ productSchema.pre('validate', function productUniqueKeyPreValidate() {
         this.displayTitle = this.title;
     }
     this.categoryPaths = normalizeCategoryPathList(this.categoryPaths, this.category);
+    if (
+        !Array.isArray(this.tags)
+        || this.tags.length === 0
+        || this.isModified('title')
+        || this.isModified('displayTitle')
+        || this.isModified('brand')
+        || this.isModified('category')
+        || this.isModified('subCategory')
+        || this.isModified('description')
+        || this.isModified('highlights')
+    ) {
+        this.tags = normalizeTagList(this.tags, this);
+    }
     if (this.isModified('image') || !this.imageKey) {
         this.image = canonicalizeProductImageUrl(this.image);
         this.imageKey = normalizeImageKey(this.image);
@@ -222,6 +270,24 @@ const hydrateUniqueKeysInUpdate = (update = {}) => {
     const nextCategory = typeof setBlock.category === 'string'
         ? setBlock.category
         : (typeof direct.category === 'string' ? direct.category : null);
+    const nextBrand = typeof setBlock.brand === 'string'
+        ? setBlock.brand
+        : (typeof direct.brand === 'string' ? direct.brand : null);
+    const nextDisplayTitle = typeof setBlock.displayTitle === 'string'
+        ? setBlock.displayTitle
+        : (typeof direct.displayTitle === 'string' ? direct.displayTitle : null);
+    const nextSubCategory = typeof setBlock.subCategory === 'string'
+        ? setBlock.subCategory
+        : (typeof direct.subCategory === 'string' ? direct.subCategory : null);
+    const nextDescription = typeof setBlock.description === 'string'
+        ? setBlock.description
+        : (typeof direct.description === 'string' ? direct.description : null);
+    const nextHighlights = Array.isArray(setBlock.highlights)
+        ? setBlock.highlights
+        : (Array.isArray(direct.highlights) ? direct.highlights : null);
+    const nextTags = Array.isArray(setBlock.tags)
+        ? setBlock.tags
+        : (Array.isArray(direct.tags) ? direct.tags : null);
     const nextCategoryPaths = Array.isArray(setBlock.categoryPaths)
         ? setBlock.categoryPaths
         : (Array.isArray(direct.categoryPaths) ? direct.categoryPaths : null);
@@ -234,6 +300,27 @@ const hydrateUniqueKeysInUpdate = (update = {}) => {
             nextCategoryPaths !== null ? nextCategoryPaths : setBlock.categoryPaths,
             nextCategory !== null ? nextCategory : setBlock.category
         );
+    }
+    if (
+        nextTags !== null
+        || nextTitle !== null
+        || nextDisplayTitle !== null
+        || nextBrand !== null
+        || nextCategory !== null
+        || nextSubCategory !== null
+        || nextDescription !== null
+        || nextHighlights !== null
+    ) {
+        setBlock.tags = normalizeTagList(nextTags || setBlock.tags || direct.tags || [], {
+            title: nextTitle !== null ? nextTitle : setBlock.title,
+            displayTitle: nextDisplayTitle !== null ? nextDisplayTitle : setBlock.displayTitle,
+            brand: nextBrand !== null ? nextBrand : setBlock.brand,
+            category: nextCategory !== null ? nextCategory : setBlock.category,
+            subCategory: nextSubCategory !== null ? nextSubCategory : setBlock.subCategory,
+            categoryPaths: nextCategoryPaths !== null ? nextCategoryPaths : setBlock.categoryPaths,
+            description: nextDescription !== null ? nextDescription : setBlock.description,
+            highlights: nextHighlights !== null ? nextHighlights : setBlock.highlights,
+        });
     }
     if (nextImages !== null) {
         const normalizedImages = normalizeImageList(nextImages);
@@ -334,6 +421,11 @@ productSchema.index(
 );
 productSchema.index({ category: 1 });
 productSchema.index({ categoryPaths: 1 });
+productSchema.index({ tags: 1 });
+productSchema.index({ price: 1 });
+productSchema.index({ rating: -1 });
+productSchema.index({ stock: 1 });
+productSchema.index({ createdAt: -1 });
 productSchema.index({ title: 1 });
 productSchema.index({ isPublished: 1, catalogVersion: 1, category: 1, price: 1 });
 productSchema.index({ isPublished: 1, catalogVersion: 1, brand: 1 });

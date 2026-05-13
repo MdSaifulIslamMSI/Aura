@@ -26,6 +26,8 @@ loadLocalEnvFiles();
 const connectDB = require('./config/db');
 const { getMongoDeploymentHealth } = require('./config/db');
 const productRoutes = require('./routes/productRoutes');
+const recommendationRoutes = require('./routes/recommendationRoutes');
+const recommendationEventRoutes = require('./routes/recommendationEventRoutes');
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
 const cartRoutes = require('./routes/cartRoutes');
@@ -379,6 +381,8 @@ if (process.env.NODE_ENV !== 'test') {
 
 // Routes
 app.use('/api/products', productRoutes);
+app.use('/api/recommendations', recommendationRoutes);
+app.use('/api/recommendation-events', recommendationEventRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/cart', cartRoutes);

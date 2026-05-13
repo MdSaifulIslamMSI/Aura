@@ -8,11 +8,22 @@ This repository contains:
 
 Core capabilities:
 - Firebase-authenticated user flows
+- AI Shopping Assistant + Hybrid Recommendation Engine
+- Conversational AI assistant for product search, Q&A, comparison, buying guidance, and policy/help answers
+- Hybrid recommendation engine with content-based filtering, popularity ranking, cart add-ons, frequently bought together, session-based personalization, and feedback-loop events
 - Checkout, orders, payment intents, capture/refunds
 - OTP verification with fail-closed email delivery
 - Durable order email queue with retry and admin APIs
 - Split-runtime backend support with Redis-backed workers and reconciliation
 - Market-aware browse FX with real-time provider support plus ECB fallback
+
+## AI Shopping Assistant + Hybrid Recommendation Engine
+Aura now runs two complementary AI layers:
+
+- The **AI E-commerce Assistant** handles conversational shopping help, product search, comparison, product Q&A, buying guidance, and policy answers.
+- The **Hybrid Recommendation Engine** powers Recommended for You, Similar Products, Trending Products, Frequently Bought Together, Complete Your Cart, Recently Viewed, and guest session recommendations.
+
+The assistant can use the recommendation APIs as a backend tool, so product suggestions are grounded in catalog data, user/session activity, product similarity, popularity, cart behavior, and purchase patterns. Architecture and API details live in [`docs/recommendation-system.md`](docs/recommendation-system.md).
 
 ## Live Links
 - General gateway: [https://aura-gateway.vercel.app](https://aura-gateway.vercel.app)

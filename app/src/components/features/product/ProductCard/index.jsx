@@ -20,7 +20,7 @@ import { getLocalizedCategoryLabel } from '@/config/catalogTaxonomy';
 import { FIGMA_COLOR_MODE_OPTIONS } from '@/config/figmaTokens';
 import { cn } from '@/lib/utils';
 import { getBaseAmount, getBaseCurrency, getOriginalBaseAmount } from '@/utils/pricing';
-import { productApi } from '@/services/api';
+import { productApi, trackRecommendationEvent } from '@/services/api';
 
 const FALLBACK_IMAGE = 'https://placehold.co/400x400/18181b/4ade80?text=Aura+Select';
 
@@ -212,6 +212,26 @@ const ProductCard = ({ product, variant = 'default', gridLayout = null, harmonyI
     });
   };
 
+  const trackRecommendationSelection = () => {
+    if (!productId || !product?.recommendationMeta?.source) return;
+    void trackRecommendationEvent({
+      eventType: 'recommendation_click',
+      productId,
+      category: product.category || '',
+      sourcePage: product.recommendationMeta.sourcePage || '',
+      recommendationSource: product.recommendationMeta.source || '',
+      metadata: {
+        reason: product.recommendationMeta.reason || '',
+        score: product.recommendationMeta.score || 0,
+      },
+    });
+  };
+
+  const handleCardSelection = () => {
+    trackSearchSelection();
+    trackRecommendationSelection();
+  };
+
   const stopCardNavigation = (event) => {
     event.preventDefault();
     event.stopPropagation();
@@ -219,12 +239,26 @@ const ProductCard = ({ product, variant = 'default', gridLayout = null, harmonyI
 
   const handleWishlistClick = (event) => {
     stopCardNavigation(event);
+    void trackRecommendationEvent({
+      eventType: inWishlist ? 'wishlist_remove' : 'wishlist_add',
+      productId,
+      category: product?.category || '',
+      sourcePage: product?.recommendationMeta?.sourcePage || '',
+      recommendationSource: product?.recommendationMeta?.source || '',
+    });
     toggleWishlist(product);
   };
 
   const handleAddToCart = (event) => {
     stopCardNavigation(event);
     if (isOutOfStock) return;
+    void trackRecommendationEvent({
+      eventType: 'add_to_cart',
+      productId,
+      category: product?.category || '',
+      sourcePage: product?.recommendationMeta?.sourcePage || '',
+      recommendationSource: product?.recommendationMeta?.source || '',
+    });
     addToCart(product, 1);
   };
 
@@ -364,7 +398,7 @@ const ProductCard = ({ product, variant = 'default', gridLayout = null, harmonyI
     return (
       <Link
         to={productPath}
-        onClick={trackSearchSelection}
+        onClick={handleCardSelection}
         onMouseEnter={prefetchProduct}
         onFocus={prefetchProduct}
         className={cn(
@@ -610,7 +644,7 @@ const ProductCard = ({ product, variant = 'default', gridLayout = null, harmonyI
   return (
     <Link
       to={productPath}
-      onClick={trackSearchSelection}
+      onClick={handleCardSelection}
       onMouseEnter={prefetchProduct}
       onFocus={prefetchProduct}
       className={cn(
