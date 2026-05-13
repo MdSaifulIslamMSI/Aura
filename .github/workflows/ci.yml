@@ -361,13 +361,16 @@ jobs:
         with:
           mongodb-version: "6.0"
 
-      - name: Install Playwright Chromium
-        run: npx playwright install chromium --with-deps
+      - name: Verify hosted Chrome for Playwright
+        run: |
+          google-chrome --version
+          npx playwright --version
 
       - name: Run E2E tests
         run: npm run test:e2e
         env:
           CI: "true"
+          PLAYWRIGHT_CHROMIUM_CHANNEL: chrome
           PAYMENTS_ENABLED: "false"
           PAYMENT_WEBHOOKS_ENABLED: "false"
           PAYMENT_PROVIDER: "disabled"
