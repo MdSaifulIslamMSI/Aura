@@ -6,7 +6,8 @@ import { WishlistContext } from '@/context/WishlistContext';
 import { AuthContext } from '@/context/AuthContext';
 import { useMarket } from '@/context/MarketContext';
 import { useCommerceStore } from '@/store/commerceStore';
-import { priceAlertApi, productApi, uploadApi } from '@/services/api';
+import { decorateRecommendedProduct, priceAlertApi, productApi, recommendationApi, trackRecommendationEvent, uploadApi } from '@/services/api';
+import { FrequentlyBoughtTogether, RecentlyViewedRecommendations } from '@/components/recommendations';
 import { pushClientDiagnostic } from '@/services/clientObservability';
 import ProductCard from '@/components/features/product/ProductCard';
 import ProductPageSkeleton from '@/components/shared/ProductPageSkeleton';
@@ -77,6 +78,7 @@ const ProductDetails = () => {
   const [lifecycleNotice, setLifecycleNotice] = useState('');
   const [lifecycleError, setLifecycleError] = useState('');
   const filePickerRef = useRef(null);
+  const viewedProductRef = useRef('');
 
   // Preserve string identifiers so AWS/Mongo IDs and numeric catalog IDs both work.
   const productId = id ? String(id) : '';
@@ -154,20 +156,16 @@ const ProductDetails = () => {
     let isMounted = true;
 
     const loadRelated = async () => {
-      if (!product || !product.category) return;
+      const productIdentifier = product?.id || product?._id;
+      if (!productIdentifier) return;
 
       try {
-        const data = await productApi.getProducts({
-          category: product.category,
-          limit: 5,
-          includeMeta: false,
-          includeTelemetry: false,
-          includeDealDna: 'false',
-        });
+        const data = await recommendationApi.getSimilarProducts(productIdentifier, { limit: 8 });
 
-        if (isMounted && data?.products) {
-          const filtered = data.products
-            .filter(p => p.id !== product.id)
+        if (isMounted && data?.recommendations) {
+          const filtered = data.recommendations
+            .map(decorateRecommendedProduct)
+            .filter(p => String(p.id || p._id) !== String(productIdentifier))
             .slice(0, 4);
           setRelatedProducts(filtered);
         }
@@ -250,6 +248,18 @@ const ProductDetails = () => {
   useEffect(() => {
     if (!product) return;
     pushRecentlyViewed(product);
+    const currentViewedId = String(product.id || product._id || '');
+    if (viewedProductRef.current === currentViewedId) return;
+    viewedProductRef.current = currentViewedId;
+    void trackRecommendationEvent({
+      eventType: 'product_view',
+      productId: currentViewedId,
+      category: product.category || '',
+      sourcePage: 'product_detail',
+      metadata: {
+        title: product.displayTitle || product.title || '',
+      },
+    });
   }, [product]);
 
   useEffect(() => {
@@ -279,7 +289,15 @@ const ProductDetails = () => {
 
   // Handlers
   const handleAddToCart = () => {
-    if (product && !cartItem) addToCart(product, quantity);
+    if (product && !cartItem) {
+      void trackRecommendationEvent({
+        eventType: 'add_to_cart',
+        productId: product.id || product._id || '',
+        category: product.category || '',
+        sourcePage: 'product_detail',
+      });
+      addToCart(product, quantity);
+    }
   };
 
   const handleBuyNow = () => {
@@ -817,7 +835,15 @@ const ProductDetails = () => {
 
                     <button
                       type="button"
-                      onClick={() => toggleWishlist(product)}
+                      onClick={() => {
+                        void trackRecommendationEvent({
+                          eventType: isWishlisted ? 'wishlist_remove' : 'wishlist_add',
+                          productId: product.id || product._id || '',
+                          category: product.category || '',
+                          sourcePage: 'product_detail',
+                        });
+                        toggleWishlist(product);
+                      }}
                       aria-label={isWishlisted
                         ? t('product.removeFromWishlist', {}, 'Remove from wishlist')
                         : t('product.addToWishlist', {}, 'Add to wishlist')}
@@ -1590,6 +1616,16 @@ const ProductDetails = () => {
             </div>
           </SectionErrorBoundary>
         )}
+        <SectionErrorBoundary label="Frequently Bought Together">
+          <div className="mt-10">
+            <FrequentlyBoughtTogether productId={productId} limit={6} />
+          </div>
+        </SectionErrorBoundary>
+        <SectionErrorBoundary label="Recently Viewed Recommendations">
+          <div className="mt-10">
+            <RecentlyViewedRecommendations limit={8} sourcePage="product_detail" />
+          </div>
+        </SectionErrorBoundary>
       </div>
     </div>
   );

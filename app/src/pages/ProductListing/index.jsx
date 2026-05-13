@@ -14,7 +14,8 @@ import {
 import ProductCard from '@/components/features/product/ProductCard';
 import Filters from '@/components/features/product/Filters';
 import RevealOnScroll from '@/components/shared/RevealOnScroll';
-import { productApi } from '@/services/api';
+import { productApi, trackRecommendationEvent } from '@/services/api';
+import { SearchRecommendations } from '@/components/recommendations';
 import {
   DEFAULT_CATALOG_CATEGORY_LABELS,
   getCategoryApiValue,
@@ -173,6 +174,7 @@ const ProductListing = () => {
     [effectiveCategorySlug, t]
   );
   const activeRequestRef = useRef(0);
+  const trackedIntentRef = useRef('');
 
   // Server Data State
   const [products, setProducts] = useState([]);
@@ -423,6 +425,36 @@ const ProductListing = () => {
     const qs = params.toString();
     navigate(qs ? `/search?${qs}` : '/search', { replace: true });
   }, [category, searchQuery, queryCategory, location.search, navigate]);
+
+  useEffect(() => {
+    const intentKey = searchQuery
+      ? `search:${searchQuery}`
+      : (effectiveCategorySlug ? `category:${effectiveCategorySlug}` : '');
+    if (!intentKey || trackedIntentRef.current === intentKey) return undefined;
+
+    const timer = window.setTimeout(() => {
+      trackedIntentRef.current = intentKey;
+      if (searchQuery) {
+        void trackRecommendationEvent({
+          eventType: 'search',
+          searchQuery,
+          sourcePage: 'search',
+          metadata: {
+            category: effectiveCategorySlug || '',
+            sort: sortBy,
+          },
+        });
+        return;
+      }
+      void trackRecommendationEvent({
+        eventType: 'category_click',
+        category: effectiveCategorySlug,
+        sourcePage: 'search',
+      });
+    }, 450);
+
+    return () => window.clearTimeout(timer);
+  }, [effectiveCategorySlug, searchQuery, sortBy]);
 
   useEffect(() => {
     if (typeof document === 'undefined') return undefined;
@@ -760,6 +792,9 @@ const ProductListing = () => {
               </button>
             </div>
           )}
+          <div className="mt-10">
+            <SearchRecommendations query={searchQuery} limit={8} />
+          </div>
         </section>
       </div>
     </div>

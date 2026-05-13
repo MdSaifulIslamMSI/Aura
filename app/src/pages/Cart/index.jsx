@@ -18,6 +18,8 @@ import {
 import { CartContext } from '@/context/CartContext';
 import { useMarket } from '@/context/MarketContext';
 import { useCommerceStore } from '@/store/commerceStore';
+import { CartRecommendations } from '@/components/recommendations';
+import { trackRecommendationEvent } from '@/services/api';
 import { convertAmount } from '@/utils/format';
 import { BROWSE_BASE_CURRENCY } from '@/config/marketConfig';
 import { getBaseCurrency, getLineBaseTotal, getLineOriginalBaseTotal } from '@/utils/pricing';
@@ -66,7 +68,25 @@ const Cart = () => {
   const estimatedDelivery = cartItems.find((item) => item?.deliveryTime)?.deliveryTime || t('cart.defaultDeliveryWindow', {}, '2-4 days');
 
   const handleMoveToWishlist = (productId) => {
+    const item = cartItems.find((entry) => String(getCartItemId(entry)) === String(productId));
+    void trackRecommendationEvent({
+      eventType: 'wishlist_add',
+      productId,
+      category: item?.category || '',
+      sourcePage: 'cart',
+    });
     moveToWishlist(productId);
+  };
+
+  const handleRemoveFromCart = (productId) => {
+    const item = cartItems.find((entry) => String(getCartItemId(entry)) === String(productId));
+    void trackRecommendationEvent({
+      eventType: 'remove_from_cart',
+      productId,
+      category: item?.category || '',
+      sourcePage: 'cart',
+    });
+    removeFromCart(productId);
   };
 
   const handleProceedToCheckout = () => {
@@ -282,7 +302,7 @@ const Cart = () => {
                       </button>
                       <button
                         type="button"
-                        onClick={() => removeFromCart(itemId)}
+                        onClick={() => handleRemoveFromCart(itemId)}
                         className="cart-row-action hover:text-neo-rose"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -370,6 +390,9 @@ const Cart = () => {
               </div>
             </div>
           </aside>
+        </div>
+        <div className="mt-10">
+          <CartRecommendations cartItems={cartItems} limit={8} />
         </div>
       </div>
     </div>
