@@ -25,7 +25,7 @@ import ProductCard from '@/components/features/product/ProductCard';
 import SkeletonLoader from '@/components/shared/SkeletonLoader';
 import SectionErrorBoundary from '@/components/shared/SectionErrorBoundary';
 import RevealOnScroll from '@/components/shared/RevealOnScroll';
-import { productApi } from '@/services/api';
+import { decorateRecommendedProduct, productApi, recommendationApi, trackRecommendationEvent } from '@/services/api';
 import { clearRecentlyViewed, readRecentlyViewed } from '@/utils/recentlyViewed';
 import { buildRecommendationSignals } from '@/utils/recommendationSignals';
 import { AuthContext } from '@/context/AuthContext';
@@ -133,7 +133,7 @@ const Home = () => {
       try {
         const [dealsResult, trendingResult, arrivalsResult] = await Promise.allSettled([
           productApi.getProducts({ ...HOME_SECTION_REQUEST, sort: 'discount' }),
-          productApi.getProducts({ ...HOME_SECTION_REQUEST, sort: 'rating' }), // Popularity/Rating
+          recommendationApi.getTrendingProducts({ limit: 8 }),
           productApi.getProducts({ ...HOME_SECTION_REQUEST, sort: 'newest' })
         ]);
 
@@ -146,7 +146,8 @@ const Home = () => {
           setDealsOfTheDay(dealsResult.value?.products || []);
         }
         if (trendingResult.status === 'fulfilled') {
-          setTrendingProducts(trendingResult.value?.products || []);
+          const nextTrending = (trendingResult.value?.recommendations || []).map(decorateRecommendedProduct);
+          setTrendingProducts(nextTrending.length > 0 ? nextTrending : (trendingResult.value?.products || []));
         }
         if (arrivalsResult.status === 'fulfilled') {
           setNewArrivals(arrivalsResult.value?.products || []);
@@ -339,23 +340,14 @@ const Home = () => {
       let nextCopy = localCopy;
 
       try {
-        if (currentUser) {
-          const serverResponse = await productApi.getRecommendations({
-            recentlyViewed: recommendationSignals.recentItems.slice(0, 6).map((item) => ({
-              id: item?.id || item?._id || '',
-              category: item?.category || '',
-              brand: item?.brand || '',
-            })),
-            searchHistory: recommendationSignals.recentQueries.slice(0, 3),
-            limit: 6,
-          });
-
-          nextProducts = Array.isArray(serverResponse?.products) ? serverResponse.products : [];
+        {
+          const serverResponse = await recommendationApi.getHomeRecommendations({ limit: 6 });
+          nextProducts = (serverResponse?.recommendations || []).map(decorateRecommendedProduct);
           nextCopy = {
             eyebrow: localCopy.eyebrow,
             title: localCopy.title,
             description: localCopy.description,
-            primaryCategory: serverResponse?.primaryCategory || localCopy.primaryCategory,
+            primaryCategory: nextProducts[0]?.category || localCopy.primaryCategory,
           };
         }
 
@@ -694,6 +686,13 @@ const Home = () => {
                 <Link
                   key={category.path}
                   to={category.path}
+                  onClick={() => {
+                    void trackRecommendationEvent({
+                      eventType: 'category_click',
+                      category: category.path.split('/').pop() || category.name,
+                      sourcePage: 'home',
+                    });
+                  }}
                   className="aura-category-tile group"
                 >
                   <div className={`mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border ${category.color} shadow-[inset_0_1px_1px_rgba(255,255,255,0.08)] transition-transform duration-300 group-hover:scale-105`}>

@@ -5,7 +5,7 @@ import { CartContext } from '@/context/CartContext';
 import { AuthContext } from '@/context/AuthContext';
 import { useMarket } from '@/context/MarketContext';
 import { useCommerceStore } from '@/store/commerceStore';
-import { orderApi, otpApi, paymentApi, userApi } from '@/services/api';
+import { orderApi, otpApi, paymentApi, trackRecommendationEvent, userApi } from '@/services/api';
 import { createIdempotencyKey } from '@/services/api/apiUtils';
 import { cn } from '@/lib/utils';
 import { getUserVisibleEmail } from '@/utils/authIdentity';
@@ -1649,6 +1649,19 @@ const Checkout = () => {
             };
 
             const createdOrder = await orderApi.createOrder(payload);
+
+            checkoutItems.forEach((item) => {
+                void trackRecommendationEvent({
+                    eventType: 'purchase',
+                    productId: item.id || item._id || item.productId || '',
+                    category: item.category || '',
+                    sourcePage: 'checkout',
+                    metadata: {
+                        orderId: createdOrder?._id || '',
+                        quantity: Number(item.quantity) || 1,
+                    },
+                });
+            });
 
             if (checkoutSource !== 'directBuy') {
                 if (createdOrder?.cart) {

@@ -1,0 +1,9 @@
+export { default as CartRecommendations } from './CartRecommendations';
+export { default as FrequentlyBoughtTogether } from './FrequentlyBoughtTogether';
+export { default as ProductCarousel } from './ProductCarousel';
+export { default as RecentlyViewedRecommendations } from './RecentlyViewedRecommendations';
+export { default as RecommendationSection } from './RecommendationSection';
+export { default as RecommendedForYou } from './RecommendedForYou';
+export { default as SearchRecommendations } from './SearchRecommendations';
+export { default as SimilarProducts } from './SimilarProducts';
+export { default as TrendingProducts } from './TrendingProducts';

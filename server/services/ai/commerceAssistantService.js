@@ -24,6 +24,7 @@ const {
 const { checkModelGatewayHealth, generateStructuredJson, getModelGatewayHealth } = require('./modelGatewayService');
 const { getLocalVectorIndexHealth, searchProductVectorIndex } = require('./localProductVectorIndexService');
 const { buildKnowledgeAnswerText, retrieveCommerceKnowledge } = require('./commerceKnowledgeRagService');
+const { getRecommendationsForAssistant: getHybridRecommendationsForAssistant } = require('../recommendationService');
 
 const ROUTE_GENERAL = 'GENERAL';
 const ROUTE_ECOMMERCE = 'ECOMMERCE_SEARCH';
@@ -39,6 +40,7 @@ const SMALL_TALK_PATTERN = /^(?:hi|hello|hey|yo|thanks|thank you|ok|okay|cool|gr
 const COMMERCE_KEYWORD_PATTERN = /\b(price|prices|cost|costs|product|products|item|items|phone|phones|mobile|mobiles|laptop|laptops|shoe|shoes|shirt|shirts|dress|dresses|jeans|tshirt|t-shirt|kurta|saree|jacket|fashion|clothing|apparel|footwear|compare|comparison|available|availability|stock|inventory|delivery|shipping|seller|warranty|return|returns|refund|coupon|payment|brand|brands|rupees|rs)\b/i;
 const KNOWLEDGE_FIRST_COMMERCE_PATTERN = /\b(policy|policies|return|returns|refund|replacement|cancel(?:lation)? rules|warranty|support|delivery|shipping|coupon|promo|payment|size guide|manual|faq)\b/i;
 const PRODUCT_DISCOVERY_VERBS_PATTERN = /\b(show|find|suggest|recommend|best|top|compare|buy|add|under|above|around|within)\b/i;
+const RECOMMENDATION_INTENT_PATTERN = /\b(recommend|suggest|best|top|for me|personal|what should i buy|what to buy|goes with|with this|complete (my )?cart|add-?ons?|accessor(?:y|ies)|frequently bought|similar|related|trending|popular)\b/i;
 const RETRIEVAL_SORT_VALUES = new Set(['relevance', 'rating_desc', 'price_asc', 'price_desc']);
 const COMMERCE_CATEGORY_HINTS = [
     'fashion',
@@ -1030,6 +1032,7 @@ const detectRoute = ({
     message = '',
     actionRequest = null,
     confirmation = null,
+    context = {},
     assistantSession = {},
     images = [],
     audio = [],
@@ -1042,6 +1045,17 @@ const detectRoute = ({
     if (!normalized) return { route: ROUTE_GENERAL, reason: 'empty' };
     if (ACTION_ROUTE_PATTERN.test(normalized)) {
         return { route: ROUTE_ACTION, reason: 'keyword_action' };
+    }
+    if (
+        RECOMMENDATION_INTENT_PATTERN.test(normalized)
+        && (
+            COMMERCE_KEYWORD_PATTERN.test(normalized)
+            || context?.currentProductId
+            || (Array.isArray(context?.cartItems) && context.cartItems.length > 0)
+            || hasRecentCommerceContext(assistantSession)
+        )
+    ) {
+        return { route: ROUTE_ECOMMERCE, reason: 'recommendation_intent' };
     }
     if (SMALL_TALK_PATTERN.test(normalized)) {
         return { route: ROUTE_GENERAL, reason: 'small_talk' };
@@ -1792,7 +1806,170 @@ const buildCommerceResponseText = ({
     ].filter(Boolean).join('\n\n');
 };
 
+const shouldUseRecommendationEngineForAssistant = ({ message = '', context = {} } = {}) => {
+    if (context?.forceRecommendations === true || context?.recommendationMode === true) return true;
+    const normalized = safeString(message);
+    if (!normalized) return false;
+    return RECOMMENDATION_INTENT_PATTERN.test(normalized);
+};
+
+const resolveRecommendationContext = ({ context = {}, assistantSession = {} } = {}) => {
+    const currentProductId = safeString(
+        context?.currentProductId
+        || context?.productId
+        || assistantSession?.activeProduct?.id
+        || assistantSession?.lastEntities?.productId
+        || ''
+    );
+    const cartItems = Array.isArray(context?.cartItems)
+        ? context.cartItems
+        : [];
+
+    return {
+        currentProductId,
+        cartItems,
+        page: safeString(context?.page || context?.sourcePage || 'assistant'),
+    };
+};
+
+const buildAssistantRecommendationText = ({ message = '', recommendations = [] } = {}) => {
+    if (!recommendations.length) {
+        return 'I could not find a confident recommendation from the catalog signals yet. Try naming a product, category, or budget and I will rerank the catalog again.';
+    }
+
+    const intro = /\b(with|accessor|addon|add-on|complete|together|cart)\b/i.test(message)
+        ? 'Here are catalog-backed add-ons and related picks that fit the current context.'
+        : 'Here are catalog-backed recommendations ranked from product fit, activity, popularity, stock, and rating signals.';
+    const lines = recommendations.slice(0, 5).map((item, index) => {
+        const product = normalizeProductCard(item.product || {});
+        const reason = safeString(item.reason || product.assistantReason || 'Matches the current shopping context');
+        const label = index === 0 ? 'Top pick' : `Option ${index + 1}`;
+        return `- ${label}: ${product.title}${product.brand ? ` by ${product.brand}` : ''} - ${formatCommercePrice(product.price)}; ${reason}.`;
+    });
+
+    return [
+        intro,
+        '**Recommended picks**',
+        lines.join('\n'),
+        '**Next step**',
+        recommendations.length === 1
+            ? 'Open the product to verify details, delivery, and warranty before adding it to cart.'
+            : 'Open one pick to inspect details, or ask me to compare the strongest options.',
+    ].join('\n\n');
+};
+
+const buildAssistantRecommendationEnvelope = async ({
+    message = '',
+    user = null,
+    sessionId = '',
+    traceId = '',
+    assistantMode = 'chat',
+    assistantSession = {},
+    context = {},
+    gatewayHealth = {},
+    vectorStoreHealth = null,
+} = {}) => {
+    const recommendationContext = resolveRecommendationContext({ context, assistantSession });
+    const recommendations = await getHybridRecommendationsForAssistant({
+        userId: user?._id || null,
+        sessionId,
+        message,
+        context: recommendationContext,
+        limit: 5,
+    }).catch((error) => {
+        logger.warn('assistant.recommendations.fallback', { error: error.message, traceId });
+        return [];
+    });
+    const products = recommendations.map((item, index) => ({
+        ...(item.product || {}),
+        assistantRank: index + 1,
+        assistantReason: safeString(item.reason || 'Matches the current shopping context'),
+        recommendationMeta: {
+            source: safeString(item.source || 'assistant_recommendation'),
+            reason: safeString(item.reason || ''),
+        },
+    }));
+    const decoratedProducts = decorateCommerceProducts(products, {}).map((product, index) => ({
+        ...product,
+        assistantReason: safeString(recommendations[index]?.reason || product.assistantReason),
+    }));
+    const focusProduct = decoratedProducts[0] || null;
+    const assistantTurn = buildAssistantTurn({
+        intent: 'product_search',
+        confidence: recommendations.length > 0 ? 0.94 : 0.66,
+        decision: 'respond',
+        response: buildAssistantRecommendationText({ message, recommendations }),
+        followUps: recommendations.length > 0
+            ? ['Compare these picks', 'Set a price limit', 'Show add-ons']
+            : ['Name a category', 'Set a budget', 'Show trending products'],
+        ui: {
+            surface: decoratedProducts.length === 1 ? 'product_focus' : (decoratedProducts.length > 1 ? 'product_results' : 'plain_answer'),
+            title: 'Hybrid recommendations',
+            products: decoratedProducts,
+            product: decoratedProducts.length === 1 ? focusProduct : null,
+        },
+        verification: {
+            label: 'app_grounded',
+            confidence: recommendations.length > 0 ? 1 : 0.7,
+            summary: recommendations.length > 0
+                ? 'Recommendations came from the hybrid recommendation engine using catalog, behavior, popularity, stock, and rating signals.'
+                : 'The recommendation engine returned no confident product candidates.',
+            evidenceCount: recommendations.length,
+        },
+        toolRuns: [{
+            id: `recommendations-${Date.now()}`,
+            toolName: 'recommend_products',
+            status: 'completed',
+            latencyMs: 0,
+            summary: `${recommendations.length} hybrid recommendation${recommendations.length === 1 ? '' : 's'} returned`,
+            inputPreview: {
+                query: safeString(message),
+                currentProductId: recommendationContext.currentProductId,
+                cartCount: recommendationContext.cartItems.length,
+            },
+            outputPreview: {
+                productIds: decoratedProducts.map((product) => String(product.id || product._id || '')).filter(Boolean),
+            },
+        }],
+        answerMode: 'commerce',
+    });
+
+    return buildResponseEnvelope({
+        assistantTurn,
+        route: ROUTE_ECOMMERCE,
+        provider: 'hybrid_recommendation_engine',
+        providerModel: '',
+        products: decoratedProducts,
+        followUps: assistantTurn.followUps,
+        sessionId,
+        traceId,
+        assistantMode,
+        assistantSession: {
+            ...assistantSession,
+            lastIntent: 'product_search',
+            lastEntities: {
+                ...assistantSession.lastEntities,
+                query: safeString(message),
+                productId: recommendationContext.currentProductId || safeString(focusProduct?.id || ''),
+                category: safeString(focusProduct?.category || assistantSession?.lastEntities?.category || ''),
+            },
+            lastResults: decoratedProducts,
+            activeProduct: focusProduct || assistantSession.activeProduct,
+            pendingAction: null,
+        },
+        health: {
+            gateway: gatewayHealth || getModelGatewayHealth(),
+            vectorStore: vectorStoreHealth,
+        },
+        providerCapabilities: gatewayHealth?.capabilities || null,
+        retrievalHitCount: recommendations.length,
+        validator: { ok: recommendations.length > 0, reason: 'hybrid_recommendation_engine' },
+        messageId: createMessageId(),
+    });
+};
+
 const performCommerceTurn = async ({
+    user = null,
     message = '',
     conversationHistory = [],
     assistantMode = 'chat',
@@ -1933,6 +2110,24 @@ const performCommerceTurn = async ({
         images,
         context,
     });
+
+    if (
+        shouldUseRecommendationEngineForAssistant({ message, context })
+        && (!Array.isArray(images) || images.length === 0)
+        && (!Array.isArray(audio) || audio.length === 0)
+    ) {
+        return buildAssistantRecommendationEnvelope({
+            message,
+            user,
+            sessionId,
+            traceId,
+            assistantMode,
+            assistantSession,
+            context,
+            gatewayHealth,
+            vectorStoreHealth: await vectorStoreHealthPromise,
+        });
+    }
 
     if (requireHostedGemma && !isHostedGemmaGatewayHealthy(gatewayHealth)) {
         recordFallbackMetric('hosted_gemma_gateway_unavailable');
@@ -3089,32 +3284,20 @@ const performActionTurn = async ({
     }
 
     if (action.type === 'recommend_products') {
-        const assistantTurn = buildAssistantTurn({
-            intent: 'product_search',
-            confidence: 0.86,
-            decision: 'act',
-            response: 'Searching recommended products with the current catalog filters.',
-            actions: [{ type: 'search_products', query: safeString(action.query || message || 'recommended products'), filters: action.filters || {} }],
-            ui: { surface: 'product_results' },
-            followUps: ['Set a price limit', 'Compare the top results'],
-            verification: { label: 'app_grounded', confidence: 1, summary: 'Recommendation request was converted into a controlled product search action.' },
-            answerMode: 'commerce',
-        });
-        return buildResponseEnvelope({
-            assistantTurn,
-            route: ROUTE_ACTION,
-            provider: 'rule',
-            providerModel: '',
-            products: [],
-            followUps: assistantTurn.followUps,
+        return buildAssistantRecommendationEnvelope({
+            message: safeString(action.query || message || 'recommended products'),
+            user,
             sessionId,
             traceId,
             assistantMode,
-            assistantSession: { ...assistantSession, pendingAction: null },
-            health: { gateway: getModelGatewayHealth() },
-            retrievalHitCount: 0,
-            validator: { ok: true, reason: 'recommendation_search_action' },
-            messageId: createMessageId(),
+            assistantSession,
+            context: {
+                ...actionContext,
+                ...(context || {}),
+                filters: action.filters || {},
+            },
+            gatewayHealth: getModelGatewayHealth(),
+            vectorStoreHealth: await getLocalVectorIndexHealth().catch(() => null),
         });
     }
 
@@ -3386,6 +3569,7 @@ const processAssistantTurn = async ({
         });
     } else if (routeDecision.route === ROUTE_ECOMMERCE) {
         response = await performCommerceTurn({
+            user,
             message,
             conversationHistory,
             assistantMode,
