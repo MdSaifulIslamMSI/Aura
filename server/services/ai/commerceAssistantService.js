@@ -1354,7 +1354,49 @@ const performGeneralTurn = async ({
     let provider = 'rule';
     let providerModel = '';
     let validator = { ok: true, reason: 'fallback' };
-    let gatewayHealth = await checkModelGatewayHealth().catch(() => getModelGatewayHealth());
+    let gatewayHealth = getModelGatewayHealth();
+
+    if (SMALL_TALK_PATTERN.test(safeString(message)) && !hasAudioAttachments(audio) && (!Array.isArray(images) || images.length === 0)) {
+        const assistantTurn = buildAssistantTurn({
+            intent: 'general_knowledge',
+            confidence: 0.92,
+            decision: 'respond',
+            response: 'Hello. I can help you find products, compare options, review your cart, or answer order and support questions.',
+            followUps: ['Show product deals', 'Recommend products for me', 'Help with my cart'],
+            ui: { surface: 'plain_answer' },
+            verification: {
+                label: 'rule_verified',
+                confidence: 1,
+                summary: 'Small-talk greeting handled locally without waiting on an external model provider.',
+            },
+            answerMode: 'commerce',
+        });
+
+        return buildResponseEnvelope({
+            assistantTurn,
+            route: ROUTE_GENERAL,
+            provider,
+            providerModel,
+            products: [],
+            followUps: assistantTurn.followUps,
+            sessionId,
+            traceId,
+            assistantMode,
+            assistantSession: {
+                ...assistantSession,
+                lastIntent: 'general_knowledge',
+                lastEntities: { ...assistantSession.lastEntities, query: safeString(message) },
+                pendingAction: null,
+            },
+            health: { gateway: gatewayHealth },
+            providerCapabilities: gatewayHealth?.capabilities || null,
+            retrievalHitCount: 0,
+            validator: { ok: true, reason: 'small_talk_rule' },
+            messageId: createMessageId(),
+        });
+    }
+
+    gatewayHealth = await checkModelGatewayHealth().catch(() => getModelGatewayHealth());
 
     if (isHostedGemmaAudioUnsupported(gatewayHealth, audio)) {
         const assistantTurn = buildAssistantTurn({
@@ -2110,9 +2152,11 @@ const performCommerceTurn = async ({
         images,
         context,
     });
+    const reuseSessionResults = shouldReuseSessionResultsForCommerce({ message, assistantSession });
 
     if (
         shouldUseRecommendationEngineForAssistant({ message, context })
+        && !reuseSessionResults
         && (!Array.isArray(images) || images.length === 0)
         && (!Array.isArray(audio) || audio.length === 0)
     ) {
@@ -2188,7 +2232,6 @@ const performCommerceTurn = async ({
         });
     }
 
-    const reuseSessionResults = shouldReuseSessionResultsForCommerce({ message, assistantSession });
     const retrievalQuery = reuseSessionResults
         ? {
             query: safeString(assistantSession?.lastEntities?.query || message),

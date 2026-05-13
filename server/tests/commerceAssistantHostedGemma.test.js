@@ -71,6 +71,8 @@ jest.mock('../services/ai/localProductVectorIndexService', () => ({
     }),
 }));
 
+jest.setTimeout(15000);
+
 describe('commerceAssistantService hosted Gemma enforcement', () => {
     const product = {
         id: 400047506,
@@ -96,6 +98,33 @@ describe('commerceAssistantService hosted Gemma enforcement', () => {
 
     afterEach(() => {
         delete process.env.ASSISTANT_COMMERCE_REQUIRE_HOSTED_GEMMA;
+    });
+
+    test('answers greetings locally without waiting on model gateway health or generation', async () => {
+        const modelGateway = require('../services/ai/modelGatewayService');
+        modelGateway.getModelGatewayHealth.mockReturnValue({
+            provider: 'disabled',
+            activeProvider: 'disabled',
+            healthy: false,
+            capabilities: {
+                chat: 'disabled',
+            },
+        });
+
+        const { processAssistantTurn } = require('../services/ai/commerceAssistantService');
+        const result = await processAssistantTurn({
+            message: 'hello',
+        });
+
+        expect(result.route).toBe('GENERAL');
+        expect(result.provider).toBe('rule');
+        expect(result.answer).toContain('I can help you find products');
+        expect(result.grounding.validator).toMatchObject({
+            ok: true,
+            reason: 'small_talk_rule',
+        });
+        expect(modelGateway.checkModelGatewayHealth).not.toHaveBeenCalled();
+        expect(modelGateway.generateStructuredJson).not.toHaveBeenCalled();
     });
 
     test('still reads catalog data when hosted Gemma is down', async () => {

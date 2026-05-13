@@ -248,4 +248,4 @@ jobs:
         if: inputs.skip_healthcheck != true
         run: |
           set -euo pipefail
-          curl --fail --show-error --silent "${AWS_BACKEND_BASE_URL%/}/health" > /dev/null
+          curl --fail --show-error --silent --connect-timeout 5 --max-time 20 "${AWS_BACKEND_BASE_URL%/}/health" > /dev/null

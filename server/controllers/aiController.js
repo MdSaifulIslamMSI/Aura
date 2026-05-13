@@ -9,6 +9,19 @@ const {
     synthesizeSpeech,
 } = require('../services/ai/providerRegistry');
 const { assertPrivateChatQuota } = require('../services/chatQuotaService');
+const logger = require('../utils/logger');
+
+const DEFAULT_AI_CHAT_TIMEOUT_MS = 25000;
+const MIN_AI_CHAT_TIMEOUT_MS = 2000;
+const MAX_AI_CHAT_TIMEOUT_MS = 60000;
+
+const safeString = (value = '', fallback = '') => String(value === undefined || value === null ? fallback : value).trim();
+
+const resolveAiChatTimeoutMs = () => {
+    const parsed = Number(process.env.AI_CHAT_TIMEOUT_MS || DEFAULT_AI_CHAT_TIMEOUT_MS);
+    if (!Number.isFinite(parsed) || parsed <= 0) return DEFAULT_AI_CHAT_TIMEOUT_MS;
+    return Math.min(MAX_AI_CHAT_TIMEOUT_MS, Math.max(MIN_AI_CHAT_TIMEOUT_MS, Math.floor(parsed)));
+};
 
 const resolveAssistantPayload = (req = {}) => ({
     user: req.user || null,
@@ -23,6 +36,92 @@ const resolveAssistantPayload = (req = {}) => ({
     audio: req.body?.audio || [],
 });
 
+const buildTimeoutAssistantResponse = ({ payload = {}, startedAt = Date.now(), timeoutMs = DEFAULT_AI_CHAT_TIMEOUT_MS } = {}) => {
+    const sessionId = safeString(payload.sessionId || payload.context?.clientSessionId || '');
+    const answer = 'I switched to quick catalog mode so this chat stays responsive. Try a narrower product, budget, or category and I will rerun the catalog-backed answer.';
+    const followUps = ['Show trending products', 'Recommend products for me', 'Search by budget'];
+    const assistantTurn = {
+        intent: 'unclear',
+        confidence: 0.35,
+        decision: 'respond',
+        response: answer,
+        actions: [],
+        ui: { surface: 'plain_answer' },
+        contextPatch: {},
+        followUps,
+        safetyFlags: ['assistant_timeout_fallback'],
+        verification: {
+            label: 'degraded',
+            confidence: 0.2,
+            summary: `Assistant turn exceeded ${timeoutMs}ms and returned a structured fallback.`,
+            evidenceCount: 0,
+        },
+        toolRuns: [{
+            id: `assistant-timeout-${Date.now()}`,
+            toolName: 'assistant_turn',
+            status: 'timed_out',
+            latencyMs: timeoutMs,
+            summary: 'Assistant turn exceeded the production timeout guard.',
+            inputPreview: {
+                query: safeString(payload.message).slice(0, 120),
+            },
+            outputPreview: {
+                fallback: true,
+            },
+        }],
+    };
+
+    return {
+        answer,
+        text: answer,
+        products: [],
+        actions: [],
+        followUps,
+        assistantTurn,
+        grounding: {
+            mode: safeString(payload.assistantMode || 'chat'),
+            actionType: 'assistant',
+            timeout: true,
+            reason: 'assistant_timeout',
+        },
+        provider: 'timeout_fallback',
+        providerModel: '',
+        latencyMs: Date.now() - startedAt,
+        sessionId,
+    };
+};
+
+const runAssistantWithTimeout = async ({ work, payload, traceLabel = 'assistant.chat' } = {}) => {
+    const timeoutMs = resolveAiChatTimeoutMs();
+    const startedAt = Date.now();
+    const workPromise = Promise.resolve().then(work);
+    let timeoutId;
+
+    const timeoutPromise = new Promise((resolve) => {
+        timeoutId = setTimeout(() => {
+            logger.warn(`${traceLabel}.timeout_fallback`, {
+                timeoutMs,
+                sessionId: safeString(payload?.sessionId || payload?.context?.clientSessionId || ''),
+                messageLength: safeString(payload?.message || '').length,
+            });
+            workPromise.catch((error) => {
+                logger.warn(`${traceLabel}.late_failure`, {
+                    error: error.message,
+                    timeoutMs,
+                });
+            });
+            resolve(buildTimeoutAssistantResponse({ payload, startedAt, timeoutMs }));
+        }, timeoutMs);
+        timeoutId.unref?.();
+    });
+
+    try {
+        return await Promise.race([workPromise, timeoutPromise]);
+    } finally {
+        clearTimeout(timeoutId);
+    }
+};
+
 const handleAiChat = asyncHandler(async (req, res, next) => {
     req.clearTimeout?.();
     const payload = resolveAssistantPayload(req);
@@ -35,7 +134,11 @@ const handleAiChat = asyncHandler(async (req, res, next) => {
         await assertPrivateChatQuota(payload.user._id);
     }
 
-    const result = await processAssistantTurn(payload);
+    const result = await runAssistantWithTimeout({
+        work: () => processAssistantTurn(payload),
+        payload,
+        traceLabel: 'assistant.chat',
+    });
 
     return res.json(result);
 });
@@ -58,15 +161,34 @@ const handleAiChatStream = asyncHandler(async (req, res, next) => {
     res.flushHeaders?.();
 
     const writeEvent = (eventName, data) => {
+        if (res.writableEnded || res.destroyed) return;
         res.write(`event: ${eventName}\n`);
         res.write(`data: ${JSON.stringify(data || {})}\n\n`);
     };
 
     try {
-        await streamAssistantTurn({
-            ...payload,
-            writeEvent,
+        const result = await runAssistantWithTimeout({
+            work: () => streamAssistantTurn({
+                ...payload,
+                writeEvent,
+            }),
+            payload,
+            traceLabel: 'assistant.stream',
         });
+        if (result?.provider === 'timeout_fallback') {
+            const sessionId = safeString(result.sessionId || payload.sessionId || payload.context?.clientSessionId || '');
+            const messageId = safeString(payload.context?.clientMessageId || `assistant-timeout-${Date.now()}`);
+            writeEvent('message_meta', {
+                sessionId,
+                messageId,
+                decision: 'respond',
+                provisional: false,
+                upgradeEligible: false,
+                traceId: '',
+            });
+            writeEvent('token', { sessionId, messageId, text: result.answer });
+            writeEvent('final_turn', { ...result, sessionId, messageId });
+        }
         res.end();
     } catch (error) {
         writeEvent('error', {

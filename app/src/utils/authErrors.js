@@ -23,6 +23,12 @@ const formatAuthProviderLabel = (provider = '') => {
         case 'github':
         case 'github.com':
             return 'GitHub';
+        case 'microsoft':
+        case 'microsoft.com':
+            return 'Microsoft';
+        case 'apple':
+        case 'apple.com':
+            return 'Apple';
         default:
             return provider || 'Social';
     }

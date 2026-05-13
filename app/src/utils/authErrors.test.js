@@ -33,6 +33,19 @@ describe('resolveAuthError', () => {
         expect(resolved.action).toBe('signin');
     });
 
+    it('preserves Microsoft provider identity for account-linking collisions', () => {
+        const resolved = resolveAuthError({
+            code: 'auth/account-exists-with-different-credential',
+            provider: 'microsoft.com',
+            email: 'user@example.com',
+        });
+
+        expect(resolved.title).toBe('Microsoft Account Already Exists');
+        expect(resolved.detail).toContain('user@example.com');
+        expect(resolved.hint).toContain('link Microsoft after login');
+        expect(resolved.actionLabel).toBe('Sign in with existing method');
+    });
+
     it('explains missing email access for social providers', () => {
         const resolved = resolveAuthError({
             code: 'auth/social-email-missing',
