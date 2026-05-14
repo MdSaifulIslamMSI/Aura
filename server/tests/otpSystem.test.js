@@ -627,6 +627,30 @@ describe('POST /api/otp/verify', () => {
         expect(res.statusCode).toBe(401);
     });
 
+    test('58a. forgot-password verification does not reveal non-existent phone', async () => {
+        const res = await request(app).post('/api/otp/verify')
+            .send({ phone: '0000000000', otp: '123456', purpose: 'forgot-password' });
+
+        expect(res.statusCode).toBe(401);
+        expect(res.body.message).toBe('If account details are valid, verification will proceed.');
+        expect(res.body.message).not.toMatch(/no account|not found|phone/i);
+    });
+
+    test('58b. forgot-password verification does not reveal email mismatch', async () => {
+        const user = await seedVerified({ otp: '222222', otpPurpose: 'forgot-password' });
+        const res = await request(app).post('/api/otp/verify')
+            .send({
+                phone: user.phone,
+                email: 'wrong-email@example.com',
+                otp: '222222',
+                purpose: 'forgot-password',
+            });
+
+        expect(res.statusCode).toBe(401);
+        expect(res.body.message).toBe('If account details are valid, verification will proceed.');
+        expect(res.body.message).not.toMatch(/mismatch|email|not found|phone/i);
+    });
+
     test('59. 200 with bcrypt-verified OTP', async () => {
         const { user, otpPlain } = await seedPending({ otp: '999999', otpPurpose: 'signup' });
         const res = await request(app).post('/api/otp/verify')

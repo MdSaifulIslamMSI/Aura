@@ -11,11 +11,24 @@ For unauthenticated contexts (`login`, `forgot-password`), this endpoint must no
 ```json
 {
   "success": true,
-  "message": "If the account details are valid, an OTP has been sent."
+  "message": "If the account details are valid, we will continue with verification steps."
 }
 ```
 
 - Internal mismatch and non-existent-account details are still recorded through audit logs.
+
+### `POST /api/otp/verify`
+
+For unauthenticated login and forgot-password contexts, verification failures must not reveal whether a phone number, email address, OTP session, or account exists.
+
+- **Failure response (uniform for login and forgot-password verification failures):**
+
+```json
+{
+  "success": false,
+  "message": "If account details are valid, verification will proceed."
+}
+```
 
 ### `POST /api/otp/check-user`
 
@@ -26,7 +39,7 @@ This endpoint is non-enumerating. It does not expose account existence or profil
 ```json
 {
   "success": true,
-  "message": "If the account details are valid, you can continue with verification."
+  "message": "If an account exists, verification instructions have been sent."
 }
 ```
 
