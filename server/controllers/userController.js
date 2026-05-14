@@ -5,6 +5,7 @@ const Order = require('../models/Order');
 const Listing = require('../models/Listing');
 const { saveAuthProfileSnapshot } = require('../services/authProfileVault');
 const { awardLoyaltyPoints, getUserRewards, getRewardSnapshotFromUser } = require('../services/loyaltyService');
+const { toProfilePayload } = require('../services/authSessionService');
 const { invalidateUserCache, invalidateUserCacheByEmail } = require('../middleware/authMiddleware');
 const logger = require('../utils/logger');
 const AppError = require('../utils/AppError');
@@ -555,29 +556,14 @@ const getUserProfile = asyncHandler(async (req, res, next) => {
     await persistAuthSnapshot(hydratedUser);
 
     res.json({
-        _id: hydratedUser._id,
-        name: hydratedUser.name,
-        email: hydratedUser.email,
-        phone: hydratedUser.phone,
-        avatar: hydratedUser.avatar || '',
-        gender: hydratedUser.gender || '',
-        dob: hydratedUser.dob || null,
-        bio: hydratedUser.bio || '',
-        isAdmin: hydratedUser.isAdmin,
-        isVerified: hydratedUser.isVerified,
-        isSeller: Boolean(hydratedUser.isSeller),
-        sellerActivatedAt: hydratedUser.sellerActivatedAt || null,
-        accountState: hydratedUser.accountState || 'active',
-        moderation: hydratedUser.moderation || {},
-        addresses: hydratedUser.addresses || [],
-        cart: legacyCart.items,
-        wishlist: hydratedUser.wishlist || [],
+        ...toProfilePayload(hydratedUser, {
+            includeCollections: true,
+            cart: legacyCart.items,
+        }),
         wishlistRevision: Number(hydratedUser.wishlistRevision || 0),
         wishlistSyncedAt: hydratedUser.wishlistSyncedAt || null,
         cartRevision: legacyCart.revision,
         cartSyncedAt: legacyCart.syncedAt,
-        loyalty: getRewardSnapshotFromUser(hydratedUser),
-        createdAt: hydratedUser.createdAt,
     });
 });
 
@@ -634,23 +620,8 @@ const updateUserProfile = asyncHandler(async (req, res, next) => {
     invalidateUserCacheByEmail(user.email);
 
     res.json({
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        phone: user.phone,
-        avatar: user.avatar || '',
-        gender: user.gender || '',
-        dob: user.dob || null,
-        bio: user.bio || '',
-        isAdmin: user.isAdmin,
-        isVerified: user.isVerified,
-        isSeller: Boolean(user.isSeller),
-        sellerActivatedAt: user.sellerActivatedAt || null,
-        accountState: user.accountState || 'active',
-        moderation: user.moderation || {},
+        ...toProfilePayload(user),
         addresses: user.addresses || [],
-        loyalty: getRewardSnapshotFromUser(user),
-        createdAt: user.createdAt,
     });
 });
 

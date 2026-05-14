@@ -18,6 +18,34 @@ The app uses Firebase identity proof plus backend session hardening. The client 
 
 The backend is the source of truth for roles and protected route access. Frontend role state is treated as display state only; admin, seller, support, delivery, and payment-sensitive access must be enforced server-side.
 
+## Login/Profile Sync Architecture
+
+Login and profile are intentionally connected through the backend session service. Firebase proves identity, but Express/Mongoose owns the application user, role state, moderation state, loyalty snapshot, profile payload, trusted-device posture, and protected-route authorization. The profile controller must not invent a separate public user shape; it reuses the same canonical `toProfilePayload` serializer used by `/api/auth/session` and `/api/auth/sync`, then layers profile-only collections such as addresses, cart, wishlist, and revision metadata.
+
+```mermaid
+flowchart TD
+    Browser["Browser / React app"] --> Firebase["Firebase identity proof"]
+    Firebase --> Protect["Express protect middleware"]
+    Protect --> AuthSession["authSessionService"]
+    AuthSession --> SyncUser["syncAuthenticatedUser / resolveAuthenticatedSession"]
+    SyncUser --> UserModel["MongoDB User model"]
+    UserModel --> CanonicalProfile["toProfilePayload canonical public profile"]
+    CanonicalProfile --> SessionPayload["/api/auth/session and /api/auth/sync payload"]
+    CanonicalProfile --> ProfilePayload["/api/users/profile GET/PUT payload"]
+    ProfilePayload --> ProfileCollections["addresses, cart, wishlist, revisions"]
+    SessionPayload --> FrontendAuthState["frontend auth/profile state"]
+    ProfileCollections --> FrontendAuthState
+    FrontendAuthState --> GuardedRoutes["customer, seller, admin, checkout, profile routes"]
+    GuardedRoutes --> BackendGuards["backend role/session/step-up guards"]
+```
+
+Coherence rules:
+
+- `/api/auth/session`, `/api/auth/sync`, and `/api/users/profile` share canonical identity fields: `_id`, `name`, `email`, `phone`, avatar/profile fields, role booleans, `accountState`, normalized `moderation`, loyalty snapshot, and `createdAt`.
+- `/api/users/profile` may add profile-domain collections and revision fields, but it must not weaken or override role, account-state, verification, moderation, or session-intelligence decisions.
+- Profile writes allow only safe profile fields. Privilege fields such as `isAdmin`, `isSeller`, `isVerified`, role state, moderation state, and account state remain backend-controlled.
+- Frontend profile state is display and UX state. Backend middleware remains the source of truth for protected route authorization.
+
 ## Current Weaknesses Found
 
 - Existing auth coverage is strong but spread across many files; it was not exposed as a single elastic matrix architecture.

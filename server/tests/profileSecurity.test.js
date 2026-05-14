@@ -1,5 +1,6 @@
 const User = require('../models/User');
 const { updateUserProfile } = require('../controllers/userController');
+const { buildSessionPayload } = require('../services/authSessionService');
 
 describe('Profile Security', () => {
     test('blocks privilege field mutations from profile update payload', async () => {
@@ -48,6 +49,38 @@ describe('Profile Security', () => {
 
         expect(next).not.toHaveBeenCalled();
         expect(res.json).toHaveBeenCalled();
+        const profilePayload = res.json.mock.calls[0][0];
+        const sessionPayload = buildSessionPayload({
+            authUser: {
+                uid: 'uid-profile-safe',
+                email: user.email,
+                emailVerified: true,
+                displayName: 'Safe User',
+            },
+            authUid: 'uid-profile-safe',
+            user: profilePayload,
+        });
+
+        expect(profilePayload).toMatchObject({
+            _id: sessionPayload.profile._id,
+            name: sessionPayload.profile.name,
+            email: sessionPayload.profile.email,
+            phone: sessionPayload.profile.phone,
+            avatar: sessionPayload.profile.avatar,
+            gender: sessionPayload.profile.gender,
+            dob: sessionPayload.profile.dob,
+            bio: sessionPayload.profile.bio,
+            isAdmin: sessionPayload.profile.isAdmin,
+            isVerified: sessionPayload.profile.isVerified,
+            isSeller: sessionPayload.profile.isSeller,
+            sellerActivatedAt: sessionPayload.profile.sellerActivatedAt,
+            accountState: sessionPayload.profile.accountState,
+            moderation: sessionPayload.profile.moderation,
+            loyalty: sessionPayload.profile.loyalty,
+            createdAt: sessionPayload.profile.createdAt,
+        });
+        expect(profilePayload.addresses).toEqual([]);
+
         const refreshed = await User.findById(user._id).lean();
         expect(refreshed.bio).toBe('Updated bio');
     });
