@@ -1,0 +1,10 @@
+{
+  "roles": [
+    "customer",
+    "seller",
+    "admin",
+    "super_admin",
+    "support_staff",
+    "delivery_partner"
+  ]
+}

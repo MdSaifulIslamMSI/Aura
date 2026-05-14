@@ -1,0 +1,11 @@
+{
+  "routeTypes": [
+    "public_route",
+    "authenticated_customer_route",
+    "seller_route",
+    "admin_route",
+    "super_admin_route",
+    "support_route",
+    "delivery_route"
+  ]
+}

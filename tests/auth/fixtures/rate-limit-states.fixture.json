@@ -1,0 +1,11 @@
+{
+  "rateLimitStates": [
+    "normal_request",
+    "repeated_wrong_password",
+    "rapid_same_ip",
+    "rapid_same_account",
+    "distributed_ip_same_account",
+    "otp_resend_spam",
+    "password_reset_spam"
+  ]
+}

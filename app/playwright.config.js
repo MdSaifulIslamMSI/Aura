@@ -9,6 +9,7 @@ const localApiBaseUrl = 'http://127.0.0.1:5000/api';
 const e2eCorsOrigins = 'http://localhost:4173,http://127.0.0.1:4173';
 const appDir = fileURLToPath(new URL('.', import.meta.url));
 const chromiumChannel = process.env.PLAYWRIGHT_CHROMIUM_CHANNEL || undefined;
+const disableVideo = process.env.CI_DISABLE_PLAYWRIGHT_VIDEO === 'true';
 
 /**
  * playwright.config.js — E2E test configuration for the AURA frontend.
@@ -36,7 +37,7 @@ export default defineConfig({
         baseURL: previewBaseUrl,
         trace: 'on-first-retry',
         screenshot: 'only-on-failure',
-        video: 'retain-on-failure',
+        video: disableVideo ? 'off' : 'retain-on-failure',
     },
 
     projects: [
@@ -63,6 +64,17 @@ export default defineConfig({
                 ...process.env,
                 MONGO_URI: isCI ? 'mongodb://127.0.0.1:27017/aura_e2e' : process.env.MONGO_URI,
                 NODE_ENV: 'test',
+                AI_MODEL_PROVIDER: process.env.AI_MODEL_PROVIDER || 'disabled',
+                CATALOG_IMPORTS_ENABLED: process.env.CATALOG_IMPORTS_ENABLED || 'false',
+                CATALOG_SYNC_ENABLED: process.env.CATALOG_SYNC_ENABLED || 'false',
+                CATALOG_ACTIVE_VERSION_REQUIRED: process.env.CATALOG_ACTIVE_VERSION_REQUIRED || 'false',
+                CATALOG_READINESS_REQUIRE_PUBLISHED: process.env.CATALOG_READINESS_REQUIRE_PUBLISHED || 'false',
+                COMMERCE_RECONCILIATION_ENABLED: process.env.COMMERCE_RECONCILIATION_ENABLED || 'false',
+                ORDER_EMAILS_ENABLED: process.env.ORDER_EMAILS_ENABLED || 'false',
+                ACTIVITY_EMAILS_ENABLED: process.env.ACTIVITY_EMAILS_ENABLED || 'false',
+                ADMIN_ANALYTICS_MONITOR_ENABLED: process.env.ADMIN_ANALYTICS_MONITOR_ENABLED || 'false',
+                PAYMENTS_ENABLED: process.env.PAYMENTS_ENABLED || 'false',
+                OTP_SMS_ENABLED: process.env.OTP_SMS_ENABLED || 'false',
                 ASSISTANT_V2_ENABLED: process.env.ASSISTANT_V2_ENABLED || 'true',
                 CORS_ORIGIN: process.env.CORS_ORIGIN || e2eCorsOrigins,
                 SIMULATED_WEBHOOK_SECRET: process.env.SIMULATED_WEBHOOK_SECRET || 'playwright-simulated-webhook-secret',

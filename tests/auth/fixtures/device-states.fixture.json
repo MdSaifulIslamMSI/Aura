@@ -1,0 +1,11 @@
+{
+  "deviceStates": [
+    "known_device",
+    "new_device",
+    "suspicious_device",
+    "changed_user_agent",
+    "changed_ip",
+    "vpn_like_ip",
+    "impossible_travel_pattern"
+  ]
+}

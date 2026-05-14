@@ -1,0 +1,67 @@
+{
+  "tiers": {
+    "ui_only_login_page_change": {
+      "riskLevel": "LOW",
+      "recommendedCommand": "npm run test:auth:smoke",
+      "targetChecks": "500-2000",
+      "purpose": "Fast validation for login UI, copy, and presentation changes."
+    },
+    "login_api_change": {
+      "riskLevel": "HIGH",
+      "recommendedCommand": "npm run test:auth:generated",
+      "targetChecks": "5000-20000",
+      "purpose": "Smoke plus core generated login cases for API or validation changes."
+    },
+    "password_or_recovery_change": {
+      "riskLevel": "HIGH",
+      "recommendedCommand": "npm run test:auth:security",
+      "targetChecks": "20000-75000",
+      "purpose": "Recovery, password validation, reset-token, and enumeration checks."
+    },
+    "token_or_session_change": {
+      "riskLevel": "CRITICAL",
+      "recommendedCommand": "npm run test:auth:critical",
+      "targetChecks": "50000-150000",
+      "purpose": "Access-token, refresh-token, cookie, and session lifecycle checks."
+    },
+    "otp_mfa_change": {
+      "riskLevel": "CRITICAL",
+      "recommendedCommand": "npm run test:auth:critical",
+      "targetChecks": "50000-200000",
+      "purpose": "OTP, MFA bypass, recovery, and suspicious-device checks."
+    },
+    "role_permission_change": {
+      "riskLevel": "CRITICAL",
+      "recommendedCommand": "npm run test:auth:critical",
+      "targetChecks": "50000-150000",
+      "purpose": "Full RBAC matrix and forbidden route testing."
+    },
+    "payment_security_sensitive_auth_change": {
+      "riskLevel": "CRITICAL",
+      "recommendedCommand": "npm run test:auth:critical",
+      "targetChecks": "100000-500000",
+      "purpose": "Auth security, token, session, RBAC, rate-limit, and payment boundary checks."
+    },
+    "major_production_auth_release": {
+      "riskLevel": "CRITICAL",
+      "recommendedCommand": "npm run test:auth:critical",
+      "targetChecks": "500000+",
+      "purpose": "Critical generated matrix before major releases."
+    },
+    "emergency_security_patch": {
+      "riskLevel": "CRITICAL",
+      "recommendedCommand": "npm run test:auth:critical",
+      "targetChecks": "100000-1000000+",
+      "purpose": "Risk-targeted security first, then broad generated regression."
+    }
+  },
+  "samplingStrategy": [
+    "risk_weighted",
+    "pairwise",
+    "boundary",
+    "known_attack_path",
+    "seeded_random",
+    "failure_replay"
+  ],
+  "claim": "The architecture supports approximately 1.04 billion logical authentication/security combinations and executes optimized risk-based subsets depending on the change type."
+}

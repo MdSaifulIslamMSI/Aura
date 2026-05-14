@@ -1,0 +1,19 @@
+{
+  "users": [
+    {
+      "role": "customer",
+      "email": "customer@example.test",
+      "accountState": "active"
+    },
+    {
+      "role": "seller",
+      "email": "seller@example.test",
+      "accountState": "active"
+    },
+    {
+      "role": "admin",
+      "email": "admin@example.test",
+      "accountState": "active"
+    }
+  ]
+}

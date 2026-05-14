@@ -1,0 +1,11 @@
+{
+  "otpStates": [
+    "correct_otp",
+    "wrong_otp",
+    "expired_otp",
+    "reused_otp",
+    "missing_otp",
+    "too_many_attempts",
+    "otp_for_different_user"
+  ]
+}

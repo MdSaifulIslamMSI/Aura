@@ -1,0 +1,75 @@
+{
+  "baseLogicalCeiling": 1045529856,
+  "levels": {
+    "level_0_base": {
+      "enabledDimensions": [],
+      "trigger": [
+        "normal_auth_change",
+        "small_login_change"
+      ],
+      "recommendedExecutedTests": "5000-50000"
+    },
+    "level_1_device": {
+      "enabledDimensions": [
+        "browserTypes",
+        "osTypes"
+      ],
+      "trigger": [
+        "login_ui_change",
+        "session_change",
+        "device_change"
+      ],
+      "recommendedExecutedTests": "50000-150000"
+    },
+    "level_2_risk": {
+      "enabledDimensions": [
+        "browserTypes",
+        "osTypes",
+        "geoRiskStates",
+        "fraudScoreLevels"
+      ],
+      "trigger": [
+        "suspicious_login_change",
+        "fraud_logic_change",
+        "device_risk_change"
+      ],
+      "recommendedExecutedTests": "100000-500000"
+    },
+    "level_3_payment_security": {
+      "enabledDimensions": [
+        "browserTypes",
+        "osTypes",
+        "geoRiskStates",
+        "fraudScoreLevels",
+        "paymentRiskStates"
+      ],
+      "trigger": [
+        "checkout_auth_change",
+        "saved_card_change",
+        "refund_auth_change",
+        "high_value_order_change"
+      ],
+      "recommendedExecutedTests": "500000-1000000+"
+    },
+    "level_4_critical": {
+      "enabledDimensions": [
+        "browserTypes",
+        "osTypes",
+        "geoRiskStates",
+        "fraudScoreLevels",
+        "paymentRiskStates",
+        "apiVersions",
+        "behavioralRiskStates"
+      ],
+      "trigger": [
+        "jwt_rewrite",
+        "refresh_token_rewrite",
+        "rbac_rewrite",
+        "mfa_rewrite",
+        "security_patch",
+        "major_release"
+      ],
+      "recommendedExecutedTests": "1000000+"
+    }
+  }
+}
