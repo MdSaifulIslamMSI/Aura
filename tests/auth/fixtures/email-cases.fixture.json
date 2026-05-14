@@ -1,0 +1,13 @@
+{
+  "emailCases": [
+    "valid_email",
+    "unknown_email",
+    "malformed_email",
+    "uppercase_email",
+    "mixedcase_email",
+    "leading_trailing_space",
+    "unicode_email",
+    "sql_payload_email",
+    "xss_payload_email"
+  ]
+}

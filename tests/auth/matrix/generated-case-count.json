@@ -1,0 +1,75 @@
+{
+  "baseMatrix": {
+    "dimensionCounts": {
+      "userRoles": 6,
+      "accountStates": 7,
+      "passwordCases": 12,
+      "emailCases": 9,
+      "tokenStates": 12,
+      "sessionStates": 8,
+      "otpStates": 7,
+      "deviceStates": 7,
+      "rateLimitStates": 7,
+      "routeTypes": 7
+    },
+    "logicalCeiling": 1045529856
+  },
+  "expansionLevels": {
+    "level_0_base": {
+      "enabledDimensions": [],
+      "logicalCeiling": 1045529856,
+      "recommendedExecutedTests": "5000-50000"
+    },
+    "level_1_device": {
+      "enabledDimensions": [
+        "browserTypes",
+        "osTypes"
+      ],
+      "logicalCeiling": 26138246400,
+      "recommendedExecutedTests": "50000-150000"
+    },
+    "level_2_risk": {
+      "enabledDimensions": [
+        "browserTypes",
+        "osTypes",
+        "geoRiskStates",
+        "fraudScoreLevels"
+      ],
+      "logicalCeiling": 653456160000,
+      "recommendedExecutedTests": "100000-500000"
+    },
+    "level_3_payment_security": {
+      "enabledDimensions": [
+        "browserTypes",
+        "osTypes",
+        "geoRiskStates",
+        "fraudScoreLevels",
+        "paymentRiskStates"
+      ],
+      "logicalCeiling": 3267280800000,
+      "recommendedExecutedTests": "500000-1000000+"
+    },
+    "level_4_critical": {
+      "enabledDimensions": [
+        "browserTypes",
+        "osTypes",
+        "geoRiskStates",
+        "fraudScoreLevels",
+        "paymentRiskStates",
+        "apiVersions",
+        "behavioralRiskStates"
+      ],
+      "logicalCeiling": 49009212000000,
+      "recommendedExecutedTests": "1000000+"
+    }
+  },
+  "executionPolicy": {
+    "smoke": "100-500 checks",
+    "core": "800-2000 checks",
+    "security": "1000-5000 checks",
+    "generated": "5000-50000 checks",
+    "nightly": "100000-500000+ checks",
+    "critical": "500000-1000000+ checks"
+  },
+  "professionalClaim": "This login architecture supports approximately 1.04 billion logical authentication/security combinations through an elastic generated test matrix. It executes optimized risk-based subsets during normal development and can increase test depth when higher-risk login, token, session, OTP, RBAC, recovery, or payment-security changes require stronger validation."
+}

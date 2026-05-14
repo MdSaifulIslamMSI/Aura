@@ -370,6 +370,7 @@ jobs:
         run: npm run test:e2e
         env:
           CI: "true"
+          CI_DISABLE_PLAYWRIGHT_VIDEO: "true"
           PLAYWRIGHT_CHROMIUM_CHANNEL: chrome
           PAYMENTS_ENABLED: "false"
           PAYMENT_WEBHOOKS_ENABLED: "false"

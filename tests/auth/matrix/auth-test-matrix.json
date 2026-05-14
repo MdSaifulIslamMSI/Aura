@@ -1,0 +1,153 @@
+{
+  "userRoles": [
+    "customer",
+    "seller",
+    "admin",
+    "super_admin",
+    "support_staff",
+    "delivery_partner"
+  ],
+  "accountStates": [
+    "active",
+    "unverified_email",
+    "disabled",
+    "locked",
+    "deleted",
+    "password_reset_required",
+    "mfa_required"
+  ],
+  "passwordCases": [
+    "valid_password",
+    "wrong_password",
+    "empty_password",
+    "short_password",
+    "very_long_password",
+    "unicode_password",
+    "special_char_password",
+    "whitespace_password",
+    "sql_payload_password",
+    "xss_payload_password",
+    "leaked_common_password",
+    "previous_password"
+  ],
+  "emailCases": [
+    "valid_email",
+    "unknown_email",
+    "malformed_email",
+    "uppercase_email",
+    "mixedcase_email",
+    "leading_trailing_space",
+    "unicode_email",
+    "sql_payload_email",
+    "xss_payload_email"
+  ],
+  "tokenStates": [
+    "valid_access_token",
+    "expired_access_token",
+    "malformed_access_token",
+    "tampered_access_token",
+    "missing_access_token",
+    "valid_refresh_token",
+    "expired_refresh_token",
+    "reused_refresh_token",
+    "revoked_refresh_token",
+    "token_with_wrong_role",
+    "token_signed_with_wrong_secret",
+    "token_without_required_claims"
+  ],
+  "sessionStates": [
+    "active_session",
+    "expired_session",
+    "logged_out_session",
+    "revoked_session",
+    "concurrent_session",
+    "suspicious_session",
+    "password_changed_session",
+    "reset_password_session"
+  ],
+  "otpStates": [
+    "correct_otp",
+    "wrong_otp",
+    "expired_otp",
+    "reused_otp",
+    "missing_otp",
+    "too_many_attempts",
+    "otp_for_different_user"
+  ],
+  "deviceStates": [
+    "known_device",
+    "new_device",
+    "suspicious_device",
+    "changed_user_agent",
+    "changed_ip",
+    "vpn_like_ip",
+    "impossible_travel_pattern"
+  ],
+  "rateLimitStates": [
+    "normal_request",
+    "repeated_wrong_password",
+    "rapid_same_ip",
+    "rapid_same_account",
+    "distributed_ip_same_account",
+    "otp_resend_spam",
+    "password_reset_spam"
+  ],
+  "routeTypes": [
+    "public_route",
+    "authenticated_customer_route",
+    "seller_route",
+    "admin_route",
+    "super_admin_route",
+    "support_route",
+    "delivery_route"
+  ],
+  "futureDimensions": {
+    "browserTypes": [
+      "chrome",
+      "firefox",
+      "safari",
+      "edge",
+      "mobile_browser"
+    ],
+    "osTypes": [
+      "windows",
+      "macos",
+      "linux",
+      "android",
+      "ios"
+    ],
+    "geoRiskStates": [
+      "normal_location",
+      "new_city",
+      "new_country",
+      "impossible_travel",
+      "high_risk_region"
+    ],
+    "fraudScoreLevels": [
+      "very_low",
+      "low",
+      "medium",
+      "high",
+      "critical"
+    ],
+    "apiVersions": [
+      "v1",
+      "v2",
+      "deprecated_version"
+    ],
+    "paymentRiskStates": [
+      "no_payment_action",
+      "saved_card_access",
+      "checkout_attempt",
+      "refund_attempt",
+      "high_value_order"
+    ],
+    "behavioralRiskStates": [
+      "normal_behavior",
+      "rapid_click_pattern",
+      "unusual_time_login",
+      "bot_like_pattern",
+      "account_takeover_pattern"
+    ]
+  }
+}

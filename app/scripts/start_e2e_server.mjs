@@ -9,11 +9,22 @@ const serverDir = path.resolve(__dirname, '../../server');
 const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 const requireFromServer = createRequire(path.join(serverDir, 'package.json'));
 
+const resolveCommand = (command, args) => {
+    if (process.platform !== 'win32' || command !== npmCommand) {
+        return { command, args };
+    }
+
+    return {
+        command: process.env.ComSpec || 'cmd.exe',
+        args: ['/d', '/c', [command, ...args].join(' ')],
+    };
+};
+
 const run = (command, args) => new Promise((resolve, reject) => {
-    const child = spawn(command, args, {
+    const resolved = resolveCommand(command, args);
+    const child = spawn(resolved.command, resolved.args, {
         cwd: serverDir,
         stdio: 'inherit',
-        shell: process.platform === 'win32',
         env: process.env,
     });
 

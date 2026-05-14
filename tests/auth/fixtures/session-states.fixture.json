@@ -1,0 +1,12 @@
+{
+  "sessionStates": [
+    "active_session",
+    "expired_session",
+    "logged_out_session",
+    "revoked_session",
+    "concurrent_session",
+    "suspicious_session",
+    "password_changed_session",
+    "reset_password_session"
+  ]
+}

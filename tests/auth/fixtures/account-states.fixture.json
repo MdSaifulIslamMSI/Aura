@@ -1,0 +1,11 @@
+{
+  "accountStates": [
+    "active",
+    "unverified_email",
+    "disabled",
+    "locked",
+    "deleted",
+    "password_reset_required",
+    "mfa_required"
+  ]
+}
