@@ -20,6 +20,9 @@ vi.mock('firebase/auth', () => ({
   FacebookAuthProvider: class FacebookAuthProvider {
     setCustomParameters() {}
   },
+  GithubAuthProvider: class GithubAuthProvider {
+    setCustomParameters() {}
+  },
   TwitterAuthProvider: class TwitterAuthProvider {
     setCustomParameters() {}
   },

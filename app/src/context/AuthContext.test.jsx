@@ -61,6 +61,7 @@ const loadAuthContext = async () => {
     auth: {},
     googleProvider: {},
     facebookProvider: {},
+    githubProvider: {},
     microsoftProvider: { providerId: 'microsoft.com' },
     appleProvider: null,
     xProvider: {},

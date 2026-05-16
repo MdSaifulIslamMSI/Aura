@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const nativeAuthMocks = vi.hoisted(() => ({
   signInWithGoogle: vi.fn(),
   signInWithFacebook: vi.fn(),
+  signInWithGithub: vi.fn(),
   signInWithTwitter: vi.fn(),
   signOut: vi.fn(),
   useAppLanguage: vi.fn(),
@@ -14,6 +15,7 @@ const firebaseAuthMocks = vi.hoisted(() => ({
   signInWithCredential: vi.fn(),
   googleCredential: vi.fn((idToken, accessToken) => ({ providerId: 'google.com', idToken, accessToken })),
   facebookCredential: vi.fn((accessToken) => ({ providerId: 'facebook.com', accessToken })),
+  githubCredential: vi.fn((accessToken) => ({ providerId: 'github.com', accessToken })),
   twitterCredential: vi.fn((accessToken, secret) => ({ providerId: 'twitter.com', accessToken, secret })),
 }));
 
@@ -28,6 +30,9 @@ vi.mock('firebase/auth', () => ({
   FacebookAuthProvider: {
     credential: firebaseAuthMocks.facebookCredential,
   },
+  GithubAuthProvider: {
+    credential: firebaseAuthMocks.githubCredential,
+  },
   TwitterAuthProvider: {
     credential: firebaseAuthMocks.twitterCredential,
   },
@@ -39,6 +44,7 @@ vi.mock('../config/firebase', () => ({
   assertFirebaseSocialAuthReady: vi.fn(),
   googleProvider: {},
   facebookProvider: {},
+  githubProvider: {},
   xProvider: {},
 }));
 
@@ -168,6 +174,49 @@ describe('nativeSocialAuth', () => {
       },
       additionalUserInfo: {
         isNewUser: true,
+      },
+    });
+  });
+
+  it('uses native GitHub sign-in inside Capacitor and exchanges the access token into Firebase JS auth', async () => {
+    nativeAuthMocks.signInWithGithub.mockResolvedValue({
+      credential: {
+        accessToken: 'github-access-token',
+      },
+      additionalUserInfo: {
+        username: 'aura-member',
+      },
+      user: {
+        uid: 'native-github-user',
+      },
+    });
+    firebaseAuthMocks.signInWithCredential.mockResolvedValue({
+      user: {
+        uid: 'web-github-user',
+        email: 'member@example.com',
+        providerData: [{ providerId: 'github.com' }],
+      },
+    });
+
+    const nativeRuntimeModule = await import('../utils/nativeRuntime');
+    vi.spyOn(nativeRuntimeModule, 'isCapacitorNativeRuntime').mockReturnValue(true);
+    vi.spyOn(nativeRuntimeModule, 'getNativeMobilePlatform').mockReturnValue('android');
+
+    const { signInWithNativeSocialProvider } = await import('./nativeSocialAuth');
+    const result = await signInWithNativeSocialProvider('github', 'GitHub');
+
+    expect(nativeAuthMocks.signInWithGithub).toHaveBeenCalledWith({ skipNativeAuth: true });
+    expect(firebaseAuthMocks.githubCredential).toHaveBeenCalledWith('github-access-token');
+    expect(firebaseAuthMocks.signInWithCredential).toHaveBeenCalledWith(
+      { currentUser: null },
+      expect.objectContaining({ providerId: 'github.com' })
+    );
+    expect(result).toMatchObject({
+      user: {
+        uid: 'web-github-user',
+      },
+      additionalUserInfo: {
+        username: 'aura-member',
       },
     });
   });
