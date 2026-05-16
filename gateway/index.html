@@ -139,7 +139,8 @@
             </div>
             <p>
               Desktop links follow the latest desktop release. Android and Apple links follow the mobile release lane.
-              iPadOS, ChromeOS, Unix/BSD, HarmonyOS, and RTOS-family devices get explicit install or companion routes.
+              iPadOS, ChromeOS, Unix/BSD, Indian Linux and Android-family OSes, HarmonyOS, and RTOS-family devices get
+              explicit install or companion routes.
             </p>
           </div>
 
@@ -455,6 +456,608 @@
               <p class="platform-caution">
                 Use HTTPS/MQTT-capable firmware or a gateway bridge. Keep checkout and account screens on web, mobile,
                 or desktop.
+              </p>
+              <div class="download-actions">
+                <a class="download-button primary" href="https://aurapilot.vercel.app" rel="noreferrer">
+                  <span>Open full Aura app</span>
+                  <small>Web fallback</small>
+                </a>
+              </div>
+            </article>
+
+            <article class="download-card platform-india-os platform-boss">
+              <div class="platform-heading">
+                <span class="platform-icon platform-icon-india" aria-hidden="true"></span>
+                <div>
+                  <h3>BOSS Linux family</h3>
+                  <p>BOSS, EduBOSS, Secure BOSS, and BOSS Server</p>
+                </div>
+              </div>
+              <p class="platform-note">
+                BOSS Linux, EduBOSS, Secure BOSS, and BOSS Advanced Server are covered by Aura's Debian-compatible deb
+                package and the hosted PWA. Server editions should use the web app from a managed browser session.
+              </p>
+              <div class="download-actions">
+                <a class="download-button primary" href="https://github.com/MdSaifulIslamMSI/Aura/releases" data-release-asset="Aura-Marketplace-Linux-amd64.deb" rel="noreferrer">
+                  <span>BOSS x64 deb</span>
+                  <small>Release page</small>
+                </a>
+                <a class="download-button" href="https://aurapilot.vercel.app" rel="noreferrer">
+                  <span>Open BOSS PWA</span>
+                  <small>Live app</small>
+                </a>
+              </div>
+            </article>
+
+            <article class="download-card platform-india-os platform-maya">
+              <div class="platform-heading">
+                <span class="platform-icon platform-icon-shield" aria-hidden="true"></span>
+                <div>
+                  <h3>Maya OS</h3>
+                  <p>Ubuntu-based defence Linux</p>
+                </div>
+              </div>
+              <p class="platform-note">
+                Maya OS is covered through Aura's Ubuntu-compatible deb package, AppImage, and hosted PWA. Deployment
+                into controlled defence environments should follow local security policy and endpoint controls.
+              </p>
+              <div class="download-actions">
+                <a class="download-button primary" href="https://github.com/MdSaifulIslamMSI/Aura/releases" data-release-asset="Aura-Marketplace-Linux-amd64.deb" rel="noreferrer">
+                  <span>Maya OS deb</span>
+                  <small>Release page</small>
+                </a>
+                <a class="download-button" href="https://aurapilot.vercel.app" rel="noreferrer">
+                  <span>Open Maya OS PWA</span>
+                  <small>Live app</small>
+                </a>
+              </div>
+            </article>
+
+            <article class="download-card platform-india-os platform-garuda">
+              <div class="platform-heading">
+                <span class="platform-icon platform-icon-garuda" aria-hidden="true"></span>
+                <div>
+                  <h3>Garuda Linux</h3>
+                  <p>Arch-based desktop Linux</p>
+                </div>
+              </div>
+              <p class="platform-note">
+                Garuda users should use the AppImage or tar.gz desktop artifacts, or install Aura as a browser PWA. A
+                repo-native Arch package is not published yet.
+              </p>
+              <div class="download-actions">
+                <a class="download-button primary" href="https://github.com/MdSaifulIslamMSI/Aura/releases" data-release-asset="Aura-Marketplace-Linux-x86_64.AppImage" rel="noreferrer">
+                  <span>Garuda AppImage</span>
+                  <small>Release page</small>
+                </a>
+                <a class="download-button" href="https://aurapilot.vercel.app" rel="noreferrer">
+                  <span>Open Garuda PWA</span>
+                  <small>Live app</small>
+                </a>
+              </div>
+            </article>
+
+            <article class="download-card platform-india-os platform-android-family">
+              <div class="platform-heading">
+                <span class="platform-icon platform-icon-android" aria-hidden="true"></span>
+                <div>
+                  <h3>BharOS, JioOS, and Indus</h3>
+                  <p>Android-family mobile and laptop surfaces</p>
+                </div>
+              </div>
+              <p class="platform-note">
+                BharOS, JioOS on JioBook, and the Indus ecosystem are covered through Aura's Android APK where the OS
+                accepts compatible Android packages, plus the hosted PWA for browser-first installs.
+              </p>
+              <div class="download-actions">
+                <a
+                  class="download-button primary"
+                  href="https://github.com/MdSaifulIslamMSI/Aura/releases"
+                  data-release-channel="mobile"
+                  data-release-asset-prefix="Aura-Marketplace-Android-"
+                  data-release-asset-suffix=".apk"
+                  rel="noreferrer"
+                >
+                  <span>Android-family APK</span>
+                  <small>Release page</small>
+                </a>
+                <a class="download-button" href="https://aurapilot.vercel.app" rel="noreferrer">
+                  <span>Open Android-family PWA</span>
+                  <small>Live app</small>
+                </a>
+              </div>
+            </article>
+
+            <article class="download-card platform-india-os platform-tv">
+              <div class="platform-heading">
+                <span class="platform-icon platform-icon-tv" aria-hidden="true"></span>
+                <div>
+                  <h3>JioTele OS</h3>
+                  <p>Smart TV browser and app-store surface</p>
+                </div>
+              </div>
+              <p class="platform-note">
+                JioTele OS is covered by Aura's hosted PWA/browser surface for TV-capable browsing. A native TV app
+                would require a separate JioStore/TV packaging lane and remote-control UX pass.
+              </p>
+              <div class="download-actions">
+                <a class="download-button primary" href="https://aurapilot.vercel.app" rel="noreferrer">
+                  <span>Open JioTele OS web app</span>
+                  <small>Live app</small>
+                </a>
+              </div>
+            </article>
+
+            <article class="download-card platform-specialized platform-apple-watch">
+              <div class="platform-heading">
+                <span class="platform-icon platform-icon-watch" aria-hidden="true"></span>
+                <div>
+                  <h3>watchOS</h3>
+                  <p>Apple Watch companion surface</p>
+                </div>
+              </div>
+              <p class="platform-note">
+                Apple Watch cannot run the full Aura storefront. watchOS is covered as a companion surface for alerts,
+                approval nudges, order status, and quick actions driven by the iPhone/iPadOS or web session.
+              </p>
+              <div class="download-actions">
+                <a class="download-button primary" href="https://aurapilot.vercel.app" rel="noreferrer">
+                  <span>Open Aura for pairing</span>
+                  <small>Web app</small>
+                </a>
+              </div>
+            </article>
+
+            <article class="download-card platform-specialized platform-tvos">
+              <div class="platform-heading">
+                <span class="platform-icon platform-icon-tv" aria-hidden="true"></span>
+                <div>
+                  <h3>tvOS</h3>
+                  <p>Apple TV discovery surface</p>
+                </div>
+              </div>
+              <p class="platform-note">
+                tvOS is covered as a large-screen browsing and display surface where a browser or AirPlay workflow is
+                available. A native Apple TV app needs a separate remote-control UX and App Store packaging lane.
+              </p>
+              <div class="download-actions">
+                <a class="download-button primary" href="https://aurapilot.vercel.app" rel="noreferrer">
+                  <span>Open Aura web surface</span>
+                  <small>Live app</small>
+                </a>
+              </div>
+            </article>
+
+            <article class="download-card platform-specialized platform-rhel">
+              <div class="platform-heading">
+                <span class="platform-icon platform-icon-enterprise" aria-hidden="true"></span>
+                <div>
+                  <h3>Red Hat Enterprise Linux</h3>
+                  <p>Enterprise desktop, server, and cloud Linux</p>
+                </div>
+              </div>
+              <p class="platform-note">
+                RHEL users should choose the RPM package for desktop installs, AppImage for portable use, or the hosted
+                PWA from a managed browser on servers and cloud workstations.
+              </p>
+              <div class="download-actions">
+                <a class="download-button primary" href="https://github.com/MdSaifulIslamMSI/Aura/releases" data-release-asset="Aura-Marketplace-Linux-x86_64.rpm" rel="noreferrer">
+                  <span>RHEL x64 RPM</span>
+                  <small>Release page</small>
+                </a>
+                <a class="download-button" href="https://aurapilot.vercel.app" rel="noreferrer">
+                  <span>Open RHEL PWA</span>
+                  <small>Live app</small>
+                </a>
+              </div>
+            </article>
+
+            <article class="download-card platform-specialized platform-vxworks">
+              <div class="platform-heading">
+                <span class="platform-icon platform-icon-rtos" aria-hidden="true"></span>
+                <div>
+                  <h3>VxWorks</h3>
+                  <p>Real-time embedded companion systems</p>
+                </div>
+              </div>
+              <p class="platform-note">
+                VxWorks cannot run the full Aura UI. It is supported through the same embedded companion model as RTOS:
+                authenticated telemetry, inventory signals, device state, and gateway-mediated commerce events.
+              </p>
+              <p class="platform-caution">
+                Keep payments, account access, checkout, and admin tasks on Aura web, mobile, or desktop surfaces.
+              </p>
+              <div class="download-actions">
+                <a class="download-button primary" href="https://aurapilot.vercel.app" rel="noreferrer">
+                  <span>Open full Aura app</span>
+                  <small>Web fallback</small>
+                </a>
+              </div>
+            </article>
+
+            <article class="download-card platform-europe-os platform-linux-family">
+              <div class="platform-heading">
+                <span class="platform-icon platform-icon-linux" aria-hidden="true"></span>
+                <div>
+                  <h3>Linux / GNU-Linux family</h3>
+                  <p>Servers, cloud, desktop, embedded, and supercomputing</p>
+                </div>
+              </div>
+              <p class="platform-note">
+                Aura covers the wider GNU-Linux family through AppImage, deb, RPM, tar.gz, and the hosted PWA. Server
+                and cloud systems should use the browser/PWA from a managed user session.
+              </p>
+              <div class="download-actions">
+                <a class="download-button primary" href="https://github.com/MdSaifulIslamMSI/Aura/releases" data-release-asset="Aura-Marketplace-Linux-x86_64.AppImage" rel="noreferrer">
+                  <span>Linux AppImage</span>
+                  <small>Release page</small>
+                </a>
+                <a class="download-button" href="https://aurapilot.vercel.app" rel="noreferrer">
+                  <span>Open Linux PWA</span>
+                  <small>Live app</small>
+                </a>
+              </div>
+            </article>
+
+            <article class="download-card platform-europe-os platform-suse">
+              <div class="platform-heading">
+                <span class="platform-icon platform-icon-enterprise" aria-hidden="true"></span>
+                <div>
+                  <h3>SUSE Linux Enterprise + openSUSE</h3>
+                  <p>Enterprise, developer, server, and container Linux</p>
+                </div>
+              </div>
+              <p class="platform-note">
+                SUSE Linux Enterprise and openSUSE users should choose Aura's RPM package or AppImage. Containers and
+                server installs should use the hosted PWA from a managed browser.
+              </p>
+              <div class="download-actions">
+                <a class="download-button primary" href="https://github.com/MdSaifulIslamMSI/Aura/releases" data-release-asset="Aura-Marketplace-Linux-x86_64.rpm" rel="noreferrer">
+                  <span>SUSE/openSUSE RPM</span>
+                  <small>Release page</small>
+                </a>
+                <a class="download-button" href="https://aurapilot.vercel.app" rel="noreferrer">
+                  <span>Open SUSE PWA</span>
+                  <small>Live app</small>
+                </a>
+              </div>
+            </article>
+
+            <article class="download-card platform-europe-os platform-raspberry">
+              <div class="platform-heading">
+                <span class="platform-icon platform-icon-chip" aria-hidden="true"></span>
+                <div>
+                  <h3>Raspberry Pi OS</h3>
+                  <p>Debian-based ARM computers, education, IoT, and robotics</p>
+                </div>
+              </div>
+              <p class="platform-note">
+                Raspberry Pi OS is covered by the hosted PWA and ARM64 Linux packages where the device and desktop stack
+                support them. Lightweight Pi/IoT deployments can use the companion API model.
+              </p>
+              <div class="download-actions">
+                <a class="download-button primary" href="https://github.com/MdSaifulIslamMSI/Aura/releases" data-release-asset="Aura-Marketplace-Linux-arm64.AppImage" rel="noreferrer">
+                  <span>Raspberry Pi ARM64 AppImage</span>
+                  <small>Release page</small>
+                </a>
+                <a class="download-button" href="https://aurapilot.vercel.app" rel="noreferrer">
+                  <span>Open Raspberry Pi PWA</span>
+                  <small>Live app</small>
+                </a>
+              </div>
+            </article>
+
+            <article class="download-card platform-europe-os platform-sailfish">
+              <div class="platform-heading">
+                <span class="platform-icon platform-icon-mobile" aria-hidden="true"></span>
+                <div>
+                  <h3>Sailfish OS</h3>
+                  <p>European mobile OS alternative</p>
+                </div>
+              </div>
+              <p class="platform-note">
+                Sailfish OS is covered through the hosted Aura web/PWA surface in a compatible browser. Android app
+                compatibility may work on configured Sailfish devices, but it is not the primary support lane.
+              </p>
+              <div class="download-actions">
+                <a class="download-button primary" href="https://aurapilot.vercel.app" rel="noreferrer">
+                  <span>Open Sailfish web app</span>
+                  <small>Live app</small>
+                </a>
+              </div>
+            </article>
+
+            <article class="download-card platform-europe-os platform-research">
+              <div class="platform-heading">
+                <span class="platform-icon platform-icon-research" aria-hidden="true"></span>
+                <div>
+                  <h3>MINIX + RISC OS</h3>
+                  <p>Education, microkernel research, ARM enthusiast systems</p>
+                </div>
+              </div>
+              <p class="platform-note">
+                MINIX and RISC OS are covered only where a modern browser can run the hosted Aura app. Otherwise, use
+                them as companion or research clients against backend APIs rather than full storefront hosts.
+              </p>
+              <div class="download-actions">
+                <a class="download-button primary" href="https://aurapilot.vercel.app" rel="noreferrer">
+                  <span>Open research OS web app</span>
+                  <small>Live app</small>
+                </a>
+              </div>
+            </article>
+
+            <article class="download-card platform-europe-os platform-legacy-mobile">
+              <div class="platform-heading">
+                <span class="platform-icon platform-icon-mobile" aria-hidden="true"></span>
+                <div>
+                  <h3>Symbian OS</h3>
+                  <p>Legacy Nokia-era smartphones</p>
+                </div>
+              </div>
+              <p class="platform-note">
+                Symbian is treated as a legacy compatibility target. The full Aura UI requires modern browser APIs, so
+                Symbian users should use a newer companion device for account, checkout, and marketplace flows.
+              </p>
+              <p class="platform-caution">
+                No native Symbian package is produced.
+              </p>
+              <div class="download-actions">
+                <a class="download-button primary" href="https://aurapilot.vercel.app" rel="noreferrer">
+                  <span>Open modern web fallback</span>
+                  <small>Live app</small>
+                </a>
+              </div>
+            </article>
+
+            <article class="download-card platform-europe-os platform-mageia">
+              <div class="platform-heading">
+                <span class="platform-icon platform-icon-enterprise" aria-hidden="true"></span>
+                <div>
+                  <h3>Mageia</h3>
+                  <p>French community desktop/server Linux</p>
+                </div>
+              </div>
+              <p class="platform-note">
+                Mageia users should choose Aura's RPM package, AppImage, or hosted PWA. Server deployments should keep
+                Aura in a browser session rather than running the desktop UI as a service.
+              </p>
+              <div class="download-actions">
+                <a class="download-button primary" href="https://github.com/MdSaifulIslamMSI/Aura/releases" data-release-asset="Aura-Marketplace-Linux-x86_64.rpm" rel="noreferrer">
+                  <span>Mageia RPM</span>
+                  <small>Release page</small>
+                </a>
+                <a class="download-button" href="https://aurapilot.vercel.app" rel="noreferrer">
+                  <span>Open Mageia PWA</span>
+                  <small>Live app</small>
+                </a>
+              </div>
+            </article>
+
+            <article class="download-card platform-regional-os platform-russian-linux">
+              <div class="platform-heading">
+                <span class="platform-icon platform-icon-enterprise" aria-hidden="true"></span>
+                <div>
+                  <h3>Astra Linux, ALT Linux, RED OS, and ROSA Linux</h3>
+                  <p>Certified desktop, server, government, education, and enterprise Linux</p>
+                </div>
+              </div>
+              <p class="platform-note">
+                These Linux families are covered by Aura's Linux package set and hosted PWA. Use RPM on RPM-family
+                deployments, deb where the system policy supports Debian packages, or AppImage for portable testing.
+              </p>
+              <div class="download-actions">
+                <a class="download-button primary" href="https://github.com/MdSaifulIslamMSI/Aura/releases" data-release-asset="Aura-Marketplace-Linux-x86_64.rpm" rel="noreferrer">
+                  <span>Russian Linux RPM</span>
+                  <small>Release page</small>
+                </a>
+                <a class="download-button" href="https://github.com/MdSaifulIslamMSI/Aura/releases" data-release-asset="Aura-Marketplace-Linux-x86_64.AppImage" rel="noreferrer">
+                  <span>Russian Linux AppImage</span>
+                  <small>Release page</small>
+                </a>
+              </div>
+            </article>
+
+            <article class="download-card platform-regional-os platform-aurora">
+              <div class="platform-heading">
+                <span class="platform-icon platform-icon-mobile" aria-hidden="true"></span>
+                <div>
+                  <h3>Aurora OS</h3>
+                  <p>Government and corporate mobile OS</p>
+                </div>
+              </div>
+              <p class="platform-note">
+                Aurora OS is covered through the hosted mobile web/PWA lane where a compatible browser is available.
+                Native Aurora packaging would require a separate SDK, signing, and enterprise distribution workflow.
+              </p>
+              <div class="download-actions">
+                <a class="download-button primary" href="https://aurapilot.vercel.app" rel="noreferrer">
+                  <span>Open Aurora OS web app</span>
+                  <small>Live app</small>
+                </a>
+              </div>
+            </article>
+
+            <article class="download-card platform-regional-os platform-secure-microkernel">
+              <div class="platform-heading">
+                <span class="platform-icon platform-icon-shield" aria-hidden="true"></span>
+                <div>
+                  <h3>KasperskyOS</h3>
+                  <p>Secure microkernel and critical infrastructure systems</p>
+                </div>
+              </div>
+              <p class="platform-note">
+                KasperskyOS cannot run the full Aura storefront. It is supported as a secure companion endpoint through
+                authenticated telemetry, inventory, device-state, and gateway-mediated event APIs.
+              </p>
+              <p class="platform-caution">
+                Keep account, checkout, payment, and admin workflows on full Aura web, mobile, or desktop clients.
+              </p>
+              <div class="download-actions">
+                <a class="download-button primary" href="https://aurapilot.vercel.app" rel="noreferrer">
+                  <span>Open full Aura app</span>
+                  <small>Web fallback</small>
+                </a>
+              </div>
+            </article>
+
+            <article class="download-card platform-regional-os platform-elbrus">
+              <div class="platform-heading">
+                <span class="platform-icon platform-icon-chip" aria-hidden="true"></span>
+                <div>
+                  <h3>Elbrus Linux / Elbrus OS</h3>
+                  <p>Specialized Linux on Elbrus processor platforms</p>
+                </div>
+              </div>
+              <p class="platform-note">
+                Elbrus systems are covered by the hosted PWA and browser route. Native desktop binaries are not emitted
+                for Elbrus CPU targets in the current release pipeline.
+              </p>
+              <div class="download-actions">
+                <a class="download-button primary" href="https://aurapilot.vercel.app" rel="noreferrer">
+                  <span>Open Elbrus web app</span>
+                  <small>Live app</small>
+                </a>
+              </div>
+            </article>
+
+            <article class="download-card platform-regional-os platform-calculate">
+              <div class="platform-heading">
+                <span class="platform-icon platform-icon-linux" aria-hidden="true"></span>
+                <div>
+                  <h3>Calculate Linux</h3>
+                  <p>Gentoo-based desktop/server Linux</p>
+                </div>
+              </div>
+              <p class="platform-note">
+                Calculate Linux users should choose AppImage or tar.gz for desktop use, or install Aura as a PWA from a
+                modern browser. No native ebuild is published yet.
+              </p>
+              <div class="download-actions">
+                <a class="download-button primary" href="https://github.com/MdSaifulIslamMSI/Aura/releases" data-release-asset="Aura-Marketplace-Linux-x86_64.AppImage" rel="noreferrer">
+                  <span>Calculate AppImage</span>
+                  <small>Release page</small>
+                </a>
+                <a class="download-button" href="https://aurapilot.vercel.app" rel="noreferrer">
+                  <span>Open Calculate PWA</span>
+                  <small>Live app</small>
+                </a>
+              </div>
+            </article>
+
+            <article class="download-card platform-regional-os platform-experimental-os">
+              <div class="platform-heading">
+                <span class="platform-icon platform-icon-research" aria-hidden="true"></span>
+                <div>
+                  <h3>KolibriOS + Phantom OS</h3>
+                  <p>Tiny, experimental, research, embedded, and object OS surfaces</p>
+                </div>
+              </div>
+              <p class="platform-note">
+                KolibriOS and Phantom OS are not full Aura UI targets. They are covered as experimental companion
+                clients through lightweight backend API or gateway bridge integrations.
+              </p>
+              <div class="download-actions">
+                <a class="download-button primary" href="https://aurapilot.vercel.app" rel="noreferrer">
+                  <span>Open modern web fallback</span>
+                  <small>Live app</small>
+                </a>
+              </div>
+            </article>
+
+            <article class="download-card platform-asia-os platform-harmony-family">
+              <div class="platform-heading">
+                <span class="platform-icon platform-icon-harmony" aria-hidden="true"></span>
+                <div>
+                  <h3>HarmonyOS / Hongmeng OS + OpenHarmony</h3>
+                  <p>Phones, tablets, wearables, TVs, cars, IoT, and distributed devices</p>
+                </div>
+              </div>
+              <p class="platform-note">
+                HarmonyOS users get Aura through the hosted PWA today, with Android-compatible APK testing where the
+                device supports it. OpenHarmony and IoT targets use the companion API model.
+              </p>
+              <div class="download-actions">
+                <a class="download-button primary" href="https://aurapilot.vercel.app" rel="noreferrer">
+                  <span>Open Harmony family PWA</span>
+                  <small>Live app</small>
+                </a>
+                <a
+                  class="download-button"
+                  href="https://github.com/MdSaifulIslamMSI/Aura/releases"
+                  data-release-channel="mobile"
+                  data-release-asset-prefix="Aura-Marketplace-Android-"
+                  data-release-asset-suffix=".apk"
+                  rel="noreferrer"
+                >
+                  <span>Harmony-compatible APK</span>
+                  <small>Release page</small>
+                </a>
+              </div>
+            </article>
+
+            <article class="download-card platform-asia-os platform-china-linux">
+              <div class="platform-heading">
+                <span class="platform-icon platform-icon-enterprise" aria-hidden="true"></span>
+                <div>
+                  <h3>Kylin OS, Galaxy Kylin, UOS, and deepin Linux</h3>
+                  <p>Domestic desktop/server Linux and consumer desktop systems</p>
+                </div>
+              </div>
+              <p class="platform-note">
+                Kylin, Galaxy Kylin, UOS, and deepin are covered by Aura's Linux deb/AppImage/RPM choices plus the PWA.
+                Use the package family approved by the target deployment.
+              </p>
+              <div class="download-actions">
+                <a class="download-button primary" href="https://github.com/MdSaifulIslamMSI/Aura/releases" data-release-asset="Aura-Marketplace-Linux-amd64.deb" rel="noreferrer">
+                  <span>Kylin/UOS/deepin deb</span>
+                  <small>Release page</small>
+                </a>
+                <a class="download-button" href="https://aurapilot.vercel.app" rel="noreferrer">
+                  <span>Open China Linux PWA</span>
+                  <small>Live app</small>
+                </a>
+              </div>
+            </article>
+
+            <article class="download-card platform-asia-os platform-china-enterprise">
+              <div class="platform-heading">
+                <span class="platform-icon platform-icon-cloud" aria-hidden="true"></span>
+                <div>
+                  <h3>openEuler, Anolis OS, and TencentOS Server</h3>
+                  <p>Server, cloud, edge, embedded, and digital infrastructure Linux</p>
+                </div>
+              </div>
+              <p class="platform-note">
+                openEuler, Anolis OS, and TencentOS Server are covered by Aura's RPM/AppImage/PWA routes. Server and
+                cloud environments should use managed browser access or gateway integration instead of desktop daemon use.
+              </p>
+              <div class="download-actions">
+                <a class="download-button primary" href="https://github.com/MdSaifulIslamMSI/Aura/releases" data-release-asset="Aura-Marketplace-Linux-x86_64.rpm" rel="noreferrer">
+                  <span>Enterprise Linux RPM</span>
+                  <small>Release page</small>
+                </a>
+                <a class="download-button" href="https://aurapilot.vercel.app" rel="noreferrer">
+                  <span>Open server PWA</span>
+                  <small>Live app</small>
+                </a>
+              </div>
+            </article>
+
+            <article class="download-card platform-asia-os platform-china-iot">
+              <div class="platform-heading">
+                <span class="platform-icon platform-icon-chip" aria-hidden="true"></span>
+                <div>
+                  <h3>AliOS, AliOS Things, and RT-Thread</h3>
+                  <p>Smart cars, industrial systems, IoT, embedded, sensors, and RTOS devices</p>
+                </div>
+              </div>
+              <p class="platform-note">
+                AliOS Things and RT-Thread cannot host the full Aura UI. They are covered through the embedded
+                companion model: authenticated events, telemetry, inventory signals, and gateway-mediated actions.
+              </p>
+              <p class="platform-caution">
+                Keep account, checkout, payment, and admin workflows on web, desktop, or mobile.
               </p>
               <div class="download-actions">
                 <a class="download-button primary" href="https://aurapilot.vercel.app" rel="noreferrer">
