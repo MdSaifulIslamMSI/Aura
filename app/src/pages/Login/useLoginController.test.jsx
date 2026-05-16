@@ -53,6 +53,26 @@ const SocialSignInProbe = () => {
   );
 };
 
+const MicrosoftSignInProbe = () => {
+  const { authError, handleSocialSignIn, signInWithMicrosoft } = useLoginController();
+  const [result, setResult] = React.useState('idle');
+
+  React.useEffect(() => {
+    handleSocialSignIn(signInWithMicrosoft, 'Microsoft')
+      .then(() => setResult('completed'))
+      .catch((error) => setResult(error?.message || 'failed'));
+  }, [handleSocialSignIn, signInWithMicrosoft]);
+
+  return (
+    <>
+      <div data-testid="social-result">{result}</div>
+      <div data-testid="social-error-title">{authError?.title || 'none'}</div>
+      <div data-testid="social-error-detail">{authError?.detail || 'none'}</div>
+      <div data-testid="social-error-hint">{authError?.hint || 'none'}</div>
+    </>
+  );
+};
+
 const PhoneCountryProbe = () => {
   const {
     formData,
@@ -305,6 +325,41 @@ describe('useLoginController', () => {
     });
 
     expect(signInWithGoogle).toHaveBeenCalled();
+  });
+
+  it('keeps Microsoft account collision copy provider-specific', async () => {
+    const signInWithMicrosoft = vi.fn().mockRejectedValue(Object.assign(
+      new Error('Firebase: Error (auth/account-exists-with-different-credential).'),
+      {
+        code: 'auth/account-exists-with-different-credential',
+        customData: {
+          email: 'user@example.com',
+          _tokenResponse: {
+            providerId: 'microsoft.com',
+          },
+        },
+      },
+    ));
+
+    render(
+      <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+        <AuthContext.Provider value={buildAuthValue({ signInWithMicrosoft })}>
+          <MemoryRouter initialEntries={['/login']}>
+            <Routes>
+              <Route path="/login" element={<MicrosoftSignInProbe />} />
+            </Routes>
+          </MemoryRouter>
+        </AuthContext.Provider>
+      </MarketProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('social-error-title')).toHaveTextContent('Microsoft Account Already Exists');
+      expect(screen.getByTestId('social-error-detail')).toHaveTextContent('user@example.com');
+      expect(screen.getByTestId('social-error-hint')).toHaveTextContent('link Microsoft after login');
+    });
+
+    expect(signInWithMicrosoft).toHaveBeenCalled();
   });
 
   it('lets risky hosts complete the redirect handoff without surfacing a popup cancellation', async () => {
