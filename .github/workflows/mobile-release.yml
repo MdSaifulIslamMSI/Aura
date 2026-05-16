@@ -23,6 +23,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   NODE_VERSION: 24.x
 
 jobs:
@@ -100,11 +101,11 @@ jobs:
           if [ -n "${FIREBASE_ANDROID_GOOGLE_SERVICES_JSON_BASE64}" ]; then
             has_android_config=true
           else
-            echo "::warning::FIREBASE_ANDROID_GOOGLE_SERVICES_JSON_BASE64 is missing. Android artifacts will still build, but native Firebase social sign-in may be limited until this secret is configured."
+            echo "FIREBASE_ANDROID_GOOGLE_SERVICES_JSON_BASE64 is missing. Android artifacts will still build, but native Firebase social sign-in may be limited until this secret is configured."
           fi
 
           if [ -z "${AURA_ANDROID_DEFAULT_WEB_CLIENT_ID}" ]; then
-            echo "::notice::AURA_ANDROID_DEFAULT_WEB_CLIENT_ID is missing. Android will launch safely, but native Google sign-in needs this or a full google-services.json."
+            echo "AURA_ANDROID_DEFAULT_WEB_CLIENT_ID is missing. Android will launch safely, but native Google sign-in needs this or a full google-services.json."
           fi
 
           if [ -n "${ANDROID_RELEASE_KEYSTORE_BASE64}" ] \
@@ -113,13 +114,13 @@ jobs:
             && [ -n "${ANDROID_RELEASE_KEY_PASSWORD}" ]; then
             can_sign_android=true
           else
-            echo "::warning::Android private release signing secrets are incomplete. GitHub APKs will use the repo public internal update key for internal testing/install continuity only, not production store trust or public distribution."
+            echo "Android private release signing secrets are incomplete. GitHub APKs will use the repo public internal update key for internal testing/install continuity only, not production store trust or public distribution."
           fi
 
           if [ -n "${FIREBASE_IOS_GOOGLE_SERVICE_INFO_PLIST_BASE64}" ]; then
             has_ios_config=true
           else
-            echo "::warning::FIREBASE_IOS_GOOGLE_SERVICE_INFO_PLIST_BASE64 is missing. iOS simulator validation will still run, but native Firebase social sign-in may be limited until this secret is configured."
+            echo "FIREBASE_IOS_GOOGLE_SERVICE_INFO_PLIST_BASE64 is missing. iOS simulator validation will still run, but native Firebase social sign-in may be limited until this secret is configured."
           fi
 
           if [ -n "${IOS_SIGNING_CERTIFICATE_P12_BASE64}" ] \
@@ -130,13 +131,13 @@ jobs:
             && [ "${has_ios_config}" = "true" ]; then
             can_sign_ios=true
           else
-            echo "::warning::iOS signing secrets are incomplete. CI will validate the iOS simulator build only; no real-device or public TestFlight distribution is expected until Apple signing assets are configured."
+            echo "iOS signing secrets are incomplete. CI will validate the iOS simulator build only; no real-device or public TestFlight distribution is expected until Apple signing assets are configured."
           fi
 
           if [ "${can_sign_android}" = "true" ] && [ -n "${GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64}" ]; then
             can_publish_android_play=true
           else
-            echo "::notice::Google Play publication is skipped until GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64 and Android signing secrets are configured."
+            echo "Google Play publication is skipped until GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64 and Android signing secrets are configured."
           fi
 
           if [ "${can_sign_ios}" = "true" ] \
@@ -145,7 +146,7 @@ jobs:
             && [ -n "${APP_STORE_CONNECT_API_KEY_P8_BASE64}" ]; then
             can_publish_ios_testflight=true
           else
-            echo "::notice::TestFlight publication is skipped until App Store Connect API key and iOS signing secrets are configured."
+            echo "TestFlight publication is skipped until App Store Connect API key and iOS signing secrets are configured."
           fi
 
           echo "can_build_android=true" >> "$GITHUB_OUTPUT"
@@ -193,7 +194,7 @@ jobs:
           if [ -n "${FIREBASE_ANDROID_GOOGLE_SERVICES_JSON_BASE64}" ]; then
             printf '%s' "${FIREBASE_ANDROID_GOOGLE_SERVICES_JSON_BASE64}" | base64 --decode > app/android/app/google-services.json
           else
-            echo "::warning::Building Android without google-services.json. Configure FIREBASE_ANDROID_GOOGLE_SERVICES_JSON_BASE64 before public store distribution."
+            echo "Building Android without google-services.json. Configure FIREBASE_ANDROID_GOOGLE_SERVICES_JSON_BASE64 before public store distribution."
           fi
 
       - name: Materialize Android signing keystore
@@ -214,7 +215,7 @@ jobs:
             echo "AURA_ANDROID_RELEASE_KEY_PASSWORD=${ANDROID_RELEASE_KEY_PASSWORD}" >> "$GITHUB_ENV"
           else
             base64 --decode app/android/ci/aura-public-internal-update-keystore.base64 > "${KEYSTORE_PATH}"
-            echo "::notice::Using the repo public internal Android update key. This keeps GitHub APK updates installable but is not production store signing."
+            echo "Using the repo public internal Android update key. This keeps GitHub APK updates installable but is not production store signing."
             echo "AURA_ANDROID_RELEASE_KEYSTORE_PASSWORD=aura-public-update" >> "$GITHUB_ENV"
             echo "AURA_ANDROID_RELEASE_KEY_ALIAS=aura-public-update" >> "$GITHUB_ENV"
             echo "AURA_ANDROID_RELEASE_KEY_PASSWORD=aura-public-update" >> "$GITHUB_ENV"
@@ -282,7 +283,7 @@ jobs:
           if [ -n "${FIREBASE_IOS_GOOGLE_SERVICE_INFO_PLIST_BASE64}" ]; then
             printf '%s' "${FIREBASE_IOS_GOOGLE_SERVICE_INFO_PLIST_BASE64}" | base64 --decode > app/ios/App/App/GoogleService-Info.plist
           else
-            echo "::warning::Building iOS simulator validation without GoogleService-Info.plist. Configure FIREBASE_IOS_GOOGLE_SERVICE_INFO_PLIST_BASE64 before public store distribution."
+            echo "Building iOS simulator validation without GoogleService-Info.plist. Configure FIREBASE_IOS_GOOGLE_SERVICE_INFO_PLIST_BASE64 before public store distribution."
           fi
 
       - name: Configure iOS URL schemes from Firebase
@@ -291,7 +292,7 @@ jobs:
           GOOGLE_PLIST="app/ios/App/App/GoogleService-Info.plist"
           IOS_INFO_PLIST="app/ios/App/App/Info.plist"
           if [ ! -s "${GOOGLE_PLIST}" ]; then
-            echo "::warning::Skipping iOS Firebase URL scheme injection because GoogleService-Info.plist is unavailable."
+            echo "Skipping iOS Firebase URL scheme injection because GoogleService-Info.plist is unavailable."
             exit 0
           fi
 
