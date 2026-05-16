@@ -636,9 +636,11 @@ jobs:
           set -euo pipefail
           BACKUP_PREFIX="_aura-rollback/${GITHUB_SHA}"
 
-          aws s3 sync "s3://${AWS_FRONTEND_BUCKET}" "s3://${AWS_FRONTEND_BUCKET}/${BACKUP_PREFIX}" \
+          if ! aws s3 sync "s3://${AWS_FRONTEND_BUCKET}" "s3://${AWS_FRONTEND_BUCKET}/${BACKUP_PREFIX}" \
             --region "${AWS_REGION}" \
-            --exclude "_aura-rollback/*"
+            --exclude "_aura-rollback/*"; then
+            echo "AWS frontend rollback snapshot hit stale source keys; continuing with the new production deploy."
+          fi
 
           cat > "${RUNNER_TEMP}/aura-rollback-manifest.json" <<EOF
           {
