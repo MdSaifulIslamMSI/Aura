@@ -618,6 +618,14 @@ img {
   background: linear-gradient(150deg, rgba(158, 176, 194, 0.14), transparent 48%);
 }
 
+.platform-web::before {
+  background: linear-gradient(150deg, rgba(111, 160, 205, 0.14), transparent 48%);
+}
+
+.platform-rtos::before {
+  background: linear-gradient(150deg, rgba(215, 137, 134, 0.14), transparent 48%);
+}
+
 .platform-heading,
 .platform-note,
 .platform-caution,
@@ -677,6 +685,66 @@ img {
   inset: 0.92rem 0.78rem 0.64rem;
   border-radius: 8px 8px 4px 4px;
   background: var(--gold-strong);
+}
+
+.platform-icon-tablet::before {
+  inset: 0.58rem 0.78rem;
+  border: 2px solid var(--gold-strong);
+  border-radius: 7px;
+}
+
+.platform-icon-tablet::after {
+  left: 50%;
+  bottom: 0.78rem;
+  width: 0.26rem;
+  height: 0.26rem;
+  border-radius: 999px;
+  background: var(--gold-strong);
+  transform: translateX(-50%);
+}
+
+.platform-icon-chromeos::before {
+  inset: 0.68rem;
+  border: 2px solid var(--gold-strong);
+  border-radius: 999px;
+}
+
+.platform-icon-chromeos::after {
+  inset: 1.1rem;
+  border-radius: 999px;
+  background: var(--gold-strong);
+}
+
+.platform-icon-unix::before {
+  left: 0.82rem;
+  right: 0.82rem;
+  top: 0.62rem;
+  height: 0.42rem;
+  border-radius: 999px;
+  background: var(--gold-strong);
+  box-shadow: 0 0.7rem 0 var(--gold-strong), 0 1.4rem 0 var(--gold-strong);
+}
+
+.platform-icon-harmony::before {
+  inset: 0.76rem;
+  border: 2px solid var(--gold-strong);
+  border-radius: 50% 50% 50% 8px;
+  transform: rotate(-45deg);
+}
+
+.platform-icon-rtos::before {
+  inset: 0.82rem;
+  border: 2px solid var(--gold-strong);
+  border-radius: 5px;
+}
+
+.platform-icon-rtos::after {
+  left: 0.58rem;
+  right: 0.58rem;
+  top: 50%;
+  height: 2px;
+  background: var(--gold-strong);
+  transform: translateY(-50%);
 }
 
 .platform-heading h3 {
@@ -787,6 +855,12 @@ img {
   min-height: 21rem;
 }
 
+.platform-web,
+.platform-rtos {
+  grid-column: span 4;
+  min-height: 18rem;
+}
+
 .assurance-strip {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -836,7 +910,9 @@ img {
 
   .download-card,
   .platform-android,
-  .platform-ios {
+  .platform-ios,
+  .platform-web,
+  .platform-rtos {
     grid-column: span 6;
   }
 
@@ -933,7 +1009,9 @@ img {
   .download-card,
   .platform-linux,
   .platform-android,
-  .platform-ios {
+  .platform-ios,
+  .platform-web,
+  .platform-rtos {
     grid-column: 1 / -1;
     min-height: 0;
   }
