@@ -1,9 +1,14 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import {
   createUserWithEmailAndPassword,
+  FacebookAuthProvider,
   getRedirectResult,
+  GithubAuthProvider,
+  GoogleAuthProvider,
+  linkWithCredential,
   linkWithPopup,
   linkWithRedirect,
+  OAuthProvider,
   signInWithEmailAndPassword,
   signInWithCredential,
   signInWithRedirect,
@@ -11,6 +16,7 @@ import {
   onAuthStateChanged,
   updateProfile as updateFirebaseProfile,
   signInWithPopup,
+  TwitterAuthProvider,
 } from 'firebase/auth';
 import {
   auth,
@@ -69,6 +75,13 @@ const AUTH_SYNC_DEDUPE_MS = 5 * 1000;  // Reduced from 30s for faster security u
 const BOOTSTRAP_TIMEOUT_MS = 6000;
 const REDIRECT_AUTH_PENDING_KEY = 'aura-social-auth-redirect-pending';
 const REDIRECT_AUTH_PENDING_TTL_MS = 5 * 60 * 1000;
+const OAUTH_CREDENTIAL_EXTRACTORS = [
+  GithubAuthProvider,
+  GoogleAuthProvider,
+  FacebookAuthProvider,
+  OAuthProvider,
+  TwitterAuthProvider,
+];
 
 const hasLinkedProvider = (firebaseUser, providerId) => (
   Array.isArray(firebaseUser?.providerData)
@@ -173,6 +186,7 @@ export const AuthProvider = ({ children }) => {
   });
   const sessionStateRef = useRef(EMPTY_SESSION_STATE);
   const redirectResolutionRef = useRef(false);
+  const pendingProviderLinkRef = useRef(null);
 
   useEffect(() => {
     sessionStateRef.current = sessionState;
@@ -537,6 +551,65 @@ export const AuthProvider = ({ children }) => {
     silent: options?.silent === true,
   });
 
+  const extractOAuthCredentialFromError = (error) => {
+    for (const extractor of OAUTH_CREDENTIAL_EXTRACTORS) {
+      if (typeof extractor?.credentialFromError !== 'function') continue;
+      try {
+        const credential = extractor.credentialFromError(error);
+        if (credential) return credential;
+      } catch {
+        // Try the next provider-specific extractor.
+      }
+    }
+
+    return error?.credential || error?.githubCredential || error?.oauthCredential || null;
+  };
+
+  const rememberProviderCollision = (error, providerLabel, provider) => {
+    if (String(error?.code || '') !== 'auth/account-exists-with-different-credential') return;
+
+    const credential = extractOAuthCredentialFromError(error);
+    if (!credential) return;
+
+    pendingProviderLinkRef.current = {
+      credential,
+      email: normalizeEmail(error?.email || error?.customData?.email || ''),
+      providerId: normalizeText(provider?.providerId || credential.providerId || error?.providerId || ''),
+      providerLabel,
+    };
+  };
+
+  const linkRememberedProviderAfterExistingSignIn = async (firebaseUser) => {
+    const pending = pendingProviderLinkRef.current;
+    if (!pending?.credential || !firebaseUser) return;
+
+    const pendingEmail = normalizeEmail(pending.email);
+    const signedInEmail = normalizeEmail(firebaseUser.email);
+    if (pendingEmail && signedInEmail && pendingEmail !== signedInEmail) {
+      return;
+    }
+
+    if (pending.providerId && hasLinkedProvider(firebaseUser, pending.providerId)) {
+      pendingProviderLinkRef.current = null;
+      return;
+    }
+
+    try {
+      const linked = await linkWithCredential(firebaseUser, pending.credential);
+      pendingProviderLinkRef.current = null;
+      const linkedUser = linked?.user || firebaseUser;
+      setCurrentUser(linkedUser);
+      await refreshSession(linkedUser, { force: true, silent: true });
+    } catch (error) {
+      const code = String(error?.code || '');
+      if (code === 'auth/provider-already-linked' || code === 'auth/credential-already-in-use') {
+        pendingProviderLinkRef.current = null;
+        return;
+      }
+      throw error;
+    }
+  };
+
   const resolveOAuthUser = async (user, options = {}) => {
     if (!user) return null;
 
@@ -586,6 +659,7 @@ export const AuthProvider = ({ children }) => {
       }
 
       const finalizedResult = await finalize(result, firebaseUser);
+      await linkRememberedProviderAfterExistingSignIn(firebaseUser);
       return finalizedResult ?? result;
     } finally {
       if (!shouldHoldGuardForAuthEvent) {
@@ -720,6 +794,7 @@ export const AuthProvider = ({ children }) => {
         return beginRedirectOAuthFlow(provider);
       }
 
+      rememberProviderCollision(error, providerLabel, provider);
       error.provider = error.provider || providerLabel;
       error.providerId = error.providerId || provider?.providerId || '';
       markFirebaseSocialAuthRejectedForRuntime(error);
