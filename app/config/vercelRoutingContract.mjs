@@ -6,9 +6,9 @@ const assertAbsoluteHttpUrl = (value) => {
     }
 };
 
-// Non-deployable committed placeholder. Production deploy scripts must provide
-// AURA_BACKEND_ORIGIN or AWS_BACKEND_BASE_URL and fail closed if they are blank.
-export const DEFAULT_HOSTED_BACKEND_ORIGIN = 'https://api.aurapilot.example.com';
+// Durable production backend edge used by local desktop builds and generated
+// hosted routing files when CI variables are unavailable.
+export const DEFAULT_HOSTED_BACKEND_ORIGIN = 'https://dbtrhsolhec1s.cloudfront.net';
 
 export const assertDeployableHostedBackendOrigin = (origin) => {
     const parsed = new URL(origin);

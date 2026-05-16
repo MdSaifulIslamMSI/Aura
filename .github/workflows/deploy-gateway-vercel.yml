@@ -218,9 +218,11 @@ jobs:
           const log = fs.readFileSync(process.env.DEPLOY_LOG, 'utf8');
           const production = log.match(/Production:\s+(https:\/\/\S+)/);
           const preview = log.match(/Preview:\s+(https:\/\/\S+)/);
+          const vercelApp = log.match(/(https:\/\/[-A-Za-z0-9.]+\.vercel\.app)\b/);
           const inspect = log.match(/Inspect:\s+(https:\/\/\S+)/);
-          const deployUrl = (production && production[1]) || (preview && preview[1]) || '';
+          const deployUrl = (production && production[1]) || (preview && preview[1]) || (vercelApp && vercelApp[1]) || '';
           if (!deployUrl) {
+            process.stderr.write(log);
             throw new Error('Vercel CLI did not return a production deployment URL.');
           }
           fs.appendFileSync(process.env.GITHUB_OUTPUT, `deploy_url=${deployUrl}\n`);
