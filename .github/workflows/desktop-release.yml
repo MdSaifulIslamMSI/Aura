@@ -33,6 +33,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   NODE_VERSION: 24.x
   CSC_IDENTITY_AUTO_DISCOVERY: false
 
@@ -85,7 +86,7 @@ jobs:
           set -euo pipefail
 
           if [ "${REQUIRE_WINDOWS_SIGNING}" != "true" ]; then
-            echo "::warning::Windows signing is not required for this run. Treat unsigned desktop artifacts as GitHub/internal testing builds only; configure PFX or Microsoft Trusted Signing before public distribution."
+            echo "Windows signing is not required for this run. Treat unsigned desktop artifacts as GitHub/internal testing builds only; configure PFX or Microsoft Trusted Signing before public distribution."
             exit 0
           fi
 
@@ -123,7 +124,7 @@ jobs:
       matrix:
         include:
           - platform: windows
-            os: windows-latest
+            os: windows-2025
             command: npm run desktop:dist:win:all -- --publish never
           - platform: macos
             os: macos-latest

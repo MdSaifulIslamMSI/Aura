@@ -127,6 +127,9 @@ concurrency:
   group: aura-production-release-${{ github.ref }}
   cancel-in-progress: false
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   changes:
     name: Detect changed surfaces
@@ -342,8 +345,8 @@ jobs:
               echo "Generating SBOM for ${dir}"
               (
                 cd "${dir}"
-                if ! npm sbom --omit=dev --sbom-format cyclonedx > "${GITHUB_WORKSPACE}/sbom/${name}.cdx.json"; then
-                  echo "::warning::npm sbom failed for ${dir}; generating a package-lock fallback SBOM."
+                if ! npm sbom --package-lock-only --legacy-peer-deps --omit=dev --sbom-format cyclonedx > "${GITHUB_WORKSPACE}/sbom/${name}.cdx.json"; then
+                  echo "npm sbom failed for ${dir}; generating a package-lock fallback SBOM."
                   SBOM_NAME="${name}" node <<'EOF' > "${GITHUB_WORKSPACE}/sbom/${name}.cdx.json"
           const fs = require('fs');
 
@@ -442,7 +445,7 @@ jobs:
               value="$(printenv "$name" || true)"
 
               if [ -z "${value}" ]; then
-                echo "::warning::Missing ${name}; automatic ${group} production deploy will be skipped on push."
+                echo "Missing ${name}; automatic ${group} production deploy will be skipped on push."
                 ready="false"
               fi
             done
@@ -759,7 +762,7 @@ jobs:
             local url="$2"
 
             if [ -z "${url}" ]; then
-              echo "::warning::Skipping ${name}; URL is empty."
+              echo "Skipping ${name}; URL is empty."
               return 0
             fi
 
