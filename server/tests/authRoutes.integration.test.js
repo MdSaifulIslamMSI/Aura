@@ -2,6 +2,7 @@ const request = require('supertest');
 const app = require('../index');
 const User = require('../models/User');
 const { generateRecoveryCodesForUser } = require('../services/authRecoveryCodeService');
+const { signLoginRiskSignals } = require('../services/authRiskSignalService');
 const buildRuntimeSecret = (label = 'test') => `${label}-${Date.now()}-${Math.random().toString(36).slice(2)}-suite`;
 const buildStrongPassword = () => String.fromCharCode(79, 114, 99, 104, 105, 100, 33, 56, 118, 82, 50, 80);
 const GENERIC_PHONE_FACTOR_VERIFICATION_MESSAGE = 'If account details are valid, verification will proceed.';
@@ -538,11 +539,17 @@ describe('Auth sync lattice challenge policy', () => {
     const originalDeviceChallengeMode = process.env.AUTH_DEVICE_CHALLENGE_MODE;
     const originalChallengeMode = process.env.AUTH_LATTICE_CHALLENGE_MODE;
     const originalRiskEngineMode = process.env.AUTH_RISK_ENGINE_MODE;
+    const originalRiskSignalSecret = process.env.AUTH_RISK_SIGNAL_SECRET;
 
     afterEach(() => {
         process.env.AUTH_DEVICE_CHALLENGE_MODE = originalDeviceChallengeMode;
         process.env.AUTH_LATTICE_CHALLENGE_MODE = originalChallengeMode;
         process.env.AUTH_RISK_ENGINE_MODE = originalRiskEngineMode;
+        if (originalRiskSignalSecret === undefined) {
+            delete process.env.AUTH_RISK_SIGNAL_SECRET;
+        } else {
+            process.env.AUTH_RISK_SIGNAL_SECRET = originalRiskSignalSecret;
+        }
         jest.resetModules();
         jest.clearAllMocks();
         jest.dontMock('../services/authSessionService');
@@ -555,6 +562,7 @@ describe('Auth sync lattice challenge policy', () => {
         isAdmin = false,
         authSession = null,
         riskEngineMode = '',
+        riskSignalSecret = '',
     } = {}) => {
         let isolatedApp;
         const challengeToken = buildRuntimeSecret('challenge-ref');
@@ -571,6 +579,7 @@ describe('Auth sync lattice challenge policy', () => {
             process.env.AUTH_DEVICE_CHALLENGE_MODE = challengeMode;
             process.env.AUTH_LATTICE_CHALLENGE_MODE = '';
             process.env.AUTH_RISK_ENGINE_MODE = riskEngineMode;
+            process.env.AUTH_RISK_SIGNAL_SECRET = riskSignalSecret;
 
             jest.doMock('../services/authSessionService', () => {
                 const actual = jest.requireActual('../services/authSessionService');
@@ -706,13 +715,44 @@ describe('Auth sync lattice challenge policy', () => {
         expect(issueTrustedDeviceChallenge).not.toHaveBeenCalled();
     });
 
-    test('POST /api/auth/sync requires step-up for high login risk when enforcement is staged on', async () => {
+    test('POST /api/auth/sync ignores unsigned high-risk headers when enforcement is staged on', async () => {
         const { isolatedApp, issueTrustedDeviceChallenge } = buildIsolatedSyncApp({ riskEngineMode: 'enforce' });
 
         const res = await request(isolatedApp)
             .post('/api/auth/sync')
             .set('x-aura-device-id', 'device-test-1234')
             .set('x-aura-ip-reputation', 'denylist')
+            .send({ email: 'verified@example.com', name: 'Verified User' });
+
+        expect(res.statusCode).toBe(200);
+        expect(res.body.status).toBe('authenticated');
+        expect(res.body.session.riskState).toBe('standard');
+        expect(res.body.deviceChallenge).toBeNull();
+        expect(issueTrustedDeviceChallenge).not.toHaveBeenCalled();
+    });
+
+    test('POST /api/auth/sync requires step-up for signed high login risk when enforcement is staged on', async () => {
+        const riskSignalSecret = buildRuntimeSecret('risk-signal-secret');
+        const timestamp = new Date().toISOString();
+        const signature = signLoginRiskSignals({
+            method: 'POST',
+            path: '/api/auth/sync',
+            deviceId: 'device-test-1234',
+            signals: { ipReputation: 'denylist' },
+            timestamp,
+            secret: riskSignalSecret,
+        });
+        const { isolatedApp, issueTrustedDeviceChallenge } = buildIsolatedSyncApp({
+            riskEngineMode: 'enforce',
+            riskSignalSecret,
+        });
+
+        const res = await request(isolatedApp)
+            .post('/api/auth/sync')
+            .set('x-aura-device-id', 'device-test-1234')
+            .set('x-aura-ip-reputation', 'denylist')
+            .set('x-aura-login-risk-timestamp', timestamp)
+            .set('x-aura-login-risk-signature', signature)
             .send({ email: 'verified@example.com', name: 'Verified User' });
 
         expect(res.statusCode).toBe(200);

@@ -15,7 +15,7 @@
     "backend:origin": "node .\\app\\scripts\\print_hosted_backend_origin.mjs",
     "observability:validate": "node scripts/validate-observability-assets.mjs",
     "security:login-live-readiness": "node scripts/validate-login-live-readiness.mjs",
-    "security:login-next10": "node scripts/validate-login-architecture-next10.mjs && node scripts/validate-login-live-readiness.mjs && npm --prefix server test -- --runTestsByPath tests/authRiskEngineService.test.js tests/authSecurityEventOutboxService.test.js tests/loginArchitecturePolicy.test.js tests/loginRuntimeEnforcementPolicy.test.js",
+    "security:login-next10": "node scripts/validate-login-architecture-next10.mjs && node scripts/validate-login-live-readiness.mjs && npm --prefix server test -- --runTestsByPath tests/authRiskEngineService.test.js tests/authRiskSignalService.test.js tests/authRiskSignalProducerMiddleware.test.js tests/authSecurityEventOutboxService.test.js tests/loginArchitecturePolicy.test.js tests/loginRuntimeEnforcementPolicy.test.js",
     "vercel:routing:sync": "node .\\app\\scripts\\sync_vercel_configs.mjs",
     "dev:on": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\dev-on.ps1",
     "dev:off": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\dev-off.ps1",

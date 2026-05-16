@@ -37,6 +37,16 @@ const controls = [
     patterns: [/evaluateLoginRisk/, /failed_login_velocity/, /impossible_travel/, /ip_denylist/],
   },
   {
+    name: 'trusted login risk signals',
+    path: 'server/services/authRiskSignalService.js',
+    patterns: [/AUTH_RISK_SIGNAL_SECRET/, /x-aura-login-risk-signature/, /crypto\.createHmac/, /stripLoginRiskSignalHeaders/, /writeSignedLoginRiskSignalHeaders/, /ignoredUntrustedHeaders/],
+  },
+  {
+    name: 'trusted login risk signal producer',
+    path: 'server/middleware/authRiskSignalProducerMiddleware.js',
+    patterns: [/authRiskSignalProducerMiddleware/, /stripLoginRiskSignalHeaders/, /writeSignedLoginRiskSignalHeaders/, /AUTH_RISK_IP_DENYLIST/, /upstream_signed_header/],
+  },
+  {
     name: 'consumer provider breadth',
     path: 'app/src/config/firebase.js',
     patterns: [/microsoftProvider/, /appleProvider/, /VITE_FIREBASE_ENABLE_MICROSOFT_AUTH/, /VITE_FIREBASE_ENABLE_APPLE_AUTH/],
@@ -79,12 +89,12 @@ const controls = [
   {
     name: 'staging and production activation runbook',
     path: 'docs/login-staging-production-activation.md',
-    patterns: [/security:login-live-readiness/, /CloudFront/, /AUTH_RISK_ENGINE_MODE=monitor/, /PRIVILEGED_JIT_ACCESS_ENABLED=false/],
+    patterns: [/security:login-live-readiness/, /CloudFront/, /AUTH_RISK_ENGINE_MODE=monitor/, /AUTH_RISK_SIGNAL_SECRET/, /PRIVILEGED_JIT_ACCESS_ENABLED=false/],
   },
   {
     name: 'live readiness checker',
     path: 'scripts/validate-login-live-readiness.mjs',
-    patterns: [/AURA_CLOUDFRONT_DISTRIBUTION_ID/, /GRAFANA_ADMIN_PASSWORD/, /--strict/],
+    patterns: [/AURA_CLOUDFRONT_DISTRIBUTION_ID/, /GRAFANA_ADMIN_PASSWORD/, /AUTH_RISK_SIGNAL_SECRET/, /--strict/],
   },
 ];
 

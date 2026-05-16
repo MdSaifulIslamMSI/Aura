@@ -43,6 +43,7 @@ const {
 const { shouldRequireTrustedDevice } = require('../config/authTrustedDeviceFlags');
 const { getLoginRuntimeEnforcementPolicy } = require('../config/loginRuntimeEnforcementPolicy');
 const { RISK_LEVELS, evaluateLoginRisk } = require('../services/authRiskEngineService');
+const { extractTrustedLoginRiskSignals } = require('../services/authRiskSignalService');
 const { recordAuthSecurityEvent } = require('../services/authSecurityTelemetryService');
 const { isEnabled: isEmergencyFlagEnabled } = require('../services/emergencyControlService');
 const LOGIN_ASSURANCE_TTL_MS = 10 * 60 * 1000;
@@ -50,11 +51,6 @@ const PHONE_FACTOR_ASSURANCE_TTL_MS = 10 * 60 * 1000;
 const GENERIC_PHONE_FACTOR_VERIFICATION_MESSAGE = 'If account details are valid, verification will proceed.';
 const RECOVERY_CODE_VERIFICATION_MIN_MS = process.env.NODE_ENV === 'test' ? 0 : 350;
 const LOGIN_RISK_STATE_HIGH = 'login_risk_high';
-const LOGIN_RISK_SIGNAL_HEADERS = Object.freeze({
-    recentFailureCount: 'x-aura-login-failure-count',
-    ipReputation: 'x-aura-ip-reputation',
-    impossibleTravel: 'x-aura-impossible-travel',
-});
 
 const normalizeEmail = (value) => (
     typeof value === 'string' ? value.trim().toLowerCase() : ''
@@ -75,23 +71,6 @@ const normalizePhoneFactorPurpose = (value) => {
     }
     return '';
 };
-
-const parseBooleanSignal = (value) => {
-    const normalized = String(value === undefined || value === null ? '' : value).trim().toLowerCase();
-    return ['1', 'true', 'yes', 'on'].includes(normalized);
-};
-
-const parseNumericSignal = (value) => {
-    const numeric = Number(value || 0);
-    return Number.isFinite(numeric) && numeric > 0 ? Math.trunc(numeric) : 0;
-};
-
-const getHeaderValue = (req = {}, headerName = '') => String(
-    req.get?.(headerName)
-    || req.headers?.[String(headerName).toLowerCase()]
-    || req.headers?.[headerName]
-    || ''
-).trim();
 
 const phoneFactorFlowError = () => new AppError(GENERIC_PHONE_FACTOR_VERIFICATION_MESSAGE, 403);
 
@@ -273,25 +252,18 @@ const shouldEnforceRuntimeRiskSessionStepUp = (req = {}) => (
 
 const resolveLoginRiskInputs = ({ req = {}, user = null } = {}) => {
     const { deviceId } = extractTrustedDeviceContext(req);
-    const runtimeSignals = req.authRisk && typeof req.authRisk === 'object' ? req.authRisk : {};
+    const riskSignal = extractTrustedLoginRiskSignals(req, { deviceId });
+    const runtimeSignals = riskSignal.signals || {};
 
     return {
         user,
         deviceId,
-        recentFailureCount: parseNumericSignal(
-            runtimeSignals.recentFailureCount
-            ?? getHeaderValue(req, LOGIN_RISK_SIGNAL_HEADERS.recentFailureCount)
-        ),
-        ipReputation: String(
-            runtimeSignals.ipReputation
-            ?? getHeaderValue(req, LOGIN_RISK_SIGNAL_HEADERS.ipReputation)
-        ).trim(),
-        impossibleTravel: Boolean(
-            runtimeSignals.impossibleTravel
-            || parseBooleanSignal(getHeaderValue(req, LOGIN_RISK_SIGNAL_HEADERS.impossibleTravel))
-        ),
+        recentFailureCount: runtimeSignals.recentFailureCount,
+        ipReputation: runtimeSignals.ipReputation,
+        impossibleTravel: runtimeSignals.impossibleTravel,
         emailVerified: Boolean(user?.isVerified || req.authToken?.email_verified),
         trustedDeviceRequired: shouldRequireTrustedDevice({ user }),
+        riskSignal,
     };
 };
 
@@ -307,7 +279,8 @@ const evaluateRuntimeLoginRisk = ({ req = {}, user = null } = {}) => {
         };
     }
 
-    const risk = evaluateLoginRisk(resolveLoginRiskInputs({ req, user }));
+    const { riskSignal, ...riskInputs } = resolveLoginRiskInputs({ req, user });
+    const risk = evaluateLoginRisk(riskInputs);
     const forceStepUp = Boolean(
         policy.riskEngineEnforced
         && risk.requireStepUp
@@ -332,6 +305,10 @@ const evaluateRuntimeLoginRisk = ({ req = {}, user = null } = {}) => {
             blockRecommended: risk.block,
             reasons: risk.reasons,
             knownDevice: risk.knownDevice,
+            signalSource: riskSignal.source,
+            signalTrusted: riskSignal.trusted,
+            ignoredUntrustedSignals: riskSignal.ignoredUntrustedHeaders,
+            signalTrustReason: riskSignal.reason,
         },
     });
 

@@ -20,6 +20,8 @@ const paths = {
     corsFlags: path.join(serverRoot, 'config', 'corsFlags.js'),
     redisConfig: path.join(serverRoot, 'config', 'redis.js'),
     browserSessionService: path.join(serverRoot, 'services', 'browserSessionService.js'),
+    authRiskSignalService: path.join(serverRoot, 'services', 'authRiskSignalService.js'),
+    authRiskSignalProducerMiddleware: path.join(serverRoot, 'middleware', 'authRiskSignalProducerMiddleware.js'),
     rootVercelConfig: path.join(repoRoot, 'vercel.json'),
     appVercelConfig: path.join(repoRoot, 'app', 'vercel.json'),
     netlifyConfig: path.join(repoRoot, 'netlify.toml'),
@@ -80,6 +82,12 @@ const requireEnvValue = (entries, key, expected, label) => {
     const actual = entries.get(key);
     if (actual !== expected) {
         addFailure(`${label} must set ${key}=${expected}; found ${actual || '(missing)'}`);
+    }
+};
+
+const requireEnvPresent = (entries, key, label) => {
+    if (!entries.has(key)) {
+        addFailure(`${label} must define ${key}`);
     }
 };
 
@@ -166,6 +174,8 @@ const serverIndex = fs.existsSync(paths.serverIndex) ? readText(paths.serverInde
 const corsFlags = fs.existsSync(paths.corsFlags) ? readText(paths.corsFlags) : '';
 const redisConfig = fs.existsSync(paths.redisConfig) ? readText(paths.redisConfig) : '';
 const browserSessionService = fs.existsSync(paths.browserSessionService) ? readText(paths.browserSessionService) : '';
+const authRiskSignalService = fs.existsSync(paths.authRiskSignalService) ? readText(paths.authRiskSignalService) : '';
+const authRiskSignalProducerMiddleware = fs.existsSync(paths.authRiskSignalProducerMiddleware) ? readText(paths.authRiskSignalProducerMiddleware) : '';
 const rootVercelConfig = fs.existsSync(paths.rootVercelConfig) ? readText(paths.rootVercelConfig) : '';
 const appVercelConfig = fs.existsSync(paths.appVercelConfig) ? readText(paths.appVercelConfig) : '';
 const netlifyConfig = fs.existsSync(paths.netlifyConfig) ? readText(paths.netlifyConfig) : '';
@@ -187,6 +197,8 @@ requireTruthyEnv(baseEnv, 'SPLIT_RUNTIME_ENABLED', 'AWS base.env');
 requireTruthyEnv(baseEnv, 'REDIS_ENABLED', 'AWS base.env');
 requireTruthyEnv(baseEnv, 'REDIS_REQUIRED', 'AWS base.env');
 requireEnvValue(baseEnv, 'REDIS_URL', 'redis://redis:6379', 'AWS base.env');
+requireEnvPresent(baseEnv, 'AUTH_RISK_IP_DENYLIST', 'AWS base.env');
+requireEnvPresent(baseEnv, 'AUTH_RISK_IP_WATCHLIST', 'AWS base.env');
 requireTruthyEnv(baseEnv, 'AUTH_SESSION_COOKIE_SECURE', 'AWS base.env');
 requireNotFalsyEnv(baseEnv, 'DISTRIBUTED_SECURITY_CONTROLS_ENABLED', 'AWS base.env');
 
@@ -277,6 +289,8 @@ const requiredSecretKeys = [
     'AUTH_VAULT_SECRET',
     'AUTH_DEVICE_CHALLENGE_SECRET',
     'AUTH_RECOVERY_CODE_SECRET',
+    'AUTH_RISK_SIGNAL_SECRET',
+    'AUTH_RISK_SIGNAL_PREVIOUS_SECRETS',
     'OTP_FLOW_SECRET',
     'OTP_CHALLENGE_SECRET',
     'CRON_SECRET',
@@ -299,11 +313,17 @@ requireIncludes(serverIndex, 'credentials: true', 'CORS must explicitly support 
 requireIncludes(serverIndex, 'assertProductionCorsConfig();', 'Production startup must assert CORS configuration.');
 requireIncludes(serverIndex, 'assertProductionRedisConfig();', 'Production startup must assert Redis configuration.');
 requireIncludes(serverIndex, 'assertTrustedDeviceConfig();', 'Production startup must assert trusted-device configuration.');
+requireIncludes(serverIndex, 'assertAuthRiskSignalConfig();', 'Production startup must assert login risk signal configuration.');
+requireIncludes(serverIndex, 'authRiskSignalProducerMiddleware', 'Express app must install the login risk signal producer/stripper middleware.');
 requireIncludes(corsFlags, 'CORS_ORIGIN cannot contain wildcard (*) in production', 'CORS config must reject wildcard production origins.');
 requireIncludes(redisConfig, 'distributedSecurityControlsEnabled', 'Redis config must expose distributed security control requirement.');
 requireIncludes(redisConfig, 'isRedisRequired', 'Redis config must compute production Redis requirement.');
 requireRegex(browserSessionService, /AUTH_SESSION_COOKIE_SECURE[\s\S]*IS_PRODUCTION/, 'Browser session cookies must default to Secure in production.');
 requireIncludes(browserSessionService, 'AUTH_SESSION_ALLOW_MEMORY_FALLBACK', 'Browser session service must keep production memory fallback explicit.');
+requireIncludes(authRiskSignalService, 'crypto.createHmac', 'Login risk edge/server signals must be HMAC signed.');
+requireIncludes(authRiskSignalService, 'AUTH_RISK_SIGNAL_SECRET is required when AUTH_RISK_ENGINE_MODE=enforce', 'Login risk enforcement must require a signing secret.');
+requireIncludes(authRiskSignalProducerMiddleware, 'stripLoginRiskSignalHeaders', 'Login risk producer must strip spoofed client signal headers.');
+requireIncludes(authRiskSignalProducerMiddleware, 'writeSignedLoginRiskSignalHeaders', 'Login risk producer must sign trusted server-side signals.');
 
 const rootVercelJson = rootVercelConfig ? parseJson(rootVercelConfig, 'vercel.json') : null;
 const appVercelJson = appVercelConfig ? parseJson(appVercelConfig, 'app/vercel.json') : null;
