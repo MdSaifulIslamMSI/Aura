@@ -102,7 +102,7 @@ function AssistantDisabledNotice() {
   return (
     <div className="flex min-h-[70vh] items-center justify-center bg-slate-950 px-6 text-slate-100">
       <div className="max-w-lg text-center">
-        <p className="text-xs font-black uppercase tracking-[0.28em] text-amber-300">Assistant unavailable</p>
+        <p className="text-xs font-black uppercase tracking-widest text-amber-300">Assistant unavailable</p>
         <h1 className="mt-3 text-3xl font-black">Support is still reachable.</h1>
         <p className="mt-3 text-sm leading-6 text-slate-300">
           The AI assistant is temporarily paused while the team reviews the service. Please use the contact page for help.
