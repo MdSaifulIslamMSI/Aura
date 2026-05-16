@@ -64,7 +64,7 @@ Microsoft Trusted Signing option:
 - `AZURE_TRUSTED_SIGNING_ENDPOINT`
 - `WINDOWS_CODE_SIGNING_PUBLISHER_NAME`
 
-The free GitHub release lane can publish unsigned Windows desktop artifacts without these secrets. Set `require_windows_signing=true` only when you want the workflow to fail unless a PFX or Microsoft Trusted Signing path is fully configured.
+The free GitHub release lane can publish unsigned Windows desktop artifacts without these secrets, but those artifacts are internal testing builds only and may show Windows trust warnings. Set `require_windows_signing=true` only when you want the workflow to fail unless a PFX or Microsoft Trusted Signing path is fully configured.
 
 Required repository variables or secrets:
 

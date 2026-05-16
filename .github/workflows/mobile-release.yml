@@ -113,7 +113,7 @@ jobs:
             && [ -n "${ANDROID_RELEASE_KEY_PASSWORD}" ]; then
             can_sign_android=true
           else
-            echo "::warning::Android private release signing secrets are incomplete. GitHub APKs will use the repo public internal update key for install continuity, not production store trust."
+            echo "::warning::Android private release signing secrets are incomplete. GitHub APKs will use the repo public internal update key for internal testing/install continuity only, not production store trust or public distribution."
           fi
 
           if [ -n "${FIREBASE_IOS_GOOGLE_SERVICE_INFO_PLIST_BASE64}" ]; then
@@ -130,7 +130,7 @@ jobs:
             && [ "${has_ios_config}" = "true" ]; then
             can_sign_ios=true
           else
-            echo "::warning::iOS signing secrets are incomplete. CI will validate the iOS simulator build only."
+            echo "::warning::iOS signing secrets are incomplete. CI will validate the iOS simulator build only; no real-device or public TestFlight distribution is expected until Apple signing assets are configured."
           fi
 
           if [ "${can_sign_android}" = "true" ] && [ -n "${GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64}" ]; then
@@ -598,13 +598,13 @@ jobs:
             if [ "${CAN_SIGN_ANDROID}" = "true" ]; then
               echo "- Android artifacts were built with the configured release keystore."
             else
-              echo "- Android artifacts were signed with Aura's public internal GitHub update key. This keeps GitHub APK updates installable across releases, but production store distribution still needs a private release keystore."
+              echo "- Android artifacts were signed with Aura's public internal GitHub update key. Treat these APKs as internal testing builds only; production store distribution still needs a private release keystore."
             fi
 
             if [ "${IOS_BUILD_RESULT}" = "success" ] && [ "${CAN_SIGN_IOS}" = "true" ]; then
               echo "- A signed iOS IPA is included when Apple signing assets are configured."
             elif [ "${IOS_BUILD_RESULT}" = "success" ]; then
-              echo "- The iOS simulator build is included. A real-device IPA requires Apple signing assets and provisioning."
+              echo "- The iOS simulator build is included for CI validation only. Real-device or TestFlight distribution requires Apple signing assets and provisioning."
             else
               echo "- iOS artifacts were not published because the iOS build job did not complete successfully."
             fi

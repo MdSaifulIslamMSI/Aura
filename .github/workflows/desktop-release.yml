@@ -85,7 +85,7 @@ jobs:
           set -euo pipefail
 
           if [ "${REQUIRE_WINDOWS_SIGNING}" != "true" ]; then
-            echo "::warning::Windows signing is not required for this run. Use unsigned artifacts for GitHub/internal distribution only."
+            echo "::warning::Windows signing is not required for this run. Treat unsigned desktop artifacts as GitHub/internal testing builds only; configure PFX or Microsoft Trusted Signing before public distribution."
             exit 0
           fi
 
@@ -195,10 +195,10 @@ jobs:
           if (-not $hasPfxSigning) {
             "AURA_WINDOWS_SIGNING_MODE=unsigned" >> $env:GITHUB_ENV
             if ($env:REQUIRE_WINDOWS_SIGNING -eq "true") {
-              throw "Windows code signing is required for this run. Add PFX signing secrets or Microsoft Trusted Signing secrets, or run with require_windows_signing=false for unsigned GitHub/internal artifacts."
+              throw "Windows code signing is required for this run. Add PFX signing secrets or Microsoft Trusted Signing secrets, or run with require_windows_signing=false for unsigned GitHub/internal testing artifacts."
             }
 
-            Write-Host "Windows code signing secrets are not configured; Windows installers will be unsigned."
+            Write-Host "Windows code signing secrets are not configured; Windows installers will be unsigned and should be treated as internal testing artifacts only."
             exit 0
           }
 
@@ -324,6 +324,11 @@ jobs:
             echo "- Windows users should choose the Setup installer for their CPU architecture, usually x64."
             echo "- macOS users should choose arm64 for Apple Silicon or x64 for Intel Macs."
             echo "- Linux users can choose AppImage for portable use, or deb/rpm/tar.gz for distro-specific installation."
+            echo
+            echo "## Distribution trust"
+            echo
+            echo "- When platform signing or notarization secrets are not configured, generated desktop artifacts are intended for internal testing from GitHub Releases only."
+            echo "- Public Windows and macOS distribution should use trusted Windows signing and Apple signing/notarization before directing end users to install."
             echo
             echo "## Build context"
             echo
