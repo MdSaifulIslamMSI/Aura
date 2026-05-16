@@ -429,7 +429,7 @@ jobs:
               throw new Error(`Missing gateway download resolver asset: ${asset}`);
             }
           }
-          for (const label of ['Ubuntu/Debian deb', 'Fedora/RHEL RPM', 'iPadOS PWA', 'ChromeOS', 'Unix / BSD', 'HarmonyOS', 'FreeRTOS / RTOS family']) {
+          for (const label of ['Ubuntu/Debian deb', 'Fedora/RHEL RPM', 'iPadOS PWA', 'ChromeOS', 'Unix / BSD', 'HarmonyOS', 'FreeRTOS / RTOS family', 'BOSS Linux family', 'Maya OS', 'Garuda Linux', 'BharOS, JioOS, and Indus', 'JioTele OS', 'watchOS', 'tvOS', 'Red Hat Enterprise Linux', 'VxWorks', 'Linux / GNU-Linux family', 'SUSE Linux Enterprise + openSUSE', 'Raspberry Pi OS', 'Sailfish OS', 'MINIX + RISC OS', 'Symbian OS', 'Mageia', 'Astra Linux, ALT Linux, RED OS, and ROSA Linux', 'Aurora OS', 'KasperskyOS', 'Elbrus Linux / Elbrus OS', 'Calculate Linux', 'KolibriOS + Phantom OS', 'HarmonyOS / Hongmeng OS + OpenHarmony', 'Kylin OS, Galaxy Kylin, UOS, and deepin Linux', 'openEuler, Anolis OS, and TencentOS Server', 'AliOS, AliOS Things, and RT-Thread']) {
             if (!html.includes(label)) {
               throw new Error(`Missing gateway platform availability label: ${label}`);
             }
