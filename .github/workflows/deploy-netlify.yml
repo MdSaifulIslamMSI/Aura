@@ -105,7 +105,7 @@ jobs:
           fi
 
           if [ "${{ github.event_name }}" = "pull_request" ] || [ "${{ inputs.target }}" = "preview" ]; then
-            echo "::warning::Hosted backend origin is not configured. The shared preview build will use same-origin /api, and the Vercel prebuilt proxy artifact will be skipped."
+            echo "Hosted backend origin is not configured. The shared preview build will use same-origin /api, and the Vercel prebuilt proxy artifact will be skipped."
             cat "${ERROR_LOG}" >&2 || true
             echo "origin=" >> "$GITHUB_OUTPUT"
             exit 0
