@@ -647,6 +647,8 @@ jobs:
     permissions:
       contents: read
       id-token: write
+      issues: write
+      pull-requests: write
 
     with:
       target: production
@@ -711,6 +713,8 @@ jobs:
 
     permissions:
       contents: read
+      issues: write
+      pull-requests: write
 
     with:
       target: production
