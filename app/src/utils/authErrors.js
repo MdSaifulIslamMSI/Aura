@@ -37,7 +37,12 @@ const formatAuthProviderLabel = (provider = '') => {
 const resolveErrorProvider = (rawError) => formatAuthProviderLabel(
     rawError?.provider
     || rawError?.providerId
+    || rawError?.credential?.providerId
     || rawError?.customData?.providerId
+    || rawError?.customData?._tokenResponse?.providerId
+    || rawError?.customData?._tokenResponse?.federatedId
+    || rawError?.data?.provider
+    || rawError?.data?.providerId
     || ''
 );
 
@@ -238,14 +243,14 @@ export const AUTH_ERRORS = {
     },
     'auth/social-auth-disabled': {
         title: 'Social Sign-In Disabled',
-        detail: 'Google, Facebook, GitHub, and X sign-in are disabled by deployment configuration.',
+        detail: 'Google, Facebook, GitHub, X, Microsoft, and Apple sign-in are disabled by deployment configuration.',
         hint: 'Use email and OTP sign-in for now, or enable social sign-in in the frontend deployment settings.',
         action: null,
         actionLabel: null
     },
     'auth/native-social-auth-configuration-missing': {
         title: 'Mobile Social Sign-In Not Ready',
-        detail: 'The installed app needs native Android/iOS OAuth credentials before Google, Facebook, GitHub, or X can complete sign-in.',
+        detail: 'The installed app needs native Android/iOS OAuth credentials before Google, Facebook, GitHub, X, Microsoft, or Apple can complete sign-in.',
         hint: 'Use email and OTP sign-in in the app for now. Native social sign-in can be enabled after the Firebase mobile app config and provider credentials are attached to the release build.',
         action: null,
         actionLabel: null
