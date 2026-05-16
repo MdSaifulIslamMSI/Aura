@@ -137,6 +137,30 @@ jobs:
             --id "${AWS_FRONTEND_DISTRIBUTION_ID}" \
             > /dev/null
 
+      - name: Snapshot current AWS frontend for rollback
+        run: |
+          set -euo pipefail
+          BACKUP_PREFIX="_aura-rollback/${GITHUB_SHA}"
+
+          aws s3 sync "s3://${AWS_FRONTEND_BUCKET}" "s3://${AWS_FRONTEND_BUCKET}/${BACKUP_PREFIX}" \
+            --region "${AWS_REGION}" \
+            --exclude "_aura-rollback/*"
+
+          cat > "${RUNNER_TEMP}/aura-rollback-manifest.json" <<EOF
+          {
+            "backupPrefix": "${BACKUP_PREFIX}",
+            "createdFromSha": "${GITHUB_SHA}",
+            "createdAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "workflow": "${GITHUB_WORKFLOW}",
+            "runId": "${GITHUB_RUN_ID}"
+          }
+          EOF
+
+          aws s3 cp "${RUNNER_TEMP}/aura-rollback-manifest.json" "s3://${AWS_FRONTEND_BUCKET}/${BACKUP_PREFIX}/.aura-rollback-manifest.json" \
+            --region "${AWS_REGION}" \
+            --cache-control "no-cache,no-store,must-revalidate" \
+            --content-type "application/json"
+
       - name: Publish frontend to S3 origin bucket
         id: publish
         run: |
@@ -144,6 +168,7 @@ jobs:
           aws s3 sync app/dist "s3://${AWS_FRONTEND_BUCKET}" \
             --region "${AWS_REGION}" \
             --delete \
+            --exclude "_aura-rollback/*" \
             --cache-control "public,max-age=300"
 
           if [ -d app/dist/assets ]; then

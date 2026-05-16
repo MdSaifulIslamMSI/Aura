@@ -1,4 +1,4 @@
-name: Production CI/CD
+name: Aura Production Release Orchestrator
 
 on:
   push:
@@ -21,43 +21,99 @@ on:
       - "Gemfile.lock"
       - "fastlane/**"
       - ".github/workflows/**"
+
   workflow_dispatch:
     inputs:
+      confirm_production:
+        description: Type PRODUCTION to allow manual production deploy/release/rollback
+        required: false
+        default: ""
+        type: string
+
       deploy_backend:
         description: Deploy backend to AWS
         required: false
-        default: true
+        default: false
         type: boolean
-      deploy_frontend:
+
+      deploy_frontend_netlify:
         description: Deploy storefront to Netlify, Vercel, and AWS S3
         required: false
-        default: true
+        default: false
         type: boolean
+
+      deploy_frontend_aws:
+        description: Deploy storefront to AWS S3 / CloudFront
+        required: false
+        default: false
+        type: boolean
+
       deploy_gateway:
         description: Deploy gateway to Vercel
         required: false
-        default: true
+        default: false
         type: boolean
+
       release_desktop:
         description: Build and publish desktop GitHub Release
         required: false
-        default: true
+        default: false
         type: boolean
+
       release_mobile:
         description: Build and publish mobile GitHub Release
         required: false
-        default: true
+        default: false
         type: boolean
+
+      rollback_backend:
+        description: Roll back backend deployment
+        required: false
+        default: false
+        type: boolean
+
+      rollback_frontend_netlify:
+        description: Roll back Netlify storefront deployment
+        required: false
+        default: false
+        type: boolean
+
+      rollback_frontend_aws:
+        description: Roll back AWS S3 / CloudFront storefront deployment
+        required: false
+        default: false
+        type: boolean
+
+      rollback_gateway:
+        description: Roll back Vercel gateway deployment
+        required: false
+        default: false
+        type: boolean
+
+      auto_rollback_on_smoke_failure:
+        description: Automatically run rollback hooks if smoke tests fail
+        required: false
+        default: false
+        type: boolean
+
       desktop_version:
         description: Optional desktop version, for example 1.2.0
         required: false
         default: ""
         type: string
+
       mobile_version:
         description: Optional mobile version, for example 1.2.0
         required: false
         default: ""
         type: string
+
+      rollback_ref:
+        description: Optional git ref/version to roll back to
+        required: false
+        default: ""
+        type: string
+
       skip_backend_healthcheck:
         description: Skip backend readiness check after AWS deploy
         required: false
@@ -65,25 +121,25 @@ on:
         type: boolean
 
 permissions:
-  contents: write
-  id-token: write
-  issues: write
-  pull-requests: write
+  contents: read
 
 concurrency:
-  group: production-cicd-${{ github.ref }}
+  group: aura-production-release-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
   changes:
     name: Detect changed surfaces
     runs-on: ubuntu-latest
+
     outputs:
       backend: ${{ steps.filter.outputs.backend }}
-      frontend: ${{ steps.filter.outputs.frontend }}
+      frontend_netlify: ${{ steps.filter.outputs.frontend_netlify }}
+      frontend_aws: ${{ steps.filter.outputs.frontend_aws }}
       gateway: ${{ steps.filter.outputs.gateway }}
       desktop: ${{ steps.filter.outputs.desktop }}
       mobile: ${{ steps.filter.outputs.mobile }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -98,29 +154,51 @@ jobs:
               - "infra/aws/**"
               - ".github/workflows/ci.yml"
               - ".github/workflows/deploy-backend-aws.yml"
+              - ".github/workflows/rollback-backend-aws.yml"
               - ".github/workflows/production-cicd.yml"
-            frontend:
+
+            frontend_netlify:
               - "app/**"
               - "netlify.toml"
               - ".netlifyignore"
               - "vercel.json"
               - "app/vercel.json"
               - ".vercelignore"
-              - ".github/workflows/ci.yml"
-              - ".github/workflows/deploy-netlify.yml"
-              - ".github/workflows/deploy-frontend-aws.yml"
-              - ".github/workflows/production-cicd.yml"
               - "infra/aws/bootstrap-frontend-s3.ps1"
               - "infra/aws/bootstrap-frontend-github-oidc.ps1"
               - "infra/aws/deploy-frontend-s3.ps1"
               - "docs/aws-frontend-deployment.md"
+              - "package.json"
+              - "package-lock.json"
+              - ".github/workflows/ci.yml"
+              - ".github/workflows/deploy-netlify.yml"
+              - ".github/workflows/deploy-frontend-aws.yml"
+              - ".github/workflows/rollback-netlify.yml"
+              - ".github/workflows/rollback-frontend-aws.yml"
+              - ".github/workflows/production-cicd.yml"
+
+            frontend_aws:
+              - "app/**"
+              - "infra/aws/bootstrap-frontend-s3.ps1"
+              - "infra/aws/bootstrap-frontend-github-oidc.ps1"
+              - "infra/aws/deploy-frontend-s3.ps1"
+              - "docs/aws-frontend-deployment.md"
+              - "package.json"
+              - "package-lock.json"
+              - ".github/workflows/ci.yml"
+              - ".github/workflows/deploy-frontend-aws.yml"
+              - ".github/workflows/rollback-frontend-aws.yml"
+              - ".github/workflows/production-cicd.yml"
+
             gateway:
               - "gateway/**"
               - "gateway/vercel.json"
               - ".vercelignore"
               - ".github/workflows/ci.yml"
               - ".github/workflows/deploy-gateway-vercel.yml"
+              - ".github/workflows/rollback-gateway-vercel.yml"
               - ".github/workflows/production-cicd.yml"
+
             desktop:
               - "app/**"
               - "desktop/**"
@@ -129,6 +207,7 @@ jobs:
               - ".github/workflows/ci.yml"
               - ".github/workflows/desktop-release.yml"
               - ".github/workflows/production-cicd.yml"
+
             mobile:
               - "app/capacitor.config.ts"
               - "app/android/**"
@@ -154,17 +233,177 @@ jobs:
               - ".github/workflows/mobile-release.yml"
               - ".github/workflows/production-cicd.yml"
 
+  validate-manual-dispatch:
+    name: Validate manual production intent
+    runs-on: ubuntu-latest
+
+    if: github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Require explicit production confirmation
+        run: |
+          set -euo pipefail
+
+          if [ "${{ inputs.deploy_backend }}" = "true" ] || \
+             [ "${{ inputs.deploy_frontend_netlify }}" = "true" ] || \
+             [ "${{ inputs.deploy_frontend_aws }}" = "true" ] || \
+             [ "${{ inputs.deploy_gateway }}" = "true" ] || \
+             [ "${{ inputs.release_desktop }}" = "true" ] || \
+             [ "${{ inputs.release_mobile }}" = "true" ] || \
+             [ "${{ inputs.rollback_backend }}" = "true" ] || \
+             [ "${{ inputs.rollback_frontend_netlify }}" = "true" ] || \
+             [ "${{ inputs.rollback_frontend_aws }}" = "true" ] || \
+             [ "${{ inputs.rollback_gateway }}" = "true" ]; then
+            if [ "${{ inputs.confirm_production }}" != "PRODUCTION" ]; then
+              echo "::error::Manual production action requested, but confirm_production was not PRODUCTION."
+              exit 1
+            fi
+          fi
+
+          echo "Manual production intent validated."
+
   ci:
     name: Quality gates
     uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
+  security-gates:
+    name: Security gates and SBOM
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Basic secret pattern scan
+        run: |
+          set -euo pipefail
+
+          echo "Scanning for dangerous committed secret patterns..."
+
+          if grep -RInE \
+            --exclude-dir=.git \
+            --exclude-dir=node_modules \
+            --exclude-dir=dist \
+            --exclude-dir=build \
+            --exclude-dir=.next \
+            --exclude-dir=.vercel \
+            --exclude-dir=.netlify \
+            --exclude="*.lock" \
+            "(AKIA[0-9A-Z]{16}|-----BEGIN (RSA|OPENSSH|EC|DSA) PRIVATE KEY-----|aws_secret_access_key[[:space:]]*=|AWS_SECRET_ACCESS_KEY[[:space:]]*=|GITHUB_TOKEN[[:space:]]*=[[:space:]]*[A-Za-z0-9_./+-]{20,}|VERCEL_TOKEN[[:space:]]*=[[:space:]]*[A-Za-z0-9_./+-]{20,}|NETLIFY_AUTH_TOKEN[[:space:]]*=[[:space:]]*[A-Za-z0-9_./+-]{20,})" \
+            .; then
+              echo "::error::Potential secret detected in repository."
+              exit 1
+          fi
+
+          echo "No obvious committed secret patterns found."
+
+      - name: NPM production dependency audit
+        run: |
+          set -euo pipefail
+
+          audit_npm_dir() {
+            local dir="$1"
+
+            if [ -f "${dir}/package-lock.json" ]; then
+              echo "Running npm audit in ${dir}"
+              (
+                cd "${dir}"
+                npm audit --audit-level=high --omit=dev
+              )
+            else
+              echo "No package-lock.json in ${dir}; skipping."
+            fi
+          }
+
+          audit_npm_dir "."
+          audit_npm_dir "app"
+          audit_npm_dir "gateway"
+          audit_npm_dir "server"
+
+      - name: Generate npm SBOMs
+        run: |
+          set -euo pipefail
+          mkdir -p sbom
+
+          sbom_npm_dir() {
+            local dir="$1"
+            local name="$2"
+
+            if [ -f "${dir}/package-lock.json" ]; then
+              echo "Generating SBOM for ${dir}"
+              (
+                cd "${dir}"
+                if ! npm sbom --omit=dev --sbom-format cyclonedx > "${GITHUB_WORKSPACE}/sbom/${name}.cdx.json"; then
+                  echo "::warning::npm sbom failed for ${dir}; generating a package-lock fallback SBOM."
+                  SBOM_NAME="${name}" node <<'EOF' > "${GITHUB_WORKSPACE}/sbom/${name}.cdx.json"
+          const fs = require('fs');
+
+          const lock = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
+          const components = Object.entries(lock.packages || {})
+            .filter(([packagePath, pkg]) => packagePath && pkg && pkg.dev !== true)
+            .map(([packagePath, pkg]) => {
+              const fallbackName = packagePath.split('node_modules/').pop() || packagePath;
+              return {
+                type: 'library',
+                name: pkg.name || fallbackName,
+                version: pkg.version || '0.0.0',
+              };
+            });
+
+          process.stdout.write(JSON.stringify({
+            bomFormat: 'CycloneDX',
+            specVersion: '1.5',
+            version: 1,
+            metadata: {
+              timestamp: new Date().toISOString(),
+              component: {
+                type: 'application',
+                name: lock.name || process.env.SBOM_NAME || 'workspace',
+                version: lock.version || '0.0.0',
+              },
+            },
+            components,
+          }, null, 2));
+          EOF
+                fi
+              )
+            else
+              echo "No package-lock.json in ${dir}; skipping SBOM."
+            fi
+          }
+
+          sbom_npm_dir "." "root"
+          sbom_npm_dir "app" "app"
+          sbom_npm_dir "gateway" "gateway"
+          sbom_npm_dir "server" "server"
+
+      - name: Upload SBOMs
+        uses: actions/upload-artifact@v4
+        with:
+          name: aura-production-sbom
+          path: sbom/*.json
+          if-no-files-found: warn
+          retention-days: 90
 
   production-deploy-config:
     name: Detect production deploy configuration
     runs-on: ubuntu-latest
+
     outputs:
       backend_ready: ${{ steps.detect.outputs.backend_ready }}
-      frontend_ready: ${{ steps.detect.outputs.frontend_ready }}
+      frontend_netlify_ready: ${{ steps.detect.outputs.frontend_netlify_ready }}
+      frontend_aws_ready: ${{ steps.detect.outputs.frontend_aws_ready }}
       gateway_ready: ${{ steps.detect.outputs.gateway_ready }}
+
     steps:
       - name: Check deploy credentials and hosted origins
         id: detect
@@ -174,26 +413,34 @@ jobs:
           AWS_INSTANCE_TAG_VALUE: ${{ vars.AWS_INSTANCE_TAG_VALUE || '' }}
           AWS_PARAMETER_STORE_PATH_PREFIX: ${{ vars.AWS_PARAMETER_STORE_PATH_PREFIX || '' }}
           AURA_BACKEND_ORIGIN: ${{ vars.AURA_BACKEND_ORIGIN || vars.AWS_BACKEND_BASE_URL || '' }}
+
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN || '' }}
           NETLIFY_SITE_ID: ${{ vars.NETLIFY_SITE_ID || secrets.NETLIFY_SITE_ID || '' }}
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN || '' }}
-          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID || secrets.VERCEL_ORG_ID || '' }}
-          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID || secrets.VERCEL_PROJECT_ID || '' }}
+          NETLIFY_PRODUCTION_URL: ${{ vars.NETLIFY_PRODUCTION_URL || '' }}
+
           AWS_FRONTEND_BUCKET: ${{ vars.AWS_FRONTEND_BUCKET || '' }}
           AWS_FRONTEND_DISTRIBUTION_ID: ${{ vars.AWS_FRONTEND_DISTRIBUTION_ID || '' }}
           AWS_FRONTEND_PUBLIC_URL: ${{ vars.AWS_FRONTEND_PUBLIC_URL || '' }}
           AWS_FRONTEND_DEPLOY_ROLE_ARN: ${{ vars.AWS_FRONTEND_DEPLOY_ROLE_ARN || secrets.AWS_FRONTEND_DEPLOY_ROLE_ARN || '' }}
+
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN || '' }}
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID || secrets.VERCEL_ORG_ID || '' }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID || secrets.VERCEL_PROJECT_ID || '' }}
+          GATEWAY_PRODUCTION_URL: ${{ vars.GATEWAY_PRODUCTION_URL || '' }}
+
         run: |
           set -euo pipefail
 
           check_group() {
             local group="$1"
             shift
+
             local ready="true"
 
             for name in "$@"; do
               local value
               value="$(printenv "$name" || true)"
+
               if [ -z "${value}" ]; then
                 echo "::warning::Missing ${name}; automatic ${group} production deploy will be skipped on push."
                 ready="false"
@@ -211,9 +458,10 @@ jobs:
             AWS_PARAMETER_STORE_PATH_PREFIX \
             AURA_BACKEND_ORIGIN
 
-          check_group frontend \
+          check_group frontend_netlify \
             NETLIFY_AUTH_TOKEN \
             NETLIFY_SITE_ID \
+            NETLIFY_PRODUCTION_URL \
             VERCEL_TOKEN \
             VERCEL_ORG_ID \
             VERCEL_PROJECT_ID \
@@ -223,61 +471,448 @@ jobs:
             AWS_FRONTEND_DEPLOY_ROLE_ARN \
             AURA_BACKEND_ORIGIN
 
-          check_group gateway VERCEL_TOKEN
+          check_group frontend_aws \
+            AWS_FRONTEND_BUCKET \
+            AWS_FRONTEND_DISTRIBUTION_ID \
+            AWS_FRONTEND_PUBLIC_URL \
+            AWS_FRONTEND_DEPLOY_ROLE_ARN \
+            AURA_BACKEND_ORIGIN
+
+          check_group gateway \
+            VERCEL_TOKEN \
+            VERCEL_ORG_ID \
+            VERCEL_PROJECT_ID \
+            GATEWAY_PRODUCTION_URL
+
+  production-approval:
+    name: Production approval gate
+    runs-on: ubuntu-latest
+
+    needs:
+      - changes
+      - ci
+      - security-gates
+      - production-deploy-config
+      - validate-manual-dispatch
+
+    if: |
+      always() &&
+      needs.ci.result == 'success' &&
+      needs.security-gates.result == 'success' &&
+      (needs.validate-manual-dispatch.result == 'success' || needs.validate-manual-dispatch.result == 'skipped') &&
+      (
+        (
+          github.event_name == 'push' &&
+          (
+            needs.changes.outputs.backend == 'true' ||
+            needs.changes.outputs.frontend_netlify == 'true' ||
+            needs.changes.outputs.frontend_aws == 'true' ||
+            needs.changes.outputs.gateway == 'true' ||
+            needs.changes.outputs.desktop == 'true' ||
+            needs.changes.outputs.mobile == 'true'
+          )
+        ) ||
+        (
+          github.event_name == 'workflow_dispatch' &&
+          (
+            inputs.deploy_backend == true ||
+            inputs.deploy_frontend_netlify == true ||
+            inputs.deploy_frontend_aws == true ||
+            inputs.deploy_gateway == true ||
+            inputs.release_desktop == true ||
+            inputs.release_mobile == true ||
+            inputs.rollback_backend == true ||
+            inputs.rollback_frontend_netlify == true ||
+            inputs.rollback_frontend_aws == true ||
+            inputs.rollback_gateway == true
+          )
+        )
+      )
+
+    environment:
+      name: production
+
+    steps:
+      - name: Approve production release
+        run: |
+          echo "Production approval gate passed."
+          echo "Actor: ${{ github.actor }}"
+          echo "SHA: ${{ github.sha }}"
+
+  release-manifest:
+    name: Create release manifest
+    runs-on: ubuntu-latest
+
+    needs:
+      - production-approval
+
+    if: needs.production-approval.result == 'success'
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Create manifest
+        run: |
+          set -euo pipefail
+
+          cat > release-manifest.json <<EOF
+          {
+            "project": "Aura",
+            "workflow": "Aura Production Release Orchestrator",
+            "event": "${{ github.event_name }}",
+            "actor": "${{ github.actor }}",
+            "ref": "${{ github.ref }}",
+            "sha": "${{ github.sha }}",
+            "run_id": "${{ github.run_id }}",
+            "run_number": "${{ github.run_number }}",
+            "attempt": "${{ github.run_attempt }}"
+          }
+          EOF
+
+          cat release-manifest.json
+
+      - name: Upload release manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: aura-production-release-manifest
+          path: release-manifest.json
+          retention-days: 90
 
   deploy-backend:
     name: Deploy backend to AWS
     needs:
       - changes
       - ci
+      - security-gates
       - production-deploy-config
+      - production-approval
+      - release-manifest
+
     if: |
+      needs.production-approval.result == 'success' &&
       (
-        github.event_name == 'push' &&
-        needs.changes.outputs.backend == 'true' &&
-        needs.production-deploy-config.outputs.backend_ready == 'true'
-      ) ||
-      (github.event_name == 'workflow_dispatch' && inputs.deploy_backend == true)
+        (
+          github.event_name == 'push' &&
+          needs.changes.outputs.backend == 'true' &&
+          needs.production-deploy-config.outputs.backend_ready == 'true'
+        ) ||
+        (
+          github.event_name == 'workflow_dispatch' &&
+          inputs.deploy_backend == true
+        )
+      )
+
     uses: ./.github/workflows/deploy-backend-aws.yml
+
+    permissions:
+      contents: read
+      id-token: write
+
     with:
       git_ref: ${{ github.sha }}
       skip_healthcheck: ${{ github.event_name == 'workflow_dispatch' && inputs.skip_backend_healthcheck || false }}
+
     secrets: inherit
 
-  deploy-frontend:
-    name: Deploy storefront
+  deploy-frontend-netlify:
+    name: Deploy storefront to Netlify, Vercel, and AWS
     needs:
       - changes
       - ci
+      - security-gates
       - production-deploy-config
+      - production-approval
+      - release-manifest
+
     if: |
+      needs.production-approval.result == 'success' &&
       (
-        github.event_name == 'push' &&
-        needs.changes.outputs.frontend == 'true' &&
-        needs.production-deploy-config.outputs.frontend_ready == 'true'
-      ) ||
-      (github.event_name == 'workflow_dispatch' && inputs.deploy_frontend == true)
+        (
+          github.event_name == 'push' &&
+          (
+            needs.changes.outputs.frontend_netlify == 'true' ||
+            needs.changes.outputs.frontend_aws == 'true'
+          ) &&
+          needs.production-deploy-config.outputs.frontend_netlify_ready == 'true'
+        ) ||
+        (
+          github.event_name == 'workflow_dispatch' &&
+          inputs.deploy_frontend_netlify == true
+        )
+      )
+
     uses: ./.github/workflows/deploy-netlify.yml
+
+    permissions:
+      contents: read
+      id-token: write
+
     with:
       target: production
+
+    secrets: inherit
+
+  deploy-frontend-aws:
+    name: Deploy storefront to AWS S3 / CloudFront
+    needs:
+      - changes
+      - ci
+      - security-gates
+      - production-deploy-config
+      - production-approval
+      - release-manifest
+
+    if: |
+      needs.production-approval.result == 'success' &&
+      (
+        (
+          github.event_name == 'workflow_dispatch' &&
+          inputs.deploy_frontend_aws == true
+        )
+      )
+
+    uses: ./.github/workflows/deploy-frontend-aws.yml
+
+    permissions:
+      contents: read
+      id-token: write
+
+    with:
+      deploy: true
+
     secrets: inherit
 
   deploy-gateway:
-    name: Deploy gateway
+    name: Deploy gateway to Vercel
     needs:
       - changes
       - ci
+      - security-gates
       - production-deploy-config
+      - production-approval
+      - release-manifest
+
     if: |
+      needs.production-approval.result == 'success' &&
       (
-        github.event_name == 'push' &&
-        needs.changes.outputs.gateway == 'true' &&
-        needs.production-deploy-config.outputs.gateway_ready == 'true'
-      ) ||
-      (github.event_name == 'workflow_dispatch' && inputs.deploy_gateway == true)
+        (
+          github.event_name == 'push' &&
+          needs.changes.outputs.gateway == 'true' &&
+          needs.production-deploy-config.outputs.gateway_ready == 'true'
+        ) ||
+        (
+          github.event_name == 'workflow_dispatch' &&
+          inputs.deploy_gateway == true
+        )
+      )
+
     uses: ./.github/workflows/deploy-gateway-vercel.yml
+
+    permissions:
+      contents: read
+
     with:
       target: production
+
+    secrets: inherit
+
+  smoke-tests:
+    name: Production smoke tests
+    runs-on: ubuntu-latest
+
+    needs:
+      - deploy-backend
+      - deploy-frontend-netlify
+      - deploy-frontend-aws
+      - deploy-gateway
+
+    if: |
+      always() &&
+      (
+        needs.deploy-backend.result == 'success' ||
+        needs.deploy-frontend-netlify.result == 'success' ||
+        needs.deploy-frontend-aws.result == 'success' ||
+        needs.deploy-gateway.result == 'success'
+      )
+
+    steps:
+      - name: Run production smoke checks
+        env:
+          AURA_BACKEND_ORIGIN: ${{ vars.AURA_BACKEND_ORIGIN || vars.AWS_BACKEND_BASE_URL || '' }}
+          BACKEND_HEALTH_PATH: ${{ vars.BACKEND_HEALTH_PATH || '/health' }}
+
+          NETLIFY_PRODUCTION_URL: ${{ vars.NETLIFY_PRODUCTION_URL || '' }}
+          AWS_FRONTEND_PUBLIC_URL: ${{ vars.AWS_FRONTEND_PUBLIC_URL || '' }}
+          GATEWAY_PRODUCTION_URL: ${{ vars.GATEWAY_PRODUCTION_URL || '' }}
+          GATEWAY_HEALTH_PATH: ${{ vars.GATEWAY_HEALTH_PATH || '/' }}
+
+        run: |
+          set -euo pipefail
+
+          smoke() {
+            local name="$1"
+            local url="$2"
+
+            if [ -z "${url}" ]; then
+              echo "::warning::Skipping ${name}; URL is empty."
+              return 0
+            fi
+
+            echo "Checking ${name}: ${url}"
+
+            curl \
+              --fail \
+              --show-error \
+              --silent \
+              --location \
+              --max-time 30 \
+              "${url}" > /dev/null
+
+            echo "${name} is healthy."
+          }
+
+          smoke "backend" "${AURA_BACKEND_ORIGIN}${BACKEND_HEALTH_PATH}"
+          smoke "netlify storefront" "${NETLIFY_PRODUCTION_URL}"
+          smoke "aws storefront" "${AWS_FRONTEND_PUBLIC_URL}"
+          smoke "gateway" "${GATEWAY_PRODUCTION_URL}${GATEWAY_HEALTH_PATH}"
+
+  rollback-backend:
+    name: Roll back backend
+    needs:
+      - production-approval
+      - deploy-backend
+      - smoke-tests
+
+    if: |
+      always() &&
+      needs.production-approval.result == 'success' &&
+      (
+        (
+          github.event_name == 'workflow_dispatch' &&
+          inputs.rollback_backend == true
+        ) ||
+        (
+          needs.deploy-backend.result == 'success' &&
+          needs.smoke-tests.result == 'failure' &&
+          github.event_name == 'workflow_dispatch' &&
+          inputs.auto_rollback_on_smoke_failure == true
+        )
+      )
+
+    uses: ./.github/workflows/rollback-backend-aws.yml
+
+    permissions:
+      contents: read
+      id-token: write
+
+    with:
+      rollback_ref: ${{ inputs.rollback_ref || '' }}
+
+    secrets: inherit
+
+  rollback-frontend-netlify:
+    name: Roll back Netlify storefront
+    needs:
+      - production-approval
+      - deploy-frontend-netlify
+      - smoke-tests
+
+    if: |
+      always() &&
+      needs.production-approval.result == 'success' &&
+      (
+        (
+          github.event_name == 'workflow_dispatch' &&
+          inputs.rollback_frontend_netlify == true
+        ) ||
+        (
+          needs.deploy-frontend-netlify.result == 'success' &&
+          needs.smoke-tests.result == 'failure' &&
+          github.event_name == 'workflow_dispatch' &&
+          inputs.auto_rollback_on_smoke_failure == true
+        )
+      )
+
+    uses: ./.github/workflows/rollback-netlify.yml
+
+    permissions:
+      contents: read
+
+    with:
+      rollback_ref: ${{ inputs.rollback_ref || '' }}
+
+    secrets: inherit
+
+  rollback-frontend-aws:
+    name: Roll back AWS storefront
+    needs:
+      - production-approval
+      - deploy-frontend-netlify
+      - deploy-frontend-aws
+      - smoke-tests
+
+    if: |
+      always() &&
+      needs.production-approval.result == 'success' &&
+      (
+        (
+          github.event_name == 'workflow_dispatch' &&
+          inputs.rollback_frontend_aws == true
+        ) ||
+        (
+          (
+            needs.deploy-frontend-netlify.result == 'success' ||
+            needs.deploy-frontend-aws.result == 'success'
+          ) &&
+          needs.smoke-tests.result == 'failure' &&
+          github.event_name == 'workflow_dispatch' &&
+          inputs.auto_rollback_on_smoke_failure == true
+        )
+      )
+
+    uses: ./.github/workflows/rollback-frontend-aws.yml
+
+    permissions:
+      contents: read
+      id-token: write
+
+    with:
+      rollback_ref: ${{ inputs.rollback_ref || '' }}
+
+    secrets: inherit
+
+  rollback-gateway:
+    name: Roll back gateway
+    needs:
+      - production-approval
+      - deploy-gateway
+      - smoke-tests
+
+    if: |
+      always() &&
+      needs.production-approval.result == 'success' &&
+      (
+        (
+          github.event_name == 'workflow_dispatch' &&
+          inputs.rollback_gateway == true
+        ) ||
+        (
+          needs.deploy-gateway.result == 'success' &&
+          needs.smoke-tests.result == 'failure' &&
+          github.event_name == 'workflow_dispatch' &&
+          inputs.auto_rollback_on_smoke_failure == true
+        )
+      )
+
+    uses: ./.github/workflows/rollback-gateway-vercel.yml
+
+    permissions:
+      contents: read
+
+    with:
+      rollback_ref: ${{ inputs.rollback_ref || '' }}
+
     secrets: inherit
 
   release-desktop:
@@ -285,23 +920,44 @@ jobs:
     needs:
       - changes
       - ci
+      - security-gates
+      - production-approval
       - deploy-backend
-      - deploy-frontend
+      - deploy-frontend-netlify
+      - deploy-frontend-aws
       - deploy-gateway
+      - smoke-tests
+
     if: |
       always() &&
+      needs.production-approval.result == 'success' &&
       (
-        (github.event_name == 'push' && needs.changes.outputs.desktop == 'true') ||
-        (github.event_name == 'workflow_dispatch' && inputs.release_desktop == true)
+        (
+          github.event_name == 'push' &&
+          needs.changes.outputs.desktop == 'true'
+        ) ||
+        (
+          github.event_name == 'workflow_dispatch' &&
+          inputs.release_desktop == true
+        )
       ) &&
       needs.ci.result == 'success' &&
+      needs.security-gates.result == 'success' &&
       (needs.deploy-backend.result == 'success' || needs.deploy-backend.result == 'skipped') &&
-      (needs.deploy-frontend.result == 'success' || needs.deploy-frontend.result == 'skipped') &&
-      (needs.deploy-gateway.result == 'success' || needs.deploy-gateway.result == 'skipped')
+      (needs.deploy-frontend-netlify.result == 'success' || needs.deploy-frontend-netlify.result == 'skipped') &&
+      (needs.deploy-frontend-aws.result == 'success' || needs.deploy-frontend-aws.result == 'skipped') &&
+      (needs.deploy-gateway.result == 'success' || needs.deploy-gateway.result == 'skipped') &&
+      (needs.smoke-tests.result == 'success' || needs.smoke-tests.result == 'skipped')
+
     uses: ./.github/workflows/desktop-release.yml
+
+    permissions:
+      contents: write
+
     with:
       version: ${{ github.event_name == 'workflow_dispatch' && inputs.desktop_version || '' }}
       require_windows_signing: false
+
     secrets: inherit
 
   release-mobile:
@@ -309,22 +965,162 @@ jobs:
     needs:
       - changes
       - ci
+      - security-gates
+      - production-approval
       - deploy-backend
-      - deploy-frontend
+      - deploy-frontend-netlify
+      - deploy-frontend-aws
       - deploy-gateway
+      - smoke-tests
       - release-desktop
+
+    if: |
+      always() &&
+      needs.production-approval.result == 'success' &&
+      (
+        (
+          github.event_name == 'push' &&
+          needs.changes.outputs.mobile == 'true'
+        ) ||
+        (
+          github.event_name == 'workflow_dispatch' &&
+          inputs.release_mobile == true
+        )
+      ) &&
+      needs.ci.result == 'success' &&
+      needs.security-gates.result == 'success' &&
+      (needs.deploy-backend.result == 'success' || needs.deploy-backend.result == 'skipped') &&
+      (needs.deploy-frontend-netlify.result == 'success' || needs.deploy-frontend-netlify.result == 'skipped') &&
+      (needs.deploy-frontend-aws.result == 'success' || needs.deploy-frontend-aws.result == 'skipped') &&
+      (needs.deploy-gateway.result == 'success' || needs.deploy-gateway.result == 'skipped') &&
+      (needs.smoke-tests.result == 'success' || needs.smoke-tests.result == 'skipped') &&
+      (needs.release-desktop.result == 'success' || needs.release-desktop.result == 'skipped')
+
+    uses: ./.github/workflows/mobile-release.yml
+
+    permissions:
+      contents: write
+
+    with:
+      version: ${{ github.event_name == 'workflow_dispatch' && inputs.mobile_version || '' }}
+
+    secrets: inherit
+
+  production-tag:
+    name: Create production traceability tag
+    runs-on: ubuntu-latest
+
+    needs:
+      - deploy-backend
+      - deploy-frontend-netlify
+      - deploy-frontend-aws
+      - deploy-gateway
+      - smoke-tests
+      - release-desktop
+      - release-mobile
+
     if: |
       always() &&
       (
-        (github.event_name == 'push' && needs.changes.outputs.mobile == 'true') ||
-        (github.event_name == 'workflow_dispatch' && inputs.release_mobile == true)
+        needs.deploy-backend.result == 'success' ||
+        needs.deploy-frontend-netlify.result == 'success' ||
+        needs.deploy-frontend-aws.result == 'success' ||
+        needs.deploy-gateway.result == 'success' ||
+        needs.release-desktop.result == 'success' ||
+        needs.release-mobile.result == 'success'
       ) &&
-      needs.ci.result == 'success' &&
-      (needs.deploy-backend.result == 'success' || needs.deploy-backend.result == 'skipped') &&
-      (needs.deploy-frontend.result == 'success' || needs.deploy-frontend.result == 'skipped') &&
-      (needs.deploy-gateway.result == 'success' || needs.deploy-gateway.result == 'skipped') &&
-      (needs.release-desktop.result == 'success' || needs.release-desktop.result == 'skipped')
-    uses: ./.github/workflows/mobile-release.yml
-    with:
-      version: ${{ github.event_name == 'workflow_dispatch' && inputs.mobile_version || '' }}
-    secrets: inherit
+      (needs.smoke-tests.result == 'success' || needs.smoke-tests.result == 'skipped')
+
+    permissions:
+      contents: write
+
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create and push production tag
+        id: tag
+        run: |
+          set -euo pipefail
+
+          short_sha="${GITHUB_SHA::7}"
+          timestamp="$(date -u +'%Y%m%d%H%M%S')"
+          tag="production-${timestamp}-${short_sha}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git tag -a "${tag}" -m "Production release ${tag} from ${GITHUB_SHA}"
+          git push origin "${tag}"
+
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          echo "Created production tag: ${tag}"
+
+  production-summary:
+    name: Production release summary
+    runs-on: ubuntu-latest
+
+    if: always()
+
+    needs:
+      - changes
+      - ci
+      - security-gates
+      - production-deploy-config
+      - production-approval
+      - release-manifest
+      - deploy-backend
+      - deploy-frontend-netlify
+      - deploy-frontend-aws
+      - deploy-gateway
+      - smoke-tests
+      - rollback-backend
+      - rollback-frontend-netlify
+      - rollback-frontend-aws
+      - rollback-gateway
+      - release-desktop
+      - release-mobile
+      - production-tag
+
+    steps:
+      - name: Write production summary
+        run: |
+          {
+            echo "## Aura Production Release Summary"
+            echo ""
+            echo "| Field | Value |"
+            echo "|---|---|"
+            echo "| Event | ${{ github.event_name }} |"
+            echo "| Actor | ${{ github.actor }} |"
+            echo "| Ref | ${{ github.ref }} |"
+            echo "| SHA | ${{ github.sha }} |"
+            echo "| Run | ${{ github.run_id }} |"
+            echo "| Production tag | ${{ needs.production-tag.outputs.tag }} |"
+            echo ""
+            echo "## Job Results"
+            echo ""
+            echo "| Job | Result |"
+            echo "|---|---|"
+            echo "| CI | ${{ needs.ci.result }} |"
+            echo "| Security gates | ${{ needs.security-gates.result }} |"
+            echo "| Production config | ${{ needs.production-deploy-config.result }} |"
+            echo "| Production approval | ${{ needs.production-approval.result }} |"
+            echo "| Release manifest | ${{ needs.release-manifest.result }} |"
+            echo "| Backend deploy | ${{ needs.deploy-backend.result }} |"
+            echo "| Netlify frontend deploy | ${{ needs.deploy-frontend-netlify.result }} |"
+            echo "| AWS frontend deploy | ${{ needs.deploy-frontend-aws.result }} |"
+            echo "| Gateway deploy | ${{ needs.deploy-gateway.result }} |"
+            echo "| Smoke tests | ${{ needs.smoke-tests.result }} |"
+            echo "| Backend rollback | ${{ needs.rollback-backend.result }} |"
+            echo "| Netlify rollback | ${{ needs.rollback-frontend-netlify.result }} |"
+            echo "| AWS frontend rollback | ${{ needs.rollback-frontend-aws.result }} |"
+            echo "| Gateway rollback | ${{ needs.rollback-gateway.result }} |"
+            echo "| Desktop release | ${{ needs.release-desktop.result }} |"
+            echo "| Mobile release | ${{ needs.release-mobile.result }} |"
+            echo "| Production tag | ${{ needs.production-tag.result }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
