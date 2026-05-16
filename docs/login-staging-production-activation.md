@@ -83,4 +83,10 @@ Microsoft requires the app id, secret, tenant/callback setup, authorized Firebas
 | Auth security outbox | `AUTH_SECURITY_OUTBOX_ENABLED=true` | `false` until observed | Enable production after queue creation, drain, and alert visibility are confirmed. |
 | Privileged JIT access | `PRIVILEGED_JIT_ACCESS_ENABLED=false` | `false` | Enable only after approval workflow, audit review, and break-glass ownership exist. |
 
-Rollback is environment-only for these controls: set `AUTH_RISK_ENGINE_MODE=off`, `AUTH_SECURITY_OUTBOX_ENABLED=false`, and `PRIVILEGED_JIT_ACCESS_ENABLED=false`, then redeploy the affected service.
+### Staged Login Risk Enforcement
+
+`AUTH_RISK_ENGINE_MODE=monitor` evaluates login risk and records telemetry, but it never changes the `/api/auth/sync` response. Use this first in staging with `AUTH_SECURITY_OUTBOX_ENABLED=true` and review `login_risk`, `trusted_device_challenge`, and `step_up_required` events.
+
+`AUTH_RISK_ENGINE_MODE=enforce` keeps low and medium decisions on the normal session path. High-risk decisions that recommend step-up return the existing `device_challenge_required` response and persist `session.riskState=login_risk_high` until the trusted-device challenge succeeds. The runtime uses the current trusted-device headers plus optional trusted edge/server signals: `X-Aura-Login-Failure-Count`, `X-Aura-IP-Reputation`, and `X-Aura-Impossible-Travel`. Only enable enforcement where the origin is protected and any client-supplied copies of those signal headers are stripped before the edge or server injects trusted values.
+
+Rollback is environment-only for these controls: set `AUTH_RISK_ENGINE_MODE=off`, `AUTH_SECURITY_OUTBOX_ENABLED=false`, and `PRIVILEGED_JIT_ACCESS_ENABLED=false`, then redeploy the affected service. `off` stops risk evaluation, and monitor/off mode treats any stored `login_risk_high` session posture as standard so already-signed-in users are not stuck behind the staged gate.

@@ -3,8 +3,14 @@ const express = require('express');
 
 const ORIGINAL_ENV = { ...process.env };
 
-const loadProtectedApp = () => {
+const loadProtectedApp = ({
+    user = null,
+    authSession = null,
+    routePath = '/api/admin/ops/smoke',
+    riskEngineMode = '',
+} = {}) => {
     jest.resetModules();
+    process.env.AUTH_RISK_ENGINE_MODE = riskEngineMode;
 
     const decodedToken = {
         uid: 'firebase-admin-uid',
@@ -32,7 +38,13 @@ const loadProtectedApp = () => {
             },
         ],
     };
+    const resolvedUser = user || adminUser;
 
+    jest.doMock('../models/User', () => ({
+        findById: jest.fn().mockReturnValue({
+            lean: jest.fn().mockResolvedValue(resolvedUser),
+        }),
+    }));
     jest.doMock('../config/firebase', () => ({
         auth: () => ({
             verifyIdToken: jest.fn().mockResolvedValue(decodedToken),
@@ -54,7 +66,19 @@ const loadProtectedApp = () => {
         }),
     }));
     jest.doMock('../services/authIdentityResolutionService', () => ({
-        findPreferredIdentityUserLean: jest.fn().mockResolvedValue(adminUser),
+        findPreferredIdentityUserLean: jest.fn().mockResolvedValue(resolvedUser),
+    }));
+    jest.doMock('../middleware/csrfMiddleware', () => ({
+        csrfTokenValidator: jest.fn((_req, _res, next) => next()),
+    }));
+    jest.doMock('../services/browserSessionService', () => ({
+        getBrowserSessionFromRequest: jest.fn().mockResolvedValue(authSession),
+        getGlobalSessionRevokedAfter: jest.fn().mockResolvedValue(0),
+        resolveSessionIdFromRequest: jest.fn((req = {}) => (
+            String(req.headers?.cookie || '').includes('aura_sid=') ? 'session-risk-1' : ''
+        )),
+        revokeBrowserSession: jest.fn().mockResolvedValue(undefined),
+        touchBrowserSession: jest.fn(async (session) => session),
     }));
     jest.doMock('../config/authTrustedDeviceFlags', () => ({
         flags: { authDeviceChallengeMode: 'admin' },
@@ -76,7 +100,7 @@ const loadProtectedApp = () => {
     const { protect } = require('../middleware/authMiddleware');
     const app = express();
     app.use(express.json());
-    app.post('/api/admin/ops/smoke', protect, (req, res) => {
+    app.post(routePath, protect, (req, res) => {
         res.json({
             ok: true,
             posture: req.authzPosture,
@@ -112,6 +136,48 @@ describe('authMiddleware continuous access posture', () => {
                 deviceBound: true,
                 cryptoBound: true,
                 elevatedAssurance: true,
+                continuousAccess: true,
+            },
+        });
+    });
+
+    test('treats stored login-risk session state as standard after enforcement rollback', async () => {
+        const app = loadProtectedApp({
+            riskEngineMode: 'monitor',
+            routePath: '/api/orders/smoke',
+            user: {
+                _id: '507f1f77bcf86cd799439012',
+                email: 'consumer@example.com',
+                isAdmin: false,
+                isSeller: false,
+                isVerified: true,
+                trustedDevices: [],
+            },
+            authSession: {
+                sessionId: 'session-risk-1',
+                userId: '507f1f77bcf86cd799439012',
+                firebaseUid: 'firebase-consumer-uid',
+                email: 'consumer@example.com',
+                emailVerified: true,
+                providerIds: ['password'],
+                authTimeSeconds: Math.floor(Date.now() / 1000) - 60,
+                riskState: 'login_risk_high',
+                aal: 'aal1',
+                amr: ['password'],
+            },
+        });
+
+        const res = await request(app)
+            .post('/api/orders/smoke')
+            .set('Cookie', 'aura_sid=session-risk-1')
+            .send({});
+
+        expect(res.statusCode).toBe(200);
+        expect(res.body).toMatchObject({
+            ok: true,
+            posture: {
+                riskState: 'standard',
+                riskHigh: false,
                 continuousAccess: true,
             },
         });

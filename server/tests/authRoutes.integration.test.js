@@ -537,17 +537,25 @@ describe('Trusted device bootstrap challenge', () => {
 describe('Auth sync lattice challenge policy', () => {
     const originalDeviceChallengeMode = process.env.AUTH_DEVICE_CHALLENGE_MODE;
     const originalChallengeMode = process.env.AUTH_LATTICE_CHALLENGE_MODE;
+    const originalRiskEngineMode = process.env.AUTH_RISK_ENGINE_MODE;
 
     afterEach(() => {
         process.env.AUTH_DEVICE_CHALLENGE_MODE = originalDeviceChallengeMode;
         process.env.AUTH_LATTICE_CHALLENGE_MODE = originalChallengeMode;
+        process.env.AUTH_RISK_ENGINE_MODE = originalRiskEngineMode;
         jest.resetModules();
         jest.clearAllMocks();
         jest.dontMock('../services/authSessionService');
+        jest.dontMock('../services/browserSessionService');
         jest.dontMock('../services/trustedDeviceChallengeService');
     });
 
-    const buildIsolatedSyncApp = ({ challengeMode = '', isAdmin = false, authSession = null } = {}) => {
+    const buildIsolatedSyncApp = ({
+        challengeMode = '',
+        isAdmin = false,
+        authSession = null,
+        riskEngineMode = '',
+    } = {}) => {
         let isolatedApp;
         const challengeToken = buildRuntimeSecret('challenge-ref');
         const challengeValue = buildRuntimeSecret('sig-ref');
@@ -558,9 +566,11 @@ describe('Auth sync lattice challenge policy', () => {
             deviceId: 'device-test-1234',
         });
 
+        jest.dontMock('../services/browserSessionService');
         jest.isolateModules(() => {
             process.env.AUTH_DEVICE_CHALLENGE_MODE = challengeMode;
             process.env.AUTH_LATTICE_CHALLENGE_MODE = '';
+            process.env.AUTH_RISK_ENGINE_MODE = riskEngineMode;
 
             jest.doMock('../services/authSessionService', () => {
                 const actual = jest.requireActual('../services/authSessionService');
@@ -678,6 +688,43 @@ describe('Auth sync lattice challenge policy', () => {
         expect(res.body.status).toBe('authenticated');
         expect(res.body.deviceChallenge).toBeNull();
         expect(issueTrustedDeviceChallenge).not.toHaveBeenCalled();
+    });
+
+    test('POST /api/auth/sync keeps high login risk monitor-only by default', async () => {
+        const { isolatedApp, issueTrustedDeviceChallenge } = buildIsolatedSyncApp({ riskEngineMode: 'monitor' });
+
+        const res = await request(isolatedApp)
+            .post('/api/auth/sync')
+            .set('x-aura-device-id', 'device-test-1234')
+            .set('x-aura-ip-reputation', 'denylist')
+            .send({ email: 'verified@example.com', name: 'Verified User' });
+
+        expect(res.statusCode).toBe(200);
+        expect(res.body.status).toBe('authenticated');
+        expect(res.body.deviceChallenge).toBeNull();
+        expect(res.body.session.riskState).toBe('standard');
+        expect(issueTrustedDeviceChallenge).not.toHaveBeenCalled();
+    });
+
+    test('POST /api/auth/sync requires step-up for high login risk when enforcement is staged on', async () => {
+        const { isolatedApp, issueTrustedDeviceChallenge } = buildIsolatedSyncApp({ riskEngineMode: 'enforce' });
+
+        const res = await request(isolatedApp)
+            .post('/api/auth/sync')
+            .set('x-aura-device-id', 'device-test-1234')
+            .set('x-aura-ip-reputation', 'denylist')
+            .send({ email: 'verified@example.com', name: 'Verified User' });
+
+        expect(res.statusCode).toBe(200);
+        expect(res.body.status).toBe('device_challenge_required');
+        expect(res.body.session.riskState).toBe('login_risk_high');
+        expect(res.body.deviceChallenge).toEqual({
+            token: expect.any(String),
+            challenge: expect.any(String),
+            mode: 'assert',
+            deviceId: 'device-test-1234',
+        });
+        expect(issueTrustedDeviceChallenge).toHaveBeenCalledTimes(1);
     });
 });
 
