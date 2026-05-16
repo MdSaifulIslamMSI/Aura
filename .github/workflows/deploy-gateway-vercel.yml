@@ -50,10 +50,10 @@ jobs:
       inspect_url: ${{ steps.deploy.outputs.inspect_url }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Use Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
 
@@ -94,9 +94,11 @@ jobs:
           DEPLOY_LOG="${DEPLOY_LOG}" node <<'EOF'
           const fs = require('fs');
           const log = fs.readFileSync(process.env.DEPLOY_LOG, 'utf8');
-          const preview = log.match(/Preview:\s+(https:\/\/\S+)/);
+          const preview = log.match(/Preview:\s+(https:\/\/\S+)/)
+            || log.match(/(https:\/\/[-A-Za-z0-9.]+\.vercel\.app)\b/);
           const inspect = log.match(/Inspect:\s+(https:\/\/\S+)/);
           if (!preview) {
+            process.stderr.write(log);
             throw new Error('Vercel CLI did not return a preview deployment URL.');
           }
           fs.appendFileSync(process.env.GITHUB_OUTPUT, `deploy_url=${preview[1]}\n`);
@@ -119,7 +121,7 @@ jobs:
 
       - name: Comment preview URL on pull request
         if: github.event_name == 'pull_request'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           DEPLOY_URL: ${{ steps.deploy.outputs.deploy_url }}
           INSPECT_URL: ${{ steps.deploy.outputs.inspect_url }}
@@ -170,10 +172,10 @@ jobs:
       inspect_url: ${{ steps.deploy.outputs.inspect_url }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Use Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
 
