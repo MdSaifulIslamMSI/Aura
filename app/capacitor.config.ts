@@ -22,6 +22,8 @@ const config: CapacitorConfig = {
       'www.facebook.com',
       'm.facebook.com',
       'mobile.facebook.com',
+      'github.com',
+      'www.github.com',
       'x.com',
       'www.x.com',
       'twitter.com',
@@ -35,7 +37,7 @@ const config: CapacitorConfig = {
     FirebaseAuthentication: {
       authDomain: 'billy-b674c.firebaseapp.com',
       skipNativeAuth: false,
-      providers: ['google.com', 'facebook.com', 'twitter.com'],
+      providers: ['google.com', 'facebook.com', 'github.com', 'twitter.com'],
     },
     SplashScreen: {
       launchShowDuration: 1400,

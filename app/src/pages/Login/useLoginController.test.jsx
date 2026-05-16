@@ -92,6 +92,7 @@ const buildAuthValue = (overrides = {}) => ({
   logout: vi.fn(),
   refreshSession: vi.fn(),
   signInWithFacebook: vi.fn(),
+  signInWithGitHub: vi.fn(),
   signInWithGoogle: vi.fn(),
   signInWithX: vi.fn(),
   signup: vi.fn(),
@@ -368,7 +369,7 @@ describe('useLoginController', () => {
       </MarketProvider>
     );
 
-    expect(screen.getByTestId('social-access-signal')).toHaveTextContent('Google, Facebook, X, and Microsoft ready');
+    expect(screen.getByTestId('social-access-signal')).toHaveTextContent('Google, Facebook, GitHub, X, and Microsoft ready');
     expect(screen.getByTestId('social-access-signal')).not.toHaveTextContent('Apple');
   });
 

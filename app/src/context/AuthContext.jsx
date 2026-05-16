@@ -16,6 +16,7 @@ import {
   auth,
   googleProvider,
   facebookProvider,
+  githubProvider,
   microsoftProvider,
   appleProvider,
   xProvider,
@@ -789,6 +790,7 @@ export const AuthProvider = ({ children }) => {
 
   const signInWithGoogle = async () => signInWithOAuthProvider(googleProvider, 'Google', 'google');
   const signInWithFacebook = async () => signInWithOAuthProvider(facebookProvider, 'Facebook', 'facebook');
+  const signInWithGitHub = async () => signInWithOAuthProvider(githubProvider, 'GitHub', 'github');
   const signInWithMicrosoft = async () => signInWithOAuthProvider(microsoftProvider, 'Microsoft', 'microsoft');
   const signInWithApple = async () => signInWithOAuthProvider(appleProvider, 'Apple', 'apple');
   const signInWithX = async () => signInWithOAuthProvider(xProvider, 'X', 'x');
@@ -1032,6 +1034,7 @@ export const AuthProvider = ({ children }) => {
     loginWithPhoneCredential,
     signInWithGoogle,
     signInWithFacebook,
+    signInWithGitHub,
     signInWithMicrosoft,
     signInWithApple,
     signInWithX,

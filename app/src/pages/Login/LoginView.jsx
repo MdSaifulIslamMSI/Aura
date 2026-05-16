@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Apple as AppleIcon, ArrowLeft, ChevronDown, Eye, EyeOff, Loader2, Lock, Mail, Network, Phone, Shield, User, Zap } from 'lucide-react';
+import { Apple as AppleIcon, ArrowLeft, ChevronDown, Eye, EyeOff, Github, Loader2, Lock, Mail, Network, Phone, Shield, User, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import AuthAccelerationRail from '@/components/features/auth/AuthAccelerationRail';
 import { AuthFeedback } from '@/components/shared/AuthFeedback';
@@ -41,6 +41,7 @@ const LoginView = ({
   setShowPassword,
   showPassword,
   signInWithFacebook,
+  signInWithGitHub,
   signInWithGoogle,
   signInWithMicrosoft,
   signInWithApple,
@@ -459,7 +460,7 @@ const LoginView = ({
                   <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
                 </div>
                 {socialAuthStatus.supported ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
                     <button
                       type="button"
                       onClick={() => handleSocialSignIn(signInWithGoogle, 'Google')}
@@ -485,6 +486,16 @@ const LoginView = ({
                         <path fill="#1877F2" d="M24 12.073C24 5.405 18.627 0 12 0S0 5.405 0 12.073c0 6.023 4.388 11.015 10.125 11.926v-8.437H7.078v-3.49h3.047V9.412c0-3.017 1.792-4.686 4.533-4.686 1.312 0 2.686.235 2.686.235v2.96h-1.513c-1.491 0-1.956.93-1.956 1.884v2.265h3.328l-.532 3.49h-2.796V24C19.612 23.088 24 18.096 24 12.073z" />
                       </svg>
                       Facebook
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleSocialSignIn(signInWithGitHub, 'GitHub')}
+                      disabled={isLoading || emergencyAuthDisabled}
+                      className="py-3 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 text-white font-bold text-xs tracking-[0.08em] uppercase transition-all duration-300 flex items-center justify-center gap-2 hover:border-white/30"
+                    >
+                      <Github className="h-4 w-4" aria-hidden="true" />
+                      GitHub
                     </button>
 
                     <button
@@ -550,7 +561,7 @@ const LoginView = ({
                         </>
                       ) : (
                         <>
-                          {t('login.social.enablePrefix', {}, 'Use email and OTP sign-in here. To enable Google, Facebook, and X, authorize')}{' '}
+                          {t('login.social.enablePrefix', {}, 'Use email and OTP sign-in here. To enable Google, Facebook, GitHub, and X, authorize')}{' '}
                           <span className="font-semibold text-slate-200">{socialAuthStatus.runtimeHost || t('login.social.thisDomain', {}, 'this domain')}</span>{' '}
                           {t('login.social.enableSuffix', {}, 'in Firebase Authentication settings.')}
                         </>
