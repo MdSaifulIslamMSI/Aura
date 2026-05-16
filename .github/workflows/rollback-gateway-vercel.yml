@@ -1,0 +1,48 @@
+name: Rollback Gateway Vercel
+
+on:
+  workflow_call:
+    inputs:
+      rollback_ref:
+        description: Optional git ref/version to roll back to
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  rollback:
+    name: Roll back Vercel gateway
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.rollback_ref != '' && inputs.rollback_ref || github.sha }}
+
+      - name: Execute Vercel gateway rollback hook
+        env:
+          ROLLBACK_REF: ${{ inputs.rollback_ref }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID || secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID || secrets.VERCEL_PROJECT_ID }}
+          VERCEL_SCOPE: ${{ vars.VERCEL_SCOPE || 'mdsaifulislammsis-projects' }}
+          VERCEL_GATEWAY_PROJECT_NAME: ${{ vars.VERCEL_GATEWAY_PROJECT_NAME || 'aura-gateway' }}
+          GATEWAY_PRODUCTION_URL: ${{ vars.GATEWAY_PRODUCTION_URL || 'https://aura-gateway.vercel.app' }}
+        run: |
+          set -euo pipefail
+
+          if [ -f "scripts/rollback-gateway-vercel.sh" ]; then
+            bash scripts/rollback-gateway-vercel.sh
+          elif [ -f "scripts/rollback-gateway-vercel.ps1" ]; then
+            pwsh -NoLogo -NoProfile -File scripts/rollback-gateway-vercel.ps1
+          else
+            echo "::error::Missing rollback hook: scripts/rollback-gateway-vercel.sh or scripts/rollback-gateway-vercel.ps1"
+            echo "Create one hook that promotes the previous stable Vercel gateway deployment."
+            exit 1
+          fi
