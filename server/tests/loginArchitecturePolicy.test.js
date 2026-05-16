@@ -11,6 +11,7 @@ describe('login architecture policy manifests', () => {
         expect(keys).toEqual(expect.arrayContaining([
             'google',
             'facebook',
+            'github',
             'x',
             'microsoft',
             'apple',

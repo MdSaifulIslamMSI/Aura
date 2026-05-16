@@ -126,7 +126,7 @@ export const buildSessionIntelligenceFallback = (session = null, profile = null,
             shouldEnrollRecoveryCodes: hasPasskey && recoveryCodesActiveCount <= 0,
         },
         acceleration: {
-            suggestedRoute: providerIds.some((providerId) => /google|facebook|twitter|x\.com/i.test(providerId))
+            suggestedRoute: providerIds.some((providerId) => /google|facebook|github|twitter|x\.com/i.test(providerId))
                 ? 'social'
                 : 'password',
             rememberedIdentifier: Boolean(profile?.phone || session?.phone) ? 'email+phone' : 'email',

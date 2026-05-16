@@ -134,6 +134,7 @@ export const useLoginController = () => {
     signup,
     signInWithGoogle,
     signInWithFacebook,
+    signInWithGitHub,
     signInWithMicrosoft,
     signInWithApple,
     signInWithX,
@@ -1142,7 +1143,7 @@ export const useLoginController = () => {
   }, [canUseFirebasePhoneOtp, firebasePhoneFallback?.disableFirebasePhoneOtp, isEmailOtpStage, isPhoneOtpStage, mode, step, t]);
 
   const secureSignals = useMemo(() => {
-    const socialProviders = ['Google', 'Facebook', 'X'];
+    const socialProviders = ['Google', 'Facebook', 'GitHub', 'X'];
     if (socialAuthStatus.microsoftEnabled) socialProviders.push('Microsoft');
     if (socialAuthStatus.appleEnabled) socialProviders.push('Apple');
     const socialProviderSummary = formatProviderList(socialProviders);
@@ -1183,7 +1184,7 @@ export const useLoginController = () => {
       value: socialAuthStatus.supported
         ? (socialAuthStatus.microsoftEnabled || socialAuthStatus.appleEnabled
           ? t('login.signal.socialExpanded', { providers: socialProviderSummary }, '{{providers}} ready')
-          : t('login.signal.socialAvailable', {}, 'Google, Facebook, and X available'))
+          : t('login.signal.socialAvailable', {}, 'Google, Facebook, GitHub, and X available'))
         : socialAuthStatus.disabledByMobileNativeConfig
           ? t('login.signal.socialMobileConfig', {}, 'Email OTP active in app')
         : socialAuthStatus.runtimeBlocked
@@ -1377,6 +1378,7 @@ export const useLoginController = () => {
     setShowPassword,
     showPassword,
     signInWithFacebook,
+    signInWithGitHub,
     signInWithGoogle,
     signInWithMicrosoft,
     signInWithApple,

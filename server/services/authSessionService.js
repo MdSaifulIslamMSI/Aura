@@ -404,7 +404,7 @@ const toSessionIntelligence = (user = null, session = null) => {
             shouldEnrollRecoveryCodes: recoveryReadiness.shouldEnrollRecoveryCodes,
         },
         acceleration: {
-            suggestedRoute: providerIds.some((providerId) => /google|facebook|twitter|x\.com/i.test(providerId))
+            suggestedRoute: providerIds.some((providerId) => /google|facebook|github|twitter|x\.com/i.test(providerId))
                 ? 'social'
                 : assuranceLevel === 'password+otp'
                     ? 'password+otp'

@@ -2,6 +2,7 @@ import { initializeApp } from "firebase/app";
 import {
     browserLocalPersistence,
     getAuth,
+    GithubAuthProvider,
     GoogleAuthProvider,
     FacebookAuthProvider,
     OAuthProvider,
@@ -131,6 +132,7 @@ let app = null;
 let auth = null;
 let googleProvider = null;
 let facebookProvider = null;
+let githubProvider = null;
 let microsoftProvider = null;
 let appleProvider = null;
 let xProvider = null;
@@ -218,6 +220,7 @@ if (!hasRequiredConfig) {
 
         googleProvider = new GoogleAuthProvider();
         facebookProvider = new FacebookAuthProvider();
+        githubProvider = new GithubAuthProvider();
         xProvider = new TwitterAuthProvider();
         microsoftProvider = enableMicrosoftSocialAuth ? new OAuthProvider('microsoft.com') : null;
         appleProvider = enableAppleSocialAuth ? new OAuthProvider('apple.com') : null;
@@ -255,6 +258,7 @@ if (!hasRequiredConfig) {
         auth = null;
         googleProvider = null;
         facebookProvider = null;
+        githubProvider = null;
         microsoftProvider = null;
         appleProvider = null;
         xProvider = null;
@@ -347,6 +351,6 @@ export const clearFirebaseSocialAuthRuntimeBlock = () => {
     }
 };
 
-export { app, auth, googleProvider, facebookProvider, microsoftProvider, appleProvider, xProvider, analytics };
+export { app, auth, googleProvider, facebookProvider, githubProvider, microsoftProvider, appleProvider, xProvider, analytics };
 
 export default app;

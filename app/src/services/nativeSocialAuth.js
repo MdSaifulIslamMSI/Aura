@@ -3,18 +3,20 @@ import {
   auth,
   assertFirebaseSocialAuthReady,
   facebookProvider,
+  githubProvider,
   googleProvider,
   xProvider,
 } from '../config/firebase';
 import { isCapacitorNativeRuntime, getNativeMobilePlatform } from '../utils/nativeRuntime';
 import {
   FacebookAuthProvider,
+  GithubAuthProvider,
   GoogleAuthProvider,
   TwitterAuthProvider,
   signInWithCredential,
 } from 'firebase/auth';
 
-const NATIVE_PROVIDER_KEYS = ['google', 'facebook', 'x'];
+const NATIVE_PROVIDER_KEYS = ['google', 'facebook', 'github', 'x'];
 const NATIVE_CONFIG_ERROR_PATTERNS = [
   'default_web_client_id',
   'will_be_overridden',
@@ -27,6 +29,8 @@ const NATIVE_CONFIG_ERROR_PATTERNS = [
   'client id',
   'url scheme',
   'facebook app id',
+  'github client',
+  'github oauth',
   'twitter consumer',
   'x consumer',
 ];
@@ -128,6 +132,14 @@ const buildWebCredential = (providerKey, credential = {}) => {
     return FacebookAuthProvider.credential(accessToken);
   }
 
+  if (normalizedProvider === 'github') {
+    const accessToken = String(credential.accessToken || '').trim();
+    if (!accessToken) {
+      throw buildProviderError('GitHub sign-in did not return a usable access token.');
+    }
+    return GithubAuthProvider.credential(accessToken);
+  }
+
   if (normalizedProvider === 'x') {
     const accessToken = String(credential.accessToken || '').trim();
     const secret = String(credential.secret || '').trim();
@@ -163,6 +175,10 @@ const runNativeProviderSignIn = async (providerKey) => {
     });
   }
 
+  if (normalizedProvider === 'github') {
+    return FirebaseAuthentication.signInWithGithub({ skipNativeAuth: true });
+  }
+
   if (normalizedProvider === 'x') {
     return FirebaseAuthentication.signInWithTwitter({ skipNativeAuth: true });
   }
@@ -174,6 +190,7 @@ const resolveFallbackProvider = (providerKey) => {
   const normalizedProvider = normalizeProviderKey(providerKey);
   if (normalizedProvider === 'google') return googleProvider;
   if (normalizedProvider === 'facebook') return facebookProvider;
+  if (normalizedProvider === 'github') return githubProvider;
   if (normalizedProvider === 'x') return xProvider;
   return null;
 };
