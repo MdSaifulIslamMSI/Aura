@@ -1,0 +1,45 @@
+name: Rollback Netlify Storefront
+
+on:
+  workflow_call:
+    inputs:
+      rollback_ref:
+        description: Optional git ref/version to roll back to
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  rollback:
+    name: Roll back Netlify storefront
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.rollback_ref != '' && inputs.rollback_ref || github.sha }}
+
+      - name: Execute Netlify rollback hook
+        env:
+          ROLLBACK_REF: ${{ inputs.rollback_ref }}
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ vars.NETLIFY_SITE_ID || secrets.NETLIFY_SITE_ID }}
+          NETLIFY_PRODUCTION_URL: ${{ vars.NETLIFY_PRODUCTION_URL || '' }}
+        run: |
+          set -euo pipefail
+
+          if [ -f "scripts/rollback-netlify.sh" ]; then
+            bash scripts/rollback-netlify.sh
+          elif [ -f "scripts/rollback-netlify.ps1" ]; then
+            pwsh -NoLogo -NoProfile -File scripts/rollback-netlify.ps1
+          else
+            echo "::error::Missing rollback hook: scripts/rollback-netlify.sh or scripts/rollback-netlify.ps1"
+            echo "Create one hook that restores the previous Netlify production deploy."
+            exit 1
+          fi
