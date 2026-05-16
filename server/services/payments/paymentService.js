@@ -67,6 +67,11 @@ const { getPaymentCapabilities } = require('./paymentCapabilities');
 const { resolvePaymentMarketContext } = require('./paymentMarketCatalog');
 const { flags } = require('../../config/paymentFlags');
 const { verifyPaymentChallengeToken } = require('../../utils/paymentChallengeToken');
+const {
+    isEnabled: isEmergencyFlagEnabled,
+    isConfigStoreReady: isEmergencyConfigStoreReady,
+    requirePaymentAllowed,
+} = require('../emergencyControlService');
 const logger = require('../../utils/logger');
 
 const appendPaymentEvent = async ({
@@ -88,10 +93,14 @@ const appendPaymentEvent = async ({
     });
 };
 
-const ensurePaymentsEnabled = () => {
+const ensurePaymentsEnabled = async () => {
     if (!flags.paymentsEnabled) {
         throw new AppError('Payments are currently disabled', 503);
     }
+    if (process.env.NODE_ENV === 'test' && !isEmergencyConfigStoreReady()) {
+        return;
+    }
+    await requirePaymentAllowed();
 };
 
 const PAYMENT_FX_SETTLEMENT_TOLERANCE_PCT = (() => {
@@ -568,7 +577,7 @@ const createPaymentIntent = async ({
     deviceContext = {},
     requestMeta = {},
 }) => {
-    ensurePaymentsEnabled();
+    await ensurePaymentsEnabled();
 
     const normalizedMethod = normalizeMethod(paymentMethod);
     if (!DIGITAL_METHODS.includes(normalizedMethod)) {
@@ -884,7 +893,7 @@ const confirmPaymentIntent = async ({
     providerOrderId,
     providerSignature,
 }) => {
-    ensurePaymentsEnabled();
+    await ensurePaymentsEnabled();
 
     const intent = await PaymentIntent.findOne({ intentId, user: userId });
     if (!intent) throw new AppError('Payment intent not found', 404);
@@ -1648,6 +1657,22 @@ const mapWebhookEventToPaymentStatus = ({ eventType, currentStatus }) => {
     return null;
 };
 
+const shouldSuppressUnsafeWebhookMutations = async () => {
+    try {
+        const [maintenance, readOnly, paymentDisabled] = await Promise.all([
+            isEmergencyFlagEnabled('GLOBAL_MAINTENANCE', { failClosed: true }),
+            isEmergencyFlagEnabled('READ_ONLY_MODE', { failClosed: true }),
+            isEmergencyFlagEnabled('DISABLE_PAYMENT', { failClosed: true }),
+        ]);
+        return maintenance || readOnly || paymentDisabled;
+    } catch (error) {
+        logger.error('payment.webhook_emergency_eval_failed_closed', {
+            error: error?.message || 'unknown',
+        });
+        return true;
+    }
+};
+
 const processProviderWebhook = async ({ gatewayId, signature, rawBody }) => {
     const provider = await getPaymentProvider({ gatewayId });
     const valid = provider.verifyWebhookSignature({ rawBody, signature });
@@ -1726,6 +1751,42 @@ const processProviderWebhook = async ({ gatewayId, signature, rawBody }) => {
             intentId: intent.intentId,
             discarded: true,
             reason: 'invalid_status_transition',
+        };
+    }
+
+    if (await shouldSuppressUnsafeWebhookMutations()) {
+        logger.warn('payment.webhook_mutation_suppressed_by_emergency', {
+            eventId: parsedEvent.eventId,
+            eventType: parsedEvent.eventType,
+            intentId: intent.intentId,
+            currentStatus,
+            targetStatus: mapped,
+        });
+
+        await PaymentEvent.create({
+            eventId: parsedEvent.eventId,
+            intentId: intent.intentId,
+            source: 'webhook',
+            type: parsedEvent.eventType,
+            payloadHash: hashPayload(parsed),
+            payload: {
+                ...parsed,
+                processingMeta: {
+                    suppressed: true,
+                    reason: 'emergency_payment_mutations_disabled',
+                    currentStatus,
+                    targetStatus: mapped,
+                },
+            },
+            receivedAt: new Date(),
+        });
+
+        return {
+            received: true,
+            deduped: false,
+            intentId: intent.intentId,
+            suppressed: true,
+            reason: 'emergency_payment_mutations_disabled',
         };
     }
 
@@ -1920,7 +1981,7 @@ const listUserPaymentMethods = async ({ userId }) => {
 };
 
 const listPaymentCapabilities = async ({ userId }) => {
-    ensurePaymentsEnabled();
+    await ensurePaymentsEnabled();
 
     let provider = null;
     try {
@@ -1958,7 +2019,7 @@ const listPaymentCapabilities = async ({ userId }) => {
 };
 
 const listNetbankingBanks = async ({ userId }) => {
-    ensurePaymentsEnabled();
+    await ensurePaymentsEnabled();
 
     const provider = await getPaymentProvider({
         gatewayId: 'razorpay',
@@ -1990,7 +2051,7 @@ const listNetbankingBanks = async ({ userId }) => {
 };
 
 const createPaymentMethodSetupIntent = async ({ user, provider = 'stripe', type = 'card' }) => {
-    ensurePaymentsEnabled();
+    await ensurePaymentsEnabled();
     if (!flags.paymentSavedMethodsEnabled) {
         throw new AppError('Saved payment methods are disabled', 403);
     }

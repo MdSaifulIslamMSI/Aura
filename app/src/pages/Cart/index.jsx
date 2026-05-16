@@ -16,6 +16,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { CartContext } from '@/context/CartContext';
+import { useEmergencyStatus } from '@/context/EmergencyStatusContext';
 import { useMarket } from '@/context/MarketContext';
 import { useCommerceStore } from '@/store/commerceStore';
 import { CartRecommendations } from '@/components/recommendations';
@@ -33,6 +34,7 @@ const getItemStock = (item) => {
 
 const Cart = () => {
   const { cartItems, removeFromCart, updateQuantity, moveToWishlist, isLoading } = useContext(CartContext);
+  const { isFeatureDisabled, readOnly } = useEmergencyStatus();
   const { t, formatPrice } = useMarket();
   const clearDirectBuy = useCommerceStore((state) => state.clearDirectBuy);
   const navigate = useNavigate();
@@ -66,6 +68,7 @@ const Cart = () => {
     [cartItems],
   );
   const estimatedDelivery = cartItems.find((item) => item?.deliveryTime)?.deliveryTime || t('cart.defaultDeliveryWindow', {}, '2-4 days');
+  const checkoutDisabled = readOnly || isFeatureDisabled('checkout');
 
   const handleMoveToWishlist = (productId) => {
     const item = cartItems.find((entry) => String(getCartItemId(entry)) === String(productId));
@@ -90,6 +93,7 @@ const Cart = () => {
   };
 
   const handleProceedToCheckout = () => {
+    if (checkoutDisabled) return;
     clearDirectBuy();
     navigate('/checkout');
   };
@@ -381,10 +385,12 @@ const Cart = () => {
                 <button
                   type="button"
                   onClick={handleProceedToCheckout}
-                  disabled={unavailableCount > 0}
+                  disabled={unavailableCount > 0 || checkoutDisabled}
                   className="checkout-premium-primary flex w-full items-center justify-center gap-2 px-6 py-4 text-sm font-black uppercase tracking-[0.2em] disabled:cursor-not-allowed disabled:opacity-55"
                 >
-                  {t('cart.summary.proceed', {}, 'Proceed to Checkout')}
+                  {checkoutDisabled
+                    ? t('cart.summary.checkoutUnavailable', {}, 'Checkout Temporarily Unavailable')
+                    : t('cart.summary.proceed', {}, 'Proceed to Checkout')}
                   <ArrowRight className="h-5 w-5" />
                 </button>
               </div>

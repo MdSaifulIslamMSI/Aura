@@ -42,6 +42,7 @@ const {
 } = require('../utils/authIdentity');
 const { shouldRequireTrustedDevice } = require('../config/authTrustedDeviceFlags');
 const { recordAuthSecurityEvent } = require('../services/authSecurityTelemetryService');
+const { isEnabled: isEmergencyFlagEnabled } = require('../services/emergencyControlService');
 const LOGIN_ASSURANCE_TTL_MS = 10 * 60 * 1000;
 const PHONE_FACTOR_ASSURANCE_TTL_MS = 10 * 60 * 1000;
 const GENERIC_PHONE_FACTOR_VERIFICATION_MESSAGE = 'If account details are valid, verification will proceed.';
@@ -415,6 +416,28 @@ const syncSession = asyncHandler(async (req, res) => {
         : '';
     const { deviceId } = extractTrustedDeviceContext(req);
     const deviceSessionHash = hashTrustedDeviceSessionToken(getTrustedDeviceSessionToken(req));
+    const requestedEmail = normalizeEmail(req.body?.email || authUser.email || req.authToken?.email || '');
+    const authUid = req.authUid || req.authToken?.uid || '';
+
+    if (await isEmergencyFlagEnabled('DISABLE_SIGNUP', { failClosed: false })) {
+        const identityClauses = [
+            ...(requestedEmail ? [{ email: requestedEmail }] : []),
+            ...(authUid ? [{ authUid }] : []),
+        ];
+        const existingUserQuery = identityClauses.length > 0
+            ? User.findOne({ $or: identityClauses }, '_id')
+            : null;
+        const existingUser = existingUserQuery && typeof existingUserQuery.lean === 'function'
+            ? await existingUserQuery.lean()
+            : await existingUserQuery;
+
+        if (!existingUser) {
+            const error = new AppError('Signup is temporarily unavailable. Please try again later.', 503);
+            error.code = 'FEATURE_TEMPORARILY_DISABLED';
+            error.feature = 'signup';
+            throw error;
+        }
+    }
 
     let user = await syncAuthenticatedUser({
         authUser,
@@ -501,7 +524,7 @@ const completePhoneFactorLogin = asyncHandler(async (req, res) => {
 
     const existingUser = await User.findOne(
         { email: tokenEmail },
-        'name email phone avatar gender dob bio isAdmin isVerified isSeller sellerActivatedAt accountState moderation loyalty createdAt'
+        'name email phone avatar gender dob bio isAdmin adminRoles isVerified isSeller sellerActivatedAt accountState moderation loyalty createdAt'
     )
         .select('+loginEmailOtpVerifiedAt')
         .lean();
@@ -553,7 +576,7 @@ const completePhoneFactorLogin = asyncHandler(async (req, res) => {
         },
         {
             returnDocument: 'after',
-            projection: 'name email phone avatar gender dob bio isAdmin isVerified isSeller sellerActivatedAt accountState moderation loyalty createdAt',
+            projection: 'name email phone avatar gender dob bio isAdmin adminRoles isVerified isSeller sellerActivatedAt accountState moderation loyalty createdAt',
             lean: true,
         }
     );
@@ -619,7 +642,7 @@ const completePhoneFactorVerification = asyncHandler(async (req, res) => {
     if (purpose === 'signup') {
         const pendingUser = await User.findOne(
             { email: requestEmail },
-            'name email phone avatar gender dob bio isAdmin isVerified'
+            'name email phone avatar gender dob bio isAdmin adminRoles isVerified'
         )
             .select('+signupEmailOtpVerifiedAt')
             .lean();
@@ -664,7 +687,7 @@ const completePhoneFactorVerification = asyncHandler(async (req, res) => {
             },
             {
                 returnDocument: 'after',
-                projection: 'name email phone avatar gender dob bio isAdmin isVerified isSeller sellerActivatedAt accountState moderation loyalty createdAt',
+                projection: 'name email phone avatar gender dob bio isAdmin adminRoles isVerified isSeller sellerActivatedAt accountState moderation loyalty createdAt',
                 lean: true,
             }
         );
@@ -686,7 +709,7 @@ const completePhoneFactorVerification = asyncHandler(async (req, res) => {
 
     const existingUser = await User.findOne(
         { email: requestEmail, isVerified: true },
-        'name email phone avatar gender dob bio isAdmin isVerified trustedDevices isSeller sellerActivatedAt accountState moderation loyalty createdAt'
+        'name email phone avatar gender dob bio isAdmin adminRoles isVerified trustedDevices isSeller sellerActivatedAt accountState moderation loyalty createdAt'
     )
         .select('+resetEmailOtpVerifiedAt')
         .lean();
@@ -728,7 +751,7 @@ const completePhoneFactorVerification = asyncHandler(async (req, res) => {
         },
         {
             returnDocument: 'after',
-            projection: 'name email phone avatar gender dob bio isAdmin isVerified trustedDevices isSeller sellerActivatedAt accountState moderation loyalty createdAt',
+            projection: 'name email phone avatar gender dob bio isAdmin adminRoles isVerified trustedDevices isSeller sellerActivatedAt accountState moderation loyalty createdAt',
             lean: true,
         }
     );

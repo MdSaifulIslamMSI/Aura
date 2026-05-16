@@ -4,6 +4,7 @@ import { BadgeCheck, Brain, Camera, Heart, ShoppingCart, Share2, Star, ChevronRi
 import { CartContext } from '@/context/CartContext';
 import { WishlistContext } from '@/context/WishlistContext';
 import { AuthContext } from '@/context/AuthContext';
+import { useEmergencyStatus } from '@/context/EmergencyStatusContext';
 import { useMarket } from '@/context/MarketContext';
 import { useCommerceStore } from '@/store/commerceStore';
 import { decorateRecommendedProduct, priceAlertApi, productApi, recommendationApi, trackRecommendationEvent, uploadApi } from '@/services/api';
@@ -36,6 +37,7 @@ const ProductDetails = () => {
   const cartContext = useContext(CartContext);
   const wishlistContext = useContext(WishlistContext);
   const authContext = useContext(AuthContext);
+  const { isFeatureDisabled, readOnly } = useEmergencyStatus();
   const { t, formatDateTime, formatPrice } = useMarket();
   const { colorMode } = useColorMode();
 
@@ -47,6 +49,7 @@ const ProductDetails = () => {
   const toggleWishlist = wishlistContext?.toggleWishlist || (() => console.warn('toggleWishlist missing'));
   const isInWishlist = wishlistContext?.isInWishlist || (() => false);
   const currentUser = authContext?.currentUser || null;
+  const checkoutDisabled = readOnly || isFeatureDisabled('checkout');
 
   const [product, setProduct] = useState(null);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
@@ -301,7 +304,7 @@ const ProductDetails = () => {
   };
 
   const handleBuyNow = () => {
-    if (!product) return;
+    if (!product || checkoutDisabled) return;
 
     startDirectBuy(product, effectiveQuantity);
 
@@ -989,12 +992,14 @@ const ProductDetails = () => {
               <button
                 type="button"
                 onClick={handleBuyNow}
-                disabled={stock === 0}
+                disabled={stock === 0 || checkoutDisabled}
                 className="relative min-w-0 flex-1 overflow-hidden py-3.5 text-[11px] tracking-[0.18em] shadow-[0_0_15px_rgba(217,70,239,0.3)] btn-primary group"
               >
                 <span className="relative z-10 flex min-w-0 items-center justify-center gap-2">
                   <Zap className="w-4 h-4 shrink-0 fill-white animate-pulse" />
-                  <span className="truncate">{t('productPage.buyNow', {}, 'Buy Now')}</span>
+                  <span className="truncate">
+                    {checkoutDisabled ? t('productPage.checkoutPaused', {}, 'Checkout Paused') : t('productPage.buyNow', {}, 'Buy Now')}
+                  </span>
                 </span>
                 <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
               </button>

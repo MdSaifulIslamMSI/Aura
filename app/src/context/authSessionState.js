@@ -22,6 +22,7 @@ export const VALID_TRANSITIONS = {
 
 export const EMPTY_ROLES = {
     isAdmin: false,
+    adminRoles: [],
     isSeller: false,
     isVerified: false,
 };
@@ -65,6 +66,7 @@ export const isAuthenticatedSessionStatus = (value) => (
 
 export const buildRoleState = (profile = null, fallbackVerified = false) => ({
     isAdmin: Boolean(profile?.isAdmin),
+    adminRoles: Array.isArray(profile?.adminRoles) ? profile.adminRoles : [],
     isSeller: Boolean(profile?.isSeller),
     isVerified: Boolean(profile?.isVerified ?? fallbackVerified),
 });
