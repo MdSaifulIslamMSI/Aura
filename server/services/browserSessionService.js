@@ -196,7 +196,9 @@ const resolveSyntheticAssurance = ({
     };
 };
 
-const resolveRiskState = ({ user = null, previousSession = null } = {}) => {
+const resolveRiskState = ({ user = null, previousSession = null, riskState = '' } = {}) => {
+    const explicitRiskState = normalizeText(riskState).toLowerCase();
+    if (explicitRiskState) return explicitRiskState;
     if (user?.isAdmin) return 'privileged';
     if (user?.isSeller) return 'heightened';
     return String(previousSession?.riskState || 'standard').trim() || 'standard';
@@ -570,6 +572,7 @@ const buildBrowserSessionRecord = ({
     deviceMethod = '',
     stepUpUntil = null,
     additionalAmr = [],
+    riskState = '',
 } = {}) => {
     const now = new Date();
     const previousCreatedAt = previousSession?.createdAt ? new Date(previousSession.createdAt).getTime() : 0;
@@ -606,7 +609,7 @@ const buildBrowserSessionRecord = ({
         amr: assurance.amr,
         deviceId: deviceId || previousSession?.deviceId || '',
         deviceMethod: assurance.deviceMethod,
-        riskState: resolveRiskState({ user, previousSession }),
+        riskState: resolveRiskState({ user, previousSession, riskState }),
         stepUpUntil: assurance.stepUpUntil,
         authTime: epochSecondsToIso(identity.authTimeSeconds),
         authTimeSeconds: identity.authTimeSeconds,
@@ -811,6 +814,7 @@ const createBrowserSession = async ({
     deviceMethod = '',
     stepUpUntil = null,
     additionalAmr = [],
+    riskState = '',
 } = {}) => {
     const sessionRecord = await storeSessionRecord(buildBrowserSessionRecord({
         sessionId: generateSessionId(),
@@ -821,6 +825,7 @@ const createBrowserSession = async ({
         deviceMethod,
         stepUpUntil,
         additionalAmr,
+        riskState,
     }));
 
     if (res) {
@@ -840,6 +845,7 @@ const rotateBrowserSession = async ({
     deviceMethod = '',
     stepUpUntil = null,
     additionalAmr = [],
+    riskState = '',
 } = {}) => {
     const previousSession = currentSession || null;
     const nextSession = await storeSessionRecord(buildBrowserSessionRecord({
@@ -852,6 +858,7 @@ const rotateBrowserSession = async ({
         deviceMethod,
         stepUpUntil,
         additionalAmr,
+        riskState,
     }));
 
     if (previousSession?.sessionId) {
@@ -898,6 +905,7 @@ const refreshBrowserSession = async ({
     stepUpUntil = null,
     additionalAmr = [],
     rotate = false,
+    riskState = '',
 } = {}) => {
     if (!currentSession) {
         return createBrowserSession({
@@ -909,6 +917,7 @@ const refreshBrowserSession = async ({
             deviceMethod,
             stepUpUntil,
             additionalAmr,
+            riskState,
         });
     }
 
@@ -923,6 +932,7 @@ const refreshBrowserSession = async ({
             deviceMethod,
             stepUpUntil,
             additionalAmr,
+            riskState,
         });
     }
 
@@ -936,6 +946,7 @@ const refreshBrowserSession = async ({
         deviceMethod,
         stepUpUntil,
         additionalAmr,
+        riskState,
     }));
 
     if (res) {
