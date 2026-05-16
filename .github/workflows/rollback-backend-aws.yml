@@ -1,0 +1,52 @@
+name: Rollback Backend AWS
+
+on:
+  workflow_call:
+    inputs:
+      rollback_ref:
+        description: Optional git ref/version to roll back to
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  rollback:
+    name: Roll back backend on AWS
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.rollback_ref != '' && inputs.rollback_ref || github.sha }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN || secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION || 'ap-south-1' }}
+
+      - name: Execute backend rollback hook
+        env:
+          ROLLBACK_REF: ${{ inputs.rollback_ref }}
+          AWS_DEPLOY_BUCKET: ${{ vars.AWS_DEPLOY_BUCKET }}
+          AWS_INSTANCE_TAG_VALUE: ${{ vars.AWS_INSTANCE_TAG_VALUE }}
+          AWS_PARAMETER_STORE_PATH_PREFIX: ${{ vars.AWS_PARAMETER_STORE_PATH_PREFIX }}
+        run: |
+          set -euo pipefail
+
+          if [ -f "infra/aws/rollback-backend.sh" ]; then
+            bash infra/aws/rollback-backend.sh
+          elif [ -f "infra/aws/rollback-backend.ps1" ]; then
+            pwsh -NoLogo -NoProfile -File infra/aws/rollback-backend.ps1
+          else
+            echo "::error::Missing rollback hook: infra/aws/rollback-backend.sh or infra/aws/rollback-backend.ps1"
+            echo "Create one hook that restores the previous backend artifact/configuration safely."
+            exit 1
+          fi
