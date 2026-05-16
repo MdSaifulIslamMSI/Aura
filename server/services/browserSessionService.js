@@ -131,6 +131,7 @@ const buildProviderAmr = (providerIds = []) => {
     if (normalizedProvider === 'phone') return 'phone';
     if (normalizedProvider === 'google.com') return 'social_google';
     if (normalizedProvider === 'facebook.com') return 'social_facebook';
+    if (normalizedProvider === 'github.com') return 'social_github';
     if (normalizedProvider === 'twitter.com' || normalizedProvider === 'x.com') return 'social_x';
     if (normalizedProvider) return `provider_${normalizedProvider.replace(/[^a-z0-9_]/g, '_')}`;
     return 'firebase';

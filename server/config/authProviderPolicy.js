@@ -36,6 +36,15 @@ const AUTH_PROVIDER_POLICY = [
         requiredEnv: ['VITE_FIREBASE_API_KEY', 'VITE_FIREBASE_AUTH_DOMAIN'],
     },
     {
+        key: 'github',
+        label: 'GitHub',
+        status: 'active',
+        protocol: 'oauth_via_firebase',
+        consumer: true,
+        enterprise: false,
+        requiredEnv: ['VITE_FIREBASE_API_KEY', 'VITE_FIREBASE_AUTH_DOMAIN'],
+    },
+    {
         key: 'x',
         label: 'X',
         status: 'active',
