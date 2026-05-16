@@ -720,6 +720,8 @@ export const AuthProvider = ({ children }) => {
         return beginRedirectOAuthFlow(provider);
       }
 
+      error.provider = error.provider || providerLabel;
+      error.providerId = error.providerId || provider?.providerId || '';
       markFirebaseSocialAuthRejectedForRuntime(error);
       throw error;
     }
@@ -783,6 +785,8 @@ export const AuthProvider = ({ children }) => {
         return beginRedirectProviderLinkFlow(provider);
       }
 
+      error.provider = error.provider || providerLabel;
+      error.providerId = error.providerId || provider?.providerId || providerId || '';
       markFirebaseSocialAuthRejectedForRuntime(error);
       throw error;
     }

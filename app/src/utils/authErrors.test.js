@@ -46,6 +46,22 @@ describe('resolveAuthError', () => {
         expect(resolved.actionLabel).toBe('Sign in with existing method');
     });
 
+    it('extracts Microsoft identity from nested Firebase OAuth collision payloads', () => {
+        const resolved = resolveAuthError({
+            code: 'auth/account-exists-with-different-credential',
+            customData: {
+                email: 'user@example.com',
+                _tokenResponse: {
+                    providerId: 'microsoft.com',
+                },
+            },
+        });
+
+        expect(resolved.title).toBe('Microsoft Account Already Exists');
+        expect(resolved.detail).toContain('user@example.com');
+        expect(resolved.hint).toContain('link Microsoft after login');
+    });
+
     it('explains missing email access for social providers', () => {
         const resolved = resolveAuthError({
             code: 'auth/social-email-missing',
