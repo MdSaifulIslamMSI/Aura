@@ -6,7 +6,7 @@
     <title>Aura Gateway</title>
     <meta
       name="description"
-      content="A premium production gateway for the Aura storefront stack across Vercel, Netlify, AWS CloudFront, desktop, Android, and iPhone releases."
+      content="A premium production gateway for the Aura storefront stack across Vercel, Netlify, AWS CloudFront, desktop, mobile, tablet, ChromeOS, Unix, BSD, HarmonyOS, and RTOS companion surfaces."
     />
     <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml" />
     <link rel="preload" as="image" href="./assets/aura-gateway-hero.png" />
@@ -125,8 +125,8 @@
             <span>03</span>
             <h2>Install without guessing.</h2>
             <p>
-              Desktop, Android, and iPhone packages resolve from release assets when they are available, with a safe
-              release-page fallback when a package has not shipped yet.
+              Desktop, mobile, tablet, browser-installed, and companion surfaces are named plainly so each device gets
+              the strongest Aura lane it can actually run.
             </p>
           </article>
         </section>
@@ -134,12 +134,12 @@
         <section class="downloads-section" id="downloads" aria-labelledby="downloads-title">
           <div class="downloads-heading">
             <div>
-              <p class="section-label">Desktop + mobile downloads</p>
+              <p class="section-label">Desktop + mobile + PWA availability</p>
               <h2 id="downloads-title">Install Aura on the device you actually use.</h2>
             </div>
             <p>
-              Desktop links follow the latest published desktop release. Android and iPhone links follow the latest
-              mobile release lane, while hosted storefront updates continue through the live Aura runtime.
+              Desktop links follow the latest desktop release. Android and Apple links follow the mobile release lane.
+              iPadOS, ChromeOS, Unix/BSD, HarmonyOS, and RTOS-family devices get explicit install or companion routes.
             </p>
           </div>
 
@@ -233,12 +233,12 @@
                 <span class="platform-icon platform-icon-linux" aria-hidden="true"></span>
                 <div>
                   <h3>Linux</h3>
-                  <p>For major desktop families</p>
+                  <p>For Ubuntu, Fedora, and major desktop families</p>
                 </div>
               </div>
               <p class="platform-note">
-                AppImage is the easiest universal option. Deb, RPM, and tar.gz builds serve distro-specific or manual
-                install workflows.
+                AppImage is the easiest universal option. Ubuntu/Debian users should choose deb, Fedora/RHEL users
+                should choose RPM, and tar.gz stays available for manual installs.
               </p>
               <div class="download-actions split">
                 <span class="download-subhead">x64</span>
@@ -247,11 +247,11 @@
                   <small>Release page</small>
                 </a>
                 <a class="download-button" href="https://github.com/MdSaifulIslamMSI/Aura/releases" data-release-asset="Aura-Marketplace-Linux-amd64.deb" rel="noreferrer">
-                  <span>Deb package</span>
+                  <span>Ubuntu/Debian deb</span>
                   <small>Release page</small>
                 </a>
                 <a class="download-button" href="https://github.com/MdSaifulIslamMSI/Aura/releases" data-release-asset="Aura-Marketplace-Linux-x86_64.rpm" rel="noreferrer">
-                  <span>RPM package</span>
+                  <span>Fedora/RHEL RPM</span>
                   <small>Release page</small>
                 </a>
                 <a class="download-button muted" href="https://github.com/MdSaifulIslamMSI/Aura/releases" data-release-asset="Aura-Marketplace-Linux-x64.tar.gz" rel="noreferrer">
@@ -264,11 +264,11 @@
                   <small>Release page</small>
                 </a>
                 <a class="download-button" href="https://github.com/MdSaifulIslamMSI/Aura/releases" data-release-asset="Aura-Marketplace-Linux-arm64.deb" rel="noreferrer">
-                  <span>Deb package</span>
+                  <span>Ubuntu/Debian deb</span>
                   <small>Release page</small>
                 </a>
                 <a class="download-button" href="https://github.com/MdSaifulIslamMSI/Aura/releases" data-release-asset="Aura-Marketplace-Linux-aarch64.rpm" rel="noreferrer">
-                  <span>RPM package</span>
+                  <span>Fedora/RHEL RPM</span>
                   <small>Release page</small>
                 </a>
                 <a class="download-button muted" href="https://github.com/MdSaifulIslamMSI/Aura/releases" data-release-asset="Aura-Marketplace-Linux-arm64.tar.gz" rel="noreferrer">
@@ -323,13 +323,13 @@
               <div class="platform-heading">
                 <span class="platform-icon platform-icon-ios" aria-hidden="true"></span>
                 <div>
-                  <h3>iPhone + iPad</h3>
-                  <p>For Apple testers</p>
+                  <h3>iPhone + iPadOS</h3>
+                  <p>For Apple phones and tablets</p>
                 </div>
               </div>
               <p class="platform-note">
-                Use the signed IPA when a real-device build is published. The simulator ZIP supports Mac-based QA and
-                Xcode testing workflows.
+                Use the signed IPA when a real-device build is published. iPadOS users can also install the hosted Aura
+                PWA from Safari today.
               </p>
               <p class="platform-caution">
                 Apple device installs require signing and provisioning.
@@ -343,7 +343,7 @@
                   data-release-asset-suffix=".ipa"
                   rel="noreferrer"
                 >
-                  <span>iPhone IPA</span>
+                  <span>iPhone/iPad IPA</span>
                   <small>Release page</small>
                 </a>
                 <a
@@ -356,6 +356,110 @@
                 >
                   <span>iOS simulator ZIP</span>
                   <small>Release page</small>
+                </a>
+              </div>
+            </article>
+
+            <article class="download-card platform-web platform-ipados">
+              <div class="platform-heading">
+                <span class="platform-icon platform-icon-tablet" aria-hidden="true"></span>
+                <div>
+                  <h3>iPadOS PWA</h3>
+                  <p>For Safari Add to Home Screen</p>
+                </div>
+              </div>
+              <p class="platform-note">
+                Open Aura in Safari on iPadOS, then use Share and Add to Home Screen for a standalone tablet app shell.
+                The responsive storefront uses the same production backend as web and desktop.
+              </p>
+              <div class="download-actions">
+                <a class="download-button primary" href="https://aurapilot.vercel.app" rel="noreferrer">
+                  <span>Open iPadOS web app</span>
+                  <small>Live app</small>
+                </a>
+              </div>
+            </article>
+
+            <article class="download-card platform-web platform-chromeos">
+              <div class="platform-heading">
+                <span class="platform-icon platform-icon-chromeos" aria-hidden="true"></span>
+                <div>
+                  <h3>ChromeOS</h3>
+                  <p>For Chromebooks and Chromeboxes</p>
+                </div>
+              </div>
+              <p class="platform-note">
+                Install Aura from Chrome as a standalone PWA. On compatible Chromebooks, the Android APK is also
+                available from the mobile release lane for testing.
+              </p>
+              <div class="download-actions">
+                <a class="download-button primary" href="https://aurapilot.vercel.app" rel="noreferrer">
+                  <span>Open ChromeOS PWA</span>
+                  <small>Live app</small>
+                </a>
+              </div>
+            </article>
+
+            <article class="download-card platform-web platform-unix">
+              <div class="platform-heading">
+                <span class="platform-icon platform-icon-unix" aria-hidden="true"></span>
+                <div>
+                  <h3>Unix / BSD</h3>
+                  <p>For browser-first Unix systems</p>
+                </div>
+              </div>
+              <p class="platform-note">
+                FreeBSD, OpenBSD, NetBSD, illumos, and other Unix-style systems can run the hosted Aura PWA in a modern
+                browser. Linux users also get packaged desktop AppImage, deb, RPM, and tar.gz builds above.
+              </p>
+              <div class="download-actions">
+                <a class="download-button primary" href="https://aurapilot.vercel.app" rel="noreferrer">
+                  <span>Open Unix/BSD web app</span>
+                  <small>Live app</small>
+                </a>
+              </div>
+            </article>
+
+            <article class="download-card platform-web platform-harmony">
+              <div class="platform-heading">
+                <span class="platform-icon platform-icon-harmony" aria-hidden="true"></span>
+                <div>
+                  <h3>HarmonyOS</h3>
+                  <p>For Huawei browser and web install</p>
+                </div>
+              </div>
+              <p class="platform-note">
+                HarmonyOS can use the live Aura PWA through its browser. Android-compatible HarmonyOS devices may also
+                test the APK, while a native HAP package would require a separate HarmonyOS project.
+              </p>
+              <div class="download-actions">
+                <a class="download-button primary" href="https://aurapilot.vercel.app" rel="noreferrer">
+                  <span>Open HarmonyOS web app</span>
+                  <small>Live app</small>
+                </a>
+              </div>
+            </article>
+
+            <article class="download-card platform-rtos">
+              <div class="platform-heading">
+                <span class="platform-icon platform-icon-rtos" aria-hidden="true"></span>
+                <div>
+                  <h3>FreeRTOS / RTOS family</h3>
+                  <p>For embedded companion devices</p>
+                </div>
+              </div>
+              <p class="platform-note">
+                RTOS devices cannot run the full Aura UI. They are supported as companion clients that call the Aura
+                backend for device status, telemetry, inventory signals, and lightweight commerce events.
+              </p>
+              <p class="platform-caution">
+                Use HTTPS/MQTT-capable firmware or a gateway bridge. Keep checkout and account screens on web, mobile,
+                or desktop.
+              </p>
+              <div class="download-actions">
+                <a class="download-button primary" href="https://aurapilot.vercel.app" rel="noreferrer">
+                  <span>Open full Aura app</span>
+                  <small>Web fallback</small>
                 </a>
               </div>
             </article>

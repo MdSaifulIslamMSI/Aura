@@ -39,42 +39,32 @@ function RootRenderFallback({ error, resetErrorBoundary }) {
   );
 }
 
-const runServiceWorkerCleanup = () => {
+const clearServiceWorkerState = async () => {
+  try {
+    const registrations = await navigator.serviceWorker.getRegistrations()
+    await Promise.all(registrations.map((registration) => registration.unregister()))
+  } catch {}
+
+  try {
+    if ('caches' in window) {
+      const cacheKeys = await caches.keys()
+      await Promise.all(cacheKeys.map((key) => caches.delete(key)))
+    }
+  } catch {}
+}
+
+const registerAuraServiceWorker = () => {
   if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
     return
   }
 
   window.addEventListener('load', () => {
-    const cleanupKey = 'aura-sw-cleanup-v3'
-
-    const cleanupLegacyRegistrations = async () => {
-      let hadRegistration = false
-      let hadOriginCache = false
-
-      try {
-        const registrations = await navigator.serviceWorker.getRegistrations()
-        hadRegistration = registrations.length > 0
-        await Promise.all(registrations.map((registration) => registration.unregister()))
-      } catch {}
-
-      try {
-        if ('caches' in window) {
-          const cacheKeys = await caches.keys()
-          hadOriginCache = cacheKeys.length > 0
-          await Promise.all(cacheKeys.map((key) => caches.delete(key)))
-        }
-      } catch {}
-
-      if ((hadRegistration || hadOriginCache || navigator.serviceWorker.controller) && !sessionStorage.getItem(cleanupKey)) {
-        sessionStorage.setItem(cleanupKey, '1')
-        window.location.reload()
-        return
-      }
-
-      sessionStorage.removeItem(cleanupKey)
+    if (!import.meta.env.PROD) {
+      void clearServiceWorkerState()
+      return
     }
 
-    void cleanupLegacyRegistrations()
+    void navigator.serviceWorker.register('/sw.js').catch(() => {})
   }, { once: true })
 }
 
@@ -91,7 +81,7 @@ if (typeof window !== 'undefined' && window.location.hostname === '127.0.0.1' &&
   window.location.replace(normalized.toString())
 }
 
-runServiceWorkerCleanup()
+registerAuraServiceWorker()
 initClientObservability()
 publishReleaseInfo()
 
