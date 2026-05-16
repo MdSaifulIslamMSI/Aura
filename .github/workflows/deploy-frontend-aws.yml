@@ -42,10 +42,10 @@ jobs:
       backend_origin: ${{ steps.backend.outputs.origin }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Use Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -79,7 +79,7 @@ jobs:
         run: npm run build
 
       - name: Upload AWS frontend dist bundle
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: aws-frontend-dist
           path: app/dist
@@ -97,7 +97,7 @@ jobs:
       site_url: ${{ steps.publish.outputs.site_url }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Validate AWS frontend deployment configuration
         run: |
@@ -113,13 +113,13 @@ jobs:
           echo "Public URL: ${AWS_FRONTEND_PUBLIC_URL}"
 
       - name: Download built frontend
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: aws-frontend-dist
           path: app/dist
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           aws-region: ${{ env.AWS_REGION }}
           role-to-assume: ${{ env.AWS_FRONTEND_DEPLOY_ROLE_ARN }}
