@@ -9,7 +9,8 @@ repo-specific compatibility fixes:
   publishes Netlify, Vercel, and AWS from one shared build.
 - AWS-only storefront deploy remains available as an explicit manual fallback.
 - Desktop release signing remains optional for the current free/internal release
-  lane.
+  lane. Unsigned desktop artifacts are internal testing builds only until real
+  platform signing/notarization is configured.
 - Rollback hook scripts are checked in for backend AWS, AWS frontend, Netlify,
   and the Vercel gateway.
 
