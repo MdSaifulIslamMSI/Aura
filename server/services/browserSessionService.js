@@ -10,6 +10,7 @@ const { extractTrustedDeviceContext } = require('./trustedDeviceChallengeService
 
 const SESSION_COOKIE_NAME = String(process.env.AUTH_SESSION_COOKIE_NAME || 'aura_sid').trim() || 'aura_sid';
 const SESSION_PREFIX = `${redisFlags.redisPrefix}:auth:session:`;
+const GLOBAL_SESSION_REVOKED_AFTER_KEY = `${redisFlags.redisPrefix}:auth:session:global_revoked_after`;
 const NODE_ENV = String(process.env.NODE_ENV || 'development').trim().toLowerCase();
 const IS_PRODUCTION = NODE_ENV === 'production';
 const SESSION_IDLE_TTL_MS = Math.max(Number(process.env.AUTH_SESSION_IDLE_TTL_MS || (8 * 60 * 60 * 1000)), 5 * 60 * 1000);
@@ -25,6 +26,7 @@ const SESSION_ADMIN_HOSTS = new Set(
 );
 
 const inMemorySessionStore = new Map();
+let inMemoryGlobalSessionRevokedAfter = 0;
 
 const parseBooleanEnv = (value, fallback = false) => {
     if (value === undefined || value === null || value === '') return fallback;
@@ -366,6 +368,36 @@ const deleteMemorySessionRecordsForUser = (userId = '') => {
     return revoked;
 };
 
+const clearMemorySessionRecords = () => {
+    const revoked = inMemorySessionStore.size;
+    inMemorySessionStore.clear();
+    return revoked;
+};
+
+const normalizeRevocationMs = (value) => {
+    const numeric = Number(value || 0);
+    if (Number.isFinite(numeric) && numeric > 0) return Math.trunc(numeric);
+    const parsed = new Date(value || 0).getTime();
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+};
+
+const getSessionIssuedMs = (session = {}) => {
+    const candidates = [
+        Number(session?.createdAt ? new Date(session.createdAt).getTime() : 0),
+        Number(session?.issuedAt ? new Date(session.issuedAt).getTime() : 0),
+        Number(session?.issuedAtSeconds || 0) * 1000,
+        Number(session?.authTimeSeconds || 0) * 1000,
+    ];
+    return candidates.find((value) => Number.isFinite(value) && value > 0) || 0;
+};
+
+const isSessionRevokedByGlobalEpoch = async (session = {}) => {
+    const revokedAfterMs = await getGlobalSessionRevokedAfter();
+    if (!revokedAfterMs) return false;
+    const issuedMs = getSessionIssuedMs(session);
+    return !issuedMs || issuedMs <= revokedAfterMs;
+};
+
 const getStorageMode = () => {
     if (getRedisClient()) return 'redis';
     return isMemorySessionFallbackAllowed() ? 'memory' : 'unavailable';
@@ -468,6 +500,11 @@ const loadSessionRecord = async (sessionId = '') => {
         || absoluteExpiresAt <= now
         || idleExpiresAt <= now
     ) {
+        await revokeBrowserSession(normalizedSessionId);
+        return null;
+    }
+
+    if (await isSessionRevokedByGlobalEpoch(record)) {
         await revokeBrowserSession(normalizedSessionId);
         return null;
     }
@@ -679,6 +716,91 @@ async function revokeBrowserSessionsForUser(userId = '') {
     }
 }
 
+async function setGlobalSessionRevokedAfter(value = new Date()) {
+    const revokedAfterMs = normalizeRevocationMs(value) || Date.now();
+    inMemoryGlobalSessionRevokedAfter = revokedAfterMs;
+
+    const redisClient = getRedisClient();
+    if (!redisClient) {
+        return revokedAfterMs;
+    }
+
+    try {
+        await redisClient.set(GLOBAL_SESSION_REVOKED_AFTER_KEY, String(revokedAfterMs));
+    } catch (error) {
+        logger.warn('browser_session.global_revocation_write_failed', {
+            error: error?.message || 'unknown',
+        });
+    }
+
+    return revokedAfterMs;
+}
+
+async function getGlobalSessionRevokedAfter() {
+    const redisClient = getRedisClient();
+    if (!redisClient) {
+        return inMemoryGlobalSessionRevokedAfter;
+    }
+
+    try {
+        const raw = await redisClient.get(GLOBAL_SESSION_REVOKED_AFTER_KEY);
+        const revokedAfterMs = normalizeRevocationMs(raw);
+        if (revokedAfterMs) {
+            inMemoryGlobalSessionRevokedAfter = Math.max(inMemoryGlobalSessionRevokedAfter, revokedAfterMs);
+        }
+    } catch (error) {
+        logger.warn('browser_session.global_revocation_read_failed', {
+            error: error?.message || 'unknown',
+        });
+    }
+
+    return inMemoryGlobalSessionRevokedAfter;
+}
+
+async function revokeAllBrowserSessions({ revokedAfter = new Date() } = {}) {
+    const revokedAfterMs = await setGlobalSessionRevokedAfter(revokedAfter);
+    let revoked = clearMemorySessionRecords();
+    const storageMode = getStorageMode();
+
+    if (storageMode === 'memory') {
+        return { revoked, revokedAfter: new Date(revokedAfterMs).toISOString() };
+    }
+    if (storageMode === 'unavailable') {
+        const error = new Error('Browser session store unavailable');
+        error.code = 'AUTH_SESSION_STORE_UNAVAILABLE';
+        logger.error('browser_session.revoke_all_unavailable');
+        throw error;
+    }
+
+    const redisClient = getRedisClient();
+    const keysToDelete = [];
+
+    try {
+        if (typeof redisClient.scanIterator !== 'function') {
+            throw new Error('Redis scanIterator is unavailable');
+        }
+
+        for await (const key of redisClient.scanIterator({ MATCH: `${SESSION_PREFIX}*`, COUNT: 100 })) {
+            if (key === GLOBAL_SESSION_REVOKED_AFTER_KEY) continue;
+            keysToDelete.push(key);
+        }
+
+        if (keysToDelete.length > 0) {
+            await redisClient.del(keysToDelete);
+            revoked += keysToDelete.length;
+        }
+        return { revoked, revokedAfter: new Date(revokedAfterMs).toISOString() };
+    } catch (error) {
+        const logPayload = { error: error?.message || 'unknown' };
+        if (!isMemorySessionFallbackAllowed()) {
+            logger.error('browser_session.revoke_all_failed_no_fallback', logPayload);
+            throw error;
+        }
+        logger.warn('browser_session.revoke_all_failed', logPayload);
+        return { revoked, revokedAfter: new Date(revokedAfterMs).toISOString() };
+    }
+}
+
 const createBrowserSession = async ({
     req = {},
     res = null,
@@ -829,14 +951,17 @@ module.exports = {
     createBrowserSession,
     getBrowserSession,
     getBrowserSessionFromRequest,
+    getGlobalSessionRevokedAfter,
     getCookieOptions,
     parseCookies,
     refreshBrowserSession,
     resolveSessionIdFromCookieHeader,
     resolveSessionIdFromRequest,
+    revokeAllBrowserSessions,
     revokeBrowserSession,
     revokeBrowserSessionsForUser,
     rotateBrowserSession,
     setBrowserSessionCookie,
+    setGlobalSessionRevokedAfter,
     touchBrowserSession,
 };

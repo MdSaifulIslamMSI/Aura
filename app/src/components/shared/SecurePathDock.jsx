@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { AuthContext } from '@/context/AuthContext';
+import { useEmergencyStatus } from '@/context/EmergencyStatusContext';
 import { cn } from '@/lib/utils';
 import { pushClientDiagnostic } from '@/services/clientObservability';
 import {
@@ -59,6 +60,7 @@ const SecurePathDock = () => {
     const [isMobileOpen, setIsMobileOpen] = useState(false);
     const navigate = useNavigate();
     const location = useLocation();
+    const { isFeatureDisabled } = useEmergencyStatus();
     const {
         currentUser,
         dbUser,
@@ -67,10 +69,12 @@ const SecurePathDock = () => {
         status,
     } = useContext(AuthContext) || {};
     const pathname = location.pathname || '/';
+    const assistantDisabled = isFeatureDisabled('ai');
     const supportLocation = useMemo(() => toLocationState(SUPPORT_HANDOFF_PATH), []);
     const canUseAssistant = shouldShowAssistantLauncher({ pathname })
         && !isAssistantWorkspacePath(pathname)
-        && !isAdminPath(pathname);
+        && !isAdminPath(pathname)
+        && !assistantDisabled;
     const canUseSupport = shouldShowSupportAction(pathname, location.search || '');
     const canUseMarket = !isAdminPath(pathname)
         && !isAssistantWorkspacePath(pathname)

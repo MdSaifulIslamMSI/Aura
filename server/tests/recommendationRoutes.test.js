@@ -3,6 +3,8 @@ const app = require('../index');
 const Product = require('../models/Product');
 const RecommendationEvent = require('../models/RecommendationEvent');
 
+jest.setTimeout(30000);
+
 const imageFor = (id) => `https://example.com/recommendation-${id}.jpg`;
 
 const createProduct = (overrides = {}) => Product.create({

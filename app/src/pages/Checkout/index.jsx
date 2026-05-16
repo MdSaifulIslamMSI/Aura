@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { CartContext } from '@/context/CartContext';
 import { AuthContext } from '@/context/AuthContext';
+import { useEmergencyStatus } from '@/context/EmergencyStatusContext';
 import { useMarket } from '@/context/MarketContext';
 import { useCommerceStore } from '@/store/commerceStore';
 import { orderApi, otpApi, paymentApi, trackRecommendationEvent, userApi } from '@/services/api';
@@ -228,6 +229,7 @@ const Checkout = () => {
     const navigate = useNavigate();
     const { cartItems } = useContext(CartContext);
     const { currentUser, syncUserWithBackend } = useContext(AuthContext);
+    const { isFeatureDisabled, readOnly } = useEmergencyStatus();
     const {
         countryCode: globalCountryCode,
         currency: globalCurrency,
@@ -251,6 +253,9 @@ const Checkout = () => {
         [checkoutSession]
     );
     const checkoutSource = directBuyItem ? 'directBuy' : 'cart';
+    const checkoutDisabled = readOnly || isFeatureDisabled('checkout');
+    const paymentGatewayDisabled = isFeatureDisabled('payment');
+    const otpDisabled = isFeatureDisabled('otp');
 
     const defaultDraft = useMemo(() => ({
         step: 1,
@@ -690,6 +695,24 @@ const Checkout = () => {
     }, [checkoutPaymentMethods, draft.paymentMethod, setDraft]);
 
     useEffect(() => {
+        if (!paymentGatewayDisabled || draft.paymentMethod === 'COD') return;
+        setDraft((prev) => ({
+            ...prev,
+            paymentMethod: 'COD',
+            paymentIntent: EMPTY_INTENT,
+            paymentSession: EMPTY_PAYMENT_SESSION,
+            paymentContext: {
+                ...prev.paymentContext,
+                netbanking: { ...EMPTY_PAYMENT_CONTEXT.netbanking },
+            },
+        }));
+        setStepErrors((prev) => ({
+            ...prev,
+            payment: t('checkout.payment.gatewayPaused', {}, 'Digital payments are temporarily unavailable. Cash on Delivery remains available.'),
+        }));
+    }, [draft.paymentMethod, paymentGatewayDisabled, setDraft, t]);
+
+    useEffect(() => {
         if (!currentUser?.uid || draft.paymentMethod !== 'NETBANKING' || netbankingCatalog) return;
 
         let cancelled = false;
@@ -915,6 +938,9 @@ const Checkout = () => {
 
     const validatePaymentStep = () => {
         if (!draft.paymentMethod) return t('checkout.error.choosePaymentMethod', {}, 'Choose a payment method');
+        if (paymentGatewayDisabled && draft.paymentMethod !== 'COD') {
+            return t('checkout.payment.gatewayPaused', {}, 'Digital payments are temporarily unavailable.');
+        }
         if (!checkoutPaymentMethods.includes(draft.paymentMethod)) {
             return t('checkout.error.paymentMethodUnavailable', {}, 'The selected payment method is not available in this market');
         }
@@ -1304,6 +1330,13 @@ const Checkout = () => {
 
     const executeDigitalPayment = async () => {
         if (draft.paymentMethod === 'COD') return;
+        if (paymentGatewayDisabled) {
+            setStepErrors((prev) => ({
+                ...prev,
+                payment: t('checkout.payment.gatewayPaused', {}, 'Digital payments are temporarily unavailable.'),
+            }));
+            return;
+        }
         try {
             setIsProcessingPayment(true);
             setStepErrors((prev) => ({ ...prev, payment: '' }));
@@ -1422,6 +1455,10 @@ const Checkout = () => {
     const sendPaymentChallengeOtp = async () => {
         if (!draft.paymentIntent.intentId) {
             setStepErrors((prev) => ({ ...prev, payment: t('checkout.error.createPaymentFirst', {}, 'Create payment authorization first') }));
+            return;
+        }
+        if (otpDisabled) {
+            setStepErrors((prev) => ({ ...prev, payment: t('checkout.error.otpTemporarilyUnavailable', {}, 'Verification is temporarily unavailable. Please try again later.') }));
             return;
         }
         try {
@@ -1585,12 +1622,20 @@ const Checkout = () => {
     };
 
     const placeOrder = async () => {
+        if (checkoutDisabled) {
+            setStepErrors((prev) => ({ ...prev, review: t('checkout.error.orderPlacementPaused', {}, 'Order placement is temporarily unavailable.') }));
+            return;
+        }
         if (!draft.acceptedTerms) {
             setStepErrors((prev) => ({ ...prev, review: t('checkout.error.acceptTerms', {}, 'Accept the checkout terms before placing order') }));
             return;
         }
         if (isQuoteStale) {
             setStepErrors((prev) => ({ ...prev, review: t('checkout.error.quoteStale', {}, 'Quote is stale. Recalculate before placing order.') }));
+            return;
+        }
+        if (paymentGatewayDisabled && draft.paymentMethod !== 'COD') {
+            setStepErrors((prev) => ({ ...prev, review: t('checkout.payment.gatewayPaused', {}, 'Digital payments are temporarily unavailable.') }));
             return;
         }
         if (draft.paymentMethod !== 'COD' && !PAID_INTENT_STATUSES.has(String(draft.paymentIntent.status || '').toLowerCase())) {
@@ -1898,6 +1943,7 @@ const Checkout = () => {
                             label: option.label,
                         }))}
                         currencyOptions={paymentCapabilities?.markets?.railMatrix?.CARD?.currencies || []}
+                        paymentGatewayDisabled={paymentGatewayDisabled}
                         onExecutePayment={executeDigitalPayment}
                         onRefreshPayment={refreshPaymentIntentStatus}
                         onRestartPayment={restartDigitalPayment}
@@ -1918,6 +1964,7 @@ const Checkout = () => {
                         acceptedTerms={draft.acceptedTerms}
                         reviewError={stepErrors.review}
                         isPlacingOrder={isPlacingOrder}
+                        orderDisabled={checkoutDisabled}
                         onSetActive={() => draft.step > 3 && gotoStep(4)}
                         onAcceptedTermsChange={(value) => setDraft((prev) => ({ ...prev, acceptedTerms: value }))}
                         onBack={() => gotoStep(3)}
