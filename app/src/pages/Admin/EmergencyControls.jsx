@@ -140,8 +140,8 @@ const EmergencyControls = () => {
                 </AdminPremiumPanel>
             ) : null}
 
-            <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr),25rem]">
-                <AdminPremiumPanel className="space-y-5">
+            <div className="grid gap-6 xl:grid-cols-3">
+                <AdminPremiumPanel className="space-y-5 xl:col-span-2">
                     <div className="flex items-center justify-between gap-3">
                         <div>
                             <p className="premium-kicker">Active emergency flags</p>
@@ -163,9 +163,9 @@ const EmergencyControls = () => {
                                 <div>
                                     <div className="flex flex-wrap items-center gap-2">
                                         <span className="text-sm font-black text-white">{flag.key}</span>
-                                        <span className="rounded-full border border-white/10 px-2 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-slate-300">{flag.severity}</span>
-                                        <span className="rounded-full border border-cyan-300/20 px-2 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-cyan-200">{flag.scope}</span>
-                                        {flag.expired ? <span className="rounded-full border border-amber-300/25 px-2 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-amber-200">Expired</span> : null}
+                                        <span className="rounded-full border border-white/10 px-2 py-1 text-[10px] font-black uppercase tracking-widest text-slate-300">{flag.severity}</span>
+                                        <span className="rounded-full border border-cyan-300/20 px-2 py-1 text-[10px] font-black uppercase tracking-widest text-cyan-200">{flag.scope}</span>
+                                        {flag.expired ? <span className="rounded-full border border-amber-300/25 px-2 py-1 text-[10px] font-black uppercase tracking-widest text-amber-200">Expired</span> : null}
                                     </div>
                                     <p className="mt-2 text-sm text-slate-300">{flag.userMessage}</p>
                                     <p className="mt-1 text-xs text-slate-500">Activated by {flag.activatedByEmail || 'system'} | Expires {flag.expiresAt || 'no expiry'}</p>
