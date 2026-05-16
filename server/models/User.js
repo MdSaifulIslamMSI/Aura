@@ -89,6 +89,12 @@ const userSchema = mongoose.Schema({
     dob: { type: Date, default: null },
     bio: { type: String, default: '', maxlength: 200 },
     isAdmin: { type: Boolean, required: true, default: false },
+    adminRoles: {
+        type: [String],
+        enum: ['ADMIN', 'SUPER_ADMIN', 'SECURITY_ADMIN'],
+        default: [],
+        index: true,
+    },
     isVerified: { type: Boolean, default: false },
     authAssurance: {
         type: String,

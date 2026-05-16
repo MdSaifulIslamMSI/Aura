@@ -15,6 +15,7 @@ const xssSanitizer = require('./middleware/xssSanitizer');
 const activityEmailMiddleware = require('./middleware/activityEmailMiddleware');
 const adminNotificationMiddleware = require('./middleware/adminNotificationMiddleware');
 const { requestId } = require('./middleware/requestId');
+const { originProtectionMiddleware } = require('./middleware/originProtectionMiddleware');
 const { resolveMarketContextMiddleware } = require('./middleware/marketContext');
 require('colors');
 
@@ -39,8 +40,10 @@ const listingRoutes = require('./routes/listingRoutes');
 const tradeInRoutes = require('./routes/tradeInRoutes');
 const priceAlertRoutes = require('./routes/priceAlertRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
+const emergencyRoutes = require('./routes/emergencyRoutes');
 const i18nRoutes = require('./routes/i18nRoutes');
 const marketRoutes = require('./routes/marketRoutes');
+const adminEmergencyControlRoutes = require('./routes/adminEmergencyControlRoutes');
 const adminPaymentRoutes = require('./routes/adminPaymentRoutes');
 const adminOrderEmailRoutes = require('./routes/adminOrderEmailRoutes');
 const adminEmailOpsRoutes = require('./routes/adminEmailOpsRoutes');
@@ -118,6 +121,12 @@ const { getTrustedRequestIp } = require('./utils/requestIdentity');
 const { createDistributedRateLimit } = require('./middleware/distributedRateLimit');
 const { metricsMiddleware } = require('./middleware/metrics');
 const { createRequestTimeout } = require('./middleware/requestTimeout');
+const {
+    emergencyRoutePolicyMiddleware,
+    globalEmergencyMiddleware,
+    readOnlyMiddleware,
+    strictRateLimitMiddleware,
+} = require('./middleware/emergencyControlMiddleware');
 const { getAllBreakerStats } = require('./utils/circuitBreaker');
 const metricsRoute = require('./routes/metricsRoute');
 const { attachSocketBackplane, getSocketHealth, initializeSocket } = require('./services/socketService');
@@ -308,6 +317,8 @@ app.use((req, res, next) => {
     next();
 });
 
+app.use(originProtectionMiddleware);
+
 app.use(helmet({
     contentSecurityPolicy: {
         useDefaults: false,
@@ -380,6 +391,12 @@ if (process.env.NODE_ENV !== 'test') {
 }
 
 // Routes
+app.use('/api/emergency', emergencyRoutes);
+app.use(globalEmergencyMiddleware);
+app.use(readOnlyMiddleware);
+app.use(strictRateLimitMiddleware);
+app.use(emergencyRoutePolicyMiddleware);
+
 app.use('/api/products', productRoutes);
 app.use('/api/recommendations', recommendationRoutes);
 app.use('/api/recommendation-events', recommendationEventRoutes);
@@ -396,6 +413,7 @@ app.use('/api/price-alerts', priceAlertRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/i18n', i18nRoutes);
 app.use('/api/markets', marketRoutes);
+app.use('/api/admin/emergency-controls', adminEmergencyControlRoutes);
 app.use('/api/admin/payments', adminPaymentRoutes);
 app.use('/api/admin/order-emails', adminOrderEmailRoutes);
 app.use('/api/admin/email-ops', adminEmailOpsRoutes);

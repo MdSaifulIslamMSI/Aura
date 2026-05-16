@@ -71,6 +71,13 @@ The deploy workflow intentionally has no checked-in account, bucket, instance, o
   - `OLLAMA_MAX_LOADED_MODELS=2`
 - Existing EC2 instances keep their current `/opt/aura/shared/base.env`; update that file manually or reprovision before relying on the no-key assistant in AWS.
 
+## No-Domain Origin Protection
+- If no owned domain is available, the current zero-cost fallback is to keep the free TLS hostname such as `13.206.172.186.sslip.io` as the CloudFront backend origin.
+- To reduce direct-origin exposure, configure a CloudFront custom origin header named `X-Aura-Origin-Verify` and store the same secret in Parameter Store as `/aura/prod/AURA_CLOUDFRONT_ORIGIN_VERIFY_SECRET`.
+- When that secret is present, the API rejects direct non-health, non-webhook requests that do not include the CloudFront origin header. Health routes remain reachable for liveness checks, and signed provider webhook routes remain reachable so payment/email providers do not lose events.
+- Do not put this secret in the frontend bundle. Rotate it by updating CloudFront first, waiting for `Deployed`, updating Parameter Store, and then redeploying the backend.
+- Verify this guard with `npm run security:origin-protection-smoke` after setting `AURA_EDGE_ORIGIN` to the CloudFront URL and `AURA_DIRECT_BACKEND_ORIGIN` to the backend TLS origin.
+
 ## Runtime Secret Files
 - Checked-in non-secret defaults live in [server/.env.example](/c:/Users/mdsai/Downloads/Kimi_Agent_Flipkart-Style%20Frontend/server/.env.example).
 - Checked-in secret placeholders live in [server/.env.aws-secrets.example](/c:/Users/mdsai/Downloads/Kimi_Agent_Flipkart-Style%20Frontend/server/.env.aws-secrets.example).

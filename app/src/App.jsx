@@ -9,6 +9,7 @@ import { MotionModeProvider, useMotionMode } from './context/MotionModeContext';
 import { SocketProvider } from './context/SocketContext';
 import { AdminRoute, ProtectedRoute, SellerRoute } from './components/shared/ProtectedRoute';
 import { NotificationProvider } from './context/NotificationContext';
+import { EmergencyStatusProvider, useEmergencyStatus } from './context/EmergencyStatusContext';
 
 import Navbar, { NavbarFailureFallback } from './components/layout/Navbar';
 import Footer from './components/layout/Footer';
@@ -19,6 +20,7 @@ import SectionAnchorRail from './components/shared/SectionAnchorRail';
 import RouteTransitionShell from './components/shared/RouteTransitionShell';
 import AppErrorBoundary from './components/shared/AppErrorBoundary';
 import BackendStatusBanner from './components/shared/BackendStatusBanner';
+import EmergencyBanner from './components/shared/EmergencyBanner';
 import DesktopUpdateBanner from './components/shared/DesktopUpdateBanner';
 import DesktopWelcomePanel from './components/shared/DesktopWelcomePanel';
 import MobileUpdateBanner from './components/shared/MobileUpdateBanner';
@@ -57,6 +59,7 @@ const AdminUsers = lazyWithRetry(() => import('./pages/Admin/Users'), 'admin-use
 const AdminRefundLedger = lazyWithRetry(() => import('./pages/Admin/RefundLedger'), 'admin-refunds');
 const AdminEmailOps = lazyWithRetry(() => import('./pages/Admin/EmailOps'), 'admin-email-ops');
 const AdminSupport = lazyWithRetry(() => import('./pages/Admin/Support'), 'admin-support');
+const AdminEmergencyControls = lazyWithRetry(() => import('./pages/Admin/EmergencyControls'), 'admin-emergency-controls');
 
 // Marketplace Pages
 const Sell = lazyWithRetry(() => import('./pages/Sell'), 'sell');
@@ -83,6 +86,30 @@ function renderRoute(element) {
 
 function renderCriticalRoute(element) {
   return element;
+}
+
+function EmergencyFeatureRoute({ feature, fallback, children }) {
+  const { isFeatureDisabled } = useEmergencyStatus();
+
+  if (isFeatureDisabled(feature)) {
+    return fallback;
+  }
+
+  return children;
+}
+
+function AssistantDisabledNotice() {
+  return (
+    <div className="flex min-h-[70vh] items-center justify-center bg-slate-950 px-6 text-slate-100">
+      <div className="max-w-lg text-center">
+        <p className="text-xs font-black uppercase tracking-[0.28em] text-amber-300">Assistant unavailable</p>
+        <h1 className="mt-3 text-3xl font-black">Support is still reachable.</h1>
+        <p className="mt-3 text-sm leading-6 text-slate-300">
+          The AI assistant is temporarily paused while the team reviews the service. Please use the contact page for help.
+        </p>
+      </div>
+    </div>
+  );
 }
 
 function AppContent() {
@@ -170,6 +197,11 @@ function AppContent() {
           <Navbar />
         </AppErrorBoundary>
       ) : null}
+      {showSiteChrome ? (
+        <AppErrorBoundary>
+          <EmergencyBanner />
+        </AppErrorBoundary>
+      ) : null}
       {showSiteChrome && showBackendStatusBanner ? (
         <AppErrorBoundary>
           <BackendStatusBanner />
@@ -201,7 +233,11 @@ function AppContent() {
               <Route path="/visual-search" element={renderRoute(<VisualSearch />)} />
               <Route path="/bundles" element={renderRoute(<Bundles />)} />
               <Route path="/mission-control" element={renderRoute(<MissionControl />)} />
-              <Route path="/assistant" element={renderRoute(<AssistantPage />)} />
+              <Route path="/assistant" element={renderRoute(
+                <EmergencyFeatureRoute feature="ai" fallback={<AssistantDisabledNotice />}>
+                  <AssistantPage />
+                </EmergencyFeatureRoute>
+              )} />
               <Route path="/contact" element={renderRoute(<ContactPage />)} />
               {trustRoutes.filter((path) => path !== '/contact').map((path) => (
                 <Route key={path} path={path} element={renderRoute(<TrustPage />)} />
@@ -235,6 +271,7 @@ function AppContent() {
               <Route path="/admin/email-ops" element={renderCriticalRoute(<AdminRoute><AdminEmailOps /></AdminRoute>)} />
               <Route path="/admin/users" element={renderCriticalRoute(<AdminRoute><AdminUsers /></AdminRoute>)} />
               <Route path="/admin/support" element={renderCriticalRoute(<AdminRoute><AdminSupport /></AdminRoute>)} />
+              <Route path="/admin/emergency-controls" element={renderCriticalRoute(<AdminRoute><AdminEmergencyControls /></AdminRoute>)} />
             </Routes>
           </RouteTransitionShell>
         </Suspense>
@@ -284,23 +321,25 @@ function App() {
     <ColorModeProvider>
       <MotionModeProvider>
         <MarketProvider>
-          <AuthProvider>
-            <SocketProvider>
-              <NotificationProvider>
-                <VideoCallProvider>
-                  <CommerceProvider>
-                    {/* React Router v7 defaults BrowserRouter navigations to startTransition,
-                        which can leave the previous lazy route visible after URL changes. */}
-                    <Router unstable_useTransitions={false}>
-                      <MultimodalAssistantProvider>
-                        <AppContent />
-                      </MultimodalAssistantProvider>
-                    </Router>
-                  </CommerceProvider>
-                </VideoCallProvider>
-              </NotificationProvider>
-            </SocketProvider>
-          </AuthProvider>
+          <EmergencyStatusProvider>
+            <AuthProvider>
+              <SocketProvider>
+                <NotificationProvider>
+                  <VideoCallProvider>
+                    <CommerceProvider>
+                      {/* React Router v7 defaults BrowserRouter navigations to startTransition,
+                          which can leave the previous lazy route visible after URL changes. */}
+                      <Router unstable_useTransitions={false}>
+                        <MultimodalAssistantProvider>
+                          <AppContent />
+                        </MultimodalAssistantProvider>
+                      </Router>
+                    </CommerceProvider>
+                  </VideoCallProvider>
+                </NotificationProvider>
+              </SocketProvider>
+            </AuthProvider>
+          </EmergencyStatusProvider>
         </MarketProvider>
       </MotionModeProvider>
     </ColorModeProvider>

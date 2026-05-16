@@ -51,6 +51,11 @@ const LoginView = ({
   switchMode,
   t,
   trustNotes,
+  emergencyActionDisabled = false,
+  emergencyAuthDisabled = false,
+  emergencyOtpDisabled = false,
+  emergencyPasswordResetDisabled = false,
+  emergencySignupDisabled = false,
 }) => (
   <div className="login-theme-shell min-h-[calc(100vh-var(--figma-nav-spacer-mobile))] pb-8 pt-4 sm:min-h-[calc(100vh-var(--figma-nav-spacer-sm))] sm:pb-12 sm:pt-6 md:min-h-[calc(100vh-var(--figma-nav-spacer-md))] md:pb-20 md:pt-8 relative flex items-center justify-center overflow-hidden">
     <div className="login-theme-shell__base absolute inset-0 bg-zinc-950 z-0" />
@@ -237,7 +242,8 @@ const LoginView = ({
                         <label className="block text-xs uppercase tracking-widest font-bold text-slate-400">{t('login.field.password', {}, 'Password')} *</label>
                         {mode === 'signin' && (
                           <button type="button" onClick={() => switchMode('forgot-password')}
-                            className="text-neo-cyan text-xs font-bold uppercase tracking-widest hover:text-neo-fuchsia transition-colors">
+                            disabled={emergencyPasswordResetDisabled}
+                            className="text-neo-cyan text-xs font-bold uppercase tracking-widest hover:text-neo-fuchsia transition-colors disabled:cursor-not-allowed disabled:opacity-50">
                             {t('login.action.forgotPassword', {}, 'Forgot Password?')}
                           </button>
                         )}
@@ -334,6 +340,7 @@ const LoginView = ({
                         onChange={(event) => handleOtpChange(index, event.target.value)}
                         onKeyDown={(event) => handleOtpKeyDown(index, event)}
                         onPaste={index === 0 ? handleOtpPaste : undefined}
+                        disabled={emergencyOtpDisabled}
                         className={cn(
                           'w-10 h-12 sm:w-12 sm:h-14 md:w-14 md:h-16 text-center text-2xl font-black rounded-xl border-2 bg-zinc-950/50 text-white outline-none transition-all duration-300',
                           digit
@@ -350,7 +357,7 @@ const LoginView = ({
                         {t('login.otp.resendIn', { seconds: countdown }, 'Resend in {{seconds}}s')}
                       </p>
                     ) : (
-                      <button type="button" onClick={handleResendOtp} disabled={isLoading}
+                      <button type="button" onClick={handleResendOtp} disabled={isLoading || emergencyOtpDisabled}
                         className="text-neo-cyan text-xs uppercase tracking-widest font-bold hover:text-white transition-colors">
                         {t('login.otp.resend', {}, 'Resend OTP')}
                       </button>
@@ -420,10 +427,11 @@ const LoginView = ({
 
               <button
                 type="submit"
-                disabled={isLoading}
+                disabled={isLoading || emergencyActionDisabled}
                 className={cn(
                   'w-full btn-primary py-4 sm:py-5 mt-2 text-sm sm:text-base tracking-[0.2em] relative overflow-hidden group/submit shadow-[0_0_20px_rgba(6,182,212,0.3)]',
-                  isLoading && 'opacity-70 cursor-wait'
+                  isLoading && 'opacity-70 cursor-wait',
+                  emergencyActionDisabled && 'cursor-not-allowed opacity-60'
                 )}
               >
                 {isLoading ? (
@@ -433,7 +441,9 @@ const LoginView = ({
                   </span>
                 ) : (
                   <span className="relative z-10 flex items-center justify-center gap-2">
-                    {submitLabel}
+                    {emergencyActionDisabled
+                      ? t('login.actionTemporarilyUnavailable', {}, 'Temporarily Unavailable')
+                      : submitLabel}
                     <Zap className="w-5 h-5 fill-white group-hover/submit:animate-pulse" />
                   </span>
                 )}
@@ -453,7 +463,7 @@ const LoginView = ({
                     <button
                       type="button"
                       onClick={() => handleSocialSignIn(signInWithGoogle, 'Google')}
-                      disabled={isLoading}
+                      disabled={isLoading || emergencyAuthDisabled}
                       className="py-3 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 text-white font-bold text-xs tracking-[0.08em] uppercase transition-all duration-300 flex items-center justify-center gap-2 hover:border-white/20 hover:shadow-[0_0_20px_rgba(255,255,255,0.05)]"
                     >
                       <svg className="w-4 h-4" viewBox="0 0 24 24">
@@ -468,7 +478,7 @@ const LoginView = ({
                     <button
                       type="button"
                       onClick={() => handleSocialSignIn(signInWithFacebook, 'Facebook')}
-                      disabled={isLoading}
+                      disabled={isLoading || emergencyAuthDisabled}
                       className="py-3 rounded-2xl border border-white/10 bg-white/5 hover:bg-[#1877F2]/15 text-white font-bold text-xs tracking-[0.08em] uppercase transition-all duration-300 flex items-center justify-center gap-2 hover:border-[#1877F2]/40"
                     >
                       <svg className="w-4 h-4" viewBox="0 0 24 24" aria-hidden="true">
@@ -480,7 +490,7 @@ const LoginView = ({
                     <button
                       type="button"
                       onClick={() => handleSocialSignIn(signInWithX, 'X')}
-                      disabled={isLoading}
+                      disabled={isLoading || emergencyAuthDisabled}
                       className="py-3 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 text-white font-bold text-xs tracking-[0.08em] uppercase transition-all duration-300 flex items-center justify-center gap-2 hover:border-white/30"
                     >
                       <svg className="w-4 h-4" viewBox="0 0 24 24" aria-hidden="true">
@@ -493,7 +503,7 @@ const LoginView = ({
                       <button
                         type="button"
                         onClick={() => handleSocialSignIn(signInWithMicrosoft, 'Microsoft')}
-                        disabled={isLoading}
+                        disabled={isLoading || emergencyAuthDisabled}
                         className="py-3 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 text-white font-bold text-xs tracking-[0.08em] uppercase transition-all duration-300 flex items-center justify-center gap-2 hover:border-white/30"
                       >
                         <span className="grid h-4 w-4 grid-cols-2" style={{ gap: '1px' }} aria-hidden="true">
@@ -510,7 +520,7 @@ const LoginView = ({
                       <button
                         type="button"
                         onClick={() => handleSocialSignIn(signInWithApple, 'Apple')}
-                        disabled={isLoading}
+                        disabled={isLoading || emergencyAuthDisabled}
                         className="py-3 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 text-white font-bold text-xs tracking-[0.08em] uppercase transition-all duration-300 flex items-center justify-center gap-2 hover:border-white/30"
                       >
                         <AppleIcon className="h-4 w-4" aria-hidden="true" />
@@ -569,8 +579,9 @@ const LoginView = ({
               {mode === 'forgot-password' ? (
                 <p className="text-slate-400 font-medium uppercase tracking-widest text-xs">
                   {t('login.modeToggle.rememberPassword', {}, 'Remember your password?')}
-                  <button onClick={() => switchMode('signin')}
-                    className="ml-2 text-white font-bold hover:text-neo-cyan transition-colors underline decoration-neo-cyan/50 decoration-2 underline-offset-4">
+                  <button type="button" onClick={() => switchMode('signin')}
+                    disabled={emergencyAuthDisabled}
+                    className="ml-2 text-white font-bold hover:text-neo-cyan transition-colors underline decoration-neo-cyan/50 decoration-2 underline-offset-4 disabled:cursor-not-allowed disabled:opacity-50">
                     {t('login.mode.signin.cta', {}, 'Sign In')}
                   </button>
                 </p>
@@ -579,8 +590,9 @@ const LoginView = ({
                   {mode === 'signin'
                     ? t('login.modeToggle.noAccount', {}, "Don't have an account?")
                     : t('login.modeToggle.haveAccount', {}, 'Already have an account?')}
-                  <button onClick={() => switchMode(mode === 'signin' ? 'signup' : 'signin')}
-                    className="ml-2 text-white font-bold hover:text-neo-cyan transition-colors underline decoration-neo-cyan/50 decoration-2 underline-offset-4">
+                  <button type="button" onClick={() => switchMode(mode === 'signin' ? 'signup' : 'signin')}
+                    disabled={(mode === 'signin' && emergencySignupDisabled) || (mode === 'signup' && emergencyAuthDisabled)}
+                    className="ml-2 text-white font-bold hover:text-neo-cyan transition-colors underline decoration-neo-cyan/50 decoration-2 underline-offset-4 disabled:cursor-not-allowed disabled:opacity-50">
                     {mode === 'signin' ? t('login.mode.signup.cta', {}, 'Sign Up') : t('login.mode.signin.cta', {}, 'Sign In')}
                   </button>
                 </p>

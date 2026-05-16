@@ -299,6 +299,7 @@ const StepPayment = ({
     chargeQuote = null,
     marketOptions = MARKET_COUNTRY_PRESETS,
     currencyOptions = [],
+    paymentGatewayDisabled = false,
 }) => {
     const { t } = useMarket();
     const [bankSearch, setBankSearch] = useState('');
@@ -344,10 +345,11 @@ const StepPayment = ({
     }, [bankSearch, netbankingCatalog?.banks]);
     const paymentDisabled = isProcessingPayment
         || isRefreshingPayment
+        || (paymentGatewayDisabled && isDigital)
         || (challengeRequired && !challengeVerified)
         || paymentReady
         || (isNetbanking && !selectedBankCode);
-    const continueDisabled = (isDigital && !paymentReady) || (isNetbanking && !selectedBankCode);
+    const continueDisabled = (isDigital && (paymentGatewayDisabled || !paymentReady)) || (isNetbanking && !selectedBankCode);
     const selectedRailSummary = RAIL_SUMMARY[paymentMethod];
     const selectedRailCapability = paymentMethod === 'UPI'
         ? paymentCapabilities?.rails?.upi
@@ -520,8 +522,11 @@ const StepPayment = ({
                                 {PAYMENT_OPTIONS.map((option) => {
                                     const Icon = option.icon;
                                     const selected = paymentMethod === option.id;
-                                    const unavailable = !enabledPaymentMethodSet.has(option.id);
-                                    const unavailableReason = unavailable
+                                    const digitalEmergencyDisabled = paymentGatewayDisabled && option.id !== 'COD';
+                                    const unavailable = !enabledPaymentMethodSet.has(option.id) || digitalEmergencyDisabled;
+                                    const unavailableReason = digitalEmergencyDisabled
+                                        ? t('checkout.payment.gatewayPaused', {}, 'Digital payments are temporarily unavailable.')
+                                        : unavailable
                                         ? getPaymentUnavailableReason({
                                             methodId: option.id,
                                             paymentCapabilities,

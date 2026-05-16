@@ -28,9 +28,9 @@ const {
 } = require('./authAssurancePolicyService');
 const { getRecoveryReadiness } = require('./authRecoveryCodeService');
 
-const PROFILE_PROJECTION = 'name email phone avatar gender dob bio isAdmin isVerified isSeller sellerActivatedAt accountState moderation authAssurance authAssuranceAt trustedDevices recoveryCodeState +loginOtpAssuranceExpiresAt addresses cart wishlist loyalty createdAt';
-const AUTH_ONLY_PROJECTION = 'name email phone isAdmin isVerified isSeller sellerActivatedAt accountState moderation authAssurance authAssuranceAt trustedDevices recoveryCodeState +loginOtpAssuranceExpiresAt loyalty createdAt';
-const SESSION_PROFILE_PROJECTION = 'name email phone avatar gender dob bio isAdmin isVerified isSeller sellerActivatedAt accountState moderation authAssurance authAssuranceAt trustedDevices recoveryCodeState +loginOtpAssuranceExpiresAt loyalty createdAt';
+const PROFILE_PROJECTION = 'name email phone avatar gender dob bio isAdmin adminRoles isVerified isSeller sellerActivatedAt accountState moderation authAssurance authAssuranceAt trustedDevices recoveryCodeState +loginOtpAssuranceExpiresAt addresses cart wishlist loyalty createdAt';
+const AUTH_ONLY_PROJECTION = 'name email phone isAdmin adminRoles isVerified isSeller sellerActivatedAt accountState moderation authAssurance authAssuranceAt trustedDevices recoveryCodeState +loginOtpAssuranceExpiresAt loyalty createdAt';
+const SESSION_PROFILE_PROJECTION = 'name email phone avatar gender dob bio isAdmin adminRoles isVerified isSeller sellerActivatedAt accountState moderation authAssurance authAssuranceAt trustedDevices recoveryCodeState +loginOtpAssuranceExpiresAt loyalty createdAt';
 
 const PHONE_REGEX = /^\+?\d{10,15}$/;
 const LOGIN_ASSURANCE_TTL_MS = 10 * 60 * 1000;
@@ -229,6 +229,7 @@ const toRoleState = (user = null) => ({
     isAdmin: Boolean(user?.isAdmin),
     isSeller: Boolean(user?.isSeller),
     isVerified: Boolean(user?.isVerified),
+    adminRoles: Array.isArray(user?.adminRoles) ? user.adminRoles : [],
 });
 
 const toIsoOrNull = (value) => {
@@ -257,6 +258,7 @@ const toProfilePayload = (user = null, options = {}) => {
         dob: user.dob || null,
         bio: user.bio || '',
         isAdmin: Boolean(user.isAdmin),
+        adminRoles: Array.isArray(user.adminRoles) ? user.adminRoles : [],
         isVerified: Boolean(user.isVerified),
         isSeller: Boolean(user.isSeller),
         sellerActivatedAt: user.sellerActivatedAt || null,
@@ -667,7 +669,7 @@ const syncAuthenticatedUser = async ({
         try {
             const conflictingAuthUidOwner = await User.findOne(
                 { authUid },
-                '_id email authUid isAdmin isSeller isVerified loyalty createdAt'
+                '_id email authUid isAdmin adminRoles isSeller isVerified loyalty createdAt'
             ).lean();
 
             if (conflictingAuthUidOwner && String(conflictingAuthUidOwner._id) !== String(user._id)) {

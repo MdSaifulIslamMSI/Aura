@@ -15,6 +15,7 @@ const StepReview = ({
     acceptedTerms,
     reviewError,
     isPlacingOrder,
+    orderDisabled = false,
     onSetActive,
     onAcceptedTermsChange,
     onBack,
@@ -123,10 +124,12 @@ const StepReview = ({
                         <button
                             type="button"
                             onClick={onPlaceOrder}
-                            disabled={isPlacingOrder}
+                            disabled={isPlacingOrder || orderDisabled}
                             className="checkout-premium-primary w-full px-8 py-3 text-sm font-black uppercase tracking-[0.24em] disabled:opacity-60 sm:ml-auto sm:w-auto"
                         >
-                            {isPlacingOrder ? t('checkout.placingOrderButton', {}, 'Placing Order...') : t('checkout.placeOrder', {}, 'Place Order')}
+                            {orderDisabled
+                                ? t('checkout.orderTemporarilyUnavailable', {}, 'Order Placement Paused')
+                                : isPlacingOrder ? t('checkout.placingOrderButton', {}, 'Placing Order...') : t('checkout.placeOrder', {}, 'Place Order')}
                         </button>
                     </div>
                 </div>

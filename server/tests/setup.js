@@ -209,7 +209,7 @@ afterEach(async () => {
             throw error;
         }
     }
-});
+}, 30000);
 
 afterAll(async () => {
     if (shouldSkipDbSetup()) {
@@ -224,4 +224,4 @@ afterAll(async () => {
         await memoryReplicaSet.stop();
         memoryReplicaSet = null;
     }
-});
+}, 30000);
