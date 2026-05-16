@@ -32,6 +32,7 @@ const {
     flags: trustedDeviceFlags,
     shouldRequireTrustedDevice,
 } = require('../config/authTrustedDeviceFlags');
+const { getLoginRuntimeEnforcementPolicy } = require('../config/loginRuntimeEnforcementPolicy');
 const { getCachedAdaptiveSecuritySignal } = require('../services/healthService');
 const { findPreferredIdentityUserLean } = require('../services/authIdentityResolutionService');
 const { recordAuthSecurityEvent } = require('../services/authSecurityTelemetryService');
@@ -489,6 +490,19 @@ const resolveRequestSensitivity = (req = {}) => {
     return 'standard';
 };
 
+const resolveRuntimeRiskStateForPosture = (req = {}) => {
+    const riskState = String(
+        req.authSession?.riskState
+        || (req.user?.isAdmin ? 'privileged' : req.user?.isSeller ? 'heightened' : 'standard')
+    ).trim().toLowerCase() || 'standard';
+
+    if (riskState.startsWith('login_risk_') && !getLoginRuntimeEnforcementPolicy().riskEngineEnforced) {
+        return 'standard';
+    }
+
+    return riskState;
+};
+
 const resolveTrustedDeviceMethod = (req = {}) => {
     const sessionMethod = String(req.authSession?.deviceMethod || '').trim().toLowerCase();
     if (sessionMethod === 'webauthn' || sessionMethod === 'browser_key') {
@@ -579,10 +593,7 @@ const buildRequestPosture = (req = {}, options = {}) => {
     const cryptoBound = hasCryptographicTrustedDeviceBinding(req);
     const freshByAuthAge = Number.isFinite(authAgeSeconds) && authAgeSeconds <= (freshnessMinutes * 60);
     const freshByStepUp = hasActiveSessionStepUp(req);
-    const riskState = String(
-        req.authSession?.riskState
-        || (req.user?.isAdmin ? 'privileged' : req.user?.isSeller ? 'heightened' : 'standard')
-    ).trim().toLowerCase() || 'standard';
+    const riskState = resolveRuntimeRiskStateForPosture(req);
     const trustedDeviceRequired = shouldRequireTrustedDevice({ user: req.user });
     const elevatedAssurance = Boolean(
         hasOtpAssurance(req)

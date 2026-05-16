@@ -41,12 +41,20 @@ const {
     resolveEmailVerifiedState,
 } = require('../utils/authIdentity');
 const { shouldRequireTrustedDevice } = require('../config/authTrustedDeviceFlags');
+const { getLoginRuntimeEnforcementPolicy } = require('../config/loginRuntimeEnforcementPolicy');
+const { RISK_LEVELS, evaluateLoginRisk } = require('../services/authRiskEngineService');
 const { recordAuthSecurityEvent } = require('../services/authSecurityTelemetryService');
 const { isEnabled: isEmergencyFlagEnabled } = require('../services/emergencyControlService');
 const LOGIN_ASSURANCE_TTL_MS = 10 * 60 * 1000;
 const PHONE_FACTOR_ASSURANCE_TTL_MS = 10 * 60 * 1000;
 const GENERIC_PHONE_FACTOR_VERIFICATION_MESSAGE = 'If account details are valid, verification will proceed.';
 const RECOVERY_CODE_VERIFICATION_MIN_MS = process.env.NODE_ENV === 'test' ? 0 : 350;
+const LOGIN_RISK_STATE_HIGH = 'login_risk_high';
+const LOGIN_RISK_SIGNAL_HEADERS = Object.freeze({
+    recentFailureCount: 'x-aura-login-failure-count',
+    ipReputation: 'x-aura-ip-reputation',
+    impossibleTravel: 'x-aura-impossible-travel',
+});
 
 const normalizeEmail = (value) => (
     typeof value === 'string' ? value.trim().toLowerCase() : ''
@@ -67,6 +75,23 @@ const normalizePhoneFactorPurpose = (value) => {
     }
     return '';
 };
+
+const parseBooleanSignal = (value) => {
+    const normalized = String(value === undefined || value === null ? '' : value).trim().toLowerCase();
+    return ['1', 'true', 'yes', 'on'].includes(normalized);
+};
+
+const parseNumericSignal = (value) => {
+    const numeric = Number(value || 0);
+    return Number.isFinite(numeric) && numeric > 0 ? Math.trunc(numeric) : 0;
+};
+
+const getHeaderValue = (req = {}, headerName = '') => String(
+    req.get?.(headerName)
+    || req.headers?.[String(headerName).toLowerCase()]
+    || req.headers?.[headerName]
+    || ''
+).trim();
 
 const phoneFactorFlowError = () => new AppError(GENERIC_PHONE_FACTOR_VERIFICATION_MESSAGE, 403);
 
@@ -241,6 +266,84 @@ const hasSessionTrustedDeviceState = (req = {}, deviceId = '') => {
     return sessionAmr.includes('webauthn') || sessionAmr.includes('trusted_device');
 };
 
+const shouldEnforceRuntimeRiskSessionStepUp = (req = {}) => (
+    String(req.authSession?.riskState || '').trim().toLowerCase() === LOGIN_RISK_STATE_HIGH
+    && getLoginRuntimeEnforcementPolicy().riskEngineEnforced
+);
+
+const resolveLoginRiskInputs = ({ req = {}, user = null } = {}) => {
+    const { deviceId } = extractTrustedDeviceContext(req);
+    const runtimeSignals = req.authRisk && typeof req.authRisk === 'object' ? req.authRisk : {};
+
+    return {
+        user,
+        deviceId,
+        recentFailureCount: parseNumericSignal(
+            runtimeSignals.recentFailureCount
+            ?? getHeaderValue(req, LOGIN_RISK_SIGNAL_HEADERS.recentFailureCount)
+        ),
+        ipReputation: String(
+            runtimeSignals.ipReputation
+            ?? getHeaderValue(req, LOGIN_RISK_SIGNAL_HEADERS.ipReputation)
+        ).trim(),
+        impossibleTravel: Boolean(
+            runtimeSignals.impossibleTravel
+            || parseBooleanSignal(getHeaderValue(req, LOGIN_RISK_SIGNAL_HEADERS.impossibleTravel))
+        ),
+        emailVerified: Boolean(user?.isVerified || req.authToken?.email_verified),
+        trustedDeviceRequired: shouldRequireTrustedDevice({ user }),
+    };
+};
+
+const evaluateRuntimeLoginRisk = ({ req = {}, user = null } = {}) => {
+    const policy = getLoginRuntimeEnforcementPolicy();
+    if (policy.riskEngineMode === 'off') {
+        return {
+            policy,
+            risk: null,
+            forceStepUp: false,
+            riskState: 'standard',
+            stepUpReason: '',
+        };
+    }
+
+    const risk = evaluateLoginRisk(resolveLoginRiskInputs({ req, user }));
+    const forceStepUp = Boolean(
+        policy.riskEngineEnforced
+        && risk.requireStepUp
+        && risk.level === RISK_LEVELS.HIGH
+    );
+    const stepUpReason = risk.block ? 'login_risk_block' : 'login_risk_high';
+
+    recordAuthSecurityEvent({
+        event: 'login_risk',
+        outcome: forceStepUp ? 'required' : 'success',
+        reason: forceStepUp ? 'required' : 'none',
+        surface: 'auth',
+        req,
+        level: forceStepUp ? 'warn' : 'info',
+        meta: {
+            mode: policy.riskEngineMode,
+            enforced: policy.riskEngineEnforced,
+            stepUpReason: forceStepUp ? stepUpReason : '',
+            score: risk.score,
+            riskLevel: risk.level,
+            requireStepUp: risk.requireStepUp,
+            blockRecommended: risk.block,
+            reasons: risk.reasons,
+            knownDevice: risk.knownDevice,
+        },
+    });
+
+    return {
+        policy,
+        risk,
+        forceStepUp,
+        riskState: forceStepUp ? LOGIN_RISK_STATE_HIGH : 'standard',
+        stepUpReason,
+    };
+};
+
 const persistBrowserSessionForUser = async ({
     req,
     res,
@@ -249,6 +352,7 @@ const persistBrowserSessionForUser = async ({
     deviceMethod = '',
     stepUpUntil = null,
     additionalAmr = [],
+    riskState = '',
 } = {}) => {
     if (!user?._id) {
         return null;
@@ -264,6 +368,7 @@ const persistBrowserSessionForUser = async ({
         deviceMethod,
         stepUpUntil,
         additionalAmr,
+        riskState,
         rotate,
     });
 
@@ -298,8 +403,11 @@ const resolveDeviceChallengeState = async ({
     authToken = null,
     authUid = '',
     user = null,
+    forceStepUp = false,
+    stepUpReason = 'trusted_device_required',
+    riskDecision = null,
 }) => {
-    if (!shouldRequireTrustedDevice({ user })) {
+    if (!forceStepUp && !shouldRequireTrustedDevice({ user })) {
         return { status: 'authenticated', deviceChallenge: null };
     }
 
@@ -308,10 +416,15 @@ const resolveDeviceChallengeState = async ({
         recordAuthSecurityEvent({
             event: 'step_up_required',
             outcome: 'blocked',
-            reason: 'trusted_device_missing',
+            reason: forceStepUp ? 'required' : 'trusted_device_missing',
             surface: 'trusted_device',
             req,
-            meta: { statusCode: 400 },
+            meta: {
+                statusCode: 400,
+                stepUpReason: forceStepUp ? stepUpReason : '',
+                riskScore: riskDecision?.score,
+                riskLevel: riskDecision?.level,
+            },
         });
         throw new AppError('Trusted device identity is required for this account. Refresh and try again.', 400);
     }
@@ -344,10 +457,17 @@ const resolveDeviceChallengeState = async ({
     recordAuthSecurityEvent({
         event: 'trusted_device_challenge',
         outcome: 'required',
-        reason: 'trusted_device_required',
+        reason: forceStepUp ? 'required' : 'trusted_device_required',
         surface: 'trusted_device',
         req,
-        meta: { mode: deviceChallenge?.mode || '', method: deviceChallenge?.method || '' },
+        meta: {
+            mode: deviceChallenge?.mode || '',
+            method: deviceChallenge?.method || '',
+            stepUpReason: forceStepUp ? stepUpReason : '',
+            riskScore: riskDecision?.score,
+            riskLevel: riskDecision?.level,
+            riskReasons: riskDecision?.reasons,
+        },
     });
 
     return {
@@ -391,6 +511,8 @@ const getSession = asyncHandler(async (req, res) => {
         authToken: req.authToken || null,
         authUid: req.authUid || '',
         user: resolved.user,
+        forceStepUp: shouldEnforceRuntimeRiskSessionStepUp(req),
+        stepUpReason: 'login_risk_high',
     });
 
     recordAuthSecurityEvent({
@@ -462,12 +584,17 @@ const syncSession = asyncHandler(async (req, res) => {
     await invalidateUserCache(req.authUid || '');
     await invalidateUserCacheByEmail(user?.email || authUser.email || '');
 
+    const loginRisk = evaluateRuntimeLoginRisk({ req, user });
+
     const { status, deviceChallenge } = await resolveDeviceChallengeState({
         req,
         authUser,
         authToken: req.authToken || null,
         authUid: req.authUid || '',
         user,
+        forceStepUp: loginRisk.forceStepUp,
+        stepUpReason: loginRisk.stepUpReason || 'login_risk_high',
+        riskDecision: loginRisk.risk,
     });
 
     await persistBrowserSessionForUser({
@@ -477,6 +604,7 @@ const syncSession = asyncHandler(async (req, res) => {
         rotate: Boolean(req.authSession?.sessionId),
         stepUpUntil: user?.loginOtpAssuranceExpiresAt || null,
         additionalAmr: String(user?.authAssurance || '').trim() === 'password+otp' ? ['otp'] : [],
+        riskState: loginRisk.riskState,
     });
 
     recordAuthSecurityEvent({
