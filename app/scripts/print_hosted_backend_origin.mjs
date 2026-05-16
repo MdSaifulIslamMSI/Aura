@@ -3,6 +3,6 @@ import {
     resolveHostedBackendOrigin,
 } from '../config/vercelRoutingContract.mjs';
 
-const origin = resolveHostedBackendOrigin();
+const origin = resolveHostedBackendOrigin(process.env, { allowCommittedFallback: true });
 assertDeployableHostedBackendOrigin(origin);
 process.stdout.write(origin);
