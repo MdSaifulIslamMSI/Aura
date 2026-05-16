@@ -94,9 +94,11 @@ jobs:
           DEPLOY_LOG="${DEPLOY_LOG}" node <<'EOF'
           const fs = require('fs');
           const log = fs.readFileSync(process.env.DEPLOY_LOG, 'utf8');
-          const preview = log.match(/Preview:\s+(https:\/\/\S+)/);
+          const preview = log.match(/Preview:\s+(https:\/\/\S+)/)
+            || log.match(/(https:\/\/[-A-Za-z0-9.]+\.vercel\.app)\b/);
           const inspect = log.match(/Inspect:\s+(https:\/\/\S+)/);
           if (!preview) {
+            process.stderr.write(log);
             throw new Error('Vercel CLI did not return a preview deployment URL.');
           }
           fs.appendFileSync(process.env.GITHUB_OUTPUT, `deploy_url=${preview[1]}\n`);
