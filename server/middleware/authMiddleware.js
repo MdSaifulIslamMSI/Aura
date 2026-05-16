@@ -17,12 +17,16 @@ const {
     extractTrustedDeviceContext,
     verifyTrustedDeviceSession,
 } = require('../services/trustedDeviceChallengeService');
+const browserSessionService = require('../services/browserSessionService');
 const {
     getBrowserSessionFromRequest,
     resolveSessionIdFromRequest,
     revokeBrowserSession,
     touchBrowserSession,
-} = require('../services/browserSessionService');
+} = browserSessionService;
+const getGlobalSessionRevokedAfter = typeof browserSessionService.getGlobalSessionRevokedAfter === 'function'
+    ? browserSessionService.getGlobalSessionRevokedAfter
+    : async () => 0;
 const { csrfTokenValidator } = require('./csrfMiddleware');
 const {
     flags: trustedDeviceFlags,
@@ -78,6 +82,7 @@ const AUTH_PROJECTION = {
     trustedDevices: 1,
     recoveryCodeState: 1,
     isAdmin: 1,
+    adminRoles: 1,
     isVerified: 1,
     authAssurance: 1,
     authAssuranceAt: 1,
@@ -715,6 +720,29 @@ const buildSyntheticAuthIdentityFromSession = (session = {}) => ({
     emailVerified: Boolean(session?.emailVerified),
 });
 
+const getTokenIssuedMs = (token = {}) => {
+    const candidates = [
+        Number(token?.auth_time || 0) * 1000,
+        Number(token?.iat || 0) * 1000,
+    ];
+    return candidates.find((value) => Number.isFinite(value) && value > 0) || 0;
+};
+
+const enforceGlobalSessionRevocationForToken = async (req = {}, token = {}) => {
+    const revokedAfterMs = await getGlobalSessionRevokedAfter();
+    if (!revokedAfterMs) return;
+    const issuedMs = getTokenIssuedMs(token);
+    if (issuedMs && issuedMs > revokedAfterMs) return;
+
+    logger.warn('auth.global_session_revocation_rejected_token', {
+        requestId: req.requestId || '',
+        uid: String(token?.uid || ''),
+        revokedAfter: new Date(revokedAfterMs).toISOString(),
+    });
+    recordLoginFailure(req, 'global_session_revoked');
+    throw new AppError('Not authorized, session revoked', 401);
+};
+
 const scheduleBrowserSessionTouch = (req, res, session) => {
     if (!session?.sessionId || req._browserSessionTouchScheduled || typeof res?.once !== 'function') {
         return;
@@ -851,6 +879,7 @@ const protect = asyncHandler(async (req, res, next) => {
 
             // ── Step 1: Verify Firebase token ──────────────────────
             const decodedToken = await firebaseAdmin.auth().verifyIdToken(token, true);
+            await enforceGlobalSessionRevocationForToken(req, decodedToken);
             const { uid, exp } = decodedToken;
             const resolvedIdentity = await resolveDecodedTokenIdentity(decodedToken);
             req.authUid = uid;
@@ -942,6 +971,7 @@ const protectPhoneFactorProof = asyncHandler(async (req, res, next) => {
     try {
         const token = req.headers.authorization.split(' ')[1];
         const decodedToken = await firebaseAdmin.auth().verifyIdToken(token, true);
+        await enforceGlobalSessionRevocationForToken(req, decodedToken);
         const verifiedPhone = normalizePhone(decodedToken?.phone_number || '');
 
         req.authUid = decodedToken?.uid || '';

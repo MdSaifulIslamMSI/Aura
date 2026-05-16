@@ -78,6 +78,7 @@ server/.cache/
 server/.mongodb-binaries/
 
 # Generated runtime/test artifacts
+output/
 server/test_output.txt
 **/test_output*.txt
 **/test-output*.log

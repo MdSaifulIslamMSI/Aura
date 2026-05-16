@@ -16,8 +16,8 @@ const {
     buildLegacyCartResponse: buildDedicatedLegacyCartResponse,
 } = require('../services/cartService');
 
-const PROFILE_PROJECTION = 'name email phone avatar gender dob bio isAdmin isVerified isSeller sellerActivatedAt accountState moderation addresses wishlist wishlistRevision wishlistSyncedAt loyalty createdAt';
-const AUTH_ONLY_PROJECTION = 'name email phone isAdmin isVerified isSeller sellerActivatedAt accountState moderation loyalty';
+const PROFILE_PROJECTION = 'name email phone avatar gender dob bio isAdmin adminRoles isVerified isSeller sellerActivatedAt accountState moderation addresses wishlist wishlistRevision wishlistSyncedAt loyalty createdAt';
+const AUTH_ONLY_PROJECTION = 'name email phone isAdmin adminRoles isVerified isSeller sellerActivatedAt accountState moderation loyalty';
 
 const PHONE_REGEX = /^\+?\d{10,15}$/;
 
@@ -516,6 +516,7 @@ const loginUser = asyncHandler(async (req, res, next) => {
         email: user.email,
         phone: user.phone,
         isAdmin: user.isAdmin,
+        adminRoles: Array.isArray(user.adminRoles) ? user.adminRoles : [],
         isVerified: user.isVerified,
         isSeller: Boolean(user.isSeller),
         sellerActivatedAt: user.sellerActivatedAt || null,
@@ -1067,6 +1068,7 @@ const activateSellerAccount = asyncHandler(async (req, res, next) => {
             email: user.email,
             phone: user.phone,
             isAdmin: Boolean(user.isAdmin),
+            adminRoles: Array.isArray(user.adminRoles) ? user.adminRoles : [],
             isVerified: Boolean(user.isVerified),
             isSeller: Boolean(user.isSeller),
             sellerActivatedAt: user.sellerActivatedAt || null,
@@ -1109,6 +1111,7 @@ const deactivateSellerAccount = asyncHandler(async (req, res, next) => {
                 email: user.email,
                 phone: user.phone,
                 isAdmin: Boolean(user.isAdmin),
+                adminRoles: Array.isArray(user.adminRoles) ? user.adminRoles : [],
                 isVerified: Boolean(user.isVerified),
                 isSeller: false,
                 sellerActivatedAt: null,
@@ -1147,6 +1150,7 @@ const deactivateSellerAccount = asyncHandler(async (req, res, next) => {
             email: user.email,
             phone: user.phone,
             isAdmin: Boolean(user.isAdmin),
+            adminRoles: Array.isArray(user.adminRoles) ? user.adminRoles : [],
             isVerified: Boolean(user.isVerified),
             isSeller: false,
             sellerActivatedAt: null,

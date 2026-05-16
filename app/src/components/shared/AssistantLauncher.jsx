@@ -1,5 +1,6 @@
 import { Brain, CornerDownLeft } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useEmergencyStatus } from '@/context/EmergencyStatusContext';
 import { pushClientDiagnostic } from '@/services/clientObservability';
 import {
     buildAssistantWorkspacePath,
@@ -11,11 +12,13 @@ import {
 const AssistantLauncher = () => {
     const location = useLocation();
     const navigate = useNavigate();
+    const { isFeatureDisabled } = useEmergencyStatus();
     const hasMobileStickyCommerceBar = location.pathname.startsWith('/product/');
 
     if (
         isAssistantWorkspacePath(location.pathname)
         || isAdminPath(location.pathname)
+        || isFeatureDisabled('ai')
         || !shouldShowAssistantLauncher({ pathname: location.pathname })
     ) {
         return null;

@@ -15,3 +15,4 @@ export * from './notificationApi';
 export * from './apiUtils';
 export * from './i18nApi';
 export * from './marketApi';
+export * from './emergencyApi';

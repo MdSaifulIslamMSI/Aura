@@ -47,6 +47,8 @@ const errorHandler = (err, req, res, next) => {
     // 2) Any explicitly set status code (4xx errors from controllers)
     if (err.isOperational || statusCode < 500) {
         return res.status(statusCode).json({
+            ...(err.code ? { success: false, code: err.code } : {}),
+            ...(err.feature ? { feature: err.feature } : {}),
             status: err.status || 'error',
             message: err.message,
             requestId: req.requestId || '',

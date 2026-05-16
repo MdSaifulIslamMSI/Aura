@@ -66,6 +66,22 @@ const createApiError = (message, status = 0, data = null, meta = {}) => {
     return error;
 };
 
+const EMERGENCY_RESPONSE_CODES = new Set([
+    'FEATURE_TEMPORARILY_DISABLED',
+    'MAINTENANCE_MODE',
+    'READ_ONLY_MODE',
+]);
+
+const emitEmergencyStatusRefresh = ({ status = 0, data = null, requestId = '' } = {}) => {
+    if (typeof window === 'undefined') return;
+    if (![423, 503].includes(Number(status))) return;
+    const code = data && typeof data === 'object' ? String(data.code || '') : '';
+    if (!EMERGENCY_RESPONSE_CODES.has(code)) return;
+    window.dispatchEvent(new CustomEvent('aura:emergency-status:refresh', {
+        detail: { status, code, requestId },
+    }));
+};
+
 const isRetryableStatus = (status) => status >= 500 || status === 429;
 
 const extractMessageFromData = (data, status, fallbackMessage = '') => {
@@ -142,6 +158,11 @@ export const createResponseError = async (response, fallbackMessage = 'Request f
         || meta.serverRequestId
         || meta.requestId
         || '';
+    emitEmergencyStatusRefresh({
+        status: response.status,
+        data,
+        requestId: serverRequestId,
+    });
 
     return createApiError(
         extractMessageFromData(data, response.status, fallbackMessage),
