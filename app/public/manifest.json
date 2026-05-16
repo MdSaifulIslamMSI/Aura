@@ -1,12 +1,69 @@
 {
-    "name": "Aura — Hybrid Marketplace",
+    "id": "/?source=pwa",
+    "name": "Aura - Hybrid Marketplace",
     "short_name": "Aura",
-    "description": "Premium e-commerce and peer-to-peer marketplace with trade-in, price alerts, and voice search",
-    "start_url": "/",
+    "description": "Premium e-commerce and peer-to-peer marketplace with trade-in, price alerts, and voice search.",
+    "start_url": "/?source=pwa",
+    "scope": "/",
     "display": "standalone",
+    "display_override": [
+        "window-controls-overlay",
+        "standalone",
+        "minimal-ui",
+        "browser"
+    ],
     "background_color": "#0a0a0a",
     "theme_color": "#06b6d4",
-    "orientation": "portrait-primary",
+    "orientation": "any",
+    "dir": "ltr",
+    "lang": "en",
+    "categories": [
+        "shopping",
+        "lifestyle",
+        "business",
+        "productivity"
+    ],
+    "shortcuts": [
+        {
+            "name": "Marketplace",
+            "short_name": "Market",
+            "description": "Open Aura Marketplace.",
+            "url": "/marketplace?source=pwa-shortcut",
+            "icons": [
+                {
+                    "src": "/assets/icon-192.png",
+                    "sizes": "192x192",
+                    "type": "image/png"
+                }
+            ]
+        },
+        {
+            "name": "Sell",
+            "short_name": "Sell",
+            "description": "Create a marketplace listing.",
+            "url": "/sell?source=pwa-shortcut",
+            "icons": [
+                {
+                    "src": "/assets/icon-192.png",
+                    "sizes": "192x192",
+                    "type": "image/png"
+                }
+            ]
+        },
+        {
+            "name": "Orders",
+            "short_name": "Orders",
+            "description": "Review Aura orders.",
+            "url": "/orders?source=pwa-shortcut",
+            "icons": [
+                {
+                    "src": "/assets/icon-192.png",
+                    "sizes": "192x192",
+                    "type": "image/png"
+                }
+            ]
+        }
+    ],
     "icons": [
         {
             "src": "/assets/icon-192.png",
@@ -21,10 +78,12 @@
             "purpose": "any maskable"
         }
     ],
-    "categories": [
-        "shopping",
-        "lifestyle"
-    ],
     "screenshots": [],
-    "prefer_related_applications": false
+    "prefer_related_applications": false,
+    "launch_handler": {
+        "client_mode": [
+            "navigate-existing",
+            "auto"
+        ]
+    }
 }
