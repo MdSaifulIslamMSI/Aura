@@ -549,7 +549,7 @@ jobs:
     needs:
       - production-approval
 
-    if: needs.production-approval.result == 'success'
+    if: always() && needs.production-approval.result == 'success'
 
     permissions:
       contents: read
