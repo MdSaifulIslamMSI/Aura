@@ -429,6 +429,11 @@ jobs:
               throw new Error(`Missing gateway download resolver asset: ${asset}`);
             }
           }
+          for (const label of ['Ubuntu/Debian deb', 'Fedora/RHEL RPM', 'iPadOS PWA', 'ChromeOS', 'Unix / BSD', 'HarmonyOS', 'FreeRTOS / RTOS family']) {
+            if (!html.includes(label)) {
+              throw new Error(`Missing gateway platform availability label: ${label}`);
+            }
+          }
           if (config.outputDirectory !== '.') {
             throw new Error('gateway/vercel.json must deploy the static gateway root as outputDirectory ".".');
           }
