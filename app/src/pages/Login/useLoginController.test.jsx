@@ -73,6 +73,28 @@ const MicrosoftSignInProbe = () => {
   );
 };
 
+const DesktopBrowserSignInProbe = () => {
+  const { authSuccess, canUseDesktopBrowserSignIn, handleDesktopBrowserSignIn } = useLoginController();
+  const [result, setResult] = React.useState('idle');
+  const startedRef = React.useRef(false);
+
+  React.useEffect(() => {
+    if (startedRef.current) return;
+    startedRef.current = true;
+    handleDesktopBrowserSignIn()
+      .then(() => setResult('completed'))
+      .catch((error) => setResult(error?.message || 'failed'));
+  }, [handleDesktopBrowserSignIn]);
+
+  return (
+    <>
+      <div data-testid="desktop-browser-supported">{String(canUseDesktopBrowserSignIn)}</div>
+      <div data-testid="desktop-browser-result">{result}</div>
+      <div data-testid="desktop-browser-success-title">{authSuccess?.title || 'none'}</div>
+    </>
+  );
+};
+
 const PhoneCountryProbe = () => {
   const {
     formData,
@@ -114,7 +136,10 @@ const buildAuthValue = (overrides = {}) => ({
   signInWithFacebook: vi.fn(),
   signInWithGitHub: vi.fn(),
   signInWithGoogle: vi.fn(),
+  signInWithMicrosoft: vi.fn(),
+  signInWithApple: vi.fn(),
   signInWithX: vi.fn(),
+  signInWithDesktopBrowser: vi.fn(),
   signup: vi.fn(),
   syncUserWithBackend: vi.fn(),
   ...overrides,
@@ -150,6 +175,7 @@ describe('useLoginController', () => {
       disabledByConfig: false,
       initErrorCode: '',
       initErrorMessage: '',
+      runtimeElectronDesktop: false,
     });
   });
 
@@ -395,6 +421,45 @@ describe('useLoginController', () => {
     });
 
     expect(signInWithGoogle).toHaveBeenCalled();
+  });
+
+  it('starts desktop browser sign-in only in the Electron runtime', async () => {
+    getFirebaseSocialAuthStatusMock.mockReturnValue({
+      ready: true,
+      supported: true,
+      runtimeHost: 'localhost',
+      runtimeBlocked: false,
+      redirectPreferred: false,
+      runtimeIpHost: false,
+      disabledByConfig: false,
+      initErrorCode: '',
+      initErrorMessage: '',
+      runtimeElectronDesktop: true,
+    });
+
+    const signInWithDesktopBrowser = vi.fn().mockResolvedValue({
+      dbUser: { email: 'desktop@example.com' },
+    });
+
+    render(
+      <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+        <AuthContext.Provider value={buildAuthValue({ signInWithDesktopBrowser })}>
+          <MemoryRouter initialEntries={['/login']}>
+            <Routes>
+              <Route path="/login" element={<DesktopBrowserSignInProbe />} />
+              <Route path="/" element={<div>Home Screen</div>} />
+            </Routes>
+          </MemoryRouter>
+        </AuthContext.Provider>
+      </MarketProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('desktop-browser-supported')).toHaveTextContent('true');
+      expect(screen.getByTestId('desktop-browser-result')).toHaveTextContent('completed');
+    });
+
+    expect(signInWithDesktopBrowser).toHaveBeenCalledWith({ returnTo: '/' });
   });
 
   it('summarizes only enabled expanded social providers', () => {

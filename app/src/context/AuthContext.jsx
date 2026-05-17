@@ -11,6 +11,7 @@ import {
   OAuthProvider,
   signInWithEmailAndPassword,
   signInWithCredential,
+  signInWithCustomToken,
   signInWithRedirect,
   signOut,
   onAuthStateChanged,
@@ -73,6 +74,7 @@ export const useAuth = () => {
 
 const AUTH_SYNC_DEDUPE_MS = 5 * 1000;  // Reduced from 30s for faster security updates
 const BOOTSTRAP_TIMEOUT_MS = 6000;
+const DESKTOP_BROWSER_SIGN_IN_TIMEOUT_MS = 5 * 60 * 1000;
 const REDIRECT_AUTH_PENDING_KEY = 'aura-social-auth-redirect-pending';
 const REDIRECT_AUTH_PENDING_TTL_MS = 5 * 60 * 1000;
 const OAUTH_CREDENTIAL_EXTRACTORS = [
@@ -680,6 +682,90 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const getDesktopBridge = () => (
+    typeof window !== 'undefined' && window.auraDesktop?.isDesktop
+      ? window.auraDesktop
+      : null
+  );
+
+  const waitForDesktopBrowserCustomToken = async (desktop, request) => new Promise((resolve, reject) => {
+    let settled = false;
+    const cleanupHandlers = [];
+
+    const settle = (callback, value) => {
+      if (settled) return;
+      settled = true;
+      cleanupHandlers.splice(0).forEach((cleanup) => cleanup?.());
+      callback(value);
+    };
+
+    const timeout = window.setTimeout(() => {
+      settle(reject, new Error('Desktop browser sign-in expired. Start a fresh sign-in and try again.'));
+    }, Math.max(
+      1000,
+      Math.min(
+        DESKTOP_BROWSER_SIGN_IN_TIMEOUT_MS,
+        Number(request?.expiresAt || 0) - Date.now() + 5000
+      )
+    ));
+    cleanupHandlers.push(() => window.clearTimeout(timeout));
+
+    const unsubscribe = desktop.onBrowserSignInStatus(async (payload = {}) => {
+      if (payload.type !== 'completed' || payload.requestId !== request.requestId) {
+        return;
+      }
+
+      try {
+        const result = await desktop.consumeBrowserSignIn(request.requestId);
+        if (!result?.success || !result?.customToken) {
+          throw new Error(result?.message || 'Desktop browser sign-in did not return a usable token.');
+        }
+        settle(resolve, result.customToken);
+      } catch (error) {
+        settle(reject, error);
+      }
+    });
+    cleanupHandlers.push(unsubscribe);
+  });
+
+  const signInWithDesktopBrowser = async ({ returnTo = '/' } = {}) => {
+    assertFirebaseReady('Desktop browser sign-in');
+    const desktop = getDesktopBridge();
+
+    if (
+      !desktop
+      || typeof desktop.startBrowserSignIn !== 'function'
+      || typeof desktop.consumeBrowserSignIn !== 'function'
+      || typeof desktop.onBrowserSignInStatus !== 'function'
+    ) {
+      const error = new Error('Desktop browser sign-in is only available in the Aura desktop app.');
+      error.code = 'auth/desktop-browser-sign-in-unavailable';
+      throw error;
+    }
+
+    let request = null;
+    try {
+      return await completeControlledAuthFlow({
+        execute: async () => {
+          request = await desktop.startBrowserSignIn({
+            path: '/login',
+            returnTo,
+          });
+          const customToken = await waitForDesktopBrowserCustomToken(desktop, request);
+          return signInWithCustomToken(auth, customToken);
+        },
+        finalize: async (_result, firebaseUser) => resolveOAuthUser(firebaseUser, {
+          isNewUser: false,
+        }),
+      });
+    } catch (error) {
+      if (request?.requestId && typeof desktop.cancelBrowserSignIn === 'function') {
+        await desktop.cancelBrowserSignIn(request.requestId).catch(() => {});
+      }
+      throw error;
+    }
+  };
+
   const signup = async (email, password, name, phone) => {
     assertFirebaseReady('Sign up');
     return completeControlledAuthFlow({
@@ -1117,6 +1203,7 @@ export const AuthProvider = ({ children }) => {
     signInWithMicrosoft,
     signInWithApple,
     signInWithX,
+    signInWithDesktopBrowser,
     linkMicrosoftProvider,
     linkAppleProvider,
     logout,

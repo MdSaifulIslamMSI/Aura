@@ -1,3 +1,5 @@
+const fs = require('fs');
+const path = require('path');
 const admin = require('firebase-admin');
 require('colors');
 const logger = require('../utils/logger');
@@ -46,6 +48,40 @@ const tryBuildCredentialFromServiceAccount = () => {
     }
 };
 
+const readCredentialFileEnv = () => {
+    for (const name of ['FIREBASE_SERVICE_ACCOUNT_FILE', 'GOOGLE_APPLICATION_CREDENTIALS']) {
+        const value = readEnv(name);
+        if (value) {
+            return { name, value };
+        }
+    }
+    return { name: '', value: '' };
+};
+
+const resolveCredentialFilePath = (value) => (
+    path.isAbsolute(value)
+        ? value
+        : path.resolve(process.cwd(), value)
+);
+
+const tryBuildCredentialFromServiceAccountFile = () => {
+    const { name, value } = readCredentialFileEnv();
+    if (!value) return { credential: null, projectId: '', source: '' };
+
+    const credentialPath = resolveCredentialFilePath(value);
+    try {
+        const serviceAccount = JSON.parse(fs.readFileSync(credentialPath, 'utf8'));
+        return {
+            credential: admin.credential.cert(serviceAccount),
+            projectId: String(serviceAccount.project_id || '').trim(),
+            source: name,
+        };
+    } catch (error) {
+        logger.error('firebase.sa_file_load_failed', { source: name, error: error.message });
+        throw new Error(`Failed to load Firebase service account file from ${name}`);
+    }
+};
+
 const tryBuildCredentialFromDiscreteFields = (projectId) => {
     const clientEmail = readEnv('FIREBASE_CLIENT_EMAIL');
     const privateKey = readEnv('FIREBASE_PRIVATE_KEY');
@@ -75,9 +111,16 @@ try {
         credentialSource = serviceAccountResult.source;
         projectId = serviceAccountResult.projectId || projectId;
     } else {
-        const discreteFieldsResult = tryBuildCredentialFromDiscreteFields(projectId);
-        credential = discreteFieldsResult.credential;
-        credentialSource = discreteFieldsResult.source;
+        const serviceAccountFileResult = tryBuildCredentialFromServiceAccountFile();
+        if (serviceAccountFileResult.credential) {
+            credential = serviceAccountFileResult.credential;
+            credentialSource = serviceAccountFileResult.source;
+            projectId = serviceAccountFileResult.projectId || projectId;
+        } else {
+            const discreteFieldsResult = tryBuildCredentialFromDiscreteFields(projectId);
+            credential = discreteFieldsResult.credential;
+            credentialSource = discreteFieldsResult.source;
+        }
     }
 
     if (!projectId) {

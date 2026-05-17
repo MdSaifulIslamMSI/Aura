@@ -1,4 +1,5 @@
 const asyncHandler = require('express-async-handler');
+const firebaseAdmin = require('../config/firebase');
 const User = require('../models/User');
 const {
     buildSessionPayload,
@@ -65,6 +66,7 @@ const GENERIC_PHONE_FACTOR_VERIFICATION_MESSAGE = 'If account details are valid,
 const RECOVERY_CODE_VERIFICATION_MIN_MS = process.env.NODE_ENV === 'test' ? 0 : 350;
 const LOGIN_RISK_STATE_HIGH = 'login_risk_high';
 const DUO_STEP_UP_ACTION_SET = new Set(Object.values(DUO_STEP_UP_ACTIONS));
+const DESKTOP_HANDOFF_REQUEST_ID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const normalizeEmail = (value) => (
     typeof value === 'string' ? value.trim().toLowerCase() : ''
@@ -913,6 +915,48 @@ const syncSession = asyncHandler(async (req, res) => {
     }));
 });
 
+const issueDesktopHandoffToken = asyncHandler(async (req, res) => {
+    const requestId = typeof req.body?.requestId === 'string'
+        ? req.body.requestId.trim()
+        : '';
+
+    if (!DESKTOP_HANDOFF_REQUEST_ID_REGEX.test(requestId)) {
+        throw new AppError('Desktop sign-in request is invalid.', 400);
+    }
+
+    const authUid = req.authUid || req.authToken?.uid || '';
+    if (!authUid) {
+        throw new AppError('Desktop sign-in requires an authenticated Firebase user.', 401);
+    }
+
+    let customToken = '';
+    try {
+        customToken = await firebaseAdmin.auth().createCustomToken(authUid, {
+            desktop_handoff: true,
+            desktop_request_id: requestId,
+        });
+    } catch (error) {
+        const wrapped = new AppError('Desktop browser sign-in is not available on this backend.', 503);
+        wrapped.code = 'DESKTOP_HANDOFF_UNAVAILABLE';
+        throw wrapped;
+    }
+
+    recordAuthSecurityEvent({
+        event: 'desktop_handoff_token',
+        outcome: 'issued',
+        reason: 'none',
+        surface: 'auth',
+        req,
+        meta: { requestId },
+    });
+
+    res.json({
+        success: true,
+        customToken,
+        expiresInSeconds: 60 * 60,
+    });
+});
+
 const completePhoneFactorLogin = asyncHandler(async (req, res) => {
     const authUser = buildRequestAuthUser(req);
     const tokenEmail = normalizeEmail(req.authToken?.email || authUser.email);
@@ -1430,6 +1474,7 @@ module.exports = {
     establishSessionCookie,
     generateBackupRecoveryCodes,
     getSession,
+    issueDesktopHandoffToken,
     requestBootstrapDeviceChallenge,
     startDuoStepUp,
     startDuoLogin,

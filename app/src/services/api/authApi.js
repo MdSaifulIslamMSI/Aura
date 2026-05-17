@@ -237,6 +237,14 @@ export const authApi = {
         return { redirecting: true, url };
     },
     exchangeSession: async (options = {}) => exchangeSessionWithFirebase(options.firebaseUser, options),
+    createDesktopHandoffToken: async ({ requestId = '', firebaseUser = null } = {}) => {
+        return postWithFirebaseBearer('/auth/desktop-handoff/custom-token', {
+            requestId,
+        }, {
+            firebaseUser,
+            forceRefreshAuth: true,
+        });
+    },
     getSession: async (options = {}) => {
         const execute = async () => {
             const headers = await getAuthHeader(options.firebaseUser);

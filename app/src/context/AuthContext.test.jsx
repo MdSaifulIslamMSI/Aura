@@ -17,6 +17,7 @@ const loadAuthContext = async () => {
     linkWithCredentialMock: vi.fn(),
     linkWithRedirectMock: vi.fn().mockResolvedValue(undefined),
     signInWithEmailAndPasswordMock: vi.fn(),
+    signInWithCustomTokenMock: vi.fn(),
     signInWithRedirectMock: vi.fn().mockResolvedValue(undefined),
     signInWithPopupMock: vi.fn(),
     shouldUseNativeSocialAuthMock: vi.fn().mockReturnValue(false),
@@ -28,6 +29,7 @@ const loadAuthContext = async () => {
     clearTrustedDeviceSessionTokenMock: vi.fn(),
     authApiMock: {
       exchangeSession: vi.fn(),
+      createDesktopHandoffToken: vi.fn(),
       getSession: vi.fn(),
       generateRecoveryCodes: vi.fn(),
       logoutSession: vi.fn(),
@@ -57,6 +59,7 @@ const loadAuthContext = async () => {
     OAuthProvider: { credentialFromError: vi.fn((error) => error?.oauthCredential || null) },
     signInWithEmailAndPassword: mocks.signInWithEmailAndPasswordMock,
     signInWithCredential: vi.fn(),
+    signInWithCustomToken: mocks.signInWithCustomTokenMock,
     signInWithRedirect: mocks.signInWithRedirectMock,
     signOut: mocks.signOutMock,
     onAuthStateChanged: mocks.onAuthStateChangedMock,

@@ -11,6 +11,7 @@ const {
     completeDuoLogin,
     verifyBackupRecoveryCode,
     verifyDeviceChallenge,
+    issueDesktopHandoffToken,
     startDuoLogin,
     startDuoStepUp,
 } = require('../controllers/authController');
@@ -118,9 +119,24 @@ const duoOidcLimiter = createDistributedRateLimit({
     keyGenerator: (req) => req.ip,
 });
 
+const desktopHandoffLimiter = createDistributedRateLimit({
+    securityCritical: true,
+    allowInMemoryFallback: process.env.NODE_ENV !== 'production',
+    name: 'auth_desktop_handoff',
+    windowMs: 5 * 60 * 1000,
+    max: process.env.NODE_ENV === 'development' ? 300 : 30,
+    message: 'Too many desktop sign-in handoff requests, please try again after 5 minutes',
+    keyGenerator: (req) => {
+        if (req.authUid) return `uid:${req.authUid}`;
+        if (req.user?.email) return `email:${String(req.user.email).trim().toLowerCase()}`;
+        return req.ip;
+    },
+});
+
 router.get('/duo/start', duoOidcLimiter, startDuoLogin);
 router.get('/duo/step-up', protect, establishSessionCookie, duoOidcLimiter, startDuoStepUp);
 router.get('/duo/callback', duoOidcLimiter, completeDuoLogin);
+router.post('/desktop-handoff/custom-token', protect, desktopHandoffLimiter, issueDesktopHandoffToken);
 router.post('/exchange', protect, establishSessionCookie, csrfTokenGenerator, getSession);
 router.get('/session', protect, establishSessionCookie, csrfTokenGenerator, getSession);
 router.post('/sync', protect, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, authSyncLimiter, validate(loginSchema), syncSession);

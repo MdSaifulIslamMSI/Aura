@@ -7,6 +7,7 @@ const test = require('node:test');
 
 const {
     buildProxyOptions,
+    createDesktopAuthBroker,
     DEFAULT_BACKEND_ORIGIN,
     DEFAULT_RUNTIME_PORT,
     resolveBackendOrigin,
@@ -86,4 +87,44 @@ test('desktop runtime has a stable default port but falls back if it is busy', a
         await new Promise((resolve) => blocker.close(resolve));
         fs.rmSync(distDir, { force: true, recursive: true });
     }
+});
+
+test('desktop auth broker completes and consumes a handoff exactly once', () => {
+    let completedRequestId = '';
+    const broker = createDesktopAuthBroker({
+        onComplete: ({ requestId }) => {
+            completedRequestId = requestId;
+        },
+    });
+
+    const request = broker.createRequest({
+        runtimeUrl: 'http://localhost:47831',
+        returnTo: '/checkout?step=payment',
+    });
+
+    assert.match(request.url, /^http:\/\/localhost:47831\/login\?/);
+    assert.match(request.url, /desktopAuthRequest=/);
+    assert.match(request.url, /desktopAuthSecret=/);
+    assert.match(request.url, /desktopAuthReturnTo=%2Fcheckout%3Fstep%3Dpayment/);
+
+    assert.throws(() => {
+        broker.completeRequest({
+            requestId: request.requestId,
+            secret: 'wrong-secret',
+            customToken: 'custom-token',
+        });
+    }, /could not be verified/);
+
+    broker.completeRequest({
+        requestId: request.requestId,
+        secret: new URL(request.url).searchParams.get('desktopAuthSecret'),
+        customToken: 'custom-token',
+    });
+
+    assert.equal(completedRequestId, request.requestId);
+    const consumed = broker.consumeResult(request.requestId);
+    assert.equal(consumed.requestId, request.requestId);
+    assert.equal(consumed.customToken, 'custom-token');
+    assert.equal(typeof consumed.completedAt, 'number');
+    assert.equal(broker.consumeResult(request.requestId), null);
 });

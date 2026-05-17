@@ -134,6 +134,42 @@ describe('authApi', () => {
     });
   });
 
+  it('creates a desktop handoff token with a fresh Firebase bearer proof', async () => {
+    const firebaseUser = {
+      getIdToken: vi.fn().mockResolvedValue('fresh-token'),
+    };
+
+    mocks.getAuthHeaderMock.mockResolvedValueOnce({ Authorization: 'Bearer fresh-token' });
+
+    global.fetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({
+        success: true,
+        customToken: 'desktop-custom-token',
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+
+    await expect(authApi.createDesktopHandoffToken({
+      firebaseUser,
+      requestId: '123e4567-e89b-12d3-a456-426614174000',
+    })).resolves.toEqual({
+      success: true,
+      customToken: 'desktop-custom-token',
+    });
+
+    expect(mocks.getAuthHeaderMock).toHaveBeenCalledWith(firebaseUser, {
+      useFirebaseBearer: true,
+      forceRefresh: true,
+    });
+    const [url, requestOptions] = global.fetch.mock.calls[0];
+    expect(url).toContain('/auth/desktop-handoff/custom-token');
+    expect(JSON.parse(requestOptions.body)).toEqual({
+      requestId: '123e4567-e89b-12d3-a456-426614174000',
+    });
+  });
+
   it('generates backup recovery codes through a fresh CSRF-protected session write', async () => {
     const csrfToken = 'b'.repeat(64);
     mocks.getAuthHeaderMock.mockResolvedValueOnce({ 'X-Session-Mode': 'cookie' });

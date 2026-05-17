@@ -46,6 +46,53 @@ ipcMain.handle('desktop:app-info', () => ({
     version: app.getVersion(),
 }));
 
+ipcMain.handle('desktop:auth:start-browser-sign-in', async (_event, options = {}) => {
+    if (!runtime?.createDesktopAuthRequest) {
+        throw new Error('Desktop auth runtime is not ready yet.');
+    }
+
+    const request = runtime.createDesktopAuthRequest({
+        path: options?.path || '/login',
+        returnTo: options?.returnTo || '/',
+    });
+    await shell.openExternal(request.url);
+    return {
+        requestId: request.requestId,
+        expiresAt: request.expiresAt,
+    };
+});
+
+ipcMain.handle('desktop:auth:consume-browser-sign-in', (_event, requestId = '') => {
+    if (!runtime?.consumeDesktopAuthResult) {
+        throw new Error('Desktop auth runtime is not ready yet.');
+    }
+
+    const result = runtime.consumeDesktopAuthResult(requestId);
+    if (!result?.customToken) {
+        return {
+            success: false,
+            message: 'Desktop browser sign-in is not ready or has expired.',
+        };
+    }
+
+    return {
+        success: true,
+        requestId: result.requestId,
+        customToken: result.customToken,
+        completedAt: result.completedAt,
+    };
+});
+
+ipcMain.handle('desktop:auth:cancel-browser-sign-in', (_event, requestId = '') => {
+    if (!runtime?.cancelDesktopAuthRequest) {
+        return { success: false };
+    }
+
+    return {
+        success: runtime.cancelDesktopAuthRequest(requestId),
+    };
+});
+
 const resolveAssetPath = (...segments) => {
     if (app.isPackaged) {
         return path.join(process.resourcesPath, ...segments);
@@ -242,6 +289,17 @@ const sendDesktopUpdateStatus = (type, payload = {}) => {
     });
 };
 
+const sendDesktopAuthStatus = (type, payload = {}) => {
+    if (!mainWindow || mainWindow.isDestroyed()) {
+        return;
+    }
+
+    mainWindow.webContents.send('desktop:auth:status', {
+        type,
+        ...payload,
+    });
+};
+
 const buildUpdateErrorMessage = (error) => {
     const rawMessage = String(error?.message || error || 'Update check failed.').trim();
 
@@ -254,7 +312,10 @@ const buildUpdateErrorMessage = (error) => {
 
 const createMainWindow = async () => {
     if (!runtime) {
-        const runtimeOptions = { distDir: resolveDistDir() };
+        const runtimeOptions = {
+            distDir: resolveDistDir(),
+            onDesktopAuthComplete: (payload) => sendDesktopAuthStatus('completed', payload),
+        };
         const requestedPort = resolveRequestedRuntimePort();
         if (requestedPort) {
             runtimeOptions.port = requestedPort;

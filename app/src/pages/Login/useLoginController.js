@@ -52,6 +52,24 @@ const formatProviderList = (providers = []) => {
   return `${safeProviders.slice(0, -1).join(', ')}, and ${safeProviders.at(-1)}`;
 };
 
+const DESKTOP_AUTH_REQUEST_PARAM = 'desktopAuthRequest';
+const DESKTOP_AUTH_SECRET_PARAM = 'desktopAuthSecret';
+const DESKTOP_AUTH_RETURN_TO_PARAM = 'desktopAuthReturnTo';
+
+const resolveDesktopBrowserHandoff = (search = '') => {
+  const params = new URLSearchParams(search || '');
+  const requestId = String(params.get(DESKTOP_AUTH_REQUEST_PARAM) || '').trim();
+  const secret = String(params.get(DESKTOP_AUTH_SECRET_PARAM) || '').trim();
+  const returnTo = resolveNavigationTarget(params.get(DESKTOP_AUTH_RETURN_TO_PARAM), '/');
+
+  return {
+    active: Boolean(requestId && secret),
+    requestId,
+    secret,
+    returnTo,
+  };
+};
+
 const normalizeSocialAuthError = (error, providerLabel = 'Social', socialAuthStatus = null) => {
   const errorCode = String(error?.code || '').trim();
   const errorMessage = String(error?.message || '').trim();
@@ -139,6 +157,7 @@ export const useLoginController = () => {
     signInWithMicrosoft,
     signInWithApple,
     signInWithX,
+    signInWithDesktopBrowser,
   } = useContext(AuthContext);
 
   const [mode, setMode] = useState(launchMode);
@@ -171,13 +190,22 @@ export const useLoginController = () => {
   const firebasePhoneChallengeRef = useRef(null);
   const authAccelerationHydratedRef = useRef(false);
   const initialResolvedAuthRedirectCheckedRef = useRef(false);
+  const desktopBrowserHandoffCompletedRef = useRef('');
 
   const from = useMemo(
     () => resolveNavigationTarget(location.state?.from, '/'),
     [location.state?.from]
   );
+  const desktopBrowserHandoff = useMemo(
+    () => resolveDesktopBrowserHandoff(location.search),
+    [location.search]
+  );
   const hasLaunchDirective = Boolean(location.state?.authMode || launchPrefill.email || launchPrefill.phone);
   const socialAuthStatus = getFirebaseSocialAuthStatus();
+  const canUseDesktopBrowserSignIn = Boolean(
+    socialAuthStatus.runtimeElectronDesktop
+    && typeof signInWithDesktopBrowser === 'function'
+  );
   const canUseMobileFirebasePhoneOtp = !socialAuthStatus.runtimeCapacitorMobile
     || socialAuthStatus.mobileFirebasePhoneOtpEnabled;
   const canUseFirebasePhoneOtp = step !== 'reset-password'
@@ -287,6 +315,9 @@ export const useLoginController = () => {
 
   const finishAuthAndNavigate = (successState) => {
     setAuthSuccess(successState);
+    if (desktopBrowserHandoff.active) {
+      return;
+    }
     setTimeout(() => navigate(from, { replace: true }), 1200);
   };
 
@@ -303,9 +334,98 @@ export const useLoginController = () => {
     initialResolvedAuthRedirectCheckedRef.current = true;
 
     if (isAuthenticated) {
+      if (desktopBrowserHandoff.active) {
+        return;
+      }
       navigate(from, { replace: true });
     }
-  }, [from, isAuthenticated, loading, navigate]);
+  }, [desktopBrowserHandoff.active, from, isAuthenticated, loading, navigate]);
+
+  useEffect(() => {
+    if (!desktopBrowserHandoff.active || loading || !isAuthenticated || !currentUser?.getIdToken) {
+      return;
+    }
+
+    const handoffKey = `${desktopBrowserHandoff.requestId}:${desktopBrowserHandoff.secret}`;
+    if (desktopBrowserHandoffCompletedRef.current === handoffKey) {
+      return;
+    }
+
+    desktopBrowserHandoffCompletedRef.current = handoffKey;
+    let cancelled = false;
+
+    const completeDesktopBrowserHandoff = async () => {
+      setIsLoading(true);
+      setAuthError(null);
+      setAuthSuccess({
+        title: t('login.desktopBrowser.completingTitle', {}, 'Finishing Desktop Sign-In'),
+        detail: t('login.desktopBrowser.completingDetail', {}, 'Aura is securely returning this browser sign-in to the desktop app.'),
+      });
+
+      try {
+        const tokenPayload = await authApi.createDesktopHandoffToken({
+          firebaseUser: currentUser,
+          requestId: desktopBrowserHandoff.requestId,
+        });
+        const customToken = String(tokenPayload?.customToken || '').trim();
+        if (!customToken) {
+          throw new Error('Desktop sign-in token was not returned by the server.');
+        }
+
+        const response = await fetch('/desktop-auth/complete', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            requestId: desktopBrowserHandoff.requestId,
+            secret: desktopBrowserHandoff.secret,
+            customToken,
+          }),
+        });
+
+        if (!response.ok) {
+          let message = 'Desktop sign-in could not be completed.';
+          try {
+            const payload = await response.json();
+            message = payload?.message || message;
+          } catch {
+            // Keep the generic message.
+          }
+          throw new Error(message);
+        }
+
+        if (cancelled) return;
+        setAuthSuccess({
+          title: t('login.desktopBrowser.completeTitle', {}, 'Desktop Sign-In Complete'),
+          detail: t('login.desktopBrowser.completeDetail', {}, 'Return to Aura Marketplace Desktop. You can close this browser tab.'),
+        });
+      } catch (error) {
+        desktopBrowserHandoffCompletedRef.current = '';
+        if (!cancelled) {
+          setErr(error);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    completeDesktopBrowserHandoff();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    currentUser,
+    desktopBrowserHandoff.active,
+    desktopBrowserHandoff.requestId,
+    desktopBrowserHandoff.secret,
+    isAuthenticated,
+    loading,
+    t,
+  ]);
 
   useEffect(() => {
     const inferredCountryCode = resolvePhoneCountryCode(formData.phone, phoneCountryCode || marketCountryCode);
@@ -1360,6 +1480,9 @@ export const useLoginController = () => {
       if (result?.redirecting) {
         return;
       }
+      if (desktopBrowserHandoff.active) {
+        return;
+      }
       if (result?.dbUser) {
         finishAuthAndNavigate(AUTH_SUCCESS.signin_success);
       } else {
@@ -1368,6 +1491,33 @@ export const useLoginController = () => {
     } catch (error) {
       console.error(`${providerLabel} sign-in failed`, error);
       setErr(normalizeSocialAuthError(error, providerLabel, socialAuthStatus));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDesktopBrowserSignIn = async () => {
+    if (!canUseDesktopBrowserSignIn) {
+      setErr({ message: t('login.desktopBrowser.unavailable', {}, 'Desktop browser sign-in is available only in the Aura desktop app.') });
+      return;
+    }
+
+    setIsLoading(true);
+    setAuthError(null);
+    setAuthSuccess({
+      title: t('login.desktopBrowser.startedTitle', {}, 'Continue in Your Browser'),
+      detail: t('login.desktopBrowser.startedDetail', {}, 'Finish sign-in in the browser window that just opened. Aura Desktop will continue automatically.'),
+    });
+
+    try {
+      const result = await signInWithDesktopBrowser({ returnTo: from });
+      if (result?.dbUser) {
+        finishAuthAndNavigate(AUTH_SUCCESS.signin_success);
+      } else {
+        navigate(from, { replace: true });
+      }
+    } catch (error) {
+      setErr(normalizeSocialAuthError(error, 'desktop browser', socialAuthStatus));
     } finally {
       setIsLoading(false);
     }
@@ -1422,7 +1572,9 @@ export const useLoginController = () => {
     authError,
     authSuccess,
     canUseFirebasePhoneOtp,
+    canUseDesktopBrowserSignIn,
     countdown,
+    desktopBrowserHandoff,
     firebasePhoneFallback,
     formData,
     goBack,
@@ -1435,6 +1587,7 @@ export const useLoginController = () => {
     handleOtpPaste,
     handleResendOtp,
     handleDuoSignIn,
+    handleDesktopBrowserSignIn,
     handleSocialSignIn,
     handleSubmit,
     info,

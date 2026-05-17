@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Apple as AppleIcon, ArrowLeft, ChevronDown, Eye, EyeOff, Github, Loader2, Lock, Mail, Network, Phone, Shield, User, Zap } from 'lucide-react';
+import { Apple as AppleIcon, ArrowLeft, ChevronDown, ExternalLink, Eye, EyeOff, Github, Loader2, Lock, Mail, Network, Phone, Shield, User, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import AuthAccelerationRail from '@/components/features/auth/AuthAccelerationRail';
 import TurnstileChallenge from '@/components/features/auth/TurnstileChallenge';
@@ -10,6 +10,7 @@ const LoginView = ({
   accelerationCards,
   authError,
   authSuccess,
+  canUseDesktopBrowserSignIn,
   canUseFirebasePhoneOtp,
   countdown,
   firebasePhoneFallback,
@@ -24,6 +25,7 @@ const LoginView = ({
   handleOtpPaste,
   handleResendOtp,
   handleDuoSignIn,
+  handleDesktopBrowserSignIn,
   handleSocialSignIn,
   handleSubmit,
   handleTurnstileError,
@@ -476,6 +478,17 @@ const LoginView = ({
                   <span className="text-[10px] uppercase tracking-[0.3em] font-bold text-slate-500">{t('login.or', {}, 'or')}</span>
                   <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
                 </div>
+                {canUseDesktopBrowserSignIn && (
+                  <button
+                    type="button"
+                    onClick={handleDesktopBrowserSignIn}
+                    disabled={isLoading || emergencyAuthDisabled}
+                    className="mb-3 w-full py-3 rounded-2xl border border-neo-cyan/25 bg-neo-cyan/10 hover:bg-neo-cyan/15 text-white font-bold text-xs tracking-[0.08em] uppercase transition-all duration-300 flex items-center justify-center gap-2 hover:border-neo-cyan/45"
+                  >
+                    <ExternalLink className="h-4 w-4 text-neo-cyan" aria-hidden="true" />
+                    {t('login.desktopBrowser.button', {}, 'Continue in Browser')}
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={handleDuoSignIn}

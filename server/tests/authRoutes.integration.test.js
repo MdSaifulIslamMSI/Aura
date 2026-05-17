@@ -31,6 +31,13 @@ describe('Auth API surface', () => {
         expect(res.statusCode).toBe(401);
     });
 
+    test('POST /api/auth/desktop-handoff/custom-token should fail without token', async () => {
+        const res = await request(app)
+            .post('/api/auth/desktop-handoff/custom-token')
+            .send({ requestId: '123e4567-e89b-12d3-a456-426614174000' });
+        expect(res.statusCode).toBe(401);
+    });
+
     test('POST /api/auth/otp/send should expose OTP validation under auth aliases', async () => {
         const res = await request(app)
             .post('/api/auth/otp/send')
