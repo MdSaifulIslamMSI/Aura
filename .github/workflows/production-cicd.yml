@@ -502,21 +502,13 @@ jobs:
       always() &&
       needs.ci.result == 'success' &&
       needs.security-gates.result == 'success' &&
-      (needs.validate-manual-dispatch.result == 'success' || needs.validate-manual-dispatch.result == 'skipped') &&
       (
         (
-          github.event_name == 'push' &&
-          (
-            needs.changes.outputs.backend == 'true' ||
-            needs.changes.outputs.frontend_netlify == 'true' ||
-            needs.changes.outputs.frontend_aws == 'true' ||
-            needs.changes.outputs.gateway == 'true' ||
-            needs.changes.outputs.desktop == 'true' ||
-            needs.changes.outputs.mobile == 'true'
-          )
+          github.event_name == 'push'
         ) ||
         (
           github.event_name == 'workflow_dispatch' &&
+          needs.validate-manual-dispatch.result == 'success' &&
           (
             inputs.deploy_backend == true ||
             inputs.deploy_frontend_netlify == true ||
@@ -596,9 +588,7 @@ jobs:
       needs.production-approval.result == 'success' &&
       (
         (
-          github.event_name == 'push' &&
-          needs.changes.outputs.backend == 'true' &&
-          needs.production-deploy-config.outputs.backend_ready == 'true'
+          github.event_name == 'push'
         ) ||
         (
           github.event_name == 'workflow_dispatch' &&
@@ -632,12 +622,7 @@ jobs:
       needs.production-approval.result == 'success' &&
       (
         (
-          github.event_name == 'push' &&
-          (
-            needs.changes.outputs.frontend_netlify == 'true' ||
-            needs.changes.outputs.frontend_aws == 'true'
-          ) &&
-          needs.production-deploy-config.outputs.frontend_netlify_ready == 'true'
+          github.event_name == 'push'
         ) ||
         (
           github.event_name == 'workflow_dispatch' &&
@@ -672,6 +657,9 @@ jobs:
       needs.production-approval.result == 'success' &&
       (
         (
+          github.event_name == 'push'
+        ) ||
+        (
           github.event_name == 'workflow_dispatch' &&
           inputs.deploy_frontend_aws == true
         )
@@ -700,17 +688,8 @@ jobs:
 
     if: |
       needs.production-approval.result == 'success' &&
-      (
-        (
-          github.event_name == 'push' &&
-          needs.changes.outputs.gateway == 'true' &&
-          needs.production-deploy-config.outputs.gateway_ready == 'true'
-        ) ||
-        (
-          github.event_name == 'workflow_dispatch' &&
-          inputs.deploy_gateway == true
-        )
-      )
+      github.event_name == 'workflow_dispatch' &&
+      inputs.deploy_gateway == true
 
     uses: ./.github/workflows/deploy-gateway-vercel.yml
 
@@ -940,8 +919,7 @@ jobs:
       needs.production-approval.result == 'success' &&
       (
         (
-          github.event_name == 'push' &&
-          needs.changes.outputs.desktop == 'true'
+          github.event_name == 'push'
         ) ||
         (
           github.event_name == 'workflow_dispatch' &&
@@ -986,8 +964,7 @@ jobs:
       needs.production-approval.result == 'success' &&
       (
         (
-          github.event_name == 'push' &&
-          needs.changes.outputs.mobile == 'true'
+          github.event_name == 'push'
         ) ||
         (
           github.event_name == 'workflow_dispatch' &&
