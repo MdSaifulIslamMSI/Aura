@@ -4,7 +4,7 @@
 |---|---|---|
 | 1 | Production observability activation | EC2 Prometheus/Grafana overlay is live, localhost-bound, and Prometheus is scraping `aura-api`. |
 | 2 | Edge/perimeter security | CloudFront WAFv2 stack is deployed and attached to distribution `E34Z9POGIQYOCS`. |
-| 3 | Login risk engine lite | `authRiskEngineService` added with focused tests. |
+| 3 | Login risk engine lite | `authRiskEngineService` added with focused tests; runtime enforcement now strips spoofed risk headers, preserves signed edge/server risk signals, and can produce signed server-side IP reputation before step-up. |
 | 4 | Microsoft/Apple providers | Microsoft Firebase provider is configured, exposed in the CloudFront frontend, and browser-smoke-tested. Apple still requires Apple Developer credentials. |
 | 5 | Enterprise SSO/OIDC/SAML | Provider policy and decision rules added; implementation deferred until tenant requirements exist. |
 | 6 | Authorization model | Route permission manifest added for admin and sensitive auth/user surfaces. |

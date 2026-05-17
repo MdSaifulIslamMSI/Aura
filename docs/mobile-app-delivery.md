@@ -44,14 +44,14 @@ Aura Marketplace now ships as Capacitor-based Android and iOS shells on top of t
 - Optional Google Play publication secrets:
   - `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64`
   - optional GitHub variable `ANDROID_PLAY_TRACK` defaults to `internal`
-- If the keystore secrets are missing, CI still produces a GitHub APK signed with Aura's repo public internal update key. This keeps GitHub APK updates installable across releases without requiring you to own a signing certificate, but these APKs are internal testing builds only and are not production store trust.
+- If the keystore secrets are missing, CI skips Android release artifacts. Configure the signing secrets before publishing APK/AAB builds from GitHub Actions.
 - If `FIREBASE_ANDROID_GOOGLE_SERVICES_JSON_BASE64` is missing, CI still builds a launch-safe APK using the public Firebase fallback values. Configure the secret plus `AURA_ANDROID_DEFAULT_WEB_CLIENT_ID`, then set `VITE_MOBILE_NATIVE_SOCIAL_AUTH_ENABLED=true` only after the Firebase Android app package/SHA fingerprints and OAuth providers are ready.
 
 ### Android package conflict recovery
 - Android blocks an APK update when the already-installed app has the same package id but was signed by a different key.
 - Users who installed an older debug-signed or legacy APK may see `App not installed as package conflicts with an existing package`.
-- Fix for that device: uninstall the old Aura Marketplace app once, then install the GitHub APK signed by the public internal update key. Later GitHub APK releases can update over each other normally.
-- Production Google Play releases must use the private `ANDROID_RELEASE_KEYSTORE_*` secrets instead of the public internal key.
+- Fix for that device: uninstall the old Aura Marketplace app once, then install the GitHub APK signed by the configured private release key. Later GitHub APK releases can update over each other normally when signed with the same key.
+- Production Google Play and GitHub release artifacts must use the private `ANDROID_RELEASE_KEYSTORE_*` secrets.
 
 ## iOS artifacts
 - CI always targets a simulator build.

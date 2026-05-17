@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { sendOtp, verifyOtp, resetPasswordWithOtp, checkUserExists } = require('../controllers/otpController');
 const { createDistributedRateLimit } = require('../middleware/distributedRateLimit');
+const { requireTurnstile } = require('../middleware/turnstileMiddleware');
 
 const otpLimiter = createDistributedRateLimit({
     securityCritical: true,
@@ -35,10 +36,10 @@ const checkUserLimiter = createDistributedRateLimit({
     message: 'Too many account checks. Please wait before trying again.',
 });
 
-router.post('/send', otpLimiter, sendOtp);
-router.post('/verify', verifyLimiter, verifyOtp);
-router.post('/reset-password', resetPasswordLimiter, resetPasswordWithOtp);
-router.post('/check-user', checkUserLimiter, checkUserExists);
+router.post('/send', requireTurnstile({ routeName: 'otp_send' }), otpLimiter, sendOtp);
+router.post('/verify', requireTurnstile({ routeName: 'otp_verify' }), verifyLimiter, verifyOtp);
+router.post('/reset-password', requireTurnstile({ routeName: 'otp_reset_password' }), resetPasswordLimiter, resetPasswordWithOtp);
+router.post('/check-user', requireTurnstile({ routeName: 'otp_check_user' }), checkUserLimiter, checkUserExists);
 
 module.exports = router;
 

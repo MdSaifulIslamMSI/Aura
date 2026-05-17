@@ -1,4 +1,4 @@
-import { apiFetch } from '../apiBase';
+import { apiFetch, buildServiceUrl } from '../apiBase';
 import { getAuthHeader } from './apiUtils';
 import { ensureCsrfToken, addCsrfTokenToHeaders, cacheToken, clearCsrfTokenCache } from '../csrfTokenManager';
 import { getTrustedDeviceSessionToken, signTrustedDeviceChallenge } from '../deviceTrustClient';
@@ -175,6 +175,20 @@ const postPublicOtpRequest = async (path, body) => {
     return data;
 };
 
+const getTurnstileRequestFields = (options = {}) => {
+    const token = String(options.turnstileToken || options.cfTurnstileResponse || '').trim();
+    return token ? { turnstileToken: token } : {};
+};
+
+export const getDuoLoginUrl = (returnTo = '/') => {
+    const params = new URLSearchParams();
+    const normalizedReturnTo = String(returnTo || '/').trim();
+    params.set('returnTo', normalizedReturnTo.startsWith('/') && !normalizedReturnTo.startsWith('//')
+        ? normalizedReturnTo
+        : '/');
+    return buildServiceUrl(`/api/auth/duo/start?${params.toString()}`);
+};
+
 const requestBootstrapDeviceChallenge = async (payload, options = {}) => {
     if (!getTrustedDeviceSessionToken()) {
         return null;
@@ -186,7 +200,10 @@ const requestBootstrapDeviceChallenge = async (payload, options = {}) => {
     const { data } = await apiFetch('/auth/bootstrap-device-challenge', {
         method: 'POST',
         headers,
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+            ...payload,
+            ...getTurnstileRequestFields(options),
+        }),
     });
     const challenge = data?.deviceChallenge || null;
 
@@ -205,6 +222,20 @@ const requestBootstrapDeviceChallenge = async (payload, options = {}) => {
 };
 
 export const authApi = {
+    getDuoLoginUrl,
+    startDuoLogin: (options = {}) => {
+        const returnTo = options.returnTo || (
+            typeof window !== 'undefined'
+                ? `${window.location?.pathname || '/'}${window.location?.search || ''}${window.location?.hash || ''}`
+                : '/'
+        );
+        const url = getDuoLoginUrl(returnTo);
+        if (typeof window === 'undefined' || !window.location?.assign) {
+            return { redirecting: true, url };
+        }
+        window.location.assign(url);
+        return { redirecting: true, url };
+    },
     exchangeSession: async (options = {}) => exchangeSessionWithFirebase(options.firebaseUser, options),
     getSession: async (options = {}) => {
         const execute = async () => {
@@ -243,8 +274,12 @@ export const authApi = {
             useFirebaseBearer: Boolean(options.firebaseUser?.getIdToken),
         });
     },
-    verifyRecoveryCode: async (email, code) => {
-        return postPublicOtpRequest('/auth/recovery-codes/verify', { email, code });
+    verifyRecoveryCode: async (email, code, options = {}) => {
+        return postPublicOtpRequest('/auth/recovery-codes/verify', {
+            email,
+            code,
+            ...getTurnstileRequestFields(options),
+        });
     },
     completePhoneFactorLogin: async (email, phone, options = {}) => {
         return postWithFirebaseBearer('/auth/complete-phone-factor-login', { email, phone }, options);
@@ -382,6 +417,7 @@ export const otpApi = {
                     phone,
                     purpose,
                     ...options,
+                    ...getTurnstileRequestFields(options),
                     ...(trustedDeviceChallenge ? { trustedDeviceChallenge } : {}),
                 });
             } catch (error) {
@@ -399,7 +435,13 @@ export const otpApi = {
         let lastError = null;
         for (const path of candidatePaths) {
             try {
-                return await postPublicOtpRequest(path, { phone, otp, purpose, ...options });
+                return await postPublicOtpRequest(path, {
+                    phone,
+                    otp,
+                    purpose,
+                    ...options,
+                    ...getTurnstileRequestFields(options),
+                });
             } catch (error) {
                 lastError = error;
                 if (error?.status !== 404) break;
@@ -407,22 +449,26 @@ export const otpApi = {
         }
         throw lastError || new Error('Failed to verify OTP');
     },
-    resetPassword: async (payloadOrEmail, phone = '', password = '') => {
+    resetPassword: async (payloadOrEmail, phone = '', password = '', options = {}) => {
         const candidatePaths = ['/auth/otp/reset-password', '/otp/reset-password'];
         const payload = payloadOrEmail && typeof payloadOrEmail === 'object' && !Array.isArray(payloadOrEmail)
             ? { ...payloadOrEmail }
             : { email: payloadOrEmail, phone, password };
+        const requestOptions = payloadOrEmail && typeof payloadOrEmail === 'object' && !Array.isArray(payloadOrEmail)
+            ? payloadOrEmail
+            : options;
         const trustedDeviceChallenge = payload?.flowToken
             ? await requestBootstrapDeviceChallenge({
               scope: 'reset-password',
               flowToken: payload.flowToken,
-            })
+            }, requestOptions)
             : null;
         let lastError = null;
         for (const path of candidatePaths) {
             try {
                 return await postPublicOtpRequest(path, {
                     ...payload,
+                    ...getTurnstileRequestFields(requestOptions),
                     ...(trustedDeviceChallenge ? { trustedDeviceChallenge } : {}),
                 });
             } catch (error) {
@@ -432,12 +478,16 @@ export const otpApi = {
         }
         throw lastError || new Error('Failed to reset password');
     },
-    checkUserExists: async (phone, email = '') => {
+    checkUserExists: async (phone, email = '', options = {}) => {
         const candidatePaths = ['/auth/otp/check-user', '/otp/check-user'];
         let lastError = null;
         for (const path of candidatePaths) {
             try {
-                return await postPublicOtpRequest(path, { phone, email });
+                return await postPublicOtpRequest(path, {
+                    phone,
+                    email,
+                    ...getTurnstileRequestFields(options),
+                });
             } catch (error) {
                 lastError = error;
                 if (error?.status !== 404) break;

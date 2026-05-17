@@ -27,7 +27,9 @@ const buildAuthSecurityEventEnvelope = ({
     userId: safeString(userId),
     requestId: safeString(requestId),
     occurredAt: new Date(occurredAt).toISOString(),
-    meta: meta && typeof meta === 'object' && !Array.isArray(meta) ? meta : {},
+    meta: meta && typeof meta === 'object' && !Array.isArray(meta)
+        ? logger.redactSensitiveData(meta)
+        : {},
 });
 
 const enqueueAuthSecurityEvent = async (eventPayload = {}) => {

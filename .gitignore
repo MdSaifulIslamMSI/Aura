@@ -46,6 +46,7 @@ server/uploads/
 
 # Coverage
 coverage/
+security-reports/
 
 # Firebase
 .firebase/
@@ -59,7 +60,6 @@ app/ios/App/App/capacitor.config.json
 *.jks
 *.keystore
 app/android/ci/*.base64
-!app/android/ci/aura-public-internal-update-keystore.base64
 *.mobileprovision
 *.p12
 
@@ -78,6 +78,7 @@ server/.cache/
 server/.mongodb-binaries/
 
 # Generated runtime/test artifacts
+.codex/
 output/
 server/test_output.txt
 **/test_output*.txt
@@ -92,3 +93,6 @@ server/public/
 .vercel
 .netlify/
 .env*.local
+
+# Added by ggshield
+.cache_ggshield

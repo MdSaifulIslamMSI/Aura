@@ -22,6 +22,7 @@ const LoginView = ({
   handleOtpKeyDown,
   handleOtpPaste,
   handleResendOtp,
+  handleDuoSignIn,
   handleSocialSignIn,
   handleSubmit,
   info,
@@ -459,6 +460,15 @@ const LoginView = ({
                   <span className="text-[10px] uppercase tracking-[0.3em] font-bold text-slate-500">{t('login.or', {}, 'or')}</span>
                   <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
                 </div>
+                <button
+                  type="button"
+                  onClick={handleDuoSignIn}
+                  disabled={isLoading || emergencyAuthDisabled}
+                  className="mb-3 w-full py-3 rounded-2xl border border-white/10 bg-white/5 hover:bg-emerald-400/10 text-white font-bold text-xs tracking-[0.08em] uppercase transition-all duration-300 flex items-center justify-center gap-2 hover:border-emerald-300/40"
+                >
+                  <Shield className="h-4 w-4 text-emerald-300" aria-hidden="true" />
+                  Duo
+                </button>
                 {socialAuthStatus.supported ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
                     <button

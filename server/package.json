@@ -56,6 +56,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1040.0",
     "@aws-sdk/client-ssm": "^3.1040.0",
+    "@duosecurity/duo_universal": "3.0.0",
     "@socket.io/redis-adapter": "^8.3.0",
     "bcryptjs": "^3.0.3",
     "cbor": "^9.0.2",

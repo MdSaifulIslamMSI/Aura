@@ -256,6 +256,85 @@ jobs:
           REDIS_ENABLED: "true"
           REDIS_URL: redis://127.0.0.1:6379
 
+  security-verification:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.frontend == 'true' || needs.changes.outputs.desktop == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Use Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            app/package-lock.json
+            server/package-lock.json
+
+      - name: Start MongoDB
+        uses: supercharge/mongodb-github-action@1.12.0
+        with:
+          mongodb-version: "6.0"
+
+      - name: Install backend dependencies
+        run: npm --prefix server ci
+
+      - name: Install Gitleaks
+        run: |
+          set -euo pipefail
+          GITLEAKS_VERSION=8.30.1
+          GITLEAKS_SHA256=551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" -o gitleaks.tar.gz
+          echo "${GITLEAKS_SHA256}  gitleaks.tar.gz" | sha256sum -c -
+          tar -xzf gitleaks.tar.gz gitleaks
+          sudo install -m 0755 gitleaks /usr/local/bin/gitleaks
+          gitleaks version
+
+      - name: Run Cloudflare security readiness gate
+        run: npm run security:cloudflare
+        env:
+          NODE_ENV: test
+
+      - name: Run production-grade security verification suite
+        run: npm run security:all
+        env:
+          NODE_ENV: test
+          TEST_MONGO_URI: mongodb://127.0.0.1:27017/aura_security_ci
+          TEST_USE_IN_MEMORY_MONGO: "false"
+          TEST_FALLBACK_TO_IN_MEMORY_MONGO: "false"
+          REDIS_ENABLED: "true"
+          REDIS_URL: redis://127.0.0.1:6379
+          PAYMENTS_ENABLED: "true"
+          PAYMENT_WEBHOOKS_ENABLED: "true"
+          PAYMENT_PROVIDER: razorpay
+          RAZORPAY_KEY_ID: rzp_test_fake_key
+          RAZORPAY_KEY_SECRET: fake-razorpay-key-secret
+          RAZORPAY_WEBHOOK_SECRET: fake-razorpay-webhook-secret
+          STRIPE_SECRET_KEY: sk_test_fake_security_suite
+          STRIPE_WEBHOOK_SECRET: whsec_fake_security_suite
+
+      - name: Upload security reports
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: security-reports
+          path: security-reports/
+          retention-days: 14
+
   backend-container-smoke:
     needs: changes
     if: needs.changes.outputs.backend == 'true'

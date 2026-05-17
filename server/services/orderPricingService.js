@@ -181,11 +181,13 @@ const normalizeOrderItems = (orderItems = [], { allowEmpty = false } = {}) => {
 };
 
 const getActiveCatalogProductFilter = async () => {
-    if (!catalogFlags.catalogActiveVersionRequired) return {};
+    const activeProductFilter = { isActive: { $ne: false } };
+    if (!catalogFlags.catalogActiveVersionRequired) return activeProductFilter;
     const state = await SystemState.findOne({ key: 'singleton' }).lean();
-    if (!state?.activeCatalogVersion) return { isPublished: true };
+    if (!state?.activeCatalogVersion) return { isPublished: true, ...activeProductFilter };
     return {
         isPublished: true,
+        ...activeProductFilter,
         catalogVersion: state.activeCatalogVersion,
     };
 };

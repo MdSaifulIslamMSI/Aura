@@ -10,7 +10,7 @@ This is the operator runbook for turning the repo-owned login architecture work 
 | WAF | CloudFormation template validates in `us-east-1`. | Web ACL association has a tested rollback path. |
 | Observability | `METRICS_SECRET` and `GRAFANA_ADMIN_PASSWORD` are set for the overlay. | Alerts are tuned from staging traffic. |
 | Microsoft/Apple | Microsoft is configured in Firebase and exposed in the CloudFront frontend; Apple still needs Apple Developer credentials before its frontend flag is enabled. | Provider callback domains, legal copy, and browser smoke are reviewed. |
-| Runtime enforcement | `AUTH_RISK_ENGINE_MODE=monitor`, outbox enabled only in staging first. | Risk enforcement only after threshold review; JIT remains off until an approval workflow exists. |
+| Runtime enforcement | `AUTH_RISK_ENGINE_MODE=monitor`, outbox enabled only in staging first, and `AUTH_RISK_SIGNAL_SECRET` provisioned before any enforce dry run. | Risk enforcement only after threshold review, signed edge/server signals, and support runbook approval; JIT remains off until an approval workflow exists. |
 
 ## Local Preflight
 
@@ -28,6 +28,7 @@ $env:AURA_CLOUDFRONT_DISTRIBUTION_ID = 'E123EXAMPLE'
 $env:AURA_WAF_STACK_NAME = 'aura-login-security-staging'
 $env:AUTH_RISK_ENGINE_MODE = 'monitor'
 $env:AUTH_SECURITY_OUTBOX_ENABLED = 'true'
+$env:AUTH_RISK_SIGNAL_SECRET = '<long-random-login-risk-signal-secret>'
 $env:PRIVILEGED_JIT_ACCESS_ENABLED = 'false'
 $env:VITE_FIREBASE_ENABLE_MICROSOFT_AUTH = 'true'
 $env:VITE_FIREBASE_ENABLE_APPLE_AUTH = 'true'
@@ -58,8 +59,8 @@ Attach the resulting Web ACL ARN to CloudFront through the distribution config. 
 Start with staging or EC2 only after `METRICS_SECRET` and `GRAFANA_ADMIN_PASSWORD` are present:
 
 ```powershell
-docker compose -f docker-compose.split-runtime.yml -f infra/observability/docker-compose.ec2.yml config
-docker compose -f docker-compose.split-runtime.yml -f infra/observability/docker-compose.ec2.yml up -d prometheus grafana
+docker compose -f infra/aws/docker-compose.ec2.yml -f infra/observability/docker-compose.ec2.yml config
+docker compose -f infra/aws/docker-compose.ec2.yml -f infra/observability/docker-compose.ec2.yml up -d prometheus grafana
 ```
 
 Confirm `/metrics` is protected, Prometheus can scrape with `x-metrics-key`, and Grafana loads the login security dashboard before any production switch.
@@ -87,6 +88,8 @@ Microsoft requires the app id, secret, tenant/callback setup, authorized Firebas
 
 `AUTH_RISK_ENGINE_MODE=monitor` evaluates login risk and records telemetry, but it never changes the `/api/auth/sync` response. Use this first in staging with `AUTH_SECURITY_OUTBOX_ENABLED=true` and review `login_risk`, `trusted_device_challenge`, and `step_up_required` events.
 
-`AUTH_RISK_ENGINE_MODE=enforce` keeps low and medium decisions on the normal session path. High-risk decisions that recommend step-up return the existing `device_challenge_required` response and persist `session.riskState=login_risk_high` until the trusted-device challenge succeeds. The runtime uses the current trusted-device headers plus optional trusted edge/server signals: `X-Aura-Login-Failure-Count`, `X-Aura-IP-Reputation`, and `X-Aura-Impossible-Travel`. Only enable enforcement where the origin is protected and any client-supplied copies of those signal headers are stripped before the edge or server injects trusted values.
+`AUTH_RISK_ENGINE_MODE=enforce` keeps low and medium decisions on the normal session path. High-risk decisions that recommend step-up return the existing `device_challenge_required` response and persist `session.riskState=login_risk_high` until the trusted-device challenge succeeds. The runtime uses the current trusted-device headers plus optional trusted edge/server signals: `X-Aura-Login-Failure-Count`, `X-Aura-IP-Reputation`, and `X-Aura-Impossible-Travel`.
+
+Those signal headers are ignored unless they arrive with a fresh HMAC signature in `X-Aura-Login-Risk-Signature` and timestamp in `X-Aura-Login-Risk-Timestamp`. The signature secret is `AUTH_RISK_SIGNAL_SECRET`; rotate with `AUTH_RISK_SIGNAL_PREVIOUS_SECRETS`. The signed payload is bound to method, path, trusted device id, normalized signal values, and timestamp. The API now strips spoofed unsigned copies on `/api/auth/sync`, preserves valid upstream signatures, and can sign server-derived exact-match IP reputation from `AUTH_RISK_IP_DENYLIST` / `AUTH_RISK_IP_WATCHLIST`. Keep unsigned client-supplied copies stripped at the edge anyway so logs and downstream tools do not confuse attacker input with trusted signals.
 
 Rollback is environment-only for these controls: set `AUTH_RISK_ENGINE_MODE=off`, `AUTH_SECURITY_OUTBOX_ENABLED=false`, and `PRIVILEGED_JIT_ACCESS_ENABLED=false`, then redeploy the affected service. `off` stops risk evaluation, and monitor/off mode treats any stored `login_risk_high` session posture as standard so already-signed-in users are not stuck behind the staged gate.

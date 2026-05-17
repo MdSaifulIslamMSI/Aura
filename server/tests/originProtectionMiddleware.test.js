@@ -24,6 +24,7 @@ const buildApp = () => {
     app.get('/api/private', (req, res) => res.json({ ok: true, requestId: req.requestId }));
     app.post('/api/payments/webhooks/stripe', (req, res) => res.json({ accepted: true }));
     app.get('/health/live', (req, res) => res.json({ alive: true }));
+    app.get('/metrics', (req, res) => res.type('text/plain').send('aura_metric 1\n'));
     return app;
 };
 
@@ -77,10 +78,11 @@ describe('originProtectionMiddleware', () => {
         expect(response.body.ok).toBe(true);
     });
 
-    test('keeps health and signed provider webhooks reachable without the origin header', async () => {
+    test('keeps health, metrics, and signed provider webhooks reachable without the origin header', async () => {
         process.env.AURA_CLOUDFRONT_ORIGIN_VERIFY_SECRET = 'test-origin-secret';
 
         await request(buildApp()).get('/health/live').expect(200);
+        await request(buildApp()).get('/metrics').expect(200);
         await request(buildApp()).post('/api/payments/webhooks/stripe').expect(200);
     });
 });

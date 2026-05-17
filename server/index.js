@@ -16,6 +16,7 @@ const activityEmailMiddleware = require('./middleware/activityEmailMiddleware');
 const adminNotificationMiddleware = require('./middleware/adminNotificationMiddleware');
 const { requestId } = require('./middleware/requestId');
 const { originProtectionMiddleware } = require('./middleware/originProtectionMiddleware');
+const { authRiskSignalProducerMiddleware } = require('./middleware/authRiskSignalProducerMiddleware');
 const { resolveMarketContextMiddleware } = require('./middleware/marketContext');
 require('colors');
 
@@ -98,6 +99,7 @@ const {
     allowedOrigins,
 } = require('./config/corsFlags');
 const { assertSigningSecretsConfig } = require('./config/signingSecrets');
+const { assertAuthRiskSignalConfig } = require('./services/authRiskSignalService');
 const {
     getRedisHealth,
     initRedis,
@@ -318,6 +320,7 @@ app.use((req, res, next) => {
 });
 
 app.use(originProtectionMiddleware);
+app.use(authRiskSignalProducerMiddleware);
 
 app.use(helmet({
     contentSecurityPolicy: {
@@ -677,6 +680,7 @@ const NODE_ENV = process.env.NODE_ENV || 'production';
 if (require.main === module) {
 // Production security: Ensure all signing secrets are present before startup
     assertSigningSecretsConfig();
+    assertAuthRiskSignalConfig();
     assertProductionCorsConfig();
     assertWebhookConfig();
     assertProductionPaymentConfig();

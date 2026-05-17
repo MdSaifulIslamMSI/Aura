@@ -1600,6 +1600,52 @@ const extractWebhookIdentifiers = (event = {}) => {
     };
 };
 
+const assertWebhookPaymentMatchesIntent = ({
+    provider,
+    intent,
+    parsedEvent,
+    parsed,
+}) => {
+    const eventType = String(parsedEvent?.eventType || '');
+    if (!['payment.authorized', 'payment.captured'].includes(eventType)) {
+        return;
+    }
+
+    const webhookPayment = parsed?.payload?.payment?.entity || null;
+    if (!webhookPayment) {
+        throw new AppError('Webhook payment payload is missing', 422);
+    }
+
+    const eventOrderId = String(webhookPayment.order_id || parsedEvent?.orderId || '').trim();
+    const expectedOrderId = String(intent?.providerOrderId || '').trim();
+    if (eventOrderId && expectedOrderId && eventOrderId !== expectedOrderId) {
+        throw new AppError('Webhook payment order mismatch', 409);
+    }
+
+    if (typeof provider.parsePaymentAmounts !== 'function') {
+        return;
+    }
+
+    const amountInfo = provider.parsePaymentAmounts(webhookPayment) || {};
+    const eventCurrency = normalizeCurrencyCode(amountInfo.currency || webhookPayment.currency || '');
+    const expectedCurrency = normalizeCurrencyCode(intent?.currency || 'INR');
+    if (eventCurrency && expectedCurrency && eventCurrency !== expectedCurrency) {
+        throw new AppError('Webhook payment currency mismatch', 409);
+    }
+
+    const eventAmount = Number(amountInfo.amount);
+    const expectedAmount = Number(intent?.amount || 0);
+    if (
+        Number.isFinite(eventAmount)
+        && Number.isFinite(expectedAmount)
+        && eventAmount > 0
+        && expectedAmount > 0
+        && diff(eventAmount, expectedAmount) > 0.01
+    ) {
+        throw new AppError('Webhook payment amount mismatch', 409);
+    }
+};
+
 const PAYMENT_STATUS_TRANSITIONS = {
     [PAYMENT_STATUSES.CREATED]: new Set([
         PAYMENT_STATUSES.CREATED,
@@ -1707,6 +1753,13 @@ const processProviderWebhook = async ({ gatewayId, signature, rawBody }) => {
         });
         return { received: true, deduped: false, intentId: null };
     }
+
+    assertWebhookPaymentMatchesIntent({
+        provider,
+        intent,
+        parsedEvent,
+        parsed,
+    });
 
     const currentStatus = intent.status;
     const mapped = mapWebhookEventToPaymentStatus({

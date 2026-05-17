@@ -3,6 +3,8 @@ param(
     [string]$PathPrefix = "",
     [string]$AwsRegion = "",
     [string]$AwsProfile = "",
+    [int]$CliConnectTimeoutSeconds = 5,
+    [int]$CliReadTimeoutSeconds = 20,
     [switch]$DryRun
 )
 
@@ -153,7 +155,9 @@ foreach ($entry in $publishableEntries) {
         "--type", "SecureString",
         "--tier", "Standard",
         "--overwrite",
-        "--value", $entry.value
+        "--value", $entry.value,
+        "--cli-connect-timeout", "$CliConnectTimeoutSeconds",
+        "--cli-read-timeout", "$CliReadTimeoutSeconds"
     )
 
     if (-not [string]::IsNullOrWhiteSpace($AwsProfile)) {

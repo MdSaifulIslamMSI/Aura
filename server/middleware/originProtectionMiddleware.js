@@ -6,6 +6,7 @@ const ORIGIN_VERIFY_HEADER = 'x-aura-origin-verify';
 
 const DEFAULT_BYPASS_PATHS = [
     /^\/health(?:\/|$)/i,
+    /^\/metrics(?:\/|$)/i,
     /^\/api\/payments\/webhooks\/(?:razorpay|stripe)(?:\/|$)/i,
     /^\/api\/email-webhooks\/resend(?:\/|$)/i,
 ];

@@ -29,6 +29,12 @@ const {
     refreshBrowserSession,
     revokeBrowserSession,
 } = require('../services/browserSessionService');
+const {
+    buildAuthorizationUrl: buildDuoAuthorizationUrl,
+    clearStateCookie: clearDuoStateCookie,
+    consumeState: consumeDuoState,
+    exchangeCodeForClaims: exchangeDuoCodeForClaims,
+} = require('../services/duoOidcService');
 const { inspectOtpFlowToken, issueOtpFlowToken } = require('../utils/otpFlowToken');
 const { registerOtpFlowGrant } = require('../services/otpFlowGrantService');
 const {
@@ -43,6 +49,7 @@ const {
 const { shouldRequireTrustedDevice } = require('../config/authTrustedDeviceFlags');
 const { getLoginRuntimeEnforcementPolicy } = require('../config/loginRuntimeEnforcementPolicy');
 const { RISK_LEVELS, evaluateLoginRisk } = require('../services/authRiskEngineService');
+const { extractTrustedLoginRiskSignals } = require('../services/authRiskSignalService');
 const { recordAuthSecurityEvent } = require('../services/authSecurityTelemetryService');
 const { isEnabled: isEmergencyFlagEnabled } = require('../services/emergencyControlService');
 const LOGIN_ASSURANCE_TTL_MS = 10 * 60 * 1000;
@@ -50,15 +57,45 @@ const PHONE_FACTOR_ASSURANCE_TTL_MS = 10 * 60 * 1000;
 const GENERIC_PHONE_FACTOR_VERIFICATION_MESSAGE = 'If account details are valid, verification will proceed.';
 const RECOVERY_CODE_VERIFICATION_MIN_MS = process.env.NODE_ENV === 'test' ? 0 : 350;
 const LOGIN_RISK_STATE_HIGH = 'login_risk_high';
-const LOGIN_RISK_SIGNAL_HEADERS = Object.freeze({
-    recentFailureCount: 'x-aura-login-failure-count',
-    ipReputation: 'x-aura-ip-reputation',
-    impossibleTravel: 'x-aura-impossible-travel',
-});
 
 const normalizeEmail = (value) => (
     typeof value === 'string' ? value.trim().toLowerCase() : ''
 );
+
+const normalizeRelativeReturnTo = (value) => {
+    const normalized = typeof value === 'string' ? value.trim() : '';
+    if (!normalized || !normalized.startsWith('/') || normalized.startsWith('//')) {
+        return '/';
+    }
+    if (normalized.startsWith('/api/')) {
+        return '/';
+    }
+    return normalized;
+};
+
+const resolveFrontendBaseUrl = () => {
+    const candidates = [
+        process.env.FRONTEND_URL,
+        process.env.APP_PUBLIC_URL,
+        process.env.VERCEL_FRONTEND_URL,
+        process.env.NETLIFY_FRONTEND_URL,
+        process.env.AWS_FRONTEND_URL,
+    ];
+    const selected = candidates.find((value) => typeof value === 'string' && value.trim());
+    return selected ? selected.trim().replace(/\/+$/, '') : '';
+};
+
+const buildDuoFrontendRedirect = ({ returnTo = '/', status = 'success', reason = '' } = {}) => {
+    const safeReturnTo = normalizeRelativeReturnTo(returnTo);
+    const baseUrl = resolveFrontendBaseUrl();
+    const redirectUrl = new URL(safeReturnTo, baseUrl || 'http://aura.local');
+    redirectUrl.searchParams.set('duo', status);
+    if (reason) {
+        redirectUrl.searchParams.set('reason', reason);
+    }
+    const pathWithQuery = `${redirectUrl.pathname}${redirectUrl.search}${redirectUrl.hash}`;
+    return baseUrl ? `${baseUrl}${pathWithQuery}` : pathWithQuery;
+};
 
 const canonicalizePhone = (value) => {
     try {
@@ -75,23 +112,6 @@ const normalizePhoneFactorPurpose = (value) => {
     }
     return '';
 };
-
-const parseBooleanSignal = (value) => {
-    const normalized = String(value === undefined || value === null ? '' : value).trim().toLowerCase();
-    return ['1', 'true', 'yes', 'on'].includes(normalized);
-};
-
-const parseNumericSignal = (value) => {
-    const numeric = Number(value || 0);
-    return Number.isFinite(numeric) && numeric > 0 ? Math.trunc(numeric) : 0;
-};
-
-const getHeaderValue = (req = {}, headerName = '') => String(
-    req.get?.(headerName)
-    || req.headers?.[String(headerName).toLowerCase()]
-    || req.headers?.[headerName]
-    || ''
-).trim();
 
 const phoneFactorFlowError = () => new AppError(GENERIC_PHONE_FACTOR_VERIFICATION_MESSAGE, 403);
 
@@ -273,25 +293,18 @@ const shouldEnforceRuntimeRiskSessionStepUp = (req = {}) => (
 
 const resolveLoginRiskInputs = ({ req = {}, user = null } = {}) => {
     const { deviceId } = extractTrustedDeviceContext(req);
-    const runtimeSignals = req.authRisk && typeof req.authRisk === 'object' ? req.authRisk : {};
+    const riskSignal = extractTrustedLoginRiskSignals(req, { deviceId });
+    const runtimeSignals = riskSignal.signals || {};
 
     return {
         user,
         deviceId,
-        recentFailureCount: parseNumericSignal(
-            runtimeSignals.recentFailureCount
-            ?? getHeaderValue(req, LOGIN_RISK_SIGNAL_HEADERS.recentFailureCount)
-        ),
-        ipReputation: String(
-            runtimeSignals.ipReputation
-            ?? getHeaderValue(req, LOGIN_RISK_SIGNAL_HEADERS.ipReputation)
-        ).trim(),
-        impossibleTravel: Boolean(
-            runtimeSignals.impossibleTravel
-            || parseBooleanSignal(getHeaderValue(req, LOGIN_RISK_SIGNAL_HEADERS.impossibleTravel))
-        ),
+        recentFailureCount: runtimeSignals.recentFailureCount,
+        ipReputation: runtimeSignals.ipReputation,
+        impossibleTravel: runtimeSignals.impossibleTravel,
         emailVerified: Boolean(user?.isVerified || req.authToken?.email_verified),
         trustedDeviceRequired: shouldRequireTrustedDevice({ user }),
+        riskSignal,
     };
 };
 
@@ -307,7 +320,8 @@ const evaluateRuntimeLoginRisk = ({ req = {}, user = null } = {}) => {
         };
     }
 
-    const risk = evaluateLoginRisk(resolveLoginRiskInputs({ req, user }));
+    const { riskSignal, ...riskInputs } = resolveLoginRiskInputs({ req, user });
+    const risk = evaluateLoginRisk(riskInputs);
     const forceStepUp = Boolean(
         policy.riskEngineEnforced
         && risk.requireStepUp
@@ -332,6 +346,10 @@ const evaluateRuntimeLoginRisk = ({ req = {}, user = null } = {}) => {
             blockRecommended: risk.block,
             reasons: risk.reasons,
             knownDevice: risk.knownDevice,
+            signalSource: riskSignal.source,
+            signalTrusted: riskSignal.trusted,
+            ignoredUntrustedSignals: riskSignal.ignoredUntrustedHeaders,
+            signalTrustReason: riskSignal.reason,
         },
     });
 
@@ -529,6 +547,118 @@ const getSession = asyncHandler(async (req, res) => {
         status,
         deviceChallenge,
     });
+});
+
+const startDuoLogin = asyncHandler(async (req, res) => {
+    const authorizationUrl = await buildDuoAuthorizationUrl({
+        req,
+        res,
+        returnTo: normalizeRelativeReturnTo(req.query?.returnTo || '/'),
+    });
+
+    recordAuthSecurityEvent({
+        event: 'duo_oidc_login',
+        outcome: 'success',
+        reason: 'none',
+        surface: 'auth',
+        req,
+        meta: { provider: 'duo_oidc' },
+    });
+
+    return res.redirect(302, authorizationUrl);
+});
+
+const completeDuoLogin = asyncHandler(async (req, res) => {
+    const state = typeof req.query?.state === 'string' ? req.query.state.trim() : '';
+    const code = typeof req.query?.code === 'string' ? req.query.code.trim() : '';
+    const duoError = typeof req.query?.error === 'string' ? req.query.error.trim() : '';
+    clearDuoStateCookie(res, req);
+
+    if (duoError) {
+        recordAuthSecurityEvent({
+            event: 'duo_oidc_login',
+            outcome: 'failure',
+            reason: 'provider_error',
+            surface: 'auth',
+            req,
+            meta: { statusCode: 401 },
+        });
+        throw new AppError('Duo login was not completed.', 401);
+    }
+    if (!state || !code) {
+        recordAuthSecurityEvent({
+            event: 'duo_oidc_login',
+            outcome: 'failure',
+            reason: 'missing_code_or_state',
+            surface: 'auth',
+            req,
+            meta: { statusCode: 422 },
+        });
+        throw new AppError('Duo login callback is missing required parameters.', 422);
+    }
+
+    const statePayload = consumeDuoState({ req, state });
+    const claims = await exchangeDuoCodeForClaims({ code, statePayload });
+    const email = normalizeEmail(claims.email);
+    const authUid = `duo:${claims.sub}`;
+    const authTime = Number(claims.auth_time || claims.iat || Math.floor(Date.now() / 1000));
+    const authUser = {
+        uid: authUid,
+        email,
+        name: claims.name || claims.preferred_username || email.split('@')[0],
+        displayName: claims.name || claims.preferred_username || email.split('@')[0],
+        emailVerified: true,
+        providerIds: ['duo_oidc'],
+        signInProvider: 'duo_oidc',
+    };
+    const authToken = {
+        uid: authUid,
+        email,
+        name: authUser.name,
+        email_verified: true,
+        auth_time: authTime,
+        iat: Number(claims.iat || authTime),
+        exp: Number(claims.exp || (authTime + 3600)),
+        firebase: {
+            sign_in_provider: 'duo_oidc',
+            sign_in_second_factor: 'duo',
+        },
+    };
+
+    const user = await syncAuthenticatedUser({
+        authUser,
+        email,
+        name: authUser.name,
+        awardLoginPoints: true,
+    });
+
+    await invalidateUserCache(authUid);
+    await invalidateUserCacheByEmail(email);
+    const authSession = await refreshBrowserSession({
+        req,
+        res,
+        user,
+        authUid,
+        authToken,
+        rotate: false,
+        additionalAmr: ['duo', 'duo_oidc'],
+        riskState: user?.isAdmin ? 'privileged' : user?.isSeller ? 'heightened' : 'standard',
+    });
+    req.authSession = authSession;
+
+    recordAuthSecurityEvent({
+        event: 'duo_oidc_login',
+        outcome: 'success',
+        reason: 'none',
+        surface: 'auth',
+        req,
+        meta: { provider: 'duo_oidc' },
+    });
+
+    return res.redirect(302, buildDuoFrontendRedirect({
+        returnTo: statePayload.returnTo || '/',
+        status: 'success',
+    }));
 });
 
 const syncSession = asyncHandler(async (req, res) => {
@@ -1139,10 +1269,12 @@ const logoutSession = asyncHandler(async (req, res) => {
 });
 
 module.exports = {
+    completeDuoLogin,
     establishSessionCookie,
     generateBackupRecoveryCodes,
     getSession,
     requestBootstrapDeviceChallenge,
+    startDuoLogin,
     verifyBackupRecoveryCode,
     syncSession,
     logoutSession,

@@ -114,7 +114,7 @@ jobs:
             && [ -n "${ANDROID_RELEASE_KEY_PASSWORD}" ]; then
             can_sign_android=true
           else
-            echo "Android private release signing secrets are incomplete. GitHub APKs will use the repo public internal update key for internal testing/install continuity only, not production store trust or public distribution."
+            echo "Android release signing secrets are incomplete. Android release artifacts will be skipped until GitHub signing secrets are configured."
           fi
 
           if [ -n "${FIREBASE_IOS_GOOGLE_SERVICE_INFO_PLIST_BASE64}" ]; then
@@ -214,11 +214,9 @@ jobs:
             echo "AURA_ANDROID_RELEASE_KEY_ALIAS=${ANDROID_RELEASE_KEY_ALIAS}" >> "$GITHUB_ENV"
             echo "AURA_ANDROID_RELEASE_KEY_PASSWORD=${ANDROID_RELEASE_KEY_PASSWORD}" >> "$GITHUB_ENV"
           else
-            base64 --decode app/android/ci/aura-public-internal-update-keystore.base64 > "${KEYSTORE_PATH}"
-            echo "Using the repo public internal Android update key. This keeps GitHub APK updates installable but is not production store signing."
-            echo "AURA_ANDROID_RELEASE_KEYSTORE_PASSWORD=aura-public-update" >> "$GITHUB_ENV"
-            echo "AURA_ANDROID_RELEASE_KEY_ALIAS=aura-public-update" >> "$GITHUB_ENV"
-            echo "AURA_ANDROID_RELEASE_KEY_PASSWORD=aura-public-update" >> "$GITHUB_ENV"
+            echo "Android release signing secrets are required for release artifacts."
+            echo "Configure ANDROID_RELEASE_KEYSTORE_BASE64, ANDROID_RELEASE_KEYSTORE_PASSWORD, ANDROID_RELEASE_KEY_ALIAS, and ANDROID_RELEASE_KEY_PASSWORD."
+            exit 1
           fi
 
           echo "AURA_ANDROID_RELEASE_KEYSTORE_PATH=${KEYSTORE_PATH}" >> "$GITHUB_ENV"
@@ -599,7 +597,7 @@ jobs:
             if [ "${CAN_SIGN_ANDROID}" = "true" ]; then
               echo "- Android artifacts were built with the configured release keystore."
             else
-              echo "- Android artifacts were signed with Aura's public internal GitHub update key. Treat these APKs as internal testing builds only; production store distribution still needs a private release keystore."
+              echo "- Android artifacts were not built because release signing secrets are required."
             fi
 
             if [ "${IOS_BUILD_RESULT}" = "success" ] && [ "${CAN_SIGN_IOS}" = "true" ]; then

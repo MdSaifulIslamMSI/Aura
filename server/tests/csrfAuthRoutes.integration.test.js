@@ -98,6 +98,8 @@ jest.mock('../controllers/authController', () => ({
     logoutSession: (_req, res) => res.json({ success: true }),
     completePhoneFactorLogin: (_req, res) => res.json({ completed: true }),
     completePhoneFactorVerification: (_req, res) => res.json({ completed: true }),
+    startDuoLogin: (_req, res) => res.redirect('https://duo.example.test/authorize'),
+    completeDuoLogin: (_req, res) => res.redirect('/login?duo=success'),
     requestBootstrapDeviceChallenge: (_req, res) => res.json({ success: true, deviceChallenge: null }),
     verifyDeviceChallenge: (_req, res) => res.json({ ok: true }),
 }));

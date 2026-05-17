@@ -12,6 +12,11 @@ process.env.OTP_FLOW_SECRET = process.env.OTP_FLOW_SECRET || 'test-otp-flow-secr
 process.env.OTP_CHALLENGE_SECRET = process.env.OTP_CHALLENGE_SECRET || 'test-otp-challenge-secret-32-chars';
 process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-jwt-secret-key-aura-marketplace';
 process.env.FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || 'test-project-dev';
+process.env.OTP_EMAIL_FAIL_CLOSED = process.env.OTP_EMAIL_FAIL_CLOSED || 'false';
+process.env.OTP_SMS_PROVIDER = process.env.OTP_SMS_PROVIDER || 'mock';
+process.env.OTP_SMS_ENABLED = process.env.OTP_SMS_ENABLED || 'true';
+process.env.OTP_SMS_FAIL_CLOSED = process.env.OTP_SMS_FAIL_CLOSED || 'true';
+process.env.OTP_SMS_SEND_IN_TEST = process.env.OTP_SMS_SEND_IN_TEST || 'true';
 
 const FALLBACK_TEST_URI = 'mongodb://127.0.0.1:27017/aura_test';
 

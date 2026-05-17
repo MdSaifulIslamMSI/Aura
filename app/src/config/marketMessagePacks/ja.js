@@ -2153,7 +2153,7 @@ export const MARKET_MESSAGE_PACK = {
   "profile.settings.security.openRecovery": "o-punsekiyuarikabari",
   "profile.settings.security.otpLabel": "OTP noZi Shi",
   "profile.settings.security.password": "credential",
-  "profile.settings.security.passwordBody": "pasuwa-donoHui Fu ha, sainintoTong ziDian Zi me-rutoDian Hua no OTP huro-niCong imasu.",
+  "profile.settings.security.passwordBody": "credential recovery ha, sainintoTong ziDian Zi me-rutoDian Hua no OTP huro-niCong imasu.",
   "profile.settings.security.paymentLabel": "Zhi Fu iZi Shi",
   "profile.settings.security.paymentReviewBody": "{{count}} niBao Cun saretaZhi Fu iFang Fa haarimasuga, Xin Lai dekirudehuorutonoFang Fa hamadaarimasen.",
   "profile.settings.security.paymentSecuredBody": "torasuto&sekiyuritei komando senta-",

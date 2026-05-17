@@ -1,7 +1,7 @@
 const os = require('os');
 
 const REDACTED_PLACEHOLDER = '[REDACTED]';
-const SENSITIVE_KEY_PATTERN = /(phone|email|authorization|token|password|otp|secret)/i;
+const SENSITIVE_KEY_PATTERN = /(phone|email|authorization|token|password|pass|otp|secret|jwt|api[_-]?key|card(number)?|cvv|pan)/i;
 
 const maskEmail = (email) => {
     const value = String(email || '').trim();
@@ -104,6 +104,8 @@ const logger = {
             safeConsoleWrite('debug', formatMessage('debug', message, meta));
         }
     },
+    redactSensitiveData,
+    REDACTED_PLACEHOLDER,
 };
 
 module.exports = logger;

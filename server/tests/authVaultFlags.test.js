@@ -28,7 +28,11 @@ describe('authVaultFlags', () => {
 
     test('passes in production when secret is strong', () => {
         process.env.NODE_ENV = 'production';
-        process.env.AUTH_VAULT_SECRET = ['test-value-alpha-', 'test-value-beta-', 'test-value-gamma-'].join('');
+        process.env.AUTH_VAULT_SECRET = [
+            'test-value-alpha-',
+            'test-value-beta-',
+            'test-value-gamma-',
+        ].join('');
 
         const { assertAuthVaultConfig } = require('../config/authVaultFlags');
         expect(() => assertAuthVaultConfig()).not.toThrow();

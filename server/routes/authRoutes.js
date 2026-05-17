@@ -8,8 +8,10 @@ const {
     syncSession,
     completePhoneFactorLogin,
     completePhoneFactorVerification,
+    completeDuoLogin,
     verifyBackupRecoveryCode,
     verifyDeviceChallenge,
+    startDuoLogin,
 } = require('../controllers/authController');
 const { protect, protectOptional, protectPhoneFactorProof } = require('../middleware/authMiddleware');
 const validate = require('../middleware/validate');
@@ -20,6 +22,7 @@ const {
     csrfTokenValidator,
     csrfTokenValidatorUnlessBearerAuth,
 } = require('../middleware/csrfMiddleware');
+const { requireTurnstile } = require('../middleware/turnstileMiddleware');
 const otpRoutes = require('./otpRoutes');
 
 const router = express.Router();
@@ -105,13 +108,24 @@ const trustedDeviceVerificationLimiter = createDistributedRateLimit({
     },
 });
 
+const duoOidcLimiter = createDistributedRateLimit({
+    securityCritical: true,
+    name: 'auth_duo_oidc',
+    windowMs: 5 * 60 * 1000,
+    max: process.env.NODE_ENV === 'development' ? 300 : 60,
+    message: 'Too many Duo login attempts, please try again after 5 minutes',
+    keyGenerator: (req) => req.ip,
+});
+
+router.get('/duo/start', duoOidcLimiter, startDuoLogin);
+router.get('/duo/callback', duoOidcLimiter, completeDuoLogin);
 router.post('/exchange', protect, establishSessionCookie, csrfTokenGenerator, getSession);
 router.get('/session', protect, establishSessionCookie, csrfTokenGenerator, getSession);
 router.post('/sync', protect, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, authSyncLimiter, validate(loginSchema), syncSession);
 router.post('/logout', protectOptional, csrfTokenValidatorForCookieSession, logoutSession);
-router.post('/bootstrap-device-challenge', bootstrapDeviceChallengeLimiter, requestBootstrapDeviceChallenge);
+router.post('/bootstrap-device-challenge', requireTurnstile({ routeName: 'auth_bootstrap_device_challenge' }), bootstrapDeviceChallengeLimiter, requestBootstrapDeviceChallenge);
 router.post('/recovery-codes', protect, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, generateBackupRecoveryCodes);
-router.post('/recovery-codes/verify', recoveryCodeLimiter, verifyBackupRecoveryCode);
+router.post('/recovery-codes/verify', requireTurnstile({ routeName: 'auth_recovery_code_verify' }), recoveryCodeLimiter, verifyBackupRecoveryCode);
 router.post('/complete-phone-factor-login', protect, phoneFactorCompletionLimiter, completePhoneFactorLogin);
 router.post('/complete-phone-factor-verification', protectPhoneFactorProof, phoneFactorCompletionLimiter, completePhoneFactorVerification);
 router.post('/verify-device', protect, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, trustedDeviceVerificationLimiter, verifyDeviceChallenge);

@@ -1322,6 +1322,18 @@ export const useLoginController = () => {
     }
   };
 
+  const handleDuoSignIn = async () => {
+    setIsLoading(true);
+    setAuthError(null);
+    setAuthSuccess(null);
+    try {
+      authApi.startDuoLogin({ returnTo: from });
+    } catch (error) {
+      setIsLoading(false);
+      setErr(error);
+    }
+  };
+
   const submitLabel = useMemo(() => {
     if (step === 'reset-password') return t('login.submit.reset', {}, 'RESET PASSWORD');
 
@@ -1359,6 +1371,7 @@ export const useLoginController = () => {
     handleOtpKeyDown,
     handleOtpPaste,
     handleResendOtp,
+    handleDuoSignIn,
     handleSocialSignIn,
     handleSubmit,
     info,

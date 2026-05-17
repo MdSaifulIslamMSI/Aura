@@ -1,0 +1,44 @@
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Localized password-length copy is not a secret."
+paths = [
+  '''app/src/config/generatedLocaleMessages\.js''',
+  '''app/src/config/marketMessagePacks/ja\.js''',
+]
+regexes = [
+  '''login\.error\.passwordLength''',
+]
+
+[[allowlists]]
+description = "Catalog image resolver keys are internal labels, not credentials."
+paths = [
+  '''server/services/productImageResolver\.js''',
+]
+regexes = [
+  '''key:\s*['"]misc/default['"]''',
+]
+
+[[allowlists]]
+description = "Server test files use fake fixture values for redaction and provider behavior."
+paths = [
+  '''server/tests/.*''',
+]
+regexes = [
+  '''(?i)(AUTH_VAULT_SECRET|client_secret|clientSecret|accessToken|apiKey)''',
+]
+
+[[allowlists]]
+description = "Local ignored runtime folders and env files are outside committed-source scanning."
+paths = [
+  '''(^|[\\/])\.codex([\\/]|$)''',
+  '''(^|[\\/])\.vercel([\\/]|$)''',
+  '''(^|[\\/])app[\\/]\.vercel([\\/]|$)''',
+  '''(^|[\\/])\.env($|[\\/]|\.local$|\.production\.local$|\.vercel\.preview$)''',
+  '''(^|[\\/])app[\\/]\.env($|[\\/]|\.local$|\.vercel\.preview$)''',
+  '''(^|[\\/])app[\\/]dist([\\/]|$)''',
+  '''(^|[\\/])app[\\/]android[\\/]app[\\/]src[\\/]main[\\/]assets[\\/]public([\\/]|$)''',
+  '''(^|[\\/])app[\\/]ios[\\/]App[\\/]App[\\/]public([\\/]|$)''',
+  '''(^|[\\/])desktop-release([\\/]|$)''',
+]

@@ -170,6 +170,11 @@ describe('authApi', () => {
     expect(JSON.parse(requestOptions.body)).toEqual({});
   });
 
+  it('builds a Duo login redirect URL with a safe return path', async () => {
+    expect(authApi.getDuoLoginUrl('/profile?tab=security')).toContain('/api/auth/duo/start?returnTo=%2Fprofile%3Ftab%3Dsecurity');
+    expect(authApi.getDuoLoginUrl('https://evil.example/steal')).toContain('/api/auth/duo/start?returnTo=%2F');
+  });
+
   it('refreshes and retries CSRF-protected writes when the server reports an expired token', async () => {
     const expiredToken = 'e'.repeat(64);
     const freshToken = 'f'.repeat(64);
@@ -243,6 +248,30 @@ describe('authApi', () => {
     expect(JSON.parse(requestOptions.body)).toEqual({
       email: 'user@example.com',
       code: 'ABCD-EFGH-IJKL-MNOP',
+    });
+  });
+
+  it('passes a Turnstile token to public recovery verification when provided', async () => {
+    mocks.getAuthHeaderMock.mockResolvedValueOnce({});
+
+    global.fetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ success: true, flowToken: buildRuntimeValue('flow') }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+
+    await expect(authApi.verifyRecoveryCode('user@example.com', 'ABCD-EFGH-IJKL-MNOP', {
+      turnstileToken: 'browser-turnstile-token',
+    }))
+      .resolves
+      .toMatchObject({ success: true, flowToken: expect.any(String) });
+
+    const [_url, requestOptions] = global.fetch.mock.calls[0];
+    expect(JSON.parse(requestOptions.body)).toEqual({
+      email: 'user@example.com',
+      code: 'ABCD-EFGH-IJKL-MNOP',
+      turnstileToken: 'browser-turnstile-token',
     });
   });
 
@@ -575,6 +604,65 @@ describe('authApi', () => {
     });
   });
 
+  it('passes a Turnstile token to bootstrap and OTP send requests when provided', async () => {
+    const deviceSessionToken = buildRuntimeValue('session-ref');
+    const bootstrapToken = buildRuntimeValue('bootstrap-ref');
+    const challengeValue = buildRuntimeValue('challenge-ref');
+    const bootstrapProof = buildRuntimeValue('sig-ref');
+
+    mocks.getTrustedDeviceSessionTokenMock.mockReturnValue(deviceSessionToken);
+    mocks.getAuthHeaderMock
+      .mockResolvedValueOnce({ 'X-Aura-Device-Session': deviceSessionToken })
+      .mockResolvedValueOnce({ 'X-Aura-Device-Session': deviceSessionToken });
+    mocks.signTrustedDeviceChallengeMock.mockResolvedValueOnce({
+      method: 'browser_key',
+      proofBase64: bootstrapProof,
+      publicKeySpkiBase64: '',
+      credential: null,
+    });
+
+    global.fetch
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({
+          success: true,
+          deviceChallenge: {
+            token: bootstrapToken,
+            challenge: challengeValue,
+            mode: 'assert',
+          },
+        }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ success: true }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      );
+
+    await expect(otpApi.sendOtp('user@example.com', '+919999999999', 'forgot-password', {
+      turnstileToken: 'browser-turnstile-token',
+    }))
+      .resolves
+      .toEqual({ success: true });
+
+    const [, bootstrapOptions] = global.fetch.mock.calls[0];
+    const [, otpOptions] = global.fetch.mock.calls[1];
+    expect(JSON.parse(bootstrapOptions.body)).toMatchObject({
+      scope: 'otp-send:forgot-password',
+      turnstileToken: 'browser-turnstile-token',
+    });
+    expect(JSON.parse(otpOptions.body)).toMatchObject({
+      email: 'user@example.com',
+      phone: '+919999999999',
+      purpose: 'forgot-password',
+      turnstileToken: 'browser-turnstile-token',
+      trustedDeviceChallenge: expect.objectContaining({ token: bootstrapToken }),
+    });
+  });
+
   it('sends reset-password requests with the server-issued recovery flow token', async () => {
     const flowToken = buildRuntimeValue('flow-ref');
     mocks.getAuthHeaderMock.mockResolvedValueOnce({ 'X-Aura-Device-Id': 'device-123' });
@@ -601,6 +689,49 @@ describe('authApi', () => {
     expect(requestBody).toEqual({
       flowToken,
       password: ['Test', 'Pass', '1!', 'Ok'].join(''),
+    });
+  });
+
+  it('passes a Turnstile token to reset-password and check-user requests when provided', async () => {
+    const flowToken = buildRuntimeValue('flow-ref');
+    mocks.getAuthHeaderMock
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({});
+
+    global.fetch
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ success: true }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ exists: true }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      );
+
+    await expect(otpApi.resetPassword({
+      flowToken,
+      password: 'Orbital!59Qa',
+      turnstileToken: 'browser-turnstile-token',
+    })).resolves.toEqual({ success: true });
+    await expect(otpApi.checkUserExists('+919999999999', 'user@example.com', {
+      turnstileToken: 'browser-turnstile-token',
+    })).resolves.toEqual({ exists: true });
+
+    const [, resetOptions] = global.fetch.mock.calls[0];
+    const [, checkUserOptions] = global.fetch.mock.calls[1];
+    expect(JSON.parse(resetOptions.body)).toMatchObject({
+      flowToken,
+      password: 'Orbital!59Qa',
+      turnstileToken: 'browser-turnstile-token',
+    });
+    expect(JSON.parse(checkUserOptions.body)).toEqual({
+      phone: '+919999999999',
+      email: 'user@example.com',
+      turnstileToken: 'browser-turnstile-token',
     });
   });
 });

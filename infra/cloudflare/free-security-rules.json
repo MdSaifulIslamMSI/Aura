@@ -1,0 +1,55 @@
+{
+  "zoneSettings": {
+    "always_use_https": "on",
+    "automatic_https_rewrites": "on",
+    "browser_check": "on",
+    "min_tls_version": "1.2",
+    "security_level": "medium",
+    "ssl": "strict",
+    "tls_1_3": "on"
+  },
+  "customWafRules": [
+    {
+      "ref": "aura_block_sensitive_php_wordpress_probes",
+      "description": "Block common non-app probe paths",
+      "action": "block",
+      "expression": "(http.request.uri.path contains \"/wp-admin\") or (http.request.uri.path contains \"/wp-login\") or (http.request.uri.path contains \"/xmlrpc.php\") or (http.request.uri.path contains \"/.env\") or (http.request.uri.path contains \"/.git\")"
+    },
+    {
+      "ref": "aura_challenge_auth_abuse_signals",
+      "description": "Challenge suspicious auth and reset probes",
+      "action": "managed_challenge",
+      "expression": "(http.request.method eq \"POST\" and http.request.uri.path in {\"/api/auth/login\" \"/api/auth/forgot-password\" \"/api/auth/reset-password\"}) and (cf.threat_score ge 15)"
+    },
+    {
+      "ref": "aura_block_bad_sensitive_methods",
+      "description": "Block invalid HTTP methods on sensitive APIs",
+      "action": "block",
+      "expression": "(http.request.uri.path matches \"^/api/(auth|otp|admin|payments|orders|cart)\") and not http.request.method in {\"GET\" \"POST\" \"PUT\" \"PATCH\" \"DELETE\" \"OPTIONS\" \"HEAD\"}"
+    },
+    {
+      "ref": "aura_block_obvious_injection_query",
+      "description": "Block obvious query-string injection probes",
+      "action": "block",
+      "expression": "(http.request.uri.query contains \"__proto__\") or (http.request.uri.query contains \"constructor.prototype\") or (http.request.uri.query contains \"$where\") or (http.request.uri.query contains \"<script\")"
+    }
+  ],
+  "rateLimitRules": [
+    {
+      "ref": "aura_rate_limit_auth_and_otp",
+      "description": "Rate limit auth, OTP, and password reset bursts",
+      "expression": "http.request.method eq \"POST\" and http.request.uri.path in {\"/api/auth/login\" \"/api/otp/send\" \"/api/otp/verify\" \"/api/auth/forgot-password\" \"/api/auth/reset-password\"}",
+      "requests_per_period": 20,
+      "period": 60,
+      "mitigation_timeout": 300
+    },
+    {
+      "ref": "aura_rate_limit_checkout_and_payment_mutations",
+      "description": "Rate limit checkout and payment mutation bursts",
+      "expression": "http.request.method eq \"POST\" and http.request.uri.path matches \"^/api/(orders|payments|cart)\"",
+      "requests_per_period": 60,
+      "period": 60,
+      "mitigation_timeout": 120
+    }
+  ]
+}

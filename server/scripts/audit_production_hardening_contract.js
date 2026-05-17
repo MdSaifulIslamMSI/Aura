@@ -82,20 +82,20 @@ requireIncludes(desktopReleaseWorkflow, 'Verify Windows signatures', 'Desktop re
 requireIncludes(desktopReleaseWorkflow, '--config.win.verifyUpdateCodeSignature=true', 'Desktop release workflow must preserve update signature verification for signed runs.');
 requireIncludes(desktopReleaseWorkflow, '--config.win.verifyUpdateCodeSignature=false', 'Desktop release workflow must disable update signature verification for unsigned runs.');
 
-const trackedPublicUpdateKeys = tracked.filter((filePath) => (
-    /^app\/android\/ci\/.*\.base64$/i.test(filePath)
+const trackedAndroidSigningBlobs = tracked.filter((filePath) => (
+    /^app\/android\/ci\/.*\.(base64|jks|keystore|p12)$/i.test(filePath)
     && fs.existsSync(path.join(repoRoot, filePath))
 ));
-if (!trackedPublicUpdateKeys.includes('app/android/ci/aura-public-internal-update-keystore.base64')) {
-    addFailure('Public internal Android update key must be tracked for the no-private-cert GitHub APK lane.');
+if (trackedAndroidSigningBlobs.length > 0) {
+    addFailure(`Android signing blobs must not be tracked: ${trackedAndroidSigningBlobs.join(', ')}`);
 }
-requireIncludes(mobileReleaseWorkflow, 'aura-public-update', 'Mobile release workflow must use the public Android update key when private signing is absent.');
-requireIncludes(mobileReleaseWorkflow, 'aura-public-internal-update-keystore', 'Mobile release workflow must materialize the public Android update key for GitHub APK continuity.');
-requireIncludes(mobileReleaseWorkflow, 'can_build_android=true', 'Mobile release workflow must build Android artifacts even when private release signing secrets are absent.');
+requireIncludes(mobileReleaseWorkflow, 'Android release signing secrets are required for release artifacts.', 'Mobile release workflow must fail closed when Android signing secrets are absent.');
+requireIncludes(mobileReleaseWorkflow, 'ANDROID_RELEASE_KEYSTORE_BASE64', 'Mobile release workflow must materialize Android signing only from GitHub secrets.');
+requireNotIncludes(mobileReleaseWorkflow, 'aura-public-update', 'Mobile release workflow must not use a repo-stored public Android update key.');
+requireNotIncludes(mobileReleaseWorkflow, 'aura-public-internal-update-keystore', 'Mobile release workflow must not materialize tracked Android signing key material.');
 requireIncludes(androidBuildGradle, 'signingConfig hasReleaseKeystore ? signingConfigs.release : signingConfigs.debug', 'Android release build must allow local no-cert release builds while CI supplies the public update key.');
-requireIncludes(mobileDeliveryDocs, 'public internal update key', 'Mobile delivery docs must describe the no-private-cert GitHub APK signing fallback.');
+requireNotIncludes(mobileDeliveryDocs, 'public internal update key', 'Mobile delivery docs must not describe a repo-stored Android signing fallback.');
 requireNotIncludes(mobileDeliveryDocs, 'public key material is intentionally in the repo', 'Mobile delivery docs must not normalize tracked signing key material.');
-requireIncludes(mobileDeliveryDocs, 'without requiring you to own a signing certificate', 'Mobile delivery docs must document that GitHub APK builds do not require a private signing certificate.');
 
 const productionRoutingSurfaces = [
     ['vercel.json', rootVercel],
@@ -157,7 +157,7 @@ const report = {
     checked: {
         trackedFileCount: tracked.length,
         productionRoutingSurfaces: productionRoutingSurfaces.map(([name]) => name),
-        publicAndroidUpdateKeyFiles: trackedPublicUpdateKeys,
+        trackedAndroidSigningBlobs,
     },
     failures,
 };

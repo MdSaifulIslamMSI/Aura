@@ -62,6 +62,10 @@ if (riskEngineMode === 'enforce' && !isTrue('AUTH_SECURITY_OUTBOX_ENABLED')) {
   blockers.push('Do not set AUTH_RISK_ENGINE_MODE=enforce until AUTH_SECURITY_OUTBOX_ENABLED=true is active and observed in staging.');
 }
 
+if (riskEngineMode === 'enforce' && !env('AUTH_RISK_SIGNAL_SECRET')) {
+  blockers.push('Set AUTH_RISK_SIGNAL_SECRET before AUTH_RISK_ENGINE_MODE=enforce so edge/server login risk signals are signed.');
+}
+
 if (isTrue('PRIVILEGED_JIT_ACCESS_ENABLED')) {
   warnings.push('Privileged JIT is enabled; confirm the approval workflow and audit review are staffed before production.');
 }
