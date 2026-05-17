@@ -726,6 +726,7 @@ const SIMPLE_OVERRIDES = {
 };
 
 const NON_ENGLISH_RUNTIME_MESSAGE_BACKFILL = {
+  'login.error.turnstileRequired': 'Security check is still loading. Please try again.',
   'productPage.curatedHardware': 'Curated hardware',
   'productPage.liveMarketFx': 'Live market FX',
   'productPage.marketSnapshot': 'Market snapshot',
