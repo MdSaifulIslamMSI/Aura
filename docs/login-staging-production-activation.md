@@ -59,8 +59,8 @@ Attach the resulting Web ACL ARN to CloudFront through the distribution config. 
 Start with staging or EC2 only after `METRICS_SECRET` and `GRAFANA_ADMIN_PASSWORD` are present:
 
 ```powershell
-docker compose -f docker-compose.split-runtime.yml -f infra/observability/docker-compose.ec2.yml config
-docker compose -f docker-compose.split-runtime.yml -f infra/observability/docker-compose.ec2.yml up -d prometheus grafana
+docker compose -f infra/aws/docker-compose.ec2.yml -f infra/observability/docker-compose.ec2.yml config
+docker compose -f infra/aws/docker-compose.ec2.yml -f infra/observability/docker-compose.ec2.yml up -d prometheus grafana
 ```
 
 Confirm `/metrics` is protected, Prometheus can scrape with `x-metrics-key`, and Grafana loads the login security dashboard before any production switch.
