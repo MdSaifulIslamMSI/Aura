@@ -12,6 +12,7 @@ const {
     verifyBackupRecoveryCode,
     verifyDeviceChallenge,
     startDuoLogin,
+    startDuoStepUp,
 } = require('../controllers/authController');
 const { protect, protectOptional, protectPhoneFactorProof } = require('../middleware/authMiddleware');
 const validate = require('../middleware/validate');
@@ -118,6 +119,7 @@ const duoOidcLimiter = createDistributedRateLimit({
 });
 
 router.get('/duo/start', duoOidcLimiter, startDuoLogin);
+router.get('/duo/step-up', protect, establishSessionCookie, duoOidcLimiter, startDuoStepUp);
 router.get('/duo/callback', duoOidcLimiter, completeDuoLogin);
 router.post('/exchange', protect, establishSessionCookie, csrfTokenGenerator, getSession);
 router.get('/session', protect, establishSessionCookie, csrfTokenGenerator, getSession);

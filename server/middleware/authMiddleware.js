@@ -36,6 +36,10 @@ const { getLoginRuntimeEnforcementPolicy } = require('../config/loginRuntimeEnfo
 const { getCachedAdaptiveSecuritySignal } = require('../services/healthService');
 const { findPreferredIdentityUserLean } = require('../services/authIdentityResolutionService');
 const { recordAuthSecurityEvent } = require('../services/authSecurityTelemetryService');
+const {
+    DUO_STEP_UP_ACTIONS,
+    requireDuoStepUp,
+} = require('../services/duoStepUpService');
 
 // Redis-backed token cache.
 // Replaces the in-process Map which broke horizontal scaling:
@@ -255,6 +259,9 @@ const recordAdminBlock = (req, reason, statusCode = 403) => {
     });
 };
 const CSRF_STATE_CHANGING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+const isStateChangingRequest = (req = {}) => (
+    CSRF_STATE_CHANGING_METHODS.has(String(req.method || 'GET').trim().toUpperCase())
+);
 
 const isDuplicatePhoneError = (error) => (
     Boolean(error?.code === 11000 && (error?.keyPattern?.phone || String(error?.message || '').includes('phone')))
@@ -1203,6 +1210,9 @@ const admin = asyncHandler(async (req, res, next) => {
     }
 
     enforceTrustedDevice(req);
+    if (isStateChangingRequest(req)) {
+        requireDuoStepUp(req, { action: DUO_STEP_UP_ACTIONS.ADMIN_SENSITIVE });
+    }
 
     return next();
 });

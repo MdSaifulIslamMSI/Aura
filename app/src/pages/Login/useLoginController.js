@@ -1,4 +1,4 @@
-import { useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { AuthContext } from '@/context/AuthContext';
 import { useMarket } from '@/context/MarketContext';
@@ -23,6 +23,7 @@ import { resolveFirebasePhoneFallback } from '@/utils/firebasePhoneFallback';
 import { resolveNavigationTarget } from '@/utils/navigation';
 import { verifyCredentialsWithoutSession } from '@/utils/precheckCredentials';
 import { getFirebaseSocialAuthStatus } from '@/config/firebase';
+import { isTurnstileEnabled } from '@/services/turnstileClient';
 import {
   buildGenericOtpFlowError,
   buildInternationalPhoneNumber,
@@ -146,6 +147,8 @@ export const useLoginController = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [authError, setAuthError] = useState(null);
   const [authSuccess, setAuthSuccess] = useState(null);
+  const [turnstileToken, setTurnstileToken] = useState('');
+  const [turnstileRefreshKey, setTurnstileRefreshKey] = useState(0);
   const [countdown, setCountdown] = useState(0);
   const [signInProofToken, setSignInProofToken] = useState('');
   const [loginFlowToken, setLoginFlowToken] = useState('');
@@ -200,6 +203,32 @@ export const useLoginController = () => {
   );
 
   const setErr = (rawErr) => setAuthError(resolveAuthError(rawErr));
+  const turnstileEnabled = isTurnstileEnabled();
+
+  const refreshTurnstile = useCallback(() => {
+    setTurnstileToken('');
+    setTurnstileRefreshKey((value) => value + 1);
+  }, []);
+
+  const handleTurnstileToken = useCallback((token) => {
+    setTurnstileToken(String(token || '').trim());
+  }, []);
+
+  const handleTurnstileError = useCallback(() => {
+    setTurnstileToken('');
+  }, []);
+
+  const getTurnstileTokenForRequest = () => {
+    if (!turnstileEnabled) return '';
+    const token = String(turnstileToken || '').trim();
+    if (token) return token;
+    throw new Error(t('login.error.turnstileRequired', {}, 'Security check is still loading. Please try again.'));
+  };
+
+  const buildTurnstileRequestOptions = (options = {}) => {
+    const token = getTurnstileTokenForRequest();
+    return token ? { ...options, turnstileToken: token } : options;
+  };
 
   const clearAuthFeedback = () => {
     setAuthError(null);
@@ -548,9 +577,10 @@ export const useLoginController = () => {
       setSignInProofToken(credentialProofToken);
     }
 
-    await otpApi.sendOtp(email, phone, purpose, {
+    await otpApi.sendOtp(email, phone, purpose, buildTurnstileRequestOptions({
       ...(mode === 'signin' ? { credentialProofToken } : {}),
-    });
+    }));
+    refreshTurnstile();
 
     startOtpStep({
       transport: OTP_TRANSPORT.BACKEND_OTP,
@@ -570,6 +600,7 @@ export const useLoginController = () => {
 
     try {
       const purpose = getAuthPurpose(mode);
+      const turnstileRequestOptions = buildTurnstileRequestOptions();
 
       if (mode === 'signin') {
         const challenge = await startFirebasePhoneLoginChallenge({
@@ -589,6 +620,7 @@ export const useLoginController = () => {
         setSignInProofToken(credentialProofToken);
 
         await otpApi.sendOtp(email, phone, purpose, {
+          ...turnstileRequestOptions,
           credentialProofToken,
           skipSms: true,
           strictIdentity: true,
@@ -602,9 +634,11 @@ export const useLoginController = () => {
         firebasePhoneChallengeRef.current = challenge;
 
         await otpApi.sendOtp(email, phone, purpose, {
+          ...turnstileRequestOptions,
           skipSms: true,
         });
       }
+      refreshTurnstile();
 
       startOtpStep({
         transport: OTP_TRANSPORT.BACKEND_OTP,
@@ -730,6 +764,9 @@ export const useLoginController = () => {
         successOverride: backendSuccessOverride,
       });
     } catch (error) {
+      if (turnstileEnabled) {
+        refreshTurnstile();
+      }
       if ((mode === 'signin' || mode === 'forgot-password')
         && isEnumerationSensitiveOtpError(error)
         && !shouldKeepSpecificOtpError(error)) {
@@ -759,10 +796,11 @@ export const useLoginController = () => {
       const purpose = getAuthPurpose(mode);
 
       if (isEmailOtpStage) {
-        const verificationResult = await otpApi.verifyOtp(phone, otpString, purpose, {
+        const verificationResult = await otpApi.verifyOtp(phone, otpString, purpose, buildTurnstileRequestOptions({
           email,
           factor: 'email',
-        });
+        }));
+        refreshTurnstile();
         const nextFlowToken = String(verificationResult?.flowToken || '').trim();
         if (mode === 'signin' && !nextFlowToken) {
           throw new Error('Secure login token expired. Please request a fresh code.');
@@ -794,9 +832,10 @@ export const useLoginController = () => {
 
         try {
           if (mode !== 'signin') {
-            const completionResult = await authApi.completePhoneFactorVerification(purpose, email, verifiedPhoneFactor.phoneE164, {
+            const completionResult = await authApi.completePhoneFactorVerification(purpose, email, verifiedPhoneFactor.phoneE164, buildTurnstileRequestOptions({
               firebaseUser: verifiedPhoneFactor.user,
-            });
+            }));
+            refreshTurnstile();
             if (mode === 'forgot-password') {
               const nextFlowToken = String(completionResult?.flowToken || '').trim();
               if (!nextFlowToken) {
@@ -829,7 +868,8 @@ export const useLoginController = () => {
         return;
       }
 
-      const otpResult = await otpApi.verifyOtp(phone, otpString, purpose);
+      const otpResult = await otpApi.verifyOtp(phone, otpString, purpose, buildTurnstileRequestOptions());
+      refreshTurnstile();
 
       if (mode === 'signup') {
         await signup(email, formData.password, formData.name.trim(), phone);
@@ -863,6 +903,9 @@ export const useLoginController = () => {
       setSignInProofToken('');
       setLoginFlowToken('');
     } catch (error) {
+      if (turnstileEnabled) {
+        refreshTurnstile();
+      }
       if ((mode === 'signin' || mode === 'forgot-password')
         && isEnumerationSensitiveOtpError(error)
         && !shouldKeepSpecificOtpError(error)) {
@@ -924,6 +967,9 @@ export const useLoginController = () => {
         successOverride: backendSuccessOverride,
       });
     } catch (error) {
+      if (turnstileEnabled) {
+        refreshTurnstile();
+      }
       if ((mode === 'signin' || mode === 'forgot-password')
         && isEnumerationSensitiveOtpError(error)
         && !shouldKeepSpecificOtpError(error)) {
@@ -971,7 +1017,9 @@ export const useLoginController = () => {
       await otpApi.resetPassword({
         flowToken: resolvedFlowToken,
         password: formData.password,
+        ...buildTurnstileRequestOptions(),
       });
+      refreshTurnstile();
 
       setAuthSuccess(AUTH_SUCCESS.password_reset_success);
       setTimeout(() => {
@@ -979,6 +1027,9 @@ export const useLoginController = () => {
         resetToFormStep();
       }, 1400);
     } catch (error) {
+      if (turnstileEnabled) {
+        refreshTurnstile();
+      }
       setErr(error);
     } finally {
       setIsLoading(false);
@@ -1353,6 +1404,18 @@ export const useLoginController = () => {
     return canUseFirebasePhoneOtp ? t('login.submit.sendDualOtp', {}, 'SEND EMAIL + PHONE OTP') : t('login.submit.sendOtpSignin', {}, 'SEND OTP & SIGN IN');
   }, [canUseFirebasePhoneOtp, firebasePhoneFallback?.disableFirebasePhoneOtp, isEmailOtpStage, isPhoneOtpStage, mode, step, t]);
 
+  const turnstileAction = useMemo(() => {
+    if (step === 'reset-password') return 'auth_reset_password';
+    if (step === 'otp') {
+      if (isEmailOtpStage) return 'auth_otp_verify_email';
+      if (isPhoneOtpStage) return mode === 'signin' ? 'auth_phone_verify' : 'auth_bootstrap_device';
+      return 'auth_otp_verify';
+    }
+    if (mode === 'forgot-password') return 'auth_otp_send_recovery';
+    if (mode === 'signup') return 'auth_otp_send_signup';
+    return 'auth_otp_send_signin';
+  }, [isEmailOtpStage, isPhoneOtpStage, mode, step]);
+
   return {
     OTP_TRANSPORT,
     accelerationCards,
@@ -1402,5 +1465,10 @@ export const useLoginController = () => {
     switchMode,
     t,
     trustNotes,
+    turnstileAction,
+    turnstileEnabled,
+    turnstileRefreshKey,
+    handleTurnstileError,
+    handleTurnstileToken,
   };
 };

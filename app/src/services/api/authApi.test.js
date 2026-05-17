@@ -663,6 +663,98 @@ describe('authApi', () => {
     });
   });
 
+  it('passes a Turnstile token to OTP verification when provided', async () => {
+    mocks.getAuthHeaderMock.mockResolvedValueOnce({});
+
+    global.fetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ success: true, flowToken: buildRuntimeValue('flow-ref') }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+
+    await expect(otpApi.verifyOtp('+919999999999', '123456', 'forgot-password', {
+      email: 'user@example.com',
+      turnstileToken: 'browser-turnstile-token',
+    })).resolves.toMatchObject({ success: true });
+
+    const [, requestOptions] = global.fetch.mock.calls[0];
+    expect(JSON.parse(requestOptions.body)).toMatchObject({
+      phone: '+919999999999',
+      otp: '123456',
+      purpose: 'forgot-password',
+      email: 'user@example.com',
+      turnstileToken: 'browser-turnstile-token',
+    });
+  });
+
+  it('passes a Turnstile token to bootstrap device challenge during phone-factor recovery completion', async () => {
+    const deviceSessionToken = buildRuntimeValue('session-ref');
+    const bootstrapToken = buildRuntimeValue('bootstrap-ref');
+    const challengeValue = buildRuntimeValue('challenge-ref');
+    const bootstrapProof = buildRuntimeValue('sig-ref');
+    const firebaseUser = {
+      getIdToken: vi.fn().mockResolvedValue('fresh-token'),
+    };
+
+    mocks.getTrustedDeviceSessionTokenMock.mockReturnValue(deviceSessionToken);
+    mocks.getAuthHeaderMock
+      .mockResolvedValueOnce({ 'X-Aura-Device-Session': deviceSessionToken })
+      .mockResolvedValueOnce({ Authorization: 'Bearer fresh-token' });
+    mocks.signTrustedDeviceChallengeMock.mockResolvedValueOnce({
+      method: 'browser_key',
+      proofBase64: bootstrapProof,
+      publicKeySpkiBase64: '',
+      credential: null,
+    });
+
+    global.fetch
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({
+          success: true,
+          deviceChallenge: {
+            token: bootstrapToken,
+            challenge: challengeValue,
+            mode: 'assert',
+          },
+        }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ success: true, flowToken: buildRuntimeValue('flow-ref') }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      );
+
+    await expect(authApi.completePhoneFactorVerification(
+      'forgot-password',
+      'user@example.com',
+      '+919999999999',
+      {
+        firebaseUser,
+        turnstileToken: 'browser-turnstile-token',
+      }
+    )).resolves.toMatchObject({ success: true });
+
+    const [, bootstrapOptions] = global.fetch.mock.calls[0];
+    const [, completionOptions] = global.fetch.mock.calls[1];
+    expect(JSON.parse(bootstrapOptions.body)).toMatchObject({
+      scope: 'phone-factor:forgot-password',
+      email: 'user@example.com',
+      phone: '+919999999999',
+      turnstileToken: 'browser-turnstile-token',
+    });
+    expect(JSON.parse(completionOptions.body)).toMatchObject({
+      purpose: 'forgot-password',
+      email: 'user@example.com',
+      phone: '+919999999999',
+      trustedDeviceChallenge: expect.objectContaining({ token: bootstrapToken }),
+    });
+  });
+
   it('sends reset-password requests with the server-issued recovery flow token', async () => {
     const flowToken = buildRuntimeValue('flow-ref');
     mocks.getAuthHeaderMock.mockResolvedValueOnce({ 'X-Aura-Device-Id': 'device-123' });

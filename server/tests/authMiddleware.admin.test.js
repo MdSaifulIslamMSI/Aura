@@ -11,6 +11,12 @@ const ORIGINAL_ENV = {
     AUTH_DEVICE_CHALLENGE_ALLOW_VAULT_FALLBACK: process.env.AUTH_DEVICE_CHALLENGE_ALLOW_VAULT_FALLBACK,
     AUTH_VAULT_SECRET: process.env.AUTH_VAULT_SECRET,
     AUTH_VAULT_SECRET_VERSION: process.env.AUTH_VAULT_SECRET_VERSION,
+    DUO_ENABLED: process.env.DUO_ENABLED,
+    DUO_CLIENT_ID: process.env.DUO_CLIENT_ID,
+    DUO_CLIENT_SECRET: process.env.DUO_CLIENT_SECRET,
+    DUO_OIDC_ISSUER: process.env.DUO_OIDC_ISSUER,
+    DUO_DISCOVERY_URL: process.env.DUO_DISCOVERY_URL,
+    DUO_REDIRECT_URI: process.env.DUO_REDIRECT_URI,
 };
 
 const loadAdminMiddleware = () => {
@@ -330,6 +336,168 @@ describe('authMiddleware admin second-factor enforcement', () => {
             },
             headers: {},
             originalUrl: '/api/admin/dashboard',
+            get: () => '',
+        };
+        const next = jest.fn();
+
+        await admin(req, {}, next);
+
+        expect(next).toHaveBeenCalledTimes(1);
+        expect(next).toHaveBeenCalledWith();
+    });
+
+    test('fails closed for admin state changes when Duo is enabled but incomplete', async () => {
+        process.env.NODE_ENV = 'test';
+        process.env.ADMIN_STRICT_ACCESS_ENABLED = 'true';
+        process.env.ADMIN_REQUIRE_EMAIL_VERIFIED = 'true';
+        process.env.ADMIN_REQUIRE_2FA = 'false';
+        process.env.ADMIN_REQUIRE_PASSKEY = 'false';
+        process.env.ADMIN_REQUIRE_ALLOWLIST = 'false';
+        process.env.ADMIN_REQUIRE_FRESH_LOGIN_MINUTES = '30';
+        process.env.ADMIN_ALLOWLIST_EMAILS = '';
+        process.env.AUTH_DEVICE_CHALLENGE_MODE = 'off';
+        process.env.DUO_ENABLED = 'true';
+        delete process.env.DUO_CLIENT_ID;
+        delete process.env.DUO_CLIENT_SECRET;
+        delete process.env.DUO_OIDC_ISSUER;
+        delete process.env.DUO_DISCOVERY_URL;
+        delete process.env.DUO_REDIRECT_URI;
+
+        const nowSeconds = Math.floor(Date.now() / 1000);
+        const admin = loadAdminMiddleware();
+        const req = {
+            method: 'POST',
+            user: {
+                _id: 'user-1',
+                isAdmin: true,
+                isVerified: true,
+                email: 'admin@example.com',
+            },
+            authUid: 'firebase-admin-uid',
+            authToken: {
+                email: 'admin@example.com',
+                email_verified: true,
+                auth_time: nowSeconds - 60,
+                iat: nowSeconds - 60,
+            },
+            authSession: {
+                sessionId: 'session-admin-1',
+                userId: 'user-1',
+                email: 'admin@example.com',
+            },
+            headers: {},
+            originalUrl: '/api/admin/users/target',
+            get: () => '',
+        };
+        const next = jest.fn();
+
+        await admin(req, {}, next);
+
+        expect(next).toHaveBeenCalledTimes(1);
+        expect(next).toHaveBeenCalledWith(expect.objectContaining({
+            statusCode: 503,
+            code: 'DUO_NOT_CONFIGURED',
+        }));
+    });
+
+    test('requires fresh Duo step-up for admin state changes when Duo is configured', async () => {
+        process.env.NODE_ENV = 'test';
+        process.env.ADMIN_STRICT_ACCESS_ENABLED = 'true';
+        process.env.ADMIN_REQUIRE_EMAIL_VERIFIED = 'true';
+        process.env.ADMIN_REQUIRE_2FA = 'false';
+        process.env.ADMIN_REQUIRE_PASSKEY = 'false';
+        process.env.ADMIN_REQUIRE_ALLOWLIST = 'false';
+        process.env.ADMIN_REQUIRE_FRESH_LOGIN_MINUTES = '30';
+        process.env.ADMIN_ALLOWLIST_EMAILS = '';
+        process.env.AUTH_DEVICE_CHALLENGE_MODE = 'off';
+        process.env.DUO_ENABLED = 'true';
+        process.env.DUO_CLIENT_ID = 'duo-client-id';
+        process.env.DUO_CLIENT_SECRET = 'duo-client-secret';
+        process.env.DUO_OIDC_ISSUER = 'https://duo.example.test/oidc/duo-client-id';
+        process.env.DUO_DISCOVERY_URL = 'https://duo.example.test/oidc/duo-client-id/.well-known/openid-configuration';
+        process.env.DUO_REDIRECT_URI = 'https://api.example.test/api/auth/duo/callback';
+
+        const nowSeconds = Math.floor(Date.now() / 1000);
+        const admin = loadAdminMiddleware();
+        const req = {
+            method: 'POST',
+            user: {
+                _id: 'user-1',
+                isAdmin: true,
+                isVerified: true,
+                email: 'admin@example.com',
+            },
+            authUid: 'firebase-admin-uid',
+            authToken: {
+                email: 'admin@example.com',
+                email_verified: true,
+                auth_time: nowSeconds - 60,
+                iat: nowSeconds - 60,
+            },
+            authSession: {
+                sessionId: 'session-admin-1',
+                userId: 'user-1',
+                email: 'admin@example.com',
+                amr: ['password'],
+            },
+            headers: {},
+            originalUrl: '/api/admin/users/target',
+            get: () => '',
+        };
+        const next = jest.fn();
+
+        await admin(req, {}, next);
+
+        expect(next).toHaveBeenCalledTimes(1);
+        expect(next).toHaveBeenCalledWith(expect.objectContaining({
+            statusCode: 403,
+            code: 'DUO_STEP_UP_REQUIRED',
+        }));
+    });
+
+    test('accepts fresh Duo step-up for admin state changes', async () => {
+        process.env.NODE_ENV = 'test';
+        process.env.ADMIN_STRICT_ACCESS_ENABLED = 'true';
+        process.env.ADMIN_REQUIRE_EMAIL_VERIFIED = 'true';
+        process.env.ADMIN_REQUIRE_2FA = 'false';
+        process.env.ADMIN_REQUIRE_PASSKEY = 'false';
+        process.env.ADMIN_REQUIRE_ALLOWLIST = 'false';
+        process.env.ADMIN_REQUIRE_FRESH_LOGIN_MINUTES = '30';
+        process.env.ADMIN_ALLOWLIST_EMAILS = '';
+        process.env.AUTH_DEVICE_CHALLENGE_MODE = 'off';
+        process.env.DUO_ENABLED = 'true';
+        process.env.DUO_CLIENT_ID = 'duo-client-id';
+        process.env.DUO_CLIENT_SECRET = 'duo-client-secret';
+        process.env.DUO_OIDC_ISSUER = 'https://duo.example.test/oidc/duo-client-id';
+        process.env.DUO_DISCOVERY_URL = 'https://duo.example.test/oidc/duo-client-id/.well-known/openid-configuration';
+        process.env.DUO_REDIRECT_URI = 'https://api.example.test/api/auth/duo/callback';
+
+        const nowSeconds = Math.floor(Date.now() / 1000);
+        const admin = loadAdminMiddleware();
+        const req = {
+            method: 'POST',
+            user: {
+                _id: 'user-1',
+                isAdmin: true,
+                isVerified: true,
+                email: 'admin@example.com',
+            },
+            authUid: 'firebase-admin-uid',
+            authToken: {
+                email: 'admin@example.com',
+                email_verified: true,
+                auth_time: nowSeconds - 60,
+                iat: nowSeconds - 60,
+            },
+            authSession: {
+                sessionId: 'session-admin-1',
+                userId: 'user-1',
+                email: 'admin@example.com',
+                amr: ['password', 'duo_oidc'],
+                stepUpUntil: new Date(Date.now() + 60_000).toISOString(),
+            },
+            headers: {},
+            originalUrl: '/api/admin/users/target',
             get: () => '',
         };
         const next = jest.fn();

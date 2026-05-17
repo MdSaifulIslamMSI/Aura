@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { Apple as AppleIcon, ArrowLeft, ChevronDown, Eye, EyeOff, Github, Loader2, Lock, Mail, Network, Phone, Shield, User, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import AuthAccelerationRail from '@/components/features/auth/AuthAccelerationRail';
+import TurnstileChallenge from '@/components/features/auth/TurnstileChallenge';
 import { AuthFeedback } from '@/components/shared/AuthFeedback';
 
 const LoginView = ({
@@ -25,6 +26,8 @@ const LoginView = ({
   handleDuoSignIn,
   handleSocialSignIn,
   handleSubmit,
+  handleTurnstileError,
+  handleTurnstileToken,
   info,
   isEmailOtpStage,
   isLoading,
@@ -53,6 +56,9 @@ const LoginView = ({
   switchMode,
   t,
   trustNotes,
+  turnstileAction,
+  turnstileEnabled,
+  turnstileRefreshKey,
   emergencyActionDisabled = false,
   emergencyAuthDisabled = false,
   emergencyOtpDisabled = false,
@@ -425,6 +431,17 @@ const LoginView = ({
                     </div>
                   </div>
                 </div>
+              )}
+
+              {turnstileEnabled && (
+                <TurnstileChallenge
+                  action={turnstileAction}
+                  disabled={emergencyActionDisabled}
+                  onError={handleTurnstileError}
+                  onToken={handleTurnstileToken}
+                  refreshKey={`${turnstileAction}:${turnstileRefreshKey}`}
+                  className="my-2"
+                />
               )}
 
               <button

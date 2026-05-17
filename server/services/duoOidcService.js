@@ -141,13 +141,24 @@ const loadDiscovery = async (flags = getDuoFlags()) => {
     return discovery;
 };
 
-const buildAuthorizationUrl = async ({ req = {}, res = null, returnTo = '' } = {}) => {
+const buildAuthorizationUrl = async ({
+    req = {},
+    res = null,
+    returnTo = '',
+    stateContext = {},
+} = {}) => {
     const flags = assertDuoReady();
     const discovery = await loadDiscovery(flags);
     const state = crypto.randomBytes(24).toString('base64url');
     const nonce = crypto.randomBytes(24).toString('base64url');
     const codeVerifier = crypto.randomBytes(48).toString('base64url');
+    const stateContextPayload = stateContext
+        && typeof stateContext === 'object'
+        && !Array.isArray(stateContext)
+        ? stateContext
+        : {};
     const stateToken = signStatePayload({
+        ...stateContextPayload,
         state,
         nonce,
         codeVerifier,

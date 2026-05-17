@@ -24,6 +24,7 @@ const {
     verifyTrustedDeviceSession,
 } = require('../services/trustedDeviceChallengeService');
 const {
+    SESSION_STEP_UP_TTL_MS,
     clearBrowserSessionCookie,
     getBrowserSessionFromRequest,
     refreshBrowserSession,
@@ -35,6 +36,12 @@ const {
     consumeState: consumeDuoState,
     exchangeCodeForClaims: exchangeDuoCodeForClaims,
 } = require('../services/duoOidcService');
+const {
+    DUO_STEP_UP_ACTIONS,
+    assertDuoStepUpReady,
+    buildDuoStepUpState,
+    requireDuoStepUp,
+} = require('../services/duoStepUpService');
 const { inspectOtpFlowToken, issueOtpFlowToken } = require('../utils/otpFlowToken');
 const { registerOtpFlowGrant } = require('../services/otpFlowGrantService');
 const {
@@ -57,10 +64,18 @@ const PHONE_FACTOR_ASSURANCE_TTL_MS = 10 * 60 * 1000;
 const GENERIC_PHONE_FACTOR_VERIFICATION_MESSAGE = 'If account details are valid, verification will proceed.';
 const RECOVERY_CODE_VERIFICATION_MIN_MS = process.env.NODE_ENV === 'test' ? 0 : 350;
 const LOGIN_RISK_STATE_HIGH = 'login_risk_high';
+const DUO_STEP_UP_ACTION_SET = new Set(Object.values(DUO_STEP_UP_ACTIONS));
 
 const normalizeEmail = (value) => (
     typeof value === 'string' ? value.trim().toLowerCase() : ''
 );
+
+const normalizeDuoStepUpAction = (value) => {
+    const normalized = typeof value === 'string' ? value.trim().toLowerCase() : '';
+    return DUO_STEP_UP_ACTION_SET.has(normalized)
+        ? normalized
+        : DUO_STEP_UP_ACTIONS.ADMIN_SENSITIVE;
+};
 
 const normalizeRelativeReturnTo = (value) => {
     const normalized = typeof value === 'string' ? value.trim() : '';
@@ -568,6 +583,143 @@ const startDuoLogin = asyncHandler(async (req, res) => {
     return res.redirect(302, authorizationUrl);
 });
 
+const startDuoStepUp = asyncHandler(async (req, res) => {
+    const action = normalizeDuoStepUpAction(req.query?.action);
+    assertDuoStepUpReady({ action });
+
+    if (!req.authSession?.sessionId || !req.user?._id) {
+        const error = new AppError('Duo step-up requires an active browser session.', 401);
+        error.code = 'DUO_SESSION_REQUIRED';
+        throw error;
+    }
+
+    const returnTo = normalizeRelativeReturnTo(req.query?.returnTo || '/');
+    const authorizationUrl = await buildDuoAuthorizationUrl({
+        req,
+        res,
+        returnTo,
+        stateContext: buildDuoStepUpState({
+            req,
+            action,
+            returnTo,
+        }),
+    });
+
+    recordAuthSecurityEvent({
+        event: 'duo_step_up',
+        outcome: 'required',
+        reason: action,
+        surface: 'auth',
+        req,
+        meta: {
+            provider: 'duo_oidc',
+            action,
+        },
+    });
+
+    return res.redirect(302, authorizationUrl);
+});
+
+const loadDuoStepUpUser = async (statePayload = {}) => {
+    const userId = String(statePayload.userId || '').trim();
+    if (!userId) {
+        return null;
+    }
+
+    return User.findById(
+        userId,
+        'name email phone avatar gender dob bio isAdmin adminRoles isVerified isSeller sellerActivatedAt accountState moderation authAssurance authAssuranceAt trustedDevices recoveryCodeState +loginOtpAssuranceExpiresAt loyalty createdAt'
+    ).lean();
+};
+
+const completeDuoStepUp = async ({ req, res, statePayload = {}, claims = {} } = {}) => {
+    const action = normalizeDuoStepUpAction(statePayload.duoAction);
+    const currentSession = await getBrowserSessionFromRequest(req);
+    const currentSessionId = String(currentSession?.sessionId || '').trim();
+    const expectedSessionId = String(statePayload.sessionId || '').trim();
+    const expectedUserId = String(statePayload.userId || '').trim();
+    const expectedEmail = normalizeEmail(statePayload.email);
+    const claimEmail = normalizeEmail(claims.email);
+
+    if (!currentSessionId || !expectedSessionId || currentSessionId !== expectedSessionId) {
+        recordAuthSecurityEvent({
+            event: 'duo_step_up',
+            outcome: 'failure',
+            reason: 'session_binding_mismatch',
+            surface: 'auth',
+            req,
+            meta: { statusCode: 401, action },
+        });
+        const error = new AppError('Duo step-up session binding could not be verified.', 401);
+        error.code = 'DUO_SESSION_BINDING_MISMATCH';
+        throw error;
+    }
+
+    const user = await loadDuoStepUpUser(statePayload);
+    const currentUserId = String(currentSession.userId || '').trim();
+    const resolvedUserId = String(user?._id || '').trim();
+    const currentEmail = normalizeEmail(currentSession.email);
+    const userEmail = normalizeEmail(user?.email);
+    if (
+        !resolvedUserId
+        || resolvedUserId !== expectedUserId
+        || currentUserId !== expectedUserId
+        || !expectedEmail
+        || !claimEmail
+        || claimEmail !== expectedEmail
+        || (currentEmail && currentEmail !== expectedEmail)
+        || (userEmail && userEmail !== expectedEmail)
+    ) {
+        recordAuthSecurityEvent({
+            event: 'duo_step_up',
+            outcome: 'failure',
+            reason: 'identity_binding_mismatch',
+            surface: 'auth',
+            req,
+            meta: { statusCode: 401, action },
+        });
+        const error = new AppError('Duo step-up identity binding could not be verified.', 401);
+        error.code = 'DUO_IDENTITY_BINDING_MISMATCH';
+        throw error;
+    }
+
+    const stepUpUntil = new Date(Date.now() + SESSION_STEP_UP_TTL_MS);
+    const authSession = await refreshBrowserSession({
+        req,
+        res,
+        currentSession,
+        user,
+        authUid: currentSession.firebaseUid || '',
+        authToken: null,
+        rotate: true,
+        additionalAmr: ['duo', 'duo_oidc'],
+        stepUpUntil,
+        riskState: currentSession.riskState || (user?.isAdmin ? 'privileged' : user?.isSeller ? 'heightened' : 'standard'),
+    });
+    req.authSession = authSession;
+
+    await invalidateUserCache(currentSession.firebaseUid || '');
+    await invalidateUserCacheByEmail(expectedEmail);
+
+    recordAuthSecurityEvent({
+        event: 'duo_step_up',
+        outcome: 'success',
+        reason: 'none',
+        surface: 'auth',
+        req,
+        meta: {
+            provider: 'duo_oidc',
+            action,
+            sessionRotated: true,
+        },
+    });
+
+    return res.redirect(302, buildDuoFrontendRedirect({
+        returnTo: statePayload.returnTo || '/',
+        status: 'step-up',
+    }));
+};
+
 const completeDuoLogin = asyncHandler(async (req, res) => {
     const state = typeof req.query?.state === 'string' ? req.query.state.trim() : '';
     const code = typeof req.query?.code === 'string' ? req.query.code.trim() : '';
@@ -599,6 +751,10 @@ const completeDuoLogin = asyncHandler(async (req, res) => {
 
     const statePayload = consumeDuoState({ req, state });
     const claims = await exchangeDuoCodeForClaims({ code, statePayload });
+    if (statePayload.stepUp === true) {
+        return completeDuoStepUp({ req, res, statePayload, claims });
+    }
+
     const email = normalizeEmail(claims.email);
     const authUid = `duo:${claims.sub}`;
     const authTime = Number(claims.auth_time || claims.iat || Math.floor(Date.now() / 1000));
@@ -1069,6 +1225,7 @@ const generateBackupRecoveryCodes = asyncHandler(async (req, res) => {
     if (!hasFreshPasskeySession(req)) {
         throw new AppError('Fresh passkey verification is required before creating backup recovery codes.', 403);
     }
+    requireDuoStepUp(req, { action: DUO_STEP_UP_ACTIONS.RECOVERY_SENSITIVE });
 
     const result = await generateRecoveryCodesForUser({ userId: user._id });
     await invalidateUserCache(req.authUid || '');
@@ -1274,6 +1431,7 @@ module.exports = {
     generateBackupRecoveryCodes,
     getSession,
     requestBootstrapDeviceChallenge,
+    startDuoStepUp,
     startDuoLogin,
     verifyBackupRecoveryCode,
     syncSession,

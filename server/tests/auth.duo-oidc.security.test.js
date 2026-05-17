@@ -8,6 +8,11 @@ const {
     resetDuoOidcTestState,
     verifyIdToken,
 } = require('../services/duoOidcService');
+const {
+    SESSION_COOKIE_NAME,
+    getBrowserSession,
+    refreshBrowserSession,
+} = require('../services/browserSessionService');
 
 jest.mock('node-fetch');
 
@@ -117,6 +122,7 @@ describe('Duo OIDC security flow', () => {
         delete process.env.DUO_DISCOVERY_URL;
         delete process.env.DUO_REDIRECT_URI;
         delete process.env.DUO_FAIL_CLOSED;
+        delete process.env.AUTH_SESSION_ALLOW_MEMORY_FALLBACK;
     });
 
     test('starts Duo login with signed state cookie and OIDC nonce', async () => {
@@ -168,6 +174,76 @@ describe('Duo OIDC security flow', () => {
             adminRoles: [],
             isVerified: true,
         });
+    });
+
+    test('step-up callback rotates and binds the current browser session', async () => {
+        const user = await User.create({
+            name: 'Duo Step Up User',
+            email: 'duo.stepup@example.test',
+            isVerified: true,
+            isAdmin: true,
+        });
+        const nowSeconds = Math.floor(Date.now() / 1000);
+        const browserSession = await refreshBrowserSession({
+            req: { headers: { host: '127.0.0.1' } },
+            user,
+            authUid: 'firebase-step-up-user',
+            authToken: {
+                uid: 'firebase-step-up-user',
+                email: user.email,
+                email_verified: true,
+                auth_time: nowSeconds,
+                iat: nowSeconds,
+                exp: nowSeconds + 3600,
+                firebase: {
+                    sign_in_provider: 'password',
+                },
+            },
+            riskState: 'privileged',
+        });
+
+        fetch.mockResolvedValueOnce(jsonResponse(discovery));
+        const start = await request(app)
+            .get('/api/auth/duo/step-up?action=admin-sensitive&returnTo=/admin')
+            .set('Cookie', `${SESSION_COOKIE_NAME}=${browserSession.sessionId}`);
+        const authorizationUrl = new URL(start.headers.location);
+        const state = authorizationUrl.searchParams.get('state');
+        const nonce = authorizationUrl.searchParams.get('nonce');
+        const stateCookie = getCookieValue(start.headers['set-cookie'], STATE_COOKIE_NAME);
+
+        fetch
+            .mockResolvedValueOnce(jsonResponse({
+                id_token: signIdToken({
+                    email: user.email,
+                    name: user.name,
+                    nonce,
+                    sub: 'duo-step-up-user',
+                }),
+                token_type: 'Bearer',
+            }))
+            .mockResolvedValueOnce(jsonResponse({ keys: [jwk] }));
+
+        const callback = await request(app)
+            .get(`/api/auth/duo/callback?code=valid-code&state=${encodeURIComponent(state)}`)
+            .set('Cookie', [
+                stateCookie,
+                `${SESSION_COOKIE_NAME}=${browserSession.sessionId}`,
+            ]);
+        const nextSessionCookie = getCookieValue(callback.headers['set-cookie'], SESSION_COOKIE_NAME);
+        const nextSessionId = nextSessionCookie.replace(`${SESSION_COOKIE_NAME}=`, '');
+        const nextSession = await getBrowserSession(nextSessionId);
+
+        expect(callback.status).toBe(302);
+        expect(callback.headers.location).toBe('/admin?duo=step-up');
+        expect(nextSessionId).toBeTruthy();
+        expect(nextSessionId).not.toBe(browserSession.sessionId);
+        expect(nextSession).toMatchObject({
+            userId: String(user._id),
+            email: user.email,
+            riskState: 'privileged',
+        });
+        expect(nextSession.amr).toEqual(expect.arrayContaining(['duo', 'duo_oidc']));
+        expect(new Date(nextSession.stepUpUntil).getTime()).toBeGreaterThan(Date.now());
     });
 
     test('rejects missing state before any database mutation', async () => {
