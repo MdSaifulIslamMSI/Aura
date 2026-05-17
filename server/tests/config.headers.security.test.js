@@ -3,6 +3,13 @@ const request = require('supertest');
 const app = require('../index');
 const { assertSafeStatus } = require('./helpers/securityTestHelpers');
 
+const getDirectiveSources = (policy = '', name = '') => String(policy || '')
+    .split(';')
+    .map((directive) => directive.trim())
+    .find((directive) => directive.startsWith(`${name} `))
+    ?.split(/\s+/)
+    .slice(1) || [];
+
 describe('security headers', () => {
     test('API responses include defensive browser headers and do not leak Express', async () => {
         const response = await request(app)
@@ -20,6 +27,13 @@ describe('security headers', () => {
         const xFrameOptionsProtected = Boolean(response.headers['x-frame-options']);
         expect(frameAncestorsProtected || xFrameOptionsProtected).toBe(true);
         expect(response.headers['strict-transport-security']).toBeDefined();
+
+        const connectSrc = getDirectiveSources(response.headers['content-security-policy'], 'connect-src');
+        expect(connectSrc).toContain("'self'");
+        expect(connectSrc).toContain('https://api.stripe.com');
+        expect(connectSrc).toContain('https://*.googleapis.com');
+        expect(connectSrc).not.toContain('https:');
+        expect(connectSrc).not.toContain('wss:');
     });
 
     test('auth/account/admin responses are not cacheable', async () => {

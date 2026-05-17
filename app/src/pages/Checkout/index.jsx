@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils';
 import { getUserVisibleEmail } from '@/utils/authIdentity';
 import { ArrowLeft, CheckCircle2, Layers, Loader2, PackageCheck, ShieldCheck, Truck } from 'lucide-react';
 import { loadRazorpayScript } from '@/utils/razorpay';
-import { loadStripeScript } from '@/utils/stripe';
+import { createStripePaymentModal, loadStripeScript } from '@/utils/stripe';
 import { detectLocationFromGps } from '@/utils/geolocation';
 import { convertAmount, formatPrice } from '@/utils/format';
 import { BROWSE_BASE_CURRENCY } from '@/config/marketConfig';
@@ -78,13 +78,6 @@ const isPhoneValid = (phone) => /^\+?\d[\d\s-]{8,15}$/.test(String(phone || '').
 const normalizeNetbankingBankCode = (value) => String(value || '').trim().toUpperCase();
 const normalizeMarketCountryCode = (value) => String(value || '').trim().toUpperCase().slice(0, 2);
 const normalizeMarketCurrencyCode = (value) => String(value || '').trim().toUpperCase().slice(0, 3);
-const escapeModalText = (value) => String(value || '').replace(/[&<>"']/g, (char) => ({
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#39;',
-}[char]));
 const extractNetbankingSelectionFromMethod = (method) => {
     if (String(method?.type || '').trim().toLowerCase() !== 'bank') return null;
 
@@ -1236,27 +1229,28 @@ const Checkout = () => {
 
         const Stripe = await loadStripeScript();
         const stripe = Stripe(checkoutPayload.publishableKey);
-        const overlay = document.createElement('div');
-        overlay.setAttribute('role', 'dialog');
-        overlay.setAttribute('aria-modal', 'true');
-        overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(2,6,23,0.78);padding:20px;';
-        const stripeTitle = escapeModalText(t('checkout.payment.stripeTitle', {}, 'Secure card payment'));
-        const cancelLabel = escapeModalText(t('checkout.cancel', {}, 'Cancel'));
-        const payLabel = escapeModalText(t('checkout.paySecurely', {}, 'Pay Securely'));
-        overlay.innerHTML = `
-            <form data-stripe-form style="width:min(100%,460px);border:1px solid rgba(148,163,184,0.24);border-radius:18px;background:#ffffff;padding:22px;box-shadow:0 24px 80px rgba(15,23,42,0.35);">
-                <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:18px;">
-                    <div>
-                        <p style="margin:0;color:#64748b;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.16em;">Stripe</p>
-                        <h2 style="margin:6px 0 0;color:#0f172a;font-size:20px;font-weight:800;">${stripeTitle}</h2>
-                    </div>
-                    <button type="button" data-stripe-cancel style="border:1px solid #e2e8f0;border-radius:10px;background:#fff;color:#334155;font-size:12px;font-weight:800;padding:8px 10px;">${cancelLabel}</button>
-                </div>
-                <div data-stripe-element></div>
-                <p data-stripe-error style="min-height:18px;margin:12px 0 0;color:#dc2626;font-size:12px;"></p>
-                <button type="submit" data-stripe-submit style="width:100%;margin-top:18px;border:0;border-radius:12px;background:#0f172a;color:#fff;font-size:13px;font-weight:900;letter-spacing:0.12em;text-transform:uppercase;padding:13px 16px;">${payLabel}</button>
-            </form>
-        `;
+        const stripeTitle = t('checkout.payment.stripeTitle', {}, 'Secure card payment');
+        const cancelLabel = t('checkout.cancel', {}, 'Cancel');
+        const payLabel = t('checkout.paySecurely', {}, 'Pay Securely');
+        const {
+            overlay,
+            form,
+            elementContainer,
+            errorNode,
+            submitButton,
+            cancelButtons,
+        } = createStripePaymentModal({
+            title: stripeTitle,
+            cancelLabel,
+            submitLabel: payLabel,
+            overlayStyle: 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(2,6,23,0.78);padding:20px;',
+            formStyle: 'width:min(100%,460px);border:1px solid rgba(148,163,184,0.24);border-radius:18px;background:#ffffff;padding:22px;box-shadow:0 24px 80px rgba(15,23,42,0.35);',
+            titleStyle: 'margin:6px 0 0;color:#0f172a;font-size:20px;font-weight:800;',
+            cancelButtonStyle: 'border:1px solid #e2e8f0;border-radius:10px;background:#fff;color:#334155;font-size:12px;font-weight:800;padding:8px 10px;cursor:pointer;',
+            submitButtonStyle: 'width:100%;margin-top:18px;border:0;border-radius:12px;background:#0f172a;color:#fff;font-size:13px;font-weight:900;letter-spacing:0.12em;text-transform:uppercase;padding:13px 16px;cursor:pointer;',
+            closeButtonText: cancelLabel,
+            showSecondaryCancel: false,
+        });
         document.body.appendChild(overlay);
 
         const elements = stripe.elements({
@@ -1270,18 +1264,13 @@ const Checkout = () => {
             },
         });
         const paymentElement = elements.create('payment');
-        paymentElement.mount(overlay.querySelector('[data-stripe-element]'));
+        paymentElement.mount(elementContainer);
 
         try {
             await new Promise((resolve, reject) => {
-                const form = overlay.querySelector('[data-stripe-form]');
-                const cancelButton = overlay.querySelector('[data-stripe-cancel]');
-                const submitButton = overlay.querySelector('[data-stripe-submit]');
-                const errorNode = overlay.querySelector('[data-stripe-error]');
-
-                cancelButton.addEventListener('click', () => {
+                cancelButtons.forEach((button) => button.addEventListener('click', () => {
                     reject(new Error(t('checkout.error.paymentClosed', {}, 'Payment window closed before completion')));
-                }, { once: true });
+                }, { once: true }));
 
                 form.addEventListener('submit', async (event) => {
                     event.preventDefault();
