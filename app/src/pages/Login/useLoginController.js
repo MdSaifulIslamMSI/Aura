@@ -56,6 +56,16 @@ const DESKTOP_AUTH_REQUEST_PARAM = 'desktopAuthRequest';
 const DESKTOP_AUTH_SECRET_PARAM = 'desktopAuthSecret';
 const DESKTOP_AUTH_RETURN_TO_PARAM = 'desktopAuthReturnTo';
 
+const parseBooleanEnv = (value, fallback = false) => {
+  if (typeof value !== 'string') return fallback;
+  const normalized = value.trim().toLowerCase();
+  if (['true', '1', 'yes', 'on'].includes(normalized)) return true;
+  if (['false', '0', 'no', 'off'].includes(normalized)) return false;
+  return fallback;
+};
+
+const isDuoLoginEnabled = parseBooleanEnv(import.meta.env.VITE_DUO_LOGIN_ENABLED, false);
+
 const resolveDesktopBrowserHandoff = (search = '') => {
   const params = new URLSearchParams(search || '');
   const requestId = String(params.get(DESKTOP_AUTH_REQUEST_PARAM) || '').trim();
@@ -1587,6 +1597,7 @@ export const useLoginController = () => {
     handleOtpPaste,
     handleResendOtp,
     handleDuoSignIn,
+    isDuoLoginEnabled,
     handleDesktopBrowserSignIn,
     handleSocialSignIn,
     handleSubmit,

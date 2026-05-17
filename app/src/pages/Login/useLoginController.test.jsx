@@ -95,6 +95,11 @@ const DesktopBrowserSignInProbe = () => {
   );
 };
 
+const DuoLoginFlagProbe = () => {
+  const { isDuoLoginEnabled } = useLoginController();
+  return <div data-testid="duo-login-enabled">{String(isDuoLoginEnabled)}</div>;
+};
+
 const PhoneCountryProbe = () => {
   const {
     formData,
@@ -460,6 +465,22 @@ describe('useLoginController', () => {
     });
 
     expect(signInWithDesktopBrowser).toHaveBeenCalledWith({ returnTo: '/' });
+  });
+
+  it('keeps Duo login hidden unless the deployment explicitly enables it', () => {
+    render(
+      <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+        <AuthContext.Provider value={buildAuthValue()}>
+          <MemoryRouter initialEntries={['/login']}>
+            <Routes>
+              <Route path="/login" element={<DuoLoginFlagProbe />} />
+            </Routes>
+          </MemoryRouter>
+        </AuthContext.Provider>
+      </MarketProvider>
+    );
+
+    expect(screen.getByTestId('duo-login-enabled')).toHaveTextContent('false');
   });
 
   it('summarizes only enabled expanded social providers', () => {
