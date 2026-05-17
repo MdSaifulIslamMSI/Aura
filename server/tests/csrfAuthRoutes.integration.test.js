@@ -101,6 +101,7 @@ jest.mock('../controllers/authController', () => ({
     startDuoLogin: (_req, res) => res.redirect('https://duo.example.test/authorize'),
     startDuoStepUp: (_req, res) => res.redirect('https://duo.example.test/authorize'),
     completeDuoLogin: (_req, res) => res.redirect('/login?duo=success'),
+    issueDesktopHandoffToken: (_req, res) => res.json({ customToken: 'desktop-handoff-token' }),
     requestBootstrapDeviceChallenge: (_req, res) => res.json({ success: true, deviceChallenge: null }),
     verifyDeviceChallenge: (_req, res) => res.json({ ok: true }),
 }));
