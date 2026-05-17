@@ -68,7 +68,7 @@ const TurnstileChallenge = ({
 
   return (
     <div
-      className={cn('flex min-h-[4.25rem] justify-center', className)}
+      className={cn('flex justify-center', className)}
       data-testid="turnstile-challenge"
     >
       <div ref={containerRef} />

@@ -440,7 +440,6 @@ const LoginView = ({
                   onError={handleTurnstileError}
                   onToken={handleTurnstileToken}
                   refreshKey={`${turnstileAction}:${turnstileRefreshKey}`}
-                  className="my-2"
                 />
               )}
 
