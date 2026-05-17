@@ -464,9 +464,9 @@ const LoginView = ({
                   type="button"
                   onClick={handleDuoSignIn}
                   disabled={isLoading || emergencyAuthDisabled}
-                  className="mb-3 w-full py-3 rounded-2xl border border-white/10 bg-white/5 hover:bg-emerald-400/10 text-white font-bold text-xs tracking-[0.08em] uppercase transition-all duration-300 flex items-center justify-center gap-2 hover:border-emerald-300/40"
+                  className="mb-3 w-full py-3 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 text-white font-bold text-xs tracking-[0.08em] uppercase transition-all duration-300 flex items-center justify-center gap-2 hover:border-white/20"
                 >
-                  <Shield className="h-4 w-4 text-emerald-300" aria-hidden="true" />
+                  <Shield className="h-4 w-4 text-neo-cyan" aria-hidden="true" />
                   Duo
                 </button>
                 {socialAuthStatus.supported ? (
