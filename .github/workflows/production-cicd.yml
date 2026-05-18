@@ -18,9 +18,11 @@ on:
       - "scripts/auth-runner.js"
       - "scripts/classify-auth-change-risk.js"
       - "scripts/count-auth-combinations.js"
+      - "scripts/ci-cd-doctor.mjs"
       - "tests/auth/**"
       - "docs/*security*.md"
       - "docs/ci-cd.md"
+      - "docs/ci-cd-secrets.md"
       - "docs/critical-invariants.md"
       - "docs/emergency-controls.md"
       - "docs/login-staging-production-activation.md"
@@ -151,143 +153,418 @@ concurrency:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  NODE_VERSION: 24.x
 
 jobs:
-  changes:
-    name: Detect changed surfaces
+  plan:
+    name: Plan production actions
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     outputs:
-      backend: ${{ steps.filter.outputs.backend }}
-      frontend_netlify: ${{ steps.filter.outputs.frontend_netlify }}
-      frontend_aws: ${{ steps.filter.outputs.frontend_aws }}
-      gateway: ${{ steps.filter.outputs.gateway }}
-      desktop: ${{ steps.filter.outputs.desktop }}
-      mobile: ${{ steps.filter.outputs.mobile }}
+      backend_changed: ${{ steps.plan.outputs.backend_changed }}
+      frontend_netlify_changed: ${{ steps.plan.outputs.frontend_netlify_changed }}
+      frontend_aws_changed: ${{ steps.plan.outputs.frontend_aws_changed }}
+      gateway_changed: ${{ steps.plan.outputs.gateway_changed }}
+      desktop_changed: ${{ steps.plan.outputs.desktop_changed }}
+      mobile_changed: ${{ steps.plan.outputs.mobile_changed }}
+      backend_ready: ${{ steps.plan.outputs.backend_ready }}
+      frontend_netlify_ready: ${{ steps.plan.outputs.frontend_netlify_ready }}
+      frontend_aws_ready: ${{ steps.plan.outputs.frontend_aws_ready }}
+      gateway_ready: ${{ steps.plan.outputs.gateway_ready }}
+      backend_missing: ${{ steps.plan.outputs.backend_missing }}
+      frontend_netlify_missing: ${{ steps.plan.outputs.frontend_netlify_missing }}
+      frontend_aws_missing: ${{ steps.plan.outputs.frontend_aws_missing }}
+      gateway_missing: ${{ steps.plan.outputs.gateway_missing }}
+      manual_confirmed: ${{ steps.plan.outputs.manual_confirmed }}
+      requested_production_action: ${{ steps.plan.outputs.requested_production_action }}
+      planned_production_action: ${{ steps.plan.outputs.planned_production_action }}
+      requested_deploy_or_release_action: ${{ steps.plan.outputs.requested_deploy_or_release_action }}
+      requested_rollback_action: ${{ steps.plan.outputs.requested_rollback_action }}
+      should_deploy_backend: ${{ steps.plan.outputs.should_deploy_backend }}
+      should_deploy_frontend_netlify: ${{ steps.plan.outputs.should_deploy_frontend_netlify }}
+      should_deploy_frontend_aws: ${{ steps.plan.outputs.should_deploy_frontend_aws }}
+      should_deploy_gateway: ${{ steps.plan.outputs.should_deploy_gateway }}
+      should_release_desktop: ${{ steps.plan.outputs.should_release_desktop }}
+      should_release_mobile: ${{ steps.plan.outputs.should_release_mobile }}
+      should_rollback_backend: ${{ steps.plan.outputs.should_rollback_backend }}
+      should_rollback_frontend_netlify: ${{ steps.plan.outputs.should_rollback_frontend_netlify }}
+      should_rollback_frontend_aws: ${{ steps.plan.outputs.should_rollback_frontend_aws }}
+      should_rollback_gateway: ${{ steps.plan.outputs.should_rollback_gateway }}
+      should_run_smoke_tests: ${{ steps.plan.outputs.should_run_smoke_tests }}
+      signing_enabled: ${{ steps.plan.outputs.signing_enabled }}
+      store_publish_enabled: ${{ steps.plan.outputs.store_publish_enabled }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-
-      - name: Filter changed paths
-        id: filter
-        uses: dorny/paths-filter@v4
         with:
-          filters: |
-            backend:
-              - "server/**"
-              - "infra/aws/**"
-              - ".github/workflows/ci.yml"
-              - ".github/workflows/deploy-backend-aws.yml"
-              - ".github/workflows/rollback-backend-aws.yml"
-              - ".github/workflows/production-cicd.yml"
+          fetch-depth: 0
 
-            frontend_netlify:
-              - "app/**"
-              - "netlify.toml"
-              - ".netlifyignore"
-              - "vercel.json"
-              - "app/vercel.json"
-              - ".vercelignore"
-              - "infra/aws/bootstrap-frontend-s3.ps1"
-              - "infra/aws/bootstrap-frontend-github-oidc.ps1"
-              - "infra/aws/deploy-frontend-s3.ps1"
-              - "docs/aws-frontend-deployment.md"
-              - "package.json"
-              - "package-lock.json"
-              - ".github/workflows/ci.yml"
-              - ".github/workflows/deploy-netlify.yml"
-              - ".github/workflows/deploy-frontend-aws.yml"
-              - ".github/workflows/rollback-netlify.yml"
-              - ".github/workflows/rollback-frontend-aws.yml"
-              - ".github/workflows/production-cicd.yml"
-
-            frontend_aws:
-              - "app/**"
-              - "infra/aws/bootstrap-frontend-s3.ps1"
-              - "infra/aws/bootstrap-frontend-github-oidc.ps1"
-              - "infra/aws/deploy-frontend-s3.ps1"
-              - "docs/aws-frontend-deployment.md"
-              - "package.json"
-              - "package-lock.json"
-              - ".github/workflows/ci.yml"
-              - ".github/workflows/deploy-frontend-aws.yml"
-              - ".github/workflows/rollback-frontend-aws.yml"
-              - ".github/workflows/production-cicd.yml"
-
-            gateway:
-              - "gateway/**"
-              - "gateway/vercel.json"
-              - ".vercelignore"
-              - ".github/workflows/ci.yml"
-              - ".github/workflows/deploy-gateway-vercel.yml"
-              - ".github/workflows/rollback-gateway-vercel.yml"
-              - ".github/workflows/production-cicd.yml"
-
-            desktop:
-              - "app/**"
-              - "desktop/**"
-              - "package.json"
-              - "package-lock.json"
-              - ".github/workflows/ci.yml"
-              - ".github/workflows/desktop-release.yml"
-              - ".github/workflows/production-cicd.yml"
-
-            mobile:
-              - "app/capacitor.config.ts"
-              - "app/android/**"
-              - "app/ios/**"
-              - "app/package.json"
-              - "app/package-lock.json"
-              - "app/src/config/firebase.js"
-              - "app/src/context/AuthContext.jsx"
-              - "app/src/context/NotificationContext.jsx"
-              - "app/src/context/SocketContext.jsx"
-              - "app/src/context/VideoCallContext.jsx"
-              - "app/src/services/deviceTrustClient.js"
-              - "app/src/services/mobileReleaseChannel.js"
-              - "app/src/services/nativeAppExperience.js"
-              - "app/src/services/nativeSocialAuth.js"
-              - "app/src/components/shared/MobileUpdateBanner.jsx"
-              - "app/src/utils/nativeRuntime.js"
-              - "Gemfile"
-              - "Gemfile.lock"
-              - "fastlane/**"
-              - "docs/mobile-app-delivery.md"
-              - "README.md"
-              - ".github/workflows/mobile-release.yml"
-              - ".github/workflows/production-cicd.yml"
-
-  validate-manual-dispatch:
-    name: Validate manual production intent
-    runs-on: ubuntu-latest
-
-    if: github.event_name == 'workflow_dispatch'
-
-    steps:
-      - name: Require explicit production confirmation
+      - name: Build production plan
+        id: plan
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE_SHA: ${{ github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
+          CONFIRM_PRODUCTION: ${{ inputs.confirm_production || '' }}
+          INPUT_DEPLOY_BACKEND: ${{ inputs.deploy_backend || false }}
+          INPUT_DEPLOY_FRONTEND_NETLIFY: ${{ inputs.deploy_frontend_netlify || false }}
+          INPUT_DEPLOY_FRONTEND_AWS: ${{ inputs.deploy_frontend_aws || false }}
+          INPUT_DEPLOY_GATEWAY: ${{ inputs.deploy_gateway || false }}
+          INPUT_RELEASE_DESKTOP: ${{ inputs.release_desktop || false }}
+          INPUT_RELEASE_MOBILE: ${{ inputs.release_mobile || false }}
+          INPUT_ROLLBACK_BACKEND: ${{ inputs.rollback_backend || false }}
+          INPUT_ROLLBACK_FRONTEND_NETLIFY: ${{ inputs.rollback_frontend_netlify || false }}
+          INPUT_ROLLBACK_FRONTEND_AWS: ${{ inputs.rollback_frontend_aws || false }}
+          INPUT_ROLLBACK_GATEWAY: ${{ inputs.rollback_gateway || false }}
+          INPUT_AUTO_ROLLBACK_ON_SMOKE_FAILURE: ${{ inputs.auto_rollback_on_smoke_failure || false }}
+          AWS_DEPLOY_ROLE_ARN: ${{ vars.AWS_DEPLOY_ROLE_ARN || secrets.AWS_DEPLOY_ROLE_ARN || '' }}
+          AWS_DEPLOY_BUCKET: ${{ vars.AWS_DEPLOY_BUCKET || '' }}
+          AWS_INSTANCE_TAG_VALUE: ${{ vars.AWS_INSTANCE_TAG_VALUE || '' }}
+          AWS_PARAMETER_STORE_PATH_PREFIX: ${{ vars.AWS_PARAMETER_STORE_PATH_PREFIX || '' }}
+          AURA_BACKEND_ORIGIN: ${{ vars.AURA_BACKEND_ORIGIN || vars.AWS_BACKEND_BASE_URL || '' }}
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN || '' }}
+          NETLIFY_SITE_ID: ${{ vars.NETLIFY_SITE_ID || secrets.NETLIFY_SITE_ID || '' }}
+          NETLIFY_PRODUCTION_URL: ${{ vars.NETLIFY_PRODUCTION_URL || '' }}
+          AWS_FRONTEND_BUCKET: ${{ vars.AWS_FRONTEND_BUCKET || '' }}
+          AWS_FRONTEND_DISTRIBUTION_ID: ${{ vars.AWS_FRONTEND_DISTRIBUTION_ID || '' }}
+          AWS_FRONTEND_PUBLIC_URL: ${{ vars.AWS_FRONTEND_PUBLIC_URL || '' }}
+          AWS_FRONTEND_DEPLOY_ROLE_ARN: ${{ vars.AWS_FRONTEND_DEPLOY_ROLE_ARN || secrets.AWS_FRONTEND_DEPLOY_ROLE_ARN || '' }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN || '' }}
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID || secrets.VERCEL_ORG_ID || '' }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID || secrets.VERCEL_PROJECT_ID || '' }}
+          GATEWAY_PRODUCTION_URL: ${{ vars.GATEWAY_PRODUCTION_URL || '' }}
         run: |
           set -euo pipefail
 
-          if [ "${{ inputs.deploy_backend }}" = "true" ] || \
-             [ "${{ inputs.deploy_frontend_netlify }}" = "true" ] || \
-             [ "${{ inputs.deploy_frontend_aws }}" = "true" ] || \
-             [ "${{ inputs.deploy_gateway }}" = "true" ] || \
-             [ "${{ inputs.release_desktop }}" = "true" ] || \
-             [ "${{ inputs.release_mobile }}" = "true" ] || \
-             [ "${{ inputs.rollback_backend }}" = "true" ] || \
-             [ "${{ inputs.rollback_frontend_netlify }}" = "true" ] || \
-             [ "${{ inputs.rollback_frontend_aws }}" = "true" ] || \
-             [ "${{ inputs.rollback_gateway }}" = "true" ]; then
-            if [ "${{ inputs.confirm_production }}" != "PRODUCTION" ]; then
-              echo "::error::Manual production action requested, but confirm_production was not PRODUCTION."
-              exit 1
+          bool_or() {
+            for value in "$@"; do
+              if [ "${value}" = "true" ]; then
+                echo "true"
+                return
+              fi
+            done
+            echo "false"
+          }
+
+          emit() {
+            echo "$1=$2" >> "$GITHUB_OUTPUT"
+          }
+
+          missing_names() {
+            local names=()
+            local name
+            for name in "$@"; do
+              if [ -z "${!name:-}" ]; then
+                names+=("${name}")
+              fi
+            done
+
+            if [ "${#names[@]}" -eq 0 ]; then
+              printf 'none'
+            else
+              local IFS=','
+              printf '%s' "${names[*]}"
+            fi
+          }
+
+          ready_from_missing() {
+            if [ "$1" = "none" ]; then
+              echo "true"
+            else
+              echo "false"
+            fi
+          }
+
+          matches_any() {
+            local file="$1"
+            shift
+            local pattern
+            for pattern in "$@"; do
+              case "${file}" in
+                ${pattern}) return 0 ;;
+              esac
+            done
+            return 1
+          }
+
+          surface_changed() {
+            shift
+            local file
+            for file in "${changed_files[@]}"; do
+              if [ -n "${file}" ] && matches_any "${file}" "$@"; then
+                echo "true"
+                return
+              fi
+            done
+            echo "false"
+          }
+
+          changed_files=()
+          if [ "${EVENT_NAME}" = "push" ]; then
+            if [ -n "${BEFORE_SHA}" ] && ! printf '%s' "${BEFORE_SHA}" | grep -Eq '^0+$' && git cat-file -e "${BEFORE_SHA}^{commit}" 2>/dev/null; then
+              mapfile -t changed_files < <(git diff --name-only "${BEFORE_SHA}" "${HEAD_SHA}")
+            else
+              mapfile -t changed_files < <(git diff-tree --no-commit-id --name-only -r "${HEAD_SHA}")
             fi
           fi
 
-          echo "Manual production intent validated."
+          backend_changed="$(surface_changed backend \
+            'server/*' \
+            'infra/aws/*' \
+            'scripts/security-*.mjs' \
+            'scripts/duo-activate.mjs' \
+            'scripts/cloudflare-free-security-activate.mjs' \
+            'scripts/smoke-origin-protection.mjs' \
+            'scripts/smoke-production-login.mjs' \
+            'scripts/validate-login-*.mjs' \
+            'scripts/run-auth-*.js' \
+            'scripts/auth-runner.js' \
+            'scripts/classify-auth-change-risk.js' \
+            'scripts/count-auth-combinations.js' \
+            'tests/auth/*' \
+            'docs/*security*.md' \
+            'docs/ci-cd.md' \
+            'docs/ci-cd-secrets.md' \
+            'docs/critical-invariants.md' \
+            'docs/emergency-controls.md' \
+            'docs/login-staging-production-activation.md' \
+            'docs/privileged-access-management.md' \
+            'SECURITY_TEST_PLAN.md' \
+            'security_best_practices_report.md' \
+            '.gitleaks.toml' \
+            'security-audit-exceptions.json' \
+            '.github/workflows/ci.yml' \
+            '.github/workflows/deploy-backend-aws.yml' \
+            '.github/workflows/rollback-backend-aws.yml' \
+            '.github/workflows/production-cicd.yml')"
 
-  ci:
+          frontend_netlify_changed="$(surface_changed frontend_netlify \
+            'app/*' \
+            'netlify.toml' \
+            '.netlifyignore' \
+            'vercel.json' \
+            'app/vercel.json' \
+            '.vercelignore' \
+            'infra/aws/bootstrap-frontend-s3.ps1' \
+            'infra/aws/bootstrap-frontend-github-oidc.ps1' \
+            'infra/aws/deploy-frontend-s3.ps1' \
+            'docs/aws-frontend-deployment.md' \
+            'docs/ci-cd-secrets.md' \
+            'package.json' \
+            'package-lock.json' \
+            '.github/workflows/ci.yml' \
+            '.github/workflows/deploy-netlify.yml' \
+            '.github/workflows/deploy-frontend-aws.yml' \
+            '.github/workflows/rollback-netlify.yml' \
+            '.github/workflows/rollback-frontend-aws.yml' \
+            '.github/workflows/production-cicd.yml')"
+
+          frontend_aws_changed="$(surface_changed frontend_aws \
+            'app/*' \
+            'infra/aws/bootstrap-frontend-s3.ps1' \
+            'infra/aws/bootstrap-frontend-github-oidc.ps1' \
+            'infra/aws/deploy-frontend-s3.ps1' \
+            'docs/aws-frontend-deployment.md' \
+            'docs/ci-cd-secrets.md' \
+            'package.json' \
+            'package-lock.json' \
+            '.github/workflows/ci.yml' \
+            '.github/workflows/deploy-frontend-aws.yml' \
+            '.github/workflows/rollback-frontend-aws.yml' \
+            '.github/workflows/production-cicd.yml')"
+
+          gateway_changed="$(surface_changed gateway \
+            'gateway/*' \
+            'gateway/vercel.json' \
+            '.vercelignore' \
+            'docs/ci-cd-secrets.md' \
+            '.github/workflows/ci.yml' \
+            '.github/workflows/deploy-gateway-vercel.yml' \
+            '.github/workflows/rollback-gateway-vercel.yml' \
+            '.github/workflows/production-cicd.yml')"
+
+          desktop_changed="$(surface_changed desktop \
+            'app/*' \
+            'desktop/*' \
+            'docs/ci-cd-secrets.md' \
+            'package.json' \
+            'package-lock.json' \
+            '.github/workflows/ci.yml' \
+            '.github/workflows/desktop-release.yml' \
+            '.github/workflows/production-cicd.yml')"
+
+          mobile_changed="$(surface_changed mobile \
+            'app/capacitor.config.ts' \
+            'app/android/*' \
+            'app/ios/*' \
+            'app/package.json' \
+            'app/package-lock.json' \
+            'app/src/config/firebase.js' \
+            'app/src/context/AuthContext.jsx' \
+            'app/src/context/NotificationContext.jsx' \
+            'app/src/context/SocketContext.jsx' \
+            'app/src/context/VideoCallContext.jsx' \
+            'app/src/services/deviceTrustClient.js' \
+            'app/src/services/mobileReleaseChannel.js' \
+            'app/src/services/nativeAppExperience.js' \
+            'app/src/services/nativeSocialAuth.js' \
+            'app/src/components/shared/MobileUpdateBanner.jsx' \
+            'app/src/utils/nativeRuntime.js' \
+            'Gemfile' \
+            'Gemfile.lock' \
+            'fastlane/*' \
+            'docs/mobile-app-delivery.md' \
+            'docs/ci-cd-secrets.md' \
+            'README.md' \
+            '.github/workflows/mobile-release.yml' \
+            '.github/workflows/production-cicd.yml')"
+
+          backend_missing="$(missing_names AWS_DEPLOY_ROLE_ARN AWS_DEPLOY_BUCKET AWS_INSTANCE_TAG_VALUE AWS_PARAMETER_STORE_PATH_PREFIX AURA_BACKEND_ORIGIN)"
+          frontend_netlify_missing="$(missing_names NETLIFY_AUTH_TOKEN NETLIFY_SITE_ID NETLIFY_PRODUCTION_URL VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID AWS_FRONTEND_BUCKET AWS_FRONTEND_DISTRIBUTION_ID AWS_FRONTEND_PUBLIC_URL AWS_FRONTEND_DEPLOY_ROLE_ARN AURA_BACKEND_ORIGIN)"
+          frontend_aws_missing="$(missing_names AWS_FRONTEND_BUCKET AWS_FRONTEND_DISTRIBUTION_ID AWS_FRONTEND_PUBLIC_URL AWS_FRONTEND_DEPLOY_ROLE_ARN AURA_BACKEND_ORIGIN)"
+          gateway_missing="$(missing_names VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID GATEWAY_PRODUCTION_URL)"
+
+          backend_ready="$(ready_from_missing "${backend_missing}")"
+          frontend_netlify_ready="$(ready_from_missing "${frontend_netlify_missing}")"
+          frontend_aws_ready="$(ready_from_missing "${frontend_aws_missing}")"
+          gateway_ready="$(ready_from_missing "${gateway_missing}")"
+
+          manual_confirmed="false"
+          if [ "${EVENT_NAME}" = "workflow_dispatch" ] && [ "${CONFIRM_PRODUCTION}" = "PRODUCTION" ]; then
+            manual_confirmed="true"
+          fi
+
+          deploy_backend_requested="false"
+          deploy_frontend_netlify_requested="false"
+          deploy_frontend_aws_requested="false"
+          deploy_gateway_requested="false"
+          release_desktop_requested="false"
+          release_mobile_requested="false"
+          rollback_backend_requested="false"
+          rollback_frontend_netlify_requested="false"
+          rollback_frontend_aws_requested="false"
+          rollback_gateway_requested="false"
+
+          if [ "${EVENT_NAME}" = "push" ]; then
+            deploy_backend_requested="${backend_changed}"
+            deploy_frontend_netlify_requested="${frontend_netlify_changed}"
+            deploy_frontend_aws_requested="${frontend_aws_changed}"
+            deploy_gateway_requested="${gateway_changed}"
+            release_desktop_requested="${desktop_changed}"
+            release_mobile_requested="${mobile_changed}"
+          else
+            deploy_backend_requested="${INPUT_DEPLOY_BACKEND}"
+            deploy_frontend_netlify_requested="${INPUT_DEPLOY_FRONTEND_NETLIFY}"
+            deploy_frontend_aws_requested="${INPUT_DEPLOY_FRONTEND_AWS}"
+            deploy_gateway_requested="${INPUT_DEPLOY_GATEWAY}"
+            release_desktop_requested="${INPUT_RELEASE_DESKTOP}"
+            release_mobile_requested="${INPUT_RELEASE_MOBILE}"
+            rollback_backend_requested="${INPUT_ROLLBACK_BACKEND}"
+            rollback_frontend_netlify_requested="${INPUT_ROLLBACK_FRONTEND_NETLIFY}"
+            rollback_frontend_aws_requested="${INPUT_ROLLBACK_FRONTEND_AWS}"
+            rollback_gateway_requested="${INPUT_ROLLBACK_GATEWAY}"
+          fi
+
+          should_deploy_backend="false"
+          should_deploy_frontend_netlify="false"
+          should_deploy_frontend_aws="false"
+          should_deploy_gateway="false"
+          should_release_desktop="false"
+          should_release_mobile="false"
+          should_rollback_backend="false"
+          should_rollback_frontend_netlify="false"
+          should_rollback_frontend_aws="false"
+          should_rollback_gateway="false"
+
+          if [ "${EVENT_NAME}" = "push" ]; then
+            [ "${backend_changed}" = "true" ] && [ "${backend_ready}" = "true" ] && should_deploy_backend="true"
+            [ "${frontend_netlify_changed}" = "true" ] && [ "${frontend_netlify_ready}" = "true" ] && should_deploy_frontend_netlify="true"
+            [ "${frontend_aws_changed}" = "true" ] && [ "${frontend_aws_ready}" = "true" ] && should_deploy_frontend_aws="true"
+            [ "${gateway_changed}" = "true" ] && [ "${gateway_ready}" = "true" ] && should_deploy_gateway="true"
+            [ "${desktop_changed}" = "true" ] && should_release_desktop="true"
+            [ "${mobile_changed}" = "true" ] && should_release_mobile="true"
+          elif [ "${manual_confirmed}" = "true" ]; then
+            [ "${INPUT_DEPLOY_BACKEND}" = "true" ] && [ "${backend_ready}" = "true" ] && should_deploy_backend="true"
+            [ "${INPUT_DEPLOY_FRONTEND_NETLIFY}" = "true" ] && [ "${frontend_netlify_ready}" = "true" ] && should_deploy_frontend_netlify="true"
+            [ "${INPUT_DEPLOY_FRONTEND_AWS}" = "true" ] && [ "${frontend_aws_ready}" = "true" ] && should_deploy_frontend_aws="true"
+            [ "${INPUT_DEPLOY_GATEWAY}" = "true" ] && [ "${gateway_ready}" = "true" ] && should_deploy_gateway="true"
+            [ "${INPUT_RELEASE_DESKTOP}" = "true" ] && should_release_desktop="true"
+            [ "${INPUT_RELEASE_MOBILE}" = "true" ] && should_release_mobile="true"
+            [ "${INPUT_ROLLBACK_BACKEND}" = "true" ] && [ "${backend_ready}" = "true" ] && should_rollback_backend="true"
+            [ "${INPUT_ROLLBACK_FRONTEND_NETLIFY}" = "true" ] && [ "${frontend_netlify_ready}" = "true" ] && should_rollback_frontend_netlify="true"
+            [ "${INPUT_ROLLBACK_FRONTEND_AWS}" = "true" ] && [ "${frontend_aws_ready}" = "true" ] && should_rollback_frontend_aws="true"
+            [ "${INPUT_ROLLBACK_GATEWAY}" = "true" ] && [ "${gateway_ready}" = "true" ] && should_rollback_gateway="true"
+          fi
+
+          requested_deploy_or_release_action="$(bool_or "${deploy_backend_requested}" "${deploy_frontend_netlify_requested}" "${deploy_frontend_aws_requested}" "${deploy_gateway_requested}" "${release_desktop_requested}" "${release_mobile_requested}")"
+          requested_rollback_action="$(bool_or "${rollback_backend_requested}" "${rollback_frontend_netlify_requested}" "${rollback_frontend_aws_requested}" "${rollback_gateway_requested}")"
+          requested_production_action="$(bool_or "${requested_deploy_or_release_action}" "${requested_rollback_action}")"
+          planned_production_action="$(bool_or "${should_deploy_backend}" "${should_deploy_frontend_netlify}" "${should_deploy_frontend_aws}" "${should_deploy_gateway}" "${should_release_desktop}" "${should_release_mobile}" "${should_rollback_backend}" "${should_rollback_frontend_netlify}" "${should_rollback_frontend_aws}" "${should_rollback_gateway}")"
+          should_run_smoke_tests="$(bool_or "${should_deploy_backend}" "${should_deploy_frontend_netlify}" "${should_deploy_frontend_aws}" "${should_deploy_gateway}")"
+
+          emit backend_changed "${backend_changed}"
+          emit frontend_netlify_changed "${frontend_netlify_changed}"
+          emit frontend_aws_changed "${frontend_aws_changed}"
+          emit gateway_changed "${gateway_changed}"
+          emit desktop_changed "${desktop_changed}"
+          emit mobile_changed "${mobile_changed}"
+          emit backend_ready "${backend_ready}"
+          emit frontend_netlify_ready "${frontend_netlify_ready}"
+          emit frontend_aws_ready "${frontend_aws_ready}"
+          emit gateway_ready "${gateway_ready}"
+          emit backend_missing "${backend_missing}"
+          emit frontend_netlify_missing "${frontend_netlify_missing}"
+          emit frontend_aws_missing "${frontend_aws_missing}"
+          emit gateway_missing "${gateway_missing}"
+          emit manual_confirmed "${manual_confirmed}"
+          emit requested_production_action "${requested_production_action}"
+          emit planned_production_action "${planned_production_action}"
+          emit requested_deploy_or_release_action "${requested_deploy_or_release_action}"
+          emit requested_rollback_action "${requested_rollback_action}"
+          emit should_deploy_backend "${should_deploy_backend}"
+          emit should_deploy_frontend_netlify "${should_deploy_frontend_netlify}"
+          emit should_deploy_frontend_aws "${should_deploy_frontend_aws}"
+          emit should_deploy_gateway "${should_deploy_gateway}"
+          emit should_release_desktop "${should_release_desktop}"
+          emit should_release_mobile "${should_release_mobile}"
+          emit should_rollback_backend "${should_rollback_backend}"
+          emit should_rollback_frontend_netlify "${should_rollback_frontend_netlify}"
+          emit should_rollback_frontend_aws "${should_rollback_frontend_aws}"
+          emit should_rollback_gateway "${should_rollback_gateway}"
+          emit should_run_smoke_tests "${should_run_smoke_tests}"
+          emit signing_enabled "false"
+          emit store_publish_enabled "false"
+
+          {
+            echo "## Production Plan"
+            echo
+            echo "| Decision | Value |"
+            echo "|---|---|"
+            echo "| Event | ${EVENT_NAME} |"
+            echo "| Changed files | ${#changed_files[@]} |"
+            echo "| Manual confirmed | ${manual_confirmed} |"
+            echo "| Requested production action | ${requested_production_action} |"
+            echo "| Planned production action | ${planned_production_action} |"
+            echo "| Signing enabled | false |"
+            echo "| Store publishing enabled | false |"
+            echo
+            echo "| Surface | Changed | Ready | Missing config | Planned action |"
+            echo "|---|---:|---:|---|---:|"
+            echo "| Backend | ${backend_changed} | ${backend_ready} | ${backend_missing} | ${should_deploy_backend} |"
+            echo "| Frontend Netlify | ${frontend_netlify_changed} | ${frontend_netlify_ready} | ${frontend_netlify_missing} | ${should_deploy_frontend_netlify} |"
+            echo "| Frontend AWS | ${frontend_aws_changed} | ${frontend_aws_ready} | ${frontend_aws_missing} | ${should_deploy_frontend_aws} |"
+            echo "| Gateway | ${gateway_changed} | ${gateway_ready} | ${gateway_missing} | ${should_deploy_gateway} |"
+            echo "| Desktop | ${desktop_changed} | n/a | none | ${should_release_desktop} |"
+            echo "| Mobile | ${mobile_changed} | n/a | none | ${should_release_mobile} |"
+            echo
+            echo "Signing and store publishing are intentionally disabled by this orchestrator. Desktop and mobile release workflows receive explicit false signing/store inputs."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  quality-gates:
     name: Quality gates
     uses: ./.github/workflows/ci.yml
     permissions:
@@ -306,7 +583,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: ${{ env.NODE_VERSION }}
 
       - name: Basic secret pattern scan
         run: |
@@ -325,7 +602,7 @@ jobs:
             --exclude="*.lock" \
             "(AKIA[0-9A-Z]{16}|-----BEGIN (RSA|OPENSSH|EC|DSA) PRIVATE KEY-----|aws_secret_access_key[[:space:]]*=|AWS_SECRET_ACCESS_KEY[[:space:]]*=|GITHUB_TOKEN[[:space:]]*=[[:space:]]*[A-Za-z0-9_./+-]{20,}|VERCEL_TOKEN[[:space:]]*=[[:space:]]*[A-Za-z0-9_./+-]{20,}|NETLIFY_AUTH_TOKEN[[:space:]]*=[[:space:]]*[A-Za-z0-9_./+-]{20,})" \
             .; then
-              echo "::error::Potential secret detected in repository."
+              echo "::error::Potential committed secret pattern detected. Remove the value and rotate the credential before production deploy."
               exit 1
           fi
 
@@ -345,7 +622,7 @@ jobs:
                 npm audit --audit-level=high --omit=dev
               )
             else
-              echo "No package-lock.json in ${dir}; skipping."
+              echo "No package-lock.json in ${dir}; skipping npm audit for this workspace."
             fi
           }
 
@@ -402,7 +679,7 @@ jobs:
                 fi
               )
             else
-              echo "No package-lock.json in ${dir}; skipping SBOM."
+              echo "No package-lock.json in ${dir}; skipping SBOM for this workspace."
             fi
           }
 
@@ -419,175 +696,181 @@ jobs:
           if-no-files-found: warn
           retention-days: 90
 
-  production-deploy-config:
-    name: Detect production deploy configuration
-    runs-on: ubuntu-latest
-
-    outputs:
-      backend_ready: ${{ steps.detect.outputs.backend_ready }}
-      frontend_netlify_ready: ${{ steps.detect.outputs.frontend_netlify_ready }}
-      frontend_aws_ready: ${{ steps.detect.outputs.frontend_aws_ready }}
-      gateway_ready: ${{ steps.detect.outputs.gateway_ready }}
-
-    steps:
-      - name: Check deploy credentials and hosted origins
-        id: detect
-        env:
-          AWS_DEPLOY_ROLE_ARN: ${{ vars.AWS_DEPLOY_ROLE_ARN || secrets.AWS_DEPLOY_ROLE_ARN || '' }}
-          AWS_DEPLOY_BUCKET: ${{ vars.AWS_DEPLOY_BUCKET || '' }}
-          AWS_INSTANCE_TAG_VALUE: ${{ vars.AWS_INSTANCE_TAG_VALUE || '' }}
-          AWS_PARAMETER_STORE_PATH_PREFIX: ${{ vars.AWS_PARAMETER_STORE_PATH_PREFIX || '' }}
-          AURA_BACKEND_ORIGIN: ${{ vars.AURA_BACKEND_ORIGIN || vars.AWS_BACKEND_BASE_URL || '' }}
-
-          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN || '' }}
-          NETLIFY_SITE_ID: ${{ vars.NETLIFY_SITE_ID || secrets.NETLIFY_SITE_ID || '' }}
-          NETLIFY_PRODUCTION_URL: ${{ vars.NETLIFY_PRODUCTION_URL || '' }}
-
-          AWS_FRONTEND_BUCKET: ${{ vars.AWS_FRONTEND_BUCKET || '' }}
-          AWS_FRONTEND_DISTRIBUTION_ID: ${{ vars.AWS_FRONTEND_DISTRIBUTION_ID || '' }}
-          AWS_FRONTEND_PUBLIC_URL: ${{ vars.AWS_FRONTEND_PUBLIC_URL || '' }}
-          AWS_FRONTEND_DEPLOY_ROLE_ARN: ${{ vars.AWS_FRONTEND_DEPLOY_ROLE_ARN || secrets.AWS_FRONTEND_DEPLOY_ROLE_ARN || '' }}
-
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN || '' }}
-          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID || secrets.VERCEL_ORG_ID || '' }}
-          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID || secrets.VERCEL_PROJECT_ID || '' }}
-          GATEWAY_PRODUCTION_URL: ${{ vars.GATEWAY_PRODUCTION_URL || '' }}
-
-        run: |
-          set -euo pipefail
-
-          check_group() {
-            local group="$1"
-            shift
-
-            local ready="true"
-
-            for name in "$@"; do
-              local value
-              value="$(printenv "$name" || true)"
-
-              if [ -z "${value}" ]; then
-                echo "Missing ${name}; automatic ${group} production deploy will be skipped on push."
-                ready="false"
-              fi
-            done
-
-            echo "${group}_ready=${ready}" >> "$GITHUB_OUTPUT"
-            echo "${group} production deploy ready: ${ready}"
-          }
-
-          check_group backend \
-            AWS_DEPLOY_ROLE_ARN \
-            AWS_DEPLOY_BUCKET \
-            AWS_INSTANCE_TAG_VALUE \
-            AWS_PARAMETER_STORE_PATH_PREFIX \
-            AURA_BACKEND_ORIGIN
-
-          check_group frontend_netlify \
-            NETLIFY_AUTH_TOKEN \
-            NETLIFY_SITE_ID \
-            NETLIFY_PRODUCTION_URL \
-            VERCEL_TOKEN \
-            VERCEL_ORG_ID \
-            VERCEL_PROJECT_ID \
-            AWS_FRONTEND_BUCKET \
-            AWS_FRONTEND_DISTRIBUTION_ID \
-            AWS_FRONTEND_PUBLIC_URL \
-            AWS_FRONTEND_DEPLOY_ROLE_ARN \
-            AURA_BACKEND_ORIGIN
-
-          check_group frontend_aws \
-            AWS_FRONTEND_BUCKET \
-            AWS_FRONTEND_DISTRIBUTION_ID \
-            AWS_FRONTEND_PUBLIC_URL \
-            AWS_FRONTEND_DEPLOY_ROLE_ARN \
-            AURA_BACKEND_ORIGIN
-
-          check_group gateway \
-            VERCEL_TOKEN \
-            VERCEL_ORG_ID \
-            VERCEL_PROJECT_ID \
-            GATEWAY_PRODUCTION_URL
-
   production-approval:
     name: Production approval gate
     runs-on: ubuntu-latest
-
     needs:
-      - changes
-      - ci
+      - plan
+      - quality-gates
       - security-gates
-      - production-deploy-config
-      - validate-manual-dispatch
-
     if: |
       always() &&
-      needs.ci.result == 'success' &&
-      needs.security-gates.result == 'success' &&
+      needs.plan.outputs.planned_production_action == 'true' &&
       (
         (
-          github.event_name == 'push'
+          needs.plan.outputs.requested_deploy_or_release_action != 'true' &&
+          needs.plan.outputs.requested_rollback_action == 'true'
         ) ||
         (
-          github.event_name == 'workflow_dispatch' &&
-          needs.validate-manual-dispatch.result == 'success' &&
-          (
-            inputs.deploy_backend == true ||
-            inputs.deploy_frontend_netlify == true ||
-            inputs.deploy_frontend_aws == true ||
-            inputs.deploy_gateway == true ||
-            inputs.release_desktop == true ||
-            inputs.release_mobile == true ||
-            inputs.rollback_backend == true ||
-            inputs.rollback_frontend_netlify == true ||
-            inputs.rollback_frontend_aws == true ||
-            inputs.rollback_gateway == true
-          )
+          needs.quality-gates.result == 'success' &&
+          needs.security-gates.result == 'success'
         )
       )
-
     environment:
       name: production
 
     steps:
-      - name: Approve production release
+      - name: Explain approval reason
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REQUESTED_DEPLOY_OR_RELEASE: ${{ needs.plan.outputs.requested_deploy_or_release_action }}
+          REQUESTED_ROLLBACK: ${{ needs.plan.outputs.requested_rollback_action }}
         run: |
-          echo "Production approval gate passed."
-          echo "Actor: ${{ github.actor }}"
-          echo "SHA: ${{ github.sha }}"
+          {
+            echo "## Production Approval"
+            echo
+            echo "Approval passed for a planned production action."
+            echo
+            echo "| Field | Value |"
+            echo "|---|---|"
+            echo "| Event | ${EVENT_NAME} |"
+            echo "| Deploy or release requested | ${REQUESTED_DEPLOY_OR_RELEASE} |"
+            echo "| Rollback requested | ${REQUESTED_ROLLBACK} |"
+            echo "| Quality gates | ${{ needs.quality-gates.result }} |"
+            echo "| Security gates | ${{ needs.security-gates.result }} |"
+            echo "| Actor | ${{ github.actor }} |"
+            echo "| SHA | ${{ github.sha }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  production-approval-noop:
+    name: Production approval no-op
+    runs-on: ubuntu-latest
+    needs:
+      - plan
+      - quality-gates
+      - security-gates
+      - production-approval
+    if: always() && needs.production-approval.result != 'success'
+
+    steps:
+      - name: Explain why approval did not run
+        run: |
+          {
+            echo "## Production Approval No-Op"
+            echo
+            echo "| Reason | Value |"
+            echo "|---|---|"
+            echo "| Planned production action | ${{ needs.plan.outputs.planned_production_action }} |"
+            echo "| Requested production action | ${{ needs.plan.outputs.requested_production_action }} |"
+            echo "| Manual confirmed | ${{ needs.plan.outputs.manual_confirmed }} |"
+            echo "| Quality gates | ${{ needs.quality-gates.result }} |"
+            echo "| Security gates | ${{ needs.security-gates.result }} |"
+            echo "| Approval result | ${{ needs.production-approval.result }} |"
+            echo
+            if [ "${{ needs.plan.outputs.planned_production_action }}" != "true" ]; then
+              echo "No real production action was planned, so the production environment approval was intentionally not requested."
+            elif [ "${{ needs.plan.outputs.requested_deploy_or_release_action }}" = "true" ] && { [ "${{ needs.quality-gates.result }}" != "success" ] || [ "${{ needs.security-gates.result }}" != "success" ]; }; then
+              echo "A deploy or release was requested, but production approval was blocked because CI or security gates did not pass."
+            else
+              echo "Production approval did not complete successfully."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
 
   release-manifest:
     name: Create release manifest
     runs-on: ubuntu-latest
-
     needs:
+      - plan
       - production-approval
-
     if: always() && needs.production-approval.result == 'success'
-
     permissions:
       contents: read
 
     steps:
       - name: Create manifest
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          ACTOR: ${{ github.actor }}
+          REF_NAME: ${{ github.ref }}
+          SHA: ${{ github.sha }}
+          RUN_ID: ${{ github.run_id }}
+          BACKEND_CHANGED: ${{ needs.plan.outputs.backend_changed }}
+          FRONTEND_NETLIFY_CHANGED: ${{ needs.plan.outputs.frontend_netlify_changed }}
+          FRONTEND_AWS_CHANGED: ${{ needs.plan.outputs.frontend_aws_changed }}
+          GATEWAY_CHANGED: ${{ needs.plan.outputs.gateway_changed }}
+          DESKTOP_CHANGED: ${{ needs.plan.outputs.desktop_changed }}
+          MOBILE_CHANGED: ${{ needs.plan.outputs.mobile_changed }}
+          BACKEND_READY: ${{ needs.plan.outputs.backend_ready }}
+          FRONTEND_NETLIFY_READY: ${{ needs.plan.outputs.frontend_netlify_ready }}
+          FRONTEND_AWS_READY: ${{ needs.plan.outputs.frontend_aws_ready }}
+          GATEWAY_READY: ${{ needs.plan.outputs.gateway_ready }}
+          SHOULD_DEPLOY_BACKEND: ${{ needs.plan.outputs.should_deploy_backend }}
+          SHOULD_DEPLOY_FRONTEND_NETLIFY: ${{ needs.plan.outputs.should_deploy_frontend_netlify }}
+          SHOULD_DEPLOY_FRONTEND_AWS: ${{ needs.plan.outputs.should_deploy_frontend_aws }}
+          SHOULD_DEPLOY_GATEWAY: ${{ needs.plan.outputs.should_deploy_gateway }}
+          SHOULD_RELEASE_DESKTOP: ${{ needs.plan.outputs.should_release_desktop }}
+          SHOULD_RELEASE_MOBILE: ${{ needs.plan.outputs.should_release_mobile }}
+          SHOULD_ROLLBACK_BACKEND: ${{ needs.plan.outputs.should_rollback_backend }}
+          SHOULD_ROLLBACK_FRONTEND_NETLIFY: ${{ needs.plan.outputs.should_rollback_frontend_netlify }}
+          SHOULD_ROLLBACK_FRONTEND_AWS: ${{ needs.plan.outputs.should_rollback_frontend_aws }}
+          SHOULD_ROLLBACK_GATEWAY: ${{ needs.plan.outputs.should_rollback_gateway }}
+          SIGNING_ENABLED: ${{ needs.plan.outputs.signing_enabled }}
+          STORE_PUBLISH_ENABLED: ${{ needs.plan.outputs.store_publish_enabled }}
         run: |
-          set -euo pipefail
+          node <<'EOF'
+          const fs = require('fs');
 
-          cat > release-manifest.json <<EOF
-          {
-            "project": "Aura",
-            "workflow": "Aura Production Release Orchestrator",
-            "event": "${{ github.event_name }}",
-            "actor": "${{ github.actor }}",
-            "ref": "${{ github.ref }}",
-            "sha": "${{ github.sha }}",
-            "run_id": "${{ github.run_id }}",
-            "run_number": "${{ github.run_number }}",
-            "attempt": "${{ github.run_attempt }}"
-          }
+          const bool = (name) => process.env[name] === 'true';
+          const manifest = {
+            project: 'Aura',
+            workflow: 'Aura Production Release Orchestrator',
+            event: process.env.EVENT_NAME,
+            actor: process.env.ACTOR,
+            ref: process.env.REF_NAME,
+            sha: process.env.SHA,
+            runId: process.env.RUN_ID,
+            changed: {
+              backend: bool('BACKEND_CHANGED'),
+              frontendNetlify: bool('FRONTEND_NETLIFY_CHANGED'),
+              frontendAws: bool('FRONTEND_AWS_CHANGED'),
+              gateway: bool('GATEWAY_CHANGED'),
+              desktop: bool('DESKTOP_CHANGED'),
+              mobile: bool('MOBILE_CHANGED'),
+            },
+            providerReadiness: {
+              backend: bool('BACKEND_READY'),
+              frontendNetlify: bool('FRONTEND_NETLIFY_READY'),
+              frontendAws: bool('FRONTEND_AWS_READY'),
+              gateway: bool('GATEWAY_READY'),
+            },
+            plannedActions: {
+              deployBackend: bool('SHOULD_DEPLOY_BACKEND'),
+              deployFrontendNetlify: bool('SHOULD_DEPLOY_FRONTEND_NETLIFY'),
+              deployFrontendAws: bool('SHOULD_DEPLOY_FRONTEND_AWS'),
+              deployGateway: bool('SHOULD_DEPLOY_GATEWAY'),
+              releaseDesktop: bool('SHOULD_RELEASE_DESKTOP'),
+              releaseMobile: bool('SHOULD_RELEASE_MOBILE'),
+              rollbackBackend: bool('SHOULD_ROLLBACK_BACKEND'),
+              rollbackFrontendNetlify: bool('SHOULD_ROLLBACK_FRONTEND_NETLIFY'),
+              rollbackFrontendAws: bool('SHOULD_ROLLBACK_FRONTEND_AWS'),
+              rollbackGateway: bool('SHOULD_ROLLBACK_GATEWAY'),
+            },
+            signing: {
+              enabled: bool('SIGNING_ENABLED'),
+              requireWindowsSigning: false,
+              requireMacosSigning: false,
+              requireAndroidSigning: false,
+              requireIosSigning: false,
+            },
+            storePublishing: {
+              enabled: bool('STORE_PUBLISH_ENABLED'),
+              publishStoreRelease: false,
+            },
+          };
+
+          fs.writeFileSync('release-manifest.json', `${JSON.stringify(manifest, null, 2)}\n`);
+          console.log(JSON.stringify(manifest, null, 2));
           EOF
-
-          cat release-manifest.json
 
       - name: Upload release manifest
         uses: actions/upload-artifact@v7
@@ -599,142 +882,311 @@ jobs:
   deploy-backend:
     name: Deploy backend to AWS
     needs:
-      - changes
-      - ci
+      - plan
+      - quality-gates
       - security-gates
-      - production-deploy-config
       - production-approval
       - release-manifest
-
     if: |
+      always() &&
+      needs.plan.outputs.should_deploy_backend == 'true' &&
+      needs.quality-gates.result == 'success' &&
+      needs.security-gates.result == 'success' &&
       needs.production-approval.result == 'success' &&
-      (
-        (
-          github.event_name == 'push'
-        ) ||
-        (
-          github.event_name == 'workflow_dispatch' &&
-          inputs.deploy_backend == true
-        )
-      )
-
+      needs.release-manifest.result == 'success'
     uses: ./.github/workflows/deploy-backend-aws.yml
-
     permissions:
       contents: read
       id-token: write
-
     with:
       git_ref: ${{ github.sha }}
       skip_healthcheck: ${{ github.event_name == 'workflow_dispatch' && inputs.skip_backend_healthcheck || false }}
-
     secrets: inherit
+
+  deploy-backend-noop:
+    name: Deploy backend no-op
+    runs-on: ubuntu-latest
+    needs:
+      - plan
+      - quality-gates
+      - security-gates
+      - production-approval
+      - deploy-backend
+    if: always() && needs.deploy-backend.result == 'skipped'
+
+    steps:
+      - name: Explain backend deploy decision
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          CHANGED: ${{ needs.plan.outputs.backend_changed }}
+          READY: ${{ needs.plan.outputs.backend_ready }}
+          MISSING: ${{ needs.plan.outputs.backend_missing }}
+          SHOULD: ${{ needs.plan.outputs.should_deploy_backend }}
+          MANUAL_CONFIRMED: ${{ needs.plan.outputs.manual_confirmed }}
+          MANUAL_REQUESTED: ${{ inputs.deploy_backend || false }}
+        run: |
+          {
+            echo "## Backend Deploy No-Op"
+            echo
+            echo "| Field | Value |"
+            echo "|---|---|"
+            echo "| Event | ${EVENT_NAME} |"
+            echo "| Changed | ${CHANGED} |"
+            echo "| Manual requested | ${MANUAL_REQUESTED} |"
+            echo "| Manual confirmed | ${MANUAL_CONFIRMED} |"
+            echo "| Ready | ${READY} |"
+            echo "| Missing config | ${MISSING} |"
+            echo "| Planned deploy | ${SHOULD} |"
+            echo "| Quality gates | ${{ needs.quality-gates.result }} |"
+            echo "| Security gates | ${{ needs.security-gates.result }} |"
+            echo "| Approval | ${{ needs.production-approval.result }} |"
+            echo
+            if [ "${READY}" != "true" ] && { [ "${CHANGED}" = "true" ] || [ "${MANUAL_REQUESTED}" = "true" ]; }; then
+              echo "Backend deploy was requested but no-opped because required configuration is missing: ${MISSING}."
+            elif [ "${EVENT_NAME}" = "workflow_dispatch" ] && [ "${MANUAL_REQUESTED}" = "true" ] && [ "${MANUAL_CONFIRMED}" != "true" ]; then
+              echo "Backend deploy was requested but no-opped because confirm_production was not PRODUCTION."
+            elif [ "${{ needs.quality-gates.result }}" != "success" ] || [ "${{ needs.security-gates.result }}" != "success" ]; then
+              echo "Backend deploy was blocked because CI or security gates did not pass."
+            elif [ "${SHOULD}" != "true" ]; then
+              echo "Backend deploy was not requested for this run."
+            else
+              echo "Backend deploy did not run because production approval or release manifest did not complete."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
 
   deploy-frontend-netlify:
     name: Deploy storefront to Netlify, Vercel, and AWS
     needs:
-      - changes
-      - ci
+      - plan
+      - quality-gates
       - security-gates
-      - production-deploy-config
       - production-approval
       - release-manifest
-
     if: |
+      always() &&
+      needs.plan.outputs.should_deploy_frontend_netlify == 'true' &&
+      needs.quality-gates.result == 'success' &&
+      needs.security-gates.result == 'success' &&
       needs.production-approval.result == 'success' &&
-      (
-        (
-          github.event_name == 'push'
-        ) ||
-        (
-          github.event_name == 'workflow_dispatch' &&
-          inputs.deploy_frontend_netlify == true
-        )
-      )
-
+      needs.release-manifest.result == 'success'
     uses: ./.github/workflows/deploy-netlify.yml
-
     permissions:
       contents: read
       id-token: write
       issues: write
       pull-requests: write
-
     with:
       target: production
-
     secrets: inherit
+
+  deploy-frontend-netlify-noop:
+    name: Deploy Netlify frontend no-op
+    runs-on: ubuntu-latest
+    needs:
+      - plan
+      - quality-gates
+      - security-gates
+      - production-approval
+      - deploy-frontend-netlify
+    if: always() && needs.deploy-frontend-netlify.result == 'skipped'
+
+    steps:
+      - name: Explain Netlify frontend deploy decision
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          CHANGED: ${{ needs.plan.outputs.frontend_netlify_changed }}
+          READY: ${{ needs.plan.outputs.frontend_netlify_ready }}
+          MISSING: ${{ needs.plan.outputs.frontend_netlify_missing }}
+          SHOULD: ${{ needs.plan.outputs.should_deploy_frontend_netlify }}
+          MANUAL_CONFIRMED: ${{ needs.plan.outputs.manual_confirmed }}
+          MANUAL_REQUESTED: ${{ inputs.deploy_frontend_netlify || false }}
+        run: |
+          {
+            echo "## Netlify Frontend Deploy No-Op"
+            echo
+            echo "| Field | Value |"
+            echo "|---|---|"
+            echo "| Event | ${EVENT_NAME} |"
+            echo "| Changed | ${CHANGED} |"
+            echo "| Manual requested | ${MANUAL_REQUESTED} |"
+            echo "| Manual confirmed | ${MANUAL_CONFIRMED} |"
+            echo "| Ready | ${READY} |"
+            echo "| Missing config | ${MISSING} |"
+            echo "| Planned deploy | ${SHOULD} |"
+            echo "| Quality gates | ${{ needs.quality-gates.result }} |"
+            echo "| Security gates | ${{ needs.security-gates.result }} |"
+            echo "| Approval | ${{ needs.production-approval.result }} |"
+            echo
+            if [ "${READY}" != "true" ] && { [ "${CHANGED}" = "true" ] || [ "${MANUAL_REQUESTED}" = "true" ]; }; then
+              echo "Netlify frontend deploy was requested but no-opped because required configuration is missing: ${MISSING}."
+            elif [ "${EVENT_NAME}" = "workflow_dispatch" ] && [ "${MANUAL_REQUESTED}" = "true" ] && [ "${MANUAL_CONFIRMED}" != "true" ]; then
+              echo "Netlify frontend deploy was requested but no-opped because confirm_production was not PRODUCTION."
+            elif [ "${{ needs.quality-gates.result }}" != "success" ] || [ "${{ needs.security-gates.result }}" != "success" ]; then
+              echo "Netlify frontend deploy was blocked because CI or security gates did not pass."
+            elif [ "${SHOULD}" != "true" ]; then
+              echo "Netlify frontend deploy was not requested for this run."
+            else
+              echo "Netlify frontend deploy did not run because production approval or release manifest did not complete."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
 
   deploy-frontend-aws:
     name: Deploy storefront to AWS S3 / CloudFront
     needs:
-      - changes
-      - ci
+      - plan
+      - quality-gates
       - security-gates
-      - production-deploy-config
       - production-approval
       - release-manifest
-
     if: |
+      always() &&
+      needs.plan.outputs.should_deploy_frontend_aws == 'true' &&
+      needs.quality-gates.result == 'success' &&
+      needs.security-gates.result == 'success' &&
       needs.production-approval.result == 'success' &&
-      (
-        (
-          github.event_name == 'push'
-        ) ||
-        (
-          github.event_name == 'workflow_dispatch' &&
-          inputs.deploy_frontend_aws == true
-        )
-      )
-
+      needs.release-manifest.result == 'success'
     uses: ./.github/workflows/deploy-frontend-aws.yml
-
     permissions:
       contents: read
       id-token: write
-
     with:
       deploy: true
-
     secrets: inherit
+
+  deploy-frontend-aws-noop:
+    name: Deploy AWS frontend no-op
+    runs-on: ubuntu-latest
+    needs:
+      - plan
+      - quality-gates
+      - security-gates
+      - production-approval
+      - deploy-frontend-aws
+    if: always() && needs.deploy-frontend-aws.result == 'skipped'
+
+    steps:
+      - name: Explain AWS frontend deploy decision
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          CHANGED: ${{ needs.plan.outputs.frontend_aws_changed }}
+          READY: ${{ needs.plan.outputs.frontend_aws_ready }}
+          MISSING: ${{ needs.plan.outputs.frontend_aws_missing }}
+          SHOULD: ${{ needs.plan.outputs.should_deploy_frontend_aws }}
+          MANUAL_CONFIRMED: ${{ needs.plan.outputs.manual_confirmed }}
+          MANUAL_REQUESTED: ${{ inputs.deploy_frontend_aws || false }}
+        run: |
+          {
+            echo "## AWS Frontend Deploy No-Op"
+            echo
+            echo "| Field | Value |"
+            echo "|---|---|"
+            echo "| Event | ${EVENT_NAME} |"
+            echo "| Changed | ${CHANGED} |"
+            echo "| Manual requested | ${MANUAL_REQUESTED} |"
+            echo "| Manual confirmed | ${MANUAL_CONFIRMED} |"
+            echo "| Ready | ${READY} |"
+            echo "| Missing config | ${MISSING} |"
+            echo "| Planned deploy | ${SHOULD} |"
+            echo "| Quality gates | ${{ needs.quality-gates.result }} |"
+            echo "| Security gates | ${{ needs.security-gates.result }} |"
+            echo "| Approval | ${{ needs.production-approval.result }} |"
+            echo
+            if [ "${READY}" != "true" ] && { [ "${CHANGED}" = "true" ] || [ "${MANUAL_REQUESTED}" = "true" ]; }; then
+              echo "AWS frontend deploy was requested but no-opped because required configuration is missing: ${MISSING}."
+            elif [ "${EVENT_NAME}" = "workflow_dispatch" ] && [ "${MANUAL_REQUESTED}" = "true" ] && [ "${MANUAL_CONFIRMED}" != "true" ]; then
+              echo "AWS frontend deploy was requested but no-opped because confirm_production was not PRODUCTION."
+            elif [ "${{ needs.quality-gates.result }}" != "success" ] || [ "${{ needs.security-gates.result }}" != "success" ]; then
+              echo "AWS frontend deploy was blocked because CI or security gates did not pass."
+            elif [ "${SHOULD}" != "true" ]; then
+              echo "AWS frontend deploy was not requested for this run."
+            else
+              echo "AWS frontend deploy did not run because production approval or release manifest did not complete."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
 
   deploy-gateway:
     name: Deploy gateway to Vercel
     needs:
-      - changes
-      - ci
+      - plan
+      - quality-gates
       - security-gates
-      - production-deploy-config
       - production-approval
       - release-manifest
-
     if: |
+      always() &&
+      needs.plan.outputs.should_deploy_gateway == 'true' &&
+      needs.quality-gates.result == 'success' &&
+      needs.security-gates.result == 'success' &&
       needs.production-approval.result == 'success' &&
-      github.event_name == 'workflow_dispatch' &&
-      inputs.deploy_gateway == true
-
+      needs.release-manifest.result == 'success'
     uses: ./.github/workflows/deploy-gateway-vercel.yml
-
     permissions:
       contents: read
       issues: write
       pull-requests: write
-
     with:
       target: production
-
     secrets: inherit
+
+  deploy-gateway-noop:
+    name: Deploy gateway no-op
+    runs-on: ubuntu-latest
+    needs:
+      - plan
+      - quality-gates
+      - security-gates
+      - production-approval
+      - deploy-gateway
+    if: always() && needs.deploy-gateway.result == 'skipped'
+
+    steps:
+      - name: Explain gateway deploy decision
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          CHANGED: ${{ needs.plan.outputs.gateway_changed }}
+          READY: ${{ needs.plan.outputs.gateway_ready }}
+          MISSING: ${{ needs.plan.outputs.gateway_missing }}
+          SHOULD: ${{ needs.plan.outputs.should_deploy_gateway }}
+          MANUAL_CONFIRMED: ${{ needs.plan.outputs.manual_confirmed }}
+          MANUAL_REQUESTED: ${{ inputs.deploy_gateway || false }}
+        run: |
+          {
+            echo "## Gateway Deploy No-Op"
+            echo
+            echo "| Field | Value |"
+            echo "|---|---|"
+            echo "| Event | ${EVENT_NAME} |"
+            echo "| Changed | ${CHANGED} |"
+            echo "| Manual requested | ${MANUAL_REQUESTED} |"
+            echo "| Manual confirmed | ${MANUAL_CONFIRMED} |"
+            echo "| Ready | ${READY} |"
+            echo "| Missing config | ${MISSING} |"
+            echo "| Planned deploy | ${SHOULD} |"
+            echo "| Quality gates | ${{ needs.quality-gates.result }} |"
+            echo "| Security gates | ${{ needs.security-gates.result }} |"
+            echo "| Approval | ${{ needs.production-approval.result }} |"
+            echo
+            if [ "${READY}" != "true" ] && { [ "${CHANGED}" = "true" ] || [ "${MANUAL_REQUESTED}" = "true" ]; }; then
+              echo "Gateway deploy was requested but no-opped because required configuration is missing: ${MISSING}."
+            elif [ "${EVENT_NAME}" = "workflow_dispatch" ] && [ "${MANUAL_REQUESTED}" = "true" ] && [ "${MANUAL_CONFIRMED}" != "true" ]; then
+              echo "Gateway deploy was requested but no-opped because confirm_production was not PRODUCTION."
+            elif [ "${{ needs.quality-gates.result }}" != "success" ] || [ "${{ needs.security-gates.result }}" != "success" ]; then
+              echo "Gateway deploy was blocked because CI or security gates did not pass."
+            elif [ "${SHOULD}" != "true" ]; then
+              echo "Gateway deploy was not requested for this run."
+            else
+              echo "Gateway deploy did not run because production approval or release manifest did not complete."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
 
   smoke-tests:
     name: Production smoke tests
     runs-on: ubuntu-latest
-
     needs:
       - deploy-backend
       - deploy-frontend-netlify
       - deploy-frontend-aws
       - deploy-gateway
-
     if: |
       always() &&
       (
@@ -747,187 +1199,216 @@ jobs:
     steps:
       - name: Run production smoke checks
         env:
+          BACKEND_DEPLOY_RESULT: ${{ needs.deploy-backend.result }}
+          FRONTEND_NETLIFY_DEPLOY_RESULT: ${{ needs.deploy-frontend-netlify.result }}
+          FRONTEND_AWS_DEPLOY_RESULT: ${{ needs.deploy-frontend-aws.result }}
+          GATEWAY_DEPLOY_RESULT: ${{ needs.deploy-gateway.result }}
           AURA_BACKEND_ORIGIN: ${{ vars.AURA_BACKEND_ORIGIN || vars.AWS_BACKEND_BASE_URL || '' }}
           BACKEND_HEALTH_PATH: ${{ vars.BACKEND_HEALTH_PATH || '/health' }}
-
           NETLIFY_PRODUCTION_URL: ${{ vars.NETLIFY_PRODUCTION_URL || '' }}
           AWS_FRONTEND_PUBLIC_URL: ${{ vars.AWS_FRONTEND_PUBLIC_URL || '' }}
           GATEWAY_PRODUCTION_URL: ${{ vars.GATEWAY_PRODUCTION_URL || '' }}
           GATEWAY_HEALTH_PATH: ${{ vars.GATEWAY_HEALTH_PATH || '/' }}
-
         run: |
           set -euo pipefail
 
-          smoke() {
+          smoke_if_deployed() {
             local name="$1"
-            local url="$2"
+            local deploy_result="$2"
+            local url="$3"
+
+            if [ "${deploy_result}" != "success" ]; then
+              echo "Skipping ${name}; related deploy result was ${deploy_result}."
+              return 0
+            fi
 
             if [ -z "${url}" ]; then
-              echo "Skipping ${name}; URL is empty."
+              echo "Skipping ${name}; related URL is empty."
               return 0
             fi
 
             echo "Checking ${name}: ${url}"
-
-            curl \
-              --fail \
-              --show-error \
-              --silent \
-              --location \
-              --max-time 30 \
-              "${url}" > /dev/null
-
+            curl --fail --show-error --silent --location --max-time 30 "${url}" > /dev/null
             echo "${name} is healthy."
           }
 
-          smoke "backend" "${AURA_BACKEND_ORIGIN}${BACKEND_HEALTH_PATH}"
-          smoke "netlify storefront" "${NETLIFY_PRODUCTION_URL}"
-          smoke "aws storefront" "${AWS_FRONTEND_PUBLIC_URL}"
-          smoke "gateway" "${GATEWAY_PRODUCTION_URL}${GATEWAY_HEALTH_PATH}"
+          smoke_if_deployed "backend" "${BACKEND_DEPLOY_RESULT}" "${AURA_BACKEND_ORIGIN}${BACKEND_HEALTH_PATH}"
+          smoke_if_deployed "netlify storefront" "${FRONTEND_NETLIFY_DEPLOY_RESULT}" "${NETLIFY_PRODUCTION_URL}"
+          smoke_if_deployed "aws storefront" "${FRONTEND_AWS_DEPLOY_RESULT}" "${AWS_FRONTEND_PUBLIC_URL}"
+          smoke_if_deployed "gateway" "${GATEWAY_DEPLOY_RESULT}" "${GATEWAY_PRODUCTION_URL}${GATEWAY_HEALTH_PATH}"
+
+  smoke-tests-noop:
+    name: Smoke tests no-op
+    runs-on: ubuntu-latest
+    needs:
+      - deploy-backend
+      - deploy-frontend-netlify
+      - deploy-frontend-aws
+      - deploy-gateway
+      - smoke-tests
+    if: always() && needs.smoke-tests.result == 'skipped'
+
+    steps:
+      - name: Explain smoke decision
+        run: |
+          {
+            echo "## Smoke Tests No-Op"
+            echo
+            echo "No smoke tests ran because no deployment job completed successfully."
+            echo
+            echo "| Deploy job | Result |"
+            echo "|---|---|"
+            echo "| Backend | ${{ needs.deploy-backend.result }} |"
+            echo "| Frontend Netlify | ${{ needs.deploy-frontend-netlify.result }} |"
+            echo "| Frontend AWS | ${{ needs.deploy-frontend-aws.result }} |"
+            echo "| Gateway | ${{ needs.deploy-gateway.result }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   rollback-backend:
     name: Roll back backend
     needs:
+      - plan
       - production-approval
       - deploy-backend
       - smoke-tests
-
     if: |
       always() &&
       needs.production-approval.result == 'success' &&
       (
+        needs.plan.outputs.should_rollback_backend == 'true' ||
         (
           github.event_name == 'workflow_dispatch' &&
-          inputs.rollback_backend == true
-        ) ||
-        (
+          inputs.auto_rollback_on_smoke_failure == true &&
           needs.deploy-backend.result == 'success' &&
-          needs.smoke-tests.result == 'failure' &&
-          github.event_name == 'workflow_dispatch' &&
-          inputs.auto_rollback_on_smoke_failure == true
+          needs.smoke-tests.result == 'failure'
         )
       )
-
     uses: ./.github/workflows/rollback-backend-aws.yml
-
     permissions:
       contents: read
       id-token: write
-
     with:
       rollback_ref: ${{ inputs.rollback_ref || '' }}
-
     secrets: inherit
 
   rollback-frontend-netlify:
     name: Roll back Netlify storefront
     needs:
+      - plan
       - production-approval
       - deploy-frontend-netlify
       - smoke-tests
-
     if: |
       always() &&
       needs.production-approval.result == 'success' &&
       (
+        needs.plan.outputs.should_rollback_frontend_netlify == 'true' ||
         (
           github.event_name == 'workflow_dispatch' &&
-          inputs.rollback_frontend_netlify == true
-        ) ||
-        (
+          inputs.auto_rollback_on_smoke_failure == true &&
           needs.deploy-frontend-netlify.result == 'success' &&
-          needs.smoke-tests.result == 'failure' &&
-          github.event_name == 'workflow_dispatch' &&
-          inputs.auto_rollback_on_smoke_failure == true
+          needs.smoke-tests.result == 'failure'
         )
       )
-
     uses: ./.github/workflows/rollback-netlify.yml
-
     permissions:
       contents: read
-
     with:
       rollback_ref: ${{ inputs.rollback_ref || '' }}
-
     secrets: inherit
 
   rollback-frontend-aws:
     name: Roll back AWS storefront
     needs:
+      - plan
       - production-approval
-      - deploy-frontend-netlify
       - deploy-frontend-aws
       - smoke-tests
-
     if: |
       always() &&
       needs.production-approval.result == 'success' &&
       (
+        needs.plan.outputs.should_rollback_frontend_aws == 'true' ||
         (
           github.event_name == 'workflow_dispatch' &&
-          inputs.rollback_frontend_aws == true
-        ) ||
-        (
-          (
-            needs.deploy-frontend-netlify.result == 'success' ||
-            needs.deploy-frontend-aws.result == 'success'
-          ) &&
-          needs.smoke-tests.result == 'failure' &&
-          github.event_name == 'workflow_dispatch' &&
-          inputs.auto_rollback_on_smoke_failure == true
+          inputs.auto_rollback_on_smoke_failure == true &&
+          needs.deploy-frontend-aws.result == 'success' &&
+          needs.smoke-tests.result == 'failure'
         )
       )
-
     uses: ./.github/workflows/rollback-frontend-aws.yml
-
     permissions:
       contents: read
       id-token: write
-
     with:
       rollback_ref: ${{ inputs.rollback_ref || '' }}
-
     secrets: inherit
 
   rollback-gateway:
     name: Roll back gateway
     needs:
+      - plan
       - production-approval
       - deploy-gateway
       - smoke-tests
-
     if: |
       always() &&
       needs.production-approval.result == 'success' &&
       (
+        needs.plan.outputs.should_rollback_gateway == 'true' ||
         (
           github.event_name == 'workflow_dispatch' &&
-          inputs.rollback_gateway == true
-        ) ||
-        (
+          inputs.auto_rollback_on_smoke_failure == true &&
           needs.deploy-gateway.result == 'success' &&
-          needs.smoke-tests.result == 'failure' &&
-          github.event_name == 'workflow_dispatch' &&
-          inputs.auto_rollback_on_smoke_failure == true
+          needs.smoke-tests.result == 'failure'
         )
       )
-
     uses: ./.github/workflows/rollback-gateway-vercel.yml
-
     permissions:
       contents: read
-
     with:
       rollback_ref: ${{ inputs.rollback_ref || '' }}
-
     secrets: inherit
+
+  rollback-decisions:
+    name: Rollback decision summary
+    runs-on: ubuntu-latest
+    needs:
+      - plan
+      - smoke-tests
+      - rollback-backend
+      - rollback-frontend-netlify
+      - rollback-frontend-aws
+      - rollback-gateway
+    if: always()
+
+    steps:
+      - name: Explain rollback decisions
+        run: |
+          {
+            echo "## Rollback Decisions"
+            echo
+            echo "| Rollback | Planned/manual | Result |"
+            echo "|---|---:|---|"
+            echo "| Backend | ${{ needs.plan.outputs.should_rollback_backend }} | ${{ needs.rollback-backend.result }} |"
+            echo "| Netlify frontend | ${{ needs.plan.outputs.should_rollback_frontend_netlify }} | ${{ needs.rollback-frontend-netlify.result }} |"
+            echo "| AWS frontend | ${{ needs.plan.outputs.should_rollback_frontend_aws }} | ${{ needs.rollback-frontend-aws.result }} |"
+            echo "| Gateway | ${{ needs.plan.outputs.should_rollback_gateway }} | ${{ needs.rollback-gateway.result }} |"
+            echo
+            echo "| Auto rollback condition | Value |"
+            echo "|---|---|"
+            echo "| Workflow dispatch | ${{ github.event_name == 'workflow_dispatch' }} |"
+            echo "| Auto rollback input | ${{ inputs.auto_rollback_on_smoke_failure || false }} |"
+            echo "| Smoke result | ${{ needs.smoke-tests.result }} |"
+            echo
+            echo "Rollbacks only run for confirmed manual rollback requests or for workflow_dispatch smoke failures when auto rollback is explicitly enabled."
+          } >> "$GITHUB_STEP_SUMMARY"
 
   release-desktop:
     name: Publish desktop apps
     needs:
-      - changes
-      - ci
+      - plan
+      - quality-gates
       - security-gates
       - production-approval
       - deploy-backend
@@ -935,43 +1416,33 @@ jobs:
       - deploy-frontend-aws
       - deploy-gateway
       - smoke-tests
-
     if: |
       always() &&
-      needs.production-approval.result == 'success' &&
-      (
-        (
-          github.event_name == 'push'
-        ) ||
-        (
-          github.event_name == 'workflow_dispatch' &&
-          inputs.release_desktop == true
-        )
-      ) &&
-      needs.ci.result == 'success' &&
+      needs.plan.outputs.should_release_desktop == 'true' &&
+      needs.quality-gates.result == 'success' &&
       needs.security-gates.result == 'success' &&
+      needs.production-approval.result == 'success' &&
       (needs.deploy-backend.result == 'success' || needs.deploy-backend.result == 'skipped') &&
       (needs.deploy-frontend-netlify.result == 'success' || needs.deploy-frontend-netlify.result == 'skipped') &&
       (needs.deploy-frontend-aws.result == 'success' || needs.deploy-frontend-aws.result == 'skipped') &&
       (needs.deploy-gateway.result == 'success' || needs.deploy-gateway.result == 'skipped') &&
       (needs.smoke-tests.result == 'success' || needs.smoke-tests.result == 'skipped')
-
     uses: ./.github/workflows/desktop-release.yml
-
     permissions:
       contents: write
-
     with:
-      version: ${{ github.event_name == 'workflow_dispatch' && inputs.desktop_version || '' }}
+      version: ${{ inputs.desktop_version || '' }}
       require_windows_signing: false
-
+      require_macos_signing: false
+      publish_store_release: false
     secrets: inherit
 
-  release-mobile:
-    name: Publish mobile apps
+  release-desktop-noop:
+    name: Desktop release no-op
+    runs-on: ubuntu-latest
     needs:
-      - changes
-      - ci
+      - plan
+      - quality-gates
       - security-gates
       - production-approval
       - deploy-backend
@@ -980,42 +1451,134 @@ jobs:
       - deploy-gateway
       - smoke-tests
       - release-desktop
+    if: always() && needs.release-desktop.result == 'skipped'
 
+    steps:
+      - name: Explain desktop release decision
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          CHANGED: ${{ needs.plan.outputs.desktop_changed }}
+          SHOULD: ${{ needs.plan.outputs.should_release_desktop }}
+          MANUAL_CONFIRMED: ${{ needs.plan.outputs.manual_confirmed }}
+          MANUAL_REQUESTED: ${{ inputs.release_desktop || false }}
+        run: |
+          {
+            echo "## Desktop Release No-Op"
+            echo
+            echo "| Field | Value |"
+            echo "|---|---|"
+            echo "| Event | ${EVENT_NAME} |"
+            echo "| Changed | ${CHANGED} |"
+            echo "| Manual requested | ${MANUAL_REQUESTED} |"
+            echo "| Manual confirmed | ${MANUAL_CONFIRMED} |"
+            echo "| Planned release | ${SHOULD} |"
+            echo "| Quality gates | ${{ needs.quality-gates.result }} |"
+            echo "| Security gates | ${{ needs.security-gates.result }} |"
+            echo "| Approval | ${{ needs.production-approval.result }} |"
+            echo "| Smoke tests | ${{ needs.smoke-tests.result }} |"
+            echo
+            if [ "${EVENT_NAME}" = "workflow_dispatch" ] && [ "${MANUAL_REQUESTED}" = "true" ] && [ "${MANUAL_CONFIRMED}" != "true" ]; then
+              echo "Desktop release was requested but no-opped because confirm_production was not PRODUCTION."
+            elif [ "${SHOULD}" != "true" ]; then
+              echo "Desktop release was not requested for this run."
+            elif [ "${{ needs.quality-gates.result }}" != "success" ] || [ "${{ needs.security-gates.result }}" != "success" ]; then
+              echo "Desktop release was blocked because CI or security gates did not pass."
+            elif [ "${{ needs.smoke-tests.result }}" = "failure" ]; then
+              echo "Desktop release was blocked because smoke tests failed."
+            else
+              echo "Desktop release did not run because approval or a dependent production job was not safe."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  release-mobile:
+    name: Publish mobile apps
+    needs:
+      - plan
+      - quality-gates
+      - security-gates
+      - production-approval
+      - deploy-backend
+      - deploy-frontend-netlify
+      - deploy-frontend-aws
+      - deploy-gateway
+      - smoke-tests
     if: |
       always() &&
-      needs.production-approval.result == 'success' &&
-      (
-        (
-          github.event_name == 'push'
-        ) ||
-        (
-          github.event_name == 'workflow_dispatch' &&
-          inputs.release_mobile == true
-        )
-      ) &&
-      needs.ci.result == 'success' &&
+      needs.plan.outputs.should_release_mobile == 'true' &&
+      needs.quality-gates.result == 'success' &&
       needs.security-gates.result == 'success' &&
+      needs.production-approval.result == 'success' &&
       (needs.deploy-backend.result == 'success' || needs.deploy-backend.result == 'skipped') &&
       (needs.deploy-frontend-netlify.result == 'success' || needs.deploy-frontend-netlify.result == 'skipped') &&
       (needs.deploy-frontend-aws.result == 'success' || needs.deploy-frontend-aws.result == 'skipped') &&
       (needs.deploy-gateway.result == 'success' || needs.deploy-gateway.result == 'skipped') &&
-      (needs.smoke-tests.result == 'success' || needs.smoke-tests.result == 'skipped') &&
-      (needs.release-desktop.result == 'success' || needs.release-desktop.result == 'skipped')
-
+      (needs.smoke-tests.result == 'success' || needs.smoke-tests.result == 'skipped')
     uses: ./.github/workflows/mobile-release.yml
-
     permissions:
       contents: write
-
     with:
-      version: ${{ github.event_name == 'workflow_dispatch' && inputs.mobile_version || '' }}
-
+      version: ${{ inputs.mobile_version || '' }}
+      require_android_signing: false
+      require_ios_signing: false
+      publish_store_release: false
     secrets: inherit
+
+  release-mobile-noop:
+    name: Mobile release no-op
+    runs-on: ubuntu-latest
+    needs:
+      - plan
+      - quality-gates
+      - security-gates
+      - production-approval
+      - deploy-backend
+      - deploy-frontend-netlify
+      - deploy-frontend-aws
+      - deploy-gateway
+      - smoke-tests
+      - release-mobile
+    if: always() && needs.release-mobile.result == 'skipped'
+
+    steps:
+      - name: Explain mobile release decision
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          CHANGED: ${{ needs.plan.outputs.mobile_changed }}
+          SHOULD: ${{ needs.plan.outputs.should_release_mobile }}
+          MANUAL_CONFIRMED: ${{ needs.plan.outputs.manual_confirmed }}
+          MANUAL_REQUESTED: ${{ inputs.release_mobile || false }}
+        run: |
+          {
+            echo "## Mobile Release No-Op"
+            echo
+            echo "| Field | Value |"
+            echo "|---|---|"
+            echo "| Event | ${EVENT_NAME} |"
+            echo "| Changed | ${CHANGED} |"
+            echo "| Manual requested | ${MANUAL_REQUESTED} |"
+            echo "| Manual confirmed | ${MANUAL_CONFIRMED} |"
+            echo "| Planned release | ${SHOULD} |"
+            echo "| Quality gates | ${{ needs.quality-gates.result }} |"
+            echo "| Security gates | ${{ needs.security-gates.result }} |"
+            echo "| Approval | ${{ needs.production-approval.result }} |"
+            echo "| Smoke tests | ${{ needs.smoke-tests.result }} |"
+            echo
+            if [ "${EVENT_NAME}" = "workflow_dispatch" ] && [ "${MANUAL_REQUESTED}" = "true" ] && [ "${MANUAL_CONFIRMED}" != "true" ]; then
+              echo "Mobile release was requested but no-opped because confirm_production was not PRODUCTION."
+            elif [ "${SHOULD}" != "true" ]; then
+              echo "Mobile release was not requested for this run."
+            elif [ "${{ needs.quality-gates.result }}" != "success" ] || [ "${{ needs.security-gates.result }}" != "success" ]; then
+              echo "Mobile release was blocked because CI or security gates did not pass."
+            elif [ "${{ needs.smoke-tests.result }}" = "failure" ]; then
+              echo "Mobile release was blocked because smoke tests failed."
+            else
+              echo "Mobile release did not run because approval or a dependent production job was not safe."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
 
   production-tag:
     name: Create production traceability tag
     runs-on: ubuntu-latest
-
     needs:
       - deploy-backend
       - deploy-frontend-netlify
@@ -1024,7 +1587,6 @@ jobs:
       - smoke-tests
       - release-desktop
       - release-mobile
-
     if: |
       always() &&
       (
@@ -1036,10 +1598,8 @@ jobs:
         needs.release-mobile.result == 'success'
       ) &&
       (needs.smoke-tests.result == 'success' || needs.smoke-tests.result == 'skipped')
-
     permissions:
       contents: write
-
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
 
@@ -1070,27 +1630,33 @@ jobs:
   production-summary:
     name: Production release summary
     runs-on: ubuntu-latest
-
     if: always()
-
     needs:
-      - changes
-      - ci
+      - plan
+      - quality-gates
       - security-gates
-      - production-deploy-config
       - production-approval
+      - production-approval-noop
       - release-manifest
       - deploy-backend
+      - deploy-backend-noop
       - deploy-frontend-netlify
+      - deploy-frontend-netlify-noop
       - deploy-frontend-aws
+      - deploy-frontend-aws-noop
       - deploy-gateway
+      - deploy-gateway-noop
       - smoke-tests
+      - smoke-tests-noop
       - rollback-backend
       - rollback-frontend-netlify
       - rollback-frontend-aws
       - rollback-gateway
+      - rollback-decisions
       - release-desktop
+      - release-desktop-noop
       - release-mobile
+      - release-mobile-noop
       - production-tag
 
     steps:
@@ -1098,7 +1664,9 @@ jobs:
         run: |
           {
             echo "## Aura Production Release Summary"
-            echo ""
+            echo
+            echo "### A. Run metadata"
+            echo
             echo "| Field | Value |"
             echo "|---|---|"
             echo "| Event | ${{ github.event_name }} |"
@@ -1106,27 +1674,85 @@ jobs:
             echo "| Ref | ${{ github.ref }} |"
             echo "| SHA | ${{ github.sha }} |"
             echo "| Run | ${{ github.run_id }} |"
-            echo "| Production tag | ${{ needs.production-tag.outputs.tag }} |"
-            echo ""
-            echo "## Job Results"
-            echo ""
-            echo "| Job | Result |"
+            echo
+            echo "### B. Plan decisions"
+            echo
+            echo "| Decision | Value |"
             echo "|---|---|"
-            echo "| CI | ${{ needs.ci.result }} |"
+            echo "| Requested production action | ${{ needs.plan.outputs.requested_production_action }} |"
+            echo "| Planned production action | ${{ needs.plan.outputs.planned_production_action }} |"
+            echo "| Manual confirmed | ${{ needs.plan.outputs.manual_confirmed }} |"
+            echo "| Should run smoke tests | ${{ needs.plan.outputs.should_run_smoke_tests }} |"
+            echo
+            echo "### C. Provider readiness"
+            echo
+            echo "| Provider | Ready | Missing config names |"
+            echo "|---|---:|---|"
+            echo "| Backend AWS | ${{ needs.plan.outputs.backend_ready }} | ${{ needs.plan.outputs.backend_missing }} |"
+            echo "| Frontend Netlify | ${{ needs.plan.outputs.frontend_netlify_ready }} | ${{ needs.plan.outputs.frontend_netlify_missing }} |"
+            echo "| Frontend AWS | ${{ needs.plan.outputs.frontend_aws_ready }} | ${{ needs.plan.outputs.frontend_aws_missing }} |"
+            echo "| Gateway Vercel | ${{ needs.plan.outputs.gateway_ready }} | ${{ needs.plan.outputs.gateway_missing }} |"
+            echo
+            echo "### D. CI/security/approval results"
+            echo
+            echo "| Gate | Result |"
+            echo "|---|---|"
+            echo "| Quality gates | ${{ needs.quality-gates.result }} |"
             echo "| Security gates | ${{ needs.security-gates.result }} |"
-            echo "| Production config | ${{ needs.production-deploy-config.result }} |"
             echo "| Production approval | ${{ needs.production-approval.result }} |"
             echo "| Release manifest | ${{ needs.release-manifest.result }} |"
-            echo "| Backend deploy | ${{ needs.deploy-backend.result }} |"
-            echo "| Netlify frontend deploy | ${{ needs.deploy-frontend-netlify.result }} |"
-            echo "| AWS frontend deploy | ${{ needs.deploy-frontend-aws.result }} |"
-            echo "| Gateway deploy | ${{ needs.deploy-gateway.result }} |"
+            echo
+            echo "### E. Deploy decisions/results"
+            echo
+            echo "| Deploy | Planned | Result | No-op job |"
+            echo "|---|---:|---|---|"
+            echo "| Backend AWS | ${{ needs.plan.outputs.should_deploy_backend }} | ${{ needs.deploy-backend.result }} | ${{ needs.deploy-backend-noop.result }} |"
+            echo "| Frontend Netlify | ${{ needs.plan.outputs.should_deploy_frontend_netlify }} | ${{ needs.deploy-frontend-netlify.result }} | ${{ needs.deploy-frontend-netlify-noop.result }} |"
+            echo "| Frontend AWS | ${{ needs.plan.outputs.should_deploy_frontend_aws }} | ${{ needs.deploy-frontend-aws.result }} | ${{ needs.deploy-frontend-aws-noop.result }} |"
+            echo "| Gateway Vercel | ${{ needs.plan.outputs.should_deploy_gateway }} | ${{ needs.deploy-gateway.result }} | ${{ needs.deploy-gateway-noop.result }} |"
+            echo
+            echo "### F. Smoke test result"
+            echo
+            echo "| Job | Result |"
+            echo "|---|---|"
             echo "| Smoke tests | ${{ needs.smoke-tests.result }} |"
-            echo "| Backend rollback | ${{ needs.rollback-backend.result }} |"
-            echo "| Netlify rollback | ${{ needs.rollback-frontend-netlify.result }} |"
-            echo "| AWS frontend rollback | ${{ needs.rollback-frontend-aws.result }} |"
-            echo "| Gateway rollback | ${{ needs.rollback-gateway.result }} |"
-            echo "| Desktop release | ${{ needs.release-desktop.result }} |"
-            echo "| Mobile release | ${{ needs.release-mobile.result }} |"
-            echo "| Production tag | ${{ needs.production-tag.result }} |"
+            echo "| Smoke tests no-op | ${{ needs.smoke-tests-noop.result }} |"
+            echo
+            echo "### G. Rollback decisions/results"
+            echo
+            echo "| Rollback | Planned | Result |"
+            echo "|---|---:|---|"
+            echo "| Backend | ${{ needs.plan.outputs.should_rollback_backend }} | ${{ needs.rollback-backend.result }} |"
+            echo "| Frontend Netlify | ${{ needs.plan.outputs.should_rollback_frontend_netlify }} | ${{ needs.rollback-frontend-netlify.result }} |"
+            echo "| Frontend AWS | ${{ needs.plan.outputs.should_rollback_frontend_aws }} | ${{ needs.rollback-frontend-aws.result }} |"
+            echo "| Gateway | ${{ needs.plan.outputs.should_rollback_gateway }} | ${{ needs.rollback-gateway.result }} |"
+            echo
+            echo "### H. Desktop/mobile release result"
+            echo
+            echo "| Release | Planned | Result | No-op job |"
+            echo "|---|---:|---|---|"
+            echo "| Desktop | ${{ needs.plan.outputs.should_release_desktop }} | ${{ needs.release-desktop.result }} | ${{ needs.release-desktop-noop.result }} |"
+            echo "| Mobile | ${{ needs.plan.outputs.should_release_mobile }} | ${{ needs.release-mobile.result }} | ${{ needs.release-mobile-noop.result }} |"
+            echo
+            echo "### I. Signing status"
+            echo
+            echo "| Platform | Required | Enabled |"
+            echo "|---|---:|---:|"
+            echo "| Windows | false | ${{ needs.plan.outputs.signing_enabled }} |"
+            echo "| macOS | false | ${{ needs.plan.outputs.signing_enabled }} |"
+            echo "| Android | false | ${{ needs.plan.outputs.signing_enabled }} |"
+            echo "| iOS | false | ${{ needs.plan.outputs.signing_enabled }} |"
+            echo
+            echo "### J. Store publishing status"
+            echo
+            echo "| Store publishing | Enabled |"
+            echo "|---|---:|"
+            echo "| Microsoft Store / Mac App Store / Google Play / App Store | ${{ needs.plan.outputs.store_publish_enabled }} |"
+            echo
+            echo "### K. Production tag"
+            echo
+            echo "| Field | Value |"
+            echo "|---|---|"
+            echo "| Tag job result | ${{ needs.production-tag.result }} |"
+            echo "| Tag | ${{ needs.production-tag.outputs.tag }} |"
           } >> "$GITHUB_STEP_SUMMARY"

@@ -76,8 +76,14 @@ if (packageJson.build?.win?.verifyUpdateCodeSignature !== false) {
     addFailure('package.json must not require Windows update code-signature verification for unsigned internal builds.');
 }
 requireIncludes(productionCicdWorkflow, 'require_windows_signing: false', 'Production CI/CD must allow the free unsigned desktop release lane.');
+requireIncludes(productionCicdWorkflow, 'require_macos_signing: false', 'Production CI/CD must skip macOS signing by default.');
+requireIncludes(productionCicdWorkflow, 'require_android_signing: false', 'Production CI/CD must skip Android signing by default.');
+requireIncludes(productionCicdWorkflow, 'require_ios_signing: false', 'Production CI/CD must skip iOS signing by default.');
+requireIncludes(productionCicdWorkflow, 'publish_store_release: false', 'Production CI/CD must skip store publishing by default.');
 requireIncludes(desktopReleaseWorkflow, 'AURA_WINDOWS_SIGNING_MODE=unsigned', 'Desktop release workflow must explicitly support unsigned Windows publishing.');
-requireIncludes(desktopReleaseWorkflow, 'Windows signing is not required', 'Desktop release workflow must explain unsigned Windows release behavior.');
+requireIncludes(desktopReleaseWorkflow, 'Windows signing skipped because require_windows_signing=false', 'Desktop release workflow must explain unsigned Windows release behavior.');
+requireIncludes(desktopReleaseWorkflow, 'macOS signing/notarization skipped because require_macos_signing=false', 'Desktop release workflow must explain unsigned macOS release behavior.');
+requireIncludes(desktopReleaseWorkflow, 'Store publishing skipped because publish_store_release=false', 'Desktop release workflow must skip store publishing by default.');
 requireIncludes(desktopReleaseWorkflow, 'Verify Windows signatures', 'Desktop release workflow must verify Windows signatures.');
 requireIncludes(desktopReleaseWorkflow, '--config.win.verifyUpdateCodeSignature=true', 'Desktop release workflow must preserve update signature verification for signed runs.');
 requireIncludes(desktopReleaseWorkflow, '--config.win.verifyUpdateCodeSignature=false', 'Desktop release workflow must disable update signature verification for unsigned runs.');
@@ -89,7 +95,10 @@ const trackedAndroidSigningBlobs = tracked.filter((filePath) => (
 if (trackedAndroidSigningBlobs.length > 0) {
     addFailure(`Android signing blobs must not be tracked: ${trackedAndroidSigningBlobs.join(', ')}`);
 }
-requireIncludes(mobileReleaseWorkflow, 'Android release signing secrets are required for release artifacts.', 'Mobile release workflow must fail closed when Android signing secrets are absent.');
+requireIncludes(mobileReleaseWorkflow, 'Android signing skipped because require_android_signing=false', 'Mobile release workflow must allow unsigned Android debug artifacts when signing is disabled.');
+requireIncludes(mobileReleaseWorkflow, 'Android signing is required but keystore secrets are incomplete', 'Mobile release workflow must fail closed when Android signing is explicitly required and secrets are absent.');
+requireIncludes(mobileReleaseWorkflow, 'iOS signing skipped because require_ios_signing=false', 'Mobile release workflow must allow simulator-only iOS validation when signing is disabled.');
+requireIncludes(mobileReleaseWorkflow, 'Store publishing skipped because publish_store_release=false', 'Mobile release workflow must skip store publishing by default.');
 requireIncludes(mobileReleaseWorkflow, 'ANDROID_RELEASE_KEYSTORE_BASE64', 'Mobile release workflow must materialize Android signing only from GitHub secrets.');
 requireNotIncludes(mobileReleaseWorkflow, 'aura-public-update', 'Mobile release workflow must not use a repo-stored public Android update key.');
 requireNotIncludes(mobileReleaseWorkflow, 'aura-public-internal-update-keystore', 'Mobile release workflow must not materialize tracked Android signing key material.');

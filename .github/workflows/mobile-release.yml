@@ -7,6 +7,21 @@ on:
         description: Optional mobile version, for example 1.0.42
         required: false
         type: string
+      require_android_signing:
+        description: Require Android release signing before publishing
+        required: false
+        default: false
+        type: boolean
+      require_ios_signing:
+        description: Require iOS signing/provisioning before publishing
+        required: false
+        default: false
+        type: boolean
+      publish_store_release:
+        description: Publish signed mobile artifacts to app stores
+        required: false
+        default: false
+        type: boolean
   workflow_call:
     inputs:
       version:
@@ -14,6 +29,21 @@ on:
         required: false
         default: ""
         type: string
+      require_android_signing:
+        description: Require Android release signing before publishing
+        required: false
+        default: false
+        type: boolean
+      require_ios_signing:
+        description: Require iOS signing/provisioning before publishing
+        required: false
+        default: false
+        type: boolean
+      publish_store_release:
+        description: Publish signed mobile artifacts to app stores
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -74,11 +104,19 @@ jobs:
         env:
           FIREBASE_ANDROID_GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.FIREBASE_ANDROID_GOOGLE_SERVICES_JSON_BASE64 }}
           AURA_ANDROID_DEFAULT_WEB_CLIENT_ID: ${{ secrets.AURA_ANDROID_DEFAULT_WEB_CLIENT_ID }}
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
           ANDROID_RELEASE_KEYSTORE_BASE64: ${{ secrets.ANDROID_RELEASE_KEYSTORE_BASE64 }}
           ANDROID_RELEASE_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_RELEASE_KEYSTORE_PASSWORD }}
           ANDROID_RELEASE_KEY_ALIAS: ${{ secrets.ANDROID_RELEASE_KEY_ALIAS }}
           ANDROID_RELEASE_KEY_PASSWORD: ${{ secrets.ANDROID_RELEASE_KEY_PASSWORD }}
           FIREBASE_IOS_GOOGLE_SERVICE_INFO_PLIST_BASE64: ${{ secrets.FIREBASE_IOS_GOOGLE_SERVICE_INFO_PLIST_BASE64 }}
+          APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_PROVISIONING_PROFILE_BASE64: ${{ secrets.APPLE_PROVISIONING_PROFILE_BASE64 }}
           IOS_SIGNING_CERTIFICATE_P12_BASE64: ${{ secrets.IOS_SIGNING_CERTIFICATE_P12_BASE64 }}
           IOS_SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.IOS_SIGNING_CERTIFICATE_PASSWORD }}
           IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
@@ -88,6 +126,9 @@ jobs:
           APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
           APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
           APP_STORE_CONNECT_API_KEY_P8_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_P8_BASE64 }}
+          REQUIRE_ANDROID_SIGNING: ${{ inputs.require_android_signing }}
+          REQUIRE_IOS_SIGNING: ${{ inputs.require_ios_signing }}
+          PUBLISH_STORE_RELEASE: ${{ inputs.publish_store_release }}
         run: |
           set -euo pipefail
 
@@ -108,13 +149,16 @@ jobs:
             echo "AURA_ANDROID_DEFAULT_WEB_CLIENT_ID is missing. Android will launch safely, but native Google sign-in needs this or a full google-services.json."
           fi
 
-          if [ -n "${ANDROID_RELEASE_KEYSTORE_BASE64}" ] \
-            && [ -n "${ANDROID_RELEASE_KEYSTORE_PASSWORD}" ] \
-            && [ -n "${ANDROID_RELEASE_KEY_ALIAS}" ] \
-            && [ -n "${ANDROID_RELEASE_KEY_PASSWORD}" ]; then
+          if [ "${REQUIRE_ANDROID_SIGNING}" != "true" ]; then
+            echo "Android signing skipped because require_android_signing=false"
+          elif { [ -n "${ANDROID_KEYSTORE_BASE64}" ] || [ -n "${ANDROID_RELEASE_KEYSTORE_BASE64}" ]; } \
+            && { [ -n "${ANDROID_KEYSTORE_PASSWORD}" ] || [ -n "${ANDROID_RELEASE_KEYSTORE_PASSWORD}" ]; } \
+            && { [ -n "${ANDROID_KEY_ALIAS}" ] || [ -n "${ANDROID_RELEASE_KEY_ALIAS}" ]; } \
+            && { [ -n "${ANDROID_KEY_PASSWORD}" ] || [ -n "${ANDROID_RELEASE_KEY_PASSWORD}" ]; }; then
             can_sign_android=true
           else
-            echo "Android release signing secrets are incomplete. Android release artifacts will be skipped until GitHub signing secrets are configured."
+            echo "::error::Android signing is required but keystore secrets are incomplete. Add Android signing secrets, or run with require_android_signing=false for an unsigned debug artifact."
+            exit 1
           fi
 
           if [ -n "${FIREBASE_IOS_GOOGLE_SERVICE_INFO_PLIST_BASE64}" ]; then
@@ -123,24 +167,35 @@ jobs:
             echo "FIREBASE_IOS_GOOGLE_SERVICE_INFO_PLIST_BASE64 is missing. iOS simulator validation will still run, but native Firebase social sign-in may be limited until this secret is configured."
           fi
 
-          if [ -n "${IOS_SIGNING_CERTIFICATE_P12_BASE64}" ] \
-            && [ -n "${IOS_SIGNING_CERTIFICATE_PASSWORD}" ] \
-            && [ -n "${IOS_PROVISIONING_PROFILE_BASE64}" ] \
-            && [ -n "${IOS_TEAM_ID}" ] \
+          if [ "${REQUIRE_IOS_SIGNING}" != "true" ]; then
+            echo "iOS signing skipped because require_ios_signing=false"
+          elif { [ -n "${APPLE_CERTIFICATE_BASE64}" ] || [ -n "${IOS_SIGNING_CERTIFICATE_P12_BASE64}" ]; } \
+            && { [ -n "${APPLE_CERTIFICATE_PASSWORD}" ] || [ -n "${IOS_SIGNING_CERTIFICATE_PASSWORD}" ]; } \
+            && { [ -n "${APPLE_PROVISIONING_PROFILE_BASE64}" ] || [ -n "${IOS_PROVISIONING_PROFILE_BASE64}" ]; } \
+            && { [ -n "${APPLE_TEAM_ID}" ] || [ -n "${IOS_TEAM_ID}" ]; } \
             && [ -n "${IOS_PROVISIONING_PROFILE_SPECIFIER}" ] \
             && [ "${has_ios_config}" = "true" ]; then
             can_sign_ios=true
           else
-            echo "iOS signing secrets are incomplete. CI will validate the iOS simulator build only; no real-device or public TestFlight distribution is expected until Apple signing assets are configured."
+            echo "::error::iOS signing is required but certificate, provisioning, team, or Firebase config is missing. Add iOS signing secrets, or run with require_ios_signing=false for simulator-only validation."
+            exit 1
           fi
 
-          if [ "${can_sign_android}" = "true" ] && [ -n "${GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64}" ]; then
+          if [ "${PUBLISH_STORE_RELEASE}" != "true" ]; then
+            echo "Store publishing skipped because publish_store_release=false"
+          elif [ "${REQUIRE_ANDROID_SIGNING}" != "true" ] || [ "${REQUIRE_IOS_SIGNING}" != "true" ]; then
+            echo "::error::Store publishing requires require_android_signing=true and require_ios_signing=true."
+            exit 1
+          fi
+
+          if [ "${PUBLISH_STORE_RELEASE}" = "true" ] && [ "${can_sign_android}" = "true" ] && [ -n "${GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64}" ]; then
             can_publish_android_play=true
           else
             echo "Google Play publication is skipped until GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64 and Android signing secrets are configured."
           fi
 
-          if [ "${can_sign_ios}" = "true" ] \
+          if [ "${PUBLISH_STORE_RELEASE}" = "true" ] \
+            && [ "${can_sign_ios}" = "true" ] \
             && [ -n "${APP_STORE_CONNECT_KEY_ID}" ] \
             && [ -n "${APP_STORE_CONNECT_ISSUER_ID}" ] \
             && [ -n "${APP_STORE_CONNECT_API_KEY_P8_BASE64}" ]; then
@@ -199,6 +254,10 @@ jobs:
 
       - name: Materialize Android signing keystore
         env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
           ANDROID_RELEASE_KEYSTORE_BASE64: ${{ secrets.ANDROID_RELEASE_KEYSTORE_BASE64 }}
           ANDROID_RELEASE_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_RELEASE_KEYSTORE_PASSWORD }}
           ANDROID_RELEASE_KEY_ALIAS: ${{ secrets.ANDROID_RELEASE_KEY_ALIAS }}
@@ -209,17 +268,21 @@ jobs:
           KEYSTORE_PATH="${RUNNER_TEMP}/aura-android-release.keystore"
 
           if [ "${CAN_SIGN_ANDROID}" = "true" ]; then
-            printf '%s' "${ANDROID_RELEASE_KEYSTORE_BASE64}" | base64 --decode > "${KEYSTORE_PATH}"
-            echo "AURA_ANDROID_RELEASE_KEYSTORE_PASSWORD=${ANDROID_RELEASE_KEYSTORE_PASSWORD}" >> "$GITHUB_ENV"
-            echo "AURA_ANDROID_RELEASE_KEY_ALIAS=${ANDROID_RELEASE_KEY_ALIAS}" >> "$GITHUB_ENV"
-            echo "AURA_ANDROID_RELEASE_KEY_PASSWORD=${ANDROID_RELEASE_KEY_PASSWORD}" >> "$GITHUB_ENV"
-          else
-            echo "Android release signing secrets are required for release artifacts."
-            echo "Configure ANDROID_RELEASE_KEYSTORE_BASE64, ANDROID_RELEASE_KEYSTORE_PASSWORD, ANDROID_RELEASE_KEY_ALIAS, and ANDROID_RELEASE_KEY_PASSWORD."
-            exit 1
-          fi
+            KEYSTORE_BASE64="${ANDROID_KEYSTORE_BASE64:-${ANDROID_RELEASE_KEYSTORE_BASE64}}"
+            KEYSTORE_PASSWORD="${ANDROID_KEYSTORE_PASSWORD:-${ANDROID_RELEASE_KEYSTORE_PASSWORD}}"
+            KEY_ALIAS="${ANDROID_KEY_ALIAS:-${ANDROID_RELEASE_KEY_ALIAS}}"
+            KEY_PASSWORD="${ANDROID_KEY_PASSWORD:-${ANDROID_RELEASE_KEY_PASSWORD}}"
 
-          echo "AURA_ANDROID_RELEASE_KEYSTORE_PATH=${KEYSTORE_PATH}" >> "$GITHUB_ENV"
+            printf '%s' "${KEYSTORE_BASE64}" | base64 --decode > "${KEYSTORE_PATH}"
+            echo "AURA_ANDROID_RELEASE_KEYSTORE_PASSWORD=${KEYSTORE_PASSWORD}" >> "$GITHUB_ENV"
+            echo "AURA_ANDROID_RELEASE_KEY_ALIAS=${KEY_ALIAS}" >> "$GITHUB_ENV"
+            echo "AURA_ANDROID_RELEASE_KEY_PASSWORD=${KEY_PASSWORD}" >> "$GITHUB_ENV"
+            echo "AURA_ANDROID_RELEASE_KEYSTORE_PATH=${KEYSTORE_PATH}" >> "$GITHUB_ENV"
+            echo "AURA_ANDROID_SIGNING_MODE=release" >> "$GITHUB_ENV"
+          else
+            echo "Android signing skipped because require_android_signing=false"
+            echo "AURA_ANDROID_SIGNING_MODE=debug" >> "$GITHUB_ENV"
+          fi
 
       - name: Sync Capacitor Android shell
         run: npm --prefix app run mobile:sync:android
@@ -230,19 +293,29 @@ jobs:
           AURA_ANDROID_VERSION_CODE: ${{ needs.prepare.outputs.build_number }}
           AURA_ANDROID_VERSION_NAME: ${{ needs.prepare.outputs.version }}
           AURA_ANDROID_DEFAULT_WEB_CLIENT_ID: ${{ secrets.AURA_ANDROID_DEFAULT_WEB_CLIENT_ID }}
+          CAN_SIGN_ANDROID: ${{ needs.preflight.outputs.can_sign_android }}
         run: |
           set -euo pipefail
           chmod +x ./gradlew
-          ./gradlew --no-daemon assembleRelease bundleRelease
+          if [ "${CAN_SIGN_ANDROID}" = "true" ]; then
+            ./gradlew --no-daemon assembleRelease bundleRelease
+          else
+            ./gradlew --no-daemon assembleDebug
+          fi
 
       - name: Stage Android artifacts
         env:
           VERSION: ${{ needs.prepare.outputs.version }}
+          CAN_SIGN_ANDROID: ${{ needs.preflight.outputs.can_sign_android }}
         run: |
           set -euo pipefail
           mkdir -p release-artifacts/android
-          cp app/android/app/build/outputs/apk/release/app-release.apk "release-artifacts/android/Aura-Marketplace-Android-${VERSION}.apk"
-          cp app/android/app/build/outputs/bundle/release/app-release.aab "release-artifacts/android/Aura-Marketplace-Android-${VERSION}.aab"
+          if [ "${CAN_SIGN_ANDROID}" = "true" ]; then
+            cp app/android/app/build/outputs/apk/release/app-release.apk "release-artifacts/android/Aura-Marketplace-Android-${VERSION}.apk"
+            cp app/android/app/build/outputs/bundle/release/app-release.aab "release-artifacts/android/Aura-Marketplace-Android-${VERSION}.aab"
+          else
+            cp app/android/app/build/outputs/apk/debug/app-debug.apk "release-artifacts/android/Aura-Marketplace-Android-Debug-${VERSION}.apk"
+          fi
 
       - name: Upload Android release artifacts
         uses: actions/upload-artifact@v7
@@ -330,22 +403,28 @@ jobs:
       - name: Import iOS signing assets
         if: needs.preflight.outputs.can_sign_ios == 'true'
         env:
+          APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_PROVISIONING_PROFILE_BASE64: ${{ secrets.APPLE_PROVISIONING_PROFILE_BASE64 }}
           IOS_SIGNING_CERTIFICATE_P12_BASE64: ${{ secrets.IOS_SIGNING_CERTIFICATE_P12_BASE64 }}
           IOS_SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.IOS_SIGNING_CERTIFICATE_PASSWORD }}
           IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
         run: |
           set -euo pipefail
+          CERT_BASE64="${APPLE_CERTIFICATE_BASE64:-${IOS_SIGNING_CERTIFICATE_P12_BASE64}}"
+          CERT_PASSWORD="${APPLE_CERTIFICATE_PASSWORD:-${IOS_SIGNING_CERTIFICATE_PASSWORD}}"
+          PROFILE_BASE64="${APPLE_PROVISIONING_PROFILE_BASE64:-${IOS_PROVISIONING_PROFILE_BASE64}}"
           CERT_PATH="${RUNNER_TEMP}/ios-signing-cert.p12"
           PROFILE_PATH="${HOME}/Library/MobileDevice/Provisioning Profiles/aura-mobile-release.mobileprovision"
           mkdir -p "$(dirname "${PROFILE_PATH}")"
-          printf '%s' "${IOS_SIGNING_CERTIFICATE_P12_BASE64}" | base64 --decode > "${CERT_PATH}"
-          printf '%s' "${IOS_PROVISIONING_PROFILE_BASE64}" | base64 --decode > "${PROFILE_PATH}"
+          printf '%s' "${CERT_BASE64}" | base64 --decode > "${CERT_PATH}"
+          printf '%s' "${PROFILE_BASE64}" | base64 --decode > "${PROFILE_PATH}"
 
           security create-keychain -p '' build.keychain
           security default-keychain -s build.keychain
           security unlock-keychain -p '' build.keychain
           security set-keychain-settings -lut 21600 build.keychain
-          security import "${CERT_PATH}" -k build.keychain -P "${IOS_SIGNING_CERTIFICATE_PASSWORD}" -T /usr/bin/codesign
+          security import "${CERT_PATH}" -k build.keychain -P "${CERT_PASSWORD}" -T /usr/bin/codesign
           security set-key-partition-list -S apple-tool:,apple: -s -k '' build.keychain
 
       - name: Archive signed iOS app
@@ -353,16 +432,18 @@ jobs:
         env:
           VERSION: ${{ needs.prepare.outputs.version }}
           BUILD_NUMBER: ${{ needs.prepare.outputs.build_number }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           IOS_TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
           IOS_PROVISIONING_PROFILE_SPECIFIER: ${{ secrets.IOS_PROVISIONING_PROFILE_SPECIFIER }}
         run: |
           set -euo pipefail
+          TEAM_ID="${APPLE_TEAM_ID:-${IOS_TEAM_ID}}"
           xcodebuild \
             -project app/ios/App/App.xcodeproj \
             -scheme App \
             -configuration Release \
             -archivePath "${RUNNER_TEMP}/AuraMarketplace.xcarchive" \
-            DEVELOPMENT_TEAM="${IOS_TEAM_ID}" \
+            DEVELOPMENT_TEAM="${TEAM_ID}" \
             PRODUCT_BUNDLE_IDENTIFIER="com.aura.marketplace.mobile" \
             CODE_SIGN_STYLE=Manual \
             PROVISIONING_PROFILE_SPECIFIER="${IOS_PROVISIONING_PROFILE_SPECIFIER}" \
@@ -374,6 +455,7 @@ jobs:
         if: needs.preflight.outputs.can_sign_ios == 'true'
         env:
           IOS_TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           IOS_PROVISIONING_PROFILE_SPECIFIER: ${{ secrets.IOS_PROVISIONING_PROFILE_SPECIFIER }}
           APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
           APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
@@ -381,6 +463,7 @@ jobs:
           IOS_EXPORT_METHOD: ${{ vars.IOS_EXPORT_METHOD }}
         run: |
           set -euo pipefail
+          TEAM_ID="${APPLE_TEAM_ID:-${IOS_TEAM_ID}}"
           EXPORT_METHOD="${IOS_EXPORT_METHOD:-}"
           if [ -z "${EXPORT_METHOD}" ]; then
             if [ -n "${APP_STORE_CONNECT_KEY_ID}" ] && [ -n "${APP_STORE_CONNECT_ISSUER_ID}" ] && [ -n "${APP_STORE_CONNECT_API_KEY_P8_BASE64}" ]; then
@@ -402,7 +485,7 @@ jobs:
             <key>signingStyle</key>
             <string>manual</string>
             <key>teamID</key>
-            <string>${IOS_TEAM_ID}</string>
+            <string>${TEAM_ID}</string>
             <key>provisioningProfiles</key>
             <dict>
               <key>com.aura.marketplace.mobile</key>
@@ -439,7 +522,7 @@ jobs:
       - prepare
       - preflight
       - build-android
-    if: needs.preflight.outputs.can_publish_android_play == 'true' && needs.build-android.result == 'success'
+    if: inputs.publish_store_release == true && needs.preflight.outputs.can_publish_android_play == 'true' && needs.build-android.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -480,7 +563,7 @@ jobs:
       - prepare
       - preflight
       - build-ios
-    if: needs.preflight.outputs.can_publish_ios_testflight == 'true' && needs.build-ios.result == 'success'
+    if: inputs.publish_store_release == true && needs.preflight.outputs.can_publish_ios_testflight == 'true' && needs.build-ios.result == 'success'
     runs-on: macos-latest
     timeout-minutes: 30
 
@@ -597,7 +680,7 @@ jobs:
             if [ "${CAN_SIGN_ANDROID}" = "true" ]; then
               echo "- Android artifacts were built with the configured release keystore."
             else
-              echo "- Android artifacts were not built because release signing secrets are required."
+              echo "- Android signing was disabled, so the workflow produced an unsigned debug APK for internal testing."
             fi
 
             if [ "${IOS_BUILD_RESULT}" = "success" ] && [ "${CAN_SIGN_IOS}" = "true" ]; then
