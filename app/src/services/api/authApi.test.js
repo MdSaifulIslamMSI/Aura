@@ -170,6 +170,36 @@ describe('authApi', () => {
     });
   });
 
+  it('creates a desktop handoff token from an existing browser session when no Firebase user is available', async () => {
+    mocks.getAuthHeaderMock.mockResolvedValueOnce({ 'X-Trusted-Device-Session': 'trusted-session' });
+
+    global.fetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({
+        success: true,
+        customToken: 'duo-session-desktop-token',
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+
+    await expect(authApi.createDesktopHandoffToken({
+      requestId: '123e4567-e89b-12d3-a456-426614174000',
+    })).resolves.toEqual({
+      success: true,
+      customToken: 'duo-session-desktop-token',
+    });
+
+    expect(mocks.getAuthHeaderMock).toHaveBeenCalledWith(null, {
+      useFirebaseBearer: true,
+      forceRefresh: true,
+    });
+    const [url, requestOptions] = global.fetch.mock.calls[0];
+    expect(url).toContain('/auth/desktop-handoff/custom-token');
+    expect(requestOptions.credentials).toBe('include');
+    expect(requestOptions.headers.get('X-Trusted-Device-Session')).toBe('trusted-session');
+  });
+
   it('generates backup recovery codes through a fresh CSRF-protected session write', async () => {
     const csrfToken = 'b'.repeat(64);
     mocks.getAuthHeaderMock.mockResolvedValueOnce({ 'X-Session-Mode': 'cookie' });

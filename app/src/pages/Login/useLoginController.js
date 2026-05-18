@@ -251,6 +251,10 @@ export const useLoginController = () => {
     () => resolveDesktopBrowserHandoff(location.search),
     [location.search]
   );
+  const duoCallbackStatus = useMemo(
+    () => String(new URLSearchParams(location.search || '').get('duo') || '').trim().toLowerCase(),
+    [location.search]
+  );
   const duoReturnTo = useMemo(
     () => (desktopBrowserHandoff.active ? currentRoute : from),
     [currentRoute, desktopBrowserHandoff.active, from]
@@ -287,6 +291,80 @@ export const useLoginController = () => {
 
   const setErr = (rawErr) => setAuthError(resolveAuthError(rawErr));
   const turnstileEnabled = isTurnstileEnabled();
+
+  const completeDesktopBrowserHandoff = useCallback(async ({ firebaseUser = null, isCancelled = () => false } = {}) => {
+    const handoffKey = `${desktopBrowserHandoff.requestId}:${desktopBrowserHandoff.secret}`;
+    if (desktopBrowserHandoffCompletedRef.current === handoffKey) {
+      return;
+    }
+
+    desktopBrowserHandoffCompletedRef.current = handoffKey;
+    setIsLoading(true);
+    setAuthError(null);
+    setAuthSuccess({
+      title: t('login.desktopBrowser.completingTitle', {}, 'Finishing Desktop Sign-In'),
+      detail: t('login.desktopBrowser.completingDetail', {}, 'Aura is securely returning this browser sign-in to the desktop app.'),
+    });
+
+    try {
+      if (!desktopBrowserHandoff.callbackUrl) {
+        throw new Error('Desktop sign-in callback is not trusted.');
+      }
+
+      const tokenPayload = await authApi.createDesktopHandoffToken({
+        firebaseUser,
+        requestId: desktopBrowserHandoff.requestId,
+      });
+      const customToken = String(tokenPayload?.customToken || '').trim();
+      if (!customToken) {
+        throw new Error('Desktop sign-in token was not returned by the server.');
+      }
+
+      const response = await fetch(desktopBrowserHandoff.callbackUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          requestId: desktopBrowserHandoff.requestId,
+          secret: desktopBrowserHandoff.secret,
+          customToken,
+        }),
+      });
+
+      if (!response.ok) {
+        let message = 'Desktop sign-in could not be completed.';
+        try {
+          const payload = await response.json();
+          message = payload?.message || message;
+        } catch {
+          // Keep the generic message.
+        }
+        throw new Error(message);
+      }
+
+      if (!isCancelled()) {
+        setAuthSuccess({
+          title: t('login.desktopBrowser.completeTitle', {}, 'Desktop Sign-In Complete'),
+          detail: t('login.desktopBrowser.completeDetail', {}, 'Return to Aura Marketplace Desktop. You can close this browser tab.'),
+        });
+      }
+    } catch (error) {
+      desktopBrowserHandoffCompletedRef.current = '';
+      if (!isCancelled()) {
+        setAuthError(resolveAuthError(error));
+      }
+    } finally {
+      if (!isCancelled()) {
+        setIsLoading(false);
+      }
+    }
+  }, [
+    desktopBrowserHandoff.callbackUrl,
+    desktopBrowserHandoff.requestId,
+    desktopBrowserHandoff.secret,
+    t,
+  ]);
 
   const refreshTurnstile = useCallback(() => {
     setTurnstileToken('');
@@ -401,90 +479,47 @@ export const useLoginController = () => {
       return;
     }
 
-    const handoffKey = `${desktopBrowserHandoff.requestId}:${desktopBrowserHandoff.secret}`;
-    if (desktopBrowserHandoffCompletedRef.current === handoffKey) {
-      return;
-    }
-
-    desktopBrowserHandoffCompletedRef.current = handoffKey;
     let cancelled = false;
 
-    const completeDesktopBrowserHandoff = async () => {
-      setIsLoading(true);
-      setAuthError(null);
-      setAuthSuccess({
-        title: t('login.desktopBrowser.completingTitle', {}, 'Finishing Desktop Sign-In'),
-        detail: t('login.desktopBrowser.completingDetail', {}, 'Aura is securely returning this browser sign-in to the desktop app.'),
-      });
-
-      try {
-        if (!desktopBrowserHandoff.callbackUrl) {
-          throw new Error('Desktop sign-in callback is not trusted.');
-        }
-
-        const tokenPayload = await authApi.createDesktopHandoffToken({
-          firebaseUser: currentUser,
-          requestId: desktopBrowserHandoff.requestId,
-        });
-        const customToken = String(tokenPayload?.customToken || '').trim();
-        if (!customToken) {
-          throw new Error('Desktop sign-in token was not returned by the server.');
-        }
-
-        const response = await fetch(desktopBrowserHandoff.callbackUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            requestId: desktopBrowserHandoff.requestId,
-            secret: desktopBrowserHandoff.secret,
-            customToken,
-          }),
-        });
-
-        if (!response.ok) {
-          let message = 'Desktop sign-in could not be completed.';
-          try {
-            const payload = await response.json();
-            message = payload?.message || message;
-          } catch {
-            // Keep the generic message.
-          }
-          throw new Error(message);
-        }
-
-        if (cancelled) return;
-        setAuthSuccess({
-          title: t('login.desktopBrowser.completeTitle', {}, 'Desktop Sign-In Complete'),
-          detail: t('login.desktopBrowser.completeDetail', {}, 'Return to Aura Marketplace Desktop. You can close this browser tab.'),
-        });
-      } catch (error) {
-        desktopBrowserHandoffCompletedRef.current = '';
-        if (!cancelled) {
-          setErr(error);
-        }
-      } finally {
-        if (!cancelled) {
-          setIsLoading(false);
-        }
-      }
-    };
-
-    completeDesktopBrowserHandoff();
+    completeDesktopBrowserHandoff({
+      firebaseUser: currentUser,
+      isCancelled: () => cancelled,
+    });
 
     return () => {
       cancelled = true;
     };
   }, [
+    completeDesktopBrowserHandoff,
     currentUser,
     desktopBrowserHandoff.active,
-    desktopBrowserHandoff.callbackUrl,
-    desktopBrowserHandoff.requestId,
-    desktopBrowserHandoff.secret,
     isAuthenticated,
     loading,
-    t,
+  ]);
+
+  useEffect(() => {
+    if (!desktopBrowserHandoff.active || loading || isAuthenticated) {
+      return;
+    }
+    if (duoCallbackStatus !== 'success' && duoCallbackStatus !== 'step-up') {
+      return;
+    }
+
+    let cancelled = false;
+
+    completeDesktopBrowserHandoff({
+      isCancelled: () => cancelled,
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    completeDesktopBrowserHandoff,
+    desktopBrowserHandoff.active,
+    duoCallbackStatus,
+    isAuthenticated,
+    loading,
   ]);
 
   useEffect(() => {

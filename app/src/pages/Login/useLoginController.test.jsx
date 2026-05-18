@@ -554,6 +554,60 @@ describe('useLoginController', () => {
     startDuoLogin.mockRestore();
   });
 
+  it('finishes a Duo desktop handoff from the backend session callback', async () => {
+    const requestId = '123e4567-e89b-12d3-a456-426614174000';
+    const createToken = vi.spyOn(authApi, 'createDesktopHandoffToken').mockResolvedValue({
+      success: true,
+      customToken: 'duo-desktop-custom-token',
+    });
+    const previousFetch = global.fetch;
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ success: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    try {
+      render(
+        <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+          <AuthContext.Provider value={buildAuthValue({
+            currentUser: null,
+            isAuthenticated: false,
+            loading: false,
+          })}>
+            <MemoryRouter initialEntries={[`/desktop-login?desktopAuthRequest=${requestId}&desktopAuthSecret=secret-1&desktopAuthCallback=http%3A%2F%2Flocalhost%3A47831%2Fdesktop-auth%2Fcomplete&desktopAuthReturnTo=%2Fcheckout&duo=success#bridge`]}>
+              <Routes>
+                <Route path="/desktop-login" element={<LoginControllerProbe />} />
+              </Routes>
+            </MemoryRouter>
+          </AuthContext.Provider>
+        </MarketProvider>
+      );
+
+      await waitFor(() => {
+        expect(createToken).toHaveBeenCalledWith({
+          firebaseUser: null,
+          requestId,
+        });
+        expect(fetchMock).toHaveBeenCalledWith('http://localhost:47831/desktop-auth/complete', expect.objectContaining({
+          method: 'POST',
+        }));
+      });
+
+      const [, requestOptions] = fetchMock.mock.calls[0];
+      expect(JSON.parse(requestOptions.body)).toEqual({
+        requestId,
+        secret: 'secret-1',
+        customToken: 'duo-desktop-custom-token',
+      });
+    } finally {
+      createToken.mockRestore();
+      vi.stubGlobal('fetch', previousFetch);
+    }
+  });
+
   it('summarizes only enabled expanded social providers', () => {
     getFirebaseSocialAuthStatusMock.mockReturnValue({
       ready: true,

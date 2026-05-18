@@ -237,6 +237,19 @@ const canGrantDesktopRuntimePermission = (permission, requestUrl) => (
     && isTrustedDesktopPermissionUrl(requestUrl)
 );
 
+const clearDesktopRuntimeWebCaches = async (runtimeUrl = '') => {
+    try {
+        const origin = new URL(runtimeUrl).origin;
+        await session.defaultSession.clearStorageData({
+            origin,
+            storages: ['serviceworkers', 'cachestorage'],
+        });
+        await session.defaultSession.clearCache();
+    } catch (error) {
+        console.warn('[desktop] unable to clear local runtime web caches:', error?.message || error);
+    }
+};
+
 const installDesktopPermissionPolicy = () => {
     const defaultSession = session.defaultSession;
 
@@ -322,6 +335,7 @@ const createMainWindow = async () => {
         }
         runtime = await startRuntimeServer(runtimeOptions);
     }
+    await clearDesktopRuntimeWebCaches(runtime.url);
 
     const iconPath = resolveIconPath();
     const initialBounds = getInitialWindowBounds();
@@ -396,7 +410,9 @@ const createMainWindow = async () => {
         mainWindow = null;
     });
 
-    await mainWindow.loadURL(runtime.url);
+    const startupUrl = new URL(runtime.url);
+    startupUrl.searchParams.set('desktopRuntimeVersion', app.getVersion());
+    await mainWindow.loadURL(startupUrl.toString());
 };
 
 const startAutoUpdateChecks = () => {

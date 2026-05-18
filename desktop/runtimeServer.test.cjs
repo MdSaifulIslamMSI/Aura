@@ -7,6 +7,7 @@ const test = require('node:test');
 
 const {
     buildProxyOptions,
+    applyLocalFrontendCachePolicy,
     applyDesktopAuthCors,
     createDesktopAuthBroker,
     DEFAULT_BACKEND_ORIGIN,
@@ -46,6 +47,27 @@ test('desktop proxy applies header stripping to HTTP and WebSocket proxy request
     assert.equal(options.target, 'http://backend.example.test');
     assert.equal(options.on.proxyReq, stripBrowserOnlyProxyHeaders);
     assert.equal(options.on.proxyReqWs, stripBrowserOnlyProxyHeaders);
+});
+
+test('desktop runtime disables caching for local frontend responses only', () => {
+    const frontendHeaders = new Map();
+    applyLocalFrontendCachePolicy({
+        path: '/assets/index.js',
+    }, {
+        setHeader: (name, value) => frontendHeaders.set(name, value),
+    }, () => {});
+
+    assert.equal(frontendHeaders.get('Cache-Control'), 'no-store, max-age=0');
+    assert.equal(frontendHeaders.get('Pragma'), 'no-cache');
+
+    const apiHeaders = new Map();
+    applyLocalFrontendCachePolicy({
+        path: '/api/products',
+    }, {
+        setHeader: (name, value) => apiHeaders.set(name, value),
+    }, () => {});
+
+    assert.equal(apiHeaders.has('Cache-Control'), false);
 });
 
 test('desktop runtime defaults to the hosted HTTPS backend origin', () => {

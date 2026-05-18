@@ -83,6 +83,20 @@ const buildProxyOptions = (backendOrigin) => ({
     pathRewrite: (_path, request) => request.originalUrl || request.url,
 });
 
+const applyLocalFrontendCachePolicy = (request, response, next) => {
+    const pathname = String(request.path || request.url || '');
+    if (
+        !pathname.startsWith('/api')
+        && !pathname.startsWith('/socket.io')
+        && !pathname.startsWith('/health')
+        && !pathname.startsWith('/uploads')
+    ) {
+        response.setHeader('Cache-Control', 'no-store, max-age=0');
+        response.setHeader('Pragma', 'no-cache');
+    }
+    next();
+};
+
 const buildRuntimeUrl = (port) => `http://${RUNTIME_PUBLIC_HOST}:${port}`;
 
 const createDesktopAuthSecret = () => crypto.randomBytes(32).toString('base64url');
@@ -363,6 +377,7 @@ const startRuntimeServer = async ({ distDir, port = DEFAULT_RUNTIME_PORT, onDesk
             });
         }
     });
+    app.use(applyLocalFrontendCachePolicy);
     app.use(express.static(resolvedDistDir, { index: false }));
 
     app.use((_request, response) => {
@@ -441,6 +456,7 @@ module.exports = {
     RUNTIME_LISTEN_HOST,
     RUNTIME_PUBLIC_HOST,
     buildProxyOptions,
+    applyLocalFrontendCachePolicy,
     createDesktopAuthBroker,
     buildRuntimeUrl,
     resolveAllowedDesktopAuthOrigins,
