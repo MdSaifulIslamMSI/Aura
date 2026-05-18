@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
+    "prebuild": "node scripts/validate_frontend_auth_env.mjs",
     "dev": "vite",
     "build": "vite build",
     "build:budget": "npm run build && node scripts/check_bundle_budget.mjs",

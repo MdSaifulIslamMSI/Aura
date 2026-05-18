@@ -42,7 +42,14 @@ Override that target at launch or build time with:
    - `npm install`
 2. Make sure app dependencies are installed:
    - `npm --prefix app install`
-3. Start or package the desktop app with one of the commands above.
+3. Configure the frontend auth env in `app/.env` or the release environment:
+   - `VITE_FIREBASE_API_KEY`
+   - `VITE_FIREBASE_AUTH_DOMAIN`
+   - `VITE_FIREBASE_PROJECT_ID`
+   - `VITE_FIREBASE_STORAGE_BUCKET`
+   - `VITE_FIREBASE_MESSAGING_SENDER_ID`
+   - `VITE_FIREBASE_APP_ID`
+4. Start or package the desktop app with one of the commands above.
 
 ## Output
 
@@ -69,6 +76,7 @@ The workflow at `.github/workflows/desktop-release.yml` builds all desktop targe
 
 - Each run stamps a unique desktop version like `1.0.<run_number>`.
 - The workflow creates a GitHub Release tag like `desktop-v1.0.42`.
+- Release builds fail before packaging if the required `VITE_FIREBASE_*` web auth variables are missing or still set to placeholders.
 - Release assets use stable names so the gateway can always link to the latest build.
 - Installed apps use `electron-updater` and the GitHub Release metadata files (`latest.yml`, `latest-mac.yml`, and `latest-linux.yml`) to discover updates.
 - Packaged apps check for updates on startup and every four hours while running.
