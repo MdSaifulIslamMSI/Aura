@@ -57,6 +57,8 @@ const DESKTOP_AUTH_SECRET_PARAM = 'desktopAuthSecret';
 const DESKTOP_AUTH_RETURN_TO_PARAM = 'desktopAuthReturnTo';
 const DESKTOP_AUTH_CALLBACK_PARAM = 'desktopAuthCallback';
 const DESKTOP_AUTH_COMPLETE_PATH = '/desktop-auth/complete';
+const DESKTOP_AUTH_HANDOFF_STORAGE_KEY = 'aura_desktop_auth_handoff_v1';
+const DESKTOP_AUTH_HANDOFF_STORAGE_TTL_MS = 10 * 60 * 1000;
 
 const LOOPBACK_DESKTOP_AUTH_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]', '::1']);
 
@@ -101,12 +103,117 @@ export const normalizeDesktopAuthCallbackUrl = (value = '') => {
   return '';
 };
 
+const getDesktopAuthStorage = () => {
+  try {
+    if (typeof window !== 'undefined' && window.sessionStorage) {
+      return window.sessionStorage;
+    }
+  } catch {
+    // Session storage can be blocked by hardened browser settings.
+  }
+  return null;
+};
+
+const readDesktopAuthStorageMap = () => {
+  const storage = getDesktopAuthStorage();
+  if (!storage) return {};
+
+  try {
+    const parsed = JSON.parse(storage.getItem(DESKTOP_AUTH_HANDOFF_STORAGE_KEY) || '{}');
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    storage.removeItem(DESKTOP_AUTH_HANDOFF_STORAGE_KEY);
+    return {};
+  }
+};
+
+const writeDesktopAuthStorageMap = (value = {}) => {
+  const storage = getDesktopAuthStorage();
+  if (!storage) return false;
+
+  try {
+    storage.setItem(DESKTOP_AUTH_HANDOFF_STORAGE_KEY, JSON.stringify(value));
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+export const clearStoredDesktopBrowserHandoff = (requestId = '') => {
+  const normalizedRequestId = String(requestId || '').trim();
+  if (!normalizedRequestId) return;
+
+  const stored = readDesktopAuthStorageMap();
+  if (!stored[normalizedRequestId]) return;
+  delete stored[normalizedRequestId];
+  writeDesktopAuthStorageMap(stored);
+};
+
+export const persistDesktopBrowserHandoff = (handoff = {}) => {
+  const requestId = String(handoff.requestId || '').trim();
+  const secret = String(handoff.secret || '').trim();
+  const callbackUrl = normalizeDesktopAuthCallbackUrl(handoff.callbackUrl);
+  if (!requestId || !secret || !callbackUrl) {
+    return false;
+  }
+
+  const stored = readDesktopAuthStorageMap();
+  stored[requestId] = {
+    requestId,
+    secret,
+    callbackUrl,
+    returnTo: resolveNavigationTarget(handoff.returnTo, '/'),
+    expiresAt: Date.now() + DESKTOP_AUTH_HANDOFF_STORAGE_TTL_MS,
+  };
+  return writeDesktopAuthStorageMap(stored);
+};
+
+const readStoredDesktopBrowserHandoff = (requestId = '') => {
+  const normalizedRequestId = String(requestId || '').trim();
+  if (!normalizedRequestId) return null;
+
+  const stored = readDesktopAuthStorageMap();
+  const entry = stored[normalizedRequestId];
+  if (!entry || typeof entry !== 'object') return null;
+
+  if (Number(entry.expiresAt || 0) <= Date.now()) {
+    delete stored[normalizedRequestId];
+    writeDesktopAuthStorageMap(stored);
+    return null;
+  }
+
+  const callbackUrl = normalizeDesktopAuthCallbackUrl(entry.callbackUrl);
+  const secret = String(entry.secret || '').trim();
+  if (!secret || !callbackUrl) return null;
+
+  return {
+    requestId: normalizedRequestId,
+    secret,
+    callbackUrl,
+    returnTo: resolveNavigationTarget(entry.returnTo, '/'),
+  };
+};
+
+export const buildDesktopDuoReturnTo = (requestId = '') => {
+  const normalizedRequestId = String(requestId || '').trim();
+  if (!normalizedRequestId) return '/desktop-login';
+
+  const params = new URLSearchParams();
+  params.set(DESKTOP_AUTH_REQUEST_PARAM, normalizedRequestId);
+  return `/desktop-login?${params.toString()}`;
+};
+
 export const resolveDesktopBrowserHandoff = (search = '') => {
   const params = new URLSearchParams(search || '');
   const requestId = String(params.get(DESKTOP_AUTH_REQUEST_PARAM) || '').trim();
-  const secret = String(params.get(DESKTOP_AUTH_SECRET_PARAM) || '').trim();
-  const returnTo = resolveNavigationTarget(params.get(DESKTOP_AUTH_RETURN_TO_PARAM), '/');
-  const callbackUrl = normalizeDesktopAuthCallbackUrl(params.get(DESKTOP_AUTH_CALLBACK_PARAM));
+  const stored = readStoredDesktopBrowserHandoff(requestId);
+  const secret = String(params.get(DESKTOP_AUTH_SECRET_PARAM) || stored?.secret || '').trim();
+  const returnTo = params.has(DESKTOP_AUTH_RETURN_TO_PARAM)
+    ? resolveNavigationTarget(params.get(DESKTOP_AUTH_RETURN_TO_PARAM), '/')
+    : resolveNavigationTarget(stored?.returnTo, '/');
+  const callbackUrl = normalizeDesktopAuthCallbackUrl(params.get(DESKTOP_AUTH_CALLBACK_PARAM))
+    || stored?.callbackUrl
+    || '';
 
   return {
     active: Boolean(requestId && secret),
@@ -343,6 +450,7 @@ export const useLoginController = () => {
         throw new Error(message);
       }
 
+      clearStoredDesktopBrowserHandoff(desktopBrowserHandoff.requestId);
       if (!isCancelled()) {
         setAuthSuccess({
           title: t('login.desktopBrowser.completeTitle', {}, 'Desktop Sign-In Complete'),
@@ -1623,7 +1731,15 @@ export const useLoginController = () => {
     setAuthError(null);
     setAuthSuccess(null);
     try {
-      authApi.startDuoLogin({ returnTo: duoReturnTo });
+      let returnTo = duoReturnTo;
+      if (desktopBrowserHandoff.active) {
+        const stored = persistDesktopBrowserHandoff(desktopBrowserHandoff);
+        if (!stored) {
+          throw new Error(t('login.desktopBrowser.storageUnavailable', {}, 'Desktop Duo sign-in could not arm the secure browser bridge. Please refresh from Aura Desktop and try again.'));
+        }
+        returnTo = buildDesktopDuoReturnTo(desktopBrowserHandoff.requestId);
+      }
+      authApi.startDuoLogin({ returnTo });
     } catch (error) {
       setIsLoading(false);
       setErr(error);

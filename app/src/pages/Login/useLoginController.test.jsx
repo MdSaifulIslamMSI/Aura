@@ -6,7 +6,9 @@ import { AuthContext } from '@/context/AuthContext';
 import { MarketProvider } from '@/context/MarketContext';
 import { authApi } from '@/services/api';
 import {
+  buildDesktopDuoReturnTo,
   normalizeDesktopAuthCallbackUrl,
+  persistDesktopBrowserHandoff,
   resolveDesktopBrowserHandoff,
   useLoginController,
 } from './useLoginController';
@@ -221,6 +223,22 @@ describe('useLoginController', () => {
     );
 
     expect(handoff.active).toBe(true);
+    expect(handoff.callbackUrl).toBe('http://localhost:47831/desktop-auth/complete');
+    expect(handoff.returnTo).toBe('/checkout');
+  });
+
+  it('restores a Duo desktop handoff after the provider returns with only the request id', () => {
+    expect(persistDesktopBrowserHandoff({
+      requestId: 'req-restore-1',
+      secret: 'secret-restore-1',
+      callbackUrl: 'http://localhost:47831/desktop-auth/complete',
+      returnTo: '/checkout',
+    })).toBe(true);
+
+    const handoff = resolveDesktopBrowserHandoff('?desktopAuthRequest=req-restore-1&duo=success');
+
+    expect(handoff.active).toBe(true);
+    expect(handoff.secret).toBe('secret-restore-1');
     expect(handoff.callbackUrl).toBe('http://localhost:47831/desktop-auth/complete');
     expect(handoff.returnTo).toBe('/checkout');
   });
@@ -524,7 +542,7 @@ describe('useLoginController', () => {
     expect(screen.getByTestId('duo-login-enabled')).toHaveTextContent('false');
   });
 
-  it('returns Duo desktop sign-in to the exact active handoff URL', async () => {
+  it('starts Duo desktop sign-in with a WAF-safe return URL and stores the loopback bridge locally', async () => {
     const startDuoLogin = vi.spyOn(authApi, 'startDuoLogin').mockReturnValue({
       redirecting: true,
       url: '/api/auth/duo/start',
@@ -547,9 +565,18 @@ describe('useLoginController', () => {
       expect(screen.getByTestId('duo-start-result')).toHaveTextContent('completed');
     });
 
-    expect(startDuoLogin).toHaveBeenCalledWith({
-      returnTo: desktopLoginUrl,
-    });
+    const expectedReturnTo = buildDesktopDuoReturnTo('req-1');
+    expect(startDuoLogin).toHaveBeenCalledWith({ returnTo: expectedReturnTo });
+    expect(expectedReturnTo).toBe('/desktop-login?desktopAuthRequest=req-1');
+    expect(expectedReturnTo).not.toContain('desktopAuthSecret');
+    expect(expectedReturnTo).not.toContain('desktopAuthCallback');
+    expect(expectedReturnTo).not.toContain('localhost');
+
+    const restored = resolveDesktopBrowserHandoff('?desktopAuthRequest=req-1&duo=success');
+    expect(restored.active).toBe(true);
+    expect(restored.secret).toBe('secret-1');
+    expect(restored.callbackUrl).toBe('http://localhost:47831/desktop-auth/complete');
+    expect(restored.returnTo).toBe('/checkout');
 
     startDuoLogin.mockRestore();
   });
