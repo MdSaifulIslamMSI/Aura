@@ -8,7 +8,7 @@ generated
 infra
 node_modules
 run-logs
-scripts
+/scripts
 server
 app/.run-logs
 app/.vercel
