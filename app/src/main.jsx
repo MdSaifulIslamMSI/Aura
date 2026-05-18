@@ -59,7 +59,7 @@ const registerAuraServiceWorker = () => {
   }
 
   window.addEventListener('load', () => {
-    if (!import.meta.env.PROD) {
+    if (!import.meta.env.PROD || shouldDisableServiceWorkerForRuntime()) {
       void clearServiceWorkerState()
       return
     }
@@ -72,6 +72,16 @@ const isElectronRuntime = () => (
   typeof navigator !== 'undefined'
   && /electron/i.test(String(navigator.userAgent || ''))
 )
+
+const isLoopbackRuntime = () => {
+  if (typeof window === 'undefined') return false
+  const hostname = String(window.location.hostname || '').toLowerCase()
+  return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1' || hostname === '[::1]'
+}
+
+const shouldDisableServiceWorkerForRuntime = () => {
+  return isElectronRuntime() || isLoopbackRuntime()
+}
 
 // Firebase OAuth domain safety:
 // If app is opened via 127.0.0.1, force localhost to match common authorized-domain setup.

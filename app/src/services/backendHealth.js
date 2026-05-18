@@ -1,7 +1,7 @@
 import { buildServiceUrl, parseJsonSafely, requestWithTrace } from './apiBase';
 
 export const HEALTH_LIVE_URL = buildServiceUrl('/health/live');
-export const HEALTH_READY_URL = buildServiceUrl('/health/ready');
+export const HEALTH_SUMMARY_URL = buildServiceUrl('/health');
 const HEALTH_SNAPSHOT_TTL_MS = 10 * 1000;
 const DEFAULT_HEALTH_TIMEOUT_MS = 4000;
 
@@ -19,8 +19,10 @@ const normalizeLiveHealthPayload = (payload = {}) => {
   const startup = isPlainObject(payload?.startup) ? payload.startup : {};
   const alive = payload?.alive;
   const ready = payload?.ready;
+  const payloadStatus = String(payload?.status || '').trim().toLowerCase();
+  const summaryHealthy = payloadStatus === 'ok';
   const startupHealthy = Boolean(startup?.asyncStartupHealthy ?? true);
-  const resolvedAlive = Boolean(alive ?? ready ?? false);
+  const resolvedAlive = Boolean(alive ?? ready ?? summaryHealthy);
   const status = resolvedAlive && startupHealthy ? 'ok' : 'degraded';
 
   return {
@@ -84,9 +86,9 @@ export const getBackendHealthSnapshot = async (options = {}) => {
       liveFailure = error;
     }
 
-    const readySnapshot = await fetchHealthSnapshot(HEALTH_READY_URL, timeoutMs);
-    if (readySnapshot) {
-      return readySnapshot;
+    const summarySnapshot = await fetchHealthSnapshot(HEALTH_SUMMARY_URL, timeoutMs);
+    if (summarySnapshot) {
+      return summarySnapshot;
     }
 
     throw liveFailure || new Error('Health endpoint returned an invalid payload');

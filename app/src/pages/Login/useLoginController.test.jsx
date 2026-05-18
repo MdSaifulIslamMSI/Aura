@@ -4,6 +4,7 @@ import * as React from 'react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { AuthContext } from '@/context/AuthContext';
 import { MarketProvider } from '@/context/MarketContext';
+import { authApi } from '@/services/api';
 import {
   normalizeDesktopAuthCallbackUrl,
   resolveDesktopBrowserHandoff,
@@ -102,6 +103,22 @@ const DesktopBrowserSignInProbe = () => {
 const DuoLoginFlagProbe = () => {
   const { isDuoLoginEnabled } = useLoginController();
   return <div data-testid="duo-login-enabled">{String(isDuoLoginEnabled)}</div>;
+};
+
+const DuoLoginStartProbe = () => {
+  const { handleDuoSignIn } = useLoginController();
+  const [result, setResult] = React.useState('idle');
+  const startedRef = React.useRef(false);
+
+  React.useEffect(() => {
+    if (startedRef.current) return;
+    startedRef.current = true;
+    handleDuoSignIn()
+      .then(() => setResult('completed'))
+      .catch((error) => setResult(error?.message || 'failed'));
+  }, [handleDuoSignIn]);
+
+  return <div data-testid="duo-start-result">{result}</div>;
 };
 
 const PhoneCountryProbe = () => {
@@ -505,6 +522,36 @@ describe('useLoginController', () => {
     );
 
     expect(screen.getByTestId('duo-login-enabled')).toHaveTextContent('false');
+  });
+
+  it('returns Duo desktop sign-in to the exact active handoff URL', async () => {
+    const startDuoLogin = vi.spyOn(authApi, 'startDuoLogin').mockReturnValue({
+      redirecting: true,
+      url: '/api/auth/duo/start',
+    });
+    const desktopLoginUrl = '/desktop-login?desktopAuthRequest=req-1&desktopAuthSecret=secret-1&desktopAuthCallback=http%3A%2F%2Flocalhost%3A47831%2Fdesktop-auth%2Fcomplete&desktopAuthReturnTo=%2Fcheckout#bridge';
+
+    render(
+      <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+        <AuthContext.Provider value={buildAuthValue()}>
+          <MemoryRouter initialEntries={[desktopLoginUrl]}>
+            <Routes>
+              <Route path="/desktop-login" element={<DuoLoginStartProbe />} />
+            </Routes>
+          </MemoryRouter>
+        </AuthContext.Provider>
+      </MarketProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('duo-start-result')).toHaveTextContent('completed');
+    });
+
+    expect(startDuoLogin).toHaveBeenCalledWith({
+      returnTo: desktopLoginUrl,
+    });
+
+    startDuoLogin.mockRestore();
   });
 
   it('summarizes only enabled expanded social providers', () => {

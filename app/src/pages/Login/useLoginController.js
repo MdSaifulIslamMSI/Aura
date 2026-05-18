@@ -243,9 +243,17 @@ export const useLoginController = () => {
     () => resolveNavigationTarget(location.state?.from, '/'),
     [location.state?.from]
   );
+  const currentRoute = useMemo(
+    () => `${location.pathname || '/'}${location.search || ''}${location.hash || ''}`,
+    [location.hash, location.pathname, location.search]
+  );
   const desktopBrowserHandoff = useMemo(
     () => resolveDesktopBrowserHandoff(location.search),
     [location.search]
+  );
+  const duoReturnTo = useMemo(
+    () => (desktopBrowserHandoff.active ? currentRoute : from),
+    [currentRoute, desktopBrowserHandoff.active, from]
   );
   const hasLaunchDirective = Boolean(location.state?.authMode || launchPrefill.email || launchPrefill.phone);
   const socialAuthStatus = getFirebaseSocialAuthStatus();
@@ -1580,7 +1588,7 @@ export const useLoginController = () => {
     setAuthError(null);
     setAuthSuccess(null);
     try {
-      authApi.startDuoLogin({ returnTo: from });
+      authApi.startDuoLogin({ returnTo: duoReturnTo });
     } catch (error) {
       setIsLoading(false);
       setErr(error);

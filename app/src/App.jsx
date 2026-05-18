@@ -1,5 +1,5 @@
 import { Suspense, useEffect, useMemo, useState } from 'react';
-import { BrowserRouter as Router, Route, Routes, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { AuthProvider } from './context/AuthContext';
 import { CommerceProvider } from './context/CommerceContext';
@@ -35,6 +35,7 @@ import { lazyWithRetry } from './utils/lazyWithRetry';
 import { MultimodalAssistantProvider } from './context/MultimodalAssistantContext';
 import {
   DESKTOP_LOGIN_PATH,
+  isDesktopAuthLoginRequest,
   shouldShowSiteChrome,
   shouldShowAmbientChrome,
   shouldShowBackendStatusBanner,
@@ -90,6 +91,16 @@ function renderCriticalRoute(element) {
   return element;
 }
 
+function LoginRoute() {
+  const location = useLocation();
+
+  if (isDesktopAuthLoginRequest(location.pathname, location.search)) {
+    return <Navigate to={`${DESKTOP_LOGIN_PATH}${location.search}${location.hash}`} replace />;
+  }
+
+  return <Login />;
+}
+
 function EmergencyFeatureRoute({ feature, fallback, children }) {
   const { isFeatureDisabled } = useEmergencyStatus();
 
@@ -119,20 +130,23 @@ function AppContent() {
   const { effectiveMotionMode } = useMotionMode();
   const [isNativeMobile, setIsNativeMobile] = useState(() => isCapacitorNativeRuntime());
   const pathname = location.pathname;
+  const chromePathname = isDesktopAuthLoginRequest(location.pathname, location.search)
+    ? DESKTOP_LOGIN_PATH
+    : pathname;
   const routeRenderKey = `${location.pathname}${location.search}${location.hash}`;
   const showSiteChrome = useMemo(
-    () => shouldShowSiteChrome(pathname),
-    [pathname]
+    () => shouldShowSiteChrome(chromePathname),
+    [chromePathname]
   );
 
   const showAmbientChrome = useMemo(
-    () => shouldShowAmbientChrome(pathname),
-    [pathname]
+    () => shouldShowAmbientChrome(chromePathname),
+    [chromePathname]
   );
   const showAnchorRail = showAmbientChrome && effectiveMotionMode === 'cinematic';
   const showBackendStatusBanner = useMemo(
-    () => shouldShowBackendStatusBanner(pathname),
-    [pathname]
+    () => shouldShowBackendStatusBanner(chromePathname),
+    [chromePathname]
   );
 
 
@@ -167,13 +181,13 @@ function AppContent() {
     }
 
     const rafId = window.requestAnimationFrame(() => {
-      assertRouteA11yContracts(pathname);
+      assertRouteA11yContracts(chromePathname);
     });
 
     return () => {
       window.cancelAnimationFrame(rafId);
     };
-  }, [pathname]);
+  }, [chromePathname]);
 
   return (
     <div
@@ -224,7 +238,7 @@ function AppContent() {
               <Route path="/" element={renderRoute(<Home />)} />
               <Route path={FRONTEND_LAUNCH_HUB_PATH} element={renderCriticalRoute(<LaunchHub />)} />
               <Route path={DESKTOP_LOGIN_PATH} element={renderCriticalRoute(<DesktopLogin />)} />
-              <Route path="/login" element={renderCriticalRoute(<Login />)} />
+              <Route path="/login" element={renderCriticalRoute(<LoginRoute />)} />
               <Route path="/products" element={renderRoute(<ProductListing />)} />
               <Route path="/category/:category" element={renderRoute(<ProductListing />)} />
               <Route path="/deals" element={renderRoute(<ProductListing />)} />

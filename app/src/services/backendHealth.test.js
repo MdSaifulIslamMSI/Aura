@@ -12,7 +12,7 @@ describe('backendHealth', () => {
     clearBackendHealthSnapshotCache();
   });
 
-  it('falls back to /health/ready when /health/live returns the SPA shell', async () => {
+  it('falls back to public /health when /health/live returns the SPA shell', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(new Response('<!doctype html><html></html>', {
         status: 200,
@@ -21,14 +21,12 @@ describe('backendHealth', () => {
         },
       }))
       .mockResolvedValueOnce(new Response(JSON.stringify({
-        ready: true,
+        status: 'ok',
+        db: 'connected',
         uptime: 42,
         timestamp: '2026-04-17T00:00:00.000Z',
-        startup: {
-          asyncStartupHealthy: true,
-        },
-        topology: {
-          splitRuntimeEnabled: true,
+        redis: {
+          connected: true,
         },
       }), {
         status: 200,
@@ -41,7 +39,8 @@ describe('backendHealth', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(String(fetchMock.mock.calls[0][0])).toContain('/health/live');
-    expect(String(fetchMock.mock.calls[1][0])).toContain('/health/ready');
+    expect(String(fetchMock.mock.calls[1][0])).toContain('/health');
+    expect(String(fetchMock.mock.calls[1][0])).not.toContain('/health/ready');
     expect(snapshot).toMatchObject({
       status: 'ok',
       alive: true,

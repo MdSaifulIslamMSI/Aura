@@ -70,6 +70,18 @@ export const isDesktopLoginPath = (pathname = '/') => (
     normalizePathname(pathname).startsWith(DESKTOP_LOGIN_PATH)
 );
 
+export const isDesktopAuthLoginRequest = (pathname = '/', search = '') => {
+    if (normalizePathname(pathname) !== '/login') {
+        return false;
+    }
+
+    const params = new URLSearchParams(String(search || ''));
+    return params.has('desktopAuthRequest')
+        || params.has('desktopAuthSecret')
+        || params.has('desktopAuthCallback')
+        || params.has('desktopAuthReturnTo');
+};
+
 export const shouldShowSiteChrome = (pathname = '/') => (
     !isFrontendLaunchHubPath(pathname)
     && !isDesktopLoginPath(pathname)

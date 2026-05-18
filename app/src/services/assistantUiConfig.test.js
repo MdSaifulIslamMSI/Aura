@@ -1,5 +1,6 @@
 import {
     buildAssistantWorkspacePath,
+    isDesktopAuthLoginRequest,
     isDesktopLoginPath,
     isFrontendLaunchHubPath,
     isAssistantWorkspacePath,
@@ -56,5 +57,13 @@ describe('assistantUiConfig', () => {
         expect(shouldShowSiteChrome('/desktop-login')).toBe(false);
         expect(shouldShowAmbientChrome('/desktop-login')).toBe(false);
         expect(shouldShowBackendStatusBanner('/desktop-login')).toBe(false);
+    });
+
+    it('recognizes legacy website login requests that belong to desktop auth', () => {
+        expect(isDesktopAuthLoginRequest('/login', '?desktopAuthRequest=req-1')).toBe(true);
+        expect(isDesktopAuthLoginRequest('/login', '?desktopAuthSecret=secret-1')).toBe(true);
+        expect(isDesktopAuthLoginRequest('/login', '?desktopAuthCallback=http%3A%2F%2Flocalhost%3A47831%2Fdesktop-auth%2Fcomplete')).toBe(true);
+        expect(isDesktopAuthLoginRequest('/login', '?next=/checkout')).toBe(false);
+        expect(isDesktopAuthLoginRequest('/desktop-login', '?desktopAuthRequest=req-1')).toBe(false);
     });
 });

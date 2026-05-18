@@ -18,14 +18,6 @@ const isAbsoluteHttpUrl = (value = '') => /^https?:\/\//i.test(String(value || '
 
 const HOSTED_FRONTEND_EXACT_HOSTS = new Set(['aurapilot.aws.app']);
 
-const isViteDevelopmentRuntime = () => {
-    try {
-        return Boolean(import.meta.env?.DEV);
-    } catch {
-        return false;
-    }
-};
-
 export const isHostedFrontendRuntimeHost = (host = '') => {
     const normalizedHost = normalizeHost(host);
     return HOSTED_FRONTEND_EXACT_HOSTS.has(normalizedHost)
@@ -44,7 +36,6 @@ export const isLocalFrontendRuntimeHost = (host = '') => {
 
 const shouldPreferLocalProxyApi = (configured = '', fallback = '/api') => {
     if (typeof window === 'undefined') return false;
-    if (!isViteDevelopmentRuntime()) return false;
     if (!String(fallback || '').startsWith('/')) return false;
     if (!isAbsoluteHttpUrl(configured)) return false;
 
