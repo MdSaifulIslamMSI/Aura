@@ -12,6 +12,16 @@ on:
         required: false
         default: false
         type: boolean
+      require_macos_signing:
+        description: Require macOS signing and notarization before publishing
+        required: false
+        default: false
+        type: boolean
+      publish_store_release:
+        description: Publish signed artifacts to desktop app stores
+        required: false
+        default: false
+        type: boolean
   workflow_call:
     inputs:
       version:
@@ -21,6 +31,16 @@ on:
         type: string
       require_windows_signing:
         description: Require Windows Authenticode signing before publishing
+        required: false
+        default: false
+        type: boolean
+      require_macos_signing:
+        description: Require macOS signing and notarization before publishing
+        required: false
+        default: false
+        type: boolean
+      publish_store_release:
+        description: Publish signed artifacts to desktop app stores
         required: false
         default: false
         type: boolean
@@ -70,8 +90,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Check required release signing secrets
+      - name: Check release signing and store policy
         env:
+          WINDOWS_CERTIFICATE_BASE64: ${{ secrets.WINDOWS_CERTIFICATE_BASE64 }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
           WINDOWS_CODE_SIGNING_CERTIFICATE_BASE64: ${{ secrets.WINDOWS_CODE_SIGNING_CERTIFICATE_BASE64 }}
           WINDOWS_CODE_SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CODE_SIGNING_CERTIFICATE_PASSWORD }}
           WINDOWS_CODE_SIGNING_PUBLISHER_NAME: ${{ secrets.WINDOWS_CODE_SIGNING_PUBLISHER_NAME }}
@@ -81,34 +103,62 @@ jobs:
           AZURE_TRUSTED_SIGNING_ACCOUNT_NAME: ${{ secrets.AZURE_TRUSTED_SIGNING_ACCOUNT_NAME }}
           AZURE_TRUSTED_SIGNING_CERTIFICATE_PROFILE_NAME: ${{ secrets.AZURE_TRUSTED_SIGNING_CERTIFICATE_PROFILE_NAME }}
           AZURE_TRUSTED_SIGNING_ENDPOINT: ${{ secrets.AZURE_TRUSTED_SIGNING_ENDPOINT }}
+          APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           REQUIRE_WINDOWS_SIGNING: ${{ inputs.require_windows_signing }}
+          REQUIRE_MACOS_SIGNING: ${{ inputs.require_macos_signing }}
+          PUBLISH_STORE_RELEASE: ${{ inputs.publish_store_release }}
         run: |
           set -euo pipefail
 
           if [ "${REQUIRE_WINDOWS_SIGNING}" != "true" ]; then
-            echo "Windows signing is not required for this run. Treat unsigned desktop artifacts as GitHub/internal testing builds only; configure PFX or Microsoft Trusted Signing before public distribution."
-            exit 0
+            echo "Windows signing skipped because require_windows_signing=false"
+          else
+            has_pfx_signing=false
+            has_trusted_signing=false
+
+            if { [ -n "${WINDOWS_CERTIFICATE_BASE64}" ] || [ -n "${WINDOWS_CODE_SIGNING_CERTIFICATE_BASE64}" ]; } \
+              && { [ -n "${WINDOWS_CERTIFICATE_PASSWORD}" ] || [ -n "${WINDOWS_CODE_SIGNING_CERTIFICATE_PASSWORD}" ]; }; then
+              has_pfx_signing=true
+            fi
+
+            if [ -n "${AZURE_CLIENT_ID}" ] \
+              && [ -n "${AZURE_CLIENT_SECRET}" ] \
+              && [ -n "${AZURE_TENANT_ID}" ] \
+              && [ -n "${AZURE_TRUSTED_SIGNING_ACCOUNT_NAME}" ] \
+              && [ -n "${AZURE_TRUSTED_SIGNING_CERTIFICATE_PROFILE_NAME}" ] \
+              && [ -n "${AZURE_TRUSTED_SIGNING_ENDPOINT}" ] \
+              && [ -n "${WINDOWS_CODE_SIGNING_PUBLISHER_NAME}" ]; then
+              has_trusted_signing=true
+            fi
+
+            if [ "${has_pfx_signing}" != "true" ] && [ "${has_trusted_signing}" != "true" ]; then
+              echo "::error::Windows signing is required but signing secrets are missing. Add Windows certificate secrets or Microsoft Trusted Signing secrets, or run with require_windows_signing=false."
+              exit 1
+            fi
           fi
 
-          has_pfx_signing=false
-          has_trusted_signing=false
-
-          if [ -n "${WINDOWS_CODE_SIGNING_CERTIFICATE_BASE64}" ] && [ -n "${WINDOWS_CODE_SIGNING_CERTIFICATE_PASSWORD}" ]; then
-            has_pfx_signing=true
+          if [ "${REQUIRE_MACOS_SIGNING}" != "true" ]; then
+            echo "macOS signing/notarization skipped because require_macos_signing=false"
+          elif [ -z "${APPLE_CERTIFICATE_BASE64}" ] \
+            || [ -z "${APPLE_CERTIFICATE_PASSWORD}" ] \
+            || [ -z "${APPLE_TEAM_ID}" ] \
+            || [ -z "${APPLE_ID}" ] \
+            || [ -z "${APPLE_APP_SPECIFIC_PASSWORD}" ]; then
+            echo "::error::macOS signing/notarization is required but Apple signing secrets are missing. Add Apple signing secrets, or run with require_macos_signing=false."
+            exit 1
           fi
 
-          if [ -n "${AZURE_CLIENT_ID}" ] \
-            && [ -n "${AZURE_CLIENT_SECRET}" ] \
-            && [ -n "${AZURE_TENANT_ID}" ] \
-            && [ -n "${AZURE_TRUSTED_SIGNING_ACCOUNT_NAME}" ] \
-            && [ -n "${AZURE_TRUSTED_SIGNING_CERTIFICATE_PROFILE_NAME}" ] \
-            && [ -n "${AZURE_TRUSTED_SIGNING_ENDPOINT}" ] \
-            && [ -n "${WINDOWS_CODE_SIGNING_PUBLISHER_NAME}" ]; then
-            has_trusted_signing=true
-          fi
-
-          if [ "${has_pfx_signing}" != "true" ] && [ "${has_trusted_signing}" != "true" ]; then
-            echo "::error::Windows code signing is required before publishing a production desktop release. Add either PFX signing secrets or Microsoft Trusted Signing secrets."
+          if [ "${PUBLISH_STORE_RELEASE}" != "true" ]; then
+            echo "Store publishing skipped because publish_store_release=false"
+          elif [ "${REQUIRE_WINDOWS_SIGNING}" != "true" ] || [ "${REQUIRE_MACOS_SIGNING}" != "true" ]; then
+            echo "::error::Store publishing requires explicit signing for Windows and macOS. Set signing requirements true and configure signing secrets before publishing to stores."
+            exit 1
+          else
+            echo "::error::Store publishing is disabled in this workflow until Microsoft Store and Mac App Store publisher steps are configured."
             exit 1
           fi
 
@@ -159,6 +209,8 @@ jobs:
         if: matrix.platform == 'windows'
         shell: pwsh
         env:
+          WINDOWS_CERTIFICATE_BASE64: ${{ secrets.WINDOWS_CERTIFICATE_BASE64 }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
           WINDOWS_CODE_SIGNING_CERTIFICATE_BASE64: ${{ secrets.WINDOWS_CODE_SIGNING_CERTIFICATE_BASE64 }}
           WINDOWS_CODE_SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CODE_SIGNING_CERTIFICATE_PASSWORD }}
           WINDOWS_CODE_SIGNING_PUBLISHER_NAME: ${{ secrets.WINDOWS_CODE_SIGNING_PUBLISHER_NAME }}
@@ -170,8 +222,19 @@ jobs:
           AZURE_TRUSTED_SIGNING_ENDPOINT: ${{ secrets.AZURE_TRUSTED_SIGNING_ENDPOINT }}
           REQUIRE_WINDOWS_SIGNING: ${{ inputs.require_windows_signing }}
         run: |
+          if ($env:REQUIRE_WINDOWS_SIGNING -ne "true") {
+            "AURA_WINDOWS_SIGNING_MODE=unsigned" >> $env:GITHUB_ENV
+            Write-Host "Windows signing skipped because require_windows_signing=false"
+            exit 0
+          }
+
+          $pfxBase64 = if (-not [string]::IsNullOrWhiteSpace($env:WINDOWS_CERTIFICATE_BASE64)) { $env:WINDOWS_CERTIFICATE_BASE64 } else { $env:WINDOWS_CODE_SIGNING_CERTIFICATE_BASE64 }
+          $pfxPassword = if (-not [string]::IsNullOrWhiteSpace($env:WINDOWS_CERTIFICATE_PASSWORD)) { $env:WINDOWS_CERTIFICATE_PASSWORD } else { $env:WINDOWS_CODE_SIGNING_CERTIFICATE_PASSWORD }
+
           $hasPfxSigning = -not [string]::IsNullOrWhiteSpace($env:WINDOWS_CODE_SIGNING_CERTIFICATE_BASE64) `
             -and -not [string]::IsNullOrWhiteSpace($env:WINDOWS_CODE_SIGNING_CERTIFICATE_PASSWORD)
+          $hasPfxSigning = $hasPfxSigning -or (-not [string]::IsNullOrWhiteSpace($env:WINDOWS_CERTIFICATE_BASE64) `
+            -and -not [string]::IsNullOrWhiteSpace($env:WINDOWS_CERTIFICATE_PASSWORD))
 
           $hasTrustedSigning = -not [string]::IsNullOrWhiteSpace($env:AZURE_CLIENT_ID) `
             -and -not [string]::IsNullOrWhiteSpace($env:AZURE_CLIENT_SECRET) `
@@ -195,21 +258,32 @@ jobs:
 
           if (-not $hasPfxSigning) {
             "AURA_WINDOWS_SIGNING_MODE=unsigned" >> $env:GITHUB_ENV
-            if ($env:REQUIRE_WINDOWS_SIGNING -eq "true") {
-              throw "Windows code signing is required for this run. Add PFX signing secrets or Microsoft Trusted Signing secrets, or run with require_windows_signing=false for unsigned GitHub/internal testing artifacts."
-            }
-
-            Write-Host "Windows code signing secrets are not configured; Windows installers will be unsigned and should be treated as internal testing artifacts only."
-            exit 0
+            throw "Windows code signing is required for this run. Add PFX signing secrets or Microsoft Trusted Signing secrets, or run with require_windows_signing=false for unsigned GitHub/internal testing artifacts."
           }
 
           $certificatePath = Join-Path $env:RUNNER_TEMP "aura-windows-code-signing.pfx"
-          [IO.File]::WriteAllBytes($certificatePath, [Convert]::FromBase64String($env:WINDOWS_CODE_SIGNING_CERTIFICATE_BASE64))
+          [IO.File]::WriteAllBytes($certificatePath, [Convert]::FromBase64String($pfxBase64))
           "CSC_LINK=$certificatePath" >> $env:GITHUB_ENV
-          "CSC_KEY_PASSWORD=$env:WINDOWS_CODE_SIGNING_CERTIFICATE_PASSWORD" >> $env:GITHUB_ENV
+          "CSC_KEY_PASSWORD=$pfxPassword" >> $env:GITHUB_ENV
           "WIN_CSC_LINK=$certificatePath" >> $env:GITHUB_ENV
-          "WIN_CSC_KEY_PASSWORD=$env:WINDOWS_CODE_SIGNING_CERTIFICATE_PASSWORD" >> $env:GITHUB_ENV
+          "WIN_CSC_KEY_PASSWORD=$pfxPassword" >> $env:GITHUB_ENV
           "AURA_WINDOWS_SIGNING_MODE=pfx" >> $env:GITHUB_ENV
+
+      - name: Configure macOS signing and notarization
+        if: matrix.platform == 'macos'
+        shell: bash
+        env:
+          REQUIRE_MACOS_SIGNING: ${{ inputs.require_macos_signing }}
+        run: |
+          set -euo pipefail
+          if [ "${REQUIRE_MACOS_SIGNING}" != "true" ]; then
+            echo "macOS signing/notarization skipped because require_macos_signing=false"
+            echo "CSC_IDENTITY_AUTO_DISCOVERY=false" >> "$GITHUB_ENV"
+            exit 0
+          fi
+
+          echo "::error::macOS signing/notarization is required but this workflow currently only supports unsigned macOS GitHub artifacts. Configure signing steps before enabling require_macos_signing."
+          exit 1
 
       - name: Build desktop artifacts
         shell: bash
