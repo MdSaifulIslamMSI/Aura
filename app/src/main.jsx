@@ -79,8 +79,24 @@ const isLoopbackRuntime = () => {
   return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1' || hostname === '[::1]'
 }
 
+const isDesktopAuthRuntimeRoute = () => {
+  if (typeof window === 'undefined') return false
+  const pathname = String(window.location.pathname || '/')
+  const params = new URLSearchParams(window.location.search || '')
+  return pathname === '/desktop-login'
+    || (
+      pathname === '/login'
+      && (
+        params.has('desktopAuthRequest')
+        || params.has('desktopAuthSecret')
+        || params.has('desktopAuthCallback')
+        || params.has('desktopAuthReturnTo')
+      )
+    )
+}
+
 const shouldDisableServiceWorkerForRuntime = () => {
-  return isElectronRuntime() || isLoopbackRuntime()
+  return isElectronRuntime() || isLoopbackRuntime() || isDesktopAuthRuntimeRoute()
 }
 
 // Firebase OAuth domain safety:
