@@ -566,7 +566,10 @@ describe('useLoginController', () => {
     });
 
     const expectedReturnTo = buildDesktopDuoReturnTo('req-1');
-    expect(startDuoLogin).toHaveBeenCalledWith({ returnTo: expectedReturnTo });
+    expect(startDuoLogin).toHaveBeenCalledWith({
+      returnTo: expectedReturnTo,
+      loginHint: '',
+    });
     expect(expectedReturnTo).toBe('/desktop-login?desktopAuthRequest=req-1');
     expect(expectedReturnTo).not.toContain('desktopAuthSecret');
     expect(expectedReturnTo).not.toContain('desktopAuthCallback');

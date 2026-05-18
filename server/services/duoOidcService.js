@@ -14,6 +14,11 @@ const sha256Base64url = (value) => crypto.createHash('sha256').update(value).dig
 
 const normalizeText = (value) => (typeof value === 'string' ? value.trim() : '');
 const normalizeEmail = (value) => normalizeText(value).toLowerCase();
+const normalizeLoginHint = (value = '') => {
+    const normalized = normalizeEmail(value);
+    if (!normalized || normalized.length > 254) return '';
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized) ? normalized : '';
+};
 
 const getStateSecret = (flags) => normalizeText(process.env.DUO_OIDC_STATE_SECRET) || flags.clientSecret;
 
@@ -145,6 +150,7 @@ const buildAuthorizationUrl = async ({
     req = {},
     res = null,
     returnTo = '',
+    loginHint = '',
     stateContext = {},
 } = {}) => {
     const flags = assertDuoReady();
@@ -179,6 +185,10 @@ const buildAuthorizationUrl = async ({
     authorizationUrl.searchParams.set('nonce', nonce);
     authorizationUrl.searchParams.set('code_challenge', sha256Base64url(codeVerifier));
     authorizationUrl.searchParams.set('code_challenge_method', 'S256');
+    const normalizedLoginHint = normalizeLoginHint(loginHint);
+    if (normalizedLoginHint) {
+        authorizationUrl.searchParams.set('login_hint', normalizedLoginHint);
+    }
     return authorizationUrl.toString();
 };
 
@@ -350,6 +360,7 @@ module.exports = {
     clearStateCookie,
     consumeState,
     exchangeCodeForClaims,
+    normalizeLoginHint,
     resetDuoOidcTestState,
     signStatePayload,
     verifyIdToken,

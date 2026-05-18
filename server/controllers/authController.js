@@ -571,6 +571,7 @@ const startDuoLogin = asyncHandler(async (req, res) => {
         req,
         res,
         returnTo: normalizeRelativeReturnTo(req.query?.returnTo || '/'),
+        loginHint: req.query?.loginHint,
     });
 
     recordAuthSecurityEvent({

@@ -128,7 +128,7 @@ describe('Duo OIDC security flow', () => {
     test('starts Duo login with signed state cookie and OIDC nonce', async () => {
         fetch.mockResolvedValueOnce(jsonResponse(discovery));
 
-        const res = await request(app).get('/api/auth/duo/start?returnTo=/profile');
+        const res = await request(app).get('/api/auth/duo/start?returnTo=/profile&loginHint=Duo.User%40Example.Test');
 
         expect(res.status).toBe(302);
         const location = new URL(res.headers.location);
@@ -140,6 +140,7 @@ describe('Duo OIDC security flow', () => {
         expect(location.searchParams.get('nonce')).toEqual(expect.any(String));
         expect(location.searchParams.get('code_challenge')).toEqual(expect.any(String));
         expect(location.searchParams.get('code_challenge_method')).toBe('S256');
+        expect(location.searchParams.get('login_hint')).toBe('duo.user@example.test');
         expect(getCookieValue(res.headers['set-cookie'], STATE_COOKIE_NAME)).toContain(`${STATE_COOKIE_NAME}=`);
     });
 

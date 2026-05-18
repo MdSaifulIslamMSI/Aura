@@ -239,6 +239,8 @@ describe('authApi', () => {
   it('builds a Duo login redirect URL with a safe return path', async () => {
     expect(authApi.getDuoLoginUrl('/profile?tab=security')).toContain('/api/auth/duo/start?returnTo=%2Fprofile%3Ftab%3Dsecurity');
     expect(authApi.getDuoLoginUrl('/desktop-login?desktopAuthRequest=req-1&desktopAuthSecret=secret-1#bridge')).toContain('/api/auth/duo/start?returnTo=%2Fdesktop-login%3FdesktopAuthRequest%3Dreq-1%26desktopAuthSecret%3Dsecret-1%23bridge');
+    expect(authApi.getDuoLoginUrl('/profile', { loginHint: 'Member@Example.COM' })).toContain('loginHint=member%40example.com');
+    expect(authApi.getDuoLoginUrl('/profile', { loginHint: 'bad hint' })).not.toContain('loginHint=');
     expect(authApi.getDuoLoginUrl('https://evil.example/steal')).toContain('/api/auth/duo/start?returnTo=%2F');
   });
 

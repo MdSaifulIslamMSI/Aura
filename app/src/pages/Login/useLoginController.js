@@ -456,6 +456,13 @@ export const useLoginController = () => {
           title: t('login.desktopBrowser.completeTitle', {}, 'Desktop Sign-In Complete'),
           detail: t('login.desktopBrowser.completeDetail', {}, 'Return to Aura Marketplace Desktop. You can close this browser tab.'),
         });
+        window.setTimeout(() => {
+          try {
+            window.close();
+          } catch {
+            // Browsers may refuse to close tabs that were not opened by Aura Desktop.
+          }
+        }, 800);
       }
     } catch (error) {
       desktopBrowserHandoffCompletedRef.current = '';
@@ -1739,7 +1746,10 @@ export const useLoginController = () => {
         }
         returnTo = buildDesktopDuoReturnTo(desktopBrowserHandoff.requestId);
       }
-      authApi.startDuoLogin({ returnTo });
+      authApi.startDuoLogin({
+        returnTo,
+        loginHint: formData.email,
+      });
     } catch (error) {
       setIsLoading(false);
       setErr(error);
