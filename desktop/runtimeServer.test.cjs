@@ -7,10 +7,14 @@ const test = require('node:test');
 
 const {
     buildProxyOptions,
+    applyDesktopAuthCors,
     createDesktopAuthBroker,
     DEFAULT_BACKEND_ORIGIN,
+    DEFAULT_DESKTOP_AUTH_FRONTEND_ORIGIN,
     DEFAULT_RUNTIME_PORT,
+    DESKTOP_AUTH_COMPLETE_PATH,
     resolveBackendOrigin,
+    resolveAllowedDesktopAuthOrigins,
     startRuntimeServer,
     stripBrowserOnlyProxyHeaders,
 } = require('./runtimeServer.cjs');
@@ -102,9 +106,14 @@ test('desktop auth broker completes and consumes a handoff exactly once', () => 
         returnTo: '/checkout?step=payment',
     });
 
-    assert.match(request.url, /^http:\/\/localhost:47831\/login\?/);
+    assert.match(request.url, /^https:\/\/aurapilot\.vercel\.app\/desktop-login\?/);
     assert.match(request.url, /desktopAuthRequest=/);
     assert.match(request.url, /desktopAuthSecret=/);
+    assert.equal(new URL(request.url).origin, DEFAULT_DESKTOP_AUTH_FRONTEND_ORIGIN);
+    assert.equal(
+        new URL(request.url).searchParams.get('desktopAuthCallback'),
+        `http://localhost:47831${DESKTOP_AUTH_COMPLETE_PATH}`
+    );
     assert.match(request.url, /desktopAuthReturnTo=%2Fcheckout%3Fstep%3Dpayment/);
 
     assert.throws(() => {
@@ -127,4 +136,21 @@ test('desktop auth broker completes and consumes a handoff exactly once', () => 
     assert.equal(consumed.customToken, 'custom-token');
     assert.equal(typeof consumed.completedAt, 'number');
     assert.equal(broker.consumeResult(request.requestId), null);
+});
+
+test('desktop auth callback CORS only allows the hosted auth frontend', () => {
+    const allowedOrigins = resolveAllowedDesktopAuthOrigins('https://aurapilot.vercel.app/desktop-login');
+    const headers = new Map();
+    const response = {
+        setHeader: (name, value) => headers.set(name, value),
+    };
+
+    assert.equal(applyDesktopAuthCors({
+        headers: { origin: 'https://aurapilot.vercel.app' },
+    }, response, allowedOrigins), true);
+    assert.equal(headers.get('Access-Control-Allow-Origin'), 'https://aurapilot.vercel.app');
+
+    assert.equal(applyDesktopAuthCors({
+        headers: { origin: 'https://evil.example.test' },
+    }, response, allowedOrigins), false);
 });

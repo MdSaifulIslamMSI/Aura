@@ -14,10 +14,25 @@ This repo includes an Electron wrapper that turns the frontend into downloadable
 The packaged app uses the configured hosted backend origin:
 
 - `AURA_DESKTOP_BACKEND_ORIGIN`
+- `AURA_DESKTOP_AUTH_FRONTEND_ORIGIN`
+- `AURA_DESKTOP_AUTH_ALLOWED_ORIGINS`
 
 Override that target at launch or build time with:
 
 - PowerShell: `$env:AURA_DESKTOP_BACKEND_ORIGIN='http://127.0.0.1:5000'`
+- PowerShell: `$env:AURA_DESKTOP_AUTH_FRONTEND_ORIGIN='https://aurapilot.vercel.app'`
+
+## Hosted Desktop Login Bridge
+
+Desktop browser sign-in opens the hosted Vercel route `/desktop-login` instead of the full local app. The hosted page keeps the same Firebase, OTP, social, Turnstile, backend custom-token, audit, and rate-limit flow as the normal login screen, but it returns the completed session to the desktop runtime through a one-time loopback callback.
+
+Security invariants for this bridge:
+
+- The desktop runtime generates a short-lived `desktopAuthRequest` and secret for every browser handoff.
+- The hosted page can only post the custom token to an explicit loopback callback such as `http://localhost:47831/desktop-auth/complete`.
+- The local callback accepts CORS and Private Network Access preflights only from `AURA_DESKTOP_AUTH_FRONTEND_ORIGIN` plus any comma-separated entries in `AURA_DESKTOP_AUTH_ALLOWED_ORIGINS`.
+- The page CSP allows the loopback callback but does not relax API/backend origins for arbitrary hosts.
+- The desktop app receives only a Firebase custom token result, never Firebase Admin secrets or backend signing material.
 
 ## Commands
 

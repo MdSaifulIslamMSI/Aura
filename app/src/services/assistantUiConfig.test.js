@@ -1,5 +1,6 @@
 import {
     buildAssistantWorkspacePath,
+    isDesktopLoginPath,
     isFrontendLaunchHubPath,
     isAssistantWorkspacePath,
     shouldShowAmbientChrome,
@@ -48,5 +49,12 @@ describe('assistantUiConfig', () => {
         expect(shouldShowSiteChrome('/launch')).toBe(false);
         expect(shouldShowSiteChrome('/assistant')).toBe(false);
         expect(shouldShowSiteChrome('/products')).toBe(true);
+    });
+
+    it('treats desktop login as a dedicated auth surface', () => {
+        expect(isDesktopLoginPath('/desktop-login')).toBe(true);
+        expect(shouldShowSiteChrome('/desktop-login')).toBe(false);
+        expect(shouldShowAmbientChrome('/desktop-login')).toBe(false);
+        expect(shouldShowBackendStatusBanner('/desktop-login')).toBe(false);
     });
 });

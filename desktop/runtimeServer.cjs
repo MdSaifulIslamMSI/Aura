@@ -6,12 +6,15 @@ const express = require('express');
 const { createProxyMiddleware } = require('http-proxy-middleware');
 
 const DEFAULT_BACKEND_ORIGIN = 'https://dbtrhsolhec1s.cloudfront.net';
+const DEFAULT_DESKTOP_AUTH_FRONTEND_ORIGIN = 'https://aurapilot.vercel.app';
 const DEFAULT_RUNTIME_PORT = 47831;
 const STABLE_RUNTIME_FALLBACK_PORTS = 10;
 const RUNTIME_LISTEN_HOST = '127.0.0.1';
 const RUNTIME_PUBLIC_HOST = 'localhost';
 const BROWSER_ONLY_PROXY_HEADERS = ['origin', 'referer'];
 const DESKTOP_AUTH_COMPLETE_PATH = '/desktop-auth/complete';
+const DESKTOP_AUTH_FRONTEND_PATH = '/desktop-login';
+const DESKTOP_AUTH_CALLBACK_PARAM = 'desktopAuthCallback';
 const DESKTOP_AUTH_REQUEST_TTL_MS = 5 * 60 * 1000;
 const DESKTOP_AUTH_RESULT_TTL_MS = 60 * 1000;
 const DESKTOP_AUTH_TOKEN_MAX_LENGTH = 8192;
@@ -26,6 +29,27 @@ const resolveBackendOrigin = () => {
     ).trim();
 
     return trimTrailingSlash(configured);
+};
+
+const resolveDesktopAuthFrontendOrigin = () => {
+    const configured = String(
+        process.env.AURA_DESKTOP_AUTH_FRONTEND_ORIGIN
+        || process.env.AURA_DESKTOP_AUTH_FRONTEND_URL
+        || process.env.AURA_FRONTEND_ORIGIN
+        || process.env.VITE_VERCEL_FRONTEND_URL
+        || DEFAULT_DESKTOP_AUTH_FRONTEND_ORIGIN
+    ).trim();
+
+    try {
+        const url = new URL(configured);
+        if (!['http:', 'https:'].includes(url.protocol)) {
+            throw new Error('Unsupported desktop auth frontend protocol');
+        }
+        const pathname = url.pathname.replace(/\/+$/, '');
+        return trimTrailingSlash(`${url.origin}${pathname}`);
+    } catch {
+        return DEFAULT_DESKTOP_AUTH_FRONTEND_ORIGIN;
+    }
 };
 
 const assertDistExists = (distDir) => {
@@ -78,18 +102,54 @@ const safeEquals = (left = '', right = '') => {
 
 const buildDesktopAuthUrl = ({
     runtimeUrl,
-    path: requestPath = '/login',
+    authFrontendOrigin = DEFAULT_DESKTOP_AUTH_FRONTEND_ORIGIN,
+    path: requestPath = DESKTOP_AUTH_FRONTEND_PATH,
     requestId,
     secret,
     returnTo = '',
 } = {}) => {
-    const url = new URL(isSafeRelativePath(requestPath) ? requestPath : '/login', runtimeUrl);
+    const url = new URL(isSafeRelativePath(requestPath) ? requestPath : DESKTOP_AUTH_FRONTEND_PATH, authFrontendOrigin);
     url.searchParams.set('desktopAuthRequest', requestId);
     url.searchParams.set('desktopAuthSecret', secret);
+    url.searchParams.set(DESKTOP_AUTH_CALLBACK_PARAM, `${trimTrailingSlash(runtimeUrl)}${DESKTOP_AUTH_COMPLETE_PATH}`);
     if (isSafeRelativePath(returnTo)) {
         url.searchParams.set('desktopAuthReturnTo', returnTo);
     }
     return url.toString();
+};
+
+const getDesktopAuthOrigin = (value = '') => {
+    try {
+        return new URL(value).origin;
+    } catch {
+        return '';
+    }
+};
+
+const resolveAllowedDesktopAuthOrigins = (authFrontendOrigin = DEFAULT_DESKTOP_AUTH_FRONTEND_ORIGIN) => {
+    const configuredOrigins = String(process.env.AURA_DESKTOP_AUTH_ALLOWED_ORIGINS || '')
+        .split(',')
+        .map((origin) => getDesktopAuthOrigin(origin.trim()))
+        .filter(Boolean);
+    const primaryOrigin = getDesktopAuthOrigin(authFrontendOrigin);
+    return new Set([primaryOrigin, ...configuredOrigins].filter(Boolean));
+};
+
+const applyDesktopAuthCors = (request, response, allowedOrigins) => {
+    const origin = String(request.headers.origin || '').trim();
+    if (!origin || !allowedOrigins.has(origin)) {
+        return false;
+    }
+
+    response.setHeader('Access-Control-Allow-Origin', origin);
+    response.setHeader('Vary', 'Origin');
+    response.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    response.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    response.setHeader('Access-Control-Max-Age', '300');
+    if (request.headers['access-control-request-private-network']) {
+        response.setHeader('Access-Control-Allow-Private-Network', 'true');
+    }
+    return true;
 };
 
 const createDesktopAuthBroker = ({ onComplete = null, now = () => Date.now() } = {}) => {
@@ -110,7 +170,12 @@ const createDesktopAuthBroker = ({ onComplete = null, now = () => Date.now() } =
         }
     };
 
-    const createRequest = ({ runtimeUrl, path: requestPath = '/login', returnTo = '' } = {}) => {
+    const createRequest = ({
+        runtimeUrl,
+        authFrontendOrigin = DEFAULT_DESKTOP_AUTH_FRONTEND_ORIGIN,
+        path: requestPath = DESKTOP_AUTH_FRONTEND_PATH,
+        returnTo = '',
+    } = {}) => {
         pruneExpired();
         if (!runtimeUrl) {
             throw new Error('Desktop auth runtime URL is unavailable.');
@@ -131,6 +196,7 @@ const createDesktopAuthBroker = ({ onComplete = null, now = () => Date.now() } =
             expiresAt,
             url: buildDesktopAuthUrl({
                 runtimeUrl,
+                authFrontendOrigin,
                 path: requestPath,
                 requestId,
                 secret,
@@ -252,6 +318,8 @@ const startRuntimeServer = async ({ distDir, port = DEFAULT_RUNTIME_PORT, onDesk
     assertDistExists(resolvedDistDir);
 
     const backendOrigin = resolveBackendOrigin();
+    const desktopAuthFrontendOrigin = resolveDesktopAuthFrontendOrigin();
+    const allowedDesktopAuthOrigins = resolveAllowedDesktopAuthOrigins(desktopAuthFrontendOrigin);
     const app = express();
     const server = http.createServer(app);
     const desktopAuthBroker = createDesktopAuthBroker({ onComplete: onDesktopAuthComplete });
@@ -265,7 +333,23 @@ const startRuntimeServer = async ({ distDir, port = DEFAULT_RUNTIME_PORT, onDesk
     app.use('/api', apiProxy);
     app.use('/health', apiProxy);
     app.use('/uploads', apiProxy);
+    app.options(DESKTOP_AUTH_COMPLETE_PATH, (request, response) => {
+        if (!applyDesktopAuthCors(request, response, allowedDesktopAuthOrigins)) {
+            response.status(403).end();
+            return;
+        }
+        response.status(204).end();
+    });
     app.post(DESKTOP_AUTH_COMPLETE_PATH, express.json({ limit: '16kb' }), (request, response) => {
+        const hasOrigin = Boolean(String(request.headers.origin || '').trim());
+        if (hasOrigin && !applyDesktopAuthCors(request, response, allowedDesktopAuthOrigins)) {
+            response.status(403).json({
+                success: false,
+                message: 'Desktop sign-in callback origin is not trusted.',
+            });
+            return;
+        }
+
         try {
             const result = desktopAuthBroker.completeRequest(request.body || {});
             response.json({
@@ -326,8 +410,10 @@ const startRuntimeServer = async ({ distDir, port = DEFAULT_RUNTIME_PORT, onDesk
         consumeDesktopAuthResult: desktopAuthBroker.consumeResult,
         createDesktopAuthRequest: (options = {}) => desktopAuthBroker.createRequest({
             ...options,
+            authFrontendOrigin: desktopAuthFrontendOrigin,
             runtimeUrl,
         }),
+        desktopAuthFrontendOrigin,
         distDir: resolvedDistDir,
         port: address.port,
         server,
@@ -346,15 +432,20 @@ const startRuntimeServer = async ({ distDir, port = DEFAULT_RUNTIME_PORT, onDesk
 
 module.exports = {
     DEFAULT_BACKEND_ORIGIN,
+    DEFAULT_DESKTOP_AUTH_FRONTEND_ORIGIN,
     DEFAULT_RUNTIME_PORT,
     DESKTOP_AUTH_COMPLETE_PATH,
+    DESKTOP_AUTH_FRONTEND_PATH,
+    applyDesktopAuthCors,
     buildDesktopAuthUrl,
     RUNTIME_LISTEN_HOST,
     RUNTIME_PUBLIC_HOST,
     buildProxyOptions,
     createDesktopAuthBroker,
     buildRuntimeUrl,
+    resolveAllowedDesktopAuthOrigins,
     resolveBackendOrigin,
+    resolveDesktopAuthFrontendOrigin,
     startRuntimeServer,
     stripBrowserOnlyProxyHeaders,
 };

@@ -55,6 +55,10 @@ const formatProviderList = (providers = []) => {
 const DESKTOP_AUTH_REQUEST_PARAM = 'desktopAuthRequest';
 const DESKTOP_AUTH_SECRET_PARAM = 'desktopAuthSecret';
 const DESKTOP_AUTH_RETURN_TO_PARAM = 'desktopAuthReturnTo';
+const DESKTOP_AUTH_CALLBACK_PARAM = 'desktopAuthCallback';
+const DESKTOP_AUTH_COMPLETE_PATH = '/desktop-auth/complete';
+
+const LOOPBACK_DESKTOP_AUTH_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]', '::1']);
 
 const parseBooleanEnv = (value, fallback = false) => {
   if (typeof value !== 'string') return fallback;
@@ -66,14 +70,47 @@ const parseBooleanEnv = (value, fallback = false) => {
 
 const isDuoLoginEnabled = parseBooleanEnv(import.meta.env.VITE_DUO_LOGIN_ENABLED, false);
 
-const resolveDesktopBrowserHandoff = (search = '') => {
+export const normalizeDesktopAuthCallbackUrl = (value = '') => {
+  const rawValue = String(value || '').trim();
+  if (!rawValue) {
+    return '';
+  }
+
+  try {
+    const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost';
+    const url = new URL(rawValue, baseUrl);
+    const isRelativeCallback = !/^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(rawValue);
+
+    if (isRelativeCallback && url.pathname === DESKTOP_AUTH_COMPLETE_PATH) {
+      return DESKTOP_AUTH_COMPLETE_PATH;
+    }
+
+    if (
+      ['http:', 'https:'].includes(url.protocol)
+      && LOOPBACK_DESKTOP_AUTH_HOSTS.has(url.hostname)
+      && url.pathname === DESKTOP_AUTH_COMPLETE_PATH
+    ) {
+      url.search = '';
+      url.hash = '';
+      return url.toString();
+    }
+  } catch {
+    // Invalid callback URLs are rejected by returning an empty callback.
+  }
+
+  return '';
+};
+
+export const resolveDesktopBrowserHandoff = (search = '') => {
   const params = new URLSearchParams(search || '');
   const requestId = String(params.get(DESKTOP_AUTH_REQUEST_PARAM) || '').trim();
   const secret = String(params.get(DESKTOP_AUTH_SECRET_PARAM) || '').trim();
   const returnTo = resolveNavigationTarget(params.get(DESKTOP_AUTH_RETURN_TO_PARAM), '/');
+  const callbackUrl = normalizeDesktopAuthCallbackUrl(params.get(DESKTOP_AUTH_CALLBACK_PARAM));
 
   return {
     active: Boolean(requestId && secret),
+    callbackUrl,
     requestId,
     secret,
     returnTo,
@@ -373,6 +410,10 @@ export const useLoginController = () => {
       });
 
       try {
+        if (!desktopBrowserHandoff.callbackUrl) {
+          throw new Error('Desktop sign-in callback is not trusted.');
+        }
+
         const tokenPayload = await authApi.createDesktopHandoffToken({
           firebaseUser: currentUser,
           requestId: desktopBrowserHandoff.requestId,
@@ -382,7 +423,7 @@ export const useLoginController = () => {
           throw new Error('Desktop sign-in token was not returned by the server.');
         }
 
-        const response = await fetch('/desktop-auth/complete', {
+        const response = await fetch(desktopBrowserHandoff.callbackUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -430,6 +471,7 @@ export const useLoginController = () => {
   }, [
     currentUser,
     desktopBrowserHandoff.active,
+    desktopBrowserHandoff.callbackUrl,
     desktopBrowserHandoff.requestId,
     desktopBrowserHandoff.secret,
     isAuthenticated,

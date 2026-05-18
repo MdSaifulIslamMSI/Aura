@@ -27,6 +27,8 @@ const expectHardenedConnectSrc = (policy = '') => {
   expect(sources).toContain("'self'");
   expect(sources).toContain('https://dbtrhsolhec1s.cloudfront.net');
   expect(sources).toContain('wss://dbtrhsolhec1s.cloudfront.net');
+  expect(sources).toContain('http://localhost:*');
+  expect(sources).toContain('http://127.0.0.1:*');
   expect(sources).toContain('https://api.stripe.com');
   expect(sources).toContain('https://api.github.com');
   expect(sources).toContain('https://*.googleapis.com');

@@ -4,7 +4,11 @@ import * as React from 'react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { AuthContext } from '@/context/AuthContext';
 import { MarketProvider } from '@/context/MarketContext';
-import { useLoginController } from './useLoginController';
+import {
+  normalizeDesktopAuthCallbackUrl,
+  resolveDesktopBrowserHandoff,
+  useLoginController,
+} from './useLoginController';
 
 const { getFirebaseSocialAuthStatusMock } = vi.hoisted(() => ({
   getFirebaseSocialAuthStatusMock: vi.fn(),
@@ -182,6 +186,26 @@ describe('useLoginController', () => {
       initErrorMessage: '',
       runtimeElectronDesktop: false,
     });
+  });
+
+  it('accepts only loopback desktop callback urls for hosted handoff', () => {
+    expect(normalizeDesktopAuthCallbackUrl('http://localhost:47831/desktop-auth/complete?x=1#frag'))
+      .toBe('http://localhost:47831/desktop-auth/complete');
+    expect(normalizeDesktopAuthCallbackUrl('http://127.0.0.1:47831/desktop-auth/complete'))
+      .toBe('http://127.0.0.1:47831/desktop-auth/complete');
+    expect(normalizeDesktopAuthCallbackUrl('/desktop-auth/complete')).toBe('/desktop-auth/complete');
+    expect(normalizeDesktopAuthCallbackUrl('')).toBe('');
+    expect(normalizeDesktopAuthCallbackUrl('https://evil.example.test/desktop-auth/complete')).toBe('');
+  });
+
+  it('parses a desktop browser handoff with a local callback bridge', () => {
+    const handoff = resolveDesktopBrowserHandoff(
+      '?desktopAuthRequest=req-1&desktopAuthSecret=secret-1&desktopAuthCallback=http%3A%2F%2Flocalhost%3A47831%2Fdesktop-auth%2Fcomplete&desktopAuthReturnTo=%2Fcheckout'
+    );
+
+    expect(handoff.active).toBe(true);
+    expect(handoff.callbackUrl).toBe('http://localhost:47831/desktop-auth/complete');
+    expect(handoff.returnTo).toBe('/checkout');
   });
 
   it('redirects already-authenticated visitors only after bootstrap settles', async () => {

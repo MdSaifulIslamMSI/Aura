@@ -50,6 +50,8 @@ export const FRONTEND_CONNECT_SRC = [
     "'self'",
     HOSTED_BACKEND_ORIGIN,
     toWebSocketOrigin(HOSTED_BACKEND_ORIGIN),
+    'http://localhost:*',
+    'http://127.0.0.1:*',
     'https://api.github.com',
     'https://api.stripe.com',
     'https://js.stripe.com',

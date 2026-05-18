@@ -34,6 +34,7 @@ import { getNativeMobilePlatform, isCapacitorNativeRuntime } from './utils/nativ
 import { lazyWithRetry } from './utils/lazyWithRetry';
 import { MultimodalAssistantProvider } from './context/MultimodalAssistantContext';
 import {
+  DESKTOP_LOGIN_PATH,
   shouldShowSiteChrome,
   shouldShowAmbientChrome,
   shouldShowBackendStatusBanner,
@@ -79,6 +80,7 @@ const Bundles = lazyWithRetry(() => import('./pages/Bundles'), 'bundles');
 const MissionControl = lazyWithRetry(() => import('./pages/MissionControl'), 'mission-control');
 const AssistantPage = lazyWithRetry(() => import('./pages/Assistant'), 'assistant-workspace');
 const LaunchHub = lazyWithRetry(() => import('./pages/Launch'), 'frontend-launch-hub');
+const DesktopLogin = lazyWithRetry(() => import('./pages/DesktopLogin'), 'desktop-login');
 
 function renderRoute(element) {
   return <AppErrorBoundary>{element}</AppErrorBoundary>;
@@ -221,6 +223,7 @@ function AppContent() {
               {/* Public Routes */}
               <Route path="/" element={renderRoute(<Home />)} />
               <Route path={FRONTEND_LAUNCH_HUB_PATH} element={renderCriticalRoute(<LaunchHub />)} />
+              <Route path={DESKTOP_LOGIN_PATH} element={renderCriticalRoute(<DesktopLogin />)} />
               <Route path="/login" element={renderCriticalRoute(<Login />)} />
               <Route path="/products" element={renderRoute(<ProductListing />)} />
               <Route path="/category/:category" element={renderRoute(<ProductListing />)} />

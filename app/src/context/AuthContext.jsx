@@ -748,7 +748,7 @@ export const AuthProvider = ({ children }) => {
       return await completeControlledAuthFlow({
         execute: async () => {
           request = await desktop.startBrowserSignIn({
-            path: '/login',
+            path: '/desktop-login',
             returnTo,
           });
           const customToken = await waitForDesktopBrowserCustomToken(desktop, request);

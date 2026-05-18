@@ -1,5 +1,6 @@
 export const ASSISTANT_WORKSPACE_PATH = '/assistant';
 export const FRONTEND_LAUNCH_HUB_PATH = '/launch';
+export const DESKTOP_LOGIN_PATH = '/desktop-login';
 
 const AMBIENT_CHROME_PREFIXES = [
     '/',
@@ -65,13 +66,19 @@ export const isFrontendLaunchHubPath = (pathname = '/') => (
     normalizePathname(pathname).startsWith(FRONTEND_LAUNCH_HUB_PATH)
 );
 
+export const isDesktopLoginPath = (pathname = '/') => (
+    normalizePathname(pathname).startsWith(DESKTOP_LOGIN_PATH)
+);
+
 export const shouldShowSiteChrome = (pathname = '/') => (
     !isFrontendLaunchHubPath(pathname)
+    && !isDesktopLoginPath(pathname)
     && !isAssistantWorkspacePath(pathname)
 );
 
 export const shouldShowAmbientChrome = (pathname = '/') => (
     !isAdminPath(pathname)
+    && !isDesktopLoginPath(pathname)
     && !isAssistantWorkspacePath(pathname)
     && routeMatches(pathname, AMBIENT_CHROME_PREFIXES)
 );
@@ -88,7 +95,8 @@ export const shouldShowAssistantLauncher = ({
 );
 
 export const shouldShowBackendStatusBanner = (pathname = '/') => (
-    isAdminPath(pathname) || routeMatches(pathname, BACKEND_STATUS_ROUTE_PREFIXES)
+    !isDesktopLoginPath(pathname)
+    && (isAdminPath(pathname) || routeMatches(pathname, BACKEND_STATUS_ROUTE_PREFIXES))
 );
 
 export const buildAssistantWorkspacePath = (location = {}) => {
