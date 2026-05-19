@@ -337,6 +337,7 @@ const seedDemoMetricsForComponent = async (component, seedIndex = 0) => {
 const seedDefaultStatusCatalog = async ({ includeDemoMetrics = shouldSeedDemoMetrics() } = {}) => {
     const groups = [];
     let componentIndex = 0;
+    const allowDemoMetrics = Boolean(includeDemoMetrics) && process.env.NODE_ENV !== 'production';
 
     for (const [groupIndex, groupConfig] of DEFAULT_STATUS_CATALOG.entries()) {
         const group = await StatusComponentGroup.findOneAndUpdate(
@@ -373,7 +374,7 @@ const seedDefaultStatusCatalog = async ({ includeDemoMetrics = shouldSeedDemoMet
                 },
                 { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
             );
-            if (includeDemoMetrics) {
+            if (allowDemoMetrics) {
                 await seedDemoMetricsForComponent(component, componentIndex);
             }
             componentIndex += 1;
@@ -396,19 +397,111 @@ const fetchMetricMap = async (componentIds, dates) => {
     return map;
 };
 
-const buildComponentHistory = ({ componentId, dates, metricMap }) => dates.map((date) => {
-    const metric = metricMap.get(`${String(componentId)}:${date}`);
+const fetchCheckAggregateMap = async (componentIds, dates) => {
+    if (!componentIds.length || !dates.length) return new Map();
+    const start = new Date(`${dates[0]}T00:00:00.000Z`);
+    const end = addDaysUtc(new Date(`${dates[dates.length - 1]}T00:00:00.000Z`), 1);
+    const rows = await StatusCheck.aggregate([
+        {
+            $match: {
+                componentId: { $in: componentIds },
+                checkedAt: { $gte: start, $lt: end },
+            },
+        },
+        {
+            $group: {
+                _id: {
+                    componentId: '$componentId',
+                    date: {
+                        $dateToString: {
+                            format: '%Y-%m-%d',
+                            date: '$checkedAt',
+                            timezone: 'UTC',
+                        },
+                    },
+                },
+                totalChecks: { $sum: 1 },
+                successfulChecks: {
+                    $sum: { $cond: [{ $eq: ['$status', 'operational'] }, 1, 0] },
+                },
+                failedChecks: {
+                    $sum: { $cond: [{ $in: ['$status', ['partial_outage', 'major_outage']] }, 1, 0] },
+                },
+                degradedChecks: {
+                    $sum: { $cond: [{ $eq: ['$status', 'degraded_performance'] }, 1, 0] },
+                },
+                maintenanceChecks: {
+                    $sum: { $cond: [{ $eq: ['$status', 'maintenance'] }, 1, 0] },
+                },
+                avgResponseTimeMs: { $avg: '$responseTimeMs' },
+            },
+        },
+    ]);
+    const map = new Map();
+    rows.forEach((row) => {
+        const totalChecks = Number(row.totalChecks || 0);
+        const successfulChecks = Number(row.successfulChecks || 0);
+        const failedChecks = Number(row.failedChecks || 0);
+        const degradedChecks = Number(row.degradedChecks || 0);
+        const maintenanceChecks = Number(row.maintenanceChecks || 0);
+        const uptimePercent = calculateUptimePercent({ successfulChecks, totalChecks });
+        map.set(`${String(row._id.componentId)}:${row._id.date}`, {
+            date: row._id.date,
+            uptimePercent,
+            status: calculateDayStatus({ uptimePercent, totalChecks, maintenanceChecks }),
+            totalChecks,
+            successfulChecks,
+            failedChecks,
+            degradedChecks,
+            avgResponseTimeMs: Number.isFinite(Number(row.avgResponseTimeMs)) ? Math.round(Number(row.avgResponseTimeMs)) : null,
+            downtimeMinutes: totalChecks > 0
+                ? Math.round(((failedChecks + degradedChecks) / totalChecks) * 1440)
+                : 0,
+        });
+    });
+    return map;
+};
+
+const normalizeHistoryMetric = (metric, date) => {
+    const totalChecks = Number(metric?.totalChecks || 0);
+    const status = totalChecks > 0 ? metric?.status || 'unknown' : 'unknown';
+    const hasMeasuredUptime = status !== 'unknown'
+        && metric?.uptimePercent !== null
+        && metric?.uptimePercent !== undefined
+        && Number.isFinite(Number(metric.uptimePercent));
     return {
         date,
-        status: metric?.status || 'unknown',
-        uptimePercent: metric ? Number(metric.uptimePercent || 0) : null,
-        downtimeMinutes: metric ? Number(metric.downtimeMinutes || 0) : null,
+        status,
+        uptimePercent: hasMeasuredUptime ? Number(metric.uptimePercent) : null,
+        downtimeMinutes: hasMeasuredUptime ? Number(metric.downtimeMinutes || 0) : null,
+        totalChecks,
     };
+};
+
+const buildComponentHistory = ({ componentId, dates, metricMap, checkAggregateMap }) => dates.map((date) => {
+    const metric = metricMap.get(`${String(componentId)}:${date}`);
+    const checkAggregate = checkAggregateMap.get(`${String(componentId)}:${date}`);
+    if (metric) return normalizeHistoryMetric(metric, date);
+    if (checkAggregate) return normalizeHistoryMetric(checkAggregate, date);
+    return { date, status: 'unknown', uptimePercent: null, downtimeMinutes: null, totalChecks: 0 };
 });
+
+const isMeasuredHistoryEntry = (entry) => entry
+    && entry.status !== 'unknown'
+    && entry.uptimePercent !== null
+    && entry.uptimePercent !== undefined
+    && Number.isFinite(Number(entry.uptimePercent));
+
+const getMonitoringStartedAt = (history = []) => {
+    const firstMeasured = history.find(isMeasuredHistoryEntry);
+    return firstMeasured?.date ? new Date(`${firstMeasured.date}T00:00:00.000Z`).toISOString() : null;
+};
+
+const countMeasuredHistoryDays = (history = []) => history.filter(isMeasuredHistoryEntry).length;
 
 const buildGroupHistory = (componentHistories, dates) => dates.map((date, index) => {
     const dayEntries = componentHistories.map((history) => history[index]).filter(Boolean);
-    const knownEntries = dayEntries.filter((entry) => entry.status !== 'unknown');
+    const knownEntries = dayEntries.filter(isMeasuredHistoryEntry);
     const uptimeValues = knownEntries
         .map((entry) => Number(entry.uptimePercent))
         .filter((value) => Number.isFinite(value));
@@ -425,11 +518,18 @@ const buildGroupHistory = (componentHistories, dates) => dates.map((date, index)
 
 const calculateHistoryUptime = (history = []) => {
     const values = history
+        .filter(isMeasuredHistoryEntry)
         .map((entry) => Number(entry.uptimePercent))
         .filter((value) => Number.isFinite(value));
     if (values.length === 0) return null;
     return Number((values.reduce((sum, value) => sum + value, 0) / values.length).toFixed(3));
 };
+
+const calculateMonitoringSummary = (history = []) => ({
+    monitoringStartedAt: getMonitoringStartedAt(history),
+    measuredDays90d: countMeasuredHistoryDays(history),
+    uptimeSinceMonitoringBegan: calculateHistoryUptime(history),
+});
 
 const formatIncidentSummary = (incident, updates = [], componentMap = new Map()) => ({
     id: String(incident._id),
@@ -495,7 +595,11 @@ const buildPublicStatusPayload = async () => {
         isPublic: true,
         groupId: { $in: groupIds },
     }).sort({ order: 1, name: 1 }).lean();
-    const metricMap = await fetchMetricMap(components.map((component) => component._id), dates);
+    const componentIds = components.map((component) => component._id);
+    const [metricMap, checkAggregateMap] = await Promise.all([
+        fetchMetricMap(componentIds, dates),
+        fetchCheckAggregateMap(componentIds, dates),
+    ]);
     const componentsByGroup = new Map();
 
     components.forEach((component) => {
@@ -511,14 +615,18 @@ const buildPublicStatusPayload = async () => {
     const publicGroups = groups.map((group) => {
         const groupComponents = componentsByGroup.get(String(group._id)) || [];
         const componentPayloads = groupComponents.map((component) => {
-            const history90d = buildComponentHistory({ componentId: component._id, dates, metricMap });
+            const history90d = buildComponentHistory({ componentId: component._id, dates, metricMap, checkAggregateMap });
+            const monitoringSummary = calculateMonitoringSummary(history90d);
             return {
                 id: String(component._id),
                 name: sanitizeText(component.name, 120),
                 slug: component.slug,
                 status: component.manualStatusOverride || component.currentStatus || 'operational',
                 statusLabel: COMPONENT_STATUS_LABELS[component.manualStatusOverride || component.currentStatus] || 'Unknown',
-                uptimePercent90d: calculateHistoryUptime(history90d),
+                uptimePercent90d: monitoringSummary.uptimeSinceMonitoringBegan,
+                monitoringStartedAt: monitoringSummary.monitoringStartedAt,
+                measuredDays90d: monitoringSummary.measuredDays90d,
+                uptimeSinceMonitoringBegan: monitoringSummary.uptimeSinceMonitoringBegan,
                 lastCheckedAt: component.lastCheckedAt,
                 lastResponseTimeMs: component.lastResponseTimeMs,
                 history90d,
@@ -526,6 +634,7 @@ const buildPublicStatusPayload = async () => {
         });
         const histories = componentPayloads.map((component) => component.history90d);
         const history90d = buildGroupHistory(histories, dates);
+        const monitoringSummary = calculateMonitoringSummary(history90d);
         return {
             id: String(group._id),
             name: sanitizeText(group.name, 120),
@@ -533,7 +642,10 @@ const buildPublicStatusPayload = async () => {
             description: sanitizeText(group.description, 500),
             status: chooseWorstComponentStatus(componentPayloads.map((component) => component.status)),
             statusLabel: COMPONENT_STATUS_LABELS[chooseWorstComponentStatus(componentPayloads.map((component) => component.status))] || 'Unknown',
-            uptimePercent90d: calculateHistoryUptime(history90d),
+            uptimePercent90d: monitoringSummary.uptimeSinceMonitoringBegan,
+            monitoringStartedAt: monitoringSummary.monitoringStartedAt,
+            measuredDays90d: monitoringSummary.measuredDays90d,
+            uptimeSinceMonitoringBegan: monitoringSummary.uptimeSinceMonitoringBegan,
             componentsCount: componentPayloads.length,
             history90d,
             components: componentPayloads,
@@ -541,10 +653,24 @@ const buildPublicStatusPayload = async () => {
     });
 
     const overallStatus = calculateOverallStatus({ components, activeIncidents, activeMaintenance });
+    const measuredGroups = publicGroups.filter((group) => group.monitoringStartedAt && group.uptimeSinceMonitoringBegan !== null);
+    const monitoringStartedAt = measuredGroups.length
+        ? measuredGroups
+            .map((group) => group.monitoringStartedAt)
+            .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())[0]
+        : null;
+    const uptimeValues = measuredGroups
+        .map((group) => Number(group.uptimeSinceMonitoringBegan))
+        .filter((value) => Number.isFinite(value));
     return {
         overallStatus,
         message: OVERALL_STATUS_MESSAGES[overallStatus] || OVERALL_STATUS_MESSAGES.operational,
         lastUpdatedAt: nowIso(),
+        monitoringStartedAt,
+        measuredDays90d: measuredGroups.reduce((max, group) => Math.max(max, Number(group.measuredDays90d || 0)), 0),
+        uptimeSinceMonitoringBegan: uptimeValues.length
+            ? Number((uptimeValues.reduce((sum, value) => sum + value, 0) / uptimeValues.length).toFixed(3))
+            : null,
         groups: publicGroups,
         activeIncidents,
         activeMaintenance,
@@ -721,7 +847,9 @@ const getStatusAdminDashboard = async () => {
 
     const degradedComponents = allComponents.filter((component) => !['operational', 'maintenance'].includes(component.currentStatus)).length;
     const uptimeValues = publicPayload.groups
-        .map((group) => Number(group.uptimePercent90d))
+        .map((group) => group.uptimePercent90d)
+        .filter((value) => value !== null && value !== undefined)
+        .map((value) => Number(value))
         .filter((value) => Number.isFinite(value));
     const averageUptime = uptimeValues.length
         ? Number((uptimeValues.reduce((sum, value) => sum + value, 0) / uptimeValues.length).toFixed(3))
@@ -1280,6 +1408,7 @@ module.exports = {
     OVERALL_STATUS_MESSAGES,
     aggregateDailyMetric,
     calculateDayStatus,
+    calculateHistoryUptime,
     calculateOverallStatus,
     calculateUptimePercent,
     componentStatusToDayStatus,

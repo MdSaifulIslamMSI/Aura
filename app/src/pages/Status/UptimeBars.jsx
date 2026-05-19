@@ -9,19 +9,25 @@ export default function UptimeBars({ history = [], compact = false, label = 'Upt
         {bars.map((entry, index) => {
           const meta = statusMeta(entry?.status || 'unknown');
           const dateLabel = entry?.date || `day ${index + 1}`;
+          const hasNoData = (entry?.status || 'unknown') === 'unknown'
+            || entry?.uptimePercent === null
+            || entry?.uptimePercent === undefined;
           const uptime = entry?.uptimePercent === null || entry?.uptimePercent === undefined
             ? 'No uptime data'
             : `${Number(entry.uptimePercent).toFixed(2)}% uptime`;
           const downtime = entry?.downtimeMinutes === null || entry?.downtimeMinutes === undefined
             ? ''
             : `, ${Number(entry.downtimeMinutes || 0)} minutes downtime`;
+          const accessibleLabel = hasNoData
+            ? `${dateLabel}: No monitoring data for this day`
+            : `${dateLabel}: ${meta.label}, ${uptime}${downtime}`;
           return (
             <span
               key={`${dateLabel}-${index}`}
               role="listitem"
               tabIndex={0}
-              title={`${dateLabel}: ${meta.label}, ${uptime}${downtime}`}
-              aria-label={`${dateLabel}: ${meta.label}, ${uptime}${downtime}`}
+              title={accessibleLabel}
+              aria-label={accessibleLabel}
               className={[
                 'inline-block shrink-0 focus:outline-none focus:ring-2',
                 compact ? 'h-5 w-1' : 'h-6 w-1',
