@@ -24,6 +24,7 @@ const ADMIN_CHUNK_MATCHERS = [
   { pattern: /\/src\/pages\/Admin\/Users\.jsx$/, chunk: 'admin-users' },
   { pattern: /\/src\/pages\/Admin\/RefundLedger\.jsx$/, chunk: 'admin-refunds' },
   { pattern: /\/src\/pages\/Admin\/EmailOps\.jsx$/, chunk: 'admin-email-ops' },
+  { pattern: /\/src\/pages\/Admin\/StatusDashboard\.jsx$/, chunk: 'admin-status' },
 ]
 
 const INTERNAL_CHUNK_MATCHERS = [
