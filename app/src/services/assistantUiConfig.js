@@ -70,6 +70,10 @@ export const isDesktopLoginPath = (pathname = '/') => (
     normalizePathname(pathname).startsWith(DESKTOP_LOGIN_PATH)
 );
 
+export const isStatusPath = (pathname = '/') => (
+    normalizePathname(pathname).startsWith('/status')
+);
+
 export const isDesktopAuthLoginRequest = (pathname = '/', search = '') => {
     if (normalizePathname(pathname) !== '/login') {
         return false;
@@ -85,12 +89,14 @@ export const isDesktopAuthLoginRequest = (pathname = '/', search = '') => {
 export const shouldShowSiteChrome = (pathname = '/') => (
     !isFrontendLaunchHubPath(pathname)
     && !isDesktopLoginPath(pathname)
+    && !isStatusPath(pathname)
     && !isAssistantWorkspacePath(pathname)
 );
 
 export const shouldShowAmbientChrome = (pathname = '/') => (
     !isAdminPath(pathname)
     && !isDesktopLoginPath(pathname)
+    && !isStatusPath(pathname)
     && !isAssistantWorkspacePath(pathname)
     && routeMatches(pathname, AMBIENT_CHROME_PREFIXES)
 );
@@ -108,6 +114,7 @@ export const shouldShowAssistantLauncher = ({
 
 export const shouldShowBackendStatusBanner = (pathname = '/') => (
     !isDesktopLoginPath(pathname)
+    && !isStatusPath(pathname)
     && (isAdminPath(pathname) || routeMatches(pathname, BACKEND_STATUS_ROUTE_PREFIXES))
 );
 

@@ -50,6 +50,10 @@ const Cart = lazyWithRetry(() => import('./pages/Cart'), 'cart');
 const Wishlist = lazyWithRetry(() => import('./pages/Wishlist'), 'wishlist');
 const Checkout = lazyWithRetry(() => import('./pages/Checkout'), 'checkout');
 const Orders = lazyWithRetry(() => import('./pages/Orders'), 'orders');
+const StatusPage = lazyWithRetry(() => import('./pages/Status'), 'status');
+const StatusHistoryPage = lazyWithRetry(() => import('./pages/Status/History'), 'status-history');
+const StatusIncidentDetailPage = lazyWithRetry(() => import('./pages/Status/IncidentDetail'), 'status-incident');
+const StatusSubscribePage = lazyWithRetry(() => import('./pages/Status/Subscribe'), 'status-subscribe');
 
 // Admin Pages
 const AdminDashboard = lazyWithRetry(() => import('./pages/Admin/Dashboard'), 'admin-dashboard');
@@ -62,6 +66,7 @@ const AdminRefundLedger = lazyWithRetry(() => import('./pages/Admin/RefundLedger
 const AdminEmailOps = lazyWithRetry(() => import('./pages/Admin/EmailOps'), 'admin-email-ops');
 const AdminSupport = lazyWithRetry(() => import('./pages/Admin/Support'), 'admin-support');
 const AdminEmergencyControls = lazyWithRetry(() => import('./pages/Admin/EmergencyControls'), 'admin-emergency-controls');
+const AdminStatusDashboard = lazyWithRetry(() => import('./pages/Admin/StatusDashboard'), 'admin-status');
 
 // Marketplace Pages
 const Sell = lazyWithRetry(() => import('./pages/Sell'), 'sell');
@@ -271,6 +276,10 @@ function AppContent() {
               <Route path="/wishlist" element={renderRoute(<Wishlist />)} />
               <Route path="/checkout" element={renderCriticalRoute(<ProtectedRoute><Checkout /></ProtectedRoute>)} />
               <Route path="/orders" element={renderCriticalRoute(<ProtectedRoute><Orders /></ProtectedRoute>)} />
+              <Route path="/status" element={renderCriticalRoute(<StatusPage />)} />
+              <Route path="/status/history" element={renderCriticalRoute(<StatusHistoryPage />)} />
+              <Route path="/status/incidents/:slug" element={renderCriticalRoute(<StatusIncidentDetailPage />)} />
+              <Route path="/status/subscribe" element={renderCriticalRoute(<StatusSubscribePage />)} />
               <Route path="/become-seller" element={renderCriticalRoute(<ProtectedRoute><BecomeSeller /></ProtectedRoute>)} />
               <Route path="/sell" element={renderCriticalRoute(<SellerRoute><Sell /></SellerRoute>)} />
               <Route path="/my-listings" element={renderCriticalRoute(<SellerRoute><MyListings /></SellerRoute>)} />
@@ -289,6 +298,7 @@ function AppContent() {
               <Route path="/admin/users" element={renderCriticalRoute(<AdminRoute><AdminUsers /></AdminRoute>)} />
               <Route path="/admin/support" element={renderCriticalRoute(<AdminRoute><AdminSupport /></AdminRoute>)} />
               <Route path="/admin/emergency-controls" element={renderCriticalRoute(<AdminRoute><AdminEmergencyControls /></AdminRoute>)} />
+              <Route path="/admin/status" element={renderCriticalRoute(<AdminRoute><AdminStatusDashboard /></AdminRoute>)} />
             </Routes>
           </RouteTransitionShell>
         </Suspense>

@@ -32,6 +32,7 @@
     "test:transactions": "cross-env NODE_ENV=test TEST_REQUIRE_TRANSACTION_MONGO=true jest --runInBand",
     "test:emergency-controls": "cross-env NODE_ENV=test jest --runInBand --runTestsByPath tests/emergencyControlService.test.js tests/emergencyControlMiddleware.test.js",
     "seed": "node seeders/seed.js",
+    "seed:status": "node scripts/seed_status_defaults.js",
     "seed:emergency-flags": "node scripts/seed_emergency_flags.js",
     "verify": "node scripts/verify_data.js",
     "catalog:audit-source": "node scripts/audit_catalog_source.js",

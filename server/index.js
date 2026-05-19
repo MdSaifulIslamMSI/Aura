@@ -55,6 +55,8 @@ const adminUserRoutes = require('./routes/adminUserRoutes');
 const adminProductRoutes = require('./routes/adminProductRoutes');
 const adminOpsRoutes = require('./routes/adminOpsRoutes');
 const adminFraudRoutes = require('./routes/adminFraudRoutes');
+const statusRoutes = require('./routes/statusRoutes');
+const adminStatusRoutes = require('./routes/adminStatusRoutes');
 const internalOpsRoutes = require('./routes/internalOpsRoutes');
 const observabilityRoutes = require('./routes/observabilityRoutes');
 const emailWebhookRoutes = require('./routes/emailWebhookRoutes');
@@ -86,6 +88,7 @@ const {
 } = require('./services/payments/fxRateService');
 const { startAdminAnalyticsMonitor } = require('./services/adminAnalyticsMonitorService');
 const { startEmailOpsMonitor } = require('./services/email/emailOpsMonitorService');
+const { startStatusMonitorWorker } = require('./services/statusService');
 const {
     enforceCatalogStartupCheck,
     startCatalogWorkers,
@@ -450,6 +453,7 @@ app.use('/api/price-alerts', priceAlertRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/i18n', i18nRoutes);
 app.use('/api/markets', marketRoutes);
+app.use('/api/status', statusRoutes);
 app.use('/api/admin/emergency-controls', adminEmergencyControlRoutes);
 app.use('/api/admin/payments', adminPaymentRoutes);
 app.use('/api/admin/order-emails', adminOrderEmailRoutes);
@@ -461,6 +465,7 @@ app.use('/api/admin/users', adminUserRoutes);
 app.use('/api/admin/products', adminProductRoutes);
 app.use('/api/admin/ops', adminOpsRoutes);
 app.use('/api/admin/fraud', adminFraudRoutes);
+app.use('/api/admin/status', adminStatusRoutes);
 app.use('/api/internal', internalOpsRoutes);
 app.use('/api/observability', observabilityRoutes);
 app.use('/api/email-webhooks', emailWebhookRoutes);
@@ -754,6 +759,7 @@ assertTrustedDeviceConfig();
                     startCommerceReconciliationWorker();
                     startAdminAnalyticsMonitor();
                     startEmailOpsMonitor();
+                    startStatusMonitorWorker();
                     startCatalogWorkers();
                     runtimeStartupState.asyncStartupComplete = true;
                     runtimeStartupState.asyncStartupError = '';

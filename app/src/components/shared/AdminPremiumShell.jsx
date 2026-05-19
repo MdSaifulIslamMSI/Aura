@@ -7,6 +7,7 @@ import {
     MessageSquare,
     Package,
     ReceiptText,
+    Signal,
     ShoppingBag,
     Users,
 } from 'lucide-react';
@@ -23,6 +24,7 @@ const ADMIN_LINKS = [
     { href: '/admin/email-ops', prefix: '/admin/email-ops', label: 'Email Ops', icon: Mail },
     { href: '/admin/users', prefix: '/admin/users', label: 'Users', icon: Users },
     { href: '/admin/support', prefix: '/admin/support', label: 'Support', icon: MessageSquare },
+    { href: '/admin/status', prefix: '/admin/status', label: 'Status', icon: Signal },
 ];
 
 const hexToRgb = (hex) => {
