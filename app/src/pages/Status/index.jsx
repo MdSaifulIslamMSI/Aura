@@ -93,6 +93,9 @@ function IncidentStrip({ title, items = [] }) {
 function StatusGroupRow({ group, expanded, onToggle }) {
   const meta = statusMeta(group.status);
   const Chevron = expanded ? ChevronDown : ChevronRight;
+  const monitoringText = group.monitoringStartedAt
+    ? `Monitoring started ${formatDate(group.monitoringStartedAt, { year: true })}`
+    : 'No monitoring data yet';
   return (
     <div className="border-t border-slate-200">
       <div className="flex w-full items-start justify-between gap-3 px-5 py-4 transition hover:bg-slate-50">
@@ -110,6 +113,7 @@ function StatusGroupRow({ group, expanded, onToggle }) {
             <span className="text-sm text-slate-500">{group.componentsCount} components</span>
             <Chevron className="h-4 w-4 text-slate-400" />
           </button>
+          <p className="mt-1 text-xs font-semibold text-slate-500">{monitoringText}</p>
           <div className="mt-3">
             <UptimeBars history={group.history90d} label={`${group.name} 90 day uptime`} />
           </div>
@@ -132,6 +136,11 @@ function StatusGroupRow({ group, expanded, onToggle }) {
                       {formatPercent(component.uptimePercent90d)}
                       {component.lastResponseTimeMs ? ` - ${component.lastResponseTimeMs} ms response` : ''}
                     </p>
+                    <p className="mt-1 text-xs font-semibold text-slate-500">
+                      {component.monitoringStartedAt
+                        ? `Monitoring started ${formatDate(component.monitoringStartedAt, { year: true })}`
+                        : 'No monitoring data yet'}
+                    </p>
                   </div>
                   <div className="flex-1" style={{ minWidth: '14rem' }}>
                     <UptimeBars history={component.history90d} compact label={`${component.name} 90 day uptime`} />
@@ -146,7 +155,7 @@ function StatusGroupRow({ group, expanded, onToggle }) {
   );
 }
 
-export function SystemStatusCard({ groups = [] }) {
+export function SystemStatusCard({ groups = [], monitoringStartedAt = null, uptimeSinceMonitoringBegan = null }) {
   const [expanded, setExpanded] = useState(() => new Set());
   const dateRange = useMemo(() => {
     const firstHistory = groups.find((group) => group.history90d?.length)?.history90d || [];
@@ -164,6 +173,14 @@ export function SystemStatusCard({ groups = [] }) {
             {dateRange}
           </span>
         </div>
+        {monitoringStartedAt ? (
+          <p className="text-sm font-semibold text-slate-600">
+            Monitoring started {formatDate(monitoringStartedAt, { year: true })}
+            {uptimeSinceMonitoringBegan !== null && uptimeSinceMonitoringBegan !== undefined
+              ? ` - Uptime since monitoring began: ${formatPercent(uptimeSinceMonitoringBegan)}`
+              : ''}
+          </p>
+        ) : null}
       </div>
       {groups.length ? groups.map((group) => {
         const isExpanded = expanded.has(group.id);
@@ -261,7 +278,11 @@ export default function StatusPage() {
             <OverallStatusBanner status={payload.overallStatus} message={payload.message} />
             <IncidentStrip title="Active incidents" items={payload.activeIncidents || []} />
             <IncidentStrip title="Scheduled maintenance" items={payload.activeMaintenance || []} />
-            <SystemStatusCard groups={payload.groups || []} />
+            <SystemStatusCard
+              groups={payload.groups || []}
+              monitoringStartedAt={payload.monitoringStartedAt}
+              uptimeSinceMonitoringBegan={payload.uptimeSinceMonitoringBegan}
+            />
             <div className="flex justify-center">
               <Link
                 to="/status/history"

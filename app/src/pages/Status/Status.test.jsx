@@ -17,14 +17,28 @@ describe('status page components', () => {
     expect(screen.getAllByLabelText(/99.99% uptime/i).length).toBeGreaterThan(0);
   });
 
+  it('labels unknown uptime bars as no monitoring data', () => {
+    render(
+      <UptimeBars
+        history={[{ date: '2026-05-18', status: 'unknown', uptimePercent: null, downtimeMinutes: null }]}
+        label="API uptime"
+      />
+    );
+
+    expect(screen.getByLabelText('2026-05-18: No monitoring data for this day')).toBeInTheDocument();
+  });
+
   it('expands component group details', () => {
     render(
       <SystemStatusCard
+        monitoringStartedAt="2026-05-19T00:00:00.000Z"
+        uptimeSinceMonitoringBegan={100}
         groups={[{
           id: 'group-api',
           name: 'API',
           status: 'operational',
           uptimePercent90d: 99.98,
+          monitoringStartedAt: '2026-05-19T00:00:00.000Z',
           componentsCount: 1,
           history90d,
           components: [{
@@ -32,6 +46,7 @@ describe('status page components', () => {
             name: 'Public API',
             status: 'operational',
             uptimePercent90d: 99.98,
+            monitoringStartedAt: '2026-05-19T00:00:00.000Z',
             lastCheckedAt: '2026-05-19T10:00:00.000Z',
             lastResponseTimeMs: 128,
             history90d,
@@ -41,6 +56,7 @@ describe('status page components', () => {
     );
 
     expect(screen.queryByText('Public API')).not.toBeInTheDocument();
+    expect(screen.getByText(/Uptime since monitoring began: 100.00% uptime/i)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /API/i }));
     expect(screen.getByText('Public API')).toBeInTheDocument();
     expect(screen.getAllByRole('listitem')).toHaveLength(180);
