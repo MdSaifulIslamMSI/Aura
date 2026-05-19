@@ -20,8 +20,11 @@ const POLL_MS = 45000;
 function StatusBadge({ status }) {
   const meta = statusMeta(status);
   return (
-    <span className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-bold ${meta.soft} ${meta.border} ${meta.text}`}>
-      <span className={`h-2 w-2 rounded-full ${meta.dot}`} />
+    <span
+      className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-bold"
+      style={{ backgroundColor: meta.softColor, borderColor: meta.borderColor, color: meta.textColor }}
+    >
+      <span className="h-2 w-2 rounded-full" style={{ backgroundColor: meta.dotColor }} />
       {meta.label}
     </span>
   );
@@ -40,12 +43,16 @@ function OverallStatusBanner({ status, message }) {
   const meta = statusMeta(status);
   const Icon = status === 'major_outage' || status === 'partial_outage' ? TriangleAlert : Check;
   return (
-    <section className={`overflow-hidden rounded-xl border ${meta.border} bg-white shadow-sm`} aria-labelledby="overall-status-heading">
-      <div className={`flex items-center gap-3 px-5 py-4 ${meta.soft}`}>
-        <span className={`flex h-6 w-6 items-center justify-center rounded-full ${meta.dot} text-white`}>
+    <section
+      className="overflow-hidden rounded-xl border bg-white shadow-sm"
+      aria-labelledby="overall-status-heading"
+      style={{ borderColor: meta.borderColor }}
+    >
+      <div className="flex items-center gap-3 px-5 py-4" style={{ backgroundColor: meta.softColor }}>
+        <span className="flex h-6 w-6 items-center justify-center rounded-full text-white" style={{ backgroundColor: meta.dotColor }}>
           <Icon className="h-4 w-4" />
         </span>
-        <h1 id="overall-status-heading" className={`text-xl font-extrabold tracking-normal ${meta.text}`}>
+        <h1 id="overall-status-heading" className="text-xl font-extrabold tracking-normal" style={{ color: meta.textColor }}>
           {message || meta.banner}
         </h1>
       </div>
@@ -73,7 +80,7 @@ function IncidentStrip({ title, items = [] }) {
               </div>
               <StatusBadge status={incident.impact === 'maintenance' ? 'maintenance' : incident.impact === 'critical' ? 'major_outage' : 'degraded_performance'} />
             </div>
-            <p className="mt-3 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+            <p className="mt-3 text-xs font-semibold uppercase tracking-widest text-slate-500">
               Started {formatDate(incident.startedAt, { year: true, time: true })}
             </p>
           </Link>
@@ -87,8 +94,8 @@ function StatusGroupRow({ group, expanded, onToggle }) {
   const meta = statusMeta(group.status);
   const Chevron = expanded ? ChevronDown : ChevronRight;
   return (
-    <div className="border-t border-slate-100 first:border-t-0">
-      <div className="grid w-full grid-cols-[1fr_auto] gap-3 px-5 py-4 transition hover:bg-slate-50">
+    <div className="border-t border-slate-200">
+      <div className="flex w-full items-start justify-between gap-3 px-5 py-4 transition hover:bg-slate-50">
         <div className="min-w-0">
           <button
             type="button"
@@ -96,7 +103,7 @@ function StatusGroupRow({ group, expanded, onToggle }) {
             className="flex min-w-0 flex-wrap items-center gap-2 text-left"
             aria-expanded={expanded}
           >
-            <span className={`flex h-5 w-5 items-center justify-center rounded-full ${meta.dot} text-white`}>
+            <span className="flex h-5 w-5 items-center justify-center rounded-full text-white" style={{ backgroundColor: meta.dotColor }}>
               <Check className="h-3.5 w-3.5" />
             </span>
             <span className="font-bold text-slate-950">{group.name}</span>
@@ -110,7 +117,7 @@ function StatusGroupRow({ group, expanded, onToggle }) {
         <div className="text-right text-sm font-semibold text-slate-500">{formatPercent(group.uptimePercent90d)}</div>
       </div>
       {expanded ? (
-        <div className="bg-slate-50/70 px-5 pb-4">
+        <div className="bg-slate-50 px-5 pb-4">
           <div className="space-y-2 border-l border-slate-200 pl-4">
             {group.components.map((component) => (
               <div key={component.id} className="rounded-lg border border-slate-200 bg-white p-3">
@@ -126,7 +133,7 @@ function StatusGroupRow({ group, expanded, onToggle }) {
                       {component.lastResponseTimeMs ? ` - ${component.lastResponseTimeMs} ms response` : ''}
                     </p>
                   </div>
-                  <div className="min-w-[220px] flex-1 sm:max-w-md">
+                  <div className="flex-1" style={{ minWidth: '14rem' }}>
                     <UptimeBars history={component.history90d} compact label={`${component.name} 90 day uptime`} />
                   </div>
                 </div>
@@ -149,7 +156,7 @@ export function SystemStatusCard({ groups = [] }) {
 
   return (
     <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm" aria-labelledby="system-status-heading">
-      <div className="flex flex-col gap-2 border-b border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-2 border-b border-slate-200 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap items-center gap-3">
           <h2 id="system-status-heading" className="text-xl font-extrabold tracking-normal text-slate-950">System status</h2>
           <span className="inline-flex items-center gap-2 text-sm text-slate-500">
@@ -210,8 +217,8 @@ export default function StatusPage() {
   }, [loadStatus]);
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-slate-950">
-      <div className="mx-auto flex w-full max-w-[880px] flex-col gap-7 px-4 py-10 sm:px-6 md:py-14">
+    <div className="min-h-screen bg-slate-50 text-slate-950">
+      <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-10 sm:px-6 sm:py-14">
         <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <Link to="/" className="inline-flex items-center gap-3 text-3xl font-extrabold tracking-normal text-slate-950">
             <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-950 text-base font-black text-white">A</span>
@@ -244,7 +251,7 @@ export default function StatusPage() {
 
         {loading ? <StatusSkeleton /> : null}
         {!loading && error ? (
-          <section className="rounded-xl border border-rose-200 bg-rose-50 p-5 text-rose-800">
+          <section className="rounded-xl border border-slate-200 bg-white p-5 text-slate-700">
             <h1 className="text-lg font-extrabold tracking-normal">Status unavailable</h1>
             <p className="mt-2 text-sm">{error}</p>
           </section>
@@ -270,7 +277,7 @@ export default function StatusPage() {
         <footer className="flex flex-col items-center justify-center gap-2 pb-4 text-sm text-slate-500 sm:flex-row">
           <span>Powered by Aura status</span>
           <span className="hidden sm:inline">-</span>
-          <a href="/api/status/rss" className="font-semibold text-slate-700 hover:text-slate-950">RSS</a>
+          <a href="/api/status/rss" className="font-semibold text-slate-700">RSS</a>
         </footer>
       </div>
     </div>

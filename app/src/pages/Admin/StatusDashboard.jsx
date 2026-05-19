@@ -73,8 +73,11 @@ const blankMaintenanceForm = {
 function StatusPill({ status }) {
   const meta = statusMeta(status);
   return (
-    <span className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.14em] ${meta.soft} ${meta.border} ${meta.text}`}>
-      <span className={`h-2 w-2 rounded-full ${meta.dot}`} />
+    <span
+      className="inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-xs font-black uppercase tracking-widest"
+      style={{ backgroundColor: meta.softColor, borderColor: meta.borderColor, color: meta.textColor }}
+    >
+      <span className="h-2 w-2 rounded-full" style={{ backgroundColor: meta.dotColor }} />
       {meta.label}
     </span>
   );
@@ -83,7 +86,7 @@ function StatusPill({ status }) {
 function FormField({ label, children }) {
   return (
     <label className="block">
-      <span className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">{label}</span>
+      <span className="text-xs font-black uppercase tracking-widest text-slate-500">{label}</span>
       <div className="mt-1">{children}</div>
     </label>
   );
@@ -103,9 +106,9 @@ function ControlSelect(props) {
 
 function ComponentMultiSelect({ components = [], value = [], onChange }) {
   return (
-    <div className="grid max-h-52 grid-cols-1 gap-2 overflow-y-auto rounded-xl border border-slate-200 bg-white p-2 md:grid-cols-2">
+    <div className="grid max-h-48 grid-cols-1 gap-2 overflow-y-auto rounded-xl border border-slate-200 bg-white p-2 md:grid-cols-2">
       {components.map((component) => (
-        <label key={component.id} className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-100 px-3 py-2 text-sm font-semibold text-slate-700">
+        <label key={component.id} className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700">
           <input
             type="checkbox"
             checked={value.includes(component.id)}
@@ -317,7 +320,7 @@ export default function AdminStatusDashboard() {
                         <ControlSelect
                           value={component.manualStatusOverride || ''}
                           onChange={(event) => runAction(`override-${component.id}`, () => adminStatusApi.updateComponent(component.id, { manualStatusOverride: event.target.value || null }), 'Component override updated')}
-                          className="max-w-[13rem]"
+                          className="max-w-xs"
                           aria-label={`Manual override for ${component.name}`}
                         >
                           {STATUS_OPTIONS.map((option) => <option key={option.value || 'auto'} value={option.value}>{option.label}</option>)}
@@ -403,13 +406,13 @@ export default function AdminStatusDashboard() {
               <h2 className="text-xl font-black text-slate-950">Active timeline</h2>
               <div className="mt-4 space-y-3">
                 {activeIncidents.length === 0 ? (
-                  <p className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold text-emerald-800">No active incident or maintenance item.</p>
+                  <p className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm font-bold text-slate-700">No active incident or maintenance item.</p>
                 ) : activeIncidents.map((incident) => (
                   <AdminPremiumSubpanel key={incident.id} className="p-3">
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="font-black text-slate-950">{incident.title}</p>
-                        <p className="mt-1 text-xs font-semibold uppercase tracking-[0.13em] text-slate-500">{incident.impact} - {incident.status}</p>
+                        <p className="mt-1 text-xs font-semibold uppercase tracking-widest text-slate-500">{incident.impact} - {incident.status}</p>
                       </div>
                       <button type="button" onClick={() => runAction(`resolve-${incident.id}`, () => adminStatusApi.resolveIncident(incident.id, { message: 'Resolved by admin.' }), 'Incident resolved')} className="admin-premium-button px-3 py-2 text-xs font-black">
                         Resolve
@@ -451,7 +454,7 @@ export default function AdminStatusDashboard() {
                     <p className="mt-1 text-xs text-slate-500">
                       {formatDate(check.checkedAt, { time: true })} - {check.responseTimeMs || '-'} ms - HTTP {check.httpStatusCode || '-'}
                     </p>
-                    {check.errorMessage ? <p className="mt-1 text-xs text-rose-700">{check.errorMessage}</p> : null}
+                    {check.errorMessage ? <p className="mt-1 text-xs text-slate-600">{check.errorMessage}</p> : null}
                   </div>
                 ))}
               </div>
@@ -463,7 +466,7 @@ export default function AdminStatusDashboard() {
                 {incidents.slice(0, 8).map((incident) => (
                   <Link key={incident.id} to={`/status/incidents/${incident.slug}`} className="block rounded-xl border border-slate-200 bg-white p-3 hover:bg-slate-50">
                     <p className="font-black text-slate-950">{incident.title}</p>
-                    <p className="mt-1 text-xs font-semibold uppercase tracking-[0.13em] text-slate-500">{incident.impact} - {incident.status}</p>
+                    <p className="mt-1 text-xs font-semibold uppercase tracking-widest text-slate-500">{incident.impact} - {incident.status}</p>
                   </Link>
                 ))}
               </div>

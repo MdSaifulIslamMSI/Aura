@@ -21,11 +21,14 @@ function HistoryItem({ incident }) {
           </Link>
           <p className="mt-2 text-sm leading-6 text-slate-600">{incident.latestUpdate?.message || incident.description || 'Status update posted.'}</p>
         </div>
-        <span className={`inline-flex w-fit items-center rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-[0.12em] ${meta.soft} ${meta.border} ${meta.text}`}>
+        <span
+          className="inline-flex w-fit items-center rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-widest"
+          style={{ backgroundColor: meta.softColor, borderColor: meta.borderColor, color: meta.textColor }}
+        >
           {incident.status}
         </span>
       </div>
-      <div className="mt-4 flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-[0.13em] text-slate-500">
+      <div className="mt-4 flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-widest text-slate-500">
         <span>{formatDate(incident.startedAt, { year: true })}</span>
         <span>{incident.durationMinutes} min</span>
         <span>{incident.type}</span>
@@ -71,10 +74,10 @@ export default function StatusHistoryPage() {
   }, [loadHistory]);
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-slate-950">
-      <div className="mx-auto flex w-full max-w-[880px] flex-col gap-6 px-4 py-10 sm:px-6 md:py-14">
+    <div className="min-h-screen bg-slate-50 text-slate-950">
+      <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-10 sm:px-6 sm:py-14">
         <header className="space-y-5">
-          <Link to="/status" className="inline-flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-slate-950">
+          <Link to="/status" className="inline-flex items-center gap-2 text-sm font-bold text-slate-600">
             <ArrowLeft className="h-4 w-4" />
             Status
           </Link>
@@ -112,7 +115,7 @@ export default function StatusHistoryPage() {
             <div className="h-32 animate-pulse rounded-xl bg-slate-100" />
           </div>
         ) : null}
-        {!loading && error ? <div className="rounded-xl border border-rose-200 bg-rose-50 p-5 text-rose-800">{error}</div> : null}
+        {!loading && error ? <div className="rounded-xl border border-slate-200 bg-white p-5 text-slate-700">{error}</div> : null}
         {!loading && !error && payload?.incidents?.length === 0 ? (
           <div className="rounded-xl border border-slate-200 bg-white p-10 text-center shadow-sm">
             <CalendarClock className="mx-auto h-8 w-8 text-slate-400" />

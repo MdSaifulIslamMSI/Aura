@@ -66,9 +66,9 @@ export default function StatusSubscribePage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-slate-950">
-      <div className="mx-auto flex w-full max-w-[720px] flex-col gap-6 px-4 py-10 sm:px-6 md:py-14">
-        <Link to="/status" className="inline-flex w-fit items-center gap-2 text-sm font-bold text-slate-600 hover:text-slate-950">
+    <div className="min-h-screen bg-slate-50 text-slate-950">
+      <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-10 sm:px-6 sm:py-14">
+        <Link to="/status" className="inline-flex w-fit items-center gap-2 text-sm font-bold text-slate-600">
           <ArrowLeft className="h-4 w-4" />
           Status
         </Link>
@@ -104,7 +104,7 @@ export default function StatusSubscribePage() {
                   required
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
-                  className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-3 text-base text-slate-950 outline-none focus:border-slate-950"
+                  className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-3 text-base text-slate-950"
                   placeholder="you@example.com"
                 />
               </label>
@@ -150,8 +150,8 @@ export default function StatusSubscribePage() {
             </form>
           )}
 
-          {message ? <p className="mt-5 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-800">{message}</p> : null}
-          {error ? <p className="mt-5 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm font-semibold text-rose-800">{error}</p> : null}
+          {message ? <p className="mt-5 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-700">{message}</p> : null}
+          {error ? <p className="mt-5 rounded-lg border border-slate-200 bg-white p-3 text-sm font-semibold text-slate-700">{error}</p> : null}
         </section>
       </div>
     </div>

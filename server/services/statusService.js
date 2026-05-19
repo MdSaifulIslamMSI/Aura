@@ -194,9 +194,19 @@ const generateIncidentSlug = async (title) => {
     return candidate;
 };
 
+const resolveStatusUnsubscribeSecret = () => {
+    const configuredSecret = String(process.env.STATUS_UNSUBSCRIBE_SECRET || '').trim();
+    if (configuredSecret) return configuredSecret;
+    if (process.env.NODE_ENV === 'test') return 'test-status-unsubscribe-secret';
+    if (process.env.NODE_ENV !== 'production') {
+        return String(process.env.AUTH_VAULT_SECRET || 'dev-status-unsubscribe-secret').trim();
+    }
+    throw new Error('STATUS_UNSUBSCRIBE_SECRET is required for production status subscriptions');
+};
+
 const buildUnsubscribeToken = (email) => {
     const normalized = normalizeEmail(email);
-    const secret = String(process.env.STATUS_UNSUBSCRIBE_SECRET || process.env.JWT_SECRET || 'dev-status-unsubscribe-secret');
+    const secret = resolveStatusUnsubscribeSecret();
     return crypto.createHmac('sha256', secret).update(`status:${normalized}`).digest('base64url');
 };
 

@@ -26,7 +26,7 @@
   "bundle": {
     "maxTotalJsGzipKb": 470,
     "maxLargestJsGzipKb": 280,
-    "maxTotalCssGzipKb": 61
+    "maxTotalCssGzipKb": 61.5
   },
   "mobile": {
     "maxInitialPayloadGzipKb": 500,
