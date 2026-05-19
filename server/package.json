@@ -89,6 +89,7 @@
   },
   "overrides": {
     "@tootallnate/once": "^3.0.1",
+    "brace-expansion": "^5.0.6",
     "fast-xml-builder": "^1.2.0",
     "gaxios": "^7.1.4",
     "glob": "^13.0.6",
@@ -100,7 +101,8 @@
     "retry-request": "^8.0.2",
     "teeny-request": "^10.1.2",
     "test-exclude": "^8.0.0",
-    "uuid": "^14.0.0"
+    "uuid": "^14.0.0",
+    "ws": "^8.20.1"
   },
   "devDependencies": {
     "cross-env": "^10.1.0",
