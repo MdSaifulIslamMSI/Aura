@@ -93,6 +93,7 @@ server/public/
 .vercel
 .netlify/
 .env*.local
+.student-pack.local.env
 
 # Added by ggshield
 .cache_ggshield

@@ -12,15 +12,20 @@ const {
     calculateUptimePercent,
     createStatusComponent,
     createStatusIncident,
+    getDefaultStatusCatalog,
     getPublicStatus,
     resolveIncident,
     seedDefaultStatusCatalog,
     subscribeToStatus,
+    __testables,
 } = require('../services/statusService');
 
 describe('statusService', () => {
     const originalNodeEnv = process.env.NODE_ENV;
     const originalStatusSeedDemoMetrics = process.env.STATUS_SEED_DEMO_METRICS;
+    const originalSecurityHarnessEnabled = process.env.STUDENT_PACK_SECURITY_HARNESS_ENABLED;
+    const originalSecurityHarnessPublic = process.env.STUDENT_PACK_SECURITY_HARNESS_PUBLIC;
+    const originalSecurityHarnessProbeEndpoints = process.env.STUDENT_PACK_SECURITY_HARNESS_PROBE_ENDPOINTS;
 
     afterEach(() => {
         process.env.NODE_ENV = originalNodeEnv;
@@ -28,6 +33,21 @@ describe('statusService', () => {
             delete process.env.STATUS_SEED_DEMO_METRICS;
         } else {
             process.env.STATUS_SEED_DEMO_METRICS = originalStatusSeedDemoMetrics;
+        }
+        if (originalSecurityHarnessEnabled === undefined) {
+            delete process.env.STUDENT_PACK_SECURITY_HARNESS_ENABLED;
+        } else {
+            process.env.STUDENT_PACK_SECURITY_HARNESS_ENABLED = originalSecurityHarnessEnabled;
+        }
+        if (originalSecurityHarnessPublic === undefined) {
+            delete process.env.STUDENT_PACK_SECURITY_HARNESS_PUBLIC;
+        } else {
+            process.env.STUDENT_PACK_SECURITY_HARNESS_PUBLIC = originalSecurityHarnessPublic;
+        }
+        if (originalSecurityHarnessProbeEndpoints === undefined) {
+            delete process.env.STUDENT_PACK_SECURITY_HARNESS_PROBE_ENDPOINTS;
+        } else {
+            process.env.STUDENT_PACK_SECURITY_HARNESS_PROBE_ENDPOINTS = originalSecurityHarnessProbeEndpoints;
         }
     });
 
@@ -125,6 +145,128 @@ describe('statusService', () => {
         await seedDefaultStatusCatalog();
 
         expect(await StatusDailyMetric.countDocuments()).toBe(0);
+    });
+
+    test('default catalog wires public surfaces to real monitored health signals', async () => {
+        await seedDefaultStatusCatalog({ includeDemoMetrics: false });
+
+        const components = await StatusComponent.find({
+            slug: {
+                $in: [
+                    'web-storefront',
+                    'authentication',
+                    'payment-processing',
+                    'email-delivery',
+                    'status-subscriptions',
+                    'commerce-assistant',
+                    'media-uploads',
+                    'admin-console',
+                ],
+            },
+        }).lean();
+        const bySlug = new Map(components.map((component) => [component.slug, component]));
+
+        expect(bySlug.get('web-storefront')).toMatchObject({
+            checkType: 'http',
+            metadata: { healthSignal: 'web_app' },
+        });
+        expect(bySlug.get('authentication')).toMatchObject({
+            checkType: 'internal_health',
+            metadata: { healthSignal: 'auth' },
+        });
+        expect(bySlug.get('payment-processing')).toMatchObject({
+            checkType: 'internal_health',
+            metadata: { healthSignal: 'payments' },
+        });
+        expect(bySlug.get('email-delivery')).toMatchObject({
+            checkType: 'internal_health',
+            metadata: { healthSignal: 'email' },
+        });
+        expect(bySlug.get('status-subscriptions')).toMatchObject({
+            checkType: 'internal_health',
+            metadata: { healthSignal: 'status_subscriptions' },
+        });
+        expect(bySlug.get('commerce-assistant')).toMatchObject({
+            checkType: 'internal_health',
+            metadata: { healthSignal: 'ai' },
+        });
+        expect(bySlug.get('media-uploads')).toMatchObject({
+            checkType: 'internal_health',
+            metadata: { healthSignal: 'uploads' },
+        });
+        expect(bySlug.get('admin-console')).toMatchObject({
+            checkType: 'internal_health',
+            metadata: { healthSignal: 'admin' },
+        });
+    });
+
+    test('security harness catalog is opt-in and exposes provider health signals', async () => {
+        expect(getDefaultStatusCatalog().some((group) => group.slug === 'security-harness')).toBe(false);
+
+        process.env.STUDENT_PACK_SECURITY_HARNESS_ENABLED = 'true';
+        process.env.STUDENT_PACK_SECURITY_HARNESS_PUBLIC = 'true';
+        process.env.STUDENT_PACK_SECURITY_HARNESS_PROBE_ENDPOINTS = 'false';
+        await seedDefaultStatusCatalog({ includeDemoMetrics: false });
+
+        const harnessGroup = await StatusComponentGroup.findOne({ slug: 'security-harness' }).lean();
+        const sentryComponent = await StatusComponent.findOne({ slug: 'security-sentry-runtime-guard' }).lean();
+        const payload = await getPublicStatus({ force: true });
+
+        expect(harnessGroup).toMatchObject({ name: 'Security Harness', isPublic: true });
+        expect(sentryComponent).toMatchObject({
+            checkType: 'internal_health',
+            metadata: { healthSignal: 'student_pack_sentry' },
+        });
+        expect(payload.securityHarness).toMatchObject({
+            enabled: true,
+        });
+        expect(payload.securityHarness.providers.map((provider) => provider.id)).toEqual(expect.arrayContaining([
+            'sentry',
+            'datadog',
+            'doppler',
+            'testmail',
+            'lambdatest',
+            'localstack',
+        ]));
+        expect(JSON.stringify(payload.securityHarness)).not.toContain(process.env.DATADOG_API_KEY || 'secret-never-set');
+    });
+
+    test('internal health signals classify core service readiness without exposing internals', async () => {
+        const snapshot = {
+            core: { dbConnected: true, redisConnected: true },
+            services: {
+                catalog: { status: 'ok', staleData: false },
+                paymentQueue: { status: 'ok', workerRunning: true },
+                reconciliation: { status: 'ok' },
+                fx: { status: 'ok' },
+                emailQueue: { status: 'ok', workerRunning: true },
+                ai: {
+                    commerceAssistant: { healthy: true, gateway: { status: 'ok' } },
+                    chatQuota: { status: 'ok' },
+                },
+                realtime: {
+                    socket: { status: 'ok' },
+                    videoCalls: { status: 'ok' },
+                },
+            },
+        };
+
+        await expect(__testables.resolveInternalHealthSignalStatus('catalog', snapshot))
+            .resolves.toMatchObject({ ok: true, status: 'operational' });
+        await expect(__testables.resolveInternalHealthSignalStatus('payments', {
+            ...snapshot,
+            services: {
+                ...snapshot.services,
+                paymentQueue: { status: 'degraded', workerRunning: true },
+            },
+        })).resolves.toMatchObject({
+            ok: false,
+            status: 'degraded_performance',
+            errorMessage: 'payment_health_degraded',
+        });
+        const emailResult = await __testables.resolveInternalHealthSignalStatus('email', snapshot);
+        expect(emailResult.ok).toBe(true);
+        expect(['operational', 'maintenance']).toContain(emailResult.status);
     });
 
     test('development seed can create demo metrics outside production', async () => {

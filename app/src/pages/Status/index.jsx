@@ -6,9 +6,13 @@ import {
   ChevronDown,
   ChevronRight,
   Clock3,
+  Gauge,
   History,
+  KeyRound,
   Mail,
   RefreshCw,
+  ShieldCheck,
+  Terminal,
   TriangleAlert,
 } from 'lucide-react';
 import { statusApi } from '@/services/api/statusApi';
@@ -52,9 +56,9 @@ function OverallStatusBanner({ status, message }) {
         <span className="flex h-6 w-6 items-center justify-center rounded-full text-white" style={{ backgroundColor: meta.dotColor }}>
           <Icon className="h-4 w-4" />
         </span>
-        <h1 id="overall-status-heading" className="text-xl font-extrabold tracking-normal" style={{ color: meta.textColor }}>
+        <h2 id="overall-status-heading" className="text-xl font-extrabold tracking-normal" style={{ color: meta.textColor }}>
           {message || meta.banner}
-        </h1>
+        </h2>
       </div>
       <p className="px-5 py-5 text-base leading-7 text-slate-700">{meta.detail}</p>
     </section>
@@ -206,6 +210,286 @@ export function SystemStatusCard({ groups = [], monitoringStartedAt = null, upti
   );
 }
 
+const harnessStatusToPublicStatus = (status) => {
+  switch (status) {
+    case 'ready':
+      return 'operational';
+    case 'partial':
+      return 'degraded_performance';
+    case 'blocked':
+      return 'partial_outage';
+    default:
+      return 'unknown';
+  }
+};
+
+function HarnessStatusBadge({ status }) {
+  const meta = statusMeta(harnessStatusToPublicStatus(status));
+  const label = status === 'ready' ? 'Ready' : status === 'partial' ? 'Partial' : status === 'blocked' ? 'Blocked' : 'Unknown';
+  return (
+    <span
+      className="inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-xs font-black uppercase tracking-normal"
+      style={{ backgroundColor: meta.softColor, borderColor: meta.borderColor, color: meta.textColor }}
+    >
+      <span className="h-2 w-2 rounded-full" style={{ backgroundColor: meta.dotColor }} />
+      {label}
+    </span>
+  );
+}
+
+function SecurityProviderTile({ provider }) {
+  const missing = Array.isArray(provider.missingEnv) ? provider.missingEnv.slice(0, 5) : [];
+  const configuredCount = Array.isArray(provider.configuredEnv) ? provider.configuredEnv.length : 0;
+
+  return (
+    <article className="min-w-0 rounded-lg border border-slate-200 bg-white p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs font-black uppercase tracking-normal text-slate-500">{provider.area}</p>
+          <h3 className="mt-1 text-base font-extrabold tracking-normal text-slate-950">{provider.name}</h3>
+        </div>
+        <HarnessStatusBadge status={provider.status} />
+      </div>
+      <p className="mt-3 text-sm leading-6 text-slate-600">{provider.summary}</p>
+      <div className="mt-4 flex flex-wrap gap-2">
+        <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-1 text-xs font-bold text-slate-700">
+          <KeyRound className="h-3.5 w-3.5" />
+          {configuredCount} env set
+        </span>
+        <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-1 text-xs font-bold text-slate-700">
+          <Gauge className="h-3.5 w-3.5" />
+          {Number(provider.readinessPercent || 0)}%
+        </span>
+      </div>
+      {provider.liveAuth ? (
+        <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-xs font-black uppercase tracking-normal text-slate-500">Live auth</p>
+            <HarnessStatusBadge status={provider.liveAuth.status} />
+          </div>
+          <p className="mt-2 text-xs leading-5 text-slate-600">{provider.liveAuth.detail}</p>
+          {provider.liveAuth.command ? (
+            <code className="mt-2 block break-words rounded-md bg-white px-2 py-1.5 text-xs font-bold text-slate-700">
+              {provider.liveAuth.command}
+            </code>
+          ) : null}
+        </div>
+      ) : null}
+      {missing.length ? (
+        <div className="mt-4">
+          <p className="text-xs font-black uppercase tracking-normal text-slate-500">Missing</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {missing.map((key) => (
+              <code key={key} className="rounded-md bg-rose-50 px-2 py-1 text-xs font-bold text-rose-800">
+                {key}
+              </code>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      {provider.commands?.length ? (
+        <div className="mt-4">
+          <p className="text-xs font-black uppercase tracking-normal text-slate-500">CLI</p>
+          <div className="mt-2 space-y-2">
+            {provider.commands.slice(0, 2).map((command) => (
+              <code key={command} className="block break-words rounded-md bg-slate-950 px-2.5 py-2 text-xs font-bold text-white">
+                {command}
+              </code>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </article>
+  );
+}
+
+function SecurityControlTile({ control }) {
+  const missing = Array.isArray(control.missingEnv) ? control.missingEnv.slice(0, 4) : [];
+  return (
+    <article className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs font-black uppercase tracking-normal text-slate-500">{control.category}</p>
+          <h3 className="mt-1 text-sm font-extrabold tracking-normal text-slate-950">{control.name}</h3>
+        </div>
+        <HarnessStatusBadge status={control.status} />
+      </div>
+      <p className="mt-2 text-sm leading-6 text-slate-600">{control.purpose}</p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {(control.providerIds || []).map((providerId) => (
+          <span key={providerId} className="rounded-md bg-white px-2 py-1 text-xs font-bold text-slate-600">
+            {providerId}
+          </span>
+        ))}
+      </div>
+      {missing.length ? (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {missing.map((key) => (
+            <code key={key} className="rounded-md bg-white px-2 py-1 text-xs font-bold text-rose-800">
+              {key}
+            </code>
+          ))}
+        </div>
+      ) : null}
+    </article>
+  );
+}
+
+function SecurityFlowRow({ flow }) {
+  return (
+    <div className="flex flex-col gap-3 border-t border-slate-200 px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <HarnessStatusBadge status={flow.status} />
+          <p className="font-bold text-slate-950">{flow.name}</p>
+          <span className="text-xs font-bold text-slate-500">{Number(flow.readinessPercent || 0)}%</span>
+        </div>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {(flow.providerIds || []).map((providerId) => (
+            <span key={providerId} className="rounded-md bg-slate-100 px-2 py-1 text-xs font-bold text-slate-600">
+              {providerId}
+            </span>
+          ))}
+        </div>
+      </div>
+      <code className="max-w-full break-words rounded-md bg-slate-950 px-3 py-2 text-xs font-bold text-white">
+        {flow.command}
+      </code>
+    </div>
+  );
+}
+
+export function SecurityHarnessCard({ harness = null }) {
+  if (!harness?.enabled) return null;
+  const meta = statusMeta(harness.overallStatus);
+  const providers = Array.isArray(harness.providers) ? harness.providers : [];
+  const controls = Array.isArray(harness.controls) ? harness.controls : [];
+  const gatedFlows = Array.isArray(harness.gatedFlows) ? harness.gatedFlows : [];
+  const nextActions = Array.isArray(harness.nextActions) ? harness.nextActions : [];
+  const missingPreview = Array.isArray(harness.missingEnv) ? harness.missingEnv.slice(0, 8) : [];
+
+  return (
+    <section className="rounded-xl border border-slate-200 bg-white shadow-sm" aria-labelledby="security-harness-heading">
+      <div className="border-b border-slate-200 px-5 py-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <div className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-black uppercase tracking-normal text-slate-600">
+              <ShieldCheck className="h-4 w-4" />
+              Security harness
+            </div>
+            <h2 id="security-harness-heading" className="mt-3 text-xl font-extrabold tracking-normal text-slate-950">
+              Student Pack command matrix
+            </h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+              Sentry, Datadog, Doppler, Testmail, LambdaTest, and LocalStack readiness for this Aura workspace.
+            </p>
+          </div>
+          <div
+            className="flex min-w-[9rem] flex-col items-start rounded-lg border px-4 py-3 sm:items-end"
+            style={{ backgroundColor: meta.softColor, borderColor: meta.borderColor, color: meta.textColor }}
+          >
+            <span className="text-3xl font-black leading-none">{Number(harness.readinessPercent || 0)}%</span>
+            <span className="mt-1 text-xs font-black uppercase tracking-normal">Harness ready</span>
+          </div>
+        </div>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-800">
+            {Number(harness.readyProviders || 0)} ready
+          </span>
+          <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-800">
+            {Number(harness.partialProviders || 0)} partial
+          </span>
+          <span className="inline-flex items-center gap-1 rounded-md bg-rose-50 px-2.5 py-1 text-xs font-bold text-rose-800">
+            {Number(harness.blockedProviders || 0)} blocked
+          </span>
+          {harness.updatedAt ? (
+            <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600">
+              <Clock3 className="h-3.5 w-3.5" />
+              {relativeTime(harness.updatedAt)}
+            </span>
+          ) : null}
+          {harness.liveAuth?.available ? (
+            <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600">
+              <Terminal className="h-3.5 w-3.5" />
+              Live auth {relativeTime(harness.liveAuth.generatedAt)}
+            </span>
+          ) : null}
+        </div>
+      </div>
+      <div className="grid gap-3 p-5 md:grid-cols-2">
+        {providers.map((provider) => <SecurityProviderTile key={provider.id} provider={provider} />)}
+      </div>
+      {controls.length ? (
+        <div className="border-t border-slate-200 px-5 py-4">
+          <div className="flex flex-col gap-1">
+            <p className="text-xs font-black uppercase tracking-normal text-slate-500">Advanced controls</p>
+            <h3 className="text-lg font-extrabold tracking-normal text-slate-950">Security control coverage</h3>
+          </div>
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            {controls.map((control) => <SecurityControlTile key={control.id} control={control} />)}
+          </div>
+        </div>
+      ) : null}
+      {gatedFlows.length ? (
+        <div className="border-t border-slate-200">
+          <div className="px-5 py-4">
+            <p className="text-xs font-black uppercase tracking-normal text-slate-500">Gated flows</p>
+            <h3 className="text-lg font-extrabold tracking-normal text-slate-950">What can be verified now</h3>
+          </div>
+          {gatedFlows.map((flow) => <SecurityFlowRow key={flow.id} flow={flow} />)}
+        </div>
+      ) : null}
+      {nextActions.length ? (
+        <div className="border-t border-slate-200 px-5 py-4">
+          <p className="text-xs font-black uppercase tracking-normal text-slate-500">Next actions</p>
+          <div className="mt-3 grid gap-2 md:grid-cols-2">
+            {nextActions.map((action) => (
+              <div key={action.id} className="rounded-lg border border-slate-200 bg-white p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-extrabold text-slate-950">{action.title}</p>
+                  <HarnessStatusBadge status={action.status} />
+                </div>
+                {action.missingEnv?.length ? (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {action.missingEnv.map((key) => (
+                      <code key={key} className="rounded-md bg-slate-100 px-2 py-1 text-xs font-bold text-slate-700">
+                        {key}
+                      </code>
+                    ))}
+                  </div>
+                ) : null}
+                <code className="mt-3 block break-words rounded-md bg-slate-950 px-2.5 py-2 text-xs font-bold text-white">
+                  {action.command}
+                </code>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      {missingPreview.length ? (
+        <div className="border-t border-slate-200 px-5 py-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <p className="text-xs font-black uppercase tracking-normal text-slate-500">Next unlocks</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {missingPreview.map((key) => (
+                  <code key={key} className="rounded-md bg-slate-100 px-2 py-1 text-xs font-bold text-slate-700">
+                    {key}
+                  </code>
+                ))}
+              </div>
+            </div>
+            <code className="inline-flex max-w-full items-center gap-2 break-words rounded-lg bg-slate-950 px-3 py-2 text-xs font-bold text-white">
+              <Terminal className="h-4 w-4 shrink-0" />
+              npm run student-pack:doctor
+            </code>
+          </div>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
 export default function StatusPage() {
   const [payload, setPayload] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -237,10 +521,12 @@ export default function StatusPage() {
     <div className="min-h-screen bg-slate-50 text-slate-950">
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-10 sm:px-6 sm:py-14">
         <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <Link to="/" className="inline-flex items-center gap-3 text-3xl font-extrabold tracking-normal text-slate-950">
-            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-950 text-base font-black text-white">A</span>
-            Aura Status
-          </Link>
+          <h1 className="text-3xl font-extrabold tracking-normal text-slate-950">
+            <Link to="/" className="inline-flex items-center gap-3">
+              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-950 text-base font-black text-white">A</span>
+              Aura Status
+            </Link>
+          </h1>
           <div className="flex flex-wrap items-center gap-3">
             {payload?.lastUpdatedAt ? (
               <span className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500">
@@ -278,6 +564,7 @@ export default function StatusPage() {
             <OverallStatusBanner status={payload.overallStatus} message={payload.message} />
             <IncidentStrip title="Active incidents" items={payload.activeIncidents || []} />
             <IncidentStrip title="Scheduled maintenance" items={payload.activeMaintenance || []} />
+            <SecurityHarnessCard harness={payload.securityHarness} />
             <SystemStatusCard
               groups={payload.groups || []}
               monitoringStartedAt={payload.monitoringStartedAt}

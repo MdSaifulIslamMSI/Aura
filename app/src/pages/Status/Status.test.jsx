@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import UptimeBars from './UptimeBars';
-import { SystemStatusCard } from './index';
+import { SecurityHarnessCard, SystemStatusCard } from './index';
 
 const history90d = Array.from({ length: 90 }, (_, index) => ({
   date: `2026-02-${String((index % 28) + 1).padStart(2, '0')}`,
@@ -60,5 +60,73 @@ describe('status page components', () => {
     fireEvent.click(screen.getByRole('button', { name: /API/i }));
     expect(screen.getByText('Public API')).toBeInTheDocument();
     expect(screen.getAllByRole('listitem')).toHaveLength(180);
+  });
+
+  it('renders the Student Pack security harness without secret values', () => {
+    render(
+      <SecurityHarnessCard
+        harness={{
+          enabled: true,
+          overallStatus: 'degraded_performance',
+          readinessPercent: 58,
+          readyProviders: 2,
+          partialProviders: 3,
+          blockedProviders: 1,
+          missingEnv: ['SENTRY_AUTH_TOKEN', 'LT_USERNAME'],
+          liveAuth: { available: true, generatedAt: new Date().toISOString() },
+          updatedAt: new Date().toISOString(),
+          controls: [{
+            id: 'release-error-loop',
+            name: 'Release error loop',
+            category: 'Runtime protection',
+            purpose: 'Connects deploy metadata and failure telemetry.',
+            status: 'partial',
+            readinessPercent: 50,
+            providerIds: ['sentry', 'datadog'],
+            missingEnv: ['SENTRY_AUTH_TOKEN'],
+          }],
+          gatedFlows: [{
+            id: 'release-observability',
+            name: 'Release observability',
+            status: 'partial',
+            readinessPercent: 50,
+            providerIds: ['sentry', 'datadog'],
+            command: 'npm run student-pack:auth:live',
+          }],
+          nextActions: [{
+            id: 'unlock-sentry',
+            title: 'Unlock Sentry',
+            status: 'partial',
+            missingEnv: ['SENTRY_AUTH_TOKEN'],
+            command: 'npm run student-pack:sentry:release',
+          }],
+          providers: [{
+            id: 'sentry',
+            name: 'Sentry',
+            area: 'Runtime errors',
+            summary: 'Catches application exceptions and protects releases.',
+            status: 'partial',
+            readinessPercent: 50,
+            configuredEnv: ['SENTRY_DSN'],
+            missingEnv: ['SENTRY_AUTH_TOKEN', 'SENTRY_ORG', 'SENTRY_PROJECT'],
+            commands: ['npm run student-pack:sentry:release'],
+            liveAuth: {
+              status: 'partial',
+              detail: 'runtime DSN present, CLI auth missing',
+              command: 'sentry-cli info',
+            },
+          }],
+        }}
+      />
+    );
+
+    expect(screen.getByText('Student Pack command matrix')).toBeInTheDocument();
+    expect(screen.getByText('Sentry')).toBeInTheDocument();
+    expect(screen.getByText('Release error loop')).toBeInTheDocument();
+    expect(screen.getByText('Release observability')).toBeInTheDocument();
+    expect(screen.getByText('Unlock Sentry')).toBeInTheDocument();
+    expect(screen.getByText(/runtime DSN present/i)).toBeInTheDocument();
+    expect(screen.getAllByText('SENTRY_AUTH_TOKEN').length).toBeGreaterThan(0);
+    expect(screen.queryByText('super-secret-token')).not.toBeInTheDocument();
   });
 });
