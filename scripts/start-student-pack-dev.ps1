@@ -17,11 +17,13 @@ New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
 Set-Location $RepoRoot
 
 $extraPathEntries = @(
+    (Join-Path $RepoRoot "bin"),
     (Join-Path $env:APPDATA "npm"),
     (Join-Path $env:APPDATA "Python\Python312\Scripts"),
     (Join-Path $env:LOCALAPPDATA "Microsoft\WinGet\Packages\Doppler.doppler_Microsoft.Winget.Source_8wekyb3d8bbwe"),
     (Join-Path $env:LOCALAPPDATA "Microsoft\WinGet\Packages\LocalStack.localstack-cli_Microsoft.Winget.Source_8wekyb3d8bbwe")
 ) | Where-Object { $_ -and (Test-Path $_) }
+
 
 foreach ($entry in $extraPathEntries) {
     if (($env:Path -split ';') -notcontains $entry) {

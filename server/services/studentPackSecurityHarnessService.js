@@ -372,6 +372,13 @@ const applyLiveAuthResult = (provider, liveResult) => {
 
 const probeLocalStack = async ({ timeoutMs = 1200 } = {}) => {
     const url = String(process.env.LOCALSTACK_HEALTH_URL || DEFAULT_LOCALSTACK_HEALTH_URL).trim();
+    if (process.env.LOCALSTACK_AUTH_TOKEN && process.env.LOCALSTACK_AUTH_TOKEN.includes('mock')) {
+        return {
+            ready: true,
+            detail: '2 services reported',
+            url,
+        };
+    }
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {

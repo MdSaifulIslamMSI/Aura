@@ -1,3 +1,6 @@
+const { loadLocalEnvFiles } = require('../config/runtimeConfig');
+loadLocalEnvFiles();
+
 const {
     DEFAULT_CORPUS_PATH,
     REPORT_PATH,
@@ -39,7 +42,13 @@ const fetchSearch = async (entry = {}) => {
         }
     });
 
-    const response = await fetch(url);
+    const headers = {};
+    const originSecret = process.env.AURA_CLOUDFRONT_ORIGIN_VERIFY_SECRET || process.env.CLOUDFRONT_ORIGIN_VERIFY_SECRET;
+    if (originSecret) {
+        headers['x-aura-origin-verify'] = originSecret;
+    }
+
+    const response = await fetch(url, { headers });
     const json = await response.json();
     if (!response.ok) {
         throw new Error(json?.message || `Search request failed with ${response.status}`);

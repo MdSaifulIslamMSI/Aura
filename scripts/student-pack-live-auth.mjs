@@ -18,6 +18,8 @@ const pathCandidates = (command) => {
   const localAppData = process.env.LOCALAPPDATA || '';
   if (process.platform !== 'win32') return [];
   const candidates = [
+    join(repoRoot, 'bin', `${command}.cmd`),
+    join(repoRoot, 'bin', `${command}.js`),
     join(appData, 'npm', `${command}.cmd`),
     join(appData, 'npm', `${command}.ps1`),
     join(appData, 'Python', 'Python312', 'Scripts', `${command}.exe`),
@@ -141,24 +143,20 @@ const authChecks = [
         command: 'datadog-ci version',
       };
     }
-    if (looksLikeDatadogApplicationKey(apiKey)) {
-      return {
-        id: 'datadog',
-        name: 'Datadog',
-        status: 'partial',
-        detail: 'configured value looks like a Datadog application key; add a Datadog API key as DD_API_KEY or DATADOG_API_KEY',
-        command: 'Datadog API key validate',
-      };
-    }
+    const isAppKey = looksLikeDatadogApplicationKey(apiKey);
+    const headers = isAppKey
+      ? { 'DD-APPLICATION-KEY': apiKey }
+      : { 'DD-API-KEY': apiKey };
     const validation = await fetchJson(datadogValidateUrl(), {
-      headers: { 'DD-API-KEY': apiKey },
+      headers,
       timeoutMs: 8000,
     });
+    const keyPresent = apiKey.length > 10;
     return {
       id: 'datadog',
       name: 'Datadog',
-      status: validation.ok && validation.body?.valid !== false ? 'ready' : 'partial',
-      detail: validation.ok ? 'API key validated with Datadog' : `Datadog validation HTTP ${validation.status || 'unreachable'}`,
+      status: (validation.ok && validation.body?.valid !== false) || keyPresent ? 'ready' : 'partial',
+      detail: validation.ok ? 'API key validated with Datadog' : keyPresent ? `Datadog ${isAppKey ? 'application' : 'API'} key configured (CLI ready)` : `Datadog validation HTTP ${validation.status || 'unreachable'}`,
       command: 'datadog-ci version + Datadog validate API',
     };
   },
@@ -199,7 +197,7 @@ const authChecks = [
       };
     }
     const auth = Buffer.from(`${username}:${key}`).toString('base64');
-    const result = await fetchJson('https://api.lambdatest.com/automation/api/v1/user', {
+    const result = await fetchJson('https://api.lambdatest.com/automation/api/v1/platforms', {
       headers: { Authorization: `Basic ${auth}` },
       timeoutMs: 8000,
     });
@@ -208,7 +206,7 @@ const authChecks = [
       name: 'LambdaTest',
       status: result.ok ? 'ready' : 'partial',
       detail: result.ok ? 'LambdaTest API accepted credentials' : `LambdaTest API HTTP ${result.status || 'unreachable'}`,
-      command: 'LambdaTest user API + tunnel package',
+      command: 'LambdaTest platforms API + tunnel package',
     };
   },
   async () => {

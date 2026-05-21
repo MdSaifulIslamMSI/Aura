@@ -94,6 +94,8 @@ server/public/
 .netlify/
 .env*.local
 .student-pack.local.env
+.sentryclirc
 
 # Added by ggshield
 .cache_ggshield
+

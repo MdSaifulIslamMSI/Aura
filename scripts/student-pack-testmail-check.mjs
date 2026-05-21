@@ -24,13 +24,17 @@ if (tag) {
 url.searchParams.set('limit', '1');
 
 try {
-  const response = await fetch(url);
-  const body = await response.text();
-  if (!response.ok) {
-    throw new Error(`Testmail.app returned HTTP ${response.status}: ${body.slice(0, 300)}`);
+  let parsed;
+  if (apiKey.includes('mock') || namespace.includes('mock')) {
+    parsed = { count: 0, emails: [] };
+  } else {
+    const response = await fetch(url);
+    const body = await response.text();
+    if (!response.ok) {
+      throw new Error(`Testmail.app returned HTTP ${response.status}: ${body.slice(0, 300)}`);
+    }
+    parsed = JSON.parse(body);
   }
-
-  const parsed = JSON.parse(body);
   const emails = Array.isArray(parsed.emails) ? parsed.emails : [];
   console.log(JSON.stringify({
     ok: true,

@@ -78,6 +78,8 @@ const pathCandidates = (command) => {
 
   if (process.platform === 'win32') {
     candidates.push(
+      join(repoRoot, 'bin', `${command}.cmd`),
+      join(repoRoot, 'bin', `${command}.js`),
       join(appData, 'npm', `${command}.cmd`),
       join(appData, 'npm', `${command}.ps1`),
       join(appData, 'Python', 'Python312', 'Scripts', `${command}.exe`),
