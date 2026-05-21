@@ -6,6 +6,11 @@ const { loadLocalEnvFiles } = require('../config/runtimeConfig');
 
 loadLocalEnvFiles();
 
+// Disable origin verification and health ready token check by default for tests to prevent 403/401 blocks
+delete process.env.AURA_CLOUDFRONT_ORIGIN_VERIFY_SECRET;
+delete process.env.CLOUDFRONT_ORIGIN_VERIFY_SECRET;
+delete process.env.HEALTH_READY_TOKEN;
+
 process.env.ORDER_EMAIL_PROVIDER = 'null';
 
 // Ensure critical environment variables have safe defaults for testing

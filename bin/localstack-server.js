@@ -76,18 +76,7 @@ const server = http.createServer(async (req, res) => {
       return res.end(JSON.stringify({ Version: ssmParameters.get(params.Name).Version, Tier: 'Standard' }));
     }
 
-    if (target.includes('GetParameter')) {
-      const params = JSON.parse(body);
-      const param = ssmParameters.get(params.Name);
-      if (!param) {
-        res.writeHead(400, { 'Content-Type': 'application/x-amz-json-1.1' });
-        return res.end(JSON.stringify({ __type: 'ParameterNotFound', message: `Parameter ${params.Name} not found.` }));
-      }
-      res.writeHead(200, { 'Content-Type': 'application/x-amz-json-1.1' });
-      return res.end(JSON.stringify({ Parameter: param }));
-    }
-
-    if (target.includes('GetParametersByPath')) {
+    if (target.endsWith('GetParametersByPath')) {
       let params;
       try { params = JSON.parse(body); } catch { params = {}; }
       const prefix = params.Path || params.path || '/aura/dev';
@@ -102,7 +91,36 @@ const server = http.createServer(async (req, res) => {
       return res.end(JSON.stringify({ Parameters: matching }));
     }
 
-    if (target.includes('DescribeParameters')) {
+    if (target.endsWith('GetParameters')) {
+      let params;
+      try { params = JSON.parse(body); } catch { params = {}; }
+      const names = params.Names || [];
+      const matching = [];
+      const invalid = [];
+      for (const name of names) {
+        const param = ssmParameters.get(name);
+        if (param) {
+          matching.push(param);
+        } else {
+          invalid.push(name);
+        }
+      }
+      res.writeHead(200, { 'Content-Type': 'application/x-amz-json-1.1' });
+      return res.end(JSON.stringify({ Parameters: matching, InvalidParameters: invalid }));
+    }
+
+    if (target.endsWith('GetParameter')) {
+      const params = JSON.parse(body);
+      const param = ssmParameters.get(params.Name);
+      if (!param) {
+        res.writeHead(400, { 'Content-Type': 'application/x-amz-json-1.1' });
+        return res.end(JSON.stringify({ __type: 'ParameterNotFound', message: `Parameter ${params.Name} not found.` }));
+      }
+      res.writeHead(200, { 'Content-Type': 'application/x-amz-json-1.1' });
+      return res.end(JSON.stringify({ Parameter: param }));
+    }
+
+    if (target.endsWith('DescribeParameters')) {
       const all = Array.from(ssmParameters.values()).map(p => ({
         Name: p.Name, Type: p.Type, Version: p.Version,
         LastModifiedDate: p.LastModifiedDate, ARN: p.ARN, DataType: 'text'

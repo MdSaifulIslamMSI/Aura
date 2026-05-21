@@ -210,6 +210,12 @@ describe('Auth backup recovery codes', () => {
 
 
 describe('Auth sync verified-email gating', () => {
+    afterEach(() => {
+        jest.dontMock('../config/authTrustedDeviceFlags');
+        jest.resetModules();
+        jest.clearAllMocks();
+    });
+
     test('POST /api/auth/sync rejects unverified auth token', async () => {
         let isolatedApp;
 
@@ -321,6 +327,9 @@ describe('Auth sync verified-email gating', () => {
             jest.doMock('../middleware/authMiddleware', () => ({
                 invalidateUserCache: jest.fn().mockResolvedValue(undefined),
                 invalidateUserCacheByEmail: jest.fn().mockResolvedValue(undefined),
+            }));
+            jest.doMock('../config/authTrustedDeviceFlags', () => ({
+                shouldRequireTrustedDevice: jest.fn().mockReturnValue(false),
             }));
             jest.doMock('../services/trustedDeviceChallengeService', () => ({
                 TRUSTED_DEVICE_SESSION_HEADER: 'x-aura-device-session',
