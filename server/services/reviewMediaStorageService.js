@@ -177,6 +177,25 @@ const ensureReviewUploadStorageReady = async () => {
     await ensureLocalStorageReady();
 };
 
+const getReviewUploadStorageHealth = async () => {
+    const storageDriver = getStorageDriver();
+    try {
+        await ensureReviewUploadStorageReady();
+        return {
+            ok: true,
+            status: 'ok',
+            driver: storageDriver,
+        };
+    } catch (error) {
+        return {
+            ok: false,
+            status: 'degraded',
+            driver: storageDriver,
+            errorMessage: error?.message || 'upload_storage_unavailable',
+        };
+    }
+};
+
 const storeReviewMedia = async ({ fileBuffer, fileName, mimeType }) => {
     const normalizedMimeType = String(mimeType || '').trim().toLowerCase();
     const normalizedFileName = sanitizeObjectKeySegment(fileName || 'review-media');
@@ -256,6 +275,7 @@ module.exports = {
     buildReviewMediaStorageKey,
     ensureReviewUploadStorageReady,
     getStorageDriver,
+    getReviewUploadStorageHealth,
     getReviewMediaObject,
     storeReviewMedia,
 };

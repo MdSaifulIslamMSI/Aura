@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import UptimeBars from './UptimeBars';
-import { SecurityHarnessCard, SystemStatusCard } from './index';
+import { SecurityHarnessCard, StatusPowerCard, SystemStatusCard } from './index';
 
 const history90d = Array.from({ length: 90 }, (_, index) => ({
   date: `2026-02-${String((index % 28) + 1).padStart(2, '0')}`,
@@ -60,6 +60,32 @@ describe('status page components', () => {
     fireEvent.click(screen.getByRole('button', { name: /API/i }));
     expect(screen.getByText('Public API')).toBeInTheDocument();
     expect(screen.getAllByRole('listitem')).toHaveLength(180);
+  });
+
+  it('renders status page power measurement dimensions', () => {
+    render(
+      <StatusPowerCard
+        power={{
+          score: 96,
+          level: 'powerhouse',
+          coverage: {
+            groups: 11,
+            components: 14,
+            healthSignals: 10,
+          },
+          dimensions: [
+            { id: 'surface_coverage', label: 'Surface coverage', score: 100, detail: '11 groups / 14 components' },
+            { id: 'history_depth', label: '90-day history depth', score: 100, detail: '90/90 measured days' },
+          ],
+        }}
+      />
+    );
+
+    expect(screen.getByText('Status power')).toBeInTheDocument();
+    expect(screen.getByText('96/100 powerhouse')).toBeInTheDocument();
+    expect(screen.getByText('11 groups, 14 components, 10 health signals')).toBeInTheDocument();
+    expect(screen.getByText('Surface coverage')).toBeInTheDocument();
+    expect(screen.getByText('90-day history depth')).toBeInTheDocument();
   });
 
   it('renders the Student Pack security harness without secret values', () => {

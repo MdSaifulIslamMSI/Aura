@@ -1,3 +1,7 @@
+const { mkdtempSync, rmSync, writeFileSync } = require('fs');
+const { join } = require('path');
+const { tmpdir } = require('os');
+
 const {
     getStudentPackSecurityHarnessSnapshot,
     shouldExposeStudentPackSecurityHarness,
@@ -31,6 +35,7 @@ const HARNESS_ENV_KEYS = [
 describe('studentPackSecurityHarnessService', () => {
     const originalEnv = {};
     const originalNodeEnv = process.env.NODE_ENV;
+    const tempDirs = [];
 
     beforeEach(() => {
         HARNESS_ENV_KEYS.forEach((key) => {
@@ -47,6 +52,9 @@ describe('studentPackSecurityHarnessService', () => {
             if (originalEnv[key] === undefined) delete process.env[key];
             else process.env[key] = originalEnv[key];
         });
+        while (tempDirs.length) {
+            rmSync(tempDirs.pop(), { recursive: true, force: true });
+        }
     });
 
     test('keeps production public harness disabled unless explicitly enabled', () => {
@@ -110,5 +118,54 @@ describe('studentPackSecurityHarnessService', () => {
         expect(__testables.buildControlMatrix(snapshot.providers).length).toBeGreaterThan(0);
         expect(JSON.stringify(snapshot)).not.toContain('sentry-secret-value');
         expect(JSON.stringify(snapshot)).not.toContain('doppler-secret-value');
+    });
+
+    test('applies live provider CLI auth report to status harness readiness', async () => {
+        const tempDir = mkdtempSync(join(tmpdir(), 'aura-live-auth-'));
+        tempDirs.push(tempDir);
+        const reportPath = join(tempDir, 'student-pack-live-auth.json');
+        writeFileSync(reportPath, JSON.stringify({
+            generatedAt: '2026-05-21T00:00:00.000Z',
+            results: [
+                {
+                    id: 'sentry',
+                    name: 'Sentry',
+                    status: 'ready',
+                    detail: 'sentry-cli authenticated',
+                    command: 'sentry-cli info',
+                },
+                {
+                    id: 'lambdatest',
+                    name: 'LambdaTest',
+                    status: 'partial',
+                    detail: 'access key present, username missing',
+                    command: 'npm run student-pack:lambdatest:tunnel',
+                },
+            ],
+        }));
+        process.env.STUDENT_PACK_LIVE_AUTH_REPORT_PATH = reportPath;
+
+        const snapshot = await getStudentPackSecurityHarnessSnapshot({ probeEndpoints: false });
+        const sentry = snapshot.providers.find((provider) => provider.id === 'sentry');
+        const lambdaTest = snapshot.providers.find((provider) => provider.id === 'lambdatest');
+
+        expect(snapshot.liveAuth).toMatchObject({
+            available: true,
+            generatedAt: '2026-05-21T00:00:00.000Z',
+        });
+        expect(sentry).toMatchObject({
+            status: 'ready',
+            readinessPercent: 100,
+            liveAuth: {
+                status: 'ready',
+                detail: 'sentry-cli authenticated',
+            },
+        });
+        expect(lambdaTest).toMatchObject({
+            status: 'partial',
+            liveAuth: {
+                command: 'npm run student-pack:lambdatest:tunnel',
+            },
+        });
     });
 });

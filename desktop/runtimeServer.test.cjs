@@ -14,8 +14,10 @@ const {
     DEFAULT_DESKTOP_AUTH_FRONTEND_ORIGIN,
     DEFAULT_RUNTIME_PORT,
     DESKTOP_AUTH_COMPLETE_PATH,
+    isLoopbackBackendOrigin,
     resolveBackendOrigin,
     resolveAllowedDesktopAuthOrigins,
+    shouldAllowInsecureBackendProxy,
     startRuntimeServer,
     stripBrowserOnlyProxyHeaders,
 } = require('./runtimeServer.cjs');
@@ -45,8 +47,43 @@ test('desktop proxy applies header stripping to HTTP and WebSocket proxy request
     const options = buildProxyOptions('http://backend.example.test');
 
     assert.equal(options.target, 'http://backend.example.test');
+    assert.equal(options.secure, true);
     assert.equal(options.on.proxyReq, stripBrowserOnlyProxyHeaders);
     assert.equal(options.on.proxyReqWs, stripBrowserOnlyProxyHeaders);
+});
+
+test('desktop proxy verifies backend TLS by default and only allows insecure loopback opt-in', () => {
+    const previousNodeEnv = process.env.NODE_ENV;
+    const previousAllowInsecure = process.env.AURA_DESKTOP_ALLOW_INSECURE_BACKEND_PROXY;
+
+    try {
+        delete process.env.AURA_DESKTOP_ALLOW_INSECURE_BACKEND_PROXY;
+        process.env.NODE_ENV = 'development';
+
+        assert.equal(buildProxyOptions('https://api.example.test').secure, true);
+        assert.equal(shouldAllowInsecureBackendProxy('https://api.example.test'), false);
+        assert.equal(isLoopbackBackendOrigin('https://127.0.0.1:5001'), true);
+
+        process.env.AURA_DESKTOP_ALLOW_INSECURE_BACKEND_PROXY = 'true';
+        assert.equal(buildProxyOptions('https://127.0.0.1:5001').secure, false);
+        assert.equal(buildProxyOptions('https://localhost:5001').secure, false);
+        assert.equal(buildProxyOptions('https://api.example.test').secure, true);
+
+        process.env.NODE_ENV = 'production';
+        assert.equal(buildProxyOptions('https://127.0.0.1:5001').secure, true);
+    } finally {
+        if (previousNodeEnv === undefined) {
+            delete process.env.NODE_ENV;
+        } else {
+            process.env.NODE_ENV = previousNodeEnv;
+        }
+
+        if (previousAllowInsecure === undefined) {
+            delete process.env.AURA_DESKTOP_ALLOW_INSECURE_BACKEND_PROXY;
+        } else {
+            process.env.AURA_DESKTOP_ALLOW_INSECURE_BACKEND_PROXY = previousAllowInsecure;
+        }
+    }
 });
 
 test('desktop runtime disables caching for local frontend responses only', () => {

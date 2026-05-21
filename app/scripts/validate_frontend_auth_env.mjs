@@ -4,12 +4,25 @@ import { fileURLToPath } from 'node:url';
 
 const appRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
+const FIREBASE_WEB_CONFIG_KEYS = [
+  'VITE_FIREBASE_CONFIG',
+  'VITE_FIREBASE_WEB_CONFIG',
+];
+
+const FIREBASE_CONFIG_KEY_MAP = {
+  VITE_FIREBASE_API_KEY: 'apiKey',
+  VITE_FIREBASE_AUTH_DOMAIN: 'authDomain',
+  VITE_FIREBASE_PROJECT_ID: 'projectId',
+  VITE_FIREBASE_STORAGE_BUCKET: 'storageBucket',
+  VITE_FIREBASE_MESSAGING_SENDER_ID: 'messagingSenderId',
+  VITE_FIREBASE_APP_ID: 'appId',
+  VITE_FIREBASE_MEASUREMENT_ID: 'measurementId',
+};
+
 const REQUIRED_FIREBASE_WEB_KEYS = [
   'VITE_FIREBASE_API_KEY',
   'VITE_FIREBASE_AUTH_DOMAIN',
   'VITE_FIREBASE_PROJECT_ID',
-  'VITE_FIREBASE_STORAGE_BUCKET',
-  'VITE_FIREBASE_MESSAGING_SENDER_ID',
   'VITE_FIREBASE_APP_ID',
 ];
 
@@ -67,6 +80,44 @@ const env = {
   ...process.env,
 };
 
+const sanitizeEnvValue = (value) => String(value || '')
+  .replace(/\\[rnt]/g, '')
+  .replace(/[\r\n\t]+/g, '')
+  .trim();
+
+const parseFirebaseConfigEnv = (value) => {
+  const sanitized = sanitizeEnvValue(value);
+  if (!sanitized) return {};
+
+  try {
+    const parsed = JSON.parse(sanitized);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+};
+
+const deriveDefaultAuthDomain = (projectId) => {
+  const sanitizedProjectId = sanitizeEnvValue(projectId);
+  if (!sanitizedProjectId || !/^[a-z0-9-]+$/i.test(sanitizedProjectId)) return '';
+  return `${sanitizedProjectId}.firebaseapp.com`;
+};
+
+const aggregateFirebaseConfig = FIREBASE_WEB_CONFIG_KEYS.reduce((config, key) => ({
+  ...config,
+  ...parseFirebaseConfigEnv(env[key]),
+}), {});
+
+const effectiveEnv = Object.entries(FIREBASE_CONFIG_KEY_MAP).reduce((result, [envKey, configKey]) => {
+  const directValue = sanitizeEnvValue(result[envKey]);
+  result[envKey] = directValue || sanitizeEnvValue(aggregateFirebaseConfig[configKey]);
+  return result;
+}, { ...env });
+
+if (!effectiveEnv.VITE_FIREBASE_AUTH_DOMAIN) {
+  effectiveEnv.VITE_FIREBASE_AUTH_DOMAIN = deriveDefaultAuthDomain(effectiveEnv.VITE_FIREBASE_PROJECT_ID);
+}
+
 const normalizedDeployTarget = String(env.VITE_DEPLOY_TARGET || env.DEPLOY_TARGET || '')
   .trim()
   .toLowerCase();
@@ -80,7 +131,7 @@ if (parseBoolean(env.AURA_SKIP_FRONTEND_AUTH_ENV_VALIDATION, false) || !isStrict
   process.exit(0);
 }
 
-const getValue = (key) => String(env[key] || '').trim();
+const getValue = (key) => sanitizeEnvValue(effectiveEnv[key]);
 
 const missingKeys = REQUIRED_FIREBASE_WEB_KEYS.filter((key) => !getValue(key));
 
@@ -110,7 +161,7 @@ if (missingKeys.length || placeholderKeys.length) {
     formatIssues('Missing', missingKeys),
     formatIssues('Placeholder values', placeholderKeys),
     '',
-    'Set the VITE_FIREBASE_* web app values in the deployment environment before building.',
+    'Set the VITE_FIREBASE_* web app values or VITE_FIREBASE_CONFIG JSON in the deployment environment before building.',
     'For Vercel, add them under Project Settings > Environment Variables for Production and Preview.',
     'For GitHub desktop or multi-host releases, add them as repository variables or secrets.',
     'Use AURA_SKIP_FRONTEND_AUTH_ENV_VALIDATION=true only for non-auth smoke builds.',

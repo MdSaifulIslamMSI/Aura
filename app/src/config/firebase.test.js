@@ -26,6 +26,9 @@ vi.mock('firebase/auth', () => ({
   TwitterAuthProvider: class TwitterAuthProvider {
     setCustomParameters() {}
   },
+  OAuthProvider: class OAuthProvider {
+    setCustomParameters() {}
+  },
 }));
 
 vi.mock('firebase/analytics', () => ({
@@ -99,6 +102,20 @@ const setFirebaseEnv = (suffix = '') => {
   vi.stubEnv('VITE_FIREBASE_FORCE_REDIRECT_SOCIAL_AUTH', 'false');
   vi.stubEnv('VITE_MOBILE_NATIVE_SOCIAL_AUTH_ENABLED', 'false');
   vi.stubEnv('VITE_MOBILE_FIREBASE_PHONE_OTP_ENABLED', 'false');
+};
+
+const clearFirebaseWebEnv = () => {
+  [
+    'VITE_FIREBASE_API_KEY',
+    'VITE_FIREBASE_AUTH_DOMAIN',
+    'VITE_FIREBASE_PROJECT_ID',
+    'VITE_FIREBASE_STORAGE_BUCKET',
+    'VITE_FIREBASE_MESSAGING_SENDER_ID',
+    'VITE_FIREBASE_APP_ID',
+    'VITE_FIREBASE_MEASUREMENT_ID',
+    'VITE_FIREBASE_CONFIG',
+    'VITE_FIREBASE_WEB_CONFIG',
+  ].forEach((key) => vi.stubEnv(key, ''));
 };
 
 const loadFirebaseModule = async ({ hostname, host = hostname }) => {
@@ -363,6 +380,97 @@ describe('firebase social auth host policy', () => {
     expect(firebase.getFirebaseSocialAuthStatus()).toMatchObject({
       ready: true,
       runtimeHost: 'aurapilot.vercel.app',
+      supported: true,
+    });
+  });
+
+  it('keeps hosted auth available when optional Firebase storage and messaging values are absent', async () => {
+    vi.resetModules();
+    setFirebaseEnv();
+    vi.stubEnv('VITE_FIREBASE_STORAGE_BUCKET', '');
+    vi.stubEnv('VITE_FIREBASE_MESSAGING_SENDER_ID', '');
+    window.sessionStorage.clear();
+    setRuntimeHost({
+      hostname: 'aurapilot.vercel.app',
+      host: 'aurapilot.vercel.app',
+    });
+    setDisplayModes([]);
+
+    const firebase = await import('./firebase');
+
+    expect(firebase.isFirebaseReady).toBe(true);
+    expect(firebase.firebaseConfig).toMatchObject({
+      apiKey: 'firebase-api-key',
+      authDomain: 'billy-b674c.firebaseapp.com',
+      projectId: 'billy-b674c',
+      appId: '1:32774635133:web:e9b7a433e45debcee07b14',
+    });
+    expect(firebase.getFirebaseSocialAuthStatus()).toMatchObject({
+      ready: true,
+      supported: true,
+    });
+  });
+
+  it('accepts Firebase web config JSON from hosted deployment environments', async () => {
+    vi.resetModules();
+    clearFirebaseWebEnv();
+    vi.stubEnv('VITE_FIREBASE_CONFIG', JSON.stringify({
+      apiKey: 'json-api-key',
+      authDomain: 'json-project.firebaseapp.com',
+      projectId: 'json-project',
+      appId: '1:222:web:abcdef',
+    }));
+    vi.stubEnv('VITE_FIREBASE_DISABLE_SOCIAL_AUTH', 'false');
+    vi.stubEnv('VITE_FIREBASE_DESKTOP_REDIRECT_SOCIAL_AUTH', '');
+    vi.stubEnv('VITE_FIREBASE_FORCE_REDIRECT_SOCIAL_AUTH', 'false');
+    vi.stubEnv('VITE_MOBILE_NATIVE_SOCIAL_AUTH_ENABLED', 'false');
+    vi.stubEnv('VITE_MOBILE_FIREBASE_PHONE_OTP_ENABLED', 'false');
+    window.sessionStorage.clear();
+    setRuntimeHost({
+      hostname: 'aurapilot.netlify.app',
+      host: 'aurapilot.netlify.app',
+    });
+    setDisplayModes([]);
+
+    const firebase = await import('./firebase');
+
+    expect(firebase.isFirebaseReady).toBe(true);
+    expect(firebase.firebaseConfig).toMatchObject({
+      apiKey: 'json-api-key',
+      authDomain: 'json-project.firebaseapp.com',
+      projectId: 'json-project',
+      appId: '1:222:web:abcdef',
+    });
+    expect(firebase.getFirebaseSocialAuthStatus()).toMatchObject({
+      ready: true,
+      supported: true,
+    });
+  });
+
+  it('derives Firebase auth domain from project id when hosted config omits the domain', async () => {
+    vi.resetModules();
+    clearFirebaseWebEnv();
+    vi.stubEnv('VITE_FIREBASE_API_KEY', 'firebase-api-key');
+    vi.stubEnv('VITE_FIREBASE_PROJECT_ID', 'billy-b674c');
+    vi.stubEnv('VITE_FIREBASE_APP_ID', '1:32774635133:web:e9b7a433e45debcee07b14');
+    vi.stubEnv('VITE_FIREBASE_DISABLE_SOCIAL_AUTH', 'false');
+    vi.stubEnv('VITE_FIREBASE_DESKTOP_REDIRECT_SOCIAL_AUTH', '');
+    vi.stubEnv('VITE_FIREBASE_FORCE_REDIRECT_SOCIAL_AUTH', 'false');
+    vi.stubEnv('VITE_MOBILE_NATIVE_SOCIAL_AUTH_ENABLED', 'false');
+    vi.stubEnv('VITE_MOBILE_FIREBASE_PHONE_OTP_ENABLED', 'false');
+    window.sessionStorage.clear();
+    setRuntimeHost({
+      hostname: 'aurapilot.vercel.app',
+      host: 'aurapilot.vercel.app',
+    });
+    setDisplayModes([]);
+
+    const firebase = await import('./firebase');
+
+    expect(firebase.isFirebaseReady).toBe(true);
+    expect(firebase.firebaseConfig.authDomain).toBe('billy-b674c.firebaseapp.com');
+    expect(firebase.getFirebaseSocialAuthStatus()).toMatchObject({
+      ready: true,
       supported: true,
     });
   });

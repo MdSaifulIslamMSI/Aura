@@ -11,6 +11,7 @@ if (String(process.env.NODE_ENV || '').trim().toLowerCase() === 'production') {
 }
 
 const categories = [
+  ['harness', 'npm run security:harness'],
   ['idor', 'npm run security:idor'],
   ['tokens', 'npm run security:tokens'],
   ['auth', 'npm run security:auth'],

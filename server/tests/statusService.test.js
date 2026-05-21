@@ -14,6 +14,7 @@ const {
     createStatusIncident,
     getDefaultStatusCatalog,
     getPublicStatus,
+    measureStatusPagePower,
     resolveIncident,
     seedDefaultStatusCatalog,
     subscribeToStatus,
@@ -197,6 +198,50 @@ describe('statusService', () => {
         expect(bySlug.get('admin-console')).toMatchObject({
             checkType: 'internal_health',
             metadata: { healthSignal: 'admin' },
+        });
+    });
+
+    test('measures status page power from coverage, signals, history, and operations', async () => {
+        await seedDefaultStatusCatalog();
+
+        const payload = await getPublicStatus({ force: true });
+        const dimensions = payload.statusPower.dimensions.map((dimension) => dimension.id);
+
+        expect(payload.statusPower).toMatchObject({
+            level: 'powerhouse',
+            coverage: {
+                groups: expect.any(Number),
+                components: expect.any(Number),
+                measuredDays90d: 90,
+            },
+        });
+        expect(payload.statusPower.score).toBeGreaterThanOrEqual(90);
+        expect(payload.statusPower.coverage.groups).toBeGreaterThanOrEqual(10);
+        expect(payload.statusPower.coverage.components).toBeGreaterThanOrEqual(14);
+        expect(payload.statusPower.coverage.healthSignals).toBeGreaterThanOrEqual(10);
+        expect(dimensions).toEqual(expect.arrayContaining([
+            'surface_coverage',
+            'health_signal_depth',
+            'history_depth',
+            'incident_operations',
+            'security_posture',
+        ]));
+    });
+
+    test('status page power measurement drops when monitoring history is absent', () => {
+        const power = measureStatusPagePower({
+            groups: [{ name: 'API' }],
+            components: [{ checkType: 'manual', metadata: {} }],
+            publicGroups: [{
+                components: [{ history90d: [] }],
+                measuredDays90d: 0,
+            }],
+        });
+
+        expect(power.level).toBe('thin');
+        expect(power.score).toBeLessThan(60);
+        expect(power.dimensions.find((dimension) => dimension.id === 'history_depth')).toMatchObject({
+            score: 0,
         });
     });
 
