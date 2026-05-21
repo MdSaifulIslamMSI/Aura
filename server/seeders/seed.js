@@ -15,6 +15,8 @@ const connectDB = require('../config/db');
 // Wait, the file is large (1990 lines). 
 // I will instead create a data.js in this folder that has the array in CommonJS format first.
 
+const SystemState = require('../models/SystemState');
+
 const importData = async () => {
     try {
         await connectDB();
@@ -22,12 +24,60 @@ const importData = async () => {
         // Clear existing data
         await Product.deleteMany();
 
-        // We will load data from a local file 'data.js' which I will create next
-        const products = require('./data/products');
+        const rawProducts = require('./data/products');
+        const products = rawProducts.map((p) => {
+            const externalId = p.externalId || `legacy_${p.id}`;
+            const source = p.source || 'manual';
+            const catalogVersion = p.catalogVersion || 'legacy-v1';
+            const isPublished = typeof p.isPublished === 'boolean' ? p.isPublished : true;
+            
+            let image = p.image || '';
+            if (image) {
+                if (image.includes('?')) {
+                    image += `&productId=${p.id}`;
+                } else {
+                    image += `?productId=${p.id}`;
+                }
+            }
+
+            const searchText = p.searchText || [
+                p.title || '',
+                p.brand || '',
+                p.category || '',
+                p.description || '',
+                Array.isArray(p.highlights) ? p.highlights.join(' ') : '',
+            ].filter(Boolean).join(' | ');
+
+            return {
+                ...p,
+                image,
+                externalId,
+                source,
+                catalogVersion,
+                isPublished,
+                searchText,
+            };
+        });
 
         await Product.insertMany(products);
-
         console.log('Data Imported!');
+
+        // Update SystemState to activate legacy-v1 catalog
+        await SystemState.updateOne(
+            { key: 'singleton' },
+            {
+                $setOnInsert: { key: 'singleton', manualProductCounter: 1000000 },
+                $set: {
+                    activeCatalogVersion: 'legacy-v1',
+                    previousCatalogVersion: '',
+                    lastSwitchAt: new Date(),
+                    catalogLastImportAt: new Date(),
+                },
+            },
+            { upsert: true }
+        );
+        console.log('SystemState updated to legacy-v1');
+
         process.exit();
     } catch (error) {
         console.error(`${error}`);
@@ -36,3 +86,4 @@ const importData = async () => {
 };
 
 importData();
+

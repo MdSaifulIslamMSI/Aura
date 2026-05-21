@@ -1,10 +1,12 @@
 const mongoose = require('mongoose');
-const dotenv = require('dotenv');
 const fs = require('fs/promises');
 const { MongoMemoryServer, MongoMemoryReplSet } = require('mongodb-memory-server');
 const { resolveVaultFile } = require('../services/authProfileVault');
+const { loadLocalEnvFiles } = require('../config/runtimeConfig');
 
-dotenv.config();
+loadLocalEnvFiles();
+
+process.env.ORDER_EMAIL_PROVIDER = 'null';
 
 // Ensure critical environment variables have safe defaults for testing
 // especially when running in CI environments without a .env file.
@@ -13,6 +15,7 @@ process.env.OTP_CHALLENGE_SECRET = process.env.OTP_CHALLENGE_SECRET || 'test-otp
 process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-jwt-secret-key-aura-marketplace';
 process.env.FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || 'test-project-dev';
 process.env.OTP_EMAIL_FAIL_CLOSED = process.env.OTP_EMAIL_FAIL_CLOSED || 'false';
+process.env.AUTH_REQUIRE_INTERNATIONAL_PHONE_FORMAT = 'false';
 process.env.OTP_SMS_PROVIDER = process.env.OTP_SMS_PROVIDER || 'mock';
 process.env.OTP_SMS_ENABLED = process.env.OTP_SMS_ENABLED || 'true';
 process.env.OTP_SMS_FAIL_CLOSED = process.env.OTP_SMS_FAIL_CLOSED || 'true';

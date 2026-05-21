@@ -29,7 +29,9 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "test:e2e:locale": "node scripts/run_locale_visual_qa.mjs",
-    "test:e2e:ui": "playwright test --ui"
+    "test:e2e:ui": "playwright test --ui",
+    "lambdatest:tunnel": "node scripts/lambdatest_tunnel.mjs",
+    "lambdatest:playwright": "playwright-node-sdk playwright test"
   },
   "dependencies": {
     "@capacitor-firebase/authentication": "^8.2.0",
@@ -58,6 +60,8 @@
     "@capacitor/cli": "^8.3.1",
     "@capacitor/ios": "^8.3.1",
     "@eslint/js": "^9.39.1",
+    "@lambdatest/node-tunnel": "^4.0.11",
+    "@lambdatest/playwright-node-sdk": "^1.0.2",
     "@playwright/test": "^1.52.0",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",

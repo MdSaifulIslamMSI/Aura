@@ -15,12 +15,19 @@ const CATEGORY_MAP = {
     'home kitchen': "Home & Kitchen",
     'home & kitchen': "Home & Kitchen",
     'gaming': "Gaming & Accessories",
+    'gaming accessories': "Gaming & Accessories",
+    'gaming-accessories': "Gaming & Accessories",
     'gaming & accessories': "Gaming & Accessories",
     'electronics': "Electronics",
     'mobiles': "Mobiles",
     'laptops': "Laptops",
     'books': "Books",
-    'footwear': "Footwear"
+    'footwear': "Footwear",
+    'audio': "Electronics",
+    'wearables': "Electronics",
+    'home appliances': "Home & Kitchen",
+    'home-appliances': "Home & Kitchen",
+    'accessories': "Electronics"
 };
 
 /**

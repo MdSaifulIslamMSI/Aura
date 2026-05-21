@@ -3606,5 +3606,118 @@ module.exports = [
     stock: 456,
     deliveryTime: "2-3 days",
     warranty: "1 Year Redgear Warranty"
+  },
+  {
+    id: 201,
+    title: "Noise ColorFit Pulse 3 Smart Watch",
+    brand: "Noise",
+    category: "Wearables",
+    subCategory: "Smart Watches",
+    price: 1999,
+    originalPrice: 2999,
+    discountPercentage: 33,
+    rating: 4.2,
+    ratingCount: 1543,
+    image: "/assets/nano_watch.png",
+    description: "The Noise ColorFit Pulse 3 features a 1.91-inch display, Bluetooth calling, and multiple sports modes.",
+    highlights: ["1.91-inch TFT display", "Bluetooth calling", "Heart rate & SpO2 tracking", "IP68 water resistant"],
+    stock: 120,
+    deliveryTime: "2-3 days",
+    warranty: "1 Year Noise Warranty",
+    categoryPaths: ["Electronics", "Wearables"],
+    provenance: {
+      trustTier: "first_party"
+    },
+    contentQuality: {
+      publishReady: true
+    },
+    publishGate: {
+      status: "approved"
+    }
+  },
+  {
+    id: 202,
+    title: "Philips Digital Air Fryer XL (90 Series)",
+    brand: "Philips",
+    category: "Home Appliances",
+    subCategory: "Air Fryers",
+    price: 8999,
+    originalPrice: 11999,
+    discountPercentage: 25,
+    rating: 4.5,
+    ratingCount: 892,
+    image: "/assets/philips_air_fryer.png",
+    description: "Philips Digital Air Fryer XL with Rapid Air Technology, touch screen controls, and 7 preset cooking programs.",
+    highlights: ["Rapid Air Technology", "XL size 6.2L capacity", "Touch screen controls", "7 presets"],
+    stock: 54,
+    deliveryTime: "2-3 days",
+    warranty: "2 Years Philips Warranty",
+    categoryPaths: ["Home & Kitchen", "Home Appliances"],
+    provenance: {
+      trustTier: "first_party"
+    },
+    contentQuality: {
+      publishReady: true
+    },
+    publishGate: {
+      status: "approved"
+    }
+  },
+  {
+    id: 203,
+    title: "LG 242 L 3 Star Smart Inverter Double Door Refrigerator",
+    brand: "LG",
+    category: "Home Appliances",
+    subCategory: "Refrigerators",
+    price: 25990,
+    originalPrice: 28990,
+    discountPercentage: 10,
+    rating: 4.3,
+    ratingCount: 1234,
+    image: "/assets/lg_refrigerator.png",
+    description: "LG 242 L 3 Star Smart Inverter Frost Free Double Door Refrigerator with Smart Connect and Multi Air Flow.",
+    highlights: ["Smart Inverter Compressor", "Smart Connect", "Frost Free", "Multi Air Flow"],
+    stock: 23,
+    deliveryTime: "3-5 days",
+    warranty: "1 Year LG Warranty & 10 Years Compressor Warranty",
+    categoryPaths: ["Home & Kitchen", "Home Appliances"],
+    provenance: {
+      trustTier: "first_party"
+    },
+    contentQuality: {
+      publishReady: true
+    },
+    publishGate: {
+      status: "approved"
+    }
+  },
+  {
+    id: 204,
+    title: "Anker PowerPort III 20W USB C Charger",
+    brand: "Anker",
+    category: "Accessories",
+    subCategory: "Chargers",
+    price: 999,
+    originalPrice: 1499,
+    discountPercentage: 33,
+    rating: 4.6,
+    ratingCount: 3421,
+    image: "/assets/anker_charger.png",
+    description: "Anker PowerPort III 20W USB C charger with PowerIQ 3.0 technology for fast charging.",
+    highlights: ["20W USB-C output", "PowerIQ 3.0 technology", "Compact and portable", "MultiProtect safety"],
+    stock: 432,
+    deliveryTime: "1-2 days",
+    warranty: "18 Months Anker Warranty",
+    categoryPaths: ["Electronics", "Accessories"],
+    provenance: {
+      trustTier: "first_party"
+    },
+    contentQuality: {
+      publishReady: true
+    },
+    publishGate: {
+      status: "approved"
+    }
   }
 ];
+

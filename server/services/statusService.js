@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const firebaseAdmin = require('firebase-admin');
 const fetch = require('node-fetch');
 const mongoose = require('mongoose');
 const xss = require('xss');
@@ -6,9 +7,11 @@ const xss = require('xss');
 const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
 const { EMAIL_REGEX, flags: emailFlags } = require('../config/emailFlags');
+const { flags: paymentFlags } = require('../config/paymentFlags');
 const { getRedisHealth } = require('../config/redis');
 const { sendTransactionalEmail } = require('./email');
 const { getCachedHealthSnapshot } = require('./healthService');
+const { getReviewUploadStorageHealth } = require('./reviewMediaStorageService');
 const StatusComponentGroup = require('../models/StatusComponentGroup');
 const StatusComponent = require('../models/StatusComponent');
 const StatusCheck = require('../models/StatusCheck');
@@ -16,6 +19,11 @@ const StatusDailyMetric = require('../models/StatusDailyMetric');
 const StatusIncident = require('../models/StatusIncident');
 const StatusIncidentUpdate = require('../models/StatusIncidentUpdate');
 const StatusSubscriber = require('../models/StatusSubscriber');
+const {
+    getStudentPackSecurityHarnessSnapshot,
+    isStudentPackSecurityHarnessEnabled,
+    shouldExposeStudentPackSecurityHarness,
+} = require('./studentPackSecurityHarnessService');
 
 const COMPONENT_STATUS_LABELS = {
     operational: 'Operational',
@@ -217,6 +225,12 @@ const buildPublicStatusUrl = (path = '/status') => {
     return `${appPublicUrl}${path}`;
 };
 
+const resolveDefaultWebAppStatusUrl = () => String(
+    process.env.STATUS_WEB_APP_URL
+    || process.env.APP_PUBLIC_URL
+    || 'https://aurapilot.vercel.app'
+).trim();
+
 const shouldSendStatusEmails = () => process.env.NODE_ENV !== 'test';
 
 const DEFAULT_STATUS_CATALOG = [
@@ -225,8 +239,19 @@ const DEFAULT_STATUS_CATALOG = [
         slug: 'web-app',
         description: 'Customer storefront, browsing, cart, and checkout UI.',
         components: [
-            { name: 'Storefront', slug: 'web-storefront', checkType: 'manual' },
-            { name: 'Product Experience', slug: 'product-experience', checkType: 'manual' },
+            {
+                name: 'Storefront',
+                slug: 'web-storefront',
+                checkType: 'http',
+                checkUrl: resolveDefaultWebAppStatusUrl(),
+                metadata: { healthSignal: 'web_app' },
+            },
+            {
+                name: 'Product Experience',
+                slug: 'product-experience',
+                checkType: 'internal_health',
+                metadata: { healthSignal: 'catalog' },
+            },
         ],
     },
     {
@@ -234,15 +259,15 @@ const DEFAULT_STATUS_CATALOG = [
         slug: 'api',
         description: 'Public and authenticated marketplace APIs.',
         components: [
-            { name: 'Public API', slug: 'public-api', checkType: 'internal_health' },
-            { name: 'Commerce API', slug: 'commerce-api', checkType: 'internal_health' },
+            { name: 'Public API', slug: 'public-api', checkType: 'internal_health', metadata: { healthSignal: 'api' } },
+            { name: 'Commerce API', slug: 'commerce-api', checkType: 'internal_health', metadata: { healthSignal: 'commerce_api' } },
         ],
     },
     {
         name: 'Auth',
         slug: 'auth',
         description: 'Login, sessions, trusted-device checks, and admin access.',
-        components: [{ name: 'Authentication', slug: 'authentication', checkType: 'manual' }],
+        components: [{ name: 'Authentication', slug: 'authentication', checkType: 'internal_health', metadata: { healthSignal: 'auth' } }],
     },
     {
         name: 'Database',
@@ -260,39 +285,94 @@ const DEFAULT_STATUS_CATALOG = [
         name: 'Payments',
         slug: 'payments',
         description: 'Checkout payment providers and payment outbox processing.',
-        components: [{ name: 'Payment Processing', slug: 'payment-processing', checkType: 'manual' }],
+        components: [{ name: 'Payment Processing', slug: 'payment-processing', checkType: 'internal_health', metadata: { healthSignal: 'payments' } }],
     },
     {
         name: 'Email',
         slug: 'email',
         description: 'Transactional email and notification delivery.',
-        components: [{ name: 'Email Delivery', slug: 'email-delivery', checkType: 'manual' }],
+        components: [
+            { name: 'Email Delivery', slug: 'email-delivery', checkType: 'internal_health', metadata: { healthSignal: 'email' } },
+            { name: 'Status Subscriptions', slug: 'status-subscriptions', checkType: 'internal_health', metadata: { healthSignal: 'status_subscriptions' } },
+        ],
     },
     {
         name: 'AI Services',
         slug: 'ai-services',
         description: 'Assistant, recommendations, and product intelligence.',
-        components: [{ name: 'Commerce Assistant', slug: 'commerce-assistant', checkType: 'manual' }],
+        components: [{ name: 'Commerce Assistant', slug: 'commerce-assistant', checkType: 'internal_health', metadata: { healthSignal: 'ai' } }],
     },
     {
         name: 'File Uploads',
         slug: 'file-uploads',
         description: 'Review media and upload pipeline.',
-        components: [{ name: 'Media Uploads', slug: 'media-uploads', checkType: 'manual' }],
+        components: [{ name: 'Media Uploads', slug: 'media-uploads', checkType: 'internal_health', metadata: { healthSignal: 'uploads' } }],
     },
     {
         name: 'Realtime',
         slug: 'realtime',
         description: 'Chat, live updates, and video session signaling.',
-        components: [{ name: 'Realtime Messaging', slug: 'realtime-messaging', checkType: 'manual' }],
+        components: [{ name: 'Realtime Messaging', slug: 'realtime-messaging', checkType: 'internal_health', metadata: { healthSignal: 'realtime' } }],
     },
     {
         name: 'Admin Panel',
         slug: 'admin-panel',
         description: 'Admin dashboard and operational controls.',
-        components: [{ name: 'Admin Console', slug: 'admin-console', checkType: 'manual' }],
+        components: [{ name: 'Admin Console', slug: 'admin-console', checkType: 'internal_health', metadata: { healthSignal: 'admin' } }],
     },
 ];
+
+const STUDENT_PACK_SECURITY_STATUS_CATALOG = [
+    {
+        name: 'Security Harness',
+        slug: 'security-harness',
+        description: 'Student Pack powered security, observability, email, browser, and AWS sandbox controls.',
+        components: [
+            {
+                name: 'Sentry Runtime Guard',
+                slug: 'security-sentry-runtime-guard',
+                checkType: 'internal_health',
+                metadata: { healthSignal: 'student_pack_sentry' },
+            },
+            {
+                name: 'Datadog CI Visibility',
+                slug: 'security-datadog-ci-visibility',
+                checkType: 'internal_health',
+                metadata: { healthSignal: 'student_pack_datadog' },
+            },
+            {
+                name: 'Doppler Secret Injection',
+                slug: 'security-doppler-secret-injection',
+                checkType: 'internal_health',
+                metadata: { healthSignal: 'student_pack_doppler' },
+            },
+            {
+                name: 'Testmail Email Harness',
+                slug: 'security-testmail-email-harness',
+                checkType: 'internal_health',
+                metadata: { healthSignal: 'student_pack_testmail' },
+            },
+            {
+                name: 'LambdaTest Browser Matrix',
+                slug: 'security-lambdatest-browser-matrix',
+                checkType: 'internal_health',
+                metadata: { healthSignal: 'student_pack_lambdatest' },
+            },
+            {
+                name: 'LocalStack AWS Sandbox',
+                slug: 'security-localstack-aws-sandbox',
+                checkType: 'internal_health',
+                metadata: { healthSignal: 'student_pack_localstack' },
+            },
+        ],
+    },
+];
+
+const getDefaultStatusCatalog = () => (
+    isStudentPackSecurityHarnessEnabled()
+        ? [...DEFAULT_STATUS_CATALOG, ...STUDENT_PACK_SECURITY_STATUS_CATALOG]
+        : DEFAULT_STATUS_CATALOG
+);
 
 const shouldSeedDemoMetrics = () => (
     process.env.NODE_ENV !== 'production'
@@ -339,16 +419,18 @@ const seedDefaultStatusCatalog = async ({ includeDemoMetrics = shouldSeedDemoMet
     let componentIndex = 0;
     const allowDemoMetrics = Boolean(includeDemoMetrics) && process.env.NODE_ENV !== 'production';
 
-    for (const [groupIndex, groupConfig] of DEFAULT_STATUS_CATALOG.entries()) {
+    for (const [groupIndex, groupConfig] of getDefaultStatusCatalog().entries()) {
         const group = await StatusComponentGroup.findOneAndUpdate(
             { slug: groupConfig.slug },
             {
-                $setOnInsert: {
+                $set: {
                     name: groupConfig.name,
-                    slug: groupConfig.slug,
                     description: groupConfig.description,
                     order: groupIndex,
                     isPublic: true,
+                },
+                $setOnInsert: {
+                    slug: groupConfig.slug,
                 },
             },
             { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
@@ -359,17 +441,23 @@ const seedDefaultStatusCatalog = async ({ includeDemoMetrics = shouldSeedDemoMet
             const component = await StatusComponent.findOneAndUpdate(
                 { slug: componentConfig.slug },
                 {
-                    $setOnInsert: {
+                    $set: {
                         groupId: group._id,
                         name: componentConfig.name,
-                        slug: componentConfig.slug,
                         description: componentConfig.description || '',
                         checkType: componentConfig.checkType || 'manual',
-                        currentStatus: 'operational',
+                        checkUrl: componentConfig.checkUrl || '',
+                        checkMethod: componentConfig.checkMethod || 'GET',
+                        expectedStatusCode: Number(componentConfig.expectedStatusCode || 200),
+                        timeoutMs: Number(componentConfig.timeoutMs || 5000),
                         isPublic: true,
                         isMonitored: true,
                         order: componentOrder,
                         metadata: componentConfig.metadata || {},
+                    },
+                    $setOnInsert: {
+                        slug: componentConfig.slug,
+                        currentStatus: 'operational',
                     },
                 },
                 { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
@@ -662,6 +750,12 @@ const buildPublicStatusPayload = async () => {
     const uptimeValues = measuredGroups
         .map((group) => Number(group.uptimeSinceMonitoringBegan))
         .filter((value) => Number.isFinite(value));
+    const securityHarness = shouldExposeStudentPackSecurityHarness()
+        ? await getStudentPackSecurityHarnessSnapshot({
+            probeEndpoints: toBool(process.env.STUDENT_PACK_SECURITY_HARNESS_PROBE_ENDPOINTS, true),
+        })
+        : null;
+
     return {
         overallStatus,
         message: OVERALL_STATUS_MESSAGES[overallStatus] || OVERALL_STATUS_MESSAGES.operational,
@@ -674,6 +768,7 @@ const buildPublicStatusPayload = async () => {
         groups: publicGroups,
         activeIncidents,
         activeMaintenance,
+        securityHarness,
     };
 };
 
@@ -1239,13 +1334,245 @@ const runRedisCheck = async () => {
     };
 };
 
-const runInternalHealthCheck = async () => {
-    const snapshot = await getCachedHealthSnapshot();
+const isOkHealthStatus = (value) => {
+    const normalized = String(value || '').trim().toLowerCase();
+    return ['ok', 'healthy', 'ready', 'connected', 'operational'].includes(normalized);
+};
+
+const isBadHealthStatus = (value) => {
+    const normalized = String(value || '').trim().toLowerCase();
+    return ['degraded', 'unhealthy', 'failed', 'error', 'down', 'stale', 'critical'].includes(normalized);
+};
+
+const buildSignalResult = ({ ok, status, errorMessage = '', responseTimeMs = 0 } = {}) => ({
+    ok: Boolean(ok),
+    status: status || (ok ? 'operational' : 'degraded_performance'),
+    responseTimeMs,
+    errorMessage: ok ? '' : errorMessage,
+});
+
+const getHealthSignal = (component = {}) => String(component?.metadata?.healthSignal || '').trim().toLowerCase();
+
+const isSplitRuntimeEnabled = () => toBool(process.env.SPLIT_RUNTIME_ENABLED, false);
+
+const hasFirebaseAdminApp = () => Array.isArray(firebaseAdmin.apps) && firebaseAdmin.apps.length > 0;
+
+const resolveCoreHealth = (snapshot = {}) => {
     const ok = Boolean(snapshot?.core?.dbConnected && snapshot?.core?.redisConnected);
-    return {
+    return buildSignalResult({
         ok,
+        errorMessage: ok ? '' : 'core_dependencies_degraded',
+    });
+};
+
+const resolveCatalogHealth = (snapshot = {}) => {
+    const catalog = snapshot?.services?.catalog || {};
+    const ok = isOkHealthStatus(catalog.status) && catalog.staleData !== true;
+    return buildSignalResult({
+        ok,
+        errorMessage: ok ? '' : 'catalog_health_degraded',
+    });
+};
+
+const resolveAuthHealth = (snapshot = {}) => {
+    const core = resolveCoreHealth(snapshot);
+    const ok = core.ok && hasFirebaseAdminApp();
+    return buildSignalResult({
+        ok,
+        errorMessage: ok ? '' : (core.errorMessage || 'firebase_admin_unavailable'),
+    });
+};
+
+const resolvePaymentHealth = (snapshot = {}) => {
+    if (!paymentFlags.paymentsEnabled) {
+        return buildSignalResult({ ok: true, status: 'maintenance', errorMessage: '' });
+    }
+
+    const services = snapshot?.services || {};
+    const queue = services.paymentQueue || {};
+    const reconciliation = services.reconciliation || {};
+    const fx = services.fx || {};
+    const queueOk = isOkHealthStatus(queue.status) || queue.ok === true;
+    const workerOk = !isSplitRuntimeEnabled() || queue.workerRunning !== false;
+    const reconciliationOk = !isBadHealthStatus(reconciliation.status);
+    const fxOk = !isBadHealthStatus(fx.status);
+    const ok = queueOk && workerOk && reconciliationOk && fxOk;
+
+    return buildSignalResult({
+        ok,
+        errorMessage: ok ? '' : 'payment_health_degraded',
+    });
+};
+
+const resolveEmailHealth = (snapshot = {}, { requireSubscriptionSecret = false } = {}) => {
+    const disabledProviders = new Set(['null', 'none', 'disabled']);
+    if (!emailFlags.orderEmailsEnabled || disabledProviders.has(emailFlags.orderEmailProvider)) {
+        return buildSignalResult({ ok: true, status: 'maintenance', errorMessage: '' });
+    }
+
+    if (
+        requireSubscriptionSecret
+        && process.env.NODE_ENV === 'production'
+        && !String(process.env.STATUS_UNSUBSCRIBE_SECRET || '').trim()
+    ) {
+        return buildSignalResult({ ok: false, errorMessage: 'status_unsubscribe_secret_missing' });
+    }
+
+    const queue = snapshot?.services?.emailQueue || {};
+    const queueOk = isOkHealthStatus(queue.status) || queue.ok === true;
+    const workerOk = !isSplitRuntimeEnabled() || queue.workerRunning !== false;
+    const ok = queueOk && workerOk;
+
+    return buildSignalResult({
+        ok,
+        errorMessage: ok ? '' : 'email_health_degraded',
+    });
+};
+
+const resolveAiHealth = (snapshot = {}) => {
+    const ai = snapshot?.services?.ai || {};
+    const assistant = ai.commerceAssistant || {};
+    const hasAssistantSignal = Object.keys(assistant).length > 0;
+    const ok = hasAssistantSignal
+        && assistant.healthy !== false
+        && !isBadHealthStatus(assistant.status)
+        && !isBadHealthStatus(assistant.gateway?.status)
+        && !isBadHealthStatus(ai.chatQuota?.status);
+
+    return buildSignalResult({
+        ok,
+        errorMessage: ok ? '' : 'ai_health_degraded',
+    });
+};
+
+const resolveRealtimeHealth = (snapshot = {}) => {
+    const realtime = snapshot?.services?.realtime || {};
+    const socket = realtime.socket || {};
+    const videoCalls = realtime.videoCalls || {};
+    const hasRealtimeSignal = Object.keys(socket).length > 0 || Object.keys(videoCalls).length > 0;
+    const ok = hasRealtimeSignal
+        && !isBadHealthStatus(socket.status)
+        && !isBadHealthStatus(videoCalls.status)
+        && socket.healthy !== false
+        && videoCalls.healthy !== false;
+
+    return buildSignalResult({
+        ok,
+        errorMessage: ok ? '' : 'realtime_health_degraded',
+    });
+};
+
+const resolveUploadHealth = async () => {
+    const uploadHealth = await getReviewUploadStorageHealth();
+    return buildSignalResult({
+        ok: uploadHealth.ok,
+        errorMessage: uploadHealth.ok ? '' : 'upload_storage_unavailable',
+    });
+};
+
+const resolveAdminHealth = (snapshot = {}) => {
+    const auth = resolveAuthHealth(snapshot);
+    const core = resolveCoreHealth(snapshot);
+    const ok = auth.ok && core.ok;
+    return buildSignalResult({
+        ok,
+        errorMessage: ok ? '' : (auth.errorMessage || core.errorMessage || 'admin_health_degraded'),
+    });
+};
+
+const STUDENT_PACK_SIGNAL_PROVIDER_IDS = {
+    student_pack_sentry: 'sentry',
+    student_pack_datadog: 'datadog',
+    student_pack_doppler: 'doppler',
+    student_pack_testmail: 'testmail',
+    student_pack_lambdatest: 'lambdatest',
+    student_pack_localstack: 'localstack',
+};
+
+const harnessProviderStatusToComponentStatus = (status) => {
+    switch (status) {
+        case 'ready':
+            return 'operational';
+        case 'partial':
+            return 'degraded_performance';
+        case 'blocked':
+            return 'partial_outage';
+        default:
+            return 'degraded_performance';
+    }
+};
+
+const resolveStudentPackSecurityHarnessHealth = async (signal) => {
+    if (!isStudentPackSecurityHarnessEnabled()) {
+        return buildSignalResult({ ok: true, status: 'maintenance', errorMessage: '' });
+    }
+
+    const providerId = STUDENT_PACK_SIGNAL_PROVIDER_IDS[signal];
+    const probeEndpoints = providerId === 'localstack'
+        && toBool(process.env.STUDENT_PACK_SECURITY_HARNESS_PROBE_ENDPOINTS, true);
+    const snapshot = await getStudentPackSecurityHarnessSnapshot({ probeEndpoints });
+
+    if (!providerId) {
+        return buildSignalResult({
+            ok: snapshot.overallStatus === 'operational',
+            status: snapshot.overallStatus,
+            errorMessage: snapshot.overallStatus === 'operational' ? '' : 'student_pack_security_harness_degraded',
+        });
+    }
+
+    const provider = snapshot.providers.find((entry) => entry.id === providerId);
+    const status = harnessProviderStatusToComponentStatus(provider?.status || 'blocked');
+    return buildSignalResult({
+        ok: status === 'operational',
+        status,
+        errorMessage: status === 'operational' ? '' : `${providerId}_harness_${provider?.status || 'blocked'}`,
+    });
+};
+
+const resolveInternalHealthSignalStatus = async (signal = 'api', snapshot = {}) => {
+    switch (signal) {
+        case 'web_app':
+        case 'api':
+        case 'commerce_api':
+            return resolveCoreHealth(snapshot);
+        case 'catalog':
+            return resolveCatalogHealth(snapshot);
+        case 'auth':
+            return resolveAuthHealth(snapshot);
+        case 'payments':
+            return resolvePaymentHealth(snapshot);
+        case 'email':
+            return resolveEmailHealth(snapshot);
+        case 'status_subscriptions':
+            return resolveEmailHealth(snapshot, { requireSubscriptionSecret: true });
+        case 'ai':
+            return resolveAiHealth(snapshot);
+        case 'uploads':
+            return resolveUploadHealth();
+        case 'realtime':
+            return resolveRealtimeHealth(snapshot);
+        case 'admin':
+            return resolveAdminHealth(snapshot);
+        case 'student_pack_security_harness':
+        case 'student_pack_sentry':
+        case 'student_pack_datadog':
+        case 'student_pack_doppler':
+        case 'student_pack_testmail':
+        case 'student_pack_lambdatest':
+        case 'student_pack_localstack':
+            return resolveStudentPackSecurityHarnessHealth(signal);
+        default:
+            return resolveCoreHealth(snapshot);
+    }
+};
+
+const runInternalHealthCheck = async (component = {}) => {
+    const snapshot = await getCachedHealthSnapshot();
+    const signal = getHealthSignal(component) || 'api';
+    const result = await resolveInternalHealthSignalStatus(signal, snapshot);
+    return {
         responseTimeMs: 0,
-        errorMessage: ok ? '' : 'internal_health_degraded',
+        ...result,
     };
 };
 
@@ -1406,6 +1733,7 @@ module.exports = {
     COMPONENT_STATUS_LABELS,
     DEFAULT_STATUS_CATALOG,
     OVERALL_STATUS_MESSAGES,
+    STUDENT_PACK_SECURITY_STATUS_CATALOG,
     aggregateDailyMetric,
     calculateDayStatus,
     calculateHistoryUptime,
@@ -1417,6 +1745,7 @@ module.exports = {
     createStatusIncident,
     addIncidentUpdate,
     getIncidentBySlug,
+    getDefaultStatusCatalog,
     getPublicStatus,
     getStatusAdminDashboard,
     getStatusHistory,
@@ -1431,4 +1760,7 @@ module.exports = {
     unsubscribeFromStatus,
     updateStatusComponent,
     updateStatusIncident,
+    __testables: {
+        resolveInternalHealthSignalStatus,
+    },
 };

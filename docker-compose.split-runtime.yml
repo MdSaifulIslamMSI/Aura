@@ -48,6 +48,8 @@ services:
       context: ./server
     env_file:
       - ./server/.env
+      - path: ./.student-pack.local.env
+        required: false
     depends_on:
       mongo-init:
         condition: service_completed_successfully
@@ -64,6 +66,8 @@ services:
       SPLIT_RUNTIME_ENABLED: "true"
       REDIS_URL: redis://redis:6379
       PAYMENT_PROVIDER: simulated
+      FIREBASE_SERVICE_ACCOUNT_FILE: ""
+      GOOGLE_APPLICATION_CREDENTIALS: ""
       ORDER_EMAILS_ENABLED: "false"
       ACTIVITY_EMAILS_ENABLED: "false"
       OTP_SMS_ENABLED: "false"
@@ -73,10 +77,14 @@ services:
       TEST_USE_IN_MEMORY_MONGO: "false"
       TEST_FALLBACK_TO_IN_MEMORY_MONGO: "false"
       APP_BUILD_SHA: local-compose
+      STUDENT_PACK_SECURITY_HARNESS_ENABLED: "true"
+      STUDENT_PACK_SECURITY_HARNESS_PUBLIC: "true"
+      STUDENT_PACK_LIVE_AUTH_REPORT_PATH: /workspace/.run-logs/student-pack-live-auth.json
     ports:
       - "5000:5000"
     volumes:
       - ./server:/app
+      - ./.run-logs:/workspace/.run-logs:ro
     restart: unless-stopped
 
   worker:
@@ -84,6 +92,8 @@ services:
       context: ./server
     env_file:
       - ./server/.env
+      - path: ./.student-pack.local.env
+        required: false
     depends_on:
       mongo-init:
         condition: service_completed_successfully
@@ -98,6 +108,8 @@ services:
       SPLIT_RUNTIME_ENABLED: "true"
       REDIS_URL: redis://redis:6379
       PAYMENT_PROVIDER: simulated
+      FIREBASE_SERVICE_ACCOUNT_FILE: ""
+      GOOGLE_APPLICATION_CREDENTIALS: ""
       ORDER_EMAILS_ENABLED: "false"
       ACTIVITY_EMAILS_ENABLED: "false"
       OTP_SMS_ENABLED: "false"
@@ -107,8 +119,12 @@ services:
       TEST_USE_IN_MEMORY_MONGO: "false"
       TEST_FALLBACK_TO_IN_MEMORY_MONGO: "false"
       APP_BUILD_SHA: local-compose
+      STUDENT_PACK_SECURITY_HARNESS_ENABLED: "true"
+      STUDENT_PACK_SECURITY_HARNESS_PUBLIC: "true"
+      STUDENT_PACK_LIVE_AUTH_REPORT_PATH: /workspace/.run-logs/student-pack-live-auth.json
     volumes:
       - ./server:/app
+      - ./.run-logs:/workspace/.run-logs:ro
     restart: unless-stopped
 
 volumes:
